@@ -1,0 +1,203 @@
+{
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
+	"name": "signed-in-connected",
+	"description": "Signed in, with the demo site connected to two made-up WordPress.com sites from wpcom-sites.json: the Publish tab's list of connected websites and the Choose files… review steps",
+	"scene": "moire",
+	"look": "docs",
+	"signedIn": true,
+	"connectedSites": true,
+	"shots": [
+		{
+			"name": "publish-sites",
+			"description": "Publish → Published to: the two connected websites, and Publish to another site…",
+			"meta": { "pages": [ "sync.md" ] },
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Share",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Share and publish"
+						},
+						"role": "tab",
+						"name": "Publish",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "heading",
+						"name": "Published to"
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Share and publish"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			}
+		},
+		{
+			"name": "pull-choose-files",
+			"description": "Publish details → Pull changes → What to pull, with Choose files… and a few items selected",
+			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-pull-selective.png" ] },
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Share",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Share and publish"
+						},
+						"role": "tab",
+						"name": "Publish",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "moirejournal.wpcomstaging.com",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Pull changes",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "radiogroup",
+							"name": "What to pull"
+						},
+						"role": "radio",
+						"name": "Choose files…"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "checkbox",
+						"name": "themes",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "checkbox",
+						"name": "Content and settings",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "checkbox",
+						"name": "themes",
+						"exact": true
+					}
+				}
+			],
+			"after": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Back to Publish"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "Pull changes",
+						"exact": true
+					}
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			}
+		},
+		{
+			"name": "publish-choose-files",
+			"description": "Publish details → Publish changes → What to publish, with Choose files… and a few items selected",
+			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-selective-push.png" ] },
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Publish changes",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "radiogroup",
+							"name": "What to publish"
+						},
+						"role": "radio",
+						"name": "Choose files…"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "checkbox",
+						"name": "themes",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "checkbox",
+						"name": "Content and settings",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "checkbox",
+						"name": "themes",
+						"exact": true
+					}
+				}
+			],
+			"after": [],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
+			}
+		}
+	]
+}

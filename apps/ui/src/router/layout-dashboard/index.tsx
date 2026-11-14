@@ -5,8 +5,7 @@ import { __, isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useSession, useSessionLiveSite, useSessions } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
@@ -32,6 +31,7 @@ import {
 } from '@/features/annotations';
 import { SiteWorkspace, SessionHeader } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
+import { pendingComposerFilesSlot } from '@/features/composer';
 import {
 	useOrientationAutostart,
 	useOrientationReplay,
@@ -80,10 +80,9 @@ function DashboardLayout() {
 	const openSettings = useOpenSettings();
 	const narrow = useMediaQuery( '(max-width: 540px)' );
 	const windowControls = useWindowControlsOverlay();
-	const { data: authUser } = useAuthUser();
 	const { data: aiSettings } = useAiSettings();
 	const [ providerPromptOpen, setProviderPromptOpen ] = useState( false );
-	const hasProvider = !! authUser || !! aiSettings?.hasAnthropicApiKey;
+	const hasProvider = hasConnectedProvider( aiSettings );
 	useEffect( () => {
 		if ( hasProvider ) setProviderPromptOpen( false );
 	}, [ hasProvider ] );
@@ -215,14 +214,14 @@ function DashboardLayout() {
 		narrow,
 	} );
 	const panelExpanded = showPanel && ( ! narrow || chatHidden );
-	const showFullView =
-		showPanel && ( chatHidden || !! liveUrl || !! previewSite?.running || previewStarting );
+	const showFullView = showPanel;
 	const [ tabHeader, setTabHeader ] = useState< HTMLDivElement | null >( null );
 	useLayoutEffect( () => {
 		if ( ! tabHeader ) return;
 		const lead = tabHeader.querySelector< HTMLElement >( '[data-site-header-reserved]' );
-		const actions = tabHeader.querySelector< HTMLElement >( '[data-site-header-actions]' );
-		if ( ! lead || ! actions ) return;
+		const actions = tabHeader.querySelector< HTMLElement >( '[data-site-header-delivery]' );
+		const actionsContainer = tabHeader.querySelector< HTMLElement >( '[data-site-header-actions]' );
+		if ( ! lead || ! actions || ! actionsContainer ) return;
 		const measure = () => {
 			const box = tabHeader.getBoundingClientRect();
 			const title = lead.getBoundingClientRect();
@@ -233,7 +232,8 @@ function DashboardLayout() {
 				'--tabs-lead-width',
 				`${ ( isRTL() ? box.right - title.left : title.right - box.left ) + gap }px`
 			);
-			tabHeader.style.setProperty( '--tabs-actions-width', `${ buttons.width + gap }px` );
+			const inset = Number.parseFloat( getComputedStyle( actionsContainer ).paddingInlineEnd ) || 0;
+			tabHeader.style.setProperty( '--tabs-actions-width', `${ buttons.width + inset + gap }px` );
 		};
 		const observer = new ResizeObserver( measure );
 		observer.observe( lead );
@@ -402,6 +402,18 @@ function DashboardLayout() {
 		[ hasProvider, navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
 
+	const attachScreenshot = ( siteId: string, file: File ) => {
+		const pending = pendingComposerFilesSlot.getSnapshot();
+		pendingComposerFilesSlot.set( {
+			siteId,
+			files: [ ...( pending?.siteId === siteId ? pending.files : [] ), file ],
+		} );
+		setChatHidden( false, siteId );
+		if ( ! sessionId || sessionSite?.id !== siteId ) {
+			void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
+		}
+	};
+
 	const renderPanel = ( { collapsed }: PanelSplitFramePanelProps ) =>
 		previewSite ? (
 			<SitePreview
@@ -412,6 +424,7 @@ function DashboardLayout() {
 				reloadNonce={ preview.reloadNonce }
 				onSendAnnotations={ sendAnnotations }
 				onStartAnnotating={ startAnnotating }
+				onAttachScreenshot={ attachScreenshot }
 				onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
 				collapsed={ collapsed || ! panelExpanded }
 			/>
@@ -436,6 +449,7 @@ function DashboardLayout() {
 			<AccountPromptDialog
 				open={ providerPromptOpen }
 				onOpenChange={ setProviderPromptOpen }
+				illustration="annotations"
 				title={ __( 'Put your feedback to work' ) }
 				description={ __(
 					'Connect an AI provider to turn your notes and ideas into changes to your site.'
@@ -446,7 +460,10 @@ function DashboardLayout() {
 				secondaryLabel={ __( 'Choose a different provider' ) }
 				onSkip={ () => {
 					setProviderPromptOpen( false );
-					openSettings( 'ai', undefined, undefined, { intent: 'annotate', scope: routeSite?.id } );
+					openSettings( 'providers', undefined, 'ai-providers', {
+						intent: 'annotate',
+						scope: routeSite?.id,
+					} );
 				} }
 			/>
 			<SiteHeaderActionsProvider host={ panelExpanded ? 'panel' : 'chat' }>
@@ -458,14 +475,16 @@ function DashboardLayout() {
 							: routePreviewContext.pathname
 					}
 					panelOpen={ showPanel }
+					onPanelClose={ () => setPanelOpen( false, { userInitiated: true } ) }
 					chatHidden={ chatHidden }
-					instant={ ! previewStopping && preview.instant }
+					instant={ ( ! previewStopping || ! preview.open ) && preview.instant }
 					panel={ renderPanel }
 					header={
 						supportsPreview && routeSite ? (
 							<WindowControlsCornerContext.Provider value={ ! showPanel }>
 								<div
 									ref={ setTabHeader }
+									data-sidebar-flyout-header
 									className={ styles.header }
 									data-panel-open={ showPanel || undefined }
 									data-full-view-control={ showFullView || undefined }

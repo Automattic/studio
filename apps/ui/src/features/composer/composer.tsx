@@ -1,8 +1,7 @@
-import { aiModelSupportsImages } from '@studio/agent/protocol/models';
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
+import { findAiModel, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { GlobeIcon } from 'lucide-react';
 import {
 	forwardRef,
 	useCallback,
@@ -40,7 +39,7 @@ import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
 import { useSubmitFeedback } from '@/lib/hooks';
-import { PlusIcon, StartSiteIcon } from '@/lib/icons';
+import { GlobeIcon, PlusIcon, PlayIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	DropOverlay,
@@ -54,7 +53,6 @@ import {
 import styles from './style.module.css';
 import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
 import type { ComposerAttachment, ComposerSendAttachments } from '@/data/use-composer-attachments';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the
@@ -88,7 +86,7 @@ interface ComposerProps {
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	draftKey?: string;
-	provider?: AiProviderId;
+	provider?: ProviderId;
 	entries?: SessionEntry[];
 	// The local site the session belongs to; a confirmed family switch opens
 	// the fresh session under it.
@@ -106,6 +104,8 @@ interface ComposerProps {
 	canAutoStart?: boolean;
 	onStartSite?: () => void;
 	onStopSite?: () => void;
+	onAnnotate?: () => void;
+	annotationDisabled?: boolean;
 	siteActionDisabled?: boolean;
 	isSiteStarting?: boolean;
 	// The site the chat works on; a chat on the live site can switch back to local.
@@ -115,7 +115,7 @@ interface ComposerProps {
 	dropTarget?: HTMLElement | null;
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
-	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
+	onModelChange?: ( model: AiModelId, provider: ProviderId ) => void;
 	// Why the chat can't send right now; a send attempt shakes it.
 	notice?: ComposerNotice;
 }
@@ -151,6 +151,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		canAutoStart = false,
 		onStartSite,
 		onStopSite,
+		onAnnotate,
+		annotationDisabled = false,
 		siteActionDisabled = false,
 		isSiteStarting = false,
 		environment = 'local',
@@ -224,6 +226,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			canAutoStart,
 			panelCommand,
 			siteCommand,
+			canAnnotate: ! isField && !! onAnnotate,
 			autoStartOn,
 			canChooseModel: ! busy && providers.length > 0,
 			environment,
@@ -231,6 +234,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		} ),
 		isDisabled: ( name ) =>
 			( name === siteCommand && siteActionDisabled ) ||
+			( name === 'annotate' && !! onAnnotate && ( annotationDisabled || siteActionDisabled ) ) ||
 			( name === 'auto-start' && ( ! preferences || savePreferences.isPending ) ) ||
 			( ( name === 'live' || name === 'local' ) && busy ),
 	} );
@@ -250,10 +254,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				onStartSite?.();
 			} else if ( name === 'stop' ) {
 				onStopSite?.();
+			} else if ( name === 'annotate' ) {
+				onAnnotate?.();
 			} else if ( name === 'model' ) {
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {
-				openSettings( 'ai' );
+				openSettings( 'providers', undefined, 'ai-providers' );
 			} else if ( name === 'local' ) {
 				onEnvironmentChange?.( name );
 			} else if ( name === 'panel' ) {
@@ -291,6 +297,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		onFileInputChange,
 	} = useDraftAttachments( {
 		initialAttachments: initialDraft.attachments,
+		siteId: isField ? undefined : ownerSiteId,
 		annotationSiteId,
 		dropTarget: fileDropTarget,
 		textareaRef,
@@ -377,7 +384,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			return;
 		}
-		if ( submission.options.images?.length && ! aiModelSupportsImages( model ) ) {
+		if (
+			submission.options.images?.length &&
+			findAiModel( model )?.model.supportsImages === false
+		) {
 			setValidationError( {
 				message: __( 'Choose a model that supports images before sending these attachments' ),
 				value,
@@ -573,7 +583,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							<Popover.Trigger render={ addButton } />
 							{ autoStartOn ? (
 								<ModeChip
-									icon={ StartSiteIcon }
+									icon={ PlayIcon }
 									label={ __( 'Auto-start' ) }
 									onRemove={ () => setAutoStart( false ) }
 								/>

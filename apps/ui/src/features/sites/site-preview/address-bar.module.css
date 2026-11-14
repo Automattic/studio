@@ -13,6 +13,7 @@
 }
 
 .addressBar:is( :hover, :focus-within ) {
+	--hover: inherit;
 	--surface: var( --hover );
 
 	background-color: var( --hover );
@@ -109,6 +110,35 @@
 	border-radius: 0;
 	background: transparent;
 	box-shadow: none;
+}
+
+.displayUrl {
+	position: absolute;
+	inset-inline: var( --space-3 );
+	inset-inline-end: var( --preview-control-size, 32px );
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var( --text-xs );
+	pointer-events: none;
+}
+
+.addressBar[data-compact] .input {
+	padding-inline-end: var( --space-3 );
+	text-overflow: ellipsis;
+}
+
+.input:not( :focus ) {
+	color: transparent;
+}
+
+.addressBar[data-compact] .displayUrl {
+	inset-inline-end: var( --space-3 );
+}
+
+.addressBar:has( .input:focus ) .displayUrl,
+.addressBar[data-compact] .actions {
+	display: none;
 }
 
 .recentPopup::before {

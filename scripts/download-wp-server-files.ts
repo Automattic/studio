@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.1.2';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.1.3';
 const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
@@ -29,6 +29,9 @@ const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
 // Pinned so builds are reproducible. Bump deliberately.
 const WORDPRESS_IMPORTER_VERSION = '0.9.5';
+const SIMPLY_STATIC_VERSION = '3.8.14';
+// Used only when the latest release cannot be looked up (no GitHub API access).
+const SQLITE_COMMAND_FALLBACK_VERSION = 'v1.1.10';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
@@ -107,7 +110,17 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		name: 'sqlite-command',
 		description: 'SQLite command',
 		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'automattic/wp-cli-sqlite-command' );
+			let release;
+			try {
+				release = await fetchLatestGithubRelease( 'automattic/wp-cli-sqlite-command' );
+			} catch ( error ) {
+				console.warn(
+					`[sqlite-command] ${
+						error instanceof Error ? error.message : error
+					}; using ${ SQLITE_COMMAND_FALLBACK_VERSION }`
+				);
+				return `https://github.com/Automattic/wp-cli-sqlite-command/releases/download/${ SQLITE_COMMAND_FALLBACK_VERSION }/wp-cli-sqlite-command-${ SQLITE_COMMAND_FALLBACK_VERSION }.zip`;
+			}
 			const asset = release.assets[ 0 ];
 			if ( ! asset ) {
 				throw new Error(
@@ -132,9 +145,16 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		destinationPath: WP_SERVER_FILES_PATH,
 	},
 	{
+		name: 'simply-static',
+		description: `simply-static ${ SIMPLY_STATIC_VERSION }`,
+		getUrl: () =>
+			`https://downloads.wordpress.org/plugin/simply-static.${ SIMPLY_STATIC_VERSION }.zip`,
+		destinationPath: WP_SERVER_FILES_PATH,
+	},
+	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.7/reprint.phar',
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.8/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];

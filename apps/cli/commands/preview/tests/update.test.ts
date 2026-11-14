@@ -2,6 +2,7 @@ import os from 'os';
 import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { Archiver } from 'archiver';
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
@@ -22,7 +23,10 @@ import {
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { mockReportSuccess, mockReportError } from 'cli/tests/test-utils';
+import { runCommand as createPreview } from '../create';
 import { runCommand } from '../update';
+
+vi.mock( '@studio/common/lib/wpcom-factory' );
 
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
@@ -115,6 +119,7 @@ describe( 'Preview Update Command', () => {
 			siteId: mockAtomicSiteId,
 			hostname: mockSiteUrl,
 			shareUrl: mockShareUrl,
+			liveSiteId: 777,
 		} );
 		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( mockSnapshot );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
@@ -129,6 +134,62 @@ describe( 'Preview Update Command', () => {
 	afterEach( () => {
 		vi.restoreAllMocks();
 	} );
+
+	it.each( [ 'create', 'update', 'move' ] as const )(
+		'sends the local site origin in the %s request',
+		async ( operation ) => {
+			const actual =
+				await vi.importActual< typeof import('cli/lib/preview-sites') >( 'cli/lib/preview-sites' );
+			if ( operation === 'update' ) {
+				vi.mocked( updatePreviewSite ).mockImplementationOnce( actual.updatePreviewSite );
+			} else {
+				vi.mocked( createPreviewSite ).mockImplementationOnce( actual.createPreviewSite );
+			}
+			let importCount = 0;
+			const post = vi.fn().mockResolvedValue( {
+				blog_details: { blogid: mockAtomicSiteId },
+			} );
+			vi.mocked( wpcomFactory ).mockReturnValue( {
+				req: {
+					post,
+					get: vi.fn( async ( { path }: { path: string } ) =>
+						path === '/wow-funnel/pending'
+							? { preview_sites: [ { blog_id: mockAtomicSiteId, share_url: mockShareUrl } ] }
+							: { importId: String( ++importCount ), importStatus: 'importSuccess' }
+					),
+				},
+			} as unknown as ReturnType< typeof wpcomFactory > );
+			vi.mocked( saveSnapshotToConfig ).mockResolvedValue( mockSnapshot );
+
+			if ( operation === 'create' ) {
+				await createPreview( mockFolder, 'Preview' );
+			} else {
+				const host = operation === 'move' ? 'old-preview.wp.build' : mockSiteUrl;
+				vi.mocked( getSnapshotsFromConfig ).mockResolvedValueOnce( [
+					{ ...mockSnapshot, url: host },
+				] );
+				await runCommand( mockFolder, host, false );
+			}
+
+			expect( post ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					path:
+						operation === 'update'
+							? `/sites/${ mockAtomicSiteId }/wow-funnel/update`
+							: '/sites/new',
+					body: expect.objectContaining(
+						operation === 'update'
+							? { args: { attachment_id: '678', origin_id: mockSnapshot.localSiteId } }
+							: {
+									options: expect.objectContaining( {
+										wow_funnel_args: { attachment_id: '678', origin_id: mockSnapshot.localSiteId },
+									} ),
+							  }
+					),
+				} )
+			);
+		}
+	);
 
 	it( 'updates a WordPress.com preview through the preview funnel', async () => {
 		await runCommand( mockFolder, mockSiteUrl, false );
@@ -145,14 +206,16 @@ describe( 'Preview Update Command', () => {
 			mockAtomicSiteId,
 			678,
 			mockAuthToken.accessToken,
-			undefined
+			undefined,
+			mockSnapshot.localSiteId
 		);
 		expect( createPreviewSite ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
 			mockAtomicSiteId,
 			mockFolder,
 			mockShareUrl,
-			'version-1'
+			'version-1',
+			777
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`
@@ -178,6 +241,7 @@ describe( 'Preview Update Command', () => {
 			siteId: 999,
 			hostname: newHost,
 			shareUrl,
+			liveSiteId: 777,
 		} );
 		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( newSnapshot );
 		if ( deleteError ) {
@@ -193,7 +257,8 @@ describe( 'Preview Update Command', () => {
 			678,
 			mockSnapshot.name,
 			mockAuthToken.accessToken,
-			undefined
+			undefined,
+			mockSnapshot.localSiteId
 		);
 		expect( updatePreviewSite ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).not.toHaveBeenCalled();
@@ -204,7 +269,8 @@ describe( 'Preview Update Command', () => {
 			mockAuthToken.id,
 			mockSnapshot.name,
 			shareUrl,
-			'version-1'
+			'version-1',
+			777
 		);
 		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( jurassicNinjaHost );
 		expect( deleteSnapshotSite ).toHaveBeenCalledWith(

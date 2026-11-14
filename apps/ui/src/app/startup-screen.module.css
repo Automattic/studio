@@ -1,0 +1,12 @@
+.root {
+	position: fixed;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	color: var( --foreground );
+	-webkit-app-region: drag;
+}
+
+.root svg {
+	opacity: 0.5;
+}

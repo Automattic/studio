@@ -4,7 +4,6 @@
 	gap: var( --band-gap );
 	min-width: 0;
 	pointer-events: auto;
-	-webkit-app-region: no-drag;
 }
 .tabs {
 	--tabs-fade-left: 0px;
@@ -23,6 +22,11 @@
 		transparent
 	);
 }
+@container preview-tabs ( max-width: 200px ) {
+	.newTab {
+		display: none;
+	}
+}
 .tabs[data-overflow-left] {
 	--tabs-fade-left: var( --space-4 );
 }
@@ -38,16 +42,20 @@
 	flex: 1 1 var( --band-tab-width );
 	width: var( --band-tab-width );
 	max-width: var( --band-tab-width );
-	min-width: 128px;
+	min-width: 0;
 	height: 32px;
 	border-radius: var( --radius-md );
 	background: var( --chat );
-	transition: transform var( --motion-duration-layout ) ease-in-out;
+	transition:
+		transform var( --motion-duration-layout ) ease-in-out,
+		background-color var( --motion-duration-feedback ) ease;
 }
 .tab[data-preview-selected] {
+	--muted: inherit;
 	--surface: var( --muted );
 
 	background: var( --muted );
+	transition: transform var( --motion-duration-layout ) ease-in-out;
 }
 .trigger {
 	width: 100%;
@@ -64,6 +72,7 @@
 	user-select: none;
 }
 .list:not( [data-tab-dragging] ) .tab:hover {
+	--hover: inherit;
 	--surface: var( --hover );
 
 	background: var( --hover );
@@ -87,12 +96,17 @@
 	inset-inline-end: 4px;
 	top: 4px;
 	border-radius: var( --radius-sm );
+	transition:
+		opacity var( --motion-duration-feedback ) ease,
+		color var( --motion-duration-feedback ) ease,
+		background-color var( --motion-duration-feedback ) ease,
+		border-color var( --motion-duration-feedback ) ease;
 	opacity: 0;
 	pointer-events: none;
 }
 .close svg {
-	width: 16px;
-	height: 16px;
+	width: 12px;
+	height: 12px;
 }
 .list:not( [data-tab-dragging] ) .tab:hover .close,
 .list:not( [data-tab-dragging] ) .close:focus-visible {
@@ -110,7 +124,7 @@
 	pointer-events: none;
 }
 .list[data-tab-drop-committed] .tab {
-	transition: none;
+	transition: background-color var( --motion-duration-feedback ) ease;
 }
 .list[data-tab-dragging] .trigger {
 	cursor: pointer;

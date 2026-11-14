@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { FileTextIcon, ImageIcon } from 'lucide-react';
+import { ImageIcon } from 'lucide-react';
 import { memo } from 'react';
 import { CopyButton } from '@/features/chats/copy-button';
 import { Markdown } from '@/features/chats/markdown';
@@ -9,7 +9,7 @@ import {
 	MESSAGE_TEXT_ATTRIBUTE,
 	QUOTABLE_TEXT_ATTRIBUTE,
 } from '@/features/chats/use-text-context-menu';
-import { CodeIcon } from '@/lib/icons';
+import { FileTextIcon, CodeIcon } from '@/lib/icons';
 import { AttachmentChip } from '@/lib/ui';
 import styles from './style.module.css';
 import type { StudioChatAttachmentSummary } from '@studio/agent/protocol/sessions/entry-types';
@@ -25,6 +25,9 @@ export const UserTurn = memo( function UserTurn( {
 	attachments?: StudioChatAttachmentSummary[];
 	annotation?: StudioVisualAnnotationSummary;
 } & Joined ) {
+	const hasElementReference = Boolean(
+		annotation?.tag || ( annotation?.elementLabel && ! annotation.imageIds?.length )
+	);
 	return (
 		<div
 			className={ styles.userTurn }
@@ -42,31 +45,42 @@ export const UserTurn = memo( function UserTurn( {
 						/>
 					) : null }
 					<div className={ styles.userText } data-side="user" { ...joinedAttributes( joined ) }>
-						{ text ? <div className={ styles.userTextBody }>{ text }</div> : null }
 						{ attachments?.length ? (
 							<ul className={ styles.userAttachments }>
-								{ attachments.map( ( attachment, index ) => (
-									<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachment }>
-										<span className={ styles.userAttachmentPreview }>
-											{ attachment.kind === 'image' && attachment.previewDataUrl ? (
-												<img src={ attachment.previewDataUrl } alt="" />
-											) : attachment.kind === 'image' ? (
-												<ImageIcon />
-											) : (
-												<FileTextIcon />
-											) }
-										</span>
-										<span className={ styles.userAttachmentName } title={ attachment.name }>
-											{ attachment.name }
-										</span>
-									</li>
-								) ) }
+								{ attachments.map( ( attachment, index ) =>
+									attachment.kind === 'image' && attachment.previewDataUrl ? (
+										<li
+											key={ `${ attachment.name }:${ index }` }
+											className={ styles.userImageAttachment }
+											title={ attachment.name }
+										>
+											<img
+												className={ styles.userImageAttachmentContent }
+												src={ attachment.previewDataUrl }
+												alt={ attachment.name }
+											/>
+										</li>
+									) : (
+										<li
+											key={ `${ attachment.name }:${ index }` }
+											className={ styles.userAttachment }
+										>
+											<span className={ styles.userAttachmentPreview }>
+												{ attachment.kind === 'image' ? <ImageIcon /> : <FileTextIcon /> }
+											</span>
+											<span className={ styles.userAttachmentName } title={ attachment.name }>
+												{ attachment.name }
+											</span>
+										</li>
+									)
+								) }
 							</ul>
 						) : null }
+						{ text ? <div className={ styles.userTextBody }>{ text }</div> : null }
 					</div>
 				</div>
 			) : null }
-			{ annotation?.elementLabel || annotation?.tag ? (
+			{ hasElementReference && annotation ? (
 				<AttachmentChip
 					className={ styles.annotationAttachment }
 					font="mono"

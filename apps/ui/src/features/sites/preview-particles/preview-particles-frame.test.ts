@@ -7,6 +7,31 @@ import {
 } from './frame';
 
 describe( 'preview particle frames', () => {
+	it( 'keeps the grid centered with fixed spacing as the viewport resizes', () => {
+		for ( const [ width, height ] of [
+			[ 800, 600 ],
+			[ 813, 611 ],
+			[ 960, 720 ],
+			[ 320, 201 ],
+			[ 19, 29 ],
+		] ) {
+			const dots = createPreviewDots( width, height );
+			const columns = [ ...new Set( dots.map( ( { x } ) => x ) ) ];
+			const rows = [ ...new Set( dots.map( ( { y } ) => y ) ) ];
+
+			for ( const [ positions, size ] of [
+				[ columns, width ],
+				[ rows, height ],
+			] as const ) {
+				expect( positions ).toContain( size / 2 );
+				expect( positions[ 0 ] ).toBe( size - positions[ positions.length - 1 ] );
+				for ( let index = 1; index < positions.length; index++ ) {
+					expect( positions[ index ] - positions[ index - 1 ] ).toBe( 26 );
+				}
+			}
+		}
+	} );
+
 	it( 'opens the space for the logo gradually without moving a resting dot', () => {
 		const dot = createPreviewDots( 1, 1 )[ 0 ];
 		const frame = { time: 0, amount: 0, centerX: 0.5, centerY: 0.5 };
@@ -47,7 +72,10 @@ describe( 'preview particle frames', () => {
 	it( 'keeps the outer dots anchored while interior dots move', () => {
 		const dots = createPreviewDots( 800, 600 );
 		const frame = { time: 2400, amount: 1, centerX: 400, centerY: 300, logoAmount: 0 };
-		for ( const dot of dots.filter( ( point ) => point.edge === 0 ) ) {
+		const outer = dots.filter( ( point ) => point.edge === 0 );
+		expect( outer ).toContain( dots[ 0 ] );
+		expect( outer ).toContain( dots[ dots.length - 1 ] );
+		for ( const dot of outer ) {
 			const point = getPreviewDotFrame( dot, frame );
 			expect( point.x ).toBeCloseTo( dot.x );
 			expect( point.y ).toBeCloseTo( dot.y );

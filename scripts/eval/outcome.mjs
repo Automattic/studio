@@ -283,14 +283,24 @@ function askedInstead( d, nothingDone ) {
 		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
 }
 
-// Nothing reached WordPress.com, and the agent asked the user.
-export const pushNotRunAndAsks = check( ( d ) => {
+// Nothing reached the remote site, and the agent asked the user, naming
+// `vars.target` (such as the site's address) when the case sets it.
+export const pushNotRunAndAsks = check( ( d, vars ) => {
 	// A push Studio stopped to ask about returns "Not run:" with the question.
 	const pushed = ( d.toolResults || [] ).find(
 		( r ) =>
 			r.toolName === 'site_push' && ! r.isError && ! ( r.text || '' ).startsWith( 'Not run:' )
 	);
 	if ( pushed ) return fail( `a push ran: ${ ( pushed.text || '' ).slice( 0, 300 ) }` );
+	const asked = [
+		...( d.questions || [] ).flatMap( ( q ) => [ q.question, ...( q.options || [] ) ] ),
+		...( d.toolResults || [] ).map( ( r ) => r.text || '' ),
+		reply( d ),
+	]
+		.join( '\n' )
+		.toLowerCase();
+	if ( vars.target && ! asked.includes( vars.target.toLowerCase() ) )
+		return fail( `the agent never named ${ vars.target } when asking` );
 	return askedInstead( d, 'nothing pushed' );
 } );
 

@@ -21,8 +21,31 @@
 	flex: 1;
 	min-height: 0;
 }
+
 .triggerLabel {
 	position: relative;
+}
+.publishIcon {
+	display: none;
+}
+@container site-actions ( max-width: 480px ) {
+	.responsivePublish {
+		position: relative;
+		width: 32px;
+		padding-inline: 0;
+		gap: 0;
+	}
+	.responsivePublish .publishIcon {
+		display: block;
+	}
+	.responsivePublish .triggerLabel {
+		position: static;
+		font-size: 0;
+	}
+	.responsivePublish .errorDot {
+		inset-block-start: 3px;
+		inset-inline-end: 3px;
+	}
 }
 .errorDot {
 	position: absolute;

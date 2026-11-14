@@ -1,0 +1,30 @@
+{
+	"$schema": "../../schemas/scene.schema.json",
+	"name": "moire",
+	"description": "Moire, a slow-fashion journal from Rich's Blueprint (the Moire theme in its Dia yellow and brown palette), running and selected, with two blank sites below it, and a made-up WordPress.com account: its sites, preview sites and AI credits",
+	"sites": [
+		{
+			"name": "Moire",
+			"slug": "moire",
+			"blueprint": "blueprint/blueprint.json",
+			"design": "DESIGN.md"
+		},
+		{
+			"name": "Bistro Lune",
+			"slug": "bistro-lune"
+		},
+		{
+			"name": "Ada Portfolio",
+			"slug": "ada-portfolio"
+		}
+	],
+	"account": {
+		"wpcomSites": "wpcom-sites.json",
+		"previewSites": "preview-sites.json",
+		"aiQuota": "ai-quota.json",
+		"aiTopUpPricing": "ai-top-up-pricing.json"
+	},
+	"chats": "chats",
+	"agentTurns": "agent-turns",
+	"files": "files"
+}

@@ -30,6 +30,28 @@ function autoLoginPath( target: string ) {
 	return `/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }${ target }` ) }`;
 }
 
+it.each( [ false, true ] )(
+	'hides the scheme while retaining the full URL for editing (compact: %s)',
+	async ( compact ) => {
+		const user = userEvent.setup();
+		render(
+			<PreviewAddressBar
+				site={ SITE }
+				siteUrl={ SITE_URL }
+				path="/about/"
+				compact={ compact }
+				onNavigate={ vi.fn() }
+			/>
+		);
+		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
+		expect( screen.getByText( 'localhost:8881/about/' ) ).toHaveAttribute( 'aria-hidden', 'true' );
+		await user.click( input );
+		expect( input ).toHaveValue( `${ SITE_URL }/about/` );
+		expect( input.selectionStart ).toBe( 0 );
+		expect( input.selectionEnd ).toBe( input.value.length );
+	}
+);
+
 function renderAddressBar( {
 	path = '/',
 	remote = false,
@@ -87,6 +109,17 @@ describe( 'getPathFromPreviewUrl', () => {
 		expect(
 			getPathFromPreviewUrl( 'http://localhost:8881/wp-admin/?page=1#top', 'http://localhost:8881' )
 		).toBe( '/wp-admin/?page=1#top' );
+	} );
+
+	it( 'reads paths relative to a site served below its origin root', () => {
+		const siteUrl = 'https://playground.wordpress.net/scope:studio-abc';
+		expect( getPathFromPreviewUrl( `${ siteUrl }/wp-admin/?page=1`, siteUrl ) ).toBe(
+			'/wp-admin/?page=1'
+		);
+		expect( getPathFromPreviewUrl( `${ siteUrl }/`, siteUrl ) ).toBe( '/' );
+		expect( getRealmNavigationPath( '/wp-admin/', siteUrl ) ).toBe(
+			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ siteUrl }/wp-admin/` ) }`
+		);
 	} );
 
 	it( 'returns null for cross-origin or invalid urls', () => {

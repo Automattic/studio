@@ -1,14 +1,16 @@
+import { getQualifyingLiveSites } from '@studio/common/lib/live-preview-site';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef, useState, type ReactNode } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
+import { useRemoteSites } from '@/data/queries/use-remote-sites';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/lib/hooks';
-import { ShareIcon } from '@/lib/icons';
+import { UploadIcon } from '@/lib/icons';
 import { Spinner, Button, EmptyHeader, EmptyMedia, EmptyDescription } from '@/lib/ui';
 import { PreviewSharePanel } from './preview-share-panel';
 import styles from './style.module.css';
@@ -48,11 +50,16 @@ export function SharePanel( {
 	const snapshots = useSnapshots( user.data?.id );
 	const usage = useSnapshotUsage( user.data?.id );
 	const publish = usePublishPreviewSite();
+	const connected = useRemoteSites( 'wpcom', site.id );
+	const qualifying = connector.capabilities.nativeSites
+		? getQualifyingLiveSites( connected.data ?? [] )
+		: [];
 	const [ attempt, setAttempt ] = useState< {
 		siteId: string;
 		userId: number;
 		existingHostname?: string;
 		name?: string;
+		liveSite?: string;
 	} >();
 	const [ createdUrl, setCreatedUrl ] = useState< string >();
 	const activity = useSiteSyncActivity( site.id );
@@ -105,12 +112,13 @@ export function SharePanel( {
 			},
 		} );
 	};
-	const publishPreview = ( hostname?: string ) => {
+	const publishPreview = ( hostname?: string, liveSite?: string ) => {
 		if ( ! user.data || busy || offline || ( ! hostname && ! canCreate ) ) return;
 		run( {
 			siteId: site.id,
 			userId: user.data.id,
 			existingHostname: hostname,
+			...( liveSite !== undefined ? { liveSite } : {} ),
 			name: hostname || previews.length ? undefined : sitePreviews[ 0 ]?.name,
 		} );
 	};
@@ -127,9 +135,7 @@ export function SharePanel( {
 				variant="inline-accent"
 				size="inline"
 				onClick={ () =>
-					void connector.openExternalUrl(
-						'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
-					)
+					void connector.openExternalUrl( 'https://wordpress.studio/docs/preview-sites/' )
 				}
 			>
 				{ __( 'Learn more…' ) }
@@ -140,7 +146,7 @@ export function SharePanel( {
 		<div className={ styles.content } data-share-previews={ previews.length > 0 || undefined }>
 			<EmptyHeader className={ styles.emptyIntro }>
 				<EmptyMedia className={ styles.emptyIcon }>
-					<ShareIcon width="40" height="40" />
+					<UploadIcon width="40" height="40" />
 				</EmptyMedia>
 				<h2 className={ styles.emptyTitle }>{ __( 'Share a preview' ) }</h2>
 				<EmptyDescription className={ styles.emptyDescription }>{ description }</EmptyDescription>
@@ -170,6 +176,8 @@ export function SharePanel( {
 				</div>
 			) : (
 				<PreviewSharePanel
+					connectedSites={ connected.data ?? [] }
+					qualifyingSites={ qualifying }
 					key={ `${ site.id }:${ user.data?.id }` }
 					primaryAction={ primaryAction }
 					previews={ previews }

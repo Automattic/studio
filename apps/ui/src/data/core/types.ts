@@ -2,16 +2,16 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/agent/protocol/agent
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
-import type { AiModelId } from '@studio/agent/protocol/models';
-import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 import type {
 	AiSessionMetadata,
 	AiSessionSummary,
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
+import type { Blueprint } from '@studio/blueprints';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
@@ -22,6 +22,7 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type { RemoteSiteConnection } from '@studio/common/lib/remote-sites';
 import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
@@ -41,17 +42,23 @@ import type {
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
-import type { BlueprintSource } from '@studio/common/sites/blueprint-source';
 import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
 import type { PreviewStatus } from '@studio/common/sites/snapshots';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
+import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import type {
+	AiModelId,
+	AiProviderId,
+	PendingConnect,
+	ProviderId,
+	ProviderSites,
+	SitesProviderId,
+} from '@studio/providers';
 
 export type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
 export type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
@@ -64,11 +71,12 @@ export type {
 export type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/agent/protocol/sessions/entry-types';
-export type { AiModelId } from '@studio/agent/protocol/models';
+export type { AiModelId } from '@studio/providers';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PreviewStatus } from '@studio/common/sites/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
+export type { RemoteSiteConnection } from '@studio/common/lib/remote-sites';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 export type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -148,8 +156,8 @@ export interface AuthUser {
 
 // What native affordances the host environment offers, so the UI can choose
 // between a native flow and a browser-friendly fallback (instead of branching on
-// "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
-// does not.
+// "am I in Electron"). The desktop app has them all; `studio ui` and Studio on
+// the web have fewer.
 interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
@@ -165,6 +173,14 @@ interface ConnectorCapabilities {
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
 	// it, so there is no single log to point a browser user at.
 	studioLogs: boolean;
+	// Sites run on native PHP from a folder on this machine, with what that
+	// brings: opening the folder in an app, site email, phpMyAdmin, custom
+	// domains, Xdebug, a site's agent files, file access, and a choice of PHP and
+	// WordPress versions. Studio on the web runs them in Playground instead.
+	nativeSites: boolean;
+	// A sign-in on a provider's site runs in the host: a `loopback` one comes back to a local port,
+	// which the page can't listen on, and a `device` one waits on endpoints the page can't reach.
+	loopbackSignIn: boolean;
 }
 
 export interface Connector {
@@ -219,11 +235,14 @@ export interface Connector {
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// Captures the selected area of the visible Desktop preview.
-	captureAnnotationRegion( request: {
-		guestId: number;
-		selection: InspectorSelection;
-	} ): Promise< StudioChatImage >;
+	// Captures the selected area of the visible preview: the Desktop's webview,
+	// named by `guestId`, or Studio on the web's frame.
+	captureAnnotationRegion(
+		request: { selection: InspectorSelection } & (
+			| { guestId: number }
+			| { frame: HTMLIFrameElement }
+		)
+	): Promise< StudioChatImage >;
 	// Captures the preview's page as the site's thumbnail and returns it, or null
 	// when that page isn't kept (sign-in and admin screens). The Desktop app
 	// captures the preview webview, named by `guestId`.
@@ -267,14 +286,9 @@ export interface Connector {
 	getFilePath( file: File ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
-	// Uploads and extracts a Blueprint ZIP bundle to a temp directory and returns the
-	// parsed `blueprint.json`. The caller is responsible for calling
-	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
-	// flow never reaches `createSite` — otherwise `createSite` cleans the
-	// temp directory automatically when it uses the extracted blueprint.
-	extractBlueprintBundle( file: File ): Promise< ExtractedBlueprintBundle >;
-	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
-	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
+	// Reads a picked Blueprint file (JSON or zip bundle) or path for the add-site preview,
+	// without keeping anything: `createSite` opens the same source again.
+	readBlueprint( source: File | string ): Promise< Blueprint >;
 
 	// Imports a backup into an already-created site and starts the usable site.
 	// `backupPath` comes from `getFilePath` for the currently selected file.
@@ -311,7 +325,8 @@ export interface Connector {
 	publishPreviewSite(
 		siteId: string,
 		existingHostname?: string,
-		name?: string
+		name?: string,
+		liveSite?: string
 	): Promise< { url: string } >;
 	// Deletes one preview site, both on WordPress.com and from the local list.
 	deleteSnapshot( hostname: string ): Promise< void >;
@@ -319,37 +334,48 @@ export interface Connector {
 	// What changed on each side since the site was last pushed to the preview or pulled from it.
 	getPreviewStatus( hostname: string ): Promise< PreviewStatus >;
 
-	// Connected WordPress.com live sites for a local site, or every persisted
-	// connection for the current user when no local site is supplied.
-	getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] >;
-	// All WordPress.com sites the authenticated user can sync with, regardless
-	// of which (if any) local site they're already connected to. The publish
-	// picker filters this list to sites that aren't connected anywhere yet.
-	fetchSyncableWpcomSites(): Promise< SyncSite[] >;
-	// Persists a new local↔live connection so the dropdown picks it up via
-	// `getConnectedWpcomSites`. Safe to call with the minimal `SyncSite` we
-	// receive from a sync-connect-site deep link — later fetches backfill the
-	// display name and URL.
-	connectWpcomSite( localSiteId: string, site: SyncSite ): Promise< void >;
-	// Removes a local↔live connection. The remote WordPress.com site is
-	// unaffected — only the Studio-side mapping is dropped, so Pull/Push
-	// are no longer available until the user reconnects.
-	disconnectWpcomSite( localSiteId: string, remoteSiteId: number ): Promise< void >;
-	// Pushes the local site to a previously connected WordPress.com site.
-	// Replaces the remote contents with the local database and wp-content,
-	// or only the selection described by `options` when provided.
-	pushSiteToLive(
+	// Remote sites: a local site's connections to sites on a provider, and pushing to and
+	// pulling from them. Every method names the provider (`SITES_PROVIDER_IDS`); what each
+	// one offers is in its descriptor's `sites`.
+	// The local site's connections, or every local site's when `localSiteId` is omitted.
+	getRemoteSites(
+		provider: SitesProviderId,
+		localSiteId?: string
+	): Promise< RemoteSiteConnection< SitesProviderId >[] >;
+	// Every site the provider's account can connect a local site to.
+	listAccountSites( provider: SitesProviderId ): Promise< ProviderSites[ SitesProviderId ][] >;
+	// Connects the local site to a remote one, or updates the connection. The remote site is
+	// unchanged; disconnecting only forgets the connection.
+	connectRemoteSite(
+		provider: SitesProviderId,
+		localSiteId: string,
+		site: ProviderSites[ SitesProviderId ]
+	): Promise< void >;
+	disconnectRemoteSite(
+		provider: SitesProviderId,
+		localSiteId: string,
+		remoteSiteId: string | number
+	): Promise< void >;
+	// Creates a site on a provider whose `sites.newSite` is `create`, and connects the local
+	// site to it.
+	createRemoteSite(
+		provider: SitesProviderId,
+		localSiteId: string,
+		name: string
+	): Promise< ProviderSites[ SitesProviderId ] >;
+	// Pushes the local site to a connected remote site: everything, or what `options` selects.
+	// Its progress and result arrive as sync activity (`onSyncActivity`).
+	pushSite(
+		provider: SitesProviderId,
 		siteId: string,
-		remoteSiteId: number,
+		remoteSiteId: string | number,
 		options?: PushSyncOptions
 	): Promise< void >;
-	// Pulls the connected WordPress.com site's database + wp-content back
-	// into the local Studio site, or only the selection described by
-	// `options` when provided. Stops the local server while the backup
-	// imports and restarts it on completion.
-	pullSiteFromLive(
+	// Pulls a connected remote site into the local one, for a provider with `sites.pull`.
+	pullSite(
+		provider: SitesProviderId,
 		siteId: string,
-		remoteSiteId: number,
+		remoteSiteId: string | number,
 		options?: PullSyncOptions
 	): Promise< void >;
 	// Every push, pull and preview, whoever started it, as published by the CLI.
@@ -357,20 +383,19 @@ export interface Connector {
 	// Stops an in-flight push or pull, rejecting the operation with a cancelled
 	// error. A no-op once the operation is past the point where stopping is safe
 	// (`canCancelPush` / `canCancelPull`), and when nothing is running.
-	cancelSync( siteId: string, remoteSiteId: number ): Promise< void >;
-	// Latest rewind (backup) id of the connected live site, or `null` when no
-	// backup exists yet. Selective pull browses the backup tree under this id.
-	getLatestRewindId( remoteSiteId: number ): Promise< string | null >;
-	// Raw contents of a remote backup directory (rewind backup `ls`), keyed by
-	// entry name. Entries are validated and mapped to tree nodes by the UI.
-	listRemoteFileTree(
-		remoteSiteId: number,
-		rewindId: string,
+	cancelSync( siteId: string, remoteSiteId: string | number ): Promise< void >;
+	// For a selective pull: the remote site's latest backup, or `null` when it has none, and
+	// the raw entries of one of its folders, which the UI validates and maps to tree nodes.
+	getRemoteBackupId(
+		provider: SitesProviderId,
+		remoteSiteId: string | number
+	): Promise< string | null >;
+	listRemoteBackupFiles(
+		provider: SitesProviderId,
+		remoteSiteId: string | number,
+		backupId: string,
 		path: string
 	): Promise< Record< string, unknown > >;
-	// PHP version of the live site's hosting environment, used to warn about
-	// version mismatches before pushing. `undefined` when unavailable.
-	getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined >;
 	// Local-site lookups for the selective-sync dialog. The desktop answers
 	// from the main process; browser connectors degrade gracefully (empty
 	// tree / zero sizes / unknown versions) so category-level selection still
@@ -429,11 +454,7 @@ export interface Connector {
 	// Pin the session to an AI provider, with the model it should use there.
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.
-	setSessionProvider(
-		sessionId: string,
-		provider: AiProviderId,
-		model: AiModelId
-	): Promise< void >;
+	setSessionProvider( sessionId: string, provider: ProviderId, model: AiModelId ): Promise< void >;
 	// Point the session's next turn at its local site or its connected live site.
 	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
@@ -484,10 +505,20 @@ export interface Connector {
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
 
-	// AI provider settings stored in the CLI config. Clearing the key (null)
-	// also falls back to WordPress.com.
+	// The chat provider and each provider's account. Disconnecting the selected
+	// provider falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
-	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	// Connects the provider with `method` and what the user gave: a form's values, or the handoff
+	// of the connection `startProviderConnect` started, which resolves once the user signed in on
+	// the provider's site. Throws when it fails.
+	connectProvider(
+		provider: ProviderId,
+		method: string,
+		input: Record< string, string >
+	): Promise< AiSettings >;
+	// Starts connecting with a method that signs in on the provider's site (`loopback` or `device`).
+	startProviderConnect( provider: ProviderId, method: string ): Promise< PendingConnect >;
+	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
@@ -520,6 +551,15 @@ export interface Connector {
 	getSiteEmails( siteId: string ): Promise< SiteEmailSummary[] >;
 	getSiteEmail( siteId: string, emailId: string ): Promise< SiteEmail | null >;
 
+	// Connects a preview <iframe> whose pages can run Studio's scripts (Studio
+	// on the web, through each site's bridge), for the annotation inspector:
+	// `onPage` after each page load, `onLog` with the page's inspector messages,
+	// and `run` to run a script in the page. Absent where frames can't be reached.
+	connectPreviewFrame?(
+		iframe: HTMLIFrameElement,
+		listeners: { onPage(): void; onLog( message: string ): void }
+	): { run( script: string ): void; dispose(): void };
+
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
 	// while the UI is open.
@@ -537,8 +577,9 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	// Sends feedback about WordPress Studio to the WordPress Studio team and returns the ID the
-	// service assigned it. Needs the WordPress.com login.
-	sendFeedback( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
+	// service assigned it. Needs the WordPress.com login. Absent where the feedback service
+	// can't be reached, which hides Send feedback.
+	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
 
 	// Wapuu World easter-egg high score. Returns undefined when no score has
 	// been recorded yet; saving keeps only the highest score seen.
@@ -631,14 +672,19 @@ export interface Connector {
 
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
-	onAddSite( listener: () => void ): () => void;
+	onAddSite(
+		listener: ( payload?: { backup?: { path: string; name: string } } | void ) => void
+	): () => void;
 	onNewChat( listener: () => void ): () => void;
 	onOpenFolder( listener: () => void ): () => void;
 	// Desktop links and Spotlight select a site in the Studio workspace.
 	onOpenSite( listener: ( payload: { siteId: string } ) => void ): () => void;
 	// `pull-site` links from WordPress.com pull a remote site into Studio.
 	onPullSite( listener: ( payload: { remoteSiteId: number } ) => void ): () => void;
-	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+	// `source` is what the site is created from, when it isn't the Blueprint itself.
+	onAddSiteWithBlueprint(
+		listener: ( payload: { blueprint: Blueprint; source?: string } ) => void
+	): () => void;
 	// Tells the host the app now listens for the events links send (Settings, Add
 	// site, sync and checkout returns), so a link that arrived earlier opens.
 	readyForDeeplinks?(): void;
@@ -730,6 +776,7 @@ export interface UserPreferences {
 	// See `docs/design-docs/analytics-tracks.md`.
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
+	defaultHostingProvider?: SitesProviderId | null;
 	studioCliInstalled: boolean;
 	// True when the `studio` command on PATH is a standalone (curl) install the
 	// app never installs over or uninstalls — the settings toggle disables
@@ -795,25 +842,19 @@ export interface CreateSiteParams {
 	// Creates the local shell without starting its server. Connect onboarding
 	// uses this so remote content lands before the first local start.
 	skipStart?: boolean;
-	// Optional blueprint payload. `filePath` points at the extracted
-	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
-	// `bundleUrl` is set for API blueprints that bundle resources (theme zips, WXR
-	// files); the server downloads and extracts it to resolve relative paths.
-	blueprint?: {
-		blueprint: BlueprintV1Declaration;
-		filePath?: string;
-		bundleUrl?: string;
-	};
+	// The selected Library Blueprint, a path or URL, a picked file, or the Blueprint
+	// itself. The site's name, domain and versions win over it.
+	blueprint?: BlueprintSource;
 	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
 	// onboarding flows that create a blank site before populating it.
 	flowType?: TracksSiteCreateFlowType;
 }
 
-export interface ExtractedBlueprintBundle {
-	blueprintJson: BlueprintV1Declaration;
-	blueprintJsonPath: string;
-	tempDir: string;
-}
+export type BlueprintSource =
+	| string
+	| File
+	| Blueprint
+	| { librarySlug: string; blueprint: Blueprint; bundleUrl?: string };
 
 export interface ProposedSitePath {
 	path: string;
@@ -824,7 +865,7 @@ export interface ProposedSitePath {
 
 export interface SelectedSiteFolder {
 	file?: { path: string; name: string };
-	blueprint?: BlueprintSource;
+	blueprint?: Blueprint;
 	path: string;
 	name: string;
 	isEmpty: boolean;

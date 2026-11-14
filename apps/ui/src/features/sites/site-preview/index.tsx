@@ -17,6 +17,7 @@ import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive
 import { useIsSiteRestarting } from '@/data/site-restarts';
 import {
 	AnnotationOverlay,
+	discardAnnotations,
 	isBatchedAnnotation,
 	getSiteAnnotations,
 	subscribeAnnotationReview,
@@ -44,6 +45,7 @@ import {
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
 import { AnnotateButton } from './preview-header/annotate-button';
+import { AnnotationTools } from './preview-header/annotation-tools';
 import {
 	FrameSurface,
 	isElectron,
@@ -55,14 +57,15 @@ import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
 import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
+import { useAnnotationTools } from './use-annotation-tools';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
 import { usePreviewAnnotations } from './use-preview-annotations';
 import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewOpenTracks } from './use-preview-open-tracks';
+import { usePreviewScreenshot } from './use-preview-screenshot';
 import { usePreviewSurfaces } from './use-preview-surfaces';
-import { useRegionAnnotations } from './use-region-annotations';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
 
@@ -80,6 +83,7 @@ interface SitePreviewProps {
 	// or only `noteIds`, straight away.
 	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
 	onStartAnnotating?: () => boolean;
+	onAttachScreenshot?: ( siteId: string, file: File ) => void;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -99,6 +103,7 @@ function SitePreviewContent( {
 	reloadNonce,
 	onSendAnnotations,
 	onStartAnnotating,
+	onAttachScreenshot,
 	onPathChange,
 	collapsed = false,
 	inactive = false,
@@ -191,6 +196,10 @@ function SitePreviewContent( {
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const previewBrowser = usePreviewBrowser( viewportRef );
+	const screenshot = usePreviewScreenshot(
+		viewportRef,
+		onAttachScreenshot ? ( file ) => onAttachScreenshot( site.id, file ) : undefined
+	);
 	const browserActions = canUseWebview && ! rendered && ! blank ? previewBrowser : undefined;
 	const reloadFrontend = useCallback(
 		() => sendSurfaceCommand( 'site', 'reload' ),
@@ -242,6 +251,7 @@ function SitePreviewContent( {
 	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
+	const responsiveActive = ! inactive && ! collapsed && ! isStarting && ! isStopping;
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
 	useLayoutEffect( () => {
 		const viewport = viewportRef.current;
@@ -325,12 +335,14 @@ function SitePreviewContent( {
 		},
 		[ setAnnotationAnchor, toViewportAnchor ]
 	);
-	const selectRegion = useRegionAnnotations( {
+	const annotationTools = useAnnotationTools( {
 		siteId: site.id,
-		enabled: ! inactive && canAnnotate && canUseWebview && ! rendered,
+		enabled: canAnnotate && activeSurfaceKey === 'site' && ! inactive && ! collapsed,
 		viewportRef,
 		onPick: handleAnnotationPick,
 	} );
+	const handleAnnotationToolEvent = annotationTools.handleEvent;
+	const discard = useCallback( () => discardAnnotations( site.id ), [ site.id ] );
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
@@ -359,13 +371,13 @@ function SitePreviewContent( {
 			if ( inactive ) return;
 			if ( event.type === 'browser-command' ) {
 				sendBrowserCommand( event.command );
-			} else if ( event.type === 'selection' ) {
-				void selectRegion( event.selection );
+			} else if ( event.type === 'selection' || event.type === 'annotation-tool' ) {
+				handleAnnotationToolEvent( event );
 			} else {
 				handleAnnotationEvent( event );
 			}
 		},
-		[ handleAnnotationEvent, selectRegion, sendBrowserCommand, inactive ]
+		[ handleAnnotationEvent, handleAnnotationToolEvent, sendBrowserCommand, inactive ]
 	);
 
 	const browserShortcuts = useBrowserShortcuts(
@@ -433,7 +445,7 @@ function SitePreviewContent( {
 					! canAnnotateSurface ||
 					isStarting ||
 					isStopping ||
-					( site.running && ( blank || ! canAnnotate ) ) ||
+					( site.running && ( blank || ( activeSurfaceKey !== 'site' && ! canAnnotate ) ) ) ||
 					isAnnotationsBusy( annotations ),
 				disabledReason: blank
 					? __( 'Open a project page to annotate.' )
@@ -472,6 +484,19 @@ function SitePreviewContent( {
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
+			annotation={ inactive ? undefined : annotate }
+			screenshot={
+				! rendered && ! blank && onAttachScreenshot
+					? {
+							disabled: ! canUseWebview || navigating || browserState.failed,
+							disabledReason: ! canUseWebview
+								? __( 'Screenshots are available in the desktop app.' )
+								: undefined,
+							capturing: screenshot.capturing,
+							onClick: () => void screenshot.capture(),
+					  }
+					: undefined
+			}
 		/>
 	);
 
@@ -483,7 +508,11 @@ function SitePreviewContent( {
 		>
 			{ ! inactive && annotate && annotationSpace
 				? createPortal(
-						<AnnotateButton { ...annotate } annotationCount={ batchNotes.length } />,
+						<AnnotateButton
+							{ ...annotate }
+							annotationCount={ batchNotes.length }
+							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
+						/>,
 						annotationSpace
 				  )
 				: null }
@@ -493,6 +522,7 @@ function SitePreviewContent( {
 					siteId={ site.id }
 					settings={ responsiveSettings }
 					fitScale={ fitScale }
+					active={ responsiveActive }
 				/>
 			) : null }
 			<div className={ styles.body }>
@@ -548,13 +578,26 @@ function SitePreviewContent( {
 								);
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
+							const inspectorProps = {
+								annotations: key === 'site' && ! inactive ? annotations : undefined,
+								onInspectorReady: ( inspectorReady: boolean ) => {
+									patchSurface( key, { inspectorReady } );
+									if ( ! inspectorReady ) setAnnotationAnchor( null );
+								},
+								onInspectorEvent: handleInspectorEvent,
+							};
 							return (
 								<SurfaceLayer
 									key={ key }
 									active={ active }
 									responsive={
 										key === 'site'
-											? { siteId: site.id, settings: responsiveSettings, scale: responsiveScale }
+											? {
+													siteId: site.id,
+													settings: responsiveSettings,
+													scale: responsiveScale,
+													active: responsiveActive,
+											  }
 											: undefined
 									}
 									loading={ loadingStage }
@@ -569,12 +612,9 @@ function SitePreviewContent( {
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.
 											inspector={ key === 'site' && ! inactive }
-											annotations={ key === 'site' && ! inactive ? annotations : undefined }
-											onInspectorReady={ ( inspectorReady ) => {
-												patchSurface( key, { inspectorReady } );
-												if ( ! inspectorReady ) setAnnotationAnchor( null );
-											} }
-											onInspectorEvent={ handleInspectorEvent }
+											{ ...inspectorProps }
+											annotationTool={ annotationTools.tool }
+											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
@@ -590,6 +630,9 @@ function SitePreviewContent( {
 											key={ frameKey }
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
+											{ ...inspectorProps }
+											annotationTool={ annotationTools.tool }
+											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={
@@ -646,11 +689,21 @@ function SitePreviewContent( {
 							) : null }
 						</div>
 					</SiteContextMenu>
+					<AnnotationTools
+						{ ...annotationTools.controls }
+						visible={
+							! inactive && ! collapsed && annotations.active && canAnnotate && !! annotate
+						}
+						pageTools={ activeSurfaceKey === 'site' }
+						disabled={ isAnnotationsBusy( annotations ) }
+						onDiscard={ discard }
+					/>
 					{ ! inactive && ! blank && canAnnotateSurface ? (
 						<AnnotationOverlay
 							siteId={ site.id }
 							anchor={ annotationAnchor }
 							onSend={ sendAnnotations }
+							onEscape={ annotationTools.escapeDraft }
 						/>
 					) : null }
 				</div>

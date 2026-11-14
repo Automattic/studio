@@ -1,6 +1,13 @@
-.icon {
+.icon,
+.tile {
 	flex-shrink: 0;
 	width: var( --app-icon-size, 16px );
 	height: var( --app-icon-size, 16px );
 	object-fit: contain;
+}
+
+.tile {
+	width: calc( var( --app-icon-size, 16px ) * 0.75 );
+	height: calc( var( --app-icon-size, 16px ) * 0.75 );
+	border-radius: var( --radius-sm );
 }

@@ -51,10 +51,36 @@ export const sharedConfigSchema = z
 		// Both Studio and the Studio CLI read and write this field through
 		// the helpers in `./connected-sites.ts`. Loose, so a build keeps the fields a newer one added.
 		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema.loose() ) ).optional(),
+		// The config of each provider newer than the fields that hold the first ones' (`authToken`,
+		// `anthropicApiKey`), keyed by provider id. Read and written through `./provider-config.ts`,
+		// which checks each against its provider's schema.
+		providerConfigs: z.record( z.string(), z.unknown() ).optional(),
+		// What each provider kept when it rejected its config (its descriptor's `remember`), keyed
+		// by provider id, and the stable id providers' sign-ins name this computer with. Read and
+		// written through `./provider-config.ts`.
+		rememberedSignIns: z.record( z.string(), z.record( z.string(), z.string() ) ).optional(),
+		signInHostId: z.string().optional(),
+		// The remote sites each local site syncs with, for providers other than WordPress.com, keyed
+		// by local site id. Read and written through `./remote-sites.ts`.
+		remoteSites: z
+			.record(
+				z.string(),
+				z.array(
+					z
+						.object( {
+							provider: z.string(),
+							site: z.record( z.string(), z.unknown() ),
+							lastPushTimestamp: z.string().nullable(),
+							lastPullTimestamp: z.string().nullable(),
+						} )
+						.loose()
+				)
+			)
+			.optional(),
 		// AI provider selection and the Anthropic API key, shared by Studio and
 		// the Studio CLI. Typed as plain strings so an unknown provider value
 		// written by a newer build degrades gracefully instead of failing the
-		// parse; readers narrow with `isAiProviderId`.
+		// parse; readers go through `normalizeProviderId`.
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.

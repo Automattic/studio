@@ -1,11 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { updateResponsivePreview, type ResponsivePreviewSettings } from '@/data/responsive-preview';
-import { ChevronDownIcon, RefreshIcon } from '@/lib/icons';
+import { XIcon, ChevronDownIcon, DeviceRotateIcon } from '@/lib/icons';
 import { Button, IconButton, Input, Menu } from '@/lib/ui';
 import { devicePresets, parseDimension } from './settings';
 import styles from './style.module.css';
+import { useResponsivePreviewTracks } from './use-responsive-preview-tracks';
+import type { TracksResponsivePreviewAction } from '@studio/common/lib/record-tracks-event';
 
 function DimensionInput( {
 	label,
@@ -56,13 +57,23 @@ export function ResponsiveToolbar( {
 	siteId,
 	settings,
 	fitScale,
+	active = true,
 }: {
 	siteId: string;
 	settings: ResponsivePreviewSettings;
 	fitScale: number;
+	active?: boolean;
 } ) {
+	const track = useResponsivePreviewTracks( active && settings.enabled );
 	const update = ( patch: Partial< ResponsivePreviewSettings > ) =>
 		updateResponsivePreview( siteId, patch );
+	const commit = (
+		action: TracksResponsivePreviewAction,
+		patch: Partial< ResponsivePreviewSettings >
+	) => {
+		update( patch );
+		track( action, settings, { ...settings, ...patch } );
+	};
 	const isLandscape = settings.width > settings.height;
 	const isSquare = settings.width === settings.height;
 	return (
@@ -73,7 +84,9 @@ export function ResponsiveToolbar( {
 		>
 			<div className={ styles.responsiveControls }>
 				<Menu.Root>
-					<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
+					<Menu.Trigger
+						render={ <Button variant="ghost" size="2xs" className={ styles.device } /> }
+					>
 						<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
 						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 					</Menu.Trigger>
@@ -82,7 +95,8 @@ export function ResponsiveToolbar( {
 							value={ settings.preset }
 							onValueChange={ ( value ) => {
 								const preset = devicePresets.find( ( item ) => item.name === value );
-								update(
+								commit(
+									'preset_change',
 									preset
 										? { preset: preset.name, width: preset.width, height: preset.height }
 										: { preset: 'responsive' }
@@ -113,19 +127,19 @@ export function ResponsiveToolbar( {
 					<DimensionInput
 						label={ __( 'Width' ) }
 						value={ settings.width }
-						onCommit={ ( width ) => update( { width, preset: 'responsive' } ) }
+						onCommit={ ( width ) => commit( 'manual_resize', { width, preset: 'responsive' } ) }
 					/>
 					<span aria-hidden="true">×</span>
 					<DimensionInput
 						label={ __( 'Height' ) }
 						value={ settings.height }
-						onCommit={ ( height ) => update( { height, preset: 'responsive' } ) }
+						onCommit={ ( height ) => commit( 'manual_resize', { height, preset: 'responsive' } ) }
 					/>
 				</div>
 				<IconButton
 					className={ styles.rotate }
 					variant="ghost"
-					size="icon-sm"
+					size="icon-xs"
 					label={
 						isSquare
 							? __( 'Rotate viewport' )
@@ -133,8 +147,10 @@ export function ResponsiveToolbar( {
 							? __( 'Rotate to portrait' )
 							: __( 'Rotate to landscape' )
 					}
-					icon={ <RefreshIcon /> }
-					onClick={ () => update( { width: settings.height, height: settings.width } ) }
+					icon={ <DeviceRotateIcon /> }
+					onClick={ () =>
+						commit( 'manual_resize', { width: settings.height, height: settings.width } )
+					}
 				/>
 				<span className={ styles.divider } aria-hidden="true" />
 				<Menu.Root>
@@ -169,6 +185,7 @@ export function ResponsiveToolbar( {
 			</div>
 			<IconButton
 				className={ styles.close }
+				variant="ghost"
 				size="icon-xs"
 				icon={ <XIcon /> }
 				label={ __( 'Hide device toolbar' ) }

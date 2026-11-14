@@ -13,6 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+import { redactHomePaths } from '@studio/common/lib/error-reporting';
 import { sharedConfigSchema } from '@studio/common/lib/shared-config';
 import {
 	getAppConfigPath,
@@ -22,7 +23,6 @@ import {
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
-import { sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { getOldAppdataFilePath } from 'src/storage/paths';
 import type { Migration } from '@studio/common/lib/migration';
 
@@ -173,19 +173,19 @@ export const migrateAppConfig: Migration = {
 		const sharedConfigPath = getSharedConfigPath();
 		if ( ! fs.existsSync( sharedConfigPath ) ) {
 			await writeJsonFile( sharedConfigPath, buildSharedConfig( oldData ) );
-			console.log( `Migrated auth/locale to ${ sanitizeUserpath( sharedConfigPath ) }` );
+			console.log( `Migrated auth/locale to ${ redactHomePaths( sharedConfigPath ) }` );
 		}
 
 		const cliConfigPath = getCliConfigPath();
 		if ( ! fs.existsSync( cliConfigPath ) ) {
 			await writeJsonFile( cliConfigPath, buildCliConfig( oldData ) );
-			console.log( `Migrated sites/snapshots to ${ sanitizeUserpath( cliConfigPath ) }` );
+			console.log( `Migrated sites/snapshots to ${ redactHomePaths( cliConfigPath ) }` );
 		}
 
 		const newAppdataPath = getAppConfigPath();
 		await writeJsonFile( newAppdataPath, buildAppConfig( oldData ) );
 		console.log(
-			`Migrated Desktop settings from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
+			`Migrated Desktop settings from ${ redactHomePaths( oldPath ) } to ${ redactHomePaths(
 				newAppdataPath
 			) }`
 		);
@@ -194,7 +194,7 @@ export const migrateAppConfig: Migration = {
 		const deprecatedOldAppdataPath = path.join( oldPathDirname, 'appdata-v1.deprecated.json' );
 		await fs.promises.rename( oldPath, deprecatedOldAppdataPath );
 		console.log(
-			`Migrated old appdata file from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
+			`Migrated old appdata file from ${ redactHomePaths( oldPath ) } to ${ redactHomePaths(
 				deprecatedOldAppdataPath
 			) }`
 		);

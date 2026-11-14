@@ -3,7 +3,7 @@ import {
 	formatAiAccessRequiredHeadline,
 	getStudioCodeAiAccessState,
 	STUDIO_ASSISTANT_QUOTA_OFFLINE,
-	STUDIO_CODE_AI_BETA_APPLY_URL,
+	STUDIO_CODE_DOCS_URL,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
@@ -14,7 +14,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOffline } from '@/lib/hooks';
 import type { ComposerNotice } from './notice-tab';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ProviderId } from '@studio/providers';
 
 /**
  * Why this chat can't send right now, shown above the composer while the
@@ -23,7 +23,7 @@ import type { AiProviderId } from '@studio/agent/protocol/providers';
  * quota fails open.
  */
 export function useComposerNotice(
-	provider: AiProviderId,
+	provider: ProviderId,
 	siteId?: string
 ): ComposerNotice | undefined {
 	const connector = useConnector();
@@ -76,7 +76,8 @@ export function useComposerNotice(
 	}
 	const connect = {
 		label: __( 'Connect' ),
-		onClick: () => openSettings( 'ai', undefined, undefined, { intent: 'build', scope: siteId } ),
+		onClick: () =>
+			openSettings( 'providers', undefined, 'ai-providers', { intent: 'build', scope: siteId } ),
 	};
 	if ( ! user ) {
 		return {
@@ -101,8 +102,8 @@ export function useComposerNotice(
 		return {
 			message: formatAiAccessRequiredHeadline( quota.data ),
 			action: {
-				label: __( 'Apply for access' ),
-				onClick: () => void connector.openExternalUrl( STUDIO_CODE_AI_BETA_APPLY_URL ),
+				label: __( 'Learn more' ),
+				onClick: () => void connector.openExternalUrl( STUDIO_CODE_DOCS_URL ),
 			},
 		};
 	}

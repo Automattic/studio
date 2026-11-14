@@ -66,7 +66,8 @@ export async function runCommand(
 	siteFolder: string,
 	host: string,
 	overwrite: boolean,
-	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
+	logger: Logger< LoggerAction > = new Logger< LoggerAction >(),
+	liveSiteSelection?: string
 ): Promise< Snapshot > {
 	const archivePath = path.join(
 		os.tmpdir(),
@@ -85,6 +86,7 @@ export async function runCommand(
 		preview = snapshotToUpdate;
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
+		const liveSite = await getLivePreviewSite( site.id, liveSiteSelection );
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
 			step = action;
 			logger.reportStart( action, message );
@@ -107,6 +109,7 @@ export async function runCommand(
 		if ( ! isWpcomPreview( snapshotToUpdate ) ) {
 			const created = await createWpcomPreviewSite( {
 				siteId: site.id,
+				liveSiteSelection,
 				siteFolder,
 				archivePath,
 				name: snapshotToUpdate.name ?? site.name,
@@ -123,7 +126,8 @@ export async function runCommand(
 				token.id,
 				snapshotToUpdate.name ?? site.name,
 				created.preview.shareUrl,
-				created.versionId
+				created.versionId,
+				created.preview.liveSiteId
 			);
 			await deleteSnapshotFromConfig( snapshotToUpdate.url );
 			await emitCliEvent( {
@@ -166,11 +170,12 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Archive uploaded' ) );
 
 			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-			const { shareUrl } = await updatePreviewSite(
+			const { shareUrl, liveSiteId } = await updatePreviewSite(
 				snapshotToUpdate.atomicSiteId,
 				attachmentId,
 				token.accessToken,
-				( await getLivePreviewSite( site.id ) )?.id
+				liveSite?.id,
+				site.id
 			);
 
 			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
@@ -178,7 +183,8 @@ export async function runCommand(
 				snapshotToUpdate.atomicSiteId,
 				siteFolder,
 				shareUrl,
-				versionId
+				versionId,
+				liveSiteId
 			);
 			logger.reportSuccess(
 				sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
@@ -246,6 +252,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		describe: __( 'Update preview site' ),
 		builder: ( yargs ) => {
 			return yargs
+				.option( 'live-site', {
+					type: 'string',
+					description: __( 'Connected live site ID, or none' ),
+				} )
 				.positional( 'host', {
 					type: 'string',
 					description: __( 'Hostname of the preview site to update' ),
@@ -262,7 +272,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
 			const logger = new Logger< LoggerAction >();
 			try {
-				await runCommand( argv.path, normalizedHost, argv.overwrite, logger );
+				await runCommand( argv.path, normalizedHost, argv.overwrite, logger, argv.liveSite );
 			} catch ( error ) {
 				logger.reportError( error as LoggerError );
 			}

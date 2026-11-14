@@ -3,21 +3,19 @@ import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { getExistingMainWindow } from 'src/main-window';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/agent/node/sessions/placement';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
+import type { Blueprint } from '@studio/blueprints';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
 export interface IpcEvents {
-	'add-site': [ void ];
+	'add-site': [ { backup?: { path: string; name: string } } | void ];
 	'new-chat': [ void ];
 	'open-folder': [ void ];
 	'open-site': [ { siteId: string } ];
 	'pull-site': [ { remoteSiteId: number } ];
-	'add-site-with-blueprint': [
-		{
-			blueprintPath: string;
-		},
-	];
+	// `source` is what the site is created from, when it isn't the Blueprint itself.
+	'add-site-with-blueprint': [ { blueprint: Blueprint; source?: string } ];
 	'ai-credits-purchased': [ void ];
 	'auth-updated': [ { token: StoredAuthToken } | { token: null } ];
 	'site-event': [ SiteEvent ];

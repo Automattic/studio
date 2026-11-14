@@ -8,19 +8,22 @@ import styles from './style.module.css';
 import type { DocsLinkKey } from '@studio/common/lib/docs-links';
 import type { MouseEvent } from 'react';
 
-interface Props {
-	docsLinksKey: DocsLinkKey;
+// A Studio docs page, or any other page by its URL.
+type Props = (
+	| { docsLinksKey: DocsLinkKey; url?: never }
+	| { url: string; docsLinksKey?: never }
+) & {
 	className?: string;
-}
+};
 
-function MoreLink( { docsLinksKey, className, label }: Props & { label: string } ) {
+function MoreLink( { docsLinksKey, url, className, label }: Props & { label: string } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
 
 	const handleClick = ( event: MouseEvent ) => {
 		event.stopPropagation();
 		event.preventDefault();
-		void connector.openExternalUrl( getLocalizedLink( locale, docsLinksKey ) );
+		void connector.openExternalUrl( url ?? getLocalizedLink( locale, docsLinksKey ) );
 	};
 
 	return (

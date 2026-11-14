@@ -1,12 +1,12 @@
 import os from 'os';
 import path from 'path';
 import { confirm, input } from '@inquirer/prompts';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getUserInfo } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import { createPreviewSite, getLivePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
@@ -22,6 +22,7 @@ vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) 
 	readAuthToken: vi.fn(),
 	updateSharedConfig: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/connected-sites' );
 vi.mock( '@inquirer/prompts' );
 vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
@@ -118,6 +119,7 @@ describe( 'Preview Create Command', () => {
 			siteId: mockAtomicSiteId,
 			hostname: mockSiteUrl,
 			shareUrl: mockShareUrl,
+			liveSiteId: 777,
 		} );
 		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( {
 			url: mockSiteUrl,
@@ -134,6 +136,40 @@ describe( 'Preview Create Command', () => {
 	afterEach( () => {
 		vi.restoreAllMocks();
 	} );
+
+	it.each( [
+		{ selection: undefined, ids: [ 1 ], expected: 1 },
+		{ selection: undefined, ids: [ 1, 2 ], expected: undefined },
+		{ selection: '2', ids: [ 1, 2 ], expected: 2 },
+		{ selection: 'none', ids: [ 1 ], expected: undefined },
+		{ selection: '9', ids: [ 1, 2 ], invalid: true },
+		{ selection: '3', ids: [ 1, 2 ], invalid: true },
+	] )(
+		'applies live-site $selection with connected sites $ids',
+		async ( { selection, ids, expected, invalid } ) => {
+			const actual =
+				await vi.importActual< typeof import('cli/lib/preview-sites') >( 'cli/lib/preview-sites' );
+			vi.mocked( getLivePreviewSite ).mockImplementationOnce( actual.getLivePreviewSite );
+			vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
+				...ids.map( ( id ) => ( { id } ) ),
+				{ id: 3, pushNeedsUpgrade: true },
+			] as Awaited< ReturnType< typeof getConnectedWpcomSitesForLocalSite > > );
+			const result = runCommand( mockFolder, 'Preview', undefined, selection );
+			if ( invalid ) {
+				await expect( result ).rejects.toThrow();
+				expect( uploadPreviewArchive ).not.toHaveBeenCalled();
+			} else {
+				await result;
+				expect( createPreviewSite ).toHaveBeenCalledWith(
+					mockAttachmentId,
+					'Preview',
+					mockAuthToken.accessToken,
+					expected,
+					'site-123'
+				);
+			}
+		}
+	);
 
 	it( 'creates the preview on WordPress.com for any account', async () => {
 		await runCommand( mockFolder );
@@ -154,7 +190,8 @@ describe( 'Preview Create Command', () => {
 			mockAttachmentId,
 			'Test Site Preview 1',
 			mockAuthToken.accessToken,
-			undefined
+			undefined,
+			'site-123'
 		);
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
@@ -163,7 +200,8 @@ describe( 'Preview Create Command', () => {
 			mockAuthToken.id,
 			'Test Site Preview 1',
 			mockShareUrl,
-			'version-1'
+			'version-1',
+			777
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`
@@ -272,14 +310,20 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should offer to sign in at a terminal and carry on creating the preview', async () => {
-		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		let storedToken: unknown = null;
+		vi.mocked( readAuthToken ).mockImplementation( async () => storedToken as never );
+		vi.mocked( updateSharedConfig ).mockImplementation( async ( update ) => {
+			storedToken = update.authToken ?? storedToken;
+		} );
 		vi.mocked( confirm ).mockResolvedValue( true );
 		vi.mocked( input ).mockResolvedValue( 'pasted-token' );
-		vi.mocked( getUserInfo, { partial: true } ).mockResolvedValue( {
-			ID: 123,
-			email: 'test@example.com',
-			display_name: 'Test User',
-		} );
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue( {
+				ok: true,
+				json: async () => ( { ID: 123, email: 'test@example.com', display_name: 'Test User' } ),
+			} )
+		);
 		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		const isTTY = [ process.stdin.isTTY, process.stdout.isTTY ];
 		process.stdin.isTTY = process.stdout.isTTY = true;

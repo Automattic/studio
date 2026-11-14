@@ -30,6 +30,10 @@
 	background-color: var( --chat );
 }
 
+main[data-sidebar-flyout] .contentColumn:has( [data-sidebar-flyout-header] ) {
+	z-index: auto;
+}
+
 /* The content reads its column's width beside the panel from
    `--content-column-width`, and how long the column takes to get there from
    `--content-column-motion`, so a width cap inside it can ease along. */
@@ -49,19 +53,24 @@
 	inset-inline-start: var( --panel-frame-boundary );
 	z-index: 5;
 	width: 1px;
+	translate: -50%;
 	opacity: 0;
 	/* Keep the translucent border independent of the page behind it. */
-	background: linear-gradient( var( --panel-divider-color ), var( --panel-divider-color ) ),
-		var( --chat );
+	background-color: var( --chat );
+	box-shadow: inset 0 0 0 1px var( --panel-divider-color );
 	pointer-events: none;
 }
 
-.rootEdge:has( > .panelResizeHandle:hover ):not( .rootPanelResizing )::after {
-	--panel-divider-color: var( --surface-4 );
+.root:dir( rtl )::after {
+	translate: 50%;
 }
 
-.rootEdge.rootPanelResizing::after {
-	--panel-divider-color: var( --accent );
+.rootEdge.rootPanelResizing::after,
+.rootEdge:has(
+		> .panelResizeHandle:not( [inert] ) > .panelResizeGrip:is( :hover, :focus-visible )
+	)::after {
+	--panel-divider-color: var( --ring );
+	width: var( --focus-width );
 }
 
 .rootPanelAnimating .contentColumn {
@@ -87,8 +96,7 @@
 	--content-column-motion: 0ms;
 }
 
-.rootPanelResizing :is( .contentColumn, .panelSlot, .panelResizeHandle ),
-.rootPanelResizing::after {
+.rootPanelResizing :is( .contentColumn, .panelSlot, .panelResizeHandle ) {
 	user-select: none;
 	transition: none;
 }
@@ -135,12 +143,26 @@
 	transition: opacity var( --panel-layout-duration ) var( --motion-ease-layout );
 }
 
+@media ( prefers-reduced-motion: no-preference ) {
+	.root::after {
+		transition:
+			opacity var( --panel-layout-duration ) var( --motion-ease-layout ),
+			box-shadow var( --motion-duration-surface ) ease-out,
+			width var( --motion-duration-surface ) ease-out;
+	}
+
+	.rootEdge:not( .rootPanelResizing ):has(
+			> .panelResizeHandle:not( [inert] ) > .panelResizeGrip:is( :hover, :focus-visible )
+		)::after {
+		transition-delay: 0ms, var( --motion-duration-feedback ), var( --motion-duration-feedback );
+	}
+}
+
 .panelSlotInteractive {
 	pointer-events: auto;
 }
 
-/* Centers the 8px hit area on the content/panel boundary, its focus line on
-   the boundary's edge line. */
+/* Centers the 8px hit area on the content/panel boundary. */
 .panelResizeHandle {
 	position: absolute;
 	inset-block: 0;
@@ -148,14 +170,12 @@
 	z-index: 3;
 	display: flex;
 	opacity: 0;
-	padding-inline-start: var( --space-1 );
 	transform: translateX( -4px );
-	justify-content: flex-start;
 	width: 8px;
 }
 
 .panelResizeGrip {
-	justify-content: flex-start;
+	flex: 1;
 }
 
 /* In RTL the handle is offset from the right edge, so the centering nudge
@@ -183,6 +203,10 @@
 
 .rootWithHeader .panelSlot {
 	--workspace-header-height: var( --band-height );
+}
+
+.rootWithHeader .panelResizeHandle {
+	inset-block-start: var( --band-height );
 }
 
 .panelResizeHandle[inert] {

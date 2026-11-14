@@ -10,13 +10,13 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/lib/ui';
-import { websiteAddress } from './options';
 import { ErrorMessage } from './parts';
-import type { SyncSite } from '@/data/core';
+import type { Website } from './options';
 import type { RefObject } from 'react';
 
 export function DisconnectSiteDialog( {
 	website,
+	address,
 	disabled,
 	pending,
 	error,
@@ -24,7 +24,8 @@ export function DisconnectSiteDialog( {
 	onClose,
 	onConfirm,
 }: {
-	website: SyncSite;
+	website: Website;
+	address: string;
 	disabled: boolean;
 	pending: boolean;
 	error: Error | null;
@@ -43,14 +44,14 @@ export function DisconnectSiteDialog( {
 			>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Disconnect website?' ) }</DialogTitle>
-					<DialogDescription tone="default">
+					<DialogDescription>
 						{ __(
 							'You’ll need to connect a website again to publish or pull changes. Your local site and live website will stay unchanged.'
 						) }
 					</DialogDescription>
 				</DialogHeader>
 				<SiteCard
-					title={ websiteAddress( website ) }
+					title={ address }
 					thumbnailUrl={ getWebsiteThumbnailUrl( website.url ) }
 					updatedAt={ website.lastPushTimestamp }
 					description={ __( 'Not published yet' ) }

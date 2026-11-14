@@ -1,11 +1,9 @@
 import {
-	INSPECTOR_COMMAND_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 	parseInspectorMessage,
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
-import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import {
@@ -16,6 +14,7 @@ import {
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
 import { getEmbeddedFontData } from '@/lib/theme';
+import { buildClearSelectionScript, buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import {
 	ERR_ABORTED,
@@ -40,6 +39,8 @@ interface WebviewSurfaceProps {
 	reloadNonce: number;
 	// The site's annotations, mirrored into the page as markers.
 	annotations?: SiteAnnotations;
+	annotationTool?: 'select' | 'draw';
+	clearSelection?: string;
 	onInspectorReady?: ( ready: boolean ) => void;
 	onInspectorEvent?: ( event: InspectorEvent ) => void;
 	browserCommand?: BrowserCommand | null;
@@ -64,6 +65,8 @@ export function WebviewSurface( {
 	colorScheme = 'system',
 	reloadNonce,
 	annotations,
+	annotationTool = 'select',
+	clearSelection,
 	onInspectorReady,
 	onInspectorEvent,
 	browserCommand,
@@ -415,47 +418,21 @@ export function WebviewSurface( {
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! inspectorReady || ! webview || ! annotations ) return;
-		const theme = getComputedStyle( webview );
-		// Only notes picked on a page. Told about a note on the design system or
-		// in an email, the page would report it off screen and hide its editor.
-		const notes = annotations.notes.filter( ( note ) => note.url );
-		const detail = {
-			active: annotations.active,
-			areaSelection: true,
-			busy: !! ( annotations.preparing || annotations.sending ),
-			blockedNavigation: annotations.blockedNavigation ?? 0,
-			editingId: notes.some( ( note ) => note.id === annotations.editingId )
-				? annotations.editingId
-				: null,
-			notes: notes.map( ( { id, number, kind, selector, url, documentRect, point, staged } ) => ( {
-				id,
-				number,
-				kind,
-				selector,
-				url,
-				documentRect,
-				point,
-				pending: ! staged,
-			} ) ),
-			annotationLabel: __( 'Annotation' ),
-			pendingAnnotationLabel: __( 'Pending annotation' ),
-			fontFamily: '"Studio Annotation", system-ui',
-			accent: theme.getPropertyValue( '--accent' ).trim(),
-			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
-			destructive: theme.getPropertyValue( '--destructive' ).trim(),
-			onDestructive: theme.getPropertyValue( '--destructive-foreground' ).trim(),
-			motionDuration: theme.getPropertyValue( '--motion-duration-surface' ).trim(),
-			motionEasing: theme.getPropertyValue( '--motion-ease-enter' ).trim(),
-		};
 		webview
 			.executeJavaScript(
-				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
-					INSPECTOR_COMMAND_EVENT
-				) }, { detail: ${ JSON.stringify( detail ) } }));`,
+				buildInspectorCommandScript( annotations, webview, annotationTool ),
 				false
 			)
 			.catch( () => undefined );
-	}, [ annotations, appColorScheme, inspectorReady ] );
+	}, [ annotations, annotationTool, appColorScheme, inspectorReady ] );
+
+	useEffect( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! inspectorReady || ! webview || ! clearSelection ) return;
+		void webview
+			.executeJavaScript( buildClearSelectionScript( clearSelection ) )
+			.catch( () => undefined );
+	}, [ clearSelection, inspectorReady ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;
@@ -490,7 +467,7 @@ export function WebviewSurface( {
 		<>
 			<webview
 				ref={ ref }
-				data-annotation-surface={ ( inspector && annotations?.active ) || undefined }
+				data-annotation-surface={ inspector || undefined }
 				src={ initialSrc }
 				className={ styles.iframe }
 				// @types/react types this as boolean, but React 19 drops `true` on

@@ -6,14 +6,13 @@ import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
-import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { getStagedAnnotations } from '@/features/annotations';
 import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
-import { GlobeIcon, NeedsInputIcon, NewChatIcon } from '@/lib/icons';
+import { GlobeIcon, TriangleAlertIcon, SquarePenIcon } from '@/lib/icons';
 import {
 	Badge,
 	IconButton,
@@ -24,7 +23,6 @@ import {
 	SidebarMenuLabel,
 } from '@/lib/ui';
 import { useRowPressed, useSelectableRow } from './selection';
-import { SiteAgentActivityIndicator } from './site-activity-indicator';
 import { SiteChats } from './site-chats';
 import { SiteRowMenu } from './site-row-menu';
 import { getSiteStatus } from './site-status';
@@ -58,8 +56,8 @@ export function SiteSection( {
 	expanded: boolean;
 	loadError: boolean;
 	reorderable: boolean;
-	// Clicking the row, before it opens the site; folds or unfolds its chats.
-	onOpen?: () => void;
+	// Folds or unfolds the chats, then schedules opening another site's workspace.
+	onOpen?: ( openSite?: () => void ) => void;
 	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
 	// Drag handling, when the row is in a reorderable list.
@@ -92,24 +90,15 @@ export function SiteSection( {
 	const isStopping = useIsSiteStopping( site.id );
 	const operation = useSiteOperation( site );
 	const status = getSiteStatus( site, isStarting, isStopping, operation );
-	const syncActivity = useSiteSyncActivity( site.id );
-	// Import gets a row indicator of its own alongside push/pull: it is the only
-	// way to tell which site a long-running import belongs to when several are in
-	// flight, and it is a local operation, so it doesn't read as "syncing".
-	const pendingDirection = syncActivity?.kind === 'pending' ? syncActivity.direction : undefined;
-	const siteActivity =
-		pendingDirection === 'import'
-			? 'import'
-			: pendingDirection === 'push' || pendingDirection === 'pull'
-			? 'sync'
-			: undefined;
-	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite( { animateSelection: ! ( onOpen && isActive && expanded ) } );
 	const preview = useOptionalSessionPreviewUI();
 	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 	const handleOpenSite = () => {
-		onOpen?.();
-		if ( ! onOpen ) onSiteOpen?.();
+		if ( onOpen ) {
+			onOpen( isChatActive ? undefined : () => openSite( site ) );
+			return;
+		}
+		onSiteOpen?.();
 		openSite( site );
 	};
 	const handleStartSite = () => {
@@ -144,7 +133,6 @@ export function SiteSection( {
 							{ status === 'running' ? <NotificationDot position="icon" /> : null }
 						</span>
 						<div className={ styles.siteText }>
-							<SiteAgentActivityIndicator activity={ displayActivity } />
 							<SidebarMenuLabel
 								render={ <button type="button" /> }
 								className={ status === 'transitioning' ? 'studio-shimmer' : undefined }
@@ -172,14 +160,14 @@ export function SiteSection( {
 						role="status"
 						aria-label={ __( 'WordPress Studio needs an answer.' ) }
 					>
-						<NeedsInputIcon />
+						<TriangleAlertIcon />
 					</Badge>
 				) : null }
 				<IconButton
 					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
-					icon={ <NewChatIcon /> }
+					icon={ <SquarePenIcon /> }
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();

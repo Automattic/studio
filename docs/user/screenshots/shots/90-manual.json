@@ -1,0 +1,16 @@
+{
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
+	"name": "manual",
+	"description": "Shots that need a live site connected to the demo site, a ready preview, Studio Code output, or pages outside Studio, captured by hand",
+	"manual": true,
+	"shots": [
+		{
+			"description": "WordPress.com authorization screen with Approve, opened by Log in",
+			"meta": { "pages": [ "index.md" ] }
+		},
+		{
+			"description": "Browser prompt to open the Studio app after approving the login",
+			"meta": { "pages": [ "index.md" ] }
+		}
+	]
+}

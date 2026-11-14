@@ -23,7 +23,7 @@ function site( id: number, overrides: Partial< SyncSite > = {} ): SyncSite {
 function setup( remoteSites: SyncSite[] = [], { signedIn = true } = {} ) {
 	const onConnect = vi.fn();
 	const connector = createFakeConnector( signedIn ? {} : { user: null }, {
-		fetchSyncableWpcomSites: async () => remoteSites,
+		listAccountSites: async () => remoteSites,
 	} );
 	const view = renderWithProviders( <ConnectPanel onConnect={ onConnect } />, { connector } );
 	return { ...view, onConnect };
@@ -94,15 +94,13 @@ describe( 'ConnectPanel', () => {
 		vi.spyOn( navigator, 'onLine', 'get' ).mockReturnValue( false );
 		const { connector } = setup( [ site( 1 ) ] );
 		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( "You're offline" );
-		expect( connector.fetchSyncableWpcomSites ).not.toHaveBeenCalled();
+		expect( connector.listAccountSites ).not.toHaveBeenCalled();
 	} );
 
 	it( 'shows loading, then the empty account state', async () => {
 		let resolve!: ( sites: SyncSite[] ) => void;
 		const { connector } = setup();
-		connector.fetchSyncableWpcomSites.mockReturnValue(
-			new Promise( ( done ) => ( resolve = done ) )
-		);
+		connector.listAccountSites.mockReturnValue( new Promise( ( done ) => ( resolve = done ) ) );
 		expect( await screen.findByRole( 'status', { name: 'Loading your sites…' } ) ).toBeVisible();
 		await act( async () => resolve( [] ) );
 		expect( await screen.findByRole( 'heading', { name: 'No sites found' } ) ).toBeVisible();
@@ -129,7 +127,7 @@ describe( 'ConnectPanel', () => {
 
 	it( 'retries the remote site list after an error', async () => {
 		const { connector } = setup( [ site( 1, { name: 'Recovered site' } ) ] );
-		connector.fetchSyncableWpcomSites.mockRejectedValueOnce( new Error( 'network failed' ) );
+		connector.listAccountSites.mockRejectedValueOnce( new Error( 'network failed' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Retry' } ) );
 		expect( await screen.findByText( 'Recovered site' ) ).toBeVisible();
 	} );
@@ -137,10 +135,10 @@ describe( 'ConnectPanel', () => {
 	it( 'refreshes the list and links to the supported sites', async () => {
 		const { connector } = setup( [ site( 1 ), site( 2 ) ] );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Refresh list' } ) );
-		await waitFor( () => expect( connector.fetchSyncableWpcomSites ).toHaveBeenCalledTimes( 2 ) );
+		await waitFor( () => expect( connector.listAccountSites ).toHaveBeenCalledTimes( 2 ) );
 		fireEvent.click( screen.getByRole( 'button', { name: /Supported sites/ } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites'
+			'https://wordpress.studio/docs/sync/#compatible-sites'
 		);
 	} );
 } );

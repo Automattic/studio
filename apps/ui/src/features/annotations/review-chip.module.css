@@ -9,14 +9,10 @@
 	);
 }
 .popup {
-	--surface: var( --composer );
-	--popover-border: var( --input );
-
 	width: max-content;
+	min-width: min( 160px, var( --annotation-popup-max-width, 160px ), calc( 100vw - 16px ) );
 	max-width: min( 320px, var( --annotation-popup-max-width, 320px ), calc( 100vw - 16px ) );
 	padding: var( --space-1_5 );
-	background-color: var( --surface );
-	color: var( --foreground );
 }
 .notes {
 	max-height: min( 288px, calc( var( --available-height ) - 2 * var( --space-1_5 ) ) );
@@ -31,6 +27,7 @@
 }
 .row:hover,
 .row:has( :focus-visible ) {
+	--hover: inherit;
 	--surface: var( --hover );
 
 	background-color: var( --hover );

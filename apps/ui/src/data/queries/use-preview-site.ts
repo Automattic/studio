@@ -1,5 +1,7 @@
+import { getEditedDefaultThemesWarning } from '@studio/common/lib/snapshots';
 import { useMutation } from '@tanstack/react-query';
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSettleSync, useSettleFromMutation } from '@/data/queries/use-sync-site';
 
@@ -32,8 +34,11 @@ export function usePublishPreviewSite() {
 				getAccountJourney( connector, 'share', siteId ) ?? getAccountJourney( connector, 'share' )
 			);
 		},
-		onSuccess: ( _result, { siteId, existingHostname }, journey ) => {
+		onSuccess: ( result, { siteId, existingHostname }, journey ) => {
 			settleFromMutation( siteId, 'preview' );
+			if ( result.editedThemes?.length ) {
+				toast.warning( getEditedDefaultThemesWarning( result.editedThemes ) );
+			}
 			completeAccountJourney( connector, journey, {
 				completion_kind: existingHostname ? 'preview_update' : 'preview_create',
 			} );

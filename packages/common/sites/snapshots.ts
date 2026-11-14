@@ -24,7 +24,12 @@ export type SnapshotProgress = {
 };
 
 // What `preview create` and `preview update` report as their result.
-const previewResultSchema = z.object( { name: z.string().optional(), url: z.string() } );
+const previewResultSchema = z.object( {
+	name: z.string().optional(),
+	url: z.string(),
+	// Active default themes whose edited files the preview doesn't show.
+	editedThemes: z.array( z.string() ).optional(),
+} );
 export type PreviewResult = z.infer< typeof previewResultSchema >;
 
 // Everything a snapshot command produces for the UI, correlated by operationId.
@@ -127,8 +132,8 @@ export async function publishPreviewSite(
 	hostname?: string,
 	name?: string,
 	liveSite?: string
-): Promise< { url: string } > {
-	const { url } = await runCliCommand(
+): Promise< { url: string; editedThemes?: string[] } > {
+	const { url, editedThemes } = await runCliCommand(
 		executeCliCommand,
 		[
 			...( hostname
@@ -139,7 +144,7 @@ export async function publishPreviewSite(
 		previewResultSchema,
 		{ logPrefix: 'preview' }
 	);
-	return { url };
+	return { url, editedThemes };
 }
 
 export async function deletePreviewSite(

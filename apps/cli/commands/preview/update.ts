@@ -33,7 +33,7 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { createWpcomPreviewSite } from './create';
+import { createWpcomPreviewSite, warnAboutEditedDefaultThemes } from './create';
 
 async function getSnapshotToUpdate(
 	snapshots: Snapshot[],
@@ -104,6 +104,7 @@ export async function runCommand(
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
 		let snapshot: Snapshot;
+		let editedThemes: string[];
 
 		// A preview made on Jurassic Ninja moves to WordPress.com when it's updated.
 		if ( ! isWpcomPreview( snapshotToUpdate ) ) {
@@ -118,6 +119,7 @@ export async function runCommand(
 				reportStep,
 				onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
 			} );
+			editedThemes = created.editedThemes;
 			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 			snapshot = await saveSnapshotToConfig(
 				siteFolder,
@@ -150,6 +152,7 @@ export async function runCommand(
 			);
 		} else {
 			await validateSiteSize( siteFolder, { onWpcom: true } );
+			editedThemes = await warnAboutEditedDefaultThemes( siteFolder, logger );
 
 			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 			// The version is taken under the same lock as the archive, so it's what the preview holds.
@@ -200,7 +203,7 @@ export async function runCommand(
 		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
-		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
+		logger.reportResult( { name: snapshot.name, url: snapshot.url, editedThemes } );
 		return snapshot;
 	} catch ( error ) {
 		if ( siteId ) {

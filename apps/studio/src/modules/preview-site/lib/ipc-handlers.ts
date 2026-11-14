@@ -22,7 +22,7 @@ export async function publishPreviewSite(
 	hostname?: string,
 	name?: string,
 	liveSite?: string
-): Promise< { url: string } > {
+): Promise< { url: string; editedThemes?: string[] } > {
 	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname, name, liveSite );
 }
 

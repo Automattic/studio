@@ -82,11 +82,13 @@ export function isTracksEventName( value: unknown ): value is TracksEventName {
 	return typeof value === 'string' && TRACKS_EVENT_NAMES.has( value );
 }
 
-// Phase 1 is anonymous-only: `_ut=anon` with an anonymous install UUID. No PII is ever attached.
-export interface TracksIdentity {
-	type: 'anon';
-	id: string;
-}
+// Logged out: `_ut=anon` with the anonymous install UUID. Logged in to WordPress.com:
+// `_ut=wpcom:user_id` with the account's user id, plus the install UUID as the `install_id` prop so
+// an install's logged-out and logged-in events can be joined. Resolved by `getTracksIdentity()` in
+// `./shared-config.ts`; nothing else about the account is ever attached.
+export type TracksIdentity =
+	| { type: 'anon'; id: string }
+	| { type: 'wpcom:user_id'; id: string; installId: string };
 
 export type TracksProps = Record< string, string | number | boolean | undefined >;
 
@@ -266,6 +268,9 @@ export function __buildTracksPixelUrl(
 	params.set( '_ut', identity.type );
 	params.set( '_ui', identity.id );
 	params.set( '_ts', String( timestampMs ) );
+	if ( identity.type === 'wpcom:user_id' ) {
+		params.set( 'install_id', identity.installId );
+	}
 
 	for ( const [ key, value ] of Object.entries( props ) ) {
 		if ( value !== undefined ) {

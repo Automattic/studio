@@ -17,6 +17,7 @@ import {
 	readAuthToken,
 	getCurrentUserId,
 	getOrCreateAnalyticsInstallId,
+	getTracksIdentity,
 	SharedConfigVersionMismatchError,
 } from '@studio/common/lib/shared-config';
 import {
@@ -400,6 +401,48 @@ describe( 'Shared Config', () => {
 			await getOrCreateAnalyticsInstallId();
 
 			expect( calls ).toEqual( [ 'lock', 'write', 'unlock' ] );
+		} );
+	} );
+
+	describe( 'getTracksIdentity', () => {
+		it( 'is the WordPress.com user id when logged in, carrying the install id', async () => {
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						authToken: validToken,
+						analyticsInstallId: 'existing-id',
+					} )
+				)
+			);
+
+			expect( await getTracksIdentity() ).toEqual( {
+				type: 'wpcom:user_id',
+				id: '123',
+				installId: 'existing-id',
+			} );
+		} );
+
+		it( 'is the anonymous install id when logged out', async () => {
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from( JSON.stringify( { version: 1, analyticsInstallId: 'existing-id' } ) )
+			);
+
+			expect( await getTracksIdentity() ).toEqual( { type: 'anon', id: 'existing-id' } );
+		} );
+
+		it( 'is the anonymous install id when the token has expired', async () => {
+			vi.mocked( readFile ).mockResolvedValue(
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						authToken: expiredToken,
+						analyticsInstallId: 'existing-id',
+					} )
+				)
+			);
+
+			expect( await getTracksIdentity() ).toEqual( { type: 'anon', id: 'existing-id' } );
 		} );
 	} );
 } );

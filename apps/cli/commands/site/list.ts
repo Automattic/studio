@@ -97,7 +97,8 @@ export async function listSites() {
 	}
 	await connectToDaemon();
 	try {
-		const { jsonEntries } = await getSiteListData( sites );
+		// Read again: connecting can replace an outdated daemon and start its sites with new pids.
+		const { jsonEntries } = await getSiteListData( ( await readCliConfig() ).sites );
 		return jsonEntries.map( pickPublicSiteFields );
 	} finally {
 		await disconnectFromDaemon();
@@ -127,7 +128,8 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		await connectToDaemon();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 
-		const siteListData = await getSiteListData( cliConfig.sites );
+		// Read again: connecting can replace an outdated daemon and start its sites with new pids.
+		const siteListData = await getSiteListData( ( await readCliConfig() ).sites );
 		displaySiteList( siteListData, format );
 	} finally {
 		await disconnectFromDaemon();

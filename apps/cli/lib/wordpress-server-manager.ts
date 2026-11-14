@@ -36,7 +36,7 @@ import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
+import { ProcessDescription, SITE_PROCESS_PREFIX } from 'cli/lib/types/process-manager-ipc';
 import {
 	ServerConfig,
 	ManagerMessagePayload,
@@ -45,7 +45,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 
-export const SITE_PROCESS_PREFIX = 'studio-site-';
+export { SITE_PROCESS_PREFIX };
 
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.

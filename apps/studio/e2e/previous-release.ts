@@ -98,7 +98,9 @@ export async function preparePreviousRelease(): Promise< { version: string; appP
 	if ( process.platform === 'darwin' ) {
 		execFileSync( 'ditto', [ '-x', '-k', archive, extractDir ] );
 	} else if ( process.platform === 'win32' ) {
-		execFileSync( 'tar', [ '-xf', archive, '-C', extractDir ] );
+		// Windows' own tar reads zip files; the GNU tar of Git Bash, first on CI's PATH, doesn't.
+		const tar = path.join( process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe' );
+		execFileSync( tar, [ '-xf', archive, '-C', extractDir ] );
 	} else {
 		execFileSync( 'dpkg-deb', [ '-x', archive, extractDir ] );
 	}

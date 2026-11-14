@@ -138,6 +138,9 @@ export class E2ESession {
 	}
 
 	async closeApp() {
+		if ( ! this.electronApp ) {
+			return;
+		}
 		console.log( 'Closing app...' );
 		const childProcess = this.electronApp.process();
 

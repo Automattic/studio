@@ -349,6 +349,7 @@ export function toToolDefinition(
 						left,
 						site: resultSite,
 						resultText,
+						requestText: JSON.stringify( params ),
 					},
 					afterTime
 				);

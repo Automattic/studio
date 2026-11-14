@@ -65,7 +65,7 @@ interface Sources {
 	// whose note must reach that call's own result, not the next one's, is
 	// one of these too.
 	fix: Record< string, ( file: SiteFile ) => Notes >;
-	result: Record< string, ( sitePath: string, text: string ) => Notes >;
+	result: Record< string, ( sitePath: string, text: string, request?: string ) => Notes >;
 }
 
 interface SiteNotesOptions {
@@ -215,8 +215,8 @@ export interface SiteNotes {
 	 * before its result, so its afterWrite() is `fixed`.
 	 */
 	fixWrite( filePath: string ): Promise< string[] >;
-	/** The notes on a Studio tool's result about this site. */
-	afterResult( sitePath: string, text: string ): Promise< string[] >;
+	/** The notes on a Studio tool's result about this site, and on the call's arguments. */
+	afterResult( sitePath: string, text: string, request?: string ): Promise< string[] >;
 	/** The time each source of notes took since the last take, for a profile. */
 	takeSourceMs(): Record< string, number >;
 }
@@ -293,11 +293,11 @@ export function createSiteNotes(
 				? notes
 				: [ ...notes, ...rewriteNotes( filePath, written, now ) ];
 		},
-		async afterResult( sitePath, text ) {
+		async afterResult( sitePath, text, request ) {
 			return collect(
 				Object.entries( result ).map( ( [ name, source ] ) => [
 					name,
-					() => source( sitePath, text ),
+					() => source( sitePath, text, request ),
 				] ),
 				sourceMs
 			);
@@ -328,12 +328,15 @@ export async function notesAfterCall(
 		left,
 		site,
 		resultText,
+		requestText,
 	}: {
 		changes: SettledChanges[];
 		writtenFile?: string;
 		left?: string;
 		site?: string;
 		resultText: string;
+		/** The call's arguments, as a command a shell tool ran. */
+		requestText?: string;
 	},
 	time: < T >( stage: string, run: () => Promise< T > ) => Promise< T > = ( _stage, run ) => run()
 ): Promise< string[] > {
@@ -353,7 +356,9 @@ export async function notesAfterCall(
 	}
 	if ( site ) {
 		notes.push(
-			...( await time( 'resultNotes', () => siteNotes.afterResult( site, resultText ) ) )
+			...( await time( 'resultNotes', () =>
+				siteNotes.afterResult( site, resultText, requestText )
+			) )
 		);
 	}
 	return [

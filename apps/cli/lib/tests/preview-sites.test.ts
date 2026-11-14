@@ -147,10 +147,19 @@ describe( 'Preview sites', () => {
 		} );
 	} );
 
-	it( 'fails when the archive import fails', async () => {
-		get.mockResolvedValue( { importId: 'new', importStatus: 'importFailure' } );
+	it( 'includes the WordPress.com reference when an archive import fails', async () => {
+		get.mockResolvedValue( {
+			importId: 'new',
+			importStatus: 'importFailure',
+			errorData: {
+				description: 'An error occurred while importing your content. Import reference #1234',
+			},
+		} );
 
-		await expect( createPreviewSite( 678, 'My Preview', token ) ).rejects.toThrow( LoggerError );
+		await expect( createPreviewSite( 678, 'My Preview', token ) ).rejects.toMatchObject( {
+			message: 'The preview site could not be built from the archive. Import reference #1234.',
+			code: 'preview_import_failed',
+		} );
 	} );
 
 	it( 'waits for the new import on update, then reads the preview link', async () => {

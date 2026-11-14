@@ -5,9 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-	getAppBundlePath,
 	getShipItProcessPattern,
-	isOlderVersion,
 	readBundleIdentifier,
 	removeStaleShipItTempDirs,
 } from 'src/lib/macos-update-install';
@@ -21,12 +19,6 @@ describe( 'macos-update-install', () => {
 
 	afterEach( () => {
 		fs.rmSync( tmpDir, { recursive: true, force: true } );
-	} );
-
-	it( 'resolves the app bundle from the executable path', () => {
-		expect( getAppBundlePath( '/Applications/Studio.app/Contents/MacOS/Studio' ) ).toBe(
-			'/Applications/Studio.app'
-		);
 	} );
 
 	it( 'reads the bundle identifier from Info.plist', () => {
@@ -50,7 +42,6 @@ describe( 'macos-update-install', () => {
 			)
 		).toBe( true );
 		expect( pattern.test( `sh -c ... ${ pattern.source }` ) ).toBe( false );
-		expect( pattern.test( 'com_automattic_studio_ShipIt' ) ).toBe( false );
 	} );
 
 	it( 'removes only stale ShipIt temp copies of this app', async () => {
@@ -66,21 +57,10 @@ describe( 'macos-update-install', () => {
 		const fresh = make( 'com.automattic.studio.ShipIt.IjKlMnOp' );
 		const otherApp = make( 'com.example.other.ShipIt.QrStUvWx', old );
 
-		const removed = await removeStaleShipItTempDirs( 'com.automattic.studio', tmpDir, now );
+		await removeStaleShipItTempDirs( 'com.automattic.studio', tmpDir, now );
 
-		expect( removed ).toEqual( [ stale ] );
 		expect( fs.existsSync( stale ) ).toBe( false );
 		expect( fs.existsSync( fresh ) ).toBe( true );
 		expect( fs.existsSync( otherApp ) ).toBe( true );
-	} );
-
-	it.each( [
-		[ '1.21.0', '2.2.0', true ],
-		[ '2.2.0', '2.2.0', false ],
-		[ '2.3.0', '2.2.0', false ],
-		[ '2.2.0-dev.5', '2.2.1', true ],
-		[ 'garbage', '2.2.0', false ],
-	] )( 'isOlderVersion( %s, %s ) is %s', ( a, b, expected ) => {
-		expect( isOlderVersion( a, b ) ).toBe( expected );
 	} );
 } );

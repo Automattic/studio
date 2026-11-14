@@ -46,6 +46,7 @@ import {
 	loadLocaleData,
 	setMacAppLanguage,
 } from 'src/lib/locale-node';
+import { handOffToRunningUpdateInstall } from 'src/lib/macos-update-install';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { forwardPreviewShortcut } from 'src/lib/preview-shortcuts';
@@ -78,7 +79,7 @@ import {
 	updateAppdata,
 	type QuitSitesBehavior,
 } from 'src/storage/user-data';
-import { getAutoUpdaterState, handOffToRunningUpdateInstall, setupUpdates } from 'src/updates';
+import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import-x/order
 import packageJson from '../package.json';
 

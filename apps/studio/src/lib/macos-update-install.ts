@@ -1,14 +1,17 @@
+import { app, dialog } from 'electron';
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { __ } from '@wordpress/i18n';
 
 /**
- * Helpers around Squirrel.Mac's ShipIt, the helper process that swaps the app bundle for a
- * downloaded update once Studio quits. Copying a large bundle takes minutes, and anything the
- * old app does in that window (like downloading the update again) can break the install.
+ * Squirrel.Mac's ShipIt swaps the app bundle for a downloaded update once Studio quits. Copying a
+ * large bundle takes minutes, and if the old app is opened meanwhile and downloads the update
+ * again, it deletes the files ShipIt is installing from and the install fails.
  */
 
-export const RELAUNCHED_AFTER_UPDATE_ARG = '--relaunched-after-update';
+const RELAUNCHED_AFTER_UPDATE_ARG = '--relaunched-after-update';
 
 // ShipIt keeps running for a moment after it relaunches the app on "Restart", so a ShipIt
 // that's still around right at launch isn't necessarily installing anything.
@@ -16,11 +19,6 @@ const SHIPIT_SETTLE_MS = 3000;
 const SHIPIT_POLL_MS = 250;
 const MAX_INSTALL_WAIT_SECONDS = 15 * 60;
 const STALE_TEMP_DIR_AGE_MS = 60 * 60 * 1000;
-
-/** `/Applications/Studio.app` for an executable at `/Applications/Studio.app/Contents/MacOS/Studio`. */
-export function getAppBundlePath( exePath: string ): string {
-	return path.posix.resolve( exePath, '..', '..', '..' );
-}
 
 export function readBundleIdentifier( appBundlePath: string ): string | null {
 	try {
@@ -33,113 +31,116 @@ export function readBundleIdentifier( appBundlePath: string ): string | null {
 	}
 }
 
-/** Squirrel names ShipIt's launchd job, and its temp directories, after the app's bundle id. */
-function getShipItJobLabel( bundleId: string ): string {
-	return `${ bundleId }.ShipIt`;
-}
-
 /**
- * A `pgrep -f` pattern for the app's ShipIt. The first character is wrapped in a bracket
- * expression so the pattern doesn't match a command line that merely contains it, like the
- * relaunch helper's own `sh` process.
+ * A `pgrep -f` pattern for the app's ShipIt, whose job and temp directories are named
+ * `<bundle id>.ShipIt`. The bracketed first character keeps it from matching a command line that
+ * contains the pattern itself, like the relaunch helper's `sh`.
  */
 export function getShipItProcessPattern( bundleId: string ): string {
-	const escaped = getShipItJobLabel( bundleId ).replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
-	return `[${ escaped[ 0 ] }]${ escaped.slice( 1 ) }`;
+	return `[${ bundleId[ 0 ] }]${ bundleId.slice( 1 ) }.ShipIt`;
 }
 
 function isShipItRunning( bundleId: string ): boolean {
-	const result = spawnSync( 'pgrep', [ '-f', getShipItProcessPattern( bundleId ) ], {
-		stdio: 'ignore',
-	} );
-	return result.status === 0;
+	return (
+		spawnSync( 'pgrep', [ '-f', getShipItProcessPattern( bundleId ) ], { stdio: 'ignore' } )
+			.status === 0
+	);
 }
 
-function sleepSync( ms: number ) {
-	Atomics.wait( new Int32Array( new SharedArrayBuffer( 4 ) ), 0, 0, ms );
-}
-
-/** Whether ShipIt is still running once the brief exit after a relaunch has had time to finish. */
-export function isUpdateInstallInProgress( bundleId: string ): boolean {
+function isUpdateInstallInProgress( bundleId: string ): boolean {
 	for ( let waited = 0; waited < SHIPIT_SETTLE_MS; waited += SHIPIT_POLL_MS ) {
 		if ( ! isShipItRunning( bundleId ) ) {
 			return false;
 		}
-		sleepSync( SHIPIT_POLL_MS );
+		Atomics.wait( new Int32Array( new SharedArrayBuffer( 4 ) ), 0, 0, SHIPIT_POLL_MS );
 	}
 	return isShipItRunning( bundleId );
 }
 
-/**
- * Starts a detached helper that waits for ShipIt to finish (or gives up after a while) and then
- * opens the app again, so the user lands on whichever version ShipIt left in place.
- */
-export function relaunchAfterUpdateInstall( bundleId: string, appBundlePath: string ): void {
-	const script = [
-		'i=0',
-		'while pgrep -f "$1" >/dev/null 2>&1 && [ "$i" -lt "$3" ]; do sleep 1; i=$((i+1)); done',
-		'sleep 1',
-		`open "$2" --args ${ RELAUNCHED_AFTER_UPDATE_ARG }`,
-	].join( '\n' );
-	const child = spawn(
-		'/bin/sh',
-		[
-			'-c',
-			script,
-			'sh',
-			getShipItProcessPattern( bundleId ),
-			appBundlePath,
-			String( MAX_INSTALL_WAIT_SECONDS ),
-		],
-		{ detached: true, stdio: 'ignore' }
-	);
-	child.unref();
+function getAppBundlePath(): string {
+	// `<bundle>.app/Contents/MacOS/<executable>`
+	return path.resolve( app.getPath( 'exe' ), '..', '..', '..' );
 }
 
 /**
- * Removes the working copies ShipIt leaves in the temp directory when an install fails. Each is
- * a full copy of the app, so repeated failures can add up to gigabytes. Only call this while
- * ShipIt isn't running.
+ * When Studio is opened while ShipIt is installing an update, quits and starts a detached helper
+ * that opens Studio again once ShipIt is done. Returns true when it took over the launch.
+ */
+export function handOffToRunningUpdateInstall(): boolean {
+	if (
+		process.platform !== 'darwin' ||
+		! app.isPackaged ||
+		process.env.E2E ||
+		process.argv.includes( RELAUNCHED_AFTER_UPDATE_ARG )
+	) {
+		return false;
+	}
+
+	const appBundlePath = getAppBundlePath();
+	const bundleId = readBundleIdentifier( appBundlePath );
+	if ( ! bundleId || ! isUpdateInstallInProgress( bundleId ) ) {
+		return false;
+	}
+
+	console.log( 'An update is being installed, Studio will reopen when it finishes' );
+	void app.whenReady().then( () => {
+		dialog.showMessageBoxSync( {
+			type: 'info',
+			message: __( 'WordPress Studio is finishing an update' ),
+			detail: __(
+				'This can take a few minutes. WordPress Studio will open again on its own when the update is installed.'
+			),
+			buttons: [ __( 'OK' ) ],
+		} );
+		const script = [
+			'i=0',
+			'while pgrep -f "$1" >/dev/null 2>&1 && [ "$i" -lt "$3" ]; do sleep 1; i=$((i+1)); done',
+			'sleep 1',
+			`open "$2" --args ${ RELAUNCHED_AFTER_UPDATE_ARG }`,
+		].join( '\n' );
+		spawn(
+			'/bin/sh',
+			[
+				'-c',
+				script,
+				'sh',
+				getShipItProcessPattern( bundleId ),
+				appBundlePath,
+				String( MAX_INSTALL_WAIT_SECONDS ),
+			],
+			{ detached: true, stdio: 'ignore' }
+		).unref();
+		app.exit( 0 );
+	} );
+	return true;
+}
+
+/**
+ * Removes the working copies ShipIt leaves in the temp directory when an install fails: each is a
+ * full copy of the app. Called at launch, once a running install has been handed off.
  */
 export async function removeStaleShipItTempDirs(
-	bundleId: string,
-	tmpDir: string,
+	bundleId = readBundleIdentifier( getAppBundlePath() ),
+	tmpDir = os.tmpdir(),
 	now = Date.now()
-): Promise< string[] > {
-	const prefix = `${ getShipItJobLabel( bundleId ) }.`;
+): Promise< void > {
+	if ( ! bundleId ) {
+		return;
+	}
 	const entries = await fs.promises.readdir( tmpDir, { withFileTypes: true } ).catch( () => [] );
-	const removed: string[] = [];
 	for ( const entry of entries ) {
-		if ( ! entry.isDirectory() || ! entry.name.startsWith( prefix ) ) {
+		if ( ! entry.isDirectory() || ! entry.name.startsWith( `${ bundleId }.ShipIt.` ) ) {
 			continue;
 		}
 		const dirPath = path.join( tmpDir, entry.name );
 		try {
 			const { mtimeMs } = await fs.promises.stat( dirPath );
-			if ( now - mtimeMs < STALE_TEMP_DIR_AGE_MS ) {
-				continue;
+			if ( now - mtimeMs >= STALE_TEMP_DIR_AGE_MS ) {
+				await fs.promises.rm( dirPath, { recursive: true, force: true } );
+				console.log( `Removed leftover update copy ${ dirPath }` );
 			}
-			await fs.promises.rm( dirPath, { recursive: true, force: true } );
-			removed.push( dirPath );
 		} catch ( error ) {
-			console.warn( `Failed to remove ShipIt temp directory ${ dirPath }`, error );
+			console.warn( `Failed to remove leftover update copy ${ dirPath }`, error );
 		}
 	}
-	return removed;
-}
-
-/** Whether version `a` is older than `b`, comparing the numeric `x.y.z` part only. */
-export function isOlderVersion( a: string, b: string ): boolean {
-	const parse = ( version: string ) =>
-		( /^(\d+)\.(\d+)\.(\d+)/.exec( version ) ?? [] ).slice( 1 ).map( Number );
-	const [ partsA, partsB ] = [ parse( a ), parse( b ) ];
-	if ( partsA.length !== 3 || partsB.length !== 3 ) {
-		return false;
-	}
-	for ( let i = 0; i < 3; i++ ) {
-		if ( partsA[ i ] !== partsB[ i ] ) {
-			return partsA[ i ] < partsB[ i ];
-		}
-	}
-	return false;
 }

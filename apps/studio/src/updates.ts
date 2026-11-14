@@ -1,19 +1,10 @@
 import { app, autoUpdater, clipboard, dialog } from 'electron';
-import os from 'node:os';
 import * as Sentry from '@sentry/electron/main';
 import { isDevRelease } from '@studio/common/lib/dev-release';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
-import {
-	RELAUNCHED_AFTER_UPDATE_ARG,
-	getAppBundlePath,
-	isOlderVersion,
-	isUpdateInstallInProgress,
-	readBundleIdentifier,
-	relaunchAfterUpdateInstall,
-	removeStaleShipItTempDirs,
-} from 'src/lib/macos-update-install';
+import { removeStaleShipItTempDirs } from 'src/lib/macos-update-install';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { getExistingMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
@@ -40,15 +31,7 @@ let timeout: NodeJS.Timeout | null = null;
 
 let showManualCheckDialogs = false;
 
-// Set once launches keep coming up on the old version after an update was downloaded, so the
-// updater offers a manual download instead of downloading the same update again.
-let installKeepsFailing = false;
-
 const shouldPoll = process.env.NODE_ENV === 'production' && app.isPackaged;
-
-const MANUAL_DOWNLOAD_URL = 'https://wordpress.studio/';
-// Launches on the old version after a downloaded update before we stop retrying it.
-const MAX_FAILED_UPDATE_LAUNCHES = 2;
 
 const STUDIO_UPDATES_ENDPOINT = 'https://public-api.wordpress.com/wpcom/v2/studio-app/updates';
 
@@ -106,126 +89,6 @@ function classifyTransientUpdateError( err: Error ): 'lock' | 'network' | null {
 		return 'network';
 	}
 	return null;
-}
-
-/**
- * When Studio is opened while ShipIt is still installing an update on macOS, quits and opens
- * Studio again once the install is done. Running the old app meanwhile would download the update
- * again, which deletes the files ShipIt is installing from and makes the install fail.
- *
- * Returns true when it took over the launch; the caller must not continue booting.
- */
-export function handOffToRunningUpdateInstall(): boolean {
-	if (
-		process.platform !== 'darwin' ||
-		! shouldPoll ||
-		process.env.E2E ||
-		process.argv.includes( RELAUNCHED_AFTER_UPDATE_ARG )
-	) {
-		return false;
-	}
-
-	const appBundlePath = getAppBundlePath( app.getPath( 'exe' ) );
-	const bundleId = readBundleIdentifier( appBundlePath );
-	if ( ! bundleId || ! isUpdateInstallInProgress( bundleId ) ) {
-		return false;
-	}
-
-	console.log( 'An update is being installed, Studio will reopen when it finishes' );
-	void app.whenReady().then( () => {
-		dialog.showMessageBoxSync( {
-			type: 'info',
-			message: __( 'WordPress Studio is finishing an update' ),
-			detail: __(
-				'This can take a few minutes. WordPress Studio will open again on its own when the update is installed.'
-			),
-			buttons: [ __( 'OK' ) ],
-		} );
-		relaunchAfterUpdateInstall( bundleId, appBundlePath );
-		app.exit( 0 );
-	} );
-	return true;
-}
-
-async function rememberPendingUpdate( version: string ) {
-	try {
-		const { pendingAppUpdate } = await loadUserData();
-		await updateAppdata( {
-			pendingAppUpdate: {
-				version,
-				failedLaunches: pendingAppUpdate?.version === version ? pendingAppUpdate.failedLaunches : 0,
-			},
-		} );
-	} catch ( error ) {
-		console.error( 'Failed to save the pending update', error );
-	}
-}
-
-/**
- * Counts this launch against the update downloaded earlier, if there is one. Squirrel installs a
- * downloaded update when Studio quits, so still running an older version means it didn't install.
- * Returns whether that keeps happening.
- */
-async function isPendingUpdateStuck(): Promise< boolean > {
-	try {
-		const { pendingAppUpdate } = await loadUserData();
-		if ( ! pendingAppUpdate ) {
-			return false;
-		}
-		if ( ! isOlderVersion( app.getVersion(), pendingAppUpdate.version ) ) {
-			await updateAppdata( { pendingAppUpdate: undefined } );
-			return false;
-		}
-		const failedLaunches = pendingAppUpdate.failedLaunches + 1;
-		await updateAppdata( { pendingAppUpdate: { ...pendingAppUpdate, failedLaunches } } );
-		return failedLaunches >= MAX_FAILED_UPDATE_LAUNCHES;
-	} catch ( error ) {
-		console.error( 'Failed to read the pending update', error );
-		return false;
-	}
-}
-
-function removeShipItLeftovers() {
-	const bundleId = readBundleIdentifier( getAppBundlePath( app.getPath( 'exe' ) ) );
-	if ( ! bundleId ) {
-		return;
-	}
-	void removeStaleShipItTempDirs( bundleId, os.tmpdir() ).then( ( removed ) => {
-		if ( removed.length ) {
-			console.log( `Removed ${ removed.length } leftover update copies` );
-		}
-	} );
-}
-
-async function showInstallFailedNotice() {
-	const { response } = await dialog.showMessageBox( {
-		type: 'warning',
-		message: __( 'WordPress Studio couldn’t install the update' ),
-		detail: __(
-			'The update was downloaded but couldn’t be installed automatically. Download the latest version and replace WordPress Studio in your Applications folder to update.'
-		),
-		buttons: [ __( 'Download' ), __( 'Later' ) ],
-		defaultId: 0,
-		cancelId: 1,
-	} );
-	if ( response === 0 ) {
-		void shellOpenExternalWrapper( MANUAL_DOWNLOAD_URL );
-	}
-}
-
-function giveUpOnStuckUpdate() {
-	console.warn( 'The downloaded update keeps failing to install, offering a manual download' );
-	Sentry.captureMessage( 'macOS update keeps failing to install' );
-	installKeepsFailing = true;
-	updaterState = 'done';
-	lastError = {
-		reason: 'generic',
-		detail: __(
-			'The update couldn’t be installed automatically. Download the latest version from wordpress.studio.'
-		),
-	};
-	emitAppUpdateStatus();
-	void app.whenReady().then( showInstallFailedNotice );
 }
 
 export function setupUpdates() {
@@ -340,9 +203,6 @@ export function setupUpdates() {
 		lastError = null;
 		downloadedVersion = typeof releaseName === 'string' ? releaseName : null;
 		console.log( 'Update has been downloaded', { version: downloadedVersion } );
-		if ( shouldPoll && process.platform === 'darwin' && downloadedVersion ) {
-			await rememberPendingUpdate( downloadedVersion );
-		}
 		emitAppUpdateStatus();
 	} );
 
@@ -361,21 +221,9 @@ export function setupUpdates() {
 	}
 
 	if ( process.platform === 'darwin' ) {
-		removeShipItLeftovers();
-		void ( async () => {
-			if ( await isPendingUpdateStuck() ) {
-				giveUpOnStuckUpdate();
-				return;
-			}
-			checkForUpdatesOnLaunch();
-		} )();
-		return;
+		void removeStaleShipItTempDirs();
 	}
 
-	checkForUpdatesOnLaunch();
-}
-
-function checkForUpdatesOnLaunch() {
 	if ( isDevRelease( app.getVersion() ) ) {
 		// For nightly builds, respect a 24-hour TTL to avoid checking on every launch.
 		// If the TTL hasn't elapsed, schedule the next check for the remaining time.
@@ -406,11 +254,6 @@ function checkForUpdatesOnLaunch() {
 }
 
 export async function manualCheckForUpdates() {
-	if ( installKeepsFailing ) {
-		await showInstallFailedNotice();
-		return;
-	}
-
 	if ( updaterState === 'waiting-for-restart' ) {
 		// Not a valid state to check for updates: the user should restart instead. Re-emitting
 		// re-surfaces the sidebar card if they dismissed it, so the menu item still does something.

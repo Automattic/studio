@@ -241,7 +241,14 @@ export function pageBandGaps( page: Page ): Promise< string[] > {
 			const background = behind( parent );
 			blocks.slice( 1 ).forEach( ( block, index ) => {
 				const before = blocks[ index ];
-				if ( ! fullWidth( before ) || ! fullWidth( block ) ) {
+				// A template part has no margin of its own to close a strip
+				// (its block.json supports none), so only the theme's block gap
+				// does, which spaces every block of every layout.
+				if (
+					! fullWidth( before ) ||
+					! fullWidth( block ) ||
+					block.classList.contains( 'wp-block-template-part' )
+				) {
 					return;
 				}
 				const bottom = before.getBoundingClientRect().bottom + window.scrollY;
@@ -263,7 +270,7 @@ export function pageBandGaps( page: Page ): Promise< string[] > {
 		}
 		return gaps.length
 			? [
-					"The page's background shows as a strip between full-width blocks, the top margin WordPress gives each block after the first in a layout from its block gap (wp_get_layout_style() in wp-includes/block-supports/layout.php; for the header, main and footer, :where(.wp-site-blocks) > * in WP_Theme_JSON::get_root_layout_rules()):",
+					'The page\'s background shows as a strip between full-width blocks, the top margin WordPress gives each block after the first in a layout from its block gap (wp_get_layout_style() in wp-includes/block-supports/layout.php). The block under a strip closes it with its own `"style":{"spacing":{"margin":{"top":"0"}}}`, as Twenty Twenty-Five\'s page-no-title template gives its main group; the theme\'s styles.spacing.blockGap spaces every block of every layout, a menu\'s items among them:',
 					...gaps.sort( ( a, b ) => a.y - b.y ).map( ( gap ) => `  ${ gap.line }` ),
 			  ]
 			: [];

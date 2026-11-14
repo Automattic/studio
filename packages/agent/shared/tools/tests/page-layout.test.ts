@@ -106,13 +106,17 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				<div class="wp-block-group" style="max-width:600px;margin-inline:auto;height:300px"></div>
 				<div class="wp-block-group alignfull band" style="background:#2743c4;height:200px"></div>
 			</main>
+			<footer class="wp-block-template-part"><div class="wp-block-group" style="background:#10111a;height:90px"></div></footer>
 		</div>` );
 		// Not where the page's color meets the gap, as past a block's padding, which reads as its own space,
-		// nor across a narrower block between two, which port eval24 redo run 1 read as a 1856px strip.
+		// nor across a narrower block between two, which port eval24 redo run 1 read as a 1856px strip,
+		// nor above a template part, which eval45's port closed by zeroing the theme's block gap.
 		expect(
 			layout.filter( ( line ) => line.includes( 'background' ) || line.startsWith( '  y' ) )
 		).toEqual( [
-			"The page's background shows as a strip between full-width blocks, the top margin WordPress gives each block after the first in a layout from its block gap (wp_get_layout_style() in wp-includes/block-supports/layout.php; for the header, main and footer, :where(.wp-site-blocks) > * in WP_Theme_JSON::get_root_layout_rules()):",
+			expect.stringMatching(
+				/^The page's background shows as a strip between full-width blocks.*closes it with its own `"style":\{"spacing":\{"margin":\{"top":"0"\}\}\}`/
+			),
 			'  y 90–114 (24px), between header.wp-block-template-part and main.wp-block-group',
 			'  y 614–638 (24px), between div.wp-block-group.alignfull.hero and div.wp-block-group.alignfull.stats',
 		] );

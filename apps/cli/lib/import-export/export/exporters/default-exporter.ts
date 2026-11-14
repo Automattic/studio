@@ -1,5 +1,6 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
+import { pipeline } from 'node:stream/promises';
 import os from 'os';
 import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
@@ -33,6 +34,7 @@ import {
 	StudioJson,
 	StudioJsonPluginOrTheme,
 } from '../types';
+import { validateExportArchive } from '../validate-archive';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
@@ -120,31 +122,55 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
-		const output = fs.createWriteStream( this.options.backupFile );
-		this.archiveBuilder = this.createArchiveBuilder();
-
-		const archiveClosedPromise = this.setupArchiveListeners( output );
-
-		this.archiveBuilder.pipe( output );
-
+		let stagingDirectory: string | undefined;
 		try {
-			this.addWpConfig();
-			await this.addWpContent();
-			await this.addDatabase();
-			const studioJsonPath = await this.createStudioJsonFile();
-			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
-			await this.archiveBuilder.finalize();
+			const parent = await fsPromises.realpath( path.dirname( this.options.backupFile ) );
+			const destination = path.join( parent, path.basename( this.options.backupFile ) );
+			stagingDirectory = await fsPromises.mkdtemp( path.join( parent, '.studio-export-' ) );
+			const stagedArchive = path.join( stagingDirectory, path.basename( destination ) );
+			await this.writeArchive( stagedArchive, destination );
+			await validateExportArchive( stagedArchive );
+			await fsPromises.rename( stagedArchive, destination );
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
-			await archiveClosedPromise;
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
-			this.archiveBuilder.abort();
 			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
 			throw error;
 		} finally {
+			if ( stagingDirectory ) {
+				await fsPromises
+					.rm( stagingDirectory, { recursive: true, force: true } )
+					.catch( ( error ) => console.error( 'Failed to remove staged export:', error ) );
+			}
 			if ( this.options.includes.database ) {
 				await this.cleanupTempFiles();
 			}
+		}
+	}
+
+	private async writeArchive( stagedArchive: string, destination: string ): Promise< void > {
+		this.archiveBuilder = this.createArchiveBuilder();
+		this.setupArchiveListeners();
+		const output = fs.createWriteStream( stagedArchive );
+		const archiveWritten = pipeline( this.archiveBuilder, output ).catch( ( error ) => {
+			throw new LoggerError( __( 'Failed to write export archive' ), error, 'archive' );
+		} );
+		// The stream can fail while the database or site metadata is still being exported.
+		void archiveWritten.catch( () => {} );
+
+		try {
+			this.addWpConfig();
+			const outputPaths = [ stagedArchive, destination ];
+			await this.addWpContent( path.dirname( stagedArchive ), outputPaths );
+			await this.addDatabase();
+			const studioJsonPath = await this.createStudioJsonFile();
+			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
+			await Promise.all( [ this.archiveBuilder.finalize(), archiveWritten ] );
+		} catch ( error ) {
+			this.archiveBuilder.abort();
+			output.destroy();
+			await archiveWritten.catch( () => {} );
+			throw error;
 		}
 	}
 
@@ -156,26 +182,14 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			: new TarArchive( ARCHIVER_OPTIONS.tar );
 	}
 
-	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {
-		return new Promise( ( resolve, reject ) => {
-			output.on( 'close', () => {
-				resolve();
+	private setupArchiveListeners(): void {
+		this.archiveBuilder.on( 'warning', ( error ) => {
+			this.archiveBuilder.destroy( error );
+		} );
+		this.archiveBuilder.on( 'progress', ( progress ) => {
+			this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
+				progress,
 			} );
-
-			this.archiveBuilder.on( 'warning', ( err ) => {
-				if ( err.code === 'ENOENT' ) {
-					console.warn( __( 'Archiver warning:' ), err );
-				} else {
-					reject( err );
-				}
-			} );
-			this.archiveBuilder.on( 'progress', ( progress ) => {
-				this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
-					progress,
-				} );
-			} );
-
-			this.archiveBuilder.on( 'error', reject );
 		} );
 	}
 
@@ -200,7 +214,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private async addWpContent(): Promise< void > {
+	private async addWpContent( stagingDirectory: string, outputPaths: string[] ): Promise< void > {
 		if ( ! this.options.includes.wpContent ) {
 			return;
 		}
@@ -224,11 +238,18 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 					continue;
 				}
 
+				const resolvedPath = await fsPromises.realpath( fullPath ).catch( () => fullPath );
+				if ( path.relative( resolvedPath, stagingDirectory ) === '' ) {
+					continue;
+				}
 				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
-					await this.addDirectory( fullPath, archivePath );
+					await this.addDirectory( fullPath, archivePath, outputPaths );
 				} else {
 					if (
+						outputPaths.some(
+							( outputPath ) => path.relative( resolvedPath, outputPath ) === ''
+						) ||
 						this.isExactPathExcluded( archivePath ) ||
 						this.options.ignoreFilter?.ignores( archivePath )
 					) {
@@ -249,7 +270,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	// file. We don't want this. By calling realpath first, we ensure the source
 	// file data is always appended. This is preferable to passing readable
 	// streams to `Archiver.append()`, which can lead to EMFILE errors.
-	private async addDirectory( dirPath: string, archivePath: string ): Promise< void > {
+	private async addDirectory(
+		dirPath: string,
+		archivePath: string,
+		outputPaths: string[]
+	): Promise< void > {
 		const relativePaths = await glob( '**/*', {
 			cwd: dirPath,
 			dot: true,
@@ -274,6 +299,12 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			}
 			try {
 				const resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
+				// The destination may be inside wp-content, including through a symlink.
+				if (
+					outputPaths.some( ( outputPath ) => path.relative( resolvedPath, outputPath ) === '' )
+				) {
+					continue;
+				}
 				this.archiveBuilder.file( resolvedPath, { name: entryPathRelativeToArchiveRoot } );
 			} catch ( error ) {
 				// Dangling symlink. Skip it rather than aborting the whole archive.

@@ -357,9 +357,18 @@ async function restartSites( processNames: string[] ) {
 			site.operation?.pid !== process.pid &&
 			fs.existsSync( site.path )
 	);
+	// A start can fail because another process, like the Desktop app starting its sites at launch,
+	// holds an operation on the site. That site is left to that process.
+	const isHandledElsewhere = async ( siteId: string ) => {
+		const site = ( await readCliConfig() ).sites.find( ( { id } ) => id === siteId );
+		return (
+			( site?.operation !== undefined && isProcessAlive( site.operation.pid ) ) ||
+			( await isProcessRunning( `${ SITE_PROCESS_PREFIX }${ siteId }` ) ) !== undefined
+		);
+	};
 	await Promise.all(
 		sitesToStart.map( async ( site ) => {
-			if ( ! ( await runSiteStart( site.path ) ) ) {
+			if ( ! ( await runSiteStart( site.path ) ) && ! ( await isHandledElsewhere( site.id ) ) ) {
 				console.error(
 					sprintf(
 						// translators: %s: site name.

@@ -1,5 +1,5 @@
 import type { TracksSyncType } from '@studio/common/lib/record-tracks-event';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { SitesProviderId } from '@studio/providers';
 
 // Kept free of Node imports so the renderers can share these helpers with the
 // main process and the `studio ui` server.
@@ -11,9 +11,12 @@ import type { SyncSite } from '@studio/common/types/sync';
  * placeholder with `isPressable` hardcoded false, and reporting that as `wpcom`
  * would invent a value we never actually observed.
  */
-export function getSyncType( site: Pick< SyncSite, 'isPressable' > | undefined ): TracksSyncType {
+export function getSyncType(
+	site: object | undefined,
+	provider: SitesProviderId = 'wpcom'
+): TracksSyncType {
 	if ( ! site ) {
 		return 'unknown';
 	}
-	return site.isPressable ? 'pressable' : 'wpcom';
+	return 'isPressable' in site && site.isPressable ? 'pressable' : provider;
 }

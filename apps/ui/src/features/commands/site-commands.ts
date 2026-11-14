@@ -1,26 +1,26 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
 import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
+	XIcon,
 	AnnotateIcon,
 	CodeIcon,
 	DatabaseIcon,
 	DuplicateIcon,
-	ExportSiteIcon,
+	FileArchiveIcon,
 	ExternalLinkIcon,
 	FolderIcon,
-	ImportIcon,
-	MailIcon,
-	NewChatIcon,
+	DownloadIcon,
+	PaperPlaneIcon,
+	SquarePenIcon,
 	PinIcon,
-	RenameIcon,
+	PencilIcon,
 	RotateCwIcon,
-	ShareIcon,
-	SiteSettingsIcon,
-	StartSiteIcon,
-	StopOtherSitesIcon,
-	StopSiteIcon,
-	SyncIcon,
+	UploadIcon,
+	SlidersVerticalIcon,
+	PlayIcon,
+	CircleStopIcon,
+	SquareIcon,
+	CloudUploadIcon,
 	TerminalIcon,
 	UnpinIcon,
 	WordPressIcon,
@@ -49,6 +49,7 @@ export function getSiteCommands( {
 	site,
 	panelShown,
 	canAnnotate,
+	nativeSites,
 	annotating,
 	actions,
 	destinations,
@@ -64,6 +65,7 @@ export function getSiteCommands( {
 	site: SiteDetails;
 	panelShown: boolean;
 	canAnnotate: boolean;
+	nativeSites: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
 	destinations: ReturnType< typeof useOpenInDestinations >;
@@ -91,7 +93,7 @@ export function getSiteCommands( {
 			id: 'new-chat',
 			group: 'quick',
 			label: __( 'New chat' ),
-			icon: NewChatIcon,
+			icon: SquarePenIcon,
 			priority: 1,
 			description,
 			aliases: [ __( 'Add chat' ), __( 'Create chat' ) ],
@@ -104,7 +106,7 @@ export function getSiteCommands( {
 						id: 'lifecycle',
 						group: 'quick' as const,
 						label: site.running ? __( 'Stop site' ) : __( 'Start site' ),
-						icon: site.running ? StopSiteIcon : StartSiteIcon,
+						icon: site.running ? SquareIcon : PlayIcon,
 						description,
 						run: actions.toggleRunning,
 					},
@@ -114,7 +116,7 @@ export function getSiteCommands( {
 			group: 'quick',
 			label: __( 'Site settings' ),
 			aliases: getSettingsCommandAliases( 'site', 'site-settings' ),
-			icon: SiteSettingsIcon,
+			icon: SlidersVerticalIcon,
 			priority: 2,
 			description,
 			run: () => openSettings( 'site', site.id ),
@@ -124,7 +126,7 @@ export function getSiteCommands( {
 			group: 'commands',
 			label: __( 'Rename site…' ),
 			aliases: getSettingsCommandAliases( 'site', 'rename-site' ),
-			icon: RenameIcon,
+			icon: PencilIcon,
 			description,
 			run: actions.rename,
 		},
@@ -140,24 +142,28 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					{
-						id: 'database',
-						group: 'commands' as const,
-						label: __( 'Open database' ),
-						icon: DatabaseIcon,
-						description,
-						keywords: keywords.phpmyadmin,
-						run: actions.openDatabase,
-					},
-					{
-						id: 'email',
-						group: 'commands' as const,
-						label: __( 'Open email log' ),
-						icon: MailIcon,
-						description,
-						keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
-						run: actions.openEmail,
-					},
+					...( nativeSites
+						? [
+								{
+									id: 'database',
+									group: 'commands' as const,
+									label: __( 'Open database' ),
+									icon: DatabaseIcon,
+									description,
+									keywords: keywords.phpmyadmin,
+									run: actions.openDatabase,
+								},
+								{
+									id: 'email',
+									group: 'commands' as const,
+									label: __( 'Open email log' ),
+									icon: PaperPlaneIcon,
+									description,
+									keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
+									run: actions.openEmail,
+								},
+						  ]
+						: [] ),
 					...( site.running
 						? [
 								{
@@ -176,7 +182,7 @@ export function getSiteCommands( {
 									id: 'stop-others',
 									group: 'commands' as const,
 									label: __( 'Stop other sites' ),
-									icon: StopOtherSitesIcon,
+									icon: CircleStopIcon,
 									run: () => actions.stop( othersRunning ),
 								},
 						  ]
@@ -188,7 +194,7 @@ export function getSiteCommands( {
 						id: 'stop-all',
 						group: 'commands' as const,
 						label: __( 'Stop all sites' ),
-						icon: StopOtherSitesIcon,
+						icon: CircleStopIcon,
 						run: () => actions.stop( running ),
 					},
 			  ]
@@ -241,7 +247,7 @@ export function getSiteCommands( {
 			id: 'share',
 			group: 'commands',
 			label: __( 'Share site…' ),
-			icon: ShareIcon,
+			icon: UploadIcon,
 			description,
 			keywords: [ __( 'preview link' ) ],
 			run: () => openHeaderPanel( { panel: 'share', siteId: site.id } ),
@@ -250,7 +256,7 @@ export function getSiteCommands( {
 			id: 'publish',
 			group: 'commands',
 			label: __( 'Publish' ),
-			icon: SyncIcon,
+			icon: CloudUploadIcon,
 			description,
 			keywords: [ __( 'publish site sync push pull upload download' ) ],
 			run: () => openHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ),
@@ -286,8 +292,8 @@ export function getSiteCommands( {
 							: action.label,
 					icon: {
 						duplicate: DuplicateIcon,
-						import: ImportIcon,
-						export: ExportSiteIcon,
+						import: DownloadIcon,
+						export: FileArchiveIcon,
 						'export-db': DatabaseIcon,
 						delete: action.icon,
 					}[ action.id ],

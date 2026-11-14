@@ -27,8 +27,11 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@earendil-works/pi-tui';
-import { isOutOfCreditsError, isUsageCapError } from '@studio/agent/protocol/json-events';
-import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/agent/protocol/models';
+import {
+	formatErrorMessage,
+	isOutOfCreditsError,
+	isUsageCapError,
+} from '@studio/agent/protocol/errors';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import { randomThinkingMessage } from '@studio/agent/protocol/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -39,6 +42,14 @@ import {
 	formatUsageCapNotice,
 	getTotalRemainingAiCredits,
 } from '@studio/common/lib/studio-assistant-quota';
+import {
+	DEFAULT_PROVIDER_ID,
+	findAiModel,
+	getDefaultAiModel,
+	getProvider,
+	type AiModelId,
+	type AiProviderId,
+} from '@studio/providers';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	DescriptionAwareAutocompleteProvider,
@@ -46,7 +57,6 @@ import {
 } from 'cli/ai/description-autocomplete';
 import { buildOptionPickerLines, OTHER_VALUE } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { initStudioTheme, refineStudioTheme, theme } from 'cli/ai/theme';
 import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
@@ -268,8 +278,8 @@ export class AiChatUI implements AiOutputAdapter {
 		{ component: ToolExecutionComponent; toolName: string; input: Record< string, unknown > }
 	>();
 	private renderedToolResultIds = new Set< string >();
-	currentModel: AiModelId = DEFAULT_MODEL;
-	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
+	currentModel: AiModelId = getDefaultAiModel( DEFAULT_PROVIDER_ID );
+	currentProvider: AiProviderId = DEFAULT_PROVIDER_ID;
 	private numTurns = 0;
 
 	private optionPickerContainer: Container | null = null;
@@ -1153,8 +1163,8 @@ export class AiChatUI implements AiOutputAdapter {
 		// Truncate the cwd with a leading ellipsis (preserving the meaningful
 		// suffix) when the terminal is too narrow, otherwise the welcome wraps
 		// and visually breaks the logo layout.
-		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
-			AI_PROVIDERS[ this.currentProvider ]
+		const baseInfo = `${ findAiModel( this.currentModel )?.model.label() ?? this.currentModel } · ${
+			getProvider( this.currentProvider ).label
 		}`;
 		const sep = ' · ';
 		let secondLine: string;
@@ -1827,7 +1837,7 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'compaction_end':
 				this.hideLoader();
 				if ( event.errorMessage ) {
-					this.showError( event.errorMessage );
+					this.showError( formatErrorMessage( event.errorMessage ) );
 				} else if ( event.result && ! event.aborted ) {
 					this.showInfo( __( 'Conversation history compacted' ) );
 				}
@@ -1936,7 +1946,7 @@ export class AiChatUI implements AiOutputAdapter {
 				return;
 			}
 			case 'auto_retry_start': {
-				const reason = event.errorMessage.split( '\n' )[ 0 ].trim();
+				const reason = formatErrorMessage( event.errorMessage ).split( '\n' )[ 0 ].trim();
 				if ( reason ) {
 					this.showInfo( reason );
 				}
@@ -1973,7 +1983,7 @@ export class AiChatUI implements AiOutputAdapter {
 					lastAssistant?.stopReason === 'error' || lastAssistant?.stopReason === 'aborted';
 
 				if ( isError ) {
-					const errorText = lastAssistant?.errorMessage?.trim();
+					const errorText = formatErrorMessage( lastAssistant?.errorMessage ?? '' );
 					const fallbackText = lastAssistant?.content
 						.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
 						.map( ( block ) => block.text )

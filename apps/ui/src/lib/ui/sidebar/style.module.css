@@ -139,6 +139,7 @@
 
 	/* Hovering an action also highlights its row. */
 	.actions {
+		--hover: inherit;
 		--surface: var( --hover );
 
 		position: absolute;
@@ -158,6 +159,11 @@
 		> .actions[data-show-on-hover]
 		> :not( [aria-busy='true'] ) {
 		opacity: 0;
+	}
+
+	/* Reserve the last action's slot when only its spinner is visible. */
+	.item:has( > .actions > [aria-busy='true'] ) > .button {
+		padding-inline-end: calc( 32px + var( --space-2 ) );
 	}
 
 	/* A trailing dot sits in the last action's slot, and gives way to the actions. */

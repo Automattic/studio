@@ -11,6 +11,7 @@ import { ShareButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AuthUser, Connector, SiteDetails, Snapshot } from '@/data/core';
+import type { SyncSite } from '@studio/common/types/sync';
 
 // Sync activity and the ready marker outlive a render, so every test shares its own site.
 let siteCount = 0;
@@ -26,6 +27,42 @@ function preview( overrides: Partial< Snapshot > = {} ): Snapshot {
 		...overrides,
 	};
 }
+
+// With more than one live site, a new preview shows changes to the one picked (or none), and an
+// update keeps the one its preview already shows, whatever is picked.
+it.each( [
+	{ action: 'create', pick: undefined, hostname: undefined, liveSite: 'none' },
+	{ action: 'create', pick: 'Second live site', hostname: undefined, liveSite: '2' },
+	{ action: 'update', pick: 'First live site', hostname: 'preview.example.com', liveSite: '2' },
+] )( 'publishes a preview ($action, picked $pick) for live site $liveSite', async ( scenario ) => {
+	const actions = userEvent.setup();
+	const { connector, ready, site } = setup( TEST_USER, [ preview( { liveSiteId: 2 } ) ], {
+		getRemoteSites: async () =>
+			[
+				{ id: 1, name: 'First live site', url: 'https://first.example' },
+				{ id: 2, name: 'Second live site', url: 'https://second.example' },
+			] as SyncSite[],
+	} );
+	await ready;
+	expect( await screen.findByText( 'Changes to Second live site' ) ).toBeVisible();
+	if ( scenario.pick ) {
+		await actions.click( await screen.findByRole( 'combobox', { name: 'Live site' } ) );
+		await actions.click( await screen.findByRole( 'option', { name: scenario.pick } ) );
+	}
+	if ( scenario.action === 'update' ) {
+		await actions.click( await previewAction( 'Update' ) );
+	} else {
+		await actions.click( await screen.findByRole( 'button', { name: 'Create another preview' } ) );
+	}
+	await waitFor( () =>
+		expect( connector.publishPreviewSite ).toHaveBeenCalledWith(
+			site.id,
+			scenario.hostname,
+			undefined,
+			scenario.liveSite
+		)
+	);
+} );
 
 function additionalPreview(): Snapshot {
 	return preview( {

@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { NeedsInputIcon } from '@/lib/icons';
+import { TriangleAlertIcon } from '@/lib/icons';
 import { Label } from '@/lib/ui/label';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode } from 'react';
@@ -118,7 +118,7 @@ export function FieldDescription( {
 						{ content }
 					</span>
 					<span role="alert" className={ clsx( styles.reserved, styles.errorMessage ) }>
-						<NeedsInputIcon className={ styles.errorIcon } />
+						<TriangleAlertIcon className={ styles.errorIcon } />
 						<span className={ styles.errorText }>{ error }</span>
 					</span>
 				</>
@@ -140,7 +140,7 @@ export function FieldError( { className, children, ...props }: ComponentProps< '
 			className={ clsx( styles.error, styles.errorMessage, className ) }
 			{ ...props }
 		>
-			<NeedsInputIcon className={ styles.errorIcon } />
+			<TriangleAlertIcon className={ styles.errorIcon } />
 			<span className={ styles.errorText }>{ children }</span>
 		</div>
 	);

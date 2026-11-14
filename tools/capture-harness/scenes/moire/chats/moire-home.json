@@ -1,0 +1,42 @@
+{
+	"description": "Updating the text on the Moire home page.",
+	"title": "Update the home page text",
+	"site": "moire",
+	"minutesAgo": 35,
+	"turns": [
+		{
+			"prompt": "Can you update the tagline on the home page?",
+			"replies": [
+				[
+					{
+						"name": "wp_cli",
+						"args": {
+							"command": "option update blogdescription \"A journal of cloth, cut, and the art of getting dressed.\""
+						},
+						"result": "Success: Updated 'blogdescription' option."
+					}
+				],
+				[
+					"Done. The tagline now reads **A journal of cloth, cut, and the art of getting dressed.**"
+				]
+			]
+		},
+		{
+			"prompt": "And the links at the bottom: just About and Archive.",
+			"replies": [
+				[
+					{
+						"name": "wp_cli",
+						"args": {
+							"command": "menu item delete 42"
+						},
+						"result": "Success: Deleted 1 of 1 menu items."
+					}
+				],
+				[
+					"Done: the links are now **About** and **Archive**. Want me to add alt text to the photo too?"
+				]
+			]
+		}
+	]
+}

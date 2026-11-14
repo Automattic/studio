@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { SettingsIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
@@ -9,12 +8,12 @@ import { useOpenSettings } from '@/data/use-open-settings';
 import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
 import { AppUpdateButton } from '@/features/notifications';
-import { LoginIcon } from '@/lib/icons';
-import { Button, Menu } from '@/lib/ui';
+import { SettingsIcon, LoginIcon } from '@/lib/icons';
+import { Button, IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import { SupportMenu } from './support-menu';
 
-const MENU_SECTIONS: string[] = [ 'ai', 'usage' ];
+const MENU_SECTIONS: string[] = [ 'providers', 'usage' ];
 
 export function UserMenu() {
 	const { data: user } = useAuthUser();
@@ -38,9 +37,8 @@ export function UserMenu() {
 						render={
 							<Button
 								ref={ trigger }
-								className={ user ? undefined : styles.loginTrigger }
-								variant={ user ? 'muted-ghost' : 'outline' }
-								size={ user ? 'icon-sm' : 'icon' }
+								variant="muted-ghost"
+								size="icon"
 								aria-label={ user ? user.displayName || user.email : __( 'Account' ) }
 							/>
 						}
@@ -66,7 +64,7 @@ export function UserMenu() {
 						{ sections.map( ( section ) => (
 							<Menu.Item key={ section.id } onClick={ () => openSettingsDialog( section.id ) }>
 								<section.icon />
-								{ section.id === 'ai' ? __( 'Providers' ) : section.label }
+								{ section.label }
 							</Menu.Item>
 						) ) }
 						<SupportMenu />
@@ -101,6 +99,12 @@ export function UserMenu() {
 				<div className={ styles.updateSlot }>
 					<AppUpdateButton />
 				</div>
+				<IconButton
+					variant="muted"
+					icon={ <SettingsIcon /> }
+					label={ __( 'Settings' ) }
+					onClick={ openSettings }
+				/>
 			</div>
 			<AccountPromptDialog
 				open={ promptOpen }

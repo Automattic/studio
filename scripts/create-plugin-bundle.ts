@@ -45,15 +45,13 @@ const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 
 const DIRECTORY_LIMITS = { unpacked: 50 * MiB, entries: 512, entry: 5 * MiB };
 
 // What only Codex, Cursor and Grok Build read: their manifests and MCP configs, and Codex's app
-// metadata, screenshots and launchers.
+// metadata and launchers.
 const NOT_FOR_CLAUDE = [
 	'.codex-plugin',
 	'.cursor-plugin',
 	'.grok-plugin',
 	'.mcp.json',
 	'agents',
-	'assets/screenshot-layout.png',
-	'assets/screenshot-look.png',
 	'scripts/launch-mcp',
 	'scripts/launch-mcp.cmd',
 ];
@@ -121,7 +119,12 @@ async function main(): Promise< void > {
 	for ( const host of [ '.codex-plugin', '.claude-plugin', '.cursor-plugin', '.grok-plugin' ] ) {
 		const manifestPath = path.join( stagingDir, host, 'plugin.json' );
 		const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
-		fs.writeFileSync( manifestPath, JSON.stringify( { ...manifest, version }, null, 2 ) + '\n' );
+		manifest.version = version;
+		if ( host === '.codex-plugin' ) {
+			const { publication } = manifest.extensions[ 'com.openai' ];
+			publication.release_notes = `WordPress Studio ${ version }, with the Studio CLI of that release. What changed: https://github.com/Automattic/studio/releases/tag/v${ version }`;
+		}
+		fs.writeFileSync( manifestPath, JSON.stringify( manifest, null, 2 ) + '\n' );
 	}
 	await recordMcpSnapshot(
 		path.join( stagingDir, 'mcp-snapshot.json' ),
@@ -143,7 +146,6 @@ async function main(): Promise< void > {
 			'--exclude=@aws-sdk',
 			'--exclude=@aws-crypto',
 			'--exclude=@smithy',
-			'--exclude=@google/genai',
 			'-C',
 			path.join( repoRoot, 'apps', 'cli', 'dist' ),
 			'cli',

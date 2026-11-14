@@ -3,17 +3,19 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/agent/node/global-instructions';
-import {
-	readAiSettings,
-	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
-	setAiProvider as setAiProviderInConfig,
-} from '@studio/agent/node/settings-store';
-import { isAiProviderId } from '@studio/agent/protocol/providers';
 import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
+import {
+	connectProvider,
+	disconnectProvider,
+	readAiSettings,
+	setAiProvider as setAiProviderInConfig,
+	type AiSettings,
+} from '@studio/common/lib/ai-settings';
 import {
 	connectAgentApp as connectAgentAppToStudio,
 	detectAgentApps,
 } from '@studio/common/lib/connect-agent-app';
+import { startProviderConnect as startConnect } from '@studio/common/lib/provider-connect';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	detectInstalledAppsWithDefaultBrowser,
@@ -30,13 +32,14 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
+import { AI_PROVIDER_IDS, normalizeProviderId, toStoredProviderId } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { defaultSitePath, getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
-import type { AiSettings } from '@studio/agent/protocol/providers';
 
 export async function getInstalledAppsAndTerminals(): Promise< InstalledApps > {
 	return detectInstalledAppsWithDefaultBrowser();
@@ -131,38 +134,66 @@ export async function getAiSettings() {
 	return readAiSettings();
 }
 
-// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
-// The key is never sent; the preview comparison only detects a key being swapped.
+// One event for every change: disconnecting the selected provider also moves the selection back
+// to WordPress.com. The credential is never sent; the summary comparison only detects one being
+// swapped.
 async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
-	const unchanged =
-		previous.provider === next.provider &&
-		previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
-		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
-	if ( unchanged ) {
+	if ( JSON.stringify( previous ) === JSON.stringify( next ) ) {
 		return;
 	}
 	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-		provider: next.provider,
-		has_anthropic_api_key: next.hasAnthropicApiKey,
+		provider: toStoredProviderId( next.provider ),
+		has_anthropic_api_key: next.accounts.anthropic.connected,
 		surface: 'settings',
 	} );
 }
 
-export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
+function parseProviderId( requested: string ) {
+	const provider = normalizeProviderId( requested );
+	if ( ! provider ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
+	}
+	return provider;
+}
+
+async function changeAiSettings( change: () => Promise< AiSettings > ) {
 	const previous = await readAiSettings();
-	const settings = await saveAnthropicApiKeyToConfig( key );
+	const settings = await change();
 	await recordAiSettingsChange( previous, settings );
 	return settings;
 }
 
-export async function setAiProvider( _event: IpcMainInvokeEvent, provider: string ) {
-	if ( ! isAiProviderId( provider ) ) {
-		throw new Error( `Unknown AI provider: ${ provider }` );
+export async function startProviderConnect(
+	_event: IpcMainInvokeEvent,
+	requested: string,
+	method: string
+) {
+	return startConnect( getProviderServices( parseProviderId( requested ) ), method );
+}
+
+export async function connectAiProvider(
+	_event: IpcMainInvokeEvent,
+	requested: string,
+	method: string,
+	input: Record< string, string >
+) {
+	const provider = parseProviderId( requested );
+	return changeAiSettings( () =>
+		connectProvider( getProviderServices( provider ), method, input )
+	);
+}
+
+export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
+	const provider = parseProviderId( requested );
+	return changeAiSettings( () => disconnectProvider( getProviderServices( provider ) ) );
+}
+
+export async function setAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
+	const provider = normalizeProviderId( requested, AI_PROVIDER_IDS );
+	if ( ! provider ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	const previous = await readAiSettings();
-	const settings = await setAiProviderInConfig( provider );
-	await recordAiSettingsChange( previous, settings );
-	return settings;
+	return changeAiSettings( () => setAiProviderInConfig( provider ) );
 }
 
 export async function saveGlobalAgentInstructions(

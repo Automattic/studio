@@ -1,0 +1,141 @@
+import { describe, it, expect } from 'vitest';
+import { withWpcomDetails } from '../site';
+import { transformSitesResponse } from '../transform';
+
+// WordPress.com only returns options.software_version for Atomic/Jetpack
+// sites. Simple sites — which includes Business plans that have not yet been
+// transferred to Atomic, plus Free/Personal plans — omit it entirely.
+function simpleBusinessSite() {
+	return {
+		ID: 1,
+		name: 'Simple Business',
+		URL: 'https://simplebusiness.wordpress.com',
+		is_wpcom_atomic: false,
+		jetpack: false,
+		is_deleted: false,
+		is_a8c: false,
+		hosting_provider_guess: 'automattic',
+		capabilities: { manage_options: true },
+		plan: {
+			features: { active: [ 'studio-sync' ] },
+			product_id: 1008,
+			product_name_short: 'Business',
+			product_slug: 'business-bundle',
+		},
+		options: { created_at: '2021-11-17T16:23:55+00:00', wpcom_staging_blog_ids: [] },
+	};
+}
+
+function freeSite() {
+	return {
+		...simpleBusinessSite(),
+		ID: 2,
+		name: 'Free',
+		URL: 'https://free.wordpress.com',
+		plan: {
+			features: { active: [] as string[] },
+			product_id: 1,
+			product_name_short: 'Free',
+			product_slug: 'free_plan',
+			is_free: true,
+		},
+	};
+}
+
+function atomicSite() {
+	return {
+		ID: 3,
+		name: 'Atomic',
+		URL: 'https://atomic.wordpress.com',
+		is_wpcom_atomic: true,
+		jetpack: true,
+		is_deleted: false,
+		is_a8c: false,
+		capabilities: { manage_options: true },
+		plan: {
+			features: { active: [ 'studio-sync' ] },
+			product_id: 1008,
+			product_name_short: 'Business',
+			product_slug: 'business-bundle',
+		},
+		options: {
+			created_at: '2021-11-17T16:23:55+00:00',
+			wpcom_staging_blog_ids: [],
+			software_version: '6.5',
+		},
+	};
+}
+
+describe( 'transformSitesResponse', () => {
+	it( 'retains Simple sites whose options omit software_version and classifies them', () => {
+		const result = transformSitesResponse( [ simpleBusinessSite(), freeSite() ] );
+
+		expect( result ).toHaveLength( 2 );
+		expect( result.find( ( s ) => s.id === 1 )?.syncSupport ).toBe( 'needs-transfer' );
+		expect( result.find( ( s ) => s.id === 2 )?.syncSupport ).toBe( 'needs-upgrade' );
+	} );
+
+	it( 'reports software_version as wpVersion when present, undefined when omitted', () => {
+		const result = transformSitesResponse( [ atomicSite(), simpleBusinessSite() ] );
+
+		expect( result.find( ( s ) => s.id === 3 )?.wpVersion ).toBe( '6.5' );
+		expect( result.find( ( s ) => s.id === 1 )?.wpVersion ).toBeUndefined();
+	} );
+
+	it.each( [
+		{
+			name: 'unpaid Atomic',
+			site: { ...atomicSite(), plan: freeSite().plan },
+			pushNeedsUpgrade: true,
+		},
+		{ name: 'Atomic with the sync feature', site: atomicSite(), pushNeedsUpgrade: false },
+		{
+			name: 'Pressable without a plan',
+			site: {
+				...atomicSite(),
+				is_wpcom_atomic: false,
+				hosting_provider_guess: 'pressable',
+				plan: undefined,
+			},
+			pushNeedsUpgrade: false,
+		},
+	] )( 'allows pulling from $name and reports push eligibility', ( { site, pushNeedsUpgrade } ) => {
+		const [ result ] = transformSitesResponse( [ site ], { planRequired: false } );
+
+		expect( result ).toMatchObject( { syncSupport: 'syncable', pushNeedsUpgrade } );
+	} );
+} );
+
+describe( 'withWpcomDetails', () => {
+	it( 'takes details from the site list, keeps the stored sync times, and keeps the stored name and URL of sites gone from WordPress.com', () => {
+		const atomic = { ...simpleBusinessSite(), ID: 3, is_wpcom_atomic: true, jetpack: true };
+		const [ business, free ] = transformSitesResponse( [ atomic, freeSite() ] );
+		const stored = ( id: number ) => ( {
+			...business,
+			id,
+			localSiteId: 'local',
+			name: 'Old name',
+			syncSupport: 'already-connected' as const,
+			lastPushTimestamp: '2026-10-01T09:00:00.000Z',
+		} );
+
+		const [ renamed, downgraded, gone ] = withWpcomDetails(
+			[ stored( business.id ), stored( free.id ), stored( 99 ) ],
+			[ business, free ]
+		);
+
+		expect( renamed ).toMatchObject( {
+			name: 'Simple Business',
+			localSiteId: 'local',
+			syncSupport: 'already-connected',
+			lastPushTimestamp: '2026-10-01T09:00:00.000Z',
+		} );
+		expect( downgraded.syncSupport ).toBe( 'needs-upgrade' );
+		expect( gone ).toMatchObject( {
+			id: 99,
+			name: 'Old name',
+			url: business.url,
+			syncSupport: 'deleted',
+		} );
+	} );
+} );

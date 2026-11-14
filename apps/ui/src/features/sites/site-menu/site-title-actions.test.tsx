@@ -76,6 +76,31 @@ describe( 'sidebar site menu', () => {
 } );
 
 describe( 'site title actions', () => {
+	it( 'disables external phpMyAdmin and explains the database client alternative', async () => {
+		const { connector } = setup( [ site( { phpMyAdminSupported: false } ) ] );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		const item = await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } );
+		expect( item ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( item ).toHaveAccessibleDescription( /separate database client for external MySQL/ );
+		fireEvent.click( item );
+		expect( connector.startSite ).not.toHaveBeenCalled();
+		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+	} );
+
+	it( 'disables the in-app database menu and its shortcut for an external database', async () => {
+		const { connector } = setup( [ site( { phpMyAdminSupported: false, running: true } ) ] );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+		const item = await screen.findByRole( 'menuitem', { name: /^Database/ } );
+		expect( item ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( item ).toHaveAccessibleDescription( /separate database client for external MySQL/ );
+		fireEvent.keyDown( item, { key: 'd' } );
+		fireEvent.click( item );
+		expect( screen.queryByRole( 'tab', { name: 'Database' } ) ).not.toBeInTheDocument();
+		expect( connector.startSite ).not.toHaveBeenCalled();
+	} );
+
 	it.each( [
 		[ 'Browser', '/', { autoLogin: false } ],
 		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],

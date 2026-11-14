@@ -3,7 +3,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { input, password } from '@inquirer/prompts';
-import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
 	isWordPressDirectory,
@@ -65,7 +64,6 @@ vi.mock( '@studio/common/lib/passwords', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/passwords') >() ),
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
-vi.mock( '@studio/common/lib/blueprint-validation' );
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
@@ -268,7 +266,6 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( runWpCliCommand ).mockReset().mockResolvedValue( mockWpCli() );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
-		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.5' );
@@ -431,20 +428,15 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should error if Blueprint validation fails', async () => {
-			vi.mocked( validateBlueprintData ).mockResolvedValue( {
-				valid: false,
-				error: 'Invalid Blueprint',
-			} );
-
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
 					blueprint: {
 						uri: '/home/test/blueprint.json',
-						contents: {},
+						contents: { name: 'package' },
 					},
 				} )
-			).rejects.toThrow( 'Invalid Blueprint' );
+			).rejects.toThrow( '"name" is not a valid Blueprint property' );
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -1585,13 +1577,42 @@ describe( 'CLI: studio create', () => {
 				},
 			} );
 
-			expect( validateBlueprintData ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
 				'create',
 				expect.objectContaining( {
 					blueprint: expect.any( Object ),
+				} )
+			);
+		} );
+
+		it( 'applies the Blueprint --blueprint opens, titled with --name', async () => {
+			const blueprintPath = path.join(
+				fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-blueprint-' ) ),
+				'blueprint.json'
+			);
+			fs.writeFileSync( blueprintPath, '{"siteOptions":{"blogname":"Apparel"}}' );
+
+			await registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			)
+				.exitProcess( false )
+				.parseAsync( [
+					'create',
+					'--blueprint',
+					blueprintPath,
+					'--name',
+					'My Shop',
+					'--no-start',
+				] );
+
+			expect( runBlueprint ).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.anything(),
+				expect.objectContaining( {
+					blueprint: { siteOptions: { blogname: 'My Shop' } },
+					blueprintUri: blueprintPath,
 				} )
 			);
 		} );
@@ -2269,6 +2290,71 @@ $table_prefix = 'wp_';
 					expect( mockRecord ).toHaveBeenCalledWith(
 						TRACKS_EVENTS.SITE_CREATE,
 						expect.objectContaining( { flow_type: 'static_site_import', source } )
+					);
+				} finally {
+					await fs.promises.rm( root, { recursive: true, force: true } );
+				}
+			}
+		);
+
+		it.each( [
+			{ failure: 'capture', source: 'url', reason: 'capture' },
+			{ failure: 'quality', source: 'directory', reason: 'ssi_quality_failed' },
+			{ failure: 'import', source: 'directory', reason: 'ssi_import' },
+			{ failure: 'server', source: 'directory', reason: 'create' },
+		] as const )(
+			'reports a failed --from create ($failure) as studio_site_create_failed',
+			async ( { failure, source, reason } ) => {
+				const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-tracks-from-failed-' ) );
+				const sitePath = path.join( root, 'site' );
+				let from = 'https://example.com';
+				if ( source === 'directory' ) {
+					from = path.join( root, 'source' );
+					await fs.promises.mkdir( from, { recursive: true } );
+					await fs.promises.writeFile( path.join( from, 'index.html' ), '<main>Hello</main>' );
+				}
+				const liberate = vi.fn().mockRejectedValue( new Error( 'Browser crashed' ) );
+				if ( failure === 'quality' ) {
+					vi.mocked( runWpCliCommand ).mockResolvedValue(
+						mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
+					);
+				}
+				if ( failure === 'import' ) {
+					vi.mocked( runWpCliCommand ).mockResolvedValue(
+						mockWpCli( { exitCode: 1, stdout: '', stderr: 'Fatal error' } )
+					);
+				}
+				if ( failure === 'server' ) {
+					vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+				}
+				vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+				vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+				vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				try {
+					await parser.parseAsync( [
+						'create',
+						'--from',
+						from,
+						'--name',
+						'Imported Site',
+						'--skip-browser',
+					] );
+
+					expect( process.exitCode ).toBe( 1 );
+					expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
+						TRACKS_EVENTS.SITE_CREATE_FAILED,
+						expect.objectContaining( {
+							flow_type: 'static_site_import',
+							source,
+							failure_reason: reason,
+							time_ms: expect.any( Number ),
+							channel: 'studio-cli',
+						} )
 					);
 				} finally {
 					await fs.promises.rm( root, { recursive: true, force: true } );

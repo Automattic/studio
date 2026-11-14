@@ -3,6 +3,8 @@
 // and sender: it does NOT read config or opt-out state. Callers must go through the per-app wrappers
 // (`apps/studio/src/lib/tracks.ts`, `apps/cli/lib/tracks.ts`), which enforce the opt-out.
 
+import type { SitesProviderId } from '@studio/providers';
+
 const TRACKS_PIXEL_URL = 'https://pixel.wp.com/t.gif';
 
 // Event names follow Tracks naming rules. Register them for documentation and integrity checks;
@@ -11,6 +13,7 @@ export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
 	SITE_CREATE: 'studio_site_created',
+	SITE_CREATE_FAILED: 'studio_site_create_failed',
 	BLUEPRINT_VIEWED: 'studio_blueprint_viewed',
 	BLUEPRINT_USE_CASE_FILTER_CHANGED: 'studio_blueprint_use_case_filter_changed',
 	BLUEPRINT_PREVIEW_IN_BROWSER: 'studio_blueprint_preview_in_browser',
@@ -216,10 +219,11 @@ export type TracksAuthFailureReason =
 	| 'profile_fetch_failed'
 	| 'unknown';
 
-// Which kind of live site a sync exchanged data with, sent as `sync_type` on the push/pull events.
-// Derived from the persisted `isPressable` flag; `unknown` is the connected site being unavailable at
-// emit time (a deep-link connection whose site lookup missed, so the hosting kind was never known).
-export type TracksSyncType = 'wpcom' | 'pressable' | 'unknown';
+// Which kind of live site a sync exchanged data with, sent as `sync_type` on the push/pull events:
+// the provider, or `pressable` for a WordPress.com site Pressable hosts (the persisted
+// `isPressable` flag). `unknown` is the connected site being unavailable at emit time (a deep-link
+// connection whose site lookup missed, so the hosting kind was never known).
+export type TracksSyncType = SitesProviderId | 'pressable' | 'unknown';
 
 // Coarse, low-cardinality sync failure classification, sent as `failure_reason` when `success` is
 // false. The raw error is never sent — it can embed site names, URLs, and filesystem paths. Buckets

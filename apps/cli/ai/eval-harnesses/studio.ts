@@ -7,20 +7,27 @@ import {
 	createAgent,
 	createTokenUsage,
 	type AskUserHandler,
+	type HostSite,
 } from '@studio/agent/node';
-import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/agent/protocol/models';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import {
-	resolveAiEnvironment,
+	DEFAULT_PROVIDER_ID,
+	findAiModel,
+	getDefaultAiModel,
+	getProvider,
+	type AiModelId,
+	type AiProviderId,
+} from '@studio/providers';
+import {
+	resolveAiConnection,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
 import { matchesStopRule } from 'cli/ai/eval-stop';
 import { type ModelRequestRecord } from 'cli/ai/eval-timing';
-import { cliAgentHost } from 'cli/ai/host';
+import { cliAgentHost, connectedRemoteSites } from 'cli/ai/host';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { HarnessInput, HarnessContext, HarnessTranscript } from './types';
-import type { AiProviderId } from 'cli/ai/providers';
 
 function extractToolCalls( event: AgentSessionEvent ) {
 	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
@@ -120,14 +127,23 @@ export async function runStudioConversation(
 	input: HarnessInput,
 	ctx: HarnessContext
 ): Promise< HarnessTranscript > {
+	// Seeded connections are made up, so filling them in from the account would report them gone.
+	const host = ctx.seededRemoteSites
+		? {
+				...cliAgentHost,
+				sync: {
+					...cliAgentHost.sync,
+					connectedSites: ( site: HostSite ) => connectedRemoteSites( site, false ),
+				},
+		  }
+		: cliAgentHost;
 	const agent = createAgent( {
-		host: input.ui
-			? { ...cliAgentHost, ui: { showArtifact: () => {}, reloadPreview: () => {} } }
-			: cliAgentHost,
+		host: input.ui ? { ...host, ui: { showArtifact: () => {}, reloadPreview: () => {} } } : host,
 	} );
-	// Mirrors the fallback in the agent runtime (packages/agent/node/runtime) — keep in sync.
 	const resolvedModel =
-		( isAiModelId( input.model ?? '' ) ? input.model : undefined ) ?? DEFAULT_MODEL;
+		input.model && findAiModel( input.model )
+			? ( input.model as AiModelId )
+			: getDefaultAiModel( DEFAULT_PROVIDER_ID );
 	const evalStartedAt = ctx.startedAt;
 	const elapsed = () => Date.now() - evalStartedAt;
 	const phaseTimingsMs: Record< string, number > = {};
@@ -138,18 +154,15 @@ export async function runStudioConversation(
 
 	phaseStartedAt = Date.now();
 	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
+	// The model runs on a provider that serves it.
+	if ( ! getProvider( aiProvider ).ai?.models.some( ( { id } ) => id === resolvedModel ) ) {
+		aiProvider = findAiModel( resolvedModel )!.provider;
+	}
 	phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
 
 	phaseStartedAt = Date.now();
-	const aiEnvironment = await resolveAiEnvironment( aiProvider );
+	const ai = await resolveAiConnection( aiProvider, resolvedModel );
 	phaseTimingsMs.resolve_ai_environment_ms = Date.now() - phaseStartedAt;
-
-	const env = {
-		...( process.env as Record< string, string > ),
-		...aiEnvironment,
-	};
-	// Allow running inside a Claude Code session
-	delete env.CLAUDECODE;
 
 	const toolCalls: ToolCallRecord[] = [];
 	const toolResults: {
@@ -305,12 +318,11 @@ export async function runStudioConversation(
 	const runTurn = ( turnPrompt: string ) =>
 		agent.runTurn( {
 			prompt: turnPrompt,
-			env,
+			ai,
 			session,
 			activeSite: ctx.activeSite,
 			onEvent: handleEvent,
 			onAskUser,
-			...( isAiModelId( input.model ?? '' ) ? { model: input.model as AiModelId } : {} ),
 		} );
 	let query = runTurn( input.prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;

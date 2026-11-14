@@ -11,15 +11,20 @@ import {
 	shell,
 	type WebContents,
 } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { PROTOCOL_PREFIX } from '@studio/common/constants';
+import { PROTOCOL_PREFIX, SENTRY_DSN } from '@studio/common/constants';
+import { readSentryUserId } from '@studio/common/lib/app-config';
 import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
+import { prepareErrorEvent, setErrorReporter } from '@studio/common/lib/error-reporting';
 import { runMigrations } from '@studio/common/lib/migration';
+import { getSentryReleaseInfo } from '@studio/common/lib/sentry-release';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
-import { __, _n } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
@@ -27,6 +32,7 @@ import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
 	hasCancellableSyncOperations,
+	hasUncancellableSyncOperations,
 } from 'src/lib/active-sync-operations';
 import { applyAppZoomCommand, getAppZoomCommand, resetPreviewZoom } from 'src/lib/app-zoom';
 import {
@@ -45,7 +51,6 @@ import {
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { forwardPreviewShortcut } from 'src/lib/preview-shortcuts';
-import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { getSites, stopAllServers } from 'src/lib/sites';
 import { refreshSpotlightIndex, setupSpotlight } from 'src/lib/spotlight';
@@ -66,7 +71,7 @@ import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import { getBundledNodeBinaryPath, getCliPath, getOldAppdataFilePath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -148,13 +153,20 @@ function handleSitePreviewPopups( contents: WebContents ) {
 if ( ! process.env.IS_DEV_BUILD ) {
 	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
 
+	const sentryUserId = readSentryUserId();
 	Sentry.init( {
-		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
-		debug: true,
-		enabled: ! isDevEnvironment,
+		dsn: SENTRY_DSN,
+		// A run from source reports as the release it's built from, so only packaged builds report.
+		enabled: app.isPackaged && ! isDevEnvironment,
 		release: sentryRelease,
 		environment: isDevEnvironment ? 'development' : 'production',
+		initialScope: {
+			tags: { surface: 'desktop' },
+			user: sentryUserId ? { id: sentryUserId } : undefined,
+		},
+		beforeSend: prepareErrorEvent,
 	} );
+	setErrorReporter( Sentry.captureException );
 }
 
 suppressPunycodeWarning();
@@ -247,8 +259,16 @@ async function appBoot() {
 	}
 
 	// Forces all renderers to be sandboxed. IPC is the only way render processes will
-	// be able to perform privileged operations.
-	app.enableSandbox();
+	// be able to perform privileged operations. Not as root on Linux with an explicit
+	// --no-sandbox (containers, CI): Chromium cannot sandbox there, and enableSandbox would
+	// override the switch.
+	const cannotSandbox =
+		process.platform === 'linux' &&
+		process.getuid?.() === 0 &&
+		app.commandLine.hasSwitch( 'no-sandbox' );
+	if ( ! cannotSandbox ) {
+		app.enableSandbox();
+	}
 
 	// Prevent navigation to anywhere other than known locations.
 	// The site-preview `<webview>` is a separate webContents that intentionally
@@ -506,7 +526,29 @@ async function appBoot() {
 
 		setupIpc();
 
-		await runMigrations( migrations ).catch( Sentry.captureException );
+		try {
+			await runMigrations( migrations );
+		} catch ( error ) {
+			Sentry.captureException( error );
+			if ( fs.existsSync( getOldAppdataFilePath() ) && ! fs.existsSync( getAppConfigPath() ) ) {
+				// Normal startup writes app.json, which would mark this failed migration complete.
+				await dialog.showMessageBox( {
+					type: 'error',
+					title: __( 'Could not migrate your sites' ),
+					message: __( 'Could not migrate your sites' ),
+					detail: `${ sprintf(
+						// translators: %s is the path of the previous configuration file.
+						__(
+							'Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.'
+						),
+						getOldAppdataFilePath()
+					) }\n\n${ error instanceof Error ? error.message : String( error ) }`,
+					buttons: [ __( 'Quit' ) ],
+				} );
+				app.exit( 1 );
+				return;
+			}
+		}
 
 		await startCliEventsSubscriber();
 		void refreshSpotlightIndex();
@@ -582,6 +624,21 @@ async function appBoot() {
 
 	app.on( 'before-quit', ( event ) => {
 		if ( isQuittingConfirmed ) {
+			return;
+		}
+
+		// Windows ends a sync with Studio's process, so quitting would cut off one that has to finish,
+		// like a pull halfway through rewriting the local site.
+		if ( process.platform === 'win32' && hasUncancellableSyncOperations() ) {
+			event.preventDefault();
+			dialog.showMessageBoxSync( {
+				message: __( 'Sync is finishing' ),
+				detail: __(
+					'WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.'
+				),
+				type: 'info',
+				buttons: [ __( 'OK' ) ],
+			} );
 			return;
 		}
 
@@ -675,16 +732,22 @@ async function appBoot() {
 		} )();
 	} );
 
-	let isQuitCleanupRunning = false;
+	let quitCleanup: 'pending' | 'running' | 'done' = 'pending';
 	app.on( 'will-quit', ( event ) => {
-		event.preventDefault();
-		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
-		// `window-all-closed` on Windows and Linux. Cleanup ends in `app.exit()`, so a repeat only
-		// waits: running it again would kill the `site stop --all` this one started.
-		if ( isQuitCleanupRunning ) {
+		// Once the cleanup is done, the quit goes through. Sentry's own `will-quit` handler then ends
+		// the session; otherwise every session counts as abnormal on the next launch.
+		if ( quitCleanup === 'done' ) {
 			return;
 		}
-		isQuitCleanupRunning = true;
+		event.preventDefault();
+		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
+		// `window-all-closed` on Windows and Linux. A repeat only waits: running the cleanup again
+		// would kill the `site stop --all` this one started.
+		if ( quitCleanup === 'running' ) {
+			return;
+		}
+		quitCleanup = 'running';
+		isQuittingConfirmed = true;
 
 		markAppQuitting();
 		globalShortcut.unregisterAll();
@@ -707,7 +770,8 @@ async function appBoot() {
 					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
 				}
 			} finally {
-				app.exit();
+				quitCleanup = 'done';
+				app.quit();
 			}
 		} )();
 	} );

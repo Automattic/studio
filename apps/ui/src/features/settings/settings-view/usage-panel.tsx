@@ -9,7 +9,7 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { CircleHelpIcon, EllipsisIcon } from 'lucide-react';
+import { EllipsisIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
@@ -31,6 +31,7 @@ import {
 import { LearnMoreLink } from '@/features/onboarding';
 import { SigninNotice } from '@/features/settings/agentic-signin-banner';
 import { OfflineNotice } from '@/features/settings/offline-banner';
+import { CircleHelpIcon } from '@/lib/icons';
 import { Progress, Menu, Field, FieldDescription, FieldTitle, Button, IconButton } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';

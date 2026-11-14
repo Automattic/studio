@@ -147,7 +147,7 @@ describe( '__recordTracksEvent', () => {
 		const info = vi.spyOn( console, 'info' ).mockImplementation( () => {} );
 
 		__recordTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, IDENTITY, {
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 			ability_name: undefined,
 		} );
 

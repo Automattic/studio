@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { LOCKFILE_STALE_TIME, SESSIONS_MIGRATION_LOCKFILE_NAME } from '@studio/common/constants';
+import { redactHomePaths } from '@studio/common/lib/error-reporting';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getConfigDirectory, getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import type { Migration } from '@studio/common/lib/migration';
@@ -66,10 +67,6 @@ async function linkPointsTo( linkPath: string, target: string ): Promise< boolea
 	}
 }
 
-function sanitizeUserpath( target: string ): string {
-	return target.replace( os.homedir(), '~' );
-}
-
 async function moveFile( from: string, to: string ): Promise< void > {
 	try {
 		await fs.promises.rename( from, to );
@@ -122,7 +119,7 @@ async function linkLegacyRoot( legacyRoot: string, newRoot: string ): Promise< v
 		await fs.promises.symlink( newRoot, legacyRoot, 'junction' );
 	} catch ( error ) {
 		console.error(
-			`Failed to link legacy sessions path ${ sanitizeUserpath( legacyRoot ) }:`,
+			`Failed to link legacy sessions path ${ redactHomePaths( legacyRoot ) }:`,
 			error
 		);
 		try {
@@ -165,7 +162,7 @@ export async function migrateLegacyAiSessionsRoot(
 			}
 		} catch ( error ) {
 			console.error(
-				`Failed to migrate AI sessions from ${ sanitizeUserpath( legacyRoot ) }:`,
+				`Failed to migrate AI sessions from ${ redactHomePaths( legacyRoot ) }:`,
 				error
 			);
 		}

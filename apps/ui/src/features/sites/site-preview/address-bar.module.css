@@ -13,6 +13,7 @@
 }
 
 .addressBar:is( :hover, :focus-within ) {
+	--hover: inherit;
 	--surface: var( --hover );
 
 	background-color: var( --hover );

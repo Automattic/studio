@@ -4,7 +4,7 @@ import styles from './startup-screen.module.css';
 
 export function StartupScreen() {
 	return (
-		<div className={ styles.root } role="status" aria-label={ __( 'Loading Studio…' ) }>
+		<div className={ styles.root } role="status" aria-label={ __( 'Loading WordPress Studio…' ) }>
 			<WordPressIcon width={ 56 } height={ 56 } />
 		</div>
 	);

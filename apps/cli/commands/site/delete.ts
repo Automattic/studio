@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
+import { forgetRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
@@ -428,7 +428,7 @@ async function deleteSite(
 	}
 
 	try {
-		await removeAllConnectedWpcomSitesForLocalSite( site.id );
+		await forgetRemoteSites( site.id );
 	} catch ( error ) {
 		logger.reportError(
 			new LoggerError(

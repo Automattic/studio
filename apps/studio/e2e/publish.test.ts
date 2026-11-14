@@ -48,8 +48,8 @@ test.describe( 'Share and publish', () => {
 					date: Date.now(),
 				},
 			] );
-			ipcMain.removeHandler( 'getConnectedWpcomSites' );
-			ipcMain.handle( 'getConnectedWpcomSites', () => [] );
+			ipcMain.removeHandler( 'getRemoteSites' );
+			ipcMain.handle( 'getRemoteSites', () => [] );
 			ipcMain.removeAllListeners( 'openURL' );
 			ipcMain.on( 'openURL', ( _event, url: string ) => {
 				captured.checkoutUrl = url;
@@ -116,22 +116,22 @@ test.describe( 'Share and publish', () => {
 					displayName: 'Publishing account',
 					accessToken: 'test-only',
 				} ),
-				getConnectedWpcomSites: () => state.publishTest.connections,
-				fetchSyncableWpcomSites: () => [ remote ],
-				connectWpcomSites: () => {
+				getRemoteSites: ( provider ) =>
+					provider === 'wpcom' ? state.publishTest.connections : [],
+				listAccountSites: ( provider ) => ( provider === 'wpcom' ? [ remote ] : [] ),
+				connectRemoteSite: () => {
 					state.publishTest.connections = [ remote ];
 				},
-				getHostingPhpVersion: () => '8.3',
 				getIsMultisite: () => false,
-				getLatestRewindId: () => 'backup-1',
-				listRemoteFileTree: () => ( {} ),
-				pushSiteToLive: ( ...args ) => {
+				getRemoteBackupId: () => 'backup-1',
+				listRemoteBackupFiles: () => ( {} ),
+				pushSite: ( ...args ) => {
 					state.publishTest.calls.push( { direction: 'push', args } );
 					return new Promise< void >( ( resolve ) => {
 						state.publishTest.finish = resolve;
 					} );
 				},
-				pullSiteFromLive: ( ...args ) => {
+				pullSite: ( ...args ) => {
 					state.publishTest.calls.push( { direction: 'pull', args } );
 				},
 				openExternal: () => {},
@@ -189,10 +189,11 @@ test.describe( 'Share and publish', () => {
 		const calls = await publishCalls();
 		expect( calls.map( ( call ) => call.direction ) ).toEqual( [ 'push', 'push', 'pull' ] );
 		expect( calls[ 1 ].args ).toEqual( [
+			'wpcom',
 			site.id,
 			42,
 			{ optionsToSync: [ 'plugins', 'themes', 'uploads', 'contents' ] },
 		] );
-		expect( calls[ 2 ].args ).toEqual( [ site.id, 42, { optionsToSync: [ 'sqls' ] } ] );
+		expect( calls[ 2 ].args ).toEqual( [ 'wpcom', site.id, 42, { optionsToSync: [ 'sqls' ] } ] );
 	} );
 } );

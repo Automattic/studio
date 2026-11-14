@@ -1,0 +1,86 @@
+name: Deploy Studio on the web
+
+# Publishes the static build to the Spacefast Space behind app.wordpress.studio when a release is
+# published. A manual run makes a preview version unless asked for `live`, so it can try a build
+# without touching the live site.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'A preview version, or the live site (trunk and release tags only).'
+        type: choice
+        options:
+          - preview
+          - live
+        default: preview
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-static
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Plugin-only releases are marked as prereleases, and carry no new app.
+    if: github.event_name != 'release' || ! github.event.release.prerelease
+    runs-on: ubuntu-latest
+    env:
+      # The postinstall downloads use the GitHub API, which rate-limits anonymous runners.
+      GITHUB_TOKEN: ${{ github.token }}
+      SPACEFAST_CLI_VERSION: 0.8.0
+      TARGET: ${{ inputs.target || 'live' }}
+    steps:
+      - if: env.TARGET == 'live' && github.ref != 'refs/heads/trunk' && ! startsWith( github.ref, 'refs/tags/' )
+        run: |
+          echo "::error::Only trunk and release tags deploy to the live site."
+          exit 1
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+
+      - run: npm ci
+
+      - run: npm run download-language-packs
+
+      - run: npm -w @studio/ui run build:static
+
+      # Inside the repository the CLI detects apps/ui's Vite project, then builds and publishes the
+      # Electron renderer in place of this folder.
+      - name: Move the build out of the repository
+        run: cp -R apps/ui/dist-static "$RUNNER_TEMP/site"
+
+      - name: Publish to Spacefast
+        working-directory: ${{ runner.temp }}/site
+        env:
+          SPACEFAST_TOKEN: ${{ secrets.SPACEFAST_TOKEN }}
+          SPACEFAST_SPACE: studioweb
+        run: |
+          npm install -g "spacefast@$SPACEFAST_CLI_VERSION"
+          target_args=()
+          if [ "$TARGET" = 'preview' ]; then target_args=(--target preview); fi
+          sf publish . "${target_args[@]}" --yes --json \
+            --message "Studio $GITHUB_REF_NAME ($GITHUB_SHA)" > "$RUNNER_TEMP/receipt.json"
+          jq '{ version: ( .versionId // .version.id ), activation, siteUrl }' "$RUNNER_TEMP/receipt.json"
+
+      - name: Check the live site
+        if: env.TARGET == 'live'
+        run: |
+          jq -e '.activation.outcome == "activated"' "$RUNNER_TEMP/receipt.json"
+          for attempt in 1 2 3 4 5 6; do
+            home=$(curl -fsS https://app.wordpress.studio/) || home=''
+            worker=$(curl -s -o /dev/null -w '%{http_code}' https://app.wordpress.studio/wpcom-backup/1/2/data)
+            if [[ "$home" == *'assets/index.static-'* && "$worker" == '400' ]]; then
+              echo 'The static app and its backup worker are live.'
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::The live site is not the static app with its backup worker (worker answered $worker)."
+          exit 1

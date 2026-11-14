@@ -2,17 +2,26 @@
  * @vitest-environment node
  */
 import { dialog } from 'electron';
-import { updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { __resetPendingAuthContext, setPendingAuthContext } from 'src/lib/auth-tracks-context';
 import { handleAuthDeeplink } from 'src/lib/deeplink/handlers/auth';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 
-const mockWpcomGet = vi.fn();
+// The account WordPress.com's `/me` answers with, or the error it fails with.
+const mockMe = ( me: object | Error ) =>
+	vi.stubGlobal(
+		'fetch',
+		me instanceof Error
+			? vi.fn().mockRejectedValue( me )
+			: vi.fn().mockResolvedValue( { ok: true, json: async () => me } )
+	);
+let storedToken: unknown;
 
 vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
+	readAuthToken: vi.fn(),
 	updateSharedConfig: vi.fn(),
 } ) );
 vi.mock( 'src/ipc-utils' );
@@ -21,27 +30,21 @@ vi.mock( 'src/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('src/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
-vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
-	default: () => ( {
-		req: { get: mockWpcomGet },
-	} ),
-} ) );
-vi.mock( '@studio/common/lib/wpcom-xhr-request-factory', () => ( {
-	default: vi.fn(),
-} ) );
 
 describe( 'handleAuthDeeplink', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( updateSharedConfig ).mockResolvedValue( undefined );
+		storedToken = undefined;
+		vi.mocked( updateSharedConfig ).mockImplementation( async ( update ) => {
+			storedToken = update.authToken;
+		} );
+		vi.mocked( readAuthToken ).mockImplementation( async () => storedToken as never );
 	} );
 
+	afterEach( () => vi.unstubAllGlobals() );
+
 	it( 'should handle successful authentication', async () => {
-		mockWpcomGet.mockResolvedValue( {
-			ID: 123,
-			email: 'user@example.com',
-			display_name: 'Test User',
-		} );
+		mockMe( { ID: 123, email: 'user@example.com', display_name: 'Test User' } );
 
 		const url = new URL( 'wp-studio://auth#access_token=mock-token&expires_in=3600' );
 		await handleAuthDeeplink( url );
@@ -100,11 +103,7 @@ describe( 'handleAuthDeeplink', () => {
 		beforeEach( () => {
 			__resetPendingAuthContext();
 			state = undefined;
-			mockWpcomGet.mockResolvedValue( {
-				ID: 123,
-				email: 'user@example.com',
-				display_name: 'Test User',
-			} );
+			mockMe( { ID: 123, email: 'user@example.com', display_name: 'Test User' } );
 		} );
 
 		it( 'records a successful login with the initiating context', async () => {
@@ -124,7 +123,8 @@ describe( 'handleAuthDeeplink', () => {
 		it( 'records the success only after the token is stored', async () => {
 			state = setPendingAuthContext( 'onboarding', 'new' ).auth_attempt_id;
 			const order: string[] = [];
-			vi.mocked( updateSharedConfig ).mockImplementation( async () => {
+			vi.mocked( updateSharedConfig ).mockImplementation( async ( update ) => {
+				storedToken = update.authToken;
 				order.push( 'write' );
 			} );
 			vi.mocked( recordTracksEvent ).mockImplementation( async () => {
@@ -164,7 +164,7 @@ describe( 'handleAuthDeeplink', () => {
 
 		it( 'classifies a failing profile fetch', async () => {
 			state = setPendingAuthContext( 'settings', 'existing' ).auth_attempt_id;
-			mockWpcomGet.mockRejectedValue( new Error( 'network down' ) );
+			mockMe( new Error( 'network down' ) );
 
 			await handleAuthDeeplink( successUrl() );
 

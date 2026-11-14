@@ -117,6 +117,13 @@ studio export --path ~/Studio/my-site --mode db
 studio import ~/Backups/my-site-backup.zip --path ~/Studio/my-site
 ```
 
+To host a site on a static host, export it as static HTML files with [Simply Static](https://wordpress.org/plugins/simply-static/). The plugin runs from the CLI bundle and is not installed in your site. Dynamic features such as comment and contact forms won't work in the static copy.
+
+```bash
+studio export-static ~/Sites/my-site-static --path ~/Studio/my-site
+studio export-static ~/Sites/my-site-static --path ~/Studio/my-site --base-url https://example.com
+```
+
 ## Sync with WordPress.com and Pressable
 
 You can pull from and push to remote sites on both WordPress.com and Pressable. Both commands support selective sync, so you can decide which files to sync and whether to include the database.

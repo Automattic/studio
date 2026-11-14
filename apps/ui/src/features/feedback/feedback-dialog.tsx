@@ -3,13 +3,14 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { CheckIcon, PlusIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { errorMessage } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useSession } from '@/data/queries/use-sessions';
 import { entriesToTranscriptItems } from '@/features/chats';
+import { ExternalLinkIcon, PlusIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,
@@ -58,7 +59,12 @@ const getAreaOptions = () => [
  * the `feedback` search param (`?feedback=true`).
  */
 export function FeedbackDialog() {
+	return useConnector().sendFeedback ? <FeedbackDialogRoot /> : null;
+}
+
+function FeedbackDialogRoot() {
 	const navigate = useNavigate();
+	const user = useAuthUser();
 	const { feedback } = useSearch( { strict: false } ) as { feedback?: true };
 	const close = () =>
 		void navigate( {
@@ -70,7 +76,10 @@ export function FeedbackDialog() {
 
 	return (
 		<Dialog open={ !! feedback } onOpenChange={ ( open ) => ! open && close() }>
-			<DialogContent layout="confirmation">
+			<DialogContent
+				layout="confirmation"
+				className={ user.isSuccess && ! user.data ? styles.signedOutDialog : undefined }
+			>
 				<FeedbackForm />
 			</DialogContent>
 		</Dialog>
@@ -79,8 +88,8 @@ export function FeedbackDialog() {
 
 function FeedbackForm() {
 	const connector = useConnector();
-	const navigate = useNavigate();
 	const user = useAuthUser();
+	const login = useLogin( { signup: true, source: 'settings' } );
 	const { sessionId } = useParams( { strict: false } ) as { sessionId?: string };
 	const session = useSession( sessionId );
 	const transcript = useMemo(
@@ -96,7 +105,7 @@ function FeedbackForm() {
 	const transcriptId = useId();
 	const send = useMutation( {
 		mutationFn: ( feedback: { type: StudioFeedbackType; message: string } ) =>
-			connector.sendFeedback( feedback ),
+			connector.sendFeedback!( feedback ),
 	} );
 	const options = getTypeOptions();
 
@@ -106,34 +115,28 @@ function FeedbackForm() {
 				<DialogHeader>
 					<DialogTitle>{ __( 'Send feedback' ) }</DialogTitle>
 					<DialogDescription>
-						{ __(
-							'Log in to WordPress.com to send feedback to the WordPress Studio team, or report it on GitHub.'
-						) }
+						{ __( 'Share ideas and report problems directly to the Studio team.' ) }
 					</DialogDescription>
 				</DialogHeader>
-				<DialogFooter>
+				<div className={ styles.signInActions }>
+					<FieldError>{ login.error ? errorMessage( login.error ) : null }</FieldError>
 					<Button
-						variant="outline"
+						variant="accent"
+						loading={ login.isPending }
+						loadingAnnouncement={ __( 'Connecting to WordPress.com' ) }
+						onClick={ () => login.mutate() }
+					>
+						{ __( 'Continue with WordPress.com' ) }
+					</Button>
+					<Button
+						variant="muted-ghost"
+						size="sm"
 						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
 					>
-						{ __( 'Open GitHub' ) }
+						{ __( 'Report an issue on GitHub' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
-					<Button
-						onClick={ () =>
-							void navigate( {
-								to: '.',
-								state: true,
-								search: ( { feedback: _feedback, ...rest }: Record< string, unknown > ) => ( {
-									...rest,
-									settings: 'ai',
-								} ),
-								replace: true,
-							} )
-						}
-					>
-						{ __( 'Log in' ) }
-					</Button>
-				</DialogFooter>
+				</div>
 			</>
 		);
 	}

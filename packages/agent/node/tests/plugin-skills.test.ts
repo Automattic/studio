@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { loadSkills } from '@studio/agent/node/skills';
+import { loadSkills } from '@studio/agent/shared/skills';
 
 const pluginSkillsRoot = path.resolve(
 	import.meta.dirname,

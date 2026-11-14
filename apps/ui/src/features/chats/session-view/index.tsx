@@ -1,8 +1,8 @@
+import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
-} from '@studio/agent/protocol/providers';
-import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
+} from '@studio/agent/protocol/sessions/model';
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate, useRouter } from '@tanstack/react-router';
@@ -20,11 +20,11 @@ import {
 import { useAgentRun } from '@/data/agent-runs/use-agent-run';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
+import { useRemoteSites } from '@/data/queries/use-remote-sites';
 import {
 	useSession,
 	useSessionLiveSite,
@@ -294,8 +294,11 @@ function SessionViewContent( {
 	const openSettings = useOpenSettings();
 	const beginAnnotating = () => {
 		if ( ! ownerSite || ! preview ) return;
-		if ( ! authUser && ! aiSettings?.hasAnthropicApiKey ) {
-			openSettings( 'ai', undefined, undefined, { intent: 'build', scope: ownerSite.id } );
+		if ( ! hasConnectedProvider( aiSettings ) ) {
+			openSettings( 'providers', undefined, 'ai-providers', {
+				intent: 'build',
+				scope: ownerSite.id,
+			} );
 			return;
 		}
 		preview.setSite( ownerSite.id );
@@ -315,7 +318,7 @@ function SessionViewContent( {
 	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
-	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
+	const { data: connectedSites } = useRemoteSites( 'wpcom', ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites ?? [] );
 	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId ?? '' );
 	const sendWithAutoStart = useCallback(

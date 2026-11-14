@@ -72,6 +72,36 @@ export async function fetchJetpackPullTree(
 	return tree;
 }
 
+export function buildCategoryPullTree(): TreeNode[] {
+	return [
+		{
+			name: __( 'Database' ),
+			value: 'database',
+			isDirectory: false,
+			checked: true,
+			expanded: false,
+			depth: 0,
+		},
+		{
+			name: 'wp-content/',
+			value: 'wp-content',
+			isDirectory: true,
+			checked: true,
+			expanded: true,
+			depth: 0,
+			children: [ 'plugins', 'themes', 'uploads' ].map( ( value ) => ( {
+				name: `${ value }/`,
+				value,
+				isDirectory: true,
+				checked: true,
+				expanded: false,
+				depth: 1,
+				children: [],
+			} ) ),
+		},
+	];
+}
+
 /** Asks what to pull, loading the remote folder tree as the user expands it. */
 export async function selectPullItems(
 	tree: TreeNode[],

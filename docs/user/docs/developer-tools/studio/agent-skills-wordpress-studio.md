@@ -51,7 +51,7 @@ For agents that use Claude’s directory layout, WordPress Studio also creates a
 
 There are two ways to manage skills in WordPress Studio – globally and per site.
 
-You can find the global settings for skills in **Settings → Skills**. Open **Settings** from the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Skills** page.
+You can find the global settings for skills in **Settings → Skills**. Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Skills** page.
 
 From that page you can:
 

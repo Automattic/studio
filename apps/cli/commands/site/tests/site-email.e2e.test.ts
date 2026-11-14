@@ -161,7 +161,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 				);
 				expect( {
 					stdout: sent.stdout.trim(),
-					stderr: sent.stderr.includes( 'Studio could not save the email' ),
+					stderr: sent.stderr.includes( 'WordPress Studio could not save the email' ),
 				} ).toEqual( {
 					// PHP on Windows ignores the sendmail program's exit code (ext/standard/mail.c),
 					// so there `mail()` reports success; the reason still reaches stderr.

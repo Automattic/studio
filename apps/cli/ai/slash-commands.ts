@@ -1,10 +1,6 @@
-import {
-	aiModelRequiresPaidCredits,
-	getAiModelFamily,
-	getAiModelLabel,
-	type AiModelId,
-} from '@studio/agent/protocol/models';
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { describeAccount, disconnectProvider } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,
@@ -18,9 +14,19 @@ import {
 	fetchStudioAssistantTopUpPricing,
 	formatTopUpOptionCreditsLabel,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import {
+	AI_PROVIDER_IDS,
+	findAiModel,
+	getAiModels,
+	getProvider,
+	normalizeProviderId,
+	PROVIDER_IDS,
+	type AiModelId,
+	type AiProviderId,
+	type ProviderId,
+} from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
-import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
-import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -28,6 +34,7 @@ import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/upda
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
+import { isProviderConnected } from 'cli/lib/providers';
 import { getSnapshotLink, getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { Logger, LoggerError } from 'cli/logger';
@@ -39,10 +46,8 @@ export interface SlashCommandContext {
 	currentProvider: AiProviderId;
 	showCapabilitiesOnConnect: boolean;
 	switchProvider( provider: AiProviderId, announce?: boolean ): Promise< void >;
-	prepareProviderSelection(
-		provider: AiProviderId,
-		options?: { force?: boolean }
-	): Promise< void >;
+	// Connects the provider in the terminal, unless it is connected and `force` isn't set.
+	connect( provider: ProviderId, options?: { force?: boolean } ): Promise< void >;
 	maybeAutoSwitchProvider(): Promise< void >;
 	persistSessionContext(): Promise< void >;
 	clearSession(): Promise< void >;
@@ -56,6 +61,8 @@ type SlashCommandHandler = (
 export interface SlashCommandDef {
 	name: string;
 	description: string;
+	// What follows the command, such as `[provider]`; a command without one takes nothing after it.
+	argument?: string;
 	handler?: SlashCommandHandler;
 }
 
@@ -117,6 +124,42 @@ function showCreditBalance( ctx: SlashCommandContext, quota: StudioAssistantQuot
 		return;
 	}
 	ctx.ui.showInfo( __( 'Studio Code limits are temporarily unavailable.' ) );
+}
+
+function getModelLabel( id: AiModelId ): string {
+	return findAiModel( id )?.model.label() ?? id;
+}
+
+// The provider named after the command, or the one the user picks among `ids`.
+async function pickProvider< Id extends ProviderId >(
+	ctx: SlashCommandContext,
+	prompt: string,
+	ids: readonly Id[],
+	question: string
+): Promise< Id | undefined > {
+	const named = prompt.trim().split( /\s+/ )[ 1 ];
+	if ( named ) {
+		const provider = normalizeProviderId( named, ids );
+		if ( ! provider ) {
+			ctx.ui.showError(
+				sprintf(
+					/* translators: 1: what the user typed, 2: a list of provider ids */
+					__( 'Unknown provider %1$s. Choose one of: %2$s.' ),
+					named,
+					ids.join( ', ' )
+				)
+			);
+		}
+		return provider;
+	}
+	const answer = await ctx.ui.askUser( [
+		{
+			question,
+			options: ids.map( ( id ) => ( { label: getProvider( id ).label, description: id } ) ),
+		},
+	] );
+	const selected = Object.values( answer )[ 0 ];
+	return ids.find( ( id ) => getProvider( id ).label === selected );
 }
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
@@ -218,20 +261,19 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		},
 	},
 	{
-		name: 'api-key',
-		description: __( 'Set or update the Anthropic API key' ),
-		handler: async ( _prompt, ctx ) => {
+		name: 'connect',
+		argument: '[provider]',
+		description: __( 'Connect a provider' ),
+		handler: async ( prompt, ctx ) => {
+			const provider = await pickProvider( ctx, prompt, PROVIDER_IDS, __( 'Connect a provider' ) );
+			if ( ! provider ) {
+				return 'continue';
+			}
 			try {
-				await ctx.prepareProviderSelection( 'anthropic-api-key', { force: true } );
-				ctx.ui.showInfo( __( 'Anthropic API key updated.' ) );
-				if ( ctx.showCapabilitiesOnConnect ) {
-					ctx.showCapabilitiesOnConnect = false;
-					await ctx.switchProvider( 'anthropic-api-key' );
-					ctx.ui.showCapabilities();
-				}
+				await ctx.connect( provider, { force: true } );
 			} catch ( error ) {
 				if ( isPromptAbortError( error ) ) {
-					ctx.ui.showInfo( __( 'API key update canceled.' ) );
+					ctx.ui.showInfo( __( 'Canceled.' ) );
 					return 'continue';
 				}
 				if ( error instanceof LoggerError ) {
@@ -240,6 +282,60 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				}
 				throw error;
 			}
+			if ( ! ( await isProviderConnected( provider ) ) ) {
+				return 'continue';
+			}
+			ctx.ui.showSuccess(
+				sprintf(
+					/* translators: %s: provider name */
+					__( 'Connected %s.' ),
+					getProvider( provider ).label
+				)
+			);
+			const aiProvider = normalizeProviderId( provider, AI_PROVIDER_IDS );
+			if ( aiProvider && ctx.showCapabilitiesOnConnect ) {
+				ctx.showCapabilitiesOnConnect = false;
+				await ctx.switchProvider( aiProvider );
+				ctx.ui.showCapabilities();
+			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'disconnect',
+		argument: '[provider]',
+		description: __( 'Disconnect a provider' ),
+		handler: async ( prompt, ctx ) => {
+			const connected: ProviderId[] = [];
+			for ( const id of PROVIDER_IDS ) {
+				if ( await isProviderConnected( id ) ) {
+					connected.push( id );
+				}
+			}
+			if ( ! connected.length ) {
+				ctx.ui.showInfo( __( 'No provider is connected.' ) );
+				return 'continue';
+			}
+			const provider = await pickProvider( ctx, prompt, connected, __( 'Disconnect a provider' ) );
+			if ( ! provider ) {
+				return 'continue';
+			}
+			// Disconnecting WordPress.com is signing out of Studio.
+			if ( getProvider( provider ).account.methods[ 0 ].kind === 'redirect' ) {
+				ctx.ui.stop();
+				await runLogoutCommand();
+				ctx.ui.start();
+			} else {
+				await disconnectProvider( getProviderServices( provider ) );
+			}
+			ctx.ui.showInfo(
+				sprintf(
+					/* translators: %s: provider name */
+					__( 'Disconnected %s.' ),
+					getProvider( provider ).label
+				)
+			);
+			await ctx.maybeAutoSwitchProvider();
 			return 'continue';
 		},
 	},
@@ -250,7 +346,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			ctx.ui.stop();
 			await runLoginCommand();
 			ctx.ui.start();
-			if ( await isAiProviderReady( 'wpcom' ) ) {
+			if ( await isProviderConnected( 'wpcom' ) ) {
 				const token = await readAuthToken();
 				if ( token ) {
 					ctx.ui.showSuccess(
@@ -296,20 +392,26 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			const account = describeAccount(
+				ctx.currentProvider,
+				await readProviderConfig( ctx.currentProvider )
+			);
+			const availableModels = getAiModels(
+				ctx.currentProvider,
+				account.connected ? account : undefined
+			).map( ( model ) => model.id );
+			const requiresPaidCredits = ( id: AiModelId ) =>
+				findAiModel( id )?.model.requiresPaidAiCredits ?? false;
 			// The paid tiers are only offered once the account has bought credits;
 			// Automatticians are exempt. The current model always stays listed,
 			// so a session already on a paid tier keeps showing what it runs on.
 			let offeredModels = availableModels;
-			if (
-				availableModels.some( aiModelRequiresPaidCredits ) &&
-				! ( await isAutomatticianFromToken() )
-			) {
+			if ( availableModels.some( requiresPaidCredits ) && ! ( await isAutomatticianFromToken() ) ) {
 				const token = await readAuthToken();
 				const quota = token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
 				if ( ! hasPurchasedAiCredits( quota ) ) {
 					offeredModels = availableModels.filter(
-						( id ) => id === ctx.currentModel || ! aiModelRequiresPaidCredits( id )
+						( id ) => id === ctx.currentModel || ! requiresPaidCredits( id )
 					);
 				}
 			}
@@ -331,9 +433,9 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 						? sprintf(
 								/* translators: %s: model name */
 								__( '%s (current)' ),
-								getAiModelLabel( id )
+								getModelLabel( id )
 						  )
-						: getAiModelLabel( id );
+						: getModelLabel( id );
 				labelToId.set( label, id );
 				return { label, description: id };
 			} );
@@ -343,28 +445,13 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			const selectedLabel = Object.values( answer )[ 0 ] as string;
 			const newModel = labelToId.get( selectedLabel );
 			if ( newModel && newModel !== ctx.currentModel ) {
-				// Switching to a model in a different family (Anthropic ↔ OpenAI)
-				// hands the next turn off to a different runtime. Each runtime keeps
-				// its own session store, so the existing session id from the previous
-				// runtime won't resolve there ("No conversation found"). Clear the
-				// session before the model swap so the new runtime starts fresh.
-				const familyChanged = getAiModelFamily( ctx.currentModel ) !== getAiModelFamily( newModel );
-				if ( familyChanged ) {
-					await ctx.clearSession();
-					ctx.ui.showInfo(
-						__(
-							"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
-						)
-					);
-				}
-
 				ctx.currentModel = newModel;
 				ctx.ui.currentModel = ctx.currentModel;
 				ctx.ui.showInfo(
 					sprintf(
 						/* translators: %s: model name */
 						__( 'Switched to %s' ),
-						getAiModelLabel( ctx.currentModel )
+						getModelLabel( ctx.currentModel )
 					)
 				);
 				await ctx.persistSessionContext();
@@ -376,33 +463,31 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'provider',
 		description: __( 'Switch the AI provider' ),
 		handler: async ( _prompt, ctx ) => {
-			const availableProviders = await getAvailableAiProviders();
-			const providerOptions = availableProviders.map( ( id ) => ( {
+			const providerOptions = AI_PROVIDER_IDS.map( ( id ) => ( {
 				label:
 					id === ctx.currentProvider
 						? sprintf(
 								/* translators: %s: provider name */
 								__( '%s (current)' ),
-								AI_PROVIDERS[ id ]
+								getProvider( id ).label
 						  )
-						: AI_PROVIDERS[ id ],
+						: getProvider( id ).label,
 				description: id,
 			} ) );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select an AI provider' ), options: providerOptions },
 			] );
 			const selectedLabel = Object.values( answer )[ 0 ] as string;
-			const newProvider = availableProviders.find( ( id ) =>
-				selectedLabel.startsWith( AI_PROVIDERS[ id ] )
+			const newProvider = AI_PROVIDER_IDS.find( ( id ) =>
+				selectedLabel.startsWith( getProvider( id ).label )
 			);
 			if ( newProvider && newProvider !== ctx.currentProvider ) {
-				const previousFamily = getAiModelFamily( ctx.currentModel );
+				const previousModel = ctx.currentModel;
 				try {
-					await ctx.prepareProviderSelection( newProvider );
+					await ctx.connect( newProvider );
 					await ctx.switchProvider( newProvider );
-					// Providers don't share a model family, so a switch is the
-					// same runtime handoff as a cross-family /model switch.
-					if ( getAiModelFamily( ctx.currentModel ) !== previousFamily ) {
+					// The prior turns ran on a model the new provider doesn't serve.
+					if ( ctx.currentModel !== previousModel ) {
 						await ctx.clearSession();
 						ctx.ui.showInfo(
 							__(
@@ -416,7 +501,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 							sprintf(
 								/* translators: %s: provider name */
 								__( 'Provider setup canceled. Kept %s.' ),
-								AI_PROVIDERS[ ctx.currentProvider ]
+								getProvider( ctx.currentProvider ).label
 							)
 						);
 						return 'continue';

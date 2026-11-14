@@ -1,4 +1,3 @@
-import fs from 'fs';
 import { spawnSync } from 'node:child_process';
 import { rootCertificates } from 'node:tls';
 import os from 'os';
@@ -6,7 +5,6 @@ import path from 'path';
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { getBundledSendmailScriptPath, getPhpBinaryPath } from '../dependency-management/paths';
-import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 
 // Disabled to shrink the attack surface available to PHP code running inside a
@@ -183,8 +181,7 @@ function getNativePhpIniPath( phpVersion: SupportedPHPVersion ): string {
 
 // Generates the contents of the php.ini that ships next to the bundled binary.
 // All platforms get memory_limit, an opcache cache_id partitioned per PHP
-// version (opcache's on-disk script blob format isn't stable across versions),
-// and the Mozilla root CA bundle. Windows additionally needs extension_dir +
+// version, and the Mozilla root CA bundle. Windows additionally needs extension_dir +
 // every extension= and zend_extension=opcache. On macOS/Linux, this is not
 // needed, as we link extensions into the PHP binary statically.
 export function getNativePhpIniContents( phpVersion: SupportedPHPVersion ): string {
@@ -238,52 +235,24 @@ function getXdebugFilename(): string {
 	return process.platform === 'win32' ? 'php_xdebug.dll' : 'xdebug.so';
 }
 
-// Process-scoped opcache dir, created lazily and removed when the process exits
-let opcacheRootDir: string | null = null;
+// On Windows, every PHP process whose opcache.cache_id matches attaches to the same
+// shared memory segment, and attaching fails when the segment can't be mapped at
+// the creator's base address. Giving each server worker its own cache_id means no
+// worker ever attaches to another's segment, so the opcache file cache that used to
+// absorb those failures (#3343) is no longer needed. That cache wrote ~550 files
+// into a fresh temp directory on every site start, and Defender scanned each one.
+// The counter keeps a respawned worker off a segment its predecessor may still hold.
+// One-shot PHP runs with opcache.enable_cli=0, so it needs neither. Other platforms
+// have no shared segment between processes, so they keep the php.ini cache_id.
+let opcacheSegmentCount = 0;
 
-function getOpcacheRootDir(): string {
-	if ( opcacheRootDir ) {
-		return opcacheRootDir;
-	}
-
-	opcacheRootDir = fs.mkdtempSync( path.join( getFullyResolvedTmpDirPath(), 'studio-opcache-' ) );
-	const dirToClean = opcacheRootDir;
-	process.once( 'exit', () => {
-		try {
-			fs.rmSync( dirToClean, { recursive: true, force: true } );
-		} catch {
-			// Best effort. The OS will reap tmp eventually.
-		}
-	} );
-	return opcacheRootDir;
-}
-
-// Only Windows gets an opcache file cache. There, a process that can't attach to
-// the shared memory segment falls back to the file cache (#3343). Elsewhere each
-// process keeps its own in-memory cache, and the file cache would start empty on
-// every start, so writing it only slows the workers down.
-function getOpcacheFileCacheArgs(
-	phpVersion: SupportedPHPVersion,
-	workerIndex: number | undefined
-): string[] {
-	if ( process.platform !== 'win32' ) {
+function getOpcacheArgs( workerIndex: number | undefined ): string[] {
+	if ( process.platform !== 'win32' || workerIndex === undefined ) {
 		return [];
 	}
 
-	// Partition the file_cache directory by PHP version to match the cache_id
-	// already pinned in php.ini — opcache's on-disk script blob format isn't
-	// stable across minor versions and reusing a cache populated by a different
-	// PHP can crash the server at startup.
-	// Server workers also get a directory each: a worker reading an entry another
-	// worker is still writing segfaults under CPU load (STU-2484).
-	const versionCacheDirectory = path.join( getOpcacheRootDir(), `php${ phpVersion }` );
-	const cacheDirectory =
-		workerIndex === undefined
-			? versionCacheDirectory
-			: path.join( versionCacheDirectory, `worker-${ workerIndex }` );
-	fs.mkdirSync( cacheDirectory, { recursive: true } );
-
-	return [ '-d', `opcache.file_cache="${ cacheDirectory }"` ];
+	opcacheSegmentCount += 1;
+	return [ '-d', `opcache.cache_id="studio-${ process.pid }-${ opcacheSegmentCount }"` ];
 }
 
 type DefaultPhpArgsOptions = {
@@ -312,7 +281,7 @@ export function getDefaultPhpArgs(
 	const args: string[] = [
 		'-c',
 		getNativePhpIniPath( phpVersion ),
-		...getOpcacheFileCacheArgs( phpVersion, workerIndex ),
+		...getOpcacheArgs( workerIndex ),
 	];
 
 	if ( enableXdebug ) {

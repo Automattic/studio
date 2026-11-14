@@ -204,6 +204,8 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 								click: () => autoUpdater.quitAndInstall(),
 							},
 					  ]
+					: process.windowsStore
+					? []
 					: [ { label: __( 'Check for Updates' ), click: manualCheckForUpdates } ] ),
 				{ type: 'separator' },
 				{

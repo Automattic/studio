@@ -8,7 +8,7 @@ Sometimes you just need to see what WordPress is logging. WordPress Studio makes
 
 ### [Enabling the debug log](#1-enabling-the-debug-log)
 
-1.  Open the site’s settings: choose **Settings** from the site menu (click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar).
+1.  Open the site’s settings: choose **Settings** from the site menu (click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar).
 2.  Select the **Debug** page.
 3.  Turn on **Debug log**.
 4.  Click **Save** at the top of the dialog.
@@ -45,10 +45,10 @@ Inspecting or editing your local database used to mean a separate tool and a sep
 
 To open phpMyAdmin for a running site, select the site and use either of these:
 
--   Click the site preview’s address bar and choose **Database**, or choose **Tools → Database** from the site menu. phpMyAdmin opens inside the preview.
+-   Click **New tab** (**+**) above the site preview and choose **Database**, or choose **Tools → Database** from the site menu. phpMyAdmin opens in a tab of the preview.
 -   Choose **Open in → phpMyAdmin** from the site menu to open it in your browser.
 
-![The address bar menu in WordPress Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](../../../../screenshots/images/preview-destinations.webp)
+![The New tab menu in WordPress Studio's site preview, open next to the preview tab, with Browser, Admin, Design System, Database, and Email log.](../../../../screenshots/images/preview-destinations.webp)
 
 ## [Step-through debugging with Xdebug](#6-step-through-debugging-with-xdebug)
 

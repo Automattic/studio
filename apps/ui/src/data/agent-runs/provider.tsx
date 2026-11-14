@@ -1,5 +1,5 @@
 import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
-import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
+import { getAgentEndFailure } from '@studio/agent/protocol/errors';
 import { getStudioToolProgress } from '@studio/agent/protocol/tool-progress';
 import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import { useQueryClient } from '@tanstack/react-query';

@@ -694,7 +694,7 @@ describe( 'CreateSiteForm path', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		expect(
 			await screen.findByText(
-				'Studio will use this WordPress site in place. No files will be moved.'
+				'WordPress Studio will use this WordPress site in place. No files will be moved.'
 			)
 		).toBeVisible();
 		advanced();
@@ -720,7 +720,9 @@ describe( 'CreateSiteForm path', () => {
 			expect( localPath() ).toHaveAccessibleDescription( /Choose an empty folder to use a source/ )
 		);
 		expect(
-			screen.queryByText( 'Studio will use this WordPress site in place. No files will be moved.' )
+			screen.queryByText(
+				'WordPress Studio will use this WordPress site in place. No files will be moved.'
+			)
 		).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
 	} );

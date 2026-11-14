@@ -30,7 +30,7 @@ describe( 'shared Share and Publish dialog', () => {
 			'true'
 		);
 		await screen.findByRole( 'button', { name: 'Create preview' } );
-		expect( connector.fetchSyncableWpcomSites ).not.toHaveBeenCalled();
+		expect( connector.listAccountSites ).not.toHaveBeenCalled();
 		await actions.click( screen.getByRole( 'tab', { name: 'Publish' } ) );
 		expect( await screen.findByRole( 'button', { name: 'New site…' } ) ).toBeVisible();
 		expect( screen.getByRole( 'dialog' ) ).toBe( dialog );

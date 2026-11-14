@@ -1,21 +1,23 @@
+import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { sendFeedbackTool } from '@studio/agent/node/tools/send-feedback';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { sendFeedbackTool } from '@studio/agent/shared/tools/send-feedback';
 import { createFakeHost } from './fake-host';
 
-const sendFeedback = bindTool( sendFeedbackTool, createFakeHost() );
+const host = {
+	...createFakeHost(),
+	sendFeedback: ( feedback: Parameters< typeof sendStudioFeedback >[ 0 ] ) =>
+		sendStudioFeedback( feedback, { accessToken: 'token', userAgent: 'WordPressStudio/test' } ),
+};
+const sendFeedback = bindTool( sendFeedbackTool, host );
 
 const mocks = vi.hoisted( () => ( {
-	readAuthToken: vi.fn(),
 	transport: vi.fn(),
 	connect: vi.fn(),
 	callTool: vi.fn(),
 	close: vi.fn(),
 } ) );
 
-vi.mock( '@studio/common/lib/shared-config', () => ( {
-	readAuthToken: mocks.readAuthToken,
-} ) );
 vi.mock( '@modelcontextprotocol/sdk/client/index.js', () => ( {
 	Client: class {
 		connect = mocks.connect;
@@ -34,7 +36,6 @@ vi.mock( '@modelcontextprotocol/sdk/client/streamableHttp.js', () => ( {
 describe( 'send_feedback', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
-		mocks.readAuthToken.mockResolvedValue( { accessToken: 'token' } );
 		mocks.connect.mockResolvedValue( undefined );
 		mocks.close.mockResolvedValue( undefined );
 	} );
@@ -111,14 +112,5 @@ describe( 'send_feedback', () => {
 		).rejects.toThrow(
 			'Failed to send feedback: the feedback service did not confirm a feedback ID, so the report may or may not have been received: Queued for review.'
 		);
-	} );
-
-	it( 'asks the user to log in when there is no WordPress.com token', async () => {
-		mocks.readAuthToken.mockResolvedValue( null );
-
-		await expect(
-			sendFeedback.rawHandler( { type: 'bug', message: 'Something broke.' } )
-		).rejects.toThrow( /studio auth login.*github\.com\/Automattic\/studio\/issues/ );
-		expect( mocks.connect ).not.toHaveBeenCalled();
 	} );
 } );

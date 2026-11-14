@@ -87,8 +87,7 @@ TEST_PATTERNS=(
 AGENT_PATTERNS=(
   "apps/cli/ai/**"
   "packages/agent/node/runtime/**"
-  "packages/agent/node/tools/**"
-  "packages/agent/node/skills/**"
+  "packages/agent/shared/**"
   "apps/cli/commands/ai/**"
   "scripts/eval/**"
 )

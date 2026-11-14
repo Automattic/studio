@@ -2,6 +2,181 @@
 
 WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release. While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
 
+## [2.2.0](#0-2-2-0)
+
+-   Email log
+    -   A new Email log in the site preview lists every email your site sends, so you can check password resets, form submissions and notifications without a mail server
+-   Coding agents and WordPress Studio Code
+    -   Connect Claude Code, Codex, Cursor or Grok Build to WordPress Studio with one Connect button in Settings, with new plugins for Cursor and Grok Build
+    -   The WordPress Studio MCP server is now listed in the MCP Registry
+    -   Ask the agent to send feedback to the WordPress Studio team, and get performance and SEO audit suggestions after a site build
+-   Preview sites
+    -   Every new preview site is now created on WordPress.com, and older previews hosted on wp.build move there when you update them
+    -   Your own previews open already signed in, and you can see previews made on other computers or with other tools
+    -   Share a site from its menu, with links to copy or visit each preview
+    -   Smaller archives and uploads in 10 MB chunks, for faster previews and pushes
+-   Site preview
+    -   Each site now has browser tabs for the site, WP Admin, the design system, the database and the Email log
+    -   Switch between Chat, Split and full Browser layouts from one header, and keep your tab, page and layout through a restart
+    -   New preview options: DevTools, light or dark appearance, clearing browsing data, and hiding the WordPress admin bar on the front end
+    -   WordPress’s own ⌘K command palette now works in WP Admin and the editors
+    -   Refined responsive sizes and device presets
+-   Annotations
+    -   Draw a rectangle to annotate an area of the page, and review your annotations from the composer, with thumbnails, before sending them
+-   Chat and navigation
+    -   Add files, and start or stop the site, from the composer’s add menu or with `/start` and `/stop`
+    -   Design system links show inline in the agent’s replies and open in the preview
+    -   Simpler navigation through the sidebar, the site menu and the preview tabs, and a refreshed welcome screen for an empty workspace
+    -   Start a new chat, open a site folder or a Blueprint from the File menu, and create or open a site from macOS Spotlight
+    -   Send feedback to the WordPress Studio team from the command palette
+    -   Open in menus list more browsers and show your system default browser
+-   Adding sites
+    -   Add site brings everything together under Start, Connect and Import, with one picker for Blueprints, backups and XML exports
+-   Notifications, settings and appearance
+    -   Long-running operations show persistent progress, and failures stay visible until you dismiss them
+    -   App updates show their download progress and offer a retry when they fail
+    -   Pick any accent color with the new color picker, and find settings in clear App and Site scopes
+-   CLI
+    -   Sites start even when a theme or plugin has a fatal error
+    -   Run `studio wp` from any folder inside a site, and commands that need WordPress.com sign you in and carry on
+    -   URL imports keep partially captured sites, and the site’s own title and tagline unless you pass `--name`
+-   Other Fixes
+    -   PHP extensions now load on Windows when your user folder name has non-ASCII characters
+    -   Sites using an external MySQL database keep their database name
+    -   Switching between WordPress Studio versions no longer loses preview and connection details
+    -   Panels that fail to load offer a Retry button, and design system previews and links work again
+    -   The agent’s block checks no longer hang while Chromium downloads
+    -   An improved drag-to-Applications installer on macOS
+-   Updated multiple dependencies
+-   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.2.0)
+
+*November 11, 2026*
+
+## [2.1.0](#0-2-1-0)
+
+-   A redesigned WordPress Studio
+    -   A new look across the whole app, with new icons, motion and app icons, and the Desktop app now shows as WordPress Studio
+    -   A simpler workspace: one header for the site and its chat, a chat you can hide, and a site menu for starting, stopping and the other site actions
+    -   WordPress Studio remembers the chat and preview layout for each site, and reopens a site’s last chat when you switch back to it
+    -   New Appearance settings for accent color, tint intensity and contrast
+    -   A welcome dialog for new users, and a What’s New dialog introducing the redesign
+-   Sidebar
+    -   Pin sites and chats, and add a site straight into Pinned
+    -   A Needs input group brings chats waiting on your answer to the top
+    -   Rename chats, mark them read or unread, and archive them with undo
+    -   Select several sites and chats to act on them at once, and leave some sites out of a bulk removal
+    -   Drag sites to reorder them, and sort groups from their menus
+    -   On small windows the sidebar opens over the workspace, and WordPress Studio no longer resizes the window
+-   Command palette and settings
+    -   Search sites, chats, commands and settings from a ⌘K command palette, with keyboard shortcuts for common actions
+    -   Run simple settings actions directly from the command menu
+    -   WordPress Studio and site settings now live in one searchable dialog
+    -   Switch instructions and skills on or off for all sites or for one site, and manage WordPress skills from the browser UI too
+    -   Choose a preferred browser for opening WordPress Studio sites
+    -   Notifications stay in a history you can revisit from the bell, and an accent Update button appears when a new version is ready
+-   Chat
+    -   A restyled composer and transcript, with replies that stream as they arrive and highlighted code
+    -   Switch a chat between its local and live site from the composer
+    -   Agent questions use proper radio buttons and checkboxes
+    -   Chats recover after a reload or a dropped connection, and stay in sync with their runs and questions
+-   Site preview and annotations
+    -   A new preview header with Start and Stop, address bar actions, and responsive preview sizes
+    -   Stopped sites show a screenshot, with a start button and the preview controls still available
+    -   Preview a Live chat’s remote site, and open a site’s design system from the chat
+    -   Annotations are staged in the chat draft with screenshots, so you can review your notes before sending them
+-   Publishing and sharing
+    -   Publishing and pulling now happen in one dialog, with a review step before each push or pull, opened from the preview header or any site menu
+    -   Switch between a site’s connected publishing sites
+    -   Create and share preview sites from the preview header, and manage them in a new Sharing settings tab
+    -   Connecting a live site now requires an empty folder, so it never pulls over an existing local site
+    -   Symlinked folders show as folders in the push tree, and WordPress Studio’s local `wp-config.php` constants stay out of pushes
+-   Adding sites
+    -   Add sites from a dialog over the workspace, with Blueprint details and previews
+    -   A Connect setup step for starting from a live site, and a “When adding a site” preference
+-   WordPress Studio Code
+    -   The agent knows your WordPress.com sites and what their plan allows, and lists them alongside your local sites
+    -   The site preview reloads in the app when the agent finishes
+    -   The agent no longer edits a site’s WordPress core files
+    -   Better block checks: the agent sees each core block’s settings and is warned about attributes a block doesn’t support
+    -   Turns that end on an empty reply or a garbled tool call now carry on
+    -   Agent tools no longer guess between sites that share a name
+-   Plugins for coding agents
+    -   The WordPress Studio plugin for Claude Code
+    -   Codex plugin updates following OpenAI’s review
+-   Sites and performance
+    -   The Desktop window opens without waiting for the site list, and site starts and stops show up as soon as they happen
+    -   The CLI loads faster, and site servers spread requests across their PHP workers
+    -   Each site keeps a copy of the emails it sends
+    -   Updated the bundled PHP binaries and the SQLite integration
+-   Other Fixes
+    -   Fixed sites failing to start on first launch on Windows
+    -   Fixed stray WP-CLI output crashing WordPress Studio on launch
+    -   Sites no longer pick a port another app is already using
+    -   Site starts fail with a clear error when the custom domain proxy can’t start
+    -   Stopping a site returns as soon as the site is down
+    -   Running WP-CLI with a different TMPDIR no longer breaks running sites
+    -   Sites no longer serve dotfiles or the SQLite database folder
+    -   `wp-studio://` links now open the macOS app, including links that arrive before WordPress Studio is ready
+    -   Opening a terminal on Linux uses your system terminal instead of requiring GNOME Terminal
+    -   Removed the duplicate fullscreen menu item on macOS
+    -   Logging out clears your local token even when WordPress.com rejects the revoke
+    -   The Balanced and Strong tiers stay unlocked once an account has bought AI credits
+    -   The chat no longer gets stuck loading when the AI credits request fails
+    -   Connected sites that were removed from WordPress.com keep their name and URL
+-   Updated multiple dependencies
+-   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.1.0)
+
+*October 29, 2026*
+
+## [2.0.0](#0-2-0-0)
+
+-   Completed the move to the Agentic UI
+    -   Removed the remaining WordPress Studio Classic code, so every window runs the Agentic UI
+    -   The packaged app is about 180 MB smaller
+-   Clearer error handling
+    -   WordPress Studio now says why a site failed to start, with a link to the logs
+    -   Failed pushes explain what went wrong, with a link to WordPress Studio Logs
+    -   WordPress Studio says why a preview site failed to publish
+    -   Site creation errors are explained in plain language instead of raw CLI output
+    -   WordPress Studio says when a new site’s folder already holds a WordPress site
+    -   WordPress Studio confirms when a duplicated site is ready, and says why duplicating failed
+    -   Failed site and database exports are reported
+    -   A failed WordPress.com login now shows an error
+-   Languages
+    -   The app menu, dialogs and notifications now follow WordPress Studio’s language, including the menu items macOS provides
+    -   WordPress components are mirrored correctly in right-to-left languages
+    -   Preview dates show in the app’s language, with the exact expiry on hover
+-   Sites and publishing
+    -   Added copy buttons for the site URL and local path
+    -   A newly published site now says it’s connected and needs a push
+    -   WordPress Studio warns when its HTTPS certificate isn’t trusted, and offers a way to trust it
+    -   WordPress Studio rechecks which sites are running when it regains focus and every 2 minutes
+    -   Logging out now revokes your WordPress.com token
+-   Browser UI (`studio ui`)
+    -   Pushing shows the file tree, a size estimate and the multisite warning
+    -   Shows your preview-site usage and enforces the preview limit
+    -   New sites go in the default site directory, shown read-only
+    -   The orientation guide remembers its progress in the same place as the Desktop app
+-   Other Fixes
+    -   Updating a preview now checks the preview size limit
+    -   Blueprints that name a WordPress branch like 6.5 keep that version
+    -   An uploaded Blueprint ZIP stays selected after a failed site creation
+    -   WordPress Studio no longer flashes a light page when launching in dark mode
+    -   Inner scroll areas use slim scrollbars on Windows and Linux
+    -   WordPress Studio warns again when it runs under Rosetta or Windows ARM emulation
+    -   The New site draft keeps a trailing space
+    -   The About window no longer credits WordPress Playground for local sites
+-   Updated multiple dependencies
+-   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.0.0)
+
+*October 19, 2026*
+
 ## [1.24.0](#0-1-24-0)
 
 -   Moved every site to native PHP:

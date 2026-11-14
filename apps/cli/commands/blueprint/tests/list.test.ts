@@ -1,10 +1,10 @@
+import { fetchLibraryBlueprints } from '@studio/blueprints';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { vi } from 'vitest';
 import { runCommand } from '../list';
 
 vi.mock( '@studio/common/lib/shared-config' );
-vi.mock( '@studio/common/lib/studio-blueprints-api' );
+vi.mock( '@studio/blueprints' );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = vi.fn();
@@ -24,24 +24,23 @@ const testBlueprints = [
 		title: 'Quick Start',
 		excerpt: 'Get started quickly',
 		image: 'https://example.com/qs.png',
-		playground_url: 'https://playground.wordpress.net/',
+		playgroundUrl: 'https://playground.wordpress.net/',
 		blueprint: {
-			meta: { categories: [ 'starter' ] },
+			meta: { title: 'Quick Start', author: 'Studio', categories: [ 'starter' ] },
 			steps: [],
 		},
-		bundle_url: null,
 	},
 	{
 		slug: 'woo-shop',
 		title: 'WooCommerce Shop',
 		excerpt: 'An online store',
 		image: 'https://example.com/woo.png',
-		playground_url: 'https://playground.wordpress.net/',
+		playgroundUrl: 'https://playground.wordpress.net/',
 		blueprint: {
-			meta: { categories: [ 'ecommerce' ] },
+			meta: { title: 'WooCommerce Shop', author: 'Studio', categories: [ 'ecommerce' ] },
 			steps: [],
 		},
-		bundle_url: 'https://example.com/woo-bundle.zip',
+		bundleUrl: 'https://example.com/woo-bundle.zip',
 	},
 ];
 
@@ -49,7 +48,7 @@ describe( 'CLI: studio blueprint list', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
-		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( testBlueprints );
+		vi.mocked( fetchLibraryBlueprints ).mockResolvedValue( testBlueprints );
 		vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 	} );
 
@@ -64,13 +63,13 @@ describe( 'CLI: studio blueprint list', () => {
 	} );
 
 	it( 'should throw when offline', async () => {
-		vi.mocked( fetchStudioBlueprints ).mockRejectedValue( new TypeError( 'fetch failed' ) );
+		vi.mocked( fetchLibraryBlueprints ).mockRejectedValue( new TypeError( 'fetch failed' ) );
 
 		await expect( runCommand( 'table' ) ).rejects.toThrow( 'internet connection' );
 	} );
 
 	it( 'should output empty json array when no blueprints', async () => {
-		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( [] );
+		vi.mocked( fetchLibraryBlueprints ).mockResolvedValue( [] );
 
 		await runCommand( 'json' );
 
@@ -100,6 +99,6 @@ describe( 'CLI: studio blueprint list', () => {
 
 		await runCommand( 'table' );
 
-		expect( fetchStudioBlueprints ).toHaveBeenCalledWith( 'fr_FR' );
+		expect( fetchLibraryBlueprints ).toHaveBeenCalledWith( { locale: 'fr_FR' } );
 	} );
 } );

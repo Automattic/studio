@@ -7,6 +7,8 @@ export const READ_ADMIN_BAR_VISIBILITY_SCRIPT = `(() => {
 	return bar.getClientRects().length > 0 && style.visibility === 'visible' && style.opacity !== '0';
 })()`;
 
+// A site that isn't served from its origin's root, like a Playground site, sets
+// window.studioAutoLoginUrl to its own auto-login route.
 export const PREVIEW_SHORTCUTS_SCRIPT = `(() => {
 	if (window.parent === window) return;
 	let hostOrigin;
@@ -30,7 +32,7 @@ export const PREVIEW_SHORTCUTS_SCRIPT = `(() => {
 		}
 		if (event.data?.type === 'studio:preview:login') {
 			if (!hostOrigin || event.origin !== hostOrigin || location.pathname.split('/').some((part) => ['wp-admin', 'wp-login.php', 'wp-signup.php', 'wp-activate.php'].includes(part))) return;
-			const login = new URL('/studio-auto-login', location.href);
+			const login = new URL(window.studioAutoLoginUrl || '/studio-auto-login', location.href);
 			login.searchParams.set('redirect_to', location.href);
 			location.assign(login.toString());
 			return;

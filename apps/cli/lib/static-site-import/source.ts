@@ -1,10 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
-import {
-	createBlueprintTempDirSync,
-	removeBlueprintTempDirSync,
-} from '@studio/common/lib/blueprint-bundle';
 import { type TracksSiteCreateSource } from '@studio/common/lib/record-tracks-event';
 import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
@@ -285,7 +282,7 @@ export function importerBlueprint(
 	staticSiteImporterPlugin: StaticSiteImporterPlugin,
 	staticSiteImport: Omit< StaticSiteImportPlan, 'bundlePath' >
 ): StaticSiteImportBlueprint {
-	const tempDir = createBlueprintTempDirSync();
+	const tempDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-blueprint-' ) );
 	const blueprintPath = path.join( tempDir, 'blueprint.json' );
 	const pluginData =
 		typeof staticSiteImporterPlugin === 'string'
@@ -312,7 +309,7 @@ export function importerBlueprint(
 		}
 		fs.writeFileSync( blueprintPath, `${ JSON.stringify( blueprint, null, 2 ) }\n` );
 	} catch ( error ) {
-		removeBlueprintTempDirSync( tempDir );
+		fs.rmSync( tempDir, { recursive: true, force: true } );
 		throw error;
 	}
 	return {

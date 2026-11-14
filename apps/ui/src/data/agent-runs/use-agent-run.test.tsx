@@ -7,7 +7,12 @@ import { rememberAccountJourney } from '@/data/account-analytics';
 import { createLocalConnector } from '@/data/core/connectors/local';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import { createFakeConnector, makeSession, type FakeConnector } from '@/test/fake-connector';
+import {
+	aiSettings,
+	createFakeConnector,
+	makeSession,
+	type FakeConnector,
+} from '@/test/fake-connector';
 import { createTestQueryClient, renderWithProviders } from '@/test/render';
 import { useAgentRun, useSiteAgentActivity } from './use-agent-run';
 import type { AgentRunEvent, Connector, LoadedAiSession } from '@/data/core';
@@ -317,17 +322,13 @@ describe( 'useAgentRun queued handoff', () => {
 		).toBe( true );
 	} );
 
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'only holds WordPress.com queues when credits run out: %s',
 		async ( provider ) => {
 			const connector = createFakeConnector(
 				{ sessions: [ session() ] },
 				{
-					getAiSettings: async () => ( {
-						provider,
-						hasAnthropicApiKey: true,
-						anthropicApiKeyPreview: 'test',
-					} ),
+					getAiSettings: async () => aiSettings( provider, [ 'wpcom', 'anthropic' ] ),
 				}
 			);
 			const queryClient = createTestQueryClient();

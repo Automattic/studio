@@ -3,8 +3,8 @@ import {
 	drawDesignEntries,
 	loadDesignCatalog,
 	renderDesignCatalogIndex,
-} from '@studio/agent/node/design-catalog';
-import { findSkill } from '@studio/agent/node/skills';
+} from '@studio/agent/shared/design-catalog';
+import { findSkill } from '@studio/agent/shared/skills';
 
 function seededRandom( seed: number ): () => number {
 	let state = seed;

@@ -1,13 +1,13 @@
 import os from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
-import { bindTool, type ToolResult } from '@studio/agent/node/tools/define-tool';
-import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
+import { bindTool, type ToolResult } from '@studio/agent/shared/tools/define-tool';
+import { createPresentDesignOptionsTool } from '@studio/agent/shared/tools/present-design-options';
 import { createFakeHost } from './fake-host';
 
 vi.mock( '@studio/agent/node/screenshot-storage', () => ( {
 	resolveScreenshotDirectory: async () => os.tmpdir(),
 } ) );
-vi.mock( '@studio/agent/node/tools/screenshot-helpers', () => ( {
+vi.mock( '@studio/agent/shared/tools/screenshot-helpers', () => ( {
 	captureScreenshotBuffer: async () => ( { buffer: Buffer.from( 'jpeg' ), contentHeight: 900 } ),
 	saveScreenshotFile: async () => ( { path: '/tmp/design-options.jpg' } ),
 } ) );

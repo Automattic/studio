@@ -26,18 +26,17 @@ Note that HTTPS requires a custom domain, as it cannot be used with the default 
 
 To enable HTTPS for a new or existing site:
 
-1.  Start by creating a new site, or open an existing site’s settings: choose **Settings** from the site menu (click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar).
-2.  If creating a new site, expand **Advanced settings**.
-3.  Turn on **Use custom domain**. In an existing site’s settings, it’s under **Local domain**.
-4.  If you have not already provided one, enter a domain name (must end with `.local`) or use the automatically generated one.
-5.  Turn on **Enable HTTPS**.
+1.  Start by creating a new site, or open an existing site’s settings: choose **Settings** from the site menu (click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar).
+2.  If creating a new site, click **Advanced** and enter a domain name (must end with `.local`) under **Domain name**.
+3.  In an existing site’s settings, turn on **Use custom domain** under **Local domain**, and enter a domain name (must end with `.local`) or use the automatically generated one.
+4.  Turn on **HTTPS** next to the domain name when creating a site, or **Enable HTTPS** in an existing site’s settings.
 
-![The Create a blank site form in WordPress Studio with Advanced settings expanded, showing Use custom domain and Enable HTTPS turned on and a .wp.local domain name.](../../../screenshots/images/create-site-https.webp)
+![The Add site form in WordPress Studio with Advanced expanded, showing a .local Domain name and the HTTPS switch turned on.](../../../screenshots/images/create-site-https.webp)
 
-6.  Click **Create site** or **Save**, depending on whether you are creating a new site or editing an existing one. 
-7.  When prompted, give your permission for WordPress Studio to modify the system hosts file. WordPress Studio will configure everything else automatically. 
-8.  For HTTPS connections, a root certificate authority will be generated and installed. Until your computer trusts it, the **Enable HTTPS** option shows a button to fix that: **Show certificate** on macOS, which opens the certificate file in Finder, or **Trust certificate** on Windows and Linux, which trusts it for you. On macOS, you’ll need to manually install the certificate to avoid browser warnings. [Refer to the guide below for more details](#macos).
-9.  Navigate to your site using the custom domain.
+5.  Click **Add site** or **Save**, depending on whether you are creating a new site or editing an existing one. 
+6.  When prompted, give your permission for WordPress Studio to modify the system hosts file. WordPress Studio will configure everything else automatically. 
+7.  For HTTPS connections, a root certificate authority will be generated and installed. Until your computer trusts it, the **Enable HTTPS** option shows a button to fix that: **Show certificate** on macOS, which opens the certificate file in Finder, or **Trust certificate** on Windows and Linux, which trusts it for you. On macOS, you’ll need to manually install the certificate to avoid browser warnings. [Refer to the guide below for more details](#macos).
+8.  Navigate to your site using the custom domain.
 
 ## [Certificate Trust by platform](#3-certificate-trust-by-platform)
 

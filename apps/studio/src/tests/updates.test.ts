@@ -12,6 +12,7 @@ import {
 } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
+import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import {
 	checkForAppUpdates,
@@ -308,26 +309,104 @@ describe( 'update status emissions', () => {
 		} );
 	} );
 
-	it.each( [ -1009, -1005 ] )(
-		'ends download progress on a connection error (%s) and allows retry',
-		async ( code ) => {
-			vi.useFakeTimers();
-			try {
-				setupDarwinUpdates();
-				await getHandler( 'error' )?.( Object.assign( new Error( 'Connection lost' ), { code } ) );
-				expect( getLastEmittedStatus() ).toMatchObject( {
-					state: 'error',
-					detail: 'Check your internet connection and try again.',
-				} );
-				vi.mocked( autoUpdater.checkForUpdates ).mockClear();
-				await checkForAppUpdates( {} as IpcMainInvokeEvent );
-				expect( autoUpdater.checkForUpdates ).toHaveBeenCalledOnce();
-			} finally {
-				vi.clearAllTimers();
-				vi.useRealTimers();
+	it.each( [
+		[
+			'win32',
+			"System.Exception: Couldn't acquire lock, is another instance running",
+			undefined,
+			'lock',
+		],
+		[
+			'win32',
+			'System.Net.WebException: Impossible de résoudre le nom distant',
+			undefined,
+			'network',
+		],
+		[ 'win32', 'System.Net.Sockets.SocketException: Verbindungsfehler', undefined, 'network' ],
+		[ 'win32', 'Unrelated update failure', undefined, null ],
+		[ 'darwin', 'The request timed out.', -1001, 'network' ],
+		[ 'darwin', 'A server with the specified hostname could not be found.', -1003, 'network' ],
+		[ 'darwin', 'Could not connect to the server.', -1004, 'network' ],
+		[ 'darwin', 'The network connection was lost.', -1005, 'network' ],
+		[ 'darwin', 'The Internet connection appears to be offline.', -1009, 'network' ],
+		[ 'darwin', 'The server returned an invalid response.', -1011, null ],
+	] )( 'handles %s update errors: %s', async ( platform, message, code, kind ) => {
+		vi.useFakeTimers();
+		try {
+			Object.defineProperty( process, 'platform', { value: platform, configurable: true } );
+			setupUpdates();
+			await getHandler( 'checking-for-update' )?.();
+			const err = Object.assign( new Error( message ), code === undefined ? {} : { code } );
+			await getHandler( 'error' )?.( err );
+
+			if ( kind ) {
+				expect( Sentry.captureException ).not.toHaveBeenCalled();
+				expect( getLastEmittedStatus() ).toEqual(
+					kind === 'lock'
+						? { state: 'idle', currentVersion: '1.8.2' }
+						: {
+								state: 'error',
+								currentVersion: '1.8.2',
+								reason: 'generic',
+								detail: 'Check your internet connection and try again.',
+						  }
+				);
+			} else {
+				expect( Sentry.captureException ).toHaveBeenCalledWith( err );
 			}
+
+			vi.mocked( autoUpdater.checkForUpdates ).mockClear();
+			await vi.advanceTimersByTimeAsync( AUTO_UPDATE_INTERVAL_MS );
+			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( kind ? 1 : 0 );
+		} finally {
+			vi.clearAllTimers();
+			vi.useRealTimers();
 		}
-	);
+	} );
+
+	it( 'leaves updates to the Microsoft Store in Store builds', () => {
+		Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+		Object.defineProperty( process, 'windowsStore', { value: true, configurable: true } );
+		try {
+			setupUpdates();
+
+			expect( autoUpdater.setFeedURL ).not.toHaveBeenCalled();
+			expect( autoUpdater.on ).not.toHaveBeenCalled();
+			expect( autoUpdater.checkForUpdates ).not.toHaveBeenCalled();
+		} finally {
+			Object.defineProperty( process, 'windowsStore', { value: undefined, configurable: true } );
+		}
+	} );
+
+	it( 'defers the first Windows update check after a Squirrel install', async () => {
+		vi.useFakeTimers();
+		const originalArgv = process.argv;
+		const originalIsPackaged = app.isPackaged;
+		try {
+			Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+			process.argv = [ ...originalArgv, '--squirrel-firstrun' ];
+			Object.defineProperty( app, 'isPackaged', { value: true, configurable: true } );
+			vi.stubEnv( 'NODE_ENV', 'production' );
+			vi.resetModules();
+			const updates = await import( 'src/updates' );
+
+			updates.setupUpdates();
+
+			expect( autoUpdater.checkForUpdates ).not.toHaveBeenCalled();
+			expect( updates.getAutoUpdaterState() ).toBe( 'polling' );
+			await vi.advanceTimersByTimeAsync( AUTO_UPDATE_INTERVAL_MS );
+			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledOnce();
+		} finally {
+			process.argv = originalArgv;
+			Object.defineProperty( app, 'isPackaged', {
+				value: originalIsPackaged,
+				configurable: true,
+			} );
+			vi.unstubAllEnvs();
+			vi.clearAllTimers();
+			vi.useRealTimers();
+		}
+	} );
 
 	it( 'reports a read-only volume error to the sidebar instead of a dialog', async () => {
 		// Not part of the shared electron mock; only this path calls it.

@@ -5,19 +5,16 @@ import {
 	listStudioSessionFiles,
 	openStudioSession,
 } from '@studio/agent/node/sessions/pi-session';
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
+import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
-import {
-	isAiProviderReady,
-	resolveAiEnvironment,
-	resolveInitialAiProvider,
-	saveSelectedAiProvider,
-} from 'cli/ai/auth';
+import { resolveAiConnection, resolveInitialAiProvider } from 'cli/ai/auth';
 import { JsonAdapter } from 'cli/ai/output-adapter';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { isProviderConnected } from 'cli/lib/providers';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../index';
@@ -35,26 +32,22 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
 vi.mock( 'cli/ai/auth', () => ( {
+	getStudioUserAgent: () => 'WordPressStudio',
 	resolveInitialAiProvider: vi.fn(),
-	saveSelectedAiProvider: vi.fn(),
-	getAvailableAiProviders: vi.fn( () => [ 'wpcom' ] ),
-	isAiProviderReady: vi.fn(),
-	prepareAiProvider: vi.fn(),
-	resolveAiEnvironment: vi.fn(),
+	resolveAiConnection: vi.fn(),
+	resolveImageGenerator: vi.fn(),
 	resolveUnavailableAiProvider: vi.fn(),
 } ) );
-vi.mock( 'cli/ai/providers', () => ( {
-	AI_PROVIDERS: { wpcom: 'WordPress.com', 'anthropic-api-key': 'Anthropic · API key' },
-	DEFAULT_AI_PROVIDER: 'wpcom',
-	getAiProviderDefinition: () => ( {
-		supportsModel: () => true,
-		defaultModel: 'claude-sonnet-5',
-	} ),
-	getStudioUserAgent: () => 'WordPressStudio',
+vi.mock( 'cli/lib/providers', () => ( {
+	connectInTerminal: vi.fn(),
+	isProviderConnected: vi.fn(),
 } ) );
-vi.mock( '@studio/agent/node/settings-store', () => ( {
-	readAnthropicApiKey: vi.fn(),
+vi.mock( '@studio/common/lib/ai-settings', () => ( {
+	persistSelectedAiProvider: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
+} ) );
+vi.mock( '@studio/common/lib/provider-config', () => ( {
+	readProviderConfig: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	findSiteByFolder: vi.fn(),
@@ -121,8 +114,8 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
 
 		expect( runStudioAgentTurn ).toHaveBeenCalled();
-		expect( saveSelectedAiProvider ).toHaveBeenCalledTimes( 1 );
-		expect( saveSelectedAiProvider ).toHaveBeenCalledWith( 'wpcom' );
+		expect( persistSelectedAiProvider ).toHaveBeenCalledTimes( 1 );
+		expect( persistSelectedAiProvider ).toHaveBeenCalledWith( 'wpcom' );
 	} );
 
 	it( 'waits for the quota-based default before pinning wpcom on first run', async () => {
@@ -151,14 +144,14 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 	} );
 
 	it( 'does not override an already-configured provider', async () => {
-		( readSelectedAiProvider as Mock ).mockResolvedValue( 'anthropic-api-key' );
-		( readAnthropicApiKey as Mock ).mockResolvedValue( 'saved-key' );
-		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'anthropic-api-key' );
+		( readSelectedAiProvider as Mock ).mockResolvedValue( 'anthropic' );
+		( readProviderConfig as Mock ).mockResolvedValue( { method: 'api-key', apiKey: 'saved-key' } );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'anthropic' );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
 
 		expect( runStudioAgentTurn ).toHaveBeenCalled();
-		expect( saveSelectedAiProvider ).not.toHaveBeenCalled();
+		expect( persistSelectedAiProvider ).not.toHaveBeenCalled();
 	} );
 } );
 
@@ -177,7 +170,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 		stdoutSpy.mockRestore();
 	} );
 
-	it( 'uses the model recorded in the session rather than DEFAULT_MODEL', async () => {
+	it( 'uses the model recorded in the session rather than the default', async () => {
 		// Build a minimal session whose entries record a model_change to a
 		// non-default model — the same shape that `resolveSessionModel` reads.
 		const sessionEntries = [
@@ -186,7 +179,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 				id: 'e1',
 				parentId: null,
 				timestamp: '2024-01-01T00:00:00Z',
-				modelId: 'claude-opus-5',
+				modelId: 'strong',
 			},
 		];
 		const mockSm = {
@@ -205,8 +198,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 		} );
 
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
-		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 1 ] as { model: string };
-		expect( callArgs.model ).toBe( 'claude-opus-5' );
+		expect( resolveAiConnection ).toHaveBeenCalledWith( 'wpcom', 'strong', expect.anything() );
 	} );
 } );
 
@@ -538,14 +530,18 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 
 	it( 'runs on WordPress.com when the pinned provider has no key', async () => {
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
-			provider: 'anthropic-api-key',
-			model: 'claude-sonnet-5',
+			provider: 'anthropic',
+			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( false );
+		( isProviderConnected as Mock ).mockResolvedValue( false );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
-		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'wpcom', expect.anything() );
+		expect( resolveAiConnection ).toHaveBeenCalledWith(
+			'wpcom',
+			expect.anything(),
+			expect.anything()
+		);
 	} );
 
 	it( 'never rewrites the pin on disk during a fallback run', async () => {
@@ -558,10 +554,10 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 			getEntries: () => [],
 		} );
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
-			provider: 'anthropic-api-key',
-			model: 'claude-sonnet-5',
+			provider: 'anthropic',
+			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( false );
+		( isProviderConnected as Mock ).mockResolvedValue( false );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
@@ -576,15 +572,19 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 	it( 'keeps the pin when no global provider was ever saved (Desktop first run)', async () => {
 		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
-			provider: 'anthropic-api-key',
-			model: 'claude-sonnet-5',
+			provider: 'anthropic',
+			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( true );
+		( isProviderConnected as Mock ).mockResolvedValue( true );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
-		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', expect.anything() );
+		expect( resolveAiConnection ).toHaveBeenCalledWith(
+			'anthropic',
+			'claude-sonnet-5-5',
+			expect.anything()
+		);
 		// The Desktop wpcom default must not overwrite the pin on disk.
-		expect( saveSelectedAiProvider ).not.toHaveBeenCalled();
+		expect( persistSelectedAiProvider ).not.toHaveBeenCalled();
 	} );
 } );

@@ -1,7 +1,7 @@
 /**
  * Moves `aiProvider` and `anthropicApiKey` from cli.json into shared.json,
  * where Desktop and CLI now read them. Reads still fall back to cli.json
- * (`settings-store.ts`), so nothing breaks before this runs. Values already
+ * (`packages/common/lib/provider-config.ts`), so nothing breaks before this runs. Values already
  * in shared.json are newer and win; the cli.json copies are removed either way.
  */
 

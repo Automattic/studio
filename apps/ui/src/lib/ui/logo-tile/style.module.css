@@ -1,0 +1,34 @@
+@layer ui {
+	/* The tile leaves a margin in its box, like the app icons it sits next to. */
+	.logo {
+		display: inline-grid;
+		flex: none;
+		width: var( --app-icon-size, 16px );
+		height: var( --app-icon-size, 16px );
+		place-items: center;
+	}
+
+	.tile {
+		composes: imageOutline from '@/lib/theme/recipes.module.css';
+		position: relative;
+		display: grid;
+		place-items: center;
+		width: 80%;
+		height: 80%;
+		overflow: hidden;
+		border-radius: 22.5%;
+		background-color: var( --muted );
+		color: var( --muted-foreground );
+	}
+
+	.tile svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.tile:not( [data-brand] ) > * {
+		width: 62.5%;
+		height: 62.5%;
+	}
+}

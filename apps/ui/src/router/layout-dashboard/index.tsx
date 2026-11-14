@@ -5,8 +5,7 @@ import { __, isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useSession, useSessionLiveSite, useSessions } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
@@ -81,10 +80,9 @@ function DashboardLayout() {
 	const openSettings = useOpenSettings();
 	const narrow = useMediaQuery( '(max-width: 540px)' );
 	const windowControls = useWindowControlsOverlay();
-	const { data: authUser } = useAuthUser();
 	const { data: aiSettings } = useAiSettings();
 	const [ providerPromptOpen, setProviderPromptOpen ] = useState( false );
-	const hasProvider = !! authUser || !! aiSettings?.hasAnthropicApiKey;
+	const hasProvider = hasConnectedProvider( aiSettings );
 	useEffect( () => {
 		if ( hasProvider ) setProviderPromptOpen( false );
 	}, [ hasProvider ] );
@@ -462,7 +460,10 @@ function DashboardLayout() {
 				secondaryLabel={ __( 'Choose a different provider' ) }
 				onSkip={ () => {
 					setProviderPromptOpen( false );
-					openSettings( 'ai', undefined, undefined, { intent: 'annotate', scope: routeSite?.id } );
+					openSettings( 'providers', undefined, 'ai-providers', {
+						intent: 'annotate',
+						scope: routeSite?.id,
+					} );
 				} }
 			/>
 			<SiteHeaderActionsProvider host={ panelExpanded ? 'panel' : 'chat' }>
@@ -474,6 +475,7 @@ function DashboardLayout() {
 							: routePreviewContext.pathname
 					}
 					panelOpen={ showPanel }
+					onPanelClose={ () => setPanelOpen( false, { userInitiated: true } ) }
 					chatHidden={ chatHidden }
 					instant={ ( ! previewStopping || ! preview.open ) && preview.instant }
 					panel={ renderPanel }
@@ -482,6 +484,7 @@ function DashboardLayout() {
 							<WindowControlsCornerContext.Provider value={ ! showPanel }>
 								<div
 									ref={ setTabHeader }
+									data-sidebar-flyout-header
 									className={ styles.header }
 									data-panel-open={ showPanel || undefined }
 									data-full-view-control={ showFullView || undefined }

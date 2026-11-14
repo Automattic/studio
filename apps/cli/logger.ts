@@ -1,5 +1,6 @@
 import 'cli/lib/picospinner-stderr-patch';
 import { Spinner } from 'picospinner';
+import { reportCommandFailure } from 'cli/lib/error-reporting';
 
 const isIpcMode = Boolean( process.send );
 
@@ -29,6 +30,11 @@ export class LoggerError extends Error {
 		if ( previousError instanceof Error ) {
 			this.previousError = previousError;
 		}
+	}
+
+	// Sentry reports the cause's stack along with this error's.
+	get cause(): Error | undefined {
+		return this.previousError;
 	}
 
 	get message(): string {
@@ -127,6 +133,10 @@ export class Logger< T extends string > {
 	public reportError( error: LoggerError, isFatal = true ) {
 		if ( isFatal ) {
 			process.exitCode = 1;
+			// Without a cause, the failure is one the command expects, like a missing site.
+			if ( error.previousError ) {
+				reportCommandFailure( error );
+			}
 		}
 
 		if ( this.onProgress ) {

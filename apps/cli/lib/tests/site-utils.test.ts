@@ -2,8 +2,18 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { vi, type Mock } from 'vitest';
 import { openBrowser } from 'cli/lib/browser';
 import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
-import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
-import { openSiteInBrowser, setupCustomDomain, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import {
+	isProxyProcessRunning,
+	listProcesses,
+	startProxyProcess,
+	stopProxyProcess,
+} from 'cli/lib/daemon-client';
+import {
+	getSitesRunningStatus,
+	openSiteInBrowser,
+	setupCustomDomain,
+	stopProxyIfNoSitesNeedIt,
+} from 'cli/lib/site-utils';
 import { isServerRunning, subscribeForReadyOrExit } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
@@ -239,6 +249,33 @@ describe( 'openSiteInBrowser', () => {
 		expect( openBrowser ).toHaveBeenCalledWith(
 			'http://localhost:8881/studio-auto-login?redirect_to=' +
 				encodeURIComponent( 'http://localhost:8881/wp-admin/edit.php' )
+		);
+	} );
+} );
+
+describe( 'getSitesRunningStatus', () => {
+	const site = { name: 'Site', path: '/site', port: 8881, phpVersion: '8.3' };
+
+	it( 'counts a saved site as running when its online process has the pid saved for it', async () => {
+		( listProcesses as Mock ).mockResolvedValue( [
+			{ name: 'studio-site-current', pmId: 0, status: 'online', pid: 200 },
+			{ name: 'studio-site-stale', pmId: 1, status: 'online', pid: 300 },
+		] );
+		( readCliConfig as Mock ).mockResolvedValue( {
+			version: 1,
+			sites: [
+				{ ...site, id: 'current', latestCliPid: 200 },
+				{ ...site, id: 'stale', latestCliPid: 299 },
+				{ ...site, id: 'stopped' },
+			],
+		} );
+
+		expect( await getSitesRunningStatus() ).toEqual(
+			new Map( [
+				[ 'current', true ],
+				[ 'stale', false ],
+				[ 'stopped', false ],
+			] )
 		);
 	} );
 } );

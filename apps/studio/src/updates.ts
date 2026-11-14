@@ -1,10 +1,10 @@
 import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
+import { isDevRelease } from '@studio/common/lib/dev-release';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { isDevRelease } from 'src/lib/version-utils';
 import { getExistingMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import type { IpcMainInvokeEvent } from 'electron';
@@ -66,9 +66,40 @@ export function switchToNightlyAndUpdate(): void {
 	autoUpdater.checkForUpdates();
 }
 
+// NSURLErrorDomain: timed out, host not found, can't connect, connection lost, offline.
+const MAC_NETWORK_ERROR_CODES = [ -1001, -1003, -1004, -1005, -1009 ];
+
+/**
+ * Errors that a later check may not hit, so they're retried rather than reported. On Windows
+ * Squirrel's messages are localized, but the exception and frame names they include aren't.
+ */
+function classifyTransientUpdateError( err: Error ): 'lock' | 'network' | null {
+	if ( process.platform === 'darwin' ) {
+		const code = 'code' in err ? err.code : undefined;
+		return typeof code === 'number' && MAC_NETWORK_ERROR_CODES.includes( code ) ? 'network' : null;
+	}
+	if ( process.platform !== 'win32' ) {
+		return null;
+	}
+	if ( err.message.includes( "Couldn't acquire lock" ) ) {
+		return 'lock';
+	}
+	if ( /System\.Net\.(WebException|Sockets)/.test( err.message ) ) {
+		return 'network';
+	}
+	return null;
+}
+
 export function setupUpdates() {
 	if ( process.env.E2E ) {
 		console.log( 'Skipping update server setup in E2E tests' );
+		updaterState = 'done';
+		return;
+	}
+
+	if ( process.windowsStore ) {
+		// The Microsoft Store updates MSIX installs, and the feed only serves Squirrel packages.
+		console.log( 'Skipping update server setup in the Microsoft Store build' );
 		updaterState = 'done';
 		return;
 	}
@@ -139,14 +170,13 @@ export function setupUpdates() {
 	} );
 
 	autoUpdater.on( 'error', ( err ) => {
-		if ( 'code' in err && ( err.code === -1009 || err.code === -1005 ) ) {
-			// Corresponds to errors: "The Internet connection appears to be offline." and "The network connection was lost."
-			// We don't need to stop polling, the internet might come back.
+		const transientError = classifyTransientUpdateError( err );
+		if ( transientError ) {
 			queueUpdateCheck();
-			lastError = {
-				reason: 'generic',
-				detail: __( 'Check your internet connection and try again.' ),
-			};
+			lastError =
+				transientError === 'network'
+					? { reason: 'generic', detail: __( 'Check your internet connection and try again.' ) }
+					: null;
 			emitAppUpdateStatus();
 			return;
 		}
@@ -181,6 +211,11 @@ export function setupUpdates() {
 			isPackaged: app.isPackaged,
 			version: app.getVersion(),
 		} );
+		return;
+	}
+
+	if ( process.platform === 'win32' && process.argv.includes( '--squirrel-firstrun' ) ) {
+		queueUpdateCheck();
 		return;
 	}
 

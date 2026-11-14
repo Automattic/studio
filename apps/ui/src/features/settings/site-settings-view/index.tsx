@@ -18,7 +18,6 @@ import {
 	RecommendedPHPVersion,
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
@@ -42,6 +41,7 @@ import {
 	validateSiteName,
 } from '@/features/sites';
 import { useOffline } from '@/lib/hooks';
+import { EyeIcon, EyeOffIcon } from '@/lib/icons';
 import { Button, IconButton, Input } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -377,75 +377,81 @@ export function SiteSettingsForm( {
 				<ConnectionCard active={ active } />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
-					<SettingsRow
-						title={ __( 'Local path' ) }
-						description={ __( 'Where this site’s files are stored.' ) }
-					>
-						{ ( control ) => (
-							<div className={ styles.field }>
-								<Input
-									{ ...control }
-									aria-label={ __( 'Local path' ) }
-									value={ site.path }
-									title={ site.path }
-									readOnly
+					{ connector.capabilities.nativeSites && (
+						<>
+							<SettingsRow
+								title={ __( 'Local path' ) }
+								description={ __( 'Where this site’s files are stored.' ) }
+							>
+								{ ( control ) => (
+									<div className={ styles.field }>
+										<Input
+											{ ...control }
+											aria-label={ __( 'Local path' ) }
+											value={ site.path }
+											title={ site.path }
+											readOnly
+										/>
+									</div>
+								) }
+							</SettingsRow>
+							{ selectRow(
+								'wpVersion',
+								__( 'WordPress version' ),
+								__( 'Choose the WordPress release for this site.' ),
+								wpVersionOptions,
+								isOffline
+							) }
+							<SettingsRow
+								title={ __( 'Automatic updates' ) }
+								description={ __( 'Keep WordPress updated to the latest released version.' ) }
+							>
+								<SettingsToggle
+									label={ __( 'Automatic updates' ) }
+									checked={ data.wpVersion === '' }
+									disabled={ disabled || isOffline }
+									onChange={ ( automatic ) =>
+										handleChange( {
+											wpVersion: automatic ? '' : currentWpVersion ?? DEFAULT_WORDPRESS_VERSION,
+										} )
+									}
 								/>
-							</div>
+							</SettingsRow>
+						</>
+					) }
+				</SettingsGroup>
+				{ connector.capabilities.nativeSites && (
+					<SettingsGroup title={ __( 'Local domain' ) }>
+						{ toggleRow(
+							'useCustomDomain',
+							__( 'Use custom domain' ),
+							<>
+								{ __( 'Use a local address like my-site.local.' ) }
+								{ learnMore( 'docsCustomDomains' ) }
+							</>
 						) }
-					</SettingsRow>
-					{ selectRow(
-						'wpVersion',
-						__( 'WordPress version' ),
-						__( 'Choose the WordPress release for this site.' ),
-						wpVersionOptions,
-						isOffline
-					) }
-					<SettingsRow
-						title={ __( 'Automatic updates' ) }
-						description={ __( 'Keep WordPress updated to the latest released version.' ) }
-					>
-						<SettingsToggle
-							label={ __( 'Automatic updates' ) }
-							checked={ data.wpVersion === '' }
-							disabled={ disabled || isOffline }
-							onChange={ ( automatic ) =>
-								handleChange( {
-									wpVersion: automatic ? '' : currentWpVersion ?? DEFAULT_WORDPRESS_VERSION,
-								} )
-							}
-						/>
-					</SettingsRow>
-				</SettingsGroup>
-				<SettingsGroup title={ __( 'Local domain' ) }>
-					{ toggleRow(
-						'useCustomDomain',
-						__( 'Use custom domain' ),
-						<>
-							{ __( 'Use a local address like my-site.local.' ) }
-							{ learnMore( 'docsCustomDomains' ) }
-						</>
-					) }
-					{ data.useCustomDomain && (
-						<>
-							{ textRow( 'customDomain', __( 'Domain' ) ) }
-							{ toggleRow(
-								'enableHttps',
-								__( 'Enable HTTPS' ),
-								<>
-									{ __(
-										'Test features that require HTTPS and catch issues before your site goes live.'
-									) }
-									{ learnMore( 'docsSslInStudio' ) }
-								</>
-							) }
-							{ data.enableHttps && (
-								<div className={ styles.certificateNotice }>
-									<CertificateTrustNotice />
-								</div>
-							) }
-						</>
-					) }
-				</SettingsGroup>
+						{ data.useCustomDomain && (
+							<>
+								{ textRow( 'customDomain', __( 'Domain' ) ) }
+								{ toggleRow(
+									'enableHttps',
+									__( 'Enable HTTPS' ),
+									<>
+										{ __(
+											'Test features that require HTTPS and catch issues before your site goes live.'
+										) }
+										{ learnMore( 'docsSslInStudio' ) }
+									</>
+								) }
+								{ data.enableHttps && (
+									<div className={ styles.certificateNotice }>
+										<CertificateTrustNotice />
+									</div>
+								) }
+							</>
+						) }
+					</SettingsGroup>
+				) }
 				<SettingsGroup
 					title={ __( 'WordPress credentials' ) }
 					description={
@@ -536,26 +542,27 @@ export function SiteSettingsForm( {
 					) }
 				</SettingsGroup>
 				<SettingsGroup title={ __( 'Debugging' ) }>
-					{ toggleRow(
-						'enableXdebug',
-						__( 'Xdebug' ),
-						<>
-							{ __(
-								'Connect a debugger to inspect PHP execution. Only one site can have Xdebug enabled at a time.'
-							) }
-							{ learnMore( 'docsXdebug' ) }
-						</>,
-						xdebugConflictSiteName && ! data.enableXdebug
-							? {
-									error: sprintf(
-										/* translators: %s: the name of the site that has Xdebug enabled. */
-										__( 'Xdebug is enabled on another site: %s' ),
-										xdebugConflictSiteName
-									),
-									locked: true,
-							  }
-							: {}
-					) }
+					{ connector.capabilities.nativeSites &&
+						toggleRow(
+							'enableXdebug',
+							__( 'Xdebug' ),
+							<>
+								{ __(
+									'Connect a debugger to inspect PHP execution. Only one site can have Xdebug enabled at a time.'
+								) }
+								{ learnMore( 'docsXdebug' ) }
+							</>,
+							xdebugConflictSiteName && ! data.enableXdebug
+								? {
+										error: sprintf(
+											/* translators: %s: the name of the site that has Xdebug enabled. */
+											__( 'Xdebug is enabled on another site: %s' ),
+											xdebugConflictSiteName
+										),
+										locked: true,
+								  }
+								: {}
+						) }
 					{ toggleRow(
 						'enableDebugLog',
 						__( 'Debug log' ),

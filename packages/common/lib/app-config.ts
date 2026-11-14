@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 // Atomic (temp-file + rename) reads/writes so a crash mid-write can't corrupt
@@ -26,6 +27,17 @@ export async function readAppConfig(): Promise< AppConfig > {
 			return {};
 		}
 		throw error;
+	}
+}
+
+// Read synchronously so Sentry has the user from its first event, before the app is ready. The
+// Desktop app creates it; the CLI only reads it, so its reports count the same install.
+export function readSentryUserId(): string | undefined {
+	try {
+		const { sentryUserId } = JSON.parse( readFileSync( getAppConfigPath(), 'utf-8' ) );
+		return typeof sentryUserId === 'string' ? sentryUserId : undefined;
+	} catch {
+		return undefined;
 	}
 }
 

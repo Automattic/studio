@@ -18,8 +18,8 @@ import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
 import { usePublishPreviewSite } from './use-preview-site';
 import {
-	usePullSiteFromLive,
-	usePushSiteToLive,
+	usePullSite,
+	usePushSite,
 	useSyncActivityEvents,
 	useSettleFromMutation,
 } from './use-sync-site';
@@ -66,12 +66,15 @@ function SyncActivityEvents() {
 }
 
 function Harness() {
-	const pull = usePullSiteFromLive();
+	const pull = usePullSite();
 	const activity = useSiteSyncActivity( 'site-1' );
 	return (
 		<>
 			<SyncActivityEvents />
-			<button type="button" onClick={ () => pull.mutate( { siteId: 'site-1', remoteSiteId: 42 } ) }>
+			<button
+				type="button"
+				onClick={ () => pull.mutate( { provider: 'wpcom', siteId: 'site-1', remoteSiteId: 42 } ) }
+			>
 				Pull
 			</button>
 			<div>
@@ -151,7 +154,7 @@ it( 'does not let a previous mutation fallback finish a newer transfer', async (
 	);
 } );
 
-describe( 'usePullSiteFromLive', () => {
+describe( 'usePullSite', () => {
 	it.each( [ new Error( 'Pull failed' ), new Error( SYNC_CANCELLED_MESSAGE ) ] )(
 		'completes a connect journey once after a failed or cancelled pull is retried (%s)',
 		async ( error ) => {
@@ -163,13 +166,13 @@ describe( 'usePullSiteFromLive', () => {
 			} as const;
 			rememberAccountJourney( connector, context );
 			scopeAccountJourney( connector, context, 'site-1:42' );
-			connector.pullSiteFromLive.mockRejectedValueOnce( error );
+			connector.pullSite.mockRejectedValueOnce( error );
 			const completions = () =>
 				connector.trackEvent.mock.calls.filter(
 					( [ name ] ) => name === TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED
 				);
 			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-			await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 1 ) );
+			await waitFor( () => expect( connector.pullSite ).toHaveBeenCalledTimes( 1 ) );
 			await passReportGrace();
 			expect( completions() ).toHaveLength( 0 );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
@@ -179,7 +182,7 @@ describe( 'usePullSiteFromLive', () => {
 				] )
 			);
 			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-			await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 3 ) );
+			await waitFor( () => expect( connector.pullSite ).toHaveBeenCalledTimes( 3 ) );
 			await passReportGrace();
 			expect( completions() ).toHaveLength( 1 );
 		}
@@ -204,7 +207,7 @@ describe( 'usePullSiteFromLive', () => {
 			if ( scope === 'expired' ) vi.setSystemTime( Date.now() + 24 * 60 * 60 * 1000 + 1 );
 			if ( scope === 'account-changed' ) clearAccountJourneys( connector );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-			await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 1 ) );
+			await waitFor( () => expect( connector.pullSite ).toHaveBeenCalledTimes( 1 ) );
 			await passReportGrace();
 			expect(
 				connector.trackEvent.mock.calls.filter(
@@ -266,7 +269,7 @@ describe( 'usePullSiteFromLive', () => {
 	it( 'announces a button sync once when the CLI reports after it exits', async () => {
 		const { connector, publish } = setup( <Harness /> );
 		// The CLI's events arrive just after the CLI process has already exited.
-		connector.pullSiteFromLive.mockImplementation( async () => {
+		connector.pullSite.mockImplementation( async () => {
 			setTimeout( () => {
 				publish( { siteId: 'site-1', activity: { kind: 'pending', direction: 'pull' } } );
 				publish( {
@@ -320,9 +323,9 @@ describe( 'usePullSiteFromLive', () => {
 
 describe( 'cancelling a live sync', () => {
 	function SyncHarness() {
-		const pull = usePullSiteFromLive();
-		const push = usePushSiteToLive();
-		const variables = { siteId: 'site-1', remoteSiteId: 42 };
+		const pull = usePullSite();
+		const push = usePushSite();
+		const variables = { provider: 'wpcom' as const, siteId: 'site-1', remoteSiteId: 42 };
 		return (
 			<>
 				<button type="button" onClick={ () => pull.mutate( variables ) }>
@@ -336,8 +339,8 @@ describe( 'cancelling a live sync', () => {
 	}
 
 	it.each( [
-		[ 'Pull', 'pullSiteFromLive' ],
-		[ 'Push', 'pushSiteToLive' ],
+		[ 'Pull', 'pullSite' ],
+		[ 'Push', 'pushSite' ],
 	] as const )( 'settles a cancelled %s as cancelled', async ( button, method ) => {
 		const { connector } = setup( <SyncHarness /> );
 		connector[ method ].mockRejectedValue( new Error( SYNC_CANCELLED_MESSAGE ) );

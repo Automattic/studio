@@ -43,6 +43,7 @@ const siteCommands = (
 		site,
 		panelShown: false,
 		canAnnotate: false,
+		nativeSites: false,
 		annotating: false,
 		actions: {
 			busy: false,
@@ -221,8 +222,8 @@ describe( 'getSettingCommands', () => {
 
 	it.each( [
 		[ 'shortcuts', 'settings-keyboard' ],
-		[ 'connect', 'settings-ai' ],
-		[ 'connect provider', 'settings-ai' ],
+		[ 'connect', 'settings-providers-ai-providers' ],
+		[ 'connect provider', 'settings-providers-ai-providers' ],
 		[ 'credit balance', 'settings-usage' ],
 		[ 'snapshots', 'settings-sharing' ],
 	] )( 'finds “%s” first by another name for a setting', ( query, id ) => {
@@ -238,7 +239,7 @@ describe( 'command search', () => {
 	it.each( [
 		[ 'colour', 'settings-appearance-color' ],
 		[ 'intensity tint', 'settings-appearance-intensity' ],
-		[ 'API key', 'settings-ai-anthropic-provider' ],
+		[ 'API key', 'settings-providers-anthropic-provider' ],
 		[ 'folder', 'settings-general-default-directory' ],
 		[ 'editor default', 'settings-general-code-editor' ],
 	] )( 'finds %s', ( query, id ) => {
@@ -267,9 +268,9 @@ describe( 'command search', () => {
 
 	it( 'keeps browse results unchanged and respects availability', () => {
 		expect( matchCommands( commands, '' ) ).toEqual( matchCommands( commands, '  ' ) );
-		expect( ids( 'credits', appCommands( { settingCommands: studioSettings( false ) } ) ) ).toEqual(
-			[]
-		);
+		expect(
+			ids( 'credits', appCommands( { settingCommands: studioSettings( false ) } ) )
+		).not.toContain( 'settings-usage' );
 		expect( ids( 'credtis' ) ).toEqual( [] );
 		expect( ids( 'Command' ) ).not.toContain( 'color-scheme' );
 	} );
@@ -288,5 +289,11 @@ describe( 'command search', () => {
 				'Collapse all sites'
 			).map( ( { label } ) => label )
 		).toEqual( [ 'Collapse all' ] );
+	} );
+
+	it( 'offers Send feedback only where the connector can send it', () => {
+		const ids = ( commands: PaletteCommand[] ) => commands.map( ( { id } ) => id );
+		expect( ids( appCommands() ) ).toContain( 'send-feedback' );
+		expect( ids( appCommands( { openFeedback: undefined } ) ) ).not.toContain( 'send-feedback' );
 	} );
 } );

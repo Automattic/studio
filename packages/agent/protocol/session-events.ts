@@ -27,6 +27,23 @@ export function isEmptyStop( message: AssistantMessage | undefined ): boolean {
 	);
 }
 
+// An empty stop ends the turn without the user seeing why. Resume it with a
+// message the user doesn't see, up to this many times per turn.
+export const MAX_EMPTY_STOP_CONTINUES = 2;
+
+// pi leaves a reply that has only reasoning out of the next request, so the
+// message carries that reasoning; otherwise the model starts the same reasoning
+// over and runs out again.
+export function getEmptyStopContinuation( message: AssistantMessage | undefined ): string {
+	const reasoning = ( message?.content ?? [] )
+		.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
+		.join( '' )
+		.trim();
+	return reasoning
+		? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ reasoning }`
+		: 'continue';
+}
+
 export interface AgentEndTurnResult {
 	success: boolean;
 	interrupted: boolean;

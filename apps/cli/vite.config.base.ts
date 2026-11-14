@@ -39,9 +39,6 @@ if ( ! minimumNodeVersion ) {
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
-// The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
-// `@studio/agent/node/skills.ts`), so they must sit directly next to the built chunks.
-const skillsSourcePath = resolve( __dirname, '../../packages/agent/node/skills' );
 
 // Settings installs the Studio plugin in agent apps from a marketplace Studio
 // writes from these, copied to `<chunk dir>/agent-plugins` with this version
@@ -141,9 +138,6 @@ export const baseConfig = defineConfig( {
 				if ( existsSync( bundledWpFilesPath ) ) {
 					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
 				}
-				if ( existsSync( skillsSourcePath ) ) {
-					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
-				}
 				const agentPlugins = resolve( outDir, 'agent-plugins' );
 				for ( const file of AGENT_PLUGIN_FILES ) {
 					cpSync( resolve( pluginsSourcePath, file ), resolve( agentPlugins, file ), {
@@ -228,6 +222,7 @@ export const baseConfig = defineConfig( {
 			cli: resolve( __dirname, '.' ),
 			'@studio/common': resolve( __dirname, '../../packages/common' ),
 			'@studio/agent': resolve( __dirname, '../../packages/agent' ),
+			'@studio/providers': resolve( __dirname, '../../packages/providers' ),
 			'@studio/design-md': resolve( __dirname, '../../packages/design-md/index.ts' ),
 			// The `studio ui` local server (apps/local) is bundled into the CLI
 			// from source, the same way `@studio/common` is.

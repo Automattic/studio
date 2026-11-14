@@ -19,7 +19,7 @@ It’s especially useful for:
 ### [WordPress Studio app](#1-studio-app)
 
 1.  Open the **“WordPress Studio**” application.
-2.  Click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
+2.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
 3.  On the **General** page, under **WordPress Studio CLI**, turn on the **WordPress Studio CLI for terminal** option.
 4.  On macOS, you’ll be prompted for your account password to allow installation.
 
@@ -229,6 +229,12 @@ studio blueprint list
 
 # Create a local site with selected blueprint
 studio blueprint use <blueprint-slug> --name "<site-name>"
+
+`studio create --blueprint` also accepts a Blueprint slug, alongside a Blueprint JSON file path or URL, so you can combine it with the other `create` options:
+
+studio create --blueprint <blueprint-slug> --name "<site-name>" --path /path/to/site
+
+A URL is always fetched, and a file that exists at the given path wins over a slug of the same name.
 
 ### [Listing and inspecting sites](#13-listing-and-inspecting-sites)
 

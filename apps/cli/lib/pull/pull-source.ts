@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { fetchSyncableSites, toLoggerError, wpcomSites } from 'cli/lib/sync-api';
 import {
 	findSyncSiteByIdentifier,
 	getSyncSupportError,
@@ -95,9 +95,19 @@ export async function resolveSourceSite( identifier?: string ): Promise< PullSou
 	};
 }
 
-/** The URL of the Jetpack Reprint exporter on a site. */
-export function getReprintApiUrlForSite( siteUrl: string ): string {
-	const apiUrl = new URL( siteUrl );
-	apiUrl.search = '?reprint-api-jetpack';
-	return apiUrl.toString();
+/**
+ * Opens the site's exporter, which a local Reprint pulls the site through. Reports whether the site
+ * already has a migration key.
+ */
+export async function openExporter(
+	source: PullSource
+): Promise< { apiUrl: string; hasKey: boolean } > {
+	try {
+		return await wpcomSites.pull!.openExporter(
+			{ token: source.wpComToken.accessToken },
+			{ id: source.wpComSite.id, url: normalizeSiteUrl( source.url ) }
+		);
+	} catch ( error ) {
+		throw toLoggerError( error, __( 'Failed to enable the reprint exporter' ) );
+	}
 }

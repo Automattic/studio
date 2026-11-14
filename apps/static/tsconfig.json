@@ -1,0 +1,18 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "es2022",
+		"moduleResolution": "bundler",
+		"lib": [ "es2023", "dom", "dom.iterable" ],
+		"types": [ "vite/client" ],
+		"paths": {
+			"@studio/common/*": [ "../../packages/common/*" ],
+			"@studio/agent/*": [ "../../packages/agent/*" ],
+			"@studio/providers": [ "../../packages/providers/index.ts" ],
+			"@studio/providers/*": [ "../../packages/providers/*" ],
+			"@wp-playground/blueprints/blueprint-schema-validator": [ "../../node_modules/@wp-playground/blueprints/blueprint-schema-validator" ]
+		}
+	},
+	"include": [ "**/*" ],
+	"exclude": [ "**/node_modules/**/*", "**/dist/**/*" ]
+}

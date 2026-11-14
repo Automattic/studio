@@ -13,6 +13,15 @@ export interface Space {
 	teamSlug?: string;
 }
 
+function spaceDashboardUrl( { teamSlug, slug, teamId, id }: Space ) {
+	const [ teamRef, spaceRef ] = teamSlug && slug ? [ teamSlug, slug ] : [ teamId, id ];
+	return teamRef && spaceRef
+		? `https://my.spacefast.com/${ encodeURIComponent( teamRef ) }/${ encodeURIComponent(
+				spaceRef
+		  ) }`
+		: undefined;
+}
+
 export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 	id: 'spacefast',
 	label: 'Spacefast',
@@ -29,7 +38,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 	sites: {
 		publishing: {
 			staticSiteLabel: () => __( 'Make it with Spacefast' ),
-			description: () => __( 'A fast, simple version of your pages' ),
+			description: () => __( 'A static copy of your pages' ),
 			addressTheme: 'twilight',
 		},
 		visibility: () => true,
@@ -37,14 +46,17 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 			{
 				value: 'private',
 				label: __( 'Restricted' ),
-				description: __( 'Only people with access can view' ),
+				description: __( 'Your team and people you give access to' ),
 			},
 			{ value: 'public', label: __( 'Everyone' ), description: __( 'Anyone can view your site' ) },
 		],
-		visibilitySettingsLink: () => ( {
-			title: __( 'Manage on Spacefast' ),
-			url: 'https://my.spacefast.com/',
-		} ),
+		visibilitySettingsLink: ( site ) => {
+			const url = spaceDashboardUrl( site );
+			return {
+				title: __( 'Manage on Spacefast' ),
+				url: url ? `${ url }/access` : 'https://my.spacefast.com/',
+			};
+		},
 		pull: false,
 		selective: false,
 		content: 'static',
@@ -58,17 +70,18 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 				),
 			learnMoreUrl: 'https://spacefast.com',
 		},
-		describe: ( space ) => ( {
-			details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
-			links: [],
-		} ),
+		describe: ( space ) => {
+			const url = spaceDashboardUrl( space );
+			return {
+				details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
+				links: url ? [ { title: __( 'Versions' ), url: `${ url }/versions` } ] : [],
+			};
+		},
 		dashboardUrl: () => 'https://my.spacefast.com/',
-		domainSettingsUrl: ( site ) =>
-			site.teamSlug && site.slug
-				? `https://my.spacefast.com/${ encodeURIComponent( site.teamSlug ) }/${ encodeURIComponent(
-						site.slug
-				  ) }/domains`
-				: undefined,
+		domainSettingsUrl: ( site ) => {
+			const url = spaceDashboardUrl( site );
+			return url ? `${ url }/domains` : undefined;
+		},
 		issue: () => null,
 		// A Space renamed on Spacefast shows its new name; one gone from the account keeps the
 		// stored one.

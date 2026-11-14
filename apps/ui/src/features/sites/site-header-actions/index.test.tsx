@@ -109,8 +109,15 @@ describe( 'SiteHeaderActions', () => {
 		expect(
 			within( panel ).queryByRole( 'button', { name: 'Choose destination' } )
 		).not.toBeInTheDocument();
-		expect( within( panel ).getByRole( 'region', { name: 'Previews' } ) ).toContainElement(
-			within( panel ).getByRole( 'button', { name: 'Open preview: Preview 1' } )
-		);
+		expect( within( panel ).getByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
+		expect(
+			within( panel ).queryByRole( 'button', { name: 'Open preview: Preview 1' } )
+		).not.toBeInTheDocument();
+		await actions.click( within( panel ).getByRole( 'button', { name: 'Previews' } ) );
+		const menu = await screen.findByRole( 'menu', { name: 'Previews' } );
+		expect( within( menu ).getByRole( 'menuitem', { name: 'Preview 1' } ) ).toBeVisible();
+		expect(
+			within( panel ).getByRole( 'button', { name: 'published.example.com' } )
+		).toBeVisible();
 	} );
 } );

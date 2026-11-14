@@ -1,10 +1,12 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
+import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
-import { usePreviewStatus } from '@/data/queries/use-preview-status';
+import { previewStatusQuery, usePreviewStatus } from '@/data/queries/use-preview-status';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { useSyncNoticeVisibility } from '@/data/queries/use-sync-site';
@@ -16,6 +18,8 @@ import type { SiteDetails, Snapshot } from '@/data/core';
 export function usePublishPreview( site: SiteDetails, open = false, selectedSnapshot?: Snapshot ) {
 	useSyncNoticeVisibility( site.id, open, true );
 	const user = useAuthUser();
+	const connector = useConnector();
+	const client = useQueryClient();
 	const snapshots = useSnapshots( user.data?.id );
 	const usage = useSnapshotUsage( user.data?.id );
 	const publish = usePublishPreviewSite();
@@ -89,26 +93,27 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 			siteId: site.id,
 			existingHostname: getSnapshotHostname( snapshot ),
 		} );
-		void status.refetch();
+		void client.invalidateQueries( {
+			queryKey: previewStatusQuery( connector, snapshot ).queryKey,
+		} );
 	};
-	const updatePreview = async () => {
-		if ( ! canUpdate || preparingRef.current || ! selectedPreview ) return;
+	const updatePreview = async ( snapshot = selectedPreview ) => {
+		if ( ! canUpdate || preparingRef.current || ! snapshot ) return;
 		preparingRef.current = true;
 		setPreparing( true );
 		try {
-			const latestStatus = await status.refetch();
-			if ( ! latestStatus.isSuccess ) {
+			const latestStatus = await client
+				.fetchQuery( previewStatusQuery( connector, snapshot ) )
+				.catch( () => null );
+			if ( ! latestStatus ) {
 				toast.error( __( 'Could not check preview changes. Please try again.' ) );
 				return;
 			}
-			if ( latestStatus.data.previewChanged !== false ) {
-				setOverwrite( {
-					snapshot: selectedPreview,
-					unknown: latestStatus.data.previewChanged === null,
-				} );
+			if ( latestStatus.previewChanged !== false ) {
+				setOverwrite( { snapshot, unknown: latestStatus.previewChanged === null } );
 				return;
 			}
-			await upload( selectedPreview );
+			await upload( snapshot );
 		} catch {
 			// The preview mutation reports the failure.
 		} finally {
@@ -121,7 +126,7 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 			! canUpdate ||
 			preparingRef.current ||
 			! overwrite ||
-			overwrite.snapshot.atomicSiteId !== selectedPreview?.atomicSiteId
+			! previews.some( ( snapshot ) => snapshot.atomicSiteId === overwrite.snapshot.atomicSiteId )
 		)
 			return;
 		preparingRef.current = true;

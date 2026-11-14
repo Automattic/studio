@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import styles from './style.module.css';
 
-type View = 'main' | 'access' | 'overwrite';
+type View = 'main' | 'publish-setup' | 'overwrite';
 
 export function ShareView( { view, children }: { view: View; children: ReactNode } ) {
 	const frameRef = useRef< HTMLDivElement >( null );

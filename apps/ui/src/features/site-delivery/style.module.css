@@ -152,6 +152,13 @@
 	line-height: var( --text-sm--line-height );
 	font-weight: var( --font-weight-medium );
 }
+.staticPublishNote {
+	margin-block-start: var( --space-2 );
+	padding-inline: calc( var( --space-1_5 ) + var( --space-2 ) );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+	color: var( --muted-foreground );
+}
 .changeStatus {
 	margin-top: var( --space-3 );
 	font-size: var( --text-sm );
@@ -664,15 +671,17 @@
 	--button-hover-background: transparent;
 }
 
-.publishedPreviews {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-3 );
-	margin-block-start: var( --space-4 );
+.previewCount {
+	color: var( --muted-foreground );
 }
-.publishedPreviews > :is( .settingsGroup, .shareFooter ) {
-	margin-block-start: 0;
+.previewMenu {
+	max-inline-size: min( 280px, var( --available-width ) );
+	max-block-size: var( --available-height );
+	overflow: auto;
 }
-.publishedPreviews > .shareFooter > button {
-	flex: 1;
+.previewMenuNote {
+	padding: var( --space-1_5 ) var( --space-2 );
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: var( --text-xxs--line-height );
 }

@@ -88,6 +88,10 @@
 		transform: none;
 	}
 }
+/* Handing off to a dialog: the popover leaves at once rather than sliding out under it. */
+.publishPopover[data-instant='true'] {
+	transition: none;
+}
 
 .viewFrame {
 	transition: height var( --motion-duration-layout ) var( --motion-ease-drawer );

@@ -670,6 +670,7 @@ export function PublishButton( {
 					className={ styles.publishPopover }
 					initialFocus={ false }
 					finalFocus={ openingTargetDialog ? false : undefined }
+					instant={ openingTargetDialog }
 					aria-label={ title }
 				>
 					<ShareView view={ preview.overwrite && ! remote ? 'overwrite' : 'main' }>
@@ -966,6 +967,7 @@ export function PublishButton( {
 									{ remote && descriptor?.selective && ! newDestination && (
 										<PublishOptionsControl
 											triggerRef={ publishOptionsTrigger }
+											choosingFiles={ chooseFiles }
 											onChooseFiles={ () => setChooseFiles( true ) }
 											provider={ selected!.provider }
 											site={ site }

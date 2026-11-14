@@ -64,13 +64,10 @@ async function checkReleaseDocs() {
 		);
 	}
 
-	const hasRelease = Array.from( changelog.matchAll( /<h2\b[^>]*>([\s\S]*?)<\/h2>/gi ) ).some(
-		( [ , heading ] ) =>
-			heading
-				.replace( /<[^>]+>/g, '' )
-				.trim()
-				.split( /\s+[–—-]\s+/ )[ 0 ] === tag.slice( 1 )
+	const headings = changelog.matchAll(
+		/<h2\b[^>]*>\s*(?:<a\b[^>]*>\s*)?(\d+\.\d+\.\d+)(?=\s*(?:[–—-]|<\/))/gi
 	);
+	const hasRelease = Array.from( headings ).some( ( [ , version ] ) => `v${ version }` === tag );
 	console.log(
 		`[Live changelog](${ site }/docs/changelog/) ${
 			hasRelease ? 'includes' : 'is missing'

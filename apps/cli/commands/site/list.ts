@@ -7,7 +7,7 @@ import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getSiteDetails } from 'cli/lib/site-details';
 import { pickPublicSiteFields } from 'cli/lib/site-public-fields';
-import { isSiteRunning } from 'cli/lib/site-utils';
+import { getSitesRunningStatus } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/site/list.command';
@@ -32,8 +32,9 @@ async function getSiteListData( sites: SiteData[] ): Promise< {
 	const tableEntries: SiteListTableEntry[] = [];
 	const jsonEntries: SiteListJsonEntry[] = [];
 
-	for await ( const site of sites ) {
-		const running = await isSiteRunning( site );
+	const runningStatus = await getSitesRunningStatus();
+	for ( const site of sites ) {
+		const running = runningStatus.get( site.id ) ?? false;
 		const url = getSiteUrl( site );
 		const status = running ? `🟢 ${ __( 'Online' ) }` : `🔴 ${ __( 'Offline' ) }`;
 
@@ -97,8 +98,7 @@ export async function listSites() {
 	}
 	await connectToDaemon();
 	try {
-		// Read again: connecting can replace an outdated daemon and start its sites with new pids.
-		const { jsonEntries } = await getSiteListData( ( await readCliConfig() ).sites );
+		const { jsonEntries } = await getSiteListData( sites );
 		return jsonEntries.map( pickPublicSiteFields );
 	} finally {
 		await disconnectFromDaemon();
@@ -128,8 +128,7 @@ export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 		await connectToDaemon();
 		logger.reportSuccess( __( 'Connected to process daemon' ) );
 
-		// Read again: connecting can replace an outdated daemon and start its sites with new pids.
-		const siteListData = await getSiteListData( ( await readCliConfig() ).sites );
+		const siteListData = await getSiteListData( cliConfig.sites );
 		displaySiteList( siteListData, format );
 	} finally {
 		await disconnectFromDaemon();

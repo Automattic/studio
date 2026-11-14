@@ -52,7 +52,7 @@ const emitSiteEvent = sequential(
 			event,
 			siteId,
 			// Use provided running status, or query process manager if not provided
-			running: running ?? ( site ? await isSiteRunning( site ) : false ),
+			running: running ?? ( await isSiteRunning( siteId ) ),
 			site: site ? toSiteDetails( site ) : undefined,
 		};
 

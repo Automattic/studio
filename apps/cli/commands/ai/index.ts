@@ -611,7 +611,7 @@ export async function runCommand( options: {
 				site.id = siteData.id;
 				site.name = siteData.name;
 				site.path = siteData.path;
-				site.running = await isSiteRunning( siteData );
+				site.running = await isSiteRunning( siteData.id );
 			} else {
 				site.running = false;
 			}

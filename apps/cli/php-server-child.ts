@@ -45,6 +45,7 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { serveStaticFile } from './lib/native-php/static-files';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
 import { getSiteDatabasePath } from './lib/sqlite-collations';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
@@ -392,6 +393,10 @@ function proxyRequestToPhpWorker(
 	req: http.IncomingMessage,
 	res: http.ServerResponse
 ): void {
+	if ( serveStaticFile( config.sitePath, req, res ) ) {
+		return;
+	}
+
 	let worker: { index: number; port: number };
 	try {
 		worker = pickPhpWorker( req );
@@ -431,6 +436,8 @@ function proxyRequestToPhpWorker(
 			headers,
 		},
 		( proxyRes ) => {
+			// PHP's built-in server closes every connection; keep the browser's open.
+			delete proxyRes.headers.connection;
 			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
 			proxyRes.pipe( res );
 		}

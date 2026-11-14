@@ -1,19 +1,16 @@
-import { DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { connectProvider } from '@studio/common/lib/ai-settings';
 import {
 	createAuthAttempt,
+	getAuthFailureReason,
 	getAuthTracksProps,
 	type AuthAttempt,
 	type AuthAnalytics,
 } from '@studio/common/lib/auth-tracks';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import {
-	readAuthToken,
-	updateSharedConfig,
-	type StoredAuthToken,
-} from '@studio/common/lib/shared-config';
+import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
-import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getAppLocale } from 'cli/lib/i18n';
@@ -25,7 +22,7 @@ const CLI_REDIRECT_URI = `https://developer.wordpress.com/copy-oauth-token`;
 
 // The authorization page shows the token for the user to copy back.
 export async function getCliAuthenticationUrl(): Promise< string > {
-	return getAuthenticationUrl( await getAppLocale(), CLI_REDIRECT_URI );
+	return getSignInUrl( { redirectUri: CLI_REDIRECT_URI, locale: await getAppLocale() } );
 }
 
 // Checks a pasted token against WordPress.com and stores it. Throws a
@@ -40,38 +37,22 @@ export async function storeAuthToken( accessToken: string, attempt?: AuthAttempt
 		account_type: undefined,
 	};
 
-	let user: Awaited< ReturnType< typeof getUserInfo > >;
+	let authToken: StoredAuthToken | null;
 	try {
-		user = await getUserInfo( accessToken );
-	} catch {
-		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
-			...authProps,
-			success: false,
-			failure_reason: 'profile_fetch_failed',
-		} ).catch( () => undefined );
-		throw new LoggerError( __( 'Authentication failed. Please try again.' ) );
-	}
-
-	const authToken = {
-		accessToken,
-		id: user.ID,
-		email: user.email,
-		displayName: user.display_name,
-		expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-		expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-	};
-
-	try {
-		await updateSharedConfig( { authToken } );
+		await connectProvider( getProviderServices( 'wpcom' ), 'sign-in', {
+			access_token: accessToken,
+		} );
+		authToken = await readAuthToken();
 	} catch ( error ) {
 		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 			...authProps,
 			success: false,
-			failure_reason: 'unknown',
+			failure_reason: getAuthFailureReason( error ),
 		} ).catch( () => undefined );
-		throw error instanceof LoggerError
-			? error
-			: new LoggerError( __( 'Authentication failed' ), error );
+		throw new LoggerError( __( 'Authentication failed. Please try again.' ), error );
+	}
+	if ( ! authToken ) {
+		throw new LoggerError( __( 'Authentication failed. Please try again.' ) );
 	}
 
 	// After the token is stored — the wrapper reads it to resolve `is_a11n`.

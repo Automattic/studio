@@ -118,6 +118,7 @@ function SiteCommands( {
 		site,
 		panelShown: panelShown ?? preview.open,
 		canAnnotate: connector.capabilities.annotatePreview,
+		nativeSites: connector.capabilities.nativeSites,
 		annotating: annotations.active,
 		actions,
 		destinations,

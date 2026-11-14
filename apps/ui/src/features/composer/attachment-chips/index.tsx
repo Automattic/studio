@@ -7,10 +7,9 @@ import {
 	watchComposerAttachmentTextScroll,
 } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
-import { FileTextIcon } from 'lucide-react';
 import { useLayoutEffect, useRef } from 'react';
 import { AnnotationReviewChip } from '@/features/annotations';
-import { AnnotateIcon } from '@/lib/icons';
+import { FileTextIcon, AnnotateIcon } from '@/lib/icons';
 import {
 	AttachmentChip as AttachmentChipSurface,
 	AttachmentChipTrigger,

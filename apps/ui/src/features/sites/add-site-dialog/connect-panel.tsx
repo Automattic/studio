@@ -6,8 +6,8 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useAccountSites } from '@/data/queries/use-remote-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { AccountPrompt } from '@/features/account';
 import { pendingRemoteSiteSlot } from '@/features/sites/pending-remote-site';
 import { useOffline } from '@/lib/hooks';
@@ -30,6 +30,7 @@ import {
 import styles from './connect-panel.module.css';
 import {
 	getRemoteSiteName,
+	getRemoteSiteScreenshot,
 	presentRemoteSites,
 	searchRemoteSites,
 	type ConnectSiteGroup,
@@ -97,10 +98,7 @@ function RemoteSiteCard( {
 				onClick={ () => onSelect( site ) }
 			>
 				<PreviewFrame className={ styles.siteThumb }>
-					<PreviewImage
-						src={ `https://s0.wp.com/mshots/v1/${ encodeURIComponent( site.url ) }?w=600&h=400` }
-						alt=""
-					/>
+					<PreviewImage src={ getRemoteSiteScreenshot( site ) } alt="" />
 				</PreviewFrame>
 				<span className={ styles.siteText }>
 					<span className={ styles.siteName }>{ siteName }</span>
@@ -149,7 +147,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
 	const locale = useUserLocale();
 	const isOffline = useOffline();
-	const remoteSites = useSyncableWpcomSites( {
+	const remoteSites = useAccountSites( 'wpcom', {
 		enabled: !! user && ! isOffline,
 	} );
 	const [ searchQuery, setSearchQuery ] = useState( '' );

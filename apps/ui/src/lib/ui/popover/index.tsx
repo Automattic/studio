@@ -38,9 +38,11 @@ export function Popup( {
 	sideOffset = 4,
 	alignOffset,
 	arrowPadding,
+	collisionPadding,
 	anchor,
 	backdrop = false,
 	keepMounted = false,
+	container,
 	className,
 	style,
 	initialFocus,
@@ -57,10 +59,12 @@ export function Popup( {
 	sideOffset?: number;
 	alignOffset?: number;
 	arrowPadding?: PositionerProps[ 'arrowPadding' ];
+	collisionPadding?: PositionerProps[ 'collisionPadding' ];
 	anchor?: PositionerProps[ 'anchor' ];
 	// Catches outside clicks that would otherwise land in a webview and never dismiss it.
 	backdrop?: boolean;
 	keepMounted?: boolean;
+	container?: ComponentProps< typeof BasePopover.Portal >[ 'container' ];
 	className?: string;
 	style?: CSSProperties;
 	initialFocus?: PopupProps[ 'initialFocus' ];
@@ -73,7 +77,7 @@ export function Popup( {
 } ) {
 	const commands = variant === 'commands';
 	return (
-		<BasePopover.Portal keepMounted={ keepMounted }>
+		<BasePopover.Portal keepMounted={ keepMounted } container={ container }>
 			{ backdrop ? <BasePopover.Backdrop className={ styles.backdrop } /> : null }
 			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner
@@ -87,7 +91,7 @@ export function Popup( {
 				arrowPadding={ arrowPadding }
 				anchor={ anchor }
 				collisionAvoidance={ commands ? COMMANDS_COLLISION_AVOIDANCE : undefined }
-				collisionPadding={ commands ? 5 : undefined }
+				collisionPadding={ collisionPadding ?? ( commands ? 5 : undefined ) }
 				className={ styles.positioner }
 			>
 				<BasePopover.Popup

@@ -8,7 +8,6 @@ import {
 } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { __, sprintf } from '@wordpress/i18n';
-import { CodeIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
@@ -16,7 +15,7 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { AppIcon } from '@/features/sites/app-icon';
 import { DATABASE_HOME_PATH } from '@/features/sites/site-preview/address-bar';
-import { DatabaseIcon, ExternalLinkIcon, TerminalIcon, WordPressIcon } from '@/lib/icons';
+import { CodeIcon, DatabaseIcon, ExternalLinkIcon, TerminalIcon, WordPressIcon } from '@/lib/icons';
 import { getFileManager } from './get-file-manager';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
@@ -87,8 +86,13 @@ export function useOpenInDestinations(
 	};
 
 	const openSiteUrl = async ( path: string, options?: { autoLogin: boolean } ) => {
-		// A failed start reports itself.
-		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
+		// A failed start reports itself. Studio on the web starts the site in
+		// openSiteUrl, which must open its tab before anything is awaited.
+		if (
+			connector.capabilities.nativeSites &&
+			! site.running &&
+			! ( await startSite.mutateAsync( site.id ).catch( () => false ) )
+		) {
 			return;
 		}
 		if ( options ) {
@@ -116,7 +120,7 @@ export function useOpenInDestinations(
 					return openSiteUrl( '/', { autoLogin: false } );
 				} ),
 		},
-		{
+		connector.capabilities.nativeSites && {
 			id: 'files',
 			label: fileManager.label,
 			logo: fileManager.logo,
@@ -127,14 +131,15 @@ export function useOpenInDestinations(
 					return connector.openSiteFolder( site.id );
 				} ),
 		},
-		!! editor && {
-			id: 'editor',
-			label: editorLabel,
-			logo: <AppIcon app={ editor } fallback={ <CodeIcon /> } />,
-			disabled: false,
-			open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
-		},
-		{
+		connector.capabilities.nativeSites &&
+			!! editor && {
+				id: 'editor',
+				label: editorLabel,
+				logo: <AppIcon app={ editor } fallback={ <CodeIcon /> } />,
+				disabled: false,
+				open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
+			},
+		connector.capabilities.nativeSites && {
 			id: 'terminal',
 			label: terminalLabel,
 			logo: (
@@ -157,7 +162,7 @@ export function useOpenInDestinations(
 					return openSiteUrl( '/wp-admin/' );
 				} ),
 		},
-		{
+		connector.capabilities.nativeSites && {
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
 			logo: <AppIcon app="phpmyadmin" fallback={ <DatabaseIcon /> } />,

@@ -1,0 +1,16 @@
+{
+	"description": "Planning a reservations page.",
+	"title": "Plan a reservations page",
+	"site": "bistro-lune",
+	"minutesAgo": 320,
+	"turns": [
+		{
+			"prompt": "I want guests to book a table online. What would a reservations page need?",
+			"replies": [
+				[
+					"A short page works best: your opening hours, a booking form (date, time, party size, name and phone), a note on large groups, and your cancellation policy. Want me to build it with the restaurant's colors?"
+				]
+			]
+		}
+	]
+}

@@ -1,8 +1,6 @@
 import { confirm, input } from '@inquirer/prompts';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -19,13 +17,11 @@ import {
 import { runCommand } from '../login';
 
 vi.mock( '@inquirer/prompts' );
-vi.mock( '@studio/common/lib/oauth' );
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 	updateSharedConfig: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	emitCliEvent: vi.fn(),
@@ -69,13 +65,21 @@ async function withTerminal( isTTY: boolean, run: () => Promise< void > ) {
 
 describe( 'Auth Login Command', () => {
 	const mockAccessToken = 'mock-access-token-12345';
-	const mockAuthUrl = 'https://public-api.wordpress.com/oauth2/authorize?client_id=123';
 	const mockUserData = {
 		ID: 12345,
 		email: 'test@example.com',
 		display_name: 'Test User',
-		username: 'testuser',
 	};
+	// WordPress.com's `/me`, which checks the pasted token.
+	const me = vi.fn();
+	// The shared config the mocks write and read back.
+	let storedToken: unknown;
+	const storeToken = async ( update: { authToken?: unknown } ) => {
+		if ( 'authToken' in update ) {
+			storedToken = update.authToken ?? null;
+		}
+	};
+	const authUrl = () => vi.mocked( openBrowser ).mock.calls[ 0 ][ 0 ];
 	const mockExistingToken = {
 		accessToken: 'existing-token',
 		id: 999,
@@ -88,17 +92,19 @@ describe( 'Auth Login Command', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 
-		vi.mocked( getAuthenticationUrl ).mockReturnValue( mockAuthUrl );
 		vi.mocked( getAppLocale ).mockResolvedValue( 'en' );
-		vi.mocked( getUserInfo ).mockResolvedValue( mockUserData );
+		me.mockResolvedValue( { ok: true, json: async () => mockUserData } );
+		vi.stubGlobal( 'fetch', me );
 		vi.mocked( openBrowser ).mockResolvedValue( undefined );
 		vi.mocked( input ).mockResolvedValue( mockAccessToken );
-		vi.mocked( readAuthToken ).mockResolvedValue( null );
-		vi.mocked( updateSharedConfig ).mockResolvedValue( undefined );
+		storedToken = null;
+		vi.mocked( readAuthToken ).mockImplementation( async () => storedToken as never );
+		vi.mocked( updateSharedConfig ).mockImplementation( storeToken );
 	} );
 
 	afterEach( () => {
 		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
 	} );
 
 	it( 'should skip login if already authenticated', async () => {
@@ -113,15 +119,17 @@ describe( 'Auth Login Command', () => {
 	it( 'should complete the login process successfully', async () => {
 		await runCommand();
 
-		expect( getAuthenticationUrl ).toHaveBeenCalledWith(
-			'en',
+		const url = new URL( authUrl() );
+		expect( url.searchParams.get( 'redirect_uri' ) ).toBe(
 			'https://developer.wordpress.com/copy-oauth-token'
 		);
-		expect( openBrowser ).toHaveBeenCalledWith( mockAuthUrl );
+		expect( url.searchParams.get( 'locale' ) ).toBe( 'en' );
 		expect( input ).toHaveBeenCalledWith( {
 			message: 'Authentication token:',
 		} );
-		expect( getUserInfo ).toHaveBeenCalledWith( mockAccessToken );
+		expect( me ).toHaveBeenCalledWith( expect.stringContaining( '/rest/v1.1/me' ), {
+			headers: { Authorization: `Bearer ${ mockAccessToken }` },
+		} );
 		expect( updateSharedConfig ).toHaveBeenCalledWith( {
 			authToken: {
 				accessToken: mockAccessToken,
@@ -144,14 +152,13 @@ describe( 'Auth Login Command', () => {
 	} );
 
 	it( 'should handle API error when fetching user info', async () => {
-		const apiError = new LoggerError( 'Failed to fetch user info' );
-		vi.mocked( getUserInfo ).mockRejectedValue( apiError );
+		me.mockRejectedValue( new Error( 'Failed to fetch user info' ) );
 
 		await runCommand();
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( getUserInfo ).toHaveBeenCalled();
+		expect( me ).toHaveBeenCalled();
 	} );
 
 	it( 'should report error if updateSharedConfig fails', async () => {
@@ -169,8 +176,7 @@ describe( 'Auth Login Command', () => {
 
 		await runCommand();
 
-		expect( openBrowser ).toHaveBeenCalledWith( mockAuthUrl );
-		expect( logSpy ).toHaveBeenCalledWith( mockAuthUrl );
+		expect( logSpy ).toHaveBeenCalledWith( authUrl() );
 
 		logSpy.mockRestore();
 	} );
@@ -180,10 +186,7 @@ describe( 'Auth Login Command', () => {
 
 		await runCommand();
 
-		expect( getAuthenticationUrl ).toHaveBeenCalledWith(
-			'fr',
-			'https://developer.wordpress.com/copy-oauth-token'
-		);
+		expect( new URL( authUrl() ).searchParams.get( 'locale' ) ).toBe( 'fr' );
 	} );
 
 	describe( 'Tracks event', () => {
@@ -304,7 +307,8 @@ describe( 'Auth Login Command', () => {
 		// `is_a11n` is derived from the stored token, so the event must follow the write.
 		it( 'records the success only after the token is stored', async () => {
 			const order: string[] = [];
-			vi.mocked( updateSharedConfig ).mockImplementation( async () => {
+			vi.mocked( updateSharedConfig ).mockImplementation( async ( update ) => {
+				await storeToken( update );
 				order.push( 'write' );
 			} );
 			vi.mocked( recordTracksEvent ).mockImplementation( async () => {
@@ -317,7 +321,7 @@ describe( 'Auth Login Command', () => {
 		} );
 
 		it( 'records a failure when the token is rejected', async () => {
-			vi.mocked( getUserInfo ).mockRejectedValue( new LoggerError( 'nope' ) );
+			me.mockRejectedValue( new Error( 'nope' ) );
 
 			await runCommand();
 

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
+import { usePullSite } from '@/data/queries/use-sync-site';
 import { AppToasts } from '@/features/notifications';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient, renderWithProviders } from '@/test/render';
@@ -24,14 +24,18 @@ describe( 'pull notice cancellation', () => {
 		const site = makeSite( { id: `pull-notice-${ ++siteCount }`, name: 'Ocean' } );
 		const connector = createFakeConnector(
 			{ sites: [ site ] },
-			{ pullSiteFromLive: () => new Promise< void >( () => {} ) }
+			{ pullSite: () => new Promise< void >( () => {} ) }
 		);
 		const queryClient = createTestQueryClient();
 		queryClient.setQueryData( SITES_QUERY_KEY, [ site ] );
 		function PullButton() {
-			const pull = usePullSiteFromLive();
+			const pull = usePullSite();
 			return (
-				<button onClick={ () => pull.mutate( { siteId: site.id, remoteSiteId: 42 } ) }>Pull</button>
+				<button
+					onClick={ () => pull.mutate( { provider: 'wpcom', siteId: site.id, remoteSiteId: 42 } ) }
+				>
+					Pull
+				</button>
 			);
 		}
 		function Notices() {

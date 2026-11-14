@@ -1,6 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ChevronRightIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
 	noticeToText,
@@ -10,7 +9,13 @@ import {
 	type ToastAction,
 } from '@/data/app-messages';
 import { useCopyText } from '@/data/host/use-copy-text';
-import { ErrorIcon, InfoIcon, SuccessIcon, WarningIcon } from '@/lib/icons';
+import {
+	ChevronRightIcon,
+	CircleXIcon,
+	CircleInfoIcon,
+	CircleCheckIcon,
+	TriangleAlertIcon,
+} from '@/lib/icons';
 import { Button, DismissButton, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 
@@ -20,10 +25,10 @@ function StatusIcon( { intent, source }: { intent: NoticeIntent; source?: 'studi
 		<span className={ styles.status } data-intent={ iconIntent } aria-hidden="true">
 			{
 				{
-					info: <InfoIcon />,
-					warning: <WarningIcon />,
-					success: <SuccessIcon />,
-					error: <ErrorIcon />,
+					info: <CircleInfoIcon />,
+					warning: <TriangleAlertIcon />,
+					success: <CircleCheckIcon />,
+					error: <CircleXIcon />,
 				}[ iconIntent ]
 			}
 		</span>

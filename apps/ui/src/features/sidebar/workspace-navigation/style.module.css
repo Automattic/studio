@@ -1,0 +1,9 @@
+.root {
+	display: flex;
+	flex-shrink: 0;
+	-webkit-app-region: no-drag;
+}
+
+.root:dir( rtl ) svg {
+	transform: scaleX( -1 );
+}

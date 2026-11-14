@@ -5,17 +5,15 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import {
-	addConnectedWpcomSite,
-	getConnectedWpcomSitesForLocalSite,
-	markConnectedWpcomSiteSynced,
-} from '@studio/common/lib/connected-sites';
 import { encodePassword } from '@studio/common/lib/passwords';
-import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import {
+	buildSyncEventProps,
+	classifySyncSelection,
+} from '@studio/common/lib/sync/build-sync-event-props';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
-import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -31,8 +29,8 @@ import {
 } from 'cli/lib/pull/pull-selection';
 import { getPullSession, type PullSession, updateSiteRecord } from 'cli/lib/pull/pull-session';
 import {
-	getReprintApiUrlForSite,
 	normalizeSiteUrl,
+	openExporter,
 	type PullSource,
 	resolveSourceSite,
 } from 'cli/lib/pull/pull-source';
@@ -48,6 +46,7 @@ import {
 	emptyReprintMetadata,
 	type ReprintMetadata,
 } from 'cli/lib/pull/reprint-metadata';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -56,6 +55,7 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { findFailureCode } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { SyncSelectionProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
@@ -84,8 +84,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 		process.exit( 0 );
 	} catch ( error ) {
 		if ( error instanceof PullError ) {
-			logger.spinner.fail( __( 'Pull failed' ) );
-			console.error( '\n' + chalk.bold.red( error.message ) );
+			logger.reportError( error );
 			if ( verbose && error.technicalDetails ) {
 				console.error( '\n' + chalk.dim( error.technicalDetails ) );
 			} else if ( error.technicalDetails ) {
@@ -152,7 +151,7 @@ function getSiteKind( run: PullRun ): 'preview' | 'site' | 'unknown' {
 
 /** The connected site this local site was last pulled from, so a repeat `studio pull` needs no site. */
 async function lastPulledFrom( localSiteId: string ): Promise< string | undefined > {
-	const pulled = ( await getConnectedWpcomSitesForLocalSite( localSiteId ) )
+	const pulled = ( await getRemoteSites( 'wpcom', localSiteId ) )
 		.filter( ( connected ) => connected.lastPullTimestamp )
 		.sort( ( a, b ) =>
 			String( b.lastPullTimestamp ).localeCompare( String( a.lastPullTimestamp ) )
@@ -166,8 +165,7 @@ async function lastPulledFrom( localSiteId: string ): Promise< string | undefine
  */
 async function rememberConnection( localSiteId: string, remoteSite: SyncSite ): Promise< void > {
 	try {
-		await addConnectedWpcomSite( localSiteId, { ...remoteSite, localSiteId } );
-		await markConnectedWpcomSiteSynced( localSiteId, remoteSite.id, 'pull' );
+		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, 'pull' );
 	} catch ( error ) {
 		logger.reportError( new LoggerError( __( 'Failed to save connected site' ), error ), false );
 	}
@@ -185,6 +183,7 @@ class PullError extends LoggerError {
 
 /** What a pull got to, for the activity and Tracks reports. */
 interface PullRun {
+	selection?: SyncSelectionProps;
 	siteId?: string;
 	remoteSite?: SyncSite;
 	preview?: StandingPreview | null;
@@ -251,6 +250,7 @@ export async function runCommand(
 				...buildSyncEventProps( {
 					startedAt,
 					site: run.remoteSite,
+					selection: run.selection,
 					error: pullError,
 					hint: { code: findFailureCode( pullError ), phase: run.failurePhase },
 				} ),
@@ -310,17 +310,10 @@ async function pullSite(
 	run.remoteSite = sourceSite.wpComSite;
 	run.failurePhase = 'remote_backup';
 	run.preview = await findPreview( sourceSite );
+	const normalizedRemoteUrl = normalizeSiteUrl( sourceSite.url );
 	// Fails early with an "update Jetpack" message on a site that can't export.
-	await enableReprintExporter(
-		sourceSite.wpComSite.id,
-		sourceSite.wpComToken.accessToken,
-		verbose
-	);
-
-	const { url: sourceSiteUrl } = sourceSite;
-	const normalizedRemoteUrl = normalizeSiteUrl( sourceSiteUrl );
+	const { apiUrl } = await openExporter( sourceSite );
 	const studioMetadata = getPullSession( site );
-	const apiUrl = getReprintApiUrlForSite( normalizedRemoteUrl );
 
 	const isRepull = Boolean( site.importComplete );
 
@@ -363,8 +356,7 @@ async function pullSite(
 
 	try {
 		await ensureReprintKey( {
-			wpComSiteId: sourceSite.wpComSite.id,
-			wpComAccessToken: sourceSite.wpComToken.accessToken,
+			source: sourceSite,
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
 			verbose,
@@ -383,11 +375,14 @@ async function pullSite(
 			cli: cliSelection,
 			wpComAccessToken: sourceSite.wpComToken.accessToken,
 			wpComSiteId: sourceSite.wpComSite.id,
+			filesUnavailable: sourceSite.wpComSite.pushNeedsUpgrade,
 		} );
 		if ( ! selection ) {
 			console.log( __( 'Cancelled.' ) );
 			return;
 		}
+
+		run.selection = classifySyncSelection( selection );
 
 		await withSiteOperation( site.path, 'import', async () => {
 			site.status = 'pulling';
@@ -408,6 +403,35 @@ async function pullSite(
 					run.failurePhase = phase;
 				}
 			);
+
+			// The site keeps its own wp-config.php, so point it at the pulled tables. A site created
+			// without starting has none yet; the database settings are unused, as the site runs on SQLite.
+			const tablePrefix = reprintMetadata.sourceSite.tablePrefix;
+			if ( ! selection.skipDatabase && tablePrefix ) {
+				await using command = await runWpCliCommand(
+					site,
+					fs.existsSync( path.join( site.path, 'wp-config.php' ) )
+						? [ 'config', 'set', 'table_prefix', tablePrefix, '--type=variable' ]
+						: [
+								'config',
+								'create',
+								'--dbname=wordpress',
+								'--dbuser=root',
+								`--dbprefix=${ tablePrefix }`,
+								'--skip-check',
+								'--skip-salts',
+						  ]
+				);
+				if ( ( await command.response.exitCode ) !== 0 ) {
+					logger.reportWarning(
+						sprintf(
+							/* translators: %s: the remote site's database table prefix */
+							__( 'Could not set $table_prefix to "%s" in wp-config.php.' ),
+							tablePrefix
+						)
+					);
+				}
+			}
 
 			// Makes `studio site start` serve the pulled runtime instead of the blank install.
 			logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );

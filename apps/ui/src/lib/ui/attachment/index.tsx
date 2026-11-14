@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { XIcon } from 'lucide-react';
+import { XIcon } from '@/lib/icons';
 import { IconButton, type ButtonProps } from '@/lib/ui/button';
 import styles from './style.module.css';
 

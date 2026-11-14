@@ -46,6 +46,7 @@ import {
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
+import { getSiteDatabasePath } from './lib/sqlite-collations';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -167,7 +168,7 @@ function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: numb
 	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
 }
 
-export async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
+export async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< boolean > {
 	const pollIntervalMs = 50;
 	const timeoutMs = 30_000;
 	const deadline = Date.now() + timeoutMs;
@@ -179,7 +180,13 @@ export async function waitForServerReady( url: string, signal?: AbortSignal ): P
 			// Leaving the body unread can crash undici's parser when the server closes the
 			// connection to end the response, as the PHP dev server does.
 			await response.body?.cancel();
-			return;
+			const location = response.headers.get( 'location' );
+			return (
+				response.status >= 300 &&
+				response.status < 400 &&
+				location !== null &&
+				new URL( location, url ).pathname === '/wp-admin/install.php'
+			);
 		} catch {
 			signal?.throwIfAborted();
 			if ( Date.now() > deadline ) {
@@ -462,7 +469,7 @@ async function startPhpProxyServer(
 	return proxyServer;
 }
 
-async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+export async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	if ( phpProcess ) {
 		logToConsole( `Server already running` );
 		return;
@@ -479,6 +486,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	// against the imported database would be wrong — and just write Studio's
 	// mu-plugins before starting the workers.
 	const isImportedSite = Boolean( config.autoPrependFile );
+	const deferInstallCheck =
+		! isImportedSite &&
+		! config.blueprint &&
+		fs.existsSync( getSiteDatabasePath( config.sitePath ) );
 	// Set when this start ran the installer, which created the admin user with the
 	// configured credentials, and no Blueprint ran after it that could change them.
 	let credentialsJustInstalled = false;
@@ -496,7 +507,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating, config.siteId );
 		stopSignal.throwIfAborted();
 
-		if ( ! isImportedSite ) {
+		if ( ! isImportedSite && ! deferInstallCheck ) {
 			const installed = await timePhase( 'wordpress_install', () =>
 				installWordPress( config, phpVersion, stopSignal, FINISH_INSTALL_PATH, logToConsole )
 			);
@@ -551,7 +562,21 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		runningConfig = config;
 
-		phpProcess = await doStartServer( config, stopSignal );
+		phpProcess = await doStartServer( config, stopSignal, async ( needsInstallation ) => {
+			if ( deferInstallCheck && needsInstallation ) {
+				credentialsJustInstalled = await timePhase( 'wordpress_install', () =>
+					installWordPress(
+						config,
+						phpVersion,
+						stopSignal,
+						FINISH_INSTALL_PATH,
+						logToConsole,
+						true
+					)
+				);
+				stopSignal.throwIfAborted();
+			}
+		} );
 		stopSignal.throwIfAborted();
 		if ( ! credentialsJustInstalled ) {
 			await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
@@ -578,7 +603,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 async function doStartServer(
 	config: ServerConfig,
-	stopSignal?: AbortSignal
+	stopSignal?: AbortSignal,
+	onWorkersReady?: ( needsInstallation: boolean ) => Promise< void >
 ): Promise< ChildProcess > {
 	const phpVersion = resolveSupportedPhpVersion( config.phpVersion ?? '' );
 	const spawnedChildren: ChildProcess[] = [];
@@ -659,13 +685,23 @@ async function doStartServer(
 		}
 
 		stopSignal?.throwIfAborted();
-		await Promise.all(
-			workerPorts.map( ( workerPort ) =>
-				waitForServerReady( `http://127.0.0.1:${ workerPort }/`, stopSignal )
-			)
+		let firstWorkerReady = false;
+		const needsInstallation = await Promise.all(
+			workerPorts.map( async ( workerPort ) => {
+				const needsInstall = await waitForServerReady(
+					`http://127.0.0.1:${ workerPort }/`,
+					stopSignal
+				);
+				if ( ! firstWorkerReady ) {
+					firstWorkerReady = true;
+					reportPhase( 'php_first_worker', workersStartedAt );
+				}
+				return needsInstall;
+			} )
 		);
 
 		reportPhase( 'php_workers', workersStartedAt );
+		await onWorkersReady?.( needsInstallation.some( Boolean ) );
 
 		const proxyStartedAt = Date.now();
 		proxyServer = await startPhpProxyServer( config, stopSignal );

@@ -1,11 +1,11 @@
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import type { AiModelId } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ProviderId } from '@studio/providers';
 
 interface SiteChatDraft {
 	model?: AiModelId;
-	provider?: AiProviderId;
+	provider?: ProviderId;
 	activeEnvironment: 'local' | 'live';
 	lastSelectedWpcomSiteId?: number;
 	sessionId?: string;
@@ -20,7 +20,6 @@ export function useSiteChatDraft( siteId: string | undefined ) {
 		queryKey: [ 'site-chat-draft', siteId ],
 		queryFn: skipToken,
 		initialData: EMPTY_DRAFT,
-		staleTime: Infinity,
 		gcTime: Infinity,
 		meta: { persist: false },
 	} );

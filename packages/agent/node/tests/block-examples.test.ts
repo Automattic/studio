@@ -69,6 +69,23 @@ describe.runIf( EDITOR && WORDPRESS )(
 				notes: [ [ 'core/details, from the example its block type registers' ], [] ],
 			},
 			{
+				// The editor site needs Jetpack: its form's example leaves each field
+				// without the label and input the field's own example has.
+				name: 'with the inner blocks of an inner block its example leaves empty',
+				results: () => [
+					[
+						'/a',
+						'',
+						'cat wp-content/plugins/jetpack/jetpack_vendor/automattic/jetpack-forms/src/blocks/contact-form/block.json',
+					],
+				],
+				notes: [
+					[
+						'jetpack/contact-form, from the example its block type registers, as its inserter preview makes it (getBlockFromExample in @wordpress/blocks), to write it from:\n<!-- wp:jetpack/contact-form -->\n<div class="wp-block-jetpack-contact-form"><!-- wp:jetpack/field-name {"required":true} -->\n<div><!-- wp:jetpack/label {"label":"Name"} /-->',
+					],
+				],
+			},
+			{
 				name: 'not for a block the editor does not register, nor for markup naming a block',
 				results: () => [
 					[ '/a', '{ "apiVersion": 3, "name": "studio-test/unregistered" }' ],

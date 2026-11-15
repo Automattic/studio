@@ -2991,9 +2991,20 @@ export async function savedExamples( names: string[], siteUrl: string ): Promise
 				if ( ! type ) {
 					return [];
 				}
+				// An inner block its example leaves empty takes the inner blocks of
+				// its own type's example, as its edit adds them on insert (each
+				// jetpack/field-* its label and input in a jetpack/contact-form).
+				const filled = ( block: any ): any => {
+					const example = wpBlocks.getBlockType( block.name )?.example;
+					const innerBlocks =
+						block.innerBlocks.length || ! example?.innerBlocks?.length
+							? block.innerBlocks
+							: wpBlocks.getBlockFromExample( block.name, example ).innerBlocks;
+					return { ...block, innerBlocks: innerBlocks.map( filled ) };
+				};
 				if ( type.example ) {
 					const block = wpBlocks.getBlockFromExample( name, type.example );
-					return [ { name, from: 'example', markup: wpBlocks.serialize( [ block ] ) } ];
+					return [ { name, from: 'example', markup: wpBlocks.serialize( [ filled( block ) ] ) } ];
 				}
 				const variations: any[] = wpBlocks.getBlockVariations( name, 'inserter' ) ?? [];
 				const chosen = variations.find( ( v ) => v.isDefault ) ?? variations[ 0 ];

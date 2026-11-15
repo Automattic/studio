@@ -44,5 +44,5 @@ Opera, Vivaldi, and Firefox Developer Edition use the artwork from
 The SVGs were converted to 64-pixel PNGs with `sips`. Dia was exported from its
 macOS application bundle icon on November 1, 2026, at 64 pixels.
 
-LibreWolf uses its [official site icon](https://librewolf.net/icon.svg),
-converted to a 64-pixel PNG with `sips`.
+LibreWolf was exported from the [official macOS application bundle](https://librewolf.net/installation/macos/)
+with `sips` at 64 pixels.

@@ -37,6 +37,7 @@ export function Popup( {
 			{ ...props }
 			aria-describedby={ descriptionId }
 			data-color-scheme="light"
+			preserveWindowDrag
 		>
 			<Popover.Arrow className={ styles.arrow } />
 			{ onDismiss ? (
@@ -68,12 +69,14 @@ export function Popup( {
 export function Navigation( {
 	stepLabel,
 	nextLabel = __( 'Next' ),
+	skipLabel = __( 'Skip' ),
 	onNext,
 	onSkip,
 }: {
 	stepLabel?: string;
 	nextLabel?: string;
-	onNext: () => void;
+	skipLabel?: string;
+	onNext?: () => void;
 	onSkip?: () => void;
 } ) {
 	return (
@@ -86,12 +89,14 @@ export function Navigation( {
 			<div className={ styles.actions }>
 				{ onSkip ? (
 					<Button variant="ghost" size="sm" onClick={ onSkip }>
-						{ __( 'Skip' ) }
+						{ skipLabel }
 					</Button>
 				) : null }
-				<Button variant="accent" size="sm" onClick={ onNext }>
-					{ nextLabel }
-				</Button>
+				{ onNext ? (
+					<Button variant="accent" size="sm" onClick={ onNext }>
+						{ nextLabel }
+					</Button>
+				) : null }
 			</div>
 		</div>
 	);

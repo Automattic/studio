@@ -29,9 +29,11 @@ textarea,
 [role='button'],
 [data-base-ui-portal],
 [data-base-ui-portal] *,
-/* With a menu or popover open, a click on a drag region closes it instead of
-   moving the window. */
-body:has([data-base-ui-portal] :is([role='menu'], [role='dialog'])[data-open]) * {
+/* Menus and dialogs dismiss from the title bar; guidance tips keep it draggable. */
+body:has(
+	[data-base-ui-portal]
+		:is([role='menu'], [role='dialog'])[data-open]:not([data-preserve-window-drag])
+) * {
 	-webkit-app-region: no-drag;
 }
 

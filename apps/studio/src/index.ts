@@ -22,6 +22,7 @@ import { runMigrations } from '@studio/common/lib/migration';
 import { getSentryReleaseInfo } from '@studio/common/lib/sentry-release';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { initializeWalkthrough } from '@studio/common/lib/user-settings/onboarding';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -552,6 +553,8 @@ async function appBoot() {
 
 		await startCliEventsSubscriber();
 		void refreshSpotlightIndex();
+
+		await initializeWalkthrough();
 
 		await createMainWindow();
 

@@ -209,6 +209,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		blockingNotice ??
 		( isOutOfCredits
 			? {
+					walkthroughTitle: __( 'Out of credits' ),
+					walkthroughDescription: __( 'Add AI credits to keep the conversation going.' ),
 					message: __( 'Add AI credits to send another message.' ),
 					action: { label: __( 'Add credits' ), onClick: () => openAddCredits() },
 			  }
@@ -490,8 +492,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				}
 			} }
 		>
-			<div className={ styles.root } ref={ setRootNode }>
-				{ notice ? <NoticeTab notice={ notice } feedback={ submitFeedback } /> : null }
+			<div
+				className={ styles.root }
+				ref={ setRootNode }
+				data-walkthrough={ isField || notice ? undefined : 'composer' }
+			>
+				{ notice ? (
+					<NoticeTab notice={ notice } feedback={ submitFeedback } walkthrough={ ! isField } />
+				) : null }
 				<InputGroup
 					ref={ setShellNode }
 					variant="composer"

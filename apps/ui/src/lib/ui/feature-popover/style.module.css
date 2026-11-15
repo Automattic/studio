@@ -16,11 +16,59 @@
 			var( --shadow-sm );
 	}
 
+	.card:not( [data-instant] ) {
+		--tip-enter-x: 0px;
+		--tip-enter-y: 0px;
+		translate: 0 0;
+		transition-property: opacity, translate;
+		transition-duration: var( --motion-duration-surface ), var( --motion-duration-reveal );
+		transition-timing-function: ease-out, var( --motion-ease-spring );
+	}
+
+	.card[data-side='top'] {
+		--tip-enter-y: -4px;
+	}
+
+	.card[data-side='bottom'] {
+		--tip-enter-y: 4px;
+	}
+
+	.card[data-side='left'] {
+		--tip-enter-x: -4px;
+	}
+
+	.card[data-side='right'] {
+		--tip-enter-x: 4px;
+	}
+
+	.card:not( [data-instant] ):is( [data-starting-style], [data-ending-style] ) {
+		opacity: 0;
+		scale: 1;
+		translate: var( --tip-enter-x ) var( --tip-enter-y );
+	}
+
+	.card:not( [data-instant] )[data-ending-style] {
+		transition: none;
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.card:not( [data-instant] ) {
+			transition-property: opacity;
+			transition-duration: var( --motion-duration-surface );
+		}
+
+		.card:not( [data-instant] ):is( [data-starting-style], [data-ending-style] ) {
+			scale: 1;
+			translate: 0 0;
+		}
+	}
+
 	.card .copy > p {
-		margin-top: var( --space-2 );
+		text-wrap: pretty;
+		margin-top: var( --space-1 );
 		color: inherit;
-		font-size: var( --text-sm );
-		line-height: var( --text-sm--line-height );
+		font-size: var( --text-xs );
+		line-height: var( --leading-relaxed );
 	}
 
 	.card .progress {
@@ -39,6 +87,10 @@
 		--button-hover-background: var( --accent-surface-primary-hover );
 		--button-hover-color: var( --accent );
 		color: var( --accent );
+	}
+
+	.card .actions button[data-variant='ghost'] {
+		--button-background: transparent;
 	}
 
 	.heading {
@@ -66,22 +118,26 @@
 	}
 
 	.arrow[data-side='bottom'] {
-		top: -6px;
+		top: -7px;
+		clip-path: polygon( 0 0, 100% 0, 0 100% );
 		border-right: 0;
 		border-bottom: 0;
 	}
 	.arrow[data-side='top'] {
-		bottom: -6px;
+		bottom: -7px;
+		clip-path: polygon( 100% 0, 100% 100%, 0 100% );
 		border-top: 0;
 		border-left: 0;
 	}
 	.arrow[data-side='left'] {
-		right: -6px;
+		right: -7px;
+		clip-path: polygon( 0 0, 100% 0, 100% 100% );
 		border-bottom: 0;
 		border-left: 0;
 	}
 	.arrow[data-side='right'] {
-		left: -6px;
+		left: -7px;
+		clip-path: polygon( 0 0, 100% 100%, 0 100% );
 		border-top: 0;
 		border-right: 0;
 	}

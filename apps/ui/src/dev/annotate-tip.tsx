@@ -6,6 +6,12 @@ import { AnnotateIcon } from '@/lib/icons';
 import { Button, FeaturePopover } from '@/lib/ui';
 import { renderPlayground } from './playground';
 
+const requestedSide = new URLSearchParams( window.location.search ).get( 'side' );
+const side =
+	requestedSide === 'top' || requestedSide === 'left' || requestedSide === 'right'
+		? requestedSide
+		: 'bottom';
+
 function Tip() {
 	const [ open, setOpen ] = useState( true );
 	return (
@@ -20,7 +26,7 @@ function Tip() {
 					}
 				/>
 				<FeaturePopover.Popup
-					side="bottom"
+					side={ side }
 					align="end"
 					sideOffset={ 10 }
 					initialFocus={ false }
@@ -63,7 +69,7 @@ function Walkthrough() {
 						render={ <Button variant="accent-ghost">Publish</Button> }
 					/>
 					<FeaturePopover.Popup
-						side="bottom"
+						side={ side }
 						align="end"
 						sideOffset={ 10 }
 						initialFocus={ false }

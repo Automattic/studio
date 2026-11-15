@@ -2,121 +2,93 @@ import fs from 'fs';
 import path from 'path';
 import type http from 'http';
 
-// Static files are served here, before a request reaches a PHP worker. PHP's built-in server
-// sends them without validators, so browsers download every script and stylesheet again on
-// each page load, and each of those requests waits for one of the few single-threaded workers.
+// PHP's built-in server sends static files without validators, so browsers download every script
+// and stylesheet again on each page load, and each download waits for one of the few
+// single-threaded PHP workers. PHP keeps serving them, and stays in charge of content types and of
+// which paths are private: the proxy only adds validators to the files it served, and answers the
+// browser's revalidation of an unchanged file itself.
+export class StaticFileValidators {
+	// URL paths PHP has served as static files. Only these are revalidated without PHP, so a path
+	// PHP keeps private never gets a response from the proxy.
+	private readonly servedPaths = new Set< string >();
 
-const CONTENT_TYPES: Record< string, string > = {
-	avif: 'image/avif',
-	css: 'text/css; charset=utf-8',
-	eot: 'application/vnd.ms-fontobject',
-	gif: 'image/gif',
-	htm: 'text/html; charset=utf-8',
-	html: 'text/html; charset=utf-8',
-	ico: 'image/x-icon',
-	jpeg: 'image/jpeg',
-	jpg: 'image/jpeg',
-	js: 'text/javascript; charset=utf-8',
-	json: 'application/json',
-	map: 'application/json',
-	mjs: 'text/javascript; charset=utf-8',
-	mp3: 'audio/mpeg',
-	mp4: 'video/mp4',
-	otf: 'font/otf',
-	pdf: 'application/pdf',
-	png: 'image/png',
-	svg: 'image/svg+xml',
-	ttf: 'font/ttf',
-	txt: 'text/plain; charset=utf-8',
-	wasm: 'application/wasm',
-	webm: 'video/webm',
-	webp: 'image/webp',
-	woff: 'font/woff',
-	woff2: 'font/woff2',
-	xml: 'application/xml',
-};
+	constructor( private readonly sitePath: string ) {}
 
-// Mirrors router.php: dotfiles (except .well-known) and the SQLite database directory stay
-// private, and phpMyAdmin is mapped by the router, so all of these are left to PHP.
-const PRIVATE_PATH = /\/\.(?!well-known(\/|$))|^\/wp-content\/database(\/|$)|^\/phpmyadmin(\/|$)/;
+	// Answers a revalidation of an unchanged static file with 304 and returns true, or returns
+	// false to leave the request to PHP.
+	answerRevalidation( req: http.IncomingMessage, res: http.ServerResponse ): boolean {
+		const ifNoneMatch = req.headers[ 'if-none-match' ];
+		const urlPath = getUrlPath( req );
+		if ( ! ifNoneMatch || ! urlPath || ! this.servedPaths.has( urlPath ) ) {
+			return false;
+		}
 
-function getStaticFilePath( sitePath: string, req: http.IncomingMessage ): string | null {
-	// Range requests (media seeking) keep PHP's built-in handling.
-	if ( ( req.method !== 'GET' && req.method !== 'HEAD' ) || req.headers.range ) {
-		return null;
+		const validators = this.getValidators( urlPath );
+		if (
+			! validators ||
+			! ifNoneMatch.split( ',' ).some( ( tag ) => tag.trim() === validators.ETag )
+		) {
+			return false;
+		}
+
+		res.writeHead( 304, validators );
+		res.end();
+		return true;
 	}
 
-	let urlPath: string;
-	try {
-		urlPath = decodeURIComponent( new URL( req.url ?? '/', 'http://localhost' ).pathname );
-	} catch {
-		return null;
+	// Adds validators to PHP's successful response for an existing static file.
+	addValidators(
+		req: http.IncomingMessage,
+		statusCode: number | undefined,
+		headers: http.IncomingHttpHeaders
+	): void {
+		const urlPath = getUrlPath( req );
+		const validators = statusCode === 200 && urlPath && this.getValidators( urlPath );
+		if ( ! validators ) {
+			return;
+		}
+
+		this.servedPaths.add( urlPath );
+		headers.etag = validators.ETag;
+		headers[ 'last-modified' ] = validators[ 'Last-Modified' ];
+		headers[ 'cache-control' ] = validators[ 'Cache-Control' ];
 	}
 
-	const normalizedPath = urlPath.replace( /[/\\]+/g, '/' ).toLowerCase();
-	if ( PRIVATE_PATH.test( normalizedPath ) || normalizedPath.endsWith( '.php' ) ) {
-		return null;
-	}
+	private getValidators( urlPath: string ) {
+		const filePath = path.join( this.sitePath, urlPath );
+		if (
+			urlPath.toLowerCase().endsWith( '.php' ) ||
+			! filePath.startsWith( path.join( this.sitePath, path.sep ) )
+		) {
+			return null;
+		}
 
-	const filePath = path.join( sitePath, urlPath );
-	if ( ! filePath.startsWith( path.join( sitePath, path.sep ) ) ) {
-		return null;
-	}
+		let stats: fs.Stats;
+		try {
+			stats = fs.statSync( filePath );
+		} catch {
+			return null;
+		}
+		if ( ! stats.isFile() ) {
+			return null;
+		}
 
-	return filePath;
+		return {
+			ETag: `W/"${ stats.size.toString( 16 ) }-${ Math.floor( stats.mtimeMs ).toString( 16 ) }"`,
+			'Last-Modified': stats.mtime.toUTCString(),
+			// Revalidate every time, so edits to theme and plugin files show on the next reload.
+			'Cache-Control': 'no-cache',
+		};
+	}
 }
 
-// Serves an existing static file under the site root and returns true, or returns false to
-// leave the request to PHP (scripts, missing paths, private paths).
-export function serveStaticFile(
-	sitePath: string,
-	req: http.IncomingMessage,
-	res: http.ServerResponse
-): boolean {
-	const filePath = getStaticFilePath( sitePath, req );
-	if ( ! filePath ) {
-		return false;
+function getUrlPath( req: http.IncomingMessage ): string | null {
+	if ( req.method !== 'GET' && req.method !== 'HEAD' ) {
+		return null;
 	}
-
-	let stats: fs.Stats;
 	try {
-		stats = fs.statSync( filePath );
+		return decodeURIComponent( new URL( req.url ?? '/', 'http://localhost' ).pathname );
 	} catch {
-		return false;
+		return null;
 	}
-	if ( ! stats.isFile() ) {
-		return false;
-	}
-
-	const lastModified = stats.mtime.toUTCString();
-	const etag = `W/"${ stats.size.toString( 16 ) }-${ Math.floor( stats.mtimeMs ).toString( 16 ) }"`;
-	const extension = path.extname( filePath ).slice( 1 ).toLowerCase();
-	const headers = {
-		'Content-Type': CONTENT_TYPES[ extension ] ?? 'application/octet-stream',
-		'Last-Modified': lastModified,
-		ETag: etag,
-		// Revalidate every time, so edits to theme and plugin files show on the next reload.
-		'Cache-Control': 'no-cache',
-	};
-
-	const ifNoneMatch = req.headers[ 'if-none-match' ];
-	const isNotModified = ifNoneMatch
-		? ifNoneMatch.split( ',' ).some( ( tag ) => tag.trim() === etag )
-		: req.headers[ 'if-modified-since' ] === lastModified;
-	if ( isNotModified ) {
-		res.writeHead( 304, headers );
-		res.end();
-		return true;
-	}
-
-	res.writeHead( 200, { ...headers, 'Content-Length': stats.size } );
-	if ( req.method === 'HEAD' ) {
-		res.end();
-		return true;
-	}
-
-	fs.createReadStream( filePath )
-		.on( 'error', () => res.destroy() )
-		.pipe( res );
-	return true;
 }

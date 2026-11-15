@@ -86,6 +86,19 @@ describe.runIf( EDITOR && WORDPRESS )(
 				],
 			},
 			{
+				// Jetpack's form fields register from its built script, with no block.json on disk.
+				name: "for a block a call names in its plugin's code, not a path that looks like one",
+				results: () => [
+					[
+						'/a',
+						'',
+						'grep -rn "jetpack/field-select" wp-content/plugins/jetpack/_inc/blocks/editor.js | head',
+					],
+					[ '/a', '', 'ls wp-content/plugins/jetpack/extensions/blocks' ],
+				],
+				notes: [ [ 'jetpack/field-select, from the example its block type registers' ], [] ],
+			},
+			{
 				name: 'not for a block the editor does not register, nor for markup naming a block',
 				results: () => [
 					[ '/a', '{ "apiVersion": 3, "name": "studio-test/unregistered" }' ],

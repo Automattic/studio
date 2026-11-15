@@ -267,21 +267,19 @@ export function SiteMenuItems( {
 					{ __( 'Open in' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
-					{ destinations
-						.filter( ( destination ) => destination.id !== 'wp-admin' )
-						.map( ( destination ) => (
-							<Menu.Item
-								key={ destination.id }
-								disabled={ destination.disabled }
-								aria-describedby={
-									destination.id === 'phpmyadmin' && databaseReason ? databaseReasonId : undefined
-								}
-								onClick={ destination.open }
-							>
-								{ destination.logo }
-								{ destination.label }
-							</Menu.Item>
-						) ) }
+					{ destinations.map( ( destination ) => (
+						<Menu.Item
+							key={ destination.id }
+							disabled={ destination.disabled }
+							aria-describedby={
+								destination.id === 'phpmyadmin' && databaseReason ? databaseReasonId : undefined
+							}
+							onClick={ destination.open }
+						>
+							{ destination.logo }
+							{ destination.label }
+						</Menu.Item>
+					) ) }
 					{ databaseReason && (
 						<p id={ databaseReasonId } className={ styles.databaseReason }>
 							{ databaseReason }

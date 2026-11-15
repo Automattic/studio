@@ -29,9 +29,8 @@ describe( 'StaticFileValidators', () => {
 			const headers: http.IncomingHttpHeaders = {};
 			validators.addValidators( req, isPrivate ? 404 : 200, headers );
 			res.writeHead( isPrivate ? 404 : 200, headers as http.OutgoingHttpHeaders );
-			res.end(
-				isPrivate ? '' : fs.readFileSync( path.join( sitePath, req.url!.split( '?' )[ 0 ] ) )
-			);
+			// The only public file the tests request.
+			res.end( isPrivate ? '' : fs.readFileSync( path.join( sitePath, 'wp-includes', 'app.js' ) ) );
 		} );
 		await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
 		baseUrl = `http://127.0.0.1:${ ( server.address() as AddressInfo ).port }`;

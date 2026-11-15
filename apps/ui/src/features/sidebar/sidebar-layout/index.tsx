@@ -79,6 +79,13 @@ export function SidebarLayout( {
 	);
 	const peek = sidebarFlyoutState === 'hover';
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
+	// Sidebar items own dialogs that must survive the flyout closing.
+	const [ hadOpenDialog, setHadOpenDialog ] = useState( hasOpenDialog );
+	const [ flyoutOwnsDialog, setFlyoutOwnsDialog ] = useState( false );
+	if ( hadOpenDialog !== hasOpenDialog ) {
+		setHadOpenDialog( hasOpenDialog );
+		setFlyoutOwnsDialog( hasOpenDialog && sidebarFlyoutState !== 'closed' );
+	}
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
 	const setDockedFade = useScrollFade< HTMLDivElement >();
@@ -253,8 +260,7 @@ export function SidebarLayout( {
 										} }
 									>
 										<Popover.Popup
-											// Sidebar items own dialogs that must survive the flyout closing.
-											keepMounted={ hasOpenDialog }
+											keepMounted={ flyoutOwnsDialog }
 											container={ workspaceRef }
 											anchor={ sidebarFlyoutAnchor }
 											side="bottom"

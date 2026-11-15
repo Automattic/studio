@@ -212,3 +212,13 @@ it.each( [
 	await user.click( trigger );
 	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeInTheDocument();
 } );
+
+it( 'leaves the closed flyout unmounted when a dialog opens elsewhere', async () => {
+	await setup();
+	fireEvent.keyDown( document.body, { key: 'k', metaKey: true } );
+	fireEvent.keyDown( document.body, { key: 'k', ctrlKey: true } );
+	expect( await screen.findByRole( 'dialog', { name: 'Command palette' } ) ).toBeVisible();
+	expect(
+		screen.queryByRole( 'dialog', { name: 'Sidebar', hidden: true } )
+	).not.toBeInTheDocument();
+} );

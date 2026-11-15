@@ -1,8 +1,16 @@
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { ArrowUpIcon, ChevronDownIcon, PlusIcon, SearchIcon } from 'lucide-react';
-import { ChatIcon, GlobeIcon, ShareIcon, SyncIcon } from '@/lib/icons';
+import { SearchIcon } from 'lucide-react';
+import {
+	ArrowUpIcon,
+	ChevronDownIcon,
+	PlusIcon,
+	ChatIcon,
+	GlobeIcon,
+	UploadIcon,
+	CloudUploadIcon,
+} from '@/lib/icons';
 import styles from './whats-new.module.css';
 import type { CSSProperties } from 'react';
 
@@ -90,7 +98,7 @@ export function PublishShareIllustration() {
 				<div className={ styles.address }>localhost:8881</div>
 				<span className={ styles.publishButton }>{ __( 'Publish' ) }</span>
 				<span className={ styles.iconButton }>
-					<ShareIcon />
+					<UploadIcon />
 				</span>
 			</div>
 			<div className={ styles.panel }>
@@ -113,12 +121,12 @@ export function CommandPaletteIllustration() {
 				</div>
 				<div className={ styles.paletteGroup }>{ __( 'Commands' ) }</div>
 				<div className={ clsx( styles.paletteItem, styles.paletteItemActive ) }>
-					<SyncIcon className={ styles.paletteItemIcon } />
+					<CloudUploadIcon className={ styles.paletteItemIcon } />
 					<span>{ __( 'Publish & Sync…' ) }</span>
 					<span className={ styles.paletteItemMeta }>Bistro Lune</span>
 				</div>
 				<div className={ styles.paletteItem }>
-					<ShareIcon className={ styles.paletteItemIcon } />
+					<UploadIcon className={ styles.paletteItemIcon } />
 					<span>{ __( 'Share site…' ) }</span>
 					<span className={ styles.paletteItemMeta }>Bistro Lune</span>
 				</div>

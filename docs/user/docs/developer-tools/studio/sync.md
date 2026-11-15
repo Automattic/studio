@@ -6,6 +6,15 @@ This feature is available for all WordPress.com sites on paid plans and [Pressab
 
 If you’re on a WordPress.com plan, [make sure to activate your plan features](https://wordpress.com/support/activate-your-plan/). Commerce plan sites are automatically activated. For sites on the Free or Pro (legacy) plans, [upgrade your plan](https://wordpress.com/support/manage-purchases/upgrade-your-plan/) to access WordPress Studio Sync.
 
+## [Hosting providers](#hosting-providers)
+
+In **Settings → Providers**, connect an account under **Hosting providers** to publish from WordPress Studio.
+
+-   **WordPress.com** lets you publish to a new or existing WordPress.com site or update a site you host on Pressable. Sign in with your WordPress.com account. You can also [share a temporary preview](https://wordpress.studio/docs/preview-sites/).
+-   **[Spacefast](https://spacefast.com)** hosts a static copy of your site. Click **Connect** and approve the sign-in code in your browser. In your site’s **Publish** panel, choose **Spacefast** and publish to a new or existing Space. Features that need WordPress running, such as comments and server-side forms, are unavailable in the published copy.
+
+Use **Default hosting provider** to choose where WordPress Studio opens publishing setup for a site you haven’t published yet.
+
 ## [Compatible sites](#supported-sites)
 
 ### [WordPress Studio Sync and Jetpack Backups](#1-studio-sync-and-jetpack-backups)

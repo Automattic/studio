@@ -5,7 +5,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { validateSelectedSitePath } from '@studio/common/lib/site-path-validation';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { ChevronLeftIcon, CloudDownloadIcon } from 'lucide-react';
+import { ChevronLeftIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -31,7 +31,7 @@ import { useBlueprintUpload } from '@/features/sites/blueprint-upload/use-bluepr
 import { pendingBackupSlot } from '@/features/sites/pending-backup';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
-import { ImportIcon, PlusIcon } from '@/lib/icons';
+import { CloudDownloadIcon, DownloadIcon, PlusIcon } from '@/lib/icons';
 import {
 	DropOverlay,
 	Button,
@@ -436,7 +436,7 @@ export function AddSiteDialog() {
 	const navItems = [
 		{ value: 'create', label: __( 'New' ), icon: <PlusIcon /> },
 		{ value: 'connect', label: __( 'Connect' ), icon: <CloudDownloadIcon /> },
-		{ value: 'import', label: __( 'Import' ), icon: <ImportIcon /> },
+		{ value: 'import', label: __( 'Import' ), icon: <DownloadIcon /> },
 	];
 
 	const selectSection = ( value: string ) => {

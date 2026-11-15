@@ -97,7 +97,7 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.createSite ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				name: 'My bakery',
-				blueprint: 'portfolio',
+				blueprint: { librarySlug: 'portfolio', blueprint: { steps: [] } },
 			} )
 		);
 		expect( connector.continueSession.mock.calls[ 0 ][ 1 ] ).toBe( 'Make this a bakery' );

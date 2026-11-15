@@ -55,8 +55,8 @@ export function useDisconnectProvider( provider: ProviderId ) {
 }
 
 // Connects the provider with `method`: a form's values, or a sign-in on the provider's site, which
-// opens it, shows where the user signs in (`pending`), and resolves once they did.
-export function useConnectProvider( provider: ProviderId ) {
+// makes the browser handoff available as `pending` and resolves once they sign in.
+export function useConnectProvider( provider: ProviderId, { openBrowser = true } = {} ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const [ pending, setPending ] = useState< PendingConnect | null >( null );
@@ -75,7 +75,9 @@ export function useConnectProvider( provider: ProviderId ) {
 			}
 			const started = await connector.startProviderConnect( provider, method );
 			setPending( started );
-			void connector.openExternalUrl( started.url );
+			if ( openBrowser ) {
+				void connector.openExternalUrl( started.url );
+			}
 			try {
 				return await connector.connectProvider( provider, method, started.handoff );
 			} finally {

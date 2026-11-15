@@ -1,10 +1,10 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useDeleteSite } from '@/data/queries/use-sites';
 import { SiteCard } from '@/features/site-card';
 import { getSiteUrl } from '@/features/sites/get-site-url';
+import { XIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,

@@ -187,6 +187,48 @@ function stubUid( uid: number ) {
 }
 
 describe( 'App initialization', () => {
+	it.each( [ true, false ] )(
+		'quits after a failed legacy migration only while app config is missing (app config exists: %s)',
+		async ( completed ) => {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			const { app, dialog } = await import( 'electron' );
+			const migration = await import( '@studio/common/lib/migration' );
+			const { getAppConfigPath } = await import( '@studio/common/lib/well-known-paths' );
+			const { getOldAppdataFilePath } = await import( 'src/storage/paths' );
+			const { default: appFs } = await import( 'fs' );
+			const existsMock = vi
+				.mocked( appFs.existsSync )
+				.mockImplementation(
+					( file ) =>
+						file === getOldAppdataFilePath() || ( completed && file === getAppConfigPath() )
+				);
+			const error = new Error( 'EACCES: permission denied' );
+			const migrationSpy = vi.spyOn( migration, 'runMigrations' ).mockRejectedValueOnce( error );
+			try {
+				await import( '../index' );
+				await mockedEvents.ready();
+				if ( completed ) {
+					expect( createMainWindow ).toHaveBeenCalledOnce();
+					expect( app.exit ).not.toHaveBeenCalled();
+					expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+				} else {
+					expect( createMainWindow ).not.toHaveBeenCalled();
+					expect( app.exit ).toHaveBeenCalledWith( 1 );
+					expect( dialog.showMessageBox ).toHaveBeenCalledWith(
+						expect.objectContaining( {
+							type: 'error',
+							message: 'Could not migrate your sites',
+							detail: expect.stringContaining( error.message ),
+						} )
+					);
+				}
+			} finally {
+				migrationSpy.mockRestore();
+				existsMock.mockReset();
+			}
+		}
+	);
 	it( 'sandboxes every renderer', async () => {
 		mockElectron();
 		vi.resetModules();
@@ -554,6 +596,42 @@ describe( 'App initialization', () => {
 
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
+
+	// Windows ends a sync with Studio's process, while elsewhere it outlives Studio.
+	it.each( [
+		[ 'win32', 'Sync is finishing', false ],
+		[ 'darwin', 'Sync will continue', true ],
+	] )(
+		'on %s, a sync past the safe point shows "%s" and quits: %s',
+		async ( platform, message, quits ) => {
+			const originalProcessPlatform = process.platform;
+			Object.defineProperty( process, 'platform', { value: platform } );
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			await import( '../index' );
+			const { app, dialog } = await import( 'electron' );
+			const { trackSyncActivity } = await import( 'src/lib/active-sync-operations' );
+			trackSyncActivity( {
+				siteId: 'site-1',
+				activity: { kind: 'pending', direction: 'pull', action: 'importDatabase' },
+			} );
+			vi.mocked( dialog.showMessageBoxSync ).mockReturnValue( 0 );
+			const event = { preventDefault: vi.fn() };
+
+			void mockedEvents[ 'before-quit' ]( event );
+			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+
+			expect( dialog.showMessageBoxSync ).toHaveBeenCalledWith(
+				expect.objectContaining( { message } )
+			);
+			if ( quits ) {
+				await vi.waitFor( () => expect( app.quit ).toHaveBeenCalled() );
+			} else {
+				await new Promise( ( resolve ) => setTimeout( resolve ) );
+				expect( app.quit ).not.toHaveBeenCalled();
+			}
+		}
+	);
 
 	async function quitWithRunningSite( dialogResponse: number ) {
 		vi.doMock( 'src/lib/sites', () => ( {

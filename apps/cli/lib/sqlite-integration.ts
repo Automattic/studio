@@ -16,6 +16,10 @@ class CliSqliteProvider extends SqliteIntegrationProvider {
 
 const provider = new CliSqliteProvider();
 
+export function needsSqliteSetup( sitePath: string ) {
+	return provider.needsSqliteSetup( sitePath );
+}
+
 export async function isSqliteIntegrationAvailable() {
 	return provider.isSqliteIntegrationAvailable();
 }

@@ -17,6 +17,13 @@
 	min-width: 180px;
 }
 
+.databaseReason {
+	max-width: 260px;
+	margin: var( --space-2 ) var( --space-3 );
+	color: var( --foreground );
+	font-size: var( --text-xs );
+}
+
 @container site-header ( max-width: 240px ) {
 	.siteName {
 		display: none;

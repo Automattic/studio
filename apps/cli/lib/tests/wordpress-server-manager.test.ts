@@ -206,13 +206,18 @@ describe( 'WordPress Server Manager', () => {
 				{ ...mockProcessDescription, name: 'studio-site-other', pmId: 6 },
 			] );
 
-			await startWordPressServer( mockSiteData, mockLogger, 'config' );
+			await startWordPressServer(
+				{ ...mockSiteData, fileAccess: 'all-files' },
+				mockLogger,
+				'config'
+			);
 
 			expect( recordTracksEvent ).toHaveBeenCalledWith(
 				TRACKS_EVENTS.SITE_START,
 				expect.objectContaining( {
 					command: 'config',
 					success: true,
+					file_access: 'all-files',
 					running_site_count: 2,
 					time_ms: expect.any( Number ),
 				} )
@@ -275,6 +280,7 @@ describe( 'WordPress Server Manager', () => {
 				channel: 'studio-cli',
 				command: 'start',
 				success: false,
+				file_access: 'site-directory',
 				failure_reason: 'php_error',
 				time_ms: expect.any( Number ),
 				daemon_ms: expect.any( Number ),

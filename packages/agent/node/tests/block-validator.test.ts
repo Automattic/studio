@@ -403,6 +403,16 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		expect( lossy.results[ 0 ].expectedContent ).toContain( '<!-- wp:list-item -->' );
 	}, 60_000 );
 
+	it( 'shows a block that saves no HTML as the comment it is written as', async () => {
+		const report = await validateBlocks(
+			'<!-- wp:latest-posts {"postsToShow":3} -->\n<ul class="wp-block-latest-posts"><li>Hi</li></ul>\n<!-- /wp:latest-posts -->',
+			siteUrl!
+		);
+		expect( report.results[ 0 ].expectedContent ).toBe(
+			'<!-- wp:latest-posts {"postsToShow":3} /-->'
+		);
+	}, 60_000 );
+
 	it( 'stores the values an element holds where the block saves them from: core/cover', async () => {
 		const report = await validateBlocks(
 			'<!-- wp:cover {"dimRatio":60,"isDark":true} -->\n<div class="wp-block-cover is-dark"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-60 has-background-dim"></span><img class="wp-block-cover__image-background" alt="A bright dental office" src="https://example.com/hero.jpg" data-object-fit="cover"/><div class="wp-block-cover__inner-container"></div></div>\n<!-- /wp:cover -->',

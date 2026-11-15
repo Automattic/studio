@@ -682,6 +682,18 @@ async function validateAsWritten(
 							}
 						}
 
+						// A block that saves no HTML, which WordPress renders on the server
+						// from its attributes, is written as its comment alone.
+						if ( expectedContent === '' ) {
+							expectedContent = wpBlocks.serialize( [
+								wpBlocks.createBlock(
+									block.name,
+									sameBlock ? raw.attrs : block.attributes,
+									block.innerBlocks
+								),
+							] );
+						}
+
 						// After expectedContent: an ignored attribute changes no markup.
 						const attributeProblems =
 							blockType && sameBlock ? attributeIssues( block.name, blockType, raw.attrs ) : [];

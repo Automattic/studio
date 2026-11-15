@@ -16,7 +16,7 @@ const mark =
 export const githubCopilotProvider: Provider< GithubCopilotConfig > = {
 	id: 'github-copilot',
 	label: 'GitHub Copilot',
-	description: () => __( 'Use your GitHub Copilot plan. No API key required.' ),
+	description: () => __( 'Sign in with a GitHub account that has Copilot access.' ),
 	learnMoreUrl: 'https://github.com/features/copilot/plans',
 	icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${ mark }</svg>`,
 	logo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 36 36"><rect x="-6" y="-6" width="36" height="36" fill="#000"/><g fill="#FFF">${ mark }</g></svg>`,

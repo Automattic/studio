@@ -30,14 +30,14 @@ const mark =
 export const xaiProvider: Provider< XaiConfig > = {
 	id: 'xai',
 	label: 'xAI',
-	description: () => __( 'Use Grok with your SuperGrok or X Premium plan, or an API key.' ),
+	description: () => __( 'Sign in with an eligible Grok account or use an xAI API key.' ),
 	learnMoreUrl: 'https://docs.x.ai/docs/overview',
 	icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${ mark }</svg>`,
 	logo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 36 36"><rect x="-6" y="-6" width="36" height="36" fill="#000"/><g fill="#FFF">${ mark }</g></svg>`,
 	account: {
 		configSchema: xaiConfigSchema,
 		methods: [
-			{ id: 'grok', label: () => __( 'SuperGrok or X Premium' ), kind: 'device' },
+			{ id: 'grok', label: () => __( 'Sign in with Grok' ), kind: 'device' },
 			{
 				id: 'api-key',
 				label: () => __( 'API key' ),

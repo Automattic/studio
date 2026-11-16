@@ -151,6 +151,7 @@ The shot scripts follow the UI of the WordPress Studio in the same checkout, so 
 - **Open things the way both drivers can.** A keyboard shortcut that Studio Desktop handles from its application menu (such as ⌘, for Settings) does nothing when a script presses it there; click through the UI instead (the account menu, then **Settings**).
 - **Leave the app as the next shot expects it.** Use `after` to close what a shot opened and to remove what it left behind, such as notes staged in the chat box, so a failure in one shot doesn't cascade.
 - **Run the Desktop-only shots too.** The browser driver skips shots marked `desktopOnly`, so they go stale unnoticed. Capture them with `--driver electron`, which also runs on Linux under a virtual display.
+- **Repair as you go.** When a run fails, or a shot shows something that's broken or no longer matches its page, fix the script in the same change rather than leaving it for the next release: a failed shot stops the rest of its suite, so one stale step hides every shot after it. Check the whole set (`npm run screenshots -- --check`, then the Desktop-only shots with `--driver electron`) until nothing fails or is "not run", and update the shot's `description` when its screen changes.
 
 ### Blog images
 

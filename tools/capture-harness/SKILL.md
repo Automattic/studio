@@ -60,6 +60,7 @@ Look at each image yourself before handing it over (a downscaled copy is enough)
 
 ## Rules
 
+- Repair what you find as you go. A shot that fails, times out or captures the wrong screen gets its script fixed in the same change (see "Shots change with the app" in `docs/user/README.md`); don't hand over a run with failed or "not run" shots, and say what you couldn't fix.
 - Scripts never log out, publish, pull, buy or start a real agent run. Signed-in launches block these, and a step that tries one fails. Use the `stubAgentRuns` and `playAgentTurn` helpers to show a conversation.
 - Signed-in shots show a demo person's name and avatar. With a real account (`STUDIO_CAPTURE_AUTH_TOKEN`), review them before sharing: its email is masked, but its name and avatar are real.
 - Don't edit WordPress core files or the user's own Studio profile. The harness works in a throwaway profile.

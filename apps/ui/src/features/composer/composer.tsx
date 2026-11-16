@@ -1,8 +1,7 @@
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
-import { getAiModel, type ProviderId } from '@studio/providers';
+import { findAiModel, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { GlobeIcon } from 'lucide-react';
 import {
 	forwardRef,
 	useCallback,
@@ -40,7 +39,7 @@ import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
 import { useSubmitFeedback } from '@/lib/hooks';
-import { PlusIcon, StartSiteIcon } from '@/lib/icons';
+import { GlobeIcon, PlusIcon, PlayIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	DropOverlay,
@@ -260,7 +259,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} else if ( name === 'model' ) {
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {
-				openSettings( 'ai' );
+				openSettings( 'providers', undefined, 'ai-providers' );
 			} else if ( name === 'local' ) {
 				onEnvironmentChange?.( name );
 			} else if ( name === 'panel' ) {
@@ -387,7 +386,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		if (
 			submission.options.images?.length &&
-			getAiModel( sessionProvider, model )?.supportsImages === false
+			findAiModel( model )?.model.supportsImages === false
 		) {
 			setValidationError( {
 				message: __( 'Choose a model that supports images before sending these attachments' ),
@@ -440,7 +439,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments,
 		annotationSiteId,
 		model,
-		sessionProvider,
 		stagedNotes,
 	] );
 
@@ -585,7 +583,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							<Popover.Trigger render={ addButton } />
 							{ autoStartOn ? (
 								<ModeChip
-									icon={ StartSiteIcon }
+									icon={ PlayIcon }
 									label={ __( 'Auto-start' ) }
 									onRemove={ () => setAutoStart( false ) }
 								/>

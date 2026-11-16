@@ -1,6 +1,6 @@
 import { sitesEndpointSiteSchema, type SitesEndpointSite } from './schemas';
 import { getSyncSupport, pushNeedsUpgrade, isPressableSite } from './support';
-import type { SyncSite, SyncSupport } from '../site';
+import type { SyncSite, SyncSupport } from './site';
 
 function transformSingleSiteResponse(
 	site: SitesEndpointSite,

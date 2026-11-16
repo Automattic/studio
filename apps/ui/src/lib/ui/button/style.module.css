@@ -37,7 +37,8 @@
 	}
 
 	.button:focus-visible {
-		box-shadow: inset 0 0 0 2px var( --ring );
+		outline: var( --focus-width ) solid var( --ring );
+		outline-offset: calc( -1 * ( var( --focus-width ) + var( --border-width ) ) );
 	}
 
 	.button:is( :disabled, [data-disabled] ) {
@@ -49,6 +50,17 @@
 		--button-background: var( --primary );
 
 		color: var( --primary-foreground );
+	}
+
+	.button[data-variant='accent']:is( :disabled, [data-disabled] ):not(
+			[aria-busy='true'],
+			:has( [data-slot='spinner'] ),
+			[data-disabled-appearance]
+		) {
+		--button-background: color-mix( in srgb, var( --primary ) 50%, transparent );
+
+		opacity: 1;
+		color: color-mix( in srgb, var( --primary-foreground ) 50%, transparent );
 	}
 
 	.button:is( :disabled, [data-disabled] ):is(
@@ -122,10 +134,8 @@
 		color: var( --primary-foreground );
 	}
 
-	.button[data-variant='default']:focus-visible {
-		outline: 2px solid var( --primary );
-		outline-offset: 0;
-		box-shadow: none;
+	.button:is( [data-variant='default'], [data-variant='accent'] ):focus-visible {
+		outline-color: currentColor;
 	}
 
 	.button[data-variant='accent'] {
@@ -138,15 +148,25 @@
 	.button[data-variant='destructive'] {
 		--button-hover-background: var( --destructive-button-hover );
 
-		--button-background: var( --destructive );
+		--button-background: var( --destructive-fill );
 		color: var( --destructive-foreground );
 	}
 
 	.button[data-variant='outline'] {
-		--button-hover-background: var( --hover );
+		border-width: var( --border-width );
+		--button-hover-background: var( --hover-subtle );
 
 		border-color: var( --border );
 		color: var( --foreground );
+	}
+
+	.button[data-variant='outline']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
+		--hover-subtle: inherit;
+		--surface: var( --hover-subtle );
 	}
 
 	.button[data-variant='outline']:is( :hover, :focus-visible ):not( :disabled, [data-disabled] )
@@ -178,6 +198,8 @@
 	}
 
 	.button[data-variant='muted'] {
+		--muted: inherit;
+		--selected: inherit;
 		--surface: var( --muted );
 		--button-hover-background: var( --surface );
 
@@ -190,6 +212,7 @@
 			[aria-expanded='true'],
 			[aria-pressed='true']
 		) {
+		--selected: inherit;
 		--surface: var( --selected );
 	}
 
@@ -216,16 +239,18 @@
 	}
 
 	.button[data-variant='accent-ghost']:is( [aria-pressed='true'], [aria-expanded='true'] ) {
-		--button-hover-background: var( --accent-subtle );
-		--button-hover-color: var( --accent-text );
+		--surface: var( --accent-subtle );
+		--button-hover-background: var( --surface );
+		--button-hover-color: var( --accent-subtle-foreground );
 	}
 
 	.button[data-variant='accent-ghost']:is(
 			[aria-pressed='true'],
 			[aria-expanded='true']
 		):hover:not( :disabled, [data-disabled] ) {
-		--button-hover-background: var( --accent-subtle-hover );
-		--button-hover-color: var( --accent-text-hover );
+		--surface: var( --accent-subtle-hover );
+		--button-hover-background: var( --surface );
+		--button-hover-color: var( --accent-subtle-hover-foreground );
 	}
 
 	.button[data-variant='muted-ghost'] {
@@ -285,7 +310,7 @@
 	}
 
 	.button:is( [data-variant='inline-link'], [data-variant='inline-text'] ):focus-visible {
-		box-shadow: none;
+		outline: none;
 		color: var( --accent-text );
 	}
 
@@ -303,7 +328,9 @@
 			:disabled,
 			[data-disabled]
 		) {
-		background-color: var( --destructive-hover );
+		--destructive-hover: inherit;
+		--surface: var( --destructive-hover );
+		background-color: var( --surface );
 		color: var( --destructive );
 	}
 

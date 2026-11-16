@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { InvalidCredentialError } from '../../errors';
-import { connectWpcom } from '../account';
-import { getAuthorizeUrl } from '../oauth';
+import { ConnectError } from '../../errors';
+import { wpcomAccount } from '../account';
+import { getSignInUrl } from '../descriptor';
 
 const ME = { ID: 1, email: 'me@example.com', display_name: 'Me' };
 
@@ -16,10 +16,10 @@ function stubMe( response: Partial< Response > | Error ) {
 
 afterEach( () => vi.unstubAllGlobals() );
 
-describe( 'getAuthorizeUrl', () => {
+describe( 'getSignInUrl', () => {
 	it( 'asks for a token sent back to the redirect, with the state', () => {
 		const url = new URL(
-			getAuthorizeUrl( { redirectUri: 'wp-studio://auth', locale: 'es', state: 'abc' } )
+			getSignInUrl( { redirectUri: 'wp-studio://auth', locale: 'es', state: 'abc' } )
 		);
 
 		expect( url.origin + url.pathname ).toBe( 'https://public-api.wordpress.com/oauth2/authorize' );
@@ -35,7 +35,7 @@ describe( 'getAuthorizeUrl', () => {
 
 	it( 'signs up first, then authorizes with the same redirect and state', () => {
 		const url = new URL(
-			getAuthorizeUrl( {
+			getSignInUrl( {
 				redirectUri: 'http://localhost/cb',
 				locale: 'en',
 				state: 'abc',
@@ -51,13 +51,13 @@ describe( 'getAuthorizeUrl', () => {
 	} );
 } );
 
-describe( 'connectWpcom', () => {
+describe( 'connecting WordPress.com', () => {
 	it( 'turns the redirect into a config with the account the token belongs to', async () => {
 		vi.spyOn( Date, 'now' ).mockReturnValue( 1_000 );
 		stubMe( { ok: true, json: async () => ME } );
 
 		await expect(
-			connectWpcom( { access_token: 'tok', expires_in: '60', state: 'abc' } )
+			wpcomAccount.connect( 'sign-in', { access_token: 'tok', expires_in: '60', state: 'abc' } )
 		).resolves.toEqual( {
 			token: 'tok',
 			expiresAt: 61_000,
@@ -71,20 +71,24 @@ describe( 'connectWpcom', () => {
 		[ { error: 'server_error' }, 'invalid' ],
 		[ {}, 'invalid' ],
 	] )( 'refuses %j as %s', async ( params, reason ) => {
-		await expect( connectWpcom( params ) ).rejects.toMatchObject( {
-			constructor: InvalidCredentialError,
+		await expect( wpcomAccount.connect( 'sign-in', params ) ).rejects.toMatchObject( {
+			constructor: ConnectError,
 			reason,
 		} );
 	} );
 
 	it( 'reports a token it could not check as unverified', async () => {
 		stubMe( { ok: false, status: 401 } );
-		await expect( connectWpcom( { access_token: 'tok' } ) ).rejects.toMatchObject( {
+		await expect(
+			wpcomAccount.connect( 'sign-in', { access_token: 'tok' } )
+		).rejects.toMatchObject( {
 			reason: 'unverified',
 		} );
 
 		stubMe( new TypeError( 'Failed to fetch' ) );
-		await expect( connectWpcom( { access_token: 'tok' } ) ).rejects.toMatchObject( {
+		await expect(
+			wpcomAccount.connect( 'sign-in', { access_token: 'tok' } )
+		).rejects.toMatchObject( {
 			reason: 'unverified',
 		} );
 	} );

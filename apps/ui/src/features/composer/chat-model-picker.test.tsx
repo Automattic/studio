@@ -1,3 +1,4 @@
+import { getProvider } from '@studio/providers';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
@@ -72,8 +73,55 @@ describe( 'Chat model picker', () => {
 		const current = await screen.findByRole( 'option', { name: /Opus 5.5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( current ).toHaveTextContent(
-			'Anthropic API · Plan complex builds and solve harder problems'
+			'Anthropic · Plan complex builds and solve harder problems'
 		);
+	} );
+
+	it( 'offers to manage usage only when Anthropic connects with a Claude subscription', async () => {
+		const connectedWith = ( method: 'api-key' | 'setup-token' ) => {
+			const settings = aiSettings( 'anthropic', [ 'anthropic' ] );
+			settings.accounts.anthropic = {
+				connected: true,
+				...getProvider( 'anthropic' ).account.describe(
+					method === 'api-key'
+						? { method, apiKey: 'sk-ant-api03-test' }
+						: { method, token: 'sk-ant-oat01-test' }
+				),
+			};
+			return createFakeConnector( {}, { getAiSettings: async () => settings } );
+		};
+		const subscription = await renderPicker( 'claude-opus-5-5', connectedWith( 'setup-token' ) );
+		fireEvent.click( subscription.trigger );
+		expect( await screen.findByRole( 'option', { name: /Manage usage/ } ) ).toHaveTextContent(
+			'Using Claude plan'
+		);
+		subscription.unmount();
+
+		const apiKey = await renderPicker( 'claude-opus-5-5', connectedWith( 'api-key' ) );
+		fireEvent.click( apiKey.trigger );
+		await screen.findByRole( 'option', { name: /Opus 5.5/ } );
+		expect( screen.queryByRole( 'option', { name: /Manage usage/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers only the models the connected account can run', async () => {
+		const settings = aiSettings( 'github-copilot', [ 'github-copilot' ] );
+		settings.accounts[ 'github-copilot' ] = {
+			connected: true,
+			...getProvider( 'github-copilot' ).account.describe( {
+				method: 'github',
+				githubToken: 'gho_1',
+				copilotToken: 'copilot',
+				copilotTokenExpiresAt: Date.now() + 60_000,
+				models: [ 'claude-sonnet-5-5' ],
+			} ),
+		};
+		const { trigger } = await renderPicker(
+			'claude-sonnet-5-5',
+			createFakeConnector( {}, { getAiSettings: async () => settings } )
+		);
+		fireEvent.click( trigger );
+		await screen.findByRole( 'option', { name: /Sonnet 5.5/ } );
+		expect( screen.queryByRole( 'option', { name: /Gemini/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'lists the tiers and closes after selection', async () => {

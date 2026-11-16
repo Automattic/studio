@@ -1,4 +1,4 @@
-import { InvalidCredentialError } from '@studio/providers';
+import { ConnectError } from '@studio/providers';
 import { z } from 'zod';
 import type { TracksAuthFailureReason, TracksAuthSource, TracksProps } from './record-tracks-event';
 
@@ -119,7 +119,7 @@ export type AccountJourneyCompletion =
 
 // The Tracks reason for a failed WordPress.com sign-in.
 export function getAuthFailureReason( error: unknown ): TracksAuthFailureReason {
-	if ( ! ( error instanceof InvalidCredentialError ) ) {
+	if ( ! ( error instanceof ConnectError ) ) {
 		return 'unknown';
 	}
 	return { denied: 'access_denied', invalid: 'token_error', unverified: 'profile_fetch_failed' }[

@@ -13,6 +13,7 @@ export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
 	SITE_CREATE: 'studio_site_created',
+	SITE_CREATE_FAILED: 'studio_site_create_failed',
 	BLUEPRINT_VIEWED: 'studio_blueprint_viewed',
 	BLUEPRINT_USE_CASE_FILTER_CHANGED: 'studio_blueprint_use_case_filter_changed',
 	BLUEPRINT_PREVIEW_IN_BROWSER: 'studio_blueprint_preview_in_browser',

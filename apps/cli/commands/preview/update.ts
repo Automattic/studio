@@ -33,7 +33,7 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { createWpcomPreviewSite } from './create';
+import { createWpcomPreviewSite, warnAboutEditedDefaultThemes } from './create';
 
 async function getSnapshotToUpdate(
 	snapshots: Snapshot[],
@@ -66,7 +66,8 @@ export async function runCommand(
 	siteFolder: string,
 	host: string,
 	overwrite: boolean,
-	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
+	logger: Logger< LoggerAction > = new Logger< LoggerAction >(),
+	liveSiteSelection?: string
 ): Promise< Snapshot > {
 	const archivePath = path.join(
 		os.tmpdir(),
@@ -85,6 +86,7 @@ export async function runCommand(
 		preview = snapshotToUpdate;
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
+		const liveSite = await getLivePreviewSite( site.id, liveSiteSelection );
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
 			step = action;
 			logger.reportStart( action, message );
@@ -102,11 +104,13 @@ export async function runCommand(
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
 		let snapshot: Snapshot;
+		let warning: string | undefined;
 
 		// A preview made on Jurassic Ninja moves to WordPress.com when it's updated.
 		if ( ! isWpcomPreview( snapshotToUpdate ) ) {
 			const created = await createWpcomPreviewSite( {
 				siteId: site.id,
+				liveSiteSelection,
 				siteFolder,
 				archivePath,
 				name: snapshotToUpdate.name ?? site.name,
@@ -115,6 +119,7 @@ export async function runCommand(
 				reportStep,
 				onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
 			} );
+			warning = created.warning;
 			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 			snapshot = await saveSnapshotToConfig(
 				siteFolder,
@@ -147,6 +152,7 @@ export async function runCommand(
 			);
 		} else {
 			await validateSiteSize( siteFolder, { onWpcom: true } );
+			warning = await warnAboutEditedDefaultThemes( siteFolder, logger );
 
 			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 			// The version is taken under the same lock as the archive, so it's what the preview holds.
@@ -171,7 +177,8 @@ export async function runCommand(
 				snapshotToUpdate.atomicSiteId,
 				attachmentId,
 				token.accessToken,
-				( await getLivePreviewSite( site.id ) )?.id
+				liveSite?.id,
+				site.id
 			);
 
 			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
@@ -193,7 +200,7 @@ export async function runCommand(
 			archive_bytes: archiveBytes,
 			site_preview_count: countSitePreviews( site.id, snapshots, token.id ),
 		} );
-		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
+		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview', warning } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
 		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
@@ -248,6 +255,10 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		describe: __( 'Update preview site' ),
 		builder: ( yargs ) => {
 			return yargs
+				.option( 'live-site', {
+					type: 'string',
+					description: __( 'Connected live site ID, or none' ),
+				} )
 				.positional( 'host', {
 					type: 'string',
 					description: __( 'Hostname of the preview site to update' ),
@@ -264,7 +275,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 			const normalizedHost = normalizeHostname( argv.host );
 			const logger = new Logger< LoggerAction >();
 			try {
-				await runCommand( argv.path, normalizedHost, argv.overwrite, logger );
+				await runCommand( argv.path, normalizedHost, argv.overwrite, logger, argv.liveSite );
 			} catch ( error ) {
 				logger.reportError( error as LoggerError );
 			}

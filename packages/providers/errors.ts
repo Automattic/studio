@@ -1,9 +1,8 @@
-// The provider's config is missing or no longer works; the message says how
-// to connect it.
-export class ProviderNotReadyError extends Error {
+// The provider isn't connected, or its config no longer works; the message is for the user.
+export class NotConnectedError extends Error {
 	constructor( message: string ) {
 		super( message );
-		this.name = 'ProviderNotReadyError';
+		this.name = 'NotConnectedError';
 	}
 }
 
@@ -12,13 +11,13 @@ export class ProviderNotReadyError extends Error {
 export type ConnectFailure = 'denied' | 'invalid' | 'unverified';
 
 // Connecting failed; the message is for the user.
-export class InvalidCredentialError extends Error {
+export class ConnectError extends Error {
 	constructor(
 		message: string,
 		readonly reason: ConnectFailure = 'invalid'
 	) {
 		super( message );
-		this.name = 'InvalidCredentialError';
+		this.name = 'ConnectError';
 	}
 }
 

@@ -2,7 +2,7 @@ import { disconnectProvider } from '@studio/common/lib/ai-settings';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { Logger, LoggerError } from 'cli/logger';
@@ -21,7 +21,7 @@ export async function runCommand(): Promise< void > {
 			return;
 		}
 
-		await disconnectProvider( getProvider( 'wpcom' ) );
+		await disconnectProvider( getProviderServices( 'wpcom' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

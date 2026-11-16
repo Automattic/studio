@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { XIcon } from 'lucide-react';
 import { useId } from 'react';
+import { XIcon } from '@/lib/icons';
 import { Badge } from '@/lib/ui/badge';
 import { Button, IconButton } from '@/lib/ui/button';
 import * as Popover from '@/lib/ui/popover';
@@ -43,7 +43,7 @@ export function Popup( {
 				<IconButton
 					className={ styles.dismiss }
 					size="icon-sm"
-					icon={ <XIcon size={ 16 } /> }
+					icon={ <XIcon /> }
 					label={ __( 'Dismiss tip' ) }
 					tooltip={ false }
 					onClick={ onDismiss }

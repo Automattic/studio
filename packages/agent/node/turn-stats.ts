@@ -3,7 +3,7 @@ import {
 	isAiBlockedError,
 	isOutOfCreditsError,
 	isUsageCapError,
-} from '@studio/agent/protocol/json-events';
+} from '@studio/agent/protocol/errors';
 import { findSkill } from '@studio/agent/shared/skills';
 import { addAssistantMessageUsage, createTokenUsage } from './token-usage';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';

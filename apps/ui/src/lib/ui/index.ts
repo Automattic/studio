@@ -19,6 +19,7 @@ export * from './input';
 export * from './input-group';
 export * from './kbd';
 export * from './label';
+export * from './logo-tile';
 export * from './marquee-label';
 export * as Menu from './menu';
 export * from './notification-dot';

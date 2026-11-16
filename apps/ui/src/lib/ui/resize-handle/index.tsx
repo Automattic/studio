@@ -10,7 +10,7 @@ interface ResizeHandleProps {
 	width: number;
 	onResizeStart: MouseEventHandler< HTMLDivElement >;
 	onKeyDown: KeyboardEventHandler< HTMLDivElement >;
-	onReset?: () => void;
+	onDoublePress?: () => void;
 }
 
 export function ResizeHandle( {
@@ -21,7 +21,7 @@ export function ResizeHandle( {
 	width,
 	onResizeStart,
 	onKeyDown,
-	onReset,
+	onDoublePress,
 }: ResizeHandleProps ) {
 	return (
 		<div
@@ -34,19 +34,17 @@ export function ResizeHandle( {
 			aria-valuenow={ width }
 			tabIndex={ 0 }
 			// A drag covers the handle with ResizeOverlay, so a double-click never
-			// reaches it as `dblclick`: the second press resets instead.
+			// reaches it as `dblclick`. Handle the second press instead.
 			onMouseDown={ ( event ) => {
-				if ( onReset && event.detail === 2 ) {
+				if ( onDoublePress && event.button === 0 && event.detail === 2 ) {
 					event.preventDefault();
-					onReset();
+					onDoublePress();
 				} else {
 					onResizeStart( event );
 				}
 			} }
 			onKeyDown={ onKeyDown }
-		>
-			<span className={ styles.resizeHandleIndicator } aria-hidden="true" />
-		</div>
+		/>
 	);
 }
 

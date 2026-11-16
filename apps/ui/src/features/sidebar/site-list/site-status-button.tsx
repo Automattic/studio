@@ -1,7 +1,8 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useIsSiteBusy, useSiteOperation, useStopSite } from '@/data/queries/use-sites';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
-import { StartSiteIcon, StopSiteIcon } from '@/lib/icons';
+import { PlayIcon, SquareIcon } from '@/lib/icons';
 import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
@@ -20,20 +21,25 @@ export function SiteStatusButton( {
 } ) {
 	const startSite = useStartSiteWithChat();
 	const stopSite = useStopSite();
-	const busy = useIsSiteBusy( site );
+	const siteBusy = useIsSiteBusy( site );
+	const activity = useSiteSyncActivity( site.id );
+	const isSyncPending = activity?.kind === 'pending' && activity.direction !== 'preview';
+	const busy = siteBusy || isSyncPending;
 	const operation = useSiteOperation( site );
 	const visuallyStopped = isStopping || operation === 'stop';
-	const visualBusy = busy && ! visuallyStopped;
+	const visualBusy = isSyncPending || ( siteBusy && ! visuallyStopped );
 	const visualRunning = !! site.running && ! visuallyStopped;
 	const status = getSiteStatus( site, isStarting, isStopping, operation );
-	// The recorded operation wins: it names work this window didn't start (an
-	// agent restart, another Studio window) that local start/stop state can't see.
-	const statusName = getSiteStatusName( {
-		running: site.running,
-		starting: isStarting,
-		stopping: isStopping,
-		operation,
-	} );
+	const statusName = isSyncPending
+		? activity.direction === 'import'
+			? __( 'Importing backup' )
+			: __( 'Syncing live site' )
+		: getSiteStatusName( {
+				running: site.running,
+				starting: isStarting,
+				stopping: isStopping,
+				operation,
+		  } );
 	const label = sprintf( visualRunning ? __( 'Stop %s' ) : __( 'Start %s' ), site.name );
 	const handleClick = () => {
 		if ( site.running ) {
@@ -62,9 +68,9 @@ export function SiteStatusButton( {
 						{ visualBusy ? (
 							<Spinner aria-hidden="true" />
 						) : visualRunning ? (
-							<StopSiteIcon />
+							<SquareIcon />
 						) : (
-							<StartSiteIcon />
+							<PlayIcon />
 						) }
 					</Button>
 				}

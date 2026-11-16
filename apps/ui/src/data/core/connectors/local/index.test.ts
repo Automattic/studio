@@ -30,6 +30,42 @@ describe( 'createLocalConnector Connect contracts', () => {
 		);
 	} );
 
+	it( 'uploads the selected library bundle before creating the site', async () => {
+		const bundleUrl = 'https://example.test/blueprint.zip';
+		const uploadedPath = '/tmp/upload/blueprint.zip';
+		fetchMock
+			.mockResolvedValueOnce( new Response( 'zip fixture' ) )
+			.mockResolvedValueOnce( Response.json( { path: uploadedPath } ) )
+			.mockResolvedValueOnce( Response.json( { id: 'site-1' } ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+
+		await connector.createSite( {
+			name: 'Substrata',
+			path: '/sites/substrata',
+			blueprint: { librarySlug: 'substrata', blueprint: { steps: [] }, bundleUrl },
+		} );
+
+		expect( fetchMock ).toHaveBeenCalledTimes( 3 );
+		expect( fetchMock ).toHaveBeenNthCalledWith( 1, bundleUrl );
+		expect( fetchMock ).toHaveBeenNthCalledWith(
+			2,
+			'http://localhost:8081/api/uploads?name=blueprint.zip',
+			expect.objectContaining( { method: 'POST', body: expect.any( File ) } )
+		);
+		expect( fetchMock ).toHaveBeenNthCalledWith(
+			3,
+			'http://localhost:8081/api/sites',
+			expect.objectContaining( {
+				method: 'POST',
+				body: JSON.stringify( {
+					name: 'Substrata',
+					path: '/sites/substrata',
+					blueprint: uploadedPath,
+				} ),
+			} )
+		);
+	} );
+
 	it( 'delegates browser selection and site URL opening to the local host', async () => {
 		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );

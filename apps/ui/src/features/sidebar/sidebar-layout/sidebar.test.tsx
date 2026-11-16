@@ -65,8 +65,15 @@ describe( 'resizable sidebar', () => {
 		expect( restored ).toHaveAttribute( 'aria-valuenow', '296' );
 		fireEvent.keyDown( restored, { key: 'End' } );
 		expect( restored ).toHaveAttribute( 'aria-valuenow', '320' );
-		fireEvent.mouseDown( restored, { detail: 2 } );
-		expect( restored ).toHaveAttribute( 'aria-valuenow', '256' );
+	} );
+
+	it( 'closes on a double-click and keeps its width when reopened', async () => {
+		await setup();
+		fireEvent.keyDown( handle(), { key: 'ArrowRight' } );
+		fireEvent.mouseDown( handle(), { detail: 2 } );
+		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();
+		fireEvent.click( toggle() );
+		expect( handle() ).toHaveAttribute( 'aria-valuenow', '272' );
 	} );
 
 	it( 'stays collapsed across restarts until the interface is reset', async () => {

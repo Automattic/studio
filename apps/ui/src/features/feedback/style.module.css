@@ -1,3 +1,14 @@
+.signedOutDialog {
+	max-width: 360px;
+	padding: var( --space-5 );
+}
+
+.signInActions {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+}
+
 .form {
 	display: contents;
 }

@@ -8,8 +8,8 @@ import {
 } from '@studio/common/lib/auth-tracks';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
-import { getRedirectUrl } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { emitCliEvent } from 'cli/lib/daemon-client';
@@ -22,7 +22,7 @@ const CLI_REDIRECT_URI = `https://developer.wordpress.com/copy-oauth-token`;
 
 // The authorization page shows the token for the user to copy back.
 export async function getCliAuthenticationUrl(): Promise< string > {
-	return getRedirectUrl( 'wpcom', { redirectUri: CLI_REDIRECT_URI, locale: await getAppLocale() } );
+	return getSignInUrl( { redirectUri: CLI_REDIRECT_URI, locale: await getAppLocale() } );
 }
 
 // Checks a pasted token against WordPress.com and stores it. Throws a
@@ -39,7 +39,9 @@ export async function storeAuthToken( accessToken: string, attempt?: AuthAttempt
 
 	let authToken: StoredAuthToken | null;
 	try {
-		await connectProvider( getProvider( 'wpcom' ), { access_token: accessToken } );
+		await connectProvider( getProviderServices( 'wpcom' ), 'sign-in', {
+			access_token: accessToken,
+		} );
 		authToken = await readAuthToken();
 	} catch ( error ) {
 		await recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {

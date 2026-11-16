@@ -460,7 +460,10 @@ function DashboardLayout() {
 				secondaryLabel={ __( 'Choose a different provider' ) }
 				onSkip={ () => {
 					setProviderPromptOpen( false );
-					openSettings( 'ai', undefined, undefined, { intent: 'annotate', scope: routeSite?.id } );
+					openSettings( 'providers', undefined, 'ai-providers', {
+						intent: 'annotate',
+						scope: routeSite?.id,
+					} );
 				} }
 			/>
 			<SiteHeaderActionsProvider host={ panelExpanded ? 'panel' : 'chat' }>
@@ -472,6 +475,7 @@ function DashboardLayout() {
 							: routePreviewContext.pathname
 					}
 					panelOpen={ showPanel }
+					onPanelClose={ () => setPanelOpen( false, { userInitiated: true } ) }
 					chatHidden={ chatHidden }
 					instant={ ( ! previewStopping || ! preview.open ) && preview.instant }
 					panel={ renderPanel }
@@ -480,6 +484,7 @@ function DashboardLayout() {
 							<WindowControlsCornerContext.Provider value={ ! showPanel }>
 								<div
 									ref={ setTabHeader }
+									data-sidebar-flyout-header
 									className={ styles.header }
 									data-panel-open={ showPanel || undefined }
 									data-full-view-control={ showFullView || undefined }

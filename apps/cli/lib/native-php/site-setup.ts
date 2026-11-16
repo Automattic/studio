@@ -181,9 +181,12 @@ export async function installWordPress(
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal,
 	finishInstallPath: string,
-	logToConsole: Logger
+	logToConsole: Logger,
+	skipInstallationCheck = false
 ): Promise< boolean > {
-	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
+	const alreadyInstalled =
+		! skipInstallationCheck &&
+		( await isWordPressInstalled( config.sitePath, phpVersion, signal ) );
 	if ( alreadyInstalled ) {
 		logToConsole( `WordPress already installed; skipping installer` );
 		return false;

@@ -1,16 +1,19 @@
 import os from 'os';
 import path from 'path';
 import { confirm, input } from '@inquirer/prompts';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
+import { createPreviewSite, getLivePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { LoggerError } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
 const mockReportSuccess = vi.fn();
@@ -21,6 +24,7 @@ vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) 
 	readAuthToken: vi.fn(),
 	updateSharedConfig: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/connected-sites' );
 vi.mock( '@inquirer/prompts' );
 vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
@@ -35,6 +39,10 @@ vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/archive' );
+vi.mock( 'cli/lib/sync-activity' );
+vi.mock( 'cli/lib/edited-default-themes', () => ( {
+	findEditedDefaultThemes: vi.fn().mockResolvedValue( [] ),
+} ) );
 vi.mock( 'cli/lib/site-tracks' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/preview-sites' );
@@ -135,6 +143,71 @@ describe( 'Preview Create Command', () => {
 		vi.restoreAllMocks();
 	} );
 
+	it( 'warns about an edited default theme, also when the preview is ready', async () => {
+		vi.mocked( findEditedDefaultThemes ).mockResolvedValueOnce( [ 'Twenty Twenty-Five' ] );
+		const logger = new Logger();
+
+		await runCommand( mockFolder, undefined, logger );
+
+		expect( findEditedDefaultThemes ).toHaveBeenCalledWith( mockFolder );
+		expect( logger.reportWarning ).toHaveBeenCalledWith(
+			expect.stringContaining( 'Your changes to Twenty Twenty-Five’s files' )
+		);
+		expect( reportSyncActivity ).toHaveBeenLastCalledWith( 'site-123', {
+			kind: 'success',
+			direction: 'preview',
+			warning: expect.stringContaining( 'Your changes to Twenty Twenty-Five’s files' ),
+		} );
+	} );
+
+	it( 'still creates the preview when the theme check fails', async () => {
+		vi.mocked( findEditedDefaultThemes ).mockRejectedValueOnce( new Error( 'EACCES' ) );
+		const logger = new Logger();
+
+		await runCommand( mockFolder, undefined, logger );
+
+		expect( logger.reportWarning ).not.toHaveBeenCalled();
+		expect( reportSyncActivity ).toHaveBeenLastCalledWith( 'site-123', {
+			kind: 'success',
+			direction: 'preview',
+			warning: undefined,
+		} );
+	} );
+
+	it.each( [
+		{ selection: undefined, ids: [ 1 ], expected: 1 },
+		{ selection: undefined, ids: [ 1, 2 ], expected: undefined },
+		{ selection: '2', ids: [ 1, 2 ], expected: 2 },
+		{ selection: 'none', ids: [ 1 ], expected: undefined },
+		{ selection: '9', ids: [ 1, 2 ], invalid: true },
+		{ selection: '3', ids: [ 1, 2 ], invalid: true },
+	] )(
+		'applies live-site $selection with connected sites $ids',
+		async ( { selection, ids, expected, invalid } ) => {
+			const actual =
+				await vi.importActual< typeof import('cli/lib/preview-sites') >( 'cli/lib/preview-sites' );
+			vi.mocked( getLivePreviewSite ).mockImplementationOnce( actual.getLivePreviewSite );
+			vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
+				...ids.map( ( id ) => ( { id } ) ),
+				{ id: 3, pushNeedsUpgrade: true },
+			] as Awaited< ReturnType< typeof getConnectedWpcomSitesForLocalSite > > );
+			const result = runCommand( mockFolder, 'Preview', undefined, selection );
+			if ( invalid ) {
+				await expect( result ).rejects.toThrow();
+				expect( uploadPreviewArchive ).not.toHaveBeenCalled();
+			} else {
+				await result;
+				expect( createPreviewSite ).toHaveBeenCalledWith(
+					mockAttachmentId,
+					'Preview',
+					mockAuthToken.accessToken,
+					expected,
+					'site-123'
+				);
+			}
+		}
+	);
+
 	it( 'creates the preview on WordPress.com for any account', async () => {
 		await runCommand( mockFolder );
 
@@ -154,7 +227,8 @@ describe( 'Preview Create Command', () => {
 			mockAttachmentId,
 			'Test Site Preview 1',
 			mockAuthToken.accessToken,
-			undefined
+			undefined,
+			'site-123'
 		);
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,

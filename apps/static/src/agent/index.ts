@@ -11,17 +11,17 @@ import {
 	fetchStudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
 import {
-	DEFAULT_PROVIDER_ID,
-	getProviderDescriptor,
-	normalizeAiProviderId,
-	normalizeProviderId,
 	AI_PROVIDER_IDS,
+	DEFAULT_PROVIDER_ID,
+	getProvider,
+	normalizeProviderId,
 	toStoredProviderId,
+	type AccountDetails,
 	type AiModelId,
-	type Provider,
 	type ProviderId,
+	type ProviderServices,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { getSiteUrl } from '../playground';
 import { kvGet, kvSet } from '../store';
@@ -227,17 +227,26 @@ export class StaticAgentRuns {
 	private async readConfig( id: ProviderId ): Promise< unknown > {
 		if ( id === 'wpcom' ) {
 			const token = await this.deps.auth.token();
-			return (
-				token && {
-					token: token.accessToken,
-					user: { id: token.id, email: token.email, displayName: token.displayName },
-				}
-			);
+			return token
+				? {
+						token: token.accessToken,
+						user: { id: token.id, email: token.email, displayName: token.displayName },
+				  }
+				: undefined;
 		}
-		const parsed = getProviderDescriptor( id ).configSchema.safeParse(
+		const { account } = getProvider( id ) as {
+			account: {
+				configSchema: { safeParse( value: unknown ): { success: boolean; data?: unknown } };
+				expiresAt?( config: unknown ): number | undefined;
+			};
+		};
+		const parsed = account.configSchema.safeParse(
 			( await this.readAiSettings() ).configs?.[ id ]
 		);
-		return parsed.success ? parsed.data : undefined;
+		const expiresAt = parsed.success ? account.expiresAt?.( parsed.data ) : undefined;
+		return parsed.success && ! ( expiresAt !== undefined && expiresAt <= Date.now() )
+			? parsed.data
+			: undefined;
 	}
 
 	private async writeConfig( id: ProviderId, config: unknown ) {
@@ -254,25 +263,39 @@ export class StaticAgentRuns {
 		const accounts = await Promise.all(
 			AI_PROVIDER_IDS.map( async ( id ) => {
 				const config = await this.readConfig( id );
-				const { summarize } = getProviderDescriptor( id ) as {
-					summarize?: ( config: unknown ) => string;
+				const { describe } = getProvider( id ).account as {
+					describe: ( config: unknown ) => AccountDetails;
 				};
 				return [
 					id,
-					{ connected: !! config, summary: config && summarize ? summarize( config ) : null },
+					config === undefined
+						? { connected: false as const }
+						: { connected: true as const, ...describe( config ) },
 				] as const;
 			} )
 		);
 		return {
-			provider: normalizeAiProviderId( settings.provider ) ?? DEFAULT_PROVIDER_ID,
+			provider: normalizeProviderId( settings.provider, AI_PROVIDER_IDS ) ?? DEFAULT_PROVIDER_ID,
 			accounts: Object.fromEntries( accounts ) as AiSettings[ 'accounts' ],
 		};
 	}
 
 	// WordPress.com connects by signing in (`WpcomAuth`).
-	async connectProvider( id: ProviderId, input: Record< string, string > ): Promise< AiSettings > {
-		await this.writeConfig( id, await ( getProvider( id ) as Provider ).connect( input ) );
-		return this.getAiSettings();
+	async connectProvider(
+		id: ProviderId,
+		method: string,
+		input: Record< string, string >
+	): Promise< AiSettings > {
+		await this.writeConfig(
+			id,
+			await ( getProviderServices( id ) as ProviderServices ).account.connect( method, input )
+		);
+		// A chat provider becomes the default only when the current default can't be used.
+		const settings = await this.getAiSettings();
+		const aiProvider = normalizeProviderId( id, AI_PROVIDER_IDS );
+		return aiProvider && ! settings.accounts[ settings.provider ].connected
+			? this.setAiProvider( aiProvider )
+			: settings;
 	}
 
 	async disconnectProvider( id: ProviderId ): Promise< AiSettings > {
@@ -281,7 +304,9 @@ export class StaticAgentRuns {
 		} else {
 			const config = await this.readConfig( id );
 			if ( config ) {
-				await ( getProvider( id ) as Provider ).disconnect?.( config ).catch( () => undefined );
+				await ( getProviderServices( id ) as ProviderServices ).account
+					.disconnect?.( config )
+					.catch( () => undefined );
 			}
 			await this.writeConfig( id, undefined );
 		}
@@ -297,7 +322,7 @@ export class StaticAgentRuns {
 
 	async setAiProvider( provider: ProviderId ): Promise< AiSettings > {
 		if ( ! ( await this.readConfig( provider ) ) ) {
-			throw new Error( `Connect ${ getProviderDescriptor( provider ).label } first.` );
+			throw new Error( `Connect ${ getProvider( provider ).label } first.` );
 		}
 		await kvSet( AI_SETTINGS_KEY, {
 			...( await this.readAiSettings() ),
@@ -388,7 +413,7 @@ export class StaticAgentRuns {
 			const token = await this.deps.auth.token();
 			let provider =
 				resolveSessionProvider( session.entries ) ??
-				normalizeAiProviderId( settings.provider ) ??
+				normalizeProviderId( settings.provider, AI_PROVIDER_IDS ) ??
 				DEFAULT_PROVIDER_ID;
 			let config = await this.readConfig( provider );
 			if ( ! config ) {
@@ -398,7 +423,7 @@ export class StaticAgentRuns {
 			if ( ! config ) {
 				throw new Error(
 					__(
-						'Sign in to WordPress.com, or add an Anthropic API key in Settings, to use Studio Code.'
+						'Sign in to WordPress.com, or connect another provider in Settings, to use Studio Code.'
 					)
 				);
 			}
@@ -420,9 +445,16 @@ export class StaticAgentRuns {
 
 			const instructionsEnabled =
 				( await kvGet< boolean >( AGENT_INSTRUCTIONS_ENABLED_KEY ) ) ?? true;
+			const chatAi = ( getProviderServices( provider ) as ProviderServices ).ai!;
+			const chatConfig = config;
 			const agent = createBrowserAgent( {
 				host: {
 					...this.host,
+					// The chat's provider generates images when it can.
+					imageGenerator: async () =>
+						chatAi.generateImages && chatAi.canGenerateImages?.( chatConfig ) !== false
+							? ( requests, onResult ) => chatAi.generateImages!( chatConfig, requests, onResult )
+							: this.host.imageGenerator?.(),
 					ui: {
 						showArtifact: async ( artifact: StudioChatArtifactData ) => {
 							await this.sessions.appendCustom( sessionId, 'studio.chat_artifact', artifact );
@@ -444,7 +476,7 @@ export class StaticAgentRuns {
 				images: options.images,
 				files: options.files,
 				history: historyFromEntries( session.entries ),
-				ai: await ( getProvider( provider ) as Provider ).ai!.connect( config, model, {
+				ai: await chatAi.model( config, model, {
 					sessionId,
 				} ),
 				activeSite,

@@ -48,15 +48,12 @@ describe( 'Agent apps setting', () => {
 	it( 'installs the plugin in an app and shows it connected', async () => {
 		const { connector, row } = await setup();
 		const grok = await row( 'Grok Build' );
-		const description = grok.getByText(
-			'Installs the WordPress Studio plugin. Start a new Grok Build session to use it.'
-		);
-		fireEvent.click( grok.getByRole( 'button', { name: 'Connect' } ) );
+		const description = grok.getByText( 'A coding agent that runs in your terminal.' );
+		fireEvent.click( grok.getByRole( 'button', { name: 'Install' } ) );
 		await waitFor( () => expect( connector.connectAgentApp ).toHaveBeenCalledWith( 'grok-build' ) );
-		expect( await grok.findByText( 'Connected' ) ).toBeVisible();
-		expect( grok.queryByRole( 'button', { name: 'Connected' } ) ).not.toBeInTheDocument();
+		expect( await grok.findByText( 'Installed' ) ).toBeVisible();
+		expect( grok.queryByRole( 'button', { name: 'Installed' } ) ).not.toBeInTheDocument();
 		expect( description ).toBeVisible();
-		expect( grok.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 	} );
 
 	it( 'disables the button while it connects', async () => {
@@ -72,63 +69,64 @@ describe( 'Agent apps setting', () => {
 				} )
 		);
 		const cursor = await row( 'Cursor' );
-		fireEvent.click( cursor.getByRole( 'button', { name: 'Connect' } ) );
-		expect( await cursor.findByRole( 'button', { name: 'Connecting…' } ) ).toBeDisabled();
-		expect( cursor.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
+		fireEvent.click( cursor.getByRole( 'button', { name: 'Install' } ) );
+		expect( await cursor.findByRole( 'button', { name: 'Installing' } ) ).toBeDisabled();
 		finish();
-		expect( await cursor.findByText( 'Connected' ) ).toBeVisible();
+		expect( await cursor.findByText( 'Installed' ) ).toBeVisible();
 	} );
 
 	it( 'shows an app that already has the plugin as connected', async () => {
 		const { row } = await setup( { connected: [ 'claude-code', 'cursor' ] } );
 		for ( const name of [ 'Claude Code', 'Cursor' ] ) {
 			const app = await row( name );
-			expect( app.getByText( 'Connected' ) ).toBeVisible();
-			expect( app.queryByRole( 'button', { name: 'Connected' } ) ).not.toBeInTheDocument();
+			expect( app.getByText( 'Installed' ) ).toBeVisible();
+			expect( app.queryByRole( 'button', { name: 'Installed' } ) ).not.toBeInTheDocument();
 			expect( app.queryByRole( 'button', { name: 'Update' } ) ).not.toBeInTheDocument();
-			expect( app.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
 		}
 	} );
 
-	it( 'shows the app’s error', async () => {
-		const { connector, row } = await setup();
+	it( 'shows the app’s error and retries a failed installation', async () => {
+		const { connector, plugins, row } = await setup();
 		connector.connectAgentApp.mockRejectedValueOnce(
 			new Error( 'Claude Code couldn’t install the WordPress Studio plugin: network down' )
 		);
 		const claude = await row( 'Claude Code' );
-		fireEvent.click( claude.getByRole( 'button', { name: 'Connect' } ) );
+		fireEvent.click( claude.getByRole( 'button', { name: 'Install' } ) );
 		expect(
 			await claude.findByText(
 				'Claude Code couldn’t install the WordPress Studio plugin: network down'
 			)
 		).toBeVisible();
 		expect( claude.getByRole( 'alert' ) ).toHaveTextContent( 'network down' );
-		expect( claude.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
-		expect(
-			claude.getByText(
-				'Installs the WordPress Studio plugin. Start a new Claude Code session to use it.'
-			)
-		).toBeVisible();
+		expect( claude.getByText( 'Anthropic’s AI coding agent.' ) ).toBeVisible();
+		let finishRetry!: () => void;
+		connector.connectAgentApp.mockImplementationOnce(
+			( id ) =>
+				new Promise< void >( ( resolve ) => {
+					finishRetry = () => {
+						plugins.add( id );
+						resolve();
+					};
+				} )
+		);
 		fireEvent.click( claude.getByRole( 'button', { name: 'Retry' } ) );
-		expect( await claude.findByText( 'Connected' ) ).toBeVisible();
+		expect( await claude.findByRole( 'button', { name: 'Retrying' } ) ).toBeDisabled();
+		finishRetry();
+		expect( await claude.findByText( 'Installed' ) ).toBeVisible();
 		expect( claude.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'disables an app that isn’t installed', async () => {
 		const { connector, row } = await setup();
-		const chatgpt = await row( 'ChatGPT' );
-		expect(
-			chatgpt.getByText(
-				'Installs the WordPress Studio plugin in Codex. Restart the ChatGPT app to use it.'
-			)
-		).toBeVisible();
+		const chatgpt = await row( 'ChatGPT (Codex)' );
+		expect( chatgpt.getByText( 'OpenAI’s coding agent in the ChatGPT app.' ) ).toBeVisible();
 		const button = chatgpt.getByRole( 'button', { name: 'Not installed' } );
 		expect( button ).toBeDisabled();
 		fireEvent.click( button );
 		expect( connector.connectAgentApp ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps the Connected badge while an available update runs', async () => {
+	it( 'keeps the Installed badge while an available update runs', async () => {
 		const { connector, row } = await setup( {
 			connected: [ 'claude-code' ],
 			updates: { 'claude-code': 'available' },
@@ -141,18 +139,17 @@ describe( 'Agent apps setting', () => {
 				} )
 		);
 		const claude = await row( 'Claude Code' );
-		expect( claude.getByText( 'Connected' ) ).toBeVisible();
+		expect( claude.getByText( 'Installed' ) ).toBeVisible();
 		fireEvent.click( claude.getByRole( 'button', { name: 'Update' } ) );
-		expect( await claude.findByRole( 'button', { name: 'Updating…' } ) ).toBeDisabled();
-		expect( claude.getByText( 'Connected' ) ).toBeVisible();
-		expect( claude.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
+		expect( await claude.findByRole( 'button', { name: 'Updating' } ) ).toBeDisabled();
+		expect( claude.getByText( 'Installed' ) ).toBeVisible();
 		finish();
 		await waitFor( () =>
 			expect( connector.connectAgentApp ).toHaveBeenCalledWith( 'claude-code' )
 		);
 	} );
 
-	it( 'offers Retry update after a failed update and removes it when the retry succeeds', async () => {
+	it( 'offers Retry after a failed update and removes it when the retry succeeds', async () => {
 		const { connector, row } = await setup( {
 			connected: [ 'claude-code' ],
 			updates: { 'claude-code': 'available' },
@@ -161,21 +158,23 @@ describe( 'Agent apps setting', () => {
 		const claude = await row( 'Claude Code' );
 		fireEvent.click( claude.getByRole( 'button', { name: 'Update' } ) );
 		expect( await claude.findByRole( 'alert' ) ).toHaveTextContent( 'network down' );
-		expect( claude.getByText( 'Connected' ) ).toBeVisible();
-		fireEvent.click( claude.getByRole( 'button', { name: 'Retry update' } ) );
+		expect( claude.getByText( 'Installed' ) ).toBeVisible();
+		fireEvent.click( claude.getByRole( 'button', { name: 'Retry' } ) );
 		await waitFor( () =>
-			expect( claude.queryByRole( 'button', { name: /update/i } ) ).not.toBeInTheDocument()
+			expect(
+				claude.queryByRole( 'button', { name: /^(?:Update|Updating|Retry|Retrying)$/ } )
+			).not.toBeInTheDocument()
 		);
-		expect( claude.getByText( 'Connected' ) ).toBeVisible();
+		expect( claude.getByText( 'Installed' ) ).toBeVisible();
 		expect( claude.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'offers Retry update when an automatic update needs to reinstall the plugin', async () => {
+	it( 'offers Retry when an automatic update needs to reinstall the plugin', async () => {
 		const { connector, row } = await setup( { updates: { 'grok-build': 'failed' } } );
 		const grok = await row( 'Grok Build' );
-		expect( grok.queryByText( 'Connected' ) ).not.toBeInTheDocument();
-		fireEvent.click( grok.getByRole( 'button', { name: 'Retry update' } ) );
-		expect( await grok.findByText( 'Connected' ) ).toBeVisible();
+		expect( grok.queryByText( 'Installed' ) ).not.toBeInTheDocument();
+		fireEvent.click( grok.getByRole( 'button', { name: 'Retry' } ) );
+		expect( await grok.findByText( 'Installed' ) ).toBeVisible();
 		expect( connector.connectAgentApp ).toHaveBeenCalledWith( 'grok-build' );
 	} );
 
@@ -185,24 +184,7 @@ describe( 'Agent apps setting', () => {
 			updates: { cursor: 'updating' },
 		} );
 		const cursor = await row( 'Cursor' );
-		expect( cursor.getByRole( 'button', { name: 'Updating…' } ) ).toBeDisabled();
-		expect( cursor.getByText( 'Connected' ) ).toBeVisible();
-		expect( cursor.getByRole( 'button', { name: /^Learn more/ } ) ).toBeEnabled();
+		expect( cursor.getByRole( 'button', { name: 'Updating' } ) ).toBeDisabled();
+		expect( cursor.getByText( 'Installed' ) ).toBeVisible();
 	} );
-
-	it.each( [
-		[ 'Claude Code', 'https://github.com/Automattic/studio-plugins#install-in-claude-code' ],
-		[ 'ChatGPT', 'https://github.com/Automattic/studio-plugins#install-in-codex' ],
-		[ 'Cursor', 'https://cursor.com/docs/plugins' ],
-		[ 'Grok Build', 'https://docs.x.ai/build/features/skills-plugins-marketplaces' ],
-	] )(
-		'opens the plugin setup guide for %s regardless of installation state',
-		async ( name, url ) => {
-			const { connector, row } = await setup( { connected: [ 'claude-code', 'cursor' ] } );
-			const app = await row( name );
-			fireEvent.click( app.getByRole( 'button', { name: /^Learn more/ } ) );
-			expect( connector.openExternalUrl ).toHaveBeenCalledWith( url );
-			expect( connector.connectAgentApp ).not.toHaveBeenCalled();
-		}
-	);
 } );

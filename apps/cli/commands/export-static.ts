@@ -23,7 +23,7 @@ export async function runCommand(
 	const site = await getSiteByFolder( sitePath );
 
 	await connectToDaemon();
-	const wasRunning = await isSiteRunning( site );
+	const wasRunning = await isSiteRunning( site.id );
 	await disconnectFromDaemon();
 
 	// Pages are rendered by the running site, so start it for the export if needed.

@@ -11,12 +11,12 @@ import {
 } from '@studio/agent/node';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import {
-	getAiModel,
 	DEFAULT_PROVIDER_ID,
-	getAiModelProviders,
+	findAiModel,
 	getDefaultAiModel,
-	isAiModelId,
-	type ProviderId,
+	getProvider,
+	type AiModelId,
+	type AiProviderId,
 } from '@studio/providers';
 import {
 	resolveAiConnection,
@@ -141,22 +141,22 @@ export async function runStudioConversation(
 		host: input.ui ? { ...host, ui: { showArtifact: () => {}, reloadPreview: () => {} } } : host,
 	} );
 	const resolvedModel =
-		input.model && isAiModelId( input.model )
-			? input.model
+		input.model && findAiModel( input.model )
+			? ( input.model as AiModelId )
 			: getDefaultAiModel( DEFAULT_PROVIDER_ID );
 	const evalStartedAt = ctx.startedAt;
 	const elapsed = () => Date.now() - evalStartedAt;
 	const phaseTimingsMs: Record< string, number > = {};
 	let phaseStartedAt = Date.now();
 
-	let aiProvider: ProviderId = await resolveInitialAiProvider();
+	let aiProvider: AiProviderId = await resolveInitialAiProvider();
 	phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;
 
 	phaseStartedAt = Date.now();
 	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
 	// The model runs on a provider that serves it.
-	if ( ! getAiModel( aiProvider, resolvedModel ) ) {
-		[ aiProvider ] = getAiModelProviders( resolvedModel );
+	if ( ! getProvider( aiProvider ).ai?.models.some( ( { id } ) => id === resolvedModel ) ) {
+		aiProvider = findAiModel( resolvedModel )!.provider;
 	}
 	phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
 

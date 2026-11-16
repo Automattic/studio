@@ -220,10 +220,12 @@ function PreferencesPanel( {
 									{ value: UNSET, label: __( 'System' ) },
 									...SUPPORTED_BROWSERS.filter(
 										( browser ) => installedApps?.[ browser ] || browser === data.browser
-									).map( ( browser ) => ( {
-										value: browser,
-										label: browserConfig[ browser ].name,
-									} ) ),
+									)
+										.map( ( browser ) => ( {
+											value: browser,
+											label: browserConfig[ browser ].name,
+										} ) )
+										.sort( ( a, b ) => a.label.localeCompare( b.label ) ),
 								] }
 								onChange={ ( browser ) => onChange( { browser } ) }
 							/>
@@ -558,9 +560,9 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 	);
 }
 
-export { AiPanel } from './ai-panel';
+export { ProvidersPanel } from './providers-panel';
 export { KeyboardPanel } from './keyboard-panel';
-export { McpPanel } from './mcp-panel';
+export { ExternalAppsPanel } from './mcp-panel';
 export { SharingPanel } from './sharing-panel';
 export { SkillsPanel } from './skills-panel';
 export { UsagePanel } from './usage-panel';

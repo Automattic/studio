@@ -86,10 +86,11 @@ describe( 'sidebar hover overlay', () => {
 		expect( fireEvent.keyDown( trigger, { key: 'Escape' } ) ).toBe( true );
 	} );
 
-	it( 'docks the sidebar at the top when the hovered toggle is clicked', async () => {
+	it( 'keeps the sidebar scroll position when the hovered toggle is clicked', async () => {
 		const { trigger, open } = await setup();
 		const sidebar = await open();
-		sidebar.scrollTop = 120;
+		const scrollport = sidebar.querySelector< HTMLElement >( `.${ styles.sidebarScroll }` )!;
+		scrollport.scrollTop = 120;
 		fireEvent.click( trigger );
 		expect(
 			await screen.findByRole( 'separator', { name: 'Resize sidebar' } )
@@ -99,7 +100,7 @@ describe( 'sidebar hover overlay', () => {
 		expect(
 			document.activeElement?.closest( 'aside' )?.querySelector( `.${ styles.sidebarScroll }` )
 				?.scrollTop
-		).toBe( 0 );
+		).toBe( 120 );
 	} );
 } );
 

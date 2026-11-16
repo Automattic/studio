@@ -27,7 +27,6 @@
 /* The setting picked from the search results. */
 .content :global( [data-settings-match] ) {
 	--foreground: var( --accent-text );
-	--muted-foreground: var( --accent-text );
 	color: var( --accent-text );
 	position: relative;
 	isolation: isolate;
@@ -37,9 +36,9 @@
 	position: absolute;
 	z-index: -1;
 	inset-block: var( --space-1 );
-	inset-inline: calc( var( --space-3 ) * -1 );
+	inset-inline: calc( var( --space-4 ) * -1 );
 	border-radius: var( --radius-lg );
-	background: color-mix( in srgb, var( --accent-text ) 12%, transparent );
+	background: var( --accent-subtle );
 	pointer-events: none;
 	content: '';
 }

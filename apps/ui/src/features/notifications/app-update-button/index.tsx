@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -71,7 +71,18 @@ export function AppUpdateButton( {
 			variant="accent"
 			icon={ <UpdateIcon /> }
 			label={ label }
-			tooltip={ status.state !== 'ready' }
+			tooltipSideOffset={ 4 }
+			tooltipLabel={
+				status.state === 'ready' && ! install.isPending
+					? status.newVersion
+						? sprintf(
+								/* translators: %s: the new version of Studio. */
+								__( 'Update to %s' ),
+								status.newVersion
+						  )
+						: __( 'Update available' )
+					: undefined
+			}
 			loading={ checking || downloading || install.isPending }
 			loadingMode={ checking || downloading || install.isPending ? 'replace' : 'leading' }
 			onClick={ () => {

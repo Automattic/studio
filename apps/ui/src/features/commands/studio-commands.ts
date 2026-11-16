@@ -1,21 +1,21 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import { SettingsIcon } from 'lucide-react';
 import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
+	SettingsIcon,
 	PlusIcon,
-	AppearanceIcon,
+	PaletteIcon,
 	ArchiveIcon,
 	ChatIcon,
 	CollapseAllIcon,
 	GlobeIcon,
-	FeedbackIcon,
+	MessageSquareTextIcon,
 	PinIcon,
-	RenameIcon,
+	PencilIcon,
 	SidebarIcon,
 	UnpinIcon,
-	WhatsNewIcon,
+	SparkleIcon,
 } from '@/lib/icons';
 import type { AiSessionSummary, SiteDetails, WritableUserPreferences } from '@/data/core';
 import type { useOpenSettings } from '@/data/use-open-settings';
@@ -166,7 +166,7 @@ export function getAppCommands( {
 			id: 'color-scheme',
 			group: 'commands',
 			label: colorScheme === 'dark' ? __( 'Use light mode' ) : __( 'Use dark mode' ),
-			icon: AppearanceIcon,
+			icon: PaletteIcon,
 			aliases: [ __( 'Toggle theme' ) ],
 			keywords: [ __( 'Appearance' ), __( 'Theme' ), __( 'Dark mode' ), __( 'Light mode' ) ],
 			run: () => savePreferences( { colorScheme: colorScheme === 'dark' ? 'light' : 'dark' } ),
@@ -184,7 +184,7 @@ export function getAppCommands( {
 			id: 'whats-new',
 			group: 'commands',
 			label: __( 'What’s New' ),
-			icon: WhatsNewIcon,
+			icon: SparkleIcon,
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
 		},
@@ -194,7 +194,7 @@ export function getAppCommands( {
 						id: 'send-feedback',
 						group: 'commands' as const,
 						label: __( 'Send feedback' ),
-						icon: FeedbackIcon,
+						icon: MessageSquareTextIcon,
 						aliases: [ __( 'Feedback' ) ],
 						keywords: [
 							__( 'Report a bug' ),
@@ -358,7 +358,7 @@ export function getChatCommands(
 			id: 'rename-chat',
 			group: 'commands',
 			label: __( 'Rename chat…' ),
-			icon: RenameIcon,
+			icon: PencilIcon,
 			description,
 			run: actions.rename,
 		},

@@ -8,7 +8,7 @@ export const listConnectedRemoteSitesTool = defineTool(
 	'Lists the durable remote sites a local Studio site is connected to for publishing: WordPress.com and Pressable sites (production or staging), which it can push to and pull from, and sites on other providers such as Spacefast, which receive a static copy of the site and can only be pushed to. ' +
 		'These are NOT temporary preview sites. Preview sites are listed by preview_list and must never be described as connected remote sites. ' +
 		'Each entry names its `provider`, and `remoteSite`, which site_push and site_pull take as is. When `canPush` or `canPull` is false, `issue` says why: explain it to the user and do not attempt that sync. ' +
-		'Returns an empty array when the local site has no connections.',
+		'Use the reported provider details to classify the environment; do not infer it from the URL or hostname. Returns an empty array when the local site has no connections.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 	},

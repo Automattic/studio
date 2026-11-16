@@ -17,6 +17,7 @@
 	}
 
 	.popup {
+		composes: menuMotion from '@/lib/ui/surface/style.module.css';
 		display: flex;
 		flex-direction: column;
 		min-width: 160px;

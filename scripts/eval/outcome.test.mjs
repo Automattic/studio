@@ -20,6 +20,35 @@ const outcome = ( site, extra = {} ) => ( {
 } );
 const reply = ( ...textSegments ) => ( { textSegments } );
 
+describe( 'remote environment receipt', () => {
+	const remoteHost = 'eval-production.wpcomstaging.com';
+	test.each( [
+		[ `Changes were pushed to production at ${ remoteHost }.`, true ],
+		[ `The push went to ${ remoteHost } in production, not staging.`, true ],
+		[ `The changes are on production at ${ remoteHost }, not on staging.`, true ],
+		[ `Changes were pushed to staging at ${ remoteHost }.`, false ],
+		[ `Production was requested, but the changes went to staging at ${ remoteHost }.`, false ],
+		[ `The changes went to ${ remoteHost }.`, false ],
+		[ 'The changes went to production.', false ],
+	] )( '%s', ( text, expected ) => {
+		expect( run( checks.reportsProductionReceipt, reply( text ), { remoteHost } ).pass ).toBe(
+			expected
+		);
+	} );
+	test( 'rejects acting on a completed receipt', () => {
+		expect(
+			run(
+				checks.reportsProductionReceipt,
+				{
+					...reply( `Changes were pushed to production at ${ remoteHost }.` ),
+					toolCalls: [ { name: 'site_push' } ],
+				},
+				{ remoteHost }
+			).pass
+		).toBe( false );
+	} );
+} );
+
 function png( width, height ) {
 	const buf = Buffer.alloc( 33 );
 	buf.writeUInt32BE( 0x89504e47, 0 );
@@ -257,6 +286,15 @@ describe( 'reply checks', () => {
 				)
 			).pass
 		).toBe( false );
+		for ( const [ row, expected ] of [
+			[ '| Type | Durable remote (not a **preview**) |', true ],
+			[ '| Type | Durable remote (not a temporary preview site) |', true ],
+			[ '| Type | Temporary preview |', false ],
+		] ) {
+			expect(
+				run( checks.classifiesPreviewAndRemote, reply( `${ sections }\n${ row }` ) ).pass
+			).toBe( expected );
+		}
 		expect(
 			run(
 				checks.classifiesPreviewAndRemote,

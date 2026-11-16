@@ -34,7 +34,7 @@ describe( 'site browser selection', () => {
 	} );
 	it( 'opens the selected macOS browser without shell interpolation', async () => {
 		vi.spyOn( process, 'platform', 'get' ).mockReturnValue( 'darwin' );
-		vi.mocked( readAppConfig ).mockResolvedValue( { preferredBrowser: 'chrome' } );
+		vi.mocked( readAppConfig ).mockResolvedValue( { preferredBrowser: 'librewolf' } );
 		const child = Object.assign( new EventEmitter(), { unref: vi.fn() } );
 		vi.mocked( spawn ).mockImplementation( () => {
 			queueMicrotask( () => {
@@ -47,7 +47,7 @@ describe( 'site browser selection', () => {
 		await openSiteInBrowser( 'https://example.test/?x=a&y=b', fallback );
 		expect( spawn ).toHaveBeenCalledWith(
 			'open',
-			[ '-a', path.join( '/Applications', 'Google Chrome.app' ), 'https://example.test/?x=a&y=b' ],
+			[ '-a', path.join( '/Applications', 'LibreWolf.app' ), 'https://example.test/?x=a&y=b' ],
 			{ detached: true, stdio: 'ignore' }
 		);
 		expect( fallback ).not.toHaveBeenCalled();
@@ -63,7 +63,7 @@ describe( 'site browser selection', () => {
 			vi.spyOn( process, 'platform', 'get' ).mockReturnValue( platform );
 			vi.stubEnv( 'ProgramFiles', 'C:\\Program Files' );
 			vi.stubEnv( 'PATH', '/usr/bin' );
-			vi.mocked( readAppConfig ).mockResolvedValue( { preferredBrowser: 'chrome' } );
+			vi.mocked( readAppConfig ).mockResolvedValue( { preferredBrowser: 'librewolf' } );
 			const child = Object.assign( new EventEmitter(), { unref: vi.fn() } );
 			vi.mocked( spawn ).mockImplementation( () => {
 				queueMicrotask( () => child.emit( 'spawn' ) );
@@ -72,8 +72,8 @@ describe( 'site browser selection', () => {
 			await openSiteInBrowser( 'https://example.test/?x=a&y=b', vi.fn() );
 			expect( spawn ).toHaveBeenCalledWith(
 				platform === 'win32'
-					? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-					: path.join( '/usr/bin', 'google-chrome' ),
+					? 'C:\\Program Files\\LibreWolf\\librewolf.exe'
+					: path.join( '/usr/bin', 'librewolf' ),
 				[ 'https://example.test/?x=a&y=b' ],
 				{ detached: true, stdio: 'ignore' }
 			);

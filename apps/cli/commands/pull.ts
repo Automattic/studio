@@ -11,6 +11,7 @@ import {
 	buildSyncEventProps,
 	classifySyncSelection,
 } from '@studio/common/lib/sync/build-sync-event-props';
+import { formatRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
@@ -310,6 +311,9 @@ async function pullSite(
 	run.remoteSite = sourceSite.wpComSite;
 	run.failurePhase = 'remote_backup';
 	run.preview = await findPreview( sourceSite );
+	const environmentMessage = run.preview
+		? __( 'Source is a temporary preview site.' )
+		: formatRemoteEnvironment( sourceSite.wpComSite );
 	const normalizedRemoteUrl = normalizeSiteUrl( sourceSite.url );
 	// Fails early with an "update Jetpack" message on a site that can't export.
 	const { apiUrl } = await openExporter( sourceSite );
@@ -339,6 +343,7 @@ async function pullSite(
 		console.log( `Pulling "${ site.name }" from ${ normalizedRemoteUrl }` );
 	}
 	console.log( `Technical directory: ${ studioMetadata.technicalSiteDirectory }` );
+	console.log( environmentMessage );
 	console.log( `Site directory: ${ studioMetadata.sitePath }` );
 	console.log( '' );
 
@@ -487,6 +492,7 @@ async function pullSite(
 			run.completed = true;
 			console.log( '' );
 			console.log( `Site "${ site.name }" pulled successfully.` );
+			console.log( environmentMessage );
 			console.log( '' );
 			if ( studioMetadata.localUrl ) {
 				printSiteUrls( studioMetadata.localUrl );

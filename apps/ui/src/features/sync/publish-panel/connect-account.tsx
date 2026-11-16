@@ -3,7 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import { useConnectProvider } from '@/data/queries/use-ai-settings';
 import { useOffline } from '@/lib/hooks';
-import { SyncIcon } from '@/lib/icons';
+import { CloudUploadIcon } from '@/lib/icons';
 import { Button, EmptyDescription, EmptyHeader, EmptyMedia } from '@/lib/ui';
 import { ErrorMessage, PanelBody } from './parts';
 import styles from './style.module.css';
@@ -18,7 +18,7 @@ export function ConnectAccount( { provider }: { provider: SitesProviderId } ) {
 		<div className={ styles.content }>
 			<EmptyHeader className={ styles.emptyIntro }>
 				<EmptyMedia className={ styles.emptyIcon }>
-					<SyncIcon width="40" height="40" aria-hidden="true" />
+					<CloudUploadIcon width="40" height="40" aria-hidden="true" />
 				</EmptyMedia>
 				<h2 className={ styles.emptyTitle }>{ sites!.intro.title() }</h2>
 				<EmptyDescription className={ styles.emptyDescription }>

@@ -2,6 +2,7 @@ import type { AnthropicConfig } from './anthropic/config';
 import type { CustomConfig } from './custom/config';
 import type { GeminiConfig } from './gemini/config';
 import type { GithubCopilotConfig } from './github-copilot/config';
+import type { MetaConfig } from './meta/config';
 import type { AiModelId } from './models';
 import type { OpenaiConfig } from './openai/config';
 import type { SpacefastConfig } from './spacefast/config';
@@ -17,6 +18,7 @@ export type ProviderId =
 	| 'openai'
 	| 'gemini'
 	| 'github-copilot'
+	| 'meta'
 	| 'spacefast'
 	| 'custom';
 
@@ -27,6 +29,7 @@ export type AiProviderId =
 	| 'openai'
 	| 'gemini'
 	| 'github-copilot'
+	| 'meta'
 	| 'custom';
 
 // What Studio stores for each provider.
@@ -36,6 +39,7 @@ export interface ProviderConfigs {
 	openai: OpenaiConfig;
 	gemini: GeminiConfig;
 	'github-copilot': GithubCopilotConfig;
+	meta: MetaConfig;
 	spacefast: SpacefastConfig;
 	custom: CustomConfig;
 }

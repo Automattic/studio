@@ -28,7 +28,7 @@ import { portFinder } from '@studio/common/lib/port-finder';
 import { readProviderConfig, writeProviderConfig } from '@studio/common/lib/provider-config';
 import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
 import { getConfigDirectory, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema } from '@studio/common/types/sync';
@@ -236,7 +236,7 @@ async function createBystanderSites(): Promise< string[] > {
 					name,
 					wpVersion: 'latest',
 					phpVersion: DEFAULT_PHP_VERSION,
-					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					fileAccess: SITE_FILE_ACCESS_ALL_FILES,
 					enableHttps: false,
 					noStart: true,
 					skipBrowser: true,
@@ -326,7 +326,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 				name: activeSite.name,
 				wpVersion: 'latest',
 				phpVersion: DEFAULT_PHP_VERSION,
-				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+				fileAccess: SITE_FILE_ACCESS_ALL_FILES,
 				enableHttps: false,
 				noStart: false,
 				skipBrowser: true,

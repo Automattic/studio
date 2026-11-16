@@ -3,7 +3,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
 import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
@@ -22,6 +22,7 @@ import {
 	useSiteBackupImport,
 } from '@/features/sites/import-site-dialog';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
+import { getPhpMyAdminUnavailableReason } from '@/features/sites/phpmyadmin';
 import { SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { useItemShortcuts } from '@/features/sites/use-item-shortcuts';
 import {
@@ -35,14 +36,14 @@ import {
 	ExportIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	NewChatIcon,
+	SquarePenIcon,
 	PinIcon,
 	PlusIcon,
-	RenameIcon,
-	SiteSettingsIcon,
-	StartSiteIcon,
-	StopOtherSitesIcon,
-	StopSiteIcon,
+	PencilIcon,
+	SlidersVerticalIcon,
+	PlayIcon,
+	CircleStopIcon,
+	SquareIcon,
 	UnpinIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
@@ -177,6 +178,8 @@ export function SiteMenuItems( {
 	const { data: aiSettings } = useAiSettings();
 	const providerConnected = hasConnectedProvider( aiSettings );
 	const destinations = useOpenInDestinations( site );
+	const databaseReason = getPhpMyAdminUnavailableReason( site );
+	const databaseReasonId = useId();
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
 			onDelete: actions.openDelete,
@@ -203,46 +206,46 @@ export function SiteMenuItems( {
 		<div className={ styles.items }>
 			{ providerConnected ? (
 				<Menu.Item onClick={ actions.newChat }>
-					<NewChatIcon />
+					<SquarePenIcon />
 					{ __( 'New chat' ) }
 				</Menu.Item>
 			) : null }
 			{ site.running ? null : (
 				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
-					<StartSiteIcon />
+					<PlayIcon />
 					{ __( 'Start' ) }
 					{ lifecycleShortcut }
 				</Menu.Item>
 			) }
 			{ site.running && running.length <= 1 ? (
 				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
-					<StopSiteIcon />
+					<SquareIcon />
 					{ __( 'Stop' ) }
 					{ lifecycleShortcut }
 				</Menu.Item>
 			) : running.length > 1 ? (
 				<Menu.SubmenuRoot>
 					<Menu.SubmenuTrigger disabled={ busy }>
-						<StopSiteIcon />
+						<SquareIcon />
 						{ __( 'Stop' ) }
 					</Menu.SubmenuTrigger>
 					<Menu.SubmenuPopup { ...actions.shortcuts }>
 						{ site.running ? (
 							<Menu.Item onClick={ actions.toggleRunning }>
-								<StopSiteIcon />
+								<SquareIcon />
 								{ __( 'Stop site' ) }
 								{ lifecycleShortcut }
 							</Menu.Item>
 						) : null }
 						{ site.running && othersRunning.length ? (
 							<Menu.Item onClick={ () => actions.stop( othersRunning ) }>
-								<StopOtherSitesIcon />
+								<CircleStopIcon />
 								{ __( 'Stop other sites' ) }
 							</Menu.Item>
 						) : null }
 						{ running.length > 1 ? (
 							<Menu.Item onClick={ () => actions.stop( running ) }>
-								<StopOtherSitesIcon />
+								<CircleStopIcon />
 								{ __( 'Stop all sites' ) }
 							</Menu.Item>
 						) : null }
@@ -264,18 +267,24 @@ export function SiteMenuItems( {
 					{ __( 'Open in' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
-					{ destinations
-						.filter( ( destination ) => destination.id !== 'wp-admin' )
-						.map( ( destination ) => (
-							<Menu.Item
-								key={ destination.id }
-								disabled={ destination.disabled }
-								onClick={ destination.open }
-							>
-								{ destination.logo }
-								{ destination.label }
-							</Menu.Item>
-						) ) }
+					{ destinations.map( ( destination ) => (
+						<Menu.Item
+							key={ destination.id }
+							disabled={ destination.disabled }
+							aria-describedby={
+								destination.id === 'phpmyadmin' && databaseReason ? databaseReasonId : undefined
+							}
+							onClick={ destination.open }
+						>
+							{ destination.logo }
+							{ destination.label }
+						</Menu.Item>
+					) ) }
+					{ databaseReason && (
+						<p id={ databaseReasonId } className={ styles.databaseReason }>
+							{ databaseReason }
+						</p>
+					) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.Separator />
@@ -285,13 +294,13 @@ export function SiteMenuItems( {
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
-				<RenameIcon />
+				<PencilIcon />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
 			{ manageItem( manage.duplicate ) }
 			<Menu.Item onClick={ actions.openSiteSettings }>
-				<SiteSettingsIcon />
+				<SlidersVerticalIcon />
 				{ __( 'Settings' ) }
 			</Menu.Item>
 			<Menu.Separator />

@@ -6,14 +6,11 @@ import { __ } from '@wordpress/i18n';
 import { ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
 import { readActiveThemes } from 'cli/lib/active-themes';
+import { isAlreadyCompressedFile } from 'cli/lib/already-compressed-file';
 import { isHostManagedPullFile } from 'cli/lib/pull/pull-session';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
-// Media and archives are already compressed: deflating them again costs most of the archiving
-// time on a media-heavy site and saves almost nothing, so they are stored as they are.
-const ALREADY_COMPRESSED_FILE =
-	/\.(jpe?g|png|gif|webp|avif|heic|mp4|m4v|mov|webm|mp3|m4a|ogg|woff2?|zip|gz|tgz|bz2|xz|7z|rar|pdf)$/i;
 const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
 
 // Plugins WordPress.com provides on every Atomic site. Their folders are left out of WordPress.com
@@ -153,7 +150,7 @@ export async function archiveSiteContent(
 
 		for ( const { name, sourcePath } of entries ) {
 			// `file()` passes the zip-only `store` option through, though its types omit it.
-			const entry: ZipEntryData = { name, store: ALREADY_COMPRESSED_FILE.test( name ) };
+			const entry: ZipEntryData = { name, store: isAlreadyCompressedFile( name ) };
 			archiveBuilder.file( sourcePath, entry );
 		}
 

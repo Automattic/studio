@@ -7,7 +7,6 @@ import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
@@ -26,6 +25,7 @@ import {
 	saveComposerDraft,
 	useComposerNotice,
 } from '@/features/composer';
+import { PaperclipIcon } from '@/lib/icons';
 import {
 	Alert,
 	AlertDescription,

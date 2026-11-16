@@ -316,6 +316,7 @@ function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) 
 		environmentType: site.environmentType,
 		operation: site.operation,
 		emailPath: site.emailPath,
+		phpMyAdminSupported: site.phpMyAdminSupported,
 		sortOrder,
 		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};

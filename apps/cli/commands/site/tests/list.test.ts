@@ -88,6 +88,7 @@ describe( 'CLI: studio site list', () => {
 					phpVersion: '8.0',
 					url: 'http://localhost:8080',
 					emailPath: getSiteEmailDirectory( 'site-1' ),
+					phpMyAdminSupported: true,
 					running: false,
 				},
 				{
@@ -99,6 +100,7 @@ describe( 'CLI: studio site list', () => {
 					customDomain: 'my-site.wp.local',
 					url: 'http://my-site.wp.local',
 					emailPath: getSiteEmailDirectory( 'site-2' ),
+					phpMyAdminSupported: true,
 					running: false,
 				},
 			];

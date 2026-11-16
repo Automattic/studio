@@ -14,6 +14,7 @@ import {
 	classifySyncSelection,
 } from '@studio/common/lib/sync/build-sync-event-props';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
+import { withRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
 import {
@@ -341,7 +342,10 @@ async function runPush(
 		}
 
 		logger.reportSuccess(
-			sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
+			withRemoteEnvironment(
+				sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url ),
+				remoteSite
+			)
 		);
 		if ( pushed.launchError ) {
 			logger.reportError( new LoggerError( pushed.launchError ), false );

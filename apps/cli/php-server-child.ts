@@ -16,6 +16,7 @@ import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
+import { getSitePhpWorkers } from '@studio/common/lib/site-php-workers';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { z } from 'zod';
@@ -26,7 +27,10 @@ import {
 	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials } from './lib/admin-credentials';
-import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import {
+	getPhpMyAdminPath,
+	installBundledPhpMyAdmin,
+} from './lib/dependency-management/phpmyadmin';
 import { runBlueprint } from './lib/native-php/blueprints';
 import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
 import {
@@ -45,7 +49,9 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { StaticFileValidators } from './lib/native-php/static-files';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
+import { getSiteDatabasePath } from './lib/sqlite-collations';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -115,7 +121,6 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
-const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 
 // "Site directory" file access applies the open_basedir jail and
 // disable_functions list; "all files" runs PHP unrestricted.
@@ -167,7 +172,7 @@ function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: numb
 	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
 }
 
-export async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
+export async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< boolean > {
 	const pollIntervalMs = 50;
 	const timeoutMs = 30_000;
 	const deadline = Date.now() + timeoutMs;
@@ -179,7 +184,13 @@ export async function waitForServerReady( url: string, signal?: AbortSignal ): P
 			// Leaving the body unread can crash undici's parser when the server closes the
 			// connection to end the response, as the PHP dev server does.
 			await response.body?.cancel();
-			return;
+			const location = response.headers.get( 'location' );
+			return (
+				response.status >= 300 &&
+				response.status < 400 &&
+				location !== null &&
+				new URL( location, url ).pathname === '/wp-admin/install.php'
+			);
 		} catch {
 			signal?.throwIfAborted();
 			if ( Date.now() > deadline ) {
@@ -383,8 +394,13 @@ async function stopCurrentPhpServer(): Promise< void > {
 function proxyRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
-	res: http.ServerResponse
+	res: http.ServerResponse,
+	staticFileValidators: StaticFileValidators
 ): void {
+	if ( staticFileValidators.answerRevalidation( req, res ) ) {
+		return;
+	}
+
 	let worker: { index: number; port: number };
 	try {
 		worker = pickPhpWorker( req );
@@ -424,6 +440,9 @@ function proxyRequestToPhpWorker(
 			headers,
 		},
 		( proxyRes ) => {
+			// PHP's built-in server closes every connection; keep the browser's open.
+			delete proxyRes.headers.connection;
+			staticFileValidators.addValidators( req, proxyRes.statusCode, proxyRes.headers );
 			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
 			proxyRes.pipe( res );
 		}
@@ -444,8 +463,9 @@ async function startPhpProxyServer(
 	config: ServerConfig,
 	stopSignal?: AbortSignal
 ): Promise< http.Server > {
+	const staticFileValidators = new StaticFileValidators( config.sitePath );
 	const proxyServer = http.createServer( ( req, res ) =>
-		proxyRequestToPhpWorker( config, req, res )
+		proxyRequestToPhpWorker( config, req, res, staticFileValidators )
 	);
 
 	await new Promise< void >( ( resolve, reject ) => {
@@ -462,7 +482,7 @@ async function startPhpProxyServer(
 	return proxyServer;
 }
 
-async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
+export async function startServer( config: ServerConfig, signal: AbortSignal ): Promise< void > {
 	if ( phpProcess ) {
 		logToConsole( `Server already running` );
 		return;
@@ -479,6 +499,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	// against the imported database would be wrong — and just write Studio's
 	// mu-plugins before starting the workers.
 	const isImportedSite = Boolean( config.autoPrependFile );
+	const deferInstallCheck =
+		! isImportedSite &&
+		! config.blueprint &&
+		fs.existsSync( getSiteDatabasePath( config.sitePath ) );
 	// Set when this start ran the installer, which created the admin user with the
 	// configured credentials, and no Blueprint ran after it that could change them.
 	let credentialsJustInstalled = false;
@@ -496,7 +520,7 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating, config.siteId );
 		stopSignal.throwIfAborted();
 
-		if ( ! isImportedSite ) {
+		if ( ! isImportedSite && ! deferInstallCheck ) {
 			const installed = await timePhase( 'wordpress_install', () =>
 				installWordPress( config, phpVersion, stopSignal, FINISH_INSTALL_PATH, logToConsole )
 			);
@@ -512,12 +536,19 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			}
 		}
 
+		void installBundledPhpMyAdmin().catch( ( error ) =>
+			errorToConsole( 'Failed to unpack phpMyAdmin:', error )
+		);
+		const phpMyAdminPath = getPhpMyAdminPath();
+
 		// With "all files" access the allowlist stays empty, which disables
 		// open_basedir entirely (see getDefaultPhpArgs).
 		if ( isFileAccessRestricted( config ) ) {
 			staticOpenBasedirAllowlist.add( config.sitePath );
 			staticOpenBasedirAllowlist.add( ROUTER_PATH );
-			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+			if ( phpMyAdminPath ) {
+				staticOpenBasedirAllowlist.add( phpMyAdminPath );
+			}
 			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
 			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
 			// The whole root, not this start's hashed folder: a WP-CLI run from another
@@ -551,7 +582,21 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		runningConfig = config;
 
-		phpProcess = await doStartServer( config, stopSignal );
+		phpProcess = await doStartServer( config, stopSignal, async ( needsInstallation ) => {
+			if ( deferInstallCheck && needsInstallation ) {
+				credentialsJustInstalled = await timePhase( 'wordpress_install', () =>
+					installWordPress(
+						config,
+						phpVersion,
+						stopSignal,
+						FINISH_INSTALL_PATH,
+						logToConsole,
+						true
+					)
+				);
+				stopSignal.throwIfAborted();
+			}
+		} );
 		stopSignal.throwIfAborted();
 		if ( ! credentialsJustInstalled ) {
 			await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
@@ -578,7 +623,8 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 async function doStartServer(
 	config: ServerConfig,
-	stopSignal?: AbortSignal
+	stopSignal?: AbortSignal,
+	onWorkersReady?: ( needsInstallation: boolean ) => Promise< void >
 ): Promise< ChildProcess > {
 	const phpVersion = resolveSupportedPhpVersion( config.phpVersion ?? '' );
 	const spawnedChildren: ChildProcess[] = [];
@@ -587,9 +633,10 @@ async function doStartServer(
 	// were actually given, including on the failure paths that tear the pool down.
 	const openBasedirAllowlist = getEffectiveOpenBasedirAllowlist();
 	appliedOpenBasedirAllowlist = openBasedirAllowlist;
+	const workerCount = getSitePhpWorkers( config );
 
 	logToConsole(
-		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
+		`Spawning native PHP worker pool with ${ workerCount } workers on public port ${ config.port }`
 	);
 
 	const workersStartedAt = Date.now();
@@ -605,23 +652,22 @@ async function doStartServer(
 		} catch ( error ) {
 			errorToConsole( `Failed to create the email folder ${ emailDirectory }:`, error );
 		}
-		const workerPorts = await getAvailablePorts( NATIVE_PHP_WORKER_POOL_SIZE );
+		const workerPorts = await getAvailablePorts( workerCount );
 
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
 
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
-			logToConsole(
-				`Spawning PHP worker ${ index + 1 }/${ NATIVE_PHP_WORKER_POOL_SIZE } on ${ phpAddress }`
-			);
+			logToConsole( `Spawning PHP worker ${ index + 1 }/${ workerCount } on ${ phpAddress }` );
 			// Workers are spawned without `detached`, so they share this wrapper's process
 			// group. That lets the daemon's group-kill reach every worker in one signal.
 			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 				phpVersion,
 				siteFolder: config.sitePath,
 				env: {
-					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath() ?? '',
+					STUDIO_PHPMYADMIN_SUPPORTED: config.phpMyAdminSupported === false ? '0' : '1',
 					STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
 				},
@@ -650,7 +696,7 @@ async function doStartServer(
 				errorToConsole(
 					`PHP worker ${
 						index + 1
-					}/${ NATIVE_PHP_WORKER_POOL_SIZE } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+					}/${ workerCount } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 				);
 				killAllLivePhpProcesses();
 				process.exit( code ?? 1 );
@@ -658,13 +704,23 @@ async function doStartServer(
 		}
 
 		stopSignal?.throwIfAborted();
-		await Promise.all(
-			workerPorts.map( ( workerPort ) =>
-				waitForServerReady( `http://127.0.0.1:${ workerPort }/`, stopSignal )
-			)
+		let firstWorkerReady = false;
+		const needsInstallation = await Promise.all(
+			workerPorts.map( async ( workerPort ) => {
+				const needsInstall = await waitForServerReady(
+					`http://127.0.0.1:${ workerPort }/`,
+					stopSignal
+				);
+				if ( ! firstWorkerReady ) {
+					firstWorkerReady = true;
+					reportPhase( 'php_first_worker', workersStartedAt );
+				}
+				return needsInstall;
+			} )
 		);
 
 		reportPhase( 'php_workers', workersStartedAt );
+		await onWorkersReady?.( needsInstallation.some( Boolean ) );
 
 		const proxyStartedAt = Date.now();
 		proxyServer = await startPhpProxyServer( config, stopSignal );

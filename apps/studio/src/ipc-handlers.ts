@@ -521,6 +521,7 @@ export async function createSite(
 		fileAccess?: SiteFileAccess;
 		// What `studio create --blueprint` accepts, or a Blueprint itself.
 		blueprint?: string | Blueprint;
+		blueprintSlug?: string;
 		adminUsername?: string;
 		adminPassword?: string;
 		adminEmail?: string;
@@ -546,9 +547,14 @@ export async function createSite(
 
 	const siteId = providedSiteId || crypto.randomUUID();
 
-	const librarySlug =
-		typeof blueprint === 'string' && /^[\w-]+$/.test( blueprint ) ? blueprint : undefined;
-	const metric = getBlueprintMetric( librarySlug ?? ( blueprint ? 'file:' : undefined ) );
+	const librarySlug = config.blueprintSlug ?? blueprint;
+	const metric = getBlueprintMetric(
+		typeof librarySlug === 'string' && /^[\w-]+$/.test( librarySlug )
+			? librarySlug
+			: blueprint
+			? 'file:'
+			: undefined
+	);
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
 	try {
@@ -654,7 +660,8 @@ export async function startServer(
 		console.log( `Server started for '${ site.name }'` );
 		return started;
 	} catch ( error ) {
-		// Too many running sites or a WordPress update in progress: expected, not a bug — skip Sentry
+		// Too many running sites, a WordPress update or another operation on the site: expected, not a
+		// bug, and not the user's PHP either — skip Sentry and the error page
 		if ( error instanceof SiteStartRefusedError ) {
 			throw error;
 		}

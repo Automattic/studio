@@ -9,7 +9,7 @@ import {
 	useIsSiteMutating,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { DatabaseIcon, DuplicateIcon, ExportSiteIcon, ImportIcon, TrashIcon } from '@/lib/icons';
+import { DatabaseIcon, DuplicateIcon, FileArchiveIcon, DownloadIcon, TrashIcon } from '@/lib/icons';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType } from 'react';
 
@@ -72,7 +72,7 @@ export function useSiteManagementActions(
 		},
 		{
 			id: 'import',
-			icon: ImportIcon,
+			icon: DownloadIcon,
 			label: __( 'Import' ),
 			disabled: isWriting || isExporting,
 			destructive: false,
@@ -80,7 +80,7 @@ export function useSiteManagementActions(
 		},
 		{
 			id: 'export',
-			icon: ExportSiteIcon,
+			icon: FileArchiveIcon,
 			label: __( 'Export site' ),
 			disabled: isWriting || isExporting,
 			destructive: false,

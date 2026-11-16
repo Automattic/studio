@@ -1,30 +1,38 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
+import { getConnectMethod } from '@studio/providers';
 import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { ChevronLeftIcon, SearchIcon } from 'lucide-react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { setProviderIntent } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useConnectProvider } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { getSections, isSiteSection, searchSettings } from '@/data/settings-sections';
 import {
-	AiPanel,
+	getSections,
+	isSiteSection,
+	resolveSettingsLink,
+	searchSettings,
+} from '@/data/settings-sections';
+import {
+	ProvidersPanel,
 	AppearanceSettings,
+	ExternalAppsPanel,
 	GeneralSettings,
 	InstructionsSettings,
 	KeyboardPanel,
-	McpPanel,
 	SharingPanel,
 	SkillsPanel,
 	UsagePanel,
 } from '@/features/settings/settings-view';
 import { SiteSettingsForm } from '@/features/settings/site-settings-view';
 import { readLastVisited } from '@/features/sidebar';
+import { XIcon } from '@/lib/icons';
 import {
 	AlertDialog,
 	Button,
@@ -51,9 +59,11 @@ import {
 } from '@/lib/ui';
 import { SettingsDialogContext, SettingsLinkContext } from './context';
 import { SiteAgentFiles } from './site-agent-files';
+import { SpacefastConnectDialog } from './spacefast-connect-dialog';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from './context';
 import type { SearchResult, SettingsScope, SettingsSectionId } from '@/data/settings-sections';
+import type { SpacefastConnectControl } from '@/features/settings/settings-view/spacefast-provider-row';
 
 const SITE_FORM_SECTIONS: SettingsSectionId[] = [ 'site', 'debugging', 'php' ];
 
@@ -61,20 +71,24 @@ function StudioSection( {
 	id,
 	onNavigate,
 	hasSite,
+	spacefast,
 }: {
 	id: SettingsSectionId;
 	onNavigate: ( section: SettingsSectionId ) => void;
 	hasSite: boolean;
+	spacefast: SpacefastConnectControl;
 } ) {
 	switch ( id ) {
 		case 'appearance':
 			return <AppearanceSettings />;
 		case 'sharing':
 			return <SharingPanel />;
-		case 'ai':
-			return <AiPanel onManageCredits={ () => onNavigate( 'usage' ) } />;
+		case 'providers':
+			return (
+				<ProvidersPanel onManageCredits={ () => onNavigate( 'usage' ) } spacefast={ spacefast } />
+			);
 		case 'mcp':
-			return <McpPanel />;
+			return <ExternalAppsPanel />;
 		case 'usage':
 			return <UsagePanel />;
 		case 'skills':
@@ -104,12 +118,18 @@ function useCurrentSiteId( requested?: string ) {
 	return { site: sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ], isPending };
 }
 
-// A setting's row, by its link id or its title.
+// A setting or group, by its link id or title.
 function findRow( root: HTMLElement, target: string ) {
-	return [ ...root.querySelectorAll< HTMLElement >( '[data-settings-row]' ) ].find(
-		( row ) =>
-			row.dataset.settingId === target ||
-			row.querySelector( '[data-slot="field-label"]' )?.textContent?.trim() === target
+	const section = [ ...root.querySelectorAll< HTMLElement >( '[data-settings-target]' ) ].find(
+		( entry ) => entry.dataset.settingsTarget === target
+	);
+	return (
+		section ??
+		[ ...root.querySelectorAll< HTMLElement >( '[data-settings-row]' ) ].find(
+			( row ) =>
+				row.dataset.settingId === target ||
+				row.querySelector( '[data-slot="field-label"]' )?.textContent?.trim() === target
+		)
 	);
 }
 
@@ -117,10 +137,7 @@ function focusControl( row: HTMLElement ) {
 	const control =
 		row.querySelector< HTMLElement >(
 			'input:not(:disabled):not([type="hidden"]):not([aria-hidden="true"]), textarea:not(:disabled), [role="switch"]:not([data-disabled]), [role="combobox"]:not(:disabled)'
-		) ??
-		row.querySelector< HTMLElement >(
-			':scope > [data-slot="field-content"] ~ * button:not(:disabled)'
-		);
+		) ?? row.querySelector< HTMLElement >( '[data-settings-control] button:not(:disabled)' );
 	control?.focus( { preventScroll: true } );
 	if ( control instanceof HTMLInputElement ) {
 		control.select();
@@ -149,7 +166,21 @@ export function SettingsDialog() {
 		setShown( settings );
 	}
 	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
-	const requested = shown === 'usage' && ! signedIn ? 'ai' : shown;
+	const { nativeSites } = connector.capabilities;
+	const linkedSection =
+		settings === 'ai' || ( settings === 'mcp' && ! nativeSites )
+			? 'providers'
+			: settings === 'providers' &&
+			  nativeSites &&
+			  settingsFocus &&
+			  resolveSettingsLink( settingsFocus ) === 'mcp'
+			? 'mcp'
+			: undefined;
+	const requested =
+		linkedSection ??
+		( shown === 'ai' || ( shown === 'mcp' && ! nativeSites ) || ( shown === 'usage' && ! signedIn )
+			? 'providers'
+			: shown );
 	const scope: SettingsScope =
 		isSiteSection( requested ) && ( site || sitePending ) ? 'site' : 'studio';
 	const section = scope === 'site' || ! isSiteSection( requested ) ? requested : 'general';
@@ -168,15 +199,30 @@ export function SettingsDialog() {
 	const [ target, setTarget ] = useState< string | null >( null );
 	const [ dirty, setDirty ] = useState( false );
 	const [ confirmingDiscard, setConfirmingDiscard ] = useState( false );
+	const [ showingSpacefast, setShowingSpacefast ] = useState( false );
+	const restoreSpacefastFocus = useRef( false );
+	const spacefast = useConnectProvider( 'spacefast', { openBrowser: false } );
+	const spacefastOpen = !! settings && section === 'providers' && showingSpacefast;
+	if ( showingSpacefast && ! spacefastOpen ) {
+		setShowingSpacefast( false );
+	}
 	const discardCancelRef = useRef< HTMLButtonElement >( null );
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
 	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
 	const pendingExit = useRef< ( () => void ) | null >( null );
 	const panelId = useId();
+	const startSpacefast = () => {
+		if ( ! spacefast.isPending ) {
+			spacefast.mutate(
+				{ method: getConnectMethod( 'spacefast' ).id },
+				{ onSuccess: () => setShowingSpacefast( false ) }
+			);
+		}
+	};
 
 	// Each opening starts fresh.
 	useEffect( () => {
-		if ( settings !== 'ai' ) setProviderIntent( connector );
+		if ( settings !== 'ai' && settings !== 'providers' ) setProviderIntent( connector );
 		if ( ! settings ) {
 			setHistory( { entries: [], index: -1 } );
 			setQuery( '' );
@@ -187,17 +233,20 @@ export function SettingsDialog() {
 
 	// A link's setting leaves the URL once taken, so following it again reveals it again.
 	useEffect( () => {
-		if ( settingsFocus ) {
+		if ( settingsFocus || linkedSection ) {
 			setQuery( '' );
-			setTarget( settingsFocus );
+			setTarget( settingsFocus ?? null );
 			void navigate( {
 				to: '.',
 				state: true,
-				search: ( { settingsFocus: _focus, ...rest }: Record< string, unknown > ) => rest,
+				search: ( { settingsFocus: _focus, ...rest }: Record< string, unknown > ) => ( {
+					...rest,
+					...( linkedSection ? { settings: linkedSection } : {} ),
+				} ),
 				replace: true,
 			} );
 		}
-	}, [ settingsFocus, navigate ] );
+	}, [ settings, settingsFocus, linkedSection, navigate ] );
 
 	// Every section shown joins the history, unless Back or Forward led there.
 	useEffect( () => {
@@ -268,10 +317,33 @@ export function SettingsDialog() {
 		exit?.();
 	}, [] );
 
+	useLayoutEffect( () => {
+		content?.scrollTo?.( { top: 0, behavior: 'instant' } );
+	}, [ content, section ] );
+
+	useEffect( () => {
+		if ( spacefastOpen || ! restoreSpacefastFocus.current ) {
+			return;
+		}
+		if ( ! settings || section !== 'providers' ) {
+			restoreSpacefastFocus.current = false;
+		} else if ( content ) {
+			const frame = requestAnimationFrame( () => {
+				const row = findRow( content, 'spacefast-provider' );
+				if ( row ) {
+					row.scrollIntoView?.( { block: 'nearest' } );
+					focusControl( row );
+				}
+				restoreSpacefastFocus.current = false;
+			} );
+			return () => cancelAnimationFrame( frame );
+		}
+	}, [ content, section, settings, spacefastOpen ] );
+
 	// Reveals and focuses the setting a link or search result points at.
 	useEffect( () => {
 		const root = content;
-		if ( ! target || ! root ) {
+		if ( ! target || ! root || spacefastOpen ) {
 			return;
 		}
 		let row: HTMLElement | undefined;
@@ -282,6 +354,10 @@ export function SettingsDialog() {
 				return;
 			}
 			observer.disconnect();
+			if ( row.matches( '[data-settings-target]' ) ) {
+				row.scrollIntoView?.( { block: 'start' } );
+				return;
+			}
 			row.scrollIntoView?.( { block: 'center' } );
 			row.setAttribute( 'data-settings-match', '' );
 			frame = requestAnimationFrame( () => row && focusControl( row ) );
@@ -302,9 +378,8 @@ export function SettingsDialog() {
 			observer.disconnect();
 			row?.removeAttribute( 'data-settings-match' );
 		};
-	}, [ target, section, content ] );
+	}, [ target, section, content, spacefastOpen ] );
 
-	const { nativeSites } = useConnector().capabilities;
 	const results = searchSettings( query, scope, { hasSite: !! site, signedIn, nativeSites } );
 	const searching = !! query.trim();
 	const open = ( result: SearchResult ) => {
@@ -316,11 +391,17 @@ export function SettingsDialog() {
 	const sections = getSections( scope, { signedIn, nativeSites } );
 	const current = sections.find( ( entry ) => entry.id === section ) ?? sections[ 0 ];
 
-	return (
-		<Dialog replaceable open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
+	const settingsDialog = (
+		<Dialog
+			replaceable
+			open={ !! settings && ! spacefastOpen }
+			onOpenChange={ ( isOpen ) => ! isOpen && close() }
+		>
 			<DialogContent
 				className={ confirmingDiscard ? styles.confirmingDiscard : undefined }
 				layout="settings"
+				finalFocus={ spacefastOpen ? false : undefined }
+				motion={ spacefastOpen ? 'none' : 'default' }
 				onInputCapture={ () => {
 					pendingExit.current = null;
 				} }
@@ -410,7 +491,9 @@ export function SettingsDialog() {
 								<TabsList variant="sidebar" aria-label={ __( 'Matching settings' ) }>
 									{ results.map( ( item, index ) => (
 										<TabsTrigger
-											key={ `${ item.scope }-${ item.section.id }-${ item.setting?.title ?? '' }` }
+											key={ `${ item.scope }-${ item.section.id }-${
+												item.setting?.id ?? item.setting?.title ?? ''
+											}` }
 											value={ index }
 											highlighted={ index === 0 }
 											aria-label={ item.setting?.title ?? item.section.label }
@@ -471,6 +554,14 @@ export function SettingsDialog() {
 										id={ section }
 										onNavigate={ go }
 										hasSite={ !! site && nativeSites }
+										spacefast={ {
+											isPending: spacefast.isPending,
+											onConnect: () => {
+												restoreSpacefastFocus.current = true;
+												setShowingSpacefast( true );
+												startSpacefast();
+											},
+										} }
 									/>
 								</SettingsLinkContext.Provider>
 							) : null }
@@ -535,5 +626,19 @@ export function SettingsDialog() {
 				</DialogContent>
 			</AlertDialog>
 		</Dialog>
+	);
+
+	return (
+		<>
+			{ settingsDialog }
+			<SpacefastConnectDialog
+				open={ spacefastOpen }
+				pending={ spacefast.pending }
+				isPending={ spacefast.isPending }
+				error={ spacefast.error?.message }
+				onRetry={ startSpacefast }
+				onClose={ () => setShowingSpacefast( false ) }
+			/>
+		</>
 	);
 }

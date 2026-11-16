@@ -1,6 +1,7 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSitePhpWorkers } from '@studio/common/lib/site-php-workers';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
@@ -12,7 +13,7 @@ import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
-type ConfigValue = string | boolean | undefined;
+type ConfigValue = string | number | boolean | undefined;
 
 interface ConfigEntry {
 	key: string;
@@ -35,6 +36,7 @@ function getConfigEntries( site: SiteData ): ConfigEntry[] {
 		{ key: 'wp', value: getWordPressVersion( site.path ) },
 		{ key: 'file-access', value: getSiteFileAccess( site ) },
 		{ key: 'xdebug', value: site.enableXdebug ?? false },
+		{ key: 'php-workers', value: getSitePhpWorkers( site ) },
 		{ key: 'admin-username', value: site.adminUsername ?? 'admin' },
 		{
 			key: 'admin-password',

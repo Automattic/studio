@@ -1,3 +1,4 @@
+import { withRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { failsAs, textResult } from './utils';
@@ -33,7 +34,10 @@ export const pushSiteTool = defineTool(
 			);
 			return textResult(
 				remoteSite
-					? `Pushed "${ site.name }" to ${ remoteSite.name } (${ remoteSite.url }).`
+					? withRemoteEnvironment(
+							`Pushed "${ site.name }" to ${ remoteSite.name } (${ remoteSite.url }).`,
+							remoteSite
+					  )
 					: 'Push cancelled.'
 			);
 		} ),

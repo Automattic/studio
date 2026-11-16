@@ -19,6 +19,7 @@ export const serverConfigSchema = z.object( {
 	isWpAutoUpdating: z.boolean().optional(),
 	fileAccess: siteFileAccessSchema.optional(),
 	enableXdebug: z.boolean().optional(),
+	phpWorkers: z.number().int().positive().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
 	enableScriptDebug: z.boolean().optional(),
@@ -31,6 +32,7 @@ export const serverConfigSchema = z.object( {
 		.optional(),
 	autoPrependFile: z.string().optional(),
 	openBasedirAllowList: z.array( z.string() ).optional(),
+	phpMyAdminSupported: z.boolean().optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfigSchema >;
@@ -91,6 +93,7 @@ const SITE_START_PHASES = [
 	'wordpress_install',
 	'blueprint',
 	'symlink_scan',
+	'php_first_worker',
 	'php_workers',
 	'proxy_ready',
 	'admin_credentials',

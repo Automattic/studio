@@ -157,6 +157,10 @@ function buildServerConfig(
 		serverConfig.enableXdebug = true;
 	}
 
+	if ( site.phpWorkers ) {
+		serverConfig.phpWorkers = site.phpWorkers;
+	}
+
 	if ( site.enableDebugLog ) {
 		serverConfig.enableDebugLog = true;
 	}

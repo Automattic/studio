@@ -33,6 +33,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
+import { collectProcessDiagnosis } from 'cli/lib/process-snapshot';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
@@ -255,6 +256,8 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
+	let stalledPhase: SiteStartPhase | undefined;
+	let serverPid: number | undefined;
 	const now = Date.now();
 	// Phases time from here; a `site start` an app asked for times from the request, so it includes
 	// spawning and loading this CLI and the preparation above.
@@ -263,6 +266,7 @@ export async function startWordPressServer(
 	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
+		serverPid = processDesc.status === 'online' ? processDesc.pid : undefined;
 		await readyOrExit.waitFor( processDesc.pmId );
 		phaseTimings.daemon_ms = Date.now() - now;
 		await sendMessage(
@@ -275,7 +279,11 @@ export async function startWordPressServer(
 			{
 				logger,
 				onStartPhase: ( { phase, ms } ) => {
-					phaseTimings[ `${ phase }_ms` ] = ms;
+					if ( ms === undefined ) {
+						stalledPhase = phase;
+					} else {
+						phaseTimings[ `${ phase }_ms` ] = ms;
+					}
 				},
 			}
 		);
@@ -310,12 +318,21 @@ export async function startWordPressServer(
 		return processDesc;
 	} catch ( error ) {
 		try {
+			const isParentTimeout =
+				error instanceof Error &&
+				error.message.startsWith( 'Timeout waiting for response to message start-server:' );
+			const diagnosis =
+				isParentTimeout && serverPid !== undefined
+					? await collectProcessDiagnosis( serverPid, site.path )
+					: undefined;
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
 				command,
 				success: false,
 				file_access: getSiteFileAccess( site ),
 				failure_reason: classifyStartFailure( error ),
+				...( isParentTimeout && stalledPhase ? { stalled_phase: stalledPhase } : {} ),
+				...diagnosis,
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
 			} );
@@ -500,8 +517,8 @@ const CHILD_EXIT_ERROR_GRACE_MS = 100;
 interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
-	// Receives the start steps the child finishes for this message.
-	onStartPhase?: ( data: { phase: SiteStartPhase; ms: number } ) => void;
+	// A missing duration marks a phase start, including conditional start steps.
+	onStartPhase?: ( data: { phase: SiteStartPhase; ms?: number } ) => void;
 }
 
 /**

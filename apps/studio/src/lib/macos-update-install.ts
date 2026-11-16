@@ -32,12 +32,13 @@ function readBundleIdentifier( appBundlePath: string ): string | null {
 }
 
 /**
- * A `pgrep -f` pattern for the app's ShipIt, whose job and temp directories are named
- * `<bundle id>.ShipIt`. The bracketed first character keeps it from matching a command line that
- * contains the pattern itself, like the relaunch helper's `sh`.
+ * A `pgrep -f` pattern for the app's ShipIt, which runs as `…/ShipIt <bundle id>.ShipIt <state>`.
+ * Requiring the executable name keeps other commands that mention the job's folders from matching,
+ * and the bracketed first character keeps the pattern from matching itself in the relaunch
+ * helper's command line.
  */
 function getShipItProcessPattern( bundleId: string ): string {
-	return `[${ bundleId[ 0 ] }]${ bundleId.slice( 1 ) }.ShipIt`;
+	return `[S]hipIt ${ bundleId }.ShipIt`;
 }
 
 function isShipItRunning( bundleId: string ): boolean {

@@ -37,7 +37,7 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `settings-studio-cli.webp` | studio-settings | Settings → General → Studio CLI for terminal | — | `2025/05/app-settings-account.png` |
 | `settings-ai-providers.webp` | studio-settings | Settings → Providers (WordPress.com and Anthropic) | — | `2026/04/app-settings-ai.png` |
 | `settings-skills.webp` | studio-settings | Settings → Skills | — | `2026/04/app-settings-skills.png` |
-| `settings-mcp.webp` | studio-settings | Settings → MCP (AI apps, and Manual setup with the MCP configuration) | `mcp-on-studio.md` | `2026/04/app-settings-mcp.png` |
+| `settings-mcp.webp` | studio-settings | Settings → Agents (coding agents, and Manual MCP setup with the MCP configuration) | `mcp-on-studio.md` | `2026/04/app-settings-mcp.png` |
 | `settings-keyboard.webp` | studio-settings | Settings → Keyboard (shortcuts) | — | — |
 | `main-window-signed-in.webp` | signed-in | Main window, signed in: the account menu button at the bottom of the sidebar | `index.md` | — |
 | `account-menu.webp` | signed-in | Account menu: name, email, Providers, Usage, Support, Settings, Log out | `index.md` | — |
@@ -46,7 +46,7 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `annotate-note.webp` | signed-in | Annotate: two saved notes on the page, and a third open on the hero photo, being typed | `studio-code/index.md` | — |
 | `annotate-staged.webp` | signed-in | Annotate: two saved notes marked on the page and waiting in the chat box as "2 annotations" | `studio-code/index.md` | — |
 | `share-create-preview.webp` | signed-in | Share and publish → Share, with Create preview | — | `2025/01/studio-site-new-preview-1.png` |
-| `publish-panel.webp` | signed-in | Share and publish → Publish: where to publish, WordPress.com or Spacefast | — | — |
+| `publish-panel.webp` | signed-in | Share and publish → Publish → Choose another host: where to publish, WordPress.com or Spacefast | — | — |
 | `publish-choose-site.webp` | signed-in | Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites | `sync.md` | `2025/01/studio-connect-live-site.png` |
 | `model-menu.webp` | signed-in | Chat box model menu: Fast, Balanced and Strong, with the AI credits remaining | `studio-code/choosing-an-ai-model-tier-in-studio-code.md` | — |
 | `add-ai-credits.webp` | signed-in | Add AI credits: the four one-time credit amounts | `studio-code/ai-credits-guidelines.md` | — |

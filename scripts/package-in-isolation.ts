@@ -83,12 +83,13 @@ function hasBundledServerFiles( repoRoot: string ): boolean {
 	// Marker paths for artifacts produced by download-wp-server-files.ts,
 	// download-available-site-translations.mjs, and download-agent-skills.ts.
 	const requiredPaths = [
-		'wp-files/latest/wordpress/wp-includes/version.php',
+		'wp-files/manifest.json',
+		'wp-files/latest/wordpress.zip',
 		'wp-files/latest/available-site-translations.json',
 		'wp-files/sqlite-database-integration/db.copy',
 		'wp-files/wp-cli/wp-cli.phar',
 		'wp-files/sqlite-command/command.php',
-		'wp-files/phpmyadmin/index.php',
+		'wp-files/phpmyadmin.zip',
 		'wp-files/reprint/reprint.phar',
 		'wp-files/skills/wp-plugin-development/SKILL.md',
 	];

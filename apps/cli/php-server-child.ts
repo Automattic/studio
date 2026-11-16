@@ -201,21 +201,21 @@ export async function waitForServerReady( url: string, signal?: AbortSignal ): P
 	}
 }
 
-function reportPhase( phase: SiteStartPhase, startedAt?: number ): void {
+// Reports how long a completed start step took. A failed start reports only the steps it finished.
+function reportPhase( phase: SiteStartPhase, startedAt: number ): void {
 	if ( ! startingMessageId ) {
 		return;
 	}
 	const message: ChildMessageRaw = {
 		originalMessageId: startingMessageId,
 		topic: 'start-phase',
-		data: { phase, ms: startedAt === undefined ? undefined : Date.now() - startedAt },
+		data: { phase, ms: Date.now() - startedAt },
 	};
 	process.send?.( message );
 }
 
 async function timePhase< T >( phase: SiteStartPhase, run: () => Promise< T > ): Promise< T > {
 	const startedAt = Date.now();
-	reportPhase( phase );
 	const result = await run();
 	reportPhase( phase, startedAt );
 	return result;
@@ -640,7 +640,6 @@ async function doStartServer(
 	);
 
 	const workersStartedAt = Date.now();
-	reportPhase( 'php_workers' );
 	try {
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
@@ -724,7 +723,6 @@ async function doStartServer(
 		await onWorkersReady?.( needsInstallation.some( Boolean ) );
 
 		const proxyStartedAt = Date.now();
-		reportPhase( 'proxy_ready' );
 		proxyServer = await startPhpProxyServer( config, stopSignal );
 		phpProxyServer = proxyServer;
 		phpWorkerProcesses = spawnedChildren;

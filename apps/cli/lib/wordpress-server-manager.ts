@@ -33,10 +33,10 @@ import {
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
-import { collectProcessDiagnosis } from 'cli/lib/process-snapshot';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
+import { diagnoseStalledPhp } from 'cli/lib/stalled-php';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription, SITE_PROCESS_PREFIX } from 'cli/lib/types/process-manager-ipc';
 import {
@@ -256,7 +256,6 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
-	let stalledPhase: SiteStartPhase | undefined;
 	let serverPid: number | undefined;
 	const now = Date.now();
 	// Phases time from here; a `site start` an app asked for times from the request, so it includes
@@ -279,11 +278,7 @@ export async function startWordPressServer(
 			{
 				logger,
 				onStartPhase: ( { phase, ms } ) => {
-					if ( ms === undefined ) {
-						stalledPhase = phase;
-					} else {
-						phaseTimings[ `${ phase }_ms` ] = ms;
-					}
+					phaseTimings[ `${ phase }_ms` ] = ms;
 				},
 			}
 		);
@@ -317,24 +312,23 @@ export async function startWordPressServer(
 		}
 		return processDesc;
 	} catch ( error ) {
-		const failedAt = Date.now();
+		const timeMs = Date.now() - startedAt;
+		const failureReason = classifyStartFailure( error );
 		try {
-			const isParentTimeout =
-				error instanceof Error &&
-				error.message.startsWith( 'Timeout waiting for response to message start-server:' );
+			// Windows starts hang far more often than others; record whether the stuck PHP was working
+			// or waiting so a fix can target the cause.
 			const diagnosis =
-				isParentTimeout && serverPid !== undefined
-					? await collectProcessDiagnosis( serverPid, site.path )
+				failureReason === 'timeout' && serverPid && process.platform === 'win32'
+					? await diagnoseStalledPhp( serverPid, site.path )
 					: undefined;
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
 				command,
 				success: false,
 				file_access: getSiteFileAccess( site ),
-				failure_reason: classifyStartFailure( error ),
-				...( isParentTimeout && stalledPhase ? { stalled_phase: stalledPhase } : {} ),
+				failure_reason: failureReason,
 				...diagnosis,
-				time_ms: failedAt - startedAt,
+				time_ms: timeMs,
 				...phaseTimings,
 			} );
 		} catch {
@@ -518,8 +512,8 @@ const CHILD_EXIT_ERROR_GRACE_MS = 100;
 interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
-	// A missing duration marks a phase start, including conditional start steps.
-	onStartPhase?: ( data: { phase: SiteStartPhase; ms?: number } ) => void;
+	// Receives the start steps the child finishes for this message.
+	onStartPhase?: ( data: { phase: SiteStartPhase; ms: number } ) => void;
 }
 
 /**

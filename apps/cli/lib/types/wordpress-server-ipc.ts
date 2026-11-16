@@ -105,8 +105,7 @@ const childMessageStartPhase = z.object( {
 	topic: z.literal( 'start-phase' ),
 	data: z.object( {
 		phase: z.enum( SITE_START_PHASES ),
-		// Absent when the phase starts; present when it finishes.
-		ms: z.number().optional(),
+		ms: z.number(),
 	} ),
 } );
 

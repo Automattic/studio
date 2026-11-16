@@ -123,22 +123,10 @@ it.each( [
 				.flatMap( ( result ) =>
 					result.success && result.data.raw.topic === 'start-phase' ? [ result.data.raw.data ] : []
 				);
-			const startedPhases = phases
-				.filter( ( { ms } ) => ms === undefined )
-				.map( ( { phase } ) => phase );
-			const completedPhases = phases
-				.filter( ( { phase, ms } ) => ms !== undefined && phase !== 'php_first_worker' )
-				.map( ( { phase } ) => phase );
-			expect( startedPhases ).toEqual( completedPhases );
 			const firstWorker = phases.filter( ( { phase } ) => phase === 'php_first_worker' );
-			const allWorkers = phases.find(
-				( { phase, ms } ) => phase === 'php_workers' && ms !== undefined
-			);
-			expect(
-				phases.some( ( { phase, ms } ) => phase === 'php_workers' && ms === undefined )
-			).toBe( true );
+			const allWorkers = phases.find( ( { phase } ) => phase === 'php_workers' );
 			expect( firstWorker ).toHaveLength( 1 );
-			expect( firstWorker[ 0 ].ms ).toBeLessThanOrEqual( allWorkers!.ms! );
+			expect( firstWorker[ 0 ].ms ).toBeLessThanOrEqual( allWorkers!.ms );
 			const commands = vi.mocked( runPhpCommand ).mock.calls.map( ( [ args ] ) => args );
 			expect(
 				commands.some(

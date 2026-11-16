@@ -30,7 +30,7 @@ import {
 	SiteData,
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
@@ -256,6 +256,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
 		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
+		vi.mocked( listProcesses ).mockResolvedValue( [] );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
@@ -1021,6 +1022,53 @@ describe( 'CLI: studio create', () => {
 				await fs.promises.rm( stagedDir, { recursive: true, force: true } );
 			}
 		} );
+
+		it.each( [
+			{ running: 36, start: true, captures: false },
+			{ running: 35, start: true, captures: true },
+			{ running: 36, start: false, captures: true },
+		] )(
+			'preflights capacity with $running running sites and start=$start',
+			async ( { running, start, captures } ) => {
+				vi.mocked( listProcesses ).mockResolvedValue(
+					Array.from( { length: running }, ( _, index ) => ( {
+						name: `studio-site-${ index }`,
+						pmId: index,
+						pid: index + 1,
+						status: 'online' as const,
+					} ) )
+				);
+				const liberate = vi.fn().mockRejectedValue( new Error( 'Capture reached' ) );
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Imported Site',
+					'--start',
+					String( start ),
+					'--skip-browser',
+				] );
+
+				expect( liberate ).toHaveBeenCalledTimes( captures ? 1 : 0 );
+				if ( ! captures ) {
+					expect( reportErrorSpy ).toHaveBeenCalledWith(
+						expect.objectContaining( {
+							message: expect.stringContaining(
+								'CAPACITY_LIMIT_REACHED: Cannot start site. The maximum number of running sites has been reached (36/36). Stop some running sites first.'
+							),
+						} )
+					);
+					expect( process.exitCode ).toBe( 1 );
+				}
+			}
+		);
 
 		it( 'checks bundled SQLite before capturing a URL source', async () => {
 			const liberate = vi.fn();
@@ -2302,6 +2350,7 @@ $table_prefix = 'wp_';
 			{ failure: 'quality', source: 'directory', reason: 'ssi_quality_failed' },
 			{ failure: 'import', source: 'directory', reason: 'ssi_import' },
 			{ failure: 'server', source: 'directory', reason: 'create' },
+			{ failure: 'capacity', source: 'directory', reason: 'create' },
 		] as const )(
 			'reports a failed --from create ($failure) as studio_site_create_failed',
 			async ( { failure, source, reason } ) => {
@@ -2324,8 +2373,14 @@ $table_prefix = 'wp_';
 						mockWpCli( { exitCode: 1, stdout: '', stderr: 'Fatal error' } )
 					);
 				}
-				if ( failure === 'server' ) {
-					vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+				if ( failure === 'server' || failure === 'capacity' ) {
+					vi.mocked( startWordPressServer ).mockRejectedValue(
+						new Error(
+							failure === 'capacity'
+								? 'CAPACITY_LIMIT_REACHED: Cannot start site.'
+								: 'Server start failed'
+						)
+					);
 				}
 				vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 				vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
@@ -2346,6 +2401,13 @@ $table_prefix = 'wp_';
 					] );
 
 					expect( process.exitCode ).toBe( 1 );
+					if ( failure === 'capacity' ) {
+						expect( removeSiteFromConfig ).not.toHaveBeenCalled();
+						expect( fs.rmSync ).not.toHaveBeenCalledWith( path.join( sitePath, '.studio-import' ), {
+							recursive: true,
+							force: true,
+						} );
+					}
 					expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
 						TRACKS_EVENTS.SITE_CREATE_FAILED,
 						expect.objectContaining( {

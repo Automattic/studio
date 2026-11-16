@@ -327,10 +327,13 @@ export class StaticSiteImportRun {
 		this.outcome = cleanupSucceeded ? 'succeeded' : 'attempted';
 	}
 
-	/** After a failure, reports the site as kept for a rerun when the import already touched it. */
-	retainSiteAfterFailure( site: SiteData ): boolean {
+	/** Keeps resumable imports, including those blocked by capacity before the importer ran. */
+	retainSiteAfterFailure( site: SiteData, error?: unknown ): boolean {
 		if ( this.outcome === 'not-attempted' ) {
-			return false;
+			if ( ! ( error instanceof Error && error.message.includes( 'CAPACITY_LIMIT_REACHED' ) ) ) {
+				return false;
+			}
+			this.outcome = 'attempted';
 		}
 		reportRetainedImportedSite( site );
 		return true;

@@ -59,7 +59,12 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import {
+	connectToDaemon,
+	disconnectFromDaemon,
+	emitCliEvent,
+	listProcesses,
+} from 'cli/lib/daemon-client';
 import { type liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
@@ -70,6 +75,7 @@ import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { confirm, input, password, select } from 'cli/lib/prompts';
+import { assertSiteCapacity } from 'cli/lib/site-capacity';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -173,8 +179,15 @@ function validateCustomDomain( customDomain: string | undefined, sites: SiteData
 async function validateBeforeSourceImport(
 	sitePath: string,
 	source: string,
-	options: Pick< CreateCommandOptions, 'customDomain' | 'adminUsername' | 'adminEmail' >
+	options: Pick< CreateCommandOptions, 'customDomain' | 'adminUsername' | 'adminEmail' | 'noStart' >
 ) {
+	if ( ! options.noStart ) {
+		try {
+			assertSiteCapacity( await listProcesses() );
+		} finally {
+			await disconnectFromDaemon();
+		}
+	}
 	await validateSitePath( sitePath );
 
 	const { sites } = await readCliConfig();
@@ -459,7 +472,7 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
+				if ( ! importRun?.retainSiteAfterFailure( siteDetails, error ) ) {
 					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
@@ -494,7 +507,7 @@ export async function runCommand(
 					stripWpConfigDbConstants( sitePath );
 					await importRun?.run( siteDetails );
 				} catch ( error ) {
-					if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
+					if ( ! importRun?.retainSiteAfterFailure( siteDetails, error ) ) {
 						await removeSiteFromConfig( siteDetails.id );
 						if ( ! isWordPressDirResult ) {
 							await fs.promises.rm( sitePath, { recursive: true, force: true } );

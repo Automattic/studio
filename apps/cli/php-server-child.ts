@@ -59,8 +59,8 @@ const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const FINISH_INSTALL_PATH = path.resolve( import.meta.dirname, 'php', 'finish-install.php' );
 
 // Tracks how many proxied requests each PHP worker is currently handling. Each `php -S` worker
-// processes one request at a time, so the proxy only hands a worker a request when it is idle.
-// phpMyAdmin is the exception: it is pinned to worker 0, busy or not.
+// processes one request at a time, so a non-zero count means the worker is busy and any additional
+// requests are queued in it.
 class PhpWorkerRequestTracker {
 	private readonly counts: number[];
 
@@ -83,12 +83,23 @@ class PhpWorkerRequestTracker {
 		this.counts[ index ] = Math.max( 0, value );
 	}
 
-	getIdleWorker(): number {
-		return this.counts.indexOf( 0 );
+	// The least busy of the first `count` workers, or -1 if every one is busy and `idleOnly` is set.
+	pickWorker( count: number, idleOnly: boolean ): number {
+		let bestIndex = -1;
+		for ( let i = 0; i < count; i++ ) {
+			if ( bestIndex === -1 || this.counts[ i ] < this.counts[ bestIndex ] ) {
+				bestIndex = i;
+			}
+		}
+		return idleOnly && this.counts[ bestIndex ] > 0 ? -1 : bestIndex;
 	}
 
-	countBusyWorkers(): number {
-		return this.counts.filter( ( count ) => count > 0 ).length;
+	add(): void {
+		this.counts.push( 0 );
+	}
+
+	removeLast(): void {
+		this.counts.pop();
 	}
 }
 
@@ -97,8 +108,16 @@ let phpWorkerProcesses: ChildProcess[] = [];
 let phpProxyServer: http.Server | null = null;
 let phpWorkerPorts: number[] = [];
 let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
-// Requests waiting in the proxy for a worker to free up.
+// WordPress's own requests waiting in the proxy for a worker to free up.
 let idleWorkerWaiters: Array< () => void > = [];
+// Each worker serves one request at a time. If every worker is busy with a request that waits on
+// its own request back to the site, no worker is free to answer, and the site hangs until those
+// requests time out. So when WordPress's own request finds every worker busy, the proxy starts one
+// temporary worker for those requests, last in the pool, which stops once it has been idle a while.
+const TEMPORARY_WORKER_IDLE_MS = 10_000;
+let startTemporaryWorker: ( () => Promise< { child: ChildProcess; port: number } > ) | null = null;
+let startingTemporaryWorker: Promise< void > | null = null;
+let temporaryWorker: { child: ChildProcess; idleTimer: NodeJS.Timeout | null } | null = null;
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 // The `start-server` message whose start is running, so its step times reach only that caller.
@@ -167,24 +186,91 @@ export function isRequestFromWordPress( req: http.IncomingMessage ): boolean {
 	return ( req.headers[ 'user-agent' ] ?? '' ).startsWith( 'WordPress/' );
 }
 
-// How many workers may already be busy for a request to take an idle one. Every request but
-// WordPress's own leaves the last worker free. Otherwise every worker could be busy with a request
-// waiting on its own request back to the site, which no worker would be free to answer, and the
-// site would hang until those requests time out.
-function getBusyWorkerLimit( req: http.IncomingMessage, poolSize: number ): number {
-	return isRequestFromWordPress( req ) ? poolSize : Math.max( 1, poolSize - 1 );
-}
-
 function wakeIdleWorkerWaiters(): void {
 	const waiters = idleWorkerWaiters;
 	idleWorkerWaiters = [];
 	waiters.forEach( ( resolve ) => resolve() );
 }
 
+function resetPhpWorkerPool(): void {
+	phpWorkerPorts = [];
+	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+	startTemporaryWorker = null;
+	startingTemporaryWorker = null;
+	if ( temporaryWorker?.idleTimer ) {
+		clearTimeout( temporaryWorker.idleTimer );
+	}
+	temporaryWorker = null;
+	wakeIdleWorkerWaiters();
+}
+
+function isTemporaryWorker( tracker: PhpWorkerRequestTracker, index: number ): boolean {
+	return (
+		temporaryWorker !== null && tracker === phpWorkerRequestTracker && index === tracker.size - 1
+	);
+}
+
+function addTemporaryWorker(): void {
+	const start = startTemporaryWorker;
+	if ( ! start || temporaryWorker || startingTemporaryWorker ) {
+		return;
+	}
+
+	const tracker = phpWorkerRequestTracker;
+	startingTemporaryWorker = start()
+		.then( ( { child, port } ) => {
+			if ( tracker !== phpWorkerRequestTracker ) {
+				child.removeAllListeners( 'exit' );
+				child.kill( 'SIGKILL' );
+				return;
+			}
+			phpWorkerPorts.push( port );
+			tracker.add();
+			temporaryWorker = { child, idleTimer: null };
+			logToConsole( 'Started a temporary PHP worker because every worker was busy' );
+			scheduleTemporaryWorkerStop();
+			wakeIdleWorkerWaiters();
+		} )
+		.catch( ( error ) => {
+			errorToConsole( 'Failed to start a temporary PHP worker:', error );
+			// Waiting requests fall back to the least busy worker.
+			startTemporaryWorker = null;
+			wakeIdleWorkerWaiters();
+		} )
+		.finally( () => {
+			startingTemporaryWorker = null;
+		} );
+}
+
+function scheduleTemporaryWorkerStop(): void {
+	const worker = temporaryWorker;
+	if ( ! worker ) {
+		return;
+	}
+	if ( worker.idleTimer ) {
+		clearTimeout( worker.idleTimer );
+	}
+	worker.idleTimer = setTimeout( () => {
+		const tracker = phpWorkerRequestTracker;
+		if ( temporaryWorker !== worker || tracker.get( tracker.size - 1 ) > 0 ) {
+			return;
+		}
+		phpWorkerPorts.pop();
+		tracker.removeLast();
+		temporaryWorker = null;
+		phpWorkerProcesses = phpWorkerProcesses.filter( ( child ) => child !== worker.child );
+		worker.child.removeAllListeners( 'exit' );
+		void stopPhpChild( worker.child, STOP_SERVER_TIMEOUT, errorToConsole );
+		logToConsole( 'Stopped the temporary PHP worker after it went idle' );
+	}, TEMPORARY_WORKER_IDLE_MS );
+}
+
 type PickedPhpWorker = { index: number; port: number; tracker: PhpWorkerRequestTracker };
 
-// Resolves with an idle worker, waiting in the proxy until one frees up within the request's limit.
-// The worker is marked busy before this returns, so requests woken together can't pick the same one.
+// Picks the least busy worker; any request beyond one per worker queues inside `php -S`, as it
+// accepts the next connection while still running the current request. WordPress's own requests
+// are the exception: rather than queue behind a worker that may be waiting on them, they wait in
+// the proxy for an idle worker or the temporary one, which only they use.
 async function pickPhpWorker( req: http.IncomingMessage ): Promise< PickedPhpWorker > {
 	for (;;) {
 		if ( phpWorkerPorts.length === 0 ) {
@@ -192,16 +278,24 @@ async function pickPhpWorker( req: http.IncomingMessage ): Promise< PickedPhpWor
 		}
 
 		const tracker = phpWorkerRequestTracker;
-		let index = 0;
-		if ( ! shouldUsePrimaryWorker( req ) ) {
-			const hasRoom = tracker.countBusyWorkers() < getBusyWorkerLimit( req, tracker.size );
-			index = hasRoom ? tracker.getIdleWorker() : -1;
+		const fromWordPress = isRequestFromWordPress( req ) && startTemporaryWorker !== null;
+		const regularWorkers = temporaryWorker ? tracker.size - 1 : tracker.size;
+		let index = shouldUsePrimaryWorker( req )
+			? 0
+			: tracker.pickWorker( regularWorkers, fromWordPress );
+		if ( index === -1 && temporaryWorker && tracker.get( tracker.size - 1 ) === 0 ) {
+			index = tracker.size - 1;
 		}
 		if ( index !== -1 ) {
 			tracker.set( index, tracker.get( index ) + 1 );
+			if ( isTemporaryWorker( tracker, index ) && temporaryWorker?.idleTimer ) {
+				clearTimeout( temporaryWorker.idleTimer );
+				temporaryWorker.idleTimer = null;
+			}
 			return { index, port: phpWorkerPorts[ index ], tracker };
 		}
 
+		addTemporaryWorker();
 		await new Promise< void >( ( resolve ) => idleWorkerWaiters.push( resolve ) );
 	}
 }
@@ -399,9 +493,7 @@ function getCurrentPhpProcesses(): ChildProcess[] {
 async function closePhpProxyServer(): Promise< void > {
 	const proxyServer = phpProxyServer;
 	phpProxyServer = null;
-	phpWorkerPorts = [];
-	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
-	wakeIdleWorkerWaiters();
+	resetPhpWorkerPool();
 
 	if ( ! proxyServer ) {
 		return;
@@ -457,6 +549,12 @@ async function proxyRequestToPhpWorker(
 		}
 		released = true;
 		worker.tracker.set( worker.index, worker.tracker.get( worker.index ) - 1 );
+		if (
+			isTemporaryWorker( worker.tracker, worker.index ) &&
+			worker.tracker.get( worker.index ) === 0
+		) {
+			scheduleTemporaryWorkerStop();
+		}
 		wakeIdleWorkerWaiters();
 	};
 	if ( res.destroyed ) {
@@ -464,7 +562,6 @@ async function proxyRequestToPhpWorker(
 		release();
 		return;
 	}
-	res.once( 'close', release );
 
 	const headers = { ...req.headers };
 	headers.host = req.headers.host ?? `localhost:${ config.port }`;
@@ -480,6 +577,12 @@ async function proxyRequestToPhpWorker(
 			headers,
 		},
 		( proxyRes ) => {
+			// If the client leaves early, keep reading PHP's output so the worker can finish.
+			if ( res.destroyed ) {
+				proxyRes.resume();
+				return;
+			}
+			res.once( 'close', () => proxyRes.resume() );
 			// PHP's built-in server closes every connection; keep the browser's open.
 			delete proxyRes.headers.connection;
 			staticFileValidators.addValidators( req, proxyRes.statusCode, proxyRes.headers );
@@ -488,8 +591,9 @@ async function proxyRequestToPhpWorker(
 		}
 	);
 
+	// The worker is free once PHP closes its connection, whether or not the client is still reading.
+	proxyReq.once( 'close', release );
 	proxyReq.on( 'error', ( error ) => {
-		release();
 		if ( ! res.headersSent ) {
 			res.writeHead( 502 );
 		}
@@ -697,9 +801,9 @@ async function doStartServer(
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
 
-		for ( const [ index, workerPort ] of workerPorts.entries() ) {
+		const spawnWorker = async ( index: number, workerPort: number, signal?: AbortSignal ) => {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
-			logToConsole( `Spawning PHP worker ${ index + 1 }/${ workerCount } on ${ phpAddress }` );
+			logToConsole( `Spawning PHP worker ${ index + 1 } on ${ phpAddress }` );
 			// Workers are spawned without `detached`, so they share this wrapper's process
 			// group. That lets the daemon's group-kill reach every worker in one signal.
 			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
@@ -718,7 +822,6 @@ async function doStartServer(
 				emailDirectory,
 				workerIndex: index,
 			} );
-			spawnedChildren.push( serverChild );
 
 			// Report every worker pid to the daemon. The shared process group already lets
 			// the daemon clean these up, but the individual pids give it a direct fallback.
@@ -730,17 +833,20 @@ async function doStartServer(
 				process.send?.( message );
 			}
 
-			await waitForChildSpawn( serverChild, stopSignal );
+			await waitForChildSpawn( serverChild, signal );
 
 			serverChild.once( 'exit', ( code, signalName ) => {
 				errorToConsole(
-					`PHP worker ${
-						index + 1
-					}/${ workerCount } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+					`PHP worker ${ index + 1 } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 				);
 				killAllLivePhpProcesses();
 				process.exit( code ?? 1 );
 			} );
+			return serverChild;
+		};
+
+		for ( const [ index, workerPort ] of workerPorts.entries() ) {
+			spawnedChildren.push( await spawnWorker( index, workerPort, stopSignal ) );
 		}
 
 		stopSignal?.throwIfAborted();
@@ -766,6 +872,21 @@ async function doStartServer(
 		proxyServer = await startPhpProxyServer( config, stopSignal );
 		phpProxyServer = proxyServer;
 		phpWorkerProcesses = spawnedChildren;
+		startTemporaryWorker = async () => {
+			const [ port ] = await getAvailablePorts( 1 );
+			const child = await spawnWorker( workerCount, port );
+			// Listed before it is ready, so stopping the site stops it too.
+			phpWorkerProcesses.push( child );
+			try {
+				await waitForServerReady( `http://127.0.0.1:${ port }/` );
+			} catch ( error ) {
+				phpWorkerProcesses = phpWorkerProcesses.filter( ( worker ) => worker !== child );
+				child.removeAllListeners( 'exit' );
+				child.kill( 'SIGKILL' );
+				throw error;
+			}
+			return { child, port };
+		};
 
 		stopSignal?.throwIfAborted();
 		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
@@ -792,9 +913,7 @@ async function doStartServer(
 				child.kill( 'SIGKILL' );
 			}
 		}
-		phpWorkerPorts = [];
-		phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
-		wakeIdleWorkerWaiters();
+		resetPhpWorkerPool();
 		phpWorkerProcesses = [];
 		await stopSymlinkWatcher();
 
@@ -977,9 +1096,7 @@ function killPhpProcess(): void {
 
 	phpProcess = null;
 	phpWorkerProcesses = [];
-	phpWorkerPorts = [];
-	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
-	wakeIdleWorkerWaiters();
+	resetPhpWorkerPool();
 }
 
 function shutdownOnSignal( signal: NodeJS.Signals ): void {

@@ -1,4 +1,5 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -22,7 +23,9 @@ function siteBusyError( requested: SiteOperationKind, blockedBy: SiteOperationKi
 			),
 			getSiteOperationNoun( requested ),
 			getSiteOperationNoun( blockedBy )
-		)
+		),
+		undefined,
+		SITE_BUSY_ERROR_CODE
 	);
 }
 

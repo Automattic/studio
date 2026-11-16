@@ -3,6 +3,7 @@ import os from 'os';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
@@ -102,9 +103,9 @@ describe( 'withSiteOperation', () => {
 
 	it( 'refuses an operation while another holds the site', async () => {
 		await withSiteOperation( site.path, 'delete', async () => {
-			await expect( withSiteOperation( site.path, 'stop', async () => undefined ) ).rejects.toThrow(
-				/already in progress/
-			);
+			const refused = withSiteOperation( site.path, 'stop', async () => undefined );
+			await expect( refused ).rejects.toThrow( /already in progress/ );
+			await expect( refused ).rejects.toMatchObject( { code: SITE_BUSY_ERROR_CODE } );
 		} );
 	} );
 

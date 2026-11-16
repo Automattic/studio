@@ -54,9 +54,13 @@ export function cliE2ePrerequisitesMet(): boolean {
 
 /**
  * Creates an isolated config + sites directory for a single CLI run. `basePort` sets where the
- * CLI starts looking for free site ports (STUDIO_BASE_PORT).
+ * CLI starts looking for free site ports (STUDIO_BASE_PORT). `ownServerFiles` starts from an empty
+ * `server-files`, like a new install, instead of sharing the real one.
  */
-export function setupCliEnv( { basePort }: { basePort?: number } = {} ): CliEnv {
+export function setupCliEnv( {
+	basePort,
+	ownServerFiles = false,
+}: { basePort?: number; ownServerFiles?: boolean } = {} ): CliEnv {
 	const root = path.join( os.tmpdir(), `studio-cli-e2e-${ randomUUID() }` );
 	const configDir = path.join( root, 'config' );
 	const sitesDir = path.join( root, 'sites' );
@@ -72,7 +76,11 @@ export function setupCliEnv( { basePort }: { basePort?: number } = {} ): CliEnv 
 
 	// Reuse the real bundled WordPress without copying hundreds of MB. The copy
 	// the CLI performs only reads from here, so the symlink is never written to.
-	fs.symlinkSync( REAL_SERVER_FILES, path.join( configDir, 'server-files' ), 'junction' );
+	if ( ownServerFiles ) {
+		fs.mkdirSync( path.join( configDir, 'server-files' ) );
+	} else {
+		fs.symlinkSync( REAL_SERVER_FILES, path.join( configDir, 'server-files' ), 'junction' );
+	}
 	fs.mkdirSync( REAL_PHP_BIN, { recursive: true } );
 	fs.symlinkSync( REAL_PHP_BIN, path.join( configDir, 'php-bin' ), 'junction' );
 

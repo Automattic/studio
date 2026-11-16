@@ -4,6 +4,7 @@ import fs from 'fs-extra';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { WP_LOCALES } from '../packages/common/lib/wp-locales.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
+import { listFiles, zipFiles } from './lib/zip-files.ts';
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
 
@@ -97,9 +98,33 @@ async function removePoAndMoFiles( dirPath: string ): Promise< void > {
 	}
 }
 
+// Matches `{locale}.l10n.php`, `{domain}-{locale}.l10n.php` and `{locale}-{hash}.json`.
+function isLocaleFile( file: string, wpLocale: string ): boolean {
+	const name = path.basename( file );
+	return (
+		name === `${ wpLocale }.l10n.php` ||
+		name.endsWith( `-${ wpLocale }.l10n.php` ) ||
+		( name.startsWith( `${ wpLocale }-` ) && name.endsWith( '.json' ) )
+	);
+}
+
+// The CLI unpacks `{locale}.zip` into a new site's `wp-content/languages`, so each zip holds the
+// core files at its root and the plugin and theme files under `plugins/` and `themes/`.
+async function zipLanguagePacks( downloadedPath: string, zipsPath: string ): Promise< void > {
+	const files = listFiles( downloadedPath );
+	await fs.emptyDir( zipsPath );
+	for ( const wpLocale of WP_LOCALES ) {
+		const localeFiles = files.filter( ( file ) => isLocaleFile( file, wpLocale ) );
+		if ( localeFiles.length > 0 ) {
+			await zipFiles( path.join( zipsPath, `${ wpLocale }.zip` ), downloadedPath, localeFiles );
+		}
+	}
+}
+
 async function downloadLanguagePacks(): Promise< void > {
-	const languagesPath = path.join( WP_SERVER_FILES_PATH, 'latest', 'languages' );
+	const languagesPath = path.join( os.tmpdir(), 'studio-language-packs' );
 	const wpContentPath = path.join( WP_SERVER_FILES_PATH, 'latest', 'wordpress', 'wp-content' );
+	await fs.emptyDir( languagesPath );
 
 	// Core translations
 	await downloadTranslationsFromApi(
@@ -132,6 +157,9 @@ async function downloadLanguagePacks(): Promise< void > {
 
 	// Remove .po and .mo files — WordPress 6.5+ uses .l10n.php and .json files.
 	await removePoAndMoFiles( languagesPath );
+
+	await zipLanguagePacks( languagesPath, path.join( WP_SERVER_FILES_PATH, 'latest', 'languages' ) );
+	await fs.remove( languagesPath );
 }
 
 downloadLanguagePacks()

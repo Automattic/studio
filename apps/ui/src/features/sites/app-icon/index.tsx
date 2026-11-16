@@ -17,6 +17,7 @@ import gemini from './assets/gemini.png';
 import ghostty from './assets/ghostty.png';
 import github from './assets/github.png';
 import grok from './assets/grok.svg';
+import librewolf from './assets/librewolf.png';
 import opera from './assets/opera.png';
 import phpmyadmin from './assets/phpmyadmin.png';
 import safari from './assets/safari.png';
@@ -50,6 +51,7 @@ const icons: Record< string, string > = {
 	github,
 	'github-copilot': copilot,
 	'grok-build': grok,
+	librewolf,
 	openai: chatgpt,
 	opera,
 	phpmyadmin,

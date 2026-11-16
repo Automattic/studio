@@ -1,9 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { __, sprintf } from '@wordpress/i18n';
 import {
-	getBundledSimplyStaticPath,
+	getBundledSimplyStaticZipPath,
 	getBundledStaticExportScriptPath,
 } from 'cli/lib/dependency-management/paths';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -59,9 +60,8 @@ export async function exportStaticSite( {
 
 	try {
 		await snapshotDatabase( site.path, path.join( stagingDir, DATABASE_FILE ) );
-		await fs.promises.cp( getBundledSimplyStaticPath(), path.join( stagingDir, 'simply-static' ), {
-			recursive: true,
-		} );
+		// The zip holds a single `simply-static/` folder.
+		await extractZip( getBundledSimplyStaticZipPath(), stagingDir );
 		await fs.promises.copyFile(
 			getBundledStaticExportScriptPath(),
 			path.join( stagingDir, 'static-export.php' )

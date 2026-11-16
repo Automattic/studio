@@ -3,15 +3,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { Readable } from 'node:stream';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
+import { writeZip } from 'cli/tests/zip-fixture';
 import { exportStaticSite } from '../static-export';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 const bundle = vi.hoisted( () => ( { dir: '' } ) );
 
 vi.mock( 'cli/lib/dependency-management/paths', () => ( {
-	getBundledSimplyStaticPath: () => path.join( bundle.dir, 'simply-static' ),
+	getBundledSimplyStaticZipPath: () => path.join( bundle.dir, 'simply-static.zip' ),
 	getBundledStaticExportScriptPath: () => path.join( bundle.dir, 'static-export.php' ),
 } ) );
 
@@ -28,12 +29,17 @@ function tempDir(): string {
 	return dir;
 }
 
-function createSite(): SiteData {
-	bundle.dir = tempDir();
-	fs.mkdirSync( path.join( bundle.dir, 'simply-static' ) );
-	fs.writeFileSync( path.join( bundle.dir, 'simply-static', 'simply-static.php' ), '<?php' );
+beforeAll( async () => {
+	bundle.dir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-static-export-bundle-' ) );
+	await writeZip( path.join( bundle.dir, 'simply-static.zip' ), {
+		'simply-static/simply-static.php': '<?php',
+	} );
 	fs.writeFileSync( path.join( bundle.dir, 'static-export.php' ), '<?php' );
+} );
 
+afterAll( () => fs.rmSync( bundle.dir, { recursive: true, force: true } ) );
+
+function createSite(): SiteData {
 	const sitePath = tempDir();
 	fs.mkdirSync( path.join( sitePath, 'wp-content', 'database' ), { recursive: true } );
 	const database = new DatabaseSync(

@@ -182,6 +182,12 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
+// An unsigned sideload AppX can't be installed without developer mode.
+if ( ! signWindows ) {
+	console.log( '~~~ SIGN_WINDOWS_BUILD is not set, skipping the sideload .appx.' );
+	process.exit( 0 );
+}
+
 // Create signed AppX (used for local testing via sideloading)
 const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
 console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
@@ -196,11 +202,6 @@ await convertToWindowsStore( {
 	devCert: 'nil',
 	outputDirectory: appxOutputPathSigned,
 } );
-
-if ( ! signWindows ) {
-	console.log( '~~~ SIGN_WINDOWS_BUILD is not set, leaving the sideload .appx unsigned.' );
-	process.exit( 0 );
-}
 
 console.log( '~~~ Signing sideload .appx with Azure Trusted Signing...' );
 const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) =>

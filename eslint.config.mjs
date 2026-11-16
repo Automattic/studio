@@ -448,6 +448,7 @@ export default defineConfig(
 											'openai',
 											'gemini',
 											'github-copilot',
+											'meta',
 											'xai',
 											'spacefast',
 									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )

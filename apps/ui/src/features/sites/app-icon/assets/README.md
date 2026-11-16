@@ -43,3 +43,6 @@ Opera, Vivaldi, and Firefox Developer Edition use the artwork from
 [official logo](https://duckduckgo.com/assets/logo_header.v109.svg).
 The SVGs were converted to 64-pixel PNGs with `sips`. Dia was exported from its
 macOS application bundle icon on November 1, 2026, at 64 pixels.
+
+LibreWolf was exported from the [official macOS application bundle](https://librewolf.net/installation/macos/)
+with `sips` at 64 pixels.

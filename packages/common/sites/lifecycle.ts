@@ -11,6 +11,7 @@ import {
 } from '@studio/common/lib/cli-process';
 import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
+import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 
 // Start / stop / delete a local site via the Studio CLI's one-shot `site`
 // commands, for the desktop main process and the `studio ui` server alike.
@@ -75,7 +76,10 @@ export async function startSite(
 			{ [ SITE_START_REQUESTED_AT_ENV ]: String( requestedAt ) }
 		);
 	} catch ( error ) {
-		const lastErrorMessage = ( error as { lastErrorMessage?: string } ).lastErrorMessage;
+		const { lastErrorMessage, lastErrorCode } = error as Partial< CliCommandError >;
+		if ( lastErrorMessage && lastErrorCode === SITE_BUSY_ERROR_CODE ) {
+			throw new SiteStartRefusedError( lastErrorMessage );
+		}
 		if ( lastErrorMessage?.includes( 'CAPACITY_LIMIT_REACHED' ) ) {
 			throw new SiteStartRefusedError(
 				__(

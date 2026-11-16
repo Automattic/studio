@@ -10,7 +10,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import cliPackageJson from '../../../package.json';
 import {
 	cleanupCliEnv,
@@ -235,6 +235,45 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 				expect( result.code, result.stderr ).toBe( 0 );
 				expect( result.stderr ).not.toContain( 'could not be started again' );
 			}
+
+			await expectRestartedByThisCli( oldPid );
+		}
+	);
+
+	it(
+		'waits for the restart when a site is started while it restarts',
+		{ tags: [ 'e2e' ], timeout: 300_000 },
+		async () => {
+			await runCli( [ 'site', 'stop', '--all' ], getEnv() );
+			await runPreviousCli( [
+				'site',
+				'start',
+				'--path',
+				runningSite,
+				'--skip-browser',
+				'--skip-log-details',
+			] );
+			const oldPid = await onlinePid( runningSite );
+
+			// Like the Desktop app starting its sites at launch, after another command replaced the daemon.
+			const list = runCli( [ 'site', 'list', '--format', 'json' ], getEnv() );
+			await vi.waitFor(
+				() => {
+					const site = readCliConfig( getEnv() ).sites.find(
+						( item ) => item.path === runningSite
+					);
+					expect( site?.operation ).toMatchObject( { kind: 'start' } );
+				},
+				{ timeout: 60_000, interval: 50 }
+			);
+			const start = await runCli(
+				[ 'site', 'start', '--path', runningSite, '--skip-browser', '--skip-log-details' ],
+				getEnv()
+			);
+			expect( start.code, start.stderr ).toBe( 0 );
+			const listResult = await list;
+			expect( listResult.code, listResult.stderr ).toBe( 0 );
+			expect( listResult.stderr ).not.toContain( 'could not be started again' );
 
 			await expectRestartedByThisCli( oldPid );
 		}

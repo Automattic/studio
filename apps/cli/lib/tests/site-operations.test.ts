@@ -108,6 +108,16 @@ describe( 'withSiteOperation', () => {
 		} );
 	} );
 
+	it( "waits for another process's start instead of refusing a start", async () => {
+		writeSites( [ { ...site, operation: { pid: process.ppid, kind: 'start' } } ] );
+		setTimeout( () => writeSites( [ site ] ), 300 );
+
+		const result = await withSiteOperation( site.path, 'start', async () => 'started' );
+
+		expect( result ).toBe( 'started' );
+		expect( await storedOperation() ).toBeUndefined();
+	} );
+
 	it( 'names both operations in the error so the agent can act on it', async () => {
 		await withSiteOperation( site.path, 'settings', async () => {
 			await expect(

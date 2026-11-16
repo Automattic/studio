@@ -4,6 +4,22 @@ The backbone of every WordPress site is the PHP code that runs on the server. PH
 
 WordPress Studio runs every site on native PHP binaries. Native PHP runs the code with few abstractions around the system, so sites are fast and behave like they would on a typical PHP server. WordPress Studio supports PHP 8.2, 8.3, 8.4, and 8.5.
 
+## PHP extensions
+
+WordPress Studio’s PHP comes with the extensions most WordPress sites and plugins need, including APCu, BCMath, cURL, Exif, GD, igbinary, Intl, mbstring, MySQLi, OPcache, PDO MySQL and PDO SQLite, Redis, SOAP, Sockets, Sodium, SSH2, XSL, YAML, and Zip. On macOS and Linux, it also includes the Imagick extension, so WordPress can use ImageMagick to resize and convert images. [Xdebug](https://wordpress.studio/docs/xdebug/) is included and loads only on the site where you turn it on.
+
+To check which extensions a site has, run `studio wp eval 'print_r( get_loaded_extensions() );'` from the site’s directory.
+
+## PHP workers
+
+Each site runs several PHP workers, and each worker serves one request at a time. By default, a site has 4 workers, so it can serve up to 4 requests at once. If a site serves many requests in parallel, for example from REST API clients, AI agents, or background tasks, you can give it more workers with the [WordPress Studio CLI](https://wordpress.studio/docs/cli/), from the site’s directory:
+
+```
+studio config set --php-workers 8
+```
+
+The number can be from 1 to 64. WordPress Studio restarts the site if it’s running. More workers don’t make a single request faster, and each one is another PHP process that uses more memory. To see the current number, run `studio config get php-workers`.
+
 ## [What happened to the Sandbox runtime?](#0-what-happened-to-the-sandbox-runtime-)
 
 Earlier versions of WordPress Studio offered a second runtime, **Sandbox**, which ran sites on [WordPress Playground](https://wordpress.org/playground/) WebAssembly binaries. WordPress Studio 1.24.0 removed the Sandbox runtime and removed the PHP runtime setting from the create site form and site settings.

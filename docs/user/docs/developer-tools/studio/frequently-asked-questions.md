@@ -56,6 +56,8 @@ If you have already created a site in WordPress Studio, and want to switch SQLit
 7.  Start the WordPress Studio’s site.
 8.  Open the site.
 
+WordPress Studio’s built-in phpMyAdmin supports SQLite only, so the site menu’s **Tools → Database** and **Open in → phpMyAdmin** are unavailable for a site that uses your own MySQL server. Use a separate database client, such as the one that comes with your MySQL server.
+
 ### [How do I select the PHP and WordPress versions for my site?](#15-how-do-i-change-the-php-version-used-for-my-site-) 
 
 Choose them when you create the site, on the form where you name it. To change them later, choose **Settings** from the site menu: the **WordPress version** is on the **Settings** page, and the **PHP version** on the **PHP** page. Click **Save** at the top of the dialog to apply the change. See [Edit a site](https://wordpress.studio/docs/sites/#edit-a-site).
@@ -153,7 +155,7 @@ You can talk with WordPress Studio Code in any language you prefer.
 
 ### [Can I use WordPress Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
-Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → Providers** in the desktop app, or use `/connect anthropic` in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
+Yes, with another AI provider, such as your own Anthropic API key. Connect **Anthropic**, **OpenAI**, **Google Gemini**, **GitHub Copilot**, or **Meta** in **Settings → Providers** in the desktop app, or use `/connect` in the terminal. Usage is billed through that provider or plan. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
 
 To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://wordpress.studio/docs/#connect-to-wordpresscom). Some features, such as [image generation](https://wordpress.studio/docs/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 

@@ -22,11 +22,15 @@ vi.mock( '@studio/agent/node/front-page-render', () => ( {
 // The theme the site's templates come from, and the themes WordPress.org releases.
 const themes = vi.hoisted( () => ( {
 	active: 'twentytwentyfive',
+	stylesheet: 'twentytwentyfive',
 	released: [ 'twentytwentyfive' ],
 } ) );
 vi.mock( '@studio/agent/node/site-database', () => ( {
 	readWordPressSite: async ( _path: string, read: ( site: unknown ) => unknown ) =>
-		read( { option: ( name: string ) => ( name === 'template' ? themes.active : undefined ) } ),
+		read( {
+			option: ( name: string ) =>
+				( { template: themes.active, stylesheet: themes.stylesheet } )[ name ],
+		} ),
 } ) );
 vi.mock( '@studio/agent/node/themes', () => ( {
 	isUpdatableTheme: async ( _root: string, theme: string ) => themes.released.includes( theme ),
@@ -53,6 +57,7 @@ const problem = async () =>
 
 afterEach( () => {
 	themes.active = 'twentytwentyfive';
+	themes.stylesheet = 'twentytwentyfive';
 } );
 
 // The home page WordPress renders from now on.
@@ -196,4 +201,27 @@ it.each< { name: string; released: string[]; reported: string | undefined } >( [
 	const later = await linksToNowhereChanges.read( site.path, installed, host );
 	const { reports } = await check( { ...first, 'post:2': 'z' }, later );
 	expect( reports[ 0 ]?.problem ).toContain( `the links ${ reported } go nowhere` );
+} );
+
+it.each< { name: string; stylesheet: string; reported: string | undefined } >( [
+	{
+		name: 'keeps the links of the theme a site the session made was made with, while it has it',
+		stylesheet: 'twentytwentyfive',
+		reported: undefined,
+	},
+	{
+		name: 'raises them once the session gives that site a theme of its own, as a child of it',
+		stylesheet: 'cozy-knits',
+		reported:
+			'"Blog", "About", "FAQs", "Authors", "Events", "Shop", "Patterns", "Themes" in the footer template part',
+	},
+] )( '$name', async ( { stylesheet, reported } ) => {
+	serve( header( '' ) + STOCK_FOOTER );
+	const made = await linksToNowhereChanges.read( site.path, undefined, host, true );
+	themes.stylesheet = stylesheet;
+	const later = await linksToNowhereChanges.read( site.path, made, host, true );
+	const { reports } = await check( { ...made, 'post:2': 'z' }, later );
+	expect( reports[ 0 ]?.problem ).toEqual(
+		reported && expect.stringContaining( `the links ${ reported } go nowhere` )
+	);
 } );

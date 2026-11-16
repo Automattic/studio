@@ -75,9 +75,15 @@ export interface SiteChangeSource {
 	rewritesWrite?( file: string ): boolean;
 	/**
 	 * The versions on a site now; the last ones read let a source reuse work.
-	 * `host` is the app the agent runs in, for what Studio knows of the site.
+	 * `host` is the app the agent runs in, for what Studio knows of the site;
+	 * `created` when the session made the site, which had nothing of the user's.
 	 */
-	read( sitePath: string, last: Versions | undefined, host: StudioAgentHost ): Promise< Versions >;
+	read(
+		sitePath: string,
+		last: Versions | undefined,
+		host: StudioAgentHost,
+		created?: boolean
+	): Promise< Versions >;
 	/** The changes from `before` to `after`, and the versions the next call is compared with. */
 	check(
 		site: HostSite,
@@ -130,6 +136,8 @@ export class SiteChanges {
 	private sourceMs: Record< string, number > = {};
 	// Checks run one call's changes at a time: a check that saves would meet another's.
 	private settling: Promise< unknown > = Promise.resolve();
+	// The sites the session made.
+	private readonly made = new Set< string >();
 
 	constructor(
 		private readonly host: StudioAgentHost,
@@ -208,6 +216,11 @@ export class SiteChanges {
 		return this.sources.some( ( source ) => source.rewritesWrite?.( file ) );
 	}
 
+	/** The session made the site at `sitePath`: nothing on it is the user's. */
+	created( sitePath: string ): void {
+		this.made.add( sitePath );
+	}
+
 	/** Studio changed a site outside a call, as a fix or a background write: the next call snapshots. */
 	stale(): void {
 		this.generation++;
@@ -227,7 +240,12 @@ export class SiteChanges {
 						this.snapshots.set(
 							key,
 							await this.timed( `read ${ source.name }`, () =>
-								source.read( site.path, this.snapshots.get( key ), this.host )
+								source.read(
+									site.path,
+									this.snapshots.get( key ),
+									this.host,
+									this.made.has( site.path )
+								)
 							)
 						);
 					} )
@@ -295,7 +313,7 @@ export class SiteChanges {
 			const key = `${ source.name } ${ site.path }`;
 			const before = this.snapshots.get( key );
 			const after = await this.timed( `read ${ source.name }`, () =>
-				source.read( site.path, before, this.host )
+				source.read( site.path, before, this.host, this.made.has( site.path ) )
 			);
 			// A site first seen now has no changes yet.
 			const { reports, next } = before

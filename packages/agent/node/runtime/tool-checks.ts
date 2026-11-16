@@ -308,6 +308,7 @@ export function toToolDefinition(
 					.then( ( site ) => site.path )
 					.catch( () => undefined );
 				if ( created ) {
+					siteChanges.created( created );
 					await renderCheck?.seen( created, { created: true } );
 				}
 			}

@@ -187,3 +187,25 @@ describe( 'SiteChanges.takeSourceMs', () => {
 		expect( changes.takeSourceMs() ).toEqual( {} );
 	} );
 } );
+
+describe( 'SiteChanges.created', () => {
+	it( 'tells each source which sites the session made', async () => {
+		const reads: string[] = [];
+		const changes = new SiteChanges( createFakeHost(), undefined, async () => sites, [
+			{
+				name: 'made',
+				async read( sitePath, _last, _host, created ) {
+					reads.push( `${ sitePath } ${ created }` );
+					return {};
+				},
+				async check() {
+					return { reports: [] };
+				},
+			},
+		] );
+		changes.created( '/b' );
+		await changes.snapshot();
+		await changes.settle();
+		expect( reads ).toEqual( [ '/a false', '/b true', '/a false', '/b true' ] );
+	} );
+} );

@@ -11,7 +11,11 @@
  * When a call changes what the site renders, Studio renders the home page as a
  * visitor gets it (front-page-render.ts) to show which links do, and where: those the site did not
  * have as Studio first saw it, or as a theme WordPress.org releases first
- * rendered it, whose links are the theme's design.
+ * rendered it, whose links are the theme's design. On a site the session
+ * made, the links of the theme it was made with are the session's to replace
+ * once it gives the site a theme of its own: in eval52 an agent made a child
+ * of Twenty Twenty-Five for a new shop and left the parent's footer, eight
+ * links to "#" and "Designed with WordPress", as the shop's.
  */
 import { readRenderedVersions, renderFrontPage } from '@studio/agent/node/front-page-render';
 import { templatePart } from '@studio/agent/node/header-menu';
@@ -130,20 +134,31 @@ const FIRST_SEEN = 'links to nowhere as first seen';
 // then renders are added to those first seen: they are the released theme's,
 // as its patterns ship them, not the session's.
 const THEME = 'theme of the links to nowhere first seen';
+// On a site the session made, the theme it was made with (its stylesheet).
+const MADE_WITH = 'theme the site was made with';
 
 export const linksToNowhereChanges: SiteChangeSource = {
 	name: 'links to nowhere',
-	async read( sitePath, last, host ) {
+	async read( sitePath, last, host, created = false ) {
 		const versions = await readRenderedVersions( sitePath );
-		const theme = String(
-			( await readWordPressSite( sitePath, ( site ) => site.option( 'template' ) ) ) ?? ''
-		);
+		const [ theme, stylesheet ] = (
+			( await readWordPressSite( sitePath, ( site ) => [
+				site.option( 'template' ),
+				site.option( 'stylesheet' ),
+			] ) ) ?? []
+		).map( ( name ) => String( name ?? '' ) );
+		const madeWith = created ? last?.[ MADE_WITH ] ?? stylesheet : undefined;
+		if ( madeWith !== undefined && stylesheet !== madeWith ) {
+			return { ...versions, [ FIRST_SEEN ]: '[]', [ MADE_WITH ]: madeWith, [ THEME ]: theme };
+		}
+		const made: Record< string, string > =
+			madeWith !== undefined ? { [ MADE_WITH ]: madeWith } : {};
 		const seen: SeenLink[] | undefined =
 			last?.[ FIRST_SEEN ] !== undefined ? JSON.parse( last[ FIRST_SEEN ] ) : undefined;
 		const released = async () =>
 			last?.[ THEME ] !== theme && theme !== '' && ( await isUpdatableTheme( sitePath, theme ) );
 		if ( seen && ! ( await released() ) ) {
-			return { ...versions, [ FIRST_SEEN ]: last![ FIRST_SEEN ], [ THEME ]: theme };
+			return { ...versions, ...made, [ FIRST_SEEN ]: last![ FIRST_SEEN ], [ THEME ]: theme };
 		}
 		const site = await host.sites.findByFolder( sitePath );
 		const found = site ? await linksToNowhere( host, site ) : undefined;
@@ -152,6 +167,7 @@ export const linksToNowhereChanges: SiteChangeSource = {
 		);
 		return {
 			...versions,
+			...made,
 			[ FIRST_SEEN ]: JSON.stringify( [ ...( seen ?? [] ), ...added ] ),
 			[ THEME ]: theme,
 		};

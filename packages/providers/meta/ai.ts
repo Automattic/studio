@@ -2,6 +2,7 @@ import { META_MODELS } from '@earendil-works/pi-ai/providers/meta.models';
 import { __ } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
 import { META_AI_MODELS } from './descriptor';
+import { generateMetaImages } from './images';
 import type { MetaConfig } from './config';
 import type { AiConnection, ProviderServices } from '../types';
 
@@ -33,4 +34,5 @@ export const metaAi: NonNullable< ProviderServices< MetaConfig >[ 'ai' ] > = {
 			},
 		};
 	},
+	generateImages: generateMetaImages,
 };

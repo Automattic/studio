@@ -80,12 +80,12 @@ steps:
           bash checkout_release_branch "${RELEASE_VERSION}"
           powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType release -Architecture {{matrix}}
         artifact_paths:
-          - apps\studio\out\**\studio-setup.exe
-          - apps\studio\out\**\studio-update.nupkg
-          - apps\studio\out\**\RELEASES
-          - apps\studio\out\**\*.appx
-          - standalone-bundles\studio-cli-*.tgz
-          - standalone-bundles\studio-cli-*.tgz.sha256
+          - apps/studio/out/**/studio-setup.exe
+          - apps/studio/out/**/studio-update.nupkg
+          - apps/studio/out/**/RELEASES
+          - apps/studio/out/**/*.appx
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         priority: 1
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:

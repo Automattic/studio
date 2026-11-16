@@ -29,6 +29,10 @@ vi.mock( 'cli/lib/native-php/phpmyadmin', () => ( {
 	writeNativePhpMyAdminWpEnv: vi.fn(),
 	getPhpMyAdminSessionPath: vi.fn( () => '/tmp/session' ),
 } ) );
+vi.mock( 'cli/lib/dependency-management/phpmyadmin', () => ( {
+	getPhpMyAdminPath: vi.fn( () => '/tmp/phpmyadmin' ),
+	installBundledPhpMyAdmin: vi.fn( async () => {} ),
+} ) );
 vi.mock( 'cli/lib/native-php/worker-ports', () => ( {
 	getAvailablePorts: vi.fn( async () => [ 9001, 9002, 9003, 9004 ] ),
 } ) );

@@ -136,7 +136,12 @@ export const baseConfig = defineConfig( {
 					cpSync( phpSourceCodePath, resolve( outDir, 'php' ), { recursive: true } );
 				}
 				if ( existsSync( bundledWpFilesPath ) ) {
-					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
+					// WordPress ships as `latest/wordpress.zip`; the extracted copy is for build scripts.
+					const extractedWordPressPath = resolve( bundledWpFilesPath, 'latest', 'wordpress' );
+					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), {
+						recursive: true,
+						filter: ( source ) => source !== extractedWordPressPath,
+					} );
 				}
 				const agentPlugins = resolve( outDir, 'agent-plugins' );
 				for ( const file of AGENT_PLUGIN_FILES ) {

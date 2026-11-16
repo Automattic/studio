@@ -10,7 +10,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import cliPackageJson from '../../../package.json';
 import {
 	cleanupCliEnv,
@@ -63,16 +63,17 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		return online[ 0 ].pid;
 	}
 
+	function siteUrl( sitePath: string, urlPath = '/' ) {
+		const port = readCliConfig( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.port;
+		return `http://localhost:${ port }${ urlPath }`;
+	}
+
 	async function expectRestartedByThisCli( oldPid: number | undefined ) {
 		expect( await daemonRequest( getEnv(), { type: 'ping' } ) ).toEqual( {
 			version: cliPackageJson.version,
 		} );
 		expect( await onlinePid( runningSite ) ).not.toBe( oldPid );
-		const port = readCliConfig( getEnv() ).sites.find( ( site ) => site.path === runningSite )
-			?.port;
-		expect( ( await waitForSiteResponse( `http://localhost:${ port }/` ) ).status ).toBeLessThan(
-			500
-		);
+		expect( ( await waitForSiteResponse( siteUrl( runningSite ) ) ).status ).toBeLessThan( 500 );
 		expect( fs.existsSync( path.join( getEnv().daemonHome, 'sites-to-restart.json' ) ) ).toBe(
 			false
 		);
@@ -80,7 +81,10 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 
 	beforeAll( async () => {
 		previousCli = installPreviousCli().cliMain;
-		env = setupCliEnv( { basePort: 20_000 + Math.floor( Math.random() * 400 ) * 100 } );
+		env = setupCliEnv( {
+			basePort: 20_000 + Math.floor( Math.random() * 400 ) * 100,
+			ownServerFiles: true,
+		} );
 		runningSite = path.join( env.sitesDir, 'upgrade-running' );
 		stoppedSite = path.join( env.sitesDir, 'upgrade-stopped' );
 		for ( const sitePath of [ runningSite, stoppedSite ] ) {
@@ -156,6 +160,54 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 	);
 
 	it(
+		'serves phpMyAdmin and creates sites from the files this CLI ships',
+		{ tags: [ 'e2e' ], timeout: 300_000 },
+		async () => {
+			// The restarted site unpacks this CLI's phpMyAdmin in the background.
+			const phpMyAdmin = await waitForSiteResponse( siteUrl( runningSite, '/phpmyadmin/' ), {
+				expectedStatus: 200,
+				timeoutMs: 60_000,
+			} );
+			expect( phpMyAdmin.status ).toBe( 200 );
+
+			// The previous release may bundle the same WordPress as this CLI: mark its copy as older so
+			// this CLI moves it aside and unpacks its own.
+			const versionsPath = path.join( getEnv().configDir, 'server-files', 'wordpress-versions' );
+			const versionFile = path.join( versionsPath, 'latest', 'wp-includes', 'version.php' );
+			fs.writeFileSync(
+				versionFile,
+				fs
+					.readFileSync( versionFile, 'utf8' )
+					.replace( /\$wp_version = '[^']+'/, "$wp_version = '6.0'" )
+			);
+			// Creating a site with `--wp latest` would download WordPress if the unpack failed.
+			const list = await runCli( [ 'site', 'list' ], getEnv() );
+			expect( list.code, list.stderr ).toBe( 0 );
+			expect( fs.existsSync( path.join( versionsPath, '6.0', 'wp-includes' ) ) ).toBe( true );
+			expect( fs.readFileSync( versionFile, 'utf8' ) ).not.toContain( "$wp_version = '6.0'" );
+
+			const newSite = path.join( getEnv().sitesDir, 'upgrade-new' );
+			const result = await runCli(
+				[
+					'site',
+					'create',
+					'--name',
+					'upgrade-new',
+					'--path',
+					newSite,
+					'--wp',
+					'latest',
+					'--skip-browser',
+					'--skip-log-details',
+				],
+				getEnv()
+			);
+			expect( result.code, result.stderr ).toBe( 0 );
+			expect( ( await waitForSiteResponse( siteUrl( newSite ) ) ).status ).toBeLessThan( 500 );
+		}
+	);
+
+	it(
 		'starts each site once when several commands connect at the same time',
 		{ tags: [ 'e2e' ], timeout: 300_000 },
 		async () => {
@@ -183,6 +235,45 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 				expect( result.code, result.stderr ).toBe( 0 );
 				expect( result.stderr ).not.toContain( 'could not be started again' );
 			}
+
+			await expectRestartedByThisCli( oldPid );
+		}
+	);
+
+	it(
+		'waits for the restart when a site is started while it restarts',
+		{ tags: [ 'e2e' ], timeout: 300_000 },
+		async () => {
+			await runCli( [ 'site', 'stop', '--all' ], getEnv() );
+			await runPreviousCli( [
+				'site',
+				'start',
+				'--path',
+				runningSite,
+				'--skip-browser',
+				'--skip-log-details',
+			] );
+			const oldPid = await onlinePid( runningSite );
+
+			// Like the Desktop app starting its sites at launch, after another command replaced the daemon.
+			const list = runCli( [ 'site', 'list', '--format', 'json' ], getEnv() );
+			await vi.waitFor(
+				() => {
+					const site = readCliConfig( getEnv() ).sites.find(
+						( item ) => item.path === runningSite
+					);
+					expect( site?.operation ).toMatchObject( { kind: 'start' } );
+				},
+				{ timeout: 60_000, interval: 50 }
+			);
+			const start = await runCli(
+				[ 'site', 'start', '--path', runningSite, '--skip-browser', '--skip-log-details' ],
+				getEnv()
+			);
+			expect( start.code, start.stderr ).toBe( 0 );
+			const listResult = await list;
+			expect( listResult.code, listResult.stderr ).toBe( 0 );
+			expect( listResult.stderr ).not.toContain( 'could not be started again' );
 
 			await expectRestartedByThisCli( oldPid );
 		}

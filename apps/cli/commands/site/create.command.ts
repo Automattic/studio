@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import {
+	DEFAULT_SITE_FILE_ACCESS,
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
@@ -54,7 +55,7 @@ export const builder = ( yargs: StudioArgv ) => {
 			type: 'string',
 			describe: __( 'Which files PHP can access: the site directory only, or all files' ),
 			choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ] as const,
-			default: SITE_FILE_ACCESS_SITE_DIRECTORY,
+			default: DEFAULT_SITE_FILE_ACCESS,
 		} )
 		.option( 'domain', {
 			type: 'string',

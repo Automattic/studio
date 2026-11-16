@@ -1,6 +1,6 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { DEFAULT_SITE_FILE_ACCESS } from '@studio/common/lib/site-file-access';
 import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -88,7 +88,7 @@ export async function runCommand(
 		name: options.name,
 		wpVersion: options.wpVersion ?? DEFAULT_WORDPRESS_VERSION,
 		phpVersion: options.phpVersion ?? DEFAULT_PHP_VERSION,
-		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+		fileAccess: DEFAULT_SITE_FILE_ACCESS,
 		customDomain: options.customDomain,
 		enableHttps: options.enableHttps,
 		blueprint: { contents: opened.blueprint, uri: opened.path },

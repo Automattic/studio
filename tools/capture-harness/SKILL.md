@@ -42,7 +42,7 @@ When the request doesn't say how the images will be used, ask once before captur
 
 Say they can give their own instructions instead (a size, more padding, no shadow, another background). Then write a look file for this request next to the output (copy the closest bundled look, change only what they asked, keep the `$schema` line, `SC validate` it) and pass it as `--look <file>`. Don't edit the bundled looks for one request: they are the shared design language, and the docs and every agent use them.
 - Video: `SC record <script> --only <shot> --look marketing --out <dir>`. Steps play at a watchable pace with a drawn pointer. MP4 and WebM need ffmpeg; WebP and GIF don't.
-- Did anything change? `SC check <scripts> --out <images dir> --diff-dir <dir> --json` leaves the images alone and exits 1 when pixels changed.
+- Did anything change? `SC check <scripts> --out <images dir> --diff-dir <dir> --json` leaves the images alone and exits 1 when pixels changed. Add `--min-change <percent>` to report small changes as `minor` and keep those files (the docs screenshots use 1%). Look at each minor diff: recapture it with `--only` when it shows something a reader would notice, such as a label the page quotes or a new control, and leave restyled icons, borders and spacing alone, since every rewritten image grows the repo.
 
 ## Review every image
 

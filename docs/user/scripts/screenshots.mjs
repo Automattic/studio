@@ -9,6 +9,11 @@
  *
  *   npm run screenshots -- [--suite <name,…>] [--only <name,…>] [--check] [--keep-profile]
  *
+ * An image is rewritten only when at least MIN_CHANGE percent of its pixels
+ * changed, so a restyled icon or border doesn't add every image to a pull
+ * request; the run reports the rest as `minor`. Name a shot with `--only` to
+ * write it whatever changed, or pass `--min-change <percent>` yourself.
+ *
  * Other options are passed to `studio-capture capture`; see its README.
  */
 import { spawn, spawnSync } from 'node:child_process';
@@ -23,6 +28,7 @@ const IMAGES_DIR = path.join( ROOT, 'screenshots', 'images' );
 const INDEX_FILE = path.join( IMAGES_DIR, 'index.md' );
 const DOCS_DIR = path.join( ROOT, 'docs', 'developer-tools', 'studio' );
 const SCENE = 'moire';
+const MIN_CHANGE = 1;
 
 // Build the scene's site from its Blueprint once per machine; captures then import the backup.
 if ( ! existsSync( path.resolve( HARNESS, '..', 'scenes', SCENE, '.baked', 'scene.json' ) ) ) {
@@ -111,6 +117,7 @@ function formatIndex( { shots, manual, studioVersion } ) {
 }
 
 const args = process.argv.slice( 2 );
+const chosen = args.some( ( arg ) => /^--(only|min-change)\b/.test( arg ) );
 const child = spawn(
 	process.execPath,
 	[
@@ -121,6 +128,7 @@ const child = spawn(
 		'--out',
 		IMAGES_DIR,
 		'--json',
+		...( chosen ? [] : [ '--min-change', String( MIN_CHANGE ) ] ),
 		...args,
 	],
 	{ stdio: [ 'inherit', 'pipe', 'inherit' ] }

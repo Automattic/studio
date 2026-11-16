@@ -159,3 +159,6 @@ scripts/eval/test-sites/
 
 # Amp orb portals
 .amp/portals/*
+
+# Radical Pipelines worktrees
+.worktrees/

@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useColorScheme } from '@/data/host/use-color-scheme';
-import { SiteSettingsIcon } from '@/lib/icons';
+import { SlidersVerticalIcon } from '@/lib/icons';
 import { easings, envelope, sample, useTimeline, type Keyframe } from './choreography';
 import { Cursor, Tooltip } from './primitives';
 import styles from './style.module.css';
@@ -105,7 +105,7 @@ export function SitesIllustration() {
 							className={ styles.btn }
 							style={ hoverStyle( envelope( t, 770, 440, 2970, 440 ) ) }
 						>
-							<SiteSettingsIcon className={ styles.btnGlyph } />
+							<SlidersVerticalIcon className={ styles.btnGlyph } />
 							<Tooltip style={ tooltipStyle( settingsTip ) }>{ __( 'Site settings' ) }</Tooltip>
 						</div>
 						<div

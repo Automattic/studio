@@ -53,6 +53,19 @@ describe( 'PanelSplitFrame', () => {
 		vi.unstubAllGlobals();
 	} );
 
+	it( 'requests closing the panel on a double-click', () => {
+		const onPanelClose = vi.fn();
+		render( <PanelSplitFrame panelOpen panel={ () => <aside /> } onPanelClose={ onPanelClose } /> );
+		const handle = screen.getByRole( 'separator', { name: 'Resize panel' } );
+
+		fireEvent.mouseDown( handle, { detail: 1 } );
+		fireEvent.mouseUp( document );
+		expect( onPanelClose ).not.toHaveBeenCalled();
+
+		fireEvent.mouseDown( handle, { detail: 2 } );
+		expect( onPanelClose ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	describe( 'closing panel content', () => {
 		beforeEach( () => {
 			vi.useFakeTimers();

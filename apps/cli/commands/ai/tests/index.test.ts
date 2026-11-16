@@ -10,10 +10,11 @@ import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
-import { isAiProviderReady, resolveAiConnection, resolveInitialAiProvider } from 'cli/ai/auth';
+import { resolveAiConnection, resolveInitialAiProvider } from 'cli/ai/auth';
 import { JsonAdapter } from 'cli/ai/output-adapter';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { isProviderConnected } from 'cli/lib/providers';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../index';
@@ -33,11 +34,13 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 vi.mock( 'cli/ai/auth', () => ( {
 	getStudioUserAgent: () => 'WordPressStudio',
 	resolveInitialAiProvider: vi.fn(),
-	isAiProviderReady: vi.fn(),
-	prepareAiProvider: vi.fn(),
 	resolveAiConnection: vi.fn(),
 	resolveImageGenerator: vi.fn(),
 	resolveUnavailableAiProvider: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/providers', () => ( {
+	connectInTerminal: vi.fn(),
+	isProviderConnected: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
 	persistSelectedAiProvider: vi.fn(),
@@ -530,7 +533,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 			provider: 'anthropic',
 			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( false );
+		( isProviderConnected as Mock ).mockResolvedValue( false );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
@@ -554,7 +557,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 			provider: 'anthropic',
 			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( false );
+		( isProviderConnected as Mock ).mockResolvedValue( false );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
@@ -572,7 +575,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 			provider: 'anthropic',
 			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( true );
+		( isProviderConnected as Mock ).mockResolvedValue( true );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 

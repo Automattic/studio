@@ -78,7 +78,6 @@ test.describe( 'Share and publish', () => {
 			.toBe( 'https://sharing-verification.wp.build' );
 
 		await dialog.getByRole( 'tab', { name: 'Publish', exact: true } ).click();
-		await dialog.getByRole( 'button', { name: /^WordPress\.com/ } ).click();
 		await dialog.getByRole( 'button', { name: 'New site…', exact: true } ).click();
 		await expect( dialog ).toBeVisible();
 		const checkoutUrl = () =>
@@ -150,7 +149,6 @@ test.describe( 'Share and publish', () => {
 
 		await page.getByRole( 'button', { name: 'Publish…', exact: true } ).click();
 		const panel = page.getByRole( 'dialog', { name: 'Share and publish', exact: true } );
-		await panel.getByRole( 'button', { name: /^WordPress\.com/ } ).click();
 		await panel.getByRole( 'button', { name: 'New site…', exact: true } ).click();
 		const mainWindow = await session.electronApp.browserWindow( page );
 		await mainWindow.evaluate( ( window, studioSiteId ) => {

@@ -34,6 +34,8 @@ export class E2ESession {
 	sharedConfigPath: string;
 	userDataPath: string;
 	daemonHomePath: string;
+	// The app to launch instead of the packaged build, e.g. a previous release.
+	appPath?: string;
 	private mainProcessLogs: string[] = [];
 	private readonly maxMainProcessLogChunks = 500;
 	private stdoutListener?: ( chunk: Buffer | string ) => void;
@@ -136,6 +138,9 @@ export class E2ESession {
 	}
 
 	async closeApp() {
+		if ( ! this.electronApp ) {
+			return;
+		}
 		console.log( 'Closing app...' );
 		const childProcess = this.electronApp.process();
 
@@ -242,16 +247,16 @@ export class E2ESession {
 		} );
 	}
 
-	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
-		const buildDir = path.join( __dirname, '..', 'out' );
-		const latestBuild = findLatestBuild( buildDir );
-		const appInfo = parseElectronApp( latestBuild );
+	async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
+		const appInfo = parseElectronApp(
+			this.appPath ?? findLatestBuild( path.join( __dirname, '..', 'out' ) )
+		);
 		let executablePath = appInfo.executable;
 
 		if ( appInfo.platform === 'win32' ) {
 			// `parseElectronApp` function obtains the executable path by finding the first executable from
 			// the build folder. We need to ensure that the executable is the Studio app.
-			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
+			executablePath = executablePath.replace( /squirrel\.exe$/i, 'Studio.exe' );
 		}
 
 		// Linux E2E runs as a non-root user inside a Docker container with

@@ -27,7 +27,7 @@
 
 	.indicator {
 		height: 100%;
-		background-color: var( --accent-text );
+		background-color: var( --accent );
 	}
 
 	.thumb {
@@ -36,9 +36,9 @@
 		flex-shrink: 0;
 		width: 16px;
 		height: 16px;
-		border: 1px solid var( --accent-text );
+		border: 1px solid var( --accent );
 		border-radius: var( --radius-full );
-		background-color: var( --accent-text );
+		background-color: var( --accent );
 		outline: none;
 		transition: box-shadow var( --motion-duration-feedback );
 	}

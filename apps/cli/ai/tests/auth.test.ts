@@ -1,21 +1,23 @@
-import { password } from '@inquirer/prompts';
+import { password, select } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
-import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { InvalidCredentialError } from '@studio/providers';
+import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
+import { ConnectError, type ProviderId } from '@studio/providers';
 import { vi } from 'vitest';
 import {
-	isAiProviderReady,
-	prepareAiProvider,
 	resolveAiConnection,
 	resolveImageGenerator,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { connectInTerminal, isProviderConnected } from 'cli/lib/providers';
 import { LoggerError } from 'cli/logger';
 
 vi.mock( '@inquirer/prompts', () => ( {
 	password: vi.fn(),
+	select: vi.fn(),
 } ) );
+
+vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
 	connectProvider: vi.fn(),
@@ -23,22 +25,20 @@ vi.mock( '@studio/common/lib/ai-settings', () => ( {
 } ) );
 
 vi.mock( '@studio/common/lib/provider-config', () => ( {
+	readFreshProviderConfig: vi.fn(),
 	readProviderConfig: vi.fn(),
 } ) );
 
-const anthropicProvider = expect.objectContaining( {
-	descriptor: expect.objectContaining( { id: 'anthropic' } ),
-} );
+const anthropicProvider = expect.objectContaining( { id: 'anthropic' } );
 
-type Configs = {
-	wpcom?: { token: string };
-	anthropic?: { method: 'api-key'; apiKey: string };
-	spacefast?: never;
-};
+type Configs = Partial< Record< ProviderId, object > >;
 
 function storeConfigs( configs: Configs ) {
 	vi.mocked( readProviderConfig ).mockImplementation(
-		async ( provider ) => configs[ provider ] as never
+		async ( provider ) => configs[ provider as keyof Configs ] as never
+	);
+	vi.mocked( readFreshProviderConfig ).mockImplementation(
+		async ( provider ) => configs[ provider.id ] as never
 	);
 }
 
@@ -58,6 +58,7 @@ describe( 'AI auth helpers', () => {
 		vi.stubEnv( 'WPCOM_AI_PROXY_BASE_URL', '' );
 		vi.stubEnv( 'STUDIO_WPCOM_TOKEN', '' );
 		storeConfigs( {} );
+		vi.mocked( select ).mockResolvedValue( 'api-key' );
 	} );
 
 	afterEach( () => {
@@ -86,17 +87,41 @@ describe( 'AI auth helpers', () => {
 	it( 'prompts for the API key when preparing Anthropic without one', async () => {
 		answerPrompt( 'prompted-key' );
 
-		await prepareAiProvider( 'anthropic' );
+		await connectInTerminal( 'anthropic' );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, { apiKey: 'prompted-key' } );
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, 'api-key', {
+			apiKey: 'prompted-key',
+		} );
+	} );
+
+	it( 'asks how to connect, then for the chosen method’s fields', async () => {
+		vi.mocked( select ).mockResolvedValue( 'setup-token' );
+		answerPrompt( 'sk-ant-oat01-token' );
+
+		await connectInTerminal( 'anthropic' );
+
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, 'setup-token', {
+			token: 'sk-ant-oat01-token',
+		} );
+
+		vi.mocked( select ).mockResolvedValue( 'api-key' );
+		answerPrompt( 'sk-proj-key' );
+
+		await connectInTerminal( 'openai' );
+
+		expect( connectProvider ).toHaveBeenLastCalledWith(
+			expect.objectContaining( { id: 'openai' } ),
+			'api-key',
+			{ apiKey: 'sk-proj-key' }
+		);
 	} );
 
 	it( 'shows the provider’s rejection as the prompt’s error', async () => {
-		vi.mocked( connectProvider ).mockRejectedValue( new InvalidCredentialError( 'Rejected key' ) );
+		vi.mocked( connectProvider ).mockRejectedValue( new ConnectError( 'Rejected key' ) );
 		answerPrompt( 'bad-key' );
 
-		await prepareAiProvider( 'anthropic' );
+		await connectInTerminal( 'anthropic' );
 
 		expect( validations.at( -1 ) ).toBe( 'Rejected key' );
 	} );
@@ -105,11 +130,22 @@ describe( 'AI auth helpers', () => {
 		storeConfigs( { anthropic: { method: 'api-key', apiKey: 'saved-key' } } );
 		answerPrompt( 'updated-key' );
 
-		await prepareAiProvider( 'anthropic' );
+		await connectInTerminal( 'anthropic' );
 		expect( password ).not.toHaveBeenCalled();
 
-		await prepareAiProvider( 'anthropic', { force: true } );
-		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, { apiKey: 'updated-key' } );
+		await connectInTerminal( 'anthropic', { force: true } );
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, 'api-key', {
+			apiKey: 'updated-key',
+		} );
+	} );
+
+	it( 'connects WordPress.com by signing in to Studio', async () => {
+		const { runCommand: login } = await import( 'cli/commands/auth/login' );
+
+		await connectInTerminal( 'wpcom' );
+
+		expect( login ).toHaveBeenCalledOnce();
+		expect( connectProvider ).not.toHaveBeenCalled();
 	} );
 
 	it( 'connects to the WordPress.com gateway with the Studio session headers', async () => {
@@ -151,10 +187,10 @@ describe( 'AI auth helpers', () => {
 
 	it( 'reports readiness from the provider config', async () => {
 		storeConfigs( { wpcom: { token: 'wpcom-token' } } );
-		await expect( isAiProviderReady( 'wpcom' ) ).resolves.toBe( true );
+		await expect( isProviderConnected( 'wpcom' ) ).resolves.toBe( true );
 
 		storeConfigs( {} );
-		await expect( isAiProviderReady( 'wpcom' ) ).resolves.toBe( false );
+		await expect( isProviderConnected( 'wpcom' ) ).resolves.toBe( false );
 	} );
 
 	it( 'resolves a fallback provider only for providers that fall back', async () => {
@@ -170,5 +206,26 @@ describe( 'AI auth helpers', () => {
 
 		storeConfigs( { wpcom: { token: 'wpcom-token' } } );
 		await expect( resolveImageGenerator() ).resolves.toEqual( expect.any( Function ) );
+	} );
+
+	it( 'generates images through OpenAI for its chats with an API key, not a ChatGPT plan', async () => {
+		vi.mocked( fetch ).mockImplementation( async () => new Response( '{}', { status: 400 } ) );
+		const generated = async () => {
+			const generate = await resolveImageGenerator( 'openai' );
+			await generate!( [ { prompt: 'A lake' } ] );
+			return String( vi.mocked( fetch ).mock.lastCall![ 0 ] );
+		};
+
+		storeConfigs( {
+			wpcom: { token: 'wpcom-token' },
+			openai: { method: 'api-key', apiKey: 'sk-key' },
+		} );
+		await expect( generated() ).resolves.toBe( 'https://api.openai.com/v1/images/generations' );
+
+		storeConfigs( {
+			wpcom: { token: 'wpcom-token' },
+			openai: { method: 'chatgpt', accessToken: 'access' },
+		} );
+		await expect( generated() ).resolves.toContain( 'public-api.wordpress.com' );
 	} );
 } );

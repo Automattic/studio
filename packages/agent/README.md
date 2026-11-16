@@ -95,7 +95,7 @@ Where guidance goes: the system prompt (`shared/system-prompt.ts`) holds only wh
 
 ### Models
 
-The runtime never picks a provider or reads credentials. The app asks the provider serving the chosen model for a connection (`ai.connect` in `@studio/providers`) and passes it with each turn. Both runtimes stream through `shared/models.ts`, which applies the connection's upstream model name and error rewrite, strips stale screenshots and cleans leaked tool-call markup, whichever provider serves the turn.
+The runtime never picks a provider or reads credentials. The app asks the provider serving the chosen model for a connection (`ai.model` in `@studio/providers/services`) and passes it with each turn. Both runtimes stream through `shared/models.ts`, which applies the connection's upstream model name and error rewrite, strips stale screenshots and cleans leaked tool-call markup, whichever provider serves the turn.
 
 ### In a browser
 

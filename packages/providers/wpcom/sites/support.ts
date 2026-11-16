@@ -1,5 +1,5 @@
 import type { SitesEndpointSite } from './schemas';
-import type { SyncSupport } from '../site';
+import type { SyncSupport } from './site';
 
 const STUDIO_SYNC_FEATURE_NAME = 'studio-sync';
 

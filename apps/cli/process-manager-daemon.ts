@@ -17,6 +17,7 @@ import {
 	daemonEventSchema,
 	DaemonRequest,
 	daemonRequestSchema,
+	SITE_PROCESS_PREFIX,
 } from 'cli/lib/types/process-manager-ipc';
 import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
 
@@ -29,7 +30,6 @@ const STDERR_BUFFER_MAX_LINES = 100;
 const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
 
 // Cap on concurrently running site processes, at roughly 120 MB of memory each.
-const SITE_PROCESS_PREFIX = 'studio-site-';
 const MAX_RUNNING_SITES = 36;
 
 type ManagedProcessBase = {
@@ -154,7 +154,7 @@ export class ProcessManagerDaemon {
 			case 'ping':
 				return {
 					type: 'result',
-					payload: {},
+					payload: { version: __STUDIO_CLI_VERSION__ },
 				};
 			case 'start-process': {
 				const processDesc = await this.startProcess(

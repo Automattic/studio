@@ -55,6 +55,11 @@ export const sharedConfigSchema = z
 		// `anthropicApiKey`), keyed by provider id. Read and written through `./provider-config.ts`,
 		// which checks each against its provider's schema.
 		providerConfigs: z.record( z.string(), z.unknown() ).optional(),
+		// What each provider kept when it rejected its config (its descriptor's `remember`), keyed
+		// by provider id, and the stable id providers' sign-ins name this computer with. Read and
+		// written through `./provider-config.ts`.
+		rememberedSignIns: z.record( z.string(), z.record( z.string(), z.string() ) ).optional(),
+		signInHostId: z.string().optional(),
 		// The remote sites each local site syncs with, for providers other than WordPress.com, keyed
 		// by local site id. Read and written through `./remote-sites.ts`.
 		remoteSites: z

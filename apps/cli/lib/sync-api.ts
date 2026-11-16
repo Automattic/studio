@@ -2,13 +2,13 @@ import fs from 'fs';
 import { Readable } from 'stream';
 import { syncOptionSchema } from '@studio/common/types/sync';
 import { backupLsItemSchema } from '@studio/common/types/sync-tree';
-import { ProviderNotReadyError, RemoteSiteError } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { NotConnectedError, RemoteSiteError } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite, SyncOption, PullSyncOptions } from '@studio/common/types/sync';
 
-export const wpcomSites = getProvider( 'wpcom' ).sites!;
+export const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 
 export function parseSyncOptions( optionsString?: string ): SyncOption[] {
 	if ( ! optionsString ) {
@@ -39,7 +39,7 @@ export function toLoggerError( error: unknown, fallback: string ): LoggerError {
 	if ( error instanceof RemoteSiteError ) {
 		return new LoggerError( error.message, error.cause, error.code );
 	}
-	if ( error instanceof ProviderNotReadyError ) {
+	if ( error instanceof NotConnectedError ) {
 		return new LoggerError( error.message, error, 'auth_required' );
 	}
 	return new LoggerError( fallback, error );

@@ -17,5 +17,10 @@ const corsSafeFetch: typeof fetch = ( input, init ) => {
 export function createStreamFn( ai: AiConnection ): StreamFn {
 	const stream = createConnectionStream( ai );
 	return ( model, context, options ) =>
-		stream( model, context, { ...options, apiKey: ai.apiKey, fetch: corsSafeFetch } );
+		stream( model, context, {
+			...options,
+			apiKey: ai.apiKey,
+			// Google's SDK refuses a custom fetch, and sends no telemetry headers.
+			fetch: model.api === 'google-generative-ai' ? undefined : corsSafeFetch,
+		} );
 }

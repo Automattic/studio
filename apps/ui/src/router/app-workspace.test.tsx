@@ -203,6 +203,7 @@ describe( 'Studio workspace', () => {
 					nativeFolderPicker: true,
 					studioLogs: true,
 					nativeSites: true,
+					loopbackSignIn: true,
 				},
 			},
 		} );
@@ -226,7 +227,7 @@ describe( 'Studio workspace', () => {
 			expect( connector.createSession ).not.toHaveBeenCalled();
 			expect( getSiteAnnotations( 'one' ).notes[ 0 ].comment ).toBe( 'Make this heading larger' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
-			await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+			await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 			expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 1 );
 		} finally {
 			act( () => {
@@ -1332,6 +1333,7 @@ describe( 'Studio workspace', () => {
 					annotatePreview: true,
 					studioLogs: true,
 					nativeSites: true,
+					loopbackSignIn: true,
 				},
 			},
 		} );

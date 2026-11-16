@@ -107,6 +107,12 @@ export function createStaticConnector(): Connector {
 		source: BlueprintSource
 	): Promise< { blueprint: Blueprint; bundle?: BlueprintBundle } > {
 		if ( typeof source === 'object' && ! ( source instanceof File ) ) {
+			if ( 'librarySlug' in source ) {
+				return {
+					blueprint: source.blueprint,
+					bundle: source.bundleUrl ? await loadBlueprintBundle( source.bundleUrl ) : undefined,
+				};
+			}
 			return { blueprint: source };
 		}
 		if ( typeof source === 'string' && /^[\w-]+$/.test( source ) ) {
@@ -145,6 +151,7 @@ export function createStaticConnector(): Connector {
 			annotatePreview: true,
 			studioLogs: false,
 			nativeSites: false,
+			loopbackSignIn: false,
 		},
 
 		agenticRequiresAuth: false,
@@ -430,7 +437,8 @@ export function createStaticConnector(): Connector {
 		},
 
 		getAiSettings: () => agent.getAiSettings(),
-		connectProvider: ( provider, input ) => agent.connectProvider( provider, input ),
+		connectProvider: ( provider, method, input ) =>
+			agent.connectProvider( provider, method, input ),
 		disconnectProvider: ( provider ) => agent.disconnectProvider( provider ),
 		async startProviderConnect() {
 			throw new UnsupportedError( 'startProviderConnect' );

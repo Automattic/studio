@@ -1,3 +1,4 @@
+import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -38,6 +39,45 @@ export function getSnapshotExpiry( snapshot: Snapshot ): number {
 
 export function isSnapshotExpired( snapshot: Snapshot ): boolean {
 	return getSnapshotExpiry( snapshot ) < Date.now();
+}
+
+export function getLatestLinkedPreview(
+	snapshots: Snapshot[],
+	localSiteId: string,
+	liveSiteId: number
+): Snapshot | undefined {
+	return snapshots
+		.filter(
+			( snapshot ) => snapshot.localSiteId === localSiteId && snapshot.liveSiteId === liveSiteId
+		)
+		.reduce< Snapshot | undefined >(
+			( latest, snapshot ) =>
+				! latest || ( snapshot.syncedAt ?? 0 ) > ( latest.syncedAt ?? 0 ) ? snapshot : latest,
+			undefined
+		);
+}
+
+export function getPreviewPublishWarning( snapshot: Snapshot ): string {
+	return sprintf(
+		/* translators: %s: preview name or hostname. */
+		__(
+			'Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.'
+		),
+		snapshot.name || snapshot.url
+	);
+}
+
+// WordPress.com uses its own copy of the default themes, so edits to their files don't reach a preview.
+// The first sentence is what a notice shows on its one line before it's expanded, so keep it short
+// and complete.
+export function getEditedDefaultThemesWarning( themes: string[] ): string {
+	return sprintf(
+		/* translators: %s: theme names, e.g. "Twenty Twenty-Five". Keep the first sentence short: notices show only its first line until expanded. */
+		__(
+			'Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.'
+		),
+		themes.join( ', ' )
+	);
 }
 
 // The account's preview-site count and limit on WordPress.com.

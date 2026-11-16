@@ -122,15 +122,23 @@ export async function prepareSourceImport(
 			LoggerAction.IMPORT_SITE,
 			__( 'Preparing source website with Data Liberation…' )
 		);
-		liberated = await ( options.liberate ?? liberateWebsite )( sourceUrl, captureDir, {
-			onProgress: ( message ) => {
-				const now = Date.now();
-				if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
-					lastProgressAt = now;
-					logger.reportProgress( message );
-				}
-			},
-		} );
+		try {
+			liberated = await ( options.liberate ?? liberateWebsite )( sourceUrl, captureDir, {
+				onProgress: ( message ) => {
+					const now = Date.now();
+					if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
+						lastProgressAt = now;
+						logger.reportProgress( message );
+					}
+				},
+			} );
+		} catch ( error ) {
+			throw new LoggerError(
+				__( 'Data Liberation could not capture the source website' ),
+				error,
+				'capture'
+			);
+		}
 		if ( liberated.partialCapture ) {
 			logger.reportWarning( partialCaptureWarning( liberated.partialCapture ) );
 		}

@@ -16,6 +16,7 @@ import { useSyncActivityEvents } from '@/data/queries/use-sync-site';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { OnboardingGuideProvider } from '@/features/onboarding';
 import { useSyncConnectSiteListener } from '@/features/sync';
+import { ICON_SIZE } from '@/lib/icons';
 import { applyTheme } from '@/lib/theme';
 import { DirectionProvider, TooltipProvider } from '@/lib/ui';
 import type { Connector } from '@/data/core';
@@ -54,7 +55,7 @@ function ThemedApp( { children }: PropsWithChildren ) {
 	);
 	return (
 		<DirectionProvider direction={ isRTL() ? 'rtl' : 'ltr' }>
-			<LucideProvider size={ 16 }>
+			<LucideProvider size={ ICON_SIZE }>
 				<TooltipProvider>
 					<OnboardingGuideProvider>{ children }</OnboardingGuideProvider>
 				</TooltipProvider>

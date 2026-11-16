@@ -34,6 +34,7 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 - Feature education: `FeaturePopover` composes `Popover` with an optional badge, dismiss action, and footer. Use `Navigation` for Next/Skip and step text. The caller owns opening, progression, dismissal, and persistence; the card supports both hover hints and controlled onboarding steps.
 - Status: `Alert`, `Empty`, `Skeleton`, `Spinner`, `Progress`, `Badge`, `NotificationDot`. Attachment labels: `AttachmentChip`, with `font="mono"` for element references. Add `AttachmentChipTrigger` to open a preview, with `AttachmentRemoveButton` as its sibling.
 - Sidebar groups and rows: `SidebarGroup`, `SidebarMenu`, `SidebarMenuButton`.
+- Logos: `LogoTile` frames a brand's logo, an SVG document in its colors, like an app icon `--app-icon-size` wide, or puts an icon on a muted tile when there is none.
 - Image previews: `PreviewFrame` for a 16:10 screenshot. Other image wrappers compose `imageOutline` from the theme recipes: a 1px inset overlay at 12% foreground opacity, following the wrapper's radius. Apply it to a positioned wrapper, rather than the `img`, so the line draws over the pixels. `imagePreviewFrame` adds the shared preview shadow.
 - Also `CodeBlock`, `ResizeHandle`, `MarqueeLabel` (a long label that scrolls on hover), `CommandSheet` (slash commands), `Kbd` and `VisuallyHidden`.
 
@@ -57,6 +58,7 @@ Styles sit in the `ui` cascade layer, so a feature's CSS module overrides them w
 - Button color, background and border feedback use `--motion-duration-feedback`. Hover-only actions appear immediately, without an opacity transition.
 - Menu items, sidebar rows and tabs respond immediately to hover and selection, without color or background transitions.
 - Change a button's fill with `--button-background`, `--button-hover-background` or `--button-hover-color`, not `background-color`.
+- Size a `LogoTile` with `--app-icon-size`, which app icons share, so a fallback tile matches the icon it stands in for.
 - Don't reach into a primitive's parts with `[data-slot]` selectors, set its other custom properties, or raise specificity to beat it.
 
 ## Constraints

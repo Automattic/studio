@@ -3,10 +3,12 @@ import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 
-vi.mock( 'cli/ai/auth', () => ( {
-	getAvailableAiProviders: vi.fn(),
-	isAiProviderReady: vi.fn(),
+vi.mock( 'cli/lib/providers', () => ( { isProviderConnected: vi.fn() } ) );
+vi.mock( '@studio/common/lib/ai-settings', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/ai-settings') >() ),
+	disconnectProvider: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/provider-config', () => ( { readProviderConfig: vi.fn() } ) );
 
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
@@ -42,7 +44,7 @@ function buildModelCtx(
 		currentProvider: 'wpcom',
 		showCapabilitiesOnConnect: false,
 		switchProvider: vi.fn().mockResolvedValue( undefined ),
-		prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+		connect: vi.fn().mockResolvedValue( undefined ),
 		maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
 		persistSessionContext: persistMock,
 		clearSession: vi.fn().mockResolvedValue( undefined ),
@@ -198,7 +200,7 @@ describe( '/credits slash command', () => {
 			currentProvider: 'wpcom' as SlashCommandContext[ 'currentProvider' ],
 			showCapabilitiesOnConnect: false,
 			switchProvider: vi.fn().mockResolvedValue( undefined ),
-			prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+			connect: vi.fn().mockResolvedValue( undefined ),
 			maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
 			persistSessionContext: vi.fn().mockResolvedValue( undefined ),
 			clearSession: vi.fn().mockResolvedValue( undefined ),
@@ -343,5 +345,59 @@ describe( '/credits slash command', () => {
 		expect( m.browser.openBrowser ).not.toHaveBeenCalled();
 		expect( ui.showInfo ).toHaveBeenCalledWith( 'Canceled.' );
 		expect( result ).toBe( 'continue' );
+	} );
+} );
+
+describe( '/connect and /disconnect', () => {
+	const command = ( name: string ) => AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === name )!;
+	function makeCtx() {
+		return {
+			ui: {
+				showInfo: vi.fn(),
+				showError: vi.fn(),
+				showSuccess: vi.fn(),
+				askUser: vi.fn().mockResolvedValue( { 0: 'Anthropic' } ),
+				stop: vi.fn(),
+				start: vi.fn(),
+			} as never,
+			currentModel: 'fast',
+			currentProvider: 'wpcom',
+			showCapabilitiesOnConnect: false,
+			switchProvider: vi.fn(),
+			connect: vi.fn(),
+			maybeAutoSwitchProvider: vi.fn(),
+			persistSessionContext: vi.fn(),
+			clearSession: vi.fn(),
+		} satisfies SlashCommandContext;
+	}
+
+	beforeEach( async () => {
+		const { isProviderConnected } = await import( 'cli/lib/providers' );
+		vi.mocked( isProviderConnected ).mockResolvedValue( true );
+	} );
+
+	it( 'connects the provider named after the command, or the one the user picks', async () => {
+		const ctx = makeCtx();
+
+		await command( 'connect' ).handler!( '/connect openai', ctx );
+		expect( ctx.connect ).toHaveBeenLastCalledWith( 'openai', { force: true } );
+
+		await command( 'connect' ).handler!( '/connect', ctx );
+		expect( ctx.connect ).toHaveBeenLastCalledWith( 'anthropic', { force: true } );
+	} );
+
+	it( 'disconnects a provider, and signs out of Studio for WordPress.com', async () => {
+		const { disconnectProvider } = await import( '@studio/common/lib/ai-settings' );
+		const { runCommand: logout } = await import( 'cli/commands/auth/logout' );
+		const ctx = makeCtx();
+
+		await command( 'disconnect' ).handler!( '/disconnect anthropic', ctx );
+		expect( disconnectProvider ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: 'anthropic' } )
+		);
+
+		await command( 'disconnect' ).handler!( '/disconnect wpcom', ctx );
+		expect( logout ).toHaveBeenCalled();
+		expect( ctx.maybeAutoSwitchProvider ).toHaveBeenCalledTimes( 2 );
 	} );
 } );

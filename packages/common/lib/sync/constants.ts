@@ -1,7 +1,7 @@
-import { getProviderDescriptor } from '@studio/providers';
+import { getProvider } from '@studio/providers';
 import { DEPLOY_IGNORE_DEFAULTS } from '../deploy-ignore-defaults';
 
-export const SYNC_PUSH_SIZE_LIMIT_BYTES = getProviderDescriptor( 'wpcom' ).sites!.maxPushSize!;
+export const SYNC_PUSH_SIZE_LIMIT_BYTES = getProvider( 'wpcom' ).sites!.maxPushSize!;
 export const SYNC_PUSH_SIZE_LIMIT_GB = SYNC_PUSH_SIZE_LIMIT_BYTES / 1024 ** 3;
 
 /**

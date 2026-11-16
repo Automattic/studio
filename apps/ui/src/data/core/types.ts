@@ -54,7 +54,7 @@ import type { DesignFix } from '@studio/design-md';
 import type {
 	AiModelId,
 	AiProviderId,
-	DeviceAuthorization,
+	PendingConnect,
 	ProviderId,
 	ProviderSites,
 	SitesProviderId,
@@ -140,6 +140,7 @@ export interface SiteDetails {
 	operation?: SiteOperation;
 	// The folder the email the site sends is saved in, from the CLI.
 	emailPath?: string;
+	phpMyAdminSupported?: boolean;
 }
 
 export interface LocalMediaFile {
@@ -178,6 +179,9 @@ interface ConnectorCapabilities {
 	// domains, Xdebug, a site's agent files, file access, and a choice of PHP and
 	// WordPress versions. Studio on the web runs them in Playground instead.
 	nativeSites: boolean;
+	// A sign-in on a provider's site runs in the host: a `loopback` one comes back to a local port,
+	// which the page can't listen on, and a `device` one waits on endpoints the page can't reach.
+	loopbackSignIn: boolean;
 }
 
 export interface Connector {
@@ -322,7 +326,8 @@ export interface Connector {
 	publishPreviewSite(
 		siteId: string,
 		existingHostname?: string,
-		name?: string
+		name?: string,
+		liveSite?: string
 	): Promise< { url: string } >;
 	// Deletes one preview site, both on WordPress.com and from the local list.
 	deleteSnapshot( hostname: string ): Promise< void >;
@@ -504,11 +509,16 @@ export interface Connector {
 	// The chat provider and each provider's account. Disconnecting the selected
 	// provider falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
-	// Connects the provider with what the user gave: a form's values, or the device sign-in
-	// `startProviderConnect` started, which resolves once approved. Throws when it fails.
-	connectProvider( provider: ProviderId, input: Record< string, string > ): Promise< AiSettings >;
-	// Starts a device sign-in, for a provider whose connection kind is `device`.
-	startProviderConnect( provider: ProviderId ): Promise< DeviceAuthorization >;
+	// Connects the provider with `method` and what the user gave: a form's values, or the handoff
+	// of the connection `startProviderConnect` started, which resolves once the user signed in on
+	// the provider's site. Throws when it fails.
+	connectProvider(
+		provider: ProviderId,
+		method: string,
+		input: Record< string, string >
+	): Promise< AiSettings >;
+	// Starts connecting with a method that signs in on the provider's site (`loopback` or `device`).
+	startProviderConnect( provider: ProviderId, method: string ): Promise< PendingConnect >;
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
@@ -767,6 +777,7 @@ export interface UserPreferences {
 	// See `docs/design-docs/analytics-tracks.md`.
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
+	defaultHostingProvider?: SitesProviderId | null;
 	studioCliInstalled: boolean;
 	// True when the `studio` command on PATH is a standalone (curl) install the
 	// app never installs over or uninstalls — the settings toggle disables
@@ -832,15 +843,19 @@ export interface CreateSiteParams {
 	// Creates the local shell without starting its server. Connect onboarding
 	// uses this so remote content lands before the first local start.
 	skipStart?: boolean;
-	// The Blueprint to create the site from: a Library slug, a path or URL, a picked
-	// file, or the Blueprint itself. The site's name, domain and versions win over it.
+	// The selected Library Blueprint, a path or URL, a picked file, or the Blueprint
+	// itself. The site's name, domain and versions win over it.
 	blueprint?: BlueprintSource;
 	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
 	// onboarding flows that create a blank site before populating it.
 	flowType?: TracksSiteCreateFlowType;
 }
 
-export type BlueprintSource = string | File | Blueprint;
+export type BlueprintSource =
+	| string
+	| File
+	| Blueprint
+	| { librarySlug: string; blueprint: Blueprint; bundleUrl?: string };
 
 export interface ProposedSitePath {
 	path: string;

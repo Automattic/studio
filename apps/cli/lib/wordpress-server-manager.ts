@@ -317,6 +317,7 @@ export async function startWordPressServer(
 		}
 		return processDesc;
 	} catch ( error ) {
+		const failedAt = Date.now();
 		try {
 			const isParentTimeout =
 				error instanceof Error &&
@@ -333,7 +334,7 @@ export async function startWordPressServer(
 				failure_reason: classifyStartFailure( error ),
 				...( isParentTimeout && stalledPhase ? { stalled_phase: stalledPhase } : {} ),
 				...diagnosis,
-				time_ms: Date.now() - startedAt,
+				time_ms: failedAt - startedAt,
 				...phaseTimings,
 			} );
 		} catch {

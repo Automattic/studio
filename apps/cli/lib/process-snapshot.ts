@@ -129,45 +129,58 @@ export function analyzeProcessSnapshots(
 	};
 }
 
-function readSnapshot(): Promise< SnapshotProcess[] > {
-	const windows = process.platform === 'win32';
+const SAMPLE_MS = 2000;
+// PowerShell alone can take a few seconds to start on Windows, so both snapshots come from one
+// PowerShell process instead of two.
+const WINDOWS_SAMPLE_SCRIPT = `
+$fields = 'ProcessId','ParentProcessId','Name','CommandLine','KernelModeTime','UserModeTime'
+$before = @(Get-CimInstance Win32_Process | Select-Object $fields)
+Start-Sleep -Milliseconds ${ SAMPLE_MS }
+$after = @(Get-CimInstance Win32_Process | Select-Object $fields)
+ConvertTo-Json -Compress -Depth 3 @{ before = $before; after = $after }
+`;
+
+function run( command: string, args: string[], timeout: number ): Promise< string > {
 	return new Promise( ( resolve, reject ) => {
 		execFile(
-			windows ? 'powershell.exe' : 'ps',
-			windows
-				? [
-						'-NoLogo',
-						'-NoProfile',
-						'-NonInteractive',
-						'-Command',
-						'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,CommandLine,KernelModeTime,UserModeTime | ConvertTo-Json -Compress',
-				  ]
-				: [ '-axo', 'pid=,ppid=,time=,command=' ],
-			{ timeout: 1200, killSignal: 'SIGKILL', maxBuffer: 8 * 1024 * 1024, windowsHide: true },
-			( error, stdout ) => {
-				if ( error ) {
-					reject( error );
-					return;
-				}
-				try {
-					resolve( parseProcessSnapshot( stdout, process.platform ) );
-				} catch ( parseError ) {
-					reject( parseError );
-				}
-			}
+			command,
+			args,
+			{ timeout, killSignal: 'SIGKILL', maxBuffer: 16 * 1024 * 1024, windowsHide: true },
+			( error, stdout ) => ( error ? reject( error ) : resolve( stdout ) )
 		);
 	} );
 }
 
-// Two bounded reads plus the sample delay leave room within the five-second diagnosis budget.
+async function readSnapshots(): Promise< [ SnapshotProcess[], SnapshotProcess[] ] > {
+	if ( process.platform === 'win32' ) {
+		const output = await run(
+			'powershell.exe',
+			[ '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', WINDOWS_SAMPLE_SCRIPT ],
+			10_000
+		);
+		const { before, after } = JSON.parse( output.replace( /^\uFEFF/, '' ) );
+		return [
+			parseProcessSnapshot( JSON.stringify( before ), 'win32' ),
+			parseProcessSnapshot( JSON.stringify( after ), 'win32' ),
+		];
+	}
+	const read = async () =>
+		parseProcessSnapshot(
+			await run( 'ps', [ '-axo', 'pid=,ppid=,time=,command=' ], 2_000 ),
+			process.platform
+		);
+	const before = await read();
+	await delay( SAMPLE_MS );
+	return [ before, await read() ];
+}
+
+// Runs only after a start has already timed out, and takes at most about ten seconds.
 export async function collectProcessDiagnosis(
 	rootPid: number,
 	sitePath: string
 ): Promise< ProcessDiagnosis | undefined > {
 	try {
-		const before = await readSnapshot();
-		await delay( 2000 );
-		const after = await readSnapshot();
+		const [ before, after ] = await readSnapshots();
 		return analyzeProcessSnapshots( before, after, rootPid, sitePath, process.platform );
 	} catch {
 		return undefined;

@@ -5,7 +5,7 @@ import {
 	generatePassword,
 } from '@studio/common/lib/passwords';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { getFolderNameError, splitFolderPath } from './folder-path';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
@@ -72,7 +72,7 @@ export function createDefaultFormData(): FormData {
 		isWordPress: false,
 		isPathPending: false,
 		phpVersion: RecommendedPHPVersion,
-		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+		fileAccess: SITE_FILE_ACCESS_ALL_FILES,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
 		customDomain: 'localhost',
 		enableHttps: false,

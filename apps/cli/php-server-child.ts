@@ -58,16 +58,18 @@ import type { ChildProcess } from 'node:child_process';
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
 const FINISH_INSTALL_PATH = path.resolve( import.meta.dirname, 'php', 'finish-install.php' );
 
-// Tracks how many proxied requests each PHP worker is currently handling.
-// Each `php -S` worker processes one request at a time, so a non-zero count
-// means the worker is busy and any additional requests are queued at the TCP
-// layer. The picker uses these counts to prefer idle workers, then to balance
-// the queue depth when all are busy.
+// Tracks how many proxied requests each PHP worker is currently handling. Each `php -S` worker
+// processes one request at a time, so the proxy only hands a worker a request when it is idle.
+// phpMyAdmin is the exception: it is pinned to worker 0, busy or not.
 class PhpWorkerRequestTracker {
 	private readonly counts: number[];
 
 	constructor( size: number ) {
 		this.counts = new Array( size ).fill( 0 );
+	}
+
+	get size(): number {
+		return this.counts.length;
 	}
 
 	get( index: number ): number {
@@ -81,14 +83,12 @@ class PhpWorkerRequestTracker {
 		this.counts[ index ] = Math.max( 0, value );
 	}
 
-	getFirstFreeWorker(): number {
-		let bestIndex = 0;
-		for ( let i = 1; i < this.counts.length; i++ ) {
-			if ( this.counts[ i ] < this.counts[ bestIndex ] ) {
-				bestIndex = i;
-			}
-		}
-		return bestIndex;
+	getIdleWorker(): number {
+		return this.counts.indexOf( 0 );
+	}
+
+	countBusyWorkers(): number {
+		return this.counts.filter( ( count ) => count > 0 ).length;
 	}
 }
 
@@ -97,6 +97,8 @@ let phpWorkerProcesses: ChildProcess[] = [];
 let phpProxyServer: http.Server | null = null;
 let phpWorkerPorts: number[] = [];
 let phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+// Requests waiting in the proxy for a worker to free up.
+let idleWorkerWaiters: Array< () => void > = [];
 let startupAbortController: AbortController | null = null;
 let startingPromise: Promise< void > | null = null;
 // The `start-server` message whose start is running, so its step times reach only that caller.
@@ -159,17 +161,49 @@ export function shouldUsePrimaryWorker( req: http.IncomingMessage ): boolean {
 	return ( req.url ?? '/' ).startsWith( '/phpmyadmin' );
 }
 
-function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: number } {
-	if ( phpWorkerPorts.length === 0 ) {
-		throw new Error( 'No PHP worker ports are available' );
-	}
+// Requests WordPress sends to itself, such as `download_url()` on a file of the same site or
+// the cron spawn. WordPress's HTTP API identifies itself as `WordPress/<version>; <site url>`.
+export function isRequestFromWordPress( req: http.IncomingMessage ): boolean {
+	return ( req.headers[ 'user-agent' ] ?? '' ).startsWith( 'WordPress/' );
+}
 
-	if ( shouldUsePrimaryWorker( req ) ) {
-		return { index: 0, port: phpWorkerPorts[ 0 ] };
-	}
+// How many workers may already be busy for a request to take an idle one. Every request but
+// WordPress's own leaves the last worker free. Otherwise every worker could be busy with a request
+// waiting on its own request back to the site, which no worker would be free to answer, and the
+// site would hang until those requests time out.
+function getBusyWorkerLimit( req: http.IncomingMessage, poolSize: number ): number {
+	return isRequestFromWordPress( req ) ? poolSize : Math.max( 1, poolSize - 1 );
+}
 
-	const bestIndex = phpWorkerRequestTracker.getFirstFreeWorker();
-	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
+function wakeIdleWorkerWaiters(): void {
+	const waiters = idleWorkerWaiters;
+	idleWorkerWaiters = [];
+	waiters.forEach( ( resolve ) => resolve() );
+}
+
+type PickedPhpWorker = { index: number; port: number; tracker: PhpWorkerRequestTracker };
+
+// Resolves with an idle worker, waiting in the proxy until one frees up within the request's limit.
+// The worker is marked busy before this returns, so requests woken together can't pick the same one.
+async function pickPhpWorker( req: http.IncomingMessage ): Promise< PickedPhpWorker > {
+	for (;;) {
+		if ( phpWorkerPorts.length === 0 ) {
+			throw new Error( 'No PHP worker ports are available' );
+		}
+
+		const tracker = phpWorkerRequestTracker;
+		let index = 0;
+		if ( ! shouldUsePrimaryWorker( req ) ) {
+			const hasRoom = tracker.countBusyWorkers() < getBusyWorkerLimit( req, tracker.size );
+			index = hasRoom ? tracker.getIdleWorker() : -1;
+		}
+		if ( index !== -1 ) {
+			tracker.set( index, tracker.get( index ) + 1 );
+			return { index, port: phpWorkerPorts[ index ], tracker };
+		}
+
+		await new Promise< void >( ( resolve ) => idleWorkerWaiters.push( resolve ) );
+	}
 }
 
 export async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< boolean > {
@@ -367,6 +401,7 @@ async function closePhpProxyServer(): Promise< void > {
 	phpProxyServer = null;
 	phpWorkerPorts = [];
 	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+	wakeIdleWorkerWaiters();
 
 	if ( ! proxyServer ) {
 		return;
@@ -391,19 +426,19 @@ async function stopCurrentPhpServer(): Promise< void > {
 	);
 }
 
-function proxyRequestToPhpWorker(
+async function proxyRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
 	staticFileValidators: StaticFileValidators
-): void {
+): Promise< void > {
 	if ( staticFileValidators.answerRevalidation( req, res ) ) {
 		return;
 	}
 
-	let worker: { index: number; port: number };
+	let worker: PickedPhpWorker;
 	try {
-		worker = pickPhpWorker( req );
+		worker = await pickPhpWorker( req );
 	} catch ( error ) {
 		errorToConsole(
 			`Failed to select PHP worker: ${
@@ -415,15 +450,20 @@ function proxyRequestToPhpWorker(
 		return;
 	}
 
-	phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) + 1 );
 	let released = false;
 	const release = () => {
 		if ( released ) {
 			return;
 		}
 		released = true;
-		phpWorkerRequestTracker.set( worker.index, phpWorkerRequestTracker.get( worker.index ) - 1 );
+		worker.tracker.set( worker.index, worker.tracker.get( worker.index ) - 1 );
+		wakeIdleWorkerWaiters();
 	};
+	if ( res.destroyed ) {
+		// The client left while waiting for a worker.
+		release();
+		return;
+	}
 	res.once( 'close', release );
 
 	const headers = { ...req.headers };
@@ -464,9 +504,9 @@ async function startPhpProxyServer(
 	stopSignal?: AbortSignal
 ): Promise< http.Server > {
 	const staticFileValidators = new StaticFileValidators( config.sitePath );
-	const proxyServer = http.createServer( ( req, res ) =>
-		proxyRequestToPhpWorker( config, req, res, staticFileValidators )
-	);
+	const proxyServer = http.createServer( ( req, res ) => {
+		void proxyRequestToPhpWorker( config, req, res, staticFileValidators );
+	} );
 
 	await new Promise< void >( ( resolve, reject ) => {
 		proxyServer.once( 'error', reject );
@@ -754,6 +794,7 @@ async function doStartServer(
 		}
 		phpWorkerPorts = [];
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+		wakeIdleWorkerWaiters();
 		phpWorkerProcesses = [];
 		await stopSymlinkWatcher();
 
@@ -938,6 +979,7 @@ function killPhpProcess(): void {
 	phpWorkerProcesses = [];
 	phpWorkerPorts = [];
 	phpWorkerRequestTracker = new PhpWorkerRequestTracker( 0 );
+	wakeIdleWorkerWaiters();
 }
 
 function shutdownOnSignal( signal: NodeJS.Signals ): void {

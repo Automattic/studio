@@ -29,7 +29,10 @@
 				"commands/**/*.ts",
 				"vite.config.*.ts"
 			],
-			"project": "**/*.ts"
+			"project": "**/*.ts",
+			// Only the bundled pi imports it, to resize images in its Read tool. It stays installed
+			// because it reads its .wasm file from its own folder.
+			"ignoreDependencies": ["@silvia-odwyer/photon-node"]
 		},
 		"apps/ui": {
 			"entry": [

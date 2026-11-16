@@ -234,12 +234,12 @@ steps:
           queue: windows
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
-          - apps\studio\out\**\studio-setup.exe
-          - apps\studio\out\**\studio-update.nupkg
-          - apps\studio\out\**\RELEASES
-          - apps\studio\out\**\*.appx
-          - standalone-bundles\studio-cli-*.tgz
-          - standalone-bundles\studio-cli-*.tgz.sha256
+          - apps/studio/out/**/studio-setup.exe
+          - apps/studio/out/**/studio-update.nupkg
+          - apps/studio/out/**/RELEASES
+          - apps/studio/out/**/*.appx
+          - standalone-bundles/studio-cli-*.tgz
+          - standalone-bundles/studio-cli-*.tgz.sha256
         plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
         matrix:
           - x64

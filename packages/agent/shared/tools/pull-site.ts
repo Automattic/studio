@@ -1,3 +1,4 @@
+import { withRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { getProvider, getProviderSites, parseRemoteSite } from '@studio/providers';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
@@ -40,7 +41,10 @@ export const pullSiteTool = defineTool(
 			);
 			return textResult(
 				remoteSite
-					? `Pulled ${ remoteSite.name } (${ remoteSite.url }) into "${ site.name }".`
+					? withRemoteEnvironment(
+							`Pulled ${ remoteSite.name } (${ remoteSite.url }) into "${ site.name }".`,
+							remoteSite
+					  )
 					: 'Pull cancelled.'
 			);
 		} catch ( error ) {

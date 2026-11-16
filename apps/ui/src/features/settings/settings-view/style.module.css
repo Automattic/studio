@@ -12,7 +12,10 @@
 }
 
 .settingsGroup {
+	--muted: inherit;
 	--surface: color-mix( in oklab, var( --muted ) 60%, var( --chrome ) );
+	--settings-row-icon-size: 32px;
+	--settings-row-icon-gap: var( --space-2 );
 }
 
 .instructionsHeader {
@@ -36,11 +39,15 @@
 	text-wrap: pretty;
 }
 
+:global( [data-settings-match] ) .rowDescription:not( [data-error] ) {
+	color: var( --accent-text );
+}
+
 .rowLead {
 	display: flex;
 	flex: 1 1 auto;
 	align-items: flex-start;
-	gap: var( --space-2 );
+	gap: var( --settings-row-icon-gap, var( --space-2 ) );
 	min-width: 0;
 }
 
@@ -51,7 +58,7 @@
 }
 
 .rowIcon {
-	--app-icon-size: 32px;
+	--app-icon-size: var( --settings-row-icon-size, 32px );
 
 	display: flex;
 	flex-shrink: 0;
@@ -59,6 +66,16 @@
 	justify-content: center;
 	width: var( --app-icon-size );
 	height: var( --app-icon-size );
+}
+
+.providerSelectIcon {
+	--app-icon-size: var( --space-5 );
+
+	display: inline-grid;
+	flex: none;
+	width: var( --app-icon-size );
+	height: var( --app-icon-size );
+	place-items: center;
 }
 
 .rowTitle {
@@ -87,6 +104,14 @@
 	display: flex;
 	align-items: center;
 	gap: var( --space-2 ) var( --space-1 );
+}
+
+.externalConnect {
+	column-gap: var( --space-0_5 );
+}
+
+.providerFormToggle[aria-expanded='true'] > svg {
+	transform: rotate( 180deg );
 }
 
 .settingsRow[data-orientation='vertical'] > .settingsControl {
@@ -308,7 +333,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-4 );
-	padding-inline-start: calc( 32px + var( --space-2 ) );
+	padding-inline-start: calc( var( --settings-row-icon-size ) + var( --settings-row-icon-gap ) );
 }
 
 .connectForm + [data-settings-row] {

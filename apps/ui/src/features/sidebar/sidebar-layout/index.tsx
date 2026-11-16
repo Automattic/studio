@@ -45,15 +45,15 @@ function SidebarContents( {
 	scrollRef: RefCallback< HTMLDivElement >;
 } ) {
 	return (
-		<>
-			<div ref={ scrollRef } className={ styles.sidebarScroll }>
-				<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
-			</div>
+		<div ref={ scrollRef } className={ styles.sidebarScroll }>
+			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
 			<div className={ styles.sidebarFooter }>
-				{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
-				<UserMenu />
+				<div className={ styles.sidebarFooterControls }>
+					{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
+					<UserMenu />
+				</div>
 			</div>
-		</>
+		</div>
 	);
 }
 
@@ -84,6 +84,7 @@ export function SidebarLayout( {
 	const setDockedFade = useScrollFade< HTMLDivElement >();
 	const setFlyoutFade = useScrollFade< HTMLElement >();
 	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
+	const dockScrollTop = useRef( 0 );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;
 		if ( dockedSidebarRef.current ) {
@@ -104,6 +105,7 @@ export function SidebarLayout( {
 	const restoreSidebarFlyoutFocus = useRef( false );
 	const restoreSidebarDialogFocus = useRef( false );
 	const sidebarFlyoutRef = useRef< HTMLElement >( null );
+	const workspaceRef = useRef< HTMLElement >( null );
 	const sidebarFlyoutAnchor = useRef< HTMLDivElement >( null );
 	const hoverTimer = useRef< ReturnType< typeof setTimeout > | undefined >( undefined );
 	const clearHoverTimer = useCallback( () => clearTimeout( hoverTimer.current ), [] );
@@ -153,7 +155,10 @@ export function SidebarLayout( {
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
 	useLayoutEffect( () => {
-		if ( docked && dockedSidebarScrollRef.current ) dockedSidebarScrollRef.current.scrollTop = 0;
+		if ( docked && dockedSidebarScrollRef.current ) {
+			dockedSidebarScrollRef.current.scrollTop = dockScrollTop.current;
+			dockScrollTop.current = 0;
+		}
 		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
 	}, [ docked, sidebarFlyoutVisible ] );
 	const hoverEnter = useCallback( () => {
@@ -175,6 +180,7 @@ export function SidebarLayout( {
 	}, [ clearHoverTimer, peek ] );
 	const toggleSidebar = useCallback( () => {
 		if ( hasOpenDialog ) return;
+		if ( peek && ! overlay ) dockScrollTop.current = sidebarFlyoutRef.current?.scrollTop ?? 0;
 		setInstantSidebarDock( peek && ! overlay );
 		hoverBlockedUntil.current = performance.now() + HOVER_CLOSE_DELAY_MS;
 		clearHoverTimer();
@@ -249,11 +255,12 @@ export function SidebarLayout( {
 										<Popover.Popup
 											// Sidebar items own dialogs that must survive the flyout closing.
 											keepMounted={ hasOpenDialog }
+											container={ workspaceRef }
 											anchor={ sidebarFlyoutAnchor }
 											side="bottom"
 											align="start"
 											sideOffset={ 0 }
-											alignOffset={ 6 }
+											collisionPadding={ 0 }
 											initialFocus={ () =>
 												sidebarFlyoutOpen
 													? sidebarFlyoutRef.current?.querySelector< HTMLElement >(
@@ -306,16 +313,20 @@ export function SidebarLayout( {
 										/>
 									</aside>
 								</div>
-								{ sidebarFlyoutState !== 'closed' ? (
-									<button
-										type="button"
-										className={ styles.sidebarFlyoutBackdrop }
-										aria-label={ __( 'Close sidebar' ) }
-										tabIndex={ -1 }
-										onClick={ closeSidebarFlyout }
-									/>
-								) : null }
-								<main className={ styles.main }>
+								<main
+									ref={ workspaceRef }
+									className={ styles.main }
+									data-sidebar-flyout={ sidebarFlyoutVisible || undefined }
+								>
+									{ sidebarFlyoutState !== 'closed' ? (
+										<button
+											type="button"
+											className={ styles.sidebarFlyoutBackdrop }
+											aria-label={ __( 'Close sidebar' ) }
+											tabIndex={ -1 }
+											onClick={ closeSidebarFlyout }
+										/>
+									) : null }
 									{ docked ? (
 										<ResizeHandle
 											className={ styles.resizeHandle }

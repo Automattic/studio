@@ -122,6 +122,23 @@ describe( 'CLI: studio push', () => {
 		} );
 	} );
 
+	it( 'reports production metadata when the push destination has a wpcomstaging.com address', async () => {
+		const destination = {
+			...remoteSite,
+			url: 'https://example.wpcomstaging.com',
+			isStaging: false,
+			environmentType: 'production',
+		};
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ destination ] );
+		const messages: string[] = [];
+		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
+		await runCommand( site.path, [ 'all' ], String( destination.id ), logger );
+		expect( messages[ messages.length - 1 ] ).toContain( destination.url );
+		expect( messages[ messages.length - 1 ] ).toContain(
+			'Remote environment: {"isStaging":false,"environmentType":"production"}'
+		);
+	} );
+
 	it.each( [ false, true ] )(
 		'records the successful push and retains intent only on launch failure: %s',
 		async ( failed ) => {

@@ -55,6 +55,7 @@
 }
 
 .sourceThumbnail,
+.sourceSiteThumbnail,
 .sourceIcon {
 	flex: none;
 	width: 112px;
@@ -104,6 +105,7 @@
 
 @container ( width < 380px ) {
 	.sourceThumbnail,
+	.sourceSiteThumbnail,
 	.sourceIcon {
 		width: 80px;
 		height: 64px;

@@ -247,7 +247,7 @@ describe( 'Chat composer', () => {
 				fireEvent.keyDown( input, { key: 'Enter' } );
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-				await screen.findByRole( 'option', { name: /^Connect providers/ } );
+				await screen.findByRole( 'option', { name: /^Connect AI providers/ } );
 				expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 				fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
 				fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
@@ -267,8 +267,8 @@ describe( 'Chat composer', () => {
 		const { input, onSend, history } = await setup();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect providers/ } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect AI providers/ } ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );

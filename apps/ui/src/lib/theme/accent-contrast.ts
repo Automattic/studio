@@ -18,8 +18,8 @@ const color = ( rgb: number[] ) => `rgb(${ rgb.join( ' ' ) })`;
 const overrides = [
 	'--accent-fill',
 	'--accent-hover-fill',
-	'--accent-text-fill',
-	'--accent-text-hover-fill',
+	'--accent-subtle-foreground-fill',
+	'--accent-subtle-hover-foreground-fill',
 ] as const;
 
 let context: CanvasRenderingContext2D | null;
@@ -52,16 +52,13 @@ export function applyAccentContrast( root: HTMLElement = document.documentElemen
 		const dark =
 			root.closest( '[data-color-scheme]' )?.getAttribute( 'data-color-scheme' ) === 'dark';
 		const foreground = read( 'var(--accent-foreground)' );
-		const backgrounds = [ 0, 1, 2, 3 ].map( ( index ) => read( `var(--surface-${ index })` ) );
-		backgrounds.push( read( 'var(--accent-subtle)' ), read( 'var(--accent-subtle-hover)' ) );
-		const indicatorBackgrounds = [
-			read( 'var(--surface-4)' ),
-			read( 'color-mix(in oklab, var(--foreground) 8%, var(--surface-4))' ),
+		const subtleBackgrounds = [
+			read( 'var(--accent-subtle)' ),
+			read( 'var(--accent-subtle-hover)' ),
 		];
 		const adjust = ( desired: number[], text: boolean ) => {
 			const passes = ( rgb: number[] ) =>
-				( text ? backgrounds : [ foreground ] ).every( ( bg ) => contrast( rgb, bg ) >= 4.7 ) &&
-				( ! text || indicatorBackgrounds.every( ( bg ) => contrast( rgb, bg ) >= 3.1 ) );
+				( text ? subtleBackgrounds : [ foreground ] ).every( ( bg ) => contrast( rgb, bg ) >= 4.7 );
 			if ( passes( desired ) ) return desired;
 			const hex = `#${ desired
 				.map( ( channel ) => channel.toString( 16 ).padStart( 2, '0' ) )
@@ -80,9 +77,12 @@ export function applyAccentContrast( root: HTMLElement = document.documentElemen
 			}
 			return atLightness( passing );
 		};
-		const colors = [ '--accent', '--accent-hover', '--accent-text', '--accent-text-hover' ].map(
-			( token, index ) => adjust( read( `var(${ token })` ), index >= 2 )
-		);
+		const colors = [
+			'--accent',
+			'--accent-hover',
+			'--accent-text-base',
+			'--accent-text-hover-base',
+		].map( ( token, index ) => adjust( read( `var(${ token })` ), index >= 2 ) );
 		overrides.forEach( ( token, index ) =>
 			root.style.setProperty( token, color( colors[ index ] ) )
 		);

@@ -3,7 +3,6 @@ import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { ChevronDownIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
@@ -19,6 +18,7 @@ import {
 	validateSiteName,
 } from '@/features/sites/site-fields';
 import { useOffline } from '@/lib/hooks';
+import { ChevronDownIcon } from '@/lib/icons';
 import {
 	Alert,
 	AlertDescription,

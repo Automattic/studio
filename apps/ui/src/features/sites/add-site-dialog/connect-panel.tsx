@@ -30,6 +30,7 @@ import {
 import styles from './connect-panel.module.css';
 import {
 	getRemoteSiteName,
+	getRemoteSiteScreenshot,
 	presentRemoteSites,
 	searchRemoteSites,
 	type ConnectSiteGroup,
@@ -97,10 +98,7 @@ function RemoteSiteCard( {
 				onClick={ () => onSelect( site ) }
 			>
 				<PreviewFrame className={ styles.siteThumb }>
-					<PreviewImage
-						src={ `https://s0.wp.com/mshots/v1/${ encodeURIComponent( site.url ) }?w=600&h=400` }
-						alt=""
-					/>
+					<PreviewImage src={ getRemoteSiteScreenshot( site ) } alt="" />
 				</PreviewFrame>
 				<span className={ styles.siteText }>
 					<span className={ styles.siteName }>{ siteName }</span>

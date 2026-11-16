@@ -8,7 +8,7 @@ import { useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { getSnapshotAdminUrl, getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
-import { DuplicateIcon, ExternalLinkIcon, RenameIcon, TrashIcon, WordPressIcon } from '@/lib/icons';
+import { DuplicateIcon, ExternalLinkIcon, PencilIcon, TrashIcon, WordPressIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -210,7 +210,7 @@ export function PreviewSharePanel( {
 					} );
 				} }
 			>
-				<RenameIcon />
+				<PencilIcon />
 				{ __( 'Rename' ) }
 			</Menu.Item>
 			<Menu.Separator />

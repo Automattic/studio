@@ -6,12 +6,14 @@ import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-con
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
 import { createPreviewSite, getLivePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { LoggerError } from 'cli/logger';
+import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
 const mockReportSuccess = vi.fn();
@@ -37,6 +39,10 @@ vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/archive' );
+vi.mock( 'cli/lib/sync-activity' );
+vi.mock( 'cli/lib/edited-default-themes', () => ( {
+	findEditedDefaultThemes: vi.fn().mockResolvedValue( [] ),
+} ) );
 vi.mock( 'cli/lib/site-tracks' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/preview-sites' );
@@ -135,6 +141,37 @@ describe( 'Preview Create Command', () => {
 
 	afterEach( () => {
 		vi.restoreAllMocks();
+	} );
+
+	it( 'warns about an edited default theme, also when the preview is ready', async () => {
+		vi.mocked( findEditedDefaultThemes ).mockResolvedValueOnce( [ 'Twenty Twenty-Five' ] );
+		const logger = new Logger();
+
+		await runCommand( mockFolder, undefined, logger );
+
+		expect( findEditedDefaultThemes ).toHaveBeenCalledWith( mockFolder );
+		expect( logger.reportWarning ).toHaveBeenCalledWith(
+			expect.stringContaining( 'Your changes to Twenty Twenty-Five’s files' )
+		);
+		expect( reportSyncActivity ).toHaveBeenLastCalledWith( 'site-123', {
+			kind: 'success',
+			direction: 'preview',
+			warning: expect.stringContaining( 'Your changes to Twenty Twenty-Five’s files' ),
+		} );
+	} );
+
+	it( 'still creates the preview when the theme check fails', async () => {
+		vi.mocked( findEditedDefaultThemes ).mockRejectedValueOnce( new Error( 'EACCES' ) );
+		const logger = new Logger();
+
+		await runCommand( mockFolder, undefined, logger );
+
+		expect( logger.reportWarning ).not.toHaveBeenCalled();
+		expect( reportSyncActivity ).toHaveBeenLastCalledWith( 'site-123', {
+			kind: 'success',
+			direction: 'preview',
+			warning: undefined,
+		} );
 	} );
 
 	it.each( [

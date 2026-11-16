@@ -10,7 +10,7 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/lib/hooks';
-import { ShareIcon } from '@/lib/icons';
+import { UploadIcon } from '@/lib/icons';
 import { Spinner, Button, EmptyHeader, EmptyMedia, EmptyDescription } from '@/lib/ui';
 import { PreviewSharePanel } from './preview-share-panel';
 import styles from './style.module.css';
@@ -146,7 +146,7 @@ export function SharePanel( {
 		<div className={ styles.content } data-share-previews={ previews.length > 0 || undefined }>
 			<EmptyHeader className={ styles.emptyIntro }>
 				<EmptyMedia className={ styles.emptyIcon }>
-					<ShareIcon width="40" height="40" />
+					<UploadIcon width="40" height="40" />
 				</EmptyMedia>
 				<h2 className={ styles.emptyTitle }>{ __( 'Share a preview' ) }</h2>
 				<EmptyDescription className={ styles.emptyDescription }>{ description }</EmptyDescription>

@@ -30,7 +30,7 @@
 				"vite.config.*.ts"
 			],
 			"project": "**/*.ts",
-			"ignoreDependencies": ["@earendil-works/pi-codemode", "@silvia-odwyer/photon-node"]
+			"ignoreDependencies": ["@silvia-odwyer/photon-node"]
 		},
 		"apps/ui": {
 			"entry": [

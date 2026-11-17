@@ -1323,8 +1323,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await deleteSite( execute, site.path, req.query.deleteFiles !== 'false' );
-			res.status( 204 ).end();
+			res.json( await deleteSite( execute, site.path, req.query.deleteFiles !== 'false' ) );
 		} )
 	);
 

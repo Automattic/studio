@@ -1,5 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { showToast } from '@/data/app-messages';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useDeleteSite } from '@/data/queries/use-sites';
 import { SiteCard } from '@/features/site-card';
@@ -79,8 +80,17 @@ export function DeleteSiteDialog( {
 		const deletedIds: string[] = [];
 		for ( const site of includedSites ) {
 			try {
-				await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
+				const { warnings } = await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
 				deletedIds.push( site.id );
+				for ( const warning of warnings ) {
+					showToast( {
+						intent: 'warning',
+						/* translators: %s: site name. */
+						title: sprintf( __( '%s was removed, but its files are still on disk' ), site.name ),
+						description: warning,
+						durationMs: 0,
+					} );
+				}
 			} catch ( err ) {
 				errors.push( ( err as Error )?.message );
 			}

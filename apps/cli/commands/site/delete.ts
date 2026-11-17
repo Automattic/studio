@@ -205,13 +205,18 @@ export async function runCommand(
 	siteFolder: string,
 	deleteFiles: boolean = true,
 	logger: Logger< LoggerAction > = defaultLogger
-): Promise< void > {
-	await runDeleteCommand( {
+): Promise< { warnings: string[] } > {
+	const result = await runDeleteCommand( {
 		identities: [ siteFolder ],
 		deleteFiles,
 		logger,
 		throwOnFailure: true,
 	} );
+	return { warnings: getWarnings( result ) };
+}
+
+function getWarnings( result: DeleteCommandResult ): string[] {
+	return result.sites.flatMap( ( site ) => site.warnings ?? [] );
 }
 
 export async function runDeleteCommand(
@@ -367,6 +372,8 @@ export async function runDeleteCommand(
 		return finishWithFailures( result, { format, throwOnFailure } );
 	}
 
+	logger.reportResult( { warnings: getWarnings( result ) } );
+
 	if ( format === 'json' ) {
 		console.log( JSON.stringify( result ) );
 	} else if ( resolved.length > 1 ) {
@@ -471,19 +478,25 @@ async function deleteSite(
 			// The site is already out of the config by this point, so a trash failure must not
 			// abort the rest of the delete — otherwise the DELETED event never fires and the UI
 			// keeps showing a site that no longer exists.
+			let trashError: unknown;
 			try {
 				await trash( filePaths );
-				logger.reportSuccess( __( 'Site files moved to trash' ) );
 			} catch ( error ) {
-				// `reportError` with `isFatal: false` leaves the exit code at 0, and the desktop app
-				// only surfaces CLI IPC failures for non-zero exits, so log to stderr as well.
-				console.error( 'Failed to move site files to trash:', error );
-				const failure = new LoggerError(
-					__( 'Failed to move site files to trash. Proceeding anyway…' ),
-					error
+				trashError = error;
+			}
+			// Check the disk too: on Windows, the trash binary can exit 0 without moving everything.
+			const remainingPaths = filePaths.filter( ( filePath ) => fs.existsSync( filePath ) );
+			if ( remainingPaths.length === 0 ) {
+				logger.reportSuccess( __( 'Site files moved to trash' ) );
+			} else {
+				const warning = sprintf(
+					// translators: %s: the folders that are still on disk, separated by commas
+					__( 'The site files could not be moved to trash. Delete them yourself: %s' ),
+					remainingPaths.join( ', ' )
 				);
-				warnings.push( failure.message );
-				logger.reportError( failure, false );
+				console.error( warning, trashError ?? '' );
+				warnings.push( warning );
+				logger.reportError( new LoggerError( warning, trashError ), false );
 			}
 		} else {
 			logger.reportSuccess( __( 'Site files already removed' ) );

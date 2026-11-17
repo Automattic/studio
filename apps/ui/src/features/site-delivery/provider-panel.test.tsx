@@ -215,7 +215,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 	expect( screen.queryByText( 'Like forms, comments, and search' ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 	expect( screen.getByLabelText( 'Local changes' ) ).toBeVisible();
 	expect(
 		within( screen.getByRole( 'group', { name: 'Published site actions' } ) ).queryByRole(
@@ -375,7 +375,11 @@ it.each( [
 	await switchTo( hostname );
 	const row = await screen.findByRole( 'link', { name: `Open ${ hostname }` } );
 	const actions = screen.getByRole( 'group', { name: 'Published site actions' } );
-	expect( within( actions ).getByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+	expect(
+		within( actions ).getByRole( 'button', {
+			name: hostname === 'lente.blog' ? 'Update…' : 'Update',
+		} )
+	).toBeVisible();
 	expect( screen.queryByRole( 'heading', { name: 'Actions' } ) ).not.toBeInTheDocument();
 	fireEvent.contextMenu( row );
 	expect( screen.queryByRole( 'menu', { name: 'Site actions' } ) ).not.toBeInTheDocument();
@@ -437,7 +441,7 @@ it( 'reports a Spacefast creation failure as a notice and briefly marks Publish 
 	expect( notices() ).toHaveLength( 1 );
 	const reopened = await open();
 	await user.click( within( reopened ).getByRole( 'button', { name: 'Publish' } ) );
-	expect( await within( reopened ).findByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+	expect( await within( reopened ).findByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 	expect( reopened ).toHaveAccessibleName( 'Share' );
 	expect( notices() ).toHaveLength( 0 );
 } );
@@ -450,10 +454,9 @@ it( 'reports a failed live push as a notification while keeping the panel open',
 	} );
 	await open();
 	await switchTo( 'lente.space.fast' );
-	const publish = await screen.findByRole( 'button', { name: 'Update…' } );
+	const publish = await screen.findByRole( 'button', { name: 'Update' } );
 	await waitFor( () => expect( publish ).toBeEnabled() );
 	fireEvent.click( publish );
-	await confirmPublish();
 	await waitFor(
 		() =>
 			expect( getVisibleToasts().filter( ( notice ) => notice.intent === 'error' ) ).toMatchObject(
@@ -464,7 +467,7 @@ it( 'reports a failed live push as a notification while keeping the panel open',
 	const panel = screen.getByRole( 'dialog', { name: 'Share' } );
 	expect( panel ).toBeVisible();
 	expect( within( panel ).queryByRole( 'alert' ) ).not.toBeInTheDocument();
-	expect( within( panel ).getByRole( 'button', { name: 'Update…' } ) ).toBeEnabled();
+	expect( within( panel ).getByRole( 'button', { name: 'Update' } ) ).toBeEnabled();
 } );
 it( 'uses preview names consistently in the Share panel and selector', async () => {
 	const unnamed = { ...preview, sequence: 7, date: Date.now() - 1000 };
@@ -694,7 +697,7 @@ it( 'keeps connected destinations separate from previews', async () => {
 	expect( staticSite ).not.toHaveTextContent( 'Not published yet' );
 	await user.click( staticSite );
 	expect( await within( publish ).findByLabelText( 'Local changes' ) ).toBeVisible();
-	expect( within( panel ).getByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 	expect( within( panel ).getByRole( 'link', { name: 'Open lente.space.fast' } ) ).toBeVisible();
 	expect(
 		within( panel ).queryByRole( 'button', { name: 'Switch previews' } )
@@ -719,7 +722,7 @@ it( 'switches between two Spacefast sites by keyboard and restores focus', async
 	} );
 	const panel = await open();
 	expect( within( panel ).getByRole( 'link', { name: 'Open lente.space.fast' } ) ).toBeVisible();
-	expect( await within( panel ).findByRole( 'button', { name: 'Update…' } ) ).toBeEnabled();
+	expect( await within( panel ).findByRole( 'button', { name: 'Update' } ) ).toBeEnabled();
 	const actions = within( panel ).getByRole( 'button', { name: 'Site actions' } );
 	actions.focus();
 	await user.keyboard( '{ArrowDown}' );
@@ -744,7 +747,7 @@ it( 'switches between two Spacefast sites by keyboard and restores focus', async
 	expect( actions ).toHaveFocus();
 	expect( within( panel ).getByRole( 'link', { name: 'Open second.space.fast' } ) ).toBeVisible();
 	expect( within( panel ).queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
-	expect( within( panel ).getByRole( 'button', { name: 'Update…' } ) ).toBeEnabled();
+	expect( within( panel ).getByRole( 'button', { name: 'Update' } ) ).toBeEnabled();
 	await user.click( await within( panel ).findByRole( 'button', { name: 'Copy link' } ) );
 	expect( connector.copyText ).toHaveBeenCalledExactlyOnceWith( second.url );
 	expect( connector.pushSite ).not.toHaveBeenCalled();
@@ -1295,14 +1298,14 @@ it( 'explains an unavailable destination and retries only that provider with vis
 } );
 
 it( 'holds publishing until the completed destination check returns', async () => {
+	let finishPublish!: () => void;
 	const { connector } = setup( {
 		getRemoteSites: async ( provider ) => ( provider === 'spacefast' ? [ space ] : [] ),
 		getSnapshots: async () => [],
-		pushSite: async () => new Promise( () => {} ),
+		pushSite: async () => new Promise< void >( ( resolve ) => ( finishPublish = resolve ) ),
 	} );
 	await open();
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Update…' } ) );
-	await confirmPublish();
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Update' } ) );
 	await screen.findByRole( 'button', { name: 'Updating…' } );
 	expect( screen.getByText( 'Published just now' ) ).toBeVisible();
 	act( () =>
@@ -1333,11 +1336,12 @@ it( 'holds publishing until the completed destination check returns', async () =
 		} )
 	);
 	await waitFor( () => expect( finish ).toBeDefined() );
+	await act( async () => finishPublish() );
 	expect( screen.queryByText( 'Your changes will be live in a moment.' ) ).not.toBeInTheDocument();
-	expect( screen.queryByRole( 'button', { name: 'Update…' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Update' } ) ).not.toBeInTheDocument();
 	await act( async () => finish( { localChanged: false } ) );
-	await screen.findByRole( 'button', { name: 'Update…' } );
-	expect( screen.getByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+	await screen.findByRole( 'button', { name: 'Update' } );
+	expect( screen.getByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 } );
 
 it( 'shows an actionable Publish changes button once publish checks finish', async () => {
@@ -1374,7 +1378,9 @@ it.each( [ 'wpcom', 'spacefast' ] as const )(
 		} );
 		await open();
 		expect( await screen.findByText( 'Published just now' ) ).toBeVisible();
-		expect( await screen.findByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+		expect(
+			await screen.findByRole( 'button', { name: provider === 'wpcom' ? 'Update…' : 'Update' } )
+		).toBeVisible();
 		expect( screen.queryByText( 'Your latest changes are live.' ) ).not.toBeInTheDocument();
 	}
 );
@@ -1454,8 +1460,7 @@ it( 'uses a neutral state for a destination with no transfer history', async () 
 	).toBeVisible();
 	expect( within( panel ).queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
 	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
-	await user.click( within( panel ).getByRole( 'button', { name: 'Update…' } ) );
-	await confirmPublish();
+	await user.click( within( panel ).getByRole( 'button', { name: 'Update' } ) );
 	expect( await screen.findByRole( 'button', { name: 'Updating…' } ) ).toBeVisible();
 	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
 		'spacefast',
@@ -1475,7 +1480,7 @@ it( 'uses a neutral state for a destination with no transfer history', async () 
 			},
 		} )
 	);
-	expect( await screen.findByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+	expect( await screen.findByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 } );
 
 it( 'hides the publish-time line when no timestamp was saved', async () => {
@@ -1905,7 +1910,39 @@ it( 'disables unsupported access changes but leaves provider management availabl
 	);
 } );
 
-it( 'confirms Update even when the published site has no changes', async () => {
+it.each( [ false, true ] )(
+	'updates Spacefast directly and keeps its button label independent of local changes: %s',
+	async ( localChanged ) => {
+		let finish!: () => void;
+		const { connector, user } = setup( {
+			getRemoteSites: async ( provider ) => ( provider === 'spacefast' ? [ space ] : [] ),
+			getSnapshots: async () => [],
+			getSitePublishStatus: async () => ( { localChanged } ),
+			pushSite: async () => new Promise< void >( ( resolve ) => ( finish = resolve ) ),
+		} );
+		const panel = await open();
+		expect(
+			await within( panel ).findByText( localChanged ? 'Local changes' : 'No changes' )
+		).toBeVisible();
+		const update = within( panel ).getByRole( 'button', { name: 'Update' } );
+		await user.click( update );
+		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
+		expect( await within( panel ).findByRole( 'button', { name: 'Updating…' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
+			'spacefast',
+			site.id,
+			space.id,
+			undefined
+		);
+		await act( async () => finish() );
+		expect( await within( panel ).findByRole( 'button', { name: 'Update' } ) ).toBeEnabled();
+	}
+);
+
+it( 'confirms WordPress.com updates even when the published site has no changes', async () => {
 	const { user } = setup();
 	await open();
 	await user.click( await screen.findByRole( 'button', { name: 'Update…' } ) );

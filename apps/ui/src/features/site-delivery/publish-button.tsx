@@ -1216,7 +1216,7 @@ export function PublishButton( {
 								disabled={ disabled }
 								forceEntireSite={ newDestination }
 								onConfirmPublish={
-									newDestination
+									newDestination || descriptor?.content === 'static'
 										? undefined
 										: () => setPublishConfirmation( upToDate ? 'again' : 'changes' )
 								}

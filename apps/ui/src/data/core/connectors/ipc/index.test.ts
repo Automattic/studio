@@ -137,18 +137,18 @@ describe( 'createIpcConnector Connect contracts', () => {
 
 	it( 'reads and saves visibility through Electron', async () => {
 		const details = { visibility: 'coming-soon', url: 'https://example.blog' };
-		const getWpcomSiteVisibility = vi.fn();
-		const setWpcomSiteVisibility = vi.fn();
-		vi.stubGlobal( 'ipcApi', { getWpcomSiteVisibility, setWpcomSiteVisibility } );
-		getWpcomSiteVisibility.mockResolvedValue( details );
-		setWpcomSiteVisibility.mockResolvedValue( details );
+		const getSiteVisibility = vi.fn();
+		const setSiteVisibility = vi.fn();
+		vi.stubGlobal( 'ipcApi', { getSiteVisibility, setSiteVisibility } );
+		getSiteVisibility.mockResolvedValue( details );
+		setSiteVisibility.mockResolvedValue( details );
 		const connector = createIpcConnector();
-		await expect( connector.getWpcomSiteVisibility( 42 ) ).resolves.toEqual( details );
-		await expect( connector.setWpcomSiteVisibility( 42, 'coming-soon' ) ).resolves.toEqual(
+		await expect( connector.getSiteVisibility( 'wpcom', 42 ) ).resolves.toEqual( details );
+		await expect( connector.setSiteVisibility( 'wpcom', 42, 'coming-soon' ) ).resolves.toEqual(
 			details
 		);
-		expect( getWpcomSiteVisibility ).toHaveBeenCalledWith( 42 );
-		expect( setWpcomSiteVisibility ).toHaveBeenCalledWith( 42, 'coming-soon' );
+		expect( getSiteVisibility ).toHaveBeenCalledWith( 'wpcom', 42 );
+		expect( setSiteVisibility ).toHaveBeenCalledWith( 'wpcom', 42, 'coming-soon' );
 	} );
 
 	afterEach( () => {

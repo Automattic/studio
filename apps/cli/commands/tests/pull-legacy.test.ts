@@ -1,9 +1,11 @@
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getImporter } from 'cli/lib/import-export/import/import-manager';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { backupRemoteSite, fetchSyncableSites } from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
@@ -34,6 +36,7 @@ vi.mock( 'cli/lib/import-export/import/import-manager', async ( importActual ) =
 	getImporter: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/site-operations' );
+vi.mock( 'cli/lib/site-versions' );
 vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/tracks' );
 vi.mock( 'cli/lib/sync-selector' );
@@ -54,6 +57,7 @@ describe( 'CLI: studio pull', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getSiteVersion ).mockResolvedValue( 'local-version' );
 		steps.length = 0;
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
@@ -79,6 +83,24 @@ describe( 'CLI: studio pull', () => {
 			}
 		} );
 	} );
+
+	it.each( [
+		{ options: [ 'all' ] as const, version: 'local-version' },
+		{ options: [ 'sqls' ] as const, version: null },
+		{ options: [ 'themes' ] as const, version: null },
+	] )(
+		'records a comparison baseline only for a full pull ($options)',
+		async ( { options, version } ) => {
+			await runCommand( site.path, [ ...options ], String( remoteSite.id ) );
+			expect( rememberRemoteSite ).toHaveBeenCalledWith(
+				'wpcom',
+				site.id,
+				remoteSite,
+				'pull',
+				version
+			);
+		}
+	);
 
 	it.each( [
 		[ 'succeeds', [ 'hold import', 'stop', 'import', 'start', 'release' ], 'success' ],

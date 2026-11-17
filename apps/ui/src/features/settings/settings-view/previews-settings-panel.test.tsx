@@ -2,9 +2,8 @@ import { DAY_MS } from '@studio/common/constants';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { expect, it } from 'vitest';
-import { ShareButton } from '@/features/site-delivery';
+import { PublishButton } from '@/features/site-delivery';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
-import { SiteDeliveryDialog } from '@/test/legacy-delivery';
 import { renderWithProviders } from '@/test/render';
 import { SharingPanel } from './sharing-panel';
 import type { Snapshot } from '@/data/core';
@@ -49,10 +48,7 @@ function setup( showShare = false, initialSnapshots?: Snapshot[] ) {
 				<SharingPanel />
 			</div>
 			{ showShare ? (
-				<>
-					<SiteDeliveryDialog site={ makeSite( { id: 'one', name: 'First site' } ) } />
-					<ShareButton site={ makeSite( { id: 'one', name: 'First site' } ) } />
-				</>
+				<PublishButton site={ makeSite( { id: 'one', name: 'First site' } ) } />
 			) : null }
 		</>,
 		{ connector }
@@ -90,9 +86,8 @@ it( 'lists previews across sites, excludes other accounts and reports account-wi
 
 it( 'refreshes the shared settings and Share list together after a preview changes', async () => {
 	const { connector } = setup( true );
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Share' } ) );
-	await screen.findByRole( 'list', { name: 'Previews' } );
-	const share = within( screen.getByRole( 'dialog', { name: 'Share and publish' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
+	const share = within( await screen.findByRole( 'dialog', { name: 'Share' } ) );
 	expect( share.queryByText( 'two.example.com' ) ).not.toBeInTheDocument();
 	act( () =>
 		connector.emit( 'onSnapshotEvent', {
@@ -113,7 +108,9 @@ it( 'refreshes the shared settings and Share list together after a preview chang
 			within( screen.getByTestId( 'settings-previews' ) ).getByText( 'Renamed preview' )
 		).toBeInTheDocument()
 	);
-	fireEvent.click( share.getByRole( 'link', { name: 'Renamed preview' } ) );
+	fireEvent.click(
+		await share.findByRole( 'link', { name: 'Open preview: changed.example.com' } )
+	);
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://changed.example.com' );
 	expect( screen.queryByText( 'one.example.com' ) ).not.toBeInTheDocument();
 	act( () => connector.emit( 'onSnapshotEvent', { event: SNAPSHOT_EVENTS.DELETED_ALL } ) );

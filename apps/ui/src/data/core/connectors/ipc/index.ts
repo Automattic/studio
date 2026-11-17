@@ -489,12 +489,6 @@ export function createIpcConnector(): Connector {
 		async setSiteVisibility( provider, id, value ) {
 			return ipcApi.setSiteVisibility( provider, id, value );
 		},
-		async getWpcomSiteVisibility( remoteSiteId ) {
-			return ipcApi.getWpcomSiteVisibility( remoteSiteId );
-		},
-		async setWpcomSiteVisibility( remoteSiteId, visibility ) {
-			return ipcApi.setWpcomSiteVisibility( remoteSiteId, visibility );
-		},
 		async listAccountSites( provider ) {
 			return await ipcApi.listAccountSites( provider );
 		},

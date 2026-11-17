@@ -20,6 +20,7 @@ import type {
 import type { WpcomAuth } from './wpcom-auth';
 import type { SyncActivity, SyncEvent } from '@studio/common/lib/sync/activity';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
+import type { SiteVisibility } from '@studio/providers';
 
 type SyncConnectListener = ( event: {
 	remoteSiteId: number;
@@ -271,6 +272,18 @@ export class WpcomServices {
 		}
 		const wpcomSites = await this.fetchSyncableSites().catch( () => null );
 		return wpcomSites ? withWpcomDetails( connections, wpcomSites ) : connections;
+	}
+
+	async getSiteVisibility( remoteSiteId: number ) {
+		return wpcomSites.visibility!.get( { token: await this.auth.requireToken() }, remoteSiteId );
+	}
+
+	async setSiteVisibility( remoteSiteId: number, visibility: SiteVisibility ) {
+		return wpcomSites.visibility!.set(
+			{ token: await this.auth.requireToken() },
+			remoteSiteId,
+			visibility
+		);
 	}
 
 	// After the publish checkout creates a WordPress.com site, finds it among

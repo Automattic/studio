@@ -1,12 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-const wpcomSiteVisibilitySchema = z.enum( [ 'public', 'coming-soon', 'private' ] );
 import { wpcomClient } from '../api';
-import type {
-	SiteVisibility as WpcomSiteVisibility,
-	SiteVisibilityDetails as WpcomSiteVisibilityDetails,
-} from '../../types';
+import type { SiteVisibility, SiteVisibilityDetails } from '../../types';
 
+const wpcomSiteVisibilitySchema = z.enum( [ 'public', 'coming-soon', 'private' ] );
 const siteIdSchema = z.number().int().positive();
 const settingsSchema = z.object( {
 	settings: z.object( {
@@ -39,7 +36,7 @@ async function readVisibility( token: string, remoteSiteId: number ) {
 	if ( site.jetpack && ! site.is_wpcom_atomic ) {
 		throw new Error( __( 'Visibility settings are only available for WordPress.com sites.' ) );
 	}
-	const visibility: WpcomSiteVisibility =
+	const visibility: SiteVisibility =
 		settings.wpcom_coming_soon === 1 || settings.wpcom_public_coming_soon === 1
 			? 'coming-soon'
 			: settings.blog_public === -1
@@ -47,7 +44,7 @@ async function readVisibility( token: string, remoteSiteId: number ) {
 			: site.launch_status === 'unlaunched'
 			? 'coming-soon'
 			: 'public';
-	const details: WpcomSiteVisibilityDetails = {
+	const details: SiteVisibilityDetails = {
 		visibility,
 		url: site.URL,
 		launchStatus: site.launch_status,
@@ -62,8 +59,8 @@ export async function getWpcomSiteVisibility( token: string, remoteSiteId: numbe
 export async function setWpcomSiteVisibility(
 	token: string,
 	remoteSiteId: number,
-	visibility: WpcomSiteVisibility
-): Promise< WpcomSiteVisibilityDetails > {
+	visibility: SiteVisibility
+): Promise< SiteVisibilityDetails > {
 	wpcomSiteVisibilitySchema.parse( visibility );
 	const { details, settings } = await readVisibility( token, remoteSiteId );
 	if ( details.visibility === visibility ) return details;

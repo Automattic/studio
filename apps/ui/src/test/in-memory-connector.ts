@@ -277,12 +277,6 @@ export function createInMemoryConnector(
 			localChanged: null,
 			previewChanged: null,
 		} ),
-		getWpcomSiteVisibility: async () => {
-			throw new Error( 'Visibility unavailable' );
-		},
-		setWpcomSiteVisibility: async () => {
-			throw new Error( 'Visibility unavailable' );
-		},
 		getSiteVisibility: async () => {
 			throw new Error( 'Visibility unavailable' );
 		},

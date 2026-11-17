@@ -1,7 +1,6 @@
 import { getQualifyingLiveSites } from '@studio/common/lib/live-preview-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
-import { getSyncType } from '@studio/common/lib/sync/sync-type';
 import {
 	getProvider,
 	getProviderSites,
@@ -11,7 +10,6 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { CheckIcon, ClockIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { dismissToast, toast } from '@/data/app-messages';
@@ -28,7 +26,7 @@ import {
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useSiteVisibility } from '@/data/queries/use-site-visibility';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
-import { usePushSite, useDisconnectRemoteSite } from '@/data/queries/use-sync-site';
+import { usePushSite } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
@@ -84,6 +82,7 @@ import {
 import { ConnectSiteIcon, DisconnectSiteIcon } from './connection-icons';
 import { DestinationIcon } from './destination-icon';
 import { DestinationRow } from './destination-row';
+import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { connectExistingSiteKey, ExistingSiteStep } from './existing-site-step';
 import { GiftIcon } from './gift-icon';
 import {
@@ -94,6 +93,7 @@ import {
 import { LiveSiteAction } from './live-site-action';
 import { isNewDestination } from './new-destination';
 import { PreviewMenu } from './preview-menu';
+import { PreviewOverwriteConfirmation } from './preview-overwrite-confirmation';
 import { ProviderLogo } from './provider-logo';
 import {
 	ProviderPicker,
@@ -137,7 +137,6 @@ export function PublishButton( {
 	const client = useQueryClient();
 	const trigger = useRef< HTMLButtonElement >( null );
 	const anchor = useRef< HTMLSpanElement >( null );
-	const cancel = useRef< HTMLButtonElement >( null );
 	const [ open, setOpen ] = useState( false );
 	const [ previewMenuOpen, setPreviewMenuOpen ] = useState( false );
 	const [ shareRequested, setShareRequested ] = useState( false );
@@ -231,7 +230,6 @@ export function PublishButton( {
 	const offline = useOffline();
 	const busy = useIsSiteBusy( site );
 	const push = usePushSite();
-	const disconnect = useDisconnectRemoteSite();
 	const [ publishProvider, setPublishProvider ] = useState< SitesProviderId >();
 	const defaultProvider = preferences?.defaultHostingProvider;
 	const emptyDestination =
@@ -697,7 +695,6 @@ export function PublishButton( {
 					disabled={ disabled }
 					onClick={ () => {
 						close();
-						disconnect.reset();
 						setRemoveTarget( selected );
 					} }
 				/>
@@ -1400,44 +1397,7 @@ export function PublishButton( {
 						) : previewMenuOpen && previewMenu ? (
 							previewMenu
 						) : preview.overwrite && ! remote ? (
-							<>
-								<div className={ styles.previewOverwriteCopy }>
-									<Popover.Title>
-										{ preview.overwrite.unknown
-											? __( 'Replace preview contents?' )
-											: __( 'Replace preview changes?' ) }
-									</Popover.Title>
-									<Popover.Description>
-										{ sprintf(
-											preview.overwrite.unknown
-												? __(
-														'Changes on %s could not be checked. Updating will replace its files and database with your local copy.'
-												  )
-												: __(
-														'Changes on %s will be replaced with your local files and database.'
-												  ),
-											getSnapshotHostname( preview.overwrite.snapshot )
-										) }
-									</Popover.Description>
-								</div>
-								<div className={ clsx( styles.shareFooter, styles.footerActions ) }>
-									<Button
-										variant="outline"
-										onClick={ () => {
-											preview.cancelOverwrite();
-										} }
-									>
-										{ __( 'Cancel' ) }
-									</Button>
-									<Button
-										variant="accent"
-										loading={ preview.updating }
-										onClick={ () => void preview.confirmOverwrite() }
-									>
-										{ __( 'Replace preview' ) }
-									</Button>
-								</div>
-							</>
+							<PreviewOverwriteConfirmation preview={ preview } inline returnFocus={ trigger } />
 						) : (
 							publishContent
 						) }
@@ -1445,40 +1405,11 @@ export function PublishButton( {
 				</Popover.Popup>
 			</Popover.Root>
 			{ previewOverwrite && (
-				<AlertDialog open onOpenChange={ ( next ) => ! next && preview.cancelOverwrite() }>
-					<DialogContent layout="confirmation" finalFocus={ trigger }>
-						<DialogHeader>
-							<DialogTitle>
-								{ previewOverwrite.unknown
-									? __( 'Replace preview contents?' )
-									: __( 'Replace preview changes?' ) }
-							</DialogTitle>
-							<DialogDescription>
-								{ sprintf(
-									previewOverwrite.unknown
-										? __(
-												'Changes on %s could not be checked. Updating will replace its files and database with your local copy.'
-										  )
-										: __( 'Changes on %s will be replaced with your local files and database.' ),
-									getSnapshotHostname( previewOverwrite.snapshot )
-								) }
-							</DialogDescription>
-						</DialogHeader>
-						<DialogFooter>
-							<Button variant="outline" onClick={ preview.cancelOverwrite }>
-								{ __( 'Cancel' ) }
-							</Button>
-							<Button
-								variant="accent"
-								disabled={ ! preview.canUpdate }
-								loading={ preview.pending }
-								onClick={ () => void preview.confirmOverwrite() }
-							>
-								{ __( 'Replace preview' ) }
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</AlertDialog>
+				<PreviewOverwriteConfirmation
+					preview={ preview }
+					inline={ false }
+					returnFocus={ trigger }
+				/>
 			) }
 
 			{ previewLiveSite !== undefined && (
@@ -1618,62 +1549,18 @@ export function PublishButton( {
 				/>
 			) }
 			{ removeTarget?.remote && (
-				<AlertDialog
-					open
-					onOpenChange={ ( next ) =>
-						! next && ! disconnect.isPending && setRemoveTarget( undefined )
-					}
-				>
-					<DialogContent layout="confirmation" initialFocus={ cancel } finalFocus={ trigger }>
-						<DialogHeader>
-							<DialogTitle>{ __( 'Disconnect site?' ) }</DialogTitle>
-							<DialogDescription>
-								{ sprintf(
-									__(
-										'Remove %s from WordPress Studio? The published site and your local WordPress won’t change.'
-									),
-									removeTarget.remote.url
-								) }
-							</DialogDescription>
-						</DialogHeader>
-						{ disconnect.error && <p role="alert">{ disconnect.error.message }</p> }
-						<DialogFooter>
-							<Button
-								ref={ cancel }
-								variant="outline"
-								disabled={ disconnect.isPending }
-								onClick={ () => setRemoveTarget( undefined ) }
-							>
-								{ __( 'Cancel' ) }
-							</Button>
-							<Button
-								variant="destructive"
-								loading={ disconnect.isPending }
-								onClick={ () => {
-									void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT, {
-										sync_type: getSyncType( removeTarget.remote, removeTarget.provider ),
-									} );
-									disconnect.mutate(
-										{
-											provider: removeTarget.provider,
-											siteId: site.id,
-											remoteSiteId: removeTarget.remote!.id,
-										},
-										{
-											onSuccess: () => {
-												targets.select( null );
-												setRemoveTarget( undefined );
-												setOpen( true );
-											},
-										}
-									);
-								} }
-							>
-								{ __( 'Disconnect site' ) }
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</AlertDialog>
+				<DisconnectSiteDialog
+					siteId={ site.id }
+					provider={ removeTarget.provider }
+					remote={ removeTarget.remote }
+					returnFocus={ trigger }
+					onClose={ () => setRemoveTarget( undefined ) }
+					onDisconnected={ () => {
+						targets.select( null );
+						setRemoveTarget( undefined );
+						setOpen( true );
+					} }
+				/>
 			) }
 		</>
 	);

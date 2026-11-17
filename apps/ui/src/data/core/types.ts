@@ -46,10 +46,6 @@ import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
 import type { PreviewStatus } from '@studio/common/sites/snapshots';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type {
-	WpcomSiteVisibility,
-	WpcomSiteVisibilityDetails,
-} from '@studio/common/types/site-visibility';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
@@ -356,11 +352,6 @@ export interface Connector {
 		id: string | number,
 		value: SiteVisibility
 	): Promise< SiteVisibilityDetails >;
-	getWpcomSiteVisibility( remoteSiteId: number ): Promise< WpcomSiteVisibilityDetails >;
-	setWpcomSiteVisibility(
-		remoteSiteId: number,
-		visibility: WpcomSiteVisibility
-	): Promise< WpcomSiteVisibilityDetails >;
 	// Remote sites: a local site's connections to sites on a provider, and pushing to and
 	// pulling from them. Every method names the provider (`SITES_PROVIDER_IDS`); what each
 	// one offers is in its descriptor's `sites`.

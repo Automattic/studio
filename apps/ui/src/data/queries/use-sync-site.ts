@@ -34,10 +34,8 @@ import type {
 import type { SyncDirection } from '@studio/common/lib/sync/activity';
 import type { RemoteSite, SitesProviderId } from '@studio/providers';
 
-// Exported so the publish panel can find a site's in-flight push or pull in
-// the mutation cache.
-export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSite' ] as const;
-export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSite' ] as const;
+const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSite' ] as const;
+const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSite' ] as const;
 
 const openSyncPanels = new Map< string, Map< symbol, boolean > >();
 
@@ -455,21 +453,5 @@ export function useDisconnectRemoteSite() {
 				queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } ),
 				queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider ) } ),
 			] ),
-	} );
-}
-
-type CancelSyncVariables = {
-	siteId: string;
-	remoteSiteId: string | number;
-};
-
-export function useCancelSync() {
-	const connector = useConnector();
-	return useMutation( {
-		mutationFn: ( { siteId, remoteSiteId }: CancelSyncVariables ) =>
-			connector.cancelSync( siteId, remoteSiteId ),
-		onError: ( error ) => {
-			console.error( 'Failed to cancel sync:', error );
-		},
 	} );
 }

@@ -602,15 +602,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { visibility } ),
 			} );
 		},
-		async getWpcomSiteVisibility( remoteSiteId ) {
-			return api( `/wpcom/sites/${ remoteSiteId }/visibility` );
-		},
-		async setWpcomSiteVisibility( remoteSiteId, visibility ) {
-			return api( `/wpcom/sites/${ remoteSiteId }/visibility`, {
-				method: 'POST',
-				body: JSON.stringify( { visibility } ),
-			} );
-		},
 		async listAccountSites( provider ) {
 			return api( `/remote-sites/${ provider }/account` );
 		},

@@ -134,6 +134,43 @@ async function openPreviewActions( user: ReturnType< typeof setup >[ 'user' ], n
 	await user.click( within( row ).getByRole( 'button', { name: 'Preview actions' } ) );
 	return screen.findByRole( 'menu', { name } );
 }
+it( 'shares one in-flight preview comparison between the toolbar and Share panel', async () => {
+	const { connector } = setup( {
+		getRemoteSites: async () => [],
+		getPreviewStatus: () => new Promise( () => {} ),
+	} );
+	await open();
+	await waitFor( () => expect( connector.getPreviewStatus ).toHaveBeenCalled() );
+	expect( connector.getPreviewStatus ).toHaveBeenCalledTimes( 1 );
+} );
+
+it( 'keeps a failed disconnect open for retry and preserves the preview after success', async () => {
+	let connected = true;
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => ( connected && provider === 'wpcom' ? [ live ] : [] ),
+		disconnectRemoteSite: async () => {
+			connected = false;
+		},
+	} );
+	connector.disconnectRemoteSite.mockRejectedValueOnce( new Error( 'Could not disconnect' ) );
+	await open();
+	await openSiteActions( user );
+	await user.click( screen.getByRole( 'menuitem', { name: 'Disconnect site…' } ) );
+	const dialog = await screen.findByRole( 'alertdialog', { name: 'Disconnect site?' } );
+	expect( connector.disconnectRemoteSite ).not.toHaveBeenCalled();
+	const confirm = within( dialog ).getByRole( 'button', { name: 'Disconnect site' } );
+	await user.click( confirm );
+	expect( await within( dialog ).findByRole( 'alert' ) ).toHaveTextContent(
+		'Could not disconnect'
+	);
+	expect( connected ).toBe( true );
+	await user.click( confirm );
+	await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
+	expect( connector.disconnectRemoteSite ).toHaveBeenLastCalledWith( 'wpcom', site.id, live.id );
+	expect( connector.deleteSnapshot ).not.toHaveBeenCalled();
+	expect( await screen.findByRole( 'button', { name: 'Previews' } ) ).toBeVisible();
+} );
+
 it( 'renders the selected provider capabilities and isolates its change dot', async () => {
 	const { user, connector } = setup();
 	await open();

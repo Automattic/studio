@@ -17,7 +17,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/lib/ui';
-import { previewExpiry } from './preview-share-panel';
+import { previewExpiry } from './preview-details';
 import { RenamePreviewDialog } from './rename-preview-dialog';
 import styles from './style.module.css';
 import type { SiteDetails, Snapshot } from '@/data/core';

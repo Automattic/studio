@@ -18,10 +18,6 @@ export function EmptyContent( { className, ...props }: ComponentProps< 'div' > )
 	);
 }
 
-export function EmptyMedia( { className, ...props }: ComponentProps< 'div' > ) {
-	return <div data-slot="empty-media" className={ clsx( styles.media, className ) } { ...props } />;
-}
-
 export function EmptyTitle( { className, ...props }: ComponentProps< 'div' > ) {
 	return <div data-slot="empty-title" className={ clsx( styles.title, className ) } { ...props } />;
 }

@@ -215,8 +215,6 @@ export {
 	getSiteCreationVisibility,
 	getSiteVisibility,
 	setSiteVisibility,
-	getWpcomSiteVisibility,
-	setWpcomSiteVisibility,
 	connectRemoteSite,
 	createRemoteSite,
 	disconnectRemoteSite,

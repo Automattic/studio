@@ -203,10 +203,12 @@ export async function runCommand(
 			// can surface it without re-selecting from the full site list.
 			try {
 				let localVersionId: string | null = null;
-				try {
-					localVersionId = await getSiteVersion( site.id, site.path );
-				} catch {
-					/* The transfer succeeded even if comparison is unavailable. */
+				if ( optionsToSync.includes( 'all' ) && ! includePathList?.length ) {
+					try {
+						localVersionId = await getSiteVersion( site.id, site.path );
+					} catch {
+						/* The transfer succeeded even if comparison is unavailable. */
+					}
 				}
 				await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'pull', localVersionId );
 			} catch ( error ) {

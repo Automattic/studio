@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useConnector, type RemoteSiteConnection, type Snapshot } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { previewStatusQuery } from '@/data/queries/use-preview-status';
 import {
 	remoteSitesQueryKey,
 	accountSitesQueryKey,
@@ -154,7 +155,9 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 	}, [ client, siteId, versions ] );
 	const statuses = useQueries( {
 		queries: targets.map( ( target ) => ( {
-			queryKey: [ 'destination-changes', siteId, target.key ],
+			queryKey: target.snapshot
+				? previewStatusQuery( connector, target.snapshot ).queryKey
+				: [ 'destination-changes', siteId, target.key ],
 			queryFn: async () => {
 				const checkedRunId =
 					getSyncActivity( siteId )?.kind === 'pending'
@@ -166,7 +169,8 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 				return { ...result, checkedRunId };
 			},
 			enabled: activity?.kind !== 'pending',
-			refetchInterval: 30_000,
+			// The selected preview's usePreviewStatus observer owns its polling interval.
+			refetchInterval: target.snapshot ? false : 30_000,
 			meta: { persist: false },
 		} ) ),
 	} );

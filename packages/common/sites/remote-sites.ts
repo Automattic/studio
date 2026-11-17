@@ -7,6 +7,7 @@ import type {
 	ProviderServices,
 	ProviderSites,
 	SiteCreationVisibility,
+	SiteVisibility,
 	SitesProviderId,
 } from '@studio/providers';
 
@@ -116,7 +117,7 @@ export async function getSiteVisibility< Id extends SitesProviderId >(
 export async function setSiteVisibility< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >,
 	id: ProviderSites[ Id ][ 'id' ],
-	value: import('@studio/providers').SiteVisibility
+	value: SiteVisibility
 ) {
 	const capability = sites( provider ).visibility;
 	if ( ! capability ) throw new Error( 'This provider does not support visibility settings.' );

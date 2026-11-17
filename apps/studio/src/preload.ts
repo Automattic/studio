@@ -97,8 +97,6 @@ const api: IpcApi = {
 	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
-	getWpcomSiteVisibility: ( id ) => ipcRendererInvoke( 'getWpcomSiteVisibility', id ),
-	setWpcomSiteVisibility: ( id, value ) => ipcRendererInvoke( 'setWpcomSiteVisibility', id, value ),
 	getSiteVisibility: ( provider, id ) => ipcRendererInvoke( 'getSiteVisibility', provider, id ),
 	setSiteVisibility: ( provider, id, value ) =>
 		ipcRendererInvoke( 'setSiteVisibility', provider, id, value ),

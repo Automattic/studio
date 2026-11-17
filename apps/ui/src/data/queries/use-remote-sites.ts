@@ -5,7 +5,7 @@ import {
 	type SitesProviderId,
 } from '@studio/providers';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import { AI_SETTINGS_QUERY_KEY, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -71,7 +71,7 @@ export function useConnectedHostingProviders( providers: SitesProviderId[] ) {
 }
 
 // Whether the provider's account is connected. WordPress.com's is the Studio sign-in.
-export function useProviderConnected( provider: SitesProviderId ): boolean | undefined {
+function useProviderConnected( provider: SitesProviderId ): boolean | undefined {
 	const { data: authUser, isSuccess } = useAuthUser();
 	const settings = useAiSettings();
 	if ( provider === 'wpcom' ) {
@@ -115,36 +115,6 @@ export function useAccountSites< Id extends SitesProviderId >(
 		}
 	}, [ error, queryClient ] );
 	return query;
-}
-
-// The account's sites no local site is connected to yet.
-export function usePickableSites< Id extends SitesProviderId >(
-	provider: Id,
-	options: { enabled?: boolean } = {}
-) {
-	const connector = useConnector();
-	const account = useAccountSites( provider, options );
-	const providerConnected = useProviderConnected( provider );
-	const connected = useQuery( {
-		...allRemoteConnectionsQuery( connector, provider ),
-		enabled: ( options.enabled ?? true ) && !! providerConnected,
-	} );
-
-	const data = useMemo(
-		() => excludeConnectedSites( account.data, connected.data ),
-		[ account.data, connected.data ]
-	);
-
-	return {
-		data,
-		isLoading: account.isLoading || connected.isLoading,
-		isFetching: account.isFetching || connected.isFetching,
-		error: account.error ?? connected.error,
-		refetch: () => {
-			void account.refetch();
-			void connected.refetch();
-		},
-	};
 }
 
 export function usePickableSitesByProvider( providers: SitesProviderId[] ) {

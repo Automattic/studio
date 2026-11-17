@@ -42,33 +42,13 @@ afterEach( async () => {
 	vi.unstubAllEnvs();
 	rmSync( configDir, { recursive: true, force: true } );
 } );
-it( 'uses the shared visibility implementation for reads and writes', async () => {
-	const url = `${ server.url }/api/wpcom/sites/42/visibility`;
-	expect( await ( await fetch( url ) ).json() ).toEqual( details );
-	const response = await fetch( url, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify( { visibility: 'coming-soon' } ),
-	} );
-	expect( response.status ).toBe( 200 );
-	expect( await response.json() ).toEqual( details );
-	expect( getSiteVisibility ).toHaveBeenCalledWith( getProviderServices( 'wpcom' ), 42 );
-	expect( setSiteVisibility ).toHaveBeenCalledWith(
-		getProviderServices( 'wpcom' ),
-		42,
-		'coming-soon'
-	);
-} );
-it( 'rejects invalid settings and unauthenticated writes', async () => {
-	const url = `${ server.url }/api/wpcom/sites/42/visibility`;
-	const options = {
+it( 'rejects invalid visibility before calling the provider', async () => {
+	const response = await fetch( `${ server.url }/api/remote-sites/wpcom/42/visibility`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify( { visibility: 'link' } ),
-	};
-	expect( ( await fetch( url, options ) ).status ).toBe( 400 );
-	vi.mocked( readAuthToken ).mockResolvedValue( null );
-	expect( ( await fetch( url, options ) ).status ).toBe( 401 );
+	} );
+	expect( response.status ).toBe( 400 );
 	expect( setSiteVisibility ).not.toHaveBeenCalled();
 } );
 

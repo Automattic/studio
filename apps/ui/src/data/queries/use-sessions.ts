@@ -99,14 +99,15 @@ export function useSession( sessionId: string | undefined ) {
 		enabled: !! sessionId,
 		// `useAgentRun` mutates the cache during a live run and invalidates
 		// explicitly on `run.exited`. Any implicit refetch would race those
-		// cache writes and flicker the transcript. A transcript restored from the
-		// persisted cache can miss entries, so only that one refetches on mount.
-		refetchOnMount: ( query ) =>
-			query.state.dataUpdatedAt < performance.timeOrigin ? 'always' : false,
+		// cache writes and flicker the transcript.
+		refetchOnMount: false,
 		retryOnMount: false,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
 		staleTime: Infinity,
+		// Transcripts hold screenshots and attachments, and the persister serializes the
+		// whole cache on every change: a large one ran the renderer out of memory.
+		meta: { persist: false },
 	} );
 }
 

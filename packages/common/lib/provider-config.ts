@@ -118,6 +118,7 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 	gemini: providerConfigStore( 'gemini' ),
 	'github-copilot': providerConfigStore( 'github-copilot' ),
 	meta: providerConfigStore( 'meta' ),
+	xai: providerConfigStore( 'xai' ),
 	spacefast: providerConfigStore( 'spacefast' ),
 };
 

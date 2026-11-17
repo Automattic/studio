@@ -33,7 +33,7 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
-import { createWpcomPreviewSite, warnAboutEditedDefaultThemes } from './create';
+import { createWpcomPreviewSite, reportLaunchUrl, warnAboutEditedDefaultThemes } from './create';
 
 async function getSnapshotToUpdate(
 	snapshots: Snapshot[],
@@ -150,6 +150,7 @@ export async function runCommand(
 					getSnapshotLink( snapshot )
 				)
 			);
+			reportLaunchUrl( created.preview.launchUrl, logger );
 		} else {
 			await validateSiteSize( siteFolder, { onWpcom: true } );
 			warning = await warnAboutEditedDefaultThemes( siteFolder, logger );
@@ -173,7 +174,7 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Archive uploaded' ) );
 
 			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-			const { shareUrl, liveSiteId } = await updatePreviewSite(
+			const { shareUrl, liveSiteId, launchUrl } = await updatePreviewSite(
 				snapshotToUpdate.atomicSiteId,
 				attachmentId,
 				token.accessToken,
@@ -192,6 +193,7 @@ export async function runCommand(
 			logger.reportSuccess(
 				sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
 			);
+			reportLaunchUrl( launchUrl, logger );
 		}
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewUpdateEvent( siteFolder, preview, {

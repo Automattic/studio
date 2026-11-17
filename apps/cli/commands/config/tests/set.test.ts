@@ -126,7 +126,7 @@ describe( 'CLI: studio config set', () => {
 	describe( 'Validation', () => {
 		it( 'should throw when no options provided', async () => {
 			await expect( runCommand( testSitePath, {} ) ).rejects.toThrow(
-				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			);
 		} );
 
@@ -393,6 +393,31 @@ describe( 'CLI: studio config set', () => {
 			await expect( runCommand( testSitePath, { fileAccess: 'site-directory' } ) ).rejects.toThrow(
 				'No changes to apply. The site already has the specified settings.'
 			);
+		} );
+
+		it( 'should save the PHP worker count and restart a running site', async () => {
+			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+			await runCommand( testSitePath, { phpWorkers: 8 } );
+
+			expect( saveCliConfig ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					sites: expect.arrayContaining( [ expect.objectContaining( { phpWorkers: 8 } ) ] ),
+				} )
+			);
+			expect( stopWordPressServer ).toHaveBeenCalledWith( 'site-1' );
+			expect( startWordPressServer ).toHaveBeenCalled();
+		} );
+
+		it.each( [
+			[ 4, 'No changes to apply. The site already has the specified settings.' ],
+			[ 0, 'PHP workers must be a whole number from 1 to 64.' ],
+			[ 65, 'PHP workers must be a whole number from 1 to 64.' ],
+			[ 2.5, 'PHP workers must be a whole number from 1 to 64.' ],
+			[ NaN, 'PHP workers must be a whole number from 1 to 64.' ],
+		] )( 'should reject %s PHP workers', async ( phpWorkers, message ) => {
+			await expect( runCommand( testSitePath, { phpWorkers } ) ).rejects.toThrow( message );
+			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 	} );
 

@@ -16,6 +16,11 @@ import {
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
+import {
+	DEFAULT_SITE_PHP_WORKERS,
+	getSitePhpWorkers,
+	sitePhpWorkersSchema,
+} from '@studio/common/lib/site-php-workers';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import {
 	getWpEnvironmentType,
@@ -63,6 +68,7 @@ export interface SetCommandOptions {
 	wp?: string;
 	fileAccess?: SiteFileAccess;
 	xdebug?: boolean;
+	phpWorkers?: number;
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
@@ -135,6 +141,7 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		wp,
 		fileAccess,
 		xdebug,
+		phpWorkers,
 		adminUsername,
 		adminPassword,
 		debugLog,
@@ -152,6 +159,7 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		wp === undefined &&
 		fileAccess === undefined &&
 		xdebug === undefined &&
+		phpWorkers === undefined &&
 		adminUsername === undefined &&
 		adminPassword === undefined &&
 		adminEmail === undefined &&
@@ -162,9 +170,13 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			)
 		);
+	}
+
+	if ( phpWorkers !== undefined && ! sitePhpWorkersSchema.safeParse( phpWorkers ).success ) {
+		throw new LoggerError( __( 'PHP workers must be a whole number from 1 to 64.' ) );
 	}
 
 	if ( name !== undefined && ! name.trim() ) {
@@ -209,6 +221,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		wp,
 		fileAccess,
 		xdebug,
+		phpWorkers,
 		adminUsername,
 		adminPassword,
 		adminEmail,
@@ -252,6 +265,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		const wpChanged = wp !== undefined;
 		const fileAccessChanged = fileAccess !== undefined && fileAccess !== getSiteFileAccess( site );
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
+		const phpWorkersChanged = phpWorkers !== undefined && phpWorkers !== getSitePhpWorkers( site );
 		const adminUsernameChanged =
 			adminUsername !== undefined && adminUsername !== ( site.adminUsername ?? 'admin' );
 		const adminPasswordChanged = adminPassword !== undefined;
@@ -272,6 +286,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			wpChanged ||
 			fileAccessChanged ||
 			xdebugChanged ||
+			phpWorkersChanged ||
 			credentialsChanged ||
 			debugLogChanged ||
 			debugDisplayChanged ||
@@ -290,6 +305,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			wpChanged,
 			fileAccessChanged,
 			xdebugChanged,
+			phpWorkersChanged,
 			credentialsChanged,
 			debugLogChanged,
 			debugDisplayChanged,
@@ -328,6 +344,9 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			}
 			if ( xdebugChanged ) {
 				foundSite.enableXdebug = xdebug;
+			}
+			if ( phpWorkersChanged ) {
+				foundSite.phpWorkers = phpWorkers;
 			}
 			if ( adminUsernameChanged ) {
 				foundSite.adminUsername = adminUsername!;
@@ -489,6 +508,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					type: 'boolean',
 					description: __( 'Enable Xdebug' ),
 				} )
+				.option( 'php-workers', {
+					type: 'number',
+					description: sprintf(
+						/* translators: %d: default number of PHP workers */
+						__(
+							'Number of PHP workers, which caps how many requests the site serves at once (default %d)'
+						),
+						DEFAULT_SITE_PHP_WORKERS
+					),
+				} )
 				.option( 'admin-username', {
 					type: 'string',
 					description: __( 'Admin username' ),
@@ -529,6 +558,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					wp: argv.wp,
 					fileAccess: siteFileAccessSchema.optional().parse( argv.fileAccess ),
 					xdebug: argv.xdebug,
+					phpWorkers: argv.phpWorkers,
 					adminUsername: argv.adminUsername,
 					adminPassword: argv.adminPassword,
 					adminEmail: argv.adminEmail,

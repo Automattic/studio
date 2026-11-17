@@ -124,6 +124,7 @@ describe( 'AI provider settings', () => {
 			gemini: { connected: false },
 			'github-copilot': { connected: false },
 			meta: { connected: false },
+			xai: { connected: false },
 			spacefast: { connected: false },
 		},
 	} );

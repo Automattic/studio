@@ -5,6 +5,7 @@ import { metaServices } from './meta/services';
 import { openaiServices } from './openai/services';
 import { spacefastServices } from './spacefast/services';
 import { wpcomServices } from './wpcom/services';
+import { xaiServices } from './xai/services';
 import type { ProviderConfigs, ProviderId, ProviderServices, ProviderSite } from './types';
 
 const SERVICES: {
@@ -16,6 +17,7 @@ const SERVICES: {
 	gemini: geminiServices,
 	'github-copilot': githubCopilotServices,
 	meta: metaServices,
+	xai: xaiServices,
 	spacefast: spacefastServices,
 };
 

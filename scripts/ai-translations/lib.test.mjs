@@ -39,14 +39,20 @@ msgstr ""
 describe( 'parsePot', () => {
 	it( 'reads contexts, plurals, notes and multi-line strings', () => {
 		expect( parsePot( POT ) ).toEqual( [
-			{ key: 'Delete %s?', singular: 'Delete %s?', note: '%s: site name' },
+			{
+				key: 'Delete %s?',
+				singular: 'Delete %s?',
+				note: '%s: site name',
+				files: [ 'apps/ui/src/a.tsx' ],
+			},
 			{
 				key: 'hosting provider name\u0004Pressable',
 				context: 'hosting provider name',
 				singular: 'Pressable',
+				files: [ 'apps/ui/src/b.tsx' ],
 			},
-			{ key: '%d site', singular: '%d site', plural: '%d sites' },
-			{ key: 'Line one\nline "two"', singular: 'Line one\nline "two"' },
+			{ key: '%d site', singular: '%d site', plural: '%d sites', files: [ 'apps/ui/src/c.tsx' ] },
+			{ key: 'Line one\nline "two"', singular: 'Line one\nline "two"', files: [ 'apps/cli/d.ts' ] },
 		] );
 	} );
 } );
@@ -80,7 +86,7 @@ describe( 'merging with GlotPress', () => {
 	const entries = parsePot( POT );
 
 	it( 'fills only the strings GlotPress does not translate', () => {
-		const glotpress = { 'Delete %s?': [ 'Supprimer %s ?' ], '%d site': [ '' ] };
+		const glotpress = { '%d site': [ '' ], 'Delete %s?': [ 'Supprimer %s ?' ] };
 		const ai = pruneAiTranslations(
 			{
 				'Delete %s?': [ 'Effacer %s ?' ],
@@ -99,8 +105,11 @@ describe( 'merging with GlotPress', () => {
 			'Pressable',
 			'Line one\nline "two"',
 		] );
-		expect( withoutAiTranslations( merged, ai ) ).toEqual( {
-			'Delete %s?': [ 'Supprimer %s ?' ],
-		} );
+		const glotpressOnly = withoutAiTranslations( merged, ai );
+		expect( glotpressOnly ).toEqual( { 'Delete %s?': [ 'Supprimer %s ?' ] } );
+		// Merging again gives the same file, key order included.
+		expect( JSON.stringify( mergeAiTranslations( glotpressOnly, ai ) ) ).toBe(
+			JSON.stringify( merged )
+		);
 	} );
 } );

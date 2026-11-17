@@ -12,13 +12,14 @@ const TAG = /<\/?[a-zA-Z][\w-]*\s*\/?>/g;
  * Reads the entries of a .pot file, as written by `wp-babel-makepot`.
  *
  * @param {string} pot
- * @returns {{ key: string, context?: string, singular: string, plural?: string, note?: string }[]}
+ * @returns {{ key: string, context?: string, singular: string, plural?: string, note?: string, files: string[] }[]}
  */
 export function parsePot( pot ) {
 	const entries = [];
 	for ( const block of pot.split( /\n{2,}/ ) ) {
 		const fields = {};
 		const notes = [];
+		const files = new Set();
 		let field;
 		for ( const line of block.split( '\n' ) ) {
 			const keyword = line.match( /^(msgctxt|msgid_plural|msgid|msgstr(?:\[\d+\])?) (".*")$/ );
@@ -29,6 +30,8 @@ export function parsePot( pot ) {
 				fields[ field ] += JSON.parse( line );
 			} else if ( line.startsWith( '#. ' ) ) {
 				notes.push( line.slice( 3 ) );
+			} else if ( line.startsWith( '#: ' ) ) {
+				files.add( line.slice( 3 ).replace( /:\d+$/, '' ) );
 			}
 		}
 		if ( ! fields.msgid ) {
@@ -40,6 +43,7 @@ export function parsePot( pot ) {
 			singular: fields.msgid,
 			...( fields.msgid_plural && { plural: fields.msgid_plural } ),
 			...( notes.length && { note: notes.join( '\n' ) } ),
+			files: [ ...files ],
 		} );
 	}
 	return entries;
@@ -94,16 +98,17 @@ export function findGaps( entries, messages, ai ) {
 }
 
 /**
- * Adds the AI translations to the GlotPress messages, without replacing any GlotPress translation.
+ * Adds the AI translations after the GlotPress messages, without replacing any GlotPress translation.
+ * GlotPress's empty entries for untranslated strings are dropped rather than filled in place, so the
+ * result is the same whether `glotpress` is a fresh download or a merged file with its AI translations taken out.
  */
 export function mergeAiTranslations( glotpress, ai ) {
-	const merged = { ...glotpress };
-	for ( const [ key, forms ] of Object.entries( ai ) ) {
-		if ( ! isTranslated( merged, key ) ) {
-			merged[ key ] = forms;
-		}
-	}
-	return merged;
+	const fills = Object.entries( ai ).filter( ( [ key ] ) => ! isTranslated( glotpress, key ) );
+	const filled = new Set( fills.map( ( [ key ] ) => key ) );
+	return Object.fromEntries( [
+		...Object.entries( glotpress ).filter( ( [ key ] ) => ! filled.has( key ) ),
+		...fills,
+	] );
 }
 
 /**

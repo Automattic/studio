@@ -5,8 +5,10 @@
  *
  *   merge [--locale=<locale>]                  Merge them into the shipped .jed.json files, after
  *                                              dropping the ones GlotPress now translates.
- *   pending --locale=<locale> [--limit=<n>]    Print the strings still missing, with the glossary.
- *   search --locale=<locale> <words…>          Print existing translations whose English has the words.
+ *   pending --locale=<locale> [--limit=<n>]    Print the strings still missing, one per line, after a
+ *                                              line with the language, plural rule and glossary.
+ *   search --locale=<locale> [--limit=<n>] <words…>
+ *                                              Print translations whose English has all the words.
  *   add --locale=<locale> <file>               Validate and save translations, then merge them.
  */
 
@@ -114,39 +116,35 @@ const commands = {
 		const gaps = findGaps( entries, glotpress, ai );
 		const [ language, region ] = locale.split( '-' );
 		console.log(
-			JSON.stringify(
-				{
-					locale,
-					language: new Intl.DisplayNames( [ 'en' ], { type: 'language' } ).of(
-						region ? `${ language }-${ region.toUpperCase() }` : language
-					),
-					pluralForms: glotpress[ '' ]?.[ 'plural-forms' ],
-					remaining: gaps.length,
-					glossary: await glossary( locale ),
-					strings: gaps
-						.slice( 0, Number( options.limit ?? 100 ) )
-						.map( ( { key, singular, ...entry } ) => ( { text: singular, ...entry } ) ),
-				},
-				null,
-				'\t'
-			)
+			JSON.stringify( {
+				locale,
+				language: new Intl.DisplayNames( [ 'en' ], { type: 'language' } ).of(
+					region ? `${ language }-${ region.toUpperCase() }` : language
+				),
+				pluralForms: glotpress[ '' ]?.[ 'plural-forms' ],
+				remaining: gaps.length,
+				glossary: await glossary( locale ),
+			} )
 		);
+		for ( const { key, singular, ...entry } of gaps.slice( 0, Number( options.limit ?? 100 ) ) ) {
+			console.log( JSON.stringify( { text: singular, ...entry } ) );
+		}
 	},
 
 	search() {
 		const [ locale ] = locales();
-		const { glotpress } = load( locale );
+		const { glotpress, ai } = load( locale );
 		const words = operands.map( ( word ) => word.toLowerCase() );
-		const matches = Object.entries( glotpress )
-			.filter(
-				( [ key ] ) =>
-					key &&
-					isTranslated( glotpress, key ) &&
-					words.every( ( word ) => key.toLowerCase().includes( word ) )
-			)
-			.slice( 0, 40 );
-		for ( const [ key, forms ] of matches ) {
-			console.log( JSON.stringify( [ key.replace( '\u0004', ' | ' ), forms ] ) );
+		const matches = [
+			...Object.entries( glotpress ).filter( ( [ key ] ) => isTranslated( glotpress, key ) ),
+			...Object.entries( ai ).map( ( [ key, forms ] ) => [ key, forms, 'AI' ] ),
+		]
+			.filter( ( [ key ] ) => key && words.every( ( word ) => key.toLowerCase().includes( word ) ) )
+			.slice( 0, Number( options.limit ?? 20 ) );
+		for ( const [ key, forms, origin ] of matches ) {
+			console.log(
+				JSON.stringify( [ key.replace( '\u0004', ' | ' ), forms, ...( origin ? [ origin ] : [] ) ] )
+			);
 		}
 	},
 
@@ -154,16 +152,18 @@ const commands = {
 		const [ locale ] = locales();
 		const state = load( locale );
 		const nplurals = pluralCount( state.glotpress[ '' ]?.[ 'plural-forms' ] );
-		const byKey = new Map( entries.map( ( entry ) => [ entry.key, entry ] ) );
+		// Some strings hold non-breaking spaces, which look like plain spaces once printed.
+		const plainSpaces = ( text ) => text.replace( /\u00a0/g, ' ' );
+		const byKey = new Map( entries.map( ( entry ) => [ plainSpaces( entry.key ), entry ] ) );
 		const rejected = [];
 		let added = 0;
 		for ( const { text, context, forms } of JSON.parse(
 			fs.readFileSync( operands[ 0 ], 'utf8' )
 		) ) {
-			const key = translationKey( text, context );
-			const entry = byKey.get( key );
+			const entry = byKey.get( plainSpaces( translationKey( text, context ) ) );
+			const key = entry?.key;
 			const error = ! entry
-				? 'not a string of i18n/bundle-strings.pot'
+				? 'no such string: copy `text` and `context` exactly as `pending` printed them'
 				: isTranslated( state.glotpress, key )
 				? 'GlotPress already translates it'
 				: validateTranslation( entry, forms, nplurals );

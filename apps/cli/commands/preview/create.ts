@@ -12,7 +12,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
-import { buildPreviewSite, getLivePreviewSite, type BuiltPreview } from 'cli/lib/preview-sites';
+import { buildPreviewSite, getLivePreviewSite } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -24,6 +24,7 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { PreviewSite } from '@studio/providers';
 
 export type ReportPreviewStep = ( action: LoggerAction, message: string, progress: number ) => void;
 
@@ -86,7 +87,7 @@ export async function buildWpcomPreview( {
 	onArchiveBytes?: ( bytes: number | undefined ) => void;
 	liveSiteSelection?: string;
 } ): Promise< {
-	preview: BuiltPreview;
+	preview: PreviewSite;
 	versionId: string;
 	liveSite: SyncSite | undefined;
 	warning: string | undefined;
@@ -184,7 +185,7 @@ export async function runCommand(
 			reportStep,
 			onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
 		} );
-		const link = preview.shareUrl ?? `https://${ preview.hostname }`;
+		const link = preview.shareUrl ?? preview.url;
 		logger.reportSuccess( sprintf( __( 'Preview site available at: %s' ), link ) );
 		if ( liveSite && preview.liveSiteId === liveSite.id ) {
 			logger.reportSuccess(
@@ -198,16 +199,7 @@ export async function runCommand(
 		reportLaunchUrl( preview.launchUrl, logger );
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
-		snapshot = await saveSnapshotToConfig(
-			siteFolder,
-			preview.siteId,
-			preview.hostname,
-			token.id,
-			snapshotName,
-			preview.shareUrl,
-			versionId,
-			preview.liveSiteId
-		);
+		snapshot = await saveSnapshotToConfig( siteFolder, preview, token.id, snapshotName, versionId );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewCreateEvent( siteFolder, snapshot, {

@@ -37,15 +37,9 @@ describe( 'Preview sites', () => {
 	} );
 
 	it( 'creates a new preview, or rebuilds an existing one with a push to it', async () => {
-		const built = {
-			siteId,
-			hostname: 'preview-site.wpcomstaging.com',
-			shareUrl: preview.shareUrl,
-			liveSiteId: 7,
-		};
 		await expect(
 			buildPreviewSite( token, '/tmp/site.zip', { name: 'Mine' }, { originId: 'local' }, vi.fn() )
-		).resolves.toMatchObject( built );
+		).resolves.toBe( preview );
 		expect( sites.previews.create ).toHaveBeenCalledWith(
 			{ token },
 			expect.objectContaining( { kind: 'archive', name: 'site.zip', size: 1 } ),
@@ -55,7 +49,7 @@ describe( 'Preview sites', () => {
 
 		await expect(
 			buildPreviewSite( token, '/tmp/site.zip', { siteId }, { originId: 'local' }, vi.fn() )
-		).resolves.toMatchObject( built );
+		).resolves.toBe( preview );
 		expect( sites.push ).toHaveBeenCalledWith(
 			{ token },
 			{ id: siteId, name: '' },

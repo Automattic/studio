@@ -5,7 +5,7 @@ import { __ } from '@wordpress/i18n';
 import { deleteAllSnapshots } from 'cli/lib/api';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { deletePreviewSite, deleteSnapshotSite } from 'cli/lib/preview-sites';
+import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -73,7 +73,7 @@ export async function runCommand(
 			const count = snapshots.length;
 			for ( const snapshot of snapshots ) {
 				if ( isWpcomPreview( snapshot ) && ! isSnapshotExpired( snapshot ) ) {
-					await deletePreviewSite( snapshot.atomicSiteId, token.accessToken );
+					await deleteSnapshotSite( snapshot, token.accessToken );
 				}
 			}
 			// Previews made on Jurassic Ninja.

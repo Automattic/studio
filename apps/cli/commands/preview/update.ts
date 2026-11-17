@@ -114,16 +114,7 @@ export async function runCommand(
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 		let snapshot: Snapshot;
 		if ( moving ) {
-			snapshot = await saveSnapshotToConfig(
-				siteFolder,
-				built.siteId,
-				built.hostname,
-				token.id,
-				name,
-				built.shareUrl,
-				versionId,
-				built.liveSiteId
-			);
+			snapshot = await saveSnapshotToConfig( siteFolder, built, token.id, name, versionId );
 			await deleteSnapshotFromConfig( snapshotToUpdate.url );
 			await emitCliEvent( {
 				event: SNAPSHOT_EVENTS.DELETED,
@@ -144,13 +135,7 @@ export async function runCommand(
 				)
 			);
 		} else {
-			snapshot = await updateSnapshotInConfig(
-				snapshotToUpdate.atomicSiteId,
-				siteFolder,
-				built.shareUrl,
-				versionId,
-				built.liveSiteId
-			);
+			snapshot = await updateSnapshotInConfig( siteFolder, built, versionId );
 			logger.reportSuccess(
 				sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
 			);

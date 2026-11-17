@@ -68,6 +68,13 @@ describe( 'Preview Update Command', () => {
 	const mockSiteUrl = 'test-preview.wpcomstaging.com';
 	const mockShareUrl = `https://${ mockSiteUrl }/?share=abc123`;
 	const mockAtomicSiteId = 12345;
+	const mockPreview = {
+		id: mockAtomicSiteId,
+		name: mockSiteUrl,
+		url: `https://${ mockSiteUrl }`,
+		shareUrl: mockShareUrl,
+		liveSiteId: 777,
+	};
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',
 		id: 123,
@@ -105,12 +112,7 @@ describe( 'Preview Update Command', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ mockSnapshot ] );
 		vi.mocked( archiveSiteContent ).mockResolvedValue( mockArchiver as Archiver );
-		vi.mocked( buildPreviewSite ).mockResolvedValue( {
-			siteId: mockAtomicSiteId,
-			hostname: mockSiteUrl,
-			shareUrl: mockShareUrl,
-			liveSiteId: 777,
-		} );
+		vi.mocked( buildPreviewSite ).mockResolvedValue( mockPreview );
 		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( mockSnapshot );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
 			id: mockSnapshot.localSiteId,
@@ -138,13 +140,7 @@ describe( 'Preview Update Command', () => {
 			{ originId: mockSnapshot.localSiteId, liveSiteId: undefined },
 			expect.any( Function )
 		);
-		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
-			mockAtomicSiteId,
-			mockFolder,
-			mockShareUrl,
-			'version-1',
-			777
-		);
+		expect( updateSnapshotInConfig ).toHaveBeenCalledWith( mockFolder, mockPreview, 'version-1' );
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`
 		);
@@ -165,12 +161,8 @@ describe( 'Preview Update Command', () => {
 			atomicSiteId: 999,
 			shareUrl,
 		};
-		vi.mocked( buildPreviewSite ).mockResolvedValue( {
-			siteId: 999,
-			hostname: newHost,
-			shareUrl,
-			liveSiteId: 777,
-		} );
+		const built = { id: 999, name: newHost, url: `https://${ newHost }`, shareUrl };
+		vi.mocked( buildPreviewSite ).mockResolvedValue( built );
 		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( newSnapshot );
 		if ( deleteError ) {
 			vi.mocked( deleteSnapshotSite ).mockRejectedValue( deleteError );
@@ -191,13 +183,10 @@ describe( 'Preview Update Command', () => {
 		expect( updateSnapshotInConfig ).not.toHaveBeenCalled();
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
-			999,
-			newHost,
+			built,
 			mockAuthToken.id,
 			mockSnapshot.name,
-			shareUrl,
-			'version-1',
-			777
+			'version-1'
 		);
 		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( jurassicNinjaHost );
 		expect( deleteSnapshotSite ).toHaveBeenCalledWith(

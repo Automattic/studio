@@ -1,7 +1,7 @@
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { __, sprintf } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
-import { getStandingPreviews } from 'cli/lib/preview-sites';
+import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
@@ -20,8 +20,9 @@ export async function getPreviewLaunchUrl( host: string ): Promise< string > {
 	if ( ! snapshot ) {
 		throw new LoggerError( __( 'Preview site not found' ), undefined, 'not_found' );
 	}
-	const launchUrl = ( await getStandingPreviews( token.accessToken ) ).get( snapshot.atomicSiteId )
-		?.launchUrl;
+	const launchUrl = ( await wpcomPreviews.list( { token: token.accessToken } ) ).find(
+		( preview ) => preview.id === snapshot.atomicSiteId
+	)?.launchUrl;
 	if ( ! launchUrl ) {
 		throw new LoggerError(
 			__(

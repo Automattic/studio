@@ -84,6 +84,13 @@ describe( 'Preview Create Command', () => {
 	const mockSiteUrl = 'test-preview.example.com';
 	const mockAtomicSiteId = 12345;
 	const mockShareUrl = `https://${ mockSiteUrl }/?share=abc123`;
+	const mockPreview = {
+		id: mockAtomicSiteId,
+		name: mockSiteUrl,
+		url: `https://${ mockSiteUrl }`,
+		shareUrl: mockShareUrl,
+		liveSiteId: 777,
+	};
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',
 		id: 123,
@@ -119,12 +126,7 @@ describe( 'Preview Create Command', () => {
 		} );
 		vi.mocked( archiveSiteContent, { partial: true } ).mockResolvedValue( mockArchiver );
 		vi.mocked( cleanup ).mockResolvedValue( undefined );
-		vi.mocked( buildPreviewSite ).mockResolvedValue( {
-			siteId: mockAtomicSiteId,
-			hostname: mockSiteUrl,
-			shareUrl: mockShareUrl,
-			liveSiteId: 777,
-		} );
+		vi.mocked( buildPreviewSite ).mockResolvedValue( mockPreview );
 		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( {
 			url: mockSiteUrl,
 			atomicSiteId: mockAtomicSiteId,
@@ -226,13 +228,10 @@ describe( 'Preview Create Command', () => {
 		);
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
-			mockAtomicSiteId,
-			mockSiteUrl,
+			mockPreview,
 			mockAuthToken.id,
 			'Test Site Preview 1',
-			mockShareUrl,
-			'version-1',
-			777
+			'version-1'
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`

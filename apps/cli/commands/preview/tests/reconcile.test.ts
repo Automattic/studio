@@ -6,16 +6,13 @@ import {
 } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
-import { getStandingPreviews } from 'cli/lib/preview-sites';
+import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { runCommand } from '../list';
 import type { SyncSite } from '@studio/common/types/sync';
 
 vi.mock( 'cli/lib/cli-config/core' );
-vi.mock( 'cli/lib/preview-sites', async ( original ) => ( {
-	...( await original< typeof import('cli/lib/preview-sites') >() ),
-	getStandingPreviews: vi.fn(),
-} ) );
+vi.mock( 'cli/lib/preview-sites', () => ( { wpcomPreviews: { list: vi.fn() } } ) );
 vi.mock( 'cli/lib/sync-api' );
 vi.mock( '@studio/common/lib/shared-config', async ( original ) => ( {
 	...( await original< typeof import('@studio/common/lib/shared-config') >() ),
@@ -81,8 +78,17 @@ it.each( [
 		vi.mocked( saveCliConfig ).mockImplementation( async ( saved ) => {
 			config = saved as typeof config;
 		} );
-		vi.mocked( getStandingPreviews ).mockResolvedValue(
-			new Map( scenario.standing ? [ [ 456, { expiresAt: Date.now() + 3600000 } ] ] : [] )
+		vi.mocked( wpcomPreviews.list ).mockResolvedValue(
+			scenario.standing
+				? [
+						{
+							id: 456,
+							name: '',
+							url: 'https://preview.example.com',
+							expiresAt: Date.now() + 3600000,
+						},
+				  ]
+				: []
 		);
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( scenario.stillASite ? [ boughtSite ] : [] );
 		const output = vi.spyOn( console, 'log' ).mockImplementation( () => {} );

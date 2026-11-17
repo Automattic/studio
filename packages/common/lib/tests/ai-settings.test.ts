@@ -8,6 +8,7 @@ import {
 	connectProvider,
 	disconnectProvider,
 	readAiSettings,
+	selectProviderModels,
 	setAiProvider,
 } from '@studio/common/lib/ai-settings';
 import {
@@ -314,6 +315,35 @@ describe( 'ai settings', () => {
 		const context = await readSignInContext( 'openai' );
 		expect( context.remembered ).toEqual( { clientId: 'oaiapp_1' } );
 		expect( ( await readSignInContext( 'openai' ) ).hostId ).toBe( context.hostId );
+	} );
+
+	it( 'offers the models picked from a provider’s catalog', async () => {
+		const openrouter = getProviderServices( 'openrouter' );
+		await expect(
+			selectProviderModels( openrouter, [ 'openrouter/acme/model' ] )
+		).rejects.toBeInstanceOf( ConnectError );
+
+		writeShared( { providerConfigs: { openrouter: { method: 'api-key', apiKey: 'sk-or-v1' } } } );
+		vi.mocked( fetch ).mockResolvedValue(
+			new Response(
+				JSON.stringify( {
+					data: [
+						{
+							id: 'acme/model',
+							name: 'Acme: Model',
+							architecture: { output_modalities: [ 'text' ] },
+							supported_parameters: [ 'tools' ],
+						},
+					],
+				} )
+			)
+		);
+		const settings = await selectProviderModels( openrouter, [ 'openrouter/acme/model' ] );
+
+		expect( settings.accounts.openrouter ).toMatchObject( {
+			connected: true,
+			models: [ { id: 'openrouter/acme/model', label: 'Acme: Model' } ],
+		} );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

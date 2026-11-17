@@ -34,6 +34,7 @@ import {
 	getConnectMethod,
 	getDefaultAiModel,
 	getProvider,
+	servesAiModel,
 	toStoredProviderId,
 	type AiModelId,
 	type AiProviderId,
@@ -74,10 +75,6 @@ import type {
 import type { LoadedAiSession, TurnStatus } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { TracksProps } from '@studio/common/lib/record-tracks-event';
-
-function servesModel( provider: AiProviderId, model: string ): boolean {
-	return getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ?? false;
-}
 
 const logger = new Logger< string >();
 
@@ -222,7 +219,7 @@ export async function runCommand( options: {
 	// The recorded model only sticks when the provider still serves it — old
 	// wpcom sessions snap to the provider default instead.
 	const recordedModel =
-		resumeContext.model && servesModel( currentProvider, resumeContext.model )
+		resumeContext.model && servesAiModel( currentProvider, resumeContext.model )
 			? resumeContext.model
 			: undefined;
 	let currentModel: AiModelId = recordedModel ?? getDefaultAiModel( currentProvider );
@@ -284,7 +281,7 @@ export async function runCommand( options: {
 						// Adopt the recorded model only when the provider still
 						// serves it; otherwise keep the (quota-based) default.
 						const sessionModel = readRecordedSessionModel( sm.getEntries() );
-						if ( sessionModel && servesModel( currentProvider, sessionModel ) ) {
+						if ( sessionModel && servesAiModel( currentProvider, sessionModel ) ) {
 							quotaDefaultApplicable = false;
 							currentModel = sessionModel;
 							ui.currentModel = currentModel;
@@ -390,7 +387,7 @@ export async function runCommand( options: {
 		// (e.g. switching from wpcom → anthropic while a tier is selected).
 		// Fall back to the provider's default — the quota-based one for
 		// WordPress.com.
-		if ( ! servesModel( currentProvider, currentModel ) ) {
+		if ( ! servesAiModel( currentProvider, currentModel ) ) {
 			currentModel =
 				currentProvider === DEFAULT_PROVIDER_ID
 					? wpcomDefaultModel

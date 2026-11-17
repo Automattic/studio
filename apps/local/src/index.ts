@@ -48,6 +48,8 @@ import {
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
+	selectProviderModels,
 	readAiSettings,
 	setAiProvider,
 } from '@studio/common/lib/ai-settings';
@@ -183,10 +185,11 @@ import {
 	AI_PROVIDER_IDS,
 	ConnectError,
 	findAiModel,
-	getProvider,
+	servesAiModel,
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
+	type AiModelId,
 	type SitesProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -835,6 +838,34 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( await startProviderConnect( getProviderServices( provider ), method ) );
+		} )
+	);
+
+	api.get(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			if ( provider ) {
+				res.json( await listProviderModels( getProviderServices( provider ) ) );
+			}
+		} )
+	);
+
+	api.put(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			const ids = req.body?.ids;
+			if ( ! provider ) {
+				return;
+			}
+			if ( ! Array.isArray( ids ) || ! ids.every( ( id ) => typeof id === 'string' ) ) {
+				res.status( 400 ).json( { error: 'ids must be an array of strings' } );
+				return;
+			}
+			await changeAiSettings( res, () =>
+				selectProviderModels( getProviderServices( provider ), ids as AiModelId[] )
+			);
 		} )
 	);
 
@@ -2228,7 +2259,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;
 			}
-			if ( ! model || ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
+			if ( ! model || ! servesAiModel( provider, model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}

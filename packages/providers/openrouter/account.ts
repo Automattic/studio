@@ -52,9 +52,9 @@ async function exchangeCode( code: string, verifier: string ): Promise< string >
 	return body.key;
 }
 
-// Reading the key's own details costs nothing. A key OpenRouter rejects, or
-// one that can't pay for any model Studio offers, is refused; one that can't
-// be checked now (offline, an OpenRouter outage) is accepted.
+// Reading the key's own details costs nothing. A key OpenRouter rejects is refused; one that can't
+// be checked now (offline, an OpenRouter outage) is accepted. A key without credits still runs
+// OpenRouter's free models.
 async function checkApiKey( apiKey: string ): Promise< void > {
 	const response = await fetch( `${ OPENROUTER_API_URL }/key`, {
 		headers: { Authorization: `Bearer ${ apiKey }` },
@@ -69,24 +69,6 @@ async function checkApiKey( apiKey: string ): Promise< void > {
 		throw new ConnectError(
 			__( 'OpenRouter is limiting requests right now. Wait a moment and try again.' ),
 			'unverified'
-		);
-	}
-	if ( ! response?.ok ) {
-		return;
-	}
-	const { data } = ( await response.json().catch( () => ( {} ) ) ) as {
-		data?: { limit_remaining?: number | null; is_free_tier?: boolean };
-	};
-	if ( typeof data?.limit_remaining === 'number' && data.limit_remaining <= 0 ) {
-		throw new ConnectError(
-			__(
-				'This API key has used up its credit limit. Raise the limit in your OpenRouter settings, then try again.'
-			)
-		);
-	}
-	if ( data?.is_free_tier ) {
-		throw new ConnectError(
-			__( 'Your OpenRouter account has no credits. Add credits on openrouter.ai, then try again.' )
 		);
 	}
 }

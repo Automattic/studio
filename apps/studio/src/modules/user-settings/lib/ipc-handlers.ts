@@ -7,6 +7,8 @@ import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
+	selectProviderModels,
 	readAiSettings,
 	setAiProvider as setAiProviderInConfig,
 	type AiSettings,
@@ -32,7 +34,12 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
-import { AI_PROVIDER_IDS, normalizeProviderId, toStoredProviderId } from '@studio/providers';
+import {
+	AI_PROVIDER_IDS,
+	normalizeProviderId,
+	toStoredProviderId,
+	type AiModelId,
+} from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
@@ -181,6 +188,19 @@ export async function connectAiProvider(
 	return changeAiSettings( () =>
 		connectProvider( getProviderServices( provider ), method, input )
 	);
+}
+
+export async function listAiProviderModels( _event: IpcMainInvokeEvent, requested: string ) {
+	return listProviderModels( getProviderServices( parseProviderId( requested ) ) );
+}
+
+export async function selectAiProviderModels(
+	_event: IpcMainInvokeEvent,
+	requested: string,
+	ids: AiModelId[]
+) {
+	const provider = parseProviderId( requested );
+	return changeAiSettings( () => selectProviderModels( getProviderServices( provider ), ids ) );
 }
 
 export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {

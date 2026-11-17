@@ -54,6 +54,7 @@ import type { DesignFix } from '@studio/design-md';
 import type {
 	AiModelId,
 	AiProviderId,
+	CatalogModel,
 	PendingConnect,
 	ProviderId,
 	ProviderSites,
@@ -520,6 +521,10 @@ export interface Connector {
 	// Starts connecting with a method that signs in on the provider's site (`loopback` or `device`).
 	startProviderConnect( provider: ProviderId, method: string ): Promise< PendingConnect >;
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
+	// The catalog of a provider whose account picks its models (`Provider.ai.catalog`), and
+	// offering these models from it.
+	listProviderModels( provider: ProviderId ): Promise< CatalogModel[] >;
+	selectProviderModels( provider: ProviderId, ids: AiModelId[] ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 

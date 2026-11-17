@@ -8,7 +8,9 @@ import {
 	PROVIDER_IDS,
 	toStoredProviderId,
 	type AccountDetails,
+	type AiModelId,
 	type AiProviderId,
+	type CatalogModel,
 	type ProviderConfigs,
 	type ProviderId,
 	type ProviderServices,
@@ -113,6 +115,35 @@ export async function disconnectProvider< Config >(
 	if ( ( await readSelectedAiProvider() ) === id ) {
 		await persistSelectedAiProvider( DEFAULT_PROVIDER_ID );
 	}
+	return readAiSettings();
+}
+
+// The catalog the account's owner picks the provider's models from (`Provider.ai.catalog`).
+export async function listProviderModels< Config >(
+	services: ProviderServices< Config >
+): Promise< CatalogModel[] > {
+	const listModels = services.ai?.listModels;
+	if ( ! listModels ) {
+		throw new Error( `${ getProvider( services.id ).label } has no models to pick from.` );
+	}
+	return listModels( ( await readProviderConfig( services.id ) ) as Config | undefined );
+}
+
+// Offers these models of the provider's catalog.
+export async function selectProviderModels< Config >(
+	services: ProviderServices< Config >,
+	ids: AiModelId[]
+): Promise< AiSettings > {
+	const { id } = services;
+	const config = ( await readProviderConfig( id ) ) as Config | undefined;
+	const selectModels = services.ai?.selectModels;
+	if ( ! config || ! selectModels ) {
+		throw new ConnectError( `Connect ${ getProvider( id ).label } first.` );
+	}
+	await writeProviderConfig(
+		id,
+		( await selectModels( config, ids ) ) as ProviderConfigs[ ProviderId ]
+	);
 	return readAiSettings();
 }
 

@@ -18,6 +18,7 @@ import {
 	toStoredProviderId,
 	type AccountDetails,
 	type AiModelId,
+	type CatalogModel,
 	type ProviderId,
 	type ProviderServices,
 } from '@studio/providers';
@@ -296,6 +297,24 @@ export class StaticAgentRuns {
 		return aiProvider && ! settings.accounts[ settings.provider ].connected
 			? this.setAiProvider( aiProvider )
 			: settings;
+	}
+
+	async listProviderModels( id: ProviderId ): Promise< CatalogModel[] > {
+		const listModels = ( getProviderServices( id ) as ProviderServices ).ai?.listModels;
+		if ( ! listModels ) {
+			throw new Error( `${ getProvider( id ).label } has no models to pick from.` );
+		}
+		return listModels( await this.readConfig( id ) );
+	}
+
+	async selectProviderModels( id: ProviderId, ids: AiModelId[] ): Promise< AiSettings > {
+		const config = await this.readConfig( id );
+		const selectModels = ( getProviderServices( id ) as ProviderServices ).ai?.selectModels;
+		if ( ! config || ! selectModels ) {
+			throw new Error( `Connect ${ getProvider( id ).label } first.` );
+		}
+		await this.writeConfig( id, await selectModels( config, ids ) );
+		return this.getAiSettings();
 	}
 
 	async disconnectProvider( id: ProviderId ): Promise< AiSettings > {

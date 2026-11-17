@@ -1,25 +1,37 @@
 import { OPENROUTER_MODELS } from '@earendil-works/pi-ai/providers/openrouter.models';
 import { __ } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
-import { OPENROUTER_HEADERS } from './api';
-import { OPENROUTER_AI_MODELS } from './descriptor';
+import { OPENROUTER_API_URL, OPENROUTER_HEADERS } from './api';
+import { listOpenrouterModels, selectOpenrouterModels } from './catalog';
+import { OPENROUTER_MODEL_PREFIX } from './descriptor';
 import { generateOpenrouterImages } from './images';
-import type { OpenrouterConfig } from './config';
+import type { OpenrouterConfig, OpenrouterPickedModel } from './config';
 import type { AiModelId } from '../models';
 import type { AiConnection, ProviderServices } from '../types';
 import type { Api, Model } from '@earendil-works/pi-ai';
 
-// OpenRouter's name for each of Studio's models.
-const OPENROUTER_MODEL_SLUGS: Record< ( typeof OPENROUTER_AI_MODELS )[ number ][ 'id' ], string > =
-	{
-		'claude-sonnet-5-5': 'anthropic/claude-sonnet-5.5',
-		'claude-opus-5-5': 'anthropic/claude-opus-5.5',
-		'gpt-6.1-terra': 'openai/gpt-6.1-terra',
-		'gemini-4-argon': 'google/gemini-4-argon',
-		'grok-4.7': 'x-ai/grok-4.7',
-		'deepseek-v4.1-flash': 'deepseek/deepseek-v4.1-flash',
-		'kimi-k3': 'moonshotai/kimi-k3',
-	};
+const CONTEXT_WINDOW = 200_000;
+const MAX_TOKENS = 32_000;
+
+// What pi knows of the model, or, for one newer than its catalog, what the user picked it with.
+function findModel( slug: string, picked?: OpenrouterPickedModel ): Model< Api > | undefined {
+	const known = ( OPENROUTER_MODELS as Partial< Record< string, Model< Api > > > )[ slug ];
+	return (
+		known ??
+		( picked && {
+			id: slug,
+			name: picked.label,
+			api: 'openai-completions',
+			provider: 'openrouter',
+			baseUrl: OPENROUTER_API_URL,
+			reasoning: picked.reasoning,
+			input: picked.images ? [ 'text', 'image' ] : [ 'text' ],
+			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+			contextWindow: picked.contextWindow,
+			maxTokens: picked.maxTokens ?? MAX_TOKENS,
+		} )
+	);
+}
 
 // Errors by HTTP status, said for the user. pi starts a stream error's message
 // with the status.
@@ -42,10 +54,11 @@ export const openrouterAi: NonNullable< ProviderServices< OpenrouterConfig >[ 'a
 		if ( ! config ) {
 			throw new NotConnectedError( 'Connect OpenRouter by signing in or with an API key.' );
 		}
-		const slug = OPENROUTER_MODEL_SLUGS[ modelId as keyof typeof OPENROUTER_MODEL_SLUGS ];
-		const model = slug
-			? ( OPENROUTER_MODELS as Partial< Record< string, Model< Api > > > )[ slug ]
-			: undefined;
+		const slug = modelId.startsWith( OPENROUTER_MODEL_PREFIX )
+			? modelId.slice( OPENROUTER_MODEL_PREFIX.length )
+			: '';
+		const model =
+			slug && findModel( slug, config.models?.find( ( picked ) => picked.slug === slug ) );
 		if ( ! model ) {
 			throw new Error( `OpenRouter does not serve ${ modelId }` );
 		}
@@ -59,10 +72,12 @@ export const openrouterAi: NonNullable< ProviderServices< OpenrouterConfig >[ 'a
 				...model,
 				id: modelId,
 				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-				contextWindow: 200_000,
-				maxTokens: 32_000,
+				contextWindow: Math.min( model.contextWindow, CONTEXT_WINDOW ),
+				maxTokens: Math.min( model.maxTokens, MAX_TOKENS ),
 			},
 		};
 	},
+	listModels: listOpenrouterModels,
+	selectModels: selectOpenrouterModels,
 	generateImages: generateOpenrouterImages,
 };

@@ -4,16 +4,18 @@ import { previewApiKey } from '../api-key';
 import { openrouterConfigSchema, type OpenrouterConfig } from './config';
 import type { AiModel, Provider } from '../types';
 
-// Models that run Studio Code's tools well, out of the hundreds OpenRouter
-// routes to. Ids other providers serve are shared with them.
+export const OPENROUTER_MODEL_PREFIX = 'openrouter/';
+
+// Models that run Studio Code's tools well, out of the hundreds OpenRouter routes to: the ones an
+// account offers until its owner picks others from the catalog.
 export const OPENROUTER_AI_MODELS = [
-	{ id: 'claude-sonnet-5-5', label: () => 'Sonnet 5.5' },
-	{ id: 'claude-opus-5-5', label: () => 'Opus 5.5' },
-	{ id: 'gpt-6.1-terra', label: () => 'GPT-6.1 Terra' },
-	{ id: 'gemini-4-argon', label: () => 'Gemini 4 Argon' },
-	{ id: 'grok-4.7', label: () => 'Grok 4.7' },
-	{ id: 'deepseek-v4.1-flash', label: () => 'DeepSeek V4.1 Flash' },
-	{ id: 'kimi-k3', label: () => 'Kimi K3' },
+	{ id: 'openrouter/anthropic/claude-sonnet-5.5', label: () => 'Sonnet 5.5' },
+	{ id: 'openrouter/anthropic/claude-opus-5.5', label: () => 'Opus 5.5' },
+	{ id: 'openrouter/openai/gpt-6.1-terra', label: () => 'GPT-6.1 Terra' },
+	{ id: 'openrouter/google/gemini-4-argon', label: () => 'Gemini 4 Argon' },
+	{ id: 'openrouter/x-ai/grok-4.7', label: () => 'Grok 4.7' },
+	{ id: 'openrouter/deepseek/deepseek-v4.1-flash', label: () => 'DeepSeek V4.1 Flash' },
+	{ id: 'openrouter/moonshotai/kimi-k3', label: () => 'Kimi K3' },
 ] as const satisfies readonly AiModel[];
 
 export const openrouterConnectInput = () =>
@@ -59,11 +61,17 @@ export const openrouterProvider: Provider< OpenrouterConfig > = {
 		describe: ( config ) => ( {
 			method: config.method,
 			summary: previewApiKey( config.apiKey ),
+			models: config.models?.map( ( model ) => ( {
+				id: `${ OPENROUTER_MODEL_PREFIX }${ model.slug }` as const,
+				label: model.label,
+				supportsImages: model.images,
+			} ) ),
 			links: [ { label: __( 'Manage credits' ), url: 'https://openrouter.ai/settings/credits' } ],
 		} ),
 	},
 	ai: {
 		models: OPENROUTER_AI_MODELS,
-		defaultModel: 'claude-sonnet-5-5',
+		defaultModel: 'openrouter/anthropic/claude-sonnet-5.5',
+		catalog: true,
 	},
 };

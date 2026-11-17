@@ -109,10 +109,28 @@ export interface AccountDetails {
 	summary?: string;
 	// Something to know when using it, such as whose plan pays for it.
 	note?: string;
-	// The provider's models this account can run, when its plan decides which: surfaces offer
-	// only these. Without it, the account runs every model the provider lists.
-	models?: AiModelId[];
+	// The provider's models this account can run, when its plan or its owner decides which:
+	// surfaces offer only these. Without it, the account runs every model the provider lists.
+	models?: AccountModel[];
 	links?: { label: string; url: string }[];
+}
+
+// A model an account offers. One from a provider's catalog carries what surfaces show of it.
+export interface AccountModel {
+	id: AiModelId;
+	label?: string;
+	supportsImages?: boolean;
+}
+
+// A model in a provider's catalog, as the account's owner picks from it.
+export interface CatalogModel {
+	id: AiModelId;
+	label: string;
+	supportsImages: boolean;
+	// What tells it apart in a list, such as its price and context size.
+	details?: string;
+	// One of the models the provider lists, which run Studio Code's tools well.
+	recommended?: boolean;
 }
 
 // A connection `start` began on the provider's site: the user goes to `url`,
@@ -192,6 +210,9 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 		defaultModel: AiModelId;
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
+		// The provider routes to more models than it lists: the account's owner picks which to
+		// offer from its catalog, under ids made of the provider's id, a slash and its own name.
+		catalog?: boolean;
 	};
 	sites?: ProviderSitesInfo< Site >;
 }
@@ -325,6 +346,10 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 			model: AiModelId,
 			options: { sessionId?: string }
 		): Promise< AiConnection >;
+		// The catalog of a provider that has one (`Provider.ai.catalog`).
+		listModels?( config: Config | undefined ): Promise< CatalogModel[] >;
+		// The config that offers these models from the catalog.
+		selectModels?( config: Config, ids: AiModelId[] ): Promise< Config >;
 		// Whether `generateImages` works with this config; defaults to true.
 		canGenerateImages?( config: Config ): boolean;
 		// Results keep the requests' order; a failure never aborts the rest.

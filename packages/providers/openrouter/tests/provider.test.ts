@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotConnectedError } from '../../errors';
+import { findAiModel, getAiModels, servesAiModel } from '../../models';
 import { ImageFilteredError, TransientImageError } from '../../wpcom/ai/images';
 import { openrouterAccount } from '../account';
 import { openrouterAi, rewriteOpenrouterError } from '../ai';
+import { openrouterProvider } from '../descriptor';
 import { openrouterImageDialect } from '../images';
 
 const json = ( status: number, body: unknown = {} ) =>
 	new Response( JSON.stringify( body ), { status } );
 
-const keyInfo = ( data: Record< string, unknown > = {} ) =>
-	json( 200, { data: { limit_remaining: null, is_free_tier: false, ...data } } );
+const keyInfo = () => json( 200, { data: { limit_remaining: null, is_free_tier: true } } );
 
 describe( 'openrouter account', () => {
 	const fetchMock = vi.fn();
@@ -37,8 +38,6 @@ describe( 'openrouter account', () => {
 
 	it.each( [
 		[ 'a rejected key', json( 401, { error: { message: 'User not found.' } } ), 'rejected' ],
-		[ 'an account without credits', keyInfo( { is_free_tier: true } ), 'no credits' ],
-		[ 'a key at its credit limit', keyInfo( { limit_remaining: 0 } ), 'credit limit' ],
 		[ 'a rate limit', json( 429 ), 'limiting requests' ],
 	] )( 'refuses %s', async ( _case, response, message ) => {
 		fetchMock.mockResolvedValueOnce( response );
@@ -88,31 +87,146 @@ describe( 'openrouter account', () => {
 } );
 
 describe( 'openrouter ai', () => {
-	it( 'runs Studio’s model under OpenRouter’s name for it', async () => {
-		const connection = await openrouterAi.model(
-			{ method: 'api-key', apiKey: 'sk-or-v1-key' },
-			'claude-sonnet-5-5',
-			{}
-		);
+	const kimi = {
+		slug: 'moonshotai/kimi-k9',
+		label: 'MoonshotAI: Kimi K9',
+		images: false,
+		reasoning: true,
+		contextWindow: 1_000_000,
+	};
 
-		expect( connection ).toMatchObject( {
+	it( 'runs a model under OpenRouter’s name for it', async () => {
+		const config = { method: 'api-key' as const, apiKey: 'sk-or-v1-key', models: [ kimi ] };
+
+		await expect(
+			openrouterAi.model( config, 'openrouter/anthropic/claude-sonnet-5.5', {} )
+		).resolves.toMatchObject( {
 			piProvider: 'openrouter',
 			apiKey: 'sk-or-v1-key',
 			requestModelId: 'anthropic/claude-sonnet-5.5',
-			model: { id: 'claude-sonnet-5-5', api: 'anthropic-messages', provider: 'openrouter' },
+			model: { id: 'openrouter/anthropic/claude-sonnet-5.5', api: 'anthropic-messages' },
 		} );
-		await expect( openrouterAi.model( undefined, 'claude-sonnet-5-5', {} ) ).rejects.toBeInstanceOf(
-			NotConnectedError
-		);
+		// A model newer than pi's catalog runs with what it was picked with.
 		await expect(
-			openrouterAi.model( { method: 'api-key', apiKey: 'k' }, 'muse-spark-1.3', {} )
-		).rejects.toThrow( 'does not serve' );
+			openrouterAi.model( config, 'openrouter/moonshotai/kimi-k9', {} )
+		).resolves.toMatchObject( {
+			requestModelId: 'moonshotai/kimi-k9',
+			model: { api: 'openai-completions', reasoning: true, input: [ 'text' ] },
+		} );
+		await expect(
+			openrouterAi.model( undefined, 'openrouter/anthropic/claude-sonnet-5.5', {} )
+		).rejects.toBeInstanceOf( NotConnectedError );
+		await expect( openrouterAi.model( config, 'openrouter/acme/unknown', {} ) ).rejects.toThrow(
+			'does not serve'
+		);
+	} );
+
+	it( 'offers the models the account picked, by OpenRouter’s name', () => {
+		const account = openrouterProvider.account.describe( {
+			method: 'api-key',
+			apiKey: 'sk-or-v1-key',
+			models: [ kimi ],
+		} );
+		const [ model ] = getAiModels( 'openrouter', account );
+
+		expect( model ).toMatchObject( { id: 'openrouter/moonshotai/kimi-k9', supportsImages: false } );
+		expect( model.label() ).toBe( 'MoonshotAI: Kimi K9' );
+		expect( findAiModel( 'openrouter/moonshotai/kimi-k9' )?.provider ).toBe( 'openrouter' );
+		expect( servesAiModel( 'openrouter', 'openrouter/moonshotai/kimi-k9' ) ).toBe( true );
+		expect( servesAiModel( 'anthropic', 'openrouter/moonshotai/kimi-k9' ) ).toBe( false );
 	} );
 
 	it( 'says what an OpenRouter error status means', () => {
 		expect( rewriteOpenrouterError( '402 Insufficient credits' ) ).toContain( 'credits ran out' );
 		expect( rewriteOpenrouterError( '429: {"error":{}}' ) ).toContain( 'limiting requests' );
 		expect( rewriteOpenrouterError( 'socket hang up' ) ).toBeUndefined();
+	} );
+} );
+
+describe( 'the OpenRouter catalog', () => {
+	const fetchMock = vi.fn();
+	const config = { method: 'api-key' as const, apiKey: 'sk-or-v1-key' };
+	const listed = {
+		data: [
+			{
+				id: 'acme/free-model:free',
+				name: 'Acme: Free Model',
+				context_length: 262_144,
+				architecture: { input_modalities: [ 'text' ], output_modalities: [ 'text' ] },
+				pricing: { prompt: '0', completion: '0' },
+				supported_parameters: [ 'tools' ],
+			},
+			{
+				id: 'acme/no-tools',
+				name: 'Acme: No Tools',
+				architecture: { input_modalities: [ 'text' ], output_modalities: [ 'text' ] },
+				supported_parameters: [],
+			},
+			{
+				id: 'anthropic/claude-sonnet-5.5',
+				name: 'Anthropic: Claude Sonnet 5.5',
+				context_length: 1_000_000,
+				architecture: { input_modalities: [ 'text', 'image' ], output_modalities: [ 'text' ] },
+				pricing: { prompt: '0.000003', completion: '0.000015' },
+				supported_parameters: [ 'tools', 'reasoning' ],
+			},
+		],
+	};
+
+	beforeEach( () => {
+		vi.stubGlobal( 'fetch', fetchMock );
+		fetchMock.mockImplementation( async () => json( 200, listed ) );
+	} );
+
+	afterEach( () => {
+		fetchMock.mockReset();
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'lists the models that call tools, Studio’s recommended ones first', async () => {
+		await expect( openrouterAi.listModels!( config ) ).resolves.toEqual( [
+			{
+				id: 'openrouter/anthropic/claude-sonnet-5.5',
+				label: 'Anthropic: Claude Sonnet 5.5',
+				supportsImages: true,
+				details: '$3 / $15 per million tokens · 1M context',
+				recommended: true,
+			},
+			{
+				id: 'openrouter/acme/free-model:free',
+				label: 'Acme: Free Model',
+				supportsImages: false,
+				details: 'Free · 262K context',
+				recommended: false,
+			},
+		] );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'https://openrouter.ai/api/v1/models/user',
+			expect.objectContaining( { headers: { Authorization: 'Bearer sk-or-v1-key' } } )
+		);
+	} );
+
+	it( 'keeps what running the picked models needs', async () => {
+		await expect(
+			openrouterAi.selectModels!( config, [
+				'openrouter/acme/free-model:free',
+				'openrouter/acme/gone',
+			] )
+		).resolves.toEqual( {
+			...config,
+			models: [
+				{
+					slug: 'acme/free-model:free',
+					label: 'Acme: Free Model',
+					images: false,
+					reasoning: false,
+					contextWindow: 262_144,
+				},
+			],
+		} );
+		await expect(
+			openrouterAi.selectModels!( config, [ 'openrouter/acme/gone' ] )
+		).rejects.toThrow( 'at least one model' );
 	} );
 } );
 

@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { createRequire } from 'module';
+import { builtinModules, createRequire } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
 import { defineConfig } from 'vite';
@@ -11,13 +11,6 @@ const packageJson = createRequire( import.meta.url )( './package.json' ) as {
 	engines?: { node?: string };
 	version: string;
 };
-
-const nodeBuiltinExternals: RegExp[] = [
-	/^node:/,
-	/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain|dns|async_hooks)$/,
-	/^fs\/promises$/,
-	/^dns\/promises$/,
-];
 
 // Kept external and installed by `install:bundle`; everything else, including the
 // workspace packages and their dependencies, is bundled. See "Bundled Workspace
@@ -36,6 +29,11 @@ if ( ! minimumNodeVersion ) {
 		`Invalid engines.node range in apps/cli/package.json: ${ minimumNodeVersionRange }`
 	);
 }
+
+// pi is bundled, but reads its version from its `package.json` and its themes from files. These
+// are copied to `<chunk dir>/pi-coding-agent`, where `PI_PACKAGE_DIR` points it.
+const piPackagePath = resolve( __dirname, '../../node_modules/@earendil-works/pi-coding-agent' );
+const PI_PACKAGE_FILES = [ 'package.json', 'dist/modes/interactive/theme' ];
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
@@ -143,6 +141,12 @@ export const baseConfig = defineConfig( {
 						filter: ( source ) => source !== extractedWordPressPath,
 					} );
 				}
+				for ( const file of PI_PACKAGE_FILES ) {
+					cpSync( resolve( piPackagePath, file ), resolve( outDir, 'pi-coding-agent', file ), {
+						recursive: true,
+						filter: ( source ) => ! /\.(js|ts|map)$/.test( source ),
+					} );
+				}
 				const agentPlugins = resolve( outDir, 'agent-plugins' );
 				for ( const file of AGENT_PLUGIN_FILES ) {
 					cpSync( resolve( pluginsSourcePath, file ), resolve( agentPlugins, file ), {
@@ -209,7 +213,7 @@ export const baseConfig = defineConfig( {
 					return false;
 				}
 
-				if ( nodeBuiltinExternals.some( ( pattern ) => pattern.test( id ) ) ) {
+				if ( id.startsWith( 'node:' ) || builtinModules.includes( id ) ) {
 					return true;
 				}
 
@@ -246,5 +250,6 @@ export const baseConfig = defineConfig( {
 		__IS_PACKAGED_FOR_STANDALONE__: false,
 		__MINIMUM_NODE_VERSION__: JSON.stringify( minimumNodeVersion ),
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
+		'process.env.PI_PACKAGE_DIR': 'import.meta.dirname + "/pi-coding-agent"',
 	},
 } );

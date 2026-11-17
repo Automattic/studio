@@ -24,22 +24,24 @@ The WordPress Studio CLI no longer accepts the `--runtime` option for `studio cr
 
 The **File access** setting controls which files PHP can access on your computer. It has two options:
 
--   **Site directory** (default): PHP can only access the site directory, the system temporary directory, and a few WordPress Studio-specific directories, such as the one phpMyAdmin runs from.
--   **All files:** PHP can access any file on your system.
+-   **All files** (default): PHP can access any file on your system.
+-   **Site directory:** PHP can only access the site directory, the system temporary directory, and a few WordPress Studio-specific directories, such as the one phpMyAdmin runs from.
+
+Existing sites keep their current setting.
 
 With **Site directory**, WordPress Studio applies PHP’s `open_basedir` directive and disables a small set of risky PHP functions, such as creating symlinks or sending signals to other processes. This is not a strict sandbox, but it provides some degree of protection around misbehaving or low-effort malicious code, such as path traversal bugs that try to read or delete files outside the site.
 
 Symlinked files and directories inside the site, such as a plugin or theme you’ve symlinked from another folder, are allowed automatically. If you add a new symlink while the site is running, WordPress Studio restarts the site to allow it.
 
-Typically, access to the site directory and related directories is enough for most sites. If you want PHP to have access to all files on your system, open the site’s settings (choose **Settings** from the site menu) and select the **PHP** page. Change the **File access** setting to **All files**, then click **Save** at the top of the dialog. You can also choose the file access when creating a site, under **Advanced**.
+To restrict a site to its own directory, open the site’s settings (choose **Settings** from the site menu) and select the **PHP** page. Change the **File access** setting to **Site directory**, then click **Save** at the top of the dialog. **Site directory** makes pages load noticeably slower on Windows, because PHP turns off its file path cache when `open_basedir` is set. You can also choose the file access when creating a site, under **Advanced**.
 
 To change the setting with the [WordPress Studio CLI](https://wordpress.studio/docs/cli/), run the following from the site’s directory:
 
 ```
-studio config set --file-access all-files
+studio config set --file-access site-directory
 ```
 
-Use `--file-access site-directory` to restore the default. You can also pass `--file-access` to `studio create`.
+Use `--file-access all-files` to restore the default. You can also pass `--file-access` to `studio create`.
 
 ### [Child processes](#2-child-processes)
 

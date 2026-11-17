@@ -59,6 +59,7 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				meta: disconnected,
+				xai: disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -78,6 +79,7 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				meta: disconnected,
+				xai: disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -212,6 +214,7 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				meta: disconnected,
+				xai: disconnected,
 				spacefast: disconnected,
 			},
 		} );

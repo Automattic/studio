@@ -36,6 +36,7 @@ import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
+import { diagnoseStalledPhp } from 'cli/lib/stalled-php';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription, SITE_PROCESS_PREFIX } from 'cli/lib/types/process-manager-ipc';
 import {
@@ -157,6 +158,10 @@ function buildServerConfig(
 		serverConfig.enableXdebug = true;
 	}
 
+	if ( site.phpWorkers ) {
+		serverConfig.phpWorkers = site.phpWorkers;
+	}
+
 	if ( site.enableDebugLog ) {
 		serverConfig.enableDebugLog = true;
 	}
@@ -251,6 +256,7 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
+	let serverPid: number | undefined;
 	const now = Date.now();
 	// Phases time from here; a `site start` an app asked for times from the request, so it includes
 	// spawning and loading this CLI and the preparation above.
@@ -259,6 +265,7 @@ export async function startWordPressServer(
 	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
+		serverPid = processDesc.status === 'online' ? processDesc.pid : undefined;
 		await readyOrExit.waitFor( processDesc.pmId );
 		phaseTimings.daemon_ms = Date.now() - now;
 		await sendMessage(
@@ -305,14 +312,23 @@ export async function startWordPressServer(
 		}
 		return processDesc;
 	} catch ( error ) {
+		const timeMs = Date.now() - startedAt;
+		const failureReason = classifyStartFailure( error );
 		try {
+			// Windows starts hang far more often than others; record whether the stuck PHP was working
+			// or waiting so a fix can target the cause.
+			const diagnosis =
+				failureReason === 'timeout' && serverPid && process.platform === 'win32'
+					? await diagnoseStalledPhp( serverPid, site.path )
+					: undefined;
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
 				command,
 				success: false,
 				file_access: getSiteFileAccess( site ),
-				failure_reason: classifyStartFailure( error ),
-				time_ms: Date.now() - startedAt,
+				failure_reason: failureReason,
+				...diagnosis,
+				time_ms: timeMs,
 				...phaseTimings,
 			} );
 		} catch {

@@ -146,9 +146,6 @@ apps/studio/bin/node.exe
 # Bundled PHP binary (downloaded during packaging)
 apps/studio/php-bin/
 
-# CLI launcher executable (built during packaging via @yao-pkg/pkg)
-bin/studio-cli.exe
-
 # PromptFoo evaluation outputs
 scripts/eval/output/
 scripts/eval/test-sites/

@@ -36,6 +36,8 @@ const backgroundPath = path.resolve(
 
 const dmgSpecs = {
 	title: 'WordPress Studio',
+	// LZMA, smaller than appdmg's default zlib; it mounts on macOS 10.15 and later.
+	format: 'ULMO',
 	icon: volumeIconPath,
 	'icon-size': dmgLayout.iconSize,
 	background: backgroundPath,

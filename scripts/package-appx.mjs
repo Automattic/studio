@@ -1,6 +1,7 @@
 import { execFileSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
+import { exec as pkgExec } from '@yao-pkg/pkg';
 import convertToWindowsStore from 'electron2appx';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
@@ -62,6 +63,51 @@ try {
 
 const outPath = path.join( import.meta.dirname, '..', 'apps', 'studio', 'out' );
 const assetsPath = path.join( import.meta.dirname, '..', 'apps', 'studio', 'assets', 'appx' );
+
+// Signs a file with Azure Trusted Signing through signtool.
+async function signWithAzure( filePath ) {
+	const { signtoolPath } = getAzureSigningConfig();
+	// The Microsoft timestamp server (timestamp.acs.microsoft.com) fails
+	// intermittently, so retry a few times before giving up.
+	const maxAttempts = 3;
+	const retryDelaySeconds = 30;
+	for ( let attempt = 1; ; attempt++ ) {
+		try {
+			execFileSync( signtoolPath, getAzureSignArgs( filePath ), {
+				stdio: 'inherit',
+			} );
+			return;
+		} catch ( error ) {
+			if ( attempt >= maxAttempts ) {
+				throw error;
+			}
+			console.log(
+				`Signing attempt ${ attempt } of ${ maxAttempts } failed, retrying in ${ retryDelaySeconds }s...`
+			);
+			await new Promise( ( resolve ) => setTimeout( resolve, retryDelaySeconds * 1000 ) );
+		}
+	}
+}
+
+// The package's `studio.exe` alias needs an .exe target, which batch files can't be, so the
+// Store package carries this launcher; the installer builds use studio-cli.bat instead.
+const cliLauncherPath = path.join( outPath, `studio-cli-${ architecture }.exe` );
+console.log( `~~~ Building the CLI launcher for the studio.exe alias...` );
+await pkgExec( [
+	path.join( import.meta.dirname, '..', 'apps', 'studio', 'bin', 'studio-cli-launcher.js' ),
+	'--target',
+	`node22-win-${ architecture }`,
+	'--output',
+	cliLauncherPath,
+	'--compress',
+	'GZip',
+	'--no-bytecode',
+	'--public',
+] );
+if ( signWindows ) {
+	console.log( '~~~ Signing the CLI launcher with Azure Trusted Signing...' );
+	await signWithAzure( cliLauncherPath );
+}
 
 console.log( `~~~ Packaging AppX for architecture: ${ architecture }` );
 
@@ -162,9 +208,14 @@ const sharedOptions = {
 	identityName: '22490Automattic.StudiobyWordPress.com',
 	finalSay: async function () {
 		// This hook runs after manifest generation but before packaging
-		const manifestPath = path.join( this.outputDirectory, 'pre-appx', 'AppXManifest.xml' );
+		const preAppxPath = path.join( this.outputDirectory, 'pre-appx' );
+		const manifestPath = path.join( preAppxPath, 'AppXManifest.xml' );
 		await addProtocolHandlerToManifest( manifestPath );
 		await addAppExecutionAliasToManifest( manifestPath );
+		await fs.copyFile(
+			cliLauncherPath,
+			path.join( preAppxPath, 'app', 'resources', 'bin', 'studio-cli.exe' )
+		);
 	},
 };
 
@@ -215,27 +266,7 @@ if ( appxFiles.length === 0 ) {
 for ( const appxFile of appxFiles ) {
 	const appxPath = path.join( appxOutputPathSigned, appxFile );
 	console.log( `Signing ${ appxPath }...` );
-	const { signtoolPath } = getAzureSigningConfig();
-	// The Microsoft timestamp server (timestamp.acs.microsoft.com) fails
-	// intermittently, so retry a few times before giving up.
-	const maxAttempts = 3;
-	const retryDelaySeconds = 30;
-	for ( let attempt = 1; ; attempt++ ) {
-		try {
-			execFileSync( signtoolPath, getAzureSignArgs( appxPath ), {
-				stdio: 'inherit',
-			} );
-			break;
-		} catch ( error ) {
-			if ( attempt >= maxAttempts ) {
-				throw error;
-			}
-			console.log(
-				`Signing attempt ${ attempt } of ${ maxAttempts } failed, retrying in ${ retryDelaySeconds }s...`
-			);
-			await new Promise( ( resolve ) => setTimeout( resolve, retryDelaySeconds * 1000 ) );
-		}
-	}
+	await signWithAzure( appxPath );
 	console.log( `Signed ${ appxFile } successfully.` );
 
 	// Rename to remove misleading "unsigned" from the filename

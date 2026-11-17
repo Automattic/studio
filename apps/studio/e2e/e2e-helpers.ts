@@ -21,6 +21,8 @@ export type LaunchOptions = {
 	appData?: Record< string, unknown >;
 	// Merged into shared.json, e.g. an AI provider and its key.
 	sharedConfig?: Record< string, unknown >;
+	// Passed to the app's executable, e.g. the languages the system lists.
+	args?: string[];
 };
 
 export class E2ESession {
@@ -62,7 +64,7 @@ export class E2ESession {
 	 */
 	async launch(
 		testEnv: NodeJS.ProcessEnv = {},
-		{ firstRun = false, appData, sharedConfig }: LaunchOptions = {}
+		{ firstRun = false, appData, sharedConfig, args = [] }: LaunchOptions = {}
 	) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
@@ -104,7 +106,7 @@ export class E2ESession {
 			...sharedConfig,
 		} );
 
-		await this.launchFirstWindow( testEnv );
+		await this.launchFirstWindow( testEnv, args );
 	}
 
 	/**
@@ -247,7 +249,7 @@ export class E2ESession {
 		} );
 	}
 
-	async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
+	async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {}, args: string[] = [] ) {
 		const appInfo = parseElectronApp(
 			this.appPath ?? findLatestBuild( path.join( __dirname, '..', 'out' ) )
 		);
@@ -290,7 +292,7 @@ export class E2ESession {
 				: [];
 
 		this.electronApp = await electron.launch( {
-			args: [ ...linuxFlags, `--user-data-dir=${ this.userDataPath }`, appInfo.main ],
+			args: [ ...linuxFlags, ...args, `--user-data-dir=${ this.userDataPath }`, appInfo.main ],
 			executablePath,
 			env: {
 				...process.env,

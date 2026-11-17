@@ -19,7 +19,8 @@ export default mergeConfig(
 						viteStaticCopy( {
 							targets: [
 								{
-									src: 'node_modules',
+									// The CLI runs without its dependencies' source maps and type declarations.
+									src: [ 'node_modules', '!node_modules/**/*.{map,d.ts,d.mts,d.cts}' ],
 									dest: '.',
 								},
 							],

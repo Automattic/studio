@@ -1,17 +1,24 @@
 import { execFile } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
+import { pipeline } from 'stream/promises';
+import { pathToFileURL } from 'url';
+import { promisify } from 'util';
+import zlib from 'zlib';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerDMG } from '@electron-forge/maker-dmg';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
-import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
+import * as tar from 'tar';
 import { PROTOCOL_PREFIX } from '../../packages/common/constants';
+import { DEFAULT_LOCALE } from '../../packages/common/lib/locale';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
 import { dmgLayout } from '../../scripts/dmg-layout';
 import { buildSpotlightNative } from './native/build';
+import { matchSupportedLocale } from './src/lib/match-supported-locale';
 import { squirrelWindowsSign, windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
@@ -20,6 +27,127 @@ const bundledPhpBinaryRoot = path.join( __dirname, 'php-bin' );
 // The name users read. productName stays "Studio" because it names the app
 // bundle, executable, DMG and log and data folders that releases rely on.
 const displayName = 'WordPress Studio';
+
+const execFileAsync = promisify( execFile );
+
+// English, and the Electron locales Studio shows in a translation, keep Chromium's locale pack.
+function keepsOwnLocalePack( locale: string ): boolean {
+	return (
+		new Intl.Locale( locale ).language === 'en' || matchSupportedLocale( locale ) !== DEFAULT_LOCALE
+	);
+}
+
+// The Electron locales Studio shows in English carry the English locale pack in place of their own.
+// Every locale keeps a pack, so Chromium still picks the app locale from the languages the system
+// lists, and with it Studio's language, and shows its own strings for these locales in English. The
+// pack is a link to the English one where the package formats carry links, and a copy on Windows,
+// where they don't.
+function useEnglishLocalePacks( electronPath: string, platform: string ) {
+	if ( platform === 'darwin' ) {
+		const [ resources ] = globSync(
+			'*.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources',
+			{ cwd: electronPath, absolute: true }
+		);
+		for ( const pack of globSync( '*.lproj/locale.pak', { cwd: resources } ) ) {
+			// Folder names use `_` for `-`, and some carry a grammatical gender: `es_419_FEMININE.lproj`.
+			const [ , locale, gender = '' ] =
+				/^(.+?)(_FEMININE|_MASCULINE|_NEUTER)?\.lproj[\\/]/.exec( pack ) ?? [];
+			if ( locale && ! keepsOwnLocalePack( locale.replace( /_/g, '-' ) ) ) {
+				const packPath = path.join( resources, pack );
+				fs.rmSync( packPath );
+				fs.symlinkSync( `../en${ gender }.lproj/locale.pak`, packPath );
+			}
+		}
+		return;
+	}
+
+	const locales = path.join( electronPath, 'locales' );
+	for ( const pack of fs.readdirSync( locales ) ) {
+		if ( pack.endsWith( '.pak' ) && ! keepsOwnLocalePack( path.basename( pack, '.pak' ) ) ) {
+			const packPath = path.join( locales, pack );
+			fs.rmSync( packPath );
+			if ( platform === 'win32' ) {
+				fs.copyFileSync( path.join( locales, 'en-US.pak' ), packPath );
+			} else {
+				fs.symlinkSync( 'en-US.pak', packPath );
+			}
+		}
+	}
+}
+
+// The signing identity @electron/osx-sign picks for the app: the first valid Developer ID
+// Application identity in the keychain search list.
+async function findDeveloperIdIdentity(): Promise< string | undefined > {
+	const { stdout } = await execFileAsync( 'security', [ 'find-identity', '-v' ] );
+	return /^\s*\d+\)\s+([0-9A-F]{40})\s+"Developer ID Application:/m.exec( stdout )?.[ 1 ];
+}
+
+function isMachO( filePath: string ): boolean {
+	const fd = fs.openSync( filePath, 'r' );
+	try {
+		const header = Buffer.alloc( 4 );
+		if ( fs.readSync( fd, header, 0, 4, 0 ) !== 4 ) {
+			return false;
+		}
+		return [ 0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe ].includes(
+			header.readUInt32BE( 0 )
+		);
+	} finally {
+		fs.closeSync( fd );
+	}
+}
+
+// The app's signing can't reach into the PHP archive, so the packaging signs PHP's executables
+// before compressing them, the way the app's signing signs the app's own: with the Developer ID
+// identity, the hardened runtime and @electron/osx-sign's default entitlements on macOS, and with
+// the Windows signing hook. Builds without a signing identity leave them as downloaded.
+async function signPhpPackage( packageDir: string, platform: string ) {
+	const files = globSync( '**/*', { cwd: packageDir, absolute: true, nodir: true } );
+	if ( platform === 'darwin' ) {
+		const identity = await findDeveloperIdIdentity();
+		if ( ! identity ) {
+			console.log( 'No Developer ID Application identity found, skipping PHP signing ...' );
+			return;
+		}
+		for ( const file of files.filter( isMachO ) ) {
+			await execFileAsync( 'codesign', [
+				'--sign',
+				identity,
+				'--force',
+				'--timestamp',
+				'--options',
+				'runtime',
+				'--entitlements',
+				path.join( __dirname, 'entitlements', 'php.plist' ),
+				file,
+			] );
+		}
+	} else if ( platform === 'win32' && windowsSign?.hookModulePath ) {
+		const { default: signFile } = ( await import(
+			pathToFileURL( windowsSign.hookModulePath ).href
+		) ) as { default: ( file: string ) => void | Promise< void > };
+		const portableExecutables = files.filter( ( candidate ) =>
+			/\.(exe|dll|sys|efi|scr|node)$/i.test( candidate )
+		);
+		for ( const file of portableExecutables ) {
+			await signFile( file );
+		}
+	}
+}
+
+// A brotli-compressed tarball, which the CLI unpacks on first run with what it already ships.
+async function compressPhpPackage( packageDir: string, archivePath: string ) {
+	await pipeline(
+		tar.c( { cwd: packageDir, portable: true }, fs.readdirSync( packageDir ) ),
+		zlib.createBrotliCompress( {
+			params: {
+				[ zlib.constants.BROTLI_PARAM_QUALITY ]: zlib.constants.BROTLI_MAX_QUALITY,
+				[ zlib.constants.BROTLI_PARAM_LGWIN ]: zlib.constants.BROTLI_MAX_WINDOW_BITS,
+			},
+		} ),
+		fs.createWriteStream( archivePath )
+	);
+}
 
 const config: ForgeConfig = {
 	packagerConfig: {
@@ -33,6 +161,11 @@ const config: ForgeConfig = {
 			// InfoPlist.strings written below.
 			LSHasLocalizedDisplayName: true,
 		},
+		afterExtract: [
+			async ( { buildPath, platform } ) => {
+				useEnglishLocalePacks( buildPath, platform );
+			},
+		],
 		afterCopy: [
 			async ( { buildPath, platform, arch } ) => {
 				if ( platform === 'darwin' ) {
@@ -104,6 +237,11 @@ const config: ForgeConfig = {
 			/^\/.*\.log$/,
 			// Source maps are uploaded to Sentry at build time and not needed at runtime.
 			/\.map$/,
+			// Type declarations only serve type checking.
+			/\.d\.[cm]?ts$/,
+			// Build tools @sentry/node depends on only for its bundler plugins, which the main
+			// process never loads.
+			/\/node_modules\/(sentry|@sentry\/bundler-plugins|oxc-parser|@oxc-parser|@oxc-project)(\/|$)/,
 			// Resources copied separately via extraResource
 			/^\/assets/,
 			/^\/bin/,
@@ -332,39 +470,35 @@ const config: ForgeConfig = {
 				`Downloading PHP ${ RecommendedPHPVersion } package for ${ platform }-${ arch }...`
 			);
 			fs.rmSync( bundledPhpBinaryRoot, { recursive: true, force: true } );
-			await execAsync(
-				[
-					'node',
-					'--experimental-strip-types',
-					path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
-					RecommendedPHPVersion,
-					platform,
-					arch,
-					'--install-root',
-					bundledPhpBinaryRoot,
-				],
-				{
-					STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
-				}
-			);
-
-			// Build CLI launcher executable for Windows AppX (Microsoft Store).
-			// AppX packages require AppExecutionAlias with an .exe target — batch files won't work.
-			if ( platform === 'win32' ) {
-				const pkgArch = arch === 'x64' ? 'x64' : 'arm64';
-				const target = `node22-win-${ pkgArch }`;
-				console.log( `Building CLI launcher executable for ${ target }...` );
-				await pkgExec( [
-					'bin/studio-cli-launcher.js',
-					'--target',
-					target,
-					'--output',
-					'bin/studio-cli.exe',
-					'--compress',
-					'GZip',
-					'--no-bytecode',
-					'--public',
-				] );
+			const phpDownloadRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-php-package-' ) );
+			try {
+				await execAsync(
+					[
+						'node',
+						'--experimental-strip-types',
+						path.join( repoRoot, 'scripts', 'download-php-binary.ts' ),
+						RecommendedPHPVersion,
+						platform,
+						arch,
+						'--install-root',
+						phpDownloadRoot,
+					],
+					{
+						STUDIO_PHP_BINARY_DOWNLOAD_REQUIRED: '1',
+					}
+				);
+				// The CLI unpacks the package on first run into `<config>/php-bin/<package-id>/`.
+				const [ packageId ] = fs.readdirSync( phpDownloadRoot );
+				const packageDir = path.join( phpDownloadRoot, packageId );
+				await signPhpPackage( packageDir, platform );
+				console.log( `Compressing PHP package ${ packageId } ...` );
+				fs.mkdirSync( bundledPhpBinaryRoot );
+				await compressPhpPackage(
+					packageDir,
+					path.join( bundledPhpBinaryRoot, `${ packageId }.tar.br` )
+				);
+			} finally {
+				fs.rmSync( phpDownloadRoot, { recursive: true, force: true } );
 			}
 		},
 	},

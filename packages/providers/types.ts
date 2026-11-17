@@ -4,6 +4,7 @@ import type { GithubCopilotConfig } from './github-copilot/config';
 import type { MetaConfig } from './meta/config';
 import type { AiModelId } from './models';
 import type { OpenaiConfig } from './openai/config';
+import type { OpenrouterConfig } from './openrouter/config';
 import type { SpacefastConfig } from './spacefast/config';
 import type { Space } from './spacefast/descriptor';
 import type { WpcomConfig } from './wpcom/config';
@@ -20,6 +21,7 @@ export type ProviderId =
 	| 'github-copilot'
 	| 'meta'
 	| 'xai'
+	| 'openrouter'
 	| 'spacefast';
 
 // The providers that serve AI models.
@@ -30,7 +32,8 @@ export type AiProviderId =
 	| 'gemini'
 	| 'github-copilot'
 	| 'meta'
-	| 'xai';
+	| 'xai'
+	| 'openrouter';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
@@ -41,6 +44,7 @@ export interface ProviderConfigs {
 	'github-copilot': GithubCopilotConfig;
 	meta: MetaConfig;
 	xai: XaiConfig;
+	openrouter: OpenrouterConfig;
 	spacefast: SpacefastConfig;
 }
 

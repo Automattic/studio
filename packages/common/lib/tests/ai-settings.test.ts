@@ -60,6 +60,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -80,6 +81,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -215,6 +217,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
 		} );

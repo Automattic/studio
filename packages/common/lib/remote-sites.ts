@@ -1,4 +1,10 @@
 import {
+	SITES_PROVIDER_IDS,
+	type ProviderSites,
+	type RemoteSite,
+	type SitesProviderId,
+} from '@studio/providers';
+import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
@@ -13,13 +19,12 @@ import {
 	unlockSharedConfig,
 	type SharedConfig,
 } from './shared-config';
-import type { ProviderSites, RemoteSite, SitesProviderId } from '@studio/providers';
 
 /**
  * The remote sites each local site syncs with, per provider. Connections are
  * Studio's data, not the provider's: WordPress.com's stay in
- * `connectedWpcomSites`, where builds of every version read them, and later
- * providers' are in `remoteSites`.
+ * `connectedWpcomSites`, where builds of every version read them, and every
+ * other provider's are in `remoteSites`, tagged with its id.
  */
 
 export interface SyncTimes {
@@ -112,7 +117,8 @@ function remoteSitesStore< Site extends RemoteSite >( provider: string ): Connec
 	};
 }
 
-const STORES: { [ Id in SitesProviderId ]: ConnectionStore< ProviderSites[ Id ] > } = {
+// The connections builds of every version read from a field of their own.
+const LEGACY_STORES: { [ Id in SitesProviderId ]?: ConnectionStore< ProviderSites[ Id ] > } = {
 	wpcom: {
 		list: ( localSiteId ) =>
 			localSiteId === undefined
@@ -129,15 +135,22 @@ const STORES: { [ Id in SitesProviderId ]: ConnectionStore< ProviderSites[ Id ] 
 		},
 		removeAll: removeAllConnectedWpcomSitesForLocalSite,
 	},
-	spacefast: remoteSitesStore( 'spacefast' ),
 };
+
+function connectionStore< Id extends SitesProviderId >(
+	provider: Id
+): ConnectionStore< ProviderSites[ Id ] > {
+	return ( LEGACY_STORES[ provider ] ?? remoteSitesStore( provider ) ) as ConnectionStore<
+		ProviderSites[ Id ]
+	>;
+}
 
 // The local site's connections, or every local site's when `localSiteId` is undefined.
 export function getRemoteSites< Id extends SitesProviderId >(
 	provider: Id,
 	localSiteId?: string
 ): Promise< RemoteSiteConnection< Id >[] > {
-	return STORES[ provider ].list( localSiteId ) as Promise< RemoteSiteConnection< Id >[] >;
+	return connectionStore( provider ).list( localSiteId ) as Promise< RemoteSiteConnection< Id >[] >;
 }
 
 // Connects the site, or updates it, and records the sync that just finished.
@@ -147,7 +160,7 @@ export function rememberRemoteSite< Id extends SitesProviderId >(
 	site: ProviderSites[ Id ],
 	synced?: 'push' | 'pull'
 ): Promise< void > {
-	return STORES[ provider ].add( localSiteId, site, synced );
+	return connectionStore( provider ).add( localSiteId, site, synced );
 }
 
 export function forgetRemoteSite< Id extends SitesProviderId >(
@@ -155,15 +168,12 @@ export function forgetRemoteSite< Id extends SitesProviderId >(
 	localSiteId: string,
 	siteId: ProviderSites[ Id ][ 'id' ]
 ): Promise< void > {
-	return ( STORES[ provider ] as ConnectionStore< ProviderSites[ Id ] > ).remove(
-		localSiteId,
-		siteId
-	);
+	return connectionStore( provider ).remove( localSiteId, siteId );
 }
 
 // Every provider's connections of a local site, as when it is deleted.
 export async function forgetRemoteSites( localSiteId: string ): Promise< void > {
-	for ( const store of Object.values( STORES ) ) {
-		await store.removeAll( localSiteId );
+	for ( const provider of SITES_PROVIDER_IDS ) {
+		await connectionStore( provider ).removeAll( localSiteId );
 	}
 }

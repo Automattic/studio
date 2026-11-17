@@ -1,15 +1,19 @@
 import { GITHUB_COPILOT_MODELS } from '@earendil-works/pi-ai/providers/github-copilot.models';
 import { __ } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
+import { AI_APIS, type AiApi, type AiConnection, type ServicesOf } from '../types';
 import { COPILOT_HEADERS, copilotApiUrl } from './api';
-import { GITHUB_COPILOT_AI_MODELS } from './descriptor';
-import type { GithubCopilotConfig } from './config';
-import type { AiConnection, ProviderServices } from '../types';
+import { GITHUB_COPILOT_AI_MODELS, type githubCopilotProvider } from './descriptor';
 import type { Api, Model } from '@earendil-works/pi-ai';
 
 // Copilot names Claude models with dots where Studio's ids, shared with Anthropic, use dashes.
 export function toCopilotModelId( id: string ): string {
 	return id.startsWith( 'claude-' ) ? id.replace( /(\d)-(\d)/g, '$1.$2' ) : id;
+}
+
+// pi's catalog types Copilot's models over every API pi knows, of which Studio runs `AI_APIS`.
+function runsInStudio( model: Model< Api > ): model is Model< AiApi > {
+	return ( AI_APIS as readonly string[] ).includes( model.api );
 }
 
 // Copilot's refusals carry their reason in the message text, said for the user.
@@ -27,7 +31,7 @@ function rewritePlanError( message: string ): string | undefined {
 	return undefined;
 }
 
-export const githubCopilotAi: NonNullable< ProviderServices< GithubCopilotConfig >[ 'ai' ] > = {
+export const githubCopilotAi: ServicesOf< typeof githubCopilotProvider >[ 'ai' ] = {
 	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new NotConnectedError( 'Sign in with GitHub to use your Copilot plan.' );
@@ -38,6 +42,11 @@ export const githubCopilotAi: NonNullable< ProviderServices< GithubCopilotConfig
 			: undefined;
 		if ( ! model ) {
 			throw new Error( `GitHub Copilot does not serve ${ modelId }` );
+		}
+		if ( ! runsInStudio( model ) ) {
+			throw new Error(
+				`GitHub Copilot serves ${ modelId } over ${ model.api }, which Studio doesn’t run`
+			);
 		}
 		return {
 			piProvider: 'github-copilot',

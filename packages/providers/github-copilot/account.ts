@@ -2,10 +2,13 @@ import { __ } from '@wordpress/i18n';
 import { ConnectError, NotConnectedError } from '../errors';
 import { toCopilotModelId } from './ai';
 import { CLIENT_ID, enablePlanModel, fetchPlanModels, request, type PlanModel } from './api';
-import { GITHUB_COPILOT_AI_MODELS } from './descriptor';
+import {
+	GITHUB_COPILOT_AI_MODELS,
+	type githubCopilotProvider,
+	type GithubCopilotModelId,
+} from './descriptor';
 import type { GithubCopilotConfig } from './config';
-import type { AiModelId } from '../models';
-import type { ProviderServices } from '../types';
+import type { ServicesOf } from '../types';
 
 const REFRESH_MARGIN_MS = 5 * 60_000;
 
@@ -62,7 +65,9 @@ async function readLogin( githubToken: string ): Promise< string | undefined > {
  * of them off until they are turned on. Undefined when Copilot doesn't say, so that a reply
  * Studio can't read never hides a model the plan does include.
  */
-async function readPlanModels( copilotToken: string ): Promise< AiModelId[] | undefined > {
+async function readPlanModels(
+	copilotToken: string
+): Promise< GithubCopilotModelId[] | undefined > {
 	const plan = await fetchPlanModels( copilotToken );
 	if ( ! plan ) {
 		return undefined;
@@ -72,7 +77,7 @@ async function readPlanModels( copilotToken: string ): Promise< AiModelId[] | un
 	const usesPicker = plan.some( ( model ) => model.offered );
 	const runs = ( model: PlanModel ) =>
 		model.policy !== 'disabled' && ( ! usesPicker || model.offered );
-	const models: AiModelId[] = [];
+	const models: GithubCopilotModelId[] = [];
 	for ( const { id } of GITHUB_COPILOT_AI_MODELS ) {
 		const model = plan.find( ( candidate ) => candidate.id === toCopilotModelId( id ) );
 		if ( ! model || ! runs( model ) ) {
@@ -108,9 +113,9 @@ async function waitForGithubToken( deviceCode: string, interval: number, expires
 	throw new ConnectError( __( 'The GitHub sign-in expired. Try again.' ), 'denied' );
 }
 
-type GithubCopilotAccount = ProviderServices< GithubCopilotConfig >[ 'account' ];
+type GithubCopilotAccount = ServicesOf< typeof githubCopilotProvider >[ 'account' ];
 
-const start: NonNullable< GithubCopilotAccount[ 'start' ] > = async () => {
+const start: GithubCopilotAccount[ 'start' ] = async () => {
 	const device = await postForm( 'https://github.com/login/device/code', { scope: 'read:user' } );
 	return {
 		url: String( device.verification_uri ),

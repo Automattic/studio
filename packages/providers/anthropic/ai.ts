@@ -1,11 +1,10 @@
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { NotConnectedError } from '../errors';
-import { ANTHROPIC_AI_MODELS } from './descriptor';
-import type { AnthropicConfig } from './config';
-import type { AiConnection, AiModel, ProviderServices } from '../types';
+import { ANTHROPIC_AI_MODELS, type anthropicProvider } from './descriptor';
+import type { AiConnection, AiModel, ServicesOf } from '../types';
 import type { Model } from '@earendil-works/pi-ai';
 
-export const anthropicAi: NonNullable< ProviderServices< AnthropicConfig >[ 'ai' ] > = {
+export const anthropicAi: ServicesOf< typeof anthropicProvider >[ 'ai' ] = {
 	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new NotConnectedError( 'Connect Anthropic with an API key or a Claude subscription.' );

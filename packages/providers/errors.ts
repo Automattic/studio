@@ -1,4 +1,9 @@
-// The provider isn't connected, or its config no longer works; the message is for the user.
+/**
+ * Thrown by a provider's services when there is no config, or the provider no longer accepts it,
+ * with a message for the user that says how to connect. Studio shows it. The Desktop app,
+ * `studio ui` and the CLI also forget a config the provider rejected during an operation, so they
+ * show the provider as disconnected; Studio on the web keeps it until the user disconnects it.
+ */
 export class NotConnectedError extends Error {
 	constructor( message: string ) {
 		super( message );
@@ -6,11 +11,17 @@ export class NotConnectedError extends Error {
 	}
 }
 
-// Why connecting failed: the user declined, what came back is missing or
-// rejected, or the provider couldn't confirm it.
+/**
+ * Why connecting failed: the user declined (`denied`), what they gave or what came back is missing
+ * or rejected (`invalid`), or the provider couldn't confirm it (`unverified`). Studio reports it in
+ * analytics for the Studio sign-in; for any other provider it only shows the message.
+ */
 export type ConnectFailure = 'denied' | 'invalid' | 'unverified';
 
-// Connecting failed; the message is for the user.
+/**
+ * Thrown by `account.connect` when connecting fails, with a message for the user, which surfaces
+ * show where the user connects. Studio stores no config.
+ */
 export class ConnectError extends Error {
 	constructor(
 		message: string,
@@ -21,8 +32,11 @@ export class ConnectError extends Error {
 	}
 }
 
-// A remote site operation failed; the message is for the user, and `code`
-// names the cause for analytics, such as `upload` or `remote_import`.
+/**
+ * Thrown by a provider's `sites` services when a remote step fails, with a message for the user,
+ * which surfaces show. `code` names the step for analytics, such as `site_fetch`, `site_create`,
+ * `upload` or `remote_import`, and `cause` keeps the error behind it for the logs.
+ */
 export class RemoteSiteError extends Error {
 	readonly cause?: unknown;
 

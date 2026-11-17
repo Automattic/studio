@@ -4,7 +4,11 @@ import path from 'path';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
-import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
+import {
+	forgetRejectedConfig,
+	readFreshProviderConfig,
+	readProviderConfig,
+} from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
@@ -389,9 +393,9 @@ async function requireConfig( provider: SitesProviderId ): Promise< Config > {
 	if ( provider === 'wpcom' ) {
 		return { token: ( await requireAuthToken( 'auth' ) ).accessToken } as Config;
 	}
-	const config = await readProviderConfig( provider );
+	const config = await readFreshProviderConfig( getProviderServices( provider ) );
 	if ( config ) {
-		return config;
+		return config as Config;
 	}
 	const { label } = getProvider( provider );
 	if (

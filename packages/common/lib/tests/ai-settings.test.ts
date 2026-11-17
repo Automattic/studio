@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { ConnectError, NotConnectedError } from '@studio/providers';
+import { ConnectError, NotConnectedError, PROVIDER_IDS } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -20,6 +20,8 @@ import {
 const anthropic = getProviderServices( 'anthropic' );
 const wpcom = getProviderServices( 'wpcom' );
 const disconnected = { connected: false };
+// Every registered provider's account, none of them connected.
+const noAccounts = Object.fromEntries( PROVIDER_IDS.map( ( id ) => [ id, disconnected ] ) );
 
 describe( 'ai settings', () => {
 	let configDir: string;
@@ -52,14 +54,7 @@ describe( 'ai settings', () => {
 	it( 'defaults to WordPress.com with nothing connected', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: {
-				wpcom: disconnected,
-				anthropic: disconnected,
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				spacefast: disconnected,
-			},
+			accounts: noAccounts,
 		} );
 	} );
 
@@ -71,12 +66,8 @@ describe( 'ai settings', () => {
 		expect( settings ).toEqual( {
 			provider: 'anthropic',
 			accounts: {
-				wpcom: disconnected,
+				...noAccounts,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234', method: 'api-key' },
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				spacefast: disconnected,
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -203,14 +194,7 @@ describe( 'ai settings', () => {
 
 		await expect( disconnectProvider( anthropic ) ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: {
-				wpcom: disconnected,
-				anthropic: disconnected,
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				spacefast: disconnected,
-			},
+			accounts: noAccounts,
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();

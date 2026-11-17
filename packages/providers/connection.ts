@@ -1,5 +1,5 @@
-import { getProvider } from './registry';
-import type { ConnectMethod, ProviderId } from './types';
+import { getProvider, type ProviderId } from './registry';
+import type { ConnectMethod } from './types';
 
 // One field of a connection form, as a surface renders it.
 export interface ConnectField {

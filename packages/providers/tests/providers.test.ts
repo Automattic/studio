@@ -1,14 +1,48 @@
 import { describe, expect, it } from 'vitest';
 import {
+	AI_PROVIDER_IDS,
 	findAiModel,
 	getConnectFields,
 	getConnectMethod,
 	getDefaultAiModel,
 	getProvider,
 	normalizeProviderId,
+	PROVIDER_IDS,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
 } from '..';
+import { getProviderServices } from '../services';
+
+describe( 'registration', () => {
+	it( 'keeps the first providers ahead of any other, in the order Studio falls back through', () => {
+		expect( PROVIDER_IDS.slice( 0, 6 ) ).toEqual( [
+			'wpcom',
+			'anthropic',
+			'openai',
+			'gemini',
+			'github-copilot',
+			'spacefast',
+		] );
+		expect( AI_PROVIDER_IDS.slice( 0, 5 ) ).toEqual( [
+			'wpcom',
+			'anthropic',
+			'openai',
+			'gemini',
+			'github-copilot',
+		] );
+		expect( SITES_PROVIDER_IDS.slice( 0, 2 ) ).toEqual( [ 'wpcom', 'spacefast' ] );
+	} );
+
+	it( 'finds each provider’s services by its id, with the capabilities its descriptor declares', () => {
+		expect( new Set( PROVIDER_IDS ).size ).toBe( PROVIDER_IDS.length );
+		for ( const id of PROVIDER_IDS ) {
+			const services = getProviderServices( id );
+			expect( services.id ).toBe( id );
+			expect( !! services.ai ).toBe( !! getProvider( id ).ai );
+			expect( !! services.sites ).toBe( !! getProvider( id ).sites );
+		}
+	} );
+} );
 
 describe( 'provider ids', () => {
 	it( 'reads the id builds before `anthropic` stored, and keeps writing it', () => {

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { ConnectError, NotConnectedError } from '../../errors';
-import { spacefastServices } from '../services';
+import { services } from '../services';
 
 afterEach( () => {
 	vi.unstubAllGlobals();
@@ -13,7 +13,7 @@ it( 'says when the user declined the sign-in', async () => {
 	);
 
 	await expect(
-		spacefastServices.account.connect( 'sign-in', {
+		services.account.connect( 'sign-in', {
 			deviceCode: 'dev_1',
 			interval: '1',
 			expiresAt: new Date( Date.now() + 60_000 ).toISOString(),
@@ -29,7 +29,7 @@ it( 'asks to connect again when the key no longer works', async () => {
 		)
 	);
 
-	await expect( spacefastServices.sites!.list( { apiKey: 'sfa_old' } ) ).rejects.toBeInstanceOf(
+	await expect( services.sites.list( { apiKey: 'sfa_old' } ) ).rejects.toBeInstanceOf(
 		NotConnectedError
 	);
 } );

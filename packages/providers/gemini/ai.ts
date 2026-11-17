@@ -1,11 +1,10 @@
 import { GOOGLE_MODELS } from '@earendil-works/pi-ai/providers/google.models';
 import { NotConnectedError } from '../errors';
-import { GEMINI_AI_MODELS } from './descriptor';
+import { GEMINI_AI_MODELS, type geminiProvider } from './descriptor';
 import { generateGeminiImages } from './images';
-import type { GeminiConfig } from './config';
-import type { AiConnection, ProviderServices } from '../types';
+import type { AiConnection, ServicesOf } from '../types';
 
-export const geminiAi: NonNullable< ProviderServices< GeminiConfig >[ 'ai' ] > = {
+export const geminiAi: ServicesOf< typeof geminiProvider >[ 'ai' ] = {
 	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new NotConnectedError( 'Connect Google Gemini with an API key.' );

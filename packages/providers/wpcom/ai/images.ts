@@ -1,5 +1,5 @@
 import { getAiGatewayBaseUrl } from './gateway';
-import type { GenerateImageRequest, GenerateImageResult, ProviderServices } from '../../types';
+import type { AiServices, GenerateImageRequest, GenerateImageResult } from '../../types';
 import type { WpcomConfig } from '../config';
 
 // Image generation through the proxy's OpenAI-compatible images route, which
@@ -193,7 +193,7 @@ export async function generateImagesOn(
 }
 
 export const generateWpcomImages: NonNullable<
-	NonNullable< ProviderServices< WpcomConfig >[ 'ai' ] >[ 'generateImages' ]
+	AiServices< WpcomConfig >[ 'generateImages' ]
 > = async ( config, requests, onResult ) => {
 	if ( ! config ) {
 		throw new Error( 'Image generation requires a WordPress.com login (studio auth login).' );

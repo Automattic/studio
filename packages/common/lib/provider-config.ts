@@ -19,11 +19,11 @@ import {
 import { getConfigDirectory } from './well-known-paths';
 
 /**
- * Each provider's config, validated against its descriptor's schema. The first
- * providers' map onto the shared.json fields builds of every version read: the
- * WordPress.com config is the Studio sign-in (`authToken`), the Anthropic one
- * the saved key (`anthropicApiKey`). Later providers, and Anthropic's
- * subscription token, keep theirs in `providerConfigs`.
+ * Each provider's config, validated against its descriptor's schema. Two map
+ * onto the shared.json fields builds of every version read: the WordPress.com
+ * config is the Studio sign-in (`authToken`), and an Anthropic API key the saved
+ * key (`anthropicApiKey`). Every other provider, and Anthropic's subscription
+ * token, keeps its config in its `providerConfigs` section.
  */
 
 interface AiFields {
@@ -68,9 +68,9 @@ type ConfigStore< Config > = {
 
 const anthropicSection = providerConfigStore( 'anthropic' );
 
-// The WordPress.com config is the Studio sign-in, so builds of every version
-// share it.
-const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
+// The configs builds of every version read from fields of their own. The
+// WordPress.com config is the Studio sign-in, so builds of every version share it.
+const LEGACY_STORES: { [ Id in ProviderId ]?: ConfigStore< ProviderConfigs[ Id ] > } = {
 	wpcom: {
 		read: async () => {
 			const token = await readAuthToken();
@@ -114,13 +114,17 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 			} );
 		},
 	},
-	openai: providerConfigStore( 'openai' ),
-	gemini: providerConfigStore( 'gemini' ),
-	'github-copilot': providerConfigStore( 'github-copilot' ),
-	spacefast: providerConfigStore( 'spacefast' ),
 };
 
-// A provider that came after the fields above keeps its config in `providerConfigs`.
+function configStore< Id extends ProviderId >(
+	provider: Id
+): ConfigStore< ProviderConfigs[ Id ] > {
+	return ( LEGACY_STORES[ provider ] ?? providerConfigStore( provider ) ) as ConfigStore<
+		ProviderConfigs[ Id ]
+	>;
+}
+
+// A provider's section of `providerConfigs`.
 function providerConfigStore( id: ProviderId ): ConfigStore< unknown > {
 	return {
 		read: async () => {
@@ -148,7 +152,7 @@ export async function readProviderConfig< Id extends ProviderId >(
 	provider: Id
 ): Promise< ProviderConfigs[ Id ] | undefined > {
 	const { account } = getProvider( provider );
-	const parsed = account.configSchema.safeParse( await STORES[ provider ].read() );
+	const parsed = account.configSchema.safeParse( await configStore( provider ).read() );
 	if ( ! parsed.success ) {
 		return undefined;
 	}
@@ -162,7 +166,7 @@ export async function writeProviderConfig< Id extends ProviderId >(
 	config: ProviderConfigs[ Id ] | undefined
 ): Promise< void > {
 	const valid = config && getProvider( provider ).account.configSchema.parse( config );
-	await ( STORES[ provider ] as ConfigStore< ProviderConfigs[ Id ] > ).write( valid );
+	await configStore( provider ).write( valid );
 	if ( ( await readSharedConfig() ).rememberedSignIns?.[ provider ] ) {
 		await rememberSignIn( provider, undefined );
 	}

@@ -1,10 +1,9 @@
 import { NotConnectedError } from '../../errors';
-import { WPCOM_AI_MODELS } from '../descriptor';
+import { WPCOM_AI_MODELS, type wpcomProvider } from '../descriptor';
 import { getAiGatewayBaseUrl } from './gateway';
 import { generateWpcomImages } from './images';
-import type { AiConnection, AiModel, ProviderServices } from '../../types';
-import type { WpcomConfig } from '../config';
-import type { Api, Model } from '@earendil-works/pi-ai';
+import type { AiApi, AiConnection, AiModel, ServicesOf } from '../../types';
+import type { Model } from '@earendil-works/pi-ai';
 
 // The proxy's `studio-agent` lane accepts the tier aliases and resolves each
 // to an upstream model.
@@ -14,7 +13,7 @@ const AI_FEATURE = 'studio-agent';
 // resolve to, so compaction kicks in before any of them overflows.
 const TIER_LIMITS = { contextWindow: 200_000, maxTokens: 32_000 };
 
-type Tier = Pick< Model< Api >, 'api' | 'reasoning' | 'compat' > & {
+type Tier = Pick< Model< AiApi >, 'api' | 'reasoning' | 'compat' > & {
 	// The upstream alias sent on the wire.
 	requestModelId?: string;
 };
@@ -56,7 +55,7 @@ function rewriteUsageCapError( message: string ): string | undefined {
 		: undefined;
 }
 
-export const wpcomAi: NonNullable< ProviderServices< WpcomConfig >[ 'ai' ] > = {
+export const wpcomAi: ServicesOf< typeof wpcomProvider >[ 'ai' ] = {
 	async model( config, modelId, { sessionId } ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new NotConnectedError( 'Log in to WordPress.com to use its models.' );

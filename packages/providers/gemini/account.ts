@@ -1,8 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { ConnectError } from '../errors';
-import { geminiConnectInput } from './descriptor';
-import type { GeminiConfig } from './config';
-import type { ProviderServices } from '../types';
+import { geminiConnectInput, type geminiProvider } from './descriptor';
+import type { ServicesOf } from '../types';
 
 const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1';
 const VALIDATION_TIMEOUT_MS = 10_000;
@@ -10,7 +9,7 @@ const VALIDATION_TIMEOUT_MS = 10_000;
 // Listing models costs no tokens. Google answers a bad key with a 400
 // (API_KEY_INVALID) or a 403; a key that can't be checked (offline, an outage)
 // is accepted.
-export const geminiAccount: ProviderServices< GeminiConfig >[ 'account' ] = {
+export const geminiAccount: ServicesOf< typeof geminiProvider >[ 'account' ] = {
 	async connect( _method, input ) {
 		const parsed = geminiConnectInput().safeParse( input );
 		if ( ! parsed.success ) {

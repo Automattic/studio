@@ -1,11 +1,9 @@
+import { defineServices } from '../types';
 import { spacefastAccount } from './account';
+import { spacefastProvider } from './descriptor';
 import { spacefastSites } from './sites';
-import type { SpacefastConfig } from './config';
-import type { Space } from './descriptor';
-import type { ProviderServices } from '../types';
 
-export const spacefastServices: ProviderServices< SpacefastConfig, Space > = {
-	id: 'spacefast',
+export const services = defineServices( spacefastProvider, {
 	account: spacefastAccount,
 	sites: spacefastSites,
-};
+} );

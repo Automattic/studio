@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { geminiConfigSchema, type GeminiConfig } from './config';
-import type { AiModel, Provider } from '../types';
+import { defineProvider, type AiModel } from '../types';
+import { geminiConfigSchema } from './config';
 
 export const GEMINI_AI_MODELS = [
 	{ id: 'gemini-3.8-flash', label: () => 'Gemini 3.8 Flash' },
@@ -26,7 +26,7 @@ export const geminiConnectInput = () =>
 const mark =
 	'<path d="M11.04 19.32Q12 21.51 12 24q0-2.49.93-4.68.96-2.19 2.58-3.81t3.81-2.55Q21.51 12 24 12q-2.49 0-4.68-.93a12.3 12.3 0 0 1-3.81-2.58 12.3 12.3 0 0 1-2.58-3.81Q12 2.49 12 0q0 2.49-.96 4.68-.93 2.19-2.55 3.81a12.3 12.3 0 0 1-3.81 2.58Q2.49 12 0 12q2.49 0 4.68.96 2.19.93 3.81 2.55t2.55 3.81"/>';
 
-export const geminiProvider: Provider< GeminiConfig > = {
+export const geminiProvider = defineProvider( {
 	id: 'gemini',
 	label: 'Google Gemini',
 	description: () => __( 'Use Gemini with a Gemini API key.' ),
@@ -53,4 +53,4 @@ export const geminiProvider: Provider< GeminiConfig > = {
 		models: GEMINI_AI_MODELS,
 		defaultModel: 'gemini-3.8-flash',
 	},
-};
+} );

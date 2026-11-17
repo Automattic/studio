@@ -1,10 +1,5 @@
 import { AGENT_APP_IDS, AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
-import {
-	AI_PROVIDER_IDS,
-	getProvider,
-	getProviderSites,
-	SITES_PROVIDER_IDS,
-} from '@studio/providers';
+import { AI_PROVIDER_IDS, getProvider, SITES_PROVIDER_IDS } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import {
 	BugIcon,
@@ -328,7 +323,8 @@ function getStudioSections( signedIn: boolean ): Section[] {
 								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
 							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
 						),
-						nativeOnly: getProviderSites( id ).content === 'static',
+						// Where sites don't run natively, Studio publishes only to WordPress.com.
+						nativeOnly: id !== 'wpcom',
 					};
 				} ),
 			],

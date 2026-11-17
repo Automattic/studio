@@ -1,7 +1,7 @@
 import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
-import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { readFreshProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { RemoteSiteError, type PushContent, type PushStatus } from '@studio/providers';
@@ -29,7 +29,7 @@ vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( '@studio/common/lib/provider-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/provider-config') >() ),
-	readProviderConfig: vi.fn(),
+	readFreshProviderConfig: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/static-content' );
 vi.mock( '@studio/common/lib/deploy-ignore' );
@@ -366,7 +366,7 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 		vi.clearAllMocks();
 		vi.mocked( onCancel ).mockReturnValue( () => true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( { ...site, name: 'My Site' } );
-		vi.mocked( readProviderConfig ).mockResolvedValue( { apiKey: 'sfa_key' } as never );
+		vi.mocked( readFreshProviderConfig ).mockResolvedValue( { apiKey: 'sfa_key' } as never );
 		vi.mocked( exportStaticContent ).mockResolvedValue( files );
 	} );
 

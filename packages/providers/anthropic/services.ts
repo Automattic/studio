@@ -1,10 +1,9 @@
+import { defineServices } from '../types';
 import { anthropicAccount } from './account';
 import { anthropicAi } from './ai';
-import type { AnthropicConfig } from './config';
-import type { ProviderServices } from '../types';
+import { anthropicProvider } from './descriptor';
 
-export const anthropicServices: ProviderServices< AnthropicConfig > = {
-	id: 'anthropic',
+export const services = defineServices( anthropicProvider, {
 	account: anthropicAccount,
 	ai: anthropicAi,
-};
+} );

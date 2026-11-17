@@ -92,7 +92,7 @@ it( 'connects Spacefast, creates a Space named after the site, and publishes to 
 	);
 } );
 
-it( 'publishes to WordPress.com directly where a static export can’t be made', async () => {
+it( 'publishes to WordPress.com directly where sites don’t run natively', async () => {
 	const actions = userEvent.setup();
 	setup( { capabilities: { nativeSites: false } } );
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
@@ -119,17 +119,21 @@ it( 'lists the sites published on every provider and publishes to another Space'
 		url: 'https://second.space.fast/',
 	};
 	const { connector, site } = setup( {
-		getRemoteSites: async ( provider, localSiteId ) =>
-			provider === 'wpcom'
-				? [ { ...wpcomSite, localSiteId: localSiteId ?? '' } ]
-				: [
+		getRemoteSites: async ( provider, localSiteId ) => {
+			if ( provider === 'wpcom' ) {
+				return [ { ...wpcomSite, localSiteId: localSiteId ?? '' } ];
+			}
+			return provider === 'spacefast'
+				? [
 						{
 							...space,
 							localSiteId: localSiteId ?? '',
 							lastPushTimestamp: null,
 							lastPullTimestamp: null,
 						},
-				  ],
+				  ]
+				: [];
+		},
 		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
 		createRemoteSite: async () => second,
 	} );

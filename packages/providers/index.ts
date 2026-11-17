@@ -9,6 +9,12 @@ export {
 	PROVIDER_IDS,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
+	type AiProviderId,
+	type ProviderConfigs,
+	type ProviderId,
+	type ProviderSite,
+	type ProviderSites,
+	type SitesProviderId,
 } from './registry';
 export { findAiModel, getAiModels, getDefaultAiModel, type AiModelId } from './models';
 export { getConnectFields, getConnectMethod, type ConnectField } from './connection';

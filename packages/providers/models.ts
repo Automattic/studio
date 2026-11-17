@@ -1,18 +1,13 @@
-import { AI_PROVIDER_IDS, getProvider } from './registry';
-import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
-import type { GEMINI_AI_MODELS } from './gemini/descriptor';
-import type { GITHUB_COPILOT_AI_MODELS } from './github-copilot/descriptor';
-import type { OPENAI_AI_MODELS } from './openai/descriptor';
-import type { AiModel, AiProviderId, ProviderId } from './types';
-import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
+import {
+	AI_PROVIDER_IDS,
+	getProvider,
+	type AiModelId,
+	type AiProviderId,
+	type ProviderId,
+} from './registry';
+import type { AiModel } from './types';
 
-export type AiModelId = (
-	| typeof WPCOM_AI_MODELS
-	| typeof ANTHROPIC_AI_MODELS
-	| typeof OPENAI_AI_MODELS
-	| typeof GEMINI_AI_MODELS
-	| typeof GITHUB_COPILOT_AI_MODELS
-)[ number ][ 'id' ];
+export type { AiModelId };
 
 /**
  * The models a surface offers for the provider: the ones the account it is given can run

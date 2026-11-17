@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent, dialog, shell } from 'electron';
-import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { readFreshProviderConfig } from '@studio/common/lib/provider-config';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { getProviderServices } from '@studio/providers/services';
 import { vol } from 'memfs';
@@ -17,7 +17,7 @@ vi.mock( 'fs/promises', async () => {
 vi.mock( '@studio/common/sites/site-path' );
 vi.mock( '@studio/common/lib/provider-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/provider-config') >() ),
-	readProviderConfig: vi.fn(),
+	readFreshProviderConfig: vi.fn(),
 } ) );
 vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/providers/services') >();
@@ -45,7 +45,7 @@ describe( 'listAccountSites', () => {
 		'requires a plan: $planRequired with Reprint flag $flag',
 		async ( { flag, planRequired } ) => {
 			vi.stubEnv( 'STUDIO_ENABLE_PULL_REPRINT', flag );
-			vi.mocked( readProviderConfig ).mockResolvedValue( { token: 'test-token' } );
+			vi.mocked( readFreshProviderConfig ).mockResolvedValue( { token: 'test-token' } );
 			const { list } = getProviderServices( 'wpcom' ).sites!;
 			vi.mocked( list ).mockResolvedValue( [] );
 

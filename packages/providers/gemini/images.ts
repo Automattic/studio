@@ -7,7 +7,7 @@ import {
 	type ImageDialect,
 } from '../wpcom/ai/images';
 import type { GeminiConfig } from './config';
-import type { ProviderServices } from '../types';
+import type { AiServices } from '../types';
 
 // Gemini's image models answer `generateContent` with the image inline. The
 // OpenAI-compatible images route only serves the retired Imagen models.
@@ -91,7 +91,7 @@ export const geminiImageDialect: ImageDialect = {
 };
 
 export const generateGeminiImages: NonNullable<
-	NonNullable< ProviderServices< GeminiConfig >[ 'ai' ] >[ 'generateImages' ]
+	AiServices< GeminiConfig >[ 'generateImages' ]
 > = async ( config, requests, onResult ) => {
 	if ( ! config ) {
 		throw new NotConnectedError( 'Generating images with Gemini needs an API key.' );

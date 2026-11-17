@@ -1,9 +1,4 @@
-import {
-	getProviderSites,
-	SITES_PROVIDER_IDS,
-	type ProviderSites,
-	type SitesProviderId,
-} from '@studio/providers';
+import { SITES_PROVIDER_IDS, type ProviderSites, type SitesProviderId } from '@studio/providers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
@@ -21,13 +16,11 @@ export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: st
 export const accountSitesQueryKey = ( provider: SitesProviderId ) =>
 	[ ...ACCOUNT_SITES_QUERY_KEY, provider ] as const;
 
-// The providers this app publishes to: one that publishes a static export needs the site to run
-// on native PHP.
+// The providers this app publishes to. Studio publishes to any of them by running `studio push`,
+// which needs the sites to run natively; elsewhere it publishes to WordPress.com through its sync.
 export function usePublishProviders(): SitesProviderId[] {
 	const { capabilities } = useConnector();
-	return SITES_PROVIDER_IDS.filter(
-		( id ) => capabilities.nativeSites || getProviderSites( id ).content !== 'static'
-	);
+	return capabilities.nativeSites ? [ ...SITES_PROVIDER_IDS ] : [ 'wpcom' ];
 }
 
 export function useConnectedHostingProviders( providers: SitesProviderId[] ) {

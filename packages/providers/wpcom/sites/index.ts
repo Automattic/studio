@@ -14,10 +14,10 @@ import {
 } from './api';
 import { enableReprintExporter, getReprintApiUrl, installReprintPublicKey } from './reprint';
 import { createTusUpload } from './upload';
-import type { SitesServices } from '../../types';
+import type { ServicesOf } from '../../types';
 import type { WpcomConfig } from '../config';
+import type { wpcomProvider } from '../descriptor';
 import type { ImportResponse } from './schemas';
-import type { SyncSite } from './site';
 
 const POLL_INTERVAL_MS = 3000;
 // Remote imports and backups can sit on one progress value for a long time on
@@ -87,7 +87,7 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 	return __( 'Something went wrong while updating the live site.' );
 }
 
-export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
+export const wpcomSites: ServicesOf< typeof wpcomProvider >[ 'sites' ] = {
 	list: ( config, options = {} ) =>
 		step( __( 'Failed to fetch WordPress.com sites' ), 'site_fetch', () =>
 			fetchSyncableSites( requireToken( config ), {

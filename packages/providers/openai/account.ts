@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { ConnectError, NotConnectedError } from '../errors';
-import { openaiConnectInput } from './descriptor';
+import { openaiConnectInput, type openaiProvider } from './descriptor';
 import type { ChatgptConfig, OpenaiConfig } from './config';
-import type { ProviderServices } from '../types';
+import type { ServicesOf } from '../types';
 
 // OpenAI's sign-in for agents: each sign-in registers an OAuth client for
 // Studio, and the user agrees to share their ChatGPT plan with it through the
@@ -68,12 +68,9 @@ async function readTokens( response: Response, clientId: string ): Promise< Chat
 	};
 }
 
-type OpenaiAccount = ProviderServices< OpenaiConfig >[ 'account' ];
+type OpenaiAccount = ServicesOf< typeof openaiProvider >[ 'account' ];
 
-const start: NonNullable< OpenaiAccount[ 'start' ] > = async (
-	_method,
-	{ redirectUri, hostId, remembered }
-) => {
+const start: OpenaiAccount[ 'start' ] = async ( _method, { redirectUri, hostId, remembered } ) => {
 	if ( ! redirectUri ) {
 		throw new Error( 'Signing in with ChatGPT needs an address on this computer.' );
 	}

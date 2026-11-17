@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { spacefastConfigSchema, type SpacefastConfig } from './config';
-import type { Provider } from '../types';
+import { defineProvider } from '../types';
+import { spacefastConfigSchema } from './config';
 
 // A Space: a static site on Spacefast, served at `url`, in one of the account's teams.
 export interface Space {
@@ -12,7 +12,7 @@ export interface Space {
 	teamName?: string;
 }
 
-export const spacefastProvider: Provider< SpacefastConfig, Space > = {
+export const spacefastProvider = defineProvider( {
 	id: 'spacefast',
 	label: 'Spacefast',
 	description: () => __( 'Publish a static copy of your sites to a Spacefast Space.' ),
@@ -38,7 +38,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 				),
 			learnMoreUrl: 'https://spacefast.com',
 		},
-		describe: ( space ) => ( {
+		describe: ( space: Space ) => ( {
 			details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
 			links: [],
 		} ),
@@ -51,4 +51,4 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 				...spaces.find( ( space ) => space.id === connection.id ),
 			} ) ),
 	},
-};
+} );

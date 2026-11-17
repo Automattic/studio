@@ -1,26 +1,33 @@
-import { anthropicServices } from './anthropic/services';
-import { geminiServices } from './gemini/services';
-import { githubCopilotServices } from './github-copilot/services';
-import { openaiServices } from './openai/services';
-import { spacefastServices } from './spacefast/services';
-import { wpcomServices } from './wpcom/services';
-import type { ProviderConfigs, ProviderId, ProviderServices, ProviderSite } from './types';
+/// <reference types="vite/client" />
+import type { ProviderConfigs, ProviderId, ProviderSite } from './registry';
+import type { ProviderServices } from './types';
 
-const SERVICES: {
-	[ Id in ProviderId ]: ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >;
-} = {
-	wpcom: wpcomServices,
-	anthropic: anthropicServices,
-	openai: openaiServices,
-	gemini: geminiServices,
-	'github-copilot': githubCopilotServices,
-	spacefast: spacefastServices,
-};
+// Each provider folder's `services.ts`, by its path, with what it exports as `services`, which a
+// module that doesn't export it leaves undefined. Vitest caches a transformed module across runs
+// unless it calls `import.meta.glob(` literally, so a type argument here would keep a stale list
+// of folders.
+const MODULES = Object.entries(
+	import.meta.glob( './*/services.ts', { eager: true, import: 'services' } ) as Record<
+		string,
+		ProviderServices | undefined
+	>
+);
 
 export function getProviderServices< Id extends ProviderId >(
 	id: Id
 ): ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > > {
-	return SERVICES[ id ];
+	const services = MODULES.find( ( [ , candidate ] ) => candidate?.id === id )?.[ 1 ];
+	if ( ! services ) {
+		const unread = MODULES.filter( ( [ , candidate ] ) => ! candidate ).map( ( [ path ] ) =>
+			path.slice( 2 )
+		);
+		throw new Error(
+			`The ${ id } provider has no services: its folder's services.ts exports them as \`services\`, from defineServices().${
+				unread.length ? ` These export no \`services\`: ${ unread.join( ', ' ) }.` : ''
+			}`
+		);
+	}
+	return services as ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >;
 }
 
 // Previews upload to WordPress.com the way a push does, until they are a capability of their own.

@@ -1,10 +1,9 @@
 import { OPENAI_MODELS } from '@earendil-works/pi-ai/providers/openai.models';
 import { __ } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
-import { OPENAI_AI_MODELS } from './descriptor';
+import { OPENAI_AI_MODELS, type openaiProvider } from './descriptor';
 import { generateOpenaiImages } from './images';
-import type { OpenaiConfig } from './config';
-import type { AiConnection, ProviderServices } from '../types';
+import type { AiConnection, ServicesOf } from '../types';
 
 // Plan-sharing errors, said for the user.
 const getPlanErrors = () => ( {
@@ -22,7 +21,7 @@ const getPlanErrors = () => ( {
 	),
 } );
 
-export const openaiAi: NonNullable< ProviderServices< OpenaiConfig >[ 'ai' ] > = {
+export const openaiAi: ServicesOf< typeof openaiProvider >[ 'ai' ] = {
 	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new NotConnectedError( 'Connect OpenAI with a ChatGPT plan or an API key.' );

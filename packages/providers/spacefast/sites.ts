@@ -2,8 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { NotConnectedError, RemoteSiteError } from '../errors';
 import { createSpace, listSpaces, listTeams, publishFiles, SpacefastApiError } from './api';
 import type { SpacefastConfig } from './config';
-import type { Space } from './descriptor';
-import type { SitesServices } from '../types';
+import type { spacefastProvider } from './descriptor';
+import type { ServicesOf } from '../types';
 
 function requireApiKey( config: SpacefastConfig | undefined ): string {
 	if ( ! config?.apiKey ) {
@@ -32,7 +32,7 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 	}
 }
 
-export const spacefastSites: SitesServices< SpacefastConfig, Space > = {
+export const spacefastSites: ServicesOf< typeof spacefastProvider >[ 'sites' ] = {
 	list: ( config ) =>
 		step( __( 'Failed to load your Spacefast Spaces' ), 'site_fetch', () =>
 			listSpaces( requireApiKey( config ) )

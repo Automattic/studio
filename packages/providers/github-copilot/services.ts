@@ -1,10 +1,9 @@
+import { defineServices } from '../types';
 import { githubCopilotAccount } from './account';
 import { githubCopilotAi } from './ai';
-import type { GithubCopilotConfig } from './config';
-import type { ProviderServices } from '../types';
+import { githubCopilotProvider } from './descriptor';
 
-export const githubCopilotServices: ProviderServices< GithubCopilotConfig > = {
-	id: 'github-copilot',
+export const services = defineServices( githubCopilotProvider, {
 	account: githubCopilotAccount,
 	ai: githubCopilotAi,
-};
+} );

@@ -1,6 +1,7 @@
 import { seenBlockCode } from '@studio/agent/node/block-code';
 import { withTimeout } from '@studio/agent/shared/tools/utils';
 import { EditorPage } from './browser-utils';
+import type { BlockAttribute } from '@studio/agent/shared/block-settings';
 import type { Page } from 'playwright';
 
 const BLOCK_EVALUATION_TIMEOUT_MS = 60_000;
@@ -2982,13 +2983,22 @@ interface SavedExample {
 	name: string;
 	from: 'example' | 'variation' | 'defaults';
 	markup: string;
+	// The attributes the block type declares, stored in its comment: those its
+	// supports add to every block that has them, and those read from its HTML
+	// (`source`), are left out.
+	settings: Record< string, BlockAttribute >;
+	// Its inserter variations, each with the attributes it sets that differ
+	// from the block's defaults.
+	variations: Array< { title: string; attributes: Record< string, unknown > } >;
 }
 
 /**
  * What the site's block editor saves for each named block, made the way its
  * inserter previews it: from the example its block type declares
  * (getBlockFromExample in @wordpress/blocks), or else with the attributes and
- * inner blocks of its default inserter variation (createBlock).
+ * inner blocks of its default inserter variation (createBlock). With it, the
+ * settings and inserter variations its registered type declares, which a
+ * plugin's block registered from its script has nowhere else.
  */
 export async function savedExamples( names: string[], siteUrl: string ): Promise< SavedExample[] > {
 	if ( ! names.length ) {
@@ -3003,6 +3013,37 @@ export async function savedExamples( names: string[], siteUrl: string ): Promise
 				if ( ! type ) {
 					return [];
 				}
+				// The attributes a block's supports add, as they add them to a block
+				// type that declares none (the blocks.registerBlockType filters).
+				const probe = 'studio-probe/supports';
+				wpBlocks.registerBlockType( probe, {
+					apiVersion: type.apiVersion,
+					title: probe,
+					supports: type.supports,
+					edit: () => null,
+					save: () => null,
+				} );
+				const added = Object.keys( wpBlocks.getBlockType( probe )?.attributes ?? {} );
+				wpBlocks.unregisterBlockType( probe );
+				const settings: Record< string, any > = Object.fromEntries(
+					Object.entries( type.attributes ?? {} ).filter(
+						( [ key, attribute ]: [ string, any ] ) =>
+							! added.includes( key ) && ! attribute.source && ! key.startsWith( '__' )
+					)
+				);
+				const defaults = wpBlocks.createBlock( name ).attributes;
+				const inserter: any[] = wpBlocks.getBlockVariations( name, 'inserter' ) ?? [];
+				const variations = inserter.map( ( variation: any ) => ( {
+					title: variation.title,
+					attributes: Object.fromEntries(
+						Object.entries(
+							wpBlocks.createBlock( name, variation.attributes ?? {} ).attributes
+						).filter(
+							( [ key, value ] ) => JSON.stringify( value ) !== JSON.stringify( defaults[ key ] )
+						)
+					),
+				} ) );
+				const described = { settings, variations };
 				// An inner block its example leaves empty takes the inner blocks of
 				// its own type's example, as its edit adds them on insert (each
 				// jetpack/field-* its label and input in a jetpack/contact-form).
@@ -3016,10 +3057,16 @@ export async function savedExamples( names: string[], siteUrl: string ): Promise
 				};
 				if ( type.example ) {
 					const block = wpBlocks.getBlockFromExample( name, type.example );
-					return [ { name, from: 'example', markup: wpBlocks.serialize( [ filled( block ) ] ) } ];
+					return [
+						{
+							name,
+							from: 'example',
+							markup: wpBlocks.serialize( [ filled( block ) ] ),
+							...described,
+						},
+					];
 				}
-				const variations: any[] = wpBlocks.getBlockVariations( name, 'inserter' ) ?? [];
-				const chosen = variations.find( ( v ) => v.isDefault ) ?? variations[ 0 ];
+				const chosen = inserter.find( ( v ) => v.isDefault ) ?? inserter[ 0 ];
 				const block = wpBlocks.createBlock(
 					name,
 					{ ...( chosen?.attributes ?? {} ) },
@@ -3030,6 +3077,7 @@ export async function savedExamples( names: string[], siteUrl: string ): Promise
 						name,
 						from: chosen ? 'variation' : 'defaults',
 						markup: wpBlocks.serialize( [ block ] ),
+						...described,
 					},
 				];
 			} );

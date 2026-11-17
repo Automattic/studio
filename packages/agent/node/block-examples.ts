@@ -7,6 +7,7 @@
  * naming the block in a call that reads its plugin's code or the registry.
  */
 import { savedExamples } from '@studio/agent/node/block-validator';
+import { describeAttribute } from '@studio/agent/shared/block-settings';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 // A block type's metadata, as block.json declares it: its API version and its
@@ -50,7 +51,10 @@ const FROM = {
 	defaults: 'its default attributes (createBlock in @wordpress/blocks)',
 };
 
-/** Each block a call looks up or its result shows the block.json of, once per site. */
+/**
+ * Each block a call looks up or its result shows the block.json of, once per
+ * site, with the settings and inserter variations its type registers.
+ */
 export function createBlockExampleNotes(
 	host: StudioAgentHost
 ): ( sitePath: string, text: string, request?: string ) => Promise< string[] > {
@@ -64,7 +68,8 @@ export function createBlockExampleNotes(
 		);
 		const done = described.get( sitePath ) ?? new Set< string >();
 		described.set( sitePath, done );
-		const wanted = [ ...new Set( [ ...shown, ...lookedUp, ...namedBlocks( request ) ] ) ].filter(
+		const read = new Set( [ ...shown, ...lookedUp ] );
+		const wanted = [ ...new Set( [ ...read, ...namedBlocks( request ) ] ) ].filter(
 			( name ) => ! done.has( name )
 		);
 		if ( ! wanted.length ) {
@@ -73,8 +78,28 @@ export function createBlockExampleNotes(
 		const examples = await savedExamples( wanted, ( await host.sites.resolve( sitePath ) ).url );
 		// Asked once: a name the editor does not register is not asked again.
 		wanted.forEach( ( name ) => done.add( name ) );
-		return examples.map( ( { name, from, markup } ) => {
-			return `What the site's block editor saves for ${ name }, from ${ FROM[ from ] }, to write it from:\n${ markup }`;
+		return examples.map( ( { name, from, markup, settings, variations } ) => {
+			const lines = [
+				`What the site's block editor saves for ${ name }, from ${ FROM[ from ] }, to write it from:\n${ markup }`,
+			];
+			const declared = Object.entries( settings ).map( ( [ key, attribute ] ) =>
+				describeAttribute( key, attribute )
+			);
+			// Settings a call reads from the block's block.json are not repeated.
+			if ( declared.length && ! read.has( name ) ) {
+				lines.push(
+					`${ name } settings, as its block type registers them: ${ declared.join( ', ' ) }.`
+				);
+			}
+			// A block's only variation is the one its example or defaults show.
+			if ( variations.length > 1 ) {
+				lines.push(
+					`${ name } variations in the inserter, each the block with these settings:\n${ variations
+						.map( ( { title, attributes } ) => `- ${ title }: ${ JSON.stringify( attributes ) }` )
+						.join( '\n' ) }`
+				);
+			}
+			return lines.join( '\n' );
 		} );
 	};
 }

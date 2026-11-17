@@ -31,6 +31,8 @@ describe.runIf( EDITOR && WORDPRESS )(
 			name: string;
 			results: () => Array< [ string, string, string? ] >;
 			notes: string[][];
+			// What the notes on the last result also say.
+			saying?: string[];
 		} >( [
 			{
 				name: 'from its example, once per site',
@@ -99,6 +101,23 @@ describe.runIf( EDITOR && WORDPRESS )(
 				notes: [ [ 'jetpack/field-select, from the example its block type registers' ], [] ],
 			},
 			{
+				// A block the call reads no block.json of: its settings and its
+				// inserter variations come from the block type the editor registers.
+				name: 'with the settings and inserter variations its block type registers',
+				results: () => [
+					[
+						'/a',
+						'',
+						`wp eval 'print_r( WP_Block_Type_Registry::get_instance()->get_registered( "core/embed" ) );'`,
+					],
+				],
+				notes: [ [ 'core/embed, from its default inserter variation' ] ],
+				saying: [
+					'core/embed settings, as its block type registers them: url (string), type (string), providerNameSlug (string), allowResponsive (boolean, default true)',
+					'core/embed variations in the inserter, each the block with these settings:\n- X Embed: {"providerNameSlug":"twitter","responsive":true}\n- YouTube Embed: {"providerNameSlug":"youtube","responsive":true}',
+				],
+			},
+			{
 				name: 'not for a block the editor does not register, nor for markup naming a block',
 				results: () => [
 					[ '/a', '{ "apiVersion": 3, "name": "studio-test/unregistered" }' ],
@@ -108,15 +127,17 @@ describe.runIf( EDITOR && WORDPRESS )(
 			},
 		] )(
 			'$name',
-			async ( { results, notes } ) => {
+			async ( { results, notes, saying = [] } ) => {
 				const describe = createBlockExampleNotes( host );
+				let said: string[] = [];
 				for ( const [ i, [ site, text, request ] ] of results().entries() ) {
-					const said = await describe( site, text, request );
+					said = await describe( site, text, request );
 					expect( said ).toHaveLength( notes[ i ].length );
 					notes[ i ].forEach( ( note, j ) =>
 						expect( said[ j ] ).toContain( `What the site's block editor saves for ${ note }` )
 					);
 				}
+				saying.forEach( ( text ) => expect( said.join( '\n' ) ).toContain( text ) );
 			},
 			120_000
 		);

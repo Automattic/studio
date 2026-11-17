@@ -572,7 +572,8 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
 
-# Download Studio UI translations from GlotPress (Jed 1.x JSON) into packages/common/translations/.
+# Download Studio UI translations from GlotPress (Jed 1.x JSON) into packages/common/translations/,
+# then merge in the AI translations of the strings GlotPress doesn't translate (GlotPress wins).
 # Discovers locales from existing files in TRANSLATIONS_DIR (e.g. studio-es.jed.json → "es").
 #
 lane :fetch_glotpress_translations do
@@ -593,6 +594,8 @@ lane :fetch_glotpress_translations do
   end
 
   UI.success("Downloaded translations for #{locales.length} locales")
+
+  sh('node', File.join(PROJECT_ROOT_FOLDER, 'scripts', 'ai-translations', 'index.mjs'), 'merge')
 end
 
 ########################################################################

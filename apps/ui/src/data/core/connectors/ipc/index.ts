@@ -228,8 +228,8 @@ export function createIpcConnector(): Connector {
 			return ( await unwrapIpcError( created ) ) as SiteDetails;
 		},
 
-		async deleteSite( id, deleteFiles = true ) {
-			await ipcApi.deleteSite( id, deleteFiles );
+		deleteSite( id, deleteFiles = true ) {
+			return ipcApi.deleteSite( id, deleteFiles );
 		},
 
 		async copySite( sourceSiteId ): Promise< SiteDetails > {

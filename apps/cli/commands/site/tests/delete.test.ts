@@ -345,10 +345,20 @@ describe( 'CLI: studio site delete', () => {
 			} );
 
 			expect( result.sites[ 0 ]?.status ).toBe( 'deleted' );
-			expect( result.sites[ 0 ]?.warnings?.[ 0 ] ).toContain( 'File deletion failed' );
+			expect( result.sites[ 0 ]?.warnings?.[ 0 ] ).toContain( testSiteFolder );
+		} );
+
+		it( 'should report a warning when the files are still on disk after trashing', async () => {
+			const { warnings } = await runCommand( testSiteFolder, true );
+
+			expect( warnings ).toEqual( [ expect.stringContaining( testSiteFolder ) ] );
 		} );
 
 		it( 'should not report warnings on a clean delete', async () => {
+			vi.mocked( trash ).mockImplementationOnce( async () => {
+				vi.spyOn( fs, 'existsSync' ).mockReturnValue( false );
+			} );
+
 			const result = await runDeleteCommand( {
 				identities: [ testSiteFolder ],
 				deleteFiles: true,

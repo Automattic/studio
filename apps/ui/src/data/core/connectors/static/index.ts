@@ -170,7 +170,10 @@ export function createStaticConnector(): Connector {
 			const { blueprint, bundle } = params.blueprint ? await openBlueprint( params.blueprint ) : {};
 			return sites.create( { ...params, blueprint: blueprint && { blueprint } }, bundle );
 		},
-		deleteSite: ( id ) => sites.delete( id ),
+		async deleteSite( id ) {
+			await sites.delete( id );
+			return { warnings: [] };
+		},
 		async copySite( sourceSiteId ) {
 			const source = await sites.get( sourceSiteId );
 			const names = new Set( ( await sites.list() ).map( ( site ) => site.name ) );

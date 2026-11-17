@@ -4,10 +4,14 @@
  * theme's header, main and footer, and the blocks main holds) and whether the
  * page is wider than its viewport, measured after the page settles.
  */
+import { toBase64 } from '@studio/agent/shared/base64';
 import { boundedLines } from '@studio/agent/shared/bounded-list';
 import type { HostPage } from '@studio/agent/shared/host';
 
 type Page = Pick< HostPage, 'evaluate' | 'viewportSize' | 'setViewportSize' >;
+
+// The most text over an image pageContrast() measures, from one screenshot.
+const MAX_IMAGE_TEXT = 12;
 
 // Where pageSqueezedText() keeps the items it found in the page, across a
 // change of viewport.
@@ -812,12 +816,15 @@ export async function pageWideTextBreaks( page: Page ): Promise< string[] > {
  * Text a visitor cannot read against what is behind it: a contrast ratio
  * under 3:1, which WCAG 2's 1.4.3 fails at every text size (4.5:1 for text,
  * 3:1 for large text). What is behind the text is the colors the browser
- * paints under its first line, from the text's own box down to the page; text
- * over an image, a gradient or a pseudo-element's background is not measured,
- * as no one color is behind it.
+ * paints under its first line, from the text's own box down to the page. Text
+ * over an image, a gradient or a pseudo-element's background has no one color
+ * behind it: it is measured against the median of the pixels the browser
+ * paints behind its first line with the text made transparent.
  */
-export async function pageContrast( page: Page ): Promise< string[] > {
-	const lines = await page.evaluate( () => {
+export async function pageContrast(
+	page: Pick< HostPage, 'evaluate' | 'screenshot' >
+): Promise< string[] > {
+	const { lines, images } = await page.evaluate( ( most ) => {
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
 		const label = ( element: Element ) => {
 			const tag = element.tagName.toLowerCase();
@@ -977,6 +984,13 @@ export async function pageContrast( page: Page ): Promise< string[] > {
 		};
 
 		const lines: string[] = [];
+		// Text over an image, measured from a screenshot: the element, tagged,
+		// its label, its color as shown and its first line, in the document.
+		const images: Array< {
+			label: string;
+			text: number[];
+			clip: { x: number; y: number; width: number; height: number };
+		} > = [];
 		const seen = new Set< Element >();
 		const scrollY = window.scrollY;
 		const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
@@ -1038,6 +1052,21 @@ export async function pageContrast( page: Page ): Promise< string[] > {
 				}
 			}
 			if ( ! measured ) {
+				if ( images.length < most ) {
+					( element as HTMLElement ).dataset.studioContrast = String( images.length );
+					const fill = style.getPropertyValue( '-webkit-text-fill-color' );
+					const color = rgba( fill && rgba( fill )[ 3 ] > 0 ? fill : style.color );
+					images.push( {
+						label: `${ label( element ) }, at y ${ Math.round( window.scrollY + rect.top ) },`,
+						text: [ ...color.slice( 0, 3 ), color[ 3 ] * opacity( element ) ],
+						clip: {
+							x: Math.max( 0, rect.left + window.scrollX ),
+							y: Math.max( 0, rect.top + window.scrollY ),
+							width: Math.max( 1, Math.min( rect.width, window.innerWidth - rect.left ) ),
+							height: rect.height,
+						},
+					} );
+				}
 				continue;
 			}
 			const background = layers
@@ -1095,8 +1124,113 @@ export async function pageContrast( page: Page ): Promise< string[] > {
 			lines.push( line );
 		}
 		window.scrollTo( { top: scrollY, behavior: 'instant' } );
-		return lines;
-	} );
+		return { lines, images };
+	}, MAX_IMAGE_TEXT );
+	// One capture of every such line, with its text made transparent, and each
+	// measured in it.
+	if ( images.length ) {
+		const box = {
+			x: Math.min( ...images.map( ( { clip } ) => clip.x ) ),
+			y: Math.min( ...images.map( ( { clip } ) => clip.y ) ),
+			right: Math.max( ...images.map( ( { clip } ) => clip.x + clip.width ) ),
+			bottom: Math.max( ...images.map( ( { clip } ) => clip.y + clip.height ) ),
+		};
+		await page.evaluate( () => {
+			for ( const element of document.querySelectorAll< HTMLElement >(
+				'[data-studio-contrast]'
+			) ) {
+				element.dataset.studioContrastStyle = element.getAttribute( 'style' ) ?? '';
+				element.style.setProperty( 'transition', 'none', 'important' );
+				element.style.setProperty( 'color', 'transparent', 'important' );
+				element.style.setProperty( '-webkit-text-fill-color', 'transparent', 'important' );
+			}
+		} );
+		const png = await page
+			.screenshot( {
+				format: 'png',
+				fullPage: true,
+				clip: { x: box.x, y: box.y, width: box.right - box.x, height: box.bottom - box.y },
+			} )
+			.catch( () => undefined );
+		lines.push(
+			...( await page.evaluate(
+				async ( [ shot, origin, measured ] ) => {
+					for ( const element of document.querySelectorAll< HTMLElement >(
+						'[data-studio-contrast]'
+					) ) {
+						const before = element.dataset.studioContrastStyle;
+						if ( before ) {
+							element.setAttribute( 'style', before );
+						} else {
+							element.removeAttribute( 'style' );
+						}
+						delete element.dataset.studioContrast;
+						delete element.dataset.studioContrastStyle;
+					}
+					if ( ! shot ) {
+						return [];
+					}
+					const bitmap = await createImageBitmap(
+						await ( await fetch( `data:image/png;base64,${ shot }` ) ).blob()
+					);
+					const canvas = new OffscreenCanvas( bitmap.width, bitmap.height );
+					const context = canvas.getContext( '2d' );
+					if ( ! context ) {
+						return [];
+					}
+					context.drawImage( bitmap, 0, 0 );
+					// The capture's pixels for each CSS pixel, as a high-density screen gives.
+					const scale = bitmap.width / Math.max( 1, origin.right - origin.x );
+					const luminance = ( color: number[] ) => {
+						const [ r, g, b ] = color.slice( 0, 3 ).map( ( channel ) => {
+							const c = channel / 255;
+							return c <= 0.04045 ? c / 12.92 : ( ( c + 0.055 ) / 1.055 ) ** 2.4;
+						} );
+						return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+					};
+					const hex = ( color: number[] ) =>
+						'#' +
+						color
+							.map( ( channel ) => Math.round( channel ).toString( 16 ).padStart( 2, '0' ) )
+							.join( '' );
+					return measured.flatMap( ( { label, text, clip } ) => {
+						const data = context.getImageData(
+							Math.round( ( clip.x - origin.x ) * scale ),
+							Math.round( ( clip.y - origin.y ) * scale ),
+							Math.max( 1, Math.round( clip.width * scale ) ),
+							Math.max( 1, Math.round( clip.height * scale ) )
+						).data;
+						const pixels: number[][] = [];
+						for ( let i = 0; i < data.length; i += 4 ) {
+							pixels.push( [ data[ i ], data[ i + 1 ], data[ i + 2 ] ] );
+						}
+						pixels.sort( ( a, b ) => luminance( a ) - luminance( b ) );
+						const background = pixels[ Math.floor( pixels.length / 2 ) ];
+						if ( ! background ) {
+							return [];
+						}
+						const shown = background.map(
+							( channel, i ) => text[ i ] * text[ 3 ] + channel * ( 1 - text[ 3 ] )
+						);
+						const [ light, dark ] = [ luminance( shown ), luminance( background ) ].sort(
+							( a, b ) => b - a
+						);
+						const ratio = ( light + 0.05 ) / ( dark + 0.05 );
+						return ratio < 3
+							? [
+									`${ label } is ${ hex(
+										shown
+									) } text over an image whose median color behind it is ${ hex(
+										background
+									) }, a contrast ratio of ${ ratio.toFixed( 1 ) }:1.`,
+							  ]
+							: [];
+					} );
+				},
+				[ png && toBase64( png ), box, images ] as const
+			) )
+		);
+	}
 	return lines.length
 		? [
 				'Text a visitor cannot read, under the 3:1 contrast WCAG 2 asks of large text (4.5:1 of other text; success criterion 1.4.3):',

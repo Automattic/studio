@@ -436,8 +436,13 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			<style>.u{position:relative;color:#1a2540}.u::after{content:"";position:absolute;left:0;top:100%;width:0;height:2px;background:#fff}.o{position:relative;color:#1a2540}.o::before{content:"";position:absolute;inset:0;background:#fff}</style>
 			<div style="background:#0b1633"><a class="u">Underlined</a><p class="o">Over a pseudo-element</p></div>
 			<style id="t-style-inline-css">.nav a{color:#35291f}\n/*# sourceURL=http://localhost/wp-content/themes/t/style.css */</style><style id="global-styles-inline-css">.wp-element-button{color:#fff;background:#b84933}</style>
-			<div class="nav"><a class="wp-block-button__link wp-element-button">Book a groom</a></div>`,
-				pageContrast
+			<div class="nav"><a class="wp-block-button__link wp-element-button">Book a groom</a></div>
+			<div style="position:relative"><img src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='9'><rect width='9' height='9' fill='%23474c45'/></svg>" style="position:absolute;inset:0;width:100%;height:100%"><p class="kicker" style="position:relative;color:#e8590c">Bicycle parts</p><p style="position:relative;color:#fff">Over an image</p></div>`,
+				// What it leaves of the style of the text it measures from a screenshot.
+				async ( page ) => [
+					...( await pageContrast( page ) ),
+					await page.locator( '.kicker' ).getAttribute( 'style' ),
+				]
 			);
 			expect( lines ).toEqual( [
 				'Text a visitor cannot read, under the 3:1 contrast WCAG 2 asks of large text (4.5:1 of other text; success criterion 1.4.3):',
@@ -448,6 +453,8 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				'  p "Outlined dim", at y 2194, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
 				'  a.u "Underlined", at y 2212, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1. Its color comes from `.u` in a <style> element, the rule that wins for it.',
 				'  a.wp-block-button__link.wp-element-button "Book a groom", at y 2248, is #35291f text on #b84933, a contrast ratio of 2.7:1. Its color comes from `.nav a` in /wp-content/themes/t/style.css, the rule that wins for it.',
+				'  p.kicker "Bicycle parts", at y 2266, is #e8590c text over an image whose median color behind it is #474c45, a contrast ratio of 2.5:1.',
+				'position:relative;color:#e8590c',
 			] );
 		}
 	);

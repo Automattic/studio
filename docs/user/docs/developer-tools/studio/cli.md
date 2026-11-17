@@ -23,6 +23,8 @@ It’s especially useful for:
 3.  On the **General** page, under **WordPress Studio CLI**, turn on the **WordPress Studio CLI for terminal** option.
 4.  On macOS, you’ll be prompted for your account password to allow installation.
 
+![The General page of WordPress Studio Settings, scrolled to the WordPress Studio CLI section with the WordPress Studio CLI for terminal option turned off.](../../../screenshots/images/settings-studio-cli.webp)
+
 The option isn’t available in the Microsoft Store version of WordPress Studio. If you installed the CLI with the standalone installer, the option is turned on and can’t be changed in the app: run `studio uninstall` to remove that CLI.
 
 ### [Standalone installer](#2-standalone-installer)

@@ -51,6 +51,8 @@ Symlinked files and directories inside the site, such as a plugin or theme you�
 
 To restrict a site to its own directory, open the site’s settings (choose **Settings** from the site menu) and select the **PHP** page. Change the **File access** setting to **Site directory**, then click **Save** at the top of the dialog. **Site directory** makes pages load noticeably slower on Windows, because PHP turns off its file path cache when `open_basedir` is set. You can also choose the file access when creating a site, under **Advanced**.
 
+![The PHP page of a site’s settings in WordPress Studio, with the PHP version set to 8.4 and File access set to All files.](../../../screenshots/images/site-settings-php.webp)
+
 To change the setting with the [WordPress Studio CLI](https://wordpress.studio/docs/cli/), run the following from the site’s directory:
 
 ```

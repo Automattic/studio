@@ -562,6 +562,7 @@ describe( 'Snapshots Module', () => {
 						snapshot( 'legacy.wp.build', 4, 1000 ),
 						snapshot( 'other-user.wpcomstaging.com', 5, 1000, 999 ),
 						{ ...snapshot( 'unlinked.wpcomstaging.com', 7, 1000 ), liveSiteId: 70 },
+						{ ...snapshot( 'unfinished.wpcomstaging.com', 8, 1000 ), localSiteId: '' },
 					],
 				} )
 			);
@@ -590,6 +591,8 @@ describe( 'Snapshots Module', () => {
 						},
 					],
 					[ 7, { hostname: 'unlinked.wpcomstaging.com', expiresAt: 7000 } ],
+					[ 8, { hostname: 'unfinished.wpcomstaging.com' } ],
+					[ 9, { hostname: 'building.wpcomstaging.com' } ],
 				] ),
 				5000
 			);

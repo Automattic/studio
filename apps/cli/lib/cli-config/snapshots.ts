@@ -251,7 +251,7 @@ export async function setSnapshotInConfig(
  * Brings the user's WordPress.com previews in line with the server: forgets those it no longer has
  * standing (bought, expired or deleted elsewhere), records when the rest expire, the preview link
  * it hands out for each and the paid site each shows changes to, and lists the ones made elsewhere
- * (another computer or tool), since they count toward the account's limit too. A preview saved
+ * (another computer or tool) once they have a share link. A preview saved
  * after `checkedAt` is left alone, since the server's answer may predate it.
  *
  * @param standing The server's standing previews, by site ID.
@@ -282,6 +282,9 @@ export async function reconcilePreviews(
 				}
 				return false;
 			}
+			if ( ! snapshot.localSiteId && ! snapshot.shareUrl && ! preview.shareUrl ) {
+				return false;
+			}
 			snapshot.expiresAt = preview.expiresAt;
 			snapshot.liveSiteId = preview.liveSiteId;
 			if ( preview.shareUrl ) {
@@ -291,7 +294,7 @@ export async function reconcilePreviews(
 		} );
 		const listed = new Set( config.snapshots.map( ( snapshot ) => snapshot.atomicSiteId ) );
 		for ( const [ atomicSiteId, preview ] of standing ) {
-			if ( listed.has( atomicSiteId ) || ! preview.hostname ) {
+			if ( listed.has( atomicSiteId ) || ! preview.hostname || ! preview.shareUrl ) {
 				continue;
 			}
 			// Made elsewhere, so no local site: it can be opened, shared and deleted from here.

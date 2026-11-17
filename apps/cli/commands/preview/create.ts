@@ -54,6 +54,19 @@ export async function warnAboutEditedDefaultThemes(
 }
 
 /**
+ * Tells the owner where to buy the preview, which makes it their live site. A preview of changes to
+ * a live site has no such link.
+ */
+export function reportLaunchUrl( launchUrl: string | undefined, logger: Logger< LoggerAction > ) {
+	if ( launchUrl ) {
+		logger.reportSuccess(
+			/* translators: %s: link to WordPress.com's checkout for the preview site */
+			sprintf( __( 'Make it your live site: %s' ), launchUrl )
+		);
+	}
+}
+
+/**
  * The WordPress.com steps of making a preview from a local site: validate, archive, upload and
  * create. Shared by `preview create` and by `preview update` when it moves a Jurassic Ninja preview.
  */
@@ -174,6 +187,7 @@ export async function runCommand(
 				)
 			);
 		}
+		reportLaunchUrl( preview.launchUrl, logger );
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 		snapshot = await saveSnapshotToConfig(

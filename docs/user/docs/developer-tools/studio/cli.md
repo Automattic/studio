@@ -122,6 +122,7 @@ studio preview create          # Create a preview site
 studio preview list            # List preview sites
 studio preview update <host>   # Update an existing preview site
 studio preview set <host>      # Configure a preview site, such as its name
+studio preview launch <host>   # Make a preview site your live site
 studio preview delete <host>   # Delete a preview site
 
 ### [Creating a preview site](#7-creating-a-preview-site)
@@ -163,6 +164,14 @@ studio preview delete <host>
 studio preview delete --all
 
 Use `studio preview list` to discover the appropriate `<host>` value if you don’t have it handy.
+
+### [Making a preview site your live site](#making-a-preview-site-your-live-site)
+
+A preview site can become your live site, with everything you built on it, when you choose a plan for it on WordPress.com:
+
+studio preview launch <host>
+
+This opens WordPress.com, where you pick a domain and a plan. Once you check out, the site goes live. `studio preview create` and `studio preview update` also print this link.
 
 For the full set of options:
 

@@ -10,7 +10,6 @@ import { cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import {
 	deleteSnapshotFromConfig,
@@ -93,7 +92,8 @@ export async function runCommand(
 		if ( isSnapshotExpired( snapshotToUpdate ) ) {
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
-		// A preview made on Jurassic Ninja moves to WordPress.com when it's updated.
+		// A preview made on Jurassic Ninja moves to WordPress.com when it's updated, and the old one
+		// is left to expire.
 		const moving = ! isWpcomPreview( snapshotToUpdate );
 		const name = snapshotToUpdate.name ?? site.name;
 		const {
@@ -120,13 +120,6 @@ export async function runCommand(
 				event: SNAPSHOT_EVENTS.DELETED,
 				data: { snapshotUrl: snapshotToUpdate.url },
 			} );
-			try {
-				await deleteSnapshotSite( snapshotToUpdate, token.accessToken );
-			} catch {
-				logger.reportWarning(
-					__( 'Could not delete the old preview site. It will expire on its own.' )
-				);
-			}
 			logger.reportSuccess(
 				sprintf(
 					/* translators: %s: new preview link */

@@ -6,7 +6,7 @@ import { Archiver } from 'archiver';
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { buildPreviewSite, deleteSnapshotSite } from 'cli/lib/preview-sites';
+import { buildPreviewSite } from 'cli/lib/preview-sites';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import {
 	deleteSnapshotFromConfig,
@@ -146,10 +146,7 @@ describe( 'Preview Update Command', () => {
 		);
 	} );
 
-	it.each( [
-		[ 'deletes the old site', undefined ],
-		[ 'keeps the new preview when deleting the old site fails', new Error( 'delete failed' ) ],
-	] )( 'moves a Jurassic Ninja preview to WordPress.com and %s', async ( _label, deleteError ) => {
+	it( 'moves a Jurassic Ninja preview to WordPress.com and leaves the old site to expire', async () => {
 		const jurassicNinjaHost = 'test-preview.wp.build';
 		const jurassicNinjaSnapshot = { ...mockSnapshot, url: jurassicNinjaHost, shareUrl: undefined };
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ jurassicNinjaSnapshot ] );
@@ -164,9 +161,6 @@ describe( 'Preview Update Command', () => {
 		const built = { id: 999, name: newHost, url: `https://${ newHost }`, shareUrl };
 		vi.mocked( buildPreviewSite ).mockResolvedValue( built );
 		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( newSnapshot );
-		if ( deleteError ) {
-			vi.mocked( deleteSnapshotSite ).mockRejectedValue( deleteError );
-		}
 
 		const result = await runCommand( mockFolder, jurassicNinjaHost, false );
 
@@ -189,10 +183,6 @@ describe( 'Preview Update Command', () => {
 			'version-1'
 		);
 		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( jurassicNinjaHost );
-		expect( deleteSnapshotSite ).toHaveBeenCalledWith(
-			jurassicNinjaSnapshot,
-			mockAuthToken.accessToken
-		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith( expect.stringContaining( 'link changed' ) );
 		expect( mockReportSuccess ).toHaveBeenCalledWith( expect.stringContaining( shareUrl ) );
 		expect( result ).toBe( newSnapshot );

@@ -2,11 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { selectLiveSite } from '@studio/common/lib/live-preview-site';
-import { isWpcomPreview } from '@studio/common/lib/snapshots';
+import { buildPreview, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { __ } from '@wordpress/i18n';
-import { deleteSnapshot } from 'cli/lib/api';
 import { toLoggerError, wpcomSites } from 'cli/lib/sync-api';
-import { LoggerError } from 'cli/logger';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { PreviewOptions, PreviewSite, PushContent, PushStatus } from '@studio/providers';
@@ -25,10 +23,7 @@ function zipContent( archivePath: string ): PushContent {
 	};
 }
 
-/**
- * Builds a preview from the zip of a local site: a new one, or `siteId`'s again, which is a push to
- * it. Resolves with the preview as WordPress.com reports it once it's built.
- */
+/** Builds a preview on WordPress.com from the zip of a local site; see `buildPreview`. */
 export async function buildPreviewSite(
 	token: string,
 	archivePath: string,
@@ -36,30 +31,15 @@ export async function buildPreviewSite(
 	options: PreviewOptions,
 	onStatus: ( status: PushStatus ) => void
 ): Promise< PreviewSite > {
-	const config = { token };
 	try {
-		if ( 'name' in target ) {
-			return await wpcomPreviews.create(
-				config,
-				zipContent( archivePath ),
-				{ ...options, name: target.name },
-				onStatus
-			);
-		}
-		await wpcomSites.push(
-			config,
-			{ id: target.siteId, name: '' },
+		return await buildPreview(
+			wpcomSites,
+			{ token },
 			zipContent( archivePath ),
-			{ preview: options },
+			target,
+			options,
 			onStatus
 		);
-		const preview = ( await wpcomPreviews.list( config ) ).find(
-			( item ) => item.id === target.siteId
-		);
-		if ( ! preview?.shareUrl ) {
-			throw new LoggerError( __( 'The preview site has no preview link.' ) );
-		}
-		return preview;
 	} catch ( error ) {
 		throw toLoggerError(
 			error,
@@ -78,11 +58,12 @@ export async function getLivePreviewSite(
 	return selectLiveSite( await getConnectedWpcomSitesForLocalSite( localSiteId ), selection );
 }
 
-/** Deletes the site behind a saved preview, wherever it was made. */
+/**
+ * Takes down the site behind a saved preview. A Jurassic Ninja preview made by an earlier release
+ * is left to expire.
+ */
 export async function deleteSnapshotSite( snapshot: Snapshot, token: string ): Promise< void > {
 	if ( ! isWpcomPreview( snapshot ) ) {
-		// A preview made on Jurassic Ninja.
-		await deleteSnapshot( snapshot.atomicSiteId, token );
 		return;
 	}
 	try {

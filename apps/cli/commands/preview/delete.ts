@@ -2,7 +2,6 @@ import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { deleteAllSnapshots } from 'cli/lib/api';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
@@ -10,7 +9,6 @@ import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
-	isWpcomPreview,
 } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
@@ -72,12 +70,10 @@ export async function runCommand(
 
 			const count = snapshots.length;
 			for ( const snapshot of snapshots ) {
-				if ( isWpcomPreview( snapshot ) && ! isSnapshotExpired( snapshot ) ) {
+				if ( ! isSnapshotExpired( snapshot ) ) {
 					await deleteSnapshotSite( snapshot, token.accessToken );
 				}
 			}
-			// Previews made on Jurassic Ninja.
-			await deleteAllSnapshots( token.accessToken );
 			await deleteAllSnapshotsForUserFromConfig( token.id );
 			await emitCliEvent( { event: SNAPSHOT_EVENTS.DELETED_ALL } );
 			await recordPreviewDeleteEvent( TRACKS_EVENTS.PREVIEW_SITE_DELETE_ALL, { count } );

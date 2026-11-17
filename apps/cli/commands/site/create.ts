@@ -385,11 +385,6 @@ export async function runCommand(
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
-		for ( const site of cliConfig.sites ) {
-			portFinder.addUnavailablePort( site.port );
-			portFinder.addUnavailablePort( site.frontend?.port );
-		}
-
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );
@@ -459,20 +454,6 @@ export async function runCommand(
 			);
 		}
 
-		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
-		const port = await portFinder.getOpenPort();
-		// translators: %d is the port number
-		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
-
-		let frontend: SiteFrontend | undefined;
-		if ( options.frontend && layout ) {
-			logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning frontend port…' ) );
-			const frontendPort = await portFinder.getOpenPort();
-			// translators: %d is the port number
-			logger.reportSuccess( sprintf( __( 'Frontend port assigned: %d' ), frontendPort ) );
-			frontend = buildFrontendRecord( options.frontend, layout.frontendPath, frontendPort );
-		}
-
 		const siteName = options.name || path.basename( containerPath ?? sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
 
@@ -506,30 +487,50 @@ export async function runCommand(
 			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
-		const siteDetails: SiteData = {
-			id: siteId,
-			name: siteName,
-			path: sitePath,
-			adminUsername,
-			adminPassword,
-			adminEmail,
-			port,
-			phpVersion,
-			fileAccess: options.fileAccess,
-			running: false,
-			status: 'ready',
-			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
-			customDomain: options.customDomain,
-			enableHttps: options.enableHttps,
-			landingPage: normalizeLandingPage( blueprint?.landingPage ),
-			...( frontend && { frontend } ),
-		};
-
-		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
-
+		let siteDetails: SiteData;
+		let frontend: SiteFrontend | undefined;
+		await lockCliConfig();
 		try {
-			await lockCliConfig();
 			const userData = await readCliConfig();
+			// Claim the port in cli.json before another create can select it, even if this
+			// site's server has not started listening yet.
+			for ( const site of userData.sites ) {
+				portFinder.addUnavailablePort( site.port );
+				portFinder.addUnavailablePort( site.frontend?.port );
+			}
+			logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
+			const port = await portFinder.getOpenPort();
+			// translators: %d is the port number
+			logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
+
+			if ( options.frontend && layout ) {
+				logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning frontend port…' ) );
+				const frontendPort = await portFinder.getOpenPort();
+				// translators: %d is the port number
+				logger.reportSuccess( sprintf( __( 'Frontend port assigned: %d' ), frontendPort ) );
+				frontend = buildFrontendRecord( options.frontend, layout.frontendPath, frontendPort );
+			}
+
+			siteDetails = {
+				id: siteId,
+				name: siteName,
+				path: sitePath,
+				adminUsername,
+				adminPassword,
+				adminEmail,
+				port,
+				phpVersion,
+				fileAccess: options.fileAccess,
+				running: false,
+				status: 'ready',
+				isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
+				customDomain: options.customDomain,
+				enableHttps: options.enableHttps,
+				landingPage: normalizeLandingPage( blueprint?.landingPage ),
+				...( frontend && { frontend } ),
+			};
+
+			logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
 			userData.sites.push( siteDetails );
 			sortSites( userData.sites );

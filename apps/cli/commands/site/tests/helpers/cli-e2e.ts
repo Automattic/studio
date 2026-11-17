@@ -26,6 +26,8 @@ const REAL_SERVER_FILES = path.join( os.homedir(), '.studio', 'server-files' );
 const BUNDLED_LATEST_WP = path.join( REAL_SERVER_FILES, 'wordpress-versions', 'latest' );
 // Native PHP binaries are downloaded on first use; sharing the real cache means
 // each run downloads a given version at most once instead of per isolated env.
+// The CLI also rewrites each version's php.ini there, with the link resolved so
+// the file never names this temporary directory.
 const REAL_PHP_BIN = path.join( os.homedir(), '.studio', 'php-bin' );
 
 export interface CliEnv {

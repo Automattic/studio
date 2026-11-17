@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import { rootCertificates } from 'node:tls';
 import os from 'os';
 import path from 'path';
@@ -133,11 +134,22 @@ const CA_BUNDLE_FILENAME = 'ca-bundle.crt';
 // `C:\Users\José` it loses php.ini or every extension. The directory's 8.3
 // short name is ASCII.
 function getPhpBinaryDir( phpVersion: SupportedPHPVersion ): string {
-	const binaryDir = path.dirname( getPhpBinaryPath( phpVersion ) );
+	const binaryDir = resolveSymlinks( path.dirname( getPhpBinaryPath( phpVersion ) ) );
 	if ( process.platform !== 'win32' || isAscii( binaryDir ) ) {
 		return binaryDir;
 	}
 	return getWindowsShortPath( binaryDir );
+}
+
+// php.ini holds absolute paths, so it must name the real directory: a php-bin reached
+// through a link (the CLI e2e harness links the real one into a temporary config
+// directory) would otherwise be left pointing at a path that is later deleted.
+function resolveSymlinks( dir: string ): string {
+	try {
+		return fs.realpathSync( dir );
+	} catch {
+		return dir;
+	}
 }
 
 function getExtensionDir( phpVersion: SupportedPHPVersion ): string {
@@ -193,6 +205,7 @@ export function getNativePhpIniContents( phpVersion: SupportedPHPVersion ): stri
 		'max_execution_time=0',
 		'post_max_size=2G',
 		'upload_max_filesize=2G',
+		'max_input_vars=10000',
 		'display_errors=1',
 		'display_startup_errors=1',
 		`opcache.cache_id="studio-php${ phpVersion }"`,

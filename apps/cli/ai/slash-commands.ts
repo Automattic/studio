@@ -1,4 +1,5 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { changeAiSettings } from '@studio/common/lib/ai-provider-tracks';
 import { describeAccount, disconnectProvider } from '@studio/common/lib/ai-settings';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
@@ -37,6 +38,7 @@ import { getAppLocale } from 'cli/lib/i18n';
 import { isProviderConnected } from 'cli/lib/providers';
 import { getSnapshotLink, getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { recordTracksEvent } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
 import type { AiChatUI } from 'cli/ai/ui';
 
@@ -326,7 +328,11 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				await runLogoutCommand();
 				ctx.ui.start();
 			} else {
-				await disconnectProvider( getProviderServices( provider ) );
+				await changeAiSettings(
+					{ action: 'disconnect', provider, surface: 'terminal' },
+					() => disconnectProvider( getProviderServices( provider ) ),
+					recordTracksEvent
+				);
 			}
 			ctx.ui.showInfo(
 				sprintf(

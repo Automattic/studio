@@ -225,6 +225,7 @@ export function createInMemoryConnector(
 			if ( site ) {
 				emitSiteEvent( SITE_EVENTS.DELETED, { ...site, running: false } );
 			}
+			return { warnings: [] };
 		},
 		copySite: async ( id ) => {
 			const source = state.sites.find( ( site ) => site.id === id )!;

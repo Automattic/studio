@@ -438,7 +438,10 @@ echo implode( "\\n", $found );`,
 			},
 			start: ( site ) => sites.start( site.id ),
 			stop: ( site ) => sites.stop( site.id ),
-			delete: ( site ) => sites.delete( site.id ),
+			delete: async ( site ) => {
+				await sites.delete( site.id );
+				return { warnings: [] };
+			},
 			isRunning: async ( site ) => sites.runtimes.isRunning( site.id ),
 			// Playground runs WordPress alone: no frontend project to supervise.
 			frontendRestart: async () => {

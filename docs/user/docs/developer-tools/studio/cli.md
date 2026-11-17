@@ -148,7 +148,7 @@ To view the preview sites of the local site in the current directory:
 
 studio preview list
 
-Add `--all` to list the preview sites of all your local sites, grouped by site. This shows each preview’s host (for example, `example-preview.wp.build`), which you’ll use with the `update` and `delete` commands.
+Add `--all` to list the preview sites of all your local sites, grouped by site. This shows each preview’s host (for example, `example-preview.wpcomstaging.com`), which you’ll use with the `update` and `delete` commands.
 
 ### [Updating and deleting preview sites](#9-updating-and-deleting-preview-sites)
 
@@ -476,7 +476,7 @@ studio preview update <host>   # after subsequent changes
 ```text
 ✔ Archive created
 ✔ Archive uploaded
-✔ Preview site available at: https://wrenandbarley.wp.build
+✔ Preview site available at: https://wrenandbarley.wpcomstaging.com/?share=…
 ✔ Preview site saved to Studio
 ```
 

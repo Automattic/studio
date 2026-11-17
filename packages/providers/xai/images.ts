@@ -65,12 +65,14 @@ export const xaiImageDialect: ImageDialect = {
 export const generateXaiImages: NonNullable<
 	NonNullable< ProviderServices< XaiConfig >[ 'ai' ] >[ 'generateImages' ]
 > = async ( config, requests, onResult ) => {
-	if ( config?.method !== 'api-key' ) {
-		throw new NotConnectedError( 'Generating images with xAI needs an API key.' );
+	if ( ! config ) {
+		throw new NotConnectedError( 'Generating images with xAI needs a Grok plan or an API key.' );
 	}
 	const route = {
 		url: 'https://api.x.ai/v1/images/generations',
-		headers: { authorization: `Bearer ${ config.apiKey }` },
+		headers: {
+			authorization: `Bearer ${ config.method === 'grok' ? config.accessToken : config.apiKey }`,
+		},
 		model: IMAGE_MODEL,
 		dialect: xaiImageDialect,
 	};

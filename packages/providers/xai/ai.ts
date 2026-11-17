@@ -50,7 +50,5 @@ export const xaiAi: NonNullable< ProviderServices< XaiConfig >[ 'ai' ] > = {
 			},
 		};
 	},
-	// Grok Imagine is billed in xAI credits, which a Grok or X plan doesn't carry.
-	canGenerateImages: ( config ) => config.method === 'api-key',
 	generateImages: generateXaiImages,
 };

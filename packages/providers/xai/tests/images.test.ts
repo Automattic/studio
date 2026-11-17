@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { NotConnectedError } from '../../errors';
 import { TransientImageError } from '../../wpcom/ai/images';
 import { generateXaiImages, xaiImageDialect } from '../images';
@@ -24,12 +24,25 @@ describe( 'the xAI image request', () => {
 		} );
 	} );
 
-	it( 'needs an API key, since a Grok plan carries no xAI credits', async () => {
+	it( 'renders with either credential, and needs one', async () => {
+		const sent: ( string | undefined )[] = [];
+		vi.stubGlobal( 'fetch', async ( _url: string, init: { headers: Record< string, string > } ) => {
+			sent.push( init.headers.authorization );
+			return Response.json( { data: [ { b64_json: pngBase64, mime_type: 'image/png' } ] } );
+		} );
+
+		await generateXaiImages(
+			{ method: 'grok', accessToken: 'grok-access', refreshToken: 'r', accessTokenExpiresAt: 0 },
+			[ { prompt: 'a shop front' } ]
+		);
+		await generateXaiImages( { method: 'api-key', apiKey: 'xai-key' }, [
+			{ prompt: 'a shop front' },
+		] );
+		expect( sent ).toEqual( [ 'Bearer grok-access', 'Bearer xai-key' ] );
+
+		vi.unstubAllGlobals();
 		await expect(
-			generateXaiImages(
-				{ method: 'grok', accessToken: 'a', refreshToken: 'r', accessTokenExpiresAt: 0 },
-				[ { prompt: 'a shop front' } ]
-			)
+			generateXaiImages( undefined, [ { prompt: 'a shop front' } ] )
 		).rejects.toBeInstanceOf( NotConnectedError );
 	} );
 } );

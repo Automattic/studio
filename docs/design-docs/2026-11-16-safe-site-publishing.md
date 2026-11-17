@@ -1,115 +1,106 @@
-Last updated: 2026-11-16 23:09
+Last updated: 2026-11-17 10:51
 
-# Proposal: publish local changes without replacing live activity
+# Proposal: publish local changes without losing live data
 
-Status: draft for discussion. This document proposes behavior; it does not implement a new publishing path or establish that the backend supports it today.
+Status: draft for discussion. The proposed behavior is not implemented.
 
-## Problem
+Studio should manage synchronization for the user. At least 95% of publish attempts should complete without a manual pull, a conflict decision, or a manual retry.
 
-A local copy becomes stale while its live site keeps running. Someone can publish a post, leave a comment, submit a form, create an account, or place an order after the last pull. Publishing the older database can remove that activity, revert edits, or restore records someone deliberately deleted.
+The normal flow should be:
 
-This proposal follows a report of posts disappearing after two or three days of local work followed by a database push. The incident has not been independently reproduced. Comments and other operational data are additional risks, not reported losses from that incident.
+**Edit → Publish → Published**
 
-Remembering to pull more often does not solve the problem. A live change can arrive immediately after a pull, and another pull can overwrite unfinished local work. Backups help recover from a bad publish but do not prevent it; restoring one can also discard activity received afterward.
+Users can inspect the changes before they publish. Studio should require a decision only when it cannot safely apply those changes.
 
-## Current behavior
+## The problem
 
-The [published Sync documentation](https://wordpress.studio/docs/sync/) states that publishing content and settings replaces the whole live database and triggers a full-site backup before syncing.
+A live site keeps changing while someone works on a local copy. It can receive new posts, comments, orders, and form submissions.
 
-The following client behavior was checked against trunk commit `226d98405`:
+Studio currently replaces the live database when the user publishes content and settings. An older local copy can therefore remove new live data or reverse changes made live. See the [Sync documentation](https://wordpress.studio/docs/sync/).
 
-- [Publish options](../../apps/ui/src/features/sync/publish-panel/options.ts) treat content and settings as the `sqls` selection. Choosing files is more granular; choosing database content does not select individual posts or fields.
-- [Import initiation](../../packages/providers/wpcom/sites/api.ts) sends the archive attachment, sync categories, and optional file paths. It sends no expected remote revision.
+More frequent pulls do not remove this risk. A live change can arrive after any pull. A pull can also replace unfinished local work.
 
-These observations describe the client contract. They do not establish all server-side import exceptions, preservation rules, or concurrency guarantees. Those need investigation with the backend owners.
+## Keep track of live changes
 
-## Proposed default: publish reviewed changes
+Studio should keep three separate versions:
 
-Ordinary Publish should apply the user's selected local changes to the current live site. Whole-database replacement should be a separate action whose destructive scope is explicit, rather than a fallback when selective publishing cannot handle something.
+- **Original version:** the state from which local work started.
+- **Local version:** the user's current work.
+- **Live version:** the latest known state of the live site.
 
-For example:
+Studio should fetch live changes when the user opens a site, resumes the app, or reconnects to the network. It should also check at intervals while the user works.
 
-1. Pull the site on Monday.
-2. Two posts are published and five comments arrive live on Tuesday.
-3. Edit the About page locally on Wednesday.
-4. Publish the About page update. Tuesday's posts and comments stay intact.
+Where the server supports it, Studio should fetch only changed items, including deletions. It should reduce checks when the app is idle.
 
-If About was also edited live, Studio should show the conflict before changing it.
+These checks must update a separate copy. They must not replace unfinished local work or change content under the user's cursor. Background fetching must not publish local work.
 
-### Keep the original state
+The check interval affects speed and server load. It does not provide the final safety check.
 
-Retain a baseline from the snapshot actually pulled, associated with the local site and remote target. Compare that baseline with both the local work and the current live state. A last-pull timestamp or the latest backup identifier alone is not enough.
+## Publish without routine questions
 
-Files-only and partial pulls must not mark the whole database as current. A local site connected to production and staging needs separate target histories. Existing local work without a trustworthy baseline needs an explicit reconciliation path that preserves it; silently treating today's live site as its original state would hide conflicts.
+When the user selects Publish, Studio should fetch any remaining changes for the affected items. It should compare the original, local, and live versions.
 
-### Review the changes
+| Situation                                             | Action                                  |
+| ----------------------------------------------------- | --------------------------------------- |
+| Only the local version changed                        | Publish the supported local change.     |
+| Only the live version changed                         | Keep the live change.                   |
+| Both versions have the same change                    | Treat the item as already synchronized. |
+| Both versions changed in ways that can safely combine | Combine them and publish.               |
+| Both versions changed in incompatible ways            | Ask the user to resolve the conflict.   |
 
-| Difference from the baseline                     | Proposed behavior                                                   |
-| ------------------------------------------------ | ------------------------------------------------------------------- |
-| Changed only live                                | Keep the live version.                                              |
-| Changed only locally, within supported scope     | Offer the local change for publication.                             |
-| Both sides reached the same result               | Treat it as already reconciled.                                     |
-| Both sides changed differently                   | Show a conflict; do not silently choose a winner.                   |
-| One side deleted an item the other changed       | Show a conflict, including affected dependencies.                   |
-| An item was created only live after the baseline | Preserve it; absence from the local copy is not a deletion request. |
+For example, the user edits the About page locally. Two posts and five comments arrive live. Studio publishes the About page without changing those posts or comments.
 
-Initially, conflicting changes to the same post or structured value can require review as a whole. Automatic field or block merges should be added only where their semantics are understood. The review should distinguish creates, updates, deletions, and unsupported changes.
+If two people rewrite the same paragraph, Studio should show that paragraph and ask which version to keep. It should not ask the user to replace a database or repeat a pull.
 
-Deleting a post that received new comments must expose those comments as part of the consequence. New local records also need remote identities and correctly mapped references: a matching numeric ID does not prove that two independently created posts are the same post.
+Automatic merging must use rules for each supported data type. Different text positions do not always mean independent changes.
 
-### Preserve live activity
+## Preserve live activity
 
-| Data                                                                                                                              | Proposed treatment during ordinary publishing                                                                     |
-| --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Posts, pages, templates, navigation, styles, and supported settings                                                               | Publish selected changes with conflict checks and dependency handling.                                            |
-| Comments and moderation, orders and payment state, stock, submissions, accounts and access, carts, jobs, and integration progress | Preserve live state. Changes to these belong in dedicated management workflows.                                   |
-| Unknown plugin data                                                                                                               | Preserve live data and report unsupported local changes. Block dependent changes that cannot be published safely. |
-| Caches and generated indexes                                                                                                      | Invalidate or rebuild where supported, rather than copy local state.                                              |
-| Selected files and media                                                                                                          | Check conflicts and preserve references between files and content.                                                |
+Ordinary publishing must preserve comments, orders, payment records, stock, submissions, accounts, and background job state. Dedicated management actions can change these records.
 
-This is a policy by meaning, not a list of excluded tables. Content, configuration, and operational records can share storage. Some plugin data needs coordinated changes across several records. A file or API update can also trigger hooks or migrations, so selective writes alone do not prove that unrelated data is safe.
+Studio must also preserve intentional live deletions. A record missing from an old local copy is not a request to delete it.
 
-## Apply-time protection and recovery
+A local deletion needs checks for new live data. For example, deleting a post must not silently remove comments received after the original pull.
 
-The server must validate the expected state when it applies a change. Checking once before an upload leaves a window in which the live site can change again. A changed post should invalidate that post's reviewed update; an unrelated new comment should not block publishing a different page.
+New local records need safe identities on the live site. Matching numeric IDs must not cause an unrelated live record to be replaced. Related content and media must keep correct references.
 
-Dependent changes need a defined consistency boundary. If an operation fails partway through, Studio must report what actually applied, preserve unapplied work, and allow retries without duplicate records or repeated external effects. Standard REST updates should not be assumed to provide these guarantees without verification.
+Unknown plugin data must remain intact. Studio should identify unsupported local changes early and explain what cannot be published. It must not skip those changes and report a complete publish.
 
-Keep the existing backup protection and record a publication result that supports reconciliation. Do not automatically restore the whole database after a partial failure: that could erase newer live activity. Refresh baselines only for content actually reconciled, leaving other local edits and their original comparison state intact.
+Full database replacement should remain a separate, explicitly destructive action. It must not be an automatic fallback.
 
-The same rules must apply through the app, CLI, and Studio Code. The agent can explain conflicts and suggest resolutions; deterministic code must enforce publication scope and concurrency checks. Non-interactive callers should receive a structured conflict or unsupported-operation result instead of bypassing review.
+## Check again when applying changes
 
-## Immediate safeguard and initial scope
+The server must confirm that the affected data has not changed before it applies an update. The check and update must run as one protected operation. A check before upload is not enough.
 
-A guard against stale whole-database publication is useful before selective publishing is available. If live data diverged from the actual pull baseline, or freshness cannot be established, ordinary database publishing should stop and preserve both copies for reconciliation. File-only publishing remains an option when the intended work is entirely in files.
+If a relevant live item changes during publishing, Studio should fetch it again. It can retry automatically if the changes still combine safely. Retries must have a limit and must not create duplicate records or repeat external actions.
 
-That guard needs a trustworthy backend change signal and coordination with writes during import. An age warning or client-only preflight is partial protection, not a guarantee. Busy sites could hit the guard repeatedly, which is why it is a safeguard rather than the final publishing experience.
+Related changes need a consistent result. If only part of a publish succeeds, Studio must show what changed and preserve the remaining work.
 
-The first selective publishing scope should be posts and pages, including an explicit supported set of metadata, taxonomy relationships, and media references. Unsupported fields or plugin dependencies must be visible before publication. Templates, styles, broader settings, and plugin-specific support can follow separately.
+Backups remain available for recovery. Studio must not automatically restore the whole database after a failure, because that could remove newer live activity.
 
-This proposal does not include a generic SQL merge, automatic pulling over unfinished work, automatic reconciliation of arbitrary plugin schemas, or changes to unrelated hosting providers. WordPress.com and Pressable capabilities must be assessed separately before claiming support for either.
+After a successful publish, Studio should update the comparison state for the items it synchronized. It must preserve other local edits.
 
-## Scenarios a future implementation must demonstrate
+The app, CLI, and Studio Code must enforce the same rules. AI can explain a conflict or suggest a resolution. Code must enforce the protection.
 
-These are acceptance scenarios, not tests passed by this documentation PR.
+## Measure the 95% target
 
-- A local page update preserves posts, comments, and operational records created or changed live after the pull.
-- Divergent edits to the same supported entity require resolution; identical edits do not.
-- Live deletions are not silently reversed, and local deletions expose new live dependencies.
-- A live edit after review is detected at apply time without blocking unrelated activity.
-- Independently created local and live posts with the same numeric ID remain separate and keep correct references.
-- An interrupted publication can resume without duplicate creates; its result identifies applied and unapplied work.
-- Missing baselines, partial pulls, and multiple remote targets cannot produce false freshness.
-- Unsupported plugin data stays intact, and Studio does not report its dependent feature as successfully published.
-- App, CLI, and agent entry points enforce the same protection.
+A seamless publish completes all intended changes without requiring the user to manage synchronization. Safe automatic retries can count as seamless. Partial success and silently skipped changes cannot.
 
-## Questions before implementation
+Measure all user-initiated publish attempts over a defined period. Report unsupported changes, conflicts, connection failures, and manual retries separately. Do not remove difficult cases from the main result.
 
-- What backend signal can identify meaningful changes to the actual pulled snapshot, including plugin-owned data, without treating every cache write as a conflict?
-- What conditional-write and consistency guarantees can WordPress.com and Pressable provide? How are concurrent comments, background jobs, and external callbacks handled during imports?
-- Which post/page fields and dependencies can the first version support, and how should plugin hooks and schema migrations constrain eligibility?
-- How much baseline data must Studio retain, for how long, and how is sensitive data excluded or protected?
-- What reconciliation experience should existing local sites without a baseline get?
-- How should intentional full replacement and initial publication to an empty site work without becoming a shortcut around ordinary publishing protections?
+Also measure publishing time and data-loss incidents. A publish that avoids questions but takes too long is not a good result.
 
-Agreement on those boundaries should precede implementation. The draft is intended to establish the publishing behavior and the backend questions, without implying that a client warning alone solves the problem.
+Posts and pages are a useful first scope. They need support for their relevant metadata, categories, and media references. Templates, styles, settings, and plugin changes may also be necessary to reach 95% across actual use.
+
+The 95% target needs evidence from real use. It is not a guarantee that all conflicting edits can be resolved automatically.
+
+## Decisions needed before implementation
+
+- Can the backend provide efficient change detection and protected writes?
+- Which fields, plugins, and related records can the first version support safely?
+- How will Studio preserve existing local work that has no original comparison version?
+- How will partial pulls and multiple live targets keep separate comparison histories?
+- What original data must Studio store, and how will it protect sensitive data?
+- What publishing time is acceptable, and when should automatic retries stop?
+
+Until selective publishing is available, a guard can stop stale database replacement. That is temporary protection. The intended experience is automatic synchronization with questions only when a safe decision requires the user.

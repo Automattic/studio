@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
+import { SESSIONS_QUERY_KEY, useConnector } from '@/data/core';
 import { useRemoteSites } from '@/data/queries/use-remote-sites';
 import type {
 	AiModelId,
@@ -14,7 +14,7 @@ import type {
 	SyncSite,
 } from '@/data/core';
 
-export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
+export { SESSIONS_QUERY_KEY };
 
 export function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
 	return {
@@ -105,9 +105,6 @@ export function useSession( sessionId: string | undefined ) {
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
 		staleTime: Infinity,
-		// Transcripts hold screenshots and attachments, and the persister serializes the
-		// whole cache on every change: a large one ran the renderer out of memory.
-		meta: { persist: false },
 	} );
 }
 

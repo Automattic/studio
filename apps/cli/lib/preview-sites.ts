@@ -29,6 +29,8 @@ export type PreviewSite = {
 	shareUrl?: string;
 	// The paid site WordPress.com shows this preview as changes to, when it accepted the link.
 	liveSiteId?: number;
+	// Where the owner buys the preview to make it their live site; see `StandingPreview`.
+	launchUrl?: string;
 };
 
 const newSiteResponseSchema = z.object( {
@@ -45,6 +47,7 @@ const importResponseSchema = z
 
 // `preview_sites` is left out when the user has none. `expires_at` is in seconds. `share_url` is the
 // preview link WordPress.com creates when the site's first build is done, and '' until then.
+// `launch_url` is where the owner buys the preview; a preview of changes to a live site has none.
 const standingPreviewsSchema = z.object( {
 	preview_sites: z
 		.array(
@@ -54,6 +57,7 @@ const standingPreviewsSchema = z.object( {
 				expires_at: z.number().optional(),
 				share_url: z.string().optional(),
 				live_site_id: z.number().optional(),
+				launch_url: z.string().optional(),
 			} )
 		)
 		.optional(),
@@ -66,6 +70,9 @@ export type StandingPreview = {
 	expiresAt?: number;
 	shareUrl?: string;
 	liveSiteId?: number;
+	// Where the owner buys the preview to make it their live site: WordPress.com's launch flow, with
+	// its paid plans. Absent for a preview of changes to a live site, which is published there instead.
+	launchUrl?: string;
 };
 
 function wpcom( token: string ) {
@@ -149,11 +156,12 @@ async function waitForPreviewImport(
  * success), and the preview it opens.
  */
 async function getPreviewLink( siteId: number, token: string ): Promise< PreviewSite > {
-	const { shareUrl, liveSiteId } = ( await getStandingPreviews( token ) ).get( siteId ) ?? {};
+	const { shareUrl, liveSiteId, launchUrl } =
+		( await getStandingPreviews( token ) ).get( siteId ) ?? {};
 	if ( ! shareUrl ) {
 		throw new LoggerError( __( 'The preview site has no preview link.' ) );
 	}
-	return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
+	return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId, launchUrl };
 }
 
 /** The local site's live site that a preview shows changes to; see `selectLiveSite`. */
@@ -261,6 +269,7 @@ export async function getStandingPreviews(
 				expiresAt: site.expires_at === undefined ? undefined : site.expires_at * 1000,
 				shareUrl: site.share_url || undefined,
 				liveSiteId: site.live_site_id,
+				launchUrl: site.launch_url || undefined,
 			},
 		] )
 	);

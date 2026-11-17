@@ -180,7 +180,8 @@ export function useSettleSync() {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
 					const title = __( 'Preview link ready' );
-					const description = siteName();
+					const description = [ siteName(), settled.warning ].filter( Boolean ).join( ' · ' );
+					const showNotice = settled.warning ? toast.warning : toast.success;
 					const copyAction: ToastAction = {
 						label: __( 'Copy link' ),
 						dismissOnSuccess: false,
@@ -204,7 +205,7 @@ export function useSettleSync() {
 								label: __( 'Copied' ),
 								onClick: () => {},
 							};
-							toast.success( title, {
+							showNotice( title, {
 								id: noticeId,
 								description,
 								durationMs: 0,
@@ -212,11 +213,11 @@ export function useSettleSync() {
 							} );
 							setTimeout( () => {
 								if ( ownsNotice( copiedAction ) )
-									toast.success( title, { id: noticeId, description, action: copyAction } );
+									showNotice( title, { id: noticeId, description, action: copyAction } );
 							}, 2000 );
 						},
 					};
-					toast.success( title, { id: noticeId, description, durationMs: 0, action: copyAction } );
+					showNotice( title, { id: noticeId, description, durationMs: 0, action: copyAction } );
 				} else if ( settled.kind === 'error' ) {
 					/* translators: %s: site name */
 					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {

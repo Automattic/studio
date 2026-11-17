@@ -67,6 +67,19 @@ export function getPreviewPublishWarning( snapshot: Snapshot ): string {
 	);
 }
 
+// WordPress.com uses its own copy of the default themes, so edits to their files don't reach a preview.
+// The first sentence is what a notice shows on its one line before it's expanded, so keep it short
+// and complete.
+export function getEditedDefaultThemesWarning( themes: string[] ): string {
+	return sprintf(
+		/* translators: %s: theme names, e.g. "Twenty Twenty-Five". Keep the first sentence short: notices show only its first line until expanded. */
+		__(
+			'Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.'
+		),
+		themes.join( ', ' )
+	);
+}
+
 // The account's preview-site count and limit on WordPress.com.
 export async function fetchSnapshotUsage( accessToken: string ): Promise< SnapshotUsage > {
 	const response = await fetch( 'https://public-api.wordpress.com/wpcom/v2/wow-funnel/pending', {

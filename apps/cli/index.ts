@@ -251,6 +251,7 @@ async function main() {
 			{ registerCommand: registerPreviewUpdateCommand },
 			{ registerCommand: registerPreviewSetCommand },
 			{ registerCommand: registerPreviewStatusCommand },
+			{ registerCommand: registerPreviewLaunchCommand },
 		] = await Promise.all( [
 			import( 'cli/commands/preview/create' ),
 			import( 'cli/commands/preview/list' ),
@@ -258,6 +259,7 @@ async function main() {
 			import( 'cli/commands/preview/update' ),
 			import( 'cli/commands/preview/set' ),
 			import( 'cli/commands/preview/status' ),
+			import( 'cli/commands/preview/launch' ),
 		] );
 
 		registerPreviewCreateCommand( previewYargs );
@@ -266,6 +268,7 @@ async function main() {
 		registerPreviewUpdateCommand( previewYargs );
 		registerPreviewSetCommand( previewYargs );
 		registerPreviewStatusCommand( previewYargs );
+		registerPreviewLaunchCommand( previewYargs );
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 

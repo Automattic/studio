@@ -1,4 +1,5 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
 import {
@@ -22,7 +23,9 @@ function siteBusyError( requested: SiteOperationKind, blockedBy: SiteOperationKi
 			),
 			getSiteOperationNoun( requested ),
 			getSiteOperationNoun( blockedBy )
-		)
+		),
+		undefined,
+		SITE_BUSY_ERROR_CODE
 	);
 }
 
@@ -47,43 +50,59 @@ export function getLiveSiteOperation( site: SiteData ): SiteOperation | undefine
 	return site.operation && isProcessAlive( site.operation.pid ) ? site.operation : undefined;
 }
 
+const START_WAIT_POLL_INTERVAL_MS = 250;
+
 /**
  * Records the operation against the site, throwing when another one already
  * holds it. Runs inside the config lock so the read-check-write is atomic
  * across CLI processes — the agent, the desktop app and a terminal all reach
  * this through the same commands.
+ *
+ * A start waits for another process's start instead, and then finds the site
+ * running: the Desktop app starts its sites at launch while a CLI that
+ * just replaced an outdated daemon starts the same sites again.
  */
 async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< SiteOperation > {
 	const operation: SiteOperation = { pid: process.pid, kind };
 
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-		const sites: SiteData[] = [];
+	for (;;) {
+		let isWaiting = false;
+		try {
+			await lockCliConfig();
+			const config = await readCliConfig();
+			const sites: SiteData[] = [];
 
-		for ( const siteId of siteIds ) {
-			const site = config.sites.find( ( candidate ) => candidate.id === siteId );
-			if ( ! site ) {
-				throw new LoggerError( __( 'Site not found' ) );
+			for ( const siteId of siteIds ) {
+				const site = config.sites.find( ( candidate ) => candidate.id === siteId );
+				if ( ! site ) {
+					throw new LoggerError( __( 'Site not found' ) );
+				}
+
+				const blocking = getLiveSiteOperation( site );
+				if ( kind === 'start' && blocking?.kind === 'start' && blocking.pid !== process.pid ) {
+					isWaiting = true;
+				} else if ( blocking ) {
+					throw siteBusyError( kind, blocking.kind );
+				}
+
+				sites.push( site );
 			}
 
-			const blocking = getLiveSiteOperation( site );
-			if ( blocking ) {
-				throw siteBusyError( kind, blocking.kind );
+			if ( ! isWaiting ) {
+				for ( const site of sites ) {
+					site.operation = operation;
+				}
+				await saveCliConfig( config );
 			}
-
-			sites.push( site );
+		} finally {
+			await unlockCliConfig();
 		}
 
-		for ( const site of sites ) {
-			site.operation = operation;
+		if ( ! isWaiting ) {
+			return operation;
 		}
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
+		await new Promise( ( resolve ) => setTimeout( resolve, START_WAIT_POLL_INTERVAL_MS ) );
 	}
-
-	return operation;
 }
 
 async function release( siteIds: string[], operation: SiteOperation ): Promise< void > {

@@ -420,6 +420,29 @@ it( 'keeps a successful transfer with a warning until dismissed, including after
 	expect( getVisibleToasts().find( ( item ) => item.id === warning.id )?.leaving ).not.toBe( true );
 } );
 
+it( 'shows a preview that worked with a warning as a warning', () => {
+	const queryClient = createTestQueryClient();
+	queryClient.setQueryData( SITES_QUERY_KEY, [
+		makeSite( { id: 'preview-site', name: 'Ocean' } ),
+	] );
+	const { publish } = setup( <SyncActivityEvents />, { queryClient } );
+	act( () =>
+		publish( { siteId: 'preview-site', activity: { kind: 'pending', direction: 'preview' } } )
+	);
+	act( () =>
+		publish( {
+			siteId: 'preview-site',
+			activity: { kind: 'success', direction: 'preview', warning: 'Theme edits won’t show.' },
+		} )
+	);
+	expect( latestNotice() ).toMatchObject( {
+		intent: 'warning',
+		title: 'Ocean preview is ready',
+		description: 'Theme edits won’t show.',
+		action: { label: 'Copy link', dismissOnSuccess: false },
+	} );
+} );
+
 it( 'offers restarting after changes were pulled but the site could not restart', async () => {
 	const { publish, connector } = setup( <SyncActivityEvents /> );
 	act( () =>

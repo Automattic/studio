@@ -26,6 +26,8 @@ describe( 'Preview sites', () => {
 	const token = 'mock-token';
 	const siteId = 12345;
 	const shareUrl = 'https://preview-site.wpcomstaging.com/?share=abc123';
+	const launchUrl =
+		'https://wordpress.com/setup/launch-site?siteSlug=preview-site.wpcomstaging.com&hide_free_plan=1';
 	const get = vi.fn();
 	const post = vi.fn();
 
@@ -36,7 +38,7 @@ describe( 'Preview sites', () => {
 		get.mockImplementation( ( { path }: { path: string } ) =>
 			Promise.resolve(
 				path === '/wow-funnel/pending'
-					? { preview_sites: [ { blog_id: siteId, share_url: shareUrl } ] }
+					? { preview_sites: [ { blog_id: siteId, share_url: shareUrl, launch_url: launchUrl } ] }
 					: { importId: 'new', importStatus: 'importSuccess' }
 			)
 		);
@@ -56,6 +58,7 @@ describe( 'Preview sites', () => {
 			siteId,
 			hostname: 'preview-site.wpcomstaging.com',
 			shareUrl,
+			launchUrl,
 		} );
 		expect( post ).toHaveBeenCalledWith(
 			expect.objectContaining( {

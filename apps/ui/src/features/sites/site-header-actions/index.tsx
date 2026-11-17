@@ -1,8 +1,6 @@
-import { isRTL } from '@wordpress/i18n';
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
-import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
+import { useInlineEndControlsInset } from '@/data/host/use-window-controls-inset';
 import { PublishButton } from '@/features/site-delivery';
-import { useWindowControlsOverlay } from '@/lib/hooks';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
 import type { SiteDetails } from '@/data/core';
@@ -71,16 +69,7 @@ export function SiteHeaderSpace() {
 export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	const { attachActions } = useSiteHeader();
 	const root = useRef< HTMLDivElement >( null );
-	const windowControls = useWindowControlsOverlay();
-	const trafficLightSpace = useTrafficLightSpace();
-	// The Windows/Linux window controls sit at the physical right, the macOS
-	// traffic lights at the physical left: whichever the inline end reaches.
-	let inset = 0;
-	if ( isRTL() ) {
-		inset += trafficLightSpace.end ? 88 : 0;
-	} else {
-		inset += windowControls?.controlsWidth ?? 0;
-	}
+	const inset = useInlineEndControlsInset();
 	const publishButton = (
 		<span data-site-header-publish className={ styles.publish }>
 			<PublishButton key={ site.id } site={ site } />

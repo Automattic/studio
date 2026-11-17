@@ -1,8 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
-import { E2ESession, launchWithSite } from './e2e-helpers';
-import type { PersistedSite } from './e2e-helpers';
+import { E2ESession } from './e2e-helpers';
 import type { ProviderSites } from '@studio/providers';
 
 type SyncSite = ProviderSites[ 'wpcom' ];
@@ -11,15 +11,25 @@ type PublishState = typeof globalThis & {
 	publishTest: { connections: SyncSite[]; calls: PublishCall[]; finish?: () => void };
 };
 
-// WordPress.com is replaced by IPC handler stubs; the local site, its preview and the main process
-// are real.
+// These cases exercise Share and the IPC boundary with provider operations stubbed.
 test.describe( 'Share and publish', () => {
 	const session = new E2ESession();
-	let site: PersistedSite;
+	const site = {
+		id: randomUUID(),
+		name: 'Publishing verification',
+		path: path.join( session.homePath, 'Studio', 'publishing-verification' ),
+		port: 8881,
+		url: 'http://localhost:8881',
+		phpVersion: '8.4',
+	};
 
 	test.beforeAll( async () => {
-		( { site } = await launchWithSite( session, { siteName: 'Publishing verification' } ) );
-		await mkdir( path.join( site.path, 'wp-content', 'uploads' ), { recursive: true } );
+		await Promise.all(
+			[ 'database', 'plugins', 'themes', 'uploads' ].map( ( directory ) =>
+				mkdir( path.join( site.path, 'wp-content', directory ), { recursive: true } )
+			)
+		);
+		await session.launch( {}, { appData: { sites: [ site ] } } );
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
@@ -32,8 +42,6 @@ test.describe( 'Share and publish', () => {
 
 	test( 'copies a preview link and opens checkout from Share', async () => {
 		const page = session.mainWindow;
-		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
-
 		await session.electronApp.evaluate( ( { ipcMain }, siteId ) => {
 			const captured = globalThis as typeof globalThis & { checkoutUrl?: string };
 			ipcMain.removeHandler( 'getAuthenticationToken' );

@@ -1115,14 +1115,6 @@ export function PublishButton( {
 								}
 							/>
 						) }
-						{ showCreatePreview && (
-							<DestinationRow
-								icon={ <PlusIcon /> }
-								label={ __( 'Create new preview' ) }
-								disabled={ newPreviewDisabled }
-								onClick={ () => newPreview() }
-							/>
-						) }
 						{ spacefastAddDomainUrl && (
 							<DestinationRow
 								icon={ <GlobeIcon /> }
@@ -1131,7 +1123,6 @@ export function PublishButton( {
 								onClick={ () => void connector.openExternalUrl( spacefastAddDomainUrl ) }
 							/>
 						) }
-
 						{ canConnectExistingSite && (
 							<DestinationRow
 								icon={ <ConnectSiteIcon /> }
@@ -1140,6 +1131,14 @@ export function PublishButton( {
 								trailing={ <ChevronRightIcon data-navigation-chevron /> }
 								disabled={ disabled }
 								onClick={ () => setChoosingExistingSite( true ) }
+							/>
+						) }
+						{ showCreatePreview && (
+							<DestinationRow
+								icon={ <PlusIcon /> }
+								label={ __( 'Create new preview' ) }
+								disabled={ newPreviewDisabled }
+								onClick={ () => newPreview() }
 							/>
 						) }
 					</div>

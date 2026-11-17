@@ -214,15 +214,16 @@ In the desktop app, each site’s chats are listed under the site in the sidebar
 
 ### [AI providers](#ai-providers)
 
-WordPress Studio Code chats through an AI provider. WordPress.com is the default and uses [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). You can connect others instead, or as well:
+The agent needs an AI provider to build. You can use the AI you already have, or start with the one-time free allowance from WordPress.com.
 
+-   **WordPress.com**, with your WordPress.com account
 -   **OpenAI**, with a ChatGPT plan or an API key
--   **Anthropic**, with an API key or a Claude subscription
+-   **Anthropic**, with a Claude subscription or an API key
 -   **Google Gemini**, with an API key
 -   **GitHub Copilot**, with a Copilot plan
 -   **Meta**, with an API key
 
-Connect them in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, the models it offers, and how its usage is billed.
+Set them up in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, the models it offers, and who bills you.
 
 Use **Default AI provider**, at the top of **Settings → Providers**, to choose which connected provider new chats use. The model menu in the chat box lists the models of every connected provider, so you can choose a different one for a particular chat. In the terminal, switch providers with the `/provider` command, which also changes the **Default AI provider**.
 

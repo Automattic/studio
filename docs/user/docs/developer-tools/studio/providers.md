@@ -1,142 +1,186 @@
 # Providers in WordPress Studio
 
-Providers are the accounts WordPress Studio works with. **AI providers** power the chat in [WordPress Studio Code](https://wordpress.studio/docs/studio-code/), and **hosting providers** are where you publish your sites. You connect both kinds on one page, **Settings → Providers**.
+WordPress Studio works with the AI you already have, and with the host where your site will live. You set up both on one page, **Settings → Providers**.
 
-WordPress.com is both an AI provider and a hosting provider, and logging in to WordPress.com connects it as both. Every other provider is optional: connect the ones you already pay for or prefer.
+There are two kinds of provider. An **AI provider** powers the agent, WordPress Studio Code, which builds and changes your site. A **hosting provider** is where your site goes when you publish it.
+
+WordPress.com is both. When you sign in with WordPress.com, you get a one-time free allowance of AI use and a place to publish. Every other provider is optional.
 
 ## Open the Providers page
 
--   **Desktop app and the `studio ui` browser app**: open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select **Providers**. You can also choose **Providers** from the account menu, or **Connect AI providers** from the chat box’s **+** menu or the model menu.
--   **Terminal**: use `/connect`, `/disconnect`, and `/provider` in `studio code`. See [Providers in the terminal](#providers-in-the-terminal).
+In the desktop app, open **Settings** from the account menu at the bottom of the sidebar and select **Providers**. You can also press ⌘, (Ctrl+, on Windows and Linux).
 
-The page has three groups: your defaults at the top, then **AI providers**, then **Hosting providers**. A provider you’ve connected is marked **Connected**.
+Two shortcuts lead to the same page. Choose **Providers** from the account menu, or choose **Connect AI providers** from the **+** menu in the chat box.
+
+The page has three groups. Your defaults are at the top, then **AI providers**, then **Hosting providers**. A provider you have set up is marked **Connected**.
 
 ![The Providers page of WordPress Studio's Settings: Default AI provider and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, and Meta with Connect buttons.](../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
+WordPress Studio UI, which you start with `studio ui`, has the same page. In the terminal you use commands instead. See [Providers in the terminal](#providers-in-the-terminal).
+
 ## AI providers
 
-WordPress Studio Code needs at least one connected AI provider before you can chat. Each provider brings its own models and its own billing:
+The agent needs one AI provider before it can build. Use a plan or key you already have, or start with the free allowance from WordPress.com.
 
-| Provider | Connect with | Usage is billed to | Models | Generates images |
+| Provider | What you need | Who bills you | Models | Makes images |
 | --- | --- | --- | --- | --- |
-| **WordPress.com** | Your WordPress.com account | Your [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) | Fast, Balanced, Strong | Yes |
-| **OpenAI** | A ChatGPT plan, or an API key | Your ChatGPT plan, or your OpenAI account | GPT-6.1 Terra, GPT-6.1 Sol | With an API key only |
-| **Anthropic** | An API key, or a Claude subscription | Your Anthropic account, or your Claude plan | Sonnet 5.5, Opus 5.5 | No |
-| **Google Gemini** | An API key | Your Google AI Studio project | Gemini 3.8 Flash, Gemini 4 Argon | Yes |
-| **GitHub Copilot** | A GitHub account with Copilot access | Your Copilot plan | The models your plan offers among Sonnet 5.5, GPT-6.1 Terra, and Gemini 4 Argon | No |
-| **Meta** | An API key | Your Meta Model API account | Muse Spark 1.3, Muse Wonder | Yes |
+| **WordPress.com** | A WordPress.com account | Nothing at first. You get a one-time free allowance, then you can buy [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) | Fast, Balanced, Strong | Yes |
+| **OpenAI** | A ChatGPT plan, or an OpenAI API key | Your ChatGPT plan, or your OpenAI account | GPT-6.1 Terra, GPT-6.1 Sol | With an API key only |
+| **Anthropic** | A Claude subscription, or an Anthropic API key | Your Claude plan, or your Anthropic account | Sonnet 5.5, Opus 5.5 | No |
+| **Google Gemini** | A Gemini API key | Your Google AI Studio project | Gemini 3.8 Flash, Gemini 4 Argon | Yes |
+| **GitHub Copilot** | A GitHub account with a Copilot plan | Your Copilot plan | The ones your plan includes, from Sonnet 5.5, GPT-6.1 Terra, and Gemini 4 Argon | No |
+| **Meta** | A Meta API key | Your Meta Model API account | Muse Spark 1.3, Muse Wonder | Yes |
 
-When a provider offers more than one way to connect, **Connect** opens a menu of them. A key or token is saved when you click **Save**, and WordPress Studio then shows only its last characters.
+An API key is a long code that lets an app use your account with an AI company. You create one on that company’s site and paste it into WordPress Studio.
+
+Each provider has a **Connect** button. When there is more than one way to sign in, the button opens a menu.
 
 ### WordPress.com
 
-Click **Connect** and log in with your WordPress.com account in your browser. This is the default provider. It needs no API key: every account starts with a one-time free allowance of AI credits, and you buy more as you go. Once you’re logged in, the button becomes **Manage AI credits**.
+1.  Click **Connect** next to **WordPress.com**.
+2.  Sign in with your WordPress.com account in your browser.
 
-Instead of naming models, WordPress.com offers three tiers. See [Choosing an AI model tier in WordPress Studio Code](https://wordpress.studio/docs/studio-code/choosing-an-ai-model-tier-in-studio-code/).
+You don’t need an API key. A new account gets a one-time free allowance, which works with the Fast model. When it runs out you can use the AI you already have, or buy AI credits from WordPress.com. Once you’re signed in, the button changes to **Manage AI credits**.
+
+WordPress.com offers three models named Fast, Balanced, and Strong. See [Choosing an AI model tier in WordPress Studio Code](https://wordpress.studio/docs/studio-code/choosing-an-ai-model-tier-in-studio-code/).
 
 ### OpenAI
 
-Click **Connect** and choose one of:
+To sign in with ChatGPT:
 
--   **ChatGPT plan**: WordPress Studio opens ChatGPT’s sign-in in your browser. Sign in and approve, then return to WordPress Studio. If you closed the browser tab, click **Try again**. Usage counts against your [ChatGPT plan](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites).
--   **API key**: create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), paste it in **OpenAI API key**, and click **Save**. Usage is billed through your OpenAI account.
+1.  Click **Connect** next to **OpenAI** and choose **ChatGPT plan**.
+2.  Sign in with ChatGPT in the browser window that opens, and approve.
+3.  Go back to WordPress Studio. If you closed the browser tab, click **Try again**.
 
-Only the API key can [generate images](https://wordpress.studio/docs/studio-code/image-generation/).
+Your use counts against your [ChatGPT plan](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites).
+
+To use an API key:
+
+1.  Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys).
+2.  Click **Connect** next to **OpenAI** and choose **API key**.
+3.  Paste the key in **OpenAI API key** and click **Save**.
+
+OpenAI bills your account for what you use. Only the API key can [make images](https://wordpress.studio/docs/studio-code/image-generation/).
 
 ### Anthropic
 
-Click **Connect** and choose one of:
+To use a Claude subscription, such as Pro or Max:
 
--   **API key**: create a key in the [Claude Console](https://platform.claude.com/settings/keys), paste it in **Anthropic API key**, and click **Save**. Usage is billed through your Anthropic account.
--   **Claude subscription**: use your Claude plan, such as Pro or Max, instead of a key.
-    1.  Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.
-    2.  Run `claude setup-token` in a terminal, and sign in with your Claude account.
-    3.  Paste the token it prints in **Claude subscription token**, and click **Save**. The token starts with `sk-ant-oat01-`; an API key isn’t accepted here.
+1.  Install [Claude Code](https://code.claude.com/docs/en/setup) if you don’t have it yet.
+2.  Run `claude setup-token` in a terminal and sign in with your Claude account. It prints a token that starts with `sk-ant-oat01-`.
+3.  In WordPress Studio, click **Connect** next to **Anthropic** and choose **Claude subscription**.
+4.  Paste the token in **Claude subscription token** and click **Save**.
 
-    Usage counts against your Claude plan.
+Your use counts against your Claude plan.
+
+To use an API key:
+
+1.  Create a key in the [Claude Console](https://platform.claude.com/settings/keys).
+2.  Click **Connect** next to **Anthropic** and choose **API key**.
+3.  Paste the key in **Anthropic API key** and click **Save**.
+
+Anthropic bills your account for what you use.
 
 ### Google Gemini
 
-Click **Connect**, create a key in [Google AI Studio](https://aistudio.google.com/apikey), paste it in **Gemini API key**, and click **Save**. Usage is billed through your Google AI Studio project.
+1.  Create a key in [Google AI Studio](https://aistudio.google.com/apikey).
+2.  Click **Connect** next to **Google Gemini**.
+3.  Paste the key in **Gemini API key** and click **Save**.
+
+Google bills your Google AI Studio project for what you use.
 
 ### GitHub Copilot
 
-Click **Connect**. WordPress Studio shows a sign-in code next to **GitHub Copilot**: approve that code on GitHub in your browser, with a GitHub account that has [Copilot access](https://github.com/features/copilot/plans). Usage counts against your Copilot plan, and the model menu lists only the models your plan offers.
+1.  Click **Connect** next to **GitHub Copilot**. WordPress Studio shows a sign-in code.
+2.  Approve that code on GitHub in your browser. Use a GitHub account that has a [Copilot plan](https://github.com/features/copilot/plans).
+
+Your use counts against your Copilot plan. You only see the models your plan includes.
 
 ### Meta
 
-Click **Connect**, create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), paste it in **Meta API key**, and click **Save**. Usage is billed through your Meta Model API account.
+1.  Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai).
+2.  Click **Connect** next to **Meta**.
+3.  Paste the key in **Meta API key** and click **Save**.
 
-### Change or disconnect an AI provider
+Meta bills your Meta Model API account for what you use.
 
--   **OpenAI and Anthropic**: click **Manage**, then choose the other way to connect, or **Disconnect**.
--   **Google Gemini and Meta**: click **Manage** to enter a new key, or click **Disconnect**.
--   **GitHub Copilot**: click **Disconnect**.
--   **WordPress.com**: choose **Log out** from the account menu. This also disconnects WordPress.com as a hosting provider.
+### Change or remove an AI provider
 
-### Choose the provider and model for a chat
+| Provider | What to do |
+| --- | --- |
+| **OpenAI**, **Anthropic** | Click **Manage**. Choose the other way to sign in, or choose **Disconnect** |
+| **Google Gemini**, **Meta** | Click **Manage**. Paste a new key and click **Save**, or click **Disconnect** |
+| **GitHub Copilot** | Click **Disconnect** |
+| **WordPress.com** | Choose **Log out** from the account menu. You will also need to sign in again before you publish to WordPress.com |
 
-Use **Default AI provider**, at the top of the page, to choose which connected provider new chats use.
+### Choose the AI for a chat
 
-The model menu in the chat box lists the models of every connected provider, so you can pick a different one for a particular chat. WordPress.com models appear as tiers, and other providers’ models appear by name. When you’re connected with a ChatGPT, Claude, or Copilot plan, the menu says which plan you’re using and links to **Manage usage** for it.
+**Default AI provider**, at the top of the page, sets which provider a new chat uses.
+
+You can pick a different model for one chat. Open the model menu in the chat box, which lists the models of every provider you have set up. When you use a ChatGPT, Claude, or Copilot plan, the menu names the plan and links to **Manage usage**.
 
 ![The WordPress Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect AI providers listed under Actions.](../../../screenshots/images/model-menu.webp)
 
-Switching a chat to another provider’s model starts a new chat, because the models don’t share memory. WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
+If you switch a chat to another provider’s model, WordPress Studio starts a new chat, because the new model can’t read the old one’s conversation. It asks **Start a new chat?** first. Your earlier chat stays in the sidebar.
 
-Only some providers generate site images: WordPress.com, OpenAI with an API key, Google Gemini, and Meta. WordPress Studio Code uses the chat’s provider when it can, and otherwise the first connected provider that can. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
+The agent can make images for your site with WordPress.com, OpenAI with an API key, Google Gemini, or Meta. It uses the chat’s provider when that one can make images, and the first of the others when it can’t. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
 
 ## Hosting providers
 
-Hosting providers are where **Publish** sends your site.
+A hosting provider is where **Publish** sends your site.
 
-| Provider | What you can publish | Connect with |
+| Provider | What you can do | What you need |
 | --- | --- | --- |
-| **WordPress.com** | A new site, or an existing site on WordPress.com or Pressable. You can also pull a site into WordPress Studio and share [preview sites](https://wordpress.studio/docs/preview-sites/). | Your WordPress.com account |
-| **Spacefast** | A static copy of your site, in a Spacefast Space. Publishing only: you can’t pull from Spacefast. | Your Spacefast account |
+| **WordPress.com** | Publish to a new site, or update one you already have on WordPress.com or Pressable. You can also pull a site into WordPress Studio and share a [preview](https://wordpress.studio/docs/preview-sites/) | A WordPress.com account |
+| **Spacefast** | Publish a static copy of your site. Forms, comments, and other features that need WordPress running won’t work in the copy | A Spacefast account |
 
 ### WordPress.com and Pressable
 
-Click **Connect** and log in with your WordPress.com account. If you’re already logged in, WordPress.com is connected.
+Click **Connect** next to **WordPress.com** and sign in. If you’re already signed in, there is nothing more to do.
 
-Pressable isn’t connected separately. Your Pressable sites appear with your WordPress.com sites once Jetpack on the Pressable site is connected to the same WordPress.com account you use in WordPress Studio. See [Compatible sites](https://wordpress.studio/docs/sync/#supported-sites) for which sites you can publish to.
+Pressable doesn’t have its own entry. Your Pressable sites show up next to your WordPress.com sites when Jetpack on the Pressable site uses the same WordPress.com account as WordPress Studio. See [Compatible sites](https://wordpress.studio/docs/sync/#supported-sites) for which sites you can publish to.
 
 ### Spacefast
 
-Click **Connect** next to **Spacefast**. The **Connect to Spacefast** dialog shows a sign-in code: click **Open Spacefast**, check that the code in your browser matches, and approve the connection. To disconnect, click **Disconnect**.
+1.  Click **Connect** next to **Spacefast**. The **Connect to Spacefast** dialog shows a sign-in code.
+2.  Click **Open Spacefast**, check that the code in your browser matches, and approve.
 
-See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast) for what a static copy includes and how to publish one.
+To remove Spacefast, click **Disconnect**. See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast) for what the copy includes.
 
 ### Choose where Publish goes
 
-Use **Default hosting provider**, at the top of the page, to choose which connected provider WordPress Studio opens when you publish a site you haven’t published yet. If you’ve connected only one, WordPress Studio opens that one. Without a default, it asks **Where do you want to publish?** From a provider’s publishing setup, click **Choose another host** to pick a different one.
+**Default hosting provider**, at the top of the page, sets where **Publish** goes for a site you haven’t published yet.
 
-For the full publishing steps, see [WordPress Studio Sync](https://wordpress.studio/docs/sync/).
+If you have set up one hosting provider, WordPress Studio opens that one. If you have set up more and chosen no default, it asks **Where do you want to publish?** To pick a different host while you’re publishing, click **Choose another host**.
+
+The full steps are in [WordPress Studio Sync](https://wordpress.studio/docs/sync/).
 
 ## Providers in the terminal
 
-In `studio code`, manage providers with slash commands:
+In `studio code`, you manage providers with commands.
 
 | Command | What it does |
 | --- | --- |
-| `/connect` | Connect a provider. Choose one from the list, or name it: `/connect wpcom`, `/connect anthropic`, `/connect openai`, `/connect gemini`, `/connect github-copilot`, `/connect meta`, or `/connect spacefast`. Running it for a connected provider lets you change its key. |
-| `/disconnect` | Disconnect a provider. Disconnecting WordPress.com logs you out. |
-| `/provider` | Switch the AI provider. This also changes the **Default AI provider**. |
-| `/model` | Switch the AI model or tier. |
-| `/login`, `/logout` | Log in to or out of WordPress.com. |
+| `/connect` | Sets up a provider. Choose one from the list, or name it, as in `/connect anthropic`. The names are `wpcom`, `anthropic`, `openai`, `gemini`, `github-copilot`, `meta`, and `spacefast`. Run it again for a provider you already have to change its key |
+| `/disconnect` | Removes a provider. Removing WordPress.com logs you out |
+| `/provider` | Switches the AI provider. This also changes **Default AI provider** |
+| `/model` | Switches the model |
+| `/login`, `/logout` | Signs you in to or out of WordPress.com |
 
-Providers you connect in the terminal are connected in the desktop app too, and the other way around.
+A provider you set up in the terminal is also set up in the desktop app, and the other way around.
 
 ## What needs a WordPress.com account
 
-You can chat in WordPress Studio Code without a WordPress.com account, as long as another AI provider is connected. These features still need a WordPress.com login:
+You can build with the agent without a WordPress.com account, as long as you have set up another AI provider. You still need to sign in with WordPress.com to do any of these.
 
--   WordPress.com AI credits and the Fast, Balanced, and Strong tiers.
--   [Preview sites](https://wordpress.studio/docs/preview-sites/).
--   Publishing to, and pulling from, WordPress.com and Pressable sites.
--   Working on your WordPress.com sites from a chat.
--   [Sending feedback from a chat](https://wordpress.studio/docs/studio-code/#send-feedback-from-a-chat).
+-   Use the free allowance, or the Fast, Balanced, and Strong models
+-   Share a [preview](https://wordpress.studio/docs/preview-sites/)
+-   Publish to a WordPress.com or Pressable site, or pull one into WordPress Studio
+-   Ask the agent to work on one of your WordPress.com sites
+-   [Send feedback from a chat](https://wordpress.studio/docs/studio-code/#send-feedback-from-a-chat)
 
-## Providers and agents
+## Agent plugins are separate
 
-Providers bring AI models and hosting *into* WordPress Studio. The **Agents** page of Settings does the reverse: it connects other agent apps, such as Claude Code, ChatGPT (Codex), Cursor, and Grok Build, to WordPress Studio, so they can work on your sites with their own models and accounts. See [MCP on WordPress Studio](https://wordpress.studio/docs/mcp-on-studio/).
+A provider brings an AI into WordPress Studio. An agent plugin does the opposite. It brings WordPress Studio Code into an agent you already use, such as Claude Code, ChatGPT (Codex), Cursor, or Grok Build, and that agent keeps using its own account.
+
+You install agent plugins on the **Agents** page of Settings. See [MCP on WordPress Studio](https://wordpress.studio/docs/mcp-on-studio/).

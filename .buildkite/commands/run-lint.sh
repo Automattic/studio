@@ -21,3 +21,6 @@ npm run knip
 
 echo '--- :typescript: Typecheck'
 npm run typecheck
+
+echo '--- :earth_americas: Translatable strings'
+npm run i18n:pot -- --check

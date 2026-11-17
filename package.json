@@ -58,6 +58,7 @@
 		"lint": "npm run lint --workspaces --if-present && eslint scripts",
 		"typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json --noEmit",
 		"knip": "knip",
+		"i18n:pot": "node ./scripts/generate-pot.mjs",
 		"format": "npm run lint --workspaces --if-present -- --fix && eslint scripts --fix",
 		"test": "vitest run",
 		"test:watch": "vitest",

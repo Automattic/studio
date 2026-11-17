@@ -13,16 +13,11 @@ steps:
       echo "--- :robot_face: Use bot for Git operations"
       source use-bot-for-git
 
-      echo "--- :npm: Install Node dependencies"
-      .buildkite/commands/install-node-dependencies.sh
-
       echo "--- :ruby: Setup Ruby Tools"
       install_gems
 
       echo "--- :snowflake: Execute Code Freeze"
       bundle exec fastlane code_freeze version:"${RELEASE_VERSION}" github_username:"${GITHUB_USERNAME}" skip_confirm:true
-    artifact_paths:
-      - i18n/bundle-strings.pot
     agents:
       queue: mac
     retry:

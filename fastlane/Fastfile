@@ -30,9 +30,6 @@ UI.message("Running in #{DRY_RUN ? 'DRY RUN' : 'NORMAL'} mode")
 # Path to the Studio app's package.json (monorepo workspace)
 PACKAGE_JSON_PATH = File.join(PROJECT_ROOT_FOLDER, 'apps', 'studio', 'package.json')
 
-# Path to the translatable strings file (committed to the repo for GlotPress import)
-POT_FILE_PATH = File.join(PROJECT_ROOT_FOLDER, 'i18n', 'bundle-strings.pot')
-
 # GlotPress project URL and output directory for Studio UI translations (Jed 1.x JSON)
 GLOTPRESS_PROJECT_URL = 'https://translate.wordpress.com/projects/studio'
 TRANSLATIONS_DIR = File.join(PROJECT_ROOT_FOLDER, 'packages', 'common', 'translations')
@@ -90,44 +87,6 @@ lane :notarize_binary do
       package: path,
       api_key: app_store_connect_api_key,
       print_log: true
-    )
-  end
-end
-
-#
-# Extract translatable strings from source code into the .pot file and optionally commit the changes
-#
-# @param commit_message [String, nil] The commit message to use if committing changes, or nil to skip commit.
-# @param skip_confirm [Boolean] Whether to skip interactive confirmation before committing.
-#
-lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
-  pot_dir = File.join(PROJECT_ROOT_FOLDER, 'out', 'pots')
-
-  sh('rm', '-rf', pot_dir)
-  sh('mkdir', '-p', File.dirname(POT_FILE_PATH))
-
-  # `wp-babel-makepot` hardcodes its Babel `cwd` to its own package directory, so it never reads a
-  # config from this repo. It also runs every file through `@babel/preset-env` and then discards the
-  # generated code, keeping only the AST. Targeting the current Node turns those pointless downlevel
-  # transforms off — with default targets they choke on modern syntax such as `await using`.
-  output = sh(
-    { 'BROWSERSLIST' => 'current node' },
-    'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common,packages/blueprints}/**/*.{js,jsx,ts,tsx}",
-    '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
-    '--base', PROJECT_ROOT_FOLDER,
-    '--dir', pot_dir,
-    '--output', POT_FILE_PATH
-  )
-  # makepot logs the files it fails to parse and still exits 0, silently dropping their strings.
-  UI.user_error!("wp-babel-makepot failed to parse some files, so #{POT_FILE_PATH} is incomplete:\n#{output}") if output.match?(/BABEL_\w+_ERROR/)
-
-  if commit_message && (skip_confirm || UI.confirm('Commit updated strings?'))
-    git_add(path: [POT_FILE_PATH])
-    git_commit(
-      path: [POT_FILE_PATH],
-      message: commit_message,
-      allow_nothing_to_commit: true
     )
   end
 end
@@ -326,13 +285,12 @@ end
 # Release Management Lanes
 ########################################################################
 
-# Create a new release branch from trunk, extract translatable strings, and generate draft release notes.
+# Create a new release branch from trunk and generate draft release notes.
 #
 # - Creates a `release/<version>` branch from trunk
-# - Extracts translatable strings and commits them to the release branch (for GlotPress import)
 # - Generates draft release notes from merged PRs and commits them to the release branch
 # - Copies trunk's branch protection settings onto the release branch
-# - Creates a backmerge PR from the release branch to trunk (so wpcom cron can import strings to GlotPress)
+# - Creates a backmerge PR from the release branch to trunk
 #
 # The first beta is triggered separately via {new_beta_release}.
 #
@@ -346,7 +304,6 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   UI.important <<~PROMPT
     Freezing code for release #{version}. This will:
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
-    - Extract translatable strings and commit to `#{branch_name}`
     - Generate draft release notes from merged PRs
     - Protect `#{branch_name}` with the same settings as `#{MAIN_BRANCH}`
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
@@ -357,11 +314,6 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
 
   # Create release branch from MAIN_BRANCH
   Fastlane::Helper::GitHelper.create_branch(branch_name)
-
-  generate_pot_file(
-    commit_message: "[skip ci] Code freeze: Update translatable strings for #{version}",
-    skip_confirm: skip_confirm
-  )
 
   # Generate draft release notes from PRs merged since the last published release
   update_release_notes_draft(version: version)
@@ -381,7 +333,6 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     to_branch: branch_name
   )
 
-  # Create backmerge PR so that the .pot strings file reaches trunk for GlotPress import
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
 
   UI.success("Code freeze complete! Created #{branch_name}")

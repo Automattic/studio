@@ -1,8 +1,8 @@
 # Localization
 
 Text is translated using [GlotPress](https://translate.wordpress.com/projects/studio/).
-The process of getting original strings into GlotPress and the translations back
-into the app is fully automated as part of the release process.
+Original strings reach GlotPress as PRs merge, and the translations come back into the
+app automatically as part of the release process.
 
 ## Supported Languages
 
@@ -25,14 +25,15 @@ and fails if that locale does not exist there.
 
 ## Translation Process
 
-### Extract and Import (automated)
+### Extract and Import
 
-1. During **code freeze**, the `code_freeze` Fastlane lane extracts all translatable strings
-   and commits the resulting `i18n/bundle-strings.pot` file to the release branch.
+1. Every PR that adds, changes or removes a translatable string also updates
+   `i18n/bundle-strings.pot`: run `npm run i18n:pot` and commit the result. The CI lint step
+   runs `npm run i18n:pot -- --check` and fails when the file is out of date. References name
+   files without line numbers and entries are sorted, so the file only changes when strings do.
 2. A **wpcom cron job** (`import-github-originals.php`) periodically fetches the `.pot` file
-   from trunk (via the backmerge PR) and imports it into [GlotPress](https://translate.wordpress.com/projects/studio/).
-
-No manual steps are needed for string extraction or import.
+   from trunk and imports it into [GlotPress](https://translate.wordpress.com/projects/studio/),
+   so new strings reach translators soon after their PR merges.
 
 ### Export and Add (automated)
 

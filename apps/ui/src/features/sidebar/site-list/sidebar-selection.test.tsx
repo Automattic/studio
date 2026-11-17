@@ -331,7 +331,7 @@ describe( 'sidebar selection', () => {
 		expect( getVisibleToasts() ).toEqual( [
 			expect.objectContaining( {
 				intent: 'warning',
-				title: 'Site two was removed, but its files are still on disk',
+				title: 'Site files left on disk',
 				description: 'The site files could not be moved to trash.',
 			} ),
 		] );

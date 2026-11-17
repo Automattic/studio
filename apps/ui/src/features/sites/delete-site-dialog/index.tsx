@@ -85,8 +85,7 @@ export function DeleteSiteDialog( {
 				for ( const warning of warnings ) {
 					showToast( {
 						intent: 'warning',
-						/* translators: %s: site name. */
-						title: sprintf( __( '%s was removed, but its files are still on disk' ), site.name ),
+						title: __( 'Site files left on disk' ),
 						description: warning,
 						durationMs: 0,
 					} );

@@ -494,7 +494,6 @@ async function deleteSite(
 					__( 'The site files could not be moved to trash. Delete them yourself: %s' ),
 					remainingPaths.join( ', ' )
 				);
-				console.error( warning, trashError ?? '' );
 				warnings.push( warning );
 				logger.reportError( new LoggerError( warning, trashError ), false );
 			}

@@ -153,6 +153,7 @@ We hope WordPress Studio effortlessly fits into your local development workflow.
 -   [WordPress Studio Sync](https://wordpress.studio/docs/sync/)
 -   [Import & Export](https://wordpress.studio/docs/import-export/)
 -   [WordPress Studio Code](https://wordpress.studio/docs/studio-code/)
+-   [Providers in WordPress Studio](https://wordpress.studio/docs/providers/)
 -   [SSL in WordPress Studio](https://wordpress.studio/docs/ssl-in-studio/)
 -   [WordPress Studio CLI](https://wordpress.studio/docs/cli/)
 -   [WordPress Studio Frequently Asked Questions](https://wordpress.studio/docs/frequently-asked-questions/)

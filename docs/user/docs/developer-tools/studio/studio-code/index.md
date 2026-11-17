@@ -214,22 +214,17 @@ In the desktop app, each site’s chats are listed under the site in the sidebar
 
 ### [AI providers](#ai-providers)
 
-Open **Settings → Providers** and, under **AI providers**, connect the account you want to use for chat in WordPress Studio Code. When a provider offers more than one way to connect, **Connect** opens a menu of them. A key or token is saved when you click **Save**.
+WordPress Studio Code chats through an AI provider. WordPress.com is the default and uses [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). You can connect others instead, or as well:
 
-| Provider | How to connect | Models |
-| --- | --- | --- |
-| **WordPress.com** | Click **Connect** and log in with your WordPress.com account. Uses [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). | Fast, Balanced, Strong |
-| **OpenAI** | **ChatGPT plan**: sign in with ChatGPT in your browser, and usage counts against your [ChatGPT plan](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites). **API key**: paste a key from the [OpenAI Platform](https://platform.openai.com/api-keys) in **OpenAI API key**. | GPT-6.1 Terra, GPT-6.1 Sol |
-| **Anthropic** | **API key**: paste a key from the [Claude Console](https://platform.claude.com/settings/keys) in **Anthropic API key**. **Claude subscription**: run `claude setup-token` in a terminal (it comes with [Claude Code](https://code.claude.com/docs/en/setup)), sign in with your Claude account, and paste the token it prints in **Claude subscription token**. Usage counts against your Claude plan. | Sonnet 5.5, Opus 5.5 |
-| **Google Gemini** | Paste a key from [Google AI Studio](https://aistudio.google.com/apikey) in **Gemini API key**. Google bills usage to the key’s project. | Gemini 3.8 Flash, Gemini 4 Argon |
-| **GitHub Copilot** | Click **Connect**, then approve the code WordPress Studio shows in your browser, with a GitHub account that has [Copilot access](https://github.com/features/copilot/plans). Usage counts against your Copilot plan. | The models your Copilot plan offers among Sonnet 5.5, GPT-6.1 Terra, and Gemini 4 Argon |
-| **Meta** | Paste a key from the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai) in **Meta API key**. | Muse Spark 1.3, Muse Wonder |
+-   **OpenAI**, with a ChatGPT plan or an API key
+-   **Anthropic**, with an API key or a Claude subscription
+-   **Google Gemini**, with an API key
+-   **GitHub Copilot**, with a Copilot plan
+-   **Meta**, with an API key
 
-To change a key or disconnect a provider, click **Manage** next to it (for GitHub Copilot, **Disconnect**).
+Connect them in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, the models it offers, and how its usage is billed.
 
-Use **Default AI provider**, at the top of **Settings → Providers**, to choose which connected provider new chats use. The model menu in the chat box lists the models of every connected provider, so you can choose a different one for a particular chat. When you connect with a ChatGPT, Claude, or Copilot plan, the model menu also links to **Manage usage** for that plan.
-
-In the terminal, connect a provider with `/connect`, and switch providers with the `/provider` command, which also changes the **Default AI provider**.
+Use **Default AI provider**, at the top of **Settings → Providers**, to choose which connected provider new chats use. The model menu in the chat box lists the models of every connected provider, so you can choose a different one for a particular chat. In the terminal, switch providers with the `/provider` command, which also changes the **Default AI provider**.
 
 Switching a chat to another provider’s model starts a new chat, because the models don’t share memory. In the desktop app, WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 
@@ -309,7 +304,7 @@ AI responses pause until you add more AI Credits. Your local sites keep running 
 When that happens, you have two options:
 
 1.  **Buy more AI Credits** from inside WordPress Studio Code. In the desktop app, click **Add credits** in the chat box, or choose **Get more credits** from the model menu, and pick an amount in **Add AI credits**. In the terminal, run `/credits`.
-2.  **Connect another AI provider**, such as your own Anthropic API key or your ChatGPT plan. See [AI providers](#ai-providers). Usage through another provider is billed by that provider and doesn’t use AI Credits.
+2.  **Connect another AI provider**, such as your own Anthropic API key or your ChatGPT plan. See [Providers in WordPress Studio](https://wordpress.studio/docs/providers/). Usage through another provider is billed by that provider and doesn’t use AI Credits.
 
 ### [Use your own Anthropic API key](#use-your-own-anthropic-api-key)
 

@@ -8,7 +8,7 @@ If you’re on a WordPress.com plan, [make sure to activate your plan features](
 
 ## [Hosting providers](#hosting-providers)
 
-In **Settings → Providers**, connect an account under **Hosting providers** to publish from WordPress Studio.
+In **Settings → Providers**, connect an account under **Hosting providers** to publish from WordPress Studio. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) covers that page in full, including AI providers.
 
 -   **WordPress.com** lets you publish to a new or existing WordPress.com site or update a site you host on Pressable. Click **Connect** to sign in with your WordPress.com account. You can also [share a temporary preview](https://wordpress.studio/docs/preview-sites/).
 -   **[Spacefast](https://spacefast.com)** hosts a static copy of your site. See [Publish a static copy to Spacefast](#publish-a-static-copy-to-spacefast).

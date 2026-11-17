@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tansta
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
+import { SESSIONS_QUERY_KEY, useConnector } from '@/data/core';
 import { useRemoteSites } from '@/data/queries/use-remote-sites';
 import type {
 	AiModelId,
@@ -14,7 +14,7 @@ import type {
 	SyncSite,
 } from '@/data/core';
 
-export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
+export { SESSIONS_QUERY_KEY };
 
 export function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
 	return {
@@ -99,10 +99,8 @@ export function useSession( sessionId: string | undefined ) {
 		enabled: !! sessionId,
 		// `useAgentRun` mutates the cache during a live run and invalidates
 		// explicitly on `run.exited`. Any implicit refetch would race those
-		// cache writes and flicker the transcript. A transcript restored from the
-		// persisted cache can miss entries, so only that one refetches on mount.
-		refetchOnMount: ( query ) =>
-			query.state.dataUpdatedAt < performance.timeOrigin ? 'always' : false,
+		// cache writes and flicker the transcript.
+		refetchOnMount: false,
 		retryOnMount: false,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,

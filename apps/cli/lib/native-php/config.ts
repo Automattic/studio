@@ -193,6 +193,7 @@ export function getNativePhpIniContents( phpVersion: SupportedPHPVersion ): stri
 		'max_execution_time=0',
 		'post_max_size=2G',
 		'upload_max_filesize=2G',
+		'max_input_vars=10000',
 		'display_errors=1',
 		'display_startup_errors=1',
 		`opcache.cache_id="studio-php${ phpVersion }"`,

@@ -33,7 +33,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | Google Gemini (`gemini`)                     | API key                        | Gemini models; images                | —          | —           |
 | GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —           |
 | Meta (`meta`)                                | API key                        | Muse models; images                  | —          | —           |
-| xAI (`xai`)                                  | Grok plan or API key           | Grok models                          | —          | —           |
+| xAI (`xai`)                                  | Grok plan or API key           | Grok models; images with a key       | —          | —           |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
 

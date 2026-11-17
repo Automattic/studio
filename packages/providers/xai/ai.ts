@@ -2,6 +2,7 @@ import { XAI_MODELS } from '@earendil-works/pi-ai/providers/xai.models';
 import { __ } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
 import { XAI_AI_MODELS } from './descriptor';
+import { generateXaiImages } from './images';
 import type { XaiConfig } from './config';
 import type { AiConnection, ProviderServices } from '../types';
 
@@ -49,4 +50,7 @@ export const xaiAi: NonNullable< ProviderServices< XaiConfig >[ 'ai' ] > = {
 			},
 		};
 	},
+	// Grok Imagine is billed in xAI credits, which a Grok or X plan doesn't carry.
+	canGenerateImages: ( config ) => config.method === 'api-key',
+	generateImages: generateXaiImages,
 };

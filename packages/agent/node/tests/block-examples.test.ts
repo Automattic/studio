@@ -118,6 +118,26 @@ describe.runIf( EDITOR && WORDPRESS )(
 				],
 			},
 			{
+				// The editor site needs Jetpack. A core block a call writes has its
+				// block.json on disk, and a plugin's block it writes has its markup.
+				name: "with only the settings and variations of a plugin's block a call writes",
+				results: () => [
+					[
+						'/a',
+						'',
+						JSON.stringify( {
+							content:
+								'<!-- wp:group -->\n<div class="wp-block-group"><!-- wp:jetpack/field-name {"required":true} /--></div>\n<!-- /wp:group -->',
+						} ),
+					],
+				],
+				notes: [ [] ],
+				saying: [
+					'jetpack/field-name settings, as its block type registers them: id (string), required (boolean, default false)',
+					'jetpack/field-name variations in the inserter, each the block with these settings:\n- First name: {"id":"first-name","fieldVariant":"first-name"}',
+				],
+			},
+			{
 				name: 'not for a block the editor does not register, nor for markup naming a block',
 				results: () => [
 					[ '/a', '{ "apiVersion": 3, "name": "studio-test/unregistered" }' ],
@@ -132,9 +152,12 @@ describe.runIf( EDITOR && WORDPRESS )(
 				let said: string[] = [];
 				for ( const [ i, [ site, text, request ] ] of results().entries() ) {
 					said = await describe( site, text, request );
-					expect( said ).toHaveLength( notes[ i ].length );
+					const examples = said.filter( ( text ) =>
+						text.startsWith( "What the site's block editor saves for " )
+					);
+					expect( examples ).toHaveLength( notes[ i ].length );
 					notes[ i ].forEach( ( note, j ) =>
-						expect( said[ j ] ).toContain( `What the site's block editor saves for ${ note }` )
+						expect( examples[ j ] ).toContain( `What the site's block editor saves for ${ note }` )
 					);
 				}
 				saying.forEach( ( text ) => expect( said.join( '\n' ) ).toContain( text ) );

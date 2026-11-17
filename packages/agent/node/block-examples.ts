@@ -44,6 +44,11 @@ function namedBlocks( request: string ): string[] {
 	];
 }
 
+// A plugin's block a call writes, by its opening comment, as
+// `<!-- wp:woocommerce/product-collection {...} -->`: core's blocks have their
+// block.json on disk.
+const WRITTEN = /<!--\s+wp:([a-z][a-z0-9_-]*\/[a-z][a-z0-9_-]*)[\s/]/g;
+
 const FROM = {
 	example:
 		'the example its block type registers, as its inserter preview makes it (getBlockFromExample in @wordpress/blocks)',
@@ -53,7 +58,9 @@ const FROM = {
 
 /**
  * Each block a call looks up or its result shows the block.json of, once per
- * site, with the settings and inserter variations its type registers.
+ * site, with the settings and inserter variations its type registers. A
+ * plugin's block a call writes first gets its settings and variations alone,
+ * as the call already has markup for it.
  */
 export function createBlockExampleNotes(
 	host: StudioAgentHost
@@ -69,7 +76,11 @@ export function createBlockExampleNotes(
 		const done = described.get( sitePath ) ?? new Set< string >();
 		described.set( sitePath, done );
 		const read = new Set( [ ...shown, ...lookedUp ] );
-		const wanted = [ ...new Set( [ ...read, ...namedBlocks( request ) ] ) ].filter(
+		const asked = new Set( [ ...read, ...namedBlocks( request ) ] );
+		const written = [ ...request.matchAll( WRITTEN ) ]
+			.map( ( match ) => match[ 1 ] )
+			.filter( ( name ) => ! name.startsWith( 'core/' ) );
+		const wanted = [ ...new Set( [ ...asked, ...written ] ) ].filter(
 			( name ) => ! done.has( name )
 		);
 		if ( ! wanted.length ) {
@@ -78,28 +89,32 @@ export function createBlockExampleNotes(
 		const examples = await savedExamples( wanted, ( await host.sites.resolve( sitePath ) ).url );
 		// Asked once: a name the editor does not register is not asked again.
 		wanted.forEach( ( name ) => done.add( name ) );
-		return examples.map( ( { name, from, markup, settings, variations } ) => {
-			const lines = [
-				`What the site's block editor saves for ${ name }, from ${ FROM[ from ] }, to write it from:\n${ markup }`,
-			];
-			const declared = Object.entries( settings ).map( ( [ key, attribute ] ) =>
-				describeAttribute( key, attribute )
-			);
-			// Settings a call reads from the block's block.json are not repeated.
-			if ( declared.length && ! read.has( name ) ) {
-				lines.push(
-					`${ name } settings, as its block type registers them: ${ declared.join( ', ' ) }.`
+		return examples
+			.map( ( { name, from, markup, settings, variations } ) => {
+				const lines = asked.has( name )
+					? [
+							`What the site's block editor saves for ${ name }, from ${ FROM[ from ] }, to write it from:\n${ markup }`,
+					  ]
+					: [];
+				const declared = Object.entries( settings ).map( ( [ key, attribute ] ) =>
+					describeAttribute( key, attribute )
 				);
-			}
-			// A block's only variation is the one its example or defaults show.
-			if ( variations.length > 1 ) {
-				lines.push(
-					`${ name } variations in the inserter, each the block with these settings:\n${ variations
-						.map( ( { title, attributes } ) => `- ${ title }: ${ JSON.stringify( attributes ) }` )
-						.join( '\n' ) }`
-				);
-			}
-			return lines.join( '\n' );
-		} );
+				// Settings a call reads from the block's block.json are not repeated.
+				if ( declared.length && ! read.has( name ) ) {
+					lines.push(
+						`${ name } settings, as its block type registers them: ${ declared.join( ', ' ) }.`
+					);
+				}
+				// A block's only variation is the one its example or defaults show.
+				if ( variations.length > 1 ) {
+					lines.push(
+						`${ name } variations in the inserter, each the block with these settings:\n${ variations
+							.map( ( { title, attributes } ) => `- ${ title }: ${ JSON.stringify( attributes ) }` )
+							.join( '\n' ) }`
+					);
+				}
+				return lines.join( '\n' );
+			} )
+			.filter( Boolean );
 	};
 }

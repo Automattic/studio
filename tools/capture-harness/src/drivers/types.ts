@@ -34,7 +34,7 @@ export interface Stubs {
 	syncableSites( sites: unknown[] ): Promise< void >;
 	previewSites( snapshots: unknown[] ): Promise< void >;
 	connectedSites(
-		connected: { localSiteId: string }[],
+		connected: { localSiteId: string; url: string; [ key: string ]: unknown }[],
 		trees: RemoteTrees,
 		backupId: string
 	): Promise< void >;

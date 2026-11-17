@@ -1193,14 +1193,26 @@ export function pageBlankButtons( page: Page ): Promise< string[] > {
 					return true;
 				}
 			}
-			// An icon a stylesheet draws, as an image or a character of an icon font,
-			// as WooCommerce's password toggle draws an eye in its ::before.
+			// An icon a stylesheet draws: an image, a character of an icon font, or a
+			// box it paints, as WooCommerce's password toggle draws an eye as the
+			// background of its ::before and its gallery trigger a magnifier as
+			// the border of its ::before and the background of its ::after.
 			const drawn = [ '::before', '::after' ].some( ( pseudo ) => {
 				const style = getComputedStyle( button, pseudo );
+				if ( [ 'none', 'normal' ].includes( style.content ) ) {
+					return false;
+				}
+				const boxed = parseFloat( style.width ) > 0 && parseFloat( style.height ) > 0;
 				return (
-					! [ 'none', 'normal' ].includes( style.content ) &&
-					( style.content.replace( /^["']|["']$/g, '' ).trim() !== '' ||
-						/url\(/.test( style.backgroundImage + style.maskImage ) )
+					style.content.replace( /^["']|["']$/g, '' ).trim() !== '' ||
+					/url\(/.test( style.backgroundImage + style.maskImage ) ||
+					( boxed &&
+						( style.backgroundColor !== 'rgba(0, 0, 0, 0)' ||
+							[ 'top', 'right', 'bottom', 'left' ].some(
+								( side ) =>
+									parseFloat( style.getPropertyValue( `border-${ side }-width` ) ) > 0 &&
+									style.getPropertyValue( `border-${ side }-style` ) !== 'none'
+							) ) )
 				);
 			} );
 			return (

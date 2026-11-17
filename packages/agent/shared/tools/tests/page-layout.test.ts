@@ -575,15 +575,18 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				<div class="wp-block-jetpack-button"><button class="wp-block-button__link">Send</button></div>
 				<input type="submit" value="Send">
 				<button style="display:none"></button>
-				<style>.eye::before{content:"";display:block;width:20px;height:20px;background-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>')}.font::after{content:"\\e010"}</style>
+				<style>.eye::before{content:"";display:block;width:20px;height:20px;background-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>')}.font::after{content:"\\e010"}.zoom::before{content:"";display:block;width:10px;height:10px;border:2px solid #000}.bare::before{content:"";display:block;width:10px;height:10px}</style>
 				<button class="eye" type="button" style="width:20px;height:20px"></button>
-				<button class="font" type="button"></button>`,
+				<button class="font" type="button"></button>
+				<a class="zoom" href="#" role="button" style="display:block;width:36px;height:36px"></a>
+				<button class="bare" type="button" style="width:20px;height:20px"></button>`,
 				pageBlankButtons
 			)
 		).toEqual( [
 			'The button `div.wp-block-jetpack-button > button.wp-block-button__link` shows no text: a visitor sees a blank button.',
 			'The button `div.wp-block-buttons > a.wp-block-button__link.wp-element-button` shows no text: a visitor sees a blank button.',
 			'The button `input` shows no text: a visitor sees a blank button.',
+			'The button `button.bare` shows no text: a visitor sees a blank button.',
 		] );
 	} );
 

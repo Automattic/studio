@@ -1,7 +1,6 @@
-import { getProviderSites } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useId } from 'react';
-import { ChevronDownIcon, LinkIcon, MapPinIcon, PlusIcon } from '@/lib/icons';
+import { ChevronDownIcon, LinkIcon, MapPinIcon } from '@/lib/icons';
 import { Button, Menu } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
 import styles from './style.module.css';
@@ -15,8 +14,6 @@ export function TargetSwitcher( {
 	locale,
 	disabled,
 	onSelect,
-	onNewPreview,
-	newPreviewDisabled,
 	previewsOnly = false,
 }: {
 	targets: PublishTarget[];
@@ -25,8 +22,6 @@ export function TargetSwitcher( {
 	locale?: string;
 	disabled: boolean;
 	onSelect: ( target: PublishTarget ) => void;
-	onNewPreview?: () => void;
-	newPreviewDisabled?: boolean;
 	previewsOnly?: boolean;
 } ) {
 	const id = useId();
@@ -45,10 +40,7 @@ export function TargetSwitcher( {
 				value={ key }
 				aria-label={ label }
 				aria-describedby={ description ? descriptionId : undefined }
-				className={ remote ? styles.providerMenuItem : styles.destinationMenuItem }
-				data-address-theme={
-					remote ? getProviderSites( provider ).publishing.addressTheme : undefined
-				}
+				className={ styles.destinationMenuItem }
 				onClick={ () => onSelect( target ) }
 			>
 				{ snapshot ? (
@@ -88,8 +80,6 @@ export function TargetSwitcher( {
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
 				<Menu.Popup
-					side="bottom"
-					align="center"
 					className={ styles.targetSwitcherMenu }
 					aria-label={ previewsOnly ? __( 'Previews' ) : __( 'Destinations' ) }
 				>
@@ -114,16 +104,6 @@ export function TargetSwitcher( {
 							targets.map( renderItem )
 						) }
 					</Menu.RadioGroup>
-					{ onNewPreview && (
-						<>
-							{ ' ' }
-							<Menu.Separator />
-							<Menu.Item disabled={ newPreviewDisabled } onClick={ onNewPreview }>
-								<PlusIcon />
-								{ __( 'New preview' ) }
-							</Menu.Item>
-						</>
-					) }
 				</Menu.Popup>
 			</Menu.Root>
 		</div>

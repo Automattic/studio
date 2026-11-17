@@ -18,6 +18,8 @@ import { getSnapshotHostname } from '@/data/snapshot-url';
 import { getSyncActivity, getSyncActivityRunId, useSiteSyncActivity } from '@/data/sync-activity';
 import { isNewDestination } from './new-destination';
 
+const UNCONNECTED_TARGET = 'unconnected';
+
 export type PublishTarget = {
 	key: string;
 	label: string;
@@ -124,7 +126,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 		( snapshot ) => `${ previewProvider }:preview:${ getSnapshotHostname( snapshot ) }` === saved
 	);
 	const selected =
-		siteTargets.find( ( target ) => target.key === saved ) ??
+		targets.find( ( target ) => target.key === saved ) ??
 		( savedPreview &&
 			targets.find(
 				( target ) =>
@@ -135,7 +137,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 					)
 			) ) ??
 		siteTargets[ 0 ] ??
-		selectedPreview;
+		( saved === UNCONNECTED_TARGET ? undefined : selectedPreview );
 	const versions = JSON.stringify(
 		targets.map( ( target ) => [
 			target.key,
@@ -204,10 +206,18 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 		hasChanges: ( target: PublishTarget ) =>
 			isNewDestination( target.remote ) ||
 			statuses[ targets.indexOf( target ) ]?.data?.localChanged === true,
-		select: ( target: PublishTarget ) =>
-			client.setQueryData( target.snapshot ? previewKey : key, target.key ),
-		selectPreview: ( hostname: string ) =>
-			client.setQueryData( previewKey, `${ previewProvider }:preview:${ hostname }` ),
+		select: ( target: PublishTarget | null ) => {
+			client.setQueryData( key, target?.key ?? UNCONNECTED_TARGET );
+			if ( target?.snapshot ) client.setQueryData( previewKey, target.key );
+		},
+		selectPreview: ( hostname: string ) => {
+			const prefix = `${ previewProvider }:preview:`;
+			const targetKey = `${ prefix }${ hostname }`;
+			client.setQueryData( previewKey, targetKey );
+			client.setQueryData< string | null >( key, ( current ) =>
+				current === UNCONNECTED_TARGET || current?.startsWith( prefix ) ? targetKey : current
+			);
+		},
 		refresh: () => {
 			connections.forEach( ( query ) => void query.refetch() );
 			if ( user.data ) void snapshots.refetch();

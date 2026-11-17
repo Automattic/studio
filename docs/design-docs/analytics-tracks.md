@@ -486,7 +486,8 @@ checkout event is a success count. Which of the two fires is decided by the chec
 than the button label: `section=studio-sync` is a create, `section=publish-site` + `autoOpenPush` is a
 publish. That means the agentic UI's "Create a new WordPress.com site" button in the publish picker
 reports as a **publish** (it uses the publish parameters), while its onboarding "Create a WordPress.com
-site" button reports as a create.
+site" button reports as a create. The Share panel adds `entry_point` to its checkout handoff,
+with `get_free_domain` for the free-domain action and `publish` for the standard checkout action.
 
 No site names, URLs, paths, or raw error text are ever sent — `failure_reason` is a fixed bucket enum.
 
@@ -497,7 +498,7 @@ No site names, URLs, paths, or raw error text are ever sent — `failure_reason`
 | `studio_sync_connect`      | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `site_id` (opaque local site UUID when resolved), `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`.                                                                                                     |
 | `studio_sync_disconnect`   | Classic sync tab + agentic UI disconnect dialog                                                      | (none)                                                                                                                                                                                                                                                                                                                         |
 | `studio_sync_create_site`  | Classic Create-site button + agentic UI onboarding connect                                           | (none — opens WordPress.com checkout)                                                                                                                                                                                                                                                                                          |
-| `studio_sync_publish_site` | Classic Publish-site button + agentic UI publish picker                                              | (none — opens WordPress.com checkout)                                                                                                                                                                                                                                                                                          |
+| `studio_sync_publish_site` | Classic Publish-site button + agentic UI publish picker                                              | `entry_point` in Share (`get_free_domain` or `publish`); absent in the classic flow.                                                                                                                                                                                                                                                                                          |
 
 `sync_type` is the kind of live site the sync exchanged data with: the provider it is on (`wpcom`,
 `spacefast`, and any provider added later), `pressable` for a WordPress.com site Pressable hosts, or

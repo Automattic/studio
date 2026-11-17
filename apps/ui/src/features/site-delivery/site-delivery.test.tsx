@@ -1,4 +1,5 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
@@ -49,38 +50,41 @@ function setup( overrides: Partial< Connector > = {}, signedIn = true ) {
 	return connector;
 }
 
-async function previewAction( actions: ReturnType< typeof userEvent.setup >, name: string ) {
-	await actions.click(
-		screen.queryByRole( 'button', { name: 'Preview options' } ) ??
-			( await screen.findByRole( 'button', { name: 'More options' } ) )
-	);
-	return screen.findByRole( 'menuitem', { name } );
-}
-
-async function selectDestination(
-	actions: ReturnType< typeof userEvent.setup >,
-	hostname: string
-) {
-	await actions.click( await screen.findByRole( 'button', { name: 'Choose destination' } ) );
-	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
-	await actions.click( within( menu ).getByRole( 'menuitemradio', { name: hostname } ) );
+async function selectDestination( actions: ReturnType< typeof userEvent.setup >, name: string ) {
+	const switcher = screen.queryByRole( 'button', { name: 'Switch previews' } );
+	await actions.click( switcher ?? screen.getByRole( 'button', { name: 'Share' } ) );
+	const previews = await screen.findByRole( 'dialog', { name: 'Previews' } );
+	await actions.click( within( previews ).getByText( name, { exact: true } ) );
+	await screen.findByRole( 'group', { name: `Preview: ${ name }` } );
 }
 
 async function choosePreviewAccess( actions: ReturnType< typeof userEvent.setup >, name: string ) {
-	await actions.click( await screen.findByRole( 'button', { name: 'Who can view' } ) );
-	await actions.click( await screen.findByRole( 'menuitemradio', { name } ) );
+	await actions.click( await screen.findByRole( 'combobox', { name: 'Who can view' } ) );
+	await actions.click( await screen.findByRole( 'option', { name } ) );
 }
 
 it( 'opens the replacement panel from the Share entry point without creating anything', async () => {
 	const connector = setup();
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Share' } ) );
-	expect( await screen.findByRole( 'dialog', { name: 'Share' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Previews' } ) ).not.toBeInTheDocument();
+	expect( await screen.findByRole( 'dialog', { name: 'Share this WordPress' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Switch previews' } ) ).not.toBeInTheDocument();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
+async function openPreviewMenu( actions: ReturnType< typeof userEvent.setup >, name: string ) {
+	const rowName = `Preview: ${ name }`;
+	if ( ! screen.queryByRole( 'group', { name: rowName } ) ) {
+		await selectDestination( actions, name );
+	}
+	const row = await screen.findByRole( 'group', { name: rowName } );
+	await actions.click( within( row ).getByRole( 'button', { name: 'Preview actions' } ) );
+	await screen.findByRole( 'menu', { name } );
+}
+
 async function copyPreviewLink( actions: ReturnType< typeof userEvent.setup > ) {
-	await actions.click( await screen.findByRole( 'button', { name: 'Copy link' } ) );
-	await screen.findByRole( 'button', { name: 'Copied' } );
+	const row = await screen.findByRole( 'group', { name: /^Preview: / } );
+	await actions.click(
+		await within( row ).findByRole( 'button', { name: /^(Copy link|Copied)$/ } )
+	);
 }
 
 it( 'routes external publishing requests to the replacement panel', async () => {
@@ -93,8 +97,8 @@ it( 'routes external publishing requests to the replacement panel', async () => 
 			view: 'publish',
 		} )
 	);
-	expect( await screen.findByRole( 'dialog', { name: 'Share' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Previews' } ) ).not.toBeInTheDocument();
+	expect( await screen.findByRole( 'dialog', { name: 'Share this WordPress' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Switch previews' } ) ).not.toBeInTheDocument();
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 
@@ -107,16 +111,18 @@ describe( 'Share popover', () => {
 			previewChanged: false,
 		} );
 		const actions = userEvent.setup();
-		const button = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+		const button = await screen.findByRole( 'button', { name: /^Share…$/ } );
 		await actions.click( button );
-		expect( await screen.findByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).toBeVisible();
+		expect(
+			await screen.findByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } )
+		).toBeVisible();
 		expect( screen.queryByRole( 'dialog', { name: 'Share and publish' } ) ).not.toBeInTheDocument();
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-		await actions.click( await screen.findByRole( 'button', { name: 'Create preview link' } ) );
+		await actions.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 		await waitFor( () => expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 ) );
-		await screen.findByRole( 'button', { name: 'Open preview: My preview' } );
-		expect( screen.getByText( 'My preview' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+		await screen.findByRole( 'group', { name: 'Preview: My preview' } );
+		expect( screen.getByText( 'preview.example.com' ) ).toBeVisible();
+		expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
 			'Anyone with the link'
 		);
 		await copyPreviewLink( actions );
@@ -129,18 +135,88 @@ describe( 'Share popover', () => {
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		expect( button ).toHaveFocus();
 		await actions.click( button );
-		expect( await screen.findByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).toBeVisible();
+		expect(
+			await screen.findByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } )
+		).toBeVisible();
 		expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
 	} );
 	it( 'uses the shared spinner during publishing', async () => {
 		const connector = setup();
-		const button = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+		const button = await screen.findByRole( 'button', { name: /^Share…$/ } );
 		act( () => {
 			applySyncActivity( connector.state.sites[ 0 ].id, { kind: 'pending', direction: 'preview' } );
 		} );
 		expect( button.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
 		expect( button ).toHaveAccessibleDescription( 'Publishing…' );
 	} );
+} );
+
+it( 'unlocks a ready preview before the publishing command returns', async () => {
+	let finishCommand!: ( result: { url: string } ) => void;
+	const connector = setup( {
+		publishPreviewSite: () =>
+			new Promise( ( resolve ) => {
+				finishCommand = resolve;
+			} ),
+	} );
+	const { id: siteId } = connector.state.sites[ 0 ];
+	const snapshot = {
+		atomicSiteId: 123,
+		localSiteId: siteId,
+		userId: TEST_USER.id,
+		url: 'ready-preview.example.com',
+		shareUrl: 'https://ready-preview.example.com/?share=example',
+		date: Date.now(),
+		name: 'Ready preview',
+	};
+	connector.getPreviewStatus.mockResolvedValue( {
+		localSiteId: siteId,
+		localChanged: false,
+		previewChanged: false,
+	} );
+	const actions = userEvent.setup();
+	const trigger = await screen.findByRole( 'button', { name: 'Share…' } );
+	await actions.click( trigger );
+	await actions.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
+	await waitFor( () => expect( finishCommand ).toBeTypeOf( 'function' ) );
+
+	connector.getSnapshots.mockResolvedValue( [ snapshot ] );
+	act( () =>
+		connector.emit( 'onSnapshotEvent', {
+			event: SNAPSHOT_EVENTS.CREATED,
+			snapshotUrl: snapshot.url,
+			snapshot,
+		} )
+	);
+	await screen.findByRole( 'group', { name: 'Preview: Ready preview' } );
+	expect( screen.getByRole( 'heading', { name: 'Details' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Creating preview' } ) ).toHaveAttribute(
+		'aria-disabled',
+		'true'
+	);
+
+	act( () =>
+		connector.emit( 'onSyncActivity', {
+			siteId,
+			activity: { kind: 'success', direction: 'preview' },
+		} )
+	);
+	expect(
+		getVisibleToasts().find( ( notice ) => notice.id === `preview-${ siteId }` )?.title
+	).toBe( 'Preview link ready' );
+	expect( trigger.querySelector( '[data-slot="spinner"]' ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toBeEnabled();
+	await copyPreviewLink( actions );
+	expect( connector.copyText ).toHaveBeenCalledWith( snapshot.shareUrl );
+
+	await act( async () => finishCommand( { url: snapshot.shareUrl } ) );
+	expect( trigger.querySelector( '[data-slot="spinner"]' ) ).not.toBeInTheDocument();
+	expect( connector.publishPreviewSite ).toHaveBeenCalledOnce();
+	await actions.click( trigger );
+	await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+	await actions.click( trigger );
+	expect( await screen.findByRole( 'group', { name: 'Preview: Ready preview' } ) ).toBeVisible();
+	expect( screen.queryByText( 'Preview link ready', { selector: 'h3' } ) ).not.toBeInTheDocument();
 } );
 
 it( 'keeps a single preview upload running when the popover is reopened', async () => {
@@ -154,9 +230,9 @@ it( 'keeps a single preview upload running when the popover is reopened', async 
 		},
 	} );
 	const actions = userEvent.setup();
-	const button = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+	const button = await screen.findByRole( 'button', { name: /^Share…$/ } );
 	await actions.click( button );
-	await actions.click( await screen.findByRole( 'button', { name: 'Create preview link' } ) );
+	await actions.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 	await waitFor( () => expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 ) );
 	expect( button.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
 	expect(
@@ -164,27 +240,30 @@ it( 'keeps a single preview upload running when the popover is reopened', async 
 			( notice ) => notice.id === `preview-${ connector.state.sites[ 0 ].id }` && ! notice.leaving
 		)
 	).toBe( false );
-	const creatingButton = screen.getByRole( 'button', { name: 'Creating preview link…' } );
+	expect( screen.getByText( 'Creating preview link…' ) ).toBeVisible();
+	const creatingButton = screen.getByRole( 'button', { name: 'Creating preview' } );
 	expect( creatingButton ).toHaveAttribute( 'aria-busy', 'true' );
 	expect( creatingButton ).toHaveAttribute( 'aria-disabled', 'true' );
 	expect( creatingButton.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
 	await actions.keyboard( '{Escape}' );
 	await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 	await actions.click( button );
-	expect( await screen.findByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Creating preview link…' } ) ).toHaveAttribute(
+	expect(
+		await screen.findByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } )
+	).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Creating preview' } ) ).toHaveAttribute(
 		'aria-disabled',
 		'true'
 	);
 	expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
-	const panel = screen.getByRole( 'dialog', { name: 'Share' } );
+	const panel = screen.getByRole( 'dialog', { name: 'Share this WordPress' } );
 	expect( within( panel ).getByText( 'Destination' ) ).toBeVisible();
 	expect(
-		within( panel ).getByRole( 'button', { name: 'Who can view' } )
+		within( panel ).getByRole( 'combobox', { name: 'Who can view' } )
 	).toHaveAccessibleDescription( 'Anyone with the link' );
 	expect( within( panel ).queryByRole( 'heading', { name: 'Previews' } ) ).not.toBeInTheDocument();
 	expect(
-		within( panel ).queryByRole( 'button', { name: 'New preview' } )
+		within( panel ).queryByRole( 'button', { name: 'Create new preview' } )
 	).not.toBeInTheDocument();
 	expect( panel.querySelector( '[data-slot="preview-row-skeleton"]' ) ).not.toBeInTheDocument();
 
@@ -199,11 +278,11 @@ it( 'keeps a single preview upload running when the popover is reopened', async 
 	] );
 	await act( async () => finish() );
 	expect(
-		await within( panel ).findByRole( 'button', {
-			name: 'Open preview: Preview 1',
+		await within( panel ).findByRole( 'group', {
+			name: 'Preview: Preview 1',
 		} )
 	).toBeVisible();
-	expect( within( panel ).queryByText( 'Destination' ) ).not.toBeInTheDocument();
+	expect( within( panel ).getByText( 'Destination' ) ).toBeVisible();
 	expect( panel.querySelector( '[data-slot="preview-row-skeleton"]' ) ).not.toBeInTheDocument();
 } );
 
@@ -223,8 +302,8 @@ it( 'opens Sharing settings from the preview limit dialog', async () => {
 	const { history, user } = renderWithProviders( <PublishButton site={ site } />, { connector } );
 	const trigger = await screen.findByRole( 'button', { name: 'Share…' } );
 	await user.click( trigger );
-	const panel = await screen.findByRole( 'dialog', { name: 'Share' } );
-	const create = within( panel ).getByRole( 'button', { name: 'Create preview link' } );
+	const panel = await screen.findByRole( 'dialog', { name: 'Share this WordPress' } );
+	const create = within( panel ).getByRole( 'button', { name: 'Create preview' } );
 	await waitFor( () => expect( create ).toBeEnabled() );
 	expect( within( panel ).queryByText( /preview limit/i ) ).not.toBeInTheDocument();
 	await user.click( create );
@@ -244,8 +323,8 @@ it( 'cancels a queued creation when the popover closes before snapshots load', a
 			} ),
 	} );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	await screen.findByRole( 'dialog', { name: /^(Share|Publish)$/ } );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	await screen.findByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } );
 	await actions.keyboard( '{Escape}' );
 	await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 	await act( async () => resolveSnapshots( [] ) );
@@ -264,13 +343,13 @@ it( 'reuses an existing preview without uploading', async () => {
 		},
 	] );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	expect( await screen.findByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).toBeVisible();
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	expect(
+		await screen.findByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } )
+	).toBeVisible();
 	await waitFor( () =>
 		expect(
-			screen
-				.getByRole( 'button', { name: /^(Share|Publish)…$/ } )
-				.querySelector( '[data-slot="spinner"]' )
+			screen.getByRole( 'button', { name: /^Share…$/ } ).querySelector( '[data-slot="spinner"]' )
 		).not.toBeInTheDocument()
 	);
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
@@ -283,22 +362,26 @@ it( 'retries failed creation only when Create preview is clicked', async () => {
 		},
 	} );
 	const actions = userEvent.setup();
-	const button = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+	const button = await screen.findByRole( 'button', { name: /^Share…$/ } );
 	await actions.click( button );
 	expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 0 );
-	await actions.click( await screen.findByRole( 'button', { name: 'Create preview link' } ) );
+	await actions.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 	await waitFor( () =>
 		expect(
 			getVisibleToasts().some( ( toast ) => toast.description === 'Preview upload failed' )
 		).toBe( true )
 	);
+	expect( await screen.findByText( 'Not published yet' ) ).toBeVisible();
+	expect(
+		screen.queryByText( 'Creating your preview', { selector: 'h3' } )
+	).not.toBeInTheDocument();
 	expect( document.querySelector( '[data-slot="preview-row-skeleton"]' ) ).not.toBeInTheDocument();
 	expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
 	await actions.keyboard( '{Escape}' );
 	await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 	await actions.click( button );
 	expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
-	await actions.click( await screen.findByRole( 'button', { name: 'Create preview link' } ) );
+	await actions.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 	await waitFor( () => expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 2 ) );
 } );
 
@@ -330,21 +413,19 @@ it.each( [ true, false, null ] )(
 				'data-tone',
 				'current'
 			);
+			expect( await screen.findByRole( 'button', { name: /^Share…$/ } ) ).toHaveTextContent(
+				'Share'
+			);
 			expect(
-				await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } )
-			).toHaveTextContent( 'Share' );
-			expect(
-				screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ).querySelector( 'svg' )
-			).toBeInTheDocument();
+				screen.getByRole( 'button', { name: /^Share…$/ } ).querySelector( 'svg' )
+			).not.toBeInTheDocument();
 		} else {
 			expect(
 				screen
-					.getByRole( 'button', { name: /^(Share|Publish)…$/ } )
+					.getByRole( 'button', { name: /^Share…$/ } )
 					.querySelector( '[data-slot="notification-dot"]' )
 			).not.toBeInTheDocument();
-			expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toHaveTextContent(
-				/^Share$/
-			);
+			expect( screen.getByRole( 'button', { name: /^Share…$/ } ) ).toHaveTextContent( /^Share$/ );
 		}
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	}
@@ -382,16 +463,14 @@ it( 'publishes changes to the latest preview and clears the changes label', asyn
 		},
 	] );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	expect(
-		await screen.findByText( 'Anyone with the link can view this preview until it expires.' )
-	).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'More options' } ) ).toBeVisible();
-	expect( screen.getByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).toBeVisible();
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	expect( await screen.findByRole( 'group', { name: /^Preview: / } ) ).toBeVisible();
+	expect( screen.getByRole( 'link', { name: /^Open preview:/ } ) ).toBeVisible();
+	expect( screen.getByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } ) ).toBeVisible();
 	expect(
 		screen.queryByRole( 'button', { name: 'WordPress.com dashboard' } )
 	).not.toBeInTheDocument();
-	const update = await screen.findByRole( 'button', { name: 'Update preview' } );
+	const update = await screen.findByRole( 'button', { name: 'Update' } );
 	expect( update ).toHaveAttribute( 'data-variant', 'accent' );
 	expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
 	await actions.click( update );
@@ -402,24 +481,24 @@ it( 'publishes changes to the latest preview and clears the changes label', asyn
 			undefined
 		)
 	);
-	expect( update ).toHaveAccessibleName( 'Updating preview…' );
+	expect( update ).toHaveAccessibleName( 'Updating…' );
 	expect( update ).toHaveAttribute( 'aria-busy', 'true' );
 	expect( update.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
 	expect( update ).toHaveAttribute( 'aria-disabled', 'true' );
 	await actions.click( update );
 	expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
 	await act( async () => finish() );
-	await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+	await screen.findByRole( 'button', { name: /^Share…$/ } );
 	expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).not.toHaveAttribute(
+		expect( screen.getByRole( 'button', { name: 'Update' } ) ).not.toHaveAttribute(
 			'aria-disabled',
 			'true'
 		)
 	);
 	expect(
 		screen
-			.getByRole( 'button', { name: /^(Share|Publish)…$/ } )
+			.getByRole( 'button', { name: /^Share…$/ } )
 			.querySelector( '[data-slot="notification-dot"]' )
 	).not.toBeInTheDocument();
 	await copyPreviewLink( actions );
@@ -443,10 +522,13 @@ it( 'shows the server expiry and confirms deletion without recreating the previe
 		connector.getSnapshots.mockResolvedValue( [] );
 	} );
 	const actions = userEvent.setup();
-	const trigger = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+	const trigger = await screen.findByRole( 'button', { name: /^Share…$/ } );
 	await actions.click( trigger );
-	expect( await screen.findByText( 'Expires Nov 17', { selector: 'span' } ) ).toBeVisible();
-	await actions.click( await previewAction( actions, 'Delete preview' ) );
+	expect( await screen.findByText( 'Expires on', { selector: 'span' } ) ).toHaveTextContent(
+		'Expires on Nov 17'
+	);
+	await actions.click( await screen.findByRole( 'button', { name: 'Preview actions' } ) );
+	await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
 	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
 	expect( confirmation ).toBeVisible();
 	expect( confirmation ).toHaveAccessibleDescription(
@@ -454,13 +536,16 @@ it( 'shows the server expiry and confirms deletion without recreating the previe
 	);
 	expect( within( confirmation ).getByText( 'Expires Nov 17' ) ).toBeVisible();
 	expect( within( confirmation ).queryByText( /^Updated / ) ).not.toBeInTheDocument();
-	expect( screen.queryByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } )
+	).not.toBeInTheDocument();
 	expect( connector.deleteSnapshot ).not.toHaveBeenCalled();
 	await actions.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 	await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
 	expect( trigger ).toHaveFocus();
 	await actions.click( trigger );
-	await actions.click( await previewAction( actions, 'Delete preview' ) );
+	await actions.click( await screen.findByRole( 'button', { name: 'Preview actions' } ) );
+	await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
 	await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
 	await actions.click( screen.getByRole( 'button', { name: 'Delete preview' } ) );
 	await waitFor( () =>
@@ -504,24 +589,16 @@ it( 'creates another preview without replacing the existing preview and copies i
 		previewChanged: false,
 	} );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
 	const panel = await screen.findByRole( 'dialog', { name: 'Share' } );
 	expect( within( panel ).queryByRole( 'heading', { name: 'Previews' } ) ).not.toBeInTheDocument();
-	expect(
-		within( panel ).queryByRole( 'button', { name: 'New preview' } )
-	).not.toBeInTheDocument();
-	await actions.click( within( panel ).getByRole( 'button', { name: 'More options' } ) );
-	expect(
-		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
-	).toEqual( [
-		'New preview',
-		'Rename',
-		'Update preview',
-		'Pull from preview',
-		'Connect existing site',
-		'Delete preview',
-	] );
-	await actions.click( screen.getByRole( 'menuitem', { name: 'New preview' } ) );
+	const create = within( screen.getByRole( 'region', { name: 'Suggested' } ) ).getByRole(
+		'button',
+		{
+			name: 'Create new preview',
+		}
+	);
+	await actions.click( create );
 	await waitFor( () =>
 		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
 			snapshot.localSiteId,
@@ -529,27 +606,12 @@ it( 'creates another preview without replacing the existing preview and copies i
 			undefined
 		)
 	);
-	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBeVisible();
-	expect(
-		within( screen.getByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).queryByText(
-			'Creating preview…'
-		)
-	).not.toBeInTheDocument();
-	expect( await screen.findByRole( 'button', { name: 'Creating preview link…' } ) ).toHaveAttribute(
-		'aria-busy',
-		'true'
-	);
-	const skeleton = panel.querySelector( '[data-slot="preview-row-skeleton"]' );
-	expect( skeleton ).toBeVisible();
-	expect(
-		within( panel ).queryByRole( 'button', { name: /^Open preview:/ } )
-	).not.toBeInTheDocument();
-	await actions.click( within( panel ).getByRole( 'button', { name: 'More options' } ) );
-	const create = await screen.findByRole( 'menuitem', { name: 'New preview' } );
-	expect( create ).toHaveAttribute( 'aria-disabled', 'true' );
+	expect( create ).toBeDisabled();
 	await actions.click( create );
 	expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
-	await actions.keyboard( '{Escape}' );
+	const skeleton = panel.querySelector( '[data-slot="preview-row-skeleton"]' );
+	expect( skeleton ).toBeVisible();
+	expect( within( panel ).queryByRole( 'group', { name: /^Preview:/ } ) ).not.toBeInTheDocument();
 	act( () =>
 		connector.emit( 'onSnapshotEvent', {
 			event: SNAPSHOT_EVENTS.CREATED,
@@ -559,21 +621,17 @@ it( 'creates another preview without replacing the existing preview and copies i
 	);
 	await waitFor( () => expect( skeleton ).not.toBeInTheDocument() );
 	await act( async () => finish() );
-	await screen.findByRole( 'button', { name: 'Open preview: Preview 2' } );
+	await screen.findByRole( 'group', { name: 'Preview: Preview 2' } );
 	expect( skeleton ).not.toBeInTheDocument();
-	expect( within( panel ).getAllByRole( 'button', { name: /^Open preview:/ } ) ).toHaveLength( 1 );
-	const picker = within( panel ).getByRole( 'button', { name: 'Choose destination' } );
+	expect( within( panel ).getAllByRole( 'group', { name: /^Preview:/ } ) ).toHaveLength( 1 );
+	const picker = within( panel ).getByRole( 'button', { name: 'Switch previews' } );
+	expect( picker ).toHaveTextContent( 'Preview 2' );
 	await waitFor( () => expect( picker ).toBeEnabled() );
 	await actions.click( picker );
-	const options = await within(
-		await screen.findByRole( 'menu', { name: 'Destinations' } )
-	).findAllByRole( 'menuitemradio' );
-	expect( options.map( ( option ) => option.getAttribute( 'aria-label' ) ) ).toEqual( [
-		'Preview 2',
-		'Preview 1',
-	] );
-	expect( options[ 0 ] ).toBeChecked();
-	await actions.keyboard( '{Escape}' );
+	const previews = await screen.findByRole( 'dialog', { name: 'Previews' } );
+	expect( within( previews ).getByText( 'Preview 2', { exact: true } ) ).toBeVisible();
+	expect( within( previews ).getByText( 'Preview 1', { exact: true } ) ).toBeVisible();
+	await actions.click( within( previews ).getByRole( 'button', { name: 'Back' } ) );
 	await copyPreviewLink( actions );
 	await waitFor( () =>
 		expect( connector.copyText ).toHaveBeenCalledWith( 'https://another.example.com/?share=new' )
@@ -601,12 +659,11 @@ it.each( [ false, true ] )(
 			},
 		] );
 		const actions = userEvent.setup();
-		const trigger = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+		const trigger = await screen.findByRole( 'button', { name: /^Share…$/ } );
 		await actions.click( trigger );
-		await actions.click( await screen.findByRole( 'button', { name: 'More options' } ) );
-		const create = await screen.findByRole( 'menuitem', { name: 'New preview' } );
+		const create = await screen.findByRole( 'button', { name: 'Create new preview' } );
 		if ( blocked ) {
-			expect( create ).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( create ).toBeDisabled();
 		} else {
 			await waitFor( () => expect( create ).not.toHaveAttribute( 'aria-disabled', 'true' ) );
 			await actions.click( create );
@@ -655,19 +712,23 @@ it( 'targets the selected preview for its link, expiry, changes, launch, and del
 		connector.getSnapshots.mockResolvedValue( [ newer ] );
 	} );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	expect( screen.getByRole( 'button', { name: 'Choose destination' } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Open preview: Newer preview' } ) ).toBeVisible();
-	expect( screen.getByText( 'Expires Nov 18', { selector: 'span' } ) ).toBeVisible();
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	expect( screen.getByRole( 'button', { name: 'Switch previews' } ) ).toBeVisible();
+	expect( screen.getByRole( 'group', { name: 'Preview: Newer preview' } ) ).toBeVisible();
+	expect( screen.getByText( 'Expires on', { selector: 'span' } ) ).toHaveTextContent(
+		'Expires on Nov 18'
+	);
 	await selectDestination( actions, 'Older preview' );
-	expect( screen.getByRole( 'button', { name: 'Open preview: Older preview' } ) ).toBeVisible();
+	expect( screen.getByRole( 'group', { name: 'Preview: Older preview' } ) ).toBeVisible();
 	expect(
 		within( screen.getByRole( 'dialog', { name: 'Share' } ) )
-			.getAllByRole( 'button', { name: /^Open preview:/ } )
+			.getAllByRole( 'group', { name: /^Preview:/ } )
 			.map( ( row ) => row.getAttribute( 'aria-label' ) )
-	).toEqual( [ 'Open preview: Older preview' ] );
-	expect( screen.getByText( 'Expires Nov 17', { selector: 'span' } ) ).toBeVisible();
-	await actions.click( await screen.findByRole( 'button', { name: 'Update preview' } ) );
+	).toEqual( [ 'Preview: Older preview' ] );
+	expect( screen.getByText( 'Expires on', { selector: 'span' } ) ).toHaveTextContent(
+		'Expires on Nov 17'
+	);
+	await actions.click( await screen.findByRole( 'button', { name: 'Update' } ) );
 	await waitFor( () =>
 		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
 			base.localSiteId,
@@ -676,12 +737,12 @@ it( 'targets the selected preview for its link, expiry, changes, launch, and del
 		)
 	);
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).not.toHaveAttribute(
+		expect( screen.getByRole( 'button', { name: 'Update' } ) ).not.toHaveAttribute(
 			'aria-disabled',
 			'true'
 		)
 	);
-	expect( screen.getByRole( 'button', { name: 'Open preview: Older preview' } ) ).toBeVisible();
+	expect( screen.getByRole( 'group', { name: 'Preview: Older preview' } ) ).toBeVisible();
 	await copyPreviewLink( actions );
 	expect( connector.copyText ).toHaveBeenCalledWith( older.shareUrl );
 	await choosePreviewAccess( actions, 'Everyone' );
@@ -691,19 +752,17 @@ it( 'targets the selected preview for its link, expiry, changes, launch, and del
 		buildPublishCheckoutUrl( connector.state.sites[ 0 ] )
 	);
 	await waitFor(
-		() =>
-			expect( screen.getByRole( 'button', { name: 'More options' } ) ).not.toHaveAttribute(
-				'aria-disabled',
-				'true'
-			),
+		() => expect( screen.getByRole( 'link', { name: /^Open preview:/ } ) ).toBeEnabled(),
 		{ timeout: 3000 }
 	);
-	await actions.click( screen.getByRole( 'button', { name: 'Open preview: Older preview' } ) );
+	await actions.click( await screen.findByRole( 'link', { name: /^Open preview:/ } ) );
 	expect( connector.openExternalUrl ).toHaveBeenLastCalledWith( older.shareUrl );
 	await selectDestination( actions, 'Newer preview' );
 	expect(
-		screen.queryByRole( 'button', { name: 'More options for newer.example.com' } )
-	).not.toBeInTheDocument();
+		within( screen.getByRole( 'group', { name: 'Preview: Newer preview' } ) ).getByRole( 'button', {
+			name: 'Preview actions',
+		} )
+	).toBeVisible();
 	await copyPreviewLink( actions );
 	await waitFor( () =>
 		expect( connector.copyText ).toHaveBeenLastCalledWith( 'https://newer.example.com' )
@@ -724,22 +783,26 @@ it( 'confirms before pulling the preview for the row and supports retry after fa
 		{ ...base, atomicSiteId: 456, url: 'newer.example.com', date: Date.now() },
 	] );
 	const actions = userEvent.setup();
-	const trigger = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+	const trigger = await screen.findByRole( 'button', { name: /^Share…$/ } );
 	await actions.click( trigger );
 	await selectDestination( actions, 'Preview 1' );
-	await actions.click( await previewAction( actions, 'Pull from preview' ) );
-	const dialog = await screen.findByRole( 'alertdialog', { name: 'Pull preview?' } );
+	await openPreviewMenu( actions, 'Preview 1' );
+	await actions.click( screen.getByRole( 'menuitem', { name: 'Update from preview…' } ) );
+	const dialog = await screen.findByRole( 'alertdialog', {
+		name: 'Update local site from Preview 1?',
+	} );
 	expect( dialog ).toHaveTextContent(
-		"This replaces your local WordPress with the preview. Any changes you haven't pushed will be lost."
+		'This replaces your local site with the preview. Any local changes will be lost.'
 	);
 	expect( connector.pullSite ).not.toHaveBeenCalled();
 	await actions.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 	await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
 	expect( trigger ).toHaveFocus();
 	await actions.click( trigger );
-	await actions.click( await previewAction( actions, 'Pull from preview' ) );
-	await screen.findByRole( 'alertdialog', { name: 'Pull preview?' } );
-	await actions.click( screen.getByRole( 'button', { name: 'Pull preview' } ) );
+	await openPreviewMenu( actions, 'Preview 1' );
+	await actions.click( screen.getByRole( 'menuitem', { name: 'Update from preview…' } ) );
+	await screen.findByRole( 'alertdialog', { name: 'Update local site from Preview 1?' } );
+	await actions.click( screen.getByRole( 'button', { name: 'Replace local site' } ) );
 	await waitFor( () =>
 		expect( connector.pullSite ).toHaveBeenCalledExactlyOnceWith(
 			'wpcom',
@@ -749,10 +812,10 @@ it( 'confirms before pulling the preview for the row and supports retry after fa
 		)
 	);
 	expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
-		'Could not pull this preview. Please try again.'
+		'Could not update your local site from this preview. Please try again.'
 	);
 	expect( screen.queryByText( 'Preview pull failed' ) ).not.toBeInTheDocument();
-	const pull = screen.getByRole( 'button', { name: 'Pull preview' } );
+	const pull = screen.getByRole( 'button', { name: 'Replace local site' } );
 	await waitFor( () => expect( pull ).toBeEnabled(), { timeout: 3000 } );
 	connector.pullSite.mockImplementation(
 		() =>
@@ -788,34 +851,32 @@ it.each( [ false, true ] )(
 				localSiteId: connector.state.sites[ 0 ].id,
 				userId: TEST_USER.id,
 				url: 'edited.example.com',
+				name: 'Client review',
 				date: Date.now(),
 			},
 		] );
 		const actions = userEvent.setup();
 		await actions.click(
 			await screen.findByRole( 'button', {
-				name: /^(Share|Publish)…$/,
+				name: /^Share…$/,
 			} )
 		);
 		expect(
 			await screen.findByText( localChanged ? 'Local and preview changes' : 'Preview has changes' )
 		).toBeVisible();
-		await actions.click( screen.getByRole( 'button', { name: 'Pull from preview' } ) );
-		await screen.findByRole( 'alertdialog', { name: 'Pull preview?' } );
+		await openPreviewMenu( actions, 'Client review' );
+		await actions.click( screen.getByRole( 'menuitem', { name: 'Update from preview…' } ) );
+		await screen.findByRole( 'alertdialog', { name: 'Update local site from Client review?' } );
 		expect( connector.pullSite ).not.toHaveBeenCalled();
 		await actions.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
-		await actions.click( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-		if ( ! localChanged ) {
-			expect( await screen.findByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
-			return;
-		}
-		await actions.click( screen.getByRole( 'button', { name: 'Update preview' } ) );
+		await actions.click( screen.getByRole( 'button', { name: /^Share…$/ } ) );
+		await actions.click( screen.getByRole( 'button', { name: 'Update' } ) );
 		await screen.findByText( 'Replace preview changes?' );
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 		await actions.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-		await actions.click( screen.getByRole( 'button', { name: 'Update preview' } ) );
+		await actions.click( screen.getByRole( 'button', { name: 'Update' } ) );
 		await actions.click( await screen.findByRole( 'button', { name: 'Replace preview' } ) );
 		await waitFor( () =>
 			expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
@@ -862,22 +923,21 @@ it( 'defaults to the connected website and keeps preview updates separate from l
 		},
 	] );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	expect( screen.getByRole( 'button', { name: 'published.example.com' } ) ).toBeVisible();
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	expect( screen.getByRole( 'link', { name: 'Open published.example.com' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Copy preview link' } ) ).not.toBeInTheDocument();
-	expect( screen.queryByRole( 'button', { name: 'Update preview' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
-	await actions.click( screen.getByRole( 'button', { name: 'Previews' } ) );
-	const menu = await screen.findByRole( 'menu', { name: 'Previews' } );
-	within( menu ).getByRole( 'menuitem', { name: 'Preview 1' } ).focus();
-	await actions.keyboard( '{ArrowRight}' );
-	expect( await screen.findByRole( 'menuitem', { name: 'Update preview' } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
-	await actions.click( screen.getByRole( 'heading', { name: 'Publish' } ) );
+	expect( screen.getByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toBeVisible();
+	await actions.click( screen.getByRole( 'button', { name: 'Share' } ) );
+	const menu = await screen.findByRole( 'dialog', { name: 'Previews' } );
+	expect( within( menu ).getByRole( 'button', { name: /^Preview 1/ } ) ).toBeVisible();
+	await actions.click( within( menu ).getByRole( 'button', { name: 'Back' } ) );
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled()
+		expect( screen.queryByRole( 'dialog', { name: 'Previews' } ) ).not.toBeInTheDocument()
 	);
-	await actions.click( screen.getByRole( 'button', { name: 'Publish changes…' } ) );
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toBeVisible();
+	await waitFor( () => expect( screen.getByRole( 'button', { name: 'Update…' } ) ).toBeEnabled() );
+	await actions.click( screen.getByRole( 'button', { name: 'Update…' } ) );
 	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
 	await actions.click( within( confirmation ).getByRole( 'button', { name: 'Publish changes' } ) );
 	await waitFor( () =>
@@ -916,13 +976,11 @@ it( 'keeps a connection created by pulling a preview out of the live destination
 		},
 	] );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	expect(
-		await screen.findByText( 'Anyone with the link can view this preview until it expires.' )
-	).toBeVisible();
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	expect( await screen.findByRole( 'group', { name: /^Preview: / } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Choose destination' } ) ).not.toBeInTheDocument();
-	expect( screen.queryByRole( 'button', { name: 'Publish changes…' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'More options' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Update' } ) ).toBeVisible();
+	expect( screen.getByRole( 'link', { name: /^Open preview:/ } ) ).toBeVisible();
 } );
 
 it.each( [ false, true ] )(
@@ -968,31 +1026,26 @@ it.each( [ false, true ] )(
 			connector.getRemoteSites.mockResolvedValue( hasLiveSite ? [ live ] : [] );
 		} );
 		const actions = userEvent.setup();
-		await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-		if ( hasLiveSite ) {
-			await actions.click( await screen.findByRole( 'button', { name: 'Previews' } ) );
-			const menu = await screen.findByRole( 'menu', { name: 'Previews' } );
-			within( menu ).getByRole( 'menuitem', { name: 'Preview 1' } ).focus();
-			await actions.keyboard( '{ArrowRight}' );
-			await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
-		} else {
-			await actions.click( await previewAction( actions, 'Delete preview' ) );
-		}
+		await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+		await openPreviewMenu( actions, 'Preview 1' );
+		await actions.click( screen.getByRole( 'menuitem', { name: 'Delete preview' } ) );
 		await actions.click( await screen.findByRole( 'button', { name: 'Delete preview' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
-		expect( screen.queryByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } )
+		).not.toBeInTheDocument();
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-		const trigger = screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } );
+		const trigger = screen.getByRole( 'button', { name: /^Share…$/ } );
 		expect( trigger ).toHaveFocus();
-		expect( screen.queryByText( /Expires Nov/, { selector: 'span' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Expires on', { selector: 'span' } ) ).not.toBeInTheDocument();
 		await actions.click( trigger );
 		if ( hasLiveSite ) {
 			expect( screen.queryByRole( 'button', { name: 'Add a domain' } ) ).not.toBeInTheDocument();
-			expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled();
+			expect( await screen.findByRole( 'button', { name: 'Update…' } ) ).toBeEnabled();
 			expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 		} else {
 			expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-			await actions.click( await screen.findByRole( 'button', { name: 'Create preview link' } ) );
+			await actions.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 			await waitFor( () =>
 				expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
 					localSiteId,
@@ -1022,9 +1075,9 @@ it( 'keeps local changes usable and confirms replacement when remote changes are
 		},
 	] );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
 	expect( screen.queryByText( 'Changes could not be checked.' ) ).not.toBeInTheDocument();
-	await actions.click( screen.getByRole( 'button', { name: 'Update preview' } ) );
+	await actions.click( screen.getByRole( 'button', { name: 'Update' } ) );
 	expect( await screen.findByText( 'Replace preview contents?' ) ).toBeVisible();
 	expect( screen.getByText( /Changes on unknown.example.com could not be checked/ ) ).toBeVisible();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
@@ -1038,11 +1091,11 @@ it.each( [
 	[ 'push', undefined, 'Publishing…' ],
 	[ 'pull', undefined, 'Pulling…' ],
 ] as const )(
-	'reflects %s progress and restores the resting Publish label',
+	'reflects %s progress and restores the resting Share label',
 	async ( direction, hostname, label ) => {
 		const connector = setup();
-		const button = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
-		expect( button.querySelector( 'svg' ) ).toBeInTheDocument();
+		const button = await screen.findByRole( 'button', { name: /^Share…$/ } );
+		expect( button.querySelector( 'svg' ) ).not.toBeInTheDocument();
 		await act( () =>
 			applySyncActivity( connector.state.sites[ 0 ].id, { kind: 'pending', direction, hostname } )
 		);
@@ -1055,7 +1108,7 @@ it.each( [
 		);
 		expect( button ).toHaveAccessibleName( 'Share…' );
 		expect( button.querySelector( '[data-slot="spinner"]' ) ).not.toBeInTheDocument();
-		expect( button.querySelector( 'svg' ) ).toBeInTheDocument();
+		expect( button.querySelector( 'svg' ) ).not.toBeInTheDocument();
 	}
 );
 
@@ -1077,18 +1130,35 @@ it( 'chooses preview access locally, continues to checkout, and resets on close'
 		},
 	] );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	const access = await screen.findByRole( 'button', { name: 'Who can view' } );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	const access = await screen.findByRole( 'combobox', { name: 'Who can view' } );
+	const previewRow = screen.getByRole( 'group', { name: 'Preview: Preview 1' } );
+	const domainButton = screen.getByRole( 'button', { name: 'Get a free domain' } );
+	expect(
+		within( screen.getByRole( 'region', { name: 'Suggested' } ) ).getByRole( 'button', {
+			name: 'Get a free domain',
+		} )
+	).toBe( domainButton );
+	expect( screen.getByText( 'Expires on' ) ).toBeVisible();
+	expect( previewRow ).toHaveTextContent( 'domain.example.com' );
+	expect(
+		previewRow.compareDocumentPosition( access ) & Node.DOCUMENT_POSITION_FOLLOWING
+	).toBeTruthy();
+	expect(
+		access.compareDocumentPosition( domainButton ) & Node.DOCUMENT_POSITION_FOLLOWING
+	).toBeTruthy();
 	expect( access ).toHaveAccessibleDescription( 'Anyone with the link' );
 	expect( screen.queryByRole( 'button', { name: 'Make it public' } ) ).not.toBeInTheDocument();
 	await actions.click( access );
 	expect(
-		await screen.findByRole( 'menuitemradio', { name: 'Anyone with the link' } )
-	).toBeChecked();
-	expect( screen.getByText( 'Share a temporary preview link' ) ).toBeVisible();
-	await actions.click( screen.getByRole( 'menuitemradio', { name: 'Everyone' } ) );
+		await screen.findByRole( 'option', { name: 'Anyone with the link', selected: true } )
+	).toBeVisible();
+	expect( screen.getByText( 'Share a temporary preview link.' ) ).toBeVisible();
+	const everyone = screen.getByRole( 'option', { name: 'Everyone' } );
+	expect( everyone ).toHaveAccessibleDescription( 'Full WordPress with a custom domain.' );
+	await actions.click( everyone );
 	expect( access ).toHaveAccessibleDescription( 'Everyone' );
-	expect( screen.queryByRole( 'button', { name: 'Copy link' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Update' } ) ).not.toBeInTheDocument();
 	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	expect( connector.setSiteVisibility ).not.toHaveBeenCalled();
 	await choosePreviewAccess( actions, 'Anyone with the link' );
@@ -1096,16 +1166,25 @@ it( 'chooses preview access locally, continues to checkout, and resets on close'
 	connector.openExternalUrl.mockImplementationOnce(
 		() => new Promise< void >( ( resolve ) => ( finishHandoff = resolve ) )
 	);
-	expect( await screen.findByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
+	expect( await screen.findByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 	await choosePreviewAccess( actions, 'Everyone' );
 	const continueButton = screen.getByRole( 'button', { name: 'Continue on WordPress.com' } );
 	expect( continueButton ).toHaveAttribute( 'data-variant', 'accent' );
+	expect( continueButton.querySelector( 'svg[data-icon="inline-end"]' ) ).toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Share…' } ).querySelector( 'svg' ) ).toBeNull();
+	expect( screen.getByRole( 'heading', { name: 'Details' } ).querySelector( 'svg' ) ).toBeNull();
 	await actions.click( continueButton );
+	expect( connector.trackEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.SYNC_PUBLISH_SITE, {
+		entry_point: 'publish',
+	} );
 	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
 	const opening = screen.getByRole( 'button', { name: 'Continue on WordPress.com' } );
 	expect( opening ).toHaveAccessibleDescription( 'Opening WordPress.com' );
 	expect( opening ).toHaveAttribute( 'aria-busy', 'true' );
-	expect( screen.getByRole( 'button', { name: 'Open preview: Preview 1' } ) ).toBeDisabled();
+	expect( screen.getByRole( 'link', { name: /^Open preview:/ } ) ).toHaveAttribute(
+		'aria-disabled',
+		'true'
+	);
 	const url = new URL( connector.openExternalUrl.mock.calls[ 0 ][ 0 ] );
 	expect( url.origin + url.pathname ).toBe( 'https://wordpress.com/setup/new-hosted-site' );
 	expect( url.searchParams.get( 'studioSiteId' ) ).toBe( connector.state.sites[ 0 ].id );
@@ -1114,12 +1193,10 @@ it( 'chooses preview access locally, continues to checkout, and resets on close'
 	expect(
 		screen.queryByRole( 'dialog', { name: 'Your website address' } )
 	).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'More options' } ) ).toBeVisible();
+	expect( screen.getByRole( 'link', { name: /^Open preview:/ } ) ).toBeVisible();
 
 	await act( async () => finishHandoff() );
-	expect(
-		screen.getByText( 'Anyone with the link can view this preview until it expires.' )
-	).toBeVisible();
+	expect( screen.getByRole( 'group', { name: /^Preview: / } ) ).toBeVisible();
 	expect( access ).toHaveAccessibleDescription( 'Everyone' );
 	const ready = screen.getByRole( 'button', { name: 'Continue on WordPress.com' } );
 	expect( ready ).toHaveAttribute( 'data-variant', 'accent' );
@@ -1135,7 +1212,7 @@ it( 'chooses preview access locally, continues to checkout, and resets on close'
 			expect( screen.queryByRole( 'dialog', { name: 'Share' } ) ).not.toBeInTheDocument()
 		);
 		await actions.click( screen.getByRole( 'button', { name: 'Share…' } ) );
-		expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'button', { name: 'Reopen WordPress.com' } )
 		).not.toBeInTheDocument();
@@ -1228,11 +1305,11 @@ it.each( [ false, true ] )(
 		);
 		if ( closed ) {
 			expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
-			await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
+			await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
 		}
 		expect( await screen.findByText( 'Not published yet' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'new-site.blog' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+		expect( screen.getByRole( 'link', { name: 'Open new-site.blog' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Update' } ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'button', { name: 'Reopen WordPress.com' } )
 		).not.toBeInTheDocument();
@@ -1240,7 +1317,7 @@ it.each( [ false, true ] )(
 		expect( connector.pushSite ).not.toHaveBeenCalled();
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 		expect( connector.deleteSnapshot ).not.toHaveBeenCalled();
-		await actions.click( screen.getByRole( 'button', { name: 'Publish' } ) );
+		await actions.click( screen.getByRole( 'button', { name: 'Update' } ) );
 		await waitFor( () =>
 			expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
 				'wpcom',
@@ -1252,19 +1329,47 @@ it.each( [ false, true ] )(
 	}
 );
 
+it( 'opens domain setup from the empty panel without creating a preview', async () => {
+	const connector = setup();
+	const actions = userEvent.setup();
+	await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
+	const panel = await screen.findByRole( 'dialog', { name: 'Share this WordPress' } );
+	const footer = within( panel ).getByRole( 'group', { name: 'Preview actions' } );
+	const suggested = within( panel ).getByRole( 'region', { name: 'Suggested' } );
+	const domainButton = within( suggested ).getByRole( 'button', { name: 'Get a free domain' } );
+	expect(
+		within( suggested )
+			.getAllByRole( 'button' )
+			.map( ( button ) => button.textContent )
+	).toEqual( [ 'Get a free domain', 'Connect to an existing site' ] );
+	expect( within( footer ).getByRole( 'button', { name: 'Create preview' } ) ).toHaveAttribute(
+		'data-variant',
+		'accent'
+	);
+	await actions.click( domainButton );
+	expect( connector.trackEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.SYNC_PUBLISH_SITE, {
+		entry_point: 'get_free_domain',
+	} );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
+		buildPublishCheckoutUrl( connector.state.sites[ 0 ] )
+	);
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+} );
+
 it( 'opens checkout at the preview limit without creating a preview', async () => {
 	const connector = setup( {
 		getSnapshotUsage: async () => ( { siteCount: 5, siteLimit: 5, siteCreationBlocked: false } ),
 	} );
 	const actions = userEvent.setup();
 	await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
-	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
 		'Anyone with the link'
 	);
-	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Create preview' } ) ).toBeVisible();
 	await choosePreviewAccess( actions, 'Everyone' );
 	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
-	expect( screen.queryByRole( 'button', { name: 'Create preview link' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Create preview' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Get a free domain' } ) ).toBeVisible();
 	await actions.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
 	await waitFor( () =>
 		expect( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) ).toBeEnabled()
@@ -1295,7 +1400,7 @@ it( 'can retry opening WordPress.com after the browser handoff fails', async () 
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
 
-it( 'keeps checklist choices live and publishes the popover selection directly', async () => {
+it( 'keeps checklist choices live in the confirmation and publishes the selection', async () => {
 	const remote = {
 		id: 42,
 		localSiteId: 'local',
@@ -1323,11 +1428,16 @@ it( 'keeps checklist choices live and publishes the popover selection directly',
 		],
 	} );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	await actions.click( await screen.findByRole( 'button', { name: 'What to publish' } ) );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
+	await actions.click( await screen.findByRole( 'button', { name: 'Update…' } ) );
+	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	await actions.click( within( confirmation ).getByRole( 'button', { name: 'What to publish' } ) );
 	expect( await screen.findByRole( 'checkbox', { name: 'Themes' } ) ).toBeChecked();
 	expect( screen.getAllByRole( 'checkbox' ) ).toHaveLength( 5 );
-	expect( screen.getByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
+	expect(
+		within( confirmation ).getByRole( 'heading', { name: 'Publish changes?' } )
+	).toBeVisible();
 	await actions.click( screen.getByRole( 'checkbox', { name: /Database/ } ) );
 	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveAccessibleDescription(
 		'Files only'
@@ -1352,7 +1462,7 @@ it( 'keeps checklist choices live and publishes the popover selection directly',
 	await actions.click( screen.getByRole( 'checkbox', { name: 'Plugins' } ) );
 	expect( themes ).not.toHaveAttribute( 'aria-disabled', 'true' );
 	await actions.click( screen.getByRole( 'checkbox', { name: 'Plugins' } ) );
-	await actions.click( screen.getByRole( 'heading', { name: 'Publish' } ) );
+	await actions.keyboard( '{Escape}' );
 	expect( screen.queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveAccessibleDescription(
 		'Themes'
@@ -1364,13 +1474,13 @@ it( 'keeps checklist choices live and publishes the popover selection directly',
 	);
 	await actions.keyboard( '{Escape}' );
 	expect( screen.queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
+	expect(
+		within( confirmation ).getByRole( 'heading', { name: 'Publish changes?' } )
+	).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveFocus();
-	const publish = screen.getByRole( 'button', { name: 'Publish changes…' } );
+	const publish = within( confirmation ).getByRole( 'button', { name: 'Publish changes' } );
 	await waitFor( () => expect( publish ).toBeEnabled() );
 	await actions.click( publish );
-	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
-	await actions.click( within( confirmation ).getByRole( 'button', { name: 'Publish changes' } ) );
 	await waitFor( () =>
 		expect( connector.pushSite ).toHaveBeenCalledWith( 'wpcom', connector.state.sites[ 0 ].id, 42, {
 			optionsToSync: [ 'plugins', 'themes' ],
@@ -1379,7 +1489,7 @@ it( 'keeps checklist choices live and publishes the popover selection directly',
 	);
 } );
 
-it( 'opens the preview from its URL row and copies from the main button', async () => {
+it( 'opens and copies a preview from its preview row', async () => {
 	const connector = setup();
 	connector.getSnapshots.mockResolvedValue( [
 		{
@@ -1397,66 +1507,67 @@ it( 'opens the preview from its URL row and copies from the main button', async 
 		previewChanged: false,
 	} );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	const panel = await screen.findByRole( 'dialog', { name: /^(Share|Publish)$/ } );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	const panel = await screen.findByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } );
 	expect( within( panel ).getByText( /Expires / ) ).toBeVisible();
-	expect( within( panel ).getByRole( 'button', { name: 'Learn more' } ) ).toBeVisible();
-	await copyPreviewLink( actions );
+	expect(
+		within( panel ).queryByText( 'Share your WordPress', { selector: 'h3' } )
+	).not.toBeInTheDocument();
+	expect( within( panel ).queryByRole( 'button', { name: 'Learn more' } ) ).not.toBeInTheDocument();
+	const row = screen.getByRole( 'group', { name: 'Preview: Preview 1' } );
+	await actions.click( within( row ).getByRole( 'button', { name: 'Copy link' } ) );
+	expect( await within( row ).findByRole( 'button', { name: 'Copied' } ) ).toBeVisible();
 	expect( connector.copyText ).toHaveBeenCalledWith( 'https://copy.example.com/?share=test' );
 	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
-	const row = screen.getByRole( 'button', { name: 'Open preview: Preview 1' } );
-	expect( row.querySelectorAll( 'svg' ) ).toHaveLength( 2 );
-	await actions.click( within( row ).getByText( /Expires / ) );
-	expect( connector.openExternalUrl ).toHaveBeenLastCalledWith(
+	const openPreview = within( row ).getByRole( 'link', { name: /^Open preview:/ } );
+	fireEvent.contextMenu( openPreview );
+	expect( screen.queryByRole( 'menu', { name: 'Preview 1' } ) ).not.toBeInTheDocument();
+	const previewActions = within( row ).getByRole( 'button', { name: 'Preview actions' } );
+	previewActions.focus();
+	await actions.keyboard( '{Enter}' );
+	const menu = await screen.findByRole( 'menu', { name: 'Preview 1' } );
+	expect( within( menu ).getByRole( 'menuitem', { name: 'Rename' } ) ).toBeVisible();
+	expect( within( menu ).getByRole( 'menuitem', { name: 'Update from preview…' } ) ).toBeVisible();
+	await actions.keyboard( '{Escape}' );
+	await waitFor( () => expect( previewActions ).toHaveFocus() );
+	openPreview.focus();
+	await actions.keyboard( '{Enter}' );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		'https://copy.example.com/?share=test'
 	);
-	await actions.click( within( row ).getByText( 'Preview 1' ) );
-	await actions.click( row );
-	row.focus();
-	await actions.keyboard( '{Enter}' );
-	expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 4 );
-	await actions.click( within( panel ).getByRole( 'button', { name: 'Learn more' } ) );
-	expect( connector.openExternalUrl ).toHaveBeenLastCalledWith(
-		'https://wordpress.studio/docs/preview-sites/'
-	);
-	expect( getVisibleToasts().some( ( item ) => item.id === 'clipboard-success' ) ).toBe( false );
+	expect( getVisibleToasts().find( ( item ) => item.id === 'clipboard-success' ) ).toMatchObject( {
+		title: 'Link copied',
+	} );
 
 	expect( screen.queryByRole( 'button', { name: 'Copy preview link' } ) ).not.toBeInTheDocument();
 } );
 
-it( 'offers publishing help inline in the description before a preview exists', async () => {
+it( 'shows destination controls for an unpublished site', async () => {
 	const connector = setup();
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	const panel = await screen.findByRole( 'dialog', { name: /^(Share|Publish)$/ } );
-	expect(
-		within( panel ).queryByRole( 'button', { name: 'Copy preview link' } )
-	).not.toBeInTheDocument();
-	const help = within( panel ).getByRole( 'button', { name: 'Learn more' } );
-	expect( help.closest( 'p' ) ).toHaveTextContent(
-		'Choose where to share your WordPress and who can view it.'
-	);
-	expect( help ).toHaveAttribute( 'data-variant', 'inline-accent' );
-	await actions.click( help );
-	expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://wordpress.studio/docs/sync/' );
+	await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
+	const panel = await screen.findByRole( 'dialog', { name: 'Share this WordPress' } );
+	expect( within( panel ).getByText( 'Not published yet' ) ).toBeVisible();
+	expect( within( panel ).getByText( 'Destination', { exact: true } ) ).toBeVisible();
+	expect( within( panel ).queryByRole( 'button', { name: 'Learn more' } ) ).not.toBeInTheDocument();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
 
 it( 'keeps the heading consistent without a status badge when sharing a preview', async () => {
 	const connector = setup();
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	expect( screen.getByRole( 'heading', { name: /^(Share|Publish)$/ } ) ).toBeVisible();
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	expect( screen.getByText( 'Not published yet' ) ).toBeVisible();
 	expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeEnabled()
+		expect( screen.getByRole( 'button', { name: 'Create preview' } ) ).toBeEnabled()
 	);
-	await actions.click( screen.getByRole( 'button', { name: 'Create preview link' } ) );
+	await actions.click( screen.getByRole( 'button', { name: 'Create preview' } ) );
 	await waitFor( () => expect( connector.publishPreviewSite ).toHaveBeenCalledOnce() );
 	expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
 	expect( screen.queryByText( 'Not published' ) ).not.toBeInTheDocument();
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'More options' } ) ).toBeEnabled()
+		expect( screen.getByRole( 'link', { name: /^Open preview:/ } ) ).toBeEnabled()
 	);
 
 	expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
@@ -1492,16 +1603,16 @@ it.each( [
 			},
 		] );
 		const actions = userEvent.setup();
-		await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
+		await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
 		expect(
-			await screen.findByRole( 'button', { name: 'Who can view' } )
+			await screen.findByRole( 'combobox', { name: 'Who can view' } )
 		).toHaveAccessibleDescription( 'Unknown' );
 		expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Not published' ) ).not.toBeInTheDocument();
 	}
 );
 
-it( 'copies an up-to-date preview link from the main button', async () => {
+it( 'offers Update and copies an up-to-date preview link from the previews list', async () => {
 	const connector = setup( {
 		getPreviewStatus: async () => ( {
 			localSiteId: null,
@@ -1519,19 +1630,16 @@ it( 'copies an up-to-date preview link from the main button', async () => {
 		},
 	] );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	expect(
-		await screen.findByText( /Anyone with the link can view this preview until it expires\./ )
-	).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Learn more' } ) ).toBeVisible();
-	const view = await screen.findByRole( 'button', { name: 'Copy link' } );
-	expect( screen.queryByRole( 'button', { name: 'Update preview' } ) ).not.toBeInTheDocument();
-	await actions.click( view );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	expect( await screen.findByRole( 'group', { name: /^Preview: / } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Learn more' } ) ).not.toBeInTheDocument();
+	expect( await screen.findByRole( 'button', { name: 'Update' } ) ).toBeEnabled();
+	await copyPreviewLink( actions );
 	expect( connector.copyText ).toHaveBeenCalledWith( 'https://footer.example.com' );
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
 
-it( 'keeps a full-width preview update action and acknowledges the changes dot', async () => {
+it( 'keeps the preview update action and acknowledges the changes dot', async () => {
 	let changed = true;
 	let finish!: () => void;
 	const connector = setup( {
@@ -1558,37 +1666,31 @@ it( 'keeps a full-width preview update action and acknowledges the changes dot',
 		},
 	] );
 	const actions = userEvent.setup();
-	const share = await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } );
+	const share = await screen.findByRole( 'button', { name: /^Share…$/ } );
 	await waitFor( () => expect( share.querySelector( '[data-pulse]' ) ).toBeInTheDocument() );
 	await actions.click( share );
-	expect(
-		screen.getByText( /Anyone with the link can view this preview until it expires\./ )
-	).toBeVisible();
-	expect( screen.getByRole( 'heading', { name: /^(Share|Publish)$/ } ) ).toBeVisible();
+	expect( screen.getByRole( 'group', { name: /^Preview: / } ) ).toBeVisible();
+	expect( screen.getByRole( 'heading', { name: 'Details' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
 	expect( screen.queryByText( 'Local changes to share' ) ).not.toBeInTheDocument();
 	expect(
 		screen.getByRole( 'button', {
-			name: 'Update preview',
+			name: 'Update',
 		} )
 	).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Copy preview link' } ) ).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
 	expect( share.querySelector( '[data-pulse]' ) ).not.toBeInTheDocument();
-	await actions.click( screen.getByRole( 'button', { name: 'Update preview' } ) );
-	expect( await screen.findByRole( 'button', { name: 'Updating preview…' } ) ).toHaveAttribute(
+	await actions.click( screen.getByRole( 'button', { name: 'Update' } ) );
+	expect( await screen.findByRole( 'button', { name: 'Updating…' } ) ).toHaveAttribute(
 		'aria-busy',
 		'true'
 	);
-	expect(
-		screen.getByText( 'Anyone with the link can view this preview until it expires.' )
-	).toBeVisible();
+	expect( screen.getByRole( 'group', { name: /^Preview: / } ) ).toBeVisible();
 	await waitFor( () => expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 ) );
 	await act( async () => finish() );
-	expect(
-		await screen.findByText( 'Anyone with the link can view this preview until it expires.' )
-	).toBeVisible();
-	expect( await screen.findByRole( 'button', { name: 'Copy link' } ) ).not.toHaveAttribute(
+	expect( await screen.findByRole( 'group', { name: /^Preview: / } ) ).toBeVisible();
+	expect( await screen.findByRole( 'button', { name: 'Update' } ) ).not.toHaveAttribute(
 		'aria-busy',
 		'true'
 	);
@@ -1620,13 +1722,17 @@ it( 'refreshes the primary address and launch state after checkout without publi
 		launchStatus: 'unlaunched',
 	} );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
 	expect( await screen.findByText( 'lentestarter.blog', { exact: true } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveTextContent( 'Only you' );
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveTextContent(
+		'Only you'
+	);
 	expect( screen.queryByRole( 'button', { name: 'Copy preview link' } ) ).not.toBeInTheDocument();
 	await actions.keyboard( '{Escape}' );
 	await waitFor( () =>
-		expect( screen.queryByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } )
+		).not.toBeInTheDocument()
 	);
 	connector.getSiteVisibility.mockResolvedValue( {
 		visibility: 'public',
@@ -1636,24 +1742,26 @@ it( 'refreshes the primary address and launch state after checkout without publi
 	connector.listAccountSites.mockResolvedValue( [
 		{ ...remote, url: 'https://new-address.blog', launchStatus: 'launched' },
 	] );
-	await actions.click( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
+	await actions.click( screen.getByRole( 'button', { name: /^Share…$/ } ) );
 	expect( await screen.findByText( 'new-address.blog', { exact: true } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveTextContent( 'Everyone' );
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveTextContent(
+		'Everyone'
+	);
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
-	await actions.click( screen.getByRole( 'button', { name: 'new-address.blog' } ) );
+	await actions.click( screen.getByRole( 'link', { name: 'Open new-address.blog' } ) );
 	await waitFor( () =>
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://new-address.blog' )
 	);
 	expect( screen.queryByRole( 'button', { name: 'Manage domain' } ) ).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'Add a domain' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveAttribute(
 		'aria-description',
 		'Everyone'
 	);
-	await actions.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
-	expect( await screen.findByRole( 'menuitemradio', { name: 'Everyone' } ) ).toBeChecked();
+	await actions.click( screen.getByRole( 'combobox', { name: 'Who can view' } ) );
+	expect( await screen.findByRole( 'option', { name: 'Everyone', selected: true } ) ).toBeVisible();
 	expect( connector.setSiteVisibility ).not.toHaveBeenCalled();
 } );
 
@@ -1693,20 +1801,20 @@ it.each( [ 'public', 'coming-soon' ] as const )(
 	async ( initial ) => {
 		const connector = setupHostedVisibility( initial );
 		const actions = userEvent.setup();
-		await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-		await actions.click( await screen.findByRole( 'button', { name: 'Who can view' } ) );
+		await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+		await actions.click( await screen.findByRole( 'combobox', { name: 'Who can view' } ) );
 		const next = initial === 'public' ? 'coming-soon' : 'public';
 		await actions.click(
-			await screen.findByRole( 'menuitemradio', {
+			await screen.findByRole( 'option', {
 				name: next === 'public' ? 'Everyone' : 'Only you',
 			} )
 		);
 		await waitFor( () =>
 			expect( connector.setSiteVisibility ).toHaveBeenCalledExactlyOnceWith( 'wpcom', 42, next )
 		);
-		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
-		expect( screen.getByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
+		expect( screen.getByRole( 'heading', { name: 'Details' } ) ).toBeVisible();
+		expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
 			next === 'public' ? 'Everyone' : 'Only you'
 		);
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
@@ -1717,32 +1825,32 @@ it.each( [ 'public', 'coming-soon' ] as const )(
 it( 'closes the hosted picker with Escape without changing visibility or closing Publish', async () => {
 	const connector = setupHostedVisibility();
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-	await actions.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
-	await screen.findByRole( 'menuitemradio', { name: 'Only you' } );
+	await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
+	await actions.click( screen.getByRole( 'combobox', { name: 'Who can view' } ) );
+	await screen.findByRole( 'option', { name: 'Only you' } );
 	await actions.keyboard( '{Escape}' );
-	expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'heading', { name: 'Details' } ) ).toBeVisible();
 	expect( connector.setSiteVisibility ).not.toHaveBeenCalled();
 } );
 
 it( 'keeps the current visibility checked after a failed save and permits retry', async () => {
 	const connector = setupHostedVisibility( 'public', true );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-	await actions.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
-	await actions.click( await screen.findByRole( 'menuitemradio', { name: 'Only you' } ) );
+	await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
+	await actions.click( screen.getByRole( 'combobox', { name: 'Who can view' } ) );
+	await actions.click( await screen.findByRole( 'option', { name: 'Only you' } ) );
 	expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Could not save visibility' );
-	expect( screen.getByRole( 'menuitemradio', { name: 'Everyone' } ) ).toBeChecked();
-	expect( screen.getByRole( 'menuitemradio', { name: 'Only you' } ) ).not.toBeChecked();
+	expect( screen.getByRole( 'option', { name: 'Everyone', selected: true } ) ).toBeVisible();
+	expect( screen.getByRole( 'option', { name: 'Only you', selected: false } ) ).toBeVisible();
 	connector.setSiteVisibility.mockResolvedValue( {
 		visibility: 'coming-soon',
 		url: 'https://hosted.blog',
 		launchStatus: 'launched',
 	} );
-	await actions.click( screen.getByRole( 'menuitemradio', { name: 'Only you' } ) );
-	await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
-	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+	await actions.click( screen.getByRole( 'option', { name: 'Only you' } ) );
+	await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
 		'Only you'
 	);
 } );
@@ -1750,13 +1858,13 @@ it( 'keeps the current visibility checked after a failed save and permits retry'
 it( 'shows people-based visibility options with descriptions and the current checkmark', async () => {
 	const connector = setupHostedVisibility();
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-	await actions.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
-	const options = await screen.findAllByRole( 'menuitemradio' );
+	await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
+	await actions.click( screen.getByRole( 'combobox', { name: 'Who can view' } ) );
+	const options = await screen.findAllByRole( 'option', { name: /^(Only you|Everyone)$/ } );
 	expect( options ).toHaveLength( 2 );
 	expect( options[ 0 ] ).toHaveAccessibleName( 'Only you' );
 	expect( options[ 1 ] ).toHaveAccessibleName( 'Everyone' );
-	expect( options[ 1 ] ).toBeChecked();
+	expect( options[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
 	expect( screen.getByText( 'Visitors see a coming soon page' ) ).toBeVisible();
 	expect( screen.getByText( 'Your WordPress is public' ) ).toBeVisible();
 	expect( connector.setSiteVisibility ).not.toHaveBeenCalled();
@@ -1801,23 +1909,27 @@ it.each( [ 'local', 'preview', 'unlaunched', 'launched' ] as const )(
 			] );
 		const actions = userEvent.setup();
 		const button = await screen.findByRole( 'button', {
-			name: connected ? 'Publish…' : 'Share…',
+			name: 'Share…',
 		} );
-		expect( button ).toHaveTextContent( connected ? 'Publish' : 'Share' );
-		expect( button.querySelector( 'svg' ) ).toBeInTheDocument();
+		expect( button ).toHaveTextContent( 'Share' );
+		expect( button.querySelector( 'svg' ) ).not.toBeInTheDocument();
 		await actions.hover( button );
 		expect(
 			await screen.findByText(
 				connected ? 'Publish changes to current-domain.blog' : 'Share a preview or make it public'
 			)
 		).toBeVisible();
-		expect( screen.queryByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'dialog', { name: /^(Share this WordPress|Share)$/ } )
+		).not.toBeInTheDocument();
 		await actions.click( button );
 		const panel = await screen.findByRole( 'dialog', {
-			name: connected ? 'Publish' : 'Share',
+			name: state === 'local' ? 'Share this WordPress' : 'Share',
 		} );
 		expect(
-			within( panel ).getByRole( 'heading', { name: connected ? 'Publish' : 'Share' } )
+			state === 'local'
+				? within( panel ).getByText( 'Not published yet' )
+				: within( panel ).getByRole( 'heading', { name: 'Details' } )
 		).toBeVisible();
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
@@ -1849,42 +1961,43 @@ it.each( [ false, true, null ] )(
 			} ),
 		} );
 		const actions = userEvent.setup();
-		await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-		expect( await screen.findByText( 'Published 2 hours ago' ) ).toBeVisible();
-		if ( localChanged !== null ) {
-			expect(
-				await screen.findByText(
-					localChanged ? "You have changes that aren't live yet." : 'Your latest changes are live.'
-				)
-			).toBeVisible();
-		} else {
-			expect( await screen.findByText( "You have changes that aren't live yet." ) ).toBeVisible();
-			expect( screen.queryByText( 'Your latest changes are live.' ) ).not.toBeInTheDocument();
-		}
+		await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
+		const published = await screen.findByText( 'Published 2 hours ago' );
+		expect( published ).toBeVisible();
+		const status = localChanged === null ? '' : localChanged ? ' · Local changes' : ' · No changes';
+		await waitFor( () =>
+			expect( published.parentElement?.parentElement ).toHaveTextContent(
+				new RegExp( `^Published 2 hours ago${ status }$` )
+			)
+		);
+		expect( screen.queryByText( 'Your latest changes are live.' ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByText( "You have changes that aren't live yet." )
+		).not.toBeInTheDocument();
 		expect( !! screen.queryByRole( 'img', { name: 'Local changes' } ) ).toBe(
 			localChanged === true
 		);
-		if ( localChanged === false ) {
-			await actions.click( await screen.findByRole( 'button', { name: 'Copy link' } ) );
-			await waitFor( () =>
-				expect( connector.copyText ).toHaveBeenCalledWith( 'https://actual.blog/' )
-			);
-			expect(
-				screen.queryByRole( 'button', { name: 'Publish changes…' } )
-			).not.toBeInTheDocument();
-		} else {
-			expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
-		}
-		await actions.click( screen.getByRole( 'button', { name: 'More options' } ) );
+		expect( await screen.findByRole( 'button', { name: 'Update…' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Details' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'heading', { name: 'Published site' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'heading', { name: 'Actions' } ) ).not.toBeInTheDocument();
+		await actions.click( screen.getByRole( 'button', { name: 'Site actions' } ) );
+		const menu = await screen.findByRole( 'menu', { name: 'Site actions' } );
 		expect(
-			( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
-		).toEqual( [
-			'Domains',
-			'Backups',
-			'Pull from live site',
-			'Connect existing site',
-			'Disconnect site',
-		] );
+			within( menu )
+				.getAllByRole( 'menuitem' )
+				.map( ( item ) => item.textContent?.trim() )
+		).toEqual( [ 'Update from live site…', 'View backups', 'Disconnect site…' ] );
+		await actions.keyboard( '{Escape}' );
+		const domain = screen.getByText( 'actual.blog' );
+		expect( domain.parentElement?.nextElementSibling ).toContainElement( published );
+		const openSite = screen.getByRole( 'link', { name: 'Open actual.blog' } );
+		const copyLink = screen.getByRole( 'button', { name: 'Copy link' } );
+		expect( openSite ).toHaveAttribute( 'href', 'https://actual.blog/' );
+		await actions.click( openSite );
+		expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith( 'https://actual.blog/' );
+		await actions.click( copyLink );
+		expect( connector.copyText ).toHaveBeenCalledWith( 'https://actual.blog/' );
 		expect( connector.pushSite ).not.toHaveBeenCalled();
 	}
 );
@@ -1895,15 +2008,17 @@ it( 'offers provider settings instead of a dead-end retry when visibility API ac
 		new Error( 'API calls to this blog have been disabled.' )
 	);
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-	await actions.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
-	for ( const option of await screen.findAllByRole( 'menuitemradio' ) )
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
+	await actions.click( screen.getByRole( 'combobox', { name: 'Who can view' } ) );
+	for ( const option of await screen.findAllByRole( 'option', {
+		name: /^(Only you|Everyone|Invited people|Restricted)$/,
+	} ) )
 		expect( option ).toHaveAttribute( 'aria-disabled', 'true' );
 	expect( screen.queryByRole( 'button', { name: 'Try again' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+	expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
 		'Unknown'
 	);
-	await actions.click( screen.getByRole( 'menuitem', { name: 'Manage on WordPress.com' } ) );
+	await actions.click( screen.getByRole( 'option', { name: 'Manage on WordPress.com' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith(
 		'https://wordpress.com/settings/general/42'
 	);
@@ -1921,20 +2036,18 @@ it( 'offers provider settings while visibility loads and shows the confirmed val
 			} )
 	);
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
+	await actions.click( await screen.findByRole( 'button', { name: /^Share…$/ } ) );
 	expect(
-		await screen.findByRole( 'button', { name: 'Who can view' } )
+		await screen.findByRole( 'combobox', { name: 'Who can view' } )
 	).toHaveAccessibleDescription( 'Unknown' );
-	await actions.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
-	expect(
-		await screen.findByRole( 'menuitem', { name: 'Manage on WordPress.com' } )
-	).toBeVisible();
+	await actions.click( screen.getByRole( 'combobox', { name: 'Who can view' } ) );
+	expect( await screen.findByRole( 'option', { name: 'Manage on WordPress.com' } ) ).toBeVisible();
 	await act( async () => finish() );
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+		expect( screen.getByRole( 'combobox', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
 			'Everyone'
 		)
 	);
-	expect( screen.getByRole( 'menuitemradio', { name: 'Everyone', checked: true } ) ).toBeVisible();
-	expect( screen.getByRole( 'menuitem', { name: 'Manage on WordPress.com' } ) ).toBeVisible();
+	expect( screen.getByRole( 'option', { name: 'Everyone', selected: true } ) ).toBeVisible();
+	expect( screen.getByRole( 'option', { name: 'Manage on WordPress.com' } ) ).toBeVisible();
 } );

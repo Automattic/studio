@@ -98,7 +98,7 @@ import {
 import {
 	forgetRemoteSite,
 	getRemoteSites,
-	rememberRemoteSite,
+	connectPublishingSite,
 } from '@studio/common/lib/remote-sites';
 import {
 	ROOT_CA_CERT_PATH,
@@ -1998,7 +1998,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				await rememberRemoteSite( provider, req.params.id, req.body as never );
+				await connectPublishingSite( provider, req.params.id, req.body as never );
 				res.sendStatus( 204 );
 			}
 		} )
@@ -2025,15 +2025,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				.object( {
 					name: z.string().min( 1 ),
 					visibility: z.enum( [ 'public', 'private' ] ).optional(),
+					connect: z.boolean().optional(),
 				} )
 				.safeParse( req.body );
 			if ( ! input.success ) {
 				res.status( 400 ).json( { error: 'Invalid site creation request.' } );
 				return;
 			}
-			const { name, visibility } = input.data;
+			const { name, visibility, connect } = input.data;
 			res.json(
-				await createRemoteSite( getProviderServices( provider ), req.params.id, name, visibility )
+				await createRemoteSite(
+					getProviderServices( provider ),
+					req.params.id,
+					name,
+					visibility,
+					connect
+				)
 			);
 		} )
 	);

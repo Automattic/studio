@@ -11,7 +11,7 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { useSyncNoticeVisibility } from '@/data/queries/use-sync-site';
 import { getSnapshotHostname } from '@/data/snapshot-url';
-import { useSiteSyncActivity } from '@/data/sync-activity';
+import { getSyncActivityRunId, useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/lib/hooks';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
@@ -45,10 +45,17 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 		! offline && ! busy && activity?.kind !== 'pending'
 	);
 	const waiting = user.isPending || ( !! user.data && ( snapshots.isPending || usage.isPending ) );
-	const updating = preparing || publish.isPending || activity?.kind === 'pending';
+	const creationSettled =
+		! publish.variables?.existingHostname &&
+		activity?.direction === 'preview' &&
+		activity.kind !== 'pending' &&
+		publish.context?.runId !== undefined &&
+		publish.context.runId === getSyncActivityRunId( site.id );
+	const publishing = publish.isPending && ! creationSettled;
+	const updating = preparing || publishing || activity?.kind === 'pending';
 	const canUpdate = !! user.data && !! selectedPreview && ! offline && ! busy && ! updating;
 	const creating =
-		( publish.isPending && ! publish.variables?.existingHostname ) ||
+		( publishing && ! publish.variables?.existingHostname ) ||
 		( activity?.kind === 'pending' && activity.direction === 'preview' && ! activity.hostname );
 	const limitReached =
 		!! user.data &&
@@ -67,10 +74,7 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 		!! usage.data &&
 		! usage.data.siteCreationBlocked &&
 		! limitReached;
-	const createPreview = async (
-		onCreated?: ( hostname: string ) => void | Promise< void >,
-		liveSite?: string
-	) => {
+	const createPreview = async ( liveSite?: string ) => {
 		if ( ! canCreate ) return;
 		let result;
 		try {
@@ -79,11 +83,8 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 			return;
 		}
 		try {
-			const hostname = new URL(
-				/^https?:\/\//.test( result.url ) ? result.url : `https://${ result.url }`
-			).hostname;
-			setSelectedHostname( hostname );
-			await onCreated?.( hostname );
+			return new URL( /^https?:\/\//.test( result.url ) ? result.url : `https://${ result.url }` )
+				.hostname;
 		} catch {
 			toast.error( __( 'Could not open the new preview. Please try again.' ) );
 		}
@@ -160,6 +161,8 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 		canCreate,
 		createPreview,
 		creating,
+		creationSettled,
+		resetCreation: publish.reset,
 		canUpdate,
 		overwrite,
 		confirmOverwrite,
@@ -168,7 +171,7 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 		status,
 		updatePreview,
 		updating,
-		pending: preparing || publish.isPending,
+		pending: preparing || publishing,
 		loading: waiting,
 		previews,
 		selectedPreview,

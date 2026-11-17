@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { usePullSite } from '@/data/queries/use-sync-site';
 import { useSiteSyncActivity } from '@/data/sync-activity';
@@ -17,12 +17,14 @@ import type { SitesProviderId } from '@studio/providers';
 export function PullPreviewDialog( {
 	site,
 	snapshot,
+	previewName,
 	provider,
 	disabled,
 	onClose,
 }: {
 	site: SiteDetails;
 	snapshot: Snapshot;
+	previewName: string;
 	provider: SitesProviderId;
 	disabled: boolean;
 	onClose: () => void;
@@ -49,15 +51,23 @@ export function PullPreviewDialog( {
 				closeButtonDisabled={ pull.isPending }
 			>
 				<DialogHeader>
-					<DialogTitle>{ __( 'Pull preview?' ) }</DialogTitle>
+					<DialogTitle>
+						{ sprintf(
+							/* translators: %s: the preview's name. */
+							__( 'Update local site from %s?' ),
+							previewName
+						) }
+					</DialogTitle>
 					<DialogDescription>
 						{ __(
-							"This replaces your local WordPress with the preview. Any changes you haven't pushed will be lost."
+							'This replaces your local site with the preview. Any local changes will be lost.'
 						) }
 					</DialogDescription>
 				</DialogHeader>
 				{ pull.error ? (
-					<p role="alert">{ __( 'Could not pull this preview. Please try again.' ) }</p>
+					<p role="alert">
+						{ __( 'Could not update your local site from this preview. Please try again.' ) }
+					</p>
 				) : null }
 				<DialogFooter>
 					<Button ref={ cancel } variant="outline" disabled={ pull.isPending } onClick={ onClose }>
@@ -78,7 +88,7 @@ export function PullPreviewDialog( {
 							)
 						}
 					>
-						{ __( 'Pull preview' ) }
+						{ __( 'Replace local site' ) }
 					</Button>
 				</DialogFooter>
 			</DialogContent>

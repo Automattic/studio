@@ -53,7 +53,11 @@ function pruneEmptyConnectionsForUser( config: SharedConfig, userKey: string ): 
 	}
 }
 
-function upsertConnection( connections: SyncSite[], localSiteId: string, site: SyncSite ): void {
+export function upsertConnection(
+	connections: SyncSite[],
+	localSiteId: string,
+	site: SyncSite
+): void {
 	const incoming = normalizeStoredSite(
 		{ ...site, syncSupport: 'already-connected' },
 		localSiteId

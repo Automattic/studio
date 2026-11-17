@@ -133,9 +133,11 @@ describe( 'Add site flow', () => {
 				)
 			);
 			const confirmation = await screen.findByRole( 'alertdialog', {
-				name: 'Pull from live site?',
+				name: 'Update local site from remote.example?',
 			} );
-			const retry = within( confirmation ).getByRole( 'button', { name: 'Pull changes' } );
+			const retry = within( confirmation ).getByRole( 'button', {
+				name: 'Replace selected content',
+			} );
 			expect(
 				connector.trackEvent.mock.calls.filter(
 					( [ name ] ) => name === TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED

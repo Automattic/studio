@@ -5,7 +5,7 @@ import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
-import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import { getRemoteSites, recordRemoteSitePublish } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
@@ -358,9 +358,11 @@ async function runPush(
 		// Remember this connection so future push/pull runs (and the Desktop UI)
 		// can surface it without re-selecting from the full site list.
 		try {
-			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push', localVersionId );
+			if ( ! pushed.launchError ) {
+				await recordRemoteSitePublish( provider, site.id, remoteSite as never, localVersionId );
+			}
 		} catch ( error ) {
-			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
+			throw toLoggerError( error, __( 'Failed to save connected site' ) );
 		}
 
 		logger.reportSuccess(

@@ -115,21 +115,21 @@ it( 'keeps icon-only annotation available with publishing feedback', async () =>
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
-	const publish = screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } );
+	const publish = screen.getByRole( 'button', { name: /^Share…$/ } );
 	const annotation = screen.getByRole( 'button', { name: 'Annotate' } );
 	await waitFor( () => expect( annotation ).toBeEnabled() );
-	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: /^Share…$/ } ) ).toBeVisible();
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'true' );
-	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'button', { name: /^Share…$/ } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
 	);
-	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBeEnabled();
+	expect( screen.getByRole( 'button', { name: /^Share…$/ } ) ).toBeEnabled();
 	expect( annotation ).toHaveTextContent( /^$/ );
 	await user.click( annotation );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'false' );
-	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'button', { name: /^Share…$/ } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
 	);
@@ -152,7 +152,7 @@ it( 'keeps icon-only annotation available with publishing feedback', async () =>
 	);
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled();
 	expect( screen.queryByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: /^Share…$/ } ) ).toBeInTheDocument();
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
 } );
 
@@ -171,7 +171,7 @@ it( 'marks saved annotations with a dot while keeping Share accented', async () 
 		setAnnotating( siteId, false );
 	} );
 	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'button', { name: /^Share…$/ } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
 	);
@@ -307,7 +307,7 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
 	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
-	const publish = screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } );
+	const publish = screen.getByRole( 'button', { name: /^Share…$/ } );
 	expect( browser ).toContainElement( screen.getByRole( 'textbox', { name: 'Address' } ) );
 	expect( mainHeader ).not.toContainElement( browser );
 	expect( browser ).toContainElement( annotate );
@@ -325,7 +325,7 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBe( publish );
+	expect( screen.getByRole( 'button', { name: /^Share…$/ } ) ).toBe( publish );
 } );
 
 it( 'keeps URL navigation visible in a narrow container', async () => {

@@ -111,8 +111,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'disconnectRemoteSite', provider, localSiteId, remoteSiteId ),
 	getSiteCreationVisibility: ( provider ) =>
 		ipcRendererInvoke( 'getSiteCreationVisibility', provider ),
-	createRemoteSite: ( provider, localSiteId, name, visibility ) =>
-		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, name, visibility ),
+	createRemoteSite: ( provider, localSiteId, name, visibility, connect ) =>
+		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, name, visibility, connect ),
 	pushSite: ( provider, siteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pushSite', provider, siteId, remoteSiteId, options ),
 	pullSite: ( provider, siteId, remoteSiteId, options ) =>

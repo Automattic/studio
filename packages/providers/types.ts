@@ -121,8 +121,6 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	publishing: {
 		description: () => string;
 		staticSiteLabel?: () => string;
-		addressTheme?: 'twilight';
-		firstPublishDescription?( site: Site ): string | undefined;
 	};
 	visibility?( site: Site ): boolean;
 	visibilityOptions?(

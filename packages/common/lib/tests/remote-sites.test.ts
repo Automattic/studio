@@ -2,7 +2,13 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { forgetRemoteSites, getRemoteSites, rememberRemoteSite } from '../remote-sites';
+import {
+	connectPublishingSite,
+	forgetRemoteSites,
+	getRemoteSites,
+	rememberRemoteSite,
+	recordRemoteSitePublish,
+} from '../remote-sites';
 import type { SyncSite } from '../../types/sync';
 
 // As the account's site list returns it: without sync times.
@@ -105,4 +111,50 @@ it( 'preserves per-destination baselines across metadata refreshes and invalidat
 	expect(
 		( await getRemoteSites( 'spacefast', 'local-a' ) ).map( ( x ) => x.localVersionId )
 	).toEqual( [ null, 'second' ] );
+} );
+
+it( 'keeps the current destination during checkout and swaps connections after publish', async () => {
+	const space = {
+		id: 'space',
+		name: 'Space',
+		slug: 'space',
+		url: 'https://space.space.fast',
+		teamId: 't',
+	};
+	await connectPublishingSite( 'spacefast', 'local-a', space );
+	await connectPublishingSite( 'spacefast', 'local-b', space );
+	await connectPublishingSite( 'wpcom', 'local-a', { ...listedSite, launchAfterPush: true } );
+
+	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toHaveLength( 1 );
+	expect( await getRemoteSites( 'wpcom', 'local-a' ) ).toEqual( [
+		expect.objectContaining( { id: listedSite.id, launchAfterPush: true } ),
+	] );
+
+	await recordRemoteSitePublish( 'spacefast', 'local-a', space, 'current-version' );
+	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toEqual( [
+		expect.objectContaining( { id: space.id, localVersionId: 'current-version' } ),
+	] );
+	expect( await getRemoteSites( 'wpcom', 'local-a' ) ).toEqual( [
+		expect.objectContaining( { id: listedSite.id, launchAfterPush: true } ),
+	] );
+
+	await recordRemoteSitePublish(
+		'wpcom',
+		'local-a',
+		{ ...listedSite, launchAfterPush: false },
+		'version'
+	);
+	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toEqual( [] );
+	expect( await getRemoteSites( 'spacefast', 'local-b' ) ).toHaveLength( 1 );
+	expect( await getRemoteSites( 'wpcom', 'local-a' ) ).toEqual( [
+		expect.objectContaining( {
+			id: listedSite.id,
+			localVersionId: 'version',
+			lastPushTimestamp: expect.any( String ),
+		} ),
+	] );
+
+	await connectPublishingSite( 'spacefast', 'local-a', space );
+	expect( await getRemoteSites( 'wpcom', 'local-a' ) ).toEqual( [] );
+	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toHaveLength( 1 );
 } );

@@ -2,7 +2,7 @@ import { IpcMainInvokeEvent } from 'electron';
 import {
 	forgetRemoteSite,
 	getRemoteSites as readRemoteSites,
-	rememberRemoteSite,
+	connectPublishingSite,
 	type RemoteSiteConnection,
 } from '@studio/common/lib/remote-sites';
 import { getSitePublishStatus as getPublishStatus } from '@studio/common/sites/publish-status';
@@ -69,7 +69,7 @@ export async function connectRemoteSite(
 	localSiteId: string,
 	site: ProviderSites[ SitesProviderId ]
 ): Promise< void > {
-	await rememberRemoteSite( parseProvider( provider ), localSiteId, site as never );
+	await connectPublishingSite( parseProvider( provider ), localSiteId, site as never );
 }
 
 export async function disconnectRemoteSite(
@@ -90,13 +90,15 @@ export async function createRemoteSite(
 	provider: string,
 	localSiteId: string,
 	name: string,
-	visibility?: SiteCreationVisibility
+	visibility?: SiteCreationVisibility,
+	connect = true
 ): Promise< ProviderSites[ SitesProviderId ] > {
 	return createRemoteSiteOnProvider(
 		getProviderServices( parseProvider( provider ) ),
 		localSiteId,
 		name,
-		visibility
+		visibility,
+		connect
 	);
 }
 

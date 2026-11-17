@@ -22,7 +22,11 @@ function Option( {
 } ) {
 	const id = useId();
 	return (
-		<Field orientation="horizontal" className={ styles.row }>
+		<Field
+			orientation="horizontal"
+			className={ styles.row }
+			data-described={ !! description || undefined }
+		>
 			<Checkbox
 				className={ styles.checkbox }
 				id={ id }
@@ -131,8 +135,13 @@ export function PublishChecklist( {
 						/>
 					);
 				} ) }
+				{ children && (
+					<>
+						<hr className={ styles.divider } />
+						{ children }
+					</>
+				) }
 			</div>
-			{ children }
 			{ selection.error ? (
 				<p role="alert">
 					{ __( 'Publish options could not be loaded.' ) }{ ' ' }

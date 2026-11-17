@@ -55,7 +55,8 @@ export async function createRemoteSite< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >,
 	localSiteId: string,
 	name: string,
-	visibility?: SiteCreationVisibility
+	visibility?: SiteCreationVisibility,
+	connect = true
 ): Promise< ProviderSites[ Id ] > {
 	if ( visibility !== undefined && visibility !== 'public' && visibility !== 'private' ) {
 		throw new Error( 'Invalid visibility for a new site.' );
@@ -68,7 +69,7 @@ export async function createRemoteSite< Id extends SitesProviderId >(
 	const site = await forgetRejectedConfig( id, async () =>
 		create( await readProviderConfig( id ), { name, visibility } )
 	);
-	await rememberRemoteSite( id, localSiteId, site );
+	if ( connect ) await rememberRemoteSite( id, localSiteId, site );
 	return site;
 }
 

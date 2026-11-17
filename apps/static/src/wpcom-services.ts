@@ -312,7 +312,9 @@ export class WpcomServices {
 	async connectSite( localSiteId: string, site: SyncSite ): Promise< void > {
 		await this.updateConnections( ( connections ) => [
 			...connections.filter(
-				( candidate ) => ! ( candidate.id === site.id && candidate.localSiteId === localSiteId )
+				( candidate ) =>
+					candidate.localSiteId !== localSiteId ||
+					( !! site.launchAfterPush && candidate.id !== site.id )
 			),
 			{ ...site, localSiteId },
 		] );
@@ -438,11 +440,15 @@ export class WpcomServices {
 			);
 			if ( remoteSite?.launchAfterPush && ! result?.launchError ) {
 				await this.updateConnections( ( connections ) =>
-					connections.map( ( connection ) =>
-						connection.localSiteId === siteId && connection.id === remoteSiteId
-							? { ...connection, launchAfterPush: false }
-							: connection
-					)
+					connections
+						.filter(
+							( connection ) => connection.localSiteId !== siteId || connection.id === remoteSiteId
+						)
+						.map( ( connection ) =>
+							connection.localSiteId === siteId && connection.id === remoteSiteId
+								? { ...connection, launchAfterPush: false }
+								: connection
+						)
 				);
 			}
 			return result?.launchError;

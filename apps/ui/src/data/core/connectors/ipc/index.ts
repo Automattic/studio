@@ -510,8 +510,10 @@ export function createIpcConnector(): Connector {
 		async getSiteCreationVisibility( provider ) {
 			return unwrapIpcError( ipcApi.getSiteCreationVisibility( provider ) );
 		},
-		async createRemoteSite( provider, localSiteId, name, visibility ) {
-			return unwrapIpcError( ipcApi.createRemoteSite( provider, localSiteId, name, visibility ) );
+		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
+			return unwrapIpcError(
+				ipcApi.createRemoteSite( provider, localSiteId, name, visibility, connect )
+			);
 		},
 
 		onSyncConnectSite( listener ) {

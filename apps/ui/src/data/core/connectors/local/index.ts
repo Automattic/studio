@@ -631,10 +631,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getSiteCreationVisibility( provider ) {
 			return api( `/remote-sites/${ provider }/creation-visibility` );
 		},
-		async createRemoteSite( provider, localSiteId, name, visibility ) {
+		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
 			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
 				method: 'POST',
-				body: JSON.stringify( { name, visibility } ),
+				body: JSON.stringify( { name, visibility, connect } ),
 			} );
 		},
 		onSyncConnectSite( listener ) {

@@ -1,8 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useState, Fragment, type ReactNode } from 'react';
-import { SearchIcon } from '@/lib/icons';
+import { ExternalLinkIcon, RotateCwIcon, SearchIcon } from '@/lib/icons';
 import {
 	Button,
+	IconButton,
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
@@ -23,6 +24,7 @@ export function RemoteSiteCard( {
 	badges,
 	disabled,
 	onSelect,
+	onOpen,
 	children,
 }: {
 	name: string;
@@ -32,29 +34,50 @@ export function RemoteSiteCard( {
 	badges?: ReactNode;
 	disabled?: boolean;
 	onSelect: () => void;
+	onOpen?: () => void;
 	children?: ReactNode;
 } ) {
+	const selectButton = (
+		<Button
+			variant="outline"
+			layout="row"
+			className={ styles.siteRow }
+			aria-description={ description }
+			disabled={ disabled }
+			onClick={ onSelect }
+		>
+			{ icon ?? (
+				<PreviewFrame className={ styles.siteThumb }>
+					<PreviewImage src={ getRemoteSiteScreenshot( url ) } alt="" />
+				</PreviewFrame>
+			) }
+			<span className={ styles.siteText }>
+				<span className={ styles.siteName }>{ name }</span>
+				<span className={ styles.siteUrl }>{ url.replace( /^https?:\/\//, '' ) }</span>
+			</span>
+			<span className={ styles.badges }>{ badges }</span>
+		</Button>
+	);
 	return (
 		<li className={ styles.site }>
-			<Button
-				variant="outline"
-				layout="row"
-				className={ styles.siteRow }
-				aria-description={ description }
-				disabled={ disabled }
-				onClick={ onSelect }
-			>
-				{ icon ?? (
-					<PreviewFrame className={ styles.siteThumb }>
-						<PreviewImage src={ getRemoteSiteScreenshot( url ) } alt="" />
-					</PreviewFrame>
-				) }
-				<span className={ styles.siteText }>
-					<span className={ styles.siteName }>{ name }</span>
-					<span className={ styles.siteUrl }>{ url.replace( /^https?:\/\//, '' ) }</span>
-				</span>
-				<span className={ styles.badges }>{ badges }</span>
-			</Button>
+			{ onOpen ? (
+				<div className={ styles.siteRowWithLink }>
+					{ selectButton }
+					<IconButton
+						variant="ghost"
+						size="icon-sm"
+						icon={ <ExternalLinkIcon /> }
+						label={ sprintf(
+							/* translators: %s: the site name. */
+							__( 'Open %s' ),
+							name
+						) }
+						onClick={ onOpen }
+					/>
+				</div>
+			) : (
+				selectButton
+			) }
 			{ children }
 		</li>
 	);
@@ -71,6 +94,7 @@ export function RemoteSitePicker< Item >( {
 	onRefresh,
 	help,
 	availableDescription,
+	compactControls = false,
 }: {
 	items: Item[];
 	getKey: ( item: Item ) => string | number;
@@ -81,7 +105,8 @@ export function RemoteSitePicker< Item >( {
 	disabled?: boolean;
 	onRefresh: () => void;
 	help?: ReactNode;
-	availableDescription: string;
+	availableDescription?: string;
+	compactControls?: boolean;
 } ) {
 	const [ query, setQuery ] = useState( '' );
 	const filtered = items.filter( ( item ) =>
@@ -90,7 +115,7 @@ export function RemoteSitePicker< Item >( {
 	const sections = [
 		{
 			key: 'available',
-			title: __( 'Available to connect' ),
+			title: availableDescription ? __( 'Available to connect' ) : undefined,
 			description: availableDescription,
 			items: filtered.filter( isAvailable ),
 		},
@@ -102,9 +127,9 @@ export function RemoteSitePicker< Item >( {
 		},
 	];
 	return (
-		<div className={ styles.sections }>
-			<div className={ styles.siteControls }>
-				{ ( items.length !== 1 || query.trim() ) && (
+		<div className={ compactControls ? styles.compactSections : styles.sections }>
+			<div className={ compactControls ? styles.compactControls : styles.siteControls }>
+				{ ( compactControls || items.length !== 1 || query.trim() ) && (
 					<InputGroup className={ styles.search }>
 						<InputGroupAddon>
 							<SearchIcon />
@@ -118,23 +143,33 @@ export function RemoteSitePicker< Item >( {
 						/>
 					</InputGroup>
 				) }
-				<div className={ styles.helperLinks }>
-					<Button
-						type="button"
-						variant="ghost"
-						size="2xs"
+				{ compactControls ? (
+					<IconButton
+						variant="outline"
+						icon={ <RotateCwIcon /> }
+						label={ refreshing ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
 						disabled={ disabled || refreshing }
 						onClick={ onRefresh }
-					>
-						{ refreshing ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
-					</Button>
-					{ help && (
-						<>
-							<span aria-hidden="true">·</span>
-							{ help }
-						</>
-					) }
-				</div>
+					/>
+				) : (
+					<div className={ styles.helperLinks }>
+						<Button
+							type="button"
+							variant="ghost"
+							size="2xs"
+							disabled={ disabled || refreshing }
+							onClick={ onRefresh }
+						>
+							{ refreshing ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
+						</Button>
+						{ help && (
+							<>
+								<span aria-hidden="true">·</span>
+								{ help }
+							</>
+						) }
+					</div>
+				) }
 			</div>
 			{ filtered.length === 0 ? (
 				<div className={ styles.state } role="status">
@@ -152,10 +187,12 @@ export function RemoteSitePicker< Item >( {
 						( section ) =>
 							section.items.length > 0 && (
 								<section key={ section.key } className={ styles.section }>
-									<div className={ styles.sectionHeader }>
-										<h2>{ section.title }</h2>
-										<p>{ section.description }</p>
-									</div>
+									{ section.title && (
+										<div className={ styles.sectionHeader }>
+											<h2>{ section.title }</h2>
+											<p>{ section.description }</p>
+										</div>
+									) }
 									<ul className={ styles.siteList }>
 										{ section.items.map( ( item ) => (
 											<Fragment key={ getKey( item ) }>{ renderItem( item ) }</Fragment>

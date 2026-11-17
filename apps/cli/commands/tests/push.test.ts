@@ -2,7 +2,7 @@ import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import { getRemoteSites, recordRemoteSitePublish } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { RemoteSiteError, type PushContent, type PushStatus } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -141,13 +141,16 @@ describe( 'CLI: studio push', () => {
 			await expect(
 				runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
 			).resolves.toBeDefined();
-			expect( rememberRemoteSite ).toHaveBeenCalledWith(
-				'wpcom',
-				site.id,
-				expect.objectContaining( { launchAfterPush: failed } ),
-				'push',
-				expect.anything()
-			);
+			if ( failed ) {
+				expect( recordRemoteSitePublish ).not.toHaveBeenCalled();
+			} else {
+				expect( recordRemoteSitePublish ).toHaveBeenCalledWith(
+					'wpcom',
+					site.id,
+					expect.objectContaining( { launchAfterPush: false } ),
+					expect.anything()
+				);
+			}
 			expect( reported().at( -1 ) ).toMatchObject( { kind: failed ? 'error' : 'success' } );
 			expect( recordTracksEvent ).toHaveBeenCalledWith(
 				TRACKS_EVENTS.SYNC_PUSH,
@@ -396,11 +399,10 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 			expect.any( Function ),
 			expect.any( AbortSignal )
 		);
-		expect( rememberRemoteSite ).toHaveBeenCalledWith(
+		expect( recordRemoteSitePublish ).toHaveBeenCalledWith(
 			'spacefast',
 			site.id,
 			expect.objectContaining( { id: 'spc_2' } ),
-			'push',
 			'before-upload'
 		);
 		expect( reported().at( -1 ) ).toEqual( {

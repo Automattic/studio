@@ -389,7 +389,8 @@ export interface Connector {
 		provider: SitesProviderId,
 		localSiteId: string,
 		name: string,
-		visibility?: SiteCreationVisibility
+		visibility?: SiteCreationVisibility,
+		connect?: boolean
 	): Promise< ProviderSites[ SitesProviderId ] >;
 	// Pushes the local site to a connected remote site: everything, or what `options` selects.
 	// Its progress and result arrive as sync activity (`onSyncActivity`).

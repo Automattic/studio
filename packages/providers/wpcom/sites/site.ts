@@ -170,7 +170,7 @@ function wpcomSiteLinks( site: SyncSite ): { title: string; url: string }[] {
 	const hostname = new URL( site.url ).hostname;
 	return [
 		{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
-		{ title: __( 'Backups' ), url: `https://wordpress.com/backup/${ hostname }` },
+		{ title: __( 'View backups' ), url: `https://wordpress.com/backup/${ hostname }` },
 		{ title: __( 'Manage on WordPress.com' ), url: dashboard },
 	];
 }

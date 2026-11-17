@@ -1,0 +1,35 @@
+.step {
+	display: grid;
+	grid-template-rows: auto minmax( 0, 1fr );
+	max-block-size: min(
+		480px,
+		calc( 100dvh - var( --band-height ) - 2 * ( var( --space-2 ) + var( --publish-inset ) ) )
+	);
+	gap: var( --publish-inset );
+	min-width: 0;
+	animation: enter var( --motion-duration-surface ) var( --motion-ease-enter );
+}
+.header {
+	display: grid;
+	grid-template-columns: auto minmax( 0, 1fr ) auto;
+	align-items: center;
+	text-align: center;
+	gap: var( --space-1_5 );
+}
+.body {
+	min-inline-size: 0;
+	overflow: auto;
+	overscroll-behavior: contain;
+}
+
+@keyframes enter {
+	from {
+		opacity: 0;
+		transform: translateX( var( --space-2 ) );
+	}
+}
+@media ( prefers-reduced-motion: reduce ) {
+	.step {
+		animation: none;
+	}
+}

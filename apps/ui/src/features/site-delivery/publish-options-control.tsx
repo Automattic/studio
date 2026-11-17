@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { useRef, useState, type RefObject } from 'react';
+import { useRef, type RefObject } from 'react';
 import {
 	checkNodes,
 	FilePicker,
@@ -22,33 +22,27 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { RemoteSite, SitesProviderId } from '@studio/providers';
 
+type PublishSelection = ReturnType< typeof useTransferSelection >;
+
 export function PublishOptionsControl( {
-	provider,
-	site,
-	remote,
+	selection,
 	disabled,
-	choosingFiles,
 	onChooseFiles,
 	triggerRef,
 }: {
-	provider: SitesProviderId;
-	site: SiteDetails;
-	remote: RemoteSite;
-	disabled: boolean;
-	choosingFiles: boolean;
+	selection: PublishSelection;
+	disabled?: boolean;
 	onChooseFiles: () => void;
 	triggerRef: RefObject< HTMLButtonElement | null >;
 } ) {
-	const [ open, setOpen ] = useState( false );
-	const selection = useTransferSelection( site, provider, remote, 'push', open );
 	const label = publishSelectionSummary( selection );
 	return (
 		<div>
-			<Popover.Root open={ open && ! choosingFiles } onOpenChange={ setOpen }>
+			<Popover.Root>
 				<Popover.Trigger
 					render={
 						<Button
-							variant="ghost"
+							variant="outline"
 							ref={ triggerRef }
 							className={ styles.accessTrigger }
 							disabled={ disabled }
@@ -65,23 +59,20 @@ export function PublishOptionsControl( {
 					</span>
 				</Popover.Trigger>
 				<Popover.Popup
-					align="end"
-					instant={ choosingFiles }
 					className={ styles.publishOptionsPopover }
 					aria-label={ __( 'What to publish' ) }
 				>
 					<PublishChecklist selection={ selection }>
-						<div className={ styles.publishFilesEntry }>
-							<Button
-								variant="ghost"
-								className={ styles.publishFilesTrigger }
-								disabled={ selection.loadingFiles || !! selection.error }
-								onClick={ onChooseFiles }
-							>
-								{ __( 'Choose specific files' ) }
-								<ChevronRightIcon data-icon="inline-end" />
-							</Button>
-						</div>
+						<Button
+							variant="ghost"
+							size="sm"
+							className={ styles.publishFilesTrigger }
+							disabled={ selection.loadingFiles || !! selection.error }
+							onClick={ onChooseFiles }
+						>
+							{ __( 'Choose specific files' ) }
+							<ChevronRightIcon data-icon="inline-end" />
+						</Button>
 					</PublishChecklist>
 				</Popover.Popup>
 			</Popover.Root>
@@ -94,16 +85,15 @@ export function PublishFilesDialog( {
 	provider,
 	remote,
 	onClose,
-	returnFocus,
+	selection,
 }: {
 	site: SiteDetails;
 	provider: SitesProviderId;
 	remote: RemoteSite;
 	onClose: () => void;
-	returnFocus: RefObject< HTMLButtonElement | null >;
+	selection: PublishSelection;
 } ) {
 	const heading = useRef< HTMLHeadingElement >( null );
-	const selection = useTransferSelection( site, provider, remote, 'push', false );
 	const draft = useTransferSelection( site, provider, remote, 'push', true, false, {
 		scope: 'custom',
 		nodes:
@@ -118,7 +108,7 @@ export function PublishFilesDialog( {
 				layout="compact"
 				className={ styles.publishFilesDialog }
 				initialFocus={ heading }
-				finalFocus={ returnFocus }
+				finalFocus={ false }
 			>
 				<DialogHeader>
 					<DialogTitle ref={ heading } tabIndex={ -1 }>

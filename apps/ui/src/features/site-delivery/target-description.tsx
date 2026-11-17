@@ -7,7 +7,8 @@ import type { PublishTarget } from './use-publish-targets';
 export function describePublishTarget(
 	{ snapshot, remote, provider }: PublishTarget,
 	locale: string | undefined,
-	targets: PublishTarget[]
+	targets: PublishTarget[],
+	includeExpiry = true
 ) {
 	if ( snapshot ) {
 		const live = snapshot.liveSiteId
@@ -15,6 +16,8 @@ export function describePublishTarget(
 					( target ) => target.provider === provider && target.remote?.id === snapshot.liveSiteId
 			  )?.remote
 			: undefined;
+		if ( ! includeExpiry )
+			return live ? sprintf( __( 'Changes to %s' ), live.name || live.url ) : undefined;
 		const expiry = previewExpiry( snapshot, locale, { month: 'short', day: 'numeric' } );
 		return live
 			? `${ sprintf( __( 'Changes to %s' ), live.name || live.url ) } · ${ expiry }`

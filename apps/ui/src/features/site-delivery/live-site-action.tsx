@@ -1,12 +1,12 @@
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
-import { useRef, type RefObject } from 'react';
+import { useId, useRef, useState, type RefObject } from 'react';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePreviewStatus } from '@/data/queries/use-preview-status';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { usePushSite, usePullSite } from '@/data/queries/use-sync-site';
-import { useTransferSelection, FilePicker, publishSelectionSummary } from '@/features/sync';
+import { useTransferSelection, FilePicker } from '@/features/sync';
 import {
 	AlertDialog,
 	Button,
@@ -21,6 +21,7 @@ import {
 	SelectContent,
 	SelectItem,
 } from '@/lib/ui';
+import { PublishFilesDialog, PublishOptionsControl } from './publish-options-control';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -61,7 +62,12 @@ export function LiveSiteAction( {
 		linkedPreview && status.data?.localChanged === true
 			? getPreviewPublishWarning( linkedPreview )
 			: undefined;
+	const databaseWarningId = useId();
 	const cancel = useRef< HTMLButtonElement >( null );
+	const publishOptionsTrigger = useRef< HTMLButtonElement >( null );
+	const [ confirmationView, setConfirmationView ] = useState<
+		'confirm' | 'files' | 'review-files'
+	>( 'confirm' );
 	const selection = useTransferSelection(
 		site,
 		provider,
@@ -73,7 +79,11 @@ export function LiveSiteAction( {
 	const push = usePushSite();
 	const pull = usePullSite();
 	const issue = descriptor.issue( remote, direction );
-	const blocked = !! issue || selection.blocked || selection.loading || !! selection.error;
+	const canAdjustSelection = !! onConfirmPublish && descriptor.selective;
+	const blocked =
+		!! issue ||
+		selection.loading ||
+		( ! canAdjustSelection && ( selection.blocked || !! selection.error ) );
 	const working = push.isPending || publishing;
 	const checking = direction === 'push' && ! working && selection.loading;
 	const submit = () => {
@@ -92,24 +102,31 @@ export function LiveSiteAction( {
 			onBack?.();
 		}
 	};
+	const showDatabaseWarning =
+		confirmation &&
+		descriptor.selective &&
+		selection.options.push.optionsToSync?.some(
+			( option ) => option === 'all' || option === 'sqls'
+		);
 	const action = (
 		<Button
 			variant="accent"
 			disabled={ disabled || blocked || working }
 			loading={ working || checking }
+			aria-describedby={ showDatabaseWarning ? databaseWarningId : undefined }
 			onClick={ onConfirmPublish ?? submit }
 		>
-			{ direction === 'push'
-				? working
-					? __( 'Publishing…' )
-					: checking
-					? __( 'Checking…' )
-					: forceEntireSite
-					? __( 'Publish' )
-					: onConfirmPublish
-					? __( 'Publish changes…' )
-					: __( 'Publish changes' )
-				: __( 'Pull changes' ) }
+			{ direction === 'pull'
+				? __( 'Replace selected content' )
+				: working
+				? __( 'Updating…' )
+				: checking
+				? __( 'Checking…' )
+				: confirmation
+				? __( 'Publish changes' )
+				: onConfirmPublish
+				? __( 'Update…' )
+				: __( 'Update' ) }
 		</Button>
 	);
 	const message =
@@ -118,9 +135,6 @@ export function LiveSiteAction( {
 			? selection.warning ??
 			  ( selection.blocked ? __( 'Select something to publish.' ) : undefined )
 			: undefined );
-	const includesDatabase = selection.options.push.optionsToSync?.some(
-		( option ) => option === 'all' || option === 'sqls'
-	);
 	const publishMessage = ! working && ! checking && ( message || selection.error ) && (
 		<p role="status" className={ styles.changeStatus }>
 			{ message }
@@ -141,10 +155,24 @@ export function LiveSiteAction( {
 		{ value: 'content', label: __( 'Content and settings only' ) },
 		{ value: 'custom', label: __( 'Choose files…' ) },
 	] as const;
+	if ( confirmation && confirmationView === 'files' )
+		return (
+			<PublishFilesDialog
+				site={ site }
+				provider={ provider }
+				remote={ remote }
+				selection={ selection }
+				onClose={ () => setConfirmationView( 'review-files' ) }
+			/>
+		);
 	if ( confirmation )
 		return (
 			<AlertDialog open onOpenChange={ ( open ) => ! open && onBack?.() }>
-				<DialogContent layout="confirmation" initialFocus={ cancel } finalFocus={ returnFocus }>
+				<DialogContent
+					layout="confirmation"
+					initialFocus={ confirmationView === 'review-files' ? publishOptionsTrigger : cancel }
+					finalFocus={ returnFocus }
+				>
 					<DialogHeader>
 						<DialogTitle>
 							{ confirmation === 'again' ? __( 'Publish again?' ) : __( 'Publish changes?' ) }
@@ -156,27 +184,27 @@ export function LiveSiteAction( {
 									__( 'Publish to %s.' ),
 									new URL( remote.url ).hostname
 								) }
-								{ descriptor.selective && (
-									<>
-										{ ' ' }
-										{ sprintf(
-											/* translators: %s: a summary of the selected parts of the site. */
-											__( 'What to publish: %s' ),
-											publishSelectionSummary( selection )
-										) }
-									</>
-								) }
 							</p>
-							{ descriptor.selective && includesDatabase && (
-								<p>
+							{ previewWarning && <p>{ previewWarning }</p> }
+						</DialogDescription>
+					</DialogHeader>
+					{ descriptor.selective && (
+						<div className={ styles.publishConfirmationOptions }>
+							<PublishOptionsControl
+								selection={ selection }
+								disabled={ disabled || working }
+								onChooseFiles={ () => setConfirmationView( 'files' ) }
+								triggerRef={ publishOptionsTrigger }
+							/>
+							{ showDatabaseWarning && (
+								<p id={ databaseWarningId }>
 									{ __(
 										'Publishing the database replaces changes made on the live site, including new comments or orders.'
 									) }
 								</p>
 							) }
-							{ previewWarning && <p>{ previewWarning }</p> }
-						</DialogDescription>
-					</DialogHeader>
+						</div>
+					) }
 					{ publishMessage }
 					<DialogFooter>
 						<Button ref={ cancel } variant="outline" onClick={ onBack }>
@@ -194,19 +222,25 @@ export function LiveSiteAction( {
 				{ action }
 			</div>
 		);
+	const hostname = new URL( remote.url ).hostname;
 	return (
 		<AlertDialog open onOpenChange={ ( open ) => ! open && onBack?.() }>
 			<DialogContent layout="confirmation" initialFocus={ cancel } finalFocus={ false }>
 				<DialogHeader>
-					<DialogTitle>{ __( 'Pull from live site?' ) }</DialogTitle>
+					<DialogTitle>
+						{ sprintf(
+							/* translators: %s: the live site's domain. */
+							__( 'Update local site from %s?' ),
+							hostname
+						) }
+					</DialogTitle>
 					<DialogDescription>
 						{ sprintf(
 							/* translators: %s: the live site's domain. */
-							__( 'Pull from %s.' ),
-							new URL( remote.url ).hostname
-						) }{ ' ' }
-						{ __(
-							"This replaces the selected parts of your local WordPress with the live site. Any changes you haven't pushed in those parts will be lost."
+							__(
+								'This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.'
+							),
+							hostname
 						) }
 					</DialogDescription>
 				</DialogHeader>
@@ -218,7 +252,7 @@ export function LiveSiteAction( {
 							items={ choices }
 							disabled={ disabled || selection.loadingFiles }
 						>
-							<SelectTrigger aria-label={ __( 'What to pull' ) } fullWidth>
+							<SelectTrigger aria-label={ __( 'What to replace' ) } fullWidth>
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>

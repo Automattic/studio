@@ -442,7 +442,7 @@ it( 'offers restarting after changes were pulled but the site could not restart'
 	expect( connector.startSite ).toHaveBeenCalledWith( 'restart-site' );
 } );
 
-it( 'shows creation progress only outside the share panel, then keeps the same two-line notice', async () => {
+it( 'keeps preview creation progress and completion visible after reopening the panel', async () => {
 	function PreviewPanel() {
 		const [ open, setOpen ] = useState( true );
 		useSyncNoticeVisibility( 'panel-notice', open );
@@ -473,10 +473,11 @@ it( 'shows creation progress only outside the share panel, then keeps the same t
 		description: 'Ocean',
 		processing: true,
 	} );
+	const visible = notice();
 	fireEvent.click( screen.getByRole( 'button', { name: 'Open panel' } ) );
+	expect( notice() ).toBe( visible );
 	act( pending );
-	expect( notice() ).toBeUndefined();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Close panel' } ) );
+	expect( notice() ).toMatchObject( { title: 'Creating preview link…', processing: true } );
 	act( () =>
 		publish( { siteId: 'panel-notice', activity: { kind: 'success', direction: 'preview' } } )
 	);
@@ -532,7 +533,7 @@ it.each( [
 	{ direction: 'pull', title: 'Pulling changes…' },
 	{ direction: 'import', title: 'Importing backup…' },
 ] as const )(
-	'only shows $direction progress when its panel closes',
+	'keeps $direction progress visible after the panel reopens',
 	( { direction, title, ...details } ) => {
 		const siteId = `visibility-${ direction }`;
 		function Panel() {
@@ -548,10 +549,10 @@ it.each( [
 		const queryClient = createTestQueryClient();
 		queryClient.setQueryData( SITES_QUERY_KEY, [ makeSite( { id: siteId, name: 'Ocean' } ) ] );
 		const { publish } = setup( <Panel />, { queryClient } );
-		const pending = () =>
+		const pending = ( message = 'Transferring files…' ) =>
 			publish( {
 				siteId,
-				activity: { kind: 'pending', direction, message: 'Transferring files…', ...details },
+				activity: { kind: 'pending', direction, message, ...details },
 			} );
 		const notice = () =>
 			getVisibleToasts().find(
@@ -566,16 +567,18 @@ it.each( [
 				direction === 'push' || direction === 'pull' ? 'Ocean · Transferring files…' : 'Ocean',
 			processing: true,
 		} );
+		const visible = notice();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Toggle panel' } ) );
-		act( pending );
-		expect( notice() ).toBeUndefined();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Toggle panel' } ) );
+		expect( notice() ).toBe( visible );
+		act( () => pending( 'Finishing transfer…' ) );
 		expect( notice() ).toMatchObject( {
 			title,
 			description:
-				direction === 'push' || direction === 'pull' ? 'Ocean · Transferring files…' : 'Ocean',
+				direction === 'push' || direction === 'pull' ? 'Ocean · Finishing transfer…' : 'Ocean',
 			processing: true,
 		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Toggle panel' } ) );
+		expect( notice() ).toMatchObject( { title, processing: true } );
 	}
 );
 

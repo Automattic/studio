@@ -367,7 +367,7 @@ describe( 'PublishPopover', () => {
 		expect( connector.openExternalUrl ).toHaveBeenLastCalledWith(
 			'https://my.wordpress.com/sites/example.com'
 		);
-		fireEvent.click( within( card ).getByRole( 'button', { name: 'Backups' } ) );
+		fireEvent.click( within( card ).getByRole( 'button', { name: 'View backups' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenLastCalledWith(
 			'https://wordpress.com/backup/example.com'
 		);
@@ -384,7 +384,9 @@ describe( 'PublishPopover', () => {
 		expect(
 			within( card ).queryByRole( 'button', { name: 'Manage on WordPress.com' } )
 		).not.toBeInTheDocument();
-		expect( within( card ).queryByRole( 'button', { name: 'Backups' } ) ).not.toBeInTheDocument();
+		expect(
+			within( card ).queryByRole( 'button', { name: 'View backups' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'returns to the connected site after publishing succeeds', async () => {
@@ -1006,7 +1008,7 @@ describe( 'PublishPopover', () => {
 		expect( card ).toHaveTextContent( 'staging.example.com' );
 		expect( within( card ).getByText( 'Staging' ) ).toBeVisible();
 		expect( within( card ).getByText( 'Last pulled' ) ).toBeVisible();
-		await actions.click( within( card ).getByRole( 'button', { name: 'Backups' } ) );
+		await actions.click( within( card ).getByRole( 'button', { name: 'View backups' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
 			'https://wordpress.com/backup/staging.example.com'
 		);

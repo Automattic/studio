@@ -38,8 +38,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 	sites: {
 		publishing: {
 			staticSiteLabel: () => __( 'Make it with Spacefast' ),
-			description: () => __( 'A static copy of your pages' ),
-			addressTheme: 'twilight',
+			description: () => __( 'A static copy of your pages.' ),
 		},
 		visibility: () => true,
 		visibilityOptions: () => [

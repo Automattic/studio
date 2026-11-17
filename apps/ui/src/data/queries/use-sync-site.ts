@@ -5,7 +5,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
 import {
-	clearToast,
 	getVisibleToasts,
 	openStudioLogsAction,
 	toast,
@@ -17,7 +16,7 @@ import { remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
+import { REMOTE_SITES_QUERY_KEY, SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { getSnapshotUrl } from '@/data/snapshot-url';
 import {
 	applySyncActivity,
@@ -50,12 +49,6 @@ export function useSyncNoticeVisibility( siteId: string, open: boolean, keepLive
 		const panels = openSyncPanels.get( siteId ) ?? new Map< symbol, boolean >();
 		panels.set( owner, keepLiveNotices );
 		openSyncPanels.set( siteId, panels );
-		const activity = getSyncActivity( siteId );
-		if (
-			activity?.kind === 'pending' &&
-			( ! keepLiveNotices || activity.direction === 'preview' || activity.direction === 'import' )
-		)
-			clearToast( `${ activity.direction }-${ siteId }` );
 		return () => {
 			panels.delete( owner );
 			if ( panels.size ) return;
@@ -95,8 +88,14 @@ export function useSettleSync() {
 			if ( settled.kind === 'pending' ) {
 				const panels = openSyncPanels.get( siteId );
 				const live = settled.direction === 'push' || settled.direction === 'pull';
-				if ( panels && ( ! live || ! Array.from( panels.values() ).every( Boolean ) ) ) {
-					clearToast( noticeId );
+				const visibleNotice = getVisibleToasts().find(
+					( notice ) => notice.id === noticeId && notice.processing && ! notice.leaving
+				);
+				if (
+					! visibleNotice &&
+					panels &&
+					( ! live || ! Array.from( panels.values() ).every( Boolean ) )
+				) {
 					return;
 				}
 				const title =
@@ -133,8 +132,7 @@ export function useSettleSync() {
 						previous.direction === settled.direction &&
 						previous.provider === settled.provider &&
 						previous.remoteSiteId === remoteSiteId
-							? getVisibleToasts().find( ( notice ) => notice.id === noticeId && notice.processing )
-									?.action
+							? visibleNotice?.action
 							: undefined ) ?? {
 							label: __( 'Cancel' ),
 							dismissOnSuccess: false,
@@ -258,7 +256,12 @@ export function useSettleSync() {
 			}
 
 			const provider = ( getSyncActivity( siteId )?.provider ?? 'wpcom' ) as SitesProviderId;
-			void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } );
+			void queryClient.invalidateQueries( {
+				queryKey:
+					settled.direction === 'push' && settled.kind === 'success'
+						? REMOTE_SITES_QUERY_KEY
+						: remoteSitesQueryKey( provider, siteId ),
+			} );
 			// A provider that rejected its config forgot it, which disconnects the account.
 			if ( settled.kind === 'error' ) {
 				void queryClient.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );

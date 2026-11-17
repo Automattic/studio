@@ -1,85 +1,115 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { useState } from 'react';
+import { __ } from '@wordpress/i18n';
+import { useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { ChevronDownIcon, EyeIcon, EyeOffIcon, ExternalLinkIcon } from '@/lib/icons';
-import { Button, Menu } from '@/lib/ui';
+import { ExternalLinkIcon } from '@/lib/icons';
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { useSiteVisibility } from '@/data/queries/use-site-visibility';
 import type { SiteCreationVisibility, SiteVisibility, ProviderSitesInfo } from '@studio/providers';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+
+const manageVisibility = 'manage-visibility';
 
 function AccessPicker( {
 	value,
 	options,
 	disabled,
-	restricted,
-	valueLabel,
+	checking = false,
 	open,
 	onOpenChange,
 	onValueChange,
-	closeOnClick = true,
+	managementAction,
 	children,
 }: {
 	value: string | undefined;
 	options: { value: string; label: string; description: string; disabled?: boolean }[];
 	disabled: boolean;
-	restricted?: boolean;
-	valueLabel?: string;
+	checking?: boolean;
 	open?: boolean;
-	onOpenChange?: ( open: boolean ) => void;
+	onOpenChange?: ComponentProps< typeof Select >[ 'onOpenChange' ];
 	onValueChange: ( value: string ) => void;
-	closeOnClick?: boolean;
+	managementAction?: { label: string; onClick: () => void; disabled: boolean };
 	children?: ReactNode;
 } ) {
-	const VisibilityIcon = restricted ? EyeOffIcon : EyeIcon;
-	const label =
-		valueLabel ?? options.find( ( option ) => option.value === value )?.label ?? __( 'Unknown' );
+	const selected = options.find( ( option ) => option.value === value );
+	const label = checking ? __( 'Checking…' ) : selected?.label ?? __( 'Unknown' );
 	return (
 		<div>
-			<Menu.Root open={ open } onOpenChange={ onOpenChange }>
-				<Menu.Trigger
-					render={
-						<Button
-							variant="ghost"
-							className={ styles.accessTrigger }
-							disabled={ disabled }
-							aria-label={ __( 'Who can view' ) }
-							aria-description={ label }
-						/>
-					}
+			<Select
+				items={
+					managementAction
+						? [ ...options, { value: manageVisibility, label: managementAction.label } ]
+						: options
+				}
+				value={ selected?.value ?? null }
+				open={ open }
+				disabled={ disabled }
+				onOpenChange={ onOpenChange }
+				onValueChange={ ( next ) => {
+					if ( next === manageVisibility ) managementAction?.onClick();
+					else if ( next !== null ) onValueChange( next );
+				} }
+			>
+				<SelectTrigger
+					variant="ghost"
+					fullWidth
+					className={ styles.accessTrigger }
+					aria-label={ __( 'Who can view' ) }
+					aria-description={ label }
 				>
-					<VisibilityIcon data-icon="inline-start" />
+					<svg
+						width="16"
+						height="16"
+						viewBox="0 0 256 256"
+						fill="currentColor"
+						aria-hidden="true"
+						data-icon="inline-start"
+					>
+						<path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z" />
+					</svg>
 					<span className={ styles.accessTriggerLabel }>{ __( 'Who can view' ) }</span>
-					<span className={ styles.accessTriggerEnd } data-icon="inline-end">
-						<span className={ styles.accessTriggerValue }>{ label }</span>
-						<ChevronDownIcon data-dropdown-indicator />
+					<span className={ styles.accessTriggerEnd }>
+						<SelectValue className={ checking ? 'studio-shimmer' : undefined }>
+							{ label }
+						</SelectValue>
 					</span>
-				</Menu.Trigger>
-				<Menu.Popup side="bottom" align="end" aria-label={ __( 'Who can view' ) }>
-					<Menu.RadioGroup value={ value ?? '' } onValueChange={ onValueChange }>
-						{ options.map( ( option ) => (
-							<Menu.RadioItem
-								className={ styles.describedMenuItem }
-								key={ option.value }
-								value={ option.value }
-								closeOnClick={ closeOnClick }
-								disabled={ option.disabled }
-								aria-label={ option.label }
-								aria-description={ option.description }
-								onClick={ () => {
-									if ( ! closeOnClick && option.value === value ) onOpenChange?.( false );
-								} }
-							>
-								<span className={ styles.accessChoiceText }>
-									<span>{ option.label }</span>
-									<span className={ styles.accessDescription }>{ option.description }</span>
-								</span>
-							</Menu.RadioItem>
-						) ) }
-					</Menu.RadioGroup>
+				</SelectTrigger>
+				<SelectContent alignItemWithTrigger={ false }>
+					{ options.map( ( option ) => (
+						<SelectItem
+							key={ option.value }
+							value={ option.value }
+							label={ option.label }
+							disabled={ option.disabled }
+							aria-label={ option.label }
+							aria-description={ option.description }
+							description={ option.description }
+						>
+							{ option.label }
+						</SelectItem>
+					) ) }
 					{ children }
-				</Menu.Popup>
-			</Menu.Root>
+					{ managementAction && (
+						<SelectGroup className={ styles.selectActions }>
+							<SelectItem
+								value={ manageVisibility }
+								label={ managementAction.label }
+								disabled={ managementAction.disabled }
+							>
+								{ managementAction.label }
+								<ExternalLinkIcon />
+							</SelectItem>
+						</SelectGroup>
+					) }
+				</SelectContent>
+			</Select>
 		</div>
 	);
 }
@@ -87,12 +117,10 @@ function AccessPicker( {
 export function PreviewAccessControl( {
 	publicSelected,
 	disabled,
-	providerLabel,
 	onPublicSelectedChange,
 }: {
 	publicSelected: boolean;
 	disabled: boolean;
-	providerLabel: string;
 	onPublicSelectedChange: ( selected: boolean ) => void;
 } ) {
 	return (
@@ -102,16 +130,12 @@ export function PreviewAccessControl( {
 				{
 					value: 'link',
 					label: __( 'Anyone with the link' ),
-					description: __( 'Share a temporary preview link' ),
+					description: __( 'Share a temporary preview link.' ),
 				},
 				{
 					value: 'public',
 					label: __( 'Everyone' ),
-					description: sprintf(
-						/* translators: %s: hosting provider name. */
-						__( 'Finish publishing on %s' ),
-						providerLabel
-					),
+					description: __( 'Full WordPress with a custom domain.' ),
 				},
 			] }
 			disabled={ disabled }
@@ -138,7 +162,7 @@ export function SiteCreationAccessControl( {
 	return (
 		<AccessPicker
 			value={ value }
-			valueLabel={ loading ? __( 'Checking…' ) : undefined }
+			checking={ loading }
 			options={ getOptions( value )
 				.filter( ( option ) => option.value === 'private' || option.value === 'public' )
 				.map( ( option ) => ( {
@@ -146,7 +170,6 @@ export function SiteCreationAccessControl( {
 					disabled: option.disabled || ( policy === 'private' && option.value === 'public' ),
 				} ) ) }
 			disabled={ disabled }
-			restricted={ value === 'private' }
 			onValueChange={ ( next ) => {
 				if ( next === 'private' || ( next === 'public' && policy === 'public' ) ) onChange( next );
 			} }
@@ -174,6 +197,7 @@ export function HostedAccessControl( {
 	managementLink?: { title: string; url: string };
 } ) {
 	const [ open, setOpen ] = useState( false );
+	const saving = useRef( false );
 	const connector = useConnector();
 	const { query, save } = state;
 	const value = query.isPending || query.isError ? undefined : query.data?.visibility ?? fallback;
@@ -191,20 +215,33 @@ export function HostedAccessControl( {
 			value={ value }
 			options={ options }
 			disabled={ disabled }
-			restricted={ value === 'private' || value === 'coming-soon' }
 			open={ open }
-			closeOnClick={ false }
-			onOpenChange={ ( next ) => {
-				if ( ! save.isPending ) {
-					setOpen( next );
-					if ( next ) save.reset();
+			onOpenChange={ ( next, event ) => {
+				if ( saving.current ) {
+					event.cancel();
+					return;
 				}
+				if ( next ) save.reset();
+				setOpen( next );
 			} }
 			onValueChange={ ( next ) => {
 				const option = options.find( ( option ) => option.value === next && ! option.disabled );
-				if ( option && next !== value )
-					save.mutate( option.value, { onSuccess: () => setOpen( false ) } );
+				if ( ! option || next === value ) return;
+				saving.current = true;
+				save.mutate( option.value, {
+					onSuccess: () => setOpen( false ),
+					onSettled: () => {
+						saving.current = false;
+					},
+				} );
 			} }
+			managementAction={
+				managementLink && {
+					label: managementLink.title,
+					disabled: save.isPending,
+					onClick: () => void connector.openExternalUrl( managementLink.url ),
+				}
+			}
 		>
 			{ save.isError && (
 				<p role="alert" className={ styles.accessPickerError }>
@@ -213,18 +250,6 @@ export function HostedAccessControl( {
 			) }
 			{ query.data?.message && (
 				<p className={ styles.accessPickerError }>{ query.data.message }</p>
-			) }
-			{ managementLink && (
-				<>
-					<Menu.Separator />
-					<Menu.Item
-						disabled={ save.isPending }
-						onClick={ () => void connector.openExternalUrl( managementLink.url ) }
-					>
-						{ managementLink.title }
-						<ExternalLinkIcon data-icon="inline-end" />
-					</Menu.Item>
-				</>
 			) }
 		</AccessPicker>
 	);

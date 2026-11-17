@@ -62,12 +62,12 @@ async function renderActions( multipleTargets = false ) {
 		</SessionUIProvider>,
 		{ connector }
 	);
-	await screen.findByRole( 'button', { name: multipleTargets ? 'Publish…' : 'Share…' } );
+	await screen.findByRole( 'button', { name: 'Share…' } );
 	return { site };
 }
 
 describe( 'SiteHeaderActions', () => {
-	it( 'keeps Share visible for a stopped site and opens it from the site menu', async () => {
+	it( 'keeps Publish visible for a stopped site and opens it from the site menu', async () => {
 		const { site } = await renderActions();
 
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
@@ -81,10 +81,10 @@ describe( 'SiteHeaderActions', () => {
 
 		act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ) );
 
-		expect( await screen.findByRole( 'dialog', { name: 'Share' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'dialog', { name: 'Share this WordPress' } ) ).toBeVisible();
 	} );
 
-	it( 'opens Share and returns focus to its fixed header button', async () => {
+	it( 'opens Publish and returns focus to its fixed header button', async () => {
 		await renderActions();
 		const actions = userEvent.setup();
 		const share = screen.getByRole( 'button', { name: 'Share…' } );
@@ -95,29 +95,32 @@ describe( 'SiteHeaderActions', () => {
 		await waitFor( () => expect( share ).toHaveFocus() );
 	} );
 
-	it( 'keeps the header to one Publish button when the site has multiple targets', async () => {
-		await renderActions( true );
+	it( 'keeps the header to one Share button when the site has multiple targets', async () => {
+		const { site } = await renderActions( true );
 		const actions = userEvent.setup();
 		expect(
 			screen.queryByRole( 'button', { name: 'Choose destination' } )
 		).not.toBeInTheDocument();
-		await actions.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
-		const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+		await actions.click( screen.getByRole( 'button', { name: 'Share…' } ) );
+		const panel = await screen.findByRole( 'dialog', { name: 'Share' } );
 		expect(
-			within( panel ).getByRole( 'button', { name: 'published.example.com' } )
+			within( panel ).getByRole( 'link', { name: 'Open published.example.com' } )
 		).toBeVisible();
+		expect( within( panel ).getByRole( 'button', { name: 'Choose destination' } ) ).toBeVisible();
+		expect( within( panel ).getByRole( 'heading', { name: 'Details' } ) ).toBeVisible();
 		expect(
-			within( panel ).queryByRole( 'button', { name: 'Choose destination' } )
+			within( panel ).queryByRole( 'group', { name: 'Preview: Preview 1' } )
 		).not.toBeInTheDocument();
-		expect( within( panel ).getByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
 		expect(
-			within( panel ).queryByRole( 'button', { name: 'Open preview: Preview 1' } )
+			within( panel ).queryByRole( 'button', { name: 'Switch previews' } )
 		).not.toBeInTheDocument();
-		await actions.click( within( panel ).getByRole( 'button', { name: 'Previews' } ) );
-		const menu = await screen.findByRole( 'menu', { name: 'Previews' } );
-		expect( within( menu ).getByRole( 'menuitem', { name: 'Preview 1' } ) ).toBeVisible();
-		expect(
-			within( panel ).getByRole( 'button', { name: 'published.example.com' } )
-		).toBeVisible();
+		act( () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) );
+		const previews = await screen.findByRole( 'dialog', { name: 'Previews' } );
+		expect( within( previews ).getByRole( 'button', { name: /^Preview 1/ } ) ).toBeVisible();
+		await actions.keyboard( '{Escape}' );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Previews' } ) ).not.toBeInTheDocument()
+		);
+		expect( screen.getByRole( 'button', { name: 'Share…' } ) ).toBeVisible();
 	} );
 } );

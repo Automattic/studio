@@ -80,9 +80,7 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 	},
 	sites: {
 		publishing: {
-			description: () => __( 'The full WordPress, with a domain' ),
-			firstPublishDescription: ( site ) =>
-				site.isPressable ? undefined : __( 'Publish your WordPress when you’re ready.' ),
+			description: () => __( 'The full WordPress, with a domain.' ),
 		},
 		visibility: ( site ) => ! site.isPressable,
 		visibilityOptions: ( current ) => [

@@ -1,7 +1,15 @@
 import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
-import { ChevronDownIcon, MapPinIcon, PlusIcon } from '@/lib/icons';
-import { Button, Menu } from '@/lib/ui';
+import { PlusIcon } from '@/lib/icons';
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/lib/ui';
+import { DestinationIcon } from './destination-icon';
 import { ProviderLogo } from './provider-logo';
 import styles from './style.module.css';
 
@@ -36,78 +44,79 @@ export function ProviderPicker( {
 	selectedProvider: SitesProviderId;
 } ) {
 	const selected = getProvider( selectedProvider );
-	const providerValue = (
-		<span className={ styles.destinationProviderValue }>
-			<ProviderLogo provider={ selectedProvider } branded compact />
-			{ selected.label }
-		</span>
-	);
-	if ( providers.length < 2 && ! onConnectProviders )
+	const items = providers.map( ( value ) => ( {
+		value,
+		label: getProvider( value ).label,
+		description: getProviderSites( value ).publishing.description(),
+	} ) );
+	const moreProviders = { value: 'more-providers', label: __( 'Add more providers' ) } as const;
+	const actions = onConnectProviders ? [ moreProviders ] : [];
+
+	if ( items.length < 2 && actions.length === 0 ) {
 		return (
-			<div className={ styles.staticInfo }>
-				<MapPinIcon data-icon="inline-start" />
+			<div className={ styles.staticDestinationRow }>
+				<DestinationIcon />
 				<span className={ styles.accessTriggerLabel }>{ __( 'Destination' ) }</span>
-				{ providerValue }
+				<span className={ styles.destinationProviderValue }>
+					<ProviderLogo provider={ selectedProvider } compact />
+					{ selected.label }
+				</span>
 			</div>
 		);
+	}
+
 	return (
-		<Menu.Root>
-			<Menu.Trigger
-				render={
-					<Button
-						variant="ghost"
-						className={ styles.providerPickerTrigger }
-						disabled={ disabled }
-						aria-label={ __( 'Destination' ) }
-						aria-description={ selected.label }
-					/>
-				}
+		<Select< SitesProviderId | 'more-providers' >
+			items={ [ ...items, ...actions ] }
+			value={ selectedProvider }
+			disabled={ disabled }
+			onValueChange={ ( value ) => {
+				if ( value === moreProviders.value ) onConnectProviders?.();
+				else if ( value ) onSelect( value );
+			} }
+		>
+			<SelectTrigger
+				variant="ghost"
+				fullWidth
+				className={ styles.accessTrigger }
+				aria-label={ __( 'Destination' ) }
+				aria-description={ selected.label }
 			>
-				<MapPinIcon data-icon="inline-start" />
+				<DestinationIcon data-icon="inline-start" />
 				<span className={ styles.accessTriggerLabel }>{ __( 'Destination' ) }</span>
-				<span className={ styles.accessTriggerEnd } data-icon="inline-end">
-					{ providerValue }
-					<ChevronDownIcon data-dropdown-indicator />
+				<span className={ styles.accessTriggerEnd }>
+					<SelectValue className={ styles.selectedProviderValue }>
+						<ProviderLogo provider={ selectedProvider } compact />
+						{ selected.label }
+					</SelectValue>
 				</span>
-			</Menu.Trigger>
-			<Menu.Popup
-				side="bottom"
-				sideOffset={ 2 }
-				align="center"
-				className={ styles.providerPickerMenu }
-				aria-label={ __( 'Where to publish' ) }
-			>
-				<Menu.RadioGroup value={ selectedProvider }>
-					{ providers.map( ( provider ) => {
-						const descriptor = getProvider( provider );
-						const { publishing } = getProviderSites( provider );
-						return (
-							<Menu.RadioItem
-								className={ styles.providerMenuItem }
-								data-address-theme={ publishing.addressTheme }
-								key={ provider }
-								value={ provider }
-								onClick={ () => onSelect( provider ) }
-							>
-								<ProviderLogo provider={ provider } branded compact />
-								<span className={ styles.accessChoiceText }>
-									<span>{ descriptor.label }</span>
-									<span className={ styles.accessDescription }>{ publishing.description() }</span>
-								</span>
-							</Menu.RadioItem>
-						);
-					} ) }
-				</Menu.RadioGroup>
-				{ onConnectProviders && (
-					<>
-						<Menu.Separator />
-						<Menu.Item onClick={ onConnectProviders }>
-							<PlusIcon />
-							{ __( 'Connect more providers' ) }
-						</Menu.Item>
-					</>
+			</SelectTrigger>
+			<SelectContent alignItemWithTrigger={ false }>
+				{ items.map( ( { value, label, description } ) => (
+					<SelectItem
+						key={ value }
+						value={ value }
+						label={ label }
+						icon={ <ProviderLogo provider={ value } compact /> }
+						description={ description }
+						aria-label={ label }
+						aria-description={ description }
+					>
+						{ label }
+					</SelectItem>
+				) ) }
+				{ actions.length > 0 && (
+					<SelectGroup className={ styles.selectActions }>
+						<SelectItem
+							value={ moreProviders.value }
+							label={ moreProviders.label }
+							icon={ <PlusIcon /> }
+						>
+							{ moreProviders.label }
+						</SelectItem>
+					</SelectGroup>
 				) }
-			</Menu.Popup>
-		</Menu.Root>
+			</SelectContent>
+		</Select>
 	);
 }

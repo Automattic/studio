@@ -5,14 +5,17 @@ import {
 	markConnectedWpcomSiteSynced,
 	removeAllConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
+	upsertConnection,
 } from './connected-sites';
 import {
+	getCurrentUserId,
 	lockSharedConfig,
 	readSharedConfig,
 	saveSharedConfig,
 	unlockSharedConfig,
 	type SharedConfig,
 } from './shared-config';
+import type { SyncSite } from '../types/sync';
 import type { ProviderSites, RemoteSite, SitesProviderId } from '@studio/providers';
 
 /**
@@ -175,4 +178,79 @@ export async function forgetRemoteSites( localSiteId: string ): Promise< void > 
 	for ( const store of Object.values( STORES ) ) {
 		await store.removeAll( localSiteId );
 	}
+}
+
+// Connecting explicitly or publishing to a new destination replaces the old connection atomically.
+async function savePublishingSite< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ],
+	localVersionId?: string | null
+): Promise< void > {
+	const userId = await getCurrentUserId();
+	if ( provider === 'wpcom' && ! userId ) {
+		throw new Error( 'Sign in to WordPress.com to connect this site.' );
+	}
+	await updateRemoteSites( ( config ) => {
+		const timestamp = localVersionId === undefined ? undefined : new Date().toISOString();
+		const wpcomConnections = userId ? config.connectedWpcomSites?.[ String( userId ) ] : undefined;
+		if ( provider === 'wpcom' ) {
+			const connections = ( ( config.connectedWpcomSites ??= {} )[ String( userId ) ] ??= [] );
+			const existing = connections.find(
+				( connection ) => connection.localSiteId === localSiteId && connection.id === site.id
+			);
+			const updating = timestamp && existing && ! existing.launchAfterPush;
+			upsertConnection( connections, localSiteId, {
+				...( site as SyncSite ),
+				...( timestamp ? { lastPushTimestamp: timestamp, localVersionId } : {} ),
+			} );
+			if ( updating ) return;
+			config.connectedWpcomSites[ String( userId ) ] = connections.filter(
+				( connection ) => connection.localSiteId !== localSiteId || connection.id === site.id
+			);
+			filterConnections( config, localSiteId, () => false );
+		} else {
+			const previous = config.remoteSites?.[ localSiteId ]?.find(
+				( connection ) => connection.provider === provider && connection.site.id === site.id
+			);
+			const connection = {
+				...previous,
+				provider,
+				site: { ...site } as Record< string, unknown >,
+				lastPullTimestamp: previous?.lastPullTimestamp ?? null,
+				lastPushTimestamp: timestamp ?? previous?.lastPushTimestamp ?? null,
+				...( timestamp ? { localVersionId } : {} ),
+			};
+			if ( timestamp && previous ) {
+				Object.assign( previous, connection );
+				return;
+			}
+			( config.remoteSites ??= {} )[ localSiteId ] = [ connection ];
+			if ( userId && config.connectedWpcomSites && wpcomConnections ) {
+				config.connectedWpcomSites[ String( userId ) ] = wpcomConnections.filter(
+					( connection ) => connection.localSiteId !== localSiteId
+				);
+			}
+		}
+	} );
+}
+
+export function recordRemoteSitePublish< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ],
+	localVersionId: string | null
+): Promise< void > {
+	return savePublishingSite( provider, localSiteId, site, localVersionId );
+}
+
+// Checkout needs the launch metadata until the first successful push.
+export function connectPublishingSite< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ]
+): Promise< void > {
+	return 'launchAfterPush' in site && site.launchAfterPush
+		? rememberRemoteSite( provider, localSiteId, site )
+		: savePublishingSite( provider, localSiteId, site );
 }

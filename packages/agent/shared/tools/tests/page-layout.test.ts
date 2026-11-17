@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	pageBlankButtons,
+	pageBreakage,
 	pageEscapedText,
 	pageContrast,
 	pageHeaderWraps,
@@ -591,6 +592,17 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 	} );
 
 	// eval46 vinyl port 2 wrote "it\u2019s gone" in a paragraph; trunk grooming 1 "Bath u0026 Brush".
+	it( 'names a font face the page uses that did not load', async () => {
+		expect(
+			await open(
+				`<style>@font-face{font-family:Gone;font-weight:400;src:url(http://127.0.0.1:9/gone.woff2)}@font-face{font-family:Unused;src:url(http://127.0.0.1:9/unused.woff2)}</style><p style="font-family:Gone">Text</p>`,
+				pageBreakage
+			)
+		).toEqual( [
+			'The font Gone 400 normal did not load, so a visitor sees the fallback font in its place.',
+		] );
+	} );
+
 	it( 'names text that shows a JSON escape', async () => {
 		expect(
 			await open(

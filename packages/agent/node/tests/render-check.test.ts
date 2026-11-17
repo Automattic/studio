@@ -200,7 +200,9 @@ describe( 'RenderCheck', () => {
 		await check.changed( site.root, work );
 		setTimeout( written, 50 );
 		await check.settle();
-		expect( await check.takeReports() ).toMatch( /: each page loads, .* every image loads/ );
+		expect( await check.takeReports() ).toMatch(
+			/: each page loads, .* every image and font loads/
+		);
 	} );
 
 	it( 'reports every problem on a site the session created', async () => {

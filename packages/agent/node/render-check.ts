@@ -258,7 +258,7 @@ export class RenderCheck {
 		state.verdictFrom = renderedFrom;
 		state.verdict = [
 			problem ??
-				`${ rendered }: each page loads, PHP prints no errors, every image loads, and nothing is wider than the screen${
+				`${ rendered }: each page loads, PHP prints no errors, every image and font loads, and nothing is wider than the screen${
 					firstSeen.size ? ', past what the site had before' : ''
 				}.`,
 			bodyText( pages ),

@@ -1528,11 +1528,12 @@ export async function pageSqueezedText( page: Page ): Promise< string[] > {
  * own error output, which PHP prints into the page when display_errors is on
  * (php_error_cb() in main/main.c, as WordPress turns it on with WP_DEBUG in
  * wp_debug_mode()), WordPress's critical error screen (wp_die() from
- * WP_Fatal_Error_Handler::display_default_error_template()), and images the
- * browser could not load.
+ * WP_Fatal_Error_Handler::display_default_error_template()), and images and
+ * fonts the browser could not load. A font face loads once the page's text
+ * uses it, so one the page leaves unused is not counted.
  */
 export function pageBreakage( page: Page ): Promise< string[] > {
-	return page.evaluate( () => {
+	return page.evaluate( async () => {
 		const lines: string[] = [];
 		const text = document.body?.innerText ?? '';
 		for ( const match of text.matchAll(
@@ -1548,6 +1549,17 @@ export function pageBreakage( page: Page ): Promise< string[] > {
 		for ( const image of document.images ) {
 			if ( image.complete && image.naturalWidth === 0 && image.currentSrc ) {
 				lines.push( `The image ${ image.currentSrc } did not load.` );
+			}
+		}
+		await Promise.race( [
+			document.fonts.ready,
+			new Promise( ( resolve ) => setTimeout( resolve, 3000 ) ),
+		] );
+		for ( const face of document.fonts ) {
+			if ( face.status === 'error' ) {
+				lines.push(
+					`The font ${ face.family } ${ face.weight } ${ face.style } did not load, so a visitor sees the fallback font in its place.`
+				);
 			}
 		}
 		return [ ...new Set( lines ) ];

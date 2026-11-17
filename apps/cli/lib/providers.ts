@@ -1,3 +1,4 @@
+import { changeAiSettings } from '@studio/common/lib/ai-provider-tracks';
 import { connectProvider } from '@studio/common/lib/ai-settings';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { startProviderConnect } from '@studio/common/lib/provider-connect';
@@ -15,6 +16,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { openBrowser } from 'cli/lib/browser';
 import { input, password, select } from 'cli/lib/prompts';
+import { recordTracksEvent } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 
 export function readInlineWpcomToken(): string | undefined {
@@ -51,10 +53,15 @@ async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise<
 					return error ?? true;
 				}
 				try {
-					await connectProvider( getProviderServices( provider ), method.id, {
-						...values,
-						[ field.name ]: value,
-					} );
+					await changeAiSettings(
+						{ action: 'connect', provider, method: method.id, surface: 'terminal' },
+						() =>
+							connectProvider( getProviderServices( provider ), method.id, {
+								...values,
+								[ field.name ]: value,
+							} ),
+						recordTracksEvent
+					);
 					return true;
 				} catch ( rejection ) {
 					if ( rejection instanceof ConnectError ) {
@@ -89,20 +96,25 @@ async function signInOnSite( provider: ProviderId, method: ConnectMethod ): Prom
 	await openBrowser( url ).catch( () => undefined );
 	const pasting = new AbortController();
 	try {
-		await connectProvider( services, method.id, handoff, {
-			pasteUrl:
-				method.kind === 'loopback'
-					? () =>
-							input(
-								{
-									message: __(
-										'Waiting for the browser. If it can’t reach this computer, paste the address it ends on:'
-									),
-								},
-								{ signal: pasting.signal }
-							)
-					: undefined,
-		} );
+		await changeAiSettings(
+			{ action: 'connect', provider, method: method.id, surface: 'terminal' },
+			() =>
+				connectProvider( services, method.id, handoff, {
+					pasteUrl:
+						method.kind === 'loopback'
+							? () =>
+									input(
+										{
+											message: __(
+												'Waiting for the browser. If it can’t reach this computer, paste the address it ends on:'
+											),
+										},
+										{ signal: pasting.signal }
+									)
+							: undefined,
+				} ),
+			recordTracksEvent
+		);
 	} finally {
 		pasting.abort();
 	}

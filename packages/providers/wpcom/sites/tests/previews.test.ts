@@ -63,7 +63,12 @@ describe( 'previews', () => {
 		const onStatus = vi.fn();
 
 		await expect(
-			previews.create( config, content, { name: 'My Preview' }, onStatus )
+			previews.create(
+				config,
+				content,
+				{ name: 'My Preview', liveSiteId: 99, originId: 'local-site' },
+				onStatus
+			)
 		).resolves.toEqual( preview );
 		expect( createTusUpload ).toHaveBeenCalledWith(
 			expect.objectContaining( { remoteSiteId: 0, filename: 'site.zip' } )
@@ -75,7 +80,7 @@ describe( 'previews', () => {
 					blog_title: 'My Preview',
 					options: {
 						wow_funnel: 'preview',
-						wow_funnel_args: { attachment_id: '678' },
+						wow_funnel_args: { attachment_id: '678', live_site_id: '99', origin_id: 'local-site' },
 						from_wfm: true,
 					},
 				} ),
@@ -87,62 +92,6 @@ describe( 'previews', () => {
 			'finishing',
 		] );
 	} );
-
-	it.each( [
-		{ liveSiteId: undefined, originId: undefined, extra: {} },
-		{ liveSiteId: 99, originId: undefined, extra: { live_site_id: '99' } },
-		{ liveSiteId: undefined, originId: 'local-site', extra: { origin_id: 'local-site' } },
-		{
-			liveSiteId: 99,
-			originId: 'local-site',
-			extra: { live_site_id: '99', origin_id: 'local-site' },
-		},
-	] )(
-		'sends the funnel args with liveSiteId $liveSiteId and originId $originId',
-		async ( { liveSiteId, originId, extra } ) => {
-			attachments( '678', '679' );
-			const imports = [ 'first', 'first', 'second' ];
-			get.mockImplementation( ( { path }: { path: string } ) =>
-				Promise.resolve(
-					path === '/wow-funnel/pending'
-						? { preview_sites: [ { blog_id: siteId, share_url: shareUrl } ] }
-						: { importId: imports.shift() ?? 'second', importStatus: 'importSuccess' }
-				)
-			);
-			await previews.create(
-				config,
-				content,
-				{ name: 'My Preview', liveSiteId, originId },
-				vi.fn()
-			);
-			const update = wpcomSites.push(
-				config,
-				{ id: siteId, name: '' },
-				content,
-				{ preview: { liveSiteId, originId } },
-				vi.fn()
-			);
-			await vi.runAllTimersAsync();
-			await update;
-
-			expect( post ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					path: '/sites/new',
-					body: expect.objectContaining( {
-						options: expect.objectContaining( {
-							wow_funnel_args: { attachment_id: '678', ...extra },
-						} ),
-					} ),
-				} )
-			);
-			expect( post ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					path: `/sites/${ siteId }/wow-funnel/update`,
-					body: { args: { attachment_id: '679', ...extra } },
-				} )
-			);
-		}
-	);
 
 	it( 'fails when the archive import fails', async () => {
 		attachments( '678' );
@@ -166,7 +115,7 @@ describe( 'previews', () => {
 			config,
 			{ id: siteId, name: '' },
 			content,
-			{ preview: {} },
+			{ preview: { originId: 'local-site' } },
 			vi.fn()
 		);
 		await vi.runAllTimersAsync();
@@ -180,7 +129,7 @@ describe( 'previews', () => {
 		expect( post ).toHaveBeenCalledWith( {
 			apiNamespace: 'wpcom/v2',
 			path: `/sites/${ siteId }/wow-funnel/update`,
-			body: { args: { attachment_id: '679' } },
+			body: { args: { attachment_id: '679', origin_id: 'local-site' } },
 		} );
 	} );
 

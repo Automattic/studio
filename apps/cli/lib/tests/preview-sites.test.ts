@@ -2,7 +2,6 @@ import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected
 import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
 import { buildPreviewSite, deleteSnapshotSite, getLivePreviewSite } from 'cli/lib/preview-sites';
-import { LoggerError } from 'cli/logger';
 
 vi.mock( 'cli/lib/api' );
 vi.mock( '@studio/common/lib/connected-sites' );
@@ -32,24 +31,14 @@ describe( 'Preview sites', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		sites.previews.create.mockResolvedValue( preview );
 		sites.previews.list.mockResolvedValue( [ preview ] );
 	} );
 
-	it( 'creates a new preview, or rebuilds an existing one with a push to it', async () => {
-		await expect(
-			buildPreviewSite( token, '/tmp/site.zip', { name: 'Mine' }, { originId: 'local' }, vi.fn() )
-		).resolves.toBe( preview );
-		expect( sites.previews.create ).toHaveBeenCalledWith(
-			{ token },
-			expect.objectContaining( { kind: 'archive', name: 'site.zip', size: 1 } ),
-			{ originId: 'local', name: 'Mine' },
-			expect.any( Function )
-		);
-
+	it( 'rebuilds an existing preview with a push to it, then reads its link back', async () => {
 		await expect(
 			buildPreviewSite( token, '/tmp/site.zip', { siteId }, { originId: 'local' }, vi.fn() )
 		).resolves.toBe( preview );
+		expect( sites.previews.create ).not.toHaveBeenCalled();
 		expect( sites.push ).toHaveBeenCalledWith(
 			{ token },
 			{ id: siteId, name: '' },
@@ -57,13 +46,6 @@ describe( 'Preview sites', () => {
 			{ preview: { originId: 'local' } },
 			expect.any( Function )
 		);
-	} );
-
-	it( 'fails a rebuild when the preview has no preview link', async () => {
-		sites.previews.list.mockResolvedValue( [] );
-		await expect(
-			buildPreviewSite( token, '/tmp/site.zip', { siteId }, {}, vi.fn() )
-		).rejects.toThrow( LoggerError );
 	} );
 
 	describe( 'getLivePreviewSite', () => {

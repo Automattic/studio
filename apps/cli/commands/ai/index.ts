@@ -20,6 +20,7 @@ import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
 } from '@studio/agent/protocol/slash-commands';
+import { changeAiSettings, getAiTurnTracksProps } from '@studio/common/lib/ai-provider-tracks';
 import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -398,7 +399,11 @@ export async function runCommand( options: {
 			ui.currentModel = currentModel;
 		}
 
-		await persistSelectedAiProvider( currentProvider );
+		await changeAiSettings(
+			{ action: 'select', provider, surface: isJsonMode ? 'chat' : 'terminal' },
+			() => persistSelectedAiProvider( provider ),
+			recordTracksEvent
+		);
 		await persistProviderPin();
 		if ( announce ) {
 			ui.showInfo(
@@ -635,9 +640,7 @@ export async function runCommand( options: {
 			turn_id: z.string().uuid().safeParse( requestedTurnId ).data ?? crypto.randomUUID(),
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
-			provider: toStoredProviderId( currentProvider ),
-			model: currentModel,
-			model_family: currentProvider === 'wpcom' ? 'studio' : currentProvider,
+			...( await getAiTurnTracksProps( currentProvider, currentModel ) ),
 		};
 		const turnStartedAt = Date.now();
 		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, () => ( {

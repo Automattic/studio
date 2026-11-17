@@ -307,7 +307,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 							`${ id }-provider`
 						),
 						nativeOnly: account.methods.every(
-							( { kind } ) => kind === 'device' || kind === 'loopback'
+							( { kind, hostOnly } ) => kind === 'device' || kind === 'loopback' || hostOnly
 						),
 					};
 				} ),

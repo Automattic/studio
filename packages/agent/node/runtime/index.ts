@@ -1,7 +1,14 @@
 import fs from 'fs';
 import os from 'os';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import { type Credential, type CredentialInfo, type CredentialStore } from '@earendil-works/pi-ai';
+import {
+	isContextOverflow,
+	type Credential,
+	type CredentialInfo,
+	type CredentialStore,
+} from '@earendil-works/pi-ai';
+import { MIN_ANSWER_TOKENS } from '@earendil-works/pi-ai/api/simple-options';
+import { estimateTextTokens } from '@earendil-works/pi-ai/utils/estimate';
 import {
 	createAgentSession,
 	createBashTool,
@@ -54,6 +61,110 @@ const STUDIO_COMPACTION_SETTINGS = {
 	reserveTokens: 16_384,
 	keepRecentTokens: 20_000,
 };
+
+// What pi leaves out of the window for the reply: its safety margin, which it doesn't export, and
+// the smallest reply.
+const REPLY_TOKENS = 4096 + MIN_ANSWER_TOKENS;
+
+/**
+ * The compaction settings for the connection, given the tokens its system prompt and tools take.
+ * On a window that is exact, the conversation's share of what a request holds sets them where
+ * today's sizes don't fit: compaction starts once the conversation fills half its share, and keeps
+ * a quarter of it, so a request after compacting still fits.
+ */
+function getCompactionSettings( { exactContextWindow, model }: AiConnection, baseTokens: number ) {
+	if ( ! exactContextWindow ) {
+		return STUDIO_COMPACTION_SETTINGS;
+	}
+	const share = Math.max( 0, model.contextWindow - baseTokens - REPLY_TOKENS );
+	return {
+		enabled: true,
+		reserveTokens: Math.min(
+			STUDIO_COMPACTION_SETTINGS.reserveTokens,
+			Math.floor( share / 2 ) + REPLY_TOKENS
+		),
+		keepRecentTokens: Math.min(
+			STUDIO_COMPACTION_SETTINGS.keepRecentTokens,
+			Math.max( 1, Math.floor( share / 4 ) )
+		),
+	};
+}
+
+type AgentEndEvent = Extract< AgentSessionEvent, { type: 'agent_end' } >;
+
+/**
+ * On a connection whose window is exact, a turn that ends on a context overflow ends with the
+ * connection's words, in place of pi's or the server's. pi ends a run on an overflow before it
+ * compacts the conversation to retry it, so that end isn't final until the compaction is: a retry
+ * ends the turn itself, a compaction that fails for another reason, such as a server that stopped
+ * answering, ends the turn with that failure, and one the user stopped ends it as interrupted.
+ */
+function createOverflowEnding( ai: AiConnection ) {
+	const words = ai.exactContextWindow?.overflowMessage;
+	let pending: AgentEndEvent | undefined;
+	let compacting = false;
+
+	// The overflowed run's end, final: with `errorMessage`, or as interrupted without one.
+	const end = ( event: AgentEndEvent, errorMessage?: string ): AgentEndEvent => {
+		const last = findLastAssistant( event.messages );
+		const ending =
+			errorMessage === undefined
+				? { stopReason: 'aborted' as const, errorMessage: undefined }
+				: { errorMessage };
+		return {
+			...event,
+			willRetry: false,
+			messages: event.messages.map( ( message ) =>
+				message === last ? { ...last, ...ending } : message
+			),
+		};
+	};
+
+	return {
+		handle( event: AgentSessionEvent ): AgentSessionEvent[] {
+			if ( ! words ) {
+				return [ event ];
+			}
+			if ( event.type === 'agent_end' && ! event.willRetry ) {
+				const last = findLastAssistant( event.messages );
+				if ( last && isContextOverflow( last ) ) {
+					pending = event;
+					return [ { ...event, willRetry: true } ];
+				}
+			}
+			if ( event.type === 'compaction_start' && event.reason === 'overflow' ) {
+				compacting = true;
+			}
+			if ( event.type !== 'compaction_end' || event.reason !== 'overflow' || ! pending ) {
+				return [ event ];
+			}
+			const overflowed = pending;
+			const summaryFailed = compacting;
+			compacting = false;
+			pending = undefined;
+			if ( event.willRetry ) {
+				return [ event ];
+			}
+			if ( event.aborted ) {
+				return [ event, end( overflowed ) ];
+			}
+			const last = findLastAssistant( overflowed.messages )!;
+			const failure =
+				summaryFailed &&
+				event.errorMessage &&
+				! isContextOverflow( { ...last, errorMessage: event.errorMessage } )
+					? event.errorMessage
+					: words;
+			return [ { ...event, errorMessage: undefined }, end( overflowed, failure ) ];
+		},
+		/** The end of a turn pi left on an overflow without compacting it, or that was interrupted. */
+		flush( interrupted: boolean ): AgentSessionEvent[] {
+			const overflowed = pending;
+			pending = undefined;
+			return overflowed && words ? [ end( overflowed, interrupted ? undefined : words ) ] : [];
+		},
+	};
+}
 
 export interface StudioAgentTurnConfig {
 	prompt: string;
@@ -152,6 +263,7 @@ async function runAgentSessionTurn(
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
 		let continuation = '';
+		const overflowEnding = createOverflowEnding( config.ai );
 		unsubscribe = session.subscribe( ( event ) => {
 			if (
 				event.type === 'agent_end' &&
@@ -167,7 +279,7 @@ async function runAgentSessionTurn(
 					return;
 				}
 			}
-			config.onEvent( event );
+			overflowEnding.handle( event ).forEach( ( item ) => config.onEvent( item ) );
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -201,6 +313,7 @@ async function runAgentSessionTurn(
 				{ triggerTurn: true }
 			);
 		}
+		overflowEnding.flush( controller.signal.aborted ).forEach( ( item ) => config.onEvent( item ) );
 		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
@@ -244,7 +357,19 @@ async function createStudioAgentSession(
 		toToolDefinition( config.host, tool, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( config.ai );
-	const settingsManager = createSettingsManager();
+	const settingsManager = createSettingsManager(
+		config.ai,
+		estimateTextTokens(
+			systemPrompt +
+				JSON.stringify(
+					toolDefinitions.map( ( { name, description, parameters } ) => ( {
+						name,
+						description,
+						parameters,
+					} ) )
+				)
+		)
+	);
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: sitesRoot,
@@ -359,11 +484,11 @@ function createProviderConfig( ai: AiConnection ): ProviderConfigInput {
 	};
 }
 
-function createSettingsManager(): SettingsManager {
+function createSettingsManager( ai: AiConnection, baseTokens: number ): SettingsManager {
 	return SettingsManager.inMemory(
 		{
 			defaultThinkingLevel: 'high',
-			compaction: STUDIO_COMPACTION_SETTINGS,
+			compaction: getCompactionSettings( ai, baseTokens ),
 		},
 		{ projectTrusted: false }
 	);

@@ -7,6 +7,7 @@ import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
 	readAiSettings,
 	setAiProvider as setAiProviderInConfig,
 	type AiSettings,
@@ -181,6 +182,12 @@ export async function connectAiProvider(
 	return changeAiSettings( () =>
 		connectProvider( getProviderServices( provider ), method, input )
 	);
+}
+
+// The models the provider's server lists now; rejects with the words for a server that doesn't
+// answer.
+export async function listAiProviderModels( _event: IpcMainInvokeEvent, requested: string ) {
+	return listProviderModels( getProviderServices( parseProviderId( requested ) ) );
 }
 
 export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {

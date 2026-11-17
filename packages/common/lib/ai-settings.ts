@@ -9,12 +9,14 @@ import {
 	toStoredProviderId,
 	type AccountDetails,
 	type AiProviderId,
+	type ListedAiModel,
 	type ProviderConfigs,
 	type ProviderId,
 	type ProviderServices,
 } from '@studio/providers';
 import {
 	readAiFields,
+	readFreshProviderConfig,
 	readProviderConfig,
 	updateAiFields,
 	writeProviderConfig,
@@ -59,6 +61,21 @@ export async function readAiSettings(): Promise< AiSettings > {
 			PROVIDER_IDS.map( ( id, index ) => [ id, accounts[ index ] ] )
 		) as AiSettings[ 'accounts' ],
 	};
+}
+
+/**
+ * The models a provider's server lists now, read with its stored config, given the provider's
+ * services from `@studio/providers/services`. Throws, with the words for it, when the server
+ * doesn't answer.
+ */
+export async function listProviderModels< Config >(
+	services: ProviderServices< Config >
+): Promise< ListedAiModel[] > {
+	const listModels = services.ai?.listModels;
+	if ( ! listModels ) {
+		throw new Error( `${ getProvider( services.id ).label } doesn't list models from a server.` );
+	}
+	return listModels( await readFreshProviderConfig( services ) );
 }
 
 /** Persists the provider without validation — for flows that already ran it. */

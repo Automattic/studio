@@ -27,8 +27,9 @@ import styles from './style.module.css';
 
 export function getProviderConnectMethods( id: ProviderId, loopbackSignIn: boolean ) {
 	return getProvider( id ).account.methods.filter(
-		( { kind } ) =>
-			kind !== 'redirect' && ( loopbackSignIn || ( kind !== 'loopback' && kind !== 'device' ) )
+		( { kind, hostOnly } ) =>
+			kind !== 'redirect' &&
+			( loopbackSignIn || ( kind !== 'loopback' && kind !== 'device' && ! hostOnly ) )
 	);
 }
 
@@ -52,13 +53,11 @@ export function ProviderRow( {
 	const [ values, setValues ] = useState< Record< string, string > >( {} );
 	const fields = formMethod ? getConnectFields( formMethod ) : [];
 	const instructions = formMethod?.instructions?.();
-	// The account is connected with the form being shown.
-	const current = formMethod !== undefined && formMethod.id === connectedMethod;
 	const signingIn = connect.isPending && connect.pending !== null;
 	// A sign-in waiting on the browser doesn't block connecting another way.
 	const pending =
 		settings.isLoading || ( connect.isPending && ! signingIn ) || disconnect.isPending;
-	const filled = fields.every( ( field ) => values[ field.name ]?.trim() );
+	const filled = fields.every( ( field ) => ! field.required || values[ field.name ]?.trim() );
 	const [ onlyMethod ] = methods;
 	const error = ( connect.error ?? disconnect.error )?.message;
 
@@ -158,6 +157,8 @@ export function ProviderRow( {
 			__( 'Finish signing in to %s in your browser.' ),
 			descriptor.label
 		);
+	} else if ( account?.connected && account.summary ) {
+		description = account.summary;
 	} else {
 		description = descriptor.description?.();
 	}
@@ -210,10 +211,7 @@ export function ProviderRow( {
 									type={ field.secret ? 'password' : 'text' }
 									autoComplete="off"
 									aria-label={ field.title }
-									placeholder={
-										( field.secret && current && account?.connected && account.summary ) ||
-										field.placeholder
-									}
+									placeholder={ field.placeholder }
 									value={ values[ field.name ] ?? '' }
 									disabled={ pending }
 									onChange={ ( event ) =>

@@ -118,6 +118,7 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 	gemini: providerConfigStore( 'gemini' ),
 	'github-copilot': providerConfigStore( 'github-copilot' ),
 	spacefast: providerConfigStore( 'spacefast' ),
+	'local-llm': providerConfigStore( 'local-llm' ),
 };
 
 // A provider that came after the fields above keeps its config in `providerConfigs`.

@@ -39,6 +39,7 @@ import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { ListedAiModel } from '@studio/providers';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
@@ -863,6 +864,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'PUT',
 				body: JSON.stringify( { provider } ),
 			} );
+		},
+		async listProviderModels( provider ) {
+			return api< ListedAiModel[] >( `/ai-settings/providers/${ provider }/models` );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on

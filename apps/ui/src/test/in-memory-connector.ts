@@ -357,6 +357,7 @@ export function createInMemoryConnector(
 		} ),
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
+		listProviderModels: async () => [],
 		getInstalledApps: async () => installedApps(),
 		getAgentApps: async () =>
 			AGENT_APP_IDS.map( ( id ) => ( {

@@ -1,10 +1,10 @@
-import { AI_PROVIDER_IDS, getConnectMethod } from '@studio/providers';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-import { useConnector } from '@/data/core';
+import { AI_PROVIDER_IDS, getConnectMethod, getProvider } from '@studio/providers';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useState } from 'react';
+import { useConnector, type Connector } from '@/data/core';
 import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
-import type { AiProviderId, PendingConnect, ProviderId } from '@studio/providers';
+import type { AiProviderId, ListedAiModel, PendingConnect, ProviderId } from '@studio/providers';
 
 // The WordPress.com account is the sign-in, so auth changes refresh it too.
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
@@ -17,6 +17,65 @@ export function useAiSettings() {
 		// Read each launch: a saved copy may come from a build with other providers.
 		meta: { persist: false },
 	} );
+}
+
+const LISTED_MODELS_QUERY_KEY = [ 'listed-models' ] as const;
+
+const listedModelsQuery = ( connector: Connector, provider: ProviderId ) => ( {
+	queryKey: [ ...LISTED_MODELS_QUERY_KEY, provider ],
+	queryFn: () => connector.listProviderModels!( provider ),
+	retry: false,
+	meta: { persist: false },
+} );
+
+/** What a provider's server says it serves. */
+export interface ListedModels {
+	// The models it lists, once it answered.
+	models?: ListedAiModel[];
+	// Why it couldn't be read, in words for the user, in place of the models it listed before.
+	error?: string;
+}
+
+/**
+ * The models the servers of `providers` list, for each provider whose models a server the user
+ * runs lists: read from the server whenever the query is enabled, and never kept between runs. A
+ * server that doesn't answer lists none, and says why.
+ */
+export function useListedModels( providers: readonly ProviderId[], { enabled = true } = {} ) {
+	const connector = useConnector();
+	const listed = connector.listProviderModels
+		? providers.filter( ( id ) => getProvider( id ).ai?.userServer )
+		: [];
+	return useQueries( {
+		queries: listed.map( ( provider ) => ( {
+			...listedModelsQuery( connector, provider ),
+			enabled,
+		} ) ),
+		combine: ( results ) =>
+			Object.fromEntries(
+				listed.map( ( provider, index ): [ ProviderId, ListedModels ] => {
+					const { data, error } = results[ index ];
+					return [ provider, error ? { error: error.message } : { models: data } ];
+				} )
+			) as Partial< Record< ProviderId, ListedModels > >,
+	} );
+}
+
+/**
+ * Reads the models a provider's server lists: as last read, or from the server when nothing read
+ * them yet. Rejects with why the server couldn't be read.
+ */
+export function useReadListedModels() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useCallback(
+		( provider: ProviderId ) =>
+			queryClient.fetchQuery( {
+				...listedModelsQuery( connector, provider ),
+				staleTime: Infinity,
+			} ),
+		[ connector, queryClient ]
+	);
 }
 
 // Whether a provider that serves AI models is connected.

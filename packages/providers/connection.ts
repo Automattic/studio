@@ -9,6 +9,8 @@ export interface ConnectField {
 	placeholder?: string;
 	// Never shown back: a password input, or a masked prompt.
 	secret: boolean;
+	// Whether it needs a value; one whose schema accepts an empty value may be left empty.
+	required: boolean;
 	// An error message for the value, or undefined when it is valid.
 	validate( value: string ): string | undefined;
 }
@@ -33,6 +35,7 @@ export function getConnectFields( method: ConnectMethod ): ConnectField[] {
 			description: typeof meta.description === 'string' ? meta.description : undefined,
 			placeholder: typeof examples[ 0 ] === 'string' ? examples[ 0 ] : undefined,
 			secret: meta.writeOnly === true,
+			required: ! schema.safeParse( '' ).success,
 			validate: ( value ) => {
 				const result = schema.safeParse( value );
 				return result.success ? undefined : result.error.issues[ 0 ]?.message;

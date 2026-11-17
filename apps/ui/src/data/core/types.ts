@@ -54,6 +54,7 @@ import type { DesignFix } from '@studio/design-md';
 import type {
 	AiModelId,
 	AiProviderId,
+	ListedAiModel,
 	PendingConnect,
 	ProviderId,
 	ProviderSites,
@@ -181,6 +182,7 @@ interface ConnectorCapabilities {
 	nativeSites: boolean;
 	// A sign-in on a provider's site runs in the host: a `loopback` one comes back to a local port,
 	// which the page can't listen on, and a `device` one waits on endpoints the page can't reach.
+	// So does a connect method only a host can run (`hostOnly`), such as a server on this computer.
 	loopbackSignIn: boolean;
 }
 
@@ -522,6 +524,10 @@ export interface Connector {
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
+	// The models a provider's server lists now, for a provider whose models a server the user runs
+	// lists (`ai.userServer`); rejects when it doesn't answer. Absent where Studio can't reach such
+	// a server.
+	listProviderModels?( provider: ProviderId ): Promise< ListedAiModel[] >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

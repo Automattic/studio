@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
 	readAiSettings,
 	setAiProvider,
 } from '@studio/common/lib/ai-settings';
@@ -18,6 +19,7 @@ import {
 } from '@studio/common/lib/provider-config';
 
 const anthropic = getProviderServices( 'anthropic' );
+const localLlm = getProviderServices( 'local-llm' );
 const wpcom = getProviderServices( 'wpcom' );
 const disconnected = { connected: false };
 
@@ -59,6 +61,7 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				spacefast: disconnected,
+				'local-llm': disconnected,
 			},
 		} );
 	} );
@@ -77,6 +80,7 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				spacefast: disconnected,
+				'local-llm': disconnected,
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -210,6 +214,7 @@ describe( 'ai settings', () => {
 				gemini: disconnected,
 				'github-copilot': disconnected,
 				spacefast: disconnected,
+				'local-llm': disconnected,
 			},
 		} );
 		const written = readShared();
@@ -305,6 +310,39 @@ describe( 'ai settings', () => {
 		const context = await readSignInContext( 'openai' );
 		expect( context.remembered ).toEqual( { clientId: 'oaiapp_1' } );
 		expect( ( await readSignInContext( 'openai' ) ).hostId ).toBe( context.hostId );
+	} );
+
+	it( 'lists the models of a connected local server with its stored config', async () => {
+		// An Ollama server that lists two models, one of which can call tools.
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async ( url: string, init?: RequestInit ) => {
+				if ( url.endsWith( '/v1/models' ) ) {
+					return Response.json( { data: [ { id: 'gemma3:270m' }, { id: 'qwen3:0.6b' } ] } );
+				}
+				const { model } = JSON.parse( String( init?.body ) );
+				return Response.json( {
+					capabilities: model === 'qwen3:0.6b' ? [ 'completion', 'tools' ] : [ 'completion' ],
+				} );
+			} )
+		);
+
+		const settings = await connectProvider( localLlm, 'server', {
+			address: 'localhost:11434',
+			apiKey: '',
+		} );
+
+		expect( settings.accounts[ 'local-llm' ] ).toEqual( {
+			connected: true,
+			method: 'server',
+			summary: 'http://localhost:11434',
+			model: 'local-llm/qwen3:0.6b',
+		} );
+		await expect( listProviderModels( localLlm ) ).resolves.toEqual( [
+			{ id: 'local-llm/gemma3:270m', name: 'gemma3:270m', supportsImages: false },
+			{ id: 'local-llm/qwen3:0.6b', name: 'qwen3:0.6b', supportsImages: false },
+		] );
+		expect( fetch ).toHaveBeenCalledWith( 'http://localhost:11434/v1/models', expect.anything() );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

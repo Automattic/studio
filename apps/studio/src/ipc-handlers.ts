@@ -129,8 +129,8 @@ import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site
 import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
 import {
 	findAiModel,
-	getProvider,
 	normalizeProviderId,
+	servesAiModel,
 	toStoredProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -242,6 +242,7 @@ export {
 	getWapuuScore,
 	connectAiProvider,
 	disconnectAiProvider,
+	listAiProviderModels,
 	startProviderConnect,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
@@ -378,7 +379,7 @@ export async function setAiSessionProvider(
 	if ( ! provider ) {
 		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	if ( ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
+	if ( ! servesAiModel( provider, model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {

@@ -48,6 +48,7 @@ import {
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
 	readAiSettings,
 	setAiProvider,
 } from '@studio/common/lib/ai-settings';
@@ -183,8 +184,8 @@ import {
 	AI_PROVIDER_IDS,
 	ConnectError,
 	findAiModel,
-	getProvider,
 	normalizeProviderId,
+	servesAiModel,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
 	type SitesProviderId,
@@ -817,6 +818,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			await changeAiSettings( res, () =>
 				connectProvider( getProviderServices( provider ), method, input )
 			);
+		} )
+	);
+
+	// The models the provider's server lists now, for a provider whose models a server the user
+	// runs lists. A server that doesn't answer fails with the words for it.
+	api.get(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			if ( provider ) {
+				res.json( await listProviderModels( getProviderServices( provider ) ) );
+			}
 		} )
 	);
 
@@ -2228,7 +2241,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;
 			}
-			if ( ! model || ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
+			if ( ! model || ! servesAiModel( provider, model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}

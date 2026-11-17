@@ -1,6 +1,7 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
+import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
@@ -1035,6 +1036,11 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		// GitHub Copilot only signs in on its site, so the web offers nothing for it at all.
 		expect( row( 'github-copilot-provider' ) ).toBeNull();
 		expect( row( 'spacefast-provider' ) ).toBeNull();
+		// Nor can a page reach a model server on the user's computer.
+		expect( row( 'local-llm-provider' ) ).toBeNull();
+		fireEvent.change( searchBox(), { target: { value: 'Local LLM' } } );
+		expect( screen.queryByRole( 'tab', { name: 'Local LLM' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
 		expect( screen.queryByRole( 'tab', { name: 'Agents' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Use WordPress Studio with your agents' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Manual MCP setup' ) ).not.toBeInTheDocument();
@@ -1084,6 +1090,76 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			} )
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'connects a local model server by its address alone, and shows the address on its row', async () => {
+		let connected = false;
+		const settings = () => {
+			const current = aiSettings( 'wpcom', [ 'wpcom' ] );
+			if ( connected ) {
+				current.accounts[ 'local-llm' ] = {
+					connected: true,
+					...getProvider( 'local-llm' ).account.describe( {
+						method: 'server',
+						baseUrl: 'http://localhost:11434/v1',
+						model: 'qwen3:0.6b',
+					} ),
+				};
+			}
+			return current;
+		};
+		const { connector } = await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings(),
+				connectProvider: async () => {
+					connected = true;
+					return settings();
+				},
+			},
+		} );
+		fireEvent.change( searchBox(), { target: { value: 'Local LLM' } } );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Local LLM' } ) );
+		fireEvent.click(
+			await within( await findProviderRow( 'local-llm-provider' ) ).findByRole( 'button', {
+				name: 'Connect',
+			} )
+		);
+		const form = await screen.findByRole( 'form', { name: 'Local LLM connection' } );
+		const save = within( form ).getByRole( 'button', { name: 'Save' } );
+		expect( within( form ).getByLabelText( 'API key', { selector: 'input' } ) ).toHaveAttribute(
+			'type',
+			'password'
+		);
+		expect( save ).toBeDisabled();
+		fireEvent.change( within( form ).getByLabelText( 'Server address', { selector: 'input' } ), {
+			target: { value: 'localhost:11434' },
+		} );
+		fireEvent.click( save );
+
+		await waitFor( () =>
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'local-llm', 'server', {
+				address: 'localhost:11434',
+			} )
+		);
+		expect(
+			await within( await findProviderRow( 'local-llm-provider' ) ).findByText(
+				'http://localhost:11434'
+			)
+		).toBeVisible();
+	} );
+
+	it( 'shows a connected key’s preview on its row, never in the key field', async () => {
+		await setup( { section: 'ai' } );
+		const anthropic = await findProviderRow( 'anthropic-provider' );
+		expect( await within( anthropic ).findByText( 'sk-ant-…test' ) ).toBeVisible();
+
+		fireEvent.click( await within( anthropic ).findByRole( 'button', { name: 'Manage' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
+
+		expect(
+			await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } )
+		).toHaveAttribute( 'placeholder', 'sk-…' );
 	} );
 
 	it( 'connects with the method the user picks', async () => {

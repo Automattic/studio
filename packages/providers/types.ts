@@ -1,6 +1,7 @@
 import type { AnthropicConfig } from './anthropic/config';
 import type { GeminiConfig } from './gemini/config';
 import type { GithubCopilotConfig } from './github-copilot/config';
+import type { LocalLlmConfig } from './local-llm/config';
 import type { AiModelId } from './models';
 import type { OpenaiConfig } from './openai/config';
 import type { SpacefastConfig } from './spacefast/config';
@@ -16,10 +17,17 @@ export type ProviderId =
 	| 'openai'
 	| 'gemini'
 	| 'github-copilot'
-	| 'spacefast';
+	| 'spacefast'
+	| 'local-llm';
 
 // The providers that serve AI models.
-export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot';
+export type AiProviderId =
+	| 'wpcom'
+	| 'anthropic'
+	| 'openai'
+	| 'gemini'
+	| 'github-copilot'
+	| 'local-llm';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
@@ -29,6 +37,7 @@ export interface ProviderConfigs {
 	gemini: GeminiConfig;
 	'github-copilot': GithubCopilotConfig;
 	spacefast: SpacefastConfig;
+	'local-llm': LocalLlmConfig;
 }
 
 // The remote sites of each provider that offers them.
@@ -71,6 +80,9 @@ export type ConnectMethod = {
 	label: () => string;
 	// What to do before connecting, in Markdown.
 	instructions?: () => string;
+	// Only a process on the user's computer can run it, such as the Desktop app, `studio ui`'s
+	// server or the CLI: a page can't reach what it checks.
+	hostOnly?: boolean;
 } & (
 	| // A form rendered from `input`.
 	{ kind: 'form'; input: () => ConnectInputSchema }
@@ -95,6 +107,9 @@ export interface AccountDetails {
 	// The provider's models this account can run, when its plan decides which: surfaces offer
 	// only these. Without it, the account runs every model the provider lists.
 	models?: AiModelId[];
+	// The model a new chat on the account starts on when the user hasn't picked one, for a provider
+	// whose models a server the user runs lists, which has no default of its own.
+	model?: AiModelId;
 	links?: { label: string; url: string }[];
 }
 
@@ -170,13 +185,37 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 		// continues the same registration with it; never a credential.
 		remember?( config: Config ): Record< string, string > | undefined;
 	};
-	ai?: {
-		models: readonly AiModel< AiModelId >[];
-		defaultModel: AiModelId;
-		// The default when the account has paid AI credits left.
-		paidDefaultModel?: AiModelId;
-	};
+	ai?: ProviderAi;
 	sites?: ProviderSitesInfo< Site >;
+}
+
+// The models a provider serves: a list Studio knows, or the ones a server the user runs lists.
+export type ProviderAi =
+	| {
+			models: readonly AiModel< AiModelId >[];
+			defaultModel: AiModelId;
+			// The default when the account has paid AI credits left.
+			paidDefaultModel?: AiModelId;
+			userServer?: undefined;
+	  }
+	| {
+			// The models are the ones a server the user runs lists, which surfaces read from it each
+			// time they offer them (`listModels`). New chats start on the account's model. Chats on it
+			// need no internet, and analytics never name them.
+			userServer: true;
+			models?: undefined;
+			defaultModel?: undefined;
+			paidDefaultModel?: undefined;
+	  };
+
+// A model a server the user runs lists, as surfaces offer it.
+export interface ListedAiModel {
+	// Studio's id for it, which sessions record.
+	id: AiModelId;
+	// The server's name for it.
+	name: string;
+	// Whether the server says the model reads images.
+	supportsImages: boolean;
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -189,6 +228,10 @@ export interface AiConnection {
 	requestModelId?: string;
 	// Replaces a stream error's message; `undefined` keeps it.
 	rewriteError?: ( message: string ) => string | undefined;
+	// `model.contextWindow` is exactly the context the server runs the model with: the runtime
+	// compacts to fit it and never sends a request it can't hold, and a turn that still can't fit
+	// ends with `overflowMessage`.
+	exactContextWindow?: { overflowMessage: string };
 }
 
 export interface GenerateImageRequest {
@@ -308,6 +351,8 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 			model: AiModelId,
 			options: { sessionId?: string }
 		): Promise< AiConnection >;
+		// The models the provider's server lists now.
+		listModels?( config: Config | undefined ): Promise< ListedAiModel[] >;
 		// Whether `generateImages` works with this config; defaults to true.
 		canGenerateImages?( config: Config ): boolean;
 		// Results keep the requests' order; a failure never aborts the rest.

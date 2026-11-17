@@ -717,6 +717,9 @@ export function createIpcConnector(): Connector {
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},
+		async listProviderModels( provider ) {
+			return unwrapIpcError( ipcApi.listAiProviderModels( provider ) );
+		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;

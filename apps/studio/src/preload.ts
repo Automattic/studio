@@ -137,6 +137,7 @@ const api: IpcApi = {
 	connectAiProvider: ( provider, method, input ) =>
 		ipcRendererInvoke( 'connectAiProvider', provider, method, input ),
 	disconnectAiProvider: ( provider ) => ipcRendererInvoke( 'disconnectAiProvider', provider ),
+	listAiProviderModels: ( provider ) => ipcRendererInvoke( 'listAiProviderModels', provider ),
 	startProviderConnect: ( provider, method ) =>
 		ipcRendererInvoke( 'startProviderConnect', provider, method ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),

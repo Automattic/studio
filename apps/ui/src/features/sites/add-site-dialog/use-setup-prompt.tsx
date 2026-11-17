@@ -78,6 +78,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const providerConnected = !! settings?.accounts[ provider ].connected;
 	const model = resolveSessionModelForProvider( [], provider, {
 		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
+		settings,
 	} );
 	const openSite = ( siteId: string ) =>
 		navigate( { to: '/sites/$siteId/new', params: { siteId } } );

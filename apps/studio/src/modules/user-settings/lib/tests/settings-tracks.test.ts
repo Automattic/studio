@@ -123,6 +123,7 @@ describe( 'AI provider settings', () => {
 			openai: { connected: false },
 			gemini: { connected: false },
 			'github-copilot': { connected: false },
+			'local-llm': { connected: false },
 			spacefast: { connected: false },
 		},
 	} );

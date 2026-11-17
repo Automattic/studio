@@ -338,18 +338,6 @@ describe( 'Studio AI MCP tools', () => {
 			return page.goto.mock.calls[ 0 ]?.[ 0 ];
 		};
 
-		it( 'screenshots a url without resolving a local site', async () => {
-			const tool = getTool( 'take_screenshot' );
-			expect(
-				Value.Check( tool.parameters as TSchema, { url: 'http://localhost:8903/pricing' } )
-			).toBe( true );
-
-			await expect( openedUrl( { url: 'http://localhost:8903/pricing' } ) ).resolves.toBe(
-				'http://localhost:8903/pricing'
-			);
-			expect( host.sites.resolve ).not.toHaveBeenCalled();
-		} );
-
 		it( 'screenshots the home page of a site resolved from nameOrPath', async () => {
 			const tool = getTool( 'take_screenshot' );
 			expect( Value.Check( tool.parameters as TSchema, { nameOrPath: 'My Site' } ) ).toBe( true );

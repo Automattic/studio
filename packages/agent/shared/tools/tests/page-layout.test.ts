@@ -574,7 +574,10 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				<button class="toggle">${ hidden }<svg width="24" height="24"></svg></button>
 				<div class="wp-block-jetpack-button"><button class="wp-block-button__link">Send</button></div>
 				<input type="submit" value="Send">
-				<button style="display:none"></button>`,
+				<button style="display:none"></button>
+				<style>.eye::before{content:"";display:block;width:20px;height:20px;background-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>')}.font::after{content:"\\e010"}</style>
+				<button class="eye" type="button" style="width:20px;height:20px"></button>
+				<button class="font" type="button"></button>`,
 				pageBlankButtons
 			)
 		).toEqual( [

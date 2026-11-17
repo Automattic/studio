@@ -1159,7 +1159,7 @@ export function pageSticky( page: Page ): Promise< string[] > {
  * inside it renders in a box of its own (text a screen reader reads, in a
  * 1px clipped box as WordPress's screen-reader-text and Jetpack's
  * is-visually-hidden make it, shows nothing), no image or icon renders in
- * it, and an input button has no value. A block saved without its label, as
+ * it or in its ::before or ::after, and an input button has no value. A block saved without its label, as
  * one given an attribute its block type does not have, renders as one.
  */
 export function pageBlankButtons( page: Page ): Promise< string[] > {
@@ -1193,7 +1193,21 @@ export function pageBlankButtons( page: Page ): Promise< string[] > {
 					return true;
 				}
 			}
-			return [ ...button.querySelectorAll( 'img, svg, picture, video, canvas' ) ].some( seen );
+			// An icon a stylesheet draws, as an image or a character of an icon font,
+			// as WooCommerce's password toggle draws an eye in its ::before.
+			const drawn = [ '::before', '::after' ].some( ( pseudo ) => {
+				const style = getComputedStyle( button, pseudo );
+				return (
+					! [ 'none', 'normal' ].includes( style.content ) &&
+					( style.content.replace( /^["']|["']$/g, '' ).trim() !== '' ||
+						/url\(/.test( style.backgroundImage + style.maskImage ) )
+				);
+			} );
+			return (
+				drawn ||
+				/url\(/.test( getComputedStyle( button ).backgroundImage ) ||
+				[ ...button.querySelectorAll( 'img, svg, picture, video, canvas' ) ].some( seen )
+			);
 		};
 		const lines: string[] = [];
 		for ( const button of document.querySelectorAll(

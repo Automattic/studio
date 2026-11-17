@@ -1,11 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { __, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import {
-	getBundledWordPressImporterPath,
+	getBundledWordPressImporterZipPath,
 	getBundledWxrImportScriptPath,
 } from 'cli/lib/dependency-management/paths';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -19,7 +20,7 @@ import { ensureDir, Importer, ImporterResult } from './importer';
 const IMPORT_STAGING_SUBDIR = '.studio-wxr-import';
 
 // The wordpress-importer plugin ships in the CLI bundle (downloaded at build time, see
-// `getBundledWordPressImporterPath`) and is installed here so the WXR import works offline
+// `getBundledWordPressImporterZipPath`) and is installed here so the WXR import works offline
 // (no wordpress.org fetch). It is loaded directly by the PHP driver, so no `wp plugin
 // activate` step is required.
 const WORDPRESS_IMPORTER_PLUGIN_SLUG = 'wordpress-importer';
@@ -128,6 +129,7 @@ export class WxrImporter extends ImportExportEventEmitter implements Importer {
 		const destDir = path.join( pluginsDir, WORDPRESS_IMPORTER_PLUGIN_SLUG );
 		await ensureDir( pluginsDir );
 		await fs.promises.rm( destDir, { recursive: true, force: true } );
-		await fs.promises.cp( getBundledWordPressImporterPath(), destDir, { recursive: true } );
+		// The zip holds a single `wordpress-importer/` folder.
+		await extractZip( getBundledWordPressImporterZipPath(), pluginsDir );
 	}
 }

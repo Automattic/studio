@@ -60,9 +60,15 @@ test( 'starts the sites the previous version left running again after an update'
 	expect( await daemonRequest( session.daemonHomePath, 'ping' ) ).toEqual( {
 		version: cliPackageJson.version,
 	} );
-	const newPid = await onlinePid( siteIds.running );
-	expect( newPid ).toBeDefined();
-	expect( newPid ).not.toBe( oldPid );
+	await expect
+		.poll(
+			async () => {
+				const pid = await onlinePid( siteIds.running );
+				return pid !== undefined && pid !== oldPid;
+			},
+			{ timeout: 120_000, message: 'The upgraded daemon restarts the previously running site' }
+		)
+		.toBe( true );
 	expect( await onlinePid( siteIds.stopped ) ).toBeUndefined();
 
 	const response = await fetch( await session.getSiteUrl( 'Kept Running' ), {

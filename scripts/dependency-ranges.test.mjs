@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import semver from 'semver';
 import { expect, it } from 'vitest';
 
 const root = path.resolve( import.meta.dirname, '..' );
@@ -38,4 +39,20 @@ it( 'gives the packages and the apps the same range for a dependency they share'
 			)
 	);
 	expect( mismatches ).toEqual( [] );
+} );
+
+// Packaging installs only the CLI's own `dependencies` in `apps/cli`, so what the CLI bundles
+// comes from the root `node_modules`, where another workspace may have hoisted another version.
+it( 'bundles the CLI dependencies at the versions the CLI asks for', () => {
+	const cli = JSON.parse( readFileSync( path.join( root, 'apps/cli/package.json' ), 'utf8' ) );
+	const outOfRange = Object.entries( cli.devDependencies )
+		.filter( ( [ , range ] ) => ! range.startsWith( 'file:' ) )
+		.flatMap( ( [ name, range ] ) => {
+			const manifest = path.join( root, 'node_modules', name, 'package.json' );
+			const { version } = JSON.parse( readFileSync( manifest, 'utf8' ) );
+			return semver.satisfies( version, range )
+				? []
+				: [ `${ name }: ${ version } in node_modules, ${ range } in apps/cli/package.json` ];
+		} );
+	expect( outOfRange ).toEqual( [] );
 } );

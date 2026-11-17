@@ -142,7 +142,12 @@ export class Logger< T extends string > {
 		if ( this.onProgress ) {
 			this.onProgress( error.message );
 		} else if ( canSend() ) {
-			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
+			process.send!( {
+				action: this.currentAction,
+				status: 'fail',
+				message: error.message,
+				code: error.code,
+			} );
 		} else if ( shouldUsePlainOutput() ) {
 			console.error( error.message );
 		} else {

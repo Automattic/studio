@@ -1,6 +1,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { promisify } from 'util';
+import yauzl from 'yauzl';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { DefaultExporter } from '../default-exporter';
 import type { ExportOptions } from '../../types';
 
@@ -133,6 +136,64 @@ describe( 'DefaultExporter', () => {
 			expect(
 				exporter.isPathExcludedByPattern( p( 'wp-content', 'plugins', 'foo', 'node_modules' ) )
 			).toBe( false );
+		} );
+	} );
+
+	describe( 'export', () => {
+		let sitePath: string;
+
+		beforeEach( () => {
+			sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-default-exporter-' ) );
+			fs.mkdirSync( path.join( sitePath, 'wp-content', 'uploads' ), { recursive: true } );
+			fs.mkdirSync( path.join( sitePath, 'wp-content', 'plugins', 'p' ), { recursive: true } );
+			fs.writeFileSync(
+				path.join( sitePath, 'wp-content', 'uploads', 'photo.jpg' ),
+				'a'.repeat( 4096 )
+			);
+			fs.writeFileSync(
+				path.join( sitePath, 'wp-content', 'plugins', 'p', 'p.php' ),
+				'a'.repeat( 4096 )
+			);
+			vi.mocked( runWpCliCommand ).mockResolvedValue( {
+				response: {
+					exitCode: Promise.resolve( 0 ),
+					stderrText: Promise.resolve( '' ),
+					stdoutText: Promise.resolve( '[]' ),
+				},
+				[ Symbol.asyncDispose ]: async () => {},
+			} as unknown as Awaited< ReturnType< typeof runWpCliCommand > > );
+		} );
+
+		afterEach( () => {
+			fs.rmSync( sitePath, { recursive: true, force: true } );
+		} );
+
+		it( 'stores already-compressed files in zip backups and deflates the rest', async () => {
+			const backupFile = path.join( sitePath, 'backup.zip' );
+			await new DefaultExporter( {
+				site: { id: 'site-1', name: 'Test Site', path: sitePath },
+				backupFile,
+				includes: { wpContent: true, database: false },
+				phpVersion: '8.3',
+			} as ExportOptions ).export();
+
+			const zip = await promisify< string, yauzl.Options, yauzl.ZipFile >( yauzl.open )(
+				backupFile,
+				{
+					lazyEntries: false,
+				}
+			);
+			const methods: Record< string, number > = {};
+			zip.on(
+				'entry',
+				( entry: yauzl.Entry ) => ( methods[ entry.fileName ] = entry.compressionMethod )
+			);
+			await new Promise( ( resolve ) => zip.on( 'end', resolve ) );
+
+			expect( methods ).toMatchObject( {
+				'wp-content/uploads/photo.jpg': 0,
+				'wp-content/plugins/p/p.php': 8,
+			} );
 		} );
 	} );
 } );

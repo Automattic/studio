@@ -4,13 +4,13 @@
 
 This document defines how WordPress Studio works with the services it holds an account with: WordPress.com, Anthropic, OpenAI, and other hosts. Each service is a provider, described in one package, so the CLI, the apps and the agent never hardcode one.
 
-It describes the architecture and the rules, not the exact APIs, which are expected to evolve. Items marked _(planned)_ are not implemented yet. For WordPress.com sync and previews, _(planned)_ means the feature works today but does not yet go through a provider.
+It describes the architecture and the rules, not the exact APIs, which are expected to evolve. Items marked _(planned)_ are not implemented yet. For WordPress.com sync, _(planned)_ means the feature works today but does not yet go through a provider.
 
 ## Terminology
 
 - **Provider**: a service WordPress Studio holds an account with.
 - **WordPress Studio sign-in**: the WordPress.com account the user signs in to WordPress Studio with. It is also the WordPress.com provider's account.
-- **Capability**: something a provider offers. Every provider has an account. It may also offer AI (chat models and image generation), remote sites (connect, push and pull) and previews (hosted copies of local sites).
+- **Capability**: something a provider offers. Every provider has an account. It may also offer AI (chat models and image generation) and remote sites: sites the user keeps (connect, push and pull), previews (temporary copies shared by a link), or both.
 - **Config**: what a provider needs to remember between runs, such as its credentials. The provider defines its shape; WordPress Studio stores it.
 - **Descriptor**: what a surface needs to know about a provider to show it: its label, capabilities, models and how its account connects. It is browser-safe.
 
@@ -25,17 +25,17 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 
 ## Providers
 
-| Provider                                     | Account                        | AI                                   | Sites      | Previews    |
-| -------------------------------------------- | ------------------------------ | ------------------------------------ | ---------- | ----------- |
-| WordPress.com (`wpcom`)                      | WordPress Studio sign-in       | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
-| Anthropic (`anthropic`)                      | API key, or subscription token | Claude models                        | —          | —           |
-| OpenAI (`openai`)                            | ChatGPT plan, or API key       | GPT models; images with an API key   | —          | —           |
-| Google Gemini (`gemini`)                     | API key                        | Gemini models; images                | —          | —           |
-| GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —           |
-| Meta (`meta`)                                | API key                        | Muse models; images                  | —          | —           |
-| xAI (`xai`)                                  | Grok plan or API key           | Grok models; images                  | —          | —           |
-| Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
-| Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
+| Provider                                     | Account                        | AI                                   | Sites      | Previews |
+| -------------------------------------------- | ------------------------------ | ------------------------------------ | ---------- | -------- |
+| WordPress.com (`wpcom`)                      | WordPress Studio sign-in       | `fast`, `balanced`, `strong`; images | push, pull | yes      |
+| Anthropic (`anthropic`)                      | API key, or subscription token | Claude models                        | —          | —        |
+| OpenAI (`openai`)                            | ChatGPT plan, or API key       | GPT models; images with an API key   | —          | —        |
+| Google Gemini (`gemini`)                     | API key                        | Gemini models; images                | —          | —        |
+| GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —        |
+| Meta (`meta`)                                | API key                        | Muse models; images                  | —          | —        |
+| xAI (`xai`)                                  | Grok plan or API key           | Grok models; images                  | —          | —        |
+| Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
+| Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
 
@@ -135,15 +135,19 @@ The Anthropic provider is `anthropic`. Builds before this design stored `anthrop
 - `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. A remote that names any provider comes with the descriptor-driven UI _(planned)_.
 - A provider declares whether it supports selective sync _(planned)_.
 
-## Previews _(planned)_
+## Previews
 
-Previews are a capability, and WordPress.com is the only provider that offers it. The UI shows previews only when a connected provider offers them, and preview commands go to that provider.
+- A preview is a remote site that expires: the provider builds it from a local site and shares it by a link until it is taken down or bought. It is part of the provider's sites, not a capability of its own, so a provider publishes to sites the user keeps (`sites.publish`), makes previews (`sites.previews`), or both.
+- Updating a preview is a push to it, with `preview` set. Creating one is `previews.create`, since the provider builds the site from the first upload. `previews.list` gives the account's previews still up, and `previews.delete` takes one down. A bought preview keeps its site ID, and WordPress Studio then connects it to its local site like any remote site.
+- The descriptor says what a preview is built from (`previews.content`), as `content` does for a push. WordPress.com builds previews through its site importer, from the zip of the site's folder with its SQLite database, while a push to a site the user keeps goes through its sync import, which takes the export archive and needs a plan; an unpaid preview refuses it.
+- WordPress Studio owns which local site each preview was made from, with the version it holds (`snapshots` in `cli.json`), and which connected site it shows changes to. Previews made on Jurassic Ninja by older builds are left to expire: updating one makes a new WordPress.com preview, and deleting one only drops it from the list.
+- `studio preview` stays the command family. WordPress.com is the only provider that offers previews, and the commands use it; naming the provider comes with a second one _(planned)_.
 
 ## Surfaces
 
 - **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from WordPress Studio sign-in. The `ipc`, `local` and static connectors stay thin wrappers over WordPress Studio's storage in `@studio/common` and the providers' services.
 - **The agent**, in Node or in the page, receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires WordPress Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
-- **The CLI** lists providers and models from descriptors in `studio code`. `studio auth` is WordPress Studio sign-in. `studio push` and `pull` hand the remote side to the provider; `preview` does too _(planned)_.
+- **The CLI** lists providers and models from descriptors in `studio code`. `studio auth` is WordPress Studio sign-in. `studio push`, `pull` and `preview` hand the remote side to the provider.
 - **Analytics**: existing Tracks properties keep their names, so reporting stays continuous.
 
 ## Out of scope

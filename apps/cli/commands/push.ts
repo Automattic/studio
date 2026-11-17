@@ -179,6 +179,12 @@ async function runPush(
 ): Promise< void > {
 	const { provider } = pushed;
 	const sites = getProviderSites( provider );
+	if ( ! sites.publish ) {
+		throw new LoggerError(
+			// translators: %s: the provider's name
+			sprintf( __( '%s only makes previews.' ), getProvider( provider ).label )
+		);
+	}
 	const service = getProviderServices( provider ).sites!;
 	const config = await requireConfig( provider );
 

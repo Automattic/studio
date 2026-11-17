@@ -1,11 +1,11 @@
 import { getPreviewLaunchUrl } from 'cli/commands/preview/launch';
-import { getStandingPreviews } from 'cli/lib/preview-sites';
+import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 
 vi.mock( 'cli/lib/wpcom-auth', () => ( {
 	requireAuthToken: vi.fn().mockResolvedValue( { id: 1, accessToken: 'token' } ),
 } ) );
-vi.mock( 'cli/lib/preview-sites', () => ( { getStandingPreviews: vi.fn() } ) );
+vi.mock( 'cli/lib/preview-sites', () => ( { wpcomPreviews: { list: vi.fn() } } ) );
 vi.mock( 'cli/lib/snapshots', () => ( { getSnapshotsFromConfig: vi.fn() } ) );
 
 describe( 'getPreviewLaunchUrl', () => {
@@ -22,8 +22,8 @@ describe( 'getPreviewLaunchUrl', () => {
 		[ 'no link for a preview of changes to a live site', { liveSiteId: 9 }, null ],
 		[ 'no link for a preview that was bought or ended', undefined, null ],
 	] )( 'returns %s', async ( _, standing, expected ) => {
-		vi.mocked( getStandingPreviews ).mockResolvedValue(
-			new Map( standing ? [ [ 7, standing ] ] : [] )
+		vi.mocked( wpcomPreviews.list ).mockResolvedValue(
+			standing ? [ { id: 7, name: '', url: '', ...standing } ] : []
 		);
 		const result = getPreviewLaunchUrl( 'preview.wpcomstaging.com' );
 		if ( expected ) {

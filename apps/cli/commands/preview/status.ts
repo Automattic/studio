@@ -1,9 +1,9 @@
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { __ } from '@wordpress/i18n';
 import { findSiteById } from 'cli/lib/cli-config/sites';
-import { getPreviewEditedAt } from 'cli/lib/preview-sites';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
+import { wpcomSites } from 'cli/lib/sync-api';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -33,7 +33,10 @@ export async function getPreviewStatus( host: string ): Promise< PreviewStatus >
 			? ( await getSiteVersion( site.id, site.path ) ) !== snapshot.versionId
 			: null;
 	const previewChanged = snapshot.syncedAt
-		? ( await getPreviewEditedAt( snapshot.atomicSiteId, token.accessToken ) ) > snapshot.syncedAt
+		? ( await wpcomSites.editedAt!(
+				{ token: token.accessToken },
+				{ id: snapshot.atomicSiteId }
+		  ) ) > snapshot.syncedAt
 		: null;
 	return { localSiteId: site?.id ?? null, localChanged, previewChanged };
 }

@@ -12,12 +12,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
-import {
-	createPreviewSite,
-	getLivePreviewSite,
-	type PreviewSite,
-	uploadPreviewArchive,
-} from 'cli/lib/preview-sites';
+import { buildPreviewSite, getLivePreviewSite } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -29,6 +24,7 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { PreviewSite } from '@studio/providers';
 
 export type ReportPreviewStep = ( action: LoggerAction, message: string, progress: number ) => void;
 
@@ -67,14 +63,14 @@ export function reportLaunchUrl( launchUrl: string | undefined, logger: Logger< 
 }
 
 /**
- * The WordPress.com steps of making a preview from a local site: validate, archive, upload and
- * create. Shared by `preview create` and by `preview update` when it moves a Jurassic Ninja preview.
+ * Builds a preview from a local site: validate, archive, then push it to a new preview (`name`) or
+ * to an existing one (`siteId`). Shared by `preview create` and `preview update`.
  */
-export async function createWpcomPreviewSite( {
+export async function buildWpcomPreview( {
 	siteId,
 	siteFolder,
 	archivePath,
-	name,
+	target,
 	accessToken,
 	logger,
 	reportStep,
@@ -84,7 +80,7 @@ export async function createWpcomPreviewSite( {
 	siteId: string;
 	siteFolder: string;
 	archivePath: string;
-	name: string;
+	target: { name: string } | { siteId: number };
 	accessToken: string;
 	logger: Logger< LoggerAction >;
 	reportStep: ReportPreviewStep;
@@ -92,7 +88,6 @@ export async function createWpcomPreviewSite( {
 	liveSiteSelection?: string;
 } ): Promise< {
 	preview: PreviewSite;
-	archiveBytes: number | undefined;
 	versionId: string;
 	liveSite: SyncSite | undefined;
 	warning: string | undefined;
@@ -113,12 +108,26 @@ export async function createWpcomPreviewSite( {
 	logger.reportSuccess( __( 'Archive created' ) );
 
 	reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-	const attachmentId = await uploadPreviewArchive( archivePath, accessToken );
-	logger.reportSuccess( __( 'Archive uploaded' ) );
-
-	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id, siteId );
-	return { preview, archiveBytes, versionId, liveSite, warning };
+	let uploaded = false;
+	const preview = await buildPreviewSite(
+		accessToken,
+		archivePath,
+		target,
+		{ originId: siteId, liveSiteId: liveSite?.id },
+		( { phase } ) => {
+			if ( phase === 'uploading' || uploaded ) {
+				return;
+			}
+			uploaded = true;
+			logger.reportSuccess( __( 'Archive uploaded' ) );
+			reportStep(
+				LoggerAction.READY,
+				'name' in target ? __( 'Creating preview site…' ) : __( 'Updating preview site…' ),
+				60
+			);
+		}
+	);
+	return { preview, versionId, liveSite, warning };
 }
 
 export async function runCommand(
@@ -165,18 +174,18 @@ export async function runCommand(
 			);
 		}
 
-		const { preview, versionId, liveSite, warning } = await createWpcomPreviewSite( {
+		const { preview, versionId, liveSite, warning } = await buildWpcomPreview( {
 			siteId: site.id,
 			liveSiteSelection,
 			siteFolder,
 			archivePath,
-			name: snapshotName,
+			target: { name: snapshotName },
 			accessToken: token.accessToken,
 			logger,
 			reportStep,
 			onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
 		} );
-		const link = preview.shareUrl ?? `https://${ preview.hostname }`;
+		const link = preview.shareUrl ?? preview.url;
 		logger.reportSuccess( sprintf( __( 'Preview site available at: %s' ), link ) );
 		if ( liveSite && preview.liveSiteId === liveSite.id ) {
 			logger.reportSuccess(
@@ -190,16 +199,7 @@ export async function runCommand(
 		reportLaunchUrl( preview.launchUrl, logger );
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
-		snapshot = await saveSnapshotToConfig(
-			siteFolder,
-			preview.siteId,
-			preview.hostname,
-			token.id,
-			snapshotName,
-			preview.shareUrl,
-			versionId,
-			preview.liveSiteId
-		);
+		snapshot = await saveSnapshotToConfig( siteFolder, preview, token.id, snapshotName, versionId );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewCreateEvent( siteFolder, snapshot, {

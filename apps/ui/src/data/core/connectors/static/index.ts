@@ -333,8 +333,8 @@ export function createStaticConnector(): Connector {
 				)
 			);
 		},
-		async publishPreviewSite( siteId, existingHostname, name ) {
-			const { url } = await wpcom.publishPreview( siteId, existingHostname, name );
+		async publishPreviewSite( siteId, existingHostname, name, liveSite ) {
+			const { url } = await wpcom.publishPreview( siteId, existingHostname, name, liveSite );
 			return { url: `https://${ url }` };
 		},
 		deleteSnapshot: ( hostname ) => wpcom.deleteSnapshot( hostname ),

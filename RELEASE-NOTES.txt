@@ -184,6 +184,7 @@ Unreleased
 * Update PHP 8.2.35-studio-2 metadata #6013
 * Default new sites to All files access #6006
 * Bump glob from 13.0.6 to 14.0.2 #5649
+* Track which AI provider and connection method Studio Code runs on, and why connecting fails #6030
 * @vjymisal0 made their first contribution in https://github.com/Automattic/studio/pull/5911
 * @fellyph made their first contribution in https://github.com/Automattic/studio/pull/5899
 **Full Changelog**: https://github.com/Automattic/studio/compare/v2.2.0...v2.3.0

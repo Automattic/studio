@@ -179,8 +179,10 @@ export function useSettleSync() {
 			if ( settled.direction === 'preview' ) {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
-					const title = __( 'Preview link ready' );
-					const description = [ siteName(), settled.warning ].filter( Boolean ).join( ' · ' );
+					const title = settled.warning
+						? sprintf( /* translators: %s: site name. */ __( '%s preview is ready' ), siteName() )
+						: __( 'Preview link ready' );
+					const description = settled.warning ?? siteName();
 					const showNotice = settled.warning ? toast.warning : toast.success;
 					const copyAction: ToastAction = {
 						label: __( 'Copy link' ),

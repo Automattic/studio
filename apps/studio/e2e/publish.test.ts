@@ -86,7 +86,9 @@ test.describe( 'Share and publish', () => {
 
 		const access = dialog.getByRole( 'combobox', { name: 'Who can view', exact: true } );
 		await access.click();
-		await expect( page.getByRole( 'option', { name: 'Anyone with the link' } ) ).toBeChecked();
+		await expect(
+			page.getByRole( 'option', { name: 'Anyone with the link', selected: true } )
+		).toBeVisible();
 		await page.getByRole( 'option', { name: 'Everyone', exact: true } ).click();
 		await dialog.getByRole( 'button', { name: 'Continue on WordPress.com', exact: true } ).click();
 		await expect( dialog ).toBeVisible();
@@ -166,7 +168,9 @@ test.describe( 'Share and publish', () => {
 		await page.reload();
 
 		await page.getByRole( 'button', { name: 'Share…', exact: true } ).click();
-		await expect( page.getByRole( 'dialog', { name: 'Share', exact: true } ) ).toBeVisible();
+		await expect(
+			page.getByRole( 'dialog', { name: 'Share this WordPress', exact: true } )
+		).toBeVisible();
 		const panel = page.getByRole( 'dialog', { name: 'Share', exact: true } );
 		const mainWindow = await session.electronApp.browserWindow( page );
 		await mainWindow.evaluate( ( window, studioSiteId ) => {

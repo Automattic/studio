@@ -1987,7 +1987,12 @@ it.each( [ false, true, null ] )(
 			within( menu )
 				.getAllByRole( 'menuitem' )
 				.map( ( item ) => item.textContent?.trim() )
-		).toEqual( [ 'Update from live site…', 'View backups', 'Disconnect site…' ] );
+		).toEqual( [
+			'Update from live site…',
+			'View backups',
+			'Change destination…',
+			'Disconnect site…',
+		] );
 		await actions.keyboard( '{Escape}' );
 		const domain = screen.getByText( 'actual.blog' );
 		expect( domain.parentElement?.nextElementSibling ).toContainElement( published );

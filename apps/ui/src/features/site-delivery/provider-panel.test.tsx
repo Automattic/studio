@@ -146,7 +146,12 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [ 'Update from live site…', 'View backups', 'Disconnect site…' ] );
+	).toEqual( [
+		'Update from live site…',
+		'View backups',
+		'Change destination…',
+		'Disconnect site…',
+	] );
 	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Update from live site…' } ) );
 	const confirmation = await screen.findByRole( 'alertdialog', {
 		name: 'Update local site from lente.blog?',
@@ -182,7 +187,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		within( spacefastMenu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [ 'Open on Spacefast', 'Versions', 'Disconnect site…' ] );
+	).toEqual( [ 'Open on Spacefast', 'Versions', 'Change destination…', 'Disconnect site…' ] );
 	await user.click(
 		within( spacefastMenu ).getByRole( 'menuitem', { name: 'Open on Spacefast' } )
 	);
@@ -218,7 +223,7 @@ it( 'shows a site actions menu for a single connected site', async () => {
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [ 'Open on Spacefast', 'Versions', 'Disconnect site…' ] );
+	).toEqual( [ 'Open on Spacefast', 'Versions', 'Change destination…', 'Disconnect site…' ] );
 	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Versions' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		'https://my.spacefast.com/studio/lente/versions'
@@ -2018,4 +2023,20 @@ it( 'keeps available sites selectable when another provider cannot load', async 
 		'Could not load Spacefast sites.'
 	);
 	expect( dialog.getByRole( 'button', { name: /Live.*lente.blog/ } ) ).toBeEnabled();
+} );
+
+it( 'opens a replacement destination without disconnecting the current site', async () => {
+	const { user, connector } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => [],
+	} );
+	await open();
+	const actions = await openSiteActions( user );
+	await user.click( within( actions ).getByRole( 'menuitem', { name: 'Change destination…' } ) );
+	expect( screen.getByText( /Your current site stays online/ ) ).toBeVisible();
+	expect( screen.getByRole( 'combobox', { name: 'Destination' } ) ).toBeVisible();
+	await user.click( screen.getByRole( 'button', { name: 'Connect to an existing site' } ) );
+	expect( await screen.findByRole( 'dialog', { name: 'Choose an existing site' } ) ).toBeVisible();
+	expect( connector.disconnectRemoteSite ).not.toHaveBeenCalled();
+	expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
 } );

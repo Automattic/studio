@@ -82,6 +82,7 @@ import {
 	DialogFooter,
 } from '@/lib/ui';
 import { ConnectSiteIcon, DisconnectSiteIcon } from './connection-icons';
+import { DestinationIcon } from './destination-icon';
 import { DestinationRow } from './destination-row';
 import { connectExistingSiteKey, ExistingSiteStep } from './existing-site-step';
 import { GiftIcon } from './gift-icon';
@@ -191,7 +192,8 @@ export function PublishButton( {
 	} >( undefined );
 	const [ preparing, setPreparing ] = useState< 'checkout' | 'create' | 'confirm' >();
 	const publishingNewSite = preparing === 'create' || preparing === 'confirm';
-	const selected = publishingNewSite ? undefined : targets.selected;
+	const [ changingDestination, setChangingDestination ] = useState( false );
+	const selected = publishingNewSite || changingDestination ? undefined : targets.selected;
 	const hasLiveSite = targets.siteTargets.length > 0;
 	const snapshot = selected?.snapshot;
 	const remote = selected?.remote;
@@ -294,6 +296,7 @@ export function PublishButton( {
 		// Keep the setup in place until the connection and publish status have caught up.
 		if ( preparing === 'confirm' && activity?.kind !== 'pending' && ! targets.confirmingPublish ) {
 			setPreparing( undefined );
+			setChangingDestination( false );
 		}
 	}, [ preparing, activity?.kind, targets.confirmingPublish ] );
 	const [ publicPreviewKey, setPublicPreviewKey ] = useState< string >();
@@ -426,6 +429,7 @@ export function PublishButton( {
 			visibility.query.data?.launchStatus === 'launched' );
 	const { copy: copyLink, copied: linkCopied } = useCopyText( url ?? '', __( 'Link copied' ) );
 	const close = () => {
+		setChangingDestination( false );
 		setChoosingExistingSite( false );
 		setPreviewMenuOpen( false );
 		preview.cancelOverwrite();
@@ -523,6 +527,7 @@ export function PublishButton( {
 					toast.error( __( 'Could not watch for your new site. Please try again.' ) );
 				} );
 				await connector.openExternalUrl( checkoutUrl );
+				setChangingDestination( false );
 			} else if ( sites.newSite === 'create' ) {
 				const staged = stagedSite.current;
 				const remoteId =
@@ -601,7 +606,8 @@ export function PublishButton( {
 			  activity.direction === 'push' &&
 			  activity.provider === selected?.provider &&
 			  activity.remoteSiteId === remote.id );
-	const canConnectExistingSite = ! hasLiveSite && connectedProviders.length > 0;
+	const canConnectExistingSite =
+		( ! hasLiveSite || changingDestination ) && connectedProviders.length > 0;
 	const { data: thumbnail } = useSiteThumbnail( site.id, {
 		enabled: open,
 	} );
@@ -672,6 +678,17 @@ export function PublishButton( {
 						onClick={ () => void connector.openExternalUrl( link.url ) }
 					/>
 				) ) }
+				{ connectedProviders.length > 0 && (
+					<PublishMenuItem
+						icon={ <DestinationIcon /> }
+						label={ __( 'Change destination…' ) }
+						disabled={ disabled }
+						onClick={ () => {
+							chooseProvider( selected.provider );
+							setChangingDestination( true );
+						} }
+					/>
+				) }
 				<Menu.Separator />
 				<PublishMenuItem
 					icon={ <DisconnectSiteIcon /> }
@@ -908,9 +925,16 @@ export function PublishButton( {
 				</div>
 			</div>
 			<h3 className={ styles.publishSectionLabel }>{ __( 'Details' ) }</h3>
+			{ changingDestination && (
+				<p>
+					{ __(
+						'Your current site stays online. Studio will disconnect it when the new destination is ready.'
+					) }
+				</p>
+			) }
 			<div className={ styles.summaryRows }>
 				{ targetSwitcher }
-				{ ( ! hasLiveSite || publishingNewSite ) && (
+				{ ( ! hasLiveSite || publishingNewSite || changingDestination ) && (
 					<ProviderPicker
 						selectedProvider={ selected?.provider ?? emptyDestination }
 						providers={ connectedProviders }
@@ -1134,6 +1158,15 @@ export function PublishButton( {
 				aria-label={ remote ? __( 'Published site actions' ) : __( 'Preview actions' ) }
 			>
 				<div className={ styles.footerActions }>
+					{ changingDestination && (
+						<Button
+							variant="outline"
+							disabled={ disabled }
+							onClick={ () => setChangingDestination( false ) }
+						>
+							{ __( 'Back' ) }
+						</Button>
+					) }
 					{ publishingNewSite ? (
 						<Button variant="accent" loading disabled>
 							{ __( 'Publishing…' ) }
@@ -1152,7 +1185,7 @@ export function PublishButton( {
 						>
 							{ __( 'Publish' ) }
 						</Button>
-					) : previewPublicSelected ? (
+					) : previewPublicSelected || changingDestination ? (
 						<Button
 							variant="accent"
 							disabled={ disabled || connectionUnavailable }
@@ -1360,6 +1393,7 @@ export function PublishButton( {
 										publishTargetQueryKey( site.id ),
 										remotePublishTargetKey( provider, id )
 									);
+									setChangingDestination( false );
 									backFromExistingSite();
 								} }
 							/>

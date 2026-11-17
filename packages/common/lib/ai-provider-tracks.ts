@@ -132,7 +132,7 @@ const MODEL_FAMILIES: [ prefix: string, family: string ][] = [
 ];
 
 // WordPress.com's tiers pick their model on the server, so they are `studio`.
-export function getModelFamily( provider: ProviderId, model: string ): string {
+function getModelFamily( provider: ProviderId, model: string ): string {
 	if ( provider === 'wpcom' ) {
 		return 'studio';
 	}

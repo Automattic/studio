@@ -9,6 +9,7 @@ import {
 	readAiSettings,
 	type AiSettings,
 } from '@studio/common/lib/ai-settings';
+import { ConnectError } from '@studio/providers';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import {
@@ -192,6 +193,24 @@ describe( 'AI provider settings', () => {
 			success: true,
 			provider: 'anthropic',
 			previous_provider: 'anthropic',
+			surface: 'settings',
+		} );
+	} );
+
+	it( 'records a refused key with the reason', async () => {
+		mockReadAiSettings.mockResolvedValue( wpcomWithoutKey );
+		mockConnectProvider.mockRejectedValue( new ConnectError( 'Invalid key', 'invalid' ) );
+
+		await expect( saveKey( 'sk-ant-api03-badkey-0000' ) ).rejects.toBeInstanceOf( ConnectError );
+
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			action: 'connect',
+			target_provider: 'anthropic',
+			connection_method: 'api-key',
+			success: false,
+			failure_reason: 'invalid',
+			provider: 'wpcom',
+			previous_provider: 'wpcom',
 			surface: 'settings',
 		} );
 	} );

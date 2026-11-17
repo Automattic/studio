@@ -12,12 +12,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
-import {
-	createPreviewSite,
-	getLivePreviewSite,
-	type PreviewSite,
-	uploadPreviewArchive,
-} from 'cli/lib/preview-sites';
+import { buildPreviewSite, getLivePreviewSite, type BuiltPreview } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -67,14 +62,14 @@ export function reportLaunchUrl( launchUrl: string | undefined, logger: Logger< 
 }
 
 /**
- * The WordPress.com steps of making a preview from a local site: validate, archive, upload and
- * create. Shared by `preview create` and by `preview update` when it moves a Jurassic Ninja preview.
+ * Builds a preview from a local site: validate, archive, then push it to a new preview (`name`) or
+ * to an existing one (`siteId`). Shared by `preview create` and `preview update`.
  */
-export async function createWpcomPreviewSite( {
+export async function buildWpcomPreview( {
 	siteId,
 	siteFolder,
 	archivePath,
-	name,
+	target,
 	accessToken,
 	logger,
 	reportStep,
@@ -84,15 +79,14 @@ export async function createWpcomPreviewSite( {
 	siteId: string;
 	siteFolder: string;
 	archivePath: string;
-	name: string;
+	target: { name: string } | { siteId: number };
 	accessToken: string;
 	logger: Logger< LoggerAction >;
 	reportStep: ReportPreviewStep;
 	onArchiveBytes?: ( bytes: number | undefined ) => void;
 	liveSiteSelection?: string;
 } ): Promise< {
-	preview: PreviewSite;
-	archiveBytes: number | undefined;
+	preview: BuiltPreview;
 	versionId: string;
 	liveSite: SyncSite | undefined;
 	warning: string | undefined;
@@ -113,12 +107,26 @@ export async function createWpcomPreviewSite( {
 	logger.reportSuccess( __( 'Archive created' ) );
 
 	reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-	const attachmentId = await uploadPreviewArchive( archivePath, accessToken );
-	logger.reportSuccess( __( 'Archive uploaded' ) );
-
-	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id, siteId );
-	return { preview, archiveBytes, versionId, liveSite, warning };
+	let uploaded = false;
+	const preview = await buildPreviewSite(
+		accessToken,
+		archivePath,
+		target,
+		{ originId: siteId, liveSiteId: liveSite?.id },
+		( { phase } ) => {
+			if ( phase === 'uploading' || uploaded ) {
+				return;
+			}
+			uploaded = true;
+			logger.reportSuccess( __( 'Archive uploaded' ) );
+			reportStep(
+				LoggerAction.READY,
+				'name' in target ? __( 'Creating preview site…' ) : __( 'Updating preview site…' ),
+				60
+			);
+		}
+	);
+	return { preview, versionId, liveSite, warning };
 }
 
 export async function runCommand(
@@ -165,12 +173,12 @@ export async function runCommand(
 			);
 		}
 
-		const { preview, versionId, liveSite, warning } = await createWpcomPreviewSite( {
+		const { preview, versionId, liveSite, warning } = await buildWpcomPreview( {
 			siteId: site.id,
 			liveSiteSelection,
 			siteFolder,
 			archivePath,
-			name: snapshotName,
+			target: { name: snapshotName },
 			accessToken: token.accessToken,
 			logger,
 			reportStep,

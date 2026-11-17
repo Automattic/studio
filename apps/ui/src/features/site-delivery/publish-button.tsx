@@ -827,7 +827,7 @@ export function PublishButton( {
 		} );
 	const headerStatus =
 		creatingPreview && ! remote
-			? __( 'Creating preview link…' )
+			? __( 'Creating preview' )
 			: previewExpiryDate
 			? createInterpolateElement(
 					/* translators: <date> is replaced with the date the preview expires. */

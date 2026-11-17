@@ -240,7 +240,7 @@ it( 'keeps a single preview upload running when the popover is reopened', async 
 			( notice ) => notice.id === `preview-${ connector.state.sites[ 0 ].id }` && ! notice.leaving
 		)
 	).toBe( false );
-	expect( screen.getByText( 'Creating preview link…' ) ).toBeVisible();
+	expect( screen.getByText( 'Creating preview', { selector: '.studio-shimmer' } ) ).toBeVisible();
 	const creatingButton = screen.getByRole( 'button', { name: 'Creating preview' } );
 	expect( creatingButton ).toHaveAttribute( 'aria-busy', 'true' );
 	expect( creatingButton ).toHaveAttribute( 'aria-disabled', 'true' );

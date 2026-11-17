@@ -14,9 +14,16 @@
  * posts, so that is what WordPress shows, not a problem.
  */
 import { readFile } from 'fs/promises';
-import { FILE, readRenderedVersions, renderFrontPage } from '@studio/agent/node/front-page-render';
+import {
+	FILE,
+	catchThrown,
+	describeThrown,
+	readRenderedVersions,
+	renderFrontPage,
+} from '@studio/agent/node/front-page-render';
 import { readPosts } from '@studio/agent/node/post-content-check';
 import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
+import type { Thrown } from '@studio/agent/node/front-page-render';
 import type { ChangeReport, SiteChangeSource } from '@studio/agent/node/site-changes';
 import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
@@ -24,7 +31,8 @@ import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 const FRONT_END_TYPES = new Set( [ 'post', 'page' ] );
 
 const RENDER = ( ids: number[] ) => `
-$empty = array();
+$empty     = array();
+$thrown_by = array();
 foreach ( ${ JSON.stringify( ids ) } as $id ) {
 	$post = get_post( $id );
 	if ( ! $post ) {
@@ -71,13 +79,16 @@ foreach ( ${ JSON.stringify( ids ) } as $id ) {
 	};
 	add_filter( 'render_block_data', $parent, PHP_INT_MAX, 3 );
 	add_filter( 'render_block', $record, PHP_INT_MAX, 2 );
-	apply_filters( 'the_content', $post->post_content );
+	${ catchThrown( "apply_filters( 'the_content', $post->post_content );" ) }
+	if ( $thrown ) {
+		$thrown_by[ $id ] = $thrown;
+	}
 	remove_filter( 'render_block', $record, PHP_INT_MAX );
 	remove_filter( 'render_block_data', $parent, PHP_INT_MAX );
 	wp_reset_postdata();
 	$empty[ $id ] = $found;
 }
-echo 'EMPTY_BLOCKS=' . wp_json_encode( (object) $empty );`;
+echo 'EMPTY_BLOCKS=' . wp_json_encode( array( 'empty' => (object) $empty, 'thrown' => (object) $thrown_by ) );`;
 
 // The blocks a piece of markup holds, by name, as the block parser names them.
 const blockNames = ( markup: string ) =>
@@ -94,12 +105,15 @@ interface EmptyBlock {
 	render: string | null;
 }
 
-/** The blocks of each post that render as nothing, by post ID. */
+/**
+ * The blocks of each post that render as nothing, and what rendering each
+ * post threw, by post ID.
+ */
 export async function emptyBlocks(
 	host: StudioAgentHost,
 	site: HostSite,
 	ids: number[]
-): Promise< Record< string, EmptyBlock[] > > {
+): Promise< { empty: Record< string, EmptyBlock[] >; thrown: Record< string, Thrown > } > {
 	const output = await wpEval( host, site, RENDER( ids ) );
 	return printedJson( output, 'EMPTY_BLOCKS=' );
 }
@@ -149,30 +163,36 @@ export const renderedBlocks: SiteChangeSource = {
 	},
 };
 
-// What the front page renders as nothing of the blocks in the changed markup.
+// What the front page renders as nothing of the blocks in the changed markup,
+// or what rendering it threw.
 async function frontPageReports(
 	host: StudioAgentHost,
 	site: HostSite,
 	markup: string[]
 ): Promise< ChangeReport[] > {
 	const names = new Set( markup.flatMap( blockNames ) );
-	const empty = await renderFrontPage( host, site ).then(
-		( page ) => page.empty,
-		() => [] as string[]
-	);
-	const named = empty.filter( ( name ) => names.has( name ) );
-	return named.length
-		? [
-				{
-					key: 'front page rendered',
-					summary: `${
-						site.name
-					} front page: of the blocks in the changed templates, template parts and patterns, WordPress renders ${ named.join(
-						', '
-					) } as nothing for a visitor who is not logged in (render_block() through get_the_block_template_html(), in wp-includes/block-template.php).`,
-				},
-		  ]
-		: [];
+	const page = await renderFrontPage( host, site ).catch( () => undefined );
+	if ( ! page ) {
+		return [];
+	}
+	const named = page.empty.filter( ( name ) => names.has( name ) );
+	return [
+		{
+			key: 'front page rendered',
+			// Until it renders, which clears the problem.
+			problem: page.thrown
+				? `${ site.name } front page: ${ describeThrown( page.thrown ) }`
+				: undefined,
+			summary:
+				! page.thrown && named.length
+					? `${
+							site.name
+					  } front page: of the blocks in the changed templates, template parts and patterns, WordPress renders ${ named.join(
+							', '
+					  ) } as nothing for a visitor who is not logged in (render_block() through get_the_block_template_html(), in wp-includes/block-template.php).`
+					: undefined,
+		},
+	];
 }
 
 async function postReports(
@@ -181,20 +201,25 @@ async function postReports(
 	posts: Awaited< ReturnType< typeof readPosts > >
 ): Promise< ChangeReport[] > {
 	// A site WordPress cannot render for says nothing, as a failed note does.
-	const empty = await emptyBlocks(
+	const rendered = await emptyBlocks(
 		host,
 		site,
 		posts.map( ( post ) => post.id )
 	).catch( () => undefined );
-	if ( ! empty ) {
+	if ( ! rendered ) {
 		return [];
 	}
 	return posts.map( ( post ) => {
-		const blocks = empty[ post.id ] ?? [];
+		const blocks = rendered.empty[ post.id ] ?? [];
+		const thrown = rendered.thrown[ post.id ];
 		return {
 			key: `rendered ${ post.id }`,
 			post: post.id,
-			problem: blocks.length
+			problem: thrown
+				? `${ site.name } ${ post.type } ${ post.id } "${ post.title }": ${ describeThrown(
+						thrown
+				  ) }`
+				: blocks.length
 				? `${ site.name } ${ post.type } ${ post.id } "${
 						post.title
 				  }": WordPress renders these blocks as nothing on the front end (render_block() through the_content, in wp-includes/blocks.php): ${ blocks

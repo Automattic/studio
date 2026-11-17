@@ -35,6 +35,54 @@ export async function readRenderedVersions( sitePath: string ): Promise< Version
 	return { ...( await readVersions( sitePath ) ), ...Object.fromEntries( versions ) };
 }
 
+/** What rendering threw: the innermost block rendering then, if any, its message and where. */
+export interface Thrown {
+	block: string | null;
+	message: string;
+	at: string;
+}
+
+/**
+ * PHP that runs `render`, a statement, and sets `$thrown` to what it threw
+ * (a Thrown, or null), as a block's render callback given an attribute of a
+ * type its code does not take throws a TypeError, which on the front end is
+ * a fatal error in place of the page.
+ */
+export const catchThrown = ( render: string ) => `
+$thrown    = null;
+$rendering = array();
+$enter     = function ( $parsed ) use ( &$rendering ) {
+	$rendering[] = $parsed['blockName'];
+	return $parsed;
+};
+$leave     = function ( $html ) use ( &$rendering ) {
+	array_pop( $rendering );
+	return $html;
+};
+add_filter( 'render_block_data', $enter, PHP_INT_MAX );
+add_filter( 'render_block', $leave, PHP_INT_MAX );
+$buffers = ob_get_level();
+try {
+	${ render }
+} catch ( Throwable $e ) {
+	while ( ob_get_level() > $buffers ) {
+		ob_end_clean();
+	}
+	$thrown = array(
+		'block'   => end( $rendering ) ?: null,
+		'message' => get_class( $e ) . ': ' . $e->getMessage(),
+		'at'      => $e->getFile() . ':' . $e->getLine(),
+	);
+}
+remove_filter( 'render_block', $leave, PHP_INT_MAX );
+remove_filter( 'render_block_data', $enter, PHP_INT_MAX );`;
+
+/** A sentence of what rendering threw, after the page's name. */
+export const describeThrown = ( thrown: Thrown ) =>
+	`rendering ${ thrown.block ?? 'it' } threw ${ thrown.message } (${
+		thrown.at
+	}), so a visitor gets a PHP fatal error instead of the page. Give the block the attributes its code takes.`;
+
 export interface RenderedPage {
 	html: string;
 	// The "#id" urls of the navigation links WordPress rendered, with their labels.
@@ -48,6 +96,7 @@ export interface RenderedPage {
 	other?: Record< string, string | number >;
 	home: string;
 	stylesheet: string;
+	thrown: Thrown | null;
 }
 
 const RENDER = ( request: string ) => `
@@ -85,7 +134,10 @@ foreach ( $tags as $tag => $getter ) {
 if ( ! $template ) {
 	get_index_template();
 }
-$html = empty( $GLOBALS['_wp_current_template_content'] ) ? '' : get_the_block_template_html();
+$html = '';
+${ catchThrown(
+	"$html = empty( $GLOBALS['_wp_current_template_content'] ) ? '' : get_the_block_template_html();"
+) }
 $ids  = array();
 $tags = new WP_HTML_Tag_Processor( $html );
 while ( $tags->next_tag() ) {
@@ -108,6 +160,7 @@ echo wp_json_encode( array(
 	'other'      => $other ? array( 'page' === $other[0]->post_type ? 'page_id' : 'p' => $other[0]->ID ) : array( 'error' => '404' ),
 	'home'       => wp_make_link_relative( home_url( '/' ) ),
 	'stylesheet' => get_stylesheet(),
+	'thrown'     => $thrown,
 ) );`;
 
 const phpArray = ( vars: Record< string, string | number > ) =>

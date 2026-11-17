@@ -27,7 +27,10 @@ add_action( 'init', function () {
 	register_block_type( 'studio-test/wrapper', array( 'render_callback' => function () { return '<div>Wrapped</div>'; } ) );
 	register_block_type( __DIR__ . '/returns' );
 	register_block_type( 'studio-test/cart', array( 'render_callback' => function () { return is_user_logged_in() ? '<a>Cart</a>' : ''; } ) );
+	// As WooCommerce's product collection, given a query timeFrame of false (eval50's bike shop).
+	register_block_type( 'studio-test/recent', array( 'render_callback' => function ( $attributes ) { return studio_test_since( $attributes['since'] ); } ) );
 } );
+function studio_test_since( array $since ) { return '<p>Recent</p>'; }
 // A form plugin's shortcode, which returns nothing for a form it cannot read (eval36's grooming port).
 add_shortcode( 'studio-test-form', function ( $atts ) { return '1' === $atts['id'] ? '<form></form>' : ''; } );
 `;
@@ -123,7 +126,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		},
 	] )( '$name', async ( { content, empty } ) => {
 		const id = await create( content );
-		expect( ( await emptyBlocks( host, site, [ id ] ) )[ id ] ).toEqual( empty );
+		expect( ( await emptyBlocks( host, site, [ id ] ) ).empty[ id ] ).toEqual( empty );
 	} );
 
 	it( 'names the render file of a block whose block.json render prints nothing', async () => {
@@ -156,6 +159,24 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		);
 	} );
 
+	it( 'names the block whose render threw, beside what the other posts render as nothing', async () => {
+		const thrown = await create(
+			'<!-- wp:group --><div class="wp-block-group"><!-- wp:studio-test/recent {"since":false} /--></div><!-- /wp:group -->'
+		);
+		const empty = await create( image );
+		const { reports } = await renderedBlocks.check(
+			site,
+			{ [ thrown ]: 'before', [ empty ]: 'before' },
+			{ [ thrown ]: 'written', [ empty ]: 'written' },
+			host
+		);
+		const plugin = realpathSync( path.join( site.path, 'wp-content/mu-plugins/wrapper.php' ) );
+		expect( reports.map( ( report ) => report.problem ) ).toEqual( [
+			`Seaside Gallery page ${ thrown } "Gallery": rendering studio-test/recent threw TypeError: studio_test_since(): Argument #1 ($since) must be of type array, false given, called in ${ plugin } on line 7 (${ plugin }:9), so a visitor gets a PHP fatal error instead of the page. Give the block the attributes its code takes.`,
+			expect.stringContaining( 'core/image, written without saved HTML' ),
+		] );
+	} );
+
 	it( 'leaves content the front end renders only inside another, as a pattern is', async () => {
 		const id = Number(
 			(
@@ -173,7 +194,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		expect(
 			( await renderedBlocks.check( site, { [ id ]: 'before' }, { [ id ]: 'written' }, host ) )
 				.reports
-		).toEqual( [] );
+		).toEqual( [ { key: 'front page rendered' } ] );
 	} );
 
 	describe( 'a changed template or template part, rendered in the front page', () => {
@@ -187,7 +208,9 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			const before = await renderedBlocks.read( site.path, undefined, host );
 			writeFileSync( theme( file ), markup );
 			const after = await renderedBlocks.read( site.path, undefined, host );
-			return ( await renderedBlocks.check( site, before, after, host ) ).reports;
+			return ( await renderedBlocks.check( site, before, after, host ) ).reports.filter(
+				( report ) => report.summary || report.problem
+			);
 		};
 		const released: Record< string, string > = {};
 		beforeAll( () => {
@@ -220,7 +243,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			try {
 				const after = await renderedBlocks.read( site.path, undefined, host );
 				expect( ( await renderedBlocks.check( site, before, after, host ) ).reports ).toEqual( [
-					{ key: 'front page rendered', summary: stated },
+					{ key: 'front page rendered', summary: stated, problem: undefined },
 				] );
 			} finally {
 				await runWpCli( host, site, [ 'post', 'delete', id.trim(), '--force' ] );
@@ -234,6 +257,27 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 					`<!-- wp:template-part {"slug":"header"} /-->${ cart }`
 				)
 			).toEqual( [ { key: 'front page rendered', summary: stated } ] );
+		} );
+
+		it( 'names the block whose render threw, until the front page renders', async () => {
+			const at = realpathSync( path.join( site.path, 'wp-content/mu-plugins/wrapper.php' ) );
+			expect(
+				await write(
+					'parts/header.html',
+					`${ released[ 'parts/header.html' ] }<!-- wp:studio-test/recent {"since":false} /-->`
+				)
+			).toEqual( [
+				{
+					key: 'front page rendered',
+					problem: `Seaside Gallery front page: rendering studio-test/recent threw TypeError: studio_test_since(): Argument #1 ($since) must be of type array, false given, called in ${ at } on line 7 (${ at }:9), so a visitor gets a PHP fatal error instead of the page. Give the block the attributes its code takes.`,
+				},
+			] );
+			const before = await renderedBlocks.read( site.path, undefined, host );
+			writeFileSync( theme( 'parts/header.html' ), released[ 'parts/header.html' ] );
+			const after = await renderedBlocks.read( site.path, undefined, host );
+			expect( ( await renderedBlocks.check( site, before, after, host ) ).reports ).toEqual( [
+				{ key: 'front page rendered', problem: undefined, summary: undefined },
+			] );
 		} );
 
 		it.each( [

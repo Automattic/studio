@@ -301,6 +301,49 @@ describe( 'CLI: studio create', () => {
 		);
 	};
 
+	describe( 'Port allocation', () => {
+		it( 'claims a port using sites saved by another create after initial validation', async () => {
+			vi.mocked( readCliConfig, { partial: true } )
+				.mockResolvedValueOnce( { version: 1, sites: [] } )
+				.mockResolvedValueOnce( { version: 1, sites: [ mockExistingSite ] } );
+			vi.mocked( portFinder.getOpenPort ).mockImplementationOnce( async () => {
+				expect( lockCliConfig ).toHaveBeenCalledOnce();
+				expect( unlockCliConfig ).not.toHaveBeenCalled();
+				expect( portFinder.addUnavailablePort ).toHaveBeenCalledWith( mockExistingSite.port );
+				return mockPort;
+			} );
+			vi.mocked( saveCliConfig ).mockImplementationOnce( async ( config ) => {
+				expect( unlockCliConfig ).not.toHaveBeenCalled();
+				expect( config.sites ).toEqual(
+					expect.arrayContaining( [
+						mockExistingSite,
+						expect.objectContaining( { port: mockPort } ),
+					] )
+				);
+			} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, noStart: true } );
+
+			expect( portFinder.getOpenPort ).toHaveBeenCalledOnce();
+			expect( saveCliConfig ).toHaveBeenCalledOnce();
+			expect( vi.mocked( unlockCliConfig ).mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
+				vi.mocked( saveCliConfig ).mock.invocationCallOrder[ 0 ]
+			);
+		} );
+
+		it( 'releases the config lock if port allocation fails without saving or starting a site', async () => {
+			vi.mocked( portFinder.getOpenPort ).mockRejectedValueOnce( new Error( 'No available port' ) );
+
+			await expect( runCommand( mockSitePath, defaultTestOptions ) ).rejects.toThrow(
+				'No available port'
+			);
+
+			expect( unlockCliConfig ).toHaveBeenCalledOnce();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+		} );
+	} );
+
 	describe( 'Validation Errors', () => {
 		it( 'requires a URL source when keeping a capture', () => {
 			const createParser = () =>

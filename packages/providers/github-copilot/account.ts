@@ -37,7 +37,7 @@ async function requestCopilotToken(
 		throw new NotConnectedError( 'Your GitHub sign-in expired. Connect GitHub Copilot again.' );
 	}
 	if ( response.status === 403 || response.status === 404 ) {
-		throw new Error( getNoCopilotMessage() );
+		throw new ConnectError( getNoCopilotMessage(), 'ineligible' );
 	}
 	if ( ! response.ok ) {
 		throw new Error( `GitHub Copilot sign-in could not be renewed (${ response.status }).` );
@@ -132,14 +132,14 @@ const connect: GithubCopilotAccount[ 'connect' ] = async ( _method, input ) => {
 	}
 	const githubToken = await waitForGithubToken( input.deviceCode, interval, expiresAt );
 	const copilot = await requestCopilotToken( githubToken ).catch( ( error: Error ) => {
-		throw new ConnectError( error.message, 'unverified' );
+		throw error instanceof ConnectError ? error : new ConnectError( error.message, 'unverified' );
 	} );
 	const [ login, models ] = await Promise.all( [
 		readLogin( githubToken ),
 		readPlanModels( copilot.copilotToken ),
 	] );
 	if ( models?.length === 0 ) {
-		throw new ConnectError( getNoCopilotMessage(), 'unverified' );
+		throw new ConnectError( getNoCopilotMessage(), 'ineligible' );
 	}
 	return {
 		method: 'github',

@@ -141,8 +141,12 @@ describe( 'AI provider settings', () => {
 		await saveKey( 'sk-ant-api03-testkey-1234' );
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			action: 'connect',
+			target_provider: 'anthropic',
+			connection_method: 'api-key',
+			success: true,
 			provider: 'wpcom',
-			has_anthropic_api_key: true,
+			previous_provider: 'wpcom',
 			surface: 'settings',
 		} );
 	} );
@@ -165,8 +169,12 @@ describe( 'AI provider settings', () => {
 		await disconnectAiProvider( event, 'anthropic' );
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			action: 'disconnect',
+			target_provider: 'anthropic',
+			connection_method: 'api-key',
+			success: true,
 			provider: 'wpcom',
-			has_anthropic_api_key: false,
+			previous_provider: 'anthropic',
 			surface: 'settings',
 		} );
 	} );
@@ -178,8 +186,12 @@ describe( 'AI provider settings', () => {
 		await saveKey( 'sk-ant-api03-otherkey-9999' );
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-			provider: 'anthropic-api-key',
-			has_anthropic_api_key: true,
+			action: 'connect',
+			target_provider: 'anthropic',
+			connection_method: 'api-key',
+			success: true,
+			provider: 'anthropic',
+			previous_provider: 'anthropic',
 			surface: 'settings',
 		} );
 	} );

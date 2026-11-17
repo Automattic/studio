@@ -173,6 +173,9 @@ async function withEditor< T >(
 	const key = `${ editor } ${ siteUrl }`;
 	const first = ! editorPages.has( key );
 	const editorPage = getEditorPage( siteUrl, editor );
+	// A page loaded before this call, as one loadEditors() opens ahead of its
+	// first use, has the site's code as it was then.
+	const before = editorPage.current?.catch( () => undefined );
 	if ( first ) {
 		// Once this one has loaded, which the call waits for: they load slower side by side.
 		void editorPage.getPage().then(
@@ -196,10 +199,12 @@ async function withEditor< T >(
 			names
 		);
 		const lacking = loadedLacking.get( page );
-		// A page used for the first time was loaded for this call.
-		if ( ! lacking ) {
+		// A page used for the first time, loaded for this call, lacks what the
+		// site does not register; one loaded before it may lack what a plugin
+		// activated since registers.
+		if ( ! lacking && ( ! missing.length || page !== ( await before ) ) ) {
 			loadedLacking.set( page, new Set( missing ) );
-		} else if ( missing.some( ( name ) => ! lacking.has( name ) ) ) {
+		} else if ( ! lacking || missing.some( ( name ) => ! lacking.has( name ) ) ) {
 			pageBlockCode.set( key, seenBlockCode( siteUrl ) );
 			await editorPage.replace();
 			return editorPage.use( run );

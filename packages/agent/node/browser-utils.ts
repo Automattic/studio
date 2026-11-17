@@ -285,6 +285,11 @@ export class EditorPage {
 		this.editorPath = editorPath;
 	}
 
+	/** The page loaded or loading now, if any. */
+	get current(): Promise< Page > | null {
+		return this.page && ! this.page.isClosed() ? Promise.resolve( this.page ) : this.loading;
+	}
+
 	/** Get or create a page with the block editor loaded. */
 	async getPage(): Promise< Page > {
 		if ( this.page && ! this.page.isClosed() ) {

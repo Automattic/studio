@@ -1403,6 +1403,32 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		expect( report.invalidBlocks ).toBe( 0 );
 	}, 60_000 );
 
+	it( 'loads again an editor opened ahead of its first use for a block registered since', async () => {
+		/* eslint-disable @typescript-eslint/no-explicit-any */
+		const verse = ( forget: boolean ) => {
+			const blocks = ( window as any ).wp?.blocks;
+			return forget
+				? blocks.unregisterBlockType( 'core/verse' )
+				: !! blocks?.getBlockType( 'core/verse' );
+		};
+		/* eslint-enable @typescript-eslint/no-explicit-any */
+		// The Site Editor's first validation opens the post editor ahead of its use.
+		await cleanupValidatorPages();
+		await validateBlocks(
+			'<!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph -->',
+			siteUrl!,
+			'site'
+		);
+		await expect
+			.poll( async () => ( await editorTab() )?.evaluate( verse, false ).catch( () => false ), {
+				timeout: 60_000,
+			} )
+			.toBe( true );
+		// As a block of a plugin activated after it loaded.
+		await ( await editorTab() ).evaluate( verse, true );
+		expect( await unregisteredInEditor( [ 'core/verse' ], siteUrl! ) ).toEqual( [] );
+	}, 120_000 );
+
 	it( 'keeps the editor for a block it lacked when it loaded', async () => {
 		// As a block of a plugin that is not active, in a post each call validates.
 		const unregistered = '<!-- wp:nope/form /-->';

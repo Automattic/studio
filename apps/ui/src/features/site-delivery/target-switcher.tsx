@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { useId } from 'react';
-import { ChevronDownIcon, LinkIcon, MapPinIcon } from '@/lib/icons';
-import { Button, Menu } from '@/lib/ui';
+import { LinkIcon, MapPinIcon } from '@/lib/icons';
+import { Menu } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
 import styles from './style.module.css';
 import { describePublishTarget } from './target-description';
@@ -14,7 +14,6 @@ export function TargetSwitcher( {
 	locale,
 	disabled,
 	onSelect,
-	previewsOnly = false,
 }: {
 	targets: PublishTarget[];
 	selectedKey: string;
@@ -22,7 +21,6 @@ export function TargetSwitcher( {
 	locale?: string;
 	disabled: boolean;
 	onSelect: ( target: PublishTarget ) => void;
-	previewsOnly?: boolean;
 } ) {
 	const id = useId();
 	const sites = targets.filter( ( target ) => target.remote );
@@ -62,50 +60,37 @@ export function TargetSwitcher( {
 		);
 	};
 	return (
-		<div>
-			<Menu.Root>
-				<Menu.Trigger
-					render={
-						<Button
-							variant="ghost"
-							className={ styles.accessTrigger }
-							disabled={ disabled }
-							aria-label={ previewsOnly ? __( 'Choose preview' ) : __( 'Choose destination' ) }
-							aria-description={ selectedLabel }
-						/>
-					}
-				>
-					<MapPinIcon data-icon="inline-start" />
-					<span className={ styles.previewHostname }>{ selectedLabel }</span>
-					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
-				</Menu.Trigger>
-				<Menu.Popup
-					className={ styles.targetSwitcherMenu }
-					aria-label={ previewsOnly ? __( 'Previews' ) : __( 'Destinations' ) }
-				>
-					<Menu.RadioGroup value={ selectedKey }>
-						{ sites.length > 0 && previews.length > 0 ? (
-							<>
-								<Menu.Group aria-label={ __( 'Connected sites' ) }>
-									<div className={ styles.destinationMenuHeading } aria-hidden="true">
-										{ __( 'Connected sites' ) }
-									</div>
-									{ sites.map( renderItem ) }
-								</Menu.Group>
-								<Menu.Separator />
-								<Menu.Group aria-label={ __( 'Previews' ) }>
-									<div className={ styles.destinationMenuHeading } aria-hidden="true">
-										{ __( 'Previews' ) }
-									</div>
-									{ previews.map( renderItem ) }
-								</Menu.Group>
-							</>
-						) : (
-							targets.map( renderItem )
-						) }
-					</Menu.RadioGroup>
-				</Menu.Popup>
-			</Menu.Root>
-		</div>
+		<Menu.SubmenuRoot>
+			<Menu.SubmenuTrigger disabled={ disabled }>
+				<MapPinIcon />
+				{ __( 'Switch to' ) }
+			</Menu.SubmenuTrigger>
+			<Menu.SubmenuPopup
+				className={ styles.targetSwitcherMenu }
+				aria-label={ __( 'Destinations' ) }
+			>
+				<Menu.RadioGroup value={ selectedKey }>
+					{ sites.length > 0 && previews.length > 0 ? (
+						<>
+							<Menu.Group aria-label={ __( 'Connected sites' ) }>
+								<div className={ styles.destinationMenuHeading } aria-hidden="true">
+									{ __( 'Connected sites' ) }
+								</div>
+								{ sites.map( renderItem ) }
+							</Menu.Group>
+							<Menu.Separator />
+							<Menu.Group aria-label={ __( 'Previews' ) }>
+								<div className={ styles.destinationMenuHeading } aria-hidden="true">
+									{ __( 'Previews' ) }
+								</div>
+								{ previews.map( renderItem ) }
+							</Menu.Group>
+						</>
+					) : (
+						targets.map( renderItem )
+					) }
+				</Menu.RadioGroup>
+			</Menu.SubmenuPopup>
+		</Menu.SubmenuRoot>
 	);
 }

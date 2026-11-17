@@ -108,10 +108,14 @@ async function confirmPublish() {
 	fireEvent.click( publish );
 	await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
 }
+async function openDestinations() {
+	fireEvent.click( await screen.findByRole( 'button', { name: /^(Site|Preview) actions$/ } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Switch to' } ) );
+	return screen.findByRole( 'menu', { name: 'Destinations' } );
+}
 async function switchTo( hostname: string ) {
 	if ( hostname === preview.url ) return;
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Choose destination' } ) );
-	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	const menu = await openDestinations();
 	fireEvent.click( within( menu ).getByRole( 'menuitemradio', { name: hostname } ) );
 }
 async function openPreviews( user: ReturnType< typeof setup >[ 'user' ] ) {
@@ -184,6 +188,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
 	).toEqual( [
+		'Switch to',
 		'Update from live site…',
 		'View backups',
 		'Change destination…',
@@ -202,8 +207,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 	).toBeVisible();
 	await user.click( within( confirmation ).getByRole( 'button', { name: 'Cancel' } ) );
 	await waitFor( () => expect( confirmation ).not.toBeInTheDocument() );
-	const panel = await screen.findByRole( 'dialog', { name: 'Share' } );
-	await user.click( within( panel ).getByRole( 'button', { name: 'Choose destination' } ) );
+	await openDestinations();
 	await user.click( await screen.findByRole( 'menuitemradio', { name: 'lente.space.fast' } ) );
 	expect( await screen.findByRole( 'link', { name: 'Open lente.space.fast' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'link', { name: 'Open lente.blog' } ) ).not.toBeInTheDocument();
@@ -224,7 +228,13 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		within( spacefastMenu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [ 'Open on Spacefast', 'Versions', 'Change destination…', 'Disconnect site…' ] );
+	).toEqual( [
+		'Switch to',
+		'Open on Spacefast',
+		'Versions',
+		'Change destination…',
+		'Disconnect site…',
+	] );
 	await user.click(
 		within( spacefastMenu ).getByRole( 'menuitem', { name: 'Open on Spacefast' } )
 	);
@@ -239,6 +249,31 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 	expect( connector.openExternalUrl ).toHaveBeenLastCalledWith(
 		'https://my.spacefast.com/studio/lente/domains/add'
 	);
+} );
+
+it( 'keeps a connected site and its preview reachable from one domain row', async () => {
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+	} );
+	const panel = await open();
+	expect( within( panel ).getAllByText( 'lente.blog', { exact: true } ) ).toHaveLength( 1 );
+	const menu = await openSiteActions( user );
+	expect( within( menu ).getByRole( 'menuitem', { name: 'Change destination…' } ) ).toBeEnabled();
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Switch to' } ) );
+	const destinations = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	fireEvent.click( within( destinations ).getByRole( 'menuitemradio', { name: 'Preview 1' } ) );
+	expect(
+		await within( panel ).findByRole( 'link', { name: `Open preview: ${ preview.url }` } )
+	).toBeVisible();
+	await switchTo( 'lente.blog' );
+	expect( await within( panel ).findByRole( 'link', { name: 'Open lente.blog' } ) ).toBeVisible();
+	await waitFor( () =>
+		expect( within( panel ).getByRole( 'button', { name: 'Site actions' } ) ).toHaveFocus()
+	);
+	expect( within( panel ).getAllByText( 'lente.blog', { exact: true } ) ).toHaveLength( 1 );
+	expect( connector.disconnectRemoteSite ).not.toHaveBeenCalled();
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
 
 it( 'shows a site actions menu for a single connected site', async () => {
@@ -617,7 +652,7 @@ it.each( [
 	{ host: 'WordPress.com', isPressable: false, logo: getProvider( 'wpcom' ).logo! },
 ] )( 'uses the $host logo for a connected $host site', async ( { isPressable, logo } ) => {
 	const remote = { ...live, isPressable };
-	const { user } = setup( {
+	setup( {
 		getSnapshots: async () => [],
 		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ remote ] : [ space ] ),
 		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ remote ] : [ space ] ),
@@ -627,8 +662,7 @@ it.each( [
 	const openSite = await within( panel ).findByRole( 'link', { name: `Open ${ hostname }` } );
 	expect( openSite.parentElement ).toContainHTML( logo );
 
-	await user.click( within( panel ).getByRole( 'button', { name: 'Choose destination' } ) );
-	const picker = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	const picker = await openDestinations();
 	expect( within( picker ).getByRole( 'menuitemradio', { name: hostname } ) ).toContainHTML( logo );
 } );
 
@@ -650,9 +684,7 @@ it( 'keeps connected destinations separate from previews', async () => {
 		within( panel ).queryByRole( 'button', { name: 'Switch previews' } )
 	).not.toBeInTheDocument();
 
-	const switcher = within( panel ).getByRole( 'button', { name: 'Choose destination' } );
-	await user.click( switcher );
-	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	const menu = await openDestinations();
 	const sites = menu;
 	expect( within( sites ).getByRole( 'menuitemradio', { name: 'lente.blog' } ) ).toBeChecked();
 	expect(
@@ -688,9 +720,12 @@ it( 'switches between two Spacefast sites by keyboard and restores focus', async
 	const panel = await open();
 	expect( within( panel ).getByRole( 'link', { name: 'Open lente.space.fast' } ) ).toBeVisible();
 	expect( await within( panel ).findByRole( 'button', { name: 'Update…' } ) ).toBeEnabled();
-	const switcher = within( panel ).getByRole( 'button', { name: 'Choose destination' } );
-	switcher.focus();
+	const actions = within( panel ).getByRole( 'button', { name: 'Site actions' } );
+	actions.focus();
 	await user.keyboard( '{ArrowDown}' );
+	const switcher = await screen.findByRole( 'menuitem', { name: 'Switch to' } );
+	await waitFor( () => expect( switcher ).toHaveFocus() );
+	await user.keyboard( '{ArrowRight}' );
 	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
 	const firstOption = within( menu ).getByRole( 'menuitemradio', { name: 'lente.space.fast' } );
 	expect( firstOption ).toBeChecked();
@@ -706,7 +741,7 @@ it( 'switches between two Spacefast sites by keyboard and restores focus', async
 	);
 	await user.keyboard( '{Enter}' );
 	await waitFor( () => expect( menu ).not.toBeInTheDocument() );
-	expect( switcher ).toHaveFocus();
+	expect( actions ).toHaveFocus();
 	expect( within( panel ).getByRole( 'link', { name: 'Open second.space.fast' } ) ).toBeVisible();
 	expect( within( panel ).queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
 	expect( within( panel ).getByRole( 'button', { name: 'Update…' } ) ).toBeEnabled();

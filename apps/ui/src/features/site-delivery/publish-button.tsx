@@ -739,6 +739,24 @@ export function PublishButton( {
 			onClick={ copyLink }
 		/>
 	);
+	const targetSwitcher = selected &&
+		hostname &&
+		( snapshot
+			? targets.siteTargets.length > 0
+			: targets.siteTargets.length > 1 || !! targets.selectedPreview ) && (
+			<TargetSwitcher
+				targets={
+					targets.selectedPreview
+						? [ ...targets.siteTargets, snapshot ? selected : targets.selectedPreview ]
+						: targets.siteTargets
+				}
+				selectedKey={ selected.key }
+				hostname={ hostname }
+				locale={ locale }
+				disabled={ disabled || openingCheckout }
+				onSelect={ select }
+			/>
+		);
 	const targetActionsMenu = (
 		target: PublishTarget,
 		label: string = target.remote ? __( 'Site actions' ) : __( 'Preview actions' )
@@ -760,6 +778,12 @@ export function PublishButton( {
 				aria-label={ target.remote ? label : target.label }
 				finalFocus={ openingTargetDialog ? false : undefined }
 			>
+				{ target.key === selected?.key && ! previewMenuOpen && targetSwitcher && (
+					<>
+						{ targetSwitcher }
+						<Menu.Separator />
+					</>
+				) }
 				{ target.remote ? renderLiveSiteActions() : renderPreviewActions( target ) }
 			</Menu.Popup>
 		</Menu.Root>
@@ -840,24 +864,6 @@ export function PublishButton( {
 					providerName
 			  )
 			: __( 'Not published yet' );
-	const targetSwitcher = selected &&
-		hostname &&
-		( snapshot
-			? targets.siteTargets.length > 0
-			: targets.siteTargets.length > 1 || !! targets.selectedPreview ) && (
-			<TargetSwitcher
-				targets={
-					targets.selectedPreview
-						? [ ...targets.siteTargets, snapshot ? selected : targets.selectedPreview ]
-						: targets.siteTargets
-				}
-				selectedKey={ selected.key }
-				hostname={ hostname }
-				locale={ locale }
-				disabled={ disabled || openingCheckout }
-				onSelect={ select }
-			/>
-		);
 	const previewMenu = canShowPreviews && (
 		<PreviewMenu
 			previews={ targets.previewTargets }
@@ -930,7 +936,6 @@ export function PublishButton( {
 				</p>
 			) }
 			<div className={ styles.summaryRows }>
-				{ targetSwitcher }
 				{ ( ! hasLiveSite || publishingNewSite || changingDestination ) && (
 					<ProviderPicker
 						selectedProvider={ selected?.provider ?? emptyDestination }
@@ -967,20 +972,11 @@ export function PublishButton( {
 						</div>
 					</div>
 				) }
-				{ selected && snapshot && ! showPreviewSkeleton && (
-					<div role="group" aria-label={ sprintf( __( 'Preview: %s' ), selected.label ) }>
-						<div className={ styles.siteAddressRow }>
-							<span className={ styles.destinationRowIcon }>
-								<ProviderLogo provider={ selected.provider } branded compact />
-							</span>
-							{ addressLink }
-							{ addressActions }
-						</div>
-						{ destinationStatus }
-					</div>
-				) }
-				{ selected && remote && url && hostname && ! showPreviewSkeleton && (
-					<>
+				{ selected && url && hostname && ! showPreviewSkeleton && (
+					<div
+						role={ snapshot ? 'group' : undefined }
+						aria-label={ snapshot ? sprintf( __( 'Preview: %s' ), selected.label ) : undefined }
+					>
 						<div className={ styles.siteAddressRow }>
 							<span className={ styles.destinationRowIcon }>
 								<ProviderLogo provider={ selected.provider } site={ remote } branded compact />
@@ -989,7 +985,7 @@ export function PublishButton( {
 							{ addressActions }
 						</div>
 						{ destinationStatus }
-					</>
+					</div>
 				) }
 				{ remote && descriptor?.visibility?.( remote ) && descriptor.visibilityOptions && (
 					<HostedAccessControl

@@ -1364,6 +1364,28 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		);
 	}, 60_000 );
 
+	it( 'reports a block written where its block.json parent or ancestor does not allow it', async () => {
+		const column = '<!-- wp:column -->\n<div class="wp-block-column"></div>\n<!-- /wp:column -->';
+		const markup = [
+			group( '', `<div class="wp-block-group">${ column }<!-- wp:comment-author-name /--></div>` ),
+			`<!-- wp:columns -->\n<div class="wp-block-columns">${ column }</div>\n<!-- /wp:columns -->`,
+			'<!-- wp:comment-author-name /-->',
+		].join( '\n\n' );
+		const report = await validateBlocks( markup, siteUrl! );
+		expect(
+			report.results.filter( ( one ) => ! one.isValid ).map( ( one ) => one.issues )
+		).toEqual( [
+			[
+				'core/column sits directly inside core/group, and its block.json "parent" allows it only directly inside core/columns, so the block editor places it nowhere else (canInsertBlockType() in @wordpress/block-editor).',
+			],
+			[
+				'core/comment-author-name sits inside core/group, and its block.json "ancestor" allows it only inside core/comment-template, so the block editor places it nowhere else (canInsertBlockType() in @wordpress/block-editor).',
+			],
+		] );
+		// A template is not checked: a plugin can lift the limit there.
+		expect( ( await validateBlocks( markup, siteUrl!, 'site' ) ).invalidBlocks ).toBe( 0 );
+	}, 60_000 );
+
 	it( 'saves the fix of the other blocks beside a block the fix leaves invalid', async () => {
 		const result = await validateBlockMarkup(
 			`${ paragraph( '{"textAlign":"center"}', '<p>Centered</p>' ) }\n\n<!-- wp:nope/form /-->`,

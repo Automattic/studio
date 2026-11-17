@@ -20,9 +20,8 @@ export async function getPreviewLaunchUrl( host: string ): Promise< string > {
 	if ( ! snapshot ) {
 		throw new LoggerError( __( 'Preview site not found' ), undefined, 'not_found' );
 	}
-	const launchUrl = ( await getStandingPreviews( token.accessToken ) ).get(
-		snapshot.atomicSiteId
-	)?.launchUrl;
+	const launchUrl = ( await getStandingPreviews( token.accessToken ) ).get( snapshot.atomicSiteId )
+		?.launchUrl;
 	if ( ! launchUrl ) {
 		throw new LoggerError(
 			__(

@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { getEditedDefaultThemesWarning } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { type SyncSite } from '@studio/common/types/sync';
@@ -10,6 +11,7 @@ import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
 import {
 	createPreviewSite,
 	getLivePreviewSite,
@@ -29,6 +31,40 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 export type ReportPreviewStep = ( action: LoggerAction, message: string, progress: number ) => void;
+
+/**
+ * Warns when the site's active default theme has edited files, which a WordPress.com preview
+ * doesn't show. Returns the warning, for the preview's success activity. Never fails the preview.
+ */
+export async function warnAboutEditedDefaultThemes(
+	siteFolder: string,
+	logger: Logger< LoggerAction >
+): Promise< string | undefined > {
+	try {
+		const themes = await findEditedDefaultThemes( siteFolder );
+		if ( themes.length === 0 ) {
+			return undefined;
+		}
+		const warning = getEditedDefaultThemesWarning( themes );
+		logger.reportWarning( warning );
+		return warning;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Tells the owner where to buy the preview, which makes it their live site. A preview of changes to
+ * a live site has no such link.
+ */
+export function reportLaunchUrl( launchUrl: string | undefined, logger: Logger< LoggerAction > ) {
+	if ( launchUrl ) {
+		logger.reportSuccess(
+			/* translators: %s: link to WordPress.com's checkout for the preview site */
+			sprintf( __( 'Make it your live site: %s' ), launchUrl )
+		);
+	}
+}
 
 /**
  * The WordPress.com steps of making a preview from a local site: validate, archive, upload and
@@ -59,9 +95,11 @@ export async function createWpcomPreviewSite( {
 	archiveBytes: number | undefined;
 	versionId: string;
 	liveSite: SyncSite | undefined;
+	warning: string | undefined;
 } > {
 	const liveSite = await getLivePreviewSite( siteId, liveSiteSelection );
 	await validateSiteSize( siteFolder, { onWpcom: true } );
+	const warning = await warnAboutEditedDefaultThemes( siteFolder, logger );
 
 	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 	// The version is taken under the same lock as the archive, so it's what the preview holds.
@@ -80,7 +118,7 @@ export async function createWpcomPreviewSite( {
 
 	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
 	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id, siteId );
-	return { preview, archiveBytes, versionId, liveSite };
+	return { preview, archiveBytes, versionId, liveSite, warning };
 }
 
 export async function runCommand(
@@ -127,7 +165,7 @@ export async function runCommand(
 			);
 		}
 
-		const { preview, versionId, liveSite } = await createWpcomPreviewSite( {
+		const { preview, versionId, liveSite, warning } = await createWpcomPreviewSite( {
 			siteId: site.id,
 			liveSiteSelection,
 			siteFolder,
@@ -149,6 +187,7 @@ export async function runCommand(
 				)
 			);
 		}
+		reportLaunchUrl( preview.launchUrl, logger );
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 		snapshot = await saveSnapshotToConfig(
@@ -173,7 +212,7 @@ export async function runCommand(
 				token.id
 			),
 		} );
-		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
+		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview', warning } );
 
 		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
 		return snapshot;

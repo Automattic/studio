@@ -10,7 +10,7 @@ import { fetchSyncableSites } from 'cli/lib/sync-api';
 // capture loses output when the page's calls overlap.
 export async function readLocalSites() {
 	const { sites } = await readCliConfig();
-	const running = await getSitesRunningStatus( sites );
+	const running = await getSitesRunningStatus();
 	return sites.map( ( site ) => ( {
 		id: site.id,
 		name: site.name,

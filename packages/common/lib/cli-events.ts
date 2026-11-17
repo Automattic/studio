@@ -9,6 +9,7 @@ import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { siteFrontendSchema } from '@studio/common/lib/site-frontend';
 import { siteOperationSchema } from '@studio/common/lib/site-operation';
+import { sitePhpWorkersSchema } from '@studio/common/lib/site-php-workers';
 import { syncEventSchema } from '@studio/common/lib/sync/activity';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -31,6 +32,7 @@ export const siteDetailsSchema = z.object( {
 	adminEmail: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	enableXdebug: z.boolean().optional(),
+	phpWorkers: sitePhpWorkersSchema.optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
 	enableScriptDebug: z.boolean().optional(),

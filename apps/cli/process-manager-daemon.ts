@@ -9,6 +9,7 @@ import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 } from 'cli/lib/paths';
 import { getProcessLogPaths } from 'cli/lib/process-logs';
+import { assertSiteCapacity } from 'cli/lib/site-capacity';
 import { SocketServer } from 'cli/lib/socket';
 import {
 	ProcessDescription,
@@ -17,6 +18,7 @@ import {
 	daemonEventSchema,
 	DaemonRequest,
 	daemonRequestSchema,
+	SITE_PROCESS_PREFIX,
 } from 'cli/lib/types/process-manager-ipc';
 import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
 
@@ -27,10 +29,6 @@ const STOP_TIMEOUT_MS = 2_500;
 // output in the `exit` event. Bounded to avoid unbounded memory growth on chatty processes.
 const STDERR_BUFFER_MAX_LINES = 100;
 const STDERR_BUFFER_MAX_BYTES = 16 * 1024;
-
-// Cap on concurrently running site processes, at roughly 120 MB of memory each.
-const SITE_PROCESS_PREFIX = 'studio-site-';
-const MAX_RUNNING_SITES = 36;
 
 type ManagedProcessBase = {
 	pmId: number;
@@ -139,7 +137,7 @@ export class ProcessManagerDaemon {
 			case 'ping':
 				return {
 					type: 'result',
-					payload: {},
+					payload: { version: __STUDIO_CLI_VERSION__ },
 				};
 			case 'start-process': {
 				const processDesc = await this.startProcess(
@@ -192,16 +190,6 @@ export class ProcessManagerDaemon {
 		return undefined;
 	}
 
-	private getRunningSiteCount(): number {
-		let count = 0;
-		for ( const proc of this.managedProcesses.values() ) {
-			if ( proc.status === 'online' && proc.name.startsWith( SITE_PROCESS_PREFIX ) ) {
-				count++;
-			}
-		}
-		return count;
-	}
-
 	private async startProcess(
 		processName: string,
 		scriptPath: string,
@@ -214,12 +202,7 @@ export class ProcessManagerDaemon {
 		}
 
 		if ( processName.startsWith( SITE_PROCESS_PREFIX ) ) {
-			const runningSites = this.getRunningSiteCount();
-			if ( runningSites >= MAX_RUNNING_SITES ) {
-				throw new Error(
-					`CAPACITY_LIMIT_REACHED: Cannot start site. The maximum number of running sites has been reached (${ runningSites }/${ MAX_RUNNING_SITES }). Stop some running sites first.`
-				);
-			}
+			assertSiteCapacity( this.managedProcesses.values() );
 		}
 
 		const pmId = this.nextPmId++;

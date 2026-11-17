@@ -20,6 +20,7 @@ export const serverConfigSchema = z.object( {
 	isWpAutoUpdating: z.boolean().optional(),
 	fileAccess: siteFileAccessSchema.optional(),
 	enableXdebug: z.boolean().optional(),
+	phpWorkers: z.number().int().positive().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
 	enableScriptDebug: z.boolean().optional(),

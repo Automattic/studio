@@ -39,44 +39,10 @@ Address the annotations in the order they were submitted. When you reference one
 
 ### 4. Make changes
 
-For each annotation:
-1. **Identify what to change:**
-   - Use the CSS selector to find the element in theme templates or stylesheets
-   - Use `wp_cli` with `post list --post_type=wp_template --format=json` to check if it's in a template override
-   - Use `wp_cli` with `eval "echo wp_get_custom_css();"` to check existing custom CSS
-2. **Apply the change using the right approach:**
-   - For style changes (colors, sizes, spacing): use Global Styles custom CSS with the selector from the annotation
-   - For content changes (text, headings, block structure): edit the template or post content via WP-CLI
-   - For block-level changes: identify the WordPress block type from the HTML structure (look for `wp-block-*` classes) and modify accordingly
-3. Take a screenshot to verify the change looks correct
+Load the `edit-manage-site` skill and make each change the way it says. Find the element from the annotation's selector, nearby text and `wp-block-*` classes, which name its block type. Take a screenshot to check each change.
 
 ### 5. Verify
 
 After all annotations are addressed, take a screenshot and confirm with the user.
 
 The browser closes when the user clicks **Send**. If they want another round, run the skill again from the top — `/annotate` opens a fresh browser.
-
-## Making changes the WordPress way
-
-Always prefer WordPress APIs over direct file edits or custom plugins.
-
-### CSS / design changes
-
-Use **Global Styles custom CSS** — never create throwaway plugins:
-```
-wp eval 'echo wp_get_custom_css();'   → read current custom CSS
-wp eval 'wp_update_custom_css_post("CSS HERE");'   → update custom CSS
-```
-
-### Template changes
-
-Create **template overrides via the database**, not file edits:
-```
-wp post create --post_type=wp_template --post_name="theme-slug//template-name" --post_content="BLOCK MARKUP" --post_status=publish
-```
-
-### When to use what
-
-- **Tweaking an existing site**: Prefer Global Styles custom CSS and template overrides in the database — these are non-destructive and easy to revert
-- **Building a theme or new site**: Edit theme files directly — that's the job. Follow Studio's existing guidelines for block themes (theme.json, templates/, style.css)
-- **Never**: Modify WordPress core files

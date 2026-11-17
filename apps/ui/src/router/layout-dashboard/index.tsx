@@ -4,7 +4,10 @@ import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/reac
 import { __, isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
+import {
+	useInlineEndControlsInset,
+	WindowControlsCornerContext,
+} from '@/data/host/use-window-controls-inset';
 import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useSession, useSessionLiveSite, useSessions } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
@@ -48,7 +51,7 @@ import {
 	PanelLayoutControls,
 	PreviewTabs,
 } from '@/features/sites';
-import { useMediaQuery, useWindowControlsOverlay } from '@/lib/hooks';
+import { useMediaQuery } from '@/lib/hooks';
 import { isDialogOpen } from '@/lib/keyboard';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';
@@ -80,7 +83,7 @@ function DashboardLayout() {
 	const connector = useConnector();
 	const openSettings = useOpenSettings();
 	const narrow = useMediaQuery( '(max-width: 540px)' );
-	const windowControls = useWindowControlsOverlay();
+	const inlineEndControlsInset = useInlineEndControlsInset();
 	const { data: aiSettings } = useAiSettings();
 	const [ providerPromptOpen, setProviderPromptOpen ] = useState( false );
 	const hasProvider = hasConnectedProvider( aiSettings );
@@ -513,7 +516,7 @@ function DashboardLayout() {
 									<div
 										className={ styles.layoutControls }
 										style={ {
-											right: `calc(var(--band-inset) + ${ windowControls?.controlsWidth ?? 0 }px)`,
+											insetInlineEnd: `calc(var(--band-inset) + ${ inlineEndControlsInset }px)`,
 										} }
 									>
 										<PanelLayoutControls

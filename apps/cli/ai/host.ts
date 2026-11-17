@@ -10,7 +10,7 @@ import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -160,7 +160,7 @@ export const cliAgentHost: StudioAgentHost = {
 					name,
 					wpVersion: 'latest',
 					phpVersion: DEFAULT_PHP_VERSION,
-					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					fileAccess: SITE_FILE_ACCESS_ALL_FILES,
 					enableHttps: false,
 					noStart: false,
 					skipBrowser: true,

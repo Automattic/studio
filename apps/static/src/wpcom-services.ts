@@ -209,8 +209,9 @@ export class WpcomServices {
 	}
 
 	async deleteAllSnapshots(): Promise< void > {
-		for ( const snapshot of await this.getSnapshots() ) {
-			await this.deletePreviewSite( snapshot );
+		const config = { token: await this.auth.requireToken() };
+		for ( const preview of await wpcomSites.previews!.list( config ) ) {
+			await wpcomSites.previews!.delete( config, preview );
 		}
 		await this.updateSnapshots( () => [] );
 		this.emitSnapshot( { event: SNAPSHOT_EVENTS.DELETED_ALL } );

@@ -2350,7 +2350,6 @@ $table_prefix = 'wp_';
 			{ failure: 'quality', source: 'directory', reason: 'ssi_quality_failed' },
 			{ failure: 'import', source: 'directory', reason: 'ssi_import' },
 			{ failure: 'server', source: 'directory', reason: 'create' },
-			{ failure: 'capacity', source: 'directory', reason: 'create' },
 		] as const )(
 			'reports a failed --from create ($failure) as studio_site_create_failed',
 			async ( { failure, source, reason } ) => {
@@ -2373,14 +2372,8 @@ $table_prefix = 'wp_';
 						mockWpCli( { exitCode: 1, stdout: '', stderr: 'Fatal error' } )
 					);
 				}
-				if ( failure === 'server' || failure === 'capacity' ) {
-					vi.mocked( startWordPressServer ).mockRejectedValue(
-						new Error(
-							failure === 'capacity'
-								? 'CAPACITY_LIMIT_REACHED: Cannot start site.'
-								: 'Server start failed'
-						)
-					);
+				if ( failure === 'server' ) {
+					vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
 				}
 				vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 				vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
@@ -2401,13 +2394,6 @@ $table_prefix = 'wp_';
 					] );
 
 					expect( process.exitCode ).toBe( 1 );
-					if ( failure === 'capacity' ) {
-						expect( removeSiteFromConfig ).not.toHaveBeenCalled();
-						expect( fs.rmSync ).not.toHaveBeenCalledWith( path.join( sitePath, '.studio-import' ), {
-							recursive: true,
-							force: true,
-						} );
-					}
 					expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
 						TRACKS_EVENTS.SITE_CREATE_FAILED,
 						expect.objectContaining( {

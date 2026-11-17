@@ -472,7 +472,7 @@ export async function runCommand(
 					await openSiteInBrowser( siteDetails );
 				}
 			} catch ( error ) {
-				if ( ! importRun?.retainSiteAfterFailure( siteDetails, error ) ) {
+				if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
 					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
 						await fs.promises.rm( sitePath, { recursive: true, force: true } );
@@ -507,7 +507,7 @@ export async function runCommand(
 					stripWpConfigDbConstants( sitePath );
 					await importRun?.run( siteDetails );
 				} catch ( error ) {
-					if ( ! importRun?.retainSiteAfterFailure( siteDetails, error ) ) {
+					if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
 						await removeSiteFromConfig( siteDetails.id );
 						if ( ! isWordPressDirResult ) {
 							await fs.promises.rm( sitePath, { recursive: true, force: true } );

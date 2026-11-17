@@ -112,6 +112,7 @@ describe( 'xai account', () => {
 			model: { id: 'grok-4.7', api: 'openai-responses', baseUrl: 'https://api.x.ai/v1' },
 		} );
 		expect( plan.rewriteError!( 'xai API error (429): limit' ) ).toContain( 'usage limit' );
+		expect( plan.rewriteError!( 'xai API error (402): out of credits' ) ).toContain( 'no credits' );
 		expect( plan.rewriteError!( 'xai API error (500): oops' ) ).toBeUndefined();
 
 		const key = await xaiAi.model( { method: 'api-key', apiKey: 'xai-key' }, 'grok-4.3', {} );

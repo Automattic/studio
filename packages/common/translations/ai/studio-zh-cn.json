@@ -1,0 +1,1226 @@
+{
+	"\"%s\" is not a Blueprint file, URL or Library slug.": [
+		"“%s”不是蓝图文件、URL 或蓝图库别名。"
+	],
+	"%1$dh %2$dm": [
+		"%1$d 小时 %2$d 分钟"
+	],
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%1$s Use /connect %2$s to connect it.": [
+		"%1$s 请使用 /connect %2$s 进行连接。"
+	],
+	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
+		"%1$s 无法安装 WordPress Studio 插件：%2$s"
+	],
+	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
+		"%1$s 无法更新 WordPress Studio 插件：%2$s"
+	],
+	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
+		"%1$s 未连接。请使用 /connect %2$s 进行连接。"
+	],
+	"%1$s screenshot %2$d": [
+		"%1$s 屏幕截图 %2$d"
+	],
+	"%d B": [
+		"%d B"
+	],
+	"%d annotation ready to send": [
+		"%d 条批注可以发送"
+	],
+	"%s (saved for future use):": [
+		"%s（将保存以供日后使用）："
+	],
+	"%s KB": [
+		"%s KB"
+	],
+	"%s connection": [
+		"%s 连接"
+	],
+	"%s is no longer installed. Choose another browser in Settings.": [
+		"%s 已不再安装。请在“设置”中选择其他浏览器。"
+	],
+	"%s isn’t installed on this computer.": [
+		"此计算机上未安装 %s。"
+	],
+	"%s preview is ready": [
+		"%s 的预览已准备就绪"
+	],
+	"(No subject)": [
+		"（无主题）"
+	],
+	"A code editor with a built-in AI agent.": [
+		"内置 AI 智能体的代码编辑器。"
+	],
+	"A coding agent that runs in your terminal.": [
+		"在终端中运行的编程智能体。"
+	],
+	"AI apps": [
+		"AI 应用"
+	],
+	"Add annotation to batch": [
+		"将批注添加到批次"
+	],
+	"Add or delete this annotation before starting another.": [
+		"请先添加或删除此批注，然后再开始新的批注。"
+	],
+	"Admin bar hidden by default.": [
+		"已默认隐藏管理工具栏。"
+	],
+	"Admin bar shown by default.": [
+		"已默认显示管理工具栏。"
+	],
+	"Agent apps": [
+		"智能体应用"
+	],
+	"Agents": [
+		"智能体"
+	],
+	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
+		"更新 WordPress Studio CLI 时发生错误。请重试。"
+	],
+	"Annotation is available for design systems created by Studio Code.": [
+		"批注功能适用于由 Studio Code 创建的设计系统。"
+	],
+	"Annotation tools": [
+		"批注工具"
+	],
+	"Anonymous usage statistics enabled.": [
+		"匿名使用统计数据已启用。"
+	],
+	"Anthropic’s AI coding agent.": [
+		"Anthropic 的 AI 编程智能体。"
+	],
+	"Appearance reset.": [
+		"外观已重置。"
+	],
+	"Approve the code %1$s at %2$s": [
+		"请在 %2$s 批准代码 %1$s"
+	],
+	"Approve the code %1$s on %2$s to connect.": [
+		"请在 %2$s 上批准代码 %1$s 以完成连接。"
+	],
+	"Approve the connection in your browser.": [
+		"请在浏览器中批准连接。"
+	],
+	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
+		"至少需要提供一个选项（--name、--domain、--https、--php、--wp、--file-access、--xdebug、--php-workers、--admin-username、--admin-password、--admin-email、--debug-log、--debug-display、--script-debug、--environment-type）。"
+	],
+	"Automatic sidebar collapsing disabled.": [
+		"边栏自动折叠已禁用。"
+	],
+	"Automatic sidebar collapsing enabled.": [
+		"边栏自动折叠已启用。"
+	],
+	"Automatic site start on prompt disabled.": [
+		"发送提示时自动启动站点已禁用。"
+	],
+	"Automatic site start on prompt enabled.": [
+		"发送提示时自动启动站点已启用。"
+	],
+	"Back to email list": [
+		"返回电子邮件列表"
+	],
+	"Batch notes": [
+		"批量批注"
+	],
+	"Batch notes disabled.": [
+		"批量批注已禁用。"
+	],
+	"Batch notes enabled.": [
+		"批量批注已启用。"
+	],
+	"Birdland": [
+		"鸟园"
+	],
+	"Blue Note": [
+		"蓝调音符"
+	],
+	"Blue Train": [
+		"蓝色列车"
+	],
+	"Blue in Green": [
+		"蓝中带绿"
+	],
+	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
+		"蓝图 URL、JSON 文件、文件夹、zip 包或蓝图库别名（请参阅“studio blueprint list”）"
+	],
+	"Blueprint file…": [
+		"蓝图文件…"
+	],
+	"Blueprint loaded": [
+		"蓝图已加载"
+	],
+	"Blueprint preview": [
+		"蓝图预览"
+	],
+	"Blueprints, backups, and WordPress exports": [
+		"蓝图、备份和 WordPress 导出文件"
+	],
+	"Browse Blueprints": [
+		"浏览蓝图"
+	],
+	"Browser could not load.": [
+		"无法加载浏览器。"
+	],
+	"Browser options": [
+		"浏览器选项"
+	],
+	"Browsing data cleared": [
+		"浏览数据已清除"
+	],
+	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
+		"通过聊天构建和编辑站点。使用 WordPress.com AI 积分，或使用您自己的订阅或 API 密钥。"
+	],
+	"Cc": [
+		"抄送"
+	],
+	"Changes to %s": [
+		"对 %s 的更改"
+	],
+	"Check your internet connection and try again.": [
+		"请检查您的互联网连接，然后重试。"
+	],
+	"Checking for updates…": [
+		"正在检查更新…"
+	],
+	"Choose a Blueprint or backup": [
+		"选择蓝图或备份"
+	],
+	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
+		"选择 WordPress 站点文件夹、蓝图 JSON 文件或 ZIP 包。"
+	],
+	"Choose a blueprint, backup, export, or existing WordPress folder.": [
+		"选择蓝图、备份、导出文件或现有的 WordPress 文件夹。"
+	],
+	"Choose a folder containing an existing WordPress site.": [
+		"选择包含现有 WordPress 站点的文件夹。"
+	],
+	"Choose a provider": [
+		"选择提供程序"
+	],
+	"Choose a site source": [
+		"选择站点来源"
+	],
+	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
+		"请使用 `--remote-site %s:<site>`（站点的 ID 或 URL）选择一个站点。"
+	],
+	"Choose a topic": [
+		"选择主题"
+	],
+	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
+		"要使用来源，请选择一个空文件夹。所选文件夹中已包含 WordPress 站点。"
+	],
+	"Choose an existing WordPress folder, blueprint, backup, or export.": [
+		"选择现有的 WordPress 文件夹、蓝图、备份或导出文件。"
+	],
+	"Choose another host": [
+		"选择其他托管服务商"
+	],
+	"Choose color": [
+		"选择颜色"
+	],
+	"Choose what powers chat in WordPress Studio.": [
+		"选择为 WordPress Studio 中的聊天提供支持的服务。"
+	],
+	"Choosing individual files requires a backup of this website.": [
+		"要选择单个文件，需要此网站的备份。"
+	],
+	"Clear browsing data": [
+		"清除浏览数据"
+	],
+	"Close %s": [
+		"关闭 %s"
+	],
+	"Close all tabs": [
+		"关闭所有标签页"
+	],
+	"Close other tabs": [
+		"关闭其他标签页"
+	],
+	"Close tab": [
+		"关闭标签页"
+	],
+	"Close tabs to the right": [
+		"关闭右侧标签页"
+	],
+	"Collect annotations and send them together instead of one at a time.": [
+		"收集批注并一起发送，而不是逐条发送。"
+	],
+	"Color may be adapted for your theme.": [
+		"颜色可能会根据您的主题进行调整。"
+	],
+	"Color picker": [
+		"颜色选择器"
+	],
+	"Connect %s first.": [
+		"请先连接 %s。"
+	],
+	"Connect %s now?": [
+		"立即连接 %s？"
+	],
+	"Connect AI providers": [
+		"连接 AI 提供程序"
+	],
+	"Connect a provider": [
+		"连接提供程序"
+	],
+	"Connect to Spacefast": [
+		"连接到 Spacefast"
+	],
+	"Connect to an existing WordPress": [
+		"连接到现有的 WordPress"
+	],
+	"Connect your WordPress": [
+		"连接您的 WordPress"
+	],
+	"Connected %s.": [
+		"已连接 %s。"
+	],
+	"Connected live site ID, or none": [
+		"已连接的实时站点 ID，若无则为空"
+	],
+	"Connecting to WordPress.com": [
+		"正在连接到 WordPress.com"
+	],
+	"Copy links": [
+		"复制链接"
+	],
+	"Cotton Tail": [
+		"棉尾兔"
+	],
+	"Could not capture the area. Your selection is kept. Try again.": [
+		"无法截取该区域。您的选区已保留。请重试。"
+	],
+	"Could not clear browsing data": [
+		"无法清除浏览数据"
+	],
+	"Could not delete the old preview site. It will expire on its own.": [
+		"无法删除旧的预览站点。它将自动到期。"
+	],
+	"Could not migrate your sites": [
+		"无法迁移您的站点"
+	],
+	"Could not open DevTools": [
+		"无法打开开发者工具"
+	],
+	"Could not open Spacefast": [
+		"无法打开 Spacefast"
+	],
+	"Could not read the table prefix from wp-config.php": [
+		"无法从 wp-config.php 读取表前缀"
+	],
+	"Could not reset appearance. Please try again.": [
+		"无法重置外观。请重试。"
+	],
+	"Could not reset interface. Please try again.": [
+		"无法重置界面。请重试。"
+	],
+	"Could not reset tips. Please try again.": [
+		"无法重置提示。请重试。"
+	],
+	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
+		"无法在 wp-config.php 中将 $table_prefix 设置为“%s”。"
+	],
+	"Could not take screenshot": [
+		"无法截取屏幕截图"
+	],
+	"Could not update settings. Please try again.": [
+		"无法更新设置。请重试。"
+	],
+	"Could not update the admin bar setting. Please try again.": [
+		"无法更新管理工具栏设置。请重试。"
+	],
+	"Couldn't load providers.": [
+		"无法加载提供程序。"
+	],
+	"Couldn’t load apps.": [
+		"无法加载应用。"
+	],
+	"Couldn’t sign in to WordPress.com": [
+		"无法登录 WordPress.com"
+	],
+	"Create a new WordPress": [
+		"新建 WordPress"
+	],
+	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
+		"请创建账户或登录，以连接您的 WordPress.com 或 Pressable 站点。"
+	],
+	"Create another preview": [
+		"创建另一个预览"
+	],
+	"Data Liberation could not capture the source website": [
+		"Data Liberation 无法捕获源网站"
+	],
+	"Default AI provider": [
+		"默认 AI 提供程序"
+	],
+	"Default browser": [
+		"默认浏览器"
+	],
+	"Default code editor": [
+		"默认代码编辑器"
+	],
+	"Default hosting provider": [
+		"默认托管提供商"
+	],
+	"Default terminal app": [
+		"默认终端应用"
+	],
+	"Delete annotation: %s": [
+		"删除批注：%s"
+	],
+	"Describe the change": [
+		"描述更改内容"
+	],
+	"Describe what you’d like to build or change (optional)…": [
+		"描述您想要构建或更改的内容（可选）…"
+	],
+	"Design system could not load.": [
+		"无法加载设计系统。"
+	],
+	"Design systems are available for block themes.": [
+		"设计系统适用于区块主题。"
+	],
+	"Directory to write the static site to": [
+		"静态站点的输出目录"
+	],
+	"Disable automatic sidebar collapsing": [
+		"禁用边栏自动折叠"
+	],
+	"Disable automatic site start on prompt": [
+		"禁用发送提示时自动启动站点"
+	],
+	"Disable batch notes": [
+		"禁用批量批注"
+	],
+	"Discard changes?": [
+		"放弃更改？"
+	],
+	"Disconnect a provider": [
+		"断开提供程序连接"
+	],
+	"Disconnected %s.": [
+		"已断开 %s 的连接。"
+	],
+	"Dismiss tip": [
+		"关闭提示"
+	],
+	"Do more with WordPress": [
+		"使用 WordPress 实现更多功能"
+	],
+	"Download update": [
+		"下载更新"
+	],
+	"Drop to add site": [
+		"拖放到此处以添加站点"
+	],
+	"Drop your file here": [
+		"将文件拖放到此处"
+	],
+	"Edit annotation: %s": [
+		"编辑批注：%s"
+	],
+	"Email log": [
+		"电子邮件日志"
+	],
+	"Email log could not load.": [
+		"无法加载电子邮件日志。"
+	],
+	"Emails sent by your site appear here.": [
+		"您的站点发送的电子邮件将显示在此处。"
+	],
+	"Enable anonymous usage statistics": [
+		"启用匿名使用统计数据"
+	],
+	"Enable automatic sidebar collapsing": [
+		"启用边栏自动折叠"
+	],
+	"Enable automatic site start on prompt": [
+		"启用发送提示时自动启动站点"
+	],
+	"Enable batch notes": [
+		"启用批量批注"
+	],
+	"Enter a folder name other than “.” or “..”.": [
+		"请输入“.”或“..”以外的文件夹名称。"
+	],
+	"Enter the folder’s full path.": [
+		"请输入文件夹的完整路径。"
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Existing WordPress site": [
+		"现有的 WordPress 站点"
+	],
+	"Expand panel": [
+		"展开面板"
+	],
+	"Export site as static HTML files": [
+		"将站点导出为静态 HTML 文件"
+	],
+	"External AI apps": [
+		"外部 AI 应用"
+	],
+	"Failed after %s": [
+		"%s 后失败"
+	],
+	"Failed to back up the remote site": [
+		"备份远程站点失败"
+	],
+	"Failed to check the preview site": [
+		"检查预览站点失败"
+	],
+	"Failed to create the %s site": [
+		"创建 %s 站点失败"
+	],
+	"Failed to export static site": [
+		"导出静态站点失败"
+	],
+	"Failed to fetch Blueprint: HTTP %d": [
+		"获取蓝图失败：HTTP %d"
+	],
+	"Failed to find existing preview site in config": [
+		"未能在配置中找到现有的预览站点"
+	],
+	"Failed to load your %s sites": [
+		"加载您的 %s 站点失败"
+	],
+	"Failed to save connected site": [
+		"保存已连接的站点失败"
+	],
+	"Feedback areas": [
+		"反馈领域"
+	],
+	"Feedback sent": [
+		"反馈已发送"
+	],
+	"Feedback type": [
+		"反馈类型"
+	],
+	"Fetching %s sites…": [
+		"正在获取 %s 站点…"
+	],
+	"File…": [
+		"文件…"
+	],
+	"Finish signing in to %s in your browser.": [
+		"请在浏览器中完成 %s 的登录。"
+	],
+	"First use": [
+		"首次使用"
+	],
+	"For publishing sites.": [
+		"用于发布站点。"
+	],
+	"For working on sites.": [
+		"用于处理站点。"
+	],
+	"From many, one tool.\nFind strength in community\nfor a better web.": [
+		"众人成一器，\n社区聚力量，\n共建好网络。"
+	],
+	"Generating static site…": [
+		"正在生成静态站点…"
+	],
+	"Getting your sign-in code…": [
+		"正在获取您的登录代码…"
+	],
+	"Giant Steps": [
+		"巨人的脚步"
+	],
+	"Green Dolphin Street": [
+		"绿海豚街"
+	],
+	"Hide admin bar": [
+		"隐藏管理工具栏"
+	],
+	"Hide admin bar by default": [
+		"默认隐藏管理工具栏"
+	],
+	"Hide chat when starting sites": [
+		"启动站点时隐藏聊天"
+	],
+	"Hide device toolbar": [
+		"隐藏设备工具栏"
+	],
+	"Hide panel": [
+		"隐藏面板"
+	],
+	"Hide recent chats": [
+		"隐藏最近的聊天"
+	],
+	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
+		"默认在本地站点上隐藏 WordPress 管理工具栏。可在“浏览器选项”中为单个站点更改此设置。"
+	],
+	"Hints": [
+		"提示"
+	],
+	"Hosting providers": [
+		"托管提供商"
+	],
+	"Hostname of the preview site": [
+		"预览站点的主机名"
+	],
+	"How do you want to connect %s?": [
+		"您希望如何连接 %s？"
+	],
+	"How to connect": [
+		"连接方式"
+	],
+	"Hue": [
+		"色相"
+	],
+	"Image annotation": [
+		"图片批注"
+	],
+	"Import a blueprint or backup": [
+		"导入蓝图或备份"
+	],
+	"Import cancelled": [
+		"导入已取消"
+	],
+	"Include this chat’s transcript": [
+		"附上此聊天的记录"
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"安装 WordPress Studio CLI 并为其他应用配置 MCP。"
+	],
+	"Install the WordPress Studio CLI.": [
+		"安装 WordPress Studio CLI。"
+	],
+	"Interface reset.": [
+		"界面已重置。"
+	],
+	"Interface theme": [
+		"界面主题"
+	],
+	"Kind of Blue": [
+		"有点忧郁"
+	],
+	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
+		"如需了解更多信息，请访问 <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>。"
+	],
+	"Loading Blueprint…": [
+		"正在加载蓝图…"
+	],
+	"Loading WordPress Studio…": [
+		"正在加载 WordPress Studio…"
+	],
+	"Loading apps…": [
+		"正在加载应用…"
+	],
+	"Loading file…": [
+		"正在加载文件…"
+	],
+	"Log in or create account": [
+		"登录或创建账户"
+	],
+	"Maiden Voyage": [
+		"处女航"
+	],
+	"Manage AI credits": [
+		"管理 AI 积分"
+	],
+	"Manage sharing": [
+		"管理共享"
+	],
+	"Manual MCP setup": [
+		"手动设置 MCP"
+	],
+	"Mood Indigo": [
+		"靛蓝心情"
+	],
+	"New WordPress Studio Site": [
+		"新建 WordPress Studio 站点"
+	],
+	"New site \"%s\"": [
+		"新站点“%s”"
+	],
+	"New tab": [
+		"新建标签页"
+	],
+	"No design system is available for this theme.": [
+		"此主题没有可用的设计系统。"
+	],
+	"No matching sites.": [
+		"没有匹配的站点。"
+	],
+	"No provider is connected.": [
+		"未连接任何提供程序。"
+	],
+	"No providers": [
+		"无提供程序"
+	],
+	"No recipient": [
+		"无收件人"
+	],
+	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
+		"PHP 工作进程数，用于限制站点可同时处理的请求数（默认值为 %d）"
+	],
+	"Open %s settings": [
+		"打开 %s 设置"
+	],
+	"Open Folder…": [
+		"打开文件夹…"
+	],
+	"Open Spacefast": [
+		"打开 Spacefast"
+	],
+	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
+		"在浏览器中打开 Spacefast。确认代码一致后，批准连接。"
+	],
+	"Open a project page to annotate.": [
+		"打开项目页面以添加批注。"
+	],
+	"Open a site or Blueprint": [
+		"打开站点或蓝图"
+	],
+	"Open documentation": [
+		"打开文档"
+	],
+	"Open email log": [
+		"打开电子邮件日志"
+	],
+	"Open on GitHub": [
+		"在 GitHub 上打开"
+	],
+	"Open the WordPress Studio app to add an existing WordPress folder.": [
+		"请打开 WordPress Studio 应用以添加现有的 WordPress 文件夹。"
+	],
+	"OpenAI’s coding agent in the ChatGPT app.": [
+		"ChatGPT 应用中的 OpenAI 编程智能体。"
+	],
+	"PHP workers must be a whole number from 1 to 64.": [
+		"PHP 工作进程数必须是 1 到 64 之间的整数。"
+	],
+	"Parent folder": [
+		"父文件夹"
+	],
+	"Pending annotation": [
+		"待处理的批注"
+	],
+	"Point or draw to suggest a change.": [
+		"指向或绘制区域以建议更改。"
+	],
+	"Point to something you’d like to change.": [
+		"指向您想要更改的内容。"
+	],
+	"Preview browser controls": [
+		"预览浏览器控件"
+	],
+	"Preview creation cancelled": [
+		"预览创建已取消"
+	],
+	"Preview site not found": [
+		"未找到预览站点"
+	],
+	"Preview tabs": [
+		"预览标签页"
+	],
+	"Project tools": [
+		"项目工具"
+	],
+	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
+		"在 WordPress.com 或 Pressable 上发布新站点或更新现有站点。"
+	],
+	"Publish to %s to apply these changes.": [
+		"请发布到 %s 以应用这些更改。"
+	],
+	"Publish to another site…": [
+		"发布到其他站点…"
+	],
+	"Publish your changes.": [
+		"发布您的更改。"
+	],
+	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
+		"在站点准备就绪后发布，或通过 WordPress.com 共享预览。"
+	],
+	"Published sites": [
+		"已发布的站点"
+	],
+	"Published to": [
+		"已发布到"
+	],
+	"Publishing cancelled": [
+		"发布已取消"
+	],
+	"Publishing changes…": [
+		"正在发布更改…"
+	],
+	"Pull a WordPress.com or Pressable site to your local site": [
+		"将 WordPress.com 或 Pressable 站点拉取到您的本地站点"
+	],
+	"Pull only the database (keeps the local files)": [
+		"仅拉取数据库（保留本地文件）"
+	],
+	"Pull preview": [
+		"拉取预览"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"拉取预览将替换此处所做的更改。"
+	],
+	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
+		"将您的本地站点推送到 WordPress.com 站点，或将其发布到 Spacefast"
+	],
+	"Recent chats": [
+		"最近的聊天"
+	],
+	"Recent chats hidden.": [
+		"已隐藏最近的聊天。"
+	],
+	"Recent chats shown.": [
+		"已显示最近的聊天。"
+	],
+	"Recent pages": [
+		"最近的页面"
+	],
+	"Remote environment: %s": [
+		"远程环境：%s"
+	],
+	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
+		"远程站点的 URL 或 ID；对于其他提供程序上的站点，请使用 `<provider>[:<site>]`，例如使用 `spacefast` 将静态副本发布到 Spacefast"
+	],
+	"Remove Blueprint": [
+		"移除蓝图"
+	],
+	"Replace the contents of a non-empty output directory": [
+		"替换非空输出目录中的内容"
+	],
+	"Report an issue on GitHub": [
+		"在 GitHub 上报告问题"
+	],
+	"Reset folder name to match site name": [
+		"将文件夹名称重置为与站点名称一致"
+	],
+	"Reset tips": [
+		"重置提示"
+	],
+	"Resize panel": [
+		"调整面板大小"
+	],
+	"Resize viewport: %s": [
+		"调整视口大小：%s"
+	],
+	"Responsive preview": [
+		"响应式预览"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"请重新启动 WordPress Studio 以完成更新。"
+	],
+	"Restore the default interface theme, accent color, intensity, and contrast.": [
+		"恢复默认的界面主题、强调色、强度和对比度。"
+	],
+	"Review the advanced settings to finish creating your site.": [
+		"请检查高级设置以完成站点创建。"
+	],
+	"Rotate to landscape": [
+		"旋转为横向"
+	],
+	"Rotate to portrait": [
+		"旋转为纵向"
+	],
+	"Rotate viewport": [
+		"旋转视口"
+	],
+	"Round Midnight": [
+		"午夜时分"
+	],
+	"Run \"studio blueprint list\" to see available slugs.": [
+		"运行“studio blueprint list”以查看可用的别名。"
+	],
+	"Saturation and brightness": [
+		"饱和度和亮度"
+	],
+	"Screenshots are available in the desktop app.": [
+		"屏幕截图功能可在桌面应用中使用。"
+	],
+	"Select an email to read it.": [
+		"选择一封电子邮件进行阅读。"
+	],
+	"Selected area": [
+		"所选区域"
+	],
+	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
+		"WordPress Studio 中的所选文件、内容和设置将被覆盖。您的网站将保持不变。"
+	],
+	"Selected files, content, and settings on your website will be overwritten.": [
+		"您网站上的所选文件、内容和设置将被覆盖。"
+	],
+	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
+		"与任何人共享您本地站点的临时副本。预览站点如果约一周未更新，将会到期。"
+	],
+	"Share details (required)": [
+		"详细说明（必填）"
+	],
+	"Share ideas and report problems directly to the Studio team.": [
+		"直接向 Studio 团队分享想法和报告问题。"
+	],
+	"Show admin bar": [
+		"显示管理工具栏"
+	],
+	"Show admin bar by default": [
+		"默认显示管理工具栏"
+	],
+	"Show chat beside the panel when starting a site.": [
+		"启动站点时在面板旁显示聊天。"
+	],
+	"Show chat when starting sites": [
+		"启动站点时显示聊天"
+	],
+	"Show device toolbar": [
+		"显示设备工具栏"
+	],
+	"Show or hide the panel beside your chat.": [
+		"显示或隐藏聊天旁边的面板。"
+	],
+	"Show panel": [
+		"显示面板"
+	],
+	"Show whether a preview site or its local site changed since they were synced": [
+		"显示预览站点或其本地站点自上次同步以来是否有更改"
+	],
+	"Sign in at %s": [
+		"请在 %s 登录"
+	],
+	"Sign in to get a one-time grant of free AI credits.": [
+		"登录即可获得一次性免费 AI 积分。"
+	],
+	"Signing in took too long. Try again.": [
+		"登录耗时过长。请重试。"
+	],
+	"Signing in was declined.": [
+		"登录已被拒绝。"
+	],
+	"Signing in was started again.": [
+		"登录已重新开始。"
+	],
+	"Site annotation is not available in the browser yet": [
+		"浏览器中暂不支持站点批注"
+	],
+	"Site exported": [
+		"站点已导出"
+	],
+	"Site folder": [
+		"站点文件夹"
+	],
+	"Site folder is required.": [
+		"必须指定站点文件夹。"
+	],
+	"Site sources": [
+		"站点来源"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"无法加载站点。请检查您的互联网连接，然后重试。"
+	],
+	"Sites will start with chat.": [
+		"站点启动时将显示聊天。"
+	],
+	"Sites will start with the panel expanded.": [
+		"站点启动时将展开面板。"
+	],
+	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
+		"技能为 AI 智能体提供 WordPress 开发方面的指导。此处所做的更改将应用于所有现有站点，并作为新站点的默认设置。"
+	],
+	"Source is a temporary preview site.": [
+		"来源是一个临时预览站点。"
+	],
+	"Split view": [
+		"分屏视图"
+	],
+	"Start building with free AI credits.": [
+		"使用免费 AI 积分开始构建。"
+	],
+	"Start from": [
+		"起点"
+	],
+	"Start here": [
+		"从这里开始"
+	],
+	"Start signing in again.": [
+		"请重新开始登录。"
+	],
+	"Start sites with chat": [
+		"启动站点时显示聊天"
+	],
+	"Start this site.": [
+		"启动此站点。"
+	],
+	"Starting chat…": [
+		"正在开始聊天…"
+	],
+	"Static export failed: %s": [
+		"静态导出失败：%s"
+	],
+	"Static site exported to %s": [
+		"静态站点已导出到 %s"
+	],
+	"Stop annotating": [
+		"停止批注"
+	],
+	"Stop annotating. Your notes will be kept.": [
+		"停止批注。您的批注将会保留。"
+	],
+	"Studio was updated, and the site \"%s\" could not be started again.": [
+		"Studio 已更新，但无法重新启动站点“%s”。"
+	],
+	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
+		"Studio 的 phpMyAdmin 仅支持 SQLite。对于外部 MySQL，请使用单独的数据库客户端。"
+	],
+	"Supported files: %s.": [
+		"支持的文件：%s。"
+	],
+	"Swing Time": [
+		"摇摆时光"
+	],
+	"Sync is finishing": [
+		"同步即将完成"
+	],
+	"Take Five": [
+		"小憩五分钟"
+	],
+	"Taking screenshot…": [
+		"正在截取屏幕截图…"
+	],
+	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
+		"感谢您帮助改进 WordPress Studio。您提交的反馈的参考 ID 为 <id>%s</id>。"
+	],
+	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
+		"不支持该文件类型。请选择蓝图、WordPress 备份或 XML 导出文件。"
+	],
+	"That sign-in was for another attempt. Try again.": [
+		"该登录属于另一次尝试。请重试。"
+	],
+	"The default browser for your sites.": [
+		"用于打开您站点的默认浏览器。"
+	],
+	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
+		"首次拉取站点时必须包含其文件。请先完整拉取一次站点，之后再仅拉取数据库。"
+	],
+	"The live site must be a qualifying connected site of this local site.": [
+		"实时站点必须是此本地站点的符合条件的已连接站点。"
+	],
+	"The output directory %s is not empty.": [
+		"输出目录 %s 不为空。"
+	],
+	"The output directory cannot be inside the site folder or contain it.": [
+		"输出目录不能位于站点文件夹内，也不能包含站点文件夹。"
+	],
+	"The preview site could not be built from the archive.": [
+		"无法根据存档构建预览站点。"
+	],
+	"The preview site did not become ready within the timeout.": [
+		"预览站点未能在超时时间内准备就绪。"
+	],
+	"The preview site has no preview link.": [
+		"该预览站点没有预览链接。"
+	],
+	"The site archive exceeds the %d GB size limit.": [
+		"站点存档超出了 %d GB 的大小限制。"
+	],
+	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
+		"主题文件的修改不会显示。您对 %s 文件所做的更改未包含在内：此预览使用的是 WordPress.com 上该主题的原始副本。请在站点编辑器或子主题中进行修改，以便在预览中看到这些更改。"
+	],
+	"Then add this configuration to your app.": [
+		"然后将此配置添加到您的应用中。"
+	],
+	"This ZIP could not be read. Check that it is a valid zip file.": [
+		"无法读取此 ZIP 文件。请检查它是否为有效的 zip 文件。"
+	],
+	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
+		"无法使用此 ZIP 文件。请确保其顶层或某个外层文件夹中包含有效的 blueprint.json 文件，然后重试。"
+	],
+	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
+		"此备份包含名称仅大小写不同的 SQL 文件：“%1$s”和“%2$s”。请在源站点上解决名称冲突，然后创建新的备份并重试。"
+	],
+	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
+		"这可能需要几分钟时间。更新安装完成后，WordPress Studio 将自动重新打开。"
+	],
+	"This email is gone.": [
+		"此电子邮件已不存在。"
+	],
+	"This file took too long to load. Please try again or choose another file.": [
+		"此文件加载时间过长。请重试或选择其他文件。"
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"此文件夹已与另一个 Studio 站点关联。请选择其他本地文件夹。"
+	],
+	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
+		"此文件夹已与另一个 Studio 站点关联。请选择其他站点名称或本地文件夹。"
+	],
+	"This site and its preview both changed": [
+		"此站点及其预览均已更改"
+	],
+	"This site has changes its preview doesn't": [
+		"此站点包含其预览中没有的更改"
+	],
+	"This site is no longer available in WordPress Studio.": [
+		"此站点在 WordPress Studio 中已不可用。"
+	],
+	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
+		"此站点尚未准备好启动。%s 请重新运行 `studio pull` 以完成拉取，或运行 `studio delete` 以移除该站点。"
+	],
+	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
+		"此站点超过 %d GB，因此将其发布回 WordPress.com 可能会失败。请改为发布较少的文件。"
+	],
+	"This site isn't one of your WordPress.com or Pressable sites.": [
+		"此站点不属于您的 WordPress.com 或 Pressable 站点。"
+	],
+	"Tips reset.": [
+		"提示已重置。"
+	],
+	"To %s": [
+		"收件人：%s"
+	],
+	"Try downloading the update again.": [
+		"请尝试重新下载更新。"
+	],
+	"Try starting the chat again, or open your site.": [
+		"请尝试重新开始聊天，或打开您的站点。"
+	],
+	"URL the static site will be hosted at. Links are root-relative when omitted.": [
+		"静态站点的托管 URL。省略时，链接将使用相对于根目录的路径。"
+	],
+	"Unable to open this folder.": [
+		"无法打开此文件夹。"
+	],
+	"Unable to open this source.": [
+		"无法打开此来源。"
+	],
+	"Unknown provider %1$s. Choose one of: %2$s.": [
+		"未知的提供程序 %1$s。请从以下选项中选择：%2$s。"
+	],
+	"Unsupported backup file": [
+		"不支持的备份文件"
+	],
+	"Uploading files…": [
+		"正在上传文件…"
+	],
+	"Use /connect %1$s to connect %2$s again.": [
+		"请使用 /connect %1$s 重新连接 %2$s。"
+	],
+	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
+		"使用 Alt+Shift+左箭头或右箭头移动此标签页。"
+	],
+	"Use Blueprint": [
+		"使用蓝图"
+	],
+	"Use WordPress Studio with your agents": [
+		"将 WordPress Studio 与您的智能体结合使用"
+	],
+	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
+		"请使用来自受支持站点的 HTTPS 备份链接，且文件为小于 1 GB 的 zip 或 tar.gz 文件。请检查您的网络连接，然后重试。"
+	],
+	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
+		"使用您偏好的 AI 智能体创建站点、进行更改并检查成果。安装 WordPress Studio 插件，即可让它访问您的本地站点。"
+	],
+	"Visit previews": [
+		"访问预览"
+	],
+	"Waiting for %s": [
+		"已等待 %s"
+	],
+	"Waiting for approval…": [
+		"正在等待批准…"
+	],
+	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
+		"正在等待浏览器。如果浏览器无法连接到这台计算机，请粘贴它最终停留页面的地址："
+	],
+	"What would you like to open?": [
+		"您想打开什么？"
+	],
+	"Where do you want to publish?": [
+		"您想发布到哪里？"
+	],
+	"WordPress Studio CLI for terminal": [
+		"适用于终端的 WordPress Studio CLI"
+	],
+	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
+		"同步完成后即可退出 WordPress Studio。现在退出会中断同步，并可能导致您的站点不完整。"
+	],
+	"WordPress Studio could not download this backup.": [
+		"WordPress Studio 无法下载此备份。"
+	],
+	"WordPress Studio could not open the email folder.": [
+		"WordPress Studio 无法打开电子邮件文件夹。"
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"WordPress Studio 无法打开该文件夹。请重试。"
+	],
+	"WordPress Studio could not open the site.": [
+		"WordPress Studio 无法打开该站点。"
+	],
+	"WordPress Studio is finishing an update": [
+		"WordPress Studio 正在完成更新"
+	],
+	"WordPress Studio team": [
+		"WordPress Studio 团队"
+	],
+	"WordPress Studio will create a local copy of this site in an empty folder.": [
+		"WordPress Studio 将在一个空文件夹中创建此站点的本地副本。"
+	],
+	"WordPress Studio will create a site from this blueprint in an empty folder.": [
+		"WordPress Studio 将在一个空文件夹中根据此蓝图创建站点。"
+	],
+	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
+		"WordPress Studio 将在一个空文件夹中创建站点，并导入此 WordPress 导出文件。"
+	],
+	"WordPress Studio will restore this backup into an empty folder.": [
+		"WordPress Studio 将把此备份还原到一个空文件夹中。"
+	],
+	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
+		"WordPress Studio 将在原位置使用此 WordPress 站点，不会移动任何文件。"
+	],
+	"WordPress export": [
+		"WordPress 导出文件"
+	],
+	"WordPress.com hosting": [
+		"WordPress.com 托管"
+	],
+	"Worked for %s": [
+		"共工作 %s"
+	],
+	"Working for %s": [
+		"已工作 %s"
+	],
+	"Workspace navigation": [
+		"工作区导航"
+	],
+	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
+		"您最多可以附加 %d 张图片。请先发送或删除一条批注，然后再截取其他区域。"
+	],
+	"You can close this tab and return to WordPress Studio.": [
+		"您可以关闭此标签页并返回 WordPress Studio。"
+	],
+	"You stopped after %s": [
+		"您在 %s 后停止了"
+	],
+	"You're not logged in to WordPress.com. Log in now?": [
+		"您尚未登录 WordPress.com。立即登录？"
+	],
+	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
+		"您的预览已迁移到 WordPress.com，因此链接已更改。新链接：%s"
+	],
+	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
+		"自预览“%s”上次更新以来，您的站点已发生更改。发布时将发送您当前的本地站点，包括该预览中未显示的更改。"
+	],
+	"Your site was created, but the AI chat could not start.": [
+		"您的站点已创建，但 AI 聊天无法启动。"
+	],
+	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"您的站点仍列在 %s 中。请重新启动 WordPress Studio 以重试。如果此问题持续出现，请联系支持人员并提供以下详细信息。"
+	],
+	"Your unsaved changes will be lost.": [
+		"您未保存的更改将会丢失。"
+	],
+	"Your website will be replaced with this site as it is now.": [
+		"您的网站将被替换为此站点的当前状态。"
+	],
+	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
+		"base-url 必须是不含路径的 http(s) URL，例如 https://example.com"
+	],
+	"· %d%%": [
+		"· %d%%"
+	]
+}

@@ -1,0 +1,1231 @@
+{
+	"\"%s\" is not a Blueprint file, URL or Library slug.": [
+		"\"%s\" ليس ملف مخطط أو عنوان URL أو اسمًا لطيفًا في المكتبة."
+	],
+	"%1$dh %2$dm": [
+		"%1$d س %2$d د"
+	],
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%1$s Use /connect %2$s to connect it.": [
+		"%1$s استخدم ‎/connect %2$s لربطه."
+	],
+	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
+		"تعذَّر على %1$s تثبيت إضافة WordPress Studio: %2$s"
+	],
+	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
+		"تعذَّر على %1$s تحديث إضافة WordPress Studio: %2$s"
+	],
+	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
+		"%1$s غير مرتبط. استخدم ‎/connect %2$s لربطه."
+	],
+	"%1$s screenshot %2$d": [
+		"لقطة الشاشة %2$d من %1$s"
+	],
+	"%d B": [
+		"%d بايت"
+	],
+	"%d annotation ready to send": [
+		"%d تعليق توضيحي جاهز للإرسال",
+		"تعليق توضيحي واحد جاهز للإرسال",
+		"تعليقان توضيحيان جاهزان للإرسال",
+		"%d تعليقات توضيحية جاهزة للإرسال",
+		"%d تعليقًا توضيحيًا جاهزًا للإرسال",
+		"%d تعليق توضيحي جاهز للإرسال"
+	],
+	"%s (saved for future use):": [
+		"%s (يُحفظ للاستخدام لاحقًا):"
+	],
+	"%s KB": [
+		"%s كيلوبايت"
+	],
+	"%s connection": [
+		"اتصال %s"
+	],
+	"%s is no longer installed. Choose another browser in Settings.": [
+		"لم يعد %s مثبَّتًا. اختر متصفحًا آخر في الإعدادات."
+	],
+	"%s isn’t installed on this computer.": [
+		"%s غير مثبَّت على هذا الكمبيوتر."
+	],
+	"%s preview is ready": [
+		"معاينة %s جاهزة"
+	],
+	"A code editor with a built-in AI agent.": [
+		"محرر شفرة برمجية مزوَّد بوكيل ذكاء اصطناعي مدمج."
+	],
+	"A coding agent that runs in your terminal.": [
+		"وكيل برمجة يعمل في المحطة الطرفية."
+	],
+	"AI apps": [
+		"تطبيقات الذكاء الاصطناعي"
+	],
+	"Add annotation to batch": [
+		"إضافة التعليق التوضيحي إلى المجموعة"
+	],
+	"Add or delete this annotation before starting another.": [
+		"أضف هذا التعليق التوضيحي أو احذفه قبل بدء تعليق آخر."
+	],
+	"Admin bar hidden by default.": [
+		"شريط المشرف مخفي افتراضيًا."
+	],
+	"Admin bar shown by default.": [
+		"يظهر شريط المشرف افتراضيًا."
+	],
+	"Agent apps": [
+		"تطبيقات الوكلاء"
+	],
+	"Agents": [
+		"الوكلاء"
+	],
+	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
+		"حدث خطأ أثناء تحديث واجهة سطر أوامر WordPress Studio. يُرجى المحاولة مجددًا."
+	],
+	"Annotation is available for design systems created by Studio Code.": [
+		"تتوفر التعليقات التوضيحية لأنظمة التصميم التي أنشأها Studio Code."
+	],
+	"Annotation tools": [
+		"أدوات التعليقات التوضيحية"
+	],
+	"Anonymous usage statistics enabled.": [
+		"تم تمكين إحصاءات الاستخدام مجهولة الهوية."
+	],
+	"Anthropic’s AI coding agent.": [
+		"وكيل البرمجة بالذكاء الاصطناعي من Anthropic."
+	],
+	"Appearance reset.": [
+		"تمت إعادة تعيين المظهر."
+	],
+	"Approve the code %1$s at %2$s": [
+		"وافق على الرمز %1$s على %2$s"
+	],
+	"Approve the code %1$s on %2$s to connect.": [
+		"وافق على الرمز %1$s على %2$s للاتصال."
+	],
+	"Approve the connection in your browser.": [
+		"وافق على الاتصال في متصفحك."
+	],
+	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
+		"يلزم تحديد خيار واحد على الأقل (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
+	],
+	"Automatic sidebar collapsing disabled.": [
+		"تم تعطيل الطي التلقائي للشريط الجانبي."
+	],
+	"Automatic sidebar collapsing enabled.": [
+		"تم تمكين الطي التلقائي للشريط الجانبي."
+	],
+	"Automatic site start on prompt disabled.": [
+		"تم تعطيل بدء الموقع تلقائيًا عند إرسال موجّه."
+	],
+	"Automatic site start on prompt enabled.": [
+		"تم تمكين بدء الموقع تلقائيًا عند إرسال موجّه."
+	],
+	"Back to email list": [
+		"العودة إلى قائمة رسائل البريد الإلكتروني"
+	],
+	"Batch notes": [
+		"تجميع الملاحظات"
+	],
+	"Batch notes disabled.": [
+		"تم تعطيل تجميع الملاحظات."
+	],
+	"Batch notes enabled.": [
+		"تم تمكين تجميع الملاحظات."
+	],
+	"Birdland": [
+		"بيردلاند"
+	],
+	"Blue Note": [
+		"بلو نوت"
+	],
+	"Blue Train": [
+		"بلو ترين"
+	],
+	"Blue in Green": [
+		"بلو إن غرين"
+	],
+	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
+		"عنوان URL للمخطط، أو ملف JSON، أو مجلد، أو حزمة zip، أو الاسم اللطيف في مكتبة المخططات (راجع \"studio blueprint list\")"
+	],
+	"Blueprint file…": [
+		"ملف مخطط…"
+	],
+	"Blueprint loaded": [
+		"تم تحميل المخطط"
+	],
+	"Blueprint preview": [
+		"معاينة المخطط"
+	],
+	"Blueprints, backups, and WordPress exports": [
+		"المخططات والنسخ الاحتياطية وملفات تصدير ووردبريس"
+	],
+	"Browse Blueprints": [
+		"تصفح المخططات"
+	],
+	"Browser could not load.": [
+		"تعذَّر تحميل المتصفح."
+	],
+	"Browser options": [
+		"خيارات المتصفح"
+	],
+	"Browsing data cleared": [
+		"تم مسح بيانات التصفح"
+	],
+	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
+		"أنشئ المواقع وحرّرها عبر المحادثة. استخدم أرصدة الذكاء الاصطناعي من WordPress.com أو اشتراكك الخاص أو مفتاح API الخاص بك."
+	],
+	"Cc": [
+		"نسخة إلى"
+	],
+	"Changes to %s": [
+		"التغييرات على %s"
+	],
+	"Check your internet connection and try again.": [
+		"تحقق من اتصالك بالإنترنت وحاول مجددًا."
+	],
+	"Checking for updates…": [
+		"جارٍ التحقق من وجود تحديثات…"
+	],
+	"Choose a Blueprint or backup": [
+		"اختر مخططًا أو نسخة احتياطية"
+	],
+	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
+		"اختر مجلد موقع ووردبريس، أو ملف JSON لمخطط، أو حزمة ZIP."
+	],
+	"Choose a blueprint, backup, export, or existing WordPress folder.": [
+		"اختر مخططًا، أو نسخة احتياطية، أو ملف تصدير، أو مجلد ووردبريس موجودًا."
+	],
+	"Choose a folder containing an existing WordPress site.": [
+		"اختر مجلدًا يحتوي على موقع ووردبريس موجود."
+	],
+	"Choose a provider": [
+		"اختر مزوِّدًا"
+	],
+	"Choose a site source": [
+		"اختر مصدر الموقع"
+	],
+	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
+		"اختر موقعًا باستخدام `--remote-site %s:<site>` (معرّفه أو عنوان URL الخاص به)."
+	],
+	"Choose a topic": [
+		"اختر موضوعًا"
+	],
+	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
+		"اختر مجلدًا فارغًا لاستخدام مصدر. يحتوي المجلد المحدد بالفعل على موقع ووردبريس."
+	],
+	"Choose an existing WordPress folder, blueprint, backup, or export.": [
+		"اختر مجلد ووردبريس موجودًا، أو مخططًا، أو نسخة احتياطية، أو ملف تصدير."
+	],
+	"Choose another host": [
+		"اختر مضيفًا آخر"
+	],
+	"Choose color": [
+		"اختيار اللون"
+	],
+	"Choose what powers chat in WordPress Studio.": [
+		"اختر ما يشغّل المحادثة في WordPress Studio."
+	],
+	"Choosing individual files requires a backup of this website.": [
+		"يتطلب اختيار ملفات فردية نسخة احتياطية من هذا الموقع الإلكتروني."
+	],
+	"Clear browsing data": [
+		"مسح بيانات التصفح"
+	],
+	"Close %s": [
+		"إغلاق %s"
+	],
+	"Close all tabs": [
+		"إغلاق جميع علامات التبويب"
+	],
+	"Close other tabs": [
+		"إغلاق علامات التبويب الأخرى"
+	],
+	"Close tab": [
+		"إغلاق علامة التبويب"
+	],
+	"Close tabs to the right": [
+		"إغلاق علامات التبويب التالية"
+	],
+	"Collect annotations and send them together instead of one at a time.": [
+		"جمع التعليقات التوضيحية وإرسالها معًا بدلًا من إرسالها واحدًا تلو الآخر."
+	],
+	"Color may be adapted for your theme.": [
+		"قد يُعدَّل اللون ليتناسب مع السمة."
+	],
+	"Color picker": [
+		"منتقي الألوان"
+	],
+	"Connect %s first.": [
+		"اربط %s أولًا."
+	],
+	"Connect %s now?": [
+		"هل تريد ربط %s الآن؟"
+	],
+	"Connect AI providers": [
+		"ربط مزوِّدي الذكاء الاصطناعي"
+	],
+	"Connect a provider": [
+		"ربط مزوِّد"
+	],
+	"Connect to Spacefast": [
+		"الاتصال بـ Spacefast"
+	],
+	"Connect to an existing WordPress": [
+		"الاتصال بموقع ووردبريس موجود"
+	],
+	"Connect your WordPress": [
+		"اربط موقع ووردبريس الخاص بك"
+	],
+	"Connected %s.": [
+		"تم ربط %s."
+	],
+	"Connected live site ID, or none": [
+		"معرّف الموقع الفعلي المرتبط، أو none"
+	],
+	"Connecting to WordPress.com": [
+		"جارٍ الاتصال بـ WordPress.com"
+	],
+	"Copy links": [
+		"نسخ الروابط"
+	],
+	"Cotton Tail": [
+		"كوتون تيل"
+	],
+	"Could not capture the area. Your selection is kept. Try again.": [
+		"تعذَّر التقاط المنطقة. تم الاحتفاظ بتحديدك. حاول مجددًا."
+	],
+	"Could not clear browsing data": [
+		"تعذَّر مسح بيانات التصفح"
+	],
+	"Could not delete the old preview site. It will expire on its own.": [
+		"تعذَّر حذف موقع المعاينة القديم. ستنتهي صلاحيته تلقائيًا."
+	],
+	"Could not migrate your sites": [
+		"تعذَّر ترحيل مواقعك"
+	],
+	"Could not open DevTools": [
+		"تعذَّر فتح DevTools"
+	],
+	"Could not open Spacefast": [
+		"تعذَّر فتح Spacefast"
+	],
+	"Could not read the table prefix from wp-config.php": [
+		"تعذَّرت قراءة بادئة الجداول من wp-config.php"
+	],
+	"Could not reset appearance. Please try again.": [
+		"تعذَّرت إعادة تعيين المظهر. يُرجى المحاولة مجددًا."
+	],
+	"Could not reset interface. Please try again.": [
+		"تعذَّرت إعادة تعيين الواجهة. يُرجى المحاولة مجددًا."
+	],
+	"Could not reset tips. Please try again.": [
+		"تعذَّرت إعادة تعيين التلميحات. يُرجى المحاولة مجددًا."
+	],
+	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
+		"تعذَّر تعيين $table_prefix إلى \"%s\" في wp-config.php."
+	],
+	"Could not take screenshot": [
+		"تعذَّر التقاط لقطة الشاشة"
+	],
+	"Could not update settings. Please try again.": [
+		"تعذَّر تحديث الإعدادات. يُرجى المحاولة مجددًا."
+	],
+	"Could not update the admin bar setting. Please try again.": [
+		"تعذَّر تحديث إعداد شريط المشرف. يُرجى المحاولة مجددًا."
+	],
+	"Couldn't load providers.": [
+		"تعذَّر تحميل المزوِّدين."
+	],
+	"Couldn’t load apps.": [
+		"تعذَّر تحميل التطبيقات."
+	],
+	"Couldn’t sign in to WordPress.com": [
+		"تعذَّر تسجيل الدخول إلى WordPress.com"
+	],
+	"Create a new WordPress": [
+		"إنشاء موقع ووردبريس جديد"
+	],
+	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
+		"أنشئ حسابًا أو سجّل الدخول لربط مواقعك على WordPress.com أو Pressable."
+	],
+	"Create another preview": [
+		"إنشاء معاينة أخرى"
+	],
+	"Data Liberation could not capture the source website": [
+		"تعذَّر على مبادرة \"تحرير البيانات (Data Liberation)\" استخراج الموقع الإلكتروني المصدر"
+	],
+	"Default AI provider": [
+		"مزوِّد الذكاء الاصطناعي الافتراضي"
+	],
+	"Default browser": [
+		"المتصفح الافتراضي"
+	],
+	"Default code editor": [
+		"محرر الشفرة البرمجية الافتراضي"
+	],
+	"Default hosting provider": [
+		"مزوِّد الاستضافة الافتراضي"
+	],
+	"Default terminal app": [
+		"تطبيق المحطة الطرفية الافتراضي"
+	],
+	"Delete annotation: %s": [
+		"حذف التعليق التوضيحي: %s"
+	],
+	"Describe the change": [
+		"صِف التغيير"
+	],
+	"Describe what you’d like to build or change (optional)…": [
+		"صِف ما تريد إنشاءه أو تغييره (اختياري)…"
+	],
+	"Design system could not load.": [
+		"تعذَّر تحميل نظام التصميم."
+	],
+	"Design systems are available for block themes.": [
+		"تتوفر أنظمة التصميم لقوالب المكوّنات."
+	],
+	"Directory to write the static site to": [
+		"المجلد الذي سيُكتب فيه الموقع الثابت"
+	],
+	"Disable automatic sidebar collapsing": [
+		"تعطيل الطي التلقائي للشريط الجانبي"
+	],
+	"Disable automatic site start on prompt": [
+		"تعطيل بدء الموقع تلقائيًا عند إرسال موجّه"
+	],
+	"Disable batch notes": [
+		"تعطيل تجميع الملاحظات"
+	],
+	"Discard changes?": [
+		"هل تريد تجاهل التغييرات؟"
+	],
+	"Disconnect a provider": [
+		"قطع الاتصال بمزوِّد"
+	],
+	"Disconnected %s.": [
+		"تم قطع الاتصال بـ %s."
+	],
+	"Dismiss tip": [
+		"تجاهل التلميح"
+	],
+	"Do more with WordPress": [
+		"أنجز المزيد مع ووردبريس"
+	],
+	"Download update": [
+		"تنزيل التحديث"
+	],
+	"Drop to add site": [
+		"أفلِت لإضافة الموقع"
+	],
+	"Drop your file here": [
+		"أفلِت ملفك هنا"
+	],
+	"Edit annotation: %s": [
+		"تحرير التعليق التوضيحي: %s"
+	],
+	"Email log": [
+		"سجل البريد الإلكتروني"
+	],
+	"Email log could not load.": [
+		"تعذَّر تحميل سجل البريد الإلكتروني."
+	],
+	"Emails sent by your site appear here.": [
+		"تظهر هنا رسائل البريد الإلكتروني التي يرسلها موقعك."
+	],
+	"Enable anonymous usage statistics": [
+		"تمكين إحصاءات الاستخدام مجهولة الهوية"
+	],
+	"Enable automatic sidebar collapsing": [
+		"تمكين الطي التلقائي للشريط الجانبي"
+	],
+	"Enable automatic site start on prompt": [
+		"تمكين بدء الموقع تلقائيًا عند إرسال موجّه"
+	],
+	"Enable batch notes": [
+		"تمكين تجميع الملاحظات"
+	],
+	"Enter a folder name other than “.” or “..”.": [
+		"أدخل اسم مجلد غير “.” أو “..”."
+	],
+	"Enter the folder’s full path.": [
+		"أدخل المسار الكامل للمجلد."
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Existing WordPress site": [
+		"موقع ووردبريس موجود"
+	],
+	"Expand panel": [
+		"توسيع اللوحة"
+	],
+	"Export site as static HTML files": [
+		"تصدير الموقع كملفات HTML ثابتة"
+	],
+	"External AI apps": [
+		"تطبيقات الذكاء الاصطناعي الخارجية"
+	],
+	"Failed after %s": [
+		"فشل بعد %s"
+	],
+	"Failed to back up the remote site": [
+		"فشل النسخ الاحتياطي للموقع البعيد"
+	],
+	"Failed to check the preview site": [
+		"فشل التحقق من موقع المعاينة"
+	],
+	"Failed to create the %s site": [
+		"فشل إنشاء الموقع على %s"
+	],
+	"Failed to export static site": [
+		"فشل تصدير الموقع الثابت"
+	],
+	"Failed to fetch Blueprint: HTTP %d": [
+		"فشل إحضار المخطط: HTTP %d"
+	],
+	"Failed to find existing preview site in config": [
+		"فشل العثور على موقع المعاينة الحالي في الإعدادات"
+	],
+	"Failed to load your %s sites": [
+		"فشل تحميل مواقعك على %s"
+	],
+	"Failed to save connected site": [
+		"فشل حفظ الموقع المرتبط"
+	],
+	"Feedback areas": [
+		"مجالات الملاحظات"
+	],
+	"Feedback sent": [
+		"تم إرسال الملاحظات"
+	],
+	"Feedback type": [
+		"نوع الملاحظات"
+	],
+	"Fetching %s sites…": [
+		"جارٍ إحضار مواقع %s…"
+	],
+	"File…": [
+		"ملف…"
+	],
+	"Finish signing in to %s in your browser.": [
+		"أكمل تسجيل الدخول إلى %s في متصفحك."
+	],
+	"First use": [
+		"الاستخدام الأول"
+	],
+	"For publishing sites.": [
+		"لنشر المواقع."
+	],
+	"For working on sites.": [
+		"للعمل على المواقع."
+	],
+	"From many, one tool.\nFind strength in community\nfor a better web.": [
+		"من الكثيرين، أداة واحدة.\nفي المجتمع نجد القوة\nلويب أفضل."
+	],
+	"Generating static site…": [
+		"جارٍ إنشاء الموقع الثابت…"
+	],
+	"Getting your sign-in code…": [
+		"جارٍ الحصول على رمز تسجيل الدخول…"
+	],
+	"Giant Steps": [
+		"جاينت ستبس"
+	],
+	"Green Dolphin Street": [
+		"غرين دولفين ستريت"
+	],
+	"Hide admin bar": [
+		"إخفاء شريط المشرف"
+	],
+	"Hide admin bar by default": [
+		"إخفاء شريط المشرف افتراضيًا"
+	],
+	"Hide chat when starting sites": [
+		"إخفاء المحادثة عند بدء المواقع"
+	],
+	"Hide device toolbar": [
+		"إخفاء شريط أدوات الجهاز"
+	],
+	"Hide panel": [
+		"إخفاء اللوحة"
+	],
+	"Hide recent chats": [
+		"إخفاء المحادثات الحديثة"
+	],
+	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
+		"إخفاء شريط مشرف ووردبريس افتراضيًا على المواقع المحلية. يمكنك تغيير ذلك لكل موقع على حدة من خيارات المتصفح."
+	],
+	"Hints": [
+		"التلميحات"
+	],
+	"Hosting providers": [
+		"مزوِّدو الاستضافة"
+	],
+	"Hostname of the preview site": [
+		"اسم مضيف موقع المعاينة"
+	],
+	"How do you want to connect %s?": [
+		"كيف تريد ربط %s؟"
+	],
+	"How to connect": [
+		"طريقة الاتصال"
+	],
+	"Hue": [
+		"درجة اللون"
+	],
+	"IDE": [
+		"بيئة التطوير المتكاملة"
+	],
+	"Image annotation": [
+		"تعليق توضيحي على صورة"
+	],
+	"Import a blueprint or backup": [
+		"استيراد مخطط أو نسخة احتياطية"
+	],
+	"Import cancelled": [
+		"تم إلغاء الاستيراد"
+	],
+	"Include this chat’s transcript": [
+		"تضمين نص هذه المحادثة"
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"ثبّت واجهة سطر أوامر WordPress Studio واضبط MCP لتطبيق آخر."
+	],
+	"Install the WordPress Studio CLI.": [
+		"ثبّت واجهة سطر أوامر WordPress Studio."
+	],
+	"Interface reset.": [
+		"تمت إعادة تعيين الواجهة."
+	],
+	"Interface theme": [
+		"سمة الواجهة"
+	],
+	"Kind of Blue": [
+		"كايند أوف بلو"
+	],
+	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
+		"اعرف المزيد على <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
+	],
+	"Loading Blueprint…": [
+		"جارٍ تحميل المخطط…"
+	],
+	"Loading WordPress Studio…": [
+		"جارٍ تحميل WordPress Studio…"
+	],
+	"Loading apps…": [
+		"جارٍ تحميل التطبيقات…"
+	],
+	"Loading file…": [
+		"جارٍ تحميل الملف…"
+	],
+	"Log in or create account": [
+		"تسجيل الدخول أو إنشاء حساب"
+	],
+	"Maiden Voyage": [
+		"ميدن فوياج"
+	],
+	"Manage AI credits": [
+		"إدارة أرصدة الذكاء الاصطناعي"
+	],
+	"Manage sharing": [
+		"إدارة المشاركة"
+	],
+	"Manual MCP setup": [
+		"إعداد MCP يدويًا"
+	],
+	"Mood Indigo": [
+		"مود إنديغو"
+	],
+	"New WordPress Studio Site": [
+		"موقع WordPress Studio جديد"
+	],
+	"New site \"%s\"": [
+		"موقع جديد \"%s\""
+	],
+	"New tab": [
+		"علامة تبويب جديدة"
+	],
+	"No design system is available for this theme.": [
+		"لا يتوفر نظام تصميم لهذا القالب."
+	],
+	"No matching sites.": [
+		"لا توجد مواقع مطابقة."
+	],
+	"No provider is connected.": [
+		"لا يوجد أي مزوِّد مرتبط."
+	],
+	"No providers": [
+		"لا يوجد مزوِّدون"
+	],
+	"No recipient": [
+		"لا يوجد مستلم"
+	],
+	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
+		"عدد عمليات PHP العاملة، وهو الحد الأقصى لعدد الطلبات التي يخدمها الموقع في الوقت نفسه (الافتراضي %d)"
+	],
+	"Open %s settings": [
+		"فتح إعدادات %s"
+	],
+	"Open Folder…": [
+		"فتح مجلد…"
+	],
+	"Open Spacefast": [
+		"فتح Spacefast"
+	],
+	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
+		"افتح Spacefast في متصفحك. تأكد من تطابق الرموز، ثم وافق على الاتصال."
+	],
+	"Open a project page to annotate.": [
+		"افتح صفحة مشروع لإضافة تعليقات توضيحية."
+	],
+	"Open a site or Blueprint": [
+		"فتح موقع أو مخطط"
+	],
+	"Open documentation": [
+		"فتح الوثائق"
+	],
+	"Open email log": [
+		"فتح سجل البريد الإلكتروني"
+	],
+	"Open on GitHub": [
+		"فتح على GitHub"
+	],
+	"Open the WordPress Studio app to add an existing WordPress folder.": [
+		"افتح تطبيق WordPress Studio لإضافة مجلد ووردبريس موجود."
+	],
+	"OpenAI’s coding agent in the ChatGPT app.": [
+		"وكيل البرمجة من OpenAI في تطبيق ChatGPT."
+	],
+	"PHP workers must be a whole number from 1 to 64.": [
+		"يجب أن يكون عدد عمليات PHP العاملة عددًا صحيحًا من 1 إلى 64."
+	],
+	"Parent folder": [
+		"المجلد الأب"
+	],
+	"Pending annotation": [
+		"تعليق توضيحي معلَّق"
+	],
+	"Point or draw to suggest a change.": [
+		"أشِر أو ارسم لاقتراح تغيير."
+	],
+	"Point to something you’d like to change.": [
+		"أشِر إلى شيء تريد تغييره."
+	],
+	"Preview browser controls": [
+		"عناصر التحكم في متصفح المعاينة"
+	],
+	"Preview creation cancelled": [
+		"تم إلغاء إنشاء المعاينة"
+	],
+	"Preview site not found": [
+		"لم يتم العثور على موقع المعاينة"
+	],
+	"Preview tabs": [
+		"علامات تبويب المعاينة"
+	],
+	"Project tools": [
+		"أدوات المشروع"
+	],
+	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
+		"انشر مواقع جديدة أو حدِّث المواقع الحالية على WordPress.com أو Pressable."
+	],
+	"Publish to %s to apply these changes.": [
+		"انشر على %s لتطبيق هذه التغييرات."
+	],
+	"Publish to another site…": [
+		"النشر على موقع آخر…"
+	],
+	"Publish your changes.": [
+		"انشر تغييراتك."
+	],
+	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
+		"انشر موقعك عندما يصبح جاهزًا، أو شارك معاينة عبر WordPress.com."
+	],
+	"Published sites": [
+		"المواقع المنشورة"
+	],
+	"Published to": [
+		"تم النشر على"
+	],
+	"Publishing cancelled": [
+		"تم إلغاء النشر"
+	],
+	"Publishing changes…": [
+		"جارٍ نشر التغييرات…"
+	],
+	"Pull a WordPress.com or Pressable site to your local site": [
+		"سحب موقع من WordPress.com أو Pressable إلى موقعك المحلي"
+	],
+	"Pull only the database (keeps the local files)": [
+		"سحب قاعدة البيانات فقط (مع الاحتفاظ بالملفات المحلية)"
+	],
+	"Pull preview": [
+		"سحب المعاينة"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"سيؤدي سحب المعاينة إلى استبدال التغييرات التي أُجريت هنا."
+	],
+	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
+		"ادفع موقعك المحلي إلى موقع على WordPress.com، أو انشره على Spacefast"
+	],
+	"Recent chats": [
+		"المحادثات الحديثة"
+	],
+	"Recent chats hidden.": [
+		"تم إخفاء المحادثات الحديثة."
+	],
+	"Recent chats shown.": [
+		"تم إظهار المحادثات الحديثة."
+	],
+	"Recent pages": [
+		"الصفحات الحديثة"
+	],
+	"Remote environment: %s": [
+		"البيئة البعيدة: %s"
+	],
+	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
+		"عنوان URL للموقع البعيد أو معرّفه، أو `<provider>[:<site>]` لموقع لدى مزوِّد آخر، مثل `spacefast` لنشر نسخة ثابتة على Spacefast"
+	],
+	"Remove Blueprint": [
+		"إزالة المخطط"
+	],
+	"Replace the contents of a non-empty output directory": [
+		"استبدال محتويات مجلد إخراج غير فارغ"
+	],
+	"Report an issue on GitHub": [
+		"الإبلاغ عن مشكلة على GitHub"
+	],
+	"Reset folder name to match site name": [
+		"إعادة تعيين اسم المجلد ليطابق اسم الموقع"
+	],
+	"Reset tips": [
+		"إعادة تعيين التلميحات"
+	],
+	"Resize panel": [
+		"تغيير حجم اللوحة"
+	],
+	"Resize viewport: %s": [
+		"تغيير حجم منطقة العرض: %s"
+	],
+	"Responsive preview": [
+		"معاينة متجاوبة"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"أعد تشغيل WordPress Studio لإنهاء التحديث."
+	],
+	"Restore the default interface theme, accent color, intensity, and contrast.": [
+		"استعادة سمة الواجهة الافتراضية، ولون التمييز، والكثافة، والتباين."
+	],
+	"Review the advanced settings to finish creating your site.": [
+		"راجع الإعدادات المتقدمة لإنهاء إنشاء موقعك."
+	],
+	"Rotate to landscape": [
+		"التدوير إلى الوضع الأفقي"
+	],
+	"Rotate to portrait": [
+		"التدوير إلى الوضع الرأسي"
+	],
+	"Rotate viewport": [
+		"تدوير منطقة العرض"
+	],
+	"Round Midnight": [
+		"راوند ميدنايت"
+	],
+	"Run \"studio blueprint list\" to see available slugs.": [
+		"شغّل \"studio blueprint list\" لعرض الأسماء اللطيفة المتاحة."
+	],
+	"Saturation and brightness": [
+		"التشبّع والسطوع"
+	],
+	"Screenshots are available in the desktop app.": [
+		"تتوفر لقطات الشاشة في تطبيق سطح المكتب."
+	],
+	"Select an email to read it.": [
+		"حدد رسالة بريد إلكتروني لقراءتها."
+	],
+	"Selected area": [
+		"المنطقة المحددة"
+	],
+	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
+		"ستتم الكتابة فوق الملفات والمحتوى والإعدادات المحددة في WordPress Studio. سيظل موقعك الإلكتروني دون تغيير."
+	],
+	"Selected files, content, and settings on your website will be overwritten.": [
+		"ستتم الكتابة فوق الملفات والمحتوى والإعدادات المحددة على موقعك الإلكتروني."
+	],
+	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
+		"شارك نسخة مؤقتة من موقعك المحلي مع أي شخص. تنتهي صلاحية موقع المعاينة إذا مر عليه أسبوع تقريبًا دون تحديث."
+	],
+	"Share details (required)": [
+		"شارك التفاصيل (مطلوب)"
+	],
+	"Share ideas and report problems directly to the Studio team.": [
+		"شارك أفكارك وأبلغ عن المشكلات مباشرةً إلى فريق Studio."
+	],
+	"Show admin bar": [
+		"إظهار شريط المشرف"
+	],
+	"Show admin bar by default": [
+		"إظهار شريط المشرف افتراضيًا"
+	],
+	"Show chat beside the panel when starting a site.": [
+		"إظهار المحادثة بجانب اللوحة عند بدء موقع."
+	],
+	"Show chat when starting sites": [
+		"إظهار المحادثة عند بدء المواقع"
+	],
+	"Show device toolbar": [
+		"إظهار شريط أدوات الجهاز"
+	],
+	"Show or hide the panel beside your chat.": [
+		"إظهار اللوحة بجانب المحادثة أو إخفاؤها."
+	],
+	"Show panel": [
+		"إظهار اللوحة"
+	],
+	"Show whether a preview site or its local site changed since they were synced": [
+		"إظهار ما إذا كان موقع المعاينة أو موقعه المحلي قد تغيّر منذ مزامنتهما"
+	],
+	"Sign in at %s": [
+		"سجّل الدخول على %s"
+	],
+	"Sign in to get a one-time grant of free AI credits.": [
+		"سجّل الدخول للحصول على منحة لمرة واحدة من أرصدة الذكاء الاصطناعي المجانية."
+	],
+	"Signing in took too long. Try again.": [
+		"استغرق تسجيل الدخول وقتًا طويلًا. حاول مجددًا."
+	],
+	"Signing in was declined.": [
+		"تم رفض تسجيل الدخول."
+	],
+	"Signing in was started again.": [
+		"تمت إعادة بدء تسجيل الدخول."
+	],
+	"Site annotation is not available in the browser yet": [
+		"التعليقات التوضيحية على الموقع غير متاحة في المتصفح بعد"
+	],
+	"Site exported": [
+		"تم تصدير الموقع"
+	],
+	"Site folder": [
+		"مجلد الموقع"
+	],
+	"Site folder is required.": [
+		"مجلد الموقع مطلوب."
+	],
+	"Site sources": [
+		"مصادر الموقع"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"تعذَّر تحميل المواقع. تحقق من اتصالك بالإنترنت وحاول مجددًا."
+	],
+	"Sites will start with chat.": [
+		"ستبدأ المواقع مع المحادثة."
+	],
+	"Sites will start with the panel expanded.": [
+		"ستبدأ المواقع واللوحة موسَّعة."
+	],
+	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
+		"تمنح المهارات وكلاء الذكاء الاصطناعي إرشادات لتطوير ووردبريس. تنطبق التغييرات هنا على جميع المواقع الحالية وتحدد الإعدادات الافتراضية للمواقع الجديدة."
+	],
+	"Source is a temporary preview site.": [
+		"المصدر موقع معاينة مؤقت."
+	],
+	"Split view": [
+		"عرض مقسَّم"
+	],
+	"Start building with free AI credits.": [
+		"ابدأ البناء باستخدام أرصدة ذكاء اصطناعي مجانية."
+	],
+	"Start from": [
+		"البدء من"
+	],
+	"Start here": [
+		"ابدأ من هنا"
+	],
+	"Start signing in again.": [
+		"ابدأ تسجيل الدخول مجددًا."
+	],
+	"Start sites with chat": [
+		"بدء المواقع مع المحادثة"
+	],
+	"Start this site.": [
+		"شغّل هذا الموقع."
+	],
+	"Starting chat…": [
+		"جارٍ بدء المحادثة…"
+	],
+	"Static export failed: %s": [
+		"فشل التصدير الثابت: %s"
+	],
+	"Static site exported to %s": [
+		"تم تصدير الموقع الثابت إلى %s"
+	],
+	"Stop annotating": [
+		"إيقاف إضافة التعليقات التوضيحية"
+	],
+	"Stop annotating. Your notes will be kept.": [
+		"إيقاف إضافة التعليقات التوضيحية. سيتم الاحتفاظ بملاحظاتك."
+	],
+	"Studio was updated, and the site \"%s\" could not be started again.": [
+		"تم تحديث Studio، وتعذَّر تشغيل الموقع \"%s\" مجددًا."
+	],
+	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
+		"يدعم phpMyAdmin في Studio قواعد بيانات SQLite فقط. استخدم عميل قاعدة بيانات منفصلًا لقواعد بيانات MySQL الخارجية."
+	],
+	"Supported files: %s.": [
+		"الملفات المدعومة: %s."
+	],
+	"Swing Time": [
+		"سوينغ تايم"
+	],
+	"Sync is finishing": [
+		"المزامنة على وشك الانتهاء"
+	],
+	"Take Five": [
+		"تيك فايف"
+	],
+	"Taking screenshot…": [
+		"جارٍ التقاط لقطة الشاشة…"
+	],
+	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
+		"شكرًا لمساعدتك في تحسين WordPress Studio. المعرّف المرجعي للملاحظات التي أرسلتها هو <id>%s</id>."
+	],
+	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
+		"نوع الملف هذا غير مدعوم. اختر مخططًا، أو نسخة احتياطية لووردبريس، أو ملف تصدير XML."
+	],
+	"That sign-in was for another attempt. Try again.": [
+		"كان تسجيل الدخول هذا لمحاولة أخرى. حاول مجددًا."
+	],
+	"The default browser for your sites.": [
+		"المتصفح الافتراضي لمواقعك."
+	],
+	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
+		"يجب أن يتضمن أول سحب للموقع ملفاته. اسحب الموقع بالكامل مرة واحدة، ثم اسحب قاعدة البيانات فقط."
+	],
+	"The live site must be a qualifying connected site of this local site.": [
+		"يجب أن يكون الموقع الفعلي موقعًا مرتبطًا مؤهلًا لهذا الموقع المحلي."
+	],
+	"The output directory %s is not empty.": [
+		"مجلد الإخراج %s ليس فارغًا."
+	],
+	"The output directory cannot be inside the site folder or contain it.": [
+		"لا يمكن أن يكون مجلد الإخراج داخل مجلد الموقع أو أن يحتويه."
+	],
+	"The preview site could not be built from the archive.": [
+		"تعذَّر إنشاء موقع المعاينة من الأرشيف."
+	],
+	"The preview site did not become ready within the timeout.": [
+		"لم يصبح موقع المعاينة جاهزًا خلال المهلة المحددة."
+	],
+	"The preview site has no preview link.": [
+		"لا يحتوي موقع المعاينة على رابط معاينة."
+	],
+	"The site archive exceeds the %d GB size limit.": [
+		"يتجاوز أرشيف الموقع حد الحجم البالغ %d جيجابايت."
+	],
+	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
+		"لن تظهر تعديلات ملفات القالب. تم استبعاد تغييراتك على ملفات %s: تستخدم هذه المعاينة النسخة الأصلية من القالب على WordPress.com. أجرِها في محرر الموقع أو في قالب فرعي لتظهر في المعاينات."
+	],
+	"Then add this configuration to your app.": [
+		"ثم أضف هذه التهيئة إلى تطبيقك."
+	],
+	"This ZIP could not be read. Check that it is a valid zip file.": [
+		"تعذَّرت قراءة ملف ZIP هذا. تحقق من أنه ملف zip صالح."
+	],
+	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
+		"تعذَّر استخدام ملف ZIP هذا. تأكد من أنه يحتوي على ملف blueprint.json صالح في المستوى الأعلى أو داخل مجلد واحد يحتويه، وحاول مجددًا."
+	],
+	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
+		"تحتوي هذه النسخة الاحتياطية على ملفات SQL تختلف أسماؤها في حالة الأحرف فقط: \"%1$s\" و\"%2$s\". عالج الأسماء المتعارضة على الموقع المصدر، ثم أنشئ نسخة احتياطية جديدة وحاول مجددًا."
+	],
+	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
+		"قد يستغرق ذلك بضع دقائق. سيُفتح WordPress Studio مجددًا تلقائيًا عند تثبيت التحديث."
+	],
+	"This email is gone.": [
+		"لم تعد رسالة البريد الإلكتروني هذه موجودة."
+	],
+	"This file took too long to load. Please try again or choose another file.": [
+		"استغرق تحميل هذا الملف وقتًا طويلًا. يُرجى المحاولة مجددًا أو اختيار ملف آخر."
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"هذا المجلد مرتبط بالفعل بموقع آخر في Studio. اختر مجلدًا محليًا مختلفًا."
+	],
+	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
+		"هذا المجلد مرتبط بالفعل بموقع آخر في Studio. اختر اسم موقع أو مجلدًا محليًا مختلفًا."
+	],
+	"This site and its preview both changed": [
+		"تغيّر كلٌّ من هذا الموقع ومعاينته"
+	],
+	"This site has changes its preview doesn't": [
+		"يحتوي هذا الموقع على تغييرات غير موجودة في معاينته"
+	],
+	"This site is no longer available in WordPress Studio.": [
+		"لم يعد هذا الموقع متاحًا في WordPress Studio."
+	],
+	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
+		"هذا الموقع غير جاهز للتشغيل. %s أعد تشغيل `studio pull` لإنهاء السحب، أو `studio delete` لإزالة الموقع."
+	],
+	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
+		"يتجاوز حجم هذا الموقع %d جيجابايت، لذا قد يفشل نشره مجددًا على WordPress.com. انشر مجموعة أصغر من الملفات بدلًا من ذلك."
+	],
+	"This site isn't one of your WordPress.com or Pressable sites.": [
+		"هذا الموقع ليس من مواقعك على WordPress.com أو Pressable."
+	],
+	"Tips reset.": [
+		"تمت إعادة تعيين التلميحات."
+	],
+	"To %s": [
+		"إلى %s"
+	],
+	"Try downloading the update again.": [
+		"حاول تنزيل التحديث مجددًا."
+	],
+	"Try starting the chat again, or open your site.": [
+		"حاول بدء المحادثة مجددًا، أو افتح موقعك."
+	],
+	"URL the static site will be hosted at. Links are root-relative when omitted.": [
+		"عنوان URL الذي سيُستضاف عليه الموقع الثابت. تكون الروابط نسبية إلى الجذر عند حذفه."
+	],
+	"Unable to open this folder.": [
+		"يتعذَّر فتح هذا المجلد."
+	],
+	"Unable to open this source.": [
+		"يتعذَّر فتح هذا المصدر."
+	],
+	"Unknown provider %1$s. Choose one of: %2$s.": [
+		"مزوِّد غير معروف %1$s. اختر واحدًا مما يلي: %2$s."
+	],
+	"Unsupported backup file": [
+		"ملف نسخة احتياطية غير مدعوم"
+	],
+	"Uploading files…": [
+		"جارٍ رفع الملفات…"
+	],
+	"Use /connect %1$s to connect %2$s again.": [
+		"استخدم ‎/connect %1$s لربط %2$s مجددًا."
+	],
+	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
+		"استخدم Alt+Shift+السهم الأيسر أو الأيمن لنقل علامة التبويب هذه."
+	],
+	"Use Blueprint": [
+		"استخدام المخطط"
+	],
+	"Use WordPress Studio with your agents": [
+		"استخدم WordPress Studio مع وكلائك"
+	],
+	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
+		"استخدم رابط نسخة احتياطية عبر HTTPS من موقع مدعوم، لملف zip أو tar.gz أصغر من 1 جيجابايت. تحقق من اتصالك وحاول مجددًا."
+	],
+	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
+		"استخدم وكيل الذكاء الاصطناعي المفضل لديك لإنشاء المواقع وإجراء التغييرات ومراجعة عملك. ثبّت إضافة WordPress Studio لمنحه حق الوصول إلى مواقعك المحلية."
+	],
+	"Visit previews": [
+		"زيارة المعاينات"
+	],
+	"Waiting for %s": [
+		"في الانتظار منذ %s"
+	],
+	"Waiting for approval…": [
+		"في انتظار الموافقة…"
+	],
+	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
+		"في انتظار المتصفح. إذا تعذَّر عليه الوصول إلى هذا الكمبيوتر، فالصق العنوان الذي ينتهي عنده:"
+	],
+	"What would you like to open?": [
+		"ما الذي تريد فتحه؟"
+	],
+	"Where do you want to publish?": [
+		"أين تريد النشر؟"
+	],
+	"WordPress Studio CLI for terminal": [
+		"واجهة سطر أوامر WordPress Studio للمحطة الطرفية"
+	],
+	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
+		"يمكن إنهاء WordPress Studio بعد اكتمال المزامنة. سيؤدي الإنهاء الآن إلى مقاطعتها وقد يترك موقعك غير مكتمل."
+	],
+	"WordPress Studio could not download this backup.": [
+		"تعذَّر على WordPress Studio تنزيل هذه النسخة الاحتياطية."
+	],
+	"WordPress Studio could not open the email folder.": [
+		"تعذَّر على WordPress Studio فتح مجلد البريد الإلكتروني."
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"تعذَّر على WordPress Studio فتح المجلد. يُرجى المحاولة مجددًا."
+	],
+	"WordPress Studio could not open the site.": [
+		"تعذَّر على WordPress Studio فتح الموقع."
+	],
+	"WordPress Studio is finishing an update": [
+		"يُنهي WordPress Studio تثبيت تحديث"
+	],
+	"WordPress Studio team": [
+		"فريق WordPress Studio"
+	],
+	"WordPress Studio will create a local copy of this site in an empty folder.": [
+		"سينشئ WordPress Studio نسخة محلية من هذا الموقع في مجلد فارغ."
+	],
+	"WordPress Studio will create a site from this blueprint in an empty folder.": [
+		"سينشئ WordPress Studio موقعًا من هذا المخطط في مجلد فارغ."
+	],
+	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
+		"سينشئ WordPress Studio موقعًا في مجلد فارغ ويستورد ملف تصدير ووردبريس هذا."
+	],
+	"WordPress Studio will restore this backup into an empty folder.": [
+		"سيستعيد WordPress Studio هذه النسخة الاحتياطية في مجلد فارغ."
+	],
+	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
+		"سيستخدم WordPress Studio موقع ووردبريس هذا في مكانه. لن يتم نقل أي ملفات."
+	],
+	"WordPress export": [
+		"ملف تصدير ووردبريس"
+	],
+	"WordPress.com hosting": [
+		"استضافة WordPress.com"
+	],
+	"Worked for %s": [
+		"عمل لمدة %s"
+	],
+	"Working for %s": [
+		"يعمل منذ %s"
+	],
+	"Workspace navigation": [
+		"التنقل في مساحة العمل"
+	],
+	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
+		"يمكنك إرفاق ما يصل إلى %d من الصور. أرسل تعليقًا توضيحيًا أو احذفه قبل التقاط منطقة أخرى."
+	],
+	"You can close this tab and return to WordPress Studio.": [
+		"يمكنك إغلاق علامة التبويب هذه والعودة إلى WordPress Studio."
+	],
+	"You stopped after %s": [
+		"أوقفته بعد %s"
+	],
+	"You're not logged in to WordPress.com. Log in now?": [
+		"لم تسجّل الدخول إلى WordPress.com. هل تريد تسجيل الدخول الآن؟"
+	],
+	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
+		"انتقلت معاينتك إلى WordPress.com، لذا تغيّر رابطها. الرابط الجديد: %s"
+	],
+	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
+		"تغيّر موقعك منذ آخر تحديث للمعاينة “%s”. سيؤدي النشر إلى إرسال موقعك المحلي الحالي، بما في ذلك التغييرات غير الظاهرة في تلك المعاينة."
+	],
+	"Your site was created, but the AI chat could not start.": [
+		"تم إنشاء موقعك، لكن تعذَّر بدء محادثة الذكاء الاصطناعي."
+	],
+	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"لا تزال مواقعك مدرجة في %s. أعد تشغيل WordPress Studio للمحاولة مجددًا. إذا استمر حدوث ذلك، فتواصل مع الدعم مع ذكر التفاصيل أدناه."
+	],
+	"Your unsaved changes will be lost.": [
+		"ستفقد التغييرات غير المحفوظة."
+	],
+	"Your website will be replaced with this site as it is now.": [
+		"سيتم استبدال موقعك الإلكتروني بهذا الموقع بحالته الحالية."
+	],
+	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
+		"يجب أن يكون base-url عنوان http(s) بدون مسار، مثل https://example.com"
+	],
+	"· %d%%": [
+		"· %d%%"
+	]
+}

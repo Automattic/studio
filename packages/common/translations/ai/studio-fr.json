@@ -1,0 +1,725 @@
+{
+	"\"%s\" is not a Blueprint file, URL or Library slug.": [
+		"« %s » n’est ni un fichier Blueprint, ni une URL, ni un slug de la bibliothèque."
+	],
+	"%1$dh %2$dm": [
+		"%1$d h %2$d min"
+	],
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%1$s Use /connect %2$s to connect it.": [
+		"%1$s Utilisez /connect %2$s pour le connecter."
+	],
+	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
+		"%1$s n’est pas connecté. Utilisez /connect %2$s pour le connecter."
+	],
+	"%s (saved for future use):": [
+		"%s (enregistré pour une utilisation ultérieure) :"
+	],
+	"%s connection": [
+		"Connexion %s"
+	],
+	"A code editor with a built-in AI agent.": [
+		"Un éditeur de code avec un agent IA intégré."
+	],
+	"A coding agent that runs in your terminal.": [
+		"Un agent de code qui s’exécute dans votre terminal."
+	],
+	"Agents": [
+		"Agents"
+	],
+	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
+		"Une erreur s’est produite lors de la mise à jour de la CLI de WordPress Studio. Veuillez réessayer."
+	],
+	"Annotation tools": [
+		"Outils d’annotation"
+	],
+	"Anthropic’s AI coding agent.": [
+		"L’agent de code IA d’Anthropic."
+	],
+	"Approve the code %1$s at %2$s": [
+		"Approuvez le code %1$s sur %2$s"
+	],
+	"Approve the code %1$s on %2$s to connect.": [
+		"Approuvez le code %1$s sur %2$s pour vous connecter."
+	],
+	"Approve the connection in your browser.": [
+		"Approuvez la connexion dans votre navigateur."
+	],
+	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
+		"Au moins une option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) est requise."
+	],
+	"Birdland": [
+		"Birdland"
+	],
+	"Blue Note": [
+		"Blue Note"
+	],
+	"Blue Train": [
+		"Blue Train"
+	],
+	"Blue in Green": [
+		"Blue in Green"
+	],
+	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
+		"URL de Blueprint, fichier JSON, dossier, archive zip ou slug de la bibliothèque de Blueprints (voir « studio blueprint list »)"
+	],
+	"Blueprint loaded": [
+		"Blueprint chargé"
+	],
+	"Blueprint preview": [
+		"Aperçu du Blueprint"
+	],
+	"Blueprints, backups, and WordPress exports": [
+		"Blueprints, sauvegardes et exportations WordPress"
+	],
+	"Browse Blueprints": [
+		"Parcourir les Blueprints"
+	],
+	"Browser could not load.": [
+		"Impossible de charger le navigateur."
+	],
+	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
+		"Créez et modifiez des sites par la discussion. Utilisez les crédits IA WordPress.com ou votre propre abonnement ou clé d’API."
+	],
+	"Changes to %s": [
+		"Modifications de %s"
+	],
+	"Choose a Blueprint or backup": [
+		"Choisir un Blueprint ou une sauvegarde"
+	],
+	"Choose a blueprint, backup, export, or existing WordPress folder.": [
+		"Choisissez un Blueprint, une sauvegarde, une exportation ou un dossier WordPress existant."
+	],
+	"Choose a folder containing an existing WordPress site.": [
+		"Choisissez un dossier contenant un site WordPress existant."
+	],
+	"Choose a provider": [
+		"Choisir un fournisseur"
+	],
+	"Choose a site source": [
+		"Choisissez une source de site"
+	],
+	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
+		"Choisissez un site avec `--remote-site %s:<site>` (son ID ou son URL)."
+	],
+	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
+		"Choisissez un dossier vide pour utiliser une source. Le dossier sélectionné contient déjà un site WordPress."
+	],
+	"Choose an existing WordPress folder, blueprint, backup, or export.": [
+		"Choisissez un dossier WordPress existant, un Blueprint, une sauvegarde ou une exportation."
+	],
+	"Choose another host": [
+		"Choisir un autre hébergeur"
+	],
+	"Choose color": [
+		"Choisir une couleur"
+	],
+	"Choose what powers chat in WordPress Studio.": [
+		"Choisissez ce qui alimente la discussion dans WordPress Studio."
+	],
+	"Choosing individual files requires a backup of this website.": [
+		"Le choix de fichiers individuels nécessite une sauvegarde de ce site Web."
+	],
+	"Color may be adapted for your theme.": [
+		"La couleur peut être adaptée à votre thème."
+	],
+	"Color picker": [
+		"Sélecteur de couleur"
+	],
+	"Connect %s first.": [
+		"Connectez d’abord %s."
+	],
+	"Connect %s now?": [
+		"Connecter %s maintenant ?"
+	],
+	"Connect AI providers": [
+		"Connecter des fournisseurs d’IA"
+	],
+	"Connect a provider": [
+		"Connecter un fournisseur"
+	],
+	"Connect to Spacefast": [
+		"Se connecter à Spacefast"
+	],
+	"Connected %s.": [
+		"%s connecté."
+	],
+	"Connected live site ID, or none": [
+		"ID du site publié connecté, ou aucun"
+	],
+	"Connecting to WordPress.com": [
+		"Connexion à WordPress.com"
+	],
+	"Copy links": [
+		"Copier les liens"
+	],
+	"Cotton Tail": [
+		"Cotton Tail"
+	],
+	"Could not capture the area. Your selection is kept. Try again.": [
+		"Impossible de capturer la zone. Votre sélection est conservée. Réessayez."
+	],
+	"Could not migrate your sites": [
+		"Impossible de migrer vos sites"
+	],
+	"Could not open Spacefast": [
+		"Impossible d’ouvrir Spacefast"
+	],
+	"Could not read the table prefix from wp-config.php": [
+		"Impossible de lire le préfixe des tables dans wp-config.php"
+	],
+	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
+		"Impossible de définir $table_prefix sur « %s » dans wp-config.php."
+	],
+	"Could not take screenshot": [
+		"Impossible de prendre une capture d’écran"
+	],
+	"Couldn't load providers.": [
+		"Impossible de charger les fournisseurs."
+	],
+	"Couldn’t load apps.": [
+		"Impossible de charger les applications."
+	],
+	"Couldn’t sign in to WordPress.com": [
+		"Impossible de se connecter à WordPress.com"
+	],
+	"Data Liberation could not capture the source website": [
+		"Data Liberation n’a pas pu capturer le site Web source"
+	],
+	"Default AI provider": [
+		"Fournisseur d’IA par défaut"
+	],
+	"Default hosting provider": [
+		"Hébergeur par défaut"
+	],
+	"Delete annotation: %s": [
+		"Supprimer l’annotation : %s"
+	],
+	"Describe what you’d like to build or change (optional)…": [
+		"Décrivez ce que vous souhaitez créer ou modifier (facultatif)…"
+	],
+	"Design system could not load.": [
+		"Impossible de charger le système de design."
+	],
+	"Directory to write the static site to": [
+		"Répertoire dans lequel écrire le site statique"
+	],
+	"Disconnect a provider": [
+		"Déconnecter un fournisseur"
+	],
+	"Disconnected %s.": [
+		"%s déconnecté."
+	],
+	"Do more with WordPress": [
+		"Faites-en plus avec WordPress"
+	],
+	"Edit annotation: %s": [
+		"Modifier l’annotation : %s"
+	],
+	"Email log could not load.": [
+		"Impossible de charger le journal des e-mails."
+	],
+	"Emails sent by your site appear here.": [
+		"Les e-mails envoyés par votre site apparaissent ici."
+	],
+	"Enable anonymous usage statistics": [
+		"Activer les statistiques d’utilisation anonymes"
+	],
+	"Enter a folder name other than “.” or “..”.": [
+		"Saisissez un nom de dossier autre que « . » ou « .. »."
+	],
+	"Enter the folder’s full path.": [
+		"Saisissez le chemin complet du dossier."
+	],
+	"Esc": [
+		"Échap"
+	],
+	"Existing WordPress site": [
+		"Site WordPress existant"
+	],
+	"Export site as static HTML files": [
+		"Exporter le site sous forme de fichiers HTML statiques"
+	],
+	"External AI apps": [
+		"Applications d’IA externes"
+	],
+	"Failed to back up the remote site": [
+		"Échec de la sauvegarde du site distant"
+	],
+	"Failed to check the preview site": [
+		"Échec de la vérification du site de prévisualisation"
+	],
+	"Failed to create the %s site": [
+		"Échec de la création du site %s"
+	],
+	"Failed to export static site": [
+		"Échec de l’exportation du site statique"
+	],
+	"Failed to fetch Blueprint: HTTP %d": [
+		"Échec de la récupération du Blueprint : HTTP %d"
+	],
+	"Failed to find existing preview site in config": [
+		"Impossible de trouver le site de prévisualisation existant dans la configuration"
+	],
+	"Failed to load your %s sites": [
+		"Échec du chargement de vos sites %s"
+	],
+	"Fetching %s sites…": [
+		"Récupération des sites %s…"
+	],
+	"File…": [
+		"Fichier…"
+	],
+	"Finish signing in to %s in your browser.": [
+		"Terminez la connexion à %s dans votre navigateur."
+	],
+	"For publishing sites.": [
+		"Pour publier les sites."
+	],
+	"For working on sites.": [
+		"Pour travailler sur les sites."
+	],
+	"From many, one tool.\nFind strength in community\nfor a better web.": [
+		"De tous, un outil.\nPuiser sa force dans la communauté\npour un Web meilleur."
+	],
+	"Generating static site…": [
+		"Génération du site statique…"
+	],
+	"Getting your sign-in code…": [
+		"Récupération de votre code de connexion…"
+	],
+	"Giant Steps": [
+		"Giant Steps"
+	],
+	"Green Dolphin Street": [
+		"Green Dolphin Street"
+	],
+	"Hide chat when starting sites": [
+		"Masquer la discussion au démarrage des sites"
+	],
+	"Hide device toolbar": [
+		"Masquer la barre d’outils des appareils"
+	],
+	"Hosting providers": [
+		"Hébergeurs"
+	],
+	"How do you want to connect %s?": [
+		"Comment voulez-vous connecter %s ?"
+	],
+	"How to connect": [
+		"Mode de connexion"
+	],
+	"Hue": [
+		"Teinte"
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"Installez la CLI de WordPress Studio et configurez MCP pour une autre application."
+	],
+	"Install the WordPress Studio CLI.": [
+		"Installez la CLI de WordPress Studio."
+	],
+	"Kind of Blue": [
+		"Kind of Blue"
+	],
+	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
+		"En savoir plus sur <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
+	],
+	"Loading Blueprint…": [
+		"Chargement du Blueprint…"
+	],
+	"Loading WordPress Studio…": [
+		"Chargement de WordPress Studio…"
+	],
+	"Loading apps…": [
+		"Chargement des applications…"
+	],
+	"Loading file…": [
+		"Chargement du fichier…"
+	],
+	"Log in or create account": [
+		"Se connecter ou créer un compte"
+	],
+	"Maiden Voyage": [
+		"Maiden Voyage"
+	],
+	"Manage AI credits": [
+		"Gérer les crédits IA"
+	],
+	"Manual MCP setup": [
+		"Configuration MCP manuelle"
+	],
+	"Mood Indigo": [
+		"Mood Indigo"
+	],
+	"New site \"%s\"": [
+		"Nouveau site « %s »"
+	],
+	"No provider is connected.": [
+		"Aucun fournisseur n’est connecté."
+	],
+	"No providers": [
+		"Aucun fournisseur"
+	],
+	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
+		"Nombre de workers PHP, qui limite le nombre de requêtes que le site traite simultanément (par défaut : %d)"
+	],
+	"Open Folder…": [
+		"Ouvrir un dossier…"
+	],
+	"Open Spacefast": [
+		"Ouvrir Spacefast"
+	],
+	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
+		"Ouvrez Spacefast dans votre navigateur. Vérifiez que les codes correspondent, puis approuvez la connexion."
+	],
+	"Open on GitHub": [
+		"Ouvrir sur GitHub"
+	],
+	"Open the WordPress Studio app to add an existing WordPress folder.": [
+		"Ouvrez l’application WordPress Studio pour ajouter un dossier WordPress existant."
+	],
+	"OpenAI’s coding agent in the ChatGPT app.": [
+		"L’agent de code d’OpenAI dans l’application ChatGPT."
+	],
+	"PHP workers must be a whole number from 1 to 64.": [
+		"Le nombre de workers PHP doit être un nombre entier compris entre 1 et 64."
+	],
+	"Parent folder": [
+		"Dossier parent"
+	],
+	"Point or draw to suggest a change.": [
+		"Pointez ou dessinez pour suggérer une modification."
+	],
+	"Point to something you’d like to change.": [
+		"Pointez un élément que vous souhaitez modifier."
+	],
+	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
+		"Publiez de nouveaux sites ou mettez à jour des sites existants sur WordPress.com ou Pressable."
+	],
+	"Publish to %s to apply these changes.": [
+		"Publiez sur %s pour appliquer ces modifications."
+	],
+	"Publish to another site…": [
+		"Publier sur un autre site…"
+	],
+	"Publish your changes.": [
+		"Publiez vos modifications."
+	],
+	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
+		"Publiez votre site lorsqu’il est prêt, ou partagez un aperçu via WordPress.com."
+	],
+	"Published sites": [
+		"Sites publiés"
+	],
+	"Published to": [
+		"Publié sur"
+	],
+	"Publishing changes…": [
+		"Publication des modifications…"
+	],
+	"Pull preview": [
+		"Extraire l’aperçu"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"L’extraction de l’aperçu remplace les modifications apportées ici."
+	],
+	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
+		"Transférer votre site local vers un site WordPress.com, ou le publier sur Spacefast"
+	],
+	"Remote environment: %s": [
+		"Environnement distant : %s"
+	],
+	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
+		"URL ou ID du site distant, ou `<provider>[:<site>]` pour un site chez un autre fournisseur, par exemple `spacefast` pour publier une copie statique sur Spacefast"
+	],
+	"Remove Blueprint": [
+		"Retirer le Blueprint"
+	],
+	"Replace the contents of a non-empty output directory": [
+		"Remplacer le contenu d’un répertoire de sortie non vide"
+	],
+	"Reset folder name to match site name": [
+		"Réinitialiser le nom du dossier selon le nom du site"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"Redémarrez WordPress Studio pour terminer la mise à jour."
+	],
+	"Review the advanced settings to finish creating your site.": [
+		"Vérifiez les réglages avancés pour terminer la création de votre site."
+	],
+	"Round Midnight": [
+		"Round Midnight"
+	],
+	"Run \"studio blueprint list\" to see available slugs.": [
+		"Exécutez « studio blueprint list » pour voir les slugs disponibles."
+	],
+	"Saturation and brightness": [
+		"Saturation et luminosité"
+	],
+	"Screenshots are available in the desktop app.": [
+		"Les captures d’écran sont disponibles dans l’application de bureau."
+	],
+	"Selected area": [
+		"Zone sélectionnée"
+	],
+	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
+		"Les fichiers, contenus et réglages sélectionnés dans WordPress Studio seront écrasés. Votre site Web reste inchangé."
+	],
+	"Share ideas and report problems directly to the Studio team.": [
+		"Partagez vos idées et signalez des problèmes directement à l’équipe Studio."
+	],
+	"Show admin bar": [
+		"Afficher la barre d’administration"
+	],
+	"Show chat when starting sites": [
+		"Afficher la discussion au démarrage des sites"
+	],
+	"Show device toolbar": [
+		"Afficher la barre d’outils des appareils"
+	],
+	"Sign in at %s": [
+		"Connectez-vous sur %s"
+	],
+	"Sign in to get a one-time grant of free AI credits.": [
+		"Connectez-vous pour recevoir une seule fois des crédits IA gratuits."
+	],
+	"Signing in took too long. Try again.": [
+		"La connexion a pris trop de temps. Réessayez."
+	],
+	"Signing in was declined.": [
+		"La connexion a été refusée."
+	],
+	"Signing in was started again.": [
+		"La connexion a été relancée."
+	],
+	"Site folder": [
+		"Dossier du site"
+	],
+	"Site folder is required.": [
+		"Le dossier du site est requis."
+	],
+	"Site sources": [
+		"Sources de site"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"Impossible de charger les sites. Vérifiez votre connexion Internet et réessayez."
+	],
+	"Sites will start with chat.": [
+		"Les sites démarreront avec la discussion."
+	],
+	"Source is a temporary preview site.": [
+		"La source est un site de prévisualisation temporaire."
+	],
+	"Start building with free AI credits.": [
+		"Commencez à créer avec des crédits IA gratuits."
+	],
+	"Start from": [
+		"Partir de"
+	],
+	"Start signing in again.": [
+		"Recommencez la connexion."
+	],
+	"Start sites with chat": [
+		"Démarrer les sites avec la discussion"
+	],
+	"Starting chat…": [
+		"Démarrage de la discussion…"
+	],
+	"Static export failed: %s": [
+		"Échec de l’exportation statique : %s"
+	],
+	"Static site exported to %s": [
+		"Site statique exporté vers %s"
+	],
+	"Stop annotating": [
+		"Arrêter d’annoter"
+	],
+	"Stop annotating. Your notes will be kept.": [
+		"Arrêter d’annoter. Vos notes seront conservées."
+	],
+	"Studio was updated, and the site \"%s\" could not be started again.": [
+		"Studio a été mis à jour et le site « %s » n’a pas pu être redémarré."
+	],
+	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
+		"Le phpMyAdmin de Studio ne prend en charge que SQLite. Utilisez un client de base de données distinct pour une base MySQL externe."
+	],
+	"Supported files: %s.": [
+		"Fichiers pris en charge : %s."
+	],
+	"Swing Time": [
+		"Swing Time"
+	],
+	"Sync is finishing": [
+		"Synchronisation en cours de finalisation"
+	],
+	"Take Five": [
+		"Take Five"
+	],
+	"Taking screenshot…": [
+		"Capture d’écran en cours…"
+	],
+	"That sign-in was for another attempt. Try again.": [
+		"Cette connexion correspondait à une autre tentative. Réessayez."
+	],
+	"The default browser for your sites.": [
+		"Le navigateur par défaut pour vos sites."
+	],
+	"The live site must be a qualifying connected site of this local site.": [
+		"Le site publié doit être un site connecté éligible de ce site local."
+	],
+	"The output directory %s is not empty.": [
+		"Le répertoire de sortie %s n’est pas vide."
+	],
+	"The output directory cannot be inside the site folder or contain it.": [
+		"Le répertoire de sortie ne peut pas se trouver dans le dossier du site ni le contenir."
+	],
+	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
+		"Les modifications des fichiers du thème n’apparaîtront pas. Vos modifications des fichiers de %s sont ignorées : cet aperçu utilise la copie originale du thème fournie par WordPress.com. Apportez-les dans l’éditeur de site ou dans un thème enfant pour les voir dans les aperçus."
+	],
+	"Then add this configuration to your app.": [
+		"Ajoutez ensuite cette configuration à votre application."
+	],
+	"This ZIP could not be read. Check that it is a valid zip file.": [
+		"Impossible de lire ce fichier ZIP. Vérifiez qu’il s’agit d’un fichier zip valide."
+	],
+	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
+		"Cette sauvegarde contient des fichiers SQL dont les noms ne diffèrent que par la casse : « %1$s » et « %2$s ». Corrigez ces noms en conflit sur le site source, puis créez une nouvelle sauvegarde et réessayez."
+	],
+	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
+		"Cela peut prendre quelques minutes. WordPress Studio se rouvrira automatiquement une fois la mise à jour installée."
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"Ce dossier est déjà associé à un autre site Studio. Choisissez un autre dossier local."
+	],
+	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
+		"Ce dossier est déjà associé à un autre site Studio. Choisissez un autre nom de site ou un autre dossier local."
+	],
+	"This site and its preview both changed": [
+		"Ce site et son aperçu ont tous deux été modifiés"
+	],
+	"This site has changes its preview doesn't": [
+		"Ce site contient des modifications absentes de son aperçu"
+	],
+	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
+		"Ce site n’est pas prêt à démarrer. %s Relancez `studio pull` pour terminer l’extraction, ou `studio delete` pour supprimer le site."
+	],
+	"This site isn't one of your WordPress.com or Pressable sites.": [
+		"Ce site ne fait pas partie de vos sites WordPress.com ou Pressable."
+	],
+	"Try starting the chat again, or open your site.": [
+		"Essayez de redémarrer la discussion, ou ouvrez votre site."
+	],
+	"URL the static site will be hosted at. Links are root-relative when omitted.": [
+		"URL à laquelle le site statique sera hébergé. Si elle est omise, les liens sont relatifs à la racine."
+	],
+	"Unable to open this folder.": [
+		"Impossible d’ouvrir ce dossier."
+	],
+	"Unable to open this source.": [
+		"Impossible d’ouvrir cette source."
+	],
+	"Unknown provider %1$s. Choose one of: %2$s.": [
+		"Fournisseur %1$s inconnu. Choisissez parmi : %2$s."
+	],
+	"Unsupported backup file": [
+		"Fichier de sauvegarde non pris en charge"
+	],
+	"Uploading files…": [
+		"Téléversement des fichiers…"
+	],
+	"Use /connect %1$s to connect %2$s again.": [
+		"Utilisez /connect %1$s pour reconnecter %2$s."
+	],
+	"Use Blueprint": [
+		"Utiliser le Blueprint"
+	],
+	"Use WordPress Studio with your agents": [
+		"Utiliser WordPress Studio avec vos agents"
+	],
+	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
+		"Utilisez un lien de sauvegarde HTTPS provenant d’un site pris en charge, vers un fichier zip ou tar.gz de moins de 1 Go. Vérifiez votre connexion et réessayez."
+	],
+	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
+		"Utilisez votre agent IA préféré pour créer des sites, apporter des modifications et vérifier votre travail. Installez l’extension WordPress Studio pour lui donner accès à vos sites locaux."
+	],
+	"Visit previews": [
+		"Consulter les aperçus"
+	],
+	"Waiting for approval…": [
+		"En attente d’approbation…"
+	],
+	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
+		"En attente du navigateur. S’il ne parvient pas à joindre cet ordinateur, collez l’adresse sur laquelle il s’arrête :"
+	],
+	"What would you like to open?": [
+		"Que voulez-vous ouvrir ?"
+	],
+	"Where do you want to publish?": [
+		"Où voulez-vous publier ?"
+	],
+	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
+		"WordPress Studio pourra quitter une fois la synchronisation terminée. Quitter maintenant l’interromprait et pourrait laisser votre site incomplet."
+	],
+	"WordPress Studio could not download this backup.": [
+		"WordPress Studio n’a pas pu télécharger cette sauvegarde."
+	],
+	"WordPress Studio could not open the email folder.": [
+		"WordPress Studio n’a pas pu ouvrir le dossier des e-mails."
+	],
+	"WordPress Studio could not open the site.": [
+		"WordPress Studio n’a pas pu ouvrir le site."
+	],
+	"WordPress Studio is finishing an update": [
+		"WordPress Studio termine une mise à jour"
+	],
+	"WordPress Studio team": [
+		"L’équipe WordPress Studio"
+	],
+	"WordPress Studio will create a local copy of this site in an empty folder.": [
+		"WordPress Studio créera une copie locale de ce site dans un dossier vide."
+	],
+	"WordPress Studio will create a site from this blueprint in an empty folder.": [
+		"WordPress Studio créera un site à partir de ce Blueprint dans un dossier vide."
+	],
+	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
+		"WordPress Studio créera un site dans un dossier vide et y importera cette exportation WordPress."
+	],
+	"WordPress Studio will restore this backup into an empty folder.": [
+		"WordPress Studio restaurera cette sauvegarde dans un dossier vide."
+	],
+	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
+		"WordPress Studio utilisera ce site WordPress à son emplacement actuel. Aucun fichier ne sera déplacé."
+	],
+	"WordPress export": [
+		"Exportation WordPress"
+	],
+	"WordPress.com hosting": [
+		"Hébergement WordPress.com"
+	],
+	"Workspace navigation": [
+		"Navigation de l’espace de travail"
+	],
+	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
+		"Vous pouvez joindre jusqu’à %d images. Envoyez ou supprimez une annotation avant de capturer une autre zone."
+	],
+	"You can close this tab and return to WordPress Studio.": [
+		"Vous pouvez fermer cet onglet et revenir à WordPress Studio."
+	],
+	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
+		"Votre site a changé depuis la dernière mise à jour de l’aperçu « %s ». La publication enverra votre site local actuel, y compris les modifications absentes de cet aperçu."
+	],
+	"Your site was created, but the AI chat could not start.": [
+		"Votre site a été créé, mais la discussion IA n’a pas pu démarrer."
+	],
+	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"Vos sites sont toujours répertoriés dans %s. Redémarrez WordPress Studio pour réessayer. Si le problème persiste, contactez l’assistance en indiquant les détails ci-dessous."
+	],
+	"Your website will be replaced with this site as it is now.": [
+		"Votre site Web sera remplacé par ce site dans son état actuel."
+	],
+	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
+		"base-url doit être une URL http(s) sans chemin, par exemple https://example.com"
+	]
+}

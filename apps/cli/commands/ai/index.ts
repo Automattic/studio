@@ -4,6 +4,9 @@ import {
 	createTurnStatsTracker,
 	nodeHostServices,
 	resolveResumeSessionContext,
+	remoteSiteFromStored,
+	storedFromRemoteSite,
+	type SiteInfo,
 	type StudioAgentHost,
 	AskUserQuestion,
 } from '@studio/agent/node';
@@ -207,6 +210,7 @@ export async function runCommand( options: {
 				: undefined,
 	};
 	const agent = createAgent( { host } );
+	agent.prepare();
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
@@ -251,9 +255,8 @@ export async function runCommand( options: {
 			path: options.activeSite.path,
 			// Placeholder — turn dispatch resolves the live state before each prompt.
 			running: false,
-			remote: options.activeSite.remote,
+			remote: remoteSiteFromStored( options.activeSite ),
 			url: options.activeSite.url,
-			wpcomSiteId: options.activeSite.wpcomSiteId,
 		};
 	}
 	ui.start();
@@ -342,17 +345,19 @@ export async function runCommand( options: {
 		);
 	}
 
-	ui.onSiteSelected = ( site ) => {
-		void append( ( sm ) =>
+	const appendSiteSelected = ( site: SiteInfo ) =>
+		append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.site_selected', {
 				siteName: site.name,
 				sitePath: site.path,
 				siteId: site.id,
-				remote: site.remote,
 				url: site.url,
-				wpcomSiteId: site.wpcomSiteId,
+				...storedFromRemoteSite( site.remote ),
 			} )
 		);
+
+	ui.onSiteSelected = ( site ) => {
+		void appendSiteSelected( site );
 	};
 
 	if ( options.resumeSession ) {
@@ -837,16 +842,7 @@ export async function runCommand( options: {
 			await persistSessionContext();
 			const site = ui.activeSite;
 			if ( site ) {
-				await append( ( sm ) =>
-					appendStudioEntry( sm, 'studio.site_selected', {
-						siteName: site.name,
-						sitePath: site.path,
-						siteId: site.id,
-						remote: site.remote,
-						url: site.url,
-						wpcomSiteId: site.wpcomSiteId,
-					} )
-				);
+				await appendSiteSelected( site );
 			}
 		},
 	};

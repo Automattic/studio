@@ -10,7 +10,7 @@ export default class SiteSettings {
 		await expect( this.siteNameInput ).toBeVisible();
 	}
 
-	async showSection( name: 'Settings' | 'PHP' | 'Debug' | 'Instructions' ) {
+	async showSection( name: 'Settings' | 'PHP' | 'Debug' | 'Skills' ) {
 		await this.page
 			.getByRole( 'tablist', { name: 'Settings sections' } )
 			.getByRole( 'tab', { name } )

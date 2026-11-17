@@ -2,6 +2,7 @@
 name: feedback
 description: Send the user's feedback about WordPress Studio to the WordPress Studio team — a bug, a feature request, or general feedback — with the context from this chat. Use this when the user invokes /feedback, asks to report something to the WordPress Studio team, or agrees to send feedback after a WordPress Studio tool failed.
 user-invokable: true
+tools: send_feedback
 ---
 
 # Send feedback

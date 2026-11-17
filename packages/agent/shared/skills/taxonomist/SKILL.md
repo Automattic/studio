@@ -2,6 +2,7 @@
 name: taxonomist
 description: Analyze and optimize a WordPress site's category taxonomy. Exports all posts, uses AI to suggest an improved category structure — merging duplicates, retiring dead categories, creating missing ones, writing descriptions, and re-categorizing posts. Run this when the user wants to clean up or improve their categories.
 user-invokable: true
+tools: install_taxonomy_scripts
 ---
 
 # Taxonomist
@@ -29,14 +30,13 @@ This skill operates through an interactive, step-by-step process on a local Stud
 1. **Connect** — Identify the target local site and verify it's running
 2. **Export** — Download all posts (full content) and categories to local JSON
 3. **Backup** — Snapshot current taxonomy state before any changes
-4. **Analyze** — Use parallel sub-agents to analyze every post's content and suggest optimal categories
+4. **Analyze** — Run a `subagent` per batch of posts, at the same time, to analyze every post's content and suggest optimal categories
 5. **Plan** — Present a comprehensive category plan with descriptions
-6. **Review** — Iterate with the user until the plan is approved
-7. **Apply descriptions** — Update category descriptions first
-8. **Apply categories** — Execute post re-categorization, logging every change
-9. **Verify** — Confirm site integrity
+6. **Review** — Iterate with the user on the plan
+7. **Apply** — Preview, then save the categories and re-categorize the posts, logging every change
+8. **Verify** — Confirm site integrity
 
-**Steps 1-6 require NO write access to the site.** The site is only modified after explicit user approval.
+Steps 1–6 only read the site. Step 7's apply is the one write, and Studio asks the user to approve it before it runs.
 
 ## Working Directory
 
@@ -66,7 +66,7 @@ All data files go in a `taxonomist-data/` directory inside the site root:
 2. If multiple sites exist, ask the user which one to analyze
 3. Use `site_info` to verify the site is running
 4. If the site is stopped, start it with `site_start`
-5. Verify WordPress is working: `wp_cli` with `eval 'echo "OK";'`
+5. Verify WordPress is working: `wp eval 'echo "OK";'`
 
 ## Step 2: Export
 
@@ -74,23 +74,18 @@ Create the working directory structure, then export posts and categories.
 
 ### Export categories
 
-Use `wp_cli`:
+Run:
 ```
-term list category --format=json --fields=term_id,name,slug,description,count,parent
+wp term list category --format=json --fields=term_id,name,slug,description,count,parent
 ```
 
 Save the output to `taxonomist-data/export/categories.json`.
 
 ### Export posts
 
-Use `wp_cli`:
+Run:
 ```
-eval-file tmp/taxonomist/export-posts.php
-```
-
-With the environment variable:
-```
-TAXONOMIST_OUTPUT={site_path}/taxonomist-data/export/posts.json
+wp eval-file tmp/taxonomist/export-posts.php output={site_path}/taxonomist-data/export/posts.json
 ```
 
 ### Post-export summary
@@ -106,19 +101,14 @@ Report to the user:
 
 Create a full taxonomy snapshot before any analysis.
 
-Use `wp_cli`:
+Run:
 ```
-eval-file tmp/taxonomist/backup.php
-```
-
-With the environment variable:
-```
-TAXONOMIST_OUTPUT={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json
+wp eval-file tmp/taxonomist/backup.php output={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json
 ```
 
 ## Step 4: Analyze
 
-Split exported posts into batches and analyze each batch with a sub-agent.
+Split exported posts into batches and analyze each batch with its own `subagent`.
 
 ### Batch splitting
 
@@ -126,7 +116,7 @@ Read `taxonomist-data/export/posts.json` and split into batch files of ~20-50 po
 
 ### Parallel analysis
 
-For each batch, spawn a sub-agent (use the Agent tool with model "haiku" for efficiency) with this prompt:
+Call `subagent` once per batch, all in one message so they run at the same time, each with this task:
 
 > Analyze these blog posts and suggest optimal category assignments.
 >
@@ -157,10 +147,9 @@ For each batch, spawn a sub-agent (use the Agent tool with model "haiku" for eff
 > "new_cats": [{"slug": "machine-learning", "name": "Machine Learning"}]
 > ```
 >
-> **Batch data:**
-> {batch JSON content}
-
-Save each sub-agent's output to `taxonomist-data/results/batch-NNN-results.json`.
+> **Batch data:** read `{site_path}/taxonomist-data/batches/batch-NNN.json`.
+>
+> Write the JSON array to `{site_path}/taxonomist-data/results/batch-NNN-results.json` and reply with the number of posts it covers.
 
 ### Aggregate results
 
@@ -192,79 +181,58 @@ Then show the **full dry run** — a table of every post that would change, show
 
 ## Step 6: Review
 
-**CRITICAL: You MUST use the `AskUserQuestion` tool here to get explicit approval before proceeding.** Do NOT continue to Step 7 without the user's explicit "yes" or approval.
-
-Present the plan, then use `AskUserQuestion` with options like:
-- "Approve and apply changes"
+Present the plan and ask the user what they would change, with options like:
+- "Looks good, preview the changes"
 - "I want to adjust some categories first"
 - "Cancel — don't make any changes"
 
-If the user wants adjustments, iterate on the plan and use `AskUserQuestion` again for each revision until they approve.
+Revise the plan with them until they are happy with it.
 
-## Step 7: Apply Descriptions
+## Step 7: Apply
 
-After approval, first create any new categories and update descriptions using `wp_cli`:
+Save the plan as two files in `taxonomist-data/results/`:
+- `categories.json`: the categories to create, and the new names or descriptions of existing ones, by slug: `[{"slug": "machine-learning", "name": "Machine Learning", "description": "..."}]`
+- `suggestions.json`: each post's categories, by slug: `[{"post_id": 123, "cats": ["wordpress", "ai"]}]`
 
-```
-# Create new categories
-term create category "Category Name" --slug=category-slug --description="Description here"
-
-# Update existing category descriptions
-term update category {term_id} --description="Updated description"
-```
-
-## Step 8: Apply Categories
-
-Prepare the suggestions JSON file from the approved plan, then run the apply script.
-
-First, do a **preview** (dry run) using `wp_cli`:
+Preview the changes (the default mode changes nothing) and show the user the result:
 
 ```
-eval-file tmp/taxonomist/apply-changes.php
+wp eval-file tmp/taxonomist/apply-changes.php \
+  suggestions={site_path}/taxonomist-data/results/suggestions.json \
+  categories={site_path}/taxonomist-data/results/categories.json \
+  log={site_path}/taxonomist-data/logs/preview-{timestamp}.tsv
 ```
 
-With environment variables:
-```
-TAXONOMIST_SUGGESTIONS={site_path}/taxonomist-data/results/suggestions.json
-TAXONOMIST_LOG={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv
-TAXONOMIST_MODE=preview
-```
-
-Show the user the preview results. **Use `AskUserQuestion` to confirm** before applying. After they confirm, run again with:
+Then run it with `mode=apply`, adding `remove=` with the slugs to strip from re-categorized posts (such as `remove=uncategorized`). Studio asks the user to approve it before it runs:
 
 ```
-TAXONOMIST_SUGGESTIONS={site_path}/taxonomist-data/results/suggestions.json
-TAXONOMIST_LOG={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv
-TAXONOMIST_MODE=apply
-TAXONOMIST_REMOVE_CATS=uncategorized
+wp eval-file tmp/taxonomist/apply-changes.php \
+  suggestions={site_path}/taxonomist-data/results/suggestions.json \
+  categories={site_path}/taxonomist-data/results/categories.json \
+  log={site_path}/taxonomist-data/logs/changes-{timestamp}.tsv \
+  mode=apply remove=uncategorized
 ```
 
-## Step 9: Verify
+## Step 8: Verify
 
 After applying changes:
 
-1. List categories with counts using `wp_cli`: `term list category --format=table --fields=term_id,name,slug,count`
-2. Check for posts with no categories: `eval 'echo count(get_posts(["posts_per_page" => -1, "category__in" => [get_option("default_category")]]));'`
+1. List categories with counts: `wp term list category --format=table --fields=term_id,name,slug,count`
+2. Check for posts with no categories: `wp eval 'echo count(get_posts(["posts_per_page" => -1, "category__in" => [get_option("default_category")]]));'`
 3. Report the change log location to the user
 4. Remind them that a full backup exists and can be restored
 
 ## Restoring from Backup
 
-If the user wants to undo all changes, use `wp_cli`:
+If the user wants to undo all changes, run:
 
 ```
-eval-file tmp/taxonomist/restore.php
-```
-
-With environment variable:
-```
-TAXONOMIST_BACKUP={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json
+wp eval-file tmp/taxonomist/restore.php backup={site_path}/taxonomist-data/backups/pre-analysis-{timestamp}.json
 ```
 
 ## Important Notes
 
-- **Use the Studio tools** (`site_list`, `site_info`, `site_start`, `wp_cli`, etc.) — not shell commands
+- **Manage sites with the Studio tools** (`site_list`, `site_info`, `site_start`) and run the WP-CLI commands above with `wp`
 - **Category slugs are the stable identifier** — always use slugs (not names or IDs) when referencing categories across steps
-- **Never modify WordPress core files** — all changes go through WP-CLI commands
-- **The default category cannot be deleted** — change it first via `wp_cli`: `option update default_category {new_id}` if needed
+- **The default category cannot be deleted** — change it first with `wp option update default_category {new_id}` if needed
 - **All data stays local** — exported posts, analysis results, and backups remain in the site's `taxonomist-data/` directory

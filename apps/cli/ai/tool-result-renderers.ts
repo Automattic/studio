@@ -1,4 +1,4 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { theme } from 'cli/ai/theme';
 
 const COLLAPSE_THRESHOLD_LINES = 5;
@@ -43,16 +43,6 @@ function parseJson( text: string ): unknown {
 	}
 }
 
-function stripHtmlTags( input: string ): string {
-	let previous: string;
-	let result = input;
-	do {
-		previous = result;
-		result = result.replace( /<[^>]*>/g, '' );
-	} while ( result !== previous );
-	return result;
-}
-
 function getDisplayValue( value: unknown ): string {
 	if ( typeof value === 'string' ) {
 		return value;
@@ -60,34 +50,7 @@ function getDisplayValue( value: unknown ): string {
 	if ( typeof value === 'number' ) {
 		return String( value );
 	}
-	if ( value && typeof value === 'object' && 'rendered' in value ) {
-		const rendered = ( value as { rendered?: unknown } ).rendered;
-		return typeof rendered === 'string' ? stripHtmlTags( rendered ) : '';
-	}
 	return '';
-}
-
-function getResourceName( value: unknown ): string {
-	if ( ! value || typeof value !== 'object' || Array.isArray( value ) ) {
-		return '';
-	}
-	const record = value as Record< string, unknown >;
-	return (
-		getDisplayValue( record.title ) ||
-		getDisplayValue( record.name ) ||
-		getDisplayValue( record.slug ) ||
-		getDisplayValue( record.ID ) ||
-		getDisplayValue( record.id )
-	);
-}
-
-function getCountSummary( count: number, noun: string ): string {
-	return sprintf(
-		/* translators: 1: number of items, 2: item type */
-		_n( 'Returned %1$d %2$s', 'Returned %1$d %2$s', count ),
-		count,
-		noun
-	);
 }
 
 // Head-biased collapsed preview: first lines plus a "%d more" hint.
@@ -172,67 +135,6 @@ const renderSkillResult: ToolResultRenderer = ( { text }, expanded ) => {
 	);
 };
 
-function getWpcomSummaryLines( input: Record< string, unknown >, text: string ): string[] {
-	const parsed = parseJson( text );
-	const method = typeof input.method === 'string' ? input.method : '';
-	const path = typeof input.path === 'string' ? input.path : '';
-	const target = [ method, path ].filter( Boolean ).join( ' ' );
-	const withTarget = ( summary: string ) =>
-		target ? sprintf( __( '%1$s: %2$s' ), target, summary ) : summary;
-
-	if ( Array.isArray( parsed ) ) {
-		return [ withTarget( getCountSummary( parsed.length, __( 'items' ) ) ) ];
-	}
-
-	if ( parsed && typeof parsed === 'object' ) {
-		const record = parsed as Record< string, unknown >;
-		const arrayEntry = Object.entries( record ).find( ( [ , value ] ) => Array.isArray( value ) );
-		if ( arrayEntry ) {
-			const [ key, value ] = arrayEntry as [ string, unknown[] ];
-			const count = typeof record.found === 'number' ? record.found : value.length;
-			return [ withTarget( getCountSummary( count, key ) ) ];
-		}
-
-		const resourceName = getResourceName( record );
-		if ( resourceName ) {
-			return [
-				target
-					? sprintf( __( '%1$s: returned %2$s' ), target, resourceName )
-					: sprintf( __( 'Returned %s' ), resourceName ),
-			];
-		}
-
-		const keys = Object.keys( record ).slice( 0, 4 );
-		return [
-			target ? sprintf( __( '%1$s: returned response' ), target ) : __( 'Returned response' ),
-			keys.length > 0 ? sprintf( __( 'Fields: %s' ), keys.join( ', ' ) ) : '',
-		].filter( Boolean );
-	}
-
-	return [ firstNonEmptyLine( text ) || __( 'Request completed' ) ];
-}
-
-const renderWpcomResult: ToolResultRenderer = ( { input, text, isError }, expanded ) => {
-	if ( ! text ) {
-		return null;
-	}
-	if ( isError ) {
-		return summaryWithDetail(
-			[ firstNonEmptyLine( text ) || __( 'Request failed' ) ],
-			text,
-			__( 'Full API error hidden · ctrl+o to expand' ),
-			expanded,
-			{ isError: true }
-		);
-	}
-	return summaryWithDetail(
-		getWpcomSummaryLines( input, text ),
-		text,
-		__( 'Full API response hidden · ctrl+o to expand' ),
-		expanded
-	);
-};
-
 const renderSiteCreateResult: ToolResultRenderer = ( { text, isError }, expanded ) => {
 	if ( ! text ) {
 		return null;
@@ -268,7 +170,4 @@ const renderSiteCreateResult: ToolResultRenderer = ( { text, isError }, expanded
 export const toolResultRenderers: Record< string, ToolResultRenderer > = {
 	site_create: renderSiteCreateResult,
 	Skill: renderSkillResult,
-	wpcom_request: renderWpcomResult,
-	validate_blocks: ( { text }, expanded ) =>
-		text ? renderGenericToolResult( text, expanded, 2000 ) : null,
 };

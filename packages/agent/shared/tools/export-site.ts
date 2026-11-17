@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const exportSiteTool = defineTool(
 	'site_export',
@@ -22,8 +22,8 @@ export const exportSiteTool = defineTool(
 			} )
 		),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Failed to export site', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const mode = args.mode ?? 'full';
 
@@ -36,15 +36,8 @@ export const exportSiteTool = defineTool(
 
 			await context.host.sites.export( site, exportFile, mode, context.onProgress );
 			return textResult( `Exported "${ site.name }" to ${ exportFile }.` );
-		} catch ( error ) {
-			throw new Error(
-				`Failed to export site: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
+		} ),
 	{
-		promptSnippet:
-			'Export a local site to a backup file. Supports full-site (.zip, .tar.gz) or database-only (.sql) exports.',
 		annotations: LOCAL_OVERWRITE,
 	}
 );

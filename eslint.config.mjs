@@ -181,7 +181,6 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
-						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/providers/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
@@ -450,6 +449,7 @@ export default defineConfig(
 											'github-copilot',
 											'meta',
 											'spacefast',
+											'custom',
 									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]
 							),

@@ -1,5 +1,4 @@
 import {
-	isDesignSystemPreviewWidget,
 	isRenderableMediaWidget,
 	isStudioChatArtifactData,
 	stripMediaWidgetPayloadLines,
@@ -298,9 +297,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			if ( ! isStudioChatArtifactData( data ) ) {
 				continue;
 			}
-			const widgets = data.widgets.filter(
-				( widget ) => isRenderableMediaWidget( widget ) || isDesignSystemPreviewWidget( widget )
-			);
+			const widgets = data.widgets.filter( isRenderableMediaWidget );
 			if ( widgets.length > 0 ) {
 				items.push( {
 					kind: 'chat-artifact',
@@ -333,10 +330,6 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 	}
 
 	return items;
-}
-
-function isDesignSystemArtifact( item: RenderItem ) {
-	return item.kind === 'chat-artifact' && item.widgets.every( isDesignSystemPreviewWidget );
 }
 
 function getTimestamp( entry: SessionEntry | undefined ): number | null {
@@ -387,13 +380,8 @@ export function entriesToTranscriptItems(
 		const worked = turnItems.some(
 			( item ) => item.kind === 'tool-use' || item.kind === 'progress'
 		);
-		// Repeated DESIGN.md writes in one turn offer the design system once, at the last write.
-		const lastDesignSystem = [ ...turnItems ].reverse().find( isDesignSystemArtifact );
 		const visible = turnItems.flatMap( ( item ): Exclude< RenderItem, { kind: 'progress' } >[] => {
 			if ( item.kind === 'progress' ) {
-				return [];
-			}
-			if ( isDesignSystemArtifact( item ) && item !== lastDesignSystem ) {
 				return [];
 			}
 			return [ item.kind === 'tool-use' && running ? { ...item, running } : item ];

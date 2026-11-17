@@ -81,17 +81,13 @@ The agent can read and write files in your site directory, run WP-CLI commands, 
 
 ### [Designing a site](#designing-a-site)
 
-When you ask WordPress Studio Code to build a site, it first offers you four looks, and then four layouts previewed in the look you picked. It skips these questions when your request already describes a design. Your choice is saved as `DESIGN.md` in the site’s root folder, and later chats, as well as other coding agents, follow it. Fonts chosen in `DESIGN.md` are self-hosted on the site.
+When you ask WordPress Studio Code to build a site, it designs a block theme from your request: its colors, fonts and spacing go in the theme’s `theme.json`, and its layout in the theme’s templates and parts. Fonts from Google Fonts are downloaded into the theme, so the site serves its own. A theme WordPress Studio Code makes gets a thumbnail of its design in **Appearance → Themes**.
 
-![WordPress Studio Code asking “Which look should I build?” for a slow-fashion journal called Moire, with four looks drawn as design boards (Dia journal, Quiet linen, Monochrome atelier, and Deep wool), Show other options, and the Skip and Done buttons.](../../../../screenshots/images/design-looks.webp)
-
-To review the design system, click **New tab** (**+**) above the site preview and choose **Design System**, or choose **Tools → Design System** from the site menu. When WordPress Studio Code mentions the design system in a chat, the link opens it too. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, WordPress Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
-
-![The Design System view in the site preview of the Moire journal: its name and tagline, Poppins type styles, and a dark brown, golden yellow, and pale yellow color palette, with a note that theme.json matches DESIGN.md.](../../../../screenshots/images/design-system.webp)
+To review the design system, click **New tab** (**+**) above the site preview and choose **Design System**, or choose **Tools → Design System** from the site menu. It shows the type, colors, type scale, components, and spacing and corners that the site’s block theme sets in its Styles. Annotate any part of it to ask WordPress Studio Code for a change.
 
 WordPress Studio Code can also generate images for your site. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
 
-To give WordPress Studio Code instructions that apply to every new chat, across all your sites, add them under **Custom instructions** in **Settings → Instructions** in the desktop app. For example: “Always answer in French. My sites are for restaurants.” The instruction files installed in a particular site, such as `AGENTS.md`, are listed on the **Instructions** page of that site’s settings.
+To give WordPress Studio Code instructions that apply to every new chat, across all your sites, add them under **Custom instructions** in **Settings → Instructions** in the desktop app. For example: “Always answer in French. My sites are for restaurants.”
 
 ### [Annotate](#annotate)
 

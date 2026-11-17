@@ -2,9 +2,10 @@ import {
 	designSheet,
 	fontFamilyName as fontFamily,
 	googleFontsUrl,
-	parseDesignMd,
-	Style,
-} from '@studio/design-md';
+	presetList,
+	themeJsonDesign,
+	type Style,
+} from '@studio/common/sites/design-sheet';
 
 const escapeHtml = ( value: unknown ) =>
 	String( value ).replace( /[&<>"']/g, ( char ) => `&#${ char.charCodeAt( 0 ) };` );
@@ -30,8 +31,26 @@ function fontLinks( styles: Style[] ): string {
 	return url ? `<link rel="stylesheet" href="${ url.replace( /&/g, '&amp;' ) }">` : '';
 }
 
-export function renderDesignBoard( design: string, image?: string ): string {
-	const tokens = parseDesignMd( design );
+/** Renders a theme's theme.json as a design-system board. */
+export function renderDesignBoard( themeJson: string ): string {
+	let parsed: Record< string, unknown >;
+	try {
+		parsed = JSON.parse( themeJson );
+	} catch ( error ) {
+		throw new Error( `The look's theme.json is not valid JSON: ${ ( error as Error ).message }` );
+	}
+	const tokens = themeJsonDesign( parsed );
+	if ( Object.keys( tokens.colors ?? {} ).length < 2 ) {
+		throw new Error(
+			"The look's theme.json needs at least two hex colors in settings.color.palette."
+		);
+	}
+	// A style without a font family shows the first one the theme declares.
+	const settings = parsed.settings as { typography?: { fontFamilies?: unknown } } | undefined;
+	const [ declared ] = presetList( settings?.typography?.fontFamilies );
+	for ( const style of Object.values( tokens.typography ?? {} ) ) {
+		style.fontFamily ??= declared?.fontFamily;
+	}
 	const {
 		palette,
 		background,
@@ -79,8 +98,6 @@ export function renderDesignBoard( design: string, image?: string ): string {
 		`padding:${ dimension( button.padding ) }`,
 		fontCss( button.typography ),
 	].join( ';' );
-	const treatment = tokens.imagery ?? {};
-	const overlay = [ 'multiply', 'screen' ].find( ( mode ) => mode === treatment.overlay );
 
 	return `<!doctype html>
 <html>
@@ -141,16 +158,7 @@ figcaption{margin-top:12px;font-size:13px;opacity:.65}
 .picture{position:relative;flex:1;overflow:hidden;border-radius:${ dimension(
 		shape
 	) };background-color:${ css( primary ) };color:${ css( ink( primary ) ) }}
-.picture img{width:100%;height:100%;object-fit:cover;display:block;filter:${ css(
-		treatment.filter ?? 'none'
-	) }}
-${
-	overlay
-		? `.picture img+i{position:absolute;inset:0;background-color:${ css(
-				primary
-		  ) };mix-blend-mode:${ overlay }}`
-		: ''
-}
+.picture img{width:100%;height:100%;object-fit:cover;display:block}
 .pattern{background-image:radial-gradient(currentColor 20%,transparent 21%);background-size:32px 32px}
 .strip{position:absolute;left:0;right:0;bottom:0;height:12px;display:flex}
 </style>
@@ -174,9 +182,7 @@ ${
 		accents.length ? `<div class="accents">${ accents.map( tile ).join( '' ) }</div>` : ''
 	}</div></section>
 <section><h2>Components</h2><div class="kit"><div class="stack"><div class="row"><span class="button primary">Button</span><span class="button secondary">Button</span><span class="link">Link</span></div><div class="row"><span class="input">Input</span></div><div class="row"><span class="tag">Tag</span><span class="tag alt">Tag</span></div></div><div class="card"><span class="tag">Card</span><strong>Card title</strong><u style="width:90%"></u><u style="width:65%"></u></div></div></section>
-<section><h2>Imagery</h2><div class="picture${ image ? '' : ' pattern' }">${
-		image ? `<img src="${ escapeHtml( image ) }" alt="">${ overlay ? '<i></i>' : '' }` : ''
-	}</div></section>
+<section><h2>Imagery</h2><div class="picture pattern"></div></section>
 <div class="strip">${ strip }</div>
 </body>
 </html>`;

@@ -2,7 +2,6 @@ import {
 	getLocalMediaPath,
 	getMediaAltText,
 	getSafeMediaUrl,
-	isDesignSystemPreviewWidget,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/agent/protocol/chat-artifacts';
 import {
@@ -37,13 +36,9 @@ const ChatArtifact = memo( function ChatArtifact( {
 }: {
 	widgets: StudioChatArtifactWidgetDraft[];
 } ) {
-	const mediaWidgets = widgets.filter( ( widget ) => ! isDesignSystemPreviewWidget( widget ) );
-	if ( ! mediaWidgets.length ) {
-		return null;
-	}
 	return (
 		<div className={ styles.mediaArtifacts }>
-			{ mediaWidgets.map( ( widget, index ) => (
+			{ widgets.map( ( widget, index ) => (
 				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
 			) ) }
 		</div>

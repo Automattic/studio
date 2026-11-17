@@ -1,7 +1,7 @@
 import { getSnapshotLink } from '@studio/common/lib/snapshots';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
-import { runPreviewCommand } from './preview-helpers';
+import { failsAs, textResult } from './utils';
 
 export const createPreviewTool = defineTool(
 	'preview_create',
@@ -11,18 +11,17 @@ export const createPreviewTool = defineTool(
 			description: 'The local site name or file system path to preview',
 		} ),
 	},
-	async ( args, context ) => {
-		return runPreviewCommand( async () => {
+	( args, context ) =>
+		failsAs( 'Failed to create preview site', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const preview = await context.host.previews.create( site, context.onProgress );
-			return `Preview site "${ preview.name }" created from "${ site.name }": ${ getSnapshotLink(
-				preview
-			) }`;
-		}, 'Failed to create preview site' );
-	},
+			return textResult(
+				`Preview site "${ preview.name }" created from "${ site.name }": ${ getSnapshotLink(
+					preview
+				) }`
+			);
+		} ),
 	{
-		promptSnippet:
-			'Create a preview site (a temporary, expiring hosted preview) for a local site; when a local site is selected, preview that site instead of creating a new local site; requires WordPress.com authentication and can take a few minutes, so tell the user to wait',
 		annotations: REMOTE_CHANGE,
 	}
 );

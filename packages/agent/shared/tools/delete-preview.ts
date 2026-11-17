@@ -1,7 +1,7 @@
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
-import { runPreviewCommand } from './preview-helpers';
+import { failsAs, textResult } from './utils';
 
 export const deletePreviewTool = defineTool(
 	'preview_delete',
@@ -13,10 +13,10 @@ export const deletePreviewTool = defineTool(
 	},
 	async ( args, context ) => {
 		const normalizedHost = normalizeHostname( args.host );
-		return runPreviewCommand( async () => {
+		return failsAs( 'Failed to delete preview site', async () => {
 			await context.host.previews.delete( normalizedHost, context.onProgress );
-			return `Preview site "${ normalizedHost }" deleted.`;
-		}, 'Failed to delete preview site' );
+			return textResult( `Preview site "${ normalizedHost }" deleted.` );
+		} );
 	},
-	{ promptSnippet: 'Delete a preview site by hostname', annotations: REMOTE_OVERWRITE }
+	{ annotations: REMOTE_OVERWRITE }
 );

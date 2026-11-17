@@ -37,7 +37,7 @@ const STUDIO_SECTIONS = [
 	'instructions',
 	'keyboard',
 ] as const;
-const SITE_SECTIONS = [ 'site', 'debugging', 'php', 'site-skills', 'site-instructions' ] as const;
+const SITE_SECTIONS = [ 'site', 'debugging', 'php', 'site-skills' ] as const;
 
 export type SettingsSectionId =
 	| ( typeof STUDIO_SECTIONS )[ number ]
@@ -579,14 +579,6 @@ function getSiteSections(): Section[] {
 			icon: SkillsIcon,
 			settings: [ setting( 'section', __( 'Skills on this site' ), '', 'site-wordpress-skills' ) ],
 		},
-		{
-			id: 'site-instructions',
-			label: __( 'Instructions' ),
-			icon: FileTextIcon,
-			settings: [
-				setting( 'section', __( 'Instructions on this site' ), '', 'site-agent-instructions' ),
-			],
-		},
 	];
 }
 
@@ -608,7 +600,6 @@ const NATIVE_ONLY_IDS = new Set( [
 	'xdebug',
 	'php',
 	'site-skills',
-	'site-instructions',
 ] );
 
 export function getSections(

@@ -4,6 +4,7 @@
 // `custom` markers — site selections, progress, agent questions — which
 // don't appear in pi's flat `buildSessionContext()` output).
 
+import { remoteSiteFromStored } from '@studio/agent/node';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import { AiChatUI } from 'cli/ai/ui';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
@@ -34,9 +35,8 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 							path: data.sitePath,
 							// Placeholder — turn dispatch resolves the live state before each prompt.
 							running: false,
-							remote: data.remote === true,
+							remote: remoteSiteFromStored( data ),
 							url: data.url,
-							wpcomSiteId: data.wpcomSiteId,
 						},
 						{ announce: true, emitEvent: false }
 					);

@@ -4,10 +4,11 @@ import path from 'node:path';
 import { SessionManager, type AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import {
 	addAssistantMessageUsage,
+	addToolCallUsage,
 	createAgent,
 	createTokenUsage,
-	type AskUserHandler,
 	type HostSite,
+	type SiteInfo,
 } from '@studio/agent/node';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import {
@@ -23,8 +24,11 @@ import {
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { createScriptedUser } from 'cli/ai/eval-answers';
+import { captureHomeStyles, fingerprintSites, sitesChanged } from 'cli/ai/eval-outcome';
 import { matchesStopRule } from 'cli/ai/eval-stop';
 import { type ModelRequestRecord } from 'cli/ai/eval-timing';
+import { extractToolResult } from 'cli/ai/eval-tool-results';
 import { cliAgentHost, connectedRemoteSites } from 'cli/ai/host';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { HarnessInput, HarnessContext, HarnessTranscript } from './types';
@@ -60,6 +64,13 @@ type ToolEvent = {
 	startedAtMs: number;
 	endedAtMs?: number;
 	durationMs?: number;
+	// Studio's checks around the tool's run, within durationMs.
+	checksMs?: number;
+	checkStagesMs?: Record< string, number >;
+	// The longest read or check of each site change source since the last call took them.
+	checkSourcesMs?: Record< string, number >;
+	// The model requests a call made of its own, as a subagent's turn does.
+	modelRequests?: number;
 	isError?: boolean;
 	// Length of the result's text block: what the tool adds to the context.
 	outputChars?: number;
@@ -83,46 +94,6 @@ function extractTextSegments( event: AgentSessionEvent ): string[] {
 		.map( ( block ) => block.text );
 }
 
-function extractToolResult( event: AgentSessionEvent ): {
-	toolUseId: string;
-	isError: boolean;
-	text?: string;
-	images?: Array< { mimeType: string; data: string } >;
-	details?: unknown;
-} | null {
-	if ( event.type !== 'tool_execution_end' ) {
-		return null;
-	}
-	const result = event.result as
-		| {
-				content?: Array< { type: string; text?: string; data?: string; mimeType?: string } >;
-				details?: unknown;
-		  }
-		| undefined;
-	let text: string | undefined;
-	let images: Array< { mimeType: string; data: string } > | undefined;
-	if ( result?.content && Array.isArray( result.content ) ) {
-		const textBlock = result.content.find(
-			( b ): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string'
-		);
-		if ( textBlock ) text = textBlock.text;
-		const imageBlocks = result.content.filter(
-			( b ): b is { type: 'image'; data: string; mimeType?: string } =>
-				b.type === 'image' && typeof b.data === 'string'
-		);
-		if ( imageBlocks.length > 0 ) {
-			images = imageBlocks.map( ( b ) => ( { mimeType: b.mimeType ?? '', data: b.data } ) );
-		}
-	}
-	return {
-		toolUseId: event.toolCallId,
-		isError: event.isError,
-		text,
-		images,
-		details: result?.details,
-	};
-}
-
 export async function runStudioConversation(
 	input: HarnessInput,
 	ctx: HarnessContext
@@ -137,8 +108,17 @@ export async function runStudioConversation(
 				},
 		  }
 		: cliAgentHost;
+	// A site the agent creates becomes the active site of the turns after it,
+	// as the app makes it (selectSite in commands/ai).
+	let selectedSite: SiteInfo | undefined;
 	const agent = createAgent( {
-		host: input.ui ? { ...host, ui: { showArtifact: () => {}, reloadPreview: () => {} } } : host,
+		host: {
+			...host,
+			...( input.ui ? { ui: { showArtifact: () => {}, reloadPreview: () => {} } } : {} ),
+			selectSite: ( site ) => {
+				selectedSite = site;
+			},
+		},
 	} );
 	const resolvedModel =
 		input.model && findAiModel( input.model )
@@ -176,27 +156,16 @@ export async function runStudioConversation(
 	const toolEvents: ToolEvent[] = [];
 	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
-	const questions: Array< { question: string; options: string[]; answer: string } > = [];
-	const pendingAnswers = [ ...( input.answers ?? [] ) ];
-	const onAskUser: AskUserHandler | undefined = input.answers
-		? async ( asked ) =>
-				Object.fromEntries(
-					asked.map( ( { question, options } ) => {
-						const answer = pendingAnswers.shift()?.label ?? 'Cancel';
-						questions.push( {
-							question,
-							options: options.map( ( option ) => option.label ),
-							answer,
-						} );
-						return [ question, answer ];
-					} )
-				)
-		: undefined;
+	const scriptedUser = input.answers ? createScriptedUser( input.answers ) : undefined;
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
 	// Wall-clock per turn, measured between successive assistant messages.
 	const turnDurationsMs: number[] = [];
+	// Each turn's system prompt, so a result shows the facts the agent was given.
+	const systemPrompts: string[] = [];
+	// Each created site's home page styles after every turn but the last.
+	const homeStylesByTurn: Array< Record< string, unknown > > = [];
 	let turnIndex = 0;
 	let numTurns = 0;
 	let numTurnsResult: number | null = null;
@@ -270,6 +239,7 @@ export async function runStudioConversation(
 		textSegments.push( ...extractTextSegments( event ) );
 
 		if ( event.type === 'tool_execution_end' ) {
+			addToolCallUsage( usage, event );
 			const tr = extractToolResult( event );
 			if ( tr ) {
 				const id = tr.toolUseId;
@@ -279,6 +249,23 @@ export async function runStudioConversation(
 					evt.durationMs = evt.endedAtMs - evt.startedAtMs;
 					evt.isError = tr.isError;
 					evt.outputChars = tr.text?.length ?? 0;
+					const { checksMs, checkStagesMs, checkSourcesMs, requests } =
+						( tr.details as
+							| {
+									checksMs?: unknown;
+									checkStagesMs?: unknown;
+									checkSourcesMs?: unknown;
+									requests?: unknown;
+							  }
+							| undefined ) ?? {};
+					if ( typeof requests === 'number' ) {
+						evt.modelRequests = requests;
+					}
+					if ( typeof checksMs === 'number' ) {
+						evt.checksMs = checksMs;
+						evt.checkStagesMs = checkStagesMs as Record< string, number >;
+						evt.checkSourcesMs = checkSourcesMs as Record< string, number > | undefined;
+					}
 				}
 				if ( tr.isError && ! firstToolError ) {
 					firstToolError = {
@@ -320,9 +307,9 @@ export async function runStudioConversation(
 			prompt: turnPrompt,
 			ai,
 			session,
-			activeSite: ctx.activeSite,
+			activeSite: selectedSite ?? ctx.activeSite,
 			onEvent: handleEvent,
-			onAskUser,
+			onAskUser: scriptedUser?.onAskUser,
 		} );
 	let query = runTurn( input.prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;
@@ -334,10 +321,32 @@ export async function runStudioConversation(
 
 	try {
 		await query.result;
+		// A turn that asks the user something before changing any site waits on
+		// the user, who answers it as their next message, at most twice.
+		for ( let replies = 0, from = 0; scriptedUser && replies < 2 && ! timedOut; replies++ ) {
+			const asked = textSegments.slice( from ).join( '' );
+			if (
+				! asked.includes( '?' ) ||
+				sitesChanged( ctx.sitesBeforeTurn, await fingerprintSites() )
+			) {
+				break;
+			}
+			const answer = scriptedUser.reply( asked );
+			if ( answer === undefined ) {
+				break;
+			}
+			from = textSegments.length;
+			systemPrompts.push( query.systemPrompt() ?? '' );
+			query = runTurn( answer );
+			await query.result;
+		}
 		for ( const followUp of input.followUps ?? [] ) {
 			if ( timedOut || stoppedAt ) {
 				break;
 			}
+			systemPrompts.push( query.systemPrompt() ?? '' );
+			// What this turn left, for judging what the next one changes.
+			homeStylesByTurn.push( await captureHomeStyles( ctx.sitesBeforeTurn ) );
 			query = runTurn( followUp.prompt );
 			await query.result;
 		}
@@ -345,6 +354,7 @@ export async function runStudioConversation(
 		error = caught instanceof Error ? caught.message : String( caught );
 	} finally {
 		clearTimeout( timeout );
+		systemPrompts.push( query.systemPrompt() ?? '' );
 	}
 
 	return {
@@ -366,6 +376,8 @@ export async function runStudioConversation(
 		toolEvents,
 		firstToolError,
 		textSegments,
-		questions,
+		questions: scriptedUser?.questions ?? [],
+		systemPrompts,
+		homeStylesByTurn,
 	};
 }

@@ -5,7 +5,7 @@ import type { StudioAgentHost } from '@studio/agent/shared/host';
 // comments (`<!-- /wp:group -->`) do not match.
 const BLOCK_COMMENT = /<!--\s+wp:([a-z][a-z0-9_-]*(?:\/[a-z][a-z0-9_-]*)?)[\s/]/g;
 
-type BlockAttribute = {
+export type BlockAttribute = {
 	type?: string | string[];
 	enum?: unknown[];
 	default?: unknown;
@@ -19,7 +19,7 @@ function coreSlug( blockName: string ): string | undefined {
 	return blockName.startsWith( 'core/' ) ? blockName.slice( 'core/'.length ) : undefined;
 }
 
-function describeAttribute( name: string, attribute: BlockAttribute ): string {
+export function describeAttribute( name: string, attribute: BlockAttribute ): string {
 	const shape = attribute.enum
 		? attribute.enum.map( ( value ) => JSON.stringify( value ) ).join( '|' )
 		: [ attribute.type ?? 'any' ].flat().join( '|' );

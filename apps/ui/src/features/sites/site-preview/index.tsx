@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
-import { useSiteDesign } from '@/data/queries/use-site-design';
+import { useGlobalStyles } from '@/data/queries/use-global-styles';
 import {
 	useIsSiteStarting,
 	useIsSiteStopping,
@@ -147,7 +147,7 @@ function SitePreviewContent( {
 		onPathChange,
 		active: ! inactive,
 	} );
-	const siteDesign = useSiteDesign( site );
+	const globalStyles = useGlobalStyles( site );
 	const annotations = useSiteAnnotations( site.id );
 	// Surfaces Studio draws itself, with no page to load.
 	const rendered = activeSurfaceKey === 'design' || activeSurfaceKey === 'email';
@@ -192,7 +192,7 @@ function SitePreviewContent( {
 	const canAnnotate =
 		canAnnotateSurface &&
 		( activeSurfaceKey === 'design'
-			? !! siteDesign.data?.design
+			? !! globalStyles.data
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const previewBrowser = usePreviewBrowser( viewportRef );
@@ -449,8 +449,6 @@ function SitePreviewContent( {
 					isAnnotationsBusy( annotations ),
 				disabledReason: blank
 					? __( 'Open a project page to annotate.' )
-					: activeSurfaceKey === 'design' && ! siteDesign.data?.design
-					? __( 'Annotation is available for design systems created by Studio Code.' )
 					: activeSurfaceKey === 'database'
 					? __( 'Not available for Database' )
 					: ! canAnnotateSurface
@@ -545,14 +543,14 @@ function SitePreviewContent( {
 									<SurfaceLayer key={ key } active={ active } design>
 										{ /* The view waits for the site's font stylesheet; only this pane should. */ }
 										<Suspense fallback={ null }>
-											{ siteDesign.isPending ||
-											( siteDesign.isFetching && ! siteDesign.data ) ? null : (
+											{ globalStyles.isPending ||
+											( globalStyles.isFetching && ! globalStyles.data ) ? null : (
 												<DesignSystemView
 													siteId={ site.id }
-													siteDesign={ siteDesign.data ?? null }
-													error={ siteDesign.error }
-													onRetry={ () => void siteDesign.refetch() }
-													retrying={ siteDesign.isFetching }
+													globalStyles={ globalStyles.data ?? null }
+													error={ globalStyles.error }
+													onRetry={ () => void globalStyles.refetch() }
+													retrying={ globalStyles.isFetching }
 													onAnnotationPick={ handleAnnotationPick }
 													onAnnotationAnchor={ handleDesignAnchor }
 												/>
@@ -800,7 +798,7 @@ export function SitePreview( props: SitePreviewProps ) {
 			if ( ! note ) return;
 			const path = note.email
 				? EMAIL_PREVIEW_PATH
-				: note.targetKey && note.path === 'DESIGN.md'
+				: note.targetKey
 				? DESIGN_SYSTEM_PREVIEW_PATH
 				: note.path ?? '/';
 			const match = workspace.tabs.find( ( tab ) => tab.path === path );

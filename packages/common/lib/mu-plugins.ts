@@ -312,6 +312,23 @@ STUDIO_PREVIEW_SHORTCUTS;
 			return;
 		}
 
+		// A command that changes the site's plugins or themes waits for one running
+		// on the same site, holding the lock until its process exits, then reads the
+		// options as that one left them: activate_plugin() writes back active_plugins
+		// as its process cached it, so of two run side by side one activation is lost,
+		// and two installs unpack into one upgrade folder.
+		foreach ( array( 'plugin', 'theme' ) as $studio_type ) {
+			foreach ( array( 'install', 'activate', 'deactivate', 'toggle', 'update', 'delete', 'uninstall' ) as $studio_verb ) {
+				WP_CLI::add_hook( "before_invoke:$studio_type $studio_verb", function () {
+					static $lock;
+					$lock = fopen( get_temp_dir() . 'studio-wp-cli-' . md5( ABSPATH ) . '.lock', 'c' );
+					if ( $lock && flock( $lock, LOCK_EX ) ) {
+						wp_cache_flush();
+					}
+				} );
+			}
+		}
+
 		/**
 		 * Gets theme details for the current site.
 		 *
@@ -335,7 +352,13 @@ STUDIO_PREVIEW_SHORTCUTS;
 		} );
 
 		/**
-		 * Gets merged core, theme and user styles for block themes.
+		 * Gets the settings and styles WordPress resolves for the site,
+		 * as the Site Editor's Styles show them, or null when the active
+		 * theme is not a block theme.
+		 *
+		 * ## EXAMPLES
+		 *
+		 *     wp studio get-global-styles
 		 *
 		 * @when after_wp_load
 		 */
@@ -346,10 +369,9 @@ STUDIO_PREVIEW_SHORTCUTS;
 			}
 			echo wp_json_encode( [
 				'settings' => (object) wp_get_global_settings(),
-				'styles' => (object) wp_get_global_styles( [], [ 'transforms' => [ 'resolve-variables' ] ] ),
+				'styles' => (object) wp_get_global_styles(),
 			] );
 		} );
-
 		`,
 	} );
 

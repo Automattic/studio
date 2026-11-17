@@ -60,6 +60,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				spacefast: disconnected,
+				custom: disconnected,
 			},
 		} );
 	} );
@@ -79,6 +80,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				spacefast: disconnected,
+				custom: disconnected,
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -213,6 +215,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				spacefast: disconnected,
+				custom: disconnected,
 			},
 		} );
 		const written = readShared();

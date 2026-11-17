@@ -7,6 +7,11 @@ export interface Skill {
 	// A top-level skill: something users ask for directly (`user-invokable: true`),
 	// as opposed to a runbook other skills load. Plugins expose these as their own skills.
 	userInvokable: boolean;
+	// Tools this skill brings (`tools: a, b`). A tool any skill declares is
+	// available only once a skill that declares it is loaded.
+	tools: string[];
+	// The skill's folder, for a skill the user added: its body may name files beside it.
+	folder?: string;
 }
 
 // Every file of every skill, by its path from here (`./skills/<name>/…`),
@@ -17,7 +22,7 @@ const SKILL_FILES = import.meta.glob< string >( './skills/**/*.{md,php}', {
 	eager: true,
 } );
 
-function parseSkillFile( contents: string ): Skill | null {
+export function parseSkillFile( contents: string ): Skill | null {
 	const match = contents.match( /^---\n([\s\S]*?)\n---\n([\s\S]*)$/ );
 	if ( ! match ) return null;
 	const [ , frontmatter, body ] = match;
@@ -27,7 +32,11 @@ function parseSkillFile( contents: string ): Skill | null {
 	if ( ! name || ! description ) return null;
 
 	const userInvokable = /^user-invokable:\s*true\s*$/m.test( frontmatter );
-	return { name, description, body: body.trim(), userInvokable };
+	const tools = ( frontmatter.match( /^tools:\s*(.+)$/m )?.[ 1 ] ?? '' )
+		.split( ',' )
+		.map( ( tool ) => tool.trim() )
+		.filter( Boolean );
+	return { name, description, body: body.trim(), userInvokable, tools };
 }
 
 // The files in one folder of a skill, such as `skillFiles( 'taxonomist', 'scripts' )`,
@@ -53,6 +62,30 @@ export function loadSkills(): Skill[] {
 	return cachedSkills;
 }
 
-export function findSkill( name: string ): Skill | undefined {
-	return loadSkills().find( ( skill ) => skill.name === name );
+interface SkillCatalog {
+	skills: Skill[];
+	// User skills left out because a Studio skill has the same name.
+	shadowed: string[];
+}
+
+// Studio's skills, then `userSkills`, the user's own. A Studio skill keeps its name.
+export function loadSkillCatalog( userSkills: Skill[] = [] ): SkillCatalog {
+	const studio = loadSkills();
+	const taken = new Set( studio.map( ( skill ) => skill.name ) );
+	return {
+		skills: [ ...studio, ...userSkills.filter( ( skill ) => ! taken.has( skill.name ) ) ],
+		shadowed: userSkills
+			.filter( ( skill ) => taken.has( skill.name ) )
+			.map( ( skill ) => skill.folder ?? skill.name ),
+	};
+}
+
+export function findSkill( name: string, userSkills: Skill[] = [] ): Skill | undefined {
+	return loadSkillCatalog( userSkills ).skills.find( ( skill ) => skill.name === name );
+}
+
+// Every tool a Studio skill brings; these start inactive. A user skill can name
+// one to bring it, and naming any other tool hides nothing.
+export function getSkillScopedToolNames(): Set< string > {
+	return new Set( loadSkills().flatMap( ( skill ) => skill.tools ) );
 }

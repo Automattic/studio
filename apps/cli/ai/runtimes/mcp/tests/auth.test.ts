@@ -2,7 +2,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { bindTool, createResultNotes } from '@studio/agent/node';
+import { bindTool, createSiteNotes } from '@studio/agent/node';
 import { getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
@@ -52,12 +52,9 @@ afterEach( async () => {
 
 async function call( name: string, args: Record< string, unknown > = {}, served = tools ) {
 	const definition = served.find( ( entry ) => entry.tool.name === name )!;
-	return runServedTool(
-		cliAgentHost,
-		bindTool( definition.tool, cliAgentHost ),
-		args,
-		createResultNotes( cliAgentHost )
-	);
+	return runServedTool( cliAgentHost, bindTool( definition.tool, cliAgentHost ), args, {
+		siteNotes: createSiteNotes( cliAgentHost ),
+	} );
 }
 
 function events() {

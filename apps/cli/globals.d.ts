@@ -6,3 +6,9 @@ declare const __MINIMUM_NODE_VERSION__: string;
 
 declare module 'wpcom-xhr-request';
 declare module '@wp-playground/blueprints/blueprint-schema-validator';
+
+// A file's text, as Vite imports it with `?raw`.
+declare module '*?raw' {
+	const content: string;
+	export default content;
+}

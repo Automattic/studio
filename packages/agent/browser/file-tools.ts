@@ -1,7 +1,5 @@
 import { Type } from 'typebox';
 import { toBase64 } from '@studio/agent/shared/base64';
-import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
-import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
 import {
 	bindTool,
 	defineTool,
@@ -114,7 +112,7 @@ export function createFileTools(
 					: body
 			);
 		},
-		{ annotations: READ_ONLY, ...getFileToolPrompt( 'Read' ) }
+		{ annotations: READ_ONLY }
 	);
 
 	const write = defineTool(
@@ -128,7 +126,7 @@ export function createFileTools(
 			await files.write( resolve( args.path ), args.content );
 			return textResult( `Successfully wrote ${ args.content.length } bytes to ${ args.path }` );
 		},
-		{ annotations: LOCAL_OVERWRITE, ...getFileToolPrompt( 'Write' ) }
+		{ annotations: LOCAL_OVERWRITE }
 	);
 
 	const edit = defineTool(
@@ -175,7 +173,7 @@ export function createFileTools(
 				},
 			};
 		},
-		{ annotations: LOCAL_OVERWRITE, ...getFileToolPrompt( 'Edit' ) }
+		{ annotations: LOCAL_OVERWRITE }
 	);
 
 	const ls = defineTool(
@@ -201,7 +199,7 @@ export function createFileTools(
 					: shown || '(empty directory)'
 			);
 		},
-		{ annotations: READ_ONLY, ...getFileToolPrompt( 'Ls' ) }
+		{ annotations: READ_ONLY }
 	);
 
 	const glob = defineTool(
@@ -238,7 +236,7 @@ export function createFileTools(
 					: shown
 			);
 		},
-		{ annotations: READ_ONLY, ...getFileToolPrompt( 'Glob' ) }
+		{ annotations: READ_ONLY }
 	);
 
 	const grep = defineTool(
@@ -333,22 +331,19 @@ export function createFileTools(
 					: shown
 			);
 		},
-		{ annotations: READ_ONLY, ...getFileToolPrompt( 'Grep' ) }
+		{ annotations: READ_ONLY }
 	);
 
 	return [
 		bindTool( read, host ),
 		// pi's loop runs a message's tool calls in parallel; two writes to one file
 		// would race and lose one, so file changes run one at a time.
-		withDesignSystemPreview( { ...bindTool( write, host ), executionMode: 'sequential' }, host ),
-		withDesignSystemPreview(
-			{
-				...bindTool( edit, host ),
-				prepareArguments: prepareEditArguments,
-				executionMode: 'sequential',
-			},
-			host
-		),
+		{ ...bindTool( write, host ), executionMode: 'sequential' },
+		{
+			...bindTool( edit, host ),
+			prepareArguments: prepareEditArguments,
+			executionMode: 'sequential',
+		},
 		bindTool( grep, host ),
 		bindTool( glob, host ),
 		bindTool( ls, host ),

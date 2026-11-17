@@ -98,17 +98,7 @@ describe( 'tool display helpers', () => {
 
 	it( 'adds human names for Studio-specific visual tools', () => {
 		expect( getToolDisplayName( 'take_screenshot' ) ).toBe( 'Take screenshot' );
-		expect( getToolDisplayName( 'inspect_design' ) ).toBe( 'Inspect design' );
 		expect( getToolDisplayName( 'open_annotation_browser' ) ).toBe( 'Open annotation browser' );
-	} );
-
-	it( 'does not reveal which design options the agent chose', () => {
-		expect(
-			getToolDetail( 'pick_design', {
-				options: 4,
-				chosen: [ { layout: 'Stacked bands', direction: 'Art Deco', reason: 'Bold and festive.' } ],
-			} )
-		).toBe( '' );
 	} );
 
 	it( 'summarizes Ask User questions without exposing the raw tool name', () => {

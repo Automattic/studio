@@ -69,7 +69,7 @@ describe( 'bumpStat', () => {
 	let logger: ReturnType< typeof vi.spyOn >;
 
 	beforeEach( () => {
-		logger = vi.spyOn( console, 'info' ).mockImplementation( () => {} );
+		logger = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 	} );
 
 	test( 'record stat with GET request to b.gif', async () => {

@@ -7,16 +7,23 @@
  * to the pre-change state.
  *
  * Usage:
- *   studio wp eval-file backup.php
+ *   studio wp eval-file backup.php output=/path/to/backup.json
  *
- * Environment variables:
- *   TAXONOMIST_OUTPUT  Path for the backup JSON file.
- *                      Default: /tmp/taxonomist-backup.json
+ * Arguments:
+ *   output  Path for the backup JSON file.
+ *           Default: /tmp/taxonomist-backup.json
  *
  * @package Taxonomist
  */
 
-$output_file = getenv( 'TAXONOMIST_OUTPUT' ) ? getenv( 'TAXONOMIST_OUTPUT' ) : '/tmp/taxonomist-backup.json';
+// WP-CLI passes the arguments after the file as `$args`: key=value pairs.
+$options = array();
+foreach ( $args as $arg ) {
+	list( $key, $value ) = array_pad( explode( '=', $arg, 2 ), 2, '' );
+	$options[ $key ]     = $value;
+}
+
+$output_file = isset( $options['output'] ) ? $options['output'] : '/tmp/taxonomist-backup.json';
 
 $terms     = get_terms(
 	array(

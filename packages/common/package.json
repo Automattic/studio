@@ -21,7 +21,6 @@
 		"@automattic/generate-password": "^0.2.0",
 		"@modelcontextprotocol/sdk": "^1.27.1",
 		"@studio/blueprints": "file:../blueprints",
-		"@studio/design-md": "file:../design-md",
 		"@studio/providers": "file:../providers",
 		"@vscode/sudo-prompt": "^9.3.2",
 		"@wordpress/i18n": "^6.30.0",

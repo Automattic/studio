@@ -1,31 +1,18 @@
-import type { StudioAgentHost } from './host';
+import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 
-// The active site, as the system prompt states it: which site the session is
-// attached to, rebuilt every turn from Studio's site data.
+// The active site, as the turn's context states it: which site the session is
+// attached to, rebuilt every turn from Studio's site data. What Studio knows
+// of a local site, such as the folder its email is saved in, is one of its
+// facts (site-facts.ts), stated after this line and on a tool result for a
+// site the agent has no facts of yet, such as one site_create made.
 export function formatActiveSite(
 	site: SiteInfo,
-	designPath?: string,
-	emailPath?: string
+	remoteHosts: Record< string, RemoteHost > = {}
 ): string {
 	if ( site.remote && site.url ) {
-		return `"${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)`;
+		const hostName = remoteHosts[ site.remote.host ]?.name ?? site.remote.host;
+		return `"${ site.name }" (ID: ${ site.remote.id }) at ${ site.url } (${ hostName })`;
 	}
-	const design = designPath ? `, design system: ${ designPath }` : '';
-	const email = emailPath ? `, email it sends: ${ emailPath } (one .eml file per message)` : '';
-	return `"${ site.name }" at ${ site.path }${
-		site.running ? ' (running)' : ' (stopped)'
-	}${ design }${ email }`;
-}
-
-// The active local site's DESIGN.md, when it has one.
-export async function findActiveSiteDesign(
-	{ files, path }: StudioAgentHost,
-	site: SiteInfo | null | undefined
-): Promise< string | undefined > {
-	if ( ! site || site.remote ) {
-		return undefined;
-	}
-	const designPath = path.join( site.path, 'DESIGN.md' );
-	return ( await files.exists( designPath ) ) ? designPath : undefined;
+	return `"${ site.name }" at ${ site.path }${ site.running ? ' (running)' : ' (stopped)' }`;
 }

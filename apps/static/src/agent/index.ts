@@ -357,9 +357,8 @@ export class StaticAgentRuns {
 					name: selected.name,
 					path: '',
 					running: true,
-					remote: true,
+					remote: { host: 'wpcom', id: selected.wpcomSiteId },
 					url: selected.url,
-					wpcomSiteId: selected.wpcomSiteId,
 				};
 			}
 		}

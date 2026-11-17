@@ -1,4 +1,5 @@
 import { anthropicProvider } from './anthropic/descriptor';
+import { customProvider } from './custom/descriptor';
 import { geminiProvider } from './gemini/descriptor';
 import { githubCopilotProvider } from './github-copilot/descriptor';
 import { metaProvider } from './meta/descriptor';
@@ -23,6 +24,7 @@ export const AI_PROVIDER_IDS = [
 	'gemini',
 	'github-copilot',
 	'meta',
+	'custom',
 ] as const satisfies readonly AiProviderId[];
 
 // The providers with remote sites, in the order the publish panel offers them.
@@ -48,6 +50,7 @@ const PROVIDERS: {
 	'github-copilot': githubCopilotProvider,
 	meta: metaProvider,
 	spacefast: spacefastProvider,
+	custom: customProvider,
 };
 
 export function getProvider< Id extends ProviderId >(
@@ -73,6 +76,7 @@ const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	'github-copilot': 'github-copilot',
 	meta: 'meta',
 	spacefast: 'spacefast',
+	custom: 'custom',
 };
 
 // The provider a stored or typed id names, among `ids`.

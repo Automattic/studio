@@ -1,0 +1,6 @@
+---
+title: "Sidebar site"
+description: "A fixed column one-third wide holds the brand, the navigation, and one live detail such as opening hours or a short note; everything else lives in the remaining two-thirds and scrolls past it. The proportion holds constant, so the site is recognizably asymmetric on every screen."
+---
+Build: a two-column group with the grid layout in its markup (`"layout":{"type":"grid","columnCount":2}`), `gap: 0`, and the proportion in `style.css` (`grid-template-columns: 1fr 2fr`); the grid's first child is the sidebar column itself and takes `position: sticky; top: 0; height: 100dvh` with its own background (when that child is a template part, the class goes on the template-part block itself), so the page scrolls while the sidebar stays put; the content column is a default-layout group (`"layout":{"type":"default"}`) around the page content that scrolls with the document, the single scroll container, so anchor links, scroll restoration, and mobile scrolling all work; header and footer parts live inside the sidebar; sidebar links to sections scroll smoothly (`html { scroll-behavior: smooth }`, off under reduced motion), and the link for the section in view is marked current via a small IntersectionObserver.
+Fallback: sidebar becomes a top bar on mobile, the live detail moves to the footer.

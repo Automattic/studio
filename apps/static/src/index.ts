@@ -16,8 +16,6 @@ export {
 	exportSiteZip,
 	getPathSize,
 	listFileTree,
-	playgroundSiteFiles,
-	readActiveThemeSlug,
 	readGlobalStyles,
 	readWordPressVersion,
 } from './site-data';

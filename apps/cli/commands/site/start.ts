@@ -1,10 +1,8 @@
-import { updateManagedInstructionFiles } from '@studio/common/lib/agent-skills';
 import { checkMaintenanceFile } from '@studio/common/lib/maintenance-file';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { getSiteDetails } from 'cli/lib/site-details';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -85,15 +83,6 @@ async function startSite(
 		);
 		await keepSqliteIntegrationUpdated( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
-
-		try {
-			await updateManagedInstructionFiles( site, getAiInstructionsPath() );
-		} catch ( error ) {
-			logger.reportError(
-				new LoggerError( __( 'Failed to update AI instructions. Proceeding anyway…' ), error ),
-				false
-			);
-		}
 
 		const maintenanceCheck = checkMaintenanceFile( sitePath );
 		if ( maintenanceCheck.exists && ! maintenanceCheck.isStale ) {

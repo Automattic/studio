@@ -7,6 +7,7 @@
  */
 
 import {
+	copyFileSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
@@ -33,6 +34,7 @@ import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema } from '@studio/common/types/sync';
 import { PROVIDER_IDS, SITES_PROVIDER_IDS } from '@studio/providers';
 import { z } from 'zod';
+import { evalAnswersSchema, type EvalAnswers } from 'cli/ai/eval-answers';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
 import { summarizeTiming } from 'cli/ai/eval-timing';
@@ -115,11 +117,10 @@ interface EvalRunnerInput extends HarnessInput {
 	// Objects rather than strings: promptfoo expands an array of strings into
 	// one test case per element.
 	followUps?: Array< { prompt: string } >;
-	// Scripted replies for the questions the agent asks the user, in order:
-	// each question takes the next label. With answers set, the turn runs with
-	// Studio chat's ask-the-user handler, so AskUserQuestion and tools that
-	// confirm with the user work; once they run out, the user cancels.
-	answers?: Array< { label: string } >;
+	// The scripted user's replies (eval-answers.ts). With answers set, the turn
+	// runs with Studio chat's ask-the-user handler, so AskUserQuestion and
+	// tools that confirm with the user work.
+	answers?: EvalAnswers;
 	timeoutMs?: number;
 	model?: string;
 	seed?: EvalSeed;
@@ -207,6 +208,11 @@ async function isolateStudioConfig() {
 		}
 	}
 	writeFileSync( path.join( dir, 'shared.json' ), JSON.stringify( { version, aiProvider } ) );
+	// As a returning user's Studio has them, the tools its MCP servers listed;
+	// copied, so a turn that lists them again leaves the user's own file alone.
+	if ( existsSync( path.join( userDir, 'mcp-tools.json' ) ) ) {
+		copyFileSync( path.join( userDir, 'mcp-tools.json' ), path.join( dir, 'mcp-tools.json' ) );
+	}
 	process.env.E2E_SHARED_CONFIG_PATH = dir;
 	for ( const [ id, config ] of configs ) {
 		if ( config ) {
@@ -399,7 +405,13 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		inspect,
 		activeSitePath,
 		activeSite: remoteActiveSite
-			? { ...remoteActiveSite, path: '', running: false, remote: true }
+			? {
+					name: remoteActiveSite.name,
+					url: remoteActiveSite.url,
+					path: '',
+					running: false,
+					remote: { host: 'wpcom', id: remoteActiveSite.wpcomSiteId },
+			  }
 			: seededSite,
 	};
 }
@@ -433,9 +445,7 @@ function readInput(): EvalRunnerInput {
 		? z.array( z.object( { prompt: z.string() } ) ).parse( vars.followUps )
 		: undefined;
 
-	const answers = vars.answers
-		? z.array( z.object( { label: z.string() } ) ).parse( vars.answers )
-		: undefined;
+	const answers = vars.answers ? evalAnswersSchema.parse( vars.answers ) : undefined;
 
 	return {
 		ui: vars.ui === true,
@@ -448,6 +458,14 @@ function readInput(): EvalRunnerInput {
 		harness: typeof vars.harness === 'string' ? vars.harness : process.env.STUDIO_EVAL_HARNESS,
 		seed,
 	};
+}
+
+// The outcome's artifacts (each site's home page screenshot and HTML) go
+// under STUDIO_EVAL_ARTIFACT_DIR, else the system's temp directory.
+function artifactRoot(): string {
+	const dir = process.env.STUDIO_EVAL_ARTIFACT_DIR?.trim() || os.tmpdir();
+	mkdirSync( dir, { recursive: true } );
+	return dir;
 }
 
 async function runEval( input: EvalRunnerInput ) {
@@ -470,6 +488,7 @@ async function runEval( input: EvalRunnerInput ) {
 					startedAt,
 					activeSite: seeded?.activeSite,
 					cwd: seeded?.activeSitePath ?? STUDIO_SITES_ROOT,
+					sitesBeforeTurn,
 					seededRemoteSites: Boolean(
 						input.seed?.connectedWpcomSites?.length ||
 							input.seed?.remoteSites?.length ||
@@ -481,7 +500,7 @@ async function runEval( input: EvalRunnerInput ) {
 			outcome = await captureTurnOutcome(
 				sitesBeforeTurn,
 				seeded?.activeSitePath,
-				mkdtempSync( path.join( os.tmpdir(), 'studio-eval-outcome-' ) )
+				mkdtempSync( path.join( artifactRoot(), 'studio-eval-outcome-' ) )
 			).catch( ( caught ) => ( {
 				error: caught instanceof Error ? caught.message : String( caught ),
 			} ) );

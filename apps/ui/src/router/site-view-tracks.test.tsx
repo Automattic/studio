@@ -20,10 +20,9 @@ async function setup() {
 	const connector = createFakeConnector( {
 		sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
 	} );
-	connector.getSiteDesign.mockResolvedValue( {
-		design:
-			'---\ncolors:\n  primary: "#c2552b"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---\n# Design system',
-		themeJson: {},
+	connector.getGlobalStyles.mockResolvedValue( {
+		settings: {},
+		styles: { color: { background: '#ffffff' }, typography: { fontFamily: 'Inter' } },
 	} );
 	const view = renderApp( { connector, path: '/sites/one/new' } );
 	await screen.findByRole( 'button', { name: 'Hide panel' } );

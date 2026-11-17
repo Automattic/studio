@@ -4,7 +4,6 @@ import {
 	type AgentMessage,
 	type AgentTool,
 } from '@earendil-works/pi-agent-core';
-import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import {
 	buildAttachedFilesPromptBlock,
 	type StudioChatFileAttachment,
@@ -18,8 +17,7 @@ import {
 } from '@studio/agent/protocol/session-events';
 import { PendingWork, runWithPendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
-import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
-import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
+import { buildSystemPrompt, buildTurnContext } from '@studio/agent/shared/system-prompt';
 import { assertToolCallAllowed } from '@studio/agent/shared/tool-safety';
 import { resolveConversationTools } from '@studio/agent/shared/tools';
 import { createCompactor, type Compaction } from './compaction';
@@ -100,18 +98,15 @@ async function runTurn(
 			imageGeneration,
 			visionEnabled,
 			onAskUser: config.onAskUser,
-			tracks: getAiTracksIdentity( config.sessionId ),
 		} ),
 		...createFileTools( host, { visionEnabled } ),
 	];
 
 	const site = config.activeSite;
-	const systemPrompt = buildSystemPrompt( {
-		tools: tools.map( ( tool ) => ( { name: tool.name, promptSnippet: tool.promptSnippet } ) ),
-		activeSite: site,
-		activeSiteDesignPath: await findActiveSiteDesign( host, site ),
+	// The page builds the prompt each turn, so the site it works on is part of it.
+	const systemPrompt = `${ buildSystemPrompt( {
 		userInstructions: config.userInstructions,
-	} );
+	} ) }\n\n${ buildTurnContext( { activeSite: site } ) }`;
 
 	const notes = createResultNotes( host );
 	const resultNotes =
@@ -227,5 +222,10 @@ export type {
 	HostSite,
 	StudioAgentHost,
 } from '@studio/agent/shared/host';
+export {
+	WPCOM_HOST,
+	type HostSiteListing,
+	type RemoteHost,
+} from '@studio/agent/shared/remote-hosts';
 export type { AskUserQuestion, SiteInfo } from '@studio/agent/shared/types';
 export type { Message } from '@earendil-works/pi-ai';

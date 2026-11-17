@@ -1,5 +1,5 @@
 const UNSUPPORTED_WP_CLI_POST_CONTENT_MESSAGE =
-	'Unsupported `--post_content` value: `wp_cli` does not run in a shell. Do not use `$(cat file)` or backticks. Pass the literal post content directly, or write large content to a scratch file inside the site directory and pass its path as a positional argument (`wp post create <file>`).';
+	'Unsupported `--post_content` value: `wp_cli` does not run in a shell, so `$(cat file)` and backticks would reach WP-CLI as literal text. Pass the literal post content directly, or write large content to a scratch file inside the site directory and pass its path as a positional argument (`wp post create <file>`).';
 
 function getPostContentArg( args: string[] ): string | undefined {
 	const contentArg = args.find( ( arg ) => arg.startsWith( '--post_content=' ) );

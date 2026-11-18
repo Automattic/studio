@@ -78,6 +78,8 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		paidDefaultModel: 'balanced',
 	},
 	sites: {
+		publish: true,
+		previews: { content: 'site' },
 		maxPushSize: 5 * 1024 * 1024 * 1024,
 		pull: true,
 		selective: true,

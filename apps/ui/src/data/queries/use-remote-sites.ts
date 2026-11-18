@@ -21,13 +21,14 @@ export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: st
 export const accountSitesQueryKey = ( provider: SitesProviderId ) =>
 	[ ...ACCOUNT_SITES_QUERY_KEY, provider ] as const;
 
-// The providers this app publishes to: one that publishes a static export needs the site to run
-// on native PHP.
+// The providers this app publishes to, leaving out those that only make previews: one that
+// publishes a static export needs the site to run on native PHP.
 export function usePublishProviders(): SitesProviderId[] {
 	const { capabilities } = useConnector();
-	return SITES_PROVIDER_IDS.filter(
-		( id ) => capabilities.nativeSites || getProviderSites( id ).content !== 'static'
-	);
+	return SITES_PROVIDER_IDS.filter( ( id ) => {
+		const sites = getProviderSites( id );
+		return sites.publish && ( capabilities.nativeSites || sites.content !== 'static' );
+	} );
 }
 
 export function useConnectedHostingProviders( providers: SitesProviderId[] ) {

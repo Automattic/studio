@@ -26,6 +26,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		expiresAt: ( config ) => ( config.expiresAt ? Date.parse( config.expiresAt ) : undefined ),
 	},
 	sites: {
+		publish: true,
 		pull: false,
 		selective: false,
 		content: 'static',

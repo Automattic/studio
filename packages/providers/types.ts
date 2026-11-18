@@ -8,6 +8,7 @@ import type { SpacefastConfig } from './spacefast/config';
 import type { Space } from './spacefast/descriptor';
 import type { WpcomConfig } from './wpcom/config';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/sites/site';
+import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
@@ -18,10 +19,18 @@ export type ProviderId =
 	| 'gemini'
 	| 'github-copilot'
 	| 'meta'
+	| 'xai'
 	| 'spacefast';
 
 // The providers that serve AI models.
-export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot' | 'meta';
+export type AiProviderId =
+	| 'wpcom'
+	| 'anthropic'
+	| 'openai'
+	| 'gemini'
+	| 'github-copilot'
+	| 'meta'
+	| 'xai';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
@@ -31,6 +40,7 @@ export interface ProviderConfigs {
 	gemini: GeminiConfig;
 	'github-copilot': GithubCopilotConfig;
 	meta: MetaConfig;
+	xai: XaiConfig;
 	spacefast: SpacefastConfig;
 }
 
@@ -120,6 +130,15 @@ export interface ConnectContext {
 
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
 export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
+	// Whether the user publishes to sites they keep on the provider: lists, creates and pushes to
+	// them. The rest of this describes those sites.
+	publish: boolean;
+	// Temporary sites the provider builds from a local site, shared by a link until they expire.
+	previews?: {
+		// What a preview is built from: what `content` says, or the site's folder as a zip, its
+		// SQLite database included.
+		content: 'archive' | 'static' | 'site';
+	};
 	// The largest archive a push sends, in bytes.
 	maxPushSize?: number;
 	// Whether Studio pulls a site back; without it, Studio only publishes.
@@ -235,6 +254,26 @@ export interface RemoteSite {
 	url: string;
 }
 
+// A temporary site a provider built from a local site.
+export interface PreviewSite extends RemoteSite {
+	// The link that opens it for anyone, once the provider made one.
+	shareUrl?: string;
+	// When the provider takes it down, in milliseconds since the epoch.
+	expiresAt?: number;
+	// The connected site it shows changes to, as the provider confirmed it.
+	liveSiteId?: RemoteSite[ 'id' ];
+	// Where the owner makes it a site they keep.
+	launchUrl?: string;
+}
+
+// What the provider sends with each build of a preview.
+export interface PreviewOptions {
+	// The local site it is built from.
+	originId?: string;
+	// A connected site it shows changes to.
+	liveSiteId?: RemoteSite[ 'id' ];
+}
+
 // Sends local sites to a provider's sites and brings them back. The provider
 // owns the remote side; Studio builds the content and applies what it pulls.
 export interface SitesServices< Config, Site extends RemoteSite > {
@@ -247,15 +286,32 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 	// A new site to push to, for a provider that can create one.
 	create?( config: Config | undefined, options: { name: string } ): Promise< Site >;
 	// A launch error means the import succeeded; callers keep the publish intent
-	// for a retry and must not show the site as published yet.
+	// for a retry and must not show the site as published yet. A push to one of
+	// `previews.list`'s sites passes `preview`, and rebuilds the preview from the content.
 	push(
 		config: Config | undefined,
 		site: Pick< Site, 'id' | 'name' >,
 		content: PushContent,
-		options: PushSyncOptions,
+		options: PushSyncOptions & { preview?: PreviewOptions },
 		onStatus: ( status: PushStatus ) => void,
 		signal?: AbortSignal
 	): Promise< void | { launchError: string } >;
+	previews?: {
+		// Builds a new preview from the content, and resolves once it can be opened.
+		create(
+			config: Config | undefined,
+			content: PushContent,
+			options: PreviewOptions & { name: string },
+			onStatus: ( status: PushStatus ) => void,
+			signal?: AbortSignal
+		): Promise< PreviewSite >;
+		// The account's previews the provider still has up: not bought, expired or deleted.
+		list( config: Config | undefined ): Promise< PreviewSite[] >;
+		// Takes the preview down; one already gone counts as deleted.
+		delete( config: Config | undefined, preview: Pick< PreviewSite, 'id' > ): Promise< void >;
+	};
+	// When the site's content was last edited on the provider, in milliseconds since the epoch.
+	editedAt?( config: Config | undefined, site: Pick< Site, 'id' > ): Promise< number >;
 	pull?: {
 		// Backs the site up remotely and resolves with where to download the
 		// archive. `onProgress` gets the backup's percentage.

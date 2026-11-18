@@ -6,6 +6,7 @@ import type { META_AI_MODELS } from './meta/descriptor';
 import type { OPENAI_AI_MODELS } from './openai/descriptor';
 import type { AiModel, AiProviderId, ProviderId } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
+import type { XAI_AI_MODELS } from './xai/descriptor';
 
 export type AiModelId = (
 	| typeof WPCOM_AI_MODELS
@@ -14,6 +15,7 @@ export type AiModelId = (
 	| typeof GEMINI_AI_MODELS
 	| typeof GITHUB_COPILOT_AI_MODELS
 	| typeof META_AI_MODELS
+	| typeof XAI_AI_MODELS
 )[ number ][ 'id' ];
 
 /**

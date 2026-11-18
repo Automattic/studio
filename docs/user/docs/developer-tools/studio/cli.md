@@ -122,6 +122,7 @@ studio preview create          # Create a preview site
 studio preview list            # List preview sites
 studio preview update <host>   # Update an existing preview site
 studio preview set <host>      # Configure a preview site, such as its name
+studio preview launch <host>   # Make a preview site your live site
 studio preview delete <host>   # Delete a preview site
 
 ### [Creating a preview site](#7-creating-a-preview-site)
@@ -147,7 +148,7 @@ To view the preview sites of the local site in the current directory:
 
 studio preview list
 
-Add `--all` to list the preview sites of all your local sites, grouped by site. This shows each preview’s host (for example, `example-preview.wp.build`), which you’ll use with the `update` and `delete` commands.
+Add `--all` to list the preview sites of all your local sites, grouped by site. This shows each preview’s host (for example, `example-preview.wpcomstaging.com`), which you’ll use with the `update` and `delete` commands.
 
 ### [Updating and deleting preview sites](#9-updating-and-deleting-preview-sites)
 
@@ -163,6 +164,14 @@ studio preview delete <host>
 studio preview delete --all
 
 Use `studio preview list` to discover the appropriate `<host>` value if you don’t have it handy.
+
+### [Making a preview site your live site](#making-a-preview-site-your-live-site)
+
+A preview site can become your live site, with everything you built on it, when you choose a plan for it on WordPress.com:
+
+studio preview launch <host>
+
+This opens WordPress.com, where you pick a domain and a plan. Once you check out, the site goes live. `studio preview create` and `studio preview update` also print this link.
 
 For the full set of options:
 
@@ -467,7 +476,7 @@ studio preview update <host>   # after subsequent changes
 ```text
 ✔ Archive created
 ✔ Archive uploaded
-✔ Preview site available at: https://wrenandbarley.wp.build
+✔ Preview site available at: https://wrenandbarley.wpcomstaging.com/?share=…
 ✔ Preview site saved to Studio
 ```
 

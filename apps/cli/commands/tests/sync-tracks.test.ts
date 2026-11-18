@@ -44,7 +44,7 @@ vi.mock( 'cli/lib/sync-site-picker', async ( importActual ) => ( {
 	pickSyncSite: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/preview-sites', () => ( {
-	getStandingPreviews: vi.fn().mockResolvedValue( new Map() ),
+	wpcomPreviews: { list: vi.fn().mockResolvedValue( [] ) },
 } ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();

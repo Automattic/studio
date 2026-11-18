@@ -49,7 +49,7 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
-import { StaticFileValidators } from './lib/native-php/static-files';
+import { StaticFiles } from './lib/native-php/static-files';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
 import { getSiteDatabasePath } from './lib/sqlite-collations';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
@@ -395,9 +395,9 @@ function proxyRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
-	staticFileValidators: StaticFileValidators
+	staticFiles: StaticFiles
 ): void {
-	if ( staticFileValidators.answerRevalidation( req, res ) ) {
+	if ( staticFiles.answer( req, res ) ) {
 		return;
 	}
 
@@ -442,7 +442,7 @@ function proxyRequestToPhpWorker(
 		( proxyRes ) => {
 			// PHP's built-in server closes every connection; keep the browser's open.
 			delete proxyRes.headers.connection;
-			staticFileValidators.addValidators( req, proxyRes.statusCode, proxyRes.headers );
+			staticFiles.addValidators( req, proxyRes.statusCode, proxyRes.headers );
 			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
 			proxyRes.pipe( res );
 		}
@@ -463,9 +463,9 @@ async function startPhpProxyServer(
 	config: ServerConfig,
 	stopSignal?: AbortSignal
 ): Promise< http.Server > {
-	const staticFileValidators = new StaticFileValidators( config.sitePath );
+	const staticFiles = new StaticFiles( config.sitePath );
 	const proxyServer = http.createServer( ( req, res ) =>
-		proxyRequestToPhpWorker( config, req, res, staticFileValidators )
+		proxyRequestToPhpWorker( config, req, res, staticFiles )
 	);
 
 	await new Promise< void >( ( resolve, reject ) => {

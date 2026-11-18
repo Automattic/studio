@@ -25,6 +25,10 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 
 `tools/capture-harness` (`@studio/capture-harness`) captures stills and recordings of the Studio app from a **scene** (sites, from a backup or a Blueprint, plus made-up account data), a **script** (steps, crop, annotations) and a **look** (window, color scheme, frame, output sizes), each a JSON file with a schema. Use it for docs images (`npm run screenshots` in `docs/user`), marketing and social stills, and screen recordings, rather than ad-hoc Playwright. The workflow for agents (`inspect` for locators, `validate`, `capture --json`) is in `tools/capture-harness/SKILL.md`. Signed-in captures sign in as a made-up demo person (`personas/`), so they need no account, never a person's login; the harness blocks anything that would change an account.
 
+## Translating Missing Strings
+
+At code freeze, the release author has an agent translate the UI strings GlotPress has no translation for yet, into every locale, as AI translations that GlotPress translations later replace. The workflow is in `scripts/ai-translations/SKILL.md`.
+
 ## Agent Evals (Studio Code)
 
 `scripts/eval/` holds a promptfoo suite that runs the real Studio Code agent end-to-end (`npm run eval`, view results with `npm run eval:view`; requires `studio auth login`). See `scripts/eval/README.md` for the case list and how to add tests.

@@ -79,6 +79,16 @@ When the user initiates the **Push**, Studio creates a backup archive containing
 
 The backend will send a success email after the push finishes, telling the user it's complete and which options were synchronized.
 
+### Live changes guard
+
+Pushing the database replaces the live one, so whatever changed on the live site since the local copy was taken would be lost. Before a push that includes the database (`all` or `sqls`) to a WordPress.com site, Studio asks the live site how many posts (of any type and status, trash included) were modified, and how many comments were made, after the connection's last pull or push, whichever is later. When something changed, the push stops before exporting anything:
+
+- In a terminal, `studio push` says what changed and asks whether to overwrite it. Without a terminal it fails with the code `live_changed`; `--overwrite-live-changes` pushes anyway.
+- The publish panel shows what changed and offers **Publish anyway**, which pushes again with `overwriteLiveChanges`. Studio on the web runs the same check in the page.
+- The Studio Code agent's `site_push` tool fails with the same message and takes `overwriteLiveChanges` once the user chooses to publish anyway.
+
+This is interim protection, not merging: it sees posts, pages and comments only (not orders, settings or plugin tables), a connection never synced has nothing to compare with, the sync times are when a pull or push finished (so a change made during a long pull is missed), and a check that fails only warns. The safe site publishing proposal (Automattic/studio#6024) describes the intended model, which merges live and local changes instead.
+
 ## Limitations
 
 Currently, Studio Sync does not support selective syncing of specific site elements, such as syncing only a single plugin, specific folder, or table. All sync operations involve the entire site, including the full database and wp-content files.

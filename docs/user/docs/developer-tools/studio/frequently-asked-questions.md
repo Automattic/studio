@@ -1,6 +1,6 @@
 # WordPress Studio: Frequently asked questions
 
-On this page you’ll find answers to common questions about the [WordPress Studio](https://wordpress.studio/) app and certain features like the [WordPress Studio Code](#studio-code) and [WordPress Studio Sync.](#sync)
+On this page you’ll find answers to common questions about the [WordPress Studio](https://wordpress.studio/) app and certain features like the [WordPress Studio Code](#wordpress-studio-code-faqs) and [WordPress Studio Sync.](#wordpress-studio-sync-faqs)
 
 As a reminder, WordPress Studio is an [open source project](https://github.com/Automattic/studio) that welcomes all contributions. If you spot a bug or the WordPress Studio feature you need is missing, we have some options:
 

@@ -138,7 +138,7 @@ A hosting provider is where **Publish** sends your site.
 
 Click **Connect** next to **WordPress.com** and sign in. If you’re already signed in, there is nothing more to do.
 
-Pressable doesn’t have its own entry. Your Pressable sites show up next to your WordPress.com sites when Jetpack on the Pressable site uses the same WordPress.com account as WordPress Studio. See [Compatible sites](https://wordpress.studio/docs/sync/#supported-sites) for which sites you can publish to.
+Pressable doesn’t have its own entry. Your Pressable sites show up next to your WordPress.com sites when Jetpack on the Pressable site uses the same WordPress.com account as WordPress Studio. See [Compatible sites](https://wordpress.studio/docs/sync/#compatible-sites) for which sites you can publish to.
 
 ### Spacefast
 

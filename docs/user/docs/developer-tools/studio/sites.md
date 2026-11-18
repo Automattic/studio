@@ -21,7 +21,7 @@ To add a new site to WordPress Studio:
     -   **PHP version**
     -   **File access**: see [PHP runtimes](https://wordpress.studio/docs/php-runtimes/)
     -   **WordPress credentials**: click **Change** to set the admin **Username**, **Password**, and **Email**
-    -   **Domain name** and **HTTPS**: see [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL)
+    -   **Domain name** and **HTTPS**: see [Using a custom domain and SSL](#using-a-custom-domain-and-ssl)
 7.  Click **Add site**.
 
 ![The Add site form in WordPress Studio with Advanced expanded, showing Site name, Site folder, Start from, WordPress version, PHP version, File access set to All files, WordPress credentials, and Domain name set to localhost with the HTTPS switch.](../../../screenshots/images/create-site-advanced.webp)
@@ -106,7 +106,7 @@ To give the preview more room, click **Expand panel** in the header, which hides
 
 The **Browser options** (**⋮**) menu at the end of the address bar has:
 
--   **Show device toolbar** or **Hide device toolbar**: see [Device toolbar](#responsive-mode)
+-   **Show device toolbar** or **Hide device toolbar**: see [Device toolbar](#device-toolbar)
 -   **Show admin bar** or **Hide admin bar**: shows or hides the WordPress admin bar on the site’s front end, for this site. To hide it on all your local sites by default, turn on **Hide admin bar** in **Settings → General**.
 
 In the desktop app, the menu also has **Appearance** (**System**, **Light**, or **Dark**: the color scheme the previewed page is shown in), **Developer tools**, and **Clear browsing data**.
@@ -140,7 +140,7 @@ The site menu groups its items:
 
 -   **New chat**: starts a new [WordPress Studio Code](https://wordpress.studio/docs/studio-code/) chat for the site, once you’ve logged in or connected an AI provider
 -   **Start** or **Stop**. When several sites are running, **Stop** is a submenu with **Stop site**, **Stop other sites**, and **Stop all sites**.
--   **Tools**: opens the site’s **Browser**, **Admin**, **Design System** (when it has one), **Database**, or **Email log** in the site preview (see [View sites](#4-view-sites))
+-   **Tools**: opens the site’s **Browser**, **Admin**, **Design System** (when it has one), **Database**, or **Email log** in the site preview (see [View sites](#view-sites))
 -   **Open in**: opens the site in other apps (see below)
 -   **Pin** or **Unpin**: keeps the site in the **Pinned** section at the top of the sidebar
 -   **Rename**
@@ -213,7 +213,7 @@ A site’s settings are grouped into these pages:
 -   **Site name**: Your local site’s name, as shown in WordPress Studio.
 -   **Local path**: The folder where the site’s files are stored. You can’t change it here.
 -   **WordPress version**: The WordPress release for this site. Turn on **Automatic updates** to keep WordPress updated to the latest released version.
--   **Local domain**: **Use custom domain**, **Domain**, and **Enable HTTPS**. See [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL).
+-   **Local domain**: **Use custom domain**, **Domain**, and **Enable HTTPS**. See [Using a custom domain and SSL](#using-a-custom-domain-and-ssl).
 -   **WordPress credentials**: The **Username**, **Password**, and **Email** for the admin account, each with a copy button. You can use them to log into WP Admin on your local site and on your preview sites.
 
 **Debug:** **Environment**, **Xdebug**, **Debug log**, **Script debugging**, and **Show errors in browser**. See [Debugging in WordPress Studio](https://wordpress.studio/docs/debugging/).

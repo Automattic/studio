@@ -35,7 +35,7 @@ WordPress Studio can’t create or update a preview when:
 -   You’ve used all the preview sites available on your account. Delete a preview to make room. You can still copy and update your existing previews.
 -   Preview sites aren’t available for your account.
 -   You’re offline. Connect to the internet to create or update a preview.
--   The files WordPress Studio would upload are larger than 2 GB. Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](#4-exclude-files-with-deployignore).
+-   The files WordPress Studio would upload are larger than 2 GB. Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](https://wordpress.studio/docs/sync/#exclude-files-with-deployignore).
 -   Another operation is running on the site. Wait for it to finish before creating or updating a preview.
 
 ![The Share tab of the Share and publish panel in WordPress Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](../../../screenshots/images/share-previews.webp)
@@ -86,7 +86,7 @@ When the local site is [connected](https://wordpress.studio/docs/sync/) to a pro
 -   If it’s connected to more than one, choose one under **Live site** before you click **Create preview**, or choose **None** for a preview that isn’t tied to a live site.
 -   Updating a preview keeps the live site it already shows.
 
-To put the changes on the live site, [publish the local site to it](https://wordpress.studio/docs/sync/#push). If the local site has changed since the preview was last updated, the **Publish** panel warns you that publishing will also send changes the preview didn’t show.
+To put the changes on the live site, [publish the local site to it](https://wordpress.studio/docs/sync/#publish-a-wordpress-studio-site-to-a-wordpresscom-site). If the local site has changed since the preview was last updated, the **Publish** panel warns you that publishing will also send changes the preview didn’t show.
 
 If you buy a plan for a preview on WordPress.com, it becomes a WordPress.com site, and WordPress Studio connects it to the local site it was made from. It then appears in the local site’s **Publish** panel, and the site’s next previews show changes to it.
 

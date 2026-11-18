@@ -25,7 +25,7 @@ WordPress Studio Sync relies on [Jetpack Backups](https://jetpack.com/support/ba
 -   Jetpack Security
 -   Jetpack Complete
 
-WordPress Studio Sync supports sites up to 5GB in size. If your selection exceeds this limit, WordPress Studio asks you to choose fewer files. You can still publish specific portions of your site ([see below](#push)) as long as the total size of the selected content is under 5GB.
+WordPress Studio Sync supports sites up to 5GB in size. If your selection exceeds this limit, WordPress Studio asks you to choose fewer files. You can still publish specific portions of your site ([see below](#publish-a-wordpress-studio-site-to-a-wordpresscom-site)) as long as the total size of the selected content is under 5GB.
 
 ### [WordPress.com sites](#2-wordpress-com-sites)
 
@@ -105,8 +105,8 @@ A new site starts out unlaunched, in Coming Soon mode. The first time you publis
 To bring the latest changes from your production or [staging site](https://wordpress.com/support/how-to-create-a-staging-site/) into WordPress Studio:
 
 1.  Select the site you wish to synchronize from the WordPress Studio sidebar.
-2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already. If the local site is connected to more than one website, [choose one](#switch-websites).
-3.  Click **Pull changes**. The **What to pull** step offers the same choices as **What to publish** when you [publish a site](#push).
+2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already. If the local site is connected to more than one website, [choose one](#choose-a-connected-website).
+3.  Click **Pull changes**. The **What to pull** step offers the same choices as **What to publish** when you [publish a site](#publish-a-wordpress-studio-site-to-a-wordpresscom-site).
 4.  Choose what to pull:
     -   **Entire site**
     -   **Files only**
@@ -130,7 +130,7 @@ When you are happy with the changes made to your WordPress Studio site, you can 
 
 1.  Select the site you wish to publish from the WordPress Studio sidebar.
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already.
-3.  If the local site is connected to more than one website, [choose one](#switch-websites). Then click **Publish changes**.
+3.  If the local site is connected to more than one website, [choose one](#choose-a-connected-website). Then click **Publish changes**.
 
 ![The Publish changes step of the Publish panel in WordPress Studio with Choose files… selected, showing a file tree with expandable mu-plugins, plugins, themes, and uploads folders and index.php, themes and Content and settings checked, and Cancel and Publish changes buttons.](../../../screenshots/images/publish-choose-files.webp)
 

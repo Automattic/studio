@@ -7,7 +7,7 @@ WordPress Studio is an open source local development app, with community input d
 We want WordPress Studio to reflect the needs of the WordPress dev community. To help, you can:
 
 -   [Download WordPress Studio](https://wordpress.studio/download/)
--   [Send feedback from inside WordPress Studio](#send-feedback), straight to the WordPress Studio team
+-   [Send feedback from inside WordPress Studio](#send-feedback-from-wordpress-studio), straight to the WordPress Studio team
 -   [Report a bug or request a feature on GitHub](https://github.com/Automattic/studio/issues), or choose **Help → Report an Issue** or **Help → Propose a Feature** in WordPress Studio. **Settings → General** has a **Report an issue on GitHub** button too
 -   [Subscribe to our developer newsletter](https://developer.wordpress.com/newsletter/) to stay in the loop with all things WordPress development
 

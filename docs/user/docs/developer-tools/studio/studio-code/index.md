@@ -52,7 +52,7 @@ In the desktop app, when a WordPress.com chat can’t send a message yet, the ch
 -   “Add a payment method to use WordPress.com AI.” Click **Set up** to add one on WordPress.com. WordPress Studio checks again when you come back to the app.
 -   “Studio Code AI is currently available through limited beta access.” Click **Learn more**.
 -   “Connect a different provider to continue this chat.” Click **Connect** to open **Settings → Providers**.
--   “Add AI credits to send another message.” Click **Add credits** to buy more. See [What happens when you reach the limit](#20-what-happens-when-you-reach-the-limit).
+-   “Add AI credits to send another message.” Click **Add credits** to buy more. See [What happens when you reach the limit](#what-happens-when-you-reach-the-limit).
 
 You can still read the chat while the notice shows.
 

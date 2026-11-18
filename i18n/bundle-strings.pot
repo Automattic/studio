@@ -13,258 +13,258 @@ msgstr ""
 msgid "Authentication required. Please log in with `studio auth login`."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:101
+#: apps/cli/ai/slash-commands.ts:103
 #: apps/ui/src/features/settings/settings-view/usage-panel.tsx:239
 #. %s: number of free AI credits remaining (e.g. 960,000).
 msgid "Free credits remaining: %s"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:109
+#: apps/cli/ai/slash-commands.ts:111
 #: apps/ui/src/features/settings/settings-view/usage-panel.tsx:248
 #. %s: number of purchased AI credits remaining (e.g. 150,000).
 msgid "Purchased credits remaining: %s"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:120
+#: apps/cli/ai/slash-commands.ts:122
 #: apps/ui/src/features/settings/settings-view/usage-panel.tsx:273
 #. %s: percentage of monthly limit used (e.g. 7.5%).
 msgid "%s of monthly limit used"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:126
+#: apps/cli/ai/slash-commands.ts:128
 msgid "Studio Code limits are temporarily unavailable."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:147
+#: apps/cli/ai/slash-commands.ts:149
 #. 1: what the user typed, 2: a list of provider ids
 msgid "Unknown provider %1$s. Choose one of: %2$s."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:168
+#: apps/cli/ai/slash-commands.ts:170
 msgid "Open the active site in the browser"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:172
-#: apps/cli/ai/slash-commands.ts:525
-#: apps/cli/ai/slash-commands.ts:573
+#: apps/cli/ai/slash-commands.ts:174
+#: apps/cli/ai/slash-commands.ts:531
+#: apps/cli/ai/slash-commands.ts:579
 msgid "No site selected. Use ↓ to select a site first."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:179
+#: apps/cli/ai/slash-commands.ts:181
 msgid "Clear the conversation and start a fresh session"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:187
+#: apps/cli/ai/slash-commands.ts:189
 msgid "Show your AI credit balance and buy more"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:191
-#: apps/cli/ai/slash-commands.ts:531
-#: apps/cli/ai/slash-commands.ts:579
+#: apps/cli/ai/slash-commands.ts:193
+#: apps/cli/ai/slash-commands.ts:537
+#: apps/cli/ai/slash-commands.ts:585
 msgid "WordPress.com login required. Use /login to authenticate."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:195
+#: apps/cli/ai/slash-commands.ts:197
 msgid "Fetching your AI credits…"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:222
+#: apps/cli/ai/slash-commands.ts:224
 #: apps/ui/src/features/credits/add-ai-credits-button/index.tsx:36
 #: apps/ui/src/features/credits/ai-credits-purchase-dialog/index.tsx:85
 msgid "Add AI credits"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:223
+#: apps/cli/ai/slash-commands.ts:225
 msgid "Pricing unavailable — opens WordPress.com checkout"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:230
+#: apps/cli/ai/slash-commands.ts:232
 msgid "Select a top-up to buy"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:237
+#: apps/cli/ai/slash-commands.ts:239
 msgid "No top-up selected."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:248
+#: apps/cli/ai/slash-commands.ts:250
 msgid ""
 "Opening WordPress.com checkout. If your browser didn’t open, use the link "
 "below:"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:255
-#: apps/cli/ai/slash-commands.ts:276
+#: apps/cli/ai/slash-commands.ts:257
+#: apps/cli/ai/slash-commands.ts:278
 msgid "Canceled."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:258
+#: apps/cli/ai/slash-commands.ts:260
 msgid "Failed to open WordPress.com checkout."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:266
 #: apps/cli/ai/slash-commands.ts:268
+#: apps/cli/ai/slash-commands.ts:270
 msgid "Connect a provider"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:291
+#: apps/cli/ai/slash-commands.ts:293
 #. %s: provider name
 msgid "Connected %s."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:307
-#: apps/cli/ai/slash-commands.ts:319
+#: apps/cli/ai/slash-commands.ts:309
+#: apps/cli/ai/slash-commands.ts:321
 msgid "Disconnect a provider"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:316
+#: apps/cli/ai/slash-commands.ts:318
 msgid "No provider is connected."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:334
+#: apps/cli/ai/slash-commands.ts:340
 #. %s: provider name
 msgid "Disconnected %s."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:344
+#: apps/cli/ai/slash-commands.ts:350
 #: apps/cli/commands/auth/login.ts:38
 msgid "Log in to WordPress.com"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:355
+#: apps/cli/ai/slash-commands.ts:361
 #. 1: display name, 2: email
 msgid "Logged in as %1$s (%2$s)"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:363
-#: apps/cli/commands/ai/index.ts:467
+#: apps/cli/ai/slash-commands.ts:369
+#: apps/cli/commands/ai/index.ts:472
 #. %s: display name
 #. %s: user display name
 msgid "Logged in as %s"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:374
+#: apps/cli/ai/slash-commands.ts:380
 msgid "Login failed or canceled"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:381
+#: apps/cli/ai/slash-commands.ts:387
 msgid "Log out of WordPress.com"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:386
+#: apps/cli/ai/slash-commands.ts:392
 #: apps/ui/src/data/queries/use-auth-user.ts:67
 msgid "Logged out of WordPress.com"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:393
+#: apps/cli/ai/slash-commands.ts:399
 msgid "Switch the AI model"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:420
+#: apps/cli/ai/slash-commands.ts:426
 msgid ""
 "Models that need purchased AI credits are hidden — add credits to unlock "
 "them."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:435
-#: apps/cli/ai/slash-commands.ts:471
+#: apps/cli/ai/slash-commands.ts:441
+#: apps/cli/ai/slash-commands.ts:477
 #. %s: model name
 #. %s: provider name
 msgid "%s (current)"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:443
+#: apps/cli/ai/slash-commands.ts:449
 msgid "Select a model"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:453
-#: apps/cli/commands/ai/index.ts:407
+#: apps/cli/ai/slash-commands.ts:459
+#: apps/cli/commands/ai/index.ts:412
 #. %s: model name
 #. %s: provider name
 msgid "Switched to %s"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:464
+#: apps/cli/ai/slash-commands.ts:470
 msgid "Switch the AI provider"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:478
+#: apps/cli/ai/slash-commands.ts:484
 msgid "Select an AI provider"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:493
+#: apps/cli/ai/slash-commands.ts:499
 msgid ""
 "Switching across model families starts a fresh conversation — the prior "
 "turns aren't carried over."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:503
+#: apps/cli/ai/slash-commands.ts:509
 #. %s: provider name
 msgid "Provider setup canceled. Kept %s."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:521
+#: apps/cli/ai/slash-commands.ts:527
 msgid "Push the active site to WordPress.com as a preview"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:542
+#: apps/cli/ai/slash-commands.ts:548
 msgid "Updating preview site… this may take a moment."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:543
+#: apps/cli/ai/slash-commands.ts:549
 msgid "Creating preview site… this may take a moment."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:555
+#: apps/cli/ai/slash-commands.ts:561
 msgid "Preview site ready!"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:561
+#: apps/cli/ai/slash-commands.ts:567
 msgid "Failed to create preview site."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:569
+#: apps/cli/ai/slash-commands.ts:575
 msgid "Publish the active site to WordPress.com"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:584
+#: apps/cli/ai/slash-commands.ts:590
 msgid "Fetching your WordPress.com sites…"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:600
+#: apps/cli/ai/slash-commands.ts:606
 msgid ""
 "No WordPress.com sites found. Opening WordPress.com to create one — once "
 "your site is ready, run /publish again."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:615
+#: apps/cli/ai/slash-commands.ts:621
 msgid "Select a WordPress.com site to publish to"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:622
+#: apps/cli/ai/slash-commands.ts:628
 msgid "No site selected."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:627
+#: apps/cli/ai/slash-commands.ts:633
 msgid "Publishing to %s… this may take several minutes."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:642
+#: apps/cli/ai/slash-commands.ts:648
 msgid "Published to %s"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:647
+#: apps/cli/ai/slash-commands.ts:653
 msgid "Publish canceled."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:653
+#: apps/cli/ai/slash-commands.ts:659
 msgid "Failed to publish site."
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:661
+#: apps/cli/ai/slash-commands.ts:667
 msgid "Treat yourself to some WordPress swag"
 msgstr ""
 
-#: apps/cli/ai/slash-commands.ts:669
+#: apps/cli/ai/slash-commands.ts:675
 msgid "Exit the chat"
 msgstr ""
 
@@ -302,6 +302,8 @@ msgid "Full skill body hidden · ctrl+o to expand"
 msgstr ""
 
 #: apps/cli/ai/tool-result-renderers.ts:181
+#: packages/agent/protocol/tools.ts:114
+#. 1: WP-CLI action label, 2: plugin or theme name.
 msgid "%1$s: %2$s"
 msgstr ""
 
@@ -682,80 +684,80 @@ msgstr ""
 msgid "Events watcher failed"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:265
+#: apps/cli/commands/ai/index.ts:266
 msgid "ⓘ The \"studio ai\" command is now \"studio code\"."
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:302
+#: apps/cli/commands/ai/index.ts:303
 #. %s: agent session ID
 msgid "No AI session found for resume ID: %s"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:362
+#: apps/cli/commands/ai/index.ts:363
 #. %s: session ID
 msgid "Resuming session %s"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:425
+#: apps/cli/commands/ai/index.ts:430
 #. 1: previous provider name, 2: new provider name
 msgid "%1$s is no longer available. Switched to %2$s."
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:445
-#: apps/cli/commands/ai/index.ts:983
+#: apps/cli/commands/ai/index.ts:450
+#: apps/cli/commands/ai/index.ts:986
 msgid "AI agent failed"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:453
+#: apps/cli/commands/ai/index.ts:458
 #. 1: a provider id such as anthropic, 2: provider name
 msgid "Use /connect %1$s to connect %2$s again."
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:495
+#: apps/cli/commands/ai/index.ts:500
 #: apps/cli/commands/site/create.ts:675
 #. %s: provider name
 msgid "%s (recommended)"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:504
+#: apps/cli/commands/ai/index.ts:509
 msgid "Choose how to connect"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:535
+#: apps/cli/commands/ai/index.ts:540
 #. 1: provider name, 2: a provider id such as anthropic
 msgid "%1$s isn’t connected. Use /connect %2$s to connect it."
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:836
+#: apps/cli/commands/ai/index.ts:839
 msgid "Conversation cleared"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:903
+#: apps/cli/commands/ai/index.ts:906
 msgid "Start an interactive AI chat to build WordPress sites"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:908
+#: apps/cli/commands/ai/index.ts:911
 msgid "Initial message to send to the AI agent"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:916
+#: apps/cli/commands/ai/index.ts:919
 msgid "Name of the active WordPress site"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:921
+#: apps/cli/commands/ai/index.ts:924
 #: apps/cli/commands/ai/sessions/resume.ts:111
 msgid "Output events as NDJSON to stdout (headless mode)"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:926
+#: apps/cli/commands/ai/index.ts:929
 msgid "SDK session ID to resume (for JSON mode multi-turn)"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:931
+#: apps/cli/commands/ai/index.ts:934
 msgid "JSON-encoded permission response for a paused session"
 msgstr ""
 
-#: apps/cli/commands/ai/index.ts:936
+#: apps/cli/commands/ai/index.ts:939
 msgid "--json requires an initial message argument"
 msgstr ""
 
@@ -1431,7 +1433,7 @@ msgid "SQLite integration configured as needed"
 msgstr ""
 
 #: apps/cli/commands/export.ts:201
-#: apps/cli/commands/push.ts:558
+#: apps/cli/commands/push.ts:561
 msgid "No suitable exporter found for the provided backup file"
 msgstr ""
 
@@ -1909,7 +1911,7 @@ msgid "Allow updating a preview site from a different directory"
 msgstr ""
 
 #: apps/cli/commands/pull-legacy.ts:85
-#: apps/cli/commands/push.ts:417
+#: apps/cli/commands/push.ts:420
 msgid "Fetching WordPress.com sites…"
 msgstr ""
 
@@ -2114,64 +2116,64 @@ msgstr ""
 msgid "Uploading files…"
 msgstr ""
 
-#: apps/cli/commands/push.ts:287
+#: apps/cli/commands/push.ts:288
 msgid ""
 "Press Ctrl+C again to cancel. The upload cannot be safely cancelled "
 "mid-transfer."
 msgstr ""
 
-#: apps/cli/commands/push.ts:291
+#: apps/cli/commands/push.ts:292
 msgid "Upload cancelled"
 msgstr ""
 
-#: apps/cli/commands/push.ts:330
-#: apps/cli/commands/push.ts:611
+#: apps/cli/commands/push.ts:333
+#: apps/cli/commands/push.ts:614
 msgid "Push failed"
 msgstr ""
 
-#: apps/cli/commands/push.ts:346
+#: apps/cli/commands/push.ts:349
 msgid "Successfully pushed to %1$s (%2$s)"
 msgstr ""
 
-#: apps/cli/commands/push.ts:399
+#: apps/cli/commands/push.ts:402
 msgid "Connect %s now?"
 msgstr ""
 
-#: apps/cli/commands/push.ts:402
+#: apps/cli/commands/push.ts:405
 msgid "Connect %s first."
 msgstr ""
 
-#: apps/cli/commands/push.ts:423
-#: apps/cli/commands/push.ts:499
+#: apps/cli/commands/push.ts:426
+#: apps/cli/commands/push.ts:502
 msgid "Select a site to push to"
 msgstr ""
 
-#: apps/cli/commands/push.ts:465
+#: apps/cli/commands/push.ts:468
 msgid "Fetching %s sites…"
 msgstr ""
 
-#: apps/cli/commands/push.ts:471
+#: apps/cli/commands/push.ts:474
 msgid "Failed to load your %s sites"
 msgstr ""
 
-#: apps/cli/commands/push.ts:484
+#: apps/cli/commands/push.ts:487
 #: apps/cli/lib/sync-site-picker.ts:108
 msgid "No site found matching \"%s\""
 msgstr ""
 
-#: apps/cli/commands/push.ts:495
+#: apps/cli/commands/push.ts:498
 msgid "Choose a site with `--remote-site %s:<site>` (its ID or URL)."
 msgstr ""
 
-#: apps/cli/commands/push.ts:502
+#: apps/cli/commands/push.ts:505
 msgid "New site \"%s\""
 msgstr ""
 
-#: apps/cli/commands/push.ts:518
+#: apps/cli/commands/push.ts:521
 msgid "Failed to create the %s site"
 msgstr ""
 
-#: apps/cli/commands/push.ts:572
+#: apps/cli/commands/push.ts:575
 msgid ""
 "The archive exceeds the %d GB size limit. Please reduce the size of your "
 "site and try again."
@@ -2450,6 +2452,7 @@ msgid "Show which sites and files would be deleted without deleting them"
 msgstr ""
 
 #: apps/cli/commands/site/delete.command.ts:33
+#: packages/agent/protocol/tools.ts:302
 msgid "Delete site"
 msgstr ""
 
@@ -2561,6 +2564,7 @@ msgid "Site files already removed"
 msgstr ""
 
 #: apps/cli/commands/site/list.command.ts:21
+#: packages/agent/protocol/tools.ts:298
 msgid "List sites"
 msgstr ""
 
@@ -2620,6 +2624,7 @@ msgstr ""
 #: apps/ui/src/features/sidebar/site-list/site-status-button.tsx:79
 #: apps/ui/src/features/sites/stopped-site-preview/index.tsx:71
 #: apps/ui/src/features/sync/publish-panel/connected-view.tsx:266
+#: packages/agent/protocol/tools.ts:300
 msgid "Start site"
 msgstr ""
 
@@ -2954,11 +2959,13 @@ msgid "Failed to fetch user info"
 msgstr ""
 
 #: apps/cli/lib/api.ts:101
+#: packages/providers/wpcom/sites/index.ts:56
 msgid "Invalid API response format"
 msgstr ""
 
 #: apps/cli/lib/api.ts:103
 #: apps/cli/lib/sync-api.ts:60
+#: packages/providers/wpcom/sites/index.ts:92
 msgid "Failed to fetch WordPress.com sites"
 msgstr ""
 
@@ -3152,6 +3159,7 @@ msgid "The site archive exceeds the %d GB size limit."
 msgstr ""
 
 #: apps/cli/lib/preview-sites.ts:105
+#: packages/providers/wpcom/sites/index.ts:116
 msgid "Failed to upload archive"
 msgstr ""
 
@@ -3167,28 +3175,28 @@ msgstr ""
 msgid "The preview site has no preview link."
 msgstr ""
 
-#: apps/cli/lib/providers.ts:44
+#: apps/cli/lib/providers.ts:46
 #. %s: what the provider asks for, such as an API key
 msgid "%s (saved for future use):"
 msgstr ""
 
-#: apps/cli/lib/providers.ts:79
+#: apps/cli/lib/providers.ts:86
 #. 1: a sign-in code, 2: a sign-in address
 msgid "Approve the code %1$s at %2$s"
 msgstr ""
 
-#: apps/cli/lib/providers.ts:85
+#: apps/cli/lib/providers.ts:92
 #. %s: a sign-in address
 msgid "Sign in at %s"
 msgstr ""
 
-#: apps/cli/lib/providers.ts:98
+#: apps/cli/lib/providers.ts:108
 msgid ""
 "Waiting for the browser. If it can’t reach this computer, paste the address "
 "it ends on:"
 msgstr ""
 
-#: apps/cli/lib/providers.ts:129
+#: apps/cli/lib/providers.ts:141
 #. %s: provider name
 msgid "How do you want to connect %s?"
 msgstr ""
@@ -3233,6 +3241,8 @@ msgid "Using your only connected WordPress.com site:"
 msgstr ""
 
 #: apps/cli/lib/pull/pull-source.ts:111
+#: packages/providers/wpcom/sites/reprint.ts:96
+#: packages/providers/wpcom/sites/reprint.ts:122
 msgid "Failed to enable the reprint exporter"
 msgstr ""
 
@@ -3262,6 +3272,8 @@ msgid ""
 msgstr ""
 
 #: apps/cli/lib/pull/reprint-key.ts:35
+#: packages/providers/wpcom/sites/reprint.ts:138
+#: packages/providers/wpcom/sites/reprint.ts:147
 msgid "Failed to install the migration key on the WordPress.com site"
 msgstr ""
 
@@ -3519,10 +3531,13 @@ msgid "Failed to download backup"
 msgstr ""
 
 #: apps/cli/lib/sync-api.ts:98
+#: packages/providers/wpcom/sites/index.ts:252
+#: packages/providers/wpcom/sites/index.ts:264
 msgid "Failed to fetch latest rewind ID"
 msgstr ""
 
 #: apps/cli/lib/sync-api.ts:116
+#: packages/providers/wpcom/sites/index.ts:273
 msgid "Failed to fetch remote file tree"
 msgstr ""
 
@@ -3869,6 +3884,7 @@ msgstr[1] ""
 #: apps/ui/src/features/composer/composer-commands.ts:76
 #: apps/ui/src/features/sidebar/site-list/site-status-button.tsx:79
 #: apps/ui/src/features/sites/site-menu/index.tsx:236
+#: packages/agent/protocol/tools.ts:301
 msgid "Stop site"
 msgid_plural "Stop sites"
 msgstr[0] ""
@@ -3900,6 +3916,7 @@ msgstr[1] ""
 #: apps/ui/src/features/sites/import-site-dialog/index.tsx:165
 #: apps/ui/src/features/sync/publish-panel/connected-view.tsx:351
 #: apps/ui/src/features/sync/publish-panel/disconnect-site-dialog.tsx:62
+#: packages/agent/node/inspector/inspector-inject.ts:128
 msgid "Cancel"
 msgstr ""
 
@@ -4111,6 +4128,7 @@ msgstr ""
 
 #: apps/studio/src/lib/spotlight.ts:15
 #: apps/ui/src/features/commands/studio-commands.ts:140
+#: packages/agent/protocol/tools.ts:297
 msgid "Create site"
 msgstr ""
 
@@ -4281,6 +4299,7 @@ msgid "Close Window"
 msgstr ""
 
 #: apps/studio/src/menu.ts:312
+#: packages/agent/protocol/tools.ts:329
 msgid "Edit"
 msgstr ""
 
@@ -4729,7 +4748,7 @@ msgstr ""
 msgid "Could not reset appearance. Please try again."
 msgstr ""
 
-#: apps/ui/src/data/queries/use-sessions.ts:120
+#: apps/ui/src/data/queries/use-sessions.ts:118
 msgid "Couldn’t switch the site this chat works on"
 msgstr ""
 
@@ -5210,6 +5229,7 @@ msgstr ""
 #: apps/ui/src/features/settings/settings-view/providers-panel.tsx:161
 #: apps/ui/src/features/settings/settings-view/spacefast-provider-row.tsx:38
 #: apps/ui/src/features/sites/add-site-dialog/index.tsx:438
+#: packages/providers/spacefast/descriptor.ts:24
 msgid "Connect"
 msgstr ""
 
@@ -5496,6 +5516,7 @@ msgstr ""
 
 #: apps/ui/src/data/settings-sections.ts:525
 #: apps/ui/src/features/settings/site-settings-view/index.tsx:534
+#: packages/providers/wpcom/sites/site.ts:151
 msgid "Environment"
 msgstr ""
 
@@ -5627,6 +5648,7 @@ msgid "Already have an account?"
 msgstr ""
 
 #: apps/ui/src/features/account/account-prompt/index.tsx:148
+#: packages/providers/wpcom/descriptor.ts:71
 msgid "Log in"
 msgstr ""
 
@@ -5671,6 +5693,8 @@ msgstr ""
 #: apps/ui/src/features/commands/studio-commands.ts:196
 #: apps/ui/src/features/feedback/feedback-dialog.tsx:116
 #: apps/ui/src/features/feedback/feedback-dialog.tsx:196
+#: packages/agent/protocol/slash-commands.ts:37
+#: packages/agent/protocol/tools.ts:325
 msgid "Send feedback"
 msgstr ""
 
@@ -5680,6 +5704,8 @@ msgstr ""
 
 #: apps/ui/src/features/annotations/overlay.tsx:207
 #: apps/ui/src/features/sites/site-preview/preview-surface/inspector-command.ts:45
+#: packages/agent/node/inspector/inspector-inject.ts:97
+#: packages/agent/node/inspector/inspector-inject.ts:121
 msgid "Annotation"
 msgstr ""
 
@@ -5704,6 +5730,7 @@ msgstr ""
 #: apps/ui/src/features/annotations/review-chip.tsx:209
 #: apps/ui/src/features/composer/attachment-chips/index.tsx:111
 #: apps/ui/src/features/sites/add-site-dialog/use-setup-prompt.tsx:158
+#: packages/agent/node/inspector/inspector-inject.ts:126
 msgid "Remove attachment"
 msgstr ""
 
@@ -5713,10 +5740,12 @@ msgid "Describe the change"
 msgstr ""
 
 #: apps/ui/src/features/annotations/overlay.tsx:264
+#: packages/agent/node/inspector/inspector-inject.ts:124
 msgid "Attach image"
 msgstr ""
 
 #: apps/ui/src/features/annotations/overlay.tsx:272
+#: packages/agent/node/inspector/inspector-inject.ts:125
 msgid "Delete annotation"
 msgstr ""
 
@@ -5736,10 +5765,12 @@ msgstr ""
 #: apps/ui/src/features/annotations/overlay.tsx:308
 #: apps/ui/src/features/annotations/overlay.tsx:315
 #: apps/ui/src/features/feedback/feedback-dialog.tsx:294
+#: packages/agent/node/inspector/inspector-inject.ts:129
 msgid "Send"
 msgstr ""
 
 #: apps/ui/src/features/annotations/review-chip.tsx:98
+#: packages/agent/node/inspector/inspector-inject.ts:122
 msgid "Annotations"
 msgstr ""
 
@@ -5789,6 +5820,8 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: apps/ui/src/features/annotations/submission.ts:125
+#: packages/agent/node/inspector/inspector-inject.ts:134
+#. %d: number of annotations.
 msgid "%d annotation"
 msgid_plural "%d annotations"
 msgstr[0] ""
@@ -6461,6 +6494,7 @@ msgid "This site has changes its preview doesn't"
 msgstr ""
 
 #: apps/ui/src/features/commands/use-app-menu-navigation.ts:155
+#: packages/agent/protocol/tools.ts:309
 msgid "Update preview"
 msgstr ""
 
@@ -7114,6 +7148,7 @@ msgid "Work with Bistro Lune"
 msgstr ""
 
 #: apps/ui/src/features/onboarding/onboarding-guide/illustrations/whats-new.tsx:82
+#: packages/providers/wpcom/descriptor.ts:16
 msgid "Fast"
 msgstr ""
 
@@ -7304,6 +7339,8 @@ msgid "Site"
 msgstr ""
 
 #: apps/ui/src/features/settings/settings-dialog/index.tsx:452
+#: packages/agent/protocol/tools.ts:331
+#: packages/agent/protocol/tools.ts:332
 msgid "Search"
 msgstr ""
 
@@ -7774,6 +7811,7 @@ msgstr ""
 #: apps/ui/src/features/settings/settings-view/sharing-panel.tsx:286
 #: apps/ui/src/features/sharing/share-dialog/preview-management-dialog.tsx:104
 #: apps/ui/src/features/sharing/share-dialog/preview-share-panel.tsx:230
+#: packages/agent/protocol/tools.ts:310
 msgid "Delete preview"
 msgstr ""
 
@@ -8167,6 +8205,7 @@ msgstr ""
 
 #: apps/ui/src/features/sharing/share-dialog/preview-share-panel.tsx:397
 #: apps/ui/src/features/sharing/share-dialog/share-menu-item.tsx:83
+#: packages/agent/protocol/tools.ts:307
 msgid "Create preview"
 msgstr ""
 
@@ -8423,6 +8462,7 @@ msgid "Share and publish"
 msgstr ""
 
 #: apps/ui/src/features/site-delivery/site-delivery.tsx:191
+#: packages/providers/wpcom/descriptor.ts:87
 msgid "Publish your WordPress"
 msgstr ""
 
@@ -8498,6 +8538,7 @@ msgstr ""
 #: apps/ui/src/features/sites/add-site-dialog/blueprint-gallery.tsx:32
 #: apps/ui/src/features/sites/add-site-dialog/connect-panel.tsx:47
 #: apps/ui/src/features/sites/site-fields/index.tsx:72
+#: packages/providers/wpcom/sites/site.ts:133
 msgid "Development"
 msgstr ""
 
@@ -8538,11 +8579,13 @@ msgstr ""
 #: apps/ui/src/features/sites/add-site-dialog/connect-panel.tsx:48
 #: apps/ui/src/features/sites/add-site-dialog/connect-panel.tsx:49
 #: apps/ui/src/features/sites/site-fields/index.tsx:73
+#: packages/providers/wpcom/sites/site.ts:131
 msgid "Staging"
 msgstr ""
 
 #: apps/ui/src/features/sites/add-site-dialog/connect-panel.tsx:50
 #: apps/ui/src/features/sites/site-fields/index.tsx:74
+#: packages/providers/wpcom/sites/site.ts:135
 msgid "Production"
 msgstr ""
 
@@ -9590,6 +9633,7 @@ msgstr ""
 
 #: apps/ui/src/features/sites/site-menu/index.tsx:315
 #: apps/ui/src/features/sites/use-site-management-actions.ts:84
+#: packages/agent/protocol/tools.ts:306
 msgid "Export site"
 msgstr ""
 
@@ -9717,6 +9761,7 @@ msgid "Taking screenshot…"
 msgstr ""
 
 #: apps/ui/src/features/sites/site-preview/preview-header/browser-menu.tsx:79
+#: packages/agent/protocol/tools.ts:318
 msgid "Take screenshot"
 msgstr ""
 
@@ -9750,6 +9795,7 @@ msgid "Browser could not load."
 msgstr ""
 
 #: apps/ui/src/features/sites/site-preview/preview-surface/inspector-command.ts:46
+#: packages/agent/node/inspector/inspector-inject.ts:98
 msgid "Pending annotation"
 msgstr ""
 
@@ -10176,6 +10222,402 @@ msgstr ""
 #: apps/ui/src/router/route-no-sites/index.tsx:102
 msgid "Start here"
 msgstr ""
+
+#: packages/agent/node/inspector/inspector-inject.ts:123
+msgid "Leave a note…"
+msgstr ""
+
+#: packages/agent/node/inspector/inspector-inject.ts:127
+msgid "Save annotation (Enter)"
+msgstr ""
+
+#: packages/agent/node/inspector/inspector-inject.ts:131
+#. %d: number of annotations.
+msgid "Send %d annotation"
+msgid_plural "Send %d annotations"
+msgstr[0] ""
+msgstr[1] ""
+
+#: packages/agent/node/inspector/inspector-inject.ts:135
+msgid "Click anything on the page to leave a note"
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:12
+msgid "Visual Annotations"
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:13
+msgid "Annotate site elements visually in a browser."
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:17
+msgid "Taxonomist"
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:18
+msgid "Optimize category taxonomy with AI."
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:22
+msgid "Performance audit"
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:23
+msgid "Run a performance audit on a site."
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:27
+msgid "SEO audit"
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:28
+msgid "Run an on-page SEO audit on a site."
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:32
+msgid "Liberate"
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:33
+msgid "Migrate & rebuild a site from a closed platform."
+msgstr ""
+
+#: packages/agent/protocol/slash-commands.ts:38
+msgid "Request a feature or report a bug."
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:53
+msgid "pages"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:53
+msgid "page"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:55
+msgid "media items"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:55
+msgid "media item"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:57
+msgid "products"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:57
+msgid "product"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:61
+msgid "posts"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:61
+msgid "post"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:161
+#. %s: plural post type, such as posts or pages.
+msgid "List published %s"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:167
+#. %s: plural post type, such as posts or pages.
+msgid "List %s"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:173
+#. %s: post type, such as post or page.
+msgid "Read %s"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:179
+#. %s: post type, such as post or page.
+msgid "Create %s"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:185
+#. %s: post type, such as post or page.
+msgid "Update %s"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:191
+#. %s: post type, such as post or page.
+msgid "Delete %s"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:195
+msgid "Manage content"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:208
+msgid "List themes"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:210
+msgid "Activate theme"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:212
+msgid "Install theme"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:214
+msgid "Delete theme"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:216
+msgid "Manage themes"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:221
+msgid "List plugins"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:224
+msgid "Activate all plugins"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:226
+msgid "Activate plugin"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:229
+msgid "Deactivate all plugins"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:231
+msgid "Deactivate plugin"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:233
+msgid "Install plugin"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:235
+msgid "Delete plugin"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:238
+msgid "Update all plugins"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:240
+msgid "Update plugin"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:242
+msgid "Manage plugins"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:248
+msgid "Read site title"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:248
+msgid "Read site option"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:251
+msgid "Update site title"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:251
+msgid "Update site option"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:253
+msgid "Manage site options"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:257
+msgid "List users"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:259
+msgid "Create user"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:261
+msgid "Update user"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:263
+msgid "Delete user"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:265
+msgid "Manage users"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:268
+msgid "Import media"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:268
+msgid "Manage media"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:270
+msgid "List menus"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:270
+msgid "Manage menus"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:272
+msgid "List terms"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:272
+msgid "Manage terms"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:274
+msgid "Flush cache"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:274
+msgid "Manage cache"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:276
+msgid "Flush permalinks"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:276
+msgid "Manage permalinks"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:279
+msgid "Run WordPress code"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:281
+#: packages/agent/protocol/tools.ts:293
+msgid "Run WordPress command"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:299
+msgid "Get site info"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:303
+msgid "Push site"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:304
+msgid "Pull site"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:305
+msgid "Import site"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:308
+msgid "List previews"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:311
+msgid "Refresh preview"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:312
+msgid "List connected remote sites"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:313
+msgid "Scaffold theme"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:314
+msgid "Pick design"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:315
+msgid "Present design options"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:316
+msgid "Inspect design"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:317
+msgid "Validate blocks"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:319
+msgid "Generate images"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:320
+msgid "Open annotation browser"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:321
+msgid "Audit performance"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:322
+msgid "Audit SEO"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:323
+msgid "Install taxonomy scripts"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:324
+msgid "WordPress.com API"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:326
+msgid "Ask user"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:327
+msgid "Read"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:328
+msgid "Write"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:330
+msgid "Run"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:333
+msgid "List"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:334
+msgid "Load skill"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:335
+msgid "Run task"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:336
+msgid "Update todo list"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:344
+msgid "Reply in your own words instead of picking an option."
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:441
+msgid "inline content"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:447
+msgid "%d image"
+msgid_plural "%d images"
+msgstr[0] ""
+msgstr[1] ""
 
 #: packages/blueprints/node.ts:42
 msgid "Blueprint file not found: %s"
@@ -10727,6 +11169,456 @@ msgstr ""
 
 #: packages/common/sites/site-source.ts:37
 msgid "Choose a blueprint, backup, export, or existing WordPress folder."
+msgstr ""
+
+#: packages/providers/anthropic/account.ts:45
+msgid "Could not reach Anthropic to verify the credential."
+msgstr ""
+
+#: packages/providers/anthropic/account.ts:57
+msgid "Anthropic rejected this API key. Check the key and try again."
+msgstr ""
+
+#: packages/providers/anthropic/account.ts:58
+msgid "Anthropic rejected this token. Run claude setup-token again."
+msgstr ""
+
+#: packages/providers/anthropic/account.ts:63
+msgid "Could not verify the credential with Anthropic."
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:17
+#: packages/providers/gemini/descriptor.ts:16
+#: packages/providers/meta/descriptor.ts:17
+#: packages/providers/openai/descriptor.ts:17
+msgid "API key is required"
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:19
+msgid "Anthropic API key"
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:20
+msgid "Usage is billed through your Anthropic account."
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:33
+msgid "Token is required"
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:36
+msgid "Enter a token from claude setup-token, not an API key."
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:39
+msgid "Claude subscription token"
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:40
+msgid "Paste the token it prints. Usage counts against your Claude plan."
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:53
+msgid "Use an Anthropic API key or a Claude subscription token."
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:62
+#: packages/providers/gemini/descriptor.ts:41
+#: packages/providers/meta/descriptor.ts:42
+#: packages/providers/openai/descriptor.ts:47
+msgid "API key"
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:66
+msgid ""
+"Create a key in the [Claude "
+"Console](https://platform.claude.com/settings/keys), then paste it below."
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:72
+msgid "Claude subscription"
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:77
+msgid ""
+"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t "
+"have it yet."
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:80
+msgid "Run this in a terminal, then sign in with your Claude account:"
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:94
+msgid "Using Claude plan"
+msgstr ""
+
+#: packages/providers/anthropic/descriptor.ts:95
+#: packages/providers/github-copilot/descriptor.ts:33
+#: packages/providers/openai/descriptor.ts:63
+msgid "Manage usage"
+msgstr ""
+
+#: packages/providers/gemini/account.ts:25
+msgid "Google rejected this API key. Check the key and try again."
+msgstr ""
+
+#: packages/providers/gemini/descriptor.ts:18
+msgid "Gemini API key"
+msgstr ""
+
+#: packages/providers/gemini/descriptor.ts:19
+msgid "Usage is billed through your Google AI Studio project."
+msgstr ""
+
+#: packages/providers/gemini/descriptor.ts:32
+msgid "Use Gemini with a Gemini API key."
+msgstr ""
+
+#: packages/providers/gemini/descriptor.ts:45
+msgid ""
+"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), "
+"then paste it below."
+msgstr ""
+
+#: packages/providers/github-copilot/account.ts:15
+msgid ""
+"This GitHub account has no Copilot plan. Pick a plan on "
+"github.com/features/copilot."
+msgstr ""
+
+#: packages/providers/github-copilot/account.ts:103
+msgid "GitHub sign-in was declined."
+msgstr ""
+
+#: packages/providers/github-copilot/account.ts:108
+msgid "The GitHub sign-in expired. Try again."
+msgstr ""
+
+#: packages/providers/github-copilot/account.ts:131
+msgid "Start signing in with GitHub again."
+msgstr ""
+
+#: packages/providers/github-copilot/ai.ts:18
+msgid ""
+"Your Copilot plan doesn’t include this model. Pick another one, or turn it "
+"on at github.com/settings/copilot."
+msgstr ""
+
+#: packages/providers/github-copilot/ai.ts:23
+msgid ""
+"You reached your Copilot plan’s usage limit. Manage usage at "
+"github.com/settings/copilot."
+msgstr ""
+
+#: packages/providers/github-copilot/descriptor.ts:19
+msgid "Sign in with a GitHub account that has Copilot access."
+msgstr ""
+
+#: packages/providers/github-copilot/descriptor.ts:25
+msgid "Continue with GitHub"
+msgstr ""
+
+#: packages/providers/github-copilot/descriptor.ts:32
+msgid "Using Copilot plan"
+msgstr ""
+
+#: packages/providers/meta/account.ts:23
+msgid "Meta rejected this API key. Check the key and try again."
+msgstr ""
+
+#: packages/providers/meta/ai.ts:25
+msgid ""
+"Meta is limiting requests on your API key. Try again shortly, or check your "
+"limits at dev.meta.ai."
+msgstr ""
+
+#: packages/providers/meta/descriptor.ts:19
+msgid "Meta API key"
+msgstr ""
+
+#: packages/providers/meta/descriptor.ts:20
+msgid "Usage is billed through your Meta Model API account."
+msgstr ""
+
+#: packages/providers/meta/descriptor.ts:33
+msgid "Use Muse models with your Meta API key."
+msgstr ""
+
+#: packages/providers/meta/descriptor.ts:46
+msgid ""
+"Create a key in the API keys tab of the [Meta Model API "
+"dashboard](https://dev.meta.ai), then paste it below."
+msgstr ""
+
+#: packages/providers/openai/account.ts:52
+msgid "ChatGPT sent back an incomplete sign-in."
+msgstr ""
+
+#: packages/providers/openai/account.ts:56
+msgid "Allow WordPress Studio to use your ChatGPT plan when signing in."
+msgstr ""
+
+#: packages/providers/openai/account.ts:125
+msgid "OpenAI rejected this API key. Check the key and try again."
+msgstr ""
+
+#: packages/providers/openai/account.ts:137
+msgid "Start signing in with ChatGPT again."
+msgstr ""
+
+#: packages/providers/openai/account.ts:148
+msgid "ChatGPT sign-in could not be completed. Try again."
+msgstr ""
+
+#: packages/providers/openai/ai.ts:11
+msgid ""
+"You reached your ChatGPT plan’s usage limit. Manage usage at "
+"chatgpt.com/settings/usage."
+msgstr ""
+
+#: packages/providers/openai/ai.ts:14
+msgid "Your ChatGPT plan can’t be used in WordPress Studio."
+msgstr ""
+
+#: packages/providers/openai/ai.ts:17
+msgid "Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings."
+msgstr ""
+
+#: packages/providers/openai/ai.ts:20
+msgid "ChatGPT plan usage is unavailable right now. Try again shortly."
+msgstr ""
+
+#: packages/providers/openai/descriptor.ts:20
+msgid "This is an Anthropic key. Add it to Anthropic instead."
+msgstr ""
+
+#: packages/providers/openai/descriptor.ts:23
+msgid "OpenAI API key"
+msgstr ""
+
+#: packages/providers/openai/descriptor.ts:24
+msgid "Usage is billed through your OpenAI account."
+msgstr ""
+
+#: packages/providers/openai/descriptor.ts:37
+msgid "Sign in with ChatGPT or use an OpenAI API key."
+msgstr ""
+
+#: packages/providers/openai/descriptor.ts:44
+msgid "ChatGPT plan"
+msgstr ""
+
+#: packages/providers/openai/descriptor.ts:51
+msgid ""
+"Create a key in the [OpenAI "
+"Platform](https://platform.openai.com/api-keys), then paste it below."
+msgstr ""
+
+#: packages/providers/openai/descriptor.ts:62
+msgid "Using ChatGPT plan"
+msgstr ""
+
+#: packages/providers/spacefast/account.ts:25
+msgid "Start signing in to Spacefast again."
+msgstr ""
+
+#: packages/providers/spacefast/account.ts:37
+msgid "The Spacefast sign-in expired. Try again."
+msgstr ""
+
+#: packages/providers/spacefast/account.ts:38
+msgid "Spacefast sign-in was declined."
+msgstr ""
+
+#: packages/providers/spacefast/descriptor.ts:18
+msgid "Publish a static copy of your sites to a Spacefast Space."
+msgstr ""
+
+#: packages/providers/spacefast/descriptor.ts:34
+msgid "Publish to Spacefast"
+msgstr ""
+
+#: packages/providers/spacefast/descriptor.ts:36
+msgid ""
+"Publish a static copy of your site to a Spacefast Space. Forms, comments "
+"and other features that need WordPress running won’t work in the copy."
+msgstr ""
+
+#: packages/providers/spacefast/descriptor.ts:42
+msgid "Team"
+msgstr ""
+
+#: packages/providers/spacefast/sites.ts:10
+msgid "Connect Spacefast to publish sites."
+msgstr ""
+
+#: packages/providers/spacefast/sites.ts:24
+msgid "Your Spacefast sign-in no longer works. Connect Spacefast again."
+msgstr ""
+
+#: packages/providers/spacefast/sites.ts:37
+msgid "Failed to load your Spacefast Spaces"
+msgstr ""
+
+#: packages/providers/spacefast/sites.ts:43
+msgid "Failed to create the Space"
+msgstr ""
+
+#: packages/providers/spacefast/sites.ts:60
+msgid "Failed to publish to Spacefast"
+msgstr ""
+
+#: packages/providers/wpcom/descriptor.ts:17
+msgid "Balanced"
+msgstr ""
+
+#: packages/providers/wpcom/descriptor.ts:18
+msgid "Strong"
+msgstr ""
+
+#: packages/providers/wpcom/descriptor.ts:63
+msgid ""
+"Get started with a one-time free allowance, then buy more as you go. No API "
+"key required."
+msgstr ""
+
+#: packages/providers/wpcom/descriptor.ts:89
+msgid ""
+"Publish to a new site and choose a domain, or use an existing site on "
+"WordPress.com or Pressable."
+msgstr ""
+
+#: packages/providers/wpcom/sites/api.ts:98
+msgid "Unexpected response from server while checking backup status"
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:29
+msgid "Log in to WordPress.com to sync sites."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:78
+msgid ""
+"The database failed to import on the live site. Review your database and "
+"try again."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:83
+msgid ""
+"The live site timed out while importing, likely because the site is too "
+"large. Try reducing its content or files."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:87
+#: packages/providers/wpcom/sites/index.ts:148
+msgid "Something went wrong while updating the live site."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:121
+msgid "Failed to initiate import on remote site"
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:127
+msgid ""
+"A sync operation is already in progress on this site. Please wait for it to "
+"finish and try again."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:140
+msgid "Failed to check import status"
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:162
+msgid ""
+"Changes pushed, but the site could not be launched. Verify your email, then "
+"publish again to retry launching."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:166
+msgid ""
+"Changes pushed, but the site could not be launched. Check your plan and "
+"permissions, then publish again to retry launching."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:169
+msgid ""
+"Changes pushed, but the site could not be launched. Publish again to retry "
+"launching."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:199
+msgid ""
+"%s stopped reporting import progress, but the update may still be running. "
+"Check the live site before pushing again."
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:211
+msgid "Failed to initiate backup"
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:221
+msgid "Failed to check backup status"
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:225
+msgid "Remote backup failed"
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:229
+msgid "Failed to check backup size"
+msgstr ""
+
+#: packages/providers/wpcom/sites/index.ts:240
+msgid "Backup timed out — no progress detected"
+msgstr ""
+
+#: packages/providers/wpcom/sites/reprint.ts:115
+msgid ""
+"This site does not support pulling yet. Update Jetpack on the site to the "
+"latest version and try again."
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:103
+msgid "This website has been deleted. Choose another website."
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:105
+msgid "You need administrator access to publish or pull changes."
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:107
+#: packages/providers/wpcom/sites/site.ts:116
+msgid ""
+"This website needs a hosting plan that supports publishing from WordPress "
+"Studio."
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:111
+msgid "Finish activating hosting on WordPress.com before publishing."
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:113
+msgid ""
+"Publishing and pulling require a supported WordPress.com or Pressable "
+"website."
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:141
+msgid ""
+"WordPress.com does not support multisite. Publishing this network may cause "
+"problems."
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:165
+msgid "Domains"
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:166
+msgid "Backups"
+msgstr ""
+
+#: packages/providers/wpcom/sites/site.ts:167
+msgid "Manage on WordPress.com"
 msgstr ""
 
 #: apps/studio/src/lib/tests/locale.test.ts:69

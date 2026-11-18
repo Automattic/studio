@@ -3,6 +3,12 @@ import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
+import {
+	getLastSyncTime,
+	getLiveChangesMessage,
+	hasLiveChanges,
+	LiveChangesError,
+} from '@studio/common/lib/sync/live-changes';
 import { getProviderServices } from '@studio/providers/services';
 import { withWpcomDetails } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
@@ -373,6 +379,7 @@ export class WpcomServices {
 				kind: 'error',
 				direction,
 				message: error instanceof Error ? error.message : String( error ),
+				...( error instanceof LiveChangesError ? { code: error.code } : {} ),
 			} );
 			throw error;
 		} finally {
@@ -398,17 +405,21 @@ export class WpcomServices {
 					message,
 					remoteSiteId,
 				} );
+			const remoteSite = ( await this.connections() ).find(
+				( site ) => site.localSiteId === siteId && site.id === remoteSiteId
+			);
+			const database = all || optionsToSync.includes( 'sqls' );
+			if ( database && ! options?.overwriteLiveChanges ) {
+				await this.refuseLiveChanges( remoteSite );
+			}
 			progress( 'creatingBackup', 5, __( 'Creating backup…' ) );
 			const archive = await buildPushArchive( await this.sites.client( siteId ), {
-				database: all || optionsToSync.includes( 'sqls' ),
+				database,
 				wpContent: all || contentOptions.some( ( option ) => optionsToSync.includes( option ) ),
 				paths: options?.specificSelectionPaths,
 			} );
 			signal.throwIfAborted();
 			progress( 'uploading', 20, __( 'Uploading…' ) );
-			const remoteSite = ( await this.connections() ).find(
-				( site ) => site.localSiteId === siteId && site.id === remoteSiteId
-			);
 			const result = await wpcomSites.push(
 				{ token: await this.auth.requireToken() },
 				{ id: remoteSiteId, name: remoteSite?.name ?? String( remoteSiteId ) },
@@ -447,6 +458,29 @@ export class WpcomServices {
 			}
 			return result?.launchError;
 		} );
+	}
+
+	// Pushing the database replaces the live one: refuses when the live site changed since the
+	// last sync, so the user can choose to publish anyway (`overwriteLiveChanges`).
+	private async refuseLiveChanges( remoteSite: SyncSite | undefined ): Promise< void > {
+		const since = getLastSyncTime( remoteSite );
+		if ( ! remoteSite || ! since ) {
+			return;
+		}
+		let changes;
+		try {
+			changes = await wpcomSites.liveChanges!(
+				{ token: await this.auth.requireToken() },
+				remoteSite,
+				since
+			);
+		} catch ( error ) {
+			console.warn( 'Could not check the live site for changes since the last sync', error );
+			return;
+		}
+		if ( hasLiveChanges( changes ) ) {
+			throw new LiveChangesError( getLiveChangesMessage( remoteSite.name, changes ) );
+		}
 	}
 
 	async pull( siteId: string, remoteSiteId: number, options?: PullSyncOptions ): Promise< void > {

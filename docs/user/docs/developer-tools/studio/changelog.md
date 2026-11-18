@@ -30,7 +30,8 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
     -   Go back and forward between the sites and chats you’ve visited, from the top of the sidebar
     -   A simpler, grouped site menu, with WordPress admin back in Open in
 -   Sites and PHP
-    -   New sites default to All files access, for faster page loads
+    -   New sites default to All files access, and sites start faster and reuse the editor’s scripts and styles between page loads
+    -   PHP accepts up to 10,000 input variables, so large menus and option forms save completely
     -   The Imagick extension ships with WordPress Studio’s PHP, and `studio config set --php-workers` sets how many requests a site serves at once
     -   phpMyAdmin’s SQLite-only tools are turned off for sites that use an external MySQL server
 -   CLI
@@ -38,13 +39,14 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 -   Other Fixes
     -   Sending feedback while logged out offers Continue with WordPress.com and keeps the form open
     -   LibreWolf joins the Open in browsers
+    -   The app no longer runs out of memory and shows a white screen while WordPress Studio Code publishes a site
     -   App updates on macOS and Windows recover from network errors instead of reporting them, and the macOS updater no longer breaks its own install
 -   Updated multiple dependencies
 -   Misc and maintenance improvements
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v2.3.0)
 
-*TBD — set the release date*
+*November 18, 2026*
 
 ## [2.2.0](#0-2-2-0)
 

@@ -315,7 +315,7 @@ export function AiProviders( {
 				settingId="wpcom-provider"
 				icon={ <ProviderLogo provider="wpcom" /> }
 				badge={ user ? connectedBadge() : null }
-				description={ __( 'Start building with free AI credits.' ) }
+				description={ __( 'Sign in to get a one-time grant of free AI credits.' ) }
 				error={ login.error?.message }
 			>
 				<Button

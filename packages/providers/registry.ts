@@ -1,9 +1,11 @@
 import { anthropicProvider } from './anthropic/descriptor';
 import { geminiProvider } from './gemini/descriptor';
 import { githubCopilotProvider } from './github-copilot/descriptor';
+import { metaProvider } from './meta/descriptor';
 import { openaiProvider } from './openai/descriptor';
 import { spacefastProvider } from './spacefast/descriptor';
 import { wpcomProvider } from './wpcom/descriptor';
+import { xaiProvider } from './xai/descriptor';
 import type {
 	AiProviderId,
 	Provider,
@@ -21,6 +23,8 @@ export const AI_PROVIDER_IDS = [
 	'openai',
 	'gemini',
 	'github-copilot',
+	'meta',
+	'xai',
 ] as const satisfies readonly AiProviderId[];
 
 // The providers with remote sites, in the order the publish panel offers them.
@@ -44,6 +48,8 @@ const PROVIDERS: {
 	openai: openaiProvider,
 	gemini: geminiProvider,
 	'github-copilot': githubCopilotProvider,
+	meta: metaProvider,
+	xai: xaiProvider,
 	spacefast: spacefastProvider,
 };
 
@@ -68,6 +74,8 @@ const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	openai: 'openai',
 	gemini: 'gemini',
 	'github-copilot': 'github-copilot',
+	meta: 'meta',
+	xai: 'xai',
 	spacefast: 'spacefast',
 };
 

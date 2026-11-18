@@ -16,6 +16,7 @@ import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
+import { getSitePhpWorkers } from '@studio/common/lib/site-php-workers';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { z } from 'zod';
@@ -26,7 +27,10 @@ import {
 	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials } from './lib/admin-credentials';
-import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import {
+	getPhpMyAdminPath,
+	installBundledPhpMyAdmin,
+} from './lib/dependency-management/phpmyadmin';
 import { runBlueprint } from './lib/native-php/blueprints';
 import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
 import {
@@ -45,6 +49,7 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { StaticFiles } from './lib/native-php/static-files';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
 import { getSiteDatabasePath } from './lib/sqlite-collations';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
@@ -116,7 +121,6 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
-const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 
 // "Site directory" file access applies the open_basedir jail and
 // disable_functions list; "all files" runs PHP unrestricted.
@@ -390,8 +394,13 @@ async function stopCurrentPhpServer(): Promise< void > {
 function proxyRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
-	res: http.ServerResponse
+	res: http.ServerResponse,
+	staticFiles: StaticFiles
 ): void {
+	if ( staticFiles.answer( req, res ) ) {
+		return;
+	}
+
 	let worker: { index: number; port: number };
 	try {
 		worker = pickPhpWorker( req );
@@ -431,6 +440,9 @@ function proxyRequestToPhpWorker(
 			headers,
 		},
 		( proxyRes ) => {
+			// PHP's built-in server closes every connection; keep the browser's open.
+			delete proxyRes.headers.connection;
+			staticFiles.addValidators( req, proxyRes.statusCode, proxyRes.headers );
 			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
 			proxyRes.pipe( res );
 		}
@@ -451,8 +463,9 @@ async function startPhpProxyServer(
 	config: ServerConfig,
 	stopSignal?: AbortSignal
 ): Promise< http.Server > {
+	const staticFiles = new StaticFiles( config.sitePath );
 	const proxyServer = http.createServer( ( req, res ) =>
-		proxyRequestToPhpWorker( config, req, res )
+		proxyRequestToPhpWorker( config, req, res, staticFiles )
 	);
 
 	await new Promise< void >( ( resolve, reject ) => {
@@ -523,12 +536,19 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 			}
 		}
 
+		void installBundledPhpMyAdmin().catch( ( error ) =>
+			errorToConsole( 'Failed to unpack phpMyAdmin:', error )
+		);
+		const phpMyAdminPath = getPhpMyAdminPath();
+
 		// With "all files" access the allowlist stays empty, which disables
 		// open_basedir entirely (see getDefaultPhpArgs).
 		if ( isFileAccessRestricted( config ) ) {
 			staticOpenBasedirAllowlist.add( config.sitePath );
 			staticOpenBasedirAllowlist.add( ROUTER_PATH );
-			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+			if ( phpMyAdminPath ) {
+				staticOpenBasedirAllowlist.add( phpMyAdminPath );
+			}
 			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
 			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
 			// The whole root, not this start's hashed folder: a WP-CLI run from another
@@ -613,9 +633,10 @@ async function doStartServer(
 	// were actually given, including on the failure paths that tear the pool down.
 	const openBasedirAllowlist = getEffectiveOpenBasedirAllowlist();
 	appliedOpenBasedirAllowlist = openBasedirAllowlist;
+	const workerCount = getSitePhpWorkers( config );
 
 	logToConsole(
-		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
+		`Spawning native PHP worker pool with ${ workerCount } workers on public port ${ config.port }`
 	);
 
 	const workersStartedAt = Date.now();
@@ -631,23 +652,21 @@ async function doStartServer(
 		} catch ( error ) {
 			errorToConsole( `Failed to create the email folder ${ emailDirectory }:`, error );
 		}
-		const workerPorts = await getAvailablePorts( NATIVE_PHP_WORKER_POOL_SIZE );
+		const workerPorts = await getAvailablePorts( workerCount );
 
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
 
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
-			logToConsole(
-				`Spawning PHP worker ${ index + 1 }/${ NATIVE_PHP_WORKER_POOL_SIZE } on ${ phpAddress }`
-			);
+			logToConsole( `Spawning PHP worker ${ index + 1 }/${ workerCount } on ${ phpAddress }` );
 			// Workers are spawned without `detached`, so they share this wrapper's process
 			// group. That lets the daemon's group-kill reach every worker in one signal.
 			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 				phpVersion,
 				siteFolder: config.sitePath,
 				env: {
-					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath() ?? '',
 					STUDIO_PHPMYADMIN_SUPPORTED: config.phpMyAdminSupported === false ? '0' : '1',
 					STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
@@ -677,7 +696,7 @@ async function doStartServer(
 				errorToConsole(
 					`PHP worker ${
 						index + 1
-					}/${ NATIVE_PHP_WORKER_POOL_SIZE } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+					}/${ workerCount } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 				);
 				killAllLivePhpProcesses();
 				process.exit( code ?? 1 );

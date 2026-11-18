@@ -74,6 +74,12 @@ describe( 'Snapshots Module', () => {
 	const mockAtomicSiteId = 12345;
 	const mockSiteFolder = '/test/folder';
 	const mockUserId = 9876;
+	const mockPreview = {
+		id: mockAtomicSiteId,
+		name: mockSiteUrl,
+		url: `https://${ mockSiteUrl }`,
+		shareUrl: mockShareUrl,
+	};
 
 	beforeEach( () => {
 		vi.clearAllMocks();
@@ -111,14 +117,7 @@ describe( 'Snapshots Module', () => {
 
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
-			await saveSnapshotToConfig(
-				mockSiteFolder,
-				mockAtomicSiteId,
-				mockSiteUrl,
-				mockUserId,
-				'Test Site Preview 1',
-				mockShareUrl
-			);
+			await saveSnapshotToConfig( mockSiteFolder, mockPreview, mockUserId, 'Test Site Preview 1' );
 
 			expect( writeFile ).toHaveBeenCalled();
 			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
@@ -171,11 +170,9 @@ describe( 'Snapshots Module', () => {
 
 			await saveSnapshotToConfig(
 				mockSiteFolder,
-				mockAtomicSiteId + 1,
-				mockSiteUrl,
+				{ ...mockPreview, id: mockAtomicSiteId + 1 },
 				mockUserId,
-				'Test Site Preview 2',
-				mockShareUrl
+				'Test Site Preview 2'
 			);
 
 			expect( writeFile ).toHaveBeenCalled();
@@ -218,14 +215,7 @@ describe( 'Snapshots Module', () => {
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await expect(
-				saveSnapshotToConfig(
-					mockSiteFolder,
-					mockAtomicSiteId,
-					mockSiteUrl,
-					mockUserId,
-					'Test',
-					mockShareUrl
-				)
+				saveSnapshotToConfig( mockSiteFolder, mockPreview, mockUserId, 'Test' )
 			).rejects.toThrow( LoggerError );
 
 			expect( writeFile ).not.toHaveBeenCalled();
@@ -235,14 +225,7 @@ describe( 'Snapshots Module', () => {
 			vi.spyOn( fs, 'existsSync' ).mockReturnValueOnce( false );
 
 			await expect(
-				saveSnapshotToConfig(
-					mockSiteFolder,
-					mockAtomicSiteId,
-					mockSiteUrl,
-					mockUserId,
-					'Test',
-					mockShareUrl
-				)
+				saveSnapshotToConfig( mockSiteFolder, mockPreview, mockUserId, 'Test' )
 			).rejects.toThrow( LoggerError );
 		} );
 	} );
@@ -276,7 +259,7 @@ describe( 'Snapshots Module', () => {
 
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
-			const updatedSnapshot = await updateSnapshotInConfig( mockAtomicSiteId, mockSiteFolder );
+			const updatedSnapshot = await updateSnapshotInConfig( mockSiteFolder, mockPreview );
 
 			expect( writeFile ).toHaveBeenCalled();
 			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
@@ -294,7 +277,7 @@ describe( 'Snapshots Module', () => {
 
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
-			await expect( updateSnapshotInConfig( mockAtomicSiteId, mockSiteFolder ) ).rejects.toThrow(
+			await expect( updateSnapshotInConfig( mockSiteFolder, mockPreview ) ).rejects.toThrow(
 				LoggerError
 			);
 		} );
@@ -570,27 +553,30 @@ describe( 'Snapshots Module', () => {
 			const elsewhereUrl = 'https://elsewhere.wpcomstaging.com/?share=def';
 			await reconcilePreviews(
 				USER_ID,
-				new Map( [
-					[
-						1,
-						{
-							hostname: 'standing.wpcomstaging.com',
-							expiresAt: 9000,
-							shareUrl,
-							liveSiteId: 10,
-						},
-					],
-					[
-						6,
-						{
-							hostname: 'elsewhere.wpcomstaging.com',
-							expiresAt: 8000,
-							shareUrl: elsewhereUrl,
-							liveSiteId: 60,
-						},
-					],
-					[ 7, { hostname: 'unlinked.wpcomstaging.com', expiresAt: 7000 } ],
-				] ),
+				[
+					{
+						id: 1,
+						name: 'standing.wpcomstaging.com',
+						url: 'https://standing.wpcomstaging.com',
+						expiresAt: 9000,
+						shareUrl,
+						liveSiteId: 10,
+					},
+					{
+						id: 6,
+						name: 'elsewhere.wpcomstaging.com',
+						url: 'https://elsewhere.wpcomstaging.com',
+						expiresAt: 8000,
+						shareUrl: elsewhereUrl,
+						liveSiteId: 60,
+					},
+					{
+						id: 7,
+						name: 'unlinked.wpcomstaging.com',
+						url: 'https://unlinked.wpcomstaging.com',
+						expiresAt: 7000,
+					},
+				],
 				5000
 			);
 
@@ -637,13 +623,18 @@ describe( 'Snapshots Module', () => {
 					],
 				} )
 			);
-			const standing = { hostname: 'unlisted.wpcomstaging.com', expiresAt: 9000 };
+			const standing = ( id: number ) => ( {
+				id,
+				name: 'unlisted.wpcomstaging.com',
+				url: 'https://unlisted.wpcomstaging.com',
+				expiresAt: 9000,
+			} );
 
 			for ( const atomicSiteId of [ 1, 2, 3, 4 ] ) {
 				// The pull of preview 4 was partial, which leaves its sync unknown.
 				const sync =
 					atomicSiteId === 4 ? undefined : { versionId: `v${ atomicSiteId }`, syncedAt: 5 };
-				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing, sync );
+				await linkPulledPreview( 'pulled-site', 42, standing( atomicSiteId ), sync );
 				mocks.readFile.mockResolvedValue( mocks.writeFile.mock.lastCall?.[ 1 ] );
 			}
 

@@ -47,18 +47,43 @@ function getWpCliOptionValue( args: string[], option: string ): string | undefin
 	return undefined;
 }
 
-function getPostTypeName( postType: string | undefined, plural: boolean ): string {
+function getPostTypeName( postType: string | undefined ): string {
 	switch ( postType ) {
 		case 'page':
-			return plural ? __( 'pages' ) : __( 'page' );
+			/* translators: Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s". */
+			return __( 'page' );
 		case 'attachment':
-			return plural ? __( 'media items' ) : __( 'media item' );
+			/* translators: Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s". */
+			return __( 'media item' );
 		case 'product':
-			return plural ? __( 'products' ) : __( 'product' );
+			/* translators: Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s". */
+			return __( 'product' );
 		case 'post':
 		case undefined:
 		case '':
-			return plural ? __( 'posts' ) : __( 'post' );
+			/* translators: Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s". */
+			return __( 'post' );
+		default:
+			return postType.replace( /[-_]+/g, ' ' );
+	}
+}
+
+function getPluralPostTypeName( postType: string | undefined ): string {
+	switch ( postType ) {
+		case 'page':
+			/* translators: Fills the %s of "List %s" and "List published %s". */
+			return __( 'pages' );
+		case 'attachment':
+			/* translators: Fills the %s of "List %s" and "List published %s". */
+			return __( 'media items' );
+		case 'product':
+			/* translators: Fills the %s of "List %s" and "List published %s". */
+			return __( 'products' );
+		case 'post':
+		case undefined:
+		case '':
+			/* translators: Fills the %s of "List %s" and "List published %s". */
+			return __( 'posts' );
 		default:
 			return postType.replace( /[-_]+/g, ' ' );
 	}
@@ -150,8 +175,8 @@ function getWpCliPostLabel( args: string[] ): string {
 	const action = args[ 1 ];
 	const postType = getWpCliOptionValue( args, '--post_type' );
 	const postStatus = getWpCliOptionValue( args, '--post_status' );
-	const singularPostType = getPostTypeName( postType, false );
-	const pluralPostType = getPostTypeName( postType, true );
+	const singularPostType = getPostTypeName( postType );
+	const pluralPostType = getPluralPostTypeName( postType );
 
 	switch ( action ) {
 		case 'list':

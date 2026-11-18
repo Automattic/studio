@@ -9,6 +9,7 @@ import {
 	readAiSettings,
 	type AiSettings,
 } from '@studio/common/lib/ai-settings';
+import { ConnectError } from '@studio/providers';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import {
@@ -123,6 +124,8 @@ describe( 'AI provider settings', () => {
 			openai: { connected: false },
 			gemini: { connected: false },
 			'github-copilot': { connected: false },
+			meta: { connected: false },
+			xai: { connected: false },
 			spacefast: { connected: false },
 		},
 	} );
@@ -139,8 +142,12 @@ describe( 'AI provider settings', () => {
 		await saveKey( 'sk-ant-api03-testkey-1234' );
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			action: 'connect',
+			target_provider: 'anthropic',
+			connection_method: 'api-key',
+			success: true,
 			provider: 'wpcom',
-			has_anthropic_api_key: true,
+			previous_provider: 'wpcom',
 			surface: 'settings',
 		} );
 	} );
@@ -163,8 +170,12 @@ describe( 'AI provider settings', () => {
 		await disconnectAiProvider( event, 'anthropic' );
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			action: 'disconnect',
+			target_provider: 'anthropic',
+			connection_method: 'api-key',
+			success: true,
 			provider: 'wpcom',
-			has_anthropic_api_key: false,
+			previous_provider: 'anthropic',
 			surface: 'settings',
 		} );
 	} );
@@ -176,8 +187,30 @@ describe( 'AI provider settings', () => {
 		await saveKey( 'sk-ant-api03-otherkey-9999' );
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-			provider: 'anthropic-api-key',
-			has_anthropic_api_key: true,
+			action: 'connect',
+			target_provider: 'anthropic',
+			connection_method: 'api-key',
+			success: true,
+			provider: 'anthropic',
+			previous_provider: 'anthropic',
+			surface: 'settings',
+		} );
+	} );
+
+	it( 'records a refused key with the reason', async () => {
+		mockReadAiSettings.mockResolvedValue( wpcomWithoutKey );
+		mockConnectProvider.mockRejectedValue( new ConnectError( 'Invalid key', 'invalid' ) );
+
+		await expect( saveKey( 'sk-ant-api03-badkey-0000' ) ).rejects.toBeInstanceOf( ConnectError );
+
+		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+			action: 'connect',
+			target_provider: 'anthropic',
+			connection_method: 'api-key',
+			success: false,
+			failure_reason: 'invalid',
+			provider: 'wpcom',
+			previous_provider: 'wpcom',
 			surface: 'settings',
 		} );
 	} );

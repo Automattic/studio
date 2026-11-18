@@ -76,17 +76,17 @@ If you’re upgrading from an earlier version of WordPress Studio, your existing
 
 The WordPress Studio window has three areas:
 
--   **Sidebar** (left): your sites, each with its WordPress Studio Code chats. Pinned sites and chats appear in a **Pinned** section at the top, and your latest chats appear under **Recent**. Click the **+** next to **Sites** to add a site. At the bottom of the sidebar is the account menu, with **Providers**, **Support**, **Settings**, and **Log in or create account** (or your name, **Usage**, and **Log out** once you’re logged in).
+-   **Sidebar** (left): your sites, each with its WordPress Studio Code chats. Pinned sites and chats appear in a **Pinned** section at the top, and your latest chats appear under **Recent**. Click the **+** next to **Sites** to add a site. Once you’ve moved between sites and chats, **Back** and **Forward** buttons at the top of the sidebar take you to the ones you visited before. At the bottom of the sidebar are the account menu, with **Providers**, **Support**, **Settings**, and **Log in or create account** (or your name, **Usage**, and **Log out** once you’re logged in), and a **Settings** button.
 -   **Chat** (middle): WordPress Studio Code for the selected site.
 -   **Panel** (right): the selected site’s preview, in tabs.
 
-![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle under the Site menu button, and the panel on the right with a preview tab, New tab, Share, Publish, Expand panel and Hide panel, and below them Back, Forward, Reload preview, the address bar, Annotate, and Browser options](../../../screenshots/images/main-window-signed-in.webp)
+![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle under the Site menu button, and the panel on the right with a preview tab, New tab, Share, Publish, Expand panel and Hide panel, and below them Back, Forward, Reload, the address bar, Annotate, and Browser options](../../../screenshots/images/main-window-signed-in.webp)
 
-The header above the chat has the **Site menu** button, which shows the site’s name and opens the site’s actions menu. Above the panel are the preview’s tabs and **New tab** (**+**), followed by **Share**, **Publish**, **Expand panel**, and **Hide panel**. Each tab has its own **Back**, **Forward**, and **Reload preview** buttons and address bar, with **Annotate** and **Browser options** (**⋮**) at the end.
+The header above the chat has the **Site menu** button, which shows the site’s name and opens the site’s actions menu. Above the panel are the preview’s tabs and **New tab** (**+**), followed by **Share**, **Publish**, **Expand panel**, and **Hide panel**. Each tab has its own **Back**, **Forward**, and **Reload** buttons and address bar, with **Annotate** and **Browser options** (**⋮**) at the end.
 
-When WordPress Studio finds a new version, an update button appears at the bottom of the sidebar, next to the account menu. It shows **Downloading update…** while the update downloads, and **Update** when it’s ready to install: click it to update WordPress Studio. The account menu shows **Update available** too. If the download fails, the button changes to **Download update**, which tries again. If the update can’t be installed, WordPress Studio shows “Couldn’t update Studio” with the reason.
+When WordPress Studio finds a new version, an update button appears at the bottom of the sidebar, next to the account menu. It shows **Downloading update…** while the update downloads, and **Update** when it’s ready to install: hover over it to see the new version, and click it to update WordPress Studio. The account menu shows **Update available** too. If the download fails, the button changes to **Download update**, which tries again. If the update can’t be installed, WordPress Studio shows “Couldn’t update Studio” with the reason. If you installed WordPress Studio from the Microsoft Store, the Store updates it instead.
 
-Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette, where you can jump to any site or chat, run a site action, or change a setting. Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**, and ⌘B (Ctrl+B) to show or hide the sidebar. The full list of shortcuts is in **Settings → Keyboard**.
+Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette, where you can jump to any site or chat, run a site action, or change a setting. Press ⌘, (Ctrl+, on Windows and Linux), or click **Settings** at the bottom of the sidebar, to open **Settings**, and ⌘B (Ctrl+B) to show or hide the sidebar. The full list of shortcuts is in **Settings → Keyboard**.
 
 ![The WordPress Studio command palette with a Search commands field, Quick actions such as New site, Stop site, New chat, Settings, and Site settings, and Commands such as Use dark mode](../../../screenshots/images/command-palette.webp)
 
@@ -113,7 +113,7 @@ The shortcuts, as listed in **Settings → Keyboard**:
 | Insert newline | ⇧↩ | Shift+Enter |
 | Stop response | Esc | Esc |
 | Toggle panel | ⇧⌘B | Shift+Ctrl+B |
-| Reload preview | ⌘R | Ctrl+R |
+| Reload | ⌘R | Ctrl+R |
 | Go back in preview | ⌘← | Alt+← |
 | Go forward in preview | ⌘→ | Alt+→ |
 
@@ -153,6 +153,7 @@ We hope WordPress Studio effortlessly fits into your local development workflow.
 -   [WordPress Studio Sync](https://wordpress.studio/docs/sync/)
 -   [Import & Export](https://wordpress.studio/docs/import-export/)
 -   [WordPress Studio Code](https://wordpress.studio/docs/studio-code/)
+-   [Providers in WordPress Studio](https://wordpress.studio/docs/providers/)
 -   [SSL in WordPress Studio](https://wordpress.studio/docs/ssl-in-studio/)
 -   [WordPress Studio CLI](https://wordpress.studio/docs/cli/)
 -   [WordPress Studio Frequently Asked Questions](https://wordpress.studio/docs/frequently-asked-questions/)

@@ -6,23 +6,19 @@ vi.mock( '../../api' );
 
 const get = vi.fn();
 
-// Answers the posts endpoint by post type, and the comments endpoint with `comments`.
+// Answers the posts endpoint by post type (`posts` for `any`, otherwise the type's own key), and
+// the comments endpoint with `comments`.
 function answers( {
 	posts = { found: 0, posts: [] },
-	templates = { found: 0, posts: [] },
-	templateParts = { found: 0, posts: [] },
 	comments = { found: 0, comments: [] },
+	...siteDesign
 }: Record< string, unknown > ) {
 	get.mockImplementation( async ( path: string, query: { type?: string } ) => {
 		if ( path.endsWith( '/comments' ) ) {
 			return comments;
 		}
-		const byType: Record< string, unknown > = {
-			any: posts,
-			wp_template: templates,
-			wp_template_part: templateParts,
-		};
-		const answer = byType[ query.type ?? '' ];
+		const answer =
+			query.type === 'any' ? posts : siteDesign[ query.type ?? '' ] ?? { found: 0, posts: [] };
 		if ( answer instanceof Error ) {
 			throw answer;
 		}
@@ -36,12 +32,19 @@ beforeEach( () => {
 } );
 
 describe( 'fetchLiveChangesSince', () => {
-	it( 'asks for posts, templates and template parts modified, and comments made, after the time', async () => {
+	it( 'asks for posts and the site design modified, and comments made, after the time', async () => {
 		answers( {} );
 
 		await fetchLiveChangesSince( 'token', 42, '2026-11-01T00:00:00.000Z' );
 
-		for ( const type of [ 'any', 'wp_template', 'wp_template_part' ] ) {
+		for ( const type of [
+			'any',
+			'wp_template',
+			'wp_template_part',
+			'wp_navigation',
+			'wp_block',
+			'wp_global_styles',
+		] ) {
 			expect( get ).toHaveBeenCalledWith(
 				'/sites/42/posts',
 				expect.objectContaining( {
@@ -57,16 +60,19 @@ describe( 'fetchLiveChangesSince', () => {
 		);
 	} );
 
-	it( 'adds templates and template parts together', async () => {
+	it( 'adds up every part of the site design', async () => {
 		answers( {
 			posts: { found: 86, posts: [ { ID: 1 } ] },
-			templates: { found: 2, posts: [ { ID: 2 }, { ID: 3 } ] },
-			templateParts: { found: 5, posts: [ { ID: 4 } ] },
+			wp_template: { found: 2, posts: [ { ID: 2 }, { ID: 3 } ] },
+			wp_template_part: { found: 5, posts: [ { ID: 4 } ] },
+			wp_navigation: { found: 2, posts: [] },
+			wp_block: { found: 0, posts: [] },
+			wp_global_styles: { found: -1, posts: [ { ID: 5 } ] },
 		} );
 
 		await expect(
 			fetchLiveChangesSince( 'token', 42, '2000-01-01T00:00:00.000Z' )
-		).resolves.toEqual( { posts: 86, comments: 0, templates: 7 } );
+		).resolves.toEqual( { posts: 86, comments: 0, siteDesign: 10 } );
 	} );
 
 	it( 'counts what came back when WordPress.com reports no total', async () => {
@@ -74,7 +80,7 @@ describe( 'fetchLiveChangesSince', () => {
 
 		await expect(
 			fetchLiveChangesSince( 'token', 42, '2000-01-01T00:00:00.000Z' )
-		).resolves.toEqual( { posts: 0, comments: 2, templates: 0 } );
+		).resolves.toEqual( { posts: 0, comments: 2, siteDesign: 0 } );
 	} );
 
 	it( 'counts nothing when no total and no items came back', async () => {
@@ -82,24 +88,27 @@ describe( 'fetchLiveChangesSince', () => {
 
 		await expect(
 			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )
-		).resolves.toEqual( { posts: 0, comments: 0, templates: 0 } );
+		).resolves.toEqual( { posts: 0, comments: 0, siteDesign: 0 } );
 	} );
 
-	it( 'counts no templates on a site that does not register them', async () => {
+	it( 'counts nothing for a type the site does not register', async () => {
 		const unknownPostType = Object.assign( new Error( 'Unknown post type' ), {
 			statusCode: 400,
 			error: 'unknown_post_type',
 		} );
-		answers( { templates: unknownPostType, templateParts: unknownPostType } );
+		answers( { wp_navigation: unknownPostType, wp_global_styles: unknownPostType } );
 
 		await expect(
 			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )
-		).resolves.toEqual( { posts: 0, comments: 0, templates: 0 } );
+		).resolves.toEqual( { posts: 0, comments: 0, siteDesign: 0 } );
 	} );
 
-	it( 'fails the check when a template request fails otherwise', async () => {
+	it( 'fails the check when a site design request fails otherwise', async () => {
 		answers( {
-			templates: Object.assign( new Error( 'Forbidden' ), { statusCode: 403, error: 'forbidden' } ),
+			wp_template: Object.assign( new Error( 'Forbidden' ), {
+				statusCode: 403,
+				error: 'forbidden',
+			} ),
 		} );
 
 		await expect(

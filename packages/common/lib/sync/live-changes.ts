@@ -29,20 +29,24 @@ export function getLastSyncTime(
 		.at( -1 );
 }
 
-export function hasLiveChanges( { posts, comments, templates }: LiveChanges ): boolean {
-	return posts > 0 || comments > 0 || templates > 0;
+export function hasLiveChanges( { posts, comments, siteDesign }: LiveChanges ): boolean {
+	return posts > 0 || comments > 0 || siteDesign > 0;
 }
 
 export function getLiveChangesMessage(
 	siteName: string,
-	{ posts, comments, templates }: LiveChanges
+	{ posts, comments, siteDesign }: LiveChanges
 ): string {
 	const parts = [
 		posts ? sprintf( _n( '%d post or page', '%d posts or pages', posts ), posts ) : '',
-		templates
+		siteDesign
 			? sprintf(
-					_n( '%d template or template part', '%d templates or template parts', templates ),
-					templates
+					_n(
+						'%d template, menu, pattern or style',
+						'%d templates, menus, patterns or styles',
+						siteDesign
+					),
+					siteDesign
 			  )
 			: '',
 		comments ? sprintf( _n( '%d comment', '%d comments', comments ), comments ) : '',

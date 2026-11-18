@@ -209,11 +209,15 @@ describe( 'push', () => {
 
 describe( 'liveChanges', () => {
 	it( 'counts what changed on the live site since the given time', async () => {
-		vi.mocked( fetchLiveChangesSince ).mockResolvedValue( { posts: 2, comments: 5, templates: 1 } );
+		vi.mocked( fetchLiveChangesSince ).mockResolvedValue( {
+			posts: 2,
+			comments: 5,
+			siteDesign: 1,
+		} );
 
 		await expect(
 			wpcomSites.liveChanges!( config, { id: 42 }, '2026-11-01T00:00:00.000Z' )
-		).resolves.toEqual( { posts: 2, comments: 5, templates: 1 } );
+		).resolves.toEqual( { posts: 2, comments: 5, siteDesign: 1 } );
 		expect( fetchLiveChangesSince ).toHaveBeenCalledWith( 'token', 42, '2026-11-01T00:00:00.000Z' );
 	} );
 

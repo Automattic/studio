@@ -385,7 +385,7 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
 			posts: 2,
 			comments: 5,
-			templates: 0,
+			siteDesign: 0,
 		} );
 		pushes( [] );
 		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
@@ -459,7 +459,7 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
 			posts: 0,
 			comments: 0,
-			templates: 0,
+			siteDesign: 0,
 		} );
 
 		await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).resolves.toBe(
@@ -467,18 +467,18 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 		);
 	} );
 
-	it( 'refuses when only a template changed live', async () => {
+	it( 'refuses when only the site design changed live', async () => {
 		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
 			posts: 0,
 			comments: 0,
-			templates: 1,
+			siteDesign: 1,
 		} );
 
 		await expect(
 			runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
 		).rejects.toMatchObject( {
 			code: 'live_changed',
-			message: expect.stringContaining( '1 template or template part changed on Live' ),
+			message: expect.stringContaining( '1 template, menu, pattern or style changed on Live' ),
 		} );
 		expect( wpcomSites.push ).not.toHaveBeenCalled();
 	} );

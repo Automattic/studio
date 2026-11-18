@@ -247,12 +247,13 @@ export interface PushStatus {
 	progress?: number;
 }
 
-// What changed on a live site since a given time: posts (of any type) and the Site Editor's
-// templates and template parts modified, and comments made.
+// What changed on a live site since a given time: posts (of any type) and pieces of the site's
+// design (templates, template parts, navigation menus, synced patterns, global styles) modified,
+// and comments made.
 export interface LiveChanges {
 	posts: number;
 	comments: number;
-	templates: number;
+	siteDesign: number;
 }
 
 // What Studio reads of any provider's remote site.

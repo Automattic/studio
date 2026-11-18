@@ -231,19 +231,26 @@ function countFound( response: unknown, items: 'posts' | 'comments' ): number {
 	return parsed.found >= 0 ? parsed.found : parsed[ items ]?.length ?? 0;
 }
 
-// The Site Editor's templates and template parts. A query for `any` post type leaves them out, and
-// the endpoint takes one type at a time.
-const TEMPLATE_TYPES = [ 'wp_template', 'wp_template_part' ];
+// What makes up the site's design, saved in the database: templates, template parts, navigation
+// menus, synced patterns and global styles. A query for `any` post type leaves them out, and the
+// endpoint takes one type at a time.
+const SITE_DESIGN_TYPES = [
+	'wp_template',
+	'wp_template_part',
+	'wp_navigation',
+	'wp_block',
+	'wp_global_styles',
+];
 
 /**
- * How many posts (of any type), and templates and template parts saved in the database, were
+ * How many posts (of any type) and pieces of the site's design (`SITE_DESIGN_TYPES`) were
  * modified on the site after `since`, an ISO 8601 time, and how many comments were made.
  */
 export async function fetchLiveChangesSince(
 	token: string,
 	remoteSiteId: number,
 	since: string
-): Promise< { posts: number; comments: number; templates: number } > {
+): Promise< { posts: number; comments: number; siteDesign: number } > {
 	const wpcom = wpcomClient( token );
 	const modifiedAfter = ( type: string ) =>
 		wpcom.req.get( `/sites/${ remoteSiteId }/posts`, {
@@ -254,7 +261,7 @@ export async function fetchLiveChangesSince(
 			number: LIVE_CHANGES_PAGE,
 			fields: 'ID',
 		} );
-	const [ posts, comments, ...templates ] = await Promise.all( [
+	const [ posts, comments, ...siteDesign ] = await Promise.all( [
 		modifiedAfter( 'any' ),
 		wpcom.req.get( `/sites/${ remoteSiteId }/comments`, {
 			apiVersion: '1.1',
@@ -263,7 +270,7 @@ export async function fetchLiveChangesSince(
 			number: LIVE_CHANGES_PAGE,
 			fields: 'ID',
 		} ),
-		...TEMPLATE_TYPES.map( ( type ) =>
+		...SITE_DESIGN_TYPES.map( ( type ) =>
 			modifiedAfter( type ).catch( ( error: unknown ) => {
 				// A site that doesn't register the type has none of it to lose.
 				if ( isUnknownPostType( error ) ) {
@@ -276,7 +283,7 @@ export async function fetchLiveChangesSince(
 	return {
 		posts: countFound( posts, 'posts' ),
 		comments: countFound( comments, 'comments' ),
-		templates: templates.reduce< number >(
+		siteDesign: siteDesign.reduce< number >(
 			( total, response ) => total + countFound( response, 'posts' ),
 			0
 		),

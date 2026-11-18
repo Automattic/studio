@@ -29,6 +29,9 @@
 	"%d annotation ready to send": [
 		"%d 個註解可供傳送"
 	],
+	"%d image": [
+		"%d 張圖片"
+	],
 	"%s (saved for future use):": [
 		"%s (將儲存以供日後使用)："
 	],
@@ -47,6 +50,9 @@
 	"%s preview is ready": [
 		"「%s」的預覽已準備就緒"
 	],
+	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
+		"網站「%s」已停止回報匯入進度，但更新可能仍在進行中。再次推送前，請先檢查已上線的網站。"
+	],
 	"(No subject)": [
 		"(無主旨)"
 	],
@@ -56,8 +62,26 @@
 	"A coding agent that runs in your terminal.": [
 		"在終端機中執行的程式設計代理程式。"
 	],
+	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
+		"此網站已有同步作業正在進行。請等候作業完成，然後再試一次。"
+	],
 	"AI apps": [
 		"AI 應用程式"
+	],
+	"API key": [
+		"API 金鑰"
+	],
+	"API key is required": [
+		"必須提供 API 金鑰"
+	],
+	"Activate all plugins": [
+		"啟用所有外掛程式"
+	],
+	"Activate plugin": [
+		"啟用外掛程式"
+	],
+	"Activate theme": [
+		"啟用佈景主題"
 	],
 	"Add annotation to batch": [
 		"將註解加入批次"
@@ -77,8 +101,14 @@
 	"Agents": [
 		"代理程式"
 	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"登入時，請允許 WordPress Studio 使用你的 ChatGPT 方案。"
+	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"更新 WordPress Studio CLI 時發生錯誤，請再試一次。"
+	],
+	"Annotate site elements visually in a browser.": [
+		"在瀏覽器中以視覺化方式為網站元素加上註解。"
 	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"註解功能適用於 Studio Code 建立的設計系統。"
@@ -88,6 +118,15 @@
 	],
 	"Anonymous usage statistics enabled.": [
 		"已啟用匿名使用統計資料。"
+	],
+	"Anthropic API key": [
+		"Anthropic API 金鑰"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic 拒絕了此 API 金鑰。請檢查金鑰，然後再試一次。"
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic 拒絕了此權杖。請重新執行 claude setup-token。"
 	],
 	"Anthropic’s AI coding agent.": [
 		"Anthropic 的 AI 程式設計代理程式。"
@@ -104,8 +143,17 @@
 	"Approve the connection in your browser.": [
 		"請在瀏覽器中核准連結。"
 	],
+	"Ask user": [
+		"詢問使用者"
+	],
 	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
 		"至少需要提供一個選項 (--name、--domain、--https、--php、--wp、--file-access、--xdebug、--php-workers、--admin-username、--admin-password、--admin-email、--debug-log、--debug-display、--script-debug、--environment-type)。"
+	],
+	"Audit SEO": [
+		"稽核 SEO"
+	],
+	"Audit performance": [
+		"稽核效能"
 	],
 	"Automatic sidebar collapsing disabled.": [
 		"已停用側邊欄自動收合。"
@@ -121,6 +169,15 @@
 	],
 	"Back to email list": [
 		"返回電子郵件清單"
+	],
+	"Backup timed out — no progress detected": [
+		"備份逾時 — 未偵測到進度"
+	],
+	"Backups": [
+		"備份"
+	],
+	"Balanced": [
+		"均衡"
 	],
 	"Batch notes": [
 		"批次註解"
@@ -176,8 +233,29 @@
 	"Cc": [
 		"副本"
 	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"變更已推送，但無法啟用網站。請檢查你的方案和權限，然後再次發佈以重新嘗試啟用。"
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"變更已推送，但無法啟用網站。請再次發佈以重新嘗試啟用。"
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"變更已推送，但無法啟用網站。請驗證你的電子郵件，然後再次發佈以重新嘗試啟用。"
+	],
 	"Changes to %s": [
 		"「%s」的變更"
+	],
+	"ChatGPT plan": [
+		"ChatGPT 方案"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"目前無法使用 ChatGPT 方案用量，請稍後再試。"
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT 傳回的登入資訊不完整。"
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"無法完成 ChatGPT 登入，請再試一次。"
 	],
 	"Check your internet connection and try again.": [
 		"請檢查網際網路連線，然後再試一次。"
@@ -227,8 +305,17 @@
 	"Choosing individual files requires a backup of this website.": [
 		"若要選擇個別檔案，需要此網站的備份。"
 	],
+	"Claude subscription": [
+		"Claude 訂閱"
+	],
+	"Claude subscription token": [
+		"Claude 訂閱權杖"
+	],
 	"Clear browsing data": [
 		"清除瀏覽資料"
+	],
+	"Click anything on the page to leave a note": [
+		"按一下頁面上的任何內容即可留下註解"
 	],
 	"Close %s": [
 		"關閉「%s」"
@@ -263,6 +350,9 @@
 	"Connect AI providers": [
 		"連結 AI 提供者"
 	],
+	"Connect Spacefast to publish sites.": [
+		"連結 Spacefast 以發佈網站。"
+	],
 	"Connect a provider": [
 		"連結提供者"
 	],
@@ -283,6 +373,9 @@
 	],
 	"Connecting to WordPress.com": [
 		"正在連線至 WordPress.com"
+	],
+	"Continue with GitHub": [
+		"使用 GitHub 繼續"
 	],
 	"Copy links": [
 		"複製連結"
@@ -308,6 +401,9 @@
 	"Could not open Spacefast": [
 		"無法開啟 Spacefast"
 	],
+	"Could not reach Anthropic to verify the credential.": [
+		"無法連線至 Anthropic 以驗證憑證。"
+	],
 	"Could not read the table prefix from wp-config.php": [
 		"無法從 wp-config.php 讀取資料表前置詞"
 	],
@@ -332,6 +428,9 @@
 	"Could not update the admin bar setting. Please try again.": [
 		"無法更新管理工具列設定，請再試一次。"
 	],
+	"Could not verify the credential with Anthropic.": [
+		"無法透過 Anthropic 驗證憑證。"
+	],
 	"Couldn't load providers.": [
 		"無法載入提供者。"
 	],
@@ -340,6 +439,21 @@
 	],
 	"Couldn’t sign in to WordPress.com": [
 		"無法登入 WordPress.com"
+	],
+	"Create %s": [
+		"建立%s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"在 [Google AI Studio](https://aistudio.google.com/apikey) 中建立金鑰，然後貼到下方。"
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"在 [Meta Model API 控制台](https://dev.meta.ai)的 API keys 分頁中建立金鑰，然後貼到下方。"
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"在 [Claude Console](https://platform.claude.com/settings/keys) 中建立金鑰，然後貼到下方。"
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"在 [OpenAI Platform](https://platform.openai.com/api-keys) 中建立金鑰，然後貼到下方。"
 	],
 	"Create a new WordPress": [
 		"建立新的 WordPress"
@@ -350,8 +464,17 @@
 	"Create another preview": [
 		"建立另一個預覽"
 	],
+	"Create user": [
+		"建立使用者"
+	],
 	"Data Liberation could not capture the source website": [
 		"資料解放無法擷取來源網站"
+	],
+	"Deactivate all plugins": [
+		"停用所有外掛程式"
+	],
+	"Deactivate plugin": [
+		"停用外掛程式"
 	],
 	"Default AI provider": [
 		"預設 AI 提供者"
@@ -368,8 +491,20 @@
 	"Default terminal app": [
 		"預設終端機應用程式"
 	],
+	"Delete %s": [
+		"刪除%s"
+	],
 	"Delete annotation: %s": [
 		"刪除註解：%s"
+	],
+	"Delete plugin": [
+		"刪除外掛程式"
+	],
+	"Delete theme": [
+		"刪除佈景主題"
+	],
+	"Delete user": [
+		"刪除使用者"
 	],
 	"Describe the change": [
 		"描述變更內容"
@@ -410,6 +545,9 @@
 	"Do more with WordPress": [
 		"使用 WordPress 完成更多工作"
 	],
+	"Domains": [
+		"網域"
+	],
 	"Download update": [
 		"下載更新"
 	],
@@ -446,6 +584,9 @@
 	"Enter a folder name other than “.” or “..”.": [
 		"請輸入「.」或「..」以外的資料夾名稱。"
 	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"請輸入 claude setup-token 產生的權杖，而非 API 金鑰。"
+	],
 	"Enter the folder’s full path.": [
 		"請輸入資料夾的完整路徑。"
 	],
@@ -470,11 +611,23 @@
 	"Failed to back up the remote site": [
 		"無法備份遠端網站"
 	],
+	"Failed to check backup size": [
+		"無法檢查備份大小"
+	],
+	"Failed to check backup status": [
+		"無法檢查備份狀態"
+	],
+	"Failed to check import status": [
+		"無法檢查匯入狀態"
+	],
 	"Failed to check the preview site": [
 		"無法檢查預覽網站"
 	],
 	"Failed to create the %s site": [
 		"無法建立 %s 網站"
+	],
+	"Failed to create the Space": [
+		"無法建立空間"
 	],
 	"Failed to export static site": [
 		"無法匯出靜態網站"
@@ -485,8 +638,20 @@
 	"Failed to find existing preview site in config": [
 		"在設定中找不到現有的預覽網站"
 	],
+	"Failed to initiate backup": [
+		"無法開始備份"
+	],
+	"Failed to initiate import on remote site": [
+		"無法在遠端網站上開始匯入"
+	],
 	"Failed to load your %s sites": [
 		"無法載入你的 %s 網站"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"無法載入你的 Spacefast 空間"
+	],
+	"Failed to publish to Spacefast": [
+		"無法發佈至 Spacefast"
 	],
 	"Failed to save connected site": [
 		"無法儲存已連結的網站"
@@ -506,11 +671,20 @@
 	"File…": [
 		"檔案…"
 	],
+	"Finish activating hosting on WordPress.com before publishing.": [
+		"發佈前，請先在 WordPress.com 上完成主機服務啟用。"
+	],
 	"Finish signing in to %s in your browser.": [
 		"請在瀏覽器中完成 %s 的登入程序。"
 	],
 	"First use": [
 		"首次使用"
+	],
+	"Flush cache": [
+		"清除快取"
+	],
+	"Flush permalinks": [
+		"重新整理永久連結"
 	],
 	"For publishing sites.": [
 		"用於發佈網站。"
@@ -521,14 +695,32 @@
 	"From many, one tool.\nFind strength in community\nfor a better web.": [
 		"眾人成一器，\n社群聚力量，\n共創好網路。"
 	],
+	"Gemini API key": [
+		"Gemini API 金鑰"
+	],
+	"Generate images": [
+		"產生圖片"
+	],
 	"Generating static site…": [
 		"正在產生靜態網站…"
+	],
+	"Get site info": [
+		"取得網站資訊"
+	],
+	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
+		"先使用一次性的免費額度開始，之後再依需求購買更多。不需要 API 金鑰。"
 	],
 	"Getting your sign-in code…": [
 		"正在取得你的登入代碼…"
 	],
 	"Giant Steps": [
 		"Giant Steps"
+	],
+	"GitHub sign-in was declined.": [
+		"GitHub 登入遭拒。"
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google 拒絕了此 API 金鑰。請檢查金鑰，然後再試一次。"
 	],
 	"Green Dolphin Street": [
 		"Green Dolphin Street"
@@ -581,14 +773,35 @@
 	"Import cancelled": [
 		"已取消匯入"
 	],
+	"Import media": [
+		"匯入媒體"
+	],
+	"Import site": [
+		"匯入網站"
+	],
 	"Include this chat’s transcript": [
 		"附上此聊天的記錄"
+	],
+	"Inspect design": [
+		"檢查設計"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"如果你還沒有 [Claude Code](https://code.claude.com/docs/en/setup)，請先安裝。"
+	],
+	"Install plugin": [
+		"安裝外掛程式"
+	],
+	"Install taxonomy scripts": [
+		"安裝分類指令碼"
 	],
 	"Install the WordPress Studio CLI and configure MCP for another app.": [
 		"安裝 WordPress Studio CLI，並為其他應用程式設定 MCP。"
 	],
 	"Install the WordPress Studio CLI.": [
 		"安裝 WordPress Studio CLI。"
+	],
+	"Install theme": [
+		"安裝佈景主題"
 	],
 	"Interface reset.": [
 		"介面已重設。"
@@ -601,6 +814,45 @@
 	],
 	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
 		"如需瞭解詳情，請前往 <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>。"
+	],
+	"Leave a note…": [
+		"留下註解…"
+	],
+	"Liberate": [
+		"遷移網站"
+	],
+	"List": [
+		"列出"
+	],
+	"List %s": [
+		"列出%s"
+	],
+	"List connected remote sites": [
+		"列出已連結的遠端網站"
+	],
+	"List menus": [
+		"列出選單"
+	],
+	"List plugins": [
+		"列出外掛程式"
+	],
+	"List previews": [
+		"列出預覽"
+	],
+	"List published %s": [
+		"列出已發佈的%s"
+	],
+	"List terms": [
+		"列出詞彙"
+	],
+	"List themes": [
+		"列出佈景主題"
+	],
+	"List users": [
+		"列出使用者"
+	],
+	"Load skill": [
+		"載入技能"
 	],
 	"Loading Blueprint…": [
 		"正在載入藍圖…"
@@ -617,17 +869,68 @@
 	"Log in or create account": [
 		"登入或建立帳號"
 	],
+	"Log in to WordPress.com to sync sites.": [
+		"登入 WordPress.com 以同步網站。"
+	],
 	"Maiden Voyage": [
 		"Maiden Voyage"
 	],
 	"Manage AI credits": [
 		"管理 AI 點數"
 	],
+	"Manage cache": [
+		"管理快取"
+	],
+	"Manage content": [
+		"管理內容"
+	],
+	"Manage media": [
+		"管理媒體"
+	],
+	"Manage menus": [
+		"管理選單"
+	],
+	"Manage on WordPress.com": [
+		"在 WordPress.com 上管理"
+	],
+	"Manage permalinks": [
+		"管理永久連結"
+	],
+	"Manage plugins": [
+		"管理外掛程式"
+	],
 	"Manage sharing": [
 		"管理分享"
 	],
+	"Manage site options": [
+		"管理網站選項"
+	],
+	"Manage terms": [
+		"管理詞彙"
+	],
+	"Manage themes": [
+		"管理佈景主題"
+	],
+	"Manage usage": [
+		"管理用量"
+	],
+	"Manage users": [
+		"管理使用者"
+	],
 	"Manual MCP setup": [
 		"手動設定 MCP"
+	],
+	"Meta API key": [
+		"Meta API 金鑰"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta 正在限制你的 API 金鑰的要求。請稍後再試，或在 dev.meta.ai 查看你的限制。"
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta 拒絕了此 API 金鑰。請檢查金鑰，然後再試一次。"
+	],
+	"Migrate & rebuild a site from a closed platform.": [
+		"從封閉平台遷移並重建網站。"
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
@@ -677,6 +980,9 @@
 	"Open a site or Blueprint": [
 		"開啟網站或藍圖"
 	],
+	"Open annotation browser": [
+		"開啟註解瀏覽器"
+	],
 	"Open documentation": [
 		"開啟說明文件"
 	],
@@ -689,8 +995,17 @@
 	"Open the WordPress Studio app to add an existing WordPress folder.": [
 		"請開啟 WordPress Studio 應用程式，以新增現有的 WordPress 資料夾。"
 	],
+	"OpenAI API key": [
+		"OpenAI API 金鑰"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI 拒絕了此 API 金鑰。請檢查金鑰，然後再試一次。"
+	],
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"ChatGPT 應用程式中的 OpenAI 程式設計代理程式。"
+	],
+	"Optimize category taxonomy with AI.": [
+		"使用 AI 最佳化分類結構。"
 	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"PHP 工作程序數必須是 1 到 64 之間的整數。"
@@ -698,14 +1013,26 @@
 	"Parent folder": [
 		"上層資料夾"
 	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"貼上它輸出的權杖。用量會計入你的 Claude 方案。"
+	],
 	"Pending annotation": [
 		"待處理的註解"
+	],
+	"Performance audit": [
+		"效能稽核"
+	],
+	"Pick design": [
+		"選擇設計"
 	],
 	"Point or draw to suggest a change.": [
 		"指向或繪製區域來建議變更。"
 	],
 	"Point to something you’d like to change.": [
 		"指向你想變更的內容。"
+	],
+	"Present design options": [
+		"呈現設計選項"
 	],
 	"Preview browser controls": [
 		"預覽瀏覽器控制項"
@@ -722,11 +1049,23 @@
 	"Project tools": [
 		"專案工具"
 	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"將你網站的靜態副本發佈至 Spacefast 空間。表單、留言和其他需要 WordPress 執行的功能，在副本中將無法運作。"
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"將你網站的靜態副本發佈至 Spacefast 空間。"
+	],
 	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
 		"在 WordPress.com 或 Pressable 上發佈新網站或更新現有網站。"
 	],
 	"Publish to %s to apply these changes.": [
 		"發佈至 %s 以套用這些變更。"
+	],
+	"Publish to Spacefast": [
+		"發佈至 Spacefast"
+	],
+	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
+		"發佈至新網站並選擇網域，或使用 WordPress.com 或 Pressable 上的現有網站。"
 	],
 	"Publish to another site…": [
 		"發佈至其他網站…"
@@ -743,6 +1082,9 @@
 	"Published to": [
 		"已發佈至"
 	],
+	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
+		"發佈和提取需要支援的 WordPress.com 或 Pressable 網站。"
+	],
 	"Publishing cancelled": [
 		"已取消發佈"
 	],
@@ -758,11 +1100,29 @@
 	"Pull preview": [
 		"提取預覽"
 	],
+	"Pull site": [
+		"提取網站"
+	],
 	"Pulling the preview replaces the changes made here.": [
 		"提取預覽會取代你在此處所做的變更。"
 	],
+	"Push site": [
+		"推送網站"
+	],
 	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
 		"將你的本機網站推送至 WordPress.com 網站，或發佈至 Spacefast"
+	],
+	"Read": [
+		"讀取"
+	],
+	"Read %s": [
+		"讀取%s"
+	],
+	"Read site option": [
+		"讀取網站選項"
+	],
+	"Read site title": [
+		"讀取網站標題"
 	],
 	"Recent chats": [
 		"最近的聊天"
@@ -776,6 +1136,12 @@
 	"Recent pages": [
 		"最近的頁面"
 	],
+	"Refresh preview": [
+		"重新整理預覽"
+	],
+	"Remote backup failed": [
+		"遠端備份失敗"
+	],
 	"Remote environment: %s": [
 		"遠端環境：%s"
 	],
@@ -788,8 +1154,14 @@
 	"Replace the contents of a non-empty output directory": [
 		"取代非空白輸出目錄中的內容"
 	],
+	"Reply in your own words instead of picking an option.": [
+		"用你自己的話回覆，而不是選擇選項。"
+	],
 	"Report an issue on GitHub": [
 		"在 GitHub 上回報問題"
+	],
+	"Request a feature or report a bug.": [
+		"提出功能要求或回報錯誤。"
 	],
 	"Reset folder name to match site name": [
 		"將資料夾名稱重設為與網站名稱相同"
@@ -827,11 +1199,41 @@
 	"Round Midnight": [
 		"Round Midnight"
 	],
+	"Run": [
+		"執行"
+	],
 	"Run \"studio blueprint list\" to see available slugs.": [
 		"執行「studio blueprint list」以檢視可用的代稱。"
 	],
+	"Run WordPress code": [
+		"執行 WordPress 程式碼"
+	],
+	"Run WordPress command": [
+		"執行 WordPress 指令"
+	],
+	"Run a performance audit on a site.": [
+		"對網站執行效能稽核。"
+	],
+	"Run an on-page SEO audit on a site.": [
+		"對網站執行頁面 SEO 稽核。"
+	],
+	"Run task": [
+		"執行工作"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"在終端機中執行此指令，然後使用你的 Claude 帳號登入："
+	],
+	"SEO audit": [
+		"SEO 稽核"
+	],
 	"Saturation and brightness": [
 		"飽和度和亮度"
+	],
+	"Save annotation (Enter)": [
+		"儲存註解（Enter）"
+	],
+	"Scaffold theme": [
+		"建立佈景主題架構"
 	],
 	"Screenshots are available in the desktop app.": [
 		"桌面應用程式提供螢幕截圖功能。"
@@ -847,6 +1249,9 @@
 	],
 	"Selected files, content, and settings on your website will be overwritten.": [
 		"你網站上選取的檔案、內容和設定將會遭到覆寫。"
+	],
+	"Send %d annotation": [
+		"傳送 %d 個註解"
 	],
 	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
 		"與任何人分享本機網站的暫時副本。預覽網站若約一週未更新，就會到期。"
@@ -887,6 +1292,12 @@
 	"Sign in to get a one-time grant of free AI credits.": [
 		"登入即可獲得一次性的免費 AI 點數。"
 	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"使用 ChatGPT 登入，或使用 OpenAI API 金鑰。"
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"請使用具有 Copilot 存取權的 GitHub 帳號登入。"
+	],
 	"Signing in took too long. Try again.": [
 		"登入時間過長，請再試一次。"
 	],
@@ -923,8 +1334,14 @@
 	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
 		"技能可以替 AI 代理程式提供 WordPress 開發指引。此處的變更會套用至所有現有網站，並作為新網站的預設值。"
 	],
+	"Something went wrong while updating the live site.": [
+		"更新已上線的網站時發生錯誤。"
+	],
 	"Source is a temporary preview site.": [
 		"來源是暫時的預覽網站。"
+	],
+	"Spacefast sign-in was declined.": [
+		"Spacefast 登入遭拒。"
 	],
 	"Split view": [
 		"分割畫面"
@@ -940,6 +1357,15 @@
 	],
 	"Start signing in again.": [
 		"請重新開始登入。"
+	],
+	"Start signing in to Spacefast again.": [
+		"請重新開始登入 Spacefast。"
+	],
+	"Start signing in with ChatGPT again.": [
+		"請重新開始使用 ChatGPT 登入。"
+	],
+	"Start signing in with GitHub again.": [
+		"請重新開始使用 GitHub 登入。"
 	],
 	"Start sites with chat": [
 		"啟動網站時顯示聊天"
@@ -962,6 +1388,9 @@
 	"Stop annotating. Your notes will be kept.": [
 		"停止註解。系統會保留你的註解。"
 	],
+	"Strong": [
+		"強大"
+	],
 	"Studio was updated, and the site \"%s\" could not be started again.": [
 		"Studio 已更新，但無法重新啟動網站「%s」。"
 	],
@@ -983,6 +1412,12 @@
 	"Taking screenshot…": [
 		"正在擷取螢幕截圖…"
 	],
+	"Taxonomist": [
+		"分類整理"
+	],
+	"Team": [
+		"團隊"
+	],
 	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
 		"感謝你協助改善 WordPress Studio。你提交的意見回饋參考 ID 為 <id>%s</id>。"
 	],
@@ -992,6 +1427,15 @@
 	"That sign-in was for another attempt. Try again.": [
 		"該登入屬於另一次嘗試，請再試一次。"
 	],
+	"The GitHub sign-in expired. Try again.": [
+		"GitHub 登入已過期，請再試一次。"
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"Spacefast 登入已過期，請再試一次。"
+	],
+	"The database failed to import on the live site. Review your database and try again.": [
+		"無法將資料庫匯入已上線的網站。請檢查你的資料庫，然後再試一次。"
+	],
 	"The default browser for your sites.": [
 		"你網站的預設瀏覽器。"
 	],
@@ -1000,6 +1444,9 @@
 	],
 	"The live site must be a qualifying connected site of this local site.": [
 		"已上線的網站必須是此本機網站符合資格的已連結網站。"
+	],
+	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
+		"已上線的網站在匯入時逾時，可能是網站太大。請嘗試減少網站的內容或檔案。"
 	],
 	"The output directory %s is not empty.": [
 		"輸出目錄 %s 不是空的。"
@@ -1025,6 +1472,9 @@
 	"Then add this configuration to your app.": [
 		"然後將此設定新增至你的應用程式。"
 	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"此 GitHub 帳號沒有 Copilot 方案。請在 github.com/features/copilot 選擇方案。"
+	],
 	"This ZIP could not be read. Check that it is a valid zip file.": [
 		"無法讀取此 ZIP 檔案。請確認它是有效的 zip 檔案。"
 	],
@@ -1049,8 +1499,14 @@
 	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
 		"此資料夾已與另一個 Studio 網站建立關聯。請選擇其他網站名稱或本機資料夾。"
 	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"這是 Anthropic 金鑰，請改為新增至 Anthropic。"
+	],
 	"This site and its preview both changed": [
 		"此網站及其預覽都有變更"
+	],
+	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
+		"此網站尚不支援提取。請將網站上的 Jetpack 更新至最新版本，然後再試一次。"
 	],
 	"This site has changes its preview doesn't": [
 		"此網站有預覽中沒有的變更"
@@ -1067,11 +1523,20 @@
 	"This site isn't one of your WordPress.com or Pressable sites.": [
 		"此網站不屬於你的 WordPress.com 或 Pressable 網站。"
 	],
+	"This website has been deleted. Choose another website.": [
+		"此網站已遭刪除，請選擇其他網站。"
+	],
+	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
+		"此網站需要支援從 WordPress Studio 發佈的主機方案。"
+	],
 	"Tips reset.": [
 		"提示已重設。"
 	],
 	"To %s": [
 		"收件者：%s"
+	],
+	"Token is required": [
+		"必須提供權杖"
 	],
 	"Try downloading the update again.": [
 		"請嘗試重新下載更新。"
@@ -1088,14 +1553,50 @@
 	"Unable to open this source.": [
 		"無法開啟此來源。"
 	],
+	"Unexpected response from server while checking backup status": [
+		"檢查備份狀態時，伺服器傳回非預期的回應"
+	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"不明的提供者 %1$s。請從下列選項中選擇：%2$s。"
 	],
 	"Unsupported backup file": [
 		"不支援的備份檔案"
 	],
+	"Update %s": [
+		"更新%s"
+	],
+	"Update all plugins": [
+		"更新所有外掛程式"
+	],
+	"Update plugin": [
+		"更新外掛程式"
+	],
+	"Update site option": [
+		"更新網站選項"
+	],
+	"Update site title": [
+		"更新網站標題"
+	],
+	"Update todo list": [
+		"更新待辦事項清單"
+	],
+	"Update user": [
+		"更新使用者"
+	],
 	"Uploading files…": [
 		"正在上傳檔案…"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"用量將透過你的 Anthropic 帳號計費。"
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"用量將透過你的 Google AI Studio 專案計費。"
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"用量將透過你的 Meta Model API 帳號計費。"
+	],
+	"Usage is billed through your OpenAI account.": [
+		"用量將透過你的 OpenAI 帳號計費。"
 	],
 	"Use /connect %1$s to connect %2$s again.": [
 		"請使用 /connect %1$s 重新連結 %2$s。"
@@ -1106,8 +1607,17 @@
 	"Use Blueprint": [
 		"使用藍圖"
 	],
+	"Use Gemini with a Gemini API key.": [
+		"透過 Gemini API 金鑰使用 Gemini。"
+	],
+	"Use Muse models with your Meta API key.": [
+		"透過你的 Meta API 金鑰使用 Muse 模型。"
+	],
 	"Use WordPress Studio with your agents": [
 		"搭配你的代理程式使用 WordPress Studio"
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"使用 Anthropic API 金鑰或 Claude 訂閱權杖。"
 	],
 	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
 		"請使用來自支援網站的 HTTPS 備份連結，且檔案須為小於 1 GB 的 zip 或 tar.gz 檔案。請檢查網路連線，然後再試一次。"
@@ -1115,8 +1625,23 @@
 	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
 		"使用你偏好的 AI 代理程式建立網站、進行變更並檢查成果。安裝 WordPress Studio 外掛程式，即可讓代理程式存取你的本機網站。"
 	],
+	"Using ChatGPT plan": [
+		"正在使用 ChatGPT 方案"
+	],
+	"Using Claude plan": [
+		"正在使用 Claude 方案"
+	],
+	"Using Copilot plan": [
+		"正在使用 Copilot 方案"
+	],
+	"Validate blocks": [
+		"驗證區塊"
+	],
 	"Visit previews": [
 		"造訪預覽"
+	],
+	"Visual Annotations": [
+		"視覺化註解"
 	],
 	"Waiting for %s": [
 		"已等候 %s"
@@ -1175,6 +1700,12 @@
 	"WordPress export": [
 		"WordPress 匯出檔案"
 	],
+	"WordPress.com API": [
+		"WordPress.com API"
+	],
+	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
+		"WordPress.com 不支援多站台。發佈此網路可能會造成問題。"
+	],
 	"WordPress.com hosting": [
 		"WordPress.com 主機服務"
 	],
@@ -1187,17 +1718,41 @@
 	"Workspace navigation": [
 		"工作區導覽"
 	],
+	"Write": [
+		"寫入"
+	],
 	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
 		"你最多可以附加 %d 張圖片。請先傳送或刪除一個註解，再擷取其他區域。"
 	],
 	"You can close this tab and return to WordPress Studio.": [
 		"你可以關閉此分頁並返回 WordPress Studio。"
 	],
+	"You need administrator access to publish or pull changes.": [
+		"你需要管理員存取權，才能發佈或提取變更。"
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"你已達到 ChatGPT 方案的用量上限。請在 chatgpt.com/settings/usage 管理用量。"
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"你已達到 Copilot 方案的用量上限。請在 github.com/settings/copilot 管理用量。"
+	],
 	"You stopped after %s": [
 		"你在 %s 後停止"
 	],
 	"You're not logged in to WordPress.com. Log in now?": [
 		"你尚未登入 WordPress.com。要立即登入嗎？"
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"你的 ChatGPT 方案無法在 WordPress Studio 中使用。"
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"你的 ChatGPT 登入已失效。請在「設定」中重新連結 ChatGPT。"
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"你的 Copilot 方案不包含此模型。請選擇其他模型，或在 github.com/settings/copilot 開啟此模型。"
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"你的 Spacefast 登入已失效，請重新連結 Spacefast。"
 	],
 	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
 		"你的預覽已移至 WordPress.com，因此連結已變更。新連結：%s"
@@ -1219,6 +1774,33 @@
 	],
 	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
 		"base-url 必須是不含路徑的 http(s) URL，例如 https://example.com"
+	],
+	"inline content": [
+		"內嵌內容"
+	],
+	"media item": [
+		"媒體項目"
+	],
+	"media items": [
+		"媒體項目"
+	],
+	"page": [
+		"頁面"
+	],
+	"pages": [
+		"頁面"
+	],
+	"post": [
+		"文章"
+	],
+	"posts": [
+		"文章"
+	],
+	"product": [
+		"商品"
+	],
+	"products": [
+		"商品"
 	],
 	"· %d%%": [
 		"· %d%%"

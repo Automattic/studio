@@ -120,6 +120,11 @@
 		"Вибрано %d чати",
 		"Вибрано %d чатів"
 	],
+	"%d image": [
+		"%d зображення",
+		"%d зображення",
+		"%d зображень"
+	],
 	"%d item updated": [
 		"Оновлено %d елемент",
 		"Оновлено %d елементи",
@@ -180,6 +185,9 @@
 	"%s screenshot": [
 		"Знімок екрана %s"
 	],
+	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
+		"Сайт %s перестав повідомляти про хід імпорту, але оновлення може ще тривати. Перевірте робочий сайт, перш ніж надсилати знову."
+	],
 	"%s used": [
 		"Використано %s"
 	],
@@ -228,6 +236,9 @@
 	"A pull is in progress or was interrupted before it finished.": [
 		"Отримання змін триває або його було перервано до завершення."
 	],
+	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
+		"На цьому сайті вже триває синхронізація. Дочекайтеся її завершення та спробуйте ще раз."
+	],
 	"AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.": [
 		"Кредити ШІ — це спосіб оплати використання ШІ у WordPress Studio: генерування коду, створення сайту чи інших функцій на основі ШІ. Це не гроші. Їх не можна вивести, обміняти на готівку або використати поза WordPress Studio."
 	],
@@ -264,11 +275,26 @@
 	"AI usage unavailable": [
 		"Дані про використання ШІ недоступні"
 	],
+	"API key": [
+		"Ключ API"
+	],
+	"API key is required": [
+		"Потрібен ключ API"
+	],
 	"Accent tag": [
 		"Акцентна мітка"
 	],
 	"Actions for %s": [
 		"Дії для %s"
+	],
+	"Activate all plugins": [
+		"Активувати всі плагіни"
+	],
+	"Activate plugin": [
+		"Активувати плагін"
+	],
+	"Activate theme": [
+		"Активувати тему"
 	],
 	"Add AI credits": [
 		"Додати кредити ШІ"
@@ -345,6 +371,9 @@
 	"All files": [
 		"Усі файли"
 	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"Під час входу дозвольте WordPress Studio використовувати ваш тарифний план ChatGPT."
+	],
 	"Already have an account?": [
 		"Уже маєте обліковий запис?"
 	],
@@ -369,6 +398,9 @@
 	"Annotate": [
 		"Додати примітки"
 	],
+	"Annotate site elements visually in a browser.": [
+		"Додавайте примітки до елементів сайту візуально в браузері."
+	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"Примітки доступні для дизайн-систем, створених Studio Code."
 	],
@@ -389,6 +421,15 @@
 	],
 	"Answer with an option": [
 		"Відповісти варіантом"
+	],
+	"Anthropic API key": [
+		"Ключ API Anthropic"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic відхилив цей ключ API. Перевірте ключ і спробуйте ще раз."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic відхилив цей токен. Запустіть claude setup-token ще раз."
 	],
 	"Anthropic’s AI coding agent.": [
 		"Агент ШІ для програмування від Anthropic."
@@ -458,6 +499,9 @@
 	"Ask for a change and watch it land in the preview. Switch a chat to Live to work on your WordPress.com site.": [
 		"Попросіть внести зміну й дивіться, як вона з’являється в попередньому перегляді. Перемкніть чат у режим «Наживо», щоб працювати з вашим сайтом WordPress.com."
 	],
+	"Ask user": [
+		"Запитати користувача"
+	],
 	"At %s usage": [
 		"Використано %s"
 	],
@@ -472,6 +516,12 @@
 	],
 	"Attached images are too large to send together": [
 		"Вкладені зображення завеликі, щоб надіслати їх разом"
+	],
+	"Audit SEO": [
+		"Перевірити SEO"
+	],
+	"Audit performance": [
+		"Перевірити продуктивність"
 	],
 	"Auto-start": [
 		"Автозапуск"
@@ -523,6 +573,15 @@
 	],
 	"Backup node ids to pull when using the \"paths\" option": [
 		"ID вузлів резервної копії для отримання, якщо використовується параметр \"paths\""
+	],
+	"Backup timed out — no progress detected": [
+		"Час очікування резервного копіювання минув — поступу не виявлено"
+	],
+	"Backups": [
+		"Резервні копії"
+	],
+	"Balanced": [
+		"Збалансована"
 	],
 	"Batch notes": [
 		"Групувати нотатки"
@@ -665,6 +724,15 @@
 	"Changes pulled into WordPress Studio": [
 		"Зміни отримано у WordPress Studio"
 	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"Зміни надіслано, але не вдалося запустити сайт. Перевірте свій тарифний план і дозволи, а потім опублікуйте знову, щоб повторити запуск."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"Зміни надіслано, але не вдалося запустити сайт. Опублікуйте знову, щоб повторити запуск."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"Зміни надіслано, але не вдалося запустити сайт. Підтвердьте свою електронну адресу, а потім опублікуйте знову, щоб повторити запуск."
+	],
 	"Changes to %s": [
 		"Зміни в %s"
 	],
@@ -679,6 +747,18 @@
 	],
 	"Chat with an AI WordPress expert that helps build and edit your site alongside you": [
 		"Спілкуйтеся з ШІ-експертом з WordPress, який допомагає вам створювати й редагувати сайт"
+	],
+	"ChatGPT plan": [
+		"Тарифний план ChatGPT"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"Використання тарифного плану ChatGPT зараз недоступне. Спробуйте ще раз трохи згодом."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT повернув неповні дані входу."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"Не вдалося завершити вхід через ChatGPT. Спробуйте ще раз."
 	],
 	"Chats": [
 		"Чати"
@@ -803,11 +883,20 @@
 	"Choosing individual files requires a backup of this website.": [
 		"Для вибору окремих файлів потрібна резервна копія цього вебсайту."
 	],
+	"Claude subscription": [
+		"Підписка Claude"
+	],
+	"Claude subscription token": [
+		"Токен підписки Claude"
+	],
 	"Clear browsing data": [
 		"Очистити дані перегляду"
 	],
 	"Clear the conversation and start a fresh session": [
 		"Очистити розмову та почати нову сесію"
+	],
+	"Click anything on the page to leave a note": [
+		"Клацніть будь-що на сторінці, щоб залишити нотатку"
 	],
 	"Close %s": [
 		"Закрити %s"
@@ -887,6 +976,9 @@
 	"Connect AI providers": [
 		"Підключіть постачальників ШІ"
 	],
+	"Connect Spacefast to publish sites.": [
+		"Підключіть Spacefast, щоб публікувати сайти."
+	],
 	"Connect a debugger to inspect PHP execution.": [
 		"Підключіть налагоджувач, щоб перевіряти виконання PHP."
 	],
@@ -946,6 +1038,9 @@
 	],
 	"Continue for %s": [
 		"Продовжити за %s"
+	],
+	"Continue with GitHub": [
+		"Продовжити з GitHub"
 	],
 	"Continue with WordPress.com": [
 		"Продовжити з WordPress.com"
@@ -1052,6 +1147,9 @@
 	"Could not parse themes list. The WP CLI output: %s": [
 		"Не вдалося розібрати список тем. Вивід WP CLI: %s"
 	],
+	"Could not reach Anthropic to verify the credential.": [
+		"Не вдалося зв’язатися з Anthropic для перевірки облікових даних."
+	],
 	"Could not read the table prefix from wp-config.php": [
 		"Не вдалося прочитати префікс таблиць із wp-config.php"
 	],
@@ -1075,6 +1173,9 @@
 	],
 	"Could not update the admin bar setting. Please try again.": [
 		"Не вдалося оновити налаштування панелі адміністратора. Спробуйте ще раз."
+	],
+	"Could not verify the credential with Anthropic.": [
+		"Не вдалося перевірити облікові дані в Anthropic."
 	],
 	"Couldn't copy the live site. Try again.": [
 		"Не вдалося скопіювати робочий сайт. Спробуйте ще раз."
@@ -1151,11 +1252,26 @@
 	"Couldn’t update the chat": [
 		"Не вдалося оновити чат"
 	],
+	"Create %s": [
+		"Створити %s"
+	],
 	"Create a WordPress.com site": [
 		"Створити сайт WordPress.com"
 	],
 	"Create a free WordPress.com account to build with the agent, share previews, and publish.": [
 		"Створіть безкоштовний обліковий запис WordPress.com, щоб працювати з агентом, ділитися попередніми переглядами та публікувати."
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"Створіть ключ у [Google AI Studio](https://aistudio.google.com/apikey), а потім вставте його нижче."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"Створіть ключ на вкладці API keys на [панелі Meta Model API](https://dev.meta.ai), а потім вставте його нижче."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"Створіть ключ у [Claude Console](https://platform.claude.com/settings/keys), а потім вставте його нижче."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"Створіть ключ на [OpenAI Platform](https://platform.openai.com/api-keys), а потім вставте його нижче."
 	],
 	"Create a new WordPress": [
 		"Створити новий WordPress"
@@ -1180,6 +1296,9 @@
 	],
 	"Create the site from a static import source": [
 		"Створити сайт зі статичного джерела імпорту"
+	],
+	"Create user": [
+		"Створити користувача"
 	],
 	"Created site": [
 		"Сайт створено"
@@ -1226,6 +1345,12 @@
 	"Database import failed: %s": [
 		"Не вдалося імпортувати базу даних: %s"
 	],
+	"Deactivate all plugins": [
+		"Деактивувати всі плагіни"
+	],
+	"Deactivate plugin": [
+		"Деактивувати плагін"
+	],
 	"Default AI provider": [
 		"Типовий постачальник ШІ"
 	],
@@ -1258,11 +1383,23 @@
 		"Видалити %d сайти",
 		"Видалити %d сайтів"
 	],
+	"Delete %s": [
+		"Видалити %s"
+	],
 	"Delete annotation": [
 		"Видалити примітку"
 	],
 	"Delete annotation: %s": [
 		"Видалити примітку: %s"
+	],
+	"Delete plugin": [
+		"Видалити плагін"
+	],
+	"Delete theme": [
+		"Видалити тему"
+	],
+	"Delete user": [
+		"Видалити користувача"
 	],
 	"Delete your Studio config in %s?": [
 		"Видалити конфігурацію Studio у %s?"
@@ -1343,6 +1480,9 @@
 	],
 	"Do not pull the database (keeps the local one)": [
 		"Не отримувати базу даних (зберігається локальна)"
+	],
+	"Domains": [
+		"Домени"
 	],
 	"Download & copy command": [
 		"Завантажити й скопіювати команду"
@@ -1437,6 +1577,9 @@
 	"Enter a path or an address on this site.": [
 		"Введіть шлях або адресу на цьому сайті."
 	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"Введіть токен із claude setup-token, а не ключ API."
+	],
 	"Enter the folder’s full path.": [
 		"Введіть повний шлях до папки."
 	],
@@ -1521,6 +1664,15 @@
 	"Failed to back up the remote site": [
 		"Не вдалося створити резервну копію віддаленого сайту"
 	],
+	"Failed to check backup size": [
+		"Не вдалося перевірити розмір резервної копії"
+	],
+	"Failed to check backup status": [
+		"Не вдалося перевірити стан резервної копії"
+	],
+	"Failed to check import status": [
+		"Не вдалося перевірити стан імпорту"
+	],
 	"Failed to check the preview site": [
 		"Не вдалося перевірити сайт попереднього перегляду"
 	],
@@ -1529,6 +1681,9 @@
 	],
 	"Failed to create the %s site": [
 		"Не вдалося створити сайт %s"
+	],
+	"Failed to create the Space": [
+		"Не вдалося створити простір"
 	],
 	"Failed to delete chat sessions. Proceeding anyway…": [
 		"Не вдалося видалити сесії чату. Продовжуємо все одно…"
@@ -1572,6 +1727,12 @@
 	"Failed to import the backup. Please try again.": [
 		"Не вдалося імпортувати резервну копію. Спробуйте ще раз."
 	],
+	"Failed to initiate backup": [
+		"Не вдалося розпочати резервне копіювання"
+	],
+	"Failed to initiate import on remote site": [
+		"Не вдалося розпочати імпорт на віддаленому сайті"
+	],
 	"Failed to install the migration key on the WordPress.com site": [
 		"Не вдалося встановити ключ міграції на сайті WordPress.com"
 	],
@@ -1584,6 +1745,9 @@
 	"Failed to load your %s sites": [
 		"Не вдалося завантажити ваші сайти %s"
 	],
+	"Failed to load your Spacefast Spaces": [
+		"Не вдалося завантажити ваші простори Spacefast"
+	],
 	"Failed to move site files to trash. Proceeding anyway…": [
 		"Не вдалося перемістити файли сайту в кошик. Продовжуємо все одно…"
 	],
@@ -1595,6 +1759,9 @@
 	],
 	"Failed to publish site.": [
 		"Не вдалося опублікувати сайт."
+	],
+	"Failed to publish to Spacefast": [
+		"Не вдалося опублікувати на Spacefast"
 	],
 	"Failed to pull site": [
 		"Не вдалося отримати сайт"
@@ -1677,6 +1844,9 @@
 	"Finalization… %d sec elapsed": [
 		"Завершення… минуло %d с"
 	],
+	"Finish activating hosting on WordPress.com before publishing.": [
+		"Перед публікацією завершіть активацію хостингу на WordPress.com."
+	],
 	"Finish signing in to %s in your browser.": [
 		"Завершіть вхід до %s у браузері."
 	],
@@ -1685,6 +1855,12 @@
 	],
 	"Flattening layout": [
 		"Спрощення структури"
+	],
+	"Flush cache": [
+		"Очистити кеш"
+	],
+	"Flush permalinks": [
+		"Оновити постійні посилання"
 	],
 	"Folder": [
 		"Папка"
@@ -1736,8 +1912,14 @@
 	"Full skill body hidden · ctrl+o to expand": [
 		"Повний текст навички приховано · ctrl+o, щоб розгорнути"
 	],
+	"Gemini API key": [
+		"Ключ API Gemini"
+	],
 	"General feedback": [
 		"Загальний відгук"
+	],
+	"Generate images": [
+		"Згенерувати зображення"
 	],
 	"Generating static site…": [
 		"Створення статичного сайту…"
@@ -1751,6 +1933,12 @@
 	"Get site configuration": [
 		"Отримати конфігурацію сайту"
 	],
+	"Get site info": [
+		"Отримати інформацію про сайт"
+	],
+	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
+		"Почніть з одноразового безкоштовного ліміту, а потім докуповуйте більше за потреби. Ключ API не потрібен."
+	],
 	"Getting Started": [
 		"Початок роботи"
 	],
@@ -1760,6 +1948,9 @@
 	"Giant Steps": [
 		"Giant Steps"
 	],
+	"GitHub sign-in was declined.": [
+		"Вхід через GitHub відхилено."
+	],
 	"Go back in preview": [
 		"Назад у попередньому перегляді"
 	],
@@ -1768,6 +1959,9 @@
 	],
 	"Good idea! I’ll open the homepage and check to see where the best place would be for a contact form.": [
 		"Гарна ідея! Я відкрию головну сторінку й подивлюся, де найкраще розмістити контактну форму."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google відхилив цей ключ API. Перевірте ключ і спробуйте ще раз."
 	],
 	"Green Dolphin Street": [
 		"Green Dolphin Street"
@@ -1868,6 +2062,12 @@
 	"Import finished": [
 		"Імпорт завершено"
 	],
+	"Import media": [
+		"Імпортувати медіафайли"
+	],
+	"Import site": [
+		"Імпортувати сайт"
+	],
 	"Import source directory is empty: %s": [
 		"Каталог джерела імпорту порожній: %s"
 	],
@@ -1916,11 +2116,26 @@
 	"Insert newline": [
 		"Вставити новий рядок"
 	],
+	"Inspect design": [
+		"Перевірити дизайн"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"Встановіть [Claude Code](https://code.claude.com/docs/en/setup), якщо у вас його ще немає."
+	],
+	"Install plugin": [
+		"Встановити плагін"
+	],
+	"Install taxonomy scripts": [
+		"Встановити скрипти таксономії"
+	],
 	"Install the WordPress Studio CLI and configure MCP for another app.": [
 		"Встановіть WordPress Studio CLI та налаштуйте MCP для іншого додатка."
 	],
 	"Install the WordPress Studio CLI.": [
 		"Встановіть WordPress Studio CLI."
+	],
+	"Install theme": [
+		"Встановити тему"
 	],
 	"Instruction files guide AI agents working with this site. Changes here apply only to this site.": [
 		"Файли інструкцій спрямовують агентів ШІ, що працюють із цим сайтом. Зміни тут застосовуються лише до цього сайту."
@@ -2013,6 +2228,9 @@
 	"Leave": [
 		"Покинути"
 	],
+	"Leave a note…": [
+		"Залиште нотатку…"
+	],
 	"Leave page with unsaved changes?": [
 		"Покинути сторінку з незбереженими змінами?"
 	],
@@ -2028,20 +2246,53 @@
 	"Let’s go": [
 		"Почнімо"
 	],
+	"Liberate": [
+		"Визволити"
+	],
 	"Light mode": [
 		"Світлий режим"
 	],
 	"Link copied": [
 		"Посилання скопійовано"
 	],
+	"List": [
+		"Показати список"
+	],
+	"List %s": [
+		"Показати %s"
+	],
 	"List available blueprints": [
 		"Список доступних Blueprint"
+	],
+	"List connected remote sites": [
+		"Показати підключені віддалені сайти"
+	],
+	"List menus": [
+		"Показати меню"
+	],
+	"List plugins": [
+		"Показати плагіни"
 	],
 	"List preview sites for all local sites, grouped by site": [
 		"Список сайтів попереднього перегляду для всіх локальних сайтів, згрупованих за сайтом"
 	],
+	"List previews": [
+		"Показати попередні перегляди"
+	],
 	"List previous code sessions": [
 		"Список попередніх сесій коду"
+	],
+	"List published %s": [
+		"Показати опубліковані %s"
+	],
+	"List terms": [
+		"Показати терміни"
+	],
+	"List themes": [
+		"Показати теми"
+	],
+	"List users": [
+		"Показати користувачів"
 	],
 	"List, resume, and delete code sessions": [
 		"Переглядати, відновлювати та видаляти сесії коду"
@@ -2051,6 +2302,9 @@
 	],
 	"Live site": [
 		"Робочий сайт"
+	],
+	"Load skill": [
+		"Завантажити навичку"
 	],
 	"Load unminified WordPress JavaScript and CSS for easier debugging.": [
 		"Завантажувати немініфіковані JavaScript і CSS WordPress для зручнішого налагодження."
@@ -2091,6 +2345,9 @@
 	"Log in or create account": [
 		"Увійти або створити обліковий запис"
 	],
+	"Log in to WordPress.com to sync sites.": [
+		"Увійдіть до WordPress.com, щоб синхронізувати сайти."
+	],
 	"Log in with WordPress.com": [
 		"Увійти через WordPress.com"
 	],
@@ -2115,11 +2372,32 @@
 	"Manage AI credits": [
 		"Керувати кредитами ШІ"
 	],
+	"Manage cache": [
+		"Керувати кешем"
+	],
+	"Manage content": [
+		"Керувати вмістом"
+	],
 	"Manage instructions for all sites": [
 		"Керувати інструкціями для всіх сайтів"
 	],
 	"Manage instructions for this site": [
 		"Керувати інструкціями для цього сайту"
+	],
+	"Manage media": [
+		"Керувати медіафайлами"
+	],
+	"Manage menus": [
+		"Керувати меню"
+	],
+	"Manage on WordPress.com": [
+		"Керувати на WordPress.com"
+	],
+	"Manage permalinks": [
+		"Керувати постійними посиланнями"
+	],
+	"Manage plugins": [
+		"Керувати плагінами"
 	],
 	"Manage sharing": [
 		"Керувати поширенням"
@@ -2127,11 +2405,26 @@
 	"Manage site configuration": [
 		"Керувати конфігурацією сайту"
 	],
+	"Manage site options": [
+		"Керувати параметрами сайту"
+	],
 	"Manage skills for all sites": [
 		"Керувати навичками для всіх сайтів"
 	],
 	"Manage skills for this site": [
 		"Керувати навичками для цього сайту"
+	],
+	"Manage terms": [
+		"Керувати термінами"
+	],
+	"Manage themes": [
+		"Керувати темами"
+	],
+	"Manage usage": [
+		"Керувати використанням"
+	],
+	"Manage users": [
+		"Керувати користувачами"
 	],
 	"Manual MCP setup": [
 		"Ручне налаштування MCP"
@@ -2166,8 +2459,20 @@
 	"Message to send on resume (required with --json)": [
 		"Повідомлення для надсилання під час відновлення (обов’язкове з --json)"
 	],
+	"Meta API key": [
+		"Ключ API Meta"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta обмежує запити з вашим ключем API. Спробуйте ще раз трохи згодом або перевірте свої ліміти на dev.meta.ai."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta відхилила цей ключ API. Перевірте ключ і спробуйте ще раз."
+	],
 	"Microsoft Defender's Real-time protection may slow site creation.\n\nTo create sites quickly, we recommend disabling Real-time protection for WordPress Studio.": [
 		"Захист у реальному часі Microsoft Defender може сповільнювати створення сайтів.\n\nЩоб швидко створювати сайти, радимо вимкнути захист у реальному часі для WordPress Studio."
+	],
+	"Migrate & rebuild a site from a closed platform.": [
+		"Перенесіть і перебудуйте сайт із закритої платформи."
 	],
 	"Model": [
 		"Модель"
@@ -2352,6 +2657,9 @@
 	"Open a site or Blueprint": [
 		"Відкрити сайт або Blueprint"
 	],
+	"Open annotation browser": [
+		"Відкрити браузер для приміток"
+	],
 	"Open database": [
 		"Відкрити базу даних"
 	],
@@ -2376,6 +2684,12 @@
 	"Open this page in your browser": [
 		"Відкрити цю сторінку в браузері"
 	],
+	"OpenAI API key": [
+		"Ключ API OpenAI"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI відхилила цей ключ API. Перевірте ключ і спробуйте ще раз."
+	],
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"Агент для програмування від OpenAI у додатку ChatGPT."
 	],
@@ -2390,6 +2704,9 @@
 	],
 	"Opening the local site…": [
 		"Відкриття локального сайту…"
+	],
+	"Optimize category taxonomy with AI.": [
+		"Оптимізуйте таксономію категорій за допомогою ШІ."
 	],
 	"Other files…": [
 		"Інші файли…"
@@ -2415,6 +2732,9 @@
 	"Parent folder": [
 		"Батьківська папка"
 	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"Вставте виведений токен. Використання зараховується до вашого тарифного плану Claude."
+	],
 	"Path to a JSON input payload for the session turn": [
 		"Шлях до файлу JSON із вхідними даними для кроку сесії"
 	],
@@ -2426,6 +2746,12 @@
 	],
 	"Pending annotation": [
 		"Незавершена примітка"
+	],
+	"Performance audit": [
+		"Аудит продуктивності"
+	],
+	"Pick design": [
+		"Вибрати дизайн"
 	],
 	"Pin": [
 		"Закріпити"
@@ -2474,6 +2800,9 @@
 	],
 	"Preparing source website with Data Liberation…": [
 		"Підготовка сайту-джерела за допомогою Data Liberation…"
+	],
+	"Present design options": [
+		"Запропонувати варіанти дизайну"
 	],
 	"Press %s for anything": [
 		"Натисніть %s для будь-якої дії"
@@ -2526,6 +2855,12 @@
 	"Publish & Sync…": [
 		"Публікація та синхронізація…"
 	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"Опублікуйте статичну копію свого сайту в просторі Spacefast. Форми, коментарі та інші функції, яким потрібен запущений WordPress, у копії не працюватимуть."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"Публікуйте статичні копії своїх сайтів у просторі Spacefast."
+	],
 	"Publish and share": [
 		"Публікуйте й діліться"
 	],
@@ -2552,6 +2887,12 @@
 	],
 	"Publish to %s to apply these changes.": [
 		"Опублікуйте на %s, щоб застосувати ці зміни."
+	],
+	"Publish to Spacefast": [
+		"Опублікувати на Spacefast"
+	],
+	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
+		"Опублікуйте на новому сайті й виберіть домен або використайте наявний сайт на WordPress.com чи Pressable."
 	],
 	"Publish to a real WordPress.com site when you're ready": [
 		"Публікуйте на справжньому сайті WordPress.com, коли будете готові"
@@ -2582,6 +2923,9 @@
 	],
 	"Published to %s": [
 		"Опубліковано на %s"
+	],
+	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
+		"Для публікації та отримання змін потрібен підтримуваний сайт WordPress.com або Pressable."
 	],
 	"Publishing cancelled": [
 		"Публікацію скасовано"
@@ -2616,6 +2960,9 @@
 	"Pull progress": [
 		"Хід отримання"
 	],
+	"Pull site": [
+		"Отримати сайт"
+	],
 	"Pulled from %1$s (%2$s)": [
 		"Отримано з %1$s (%2$s)"
 	],
@@ -2645,6 +2992,9 @@
 	],
 	"Purchased credits required": [
 		"Потрібні придбані кредити"
+	],
+	"Push site": [
+		"Надіслати сайт"
 	],
 	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
 		"Надіслати локальний сайт на сайт WordPress.com або опублікувати його на Spacefast"
@@ -2679,6 +3029,18 @@
 	"Re-run the same command to resume the import.": [
 		"Виконайте ту саму команду ще раз, щоб відновити імпорт."
 	],
+	"Read": [
+		"Прочитати"
+	],
+	"Read %s": [
+		"Прочитати %s"
+	],
+	"Read site option": [
+		"Прочитати параметр сайту"
+	],
+	"Read site title": [
+		"Прочитати назву сайту"
+	],
 	"Recent chats": [
 		"Недавні чати"
 	],
@@ -2697,6 +3059,9 @@
 	"Refresh list": [
 		"Оновити список"
 	],
+	"Refresh preview": [
+		"Оновити попередній перегляд"
+	],
 	"Refreshing the database on its own is not supported yet. Select at least one path to refresh.": [
 		"Оновлення лише бази даних поки що не підтримується. Виберіть принаймні один шлях для оновлення."
 	],
@@ -2711,6 +3076,9 @@
 	],
 	"Remote URLs must be rendered by Data Liberation before SSI materialization.": [
 		"Віддалені URL-адреси має бути відтворено за допомогою Data Liberation перед матеріалізацією SSI."
+	],
+	"Remote backup failed": [
+		"Не вдалося створити віддалену резервну копію"
 	],
 	"Remote environment: %s": [
 		"Віддалене середовище: %s"
@@ -2770,6 +3138,9 @@
 	"Replay": [
 		"Відтворити знову"
 	],
+	"Reply in your own words instead of picking an option.": [
+		"Дайте відповідь своїми словами замість вибору варіанта."
+	],
 	"Report": [
 		"Повідомити"
 	],
@@ -2778,6 +3149,9 @@
 	],
 	"Report an issue on GitHub": [
 		"Повідомити про проблему на GitHub"
+	],
+	"Request a feature or report a bug.": [
+		"Запропонуйте функцію або повідомте про помилку."
 	],
 	"Request completed": [
 		"Запит виконано"
@@ -2888,6 +3262,9 @@
 	"Round Midnight": [
 		"Round Midnight"
 	],
+	"Run": [
+		"Виконати"
+	],
 	"Run \"studio blueprint list\" to see available slugs.": [
 		"Виконайте \"studio blueprint list\", щоб переглянути доступні slug."
 	],
@@ -2897,17 +3274,41 @@
 	"Run %s to update": [
 		"Виконайте %s, щоб оновити"
 	],
+	"Run WordPress code": [
+		"Виконати код WordPress"
+	],
+	"Run WordPress command": [
+		"Виконати команду WordPress"
+	],
+	"Run a performance audit on a site.": [
+		"Проведіть аудит продуктивності сайту."
+	],
 	"Run a single headless turn, printing NDJSON events": [
 		"Виконати один крок без інтерфейсу з виводом подій NDJSON"
+	],
+	"Run an on-page SEO audit on a site.": [
+		"Проведіть on-page SEO-аудит сайту."
+	],
+	"Run task": [
+		"Виконати завдання"
 	],
 	"Run terminal command": [
 		"Виконати команду в терміналі"
 	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"Виконайте це в терміналі, а потім увійдіть у свій обліковий запис Claude:"
+	],
 	"SDK session ID to resume (for JSON mode multi-turn)": [
 		"Ідентифікатор сесії SDK для відновлення (для багатоходового режиму JSON)"
 	],
+	"SEO audit": [
+		"SEO-аудит"
+	],
 	"Saturation and brightness": [
 		"Насиченість і яскравість"
+	],
+	"Save annotation (Enter)": [
+		"Зберегти примітку (Enter)"
 	],
 	"Saved site preview": [
 		"Збережений попередній перегляд сайту"
@@ -2920,6 +3321,9 @@
 	],
 	"Saving the instructions failed. Please try again.": [
 		"Не вдалося зберегти інструкції. Спробуйте ще раз."
+	],
+	"Scaffold theme": [
+		"Створити каркас теми"
 	],
 	"Screenshots are available in the desktop app.": [
 		"Знімки екрана доступні в настільному додатку."
@@ -2986,6 +3390,11 @@
 	],
 	"Selected files, content, and settings on your website will be overwritten.": [
 		"Вибрані файли, вміст і налаштування на вашому вебсайті буде перезаписано."
+	],
+	"Send %d annotation": [
+		"Надіслати %d примітку",
+		"Надіслати %d примітки",
+		"Надіслати %d приміток"
 	],
 	"Send annotation": [
 		"Надіслати примітку"
@@ -3128,6 +3537,12 @@
 	"Sign in to get a one-time grant of free AI credits.": [
 		"Увійдіть, щоб отримати одноразове нарахування безкоштовних кредитів ШІ."
 	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"Увійдіть через ChatGPT або використовуйте ключ API OpenAI."
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"Увійдіть через обліковий запис GitHub із доступом до Copilot."
+	],
 	"Sign-in details for this site and its previews.": [
 		"Дані для входу на цей сайт і його попередні перегляди."
 	],
@@ -3248,6 +3663,9 @@
 	"Something went wrong and this turn was stopped. Please try again.": [
 		"Щось пішло не так, і цей крок було зупинено. Спробуйте ще раз."
 	],
+	"Something went wrong while updating the live site.": [
+		"Під час оновлення робочого сайту сталася помилка."
+	],
 	"Sort chats by": [
 		"Сортувати чати за"
 	],
@@ -3262,6 +3680,9 @@
 	],
 	"Source website prepared": [
 		"Сайт-джерело підготовлено"
+	],
+	"Spacefast sign-in was declined.": [
+		"Вхід у Spacefast відхилено."
 	],
 	"Spacing %s": [
 		"Відступ %s"
@@ -3310,6 +3731,15 @@
 	],
 	"Start signing in again.": [
 		"Почніть вхід знову."
+	],
+	"Start signing in to Spacefast again.": [
+		"Почніть вхід у Spacefast знову."
+	],
+	"Start signing in with ChatGPT again.": [
+		"Почніть вхід через ChatGPT знову."
+	],
+	"Start signing in with GitHub again.": [
+		"Почніть вхід через GitHub знову."
 	],
 	"Start site when sending a prompt": [
 		"Запускати сайт під час надсилання запиту"
@@ -3401,6 +3831,9 @@
 	"Stopping site…": [
 		"Зупинка сайту…"
 	],
+	"Strong": [
+		"Потужна"
+	],
 	"Studio CLI requires Node.js %s or newer. You are running %s.\nUpgrade Node.js and run this command again.\nDownload: https://nodejs.org/en/download": [
 		"Studio CLI потребує Node.js %s або новішої версії. У вас встановлено %s.\nОновіть Node.js і виконайте цю команду ще раз.\nЗавантажити: https://nodejs.org/en/download"
 	],
@@ -3470,6 +3903,12 @@
 	"Taking screenshot…": [
 		"Створення знімка екрана…"
 	],
+	"Taxonomist": [
+		"Таксономіст"
+	],
+	"Team": [
+		"Команда"
+	],
 	"Tells WordPress, themes, and plugins whether this site is used for local work, development, staging, or production. They may adjust features such as caching or debugging based on this value.": [
 		"Повідомляє WordPress, темам і плагінам, для чого використовується цей сайт: для локальної роботи, розробки, тестування (staging) чи продакшну. Залежно від цього значення вони можуть змінювати такі функції, як кешування або налагодження."
 	],
@@ -3494,8 +3933,14 @@
 	"That sign-in was for another attempt. Try again.": [
 		"Цей вхід належав до іншої спроби. Спробуйте ще раз."
 	],
+	"The GitHub sign-in expired. Try again.": [
+		"Термін дії входу через GitHub минув. Спробуйте ще раз."
+	],
 	"The PHP version used to run WordPress on this site.": [
 		"Версія PHP, яка використовується для роботи WordPress на цьому сайті."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"Термін дії входу в Spacefast минув. Спробуйте ще раз."
 	],
 	"The WordPress.com site did not accept the migration key. Please try again.": [
 		"Сайт WordPress.com не прийняв ключ міграції. Спробуйте ще раз."
@@ -3517,6 +3962,9 @@
 	],
 	"The configuration couldn't be changed to speed up site creation.\n\nTo initiate this process again, please go to \"Help > How can I make WordPress Studio faster?\" in the application menu.": [
 		"Не вдалося змінити конфігурацію для пришвидшення створення сайтів.\n\nЩоб запустити цей процес знову, перейдіть у меню додатка до \"Допомога > Як зробити WordPress Studio швидшим?\"."
+	],
+	"The database failed to import on the live site. Review your database and try again.": [
+		"Не вдалося імпортувати базу даних на робочий сайт. Перевірте базу даних і спробуйте ще раз."
 	],
 	"The default browser for your sites.": [
 		"Типовий браузер для ваших сайтів."
@@ -3550,6 +3998,9 @@
 	],
 	"The live site must be a qualifying connected site of this local site.": [
 		"Робочий сайт має бути відповідним підключеним сайтом цього локального сайту."
+	],
+	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
+		"Час очікування імпорту на робочому сайті минув, імовірно, через завеликий розмір сайту. Спробуйте зменшити його вміст або файли."
 	],
 	"The local site has no database yet (it is created the first time the site starts), so the database cannot be excluded from this pull. Include the database, or start the site once and pull again.": [
 		"Локальний сайт ще не має бази даних (її буде створено під час першого запуску сайту), тому базу даних не можна виключити з цього отримання. Включіть базу даних або один раз запустіть сайт і отримайте зміни знову."
@@ -3620,6 +4071,9 @@
 	"This Blueprint requires a custom domain.": [
 		"Цей Blueprint потребує власного домену."
 	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"Цей обліковий запис GitHub не має тарифного плану Copilot. Виберіть план на github.com/features/copilot."
+	],
 	"This Studio CLI is bundled with the Studio desktop app. Uninstall the app to remove it.": [
 		"Цей Studio CLI входить до складу настільного додатка Studio. Щоб видалити його, видаліть додаток."
 	],
@@ -3665,6 +4119,9 @@
 	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
 		"Ця папка вже пов’язана з іншим сайтом Studio. Виберіть іншу назву сайту або локальну папку."
 	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"Це ключ Anthropic. Додайте його до Anthropic."
+	],
 	"This selection exceeds the %s GB publishing limit. Choose fewer files to continue.": [
 		"Ця вибірка перевищує обмеження на публікацію в %s ГБ. Щоб продовжити, виберіть менше файлів."
 	],
@@ -3676,6 +4133,9 @@
 	],
 	"This site does not support pulling into WordPress Studio.": [
 		"Цей сайт не підтримує отримання змін у WordPress Studio."
+	],
+	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
+		"Цей сайт ще не підтримує отримання змін. Оновіть Jetpack на сайті до останньої версії та спробуйте ще раз."
 	],
 	"This site has been deleted.": [
 		"Цей сайт видалено."
@@ -3707,8 +4167,14 @@
 	"This version of WordPress Studio is not optimized for your computer": [
 		"Ця версія WordPress Studio не оптимізована для вашого комп’ютера"
 	],
+	"This website has been deleted. Choose another website.": [
+		"Цей сайт видалено. Виберіть інший сайт."
+	],
 	"This website is no longer available to this account. Choose another website.": [
 		"Цей вебсайт більше не доступний для цього облікового запису. Виберіть інший вебсайт."
+	],
+	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
+		"Для цього сайту потрібен тарифний план хостингу, що підтримує публікацію з WordPress Studio."
 	],
 	"Tips reset.": [
 		"Підказки скинуто."
@@ -3727,6 +4193,9 @@
 	],
 	"Toggle theme": [
 		"Перемкнути тему"
+	],
+	"Token is required": [
+		"Потрібен токен"
 	],
 	"Top up now so your next build doesn’t stop short.": [
 		"Поповніть баланс зараз, щоб ваш наступний проєкт не зупинився на півдорозі."
@@ -3806,6 +4275,9 @@
 	"Unable to suggest a folder for this site name.": [
 		"Не вдалося запропонувати папку для цієї назви сайту."
 	],
+	"Unexpected response from server while checking backup status": [
+		"Неочікувана відповідь сервера під час перевірки стану резервної копії"
+	],
 	"Uninstall": [
 		"Видалити"
 	],
@@ -3836,11 +4308,32 @@
 	"Unsupported backup file": [
 		"Непідтримуваний файл резервної копії"
 	],
+	"Update %s": [
+		"Оновити %s"
+	],
+	"Update all plugins": [
+		"Оновити всі плагіни"
+	],
 	"Update available: %1$s → %2$s": [
 		"Доступне оновлення: %1$s → %2$s"
 	],
+	"Update plugin": [
+		"Оновити плагін"
+	],
 	"Update ready": [
 		"Оновлення готове"
+	],
+	"Update site option": [
+		"Оновити параметр сайту"
+	],
+	"Update site title": [
+		"Оновити назву сайту"
+	],
+	"Update todo list": [
+		"Оновити список завдань"
+	],
+	"Update user": [
+		"Оновити користувача"
 	],
 	"Updated %s": [
 		"Оновлено %s"
@@ -3866,6 +4359,18 @@
 	"Uploading files…": [
 		"Вивантаження файлів…"
 	],
+	"Usage is billed through your Anthropic account.": [
+		"Використання оплачується через ваш обліковий запис Anthropic."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"Використання оплачується через ваш проєкт Google AI Studio."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"Використання оплачується через ваш обліковий запис Meta Model API."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"Використання оплачується через ваш обліковий запис OpenAI."
+	],
 	"Use /connect %1$s to connect %2$s again.": [
 		"Скористайтеся /connect %1$s, щоб знову підключити %2$s."
 	],
@@ -3884,6 +4389,12 @@
 	"Use DESIGN.md": [
 		"Використати DESIGN.md"
 	],
+	"Use Gemini with a Gemini API key.": [
+		"Використовуйте Gemini з ключем API Gemini."
+	],
+	"Use Muse models with your Meta API key.": [
+		"Використовуйте моделі Muse зі своїм ключем API Meta."
+	],
 	"Use WordPress Studio with your agents": [
 		"Використовуйте WordPress Studio зі своїми агентами"
 	],
@@ -3892,6 +4403,9 @@
 	],
 	"Use a shorter site name.": [
 		"Використайте коротшу назву сайту."
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"Використовуйте ключ API Anthropic або токен підписки Claude."
 	],
 	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
 		"Використайте HTTPS-посилання на резервну копію з підтримуваного сайту, з файлом zip або tar.gz розміром до 1 ГБ. Перевірте підключення та спробуйте ще раз."
@@ -3908,8 +4422,20 @@
 	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
 		"Використовуйте улюбленого агента ШІ, щоб створювати сайти, вносити зміни й перевіряти роботу. Встановіть плагін WordPress Studio, щоб надати йому доступ до ваших локальних сайтів."
 	],
+	"Using ChatGPT plan": [
+		"Використовується тарифний план ChatGPT"
+	],
+	"Using Claude plan": [
+		"Використовується тарифний план Claude"
+	],
+	"Using Copilot plan": [
+		"Використовується тарифний план Copilot"
+	],
 	"Using your only connected WordPress.com site:": [
 		"Використовується ваш єдиний підключений сайт WordPress.com:"
+	],
+	"Validate blocks": [
+		"Перевірити блоки"
 	],
 	"View %s larger": [
 		"Збільшити %s"
@@ -3937,6 +4463,9 @@
 	],
 	"Visit wapuu.studio": [
 		"Відвідати wapuu.studio"
+	],
+	"Visual Annotations": [
+		"Візуальні примітки"
 	],
 	"WP Admin: ": [
 		"Адмінпанель WP: "
@@ -4148,6 +4677,12 @@
 	"WordPress.com AI": [
 		"ШІ WordPress.com"
 	],
+	"WordPress.com API": [
+		"API WordPress.com"
+	],
+	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
+		"WordPress.com не підтримує мультисайт. Публікація цієї мережі може спричинити проблеми."
+	],
 	"WordPress.com hosting": [
 		"Хостинг WordPress.com"
 	],
@@ -4183,6 +4718,9 @@
 	],
 	"Would delete %1$s (%2$s); files: %3$s": [
 		"Буде видалено %1$s (%2$s); файли: %3$s"
+	],
+	"Write": [
+		"Записати"
 	],
 	"Write PHP errors to wp-content/debug.log.": [
 		"Записувати помилки PHP у wp-content/debug.log."
@@ -4226,6 +4764,15 @@
 	"You must provide a valid config command": [
 		"Потрібно вказати дійсну команду config"
 	],
+	"You need administrator access to publish or pull changes.": [
+		"Щоб публікувати або отримувати зміни, потрібен доступ адміністратора."
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"Ви досягли ліміту використання тарифного плану ChatGPT. Керуйте використанням на chatgpt.com/settings/usage."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"Ви досягли ліміту використання тарифного плану Copilot. Керуйте використанням на github.com/settings/copilot."
+	],
 	"You stopped": [
 		"Ви зупинили"
 	],
@@ -4243,6 +4790,18 @@
 	],
 	"You've used all %d preview sites available on your account.": [
 		"Ви використали всі доступні для вашого облікового запису сайти попереднього перегляду (%d)."
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"Ваш тарифний план ChatGPT не можна використовувати у WordPress Studio."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"Ваш вхід через ChatGPT більше не діє. Підключіть ChatGPT знову в Налаштуваннях."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"Ваш тарифний план Copilot не включає цю модель. Виберіть іншу або увімкніть її на github.com/settings/copilot."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"Ваш вхід у Spacefast більше не діє. Підключіть Spacefast знову."
 	],
 	"Your account doesn't have permission to manage this site.": [
 		"Ваш обліковий запис не має дозволу на керування цим сайтом."
@@ -4360,11 +4919,38 @@
 	"include-path-list must be an array": [
 		"include-path-list має бути масивом"
 	],
+	"inline content": [
+		"вбудований вміст"
+	],
+	"media item": [
+		"медіафайл"
+	],
+	"media items": [
+		"медіафайли"
+	],
 	"no files": [
 		"немає файлів"
 	],
+	"page": [
+		"сторінку"
+	],
+	"pages": [
+		"сторінки"
+	],
+	"post": [
+		"запис"
+	],
+	"posts": [
+		"записи"
+	],
 	"preview link": [
 		"посилання попередній перегляд preview link"
+	],
+	"product": [
+		"товар"
+	],
+	"products": [
+		"товари"
 	],
 	"publish site sync push pull upload download": [
 		"публікація сайт синхронізація надіслати отримати вивантажити завантажити publish sync push pull"

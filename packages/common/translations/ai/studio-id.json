@@ -30,6 +30,10 @@
 		"%d anotasi siap dikirim",
 		"%d anotasi siap dikirim"
 	],
+	"%d image": [
+		"%d gambar",
+		"%d gambar"
+	],
 	"%s (saved for future use):": [
 		"%s (disimpan untuk penggunaan berikutnya):"
 	],
@@ -48,6 +52,9 @@
 	"%s preview is ready": [
 		"Pratinjau %s sudah siap"
 	],
+	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
+		"%s berhenti melaporkan progres impor, tetapi pembaruan mungkin masih berjalan. Periksa situs aktif sebelum mendorong lagi."
+	],
 	"(No subject)": [
 		"(Tanpa subjek)"
 	],
@@ -57,8 +64,26 @@
 	"A coding agent that runs in your terminal.": [
 		"Agen coding yang berjalan di terminal Anda."
 	],
+	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
+		"Operasi sinkronisasi sedang berlangsung di situs ini. Tunggu hingga selesai, lalu coba lagi."
+	],
 	"AI apps": [
 		"Aplikasi AI"
+	],
+	"API key": [
+		"Kunci API"
+	],
+	"API key is required": [
+		"Kunci API wajib diisi"
+	],
+	"Activate all plugins": [
+		"Aktifkan semua plugin"
+	],
+	"Activate plugin": [
+		"Aktifkan plugin"
+	],
+	"Activate theme": [
+		"Aktifkan tema"
 	],
 	"Add annotation to batch": [
 		"Tambahkan anotasi ke kumpulan"
@@ -78,8 +103,14 @@
 	"Agents": [
 		"Agen"
 	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"Izinkan WordPress Studio menggunakan paket ChatGPT Anda saat login."
+	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"Terjadi kesalahan saat memperbarui WordPress Studio CLI. Coba lagi."
+	],
+	"Annotate site elements visually in a browser.": [
+		"Beri anotasi elemen situs secara visual di browser."
 	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"Anotasi tersedia untuk sistem desain yang dibuat oleh Studio Code."
@@ -89,6 +120,15 @@
 	],
 	"Anonymous usage statistics enabled.": [
 		"Statistik penggunaan anonim diaktifkan."
+	],
+	"Anthropic API key": [
+		"Kunci API Anthropic"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic menolak kunci API ini. Periksa kunci tersebut, lalu coba lagi."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic menolak token ini. Jalankan claude setup-token lagi."
 	],
 	"Anthropic’s AI coding agent.": [
 		"Agen AI untuk coding dari Anthropic."
@@ -105,8 +145,17 @@
 	"Approve the connection in your browser.": [
 		"Setujui koneksi di browser Anda."
 	],
+	"Ask user": [
+		"Tanya pengguna"
+	],
 	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
 		"Diperlukan setidaknya satu opsi (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
+	],
+	"Audit SEO": [
+		"Audit SEO"
+	],
+	"Audit performance": [
+		"Audit performa"
 	],
 	"Automatic sidebar collapsing disabled.": [
 		"Penciutan bilah sisi otomatis dinonaktifkan."
@@ -122,6 +171,15 @@
 	],
 	"Back to email list": [
 		"Kembali ke daftar email"
+	],
+	"Backup timed out — no progress detected": [
+		"Waktu pencadangan habis — tidak ada progres yang terdeteksi"
+	],
+	"Backups": [
+		"Cadangan"
+	],
+	"Balanced": [
+		"Seimbang"
 	],
 	"Batch notes": [
 		"Kumpulan catatan"
@@ -177,8 +235,29 @@
 	"Cc": [
 		"Cc"
 	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"Perubahan telah didorong, tetapi situs tidak dapat diluncurkan. Periksa paket dan izin Anda, lalu terbitkan lagi untuk mencoba meluncurkannya kembali."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"Perubahan telah didorong, tetapi situs tidak dapat diluncurkan. Terbitkan lagi untuk mencoba meluncurkannya kembali."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"Perubahan telah didorong, tetapi situs tidak dapat diluncurkan. Verifikasi email Anda, lalu terbitkan lagi untuk mencoba meluncurkannya kembali."
+	],
 	"Changes to %s": [
 		"Perubahan pada %s"
+	],
+	"ChatGPT plan": [
+		"Paket ChatGPT"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"Penggunaan paket ChatGPT tidak tersedia saat ini. Coba lagi sebentar lagi."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT mengembalikan login yang tidak lengkap."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"Login ChatGPT tidak dapat diselesaikan. Coba lagi."
 	],
 	"Check your internet connection and try again.": [
 		"Periksa koneksi internet Anda dan coba lagi."
@@ -228,8 +307,17 @@
 	"Choosing individual files requires a backup of this website.": [
 		"Memilih file satu per satu memerlukan cadangan situs web ini."
 	],
+	"Claude subscription": [
+		"Langganan Claude"
+	],
+	"Claude subscription token": [
+		"Token langganan Claude"
+	],
 	"Clear browsing data": [
 		"Hapus data penjelajahan"
+	],
+	"Click anything on the page to leave a note": [
+		"Klik apa saja di halaman untuk meninggalkan catatan"
 	],
 	"Close %s": [
 		"Tutup %s"
@@ -264,6 +352,9 @@
 	"Connect AI providers": [
 		"Hubungkan penyedia AI"
 	],
+	"Connect Spacefast to publish sites.": [
+		"Hubungkan Spacefast untuk menerbitkan situs."
+	],
 	"Connect a provider": [
 		"Hubungkan penyedia"
 	],
@@ -284,6 +375,9 @@
 	],
 	"Connecting to WordPress.com": [
 		"Menghubungkan ke WordPress.com"
+	],
+	"Continue with GitHub": [
+		"Lanjutkan dengan GitHub"
 	],
 	"Copy links": [
 		"Salin tautan"
@@ -309,6 +403,9 @@
 	"Could not open Spacefast": [
 		"Tidak dapat membuka Spacefast"
 	],
+	"Could not reach Anthropic to verify the credential.": [
+		"Tidak dapat menghubungi Anthropic untuk memverifikasi kredensial."
+	],
 	"Could not read the table prefix from wp-config.php": [
 		"Tidak dapat membaca prefiks tabel dari wp-config.php"
 	],
@@ -333,6 +430,9 @@
 	"Could not update the admin bar setting. Please try again.": [
 		"Tidak dapat memperbarui pengaturan bilah admin. Coba lagi."
 	],
+	"Could not verify the credential with Anthropic.": [
+		"Tidak dapat memverifikasi kredensial dengan Anthropic."
+	],
 	"Couldn't load providers.": [
 		"Tidak dapat memuat penyedia."
 	],
@@ -341,6 +441,21 @@
 	],
 	"Couldn’t sign in to WordPress.com": [
 		"Tidak dapat login ke WordPress.com"
+	],
+	"Create %s": [
+		"Buat %s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"Buat kunci di [Google AI Studio](https://aistudio.google.com/apikey), lalu tempel di bawah."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"Buat kunci di tab kunci API pada [dasbor Meta Model API](https://dev.meta.ai), lalu tempel di bawah."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"Buat kunci di [Claude Console](https://platform.claude.com/settings/keys), lalu tempel di bawah."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"Buat kunci di [OpenAI Platform](https://platform.openai.com/api-keys), lalu tempel di bawah."
 	],
 	"Create a new WordPress": [
 		"Buat WordPress baru"
@@ -351,8 +466,17 @@
 	"Create another preview": [
 		"Buat pratinjau lain"
 	],
+	"Create user": [
+		"Buat pengguna"
+	],
 	"Data Liberation could not capture the source website": [
 		"Data Liberation tidak dapat mengambil situs web sumber"
+	],
+	"Deactivate all plugins": [
+		"Nonaktifkan semua plugin"
+	],
+	"Deactivate plugin": [
+		"Nonaktifkan plugin"
 	],
 	"Default AI provider": [
 		"Penyedia AI default"
@@ -369,8 +493,20 @@
 	"Default terminal app": [
 		"Aplikasi terminal default"
 	],
+	"Delete %s": [
+		"Hapus %s"
+	],
 	"Delete annotation: %s": [
 		"Hapus anotasi: %s"
+	],
+	"Delete plugin": [
+		"Hapus plugin"
+	],
+	"Delete theme": [
+		"Hapus tema"
+	],
+	"Delete user": [
+		"Hapus pengguna"
 	],
 	"Describe the change": [
 		"Jelaskan perubahannya"
@@ -411,6 +547,9 @@
 	"Do more with WordPress": [
 		"Lakukan lebih banyak hal dengan WordPress"
 	],
+	"Domains": [
+		"Domain"
+	],
 	"Download update": [
 		"Unduh pembaruan"
 	],
@@ -447,6 +586,9 @@
 	"Enter a folder name other than “.” or “..”.": [
 		"Masukkan nama folder selain “.” atau “..”."
 	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"Masukkan token dari claude setup-token, bukan kunci API."
+	],
 	"Enter the folder’s full path.": [
 		"Masukkan jalur lengkap folder."
 	],
@@ -471,11 +613,23 @@
 	"Failed to back up the remote site": [
 		"Gagal mencadangkan situs jarak jauh"
 	],
+	"Failed to check backup size": [
+		"Gagal memeriksa ukuran cadangan"
+	],
+	"Failed to check backup status": [
+		"Gagal memeriksa status cadangan"
+	],
+	"Failed to check import status": [
+		"Gagal memeriksa status impor"
+	],
 	"Failed to check the preview site": [
 		"Gagal memeriksa situs pratinjau"
 	],
 	"Failed to create the %s site": [
 		"Gagal membuat situs %s"
+	],
+	"Failed to create the Space": [
+		"Gagal membuat Space"
 	],
 	"Failed to export static site": [
 		"Gagal mengekspor situs statis"
@@ -486,8 +640,20 @@
 	"Failed to find existing preview site in config": [
 		"Gagal menemukan situs pratinjau yang ada di konfigurasi"
 	],
+	"Failed to initiate backup": [
+		"Gagal memulai pencadangan"
+	],
+	"Failed to initiate import on remote site": [
+		"Gagal memulai impor di situs jarak jauh"
+	],
 	"Failed to load your %s sites": [
 		"Gagal memuat situs %s Anda"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"Gagal memuat Space Spacefast Anda"
+	],
+	"Failed to publish to Spacefast": [
+		"Gagal menerbitkan ke Spacefast"
 	],
 	"Failed to save connected site": [
 		"Gagal menyimpan situs yang terhubung"
@@ -507,11 +673,20 @@
 	"File…": [
 		"File…"
 	],
+	"Finish activating hosting on WordPress.com before publishing.": [
+		"Selesaikan aktivasi hosting di WordPress.com sebelum menerbitkan."
+	],
 	"Finish signing in to %s in your browser.": [
 		"Selesaikan login ke %s di browser Anda."
 	],
 	"First use": [
 		"Penggunaan pertama"
+	],
+	"Flush cache": [
+		"Kosongkan cache"
+	],
+	"Flush permalinks": [
+		"Segarkan permalink"
 	],
 	"For publishing sites.": [
 		"Untuk menerbitkan situs."
@@ -522,14 +697,32 @@
 	"From many, one tool.\nFind strength in community\nfor a better web.": [
 		"Dari banyak, satu alat.\nTemukan kekuatan bersama\ndemi web yang lebih baik."
 	],
+	"Gemini API key": [
+		"Kunci API Gemini"
+	],
+	"Generate images": [
+		"Buat gambar"
+	],
 	"Generating static site…": [
 		"Membuat situs statis…"
+	],
+	"Get site info": [
+		"Dapatkan info situs"
+	],
+	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
+		"Mulai dengan alokasi gratis satu kali, lalu beli lagi sesuai kebutuhan. Tidak perlu kunci API."
 	],
 	"Getting your sign-in code…": [
 		"Mendapatkan kode login Anda…"
 	],
 	"Giant Steps": [
 		"Giant Steps"
+	],
+	"GitHub sign-in was declined.": [
+		"Login GitHub ditolak."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google menolak kunci API ini. Periksa kunci tersebut, lalu coba lagi."
 	],
 	"Green Dolphin Street": [
 		"Green Dolphin Street"
@@ -582,14 +775,35 @@
 	"Import cancelled": [
 		"Impor dibatalkan"
 	],
+	"Import media": [
+		"Impor media"
+	],
+	"Import site": [
+		"Impor situs"
+	],
 	"Include this chat’s transcript": [
 		"Sertakan transkrip obrolan ini"
+	],
+	"Inspect design": [
+		"Periksa desain"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"Instal [Claude Code](https://code.claude.com/docs/en/setup) jika Anda belum memilikinya."
+	],
+	"Install plugin": [
+		"Instal plugin"
+	],
+	"Install taxonomy scripts": [
+		"Instal skrip taksonomi"
 	],
 	"Install the WordPress Studio CLI and configure MCP for another app.": [
 		"Instal WordPress Studio CLI dan konfigurasikan MCP untuk aplikasi lain."
 	],
 	"Install the WordPress Studio CLI.": [
 		"Instal WordPress Studio CLI."
+	],
+	"Install theme": [
+		"Instal tema"
 	],
 	"Interface reset.": [
 		"Antarmuka diatur ulang."
@@ -602,6 +816,45 @@
 	],
 	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
 		"Pelajari selengkapnya di <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
+	],
+	"Leave a note…": [
+		"Tinggalkan catatan…"
+	],
+	"Liberate": [
+		"Bebaskan"
+	],
+	"List": [
+		"Buat daftar"
+	],
+	"List %s": [
+		"Buat daftar %s"
+	],
+	"List connected remote sites": [
+		"Buat daftar situs jarak jauh yang terhubung"
+	],
+	"List menus": [
+		"Buat daftar menu"
+	],
+	"List plugins": [
+		"Buat daftar plugin"
+	],
+	"List previews": [
+		"Buat daftar pratinjau"
+	],
+	"List published %s": [
+		"Buat daftar %s yang diterbitkan"
+	],
+	"List terms": [
+		"Buat daftar istilah"
+	],
+	"List themes": [
+		"Buat daftar tema"
+	],
+	"List users": [
+		"Buat daftar pengguna"
+	],
+	"Load skill": [
+		"Muat keterampilan"
 	],
 	"Loading Blueprint…": [
 		"Memuat Blueprint…"
@@ -618,17 +871,68 @@
 	"Log in or create account": [
 		"Login atau buat akun"
 	],
+	"Log in to WordPress.com to sync sites.": [
+		"Login ke WordPress.com untuk menyinkronkan situs."
+	],
 	"Maiden Voyage": [
 		"Maiden Voyage"
 	],
 	"Manage AI credits": [
 		"Kelola kredit AI"
 	],
+	"Manage cache": [
+		"Kelola cache"
+	],
+	"Manage content": [
+		"Kelola konten"
+	],
+	"Manage media": [
+		"Kelola media"
+	],
+	"Manage menus": [
+		"Kelola menu"
+	],
+	"Manage on WordPress.com": [
+		"Kelola di WordPress.com"
+	],
+	"Manage permalinks": [
+		"Kelola permalink"
+	],
+	"Manage plugins": [
+		"Kelola plugin"
+	],
 	"Manage sharing": [
 		"Kelola berbagi"
 	],
+	"Manage site options": [
+		"Kelola opsi situs"
+	],
+	"Manage terms": [
+		"Kelola istilah"
+	],
+	"Manage themes": [
+		"Kelola tema"
+	],
+	"Manage usage": [
+		"Kelola penggunaan"
+	],
+	"Manage users": [
+		"Kelola pengguna"
+	],
 	"Manual MCP setup": [
 		"Penyiapan MCP manual"
+	],
+	"Meta API key": [
+		"Kunci API Meta"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta membatasi permintaan pada kunci API Anda. Coba lagi sebentar lagi, atau periksa batas Anda di dev.meta.ai."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta menolak kunci API ini. Periksa kunci tersebut, lalu coba lagi."
+	],
+	"Migrate & rebuild a site from a closed platform.": [
+		"Migrasikan & bangun ulang situs dari platform tertutup."
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
@@ -678,6 +982,9 @@
 	"Open a site or Blueprint": [
 		"Buka situs atau Blueprint"
 	],
+	"Open annotation browser": [
+		"Buka browser anotasi"
+	],
 	"Open documentation": [
 		"Buka dokumentasi"
 	],
@@ -690,8 +997,17 @@
 	"Open the WordPress Studio app to add an existing WordPress folder.": [
 		"Buka aplikasi WordPress Studio untuk menambahkan folder WordPress yang sudah ada."
 	],
+	"OpenAI API key": [
+		"Kunci API OpenAI"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI menolak kunci API ini. Periksa kunci tersebut, lalu coba lagi."
+	],
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"Agen coding OpenAI di aplikasi ChatGPT."
+	],
+	"Optimize category taxonomy with AI.": [
+		"Optimalkan taksonomi kategori dengan AI."
 	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"Jumlah PHP worker harus berupa bilangan bulat dari 1 hingga 64."
@@ -699,14 +1015,26 @@
 	"Parent folder": [
 		"Folder induk"
 	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"Tempel token yang ditampilkannya. Penggunaan dihitung dari paket Claude Anda."
+	],
 	"Pending annotation": [
 		"Anotasi tertunda"
+	],
+	"Performance audit": [
+		"Audit performa"
+	],
+	"Pick design": [
+		"Pilih desain"
 	],
 	"Point or draw to suggest a change.": [
 		"Tunjuk atau gambar untuk menyarankan perubahan."
 	],
 	"Point to something you’d like to change.": [
 		"Tunjuk sesuatu yang ingin Anda ubah."
+	],
+	"Present design options": [
+		"Tampilkan pilihan desain"
 	],
 	"Preview browser controls": [
 		"Kontrol browser pratinjau"
@@ -723,11 +1051,23 @@
 	"Project tools": [
 		"Alat proyek"
 	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"Terbitkan salinan statis situs Anda ke Space Spacefast. Formulir, komentar, dan fitur lain yang memerlukan WordPress berjalan tidak akan berfungsi di salinan tersebut."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"Terbitkan salinan statis situs Anda ke Space Spacefast."
+	],
 	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
 		"Terbitkan situs baru atau perbarui situs yang sudah ada di WordPress.com atau Pressable."
 	],
 	"Publish to %s to apply these changes.": [
 		"Terbitkan ke %s untuk menerapkan perubahan ini."
+	],
+	"Publish to Spacefast": [
+		"Terbitkan ke Spacefast"
+	],
+	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
+		"Terbitkan ke situs baru dan pilih domain, atau gunakan situs yang sudah ada di WordPress.com atau Pressable."
 	],
 	"Publish to another site…": [
 		"Terbitkan ke situs lain…"
@@ -744,6 +1084,9 @@
 	"Published to": [
 		"Diterbitkan ke"
 	],
+	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
+		"Penerbitan dan penarikan memerlukan situs WordPress.com atau Pressable yang didukung."
+	],
 	"Publishing cancelled": [
 		"Penerbitan dibatalkan"
 	],
@@ -759,11 +1102,29 @@
 	"Pull preview": [
 		"Tarik pratinjau"
 	],
+	"Pull site": [
+		"Tarik situs"
+	],
 	"Pulling the preview replaces the changes made here.": [
 		"Menarik pratinjau akan menggantikan perubahan yang dibuat di sini."
 	],
+	"Push site": [
+		"Dorong situs"
+	],
 	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
 		"Dorong situs lokal Anda ke situs WordPress.com, atau terbitkan ke Spacefast"
+	],
+	"Read": [
+		"Baca"
+	],
+	"Read %s": [
+		"Baca %s"
+	],
+	"Read site option": [
+		"Baca opsi situs"
+	],
+	"Read site title": [
+		"Baca judul situs"
 	],
 	"Recent chats": [
 		"Obrolan terbaru"
@@ -777,6 +1138,12 @@
 	"Recent pages": [
 		"Halaman terbaru"
 	],
+	"Refresh preview": [
+		"Segarkan pratinjau"
+	],
+	"Remote backup failed": [
+		"Pencadangan jarak jauh gagal"
+	],
 	"Remote environment: %s": [
 		"Lingkungan jarak jauh: %s"
 	],
@@ -789,8 +1156,14 @@
 	"Replace the contents of a non-empty output directory": [
 		"Ganti isi direktori output yang tidak kosong"
 	],
+	"Reply in your own words instead of picking an option.": [
+		"Balas dengan kata-kata Anda sendiri alih-alih memilih opsi."
+	],
 	"Report an issue on GitHub": [
 		"Laporkan masalah di GitHub"
+	],
+	"Request a feature or report a bug.": [
+		"Minta fitur atau laporkan bug."
 	],
 	"Reset folder name to match site name": [
 		"Atur ulang nama folder agar sesuai dengan nama situs"
@@ -828,11 +1201,41 @@
 	"Round Midnight": [
 		"Round Midnight"
 	],
+	"Run": [
+		"Jalankan"
+	],
 	"Run \"studio blueprint list\" to see available slugs.": [
 		"Jalankan \"studio blueprint list\" untuk melihat slug yang tersedia."
 	],
+	"Run WordPress code": [
+		"Jalankan kode WordPress"
+	],
+	"Run WordPress command": [
+		"Jalankan perintah WordPress"
+	],
+	"Run a performance audit on a site.": [
+		"Jalankan audit performa pada situs."
+	],
+	"Run an on-page SEO audit on a site.": [
+		"Jalankan audit SEO on-page pada situs."
+	],
+	"Run task": [
+		"Jalankan tugas"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"Jalankan perintah ini di terminal, lalu login dengan akun Claude Anda:"
+	],
+	"SEO audit": [
+		"Audit SEO"
+	],
 	"Saturation and brightness": [
 		"Saturasi dan kecerahan"
+	],
+	"Save annotation (Enter)": [
+		"Simpan anotasi (Enter)"
+	],
+	"Scaffold theme": [
+		"Buat kerangka tema"
 	],
 	"Screenshots are available in the desktop app.": [
 		"Tangkapan layar tersedia di aplikasi desktop."
@@ -848,6 +1251,10 @@
 	],
 	"Selected files, content, and settings on your website will be overwritten.": [
 		"File, konten, dan pengaturan yang dipilih di situs web Anda akan ditimpa."
+	],
+	"Send %d annotation": [
+		"Kirim %d anotasi",
+		"Kirim %d anotasi"
 	],
 	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
 		"Bagikan salinan sementara situs lokal Anda kepada siapa saja. Situs pratinjau akan kedaluwarsa jika tidak diperbarui selama sekitar satu minggu."
@@ -888,6 +1295,12 @@
 	"Sign in to get a one-time grant of free AI credits.": [
 		"Login untuk mendapatkan kredit AI gratis satu kali."
 	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"Login dengan ChatGPT atau gunakan kunci API OpenAI."
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"Login dengan akun GitHub yang memiliki akses Copilot."
+	],
 	"Signing in took too long. Try again.": [
 		"Proses login terlalu lama. Coba lagi."
 	],
@@ -924,8 +1337,14 @@
 	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
 		"Keterampilan memberikan panduan kepada agen AI untuk pengembangan WordPress. Perubahan di sini berlaku untuk semua situs yang sudah ada dan menjadi default untuk situs baru."
 	],
+	"Something went wrong while updating the live site.": [
+		"Terjadi masalah saat memperbarui situs aktif."
+	],
 	"Source is a temporary preview site.": [
 		"Sumbernya adalah situs pratinjau sementara."
+	],
+	"Spacefast sign-in was declined.": [
+		"Login Spacefast ditolak."
 	],
 	"Split view": [
 		"Tampilan terpisah"
@@ -941,6 +1360,15 @@
 	],
 	"Start signing in again.": [
 		"Mulai login lagi."
+	],
+	"Start signing in to Spacefast again.": [
+		"Mulai login ke Spacefast lagi."
+	],
+	"Start signing in with ChatGPT again.": [
+		"Mulai login dengan ChatGPT lagi."
+	],
+	"Start signing in with GitHub again.": [
+		"Mulai login dengan GitHub lagi."
 	],
 	"Start sites with chat": [
 		"Mulai situs dengan obrolan"
@@ -963,6 +1391,9 @@
 	"Stop annotating. Your notes will be kept.": [
 		"Berhenti memberi anotasi. Catatan Anda akan disimpan."
 	],
+	"Strong": [
+		"Kuat"
+	],
 	"Studio was updated, and the site \"%s\" could not be started again.": [
 		"Studio telah diperbarui, dan situs \"%s\" tidak dapat dimulai kembali."
 	],
@@ -984,6 +1415,12 @@
 	"Taking screenshot…": [
 		"Mengambil tangkapan layar…"
 	],
+	"Taxonomist": [
+		"Taksonomis"
+	],
+	"Team": [
+		"Tim"
+	],
 	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
 		"Terima kasih telah membantu meningkatkan WordPress Studio. ID referensi untuk feedback yang Anda kirim adalah <id>%s</id>."
 	],
@@ -993,6 +1430,15 @@
 	"That sign-in was for another attempt. Try again.": [
 		"Login tersebut untuk percobaan lain. Coba lagi."
 	],
+	"The GitHub sign-in expired. Try again.": [
+		"Login GitHub telah kedaluwarsa. Coba lagi."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"Login Spacefast telah kedaluwarsa. Coba lagi."
+	],
+	"The database failed to import on the live site. Review your database and try again.": [
+		"Database gagal diimpor di situs aktif. Periksa database Anda, lalu coba lagi."
+	],
 	"The default browser for your sites.": [
 		"Browser default untuk situs Anda."
 	],
@@ -1001,6 +1447,9 @@
 	],
 	"The live site must be a qualifying connected site of this local site.": [
 		"Situs aktif harus merupakan situs terhubung yang memenuhi syarat dari situs lokal ini."
+	],
+	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
+		"Waktu situs aktif habis saat mengimpor, kemungkinan karena situsnya terlalu besar. Coba kurangi konten atau file-nya."
 	],
 	"The output directory %s is not empty.": [
 		"Direktori output %s tidak kosong."
@@ -1026,6 +1475,9 @@
 	"Then add this configuration to your app.": [
 		"Lalu tambahkan konfigurasi ini ke aplikasi Anda."
 	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"Akun GitHub ini tidak memiliki paket Copilot. Pilih paket di github.com/features/copilot."
+	],
 	"This ZIP could not be read. Check that it is a valid zip file.": [
 		"ZIP ini tidak dapat dibaca. Pastikan file tersebut adalah file zip yang valid."
 	],
@@ -1050,8 +1502,14 @@
 	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
 		"Folder ini sudah dikaitkan dengan situs Studio lain. Pilih nama situs atau folder lokal yang berbeda."
 	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"Ini adalah kunci Anthropic. Tambahkan ke Anthropic saja."
+	],
 	"This site and its preview both changed": [
 		"Situs ini dan pratinjaunya sama-sama berubah"
+	],
+	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
+		"Situs ini belum mendukung penarikan. Perbarui Jetpack di situs ke versi terbaru, lalu coba lagi."
 	],
 	"This site has changes its preview doesn't": [
 		"Situs ini memiliki perubahan yang tidak ada di pratinjaunya"
@@ -1068,11 +1526,20 @@
 	"This site isn't one of your WordPress.com or Pressable sites.": [
 		"Situs ini bukan salah satu situs WordPress.com atau Pressable Anda."
 	],
+	"This website has been deleted. Choose another website.": [
+		"Situs ini telah dihapus. Pilih situs lain."
+	],
+	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
+		"Situs ini memerlukan paket hosting yang mendukung penerbitan dari WordPress Studio."
+	],
 	"Tips reset.": [
 		"Tips diatur ulang."
 	],
 	"To %s": [
 		"Kepada %s"
+	],
+	"Token is required": [
+		"Token wajib diisi"
 	],
 	"Try downloading the update again.": [
 		"Coba unduh pembaruan lagi."
@@ -1089,14 +1556,50 @@
 	"Unable to open this source.": [
 		"Tidak dapat membuka sumber ini."
 	],
+	"Unexpected response from server while checking backup status": [
+		"Respons tak terduga dari server saat memeriksa status cadangan"
+	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"Penyedia %1$s tidak dikenal. Pilih salah satu dari: %2$s."
 	],
 	"Unsupported backup file": [
 		"File cadangan tidak didukung"
 	],
+	"Update %s": [
+		"Perbarui %s"
+	],
+	"Update all plugins": [
+		"Perbarui semua plugin"
+	],
+	"Update plugin": [
+		"Perbarui plugin"
+	],
+	"Update site option": [
+		"Perbarui opsi situs"
+	],
+	"Update site title": [
+		"Perbarui judul situs"
+	],
+	"Update todo list": [
+		"Perbarui daftar tugas"
+	],
+	"Update user": [
+		"Perbarui pengguna"
+	],
 	"Uploading files…": [
 		"Mengunggah file…"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"Penggunaan ditagih melalui akun Anthropic Anda."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"Penggunaan ditagih melalui proyek Google AI Studio Anda."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"Penggunaan ditagih melalui akun Meta Model API Anda."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"Penggunaan ditagih melalui akun OpenAI Anda."
 	],
 	"Use /connect %1$s to connect %2$s again.": [
 		"Gunakan /connect %1$s untuk menghubungkan %2$s lagi."
@@ -1107,8 +1610,17 @@
 	"Use Blueprint": [
 		"Gunakan Blueprint"
 	],
+	"Use Gemini with a Gemini API key.": [
+		"Gunakan Gemini dengan kunci API Gemini."
+	],
+	"Use Muse models with your Meta API key.": [
+		"Gunakan model Muse dengan kunci API Meta Anda."
+	],
 	"Use WordPress Studio with your agents": [
 		"Gunakan WordPress Studio dengan agen Anda"
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"Gunakan kunci API Anthropic atau token langganan Claude."
 	],
 	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
 		"Gunakan tautan cadangan HTTPS dari situs yang didukung, dengan file zip atau tar.gz yang berukuran kurang dari 1 GB. Periksa koneksi Anda dan coba lagi."
@@ -1116,8 +1628,23 @@
 	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
 		"Gunakan agen AI pilihan Anda untuk membuat situs, melakukan perubahan, dan memeriksa hasil kerja Anda. Instal plugin WordPress Studio untuk memberinya akses ke situs lokal Anda."
 	],
+	"Using ChatGPT plan": [
+		"Menggunakan paket ChatGPT"
+	],
+	"Using Claude plan": [
+		"Menggunakan paket Claude"
+	],
+	"Using Copilot plan": [
+		"Menggunakan paket Copilot"
+	],
+	"Validate blocks": [
+		"Validasi blok"
+	],
 	"Visit previews": [
 		"Kunjungi pratinjau"
+	],
+	"Visual Annotations": [
+		"Anotasi Visual"
 	],
 	"Waiting for %s": [
 		"Menunggu selama %s"
@@ -1176,6 +1703,12 @@
 	"WordPress export": [
 		"Ekspor WordPress"
 	],
+	"WordPress.com API": [
+		"API WordPress.com"
+	],
+	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
+		"WordPress.com tidak mendukung multisitus. Menerbitkan jaringan ini dapat menimbulkan masalah."
+	],
 	"WordPress.com hosting": [
 		"Hosting WordPress.com"
 	],
@@ -1188,17 +1721,41 @@
 	"Workspace navigation": [
 		"Navigasi ruang kerja"
 	],
+	"Write": [
+		"Tulis"
+	],
 	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
 		"Anda dapat melampirkan hingga %d gambar. Kirim atau hapus anotasi sebelum mengambil area lain."
 	],
 	"You can close this tab and return to WordPress Studio.": [
 		"Anda dapat menutup tab ini dan kembali ke WordPress Studio."
 	],
+	"You need administrator access to publish or pull changes.": [
+		"Anda memerlukan akses administrator untuk menerbitkan atau menarik perubahan."
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"Anda telah mencapai batas penggunaan paket ChatGPT Anda. Kelola penggunaan di chatgpt.com/settings/usage."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"Anda telah mencapai batas penggunaan paket Copilot Anda. Kelola penggunaan di github.com/settings/copilot."
+	],
 	"You stopped after %s": [
 		"Anda menghentikannya setelah %s"
 	],
 	"You're not logged in to WordPress.com. Log in now?": [
 		"Anda belum login ke WordPress.com. Login sekarang?"
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"Paket ChatGPT Anda tidak dapat digunakan di WordPress Studio."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"Login ChatGPT Anda tidak berfungsi lagi. Hubungkan ChatGPT lagi di Pengaturan."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"Paket Copilot Anda tidak mencakup model ini. Pilih model lain, atau aktifkan di github.com/settings/copilot."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"Login Spacefast Anda tidak berfungsi lagi. Hubungkan Spacefast lagi."
 	],
 	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
 		"Pratinjau Anda dipindahkan ke WordPress.com, sehingga tautannya berubah. Tautan baru: %s"
@@ -1220,6 +1777,33 @@
 	],
 	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
 		"base-url harus berupa URL http(s) tanpa jalur, mis. https://example.com"
+	],
+	"inline content": [
+		"konten sebaris"
+	],
+	"media item": [
+		"item media"
+	],
+	"media items": [
+		"item media"
+	],
+	"page": [
+		"halaman"
+	],
+	"pages": [
+		"halaman"
+	],
+	"post": [
+		"pos"
+	],
+	"posts": [
+		"pos"
+	],
+	"product": [
+		"produk"
+	],
+	"products": [
+		"produk"
 	],
 	"· %d%%": [
 		"· %d%%"

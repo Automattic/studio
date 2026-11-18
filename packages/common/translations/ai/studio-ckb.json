@@ -1,5 +1,589 @@
 {
+	"%d image": [
+		"%d وێنە",
+		"%d وێنە"
+	],
+	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
+		"%s ڕاگەیاندنی پێشکەوتنی هاوردنی ڕاگرت، بەڵام لەوانەیە بەڕۆژکردنەوەکە هێشتا بەردەوام بێت. پێش دووبارە پەستاوتنەوە ماڵپەڕە سەرهێڵەکە بپشکنە."
+	],
+	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
+		"کردارێکی هاوکاتگەری پێشتر لەسەر ئەم ماڵپەڕە بەڕێوەدەچێت. تکایە چاوەڕێ بکە تا تەواو دەبێت و دووبارە هەوڵ بدەرەوە."
+	],
+	"API key": [
+		"کلیلی (API)"
+	],
+	"API key is required": [
+		"کلیلی (API) پێویستە"
+	],
+	"Activate all plugins": [
+		"چالاککردنی هەموو پێوەکراوەکان"
+	],
+	"Activate plugin": [
+		"چالاککردنی پێوەکراو"
+	],
+	"Activate theme": [
+		"چالاککردنی ڕووکار"
+	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"لە کاتی چوونەژوورەوەدا ڕێگە بە وۆردپرێس ستۆدیۆ بدە پلانی (ChatGPT)ـەکەت بەکاربهێنێت."
+	],
+	"Annotate site elements visually in a browser.": [
+		"لە وێبگەڕێکدا بە شێوەیەکی بینراو یاداشت بۆ توخمەکانی ماڵپەڕ بنووسە."
+	],
+	"Anthropic API key": [
+		"کلیلی (API)ـی (Anthropic)"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"(Anthropic) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"(Anthropic) ئەم تۆکنەی ڕەتکردەوە. دووبارە claude setup-token جێبەجێ بکە."
+	],
+	"Ask user": [
+		"پرسیارکردن لە بەکارهێنەر"
+	],
+	"Audit SEO": [
+		"پشکنینی (SEO)"
+	],
+	"Audit performance": [
+		"پشکنینی کارایی"
+	],
+	"Backup timed out — no progress detected": [
+		"کاتی پاڵپشت بەسەرچوو — هیچ پێشکەوتنێک نەدۆزرایەوە"
+	],
+	"Backups": [
+		"پاڵپشتەکان"
+	],
+	"Balanced": [
+		"هاوسەنگ"
+	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"گۆڕانکارییەکان پەستێوران، بەڵام ماڵپەڕەکە نەتوانرا بخرێتە کار. پلان و مۆڵەتەکانت بپشکنە، پاشان دووبارە بڵاوی بکەرەوە بۆ هەوڵدانەوەی خستنەکار."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"گۆڕانکارییەکان پەستێوران، بەڵام ماڵپەڕەکە نەتوانرا بخرێتە کار. دووبارە بڵاوی بکەرەوە بۆ هەوڵدانەوەی خستنەکار."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"گۆڕانکارییەکان پەستێوران، بەڵام ماڵپەڕەکە نەتوانرا بخرێتە کار. پۆستی ئەلیکترۆنییەکەت پشتڕاست بکەرەوە، پاشان دووبارە بڵاوی بکەرەوە بۆ هەوڵدانەوەی خستنەکار."
+	],
+	"ChatGPT plan": [
+		"پلانی (ChatGPT)"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"بەکارهێنانی پلانی (ChatGPT) لە ئێستادا بەردەست نییە. کەمێکی تر دووبارە هەوڵ بدەرەوە."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"(ChatGPT) چوونەژوورەوەیەکی ناتەواوی گەڕاندەوە."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"چوونەژوورەوە بە (ChatGPT) تەواو نەکرا. دووبارە هەوڵ بدەرەوە."
+	],
+	"Claude subscription": [
+		"بەشداریکردنی (Claude)"
+	],
+	"Claude subscription token": [
+		"تۆکنی بەشداریکردنی (Claude)"
+	],
+	"Click anything on the page to leave a note": [
+		"کرتە لەسەر هەر شتێکی پەڕەکە بکە بۆ نووسینی تێبینییەک"
+	],
+	"Connect Spacefast to publish sites.": [
+		"(Spacefast) پەیوەست بکە بۆ بڵاوکردنەوەی ماڵپەڕەکان."
+	],
+	"Continue with GitHub": [
+		"بەردەوامبە لەگەڵ (GitHub)"
+	],
+	"Could not reach Anthropic to verify the credential.": [
+		"نەتوانرا بگەیەنرێت بە (Anthropic) بۆ پشتڕاستکردنەوەی باوەڕنامەکە."
+	],
+	"Could not verify the credential with Anthropic.": [
+		"نەتوانرا باوەڕنامەکە لەگەڵ (Anthropic) پشتڕاست بکرێتەوە."
+	],
+	"Create %s": [
+		"دروستکردنی %s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"کلیلێک لە [Google AI Studio](https://aistudio.google.com/apikey) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"کلیلێک لە بەشی کلیلەکانی (API)ـی [داشبۆردی Meta Model API](https://dev.meta.ai) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"کلیلێک لە [Claude Console](https://platform.claude.com/settings/keys) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"کلیلێک لە [OpenAI Platform](https://platform.openai.com/api-keys) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create user": [
+		"دروستکردنی بەکارهێنەر"
+	],
+	"Deactivate all plugins": [
+		"ناچالاککردنی هەموو پێوەکراوەکان"
+	],
+	"Deactivate plugin": [
+		"ناچالاککردنی پێوەکراو"
+	],
+	"Delete %s": [
+		"سڕینەوەی %s"
+	],
+	"Delete plugin": [
+		"سڕینەوەی پێوەکراو"
+	],
+	"Delete theme": [
+		"سڕینەوەی ڕووکار"
+	],
+	"Delete user": [
+		"سڕینەوەی بەکارهێنەر"
+	],
+	"Domains": [
+		"دۆمەینەکان"
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"تۆکنێک لە claude setup-token بنووسە، نەک کلیلی (API)."
+	],
+	"Failed to check backup size": [
+		"پشکنینی قەبارەی پاڵپشت شکستی هێنا"
+	],
+	"Failed to check backup status": [
+		"پشکنینی دۆخی پاڵپشت شکستی هێنا"
+	],
+	"Failed to check import status": [
+		"پشکنینی دۆخی هاوردن شکستی هێنا"
+	],
+	"Failed to create the Space": [
+		"دروستکردنی (Space)ەکە شکستی هێنا"
+	],
 	"Failed to find existing preview site in config": [
 		"دۆزینەوەی ماڵپەڕی پێشبینینی بەردەست لە شێوەپێدانەکەدا شکستی هێنا"
+	],
+	"Failed to initiate backup": [
+		"دەستپێکردنی پاڵپشت شکستی هێنا"
+	],
+	"Failed to initiate import on remote site": [
+		"دەستپێکردنی هاوردن لەسەر ماڵپەڕە دوورەکە شکستی هێنا"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"بارکردنی (Space)ەکانی (Spacefast)ـەکەت شکستی هێنا"
+	],
+	"Failed to publish to Spacefast": [
+		"بڵاوکردنەوە لەسەر (Spacefast) شکستی هێنا"
+	],
+	"Finish activating hosting on WordPress.com before publishing.": [
+		"پێش بڵاوکردنەوە، چالاککردنی خانەخوێ لەسەر (WordPress.com) تەواو بکە."
+	],
+	"Flush cache": [
+		"پاککردنەوەی کاش"
+	],
+	"Flush permalinks": [
+		"نوێکردنەوەی بەستەرە هەمیشەییەکان"
+	],
+	"Gemini API key": [
+		"کلیلی (API)ـی (Gemini)"
+	],
+	"Generate images": [
+		"بەدیهێنانی وێنەکان"
+	],
+	"Get site info": [
+		"وەرگرتنی زانیاریی ماڵپەڕ"
+	],
+	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
+		"بە بڕێکی خۆڕایی بۆ یەکجار دەست پێ بکە، پاشان بەپێی پێویست زیاتر بکڕە. پێویستت بە کلیلی (API) نییە."
+	],
+	"GitHub sign-in was declined.": [
+		"چوونەژوورەوە بە (GitHub) ڕەتکرایەوە."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"(Google) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
+	],
+	"Import media": [
+		"هاوردنی ڕەنگاڵە"
+	],
+	"Import site": [
+		"هاوردنی ماڵپەڕ"
+	],
+	"Inspect design": [
+		"پشکنینی دیزاین"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"ئەگەر هێشتا [Claude Code](https://code.claude.com/docs/en/setup)ت نییە، دایبمەزرێنە."
+	],
+	"Install plugin": [
+		"دامەزراندنی پێوەکراو"
+	],
+	"Install taxonomy scripts": [
+		"دامەزراندنی سکریپتەکانی پۆلێنبەندی"
+	],
+	"Install theme": [
+		"دامەزراندنی ڕووکار"
+	],
+	"Leave a note…": [
+		"تێبینییەک بنووسە…"
+	],
+	"Liberate": [
+		"ئازادکردن"
+	],
+	"List": [
+		"لیستکردن"
+	],
+	"List %s": [
+		"لیستکردنی %s"
+	],
+	"List connected remote sites": [
+		"لیستکردنی ماڵپەڕە دوورە پەیوەستکراوەکان"
+	],
+	"List menus": [
+		"لیستکردنی لیستەکان"
+	],
+	"List plugins": [
+		"لیستکردنی پێوەکراوەکان"
+	],
+	"List previews": [
+		"لیستکردنی پێشبینینەکان"
+	],
+	"List published %s": [
+		"لیستکردنی %sی بڵاوکراوە"
+	],
+	"List terms": [
+		"لیستکردنی زاراوەکان"
+	],
+	"List themes": [
+		"لیستکردنی ڕووکارەکان"
+	],
+	"List users": [
+		"لیستکردنی بەکارهێنەران"
+	],
+	"Load skill": [
+		"بارکردنی شارەزایی"
+	],
+	"Log in to WordPress.com to sync sites.": [
+		"بچۆ ژوورەوە بۆ (WordPress.com) بۆ هاوکاتگەریی ماڵپەڕەکان."
+	],
+	"Manage cache": [
+		"بەڕێوەبردنی کاش"
+	],
+	"Manage content": [
+		"بەڕێوەبردنی ناوەڕۆک"
+	],
+	"Manage media": [
+		"بەڕێوەبردنی ڕەنگاڵە"
+	],
+	"Manage menus": [
+		"بەڕێوەبردنی لیستەکان"
+	],
+	"Manage on WordPress.com": [
+		"بەڕێوەبردن لەسەر (WordPress.com)"
+	],
+	"Manage permalinks": [
+		"بەڕێوەبردنی بەستەرە هەمیشەییەکان"
+	],
+	"Manage plugins": [
+		"بەڕێوەبردنی پێوەکراوەکان"
+	],
+	"Manage site options": [
+		"بەڕێوەبردنی هەڵبژاردەکانی ماڵپەڕ"
+	],
+	"Manage terms": [
+		"بەڕێوەبردنی زاراوەکان"
+	],
+	"Manage themes": [
+		"بەڕێوەبردنی ڕووکارەکان"
+	],
+	"Manage usage": [
+		"بەڕێوەبردنی بەکارهێنان"
+	],
+	"Manage users": [
+		"بەڕێوەبردنی بەکارهێنەران"
+	],
+	"Meta API key": [
+		"کلیلی (API)ـی (Meta)"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"(Meta) داواکارییەکانی سەر کلیلی (API)ـەکەت سنووردار دەکات. کەمێکی تر دووبارە هەوڵ بدەرەوە، یان سنوورەکانت لە dev.meta.ai بپشکنە."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"(Meta) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
+	],
+	"Migrate & rebuild a site from a closed platform.": [
+		"ماڵپەڕێک لە سەکۆیەکی داخراوەوە بگوازەرەوە و دووبارە بنیاتی بنێرەوە."
+	],
+	"Open annotation browser": [
+		"کردنەوەی وێبگەڕی یاداشت"
+	],
+	"OpenAI API key": [
+		"کلیلی (API)ـی (OpenAI)"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"(OpenAI) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
+	],
+	"Optimize category taxonomy with AI.": [
+		"پۆلێنبەندیی هاوپۆلەکان بە ژیریی دەستکرد باشتر بکە."
+	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"ئەو تۆکنەی پیشانی دەدات بیلکێنە. بەکارهێنان لە پلانی (Claude)ـەکەت هەژمار دەکرێت."
+	],
+	"Performance audit": [
+		"پشکنینی کارایی"
+	],
+	"Pick design": [
+		"هەڵبژاردنی دیزاین"
+	],
+	"Present design options": [
+		"پیشاندانی هەڵبژاردەکانی دیزاین"
+	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"ڕوونووسێکی وەستاوی ماڵپەڕەکەت لە (Space)ێکی (Spacefast) بڵاو بکەرەوە. فۆڕمەکان، لێدوانەکان و تایبەتمەندییەکانی تر کە پێویستیان بە کارکردنی وۆردپرێس هەیە لە ڕوونووسەکەدا کار ناکەن."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"ڕوونووسێکی وەستاوی ماڵپەڕەکانت لە (Space)ێکی (Spacefast) بڵاو بکەرەوە."
+	],
+	"Publish to Spacefast": [
+		"بڵاوکردنەوە لەسەر (Spacefast)"
+	],
+	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
+		"لەسەر ماڵپەڕێکی نوێ بڵاوی بکەرەوە و دۆمەینێک هەڵبژێرە، یان ماڵپەڕێکی هەبوو لەسەر (WordPress.com) یان (Pressable) بەکاربهێنە."
+	],
+	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
+		"بڵاوکردنەوە و ڕاکێشان پێویستیان بە ماڵپەڕێکی پشتگیریکراوی (WordPress.com) یان (Pressable) هەیە."
+	],
+	"Pull site": [
+		"ڕاکێشانی ماڵپەڕ"
+	],
+	"Push site": [
+		"پەستاوتنی ماڵپەڕ"
+	],
+	"Read": [
+		"خوێندنەوە"
+	],
+	"Read %s": [
+		"خوێندنەوەی %s"
+	],
+	"Read site option": [
+		"خوێندنەوەی هەڵبژاردەی ماڵپەڕ"
+	],
+	"Read site title": [
+		"خوێندنەوەی ناونیشانی ماڵپەڕ"
+	],
+	"Refresh preview": [
+		"نوێکردنەوەی پێشبینین"
+	],
+	"Remote backup failed": [
+		"پاڵپشتی دوور شکستی هێنا"
+	],
+	"Reply in your own words instead of picking an option.": [
+		"لەبری هەڵبژاردنی بژاردەیەک، بە وشەکانی خۆت وەڵام بدەرەوە."
+	],
+	"Request a feature or report a bug.": [
+		"داوای تایبەتمەندییەک بکە یان کەلێنێک ڕاپۆرت بکە."
+	],
+	"Run": [
+		"جێبەجێکردن"
+	],
+	"Run WordPress code": [
+		"جێبەجێکردنی کۆدی وۆردپرێس"
+	],
+	"Run WordPress command": [
+		"جێبەجێکردنی فەرمانی وۆردپرێس"
+	],
+	"Run a performance audit on a site.": [
+		"پشکنینی کارایی بۆ ماڵپەڕێک ئەنجام بدە."
+	],
+	"Run an on-page SEO audit on a site.": [
+		"پشکنینی (SEO)ـی ناو پەڕە بۆ ماڵپەڕێک ئەنجام بدە."
+	],
+	"Run task": [
+		"جێبەجێکردنی ئەرک"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"ئەمە لە تێرمیناڵێکدا جێبەجێ بکە، پاشان بە هەژماری (Claude)ـەکەت بچۆ ژوورەوە:"
+	],
+	"SEO audit": [
+		"پشکنینی (SEO)"
+	],
+	"Save annotation (Enter)": [
+		"پاشەکەوتکردنی یاداشت (Enter)"
+	],
+	"Scaffold theme": [
+		"دروستکردنی چوارچێوەی ڕووکار"
+	],
+	"Send %d annotation": [
+		"ناردنی %d یاداشت",
+		"ناردنی %d یاداشت"
+	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"بە (ChatGPT) بچۆ ژوورەوە یان کلیلێکی (API)ـی (OpenAI) بەکاربهێنە."
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"بە هەژمارێکی (GitHub) بچۆ ژوورەوە کە دەستی بە (Copilot) بگات."
+	],
+	"Something went wrong while updating the live site.": [
+		"لە کاتی بەڕۆژکردنەوەی ماڵپەڕە سەرهێڵەکەدا هەڵەیەک ڕوویدا."
+	],
+	"Spacefast sign-in was declined.": [
+		"چوونەژوورەوە بۆ (Spacefast) ڕەتکرایەوە."
+	],
+	"Start signing in to Spacefast again.": [
+		"دووبارە دەست بە چوونەژوورەوە بۆ (Spacefast) بکەرەوە."
+	],
+	"Start signing in with ChatGPT again.": [
+		"دووبارە دەست بە چوونەژوورەوە بە (ChatGPT) بکەرەوە."
+	],
+	"Start signing in with GitHub again.": [
+		"دووبارە دەست بە چوونەژوورەوە بە (GitHub) بکەرەوە."
+	],
+	"Strong": [
+		"بەهێز"
+	],
+	"Taxonomist": [
+		"پۆلێنکار"
+	],
+	"Team": [
+		"تیم"
+	],
+	"The GitHub sign-in expired. Try again.": [
+		"چوونەژوورەوە بە (GitHub) بەسەرچوو. دووبارە هەوڵ بدەرەوە."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"چوونەژوورەوە بۆ (Spacefast) بەسەرچوو. دووبارە هەوڵ بدەرەوە."
+	],
+	"The database failed to import on the live site. Review your database and try again.": [
+		"هاوردنی بنکەدراوە لەسەر ماڵپەڕە سەرهێڵەکە شکستی هێنا. پێداچوونەوە بە بنکەدراوەکەتدا بکە و دووبارە هەوڵ بدەرەوە."
+	],
+	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
+		"کاتی ماڵپەڕە سەرهێڵەکە لە کاتی هاوردندا بەسەرچوو، لەوانەیە لەبەر ئەوەی ماڵپەڕەکە زۆر گەورەیە. هەوڵ بدە ناوەڕۆک یان پەڕگەکانی کەم بکەیتەوە."
+	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"ئەم هەژمارەی (GitHub) پلانی (Copilot)ـی نییە. پلانێک لە github.com/features/copilot هەڵبژێرە."
+	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"ئەمە کلیلێکی (Anthropic)ـە. لەبری ئەوە بیخە سەر (Anthropic)."
+	],
+	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
+		"ئەم ماڵپەڕە هێشتا پشتگیریی ڕاکێشان ناکات. (Jetpack) لەسەر ماڵپەڕەکە بۆ نوێترین وەشان بەڕۆژ بکەرەوە و دووبارە هەوڵ بدەرەوە."
+	],
+	"This website has been deleted. Choose another website.": [
+		"ئەم ماڵپەڕە سڕاوەتەوە. ماڵپەڕێکی تر هەڵبژێرە."
+	],
+	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
+		"ئەم ماڵپەڕە پێویستی بە پلانێکی خانەخوێ هەیە کە پشتگیریی بڵاوکردنەوە لە وۆردپرێس ستۆدیۆوە بکات."
+	],
+	"Token is required": [
+		"تۆکن پێویستە"
+	],
+	"Unexpected response from server while checking backup status": [
+		"وەڵامێکی چاوەڕواننەکراو لە ڕاژەکارەوە لە کاتی پشکنینی دۆخی پاڵپشت"
+	],
+	"Update %s": [
+		"بەڕۆژکردنەوەی %s"
+	],
+	"Update all plugins": [
+		"بەڕۆژکردنەوەی هەموو پێوەکراوەکان"
+	],
+	"Update plugin": [
+		"بەڕۆژکردنەوەی پێوەکراو"
+	],
+	"Update site option": [
+		"بەڕۆژکردنەوەی هەڵبژاردەی ماڵپەڕ"
+	],
+	"Update site title": [
+		"بەڕۆژکردنەوەی ناونیشانی ماڵپەڕ"
+	],
+	"Update todo list": [
+		"بەڕۆژکردنەوەی لیستی ئەرکەکان"
+	],
+	"Update user": [
+		"بەڕۆژکردنەوەی بەکارهێنەر"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"بەکارهێنان لە ڕێگەی هەژماری (Anthropic)ـەکەتەوە پارەی لێ وەردەگیرێت."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"بەکارهێنان لە ڕێگەی پڕۆژەی (Google AI Studio)ـەکەتەوە پارەی لێ وەردەگیرێت."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"بەکارهێنان لە ڕێگەی هەژماری (Meta Model API)ـەکەتەوە پارەی لێ وەردەگیرێت."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"بەکارهێنان لە ڕێگەی هەژماری (OpenAI)ـەکەتەوە پارەی لێ وەردەگیرێت."
+	],
+	"Use Gemini with a Gemini API key.": [
+		"(Gemini) بە کلیلێکی (API)ـی (Gemini) بەکاربهێنە."
+	],
+	"Use Muse models with your Meta API key.": [
+		"مۆدێلەکانی (Muse) بە کلیلی (API)ـی (Meta)ـەکەت بەکاربهێنە."
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"کلیلێکی (API)ـی (Anthropic) یان تۆکنێکی بەشداریکردنی (Claude) بەکاربهێنە."
+	],
+	"Using ChatGPT plan": [
+		"پلانی (ChatGPT) بەکاردێت"
+	],
+	"Using Claude plan": [
+		"پلانی (Claude) بەکاردێت"
+	],
+	"Using Copilot plan": [
+		"پلانی (Copilot) بەکاردێت"
+	],
+	"Validate blocks": [
+		"سەلماندنی بڵۆکەکان"
+	],
+	"Visual Annotations": [
+		"یاداشتە بینراوەکان"
+	],
+	"WordPress.com API": [
+		"(API)ـی (WordPress.com)"
+	],
+	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
+		"(WordPress.com) پشتگیریی فرە-ماڵپەڕ ناکات. بڵاوکردنەوەی ئەم تۆڕە لەوانەیە کێشە دروست بکات."
+	],
+	"Write": [
+		"نووسین"
+	],
+	"You need administrator access to publish or pull changes.": [
+		"بۆ بڵاوکردنەوە یان ڕاکێشانی گۆڕانکارییەکان پێویستت بە دەستپێگەیشتنی بەڕێوەبەر هەیە."
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"گەیشتیتە سنووری بەکارهێنانی پلانی (ChatGPT)ـەکەت. بەکارهێنان لە chatgpt.com/settings/usage بەڕێوەببە."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"گەیشتیتە سنووری بەکارهێنانی پلانی (Copilot)ـەکەت. بەکارهێنان لە github.com/settings/copilot بەڕێوەببە."
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"پلانی (ChatGPT)ـەکەت ناتوانرێت لە وۆردپرێس ستۆدیۆدا بەکاربهێنرێت."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"چوونەژوورەوەکەت بە (ChatGPT) چیتر کار ناکات. لە ڕێکخستنەکاندا دووبارە (ChatGPT) پەیوەست بکەرەوە."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"پلانی (Copilot)ـەکەت ئەم مۆدێلە لەخۆ ناگرێت. مۆدێلێکی تر هەڵبژێرە، یان لە github.com/settings/copilot چالاکی بکە."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"چوونەژوورەوەکەت بۆ (Spacefast) چیتر کار ناکات. دووبارە (Spacefast) پەیوەست بکەرەوە."
+	],
+	"inline content": [
+		"ناوەڕۆکی ناوهێڵ"
+	],
+	"media item": [
+		"بڕگەی ڕەنگاڵە"
+	],
+	"media items": [
+		"بڕگەکانی ڕەنگاڵە"
+	],
+	"page": [
+		"پەڕە"
+	],
+	"pages": [
+		"پەڕەکان"
+	],
+	"post": [
+		"بابەت"
+	],
+	"posts": [
+		"بابەتەکان"
+	],
+	"product": [
+		"بەرهەم"
+	],
+	"products": [
+		"بەرهەمەکان"
 	]
 }

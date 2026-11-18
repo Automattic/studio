@@ -3062,14 +3062,22 @@ export async function insertedTemplates(
 interface SavedExample {
 	name: string;
 	from: 'example' | 'variation' | 'defaults';
+	// The title of the variation the markup is made from, when it is.
+	variation?: string;
 	markup: string;
 	// The attributes the block type declares, stored in its comment: those its
 	// supports add to every block that has them, and those read from its HTML
 	// (`source`), are left out.
 	settings: Record< string, BlockAttribute >;
 	// Its inserter variations, each with the attributes it sets that differ
-	// from the block's defaults.
-	variations: Array< { title: string; attributes: Record< string, unknown > } >;
+	// from the block's defaults and, where the markup is made from its default
+	// variation, those that differ from the markup's (`changes`), down to the
+	// keys of an object attribute.
+	variations: Array< {
+		title: string;
+		attributes: Record< string, unknown >;
+		changes?: Record< string, unknown >;
+	} >;
 }
 
 /**
@@ -3112,17 +3120,38 @@ export async function savedExamples( names: string[], siteUrl: string ): Promise
 					)
 				);
 				const defaults = wpBlocks.createBlock( name ).attributes;
+				const isObject = ( value: unknown ): value is Record< string, unknown > =>
+					!! value && typeof value === 'object' && ! Array.isArray( value );
+				// What `value` sets that `base` does not: of an object, its keys that
+				// differ, as a variation's query differs from the default query in one.
+				// An object without a key `base` has is the whole object.
+				const differing = ( value: any, base: any ): any =>
+					isObject( value ) &&
+					isObject( base ) &&
+					Object.keys( base ).every( ( key ) => key in value )
+						? Object.fromEntries(
+								Object.entries( value )
+									.filter(
+										( [ key, entry ] ) => JSON.stringify( entry ) !== JSON.stringify( base[ key ] )
+									)
+									.map( ( [ key, entry ] ) => [ key, differing( entry, base[ key ] ) ] )
+						  )
+						: value;
 				const inserter: any[] = wpBlocks.getBlockVariations( name, 'inserter' ) ?? [];
-				const variations = inserter.map( ( variation: any ) => ( {
-					title: variation.title,
-					attributes: Object.fromEntries(
-						Object.entries(
-							wpBlocks.createBlock( name, variation.attributes ?? {} ).attributes
-						).filter(
-							( [ key, value ] ) => JSON.stringify( value ) !== JSON.stringify( defaults[ key ] )
-						)
-					),
-				} ) );
+				const chosen = inserter.find( ( v ) => v.isDefault ) ?? inserter[ 0 ];
+				// The markup's attributes, where its default variation makes it.
+				const shown =
+					! type.example && chosen
+						? wpBlocks.createBlock( name, chosen.attributes ?? {} ).attributes
+						: undefined;
+				const variations = inserter.map( ( variation: any ) => {
+					const attributes = wpBlocks.createBlock( name, variation.attributes ?? {} ).attributes;
+					return {
+						title: variation.title,
+						attributes: differing( attributes, defaults ),
+						...( shown && { changes: differing( attributes, shown ) } ),
+					};
+				} );
 				const described = { settings, variations };
 				// An inner block its example leaves empty takes the inner blocks of
 				// its own type's example, as its edit adds them on insert (each
@@ -3146,7 +3175,6 @@ export async function savedExamples( names: string[], siteUrl: string ): Promise
 						},
 					];
 				}
-				const chosen = inserter.find( ( v ) => v.isDefault ) ?? inserter[ 0 ];
 				const block = wpBlocks.createBlock(
 					name,
 					{ ...( chosen?.attributes ?? {} ) },
@@ -3156,6 +3184,7 @@ export async function savedExamples( names: string[], siteUrl: string ): Promise
 					{
 						name,
 						from: chosen ? 'variation' : 'defaults',
+						...( chosen && { variation: chosen.title } ),
 						markup: wpBlocks.serialize( [ block ] ),
 						...described,
 					},

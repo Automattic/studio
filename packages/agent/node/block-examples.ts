@@ -52,7 +52,6 @@ const WRITTEN = /<!--\s+wp:([a-z][a-z0-9_-]*\/[a-z][a-z0-9_-]*)[\s/]/g;
 const FROM = {
 	example:
 		'the example its block type registers, as its inserter preview makes it (getBlockFromExample in @wordpress/blocks)',
-	variation: 'its default inserter variation (createBlock in @wordpress/blocks)',
 	defaults: 'its default attributes (createBlock in @wordpress/blocks)',
 };
 
@@ -90,10 +89,14 @@ export function createBlockExampleNotes(
 		// Asked once: a name the editor does not register is not asked again.
 		wanted.forEach( ( name ) => done.add( name ) );
 		return examples
-			.map( ( { name, from, markup, settings, variations } ) => {
+			.map( ( { name, from, variation, markup, settings, variations } ) => {
+				const source =
+					from === 'variation'
+						? `its default inserter variation, ${ variation } (createBlock in @wordpress/blocks)`
+						: FROM[ from ];
 				const lines = asked.has( name )
 					? [
-							`What the site's block editor saves for ${ name }, from ${ FROM[ from ] }, to write it from:\n${ markup }`,
+							`What the site's block editor saves for ${ name }, from ${ source }, to write it from:\n${ markup }`,
 					  ]
 					: [];
 				const declared = Object.entries( settings ).map( ( [ key, attribute ] ) =>
@@ -106,10 +109,24 @@ export function createBlockExampleNotes(
 					);
 				}
 				// A block's only variation is the one its example or defaults show.
+				// Next to markup made from the default variation, each says what it
+				// changes in that markup.
+				const fromMarkup = asked.has( name ) && from === 'variation';
 				if ( variations.length > 1 ) {
 					lines.push(
-						`${ name } variations in the inserter, each the block with these settings:\n${ variations
-							.map( ( { title, attributes } ) => `- ${ title }: ${ JSON.stringify( attributes ) }` )
+						`${ name } variations in the inserter, ${
+							fromMarkup
+								? `each the markup above with these settings changed`
+								: 'each the block with these settings'
+						}:\n${ variations
+							.map( ( { title, attributes, changes } ) => {
+								const set = fromMarkup ? changes ?? attributes : attributes;
+								return `- ${ title }: ${
+									fromMarkup && ! Object.keys( set ).length
+										? 'the markup above'
+										: JSON.stringify( set )
+								}`;
+							} )
 							.join( '\n' ) }`
 					);
 				}

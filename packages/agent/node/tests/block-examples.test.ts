@@ -102,7 +102,8 @@ describe.runIf( EDITOR && WORDPRESS )(
 			},
 			{
 				// A block the call reads no block.json of: its settings and its
-				// inserter variations come from the block type the editor registers.
+				// inserter variations come from the block type the editor registers,
+				// each variation by what it changes in the markup of the default one.
 				name: 'with the settings and inserter variations its block type registers',
 				results: () => [
 					[
@@ -111,10 +112,10 @@ describe.runIf( EDITOR && WORDPRESS )(
 						`wp eval 'print_r( WP_Block_Type_Registry::get_instance()->get_registered( "core/embed" ) );'`,
 					],
 				],
-				notes: [ [ 'core/embed, from its default inserter variation' ] ],
+				notes: [ [ 'core/embed, from its default inserter variation, X Embed (createBlock' ] ],
 				saying: [
 					'core/embed settings, as its block type registers them: url (string), type (string), providerNameSlug (string), allowResponsive (boolean, default true)',
-					'core/embed variations in the inserter, each the block with these settings:\n- X Embed: {"providerNameSlug":"twitter","responsive":true}\n- YouTube Embed: {"providerNameSlug":"youtube","responsive":true}',
+					'core/embed variations in the inserter, each the markup above with these settings changed:\n- X Embed: the markup above\n- YouTube Embed: {"providerNameSlug":"youtube"}',
 				],
 			},
 			{

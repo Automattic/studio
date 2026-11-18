@@ -22,6 +22,12 @@ export const builder = ( yargs: StudioArgv ) => {
 			type: 'string',
 			array: true,
 			description: __( 'Only push these paths from the selection made with --options' ),
+		} )
+		.option( 'overwrite-live-changes', {
+			type: 'boolean',
+			description: __(
+				'Push the database even if the live site changed since your last pull or push, replacing those changes'
+			),
 		} );
 };
 

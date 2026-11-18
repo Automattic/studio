@@ -246,6 +246,7 @@ export type TracksSyncFailureReason =
 	| 'disk_full'
 	| 'storage_write'
 	| 'site_fetch'
+	| 'live_changed'
 	| 'unknown';
 
 // Builds the Tracks pixel URL. Isolated so a param-name correction is a one-file change. These are

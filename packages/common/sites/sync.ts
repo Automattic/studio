@@ -73,6 +73,7 @@ export function pushSite(
 			...( options?.specificSelectionPaths?.length
 				? [ '--include-only', ...options.specificSelectionPaths ]
 				: [] ),
+			...( options?.overwriteLiveChanges ? [ '--overwrite-live-changes' ] : [] ),
 		],
 		signal
 	);

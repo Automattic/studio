@@ -48,6 +48,9 @@ export const syncActivitySchema = z.discriminatedUnion( 'kind', [
 		provider,
 		remoteSiteId,
 		message: z.string(),
+		// Why it failed, when the command names it: `live_changed` for a push refused because
+		// the live site changed since the last sync.
+		code: z.string().optional(),
 		// The pull reached the local site, and only restarting the site failed.
 		localChangesApplied: z.boolean().optional(),
 	} ),

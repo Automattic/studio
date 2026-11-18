@@ -52,6 +52,8 @@ export type PushSyncOptions = {
 	optionsToSync?: SyncOption[];
 	specificSelectionPaths?: string[];
 	launchAfterPush?: boolean;
+	// Push the database even though the live site changed since the last pull or push.
+	overwriteLiveChanges?: boolean;
 };
 /**
  * What a pull includes. By default, all files and the database. A pick of files is sent both as

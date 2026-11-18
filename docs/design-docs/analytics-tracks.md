@@ -513,8 +513,9 @@ never learns the hosting kind, and reporting the placeholder's hardcoded value w
 
 `failure_reason` names the step that broke: `size_limit`, `sql_import`, `timeout`, `remote_backup`,
 `remote_import`, `upload`, `network`, `payload_too_large`, `auth`, `not_found`, `local_import`,
-`local_export`, `disk_full`, `storage_write`, `site_fetch`, `unknown`. Classified by
-`classifySyncFailure` (`packages/common/lib/sync/classify-sync-failure.ts`), shared by all three
+`local_export`, `disk_full`, `storage_write`, `site_fetch`, `live_changed` (a push that would
+have replaced the live database stopped because the live site changed since the last sync),
+`unknown`. Classified by `classifySyncFailure` (`packages/common/lib/sync/classify-sync-failure.ts`), shared by all three
 surfaces. It prefers an **untranslated** substring match (`ENOSPC`, `ECONNRESET`, …) — an
 environment failure like a full disk is more actionable than whichever step it interrupted — then a
 bucket the call site is certain of, the HTTP status, and finally the phase the sync was in. Only

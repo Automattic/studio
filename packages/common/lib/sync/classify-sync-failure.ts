@@ -43,6 +43,7 @@ const FAILURE_REASONS: readonly TracksSyncFailureReason[] = [
 	'disk_full',
 	'storage_write',
 	'site_fetch',
+	'live_changed',
 	'unknown',
 ];
 

@@ -14,6 +14,12 @@ import {
 	classifySyncSelection,
 } from '@studio/common/lib/sync/build-sync-event-props';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
+import {
+	getLastSyncTime,
+	getLiveChangesMessage,
+	hasLiveChanges,
+	LIVE_CHANGED_CODE,
+} from '@studio/common/lib/sync/live-changes';
 import { withRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
@@ -22,6 +28,7 @@ import {
 	getProviderSites,
 	parseRemoteSite,
 	type ProviderConfigs,
+	type LiveChanges,
 	type ProviderSites,
 	type PushContent,
 	type PushStatus,
@@ -73,7 +80,7 @@ export async function runCommand(
 	syncOptions?: SyncOption[],
 	remoteSiteIdentifier?: string,
 	logger: Logger< LoggerAction > = defaultLogger,
-	{ includeOnly }: PushFlags = {}
+	flags: PushFlags = {}
 ): Promise< RemoteSite | undefined > {
 	const startedAt = Date.now();
 	const { provider, identifier } = parseRemoteSite( remoteSiteIdentifier );
@@ -84,13 +91,16 @@ export async function runCommand(
 	const pushed: PushOutcome = {
 		provider,
 		selection: syncOptions
-			? classifySyncSelection( { optionsToSync: syncOptions, specificSelectionPaths: includeOnly } )
+			? classifySyncSelection( {
+					optionsToSync: syncOptions,
+					specificSelectionPaths: flags.includeOnly,
+			  } )
 			: undefined,
 	};
 	const settled = { direction: 'push' as const, provider };
 
 	try {
-		await runPush( siteFolder, syncOptions, includeOnly, identifier, logger, pushed );
+		await runPush( siteFolder, syncOptions, flags, identifier, logger, pushed );
 	} catch ( error ) {
 		if ( pushed.siteId ) {
 			await reportSyncActivity( pushed.siteId, {
@@ -98,6 +108,7 @@ export async function runCommand(
 				...settled,
 				remoteSiteId: pushed.remoteSite?.id,
 				message: error instanceof Error ? error.message : String( error ),
+				...( error instanceof LoggerError && error.code ? { code: error.code } : {} ),
 			} );
 		}
 		await recordSyncPushEvent(
@@ -139,7 +150,12 @@ export async function runCommand(
 	return pushed.completed ? pushed.remoteSite : undefined;
 }
 
-type PushFlags = { includeOnly?: string[] };
+type PushFlags = {
+	includeOnly?: string[];
+	overwriteLiveChanges?: boolean;
+	// Asks whether to replace what changed on the live site. Without it, the push refuses.
+	confirmOverwriteLiveChanges?: ( message: string ) => Promise< boolean >;
+};
 type PushOutcome = {
 	provider: SitesProviderId;
 	selection?: SyncSelectionProps;
@@ -172,7 +188,7 @@ const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
 async function runPush(
 	siteFolder: string,
 	syncOptions: SyncOption[] | undefined,
-	includeOnly: string[] | undefined,
+	{ includeOnly, overwriteLiveChanges, confirmOverwriteLiveChanges }: PushFlags,
 	identifier: string | undefined,
 	logger: Logger< LoggerAction >,
 	pushed: PushOutcome
@@ -243,6 +259,22 @@ async function runPush(
 	}
 
 	pushed.selection ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
+
+	const pushesDatabase = optionsToSync.includes( 'all' ) || optionsToSync.includes( 'sqls' );
+	if (
+		pushesDatabase &&
+		! overwriteLiveChanges &&
+		! ( await confirmLiveChanges(
+			provider,
+			config,
+			site.id,
+			remoteSite,
+			logger,
+			confirmOverwriteLiveChanges
+		) )
+	) {
+		return;
+	}
 
 	reportPhase( 'creatingBackup' );
 	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
@@ -355,6 +387,64 @@ async function runPush(
 		forgetTempDir();
 		await removeTempDir();
 	}
+}
+
+/**
+ * Pushing the database replaces the live one, so what changed live since the last pull or push
+ * would be lost. When something did, asks with `confirm` when given one, and otherwise refuses
+ * with `LIVE_CHANGED_CODE` so the caller can ask and push again with `overwriteLiveChanges`.
+ * Resolves false when the user declines. A site never synced has nothing to compare with, and a
+ * failed check only warns: neither stops the push.
+ */
+async function confirmLiveChanges(
+	provider: SitesProviderId,
+	config: Config,
+	localSiteId: string,
+	remoteSite: RemoteSite,
+	logger: Logger< LoggerAction >,
+	confirmOverwrite: PushFlags[ 'confirmOverwriteLiveChanges' ]
+): Promise< boolean > {
+	const service = getProviderServices( provider ).sites!;
+	if ( ! service.liveChanges ) {
+		return true;
+	}
+	const connection = ( await getRemoteSites( provider, localSiteId ) ).find(
+		( candidate ) => String( candidate.id ) === String( remoteSite.id )
+	);
+	const since = getLastSyncTime( connection );
+	if ( ! since ) {
+		return true;
+	}
+
+	logger.reportStart(
+		LoggerAction.CHECK_LIVE_CHANGES,
+		__( 'Checking the live site for changes…' )
+	);
+	let changes: LiveChanges;
+	try {
+		changes = await service.liveChanges( config as never, remoteSite as never, since );
+	} catch ( error ) {
+		logger.reportWarning(
+			sprintf(
+				/* translators: 1: site name, 2: error message */
+				__( 'Could not check %1$s for changes made since your last sync (%2$s).' ),
+				remoteSite.name,
+				error instanceof Error ? error.message : String( error )
+			)
+		);
+		return true;
+	}
+	if ( ! hasLiveChanges( changes ) ) {
+		logger.reportSuccess( __( 'No changes on the live site since your last sync' ) );
+		return true;
+	}
+	logger.spinner.stop();
+
+	const message = getLiveChangesMessage( remoteSite.name, changes );
+	if ( confirmOverwrite ) {
+		return confirmOverwrite( message );
+	}
+	throw new LoggerError( message, undefined, LIVE_CHANGED_CODE );
 }
 
 // The provider's config. In a terminal, offers to sign in to WordPress.com, or to connect a
@@ -598,14 +688,31 @@ async function recordSyncPushEvent( siteFolder: string, props: SyncEventProps ):
 	}
 }
 
+async function confirmInTerminal( message: string ): Promise< boolean > {
+	defaultLogger.reportWarning( message );
+	return confirm( { message: __( 'Overwrite the changes on the live site?' ), default: false } );
+}
+
 export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	exitOnCancel();
 	try {
 		await runCommand( argv.path, argv.options, argv.remoteSite, defaultLogger, {
 			includeOnly: argv.includeOnly,
+			overwriteLiveChanges: argv.overwriteLiveChanges,
+			confirmOverwriteLiveChanges: process.stdin.isTTY ? confirmInTerminal : undefined,
 		} );
 	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
+		if ( error instanceof LoggerError && error.code === LIVE_CHANGED_CODE ) {
+			defaultLogger.reportError(
+				new LoggerError(
+					`${ error.message } ${ __(
+						'Pull first, or push again with --overwrite-live-changes to replace them.'
+					) }`,
+					undefined,
+					error.code
+				)
+			);
+		} else if ( error instanceof LoggerError ) {
 			defaultLogger.reportError( error );
 		} else {
 			const loggerError = new LoggerError( __( 'Push failed' ), error );

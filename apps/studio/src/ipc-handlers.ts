@@ -883,7 +883,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	if ( ! sitePath ) {
 		throw new Error( 'Site not found.' );
 	}
-	await deleteSiteViaCli( executeCliCommand, sitePath, deleteFiles );
+	return deleteSiteViaCli( executeCliCommand, sitePath, deleteFiles );
 }
 
 export async function copySite(

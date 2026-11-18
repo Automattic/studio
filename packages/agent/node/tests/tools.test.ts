@@ -571,6 +571,17 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 	} );
 
+	it( 'tells the agent when a deleted site left its files on disk', async () => {
+		vi.mocked( host.sites.delete ).mockResolvedValueOnce( {
+			warnings: [ 'The site files could not be moved to trash.' ],
+		} );
+
+		const result = await getTool( 'site_delete' ).rawHandler( { nameOrPath: 'My Site' } as never );
+
+		expect( host.sites.delete ).toHaveBeenCalledWith( mockSite, true, expect.any( Function ) );
+		expect( getTextContent( result ) ).toContain( 'The site files could not be moved to trash.' );
+	} );
+
 	it( 'lists previews as JSON for a resolved local site', async () => {
 		const result = await getTool( 'preview_list' ).rawHandler( { nameOrPath: 'My Site' } as never );
 

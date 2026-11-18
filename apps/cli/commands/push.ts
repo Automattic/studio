@@ -195,6 +195,12 @@ async function runPush(
 ): Promise< void > {
 	const { provider } = pushed;
 	const sites = getProviderSites( provider );
+	if ( ! sites.publish ) {
+		throw new LoggerError(
+			// translators: %s: the provider's name
+			sprintf( __( '%s only makes previews.' ), getProvider( provider ).label )
+		);
+	}
 	const service = getProviderServices( provider ).sites!;
 	const config = await requireConfig( provider );
 
@@ -311,6 +317,7 @@ async function runPush(
 		const abortUpload = new AbortController();
 		let uploading = true;
 		let lastReported = '';
+		let lastProgressLabel = '';
 		let cancelCount = 0;
 		const onSigint = () => {
 			cancelCount++;
@@ -344,12 +351,14 @@ async function runPush(
 						lastReported = reported;
 						uploading = phase === 'uploading';
 						const [ label, start, span ] = PUSH_PROGRESS[ phase ];
-						logger.reportProgress(
-							formatProgressLabel(
-								phase === 'uploading' ? uploadLabel : label(),
-								Math.round( start + ( ( progress ?? 0 ) / 100 ) * span )
-							)
+						const progressLabel = formatProgressLabel(
+							phase === 'uploading' ? uploadLabel : label(),
+							Math.round( start + ( ( progress ?? 0 ) / 100 ) * span )
 						);
+						if ( progressLabel !== lastProgressLabel ) {
+							logger.reportProgress( progressLabel );
+						}
+						lastProgressLabel = progressLabel;
 					},
 					abortUpload.signal
 				)

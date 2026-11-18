@@ -29,23 +29,39 @@ export function getLastSyncTime(
 		.at( -1 );
 }
 
-export function hasLiveChanges( { posts, comments }: LiveChanges ): boolean {
-	return posts > 0 || comments > 0;
+export function hasLiveChanges( { posts, comments, templates }: LiveChanges ): boolean {
+	return posts > 0 || comments > 0 || templates > 0;
 }
 
 export function getLiveChangesMessage(
 	siteName: string,
-	{ posts, comments }: LiveChanges
+	{ posts, comments, templates }: LiveChanges
 ): string {
-	const postsText = sprintf( _n( '%d post or page', '%d posts or pages', posts ), posts );
-	const commentsText = sprintf( _n( '%d comment', '%d comments', comments ), comments );
-	let changed: string = posts ? postsText : commentsText;
-	if ( posts && comments ) {
+	const parts = [
+		posts ? sprintf( _n( '%d post or page', '%d posts or pages', posts ), posts ) : '',
+		templates
+			? sprintf(
+					_n( '%d template or template part', '%d templates or template parts', templates ),
+					templates
+			  )
+			: '',
+		comments ? sprintf( _n( '%d comment', '%d comments', comments ), comments ) : '',
+	].filter( Boolean );
+	let changed: string = parts[ 0 ] ?? '';
+	if ( parts.length === 2 ) {
 		changed = sprintf(
-			/* translators: 1: number of posts or pages, 2: number of comments */
+			/* translators: 1: and 2: numbers of things that changed, such as "2 posts or pages" */
 			__( '%1$s and %2$s' ),
-			postsText,
-			commentsText
+			parts[ 0 ],
+			parts[ 1 ]
+		);
+	} else if ( parts.length === 3 ) {
+		changed = sprintf(
+			/* translators: 1:, 2: and 3: numbers of things that changed, such as "2 posts or pages" */
+			__( '%1$s, %2$s and %3$s' ),
+			parts[ 0 ],
+			parts[ 1 ],
+			parts[ 2 ]
 		);
 	}
 	return sprintf(

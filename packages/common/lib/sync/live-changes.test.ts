@@ -24,9 +24,14 @@ describe( 'getLastSyncTime', () => {
 
 describe( 'getLiveChangesMessage', () => {
 	it.each( [
-		[ { posts: 1, comments: 0 }, '1 post or page changed on Live' ],
-		[ { posts: 0, comments: 3 }, '3 comments changed on Live' ],
-		[ { posts: 2, comments: 1 }, '2 posts or pages and 1 comment changed on Live' ],
+		[ { posts: 1, comments: 0, templates: 0 }, '1 post or page changed on Live' ],
+		[ { posts: 0, comments: 3, templates: 0 }, '3 comments changed on Live' ],
+		[ { posts: 0, comments: 0, templates: 1 }, '1 template or template part changed on Live' ],
+		[ { posts: 2, comments: 1, templates: 0 }, '2 posts or pages and 1 comment changed on Live' ],
+		[
+			{ posts: 2, comments: 1, templates: 3 },
+			'2 posts or pages, 3 templates or template parts and 1 comment changed on Live',
+		],
 	] )( 'names what changed in %o', ( changes, expected ) => {
 		expect( getLiveChangesMessage( 'Live', changes ) ).toContain( expected );
 	} );
@@ -34,7 +39,8 @@ describe( 'getLiveChangesMessage', () => {
 
 describe( 'hasLiveChanges', () => {
 	it( 'is true when anything changed', () => {
-		expect( hasLiveChanges( { posts: 0, comments: 0 } ) ).toBe( false );
-		expect( hasLiveChanges( { posts: 0, comments: 1 } ) ).toBe( true );
+		expect( hasLiveChanges( { posts: 0, comments: 0, templates: 0 } ) ).toBe( false );
+		expect( hasLiveChanges( { posts: 0, comments: 1, templates: 0 } ) ).toBe( true );
+		expect( hasLiveChanges( { posts: 0, comments: 0, templates: 1 } ) ).toBe( true );
 	} );
 } );

@@ -382,7 +382,11 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 		vi.mocked( getRemoteSites ).mockResolvedValue( [ connection ] );
-		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( { posts: 2, comments: 5 } );
+		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
+			posts: 2,
+			comments: 5,
+			templates: 0,
+		} );
 		pushes( [] );
 		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
 			return {
@@ -452,11 +456,31 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 	} );
 
 	it( 'pushes when nothing changed live', async () => {
-		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( { posts: 0, comments: 0 } );
+		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
+			posts: 0,
+			comments: 0,
+			templates: 0,
+		} );
 
 		await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).resolves.toBe(
 			remoteSite
 		);
+	} );
+
+	it( 'refuses when only a template changed live', async () => {
+		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
+			posts: 0,
+			comments: 0,
+			templates: 1,
+		} );
+
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+		).rejects.toMatchObject( {
+			code: 'live_changed',
+			message: expect.stringContaining( '1 template or template part changed on Live' ),
+		} );
+		expect( wpcomSites.push ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not check a push that leaves the database alone', async () => {

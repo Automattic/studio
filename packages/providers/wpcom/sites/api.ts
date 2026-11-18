@@ -231,25 +231,31 @@ function countFound( response: unknown, items: 'posts' | 'comments' ): number {
 	return parsed.found >= 0 ? parsed.found : parsed[ items ]?.length ?? 0;
 }
 
+// The Site Editor's templates and template parts. A query for `any` post type leaves them out, and
+// the endpoint takes one type at a time.
+const TEMPLATE_TYPES = [ 'wp_template', 'wp_template_part' ];
+
 /**
- * How many posts (of any type) were modified, and how many comments were made, on the site
- * after `since`, an ISO 8601 time.
+ * How many posts (of any type), and templates and template parts saved in the database, were
+ * modified on the site after `since`, an ISO 8601 time, and how many comments were made.
  */
 export async function fetchLiveChangesSince(
 	token: string,
 	remoteSiteId: number,
 	since: string
-): Promise< { posts: number; comments: number } > {
+): Promise< { posts: number; comments: number; templates: number } > {
 	const wpcom = wpcomClient( token );
-	const [ posts, comments ] = await Promise.all( [
+	const modifiedAfter = ( type: string ) =>
 		wpcom.req.get( `/sites/${ remoteSiteId }/posts`, {
 			apiVersion: '1.1',
-			type: 'any',
+			type,
 			status: LIVE_POST_STATUSES,
 			modified_after: since,
 			number: LIVE_CHANGES_PAGE,
 			fields: 'ID',
-		} ),
+		} );
+	const [ posts, comments, ...templates ] = await Promise.all( [
+		modifiedAfter( 'any' ),
 		wpcom.req.get( `/sites/${ remoteSiteId }/comments`, {
 			apiVersion: '1.1',
 			status: 'all',
@@ -257,6 +263,30 @@ export async function fetchLiveChangesSince(
 			number: LIVE_CHANGES_PAGE,
 			fields: 'ID',
 		} ),
+		...TEMPLATE_TYPES.map( ( type ) =>
+			modifiedAfter( type ).catch( ( error: unknown ) => {
+				// A site that doesn't register the type has none of it to lose.
+				if ( isUnknownPostType( error ) ) {
+					return { found: 0 };
+				}
+				throw error;
+			} )
+		),
 	] );
-	return { posts: countFound( posts, 'posts' ), comments: countFound( comments, 'comments' ) };
+	return {
+		posts: countFound( posts, 'posts' ),
+		comments: countFound( comments, 'comments' ),
+		templates: templates.reduce< number >(
+			( total, response ) => total + countFound( response, 'posts' ),
+			0
+		),
+	};
+}
+
+function isUnknownPostType( error: unknown ): boolean {
+	return (
+		error instanceof Error &&
+		'error' in error &&
+		( error as { error?: unknown } ).error === 'unknown_post_type'
+	);
 }

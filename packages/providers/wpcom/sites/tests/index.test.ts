@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RemoteSiteError } from '../../../errors';
 import {
 	fetchLatestRewindId,
+	fetchLiveChangesSince,
 	initiateBackup,
 	initiateImport,
 	launchSite,
@@ -202,6 +203,28 @@ describe( 'push', () => {
 		await expect( push() ).rejects.toMatchObject( {
 			message: expect.stringContaining( 'already in progress' ),
 			code: 'remote_import',
+		} );
+	} );
+} );
+
+describe( 'liveChanges', () => {
+	it( 'counts what changed on the live site since the given time', async () => {
+		vi.mocked( fetchLiveChangesSince ).mockResolvedValue( { posts: 2, comments: 5 } );
+
+		await expect(
+			wpcomSites.liveChanges!( config, { id: 42 }, '2026-11-01T00:00:00.000Z' )
+		).resolves.toEqual( { posts: 2, comments: 5 } );
+		expect( fetchLiveChangesSince ).toHaveBeenCalledWith( 'token', 42, '2026-11-01T00:00:00.000Z' );
+	} );
+
+	it( 'reports a failed check as a remote site error', async () => {
+		vi.mocked( fetchLiveChangesSince ).mockRejectedValue( new Error( '403' ) );
+
+		await expect(
+			wpcomSites.liveChanges!( config, { id: 42 }, '2026-11-01T00:00:00.000Z' )
+		).rejects.toMatchObject( {
+			message: 'Failed to check the live site for changes',
+			code: 'live_changes',
 		} );
 	} );
 } );

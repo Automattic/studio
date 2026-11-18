@@ -211,3 +211,52 @@ export async function fetchRemoteFileTreeContents(
 	}
 	return parsed.contents ?? {};
 }
+
+// Every status a post can be in on the live site, trash included: `any` leaves trash out, and a
+// post trashed live is a change a database push would undo.
+const LIVE_POST_STATUSES = 'publish,private,draft,pending,future,trash';
+
+// A date filter can leave WordPress.com without a total (`found: -1`), so the items returned, up
+// to `LIVE_CHANGES_PAGE`, count instead.
+const LIVE_CHANGES_PAGE = 100;
+
+const liveChangesSchema = z.object( {
+	found: z.number(),
+	posts: z.array( z.unknown() ).optional(),
+	comments: z.array( z.unknown() ).optional(),
+} );
+
+function countFound( response: unknown, items: 'posts' | 'comments' ): number {
+	const parsed = liveChangesSchema.parse( response );
+	return parsed.found >= 0 ? parsed.found : parsed[ items ]?.length ?? 0;
+}
+
+/**
+ * How many posts (of any type) were modified, and how many comments were made, on the site
+ * after `since`, an ISO 8601 time.
+ */
+export async function fetchLiveChangesSince(
+	token: string,
+	remoteSiteId: number,
+	since: string
+): Promise< { posts: number; comments: number } > {
+	const wpcom = wpcomClient( token );
+	const [ posts, comments ] = await Promise.all( [
+		wpcom.req.get( `/sites/${ remoteSiteId }/posts`, {
+			apiVersion: '1.1',
+			type: 'any',
+			status: LIVE_POST_STATUSES,
+			modified_after: since,
+			number: LIVE_CHANGES_PAGE,
+			fields: 'ID',
+		} ),
+		wpcom.req.get( `/sites/${ remoteSiteId }/comments`, {
+			apiVersion: '1.1',
+			status: 'all',
+			after: since,
+			number: LIVE_CHANGES_PAGE,
+			fields: 'ID',
+		} ),
+	] );
+	return { posts: countFound( posts, 'posts' ), comments: countFound( comments, 'comments' ) };
+}

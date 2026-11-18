@@ -238,6 +238,12 @@ export interface PushStatus {
 	progress?: number;
 }
 
+// Posts (of any type) modified and comments made on a live site since a given time.
+export interface LiveChanges {
+	posts: number;
+	comments: number;
+}
+
 // What Studio reads of any provider's remote site.
 export interface RemoteSite {
 	id: string | number;
@@ -266,6 +272,13 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		onStatus: ( status: PushStatus ) => void,
 		signal?: AbortSignal
 	): Promise< void | { launchError: string } >;
+	// What changed on the live site after `since` (ISO 8601), for a provider whose push replaces
+	// the site's database: such changes would be lost.
+	liveChanges?(
+		config: Config | undefined,
+		site: Pick< Site, 'id' >,
+		since: string
+	): Promise< LiveChanges >;
 	pull?: {
 		// Backs the site up remotely and resolves with where to download the
 		// archive. `onProgress` gets the backup's percentage.

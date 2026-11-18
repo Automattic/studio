@@ -4,6 +4,7 @@ import { NotConnectedError, RemoteSiteError } from '../../errors';
 import {
 	checkBackupSize,
 	fetchLatestRewindId,
+	fetchLiveChangesSince,
 	fetchRemoteFileTreeContents,
 	fetchSyncableSites,
 	initiateBackup,
@@ -204,6 +205,11 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 			'timeout'
 		);
 	},
+
+	liveChanges: ( config, site, since ) =>
+		step( __( 'Failed to check the live site for changes' ), 'live_changes', () =>
+			fetchLiveChangesSince( requireToken( config ), site.id, since )
+		),
 
 	pull: {
 		async backup( config, site, options, onProgress, signal ) {

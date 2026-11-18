@@ -302,7 +302,7 @@ msgid "Full skill body hidden · ctrl+o to expand"
 msgstr ""
 
 #: apps/cli/ai/tool-result-renderers.ts:181
-#: packages/agent/protocol/tools.ts:114
+#: packages/agent/protocol/tools.ts:139
 #. 1: WP-CLI action label, 2: plugin or theme name.
 msgid "%1$s: %2$s"
 msgstr ""
@@ -2452,7 +2452,7 @@ msgid "Show which sites and files would be deleted without deleting them"
 msgstr ""
 
 #: apps/cli/commands/site/delete.command.ts:33
-#: packages/agent/protocol/tools.ts:302
+#: packages/agent/protocol/tools.ts:327
 msgid "Delete site"
 msgstr ""
 
@@ -2564,7 +2564,7 @@ msgid "Site files already removed"
 msgstr ""
 
 #: apps/cli/commands/site/list.command.ts:21
-#: packages/agent/protocol/tools.ts:298
+#: packages/agent/protocol/tools.ts:323
 msgid "List sites"
 msgstr ""
 
@@ -2624,7 +2624,7 @@ msgstr ""
 #: apps/ui/src/features/sidebar/site-list/site-status-button.tsx:79
 #: apps/ui/src/features/sites/stopped-site-preview/index.tsx:71
 #: apps/ui/src/features/sync/publish-panel/connected-view.tsx:266
-#: packages/agent/protocol/tools.ts:300
+#: packages/agent/protocol/tools.ts:325
 msgid "Start site"
 msgstr ""
 
@@ -3884,7 +3884,7 @@ msgstr[1] ""
 #: apps/ui/src/features/composer/composer-commands.ts:76
 #: apps/ui/src/features/sidebar/site-list/site-status-button.tsx:79
 #: apps/ui/src/features/sites/site-menu/index.tsx:236
-#: packages/agent/protocol/tools.ts:301
+#: packages/agent/protocol/tools.ts:326
 msgid "Stop site"
 msgid_plural "Stop sites"
 msgstr[0] ""
@@ -4128,7 +4128,7 @@ msgstr ""
 
 #: apps/studio/src/lib/spotlight.ts:15
 #: apps/ui/src/features/commands/studio-commands.ts:140
-#: packages/agent/protocol/tools.ts:297
+#: packages/agent/protocol/tools.ts:322
 msgid "Create site"
 msgstr ""
 
@@ -4299,7 +4299,7 @@ msgid "Close Window"
 msgstr ""
 
 #: apps/studio/src/menu.ts:312
-#: packages/agent/protocol/tools.ts:329
+#: packages/agent/protocol/tools.ts:354
 msgid "Edit"
 msgstr ""
 
@@ -5694,7 +5694,7 @@ msgstr ""
 #: apps/ui/src/features/feedback/feedback-dialog.tsx:116
 #: apps/ui/src/features/feedback/feedback-dialog.tsx:196
 #: packages/agent/protocol/slash-commands.ts:37
-#: packages/agent/protocol/tools.ts:325
+#: packages/agent/protocol/tools.ts:350
 msgid "Send feedback"
 msgstr ""
 
@@ -6494,7 +6494,7 @@ msgid "This site has changes its preview doesn't"
 msgstr ""
 
 #: apps/ui/src/features/commands/use-app-menu-navigation.ts:155
-#: packages/agent/protocol/tools.ts:309
+#: packages/agent/protocol/tools.ts:334
 msgid "Update preview"
 msgstr ""
 
@@ -7339,8 +7339,8 @@ msgid "Site"
 msgstr ""
 
 #: apps/ui/src/features/settings/settings-dialog/index.tsx:452
-#: packages/agent/protocol/tools.ts:331
-#: packages/agent/protocol/tools.ts:332
+#: packages/agent/protocol/tools.ts:356
+#: packages/agent/protocol/tools.ts:357
 msgid "Search"
 msgstr ""
 
@@ -7811,7 +7811,7 @@ msgstr ""
 #: apps/ui/src/features/settings/settings-view/sharing-panel.tsx:286
 #: apps/ui/src/features/sharing/share-dialog/preview-management-dialog.tsx:104
 #: apps/ui/src/features/sharing/share-dialog/preview-share-panel.tsx:230
-#: packages/agent/protocol/tools.ts:310
+#: packages/agent/protocol/tools.ts:335
 msgid "Delete preview"
 msgstr ""
 
@@ -8205,7 +8205,7 @@ msgstr ""
 
 #: apps/ui/src/features/sharing/share-dialog/preview-share-panel.tsx:397
 #: apps/ui/src/features/sharing/share-dialog/share-menu-item.tsx:83
-#: packages/agent/protocol/tools.ts:307
+#: packages/agent/protocol/tools.ts:332
 msgid "Create preview"
 msgstr ""
 
@@ -9633,7 +9633,7 @@ msgstr ""
 
 #: apps/ui/src/features/sites/site-menu/index.tsx:315
 #: apps/ui/src/features/sites/use-site-management-actions.ts:84
-#: packages/agent/protocol/tools.ts:306
+#: packages/agent/protocol/tools.ts:331
 msgid "Export site"
 msgstr ""
 
@@ -9761,7 +9761,7 @@ msgid "Taking screenshot…"
 msgstr ""
 
 #: apps/ui/src/features/sites/site-preview/preview-header/browser-menu.tsx:79
-#: packages/agent/protocol/tools.ts:318
+#: packages/agent/protocol/tools.ts:343
 msgid "Take screenshot"
 msgstr ""
 
@@ -10286,334 +10286,342 @@ msgstr ""
 msgid "Request a feature or report a bug."
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:53
-msgid "pages"
-msgstr ""
-
-#: packages/agent/protocol/tools.ts:53
+#: packages/agent/protocol/tools.ts:54
+#. Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s".
 msgid "page"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:55
-msgid "media items"
-msgstr ""
-
-#: packages/agent/protocol/tools.ts:55
+#: packages/agent/protocol/tools.ts:57
+#. Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s".
 msgid "media item"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:57
-msgid "products"
-msgstr ""
-
-#: packages/agent/protocol/tools.ts:57
+#: packages/agent/protocol/tools.ts:60
+#. Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s".
 msgid "product"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:61
-msgid "posts"
-msgstr ""
-
-#: packages/agent/protocol/tools.ts:61
+#: packages/agent/protocol/tools.ts:65
+#. Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s".
 msgid "post"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:161
+#: packages/agent/protocol/tools.ts:75
+#. Fills the %s of "List %s" and "List published %s".
+msgid "pages"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:78
+#. Fills the %s of "List %s" and "List published %s".
+msgid "media items"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:81
+#. Fills the %s of "List %s" and "List published %s".
+msgid "products"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:86
+#. Fills the %s of "List %s" and "List published %s".
+msgid "posts"
+msgstr ""
+
+#: packages/agent/protocol/tools.ts:186
 #. %s: plural post type, such as posts or pages.
 msgid "List published %s"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:167
+#: packages/agent/protocol/tools.ts:192
 #. %s: plural post type, such as posts or pages.
 msgid "List %s"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:173
+#: packages/agent/protocol/tools.ts:198
 #. %s: post type, such as post or page.
 msgid "Read %s"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:179
+#: packages/agent/protocol/tools.ts:204
 #. %s: post type, such as post or page.
 msgid "Create %s"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:185
+#: packages/agent/protocol/tools.ts:210
 #. %s: post type, such as post or page.
 msgid "Update %s"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:191
+#: packages/agent/protocol/tools.ts:216
 #. %s: post type, such as post or page.
 msgid "Delete %s"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:195
+#: packages/agent/protocol/tools.ts:220
 msgid "Manage content"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:208
+#: packages/agent/protocol/tools.ts:233
 msgid "List themes"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:210
+#: packages/agent/protocol/tools.ts:235
 msgid "Activate theme"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:212
+#: packages/agent/protocol/tools.ts:237
 msgid "Install theme"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:214
+#: packages/agent/protocol/tools.ts:239
 msgid "Delete theme"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:216
+#: packages/agent/protocol/tools.ts:241
 msgid "Manage themes"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:221
+#: packages/agent/protocol/tools.ts:246
 msgid "List plugins"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:224
+#: packages/agent/protocol/tools.ts:249
 msgid "Activate all plugins"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:226
+#: packages/agent/protocol/tools.ts:251
 msgid "Activate plugin"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:229
+#: packages/agent/protocol/tools.ts:254
 msgid "Deactivate all plugins"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:231
+#: packages/agent/protocol/tools.ts:256
 msgid "Deactivate plugin"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:233
+#: packages/agent/protocol/tools.ts:258
 msgid "Install plugin"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:235
+#: packages/agent/protocol/tools.ts:260
 msgid "Delete plugin"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:238
+#: packages/agent/protocol/tools.ts:263
 msgid "Update all plugins"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:240
+#: packages/agent/protocol/tools.ts:265
 msgid "Update plugin"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:242
+#: packages/agent/protocol/tools.ts:267
 msgid "Manage plugins"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:248
+#: packages/agent/protocol/tools.ts:273
 msgid "Read site title"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:248
+#: packages/agent/protocol/tools.ts:273
 msgid "Read site option"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:251
+#: packages/agent/protocol/tools.ts:276
 msgid "Update site title"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:251
+#: packages/agent/protocol/tools.ts:276
 msgid "Update site option"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:253
+#: packages/agent/protocol/tools.ts:278
 msgid "Manage site options"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:257
+#: packages/agent/protocol/tools.ts:282
 msgid "List users"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:259
+#: packages/agent/protocol/tools.ts:284
 msgid "Create user"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:261
+#: packages/agent/protocol/tools.ts:286
 msgid "Update user"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:263
+#: packages/agent/protocol/tools.ts:288
 msgid "Delete user"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:265
+#: packages/agent/protocol/tools.ts:290
 msgid "Manage users"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:268
+#: packages/agent/protocol/tools.ts:293
 msgid "Import media"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:268
+#: packages/agent/protocol/tools.ts:293
 msgid "Manage media"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:270
+#: packages/agent/protocol/tools.ts:295
 msgid "List menus"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:270
+#: packages/agent/protocol/tools.ts:295
 msgid "Manage menus"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:272
+#: packages/agent/protocol/tools.ts:297
 msgid "List terms"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:272
+#: packages/agent/protocol/tools.ts:297
 msgid "Manage terms"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:274
+#: packages/agent/protocol/tools.ts:299
 msgid "Flush cache"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:274
+#: packages/agent/protocol/tools.ts:299
 msgid "Manage cache"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:276
+#: packages/agent/protocol/tools.ts:301
 msgid "Flush permalinks"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:276
+#: packages/agent/protocol/tools.ts:301
 msgid "Manage permalinks"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:279
+#: packages/agent/protocol/tools.ts:304
 msgid "Run WordPress code"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:281
-#: packages/agent/protocol/tools.ts:293
+#: packages/agent/protocol/tools.ts:306
+#: packages/agent/protocol/tools.ts:318
 msgid "Run WordPress command"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:299
+#: packages/agent/protocol/tools.ts:324
 msgid "Get site info"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:303
+#: packages/agent/protocol/tools.ts:328
 msgid "Push site"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:304
+#: packages/agent/protocol/tools.ts:329
 msgid "Pull site"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:305
+#: packages/agent/protocol/tools.ts:330
 msgid "Import site"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:308
+#: packages/agent/protocol/tools.ts:333
 msgid "List previews"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:311
+#: packages/agent/protocol/tools.ts:336
 msgid "Refresh preview"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:312
+#: packages/agent/protocol/tools.ts:337
 msgid "List connected remote sites"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:313
+#: packages/agent/protocol/tools.ts:338
 msgid "Scaffold theme"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:314
+#: packages/agent/protocol/tools.ts:339
 msgid "Pick design"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:315
+#: packages/agent/protocol/tools.ts:340
 msgid "Present design options"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:316
+#: packages/agent/protocol/tools.ts:341
 msgid "Inspect design"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:317
+#: packages/agent/protocol/tools.ts:342
 msgid "Validate blocks"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:319
+#: packages/agent/protocol/tools.ts:344
 msgid "Generate images"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:320
+#: packages/agent/protocol/tools.ts:345
 msgid "Open annotation browser"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:321
+#: packages/agent/protocol/tools.ts:346
 msgid "Audit performance"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:322
+#: packages/agent/protocol/tools.ts:347
 msgid "Audit SEO"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:323
+#: packages/agent/protocol/tools.ts:348
 msgid "Install taxonomy scripts"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:324
+#: packages/agent/protocol/tools.ts:349
 msgid "WordPress.com API"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:326
+#: packages/agent/protocol/tools.ts:351
 msgid "Ask user"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:327
+#: packages/agent/protocol/tools.ts:352
 msgid "Read"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:328
+#: packages/agent/protocol/tools.ts:353
 msgid "Write"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:330
+#: packages/agent/protocol/tools.ts:355
 msgid "Run"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:333
+#: packages/agent/protocol/tools.ts:358
 msgid "List"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:334
+#: packages/agent/protocol/tools.ts:359
 msgid "Load skill"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:335
+#: packages/agent/protocol/tools.ts:360
 msgid "Run task"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:336
+#: packages/agent/protocol/tools.ts:361
 msgid "Update todo list"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:344
+#: packages/agent/protocol/tools.ts:369
 msgid "Reply in your own words instead of picking an option."
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:441
+#: packages/agent/protocol/tools.ts:466
 msgid "inline content"
 msgstr ""
 
-#: packages/agent/protocol/tools.ts:447
+#: packages/agent/protocol/tools.ts:472
 msgid "%d image"
 msgid_plural "%d images"
 msgstr[0] ""

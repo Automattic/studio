@@ -48,8 +48,7 @@ const BACKUP_FIXTURES = [
 ] as const;
 
 /**
- * `--no-start` defers the slow WordPress install — `studio import` works
- * against the stopped site.
+ * `--no-start` leaves the site stopped — `studio import` works against it.
  */
 async function createStoppedSite( env: CliEnv, name: string, dirName: string ): Promise< string > {
 	const sitePath = path.join( env.sitesDir, dirName );

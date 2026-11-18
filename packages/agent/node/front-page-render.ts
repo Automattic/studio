@@ -83,6 +83,14 @@ export const describeThrown = ( thrown: Thrown ) =>
 		thrown.at
 	}), so a visitor gets a PHP fatal error instead of the page. Give the block the attributes its code takes.`;
 
+export interface HookedBlock {
+	name: string;
+	position: string;
+	anchor: string;
+	// The template or template part: its post type and slug.
+	in: [ 'wp_template' | 'wp_template_part', string ] | null;
+}
+
 export interface RenderedPage {
 	html: string;
 	// The "#id" urls of the navigation links WordPress rendered, with their labels.
@@ -92,6 +100,9 @@ export interface RenderedPage {
 	// core/post-content renders and the blocks a dynamic block renders into its
 	// own output, which their own checks cover.
 	empty: string[];
+	// The blocks a plugin's Block Hooks inserted that rendered, each beside
+	// the block it is hooked to, in the template or part it renders in.
+	hooked: HookedBlock[];
 	// Of the front page: another page to render, and the home page's path.
 	other?: Record< string, string | number >;
 	home: string;
@@ -100,11 +111,25 @@ export interface RenderedPage {
 }
 
 const RENDER = ( request: string ) => `
-${ request }
 $links   = array();
 $empty   = array();
+$hooked  = array();
 $content = 0;
-add_filter( 'render_block_data', function ( $parsed, $source, $parent_block ) use ( &$content ) {
+// Each block Block Hooks insert, marked with where (insert_hooked_blocks() in
+// wp-includes/blocks.php), so that it is known as one when it renders.
+add_filter( 'hooked_block', function ( $parsed, $type, $position, $anchor, $context ) {
+	if ( is_array( $parsed ) ) {
+		$parsed['attrs']['metadata']['studioHooked'] = array( $position, $anchor['blockName'] ?? '', $context instanceof WP_Block_Template ? array( $context->type, $context->slug ) : null );
+	}
+	return $parsed;
+}, PHP_INT_MAX, 5 );
+${ request }
+add_filter( 'render_block_data', function ( $parsed, $source, $parent_block ) use ( &$content, &$hooked ) {
+	if ( isset( $parsed['attrs']['metadata']['studioHooked'] ) ) {
+		list( $position, $anchor, $in ) = $parsed['attrs']['metadata']['studioHooked'];
+		unset( $parsed['attrs']['metadata']['studioHooked'] );
+		$hooked[] = array( 'name' => $parsed['blockName'], 'position' => $position, 'anchor' => $anchor, 'in' => $in );
+	}
 	$parsed['studioSkipped'] = $content > 0 || ( $parent_block && $parent_block->block_type && $parent_block->block_type->is_dynamic() );
 	if ( 'core/post-content' === $parsed['blockName'] ) {
 		++$content;
@@ -157,6 +182,7 @@ echo wp_json_encode( array(
 	'links'      => (object) $links,
 	'ids'        => array_values( array_unique( $ids ) ),
 	'empty'      => array_values( array_unique( $empty ) ),
+	'hooked'     => array_values( array_unique( $hooked, SORT_REGULAR ) ),
 	'other'      => $other ? array( 'page' === $other[0]->post_type ? 'page_id' : 'p' => $other[0]->ID ) : array( 'error' => '404' ),
 	'home'       => wp_make_link_relative( home_url( '/' ) ),
 	'stylesheet' => get_stylesheet(),

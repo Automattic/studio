@@ -176,6 +176,28 @@ async function frontPageReports(
 		return [];
 	}
 	const named = page.empty.filter( ( name ) => names.has( name ) );
+	const hooked = page.hooked.filter( ( block ) => names.has( block.anchor ) );
+	const summary = [
+		named.length &&
+			`of the blocks in the changed templates, template parts and patterns, WordPress renders ${ named.join(
+				', '
+			) } as nothing for a visitor who is not logged in (render_block() through get_the_block_template_html(), in wp-includes/block-template.php).`,
+		hooked.length &&
+			`WordPress inserts ${ hooked
+				.map(
+					( block ) =>
+						`${ block.name } ${ block.position.replace( '_', ' ' ) } ${ block.anchor }${
+							block.in
+								? ` in the ${ block.in[ 1 ] } ${
+										block.in[ 0 ] === 'wp_template' ? 'template' : 'template part'
+								  }`
+								: ''
+						}`
+				)
+				.join(
+					', '
+				) }, as a plugin hooks it there (Block Hooks: the hooked_block_types filter, in wp-includes/blocks.php); no file holds it. To leave one out, list it in its anchor block's metadata.ignoredHookedBlocks, which insert_hooked_blocks() skips.`,
+	].filter( Boolean );
 	return [
 		{
 			key: 'front page rendered',
@@ -184,12 +206,8 @@ async function frontPageReports(
 				? `${ site.name } front page: ${ describeThrown( page.thrown ) }`
 				: undefined,
 			summary:
-				! page.thrown && named.length
-					? `${
-							site.name
-					  } front page: of the blocks in the changed templates, template parts and patterns, WordPress renders ${ named.join(
-							', '
-					  ) } as nothing for a visitor who is not logged in (render_block() through get_the_block_template_html(), in wp-includes/block-template.php).`
+				! page.thrown && summary.length
+					? `${ site.name } front page: ${ summary.join( ' ' ) }`
 					: undefined,
 		},
 	];

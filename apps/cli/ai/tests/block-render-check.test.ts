@@ -31,6 +31,16 @@ add_action( 'init', function () {
 	register_block_type( 'studio-test/recent', array( 'render_callback' => function ( $attributes ) { return studio_test_since( $attributes['since'] ); } ) );
 } );
 function studio_test_since( array $since ) { return '<p>Recent</p>'; }
+// As WooCommerce hooks its customer account block after the navigation of a header part (CustomerAccount's hooked_block_placements).
+add_action( 'init', function () {
+	register_block_type( 'studio-test/account', array( 'render_callback' => function () { return '<a>Account</a>'; } ) );
+} );
+add_filter( 'hooked_block_types', function ( $types, $position, $anchor, $context ) {
+	if ( 'after' === $position && 'core/navigation' === $anchor && $context instanceof WP_Block_Template && 'header' === $context->area ) {
+		$types[] = 'studio-test/account';
+	}
+	return $types;
+}, 10, 4 );
 // A form plugin's shortcode, which returns nothing for a form it cannot read (eval36's grooming port).
 add_shortcode( 'studio-test-form', function ( $atts ) { return '1' === $atts['id'] ? '<form></form>' : ''; } );
 `;
@@ -278,6 +288,28 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			expect( ( await renderedBlocks.check( site, before, after, host ) ).reports ).toEqual( [
 				{ key: 'front page rendered', problem: undefined, summary: undefined },
 			] );
+		} );
+
+		it.each( [
+			{
+				name: 'a block a plugin hooks after one it holds',
+				navigation: '<!-- wp:navigation /-->',
+				stated: [
+					{
+						key: 'front page rendered',
+						summary:
+							"Seaside Gallery front page: WordPress inserts studio-test/account after core/navigation in the header template part, as a plugin hooks it there (Block Hooks: the hooked_block_types filter, in wp-includes/blocks.php); no file holds it. To leave one out, list it in its anchor block's metadata.ignoredHookedBlocks, which insert_hooked_blocks() skips.",
+					},
+				],
+			},
+			{
+				name: 'one its anchor block lists as ignored',
+				navigation:
+					'<!-- wp:navigation {"metadata":{"ignoredHookedBlocks":["studio-test/account"]}} /-->',
+				stated: [],
+			},
+		] )( 'states $name', async ( { navigation, stated } ) => {
+			expect( await write( 'parts/header.html', navigation ) ).toEqual( stated );
 		} );
 
 		it.each( [

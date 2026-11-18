@@ -113,8 +113,8 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
   output = sh(
     { 'BROWSERSLIST' => 'current node' },
     'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common,packages/blueprints}/**/*.{js,jsx,ts,tsx}",
-    '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common,packages/blueprints,packages/providers,packages/agent}/**/*.{js,jsx,ts,tsx}",
+    '--ignore', '**/node_modules/**/*,**/*.d.ts',
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
     '--output', POT_FILE_PATH

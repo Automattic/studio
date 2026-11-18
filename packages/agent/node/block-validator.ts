@@ -593,6 +593,84 @@ async function validateAsWritten(
 					// WooCommerce registers its product blocks without "ancestor" while a
 					// single-product template is open in the Site Editor
 					// (wc-block-library.js).
+					// The blocks the site's block patterns place directly inside a block
+					// that goes only inside others (its block.json "parent" or
+					// "ancestor"), as woocommerce/product-template holds core/post-title
+					// with its "__woocommerceNamespace": each with the scalar attributes
+					// every pattern gives it, most used first, by the block they sit in.
+					const patternChildren = new Map< string, string >();
+					const unpatterned = new Set< string >();
+					function placedByPatterns( parent: string ) {
+						const parentType = wpBlocks.getBlockType( parent );
+						if (
+							! Array.isArray( parentType?.parent ) &&
+							! Array.isArray( parentType?.ancestor )
+						) {
+							return '';
+						}
+						if ( ! patternChildren.has( parent ) ) {
+							unpatterned.add( parent );
+							return '';
+						}
+						const placed = patternChildren.get( parent );
+						return placed
+							? ` Inside ${ parent }, the site's block patterns place: ${ placed }.`
+							: '';
+					}
+					async function readPatterns( parents: string[] ) {
+						const patterns: any[] =
+							typeof apiFetch === 'function' && rawParse
+								? await apiFetch( { path: '/wp/v2/block-patterns/patterns' } ).catch( () => [] )
+								: [];
+						const found = new Map< string, Map< string, { count: number; attrs: any } > >(
+							parents.map( ( one ) => [ one, new Map() ] )
+						);
+						const walk = ( list: any[], parent: string | undefined ) =>
+							list.forEach( ( raw: any ) => {
+								if ( ! raw.blockName ) {
+									return;
+								}
+								const name = rawName( raw );
+								const children = parent ? found.get( parent ) : undefined;
+								if ( children ) {
+									const seen = children.get( name );
+									const attrs = Object.fromEntries(
+										Object.entries( raw.attrs ?? {} ).filter(
+											( [ , value ] ) => value === null || typeof value !== 'object'
+										)
+									);
+									children.set(
+										name,
+										seen
+											? {
+													count: seen.count + 1,
+													attrs: Object.fromEntries(
+														Object.entries( seen.attrs ).filter(
+															( [ key, value ] ) =>
+																JSON.stringify( attrs[ key ] ) === JSON.stringify( value )
+														)
+													),
+											  }
+											: { count: 1, attrs }
+									);
+								}
+								walk( raw.innerBlocks ?? [], name );
+							} );
+						( Array.isArray( patterns ) ? patterns : [] ).forEach( ( pattern: any ) =>
+							walk( rawParse( String( pattern?.content ?? '' ) ), undefined )
+						);
+						found.forEach( ( children, parent ) =>
+							patternChildren.set(
+								parent,
+								[ ...children ]
+									.sort( ( a, b ) => b[ 1 ].count - a[ 1 ].count )
+									.map( ( [ name, { attrs } ] ) =>
+										Object.keys( attrs ).length ? `${ name } ${ JSON.stringify( attrs ) }` : name
+									)
+									.join( '; ' )
+							)
+						);
+					}
 					function misplacement( name: string, blockType: any, enclosing: string[] ) {
 						const parent = enclosing[ enclosing.length - 1 ];
 						if ( ! inPost || ! parent ) {
@@ -607,7 +685,9 @@ async function validateAsWritten(
 						) {
 							return `${ name } sits directly inside ${ parent }, and its block.json "parent" allows it only directly inside ${ parents.join(
 								', '
-							) }, so the block editor places it nowhere else (canInsertBlockType() in @wordpress/block-editor).`;
+							) }, so the block editor places it nowhere else (canInsertBlockType() in @wordpress/block-editor).${ placedByPatterns(
+								parent
+							) }`;
 						}
 						if (
 							Array.isArray( ancestors ) &&
@@ -615,7 +695,9 @@ async function validateAsWritten(
 						) {
 							return `${ name } sits inside ${ parent }, and its block.json "ancestor" allows it only inside ${ ancestors.join(
 								', '
-							) }, so the block editor places it nowhere else (canInsertBlockType() in @wordpress/block-editor).`;
+							) }, so the block editor places it nowhere else (canInsertBlockType() in @wordpress/block-editor).${ placedByPatterns(
+								parent
+							) }`;
 						}
 						return undefined;
 					}
@@ -1498,12 +1580,19 @@ async function validateAsWritten(
 					}
 
 					let initial = validateContent( html );
-					if ( unasked.size ) {
+					if ( unasked.size || unpatterned.size ) {
 						const names = [ ...unasked ];
 						unasked.clear();
-						( await Promise.all( names.map( typeOf ) ) ).forEach( ( type, i ) =>
-							rendersOnServer.set( names[ i ], !! type?.is_dynamic )
-						);
+						const parents = [ ...unpatterned ];
+						unpatterned.clear();
+						await Promise.all( [
+							Promise.all( names.map( typeOf ) ).then( ( types ) =>
+								types.forEach( ( type, i ) =>
+									rendersOnServer.set( names[ i ], !! type?.is_dynamic )
+								)
+							),
+							parents.length ? readPatterns( parents ) : undefined,
+						] );
 						initial = validateContent( html );
 					}
 

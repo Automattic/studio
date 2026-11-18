@@ -1384,6 +1384,14 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		] );
 		// A template is not checked: a plugin can lift the limit there.
 		expect( ( await validateBlocks( markup, siteUrl!, 'site' ) ).invalidBlocks ).toBe( 0 );
+		// Inside a block that itself goes only inside another, what the site's patterns put there.
+		const inTemplate = await validateBlocks(
+			'<!-- wp:query {"query":{"postType":"post"}} -->\n<div class="wp-block-query"><!-- wp:post-template --><!-- wp:comment-author-name /--><!-- /wp:post-template --></div>\n<!-- /wp:query -->',
+			siteUrl!
+		);
+		expect( inTemplate.results.find( ( one ) => ! one.isValid )?.issues[ 0 ] ).toMatch(
+			/so the block editor places it nowhere else \(canInsertBlockType\(\) in @wordpress\/block-editor\)\. Inside core\/post-template, the site's block patterns place: (\S+; )*core\/post-title[;.]/
+		);
 	}, 60_000 );
 
 	it( 'saves the fix of the other blocks beside a block the fix leaves invalid', async () => {

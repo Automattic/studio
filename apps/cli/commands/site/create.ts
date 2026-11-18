@@ -59,7 +59,12 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import {
+	connectToDaemon,
+	disconnectFromDaemon,
+	emitCliEvent,
+	listProcesses,
+} from 'cli/lib/daemon-client';
 import { type liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
@@ -70,6 +75,7 @@ import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { confirm, input, password, select } from 'cli/lib/prompts';
+import { assertSiteCapacity } from 'cli/lib/site-capacity';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -173,8 +179,15 @@ function validateCustomDomain( customDomain: string | undefined, sites: SiteData
 async function validateBeforeSourceImport(
 	sitePath: string,
 	source: string,
-	options: Pick< CreateCommandOptions, 'customDomain' | 'adminUsername' | 'adminEmail' >
+	options: Pick< CreateCommandOptions, 'customDomain' | 'adminUsername' | 'adminEmail' | 'noStart' >
 ) {
+	if ( ! options.noStart ) {
+		try {
+			assertSiteCapacity( await listProcesses() );
+		} finally {
+			await disconnectFromDaemon();
+		}
+	}
 	await validateSitePath( sitePath );
 
 	const { sites } = await readCliConfig();
@@ -279,10 +292,6 @@ export async function runCommand(
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
-		for ( const site of cliConfig.sites ) {
-			portFinder.addUnavailablePort( site.port );
-		}
-
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );
@@ -352,11 +361,6 @@ export async function runCommand(
 			);
 		}
 
-		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
-		const port = await portFinder.getOpenPort();
-		// translators: %d is the port number
-		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
-
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
 
@@ -390,29 +394,39 @@ export async function runCommand(
 			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
-		const siteDetails: SiteData = {
-			id: siteId,
-			name: siteName,
-			path: sitePath,
-			adminUsername,
-			adminPassword,
-			adminEmail,
-			port,
-			phpVersion,
-			fileAccess: options.fileAccess,
-			running: false,
-			status: 'ready',
-			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
-			customDomain: options.customDomain,
-			enableHttps: options.enableHttps,
-			landingPage: normalizeLandingPage( blueprint?.landingPage ),
-		};
-
-		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
-
+		let siteDetails: SiteData;
+		await lockCliConfig();
 		try {
-			await lockCliConfig();
 			const userData = await readCliConfig();
+			// Claim the port in cli.json before another create can select it, even if this
+			// site's server has not started listening yet.
+			for ( const site of userData.sites ) {
+				portFinder.addUnavailablePort( site.port );
+			}
+			logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
+			const port = await portFinder.getOpenPort();
+			// translators: %d is the port number
+			logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
+
+			siteDetails = {
+				id: siteId,
+				name: siteName,
+				path: sitePath,
+				adminUsername,
+				adminPassword,
+				adminEmail,
+				port,
+				phpVersion,
+				fileAccess: options.fileAccess,
+				running: false,
+				status: 'ready',
+				isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
+				customDomain: options.customDomain,
+				enableHttps: options.enableHttps,
+				landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			};
+
+			logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
 			userData.sites.push( siteDetails );
 			sortSites( userData.sites );

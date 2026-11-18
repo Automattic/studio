@@ -4,7 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
-import type { StandingPreview } from 'cli/lib/preview-sites';
+import type { PreviewSite } from '@studio/providers';
 
 /** How many unexpired previews the user has of one local site. */
 export function countSitePreviews( siteId: string, snapshots: Snapshot[], userId: number ): number {
@@ -31,6 +31,17 @@ export function getNextSnapshotSequence(
 		: siteSnapshots.length + 1;
 }
 
+// What a saved preview takes from the provider's.
+function previewFields( preview: PreviewSite ) {
+	return {
+		url: new URL( preview.url ).hostname,
+		atomicSiteId: Number( preview.id ),
+		shareUrl: preview.shareUrl,
+		expiresAt: preview.expiresAt,
+		liveSiteId: preview.liveSiteId === undefined ? undefined : Number( preview.liveSiteId ),
+	};
+}
+
 export async function getSnapshotsFromConfig(
 	userId: number,
 	siteFolder?: string
@@ -48,15 +59,14 @@ export async function getSnapshotsFromConfig(
 
 export async function saveSnapshotToConfig(
 	siteFolder: string,
-	atomicSiteId: number,
-	previewUrl: string,
+	preview: PreviewSite,
 	userId: number,
 	name: string,
-	shareUrl?: string,
-	versionId?: string,
-	liveSiteId?: number
+	versionId?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
+	const fields = previewFields( preview );
+	const { atomicSiteId } = fields;
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
@@ -65,17 +75,14 @@ export async function saveSnapshotToConfig(
 		const nextSequenceNumber = getNextSnapshotSequence( site.id, config.snapshots, userId );
 		const snapshot: Snapshot = {
 			...( existing?.tracksId ? { tracksId: existing.tracksId } : {} ),
-			url: previewUrl,
-			atomicSiteId,
+			...fields,
 			localSiteId: site.id,
 			date: Date.now(),
 			name,
 			sequence: nextSequenceNumber,
 			userId,
-			shareUrl,
 			versionId,
 			syncedAt: Date.now(),
-			liveSiteId,
 		};
 
 		// A sync while the preview was being created may already have listed it.
@@ -95,29 +102,17 @@ export async function saveSnapshotToConfig(
  */
 export async function linkPulledPreview(
 	localSiteId: string,
-	atomicSiteId: number,
 	userId: number,
-	preview: StandingPreview,
+	preview: PreviewSite,
 	sync?: { versionId: string; syncedAt: number }
 ): Promise< void > {
+	const fields = previewFields( preview );
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
-		let snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+		let snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === fields.atomicSiteId );
 		if ( ! snapshot ) {
-			if ( ! preview.hostname ) {
-				return;
-			}
-			snapshot = {
-				url: preview.hostname,
-				atomicSiteId,
-				localSiteId: '',
-				date: Date.now(),
-				userId,
-				shareUrl: preview.shareUrl,
-				expiresAt: preview.expiresAt,
-				liveSiteId: preview.liveSiteId,
-			};
+			snapshot = { ...fields, localSiteId: '', date: Date.now(), userId };
 			config.snapshots.push( snapshot );
 		}
 		if ( snapshot.localSiteId && snapshot.localSiteId !== localSiteId ) {
@@ -133,13 +128,12 @@ export async function linkPulledPreview(
 }
 
 export async function updateSnapshotInConfig(
-	atomicSiteId: number,
 	siteFolder: string,
-	shareUrl?: string,
-	versionId?: string,
-	liveSiteId?: number
+	preview: PreviewSite,
+	versionId?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
+	const { atomicSiteId, shareUrl, liveSiteId } = previewFields( preview );
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
@@ -254,14 +248,20 @@ export async function setSnapshotInConfig(
  * (another computer or tool), since they count toward the account's limit too. A preview saved
  * after `checkedAt` is left alone, since the server's answer may predate it.
  *
- * @param standing The server's standing previews, by site ID.
+ * @param previews The server's standing previews.
  * @returns The previews of local sites it forgot, for the caller to tell a bought one from an ended one.
  */
 export async function reconcilePreviews(
 	userId: number,
-	standing: Map< number, StandingPreview >,
+	previews: PreviewSite[],
 	checkedAt: number
 ): Promise< Snapshot[] > {
+	const standing = new Map(
+		previews.map( ( preview ) => {
+			const fields = previewFields( preview );
+			return [ fields.atomicSiteId, fields ];
+		} )
+	);
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
@@ -291,20 +291,11 @@ export async function reconcilePreviews(
 		} );
 		const listed = new Set( config.snapshots.map( ( snapshot ) => snapshot.atomicSiteId ) );
 		for ( const [ atomicSiteId, preview ] of standing ) {
-			if ( listed.has( atomicSiteId ) || ! preview.hostname ) {
+			if ( listed.has( atomicSiteId ) ) {
 				continue;
 			}
 			// Made elsewhere, so no local site: it can be opened, shared and deleted from here.
-			config.snapshots.push( {
-				url: preview.hostname,
-				atomicSiteId,
-				localSiteId: '',
-				date: checkedAt,
-				userId,
-				shareUrl: preview.shareUrl,
-				expiresAt: preview.expiresAt,
-				liveSiteId: preview.liveSiteId,
-			} );
+			config.snapshots.push( { ...preview, localSiteId: '', date: checkedAt, userId } );
 		}
 		if ( JSON.stringify( config.snapshots ) !== before ) {
 			await saveCliConfig( config );

@@ -362,6 +362,7 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props ).toMatchObject( {
 			outcome: 'interrupted',
 			provider: 'wpcom',
+			connection_method: 'sign-in',
 			model_family: 'studio',
 			ai_session_id: 'session-id',
 			client: 'studio-code',

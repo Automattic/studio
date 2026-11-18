@@ -6,7 +6,6 @@ import { forgetRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import trash from 'trash';
 import { vi } from 'vitest';
-import { deleteSnapshot } from 'cli/lib/api';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import {
 	SiteData,
@@ -18,6 +17,7 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -26,7 +26,7 @@ import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-m
 import { runCommand, runDeleteCommand } from '../delete';
 
 vi.mock( 'fs' );
-vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/preview-sites' );
 vi.mock( '@studio/agent/node/sessions/manage' );
 vi.mock( '@studio/common/lib/remote-sites', () => ( {
 	forgetRemoteSites: vi.fn(),
@@ -147,7 +147,7 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( removeDomainFromHosts ).mockResolvedValue( undefined );
 		vi.mocked( deleteSiteCertificate ).mockReturnValue( true );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
-		vi.mocked( deleteSnapshot ).mockResolvedValue( undefined );
+		vi.mocked( deleteSnapshotSite ).mockResolvedValue( undefined );
 		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a: string, b: string ) => a === b );
@@ -234,14 +234,8 @@ describe( 'CLI: studio site delete', () => {
 			await runCommand( testSiteFolder );
 
 			expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( testAuthToken.id, testSiteFolder );
-			expect( deleteSnapshot ).toHaveBeenCalledWith(
-				testSnapshot1.atomicSiteId,
-				testAuthToken.accessToken
-			);
-			expect( deleteSnapshot ).toHaveBeenCalledWith(
-				testSnapshot2.atomicSiteId,
-				testAuthToken.accessToken
-			);
+			expect( deleteSnapshotSite ).toHaveBeenCalledWith( testSnapshot1, testAuthToken.accessToken );
+			expect( deleteSnapshotSite ).toHaveBeenCalledWith( testSnapshot2, testAuthToken.accessToken );
 			expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( testSnapshot1.url );
 			expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( testSnapshot2.url );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -259,7 +253,7 @@ describe( 'CLI: studio site delete', () => {
 			await runCommand( testSiteFolder, false );
 
 			expect( removeDomainFromHosts ).toHaveBeenCalledWith( 'example.local' );
-			expect( deleteSnapshot ).not.toHaveBeenCalled();
+			expect( deleteSnapshotSite ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
@@ -351,10 +345,20 @@ describe( 'CLI: studio site delete', () => {
 			} );
 
 			expect( result.sites[ 0 ]?.status ).toBe( 'deleted' );
-			expect( result.sites[ 0 ]?.warnings?.[ 0 ] ).toContain( 'File deletion failed' );
+			expect( result.sites[ 0 ]?.warnings?.[ 0 ] ).toContain( testSiteFolder );
+		} );
+
+		it( 'should report a warning when the files are still on disk after trashing', async () => {
+			const { warnings } = await runCommand( testSiteFolder, true );
+
+			expect( warnings ).toEqual( [ expect.stringContaining( testSiteFolder ) ] );
 		} );
 
 		it( 'should not report warnings on a clean delete', async () => {
+			vi.mocked( trash ).mockImplementationOnce( async () => {
+				vi.spyOn( fs, 'existsSync' ).mockReturnValue( false );
+			} );
+
 			const result = await runDeleteCommand( {
 				identities: [ testSiteFolder ],
 				deleteFiles: true,

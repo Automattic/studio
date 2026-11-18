@@ -30,7 +30,7 @@ import {
 	SiteData,
 } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
@@ -256,6 +256,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
 		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
+		vi.mocked( listProcesses ).mockResolvedValue( [] );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( updateServerFiles ).mockResolvedValue( true );
@@ -299,6 +300,49 @@ describe( 'CLI: studio create', () => {
 			'https://example.com/'
 		);
 	};
+
+	describe( 'Port allocation', () => {
+		it( 'claims a port using sites saved by another create after initial validation', async () => {
+			vi.mocked( readCliConfig, { partial: true } )
+				.mockResolvedValueOnce( { version: 1, sites: [] } )
+				.mockResolvedValueOnce( { version: 1, sites: [ mockExistingSite ] } );
+			vi.mocked( portFinder.getOpenPort ).mockImplementationOnce( async () => {
+				expect( lockCliConfig ).toHaveBeenCalledOnce();
+				expect( unlockCliConfig ).not.toHaveBeenCalled();
+				expect( portFinder.addUnavailablePort ).toHaveBeenCalledWith( mockExistingSite.port );
+				return mockPort;
+			} );
+			vi.mocked( saveCliConfig ).mockImplementationOnce( async ( config ) => {
+				expect( unlockCliConfig ).not.toHaveBeenCalled();
+				expect( config.sites ).toEqual(
+					expect.arrayContaining( [
+						mockExistingSite,
+						expect.objectContaining( { port: mockPort } ),
+					] )
+				);
+			} );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, noStart: true } );
+
+			expect( portFinder.getOpenPort ).toHaveBeenCalledOnce();
+			expect( saveCliConfig ).toHaveBeenCalledOnce();
+			expect( vi.mocked( unlockCliConfig ).mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
+				vi.mocked( saveCliConfig ).mock.invocationCallOrder[ 0 ]
+			);
+		} );
+
+		it( 'releases the config lock if port allocation fails without saving or starting a site', async () => {
+			vi.mocked( portFinder.getOpenPort ).mockRejectedValueOnce( new Error( 'No available port' ) );
+
+			await expect( runCommand( mockSitePath, defaultTestOptions ) ).rejects.toThrow(
+				'No available port'
+			);
+
+			expect( unlockCliConfig ).toHaveBeenCalledOnce();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( startWordPressServer ).not.toHaveBeenCalled();
+		} );
+	} );
 
 	describe( 'Validation Errors', () => {
 		it( 'requires a URL source when keeping a capture', () => {
@@ -1021,6 +1065,53 @@ describe( 'CLI: studio create', () => {
 				await fs.promises.rm( stagedDir, { recursive: true, force: true } );
 			}
 		} );
+
+		it.each( [
+			{ running: 36, start: true, captures: false },
+			{ running: 35, start: true, captures: true },
+			{ running: 36, start: false, captures: true },
+		] )(
+			'preflights capacity with $running running sites and start=$start',
+			async ( { running, start, captures } ) => {
+				vi.mocked( listProcesses ).mockResolvedValue(
+					Array.from( { length: running }, ( _, index ) => ( {
+						name: `studio-site-${ index }`,
+						pmId: index,
+						pid: index + 1,
+						status: 'online' as const,
+					} ) )
+				);
+				const liberate = vi.fn().mockRejectedValue( new Error( 'Capture reached' ) );
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Imported Site',
+					'--start',
+					String( start ),
+					'--skip-browser',
+				] );
+
+				expect( liberate ).toHaveBeenCalledTimes( captures ? 1 : 0 );
+				if ( ! captures ) {
+					expect( reportErrorSpy ).toHaveBeenCalledWith(
+						expect.objectContaining( {
+							message: expect.stringContaining(
+								'CAPACITY_LIMIT_REACHED: Cannot start site. The maximum number of running sites has been reached (36/36). Stop some running sites first.'
+							),
+						} )
+					);
+					expect( process.exitCode ).toBe( 1 );
+				}
+			}
+		);
 
 		it( 'checks bundled SQLite before capturing a URL source', async () => {
 			const liberate = vi.fn();

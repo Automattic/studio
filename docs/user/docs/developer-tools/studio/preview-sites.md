@@ -28,7 +28,7 @@ The **Share** panel lists the site’s previews, newest first. Each one shows it
 
 To create another preview of the same site, click **Create another preview** below the list.
 
-Previews created with an earlier version of WordPress Studio, on a `wp.build` address, keep working until they expire. The first time you update one, WordPress Studio moves it to WordPress.com and its link changes, so share the new link. Previews of your sites that you created elsewhere with the same account, for example on another computer, are listed too.
+Previews created with an earlier version of WordPress Studio, on a `wp.build` address, keep working until they expire. When you update one, WordPress Studio makes a new preview on WordPress.com with a new link, so share that one; the old preview expires on its own. Previews of your sites that you created elsewhere with the same account, for example on another computer, are listed too.
 
 WordPress Studio can’t create or update a preview when:
 

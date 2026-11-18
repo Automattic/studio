@@ -8,7 +8,10 @@
  *   pending --locale=<locale> [--limit=<n>]    Print the strings still missing, one per line, after a
  *                                              line with the language, plural rule and glossary.
  *   search --locale=<locale> [--limit=<n>] <words…>
- *                                              Print translations whose English has all the words.
+ *                                              Print translations whose English has all the words,
+ *                                              shortest first.
+ *   search --locale=<locale> --exact <strings…>
+ *                                              Print the translations of each English string.
  *   add --locale=<locale> <file>               Validate and save translations, then merge them.
  */
 
@@ -135,13 +138,18 @@ const commands = {
 		const [ locale ] = locales();
 		const { glotpress, ai } = load( locale );
 		const words = operands.map( ( word ) => word.toLowerCase() );
-		const matches = [
+		const matches = ( key ) =>
+			'exact' in options
+				? words.includes( key.split( '\u0004' ).pop().toLowerCase() )
+				: words.every( ( word ) => key.toLowerCase().includes( word ) );
+		const found = [
 			...Object.entries( glotpress ).filter( ( [ key ] ) => isTranslated( glotpress, key ) ),
 			...Object.entries( ai ).map( ( [ key, forms ] ) => [ key, forms, 'AI' ] ),
 		]
-			.filter( ( [ key ] ) => key && words.every( ( word ) => key.toLowerCase().includes( word ) ) )
+			.filter( ( [ key ] ) => key && matches( key ) )
+			.sort( ( [ a ], [ b ] ) => a.length - b.length )
 			.slice( 0, Number( options.limit ?? 20 ) );
-		for ( const [ key, forms, origin ] of matches ) {
+		for ( const [ key, forms, origin ] of found ) {
 			console.log(
 				JSON.stringify( [ key.replace( '\u0004', ' | ' ), forms, ...( origin ? [ origin ] : [] ) ] )
 			);

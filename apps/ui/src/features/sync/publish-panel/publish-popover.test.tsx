@@ -726,6 +726,41 @@ describe( 'PublishPopover', () => {
 		);
 	} );
 
+	it( 'offers to publish anyway when the live site changed since the last sync', async () => {
+		const { connector, emit, ready, site } = setup( [ remote ] );
+		connector.pushSite.mockImplementation( () => new Promise( () => {} ) );
+		await ready;
+		const publish = await screen.findByRole( 'button', { name: 'Publish changes' } );
+		await waitFor( () => expect( publish ).toBeEnabled() );
+		fireEvent.click( publish );
+		emit( { kind: 'pending', direction: 'push', remoteSiteId: 42 } );
+		emit( {
+			kind: 'error',
+			direction: 'push',
+			code: 'live_changed',
+			message: '2 posts or pages changed on Example since your last sync.',
+		} );
+
+		const publishAnyway = await screen.findByRole( 'button', { name: 'Publish anyway' } );
+		expect(
+			screen.getAllByText( '2 posts or pages changed on Example since your last sync.' )[ 0 ]
+		).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'Try publishing again' } )
+		).not.toBeInTheDocument();
+		await waitFor( () => expect( publishAnyway ).toBeEnabled() );
+		fireEvent.click( publishAnyway );
+		await waitFor( () =>
+			expect( connector.pushSite ).toHaveBeenLastCalledWith(
+				'wpcom',
+				site.id,
+				42,
+				expect.objectContaining( { overwriteLiveChanges: true } )
+			)
+		);
+		expect( connector.pushSite.mock.calls[ 0 ][ 3 ] ).not.toHaveProperty( 'overwriteLiveChanges' );
+	} );
+
 	it( 'confirms disconnection and returns to the choice of destination without transferring', async () => {
 		const { connector, ready, site } = setup( [ remote ], true, true, false );
 		await ready;

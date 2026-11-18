@@ -1,4 +1,5 @@
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
+import { LIVE_CHANGED_CODE } from '@studio/common/lib/sync/live-changes';
 import { getProviderSites, type SitesProviderId } from '@studio/providers';
 import { useQuery } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
@@ -133,6 +134,11 @@ export function ConnectedView( {
 	const pulledLocally =
 		finished?.kind === 'error' && finished.direction === 'pull' && finished.localChangesApplied;
 	const restartFailed = pulledLocally && ! site.running;
+	// The push stopped before changing anything: publishing anyway replaces what changed live.
+	const liveChanged =
+		finished?.kind === 'error' &&
+		finished.direction === 'push' &&
+		finished.code === LIVE_CHANGED_CODE;
 	const completePull =
 		view === 'pull' && ( finished?.kind === 'success' || ( pulledLocally && site.running ) );
 	const close = () => {
@@ -146,7 +152,12 @@ export function ConnectedView( {
 	const start = () => {
 		const variables = { provider, siteId: site.id, remoteSiteId: remote.id };
 		if ( direction === 'push' )
-			pushSite.mutate( { ...variables, options: selection.options.push } );
+			pushSite.mutate( {
+				...variables,
+				options: liveChanged
+					? { ...selection.options.push, overwriteLiveChanges: true }
+					: selection.options.push,
+			} );
 		else pullSite.mutate( { ...variables, options: selection.options.pull } );
 	};
 	const choices = [
@@ -324,6 +335,13 @@ export function ConnectedView( {
 									{ finished?.kind === 'error' ? (
 										<ErrorMessage error={ finished.message } />
 									) : null }
+									{ liveChanged ? (
+										<p className={ styles.text }>
+											{ __(
+												'Publish anyway to replace them, or pull the live site first to bring them into WordPress Studio.'
+											) }
+										</p>
+									) : null }
 									{ finished?.kind === 'error' &&
 									direction === 'pull' &&
 									! remote.lastPullTimestamp ? (
@@ -351,7 +369,7 @@ export function ConnectedView( {
 											{ __( 'Cancel' ) }
 										</Button>
 										<Button
-											variant="accent"
+											variant={ liveChanged ? 'destructive' : 'accent' }
 											size="lg"
 											disabled={
 												disabled ||
@@ -362,7 +380,9 @@ export function ConnectedView( {
 											}
 											onClick={ start }
 										>
-											{ finished?.kind === 'error'
+											{ liveChanged
+												? __( 'Publish anyway' )
+												: finished?.kind === 'error'
 												? direction === 'push'
 													? __( 'Try publishing again' )
 													: __( 'Try pulling again' )

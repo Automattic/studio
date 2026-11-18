@@ -1,0 +1,1227 @@
+{
+	"\"%s\" is not a Blueprint file, URL or Library slug.": [
+		"\"%s\" bukan file Blueprint, URL, atau slug Pustaka."
+	],
+	"%1$dh %2$dm": [
+		"%1$dj %2$dm"
+	],
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%1$s Use /connect %2$s to connect it.": [
+		"%1$s Gunakan /connect %2$s untuk menghubungkannya."
+	],
+	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
+		"%1$s tidak dapat menginstal plugin WordPress Studio: %2$s"
+	],
+	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
+		"%1$s tidak dapat memperbarui plugin WordPress Studio: %2$s"
+	],
+	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
+		"%1$s tidak terhubung. Gunakan /connect %2$s untuk menghubungkannya."
+	],
+	"%1$s screenshot %2$d": [
+		"Tangkapan layar %1$s %2$d"
+	],
+	"%d B": [
+		"%d B"
+	],
+	"%d annotation ready to send": [
+		"%d anotasi siap dikirim",
+		"%d anotasi siap dikirim"
+	],
+	"%s (saved for future use):": [
+		"%s (disimpan untuk penggunaan berikutnya):"
+	],
+	"%s KB": [
+		"%s KB"
+	],
+	"%s connection": [
+		"Koneksi %s"
+	],
+	"%s is no longer installed. Choose another browser in Settings.": [
+		"%s tidak lagi terinstal. Pilih browser lain di Pengaturan."
+	],
+	"%s isn’t installed on this computer.": [
+		"%s tidak terinstal di komputer ini."
+	],
+	"%s preview is ready": [
+		"Pratinjau %s sudah siap"
+	],
+	"(No subject)": [
+		"(Tanpa subjek)"
+	],
+	"A code editor with a built-in AI agent.": [
+		"Editor kode dengan agen AI bawaan."
+	],
+	"A coding agent that runs in your terminal.": [
+		"Agen coding yang berjalan di terminal Anda."
+	],
+	"AI apps": [
+		"Aplikasi AI"
+	],
+	"Add annotation to batch": [
+		"Tambahkan anotasi ke kumpulan"
+	],
+	"Add or delete this annotation before starting another.": [
+		"Tambahkan atau hapus anotasi ini sebelum memulai yang lain."
+	],
+	"Admin bar hidden by default.": [
+		"Bilah admin disembunyikan secara default."
+	],
+	"Admin bar shown by default.": [
+		"Bilah admin ditampilkan secara default."
+	],
+	"Agent apps": [
+		"Aplikasi agen"
+	],
+	"Agents": [
+		"Agen"
+	],
+	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
+		"Terjadi kesalahan saat memperbarui WordPress Studio CLI. Coba lagi."
+	],
+	"Annotation is available for design systems created by Studio Code.": [
+		"Anotasi tersedia untuk sistem desain yang dibuat oleh Studio Code."
+	],
+	"Annotation tools": [
+		"Alat anotasi"
+	],
+	"Anonymous usage statistics enabled.": [
+		"Statistik penggunaan anonim diaktifkan."
+	],
+	"Anthropic’s AI coding agent.": [
+		"Agen AI untuk coding dari Anthropic."
+	],
+	"Appearance reset.": [
+		"Tampilan diatur ulang."
+	],
+	"Approve the code %1$s at %2$s": [
+		"Setujui kode %1$s di %2$s"
+	],
+	"Approve the code %1$s on %2$s to connect.": [
+		"Setujui kode %1$s di %2$s untuk menghubungkan."
+	],
+	"Approve the connection in your browser.": [
+		"Setujui koneksi di browser Anda."
+	],
+	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
+		"Diperlukan setidaknya satu opsi (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
+	],
+	"Automatic sidebar collapsing disabled.": [
+		"Penciutan bilah sisi otomatis dinonaktifkan."
+	],
+	"Automatic sidebar collapsing enabled.": [
+		"Penciutan bilah sisi otomatis diaktifkan."
+	],
+	"Automatic site start on prompt disabled.": [
+		"Mulai situs otomatis saat ada prompt dinonaktifkan."
+	],
+	"Automatic site start on prompt enabled.": [
+		"Mulai situs otomatis saat ada prompt diaktifkan."
+	],
+	"Back to email list": [
+		"Kembali ke daftar email"
+	],
+	"Batch notes": [
+		"Kumpulan catatan"
+	],
+	"Batch notes disabled.": [
+		"Kumpulan catatan dinonaktifkan."
+	],
+	"Batch notes enabled.": [
+		"Kumpulan catatan diaktifkan."
+	],
+	"Birdland": [
+		"Birdland"
+	],
+	"Blue Note": [
+		"Blue Note"
+	],
+	"Blue Train": [
+		"Blue Train"
+	],
+	"Blue in Green": [
+		"Blue in Green"
+	],
+	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
+		"URL Blueprint, file JSON, folder, bundel zip, atau slug Pustaka Blueprint (lihat \"studio blueprint list\")"
+	],
+	"Blueprint file…": [
+		"File Blueprint…"
+	],
+	"Blueprint loaded": [
+		"Blueprint dimuat"
+	],
+	"Blueprint preview": [
+		"Pratinjau Blueprint"
+	],
+	"Blueprints, backups, and WordPress exports": [
+		"Blueprint, cadangan, dan ekspor WordPress"
+	],
+	"Browse Blueprints": [
+		"Telusuri Blueprint"
+	],
+	"Browser could not load.": [
+		"Browser tidak dapat dimuat."
+	],
+	"Browser options": [
+		"Opsi browser"
+	],
+	"Browsing data cleared": [
+		"Data penjelajahan dihapus"
+	],
+	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
+		"Buat dan edit situs melalui obrolan. Gunakan kredit AI WordPress.com atau gunakan langganan atau kunci API Anda sendiri."
+	],
+	"Cc": [
+		"Cc"
+	],
+	"Changes to %s": [
+		"Perubahan pada %s"
+	],
+	"Check your internet connection and try again.": [
+		"Periksa koneksi internet Anda dan coba lagi."
+	],
+	"Checking for updates…": [
+		"Memeriksa pembaruan…"
+	],
+	"Choose a Blueprint or backup": [
+		"Pilih Blueprint atau cadangan"
+	],
+	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
+		"Pilih folder situs WordPress, file JSON Blueprint, atau bundel ZIP."
+	],
+	"Choose a blueprint, backup, export, or existing WordPress folder.": [
+		"Pilih Blueprint, cadangan, ekspor, atau folder WordPress yang sudah ada."
+	],
+	"Choose a folder containing an existing WordPress site.": [
+		"Pilih folder yang berisi situs WordPress yang sudah ada."
+	],
+	"Choose a provider": [
+		"Pilih penyedia"
+	],
+	"Choose a site source": [
+		"Pilih sumber situs"
+	],
+	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
+		"Pilih situs dengan `--remote-site %s:<site>` (ID atau URL-nya)."
+	],
+	"Choose a topic": [
+		"Pilih topik"
+	],
+	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
+		"Pilih folder kosong untuk menggunakan sumber. Folder yang dipilih sudah berisi situs WordPress."
+	],
+	"Choose an existing WordPress folder, blueprint, backup, or export.": [
+		"Pilih folder WordPress yang sudah ada, Blueprint, cadangan, atau ekspor."
+	],
+	"Choose another host": [
+		"Pilih host lain"
+	],
+	"Choose color": [
+		"Pilih warna"
+	],
+	"Choose what powers chat in WordPress Studio.": [
+		"Pilih apa yang menjalankan obrolan di WordPress Studio."
+	],
+	"Choosing individual files requires a backup of this website.": [
+		"Memilih file satu per satu memerlukan cadangan situs web ini."
+	],
+	"Clear browsing data": [
+		"Hapus data penjelajahan"
+	],
+	"Close %s": [
+		"Tutup %s"
+	],
+	"Close all tabs": [
+		"Tutup semua tab"
+	],
+	"Close other tabs": [
+		"Tutup tab lain"
+	],
+	"Close tab": [
+		"Tutup tab"
+	],
+	"Close tabs to the right": [
+		"Tutup tab di sebelah kanan"
+	],
+	"Collect annotations and send them together instead of one at a time.": [
+		"Kumpulkan anotasi dan kirim sekaligus, bukan satu per satu."
+	],
+	"Color may be adapted for your theme.": [
+		"Warna mungkin disesuaikan dengan tema Anda."
+	],
+	"Color picker": [
+		"Pemilih warna"
+	],
+	"Connect %s first.": [
+		"Hubungkan %s terlebih dahulu."
+	],
+	"Connect %s now?": [
+		"Hubungkan %s sekarang?"
+	],
+	"Connect AI providers": [
+		"Hubungkan penyedia AI"
+	],
+	"Connect a provider": [
+		"Hubungkan penyedia"
+	],
+	"Connect to Spacefast": [
+		"Hubungkan ke Spacefast"
+	],
+	"Connect to an existing WordPress": [
+		"Hubungkan ke WordPress yang sudah ada"
+	],
+	"Connect your WordPress": [
+		"Hubungkan WordPress Anda"
+	],
+	"Connected %s.": [
+		"%s terhubung."
+	],
+	"Connected live site ID, or none": [
+		"ID situs aktif yang terhubung, atau none"
+	],
+	"Connecting to WordPress.com": [
+		"Menghubungkan ke WordPress.com"
+	],
+	"Copy links": [
+		"Salin tautan"
+	],
+	"Cotton Tail": [
+		"Cotton Tail"
+	],
+	"Could not capture the area. Your selection is kept. Try again.": [
+		"Tidak dapat mengambil area tersebut. Pilihan Anda tetap disimpan. Coba lagi."
+	],
+	"Could not clear browsing data": [
+		"Tidak dapat menghapus data penjelajahan"
+	],
+	"Could not delete the old preview site. It will expire on its own.": [
+		"Tidak dapat menghapus situs pratinjau lama. Situs tersebut akan kedaluwarsa dengan sendirinya."
+	],
+	"Could not migrate your sites": [
+		"Tidak dapat memigrasikan situs Anda"
+	],
+	"Could not open DevTools": [
+		"Tidak dapat membuka DevTools"
+	],
+	"Could not open Spacefast": [
+		"Tidak dapat membuka Spacefast"
+	],
+	"Could not read the table prefix from wp-config.php": [
+		"Tidak dapat membaca prefiks tabel dari wp-config.php"
+	],
+	"Could not reset appearance. Please try again.": [
+		"Tidak dapat mengatur ulang tampilan. Coba lagi."
+	],
+	"Could not reset interface. Please try again.": [
+		"Tidak dapat mengatur ulang antarmuka. Coba lagi."
+	],
+	"Could not reset tips. Please try again.": [
+		"Tidak dapat mengatur ulang tips. Coba lagi."
+	],
+	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
+		"Tidak dapat mengatur $table_prefix ke \"%s\" di wp-config.php."
+	],
+	"Could not take screenshot": [
+		"Tidak dapat mengambil tangkapan layar"
+	],
+	"Could not update settings. Please try again.": [
+		"Tidak dapat memperbarui pengaturan. Coba lagi."
+	],
+	"Could not update the admin bar setting. Please try again.": [
+		"Tidak dapat memperbarui pengaturan bilah admin. Coba lagi."
+	],
+	"Couldn't load providers.": [
+		"Tidak dapat memuat penyedia."
+	],
+	"Couldn’t load apps.": [
+		"Tidak dapat memuat aplikasi."
+	],
+	"Couldn’t sign in to WordPress.com": [
+		"Tidak dapat login ke WordPress.com"
+	],
+	"Create a new WordPress": [
+		"Buat WordPress baru"
+	],
+	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
+		"Buat akun atau login untuk menghubungkan situs WordPress.com atau Pressable Anda."
+	],
+	"Create another preview": [
+		"Buat pratinjau lain"
+	],
+	"Data Liberation could not capture the source website": [
+		"Data Liberation tidak dapat mengambil situs web sumber"
+	],
+	"Default AI provider": [
+		"Penyedia AI default"
+	],
+	"Default browser": [
+		"Browser default"
+	],
+	"Default code editor": [
+		"Editor kode default"
+	],
+	"Default hosting provider": [
+		"Penyedia hosting default"
+	],
+	"Default terminal app": [
+		"Aplikasi terminal default"
+	],
+	"Delete annotation: %s": [
+		"Hapus anotasi: %s"
+	],
+	"Describe the change": [
+		"Jelaskan perubahannya"
+	],
+	"Describe what you’d like to build or change (optional)…": [
+		"Jelaskan apa yang ingin Anda buat atau ubah (opsional)…"
+	],
+	"Design system could not load.": [
+		"Sistem desain tidak dapat dimuat."
+	],
+	"Design systems are available for block themes.": [
+		"Sistem desain tersedia untuk tema blok."
+	],
+	"Directory to write the static site to": [
+		"Direktori tujuan penulisan situs statis"
+	],
+	"Disable automatic sidebar collapsing": [
+		"Nonaktifkan penciutan bilah sisi otomatis"
+	],
+	"Disable automatic site start on prompt": [
+		"Nonaktifkan mulai situs otomatis saat ada prompt"
+	],
+	"Disable batch notes": [
+		"Nonaktifkan kumpulan catatan"
+	],
+	"Discard changes?": [
+		"Buang perubahan?"
+	],
+	"Disconnect a provider": [
+		"Putuskan koneksi penyedia"
+	],
+	"Disconnected %s.": [
+		"Koneksi %s diputuskan."
+	],
+	"Dismiss tip": [
+		"Tutup tips"
+	],
+	"Do more with WordPress": [
+		"Lakukan lebih banyak hal dengan WordPress"
+	],
+	"Download update": [
+		"Unduh pembaruan"
+	],
+	"Drop to add site": [
+		"Lepaskan untuk menambahkan situs"
+	],
+	"Drop your file here": [
+		"Lepaskan file Anda di sini"
+	],
+	"Edit annotation: %s": [
+		"Edit anotasi: %s"
+	],
+	"Email log": [
+		"Log email"
+	],
+	"Email log could not load.": [
+		"Log email tidak dapat dimuat."
+	],
+	"Emails sent by your site appear here.": [
+		"Email yang dikirim oleh situs Anda akan muncul di sini."
+	],
+	"Enable anonymous usage statistics": [
+		"Aktifkan statistik penggunaan anonim"
+	],
+	"Enable automatic sidebar collapsing": [
+		"Aktifkan penciutan bilah sisi otomatis"
+	],
+	"Enable automatic site start on prompt": [
+		"Aktifkan mulai situs otomatis saat ada prompt"
+	],
+	"Enable batch notes": [
+		"Aktifkan kumpulan catatan"
+	],
+	"Enter a folder name other than “.” or “..”.": [
+		"Masukkan nama folder selain “.” atau “..”."
+	],
+	"Enter the folder’s full path.": [
+		"Masukkan jalur lengkap folder."
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Existing WordPress site": [
+		"Situs WordPress yang sudah ada"
+	],
+	"Expand panel": [
+		"Bentangkan panel"
+	],
+	"Export site as static HTML files": [
+		"Ekspor situs sebagai file HTML statis"
+	],
+	"External AI apps": [
+		"Aplikasi AI eksternal"
+	],
+	"Failed after %s": [
+		"Gagal setelah %s"
+	],
+	"Failed to back up the remote site": [
+		"Gagal mencadangkan situs jarak jauh"
+	],
+	"Failed to check the preview site": [
+		"Gagal memeriksa situs pratinjau"
+	],
+	"Failed to create the %s site": [
+		"Gagal membuat situs %s"
+	],
+	"Failed to export static site": [
+		"Gagal mengekspor situs statis"
+	],
+	"Failed to fetch Blueprint: HTTP %d": [
+		"Gagal mengambil Blueprint: HTTP %d"
+	],
+	"Failed to find existing preview site in config": [
+		"Gagal menemukan situs pratinjau yang ada di konfigurasi"
+	],
+	"Failed to load your %s sites": [
+		"Gagal memuat situs %s Anda"
+	],
+	"Failed to save connected site": [
+		"Gagal menyimpan situs yang terhubung"
+	],
+	"Feedback areas": [
+		"Area feedback"
+	],
+	"Feedback sent": [
+		"Feedback terkirim"
+	],
+	"Feedback type": [
+		"Jenis feedback"
+	],
+	"Fetching %s sites…": [
+		"Mengambil situs %s…"
+	],
+	"File…": [
+		"File…"
+	],
+	"Finish signing in to %s in your browser.": [
+		"Selesaikan login ke %s di browser Anda."
+	],
+	"First use": [
+		"Penggunaan pertama"
+	],
+	"For publishing sites.": [
+		"Untuk menerbitkan situs."
+	],
+	"For working on sites.": [
+		"Untuk mengerjakan situs."
+	],
+	"From many, one tool.\nFind strength in community\nfor a better web.": [
+		"Dari banyak, satu alat.\nTemukan kekuatan bersama\ndemi web yang lebih baik."
+	],
+	"Generating static site…": [
+		"Membuat situs statis…"
+	],
+	"Getting your sign-in code…": [
+		"Mendapatkan kode login Anda…"
+	],
+	"Giant Steps": [
+		"Giant Steps"
+	],
+	"Green Dolphin Street": [
+		"Green Dolphin Street"
+	],
+	"Hide admin bar": [
+		"Sembunyikan bilah admin"
+	],
+	"Hide admin bar by default": [
+		"Sembunyikan bilah admin secara default"
+	],
+	"Hide chat when starting sites": [
+		"Sembunyikan obrolan saat memulai situs"
+	],
+	"Hide device toolbar": [
+		"Sembunyikan bilah alat perangkat"
+	],
+	"Hide panel": [
+		"Sembunyikan panel"
+	],
+	"Hide recent chats": [
+		"Sembunyikan obrolan terbaru"
+	],
+	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
+		"Sembunyikan bilah admin WordPress secara default di situs lokal. Ubah pengaturan ini untuk masing-masing situs di opsi Browser."
+	],
+	"Hints": [
+		"Petunjuk"
+	],
+	"Hosting providers": [
+		"Penyedia hosting"
+	],
+	"Hostname of the preview site": [
+		"Nama host situs pratinjau"
+	],
+	"How do you want to connect %s?": [
+		"Bagaimana Anda ingin menghubungkan %s?"
+	],
+	"How to connect": [
+		"Cara menghubungkan"
+	],
+	"Hue": [
+		"Rona"
+	],
+	"Image annotation": [
+		"Anotasi gambar"
+	],
+	"Import a blueprint or backup": [
+		"Impor Blueprint atau cadangan"
+	],
+	"Import cancelled": [
+		"Impor dibatalkan"
+	],
+	"Include this chat’s transcript": [
+		"Sertakan transkrip obrolan ini"
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"Instal WordPress Studio CLI dan konfigurasikan MCP untuk aplikasi lain."
+	],
+	"Install the WordPress Studio CLI.": [
+		"Instal WordPress Studio CLI."
+	],
+	"Interface reset.": [
+		"Antarmuka diatur ulang."
+	],
+	"Interface theme": [
+		"Tema antarmuka"
+	],
+	"Kind of Blue": [
+		"Kind of Blue"
+	],
+	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
+		"Pelajari selengkapnya di <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
+	],
+	"Loading Blueprint…": [
+		"Memuat Blueprint…"
+	],
+	"Loading WordPress Studio…": [
+		"Memuat WordPress Studio…"
+	],
+	"Loading apps…": [
+		"Memuat aplikasi…"
+	],
+	"Loading file…": [
+		"Memuat file…"
+	],
+	"Log in or create account": [
+		"Login atau buat akun"
+	],
+	"Maiden Voyage": [
+		"Maiden Voyage"
+	],
+	"Manage AI credits": [
+		"Kelola kredit AI"
+	],
+	"Manage sharing": [
+		"Kelola berbagi"
+	],
+	"Manual MCP setup": [
+		"Penyiapan MCP manual"
+	],
+	"Mood Indigo": [
+		"Mood Indigo"
+	],
+	"New WordPress Studio Site": [
+		"Situs WordPress Studio Baru"
+	],
+	"New site \"%s\"": [
+		"Situs baru \"%s\""
+	],
+	"New tab": [
+		"Tab baru"
+	],
+	"No design system is available for this theme.": [
+		"Tidak ada sistem desain yang tersedia untuk tema ini."
+	],
+	"No matching sites.": [
+		"Tidak ada situs yang cocok."
+	],
+	"No provider is connected.": [
+		"Tidak ada penyedia yang terhubung."
+	],
+	"No providers": [
+		"Tidak ada penyedia"
+	],
+	"No recipient": [
+		"Tidak ada penerima"
+	],
+	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
+		"Jumlah PHP worker, yang membatasi berapa banyak permintaan yang dilayani situs secara bersamaan (default %d)"
+	],
+	"Open %s settings": [
+		"Buka pengaturan %s"
+	],
+	"Open Folder…": [
+		"Buka Folder…"
+	],
+	"Open Spacefast": [
+		"Buka Spacefast"
+	],
+	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
+		"Buka Spacefast di browser Anda. Pastikan kodenya cocok, lalu setujui koneksi."
+	],
+	"Open a project page to annotate.": [
+		"Buka halaman proyek untuk memberi anotasi."
+	],
+	"Open a site or Blueprint": [
+		"Buka situs atau Blueprint"
+	],
+	"Open documentation": [
+		"Buka dokumentasi"
+	],
+	"Open email log": [
+		"Buka log email"
+	],
+	"Open on GitHub": [
+		"Buka di GitHub"
+	],
+	"Open the WordPress Studio app to add an existing WordPress folder.": [
+		"Buka aplikasi WordPress Studio untuk menambahkan folder WordPress yang sudah ada."
+	],
+	"OpenAI’s coding agent in the ChatGPT app.": [
+		"Agen coding OpenAI di aplikasi ChatGPT."
+	],
+	"PHP workers must be a whole number from 1 to 64.": [
+		"Jumlah PHP worker harus berupa bilangan bulat dari 1 hingga 64."
+	],
+	"Parent folder": [
+		"Folder induk"
+	],
+	"Pending annotation": [
+		"Anotasi tertunda"
+	],
+	"Point or draw to suggest a change.": [
+		"Tunjuk atau gambar untuk menyarankan perubahan."
+	],
+	"Point to something you’d like to change.": [
+		"Tunjuk sesuatu yang ingin Anda ubah."
+	],
+	"Preview browser controls": [
+		"Kontrol browser pratinjau"
+	],
+	"Preview creation cancelled": [
+		"Pembuatan pratinjau dibatalkan"
+	],
+	"Preview site not found": [
+		"Situs pratinjau tidak ditemukan"
+	],
+	"Preview tabs": [
+		"Tab pratinjau"
+	],
+	"Project tools": [
+		"Alat proyek"
+	],
+	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
+		"Terbitkan situs baru atau perbarui situs yang sudah ada di WordPress.com atau Pressable."
+	],
+	"Publish to %s to apply these changes.": [
+		"Terbitkan ke %s untuk menerapkan perubahan ini."
+	],
+	"Publish to another site…": [
+		"Terbitkan ke situs lain…"
+	],
+	"Publish your changes.": [
+		"Terbitkan perubahan Anda."
+	],
+	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
+		"Terbitkan situs Anda saat sudah siap, atau bagikan pratinjau melalui WordPress.com."
+	],
+	"Published sites": [
+		"Situs yang diterbitkan"
+	],
+	"Published to": [
+		"Diterbitkan ke"
+	],
+	"Publishing cancelled": [
+		"Penerbitan dibatalkan"
+	],
+	"Publishing changes…": [
+		"Menerbitkan perubahan…"
+	],
+	"Pull a WordPress.com or Pressable site to your local site": [
+		"Tarik situs WordPress.com atau Pressable ke situs lokal Anda"
+	],
+	"Pull only the database (keeps the local files)": [
+		"Tarik database saja (pertahankan file lokal)"
+	],
+	"Pull preview": [
+		"Tarik pratinjau"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"Menarik pratinjau akan menggantikan perubahan yang dibuat di sini."
+	],
+	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
+		"Dorong situs lokal Anda ke situs WordPress.com, atau terbitkan ke Spacefast"
+	],
+	"Recent chats": [
+		"Obrolan terbaru"
+	],
+	"Recent chats hidden.": [
+		"Obrolan terbaru disembunyikan."
+	],
+	"Recent chats shown.": [
+		"Obrolan terbaru ditampilkan."
+	],
+	"Recent pages": [
+		"Halaman terbaru"
+	],
+	"Remote environment: %s": [
+		"Lingkungan jarak jauh: %s"
+	],
+	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
+		"URL atau ID situs jarak jauh, atau `<provider>[:<site>]` untuk situs di penyedia lain, seperti `spacefast` untuk menerbitkan salinan statis ke Spacefast"
+	],
+	"Remove Blueprint": [
+		"Hapus Blueprint"
+	],
+	"Replace the contents of a non-empty output directory": [
+		"Ganti isi direktori output yang tidak kosong"
+	],
+	"Report an issue on GitHub": [
+		"Laporkan masalah di GitHub"
+	],
+	"Reset folder name to match site name": [
+		"Atur ulang nama folder agar sesuai dengan nama situs"
+	],
+	"Reset tips": [
+		"Atur ulang tips"
+	],
+	"Resize panel": [
+		"Ubah ukuran panel"
+	],
+	"Resize viewport: %s": [
+		"Ubah ukuran viewport: %s"
+	],
+	"Responsive preview": [
+		"Pratinjau responsif"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"Mulai ulang WordPress Studio untuk menyelesaikan pembaruan."
+	],
+	"Restore the default interface theme, accent color, intensity, and contrast.": [
+		"Pulihkan tema antarmuka, warna aksen, intensitas, dan kontras default."
+	],
+	"Review the advanced settings to finish creating your site.": [
+		"Tinjau pengaturan lanjutan untuk menyelesaikan pembuatan situs Anda."
+	],
+	"Rotate to landscape": [
+		"Putar ke lanskap"
+	],
+	"Rotate to portrait": [
+		"Putar ke potret"
+	],
+	"Rotate viewport": [
+		"Putar viewport"
+	],
+	"Round Midnight": [
+		"Round Midnight"
+	],
+	"Run \"studio blueprint list\" to see available slugs.": [
+		"Jalankan \"studio blueprint list\" untuk melihat slug yang tersedia."
+	],
+	"Saturation and brightness": [
+		"Saturasi dan kecerahan"
+	],
+	"Screenshots are available in the desktop app.": [
+		"Tangkapan layar tersedia di aplikasi desktop."
+	],
+	"Select an email to read it.": [
+		"Pilih email untuk membacanya."
+	],
+	"Selected area": [
+		"Area yang dipilih"
+	],
+	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
+		"File, konten, dan pengaturan yang dipilih di WordPress Studio akan ditimpa. Situs web Anda tidak akan berubah."
+	],
+	"Selected files, content, and settings on your website will be overwritten.": [
+		"File, konten, dan pengaturan yang dipilih di situs web Anda akan ditimpa."
+	],
+	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
+		"Bagikan salinan sementara situs lokal Anda kepada siapa saja. Situs pratinjau akan kedaluwarsa jika tidak diperbarui selama sekitar satu minggu."
+	],
+	"Share details (required)": [
+		"Bagikan detail (wajib)"
+	],
+	"Share ideas and report problems directly to the Studio team.": [
+		"Bagikan ide dan laporkan masalah langsung ke tim Studio."
+	],
+	"Show admin bar": [
+		"Tampilkan bilah admin"
+	],
+	"Show admin bar by default": [
+		"Tampilkan bilah admin secara default"
+	],
+	"Show chat beside the panel when starting a site.": [
+		"Tampilkan obrolan di samping panel saat memulai situs."
+	],
+	"Show chat when starting sites": [
+		"Tampilkan obrolan saat memulai situs"
+	],
+	"Show device toolbar": [
+		"Tampilkan bilah alat perangkat"
+	],
+	"Show or hide the panel beside your chat.": [
+		"Tampilkan atau sembunyikan panel di samping obrolan Anda."
+	],
+	"Show panel": [
+		"Tampilkan panel"
+	],
+	"Show whether a preview site or its local site changed since they were synced": [
+		"Tampilkan apakah situs pratinjau atau situs lokalnya telah berubah sejak terakhir disinkronkan"
+	],
+	"Sign in at %s": [
+		"Login di %s"
+	],
+	"Sign in to get a one-time grant of free AI credits.": [
+		"Login untuk mendapatkan kredit AI gratis satu kali."
+	],
+	"Signing in took too long. Try again.": [
+		"Proses login terlalu lama. Coba lagi."
+	],
+	"Signing in was declined.": [
+		"Login ditolak."
+	],
+	"Signing in was started again.": [
+		"Proses login dimulai lagi."
+	],
+	"Site annotation is not available in the browser yet": [
+		"Anotasi situs belum tersedia di browser"
+	],
+	"Site exported": [
+		"Situs diekspor"
+	],
+	"Site folder": [
+		"Folder situs"
+	],
+	"Site folder is required.": [
+		"Folder situs wajib diisi."
+	],
+	"Site sources": [
+		"Sumber situs"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"Situs tidak dapat dimuat. Periksa koneksi internet Anda dan coba lagi."
+	],
+	"Sites will start with chat.": [
+		"Situs akan dimulai dengan obrolan."
+	],
+	"Sites will start with the panel expanded.": [
+		"Situs akan dimulai dengan panel dibentangkan."
+	],
+	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
+		"Keterampilan memberikan panduan kepada agen AI untuk pengembangan WordPress. Perubahan di sini berlaku untuk semua situs yang sudah ada dan menjadi default untuk situs baru."
+	],
+	"Source is a temporary preview site.": [
+		"Sumbernya adalah situs pratinjau sementara."
+	],
+	"Split view": [
+		"Tampilan terpisah"
+	],
+	"Start building with free AI credits.": [
+		"Mulai membuat situs dengan kredit AI gratis."
+	],
+	"Start from": [
+		"Mulai dari"
+	],
+	"Start here": [
+		"Mulai di sini"
+	],
+	"Start signing in again.": [
+		"Mulai login lagi."
+	],
+	"Start sites with chat": [
+		"Mulai situs dengan obrolan"
+	],
+	"Start this site.": [
+		"Mulai situs ini."
+	],
+	"Starting chat…": [
+		"Memulai obrolan…"
+	],
+	"Static export failed: %s": [
+		"Ekspor statis gagal: %s"
+	],
+	"Static site exported to %s": [
+		"Situs statis diekspor ke %s"
+	],
+	"Stop annotating": [
+		"Berhenti memberi anotasi"
+	],
+	"Stop annotating. Your notes will be kept.": [
+		"Berhenti memberi anotasi. Catatan Anda akan disimpan."
+	],
+	"Studio was updated, and the site \"%s\" could not be started again.": [
+		"Studio telah diperbarui, dan situs \"%s\" tidak dapat dimulai kembali."
+	],
+	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
+		"phpMyAdmin di Studio hanya mendukung SQLite. Gunakan klien database terpisah untuk MySQL eksternal."
+	],
+	"Supported files: %s.": [
+		"File yang didukung: %s."
+	],
+	"Swing Time": [
+		"Swing Time"
+	],
+	"Sync is finishing": [
+		"Sinkronisasi sedang diselesaikan"
+	],
+	"Take Five": [
+		"Take Five"
+	],
+	"Taking screenshot…": [
+		"Mengambil tangkapan layar…"
+	],
+	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
+		"Terima kasih telah membantu meningkatkan WordPress Studio. ID referensi untuk feedback yang Anda kirim adalah <id>%s</id>."
+	],
+	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
+		"Jenis file tersebut tidak didukung. Pilih file Blueprint, cadangan WordPress, atau ekspor XML."
+	],
+	"That sign-in was for another attempt. Try again.": [
+		"Login tersebut untuk percobaan lain. Coba lagi."
+	],
+	"The default browser for your sites.": [
+		"Browser default untuk situs Anda."
+	],
+	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
+		"Penarikan pertama sebuah situs harus menyertakan file-nya. Tarik seluruh situs sekali, lalu tarik database saja."
+	],
+	"The live site must be a qualifying connected site of this local site.": [
+		"Situs aktif harus merupakan situs terhubung yang memenuhi syarat dari situs lokal ini."
+	],
+	"The output directory %s is not empty.": [
+		"Direktori output %s tidak kosong."
+	],
+	"The output directory cannot be inside the site folder or contain it.": [
+		"Direktori output tidak boleh berada di dalam folder situs atau memuatnya."
+	],
+	"The preview site could not be built from the archive.": [
+		"Situs pratinjau tidak dapat dibuat dari arsip."
+	],
+	"The preview site did not become ready within the timeout.": [
+		"Situs pratinjau belum siap dalam batas waktu yang ditentukan."
+	],
+	"The preview site has no preview link.": [
+		"Situs pratinjau tidak memiliki tautan pratinjau."
+	],
+	"The site archive exceeds the %d GB size limit.": [
+		"Arsip situs melebihi batas ukuran %d GB."
+	],
+	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
+		"Edit file tema tidak akan tampil. Perubahan Anda pada file %s tidak disertakan: pratinjau ini menggunakan salinan asli tema dari WordPress.com. Buat perubahan di Editor Situs atau tema anak agar terlihat di pratinjau."
+	],
+	"Then add this configuration to your app.": [
+		"Lalu tambahkan konfigurasi ini ke aplikasi Anda."
+	],
+	"This ZIP could not be read. Check that it is a valid zip file.": [
+		"ZIP ini tidak dapat dibaca. Pastikan file tersebut adalah file zip yang valid."
+	],
+	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
+		"ZIP ini tidak dapat digunakan. Pastikan ZIP berisi file blueprint.json yang valid di tingkat teratas atau di dalam satu folder pembungkus, lalu coba lagi."
+	],
+	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
+		"Cadangan ini berisi file SQL yang namanya hanya berbeda pada huruf besar/kecil: \"%1$s\" dan \"%2$s\". Selesaikan konflik nama di situs sumber, lalu buat cadangan baru dan coba lagi."
+	],
+	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
+		"Proses ini dapat memakan waktu beberapa menit. WordPress Studio akan terbuka kembali dengan sendirinya setelah pembaruan diinstal."
+	],
+	"This email is gone.": [
+		"Email ini sudah tidak ada."
+	],
+	"This file took too long to load. Please try again or choose another file.": [
+		"File ini terlalu lama dimuat. Coba lagi atau pilih file lain."
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"Folder ini sudah dikaitkan dengan situs Studio lain. Pilih folder lokal yang berbeda."
+	],
+	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
+		"Folder ini sudah dikaitkan dengan situs Studio lain. Pilih nama situs atau folder lokal yang berbeda."
+	],
+	"This site and its preview both changed": [
+		"Situs ini dan pratinjaunya sama-sama berubah"
+	],
+	"This site has changes its preview doesn't": [
+		"Situs ini memiliki perubahan yang tidak ada di pratinjaunya"
+	],
+	"This site is no longer available in WordPress Studio.": [
+		"Situs ini tidak lagi tersedia di WordPress Studio."
+	],
+	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
+		"Situs ini belum siap dimulai. %s Jalankan ulang `studio pull` untuk menyelesaikan penarikan, atau `studio delete` untuk menghapus situs."
+	],
+	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
+		"Situs ini berukuran lebih dari %d GB, sehingga menerbitkannya kembali ke WordPress.com mungkin gagal. Sebagai gantinya, terbitkan pilihan file yang lebih kecil."
+	],
+	"This site isn't one of your WordPress.com or Pressable sites.": [
+		"Situs ini bukan salah satu situs WordPress.com atau Pressable Anda."
+	],
+	"Tips reset.": [
+		"Tips diatur ulang."
+	],
+	"To %s": [
+		"Kepada %s"
+	],
+	"Try downloading the update again.": [
+		"Coba unduh pembaruan lagi."
+	],
+	"Try starting the chat again, or open your site.": [
+		"Coba mulai obrolan lagi, atau buka situs Anda."
+	],
+	"URL the static site will be hosted at. Links are root-relative when omitted.": [
+		"URL tempat situs statis akan di-hosting. Jika tidak diisi, tautan akan relatif terhadap root."
+	],
+	"Unable to open this folder.": [
+		"Tidak dapat membuka folder ini."
+	],
+	"Unable to open this source.": [
+		"Tidak dapat membuka sumber ini."
+	],
+	"Unknown provider %1$s. Choose one of: %2$s.": [
+		"Penyedia %1$s tidak dikenal. Pilih salah satu dari: %2$s."
+	],
+	"Unsupported backup file": [
+		"File cadangan tidak didukung"
+	],
+	"Uploading files…": [
+		"Mengunggah file…"
+	],
+	"Use /connect %1$s to connect %2$s again.": [
+		"Gunakan /connect %1$s untuk menghubungkan %2$s lagi."
+	],
+	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
+		"Gunakan Alt+Shift+Panah Kiri atau Kanan untuk memindahkan tab ini."
+	],
+	"Use Blueprint": [
+		"Gunakan Blueprint"
+	],
+	"Use WordPress Studio with your agents": [
+		"Gunakan WordPress Studio dengan agen Anda"
+	],
+	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
+		"Gunakan tautan cadangan HTTPS dari situs yang didukung, dengan file zip atau tar.gz yang berukuran kurang dari 1 GB. Periksa koneksi Anda dan coba lagi."
+	],
+	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
+		"Gunakan agen AI pilihan Anda untuk membuat situs, melakukan perubahan, dan memeriksa hasil kerja Anda. Instal plugin WordPress Studio untuk memberinya akses ke situs lokal Anda."
+	],
+	"Visit previews": [
+		"Kunjungi pratinjau"
+	],
+	"Waiting for %s": [
+		"Menunggu selama %s"
+	],
+	"Waiting for approval…": [
+		"Menunggu persetujuan…"
+	],
+	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
+		"Menunggu browser. Jika browser tidak dapat menjangkau komputer ini, tempel alamat terakhir yang dibukanya:"
+	],
+	"What would you like to open?": [
+		"Apa yang ingin Anda buka?"
+	],
+	"Where do you want to publish?": [
+		"Di mana Anda ingin menerbitkan?"
+	],
+	"WordPress Studio CLI for terminal": [
+		"WordPress Studio CLI untuk terminal"
+	],
+	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
+		"WordPress Studio dapat ditutup setelah sinkronisasi selesai. Keluar sekarang akan menghentikannya dan dapat membuat situs Anda tidak lengkap."
+	],
+	"WordPress Studio could not download this backup.": [
+		"WordPress Studio tidak dapat mengunduh cadangan ini."
+	],
+	"WordPress Studio could not open the email folder.": [
+		"WordPress Studio tidak dapat membuka folder email."
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"WordPress Studio tidak dapat membuka folder. Coba lagi."
+	],
+	"WordPress Studio could not open the site.": [
+		"WordPress Studio tidak dapat membuka situs."
+	],
+	"WordPress Studio is finishing an update": [
+		"WordPress Studio sedang menyelesaikan pembaruan"
+	],
+	"WordPress Studio team": [
+		"Tim WordPress Studio"
+	],
+	"WordPress Studio will create a local copy of this site in an empty folder.": [
+		"WordPress Studio akan membuat salinan lokal situs ini di folder kosong."
+	],
+	"WordPress Studio will create a site from this blueprint in an empty folder.": [
+		"WordPress Studio akan membuat situs dari Blueprint ini di folder kosong."
+	],
+	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
+		"WordPress Studio akan membuat situs di folder kosong dan mengimpor ekspor WordPress ini."
+	],
+	"WordPress Studio will restore this backup into an empty folder.": [
+		"WordPress Studio akan memulihkan cadangan ini ke folder kosong."
+	],
+	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
+		"WordPress Studio akan menggunakan situs WordPress ini di lokasinya saat ini. Tidak ada file yang akan dipindahkan."
+	],
+	"WordPress export": [
+		"Ekspor WordPress"
+	],
+	"WordPress.com hosting": [
+		"Hosting WordPress.com"
+	],
+	"Worked for %s": [
+		"Bekerja selama %s"
+	],
+	"Working for %s": [
+		"Bekerja selama %s"
+	],
+	"Workspace navigation": [
+		"Navigasi ruang kerja"
+	],
+	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
+		"Anda dapat melampirkan hingga %d gambar. Kirim atau hapus anotasi sebelum mengambil area lain."
+	],
+	"You can close this tab and return to WordPress Studio.": [
+		"Anda dapat menutup tab ini dan kembali ke WordPress Studio."
+	],
+	"You stopped after %s": [
+		"Anda menghentikannya setelah %s"
+	],
+	"You're not logged in to WordPress.com. Log in now?": [
+		"Anda belum login ke WordPress.com. Login sekarang?"
+	],
+	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
+		"Pratinjau Anda dipindahkan ke WordPress.com, sehingga tautannya berubah. Tautan baru: %s"
+	],
+	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
+		"Situs Anda telah berubah sejak pratinjau “%s” terakhir diperbarui. Menerbitkan akan mengirim situs lokal Anda saat ini, termasuk perubahan yang tidak ditampilkan di pratinjau tersebut."
+	],
+	"Your site was created, but the AI chat could not start.": [
+		"Situs Anda telah dibuat, tetapi obrolan AI tidak dapat dimulai."
+	],
+	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"Situs Anda masih tercantum di %s. Mulai ulang WordPress Studio untuk mencoba lagi. Jika masalah ini terus terjadi, hubungi dukungan dengan detail di bawah ini."
+	],
+	"Your unsaved changes will be lost.": [
+		"Perubahan Anda yang belum disimpan akan hilang."
+	],
+	"Your website will be replaced with this site as it is now.": [
+		"Situs web Anda akan diganti dengan situs ini sebagaimana kondisinya sekarang."
+	],
+	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
+		"base-url harus berupa URL http(s) tanpa jalur, mis. https://example.com"
+	],
+	"· %d%%": [
+		"· %d%%"
+	]
+}

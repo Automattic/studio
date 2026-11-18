@@ -159,11 +159,14 @@ export interface HostSync {
 	// The remote sites the local site is connected to, on every provider this
 	// host publishes to.
 	connectedSites( site: HostSite ): Promise< HostRemoteSite[] >;
+	// `overwriteLiveChanges` pushes the database even though the live site changed since the
+	// last sync; without it, such a push fails and says what changed.
 	push(
 		site: HostSite,
 		options: string,
 		remoteSite: string | undefined,
-		onProgress: ProgressCallback
+		onProgress: ProgressCallback,
+		flags?: { overwriteLiveChanges?: boolean }
 	): Promise<
 		| ( Pick< SyncSite, 'name' | 'url' > &
 				Partial< Pick< SyncSite, 'isStaging' | 'environmentType' > > )

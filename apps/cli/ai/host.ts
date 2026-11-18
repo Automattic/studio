@@ -207,12 +207,13 @@ export const cliAgentHost: StudioAgentHost = {
 	},
 	sync: {
 		connectedSites: ( site ) => connectedRemoteSites( site, true ),
-		push: async ( site, options, remoteSite, onProgress ) =>
+		push: async ( site, options, remoteSite, onProgress, flags ) =>
 			runPushCommand(
 				site.path,
 				parseSyncOptions( options ),
 				remoteSite,
-				new Logger( { onProgress } )
+				new Logger( { onProgress } ),
+				{ overwriteLiveChanges: flags?.overwriteLiveChanges }
 			),
 		pull: async ( site, options, remoteSite, onProgress ) =>
 			isReprintPullEnabled()

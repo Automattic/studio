@@ -11,7 +11,9 @@ export const pushSiteTool = defineTool(
 		'Never call it without explicit user confirmation of the target remote site, even when only one site is attached. Resolve the target first with site_connected_remote_sites: ' +
 		'with exactly one attached site, confirm it with AskUserQuestion when available (options "Yes" and "No", the description naming the remote site, its provider and its URL); ' +
 		"with several, ask which one (one option per site: label = site name, description = provider and URL) and pass the chosen site's `remoteSite`; " +
-		'with none, ask in plain text for the URL or ID of the WordPress.com site to push to, without AskUserQuestion, and wait for the reply.',
+		'with none, ask in plain text for the URL or ID of the WordPress.com site to push to, without AskUserQuestion, and wait for the reply. ' +
+		'A push that includes the database (options all or sqls) replaces the live database, so it fails when posts, pages or comments changed on the live site since the last pull or push, and the error says what changed. ' +
+		'Then tell the user what changed and that publishing would lose it, and ask whether to publish anyway or pull first; call it again with overwriteLiveChanges only when they choose to publish anyway.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		remoteSite: Type.String( {
@@ -24,6 +26,12 @@ export const pushSiteTool = defineTool(
 					'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all". A provider that receives a static copy always gets the whole site.',
 			} )
 		),
+		overwriteLiveChanges: Type.Optional(
+			Type.Boolean( {
+				description:
+					'Replace what changed on the live site since the last pull or push. Only after a push failed because the live site changed and the user chose to publish anyway.',
+			} )
+		),
 	},
 	async ( args, context ) => {
 		try {
@@ -32,7 +40,8 @@ export const pushSiteTool = defineTool(
 				site,
 				args.options ?? 'all',
 				args.remoteSite,
-				context.onProgress
+				context.onProgress,
+				{ overwriteLiveChanges: args.overwriteLiveChanges }
 			);
 			return textResult(
 				remoteSite

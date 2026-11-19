@@ -1,8 +1,12 @@
-Last updated: 2026-11-17 17:47
+# Safe site publishing
 
-# Proposal: publish local changes without losing live data
+## About this doc
 
-Status: draft for discussion. The proposed behavior is not implemented.
+This is a proposal for discussion. The behavior it describes is not implemented. It covers publishing a local site's database to its live site; files are covered only where they affect the data. Until it is built, the live changes guard in [Sync](sync.md#live-changes-guard) (Automattic/studio#6045) stops a database push that would overwrite changes made on the live site since the last sync.
+
+Out of scope: multisite networks, and WordPress.com's own staging-to-production sync.
+
+## Goal
 
 Studio should manage synchronization for the user. At least 95% of publish attempts should complete without a manual pull, a conflict decision, or a manual retry.
 
@@ -36,6 +40,17 @@ These checks must update a separate copy. They must not replace unfinished local
 
 The check interval affects speed and server load. It does not provide the final safety check.
 
+### Detect changes
+
+WordPress keeps no version number per record and no log of deletions. A post's `post_modified_gmt` changes when the post is saved, but not when only its meta, its terms, or its featured image change, and it has one-second resolution. So "fetch only changed items, including deletions" needs a mechanism that WordPress does not provide on its own.
+
+Two candidates:
+
+- **A content hash** over each record and what belongs to it (post, meta, terms). Studio stores the hash of the original version, and the server compares hashes.
+- **An existing change feed.** Jetpack Sync already sends a site's changes, including deletions, to WordPress.com. If WordPress.com can expose that feed per site, Studio can fetch only what changed.
+
+Either way, every write endpoint that publishing uses needs a version check: the write states the hash or version it expects, and the server refuses the write if the live record no longer matches.
+
 ## Publish without routine questions
 
 When the user selects Publish, Studio should fetch any remaining changes for the affected items. It should compare the original, local, and live versions.
@@ -64,13 +79,14 @@ This is the central design problem of selective publishing. The other rules depe
 
 Studio needs:
 
-- **A stable identity for each record.** Every supported record needs an identity that is the same in the local copy and on the live site. The WordPress `guid` column is not reliable enough for this.
+- **A stable identity for each record.** Every supported record needs an identity that is the same in the local copy and on the live site. Some records already have one: templates and template parts (theme and slug), terms (taxonomy and slug), and options (name). Posts, attachments, and comments do not. The WordPress `guid` column is not reliable enough, because imports copy it and it contains the URL of the site that created the post.
 - **An ID map for each connection.** Studio must record which local ID matches which live ID. It must keep that map correct through pulls, publishes, and failed attempts.
 - **Reference rewriting.** When Studio creates a record with a new ID or URL, it must update every reference to the old one.
 
 References to IDs and URLs are stored in many places, including:
 
-- the parent of a page or attachment, and the featured image of a post
+- the author of a post or comment: users on WordPress.com are WordPress.com accounts that the local copy does not have
+- the parent of a page, attachment, revision, or comment, and the featured image of a post
 - block attributes, such as image, gallery, cover, and media-text IDs, synced pattern references, and navigation references
 - shortcodes, such as gallery IDs, and media URLs in post content
 - menu items, terms, and term relationships
@@ -79,11 +95,15 @@ References to IDs and URLs are stored in many places, including:
 
 Studio can rewrite only the references that it understands. A change that relies on plugin data with unknown references is not supported. Studio must report that change instead of publishing it with broken references.
 
-Studio should not build its own merge engine for this. Reprint already recreates records and rewrites references during import. This proposal states what Studio requires from that engine. The Reprint maintainers should decide whether and how it can provide that.
+Studio should not build its own merge engine for this. Reprint, the engine Studio's pull already uses to copy a site, recreates records and rewrites references during import. This proposal states what Studio requires from that engine. The Reprint maintainers should decide whether and how it can provide that.
 
 ## Preserve live activity
 
 Ordinary publishing must preserve comments, orders, payment records, stock, submissions, accounts, and background job state. Dedicated management actions can change these records.
+
+Some of that state lives on records the user edits. A WooCommerce product is a post, but its stock and sales figures change on the live site with every order. Each field needs one owner: the local copy owns the product description, and the live site owns `_stock` and the sales data. Orders are out of scope, whether WooCommerce stores them in its own order tables or as `shop_order` posts.
+
+Settings need the same care. `wp_options` mixes configuration with runtime and secret state: `siteurl` and `home`, active plugins, cron, transients, and connection tokens such as Jetpack's. Studio should publish only options on an allowlist and never write the others.
 
 Studio must also preserve intentional live deletions. A record missing from an old local copy is not a request to delete it.
 
@@ -107,32 +127,46 @@ Backups remain available for recovery. Studio must not automatically restore the
 
 After a successful publish, Studio should update the comparison state for the items it synchronized. It must preserve other local edits.
 
+Writes must go through WordPress APIs, not raw SQL. On WordPress.com, SQL written directly to the database bypasses the object cache, the page cache, and the CDN, so visitors would keep seeing the old content. Creating a post can also trigger external actions, such as a newsletter email or a social share. Publishing must decide which of these should run, both on the first write and when it recreates a record, not only on retries.
+
 The app, CLI, and Studio Code must enforce the same rules. AI can explain a conflict or suggest a resolution. Code must enforce the protection.
+
+## Files and code
+
+Publishing data and pushing files are separate today, but they depend on each other. An image block refers to an upload: if the upload is renamed on the live site because a file with that name already exists, the URL in the content changes. Plugins and themes also change data: activating a plugin can create tables, and switching themes changes `theme_mods` and which templates apply.
+
+Studio should push files before the data that refers to them, and update those references when a file's live URL differs. A publish that includes plugin or theme changes should report the data changes they make rather than merging them silently.
 
 ## Measure the 95% target
 
-A seamless publish completes all intended changes without requiring the user to manage synchronization. Safe automatic retries can count as seamless. Partial success and silently skipped changes cannot.
+The unit is a user-initiated publish that includes the database. Files-only pushes do not count, because they cannot lose live data.
 
-Measure all user-initiated publish attempts over a defined period. Report unsupported changes, conflicts, connection failures, and manual retries separately. Do not remove difficult cases from the main result.
+A publish is seamless when it completes without a manual pull, a conflict decision, or a manual retry, and the user does not publish the same site again within an hour to fix it. Safe automatic retries can count as seamless. Partial success and silently skipped changes cannot.
 
-Also measure publishing time and data-loss incidents. A publish that avoids questions but takes too long is not a good result.
+Measure over 28-day periods with the existing Tracks events (`studio_sync_push`, see [Analytics: Tracks](analytics-tracks.md)), extended with the outcome of each publish. Report unsupported changes, conflicts, connection failures, and manual retries separately. Do not remove difficult cases from the main result.
+
+The baseline is today's behavior: the share of database pushes that the live changes guard stops (`failure_reason: live_changed`) shows how often a full replacement would have lost live data.
+
+Also measure publishing time. A publish that avoids questions but takes too long is not a good result.
+
+95% is the target for the finished feature. The first scope cannot reach it on its own, because it counts unsupported changes as failures. Each release should report its rate against the baseline instead.
 
 The first scope must include posts, pages, media, and terms together. Posts refer to media and terms, so Studio cannot publish posts safely without them. Templates, styles, settings, and plugin changes may also be necessary to reach 95% across actual use.
 
 Changes that are not supported because of unknown references count as unsuccessful publishes in the main result. On sites with many plugins, this can make the 95% target harder to reach.
 
-The 95% target needs evidence from real use. It is not a guarantee that all conflicting edits can be resolved automatically.
+The 95% target needs evidence from real use. It does not guarantee that all conflicting edits can be resolved automatically.
 
 ## Decisions needed before implementation
 
-- Can the backend provide efficient change detection and protected writes?
+- Which change detection should publishing use: content hashes, Jetpack Sync's change feed, or something else? Can every write endpoint it needs check a version?
 - Which fields, plugins, and related records can the first version support safely?
 - What stable identity will each record have in both copies, and where will Studio store it?
 - Where does the ID map for each connection live, and how does it stay correct after a failed or partial publish?
 - Can Reprint provide record recreation and reference rewriting for publishing, as it does for import?
-- How will Studio preserve existing local work that has no original comparison version?
+- How will Studio preserve existing local work that has no original comparison version? Can WordPress revisions serve as the original version, and what happens to revisions when Studio publishes?
 - How will partial pulls and multiple live targets keep separate comparison histories?
 - What original data must Studio store, and how will it protect sensitive data?
 - What publishing time is acceptable, and when should automatic retries stop?
 
-Until selective publishing is available, a guard can stop stale database replacement. That is temporary protection. The intended experience is automatic synchronization with questions only when a safe decision requires the user.
+Until selective publishing is available, the live changes guard (Automattic/studio#6045) stops stale database replacement. That is temporary protection. The intended experience is automatic synchronization with questions only when a safe decision requires the user.

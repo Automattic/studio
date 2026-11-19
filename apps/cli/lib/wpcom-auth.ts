@@ -1,4 +1,5 @@
 import { connectProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/auth-token';
 import {
 	createAuthAttempt,
 	getAuthFailureReason,
@@ -7,7 +8,6 @@ import {
 	type AuthAnalytics,
 } from '@studio/common/lib/auth-tracks';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
-import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { getProviderServices } from '@studio/providers/services';
 import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';

@@ -170,7 +170,10 @@ export function createStaticConnector(): Connector {
 			const { blueprint, bundle } = params.blueprint ? await openBlueprint( params.blueprint ) : {};
 			return sites.create( { ...params, blueprint: blueprint && { blueprint } }, bundle );
 		},
-		deleteSite: ( id ) => sites.delete( id ),
+		async deleteSite( id ) {
+			await sites.delete( id );
+			return { warnings: [] };
+		},
 		async copySite( sourceSiteId ) {
 			const source = await sites.get( sourceSiteId );
 			const names = new Set( ( await sites.list() ).map( ( site ) => site.name ) );
@@ -333,8 +336,8 @@ export function createStaticConnector(): Connector {
 				)
 			);
 		},
-		async publishPreviewSite( siteId, existingHostname, name ) {
-			const { url } = await wpcom.publishPreview( siteId, existingHostname, name );
+		async publishPreviewSite( siteId, existingHostname, name, liveSite ) {
+			const { url } = await wpcom.publishPreview( siteId, existingHostname, name, liveSite );
 			return { url: `https://${ url }` };
 		},
 		deleteSnapshot: ( hostname ) => wpcom.deleteSnapshot( hostname ),
@@ -440,10 +443,13 @@ export function createStaticConnector(): Connector {
 		connectProvider: ( provider, method, input ) =>
 			agent.connectProvider( provider, method, input ),
 		disconnectProvider: ( provider ) => agent.disconnectProvider( provider ),
+		listProviderModels: ( provider ) => agent.listProviderModels( provider ),
+		selectProviderModels: ( provider, models ) => agent.selectProviderModels( provider, models ),
 		async startProviderConnect() {
 			throw new UnsupportedError( 'startProviderConnect' );
 		},
 		setAiProvider: ( provider ) => agent.setAiProvider( provider ),
+		setImageProvider: ( provider ) => agent.setImageProvider( provider ),
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;

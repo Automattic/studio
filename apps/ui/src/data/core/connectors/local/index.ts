@@ -39,6 +39,7 @@ import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { CatalogModel } from '@studio/providers';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
@@ -449,7 +450,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// own default), so only forward the override when the caller opts out.
 		async deleteSite( id, deleteFiles ) {
 			const query = deleteFiles === false ? '?deleteFiles=false' : '';
-			await api( `/sites/${ encodeURIComponent( id ) }${ query }`, { method: 'DELETE' } );
+			return api< { warnings: string[] } >( `/sites/${ encodeURIComponent( id ) }${ query }`, {
+				method: 'DELETE',
+			} );
 		},
 		// Duplicate a site; the server picks the numbered name + new id and copies
 		// the files, mirroring the desktop's copy flow.
@@ -852,6 +855,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async disconnectProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }`, { method: 'DELETE' } );
 		},
+		async listProviderModels( provider ) {
+			return api< CatalogModel[] >( `/ai-settings/providers/${ provider }/models` );
+		},
+		async selectProviderModels( provider, models ): Promise< AiSettings > {
+			return api< AiSettings >( `/ai-settings/providers/${ provider }/models`, {
+				method: 'PUT',
+				body: JSON.stringify( { models } ),
+			} );
+		},
 		async startProviderConnect( provider, method ) {
 			return api( `/ai-settings/providers/${ provider }/start`, {
 				method: 'POST',
@@ -860,6 +872,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
+			} );
+		},
+		async setImageProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/image-provider', {
 				method: 'PUT',
 				body: JSON.stringify( { provider } ),
 			} );

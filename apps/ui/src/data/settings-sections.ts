@@ -297,6 +297,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					...setting( 'navigate', __( 'Default AI provider' ), '', 'default-provider' ),
 					aliases: [ __( 'Default provider' ) ],
 				},
+				setting( 'navigate', __( 'Default image provider' ), '', 'default-image-provider' ),
 				...SETTINGS_AI_PROVIDER_IDS.map( ( id ) => {
 					const { label, description, account } = getProvider( id );
 					return {

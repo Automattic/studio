@@ -1,10 +1,10 @@
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
-import { lockCliConfig, readCliConfig, saveCliConfig, unlockCliConfig } from './core';
 import { getSiteByFolder } from './sites';
-import type { StandingPreview } from 'cli/lib/preview-sites';
+import type { PreviewSite } from '@studio/providers';
 
 /** How many unexpired previews the user has of one local site. */
 export function countSitePreviews( siteId: string, snapshots: Snapshot[], userId: number ): number {
@@ -31,11 +31,22 @@ export function getNextSnapshotSequence(
 		: siteSnapshots.length + 1;
 }
 
+// What a saved preview takes from the provider's.
+function previewFields( preview: PreviewSite ) {
+	return {
+		url: new URL( preview.url ).hostname,
+		atomicSiteId: Number( preview.id ),
+		shareUrl: preview.shareUrl,
+		expiresAt: preview.expiresAt,
+		liveSiteId: preview.liveSiteId === undefined ? undefined : Number( preview.liveSiteId ),
+	};
+}
+
 export async function getSnapshotsFromConfig(
 	userId: number,
 	siteFolder?: string
 ): Promise< Snapshot[] > {
-	const config = await readCliConfig();
+	const config = await readConfig();
 	let snapshots = config.snapshots.filter( ( snapshot ) => snapshot.userId === userId );
 
 	if ( siteFolder ) {
@@ -48,44 +59,34 @@ export async function getSnapshotsFromConfig(
 
 export async function saveSnapshotToConfig(
 	siteFolder: string,
-	atomicSiteId: number,
-	previewUrl: string,
+	preview: PreviewSite,
 	userId: number,
 	name: string,
-	shareUrl?: string,
-	versionId?: string,
-	liveSiteId?: number
+	versionId?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-
+	const fields = previewFields( preview );
+	const { atomicSiteId } = fields;
+	return updateConfig( ( config ) => {
 		const existing = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 		const nextSequenceNumber = getNextSnapshotSequence( site.id, config.snapshots, userId );
 		const snapshot: Snapshot = {
 			...( existing?.tracksId ? { tracksId: existing.tracksId } : {} ),
-			url: previewUrl,
-			atomicSiteId,
+			...fields,
 			localSiteId: site.id,
 			date: Date.now(),
 			name,
 			sequence: nextSequenceNumber,
 			userId,
-			shareUrl,
 			versionId,
 			syncedAt: Date.now(),
-			liveSiteId,
 		};
 
 		// A sync while the preview was being created may already have listed it.
 		config.snapshots = config.snapshots.filter( ( s ) => s.atomicSiteId !== atomicSiteId );
 		config.snapshots.push( snapshot );
-		await saveCliConfig( config );
 		return snapshot;
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 /**
@@ -95,29 +96,15 @@ export async function saveSnapshotToConfig(
  */
 export async function linkPulledPreview(
 	localSiteId: string,
-	atomicSiteId: number,
 	userId: number,
-	preview: StandingPreview,
+	preview: PreviewSite,
 	sync?: { versionId: string; syncedAt: number }
 ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-		let snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
+	const fields = previewFields( preview );
+	return updateConfig( ( config ) => {
+		let snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === fields.atomicSiteId );
 		if ( ! snapshot ) {
-			if ( ! preview.hostname ) {
-				return;
-			}
-			snapshot = {
-				url: preview.hostname,
-				atomicSiteId,
-				localSiteId: '',
-				date: Date.now(),
-				userId,
-				shareUrl: preview.shareUrl,
-				expiresAt: preview.expiresAt,
-				liveSiteId: preview.liveSiteId,
-			};
+			snapshot = { ...fields, localSiteId: '', date: Date.now(), userId };
 			config.snapshots.push( snapshot );
 		}
 		if ( snapshot.localSiteId && snapshot.localSiteId !== localSiteId ) {
@@ -126,23 +113,17 @@ export async function linkPulledPreview(
 		snapshot.localSiteId = localSiteId;
 		snapshot.versionId = sync?.versionId;
 		snapshot.syncedAt = sync?.syncedAt;
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 export async function updateSnapshotInConfig(
-	atomicSiteId: number,
 	siteFolder: string,
-	shareUrl?: string,
-	versionId?: string,
-	liveSiteId?: number
+	preview: PreviewSite,
+	versionId?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+	const { atomicSiteId, shareUrl, liveSiteId } = previewFields( preview );
+	return updateConfig( ( config ) => {
 		const snapshot = config.snapshots.find( ( s ) => s.atomicSiteId === atomicSiteId );
 		if ( ! snapshot ) {
 			throw new LoggerError( __( 'Failed to find existing preview site in config' ) );
@@ -159,50 +140,27 @@ export async function updateSnapshotInConfig(
 			snapshot.shareUrl = shareUrl;
 		}
 
-		await saveCliConfig( config );
 		return snapshot;
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 export async function deleteSnapshotFromConfig( snapshotUrl: string ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-		const filtered = config.snapshots.filter( ( s ) => s.url !== snapshotUrl );
-		if ( filtered.length === config.snapshots.length ) {
-			return;
-		}
-		config.snapshots = filtered;
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	return updateConfig( ( config ) => {
+		config.snapshots = config.snapshots.filter( ( s ) => s.url !== snapshotUrl );
+	} );
 }
 
 export async function deleteAllSnapshotsForUserFromConfig( userId: number ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-		const filtered = config.snapshots.filter( ( s ) => s.userId !== userId );
-		if ( filtered.length === config.snapshots.length ) {
-			return;
-		}
-		config.snapshots = filtered;
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	return updateConfig( ( config ) => {
+		config.snapshots = config.snapshots.filter( ( s ) => s.userId !== userId );
+	} );
 }
 
 export async function pruneExpiredOrphanedSnapshots(
 	userId: number,
 	isExpired: ( snapshot: Snapshot ) => boolean
 ): Promise< number > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+	return updateConfig( ( config ) => {
 		const siteIds = new Set( config.sites.map( ( s ) => s.id ) );
 		const filtered = config.snapshots.filter( ( snapshot ) => {
 			if ( snapshot.userId !== userId ) {
@@ -214,23 +172,16 @@ export async function pruneExpiredOrphanedSnapshots(
 			return ! isExpired( snapshot );
 		} );
 		const pruned = config.snapshots.length - filtered.length;
-		if ( pruned > 0 ) {
-			config.snapshots = filtered;
-			await saveCliConfig( config );
-		}
+		config.snapshots = filtered;
 		return pruned;
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 export async function setSnapshotInConfig(
 	snapshotUrl: string,
 	updates: { name?: string }
 ): Promise< Snapshot > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+	return updateConfig( ( config ) => {
 		const snapshot = config.snapshots.find( ( s ) => s.url === snapshotUrl );
 		if ( ! snapshot ) {
 			throw new LoggerError( __( 'Preview site not found in config' ) );
@@ -240,11 +191,8 @@ export async function setSnapshotInConfig(
 			snapshot.name = updates.name;
 		}
 
-		await saveCliConfig( config );
 		return snapshot;
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 /**
@@ -254,18 +202,21 @@ export async function setSnapshotInConfig(
  * (another computer or tool), since they count toward the account's limit too. A preview saved
  * after `checkedAt` is left alone, since the server's answer may predate it.
  *
- * @param standing The server's standing previews, by site ID.
+ * @param previews The server's standing previews.
  * @returns The previews of local sites it forgot, for the caller to tell a bought one from an ended one.
  */
 export async function reconcilePreviews(
 	userId: number,
-	standing: Map< number, StandingPreview >,
+	previews: PreviewSite[],
 	checkedAt: number
 ): Promise< Snapshot[] > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
-		const before = JSON.stringify( config.snapshots );
+	const standing = new Map(
+		previews.map( ( preview ) => {
+			const fields = previewFields( preview );
+			return [ fields.atomicSiteId, fields ];
+		} )
+	);
+	return updateConfig( ( config ) => {
 		const forgotten: Snapshot[] = [];
 		config.snapshots = config.snapshots.filter( ( snapshot ) => {
 			if (
@@ -291,26 +242,12 @@ export async function reconcilePreviews(
 		} );
 		const listed = new Set( config.snapshots.map( ( snapshot ) => snapshot.atomicSiteId ) );
 		for ( const [ atomicSiteId, preview ] of standing ) {
-			if ( listed.has( atomicSiteId ) || ! preview.hostname ) {
+			if ( listed.has( atomicSiteId ) ) {
 				continue;
 			}
 			// Made elsewhere, so no local site: it can be opened, shared and deleted from here.
-			config.snapshots.push( {
-				url: preview.hostname,
-				atomicSiteId,
-				localSiteId: '',
-				date: checkedAt,
-				userId,
-				shareUrl: preview.shareUrl,
-				expiresAt: preview.expiresAt,
-				liveSiteId: preview.liveSiteId,
-			} );
-		}
-		if ( JSON.stringify( config.snapshots ) !== before ) {
-			await saveCliConfig( config );
+			config.snapshots.push( { ...preview, localSiteId: '', date: checkedAt, userId } );
 		}
 		return forgotten;
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }

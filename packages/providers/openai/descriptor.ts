@@ -68,5 +68,7 @@ export const openaiProvider: Provider< OpenaiConfig > = {
 	ai: {
 		models: OPENAI_AI_MODELS,
 		defaultModel: 'gpt-6.1-terra',
+		// A ChatGPT plan doesn't cover image generation.
+		generatesImages: ( config ) => config.method === 'api-key',
 	},
 };

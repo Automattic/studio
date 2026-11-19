@@ -1,12 +1,12 @@
 import * as Sentry from '@sentry/node';
 import { SENTRY_DSN } from '@studio/common/constants';
-import { readSentryUserId } from '@studio/common/lib/app-config';
 import {
 	captureException,
 	HOST_REPORTS_CLI_ERRORS_ENV,
 	prepareErrorEvent,
 	setErrorReporter,
 } from '@studio/common/lib/error-reporting';
+import { readSentryUserId } from '@studio/common/lib/install';
 import { getSentryReleaseInfo } from '@studio/common/lib/sentry-release';
 import type { ErrorEvent } from '@sentry/node';
 

@@ -1,8 +1,8 @@
 import { dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { connectProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { getAuthFailureReason, getAuthTracksProps } from '@studio/common/lib/auth-tracks';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';

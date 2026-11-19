@@ -141,7 +141,7 @@ One deliberate exception (matching the desktop's existing behavior): **session-s
 
 ## Auth across surfaces
 
-All surfaces read the same WordPress.com token from `~/.studio/shared.json`, so "who am I logged in as" is shared. **Logging in** differs because the OAuth redirect target differs per runtime:
+All surfaces read the same WordPress.com sign-in from `~/.studio/config.json`, so "who am I logged in as" is shared. **Logging in** differs because the OAuth redirect target differs per runtime:
 
 - **Desktop** — implicit grant to the `wp-studio://auth` custom protocol, which the app registers as an OS handler (OAuth client `95109`).
 - **CLI** — implicit grant to WordPress.com's copy-token page; the user pastes the token back (`studio auth login`).

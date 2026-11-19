@@ -247,7 +247,7 @@
 		},
 		{
 			"name": "publish-panel",
-			"description": "Share and publish → Publish: where to publish, WordPress.com or Spacefast",
+			"description": "Share and publish → Publish → Choose another host: where to publish, WordPress.com or Spacefast",
 			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
@@ -259,6 +259,12 @@
 						"role": "tab",
 						"name": "Publish",
 						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Choose another host"
 					}
 				},
 				{
@@ -491,7 +497,8 @@
 				{
 					"waitFor": {
 						"role": "group",
-						"name": "WordPress.com"
+						"name": "WordPress.com",
+						"first": true
 					}
 				}
 			],

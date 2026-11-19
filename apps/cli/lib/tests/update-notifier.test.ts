@@ -1,23 +1,18 @@
 /* eslint-disable no-control-regex */
+import { readConfig } from '@studio/common/lib/config/store';
 import { type MockInstance, vi } from 'vitest';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import {
 	formatUpdateBanner,
 	setupUpdateNotifier,
 	standaloneUpdateCommand,
 } from 'cli/lib/update-notifier';
 
-// Stub the config writer so standalone checks don't touch disk / the lockfile.
-vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('cli/lib/cli-config/core') >();
-	return {
-		...actual,
-		updateCliConfigWithPartial: vi.fn().mockResolvedValue( undefined ),
-		// Reject so the update check finds no cache and exercises the crash-safe path
-		// (a failed config read must never throw out of the notifier).
-		readCliConfig: vi.fn().mockRejectedValue( new Error( 'no config in test' ) ),
-	};
-} );
+vi.mock( '@studio/common/lib/config/store', () => ( {
+	updateConfig: vi.fn().mockResolvedValue( undefined ),
+	// Reject so the update check finds no cache and exercises the crash-safe path
+	// (a failed config read must never throw out of the notifier).
+	readConfig: vi.fn().mockRejectedValue( new Error( 'no config in test' ) ),
+} ) );
 
 const stripAnsi = ( str: string ) => str.replace( /\u001B\[[0-9;]*m/g, '' );
 
@@ -205,8 +200,8 @@ describe( 'setupUpdateNotifier', () => {
 		it( 'refetches instead of trusting a fresh cache from a different channel', async () => {
 			// Nightly cache left in the shared ~/.studio by a prior install; the running CLI is
 			// production. The stale 1.12.0-dev131 must not be offered — we refetch (server: 204).
-			vi.mocked( readCliConfig ).mockResolvedValueOnce( {
-				standaloneUpdateCheck: { lastChecked: Date.now(), latestVersion: '1.12.0-dev131' },
+			vi.mocked( readConfig ).mockResolvedValueOnce( {
+				cli: { standaloneUpdateCheck: { lastChecked: Date.now(), latestVersion: '1.12.0-dev131' } },
 			} as never );
 			const fetchMock = vi.fn().mockResolvedValue( {
 				ok: true,
@@ -222,8 +217,8 @@ describe( 'setupUpdateNotifier', () => {
 		} );
 
 		it( 'trusts a fresh same-channel cache without re-fetching', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValueOnce( {
-				standaloneUpdateCheck: { lastChecked: Date.now(), latestVersion: '1.13.0' },
+			vi.mocked( readConfig ).mockResolvedValueOnce( {
+				cli: { standaloneUpdateCheck: { lastChecked: Date.now(), latestVersion: '1.13.0' } },
 			} as never );
 			const fetchMock = vi.fn();
 			vi.stubGlobal( 'fetch', fetchMock );

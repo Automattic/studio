@@ -22,7 +22,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	type CliEnv,
@@ -146,7 +146,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 			);
 
 			expect( result.code, result.stderr ).toBe( 0 );
-			expect( readCliConfig( env ).sites ).toHaveLength( 1 );
+			expect( readConfigFile( env ).sites ).toHaveLength( 1 );
 			// twentytwentytwo is not bundled with WordPress, so its presence proves
 			// the Blueprint's installTheme step ran.
 			expect(
@@ -180,7 +180,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 			);
 
 			expect( result.code, result.stderr ).toBe( 0 );
-			expect( readCliConfig( env ).sites ).toHaveLength( 1 );
+			expect( readConfigFile( env ).sites ).toHaveLength( 1 );
 			// classic-editor is not bundled with WordPress, so its presence proves
 			// the Blueprint's installPlugin step ran.
 			expect(
@@ -282,7 +282,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 			);
 
 			expect( result.code, result.stderr ).toBe( 0 );
-			expect( readCliConfig( env ).sites ).toHaveLength( 1 );
+			expect( readConfigFile( env ).sites ).toHaveLength( 1 );
 			expect(
 				fs.existsSync( path.join( sitePath, 'wp-content', 'blueprint-php-marker.txt' ) )
 			).toBe( true );
@@ -317,7 +317,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create --bl
 			);
 
 			expect( result.code, result.stderr ).toBe( 0 );
-			expect( readCliConfig( env ).sites ).toHaveLength( 1 );
+			expect( readConfigFile( env ).sites ).toHaveLength( 1 );
 			const markerPath = path.join( sitePath, 'wp-content', 'blueprint-wpcli-marker.txt' );
 			expect( fs.existsSync( markerPath ) ).toBe( true );
 			expect( fs.readFileSync( markerPath, 'utf8' ).replace( /\\/g, '/' ) ).toContain(

@@ -26,9 +26,9 @@ export const githubCopilotProvider: Provider< GithubCopilotConfig > = {
 		describe: ( config ) => ( {
 			method: 'github',
 			summary: config.login,
-			models: config.models?.filter( ( id ) =>
-				GITHUB_COPILOT_AI_MODELS.some( ( model ) => model.id === id )
-			) as AiModelId[] | undefined,
+			models: config.models
+				?.filter( ( id ) => GITHUB_COPILOT_AI_MODELS.some( ( model ) => model.id === id ) )
+				.map( ( id ) => ( { id: id as AiModelId } ) ),
 			note: __( 'Using Copilot plan' ),
 			links: [ { label: __( 'Manage usage' ), url: 'https://github.com/settings/copilot' } ],
 		} ),

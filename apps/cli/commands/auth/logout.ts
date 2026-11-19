@@ -1,6 +1,6 @@
 import { disconnectProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';

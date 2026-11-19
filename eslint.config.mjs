@@ -233,28 +233,6 @@ export default defineConfig(
 			],
 			'react-hooks/set-state-in-effect': 'off',
 			'studio/no-module-level-translations': 'error',
-			'studio/require-lock-before-save': [
-				'error',
-				{
-					pairs: [
-						{
-							save: [ 'saveUserData', 'saveAppdata' ],
-							lock: 'lockAppdata',
-							unlock: 'unlockAppdata',
-						},
-						{
-							save: 'saveCliConfig',
-							lock: 'lockCliConfig',
-							unlock: 'unlockCliConfig',
-						},
-						{
-							save: 'saveSharedConfig',
-							lock: 'lockSharedConfig',
-							unlock: 'unlockSharedConfig',
-						},
-					],
-				},
-			],
 		},
 	},
 	{
@@ -449,6 +427,8 @@ export default defineConfig(
 											'gemini',
 											'github-copilot',
 											'meta',
+											'xai',
+											'openrouter',
 											'spacefast',
 									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]

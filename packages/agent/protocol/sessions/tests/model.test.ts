@@ -17,8 +17,12 @@ const settings = ( provider: AiSettings[ 'provider' ], connected: string[] ): Ai
 		gemini: { connected: false },
 		'github-copilot': { connected: false },
 		meta: { connected: false },
+		xai: { connected: false },
+		openrouter: { connected: false },
 		spacefast: { connected: false },
 	},
+	imageProviders: [],
+	imageProvider: null,
 } );
 
 describe( 'getEffectiveSessionProvider', () => {

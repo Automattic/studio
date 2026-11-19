@@ -6,13 +6,12 @@ import {
 	getStoredResizablePanelWidth,
 	getViewportWidth,
 	PANEL_WIDTHS_RESET_EVENT,
+	PANEL_COLLAPSE_OVERSHOOT,
 	storeResizablePanelWidth,
 	type ResizablePanelConfig,
 } from '@/data/resizable-panels';
 import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent } from 'react';
-
-const SIDEBAR_COLLAPSE_OVERSHOOT = 64;
 
 interface UseResizablePanelOptions {
 	config: ResizablePanelConfig;
@@ -53,7 +52,7 @@ export function useResizablePanel( { config, storageKey, onCollapse }: UseResiza
 			return start + delta;
 		},
 		onCommit: ( latest ) => {
-			if ( onCollapse && latest <= config.minWidth - SIDEBAR_COLLAPSE_OVERSHOOT ) {
+			if ( onCollapse && latest <= config.minWidth - PANEL_COLLAPSE_OVERSHOOT ) {
 				setWidth( width );
 				onCollapse();
 				return;

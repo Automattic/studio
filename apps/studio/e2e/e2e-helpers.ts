@@ -19,7 +19,7 @@ export type LaunchOptions = {
 	firstRun?: boolean;
 	// Merged into the initial app data, e.g. `{ onboardingCompleted: false }`.
 	appData?: Record< string, unknown >;
-	// Merged into shared.json, e.g. an AI provider and its key.
+	// Merged into the seeded shared.json, e.g. an AI provider and its key.
 	sharedConfig?: Record< string, unknown >;
 };
 
@@ -30,10 +30,11 @@ export class E2ESession {
 	sessionPath: string;
 	appDataPath: string;
 	homePath: string;
-	cliConfigPath: string;
-	sharedConfigPath: string;
+	configPath: string;
 	userDataPath: string;
 	daemonHomePath: string;
+	// The app to launch instead of the packaged build, e.g. a previous release.
+	appPath?: string;
 	private mainProcessLogs: string[] = [];
 	private readonly maxMainProcessLogChunks = 500;
 	private stdoutListener?: ( chunk: Buffer | string ) => void;
@@ -44,8 +45,7 @@ export class E2ESession {
 		this.sessionPath = path.join( tmpdir(), `studio-app-e2e-session-${ randomUUID() }` );
 		this.appDataPath = path.join( this.sessionPath, 'appData' );
 		this.homePath = path.join( this.sessionPath, 'home' );
-		this.cliConfigPath = path.join( this.sessionPath, 'cliConfig' );
-		this.sharedConfigPath = path.join( this.sessionPath, 'sharedConfig' );
+		this.configPath = path.join( this.sessionPath, 'config' );
 		// Electron keys its single-instance lock to the user data directory.
 		this.userDataPath = path.join( this.sessionPath, 'userData' );
 		// Each session runs its own process-manager daemon: quitting the app stops the daemon and
@@ -64,8 +64,7 @@ export class E2ESession {
 	) {
 		await fs.mkdir( this.appDataPath, { recursive: true } );
 		await fs.mkdir( this.homePath, { recursive: true } );
-		await fs.mkdir( this.cliConfigPath, { recursive: true } );
-		await fs.mkdir( this.sharedConfigPath, { recursive: true } );
+		await fs.mkdir( this.configPath, { recursive: true } );
 		await fs.mkdir( this.daemonHomePath, { recursive: true } );
 
 		// Path must include 'Studio' subfolder to match Electron app's path structure
@@ -90,13 +89,14 @@ export class E2ESession {
 			...appData,
 		};
 
+		// Seeded in the earliest format, so every launch runs the import a long-unused install would.
 		await fs.writeFile(
 			path.join( studioAppDataPath, 'appdata-v1.json' ),
 			JSON.stringify( initialAppdata, null, 2 )
 		);
 		// On macOS the app's AppleLanguages default is shared by every session, and the app falls back
 		// to it without a saved locale, so a language another worker picks would leak in.
-		await fs.writeJson( path.join( this.sharedConfigPath, 'shared.json' ), {
+		await fs.writeJson( path.join( this.configPath, 'shared.json' ), {
 			version: 1,
 			locale: 'en',
 			...sharedConfig,
@@ -136,6 +136,9 @@ export class E2ESession {
 	}
 
 	async closeApp() {
+		if ( ! this.electronApp ) {
+			return;
+		}
 		console.log( 'Closing app...' );
 		const childProcess = this.electronApp.process();
 
@@ -162,14 +165,18 @@ export class E2ESession {
 		}
 	}
 
-	async getSites(): Promise< PersistedSite[] > {
-		const config = await fs
-			.readJson( path.join( this.cliConfigPath, 'cli.json' ) )
-			.catch( () => ( { sites: [] } ) );
-		return config.sites;
+	private async readConfig(): Promise< {
+		sites?: PersistedSite[];
+		preferences?: Record< string, unknown >;
+	} > {
+		return fs.readJson( path.join( this.configPath, 'config.json' ) ).catch( () => ( {} ) );
 	}
 
-	// Polls cli.json, which the CLI may write slightly after the UI shows the site.
+	async getSites(): Promise< PersistedSite[] > {
+		return ( await this.readConfig() ).sites ?? [];
+	}
+
+	// Polls the config file, which the CLI may write slightly after the UI shows the site.
 	async waitForSite( siteName: string ): Promise< PersistedSite > {
 		let site: PersistedSite | undefined;
 		await expect
@@ -178,14 +185,14 @@ export class E2ESession {
 					site = ( await this.getSites() ).find( ( candidate ) => candidate.name === siteName );
 					return site?.port;
 				},
-				{ message: `site "${ siteName }" was never persisted to cli.json`, timeout: 120_000 }
+				{ message: `site "${ siteName }" was never saved to the config file`, timeout: 120_000 }
 			)
 			.toBeTruthy();
 		return site as PersistedSite;
 	}
 
-	async getAppConfig(): Promise< Record< string, unknown > > {
-		return fs.readJson( path.join( this.sharedConfigPath, 'app.json' ) );
+	async getPreferences(): Promise< Record< string, unknown > > {
+		return ( await this.readConfig() ).preferences ?? {};
 	}
 
 	// The text of the page the site preview shows.
@@ -242,16 +249,16 @@ export class E2ESession {
 		} );
 	}
 
-	private async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
-		const buildDir = path.join( __dirname, '..', 'out' );
-		const latestBuild = findLatestBuild( buildDir );
-		const appInfo = parseElectronApp( latestBuild );
+	async launchFirstWindow( testEnv: NodeJS.ProcessEnv = {} ) {
+		const appInfo = parseElectronApp(
+			this.appPath ?? findLatestBuild( path.join( __dirname, '..', 'out' ) )
+		);
 		let executablePath = appInfo.executable;
 
 		if ( appInfo.platform === 'win32' ) {
 			// `parseElectronApp` function obtains the executable path by finding the first executable from
 			// the build folder. We need to ensure that the executable is the Studio app.
-			executablePath = executablePath.replace( 'Squirrel.exe', 'Studio.exe' );
+			executablePath = executablePath.replace( /squirrel\.exe$/i, 'Studio.exe' );
 		}
 
 		// Linux E2E runs as a non-root user inside a Docker container with
@@ -293,8 +300,10 @@ export class E2ESession {
 				E2E: 'true',
 				E2E_APP_DATA_PATH: this.appDataPath,
 				E2E_HOME_PATH: this.homePath,
-				E2E_CLI_CONFIG_PATH: this.cliConfigPath,
-				E2E_SHARED_CONFIG_PATH: this.sharedConfigPath,
+				DEV_CONFIG_DIR: this.configPath,
+				// Where a previous release, as the upgrade test runs, keeps its config files.
+				E2E_CLI_CONFIG_PATH: this.configPath,
+				E2E_SHARED_CONFIG_PATH: this.configPath,
 				STUDIO_PROCESS_MANAGER_HOME: this.daemonHomePath,
 				// Workers run concurrently, so each assigns site ports from its own range.
 				STUDIO_BASE_PORT: String( 8881 + Number( process.env.TEST_PARALLEL_INDEX ?? 0 ) * 1000 ),

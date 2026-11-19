@@ -1,8 +1,8 @@
 import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
-import { getRedirectUrl } from '@studio/providers';
-import { __ } from '@wordpress/i18n';
+import { getSignInUrl } from '@studio/providers/wpcom';
+import { __, sprintf } from '@wordpress/i18n';
 import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -39,6 +39,7 @@ import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { CatalogModel } from '@studio/providers';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
@@ -203,6 +204,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			studioLogs: false,
 			nativeSites: true,
+			loopbackSignIn: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -255,7 +257,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				popup?.close();
 				const redirectUri = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					getRedirectUrl( 'wpcom', { redirectUri, locale: 'en', signup } ),
+					getSignInUrl( { redirectUri, locale: 'en', signup } ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -370,6 +372,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {
+			let { blueprint } = params;
+			if ( blueprint && typeof blueprint === 'object' && 'librarySlug' in blueprint ) {
+				const { bundleUrl, blueprint: declaration } = blueprint;
+				blueprint = declaration;
+				if ( bundleUrl ) {
+					const response = await fetch( bundleUrl );
+					if ( ! response.ok ) {
+						throw new Error(
+							sprintf( __( 'Failed to fetch Blueprint: HTTP %d' ), response.status )
+						);
+					}
+					blueprint = new File( [ await response.blob() ], 'blueprint.zip' );
+				}
+			}
 			return api< SiteDetails >( '/sites', {
 				method: 'POST',
 				body: JSON.stringify( {
@@ -385,10 +401,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
 					flowType: params.flowType,
-					blueprint:
-						params.blueprint instanceof File
-							? await uploadFile( params.blueprint )
-							: params.blueprint,
+					blueprint: blueprint instanceof File ? await uploadFile( blueprint ) : blueprint,
 				} ),
 			} );
 		},
@@ -437,7 +450,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// own default), so only forward the override when the caller opts out.
 		async deleteSite( id, deleteFiles ) {
 			const query = deleteFiles === false ? '?deleteFiles=false' : '';
-			await api( `/sites/${ encodeURIComponent( id ) }${ query }`, { method: 'DELETE' } );
+			return api< { warnings: string[] } >( `/sites/${ encodeURIComponent( id ) }${ query }`, {
+				method: 'DELETE',
+			} );
 		},
 		// Duplicate a site; the server picks the numbered name + new id and copies
 		// the files, mirroring the desktop's copy flow.
@@ -543,11 +558,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async deleteAllSnapshots() {
 			await api( '/snapshots', { method: 'DELETE' } );
 		},
-		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
+		async publishPreviewSite(
+			siteId,
+			existingHostname,
+			name,
+			liveSite
+		): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
 			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
 				method: 'POST',
-				body: JSON.stringify( { hostname: existingHostname, name } ),
+				body: JSON.stringify( { hostname: existingHostname, name, liveSite } ),
 			} );
 		},
 		async deleteSnapshot( hostname ) {
@@ -826,20 +846,38 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getAiSettings(): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings' );
 		},
-		async connectProvider( provider, input ): Promise< AiSettings > {
+		async connectProvider( provider, method, input ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }`, {
 				method: 'PUT',
-				body: JSON.stringify( { input } ),
+				body: JSON.stringify( { method, input } ),
 			} );
 		},
 		async disconnectProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }`, { method: 'DELETE' } );
 		},
-		async startProviderConnect( provider ) {
-			return api( `/ai-settings/providers/${ provider }/device-sign-in`, { method: 'POST' } );
+		async listProviderModels( provider ) {
+			return api< CatalogModel[] >( `/ai-settings/providers/${ provider }/models` );
+		},
+		async selectProviderModels( provider, models ): Promise< AiSettings > {
+			return api< AiSettings >( `/ai-settings/providers/${ provider }/models`, {
+				method: 'PUT',
+				body: JSON.stringify( { models } ),
+			} );
+		},
+		async startProviderConnect( provider, method ) {
+			return api( `/ai-settings/providers/${ provider }/start`, {
+				method: 'POST',
+				body: JSON.stringify( { method } ),
+			} );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
+			} );
+		},
+		async setImageProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/image-provider', {
 				method: 'PUT',
 				body: JSON.stringify( { provider } ),
 			} );

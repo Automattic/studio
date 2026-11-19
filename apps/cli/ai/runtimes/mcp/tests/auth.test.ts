@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { bindTool, createResultNotes } from '@studio/agent/node';
-import { getSharedConfigPath } from '@studio/common/lib/well-known-paths';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
 import { createLibraryTools } from 'cli/ai/runtimes/mcp/library';
@@ -79,15 +79,16 @@ it( 'joins visible prompt, explicit login and token outcome, identifying only th
 		'studio_wpcom_auth_started',
 		'studio_wpcom_auth',
 	] );
-	const shared = JSON.parse( await fs.readFile( getSharedConfigPath(), 'utf8' ) );
-	expect( shared.authToken.accessToken ).toBe( 'private-token' );
+	const config = await readConfig();
+	expect( config.providers.configs.wpcom ).toMatchObject( { token: 'private-token' } );
+	const installId = config.install.analyticsId;
 	const identities = events().map( ( event ) => [ event._ut, event._ui ] );
 	expect( identities ).toEqual( [
-		[ 'anon', shared.analyticsInstallId ],
-		[ 'anon', shared.analyticsInstallId ],
+		[ 'anon', installId ],
+		[ 'anon', installId ],
 		[ 'wpcom:user_id', '123' ],
 	] );
-	expect( events()[ 2 ].install_id ).toBe( shared.analyticsInstallId );
+	expect( events()[ 2 ].install_id ).toBe( installId );
 	for ( const event of events() ) {
 		expect( event ).toMatchObject( {
 			channel: 'studio-mcp',
@@ -223,10 +224,9 @@ it.each( [ 'opt-out', 'build-disabled' ] )(
 	'honors %s for prompt, starts, outcomes and handoff failures',
 	async ( gate ) => {
 		if ( gate === 'opt-out' )
-			await fs.writeFile(
-				getSharedConfigPath(),
-				JSON.stringify( { version: 1, analyticsOptOut: true } )
-			);
+			await updateConfig( ( { preferences } ) => {
+				preferences.analyticsOptOut = true;
+			} );
 		if ( gate === 'build-disabled' ) vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
 		await call( 'wpcom_login_event', { event: 'prompt_viewed', journeyId: crypto.randomUUID() } );
 		const first = await call( 'wpcom_login' );

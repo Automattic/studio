@@ -1,47 +1,23 @@
 export {
 	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
-	getProviderDescriptor,
-	getSitesDescriptor,
-	normalizeAiProviderId,
-	normalizeSitesProviderId,
 	formatRemoteSite,
-	parseRemoteSite,
+	generatesImages,
+	getProvider,
+	getProviderSites,
 	normalizeProviderId,
+	parseRemoteSite,
 	PROVIDER_IDS,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
-} from './descriptors';
+} from './registry';
 export {
-	getAiModel,
-	getAiModelLabel,
-	getAiModelProviders,
+	findAiModel,
 	getAiModels,
 	getDefaultAiModel,
-	isAiModelId,
+	servesAiModel,
 	type AiModelId,
 } from './models';
-export { getConnectFields, getRedirectUrl, type ConnectField } from './connection';
-export type { AnthropicConfig } from './anthropic/config';
-export type { OpenaiConfig } from './openai/config';
-export type { SpacefastConfig } from './spacefast/config';
-export type { Space } from './spacefast/site';
-export type { WpcomConfig } from './wpcom/config';
+export { getConnectFields, getConnectMethod, type ConnectField } from './connection';
+export { ConnectError, NotConnectedError, RemoteSiteError } from './errors';
 export type * from './types';
-export {
-	InvalidCredentialError,
-	ProviderNotReadyError,
-	RemoteSiteError,
-	type ConnectFailure,
-} from './errors';
-export {
-	syncOptionSchema,
-	syncSiteSchema,
-	syncSupportValues,
-	withWpcomDetails,
-	type PullSyncOptions,
-	type PushSyncOptions,
-	type SyncOption,
-	type SyncSite,
-	type SyncSupport,
-} from './wpcom/site';

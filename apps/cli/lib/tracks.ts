@@ -1,3 +1,5 @@
+import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
+import { getTracksIdentity, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	isTracksChannel,
@@ -6,11 +8,6 @@ import {
 	type TracksProps,
 	type TracksUiVersion,
 } from '@studio/common/lib/record-tracks-event';
-import {
-	getTracksIdentity,
-	isAnalyticsOptedOut,
-	isAutomatticianFromToken,
-} from '@studio/common/lib/shared-config';
 
 export { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 

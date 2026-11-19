@@ -30,6 +30,13 @@ if (
 	$phpmyadmin_root
 	&& ( $path === $phpmyadmin_prefix || str_starts_with( $path, $phpmyadmin_prefix . '/' ) )
 ) {
+	if ( getenv( 'STUDIO_PHPMYADMIN_SUPPORTED' ) === '0' ) {
+		http_response_code( 403 );
+		header( 'Content-Type: text/plain; charset=utf-8' );
+		echo 'Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.';
+		return true;
+	}
+
 	$real_phpmyadmin_root = realpath( $phpmyadmin_root );
 
 	if ( $path === $phpmyadmin_prefix ) {

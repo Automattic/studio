@@ -1,23 +1,30 @@
-import { anthropicProvider } from './anthropic';
-import { openaiProvider } from './openai';
-import { spacefastProvider } from './spacefast';
-import { wpcomProvider } from './wpcom';
-import type { Provider, ProviderConfigs, ProviderId, ProviderSite } from './types';
+import { anthropicServices } from './anthropic/services';
+import { geminiServices } from './gemini/services';
+import { githubCopilotServices } from './github-copilot/services';
+import { metaServices } from './meta/services';
+import { openaiServices } from './openai/services';
+import { openrouterServices } from './openrouter/services';
+import { spacefastServices } from './spacefast/services';
+import { wpcomServices } from './wpcom/services';
+import { xaiServices } from './xai/services';
+import type { ProviderConfigs, ProviderId, ProviderServices, ProviderSite } from './types';
 
-const PROVIDERS: {
-	[ Id in ProviderId ]: Provider< ProviderConfigs[ Id ], ProviderSite< Id > >;
+const SERVICES: {
+	[ Id in ProviderId ]: ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >;
 } = {
-	wpcom: wpcomProvider,
-	anthropic: anthropicProvider,
-	openai: openaiProvider,
-	spacefast: spacefastProvider,
+	wpcom: wpcomServices,
+	anthropic: anthropicServices,
+	openai: openaiServices,
+	gemini: geminiServices,
+	'github-copilot': githubCopilotServices,
+	meta: metaServices,
+	xai: xaiServices,
+	openrouter: openrouterServices,
+	spacefast: spacefastServices,
 };
 
-export function getProvider< Id extends ProviderId >(
+export function getProviderServices< Id extends ProviderId >(
 	id: Id
-): Provider< ProviderConfigs[ Id ], ProviderSite< Id > > {
-	return PROVIDERS[ id ];
+): ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > > {
+	return SERVICES[ id ];
 }
-
-// Previews upload to WordPress.com the way a push does, until they are a capability of their own.
-export { createTusUpload } from './wpcom/sites/upload';

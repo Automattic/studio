@@ -6,21 +6,17 @@ import { __ } from '@wordpress/i18n';
 import { ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
 import { readActiveThemes } from 'cli/lib/active-themes';
+import { isAlreadyCompressedFile } from 'cli/lib/already-compressed-file';
 import { isHostManagedPullFile } from 'cli/lib/pull/pull-session';
 import { LoggerError } from 'cli/logger';
 
 const ZIP_COMPRESSION_LEVEL = 9;
-// Media and archives are already compressed: deflating them again costs most of the archiving
-// time on a media-heavy site and saves almost nothing, so they are stored as they are.
-const ALREADY_COMPRESSED_FILE =
-	/\.(jpe?g|png|gif|webp|avif|heic|mp4|m4v|mov|webm|mp3|m4a|ogg|woff2?|zip|gz|tgz|bz2|xz|7z|rar|pdf)$/i;
 const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PLUGIN_FILENAME }`;
 
 // Plugins WordPress.com provides on every Atomic site. Their folders are left out of WordPress.com
 // preview archives: WordPress.com's importer keeps its own managed copy and ignores uploaded ones
 // (wpcomsh skips any uploaded plugin directory that `/wordpress/plugins/<slug>/latest` covers),
-// and activation lives in the database, so the plugin stays active on the preview. A Jurassic
-// Ninja preview replaces its whole `wp-content` with the archive, so its archive keeps them.
+// and activation lives in the database, so the plugin stays active on the preview.
 const WORDPRESS_COM_PROVIDED_PLUGINS = new Set( [
 	'jetpack',
 	'akismet',
@@ -42,7 +38,7 @@ export type ArchiveEntry = {
 
 export type PreviewArchiveOptions = {
 	// Whether the archive goes to a WordPress.com preview, which already has WordPress.com's
-	// managed plugins and themes. A Jurassic Ninja preview needs every file the site runs.
+	// managed plugins and themes. Without it, every file the site runs is listed.
 	onWpcom: boolean;
 };
 
@@ -153,7 +149,7 @@ export async function archiveSiteContent(
 
 		for ( const { name, sourcePath } of entries ) {
 			// `file()` passes the zip-only `store` option through, though its types omit it.
-			const entry: ZipEntryData = { name, store: ALREADY_COMPRESSED_FILE.test( name ) };
+			const entry: ZipEntryData = { name, store: isAlreadyCompressedFile( name ) };
 			archiveBuilder.file( sourcePath, entry );
 		}
 

@@ -1,4 +1,5 @@
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
+import { googleGenerativeAIApi } from '@earendil-works/pi-ai/api/google-generative-ai.lazy';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { withErrorRewrite } from './runtime-guards/error-rewrite';
@@ -6,6 +7,9 @@ import { withLeakedToolCallMarkupRemoved } from './runtime-guards/leaked-tool-ca
 import { stripStaleImagesFromContext } from './runtime-guards/strip-stale-images';
 import type { Api, Model, SimpleStreamOptions, TranscriptContext } from '@earendil-works/pi-ai';
 import type { AiConnection } from '@studio/providers';
+
+// Loads Google's SDK only when a Gemini model runs.
+const streamGoogleGenerativeAi = googleGenerativeAIApi().streamSimple;
 
 // pi's stock stream for the connection's API, with the connection's error
 // rewrite, the leaked tool-call cleanup, and stale screenshots stripped, which
@@ -19,6 +23,8 @@ export function createConnectionStream( { requestModelId, rewriteError }: AiConn
 				? streamOpenAiCompletions
 				: model.api === 'anthropic-messages'
 				? streamAnthropicMessages
+				: model.api === 'google-generative-ai'
+				? streamGoogleGenerativeAi
 				: streamOpenAiResponses
 		) as typeof streamOpenAiCompletions;
 		// The model keeps its stable id for pi and the session history; only the

@@ -1,23 +1,17 @@
 import fs from 'fs';
 import path from 'path';
 import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
+import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/auth-token';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
-import { forgetRemoteSites } from '@studio/common/lib/remote-sites';
-import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { forgetSiteInSidebar } from '@studio/common/lib/user-settings/user-preferences';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-	type SiteData,
-} from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
@@ -29,6 +23,7 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { untildify } from 'cli/lib/utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/site/delete.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -66,7 +61,7 @@ export type DeleteCommandOptions = {
 
 type ResolvedSite = {
 	identity: string;
-	site: SiteData;
+	site: ConfigSite;
 	filePaths: string[];
 };
 
@@ -112,7 +107,7 @@ async function deletePreviewSites(
 	}
 }
 
-function getSelectedFilePaths( site: SiteData, deleteFiles: boolean ): string[] {
+function getSelectedFilePaths( site: ConfigSite, deleteFiles: boolean ): string[] {
 	if ( ! deleteFiles ) {
 		return [];
 	}
@@ -124,8 +119,8 @@ function getSelectedFilePaths( site: SiteData, deleteFiles: boolean ): string[] 
 
 function resolveSiteIdentity(
 	identity: string,
-	sites: SiteData[]
-): { site?: SiteData; error?: string } {
+	sites: ConfigSite[]
+): { site?: ConfigSite; error?: string } {
 	const trimmed = identity.trim();
 	if ( ! trimmed ) {
 		return { error: __( 'The specified directory is not added to Studio.' ) };
@@ -205,13 +200,18 @@ export async function runCommand(
 	siteFolder: string,
 	deleteFiles: boolean = true,
 	logger: Logger< LoggerAction > = defaultLogger
-): Promise< void > {
-	await runDeleteCommand( {
+): Promise< { warnings: string[] } > {
+	const result = await runDeleteCommand( {
 		identities: [ siteFolder ],
 		deleteFiles,
 		logger,
 		throwOnFailure: true,
 	} );
+	return { warnings: getWarnings( result ) };
+}
+
+function getWarnings( result: DeleteCommandResult ): string[] {
+	return result.sites.flatMap( ( site ) => site.warnings ?? [] );
 }
 
 export async function runDeleteCommand(
@@ -227,7 +227,7 @@ export async function runDeleteCommand(
 	} = options;
 
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Resolving sites…' ) );
-	const cliConfig = await readCliConfig();
+	const cliConfig = await readConfig();
 
 	const resolved: ResolvedSite[] = [];
 	const seenIds = new Set< string >();
@@ -367,6 +367,8 @@ export async function runDeleteCommand(
 		return finishWithFailures( result, { format, throwOnFailure } );
 	}
 
+	logger.reportResult( { warnings: getWarnings( result ) } );
+
 	if ( format === 'json' ) {
 		console.log( JSON.stringify( result ) );
 	} else if ( resolved.length > 1 ) {
@@ -380,7 +382,7 @@ export async function runDeleteCommand(
 }
 
 async function deleteSite(
-	site: SiteData,
+	site: ConfigSite,
 	filePaths: string[],
 	deleteFiles: boolean,
 	logger: Logger< LoggerAction >
@@ -414,30 +416,15 @@ async function deleteSite(
 		await deletePreviewSites( authToken, site.path, logger );
 	}
 
-	try {
-		await lockCliConfig();
-		const cliConfig = await readCliConfig();
-		const siteIndex = cliConfig.sites.findIndex( ( s ) => arePathsEqual( s.path, site.path ) );
+	// The site's record holds its connections and settings, so they go with it.
+	await updateConfig( ( { sites, preferences } ) => {
+		const siteIndex = sites.findIndex( ( s ) => arePathsEqual( s.path, site.path ) );
 		if ( siteIndex === -1 ) {
 			throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 		}
-		cliConfig.sites.splice( siteIndex, 1 );
-		await saveCliConfig( cliConfig );
-	} finally {
-		await unlockCliConfig();
-	}
-
-	try {
-		await forgetRemoteSites( site.id );
-	} catch ( error ) {
-		logger.reportError(
-			new LoggerError(
-				__( 'Failed to remove WordPress.com connections. Proceeding anyway…' ),
-				error
-			),
-			false
-		);
-	}
+		sites.splice( siteIndex, 1 );
+		forgetSiteInSidebar( preferences, site.id );
+	} );
 
 	try {
 		await deleteAiSessionsForSite( getSessionsDirectory(), {
@@ -471,19 +458,24 @@ async function deleteSite(
 			// The site is already out of the config by this point, so a trash failure must not
 			// abort the rest of the delete — otherwise the DELETED event never fires and the UI
 			// keeps showing a site that no longer exists.
+			let trashError: unknown;
 			try {
 				await trash( filePaths );
-				logger.reportSuccess( __( 'Site files moved to trash' ) );
 			} catch ( error ) {
-				// `reportError` with `isFatal: false` leaves the exit code at 0, and the desktop app
-				// only surfaces CLI IPC failures for non-zero exits, so log to stderr as well.
-				console.error( 'Failed to move site files to trash:', error );
-				const failure = new LoggerError(
-					__( 'Failed to move site files to trash. Proceeding anyway…' ),
-					error
+				trashError = error;
+			}
+			// Check the disk too: on Windows, the trash binary can exit 0 without moving everything.
+			const remainingPaths = filePaths.filter( ( filePath ) => fs.existsSync( filePath ) );
+			if ( remainingPaths.length === 0 ) {
+				logger.reportSuccess( __( 'Site files moved to trash' ) );
+			} else {
+				const warning = sprintf(
+					// translators: %s: the folders that are still on disk, separated by commas
+					__( 'The site files could not be moved to trash. Delete them yourself: %s' ),
+					remainingPaths.join( ', ' )
 				);
-				warnings.push( failure.message );
-				logger.reportError( failure, false );
+				warnings.push( warning );
+				logger.reportError( new LoggerError( warning, trashError ), false );
 			}
 		} else {
 			logger.reportSuccess( __( 'Site files already removed' ) );

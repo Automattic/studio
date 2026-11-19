@@ -124,22 +124,27 @@ export function useSettleSync() {
 			if ( settled.direction === 'preview' ) {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
-					/* translators: %s: site name */
-					toast.success( sprintf( __( '%s preview is ready' ), siteName() ), {
-						id: noticeId,
-						action: {
-							label: __( 'Copy link' ),
-							onClick: () => {
-								const latest = queryClient
-									.getQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY )
-									?.filter( ( snapshot ) => snapshot.localSiteId === siteId )
-									.sort( ( a, b ) => b.date - a.date )[ 0 ];
-								if ( latest ) {
-									void connector.copyText( getSnapshotUrl( latest ) );
-								}
+					( settled.warning ? toast.warning : toast.success )(
+						/* translators: %s: site name */
+						sprintf( __( '%s preview is ready' ), siteName() ),
+						{
+							id: noticeId,
+							description: settled.warning,
+							action: {
+								label: __( 'Copy link' ),
+								onClick: () => {
+									const latest = queryClient
+										.getQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY )
+										?.filter( ( snapshot ) => snapshot.localSiteId === siteId )
+										.sort( ( a, b ) => b.date - a.date )[ 0 ];
+									if ( latest ) {
+										void connector.copyText( getSnapshotUrl( latest ) );
+									}
+								},
+								dismissOnSuccess: ! settled.warning,
 							},
-						},
-					} );
+						}
+					);
 				} else if ( settled.kind === 'error' ) {
 					/* translators: %s: site name */
 					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {

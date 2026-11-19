@@ -1,9 +1,10 @@
 import {
+	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
-	getAiModel,
+	findAiModel,
 	getDefaultAiModel,
-	isAiModelId,
-	normalizeAiProviderId,
+	servesAiModel,
+	normalizeProviderId,
 	type AiModelId,
 	type AiProviderId,
 	type ProviderId,
@@ -40,8 +41,8 @@ function readEntryModelId( entry: SessionEntry ): string | undefined {
 export function readRecordedSessionModel( entries: SessionEntry[] ): AiModelId | undefined {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const recordedModel = readEntryModelId( entries[ index ] );
-		if ( recordedModel !== undefined && isAiModelId( recordedModel ) ) {
-			return recordedModel;
+		if ( recordedModel !== undefined && findAiModel( recordedModel ) ) {
+			return recordedModel as AiModelId;
 		}
 	}
 	return undefined;
@@ -62,11 +63,11 @@ export function resolveSessionModel(
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: ProviderId,
-	options?: { canUsePaidModels?: boolean }
+	options?: Parameters< typeof getDefaultAiModel >[ 1 ]
 ): AiModelId {
 	const defaultModel = getDefaultAiModel( provider, options );
 	const model = resolveSessionModel( entries, defaultModel );
-	return getAiModel( provider, model ) ? model : defaultModel;
+	return servesAiModel( provider, model ) ? model : defaultModel;
 }
 
 /**
@@ -79,7 +80,8 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const entry = entries[ index ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
-			const provider = entry.data?.provider && normalizeAiProviderId( entry.data.provider );
+			const provider =
+				entry.data?.provider && normalizeProviderId( entry.data.provider, AI_PROVIDER_IDS );
 			if ( provider ) {
 				return provider;
 			}
@@ -91,12 +93,18 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 /**
  * The provider a conversation effectively runs on: its pinned choice first,
  * then the saved global selection. A provider that isn't connected can't run
- * it (nor can anything while settings are loading), so WordPress.com wins.
+ * it, so the first connected provider does, WordPress.com first; with none
+ * (or while settings are loading), WordPress.com.
  */
 export function getEffectiveSessionProvider(
 	entries: SessionEntry[],
 	settings?: AiSettings | null
-): ProviderId {
+): AiProviderId {
 	const provider = settings && ( resolveSessionProvider( entries ) ?? settings.provider );
-	return provider && settings.accounts[ provider ].connected ? provider : DEFAULT_PROVIDER_ID;
+	if ( provider && settings.accounts[ provider ].connected ) {
+		return provider;
+	}
+	return (
+		AI_PROVIDER_IDS.find( ( id ) => settings?.accounts[ id ].connected ) ?? DEFAULT_PROVIDER_ID
+	);
 }

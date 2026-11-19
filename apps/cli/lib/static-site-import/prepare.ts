@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { readConfig } from '@studio/common/lib/config/store';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import {
 	captureCompareCommand,
@@ -122,15 +122,23 @@ export async function prepareSourceImport(
 			LoggerAction.IMPORT_SITE,
 			__( 'Preparing source website with Data Liberation…' )
 		);
-		liberated = await ( options.liberate ?? liberateWebsite )( sourceUrl, captureDir, {
-			onProgress: ( message ) => {
-				const now = Date.now();
-				if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
-					lastProgressAt = now;
-					logger.reportProgress( message );
-				}
-			},
-		} );
+		try {
+			liberated = await ( options.liberate ?? liberateWebsite )( sourceUrl, captureDir, {
+				onProgress: ( message ) => {
+					const now = Date.now();
+					if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {
+						lastProgressAt = now;
+						logger.reportProgress( message );
+					}
+				},
+			} );
+		} catch ( error ) {
+			throw new LoggerError(
+				__( 'Data Liberation could not capture the source website' ),
+				error,
+				'capture'
+			);
+		}
 		if ( liberated.partialCapture ) {
 			logger.reportWarning( partialCaptureWarning( liberated.partialCapture ) );
 		}
@@ -164,9 +172,7 @@ export async function completeSourceImport(
 			.rm( prepared.liberationOutputDir, { recursive: true, force: true } )
 			.catch( () => {} );
 	} else if ( prepared.compareCommand ) {
-		const site = ( await readCliConfig() ).sites.find(
-			( candidate ) => candidate.path === sitePath
-		);
+		const site = ( await readConfig() ).sites.find( ( candidate ) => candidate.path === sitePath );
 		if ( site ) {
 			console.log(
 				sprintf(

@@ -13,6 +13,7 @@ export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
 	SITE_CREATE: 'studio_site_created',
+	SITE_CREATE_FAILED: 'studio_site_create_failed',
 	BLUEPRINT_VIEWED: 'studio_blueprint_viewed',
 	BLUEPRINT_USE_CASE_FILTER_CHANGED: 'studio_blueprint_use_case_filter_changed',
 	BLUEPRINT_PREVIEW_IN_BROWSER: 'studio_blueprint_preview_in_browser',
@@ -84,7 +85,7 @@ export function isTracksEventName( value: unknown ): value is TracksEventName {
 // Logged out: `_ut=anon` with the anonymous install UUID. Logged in to WordPress.com:
 // `_ut=wpcom:user_id` with the account's user id, plus the install UUID as the `install_id` prop so
 // an install's logged-out and logged-in events can be joined. Resolved by `getTracksIdentity()` in
-// `./shared-config.ts`; nothing else about the account is ever attached.
+// `./install.ts`; nothing else about the account is ever attached.
 export type TracksIdentity =
 	| { type: 'anon'; id: string }
 	| { type: 'wpcom:user_id'; id: string; installId: string };

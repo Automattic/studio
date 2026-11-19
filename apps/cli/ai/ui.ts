@@ -27,10 +27,15 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@earendil-works/pi-tui';
-import { isOutOfCreditsError, isUsageCapError } from '@studio/agent/protocol/json-events';
+import {
+	formatErrorMessage,
+	isOutOfCreditsError,
+	isUsageCapError,
+} from '@studio/agent/protocol/errors';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import { randomThinkingMessage } from '@studio/agent/protocol/thinking-messages';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import {
 	fetchStudioAssistantQuota,
 	formatOutOfCreditsNotice,
@@ -40,11 +45,11 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import {
 	DEFAULT_PROVIDER_ID,
-	getAiModelLabel,
+	findAiModel,
 	getDefaultAiModel,
-	getProviderDescriptor,
+	getProvider,
 	type AiModelId,
-	type ProviderId,
+	type AiProviderId,
 } from '@studio/providers';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
@@ -59,13 +64,13 @@ import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
 import { formatToolOutputLines } from 'cli/ai/tool-result-renderers';
 import { getWpComSites } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
-import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
 import type { AskUserQuestion, SiteInfo } from '@studio/agent/node';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;
@@ -265,7 +270,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private toolOutputExpanded = false;
 	private hasExpandableOutput = false;
 	private _inAgentTurn = false;
-	private _activeSiteData: SiteData | null = null;
+	private _activeSiteData: ConfigSite | null = null;
 	private siteSelectedCallback: ( ( site: SiteInfo ) => void ) | null = null;
 	private replayMode = false;
 	private replayTimestampMs: number | null = null;
@@ -275,7 +280,7 @@ export class AiChatUI implements AiOutputAdapter {
 	>();
 	private renderedToolResultIds = new Set< string >();
 	currentModel: AiModelId = getDefaultAiModel( DEFAULT_PROVIDER_ID );
-	currentProvider: ProviderId = DEFAULT_PROVIDER_ID;
+	currentProvider: AiProviderId = DEFAULT_PROVIDER_ID;
 	private numTurns = 0;
 
 	private optionPickerContainer: Container | null = null;
@@ -299,7 +304,7 @@ export class AiChatUI implements AiOutputAdapter {
 	private sitePickerVisible = false;
 	private sitePickerContainer: Container | null = null;
 	private sitePickerItems: SiteInfo[] = [];
-	private sitePickerSiteData: SiteData[] = [];
+	private sitePickerSiteData: ConfigSite[] = [];
 	private sitePickerSelectList: SelectList | null = null;
 	private sitePickerItemMap: Map< string, SiteInfo > = new Map();
 	private sitePickerTab: SitePickerTab = SITE_PICKER_TAB_LOCAL;
@@ -609,8 +614,8 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private async openSitePicker(): Promise< void > {
-		const config = await readCliConfig();
-		const sites: SiteData[] = config.sites ?? [];
+		const config = await readConfig();
+		const { sites } = config;
 		if ( sites.length === 0 ) {
 			this.messages.addChild(
 				new Text( theme.fg( 'muted', '  ' + __( 'No sites found. Create one first.' ) ), 1, 0 )
@@ -620,7 +625,7 @@ export class AiChatUI implements AiOutputAdapter {
 		}
 
 		this.sitePickerSiteData = sites;
-		const runningStatus = await getSitesRunningStatus( sites );
+		const runningStatus = await getSitesRunningStatus();
 		this.sitePickerItems = sites.map( ( site ) => ( {
 			id: site.id,
 			name: site.name,
@@ -835,7 +840,7 @@ export class AiChatUI implements AiOutputAdapter {
 	}
 
 	private async findSiteFromAppdata( nameOrPath: string ): Promise< SiteInfo | null > {
-		const config = await readCliConfig();
+		const config = await readConfig();
 		const site = config.sites.find(
 			( s ) => s.name.toLowerCase() === nameOrPath.toLowerCase() || s.path === nameOrPath
 		);
@@ -848,7 +853,7 @@ export class AiChatUI implements AiOutputAdapter {
 			id: site.id,
 			name: site.name,
 			path: site.path,
-			running: await isSiteRunning( site ),
+			running: await isSiteRunning( site.id ),
 		};
 	}
 
@@ -977,8 +982,8 @@ export class AiChatUI implements AiOutputAdapter {
 		if ( ! this._activeSite && ! this._activeSiteData ) {
 			return false;
 		}
-		// Re-read appdata to get the current site state (port/domain may have changed)
-		const config = await readCliConfig();
+		// Re-read the config to get the current site state (port/domain may have changed)
+		const config = await readConfig();
 		const activeSiteName = this._activeSite?.name ?? this._activeSiteData?.name;
 		const freshSiteData = config.sites?.find( ( site ) => site.name === activeSiteName );
 		const siteData = freshSiteData ?? this._activeSiteData;
@@ -1159,8 +1164,8 @@ export class AiChatUI implements AiOutputAdapter {
 		// Truncate the cwd with a leading ellipsis (preserving the meaningful
 		// suffix) when the terminal is too narrow, otherwise the welcome wraps
 		// and visually breaks the logo layout.
-		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
-			getProviderDescriptor( this.currentProvider ).label
+		const baseInfo = `${ findAiModel( this.currentModel )?.model.label() ?? this.currentModel } · ${
+			getProvider( this.currentProvider ).label
 		}`;
 		const sep = ' · ';
 		let secondLine: string;
@@ -1833,7 +1838,7 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'compaction_end':
 				this.hideLoader();
 				if ( event.errorMessage ) {
-					this.showError( event.errorMessage );
+					this.showError( formatErrorMessage( event.errorMessage ) );
 				} else if ( event.result && ! event.aborted ) {
 					this.showInfo( __( 'Conversation history compacted' ) );
 				}
@@ -1942,7 +1947,7 @@ export class AiChatUI implements AiOutputAdapter {
 				return;
 			}
 			case 'auto_retry_start': {
-				const reason = event.errorMessage.split( '\n' )[ 0 ].trim();
+				const reason = formatErrorMessage( event.errorMessage ).split( '\n' )[ 0 ].trim();
 				if ( reason ) {
 					this.showInfo( reason );
 				}
@@ -1979,7 +1984,7 @@ export class AiChatUI implements AiOutputAdapter {
 					lastAssistant?.stopReason === 'error' || lastAssistant?.stopReason === 'aborted';
 
 				if ( isError ) {
-					const errorText = lastAssistant?.errorMessage?.trim();
+					const errorText = formatErrorMessage( lastAssistant?.errorMessage ?? '' );
 					const fallbackText = lastAssistant?.content
 						.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
 						.map( ( block ) => block.text )

@@ -1,19 +1,16 @@
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
-import { ProviderNotReadyError } from '../errors';
-import { getAiModel } from '../models';
+import { NotConnectedError } from '../errors';
+import { ANTHROPIC_AI_MODELS } from './descriptor';
 import type { AnthropicConfig } from './config';
-import type { AiConnection, Provider } from '../types';
+import type { AiConnection, AiModel, ProviderServices } from '../types';
 import type { Model } from '@earendil-works/pi-ai';
 
-export const anthropicAi: NonNullable< Provider< AnthropicConfig >[ 'ai' ] > = {
-	fallbackWhenNotReady: false,
-	async connect( config, modelId ): Promise< AiConnection > {
+export const anthropicAi: NonNullable< ProviderServices< AnthropicConfig >[ 'ai' ] > = {
+	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
-			throw new ProviderNotReadyError(
-				'Anthropic API key required. Switch to Anthropic API with /provider to save one.'
-			);
+			throw new NotConnectedError( 'Connect Anthropic with an API key or a Claude subscription.' );
 		}
-		const model = getAiModel( 'anthropic', modelId );
+		const model: AiModel | undefined = ANTHROPIC_AI_MODELS.find( ( { id } ) => id === modelId );
 		if ( ! model ) {
 			throw new Error( `Anthropic does not serve ${ modelId }` );
 		}
@@ -25,7 +22,8 @@ export const anthropicAi: NonNullable< Provider< AnthropicConfig >[ 'ai' ] > = {
 		 )[ modelId ];
 		return {
 			piProvider: 'anthropic',
-			apiKey: config.apiKey,
+			// pi switches to Bearer auth for a subscription token on its own.
+			apiKey: config.method === 'api-key' ? config.apiKey : config.token,
 			model: {
 				id: modelId,
 				name: modelId,

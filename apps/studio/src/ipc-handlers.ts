@@ -49,6 +49,7 @@ import {
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import { disconnectProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import {
 	getAuthTracksProps,
 	onboardingAnalyticsSchema,
@@ -80,7 +81,6 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { isSitePreviewPath, readSitePreview } from '@studio/common/lib/site-preview-cache';
 import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import {
@@ -97,6 +97,7 @@ import {
 import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
+import { readPreferredTerminal } from '@studio/common/lib/user-settings/user-preferences';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { getSiteEditOptions } from '@studio/common/sites/edit';
@@ -128,15 +129,14 @@ import { readGlobalStyles, readThemeDetails } from '@studio/common/sites/site-id
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
 import {
-	getAiModel,
-	getRedirectUrl,
-	isAiModelId,
+	findAiModel,
+	servesAiModel,
 	normalizeProviderId,
 	toStoredProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
-import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext, takePendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -190,7 +190,6 @@ import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handl
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { loadUserData } from 'src/storage/user-data';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
@@ -242,11 +241,14 @@ export {
 	getWapuuScore,
 	connectAiProvider,
 	disconnectAiProvider,
+	listAiProviderModels,
+	selectAiProviderModels,
 	startProviderConnect,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
 	setAiProvider,
+	setImageProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
@@ -362,7 +364,7 @@ export async function setAiSessionModel(
 	sessionId: string,
 	model: string
 ): Promise< void > {
-	if ( ! isAiModelId( model ) ) {
+	if ( ! findAiModel( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
 	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
@@ -378,7 +380,7 @@ export async function setAiSessionProvider(
 	if ( ! provider ) {
 		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	if ( ! getAiModel( provider, model ) ) {
+	if ( ! servesAiModel( provider, model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
@@ -533,6 +535,7 @@ export async function createSite(
 		fileAccess?: SiteFileAccess;
 		// What `studio create --blueprint` accepts, or a Blueprint itself.
 		blueprint?: string | Blueprint;
+		blueprintSlug?: string;
 		adminUsername?: string;
 		adminPassword?: string;
 		adminEmail?: string;
@@ -558,9 +561,14 @@ export async function createSite(
 
 	const siteId = providedSiteId || crypto.randomUUID();
 
-	const librarySlug =
-		typeof blueprint === 'string' && /^[\w-]+$/.test( blueprint ) ? blueprint : undefined;
-	const metric = getBlueprintMetric( librarySlug ?? ( blueprint ? 'file:' : undefined ) );
+	const librarySlug = config.blueprintSlug ?? blueprint;
+	const metric = getBlueprintMetric(
+		typeof librarySlug === 'string' && /^[\w-]+$/.test( librarySlug )
+			? librarySlug
+			: blueprint
+			? 'file:'
+			: undefined
+	);
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
 	try {
@@ -649,7 +657,7 @@ export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteListItem | undefined > {
-	// Starting only needs the path, which `cli.json` has; the CLI's full details wait for a failure.
+	// Starting only needs the path, which the config file has; the CLI's full details wait for a failure.
 	const site = await readSite( id );
 	if ( ! site ) {
 		throw new Error( `Site not found: ${ id }` );
@@ -666,7 +674,8 @@ export async function startServer(
 		console.log( `Server started for '${ site.name }'` );
 		return started;
 	} catch ( error ) {
-		// Too many running sites or a WordPress update in progress: expected, not a bug — skip Sentry
+		// Too many running sites, a WordPress update or another operation on the site: expected, not a
+		// bug, and not the user's PHP either — skip Sentry and the error page
 		if ( error instanceof SiteStartRefusedError ) {
 			throw error;
 		}
@@ -876,7 +885,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	if ( ! sitePath ) {
 		throw new Error( 'Site not found.' );
 	}
-	await deleteSiteViaCli( executeCliCommand, sitePath, deleteFiles );
+	return deleteSiteViaCli( executeCliCommand, sitePath, deleteFiles );
 }
 
 export async function copySite(
@@ -935,7 +944,7 @@ export async function authenticate(
 	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
 	try {
 		const locale = await getUserLocaleWithFallback();
-		const authUrl = getRedirectUrl( 'wpcom', {
+		const authUrl = getSignInUrl( {
 			redirectUri: `${ PROTOCOL_PREFIX }://auth`,
 			locale,
 			state: attempt.auth_attempt_id,
@@ -956,7 +965,7 @@ export async function getAuthenticationToken() {
 }
 
 export async function clearAuthenticationToken() {
-	await disconnectProvider( getProvider( 'wpcom' ) );
+	await disconnectProvider( getProviderServices( 'wpcom' ) );
 	setSentryWpcomUserIdMain( undefined );
 }
 
@@ -1223,7 +1232,7 @@ function promiseExecFile(
 export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
 
-	const preferredTerminal = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
+	const preferredTerminal = await readPreferredTerminal();
 
 	// The single funnel for "open in terminal" across both the apps/studio buttons/context-menu and the
 	// apps/ui ipc connector — emitting here counts every path once. Fire-and-forget; the wrapper gates
@@ -1239,8 +1248,6 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		};
 		return promiseExecFile( 'open', [ '-b', bundleIds[ preferredTerminal ], targetPath ] );
 	} else if ( platform === 'win32' ) {
-		const userData = await loadUserData();
-		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 
 		if ( preferredTerminal === 'warp' ) {

@@ -1,4 +1,5 @@
-import { getProviderDescriptor, getSitesDescriptor, parseRemoteSite } from '@studio/providers';
+import { withRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
+import { getProvider, getProviderSites, parseRemoteSite } from '@studio/providers';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
@@ -26,9 +27,9 @@ export const pullSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const { provider, identifier } = parseRemoteSite( args.remoteSite );
-			if ( ! getSitesDescriptor( provider ).pull ) {
+			if ( ! getProviderSites( provider ).pull ) {
 				throw new Error(
-					`${ getProviderDescriptor( provider ).label } sites can only be published to, not pulled.`
+					`${ getProvider( provider ).label } sites can only be published to, not pulled.`
 				);
 			}
 			const site = await context.host.sites.resolve( args.nameOrPath );
@@ -40,7 +41,10 @@ export const pullSiteTool = defineTool(
 			);
 			return textResult(
 				remoteSite
-					? `Pulled ${ remoteSite.name } (${ remoteSite.url }) into "${ site.name }".`
+					? withRemoteEnvironment(
+							`Pulled ${ remoteSite.name } (${ remoteSite.url }) into "${ site.name }".`,
+							remoteSite
+					  )
 					: 'Pull cancelled.'
 			);
 		} catch ( error ) {

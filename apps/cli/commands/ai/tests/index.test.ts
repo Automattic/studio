@@ -6,19 +6,20 @@ import {
 	openStudioSession,
 } from '@studio/agent/node/sessions/pi-session';
 import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
-import { isAiProviderReady, resolveAiConnection, resolveInitialAiProvider } from 'cli/ai/auth';
+import { resolveAiConnection, resolveInitialAiProvider } from 'cli/ai/auth';
 import { JsonAdapter } from 'cli/ai/output-adapter';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { isProviderConnected } from 'cli/lib/providers';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../index';
 
-vi.mock( '@studio/common/lib/shared-config', () => ( {
+vi.mock( '@studio/common/lib/auth-token', () => ( {
 	readAuthToken: vi.fn(),
 } ) );
 // The quota-based wpcom default must never hit the network in tests.
@@ -33,13 +34,16 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 vi.mock( 'cli/ai/auth', () => ( {
 	getStudioUserAgent: () => 'WordPressStudio',
 	resolveInitialAiProvider: vi.fn(),
-	isAiProviderReady: vi.fn(),
-	prepareAiProvider: vi.fn(),
 	resolveAiConnection: vi.fn(),
 	resolveImageGenerator: vi.fn(),
 	resolveUnavailableAiProvider: vi.fn(),
 } ) );
+vi.mock( 'cli/lib/providers', () => ( {
+	connectInTerminal: vi.fn(),
+	isProviderConnected: vi.fn(),
+} ) );
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
+	describeAccount: vi.fn().mockReturnValue( { connected: false } ),
 	persistSelectedAiProvider: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );
@@ -359,6 +363,7 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props ).toMatchObject( {
 			outcome: 'interrupted',
 			provider: 'wpcom',
+			connection_method: 'sign-in',
 			model_family: 'studio',
 			ai_session_id: 'session-id',
 			client: 'studio-code',
@@ -530,7 +535,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 			provider: 'anthropic',
 			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( false );
+		( isProviderConnected as Mock ).mockResolvedValue( false );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
@@ -554,7 +559,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 			provider: 'anthropic',
 			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( false );
+		( isProviderConnected as Mock ).mockResolvedValue( false );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 
@@ -572,7 +577,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 			provider: 'anthropic',
 			model: 'claude-sonnet-5-5',
 		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( true );
+		( isProviderConnected as Mock ).mockResolvedValue( true );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
 

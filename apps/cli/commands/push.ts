@@ -1,23 +1,25 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { connectProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
+import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import {
 	buildSyncEventProps,
 	classifySyncSelection,
 } from '@studio/common/lib/sync/build-sync-event-props';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
+import { withRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
 import {
-	getProviderDescriptor,
-	getSitesDescriptor,
+	getProvider,
+	getProviderSites,
 	parseRemoteSite,
 	type ProviderConfigs,
 	type ProviderSites,
@@ -25,14 +27,16 @@ import {
 	type PushStatus,
 	type SitesProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
-import { openBrowser } from 'cli/lib/browser';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { confirm, select } from 'cli/lib/prompts';
+import { connectInTerminal } from 'cli/lib/providers';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteVersion } from 'cli/lib/site-versions';
+import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exportStaticContent } from 'cli/lib/static-content';
 import { exitOnCancel, onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
@@ -174,8 +178,14 @@ async function runPush(
 	pushed: PushOutcome
 ): Promise< void > {
 	const { provider } = pushed;
-	const sites = getSitesDescriptor( provider );
-	const service = getProvider( provider ).sites!;
+	const sites = getProviderSites( provider );
+	if ( ! sites.publish ) {
+		throw new LoggerError(
+			// translators: %s: the provider's name
+			sprintf( __( '%s only makes previews.' ), getProvider( provider ).label )
+		);
+	}
+	const service = getProviderServices( provider ).sites!;
 	const config = await requireConfig( provider );
 
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
@@ -197,7 +207,7 @@ async function runPush(
 	};
 	reportPhase();
 
-	if ( ! sites.exportsStaticSite ) {
+	if ( sites.content !== 'static' ) {
 		logger.reportStart(
 			LoggerAction.INSTALL_SQLITE,
 			__( 'Setting up SQLite integration, if needed…' )
@@ -216,6 +226,10 @@ async function runPush(
 	}
 	pushed.remoteSite = remoteSite;
 	reportPhase();
+
+	if ( provider === 'wpcom' ) {
+		await warnIfPreviewIsBehind( site, Number( remoteSite.id ), logger );
+	}
 
 	let optionsToSync: SyncOption[] = [ 'all' ];
 	let specificSelectionPaths: string[] | undefined;
@@ -242,16 +256,17 @@ async function runPush(
 	const forgetTempDir = onCancel( removeTempDir );
 
 	try {
-		const content = sites.exportsStaticSite
-			? await exportStaticContent( site.path, remoteSite.url, path.join( tempDir, 'site' ) )
-			: await exportArchive(
-					provider,
-					site,
-					tempDir,
-					optionsToSync,
-					specificSelectionPaths,
-					logger
-			  );
+		const content =
+			sites.content === 'static'
+				? await exportStaticContent( site.path, remoteSite.url, path.join( tempDir, 'site' ) )
+				: await exportArchive(
+						provider,
+						site,
+						tempDir,
+						optionsToSync,
+						specificSelectionPaths,
+						logger
+				  );
 		const uploadLabel =
 			content.kind === 'archive' ? __( 'Uploading archive…' ) : __( 'Uploading files…' );
 
@@ -270,6 +285,7 @@ async function runPush(
 		const abortUpload = new AbortController();
 		let uploading = true;
 		let lastReported = '';
+		let lastProgressLabel = '';
 		let cancelCount = 0;
 		const onSigint = () => {
 			cancelCount++;
@@ -303,12 +319,14 @@ async function runPush(
 						lastReported = reported;
 						uploading = phase === 'uploading';
 						const [ label, start, span ] = PUSH_PROGRESS[ phase ];
-						logger.reportProgress(
-							formatProgressLabel(
-								phase === 'uploading' ? uploadLabel : label(),
-								Math.round( start + ( ( progress ?? 0 ) / 100 ) * span )
-							)
+						const progressLabel = formatProgressLabel(
+							phase === 'uploading' ? uploadLabel : label(),
+							Math.round( start + ( ( progress ?? 0 ) / 100 ) * span )
 						);
+						if ( progressLabel !== lastProgressLabel ) {
+							logger.reportProgress( progressLabel );
+						}
+						lastProgressLabel = progressLabel;
 					},
 					abortUpload.signal
 				)
@@ -333,7 +351,10 @@ async function runPush(
 		}
 
 		logger.reportSuccess(
-			sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
+			withRemoteEnvironment(
+				sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url ),
+				remoteSite
+			)
 		);
 		if ( pushed.launchError ) {
 			logger.reportError( new LoggerError( pushed.launchError ), false );
@@ -347,6 +368,32 @@ async function runPush(
 
 // The provider's config. In a terminal, offers to sign in to WordPress.com, or to connect a
 // provider that connects with a device sign-in.
+/**
+ * Says so when the latest preview of the WordPress.com site was made from another version of this
+ * local site: publishing sends the site as it is now, including changes that preview didn't show.
+ */
+async function warnIfPreviewIsBehind(
+	site: { id: string; path: string },
+	remoteSiteId: number,
+	logger: Logger< LoggerAction >
+): Promise< void > {
+	const token = await readAuthToken();
+	if ( ! token ) {
+		return;
+	}
+	const preview = getLatestLinkedPreview(
+		await getSnapshotsFromConfig( token.id ),
+		site.id,
+		remoteSiteId
+	);
+	if (
+		preview?.versionId &&
+		( await getSiteVersion( site.id, site.path ) ) !== preview.versionId
+	) {
+		logger.reportWarning( getPreviewPublishWarning( preview ) );
+	}
+}
+
 async function requireConfig( provider: SitesProviderId ): Promise< Config > {
 	if ( provider === 'wpcom' ) {
 		return { token: ( await requireAuthToken( 'auth' ) ).accessToken } as Config;
@@ -355,11 +402,8 @@ async function requireConfig( provider: SitesProviderId ): Promise< Config > {
 	if ( config ) {
 		return config;
 	}
-	const { label, connection } = getProviderDescriptor( provider );
-	const { startConnect } = getProvider( provider );
+	const { label } = getProvider( provider );
 	if (
-		connection.kind !== 'device' ||
-		! startConnect ||
 		! process.stdin.isTTY ||
 		! ( await confirm( { message: sprintf( __( 'Connect %s now?' ), label ) } ) )
 	) {
@@ -369,16 +413,7 @@ async function requireConfig( provider: SitesProviderId ): Promise< Config > {
 			'auth_required'
 		);
 	}
-	const login = await startConnect();
-	console.log(
-		sprintf( __( 'Approve the code %1$s at %2$s' ), login.userCode, login.verificationUrl )
-	);
-	await openBrowser( login.verificationUrl ).catch( () => undefined );
-	await connectProvider( getProvider( provider ), {
-		deviceCode: login.deviceCode,
-		interval: String( login.interval ),
-		expiresAt: login.expiresAt,
-	} );
+	await connectInTerminal( provider );
 	return ( await readProviderConfig( provider ) )!;
 }
 
@@ -432,8 +467,8 @@ async function resolveRemoteSite(
 		}
 	}
 
-	const { label } = getProviderDescriptor( provider );
-	const service = getProvider( provider ).sites!;
+	const { label } = getProvider( provider );
+	const service = getProviderServices( provider ).sites!;
 	logger.reportStart(
 		LoggerAction.FETCH_REMOTE_SITES,
 		sprintf( __( 'Fetching %s sites…' ), label )
@@ -457,7 +492,7 @@ async function resolveRemoteSite(
 		if ( ! remoteSite ) {
 			throw new LoggerError( sprintf( __( 'No site found matching "%s"' ), identifier ) );
 		}
-		const issue = getSitesDescriptor( provider ).issue( remoteSite, 'push' );
+		const issue = getProviderSites( provider ).issue( remoteSite, 'push' );
 		if ( issue ) {
 			throw new LoggerError( issue );
 		}
@@ -539,7 +574,7 @@ async function exportArchive(
 	await withSiteOperation( site.path, 'export', () => exporter.export() );
 
 	const size = fs.statSync( archivePath ).size;
-	const maxPushSize = getSitesDescriptor( provider ).maxPushSize;
+	const maxPushSize = getProviderSites( provider ).maxPushSize;
 	if ( maxPushSize && size > maxPushSize ) {
 		throw new LoggerError(
 			sprintf(

@@ -118,7 +118,12 @@ export interface HostSites {
 	create( name: string, sitePath: string, onProgress: ProgressCallback ): Promise< void >;
 	start( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
 	stop( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
-	delete( site: HostSite, deleteFiles: boolean, onProgress: ProgressCallback ): Promise< void >;
+	// `warnings` names what the delete left behind, such as files it could not move to trash.
+	delete(
+		site: HostSite,
+		deleteFiles: boolean,
+		onProgress: ProgressCallback
+	): Promise< { warnings: string[] } >;
 	isRunning( site: HostSite ): Promise< boolean >;
 	import( site: HostSite, file: string, onProgress: ProgressCallback ): Promise< void >;
 	export(
@@ -164,7 +169,11 @@ export interface HostSync {
 		options: string,
 		remoteSite: string | undefined,
 		onProgress: ProgressCallback
-	): Promise< Pick< SyncSite, 'name' | 'url' > | undefined >;
+	): Promise<
+		| ( Pick< SyncSite, 'name' | 'url' > &
+				Partial< Pick< SyncSite, 'isStaging' | 'environmentType' > > )
+		| undefined
+	>;
 	pull(
 		site: HostSite,
 		options: string,

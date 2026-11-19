@@ -14,18 +14,14 @@ import { resolveLocalMediaFile } from '@studio/agent/node/local-media';
 import { createAgentRunManager } from '@studio/agent/node/run-manager';
 import {
 	createHydratedAiSession,
+	deleteHydratedAiSession,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/agent/node/sessions/manage';
-import { deleteAiSessionPlacement } from '@studio/agent/node/sessions/placement';
-import {
-	appendModelChangeEntry,
-	appendStudioEntry,
-	deleteAiSession,
-} from '@studio/agent/node/sessions/store';
+import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import {
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
@@ -46,11 +42,19 @@ import {
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
 import {
+	changeAiSettings as recordAiSettingsChange,
+	type AiSettingsChange,
+} from '@studio/common/lib/ai-provider-tracks';
+import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
+	selectProviderModels,
 	readAiSettings,
 	setAiProvider,
+	setImageProvider,
 } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import {
 	onboardingAnalyticsSchema,
 	authAnalyticsSchema,
@@ -89,6 +93,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { startProviderConnect } from '@studio/common/lib/provider-connect';
 import {
 	getInstructionsLengthBucket,
 	isTracksEventName,
@@ -105,7 +110,6 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { deleteSharedSession, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	getSiteAgentFileFolder,
 	getSiteAgentFilePaths,
@@ -147,12 +151,7 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import {
-	listSitesWithMetadata,
-	setSiteFrontendAdminBar,
-	updateSiteMetadata,
-	type SiteMetadata,
-} from '@studio/common/sites/metadata';
+import { setSiteFrontendAdminBar, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import {
 	createRemoteSite,
@@ -179,17 +178,18 @@ import {
 } from '@studio/common/sites/snapshots';
 import { createSyncRunner } from '@studio/common/sites/sync';
 import {
-	getAiModel,
-	getRedirectUrl,
-	InvalidCredentialError,
-	isAiModelId,
-	normalizeAiProviderId,
+	AI_PROVIDER_IDS,
+	ConnectError,
+	findAiModel,
+	servesAiModel,
 	normalizeProviderId,
-	normalizeSitesProviderId,
+	SITES_PROVIDER_IDS,
 	toStoredProviderId,
+	type CatalogModel,
 	type SitesProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -217,7 +217,7 @@ import type { UserPreferencesContext } from '@studio/common/lib/user-settings/us
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
-const wpcomSites = getProvider( 'wpcom' ).sites!;
+const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 
 /**
  * The local Studio web server: the browser analog of the desktop app, exposed
@@ -296,9 +296,8 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 })();
 </script></body></html>`;
 
-// The agentic UI's SiteDetails shape. The CLI's `site list` already reports
-// nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
-function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) {
+// The agentic UI's SiteDetails shape, from what the CLI's `site list` reports.
+function toSiteDetails( site: SiteListItem ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -321,7 +320,9 @@ function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) 
 		environmentType: site.environmentType,
 		operation: site.operation,
 		emailPath: site.emailPath,
-		sortOrder,
+		phpMyAdminSupported: site.phpMyAdminSupported,
+		sortOrder: site.sortOrder,
+		autoStart: site.autoStart,
 		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
 }
@@ -612,7 +613,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
-	// Read straight from the shared auth token (`~/.studio/shared.json`); the
+	// Read straight from the shared sign-in (`~/.studio/config.json`); the
 	// stored token carries the user's id/email/displayName, so no API call.
 	api.get(
 		'/auth/user',
@@ -646,7 +647,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		trackEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, getAuthTracksProps( attempt ) );
 		res.json( {
 			url: redirectUri
-				? getRedirectUrl( 'wpcom', {
+				? getSignInUrl( {
 						redirectUri,
 						locale: 'en',
 						state: attempt.auth_attempt_id,
@@ -679,7 +680,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const token = typeof req.body?.token === 'string' ? req.body.token : '';
 			const error = typeof req.body?.error === 'string' ? req.body.error : '';
 			try {
-				await connectProvider( getProvider( 'wpcom' ), { access_token: token, error } );
+				await connectProvider( getProviderServices( 'wpcom' ), 'sign-in', {
+					access_token: token,
+					error,
+				} );
 			} catch ( failure ) {
 				trackEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 					...props,
@@ -687,7 +691,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					failure_reason: getAuthFailureReason( failure ),
 				} );
 				res
-					.status( failure instanceof InvalidCredentialError ? 400 : 500 )
+					.status( failure instanceof ConnectError ? 400 : 500 )
 					.json( { error: 'Authentication failed' } );
 				return;
 			}
@@ -702,7 +706,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/auth/logout',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			await disconnectProvider( getProvider( 'wpcom' ) );
+			await disconnectProvider( getProviderServices( 'wpcom' ) );
 			res.status( 204 ).end();
 		} )
 	);
@@ -757,7 +761,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- AI settings — provider + Anthropic API key in shared.json ------------
+	// --- AI settings — the selected provider and each provider's config ------
 	api.get(
 		'/ai-settings',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -765,19 +769,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Disconnecting the selected provider also moves the selection back to
-	// WordPress.com, so every change reports through one event, as on the desktop.
-	async function changeAiSettings( res: Response, change: () => Promise< AiSettings > ) {
-		const previous = await readAiSettings();
-		const next = await change();
-		res.json( next );
-		if ( JSON.stringify( previous ) !== JSON.stringify( next ) ) {
-			trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-				provider: toStoredProviderId( next.provider ),
-				has_anthropic_api_key: next.accounts.anthropic.connected,
-				surface: 'settings',
-			} );
-		}
+	async function changeAiSettings(
+		res: Response,
+		change: AiSettingsChange,
+		run: () => Promise< AiSettings >
+	) {
+		res.json( await recordAiSettingsChange( change, run, trackEvent ) );
 	}
 
 	function readProviderParam( req: Request, res: Response ) {
@@ -794,38 +791,75 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/ai-settings/providers/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
-			const input = req.body?.input;
+			const { method, input } = req.body ?? {};
 			if ( ! provider ) {
 				return;
 			}
 			if (
+				typeof method !== 'string' ||
 				! input ||
 				typeof input !== 'object' ||
 				! Object.values( input ).every( ( value ) => typeof value === 'string' )
 			) {
-				res.status( 400 ).json( { error: 'input must be an object of strings' } );
+				res
+					.status( 400 )
+					.json( { error: 'method must be a string, and input an object of strings' } );
 				return;
 			}
-			await changeAiSettings( res, () =>
-				connectProvider( getProvider( provider ), input, { openUrl } )
+			await changeAiSettings( res, { action: 'connect', provider, method }, () =>
+				connectProvider( getProviderServices( provider ), method, input )
 			);
 		} )
 	);
 
-	// Starts a device sign-in; `PUT` above then takes its code back and answers once approved.
+	// Starts signing in on the provider's site; `PUT` above then takes its handoff back and answers
+	// once the user signed in.
 	api.post(
-		'/ai-settings/providers/:provider/device-sign-in',
+		'/ai-settings/providers/:provider/start',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
+			const method = req.body?.method;
 			if ( ! provider ) {
 				return;
 			}
-			const { startConnect } = getProvider( provider );
-			if ( ! startConnect ) {
-				res.status( 400 ).json( { error: `${ provider } does not connect with a device sign-in` } );
+			if ( typeof method !== 'string' || ! getProviderServices( provider ).account.start ) {
+				res.status( 400 ).json( { error: `${ provider } does not sign in on its site` } );
 				return;
 			}
-			res.json( await startConnect() );
+			res.json( await startProviderConnect( getProviderServices( provider ), method ) );
+		} )
+	);
+
+	api.get(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			if ( provider ) {
+				res.json( await listProviderModels( getProviderServices( provider ) ) );
+			}
+		} )
+	);
+
+	api.put(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			const models = req.body?.models;
+			if ( ! provider ) {
+				return;
+			}
+			if (
+				! Array.isArray( models ) ||
+				! models.every(
+					( model ) => typeof model?.id === 'string' && typeof model.label === 'string'
+				)
+			) {
+				res.status( 400 ).json( { error: 'models must be an array of catalog models' } );
+				return;
+			}
+			res.json(
+				await selectProviderModels( getProviderServices( provider ), models as CatalogModel[] )
+			);
 		} )
 	);
 
@@ -834,7 +868,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
 			if ( provider ) {
-				await changeAiSettings( res, () => disconnectProvider( getProvider( provider ) ) );
+				await changeAiSettings( res, { action: 'disconnect', provider }, () =>
+					disconnectProvider( getProviderServices( provider ) )
+				);
 			}
 		} )
 	);
@@ -845,13 +881,29 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider =
 				typeof req.body?.provider === 'string'
-					? normalizeAiProviderId( req.body.provider )
+					? normalizeProviderId( req.body.provider, AI_PROVIDER_IDS )
 					: undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
 				return;
 			}
-			await changeAiSettings( res, () => setAiProvider( provider ) );
+			await changeAiSettings( res, { action: 'select', provider }, () =>
+				setAiProvider( provider )
+			);
+		} )
+	);
+
+	api.put(
+		'/ai-settings/image-provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const requested = req.body?.provider;
+			const provider =
+				requested === null ? null : normalizeProviderId( String( requested ), AI_PROVIDER_IDS );
+			if ( provider === undefined ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id or null' } );
+				return;
+			}
+			res.json( await setImageProvider( provider ) );
 		} )
 	);
 
@@ -859,8 +911,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			const sites = await listSitesWithMetadata( execute );
-			res.json( sites.map( ( site ) => toSiteDetails( site, site.sortOrder ) ) );
+			const sites = await listSites( execute );
+			res.json( sites.map( toSiteDetails ) );
 		} )
 	);
 
@@ -1314,8 +1366,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await deleteSite( execute, site.path, req.query.deleteFiles !== 'false' );
-			res.status( 204 ).end();
+			res.json( await deleteSite( execute, site.path, req.query.deleteFiles !== 'false' ) );
 		} )
 	);
 
@@ -1348,10 +1399,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			const refreshed = ( await listSitesWithMetadata( execute ) ).find(
-				( s ) => s.id === req.params.id
-			);
-			res.json( toSiteDetails( refreshed ?? current, refreshed?.sortOrder ) );
+			const refreshed = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			res.json( toSiteDetails( refreshed ?? current ) );
 		} )
 	);
 
@@ -1628,7 +1677,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- Global preferences — the same app.json/shared.json the desktop uses ---
+	// --- Global preferences — the same config file the desktop uses ----------
 	api.get(
 		'/user-preferences',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -1880,7 +1929,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// --- Remote sites: connections to sites on a provider ---------------------
 	// All backed by the same @studio/common code the desktop uses. Reads the
-	// providers' configs from shared.json (WordPress.com: `studio auth login`).
+	// providers' configs from the config file (WordPress.com: `studio auth login`).
 	// WordPress.com site ids are numbers; other providers' are strings.
 	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): never {
 		const { remoteSiteId } = req.params;
@@ -1888,7 +1937,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	function readSitesProvider( req: Request, res: Response ): SitesProviderId | undefined {
-		const provider = normalizeSitesProviderId( req.params.provider );
+		const provider = normalizeProviderId( req.params.provider, SITES_PROVIDER_IDS );
 		if ( ! provider ) {
 			res.status( 400 ).json( { error: 'provider must be a provider with sites' } );
 		}
@@ -1911,7 +1960,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				res.json( await listAccountSites( getProvider( provider ) ) );
+				res.json( await listAccountSites( getProviderServices( provider ) ) );
 			}
 		} )
 	);
@@ -1939,7 +1988,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'name is required' } );
 				return;
 			}
-			res.json( await createRemoteSite( getProvider( provider ), req.params.id, name ) );
+			res.json( await createRemoteSite( getProviderServices( provider ), req.params.id, name ) );
 		} )
 	);
 
@@ -1976,14 +2025,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/preview',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { hostname, name } = req.body as { hostname?: string; name?: string };
+			const { hostname, name, liveSite } = req.body as {
+				hostname?: string;
+				name?: string;
+				liveSite?: string;
+			};
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
-			res.json( await publishPreviewSite( execute, site.path, hostname, name ) );
+			res.json( await publishPreviewSite( execute, site.path, hostname, name, liveSite ) );
 		} )
 	);
 
@@ -2076,7 +2129,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				// the error middleware — the dialog needs the error state to disable
 				// per-item selection and force a full sync.
 				res.json(
-					await getRemoteBackupId( getProvider( provider ), remoteSiteIdParam( provider, req ) )
+					await getRemoteBackupId(
+						getProviderServices( provider ),
+						remoteSiteIdParam( provider, req )
+					)
 				);
 			}
 		} )
@@ -2096,7 +2152,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			res.json(
 				await listRemoteBackupFiles(
-					getProvider( provider ),
+					getProviderServices( provider ),
 					remoteSiteIdParam( provider, req ),
 					backupId,
 					treePath
@@ -2170,9 +2226,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.delete(
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const deleted = await deleteAiSession( sessionsRoot, req.params.id );
-			await deleteSharedSession( deleted.id );
-			await deleteAiSessionPlacement( deleted.id );
+			await deleteHydratedAiSession( sessionsRoot, req.params.id );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -2194,7 +2248,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id/model',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { model } = req.body as { model?: string };
-			if ( ! model || ! isAiModelId( model ) ) {
+			if ( ! model || ! findAiModel( model ) ) {
 				res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
 				return;
 			}
@@ -2207,12 +2261,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { provider: requested, model } = req.body as { provider?: string; model?: string };
-			const provider = requested ? normalizeAiProviderId( requested ) : undefined;
+			const provider = requested ? normalizeProviderId( requested, AI_PROVIDER_IDS ) : undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;
 			}
-			if ( ! model || ! getAiModel( provider, model ) ) {
+			if ( ! model || ! servesAiModel( provider, model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}
@@ -2440,7 +2494,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
-		if ( err instanceof InvalidCredentialError ) {
+		if ( err instanceof ConnectError ) {
 			res.status( 400 ).json( { error: err.message } );
 			return;
 		}

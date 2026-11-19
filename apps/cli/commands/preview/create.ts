@@ -2,6 +2,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
+import { getEditedDefaultThemesWarning } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { type SyncSite } from '@studio/common/types/sync';
@@ -10,14 +12,9 @@ import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import {
-	createPreviewSite,
-	getLivePreviewSite,
-	type PreviewSite,
-	uploadPreviewArchive,
-} from 'cli/lib/preview-sites';
+import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
+import { buildPreviewSite, getLivePreviewSite } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
@@ -27,38 +24,77 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { PreviewSite } from '@studio/providers';
 
 export type ReportPreviewStep = ( action: LoggerAction, message: string, progress: number ) => void;
 
 /**
- * The WordPress.com steps of making a preview from a local site: validate, archive, upload and
- * create. Shared by `preview create` and by `preview update` when it moves a Jurassic Ninja preview.
+ * Warns when the site's active default theme has edited files, which a WordPress.com preview
+ * doesn't show. Returns the warning, for the preview's success activity. Never fails the preview.
  */
-export async function createWpcomPreviewSite( {
+export async function warnAboutEditedDefaultThemes(
+	siteFolder: string,
+	logger: Logger< LoggerAction >
+): Promise< string | undefined > {
+	try {
+		const themes = await findEditedDefaultThemes( siteFolder );
+		if ( themes.length === 0 ) {
+			return undefined;
+		}
+		const warning = getEditedDefaultThemesWarning( themes );
+		logger.reportWarning( warning );
+		return warning;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Tells the owner where to buy the preview, which makes it their live site. A preview of changes to
+ * a live site has no such link.
+ */
+export function reportLaunchUrl( launchUrl: string | undefined, logger: Logger< LoggerAction > ) {
+	if ( launchUrl ) {
+		logger.reportSuccess(
+			/* translators: %s: link to WordPress.com's checkout for the preview site */
+			sprintf( __( 'Make it your live site: %s' ), launchUrl )
+		);
+	}
+}
+
+/**
+ * Builds a preview from a local site: validate, archive, then push it to a new preview (`name`) or
+ * to an existing one (`siteId`). Shared by `preview create` and `preview update`.
+ */
+export async function buildWpcomPreview( {
 	siteId,
 	siteFolder,
 	archivePath,
-	name,
+	target,
 	accessToken,
 	logger,
 	reportStep,
 	onArchiveBytes,
+	liveSiteSelection,
 }: {
 	siteId: string;
 	siteFolder: string;
 	archivePath: string;
-	name: string;
+	target: { name: string } | { siteId: number };
 	accessToken: string;
 	logger: Logger< LoggerAction >;
 	reportStep: ReportPreviewStep;
 	onArchiveBytes?: ( bytes: number | undefined ) => void;
+	liveSiteSelection?: string;
 } ): Promise< {
 	preview: PreviewSite;
-	archiveBytes: number | undefined;
 	versionId: string;
 	liveSite: SyncSite | undefined;
+	warning: string | undefined;
 } > {
+	const liveSite = await getLivePreviewSite( siteId, liveSiteSelection );
 	await validateSiteSize( siteFolder, { onWpcom: true } );
+	const warning = await warnAboutEditedDefaultThemes( siteFolder, logger );
 
 	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 	// The version is taken under the same lock as the archive, so it's what the preview holds.
@@ -72,19 +108,33 @@ export async function createWpcomPreviewSite( {
 	logger.reportSuccess( __( 'Archive created' ) );
 
 	reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-	const attachmentId = await uploadPreviewArchive( archivePath, accessToken );
-	logger.reportSuccess( __( 'Archive uploaded' ) );
-
-	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-	const liveSite = await getLivePreviewSite( siteId );
-	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id );
-	return { preview, archiveBytes, versionId, liveSite };
+	let uploaded = false;
+	const preview = await buildPreviewSite(
+		accessToken,
+		archivePath,
+		target,
+		{ originId: siteId, liveSiteId: liveSite?.id },
+		( { phase } ) => {
+			if ( phase === 'uploading' || uploaded ) {
+				return;
+			}
+			uploaded = true;
+			logger.reportSuccess( __( 'Archive uploaded' ) );
+			reportStep(
+				LoggerAction.READY,
+				'name' in target ? __( 'Creating preview site…' ) : __( 'Updating preview site…' ),
+				60
+			);
+		}
+	);
+	return { preview, versionId, liveSite, warning };
 }
 
 export async function runCommand(
 	siteFolder: string,
 	name?: string,
-	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
+	logger: Logger< LoggerAction > = new Logger< LoggerAction >(),
+	liveSiteSelection?: string
 ): Promise< Snapshot > {
 	const archivePath = path.join(
 		os.tmpdir(),
@@ -124,17 +174,18 @@ export async function runCommand(
 			);
 		}
 
-		const { preview, versionId, liveSite } = await createWpcomPreviewSite( {
+		const { preview, versionId, liveSite, warning } = await buildWpcomPreview( {
 			siteId: site.id,
+			liveSiteSelection,
 			siteFolder,
 			archivePath,
-			name: snapshotName,
+			target: { name: snapshotName },
 			accessToken: token.accessToken,
 			logger,
 			reportStep,
 			onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
 		} );
-		const link = preview.shareUrl ?? `https://${ preview.hostname }`;
+		const link = preview.shareUrl ?? preview.url;
 		logger.reportSuccess( sprintf( __( 'Preview site available at: %s' ), link ) );
 		if ( liveSite && preview.liveSiteId === liveSite.id ) {
 			logger.reportSuccess(
@@ -145,18 +196,10 @@ export async function runCommand(
 				)
 			);
 		}
+		reportLaunchUrl( preview.launchUrl, logger );
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
-		snapshot = await saveSnapshotToConfig(
-			siteFolder,
-			preview.siteId,
-			preview.hostname,
-			token.id,
-			snapshotName,
-			preview.shareUrl,
-			versionId,
-			preview.liveSiteId
-		);
+		snapshot = await saveSnapshotToConfig( siteFolder, preview, token.id, snapshotName, versionId );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewCreateEvent( siteFolder, snapshot, {
@@ -169,7 +212,7 @@ export async function runCommand(
 				token.id
 			),
 		} );
-		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
+		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview', warning } );
 
 		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
 		return snapshot;
@@ -209,7 +252,7 @@ async function recordPreviewCreateEvent(
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_CREATE, {
 			...props,
-			...( await getSiteTracksProps( siteFolder, snapshot ) ),
+			...( await getSiteTracksProps( { siteFolder: siteFolder }, snapshot ) ),
 			...getTracksOrigin(),
 		} );
 	} catch {
@@ -222,15 +265,20 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		command: 'create',
 		describe: __( 'Create a preview site' ),
 		builder: ( yargs ) => {
-			return yargs.option( 'name', {
-				type: 'string',
-				description: __( 'Preview site name' ),
-			} );
+			return yargs
+				.option( 'live-site', {
+					type: 'string',
+					description: __( 'Connected live site ID, or none' ),
+				} )
+				.option( 'name', {
+					type: 'string',
+					description: __( 'Preview site name' ),
+				} );
 		},
 		handler: async ( argv ) => {
 			const logger = new Logger< LoggerAction >();
 			try {
-				await runCommand( argv.path, argv.name, logger );
+				await runCommand( argv.path, argv.name, logger, argv.liveSite );
 			} catch ( error ) {
 				logger.reportError( error as LoggerError );
 			}

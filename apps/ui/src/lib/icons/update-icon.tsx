@@ -2,13 +2,19 @@ import type { ComponentProps } from 'react';
 
 export function UpdateIcon( props: ComponentProps< 'svg' > ) {
 	return (
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" { ...props }>
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 256 256"
+			fill="currentColor"
+			aria-hidden="true"
+			{ ...props }
+		>
 			<path
-				d="M19 18.584C20.7659 17.8124 22 16.0503 22 14C22 11.2386 19.7614 9 17 9C16.4547 9 15.9299 9.08728 15.4386 9.24864C14.3696 6.75042 11.8892 5 9 5C5.13401 5 2 8.13401 2 12C2 14.3787 3.18652 16.4804 5 17.7453M14.5 17.5L12 20L9.5 17.5M12 14V19.25"
 				stroke="currentColor"
-				strokeWidth="2"
-				strokeLinecap="round"
+				strokeWidth="6"
 				strokeLinejoin="round"
+				d="M248,128a87.34,87.34,0,0,1-17.6,52.81,8,8,0,1,1-12.8-9.62A71.34,71.34,0,0,0,232,128a72,72,0,0,0-144,0,8,8,0,0,1-16,0,88,88,0,0,1,3.29-23.88C74.2,104,73.1,104,72,104a48,48,0,0,0,0,96H96a8,8,0,0,1,0,16H72A64,64,0,1,1,81.29,88.68,88,88,0,0,1,248,128Zm-69.66,42.34L160,188.69V128a8,8,0,0,0-16,0v60.69l-18.34-18.35a8,8,0,0,0-11.32,11.32l32,32a8,8,0,0,0,11.32,0l32-32a8,8,0,0,0-11.32-11.32Z"
 			/>
 		</svg>
 	);

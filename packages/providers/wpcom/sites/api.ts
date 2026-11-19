@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { wpcomClient } from '../client';
+import { wpcomClient } from '../api';
 import {
 	sitesEndpointResponseSchema,
 	pullSiteResponseSchema,
@@ -9,7 +9,7 @@ import {
 	type ImportResponse,
 } from './schemas';
 import { transformSitesResponse } from './transform';
-import type { SyncOption, SyncSite } from '../site';
+import type { SyncOption, SyncSite } from './site';
 
 const SITE_FIELDS = [
 	'name',

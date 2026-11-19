@@ -1,10 +1,10 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
 import { format } from 'date-fns/format';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	formatDurationUntilExpiry,
@@ -107,7 +107,7 @@ export async function runCommand(
 		}
 
 		if ( all ) {
-			const config = await readCliConfig();
+			const config = await readConfig();
 			const siteById = new Map( config.sites.map( ( site ) => [ site.id, site ] ) );
 			const unknownSiteLabel = __( 'Unknown site' );
 

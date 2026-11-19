@@ -1,10 +1,11 @@
+import { inspectBlueprint } from '@studio/blueprints';
 import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { validateSelectedSitePath } from '@studio/common/lib/site-path-validation';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { ChevronLeftIcon, CloudDownloadIcon } from 'lucide-react';
+import { ChevronLeftIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -16,8 +17,9 @@ import {
 } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
-import { useSites } from '@/data/queries/use-sites';
+import { useCreateSite, useSites } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useFileDrop } from '@/data/use-composer-attachments';
 import { saveComposerDraft } from '@/features/composer';
@@ -29,7 +31,7 @@ import { useBlueprintUpload } from '@/features/sites/blueprint-upload/use-bluepr
 import { pendingBackupSlot } from '@/features/sites/pending-backup';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
-import { ImportIcon, PlusIcon } from '@/lib/icons';
+import { CloudDownloadIcon, DownloadIcon, PlusIcon } from '@/lib/icons';
 import {
 	DropOverlay,
 	Button,
@@ -53,7 +55,7 @@ import { BlueprintDetails } from './blueprint-details';
 import { BlueprintGallery, getUseCaseLabel, getUseCases } from './blueprint-gallery';
 import { ConnectPanel } from './connect-panel';
 import { AddSiteContext, type CreatedSetupSite } from './context';
-import { CreatePanel } from './create-panel';
+import { CreatePanel, mapBlueprintToFormValues } from './create-panel';
 import { ImportPanel } from './import-panel';
 import styles from './style.module.css';
 import { useSetupSource } from './use-setup-source';
@@ -88,6 +90,9 @@ const getFinalFocus = () =>
 export function AddSiteDialog() {
 	const connector = useConnector();
 	const { data: sites } = useSites();
+	const { generateProposedPath } = usePathValidator( sites, true );
+	const createSite = useCreateSite();
+	const addingBlueprint = useRef( false );
 	const navigate = useNavigate();
 	const { addSite, pin, settings } = useSearch( { strict: false } ) as {
 		addSite?: AddSiteSection;
@@ -194,6 +199,7 @@ export function AddSiteDialog() {
 	const selectBlueprint = useCallback(
 		( blueprint: SelectedBlueprint ) => {
 			setSource( { type: 'blueprint', blueprint } );
+			setIsBlueprintValid( true );
 			showSetup();
 		},
 		[ setSource, showSetup ]
@@ -314,6 +320,44 @@ export function AddSiteDialog() {
 	const isDragging = useFileDrop( addSite && ! settings ? dropTarget : null, onFiles );
 
 	const { pins, setPins } = useSidebarPins();
+	const pinNewSite = ( siteId: string ) => {
+		if ( pin ) setPins( [ ...pins, sitePinKey( siteId ) ] );
+	};
+	const choosingBlueprint = viewHistory.some( ( entry ) => entry.name === 'setup' );
+	const addBlueprint = async ( blueprint: SelectedBlueprint ) => {
+		if ( addingBlueprint.current ) return;
+		const { name: baseName, ...defaults } = mapBlueprintToFormValues( blueprint );
+		if ( ! sites || inspectBlueprint( blueprint.blueprint ).multisite || defaults.customDomain ) {
+			selectBlueprint( blueprint );
+			return;
+		}
+		addingBlueprint.current = true;
+		setProgress( __( 'Creating site…' ) );
+		try {
+			const name = await connector.generateNumberedSiteName(
+				baseName?.trim() || blueprint.title,
+				sites
+			);
+			const { path, error } = await generateProposedPath( name );
+			if ( error ) {
+				selectBlueprint( blueprint );
+				return;
+			}
+			const site = await createSite.mutateAsync( {
+				...defaults,
+				name,
+				path,
+				blueprint: blueprint.source,
+			} );
+			pinNewSite( site.id );
+			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		} catch {
+			selectBlueprint( blueprint );
+		} finally {
+			addingBlueprint.current = false;
+			setProgress( null );
+		}
+	};
 	const context = {
 		setProgress,
 		followSite,
@@ -321,9 +365,7 @@ export function AddSiteDialog() {
 		formActions,
 		isBlueprintValid,
 		setIsBlueprintValid,
-		pinNewSite: ( siteId: string ) => {
-			if ( pin ) setPins( [ ...pins, sitePinKey( siteId ) ] );
-		},
+		pinNewSite,
 		setupDraft,
 		setSetupDraft,
 		source,
@@ -394,7 +436,7 @@ export function AddSiteDialog() {
 	const navItems = [
 		{ value: 'create', label: __( 'New' ), icon: <PlusIcon /> },
 		{ value: 'connect', label: __( 'Connect' ), icon: <CloudDownloadIcon /> },
-		{ value: 'import', label: __( 'Import' ), icon: <ImportIcon /> },
+		{ value: 'import', label: __( 'Import' ), icon: <DownloadIcon /> },
 	];
 
 	const selectSection = ( value: string ) => {
@@ -512,7 +554,9 @@ export function AddSiteDialog() {
 						<BlueprintDetails
 							blueprint={ view.blueprint }
 							useCase={ view.useCase }
-							onSetup={ showSetup }
+							choosingBlueprint={ choosingBlueprint }
+							busy={ !! progress }
+							onSelect={ choosingBlueprint ? selectBlueprint : addBlueprint }
 						/>
 					) : null }
 					{ view.name === 'setup' ? (

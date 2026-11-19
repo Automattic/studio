@@ -26,7 +26,7 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 - A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
 - Dismiss controls: `DismissButton` for the small floating close button on notifications and attachments; its `label` supplies the tooltip. `AttachmentRemoveButton` is its attachment alias.
 - File drops: `DropOverlay` for drag feedback, with a translated action label as its children; `DropZone` for a file picker's resting placeholder, with an icon, title, description, and file-selection controls. `DropZone size="sm"` uses text-xs and tighter caption spacing for compact areas. Feature code owns file handling.
-- A choice: `Select`, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.
+- A choice: `Select`, `Combobox` to check several items in a long, searchable list, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.
 - A color: `ColorPicker`, with a controlled six-digit hex `value`, `onValueChange` for live previews and `onValueCommitted` for saves. Its editable hex field opens a saturation/brightness and hue popover.
 - A modal: `Dialog` with `DialogContent`. All dialogs share the settings dialog’s popover surface, popover-border outline, small shadow, and rounding. Dialog sidebars use the same background as their content. Settings field groups share the same muted fill in both color schemes. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`. Its optional `footer` accepts a `DialogFooter` outside the scrolling body, using the standard dialog inset.
 - Menu text: Use `Menu.ItemLabel` for item text that should truncate instead of widening the menu.
@@ -34,6 +34,7 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 - Feature education: `FeaturePopover` composes `Popover` with an optional badge, dismiss action, and footer. Use `Navigation` for Next/Skip and step text. The caller owns opening, progression, dismissal, and persistence; the card supports both hover hints and controlled onboarding steps.
 - Status: `Alert`, `Empty`, `Skeleton`, `Spinner`, `Progress`, `Badge`, `NotificationDot`. Attachment labels: `AttachmentChip`, with `font="mono"` for element references. Add `AttachmentChipTrigger` to open a preview, with `AttachmentRemoveButton` as its sibling.
 - Sidebar groups and rows: `SidebarGroup`, `SidebarMenu`, `SidebarMenuButton`.
+- Logos: `LogoTile` frames a brand's logo, an SVG document in its colors, like an app icon `--app-icon-size` wide, or puts an icon on a muted tile when there is none.
 - Image previews: `PreviewFrame` for a 16:10 screenshot. Other image wrappers compose `imageOutline` from the theme recipes: a 1px inset overlay at 12% foreground opacity, following the wrapper's radius. Apply it to a positioned wrapper, rather than the `img`, so the line draws over the pixels. `imagePreviewFrame` adds the shared preview shadow.
 - Also `CodeBlock`, `ResizeHandle`, `MarqueeLabel` (a long label that scrolls on hover), `CommandSheet` (slash commands), `Kbd` and `VisuallyHidden`.
 
@@ -57,6 +58,7 @@ Styles sit in the `ui` cascade layer, so a feature's CSS module overrides them w
 - Button color, background and border feedback use `--motion-duration-feedback`. Hover-only actions appear immediately, without an opacity transition.
 - Menu items, sidebar rows and tabs respond immediately to hover and selection, without color or background transitions.
 - Change a button's fill with `--button-background`, `--button-hover-background` or `--button-hover-color`, not `background-color`.
+- Size a `LogoTile` with `--app-icon-size`, which app icons share, so a fallback tile matches the icon it stands in for.
 - Don't reach into a primitive's parts with `[data-slot]` selectors, set its other custom properties, or raise specificity to beat it.
 
 ## Constraints

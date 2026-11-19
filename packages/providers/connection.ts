@@ -1,7 +1,7 @@
-import { getProviderDescriptor } from './descriptors';
-import type { ProviderId, RedirectOptions } from './types';
+import { getProvider } from './registry';
+import type { ConnectMethod, ProviderId } from './types';
 
-// One field of a provider's connection form, as a surface renders it.
+// One field of a connection form, as a surface renders it.
 export interface ConnectField {
 	name: string;
 	title: string;
@@ -13,13 +13,18 @@ export interface ConnectField {
 	validate( value: string ): string | undefined;
 }
 
-// The fields a provider's form asks for; empty when it doesn't connect with a form.
-export function getConnectFields( provider: ProviderId ): ConnectField[] {
-	const { connection } = getProviderDescriptor( provider );
-	if ( connection.kind !== 'form' ) {
+// The provider's method with that id, or its first.
+export function getConnectMethod( provider: ProviderId, id?: string ): ConnectMethod {
+	const { methods } = getProvider( provider ).account;
+	return methods.find( ( method ) => method.id === id ) ?? methods[ 0 ];
+}
+
+// The fields a method's form asks for; empty when it doesn't connect with a form.
+export function getConnectFields( method: ConnectMethod ): ConnectField[] {
+	if ( method.kind !== 'form' ) {
 		return [];
 	}
-	return Object.entries( connection.input().shape ).map( ( [ name, schema ] ) => {
+	return Object.entries( method.input().shape ).map( ( [ name, schema ] ) => {
 		const meta = schema.meta() ?? {};
 		const examples = Array.isArray( meta.examples ) ? meta.examples : [];
 		return {
@@ -34,13 +39,4 @@ export function getConnectFields( provider: ProviderId ): ConnectField[] {
 			},
 		};
 	} );
-}
-
-// Where to send the user to approve access, for a provider that connects with a redirect.
-export function getRedirectUrl( provider: ProviderId, options: RedirectOptions ): string {
-	const { connection } = getProviderDescriptor( provider );
-	if ( connection.kind !== 'redirect' ) {
-		throw new Error( `${ provider } does not connect with a redirect` );
-	}
-	return connection.redirectUrl( options );
 }

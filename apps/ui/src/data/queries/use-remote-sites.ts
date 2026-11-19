@@ -1,5 +1,5 @@
 import {
-	getSitesDescriptor,
+	getProviderSites,
 	SITES_PROVIDER_IDS,
 	type ProviderSites,
 	type SitesProviderId,
@@ -21,13 +21,25 @@ export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: st
 export const accountSitesQueryKey = ( provider: SitesProviderId ) =>
 	[ ...ACCOUNT_SITES_QUERY_KEY, provider ] as const;
 
-// The providers this app publishes to: one that publishes a static export needs the site to run
-// on native PHP.
+// The providers this app publishes to, leaving out those that only make previews: one that
+// publishes a static export needs the site to run on native PHP.
 export function usePublishProviders(): SitesProviderId[] {
 	const { capabilities } = useConnector();
-	return SITES_PROVIDER_IDS.filter(
-		( id ) => capabilities.nativeSites || ! getSitesDescriptor( id ).exportsStaticSite
-	);
+	return SITES_PROVIDER_IDS.filter( ( id ) => {
+		const sites = getProviderSites( id );
+		return sites.publish && ( capabilities.nativeSites || sites.content !== 'static' );
+	} );
+}
+
+export function useConnectedHostingProviders( providers: SitesProviderId[] ) {
+	const auth = useAuthUser();
+	const settings = useAiSettings();
+	return {
+		connected: providers.filter( ( id ) =>
+			id === 'wpcom' ? !! auth.data : settings.data?.accounts[ id ].connected
+		),
+		isPending: providers.some( ( id ) => ( id === 'wpcom' ? auth.isPending : settings.isPending ) ),
+	};
 }
 
 // Whether the provider's account is connected. WordPress.com's is the Studio sign-in.

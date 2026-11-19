@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
-import { ProviderNotReadyError, RemoteSiteError } from '../../errors';
+import { NotConnectedError, RemoteSiteError } from '../../errors';
 import {
 	checkBackupSize,
 	fetchLatestRewindId,
@@ -12,12 +12,13 @@ import {
 	pollBackupStatus,
 	pollImportStatus,
 } from './api';
+import { createPreview, deletePreview, getEditedAt, listPreviews, updatePreview } from './previews';
 import { enableReprintExporter, getReprintApiUrl, installReprintPublicKey } from './reprint';
 import { createTusUpload } from './upload';
-import type { SitesService } from '../../types';
+import type { SitesServices } from '../../types';
 import type { WpcomConfig } from '../config';
-import type { SyncSite } from '../site';
 import type { ImportResponse } from './schemas';
+import type { SyncSite } from './site';
 
 const POLL_INTERVAL_MS = 3000;
 // Remote imports and backups can sit on one progress value for a long time on
@@ -26,7 +27,7 @@ const MAX_STALLED_POLLS = ( 60 * 60 * 1000 ) / POLL_INTERVAL_MS;
 
 function requireToken( config: WpcomConfig | undefined ): string {
 	if ( ! config?.token ) {
-		throw new ProviderNotReadyError( __( 'Log in to WordPress.com to sync sites.' ) );
+		throw new NotConnectedError( __( 'Log in to WordPress.com to sync sites.' ) );
 	}
 	return config.token;
 }
@@ -49,7 +50,7 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 	try {
 		return await run();
 	} catch ( error ) {
-		if ( error instanceof RemoteSiteError || error instanceof ProviderNotReadyError ) {
+		if ( error instanceof RemoteSiteError || error instanceof NotConnectedError ) {
 			throw error;
 		}
 		if ( error instanceof z.ZodError ) {
@@ -87,7 +88,7 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 	return __( 'Something went wrong while updating the live site.' );
 }
 
-export const wpcomSites: SitesService< WpcomConfig, SyncSite > = {
+export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 	list: ( config, options = {} ) =>
 		step( __( 'Failed to fetch WordPress.com sites' ), 'site_fetch', () =>
 			fetchSyncableSites( requireToken( config ), {
@@ -98,6 +99,9 @@ export const wpcomSites: SitesService< WpcomConfig, SyncSite > = {
 
 	async push( config, site, content, options, onStatus, signal ) {
 		const token = requireToken( config );
+		if ( options.preview ) {
+			return updatePreview( token, site.id, content, options.preview, onStatus, signal );
+		}
 		if ( content.kind !== 'archive' ) {
 			throw new Error( 'WordPress.com imports a WordPress archive.' );
 		}
@@ -204,6 +208,15 @@ export const wpcomSites: SitesService< WpcomConfig, SyncSite > = {
 			'timeout'
 		);
 	},
+
+	previews: {
+		create: ( config, content, options, onStatus, signal ) =>
+			createPreview( requireToken( config ), content, options, onStatus, signal ),
+		list: ( config ) => listPreviews( requireToken( config ) ),
+		delete: ( config, preview ) => deletePreview( requireToken( config ), Number( preview.id ) ),
+	},
+
+	editedAt: ( config, site ) => getEditedAt( requireToken( config ), site.id ),
 
 	pull: {
 		async backup( config, site, options, onProgress, signal ) {

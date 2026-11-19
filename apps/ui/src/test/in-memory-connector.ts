@@ -2,7 +2,15 @@ import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
-import { PROVIDER_IDS, type ProviderId, type AiProviderId } from '@studio/providers';
+import {
+	AI_PROVIDER_IDS,
+	getConnectMethod,
+	getProvider,
+	normalizeProviderId,
+	PROVIDER_IDS,
+	type AiProviderId,
+	type ProviderId,
+} from '@studio/providers';
 import type {
 	AgentAppId,
 	AiSessionSummary,
@@ -89,13 +97,16 @@ export function aiSettings(
 ): AiSettings {
 	return {
 		provider,
+		imageProviders: AI_PROVIDER_IDS.filter(
+			( id ) => connected.includes( id ) && getProvider( id ).ai?.generatesImages
+		),
+		imageProvider: null,
 		accounts: Object.fromEntries(
 			PROVIDER_IDS.map( ( id ) => [
 				id,
-				{
-					connected: connected.includes( id ),
-					summary: connected.includes( id ) ? 'sk-ant-…test' : null,
-				},
+				connected.includes( id )
+					? { connected: true, summary: 'sk-ant-…test', method: getConnectMethod( id ).id }
+					: { connected: false },
 			] )
 		) as AiSettings[ 'accounts' ],
 	};
@@ -208,6 +219,7 @@ export function createInMemoryConnector(
 			if ( site ) {
 				emitSiteEvent( SITE_EVENTS.DELETED, { ...site, running: false } );
 			}
+			return { warnings: [] };
 		},
 		copySite: async ( id ) => {
 			const source = state.sites.find( ( site ) => site.id === id )!;
@@ -339,14 +351,24 @@ export function createInMemoryConnector(
 		},
 		// WordPress.com is connected while signed in.
 		getAiSettings: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		// Without WordPress.com, the provider connected becomes the default.
 		connectProvider: async ( provider ) =>
-			aiSettings( 'wpcom', state.user ? [ 'wpcom', provider ] : [ provider ] ),
+			state.user
+				? aiSettings( 'wpcom', [ 'wpcom', provider ] )
+				: aiSettings( normalizeProviderId( provider, AI_PROVIDER_IDS ) ?? 'wpcom', [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
-		startProviderConnect: async () => {
-			throw new Error( 'startProviderConnect is not faked' );
-		},
+		listProviderModels: async () => [],
+		selectProviderModels: async ( provider ) => aiSettings( 'wpcom', [ 'wpcom', provider ] ),
+		startProviderConnect: async () => ( {
+			url: 'https://auth.example.test/sign-in',
+			handoff: { state: 'state-1' },
+		} ),
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
+		setImageProvider: async ( imageProvider ) => ( {
+			...aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+			imageProvider,
+		} ),
 		getInstalledApps: async () => installedApps(),
 		getAgentApps: async () =>
 			AGENT_APP_IDS.map( ( id ) => ( {
@@ -433,6 +455,7 @@ export function createInMemoryConnector(
 			annotatePreview: true,
 			studioLogs: true,
 			nativeSites: true,
+			loopbackSignIn: true,
 			...overrides.capabilities,
 		},
 		state,

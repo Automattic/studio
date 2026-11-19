@@ -2,7 +2,7 @@
 
 set -eu
 
-# Determines if a CI job should be skipped based on the files changed in the PR.
+# Determines if a CI job should be skipped based on the changed files.
 # `shared-pipeline-vars` runs it on the upload agent for each job type and exports the result as SKIP_<JOB TYPE>,
 # which `pipeline.yml` uses as the `skip:` of the matching steps, so skipped jobs are never created.
 #
@@ -10,7 +10,9 @@ set -eu
 #   should-skip-job.sh --job-type <type>
 #
 # Prints the reason to skip the job, or `false` to run it. Exits 0 either way, and 15 for invalid arguments.
-# Non-PR builds, and any error while getting the changed files, run the job.
+# Webhook PR and trunk builds can skip; STUDIO_CI_FULL_BUILD=1 forces a full run, and other builds always run.
+# trunk compares HEAD to its first parent; CI_CHANGED_FILES_BASE supplies a wider range.
+# Any error while getting the changed files runs the job.
 #
 # Job types:
 #   - validation: Skip if changes are limited to documentation, config, localization, and non-code files.
@@ -32,8 +34,6 @@ COMMON_NON_CODE_PATTERNS=(
   "*.md"
   "*.txt"
   "docs/**"
-  "CODE-OF-CONDUCT.md"
-  "SECURITY.md"
   "LICENSE*"
 
   # Editor and IDE config
@@ -44,8 +44,9 @@ COMMON_NON_CODE_PATTERNS=(
   ".gitignore"
   ".gitattributes"
 
-  # GitHub-specific (workflows, templates, dependabot)
+  # GitHub and CI configuration (workflows, templates, dependabot, Buildkite)
   ".github/**"
+  ".buildkite/**"
 
   # Ruby/Fastlane - only affects CI distribution, not app code
   "fastlane/**"
@@ -54,16 +55,12 @@ COMMON_NON_CODE_PATTERNS=(
   ".ruby-version"
   ".bundle/**"
 
-  # CI configuration changes don't need app tests
-  ".buildkite/**"
-
   # Installer assets and configuration
   "installers/**"
   "apps/studio/assets/appx/**"
 
   # Claude AI configuration
   ".claude/**"
-  "CLAUDE.md"
 )
 
 # Localization files - changes here don't affect runtime behavior or performance
@@ -134,14 +131,29 @@ if [[ -z "$job_type" ]]; then
   exit 15
 fi
 
-[[ "${BUILDKITE_PULL_REQUEST:-false}" =~ ^[0-9]+$ ]] || run_job
+if [[ "${STUDIO_CI_FULL_BUILD:-}" == 1 || "${BUILDKITE_SOURCE:-}" != webhook || -n "${BUILDKITE_TAG:-}" ]]; then
+  run_job
+fi
+
+if [[ "${BUILDKITE_PULL_REQUEST-false}" =~ ^[0-9]+$ ]]; then
+  changed_files=(pr_changed_files)
+elif [[ "${BUILDKITE_PULL_REQUEST-false}" == false && "${BUILDKITE_BRANCH:-}" == trunk ]]; then
+  # Runs on the upload agent: until its toolkit has `commit_changed_files`, trunk runs everything.
+  command -v commit_changed_files >/dev/null 2>&1 || run_job
+  changed_files=(commit_changed_files)
+  if [[ -n "${CI_CHANGED_FILES_BASE:-}" ]]; then
+    changed_files+=(--base "$CI_CHANGED_FILES_BASE")
+  fi
+else
+  run_job
+fi
 
 case "$job_type" in
   "validation")
     # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in
     # non-code files OR localization-only changes
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files[@]}" --all-match "${PATTERNS[@]}"; then
       skip_job "Only docs, config or localization files changed"
     fi
     ;;
@@ -149,7 +161,7 @@ case "$job_type" in
   "e2e")
     # Skip desktop e2e if ALL changes are in non-code files, localization, OR agent files.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files[@]}" --all-match "${PATTERNS[@]}"; then
       skip_job "Only docs, config, localization or agent files changed"
     fi
     ;;
@@ -158,7 +170,7 @@ case "$job_type" in
     # Skip metrics if ALL changes are in non-code files, localization, test files, OR agent files.
     # Neither test nor agent file changes affect what the metrics suites measure.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${TEST_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files[@]}" --all-match "${PATTERNS[@]}"; then
       skip_job "Only docs, config, localization, test or agent files changed"
     fi
     ;;
@@ -166,7 +178,7 @@ case "$job_type" in
   "build")
     # Skip build if ALL changes are in non-code files.
     # Note: Does NOT skip on localization changes - builds should include translation updates.
-    if pr_changed_files --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
+    if "${changed_files[@]}" --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
       skip_job "Only docs or config files changed"
     fi
     ;;
@@ -175,8 +187,8 @@ case "$job_type" in
     # Run only if at least one changed file is fastlane/ or Ruby-setup-related.
     # Other job types treat fastlane changes as non-code; this one is the inverse.
     # An empty or failed diff must run the tests too, not look like "no fastlane files changed".
-    pr_changed_files || run_job
-    relevant=$(pr_changed_files --stdout --any-match "${FASTLANE_PATTERNS[@]}") || run_job
+    "${changed_files[@]}" || run_job
+    relevant=$("${changed_files[@]}" --stdout --any-match "${FASTLANE_PATTERNS[@]}") || run_job
     if [[ "$relevant" == false ]]; then
       skip_job "No fastlane or Ruby setup files changed"
     fi

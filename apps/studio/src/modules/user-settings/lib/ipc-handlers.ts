@@ -10,6 +10,7 @@ import {
 	disconnectProvider,
 	readAiSettings,
 	setAiProvider as setAiProviderInConfig,
+	setImageProvider as setImageProviderInConfig,
 } from '@studio/common/lib/ai-settings';
 import {
 	connectAgentApp as connectAgentAppToStudio,
@@ -183,6 +184,14 @@ export async function setAiProvider( _event: IpcMainInvokeEvent, requested: stri
 		() => setAiProviderInConfig( provider ),
 		recordTracksEvent
 	);
+}
+
+export async function setImageProvider( _event: IpcMainInvokeEvent, requested: string | null ) {
+	const provider = requested === null ? null : normalizeProviderId( requested, AI_PROVIDER_IDS );
+	if ( provider === undefined ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
+	}
+	return setImageProviderInConfig( provider );
 }
 
 export async function saveGlobalAgentInstructions(

@@ -2,6 +2,7 @@ export {
 	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
 	formatRemoteSite,
+	generatesImages,
 	getProvider,
 	getProviderSites,
 	normalizeProviderId,

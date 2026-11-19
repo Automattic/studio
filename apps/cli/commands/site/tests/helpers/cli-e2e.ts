@@ -120,6 +120,14 @@ export function cleanupCliEnv( env: CliEnv ): void {
 	fs.rmSync( env.daemonHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 } );
 }
 
+// Sends Node's requests to a closed port, so the CLI runs as if offline. The sites stay reachable.
+const OFFLINE_ENV = {
+	NODE_USE_ENV_PROXY: '1',
+	HTTP_PROXY: 'http://127.0.0.1:9',
+	HTTPS_PROXY: 'http://127.0.0.1:9',
+	NO_PROXY: 'localhost,127.0.0.1,[::1]',
+};
+
 /**
  * Runs the built CLI, or the one at `cliMain`, with the given arguments against the isolated
  * environment. Resolves with the exit code and captured output once the process exits.
@@ -127,7 +135,7 @@ export function cleanupCliEnv( env: CliEnv ): void {
 export function runCli(
 	args: string[],
 	env: CliEnv,
-	{ cliMain = CLI_MAIN }: { cliMain?: string } = {}
+	{ cliMain = CLI_MAIN, offline = false }: { cliMain?: string; offline?: boolean } = {}
 ): Promise< CliResult > {
 	return new Promise( ( resolve, reject ) => {
 		const child = spawn( process.execPath, [ cliMain, ...args ], {
@@ -144,6 +152,7 @@ export function runCli(
 				E2E: '1',
 				E2E_APP_DATA_PATH: env.root,
 				...( env.basePort ? { STUDIO_BASE_PORT: String( env.basePort ) } : {} ),
+				...( offline ? OFFLINE_ENV : {} ),
 			},
 		} );
 

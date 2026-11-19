@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import cliPackageJson from '../../cli/package.json';
 import { E2ESession } from './e2e-helpers';
 import Sidebar from './page-objects/sidebar';
-import { daemonRequest, preparePreviousRelease } from './previous-release';
+import { PREVIOUS_RELEASE_ENV, daemonRequest, preparePreviousRelease } from './previous-release';
 
 type ProcessDescription = { name: string; status: string; pid?: number };
 
@@ -27,7 +27,7 @@ test.afterAll( async () => {
 test( 'starts the sites the previous version left running again after an update', async () => {
 	test.setTimeout( 600_000 );
 	session.appPath = ( await preparePreviousRelease() ).appPath;
-	await session.launch( {}, { appData: { quitSitesBehavior: 'leave-running' } } );
+	await session.launch( PREVIOUS_RELEASE_ENV, { appData: { quitSitesBehavior: 'leave-running' } } );
 
 	// Driven through IPC rather than the previous version's UI, which the page objects don't follow.
 	const studioDir = path.join( session.homePath, 'Studio' );

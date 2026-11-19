@@ -126,8 +126,11 @@ describe( 'AI provider settings', () => {
 			'github-copilot': { connected: false },
 			meta: { connected: false },
 			xai: { connected: false },
+			openrouter: { connected: false },
 			spacefast: { connected: false },
 		},
+		imageProviders: [],
+		imageProvider: null,
 	} );
 	const keyPreview = 'sk-ant-api03-tes...1234';
 	const wpcomWithoutKey = settings( 'wpcom', null );

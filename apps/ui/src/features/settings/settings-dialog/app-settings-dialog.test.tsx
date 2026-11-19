@@ -705,6 +705,44 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
+	it( 'picks the models a provider with a catalog offers', async () => {
+		const sonnet = {
+			id: 'openrouter/anthropic/claude-sonnet-5.5' as const,
+			label: 'Anthropic: Claude Sonnet 5.5',
+			supportsImages: true,
+			recommended: true,
+		};
+		const acme = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+			details: 'Free',
+		};
+		const settings = aiSettings( 'wpcom', [ 'wpcom', 'openrouter' ] );
+		settings.accounts.openrouter = {
+			connected: true,
+			method: 'api-key',
+			models: [ { id: sonnet.id }, { id: acme.id, label: acme.label } ],
+		};
+		const { connector } = await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings,
+				listProviderModels: async () => [ sonnet, acme ],
+				selectProviderModels: vi.fn( async () => settings ),
+			},
+		} );
+
+		const models = await findProviderRow( 'openrouter-models' );
+		fireEvent.click(
+			await within( models ).findByRole( 'combobox', { name: 'OpenRouter models' } )
+		);
+		fireEvent.click( await screen.findByRole( 'option', { name: /Acme: Model/ } ) );
+		await waitFor( () =>
+			expect( connector.selectProviderModels ).toHaveBeenCalledWith( 'openrouter', [ sonnet ] )
+		);
+	} );
+
 	it( 'toggles custom instructions without changing saved text', async () => {
 		let enabled = true;
 		const { connector } = await setup( {
@@ -873,12 +911,12 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 	} );
 
 	it( 'switches between connected hosting defaults independently of the AI provider', async () => {
-		const accounts = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'spacefast' ] ).accounts;
+		const settings = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'spacefast' ] );
 		const { connector } = await setup( {
 			section: 'providers',
 			overrides: {
-				getAiSettings: async () => ( { provider: 'wpcom', accounts } ),
-				setAiProvider: async ( provider ) => ( { provider, accounts } ),
+				getAiSettings: async () => settings,
+				setAiProvider: async ( provider ) => ( { ...settings, provider } ),
 			},
 		} );
 		await choose( 'Default hosting provider', 'Spacefast' );
@@ -925,6 +963,29 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		act( () => connector.emit( 'onAuthStateChanged' ) );
 		await waitFor( () => expect( hosting ).toHaveTextContent( 'WordPress.com' ) );
 		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	} );
+
+	it( 'picks the image provider among those that generate images, or Automatic', async () => {
+		let settings = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'gemini' ] );
+		const { connector } = await setup( {
+			section: 'providers',
+			overrides: {
+				getAiSettings: async () => settings,
+				setImageProvider: async ( imageProvider ) => ( settings = { ...settings, imageProvider } ),
+			},
+		} );
+		const images = await screen.findByRole( 'combobox', { name: 'Default image provider' } );
+		await waitFor( () => expect( images ).toHaveTextContent( 'Automatic' ) );
+
+		await choose( 'Default image provider', 'Google Gemini' );
+		await waitFor( () => expect( images ).toHaveTextContent( 'Google Gemini' ) );
+		expect( screen.queryByRole( 'option', { name: 'Anthropic' } ) ).not.toBeInTheDocument();
+		await choose( 'Default image provider', 'Automatic' );
+		await waitFor( () => expect( images ).toHaveTextContent( 'Automatic' ) );
+		expect( vi.mocked( connector.setImageProvider ).mock.calls ).toEqual( [
+			[ 'gemini' ],
+			[ null ],
+		] );
 	} );
 
 	it( 'uses the only connected AI provider as the default', async () => {

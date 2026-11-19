@@ -1,4 +1,4 @@
-import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/auth-token';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
@@ -14,7 +14,7 @@ vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
-vi.mock( '@studio/common/lib/shared-config', () => ( {
+vi.mock( '@studio/common/lib/auth-token', () => ( {
 	readAuthToken: vi.fn(),
 	isAutomatticianFromToken: vi.fn().mockResolvedValue( true ),
 } ) );
@@ -216,7 +216,7 @@ describe( '/credits slash command', () => {
 
 	async function mocks() {
 		return {
-			auth: await import( '@studio/common/lib/shared-config' ),
+			auth: await import( '@studio/common/lib/auth-token' ),
 			quota: await import( '@studio/common/lib/studio-assistant-quota' ),
 			pricing: await import( '@studio/common/lib/studio-assistant-top-up-pricing' ),
 			browser: await import( 'cli/lib/browser' ),

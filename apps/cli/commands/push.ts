@@ -1,12 +1,12 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import {

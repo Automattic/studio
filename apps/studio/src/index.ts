@@ -11,18 +11,22 @@ import {
 	shell,
 	type WebContents,
 } from 'electron';
-import fs from 'fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
+import { moveAiSessionsToStudioDir } from '@studio/agent/node/sessions/root-migration';
 import { PROTOCOL_PREFIX, SENTRY_DSN } from '@studio/common/constants';
-import { readSentryUserId } from '@studio/common/lib/app-config';
+import { getCurrentUserId } from '@studio/common/lib/auth-token';
+import { ConfigTooNewError, getConfigPath, readConfig } from '@studio/common/lib/config/store';
 import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
 import { prepareErrorEvent, setErrorReporter } from '@studio/common/lib/error-reporting';
-import { runMigrations } from '@studio/common/lib/migration';
+import { getOrCreateSentryUserId, readSentryUserId } from '@studio/common/lib/install';
 import { getSentryReleaseInfo } from '@studio/common/lib/sentry-release';
-import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { runStartupTasks } from '@studio/common/lib/startup-tasks';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
-import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
+import {
+	readQuitSitesBehavior,
+	writeQuitSitesBehavior,
+} from '@studio/common/lib/user-settings/user-preferences';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
@@ -63,7 +67,6 @@ import {
 	getExistingMainWindow,
 	getMainWindow,
 } from 'src/main-window';
-import { migrations } from 'src/migrations';
 import {
 	startCliEventsSubscriber,
 	stopCliEventsSubscriber,
@@ -72,16 +75,9 @@ import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { getBundledNodeBinaryPath, getCliPath, getOldAppdataFilePath } from 'src/storage/paths';
-import {
-	loadUserData,
-	lockAppdata,
-	saveUserData,
-	unlockAppdata,
-	updateAppdata,
-	type QuitSitesBehavior,
-} from 'src/storage/user-data';
+import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
+import type { QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 // eslint-disable-next-line import-x/order
 import packageJson from '../package.json';
 
@@ -158,7 +154,8 @@ if ( ! process.env.IS_DEV_BUILD ) {
 	Sentry.init( {
 		dsn: SENTRY_DSN,
 		// A run from source reports as the release it's built from, so only packaged builds report.
-		enabled: app.isPackaged && ! isDevEnvironment,
+		// e2e runs launch packaged builds too, and their sessions would count in release health.
+		enabled: app.isPackaged && ! isDevEnvironment && ! process.env.E2E,
 		release: sentryRelease,
 		environment: isDevEnvironment ? 'development' : 'production',
 		initialScope: {
@@ -204,20 +201,9 @@ if ( gotTheLock && ! isInInstaller && ! handOffToRunningUpdateInstall() ) {
 }
 
 async function setupSentryUserId() {
-	try {
-		await lockAppdata();
-		const userData = await loadUserData();
-		if ( ! userData.sentryUserId ) {
-			userData.sentryUserId = crypto.randomUUID();
-		}
-
-		console.log( 'Setting Sentry user ID:', userData.sentryUserId );
-		Sentry.setUser( { id: userData.sentryUserId } );
-
-		await saveUserData( userData );
-	} finally {
-		await unlockAppdata();
-	}
+	const sentryUserId = await getOrCreateSentryUserId();
+	console.log( 'Setting Sentry user ID:', sentryUserId );
+	Sentry.setUser( { id: sentryUserId } );
 
 	const wpcomUserId = await getCurrentUserId();
 	setSentryWpcomUserIdMain( wpcomUserId ?? undefined );
@@ -528,27 +514,40 @@ async function appBoot() {
 		setupIpc();
 
 		try {
-			await runMigrations( migrations );
+			await runStartupTasks( [ moveAiSessionsToStudioDir ] );
 		} catch ( error ) {
 			Sentry.captureException( error );
-			if ( fs.existsSync( getOldAppdataFilePath() ) && ! fs.existsSync( getAppConfigPath() ) ) {
-				// Normal startup writes app.json, which would mark this failed migration complete.
-				await dialog.showMessageBox( {
-					type: 'error',
-					title: __( 'Could not migrate your sites' ),
-					message: __( 'Could not migrate your sites' ),
-					detail: `${ sprintf(
-						// translators: %s is the path of the previous configuration file.
-						__(
-							'Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.'
-						),
-						getOldAppdataFilePath()
-					) }\n\n${ error instanceof Error ? error.message : String( error ) }`,
-					buttons: [ __( 'Quit' ) ],
-				} );
-				app.exit( 1 );
-				return;
-			}
+		}
+
+		// Brings the config file up to date before anything reads it. A file from a newer Studio CLI,
+		// or one that can't be imported, would show the user no sites, so Studio stops instead.
+		try {
+			await readConfig();
+		} catch ( error ) {
+			Sentry.captureException( error );
+			const tooNew = error instanceof ConfigTooNewError;
+			const heading = tooNew
+				? __( 'Update WordPress Studio' )
+				: __( 'Could not read your settings' );
+			await dialog.showMessageBox( {
+				type: 'error',
+				title: heading,
+				message: heading,
+				detail: tooNew
+					? __(
+							'Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.'
+					  )
+					: `${ sprintf(
+							// translators: %s is the path of the configuration file.
+							__(
+								'WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.'
+							),
+							getConfigPath()
+					  ) }\n\n${ error instanceof Error ? error.message : String( error ) }`,
+				buttons: [ __( 'Quit' ) ],
+			} );
+			app.exit( 1 );
+			return;
 		}
 
 		await startCliEventsSubscriber();
@@ -561,9 +560,9 @@ async function appBoot() {
 		void maybePromptNightlySwitch().catch( Sentry.captureException );
 		startNightlyPromptPoller();
 
-		const userData = await loadUserData();
-		// Bump stats for the first time the app runs - this is when no lastBumpStats are available
-		if ( ! userData.lastBumpStats ) {
+		// The app's first run is when no stat was ever bumped.
+		const isFirstLaunch = ! Object.keys( ( await readConfig() ).stats.lastBump ).length;
+		if ( isFirstLaunch ) {
 			bumpStat( StatsGroup.STUDIO_APP_LAUNCH, getPlatformMetric() );
 		}
 
@@ -583,12 +582,12 @@ async function appBoot() {
 		).catch( ( err ) => Sentry.captureException( err ) );
 
 		// Tracks: structured launch event, runs in parallel with the MC Stats bumps above.
-		// `is_first_launch` intentionally reuses `lastBumpStats` — it's a durable pre-existing marker,
+		// `is_first_launch` intentionally reuses the bump stats — they're a durable pre-existing marker,
 		// so existing users read false and fresh installs read true. If the MC Stats launch bumps are
 		// ever removed, migrate this to another durable per-install marker (e.g. `sentryUserId`) or a
 		// dedicated flag, or it will silently report true on every launch. See the analytics design doc.
 		void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, {
-			is_first_launch: ! userData.lastBumpStats,
+			is_first_launch: isFirstLaunch,
 		} ).catch( ( err ) => Sentry.captureException( err ) );
 
 		await autoInstallWindowsCliIfNeeded();
@@ -687,11 +686,11 @@ async function appBoot() {
 			const runningSiteCount = ( await getSites().catch( () => [] ) ).filter(
 				( site ) => site.running
 			).length;
-			const userData = runningSiteCount > 0 ? await loadUserData() : undefined;
+			const quitSitesBehavior = runningSiteCount > 0 ? await readQuitSitesBehavior() : undefined;
 
-			if ( userData && userData.quitSitesBehavior !== undefined ) {
-				applyQuitSitesBehavior( userData.quitSitesBehavior );
-			} else if ( userData && ! process.env.E2E ) {
+			if ( quitSitesBehavior !== undefined ) {
+				applyQuitSitesBehavior( quitSitesBehavior );
+			} else if ( runningSiteCount > 0 && ! process.env.E2E ) {
 				const STOP_SITES_BUTTON_INDEX = 0;
 				const KEEP_RUNNING_BUTTON_INDEX = 1;
 				const CANCEL_BUTTON_INDEX = 2;
@@ -722,7 +721,7 @@ async function appBoot() {
 					response === KEEP_RUNNING_BUTTON_INDEX ? 'leave-running' : 'stop';
 
 				if ( checkboxChecked ) {
-					await updateAppdata( { quitSitesBehavior: behavior } );
+					await writeQuitSitesBehavior( behavior );
 				}
 
 				applyQuitSitesBehavior( behavior );

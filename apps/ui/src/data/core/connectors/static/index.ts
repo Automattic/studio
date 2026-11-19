@@ -443,10 +443,13 @@ export function createStaticConnector(): Connector {
 		connectProvider: ( provider, method, input ) =>
 			agent.connectProvider( provider, method, input ),
 		disconnectProvider: ( provider ) => agent.disconnectProvider( provider ),
+		listProviderModels: ( provider ) => agent.listProviderModels( provider ),
+		selectProviderModels: ( provider, models ) => agent.selectProviderModels( provider, models ),
 		async startProviderConnect() {
 			throw new UnsupportedError( 'startProviderConnect' );
 		},
 		setAiProvider: ( provider ) => agent.setAiProvider( provider ),
+		setImageProvider: ( provider ) => agent.setImageProvider( provider ),
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;

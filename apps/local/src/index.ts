@@ -14,18 +14,14 @@ import { resolveLocalMediaFile } from '@studio/agent/node/local-media';
 import { createAgentRunManager } from '@studio/agent/node/run-manager';
 import {
 	createHydratedAiSession,
+	deleteHydratedAiSession,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/agent/node/sessions/manage';
-import { deleteAiSessionPlacement } from '@studio/agent/node/sessions/placement';
-import {
-	appendModelChangeEntry,
-	appendStudioEntry,
-	deleteAiSession,
-} from '@studio/agent/node/sessions/store';
+import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import {
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
@@ -52,9 +48,13 @@ import {
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
+	selectProviderModels,
 	readAiSettings,
 	setAiProvider,
+	setImageProvider,
 } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import {
 	onboardingAnalyticsSchema,
 	authAnalyticsSchema,
@@ -110,7 +110,6 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { deleteSharedSession, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	getSiteAgentFileFolder,
 	getSiteAgentFilePaths,
@@ -152,12 +151,7 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import {
-	listSitesWithMetadata,
-	setSiteFrontendAdminBar,
-	updateSiteMetadata,
-	type SiteMetadata,
-} from '@studio/common/sites/metadata';
+import { setSiteFrontendAdminBar, updateSiteMetadata } from '@studio/common/sites/metadata';
 import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import {
 	createRemoteSite,
@@ -187,10 +181,11 @@ import {
 	AI_PROVIDER_IDS,
 	ConnectError,
 	findAiModel,
-	getProvider,
+	servesAiModel,
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
+	type CatalogModel,
 	type SitesProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -301,9 +296,8 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 })();
 </script></body></html>`;
 
-// The agentic UI's SiteDetails shape. The CLI's `site list` already reports
-// nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
-function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) {
+// The agentic UI's SiteDetails shape, from what the CLI's `site list` reports.
+function toSiteDetails( site: SiteListItem ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -327,7 +321,8 @@ function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) 
 		operation: site.operation,
 		emailPath: site.emailPath,
 		phpMyAdminSupported: site.phpMyAdminSupported,
-		sortOrder,
+		sortOrder: site.sortOrder,
+		autoStart: site.autoStart,
 		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
 }
@@ -618,7 +613,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
-	// Read straight from the shared auth token (`~/.studio/shared.json`); the
+	// Read straight from the shared sign-in (`~/.studio/config.json`); the
 	// stored token carries the user's id/email/displayName, so no API call.
 	api.get(
 		'/auth/user',
@@ -766,7 +761,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- AI settings — provider + Anthropic API key in shared.json ------------
+	// --- AI settings — the selected provider and each provider's config ------
 	api.get(
 		'/ai-settings',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -835,6 +830,39 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			if ( provider ) {
+				res.json( await listProviderModels( getProviderServices( provider ) ) );
+			}
+		} )
+	);
+
+	api.put(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			const models = req.body?.models;
+			if ( ! provider ) {
+				return;
+			}
+			if (
+				! Array.isArray( models ) ||
+				! models.every(
+					( model ) => typeof model?.id === 'string' && typeof model.label === 'string'
+				)
+			) {
+				res.status( 400 ).json( { error: 'models must be an array of catalog models' } );
+				return;
+			}
+			res.json(
+				await selectProviderModels( getProviderServices( provider ), models as CatalogModel[] )
+			);
+		} )
+	);
+
 	api.delete(
 		'/ai-settings/providers/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -865,12 +893,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.put(
+		'/ai-settings/image-provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const requested = req.body?.provider;
+			const provider =
+				requested === null ? null : normalizeProviderId( String( requested ), AI_PROVIDER_IDS );
+			if ( provider === undefined ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id or null' } );
+				return;
+			}
+			res.json( await setImageProvider( provider ) );
+		} )
+	);
+
 	// --- Sites — the local machine's real Studio sites, via the CLI -----------
 	api.get(
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			const sites = await listSitesWithMetadata( execute );
-			res.json( sites.map( ( site ) => toSiteDetails( site, site.sortOrder ) ) );
+			const sites = await listSites( execute );
+			res.json( sites.map( toSiteDetails ) );
 		} )
 	);
 
@@ -1357,10 +1399,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			const refreshed = ( await listSitesWithMetadata( execute ) ).find(
-				( s ) => s.id === req.params.id
-			);
-			res.json( toSiteDetails( refreshed ?? current, refreshed?.sortOrder ) );
+			const refreshed = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			res.json( toSiteDetails( refreshed ?? current ) );
 		} )
 	);
 
@@ -1637,7 +1677,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- Global preferences — the same app.json/shared.json the desktop uses ---
+	// --- Global preferences — the same config file the desktop uses ----------
 	api.get(
 		'/user-preferences',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -1889,7 +1929,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// --- Remote sites: connections to sites on a provider ---------------------
 	// All backed by the same @studio/common code the desktop uses. Reads the
-	// providers' configs from shared.json (WordPress.com: `studio auth login`).
+	// providers' configs from the config file (WordPress.com: `studio auth login`).
 	// WordPress.com site ids are numbers; other providers' are strings.
 	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): never {
 		const { remoteSiteId } = req.params;
@@ -2186,9 +2226,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.delete(
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const deleted = await deleteAiSession( sessionsRoot, req.params.id );
-			await deleteSharedSession( deleted.id );
-			await deleteAiSessionPlacement( deleted.id );
+			await deleteHydratedAiSession( sessionsRoot, req.params.id );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -2228,7 +2266,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;
 			}
-			if ( ! model || ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
+			if ( ! model || ! servesAiModel( provider, model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}

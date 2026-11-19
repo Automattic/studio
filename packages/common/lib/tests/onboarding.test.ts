@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import {
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
@@ -23,15 +23,15 @@ afterEach( () => {
 } );
 
 it( 'persists completion without losing unrelated preferences or legacy tour state', async () => {
-	await updateAppConfig( ( config ) => {
-		config.colorScheme = 'dark';
-		config.onboardingHints = { tourCompletedVersion: 2 };
+	await updateConfig( ( { preferences } ) => {
+		preferences.colorScheme = 'dark';
+		preferences.onboardingHints = { tourCompletedVersion: 2 };
 	} );
 	expect( await readOnboardingCompleted() ).toBe( false );
 	expect( await writeOnboardingCompleted( true ) ).toBe( true );
 	expect( await readOnboardingCompleted() ).toBe( true );
 	expect( await writeOnboardingCompleted( true ) ).toBe( false );
-	expect( await readAppConfig() ).toMatchObject( {
+	expect( ( await readConfig() ).preferences ).toMatchObject( {
 		colorScheme: 'dark',
 		onboardingHints: { tourCompletedVersion: 2 },
 		onboardingCompleted: true,

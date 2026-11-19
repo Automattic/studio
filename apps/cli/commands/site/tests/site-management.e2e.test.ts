@@ -20,7 +20,7 @@ import {
 	autoLoginCookie,
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -28,12 +28,12 @@ import {
 } from './helpers/cli-e2e';
 
 function findSite( env: CliEnv, sitePath: string ): Record< string, unknown > | undefined {
-	return readCliConfig( env ).sites.find( ( site ) => site.path === sitePath );
+	return readConfigFile( env ).sites.find( ( site ) => site.path === sitePath );
 }
 
 /**
- * `--no-start` defers the slow WordPress install, so callers needing a live
- * WordPress start the site.
+ * `--no-start` installs WordPress but leaves the site stopped, so callers needing
+ * a live server start the site.
  */
 async function createStoppedSite( env: CliEnv, name: string, dirName: string ): Promise< string > {
 	const sitePath = path.join( env.sitesDir, dirName );
@@ -122,9 +122,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site management'
 					throw new Error( 'CLI e2e env was not initialised' );
 				}
 
-				// blogname lives in the WordPress database, which only exists once the site
-				// has been started — `create --no-start` copies core files but defers the
-				// WordPress install to the first server start.
 				const startResult = await runCli(
 					[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
 					env

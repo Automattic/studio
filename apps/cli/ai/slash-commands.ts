@@ -1,8 +1,8 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { changeAiSettings } from '@studio/common/lib/ai-provider-tracks';
 import { describeAccount, disconnectProvider } from '@studio/common/lib/ai-settings';
+import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/auth-token';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,
 	fetchStudioAssistantQuota,

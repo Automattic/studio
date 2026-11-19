@@ -1,8 +1,8 @@
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { vi } from 'vitest';
 import { deleteSnapshotSite, getLivePreviewSite } from 'cli/lib/preview-sites';
 
-vi.mock( '@studio/common/lib/connected-sites' );
+vi.mock( '@studio/common/lib/remote-sites' );
 const sites = vi.hoisted( () => ( { previews: { delete: vi.fn() } } ) );
 vi.mock( '@studio/providers/services', () => ( { getProviderServices: () => ( { sites } ) } ) );
 
@@ -33,8 +33,8 @@ describe( 'Preview sites', () => {
 			},
 			{ name: 'two paid sites', sites: [ paid, { ...paid, id: 2 } ], expected: undefined },
 		] )( 'with $name', async ( { sites: connected, expected } ) => {
-			vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue(
-				connected as unknown as Awaited< ReturnType< typeof getConnectedWpcomSitesForLocalSite > >
+			vi.mocked( getRemoteSites ).mockResolvedValue(
+				connected as unknown as Awaited< ReturnType< typeof getRemoteSites > >
 			);
 			expect( ( await getLivePreviewSite( 'local' ) )?.id ).toBe( expected );
 		} );

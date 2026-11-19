@@ -68,7 +68,6 @@ export function ModelPicker( {
 	const { data: aiSettings } = useAiSettings();
 	const isWpcom = sessionProvider === 'wpcom';
 
-	const modelLabel = findAiModel( model )?.model.label() ?? model;
 	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
 	const canPurchaseCredits =
 		isWpcom &&
@@ -78,6 +77,16 @@ export function ModelPicker( {
 		quota.hasPaymentMethod;
 	const account = aiSettings?.accounts[ sessionProvider ];
 	const { note, links = [] } = account?.connected ? account : {};
+	// A provider whose plan decides which models it runs offers only those.
+	const modelsOf = ( provider: ProviderId ) => {
+		const account = aiSettings?.accounts[ provider ];
+		return getAiModels( provider, account?.connected ? account : undefined );
+	};
+	const labelOf = ( provider: ProviderId, id: string ) =>
+		(
+			modelsOf( provider ).find( ( item ) => item.id === id ) ?? findAiModel( id )?.model
+		)?.label() ?? id;
+	const modelLabel = labelOf( sessionProvider, model );
 	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
@@ -85,11 +94,6 @@ export function ModelPicker( {
 	if ( note ) {
 		modelDetails.push( note );
 	}
-	// A provider whose plan decides which models it runs offers only those.
-	const modelsOf = ( provider: ProviderId ) => {
-		const account = aiSettings?.accounts[ provider ];
-		return getAiModels( provider, account?.connected ? account : undefined );
-	};
 	const pickCommand = ( value: string ) => {
 		onOpenChange( false );
 		if ( value === 'get-credits' ) {
@@ -111,7 +115,7 @@ export function ModelPicker( {
 		{
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ) =>
-				modelsOf( provider ).map( ( { id } ): Command => {
+				modelsOf( provider ).map( ( { id, label: modelLabelOf } ): Command => {
 					const { label } = getProvider( provider );
 					const strengths = getModelDescription( id );
 					const description = strengths
@@ -124,7 +128,7 @@ export function ModelPicker( {
 						: label;
 					return {
 						value: id,
-						label: findAiModel( id )?.model.label() ?? id,
+						label: modelLabelOf(),
 						description: isModelLocked( id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,

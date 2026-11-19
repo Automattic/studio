@@ -859,7 +859,7 @@ async function ipcMessageHandler( packet: unknown ) {
 			case 'stop-server':
 				result = await stopServer();
 				break;
-			case 'run-blueprint': {
+			case 'set-up-site': {
 				const blueprintConfig = validMessage.data.config;
 				const blueprintPhpVersion = resolveSupportedPhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
@@ -880,10 +880,10 @@ async function ipcMessageHandler( packet: unknown ) {
 					FINISH_INSTALL_PATH,
 					logToConsole
 				);
-				if ( ! blueprintConfig.blueprint ) {
-					throw new Error( 'Blueprint is required' );
-				}
 				const blueprint = blueprintConfig.blueprint;
+				if ( ! blueprint ) {
+					break;
+				}
 				// Sequential queue: each message waits for the previous to settle before
 				// running its own blueprint. Distinct configs are not coalesced.
 				const next = blueprintQueue

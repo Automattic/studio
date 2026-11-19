@@ -11,7 +11,11 @@ import {
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 } from '@studio/common/lib/mu-plugins';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
-import { hasDefaultDbConstants, removeDefaultDbConstants } from '@studio/database';
+import {
+	hasDefaultDbConstants,
+	removeDefaultDbConstants,
+	SQLITE_INTEGRATION_FOLDER,
+} from '@studio/database';
 import { __, sprintf } from '@wordpress/i18n';
 import { Archiver, TarArchive, ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
@@ -44,7 +48,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 
 	isExactPathExcluded( pathToCheck: string ) {
 		const PATHS_TO_EXCLUDE = [
-			'wp-content/mu-plugins/sqlite-database-integration',
+			`wp-content/mu-plugins/${ SQLITE_INTEGRATION_FOLDER }`,
 			'wp-content/database',
 			'wp-content/db.php',
 			'wp-content/debug.log',

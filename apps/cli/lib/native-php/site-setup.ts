@@ -8,6 +8,7 @@ import {
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
+import { SQLITE_WP_CONFIG_CONSTANTS } from '@studio/database';
 import { isSqliteIntegrationInstalled } from '@studio/database/node';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
@@ -21,8 +22,6 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 	'php',
 	'wp-config-transformer.php'
 );
-
-const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
@@ -45,7 +44,7 @@ export async function ensureWpConfig(
 		siteFolder,
 		phpVersion,
 		{
-			...( shouldSetDefaultDatabaseName ? DEFAULT_WP_CONFIG_CONSTANTS : {} ),
+			...( shouldSetDefaultDatabaseName ? SQLITE_WP_CONFIG_CONSTANTS : {} ),
 			...getSettingsWpConfigConstants( config ?? {} ),
 		},
 		signal

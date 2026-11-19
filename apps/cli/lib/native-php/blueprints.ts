@@ -2,11 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { formatDbHost, type DatabaseConnection } from '@studio/database';
-import {
-	getSqliteIntegrationPath,
-	SQLITE_INTEGRATION_FOLDER,
-	updateSqliteIntegration,
-} from '@studio/database/node';
+import { SQLITE_INTEGRATION_FOLDER, SQLITE_WP_CONFIG_CONSTANTS } from '@studio/database';
+import { getSqliteIntegrationPath, updateSqliteIntegration } from '@studio/database/node';
 import { parse as parseShellCommand } from 'shell-quote';
 import { getSiteDatabase } from 'cli/lib/database';
 import {
@@ -258,8 +255,7 @@ export async function runBlueprint(
 		databaseEngine: config.databaseEngine,
 	} ).getConnection();
 	const defaultConstants: Record< string, boolean | string > = {
-		// The SQLite driver requires a non-empty DB_NAME at runtime.
-		...( databaseConnection.engine === 'sqlite' ? { DB_NAME: 'wordpress' } : {} ),
+		...( databaseConnection.engine === 'sqlite' ? SQLITE_WP_CONFIG_CONSTANTS : {} ),
 		...getSettingsWpConfigConstants( config ),
 	};
 

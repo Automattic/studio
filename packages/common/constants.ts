@@ -46,7 +46,6 @@ export const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.
 export const DEFAULT_WORDPRESS_VERSION = 'latest' as const;
 export const DEFAULT_PHP_VERSION: typeof RecommendedPHPVersion = RecommendedPHPVersion;
 export const PRESSABLE_PHP_VERSION: typeof PressablePHPVersion = PressablePHPVersion;
-export const SQLITE_FILENAME = 'sqlite-database-integration' as const;
 
 // Import file constants
 export const ACCEPTED_ADD_SITE_FILE_TYPES = [

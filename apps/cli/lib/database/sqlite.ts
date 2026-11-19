@@ -1,19 +1,33 @@
+import fs from 'node:fs';
 import {
 	getSqliteDatabasePath,
 	installSqliteIntegration,
 	isSqliteIntegrationInstalled,
+	replaceMysql8OnlyCollations,
+	resetSqliteJournalMode,
 	updateSqliteIntegration,
 } from '@studio/database/node';
 import { getSqlitePluginPath } from 'cli/lib/dependency-management/paths';
 import type { SiteDatabase } from 'cli/lib/database';
 
 export function createSqliteSiteDatabase( sitePath: string ) {
+	const databasePath = getSqliteDatabasePath( sitePath );
+	// MySQL 8-only collations, which MariaDB rejects when the database is exported to a live site.
+	const repair = () => replaceMysql8OnlyCollations( databasePath );
 	return {
 		engine: 'sqlite',
 		// Also leaves alone the sites people moved to their own database server by hand before
 		// Studio supported MySQL: they have a wp-config.php and none of the SQLite files.
 		ensureReady: () => updateSqliteIntegration( sitePath, getSqlitePluginPath() ),
-		getConnection: async () => ( { engine: 'sqlite', path: getSqliteDatabasePath( sitePath ) } ),
+		getConnection: async () => ( { engine: 'sqlite', path: databasePath } ),
+		// WordPress creates the file on its first start.
+		exists: async () => fs.existsSync( databasePath ),
+		repair,
+		// The driver leaves the database in WAL mode, which processes sharing it trip over.
+		async prepareForSharing() {
+			await resetSqliteJournalMode( databasePath );
+			await repair();
+		},
 	} satisfies SiteDatabase;
 }
 

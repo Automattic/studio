@@ -1,12 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-
-/**
- * WordPress runs on SQLite through the SQLite Database Integration plugin: a `db.php` drop-in
- * that loads its driver from `wp-content/mu-plugins/sqlite-database-integration`, and a
- * database file in `wp-content/database`.
- */
-export const SQLITE_INTEGRATION_FOLDER = 'sqlite-database-integration';
+import { SQLITE_INTEGRATION_FOLDER } from './sqlite';
 
 export function getSqliteDatabasePath( sitePath: string ): string {
 	return path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );

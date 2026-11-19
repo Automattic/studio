@@ -3,7 +3,7 @@ import path from 'path';
 import { getConfiguredPhpBinaryPackageId } from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { isSupportedPHPVersion, type SupportedPHPVersion } from '@studio/common/types/php-versions';
-import { SQLITE_INTEGRATION_FOLDER } from '@studio/database/node';
+import { SQLITE_INTEGRATION_FOLDER } from '@studio/database';
 
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
 

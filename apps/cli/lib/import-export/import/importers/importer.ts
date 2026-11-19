@@ -11,7 +11,7 @@ import {
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
-import { updateSqliteIntegration } from '@studio/database/node';
+import { getSqliteDatabasePath, updateSqliteIntegration } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import semver from 'semver';
@@ -178,8 +178,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			await this.importWpConfig( site );
 			await this.importWpContent( site );
 			if ( this.backup.sqlFiles.length ) {
-				const databaseDir = path.join( site.path, 'wp-content', 'database' );
-				const dbPath = path.join( databaseDir, '.ht.sqlite' );
+				const dbPath = getSqliteDatabasePath( site.path );
 
 				await this.moveExistingDatabaseToTrash( dbPath );
 				await this.createEmptyDatabase( dbPath );
@@ -409,7 +408,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 		this.emit( ImportEvents.IMPORT_DATABASE_START );
 
 		for ( const sqlFile of sqlFiles ) {
-			await move( sqlFile, path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ), {
+			await move( sqlFile, getSqliteDatabasePath( site.path ), {
 				overwrite: true,
 			} );
 		}

@@ -12,6 +12,17 @@ export interface SiteDatabase {
 	ensureReady(): Promise< void >;
 	/** What the tools that write the database (Blueprints, Reprint) connect to. */
 	getConnection(): Promise< DatabaseConnection >;
+	/**
+	 * Whether the site's database has been created. WordPress may still need installing in it.
+	 */
+	exists(): Promise< boolean >;
+	/** Fixes what the database driver records wrongly. Safe while the site runs. */
+	repair(): Promise< void >;
+	/**
+	 * Gets the database ready to be opened by several processes at once (the site's server, WP-CLI),
+	 * then repairs it. Only while none of them has it open.
+	 */
+	prepareForSharing(): Promise< void >;
 }
 
 interface DatabaseSite {

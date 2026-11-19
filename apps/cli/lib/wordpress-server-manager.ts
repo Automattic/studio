@@ -18,11 +18,6 @@ import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metada
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
-import {
-	getSqliteDatabasePath,
-	replaceMysql8OnlyCollations,
-	resetSqliteJournalMode,
-} from '@studio/database/node';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
@@ -36,6 +31,7 @@ import {
 	type DaemonBusEventMap,
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
+import { getSiteDatabase } from 'cli/lib/database';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
@@ -240,16 +236,10 @@ export async function startWordPressServer(
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
 
-	// The SQLite driver leaves the database in WAL mode, whose shared-memory
-	// index is backed by file locks that fail when several processes open one
-	// site's database at once. Convert it back before the server touches the
-	// file — subprocesses (a WP-CLI process per table during an export) hit this.
-	const sqliteDatabasePath = getSqliteDatabasePath( site.path );
-	await resetSqliteJournalMode( sqliteDatabasePath );
-	await replaceMysql8OnlyCollations( sqliteDatabasePath );
+	const database = getSiteDatabase( site );
+	await database.prepareForSharing();
 	// WordPress installs and Blueprints run during the start below and can create new tables.
-	const mayCreateTablesDuringStart =
-		! fs.existsSync( sqliteDatabasePath ) || Boolean( options?.blueprint );
+	const mayCreateTablesDuringStart = ! ( await database.exists() ) || Boolean( options?.blueprint );
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(
@@ -289,7 +279,7 @@ export async function startWordPressServer(
 		);
 
 		if ( mayCreateTablesDuringStart ) {
-			await replaceMysql8OnlyCollations( sqliteDatabasePath );
+			await database.repair();
 		}
 
 		await recordSiteRuntimeUsage( site );

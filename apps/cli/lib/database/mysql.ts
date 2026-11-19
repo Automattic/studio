@@ -57,5 +57,9 @@ export function createMysqlSiteDatabase( sitePath: string, phpVersion: Supported
 			await ( await openDatabase( await getConnection() ) ).close();
 		},
 		getConnection,
+		// Created with the site, and ensureReady fails when it's gone.
+		exists: async () => true,
+		repair: async () => {},
+		prepareForSharing: async () => {},
 	} satisfies SiteDatabase;
 }

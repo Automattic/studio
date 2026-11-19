@@ -19,8 +19,8 @@ import {
 import { getSitePhpWorkers } from '@studio/common/lib/site-php-workers';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
-import { getSqliteDatabasePath } from '@studio/database/node';
 import { z } from 'zod';
+import { getSiteDatabase } from 'cli/lib/database';
 import {
 	managerMessageSchema,
 	ChildMessageRaw,
@@ -502,7 +502,11 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 	const deferInstallCheck =
 		! isImportedSite &&
 		! config.blueprint &&
-		fs.existsSync( getSqliteDatabasePath( config.sitePath ) );
+		( await getSiteDatabase( {
+			path: config.sitePath,
+			phpVersion,
+			databaseEngine: config.databaseEngine,
+		} ).exists() );
 	// Set when this start ran the installer, which created the admin user with the
 	// configured credentials, and no Blueprint ran after it that could change them.
 	let credentialsJustInstalled = false;

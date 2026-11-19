@@ -11,7 +11,8 @@ vi.mock( 'cli/lib/dependency-management/paths', () => ( {
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 	ensurePhpBinaryAvailable: vi.fn(),
 } ) );
-vi.mock( '@studio/database/node', () => ( {
+vi.mock( '@studio/database/node', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/database/node') >() ),
 	isSqliteIntegrationInstalled,
 } ) );
 

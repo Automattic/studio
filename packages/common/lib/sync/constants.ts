@@ -1,3 +1,4 @@
+import { SQLITE_INTEGRATION_FOLDER } from '@studio/database';
 import { getProvider } from '@studio/providers';
 import { DEPLOY_IGNORE_DEFAULTS } from '../deploy-ignore-defaults';
 
@@ -21,6 +22,6 @@ export const SYNC_IGNORE_DEFAULTS = [
 	'db.php',
 	'debug.log',
 	'studio-error.log',
-	'sqlite-database-integration',
+	SQLITE_INTEGRATION_FOLDER,
 	'/wp-content/cache',
 ];

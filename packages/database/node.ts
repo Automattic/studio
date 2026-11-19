@@ -13,7 +13,6 @@ export {
 	isSqliteIntegrationAvailable,
 	isSqliteIntegrationInstalled,
 	needsSqliteIntegration,
-	SQLITE_INTEGRATION_FOLDER,
 	updateSqliteIntegration,
 } from './sqlite-integration';
 export {

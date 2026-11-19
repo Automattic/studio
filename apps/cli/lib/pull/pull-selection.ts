@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getSqliteDatabasePath } from '@studio/database/node';
 import { __ } from '@wordpress/i18n';
 import { type PullSession } from 'cli/lib/pull/pull-session';
 import { type ReprintMetadata } from 'cli/lib/pull/reprint-metadata';
@@ -122,9 +123,9 @@ export async function applySelection( params: {
 			? path.join( session.rawDirectory, ...contentDir.split( '/' ).filter( Boolean ) )
 			: path.join( session.rawDirectory, 'wp-content' );
 		const candidates = [
-			path.join( session.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
+			getSqliteDatabasePath( session.sitePath ),
 			path.join( rawContentPath, 'database', '.ht.sqlite' ),
-			path.join( session.rawDirectory, 'wp-content', 'database', '.ht.sqlite' ),
+			getSqliteDatabasePath( session.rawDirectory ),
 		];
 		if ( ! candidates.some( ( candidate ) => fs.existsSync( candidate ) ) ) {
 			throw new LoggerError(

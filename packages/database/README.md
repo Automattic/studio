@@ -8,6 +8,7 @@ engine.ts              DatabaseEngine, getDatabaseEngine
 connection.ts          DatabaseConnection, parseDbHost, formatDbHost
 errors.ts              DatabaseError
 wp-config.ts           hasDefaultDbConstants, removeDefaultDbConstants
+sqlite.ts              SQLITE_INTEGRATION_FOLDER, SQLITE_WP_CONFIG_CONSTANTS
 node.ts                the Node entry
 open.ts                openDatabase, Database, createMysqlDatabase
 sqlite-integration.ts  the SQLite integration in a site
@@ -16,7 +17,7 @@ sqlite-files.ts        resetSqliteJournalMode, replaceMysql8OnlyCollations, copy
 
 ## Two entries
 
-- **`@studio/database`** runs in Node and in the page: types, the engine, `DB_HOST` values and `wp-config.php` text.
+- **`@studio/database`** runs in Node and in the page: types, the engine, `DB_HOST` values, `wp-config.php` text and the SQLite integration's folder and constants.
 - **`@studio/database/node`** opens databases and changes site files. The CLI imports it.
 
 ## Engines and connections
@@ -45,7 +46,7 @@ Failures throw a `DatabaseError` with a translated message and a `code`: `connec
 
 ## The SQLite integration
 
-WordPress runs on SQLite through the SQLite Database Integration plugin: a `db.php` drop-in that loads the driver from `wp-content/mu-plugins/sqlite-database-integration`, and the database in `wp-content/database/.ht.sqlite` (`getSqliteDatabasePath`).
+WordPress runs on SQLite through the SQLite Database Integration plugin: a `db.php` drop-in that loads the driver from `wp-content/mu-plugins/sqlite-database-integration` (`SQLITE_INTEGRATION_FOLDER`), and the database in `wp-content/database/.ht.sqlite` (`getSqliteDatabasePath`). The driver needs a non-empty `DB_NAME` in `wp-config.php` (`SQLITE_WP_CONFIG_CONSTANTS`).
 
 - `updateSqliteIntegration( sitePath, pluginPath )` installs or refreshes it on a site that runs on SQLite. It leaves alone a site moved to its own database server by hand, which has a `wp-config.php` and none of the SQLite files (`needsSqliteIntegration`).
 - `installSqliteIntegration( sitePath, pluginPath )` installs it regardless. A custom SQLite drop-in (one defining `SQLITE_DB_DROPIN_VERSION` without the stock header) is kept; any other `db.php` is replaced.

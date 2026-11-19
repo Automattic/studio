@@ -13,6 +13,7 @@ import {
 } from '@studio/common/lib/sync/build-sync-event-props';
 import { formatRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { getSqliteDatabasePath } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -617,17 +618,17 @@ export async function runFullPull(
 			'.ht.sqlite'
 		);
 	} else if ( selection.skipDatabase ) {
-		importedSqlitePath = path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+		importedSqlitePath = getSqliteDatabasePath( metadata.sitePath );
 	} else {
-		importedSqlitePath = path.join( metadata.rawDirectory, 'wp-content', 'database', '.ht.sqlite' );
+		importedSqlitePath = getSqliteDatabasePath( metadata.rawDirectory );
 	}
 
 	let sqlitePath = importedSqlitePath;
 	if ( selection.skipDatabase ) {
 		const existingSqlitePath = [
 			importedSqlitePath,
-			path.join( metadata.sitePath, 'wp-content', 'database', '.ht.sqlite' ),
-			path.join( metadata.rawDirectory, 'wp-content', 'database', '.ht.sqlite' ),
+			getSqliteDatabasePath( metadata.sitePath ),
+			getSqliteDatabasePath( metadata.rawDirectory ),
 		].find( ( candidate ) => fs.existsSync( candidate ) );
 		if ( existingSqlitePath ) {
 			sqlitePath = existingSqlitePath;

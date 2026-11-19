@@ -9,4 +9,5 @@ export {
 	type SqliteConnection,
 } from './connection';
 export { DatabaseError, type DatabaseErrorCode } from './errors';
+export { SQLITE_INTEGRATION_FOLDER, SQLITE_WP_CONFIG_CONSTANTS } from './sqlite';
 export { hasDefaultDbConstants, removeDefaultDbConstants } from './wp-config';

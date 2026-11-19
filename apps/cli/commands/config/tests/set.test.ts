@@ -5,6 +5,7 @@ import { vi } from 'vitest';
 import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getSiteDatabase, type SiteDatabase } from 'cli/lib/database';
 import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
@@ -47,6 +48,10 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 	};
 } );
 vi.mock( 'cli/lib/certificate-manager' );
+vi.mock( 'cli/lib/database', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/database') >() ),
+	getSiteDatabase: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/dependency-management/paths' );
 vi.mock( 'cli/lib/dependency-management/wordpress' );
 vi.mock( 'cli/lib/hosts-file' );
@@ -93,6 +98,9 @@ describe( 'CLI: studio config set', () => {
 		vi.mocked( pathExists ).mockImplementation( async ( filePath: string ) =>
 			filePath.endsWith( 'wp-config.php' ) ? wpConfig : database
 		);
+		vi.mocked( getSiteDatabase ).mockReturnValue( {
+			exists: async () => database,
+		} as SiteDatabase );
 	};
 
 	beforeEach( () => {

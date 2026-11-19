@@ -58,7 +58,11 @@ describe( 'CLI: studio remote pair', () => {
 	} );
 
 	it( 'says remote mode is not running when the recorded process is gone', async () => {
-		await setRemoteServerInfo( { url: 'http://127.0.0.1:8082', pid: deadPid() } );
+		await setRemoteServerInfo( {
+			url: 'http://127.0.0.1:8082',
+			pid: deadPid(),
+			connection: 'local',
+		} );
 
 		await runPairCommand();
 
@@ -67,7 +71,11 @@ describe( 'CLI: studio remote pair', () => {
 	} );
 
 	it( 'prints one new code for the recorded address when the server is running', async () => {
-		await setRemoteServerInfo( { url: 'http://127.0.0.1:8791', pid: process.pid } );
+		await setRemoteServerInfo( {
+			url: 'http://127.0.0.1:8791',
+			pid: process.pid,
+			connection: 'local',
+		} );
 
 		await runPairCommand();
 

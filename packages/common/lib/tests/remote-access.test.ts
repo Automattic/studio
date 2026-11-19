@@ -503,8 +503,23 @@ describe( 'device tokens', () => {
 } );
 
 describe( 'running server record', () => {
-	it( 'remembers where the remote server listens', async () => {
-		await setRemoteServerInfo( { url: 'http://192.168.1.20:8082', pid: 4242 }, 9_000 );
+	it( 'remembers where the remote server listens, and over which connection', async () => {
+		await setRemoteServerInfo(
+			{ url: 'https://my-mac.tail1234.ts.net:8082', pid: 4242, connection: 'https' },
+			9_000
+		);
+		expect( await readRemoteServerInfo() ).toEqual( {
+			url: 'https://my-mac.tail1234.ts.net:8082',
+			pid: 4242,
+			startedAt: 9_000,
+			connection: 'https',
+		} );
+	} );
+
+	it( 'reads a record from a build before the connection options', async () => {
+		await updateRemoteAccess( ( state ) => {
+			state.server = { url: 'http://192.168.1.20:8082', pid: 4242, startedAt: 9_000 };
+		} );
 		expect( await readRemoteServerInfo() ).toEqual( {
 			url: 'http://192.168.1.20:8082',
 			pid: 4242,
@@ -513,7 +528,11 @@ describe( 'running server record', () => {
 	} );
 
 	it( 'only the process that wrote the record clears it', async () => {
-		await setRemoteServerInfo( { url: 'http://192.168.1.20:8082', pid: 4242 } );
+		await setRemoteServerInfo( {
+			url: 'http://192.168.1.20:8082',
+			pid: 4242,
+			connection: 'local',
+		} );
 		await clearRemoteServerInfo( 1 );
 		expect( await readRemoteServerInfo() ).toBeDefined();
 		await clearRemoteServerInfo( 4242 );

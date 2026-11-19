@@ -37,4 +37,12 @@ describe( 'getSections', () => {
 		expect( ids( true ) ).toContain( 'phone' );
 		expect( ids( false ) ).not.toContain( 'phone' );
 	} );
+
+	it( "finds Phone's connection by Tailscale", () => {
+		const phone = getSections( 'studio', { phoneAccess: true } ).find(
+			( section ) => section.id === 'phone'
+		);
+		expect( phone?.aliases ).toContain( 'Tailscale' );
+		expect( phone?.settings.map( ( setting ) => setting.id ) ).toContain( 'phone-connection' );
+	} );
 } );

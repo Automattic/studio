@@ -1,15 +1,35 @@
 import { __, sprintf } from '@wordpress/i18n';
+import type {
+	RemoteConnectionKind,
+	RemoteConnectionRequest,
+} from '@studio/common/lib/remote-connection';
 
 // Remote mode as the desktop app runs it for the Studio phone app: the
 // bundled CLI's `studio remote`, started while the switch in Settings is on.
 export type PhoneAccessState =
 	| { status: 'off' }
 	| { status: 'starting' }
-	// `portChanged`: the remembered port was taken, so phones paired before
-	// must pair again.
-	| { status: 'on'; url: string; portChanged: boolean }
+	// `portChanged`: the remembered port was taken, so phones paired before must
+	// pair again. `movedFrom`: the address remote mode had the last time it ran,
+	// when it now has another one for another reason (a new connection, a new
+	// network address); phones paired at that address must pair again.
+	// `fallbackReason`: why Automatic did not take a safer connection.
+	// `connection` is missing for a record from an older CLI.
+	| {
+			status: 'on';
+			url: string;
+			connection?: RemoteConnectionKind;
+			portChanged: boolean;
+			movedFrom?: string;
+			fallbackReason?: string;
+	  }
 	// A `studio remote` the app did not start. It stops in its terminal.
-	| { status: 'terminal'; url: string }
+	| {
+			status: 'terminal';
+			url: string;
+			connection?: RemoteConnectionKind;
+			fallbackReason?: string;
+	  }
 	| { status: 'error'; message: string };
 
 // The process that runs `studio remote`.
@@ -23,20 +43,36 @@ export interface RemoteChild {
 
 export interface PhoneAccessParts {
 	// The running remote mode's record in Studio's config, whoever started it.
-	readServer: () => Promise< { url: string; pid: number } | undefined >;
+	readServer: () => Promise<
+		| { url: string; pid: number; connection?: RemoteConnectionKind; fallbackReason?: string }
+		| undefined
+	>;
 	isAlive: ( pid: number ) => boolean;
 	isPortFree: ( port: number ) => Promise< boolean >;
-	startRemote: ( port: number ) => RemoteChild;
-	loadSettings: () => Promise< { enabled: boolean; port: number | undefined } >;
+	startRemote: ( port: number, connection: RemoteConnectionRequest ) => RemoteChild;
+	loadSettings: () => Promise< {
+		enabled: boolean;
+		port: number | undefined;
+		connection: RemoteConnectionRequest;
+		// The address phones used the last time remote mode ran.
+		url: string | undefined;
+	} >;
 	// Never rejects: the app reports a failed write itself.
-	saveSettings: ( update: { enabled?: boolean; port?: number } ) => Promise< void >;
+	saveSettings: ( update: {
+		enabled?: boolean;
+		port?: number;
+		connection?: RemoteConnectionRequest;
+		url?: string;
+	} ) => Promise< void >;
 	sleep: ( ms: number ) => Promise< void >;
 }
 
 // `studio remote`'s own default, then the next ones.
 const FIRST_PORT = 8082;
 const LAST_PORT = 8181;
-const START_LIMIT_MS = 15_000;
+// Tailscale HTTPS answers only once `studio remote` has checked its own HTTPS
+// address, for up to a minute; Automatic then tries the tailnet.
+const START_LIMIT_MS = { local: 15_000, tailscale: 90_000 };
 const POLL_MS = 250;
 
 // The child the app started, and a promise that settles when it has ended.
@@ -48,7 +84,10 @@ interface Own {
 export function createPhoneAccess( parts: PhoneAccessParts ) {
 	let own: Own | null = null;
 	let url: string | null = null;
+	let connection: RemoteConnectionKind | undefined;
 	let portChanged = false;
+	let movedFrom: string | undefined;
+	let fallbackReason: string | undefined;
 	let lastError: string | null = null;
 	let starting: Promise< PhoneAccessState > | null = null;
 	// The app's child while it is being stopped: its record is not a terminal's.
@@ -71,17 +110,23 @@ export function createPhoneAccess( parts: PhoneAccessParts ) {
 			return { status: 'starting' };
 		}
 		if ( own && url ) {
-			return { status: 'on', url, portChanged };
+			return { status: 'on', url, connection, portChanged, movedFrom, fallbackReason };
 		}
 		const terminal = await terminalServer();
 		if ( terminal ) {
-			return { status: 'terminal', url: terminal.url };
+			return {
+				status: 'terminal',
+				url: terminal.url,
+				connection: terminal.connection,
+				fallbackReason: terminal.fallbackReason,
+			};
 		}
 		return lastError ? { status: 'error', message: lastError } : { status: 'off' };
 	}
 
-	async function choosePort(): Promise< { port: number; changed: boolean } | undefined > {
-		const { port: remembered } = await parts.loadSettings();
+	async function choosePort(
+		remembered: number | undefined
+	): Promise< { port: number; changed: boolean } | undefined > {
 		if ( remembered !== undefined && ( await parts.isPortFree( remembered ) ) ) {
 			return { port: remembered, changed: false };
 		}
@@ -121,9 +166,17 @@ export function createPhoneAccess( parts: PhoneAccessParts ) {
 		lastError = null;
 		const terminal = await terminalServer();
 		if ( terminal ) {
-			return { status: 'terminal', url: terminal.url };
+			return {
+				status: 'terminal',
+				url: terminal.url,
+				connection: terminal.connection,
+				fallbackReason: terminal.fallbackReason,
+			};
 		}
-		const chosen = await choosePort();
+		const settings = await parts.loadSettings();
+		const limitMs =
+			settings.connection === 'local' ? START_LIMIT_MS.local : START_LIMIT_MS.tailscale;
+		const chosen = await choosePort( settings.port );
 		if ( ! chosen ) {
 			return fail(
 				sprintf(
@@ -138,7 +191,7 @@ export function createPhoneAccess( parts: PhoneAccessParts ) {
 		if ( quitting ) {
 			return { status: 'off' };
 		}
-		const started = parts.startRemote( chosen.port );
+		const started = parts.startRemote( chosen.port, settings.connection );
 		const exit: { ended: boolean; message?: string } = { ended: false };
 		let running = false;
 		const ended = new Promise< void >( ( resolve ) => {
@@ -166,21 +219,35 @@ export function createPhoneAccess( parts: PhoneAccessParts ) {
 				own = null;
 				return fail( exit.message ?? __( 'Remote mode could not start.' ) );
 			}
-			if ( waited >= START_LIMIT_MS ) {
+			if ( waited >= limitMs ) {
 				await stopOwn();
-				return fail( __( 'Remote mode did not start within 15 seconds.' ) );
+				return fail(
+					sprintf(
+						/* translators: %d: a number of seconds, like 15. */
+						__( 'Remote mode did not start within %d seconds.' ),
+						limitMs / 1000
+					)
+				);
 			}
 			const server = await parts.readServer();
 			if ( server && server.pid === started.pid && own?.process === started && ! exit.ended ) {
 				// The switch is remembered as on only once remote mode runs.
-				await parts.saveSettings( { enabled: true, port: chosen.port } );
+				await parts.saveSettings( { enabled: true, port: chosen.port, url: server.url } );
 				// Stopped or ended while saving: the checks above report it, after
 				// this write, so the switch ends as they leave it.
 				if ( own?.process === started && ! exit.ended ) {
 					running = true;
 					url = server.url;
+					connection = server.connection;
+					fallbackReason = server.fallbackReason;
 					portChanged = chosen.changed;
-					return { status: 'on', url, portChanged };
+					// Another address than last time, and not because the port moved
+					// (that has its own message).
+					movedFrom =
+						settings.url !== undefined && settings.url !== url && ! chosen.changed
+							? settings.url
+							: undefined;
+					return { status: 'on', url, connection, portChanged, movedFrom, fallbackReason };
 				}
 				continue;
 			}
@@ -218,6 +285,30 @@ export function createPhoneAccess( parts: PhoneAccessParts ) {
 			}
 			await parts.saveSettings( { enabled: false } );
 			return { status: 'off' };
+		},
+
+		async getConnection(): Promise< RemoteConnectionRequest > {
+			return ( await parts.loadSettings() ).connection;
+		},
+
+		// Saves the connection. A running remote mode starts again on it.
+		async setConnection( request: RemoteConnectionRequest ): Promise< PhoneAccessState > {
+			if ( starting ) {
+				await starting;
+			}
+			await parts.saveSettings( { connection: request } );
+			if ( ! own ) {
+				return getState();
+			}
+			// Stopping and starting again is one start: turning off waits for it, and
+			// the state reads "starting" until it is done.
+			starting = ( async () => {
+				await stopOwn();
+				return start();
+			} )().finally( () => {
+				starting = null;
+			} );
+			return starting;
 		},
 
 		// At launch: remote mode comes back if the switch was on.

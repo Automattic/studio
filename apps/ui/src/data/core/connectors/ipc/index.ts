@@ -809,6 +809,8 @@ export function createIpcConnector(): Connector {
 
 		getPhoneAccess: () => ipcApi.getPhoneAccess(),
 		setPhoneAccess: ( on ) => ipcApi.setPhoneAccess( on ),
+		getPhoneConnections: () => ipcApi.getPhoneConnections(),
+		setPhoneConnection: ( request ) => ipcApi.setPhoneConnection( request ),
 		getPhonePairingCode: () => ipcApi.getPhonePairingCode(),
 		getPairedPhones: () => ipcApi.getPairedPhones(),
 		removePairedPhone: ( id ) => ipcApi.removePairedPhone( id ),

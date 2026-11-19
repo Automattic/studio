@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, REMOTE_ACCESS_LOCKFILE_NAME } from '../constants';
 import { hideDirectoryOnWindows } from './hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
+import { REMOTE_CONNECTION_KINDS, type RemoteConnectionKind } from './remote-connection';
 import { getConfigDirectory, getRemoteAccessConfigPath } from './well-known-paths';
 
 // What `studio remote` and paired phones agree on. Bump it when a change to the
@@ -49,6 +50,10 @@ const serverInfoSchema = z
 		url: z.string(),
 		pid: z.number(),
 		startedAt: z.number(),
+		// Missing in records from builds before the connection options.
+		connection: z.enum( REMOTE_CONNECTION_KINDS ).optional(),
+		// Why Automatic did not take a safer connection, when it did not.
+		fallbackReason: z.string().optional(),
 	} )
 	.loose();
 
@@ -338,7 +343,7 @@ export function revokeRemoteDevice( deviceId: string ): Promise< boolean > {
 
 // `studio remote pair` runs in another process and needs the running server's address.
 export async function setRemoteServerInfo(
-	info: { url: string; pid: number },
+	info: { url: string; pid: number; connection: RemoteConnectionKind; fallbackReason?: string },
 	now = Date.now()
 ): Promise< void > {
 	await updateRemoteAccess( ( state ) => {

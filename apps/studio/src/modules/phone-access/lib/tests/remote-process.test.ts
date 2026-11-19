@@ -33,15 +33,16 @@ afterEach( () => {
 } );
 
 describe( 'startRemote', () => {
-	it( "runs the bundled CLI's `studio remote` on the port, on the address STUDIO_REMOTE_HOST names", () => {
+	it( "runs the bundled CLI's `studio remote` on the port over the connection, or on the address STUDIO_REMOTE_HOST names", () => {
 		fakeRun();
-		startRemote( 8098 );
-		expect( executeCliCommand ).toHaveBeenLastCalledWith( [ 'remote', '--port', '8098' ], {
-			output: 'ignore',
-		} );
+		startRemote( 8098, 'https' );
+		expect( executeCliCommand ).toHaveBeenLastCalledWith(
+			[ 'remote', '--port', '8098', '--connection', 'https' ],
+			{ output: 'ignore' }
+		);
 
 		vi.stubEnv( 'STUDIO_REMOTE_HOST', '127.0.0.1' );
-		const remote = startRemote( 8098 );
+		const remote = startRemote( 8098, 'auto' );
 		expect( executeCliCommand ).toHaveBeenLastCalledWith(
 			[ 'remote', '--port', '8098', '--host', '127.0.0.1' ],
 			{ output: 'ignore' }
@@ -51,7 +52,7 @@ describe( 'startRemote', () => {
 
 	it( "tells once when it ends, with the CLI's error message when it failed", () => {
 		const { events } = fakeRun();
-		const remote = startRemote( 8082 );
+		const remote = startRemote( 8082, 'auto' );
 		const ended = vi.fn();
 		remote.onExit( ended );
 
@@ -66,7 +67,7 @@ describe( 'startRemote', () => {
 
 	it( 'tells a listener that comes after the end, and a failure without a message', () => {
 		const { events } = fakeRun();
-		const remote = startRemote( 8082 );
+		const remote = startRemote( 8082, 'auto' );
 		events.emit( 'failure', { error: failure() } );
 
 		const ended = vi.fn();
@@ -77,7 +78,7 @@ describe( 'startRemote', () => {
 
 	it( "ends with no message when it stops cleanly, and stops the way the app's CLI runner does", () => {
 		const { events, child } = fakeRun();
-		const remote = startRemote( 8082 );
+		const remote = startRemote( 8082, 'auto' );
 		const ended = vi.fn();
 		remote.onExit( ended );
 

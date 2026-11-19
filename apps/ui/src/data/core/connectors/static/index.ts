@@ -506,6 +506,12 @@ export function createStaticConnector(): Connector {
 		async setPhoneAccess() {
 			throw new UnsupportedError( 'setPhoneAccess' );
 		},
+		async getPhoneConnections() {
+			throw new UnsupportedError( 'getPhoneConnections' );
+		},
+		async setPhoneConnection() {
+			throw new UnsupportedError( 'setPhoneConnection' );
+		},
 		async getPhonePairingCode() {
 			throw new UnsupportedError( 'getPhonePairingCode' );
 		},

@@ -1,14 +1,21 @@
 import { killChild } from '@studio/common/lib/cli-process';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import type { RemoteConnectionRequest } from '@studio/common/lib/remote-connection';
 import type { RemoteChild } from 'src/modules/phone-access/lib/phone-access';
 
-// Runs the bundled CLI's `studio remote` on `port`, as the app runs its other
-// CLI commands. `STUDIO_REMOTE_HOST` picks the address, as `--host` does:
-// checks set it to loopback so they never open a port on the network.
-export function startRemote( port: number ): RemoteChild {
+// Runs the bundled CLI's `studio remote` on `port` over `connection`, as the
+// app runs its other CLI commands. `STUDIO_REMOTE_HOST` picks a local network
+// address instead, as `--host` does: checks set it to loopback so they never
+// open a port on the network.
+export function startRemote( port: number, connection: RemoteConnectionRequest ): RemoteChild {
 	const host = process.env.STUDIO_REMOTE_HOST;
 	const [ events, child ] = executeCliCommand(
-		[ 'remote', '--port', String( port ), ...( host ? [ '--host', host ] : [] ) ],
+		[
+			'remote',
+			'--port',
+			String( port ),
+			...( host ? [ '--host', host ] : [ '--connection', connection ] ),
+		],
 		{ output: 'ignore' }
 	);
 	let listener: ( ( errorMessage?: string ) => void ) | undefined;

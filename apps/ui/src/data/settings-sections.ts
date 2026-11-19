@@ -395,13 +395,19 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			id: 'phone',
 			label: __( 'Phone' ),
 			icon: SmartphoneIcon,
-			aliases: [ __( 'Remote mode' ), __( 'QR code' ), __( 'Pairing code' ) ],
+			aliases: [ __( 'Remote mode' ), __( 'QR code' ), __( 'Pairing code' ), __( 'Tailscale' ) ],
 			settings: [
 				setting(
 					'section',
 					__( 'Let your phone connect' ),
 					__( 'Pair the Studio phone app to work with Studio Code from your phone.' ),
 					'phone-access'
+				),
+				setting(
+					'section',
+					__( 'Connection' ),
+					__( 'How phones connect: Tailscale HTTPS, Tailnet or Local network.' ),
+					'phone-connection'
 				),
 				// Shown in every state; the code's group is not, so search does not lead to it.
 				setting( 'section', __( 'Paired phones' ), '', 'paired-phones' ),

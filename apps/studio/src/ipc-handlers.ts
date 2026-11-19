@@ -211,9 +211,11 @@ export {
 export {
 	getPairedPhones,
 	getPhoneAccess,
+	getPhoneConnections,
 	getPhonePairingCode,
 	removePairedPhone,
 	setPhoneAccess,
+	setPhoneConnection,
 } from 'src/modules/phone-access/lib/ipc-handlers';
 
 export {

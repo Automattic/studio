@@ -392,6 +392,11 @@
 	gap: var( --space-2 );
 }
 
+.phoneConnectionActions {
+	display: flex;
+	justify-content: flex-end;
+}
+
 .phonePairingBody {
 	display: flex;
 	flex-direction: column;

@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { PhonePanel } from './phone-panel';
-import type { PairedPhone, PhoneAccessState, PhonePairingCode } from '@/data/core';
+import type {
+	PairedPhone,
+	PhoneAccessState,
+	PhoneConnections,
+	PhonePairingCode,
+} from '@/data/core';
 
 const ADDRESS = 'http://192.168.1.20:8082';
 const QR_CODE = { name: 'QR code to pair the Studio phone app' };
@@ -244,5 +249,223 @@ describe( 'Settings > Phone', () => {
 
 		expect( await screen.findByText( 'Couldn’t read the paired phones.' ) ).toBeVisible();
 		expect( screen.queryByText( 'No phones paired yet' ) ).not.toBeInTheDocument();
+	} );
+
+	describe( 'connection', () => {
+		const ALL_READY: PhoneConnections = {
+			request: 'auto',
+			automatic: 'https',
+			options: [ { kind: 'https' }, { kind: 'tailnet' }, { kind: 'local' } ],
+		};
+
+		it( 'shows the connection, and lists the options with what each still needs', async () => {
+			const { connector } = await setup();
+			expect( screen.getByText( 'Automatic: Local network' ) ).toBeVisible();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
+
+			expect( await screen.findByText( 'Now: Local network' ) ).toBeVisible();
+			expect( screen.getByText( 'Selected' ) ).toBeVisible();
+			expect( screen.getAllByText( 'Tailscale is not installed on this computer.' ) ).toHaveLength(
+				2
+			);
+			expect( screen.getByText( 'Ready' ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Use Local network' } ) ).toBeVisible();
+			expect(
+				screen.queryByRole( 'button', { name: 'Use Tailscale HTTPS' } )
+			).not.toBeInTheDocument();
+			// The list reads Tailscale's state again when it opens.
+			expect( connector.getPhoneConnections ).toHaveBeenCalledTimes( 2 );
+
+			fireEvent.click( screen.getAllByRole( 'button', { name: 'Install Tailscale' } )[ 0 ] );
+			expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://tailscale.com/download' );
+		} );
+
+		it( 'says the phone app on iPhone needs Tailscale HTTPS, not Tailnet', async () => {
+			await setup();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
+
+			expect(
+				await screen.findByText(
+					'Encrypted by Tailscale, for your devices on Tailscale. The Studio phone app on iPhone needs Tailscale HTTPS instead.'
+				)
+			).toBeVisible();
+		} );
+
+		it( 'uses the connection picked, and closes the list', async () => {
+			const { connector } = await setupOn();
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Use Local network' } ) );
+
+			await waitFor( () => expect( connector.setPhoneConnection ).toHaveBeenCalledWith( 'local' ) );
+			expect( await screen.findByText( 'Local network' ) ).toBeVisible();
+			expect( screen.queryByText( 'Now: Local network' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'links to turning on HTTPS for a tailnet without it, and checks again', async () => {
+			const { connector } = await setup( createFakeConnector() );
+			connector.getPhoneConnections.mockResolvedValue( {
+				request: 'auto',
+				automatic: 'tailnet',
+				options: [
+					{ kind: 'https', missing: 'tailscale-https' },
+					{ kind: 'tailnet' },
+					{ kind: 'local' },
+				],
+			} );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Turn on HTTPS' } ) );
+			expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+				'https://login.tailscale.com/admin/dns'
+			);
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Check again' } ) );
+			await waitFor( () => expect( connector.getPhoneConnections ).toHaveBeenCalledTimes( 3 ) );
+		} );
+
+		it( 'warns that the connection is not encrypted only on the local network', async () => {
+			await setupOn( ( connector ) => {
+				connector.getPhoneConnections.mockResolvedValue( ALL_READY );
+				connector.getPhoneAccess.mockResolvedValue( {
+					status: 'on',
+					url: 'https://my-mac.tail1234.ts.net:8082',
+					connection: 'https',
+					portChanged: false,
+				} );
+			} );
+
+			expect( await screen.findByText( 'Automatic: Tailscale HTTPS' ) ).toBeVisible();
+			expect( screen.getByText( /Pair only devices you own\./ ) ).toBeVisible();
+			expect(
+				screen.queryByText( /Use Tailscale or another VPN when you can\./ )
+			).not.toBeInTheDocument();
+		} );
+
+		it( 'says phones paired at the old address must pair again when the address changed', async () => {
+			await setupOn( ( connector ) => {
+				connector.getPairedPhones.mockResolvedValue( [ pairedPhone() ] );
+				connector.getPhoneAccess.mockResolvedValue( {
+					status: 'on',
+					url: 'http://100.101.102.103:8082',
+					connection: 'tailnet',
+					portChanged: false,
+					movedFrom: 'http://192.168.1.20:8082',
+				} );
+			} );
+
+			expect(
+				await screen.findByText(
+					'The address changed from http://192.168.1.20:8082. Phones paired at that address must pair again.'
+				)
+			).toBeVisible();
+		} );
+
+		it( 'says why Automatic did not take a safer connection', async () => {
+			await setupOn( ( connector ) => {
+				connector.getPhoneAccess.mockResolvedValue( {
+					status: 'on',
+					url: 'http://100.101.102.103:8082',
+					connection: 'tailnet',
+					portChanged: false,
+					fallbackReason:
+						'Tailscale HTTPS did not start. error enabling https feature: access denied',
+				} );
+			} );
+
+			expect( await screen.findByText( 'Automatic: Tailnet' ) ).toBeVisible();
+			expect(
+				screen.getByText(
+					'Tailscale HTTPS did not start. error enabling https feature: access denied'
+				)
+			).toBeVisible();
+		} );
+
+		it( 'keeps the switch still while a new connection restarts remote mode', async () => {
+			let finish: ( state: PhoneAccessState ) => void = () => {};
+			const { connector, toggle } = await setupOn( ( connector ) => {
+				connector.setPhoneConnection.mockImplementation(
+					() => new Promise< PhoneAccessState >( ( resolve ) => ( finish = resolve ) )
+				);
+			} );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Use Local network' } ) );
+
+			await waitFor( () => expect( toggle ).toHaveAttribute( 'aria-disabled', 'true' ) );
+			await act( async () => finish( await connector.getPhoneAccess() ) );
+			await waitFor( () => expect( toggle ).not.toHaveAttribute( 'aria-disabled', 'true' ) );
+		} );
+
+		it( 'asks for a new code after a new connection, which drops the codes even at the same address', async () => {
+			const { connector } = await setupOn();
+			await screen.findByRole( 'img', QR_CODE );
+			const before = connector.getPhonePairingCode.mock.calls.length;
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Use Local network' } ) );
+
+			await waitFor( () =>
+				expect( connector.getPhonePairingCode.mock.calls.length ).toBeGreaterThan( before )
+			);
+		} );
+
+		it( 'keeps the connection picked when a read of the list finishes after it', async () => {
+			const connector = createFakeConnector();
+			let finishRead: ( connections: PhoneConnections ) => void = () => {};
+			const stale = await connector.getPhoneConnections();
+			connector.getPhoneConnections.mockClear();
+			connector.getPhoneConnections
+				.mockResolvedValueOnce( stale )
+				.mockImplementationOnce(
+					() => new Promise< PhoneConnections >( ( resolve ) => ( finishRead = resolve ) )
+				);
+			await setup( connector );
+
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Use Local network' } ) );
+			// The pick closes the list while the read is still on its way.
+			await waitFor( () =>
+				expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument()
+			);
+			await act( async () => {
+				finishRead( stale );
+				// Let the query cache hand the late read to the component.
+				await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+			} );
+
+			expect( screen.getByText( 'Local network' ) ).toBeVisible();
+			expect( screen.queryByText( 'Automatic: Local network' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'does not ask phones to pair again when none are paired', async () => {
+			await setupOn( ( connector ) => {
+				connector.getPhoneAccess.mockResolvedValue( {
+					status: 'on',
+					url: 'http://100.101.102.103:8082',
+					connection: 'tailnet',
+					portChanged: false,
+					movedFrom: 'http://192.168.1.20:8082',
+				} );
+			} );
+
+			expect( await screen.findByText( 'Automatic: Tailnet' ) ).toBeVisible();
+			expect( screen.queryByText( /must pair again/ ) ).not.toBeInTheDocument();
+		} );
+
+		it( "shows a terminal's connection, which only the terminal can change", async () => {
+			const connector = createFakeConnector();
+			connector.getPhoneAccess.mockResolvedValue( {
+				status: 'terminal',
+				url: 'http://100.101.102.103:8082',
+				connection: 'tailnet',
+			} );
+			await setup( connector );
+
+			expect( await screen.findByText( 'Tailnet' ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Change' } ) ).toBeDisabled();
+		} );
 	} );
 } );

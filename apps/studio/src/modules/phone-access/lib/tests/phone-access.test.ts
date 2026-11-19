@@ -1,18 +1,48 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createPhoneAccess } from 'src/modules/phone-access/lib/phone-access';
+import type {
+	RemoteConnectionKind,
+	RemoteConnectionRequest,
+} from '@studio/common/lib/remote-connection';
 import type { PhoneAccessParts, RemoteChild } from 'src/modules/phone-access/lib/phone-access';
+
+// Where a fake `studio remote` listens over each connection; Automatic takes
+// the local network here.
+function addressOf( connection: RemoteConnectionKind, port: number ) {
+	return {
+		https: `https://my-mac.tail1234.ts.net:${ port }`,
+		tailnet: `http://100.101.102.103:${ port }`,
+		local: `http://192.168.1.20:${ port }`,
+	}[ connection ];
+}
 
 // A fake `studio remote`: writes the running server's record once it has
 // started, and can stop or fail like the real one. With `slowStop`, it ends a
 // moment after it is asked to, as the real one does.
 function setup(
-	options: { remembered?: number; enabled?: boolean; busy?: number[]; slowStop?: boolean } = {}
+	options: {
+		remembered?: number;
+		enabled?: boolean;
+		busy?: number[];
+		slowStop?: boolean;
+		connection?: RemoteConnectionRequest;
+		lastUrl?: string;
+		fallbackReason?: string;
+	} = {}
 ) {
-	let record: { url: string; pid: number } | undefined;
+	let record:
+		| { url: string; pid: number; connection?: RemoteConnectionKind; fallbackReason?: string }
+		| undefined;
 	const alive = new Set< number >();
-	const settings = { enabled: options.enabled ?? false, port: options.remembered };
+	const settings = {
+		enabled: options.enabled ?? false,
+		port: options.remembered,
+		connection: options.connection ?? ( 'auto' as RemoteConnectionRequest ),
+		url: options.lastUrl,
+	};
 	const children: Array< {
 		port: number;
+		connection: RemoteConnectionRequest;
 		child: RemoteChild;
 		exit: ( message?: string ) => void;
 	} > = [];
@@ -22,7 +52,7 @@ function setup(
 		readServer: vi.fn( async () => record ),
 		isAlive: ( pid ) => alive.has( pid ),
 		isPortFree: vi.fn( async ( port: number ) => ! ( options.busy ?? [] ).includes( port ) ),
-		startRemote: vi.fn( ( port: number ) => {
+		startRemote: vi.fn( ( port: number, connection: RemoteConnectionRequest ) => {
 			const pid = nextPid++;
 			let listener: ( ( message?: string ) => void ) | undefined;
 			const exit = ( message?: string ) => {
@@ -45,7 +75,7 @@ function setup(
 					}
 				} ),
 			};
-			children.push( { port, child, exit } );
+			children.push( { port, connection, child, exit } );
 			alive.add( pid );
 			return child;
 		} ),
@@ -57,7 +87,13 @@ function setup(
 		sleep: vi.fn( async () => {
 			const latest = children.at( -1 );
 			if ( latest && alive.has( latest.child.pid ?? -1 ) && ! record ) {
-				record = { url: `http://192.168.1.20:${ latest.port }`, pid: latest.child.pid ?? -1 };
+				const connection = latest.connection === 'auto' ? 'local' : latest.connection;
+				record = {
+					url: addressOf( connection, latest.port ),
+					pid: latest.child.pid ?? -1,
+					connection,
+					fallbackReason: options.fallbackReason,
+				};
 			}
 		} ),
 	};
@@ -84,10 +120,16 @@ describe( 'createPhoneAccess', () => {
 		expect( state ).toEqual( {
 			status: 'on',
 			url: 'http://192.168.1.20:8083',
+			connection: 'local',
 			portChanged: false,
 		} );
-		expect( parts.startRemote ).toHaveBeenCalledWith( 8083 );
-		expect( settings ).toEqual( { enabled: true, port: 8083 } );
+		expect( parts.startRemote ).toHaveBeenCalledWith( 8083, 'auto' );
+		expect( settings ).toEqual( {
+			enabled: true,
+			port: 8083,
+			connection: 'auto',
+			url: 'http://192.168.1.20:8083',
+		} );
 		expect( await access.getState() ).toEqual( state );
 	} );
 
@@ -102,6 +144,7 @@ describe( 'createPhoneAccess', () => {
 		expect( await moved.access.turnOn() ).toEqual( {
 			status: 'on',
 			url: 'http://192.168.1.20:8082',
+			connection: 'local',
 			portChanged: true,
 		} );
 		expect( moved.settings.port ).toBe( 8082 );
@@ -125,6 +168,7 @@ describe( 'createPhoneAccess', () => {
 		expect( await access.getState() ).toEqual( {
 			status: 'terminal',
 			url: 'http://192.168.1.20:8098',
+			connection: undefined,
 		} );
 		expect( await access.turnOn() ).toEqual( {
 			status: 'terminal',
@@ -164,7 +208,7 @@ describe( 'createPhoneAccess', () => {
 	} );
 
 	it( 'gives up when remote mode does not start in time, and stops it', async () => {
-		const { access, parts, children } = setup();
+		const { access, parts, children } = setup( { connection: 'local' } );
 		vi.mocked( parts.sleep ).mockImplementation( async () => undefined );
 
 		expect( await access.turnOn() ).toEqual( {
@@ -172,6 +216,104 @@ describe( 'createPhoneAccess', () => {
 			message: 'Remote mode did not start within 15 seconds.',
 		} );
 		expect( children[ 0 ].child.stop ).toHaveBeenCalled();
+	} );
+
+	it( 'waits longer when the connection can be Tailscale HTTPS, which checks its own address first', async () => {
+		for ( const connection of [ 'auto', 'https', 'tailnet' ] as const ) {
+			const { access, parts } = setup( { connection } );
+			vi.mocked( parts.sleep ).mockImplementation( async () => undefined );
+
+			expect( await access.turnOn() ).toEqual( {
+				status: 'error',
+				message: 'Remote mode did not start within 90 seconds.',
+			} );
+		}
+	} );
+
+	it( 'starts over the saved connection and shows the one remote mode runs on', async () => {
+		const { access, parts } = setup( { connection: 'https' } );
+
+		expect( await access.turnOn() ).toMatchObject( {
+			status: 'on',
+			url: 'https://my-mac.tail1234.ts.net:8082',
+			connection: 'https',
+		} );
+		expect( parts.startRemote ).toHaveBeenCalledWith( 8082, 'https' );
+	} );
+
+	it( 'saves a new connection, and starts a running remote mode again on it', async () => {
+		const { access, parts, children, settings } = setup();
+		await access.turnOn();
+
+		const state = await access.setConnection( 'tailnet' );
+
+		expect( children[ 0 ].child.stop ).toHaveBeenCalled();
+		expect( parts.startRemote ).toHaveBeenLastCalledWith( 8082, 'tailnet' );
+		expect( settings.connection ).toBe( 'tailnet' );
+		// Another address: phones paired at the old one must pair again.
+		expect( state ).toEqual( {
+			status: 'on',
+			url: 'http://100.101.102.103:8082',
+			connection: 'tailnet',
+			portChanged: false,
+			movedFrom: 'http://192.168.1.20:8082',
+		} );
+		expect( await access.getConnection() ).toBe( 'tailnet' );
+	} );
+
+	it( 'says nothing when a new connection keeps the address', async () => {
+		const { access } = setup();
+		await access.turnOn();
+
+		expect( await access.setConnection( 'local' ) ).toMatchObject( {
+			status: 'on',
+			url: 'http://192.168.1.20:8082',
+			movedFrom: undefined,
+		} );
+	} );
+
+	it( 'says phones must pair again when remote mode starts at another address than last time', async () => {
+		const { access } = setup( { connection: 'tailnet', lastUrl: 'http://192.168.1.20:8082' } );
+
+		expect( await access.turnOn() ).toMatchObject( {
+			url: 'http://100.101.102.103:8082',
+			movedFrom: 'http://192.168.1.20:8082',
+		} );
+	} );
+
+	it( 'reads "starting" while a new connection restarts remote mode, and a turn-off then wins', async () => {
+		const { access, settings, children } = setup( { slowStop: true } );
+		await access.turnOn();
+
+		const changing = access.setConnection( 'tailnet' );
+		// While the old child stops: the window a turn-off used to slip through.
+		await vi.waitFor( () => expect( children[ 0 ].child.stop ).toHaveBeenCalled(), {
+			interval: 1,
+		} );
+		expect( await access.getState() ).toEqual( { status: 'starting' } );
+		const off = await access.turnOff();
+		await changing;
+
+		expect( off ).toEqual( { status: 'off' } );
+		expect( settings.enabled ).toBe( false );
+		expect( children.at( -1 )?.child.stop ).toHaveBeenCalled();
+		expect( await access.getState() ).toEqual( { status: 'off' } );
+	} );
+
+	it( 'passes on why Automatic did not take a safer connection', async () => {
+		const reason = 'Tailscale HTTPS did not start. error enabling https feature: access denied';
+		const { access } = setup( { fallbackReason: reason } );
+
+		expect( await access.turnOn() ).toMatchObject( { status: 'on', fallbackReason: reason } );
+	} );
+
+	it( 'only saves a new connection while remote mode is off', async () => {
+		const { access, parts, settings } = setup();
+
+		expect( await access.setConnection( 'local' ) ).toEqual( { status: 'off' } );
+
+		expect( settings.connection ).toBe( 'local' );
+		expect( parts.startRemote ).not.toHaveBeenCalled();
 	} );
 
 	it( 'waits for its own remote mode to end before it can start again', async () => {
@@ -245,7 +387,7 @@ describe( 'createPhoneAccess', () => {
 
 		const on = setup( { enabled: true, remembered: 8098 } );
 		await on.access.startIfEnabled();
-		expect( on.parts.startRemote ).toHaveBeenCalledWith( 8098 );
+		expect( on.parts.startRemote ).toHaveBeenCalledWith( 8098, 'auto' );
 
 		on.access.stop();
 		expect( on.children[ 0 ].child.stop ).toHaveBeenCalled();

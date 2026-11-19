@@ -17,6 +17,7 @@ export type {
 	OnboardingHintsState,
 	PairedPhone,
 	PhoneAccessState,
+	PhoneConnections,
 	PhonePairingCode,
 	PullSyncOptions,
 	PushSyncOptions,

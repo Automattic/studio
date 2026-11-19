@@ -18,7 +18,8 @@ export async function runCommand(
 	sitePath: string,
 	outputDir: string,
 	destinationUrl: string | undefined,
-	overwrite: boolean
+	overwrite: boolean,
+	beforeExport?: () => Promise< void >
 ): Promise< void > {
 	const site = await getSiteByFolder( sitePath );
 
@@ -38,6 +39,7 @@ export async function runCommand(
 	const forgetStop = onCancel( stop );
 
 	try {
+		await beforeExport?.();
 		logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Generating static site…' ) );
 		await exportStaticSite( {
 			site,

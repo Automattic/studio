@@ -36,6 +36,7 @@ function SelectionRow( {
 			<div className={ styles.disclosure }>{ disclosure }</div>
 			<Field orientation="horizontal">
 				<Checkbox
+					className={ styles.selectionCheckbox }
 					id={ id }
 					checked={ checked }
 					indeterminate={ indeterminate }
@@ -125,7 +126,13 @@ function FileNode( { node, selection }: { node: SyncNode; selection: TransferSel
 	);
 }
 
-export function FilePicker( { selection }: { selection: TransferSelection } ) {
+export function FilePicker( {
+	selection,
+	includeDatabase = true,
+}: {
+	selection: TransferSelection;
+	includeDatabase?: boolean;
+} ) {
 	return (
 		<div className={ styles.stack }>
 			{ selection.loadingFiles ? (
@@ -137,16 +144,20 @@ export function FilePicker( { selection }: { selection: TransferSelection } ) {
 					) ) }
 					{ selection.nodes.length ? null : (
 						<p className={ styles.text }>
-							{ __(
-								'Individual files are unavailable here. Use Files only to include all files.'
-							) }
+							{ includeDatabase
+								? __(
+										'Individual files are unavailable here. Use Files only to include all files.'
+								  )
+								: __( 'No files are available to choose.' ) }
 						</p>
 					) }
-					<SelectionRow
-						label={ __( 'Content and settings' ) }
-						checked={ selection.content }
-						onChange={ selection.setContent }
-					/>
+					{ includeDatabase && (
+						<SelectionRow
+							label={ __( 'Content and settings' ) }
+							checked={ selection.content }
+							onChange={ selection.setContent }
+						/>
+					) }
 				</>
 			) }
 		</div>

@@ -140,6 +140,10 @@ export function createStaticConnector(): Connector {
 	}
 
 	return {
+		getSitePublishStatus: async () => ( { localChanged: null } ),
+		getSiteVisibility: ( provider, id ) => wpcomOnly( provider ).getSiteVisibility( Number( id ) ),
+		setSiteVisibility: ( provider, id, value ) =>
+			wpcomOnly( provider ).setSiteVisibility( Number( id ), value ),
 		async init() {
 			// Ask the browser not to evict sites under storage pressure.
 			await navigator.storage?.persist?.().catch( () => false );
@@ -358,6 +362,9 @@ export function createStaticConnector(): Connector {
 		},
 		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {
 			await wpcomOnly( provider ).disconnectSite( localSiteId, Number( remoteSiteId ) );
+		},
+		async getSiteCreationVisibility() {
+			throw new UnsupportedError( 'getSiteCreationVisibility' );
 		},
 		async createRemoteSite() {
 			throw new UnsupportedError( 'createRemoteSite' );

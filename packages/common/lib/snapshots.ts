@@ -134,3 +134,6 @@ export async function fetchSnapshotUsage( accessToken: string ): Promise< Snapsh
 	}
 	return wpcomSnapshotUsageSchema.parse( await response.json() );
 }
+
+// `preview_sites` is left out when the user has none. `expires_at` is in seconds. `share_url` is the
+// preview link WordPress.com creates when the site's first build is done, and '' until then.

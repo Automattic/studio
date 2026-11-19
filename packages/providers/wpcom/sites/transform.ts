@@ -12,6 +12,9 @@ function transformSingleSiteResponse(
 		localSiteId: '',
 		name: site.name,
 		url: site.URL,
+		launchStatus: site.launch_status,
+		isComingSoon: site.is_coming_soon,
+		isPrivate: site.is_private,
 		isStaging,
 		isPressable: isPressableSite( site ),
 		environmentType: site.environment_type,
@@ -20,6 +23,10 @@ function transformSingleSiteResponse(
 		lastPushTimestamp: null,
 		wpVersion: site.options?.software_version,
 		planName: site.plan?.product_name_short,
+		hasPaidPlan:
+			site.plan?.is_free === undefined
+				? undefined
+				: ! site.plan.is_free && site.plan.expired !== true,
 		pushNeedsUpgrade: pushNeedsUpgrade( site ),
 		createdAt: site.options?.created_at,
 	};

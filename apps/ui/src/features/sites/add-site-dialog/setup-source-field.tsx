@@ -4,6 +4,7 @@ import { FileIcon, LayoutTemplateIcon } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { getRemoteSiteScreenshot } from '@/features/remote-site-picker';
 import { SITE_FILE_UPLOAD_TYPES } from '@/features/sites/blueprint-upload';
 import { FileArchiveIcon, FolderIcon, XIcon, ShuffleIcon } from '@/lib/icons';
 import {
@@ -18,7 +19,6 @@ import {
 } from '@/lib/ui';
 import { getBlueprintThumbnail } from './blueprint-screenshots';
 import { useAddSite } from './context';
-import { getRemoteSiteScreenshot } from './site-presentation';
 import styles from './style.module.css';
 
 export function SetupSourceField( { disabled = false }: { disabled?: boolean } ) {
@@ -40,7 +40,7 @@ export function SetupSourceField( { disabled = false }: { disabled?: boolean } )
 	const image = blueprint?.image
 		? getBlueprintThumbnail( { slug: blueprint.slug ?? '', image: blueprint.image } )
 		: remote
-		? getRemoteSiteScreenshot( remote )
+		? getRemoteSiteScreenshot( remote.url )
 		: undefined;
 	const description = blueprint
 		? __( 'Blueprint' )

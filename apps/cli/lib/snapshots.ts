@@ -39,17 +39,19 @@ export async function syncPreviewsWithServer( userId: number, token: string ): P
 	} catch {
 		return;
 	}
-	const forgotten = await reconcilePreviews( userId, previews, checkedAt );
+	const forgotten = await reconcilePreviews( userId, previews, checkedAt, true );
 	if ( ! forgotten.length ) {
 		return;
 	}
-	const sites = await fetchSyncableSites( token, { planRequired: false } ).catch( () => [] );
+	const sites = await fetchSyncableSites( token, { planRequired: false } ).catch( () => null );
+	if ( ! sites ) return;
 	for ( const snapshot of forgotten ) {
 		const site = sites.find( ( candidate ) => candidate.id === snapshot.atomicSiteId );
 		if ( site ) {
 			await rememberRemoteSite( 'wpcom', snapshot.localSiteId, site );
 		}
 	}
+	await reconcilePreviews( userId, previews, checkedAt );
 }
 
 export function formatDurationUntilExpiry( snapshot: Snapshot ) {

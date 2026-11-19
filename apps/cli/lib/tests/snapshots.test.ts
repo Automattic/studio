@@ -532,6 +532,52 @@ describe( 'Snapshots Module', () => {
 			userId,
 		} );
 
+		it( 'refreshes, clears and discovers the server’s preview launch URLs', async () => {
+			mocks.readFile.mockResolvedValue(
+				JSON.stringify( {
+					version: 1,
+					sites: [],
+					snapshots: [
+						{
+							...snapshot( 'first.wpcomstaging.com', 1, 1000 ),
+							launchUrl: 'https://wordpress.com/old',
+						},
+						{
+							...snapshot( 'linked.wpcomstaging.com', 2, 1000 ),
+							launchUrl: 'https://wordpress.com/stale',
+						},
+					],
+				} )
+			);
+			await reconcilePreviews(
+				USER_ID,
+				[
+					{
+						id: 1,
+						name: 'First',
+						url: 'https://first.wpcomstaging.com',
+						launchUrl: 'https://wordpress.com/launch/1',
+					},
+					{ id: 2, name: 'Linked', url: 'https://linked.wpcomstaging.com', liveSiteId: 20 },
+					{
+						id: 3,
+						name: 'New',
+						url: 'https://new.wpcomstaging.com',
+						launchUrl: 'https://wordpress.com/launch/3',
+					},
+				],
+				5000
+			);
+			const saved = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
+			expect(
+				saved.snapshots.map( ( item: Snapshot ) => [ item.atomicSiteId, item.launchUrl ] )
+			).toEqual( [
+				[ 1, 'https://wordpress.com/launch/1' ],
+				[ 2, undefined ],
+				[ 3, 'https://wordpress.com/launch/3' ],
+			] );
+		} );
+
 		it( "forgets the user's ended WordPress.com previews, updates the rest and lists ones made elsewhere", async () => {
 			// The live site a preview shows changes to follows the server: set, cleared and listed.
 			mocks.readFile.mockResolvedValue(

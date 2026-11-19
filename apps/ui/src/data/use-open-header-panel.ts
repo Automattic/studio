@@ -12,7 +12,7 @@ type HeaderPanelRequest = (
 			provider?: SitesProviderId;
 			remoteSiteId?: string | number;
 	  }
-	| { panel: 'share'; siteId: string }
+	| { panel: 'share'; siteId: string; createIfMissing?: boolean }
 ) & { trigger?: HTMLElement };
 
 // A request to open one of the preview header's panels from elsewhere (the

@@ -79,6 +79,7 @@ const siteConnectionSchema = z.looseObject( {
 	site: z.record( z.string(), z.unknown() ),
 	lastPushTimestamp: z.string().nullable().default( null ),
 	lastPullTimestamp: z.string().nullable().default( null ),
+	localVersionId: z.string().nullable().optional(),
 } );
 
 export type SiteConnection = z.infer< typeof siteConnectionSchema >;

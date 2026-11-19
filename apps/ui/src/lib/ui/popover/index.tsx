@@ -1,6 +1,7 @@
 import { Popover as BasePopover } from '@base-ui/react/popover';
 import { clsx } from 'clsx';
 import { FloatingSurface } from '@/lib/ui/surface';
+import tooltipStyles from '../tooltip/style.module.css';
 import styles from './style.module.css';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
@@ -69,7 +70,7 @@ export function Popup( {
 	style?: CSSProperties;
 	initialFocus?: PopupProps[ 'initialFocus' ];
 	finalFocus?: PopupProps[ 'finalFocus' ];
-	variant?: 'floating' | 'commands';
+	variant?: 'floating' | 'commands' | 'tooltip';
 	instant?: boolean;
 	'data-color-scheme'?: 'light' | 'dark';
 	'aria-label'?: string;
@@ -104,6 +105,8 @@ export function Popup( {
 					render={
 						commands ? (
 							<div className={ clsx( styles.commands, className ) } style={ style } />
+						) : variant === 'tooltip' ? (
+							<div className={ clsx( tooltipStyles.content, className ) } style={ style } />
 						) : (
 							<FloatingSurface className={ className } style={ style } />
 						)

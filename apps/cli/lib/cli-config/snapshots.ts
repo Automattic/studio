@@ -37,6 +37,7 @@ function previewFields( preview: PreviewSite ) {
 		url: new URL( preview.url ).hostname,
 		atomicSiteId: Number( preview.id ),
 		shareUrl: preview.shareUrl,
+		launchUrl: preview.launchUrl,
 		expiresAt: preview.expiresAt,
 		liveSiteId: preview.liveSiteId === undefined ? undefined : Number( preview.liveSiteId ),
 	};
@@ -208,7 +209,8 @@ export async function setSnapshotInConfig(
 export async function reconcilePreviews(
 	userId: number,
 	previews: PreviewSite[],
-	checkedAt: number
+	checkedAt: number,
+	keepMissingLocalPreviews = false
 ): Promise< Snapshot[] > {
 	const standing = new Map(
 		previews.map( ( preview ) => {
@@ -239,11 +241,13 @@ export async function reconcilePreviews(
 			if ( ! preview ) {
 				if ( snapshot.localSiteId ) {
 					forgotten.push( snapshot );
+					if ( keepMissingLocalPreviews ) return true;
 				}
 				return false;
 			}
 			snapshot.expiresAt = preview.expiresAt;
 			snapshot.liveSiteId = preview.liveSiteId;
+			snapshot.launchUrl = preview.launchUrl;
 			if ( ! snapshot.localSiteId ) {
 				snapshot.localSiteId = originOf( snapshot.atomicSiteId );
 			}

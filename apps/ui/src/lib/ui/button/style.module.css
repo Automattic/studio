@@ -160,7 +160,7 @@
 		color: var( --foreground );
 	}
 
-	.button[data-variant='outline']:is(
+	.button:is( [data-variant='outline'], [data-variant='segmented'] ):is(
 			:is( :hover, :active ):not( :disabled, [data-disabled] ),
 			[aria-expanded='true'],
 			[aria-pressed='true']
@@ -184,7 +184,7 @@
 	}
 
 	.button[data-variant='segmented'] {
-		--button-hover-background: var( --hover );
+		--button-hover-background: var( --hover-subtle );
 
 		border-color: var( --input );
 		color: var( --foreground );

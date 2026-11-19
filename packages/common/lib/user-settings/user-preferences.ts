@@ -348,6 +348,7 @@ export const onboardingHintsSchema = z
 		migratedFromClassic: z.boolean().optional(),
 		whatsNewSeenVersion: z.number().optional(),
 		annotateHintDismissed: z.boolean().optional(),
+		shareHintDismissed: z.boolean().optional(),
 	} )
 	.loose();
 

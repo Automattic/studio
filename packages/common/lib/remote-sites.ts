@@ -13,6 +13,7 @@ export interface SyncTimes {
 	localSiteId: string;
 	lastPushTimestamp: string | null;
 	lastPullTimestamp: string | null;
+	localVersionId?: string | null;
 }
 
 export type RemoteSiteConnection< Id extends SitesProviderId > = ProviderSites[ Id ] & SyncTimes;
@@ -56,9 +57,10 @@ export async function getRemoteSites< Id extends SitesProviderId >(
 			( site.connections ?? [] )
 				.filter( ( connection ) => isConnection( connection, provider, account ) )
 				.map(
-					( { site: remote, lastPushTimestamp, lastPullTimestamp } ) =>
+					( { site: remote, lastPushTimestamp, lastPullTimestamp, localVersionId } ) =>
 						( {
 							...remote,
+							...( localVersionId === undefined ? {} : { localVersionId } ),
 							localSiteId: site.id,
 							lastPushTimestamp,
 							lastPullTimestamp,
@@ -91,7 +93,8 @@ export async function rememberRemoteSite< Id extends SitesProviderId >(
 	provider: Id,
 	localSiteId: string,
 	site: ProviderSites[ Id ],
-	synced?: 'push' | 'pull'
+	synced?: 'push' | 'pull',
+	localVersionId?: string | null
 ): Promise< void > {
 	const {
 		localSiteId: _localSiteId,
@@ -121,6 +124,7 @@ export async function rememberRemoteSite< Id extends SitesProviderId >(
 		connection.lastPushTimestamp = ( lastPushTimestamp as string ) ?? connection.lastPushTimestamp;
 		connection.lastPullTimestamp = ( lastPullTimestamp as string ) ?? connection.lastPullTimestamp;
 		if ( synced ) {
+			connection.localVersionId = localVersionId ?? null;
 			connection[ synced === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp' ] =
 				new Date().toISOString();
 		}
@@ -141,4 +145,77 @@ export async function forgetRemoteSite< Id extends SitesProviderId >(
 			connections.splice( index, 1 );
 		}
 	} );
+}
+
+export async function forgetRemoteSites( localSiteId: string ): Promise< void > {
+	await updateConfig( ( config ) => {
+		const site = config.sites.find( ( candidate ) => candidate.id === localSiteId );
+		if ( site ) delete site.connections;
+	} );
+}
+
+async function savePublishingSite< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ],
+	localVersionId?: string | null
+): Promise< void > {
+	await updateConfig( ( config ) => {
+		const account = getAccount( config, provider );
+		if ( account === null ) throw new Error( 'Sign in to WordPress.com to connect this site.' );
+		const local = config.sites.find( ( candidate ) => candidate.id === localSiteId );
+		if ( ! local ) return;
+		const connections = ( local.connections ??= [] );
+		const previous = connections.find(
+			( connection ) =>
+				isConnection( connection, provider, account ) && connection.site.id === site.id
+		);
+		const published = localVersionId !== undefined;
+		const updating = published && previous && ! previous.site.launchAfterPush;
+		const remote = withoutUndefined( site );
+		delete remote.localSiteId;
+		delete remote.lastPushTimestamp;
+		delete remote.lastPullTimestamp;
+		delete remote.localVersionId;
+		if ( provider === 'wpcom' ) remote.syncSupport = 'already-connected';
+		const connection: SiteConnection = {
+			...previous,
+			provider,
+			...( account ? { account } : {} ),
+			site: { ...previous?.site, ...remote },
+			lastPullTimestamp: previous?.lastPullTimestamp ?? null,
+			lastPushTimestamp: published ? new Date().toISOString() : previous?.lastPushTimestamp ?? null,
+			...( published ? { localVersionId } : {} ),
+		};
+		if ( updating ) {
+			Object.assign( previous, connection );
+			return;
+		}
+		const wpcomAccount = getAccount( config, 'wpcom' );
+		local.connections = [
+			...connections.filter(
+				( candidate ) => candidate.provider === 'wpcom' && candidate.account !== wpcomAccount
+			),
+			connection,
+		];
+	} );
+}
+
+export function recordRemoteSitePublish< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ],
+	localVersionId: string | null
+): Promise< void > {
+	return savePublishingSite( provider, localSiteId, site, localVersionId );
+}
+
+export function connectPublishingSite< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ]
+): Promise< void > {
+	return 'launchAfterPush' in site && site.launchAfterPush
+		? rememberRemoteSite( provider, localSiteId, site )
+		: savePublishingSite( provider, localSiteId, site );
 }

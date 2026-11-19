@@ -31,6 +31,6 @@
 	.backdrop {
 		position: fixed;
 		inset: 0;
-		z-index: var( --z-popover );
+		z-index: calc( var( --z-toast ) - 1 );
 	}
 }

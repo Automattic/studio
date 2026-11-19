@@ -1,5 +1,5 @@
 import { SNAPSHOT_EVENTS, type SnapshotEvent } from '@studio/common/lib/cli-events';
-import { selectLiveSite } from '@studio/common/lib/live-preview-site';
+import { getQualifyingLiveSites, selectLiveSite } from '@studio/common/lib/live-preview-site';
 import { buildPreview, fetchSnapshotUsage, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -21,6 +21,7 @@ import type {
 import type { WpcomAuth } from './wpcom-auth';
 import type { SyncActivity, SyncEvent } from '@studio/common/lib/sync/activity';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
+import type { SiteVisibility } from '@studio/providers';
 
 type SyncConnectListener = ( event: {
 	remoteSiteId: number;
@@ -90,7 +91,27 @@ export class WpcomServices {
 
 	async getSnapshots(): Promise< Snapshot[] > {
 		const key = await this.userKey( 'snapshots' );
-		return key ? ( await kvGet< Snapshot[] >( key ) ) ?? [] : [];
+		const snapshots = key ? ( await kvGet< Snapshot[] >( key ) ) ?? [] : [];
+		if ( ! snapshots.some( isWpcomPreview ) ) return snapshots;
+		try {
+			const previews = await wpcomSites.previews!.list( { token: await this.auth.requireToken() } );
+			const standing = new Map( previews.map( ( preview ) => [ Number( preview.id ), preview ] ) );
+			return snapshots.map( ( snapshot ) => {
+				if ( ! isWpcomPreview( snapshot ) ) return snapshot;
+				const preview = standing.get( snapshot.atomicSiteId );
+				return {
+					...snapshot,
+					launchUrl: preview?.launchUrl,
+					...( preview && {
+						shareUrl: preview.shareUrl ?? snapshot.shareUrl,
+						expiresAt: preview.expiresAt,
+						liveSiteId: preview.liveSiteId === undefined ? undefined : Number( preview.liveSiteId ),
+					} ),
+				};
+			} );
+		} catch {
+			return snapshots.map( ( snapshot ) => ( { ...snapshot, launchUrl: undefined } ) );
+		}
 	}
 
 	private async updateSnapshots( update: ( snapshots: Snapshot[] ) => Snapshot[] ) {
@@ -126,10 +147,13 @@ export class WpcomServices {
 			const zip = await exportSiteZip( await this.sites.client( siteId ), {
 				standalone: true,
 			} );
-			const liveSite = selectLiveSite(
-				( await this.connections() ).filter( ( site ) => site.localSiteId === siteId ),
-				liveSiteSelection
+			const connected = ( await this.connections() ).filter(
+				( site ) => site.localSiteId === siteId
 			);
+			const liveSite =
+				liveSiteSelection === undefined && existing
+					? getQualifyingLiveSites( connected ).find( ( site ) => site.id === existing.liveSiteId )
+					: selectLiveSite( connected, liveSiteSelection );
 			const snapshotName = name ?? existing?.name;
 			// A preview made on Jurassic Ninja by an earlier release is replaced, and left to expire.
 			const preview = await buildPreview(
@@ -159,6 +183,7 @@ export class WpcomServices {
 				name: snapshotName,
 				userId: user?.id,
 				shareUrl: preview.shareUrl,
+				launchUrl: preview.launchUrl,
 				expiresAt: preview.expiresAt,
 				liveSiteId: preview.liveSiteId === undefined ? undefined : Number( preview.liveSiteId ),
 			};
@@ -267,6 +292,18 @@ export class WpcomServices {
 		return wpcomSites ? withWpcomDetails( connections, wpcomSites ) : connections;
 	}
 
+	async getSiteVisibility( remoteSiteId: number ) {
+		return wpcomSites.visibility!.get( { token: await this.auth.requireToken() }, remoteSiteId );
+	}
+
+	async setSiteVisibility( remoteSiteId: number, visibility: SiteVisibility ) {
+		return wpcomSites.visibility!.set(
+			{ token: await this.auth.requireToken() },
+			remoteSiteId,
+			visibility
+		);
+	}
+
 	// After the publish checkout creates a WordPress.com site, finds it among
 	// the account's sites (polling for about five minutes) and offers to push.
 	async watchForPublishedSite( siteId: string ): Promise< void > {
@@ -306,7 +343,9 @@ export class WpcomServices {
 	async connectSite( localSiteId: string, site: SyncSite ): Promise< void > {
 		await this.updateConnections( ( connections ) => [
 			...connections.filter(
-				( candidate ) => ! ( candidate.id === site.id && candidate.localSiteId === localSiteId )
+				( candidate ) =>
+					candidate.localSiteId !== localSiteId ||
+					( !! site.launchAfterPush && candidate.id !== site.id )
 			),
 			{ ...site, localSiteId },
 		] );
@@ -432,11 +471,15 @@ export class WpcomServices {
 			);
 			if ( remoteSite?.launchAfterPush && ! result?.launchError ) {
 				await this.updateConnections( ( connections ) =>
-					connections.map( ( connection ) =>
-						connection.localSiteId === siteId && connection.id === remoteSiteId
-							? { ...connection, launchAfterPush: false }
-							: connection
-					)
+					connections
+						.filter(
+							( connection ) => connection.localSiteId !== siteId || connection.id === remoteSiteId
+						)
+						.map( ( connection ) =>
+							connection.localSiteId === siteId && connection.id === remoteSiteId
+								? { ...connection, launchAfterPush: false }
+								: connection
+						)
 				);
 			}
 			return result?.launchError;

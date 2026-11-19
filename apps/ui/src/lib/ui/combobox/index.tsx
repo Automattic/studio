@@ -1,100 +1,105 @@
 import { Combobox as BaseCombobox } from '@base-ui/react/combobox';
 import { clsx } from 'clsx';
-import { CheckIcon } from 'lucide-react';
-import { XIcon } from '@/lib/icons';
-import inputStyles from '@/lib/ui/input/style.module.css';
+import { CheckIcon, SearchIcon } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDownIcon } from '@/lib/icons';
+import buttonStyles from '@/lib/ui/button/style.module.css';
 import selectStyles from '@/lib/ui/select/style.module.css';
 import surface from '@/lib/ui/surface/style.module.css';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode } from 'react';
 
-// A searchable choice of one or more items. With `multiple`, the chosen ones show as chips next to
-// the search field, all inside `ComboboxChips`.
-export const Combobox = BaseCombobox.Root;
-export const ComboboxValue = BaseCombobox.Value;
+// A button that opens a searchable checklist, for picking several items from a long list. The
+// search stays after a pick, so several matches can be checked in turn, and clears on close.
+export function Combobox< Value, Multiple extends boolean | undefined = false >( {
+	onOpenChange,
+	...props
+}: BaseCombobox.Root.Props< Value, Multiple > ) {
+	const [ query, setQuery ] = useState( '' );
+	return (
+		<BaseCombobox.Root
+			inputValue={ query }
+			onInputValueChange={ ( value, { isItemPress } ) => {
+				if ( ! isItemPress ) {
+					setQuery( value );
+				}
+			} }
+			onOpenChange={ ( open, details ) => {
+				if ( ! open ) {
+					setQuery( '' );
+				}
+				onOpenChange?.( open, details );
+			} }
+			{ ...props }
+		/>
+	);
+}
+
 export const ComboboxCollection = BaseCombobox.Collection;
 
-export function ComboboxChips( {
-	className,
-	...props
-}: ComponentProps< typeof BaseCombobox.Chips > ) {
-	return (
-		<BaseCombobox.Chips
-			data-slot="combobox-chips"
-			className={ clsx( inputStyles.input, styles.chips, className ) }
-			{ ...props }
-		/>
-	);
-}
-
-export function ComboboxChip( {
+export function ComboboxTrigger( {
 	className,
 	children,
-	removeLabel,
 	...props
-}: ComponentProps< typeof BaseCombobox.Chip > & { removeLabel: string } ) {
+}: ComponentProps< typeof BaseCombobox.Trigger > ) {
 	return (
-		<BaseCombobox.Chip
-			data-slot="combobox-chip"
-			className={ clsx( styles.chip, className ) }
+		<BaseCombobox.Trigger
+			data-slot="combobox-trigger"
+			data-size="default"
+			data-variant="outline"
+			className={ clsx( buttonStyles.button, selectStyles.trigger, className ) }
 			{ ...props }
 		>
-			<span className={ styles.chipLabel }>{ children }</span>
-			<BaseCombobox.ChipRemove className={ styles.chipRemove } aria-label={ removeLabel }>
-				<XIcon />
-			</BaseCombobox.ChipRemove>
-		</BaseCombobox.Chip>
+			{ children }
+			<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+		</BaseCombobox.Trigger>
 	);
 }
 
-export function ComboboxInput( {
-	className,
-	...props
-}: ComponentProps< typeof BaseCombobox.Input > ) {
-	return (
-		<BaseCombobox.Input
-			data-slot="combobox-input"
-			className={ clsx( styles.input, className ) }
-			{ ...props }
-		/>
-	);
-}
-
-// The popup: the items `ComboboxList` renders, or `empty` when the search matches none.
+// The popup, at `anchor` (the trigger): a search field over the list, `empty` when the search
+// matches nothing, and an optional `footer`.
 export function ComboboxContent( {
 	className,
 	children,
+	searchLabel,
 	empty,
+	footer,
 	anchor,
-	sideOffset = 4,
 	...props
 }: ComponentProps< typeof BaseCombobox.Popup > &
-	Pick< ComponentProps< typeof BaseCombobox.Positioner >, 'anchor' | 'sideOffset' > & {
+	Pick< ComponentProps< typeof BaseCombobox.Positioner >, 'anchor' > & {
+		searchLabel: string;
 		empty?: ReactNode;
+		footer?: ReactNode;
 	} ) {
 	return (
 		<BaseCombobox.Portal>
 			<BaseCombobox.Positioner
 				anchor={ anchor }
-				sideOffset={ sideOffset }
-				align="start"
+				sideOffset={ 4 }
+				align="end"
 				className={ selectStyles.positioner }
 			>
 				<BaseCombobox.Popup
 					data-slot="combobox-content"
-					className={ clsx(
-						surface.floating,
-						surface.popup,
-						surface.padded,
-						styles.content,
-						className
-					) }
+					className={ clsx( surface.floating, surface.popup, styles.content, className ) }
 					{ ...props }
 				>
-					{ empty ? (
-						<BaseCombobox.Empty className={ styles.empty }>{ empty }</BaseCombobox.Empty>
-					) : null }
-					{ children }
+					<div className={ styles.search }>
+						<SearchIcon aria-hidden />
+						<BaseCombobox.Input
+							className={ styles.searchInput }
+							placeholder={ searchLabel }
+							aria-label={ searchLabel }
+						/>
+					</div>
+					<div className={ styles.scroll }>
+						{ empty ? (
+							<BaseCombobox.Empty className={ styles.empty }>{ empty }</BaseCombobox.Empty>
+						) : null }
+						{ children }
+					</div>
+					{ footer ? <div className={ styles.footer }>{ footer }</div> : null }
 				</BaseCombobox.Popup>
 			</BaseCombobox.Positioner>
 		</BaseCombobox.Portal>
@@ -122,6 +127,7 @@ export function ComboboxGroupLabel( {
 	);
 }
 
+// A checklist row: a checkbox, the label and an optional description under it.
 export function ComboboxItem( {
 	className,
 	children,
@@ -131,17 +137,18 @@ export function ComboboxItem( {
 	return (
 		<BaseCombobox.Item
 			data-slot="combobox-item"
-			data-described={ description ? true : undefined }
-			className={ clsx( surface.item, selectStyles.item, className ) }
+			className={ clsx( surface.item, styles.item, className ) }
 			{ ...props }
 		>
-			<div className={ selectStyles.itemBody }>
-				<span className={ selectStyles.itemText }>{ children }</span>
+			<span className={ styles.checkbox }>
+				<BaseCombobox.ItemIndicator className={ styles.indicator }>
+					<CheckIcon />
+				</BaseCombobox.ItemIndicator>
+			</span>
+			<span className={ selectStyles.itemBody }>
+				<span className={ styles.itemLabel }>{ children }</span>
 				{ description && <span className={ selectStyles.itemDescription }>{ description }</span> }
-			</div>
-			<BaseCombobox.ItemIndicator className={ selectStyles.indicator }>
-				<CheckIcon />
-			</BaseCombobox.ItemIndicator>
+			</span>
 		</BaseCombobox.Item>
 	);
 }

@@ -735,8 +735,9 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 
 		const models = await findProviderRow( 'openrouter-models' );
 		fireEvent.click(
-			await within( models ).findByRole( 'button', { name: 'Remove Acme: Model' } )
+			await within( models ).findByRole( 'combobox', { name: 'OpenRouter models' } )
 		);
+		fireEvent.click( await screen.findByRole( 'option', { name: /Acme: Model/ } ) );
 		await waitFor( () =>
 			expect( connector.selectProviderModels ).toHaveBeenCalledWith( 'openrouter', [ sonnet.id ] )
 		);

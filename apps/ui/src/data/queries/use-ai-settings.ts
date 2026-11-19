@@ -62,6 +62,8 @@ export function useSelectProviderModels( provider: ProviderId ) {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( ids: AiModelId[] ) => connector.selectProviderModels( provider, ids ),
+		// One save at a time, so the last pick is the one that stays.
+		scope: { id: `select-models-${ provider }` },
 		onSuccess: ( settings ) => {
 			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
 		},

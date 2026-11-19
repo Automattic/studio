@@ -1,28 +1,31 @@
-import { getAiModels, getProvider, type CatalogModel, type ProviderId } from '@studio/providers';
-import { __, sprintf } from '@wordpress/i18n';
+import {
+	getAiModels,
+	getProvider,
+	type AiModelId,
+	type CatalogModel,
+	type ProviderId,
+} from '@studio/providers';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { useMemo, useRef, useState } from 'react';
 import { useProviderCatalog, useSelectProviderModels } from '@/data/queries/use-ai-settings';
 import {
+	Button,
 	Combobox,
-	ComboboxChip,
-	ComboboxChips,
 	ComboboxCollection,
 	ComboboxContent,
 	ComboboxGroup,
 	ComboboxGroupLabel,
-	ComboboxInput,
 	ComboboxItem,
 	ComboboxList,
-	ComboboxValue,
+	ComboboxTrigger,
 } from '@/lib/ui';
 import { SettingsRow } from './rows';
-import styles from './style.module.css';
 import type { ProviderAccount } from '@studio/common/lib/ai-settings';
 
-type Option = Pick< CatalogModel, 'id' | 'label' > & Partial< CatalogModel >;
+const NAMED = 3;
 
-// Which of a connected provider's models chat offers, picked from its catalog. Picks save when the
-// list closes, or right away when a chip is removed.
+// Which of a connected provider's models chat offers, checked in a list of its catalog. Each
+// change saves right away and shows before it lands.
 export function ProviderModels( {
 	provider,
 	account,
@@ -32,25 +35,20 @@ export function ProviderModels( {
 } ) {
 	const catalog = useProviderCatalog( provider );
 	const select = useSelectProviderModels( provider );
-	const chipsRef = useRef< HTMLDivElement >( null );
-	const [ open, setOpen ] = useState( false );
-	const offered = useMemo(
-		(): Option[] =>
-			getAiModels( provider, account ).map( ( model ) => {
-				const listed = catalog.data?.find( ( { id } ) => id === model.id );
-				return listed ?? { id: model.id, label: model.label() };
-			} ),
-		[ provider, account, catalog.data ]
-	);
-	const [ draft, setDraft ] = useState< Option[] >();
-	const value = draft ?? offered;
+	const [ picking, setPicking ] = useState< AiModelId[] >();
+	const triggerRef = useRef< HTMLButtonElement >( null );
+	const offered = getAiModels( provider, account );
+	const ids = picking ?? offered.map( ( { id } ) => id );
+	const recommended = getProvider( provider ).ai?.models.map( ( { id } ) => id ) ?? [];
 
-	const save = ( picked: Option[] ) => {
-		setDraft( undefined );
-		const ids = picked.map( ( { id } ) => id );
-		if ( ids.length && ids.join() !== offered.map( ( { id } ) => id ).join() ) {
-			select.mutate( ids );
+	const pick = ( next: AiModelId[] ) => {
+		if ( ! next.length ) {
+			return;
 		}
+		setPicking( next );
+		select.mutate( next, {
+			onSettled: () => setPicking( ( current ) => ( current === next ? undefined : current ) ),
+		} );
 	};
 
 	const groups = useMemo( () => {
@@ -61,66 +59,63 @@ export function ProviderModels( {
 		].filter( ( group ) => group.items.length );
 	}, [ catalog.data ] );
 
+	const labelOf = ( id: AiModelId ) =>
+		catalog.data?.find( ( model ) => model.id === id )?.label ??
+		offered.find( ( model ) => model.id === id )?.label() ??
+		id;
+	const names = ids.slice( 0, NAMED ).map( labelOf ).join( ', ' );
+	const others = ids.length - NAMED;
+
 	return (
 		<SettingsRow
 			title={ __( 'Models' ) }
 			settingId={ `${ provider }-models` }
-			description={ sprintf(
-				/* translators: %s: a service name such as OpenRouter */
-				__( 'The %s models to offer in chat.' ),
-				getProvider( provider ).label
-			) }
+			description={
+				others > 0
+					? sprintf(
+							/* translators: 1: model names, 2: how many more models */
+							_n( '%1$s and %2$d other', '%1$s and %2$d others', others ),
+							names,
+							others
+					  )
+					: names
+			}
 			error={ ( catalog.error ?? select.error )?.message }
-			stacked
 		>
 			<Combobox
 				items={ groups }
 				multiple
-				value={ value }
-				open={ open }
-				onOpenChange={ ( next ) => {
-					setOpen( next );
-					if ( ! next && draft ) {
-						save( draft );
-					}
-				} }
-				onValueChange={ ( next: Option[] ) => {
-					if ( ! next.length ) {
-						return;
-					}
-					if ( open ) {
-						setDraft( next );
-					} else {
-						save( next );
-					}
-				} }
-				isItemEqualToValue={ ( item: Option, picked: Option ) => item.id === picked.id }
-				itemToStringLabel={ ( item: Option ) => item.label }
-				disabled={ select.isPending }
+				value={ catalog.data?.filter( ( model ) => ids.includes( model.id ) ) ?? [] }
+				onValueChange={ ( next: CatalogModel[] ) => pick( next.map( ( { id } ) => id ) ) }
+				isItemEqualToValue={ ( item: CatalogModel, value: CatalogModel ) => item.id === value.id }
+				itemToStringLabel={ ( item: CatalogModel ) => item.label }
 			>
-				<ComboboxChips ref={ chipsRef } className={ styles.modelChips }>
-					<ComboboxValue>
-						{ ( picked: Option[] ) =>
-							picked.map( ( model ) => (
-								<ComboboxChip
-									key={ model.id }
-									removeLabel={ sprintf(
-										/* translators: %s: a model name */
-										__( 'Remove %s' ),
-										model.label
-									) }
-								>
-									{ model.label }
-								</ComboboxChip>
-							) )
-						}
-					</ComboboxValue>
-					<ComboboxInput
-						aria-label={ __( 'Search models' ) }
-						placeholder={ catalog.isLoading ? __( 'Loading models…' ) : __( 'Add a model' ) }
-					/>
-				</ComboboxChips>
-				<ComboboxContent anchor={ chipsRef } empty={ __( 'No models found.' ) }>
+				<ComboboxTrigger
+					ref={ triggerRef }
+					aria-label={ sprintf(
+						/* translators: %s: a service name such as OpenRouter */
+						__( '%s models' ),
+						getProvider( provider ).label
+					) }
+				>
+					{ sprintf(
+						/* translators: %d: number of models */
+						_n( '%d model', '%d models', ids.length ),
+						ids.length
+					) }
+				</ComboboxTrigger>
+				<ComboboxContent
+					anchor={ triggerRef }
+					searchLabel={ __( 'Search models' ) }
+					empty={ catalog.isLoading ? __( 'Loading models…' ) : __( 'No models found.' ) }
+					footer={
+						ids.join() !== recommended.join() ? (
+							<Button variant="ghost" size="sm" onClick={ () => pick( recommended ) }>
+								{ __( 'Reset to recommended' ) }
+							</Button>
+						) : null
+					}
+				>
 					<ComboboxList>
 						{ ( group: ( typeof groups )[ number ] ) => (
 							<ComboboxGroup key={ group.value } items={ group.items }>

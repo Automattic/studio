@@ -301,6 +301,17 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
+		it( 'reports whether the created site is running, which the apps require', async () => {
+			const reportResult = vi.spyOn( Logger.prototype, 'reportResult' );
+
+			await runCommand( mockSitePath, { ...defaultTestOptions, noStart: true } );
+
+			expect( reportResult ).toHaveBeenCalledWith( expect.objectContaining( { running: false } ) );
+			expect( storedConfig.sites ).toEqual(
+				expect.arrayContaining( [ expect.not.objectContaining( { running: expect.anything() } ) ] )
+			);
+		} );
+
 		it( 'saves and starts no site if port allocation fails', async () => {
 			vi.mocked( portFinder.getOpenPort ).mockRejectedValueOnce( new Error( 'No available port' ) );
 

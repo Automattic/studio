@@ -100,6 +100,9 @@ async function getLatestImport( token: string, siteId: number ) {
 	);
 }
 
+// WordPress.com finished the import and it failed: the site will never be built from this archive.
+class ImportFailedError extends RemoteSiteError {}
+
 // Waits for the site's archive import to finish. `previousImportId` is the import a rebuild
 // replaces, which reads as finished until the new one starts.
 async function waitForImport( token: string, siteId: number, previousImportId?: string ) {
@@ -112,7 +115,9 @@ async function waitForImport( token: string, siteId: number, previousImportId?: 
 				return;
 			}
 			if ( latest.importStatus === 'importFailure' ) {
-				throw new RemoteSiteError( __( 'The preview site could not be built from the archive.' ) );
+				throw new ImportFailedError(
+					__( 'The preview site could not be built from the archive.' )
+				);
 			}
 		}
 		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );
@@ -173,7 +178,17 @@ export async function createPreview(
 		);
 		return response.blog_details.blogid;
 	} );
-	await waitForImport( token, siteId );
+	try {
+		await waitForImport( token, siteId );
+	} catch ( error ) {
+		// A site whose first build failed still counts toward the account's preview limit, and
+		// Studio never saved it, so the user couldn't find it to delete it. Discard it. A timeout
+		// keeps the site, since its import may still finish.
+		if ( error instanceof ImportFailedError ) {
+			await deletePreview( token, siteId ).catch( () => undefined );
+		}
+		throw error;
+	}
 	onStatus( { phase: 'finishing' } );
 	// WordPress.com creates the preview link once the site's first build is done.
 	const preview = ( await listPreviews( token ) ).find( ( item ) => item.id === siteId );

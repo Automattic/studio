@@ -48,6 +48,35 @@
 	font-size: var( --text-xs );
 }
 
+.otherPreviews {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+}
+
+.otherPreviewList {
+	display: flex;
+	flex-direction: column;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.otherPreviewRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var( --space-2 );
+	min-width: 0;
+	font-size: var( --text-xs );
+}
+
+.otherPreviewTitle {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .content {
 	flex: 1;
 	display: flex;

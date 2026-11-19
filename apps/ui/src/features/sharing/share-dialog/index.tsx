@@ -89,6 +89,19 @@ export function SharePanel( {
 		usage.isSuccess &&
 		! usage.data?.siteCreationBlocked &&
 		( usage.data?.siteCount ?? 0 ) < ( usage.data?.siteLimit ?? Infinity );
+	const atLimit =
+		usage.isSuccess &&
+		! usage.data?.siteCreationBlocked &&
+		( usage.data?.siteCount ?? 0 ) >= ( usage.data?.siteLimit ?? Infinity );
+	// At the limit, the previews that fill it aren't all this site's: some belong to other sites,
+	// and some, made elsewhere, belong to no local site. List them so they can be deleted here.
+	const otherPreviews = atLimit
+		? ( snapshots.data ?? [] )
+				.filter(
+					( snapshot ) => snapshot.localSiteId !== site.id && ! isSnapshotExpired( snapshot )
+				)
+				.sort( ( a, b ) => b.date - a.date )
+		: [];
 	let notice: string | undefined;
 	if ( usage.data?.siteCreationBlocked ) {
 		notice = __( 'Preview sites are not available for your account.' );
@@ -181,6 +194,7 @@ export function SharePanel( {
 					key={ `${ site.id }:${ user.data?.id }` }
 					primaryAction={ primaryAction }
 					previews={ previews }
+					otherPreviews={ otherPreviews }
 					busy={ busy }
 					offline={ offline }
 					creating={ creating }

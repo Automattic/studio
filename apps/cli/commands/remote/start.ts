@@ -83,11 +83,11 @@ export async function runCommand( options: {
 			{ getSessionsDirectory },
 			{ STUDIO_SITES_ROOT },
 			{
+				claimRemoteServerInfo,
 				clearPairingCodes,
 				clearRemoteServerInfo,
 				getRemoteInstanceId,
 				readRemoteServerInfo,
-				setRemoteServerInfo,
 			},
 			{ capturePreview },
 		] = await Promise.all( [
@@ -233,18 +233,21 @@ export async function runCommand( options: {
 		}
 		const { choice, url } = started;
 
-		// Another `studio remote` may have started while this one waited for HTTPS.
-		const other = await readRemoteServerInfo();
-		if ( other && other.pid !== process.pid && isProcessAlive( other.pid ) ) {
+		// Another `studio remote` may have started at the same time, or while this
+		// one waited for HTTPS: only one of them gets the record.
+		const other = await claimRemoteServerInfo(
+			{
+				url,
+				pid: process.pid,
+				connection: choice.kind,
+				// The desktop app shows why Automatic did not take a safer connection.
+				...( skipped.length > 0 && { fallbackReason: skipped.join( ' ' ) } ),
+			},
+			isProcessAlive
+		);
+		if ( other ) {
 			throw new LoggerError( sprintf( __( 'Remote mode is already running at %s.' ), other.url ) );
 		}
-		await setRemoteServerInfo( {
-			url,
-			pid: process.pid,
-			connection: choice.kind,
-			// The desktop app shows why Automatic did not take a safer connection.
-			...( skipped.length > 0 && { fallbackReason: skipped.join( ' ' ) } ),
-		} );
 
 		if ( ! startedByApp ) {
 			console.log( '' );

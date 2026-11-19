@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	authenticateDeviceToken,
 	buildPairingUrl,
+	claimRemoteServerInfo,
 	clearPairingCodes,
 	clearRemoteServerInfo,
 	createPairingCode,
@@ -537,6 +538,58 @@ describe( 'running server record', () => {
 		expect( await readRemoteServerInfo() ).toBeDefined();
 		await clearRemoteServerInfo( 4242 );
 		expect( await readRemoteServerInfo() ).toBeUndefined();
+	} );
+
+	it( "takes the record when no live server holds it, also over a stopped one's", async () => {
+		await setRemoteServerInfo( {
+			url: 'http://192.168.1.20:8082',
+			pid: 4242,
+			connection: 'local',
+		} );
+
+		const holder = await claimRemoteServerInfo(
+			{ url: 'http://100.101.102.103:8084', pid: 5151, connection: 'tailnet' },
+			() => false,
+			9_000
+		);
+
+		expect( holder ).toBeUndefined();
+		expect( await readRemoteServerInfo() ).toEqual( {
+			url: 'http://100.101.102.103:8084',
+			pid: 5151,
+			startedAt: 9_000,
+			connection: 'tailnet',
+		} );
+	} );
+
+	it( 'leaves the record to a live server that holds it, and names it', async () => {
+		await setRemoteServerInfo( {
+			url: 'http://192.168.1.20:8082',
+			pid: 4242,
+			connection: 'local',
+		} );
+
+		const holder = await claimRemoteServerInfo(
+			{ url: 'http://100.101.102.103:8084', pid: 5151, connection: 'tailnet' },
+			() => true
+		);
+
+		expect( holder ).toMatchObject( { url: 'http://192.168.1.20:8082', pid: 4242 } );
+		expect( await readRemoteServerInfo() ).toMatchObject( { pid: 4242 } );
+	} );
+
+	it( 'gives the record to one of two servers that claim it at once', async () => {
+		const claim = ( pid: number ) =>
+			claimRemoteServerInfo(
+				{ url: `http://127.0.0.1:${ pid }`, pid, connection: 'local' },
+				( other ) => other === 1001 || other === 1002
+			);
+
+		const results = await Promise.all( [ claim( 1001 ), claim( 1002 ) ] );
+
+		expect( results.filter( ( holder ) => holder === undefined ) ).toHaveLength( 1 );
+		const winner = results[ 0 ] === undefined ? 1001 : 1002;
+		expect( await readRemoteServerInfo() ).toMatchObject( { pid: winner } );
 	} );
 } );
 

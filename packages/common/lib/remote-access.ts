@@ -351,6 +351,24 @@ export async function setRemoteServerInfo(
 	} );
 }
 
+// Writes this process's record unless a live `studio remote` other than this
+// one holds it, in one locked update: of two that start at once, one gets the
+// record and the other stops before it shows a code. Returns the holder's record.
+export async function claimRemoteServerInfo(
+	info: { url: string; pid: number; connection: RemoteConnectionKind; fallbackReason?: string },
+	isAlive: ( pid: number ) => boolean,
+	now = Date.now()
+): Promise< RemoteServerInfo | undefined > {
+	return updateRemoteAccess( ( state ) => {
+		const holder = state.server;
+		if ( holder && holder.pid !== info.pid && isAlive( holder.pid ) ) {
+			return holder;
+		}
+		state.server = { ...info, startedAt: now };
+		return undefined;
+	} );
+}
+
 export async function clearRemoteServerInfo( pid: number ): Promise< void > {
 	await updateRemoteAccess( ( state ) => {
 		if ( state.server?.pid === pid ) {

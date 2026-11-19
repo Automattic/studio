@@ -14,6 +14,7 @@ import {
 	setAiProvider as setAiProviderInConfig,
 	setImageProvider as setImageProviderInConfig,
 } from '@studio/common/lib/ai-settings';
+import { updateConfig } from '@studio/common/lib/config/store';
 import {
 	connectAgentApp as connectAgentAppToStudio,
 	detectAgentApps,
@@ -27,6 +28,7 @@ import {
 import { DEFAULT_COLOR_SCHEME } from '@studio/common/lib/user-settings/preferences';
 import {
 	onboardingHintsSchema,
+	type OnboardingHints,
 	readDefaultSiteDirectory,
 	readOnboardingHints,
 	readUserPreferences,
@@ -40,9 +42,8 @@ import { getProviderServices } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
+import { readDesktopState } from 'src/storage/desktop-state';
 import { defaultSitePath, getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
-import { OnboardingHintsState } from 'src/storage/storage-types';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 
 export async function getInstalledAppsAndTerminals(): Promise< InstalledApps > {
 	return detectInstalledAppsWithDefaultBrowser();
@@ -95,38 +96,27 @@ export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number 
 		return;
 	}
 	const intScore = Math.floor( score );
-	await lockAppdata();
-	try {
-		const userData = await loadUserData();
-		if ( userData.wapuuScore === undefined || intScore > userData.wapuuScore ) {
-			await saveUserData( { ...userData, wapuuScore: intScore } );
+	await updateConfig( ( { desktop } ) => {
+		if ( desktop.wapuuScore === undefined || intScore > desktop.wapuuScore ) {
+			desktop.wapuuScore = intScore;
 		}
-	} finally {
-		await unlockAppdata();
-	}
+	} );
 }
 
 export async function getWapuuScore(): Promise< number | undefined > {
-	const userData = await loadUserData();
-	return userData.wapuuScore;
+	return ( await readDesktopState() ).wapuuScore;
 }
 
 // Agentic UI onboarding state (orientation guide seen-state, migration marker).
-export async function getOnboardingHints(): Promise< OnboardingHintsState > {
+export async function getOnboardingHints(): Promise< OnboardingHints > {
 	return readOnboardingHints();
 }
 
 export async function saveOnboardingHints(
 	_event: IpcMainInvokeEvent,
-	partial: Partial< OnboardingHintsState >
+	partial: Partial< OnboardingHints >
 ): Promise< void > {
 	await writeOnboardingHints( onboardingHintsSchema.parse( partial ) );
-}
-
-// Marks a user who came from classic Studio (migration 09), so the orientation
-// guide can greet them as a migrating user. Fresh installs stay "new".
-export async function recordAgenticUiMigration(): Promise< void > {
-	await writeOnboardingHints( { migratedFromClassic: true } );
 }
 
 export async function getGlobalAgentInstructions(): Promise< string > {

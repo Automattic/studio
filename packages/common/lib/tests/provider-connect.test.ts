@@ -7,8 +7,8 @@ vi.mock( '@studio/common/lib/provider-config', () => ( {
 	readSignInContext: async () => ( { hostId: 'host-1', remembered: { clientId: 'saved' } } ),
 	writeProviderConfig: async () => undefined,
 	readProviderConfig: async () => undefined,
-	readAiFields: async () => ( {} ),
-	updateAiFields: async () => ( {} ),
+	readSelectedProvider: async () => undefined,
+	writeSelectedProvider: async () => undefined,
 } ) );
 
 // A provider whose site sends the browser straight back with `query`.

@@ -1,6 +1,6 @@
 /**
  * Preference values shared by every Studio front end. They all read the same
- * `app.json`, so the accepted values and their defaults are stated once here.
+ * config file, so the accepted values and their defaults are stated once here.
  */
 
 export const SUPPORTED_COLOR_SCHEMES = [ 'system', 'light', 'dark' ] as const;

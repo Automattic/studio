@@ -6,10 +6,10 @@ import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const logger = new Logger< LoggerAction >();
 
@@ -27,7 +27,7 @@ interface ConfigEntry {
 // back with `config get <key>` and written with `config set --<key>`. This is
 // intentionally narrower than the runtime-oriented `status` output (no URLs, no
 // online state).
-function getConfigEntries( site: SiteData ): ConfigEntry[] {
+function getConfigEntries( site: ConfigSite ): ConfigEntry[] {
 	return [
 		{ key: 'name', value: site.name },
 		{ key: 'domain', value: site.customDomain },

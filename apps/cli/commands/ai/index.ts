@@ -26,8 +26,8 @@ import {
 	persistSelectedAiProvider,
 	readSelectedAiProvider,
 } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	canUsePaidAiModels,
 	fetchStudioAssistantQuota,

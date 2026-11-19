@@ -20,7 +20,7 @@ import {
 	autoLoginCookie,
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -28,7 +28,7 @@ import {
 } from './helpers/cli-e2e';
 
 function findSite( env: CliEnv, sitePath: string ): Record< string, unknown > | undefined {
-	return readCliConfig( env ).sites.find( ( site ) => site.path === sitePath );
+	return readConfigFile( env ).sites.find( ( site ) => site.path === sitePath );
 }
 
 /**

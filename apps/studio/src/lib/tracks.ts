@@ -1,14 +1,11 @@
 import { app } from 'electron';
+import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
+import { getOrCreateAnalyticsInstallId, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	type TracksEventName,
 	type TracksProps,
 } from '@studio/common/lib/record-tracks-event';
-import {
-	getOrCreateAnalyticsInstallId,
-	isAnalyticsOptedOut,
-	isAutomatticianFromToken,
-} from '@studio/common/lib/shared-config';
 
 export {
 	TRACKS_EVENTS,

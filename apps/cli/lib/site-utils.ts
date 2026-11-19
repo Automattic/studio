@@ -1,11 +1,11 @@
 import { PROXY_PROCESS_NAME } from '@studio/common/constants';
+import { readConfig } from '@studio/common/lib/config/store';
 import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import {
 	isProxyProcessRunning,
@@ -20,6 +20,7 @@ import {
 	subscribeForReadyOrExit,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 /**
  * Starts the HTTP proxy server if it's not already running
@@ -64,7 +65,7 @@ export function buildAutoLoginUrl( siteUrl: string, redirectTo?: string ): strin
  * Opens the site in the browser: the Blueprint `landingPage` when the site has one, logged in so
  * admin landing pages don't bounce to the login screen, and the front page otherwise.
  */
-export async function openSiteInBrowser( site: SiteData ): Promise< void > {
+export async function openSiteInBrowser( site: ConfigSite ): Promise< void > {
 	const siteUrl = getSiteUrl( site );
 	try {
 		const url = site.landingPage
@@ -79,7 +80,7 @@ export async function openSiteInBrowser( site: SiteData ): Promise< void > {
 /**
  * Logs site details (URL, username, password) to the console
  */
-export function logSiteDetails( site: SiteData ): void {
+export function logSiteDetails( site: ConfigSite ): void {
 	const siteUrl = getSiteUrl( site );
 	console.log( __( 'Site URL: ' ), siteUrl );
 	console.log( __( 'Username: ' ), site.adminUsername || 'admin' );
@@ -95,7 +96,7 @@ export function logSiteDetails( site: SiteData ): void {
  * @param options.skipHostsUpdate - Skip adding domain to hosts file (useful when caller already handled it)
  */
 export async function setupCustomDomain(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< LoggerAction >,
 	options?: { skipHostsUpdate?: boolean }
 ): Promise< void > {
@@ -139,7 +140,7 @@ export async function stopProxyIfNoSitesNeedIt(
 		return;
 	}
 
-	const cliConfig = await readCliConfig();
+	const cliConfig = await readConfig();
 
 	const remainingSitesWithCustomDomains = cliConfig.sites.filter(
 		( site ) => ! stoppedSiteIdsArray.includes( site.id ) && site.customDomain
@@ -175,7 +176,7 @@ export async function getSitesRunningStatus(): Promise< Map< string, boolean > >
 	}
 
 	// Read after connecting, which can replace an outdated daemon and restart its sites with new pids.
-	const { sites } = await readCliConfig();
+	const { sites } = await readConfig();
 	return new Map(
 		sites.map( ( site ) => {
 			const processInfo = processes.find(

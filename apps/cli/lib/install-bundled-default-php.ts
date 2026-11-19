@@ -6,7 +6,7 @@ import {
 	resolveSupportedPhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { getPhpBinaryPath } from 'cli/lib/dependency-management/paths';
-import type { Migration } from '@studio/common/lib/migration';
+import type { StartupTask } from '@studio/common/lib/startup-tasks';
 
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
 
@@ -42,7 +42,7 @@ function bundledDefaultPhpExists(): boolean {
 // The Desktop app starts several CLI processes at once on first launch, so each
 // copies into its own staging folder and renames it into place: the destination
 // only ever appears complete, and a process that loses the race never removes it.
-export const installBundledDefaultPhp: Migration = {
+export const installBundledDefaultPhp: StartupTask = {
 	needsToRun: async () => {
 		return bundledDefaultPhpExists() && ! fs.existsSync( getDefaultPhpDestinationDir() );
 	},

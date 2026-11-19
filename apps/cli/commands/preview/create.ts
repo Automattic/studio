@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { getEditedDefaultThemesWarning } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
@@ -14,7 +15,6 @@ import { emitCliEvent } from 'cli/lib/daemon-client';
 import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
 import { buildPreviewSite, getLivePreviewSite } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
@@ -252,7 +252,7 @@ async function recordPreviewCreateEvent(
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_CREATE, {
 			...props,
-			...( await getSiteTracksProps( siteFolder, snapshot ) ),
+			...( await getSiteTracksProps( { siteFolder: siteFolder }, snapshot ) ),
 			...getTracksOrigin(),
 		} );
 	} catch {

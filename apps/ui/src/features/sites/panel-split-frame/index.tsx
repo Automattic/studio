@@ -23,6 +23,7 @@ interface PanelSplitFrameProps {
 	panel?: ( props: PanelSplitFramePanelProps ) => ReactNode;
 	panelOpen?: boolean;
 	onPanelClose?: () => void;
+	onChatClose?: () => void;
 	// The panel fills the frame over the hidden chat; the sidebar stays.
 	chatHidden?: boolean;
 	// Skip movement when restoring a different workspace.
@@ -37,6 +38,7 @@ export function PanelSplitFrame( {
 	panel,
 	panelOpen = false,
 	onPanelClose,
+	onChatClose,
 	chatHidden = false,
 	instant = false,
 	children,
@@ -46,6 +48,8 @@ export function PanelSplitFrame( {
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePanelSplit( {
 		showPanel,
 		siteId,
+		onPanelClose,
+		onChatClose,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
 	const resizable = ( containerWidth ?? Infinity ) >= PANEL_SPLIT_MIN_WIDTH;

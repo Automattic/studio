@@ -3,6 +3,8 @@
 // about a model than `/v1` does. Studio never asks which product runs the server: it reads what
 // the server answers.
 
+import { getServerAddress } from './descriptor';
+
 const LIST_TIMEOUT_MS = 10_000;
 const FACTS_TIMEOUT_MS = 10_000;
 // Loading a large model takes a while; the turn's own request would wait for it all the same.
@@ -20,21 +22,15 @@ export class RefusedKeyError extends Error {}
  * it isn't an address.
  */
 export function toApiBase( address: string ): string | undefined {
-	const trimmed = address.trim();
 	try {
 		const url = new URL(
-			/^[a-z][a-z\d+.-]*:\/\//i.test( trimmed ) ? trimmed : `http://${ trimmed }`
+			/^[a-z][a-z\d+.-]*:\/\//i.test( address ) ? address : `http://${ address }`
 		);
 		const path = url.pathname.replace( /\/+$/, '' );
 		return `${ url.origin }${ path.endsWith( '/v1' ) ? path : `${ path }/v1` }`;
 	} catch {
 		return undefined;
 	}
-}
-
-// Where a product's own API sits: the server's root, outside `/v1`.
-function toRoot( baseUrl: string ): string {
-	return baseUrl.replace( /\/v1$/, '' );
 }
 
 async function request(
@@ -109,7 +105,7 @@ export async function fetchModelEntries(
 }
 
 // What the server says about a model. A fact it doesn't say is undefined.
-export interface ModelFacts {
+interface ModelFacts {
 	images?: boolean;
 	// It only makes embeddings, so no chat runs on it.
 	embeddingOnly?: boolean;
@@ -236,7 +232,7 @@ export async function readModelFacts(
 	entries: ModelEntry[],
 	{ context = false }: { context?: boolean } = {}
 ): Promise< ModelFacts[] > {
-	const root = toRoot( baseUrl );
+	const root = getServerAddress( baseUrl );
 	const fromEntries = entries.map( readEntryFacts );
 	if ( fromEntries.every( ( facts ) => facts.images !== undefined ) ) {
 		return fromEntries;

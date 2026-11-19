@@ -222,14 +222,9 @@ describe( 'local-llm ai', () => {
 		async ( server, name, loadPath ) => {
 			serve( server );
 
-			const connection = await localLlmAi.model(
-				config( 'http://localhost:1234/v1' ),
-				`local-llm/${ name }`,
-				{}
-			);
+			await localLlmAi.model( config( 'http://localhost:1234/v1' ), `local-llm/${ name }`, {} );
 
 			expect( loaded ).toEqual( [ name ] );
-			expect( connection.exactContextWindow ).toBeDefined();
 			const requests = fetchMock.mock.calls.map( ( [ url, init ] ) => ( {
 				path: new URL( url ).pathname,
 				body: init?.body && JSON.parse( String( init.body ) ),

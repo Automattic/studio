@@ -304,16 +304,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		textareaRef,
 	} );
 	const hasAttachments = attachments.length > 0;
-	// A model picked from a provider's catalog reads images when its account says so.
+	// The account's models say whether one picked from a catalog reads images.
 	const { data: aiSettings } = useAiSettings();
-	const found = findAiModel( model );
-	const account = found && aiSettings?.accounts[ found.provider ];
+	const account = aiSettings?.accounts[ sessionProvider ];
 	const supportsImages = (
-		( found &&
-			getAiModels( found.provider, account?.connected ? account : undefined ).find(
-				( item ) => item.id === model
-			) ) ??
-		found?.model
+		getAiModels( sessionProvider, account?.connected ? account : undefined ).find(
+			( { id } ) => id === model
+		) ?? findAiModel( model )?.model
 	)?.supportsImages;
 	const currentValidationError =
 		validationError?.value === value &&

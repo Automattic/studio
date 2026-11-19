@@ -2,9 +2,9 @@ import { isContextOverflow } from '@earendil-works/pi-ai';
 import { __, sprintf } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
 import { getRefusedKeyMessage } from './account';
+import { toConfigModels, type LocalLlmConfig } from './config';
 import { getServerAddress, LOCAL_LLM_MODEL_PREFIX } from './descriptor';
 import { fetchChatModels, fetchModelEntries, readModelFacts, RefusedKeyError } from './server';
-import type { LocalLlmConfig } from './config';
 import type { AiConnection, CatalogModel, ProviderServices } from '../types';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 
@@ -14,6 +14,9 @@ const UNKNOWN_CONTEXT_WINDOW = 128_000;
 
 // pi sends a request only with a key; a server that takes none ignores it.
 const NO_KEY = 'none';
+
+const notConnected = () =>
+	new NotConnectedError( 'Connect Local LLM with the address of your model server.' );
 
 const getNotAnsweringMessage = ( address: string ) =>
 	sprintf(
@@ -71,7 +74,7 @@ function rewriteError( message: string, address: string, name: string ): string 
 export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ] > = {
 	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
-			throw new NotConnectedError( 'Connect Local LLM with the address of your model server.' );
+			throw notConnected();
 		}
 		if ( ! modelId.startsWith( LOCAL_LLM_MODEL_PREFIX ) ) {
 			throw new Error( `Local LLM does not serve ${ modelId }` );
@@ -81,9 +84,11 @@ export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ]
 		const address = getServerAddress( baseUrl );
 		// A server that doesn't answer leaves the facts unsaid; the turn's request then fails with
 		// the words for it.
-		const entries = await fetchModelEntries( baseUrl, apiKey ).catch( () => [] );
-		const entry = entries.find( ( { id } ) => id === name ) ?? { id: name };
-		const [ facts ] = await readModelFacts( baseUrl, apiKey, [ entry ], { context: true } );
+		const entries = await fetchModelEntries( baseUrl, apiKey ).catch( () => undefined );
+		const entry = entries?.find( ( { id } ) => id === name ) ?? { id: name };
+		const [ facts ] = entries
+			? await readModelFacts( baseUrl, apiKey, [ entry ], { context: true } )
+			: [ {} ];
 		return {
 			piProvider: 'local-llm',
 			apiKey: apiKey ?? NO_KEY,
@@ -128,7 +133,7 @@ export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ]
 
 	async listModels( config ) {
 		if ( ! config ) {
-			throw new NotConnectedError( 'Connect Local LLM with the address of your model server.' );
+			throw notConnected();
 		}
 		const { baseUrl, apiKey } = config;
 		const models = await fetchChatModels( baseUrl, apiKey ).catch( ( error ) => {
@@ -149,17 +154,19 @@ export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ]
 		);
 	},
 
-	// The models the server says call tools first, since new chats start on the first.
 	selectModels( config, picked ) {
-		const models = [
-			...picked.filter( ( model ) => model.recommended ),
-			...picked.filter( ( model ) => ! model.recommended ),
-		].flatMap( ( model ) =>
-			model.id.startsWith( LOCAL_LLM_MODEL_PREFIX )
-				? [
-						{ name: model.id.slice( LOCAL_LLM_MODEL_PREFIX.length ), images: model.supportsImages },
-				  ]
-				: []
+		const models = toConfigModels(
+			picked.flatMap( ( model ) =>
+				model.id.startsWith( LOCAL_LLM_MODEL_PREFIX )
+					? [
+							{
+								name: model.id.slice( LOCAL_LLM_MODEL_PREFIX.length ),
+								images: model.supportsImages,
+								tools: model.recommended,
+							},
+					  ]
+					: []
+			)
 		);
 		if ( ! models.length ) {
 			throw new Error( __( 'Pick at least one model your server offers.' ) );

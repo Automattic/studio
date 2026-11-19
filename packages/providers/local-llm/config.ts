@@ -18,3 +18,14 @@ export const localLlmConfigSchema = z.object( {
 } );
 
 export type LocalLlmConfig = z.infer< typeof localLlmConfigSchema >;
+
+// The models chat offers, those the server says call tools first, since new chats start on the
+// first: Ollama lists the model pulled last first, which may be one that can't.
+export function toConfigModels(
+	models: { name: string; images: boolean; tools?: boolean }[]
+): LocalLlmConfig[ 'models' ] {
+	return [
+		...models.filter( ( model ) => model.tools ),
+		...models.filter( ( model ) => ! model.tools ),
+	].map( ( { name, images } ) => ( { name, images } ) );
+}

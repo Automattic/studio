@@ -67,18 +67,15 @@ const STUDIO_COMPACTION_SETTINGS = {
 const REPLY_TOKENS = 4096 + MIN_ANSWER_TOKENS;
 
 /**
- * The compaction settings for the connection, given the tokens its system prompt and tools take.
- * On a window that is exact, the conversation's share of what a request holds sets them where
- * today's sizes don't fit: compaction starts once the conversation fills half its share, and keeps
- * a quarter of it, so a request after compacting still fits.
+ * The compaction settings for an exact window, given the tokens the system prompt and tools take:
+ * the conversation's share of what a request holds sets them where today's sizes don't fit, so
+ * compaction starts once the conversation fills half its share, and keeps a quarter of it, so a
+ * request after compacting still fits.
  */
-function getCompactionSettings( { exactContextWindow, model }: AiConnection, baseTokens: number ) {
-	if ( ! exactContextWindow ) {
-		return STUDIO_COMPACTION_SETTINGS;
-	}
-	const share = Math.max( 0, model.contextWindow - baseTokens - REPLY_TOKENS );
+function getCompactionSettings( contextWindow: number, baseTokens: number ) {
+	const share = Math.max( 0, contextWindow - baseTokens - REPLY_TOKENS );
 	return {
-		enabled: true,
+		...STUDIO_COMPACTION_SETTINGS,
 		reserveTokens: Math.min(
 			STUDIO_COMPACTION_SETTINGS.reserveTokens,
 			Math.floor( share / 2 ) + REPLY_TOKENS
@@ -161,7 +158,7 @@ function createOverflowEnding( ai: AiConnection ) {
 		flush( interrupted: boolean ): AgentSessionEvent[] {
 			const overflowed = pending;
 			pending = undefined;
-			return overflowed && words ? [ end( overflowed, interrupted ? undefined : words ) ] : [];
+			return overflowed ? [ end( overflowed, interrupted ? undefined : words ) ] : [];
 		},
 	};
 }
@@ -358,17 +355,21 @@ async function createStudioAgentSession(
 	);
 	const modelRuntime = await createModelRuntime( config.ai );
 	const settingsManager = createSettingsManager(
-		config.ai,
-		estimateTextTokens(
-			systemPrompt +
-				JSON.stringify(
-					toolDefinitions.map( ( { name, description, parameters } ) => ( {
-						name,
-						description,
-						parameters,
-					} ) )
-				)
-		)
+		config.ai.exactContextWindow
+			? getCompactionSettings(
+					config.ai.model.contextWindow,
+					estimateTextTokens(
+						systemPrompt +
+							JSON.stringify(
+								toolDefinitions.map( ( { name, description, parameters } ) => ( {
+									name,
+									description,
+									parameters,
+								} ) )
+							)
+					)
+			  )
+			: STUDIO_COMPACTION_SETTINGS
 	);
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
@@ -484,11 +485,11 @@ function createProviderConfig( ai: AiConnection ): ProviderConfigInput {
 	};
 }
 
-function createSettingsManager( ai: AiConnection, baseTokens: number ): SettingsManager {
+function createSettingsManager( compaction: typeof STUDIO_COMPACTION_SETTINGS ): SettingsManager {
 	return SettingsManager.inMemory(
 		{
 			defaultThinkingLevel: 'high',
-			compaction: getCompactionSettings( ai, baseTokens ),
+			compaction,
 		},
 		{ projectTrusted: false }
 	);

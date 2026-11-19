@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	AI_PROVIDER_IDS,
 	findAiModel,
-	getAiModels,
 	getConnectFields,
 	getConnectMethod,
 	getDefaultAiModel,
@@ -37,7 +36,6 @@ describe( 'models', () => {
 		expect( found?.model.label() ).toBe( 'hf.co/unsloth/Qwen3-4B:Q4_K_M' );
 		expect( found?.model.supportsImages ).toBeUndefined();
 		expect( findAiModel( 'anthropic/claude-opus-5-5' ) ).toBeUndefined();
-		expect( getAiModels( 'local-llm' ) ).toEqual( [] );
 		// Last in the fallback order, so WordPress.com stays first.
 		expect( AI_PROVIDER_IDS.at( -1 ) ).toBe( 'local-llm' );
 	} );

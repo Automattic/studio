@@ -18,6 +18,6 @@ export {
 	servesAiModel,
 	type AiModelId,
 } from './models';
-export { getConnectFields, getConnectMethod, type ConnectField } from './connection';
+export { getConnectFields, getConnectMethod, needsHost, type ConnectField } from './connection';
 export { ConnectError, NotConnectedError, RemoteSiteError } from './errors';
 export type * from './types';

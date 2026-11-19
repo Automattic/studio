@@ -21,6 +21,12 @@ export function getConnectMethod( provider: ProviderId, id?: string ): ConnectMe
 	return methods.find( ( method ) => method.id === id ) ?? methods[ 0 ];
 }
 
+// Whether only a process on the user's computer can connect with the method: a sign-in that comes
+// back to it or polls endpoints a page can't call, or a method that says so.
+export function needsHost( { kind, hostOnly }: ConnectMethod ): boolean {
+	return kind === 'loopback' || kind === 'device' || hostOnly === true;
+}
+
 // The fields a method's form asks for; empty when it doesn't connect with a form.
 export function getConnectFields( method: ConnectMethod ): ConnectField[] {
 	if ( method.kind !== 'form' ) {

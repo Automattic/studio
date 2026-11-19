@@ -4,6 +4,7 @@ import {
 	type AiProviderId,
 	type ConnectMethod,
 	type ProviderId,
+	needsHost,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
@@ -28,9 +29,7 @@ import styles from './style.module.css';
 
 export function getProviderConnectMethods( id: ProviderId, loopbackSignIn: boolean ) {
 	return getProvider( id ).account.methods.filter(
-		( { kind, hostOnly } ) =>
-			kind !== 'redirect' &&
-			( loopbackSignIn || ( kind !== 'loopback' && kind !== 'device' && ! hostOnly ) )
+		( method ) => method.kind !== 'redirect' && ( loopbackSignIn || ! needsHost( method ) )
 	);
 }
 

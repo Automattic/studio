@@ -1,8 +1,8 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { ConnectError } from '../errors';
+import { toConfigModels, type LocalLlmConfig } from './config';
 import { localLlmConnectInput } from './descriptor';
 import { fetchChatModels, RefusedKeyError, toApiBase } from './server';
-import type { LocalLlmConfig } from './config';
 import type { ProviderServices } from '../types';
 
 const getUnreachableMessage = ( address: string ) =>
@@ -18,8 +18,7 @@ export const getRefusedKeyMessage = () =>
 type LocalLlmAccount = ProviderServices< LocalLlmConfig >[ 'account' ];
 
 // Connects when the server at the address offers a model to chat on, sending the key only when
-// there is one, and offers all its chat models, those it says call tools first: new chats start on
-// the first, and Ollama lists the model pulled last first, which may be one that can't.
+// there is one, and offers all its chat models.
 const connect: LocalLlmAccount[ 'connect' ] = async ( _method, input ) => {
 	const parsed = localLlmConnectInput().safeParse( input );
 	if ( ! parsed.success ) {
@@ -45,10 +44,13 @@ const connect: LocalLlmAccount[ 'connect' ] = async ( _method, input ) => {
 		method: 'server',
 		baseUrl,
 		...( apiKey ? { apiKey } : {} ),
-		models: [
-			...models.filter( ( { facts } ) => facts.tools ),
-			...models.filter( ( { facts } ) => ! facts.tools ),
-		].map( ( { id, facts } ) => ( { name: id, images: facts.images === true } ) ),
+		models: toConfigModels(
+			models.map( ( { id, facts } ) => ( {
+				name: id,
+				images: facts.images === true,
+				tools: facts.tools,
+			} ) )
+		),
 	};
 };
 

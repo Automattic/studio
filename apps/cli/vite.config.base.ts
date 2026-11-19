@@ -179,6 +179,12 @@ export const baseConfig = defineConfig( {
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'php-server-child': resolve( __dirname, 'php-server-child.ts' ),
+				// pi starts its image resizing worker from `image-resize-worker.js` next to its own code,
+				// which is bundled here.
+				'image-resize-worker': resolve(
+					__dirname,
+					'../../node_modules/@earendil-works/pi-coding-agent/dist/utils/image-resize-worker.js'
+				),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],
@@ -188,7 +194,8 @@ export const baseConfig = defineConfig( {
 		rolldownOptions: {
 			output: {
 				format: 'es',
-				entryFileNames: '[name].mjs',
+				entryFileNames: ( chunk ) =>
+					chunk.name === 'image-resize-worker' ? '[name].js' : '[name].mjs',
 				chunkFileNames: '[name]-[hash].mjs',
 				// Some bundled CommonJS dependencies (e.g. `lockfile`, `debug`) call
 				// `require( ... )` for Node built-ins at module init. Rolldown (the

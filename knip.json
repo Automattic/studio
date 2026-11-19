@@ -9,7 +9,6 @@
 			"entry": [
 				"src/index.ts",
 				"src/preload.ts",
-				"src/migrations/index.ts",
 				"forge.config.ts",
 				"native/build.ts",
 				"e2e/global-setup.ts",
@@ -29,7 +28,10 @@
 				"commands/**/*.ts",
 				"vite.config.*.ts"
 			],
-			"project": "**/*.ts"
+			"project": "**/*.ts",
+			// Only the bundled pi imports it, to resize images in its Read tool. It stays installed
+			// because it reads its .wasm file from its own folder.
+			"ignoreDependencies": ["@silvia-odwyer/photon-node"]
 		},
 		"apps/ui": {
 			"entry": [
@@ -65,5 +67,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["mdfind", "attrib", "apt-get", "Xvfb"]
+	"ignoreBinaries": ["attrib", "apt-get", "Xvfb", "ditto", "dpkg-deb", "pgrep"]
 }

@@ -54,6 +54,7 @@ import type { DesignFix } from '@studio/design-md';
 import type {
 	AiModelId,
 	AiProviderId,
+	CatalogModel,
 	PendingConnect,
 	ProviderId,
 	ProviderSites,
@@ -218,8 +219,9 @@ export interface Connector {
 	createSite( params: CreateSiteParams ): Promise< SiteDetails >;
 	// Deletes a site from Studio. When `deleteFiles` is true the site folder is
 	// also removed from disk; otherwise the files stay and only the Studio entry
-	// is dropped.
-	deleteSite( id: string, deleteFiles?: boolean ): Promise< void >;
+	// is dropped. `warnings` names what the delete left behind, such as files it
+	// could not move to trash.
+	deleteSite( id: string, deleteFiles?: boolean ): Promise< { warnings: string[] } >;
 	// Duplicates an existing site (copies its files and admin credentials, then
 	// registers it as a new site). The connector picks a numbered name and a new
 	// site id internally so callers stay simple.
@@ -522,8 +524,14 @@ export interface Connector {
 	// Starts connecting with a method that signs in on the provider's site (`loopback` or `device`).
 	startProviderConnect( provider: ProviderId, method: string ): Promise< PendingConnect >;
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
+	// The catalog of a provider whose account picks its models (`Provider.ai.catalog`), and
+	// offering these models of it, as `listProviderModels` returned them.
+	listProviderModels( provider: ProviderId ): Promise< CatalogModel[] >;
+	selectProviderModels( provider: ProviderId, models: CatalogModel[] ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
+	// The provider that generates images, or null to pick it automatically.
+	setImageProvider( provider: AiProviderId | null ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -703,7 +711,7 @@ export interface Connector {
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
 	// first-run welcome flag). setOnboardingHints shallow-merges
-	// its partial. Persisted to app.json.
+	// its partial. Persisted to the config file.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
 

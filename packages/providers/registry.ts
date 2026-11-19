@@ -1,9 +1,12 @@
 import { anthropicProvider } from './anthropic/descriptor';
 import { geminiProvider } from './gemini/descriptor';
 import { githubCopilotProvider } from './github-copilot/descriptor';
+import { metaProvider } from './meta/descriptor';
 import { openaiProvider } from './openai/descriptor';
+import { openrouterProvider } from './openrouter/descriptor';
 import { spacefastProvider } from './spacefast/descriptor';
 import { wpcomProvider } from './wpcom/descriptor';
+import { xaiProvider } from './xai/descriptor';
 import type {
 	AiProviderId,
 	Provider,
@@ -21,6 +24,9 @@ export const AI_PROVIDER_IDS = [
 	'openai',
 	'gemini',
 	'github-copilot',
+	'meta',
+	'xai',
+	'openrouter',
 ] as const satisfies readonly AiProviderId[];
 
 // The providers with remote sites, in the order the publish panel offers them.
@@ -44,6 +50,9 @@ const PROVIDERS: {
 	openai: openaiProvider,
 	gemini: geminiProvider,
 	'github-copilot': githubCopilotProvider,
+	meta: metaProvider,
+	xai: xaiProvider,
+	openrouter: openrouterProvider,
 	spacefast: spacefastProvider,
 };
 
@@ -59,6 +68,12 @@ export function getProviderSites( provider: SitesProviderId ): ProviderSitesInfo
 	return getProvider( provider ).sites as unknown as ProviderSitesInfo;
 }
 
+// Whether the provider generates images with `config`.
+export function generatesImages( id: ProviderId, config: unknown ): boolean {
+	const { ai } = getProvider( id ) as { ai?: { generatesImages?( config: unknown ): boolean } };
+	return ai?.generatesImages?.( config ) ?? false;
+}
+
 // Builds before the `anthropic` id stored `anthropic-api-key` in shared.json
 // and session entries. Older builds fall back to WordPress.com on an id they
 // don't know, so writers keep storing the legacy id.
@@ -68,6 +83,9 @@ const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	openai: 'openai',
 	gemini: 'gemini',
 	'github-copilot': 'github-copilot',
+	meta: 'meta',
+	xai: 'xai',
+	openrouter: 'openrouter',
 	spacefast: 'spacefast',
 };
 

@@ -10,6 +10,7 @@ export const SUPPORTED_BROWSERS = [
 	'vivaldi',
 	'zen',
 	'firefox-developer',
+	'librewolf',
 	'duckduckgo',
 	'dia',
 ] as const;
@@ -94,6 +95,12 @@ export const browserConfig: Record<
 		macOSApp: 'Firefox Developer Edition.app',
 		winPath: 'Firefox Developer Edition/firefox.exe',
 		linuxCommands: [ 'firefox-developer-edition', 'firefox-developer' ],
+	},
+	librewolf: {
+		name: 'LibreWolf',
+		macOSApp: 'LibreWolf.app',
+		winPath: 'LibreWolf/librewolf.exe',
+		linuxCommands: [ 'librewolf' ],
 	},
 	duckduckgo: {
 		name: 'DuckDuckGo',

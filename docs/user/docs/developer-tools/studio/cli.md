@@ -19,9 +19,11 @@ It’s especially useful for:
 ### [WordPress Studio app](#1-studio-app)
 
 1.  Open the **“WordPress Studio**” application.
-2.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
+2.  Open **Settings**: click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
 3.  On the **General** page, under **WordPress Studio CLI**, turn on the **WordPress Studio CLI for terminal** option.
 4.  On macOS, you’ll be prompted for your account password to allow installation.
+
+![The General page of WordPress Studio Settings, scrolled to the WordPress Studio CLI section with the WordPress Studio CLI for terminal option turned off.](../../../screenshots/images/settings-studio-cli.webp)
 
 The option isn’t available in the Microsoft Store version of WordPress Studio. If you installed the CLI with the standalone installer, the option is turned on and can’t be changed in the app: run `studio uninstall` to remove that CLI.
 
@@ -65,25 +67,29 @@ studio --help
 WordPress Studio CLI
 
 Commands:
-  studio auth                  Manage authentication
-  studio code                  AI agent for building and managing WordPress sites
-  studio create                Create a new site
-  studio list                  List sites
-  studio start                 Start site
-  studio stop                  Stop site(s)
-  studio delete [sites..]      Delete site
-  studio status                Get status of site
-  studio push                  Push your local site to a WordPress.com site
-  studio pull                  Pull a WordPress.com site to your local site
-  studio import <import-file>  Import a backup file to site
-  studio export [export-file]  Export site to a backup file
-  studio ui                    Start the local Studio web UI and open it in your browser
-  studio uninstall             Uninstall the standalone Studio CLI
-  studio preview               Manage preview sites
-  studio config                Manage site configuration
-  studio wp                    WP-CLI
-  studio blueprint             Browse and use blueprints
-  studio mcp                   MCP server for AI agents
+  studio auth                        Manage authentication
+  studio code                        AI agent for building and managing WordPress sites
+  studio create                      Create a new site
+  studio list                        List sites
+  studio start                       Start site
+  studio stop                        Stop site(s)
+  studio delete [sites..]            Delete site
+  studio status                      Get status of site
+  studio push                        Push your local site to a WordPress.com site, or
+                                     publish it to Spacefast
+  studio pull                        Pull a WordPress.com or Pressable site to your local
+                                     site
+  studio import <import-file>        Import a backup file to site
+  studio export [export-file]        Export site to a backup file
+  studio export-static [output-dir]  Export site as static HTML files
+  studio ui                          Start the local Studio web UI and open it in your
+                                     browser
+  studio uninstall                   Uninstall the standalone Studio CLI
+  studio preview                     Manage preview sites
+  studio config                      Manage site configuration
+  studio wp                          WP-CLI
+  studio blueprint                   Browse and use blueprints
+  studio mcp                         MCP server for AI agents
 
 Options:
   -p, --path     Path to the WordPress files         [string] [default: Current directory]
@@ -122,6 +128,7 @@ studio preview create          # Create a preview site
 studio preview list            # List preview sites
 studio preview update <host>   # Update an existing preview site
 studio preview set <host>      # Configure a preview site, such as its name
+studio preview launch <host>   # Make a preview site your live site
 studio preview delete <host>   # Delete a preview site
 
 ### [Creating a preview site](#7-creating-a-preview-site)
@@ -147,7 +154,7 @@ To view the preview sites of the local site in the current directory:
 
 studio preview list
 
-Add `--all` to list the preview sites of all your local sites, grouped by site. This shows each preview’s host (for example, `example-preview.wp.build`), which you’ll use with the `update` and `delete` commands.
+Add `--all` to list the preview sites of all your local sites, grouped by site. This shows each preview’s host (for example, `example-preview.wpcomstaging.com`), which you’ll use with the `update` and `delete` commands.
 
 ### [Updating and deleting preview sites](#9-updating-and-deleting-preview-sites)
 
@@ -163,6 +170,14 @@ studio preview delete <host>
 studio preview delete --all
 
 Use `studio preview list` to discover the appropriate `<host>` value if you don’t have it handy.
+
+### [Making a preview site your live site](#making-a-preview-site-your-live-site)
+
+A preview site can become your live site, with everything you built on it, when you choose a plan for it on WordPress.com:
+
+studio preview launch <host>
+
+This opens WordPress.com, where you pick a domain and a plan. Once you check out, the site goes live. `studio preview create` and `studio preview update` also print this link.
 
 For the full set of options:
 
@@ -230,7 +245,7 @@ studio blueprint list
 # Create a local site with selected blueprint
 studio blueprint use <blueprint-slug> --name "<site-name>"
 
-`studio create --blueprint` also accepts a Blueprint slug, alongside a Blueprint JSON file path or URL, so you can combine it with the other `create` options:
+`studio create --blueprint` also accepts a Blueprint Library slug, alongside a Blueprint URL, JSON file, folder, or zip bundle, so you can combine it with the other `create` options:
 
 studio create --blueprint <blueprint-slug> --name "<site-name>" --path /path/to/site
 
@@ -297,6 +312,7 @@ Examples of what `studio config set` can be used for include:
 -   Changing the PHP version or WordPress version. Use `--wp auto-update` to let WordPress update itself.
 -   Adjusting the site name, custom domain, or HTTPS.
 -   Switching file access.
+-   Changing the number of PHP workers, which caps how many requests the site serves at once, with `--php-workers` (from 1 to 64, default 4). See [PHP workers](https://wordpress.studio/docs/php-runtimes/#php-workers).
 -   Toggling debugging features: Xdebug, the debug log, showing errors in the browser, script debug, and the environment type.
 
 `studio config set --wp <version>` also works on a site that has never been started. If changing the admin credentials fails, WordPress Studio restores the previous credentials and tells you so.
@@ -339,6 +355,16 @@ studio export /path/to/database.sql --mode db
 Exports can use `.zip` or `.tar.gz`, and database-only exports can also use `.sql`. Use `--mode content` to export only the site content. For the full set of options:
 
 studio export --help
+
+`studio export-static` exports the site as static HTML files, which you can host anywhere. WordPress Studio starts the site for the export if it’s stopped, and stops it again afterward.
+
+\# Export to a folder named after the site’s folder, followed by -static, in the current directory
+studio export-static
+
+# Export to a folder, with links for the address where you’ll host it
+studio export-static /path/to/folder --base-url https://example.com
+
+Without `--base-url`, links are root-relative. If the folder isn’t empty, add `--overwrite` to replace its contents.
 
 ## [WordPress Studio in your browser](#cli-ui)
 
@@ -467,7 +493,7 @@ studio preview update <host>   # after subsequent changes
 ```text
 ✔ Archive created
 ✔ Archive uploaded
-✔ Preview site available at: https://wrenandbarley.wp.build
+✔ Preview site available at: https://wrenandbarley.wpcomstaging.com/?share=…
 ✔ Preview site saved to Studio
 ```
 

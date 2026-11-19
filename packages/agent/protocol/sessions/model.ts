@@ -3,7 +3,7 @@ import {
 	DEFAULT_PROVIDER_ID,
 	findAiModel,
 	getDefaultAiModel,
-	getProvider,
+	servesAiModel,
 	normalizeProviderId,
 	type AiModelId,
 	type AiProviderId,
@@ -63,13 +63,11 @@ export function resolveSessionModel(
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: ProviderId,
-	options?: { canUsePaidModels?: boolean }
+	options?: Parameters< typeof getDefaultAiModel >[ 1 ]
 ): AiModelId {
 	const defaultModel = getDefaultAiModel( provider, options );
 	const model = resolveSessionModel( entries, defaultModel );
-	return getProvider( provider ).ai?.models.some( ( { id } ) => id === model )
-		? model
-		: defaultModel;
+	return servesAiModel( provider, model ) ? model : defaultModel;
 }
 
 /**

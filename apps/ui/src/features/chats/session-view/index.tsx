@@ -159,8 +159,9 @@ function SessionViewContent( {
 		() =>
 			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
 				canUsePaidModels: canUsePaidAiModels( quota, authUser?.email ),
+				account: aiSettings?.accounts[ sessionProvider ],
 			} ),
-		[ data?.entries, sessionProvider, quota, authUser?.email ]
+		[ data?.entries, sessionProvider, quota, authUser?.email, aiSettings ]
 	);
 	const currentModel = ( ! sessionId && draft.model ) || defaultModel;
 	const sendMessage = useCallback(

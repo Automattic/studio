@@ -1,10 +1,10 @@
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 // Search the database for the old site URL and replace it with the new one
-export const updateSiteUrl = async ( site: SiteData ) => {
+export const updateSiteUrl = async ( site: ConfigSite ) => {
 	const newUrl = getSiteUrl( site );
 
 	await using command = await runWpCliCommand(

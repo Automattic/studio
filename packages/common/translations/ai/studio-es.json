@@ -1,0 +1,1793 @@
+{
+	"\"%s\" is not a Blueprint file, URL or Library slug.": [
+		"«%s» no es un archivo de modelo, una URL ni un slug de la biblioteca."
+	],
+	"%1$dh %2$dm": [
+		"%1$d h %2$d min"
+	],
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%1$s Use /connect %2$s to connect it.": [
+		"%1$s Usa /connect %2$s para conectarlo."
+	],
+	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
+		"%1$s no ha podido instalar el plugin de WordPress Studio: %2$s"
+	],
+	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
+		"%1$s no ha podido actualizar el plugin de WordPress Studio: %2$s"
+	],
+	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
+		"%1$s no está conectado. Usa /connect %2$s para conectarlo."
+	],
+	"%1$s screenshot %2$d": [
+		"Captura de pantalla %2$d de %1$s"
+	],
+	"%d B": [
+		"%d B"
+	],
+	"%d annotation ready to send": [
+		"%d anotación lista para enviar",
+		"%d anotaciones listas para enviar"
+	],
+	"%d image": [
+		"%d imagen",
+		"%d imágenes"
+	],
+	"%s (saved for future use):": [
+		"%s (se guardará para usarlo más adelante):"
+	],
+	"%s KB": [
+		"%s KB"
+	],
+	"%s connection": [
+		"Conexión de %s"
+	],
+	"%s is no longer installed. Choose another browser in Settings.": [
+		"%s ya no está instalado. Elige otro navegador en Ajustes."
+	],
+	"%s isn’t installed on this computer.": [
+		"%s no está instalado en este ordenador."
+	],
+	"%s preview is ready": [
+		"La vista previa de %s está lista"
+	],
+	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
+		"%s ha dejado de informar del progreso de la importación, pero es posible que la actualización siga en curso. Comprueba el sitio activo antes de volver a hacer push."
+	],
+	"A code editor with a built-in AI agent.": [
+		"Un editor de código con un agente de IA integrado."
+	],
+	"A coding agent that runs in your terminal.": [
+		"Un agente de programación que se ejecuta en tu terminal."
+	],
+	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
+		"Ya hay una sincronización en curso en este sitio. Espera a que termine e inténtalo de nuevo."
+	],
+	"AI apps": [
+		"Aplicaciones de IA"
+	],
+	"API key": [
+		"Clave de API"
+	],
+	"API key is required": [
+		"La clave de API es obligatoria"
+	],
+	"Activate all plugins": [
+		"Activar todos los plugins"
+	],
+	"Activate plugin": [
+		"Activar plugin"
+	],
+	"Activate theme": [
+		"Activar tema"
+	],
+	"Add annotation to batch": [
+		"Añadir la anotación al grupo"
+	],
+	"Add or delete this annotation before starting another.": [
+		"Añade o elimina esta anotación antes de empezar otra."
+	],
+	"Admin bar hidden by default.": [
+		"Barra de administración oculta por defecto."
+	],
+	"Admin bar shown by default.": [
+		"Barra de administración visible por defecto."
+	],
+	"Agent apps": [
+		"Aplicaciones de agentes"
+	],
+	"Agents": [
+		"Agentes"
+	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"Permite que WordPress Studio use tu plan de ChatGPT al iniciar sesión."
+	],
+	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
+		"Se ha producido un error al actualizar la CLI de WordPress Studio. Inténtalo de nuevo."
+	],
+	"Annotate site elements visually in a browser.": [
+		"Anota visualmente elementos del sitio en un navegador."
+	],
+	"Annotation is available for design systems created by Studio Code.": [
+		"Las anotaciones están disponibles para los sistemas de diseño creados por Studio Code."
+	],
+	"Annotation tools": [
+		"Herramientas de anotación"
+	],
+	"Anonymous usage statistics enabled.": [
+		"Estadísticas de uso anónimas activadas."
+	],
+	"Anthropic API key": [
+		"Clave de API de Anthropic"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic ha rechazado esta clave de API. Comprueba la clave e inténtalo de nuevo."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic ha rechazado este token. Vuelve a ejecutar claude setup-token."
+	],
+	"Anthropic’s AI coding agent.": [
+		"El agente de programación con IA de Anthropic."
+	],
+	"Appearance reset.": [
+		"Apariencia restablecida."
+	],
+	"Approve the code %1$s at %2$s": [
+		"Aprueba el código %1$s en %2$s"
+	],
+	"Approve the code %1$s on %2$s to connect.": [
+		"Aprueba el código %1$s en %2$s para conectar."
+	],
+	"Approve the connection in your browser.": [
+		"Aprueba la conexión en tu navegador."
+	],
+	"Ask user": [
+		"Preguntar al usuario"
+	],
+	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
+		"Se requiere al menos una opción (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
+	],
+	"Audit SEO": [
+		"Auditar SEO"
+	],
+	"Audit performance": [
+		"Auditar rendimiento"
+	],
+	"Automatic sidebar collapsing disabled.": [
+		"Plegado automático de la barra lateral desactivado."
+	],
+	"Automatic sidebar collapsing enabled.": [
+		"Plegado automático de la barra lateral activado."
+	],
+	"Automatic site start on prompt disabled.": [
+		"Inicio automático del sitio al enviar una instrucción desactivado."
+	],
+	"Automatic site start on prompt enabled.": [
+		"Inicio automático del sitio al enviar una instrucción activado."
+	],
+	"Back to email list": [
+		"Volver a la lista de correos electrónicos"
+	],
+	"Backup timed out — no progress detected": [
+		"Se ha agotado el tiempo de espera de la copia de seguridad: no se ha detectado ningún progreso"
+	],
+	"Backups": [
+		"Copias de seguridad"
+	],
+	"Balanced": [
+		"Equilibrada"
+	],
+	"Batch notes": [
+		"Agrupar notas"
+	],
+	"Batch notes disabled.": [
+		"Agrupación de notas desactivada."
+	],
+	"Batch notes enabled.": [
+		"Agrupación de notas activada."
+	],
+	"Birdland": [
+		"Birdland"
+	],
+	"Blue Note": [
+		"Blue Note"
+	],
+	"Blue Train": [
+		"Blue Train"
+	],
+	"Blue in Green": [
+		"Blue in Green"
+	],
+	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
+		"URL del modelo, archivo JSON, carpeta, paquete zip o slug de la biblioteca de modelos (consulta «studio blueprint list»)"
+	],
+	"Blueprint file…": [
+		"Archivo de modelo…"
+	],
+	"Blueprint loaded": [
+		"Modelo cargado"
+	],
+	"Blueprint preview": [
+		"Vista previa del modelo"
+	],
+	"Blueprints, backups, and WordPress exports": [
+		"Modelos, copias de seguridad y exportaciones de WordPress"
+	],
+	"Browse Blueprints": [
+		"Explorar modelos"
+	],
+	"Browser could not load.": [
+		"No se ha podido cargar el navegador."
+	],
+	"Browser options": [
+		"Opciones del navegador"
+	],
+	"Browsing data cleared": [
+		"Datos de navegación borrados"
+	],
+	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
+		"Crea y edita sitios a través del chat. Usa créditos de IA de WordPress.com o tu propia suscripción o clave de API."
+	],
+	"Cc": [
+		"CC"
+	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"Se han enviado los cambios, pero no se ha podido lanzar el sitio. Comprueba tu plan y tus permisos y vuelve a publicar para reintentar el lanzamiento."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"Se han enviado los cambios, pero no se ha podido lanzar el sitio. Vuelve a publicar para reintentar el lanzamiento."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"Se han enviado los cambios, pero no se ha podido lanzar el sitio. Verifica tu correo electrónico y vuelve a publicar para reintentar el lanzamiento."
+	],
+	"Changes to %s": [
+		"Cambios en %s"
+	],
+	"ChatGPT plan": [
+		"Plan de ChatGPT"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"El uso del plan de ChatGPT no está disponible en este momento. Inténtalo de nuevo en breve."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT ha devuelto un inicio de sesión incompleto."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"No se ha podido completar el inicio de sesión en ChatGPT. Inténtalo de nuevo."
+	],
+	"Check your internet connection and try again.": [
+		"Comprueba tu conexión a Internet e inténtalo de nuevo."
+	],
+	"Checking for updates…": [
+		"Buscando actualizaciones…"
+	],
+	"Choose a Blueprint or backup": [
+		"Elige un modelo o una copia de seguridad"
+	],
+	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
+		"Elige una carpeta de un sitio de WordPress, un archivo JSON de modelo o un paquete ZIP."
+	],
+	"Choose a blueprint, backup, export, or existing WordPress folder.": [
+		"Elige un modelo, una copia de seguridad, una exportación o una carpeta de WordPress existente."
+	],
+	"Choose a folder containing an existing WordPress site.": [
+		"Elige una carpeta que contenga un sitio de WordPress existente."
+	],
+	"Choose a provider": [
+		"Elige un proveedor"
+	],
+	"Choose a site source": [
+		"Elige un origen para el sitio"
+	],
+	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
+		"Elige un sitio con `--remote-site %s:<site>` (su ID o URL)."
+	],
+	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
+		"Elige una carpeta vacía para usar un origen. La carpeta seleccionada ya contiene un sitio de WordPress."
+	],
+	"Choose an existing WordPress folder, blueprint, backup, or export.": [
+		"Elige una carpeta de WordPress existente, un modelo, una copia de seguridad o una exportación."
+	],
+	"Choose another host": [
+		"Elegir otro alojamiento"
+	],
+	"Choose color": [
+		"Elegir color"
+	],
+	"Choose what powers chat in WordPress Studio.": [
+		"Elige qué impulsa el chat en WordPress Studio."
+	],
+	"Choosing individual files requires a backup of this website.": [
+		"Para elegir archivos individuales se necesita una copia de seguridad de este sitio web."
+	],
+	"Claude subscription": [
+		"Suscripción de Claude"
+	],
+	"Claude subscription token": [
+		"Token de suscripción de Claude"
+	],
+	"Clear browsing data": [
+		"Borrar los datos de navegación"
+	],
+	"Click anything on the page to leave a note": [
+		"Haz clic en cualquier elemento de la página para dejar una nota"
+	],
+	"Close %s": [
+		"Cerrar %s"
+	],
+	"Close all tabs": [
+		"Cerrar todas las pestañas"
+	],
+	"Close other tabs": [
+		"Cerrar las demás pestañas"
+	],
+	"Close tab": [
+		"Cerrar la pestaña"
+	],
+	"Close tabs to the right": [
+		"Cerrar las pestañas de la derecha"
+	],
+	"Collect annotations and send them together instead of one at a time.": [
+		"Reúne las anotaciones y envíalas juntas en lugar de una a una."
+	],
+	"Color may be adapted for your theme.": [
+		"El color puede adaptarse a tu tema."
+	],
+	"Color picker": [
+		"Selector de color"
+	],
+	"Connect %s first.": [
+		"Conecta %s primero."
+	],
+	"Connect %s now?": [
+		"¿Conectar %s ahora?"
+	],
+	"Connect AI providers": [
+		"Conectar proveedores de IA"
+	],
+	"Connect Spacefast to publish sites.": [
+		"Conecta Spacefast para publicar sitios."
+	],
+	"Connect a provider": [
+		"Conectar un proveedor"
+	],
+	"Connect to Spacefast": [
+		"Conectar con Spacefast"
+	],
+	"Connect to an existing WordPress": [
+		"Conectar con un WordPress existente"
+	],
+	"Connect your WordPress": [
+		"Conecta tu WordPress"
+	],
+	"Connected %s.": [
+		"Se ha conectado %s."
+	],
+	"Connected live site ID, or none": [
+		"ID del sitio activo conectado, o ninguno"
+	],
+	"Connecting to WordPress.com": [
+		"Conectando con WordPress.com"
+	],
+	"Continue with GitHub": [
+		"Continuar con GitHub"
+	],
+	"Copy links": [
+		"Copiar enlaces"
+	],
+	"Cotton Tail": [
+		"Cotton Tail"
+	],
+	"Could not capture the area. Your selection is kept. Try again.": [
+		"No se ha podido capturar el área. Se ha conservado tu selección. Inténtalo de nuevo."
+	],
+	"Could not clear browsing data": [
+		"No se han podido borrar los datos de navegación"
+	],
+	"Could not delete the old preview site. It will expire on its own.": [
+		"No se ha podido eliminar la vista previa del sitio anterior. Caducará por sí sola."
+	],
+	"Could not migrate your sites": [
+		"No se han podido migrar tus sitios"
+	],
+	"Could not open DevTools": [
+		"No se han podido abrir las DevTools"
+	],
+	"Could not open Spacefast": [
+		"No se ha podido abrir Spacefast"
+	],
+	"Could not reach Anthropic to verify the credential.": [
+		"No se ha podido conectar con Anthropic para verificar la credencial."
+	],
+	"Could not read the table prefix from wp-config.php": [
+		"No se ha podido leer el prefijo de las tablas de wp-config.php"
+	],
+	"Could not reset appearance. Please try again.": [
+		"No se ha podido restablecer la apariencia. Inténtalo de nuevo."
+	],
+	"Could not reset interface. Please try again.": [
+		"No se ha podido restablecer la interfaz. Inténtalo de nuevo."
+	],
+	"Could not reset tips. Please try again.": [
+		"No se han podido restablecer los consejos. Inténtalo de nuevo."
+	],
+	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
+		"No se ha podido establecer $table_prefix como «%s» en wp-config.php."
+	],
+	"Could not take screenshot": [
+		"No se ha podido hacer la captura de pantalla"
+	],
+	"Could not update settings. Please try again.": [
+		"No se han podido actualizar los ajustes. Inténtalo de nuevo."
+	],
+	"Could not update the admin bar setting. Please try again.": [
+		"No se ha podido actualizar el ajuste de la barra de administración. Inténtalo de nuevo."
+	],
+	"Could not verify the credential with Anthropic.": [
+		"No se ha podido verificar la credencial con Anthropic."
+	],
+	"Couldn't load providers.": [
+		"No se han podido cargar los proveedores."
+	],
+	"Couldn’t load apps.": [
+		"No se han podido cargar las aplicaciones."
+	],
+	"Couldn’t sign in to WordPress.com": [
+		"No se ha podido iniciar sesión en WordPress.com"
+	],
+	"Create %s": [
+		"Crear %s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"Crea una clave en [Google AI Studio](https://aistudio.google.com/apikey) y pégala a continuación."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"Crea una clave en la pestaña de claves de API del [panel de Meta Model API](https://dev.meta.ai) y pégala a continuación."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"Crea una clave en la [Claude Console](https://platform.claude.com/settings/keys) y pégala a continuación."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"Crea una clave en [OpenAI Platform](https://platform.openai.com/api-keys) y pégala a continuación."
+	],
+	"Create a new WordPress": [
+		"Crear un nuevo WordPress"
+	],
+	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
+		"Crea una cuenta o inicia sesión para conectar tus sitios de WordPress.com o Pressable."
+	],
+	"Create another preview": [
+		"Crear otra vista previa"
+	],
+	"Create user": [
+		"Crear usuario"
+	],
+	"Data Liberation could not capture the source website": [
+		"Data Liberation no ha podido capturar el sitio web de origen"
+	],
+	"Deactivate all plugins": [
+		"Desactivar todos los plugins"
+	],
+	"Deactivate plugin": [
+		"Desactivar plugin"
+	],
+	"Default AI provider": [
+		"Proveedor de IA por defecto"
+	],
+	"Default browser": [
+		"Navegador por defecto"
+	],
+	"Default code editor": [
+		"Editor de código por defecto"
+	],
+	"Default hosting provider": [
+		"Proveedor de alojamiento por defecto"
+	],
+	"Default terminal app": [
+		"Aplicación de terminal por defecto"
+	],
+	"Delete %s": [
+		"Eliminar %s"
+	],
+	"Delete annotation: %s": [
+		"Eliminar anotación: %s"
+	],
+	"Delete plugin": [
+		"Eliminar plugin"
+	],
+	"Delete theme": [
+		"Eliminar tema"
+	],
+	"Delete user": [
+		"Eliminar usuario"
+	],
+	"Describe the change": [
+		"Describe el cambio"
+	],
+	"Describe what you’d like to build or change (optional)…": [
+		"Describe lo que quieres crear o cambiar (opcional)…"
+	],
+	"Design system could not load.": [
+		"No se ha podido cargar el sistema de diseño."
+	],
+	"Design systems are available for block themes.": [
+		"Los sistemas de diseño están disponibles para los temas de bloques."
+	],
+	"Directory to write the static site to": [
+		"Directorio en el que se escribirá el sitio estático"
+	],
+	"Disable automatic sidebar collapsing": [
+		"Desactivar el plegado automático de la barra lateral"
+	],
+	"Disable automatic site start on prompt": [
+		"Desactivar el inicio automático del sitio al enviar una instrucción"
+	],
+	"Disable batch notes": [
+		"Desactivar la agrupación de notas"
+	],
+	"Discard changes?": [
+		"¿Descartar los cambios?"
+	],
+	"Disconnect a provider": [
+		"Desconectar un proveedor"
+	],
+	"Disconnected %s.": [
+		"Se ha desconectado %s."
+	],
+	"Dismiss tip": [
+		"Descartar el consejo"
+	],
+	"Do more with WordPress": [
+		"Haz más con WordPress"
+	],
+	"Domains": [
+		"Dominios"
+	],
+	"Drop to add site": [
+		"Suelta para añadir el sitio"
+	],
+	"Drop your file here": [
+		"Suelta tu archivo aquí"
+	],
+	"Edit annotation: %s": [
+		"Editar anotación: %s"
+	],
+	"Email log": [
+		"Registro de correo electrónico"
+	],
+	"Email log could not load.": [
+		"No se ha podido cargar el registro de correo electrónico."
+	],
+	"Emails sent by your site appear here.": [
+		"Aquí aparecen los correos electrónicos que envía tu sitio."
+	],
+	"Enable anonymous usage statistics": [
+		"Activar las estadísticas de uso anónimas"
+	],
+	"Enable automatic sidebar collapsing": [
+		"Activar el plegado automático de la barra lateral"
+	],
+	"Enable automatic site start on prompt": [
+		"Activar el inicio automático del sitio al enviar una instrucción"
+	],
+	"Enable batch notes": [
+		"Activar la agrupación de notas"
+	],
+	"Enter a folder name other than “.” or “..”.": [
+		"Introduce un nombre de carpeta distinto de «.» o «..»."
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"Introduce un token de claude setup-token, no una clave de API."
+	],
+	"Enter the folder’s full path.": [
+		"Introduce la ruta completa de la carpeta."
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Existing WordPress site": [
+		"Sitio de WordPress existente"
+	],
+	"Expand panel": [
+		"Ampliar el panel"
+	],
+	"Export site as static HTML files": [
+		"Exportar el sitio como archivos HTML estáticos"
+	],
+	"External AI apps": [
+		"Aplicaciones de IA externas"
+	],
+	"Failed after %s": [
+		"Ha fallado después de %s"
+	],
+	"Failed to back up the remote site": [
+		"No se ha podido hacer una copia de seguridad del sitio remoto"
+	],
+	"Failed to check backup size": [
+		"No se ha podido comprobar el tamaño de la copia de seguridad"
+	],
+	"Failed to check backup status": [
+		"No se ha podido comprobar el estado de la copia de seguridad"
+	],
+	"Failed to check import status": [
+		"No se ha podido comprobar el estado de la importación"
+	],
+	"Failed to check the preview site": [
+		"No se ha podido comprobar la vista previa del sitio"
+	],
+	"Failed to create the %s site": [
+		"No se ha podido crear el sitio de %s"
+	],
+	"Failed to create the Space": [
+		"No se ha podido crear el Space"
+	],
+	"Failed to export static site": [
+		"No se ha podido exportar el sitio estático"
+	],
+	"Failed to fetch Blueprint: HTTP %d": [
+		"No se ha podido obtener el modelo: HTTP %d"
+	],
+	"Failed to find existing preview site in config": [
+		"No se ha encontrado la vista previa del sitio existente en la configuración"
+	],
+	"Failed to initiate backup": [
+		"No se ha podido iniciar la copia de seguridad"
+	],
+	"Failed to initiate import on remote site": [
+		"No se ha podido iniciar la importación en el sitio remoto"
+	],
+	"Failed to load your %s sites": [
+		"No se han podido cargar tus sitios de %s"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"No se han podido cargar tus Spaces de Spacefast"
+	],
+	"Failed to publish to Spacefast": [
+		"No se ha podido publicar en Spacefast"
+	],
+	"Failed to save connected site": [
+		"No se ha podido guardar el sitio conectado"
+	],
+	"Feedback areas": [
+		"Áreas de los comentarios"
+	],
+	"Feedback sent": [
+		"Comentarios enviados"
+	],
+	"Feedback type": [
+		"Tipo de comentario"
+	],
+	"Fetching %s sites…": [
+		"Obteniendo los sitios de %s…"
+	],
+	"File…": [
+		"Archivo…"
+	],
+	"Finish activating hosting on WordPress.com before publishing.": [
+		"Termina de activar el alojamiento en WordPress.com antes de publicar."
+	],
+	"Finish signing in to %s in your browser.": [
+		"Termina de iniciar sesión en %s en tu navegador."
+	],
+	"First use": [
+		"Primer uso"
+	],
+	"Flush cache": [
+		"Vaciar caché"
+	],
+	"Flush permalinks": [
+		"Regenerar enlaces permanentes"
+	],
+	"For publishing sites.": [
+		"Para publicar sitios."
+	],
+	"For working on sites.": [
+		"Para trabajar en sitios."
+	],
+	"From many, one tool.\nFind strength in community\nfor a better web.": [
+		"De muchos, una herramienta.\nLa fuerza está en la comunidad\npor una web mejor."
+	],
+	"Gemini API key": [
+		"Clave de API de Gemini"
+	],
+	"Generate images": [
+		"Generar imágenes"
+	],
+	"Generating static site…": [
+		"Generando el sitio estático…"
+	],
+	"Get site info": [
+		"Obtener información del sitio"
+	],
+	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
+		"Empieza con una cuota única gratuita y compra más según lo necesites. No se necesita clave de API."
+	],
+	"Getting your sign-in code…": [
+		"Obteniendo tu código de inicio de sesión…"
+	],
+	"Giant Steps": [
+		"Giant Steps"
+	],
+	"GitHub sign-in was declined.": [
+		"Se ha rechazado el inicio de sesión en GitHub."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google ha rechazado esta clave de API. Comprueba la clave e inténtalo de nuevo."
+	],
+	"Green Dolphin Street": [
+		"Green Dolphin Street"
+	],
+	"Hide admin bar": [
+		"Ocultar la barra de administración"
+	],
+	"Hide admin bar by default": [
+		"Ocultar la barra de administración por defecto"
+	],
+	"Hide chat when starting sites": [
+		"Ocultar el chat al iniciar sitios"
+	],
+	"Hide device toolbar": [
+		"Ocultar la barra de herramientas de dispositivos"
+	],
+	"Hide panel": [
+		"Ocultar el panel"
+	],
+	"Hide recent chats": [
+		"Ocultar los chats recientes"
+	],
+	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
+		"Oculta por defecto la barra de administración de WordPress en los sitios locales. Cámbialo para cada sitio en las opciones del navegador."
+	],
+	"Hints": [
+		"Sugerencias"
+	],
+	"Hosting providers": [
+		"Proveedores de alojamiento"
+	],
+	"Hostname of the preview site": [
+		"Nombre de host de la vista previa del sitio"
+	],
+	"How do you want to connect %s?": [
+		"¿Cómo quieres conectar %s?"
+	],
+	"How to connect": [
+		"Cómo conectar"
+	],
+	"Hue": [
+		"Tono"
+	],
+	"Image annotation": [
+		"Anotación de imagen"
+	],
+	"Import a blueprint or backup": [
+		"Importar un modelo o una copia de seguridad"
+	],
+	"Import cancelled": [
+		"Importación cancelada"
+	],
+	"Import media": [
+		"Importar medios"
+	],
+	"Import site": [
+		"Importar sitio"
+	],
+	"Include this chat’s transcript": [
+		"Incluir la transcripción de este chat"
+	],
+	"Inspect design": [
+		"Inspeccionar diseño"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"Instala [Claude Code](https://code.claude.com/docs/en/setup), si aún no lo tienes."
+	],
+	"Install plugin": [
+		"Instalar plugin"
+	],
+	"Install taxonomy scripts": [
+		"Instalar scripts de taxonomía"
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"Instala la CLI de WordPress Studio y configura MCP para otra aplicación."
+	],
+	"Install the WordPress Studio CLI.": [
+		"Instala la CLI de WordPress Studio."
+	],
+	"Install theme": [
+		"Instalar tema"
+	],
+	"Interface reset.": [
+		"Interfaz restablecida."
+	],
+	"Interface theme": [
+		"Tema de la interfaz"
+	],
+	"Kind of Blue": [
+		"Kind of Blue"
+	],
+	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
+		"Más información en <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
+	],
+	"Leave a note…": [
+		"Deja una nota…"
+	],
+	"Liberate": [
+		"Liberar"
+	],
+	"List": [
+		"Mostrar lista"
+	],
+	"List %s": [
+		"Mostrar lista de %s"
+	],
+	"List connected remote sites": [
+		"Mostrar lista de sitios remotos conectados"
+	],
+	"List menus": [
+		"Mostrar lista de menús"
+	],
+	"List plugins": [
+		"Mostrar lista de plugins"
+	],
+	"List previews": [
+		"Mostrar lista de vistas previas"
+	],
+	"List published %s": [
+		"Mostrar lista de %s (estado: publicado)"
+	],
+	"List terms": [
+		"Mostrar lista de términos"
+	],
+	"List themes": [
+		"Mostrar lista de temas"
+	],
+	"List users": [
+		"Mostrar lista de usuarios"
+	],
+	"Load skill": [
+		"Cargar habilidad"
+	],
+	"Loading Blueprint…": [
+		"Cargando el modelo…"
+	],
+	"Loading WordPress Studio…": [
+		"Cargando WordPress Studio…"
+	],
+	"Loading apps…": [
+		"Cargando aplicaciones…"
+	],
+	"Loading file…": [
+		"Cargando el archivo…"
+	],
+	"Log in or create account": [
+		"Iniciar sesión o crear una cuenta"
+	],
+	"Log in to WordPress.com to sync sites.": [
+		"Inicia sesión en WordPress.com para sincronizar sitios."
+	],
+	"Maiden Voyage": [
+		"Maiden Voyage"
+	],
+	"Manage AI credits": [
+		"Gestionar créditos de IA"
+	],
+	"Manage cache": [
+		"Gestionar caché"
+	],
+	"Manage content": [
+		"Gestionar contenido"
+	],
+	"Manage media": [
+		"Gestionar medios"
+	],
+	"Manage menus": [
+		"Gestionar menús"
+	],
+	"Manage on WordPress.com": [
+		"Gestionar en WordPress.com"
+	],
+	"Manage permalinks": [
+		"Gestionar enlaces permanentes"
+	],
+	"Manage plugins": [
+		"Gestionar plugins"
+	],
+	"Manage site options": [
+		"Gestionar opciones del sitio"
+	],
+	"Manage terms": [
+		"Gestionar términos"
+	],
+	"Manage themes": [
+		"Gestionar temas"
+	],
+	"Manage usage": [
+		"Gestionar el uso"
+	],
+	"Manage users": [
+		"Gestionar usuarios"
+	],
+	"Manual MCP setup": [
+		"Configuración manual de MCP"
+	],
+	"Meta API key": [
+		"Clave de API de Meta"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta está limitando las solicitudes de tu clave de API. Inténtalo de nuevo en breve o comprueba tus límites en dev.meta.ai."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta ha rechazado esta clave de API. Comprueba la clave e inténtalo de nuevo."
+	],
+	"Migrate & rebuild a site from a closed platform.": [
+		"Migra y reconstruye un sitio desde una plataforma cerrada."
+	],
+	"Mood Indigo": [
+		"Mood Indigo"
+	],
+	"New WordPress Studio Site": [
+		"Nuevo sitio de WordPress Studio"
+	],
+	"New site \"%s\"": [
+		"Nuevo sitio «%s»"
+	],
+	"New tab": [
+		"Nueva pestaña"
+	],
+	"No design system is available for this theme.": [
+		"No hay ningún sistema de diseño disponible para este tema."
+	],
+	"No matching sites.": [
+		"No hay sitios que coincidan."
+	],
+	"No provider is connected.": [
+		"No hay ningún proveedor conectado."
+	],
+	"No providers": [
+		"No hay proveedores"
+	],
+	"No recipient": [
+		"Sin destinatario"
+	],
+	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
+		"Número de procesos de PHP, que limita cuántas solicitudes atiende el sitio a la vez (por defecto, %d)"
+	],
+	"Open %s settings": [
+		"Abrir los ajustes de %s"
+	],
+	"Open Folder…": [
+		"Abrir carpeta…"
+	],
+	"Open Spacefast": [
+		"Abrir Spacefast"
+	],
+	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
+		"Abre Spacefast en tu navegador. Comprueba que los códigos coincidan y aprueba la conexión."
+	],
+	"Open a project page to annotate.": [
+		"Abre una página del proyecto para hacer anotaciones."
+	],
+	"Open a site or Blueprint": [
+		"Abrir un sitio o un modelo"
+	],
+	"Open annotation browser": [
+		"Abrir el navegador de anotaciones"
+	],
+	"Open documentation": [
+		"Abrir la documentación"
+	],
+	"Open email log": [
+		"Abrir el registro de correo electrónico"
+	],
+	"Open on GitHub": [
+		"Abrir en GitHub"
+	],
+	"Open the WordPress Studio app to add an existing WordPress folder.": [
+		"Abre la aplicación WordPress Studio para añadir una carpeta de WordPress existente."
+	],
+	"OpenAI API key": [
+		"Clave de API de OpenAI"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI ha rechazado esta clave de API. Comprueba la clave e inténtalo de nuevo."
+	],
+	"OpenAI’s coding agent in the ChatGPT app.": [
+		"El agente de programación de OpenAI en la aplicación ChatGPT."
+	],
+	"Optimize category taxonomy with AI.": [
+		"Optimiza la taxonomía de categorías con IA."
+	],
+	"PHP workers must be a whole number from 1 to 64.": [
+		"El número de procesos de PHP debe ser un número entero del 1 al 64."
+	],
+	"Parent folder": [
+		"Carpeta principal"
+	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"Pega el token que muestra el comando. El uso se descuenta de tu plan de Claude."
+	],
+	"Pending annotation": [
+		"Anotación pendiente"
+	],
+	"Performance audit": [
+		"Auditoría de rendimiento"
+	],
+	"Pick design": [
+		"Elegir diseño"
+	],
+	"Point or draw to suggest a change.": [
+		"Señala o dibuja para sugerir un cambio."
+	],
+	"Point to something you’d like to change.": [
+		"Señala algo que quieras cambiar."
+	],
+	"Present design options": [
+		"Presentar opciones de diseño"
+	],
+	"Preview browser controls": [
+		"Controles del navegador de la vista previa"
+	],
+	"Preview creation cancelled": [
+		"Creación de la vista previa cancelada"
+	],
+	"Preview site not found": [
+		"Vista previa del sitio no encontrada"
+	],
+	"Preview tabs": [
+		"Pestañas de vista previa"
+	],
+	"Project tools": [
+		"Herramientas del proyecto"
+	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"Publica una copia estática de tu sitio en un Space de Spacefast. Los formularios, los comentarios y otras funciones que necesitan que WordPress esté en funcionamiento no funcionarán en la copia."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"Publica una copia estática de tus sitios en un Space de Spacefast."
+	],
+	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
+		"Publica sitios nuevos o actualiza los existentes en WordPress.com o Pressable."
+	],
+	"Publish to %s to apply these changes.": [
+		"Publica en %s para aplicar estos cambios."
+	],
+	"Publish to Spacefast": [
+		"Publicar en Spacefast"
+	],
+	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
+		"Publica en un sitio nuevo y elige un dominio, o usa un sitio existente en WordPress.com o Pressable."
+	],
+	"Publish to another site…": [
+		"Publicar en otro sitio…"
+	],
+	"Publish your changes.": [
+		"Publica tus cambios."
+	],
+	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
+		"Publica tu sitio cuando esté listo o comparte una vista previa a través de WordPress.com."
+	],
+	"Published sites": [
+		"Sitios publicados"
+	],
+	"Published to": [
+		"Publicado en"
+	],
+	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
+		"Para publicar e importar se necesita un sitio web compatible de WordPress.com o Pressable."
+	],
+	"Publishing cancelled": [
+		"Publicación cancelada"
+	],
+	"Publishing changes…": [
+		"Publicando cambios…"
+	],
+	"Pull a WordPress.com or Pressable site to your local site": [
+		"Hacer pull de un sitio de WordPress.com o Pressable a tu sitio local"
+	],
+	"Pull only the database (keeps the local files)": [
+		"Hacer pull solo de la base de datos (mantiene los archivos locales)"
+	],
+	"Pull preview": [
+		"Importar vista previa"
+	],
+	"Pull site": [
+		"Hacer pull del sitio"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"Importar la vista previa reemplaza los cambios hechos aquí."
+	],
+	"Push site": [
+		"Hacer push del sitio"
+	],
+	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
+		"Hacer push de tu sitio local a un sitio de WordPress.com o publicarlo en Spacefast"
+	],
+	"Read": [
+		"Leer"
+	],
+	"Read %s": [
+		"Leer %s"
+	],
+	"Read site option": [
+		"Leer una opción del sitio"
+	],
+	"Read site title": [
+		"Leer el título del sitio"
+	],
+	"Recent chats hidden.": [
+		"Chats recientes ocultos."
+	],
+	"Recent chats shown.": [
+		"Chats recientes visibles."
+	],
+	"Recent pages": [
+		"Páginas recientes"
+	],
+	"Refresh preview": [
+		"Actualizar vista previa"
+	],
+	"Remote backup failed": [
+		"Ha fallado la copia de seguridad remota"
+	],
+	"Remote environment: %s": [
+		"Entorno remoto: %s"
+	],
+	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
+		"URL o ID del sitio remoto, o `<provider>[:<site>]` para un sitio de otro proveedor, como `spacefast` para publicar una copia estática en Spacefast"
+	],
+	"Remove Blueprint": [
+		"Quitar el modelo"
+	],
+	"Replace the contents of a non-empty output directory": [
+		"Reemplazar el contenido de un directorio de salida que no esté vacío"
+	],
+	"Reply in your own words instead of picking an option.": [
+		"Responde con tus propias palabras en lugar de elegir una opción."
+	],
+	"Report an issue on GitHub": [
+		"Informar de un problema en GitHub"
+	],
+	"Request a feature or report a bug.": [
+		"Solicita una función o informa de un error."
+	],
+	"Reset folder name to match site name": [
+		"Restablecer el nombre de la carpeta para que coincida con el nombre del sitio"
+	],
+	"Reset tips": [
+		"Restablecer los consejos"
+	],
+	"Resize panel": [
+		"Cambiar el tamaño del panel"
+	],
+	"Resize viewport: %s": [
+		"Cambiar el tamaño de la ventana gráfica: %s"
+	],
+	"Responsive preview": [
+		"Vista previa adaptable"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"Reinicia WordPress Studio para terminar la actualización."
+	],
+	"Restore the default interface theme, accent color, intensity, and contrast.": [
+		"Restaura el tema de la interfaz, el color de énfasis, la intensidad y el contraste predeterminados."
+	],
+	"Review the advanced settings to finish creating your site.": [
+		"Revisa los ajustes avanzados para terminar de crear tu sitio."
+	],
+	"Rotate to landscape": [
+		"Girar a horizontal"
+	],
+	"Rotate to portrait": [
+		"Girar a vertical"
+	],
+	"Rotate viewport": [
+		"Girar la ventana gráfica"
+	],
+	"Round Midnight": [
+		"Round Midnight"
+	],
+	"Run": [
+		"Ejecutar"
+	],
+	"Run \"studio blueprint list\" to see available slugs.": [
+		"Ejecuta «studio blueprint list» para ver los slugs disponibles."
+	],
+	"Run WordPress code": [
+		"Ejecutar código de WordPress"
+	],
+	"Run WordPress command": [
+		"Ejecutar comando de WordPress"
+	],
+	"Run a performance audit on a site.": [
+		"Realiza una auditoría de rendimiento de un sitio."
+	],
+	"Run an on-page SEO audit on a site.": [
+		"Realiza una auditoría SEO on-page de un sitio."
+	],
+	"Run task": [
+		"Ejecutar tarea"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"Ejecuta esto en un terminal y, después, inicia sesión con tu cuenta de Claude:"
+	],
+	"SEO audit": [
+		"Auditoría SEO"
+	],
+	"Saturation and brightness": [
+		"Saturación y brillo"
+	],
+	"Save annotation (Enter)": [
+		"Guardar anotación (Intro)"
+	],
+	"Scaffold theme": [
+		"Generar la estructura del tema"
+	],
+	"Screenshots are available in the desktop app.": [
+		"Las capturas de pantalla están disponibles en la aplicación de escritorio."
+	],
+	"Select an email to read it.": [
+		"Selecciona un correo electrónico para leerlo."
+	],
+	"Selected area": [
+		"Área seleccionada"
+	],
+	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
+		"Se sobrescribirán los archivos, el contenido y los ajustes seleccionados en WordPress Studio. Tu sitio web no sufrirá cambios."
+	],
+	"Selected files, content, and settings on your website will be overwritten.": [
+		"Se sobrescribirán los archivos, el contenido y los ajustes seleccionados de tu sitio web."
+	],
+	"Send %d annotation": [
+		"Enviar %d anotación",
+		"Enviar %d anotaciones"
+	],
+	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
+		"Comparte una copia temporal de tu sitio local con cualquiera. Una vista previa del sitio caduca si pasa aproximadamente una semana sin actualizarse."
+	],
+	"Share details (required)": [
+		"Comparte los detalles (obligatorio)"
+	],
+	"Share ideas and report problems directly to the Studio team.": [
+		"Comparte ideas e informa de problemas directamente al equipo de Studio."
+	],
+	"Show admin bar": [
+		"Mostrar la barra de administración"
+	],
+	"Show admin bar by default": [
+		"Mostrar la barra de administración por defecto"
+	],
+	"Show chat beside the panel when starting a site.": [
+		"Muestra el chat junto al panel al iniciar un sitio."
+	],
+	"Show chat when starting sites": [
+		"Mostrar el chat al iniciar sitios"
+	],
+	"Show device toolbar": [
+		"Mostrar la barra de herramientas de dispositivos"
+	],
+	"Show or hide the panel beside your chat.": [
+		"Muestra u oculta el panel junto a tu chat."
+	],
+	"Show panel": [
+		"Mostrar el panel"
+	],
+	"Show whether a preview site or its local site changed since they were synced": [
+		"Mostrar si una vista previa del sitio o su sitio local han cambiado desde que se sincronizaron"
+	],
+	"Sign in at %s": [
+		"Inicia sesión en %s"
+	],
+	"Sign in to get a one-time grant of free AI credits.": [
+		"Inicia sesión para recibir una única asignación de créditos de IA gratuitos."
+	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"Inicia sesión con ChatGPT o usa una clave de API de OpenAI."
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"Inicia sesión con una cuenta de GitHub que tenga acceso a Copilot."
+	],
+	"Signing in took too long. Try again.": [
+		"El inicio de sesión ha tardado demasiado. Inténtalo de nuevo."
+	],
+	"Signing in was declined.": [
+		"Se ha rechazado el inicio de sesión."
+	],
+	"Signing in was started again.": [
+		"El inicio de sesión se ha vuelto a empezar."
+	],
+	"Site annotation is not available in the browser yet": [
+		"Las anotaciones del sitio aún no están disponibles en el navegador"
+	],
+	"Site exported": [
+		"Sitio exportado"
+	],
+	"Site folder": [
+		"Carpeta del sitio"
+	],
+	"Site folder is required.": [
+		"La carpeta del sitio es obligatoria."
+	],
+	"Site sources": [
+		"Orígenes del sitio"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"No se han podido cargar los sitios. Comprueba tu conexión a Internet e inténtalo de nuevo."
+	],
+	"Sites will start with chat.": [
+		"Los sitios se iniciarán con el chat."
+	],
+	"Sites will start with the panel expanded.": [
+		"Los sitios se iniciarán con el panel ampliado."
+	],
+	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
+		"Las habilidades proporcionan a los agentes de IA orientación para el desarrollo de WordPress. Los cambios aquí se aplican a todos los sitios existentes y establecen los valores por defecto para los sitios nuevos."
+	],
+	"Something went wrong while updating the live site.": [
+		"Algo ha fallado al actualizar el sitio activo."
+	],
+	"Source is a temporary preview site.": [
+		"El origen es una vista previa temporal del sitio."
+	],
+	"Spacefast sign-in was declined.": [
+		"Se ha rechazado el inicio de sesión en Spacefast."
+	],
+	"Split view": [
+		"Vista dividida"
+	],
+	"Start building with free AI credits.": [
+		"Empieza a crear con créditos de IA gratuitos."
+	],
+	"Start from": [
+		"Empezar desde"
+	],
+	"Start signing in again.": [
+		"Vuelve a iniciar sesión."
+	],
+	"Start signing in to Spacefast again.": [
+		"Vuelve a empezar el inicio de sesión en Spacefast."
+	],
+	"Start signing in with ChatGPT again.": [
+		"Vuelve a empezar el inicio de sesión con ChatGPT."
+	],
+	"Start signing in with GitHub again.": [
+		"Vuelve a empezar el inicio de sesión con GitHub."
+	],
+	"Start sites with chat": [
+		"Iniciar los sitios con el chat"
+	],
+	"Start this site.": [
+		"Inicia este sitio."
+	],
+	"Starting chat…": [
+		"Iniciando el chat…"
+	],
+	"Static export failed: %s": [
+		"Error en la exportación estática: %s"
+	],
+	"Static site exported to %s": [
+		"Sitio estático exportado a %s"
+	],
+	"Stop annotating": [
+		"Dejar de anotar"
+	],
+	"Stop annotating. Your notes will be kept.": [
+		"Dejar de anotar. Se conservarán tus notas."
+	],
+	"Strong": [
+		"Potente"
+	],
+	"Studio was updated, and the site \"%s\" could not be started again.": [
+		"Studio se ha actualizado y no se ha podido volver a iniciar el sitio «%s»."
+	],
+	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
+		"El phpMyAdmin de Studio solo es compatible con SQLite. Usa otro cliente de base de datos para MySQL externo."
+	],
+	"Supported files: %s.": [
+		"Archivos compatibles: %s."
+	],
+	"Swing Time": [
+		"Swing Time"
+	],
+	"Sync is finishing": [
+		"La sincronización está terminando"
+	],
+	"Take Five": [
+		"Take Five"
+	],
+	"Taking screenshot…": [
+		"Haciendo la captura de pantalla…"
+	],
+	"Taxonomist": [
+		"Taxonomista"
+	],
+	"Team": [
+		"Equipo"
+	],
+	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
+		"Gracias por ayudar a mejorar WordPress Studio. El ID de referencia de tus comentarios es <id>%s</id>."
+	],
+	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
+		"Ese tipo de archivo no es compatible. Elige un modelo, una copia de seguridad de WordPress o un archivo de exportación XML."
+	],
+	"That sign-in was for another attempt. Try again.": [
+		"Ese inicio de sesión correspondía a otro intento. Inténtalo de nuevo."
+	],
+	"The GitHub sign-in expired. Try again.": [
+		"El inicio de sesión en GitHub ha caducado. Inténtalo de nuevo."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"El inicio de sesión en Spacefast ha caducado. Inténtalo de nuevo."
+	],
+	"The database failed to import on the live site. Review your database and try again.": [
+		"No se ha podido importar la base de datos en el sitio activo. Revisa tu base de datos e inténtalo de nuevo."
+	],
+	"The default browser for your sites.": [
+		"El navegador por defecto para tus sitios."
+	],
+	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
+		"El primer pull de un sitio debe incluir sus archivos. Haz pull del sitio completo una vez y, después, solo de la base de datos."
+	],
+	"The live site must be a qualifying connected site of this local site.": [
+		"El sitio activo debe ser un sitio conectado válido de este sitio local."
+	],
+	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
+		"Se ha agotado el tiempo de espera del sitio activo durante la importación, probablemente porque el sitio es demasiado grande. Intenta reducir su contenido o sus archivos."
+	],
+	"The output directory %s is not empty.": [
+		"El directorio de salida %s no está vacío."
+	],
+	"The output directory cannot be inside the site folder or contain it.": [
+		"El directorio de salida no puede estar dentro de la carpeta del sitio ni contenerla."
+	],
+	"The preview site could not be built from the archive.": [
+		"No se ha podido crear la vista previa del sitio a partir del archivo."
+	],
+	"The preview site did not become ready within the timeout.": [
+		"La vista previa del sitio no ha estado lista dentro del tiempo de espera."
+	],
+	"The preview site has no preview link.": [
+		"La vista previa del sitio no tiene enlace de vista previa."
+	],
+	"The site archive exceeds the %d GB size limit.": [
+		"El archivo del sitio supera el límite de tamaño de %d GB."
+	],
+	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
+		"Los cambios en los archivos del tema no se verán. Se omiten tus cambios en los archivos de %s: esta vista previa usa la copia original del tema de WordPress.com. Hazlos en el editor del sitio o en un tema hijo para verlos en las vistas previas."
+	],
+	"Then add this configuration to your app.": [
+		"Después, añade esta configuración a tu aplicación."
+	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"Esta cuenta de GitHub no tiene un plan de Copilot. Elige un plan en github.com/features/copilot."
+	],
+	"This ZIP could not be read. Check that it is a valid zip file.": [
+		"No se ha podido leer este ZIP. Comprueba que sea un archivo zip válido."
+	],
+	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
+		"No se ha podido usar este ZIP. Asegúrate de que contenga un archivo blueprint.json válido en el nivel superior o dentro de una única carpeta contenedora e inténtalo de nuevo."
+	],
+	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
+		"Esta copia de seguridad contiene archivos SQL cuyos nombres solo se diferencian en mayúsculas y minúsculas: «%1$s» y «%2$s». Resuelve el conflicto de nombres en el sitio de origen, crea una nueva copia de seguridad e inténtalo de nuevo."
+	],
+	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
+		"Esto puede tardar unos minutos. WordPress Studio se volverá a abrir solo cuando se instale la actualización."
+	],
+	"This email is gone.": [
+		"Este correo electrónico ya no existe."
+	],
+	"This file took too long to load. Please try again or choose another file.": [
+		"Este archivo ha tardado demasiado en cargarse. Inténtalo de nuevo o elige otro archivo."
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"Esta carpeta ya está asociada a otro sitio de Studio. Elige otra carpeta local."
+	],
+	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
+		"Esta carpeta ya está asociada a otro sitio de Studio. Elige otro nombre de sitio u otra carpeta local."
+	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"Esta es una clave de Anthropic. Añádela en Anthropic."
+	],
+	"This site and its preview both changed": [
+		"Este sitio y su vista previa han cambiado"
+	],
+	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
+		"Este sitio aún no admite la importación. Actualiza Jetpack en el sitio a la última versión e inténtalo de nuevo."
+	],
+	"This site has changes its preview doesn't": [
+		"Este sitio tiene cambios que su vista previa no tiene"
+	],
+	"This site is no longer available in WordPress Studio.": [
+		"Este sitio ya no está disponible en WordPress Studio."
+	],
+	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
+		"Este sitio no está listo para iniciarse. %s Vuelve a ejecutar `studio pull` para terminar el pull o `studio delete` para eliminar el sitio."
+	],
+	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
+		"Este sitio supera los %d GB, por lo que es posible que no se pueda volver a publicar en WordPress.com. Publica una selección de archivos más pequeña."
+	],
+	"This site isn't one of your WordPress.com or Pressable sites.": [
+		"Este sitio no es uno de tus sitios de WordPress.com o Pressable."
+	],
+	"This website has been deleted. Choose another website.": [
+		"Este sitio web se ha eliminado. Elige otro sitio web."
+	],
+	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
+		"Este sitio web necesita un plan de alojamiento que admita la publicación desde WordPress Studio."
+	],
+	"Tips reset.": [
+		"Consejos restablecidos."
+	],
+	"To %s": [
+		"Para %s"
+	],
+	"Token is required": [
+		"El token es obligatorio"
+	],
+	"Try downloading the update again.": [
+		"Intenta descargar la actualización de nuevo."
+	],
+	"Try starting the chat again, or open your site.": [
+		"Intenta iniciar el chat de nuevo o abre tu sitio."
+	],
+	"URL the static site will be hosted at. Links are root-relative when omitted.": [
+		"URL en la que se alojará el sitio estático. Si se omite, los enlaces son relativos a la raíz."
+	],
+	"Unable to open this folder.": [
+		"No se puede abrir esta carpeta."
+	],
+	"Unable to open this source.": [
+		"No se puede abrir este origen."
+	],
+	"Unexpected response from server while checking backup status": [
+		"Respuesta inesperada del servidor al comprobar el estado de la copia de seguridad"
+	],
+	"Unknown provider %1$s. Choose one of: %2$s.": [
+		"Proveedor desconocido: %1$s. Elige uno de estos: %2$s."
+	],
+	"Unsupported backup file": [
+		"Archivo de copia de seguridad no compatible"
+	],
+	"Update %s": [
+		"Actualizar %s"
+	],
+	"Update all plugins": [
+		"Actualizar todos los plugins"
+	],
+	"Update plugin": [
+		"Actualizar plugin"
+	],
+	"Update site option": [
+		"Actualizar una opción del sitio"
+	],
+	"Update site title": [
+		"Actualizar el título del sitio"
+	],
+	"Update todo list": [
+		"Actualizar lista de tareas"
+	],
+	"Update user": [
+		"Actualizar usuario"
+	],
+	"Uploading files…": [
+		"Subiendo archivos…"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"El uso se factura a través de tu cuenta de Anthropic."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"El uso se factura a través de tu proyecto de Google AI Studio."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"El uso se factura a través de tu cuenta de Meta Model API."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"El uso se factura a través de tu cuenta de OpenAI."
+	],
+	"Use /connect %1$s to connect %2$s again.": [
+		"Usa /connect %1$s para volver a conectar %2$s."
+	],
+	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
+		"Usa Alt+Mayús+Flecha izquierda o derecha para mover esta pestaña."
+	],
+	"Use Blueprint": [
+		"Usar modelo"
+	],
+	"Use Gemini with a Gemini API key.": [
+		"Usa Gemini con una clave de API de Gemini."
+	],
+	"Use Muse models with your Meta API key.": [
+		"Usa los modelos Muse con tu clave de API de Meta."
+	],
+	"Use WordPress Studio with your agents": [
+		"Usa WordPress Studio con tus agentes"
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"Usa una clave de API de Anthropic o un token de suscripción de Claude."
+	],
+	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
+		"Usa un enlace HTTPS a una copia de seguridad de un sitio compatible, con un archivo zip o tar.gz de menos de 1 GB. Comprueba tu conexión e inténtalo de nuevo."
+	],
+	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
+		"Usa tu agente de IA preferido para crear sitios, hacer cambios y revisar tu trabajo. Instala el plugin de WordPress Studio para darle acceso a tus sitios locales."
+	],
+	"Using ChatGPT plan": [
+		"Usando el plan de ChatGPT"
+	],
+	"Using Claude plan": [
+		"Usando el plan de Claude"
+	],
+	"Using Copilot plan": [
+		"Usando el plan de Copilot"
+	],
+	"Validate blocks": [
+		"Validar bloques"
+	],
+	"Visit previews": [
+		"Visitar las vistas previas"
+	],
+	"Visual Annotations": [
+		"Anotaciones visuales"
+	],
+	"Waiting for %s": [
+		"Esperando desde hace %s"
+	],
+	"Waiting for approval…": [
+		"Esperando la aprobación…"
+	],
+	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
+		"Esperando al navegador. Si no puede conectar con este ordenador, pega la dirección en la que termina:"
+	],
+	"What would you like to open?": [
+		"¿Qué quieres abrir?"
+	],
+	"Where do you want to publish?": [
+		"¿Dónde quieres publicar?"
+	],
+	"WordPress Studio CLI for terminal": [
+		"CLI de WordPress Studio para el terminal"
+	],
+	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
+		"WordPress Studio podrá cerrarse cuando termine la sincronización. Si lo cierras ahora, se interrumpirá y tu sitio podría quedar incompleto."
+	],
+	"WordPress Studio could not download this backup.": [
+		"WordPress Studio no ha podido descargar esta copia de seguridad."
+	],
+	"WordPress Studio could not open the email folder.": [
+		"WordPress Studio no ha podido abrir la carpeta de correo electrónico."
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"WordPress Studio no ha podido abrir la carpeta. Inténtalo de nuevo."
+	],
+	"WordPress Studio could not open the site.": [
+		"WordPress Studio no ha podido abrir el sitio."
+	],
+	"WordPress Studio is finishing an update": [
+		"WordPress Studio está terminando una actualización"
+	],
+	"WordPress Studio team": [
+		"Equipo de WordPress Studio"
+	],
+	"WordPress Studio will create a local copy of this site in an empty folder.": [
+		"WordPress Studio creará una copia local de este sitio en una carpeta vacía."
+	],
+	"WordPress Studio will create a site from this blueprint in an empty folder.": [
+		"WordPress Studio creará un sitio a partir de este modelo en una carpeta vacía."
+	],
+	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
+		"WordPress Studio creará un sitio en una carpeta vacía e importará esta exportación de WordPress."
+	],
+	"WordPress Studio will restore this backup into an empty folder.": [
+		"WordPress Studio restaurará esta copia de seguridad en una carpeta vacía."
+	],
+	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
+		"WordPress Studio usará este sitio de WordPress en su ubicación actual. No se moverá ningún archivo."
+	],
+	"WordPress export": [
+		"Exportación de WordPress"
+	],
+	"WordPress.com API": [
+		"API de WordPress.com"
+	],
+	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
+		"WordPress.com no admite multisitio. Publicar esta red puede causar problemas."
+	],
+	"WordPress.com hosting": [
+		"Alojamiento de WordPress.com"
+	],
+	"Worked for %s": [
+		"Ha trabajado durante %s"
+	],
+	"Working for %s": [
+		"Trabajando desde hace %s"
+	],
+	"Workspace navigation": [
+		"Navegación del espacio de trabajo"
+	],
+	"Write": [
+		"Escribir"
+	],
+	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
+		"Puedes adjuntar hasta %d imágenes. Envía o elimina una anotación antes de capturar otra área."
+	],
+	"You can close this tab and return to WordPress Studio.": [
+		"Puedes cerrar esta pestaña y volver a WordPress Studio."
+	],
+	"You need administrator access to publish or pull changes.": [
+		"Necesitas acceso de administrador para publicar o importar cambios."
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"Has alcanzado el límite de uso de tu plan de ChatGPT. Gestiona el uso en chatgpt.com/settings/usage."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"Has alcanzado el límite de uso de tu plan de Copilot. Gestiona el uso en github.com/settings/copilot."
+	],
+	"You stopped after %s": [
+		"Lo has detenido después de %s"
+	],
+	"You're not logged in to WordPress.com. Log in now?": [
+		"No has iniciado sesión en WordPress.com. ¿Quieres iniciar sesión ahora?"
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"Tu plan de ChatGPT no se puede usar en WordPress Studio."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"Tu inicio de sesión en ChatGPT ya no funciona. Vuelve a conectar ChatGPT en Configuración."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"Tu plan de Copilot no incluye este modelo. Elige otro o actívalo en github.com/settings/copilot."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"Tu inicio de sesión en Spacefast ya no funciona. Vuelve a conectar Spacefast."
+	],
+	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
+		"Tu vista previa se ha trasladado a WordPress.com, por lo que su enlace ha cambiado. Nuevo enlace: %s"
+	],
+	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
+		"Tu sitio ha cambiado desde la última vez que se actualizó la vista previa «%s». Al publicar, se enviará tu sitio local actual, incluidos los cambios que no aparecen en esa vista previa."
+	],
+	"Your site was created, but the AI chat could not start.": [
+		"Se ha creado tu sitio, pero no se ha podido iniciar el chat de IA."
+	],
+	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"Tus sitios siguen apareciendo en %s. Reinicia WordPress Studio para volver a intentarlo. Si sigue ocurriendo, ponte en contacto con el servicio de asistencia con los detalles que aparecen a continuación."
+	],
+	"Your unsaved changes will be lost.": [
+		"Se perderán los cambios que no hayas guardado."
+	],
+	"Your website will be replaced with this site as it is now.": [
+		"Tu sitio web se reemplazará por este sitio tal y como está ahora."
+	],
+	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
+		"base-url debe ser una URL http(s) sin ruta, por ejemplo, https://example.com"
+	],
+	"inline content": [
+		"contenido en línea"
+	],
+	"media item": [
+		"elemento multimedia"
+	],
+	"media items": [
+		"elementos multimedia"
+	],
+	"page": [
+		"página"
+	],
+	"pages": [
+		"páginas"
+	],
+	"post": [
+		"entrada"
+	],
+	"posts": [
+		"entradas"
+	],
+	"product": [
+		"producto"
+	],
+	"products": [
+		"productos"
+	],
+	"· %d%%": [
+		"· %d %%"
+	]
+}

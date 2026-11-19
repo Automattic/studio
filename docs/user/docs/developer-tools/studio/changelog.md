@@ -2,6 +2,52 @@
 
 WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release. While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
 
+## [2.3.0](#0-2-3-0)
+
+-   AI providers
+    -   Chat in WordPress Studio Code with your ChatGPT plan, a Claude subscription or GitHub Copilot, or with your own OpenAI, Google Gemini or Meta API key
+    -   Choose the provider new chats use with Default AI provider, and pick any connected provider’s model from the model menu
+    -   Connect a provider from the terminal with `/connect`
+    -   Generate site images with OpenAI, Google Gemini or Meta, as well as WordPress.com
+-   Settings
+    -   Settings has separate Providers and Agents pages: AI and hosting providers on one, the WordPress Studio plugin for Claude Code, Codex, Cursor and Grok Build on the other
+-   Publishing
+    -   Publish a static copy of a site to Spacefast from the Publish panel or with `studio push --remote-site spacefast`, after connecting Spacefast in Settings → Providers
+    -   Publish opens your default hosting provider directly, with Choose another host to switch
+    -   WordPress Studio Code can publish to any connected site, after confirming which one
+    -   Publishing to a new WordPress.com site launches it, so it isn’t left in Coming Soon
+-   Preview sites
+    -   Previews show which live site they preview changes to, with a Live site picker, and Publish warns when you’re about to send changes the preview didn’t show
+    -   Open a preview as visitors see it, or sign in to it with the new WordPress admin action, and get a warning when edits to a default theme’s files won’t show
+-   Pulling
+    -   Sites without a backup can pull files only or content only, and pulls can be cancelled from their progress notification
+-   Annotations and chat
+    -   Draw on the preview to sketch what you mean, and selected areas and drawings come with a screenshot
+    -   Attach a screenshot of the preview to your chat from Browser options
+-   Adding sites and navigation
+    -   Create a site straight from a Blueprint’s details with Add site
+    -   Connecting a site shows its screenshot on the setup screen
+    -   Go back and forward between the sites and chats you’ve visited, from the top of the sidebar
+    -   A simpler, grouped site menu, with WordPress admin back in Open in
+-   Sites and PHP
+    -   New sites default to All files access, and sites start faster and reuse the editor’s scripts and styles between page loads
+    -   PHP accepts up to 10,000 input variables, so large menus and option forms save completely
+    -   The Imagick extension ships with WordPress Studio’s PHP, and `studio config set --php-workers` sets how many requests a site serves at once
+    -   phpMyAdmin’s SQLite-only tools are turned off for sites that use an external MySQL server
+-   CLI
+    -   `studio create --blueprint` accepts Blueprint Library slugs, and `studio export-static` exports a site as static HTML
+-   Other Fixes
+    -   Sending feedback while logged out offers Continue with WordPress.com and keeps the form open
+    -   LibreWolf joins the Open in browsers
+    -   The app no longer runs out of memory and shows a white screen while WordPress Studio Code publishes a site
+    -   App updates on macOS and Windows recover from network errors instead of reporting them, and the macOS updater no longer breaks its own install
+-   Updated multiple dependencies
+-   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.3.0)
+
+*November 18, 2026*
+
 ## [2.2.0](#0-2-2-0)
 
 -   Email log

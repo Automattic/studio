@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand, type RunWpCliCommandOptions } from 'cli/lib/run-wp-cli-command';
 import {
@@ -11,6 +10,7 @@ import {
 	type StaticSiteImportPlan,
 } from 'cli/lib/static-site-import/source';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 export const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
@@ -148,7 +148,7 @@ function staticSiteImportProgressMessage( phase: 'import' | 'finalization', elap
 }
 
 async function runWpCli(
-	site: SiteData,
+	site: ConfigSite,
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< WpCliResult > {
@@ -166,7 +166,7 @@ function wpCliFailureDetail( { exitCode, stdout, stderr }: WpCliResult ): string
 }
 
 async function cleanupStaticSiteImporterPlugin(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< LoggerAction >
 ): Promise< boolean > {
 	try {
@@ -201,7 +201,7 @@ async function cleanupStaticSiteImporterPlugin(
 	}
 }
 
-function reportRetainedImportedSite( site: SiteData ): void {
+function reportRetainedImportedSite( site: ConfigSite ): void {
 	console.log( '' );
 	console.log(
 		site.running
@@ -232,7 +232,7 @@ export class StaticSiteImportRun {
 	) {}
 
 	/** Records the site already registered at the path, and whether its staged import is this one. */
-	canResumeOn( existingSite: SiteData | undefined ): existingSite is SiteData {
+	canResumeOn( existingSite: ConfigSite | undefined ): existingSite is ConfigSite {
 		this.siteAlreadyExisted = Boolean( existingSite );
 		const requestPath = staticSiteImportRequestPath( this.sitePath );
 		return Boolean(
@@ -244,7 +244,7 @@ export class StaticSiteImportRun {
 		);
 	}
 
-	async resume( site: SiteData ): Promise< void > {
+	async resume( site: ConfigSite ): Promise< void > {
 		try {
 			await this.run( site, true );
 		} catch ( error ) {
@@ -253,7 +253,7 @@ export class StaticSiteImportRun {
 		}
 	}
 
-	async run( site: SiteData, resume = false ): Promise< void > {
+	async run( site: ConfigSite, resume = false ): Promise< void > {
 		this.outcome = 'attempted';
 		const { logger } = this;
 		const { request, sourcePath } = this.plan;
@@ -328,7 +328,7 @@ export class StaticSiteImportRun {
 	}
 
 	/** After a failure, reports the site as kept for a rerun when the import already touched it. */
-	retainSiteAfterFailure( site: SiteData ): boolean {
+	retainSiteAfterFailure( site: ConfigSite ): boolean {
 		if ( this.outcome === 'not-attempted' ) {
 			return false;
 		}

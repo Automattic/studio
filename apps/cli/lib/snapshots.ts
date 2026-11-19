@@ -1,14 +1,15 @@
 import { HOUR_MS, DAY_MS } from '@studio/common/constants';
-import { addConnectedWpcomSite } from '@studio/common/lib/connected-sites';
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __ } from '@wordpress/i18n';
 import { addHours } from 'date-fns/addHours';
 import { formatDuration } from 'date-fns/formatDuration';
 import { intervalToDuration } from 'date-fns/intervalToDuration';
 import { reconcilePreviews } from 'cli/lib/cli-config/snapshots';
-import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
+import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import type { Snapshot } from '@studio/common/types/snapshot';
+import type { PreviewSite } from '@studio/providers';
 import type { DurationUnit } from 'date-fns';
 
 export {
@@ -19,7 +20,7 @@ export {
 	pruneExpiredOrphanedSnapshots,
 } from 'cli/lib/cli-config/snapshots';
 
-export { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
+export { getSnapshotLink, isSnapshotExpired } from '@studio/common/lib/snapshots';
 
 /**
  * Brings saved previews in line with WordPress.com: drops those that ended there, so Studio does not
@@ -32,13 +33,13 @@ export { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/comm
  */
 export async function syncPreviewsWithServer( userId: number, token: string ): Promise< void > {
 	const checkedAt = Date.now();
-	let standing: Map< number, StandingPreview >;
+	let previews: PreviewSite[];
 	try {
-		standing = await getStandingPreviews( token );
+		previews = await wpcomPreviews.list( { token } );
 	} catch {
 		return;
 	}
-	const forgotten = await reconcilePreviews( userId, standing, checkedAt );
+	const forgotten = await reconcilePreviews( userId, previews, checkedAt );
 	if ( ! forgotten.length ) {
 		return;
 	}
@@ -46,7 +47,7 @@ export async function syncPreviewsWithServer( userId: number, token: string ): P
 	for ( const snapshot of forgotten ) {
 		const site = sites.find( ( candidate ) => candidate.id === snapshot.atomicSiteId );
 		if ( site ) {
-			await addConnectedWpcomSite( snapshot.localSiteId, site );
+			await rememberRemoteSite( 'wpcom', snapshot.localSiteId, site );
 		}
 	}
 }

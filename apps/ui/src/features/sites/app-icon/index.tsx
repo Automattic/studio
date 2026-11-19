@@ -17,6 +17,7 @@ import gemini from './assets/gemini.png';
 import ghostty from './assets/ghostty.png';
 import github from './assets/github.png';
 import grok from './assets/grok.svg';
+import librewolf from './assets/librewolf.png';
 import opera from './assets/opera.png';
 import phpmyadmin from './assets/phpmyadmin.png';
 import safari from './assets/safari.png';
@@ -26,6 +27,7 @@ import vivaldi from './assets/vivaldi.png';
 import vscode from './assets/vscode.png';
 import warp from './assets/warp.png';
 import wordpressCom from './assets/wordpress-com.png';
+import xai from './assets/xai.svg';
 import zen from './assets/zen.png';
 import styles from './style.module.css';
 
@@ -49,6 +51,7 @@ const icons: Record< string, string > = {
 	github,
 	'github-copilot': copilot,
 	'grok-build': grok,
+	librewolf,
 	openai: chatgpt,
 	opera,
 	phpmyadmin,
@@ -59,10 +62,11 @@ const icons: Record< string, string > = {
 	vscode,
 	warp,
 	wpcom: wordpressCom,
+	xai,
 	zen,
 };
 
-const tileIcons = new Set( [ gemini, spacefast, wordpressCom ] );
+const tileIcons = new Set( [ gemini, spacefast, wordpressCom, xai ] );
 
 /** An app's bundled logo, or `fallback` when there is none or it fails to load. */
 export function AppIcon( { app, fallback }: { app?: string; fallback: ReactNode } ) {

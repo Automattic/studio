@@ -1,7 +1,11 @@
 import { getProvider } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
-import { useAiSettings, useSetAiProvider } from '@/data/queries/use-ai-settings';
+import {
+	useAiSettings,
+	useSetAiProvider,
+	useSetImageProvider,
+} from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useConnectedHostingProviders, usePublishProviders } from '@/data/queries/use-remote-sites';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -17,6 +21,8 @@ import { SpacefastProviderRow, type SpacefastConnectControl } from './spacefast-
 import styles from './style.module.css';
 import type { AiProviderId, ProviderId, SitesProviderId } from '@studio/providers';
 
+const AUTOMATIC = 'automatic';
+
 function DefaultProviderRow< Id extends ProviderId >( {
 	title,
 	description,
@@ -26,6 +32,7 @@ function DefaultProviderRow< Id extends ProviderId >( {
 	loading,
 	disabled,
 	error,
+	automatic,
 	onChange,
 }: {
 	title: string;
@@ -36,9 +43,11 @@ function DefaultProviderRow< Id extends ProviderId >( {
 	loading: boolean;
 	disabled: boolean;
 	error?: string;
-	onChange: ( value: Id ) => void;
+	// Offers to pick automatically, as a null value.
+	automatic?: boolean;
+	onChange: ( value: Id | null ) => void;
 } ) {
-	const onlyProvider = connected.length === 1 ? connected[ 0 ] : undefined;
+	const onlyProvider = connected.length === 1 && ! automatic ? connected[ 0 ] : undefined;
 	const hasProviders = connected.length > 0;
 	const placeholder = hasProviders
 		? __( 'Choose a provider' )
@@ -53,21 +62,24 @@ function DefaultProviderRow< Id extends ProviderId >( {
 			settingId={ settingId }
 			error={ error }
 		>
-			<SettingsSelect
+			<SettingsSelect< Id | typeof AUTOMATIC >
 				label={ title }
-				value={ onlyProvider ?? value }
+				value={ onlyProvider ?? value ?? ( automatic && hasProviders ? AUTOMATIC : null ) }
 				placeholder={ placeholder }
 				disabled={ disabled || ! hasProviders }
-				options={ connected.map( ( id ) => ( {
-					value: id,
-					label: getProvider( id ).label,
-					icon: (
-						<span className={ styles.providerSelectIcon } aria-hidden="true">
-							<ProviderLogo provider={ id } />
-						</span>
-					),
-				} ) ) }
-				onChange={ onChange }
+				options={ [
+					...( automatic ? [ { value: AUTOMATIC, label: __( 'Automatic' ) } as const ] : [] ),
+					...connected.map( ( id ) => ( {
+						value: id,
+						label: getProvider( id ).label,
+						icon: (
+							<span className={ styles.providerSelectIcon } aria-hidden="true">
+								<ProviderLogo provider={ id } />
+							</span>
+						),
+					} ) ),
+				] }
+				onChange={ ( next ) => onChange( next === AUTOMATIC ? null : next ) }
 			/>
 		</SettingsRow>
 	);
@@ -83,6 +95,7 @@ function ProviderDefaults( {
 	const settings = useAiSettings();
 	const hosting = useConnectedHostingProviders( hostingProviders );
 	const setAiProvider = useSetAiProvider();
+	const setImageProvider = useSetImageProvider();
 	const preferences = useUserPreferences();
 	const save = useSaveUserPreferences();
 
@@ -97,7 +110,19 @@ function ProviderDefaults( {
 				loading={ settings.isPending }
 				disabled={ setAiProvider.isPending }
 				error={ setAiProvider.error?.message }
-				onChange={ ( provider ) => setAiProvider.mutate( provider ) }
+				onChange={ ( provider ) => provider && setAiProvider.mutate( provider ) }
+			/>
+			<DefaultProviderRow
+				title={ __( 'Default image provider' ) }
+				description={ __( 'For generating images. Automatic uses the AI provider when it can.' ) }
+				settingId="default-image-provider"
+				connected={ settings.data?.imageProviders ?? [] }
+				value={ settings.data?.imageProvider ?? null }
+				loading={ settings.isPending }
+				disabled={ setImageProvider.isPending }
+				error={ setImageProvider.error?.message }
+				automatic
+				onChange={ ( provider ) => setImageProvider.mutate( provider ) }
 			/>
 			<DefaultProviderRow
 				title={ __( 'Default hosting provider' ) }
@@ -108,7 +133,9 @@ function ProviderDefaults( {
 				loading={ hosting.isPending }
 				disabled={ ! preferences.data || save.isPending }
 				error={ ( save.error ?? preferences.error )?.message }
-				onChange={ ( defaultHostingProvider ) => save.mutate( { defaultHostingProvider } ) }
+				onChange={ ( defaultHostingProvider ) =>
+					defaultHostingProvider && save.mutate( { defaultHostingProvider } )
+				}
 			/>
 		</SettingsGroup>
 	);

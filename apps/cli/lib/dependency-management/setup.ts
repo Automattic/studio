@@ -1,53 +1,24 @@
-import crypto from 'crypto';
 import fs from 'fs';
-import path from 'path';
-import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import semver from 'semver';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
-import { getWordPressVersionPath, getWpFilesPath } from './paths';
+import { installFromZip } from './install-from-zip';
+import { getBundledWordPressZipPath, getWordPressVersionPath, readBundledManifest } from './paths';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
 
-const RENAME_ATTEMPTS = 5;
+// A reader that finds `wp-includes/version.php` copies the directory into a new site straight away.
+const isWordPressInstalled = async ( target: string ) =>
+	Boolean( await getWordPressVersionFromInstallation( target ) );
 
-// Copies `source` to `target` through a staging directory beside it, then renames the staging
-// directory into place. Several CLI processes run this at once (the app starts more than one), so
-// `target` must only ever appear complete: a reader that finds `wp-includes/version.php` there
-// copies the directory into a new site straight away.
-async function installDirectory( source: string, target: string ) {
-	const staging = `${ target }.partial-${ process.pid }-${ crypto.randomUUID() }`;
-	try {
-		await recursiveCopyDirectory( source, staging );
-		for ( let attempt = 1; ; attempt++ ) {
-			try {
-				await fs.promises.rename( staging, target );
-				return;
-			} catch ( error ) {
-				// Another process installed `target` first, which is as good as our own copy.
-				if ( await getWordPressVersionFromInstallation( target ) ) {
-					return;
-				}
-				if ( attempt === RENAME_ATTEMPTS ) {
-					throw error;
-				}
-				// An incomplete `target` left by an interrupted copy blocks the rename. Remove it and
-				// retry; another process may install its own copy in between, which the check above accepts.
-				await fs.promises.rm( target, { recursive: true, force: true } );
-				await new Promise( ( resolve ) => setTimeout( resolve, attempt * 200 ) );
-			}
-		}
-	} finally {
-		await fs.promises.rm( staging, { recursive: true, force: true } );
-	}
+function installBundledWordPress( target: string ) {
+	return installFromZip( getBundledWordPressZipPath(), 'wordpress', target, isWordPressInstalled );
 }
 
-// Compare the WordPress version in the bundled `wp-files/latest/wordpress` directory (that ships
-// with the CLI) to `~/.studio/server-files/wordpress-versions/latest`. If the bundled directory is
-// newer, rename the old `wordpress-versions/latest` directory to `wordpress-versions/$VERSION` and
-// install the bundled directory as `wordpress-versions/latest`.
+// Compare the WordPress version bundled with the CLI (`wp-files/latest/wordpress.zip`) to
+// `~/.studio/server-files/wordpress-versions/latest`. If the bundled version is newer, rename the
+// old `wordpress-versions/latest` directory to `wordpress-versions/$VERSION` and unpack the bundled
+// one as `wordpress-versions/latest`.
 async function copyBundledLatestWpVersion() {
-	const bundledWpVersionPath = path.join( getWpFilesPath(), 'latest', 'wordpress' );
-	const bundledWpVersion = await getWordPressVersionFromInstallation( bundledWpVersionPath );
-	const bundledWpSemver = semver.coerce( bundledWpVersion );
+	const bundledWpSemver = semver.coerce( readBundledManifest()?.wordpressVersion );
 
 	if ( ! bundledWpSemver ) {
 		return;
@@ -58,14 +29,14 @@ async function copyBundledLatestWpVersion() {
 	const latestWpSemver = semver.coerce( latestWpVersion );
 
 	if ( ! latestWpVersion || ! latestWpSemver ) {
-		await installDirectory( bundledWpVersionPath, latestWpVersionPath );
+		await installBundledWordPress( latestWpVersionPath );
 	} else if ( semver.gt( bundledWpSemver, latestWpSemver ) ) {
 		try {
 			await fs.promises.rename( latestWpVersionPath, getWordPressVersionPath( latestWpVersion ) );
 		} catch {
 			// Assume the target directory already exists. Do nothing
 		}
-		await installDirectory( bundledWpVersionPath, latestWpVersionPath );
+		await installBundledWordPress( latestWpVersionPath );
 	}
 }
 
@@ -87,7 +58,7 @@ export const DEPENDENCY_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 async function shouldCheckDependencyUpdates(): Promise< boolean > {
 	try {
-		const { lastDependencyCheckTime } = await readCliConfig();
+		const { lastDependencyCheckTime } = ( await readConfig() ).cli;
 		if ( typeof lastDependencyCheckTime !== 'number' ) {
 			return true;
 		}
@@ -104,7 +75,9 @@ async function shouldCheckDependencyUpdates(): Promise< boolean > {
 
 async function markDependencyCheckTime(): Promise< void > {
 	try {
-		await updateCliConfigWithPartial( { lastDependencyCheckTime: Date.now() } );
+		await updateConfig( ( { cli } ) => {
+			cli.lastDependencyCheckTime = Date.now();
+		} );
 	} catch ( error ) {
 		console.error( 'Failed to persist dependency check timestamp:', error );
 	}

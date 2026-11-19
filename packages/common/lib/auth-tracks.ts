@@ -122,7 +122,10 @@ export function getAuthFailureReason( error: unknown ): TracksAuthFailureReason 
 	if ( ! ( error instanceof ConnectError ) ) {
 		return 'unknown';
 	}
-	return { denied: 'access_denied', invalid: 'token_error', unverified: 'profile_fetch_failed' }[
-		error.reason
-	] as TracksAuthFailureReason;
+	return {
+		denied: 'access_denied',
+		invalid: 'token_error',
+		ineligible: 'unknown',
+		unverified: 'profile_fetch_failed',
+	}[ error.reason ] as TracksAuthFailureReason;
 }

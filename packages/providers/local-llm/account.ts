@@ -18,8 +18,8 @@ export const getRefusedKeyMessage = () =>
 type LocalLlmAccount = ProviderServices< LocalLlmConfig >[ 'account' ];
 
 // Connects when the server at the address offers a model to chat on, sending the key only when
-// there is one. New chats start on the first it says can call tools, else on the first it offers.
-// Ollama lists the model pulled last first, which may be one that can't.
+// there is one, and offers all its chat models, those it says call tools first: new chats start on
+// the first, and Ollama lists the model pulled last first, which may be one that can't.
 const connect: LocalLlmAccount[ 'connect' ] = async ( _method, input ) => {
 	const parsed = localLlmConnectInput().safeParse( input );
 	if ( ! parsed.success ) {
@@ -45,7 +45,10 @@ const connect: LocalLlmAccount[ 'connect' ] = async ( _method, input ) => {
 		method: 'server',
 		baseUrl,
 		...( apiKey ? { apiKey } : {} ),
-		model: ( models.find( ( { facts } ) => facts.tools ) ?? models[ 0 ] ).id,
+		models: [
+			...models.filter( ( { facts } ) => facts.tools ),
+			...models.filter( ( { facts } ) => ! facts.tools ),
+		].map( ( { id, facts } ) => ( { name: id, images: facts.images === true } ) ),
 	};
 };
 

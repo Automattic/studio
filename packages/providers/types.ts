@@ -5,6 +5,7 @@ import type { LocalLlmConfig } from './local-llm/config';
 import type { MetaConfig } from './meta/config';
 import type { AiModelId } from './models';
 import type { OpenaiConfig } from './openai/config';
+import type { OpenrouterConfig } from './openrouter/config';
 import type { SpacefastConfig } from './spacefast/config';
 import type { Space } from './spacefast/descriptor';
 import type { WpcomConfig } from './wpcom/config';
@@ -21,6 +22,7 @@ export type ProviderId =
 	| 'github-copilot'
 	| 'meta'
 	| 'xai'
+	| 'openrouter'
 	| 'spacefast'
 	| 'local-llm';
 
@@ -33,6 +35,7 @@ export type AiProviderId =
 	| 'github-copilot'
 	| 'meta'
 	| 'xai'
+	| 'openrouter'
 	| 'local-llm';
 
 // What Studio stores for each provider.
@@ -44,6 +47,7 @@ export interface ProviderConfigs {
 	'github-copilot': GithubCopilotConfig;
 	meta: MetaConfig;
 	xai: XaiConfig;
+	openrouter: OpenrouterConfig;
 	spacefast: SpacefastConfig;
 	'local-llm': LocalLlmConfig;
 }
@@ -112,13 +116,31 @@ export interface AccountDetails {
 	summary?: string;
 	// Something to know when using it, such as whose plan pays for it.
 	note?: string;
-	// The provider's models this account can run, when its plan decides which: surfaces offer
-	// only these. Without it, the account runs every model the provider lists.
-	models?: AiModelId[];
-	// The model a new chat on the account starts on when the user hasn't picked one, for a provider
-	// whose models a server the user runs lists, which has no default of its own.
-	model?: AiModelId;
+	// The provider's models this account can run, when its plan or its owner decides which:
+	// surfaces offer only these. Without it, the account runs every model the provider lists.
+	models?: AccountModel[];
 	links?: { label: string; url: string }[];
+}
+
+// A model an account offers. One from a provider's catalog carries what surfaces show of it.
+export interface AccountModel {
+	id: AiModelId;
+	label?: string;
+	supportsImages?: boolean;
+}
+
+// A model in a provider's catalog, as the account's owner picks from it.
+export interface CatalogModel {
+	id: AiModelId;
+	label: string;
+	supportsImages: boolean;
+	reasoning?: boolean;
+	contextWindow?: number;
+	maxTokens?: number;
+	// What tells it apart in a list, such as its price and context size.
+	details?: string;
+	// One of the models the provider lists, which run Studio Code's tools well.
+	recommended?: boolean;
 }
 
 // A connection `start` began on the provider's site: the user goes to `url`,
@@ -202,41 +224,21 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 		// continues the same registration with it; never a credential.
 		remember?( config: Config ): Record< string, string > | undefined;
 	};
-	ai?: ProviderAi< Config >;
+	ai?: {
+		models: readonly AiModel< AiModelId >[];
+		defaultModel: AiModelId;
+		// The default when the account has paid AI credits left.
+		paidDefaultModel?: AiModelId;
+		// Whether the account generates images; without it, the provider doesn't.
+		generatesImages?( config: Config ): boolean;
+		// The provider routes to more models than it lists: the account's owner picks which to
+		// offer from its catalog, under ids made of the provider's id, a slash and its own name.
+		catalog?: boolean;
+		// The models run on a server the user runs: chats on them need no internet, and analytics
+		// never name them, since the user does.
+		local?: boolean;
+	};
 	sites?: ProviderSitesInfo< Site >;
-}
-
-// The models a provider serves: a list Studio knows, or the ones a server the user runs lists.
-export type ProviderAi< Config > = {
-	// Whether the account generates images; without it, the provider doesn't.
-	generatesImages?( config: Config ): boolean;
-} & (
-	| {
-			models: readonly AiModel< AiModelId >[];
-			defaultModel: AiModelId;
-			// The default when the account has paid AI credits left.
-			paidDefaultModel?: AiModelId;
-			userServer?: undefined;
-	  }
-	| {
-			// The models are the ones a server the user runs lists, which surfaces read from it each
-			// time they offer them (`listModels`). New chats start on the account's model. Chats on it
-			// need no internet, and analytics never name them.
-			userServer: true;
-			models?: undefined;
-			defaultModel?: undefined;
-			paidDefaultModel?: undefined;
-	  }
-);
-
-// A model a server the user runs lists, as surfaces offer it.
-export interface ListedAiModel {
-	// Studio's id for it, which sessions record.
-	id: AiModelId;
-	// The server's name for it.
-	name: string;
-	// Whether the server says the model reads images.
-	supportsImages: boolean;
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -409,8 +411,10 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 			model: AiModelId,
 			options: { sessionId?: string }
 		): Promise< AiConnection >;
-		// The models the provider's server lists now.
-		listModels?( config: Config | undefined ): Promise< ListedAiModel[] >;
+		// The catalog of a provider that has one (`Provider.ai.catalog`).
+		listModels?( config: Config | undefined ): Promise< CatalogModel[] >;
+		// The config that offers these models of the catalog, as `listModels` returned them.
+		selectModels?( config: Config, models: CatalogModel[] ): Config;
 		// Results keep the requests' order; a failure never aborts the rest.
 		generateImages?(
 			config: Config | undefined,

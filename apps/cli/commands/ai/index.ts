@@ -22,10 +22,11 @@ import {
 } from '@studio/agent/protocol/slash-commands';
 import { changeAiSettings, getAiTurnTracksProps } from '@studio/common/lib/ai-provider-tracks';
 import {
+	describeAccount,
 	persistSelectedAiProvider,
-	readAiSettings,
 	readSelectedAiProvider,
 } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	canUsePaidAiModels,
@@ -129,6 +130,13 @@ function getErrorMessage( error: unknown ): string {
 // can't block the first turn — the free-tier default is the safe floor.
 const QUOTA_FETCH_TIMEOUT_MS = 3_000;
 
+// The provider's default, among the models its account offers.
+async function readDefaultModel( provider: AiProviderId ): Promise< AiModelId > {
+	return getDefaultAiModel( provider, {
+		account: describeAccount( provider, await readProviderConfig( provider ) ),
+	} );
+}
+
 async function resolveWpcomDefaultModel(): Promise< AiModelId > {
 	const token = await readAuthToken();
 	const quota = token
@@ -141,17 +149,6 @@ async function resolveWpcomDefaultModel(): Promise< AiModelId > {
 		: null;
 	return getDefaultAiModel( DEFAULT_PROVIDER_ID, {
 		canUsePaidModels: canUsePaidAiModels( quota, token?.email ),
-	} );
-}
-
-// The model a new chat on the provider starts on; WordPress.com's also depends on its AI credits.
-async function readDefaultModel( provider: AiProviderId ): Promise< AiModelId > {
-	if ( ! getProvider( provider ).ai?.userServer ) {
-		return getDefaultAiModel( provider );
-	}
-	const account = ( await readAiSettings() ).accounts[ provider ];
-	return getDefaultAiModel( provider, {
-		account: account.connected ? account : undefined,
 	} );
 }
 
@@ -239,8 +236,6 @@ export async function runCommand( options: {
 			? resumeContext.model
 			: undefined;
 	let currentModel: AiModelId = recordedModel ?? ( await readDefaultModel( currentProvider ) );
-	// The chat runs on the provider's default until it records a model, from a turn or a pick.
-	let onDefaultModel = ! recordedModel;
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
@@ -301,7 +296,6 @@ export async function runCommand( options: {
 						const sessionModel = readRecordedSessionModel( sm.getEntries() );
 						if ( sessionModel && servesAiModel( currentProvider, sessionModel ) ) {
 							quotaDefaultApplicable = false;
-							onDefaultModel = false;
 							currentModel = sessionModel;
 							ui.currentModel = currentModel;
 						}
@@ -391,16 +385,6 @@ export async function runCommand( options: {
 			await connectInTerminal( provider, options );
 		} finally {
 			ui.start();
-		}
-		// Until the provider connects, the chat holds a model it doesn't serve. A server connected anew
-		// may not have the default the chat started on.
-		if (
-			provider === currentProvider &&
-			( ! servesAiModel( currentProvider, currentModel ) ||
-				( onDefaultModel && getProvider( currentProvider ).ai?.userServer ) )
-		) {
-			currentModel = await readDefaultModel( currentProvider );
-			ui.currentModel = currentModel;
 		}
 	}
 
@@ -658,7 +642,6 @@ export async function runCommand( options: {
 		}
 
 		await persistSessionContext();
-		onDefaultModel = false;
 
 		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
 		// the provider, model and outcome together. `channel` separates them.
@@ -844,7 +827,6 @@ export async function runCommand( options: {
 			currentModel = value;
 			// An explicit pick wins over the pending quota-based default.
 			quotaDefaultApplicable = false;
-			onDefaultModel = false;
 		},
 		get currentProvider() {
 			return currentProvider;

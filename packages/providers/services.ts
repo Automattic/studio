@@ -4,6 +4,7 @@ import { githubCopilotServices } from './github-copilot/services';
 import { localLlmServices } from './local-llm/services';
 import { metaServices } from './meta/services';
 import { openaiServices } from './openai/services';
+import { openrouterServices } from './openrouter/services';
 import { spacefastServices } from './spacefast/services';
 import { wpcomServices } from './wpcom/services';
 import { xaiServices } from './xai/services';
@@ -19,6 +20,7 @@ const SERVICES: {
 	'github-copilot': githubCopilotServices,
 	meta: metaServices,
 	xai: xaiServices,
+	openrouter: openrouterServices,
 	spacefast: spacefastServices,
 	'local-llm': localLlmServices,
 };

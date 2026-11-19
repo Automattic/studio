@@ -34,6 +34,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —        |
 | Meta (`meta`)                                | API key                        | Muse models; images                  | —          | —        |
 | xAI (`xai`)                                  | Grok plan or API key           | Grok models; images                  | —          | —        |
+| OpenRouter (`openrouter`)                    | Sign-in or API key             | Models from many labs                | —          | —        |
 | Local LLM (`local-llm`)                      | Server address, optional key   | The models the server lists          | —          | —        |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
@@ -97,7 +98,7 @@ Each provider lists the models it serves. Several providers can serve the same m
 
 Where the account decides which of those models it runs, rather than the provider, the connected account says so and the pickers offer only those; a provider that doesn't narrow them offers all it lists. The provider reads that set when it connects and keeps it current when it renews its credential, so the pickers never reach the service to build their list. A GitHub Copilot plan works this way: it includes its own set of models, and leaves some of them off until they are turned on.
 
-A provider whose models are the ones a server the user runs lists, the Local LLM connector, has no list of its own. Its account is the server's address, and its services read the server's models whenever a surface offers them: the model picker each time it opens, and `/model` each time it runs. They leave out the models the server says only make embeddings, which no chat runs on. Studio never stores that list. Its model ids are the provider's id, a slash and the server's name for the model (`local-llm/qwen3:0.6b`), so a model id alone still names its provider and its label. Whether such a model reads images comes from the server, not the id. Chats on these models need no internet.
+The Local LLM connector's catalog is the chat models the user's server lists, less those it says only make embeddings. Connecting offers them all, those the server says call tools first, and the settings narrow them like OpenRouter's. Its model ids are `local-llm/` and the server's name for the model (`local-llm/qwen3:0.6b`). Chats on these models need no internet, and analytics never name them.
 
 ### Connection
 
@@ -113,7 +114,7 @@ A connection may say its context window is exactly the one the model runs with, 
 - A conversation pinned to a provider keeps it. Without credentials for the pinned provider, the conversation runs on WordPress.com.
 - Connecting a provider makes it the default only when the current default isn't connected, so a connected WordPress.com stays the default until the user picks another.
 - When the selected provider isn't ready, WordPress.com, the WordPress Studio sign-in, falls back to another ready provider, and the others ask to be connected again. The app runs a chat on the first connected provider, WordPress.com first.
-- Each provider has a default model; WordPress.com picks a stronger one when the account has paid AI credits left. A provider whose models a server lists starts new chats on the model its account proposed when it connected: the first the server offers that it says can call tools, or else the first it offers. Switching provider keeps the conversation's model when the new provider serves it too, and falls back to its default otherwise.
+- Each provider has a default model; WordPress.com picks a stronger one when the account has paid AI credits left. Switching provider keeps the conversation's model when the new provider serves it too, and falls back to its default otherwise.
 - The UI gates paid tiers using the WordPress.com quota. The proxy enforces access.
 
 ### In the page

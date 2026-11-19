@@ -5,11 +5,7 @@ import {
 	listStudioSessionFiles,
 	openStudioSession,
 } from '@studio/agent/node/sessions/pi-session';
-import {
-	persistSelectedAiProvider,
-	readAiSettings,
-	readSelectedAiProvider,
-} from '@studio/common/lib/ai-settings';
+import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -47,8 +43,8 @@ vi.mock( 'cli/lib/providers', () => ( {
 	isProviderConnected: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
+	describeAccount: vi.fn().mockReturnValue( { connected: false } ),
 	persistSelectedAiProvider: vi.fn(),
-	readAiSettings: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );
 vi.mock( '@studio/common/lib/provider-config', () => ( {
@@ -606,16 +602,10 @@ describe( 'AI runCommand — a chat on a local server', () => {
 		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'local-llm' );
 		( isProviderConnected as Mock ).mockResolvedValue( true );
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {} );
-		( readAiSettings as Mock ).mockResolvedValue( {
-			provider: 'local-llm',
-			accounts: {
-				'local-llm': {
-					connected: true,
-					method: 'server',
-					summary: 'http://localhost:11434',
-					model: 'local-llm/qwen3:0.6b',
-				},
-			},
+		( readProviderConfig as Mock ).mockResolvedValue( {
+			method: 'server',
+			baseUrl: 'http://localhost:11434/v1',
+			models: [ { name: 'gemma3:4b', images: true } ],
 		} );
 		( createStudioSession as Mock ).mockResolvedValue( {
 			appendCustomEntry,
@@ -640,7 +630,7 @@ describe( 'AI runCommand — a chat on a local server', () => {
 		for ( const [ , props ] of calls ) {
 			expect( props ).toMatchObject( {
 				provider: 'local-llm',
-				model: 'user-server-model',
+				model: 'local-model',
 				model_family: 'local-llm',
 			} );
 		}

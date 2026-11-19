@@ -1159,19 +1159,17 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
-	it( 'holds images back for a local model its server says reads only text', async () => {
-		const connector = createFakeConnector(
-			{},
-			{
-				getAiSettings: async () => aiSettings( 'local-llm', [ 'local-llm' ] ),
-				listProviderModels: async () => [
-					{ id: 'local-llm/qwen3:0.6b', name: 'qwen3:0.6b', supportsImages: false },
-				],
-			}
-		);
+	it( 'holds images back for a model its account says reads only text', async () => {
+		const settings = aiSettings( 'local-llm', [ 'local-llm' ] );
+		settings.accounts[ 'local-llm' ] = {
+			connected: true,
+			method: 'server',
+			models: [ { id: 'local-llm/qwen3:0.6b', label: 'qwen3:0.6b', supportsImages: false } ],
+		};
+		const connector = createFakeConnector( {}, { getAiSettings: async () => settings } );
 		saveComposerDraft( 'test', { text: 'What is this?', attachments: [ image( 'photo' ) ] } );
 		const { input, onSend } = await setup( { model: 'local-llm/qwen3:0.6b' }, connector );
-		await waitFor( () => expect( connector.listProviderModels ).toHaveBeenCalled() );
+		await waitFor( () => expect( connector.getAiSettings ).toHaveBeenCalled() );
 
 		await waitFor( () => {
 			fireEvent.keyDown( input, { key: 'Enter' } );

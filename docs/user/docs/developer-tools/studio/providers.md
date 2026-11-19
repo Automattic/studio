@@ -113,7 +113,7 @@ Local LLM uses the models a server you run serves, such as [Ollama](https://olla
 2.  Click **Connect** next to **Local LLM**.
 3.  Enter the address the server listens on, such as `http://localhost:11434`. Add an API key only if your server asks for one, and click **Save**.
 
-The model menu lists your server’s chat models each time you open it. New chats start on a model your server says can use tools. Chats need no WordPress.com account and work offline. Run the model with a context of 32,768 tokens or more: when it’s too small, the chat says so. WordPress Studio connects to one server at a time; to switch, connect again with the other address.
+The model menu offers your server’s chat models, those it says can use tools first. To offer models you add later, or fewer, pick them under **Local LLM** on this page. Chats need no WordPress.com account and work offline. Run the model with a context of 32,768 tokens or more: when it’s too small, the chat says so. WordPress Studio connects to one server at a time; to switch, connect again with the other address.
 
 ### Change or remove an AI provider
 

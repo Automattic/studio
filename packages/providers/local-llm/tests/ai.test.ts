@@ -11,7 +11,7 @@ const json = ( status: number, body: unknown ) =>
 const config = ( baseUrl: string ): LocalLlmConfig => ( {
 	method: 'server',
 	baseUrl,
-	model: 'qwen3:0.6b',
+	models: [ { name: 'qwen3:0.6b', images: false } ],
 } );
 
 // What each server answers, by path, as their sources and docs describe it.
@@ -148,15 +148,31 @@ describe( 'local-llm ai', () => {
 
 			await expect(
 				localLlmAi.listModels!( config( 'http://localhost:1234/v1' ) )
-			).resolves.toEqual(
+			).resolves.toMatchObject(
 				models.map( ( [ name, supportsImages ] ) => ( {
 					id: `local-llm/${ name }`,
-					name,
+					label: name,
 					supportsImages,
 				} ) )
 			);
 		}
 	);
+
+	it( 'offers the picked models that call tools first, and at least one', () => {
+		const picked = [
+			{ id: 'local-llm/gemma3:4b', label: 'gemma3:4b', supportsImages: true },
+			{ id: 'local-llm/qwen3:0.6b', label: 'qwen3:0.6b', supportsImages: false, recommended: true },
+		] as const;
+		const current = config( 'http://localhost:1234/v1' );
+
+		expect( localLlmAi.selectModels!( current, [ ...picked ] ).models ).toEqual( [
+			{ name: 'qwen3:0.6b', images: false },
+			{ name: 'gemma3:4b', images: true },
+		] );
+		expect( () => localLlmAi.selectModels!( current, [] ) ).toThrow(
+			'Pick at least one model your server offers.'
+		);
+	} );
 
 	it.each( [
 		[ 'ollama', 'gemma3:4b', [ 'text', 'image' ], 4096 ],

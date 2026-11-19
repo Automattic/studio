@@ -4,15 +4,11 @@ import type { GEMINI_AI_MODELS } from './gemini/descriptor';
 import type { GITHUB_COPILOT_AI_MODELS } from './github-copilot/descriptor';
 import type { META_AI_MODELS } from './meta/descriptor';
 import type { OPENAI_AI_MODELS } from './openai/descriptor';
-import type { AiModel, AiProviderId, ProviderId } from './types';
+import type { OPENROUTER_AI_MODELS } from './openrouter/descriptor';
+import type { AccountModel, AiModel, AiProviderId, ProviderId } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
 import type { XAI_AI_MODELS } from './xai/descriptor';
 
-// The providers whose models are the ones a server the user runs lists (`ai.userServer`).
-type UserServerAiProviderId = 'local-llm';
-
-// A model Studio knows, or a model a server the user runs lists: that provider's id, a slash, and
-// the server's name for the model, verbatim.
 export type AiModelId =
 	| (
 			| typeof WPCOM_AI_MODELS
@@ -22,94 +18,80 @@ export type AiModelId =
 			| typeof GITHUB_COPILOT_AI_MODELS
 			| typeof META_AI_MODELS
 			| typeof XAI_AI_MODELS
+			| typeof OPENROUTER_AI_MODELS
 	  )[ number ][ 'id' ]
-	| `${ UserServerAiProviderId }/${ string }`;
+	// From a provider's catalog.
+	| `openrouter/${ string }`
+	| `local-llm/${ string }`;
 
-// Studio's id for a model the provider's server lists under `name`.
-export function toUserServerModelId( provider: UserServerAiProviderId, name: string ): AiModelId {
-	return `${ provider }/${ name }`;
+// The catalog model's provider, which names it with its own id and a slash.
+function catalogProvider( id: string ): AiProviderId | undefined {
+	return AI_PROVIDER_IDS.find(
+		( provider ) => getProvider( provider ).ai?.catalog && id.startsWith( `${ provider }/` )
+	);
 }
 
-// The provider whose server lists the model, and the server's name for it, for an id
-// `toUserServerModelId` made.
-function parseUserServerModelId(
-	id: string
-): { provider: AiProviderId; name: string } | undefined {
-	const separator = id.indexOf( '/' );
-	const provider = AI_PROVIDER_IDS.find( ( candidate ) => candidate === id.slice( 0, separator ) );
-	const name = id.slice( separator + 1 );
-	return provider && getProvider( provider ).ai?.userServer && name
-		? { provider, name }
-		: undefined;
+// Whether the provider can run the model: one it lists, or one from its catalog.
+export function servesAiModel( provider: ProviderId, id: string ): boolean {
+	return (
+		Boolean( getProvider( provider ).ai?.models.some( ( model ) => model.id === id ) ) ||
+		catalogProvider( id ) === provider
+	);
+}
+
+function catalogModel( { id, label, supportsImages }: AccountModel ): AiModel< AiModelId > {
+	return { id, label: () => label ?? id.slice( id.indexOf( '/' ) + 1 ), supportsImages };
 }
 
 /**
  * The models a surface offers for the provider: the ones the account it is given can run
- * (`AccountDetails.models`), or every model the provider lists when it doesn't narrow them. None
- * for a provider whose models a server the user runs lists, which surfaces read from the server.
+ * (`AccountDetails.models`), or every model the provider lists when it doesn't narrow them.
  */
 export function getAiModels(
 	provider: ProviderId,
-	account?: { models?: readonly AiModelId[] }
+	account?: { models?: readonly AccountModel[] }
 ): readonly AiModel< AiModelId >[] {
 	const models = getProvider( provider ).ai?.models ?? [];
-	const offered = account?.models;
-	return offered ? models.filter( ( { id } ) => offered.includes( id ) ) : models;
+	return (
+		account?.models?.flatMap( ( offered ) => {
+			const listed = models.find( ( { id } ) => id === offered.id );
+			if ( listed ) {
+				return [ listed ];
+			}
+			return catalogProvider( offered.id ) === provider ? [ catalogModel( offered ) ] : [];
+		} ) ?? models
+	);
 }
 
-/**
- * A model by its id, and the first provider that serves it. A model a server the user runs lists
- * is labelled with the server's name for it, without reaching the server, so whether it reads
- * images is left unsaid.
- */
+// A model by its id, and the first provider that serves it.
 export function findAiModel(
 	id: string
 ): { provider: AiProviderId; model: AiModel< AiModelId > } | undefined {
 	for ( const provider of AI_PROVIDER_IDS ) {
-		const model = getProvider( provider ).ai?.models?.find( ( candidate ) => candidate.id === id );
+		const model = getProvider( provider ).ai?.models.find( ( candidate ) => candidate.id === id );
 		if ( model ) {
 			return { provider, model };
 		}
 	}
-	const listed = parseUserServerModelId( id );
-	return (
-		listed && {
-			provider: listed.provider,
-			model: { id: id as AiModelId, label: () => listed.name },
-		}
-	);
+	const provider = catalogProvider( id );
+	return provider && { provider, model: catalogModel( { id: id as AiModelId } ) };
 }
 
-/**
- * Whether the provider serves the model: one it lists, or for a provider whose models a server
- * the user runs lists, any model named for it, whether or not the server still has it.
- */
-export function servesAiModel( provider: ProviderId, id: string ): boolean {
-	const ai = getProvider( provider ).ai;
-	return ai?.userServer
-		? parseUserServerModelId( id )?.provider === provider
-		: ai?.models?.some( ( model ) => model.id === id ) ?? false;
-}
-
-/**
- * The model new chats on the provider start on. `paidDefaultModel` when the account has paid AI
- * credits left; callers without quota data get the plain default. A provider whose models a
- * server the user runs lists starts on the model its account proposed when it connected; until it
- * is connected it has none, and WordPress.com's default, which it doesn't serve, stands in.
- */
+// `paidDefaultModel` when the account has paid AI credits left; callers
+// without quota data get the plain default. An account that narrows the models
+// (`AccountDetails.models`) without the default gets its first one.
 export function getDefaultAiModel(
 	provider: ProviderId,
 	options?: {
 		canUsePaidModels?: boolean;
-		account?: { model?: AiModelId };
+		account?: { connected: boolean; models?: readonly AccountModel[] };
 	}
 ): AiModelId {
 	const ai = getProvider( provider ).ai;
 	if ( ! ai ) {
 		throw new Error( `${ provider } offers no AI models` );
 	}
-	if ( ai.userServer ) {
-		return options?.account?.model ?? getDefaultAiModel( 'wpcom' );
-	}
-	return ( options?.canUsePaidModels && ai.paidDefaultModel ) || ai.defaultModel;
+	const model = ( options?.canUsePaidModels && ai.paidDefaultModel ) || ai.defaultModel;
+	const offered = options?.account?.models;
+	return ! offered?.length || offered.some( ( { id } ) => id === model ) ? model : offered[ 0 ].id;
 }

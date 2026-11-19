@@ -1,10 +1,6 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { changeAiSettings } from '@studio/common/lib/ai-provider-tracks';
-import {
-	describeAccount,
-	disconnectProvider,
-	listProviderModels,
-} from '@studio/common/lib/ai-settings';
+import { describeAccount, disconnectProvider } from '@studio/common/lib/ai-settings';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -402,27 +398,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			let availableModels: AiModelId[];
-			// A server the user runs lists its models: read them as they are now.
-			const userServer = getProvider( ctx.currentProvider ).ai?.userServer;
-			if ( userServer ) {
-				try {
-					const listed = await listProviderModels( getProviderServices( ctx.currentProvider ) );
-					availableModels = listed.map( ( model ) => model.id );
-				} catch ( error ) {
-					ctx.ui.showError( error instanceof Error ? error.message : String( error ) );
-					return 'continue';
-				}
-			} else {
-				const account = describeAccount(
-					ctx.currentProvider,
-					await readProviderConfig( ctx.currentProvider )
-				);
-				availableModels = getAiModels(
-					ctx.currentProvider,
-					account.connected ? account : undefined
-				).map( ( model ) => model.id );
-			}
+			const account = describeAccount(
+				ctx.currentProvider,
+				await readProviderConfig( ctx.currentProvider )
+			);
+			const availableModels = getAiModels(
+				ctx.currentProvider,
+				account.connected ? account : undefined
+			).map( ( model ) => model.id );
 			const requiresPaidCredits = ( id: AiModelId ) =>
 				findAiModel( id )?.model.requiresPaidAiCredits ?? false;
 			// The paid tiers are only offered once the account has bought credits;
@@ -460,8 +443,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 						  )
 						: getModelLabel( id );
 				labelToId.set( label, id );
-				// A server's model is known by its name, which its label already is.
-				return { label, description: userServer ? '' : id };
+				return { label, description: id };
 			} );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select a model' ), options: modelOptions },

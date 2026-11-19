@@ -3,8 +3,8 @@ import {
 	DEFAULT_PROVIDER_ID,
 	findAiModel,
 	getDefaultAiModel,
-	normalizeProviderId,
 	servesAiModel,
+	normalizeProviderId,
 	type AiModelId,
 	type AiProviderId,
 	type ProviderId,
@@ -58,20 +58,14 @@ export function resolveSessionModel(
 
 /**
  * `resolveSessionModel` constrained to what the provider can serve: a
- * recorded model it no longer offers snaps to the provider's default, which
- * the account in `settings` decides for a provider whose models a server the
- * user runs lists.
+ * recorded model it no longer offers snaps to the provider's default.
  */
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: ProviderId,
-	options?: { canUsePaidModels?: boolean; settings?: AiSettings | null }
+	options?: Parameters< typeof getDefaultAiModel >[ 1 ]
 ): AiModelId {
-	const account = options?.settings?.accounts[ provider ];
-	const defaultModel = getDefaultAiModel( provider, {
-		canUsePaidModels: options?.canUsePaidModels,
-		account: account?.connected ? account : undefined,
-	} );
+	const defaultModel = getDefaultAiModel( provider, options );
 	const model = resolveSessionModel( entries, defaultModel );
 	return servesAiModel( provider, model ) ? model : defaultModel;
 }

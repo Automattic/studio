@@ -53,6 +53,7 @@ import {
 	connectProvider,
 	disconnectProvider,
 	listProviderModels,
+	selectProviderModels,
 	readAiSettings,
 	setAiProvider,
 	setImageProvider,
@@ -189,10 +190,11 @@ import {
 	AI_PROVIDER_IDS,
 	ConnectError,
 	findAiModel,
-	normalizeProviderId,
 	servesAiModel,
+	normalizeProviderId,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
+	type CatalogModel,
 	type SitesProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -819,18 +821,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// The models the provider's server lists now, for a provider whose models a server the user
-	// runs lists. A server that doesn't answer fails with the words for it.
-	api.get(
-		'/ai-settings/providers/:provider/models',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const provider = readProviderParam( req, res );
-			if ( provider ) {
-				res.json( await listProviderModels( getProviderServices( provider ) ) );
-			}
-		} )
-	);
-
 	// Starts signing in on the provider's site; `PUT` above then takes its handoff back and answers
 	// once the user signed in.
 	api.post(
@@ -846,6 +836,39 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( await startProviderConnect( getProviderServices( provider ), method ) );
+		} )
+	);
+
+	api.get(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			if ( provider ) {
+				res.json( await listProviderModels( getProviderServices( provider ) ) );
+			}
+		} )
+	);
+
+	api.put(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			const models = req.body?.models;
+			if ( ! provider ) {
+				return;
+			}
+			if (
+				! Array.isArray( models ) ||
+				! models.every(
+					( model ) => typeof model?.id === 'string' && typeof model.label === 'string'
+				)
+			) {
+				res.status( 400 ).json( { error: 'models must be an array of catalog models' } );
+				return;
+			}
+			res.json(
+				await selectProviderModels( getProviderServices( provider ), models as CatalogModel[] )
+			);
 		} )
 	);
 

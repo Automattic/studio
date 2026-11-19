@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	connectProvider,
 	disconnectProvider,
-	listProviderModels,
 	readAiSettings,
+	selectProviderModels,
 	setAiProvider,
 	setImageProvider,
 } from '@studio/common/lib/ai-settings';
@@ -20,7 +20,6 @@ import {
 } from '@studio/common/lib/provider-config';
 
 const anthropic = getProviderServices( 'anthropic' );
-const localLlm = getProviderServices( 'local-llm' );
 const wpcom = getProviderServices( 'wpcom' );
 const disconnected = { connected: false };
 
@@ -63,8 +62,9 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
-				spacefast: disconnected,
+				openrouter: disconnected,
 				'local-llm': disconnected,
+				spacefast: disconnected,
 			},
 			imageProviders: [],
 			imageProvider: null,
@@ -86,8 +86,9 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
-				spacefast: disconnected,
+				openrouter: disconnected,
 				'local-llm': disconnected,
+				spacefast: disconnected,
 			},
 			imageProviders: [],
 			imageProvider: null,
@@ -224,8 +225,9 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
-				spacefast: disconnected,
+				openrouter: disconnected,
 				'local-llm': disconnected,
+				spacefast: disconnected,
 			},
 			imageProviders: [],
 			imageProvider: null,
@@ -325,37 +327,24 @@ describe( 'ai settings', () => {
 		expect( ( await readSignInContext( 'openai' ) ).hostId ).toBe( context.hostId );
 	} );
 
-	it( 'lists the models of a connected local server with its stored config', async () => {
-		// An Ollama server that lists two models, one of which can call tools.
-		vi.stubGlobal(
-			'fetch',
-			vi.fn( async ( url: string, init?: RequestInit ) => {
-				if ( url.endsWith( '/v1/models' ) ) {
-					return Response.json( { data: [ { id: 'gemma3:270m' }, { id: 'qwen3:0.6b' } ] } );
-				}
-				const { model } = JSON.parse( String( init?.body ) );
-				return Response.json( {
-					capabilities: model === 'qwen3:0.6b' ? [ 'completion', 'tools' ] : [ 'completion' ],
-				} );
-			} )
+	it( 'offers the models picked from a provider’s catalog', async () => {
+		const openrouter = getProviderServices( 'openrouter' );
+		const model = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+		};
+		await expect( selectProviderModels( openrouter, [ model ] ) ).rejects.toBeInstanceOf(
+			ConnectError
 		);
 
-		const settings = await connectProvider( localLlm, 'server', {
-			address: 'localhost:11434',
-			apiKey: '',
-		} );
+		writeShared( { providerConfigs: { openrouter: { method: 'api-key', apiKey: 'sk-or-v1' } } } );
+		const settings = await selectProviderModels( openrouter, [ model ] );
 
-		expect( settings.accounts[ 'local-llm' ] ).toEqual( {
+		expect( settings.accounts.openrouter ).toMatchObject( {
 			connected: true,
-			method: 'server',
-			summary: 'http://localhost:11434',
-			model: 'local-llm/qwen3:0.6b',
+			models: [ { id: 'openrouter/acme/model', label: 'Acme: Model' } ],
 		} );
-		await expect( listProviderModels( localLlm ) ).resolves.toEqual( [
-			{ id: 'local-llm/gemma3:270m', name: 'gemma3:270m', supportsImages: false },
-			{ id: 'local-llm/qwen3:0.6b', name: 'qwen3:0.6b', supportsImages: false },
-		] );
-		expect( fetch ).toHaveBeenCalledWith( 'http://localhost:11434/v1/models', expect.anything() );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

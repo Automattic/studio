@@ -1,5 +1,5 @@
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
-import { findAiModel, getProvider, type ProviderId } from '@studio/providers';
+import { findAiModel, getAiModels, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import {
@@ -13,7 +13,7 @@ import {
 	type MouseEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useListedModels } from '@/data/queries/use-ai-settings';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -304,16 +304,17 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		textareaRef,
 	} );
 	const hasAttachments = attachments.length > 0;
-	// A model a server the user runs lists reads images when the server says so, read once there
-	// are attachments.
-	const modelProvider = findAiModel( model )?.provider;
-	const listedModels = useListedModels( modelProvider ? [ modelProvider ] : [], {
-		enabled: hasAttachments,
-	} );
-	const supportsImages =
-		modelProvider && getProvider( modelProvider ).ai?.userServer
-			? listedModels[ modelProvider ]?.models?.find( ( item ) => item.id === model )?.supportsImages
-			: findAiModel( model )?.model.supportsImages;
+	// A model picked from a provider's catalog reads images when its account says so.
+	const { data: aiSettings } = useAiSettings();
+	const found = findAiModel( model );
+	const account = found && aiSettings?.accounts[ found.provider ];
+	const supportsImages = (
+		( found &&
+			getAiModels( found.provider, account?.connected ? account : undefined ).find(
+				( item ) => item.id === model
+			) ) ??
+		found?.model
+	)?.supportsImages;
 	const currentValidationError =
 		validationError?.value === value &&
 		validationError.model === model &&

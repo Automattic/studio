@@ -1,15 +1,12 @@
 import { isContextOverflow } from '@earendil-works/pi-ai';
 import { __, sprintf } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
-import { toUserServerModelId } from '../models';
 import { getRefusedKeyMessage } from './account';
-import { getServerAddress } from './descriptor';
+import { getServerAddress, LOCAL_LLM_MODEL_PREFIX } from './descriptor';
 import { fetchChatModels, fetchModelEntries, readModelFacts, RefusedKeyError } from './server';
 import type { LocalLlmConfig } from './config';
-import type { AiConnection, ProviderServices } from '../types';
+import type { AiConnection, CatalogModel, ProviderServices } from '../types';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
-
-const MODEL_PREFIX = toUserServerModelId( 'local-llm', '' );
 
 // Compaction plans for a window this size when the server doesn't say what it runs the model
 // with. A server that runs it with less refuses what doesn't fit, and pi compacts and retries.
@@ -76,10 +73,10 @@ export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ]
 		if ( ! config ) {
 			throw new NotConnectedError( 'Connect Local LLM with the address of your model server.' );
 		}
-		if ( ! modelId.startsWith( MODEL_PREFIX ) ) {
+		if ( ! modelId.startsWith( LOCAL_LLM_MODEL_PREFIX ) ) {
 			throw new Error( `Local LLM does not serve ${ modelId }` );
 		}
-		const name = modelId.slice( MODEL_PREFIX.length );
+		const name = modelId.slice( LOCAL_LLM_MODEL_PREFIX.length );
 		const { baseUrl, apiKey } = config;
 		const address = getServerAddress( baseUrl );
 		// A server that doesn't answer leaves the facts unsaid; the turn's request then fails with
@@ -141,10 +138,32 @@ export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ]
 					: getNotAnsweringMessage( getServerAddress( baseUrl ) )
 			);
 		} );
-		return models.map( ( { id, facts } ) => ( {
-			id: toUserServerModelId( 'local-llm', id ),
-			name: id,
-			supportsImages: facts.images === true,
-		} ) );
+		return models.map(
+			( { id, facts } ): CatalogModel => ( {
+				id: `${ LOCAL_LLM_MODEL_PREFIX }${ id }`,
+				label: id,
+				supportsImages: facts.images === true,
+				contextWindow: facts.context,
+				recommended: facts.tools,
+			} )
+		);
+	},
+
+	// The models the server says call tools first, since new chats start on the first.
+	selectModels( config, picked ) {
+		const models = [
+			...picked.filter( ( model ) => model.recommended ),
+			...picked.filter( ( model ) => ! model.recommended ),
+		].flatMap( ( model ) =>
+			model.id.startsWith( LOCAL_LLM_MODEL_PREFIX )
+				? [
+						{ name: model.id.slice( LOCAL_LLM_MODEL_PREFIX.length ), images: model.supportsImages },
+				  ]
+				: []
+		);
+		if ( ! models.length ) {
+			throw new Error( __( 'Pick at least one model your server offers.' ) );
+		}
+		return { ...config, models };
 	},
 };

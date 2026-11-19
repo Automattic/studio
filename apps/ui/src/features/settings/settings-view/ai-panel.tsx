@@ -22,6 +22,7 @@ import { useOffline } from '@/lib/hooks';
 import { ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
 import { Button, Input, Menu } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
+import { ProviderModels } from './provider-models';
 import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 
@@ -248,6 +249,11 @@ export function ProviderRow( {
 						</SettingsRow>
 					) ) }
 				</form>
+			) : null }
+			{ account?.connected && descriptor.ai?.catalog && ! formMethod ? (
+				<div className={ styles.providerModels }>
+					<ProviderModels provider={ provider } account={ account } />
+				</div>
 			) : null }
 		</>
 	);

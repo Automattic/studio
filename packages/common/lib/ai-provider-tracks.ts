@@ -118,7 +118,7 @@ export async function getAiTurnTracksProps(
 	return {
 		provider,
 		connection_method: account.connected ? account.method : fallback,
-		model: getProvider( provider ).ai?.userServer ? 'user-server-model' : model,
+		model: getProvider( provider ).ai?.local ? 'local-model' : model,
 		model_family: getModelFamily( provider, model ),
 	};
 }
@@ -131,13 +131,13 @@ const MODEL_FAMILIES: [ prefix: string, family: string ][] = [
 	[ 'muse-', 'meta' ],
 ];
 
-// WordPress.com's tiers pick their model on the server, so they are `studio`. A model a server the
-// user runs lists is named by the user, so it is the provider's.
+// WordPress.com's tiers pick their model on the server, so they are `studio`. The user names a
+// local model, so it is the provider's.
 function getModelFamily( provider: ProviderId, model: string ): string {
 	if ( provider === 'wpcom' ) {
 		return 'studio';
 	}
-	if ( getProvider( provider ).ai?.userServer ) {
+	if ( getProvider( provider ).ai?.local ) {
 		return provider;
 	}
 	return MODEL_FAMILIES.find( ( [ prefix ] ) => model.startsWith( prefix ) )?.[ 1 ] ?? 'other';

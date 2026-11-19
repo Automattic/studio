@@ -450,6 +450,7 @@ export default defineConfig(
 											'github-copilot',
 											'meta',
 											'xai',
+											'openrouter',
 											'spacefast',
 											'local-llm',
 									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )

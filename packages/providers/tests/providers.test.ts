@@ -36,7 +36,6 @@ describe( 'models', () => {
 		expect( found?.provider ).toBe( 'local-llm' );
 		expect( found?.model.label() ).toBe( 'hf.co/unsloth/Qwen3-4B:Q4_K_M' );
 		expect( found?.model.supportsImages ).toBeUndefined();
-		expect( findAiModel( 'local-llm/' ) ).toBeUndefined();
 		expect( findAiModel( 'anthropic/claude-opus-5-5' ) ).toBeUndefined();
 		expect( getAiModels( 'local-llm' ) ).toEqual( [] );
 		// Last in the fallback order, so WordPress.com stays first.

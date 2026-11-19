@@ -706,6 +706,44 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
+	it( 'picks the models a provider with a catalog offers', async () => {
+		const sonnet = {
+			id: 'openrouter/anthropic/claude-sonnet-5.5' as const,
+			label: 'Anthropic: Claude Sonnet 5.5',
+			supportsImages: true,
+			recommended: true,
+		};
+		const acme = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+			details: 'Free',
+		};
+		const settings = aiSettings( 'wpcom', [ 'wpcom', 'openrouter' ] );
+		settings.accounts.openrouter = {
+			connected: true,
+			method: 'api-key',
+			models: [ { id: sonnet.id }, { id: acme.id, label: acme.label } ],
+		};
+		const { connector } = await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings,
+				listProviderModels: async () => [ sonnet, acme ],
+				selectProviderModels: vi.fn( async () => settings ),
+			},
+		} );
+
+		const models = await findProviderRow( 'openrouter-models' );
+		fireEvent.click(
+			await within( models ).findByRole( 'combobox', { name: 'OpenRouter models' } )
+		);
+		fireEvent.click( await screen.findByRole( 'option', { name: /Acme: Model/ } ) );
+		await waitFor( () =>
+			expect( connector.selectProviderModels ).toHaveBeenCalledWith( 'openrouter', [ sonnet ] )
+		);
+	} );
+
 	it( 'toggles custom instructions without changing saved text', async () => {
 		let enabled = true;
 		const { connector } = await setup( {
@@ -1125,7 +1163,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					...getProvider( 'local-llm' ).account.describe( {
 						method: 'server',
 						baseUrl: 'http://localhost:11434/v1',
-						model: 'qwen3:0.6b',
+						models: [ { name: 'qwen3:0.6b', images: false } ],
 					} ),
 				};
 			}

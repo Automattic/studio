@@ -57,7 +57,11 @@ describe( 'local-llm account', () => {
 		await expect( connect( address ) ).resolves.toEqual( {
 			method: 'server',
 			baseUrl: 'http://127.0.0.1:11434/v1',
-			model: 'qwen3:0.6b',
+			// The one that calls tools first, without the embedding model.
+			models: [
+				{ name: 'qwen3:0.6b', images: false },
+				{ name: 'gemma3:270m', images: false },
+			],
 		} );
 		expect( fetchMock ).toHaveBeenCalledWith(
 			'http://127.0.0.1:11434/v1/models',
@@ -73,7 +77,7 @@ describe( 'local-llm account', () => {
 		).resolves.toMatchObject( { baseUrl: 'http://127.0.0.1:11434/v1' } );
 	} );
 
-	it( 'proposes the first model when the server doesn’t say what its models do', async () => {
+	it( 'keeps the server’s order when it doesn’t say what its models do', async () => {
 		fetchMock.mockImplementation( async ( url: string ) =>
 			url.endsWith( '/v1/models' )
 				? json( 200, { data: [ { id: 'Qwen/Qwen3-4B' }, { id: 'Qwen/Qwen3-8B' } ] } )
@@ -81,7 +85,7 @@ describe( 'local-llm account', () => {
 		);
 
 		await expect( connect( 'http://localhost:8000' ) ).resolves.toMatchObject( {
-			model: 'Qwen/Qwen3-4B',
+			models: [ { name: 'Qwen/Qwen3-4B' }, { name: 'Qwen/Qwen3-8B' } ],
 		} );
 	} );
 
@@ -100,12 +104,12 @@ describe( 'local-llm account', () => {
 			method: 'server',
 			baseUrl: 'http://localhost:8080/v1',
 			apiKey: 'secret-key',
-			model: 'qwen3',
+			models: [ { name: 'qwen3', images: false } ],
 		} );
 		expect( getProvider( 'local-llm' ).account.describe( config ) ).toEqual( {
 			method: 'server',
 			summary: 'http://localhost:8080',
-			model: 'local-llm/qwen3',
+			models: [ { id: 'local-llm/qwen3', label: 'qwen3', supportsImages: false } ],
 		} );
 		for ( const key of [ '', 'wrong-key' ] ) {
 			await expect( connect( 'http://localhost:8080', key ) ).rejects.toThrow(

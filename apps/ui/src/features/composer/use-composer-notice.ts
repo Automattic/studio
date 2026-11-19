@@ -20,8 +20,7 @@ import type { ComposerNotice } from './notice-tab';
  * Why this chat can't send right now, shown above the composer while the
  * transcript stays readable. WordPress.com requirements only apply to chats
  * on WordPress.com; the proxy stays the enforcement point, so an unknown
- * quota fails open. A chat on models a server the user runs lists sends
- * offline.
+ * quota fails open. A chat on a local model sends offline.
  */
 export function useComposerNotice(
 	provider: ProviderId,
@@ -60,7 +59,7 @@ export function useComposerNotice(
 			void quota.refetch();
 		},
 	};
-	const needsInternet = ! getProvider( provider ).ai?.userServer;
+	const needsInternet = ! getProvider( provider ).ai?.local;
 	if ( isOffline && needsInternet ) {
 		return { message: __( 'You are offline. Reconnect to send a message.' ) };
 	}

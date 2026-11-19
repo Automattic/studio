@@ -25,6 +25,8 @@ export const localLlmConnectInput = () =>
 			} ),
 	} );
 
+export const LOCAL_LLM_MODEL_PREFIX = 'local-llm/';
+
 // The address the user knows the server by: its API without the `/v1` path.
 export function getServerAddress( baseUrl: string ): string {
 	return baseUrl.replace( /\/v1$/, '' );
@@ -59,9 +61,14 @@ export const localLlmProvider: Provider< LocalLlmConfig > = {
 		describe: ( config ) => ( {
 			method: config.method,
 			summary: getServerAddress( config.baseUrl ),
-			// Studio's id for the model, as `toUserServerModelId` names it.
-			model: `local-llm/${ config.model }` as const,
+			models: config.models.map( ( model ) => ( {
+				id: `${ LOCAL_LLM_MODEL_PREFIX }${ model.name }` as const,
+				label: model.name,
+				supportsImages: model.images,
+			} ) ),
 		} ),
 	},
-	ai: { userServer: true },
+	// The models are the server's: an account always offers the ones it picked, so the default,
+	// which no server lists, never starts a chat.
+	ai: { models: [], defaultModel: LOCAL_LLM_MODEL_PREFIX, catalog: true, local: true },
 };

@@ -1,10 +1,10 @@
-import { AI_PROVIDER_IDS, getConnectMethod, getProvider } from '@studio/providers';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AI_PROVIDER_IDS, getConnectMethod } from '@studio/providers';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
-import type { AiProviderId, ListedAiModel, PendingConnect, ProviderId } from '@studio/providers';
+import type { AiProviderId, CatalogModel, PendingConnect, ProviderId } from '@studio/providers';
 
 // The WordPress.com account is the sign-in, so auth changes refresh it too.
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
@@ -16,42 +16,6 @@ export function useAiSettings() {
 		queryFn: () => connector.getAiSettings(),
 		// Read each launch: a saved copy may come from a build with other providers.
 		meta: { persist: false },
-	} );
-}
-
-/** What a provider's server says it serves. */
-export interface ListedModels {
-	// The models it lists, once it answered.
-	models?: ListedAiModel[];
-	// Why it couldn't be read, in words for the user, in place of the models it listed before.
-	error?: string;
-}
-
-/**
- * The models the servers of `providers` list, for each provider whose models a server the user
- * runs lists: read from the server whenever the query is enabled, and never kept between runs. A
- * server that doesn't answer lists none, and says why.
- */
-export function useListedModels( providers: readonly ProviderId[], { enabled = true } = {} ) {
-	const connector = useConnector();
-	const listed = connector.listProviderModels
-		? providers.filter( ( id ) => getProvider( id ).ai?.userServer )
-		: [];
-	return useQueries( {
-		queries: listed.map( ( provider ) => ( {
-			queryKey: [ 'listed-models', provider ],
-			queryFn: () => connector.listProviderModels!( provider ),
-			retry: false,
-			meta: { persist: false },
-			enabled,
-		} ) ),
-		combine: ( results ) =>
-			Object.fromEntries(
-				listed.map( ( provider, index ): [ ProviderId, ListedModels ] => {
-					const { data, error } = results[ index ];
-					return [ provider, error ? { error: error.message } : { models: data } ];
-				} )
-			) as Partial< Record< ProviderId, ListedModels > >,
 	} );
 }
 
@@ -75,6 +39,31 @@ export function useSetAiProvider() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( provider: AiProviderId ) => connector.setAiProvider( provider ),
+		onSuccess: ( settings ) => {
+			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
+		},
+	} );
+}
+
+// The catalog a connected provider's models are picked from (`Provider.ai.catalog`).
+export function useProviderCatalog( provider: ProviderId, { enabled = true } = {} ) {
+	const connector = useConnector();
+	return useQuery( {
+		queryKey: [ ...AI_SETTINGS_QUERY_KEY, provider, 'catalog' ],
+		queryFn: () => connector.listProviderModels( provider ),
+		enabled,
+		staleTime: 10 * 60 * 1000,
+		meta: { persist: false },
+	} );
+}
+
+export function useSelectProviderModels( provider: ProviderId ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( models: CatalogModel[] ) => connector.selectProviderModels( provider, models ),
+		// One save at a time, so the last pick is the one that stays.
+		scope: { id: `select-models-${ provider }` },
 		onSuccess: ( settings ) => {
 			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
 		},

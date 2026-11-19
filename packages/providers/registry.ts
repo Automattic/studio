@@ -4,6 +4,7 @@ import { githubCopilotProvider } from './github-copilot/descriptor';
 import { localLlmProvider } from './local-llm/descriptor';
 import { metaProvider } from './meta/descriptor';
 import { openaiProvider } from './openai/descriptor';
+import { openrouterProvider } from './openrouter/descriptor';
 import { spacefastProvider } from './spacefast/descriptor';
 import { wpcomProvider } from './wpcom/descriptor';
 import { xaiProvider } from './xai/descriptor';
@@ -26,6 +27,7 @@ export const AI_PROVIDER_IDS = [
 	'github-copilot',
 	'meta',
 	'xai',
+	'openrouter',
 	'local-llm',
 ] as const satisfies readonly AiProviderId[];
 
@@ -52,6 +54,7 @@ const PROVIDERS: {
 	'github-copilot': githubCopilotProvider,
 	meta: metaProvider,
 	xai: xaiProvider,
+	openrouter: openrouterProvider,
 	spacefast: spacefastProvider,
 	'local-llm': localLlmProvider,
 };
@@ -85,6 +88,7 @@ const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	'github-copilot': 'github-copilot',
 	meta: 'meta',
 	xai: 'xai',
+	openrouter: 'openrouter',
 	spacefast: 'spacefast',
 	'local-llm': 'local-llm',
 };

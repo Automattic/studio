@@ -9,6 +9,7 @@ import {
 	connectProvider,
 	disconnectProvider,
 	listProviderModels,
+	selectProviderModels,
 	readAiSettings,
 	setAiProvider as setAiProviderInConfig,
 	setImageProvider as setImageProviderInConfig,
@@ -34,7 +35,7 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
-import { AI_PROVIDER_IDS, normalizeProviderId } from '@studio/providers';
+import { AI_PROVIDER_IDS, normalizeProviderId, type CatalogModel } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
@@ -166,10 +167,16 @@ export async function connectAiProvider(
 	);
 }
 
-// The models the provider's server lists now; rejects with the words for a server that doesn't
-// answer.
 export async function listAiProviderModels( _event: IpcMainInvokeEvent, requested: string ) {
 	return listProviderModels( getProviderServices( parseProviderId( requested ) ) );
+}
+
+export async function selectAiProviderModels(
+	_event: IpcMainInvokeEvent,
+	requested: string,
+	models: CatalogModel[]
+) {
+	return selectProviderModels( getProviderServices( parseProviderId( requested ) ), models );
 }
 
 export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {

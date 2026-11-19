@@ -92,7 +92,7 @@ describe( 'a connection whose context window is exact', () => {
 		{ interruptWhen }: { interruptWhen?: Promise< void > } = {}
 	) {
 		const ai = await getProviderServices( 'local-llm' ).ai!.model(
-			{ method: 'server', baseUrl: `${ SERVER }/v1`, model: 'tiny' },
+			{ method: 'server', baseUrl: `${ SERVER }/v1`, models: [ { name: 'tiny', images: false } ] },
 			'local-llm/tiny',
 			{}
 		);

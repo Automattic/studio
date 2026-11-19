@@ -129,8 +129,8 @@ import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site
 import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
 import {
 	findAiModel,
-	normalizeProviderId,
 	servesAiModel,
+	normalizeProviderId,
 	toStoredProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -243,6 +243,7 @@ export {
 	connectAiProvider,
 	disconnectAiProvider,
 	listAiProviderModels,
+	selectAiProviderModels,
 	startProviderConnect,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,

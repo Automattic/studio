@@ -154,12 +154,12 @@ function SessionViewContent( {
 	const isWpcom = sessionProvider === 'wpcom';
 	const notice = useComposerNotice( sessionProvider, ownerSite?.id );
 	// A fresh wpcom session defaults to balanced when the paid tiers are
-	// unlocked, fast otherwise; one on a local server, to the model proposed when it connected.
+	// unlocked, fast otherwise.
 	const defaultModel = useMemo(
 		() =>
 			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
 				canUsePaidModels: canUsePaidAiModels( quota, authUser?.email ),
-				settings: aiSettings,
+				account: aiSettings?.accounts[ sessionProvider ],
 			} ),
 		[ data?.entries, sessionProvider, quota, authUser?.email, aiSettings ]
 	);

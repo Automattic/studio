@@ -39,8 +39,11 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		return env;
 	}
 
+	// Offline, the previous release keeps the WordPress it bundles. Online, `site create --wp latest`
+	// downloads a newer one from wordpress.org, which closes the connection after the zip, and Node
+	// 24.22.1's fetch can crash on that (`assert(!this.paused)`).
 	async function runPreviousCli( args: string[] ) {
-		const result = await runCli( args, getEnv(), { cliMain: previousCli } );
+		const result = await runCli( args, getEnv(), { cliMain: previousCli, offline: true } );
 		expect( result.code, result.stderr ).toBe( 0 );
 	}
 

@@ -184,7 +184,9 @@ export function ConnectedView( {
 						<p className={ styles.publishDetailsDescription }>
 							{ sites.pull
 								? __( 'Publish changes or get the latest updates.' )
-								: __( 'Publish your changes.' ) }{ ' ' }
+								: __(
+										'Publish your changes. Changes made on the published site aren’t pulled back into Studio.'
+								  ) }{ ' ' }
 							<Button
 								variant="inline-accent"
 								size="inline"

@@ -271,7 +271,11 @@ export function PublishPanel( {
 						? createPortal(
 								<PanelHeader
 									className={ styles.pickerHeader }
-									title={ __( 'Choose an existing site' ) }
+									title={
+										sites.pull
+											? __( 'Choose an existing site' )
+											: __( 'Publish to an existing site' )
+									}
 									onBack={ () => setView( 'start' ) }
 								>
 									{ selectableWebsites.length ? (
@@ -310,6 +314,13 @@ export function PublishPanel( {
 								void pickable.refetch();
 							} }
 						/>
+						{ ! sites.pull ? (
+							<p className={ styles.text }>
+								{ __(
+									'Publishing replaces the chosen site with your local site. Its current content isn’t pulled into Studio.'
+								) }
+							</p>
+						) : null }
 						{ pickable.isLoading ? (
 							<div className={ styles.pickerEmpty }>
 								<Spinner aria-label={ __( 'Loading websites…' ) } />

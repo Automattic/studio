@@ -1,57 +1,30 @@
-import { readFile, writeFile } from 'atomically';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { readSessionMetadata } from '@studio/common/lib/session-metadata';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
-	deleteAiSessionPlacement,
 	getCreatedSiteFromArtifact,
 	hydrateAiSessionSummaryWithPlacement,
-	readAiSessionPlacement,
-	readAiSessionPlacements,
 	setAiSessionSitePlacement,
 } from '@studio/agent/node/sessions/placement';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { AiSessionSummary } from '@studio/agent/protocol/sessions/types';
 
-// Mock the filesystem so placement reads/writes an in-memory app.json (the real
-// path is never touched). The lockfile is a no-op. We don't mock well-known-paths
-// — getAppConfigPath() just resolves a path string, which fs never actually hits.
-vi.mock( 'atomically', () => ( {
-	readFile: vi.fn(),
-	writeFile: vi.fn(),
-} ) );
-// `mkdir` resolves through the default interop for node built-ins, so override
-// both the named export and the `default` namespace.
-vi.mock( 'node:fs/promises', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('node:fs/promises') >();
-	const mkdir = vi.fn().mockResolvedValue( undefined );
-	return { ...actual, default: { ...actual, mkdir }, mkdir };
-} );
-vi.mock( '@studio/common/lib/lockfile', () => ( {
-	lockFileAsync: vi.fn().mockResolvedValue( undefined ),
-	unlockFileAsync: vi.fn().mockResolvedValue( undefined ),
-} ) );
-
 describe( 'ai session placement (shared)', () => {
-	// In-memory stand-in for app.json; `undefined` means the file doesn't exist.
-	let appConfigFile: string | undefined;
+	let configDir: string;
 
 	beforeEach( () => {
-		appConfigFile = undefined;
-		// `atomically`'s readFile/writeFile are overloaded; cast the in-memory
-		// stand-in impls to satisfy mockImplementation's typing.
-		vi.mocked( readFile ).mockImplementation( ( async () => {
-			if ( appConfigFile === undefined ) {
-				const error = new Error( 'ENOENT' ) as NodeJS.ErrnoException;
-				error.code = 'ENOENT';
-				throw error;
-			}
-			return appConfigFile;
-		} ) as never );
-		vi.mocked( writeFile ).mockImplementation( ( async ( _path: string, data: unknown ) => {
-			appConfigFile = String( data );
-		} ) as never );
+		configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-placement-' ) );
+		process.env.DEV_CONFIG_DIR = configDir;
 	} );
 
-	it( 'stores and reads site placements in app.json', async () => {
+	afterEach( () => {
+		delete process.env.DEV_CONFIG_DIR;
+		rmSync( configDir, { recursive: true, force: true } );
+	} );
+
+	it( 'stores the site placement with the session metadata', async () => {
 		const placement = await setAiSessionSitePlacement( 'session-1', {
 			siteId: 'site-1',
 			sitePath: '/sites/site-1',
@@ -64,36 +37,7 @@ describe( 'ai session placement (shared)', () => {
 			sitePath: '/sites/site-1',
 			siteName: 'Site One',
 		} );
-		await expect( readAiSessionPlacements() ).resolves.toEqual( { 'session-1': placement } );
-		await expect( readAiSessionPlacement( 'session-1' ) ).resolves.toEqual( placement );
-	} );
-
-	it( 'preserves other app.json fields when writing placement', async () => {
-		appConfigFile = JSON.stringify( { windowBounds: { x: 1 }, version: 1 } );
-
-		await setAiSessionSitePlacement( 'session-1', {
-			siteId: 'site-1',
-			sitePath: '/sites/site-1',
-			siteName: 'Site One',
-		} );
-
-		const written = JSON.parse( appConfigFile ) as Record< string, unknown >;
-		expect( written.windowBounds ).toEqual( { x: 1 } );
-		expect( written.version ).toBe( 1 );
-	} );
-
-	it( 'removes the placement map once empty after deletion', async () => {
-		await setAiSessionSitePlacement( 'session-1', {
-			siteId: 'site-1',
-			sitePath: '/sites/site-1',
-			siteName: 'Site One',
-		} );
-
-		await deleteAiSessionPlacement( 'session-1' );
-
-		await expect( readAiSessionPlacements() ).resolves.toEqual( {} );
-		const written = JSON.parse( appConfigFile! ) as { aiSessionPlacements?: unknown };
-		expect( written.aiSessionPlacements ).toBeUndefined();
+		await expect( readSessionMetadata( 'session-1' ) ).resolves.toEqual( { placement } );
 	} );
 
 	it( 'hydrates owner fields only from placement', () => {

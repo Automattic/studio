@@ -14,10 +14,10 @@ import {
 	type ProviderServices,
 } from '@studio/providers';
 import {
-	readAiFields,
 	readProviderConfig,
-	updateAiFields,
+	readSelectedProvider,
 	writeProviderConfig,
+	writeSelectedProvider,
 } from './provider-config';
 import { receiveRedirect } from './provider-connect';
 
@@ -32,7 +32,7 @@ export interface AiSettings {
 
 /** The saved chat provider, or undefined when none was ever chosen. */
 export async function readSelectedAiProvider(): Promise< AiProviderId | undefined > {
-	const { aiProvider } = await readAiFields();
+	const aiProvider = await readSelectedProvider();
 	return aiProvider === undefined ? undefined : normalizeProviderId( aiProvider, AI_PROVIDER_IDS );
 }
 
@@ -63,7 +63,7 @@ export async function readAiSettings(): Promise< AiSettings > {
 
 /** Persists the provider without validation — for flows that already ran it. */
 export async function persistSelectedAiProvider( provider: AiProviderId ): Promise< void > {
-	await updateAiFields( { aiProvider: toStoredProviderId( provider ) } );
+	await writeSelectedProvider( toStoredProviderId( provider ) );
 }
 
 /**

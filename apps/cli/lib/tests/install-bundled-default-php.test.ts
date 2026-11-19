@@ -7,7 +7,7 @@ import {
 	resolveSupportedPhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installBundledDefaultPhp } from 'cli/migrations/06-install-bundled-default-php';
+import { installBundledDefaultPhp } from 'cli/lib/install-bundled-default-php';
 
 let configDir: string;
 let bundledPhpDir: string;

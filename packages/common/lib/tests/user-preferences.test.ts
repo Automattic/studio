@@ -2,8 +2,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { getConfigPath } from '@studio/common/lib/config/store';
+import { isAnalyticsOptedOut } from '@studio/common/lib/install';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	readUserPreferences,
 	userPreferencesPatchSchema,
@@ -12,13 +13,13 @@ import {
 
 let configDir: string;
 
+const writePreferences = ( preferences: object ) =>
+	writeFileSync( getConfigPath(), JSON.stringify( { version: 1, preferences } ) );
+
 beforeEach( () => {
 	configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-prefs-' ) );
 	process.env.DEV_CONFIG_DIR = configDir;
-	writeFileSync(
-		path.join( configDir, 'app.json' ),
-		JSON.stringify( { preferredEditor: 'vscode', colorScheme: 'dark', newSiteBehavior: 'blank' } )
-	);
+	writePreferences( { preferredEditor: 'vscode', colorScheme: 'dark', newSiteBehavior: 'blank' } );
 } );
 
 afterEach( () => {
@@ -42,7 +43,7 @@ it( 'records each preference the patch changes, and only those', async () => {
 it( 'records the analytics toggle while analytics is on', async () => {
 	const optedOutWhenRecorded: boolean[] = [];
 	const recordTracksEvent = vi.fn( async () => {
-		optedOutWhenRecorded.push( !! ( await readSharedConfig() ).analyticsOptOut );
+		optedOutWhenRecorded.push( await isAnalyticsOptedOut() );
 	} );
 
 	await writeUserPreferences(
@@ -109,10 +110,7 @@ it( 'keeps the appearance tint, falling back to the defaults for unset or invali
 		contrast: 45,
 	} );
 
-	writeFileSync(
-		path.join( configDir, 'app.json' ),
-		JSON.stringify( { accentColor: 'green', tintIntensity: 140, contrast: -1 } )
-	);
+	writePreferences( { accentColor: 'green', tintIntensity: 140, contrast: -1 } );
 	expect( await readUserPreferences( context ) ).toMatchObject( {
 		accentColor: '#3858e9',
 		tintIntensity: 0,
@@ -159,14 +157,11 @@ it( 'rejects invalid sort choices and recovers invalid stored values', async () 
 	for ( const key of [ 'sidebarPinnedSort', 'sidebarSiteSort', 'sidebarChatSort' ] ) {
 		expect( userPreferencesPatchSchema.safeParse( { [ key ]: 'invalid' } ).success ).toBe( false );
 	}
-	writeFileSync(
-		path.join( configDir, 'app.json' ),
-		JSON.stringify( {
-			sidebarPinnedSort: 'invalid',
-			sidebarSiteSort: 'invalid',
-			sidebarChatSort: 'invalid',
-		} )
-	);
+	writePreferences( {
+		sidebarPinnedSort: 'invalid',
+		sidebarSiteSort: 'invalid',
+		sidebarChatSort: 'invalid',
+	} );
 	expect( await readUserPreferences( { sitesRoot: configDir } ) ).toMatchObject( {
 		sidebarPinnedSort: 'type',
 		sidebarSiteSort: 'manual',

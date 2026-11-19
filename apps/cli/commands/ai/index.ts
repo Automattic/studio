@@ -22,7 +22,7 @@ import {
 } from '@studio/agent/protocol/slash-commands';
 import { changeAiSettings, getAiTurnTracksProps } from '@studio/common/lib/ai-provider-tracks';
 import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import {
 	canUsePaidAiModels,
 	fetchStudioAssistantQuota,

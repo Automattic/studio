@@ -19,7 +19,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../import';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { ImporterResult } from 'cli/lib/import-export/import/importers/importer';
 
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
@@ -57,7 +57,7 @@ vi.mock( 'cli/lib/site-operations', () => ( {
 describe( 'CLI: studio import', () => {
 	const testSitePath = '/test/site';
 	const testImportPath = '/tmp/backup.zip';
-	const testSite: SiteData = {
+	const testSite: ConfigSite = {
 		id: 'site-1',
 		name: 'Test Site',
 		path: testSitePath,

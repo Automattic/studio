@@ -1,3 +1,4 @@
+// CI probe: a code change, to check that the validation jobs still run. Do not merge.
 export const DEFAULT_WIDTH = 1100;
 export const DEFAULT_HEIGHT = 820;
 export const MAIN_MIN_HEIGHT = 600;

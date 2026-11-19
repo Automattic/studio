@@ -523,6 +523,8 @@ export interface Connector {
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
+	// The provider that generates images, or null to pick it automatically.
+	setImageProvider( provider: AiProviderId | null ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

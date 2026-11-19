@@ -128,6 +128,8 @@ describe( 'AI provider settings', () => {
 			xai: { connected: false },
 			spacefast: { connected: false },
 		},
+		imageProviders: [],
+		imageProvider: null,
 	} );
 	const keyPreview = 'sk-ant-api03-tes...1234';
 	const wpcomWithoutKey = settings( 'wpcom', null );

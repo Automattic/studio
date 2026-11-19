@@ -13,7 +13,7 @@ import {
 	type MouseEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { useListedModels, useReadListedModels } from '@/data/queries/use-ai-settings';
+import { useListedModels } from '@/data/queries/use-ai-settings';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -304,26 +304,16 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		textareaRef,
 	} );
 	const hasAttachments = attachments.length > 0;
-	// A model a server the user runs lists reads images only when the server says it does: its
-	// listing is read once there are attachments, and waited for when they're sent before it's in.
+	// A model a server the user runs lists reads images when the server says so, read once there
+	// are attachments.
 	const modelProvider = findAiModel( model )?.provider;
-	const readListedModels = useReadListedModels();
-	useListedModels( modelProvider ? [ modelProvider ] : [], { enabled: hasAttachments } );
-	// Why the chat's model can't take images, when it can't.
-	const refuseImages = useCallback( async (): Promise< string | undefined > => {
-		const refusal = __( 'Choose a model that supports images before sending these attachments' );
-		if ( ! modelProvider || ! getProvider( modelProvider ).ai?.userServer ) {
-			return findAiModel( model )?.model.supportsImages === false ? refusal : undefined;
-		}
-		try {
-			const listed = await readListedModels( modelProvider );
-			return listed.some( ( item ) => item.id === model && item.supportsImages )
-				? undefined
-				: refusal;
-		} catch ( error ) {
-			return ( error as Error ).message.replace( /\.$/, '' );
-		}
-	}, [ model, modelProvider, readListedModels ] );
+	const listedModels = useListedModels( modelProvider ? [ modelProvider ] : [], {
+		enabled: hasAttachments,
+	} );
+	const supportsImages =
+		modelProvider && getProvider( modelProvider ).ai?.userServer
+			? listedModels[ modelProvider ]?.models?.find( ( item ) => item.id === model )?.supportsImages
+			: findAiModel( model )?.model.supportsImages;
 	const currentValidationError =
 		validationError?.value === value &&
 		validationError.model === model &&
@@ -405,22 +395,23 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			return;
 		}
+		if ( submission.options.images?.length && supportsImages === false ) {
+			setValidationError( {
+				message: __( 'Choose a model that supports images before sending these attachments' ),
+				value,
+				model,
+				attachments,
+				notes: stagedNotes,
+			} );
+			return;
+		}
+		// Cleared up front so a composer remounted before the send is accepted
+		// doesn't bring the sent draft back; a failed send restores it.
+		setValidationError( null );
+		setValue( '' );
+		restoreAttachments( [] );
 		setSending( true );
 		try {
-			const refusal = submission.options.images?.length ? await refuseImages() : undefined;
-			if ( refusal ) {
-				setValidationError( { message: refusal, value, model, attachments, notes: stagedNotes } );
-				return;
-			}
-			// Cleared up front so a composer remounted before the send is accepted
-			// doesn't bring the sent draft back; a failed send restores it. Only what
-			// was sent goes: the draft may have changed while the model's server said
-			// whether it reads images.
-			setValidationError( null );
-			setValue( ( current ) => ( current === value ? '' : current ) );
-			restoreAttachments( ( current ) =>
-				current.filter( ( item ) => ! attachments.includes( item ) )
-			);
 			await onSend( submission.prompt, submission.options );
 		} catch {
 			// The parent reports the failure in a toast. Keep the draft even if
@@ -456,7 +447,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments,
 		annotationSiteId,
 		model,
-		refuseImages,
+		supportsImages,
 		stagedNotes,
 	] );
 

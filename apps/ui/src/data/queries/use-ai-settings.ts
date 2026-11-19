@@ -1,7 +1,7 @@
 import { AI_PROVIDER_IDS, getConnectMethod, getProvider } from '@studio/providers';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
-import { useConnector, type Connector } from '@/data/core';
+import { useState } from 'react';
+import { useConnector } from '@/data/core';
 import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AiProviderId, ListedAiModel, PendingConnect, ProviderId } from '@studio/providers';
@@ -18,15 +18,6 @@ export function useAiSettings() {
 		meta: { persist: false },
 	} );
 }
-
-const LISTED_MODELS_QUERY_KEY = [ 'listed-models' ] as const;
-
-const listedModelsQuery = ( connector: Connector, provider: ProviderId ) => ( {
-	queryKey: [ ...LISTED_MODELS_QUERY_KEY, provider ],
-	queryFn: () => connector.listProviderModels!( provider ),
-	retry: false,
-	meta: { persist: false },
-} );
 
 /** What a provider's server says it serves. */
 export interface ListedModels {
@@ -48,7 +39,10 @@ export function useListedModels( providers: readonly ProviderId[], { enabled = t
 		: [];
 	return useQueries( {
 		queries: listed.map( ( provider ) => ( {
-			...listedModelsQuery( connector, provider ),
+			queryKey: [ 'listed-models', provider ],
+			queryFn: () => connector.listProviderModels!( provider ),
+			retry: false,
+			meta: { persist: false },
 			enabled,
 		} ) ),
 		combine: ( results ) =>
@@ -59,23 +53,6 @@ export function useListedModels( providers: readonly ProviderId[], { enabled = t
 				} )
 			) as Partial< Record< ProviderId, ListedModels > >,
 	} );
-}
-
-/**
- * Reads the models a provider's server lists: as last read, or from the server when nothing read
- * them yet. Rejects with why the server couldn't be read.
- */
-export function useReadListedModels() {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	return useCallback(
-		( provider: ProviderId ) =>
-			queryClient.fetchQuery( {
-				...listedModelsQuery( connector, provider ),
-				staleTime: Infinity,
-			} ),
-		[ connector, queryClient ]
-	);
 }
 
 // Whether a provider that serves AI models is connected.

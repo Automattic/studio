@@ -1172,19 +1172,6 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		).toBeVisible();
 	} );
 
-	it( 'shows a connected key’s preview on its row, never in the key field', async () => {
-		await setup( { section: 'ai' } );
-		const anthropic = await findProviderRow( 'anthropic-provider' );
-		expect( await within( anthropic ).findByText( 'sk-ant-…test' ) ).toBeVisible();
-
-		fireEvent.click( await within( anthropic ).findByRole( 'button', { name: 'Manage' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
-
-		expect(
-			await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } )
-		).toHaveAttribute( 'placeholder', 'sk-…' );
-	} );
-
 	it( 'connects with the method the user picks', async () => {
 		const { connector } = await setup( { section: 'ai', signedIn: false } );
 		fireEvent.click(

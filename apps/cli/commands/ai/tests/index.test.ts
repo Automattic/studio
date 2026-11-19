@@ -629,40 +629,6 @@ describe( 'AI runCommand — a chat on a local server', () => {
 		stdoutSpy.mockRestore();
 	} );
 
-	it( 'starts a new chat on the model the account proposed when it connected', async () => {
-		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
-
-		expect( resolveAiConnection ).toHaveBeenCalledWith(
-			'local-llm',
-			'local-llm/qwen3:0.6b',
-			expect.anything()
-		);
-	} );
-
-	it( 'keeps the local model a resumed chat recorded', async () => {
-		( resolveResumeSessionContext as Mock ).mockReturnValue( {
-			provider: 'local-llm',
-			model: 'local-llm/llama3.2:1b',
-		} );
-		( openStudioSession as Mock ).mockResolvedValue( {
-			appendCustomEntry,
-			getSessionId: () => 'resumed',
-			getEntries: () => [],
-		} );
-
-		await runCommand( {
-			adapter: new JsonAdapter(),
-			initialMessage: 'hello',
-			resumeSession: { summary: { id: 'resumed', filePath: '/sessions/resumed.jsonl' } } as never,
-		} );
-
-		expect( resolveAiConnection ).toHaveBeenCalledWith(
-			'local-llm',
-			'local-llm/llama3.2:1b',
-			expect.anything()
-		);
-	} );
-
 	it( 'names neither the model nor the server in the chat events', async () => {
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
 

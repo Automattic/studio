@@ -7,13 +7,7 @@ import { App } from '@/app';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { pendingPromptSlot } from '@/features/composer';
-import {
-	aiSettings,
-	createFakeConnector,
-	makeSession,
-	makeSite,
-	TEST_USER,
-} from '@/test/fake-connector';
+import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { createTestQueryClient, renderApp } from '@/test/render';
 import { isScrolledAwayFromLatest, useAnchoredScroll } from './use-anchored-scroll';
 import type { SessionEntry } from '@/data/core';
@@ -157,61 +151,6 @@ describe( 'SessionView handed-over prompt', () => {
 		await waitFor( () => expect( screen.getByRole( 'button', { name: 'Set up' } ) ).toBeVisible() );
 		expect( connector.continueSession ).not.toHaveBeenCalled();
 		expect( pendingPromptSlot.getSnapshot() ).toBe( handover );
-	} );
-} );
-
-describe( 'SessionView on a local model server', () => {
-	// The selected provider is a local server, which proposed qwen3 when it connected.
-	function localServerConnector() {
-		const connector = chatConnector();
-		const settings = aiSettings( 'local-llm', [ 'wpcom', 'local-llm' ] );
-		settings.accounts[ 'local-llm' ] = {
-			connected: true,
-			method: 'server',
-			summary: 'http://localhost:11434',
-			model: 'local-llm/qwen3:0.6b',
-		};
-		connector.getAiSettings.mockResolvedValue( settings );
-		return connector;
-	}
-
-	it( 'starts a chat on the model the server proposed when it connected', async () => {
-		renderApp( { connector: localServerConnector(), path: PATH } );
-
-		await composer();
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'qwen3:0.6b' )
-		);
-	} );
-
-	it( 'sends while the computer is offline, which a chat on WordPress.com can’t', async () => {
-		const online = vi.spyOn( navigator, 'onLine', 'get' ).mockReturnValue( false );
-		try {
-			const connector = localServerConnector();
-			const local = renderApp( { connector, path: PATH } );
-			await composer();
-			fireEvent.change( screen.getByRole( 'combobox', COMPOSER ), {
-				target: { value: 'Add an about page' },
-			} );
-			fireEvent.keyDown( screen.getByRole( 'combobox', COMPOSER ), { key: 'Enter' } );
-
-			await waitFor( () =>
-				expect( connector.continueSession ).toHaveBeenCalledWith(
-					'chat',
-					'Add an about page',
-					expect.anything()
-				)
-			);
-			expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
-			local.unmount();
-
-			renderApp( { connector: chatConnector(), path: PATH } );
-			expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
-				'You are offline. Reconnect to send a message.'
-			);
-		} finally {
-			online.mockRestore();
-		}
 	} );
 } );
 

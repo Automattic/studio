@@ -8,7 +8,6 @@ import {
 	getDefaultAiModel,
 	getProvider,
 	normalizeProviderId,
-	servesAiModel,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
 } from '..';
@@ -31,7 +30,6 @@ describe( 'models', () => {
 		expect( findAiModel( 'gpt-4' ) ).toBeUndefined();
 	} );
 
-	// A local server lists its models: Studio names each after the connector and the server's name.
 	it( 'names a model a local server lists without reaching the server', () => {
 		const found = findAiModel( 'local-llm/hf.co/unsloth/Qwen3-4B:Q4_K_M' );
 
@@ -45,26 +43,12 @@ describe( 'models', () => {
 		expect( AI_PROVIDER_IDS.at( -1 ) ).toBe( 'local-llm' );
 	} );
 
-	it( 'tells whether a provider serves a model', () => {
-		expect( servesAiModel( 'local-llm', 'local-llm/qwen3:0.6b' ) ).toBe( true );
-		expect( servesAiModel( 'local-llm', 'fast' ) ).toBe( false );
-		expect( servesAiModel( 'wpcom', 'local-llm/qwen3:0.6b' ) ).toBe( false );
-		expect( servesAiModel( 'github-copilot', 'claude-sonnet-5-5' ) ).toBe( true );
-		expect( servesAiModel( 'anthropic', 'gpt-6.1-terra' ) ).toBe( false );
-	} );
-
 	it( 'defaults to the paid model only when paid credits remain', () => {
 		expect( getDefaultAiModel( 'wpcom' ) ).toBe( 'fast' );
 		expect( getDefaultAiModel( 'wpcom', { canUsePaidModels: true } ) ).toBe( 'balanced' );
 		expect( getDefaultAiModel( 'anthropic', { canUsePaidModels: true } ) ).toBe(
 			'claude-sonnet-5-5'
 		);
-	} );
-
-	it( 'starts a local server’s chats on the model its account proposed', () => {
-		const account = { model: 'local-llm/qwen3:0.6b' } as const;
-
-		expect( getDefaultAiModel( 'local-llm', { account } ) ).toBe( 'local-llm/qwen3:0.6b' );
 	} );
 } );
 

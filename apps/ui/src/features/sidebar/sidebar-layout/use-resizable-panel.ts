@@ -12,12 +12,15 @@ import {
 import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent } from 'react';
 
+const SIDEBAR_COLLAPSE_OVERSHOOT = 64;
+
 interface UseResizablePanelOptions {
 	config: ResizablePanelConfig;
 	storageKey: string;
+	onCollapse?: () => void;
 }
 
-export function useResizablePanel( { config, storageKey }: UseResizablePanelOptions ) {
+export function useResizablePanel( { config, storageKey, onCollapse }: UseResizablePanelOptions ) {
 	// In RTL the panel (and its resize edge) sits mirrored, so a rightward drag
 	// shrinks it.
 	const growsWithDeltaX = ! isRTL();
@@ -47,9 +50,14 @@ export function useResizablePanel( { config, storageKey }: UseResizablePanelOpti
 			const delta = growsWithDeltaX ? deltaX : -deltaX;
 			const nextWidth = clampResizablePanelWidth( start + delta, config, getViewportWidth() );
 			setWidth( nextWidth );
-			return nextWidth;
+			return start + delta;
 		},
 		onCommit: ( latest ) => {
+			if ( onCollapse && latest <= config.minWidth - SIDEBAR_COLLAPSE_OVERSHOOT ) {
+				setWidth( width );
+				onCollapse();
+				return;
+			}
 			saveWidth( latest );
 		},
 	} );

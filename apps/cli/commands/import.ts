@@ -14,7 +14,6 @@ import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { SiteData } from 'cli/lib/cli-config/core';
 import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
@@ -35,6 +34,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/import.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -296,7 +296,7 @@ async function importBackup(
 	logger: Logger< LoggerAction >
 ): Promise< void > {
 	const startedAt = Date.now();
-	let site: SiteData | undefined;
+	let site: ConfigSite | undefined;
 	let wasServerRunning = false;
 	let importError: unknown;
 	let restartSiteError: unknown;

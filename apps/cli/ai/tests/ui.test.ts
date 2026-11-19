@@ -1,6 +1,7 @@
 import { initTheme, ToolExecutionComponent } from '@earendil-works/pi-coding-agent';
 import { Container } from '@earendil-works/pi-tui';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import {
 	ADD_AI_CREDITS_URL,
 	fetchStudioAssistantQuota,
@@ -9,7 +10,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toolResultRenderers } from 'cli/ai/tool-result-renderers';
 import { AiChatUI } from 'cli/ai/ui';
 import { openBrowser } from 'cli/lib/browser';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isSiteRunning } from 'cli/lib/site-utils';
 
@@ -25,13 +25,7 @@ function renderedContainerText( container: Container ): string {
 	return stripAnsi( container.render( 120 ).join( '\n' ) );
 }
 
-vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('cli/lib/cli-config/core') >();
-	return {
-		...actual,
-		readCliConfig: vi.fn(),
-	};
-} );
+vi.mock( '@studio/common/lib/config/store', () => ( { readConfig: vi.fn() } ) );
 
 vi.mock( 'cli/lib/cli-config/sites', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('cli/lib/cli-config/sites') >();
@@ -45,13 +39,7 @@ vi.mock( 'cli/lib/browser', () => ( {
 	openBrowser: vi.fn(),
 } ) );
 
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@studio/common/lib/shared-config') >();
-	return {
-		...actual,
-		readAuthToken: vi.fn(),
-	};
-} );
+vi.mock( '@studio/common/lib/auth-token', () => ( { readAuthToken: vi.fn() } ) );
 
 vi.mock( '@studio/common/lib/studio-assistant-quota', async ( importOriginal ) => {
 	const actual =
@@ -91,7 +79,7 @@ describe( 'AiChatUI.openActiveSiteInBrowser', () => {
 		ui._activeSite = restoredSite;
 		ui._activeSiteData = null;
 
-		vi.mocked( readCliConfig ).mockResolvedValue( {
+		vi.mocked( readConfig ).mockResolvedValue( {
 			sites: [ siteData ],
 		} as never );
 		vi.mocked( getSiteUrl ).mockReturnValue( 'http://localhost:8080' );
@@ -137,7 +125,7 @@ describe( 'AiChatUI auto site selection', () => {
 			port: 8881,
 		};
 
-		vi.mocked( readCliConfig ).mockResolvedValue( {
+		vi.mocked( readConfig ).mockResolvedValue( {
 			sites: [ siteData ],
 		} as never );
 		vi.mocked( isSiteRunning ).mockResolvedValue( false );
@@ -167,7 +155,7 @@ describe( 'AiChatUI auto site selection', () => {
 			running: true,
 		};
 
-		vi.mocked( readCliConfig ).mockResolvedValue( {
+		vi.mocked( readConfig ).mockResolvedValue( {
 			sites: [ siteData ],
 		} as never );
 		vi.mocked( isSiteRunning ).mockResolvedValue( true );

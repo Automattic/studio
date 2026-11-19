@@ -55,8 +55,8 @@ async function loadPersona( ref: string ): Promise< Persona & { file: string } >
  * from `personas/`): Studio trusts its stored login and checks it with
  * WordPress.com only when someone logs in, so a demo login shows as signed in,
  * and the scene answers for the account. No real account is involved.
- * `STUDIO_CAPTURE_AUTH_TOKEN` (the `authToken` object of a Studio `shared.json`,
- * as JSON) signs in as a real account instead; only the throwaway profile gets
+ * `STUDIO_CAPTURE_AUTH_TOKEN` (a WordPress.com sign-in as JSON: `accessToken`,
+ * `expirationTime`, `id`, `email`, `displayName`) signs in as a real account instead; only the throwaway profile gets
  * a copy, and no step logs out, which would revoke it.
  */
 export async function signIn(

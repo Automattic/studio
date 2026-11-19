@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
@@ -10,7 +11,6 @@ import { cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -182,7 +182,7 @@ async function recordPreviewUpdateEvent(
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_UPDATE, {
 			...props,
-			...( await getSiteTracksProps( siteFolder, snapshot ) ),
+			...( await getSiteTracksProps( { siteFolder: siteFolder }, snapshot ) ),
 			...getTracksOrigin(),
 		} );
 	} catch {

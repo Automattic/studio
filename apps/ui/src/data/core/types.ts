@@ -709,7 +709,7 @@ export interface Connector {
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
 	// first-run welcome flag). setOnboardingHints shallow-merges
-	// its partial. Persisted to app.json.
+	// its partial. Persisted to the config file.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
 

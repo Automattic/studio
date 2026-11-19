@@ -16,8 +16,9 @@ import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
 	daemonRequest,
+	handConfigBackToPreviousCli,
 	installPreviousCli,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -45,7 +46,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 	}
 
 	function siteId( sitePath: string ) {
-		return readCliConfig( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.id;
+		return readConfigFile( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.id;
 	}
 
 	async function siteProcesses( sitePath: string ): Promise< ProcessDescription[] > {
@@ -64,7 +65,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 	}
 
 	function siteUrl( sitePath: string, urlPath = '/' ) {
-		const port = readCliConfig( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.port;
+		const port = readConfigFile( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.port;
 		return `http://localhost:${ port }${ urlPath }`;
 	}
 
@@ -221,6 +222,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		{ tags: [ 'e2e' ], timeout: 300_000 },
 		async () => {
 			await runCli( [ 'site', 'stop', '--all' ], getEnv() );
+			handConfigBackToPreviousCli( getEnv() );
 			await runPreviousCli( [
 				'site',
 				'start',
@@ -254,6 +256,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		{ tags: [ 'e2e' ], timeout: 300_000 },
 		async () => {
 			await runCli( [ 'site', 'stop', '--all' ], getEnv() );
+			handConfigBackToPreviousCli( getEnv() );
 			await runPreviousCli( [
 				'site',
 				'start',
@@ -268,7 +271,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 			const list = runCli( [ 'site', 'list', '--format', 'json' ], getEnv() );
 			await vi.waitFor(
 				() => {
-					const site = readCliConfig( getEnv() ).sites.find(
+					const site = readConfigFile( getEnv() ).sites.find(
 						( item ) => item.path === runningSite
 					);
 					expect( site?.operation ).toMatchObject( { kind: 'start' } );

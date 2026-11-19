@@ -12,7 +12,7 @@ import {
 } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
-import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { AUTO_UPDATE_INTERVAL_MS, NO_OUTPUT_UPDATE_RETRY_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import {
 	checkForAppUpdates,
@@ -360,6 +360,30 @@ describe( 'update status emissions', () => {
 			vi.mocked( autoUpdater.checkForUpdates ).mockClear();
 			await vi.advanceTimersByTimeAsync( AUTO_UPDATE_INTERVAL_MS );
 			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( kind ? 1 : 0 );
+		} finally {
+			vi.clearAllTimers();
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'retries a minute after Update.exe prints nothing, then hourly if it happens again', async () => {
+		vi.useFakeTimers();
+		try {
+			Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+			setupUpdates();
+			await getHandler( 'update-not-available' )?.();
+			vi.clearAllTimers();
+			vi.mocked( autoUpdater.checkForUpdates ).mockClear();
+
+			await getHandler( 'error' )?.( new Error( 'Invalid result:\n' ) );
+			await vi.advanceTimersByTimeAsync( NO_OUTPUT_UPDATE_RETRY_MS );
+			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( 1 );
+
+			await getHandler( 'error' )?.( new Error( 'Invalid result:\n' ) );
+			await vi.advanceTimersByTimeAsync( NO_OUTPUT_UPDATE_RETRY_MS );
+			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( 1 );
+			await vi.advanceTimersByTimeAsync( AUTO_UPDATE_INTERVAL_MS );
+			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( 2 );
 		} finally {
 			vi.clearAllTimers();
 			vi.useRealTimers();

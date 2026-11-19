@@ -1,20 +1,35 @@
 import { existsSync } from 'node:fs';
 import { getSharedBrowser } from '@studio/agent/node';
 
+export interface CaptureOptions {
+	width: number;
+	height: number;
+	// Device pixels per page pixel. Defaults to 1.
+	scale?: number;
+	// Defaults to PNG.
+	format?: 'png' | 'jpeg';
+}
+
 /**
- * Screenshots a site page for `studio ui`'s stopped-site preview, on the
- * browser the AI tools share. Never downloads one: without Chromium installed
- * there is no screenshot.
+ * Screenshots a site page on the browser the AI tools share, for `studio ui`'s
+ * stopped-site preview and for the phone's preview in remote mode. Never
+ * downloads one: without Chromium installed there is no screenshot, and the
+ * error says so with `code: 'no-browser'`.
  */
 export async function capturePreview(
 	url: string,
-	size: { width: number; height: number }
+	{ width, height, scale = 1, format = 'png' }: CaptureOptions
 ): Promise< Buffer > {
 	const { chromium } = await import( 'playwright' );
 	if ( ! existsSync( chromium.executablePath() ) ) {
-		throw new Error( 'Chromium is not installed.' );
+		throw Object.assign( new Error( 'Chromium is not installed.' ), { code: 'no-browser' } );
 	}
-	const page = await ( await getSharedBrowser() ).newPage( { viewport: size } );
+	const page = await (
+		await getSharedBrowser()
+	).newPage( {
+		viewport: { width, height },
+		deviceScaleFactor: scale,
+	} );
 	try {
 		await page.goto( new URL( '/?studio-hide-adminbar', url ).href, {
 			waitUntil: 'load',
@@ -23,7 +38,7 @@ export async function capturePreview(
 		await page.addStyleTag( {
 			content: '#wpadminbar { display: none !important; } html { margin-top: 0 !important; }',
 		} );
-		return await page.screenshot();
+		return await page.screenshot( format === 'jpeg' ? { type: 'jpeg', quality: 80 } : {} );
 	} finally {
 		await page.close();
 	}

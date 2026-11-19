@@ -19,6 +19,7 @@ export const PROTOCOL_PREFIX = 'wp-studio';
 export const DEFAULT_TOKEN_LIFETIME_MS = DAY_MS * 14;
 
 // Lockfile constants
+export const REMOTE_ACCESS_LOCKFILE_NAME = 'remote.json.lock';
 export const SESSIONS_MIGRATION_LOCKFILE_NAME = 'sessions-migration.lock';
 export const LOCKFILE_STALE_TIME = 5000;
 export const LOCKFILE_WAIT_TIME = 5000;

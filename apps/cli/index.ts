@@ -266,6 +266,28 @@ async function main() {
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
+	studioArgv.command(
+		'remote',
+		__( 'Let a paired phone reach Studio Code over your network' ),
+		async ( remoteYargs ) => {
+			const [
+				{ registerCommand: registerRemoteStartCommand },
+				{ registerCommand: registerRemotePairCommand },
+				{ registerCommand: registerRemoteDevicesCommand },
+			] = await Promise.all( [
+				import( 'cli/commands/remote/start' ),
+				import( 'cli/commands/remote/pair' ),
+				import( 'cli/commands/remote/devices' ),
+			] );
+
+			remoteYargs.option( 'path', { hidden: true } );
+			registerRemoteStartCommand( remoteYargs );
+			registerRemotePairCommand( remoteYargs );
+			registerRemoteDevicesCommand( remoteYargs );
+			remoteYargs.version( false );
+		}
+	);
+
 	// Per-site configuration lives under `config` (e.g. `studio config get php`,
 	// `studio config set --php 8.3`).
 	studioArgv.command( 'config', __( 'Manage site configuration' ), async ( configYargs ) => {
@@ -338,7 +360,7 @@ async function main() {
 			builder: ( yargs ) =>
 				yargs.option( 'listener', {
 					type: 'string',
-					choices: [ 'desktop', 'ui', 'mcp' ] as const,
+					choices: [ 'desktop', 'ui', 'remote', 'mcp' ] as const,
 					default: 'desktop' as const,
 					hidden: true,
 				} ),

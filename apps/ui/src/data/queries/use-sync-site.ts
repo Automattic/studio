@@ -1,4 +1,5 @@
 import { canCancelSyncActivity, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { LIVE_CHANGED_CODE } from '@studio/common/lib/sync/live-changes';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
@@ -234,6 +235,9 @@ export function useSettleSync() {
 									await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 								},
 						  }
+						: // A refused push isn't a fault: the panel says what changed live.
+						settled.code === LIVE_CHANGED_CODE
+						? undefined
 						: openStudioLogsAction( connector ),
 				} );
 			} else if ( settled.kind === 'cancelled' ) {

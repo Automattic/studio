@@ -738,12 +738,12 @@ describe( 'PublishPopover', () => {
 			kind: 'error',
 			direction: 'push',
 			code: 'live_changed',
-			message: '2 posts or pages changed on Example since your last sync.',
+			message: 'Since your last sync, Example has 2 content changes.',
 		} );
 
 		const publishAnyway = await screen.findByRole( 'button', { name: 'Publish anyway' } );
 		expect(
-			screen.getAllByText( '2 posts or pages changed on Example since your last sync.' )[ 0 ]
+			screen.getAllByText( 'Since your last sync, Example has 2 content changes.' )[ 0 ]
 		).toBeVisible();
 		expect(
 			screen.queryByRole( 'button', { name: 'Try publishing again' } )
@@ -759,6 +759,33 @@ describe( 'PublishPopover', () => {
 			)
 		);
 		expect( connector.pushSite.mock.calls[ 0 ][ 3 ] ).not.toHaveProperty( 'overwriteLiveChanges' );
+	} );
+
+	it( 'offers publishing anyway only while the selection still includes the database', async () => {
+		const { connector, emit, ready, site } = setup( [ remote ] );
+		connector.pushSite.mockImplementation( () => new Promise( () => {} ) );
+		await ready;
+		const publish = await screen.findByRole( 'button', { name: 'Publish changes' } );
+		await waitFor( () => expect( publish ).toBeEnabled() );
+		fireEvent.click( publish );
+		emit( { kind: 'pending', direction: 'push', remoteSiteId: 42 } );
+		emit( {
+			kind: 'error',
+			direction: 'push',
+			code: 'live_changed',
+			message: 'Since your last sync, Example has 2 content changes.',
+		} );
+		await screen.findByRole( 'button', { name: 'Publish anyway' } );
+		await waitFor( () =>
+			expect(
+				getVisibleToasts().find( ( notice ) => notice.id === `push-${ site.id }` )
+			).toMatchObject( { title: 'Publishing didn’t finish', action: undefined } )
+		);
+
+		await selectScope( 'Files only' );
+
+		expect( await screen.findByRole( 'button', { name: 'Try publishing again' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Publish anyway' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'confirms disconnection and returns to the choice of destination without transferring', async () => {

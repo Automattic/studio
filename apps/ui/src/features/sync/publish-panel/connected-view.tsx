@@ -135,10 +135,13 @@ export function ConnectedView( {
 		finished?.kind === 'error' && finished.direction === 'pull' && finished.localChangesApplied;
 	const restartFailed = pulledLocally && ! site.running;
 	// The push stopped before changing anything: publishing anyway replaces what changed live.
+	const pushOptions = push.options.push.optionsToSync ?? [ 'all' ];
+	// Only a push that still includes the database can overwrite what changed live.
 	const liveChanged =
 		finished?.kind === 'error' &&
 		finished.direction === 'push' &&
-		finished.code === LIVE_CHANGED_CODE;
+		finished.code === LIVE_CHANGED_CODE &&
+		( pushOptions.includes( 'all' ) || pushOptions.includes( 'sqls' ) );
 	const completePull =
 		view === 'pull' && ( finished?.kind === 'success' || ( pulledLocally && site.running ) );
 	const close = () => {
@@ -338,7 +341,7 @@ export function ConnectedView( {
 									{ liveChanged ? (
 										<p className={ styles.text }>
 											{ __(
-												'Publish anyway to replace them, or pull the live site first to bring them into WordPress Studio.'
+												'Publish anyway to replace them. Pulling the live site keeps them, but replaces your local changes.'
 											) }
 										</p>
 									) : null }

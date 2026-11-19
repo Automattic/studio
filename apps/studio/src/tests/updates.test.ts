@@ -323,6 +323,8 @@ describe( 'update status emissions', () => {
 			'network',
 		],
 		[ 'win32', 'System.Net.Sockets.SocketException: Verbindungsfehler', undefined, 'network' ],
+		[ 'win32', 'Invalid result:\n', undefined, 'no-output' ],
+		[ 'win32', 'Invalid result:\n<html>', undefined, null ],
 		[ 'win32', 'Unrelated update failure', undefined, null ],
 		[ 'darwin', 'The request timed out.', -1001, 'network' ],
 		[ 'darwin', 'A server with the specified hostname could not be found.', -1003, 'network' ],
@@ -342,14 +344,14 @@ describe( 'update status emissions', () => {
 			if ( kind ) {
 				expect( Sentry.captureException ).not.toHaveBeenCalled();
 				expect( getLastEmittedStatus() ).toEqual(
-					kind === 'lock'
-						? { state: 'idle', currentVersion: '1.8.2' }
-						: {
+					kind === 'network'
+						? {
 								state: 'error',
 								currentVersion: '1.8.2',
 								reason: 'generic',
 								detail: 'Check your internet connection and try again.',
 						  }
+						: { state: 'idle', currentVersion: '1.8.2' }
 				);
 			} else {
 				expect( Sentry.captureException ).toHaveBeenCalledWith( err );

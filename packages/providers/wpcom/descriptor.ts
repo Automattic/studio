@@ -76,6 +76,7 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		models: WPCOM_AI_MODELS,
 		defaultModel: 'fast',
 		paidDefaultModel: 'balanced',
+		generatesImages: () => true,
 	},
 	sites: {
 		publish: true,

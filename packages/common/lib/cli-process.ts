@@ -20,10 +20,13 @@ export class CliCommandError extends Error {
 	readonly signal: NodeJS.Signals | null;
 	// The host stopped the command (`killChild`), on quit for example, so it didn't fail by itself.
 	readonly stoppedByHost: boolean;
+	// The CLI reported its error as one that isn't a bug, like being offline.
+	readonly lastErrorExpected: boolean;
 
 	constructor( options: {
 		lastErrorMessage: string | undefined;
 		lastErrorCode?: string;
+		lastErrorExpected?: boolean;
 		cliCommandResult: CliCommandResult | undefined;
 		exitCode: number | null;
 		signal: NodeJS.Signals | null;
@@ -32,6 +35,7 @@ export class CliCommandError extends Error {
 		super();
 		this.lastErrorMessage = options.lastErrorMessage;
 		this.lastErrorCode = options.lastErrorCode;
+		this.lastErrorExpected = options.lastErrorExpected ?? false;
 		this.cliCommandResult = options.cliCommandResult;
 		this.exitCode = options.exitCode;
 		this.signal = options.signal;
@@ -44,7 +48,7 @@ export class CliCommandError extends Error {
 	}
 
 	get expected(): boolean {
-		return this.stoppedByHost;
+		return this.stoppedByHost || this.lastErrorExpected;
 	}
 
 	// The rest of the message carries logs, timestamps and ports that differ in every report.
@@ -102,6 +106,7 @@ const cliErrorMessageSchema = z.object( {
 	status: z.literal( 'fail' ),
 	message: z.string(),
 	code: z.string().optional(),
+	expected: z.boolean().optional(),
 } );
 
 /**
@@ -261,6 +266,7 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		let stderr = '';
 		let lastErrorMessage: string | undefined;
 		let lastErrorCode: string | undefined;
+		let lastErrorExpected = false;
 
 		if ( options.output === 'capture' ) {
 			// Only callers that opted-in with a `logPrefix` get stdout echoed to
@@ -311,6 +317,7 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 			if ( errorParsed.success ) {
 				lastErrorMessage = errorParsed.data.message;
 				lastErrorCode = errorParsed.data.code;
+				lastErrorExpected = errorParsed.data.expected ?? false;
 			}
 
 			eventEmitter.emit( 'data', { data: message } );
@@ -332,6 +339,7 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 				const error = new CliCommandError( {
 					lastErrorMessage,
 					lastErrorCode,
+					lastErrorExpected,
 					cliCommandResult: result,
 					exitCode,
 					signal,

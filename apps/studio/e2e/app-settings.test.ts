@@ -44,7 +44,7 @@ test.describe( 'Studio settings', () => {
 		await settings.showSection( 'Instructions' );
 		await settings.instructionsInput.fill( instructions );
 		await settings.close();
-		await expect.poll( async () => ( await session.getAppConfig() ).colorScheme ).toBe( 'dark' );
+		await expect.poll( async () => ( await session.getPreferences() ).colorScheme ).toBe( 'dark' );
 
 		await session.restart();
 		await closeAddSite();

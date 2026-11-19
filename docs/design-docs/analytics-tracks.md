@@ -43,7 +43,7 @@ The pieces mirror the MC Stats layering:
 | Shared core        | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev/tests.                                                                                             |
 | Desktop wrapper    | `apps/studio/src/lib/tracks.ts`              | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (always `v2`).                                                                   |
 | CLI wrapper        | `apps/cli/lib/tracks.ts`                     | Single entry point for the CLI **and** the `studio ui` server, which is bundled into it. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
-| Identity + opt-out | `packages/common/lib/shared-config.ts`       | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `shared.json`.                                                                                                |
+| Identity + opt-out | `packages/common/lib/install.ts`, `auth-token.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `config.json`.                                                                                       |
 
 Events are sent as a **pixel GET** to `https://pixel.wp.com/t.gif` with query params. The reserved
 Tracks pixel params the core builder attaches are:
@@ -65,10 +65,10 @@ where the sender actually runs — see Testing below for what fires in which bui
 
 ## Identity and opt-out
 
-- **Anonymous install UUID.** Generated on first event and stored as `analyticsInstallId` in
-  `shared.json`. Because `shared.json` is read by both the desktop app and the CLI, both attribute
+- **Anonymous install UUID.** Generated on first event and stored as `install.analyticsId` in
+  `config.json`. Because the desktop app and the CLI read the same file, both attribute
   events to the same install. No PII is attached; identity is always `_ut=anon`.
-- **Opt-out.** `analyticsOptOut` in `shared.json` (absent/false = opted **in**; analytics default ON).
+- **Opt-out.** `preferences.analyticsOptOut` in `config.json` (absent/false = opted **in**; analytics default ON).
   Enforced in both wrappers before any send. The user controls it from Settings → Preferences and the
   onboarding screen, in both the desktop app and `studio ui`: it is the `analyticsEnabled` preference,
   written by `writeUserPreferences` (`packages/common/lib/user-settings/user-preferences.ts`).
@@ -103,8 +103,8 @@ where the sender actually runs — see Testing below for what fires in which bui
 - **`studio_app_launch`** fires once per launch from the desktop Main process (`apps/studio/src/index.ts`
   `appBoot`), in parallel with the MC Stats launch bumps, and once per `studio ui` server start
   (`apps/cli/commands/ui.ts`). Only the desktop sends `is_first_launch`: the marker it derives that from
-  lives in its own `app.json`, and the install id is shared with the CLI, so neither can tell a first
-  browser launch from a first desktop one.
+  (whether any stat was ever bumped) and the install id are shared with the CLI, so neither can tell a
+  first browser launch from a first desktop one.
 - **`studio_site_start`** is emitted **only** by the CLI, from the `recordSiteRuntimeUsage()` funnel in
   `apps/cli/lib/wordpress-server-manager.ts` — the single point every site start passes through. Every
   desktop site start delegates to the app-spawned CLI, so the CLI is the sole emitter and a start is

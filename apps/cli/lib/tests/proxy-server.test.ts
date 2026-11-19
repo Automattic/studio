@@ -1,8 +1,8 @@
 import net from 'net';
 import { vi } from 'vitest';
 
-const { readCliConfig } = vi.hoisted( () => ( { readCliConfig: vi.fn() } ) );
-vi.mock( 'cli/lib/cli-config/core', () => ( { readCliConfig } ) );
+const { readConfig } = vi.hoisted( () => ( { readConfig: vi.fn() } ) );
+vi.mock( '@studio/common/lib/config/store', () => ( { readConfig } ) );
 vi.mock( 'cli/lib/certificate-manager' );
 
 describe( 'startProxyServers', () => {
@@ -32,7 +32,7 @@ describe( 'startProxyServers', () => {
 	} );
 
 	it( 'should leave port 443 free when no site uses HTTPS', async () => {
-		readCliConfig.mockResolvedValue( {
+		readConfig.mockResolvedValue( {
 			version: 1,
 			sites: [ { customDomain: 'site.local' }, { enableHttps: true } ],
 		} );
@@ -44,7 +44,7 @@ describe( 'startProxyServers', () => {
 	} );
 
 	it( 'should take port 443 when a site with a custom domain uses HTTPS', async () => {
-		readCliConfig.mockResolvedValue( {
+		readConfig.mockResolvedValue( {
 			version: 1,
 			sites: [ { customDomain: 'site.local', enableHttps: true } ],
 		} );

@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
@@ -32,13 +33,6 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-	type SiteData,
-} from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
@@ -57,6 +51,7 @@ import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { coerceWpVersionOption, getWpVersionOptionDescription } from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const logger = new Logger< LoggerAction >();
 
@@ -78,10 +73,10 @@ export interface SetCommandOptions {
 	environmentType?: WpEnvironmentType;
 }
 
-// WordPress is installed on the first start, which writes wp-config.php and creates the database.
-// A site with neither (e.g. `site create --no-start`) can't boot WP-CLI. Pulled/imported sites
-// keep their config outside the site directory, so they never count as unprovisioned.
-async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
+// Installing WordPress writes wp-config.php and creates the database. A site with neither (one an
+// older `site create --no-start` left) can't boot WP-CLI. Pulled/imported sites keep their config
+// outside the site directory, so they never count as unprovisioned.
+async function isUnprovisionedSite( site: ConfigSite ): Promise< boolean > {
 	if ( site.runtimeBlueprintPath ) {
 		return false;
 	}
@@ -92,7 +87,7 @@ async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
 	return ! hasConfig && ! hasDatabase;
 }
 
-async function setWordPressVersion( site: SiteData, wp: string ): Promise< void > {
+async function setWordPressVersion( site: ConfigSite, wp: string ): Promise< void > {
 	// Swap the core files like `site create --wp` does; the installer runs on the first start.
 	// Installing up front instead would leave a newer DB schema than the code on a downgrade.
 	if ( await isUnprovisionedSite( site ) ) {
@@ -238,7 +233,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 
 		const validatedPhp = php === undefined ? undefined : validateSupportedPhpVersion( php );
 
-		const initialCliConfig = await readCliConfig();
+		const initialCliConfig = await readConfig();
 
 		if ( domain ) {
 			const existingDomainNames = initialCliConfig.sites
@@ -334,9 +329,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			adminEmail: site.adminEmail,
 		};
 
-		try {
-			await lockCliConfig();
-			const cliConfig = await readCliConfig();
+		await updateConfig( ( cliConfig ) => {
 			const foundSite = cliConfig.sites.find( ( s ) => arePathsEqual( s.path, sitePath ) );
 			if ( ! foundSite ) {
 				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
@@ -385,11 +378,8 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 				foundSite.environmentType = environmentType;
 			}
 
-			await saveCliConfig( cliConfig );
 			site = foundSite;
-		} finally {
-			await unlockCliConfig();
-		}
+		} );
 
 		if ( domainChanged ) {
 			logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Updating hosts file…' ) );
@@ -420,18 +410,13 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			await setWordPressVersion( site, wp );
 			logger.reportSuccess( __( 'WordPress version updated' ) );
 
-			try {
-				await lockCliConfig();
-				const cliConfig = await readCliConfig();
+			await updateConfig( ( cliConfig ) => {
 				const updatedSite = cliConfig.sites.find( ( s ) => s.id === site.id );
 				if ( updatedSite ) {
 					updatedSite.isWpAutoUpdating = wp === DEFAULT_WORDPRESS_VERSION;
-					await saveCliConfig( cliConfig );
 					site = updatedSite;
 				}
-			} finally {
-				await unlockCliConfig();
-			}
+			} );
 		}
 
 		if ( needsRestart && wasRunning ) {
@@ -469,21 +454,16 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 
 async function restoreAdminCredentials(
 	siteId: string,
-	credentials: Pick< SiteData, 'adminUsername' | 'adminPassword' | 'adminEmail' >
-): Promise< SiteData > {
-	try {
-		await lockCliConfig();
-		const cliConfig = await readCliConfig();
+	credentials: Pick< ConfigSite, 'adminUsername' | 'adminPassword' | 'adminEmail' >
+): Promise< ConfigSite > {
+	return updateConfig( ( cliConfig ) => {
 		const site = cliConfig.sites.find( ( s ) => s.id === siteId );
 		if ( ! site ) {
 			throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 		}
 		Object.assign( site, credentials );
-		await saveCliConfig( cliConfig );
 		return site;
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

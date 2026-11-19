@@ -18,7 +18,6 @@ export const BUG_REPORT_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml';
 export const FEATURE_REQUEST_URL =
 	'https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A';
-export { DEFAULT_TERMINAL } from '@studio/common/lib/user-settings/terminal';
 
 // WP-CLI
 export const WP_CLI_DEFAULT_RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5min

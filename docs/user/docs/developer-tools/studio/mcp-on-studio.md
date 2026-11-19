@@ -10,13 +10,13 @@ If you use Claude Code, Codex (in the ChatGPT app), Cursor, or Grok Build, insta
 
 The quickest way is from the app:
 
-1.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **MCP** page.
-2.  Under **AI apps**, click **Connect** next to **Claude Code**, **ChatGPT**, **Cursor**, or **Grok Build**. Apps WordPress Studio doesn’t find on your computer show **Not installed**.
+1.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Agents** page.
+2.  Click **Install** next to **Claude Code**, **ChatGPT (Codex)**, **Cursor**, or **Grok Build**. Apps WordPress Studio doesn’t find on your computer show **Not installed**, and apps that have the plugin are marked **Installed**.
 3.  Start a new session or chat in that app. For ChatGPT, restart the app.
 
 When a newer version of the plugin comes with a WordPress Studio update, the button shows **Update**.
 
-![The MCP page of WordPress Studio's Settings, with the MCP server description and, under AI apps, Claude Code with a Connect button and ChatGPT, Cursor, and Grok Build marked Not installed.](../../../screenshots/images/settings-mcp.webp)
+![The Agents page of WordPress Studio's Settings, with Use WordPress Studio with your agents at the top, Claude Code with an Install button, and ChatGPT (Codex), Cursor, and Grok Build marked Not installed.](../../../screenshots/images/settings-mcp.webp)
 
 You can also install the plugin from the terminal:
 
@@ -44,7 +44,7 @@ If you use Codex in the ChatGPT app, restart the app afterwards.
 
 ## [Connect with manual MCP configuration](#connect-with-manual-mcp-configuration)
 
-As an alternative to the plugin, connect your agent with an MCP configuration. To connect an agent, open **Settings** in WordPress Studio (from the account menu at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **MCP** page. Under **Manual setup**, WordPress Studio shows the command to install the WordPress Studio CLI and the JSON configuration to add; use **Copy MCP configuration** to copy it. Add it to your agent’s MCP settings:
+As an alternative to the plugin, connect your agent with an MCP configuration. To connect an agent, open **Settings** in WordPress Studio (from the account menu at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **Agents** page. Under **Manual MCP setup**, WordPress Studio shows the command to install the WordPress Studio CLI and the JSON configuration to add; use **Copy install command** and **Copy MCP configuration** to copy them. Add it to your agent’s MCP settings:
 
 ```json
 {
@@ -81,5 +81,5 @@ Once connected, the agent can use WordPress Studio tools such as creating sites,
 -   **Local and WordPress.com sites.** The agent can work on your local WordPress Studio sites and on your WordPress.com sites, and can copy content between them.
 -   **A picker for your site’s look and layout.** When you start a site, the agent can show rendered design options to choose from. In agents that render MCP Apps, such as Codex, you click an option. In other agents, the agent shows the previews in the chat and you reply with your choice. See [Designing a site](https://wordpress.studio/docs/studio-code/#designing-a-site).
 -   **A WordPress tab.** In agent apps that render MCP Apps and support sidebar entries, a **WordPress** tab lists your local WordPress Studio sites and your WordPress.com sites.
--   **Site images.** When you’re logged in to WordPress.com, the agent can generate site images through WordPress Studio. Codex uses its own image tool instead. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
+-   **Site images.** When you’re logged in to WordPress.com, or have connected OpenAI with an API key, Google Gemini, or Meta in WordPress Studio, the agent can generate site images through WordPress Studio. Codex uses its own image tool instead. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
 -   **Fewer approval prompts.** WordPress Studio tells the agent which tools only read, or only change, this machine, so agents like Codex don’t ask for approval before each of those calls.

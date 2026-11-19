@@ -45,6 +45,10 @@ export const siteDetailsSchema = z.object( {
 	// The folder the email the site sends is saved in.
 	emailPath: z.string().optional(),
 	phpMyAdminSupported: z.boolean().optional(),
+	// Studio's own settings for the site.
+	sortOrder: z.number().optional(),
+	autoStart: z.boolean().optional(),
+	hideFrontendAdminBar: z.boolean().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

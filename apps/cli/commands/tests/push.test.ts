@@ -161,7 +161,8 @@ describe( 'CLI: studio push', () => {
 				'wpcom',
 				site.id,
 				expect.objectContaining( { launchAfterPush: failed } ),
-				'push'
+				'push',
+				true
 			);
 			expect( reported().at( -1 ) ).toMatchObject( { kind: failed ? 'error' : 'success' } );
 			expect( recordTracksEvent ).toHaveBeenCalledWith(
@@ -402,7 +403,7 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 			runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
 		).rejects.toMatchObject( {
 			code: 'live_changed',
-			message: expect.stringContaining( '2 posts or pages and 5 comments changed on Live' ),
+			message: expect.stringContaining( 'Live has 2 content changes and 5 new comments' ),
 		} );
 
 		expect( wpcomSites.liveChanges ).toHaveBeenCalledWith(
@@ -440,7 +441,7 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 		).resolves.toBe( undefined );
 
 		expect( confirmOverwriteLiveChanges ).toHaveBeenCalledExactlyOnceWith(
-			expect.stringContaining( '2 posts or pages and 5 comments changed on Live' )
+			expect.stringContaining( 'Live has 2 content changes and 5 new comments' )
 		);
 		expect( wpcomSites.push ).not.toHaveBeenCalled();
 		expect( reported().at( -1 ) ).toMatchObject( { kind: 'cancelled' } );
@@ -479,7 +480,7 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 			runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
 		).rejects.toMatchObject( {
 			code: 'live_changed',
-			message: expect.stringContaining( '1 template, menu, pattern or style changed on Live' ),
+			message: expect.stringContaining( 'Live has 1 design change' ),
 		} );
 		expect( wpcomSites.push ).not.toHaveBeenCalled();
 	} );
@@ -510,6 +511,10 @@ describe( 'CLI: studio push when the live site changed since the last sync', () 
 		).resolves.toBe( remoteSite );
 
 		expect( messages ).toContainEqual( expect.stringContaining( 'Could not check Live' ) );
+		expect( reported().at( -1 ) ).toMatchObject( {
+			kind: 'success',
+			warning: expect.stringContaining( 'Could not check Live' ),
+		} );
 	} );
 } );
 
@@ -568,7 +573,8 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 			'spacefast',
 			site.id,
 			expect.objectContaining( { id: 'spc_2' } ),
-			'push'
+			'push',
+			false
 		);
 		expect( reported().at( -1 ) ).toEqual( {
 			kind: 'success',

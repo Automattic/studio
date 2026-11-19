@@ -14,12 +14,7 @@ import {
 	classifySyncSelection,
 } from '@studio/common/lib/sync/build-sync-event-props';
 import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
-import {
-	getLastSyncTime,
-	getLiveChangesMessage,
-	hasLiveChanges,
-	LIVE_CHANGED_CODE,
-} from '@studio/common/lib/sync/live-changes';
+import { checkLiveChanges, LIVE_CHANGED_CODE } from '@studio/common/lib/sync/live-changes';
 import { withRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
@@ -28,7 +23,6 @@ import {
 	getProviderSites,
 	parseRemoteSite,
 	type ProviderConfigs,
-	type LiveChanges,
 	type ProviderSites,
 	type PushContent,
 	type PushStatus,
@@ -131,7 +125,9 @@ export async function runCommand(
 			remoteSiteId: pushed.remoteSite?.id,
 			...( pushed.launchError
 				? { kind: 'error', message: pushed.launchError }
-				: { kind: pushed.completed ? 'success' : 'cancelled' } ),
+				: pushed.completed
+				? { kind: 'success', ...( pushed.warning ? { warning: pushed.warning } : {} ) }
+				: { kind: 'cancelled' } ),
 		} );
 	}
 	// Backing out of the site picker or the item selector returns without
@@ -163,6 +159,8 @@ type PushOutcome = {
 	remoteSite?: RemoteSite;
 	completed?: boolean;
 	launchError?: string;
+	// Something the user should know about a push that went ahead.
+	warning?: string;
 	// The step a failure is attributed to when its error names no cause of its own.
 	failurePhase?: SyncFailurePhase;
 };
@@ -266,7 +264,9 @@ async function runPush(
 
 	pushed.selection ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
 
-	const pushesDatabase = optionsToSync.includes( 'all' ) || optionsToSync.includes( 'sqls' );
+	const pushesDatabase =
+		sites.content !== 'static' &&
+		( optionsToSync.includes( 'all' ) || optionsToSync.includes( 'sqls' ) );
 	if (
 		pushesDatabase &&
 		! overwriteLiveChanges &&
@@ -276,7 +276,8 @@ async function runPush(
 			site.id,
 			remoteSite,
 			logger,
-			confirmOverwriteLiveChanges
+			confirmOverwriteLiveChanges,
+			pushed
 		) )
 	) {
 		return;
@@ -377,7 +378,7 @@ async function runPush(
 		// Remember this connection so future push/pull runs (and the Desktop UI)
 		// can surface it without re-selecting from the full site list.
 		try {
-			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push' );
+			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push', pushesDatabase );
 		} catch ( error ) {
 			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 		}
@@ -411,7 +412,8 @@ async function confirmLiveChanges(
 	localSiteId: string,
 	remoteSite: RemoteSite,
 	logger: Logger< LoggerAction >,
-	confirmOverwrite: PushFlags[ 'confirmOverwriteLiveChanges' ]
+	confirmOverwrite: PushFlags[ 'confirmOverwriteLiveChanges' ],
+	pushed: PushOutcome
 ): Promise< boolean > {
 	const service = getProviderServices( provider ).sites!;
 	if ( ! service.liveChanges ) {
@@ -420,40 +422,33 @@ async function confirmLiveChanges(
 	const connection = ( await getRemoteSites( provider, localSiteId ) ).find(
 		( candidate ) => String( candidate.id ) === String( remoteSite.id )
 	);
-	const since = getLastSyncTime( connection );
-	if ( ! since ) {
-		return true;
-	}
-
 	logger.reportStart(
 		LoggerAction.CHECK_LIVE_CHANGES,
 		__( 'Checking the live site for changes…' )
 	);
-	let changes: LiveChanges;
-	try {
-		changes = await service.liveChanges( config as never, remoteSite as never, since );
-	} catch ( error ) {
-		logger.reportWarning(
-			sprintf(
-				/* translators: 1: site name, 2: error message */
-				__( 'Could not check %1$s for changes made since your last sync (%2$s).' ),
-				remoteSite.name,
-				error instanceof Error ? error.message : String( error )
-			)
-		);
+	const check = await checkLiveChanges( {
+		connection,
+		siteName: remoteSite.name,
+		fetchChanges: ( since ) => service.liveChanges!( config as never, remoteSite as never, since ),
+	} );
+	if ( check.kind === 'skipped' ) {
+		logger.spinner.stop();
 		return true;
 	}
-	if ( ! hasLiveChanges( changes ) ) {
+	if ( check.kind === 'failed' ) {
+		logger.reportWarning( check.warning );
+		pushed.warning = check.warning;
+		return true;
+	}
+	if ( check.kind === 'unchanged' ) {
 		logger.reportSuccess( __( 'No changes on the live site since your last sync' ) );
 		return true;
 	}
 	logger.spinner.stop();
-
-	const message = getLiveChangesMessage( remoteSite.name, changes );
 	if ( confirmOverwrite ) {
-		return confirmOverwrite( message );
+		return confirmOverwrite( check.message );
 	}
-	throw new LoggerError( message, undefined, LIVE_CHANGED_CODE );
+	throw new LoggerError( check.message, undefined, LIVE_CHANGED_CODE );
 }
 
 // The provider's config. In a terminal, offers to sign in to WordPress.com, or to connect a
@@ -715,7 +710,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			defaultLogger.reportError(
 				new LoggerError(
 					`${ error.message } ${ __(
-						'Pull first, or push again with --overwrite-live-changes to replace them.'
+						'Push again with --overwrite-live-changes to replace them. Pulling instead keeps them, but replaces your local changes.'
 					) }`,
 					undefined,
 					error.code

@@ -1,17 +1,33 @@
-import { describe, expect, it } from 'vitest';
-import { getLastSyncTime, getLiveChangesMessage, hasLiveChanges } from './live-changes';
+import { describe, expect, it, vi } from 'vitest';
+import { checkLiveChanges, getLastSyncTime } from './live-changes';
+
+const PULL = '2026-11-01T10:00:00.000Z';
+const PUSH = '2026-11-03T10:00:00.000Z';
 
 describe( 'getLastSyncTime', () => {
-	it( 'takes the later of the last pull and the last push', () => {
+	it( 'uses the last sync that included the database', () => {
 		expect(
 			getLastSyncTime( {
-				lastPullTimestamp: '2026-11-03T10:00:00.000Z',
-				lastPushTimestamp: '2026-11-01T10:00:00.000Z',
+				lastPullTimestamp: PULL,
+				lastPushTimestamp: PUSH,
+				lastDatabaseSyncTimestamp: PULL,
 			} )
-		).toBe( '2026-11-03T10:00:00.000Z' );
+		).toBe( PULL );
+	} );
+
+	it( 'has nothing when no sync included the database', () => {
 		expect(
-			getLastSyncTime( { lastPullTimestamp: null, lastPushTimestamp: '2026-11-01T10:00:00.000Z' } )
-		).toBe( '2026-11-01T10:00:00.000Z' );
+			getLastSyncTime( {
+				lastPullTimestamp: PULL,
+				lastPushTimestamp: PUSH,
+				lastDatabaseSyncTimestamp: null,
+			} )
+		).toBe( undefined );
+	} );
+
+	it( 'falls back to the later sync of any kind for a connection saved before database syncs were recorded', () => {
+		expect( getLastSyncTime( { lastPullTimestamp: PUSH, lastPushTimestamp: PULL } ) ).toBe( PUSH );
+		expect( getLastSyncTime( { lastPullTimestamp: null, lastPushTimestamp: PULL } ) ).toBe( PULL );
 	} );
 
 	it( 'has nothing for a connection never synced', () => {
@@ -22,28 +38,65 @@ describe( 'getLastSyncTime', () => {
 	} );
 } );
 
-describe( 'getLiveChangesMessage', () => {
+describe( 'checkLiveChanges', () => {
+	const connection = { lastPullTimestamp: PULL, lastPushTimestamp: null };
+
+	it( 'asks for changes since the last database sync', async () => {
+		const fetchChanges = vi.fn( async () => ( { posts: 0, comments: 0, siteDesign: 0 } ) );
+
+		await expect(
+			checkLiveChanges( { connection, siteName: 'Live', fetchChanges } )
+		).resolves.toEqual( { kind: 'unchanged' } );
+		expect( fetchChanges ).toHaveBeenCalledWith( PULL );
+	} );
+
+	it( 'skips a connection with no database sync to compare with', async () => {
+		const fetchChanges = vi.fn();
+
+		await expect(
+			checkLiveChanges( {
+				connection: { ...connection, lastDatabaseSyncTimestamp: null },
+				siteName: 'Live',
+				fetchChanges,
+			} )
+		).resolves.toEqual( { kind: 'skipped' } );
+		expect( fetchChanges ).not.toHaveBeenCalled();
+	} );
+
 	it.each( [
-		[ { posts: 1, comments: 0, siteDesign: 0 }, '1 post or page changed on Live' ],
-		[ { posts: 0, comments: 3, siteDesign: 0 }, '3 comments changed on Live' ],
 		[
-			{ posts: 0, comments: 0, siteDesign: 1 },
-			'1 template, menu, pattern or style changed on Live',
+			{ posts: 1, comments: 0, siteDesign: 0 },
+			'Since your last sync, Live has 1 content change.',
 		],
-		[ { posts: 2, comments: 1, siteDesign: 0 }, '2 posts or pages and 1 comment changed on Live' ],
+		[ { posts: 0, comments: 3, siteDesign: 0 }, 'Live has 3 new comments.' ],
+		[ { posts: 0, comments: 0, siteDesign: 1 }, 'Live has 1 design change.' ],
+		[ { posts: 2, comments: 1, siteDesign: 0 }, 'Live has 2 content changes and 1 new comment.' ],
 		[
 			{ posts: 2, comments: 1, siteDesign: 3 },
-			'2 posts or pages, 3 templates, menus, patterns or styles and 1 comment changed on Live',
+			'Live has 2 content changes, 3 design changes and 1 new comment.',
 		],
-	] )( 'names what changed in %o', ( changes, expected ) => {
-		expect( getLiveChangesMessage( 'Live', changes ) ).toContain( expected );
-	} );
-} );
+	] )( 'names what changed in %o', async ( changes, expected ) => {
+		const check = await checkLiveChanges( {
+			connection,
+			siteName: 'Live',
+			fetchChanges: async () => changes,
+		} );
 
-describe( 'hasLiveChanges', () => {
-	it( 'is true when anything changed', () => {
-		expect( hasLiveChanges( { posts: 0, comments: 0, siteDesign: 0 } ) ).toBe( false );
-		expect( hasLiveChanges( { posts: 0, comments: 1, siteDesign: 0 } ) ).toBe( true );
-		expect( hasLiveChanges( { posts: 0, comments: 0, siteDesign: 1 } ) ).toBe( true );
+		expect( check ).toEqual( { kind: 'changed', message: expect.stringContaining( expected ) } );
+	} );
+
+	it( 'reports a failed check as a warning, so the push can go ahead', async () => {
+		const check = await checkLiveChanges( {
+			connection,
+			siteName: 'Live',
+			fetchChanges: async () => {
+				throw new Error( 'Forbidden' );
+			},
+		} );
+
+		expect( check ).toEqual( {
+			kind: 'failed',
+			warning: expect.stringMatching( /Could not check Live.*\(Forbidden\)/ ),
+		} );
 	} );
 } );

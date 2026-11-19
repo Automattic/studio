@@ -5,9 +5,8 @@ import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import {
+	checkLiveChanges,
 	getLastSyncTime,
-	getLiveChangesMessage,
-	hasLiveChanges,
 	LiveChangesError,
 } from '@studio/common/lib/sync/live-changes';
 import { getProviderServices } from '@studio/providers/services';
@@ -326,7 +325,12 @@ export class WpcomServices {
 		);
 	}
 
-	private async recordSync( localSiteId: string, remoteSiteId: number, field: 'push' | 'pull' ) {
+	private async recordSync(
+		localSiteId: string,
+		remoteSiteId: number,
+		field: 'push' | 'pull',
+		database: boolean
+	) {
 		const timestamp = new Date().toISOString();
 		await this.updateConnections( ( connections ) =>
 			connections.map( ( site ) =>
@@ -336,6 +340,9 @@ export class WpcomServices {
 							...( field === 'push'
 								? { lastPushTimestamp: timestamp }
 								: { lastPullTimestamp: timestamp } ),
+							lastDatabaseSyncTimestamp: database
+								? timestamp
+								: site.lastDatabaseSyncTimestamp ?? getLastSyncTime( site ) ?? null,
 					  }
 					: site
 			)
@@ -346,23 +353,26 @@ export class WpcomServices {
 		this.cancellations.get( `${ siteId }:${ remoteSiteId }` )?.abort();
 	}
 
+	// `database`: whether the sync includes the database. `run` resolves with a launch error, which
+	// fails the sync after its changes landed, or a warning for one that went ahead.
 	private async runSync(
 		siteId: string,
 		remoteSiteId: number,
 		direction: 'push' | 'pull',
-		run: ( signal: AbortSignal ) => Promise< void | string >
+		database: boolean,
+		run: ( signal: AbortSignal ) => Promise< void | { launchError?: string; warning?: string } >
 	) {
 		const controller = new AbortController();
 		const { signal } = controller;
 		this.cancellations.set( `${ siteId }:${ remoteSiteId }`, controller );
 		try {
-			const launchError = await run( signal );
-			await this.recordSync( siteId, remoteSiteId, direction );
+			const { launchError, warning } = ( await run( signal ) ) ?? {};
+			await this.recordSync( siteId, remoteSiteId, direction, database );
 			this.emitSyncActivity(
 				siteId,
 				launchError
 					? { kind: 'error', direction, message: launchError }
-					: { kind: 'success', direction }
+					: { kind: 'success', direction, ...( warning ? { warning } : {} ) }
 			);
 		} catch ( error ) {
 			if ( signal.aborted ) {
@@ -385,7 +395,8 @@ export class WpcomServices {
 		const optionsToSync = options?.optionsToSync ?? [ 'all' ];
 		const all = optionsToSync.includes( 'all' );
 		const contentOptions = [ 'uploads', 'plugins', 'themes', 'contents' ] as const;
-		await this.runSync( siteId, remoteSiteId, 'push', async ( signal ) => {
+		const database = all || optionsToSync.includes( 'sqls' );
+		await this.runSync( siteId, remoteSiteId, 'push', database, async ( signal ) => {
 			const progress = (
 				phase: 'creatingBackup' | 'uploading' | 'applyingChanges' | 'launching',
 				value: number,
@@ -402,10 +413,10 @@ export class WpcomServices {
 			const remoteSite = ( await this.connections() ).find(
 				( site ) => site.localSiteId === siteId && site.id === remoteSiteId
 			);
-			const database = all || optionsToSync.includes( 'sqls' );
-			if ( database && ! options?.overwriteLiveChanges ) {
-				await this.refuseLiveChanges( remoteSite );
-			}
+			const warning =
+				database && ! options?.overwriteLiveChanges
+					? await this.refuseLiveChanges( remoteSite )
+					: undefined;
 			progress( 'creatingBackup', 5, __( 'Creating backup…' ) );
 			const archive = await buildPushArchive( await this.sites.client( siteId ), {
 				database,
@@ -450,35 +461,35 @@ export class WpcomServices {
 					)
 				);
 			}
-			return result?.launchError;
+			return { launchError: result?.launchError, warning };
 		} );
 	}
 
 	// Pushing the database replaces the live one: refuses when the live site changed since the
-	// last sync, so the user can choose to publish anyway (`overwriteLiveChanges`).
-	private async refuseLiveChanges( remoteSite: SyncSite | undefined ): Promise< void > {
-		const since = getLastSyncTime( remoteSite );
-		if ( ! remoteSite || ! since ) {
-			return;
+	// last database sync, so the user can choose to publish anyway (`overwriteLiveChanges`).
+	// Resolves with a warning when the check itself failed.
+	private async refuseLiveChanges(
+		remoteSite: SyncSite | undefined
+	): Promise< string | undefined > {
+		if ( ! remoteSite ) {
+			return undefined;
 		}
-		let changes;
-		try {
-			changes = await wpcomSites.liveChanges!(
-				{ token: await this.auth.requireToken() },
-				remoteSite,
-				since
-			);
-		} catch ( error ) {
-			console.warn( 'Could not check the live site for changes since the last sync', error );
-			return;
+		const token = await this.auth.requireToken();
+		const check = await checkLiveChanges( {
+			connection: remoteSite,
+			siteName: remoteSite.name,
+			fetchChanges: ( since ) => wpcomSites.liveChanges!( { token }, remoteSite, since ),
+		} );
+		if ( check.kind === 'changed' ) {
+			throw new LiveChangesError( check.message );
 		}
-		if ( hasLiveChanges( changes ) ) {
-			throw new LiveChangesError( getLiveChangesMessage( remoteSite.name, changes ) );
-		}
+		return check.kind === 'failed' ? check.warning : undefined;
 	}
 
 	async pull( siteId: string, remoteSiteId: number, options?: PullSyncOptions ): Promise< void > {
-		await this.runSync( siteId, remoteSiteId, 'pull', async ( signal ) => {
+		const pullOptions = options?.optionsToSync ?? [ 'all' ];
+		const database = pullOptions.includes( 'all' ) || pullOptions.includes( 'sqls' );
+		await this.runSync( siteId, remoteSiteId, 'pull', database, async ( signal ) => {
 			const progress = ( value: number, message: string ) =>
 				this.emitSyncActivity( siteId, {
 					kind: 'pending',

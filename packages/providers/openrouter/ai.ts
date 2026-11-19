@@ -4,7 +4,6 @@ import { NotConnectedError } from '../errors';
 import { OPENROUTER_API_URL, OPENROUTER_HEADERS } from './api';
 import { listOpenrouterModels, selectOpenrouterModels } from './catalog';
 import { OPENROUTER_MODEL_PREFIX } from './descriptor';
-import { generateOpenrouterImages } from './images';
 import type { OpenrouterConfig, OpenrouterPickedModel } from './config';
 import type { AiModelId } from '../models';
 import type { AiConnection, ProviderServices } from '../types';
@@ -79,5 +78,4 @@ export const openrouterAi: NonNullable< ProviderServices< OpenrouterConfig >[ 'a
 	},
 	listModels: listOpenrouterModels,
 	selectModels: selectOpenrouterModels,
-	generateImages: generateOpenrouterImages,
 };

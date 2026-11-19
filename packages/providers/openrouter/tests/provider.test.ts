@@ -1,11 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotConnectedError } from '../../errors';
 import { findAiModel, getAiModels, servesAiModel } from '../../models';
-import { ImageFilteredError, TransientImageError } from '../../wpcom/ai/images';
 import { openrouterAccount } from '../account';
 import { openrouterAi, rewriteOpenrouterError } from '../ai';
 import { openrouterProvider } from '../descriptor';
-import { openrouterImageDialect } from '../images';
 
 const json = ( status: number, body: unknown = {} ) =>
 	new Response( JSON.stringify( body ), { status } );
@@ -227,33 +225,5 @@ describe( 'the OpenRouter catalog', () => {
 		await expect(
 			openrouterAi.selectModels!( config, [ 'openrouter/acme/gone' ] )
 		).rejects.toThrow( 'at least one model' );
-	} );
-} );
-
-describe( 'the OpenRouter image request', () => {
-	const { body, read } = openrouterImageDialect;
-	const pngBase64 = 'iVBORw0KGgoAAAANSUhEUg==';
-
-	it( 'asks for an image at the slot’s ratio', () => {
-		expect( body( { prompt: 'a shop front', aspectRatio: 'portrait' }, 'model' ) ).toMatchObject( {
-			modalities: [ 'image', 'text' ],
-			image_config: { aspect_ratio: '9:16' },
-		} );
-	} );
-
-	it( 'reads the image from the data URL', () => {
-		const raw = JSON.stringify( {
-			choices: [
-				{ message: { images: [ { image_url: { url: `data:image/png;base64,${ pngBase64 }` } } ] } },
-			],
-		} );
-		expect( read( raw, 200 )[ 0 ] ).toBe( 0x89 );
-		expect( () => read( '{}', 429 ) ).toThrow( TransientImageError );
-		expect( () =>
-			read( JSON.stringify( { choices: [ { native_finish_reason: 'IMAGE_SAFETY' } ] } ), 200 )
-		).toThrow( ImageFilteredError );
-		expect( () => read( JSON.stringify( { error: { message: 'no credits' } } ), 402 ) ).toThrow(
-			'no credits'
-		);
 	} );
 } );

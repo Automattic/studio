@@ -357,6 +357,8 @@ export function createInMemoryConnector(
 				? aiSettings( 'wpcom', [ 'wpcom', provider ] )
 				: aiSettings( normalizeProviderId( provider, AI_PROVIDER_IDS ) ?? 'wpcom', [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		listProviderModels: async () => [],
+		selectProviderModels: async ( provider ) => aiSettings( 'wpcom', [ 'wpcom', provider ] ),
 		startProviderConnect: async () => ( {
 			url: 'https://auth.example.test/sign-in',
 			handoff: { state: 'state-1' },

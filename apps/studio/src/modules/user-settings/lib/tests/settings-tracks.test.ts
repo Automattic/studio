@@ -126,6 +126,7 @@ describe( 'AI provider settings', () => {
 			'github-copilot': { connected: false },
 			meta: { connected: false },
 			xai: { connected: false },
+			openrouter: { connected: false },
 			spacefast: { connected: false },
 		},
 		imageProviders: [],

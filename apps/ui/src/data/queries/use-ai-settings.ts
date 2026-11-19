@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
-import type { AiProviderId, PendingConnect, ProviderId } from '@studio/providers';
+import type { AiProviderId, CatalogModel, PendingConnect, ProviderId } from '@studio/providers';
 
 // The WordPress.com account is the sign-in, so auth changes refresh it too.
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
@@ -39,6 +39,31 @@ export function useSetAiProvider() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( provider: AiProviderId ) => connector.setAiProvider( provider ),
+		onSuccess: ( settings ) => {
+			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
+		},
+	} );
+}
+
+// The catalog a connected provider's models are picked from (`Provider.ai.catalog`).
+export function useProviderCatalog( provider: ProviderId, { enabled = true } = {} ) {
+	const connector = useConnector();
+	return useQuery( {
+		queryKey: [ ...AI_SETTINGS_QUERY_KEY, provider, 'catalog' ],
+		queryFn: () => connector.listProviderModels( provider ),
+		enabled,
+		staleTime: 10 * 60 * 1000,
+		meta: { persist: false },
+	} );
+}
+
+export function useSelectProviderModels( provider: ProviderId ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( models: CatalogModel[] ) => connector.selectProviderModels( provider, models ),
+		// One save at a time, so the last pick is the one that stays.
+		scope: { id: `select-models-${ provider }` },
 		onSuccess: ( settings ) => {
 			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
 		},

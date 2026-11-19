@@ -11,7 +11,13 @@ export {
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
 } from './registry';
-export { findAiModel, getAiModels, getDefaultAiModel, type AiModelId } from './models';
+export {
+	findAiModel,
+	getAiModels,
+	getDefaultAiModel,
+	servesAiModel,
+	type AiModelId,
+} from './models';
 export { getConnectFields, getConnectMethod, type ConnectField } from './connection';
 export { ConnectError, NotConnectedError, RemoteSiteError } from './errors';
 export type * from './types';

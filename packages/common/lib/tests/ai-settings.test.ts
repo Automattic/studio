@@ -8,6 +8,7 @@ import {
 	connectProvider,
 	disconnectProvider,
 	readAiSettings,
+	selectProviderModels,
 	setAiProvider,
 	setImageProvider,
 } from '@studio/common/lib/ai-settings';
@@ -61,6 +62,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
 			imageProviders: [],
@@ -83,6 +85,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
 			imageProviders: [],
@@ -220,6 +223,7 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
 			imageProviders: [],
@@ -318,6 +322,26 @@ describe( 'ai settings', () => {
 		const context = await readSignInContext( 'openai' );
 		expect( context.remembered ).toEqual( { clientId: 'oaiapp_1' } );
 		expect( ( await readSignInContext( 'openai' ) ).hostId ).toBe( context.hostId );
+	} );
+
+	it( 'offers the models picked from a provider’s catalog', async () => {
+		const openrouter = getProviderServices( 'openrouter' );
+		const model = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+		};
+		await expect( selectProviderModels( openrouter, [ model ] ) ).rejects.toBeInstanceOf(
+			ConnectError
+		);
+
+		writeShared( { providerConfigs: { openrouter: { method: 'api-key', apiKey: 'sk-or-v1' } } } );
+		const settings = await selectProviderModels( openrouter, [ model ] );
+
+		expect( settings.accounts.openrouter ).toMatchObject( {
+			connected: true,
+			models: [ { id: 'openrouter/acme/model', label: 'Acme: Model' } ],
+		} );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

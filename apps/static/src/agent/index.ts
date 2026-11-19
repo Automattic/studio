@@ -20,6 +20,7 @@ import {
 	type AccountDetails,
 	type AiModelId,
 	type AiProviderId,
+	type CatalogModel,
 	type GenerateImageRequest,
 	type GenerateImageResult,
 	type ProviderId,
@@ -330,6 +331,24 @@ export class StaticAgentRuns {
 			: settings;
 	}
 
+	async listProviderModels( id: ProviderId ): Promise< CatalogModel[] > {
+		const listModels = ( getProviderServices( id ) as ProviderServices ).ai?.listModels;
+		if ( ! listModels ) {
+			throw new Error( `${ getProvider( id ).label } has no models to pick from.` );
+		}
+		return listModels( await this.readConfig( id ) );
+	}
+
+	async selectProviderModels( id: ProviderId, models: CatalogModel[] ): Promise< AiSettings > {
+		const config = await this.readConfig( id );
+		const selectModels = ( getProviderServices( id ) as ProviderServices ).ai?.selectModels;
+		if ( ! config || ! selectModels ) {
+			throw new Error( `Connect ${ getProvider( id ).label } first.` );
+		}
+		await this.writeConfig( id, selectModels( config, models ) );
+		return this.getAiSettings();
+	}
+
 	async disconnectProvider( id: ProviderId ): Promise< AiSettings > {
 		if ( id === 'wpcom' ) {
 			await this.deps.auth.signOut();
@@ -463,6 +482,7 @@ export class StaticAgentRuns {
 				provider === 'wpcom' && token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
 			const model = resolveSessionModelForProvider( session.entries, provider, {
 				canUsePaidModels: canUsePaidAiModels( quota, token?.email ),
+				account: ( await this.getAiSettings() ).accounts[ provider ],
 			} );
 			const activeSite = await this.activeSite( sessionId );
 

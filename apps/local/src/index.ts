@@ -52,6 +52,8 @@ import {
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
+	selectProviderModels,
 	readAiSettings,
 	setAiProvider,
 	setImageProvider,
@@ -188,10 +190,11 @@ import {
 	AI_PROVIDER_IDS,
 	ConnectError,
 	findAiModel,
-	getProvider,
+	servesAiModel,
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
+	type CatalogModel,
 	type SitesProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -833,6 +836,39 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json( await startProviderConnect( getProviderServices( provider ), method ) );
+		} )
+	);
+
+	api.get(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			if ( provider ) {
+				res.json( await listProviderModels( getProviderServices( provider ) ) );
+			}
+		} )
+	);
+
+	api.put(
+		'/ai-settings/providers/:provider/models',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			const models = req.body?.models;
+			if ( ! provider ) {
+				return;
+			}
+			if (
+				! Array.isArray( models ) ||
+				! models.every(
+					( model ) => typeof model?.id === 'string' && typeof model.label === 'string'
+				)
+			) {
+				res.status( 400 ).json( { error: 'models must be an array of catalog models' } );
+				return;
+			}
+			res.json(
+				await selectProviderModels( getProviderServices( provider ), models as CatalogModel[] )
+			);
 		} )
 	);
 
@@ -2243,7 +2279,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;
 			}
-			if ( ! model || ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
+			if ( ! model || ! servesAiModel( provider, model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}

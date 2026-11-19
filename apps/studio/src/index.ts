@@ -20,6 +20,7 @@ import { ConfigTooNewError, getConfigPath, readConfig } from '@studio/common/lib
 import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
 import { prepareErrorEvent, setErrorReporter } from '@studio/common/lib/error-reporting';
 import { getOrCreateSentryUserId, readSentryUserId } from '@studio/common/lib/install';
+import { isRemoteModeEnabled } from '@studio/common/lib/remote-mode-flag';
 import { getSentryReleaseInfo } from '@studio/common/lib/sentry-release';
 import { runStartupTasks } from '@studio/common/lib/startup-tasks';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
@@ -556,8 +557,11 @@ async function appBoot() {
 
 		await createMainWindow();
 
-		// Remote mode for the phone comes back if Settings > Phone was on.
-		void phoneAccess.startIfEnabled().catch( Sentry.captureException );
+		// Remote mode for the phone comes back if Settings > Phone was on, and the app runs with
+		// remote mode turned on.
+		if ( isRemoteModeEnabled() ) {
+			void phoneAccess.startIfEnabled().catch( Sentry.captureException );
+		}
 
 		void setupSentryUserId().catch( Sentry.captureException );
 

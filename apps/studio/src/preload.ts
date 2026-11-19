@@ -3,6 +3,7 @@
 
 import '@sentry/electron/preload';
 import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
+import { isRemoteModeEnabled } from '@studio/common/lib/remote-mode-flag';
 import { IpcEvents } from 'src/ipc-utils';
 
 function ipcRendererInvoke< T extends keyof IpcHandlers >(
@@ -21,6 +22,7 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 }
 
 const api: IpcApi = {
+	remoteModeEnabled: isRemoteModeEnabled(),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),

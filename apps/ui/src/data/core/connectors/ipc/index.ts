@@ -134,14 +134,14 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setupAppMenu();
 		},
 
-		// Native desktop app: every affordance is available.
+		// Native desktop app: every affordance is available, Settings > Phone only with remote mode on.
 		capabilities: {
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
 			nativeSites: true,
 			loopbackSignIn: true,
-			phoneAccess: true,
+			phoneAccess: ipcApi.remoteModeEnabled === true,
 		},
 
 		agenticRequiresAuth: true,

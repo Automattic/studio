@@ -68,6 +68,22 @@ describe( 'createIpcConnector exports', () => {
 	} );
 } );
 
+describe( 'createIpcConnector capabilities', () => {
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'offers Settings > Phone only when the app runs with remote mode turned on', () => {
+		vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+
+		vi.stubGlobal( 'ipcApi', { remoteModeEnabled: false } );
+		expect( createIpcConnector().capabilities.phoneAccess ).toBe( false );
+
+		vi.stubGlobal( 'ipcApi', { remoteModeEnabled: true } );
+		expect( createIpcConnector().capabilities.phoneAccess ).toBe( true );
+	} );
+} );
+
 describe( 'createIpcConnector openSiteInEditor', () => {
 	const getSiteDetails = vi
 		.fn()

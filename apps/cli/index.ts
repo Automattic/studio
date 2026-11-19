@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { ConfigTooNewError, readConfig } from '@studio/common/lib/config/store';
+import { isRemoteModeEnabled } from '@studio/common/lib/remote-mode-flag';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
@@ -266,27 +267,29 @@ async function main() {
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
-	studioArgv.command(
-		'remote',
-		__( 'Let a paired phone reach Studio Code over your network' ),
-		async ( remoteYargs ) => {
-			const [
-				{ registerCommand: registerRemoteStartCommand },
-				{ registerCommand: registerRemotePairCommand },
-				{ registerCommand: registerRemoteDevicesCommand },
-			] = await Promise.all( [
-				import( 'cli/commands/remote/start' ),
-				import( 'cli/commands/remote/pair' ),
-				import( 'cli/commands/remote/devices' ),
-			] );
+	if ( isRemoteModeEnabled() ) {
+		studioArgv.command(
+			'remote',
+			__( 'Let a paired phone reach Studio Code over your network' ),
+			async ( remoteYargs ) => {
+				const [
+					{ registerCommand: registerRemoteStartCommand },
+					{ registerCommand: registerRemotePairCommand },
+					{ registerCommand: registerRemoteDevicesCommand },
+				] = await Promise.all( [
+					import( 'cli/commands/remote/start' ),
+					import( 'cli/commands/remote/pair' ),
+					import( 'cli/commands/remote/devices' ),
+				] );
 
-			remoteYargs.option( 'path', { hidden: true } );
-			registerRemoteStartCommand( remoteYargs );
-			registerRemotePairCommand( remoteYargs );
-			registerRemoteDevicesCommand( remoteYargs );
-			remoteYargs.version( false );
-		}
-	);
+				remoteYargs.option( 'path', { hidden: true } );
+				registerRemoteStartCommand( remoteYargs );
+				registerRemotePairCommand( remoteYargs );
+				registerRemoteDevicesCommand( remoteYargs );
+				remoteYargs.version( false );
+			}
+		);
+	}
 
 	// Per-site configuration lives under `config` (e.g. `studio config get php`,
 	// `studio config set --php 8.3`).

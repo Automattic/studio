@@ -2,6 +2,8 @@
 
 `studio remote` lets a phone that has been paired with this computer drive Studio Code over the network. The desktop app runs it from Settings > Phone. It is a proof of concept.
 
+It is off unless `STUDIO_ENABLE_REMOTE_MODE` is set in the environment of the CLI or of the Studio app (`packages/common/lib/remote-mode-flag.ts`). Without it, the CLI has no `remote` command, the desktop app shows no Settings > Phone (the preload script passes the flag to the UI as `ipcApi.remoteModeEnabled`), and it does not start remote mode at launch, even if Settings > Phone was on before.
+
 ## What it is
 
 Remote mode is the `studio ui` server (`apps/local`) started with a `remote` option. `studio ui` still listens on loopback only and has no authentication. One thing changes for it: the server now refuses a host that is not a loopback address unless remote mode is on.

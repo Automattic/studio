@@ -597,6 +597,53 @@ describe( 'Snapshots Module', () => {
 				[ 'elsewhere.wpcomstaging.com', 8000, elsewhereUrl, 60 ],
 			] );
 		} );
+
+		it( 'puts a preview back with the local site WordPress.com says it was made from, when that site is here', async () => {
+			mocks.readFile.mockResolvedValue(
+				JSON.stringify( {
+					version: 1,
+					sites: [
+						{ id: 'here', path: '/sites/here', name: 'Here', phpVersion: '8.0', port: 8881 },
+					],
+					snapshots: [
+						{ ...snapshot( 'saved-unlinked.wpcomstaging.com', 1, 1000 ), localSiteId: '' },
+						{ ...snapshot( 'saved-linked.wpcomstaging.com', 2, 1000 ), localSiteId: 'other' },
+					],
+				} )
+			);
+			const preview = ( id: number, extra: object = {} ) => ( {
+				id,
+				name: `p${ id }.wpcomstaging.com`,
+				url: `https://p${ id }.wpcomstaging.com`,
+				...extra,
+			} );
+
+			await reconcilePreviews(
+				USER_ID,
+				[
+					preview( 1, { originId: 'here' } ),
+					// A saved preview keeps the site it is saved with.
+					preview( 2, { originId: 'here' } ),
+					// Not saved here, such as one whose first build failed.
+					preview( 3, { originId: 'here', title: 'Here Preview 2' } ),
+					// Made from a site on another computer.
+					preview( 4, { originId: 'gone', title: 'Elsewhere Preview 1' } ),
+					preview( 5 ),
+				],
+				5000
+			);
+
+			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
+			expect(
+				savedData.snapshots.map( ( s: Snapshot ) => [ s.atomicSiteId, s.localSiteId, s.name ] )
+			).toEqual( [
+				[ 1, 'here', undefined ],
+				[ 2, 'other', undefined ],
+				[ 3, 'here', 'Here Preview 2' ],
+				[ 4, '', 'Elsewhere Preview 1' ],
+				[ 5, '', undefined ],
+			] );
+		} );
 	} );
 
 	describe( 'linkPulledPreview', () => {

@@ -218,6 +218,15 @@ export async function reconcilePreviews(
 	);
 	return updateConfig( ( config ) => {
 		const forgotten: Snapshot[] = [];
+		// The local site WordPress.com says a preview was made from, when it is a site here. WordPress.com
+		// keeps it, so a preview whose record went missing, such as one whose first build failed, is
+		// put back with its site rather than listed as made elsewhere.
+		const localSiteIds = new Set( config.sites.map( ( site ) => site.id ) );
+		const originOf = ( atomicSiteId: number ) => {
+			const originId = previews.find( ( preview ) => Number( preview.id ) === atomicSiteId )
+				?.originId;
+			return originId && localSiteIds.has( originId ) ? originId : '';
+		};
 		config.snapshots = config.snapshots.filter( ( snapshot ) => {
 			if (
 				snapshot.userId !== userId ||
@@ -235,6 +244,9 @@ export async function reconcilePreviews(
 			}
 			snapshot.expiresAt = preview.expiresAt;
 			snapshot.liveSiteId = preview.liveSiteId;
+			if ( ! snapshot.localSiteId ) {
+				snapshot.localSiteId = originOf( snapshot.atomicSiteId );
+			}
 			if ( preview.shareUrl ) {
 				snapshot.shareUrl = preview.shareUrl;
 			}
@@ -245,8 +257,16 @@ export async function reconcilePreviews(
 			if ( listed.has( atomicSiteId ) ) {
 				continue;
 			}
-			// Made elsewhere, so no local site: it can be opened, shared and deleted from here.
-			config.snapshots.push( { ...preview, localSiteId: '', date: checkedAt, userId } );
+			// Made elsewhere, or its record here went missing. With no local site here it can still be
+			// opened, shared and deleted.
+			const { title } = previews.find( ( listed ) => Number( listed.id ) === atomicSiteId ) ?? {};
+			config.snapshots.push( {
+				...preview,
+				...( title && { name: title } ),
+				localSiteId: originOf( atomicSiteId ),
+				date: checkedAt,
+				userId,
+			} );
 		}
 		return forgotten;
 	} );

@@ -79,6 +79,10 @@ const siteConnectionSchema = z.looseObject( {
 	site: z.record( z.string(), z.unknown() ),
 	lastPushTimestamp: z.string().nullable().default( null ),
 	lastPullTimestamp: z.string().nullable().default( null ),
+	// The last pull or push that included the database, which the live-changes check compares
+	// with. Null when every sync since this was recorded left the database out; absent on
+	// connections saved before it was recorded.
+	lastDatabaseSyncTimestamp: z.string().nullable().optional(),
 } );
 
 export type SiteConnection = z.infer< typeof siteConnectionSchema >;

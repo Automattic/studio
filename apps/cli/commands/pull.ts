@@ -159,9 +159,13 @@ async function lastPulledFrom( localSiteId: string ): Promise< string | undefine
  * Remembers the remote site, so later pushes and pulls, and the Studio app, offer it without
  * picking it again. Best-effort: the pull has already succeeded.
  */
-async function rememberConnection( localSiteId: string, remoteSite: SyncSite ): Promise< void > {
+async function rememberConnection(
+	localSiteId: string,
+	remoteSite: SyncSite,
+	database: boolean
+): Promise< void > {
 	try {
-		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, 'pull' );
+		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, 'pull', database );
 	} catch ( error ) {
 		logger.reportError( new LoggerError( __( 'Failed to save connected site' ), error ), false );
 	}
@@ -440,7 +444,7 @@ async function pullSite(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
-			await rememberConnection( site.id, sourceSite.wpComSite );
+			await rememberConnection( site.id, sourceSite.wpComSite, ! selection.skipDatabase );
 			run.warning = await getPushSizeWarning( site.path );
 			if ( run.warning ) {
 				logger.reportWarning( run.warning );

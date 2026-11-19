@@ -201,7 +201,13 @@ export async function runCommand(
 			// Remember this connection so future push/pull runs (and the Desktop UI)
 			// can surface it without re-selecting from the full site list.
 			try {
-				await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'pull' );
+				await rememberRemoteSite(
+					'wpcom',
+					site.id,
+					remoteSite,
+					'pull',
+					optionsToSync.includes( 'all' ) || optionsToSync.includes( 'sqls' )
+				);
 			} catch ( error ) {
 				logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 			}

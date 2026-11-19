@@ -72,6 +72,7 @@ export const openrouterProvider: Provider< OpenrouterConfig > = {
 	ai: {
 		models: OPENROUTER_AI_MODELS,
 		defaultModel: 'openrouter/anthropic/claude-sonnet-5.5',
+		generatesImages: () => true,
 		catalog: true,
 	},
 };

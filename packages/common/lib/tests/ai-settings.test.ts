@@ -10,6 +10,7 @@ import {
 	readAiSettings,
 	selectProviderModels,
 	setAiProvider,
+	setImageProvider,
 } from '@studio/common/lib/ai-settings';
 import {
 	forgetRejectedConfig,
@@ -64,6 +65,8 @@ describe( 'ai settings', () => {
 				openrouter: disconnected,
 				spacefast: disconnected,
 			},
+			imageProviders: [],
+			imageProvider: null,
 		} );
 	} );
 
@@ -85,6 +88,8 @@ describe( 'ai settings', () => {
 				openrouter: disconnected,
 				spacefast: disconnected,
 			},
+			imageProviders: [],
+			imageProvider: null,
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
@@ -221,6 +226,8 @@ describe( 'ai settings', () => {
 				openrouter: disconnected,
 				spacefast: disconnected,
 			},
+			imageProviders: [],
+			imageProvider: null,
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();
@@ -353,5 +360,34 @@ describe( 'ai settings', () => {
 		);
 
 		await expect( readAiSettings() ).resolves.toMatchObject( { provider: 'wpcom' } );
+	} );
+
+	it( 'picks only a provider that generates images, and falls back to automatic without it', async () => {
+		const chatgpt = {
+			method: 'chatgpt',
+			clientId: 'oaiapp_1',
+			accessToken: 'access',
+			refreshToken: 'refresh',
+			accessTokenExpiresAt: 0,
+		};
+		writeShared( {
+			providerConfigs: { gemini: { method: 'api-key', apiKey: 'gemini-key' }, openai: chatgpt },
+		} );
+		await expect( setImageProvider( 'openai' ) ).rejects.toBeInstanceOf( ConnectError );
+
+		await expect( setImageProvider( 'gemini' ) ).resolves.toMatchObject( {
+			imageProviders: [ 'gemini' ],
+			imageProvider: 'gemini',
+		} );
+		expect( readShared().aiImageProvider ).toBe( 'gemini' );
+
+		writeShared( { aiImageProvider: 'gemini', providerConfigs: { openai: chatgpt } } );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			imageProviders: [],
+			imageProvider: null,
+		} );
+
+		await setImageProvider( null );
+		expect( readShared().aiImageProvider ).toBeUndefined();
 	} );
 } );

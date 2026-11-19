@@ -56,6 +56,7 @@ import {
 	selectProviderModels,
 	readAiSettings,
 	setAiProvider,
+	setImageProvider,
 } from '@studio/common/lib/ai-settings';
 import {
 	onboardingAnalyticsSchema,
@@ -891,6 +892,20 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			await changeAiSettings( res, { action: 'select', provider }, () =>
 				setAiProvider( provider )
 			);
+		} )
+	);
+
+	api.put(
+		'/ai-settings/image-provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const requested = req.body?.provider;
+			const provider =
+				requested === null ? null : normalizeProviderId( String( requested ), AI_PROVIDER_IDS );
+			if ( provider === undefined ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id or null' } );
+				return;
+			}
+			res.json( await setImageProvider( provider ) );
 		} )
 	);
 

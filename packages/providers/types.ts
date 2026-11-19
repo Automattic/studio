@@ -219,6 +219,8 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 		defaultModel: AiModelId;
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
+		// Whether the account generates images; without it, the provider doesn't.
+		generatesImages?( config: Config ): boolean;
 		// The provider routes to more models than it lists: the account's owner picks which to
 		// offer from its catalog, under ids made of the provider's id, a slash and its own name.
 		catalog?: boolean;
@@ -396,8 +398,6 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 		listModels?( config: Config | undefined ): Promise< CatalogModel[] >;
 		// The config that offers these models from the catalog.
 		selectModels?( config: Config, ids: AiModelId[] ): Promise< Config >;
-		// Whether `generateImages` works with this config; defaults to true.
-		canGenerateImages?( config: Config ): boolean;
 		// Results keep the requests' order; a failure never aborts the rest.
 		generateImages?(
 			config: Config | undefined,

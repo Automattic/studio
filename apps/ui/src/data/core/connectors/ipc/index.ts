@@ -723,6 +723,9 @@ export function createIpcConnector(): Connector {
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},
+		async setImageProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setImageProvider( provider ) );
+		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;

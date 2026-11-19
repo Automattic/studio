@@ -249,6 +249,7 @@ export {
 	saveOnboardingHints,
 	saveWapuuScore,
 	setAiProvider,
+	setImageProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 

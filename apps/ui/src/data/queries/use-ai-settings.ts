@@ -70,6 +70,17 @@ export function useSelectProviderModels( provider: ProviderId ) {
 	} );
 }
 
+export function useSetImageProvider() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( provider: AiProviderId | null ) => connector.setImageProvider( provider ),
+		onSuccess: ( settings ) => {
+			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
+		},
+	} );
+}
+
 export function useDisconnectProvider( provider: ProviderId ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();

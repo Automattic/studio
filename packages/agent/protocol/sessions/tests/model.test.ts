@@ -21,6 +21,8 @@ const settings = ( provider: AiSettings[ 'provider' ], connected: string[] ): Ai
 		openrouter: { connected: false },
 		spacefast: { connected: false },
 	},
+	imageProviders: [],
+	imageProvider: null,
 } );
 
 describe( 'getEffectiveSessionProvider', () => {

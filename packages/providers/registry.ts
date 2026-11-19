@@ -68,6 +68,12 @@ export function getProviderSites( provider: SitesProviderId ): ProviderSitesInfo
 	return getProvider( provider ).sites as unknown as ProviderSitesInfo;
 }
 
+// Whether the provider generates images with `config`.
+export function generatesImages( id: ProviderId, config: unknown ): boolean {
+	const { ai } = getProvider( id ) as { ai?: { generatesImages?( config: unknown ): boolean } };
+	return ai?.generatesImages?.( config ) ?? false;
+}
+
 // Builds before the `anthropic` id stored `anthropic-api-key` in shared.json
 // and session entries. Older builds fall back to WordPress.com on an id they
 // don't know, so writers keep storing the legacy id.

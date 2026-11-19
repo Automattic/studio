@@ -449,6 +449,7 @@ export function createStaticConnector(): Connector {
 			throw new UnsupportedError( 'startProviderConnect' );
 		},
 		setAiProvider: ( provider ) => agent.setAiProvider( provider ),
+		setImageProvider: ( provider ) => agent.setImageProvider( provider ),
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return {} as InstalledApps;

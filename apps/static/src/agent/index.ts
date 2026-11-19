@@ -13,12 +13,16 @@ import {
 import {
 	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
+	generatesImages,
 	getProvider,
 	normalizeProviderId,
 	toStoredProviderId,
 	type AccountDetails,
 	type AiModelId,
+	type AiProviderId,
 	type CatalogModel,
+	type GenerateImageRequest,
+	type GenerateImageResult,
 	type ProviderId,
 	type ProviderServices,
 } from '@studio/providers';
@@ -53,6 +57,8 @@ export const AGENT_INSTRUCTIONS_ENABLED_KEY = 'agent-instructions-enabled';
 interface StoredAiSettings {
 	// The stored id (`toStoredProviderId`).
 	provider: string;
+	// The stored id of the provider picked for images; absent picks it automatically.
+	imageProvider?: string;
 	// The config of each provider connected here; WordPress.com's is the sign-in.
 	configs?: Partial< Record< ProviderId, unknown > >;
 }
@@ -261,24 +267,50 @@ export class StaticAgentRuns {
 
 	async getAiSettings(): Promise< AiSettings > {
 		const settings = await this.readAiSettings();
-		const accounts = await Promise.all(
-			AI_PROVIDER_IDS.map( async ( id ) => {
-				const config = await this.readConfig( id );
-				const { describe } = getProvider( id ).account as {
-					describe: ( config: unknown ) => AccountDetails;
-				};
-				return [
-					id,
-					config === undefined
-						? { connected: false as const }
-						: { connected: true as const, ...describe( config ) },
-				] as const;
-			} )
+		const configs = await Promise.all( AI_PROVIDER_IDS.map( ( id ) => this.readConfig( id ) ) );
+		const accounts = AI_PROVIDER_IDS.map( ( id, index ) => {
+			const config = configs[ index ];
+			const { describe } = getProvider( id ).account as {
+				describe: ( config: unknown ) => AccountDetails;
+			};
+			return [
+				id,
+				config === undefined
+					? { connected: false as const }
+					: { connected: true as const, ...describe( config ) },
+			] as const;
+		} );
+		const imageProviders = AI_PROVIDER_IDS.filter(
+			( id, index ) => configs[ index ] !== undefined && generatesImages( id, configs[ index ] )
 		);
 		return {
 			provider: normalizeProviderId( settings.provider, AI_PROVIDER_IDS ) ?? DEFAULT_PROVIDER_ID,
 			accounts: Object.fromEntries( accounts ) as AiSettings[ 'accounts' ],
+			imageProviders,
+			imageProvider: normalizeProviderId( settings.imageProvider ?? '', imageProviders ) ?? null,
 		};
+	}
+
+	async setImageProvider( provider: AiProviderId | null ): Promise< AiSettings > {
+		if ( provider && ! ( await this.getAiSettings() ).imageProviders.includes( provider ) ) {
+			throw new Error( `${ getProvider( provider ).label } can't generate images here.` );
+		}
+		await kvSet< StoredAiSettings >( AI_SETTINGS_KEY, {
+			...( await this.readAiSettings() ),
+			imageProvider: provider ? toStoredProviderId( provider ) : undefined,
+		} );
+		return this.getAiSettings();
+	}
+
+	private async bindImageGenerator( id: AiProviderId ) {
+		const config = await this.readConfig( id );
+		const generateImages = ( getProviderServices( id ) as ProviderServices ).ai?.generateImages;
+		return config !== undefined && generateImages && generatesImages( id, config )
+			? (
+					requests: GenerateImageRequest[],
+					onResult?: ( index: number, result: GenerateImageResult ) => void
+			  ) => generateImages( config, requests, onResult )
+			: undefined;
 	}
 
 	// WordPress.com connects by signing in (`WpcomAuth`).
@@ -465,15 +497,18 @@ export class StaticAgentRuns {
 			const instructionsEnabled =
 				( await kvGet< boolean >( AGENT_INSTRUCTIONS_ENABLED_KEY ) ) ?? true;
 			const chatAi = ( getProviderServices( provider ) as ProviderServices ).ai!;
-			const chatConfig = config;
 			const agent = createBrowserAgent( {
 				host: {
 					...this.host,
-					// The chat's provider generates images when it can.
-					imageGenerator: async () =>
-						chatAi.generateImages && chatAi.canGenerateImages?.( chatConfig ) !== false
-							? ( requests, onResult ) => chatAi.generateImages!( chatConfig, requests, onResult )
-							: this.host.imageGenerator?.(),
+					// The provider picked for images, otherwise the chat's provider when it can.
+					imageGenerator: async () => {
+						const picked = ( await this.getAiSettings() ).imageProvider;
+						return (
+							( picked && ( await this.bindImageGenerator( picked ) ) ) ||
+							( await this.bindImageGenerator( provider ) ) ||
+							this.host.imageGenerator?.()
+						);
+					},
 					ui: {
 						showArtifact: async ( artifact: StudioChatArtifactData ) => {
 							await this.sessions.appendCustom( sessionId, 'studio.chat_artifact', artifact );

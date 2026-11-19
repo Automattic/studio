@@ -159,16 +159,33 @@ export async function runCommand( options: {
 		let started: { choice: ReadyRemoteConnection; url: string; port: number } | undefined;
 		const skipped: string[] = [];
 		for ( const choice of choices ) {
-			server = await startLocalServer( {
-				cliBinary: process.env.STUDIO_CLI_BIN ?? process.argv[ 1 ],
-				sessionsRoot: getSessionsDirectory(),
-				sitesRoot: STUDIO_SITES_ROOT,
-				host: choice.host,
-				port,
-				remote: { label: os.hostname(), studioVersion: __STUDIO_CLI_VERSION__ },
-				// Without it, every screenshot the phone asks for answers `no-browser`.
-				capturePreview,
-			} );
+			const didNotStart = ( error: unknown ) =>
+				sprintf(
+					/* translators: %1$s: a connection, like "Tailscale HTTPS". %2$s: the reason, like "listen EADDRINUSE: …". */
+					__( '%1$s did not start. %2$s' ),
+					remoteConnectionName( choice.kind ),
+					( error as Error ).message
+				);
+			try {
+				server = await startLocalServer( {
+					cliBinary: process.env.STUDIO_CLI_BIN ?? process.argv[ 1 ],
+					sessionsRoot: getSessionsDirectory(),
+					sitesRoot: STUDIO_SITES_ROOT,
+					host: choice.host,
+					port,
+					remote: { label: os.hostname(), studioVersion: __STUDIO_CLI_VERSION__ },
+					// Without it, every screenshot the phone asks for answers `no-browser`.
+					capturePreview,
+				} );
+			} catch ( error ) {
+				// Each connection listens on its own address: another program may
+				// hold the port on one of them only.
+				if ( stopping || wanted !== 'auto' ) {
+					throw error;
+				}
+				skipped.push( didNotStart( error ) );
+				continue;
+			}
 			// The port the server got, which `--port 0` leaves to the system.
 			const listening = server.port;
 			if ( choice.kind !== 'https' ) {
@@ -199,11 +216,7 @@ export async function runCommand( options: {
 				if ( stopping ) {
 					return;
 				}
-				const reason = sprintf(
-					/* translators: %s: the reason, like "No answer at https://… within 60 seconds (…)." */
-					__( 'Tailscale HTTPS did not start. %s' ),
-					( error as Error ).message
-				);
+				const reason = didNotStart( error );
 				// Asked for by name, this is the end; Automatic tries the next one.
 				if ( wanted !== 'auto' ) {
 					throw new LoggerError( reason );

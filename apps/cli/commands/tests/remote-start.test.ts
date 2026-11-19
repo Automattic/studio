@@ -379,6 +379,47 @@ it( 'Automatic takes the tailnet when Tailscale HTTPS does not start, and says w
 	} );
 } );
 
+it( 'Automatic takes the next connection when one cannot listen, and says why', async () => {
+	startedBy( 'terminal' );
+	vi.mocked( readTailscaleState ).mockResolvedValue( TAILSCALE_READY );
+	runningServe();
+	// Another program holds the port on loopback only.
+	vi.mocked( startLocalServer ).mockRejectedValueOnce(
+		new Error( 'listen EADDRINUSE: address already in use 127.0.0.1:8084' )
+	);
+	const log = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+
+	await runCommand( { port: 8084 } );
+
+	expect( vi.mocked( startLocalServer ).mock.calls.map( ( [ options ] ) => options.host ) ).toEqual(
+		[ '127.0.0.1', '100.101.102.103' ]
+	);
+	expect( startTailscaleServe ).not.toHaveBeenCalled();
+	expect( await readRemoteServerInfo() ).toMatchObject( {
+		url: 'http://100.101.102.103:8084',
+		connection: 'tailnet',
+		fallbackReason:
+			'Tailscale HTTPS did not start. listen EADDRINUSE: address already in use 127.0.0.1:8084',
+	} );
+	expect( log ).toHaveBeenCalledWith(
+		'Tailscale HTTPS did not start. listen EADDRINUSE: address already in use 127.0.0.1:8084'
+	);
+	expect( mockReportError ).not.toHaveBeenCalled();
+} );
+
+it( 'fails with the reason when a connection asked for by name cannot listen', async () => {
+	startedBy( 'terminal' );
+	vi.mocked( startLocalServer ).mockRejectedValueOnce(
+		new Error( 'listen EADDRINUSE: address already in use 192.168.1.20:8084' )
+	);
+
+	await runCommand( { connection: 'local', port: 8084 } );
+
+	expect( startLocalServer ).toHaveBeenCalledTimes( 1 );
+	expect( mockReportError ).toHaveBeenCalledTimes( 1 );
+	expect( await readRemoteServerInfo() ).toBeUndefined();
+} );
+
 it( 'takes its stop listeners off when a start fails, so it ends and the app hears why', async () => {
 	startedBy( 'app' );
 	vi.mocked( readTailscaleState ).mockResolvedValue( TAILSCALE_READY );

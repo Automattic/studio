@@ -30,4 +30,11 @@ describe( 'getSections', () => {
 		expect( settingIds( true ) ).toEqual( expect.arrayContaining( localApps ) );
 		expect( settingIds( false ).filter( ( id ) => localApps.includes( id ?? '' ) ) ).toEqual( [] );
 	} );
+
+	it( 'leaves out Phone where the app cannot run remote mode', () => {
+		const ids = ( phoneAccess: boolean ) =>
+			getSections( 'studio', { phoneAccess } ).map( ( section ) => section.id );
+		expect( ids( true ) ).toContain( 'phone' );
+		expect( ids( false ) ).not.toContain( 'phone' );
+	} );
 } );

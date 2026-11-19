@@ -141,6 +141,7 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 			nativeSites: true,
 			loopbackSignIn: true,
+			phoneAccess: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -805,6 +806,12 @@ export function createIpcConnector(): Connector {
 		async openStudioLogs(): Promise< void > {
 			ipcApi.openStudioLogs();
 		},
+
+		getPhoneAccess: () => ipcApi.getPhoneAccess(),
+		setPhoneAccess: ( on ) => ipcApi.setPhoneAccess( on ),
+		getPhonePairingCode: () => ipcApi.getPhonePairingCode(),
+		getPairedPhones: () => ipcApi.getPairedPhones(),
+		removePairedPhone: ( id ) => ipcApi.removePairedPhone( id ),
 
 		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
 		// `commonProps()` in Main, so callers pass only event-specific props here.

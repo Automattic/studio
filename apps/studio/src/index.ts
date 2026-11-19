@@ -75,6 +75,7 @@ import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { phoneAccess } from 'src/modules/phone-access/lib/app-phone-access';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 import type { QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
@@ -555,6 +556,9 @@ async function appBoot() {
 
 		await createMainWindow();
 
+		// Remote mode for the phone comes back if Settings > Phone was on.
+		void phoneAccess.startIfEnabled().catch( Sentry.captureException );
+
 		void setupSentryUserId().catch( Sentry.captureException );
 
 		void maybePromptNightlySwitch().catch( Sentry.captureException );
@@ -752,6 +756,8 @@ async function appBoot() {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
+		// Before the CLI commands stop, so its end is not taken for a failure.
+		phoneAccess.stop();
 		stopCliCommands();
 
 		void ( async () => {

@@ -152,6 +152,7 @@ export function createStaticConnector(): Connector {
 			studioLogs: false,
 			nativeSites: false,
 			loopbackSignIn: false,
+			phoneAccess: false,
 		},
 
 		agenticRequiresAuth: false,
@@ -497,6 +498,22 @@ export function createStaticConnector(): Connector {
 		},
 		async openStudioLogs() {
 			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		async getPhoneAccess() {
+			throw new UnsupportedError( 'getPhoneAccess' );
+		},
+		async setPhoneAccess() {
+			throw new UnsupportedError( 'setPhoneAccess' );
+		},
+		async getPhonePairingCode() {
+			throw new UnsupportedError( 'getPhonePairingCode' );
+		},
+		async getPairedPhones() {
+			throw new UnsupportedError( 'getPairedPhones' );
+		},
+		async removePairedPhone() {
+			throw new UnsupportedError( 'removePairedPhone' );
 		},
 
 		// No analytics without a Studio host to attach the user and surface.

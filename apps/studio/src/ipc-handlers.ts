@@ -209,6 +209,14 @@ export {
 } from 'src/modules/cli/lib/ipc-handlers';
 
 export {
+	getPairedPhones,
+	getPhoneAccess,
+	getPhonePairingCode,
+	removePairedPhone,
+	setPhoneAccess,
+} from 'src/modules/phone-access/lib/ipc-handlers';
+
+export {
 	cancelSyncOperation,
 	connectRemoteSite,
 	createRemoteSite,

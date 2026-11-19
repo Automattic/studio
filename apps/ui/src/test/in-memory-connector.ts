@@ -18,6 +18,7 @@ import type {
 	Connector,
 	InstalledApps,
 	LoadedAiSession,
+	PhoneAccessState,
 	SiteDetails,
 	SiteEmail,
 	UserPreferences,
@@ -188,6 +189,7 @@ export function createInMemoryConnector(
 	};
 	let agentInstructions = '';
 	let agentInstructionsEnabled = true;
+	let phoneAccess: PhoneAccessState = { status: 'off' };
 
 	const methods: Methods = {
 		init: async () => {},
@@ -397,6 +399,21 @@ export function createInMemoryConnector(
 		siteDebugLogExists: async () => false,
 		openSiteDebugLog: async () => {},
 		openStudioLogs: async () => {},
+		getPhoneAccess: async () => phoneAccess,
+		setPhoneAccess: async ( on ) => {
+			phoneAccess = on
+				? { status: 'on', url: 'http://192.168.1.20:8082', portChanged: false }
+				: { status: 'off' };
+			return phoneAccess;
+		},
+		getPhonePairingCode: async () => ( {
+			address: 'http://192.168.1.20:8082',
+			code: 'ABCD-2345-EFGH',
+			expiresAt: Date.now() + 5 * 60_000,
+			qrSvg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+		} ),
+		getPairedPhones: async () => [],
+		removePairedPhone: async () => {},
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
 		sendFeedback: async () => ( { feedbackId: 1 } ),
@@ -456,6 +473,7 @@ export function createInMemoryConnector(
 			studioLogs: true,
 			nativeSites: true,
 			loopbackSignIn: true,
+			phoneAccess: true,
 			...overrides.capabilities,
 		},
 		state,

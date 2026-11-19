@@ -243,6 +243,7 @@ export function getSettingCommands( {
 	site,
 	signedIn,
 	nativeSites,
+	phoneAccess,
 	toggles,
 	actions = {},
 	openSettings,
@@ -251,6 +252,8 @@ export function getSettingCommands( {
 	site?: SiteDetails;
 	signedIn: boolean;
 	nativeSites?: boolean;
+	// Whether the host runs remote mode for the phone: Settings > Phone.
+	phoneAccess: boolean;
 	// The boolean preferences setting commands turn on or off in place, by the
 	// id of their row in Settings.
 	toggles: SettingToggles;
@@ -259,7 +262,7 @@ export function getSettingCommands( {
 } ): PaletteCommand[] {
 	const group = scope === 'site' ? 'site-settings' : 'settings';
 	if ( scope === 'site' && ! site ) return [];
-	return getSections( scope, { signedIn, nativeSites } ).flatMap( ( section ) => {
+	return getSections( scope, { signedIn, nativeSites, phoneAccess } ).flatMap( ( section ) => {
 		const folded = section.settings.filter( ( entry ) => entry.palette === 'section' );
 		const navigation: PaletteCommand[] = ! section.command
 			? [

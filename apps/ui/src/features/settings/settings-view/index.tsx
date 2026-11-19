@@ -562,6 +562,7 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 
 export { ProvidersPanel } from './providers-panel';
 export { KeyboardPanel } from './keyboard-panel';
+export { PhonePanel } from './phone-panel';
 export { ExternalAppsPanel } from './mcp-panel';
 export { SharingPanel } from './sharing-panel';
 export { SkillsPanel } from './skills-panel';

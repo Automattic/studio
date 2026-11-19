@@ -171,6 +171,10 @@ const desktopSchema = z.looseObject( {
 	dontShowArm64Warning: optional( z.boolean() ),
 	// The user removed the `studio` command, so Studio doesn't install it again.
 	cliUserUninstalled: optional( z.boolean() ),
+	// Settings > Phone: whether the app runs remote mode for the Studio phone app.
+	phoneAccess: optional( z.boolean() ),
+	// The port remote mode last used, so phones paired before keep reaching it.
+	phoneAccessPort: optional( z.number() ),
 } );
 
 // State only the CLI reads.

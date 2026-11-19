@@ -204,6 +204,7 @@ describe( 'Studio workspace', () => {
 					studioLogs: true,
 					nativeSites: true,
 					loopbackSignIn: true,
+					phoneAccess: true,
 				},
 			},
 		} );
@@ -1334,6 +1335,7 @@ describe( 'Studio workspace', () => {
 					studioLogs: true,
 					nativeSites: true,
 					loopbackSignIn: true,
+					phoneAccess: true,
 				},
 			},
 		} );

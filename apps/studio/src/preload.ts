@@ -161,6 +161,11 @@ const api: IpcApi = {
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
+	getPhoneAccess: () => ipcRendererInvoke( 'getPhoneAccess' ),
+	setPhoneAccess: ( on ) => ipcRendererInvoke( 'setPhoneAccess', on ),
+	getPhonePairingCode: () => ipcRendererInvoke( 'getPhonePairingCode' ),
+	getPairedPhones: () => ipcRendererInvoke( 'getPairedPhones' ),
+	removePairedPhone: ( id ) => ipcRendererInvoke( 'removePairedPhone', id ),
 	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
 	installWordPressSkillsToAllSites: ( options ) =>
 		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),

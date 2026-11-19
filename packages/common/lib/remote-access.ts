@@ -192,6 +192,14 @@ export async function clearPairingCodes(): Promise< void > {
 	} );
 }
 
+// Drops one code before it expires: a newer one took its place on screen.
+export async function revokePairingCode( code: string ): Promise< void > {
+	const codeHash = sha256( normalizePairingCode( code ) );
+	await updateRemoteAccess( ( state ) => {
+		state.pairingCodes = state.pairingCodes.filter( ( entry ) => entry.codeHash !== codeHash );
+	} );
+}
+
 export interface PairedDevice {
 	token: string;
 	deviceId: string;

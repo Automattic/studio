@@ -20,6 +20,7 @@ import {
 	UploadIcon,
 	SlidersVerticalIcon,
 	SkillsIcon,
+	SmartphoneIcon,
 	TerminalIcon,
 	GaugeIcon,
 } from '@/lib/icons';
@@ -32,6 +33,7 @@ const STUDIO_SECTIONS = [
 	'providers',
 	'mcp',
 	'sharing',
+	'phone',
 	'usage',
 	'skills',
 	'instructions',
@@ -390,6 +392,22 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			id: 'phone',
+			label: __( 'Phone' ),
+			icon: SmartphoneIcon,
+			aliases: [ __( 'Remote mode' ), __( 'QR code' ), __( 'Pairing code' ) ],
+			settings: [
+				setting(
+					'section',
+					__( 'Let your phone connect' ),
+					__( 'Pair the Studio phone app to work with Studio Code from your phone.' ),
+					'phone-access'
+				),
+				// Shown in every state; the code's group is not, so search does not lead to it.
+				setting( 'section', __( 'Paired phones' ), '', 'paired-phones' ),
+			],
+		},
+		{
 			id: 'usage',
 			label: __( 'Usage' ),
 			icon: GaugeIcon,
@@ -614,9 +632,15 @@ const NATIVE_ONLY_IDS = new Set( [
 
 export function getSections(
 	scope: SettingsScope,
-	{ signedIn = true, nativeSites = true }: { signedIn?: boolean; nativeSites?: boolean } = {}
+	{
+		signedIn = true,
+		nativeSites = true,
+		phoneAccess = true,
+	}: { signedIn?: boolean; nativeSites?: boolean; phoneAccess?: boolean } = {}
 ): Section[] {
-	const sections = scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+	const sections = (
+		scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections()
+	).filter( ( section ) => phoneAccess || section.id !== 'phone' );
 	if ( nativeSites ) {
 		return sections;
 	}
@@ -672,7 +696,12 @@ export type SearchResult = { scope: SettingsScope; section: Section; setting?: S
 export function searchSettings(
 	query: string,
 	scope: SettingsScope,
-	{ hasSite, signedIn, nativeSites }: { hasSite: boolean; signedIn: boolean; nativeSites: boolean }
+	{
+		hasSite,
+		signedIn,
+		nativeSites,
+		phoneAccess,
+	}: { hasSite: boolean; signedIn: boolean; nativeSites: boolean; phoneAccess: boolean }
 ): SearchResult[] {
 	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
 	if ( ! words.length ) {
@@ -690,7 +719,7 @@ export function searchSettings(
 	};
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
-			getSections( candidate, { signedIn, nativeSites } ).flatMap( ( section ) =>
+			getSections( candidate, { signedIn, nativeSites, phoneAccess } ).flatMap( ( section ) =>
 				[
 					{ ...setting( 'navigate', section.label ), aliases: section.aliases },
 					...section.settings,

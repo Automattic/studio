@@ -10,10 +10,17 @@ const DEFAULT_REMOTE_PORT = 8082;
 
 export async function runCommand( options: { host?: string; port?: number } ): Promise< void > {
 	const logger = new Logger< string >();
+	// Started by the Studio desktop app, which talks to it over IPC: the app
+	// shows the codes and the errors, and remote mode stops with the app.
+	const startedByApp = typeof process.send === 'function';
 	const host = options.host ?? getDefaultLanAddress();
 	if ( ! host ) {
 		logger.reportError(
-			new LoggerError( __( 'No network address found. Pass one with --host.' ) )
+			new LoggerError(
+				startedByApp
+					? __( 'No network address found. Connect this computer to a network, then try again.' )
+					: __( 'No network address found. Pass one with --host.' )
+			)
 		);
 		return;
 	}
@@ -62,25 +69,34 @@ export async function runCommand( options: { host?: string; port?: number } ): P
 		} );
 		await setRemoteServerInfo( { url: server.url, pid: process.pid } );
 
-		console.log( '' );
-		console.log( __( 'Studio remote mode is running. Scan this code with the Studio phone app:' ) );
-		console.log( '' );
-		await printPairingCode( server.url );
-		console.log( '' );
-		console.log(
-			__(
-				'A paired device can send prompts to Studio Code, and Studio Code can run commands on this computer. Pair only devices you own.'
-			)
-		);
-		console.log(
-			__(
-				'On a shared network this connection is not encrypted. Use Tailscale or another VPN when you can.'
-			)
-		);
-		console.log( '' );
-		console.log( __( 'Press Ctrl+C to stop.' ) );
+		if ( ! startedByApp ) {
+			console.log( '' );
+			console.log(
+				__( 'Studio remote mode is running. Scan this code with the Studio phone app:' )
+			);
+			console.log( '' );
+			await printPairingCode( server.url );
+			console.log( '' );
+			console.log(
+				__(
+					'A paired device can send prompts to Studio Code, and Studio Code can run commands on this computer. Pair only devices you own.'
+				)
+			);
+			console.log(
+				__(
+					'On a shared network this connection is not encrypted. Use Tailscale or another VPN when you can.'
+				)
+			);
+			console.log( '' );
+			console.log( __( 'Press Ctrl+C to stop.' ) );
+		}
 
+		let stopping = false;
 		const shutdown = () => {
+			if ( stopping ) {
+				return;
+			}
+			stopping = true;
 			void clearPairingCodes()
 				.catch( () => undefined )
 				.then( () => clearRemoteServerInfo( process.pid ) )
@@ -90,6 +106,14 @@ export async function runCommand( options: { host?: string; port?: number } ): P
 		};
 		process.on( 'SIGINT', shutdown );
 		process.on( 'SIGTERM', shutdown );
+		// The app was killed or quit without stopping it. Node does not replay
+		// `disconnect`, so an app that went away while this started is checked too.
+		if ( startedByApp ) {
+			process.on( 'disconnect', shutdown );
+			if ( ! process.connected ) {
+				shutdown();
+			}
+		}
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

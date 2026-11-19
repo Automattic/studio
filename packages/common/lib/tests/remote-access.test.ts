@@ -28,6 +28,7 @@ import {
 	readRemoteServerInfo,
 	RemoteAccessVersionMismatchError,
 	redeemPairingCode,
+	revokePairingCode,
 	revokeRemoteDevice,
 	setRemoteServerInfo,
 	updateRemoteAccess,
@@ -236,6 +237,16 @@ describe( 'pairing codes', () => {
 		expect( await redeemPairingCode( { code: second.code, ...phone } ) ).toBeNull();
 		expect( readStore().pairingCodes ).toEqual( [] );
 		expect( await listRemoteDevices() ).toHaveLength( 1 );
+	} );
+
+	it( 'revokes one code and keeps the others', async () => {
+		const first = await createPairingCode();
+		const second = await createPairingCode();
+
+		await revokePairingCode( formatPairingCode( first.code ) );
+
+		expect( await redeemPairingCode( { code: first.code, ...phone } ) ).toBeNull();
+		expect( await redeemPairingCode( { code: second.code, ...phone } ) ).not.toBeNull();
 	} );
 
 	it( 'never stores the code itself', async () => {

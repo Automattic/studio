@@ -166,9 +166,6 @@ async function switchTo( hostname: string ) {
 	const panel = await openDestinations();
 	fireEvent.click( getDestinationRow( panel, hostname ) );
 }
-async function openChooser( _user: ReturnType< typeof setup >[ 'user' ] ) {
-	return openDestinations();
-}
 
 async function selectPreview( user: ReturnType< typeof setup >[ 'user' ], name: string ) {
 	const selected = screen.queryByRole( 'group', { name: `Preview: ${ name }` } );
@@ -705,7 +702,7 @@ it( 'reviews the destination and access before creating a new preview', async ()
 		publishPreviewSite: () => new Promise( () => {} ),
 	} );
 	await openFirstDestination();
-	await openChooser( user );
+	await openDestinations();
 	await user.click( await screen.findByRole( 'button', { name: 'Publish somewhere else' } ) );
 	const creation = await screen.findByRole( 'dialog', { name: 'Publish somewhere else' } );
 	expect( within( creation ).getByRole( 'combobox', { name: 'Destination' } ) ).toHaveTextContent(
@@ -737,7 +734,7 @@ it.each( [ 'Back', 'Escape' ] )(
 	async ( action ) => {
 		const { user, connector } = setup( { getRemoteSites: async () => [] } );
 		const panel = await openFirstDestination();
-		await openChooser( user );
+		await openDestinations();
 		await user.click( screen.getByRole( 'button', { name: 'Publish somewhere else' } ) );
 		const creation = await screen.findByRole( 'dialog', { name: 'Publish somewhere else' } );
 		expect( within( creation ).getByRole( 'button', { name: 'Back' } ) ).toHaveFocus();
@@ -773,7 +770,7 @@ it( 'uses the destination and visibility chosen in new preview setup', async () 
 		},
 	} );
 	await openFirstDestination();
-	await openChooser( user );
+	await openDestinations();
 	await user.click( screen.getByRole( 'button', { name: 'Publish somewhere else' } ) );
 	const creation = await screen.findByRole( 'dialog', { name: 'Publish somewhere else' } );
 	await user.click( within( creation ).getByRole( 'combobox', { name: 'Destination' } ) );
@@ -799,7 +796,7 @@ it( 'uses the destination and visibility chosen in new preview setup', async () 
 	);
 	expect( await screen.findByRole( 'button', { name: space.name } ) ).toBeVisible();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-	const previews = await openChooser( user );
+	const previews = await openDestinations();
 	expect( within( previews ).getByRole( 'button', { name: /^Preview 1/ } ) ).toBeVisible();
 } );
 
@@ -1081,7 +1078,7 @@ it( 'keeps the previews step open while adding a preview', async () => {
 			} ),
 	} );
 	const panel = await openFirstDestination();
-	const menu = await openChooser( user );
+	const menu = await openDestinations();
 	await user.click( within( menu ).getByRole( 'button', { name: 'Publish somewhere else' } ) );
 	await user.click( await screen.findByRole( 'button', { name: 'Create another preview' } ) );
 	expect( await within( menu ).findByRole( 'button', { name: /Creating preview/ } ) ).toBeVisible();
@@ -1602,7 +1599,7 @@ it( 'returns to the chooser after creating a preview for a published WordPress.c
 	expect(
 		within( panel ).queryByRole( 'button', { name: 'Create preview' } )
 	).not.toBeInTheDocument();
-	const previewsSection = within( await openChooser( user ) );
+	const previewsSection = within( await openDestinations() );
 	await user.click( previewsSection.getByRole( 'button', { name: 'Publish somewhere else' } ) );
 	const create = screen.getByRole( 'button', { name: 'Create preview' } );
 	await waitFor( () => expect( create ).toBeEnabled() );
@@ -2155,7 +2152,7 @@ it( 'chooses a live site before creating a preview when several sites qualify', 
 		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live, another ] : [] ),
 	} );
 	await openFirstDestination();
-	await openChooser( user );
+	await openDestinations();
 	await user.click( await screen.findByRole( 'button', { name: 'Publish somewhere else' } ) );
 	await user.click( await screen.findByRole( 'button', { name: 'Create another preview' } ) );
 	const dialog = await screen.findByRole( 'dialog', { name: 'Live site' } );
@@ -2269,7 +2266,7 @@ it( 'warns before publishing changes newer than the linked preview', async () =>
 		} ),
 	} );
 	await openFirstDestination();
-	const previews = await openChooser( user );
+	const previews = await openDestinations();
 	expect( await within( previews ).findByText( preview.url ) ).toBeVisible();
 	await user.click( within( previews ).getByRole( 'button', { name: live.name } ) );
 	await user.click( await screen.findByRole( 'button', { name: 'Update…' } ) );

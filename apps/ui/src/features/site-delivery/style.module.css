@@ -13,7 +13,6 @@
 
 .publishPopover {
 	--publish-inset: var( --space-2 );
-	--publish-row-inset: var( --space-1_5 );
 	--surface: var( --surface-1 );
 	inline-size: 340px;
 	max-inline-size: var( --available-width );
@@ -145,21 +144,6 @@
 	block-size: var( --control-size );
 }
 
-.summaryRows {
-	--surface: color-mix( in oklab, var( --surface-1 ), var( --surface-2 ) 25% );
-	display: grid;
-	grid-template-columns: minmax( 0, 1fr );
-	gap: var( --space-0_5 );
-	padding: var( --publish-row-inset );
-	box-shadow: inset 0 0 0 var( --hairline-width ) var( --border );
-	border-radius: var( --radius-popup );
-	background: var( --surface );
-}
-
-.summaryRows :is( .accessTrigger, .destinationRowControl ) {
-	border-radius: var( --radius-md );
-}
-
 .publishRows {
 	display: grid;
 	grid-template-columns: minmax( 0, 1fr );
@@ -199,25 +183,20 @@
 	padding-block: var( --space-1_5 );
 }
 
-.summaryLine {
+.publishedStatusRow {
 	display: flex;
 	align-items: center;
 	gap: var( --space-1_5 );
-	min-block-size: var( --space-8 );
+	min-block-size: var( --control-size );
 	padding-inline: var( --space-2 );
 	color: var( --muted-foreground );
 }
 
-.summaryLine > svg {
+.publishedStatusRow > svg {
 	inline-size: var( --space-4 );
 	block-size: var( --space-4 );
 	flex-shrink: 0;
 	color: var( --foreground );
-}
-
-.publishedStatusRow {
-	composes: summaryLine;
-	min-block-size: var( --control-size );
 }
 
 .publishedStatusLabel {
@@ -259,11 +238,6 @@
 	margin-top: var( --space-3 );
 	font-size: var( --text-sm );
 }
-.expiry {
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-	color: var( --muted-foreground );
-}
 
 .publishAction {
 	display: grid;
@@ -272,16 +246,6 @@
 }
 .publishAction > .changeStatus {
 	margin-top: 0;
-}
-
-.viewContent {
-	margin-top: calc( var( --space-3 ) + ( var( --space-8 ) - var( --text-xs--line-height ) ) / 2 );
-}
-.accessDescription {
-	display: block;
-	font-size: var( --text-xxs );
-	line-height: var( --text-xxs--line-height );
-	color: var( --muted-foreground );
 }
 
 .accessTrigger {
@@ -302,30 +266,16 @@
 	min-width: 0;
 	text-align: end;
 }
-.accessChoiceText {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	gap: 0;
-	min-width: 0;
-}
-
-.previewOpenButton {
-	flex: 1;
-	min-width: 0;
-	height: auto;
-	min-height: calc( var( --control-size ) + var( --space-5 ) );
-	padding-block: var( --space-1_5 );
-	padding-inline-end: var( --space-2 );
-	color: var( --foreground );
-}
 .accessTrigger,
 .destinationRowControl {
 	padding-inline: var( --space-2 );
 	gap: var( --space-1_5 );
 }
 .destinationRowControl {
-	composes: previewOpenButton;
+	flex: 1;
+	min-width: 0;
+	height: auto;
+	color: var( --foreground );
 	min-height: var( --control-size );
 	padding-block: var( --space-1_5 );
 	display: flex;
@@ -477,10 +427,6 @@
 	--app-icon-size: 20px;
 }
 
-.destinationMenuItem {
-	padding-block: var( --space-2 );
-}
-
 .addressExternalIcon {
 	display: inline-flex;
 	align-items: center;
@@ -488,7 +434,7 @@
 	flex-shrink: 0;
 	color: var( --muted-foreground );
 }
-.previewOpenButton:hover:not( :disabled, [data-disabled] ) .addressExternalIcon {
+.destinationRowControl:hover:not( :disabled, [data-disabled] ) .addressExternalIcon {
 	color: var( --foreground );
 }
 
@@ -517,13 +463,6 @@
 	border-block-start: var( --hairline-width ) solid var( --border );
 	margin-block-start: var( --space-1_5 );
 	padding-block-start: var( --space-1_5 );
-}
-
-.previewMenuNote {
-	padding: var( --space-1_5 ) var( --space-2 );
-	color: var( --muted-foreground );
-	font-size: var( --text-xxs );
-	line-height: var( --text-xxs--line-height );
 }
 
 .footerNote {

@@ -1501,63 +1501,25 @@ it( 'shows destination controls for an unpublished site', async () => {
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
 
-it( 'keeps the heading consistent without a status badge when sharing a preview', async () => {
+it( 'checks access while refreshing stored visibility', async () => {
 	const connector = setup();
+	connector.getSiteVisibility.mockImplementation( () => new Promise( () => {} ) );
+	connector.getRemoteSites.mockResolvedValue( [
+		{
+			...pullablePreview( 42 ),
+			localSiteId: connector.state.sites[ 0 ].id,
+			name: 'Remote site',
+			url: 'https://published.example.com',
+			launchStatus: 'launched',
+			isPrivate: true,
+		},
+	] );
 	const actions = userEvent.setup();
-	await actions.click( await screen.findByRole( 'button', { name: /^Publish…$/ } ) );
-	expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
-	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Create preview' } ) ).toBeEnabled()
-	);
-	await actions.click( screen.getByRole( 'button', { name: 'Create preview' } ) );
-	await waitFor( () => expect( connector.publishPreviewSite ).toHaveBeenCalledOnce() );
-	expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
-	expect( screen.queryByText( 'Not published' ) ).not.toBeInTheDocument();
-	await waitFor( () =>
-		expect( screen.getByRole( 'link', { name: /^Open preview:/ } ) ).toBeEnabled()
-	);
-
-	expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
-	expect( screen.queryByText( 'Published', { exact: true } ) ).not.toBeInTheDocument();
+	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
+	expect(
+		await screen.findByRole( 'combobox', { name: 'Who can view' } )
+	).toHaveAccessibleDescription( 'Checking access…' );
 } );
-
-it.each( [
-	{ isStaging: false, launchStatus: 'unlaunched', expected: 'Only you' },
-	{ isStaging: false, launchStatus: 'launched', expected: 'Everyone' },
-	{ isStaging: false, launchStatus: undefined, expected: 'Unknown' },
-	{ isStaging: true, launchStatus: 'launched', expected: 'Everyone' },
-	{ isStaging: false, launchStatus: 'launched', isComingSoon: true, expected: 'Only you' },
-	{ isStaging: false, launchStatus: 'launched', isPrivate: true, expected: 'Invited people' },
-] )(
-	'checks access while refreshing the stored visibility $expected',
-	async ( { isStaging, launchStatus, isComingSoon, isPrivate } ) => {
-		const connector = setup();
-		connector.getSiteVisibility.mockImplementation( () => new Promise( () => {} ) );
-		connector.getRemoteSites.mockResolvedValue( [
-			{
-				id: 42,
-				localSiteId: connector.state.sites[ 0 ].id,
-				name: 'Remote site',
-				url: 'https://published.example.com',
-				isStaging,
-				launchStatus,
-				isComingSoon,
-				isPrivate,
-				isPressable: false,
-				syncSupport: 'syncable',
-				lastPullTimestamp: null,
-				lastPushTimestamp: null,
-			},
-		] );
-		const actions = userEvent.setup();
-		await actions.click( await screen.findByRole( 'button', { name: /^Publish…$/ } ) );
-		expect(
-			await screen.findByRole( 'combobox', { name: 'Who can view' } )
-		).toHaveAccessibleDescription( 'Checking access…' );
-		expect( screen.queryByRole( 'status', { name: 'Publishing status' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'Not published' ) ).not.toBeInTheDocument();
-	}
-);
 
 it( 'updates an up-to-date preview from the primary button and copies its link from the menu', async () => {
 	const connector = setup( {

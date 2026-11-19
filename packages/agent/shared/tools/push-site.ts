@@ -12,8 +12,8 @@ export const pushSiteTool = defineTool(
 		'with exactly one attached site, confirm it with AskUserQuestion when available (options "Yes" and "No", the description naming the remote site, its provider and its URL); ' +
 		"with several, ask which one (one option per site: label = site name, description = provider and URL) and pass the chosen site's `remoteSite`; " +
 		'with none, ask in plain text for the URL or ID of the WordPress.com site to push to, without AskUserQuestion, and wait for the reply. ' +
-		'A push that includes the database (options all or sqls) replaces the live database, so it fails when posts, pages, templates, menus, patterns, styles or comments changed on the live site since the last pull or push, and the error says what changed. ' +
-		'Then tell the user what changed and that publishing would lose it, and ask whether to publish anyway or pull first; call it again with overwriteLiveChanges only when they choose to publish anyway.',
+		'A push that includes the database (options all or sqls) replaces the live database, so it fails when posts, pages, media, templates, menus, patterns, styles or comments changed on the live site since the last database pull or push, and the error says what changed. ' +
+		'Then tell the user what changed and that publishing would lose it, and ask whether to publish anyway. If you suggest pulling instead, say that a pull keeps the live changes but replaces the local site, losing its unpublished changes. Call it again with overwriteLiveChanges only when they choose to publish anyway.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		remoteSite: Type.String( {

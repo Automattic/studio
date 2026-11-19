@@ -41,10 +41,10 @@ function readReason( body: string ): string {
 
 /**
  * Says what went wrong in a turn, in the connector's words: a server that doesn't answer, a
- * refused key, and a model the server refuses, with the server's reason. Leaves context
+ * refused key, and a request the server refuses, with the server's reason. Leaves context
  * overflows, rate limits and server errors as they are, so pi compacts or retries them.
  */
-function rewriteError( message: string, address: string, name: string ): string | undefined {
+function rewriteError( message: string, address: string ): string | undefined {
 	const [ , status, body = '' ] = /^(\d{3})\b:?\s*([\s\S]*)$/.exec( message.trim() ) ?? [];
 	if ( ! status ) {
 		return /connection error|fetch failed|ECONNREFUSED|ECONNRESET|socket hang up|other side closed|timed out|terminated/i.test(
@@ -64,9 +64,8 @@ function rewriteError( message: string, address: string, name: string ): string 
 		return undefined;
 	}
 	return sprintf(
-		/* translators: 1: a model's name, 2: why the server refused it, in the server's words */
-		__( 'Your local server can’t run %1$s: %2$s. Pick another model.' ),
-		name,
+		/* translators: %s: why the server refused the request, in the server's words */
+		__( 'Your local server refused the request: %s.' ),
 		readReason( body ).replace( /\.$/, '' ) || status
 	);
 }
@@ -93,7 +92,7 @@ export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ]
 			piProvider: 'local-llm',
 			apiKey: apiKey ?? NO_KEY,
 			requestModelId: name,
-			rewriteError: ( message ) => rewriteError( message, address, name ),
+			rewriteError: ( message ) => rewriteError( message, address ),
 			...( facts.context
 				? {
 						exactContextWindow: {

@@ -279,7 +279,7 @@ describe( 'local-llm ai', () => {
 			);
 		} );
 
-		it( 'names a model the server refuses, with the server’s reason in words', async () => {
+		it( 'passes on why the server refused a request, in words', async () => {
 			const rewrite = await rewriteError();
 
 			expect(
@@ -287,20 +287,18 @@ describe( 'local-llm ai', () => {
 					'400: {"message":"registry.ollama.ai/library/gemma3:270m does not support tools","type":"invalid_request_error","param":null,"code":null}'
 				)
 			).toBe(
-				'Your local server can’t run gemma3:270m: registry.ollama.ai/library/gemma3:270m does not support tools. Pick another model.'
+				'Your local server refused the request: registry.ollama.ai/library/gemma3:270m does not support tools.'
 			);
 			expect(
 				rewrite(
 					'400: {"message":"{\\"error\\":{\\"code\\":400,\\"message\\":\\"Multimodal data provided, but model does not support multimodal requests.\\",\\"type\\":\\"invalid_request_error\\"}}","type":"invalid_request_error"}'
 				)
 			).toBe(
-				'Your local server can’t run gemma3:270m: Multimodal data provided, but model does not support multimodal requests. Pick another model.'
+				'Your local server refused the request: Multimodal data provided, but model does not support multimodal requests.'
 			);
 			expect(
 				rewrite( '404: {"message":"model \'gemma3:270m\' not found","type":"not_found_error"}' )
-			).toBe(
-				"Your local server can’t run gemma3:270m: model 'gemma3:270m' not found. Pick another model."
-			);
+			).toBe( "Your local server refused the request: model 'gemma3:270m' not found." );
 		} );
 
 		it( 'leaves context overflows, rate limits and server errors to pi', async () => {

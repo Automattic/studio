@@ -744,6 +744,37 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 	} );
 
+	it( 'offers no reset when the catalog recommends no model', async () => {
+		const acme = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+		};
+		const settings = aiSettings( 'wpcom', [ 'wpcom', 'openrouter' ] );
+		settings.accounts.openrouter = {
+			connected: true,
+			method: 'api-key',
+			models: [ { id: acme.id, label: acme.label } ],
+		};
+		await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings,
+				listProviderModels: async () => [ acme ],
+			},
+		} );
+
+		fireEvent.click(
+			await within( await findProviderRow( 'openrouter-models' ) ).findByRole( 'combobox', {
+				name: 'OpenRouter models',
+			} )
+		);
+		await screen.findByRole( 'option', { name: /Acme: Model/ } );
+		expect(
+			screen.queryByRole( 'button', { name: 'Reset to recommended' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'toggles custom instructions without changing saved text', async () => {
 		let enabled = true;
 		const { connector } = await setup( {

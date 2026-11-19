@@ -4,7 +4,7 @@ set -eu
 
 # Determines if a CI job should be skipped based on the files changed in the PR.
 # `shared-pipeline-vars` runs it on the upload agent for each job type and exports the result as SKIP_<JOB TYPE>,
-# which `pipeline.yml` uses as the `skip:` of the matching steps, so skipped jobs are never created.
+# which `pipeline.yml` uses as the `skip:` of matching steps, so skipped jobs never start.
 #
 # Usage:
 #   should-skip-job.sh --job-type <type>

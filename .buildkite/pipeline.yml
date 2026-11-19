@@ -27,11 +27,11 @@ e2e_config: &e2e_config
       - with: { platform: windows, arch: x64 }
 
 # Steps and groups that can be skipped have `skip: "$SKIP_…"`, decided at upload time by `commands/should-skip-job.sh`
-# via `shared-pipeline-vars` (`false` runs the step), so skipped jobs are never created and don't wait for an agent.
+# via `shared-pipeline-vars` (`false` runs the step), so skipped jobs never start or wait for an agent.
 # Buildkite doesn't send the `notify:` of a skipped step. The custom `even-if-skipped: true` attribute next to a
 # `github_commit_status` makes the `notify_skipped_steps` script of the `a8c-ci-toolkit` plugin, which the pipeline upload
 # step (defined in `buildkite-ci`) runs on this file, report that status anyway, so Required checks don't wait forever.
-# For a group, `skip:` and the `notify:` it reports have to be on the group itself.
+# Group-level checks stay on the group; skipping it also skips its children.
 steps:
   - label: Lint
     agents:

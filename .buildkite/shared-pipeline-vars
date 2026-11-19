@@ -18,7 +18,7 @@ export DOCKER_PLUGIN="docker#$DOCKER_PLUGIN_VERSION"
 export NODE_DOCKER_IMAGE="node:${NODE_VERSION}-bookworm"
 export RUBY_DOCKER_IMAGE="ruby:${RUBY_VERSION}-bookworm"
 
-# Skip decisions, made here on the upload agent so that skipped jobs are never created and don't wait for an agent.
+# Decide skips on the upload agent so unrelated jobs never start or wait for their agents.
 # One variable per job type (see `commands/should-skip-job.sh`): `false` runs the step, anything else is the reason to skip it.
 # The pipeline uses them as `skip: "$SKIP_…"`. An empty value (e.g. if the script fails) runs the step.
 SKIP_VALIDATION=$(.buildkite/commands/should-skip-job.sh --job-type validation || true)

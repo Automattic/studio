@@ -10,6 +10,7 @@ import fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { readConfig } from '@studio/common/lib/config/store';
+import { captureException } from '@studio/common/lib/error-reporting';
 import { SUPPORTED_COLOR_SCHEMES } from '@studio/common/lib/user-settings/preferences';
 import {
 	DEFAULT_HEIGHT,
@@ -203,7 +204,13 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation( mainWindow, getRendererLocation() );
+	const loadingWindow = mainWindow;
+	loadRendererLocation( loadingWindow, getRendererLocation() ).catch( ( error ) => {
+		// Closing the window, or quitting, while it loads cuts the load short: not a bug.
+		if ( ! loadingWindow.isDestroyed() ) {
+			captureException( error );
+		}
+	} );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {
 		await updateDesktopState( { devToolsOpen: true } );

@@ -35,6 +35,9 @@ export function setupErrorReporting(): void {
 		},
 		// Its module-load hooks only serve tracing, which the CLI doesn't use.
 		enableRuntimeChannelInjection: false,
+		// A session per process would count every command the apps run as a session of the release.
+		integrations: ( defaults ) =>
+			defaults.filter( ( integration ) => integration.name !== 'ProcessSession' ),
 		beforeSend: ( event, hint ) =>
 			hostReportsFailures && isCrash( event ) ? null : prepareErrorEvent( event, hint ),
 	} );

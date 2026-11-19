@@ -81,13 +81,31 @@ The backend will send a success email after the push finishes, telling the user 
 
 ### Live changes guard
 
-Pushing the database replaces the live one, so whatever changed on the live site since the local copy was taken would be lost. Before a push that includes the database (`all` or `sqls`) to a WordPress.com site, Studio asks the live site how many posts (of any type and status, trash included) and pieces of the site's design (templates, template parts, navigation menus, synced patterns and global styles) were modified, and how many comments were made, after the connection's last pull or push, whichever is later. When something changed, the push stops before exporting anything:
+Pushing the database replaces the live one, so whatever changed on the live site since the local copy was taken would be lost. Before a push that includes the database (`all` or `sqls`) to a WordPress.com site, Studio asks the live site what changed since the connection's last pull or push that included the database (`lastDatabaseSyncTimestamp`; a file-only sync doesn't move it):
+
+- content: posts of any type and status, including pages and trashed posts, modified since then, and media uploaded since then,
+- design: templates, template parts, navigation menus, synced patterns and global styles modified since then,
+- comments made since then.
+
+WordPress.com filters by these times on its side. Posts take the time in UTC; the comments and media endpoints compare it with the site's local dates, so Studio sends those the site's local time. When something changed, the push stops before exporting anything:
 
 - In a terminal, `studio push` says what changed and asks whether to overwrite it. Without a terminal it fails with the code `live_changed`; `--overwrite-live-changes` pushes anyway.
 - The publish panel shows what changed and offers **Publish anyway**, which pushes again with `overwriteLiveChanges`. Studio on the web runs the same check in the page.
 - The Studio Code agent's `site_push` tool fails with the same message and takes `overwriteLiveChanges` once the user chooses to publish anyway.
 
-This is interim protection, not merging: it sees posts, pages, the site's design and comments only (not orders, settings or plugin tables), a connection never synced has nothing to compare with, the sync times are when a pull or push finished (so a change made during a long pull is missed), and a check that fails only warns. The safe site publishing proposal (Automattic/studio#6024) describes the intended model, which merges live and local changes instead.
+Pulling instead keeps the live changes, but it replaces the local database too, so the local changes would have to be made again.
+
+The check lives in `checkLiveChanges` (`packages/common/lib/sync/live-changes.ts`), shared by the CLI and Studio on the web. A check that fails, for example on a Jetpack site that blocks the posts endpoint, lets the push go ahead and says so in the result.
+
+This is interim protection, not merging. It does not see:
+
+- orders, settings, users or plugin tables,
+- items deleted permanently on the live site (emptied trash, a reset template, a deleted comment),
+- changes on a connection that was never synced with the database, or was disconnected and connected again, since there is nothing to compare with,
+- changes made while a long pull was running, since the sync time is when the pull finished,
+- changes hidden by a clock that differs from WordPress.com's, since the sync time comes from the local clock.
+
+The safe site publishing proposal (Automattic/studio#6024, `docs/design-docs/safe-site-publishing.md` on its branch) describes the intended model, which merges live and local changes instead.
 
 ## Limitations
 

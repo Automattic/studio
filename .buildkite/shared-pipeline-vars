@@ -17,3 +17,16 @@ export NVM_PLUGIN="automattic/nvm#$NVM_PLUGIN_VERSION"
 export DOCKER_PLUGIN="docker#$DOCKER_PLUGIN_VERSION"
 export NODE_DOCKER_IMAGE="node:${NODE_VERSION}-bookworm"
 export RUBY_DOCKER_IMAGE="ruby:${RUBY_VERSION}-bookworm"
+
+# Skip decisions, made here on the upload agent so that skipped jobs are never created and don't wait for an agent.
+# One variable per job type (see `commands/should-skip-job.sh`): `false` runs the step, anything else is the reason to skip it.
+# The pipeline uses them as `skip: "$SKIP_…"`. An empty value (e.g. if the script fails) runs the step.
+SKIP_VALIDATION=$(.buildkite/commands/should-skip-job.sh --job-type validation || true)
+SKIP_E2E=$(.buildkite/commands/should-skip-job.sh --job-type e2e || true)
+SKIP_METRICS=$(.buildkite/commands/should-skip-job.sh --job-type metrics || true)
+SKIP_FASTLANE=$(.buildkite/commands/should-skip-job.sh --job-type fastlane || true)
+export SKIP_VALIDATION SKIP_E2E SKIP_METRICS SKIP_FASTLANE
+echo "SKIP_VALIDATION=$SKIP_VALIDATION"
+echo "SKIP_E2E=$SKIP_E2E"
+echo "SKIP_METRICS=$SKIP_METRICS"
+echo "SKIP_FASTLANE=$SKIP_FASTLANE"

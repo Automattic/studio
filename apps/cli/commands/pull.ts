@@ -18,6 +18,7 @@ import chalk from 'chalk';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { assertDatabaseCanBeTransferred } from 'cli/lib/database';
 import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { canUseExistingCore } from 'cli/lib/pull/local-core';
 import {
@@ -296,6 +297,7 @@ async function pullSite(
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( localPath );
 	logger.reportSuccess( __( 'Site loaded' ) );
+	assertDatabaseCanBeTransferred( site );
 	run.siteId = site.id;
 	onSiteLoaded( site.id );
 

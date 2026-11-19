@@ -30,6 +30,7 @@ import {
 import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { assertDatabaseCanBeTransferred, ensureSiteDatabaseReady } from 'cli/lib/database';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { confirm, select } from 'cli/lib/prompts';
@@ -37,7 +38,6 @@ import { connectInTerminal } from 'cli/lib/providers';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exportStaticContent } from 'cli/lib/static-content';
 import { exitOnCancel, onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { fetchSyncableSites, toLoggerError } from 'cli/lib/sync-api';
@@ -191,6 +191,7 @@ async function runPush(
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( siteFolder );
 	logger.reportSuccess( __( 'Site loaded' ) );
+	assertDatabaseCanBeTransferred( site );
 	pushed.siteId = site.id;
 	const reportPhase = ( phase?: PushPhase, progress?: number ) => {
 		if ( phase ) {
@@ -208,12 +209,7 @@ async function runPush(
 	reportPhase();
 
 	if ( sites.content !== 'static' ) {
-		logger.reportStart(
-			LoggerAction.INSTALL_SQLITE,
-			__( 'Setting up SQLite integration, if needed…' )
-		);
-		await keepSqliteIntegrationUpdated( siteFolder );
-		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+		await ensureSiteDatabaseReady( site, logger, LoggerAction.PREPARE_DATABASE );
 	}
 
 	const remoteSite = await forgetRejectedConfig( provider, () =>

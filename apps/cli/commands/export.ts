@@ -8,11 +8,11 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { assertDatabaseCanBeTransferred, ensureSiteDatabaseReady } from 'cli/lib/database';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyExportFailure } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
@@ -166,13 +166,9 @@ async function exportSite(
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
+		assertDatabaseCanBeTransferred( site );
 
-		logger.reportStart(
-			LoggerAction.INSTALL_SQLITE,
-			__( 'Setting up SQLite integration, if needed…' )
-		);
-		await keepSqliteIntegrationUpdated( siteFolder );
-		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+		await ensureSiteDatabaseReady( site, logger, LoggerAction.PREPARE_DATABASE );
 
 		const includes: ExportOptions[ 'includes' ] = { database: true, wpContent: true };
 

@@ -102,6 +102,7 @@ function buildServerConfig(
 		sitePath: site.path,
 		port: site.port,
 		phpVersion: resolveSupportedPhpVersion( site.phpVersion ),
+		databaseEngine: site.databaseEngine,
 		siteTitle: site.name,
 		phpMyAdminSupported: isPhpMyAdminSupported( site ),
 	};

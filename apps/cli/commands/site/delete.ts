@@ -5,6 +5,7 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { forgetRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import { getDatabaseEngine } from '@studio/common/lib/site-database';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
@@ -499,6 +500,11 @@ async function deleteSite(
 			}
 		} else {
 			logger.reportSuccess( __( 'Site files already removed' ) );
+		}
+		if ( getDatabaseEngine( site ) === 'mysql' ) {
+			const warning = __( 'The site’s database stays on your MySQL server.' );
+			warnings.push( warning );
+			logger.reportWarning( warning );
 		}
 	}
 

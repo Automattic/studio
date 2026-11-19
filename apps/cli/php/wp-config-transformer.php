@@ -96,6 +96,31 @@ class WP_Config_Transformer {
 	}
 
 	/**
+	 * Get the value of a constant defined in the wp-config.php file.
+	 *
+	 * @param  string $name The name of the constant.
+	 * @return string|int|float|null The value, or null when the constant isn't defined
+	 *                               with a string or number literal.
+	 */
+	public function get_constant_value( string $name ) {
+		foreach ( $this->tokens as $i => $token ) {
+			$is_string_token = is_array( $token ) && T_STRING === $token[0];
+			if ( $is_string_token && 'define' === strtolower( $token[1] ) ) {
+				$args       = $this->collect_function_call_argument_locations( $i );
+				$const_name = $this->evaluate_constant_name(
+					array_slice( $this->tokens, $args[0][0], $args[0][1] )
+				);
+				if ( $name === $const_name ) {
+					return $this->evaluate_literal(
+						array_slice( $this->tokens, $args[1][0], $args[1][1] )
+					);
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Define a constant in the wp-config.php file.
 	 *
 	 * @param string $name  The name of the constant.
@@ -308,6 +333,30 @@ class WP_Config_Transformer {
 
 		// Get the constant name value.
 		return eval( 'return ' . $name_token[1] . ';' );
+	}
+
+	/**
+	 * Evaluate a value from its tokens when it is a single string or number literal.
+	 *
+	 * @param  array $value_tokens The tokens containing the value.
+	 * @return string|int|float|null The evaluated value, or null for any other expression.
+	 */
+	private function evaluate_literal( array $value_tokens ) {
+		$literal_tokens = array_values(
+			array_filter(
+				$value_tokens,
+				function ( $token ) {
+					return ! $this->is_whitespace( $token );
+				}
+			)
+		);
+		$token          = $literal_tokens[0] ?? null;
+		$is_literal     = 1 === count( $literal_tokens ) && is_array( $token ) && in_array(
+			$token[0],
+			array( T_CONSTANT_ENCAPSED_STRING, T_LNUMBER, T_DNUMBER ),
+			true
+		);
+		return $is_literal ? eval( 'return ' . $token[1] . ';' ) : null;
 	}
 
 	/**

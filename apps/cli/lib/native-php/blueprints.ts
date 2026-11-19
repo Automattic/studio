@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { parse as parseShellCommand } from 'shell-quote';
+import { getSiteDatabase, type DatabaseConnection } from 'cli/lib/database';
+import { formatMysqlHost } from 'cli/lib/database/mysql';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
@@ -221,6 +223,19 @@ export function formatBlueprintRunnerError( error: PhpCommandError ): string {
 	return stderr ? truncate( stderr ) : error.message;
 }
 
+function getBlueprintDatabaseArgs( connection: DatabaseConnection ): string[] {
+	if ( connection.engine === 'sqlite' ) {
+		return [ '--db-engine=sqlite', `--db-path=${ connection.path }` ];
+	}
+	return [
+		'--db-engine=mysql',
+		`--db-host=${ formatMysqlHost( connection ) }`,
+		`--db-user=${ connection.user }`,
+		`--db-pass=${ connection.password }`,
+		`--db-name=${ connection.name }`,
+	];
+}
+
 export async function runBlueprint(
 	config: ServerConfig,
 	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
@@ -232,9 +247,14 @@ export async function runBlueprint(
 		throw new Error( `Remote blueprint URIs are not supported: ${ blueprint.uri }` );
 	}
 
+	const databaseConnection = await getSiteDatabase( {
+		path: config.sitePath,
+		phpVersion,
+		databaseEngine: config.databaseEngine,
+	} ).getConnection();
 	const defaultConstants: Record< string, boolean | string > = {
 		// The SQLite driver requires a non-empty DB_NAME at runtime.
-		DB_NAME: 'wordpress',
+		...( databaseConnection.engine === 'sqlite' ? { DB_NAME: 'wordpress' } : {} ),
 		...getSettingsWpConfigConstants( config ),
 	};
 
@@ -304,8 +324,7 @@ export async function runBlueprint(
 				'--mode=apply-to-existing-site',
 				`--site-path=${ config.sitePath }`,
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
-				'--db-engine=sqlite',
-				`--db-path=${ path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' ) }`,
+				...getBlueprintDatabaseArgs( databaseConnection ),
 			],
 			{
 				phpVersion,

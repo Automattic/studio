@@ -39,9 +39,32 @@ export async function ensureWpConfig(
 	signal?: AbortSignal,
 	config?: EnsureWpConfigOptions
 ): Promise< void > {
+	const shouldSetDefaultDatabaseName =
+		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
+	await defineWpConfigConstants(
+		siteFolder,
+		phpVersion,
+		{
+			...( shouldSetDefaultDatabaseName ? DEFAULT_WP_CONFIG_CONSTANTS : {} ),
+			...getSettingsWpConfigConstants( config ?? {} ),
+		},
+		signal
+	);
+}
+
+/**
+ * Defines constants in the site's wp-config.php, creating it from wp-config-sample.php
+ * when it doesn't exist yet.
+ */
+export async function defineWpConfigConstants(
+	siteFolder: string,
+	phpVersion: SupportedPHPVersion,
+	constants: Record< string, unknown >,
+	signal?: AbortSignal
+): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
-	const ensureWpConfigScript = `
+	const defineConstantsScript = `
 $transformer_path = $argv[1] ?? '';
 $wp_config_path = $argv[2] ?? '';
 $constants = json_decode( $argv[3] ?? '', true );
@@ -56,20 +79,13 @@ $transformer->to_file( $wp_config_path );
 	if ( ! fs.existsSync( wpConfigPath ) && fs.existsSync( wpConfigSamplePath ) ) {
 		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 	}
-
-	const shouldSetDefaultDatabaseName =
-		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
-	const constants = {
-		...( shouldSetDefaultDatabaseName ? DEFAULT_WP_CONFIG_CONSTANTS : {} ),
-		...getSettingsWpConfigConstants( config ?? {} ),
-	};
 	await ensurePhpBinaryAvailable( phpVersion );
 
 	try {
 		await runPhpCommand(
 			[
 				'-r',
-				ensureWpConfigScript,
+				defineConstantsScript,
 				WP_CONFIG_TRANSFORMER_PATH,
 				wpConfigPath,
 				JSON.stringify( constants ),
@@ -83,6 +99,39 @@ $transformer->to_file( $wp_config_path );
 			}`
 		);
 	}
+}
+
+/**
+ * Reads constants from the site's wp-config.php. A constant that isn't defined with a string
+ * or number literal (e.g. read from an environment variable) comes back as null.
+ */
+export async function readWpConfigConstants< Name extends string >(
+	siteFolder: string,
+	phpVersion: SupportedPHPVersion,
+	names: readonly Name[]
+): Promise< Record< Name, string | number | null > > {
+	const readConstantsScript = `
+require_once $argv[1];
+
+$transformer = WP_Config_Transformer::from_file( $argv[2] );
+$values = array();
+foreach ( json_decode( $argv[3], true ) as $name ) {
+	$values[ $name ] = $transformer->get_constant_value( $name );
+}
+echo json_encode( $values );
+`;
+	await ensurePhpBinaryAvailable( phpVersion );
+	const { stdout } = await runPhpCommand(
+		[
+			'-r',
+			readConstantsScript,
+			WP_CONFIG_TRANSFORMER_PATH,
+			path.join( siteFolder, 'wp-config.php' ),
+			JSON.stringify( names ),
+		],
+		{ phpVersion, mode: 'capture' }
+	);
+	return JSON.parse( stdout );
 }
 
 function getSiteUrlPrependContent( siteUrl: string, originalAutoPrependFile?: string ): string {

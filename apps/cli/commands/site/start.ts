@@ -4,11 +4,11 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __, sprintf } from '@wordpress/i18n';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { ensureSiteDatabaseReady } from 'cli/lib/database';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { getSiteDetails } from 'cli/lib/site-details';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/site/start.command';
@@ -79,12 +79,7 @@ async function startSite(
 
 		await setupCustomDomain( site, logger );
 
-		logger.reportStart(
-			LoggerAction.INSTALL_SQLITE,
-			__( 'Setting up SQLite integration, if needed…' )
-		);
-		await keepSqliteIntegrationUpdated( sitePath );
-		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+		await ensureSiteDatabaseReady( site, logger, LoggerAction.PREPARE_DATABASE );
 
 		try {
 			await updateManagedInstructionFiles( site, getAiInstructionsPath() );

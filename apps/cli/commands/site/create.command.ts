@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { DEFAULT_MYSQL_HOST } from '@studio/common/lib/site-database';
 import {
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
@@ -139,6 +140,36 @@ export const builder = ( yargs: StudioArgv ) => {
 			type: 'string',
 			describe: __( 'Admin email (defaults to "admin@localhost.com")' ),
 		} )
+		.option( 'db-engine', {
+			type: 'string',
+			choices: [ 'sqlite', 'mysql' ] as const,
+			describe: __( 'Database engine: SQLite in the site directory, or your own MySQL server' ),
+			default: 'sqlite',
+			// Hidden until Studio can import, export, push and pull MySQL sites.
+			hidden: true,
+		} )
+		.option( 'db-host', {
+			type: 'string',
+			describe: __( 'MySQL server host, with an optional port (e.g. "127.0.0.1:3306")' ),
+			default: DEFAULT_MYSQL_HOST,
+			hidden: true,
+		} )
+		.option( 'db-user', {
+			type: 'string',
+			describe: __( 'MySQL user' ),
+			hidden: true,
+		} )
+		.option( 'db-password', {
+			type: 'string',
+			describe: __( 'MySQL password' ),
+			default: '',
+			hidden: true,
+		} )
+		.option( 'db-name', {
+			type: 'string',
+			describe: __( 'MySQL database, created if it doesn’t exist' ),
+			hidden: true,
+		} )
 		.option( 'start', {
 			type: 'boolean',
 			describe: __( 'Start the site after creation' ),
@@ -163,6 +194,14 @@ export const builder = ( yargs: StudioArgv ) => {
 		.check( ( argv ) => {
 			if ( argv.keepSource && ( ! argv.from || ! isUrl( argv.from ) ) ) {
 				throw new Error( __( '--keep-source requires --from with an HTTP(S) URL' ) );
+			}
+			if ( argv.dbEngine === 'mysql' ) {
+				if ( ! argv.dbUser || ! argv.dbName ) {
+					throw new Error( __( '--db-engine mysql requires --db-user and --db-name' ) );
+				}
+				if ( argv.from ) {
+					throw new Error( __( '--from can’t be used with --db-engine mysql yet' ) );
+				}
 			}
 			return true;
 		} );

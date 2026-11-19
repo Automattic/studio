@@ -21,11 +21,11 @@ import {
 	updateSitePhpVersion,
 } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { assertDatabaseCanBeTransferred, ensureSiteDatabaseReady } from 'cli/lib/database';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyImportFailure } from 'cli/lib/utils';
@@ -310,6 +310,7 @@ async function importBackup(
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 		site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
+		assertDatabaseCanBeTransferred( site );
 		void reportSyncActivity( site.id, { kind: 'pending', direction: 'import' } );
 
 		if ( ! fs.existsSync( importFile ) ) {
@@ -363,12 +364,7 @@ async function importBackup(
 	} finally {
 		try {
 			if ( site && ( wasServerRunning || alwaysStartServer ) ) {
-				logger.reportStart(
-					LoggerAction.INSTALL_SQLITE,
-					__( 'Setting up SQLite integration, if needed…' )
-				);
-				await keepSqliteIntegrationUpdated( siteFolder );
-				logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
+				await ensureSiteDatabaseReady( site, logger, LoggerAction.PREPARE_DATABASE );
 
 				logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 				await startWordPressServer( site, logger, 'import' );

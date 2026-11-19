@@ -1,3 +1,4 @@
+import { databaseEngineSchema } from '@studio/common/lib/site-database';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { z } from 'zod';
@@ -18,6 +19,7 @@ export const serverConfigSchema = z.object( {
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	fileAccess: siteFileAccessSchema.optional(),
+	databaseEngine: databaseEngineSchema.optional(),
 	enableXdebug: z.boolean().optional(),
 	phpWorkers: z.number().int().positive().optional(),
 	enableDebugLog: z.boolean().optional(),

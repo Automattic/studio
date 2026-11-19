@@ -66,6 +66,13 @@ import {
 	listProcesses,
 } from 'cli/lib/daemon-client';
 import { type liberateWebsite } from 'cli/lib/data-liberation-client';
+import { ensureSiteDatabaseReady } from 'cli/lib/database';
+import {
+	connectToMysql,
+	parseMysqlHost,
+	writeMysqlConfig,
+	type MysqlConnection,
+} from 'cli/lib/database/mysql';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -81,7 +88,7 @@ import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
+import { needsSqliteSetup } from 'cli/lib/sqlite-integration';
 import {
 	completeSourceImport,
 	prepareSourceImport,
@@ -125,6 +132,8 @@ export type CreateCommandOptions = {
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
+	// The user's MySQL server and database, for a site that doesn't run on SQLite.
+	mysql?: MysqlConnection;
 	noStart: boolean;
 	skipBrowser: boolean;
 	skipLogDetails: boolean;
@@ -294,6 +303,16 @@ export async function runCommand(
 
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
+		if ( options.mysql ) {
+			await connectToMysql( options.mysql, phpVersion, { createDatabase: true } );
+		}
+		// A WordPress directory with a wp-config.php and none of SQLite's files already runs on
+		// the user's own database server.
+		const databaseEngine =
+			options.mysql || ( isWordPressDirResult && ! needsSqliteSetup( sitePath ) )
+				? 'mysql'
+				: undefined;
+
 		logger.reportSuccess( __( 'Site configuration validated' ) );
 
 		if ( ! pathExistsResult ) {
@@ -342,9 +361,14 @@ export async function runCommand(
 			logger.reportSuccess( __( 'WordPress files copied' ) );
 		}
 
-		logger.reportStart( LoggerAction.INSTALL_SQLITE, __( 'Setting up SQLite integration…' ) );
-		await keepSqliteIntegrationUpdated( sitePath );
-		logger.reportSuccess( __( 'SQLite integration configured' ) );
+		if ( options.mysql ) {
+			await writeMysqlConfig( sitePath, phpVersion, options.mysql );
+		}
+		await ensureSiteDatabaseReady(
+			{ path: sitePath, phpVersion, databaseEngine },
+			logger,
+			LoggerAction.PREPARE_DATABASE
+		);
 
 		try {
 			const sharedConfig = await readSharedConfig();
@@ -418,6 +442,7 @@ export async function runCommand(
 				port,
 				phpVersion,
 				fileAccess: options.fileAccess,
+				databaseEngine,
 				running: false,
 				status: 'ready',
 				isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
@@ -758,6 +783,15 @@ export async function commandHandler(
 		adminUsername,
 		adminPassword,
 		adminEmail,
+		mysql:
+			argv.dbEngine === 'mysql' && argv.dbUser && argv.dbName
+				? {
+						...parseMysqlHost( argv.dbHost ),
+						user: argv.dbUser,
+						password: argv.dbPassword,
+						name: argv.dbName,
+				  }
+				: undefined,
 		noStart: ! argv.start,
 		skipBrowser: !! argv.skipBrowser,
 		skipLogDetails: !! argv.skipLogDetails,

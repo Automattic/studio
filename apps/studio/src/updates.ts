@@ -73,8 +73,8 @@ const MAC_NETWORK_ERROR_CODES = [ -1001, -1003, -1004, -1005, -1009 ];
 /**
  * Errors that a later check may not hit, so they're retried rather than reported. On Windows
  * Squirrel's messages are localized, but the exception and frame names they include aren't.
- * Electron reports "Invalid result:" when Update.exe exits cleanly without printing anything,
- * which happens now and then on launch checks.
+ * Electron reads Update.exe's output when the process exits rather than when its output closes,
+ * so while the main process is busy, as at launch, it can find no output yet: "Invalid result:".
  */
 function classifyTransientUpdateError( err: Error ): 'lock' | 'network' | 'no-output' | null {
 	if ( process.platform === 'darwin' ) {

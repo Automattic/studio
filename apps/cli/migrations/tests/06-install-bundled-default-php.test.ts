@@ -6,6 +6,7 @@ import {
 	getConfiguredPhpBinaryPackageId,
 	resolveSupportedPhpVersion,
 } from '@studio/common/lib/php-binary-metadata';
+import * as tar from 'tar';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installBundledDefaultPhp } from 'cli/migrations/06-install-bundled-default-php';
 
@@ -20,19 +21,28 @@ function getDefaultPhpPackageId(): string {
 	return getConfiguredPhpBinaryPackageId( resolveSupportedPhpVersion( DEFAULT_PHP_VERSION ) )!;
 }
 
-function getBundledDefaultPhpDir(): string {
-	return path.join( bundledPhpDir, getDefaultPhpPackageId() );
+function getBundledDefaultPhpArchivePath(): string {
+	return path.join( bundledPhpDir, `${ getDefaultPhpPackageId() }.tar.br` );
 }
 
 function getDefaultPhpDestinationDir(): string {
 	return path.join( configDir, 'php-bin', getDefaultPhpPackageId() );
 }
 
-function writeBundledDefaultPhp(): void {
-	const bundledDir = getBundledDefaultPhpDir();
-	fs.mkdirSync( bundledDir, { recursive: true } );
-	fs.writeFileSync( path.join( bundledDir, getBinaryName() ), 'bundled php' );
-	fs.writeFileSync( path.join( bundledDir, 'runtime.json' ), '{"binary":"php"}' );
+async function writeBundledDefaultPhp(): Promise< void > {
+	const packageDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-php-package-' ) );
+	try {
+		fs.mkdirSync( path.join( packageDir, 'ext' ) );
+		fs.writeFileSync( path.join( packageDir, getBinaryName() ), 'bundled php', { mode: 0o644 } );
+		fs.writeFileSync( path.join( packageDir, 'ext', 'xdebug.so' ), 'bundled xdebug' );
+		fs.writeFileSync( path.join( packageDir, 'runtime.json' ), '{"binary":"php"}' );
+		await tar.c(
+			{ file: getBundledDefaultPhpArchivePath(), cwd: packageDir, brotli: true, portable: true },
+			fs.readdirSync( packageDir )
+		);
+	} finally {
+		fs.rmSync( packageDir, { recursive: true, force: true } );
+	}
 }
 
 describe( 'installBundledDefaultPhp', () => {
@@ -44,6 +54,7 @@ describe( 'installBundledDefaultPhp', () => {
 	} );
 
 	afterEach( () => {
+		vi.restoreAllMocks();
 		vi.unstubAllEnvs();
 		fs.rmSync( configDir, { recursive: true, force: true } );
 		fs.rmSync( bundledPhpDir, { recursive: true, force: true } );
@@ -53,22 +64,48 @@ describe( 'installBundledDefaultPhp', () => {
 		await expect( installBundledDefaultPhp.needsToRun() ).resolves.toBe( false );
 	} );
 
-	it( 'copies the bundled default PHP folder when the destination patch folder is missing', async () => {
-		writeBundledDefaultPhp();
+	it( 'unpacks the bundled default PHP archive when the destination patch folder is missing', async () => {
+		await writeBundledDefaultPhp();
 
 		await expect( installBundledDefaultPhp.needsToRun() ).resolves.toBe( true );
 		await installBundledDefaultPhp.run();
 
-		expect(
-			fs.readFileSync( path.join( getDefaultPhpDestinationDir(), getBinaryName() ), 'utf8' )
-		).toBe( 'bundled php' );
-		expect(
-			fs.readFileSync( path.join( getDefaultPhpDestinationDir(), 'runtime.json' ), 'utf8' )
-		).toBe( '{"binary":"php"}' );
+		const destinationDir = getDefaultPhpDestinationDir();
+		expect( fs.readFileSync( path.join( destinationDir, getBinaryName() ), 'utf8' ) ).toBe(
+			'bundled php'
+		);
+		expect( fs.readFileSync( path.join( destinationDir, 'ext', 'xdebug.so' ), 'utf8' ) ).toBe(
+			'bundled xdebug'
+		);
+		expect( fs.readFileSync( path.join( destinationDir, 'runtime.json' ), 'utf8' ) ).toBe(
+			'{"binary":"php"}'
+		);
+		if ( process.platform !== 'win32' ) {
+			expect( fs.statSync( path.join( destinationDir, getBinaryName() ) ).mode & 0o777 ).toBe(
+				0o755
+			);
+		}
+	} );
+
+	it( 'leaves no folder when the bundled archive cannot be unpacked', async () => {
+		await writeBundledDefaultPhp();
+		const archive = fs.readFileSync( getBundledDefaultPhpArchivePath() );
+		fs.writeFileSync(
+			getBundledDefaultPhpArchivePath(),
+			archive.subarray( 0, Math.floor( archive.length / 2 ) )
+		);
+		const warn = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+		await installBundledDefaultPhp.run();
+
+		expect( fs.readdirSync( path.dirname( getDefaultPhpDestinationDir() ) ) ).toEqual( [] );
+		expect( warn ).toHaveBeenCalledWith(
+			expect.stringContaining( 'failed to install bundled PHP' )
+		);
 	} );
 
 	it( 'does not replace an existing destination patch folder', async () => {
-		writeBundledDefaultPhp();
+		await writeBundledDefaultPhp();
 		fs.mkdirSync( getDefaultPhpDestinationDir(), { recursive: true } );
 		fs.writeFileSync( path.join( getDefaultPhpDestinationDir(), getBinaryName() ), 'existing php' );
 
@@ -80,7 +117,7 @@ describe( 'installBundledDefaultPhp', () => {
 	} );
 
 	it( 'keeps the folder another process installed first', async () => {
-		writeBundledDefaultPhp();
+		await writeBundledDefaultPhp();
 		await expect( installBundledDefaultPhp.needsToRun() ).resolves.toBe( true );
 		fs.mkdirSync( getDefaultPhpDestinationDir(), { recursive: true } );
 		fs.writeFileSync( path.join( getDefaultPhpDestinationDir(), getBinaryName() ), 'winner php' );

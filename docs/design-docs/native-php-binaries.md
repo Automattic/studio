@@ -106,10 +106,11 @@ without pretending that upstream PHP published another patch.
 
 At runtime, Studio uses `packages/common/lib/php-binary-cdn-metadata.mjs` as the
 source of truth for the requested PHP minor version. Packaged Studio builds
-ship the recommended PHP version under the app resources
-`php-bin/<package-id>/`;
-a CLI migration copies that directory into the writable install location if the
-destination package folder does not exist. Studio downloads other PHP versions
+ship the recommended PHP version in the app resources as one brotli-compressed
+tarball, `php-bin/<package-id>.tar.br`, whose executables the packaging signs
+with the release identity before compressing them. A CLI migration unpacks it
+into the writable install location if the destination package folder does not
+exist, so the first site starts offline. Studio downloads other PHP versions
 on demand from manifest URLs, then verifies the checked-in SHA-256 before
 extracting the archive. If metadata is missing for the requested device, native
 PHP install fails for that version.

@@ -172,8 +172,16 @@ export class E2ESession {
 		return fs.readJson( path.join( this.configPath, 'config.json' ) ).catch( () => ( {} ) );
 	}
 
+	// Builds before config.json keep their sites in cli.json, which the trunk perf job's baseline still runs.
 	async getSites(): Promise< PersistedSite[] > {
-		return ( await this.readConfig() ).sites ?? [];
+		const { sites } = await this.readConfig();
+		if ( sites ) {
+			return sites;
+		}
+		const legacy = await fs
+			.readJson( path.join( this.configPath, 'cli.json' ) )
+			.catch( () => ( {} ) );
+		return legacy.sites ?? [];
 	}
 
 	// Polls the config file, which the CLI may write slightly after the UI shows the site.

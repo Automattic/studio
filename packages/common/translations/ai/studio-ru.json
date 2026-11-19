@@ -54,35 +54,20 @@
 	"%s preview is ready": [
 		"Предварительный просмотр %s готов"
 	],
-	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
-		"Сайт «%s» перестал сообщать о ходе импорта, но обновление, возможно, ещё выполняется. Проверьте рабочий сайт, прежде чем отправлять изменения снова."
-	],
 	"A code editor with a built-in AI agent.": [
 		"Редактор кода со встроенным ИИ-агентом."
 	],
 	"A coding agent that runs in your terminal.": [
 		"Агент для программирования, работающий в терминале."
 	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"На этом сайте уже выполняется синхронизация. Дождитесь её завершения и повторите попытку."
-	],
 	"AI apps": [
 		"ИИ-приложения"
-	],
-	"API key": [
-		"API-ключ"
-	],
-	"API key is required": [
-		"Требуется API-ключ"
 	],
 	"Activate all plugins": [
 		"Активировать все плагины"
 	],
 	"Activate plugin": [
 		"Активировать плагин"
-	],
-	"Activate theme": [
-		"Активировать тему"
 	],
 	"Add annotation to batch": [
 		"Добавить аннотацию в пакет"
@@ -110,9 +95,6 @@
 	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"При обновлении WordPress Studio CLI произошла ошибка. Повторите попытку."
-	],
-	"Annotate site elements visually in a browser.": [
-		"Визуально аннотируйте элементы сайта в браузере."
 	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"Аннотирование доступно для дизайн-систем, созданных Studio Code."
@@ -153,12 +135,6 @@
 	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
 		"Необходимо указать хотя бы один параметр (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
 	],
-	"Audit SEO": [
-		"Проверить SEO"
-	],
-	"Audit performance": [
-		"Проверить производительность"
-	],
 	"Automatic sidebar collapsing disabled.": [
 		"Автоматическое сворачивание боковой панели отключено."
 	],
@@ -174,14 +150,8 @@
 	"Back to email list": [
 		"Назад к списку писем"
 	],
-	"Backup timed out — no progress detected": [
-		"Время ожидания резервного копирования истекло — прогресс не обнаружен"
-	],
 	"Backups": [
 		"Резервные копии"
-	],
-	"Balanced": [
-		"Сбалансированно"
 	],
 	"Batch notes": [
 		"Пакетные аннотации"
@@ -618,12 +588,6 @@
 	"Failed to check backup size": [
 		"Не удалось проверить размер резервной копии"
 	],
-	"Failed to check backup status": [
-		"Не удалось проверить состояние резервного копирования"
-	],
-	"Failed to check import status": [
-		"Не удалось проверить состояние импорта"
-	],
 	"Failed to check the preview site": [
 		"Не удалось проверить сайт предварительного просмотра"
 	],
@@ -644,9 +608,6 @@
 	],
 	"Failed to initiate backup": [
 		"Не удалось запустить резервное копирование"
-	],
-	"Failed to initiate import on remote site": [
-		"Не удалось запустить импорт на удалённом сайте"
 	],
 	"Failed to load your %s sites": [
 		"Не удалось загрузить ваши сайты %s"
@@ -702,17 +663,8 @@
 	"Gemini API key": [
 		"API-ключ Gemini"
 	],
-	"Generate images": [
-		"Создать изображения"
-	],
 	"Generating static site…": [
 		"Создание статического сайта…"
-	],
-	"Get site info": [
-		"Получить сведения о сайте"
-	],
-	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
-		"Начните с разового бесплатного лимита, а затем докупайте по мере необходимости. API-ключ не требуется."
 	],
 	"Getting your sign-in code…": [
 		"Получение кода для входа…"
@@ -777,17 +729,8 @@
 	"Import cancelled": [
 		"Импорт отменён"
 	],
-	"Import media": [
-		"Импортировать медиафайлы"
-	],
-	"Import site": [
-		"Импортировать сайт"
-	],
 	"Include this chat’s transcript": [
 		"Приложить запись этого чата"
-	],
-	"Inspect design": [
-		"Проверить дизайн"
 	],
 	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
 		"Установите [Claude Code](https://code.claude.com/docs/en/setup), если он у вас ещё не установлен."
@@ -825,35 +768,8 @@
 	"Liberate": [
 		"Освободить сайт"
 	],
-	"List": [
-		"Показать список"
-	],
-	"List %s": [
-		"Показать %s"
-	],
-	"List connected remote sites": [
-		"Показать подключённые удалённые сайты"
-	],
-	"List menus": [
-		"Показать меню"
-	],
-	"List plugins": [
-		"Показать плагины"
-	],
 	"List previews": [
 		"Показать предварительные просмотры"
-	],
-	"List published %s": [
-		"Показать опубликованные %s"
-	],
-	"List terms": [
-		"Показать термины"
-	],
-	"List themes": [
-		"Показать темы"
-	],
-	"List users": [
-		"Показать пользователей"
 	],
 	"Load skill": [
 		"Загрузить навык"
@@ -894,9 +810,6 @@
 	"Manage menus": [
 		"Управление меню"
 	],
-	"Manage on WordPress.com": [
-		"Управлять на WordPress.com"
-	],
 	"Manage permalinks": [
 		"Управление постоянными ссылками"
 	],
@@ -905,9 +818,6 @@
 	],
 	"Manage sharing": [
 		"Управление общим доступом"
-	],
-	"Manage site options": [
-		"Управление параметрами сайта"
 	],
 	"Manage terms": [
 		"Управление терминами"
@@ -932,9 +842,6 @@
 	],
 	"Meta rejected this API key. Check the key and try again.": [
 		"Meta отклонила этот API-ключ. Проверьте ключ и повторите попытку."
-	],
-	"Migrate & rebuild a site from a closed platform.": [
-		"Перенесите и воссоздайте сайт с закрытой платформы."
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
@@ -984,9 +891,6 @@
 	"Open a site or Blueprint": [
 		"Открыть сайт или Blueprint"
 	],
-	"Open annotation browser": [
-		"Открыть браузер для аннотаций"
-	],
 	"Open documentation": [
 		"Открыть документацию"
 	],
@@ -1007,9 +911,6 @@
 	],
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"Агент для программирования от OpenAI в приложении ChatGPT."
-	],
-	"Optimize category taxonomy with AI.": [
-		"Оптимизируйте структуру рубрик с помощью ИИ."
 	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"Число обработчиков PHP должно быть целым числом от 1 до 64."
@@ -1034,9 +935,6 @@
 	],
 	"Point to something you’d like to change.": [
 		"Укажите то, что вы хотите изменить."
-	],
-	"Present design options": [
-		"Показать варианты дизайна"
 	],
 	"Preview browser controls": [
 		"Элементы управления браузером предварительного просмотра"
@@ -1086,9 +984,6 @@
 	"Published to": [
 		"Опубликовано на"
 	],
-	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
-		"Для публикации и получения изменений нужен поддерживаемый веб-сайт WordPress.com или Pressable."
-	],
 	"Publishing cancelled": [
 		"Публикация отменена"
 	],
@@ -1104,14 +999,8 @@
 	"Pull preview": [
 		"Получить предварительный просмотр"
 	],
-	"Pull site": [
-		"Получить сайт"
-	],
 	"Pulling the preview replaces the changes made here.": [
 		"Получение предварительного просмотра заменит изменения, внесённые здесь."
-	],
-	"Push site": [
-		"Отправить сайт"
 	],
 	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
 		"Отправить локальный сайт на сайт WordPress.com или опубликовать его на Spacefast"
@@ -1121,12 +1010,6 @@
 	],
 	"Read %s": [
 		"Прочитать %s"
-	],
-	"Read site option": [
-		"Прочитать параметр сайта"
-	],
-	"Read site title": [
-		"Прочитать название сайта"
 	],
 	"Recent chats": [
 		"Последние чаты"
@@ -1140,12 +1023,6 @@
 	"Recent pages": [
 		"Последние страницы"
 	],
-	"Refresh preview": [
-		"Обновить предварительный просмотр"
-	],
-	"Remote backup failed": [
-		"Не удалось создать удалённую резервную копию"
-	],
 	"Remote environment: %s": [
 		"Удалённое окружение: %s"
 	],
@@ -1157,9 +1034,6 @@
 	],
 	"Replace the contents of a non-empty output directory": [
 		"Заменить содержимое непустого выходного каталога"
-	],
-	"Reply in your own words instead of picking an option.": [
-		"Ответьте своими словами вместо выбора варианта."
 	],
 	"Report an issue on GitHub": [
 		"Сообщить о проблеме на GitHub"
@@ -1209,21 +1083,6 @@
 	"Run \"studio blueprint list\" to see available slugs.": [
 		"Выполните \"studio blueprint list\", чтобы увидеть доступные слаги."
 	],
-	"Run WordPress code": [
-		"Выполнить код WordPress"
-	],
-	"Run WordPress command": [
-		"Выполнить команду WordPress"
-	],
-	"Run a performance audit on a site.": [
-		"Проведите аудит производительности сайта."
-	],
-	"Run an on-page SEO audit on a site.": [
-		"Проведите SEO-аудит страниц сайта."
-	],
-	"Run task": [
-		"Выполнить задачу"
-	],
 	"Run this in a terminal, then sign in with your Claude account:": [
 		"Выполните эту команду в терминале, а затем войдите с помощью учётной записи Claude:"
 	],
@@ -1235,9 +1094,6 @@
 	],
 	"Save annotation (Enter)": [
 		"Сохранить аннотацию (Enter)"
-	],
-	"Scaffold theme": [
-		"Создать каркас темы"
 	],
 	"Screenshots are available in the desktop app.": [
 		"Снимки экрана доступны в настольном приложении."
@@ -1253,11 +1109,6 @@
 	],
 	"Selected files, content, and settings on your website will be overwritten.": [
 		"Выбранные файлы, контент и настройки на вашем сайте будут перезаписаны."
-	],
-	"Send %d annotation": [
-		"Отправить %d аннотацию",
-		"Отправить %d аннотации",
-		"Отправить %d аннотаций"
 	],
 	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
 		"Делитесь временной копией локального сайта с кем угодно. Срок действия сайта предварительного просмотра истекает, если он не обновляется около недели."
@@ -1340,9 +1191,6 @@
 	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
 		"Навыки дают ИИ-агентам инструкции по разработке в WordPress. Изменения здесь применяются ко всем существующим сайтам и задают значения по умолчанию для новых сайтов."
 	],
-	"Something went wrong while updating the live site.": [
-		"При обновлении рабочего сайта что-то пошло не так."
-	],
 	"Source is a temporary preview site.": [
 		"Источник — временный сайт предварительного просмотра."
 	],
@@ -1393,9 +1241,6 @@
 	],
 	"Stop annotating. Your notes will be kept.": [
 		"Завершить аннотирование. Ваши заметки сохранятся."
-	],
-	"Strong": [
-		"Мощно"
 	],
 	"Studio was updated, and the site \"%s\" could not be started again.": [
 		"Studio было обновлено, и сайт «%s» не удалось запустить снова."
@@ -1450,9 +1295,6 @@
 	],
 	"The live site must be a qualifying connected site of this local site.": [
 		"Рабочий сайт должен быть подходящим подключённым сайтом этого локального сайта."
-	],
-	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
-		"Время ожидания импорта на рабочем сайте истекло — вероятно, сайт слишком большой. Попробуйте уменьшить объём содержимого или файлов."
 	],
 	"The output directory %s is not empty.": [
 		"Выходной каталог %s не пуст."
@@ -1511,9 +1353,6 @@
 	"This site and its preview both changed": [
 		"Изменились и этот сайт, и его предварительный просмотр"
 	],
-	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
-		"Этот сайт пока не поддерживает получение данных. Обновите Jetpack на сайте до последней версии и повторите попытку."
-	],
 	"This site has changes its preview doesn't": [
 		"На этом сайте есть изменения, которых нет в его предварительном просмотре"
 	],
@@ -1528,12 +1367,6 @@
 	],
 	"This site isn't one of your WordPress.com or Pressable sites.": [
 		"Этот сайт не входит в число ваших сайтов WordPress.com или Pressable."
-	],
-	"This website has been deleted. Choose another website.": [
-		"Этот веб-сайт удалён. Выберите другой веб-сайт."
-	],
-	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
-		"Для этого веб-сайта нужен тарифный план хостинга с поддержкой публикации из WordPress Studio."
 	],
 	"Tips reset.": [
 		"Подсказки сброшены."
@@ -1559,17 +1392,11 @@
 	"Unable to open this source.": [
 		"Не удаётся открыть этот источник."
 	],
-	"Unexpected response from server while checking backup status": [
-		"Неожиданный ответ сервера при проверке состояния резервной копии"
-	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"Неизвестный провайдер %1$s. Выберите один из следующих: %2$s."
 	],
 	"Unsupported backup file": [
 		"Неподдерживаемый файл резервной копии"
-	],
-	"Update %s": [
-		"Обновить %s"
 	],
 	"Update all plugins": [
 		"Обновить все плагины"
@@ -1577,17 +1404,8 @@
 	"Update plugin": [
 		"Обновить плагин"
 	],
-	"Update site option": [
-		"Изменить параметр сайта"
-	],
-	"Update site title": [
-		"Изменить название сайта"
-	],
 	"Update todo list": [
 		"Обновить список задач"
-	],
-	"Update user": [
-		"Изменить пользователя"
 	],
 	"Uploading files…": [
 		"Загрузка файлов…"
@@ -1639,9 +1457,6 @@
 	],
 	"Using Copilot plan": [
 		"Используется тарифный план Copilot"
-	],
-	"Validate blocks": [
-		"Проверить блоки"
 	],
 	"Visit previews": [
 		"Открыть предварительные просмотры"
@@ -1709,9 +1524,6 @@
 	"WordPress.com API": [
 		"API WordPress.com"
 	],
-	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
-		"WordPress.com не поддерживает мультисайт. Публикация этой сети может вызвать проблемы."
-	],
 	"WordPress.com hosting": [
 		"Хостинг WordPress.com"
 	],
@@ -1724,17 +1536,11 @@
 	"Workspace navigation": [
 		"Навигация по рабочей области"
 	],
-	"Write": [
-		"Записать"
-	],
 	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
 		"Можно прикрепить не более %d изображений. Отправьте или удалите аннотацию, прежде чем захватывать другую область."
 	],
 	"You can close this tab and return to WordPress Studio.": [
 		"Вы можете закрыть эту вкладку и вернуться в WordPress Studio."
-	],
-	"You need administrator access to publish or pull changes.": [
-		"Для публикации или получения изменений нужны права администратора."
 	],
 	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
 		"Вы достигли лимита использования тарифного плана ChatGPT. Управляйте использованием на chatgpt.com/settings/usage."
@@ -1780,21 +1586,6 @@
 	],
 	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
 		"base-url должен быть URL-адресом http(s) без пути, например https://example.com"
-	],
-	"inline content": [
-		"встроенное содержимое"
-	],
-	"media item": [
-		"медиафайл"
-	],
-	"media items": [
-		"медиафайлы"
-	],
-	"page": [
-		"страницу"
-	],
-	"pages": [
-		"страницы"
 	],
 	"post": [
 		"запись"

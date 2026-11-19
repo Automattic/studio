@@ -25,6 +25,8 @@ interface ServeChild extends EventEmitter {
 	exitCode: number | null;
 	signalCode: NodeJS.Signals | null;
 	kill: () => boolean;
+	connected?: boolean;
+	disconnect?: () => void;
 }
 
 type SpawnServe = ( file: string, args: string[] ) => ServeChild;
@@ -88,8 +90,16 @@ export function startTailscaleServe(
 	} );
 	return {
 		ended,
+		// Through the IPC channel when there is one: the watchdog's `disconnect`
+		// handler ends `tailscale serve`. On Windows `kill` would end the watchdog
+		// at once, without its handlers, and leave `tailscale serve` running.
 		stop: () => {
-			if ( child.exitCode === null && child.signalCode === null ) {
+			if ( child.exitCode !== null || child.signalCode !== null ) {
+				return;
+			}
+			if ( child.connected && child.disconnect ) {
+				child.disconnect();
+			} else {
 				child.kill();
 			}
 		},

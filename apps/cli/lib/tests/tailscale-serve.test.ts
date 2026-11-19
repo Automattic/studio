@@ -59,6 +59,18 @@ describe( 'startTailscaleServe', () => {
 		serve.stop();
 		expect( child.kill ).toHaveBeenCalledTimes( 1 );
 	} );
+
+	// On Windows `kill` ends the watchdog at once, without its handlers, so the
+	// stop goes through the IPC channel, which the watchdog answers on every system.
+	it( 'stops the watchdog through its IPC channel when it has one', () => {
+		const child = Object.assign( fakeChild(), { connected: true, disconnect: vi.fn() } );
+		const serve = startTailscaleServe( '/usr/bin/tailscale', 8084, () => child );
+
+		serve.stop();
+
+		expect( child.disconnect ).toHaveBeenCalledTimes( 1 );
+		expect( child.kill ).not.toHaveBeenCalled();
+	} );
 } );
 
 describe( 'waitForTailscaleHttps', () => {
@@ -243,6 +255,18 @@ describe( 'SERVE_WATCHDOG', () => {
 				watchdog.kill();
 
 				await vi.waitFor( () => expect( serveRuns() ).toBe( false ), { timeout: 5000 } );
+			} );
+		}, 15_000 );
+
+		it( "ends what the wrapper started when remote mode's stop closes the IPC channel", async () => {
+			await withWrapper( async ( wrapper, serveRuns ) => {
+				const serve = startTailscaleServe( wrapper, 0 );
+				await vi.waitFor( () => expect( serveRuns() ).toBe( true ), { timeout: 5000 } );
+
+				serve.stop();
+
+				await vi.waitFor( () => expect( serveRuns() ).toBe( false ), { timeout: 5000 } );
+				await serve.ended;
 			} );
 		}, 15_000 );
 

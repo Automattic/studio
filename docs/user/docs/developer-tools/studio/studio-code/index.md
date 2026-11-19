@@ -4,7 +4,7 @@ WordPress Studio Code is an agentic coding tool built into the WordPress Studio 
 
 It gives you an interactive chat where you can build, customize, and manage WordPress sites conversationally, creating themes and plugins, editing files, running WP-CLI commands, deploying previews and publishing your site.
 
-To use it with WordPress.com AI credits, you need to be logged into your WordPress.com account, and [having a payment method on WordPress.com is required](http://wordpress.com/me/purchases/add-payment-method) to prevent abuse. You can also [use your own Anthropic API key](#use-your-own-anthropic-api-key) instead. 
+To use it with WordPress.com AI credits, you need to be logged into your WordPress.com account, and [having a payment method on WordPress.com is required](http://wordpress.com/me/purchases/add-payment-method) to prevent abuse. You can also [connect another AI provider](#ai-providers) instead, such as your ChatGPT plan, a Claude subscription, or your own API key.
 
 ## [Getting started](#0-getting-started)
 
@@ -14,7 +14,7 @@ WordPress Studio Code is available in the WordPress Studio desktop app and as pa
 
 WordPress Studio Code in the WordPress Studio desktop app is built into a friendly, familiar interface and doesn’t require npm dependencies.
 
-Open your WordPress Studio desktop app and select a site in the sidebar (or add a new site). WordPress Studio Code is the chat next to the site preview: type your request in the chat box at the bottom. If you haven’t connected an AI provider yet, the chat box shows “Connect a provider to build and edit your site.” Click **Connect** to log in with WordPress.com or add your own Anthropic API key.
+Open your WordPress Studio desktop app and select a site in the sidebar (or add a new site). WordPress Studio Code is the chat next to the site preview: type your request in the chat box at the bottom. If you haven’t connected an AI provider yet, the chat box shows “Connect a provider to build and edit your site.” Click **Connect** to open **Settings → Providers**, where you can log in with WordPress.com or connect another [AI provider](#ai-providers).
 
 ![The WordPress Studio window with a site selected: the sidebar, a WordPress Studio Code chat polishing the site’s home page, and the site preview beside it.](../../../../screenshots/images/workspace-chat.webp)
 
@@ -42,17 +42,17 @@ By default, WordPress Studio Code uses WordPress.com infrastructure to generate 
 3.  A browser window will open. Log into your WordPress.com account and approve the connection.
 4.  Paste the authorization token back into the terminal to complete the login.
 
-Alternatively, you can [use your own Anthropic API key](#use-your-own-anthropic-api-key): type `/connect anthropic` in the chat in the terminal, or connect **Anthropic** in **Settings → Providers** in the desktop app.
+Alternatively, you can connect [another AI provider](#ai-providers): type `/connect` in the chat in the terminal and choose one, or connect one in **Settings → Providers** in the desktop app.
 
 ### [When the chat box can’t send](#when-the-chat-box-cant-send)
 
 In the desktop app, when a WordPress.com chat can’t send a message yet, the chat box tells you why and offers the next step:
 
--   “Connect a provider to build and edit your site.” Click **Connect** to log in with WordPress.com or add an Anthropic API key.
+-   “Connect a provider to build and edit your site.” Click **Connect** to open **Settings → Providers** and log in with WordPress.com or connect another AI provider.
 -   “Add a payment method to use WordPress.com AI.” Click **Set up** to add one on WordPress.com. WordPress Studio checks again when you come back to the app.
 -   “Studio Code AI is currently available through limited beta access.” Click **Learn more**.
 -   “Connect a different provider to continue this chat.” Click **Connect** to open **Settings → Providers**.
--   “Add AI credits to send another message.” Click **Add credits** to buy more. See [What happens when you reach the limit](#20-what-happens-when-you-reach-the-limit).
+-   “Add AI credits to send another message.” Click **Add credits** to buy more. See [What happens when you reach the limit](#what-happens-when-you-reach-the-limit).
 
 You can still read the chat while the notice shows.
 
@@ -77,7 +77,7 @@ Type your request in natural language and the AI agent will execute for you, cre
 
 -   Publish “My Portfolio” site to examplesite.com
 
-The agent can read and write files in your site directory, run WP-CLI commands, take screenshots of your site, and publish changes to WordPress.com, all based on your instructions.
+The agent can read and write files in your site directory, run WP-CLI commands, take screenshots of your site, and publish changes to a site it’s connected to, on WordPress.com or another [hosting provider](https://wordpress.studio/docs/sync/#hosting-providers) such as Spacefast, all based on your instructions. It asks you to confirm the site before it publishes.
 
 ### [Designing a site](#designing-a-site)
 
@@ -97,8 +97,8 @@ To give WordPress Studio Code instructions that apply to every new chat, across 
 
 Instead of describing which part of the page you mean, you can point at it. In the desktop app, annotate a local site’s preview. If the site is stopped, clicking **Annotate** starts it first:
 
-1.  Click **Annotate** at the end of the site preview’s address bar, or press ⇧⌘. (Ctrl+Shift+. on Windows and Linux). The preview switches to annotation mode.
-2.  Click an element in the preview, or drag to select an area of the page. A numbered marker appears, with a note box.
+1.  Click **Annotate** at the end of the site preview’s address bar, choose **Annotate** from the chat box’s **+** menu, or press ⇧⌘. (Ctrl+Shift+. on Windows and Linux). The preview switches to annotation mode, with the annotation tools at the bottom of the preview: **Select** (V), **Draw** (D), and **Discard annotations** (the trash can).
+2.  With **Select**, click an element in the preview, or drag to select an area of the page. With **Draw**, sketch on the page, for example to circle something. A numbered marker appears, with a note box. A selected area or a drawing comes with a screenshot of that part of the page, drawing included.
 3.  Type your note in **Describe the change**. To add a reference image, click **Attach image** (the paperclip), or paste or drop a PNG, JPEG, GIF, or WebP image into the note.
 4.  Press Enter, or click **Add annotation to batch** (the arrow). The note is staged in the chat box, shown as one attachment such as “2 annotations”, so you can add a message before you send.
 5.  Add more notes the same way. Click a marker, or the note in the chat box’s list of annotations, to edit it, or click **Delete annotation** (the trash can) to remove it.
@@ -114,10 +114,11 @@ If you’d rather send every note as soon as you finish it, turn off **Batch not
 
 To stop:
 
--   Press Esc to close an open note. Press Esc again, or click **Annotate** again (**Exit annotation mode**), to leave annotation mode. Your notes are kept.
+-   Press Esc to close an open note. Press Esc again, or click **Annotate** again (**Stop annotating**), to leave annotation mode. Your notes are kept.
 -   To delete a note, click its marker and then **Delete annotation**, or delete it from the list of annotations in the chat box.
+-   To delete every note and leave annotation mode, click **Discard annotations** in the annotation tools.
 
-You can add up to 100 notes before you send them. Annotate isn’t available for the **Database** view or for chats that work on the live site. In the `studio ui` browser app, you can annotate the design system but not the site itself yet.
+The screenshots of selected areas and drawings are images, so send them with a model that reads images, not Fast. You can add up to 100 notes before you send them. Annotate isn’t available for the **Database** view or for chats that work on the live site. In the `studio ui` browser app, you can annotate the design system but not the site itself yet.
 
 If you haven’t connected an AI provider, clicking **Annotate** opens **Put your feedback to work**. Click **Continue with WordPress.com** to log in, or **Choose a different provider** to open **Settings → Providers**.
 
@@ -127,13 +128,13 @@ One WordPress Studio Code agent handles both your local sites and your WordPress
 
 In the desktop app, when a chat for a local site that’s [connected to a WordPress.com site](https://wordpress.studio/docs/sync/) works on the live site, a **Live** chip appears in the chat box. To switch back, click **+** and choose **Work on local site**, or remove the chip. The agent never pulls a live site over a local one without your confirmation. See [WordPress Studio Sync](https://wordpress.studio/docs/sync/) for how pulling and publishing work.
 
-When the agent edits a block theme’s template or template part that you’ve customized in the Site Editor, it makes the change in your customized copy too, keeps your other edits, and tells you.
+When the agent edits a block theme’s template, template part, or styles that you’ve customized in the Site Editor, it makes the change in your customized copy too, keeps your other edits, and tells you.
 
 ### [Slash commands](#10-slash-commands)
 
-While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all: **Add files** and the commands come first, followed by the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, **SEO Audit** for `/rank-me-up`, and **Send feedback** for `/feedback`.
+While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see the common ones: **Add files** and the commands come first, followed by the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, **SEO Audit** for `/rank-me-up`, and **Send feedback** for `/feedback`.
 
-![The chat box + menu open, listing Add files, Choose model, and Connect providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, Liberate, and Send feedback.](../../../../screenshots/images/composer-add-menu.webp)
+![The chat box + menu open, listing Add files, Annotate, and Connect AI providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, Liberate, and Send feedback.](../../../../screenshots/images/composer-add-menu.webp)
 
 | Command | Description | Available in… |
 | --- | --- | --- |
@@ -141,8 +142,8 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | /auto-start | Start stopped sites when you send a chat message (shown as **Auto-start** while it’s off) | Desktop |
 | /browser | Open the active site in your browser | Terminal |
 | /clear | Clear the conversation and start a fresh session | Terminal |
-| /connect | Connect a provider, such as `/connect anthropic` for your own Anthropic API key | Terminal |
-| /connect-provider | Open **Settings → Providers** to use WordPress.com AI credits or your own API key (shown as **Connect providers**) | Desktop |
+| /connect | Connect a provider: choose one from the list, or name it, such as `/connect anthropic`, `/connect openai`, `/connect gemini`, `/connect github-copilot`, or `/connect meta` | Terminal |
+| /connect-provider | Open **Settings → Providers** to choose what powers chat (shown as **Connect AI providers**) | Desktop |
 | /credits | Show your AI credit balance and buy more AI credits | Terminal |
 | /disconnect | Disconnect a provider | Terminal |
 | /exit | Exit the chat | Terminal |
@@ -151,10 +152,10 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | /local | Switch a chat that works on the live site back to the local site (shown as **Work on local site**) | Desktop |
 | /login | Log in to WordPress.com | Terminal |
 | /logout | Log out of WordPress.com | Terminal |
-| /model | Switch the AI model tier (shown as **Choose model** in the desktop app) | Terminal and desktop |
+| /model | Switch the AI model or tier (shown as **Choose model** in the desktop app) | Terminal and desktop |
 | /need-for-speed | Run a performance audit on your site | Terminal and desktop |
 | /preview | Create or update a preview site of the active site on WordPress.com | Terminal |
-| /provider | Switch between WordPress.com and Anthropic API | Terminal |
+| /provider | Switch the AI provider, such as WordPress.com, Anthropic, or OpenAI | Terminal |
 | /publish | Publish the active site to WordPress.com | Terminal |
 | /rank-me-up | Run an on-page SEO audit on your site | Terminal and desktop |
 | /swag | Treat yourself to some WordPress swag | Terminal |
@@ -176,7 +177,7 @@ Sending feedback requires being logged in to WordPress.com. You can also ask Wor
 
 ### [AI model tiers](#11-ai-model-tiers)
 
-WordPress Studio Code doesn’t ask you to pick a model by name. Instead, you choose a tier based on how much depth the task needs:
+With WordPress.com, WordPress Studio Code doesn’t ask you to pick a model by name. Instead, you choose a tier based on how much depth the task needs:
 
 -   **Fast**: everyday changes, small edits, and quick fixes
 -   **Balanced**: work that benefits from more careful reasoning
@@ -188,19 +189,19 @@ Balanced and Strong require purchased AI Credits. Until your account has bought 
 
 Switch tiers at any time, including mid-conversation:
 
--   **Desktop**: click the model button in the chat box (it shows the current tier, such as **Fast**), or choose **Choose model** from the **+** menu
+-   **Desktop**: click the model button in the chat box (it shows the current tier, such as **Fast**), or type `/model` and choose **Choose model**
 -   **Terminal**: run the `/model` command
 
-If you use your own Anthropic API key, the model menu lists **Sonnet 5.5** and **Opus 5.5** instead of tiers. See [AI providers](#ai-providers).
+With another provider, the model menu lists that provider’s models by name instead of tiers, such as **Sonnet 5.5** and **Opus 5.5** for Anthropic. See [AI providers](#ai-providers).
 
 ### [Uploads](#12-uploads)
 
 Upload images and files into WordPress Studio Code to use across your project:
 
--   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**
+-   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**. To attach a screenshot of the site preview, choose **Take screenshot** from **Browser options** above the preview.
 -   **Terminal**: drag into the chat or point to a specific local file or folder
 
-The Fast tier reads text only. To send an image, choose Balanced or Strong (or, with your own API key, Sonnet 5.5 or Opus 5.5) first.
+The Fast tier reads text only. To send an image, choose Balanced or Strong, or another provider’s model, first.
 
 ### [New conversations](#13-new-conversations)
 
@@ -213,17 +214,20 @@ In the desktop app, each site’s chats are listed under the site in the sidebar
 
 ### [AI providers](#ai-providers)
 
-Open **Settings → Providers** and connect the account you want to use for chat in WordPress Studio Code.
+The agent needs an AI provider to build. You can use the AI you already have, or start with the one-time free allowance from WordPress.com.
 
--   **WordPress.com** uses [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). Click **Connect** to sign in with your WordPress.com account.
--   **OpenAI** uses your [ChatGPT plan](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites) or an [OpenAI API key](https://platform.openai.com/api-keys). Choose a method from **Connect** and follow the sign-in prompt or save your key.
--   **Anthropic** uses a Claude subscription token or an [Anthropic API key](https://platform.claude.com/docs/en/get-api-key). Choose a method from **Connect** and follow the setup instructions.
--   **Google Gemini** uses an API key from [Google AI Studio](https://aistudio.google.com/apikey). Google bills usage to the key’s project.
--   **GitHub Copilot** uses your [GitHub Copilot plan](https://github.com/features/copilot/plans). Click **Connect** and approve the sign-in code in your browser.
+-   **WordPress.com**, with your WordPress.com account
+-   **OpenAI**, with a ChatGPT plan or an API key
+-   **Anthropic**, with a Claude subscription or an API key
+-   **Google Gemini**, with an API key
+-   **GitHub Copilot**, with a Copilot plan
+-   **Meta**, with an API key
 
-Use **Default AI provider** to choose which connected account new chats use. The model menu lets you choose a provider for a particular chat. In the terminal, switch providers with the `/provider` command.
+Set them up in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, the models it offers, and who bills you.
 
-Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
+Use **Default AI provider**, at the top of **Settings → Providers**, to choose which connected provider new chats use. The model menu in the chat box lists the models of every connected provider, so you can choose a different one for a particular chat. In the terminal, switch providers with the `/provider` command, which also changes the **Default AI provider**.
+
+Switching a chat to another provider’s model starts a new chat, because the models don’t share memory. In the desktop app, WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 
 ## [Terminal-specific guidance](#terminal-specific-guidance)
 
@@ -301,7 +305,7 @@ AI responses pause until you add more AI Credits. Your local sites keep running 
 When that happens, you have two options:
 
 1.  **Buy more AI Credits** from inside WordPress Studio Code. In the desktop app, click **Add credits** in the chat box, or choose **Get more credits** from the model menu, and pick an amount in **Add AI credits**. In the terminal, run `/credits`.
-2.  **Use your own Anthropic API key** — Usage through your own key is billed by Anthropic and doesn’t use AI Credits.
+2.  **Connect another AI provider**, such as your own Anthropic API key or your ChatGPT plan. See [Providers in WordPress Studio](https://wordpress.studio/docs/providers/). Usage through another provider is billed by that provider and doesn’t use AI Credits.
 
 ### [Use your own Anthropic API key](#use-your-own-anthropic-api-key)
 
@@ -309,22 +313,22 @@ You can connect WordPress Studio Code directly to Anthropic at any time using yo
 
 To use your own key in the desktop app:
 
-1.  Create an API key at [console.anthropic.com](https://console.anthropic.com/) (requires an Anthropic account with billing set up).
+1.  Create an API key in the [Claude Console](https://platform.claude.com/settings/keys) (requires an Anthropic account with billing set up).
 2.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select **Providers**. You can also choose **Providers** from the account menu.
-3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
+3.  Next to **Anthropic**, click **Connect** and choose **API key**. Paste your key in the **Anthropic API key** field, and click **Save**.
 4.  In the chat box, choose **Sonnet 5.5** or **Opus 5.5** from the model menu.
 
-![The Providers page of WordPress Studio's Settings, with WordPress.com marked Connected and a Manage button, and Anthropic with a Connect button to use your own API key.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
+![The Providers page of WordPress Studio's Settings: Default AI provider and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, and Meta with Connect buttons.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
 To switch it using CLI:
 
-1.  Create an API key at [console.anthropic.com](https://console.anthropic.com/) (requires an Anthropic account with billing set up).
+1.  Create an API key in the [Claude Console](https://platform.claude.com/settings/keys) (requires an Anthropic account with billing set up).
 2.  Start WordPress Studio Code in your terminal:
 
 ```plain
 studio code
 ```
 
-3.  Type `/provider`, and select “Anthropic · API key” in the chat and paste your key when prompted. The key is saved locally for future sessions.
-4.  To switch back and forth between providers at any time, use the `/provider` command and choose **WordPress.com** or **Anthropic · API key**.
+3.  Type `/provider` and select **Anthropic**. When asked how to connect, choose **API key** and paste your key. The key is saved locally for future sessions.
+4.  To switch back and forth between providers at any time, use the `/provider` command and choose **WordPress.com** or **Anthropic**.
 5.  To change your API key, use `/connect anthropic`, which will prompt you to enter a new key. `/disconnect anthropic` removes it.

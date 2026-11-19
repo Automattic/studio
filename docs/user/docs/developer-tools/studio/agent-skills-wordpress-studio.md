@@ -53,6 +53,8 @@ There are two ways to manage skills in WordPress Studio – globally and per sit
 
 You can find the global settings for skills in **Settings → Skills**. Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Skills** page.
 
+![The Skills page of WordPress Studio Settings, with the WordPress skills option to turn on skills for existing and new sites, and a Manage skills for this site link.](../../../screenshots/images/settings-skills.webp)
+
 From that page you can:
 
 -   Turn on **WordPress skills** to install every available skill at once

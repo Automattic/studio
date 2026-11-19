@@ -34,7 +34,7 @@ const mark =
 export const openaiProvider: Provider< OpenaiConfig > = {
 	id: 'openai',
 	label: 'OpenAI',
-	description: () => __( 'Use GPT models with your ChatGPT plan or an OpenAI API key.' ),
+	description: () => __( 'Sign in with ChatGPT or use an OpenAI API key.' ),
 	learnMoreUrl: 'https://platform.openai.com/api-keys',
 	icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${ mark }</svg>`,
 	logo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 36 36"><rect x="-6" y="-6" width="36" height="36" fill="#FFF"/><g fill="#000">${ mark }</g></svg>`,

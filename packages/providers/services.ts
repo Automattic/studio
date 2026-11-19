@@ -1,9 +1,11 @@
 import { anthropicServices } from './anthropic/services';
 import { geminiServices } from './gemini/services';
 import { githubCopilotServices } from './github-copilot/services';
+import { metaServices } from './meta/services';
 import { openaiServices } from './openai/services';
 import { spacefastServices } from './spacefast/services';
 import { wpcomServices } from './wpcom/services';
+import { xaiServices } from './xai/services';
 import type { ProviderConfigs, ProviderId, ProviderServices, ProviderSite } from './types';
 
 const SERVICES: {
@@ -14,6 +16,8 @@ const SERVICES: {
 	openai: openaiServices,
 	gemini: geminiServices,
 	'github-copilot': githubCopilotServices,
+	meta: metaServices,
+	xai: xaiServices,
 	spacefast: spacefastServices,
 };
 
@@ -22,6 +26,3 @@ export function getProviderServices< Id extends ProviderId >(
 ): ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > > {
 	return SERVICES[ id ];
 }
-
-// Previews upload to WordPress.com the way a push does, until they are a capability of their own.
-export { createTusUpload } from './wpcom/sites/upload';

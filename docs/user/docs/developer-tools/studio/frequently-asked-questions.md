@@ -1,6 +1,6 @@
 # WordPress Studio: Frequently asked questions
 
-On this page you’ll find answers to common questions about the [WordPress Studio](https://wordpress.studio/) app and certain features like the [WordPress Studio Code](#studio-code) and [WordPress Studio Sync.](#sync)
+On this page you’ll find answers to common questions about the [WordPress Studio](https://wordpress.studio/) app and certain features like the [WordPress Studio Code](#wordpress-studio-code-faqs) and [WordPress Studio Sync.](#wordpress-studio-sync-faqs)
 
 As a reminder, WordPress Studio is an [open source project](https://github.com/Automattic/studio) that welcomes all contributions. If you spot a bug or the WordPress Studio feature you need is missing, we have some options:
 
@@ -55,6 +55,8 @@ If you have already created a site in WordPress Studio, and want to switch SQLit
 6.  Start your MySQL server.
 7.  Start the WordPress Studio’s site.
 8.  Open the site.
+
+WordPress Studio’s built-in phpMyAdmin supports SQLite only, so the site menu’s **Tools → Database** and **Open in → phpMyAdmin** are unavailable for a site that uses your own MySQL server. Use a separate database client, such as the one that comes with your MySQL server.
 
 ### [How do I select the PHP and WordPress versions for my site?](#15-how-do-i-change-the-php-version-used-for-my-site-) 
 
@@ -153,7 +155,7 @@ You can talk with WordPress Studio Code in any language you prefer.
 
 ### [Can I use WordPress Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
-Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → Providers** in the desktop app, or use `/connect anthropic` in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
+Yes, with another AI provider, such as your own Anthropic API key. Connect **Anthropic**, **OpenAI**, **Google Gemini**, **GitHub Copilot**, or **Meta** in **Settings → Providers** in the desktop app, or use `/connect` in the terminal. Usage is billed through that provider or plan. See [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) for how to connect each one.
 
 To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://wordpress.studio/docs/#connect-to-wordpresscom). Some features, such as [image generation](https://wordpress.studio/docs/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 

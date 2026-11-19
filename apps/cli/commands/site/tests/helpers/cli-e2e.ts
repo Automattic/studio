@@ -6,11 +6,15 @@
  * copying, real `cli.json` persistence — without mocking, touching the
  * developer's `~/.studio`, or needing the desktop app.
  */
-import { spawn } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import semver from 'semver';
+import { getProcessManagerPaths } from 'cli/lib/paths';
+import { SocketRequestClient } from 'cli/lib/socket';
+import cliPackageJson from '../../../../package.json';
 
 // `dist/cli/main.mjs` relative to this file (apps/cli/commands/site/tests/helpers).
 const CLI_MAIN = path.resolve( import.meta.dirname, '../../../../dist/cli/main.mjs' );
@@ -22,6 +26,8 @@ const REAL_SERVER_FILES = path.join( os.homedir(), '.studio', 'server-files' );
 const BUNDLED_LATEST_WP = path.join( REAL_SERVER_FILES, 'wordpress-versions', 'latest' );
 // Native PHP binaries are downloaded on first use; sharing the real cache means
 // each run downloads a given version at most once instead of per isolated env.
+// The CLI also rewrites each version's php.ini there, with the link resolved so
+// the file never names this temporary directory.
 const REAL_PHP_BIN = path.join( os.homedir(), '.studio', 'php-bin' );
 
 export interface CliEnv {
@@ -30,6 +36,7 @@ export interface CliEnv {
 	sitesDir: string;
 	cliConfigPath: string;
 	daemonHome: string;
+	basePort?: number;
 }
 
 export interface CliResult {
@@ -48,9 +55,14 @@ export function cliE2ePrerequisitesMet(): boolean {
 }
 
 /**
- * Creates an isolated config + sites directory for a single CLI run.
+ * Creates an isolated config + sites directory for a single CLI run. `basePort` sets where the
+ * CLI starts looking for free site ports (STUDIO_BASE_PORT). `ownServerFiles` starts from an empty
+ * `server-files`, like a new install, instead of sharing the real one.
  */
-export function setupCliEnv(): CliEnv {
+export function setupCliEnv( {
+	basePort,
+	ownServerFiles = false,
+}: { basePort?: number; ownServerFiles?: boolean } = {} ): CliEnv {
 	const root = path.join( os.tmpdir(), `studio-cli-e2e-${ randomUUID() }` );
 	const configDir = path.join( root, 'config' );
 	const sitesDir = path.join( root, 'sites' );
@@ -66,7 +78,11 @@ export function setupCliEnv(): CliEnv {
 
 	// Reuse the real bundled WordPress without copying hundreds of MB. The copy
 	// the CLI performs only reads from here, so the symlink is never written to.
-	fs.symlinkSync( REAL_SERVER_FILES, path.join( configDir, 'server-files' ), 'junction' );
+	if ( ownServerFiles ) {
+		fs.mkdirSync( path.join( configDir, 'server-files' ) );
+	} else {
+		fs.symlinkSync( REAL_SERVER_FILES, path.join( configDir, 'server-files' ), 'junction' );
+	}
 	fs.mkdirSync( REAL_PHP_BIN, { recursive: true } );
 	fs.symlinkSync( REAL_PHP_BIN, path.join( configDir, 'php-bin' ), 'junction' );
 
@@ -84,7 +100,7 @@ export function setupCliEnv(): CliEnv {
 		} )
 	);
 
-	return { root, configDir, sitesDir, cliConfigPath, daemonHome };
+	return { root, configDir, sitesDir, cliConfigPath, daemonHome, basePort };
 }
 
 export function cleanupCliEnv( env: CliEnv ): void {
@@ -105,12 +121,16 @@ export function cleanupCliEnv( env: CliEnv ): void {
 }
 
 /**
- * Runs the built CLI with the given arguments against the isolated environment.
- * Resolves with the exit code and captured output once the process exits.
+ * Runs the built CLI, or the one at `cliMain`, with the given arguments against the isolated
+ * environment. Resolves with the exit code and captured output once the process exits.
  */
-export function runCli( args: string[], env: CliEnv ): Promise< CliResult > {
+export function runCli(
+	args: string[],
+	env: CliEnv,
+	{ cliMain = CLI_MAIN }: { cliMain?: string } = {}
+): Promise< CliResult > {
 	return new Promise( ( resolve, reject ) => {
-		const child = spawn( process.execPath, [ CLI_MAIN, ...args ], {
+		const child = spawn( process.execPath, [ cliMain, ...args ], {
 			// Non-TTY stdio so the CLI runs fully non-interactively.
 			stdio: [ 'ignore', 'pipe', 'pipe' ],
 			env: {
@@ -123,6 +143,7 @@ export function runCli( args: string[], env: CliEnv ): Promise< CliResult > {
 				// ~/Library/.../appdata-v1.json on a dev machine and exits 1.
 				E2E: '1',
 				E2E_APP_DATA_PATH: env.root,
+				...( env.basePort ? { STUDIO_BASE_PORT: String( env.basePort ) } : {} ),
 			},
 		} );
 
@@ -133,6 +154,66 @@ export function runCli( args: string[], env: CliEnv ): Promise< CliResult > {
 		child.on( 'error', reject );
 		child.on( 'close', ( code ) => resolve( { code, stdout, stderr } ) );
 	} );
+}
+
+/**
+ * Installs the newest `wp-studio` release older than this CLI from npm, and returns the path of
+ * its `main.mjs`. Releases before 2.1.0 are skipped: on Windows they listen on the same named
+ * pipes whatever STUDIO_PROCESS_MANAGER_HOME says, so their daemon can't be isolated.
+ */
+export function installPreviousCli(): { version: string; cliMain: string } {
+	const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+	const npmOptions = { encoding: 'utf8', shell: process.platform === 'win32' } as const;
+	const versions: string[] = JSON.parse(
+		execFileSync( npm, [ 'view', 'wp-studio', 'versions', '--json' ], npmOptions )
+	);
+	const version = semver.maxSatisfying(
+		versions,
+		`>=2.1.0 <${ semver.coerce( cliPackageJson.version ) }`
+	);
+	if ( ! version ) {
+		throw new Error( `No wp-studio release older than ${ cliPackageJson.version } on npm.` );
+	}
+
+	const prefix = path.join( os.tmpdir(), `studio-cli-e2e-wp-studio-${ version }` );
+	const cliMain = path.join( prefix, 'node_modules', 'wp-studio', 'dist', 'cli', 'main.mjs' );
+	if ( ! fs.existsSync( cliMain ) ) {
+		execFileSync(
+			npm,
+			[
+				'install',
+				'--prefix',
+				prefix,
+				`wp-studio@${ version }`,
+				'--ignore-scripts',
+				'--no-audit',
+				'--no-fund',
+			],
+			npmOptions
+		);
+	}
+	return { version, cliMain };
+}
+
+/**
+ * Sends a request to the isolated environment's process-manager daemon and returns its payload.
+ */
+export async function daemonRequest(
+	env: CliEnv,
+	request: { type: 'ping' } | { type: 'list-processes' }
+): Promise< Record< string, unknown > > {
+	const client = new SocketRequestClient(
+		getProcessManagerPaths( env.daemonHome ).controlSocketPath,
+		5_000
+	);
+	const response = ( await client.sendAndWaitForResponse( {
+		...request,
+		requestId: randomUUID(),
+	} ) ) as { type: string; payload?: Record< string, unknown >; error?: { message: string } };
+	if ( response.type === 'error' ) {
+		throw new Error( response.error?.message );
+	}
+	return response.payload ?? {};
 }
 
 /**

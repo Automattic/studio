@@ -14,9 +14,11 @@ You can switch tiers at any point in a conversation, including mid-task. WordPre
 
 Fast reads text only: it can’t look at images you attach or at screenshots of your site. Use Balanced or Strong when the task needs the agent to see the page.
 
-![The WordPress Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect provider… listed under Actions.](../../../../screenshots/images/model-menu.webp)
+![The WordPress Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect AI providers listed under Actions.](../../../../screenshots/images/model-menu.webp)
 
 The models behind each tier are updated as newer models become available. For example, WordPress Studio 1.23 moved Balanced and Strong to newer models. You don’t need to change anything when this happens: you keep choosing by tier.
+
+Tiers apply only to WordPress.com. When you connect another AI provider, the model menu also lists that provider’s models by name, and they don’t use AI credits. See [AI providers](https://wordpress.studio/docs/studio-code/#ai-providers).
 
 ## [All tiers use AI credits](#1-all-tiers-use-ai-credits)
 

@@ -15,6 +15,7 @@ import { SITE_START_REQUESTED_AT_ENV } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -35,8 +36,9 @@ import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
+import { diagnoseStalledPhp } from 'cli/lib/stalled-php';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
+import { ProcessDescription, SITE_PROCESS_PREFIX } from 'cli/lib/types/process-manager-ipc';
 import {
 	ServerConfig,
 	ManagerMessagePayload,
@@ -45,7 +47,7 @@ import {
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
 
-export const SITE_PROCESS_PREFIX = 'studio-site-';
+export { SITE_PROCESS_PREFIX };
 
 // Get an abort signal that's triggered on SIGINT/SIGTERM. This is useful for aborting and cleaning
 // up async operations.
@@ -93,7 +95,7 @@ export type StartServerOptions = z.infer< typeof startServerOptionsSchema >;
 
 function buildServerConfig(
 	site: SiteData,
-	options?: Partial< StartServerOptions & RunBlueprintOptions >
+	options?: Partial< StartServerOptions & SetUpSiteOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
@@ -154,6 +156,10 @@ function buildServerConfig(
 
 	if ( site.enableXdebug ) {
 		serverConfig.enableXdebug = true;
+	}
+
+	if ( site.phpWorkers ) {
+		serverConfig.phpWorkers = site.phpWorkers;
 	}
 
 	if ( site.enableDebugLog ) {
@@ -250,6 +256,7 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
+	let serverPid: number | undefined;
 	const now = Date.now();
 	// Phases time from here; a `site start` an app asked for times from the request, so it includes
 	// spawning and loading this CLI and the preparation above.
@@ -258,6 +265,7 @@ export async function startWordPressServer(
 	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
+		serverPid = processDesc.status === 'online' ? processDesc.pid : undefined;
 		await readyOrExit.waitFor( processDesc.pmId );
 		phaseTimings.daemon_ms = Date.now() - now;
 		await sendMessage(
@@ -290,6 +298,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: true,
+				file_access: getSiteFileAccess( site ),
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
 				running_site_count: await getRunningSiteCount(),
@@ -303,13 +312,23 @@ export async function startWordPressServer(
 		}
 		return processDesc;
 	} catch ( error ) {
+		const timeMs = Date.now() - startedAt;
+		const failureReason = classifyStartFailure( error );
 		try {
+			// Windows starts hang far more often than others; record whether the stuck PHP was working
+			// or waiting so a fix can target the cause.
+			const diagnosis =
+				failureReason === 'timeout' && serverPid && process.platform === 'win32'
+					? await diagnoseStalledPhp( serverPid, site.path )
+					: undefined;
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
 				command,
 				success: false,
-				failure_reason: classifyStartFailure( error ),
-				time_ms: Date.now() - startedAt,
+				file_access: getSiteFileAccess( site ),
+				failure_reason: failureReason,
+				...diagnosis,
+				time_ms: timeMs,
 				...phaseTimings,
 			} );
 		} catch {
@@ -700,28 +719,27 @@ async function waitForProcessToExit( processName: string ): Promise< void > {
 	}
 }
 
-export interface RunBlueprintOptions {
+export interface SetUpSiteOptions {
 	wpVersion?: string;
-	blueprint: unknown;
-	blueprintUri: string;
+	blueprint?: unknown;
+	blueprintUri?: string;
 	siteLanguage?: string;
 }
 
 /**
- * Run a blueprint on a site without starting a server
- * 1. Start the process (via the process manager daemon)
- * 2. Wait for 'ready' message
- * 3. Send 'run-blueprint' message with config
- * 4. Wait for completion
- * 5. Stop the process
+ * Set a site up without starting a server: write wp-config.php, install WordPress, and apply the
+ * Blueprint when one is given. Runs in a server child process that stops once it is done.
  */
-export async function runBlueprint(
+export async function setUpSite(
 	site: SiteData,
 	logger: Logger< string >,
-	options: RunBlueprintOptions
+	options: SetUpSiteOptions
 ): Promise< void > {
 	await ensureSitePhpBinaryAvailable( site, logger );
-	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
+	logger.reportStart(
+		SiteCommandLoggerAction.APPLY_BLUEPRINT,
+		options.blueprint ? __( 'Applying Blueprint…' ) : __( 'Setting up WordPress…' )
+	);
 
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
@@ -735,7 +753,7 @@ export async function runBlueprint(
 				processDesc.pmId,
 				processName,
 				{
-					topic: 'run-blueprint',
+					topic: 'set-up-site',
 					data: { config: serverConfig },
 				},
 				{ logger }

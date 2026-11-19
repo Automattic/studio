@@ -1,5 +1,6 @@
 import { SNAPSHOT_EVENTS, type SnapshotEvent } from '@studio/common/lib/cli-events';
-import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
+import { selectLiveSite } from '@studio/common/lib/live-preview-site';
+import { buildPreview, fetchSnapshotUsage, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
@@ -26,10 +27,6 @@ type SyncConnectListener = ( event: {
 	studioSiteId: string;
 	autoOpenPush?: boolean;
 } ) => void;
-
-const PREVIEW_STATUS_ACTIVE = '2';
-const PREVIEW_MAX_POLLS = 100;
-const PREVIEW_POLL_INTERVAL_MS = 3000;
 
 const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 const PUBLISH_WATCH_ATTEMPTS = 60;
@@ -111,71 +108,64 @@ export class WpcomServices {
 	async publishPreview(
 		siteId: string,
 		existingHostname?: string,
-		name?: string
+		name?: string,
+		liveSiteSelection?: string
 	): Promise< Snapshot > {
 		const existing = existingHostname
 			? ( await this.getSnapshots() ).find( ( snapshot ) => snapshot.url === existingHostname )
 			: undefined;
-		this.emitSyncActivity( siteId, {
-			kind: 'pending',
-			direction: 'preview',
-			message: __( 'Creating archive…' ),
-			...( existingHostname ? { hostname: existingHostname } : {} ),
-		} );
+		const progress = ( message: string ) =>
+			this.emitSyncActivity( siteId, {
+				kind: 'pending',
+				direction: 'preview',
+				message,
+				...( existingHostname ? { hostname: existingHostname } : {} ),
+			} );
+		progress( __( 'Creating archive…' ) );
 		try {
 			const zip = await exportSiteZip( await this.sites.client( siteId ), {
 				standalone: true,
 			} );
-			this.emitSyncActivity( siteId, {
-				kind: 'pending',
-				direction: 'preview',
-				message: __( 'Uploading site…' ),
-				...( existingHostname ? { hostname: existingHostname } : {} ),
-			} );
-			const form = new FormData();
-			form.append(
-				'import',
-				new Blob( [ zip as BlobPart ], { type: 'application/zip' } ),
-				'local-env-site-1.zip'
+			const liveSite = selectLiveSite(
+				( await this.connections() ).filter( ( site ) => site.localSiteId === siteId ),
+				liveSiteSelection
 			);
-			if ( existing ) {
-				form.append( 'site_id', String( existing.atomicSiteId ) );
-			}
-			const created = await this.auth.request< { domain_name: string; atomic_site_id: number } >(
-				`/wpcom/v2/jurassic-ninja/${
-					existing ? 'update-site-from-zip' : 'create-new-site-from-zip'
-				}`,
-				{ method: 'POST', body: form }
+			const snapshotName = name ?? existing?.name;
+			// A preview made on Jurassic Ninja by an earlier release is replaced, and left to expire.
+			const preview = await buildPreview(
+				wpcomSites,
+				{ token: await this.auth.requireToken() },
+				{
+					kind: 'archive',
+					file: new Blob( [ zip as BlobPart ], { type: 'application/zip' } ),
+					name: `preview-${ siteId }-${ Date.now() }.zip`,
+					size: zip.byteLength,
+				},
+				existing && isWpcomPreview( existing )
+					? { siteId: existing.atomicSiteId }
+					: { name: snapshotName ?? __( 'Preview' ) },
+				{ originId: siteId, liveSiteId: liveSite?.id },
+				( { phase } ) =>
+					progress(
+						phase === 'uploading' ? __( 'Uploading site…' ) : __( 'Setting up the preview site…' )
+					)
 			);
-			this.emitSyncActivity( siteId, {
-				kind: 'pending',
-				direction: 'preview',
-				message: __( 'Setting up the preview site…' ),
-				hostname: created.domain_name,
-			} );
-			for ( let attempt = 0; ; attempt++ ) {
-				const { status } = await this.auth.request< { status: string } >(
-					`/wpcom/v2/jurassic-ninja/status?site_id=${ created.atomic_site_id }`
-				);
-				if ( String( status ) === PREVIEW_STATUS_ACTIVE ) {
-					break;
-				}
-				if ( attempt + 1 >= PREVIEW_MAX_POLLS ) {
-					throw new Error( __( 'The preview site did not finish setting up. Try again later.' ) );
-				}
-				await sleep( PREVIEW_POLL_INTERVAL_MS );
-			}
 			const user = await this.auth.user();
 			const snapshot: Snapshot = {
-				url: created.domain_name,
-				atomicSiteId: created.atomic_site_id,
+				url: new URL( preview.url ).hostname,
+				atomicSiteId: Number( preview.id ),
 				localSiteId: siteId,
 				date: Date.now(),
-				name: name ?? existing?.name,
+				name: snapshotName,
 				userId: user?.id,
+				shareUrl: preview.shareUrl,
+				expiresAt: preview.expiresAt,
+				liveSiteId: preview.liveSiteId === undefined ? undefined : Number( preview.liveSiteId ),
 			};
 			await this.updateSnapshots( ( snapshots ) => [
-				...snapshots.filter( ( candidate ) => candidate.url !== snapshot.url ),
+				...snapshots.filter(
+					( candidate ) => candidate.url !== snapshot.url && candidate.url !== existingHostname
+				),
 				snapshot,
 			] );
 			this.emitSnapshot( {
@@ -195,21 +185,22 @@ export class WpcomServices {
 		}
 	}
 
+	// A preview made on Jurassic Ninja by an earlier release is only dropped from the list.
+	private async deletePreviewSite( snapshot: Snapshot ) {
+		if ( isWpcomPreview( snapshot ) ) {
+			await wpcomSites.previews!.delete(
+				{ token: await this.auth.requireToken() },
+				{ id: snapshot.atomicSiteId }
+			);
+		}
+	}
+
 	async deleteSnapshot( hostname: string ): Promise< void > {
 		const snapshot = ( await this.getSnapshots() ).find(
 			( candidate ) => candidate.url === hostname
 		);
 		if ( snapshot ) {
-			await this.auth
-				.request( '/wpcom/v2/jurassic-ninja/delete', {
-					method: 'POST',
-					body: JSON.stringify( { site_id: snapshot.atomicSiteId } ),
-				} )
-				.catch( ( error: Error ) => {
-					if ( ! /already.deleted/i.test( error.message ) ) {
-						throw error;
-					}
-				} );
+			await this.deletePreviewSite( snapshot );
 		}
 		await this.updateSnapshots( ( snapshots ) =>
 			snapshots.filter( ( candidate ) => candidate.url !== hostname )
@@ -218,7 +209,10 @@ export class WpcomServices {
 	}
 
 	async deleteAllSnapshots(): Promise< void > {
-		await this.auth.request( '/wpcom/v2/jurassic-ninja/delete/all', { method: 'POST' } );
+		const config = { token: await this.auth.requireToken() };
+		for ( const preview of await wpcomSites.previews!.list( config ) ) {
+			await wpcomSites.previews!.delete( config, preview );
+		}
 		await this.updateSnapshots( () => [] );
 		this.emitSnapshot( { event: SNAPSHOT_EVENTS.DELETED_ALL } );
 	}

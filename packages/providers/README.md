@@ -1,6 +1,6 @@
 # @studio/providers
 
-The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`), Google Gemini (`gemini`), GitHub Copilot (`github-copilot`) and Spacefast (`spacefast`). Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
+The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`), Google Gemini (`gemini`), GitHub Copilot (`github-copilot`), Meta (`meta`), xAI (`xai`) and Spacefast (`spacefast`). Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
 
 ```
 index.ts         @studio/providers: what surfaces read
@@ -18,7 +18,7 @@ errors.ts        NotConnectedError, ConnectError, RemoteSiteError
 ## Two halves of each provider
 
 - **`getProvider( id )`** (`@studio/providers`) is the provider as data: its label, description and icon, its `account` (config schema, connect methods, what to show of a connected account), its `ai` models and its `sites` presentation. Calling it never reaches a service. `apps/ui` imports only this entry, and `@studio/providers/wpcom`.
-- **`getProviderServices( id )`** (`@studio/providers/services`) is what the provider does, in the same groups: `account` (start, connect, refresh, disconnect), `ai` (a model connection, image generation) and `sites` (list, create, push, pull). The CLI, the apps' backends and the agent import it. It runs in Node and in the page, where Studio on the web runs the agent.
+- **`getProviderServices( id )`** (`@studio/providers/services`) is what the provider does, in the same groups: `account` (start, connect, refresh, disconnect), `ai` (a model connection, image generation) and `sites` (list, create, push, pull, and previews). The CLI, the apps' backends and the agent import it. It runs in Node and in the page, where Studio on the web runs the agent.
 
 ```ts
 import { getDefaultAiModel } from '@studio/providers';
@@ -45,6 +45,10 @@ For the methods that sign in on the provider's site, `account.start( method, con
 `context.hostId` stays the same on this computer, and `context.remembered` is what `account.remember( config )` kept from a config the provider rejected, so signing in again continues the same registration.
 
 `account.describe( config )` is what surfaces show of a connected account: the method, a `summary` (an email, the start of a key), a `note` such as whose plan pays for it, and `links` such as where to manage usage; never the credential. A provider whose plan decides which of its models the account runs lists those in `models`, and the pickers offer only them, through `getAiModels( provider, account )`; GitHub Copilot reads them from the plan when it connects and whenever it renews its token. `account.expiresAt( config )` says when a config stops working, after which Studio treats the provider as disconnected. The services' `refresh( config )` renews a credential about to expire, such as a ChatGPT access token; Studio calls it through `readFreshProviderConfig` before using the config. `disconnect( config )` lets a provider clean up before Studio removes the config, as WordPress.com revokes its token.
+
+## Sites and previews
+
+`sites` sends local sites to the provider's sites. `publish` in the descriptor says whether the user publishes to sites they keep there, and `previews` whether the provider builds temporary previews shared by a link; a provider offers either or both. A preview is updated with a push to it, with `preview` set, and created, listed and deleted through `previews`.
 
 ## Providers own no storage
 

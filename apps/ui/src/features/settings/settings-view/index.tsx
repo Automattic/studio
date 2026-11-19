@@ -220,10 +220,12 @@ function PreferencesPanel( {
 									{ value: UNSET, label: __( 'System' ) },
 									...SUPPORTED_BROWSERS.filter(
 										( browser ) => installedApps?.[ browser ] || browser === data.browser
-									).map( ( browser ) => ( {
-										value: browser,
-										label: browserConfig[ browser ].name,
-									} ) ),
+									)
+										.map( ( browser ) => ( {
+											value: browser,
+											label: browserConfig[ browser ].name,
+										} ) )
+										.sort( ( a, b ) => a.label.localeCompare( b.label ) ),
 								] }
 								onChange={ ( browser ) => onChange( { browser } ) }
 							/>

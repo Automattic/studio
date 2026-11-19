@@ -50,7 +50,7 @@ const mark =
 export const anthropicProvider: Provider< AnthropicConfig > = {
 	id: 'anthropic',
 	label: 'Anthropic',
-	description: () => __( 'Use Claude with your own API key or Claude subscription.' ),
+	description: () => __( 'Use an Anthropic API key or a Claude subscription token.' ),
 	learnMoreUrl: 'https://platform.claude.com/docs/en/get-api-key',
 	icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${ mark }</svg>`,
 	logo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -8 40 40"><rect x="-8" y="-8" width="40" height="40" fill="#D97757"/><g fill="#FAF9F5">${ mark }</g></svg>`,

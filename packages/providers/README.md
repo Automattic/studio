@@ -1,6 +1,6 @@
 # @studio/providers
 
-The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`), Google Gemini (`gemini`), GitHub Copilot (`github-copilot`), Spacefast (`spacefast`), and the Local LLM connector (`local-llm`), a model server the user runs. Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
+The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`), Google Gemini (`gemini`), GitHub Copilot (`github-copilot`), Meta (`meta`), xAI (`xai`), Spacefast (`spacefast`), and the Local LLM connector (`local-llm`), a model server the user runs. Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
 
 ```
 index.ts         @studio/providers: what surfaces read
@@ -19,7 +19,7 @@ errors.ts        NotConnectedError, ConnectError, RemoteSiteError
 ## Two halves of each provider
 
 - **`getProvider( id )`** (`@studio/providers`) is the provider as data: its label, description and icon, its `account` (config schema, connect methods, what to show of a connected account), its `ai` models and its `sites` presentation. Calling it never reaches a service. `apps/ui` imports only this entry, and `@studio/providers/wpcom`.
-- **`getProviderServices( id )`** (`@studio/providers/services`) is what the provider does, in the same groups: `account` (start, connect, refresh, disconnect), `ai` (a model connection, image generation) and `sites` (list, create, push, pull). The CLI, the apps' backends and the agent import it. It runs in Node and in the page, where Studio on the web runs the agent.
+- **`getProviderServices( id )`** (`@studio/providers/services`) is what the provider does, in the same groups: `account` (start, connect, refresh, disconnect), `ai` (a model connection, image generation) and `sites` (list, create, push, pull, and previews). The CLI, the apps' backends and the agent import it. It runs in Node and in the page, where Studio on the web runs the agent.
 
 ```ts
 import { getDefaultAiModel } from '@studio/providers';
@@ -54,6 +54,10 @@ A method with `hostOnly: true` checks something a page can't reach, such as a se
 A provider whose `ai` is `{ userServer: true }` serves the models a server the user runs lists, which Studio doesn't know in advance. It has no model list and no default: its services' `ai.listModels( config )` reads the server's models, less those it says only make embeddings, as plain data with whether each reads images, each time a surface offers them. Its model ids are the provider's id, a slash and the server's name for the model (`local-llm/qwen3:0.6b`), so `findAiModel` resolves one to the provider and a label without reaching the server, and `servesAiModel( provider, id )` answers whether a provider serves an id for both kinds. New chats on it start on the account's `model`, which the provider proposed when it connected: `getDefaultAiModel( provider, { account } )`.
 
 A model connection whose `model.contextWindow` is exactly the context the server runs the model with says so with `exactContextWindow`, and the words a turn that still can't fit ends with: the runtime then never sends a request that window can't hold.
+
+## Sites and previews
+
+`sites` sends local sites to the provider's sites. `publish` in the descriptor says whether the user publishes to sites they keep there, and `previews` whether the provider builds temporary previews shared by a link; a provider offers either or both. A preview is updated with a push to it, with `preview` set, and created, listed and deleted through `previews`.
 
 ## Providers own no storage
 

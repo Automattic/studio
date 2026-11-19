@@ -218,8 +218,9 @@ export interface Connector {
 	createSite( params: CreateSiteParams ): Promise< SiteDetails >;
 	// Deletes a site from Studio. When `deleteFiles` is true the site folder is
 	// also removed from disk; otherwise the files stay and only the Studio entry
-	// is dropped.
-	deleteSite( id: string, deleteFiles?: boolean ): Promise< void >;
+	// is dropped. `warnings` names what the delete left behind, such as files it
+	// could not move to trash.
+	deleteSite( id: string, deleteFiles?: boolean ): Promise< { warnings: string[] } >;
 	// Duplicates an existing site (copies its files and admin credentials, then
 	// registers it as a new site). The connector picks a numbered name and a new
 	// site id internally so callers stay simple.
@@ -528,6 +529,8 @@ export interface Connector {
 	// lists (`ai.userServer`); rejects when it doesn't answer. Absent where Studio can't reach such
 	// a server.
 	listProviderModels?( provider: ProviderId ): Promise< ListedAiModel[] >;
+	// The provider that generates images, or null to pick it automatically.
+	setImageProvider( provider: AiProviderId | null ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

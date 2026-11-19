@@ -20,6 +20,7 @@ import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
 } from '@studio/agent/protocol/slash-commands';
+import { changeAiSettings, getAiTurnTracksProps } from '@studio/common/lib/ai-provider-tracks';
 import {
 	persistSelectedAiProvider,
 	readAiSettings,
@@ -153,9 +154,6 @@ async function readDefaultModel( provider: AiProviderId ): Promise< AiModelId > 
 		account: account.connected ? account : undefined,
 	} );
 }
-
-// Analytics never name a model a server the user runs lists: they choose its name.
-const USER_SERVER_TRACKS_MODEL = 'user-server-model';
 
 export async function runCommand( options: {
 	adapter: AiOutputAdapter;
@@ -426,7 +424,11 @@ export async function runCommand( options: {
 			ui.currentModel = currentModel;
 		}
 
-		await persistSelectedAiProvider( currentProvider );
+		await changeAiSettings(
+			{ action: 'select', provider, surface: isJsonMode ? 'chat' : 'terminal' },
+			() => persistSelectedAiProvider( provider ),
+			recordTracksEvent
+		);
 		await persistProviderPin();
 		if ( announce ) {
 			ui.showInfo(
@@ -664,11 +666,7 @@ export async function runCommand( options: {
 			turn_id: z.string().uuid().safeParse( requestedTurnId ).data ?? crypto.randomUUID(),
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
-			provider: toStoredProviderId( currentProvider ),
-			model: getProvider( currentProvider ).ai?.userServer
-				? USER_SERVER_TRACKS_MODEL
-				: currentModel,
-			model_family: currentProvider === 'wpcom' ? 'studio' : currentProvider,
+			...( await getAiTurnTracksProps( currentProvider, currentModel ) ),
 		};
 		const turnStartedAt = Date.now();
 		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, () => ( {

@@ -189,8 +189,8 @@ describe( 'openai account', () => {
 				model: 'gpt-image-2',
 				size: '1024x1536',
 			} );
-			expect( openaiAi.canGenerateImages!( apiKey ) ).toBe( true );
-			expect( openaiAi.canGenerateImages!( config( 0 ) ) ).toBe( false );
+			expect( openaiProvider.ai!.generatesImages!( apiKey ) ).toBe( true );
+			expect( openaiProvider.ai!.generatesImages!( config( 0 ) ) ).toBe( false );
 		} );
 	} );
 } );

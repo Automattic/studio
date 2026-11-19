@@ -17,24 +17,25 @@ To create a preview site:
 
 Your preview site should be ready to view in about a minute, and anyone with its preview link can open it for about a week. You can close the panel while you wait. A notice shows the progress while the preview is being created or updated, and changes to a confirmation with a **Copy link** button when the preview is ready.
 
-The **Share** panel lists the site’s previews, newest first. Each one shows its name and when it expires. Click a preview’s name to open it in your browser. When you open your own preview this way, WordPress Studio signs you in to it with your WordPress.com account; the link you copy for other people doesn’t. Open its **Preview actions** (**⋯**) menu to:
+The **Share** panel lists the site’s previews, newest first. Each one shows its name and when it expires, and, for a [preview of changes to a live site](#preview-changes-to-a-live-site), which site. Click a preview’s name to open it in your browser, the way visitors see it. Open its **Preview actions** (**⋯**) menu to:
 
 -   **Update** the preview with your latest local changes.
 -   **Copy link** to the preview.
 -   **Visit preview** in your browser.
+-   Open its **WordPress admin**, signing in with your WordPress.com account on the way.
 -   **Rename** the preview.
 -   **Delete preview**.
 
 To create another preview of the same site, click **Create another preview** below the list.
 
-Previews created with an earlier version of WordPress Studio, on a `wp.build` address, keep working until they expire. The first time you update one, WordPress Studio moves it to WordPress.com and its link changes, so share the new link. Previews of your sites that you created elsewhere with the same account, for example on another computer, are listed too.
+Previews created with an earlier version of WordPress Studio, on a `wp.build` address, keep working until they expire. When you update one, WordPress Studio makes a new preview on WordPress.com with a new link, so share that one; the old preview expires on its own. Previews of your sites that you created elsewhere with the same account, for example on another computer, are listed too.
 
 WordPress Studio can’t create or update a preview when:
 
 -   You’ve used all the preview sites available on your account. Delete a preview to make room. You can still copy and update your existing previews.
 -   Preview sites aren’t available for your account.
 -   You’re offline. Connect to the internet to create or update a preview.
--   The files WordPress Studio would upload are larger than 2 GB. Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](#4-exclude-files-with-deployignore).
+-   The files WordPress Studio would upload are larger than 2 GB. Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](https://wordpress.studio/docs/sync/#exclude-files-with-deployignore).
 -   Another operation is running on the site. Wait for it to finish before creating or updating a preview.
 
 ![The Share tab of the Share and publish panel in WordPress Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](../../../screenshots/images/share-previews.webp)
@@ -48,7 +49,7 @@ You can create multiple preview sites per WordPress Studio site. To differentiat
 3.  In the **Rename preview** dialog, enter a new name.
 4.  Click **Save**.
 
-![The Preview actions menu open next to a preview in WordPress Studio's Share panel, with Update, Copy link, Visit preview, Rename, and Delete preview.](../../../screenshots/images/share-preview-actions.webp)
+![The Preview actions menu open next to a preview in WordPress Studio's Share panel, with Update, Copy link, Visit preview, WordPress admin, Rename, and Delete preview.](../../../screenshots/images/share-preview-actions.webp)
 
 Your preview site will display that name in WordPress Studio, while your remote preview site name will remain unchanged.
 
@@ -72,6 +73,24 @@ By design, preview sites are generated as one-time “snapshots” of your work.
 2.  Open the **Preview actions** (**⋯**) menu next to the preview you want to update, and choose **Update**.
 
 Your preview site will be updated with the local changes in about a minute. While it updates, a notice shows the progress. This will also reset the preview site’s expiration date.
+
+### Edits to a default theme’s files
+
+WordPress.com uses its own copy of the default WordPress themes, such as Twenty Twenty-Five, so changes you make to a default theme’s files, for example `parts/footer.html`, don’t show in a preview. When the active theme is a default theme with edited files, the notice that the preview is ready warns “Theme file edits won’t show.” The preview is still created or updated. To see the changes in previews, make them in the Site Editor or in a child theme.
+
+## Preview changes to a live site
+
+When the local site is [connected](https://wordpress.studio/docs/sync/) to a production WordPress.com site on a paid plan, its previews are previews of changes to that site. Staging sites and Pressable sites aren’t used this way. In the **Share** panel, each of these previews shows **Changes to** and the live site’s name.
+
+-   If the local site is connected to one such site, new previews show changes to it.
+-   If it’s connected to more than one, choose one under **Live site** before you click **Create preview**, or choose **None** for a preview that isn’t tied to a live site.
+-   Updating a preview keeps the live site it already shows.
+
+To put the changes on the live site, [publish the local site to it](https://wordpress.studio/docs/sync/#publish-a-wordpress-studio-site-to-a-wordpresscom-site). If the local site has changed since the preview was last updated, the **Publish** panel warns you that publishing will also send changes the preview didn’t show.
+
+If you buy a plan for a preview on WordPress.com, it becomes a WordPress.com site, and WordPress Studio connects it to the local site it was made from. It then appears in the local site’s **Publish** panel, and the site’s next previews show changes to it.
+
+From the CLI, `studio preview create` and `studio preview update` take `--live-site` with a connected site’s ID, or `none`.
 
 ## [Exclude files with .deployignore](#4-exclude-files-with-deployignore)
 

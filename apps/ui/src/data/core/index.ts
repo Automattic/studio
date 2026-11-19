@@ -1,5 +1,5 @@
 export { ConnectorProvider, useConnector } from './connector-context';
-export { queryClient, persistPromise } from './query-client';
+export { queryClient, persistPromise, SESSIONS_QUERY_KEY } from './query-client';
 export type {
 	AgentApp,
 	AgentAppId,

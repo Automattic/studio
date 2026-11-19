@@ -248,6 +248,7 @@ export {
 	saveOnboardingHints,
 	saveWapuuScore,
 	setAiProvider,
+	setImageProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
@@ -673,7 +674,8 @@ export async function startServer(
 		console.log( `Server started for '${ site.name }'` );
 		return started;
 	} catch ( error ) {
-		// Too many running sites or a WordPress update in progress: expected, not a bug — skip Sentry
+		// Too many running sites, a WordPress update or another operation on the site: expected, not a
+		// bug, and not the user's PHP either — skip Sentry and the error page
 		if ( error instanceof SiteStartRefusedError ) {
 			throw error;
 		}
@@ -883,7 +885,7 @@ export async function deleteSite( event: IpcMainInvokeEvent, id: string, deleteF
 	if ( ! sitePath ) {
 		throw new Error( 'Site not found.' );
 	}
-	await deleteSiteViaCli( executeCliCommand, sitePath, deleteFiles );
+	return deleteSiteViaCli( executeCliCommand, sitePath, deleteFiles );
 }
 
 export async function copySite(

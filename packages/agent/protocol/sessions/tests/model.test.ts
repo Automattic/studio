@@ -20,11 +20,15 @@ const settings = ( provider: AiSettings[ 'provider' ], connected: string[] ): Ai
 			: { connected: false },
 		gemini: { connected: false },
 		'github-copilot': { connected: false },
+		meta: { connected: false },
+		xai: { connected: false },
 		spacefast: { connected: false },
 		'local-llm': connected.includes( 'local-llm' )
 			? { connected: true, method: 'server', model: 'local-llm/qwen3:0.6b' }
 			: { connected: false },
 	},
+	imageProviders: [],
+	imageProvider: null,
 } );
 
 describe( 'getEffectiveSessionProvider', () => {

@@ -5,6 +5,7 @@ import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import {
 	AI_PROVIDER_IDS,
 	getConnectMethod,
+	getProvider,
 	normalizeProviderId,
 	PROVIDER_IDS,
 	type AiProviderId,
@@ -96,6 +97,10 @@ export function aiSettings(
 ): AiSettings {
 	return {
 		provider,
+		imageProviders: AI_PROVIDER_IDS.filter(
+			( id ) => connected.includes( id ) && getProvider( id ).ai?.generatesImages
+		),
+		imageProvider: null,
 		accounts: Object.fromEntries(
 			PROVIDER_IDS.map( ( id ) => [
 				id,
@@ -214,6 +219,7 @@ export function createInMemoryConnector(
 			if ( site ) {
 				emitSiteEvent( SITE_EVENTS.DELETED, { ...site, running: false } );
 			}
+			return { warnings: [] };
 		},
 		copySite: async ( id ) => {
 			const source = state.sites.find( ( site ) => site.id === id )!;
@@ -358,6 +364,10 @@ export function createInMemoryConnector(
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		listProviderModels: async () => [],
+		setImageProvider: async ( imageProvider ) => ( {
+			...aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+			imageProvider,
+		} ),
 		getInstalledApps: async () => installedApps(),
 		getAgentApps: async () =>
 			AGENT_APP_IDS.map( ( id ) => ( {

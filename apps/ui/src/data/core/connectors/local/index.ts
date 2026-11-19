@@ -450,7 +450,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// own default), so only forward the override when the caller opts out.
 		async deleteSite( id, deleteFiles ) {
 			const query = deleteFiles === false ? '?deleteFiles=false' : '';
-			await api( `/sites/${ encodeURIComponent( id ) }${ query }`, { method: 'DELETE' } );
+			return api< { warnings: string[] } >( `/sites/${ encodeURIComponent( id ) }${ query }`, {
+				method: 'DELETE',
+			} );
 		},
 		// Duplicate a site; the server picks the numbered name + new id and copies
 		// the files, mirroring the desktop's copy flow.
@@ -867,6 +869,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async listProviderModels( provider ) {
 			return api< ListedAiModel[] >( `/ai-settings/providers/${ provider }/models` );
+		},
+		async setImageProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/image-provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
+			} );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on

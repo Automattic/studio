@@ -264,6 +264,23 @@ describe( 'CLI: studio push', () => {
 		);
 	} );
 
+	it( 'reports upload progress only when it changes', async () => {
+		pushes( [
+			{ phase: 'uploading', progress: 10 },
+			{ phase: 'uploading', progress: 10.2 },
+			{ phase: 'uploading', progress: 10.4 },
+			{ phase: 'uploading', progress: 50 },
+		] );
+		const progress = vi.spyOn( Logger.prototype, 'reportProgress' );
+
+		await runCommand( site.path, [ 'all' ], String( remoteSite.id ), new Logger() );
+
+		expect( progress.mock.calls.map( ( [ message ] ) => message ) ).toEqual( [
+			expect.stringContaining( '22%' ),
+			expect.stringContaining( '30%' ),
+		] );
+	} );
+
 	it( 'keeps a successful push and its event when the site ID cannot be read', async () => {
 		vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
 			new Error( 'Storage unavailable' )

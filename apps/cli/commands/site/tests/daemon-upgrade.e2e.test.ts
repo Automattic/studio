@@ -10,7 +10,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import cliPackageJson from '../../../package.json';
 import {
 	cleanupCliEnv,
@@ -39,8 +39,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		return env;
 	}
 
-	async function runPreviousCli( args: string[] ) {
-		const result = await runCli( args, getEnv(), { cliMain: previousCli } );
+	async function runPreviousCli( args: string[], { offline = false } = {} ) {
+		const result = await runCli( args, getEnv(), { cliMain: previousCli, offline } );
 		expect( result.code, result.stderr ).toBe( 0 );
 	}
 
@@ -87,20 +87,27 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		} );
 		runningSite = path.join( env.sitesDir, 'upgrade-running' );
 		stoppedSite = path.join( env.sitesDir, 'upgrade-stopped' );
+		// Offline, the previous release keeps the WordPress it bundles. Online, `site create --wp latest`
+		// downloads a newer one from wordpress.org, which closes the connection after the zip, and Node
+		// 24.22.1's fetch can crash on that (`assert(!this.paused)`). Starting a site needs the network
+		// to download PHP.
 		for ( const sitePath of [ runningSite, stoppedSite ] ) {
-			await runPreviousCli( [
-				'site',
-				'create',
-				'--name',
-				path.basename( sitePath ),
-				'--path',
-				sitePath,
-				'--wp',
-				'latest',
-				'--no-start',
-				'--skip-browser',
-				'--skip-log-details',
-			] );
+			await runPreviousCli(
+				[
+					'site',
+					'create',
+					'--name',
+					path.basename( sitePath ),
+					'--path',
+					sitePath,
+					'--wp',
+					'latest',
+					'--no-start',
+					'--skip-browser',
+					'--skip-log-details',
+				],
+				{ offline: true }
+			);
 		}
 	}, 600_000 );
 
@@ -186,6 +193,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 			expect( fs.existsSync( path.join( versionsPath, '6.0', 'wp-includes' ) ) ).toBe( true );
 			expect( fs.readFileSync( versionFile, 'utf8' ) ).not.toContain( "$wp_version = '6.0'" );
 
+			// Offline, like the previous release's creates, so it can't download a newer WordPress.
 			const newSite = path.join( getEnv().sitesDir, 'upgrade-new' );
 			const result = await runCli(
 				[
@@ -200,7 +208,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 					'--skip-browser',
 					'--skip-log-details',
 				],
-				getEnv()
+				getEnv(),
+				{ offline: true }
 			);
 			expect( result.code, result.stderr ).toBe( 0 );
 			expect( ( await waitForSiteResponse( siteUrl( newSite ) ) ).status ).toBeLessThan( 500 );
@@ -235,6 +244,45 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 				expect( result.code, result.stderr ).toBe( 0 );
 				expect( result.stderr ).not.toContain( 'could not be started again' );
 			}
+
+			await expectRestartedByThisCli( oldPid );
+		}
+	);
+
+	it(
+		'waits for the restart when a site is started while it restarts',
+		{ tags: [ 'e2e' ], timeout: 300_000 },
+		async () => {
+			await runCli( [ 'site', 'stop', '--all' ], getEnv() );
+			await runPreviousCli( [
+				'site',
+				'start',
+				'--path',
+				runningSite,
+				'--skip-browser',
+				'--skip-log-details',
+			] );
+			const oldPid = await onlinePid( runningSite );
+
+			// Like the Desktop app starting its sites at launch, after another command replaced the daemon.
+			const list = runCli( [ 'site', 'list', '--format', 'json' ], getEnv() );
+			await vi.waitFor(
+				() => {
+					const site = readCliConfig( getEnv() ).sites.find(
+						( item ) => item.path === runningSite
+					);
+					expect( site?.operation ).toMatchObject( { kind: 'start' } );
+				},
+				{ timeout: 60_000, interval: 50 }
+			);
+			const start = await runCli(
+				[ 'site', 'start', '--path', runningSite, '--skip-browser', '--skip-log-details' ],
+				getEnv()
+			);
+			expect( start.code, start.stderr ).toBe( 0 );
+			const listResult = await list;
+			expect( listResult.code, listResult.stderr ).toBe( 0 );
+			expect( listResult.stderr ).not.toContain( 'could not be started again' );
 
 			await expectRestartedByThisCli( oldPid );
 		}

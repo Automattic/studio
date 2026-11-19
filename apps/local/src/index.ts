@@ -46,11 +46,16 @@ import {
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
 import {
+	changeAiSettings as recordAiSettingsChange,
+	type AiSettingsChange,
+} from '@studio/common/lib/ai-provider-tracks';
+import {
 	connectProvider,
 	disconnectProvider,
 	listProviderModels,
 	readAiSettings,
 	setAiProvider,
+	setImageProvider,
 } from '@studio/common/lib/ai-settings';
 import {
 	onboardingAnalyticsSchema,
@@ -771,19 +776,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Disconnecting the selected provider also moves the selection back to
-	// WordPress.com, so every change reports through one event, as on the desktop.
-	async function changeAiSettings( res: Response, change: () => Promise< AiSettings > ) {
-		const previous = await readAiSettings();
-		const next = await change();
-		res.json( next );
-		if ( JSON.stringify( previous ) !== JSON.stringify( next ) ) {
-			trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-				provider: toStoredProviderId( next.provider ),
-				has_anthropic_api_key: next.accounts.anthropic.connected,
-				surface: 'settings',
-			} );
-		}
+	async function changeAiSettings(
+		res: Response,
+		change: AiSettingsChange,
+		run: () => Promise< AiSettings >
+	) {
+		res.json( await recordAiSettingsChange( change, run, trackEvent ) );
 	}
 
 	function readProviderParam( req: Request, res: Response ) {
@@ -815,7 +813,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					.json( { error: 'method must be a string, and input an object of strings' } );
 				return;
 			}
-			await changeAiSettings( res, () =>
+			await changeAiSettings( res, { action: 'connect', provider, method }, () =>
 				connectProvider( getProviderServices( provider ), method, input )
 			);
 		} )
@@ -856,7 +854,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
 			if ( provider ) {
-				await changeAiSettings( res, () => disconnectProvider( getProviderServices( provider ) ) );
+				await changeAiSettings( res, { action: 'disconnect', provider }, () =>
+					disconnectProvider( getProviderServices( provider ) )
+				);
 			}
 		} )
 	);
@@ -873,7 +873,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
 				return;
 			}
-			await changeAiSettings( res, () => setAiProvider( provider ) );
+			await changeAiSettings( res, { action: 'select', provider }, () =>
+				setAiProvider( provider )
+			);
+		} )
+	);
+
+	api.put(
+		'/ai-settings/image-provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const requested = req.body?.provider;
+			const provider =
+				requested === null ? null : normalizeProviderId( String( requested ), AI_PROVIDER_IDS );
+			if ( provider === undefined ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id or null' } );
+				return;
+			}
+			res.json( await setImageProvider( provider ) );
 		} )
 	);
 
@@ -1336,8 +1352,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await deleteSite( execute, site.path, req.query.deleteFiles !== 'false' );
-			res.status( 204 ).end();
+			res.json( await deleteSite( execute, site.path, req.query.deleteFiles !== 'false' ) );
 		} )
 	);
 

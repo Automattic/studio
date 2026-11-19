@@ -46,9 +46,9 @@ test( 'starts the sites the previous version left running again after an update'
 
 	await session.closeApp();
 	// Quitting left the previous version's daemon running with the site.
-	expect( await daemonRequest( session.daemonHomePath, 'ping' ) ).toEqual( {
-		version: previousRelease.version,
-	} );
+	expect( ( await daemonRequest( session.daemonHomePath, 'ping' ) ).version ).toBe(
+		previousRelease.version
+	);
 	expect( await onlinePid( siteIds.running ) ).toBe( oldPid );
 
 	session.appPath = undefined;
@@ -60,9 +60,9 @@ test( 'starts the sites the previous version left running again after an update'
 		'data-state',
 		'stopped'
 	);
-	expect( await daemonRequest( session.daemonHomePath, 'ping' ) ).toEqual( {
-		version: cliPackageJson.version,
-	} );
+	expect( ( await daemonRequest( session.daemonHomePath, 'ping' ) ).version ).toBe(
+		cliPackageJson.version
+	);
 	await expect
 		.poll(
 			async () => {

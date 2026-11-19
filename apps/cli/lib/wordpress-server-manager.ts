@@ -265,6 +265,7 @@ export async function startWordPressServer(
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
 	let serverPid: number | undefined;
+	let processStarted = false;
 	const now = Date.now();
 	// Phases time from here; a `site start` an app asked for times from the request, so it includes
 	// spawning and loading this CLI and the preparation above.
@@ -273,6 +274,7 @@ export async function startWordPressServer(
 	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
+		processStarted = true;
 		serverPid = processDesc.status === 'online' ? processDesc.pid : undefined;
 		await readyOrExit.waitFor( processDesc.pmId );
 		phaseTimings.daemon_ms = Date.now() - now;
@@ -341,6 +343,11 @@ export async function startWordPressServer(
 			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
+		}
+		// A start that timed out leaves its process behind, so the site would look running while
+		// nothing serves it, and the next start would report it as already running.
+		if ( processStarted ) {
+			await stopWordPressServer( site.id ).catch( () => {} );
 		}
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {

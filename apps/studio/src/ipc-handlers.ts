@@ -130,7 +130,7 @@ import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site
 import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
 import {
 	findAiModel,
-	getProvider,
+	servesAiModel,
 	normalizeProviderId,
 	toStoredProviderId,
 } from '@studio/providers';
@@ -244,11 +244,14 @@ export {
 	getWapuuScore,
 	connectAiProvider,
 	disconnectAiProvider,
+	listAiProviderModels,
+	selectAiProviderModels,
 	startProviderConnect,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
 	setAiProvider,
+	setImageProvider,
 	setUserPreferences,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
@@ -380,7 +383,7 @@ export async function setAiSessionProvider(
 	if ( ! provider ) {
 		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	if ( ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
+	if ( ! servesAiModel( provider, model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {

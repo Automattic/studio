@@ -82,6 +82,8 @@ export const sharedConfigSchema = z
 		// written by a newer build degrades gracefully instead of failing the
 		// parse; readers go through `normalizeProviderId`.
 		aiProvider: z.string().optional(),
+		// The provider picked for image generation; absent picks it automatically.
+		aiImageProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
 		// See `docs/design-docs/analytics-tracks.md`.

@@ -8,8 +8,11 @@ import { changeAiSettings } from '@studio/common/lib/ai-provider-tracks';
 import {
 	connectProvider,
 	disconnectProvider,
+	listProviderModels,
+	selectProviderModels,
 	readAiSettings,
 	setAiProvider as setAiProviderInConfig,
+	setImageProvider as setImageProviderInConfig,
 } from '@studio/common/lib/ai-settings';
 import {
 	connectAgentApp as connectAgentAppToStudio,
@@ -32,7 +35,7 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
-import { AI_PROVIDER_IDS, normalizeProviderId } from '@studio/providers';
+import { AI_PROVIDER_IDS, normalizeProviderId, type CatalogModel } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
@@ -164,6 +167,18 @@ export async function connectAiProvider(
 	);
 }
 
+export async function listAiProviderModels( _event: IpcMainInvokeEvent, requested: string ) {
+	return listProviderModels( getProviderServices( parseProviderId( requested ) ) );
+}
+
+export async function selectAiProviderModels(
+	_event: IpcMainInvokeEvent,
+	requested: string,
+	models: CatalogModel[]
+) {
+	return selectProviderModels( getProviderServices( parseProviderId( requested ) ), models );
+}
+
 export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
 	const provider = parseProviderId( requested );
 	return changeAiSettings(
@@ -183,6 +198,14 @@ export async function setAiProvider( _event: IpcMainInvokeEvent, requested: stri
 		() => setAiProviderInConfig( provider ),
 		recordTracksEvent
 	);
+}
+
+export async function setImageProvider( _event: IpcMainInvokeEvent, requested: string | null ) {
+	const provider = requested === null ? null : normalizeProviderId( requested, AI_PROVIDER_IDS );
+	if ( provider === undefined ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
+	}
+	return setImageProviderInConfig( provider );
 }
 
 export async function saveGlobalAgentInstructions(

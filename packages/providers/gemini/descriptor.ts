@@ -52,5 +52,6 @@ export const geminiProvider: Provider< GeminiConfig > = {
 	ai: {
 		models: GEMINI_AI_MODELS,
 		defaultModel: 'gemini-3.8-flash',
+		generatesImages: () => true,
 	},
 };

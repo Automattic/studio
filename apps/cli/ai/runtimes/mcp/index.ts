@@ -158,7 +158,7 @@ export async function startMcpStdioServer(): Promise< void > {
 		{
 			capabilities: { tools: {}, resources: {} },
 			instructions:
-				'WordPress Studio builds and manages local WordPress sites. Before any WordPress site task, call studio_instructions and follow what it returns.',
+				'WordPress Studio builds and manages local WordPress sites. If WordPress.com authentication is required, ask the user to run `studio auth login` in their own terminal and complete sign-in themselves. Do not run login for them or ask for tokens in chat. Retry after the user confirms they are signed in. Local sites do not require login. Before any WordPress site task, call studio_instructions and follow what it returns.',
 		}
 	);
 	// The tools depend on what the client supports, known once it has connected.

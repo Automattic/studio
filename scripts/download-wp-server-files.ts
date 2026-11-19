@@ -160,7 +160,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.8/reprint.phar',
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.9/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];

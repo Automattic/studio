@@ -102,7 +102,7 @@ import {
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { classifySiteCreateFailure, untildify } from 'cli/lib/utils';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { setUpSite, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {} from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/site/create.command';
@@ -487,38 +487,44 @@ export async function runCommand(
 				);
 			}
 		} else {
-			if ( blueprint ) {
-				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-				await connectToDaemon();
-				logger.reportSuccess( __( 'Process daemon started' ) );
+			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
+			await connectToDaemon();
+			logger.reportSuccess( __( 'Process daemon started' ) );
 
-				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
-				try {
-					if ( ! blueprintUri ) {
-						throw new LoggerError( __( 'Blueprint source path is missing' ) );
-					}
-					await runBlueprint( siteDetails, logger, {
-						wpVersion: options.wpVersion,
-						blueprint,
-						blueprintUri,
-						siteLanguage,
-					} );
-					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
-
-					stripWpConfigDbConstants( sitePath );
-					await importRun?.run( siteDetails );
-				} catch ( error ) {
-					if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
-						await removeSiteFromConfig( siteDetails.id );
-						if ( ! isWordPressDirResult ) {
-							await fs.promises.rm( sitePath, { recursive: true, force: true } );
-						}
-					}
-					throw new LoggerError(
-						importRun ? __( 'Failed to import static site' ) : __( 'Failed to apply Blueprint' ),
-						error
-					);
+			logger.reportStart(
+				LoggerAction.START_SITE,
+				blueprint ? __( 'Applying Blueprint…' ) : __( 'Setting up WordPress…' )
+			);
+			try {
+				if ( blueprint && ! blueprintUri ) {
+					throw new LoggerError( __( 'Blueprint source path is missing' ) );
 				}
+				await setUpSite( siteDetails, logger, {
+					wpVersion: options.wpVersion,
+					blueprint,
+					blueprintUri,
+					siteLanguage,
+				} );
+				logger.reportSuccess(
+					blueprint ? __( 'Blueprint applied successfully' ) : __( 'WordPress set up' )
+				);
+
+				stripWpConfigDbConstants( sitePath );
+				await importRun?.run( siteDetails );
+			} catch ( error ) {
+				if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
+					await removeSiteFromConfig( siteDetails.id );
+					if ( ! isWordPressDirResult ) {
+						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					}
+				}
+				let message: string = __( 'Failed to set up WordPress' );
+				if ( importRun ) {
+					message = __( 'Failed to import static site' );
+				} else if ( blueprint ) {
+					message = __( 'Failed to apply Blueprint' );
+				}
+				throw new LoggerError( message, error );
 			}
 			console.log( '' );
 			console.log( __( 'Site created successfully' ) );

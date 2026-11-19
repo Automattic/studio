@@ -78,9 +78,9 @@ export interface SetCommandOptions {
 	environmentType?: WpEnvironmentType;
 }
 
-// WordPress is installed on the first start, which writes wp-config.php and creates the database.
-// A site with neither (e.g. `site create --no-start`) can't boot WP-CLI. Pulled/imported sites
-// keep their config outside the site directory, so they never count as unprovisioned.
+// Installing WordPress writes wp-config.php and creates the database. A site with neither (one an
+// older `site create --no-start` left) can't boot WP-CLI. Pulled/imported sites keep their config
+// outside the site directory, so they never count as unprovisioned.
 async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
 	if ( site.runtimeBlueprintPath ) {
 		return false;

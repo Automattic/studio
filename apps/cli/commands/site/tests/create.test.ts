@@ -47,7 +47,7 @@ import {
 import { buildCreateFromSourceBlueprint } from 'cli/lib/static-site-import/source';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { setUpSite, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../create';
 import { registerCommand } from '../create.command';
@@ -263,7 +263,7 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( downloadWordPress ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( mockProcessDescription );
-		vi.mocked( runBlueprint ).mockResolvedValue( undefined );
+		vi.mocked( setUpSite ).mockResolvedValue( undefined );
 		vi.mocked( runWpCliCommand ).mockReset().mockResolvedValue( mockWpCli() );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
@@ -748,7 +748,7 @@ describe( 'CLI: studio create', () => {
 				] );
 				expect( process.exitCode ).toBe( 1 );
 				expect( saveCliConfig ).not.toHaveBeenCalled();
-				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( setUpSite ).not.toHaveBeenCalled();
 				expect( fs.existsSync( websiteDir ) ).toBe( true );
 				expect( fs.existsSync( sitePath ) ).toBe( false );
 			} finally {
@@ -764,7 +764,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync( pluginPath, 'plugin-bytes' );
 			const copySpy = vi.spyOn( fs, 'copyFileSync' );
 			const rmSpy = vi.spyOn( fs.promises, 'rm' );
-			vi.mocked( runBlueprint ).mockImplementation( async ( _site, _logger, options ) => {
+			vi.mocked( setUpSite ).mockImplementation( async ( _site, _logger, options ) => {
 				const bundlePath = path.dirname( options.blueprintUri! );
 				const blueprint = JSON.parse( fs.readFileSync( options.blueprintUri!, 'utf8' ) );
 				expect( blueprint.steps[ 0 ].pluginData ).toEqual( {
@@ -806,7 +806,7 @@ describe( 'CLI: studio create', () => {
 			fs.writeFileSync( pluginPath, 'plugin-bytes' );
 			const copySpy = vi.spyOn( fs, 'copyFileSync' );
 			const rmSpy = vi.spyOn( fs.promises, 'rm' );
-			vi.mocked( runBlueprint ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+			vi.mocked( setUpSite ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 			const parser = registerCommand(
 				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
 			).exitProcess( false );
@@ -878,7 +878,7 @@ describe( 'CLI: studio create', () => {
 					'Import',
 				] );
 				expect( process.exitCode ).toBe( 1 );
-				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( setUpSite ).not.toHaveBeenCalled();
 				expect( fs.existsSync( websiteDir ) ).toBe( true );
 				expect( fs.existsSync( sitePath ) ).toBe( false );
 			} finally {
@@ -947,7 +947,7 @@ describe( 'CLI: studio create', () => {
 				] );
 
 				expect( process.exitCode ).toBeUndefined();
-				expect( runBlueprint ).toHaveBeenCalled();
+				expect( setUpSite ).toHaveBeenCalled();
 				expect( reportWarning ).toHaveBeenCalledWith(
 					expect.stringContaining( 'could not capture 13 of 14 routes' )
 				);
@@ -1400,7 +1400,7 @@ describe( 'CLI: studio create', () => {
 
 			await runCommand( mockSitePath, { ...defaultTestOptions, blueprint, noStart: true } );
 
-			expect( runBlueprint ).not.toHaveBeenCalled();
+			expect( setUpSite ).not.toHaveBeenCalled();
 			expect( writeSpy ).not.toHaveBeenCalledWith(
 				path.join( mockSitePath, '.studio-import', 'request.json' ),
 				expect.anything()
@@ -1698,7 +1698,7 @@ describe( 'CLI: studio create', () => {
 					'--no-start',
 				] );
 
-			expect( runBlueprint ).toHaveBeenCalledWith(
+			expect( setUpSite ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.anything(),
 				expect.objectContaining( {
@@ -1745,13 +1745,19 @@ describe( 'CLI: studio create', () => {
 	} );
 
 	describe( 'noStart Option', () => {
-		it( 'should not start server when noStart is true', async () => {
+		it( 'should set WordPress up without starting server when noStart is true', async () => {
+			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'sv_SE' );
+
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
 				noStart: true,
 			} );
 
-			expect( connectToDaemon ).not.toHaveBeenCalled();
+			expect( setUpSite ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: mockSitePath } ),
+				expect.any( Logger ),
+				expect.objectContaining( { blueprint: undefined, siteLanguage: 'sv_SE' } )
+			);
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( setupCustomDomain ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
@@ -1772,7 +1778,7 @@ describe( 'CLI: studio create', () => {
 			} );
 
 			expect( connectToDaemon ).toHaveBeenCalled();
-			expect( runBlueprint ).toHaveBeenCalled();
+			expect( setUpSite ).toHaveBeenCalled();
 			expect( startWordPressServer ).not.toHaveBeenCalled();
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -1837,7 +1843,7 @@ describe( 'CLI: studio create', () => {
 
 		it( 'should handle Blueprint application failure', async () => {
 			const testBlueprint: Blueprint = { steps: [] };
-			vi.mocked( runBlueprint ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+			vi.mocked( setUpSite ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			await expect(
 				runCommand( mockSitePath, {
@@ -1998,7 +2004,7 @@ describe( 'CLI: studio create', () => {
 
 		it( 'should remove site from appdata when Blueprint application fails', async () => {
 			const testBlueprint = { steps: [] };
-			vi.mocked( runBlueprint ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+			vi.mocked( setUpSite ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			await expect(
 				runCommand( mockSitePath, {
@@ -2043,7 +2049,7 @@ describe( 'CLI: studio create', () => {
 			createPathExistsMock( false );
 			vi.mocked( isWordPressDirectory ).mockReturnValue( false );
 			const testBlueprint = { steps: [] };
-			vi.mocked( runBlueprint ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+			vi.mocked( setUpSite ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 
@@ -2066,7 +2072,7 @@ describe( 'CLI: studio create', () => {
 			vi.mocked( isEmptyDir ).mockResolvedValue( false );
 			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
 			const testBlueprint = { steps: [] };
-			vi.mocked( runBlueprint ).mockRejectedValue( new Error( 'Blueprint failed' ) );
+			vi.mocked( setUpSite ).mockRejectedValue( new Error( 'Blueprint failed' ) );
 
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 

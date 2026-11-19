@@ -1,13 +1,13 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { isSqliteIntegrationAvailable } from '@studio/database/node';
 import { vi } from 'vitest';
+import { isSqliteIntegrationAvailable } from 'cli/lib/database/sqlite-integration';
 import { prepareSourceImport } from 'cli/lib/static-site-import/prepare';
 import { Logger } from 'cli/logger';
 
-vi.mock( '@studio/database/node', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/database/node') >() ),
+vi.mock( 'cli/lib/database/sqlite-integration', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/database/sqlite-integration') >() ),
 	isSqliteIntegrationAvailable: vi.fn(),
 } ) );
 

@@ -1,4 +1,4 @@
-import { hasDefaultDbConstants, removeDefaultDbConstants } from '../wp-config';
+import { hasDefaultDbConstants, removeDefaultDbConstants } from '../default-db-constants';
 
 const normalizeLineEndings = ( content: string ) => content.replace( /\n/g, '\r\n' );
 

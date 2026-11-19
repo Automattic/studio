@@ -1,6 +1,6 @@
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
-import { databaseEngineSchema } from '@studio/database';
+import { databaseConnectionSchema } from '@studio/database';
 import { z } from 'zod';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager
@@ -19,7 +19,9 @@ export const serverConfigSchema = z.object( {
 	siteLanguage: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	fileAccess: siteFileAccessSchema.optional(),
-	databaseEngine: databaseEngineSchema.optional(),
+	database: databaseConnectionSchema,
+	// Whether the database existed before this start: WordPress may then be installed already.
+	databaseExists: z.boolean().optional(),
 	enableXdebug: z.boolean().optional(),
 	phpWorkers: z.number().int().positive().optional(),
 	enableDebugLog: z.boolean().optional(),

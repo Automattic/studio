@@ -74,13 +74,13 @@ describe( 'site versions', () => {
 				query( "UPDATE wp_options SET option_value = 'Renamed' WHERE option_name = 'blogname'" ),
 		],
 	] )( 'tells whether the site changed after %s', async ( _, changed, change ) => {
-		const version = await getSiteVersion( 'one', site );
+		const version = await getSiteVersion( { id: 'one', path: site } );
 		change();
-		expect( ( await getSiteVersion( 'one', site ) ) === version ).toBe( ! changed );
+		expect( ( await getSiteVersion( { id: 'one', path: site } ) ) === version ).toBe( ! changed );
 	} );
 
 	it( 'reads the same version while the running site writes to its database', async () => {
-		const version = await getSiteVersion( 'one', site );
+		const version = await getSiteVersion( { id: 'one', path: site } );
 		// Another process holds the write lock, as a running site does, for half a second.
 		const writer = spawn( process.execPath, [
 			'-e',
@@ -93,13 +93,13 @@ describe( 'site versions', () => {
 			setTimeout( () => database.exec( 'COMMIT' ), 500 );`,
 		] );
 		await new Promise( ( resolve ) => writer.stdout.once( 'data', resolve ) );
-		expect( await getSiteVersion( 'one', site ) ).toBe( version );
+		expect( await getSiteVersion( { id: 'one', path: site } ) ).toBe( version );
 	} );
 
 	it( 'keeps one file of hashes per site, however many versions it has', async () => {
-		await getSiteVersion( 'one', site );
+		await getSiteVersion( { id: 'one', path: site } );
 		write( 'wp-content/uploads/a.jpg', 'jpg' );
-		await getSiteVersion( 'one', site );
+		await getSiteVersion( { id: 'one', path: site } );
 		expect( fs.readdirSync( path.join( root, 'config', 'versions' ) ) ).toEqual( [ 'one.json' ] );
 	} );
 } );

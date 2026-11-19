@@ -382,10 +382,7 @@ async function warnIfPreviewIsBehind(
 		site.id,
 		remoteSiteId
 	);
-	if (
-		preview?.versionId &&
-		( await getSiteVersion( site.id, site.path ) ) !== preview.versionId
-	) {
+	if ( preview?.versionId && ( await getSiteVersion( site ) ) !== preview.versionId ) {
 		logger.reportWarning( getPreviewPublishWarning( preview ) );
 	}
 }

@@ -11,6 +11,7 @@ import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { assertDatabaseCanBeTransferred } from 'cli/lib/database';
 import { findEditedDefaultThemes } from 'cli/lib/edited-default-themes';
 import { buildPreviewSite, getLivePreviewSite } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
@@ -25,6 +26,7 @@ import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 import type { PreviewSite } from '@studio/providers';
+import type { SiteData } from 'cli/lib/cli-config/core';
 
 export type ReportPreviewStep = ( action: LoggerAction, message: string, progress: number ) => void;
 
@@ -67,7 +69,7 @@ export function reportLaunchUrl( launchUrl: string | undefined, logger: Logger< 
  * to an existing one (`siteId`). Shared by `preview create` and `preview update`.
  */
 export async function buildWpcomPreview( {
-	siteId,
+	site,
 	siteFolder,
 	archivePath,
 	target,
@@ -77,7 +79,7 @@ export async function buildWpcomPreview( {
 	onArchiveBytes,
 	liveSiteSelection,
 }: {
-	siteId: string;
+	site: SiteData;
 	siteFolder: string;
 	archivePath: string;
 	target: { name: string } | { siteId: number };
@@ -92,6 +94,8 @@ export async function buildWpcomPreview( {
 	liveSite: SyncSite | undefined;
 	warning: string | undefined;
 } > {
+	assertDatabaseCanBeTransferred( site );
+	const siteId = site.id;
 	const liveSite = await getLivePreviewSite( siteId, liveSiteSelection );
 	await validateSiteSize( siteFolder, { onWpcom: true } );
 	const warning = await warnAboutEditedDefaultThemes( siteFolder, logger );
@@ -99,7 +103,7 @@ export async function buildWpcomPreview( {
 	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 	// The version is taken under the same lock as the archive, so it's what the preview holds.
 	const versionId = await withSiteOperation( siteFolder, 'export', async () => {
-		const version = await getSiteVersion( siteId, siteFolder );
+		const version = await getSiteVersion( site );
 		await archiveSiteContent( siteFolder, archivePath, { onWpcom: true } );
 		return version;
 	} );
@@ -175,7 +179,7 @@ export async function runCommand(
 		}
 
 		const { preview, versionId, liveSite, warning } = await buildWpcomPreview( {
-			siteId: site.id,
+			site,
 			liveSiteSelection,
 			siteFolder,
 			archivePath,

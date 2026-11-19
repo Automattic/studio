@@ -101,7 +101,7 @@ export async function runCommand(
 			versionId,
 			warning,
 		} = await buildWpcomPreview( {
-			siteId: site.id,
+			site,
 			liveSiteSelection,
 			siteFolder,
 			archivePath,

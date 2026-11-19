@@ -8,7 +8,6 @@ import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-c
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
-import { getDatabaseEngine } from '@studio/database';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
@@ -20,6 +19,7 @@ import {
 	type SiteData,
 } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { getDatabaseEngine } from 'cli/lib/database';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { withSiteOperations } from 'cli/lib/site-operations';

@@ -141,7 +141,7 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 			// server: the single point every importer and both `import` and `pull`
 			// funnel through. Site start does the same conversion, but doing it here
 			// keeps the imported database ready for whoever opens it first.
-			await getSiteDatabase( site ).prepareForSharing();
+			await ( await getSiteDatabase( site ) ).prepareForSharing();
 
 			return result;
 		} finally {

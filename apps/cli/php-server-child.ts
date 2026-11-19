@@ -20,7 +20,6 @@ import { getSitePhpWorkers } from '@studio/common/lib/site-php-workers';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { z } from 'zod';
-import { getSiteDatabase } from 'cli/lib/database';
 import {
 	managerMessageSchema,
 	ChildMessageRaw,
@@ -499,14 +498,7 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 	// against the imported database would be wrong — and just write Studio's
 	// mu-plugins before starting the workers.
 	const isImportedSite = Boolean( config.autoPrependFile );
-	const deferInstallCheck =
-		! isImportedSite &&
-		! config.blueprint &&
-		( await getSiteDatabase( {
-			path: config.sitePath,
-			phpVersion,
-			databaseEngine: config.databaseEngine,
-		} ).exists() );
+	const deferInstallCheck = ! isImportedSite && ! config.blueprint && !! config.databaseExists;
 	// Set when this start ran the installer, which created the admin user with the
 	// configured credentials, and no Blueprint ran after it that could change them.
 	let credentialsJustInstalled = false;

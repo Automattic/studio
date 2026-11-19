@@ -39,7 +39,7 @@ describe( 'getPreviewStatus', () => {
 		[ 'the preview was edited', false, 3000, { localChanged: false, previewChanged: true } ],
 		[ 'both changed', true, 3000, { localChanged: true, previewChanged: true } ],
 	] )( 'reports %s since the last sync', async ( _, editLocal, previewEditedAt, expected ) => {
-		const versionId = await getSiteVersion( 'one', sitePath );
+		const versionId = await getSiteVersion( { id: 'one', path: sitePath } );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
 			{
 				url: 'preview.wpcomstaging.com',

@@ -86,11 +86,10 @@ async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
 	if ( site.runtimeBlueprintPath ) {
 		return false;
 	}
-	const [ hasConfig, hasDatabase ] = await Promise.all( [
-		pathExists( path.join( site.path, 'wp-config.php' ) ),
-		getSiteDatabase( site ).exists(),
-	] );
-	return ! hasConfig && ! hasDatabase;
+	if ( await pathExists( path.join( site.path, 'wp-config.php' ) ) ) {
+		return false;
+	}
+	return ! ( await ( await getSiteDatabase( site ) ).exists() );
 }
 
 async function setWordPressVersion( site: SiteData, wp: string ): Promise< void > {

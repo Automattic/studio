@@ -1,16 +1,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { getDatabaseEngine } from 'cli/lib/database';
 import {
-	getSqliteDatabasePath,
 	getSqliteIntegrationPath,
 	needsSqliteIntegration,
-} from '@studio/database/node';
+} from 'cli/lib/database/sqlite-integration';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
-export function isPhpMyAdminSupported( site: { path: string; runtimeBlueprintPath?: string } ) {
-	// Reprint sites wire SQLite through runtime.php instead of the regular drop-in.
-	return Boolean( site.runtimeBlueprintPath ) || needsSqliteIntegration( site.path );
+// phpMyAdmin runs on the SQLite driver; a site on its own MySQL server isn't supported yet.
+export function isPhpMyAdminSupported(
+	site: Parameters< typeof getDatabaseEngine >[ 0 ] & {
+		path: string;
+		runtimeBlueprintPath?: string;
+	}
+) {
+	return (
+		getDatabaseEngine( site ) === 'sqlite' &&
+		// Reprint sites wire SQLite through runtime.php instead of the regular drop-in.
+		( Boolean( site.runtimeBlueprintPath ) || needsSqliteIntegration( site.path ) )
+	);
 }
 
 function phpStringLiteral( value: string ): string {
@@ -32,20 +41,30 @@ export function getPhpMyAdminSessionPath( config: Pick< ServerConfig, 'siteId' >
 	return path.join( getFullyResolvedTmpDirPath(), 'studio-phpmyadmin-sessions', safeSiteId );
 }
 
-export async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {
-	const wpEnvPath = getNativePhpMyAdminWpEnvPath( config );
-	const sqliteDriverPath = path.join(
+// The `db` entry of wp-env.php, which DbiMysqli.php reads. It supports SQLite only for now.
+function describeDatabase( config: ServerConfig ): string[] {
+	const { database } = config;
+	if ( database.engine !== 'sqlite' ) {
+		return [ `'type' => ${ phpStringLiteral( database.engine ) },` ];
+	}
+	const driverPath = path.join(
 		getSqliteIntegrationPath( config.sitePath ),
 		'wp-includes',
 		'database',
 		'load.php'
 	);
-	const sqliteDatabasePath = getSqliteDatabasePath( config.sitePath );
+	return [
+		"'type' => 'sqlite',",
+		`'path' => ${ phpStringLiteral( database.path ) },`,
+		`'driver_path' => ${ phpStringLiteral( driverPath ) },`,
+	];
+}
+
+export async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {
+	const wpEnvPath = getNativePhpMyAdminWpEnvPath( config );
 	const wpEnvPhp = `<?php return array (
   'db' => array (
-    'type' => 'sqlite',
-    'path' => ${ phpStringLiteral( sqliteDatabasePath ) },
-    'driver_path' => ${ phpStringLiteral( sqliteDriverPath ) },
+    ${ describeDatabase( config ).join( '\n    ' ) }
   ),
 );
 `;

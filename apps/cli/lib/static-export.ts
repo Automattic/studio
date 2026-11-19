@@ -2,8 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import { extractZip } from '@studio/common/lib/extract-zip';
-import { copySqliteDatabase, getSqliteDatabasePath } from '@studio/database/node';
+import { copySqliteDatabase } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
+import { getSqliteDatabasePath } from 'cli/lib/database/sqlite-integration';
 import {
 	getBundledSimplyStaticZipPath,
 	getBundledStaticExportScriptPath,

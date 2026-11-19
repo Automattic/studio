@@ -11,17 +11,19 @@ import {
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 } from '@studio/common/lib/mu-plugins';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
-import {
-	hasDefaultDbConstants,
-	removeDefaultDbConstants,
-	SQLITE_INTEGRATION_FOLDER,
-} from '@studio/database';
 import { __, sprintf } from '@wordpress/i18n';
 import { Archiver, TarArchive, ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
 import { isAlreadyCompressedFile } from 'cli/lib/already-compressed-file';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
-import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/database/sqlite';
+import {
+	hasDefaultDbConstants,
+	removeDefaultDbConstants,
+} from 'cli/lib/database/default-db-constants';
+import {
+	SQLITE_INTEGRATION_FOLDER,
+	ensureSqliteIntegrationForImportedSite,
+} from 'cli/lib/database/sqlite-integration';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { LoggerError } from 'cli/logger';

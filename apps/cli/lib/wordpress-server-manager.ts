@@ -18,6 +18,8 @@ import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metada
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
+import { type DatabaseConnection } from '@studio/database';
+import { createDatabase } from '@studio/database/node';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
@@ -31,7 +33,7 @@ import {
 	type DaemonBusEventMap,
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
-import { getSiteDatabase } from 'cli/lib/database';
+import { getSiteDatabaseConnection } from 'cli/lib/database';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
@@ -94,6 +96,7 @@ export type StartServerOptions = z.infer< typeof startServerOptionsSchema >;
 
 function buildServerConfig(
 	site: SiteData,
+	database: DatabaseConnection,
 	options?: Partial< StartServerOptions & RunBlueprintOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
@@ -101,7 +104,7 @@ function buildServerConfig(
 		sitePath: site.path,
 		port: site.port,
 		phpVersion: resolveSupportedPhpVersion( site.phpVersion ),
-		databaseEngine: site.databaseEngine,
+		database,
 		siteTitle: site.name,
 		phpMyAdminSupported: isPhpMyAdminSupported( site ),
 	};
@@ -234,12 +237,15 @@ export async function startWordPressServer(
 	logger.reportStart( SiteCommandLoggerAction.START_SITE, startMessage );
 
 	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, options );
-
-	const database = getSiteDatabase( site );
+	const database = createDatabase( await getSiteDatabaseConnection( site ) );
 	await database.prepareForSharing();
+	const databaseExists = await database.exists();
+	const serverConfig = {
+		...buildServerConfig( site, database.connection, options ),
+		databaseExists,
+	};
 	// WordPress installs and Blueprints run during the start below and can create new tables.
-	const mayCreateTablesDuringStart = ! ( await database.exists() ) || Boolean( options?.blueprint );
+	const mayCreateTablesDuringStart = ! databaseExists || Boolean( options?.blueprint );
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(
@@ -738,7 +744,7 @@ export async function runBlueprint(
 	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
 
 	const processName = getProcessName( site.id );
-	const serverConfig = buildServerConfig( site, options );
+	const serverConfig = buildServerConfig( site, await getSiteDatabaseConnection( site ), options );
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	try {

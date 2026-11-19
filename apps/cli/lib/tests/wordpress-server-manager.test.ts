@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
-import { replaceMysql8OnlyCollations } from '@studio/database/node';
+import { createDatabase, type Database } from '@studio/database/node';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
@@ -23,7 +23,7 @@ vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 } ) );
 vi.mock( '@studio/database/node', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/database/node') >() ),
-	replaceMysql8OnlyCollations: vi.fn().mockResolvedValue( undefined ),
+	createDatabase: vi.fn(),
 	resetSqliteJournalMode: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
@@ -125,32 +125,36 @@ describe( 'WordPress Server Manager', () => {
 	}
 
 	describe( 'startWordPressServer', () => {
-		it( 'should replace MySQL 8-only collations only before starting an installed site', async () => {
+		const mockDatabase = ( exists: boolean ) => {
+			const database = {
+				connection: { engine: 'sqlite', path: `${ mockSiteData.path }/database.sqlite` },
+				exists: vi.fn().mockResolvedValue( exists ),
+				prepareForSharing: vi.fn().mockResolvedValue( undefined ),
+				repair: vi.fn().mockResolvedValue( undefined ),
+			};
+			vi.mocked( createDatabase ).mockReturnValue( database as unknown as Database );
+			return database;
+		};
+
+		it( 'prepares the database for sharing before starting an installed site, and only then', async () => {
 			setupIpcMocks();
-			const existsSync = fs.existsSync;
-			vi.spyOn( fs, 'existsSync' ).mockImplementation(
-				( filePath ) =>
-					filePath === `${ mockSiteData.path }/wp-content/database/.ht.sqlite` ||
-					existsSync( filePath )
-			);
+			const database = mockDatabase( true );
 
 			await startWordPressServer( mockSiteData, mockLogger, 'start' );
 
-			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledTimes( 1 );
-			expect( vi.mocked( replaceMysql8OnlyCollations ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+			expect( database.prepareForSharing.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
 				vi.mocked( daemonClient.sendMessageToProcess ).mock.invocationCallOrder[ 0 ]
 			);
+			expect( database.repair ).not.toHaveBeenCalled();
 		} );
 
-		it( 'should replace MySQL 8-only collations again after WordPress is installed on first start', async () => {
+		it( 'repairs the database again after WordPress is installed on first start', async () => {
 			setupIpcMocks();
+			const database = mockDatabase( false );
 
 			await startWordPressServer( mockSiteData, mockLogger, 'start' );
 
-			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledTimes( 2 );
-			expect(
-				vi.mocked( replaceMysql8OnlyCollations ).mock.invocationCallOrder[ 1 ]
-			).toBeGreaterThan(
+			expect( database.repair.mock.invocationCallOrder[ 0 ] ).toBeGreaterThan(
 				vi.mocked( daemonClient.sendMessageToProcess ).mock.invocationCallOrder[ 0 ]
 			);
 		} );

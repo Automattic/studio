@@ -2,9 +2,9 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { getSqliteDatabasePath } from '@studio/database/node';
 import { afterEach, expect, it, vi } from 'vitest';
 import { requestSetAdminCredentials } from 'cli/lib/admin-credentials';
+import { getSqliteDatabasePath } from 'cli/lib/database/sqlite-integration';
 import { runBlueprint } from 'cli/lib/native-php/blueprints';
 import { runPhpCommand } from 'cli/lib/native-php/php-process';
 import { childMessageFromProcessManagerSchema } from 'cli/lib/types/wordpress-server-ipc';
@@ -90,11 +90,6 @@ it.each( [
 			} )
 		);
 		try {
-			if ( scenario.database ) {
-				const databasePath = getSqliteDatabasePath( sitePath );
-				fs.mkdirSync( path.dirname( databasePath ), { recursive: true } );
-				fs.writeFileSync( databasePath, '' );
-			}
 			await import( 'cli/php-server-child' );
 			handleMessage = emitter.listeners( 'message' ).at( -1 ) as typeof handleMessage;
 			await handleMessage( {
@@ -105,6 +100,8 @@ it.each( [
 						siteId: 'test',
 						sitePath,
 						port: 0,
+						database: { engine: 'sqlite', path: getSqliteDatabasePath( sitePath ) },
+						databaseExists: Boolean( scenario.database ),
 						fileAccess: 'all-files',
 						...( scenario.blueprint ? { blueprint: { contents: {}, uri: 'test' } } : {} ),
 						...( scenario.imported ? { autoPrependFile: '/tmp/imported.php' } : {} ),

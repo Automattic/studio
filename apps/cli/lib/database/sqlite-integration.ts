@@ -1,6 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { SQLITE_INTEGRATION_FOLDER } from './sqlite';
+import { getWpFilesPath } from 'cli/lib/dependency-management/paths';
+
+/**
+ * WordPress runs on SQLite through the SQLite Database Integration plugin: a `db.php` drop-in
+ * that loads its driver from `wp-content/mu-plugins/sqlite-database-integration`, and a
+ * database file in `wp-content/database`.
+ */
+export const SQLITE_INTEGRATION_FOLDER = 'sqlite-database-integration';
+
+/** The wp-config.php constants the SQLite driver needs: it fails on an empty DB_NAME. */
+export const SQLITE_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
+
+// Ships read-only with the CLI bundle.
+function getPluginPath(): string {
+	return path.join( getWpFilesPath(), SQLITE_INTEGRATION_FOLDER );
+}
 
 export function getSqliteDatabasePath( sitePath: string ): string {
 	return path.join( sitePath, 'wp-content', 'database', '.ht.sqlite' );
@@ -22,9 +37,9 @@ const DB_PATH_DEFINITION = `if ( ! defined( 'DB_PATH' ) && ! defined( 'FQDB' ) &
 }
 `;
 
-/** Whether `pluginPath` holds a copy of the plugin that can be installed. */
-export function isSqliteIntegrationAvailable( pluginPath: string ): boolean {
-	return fs.existsSync( path.join( pluginPath, 'db.copy' ) );
+/** Whether the CLI bundle holds the plugin, so it can be installed. */
+export function isSqliteIntegrationAvailable(): boolean {
+	return fs.existsSync( path.join( getPluginPath(), 'db.copy' ) );
 }
 
 export function isSqliteIntegrationInstalled( sitePath: string ): boolean {
@@ -51,12 +66,10 @@ export function needsSqliteIntegration( sitePath: string ): boolean {
 	);
 }
 
-/** Installs the integration from `pluginPath`, replacing any older copy of it. */
-export async function installSqliteIntegration(
-	sitePath: string,
-	pluginPath: string
-): Promise< void > {
-	if ( ! isSqliteIntegrationAvailable( pluginPath ) ) {
+/** Installs the integration Studio ships, replacing any older copy of it. */
+export async function installSqliteIntegration( sitePath: string ): Promise< void > {
+	const pluginPath = getPluginPath();
+	if ( ! isSqliteIntegrationAvailable() ) {
 		throw new Error( 'SQLite integration files not found.' );
 	}
 
@@ -84,12 +97,23 @@ export async function installSqliteIntegration(
 }
 
 /** Installs or refreshes the integration of a site that runs on SQLite (see needsSqliteIntegration). */
-export async function updateSqliteIntegration(
-	sitePath: string,
-	pluginPath: string
-): Promise< void > {
+export async function updateSqliteIntegration( sitePath: string ): Promise< void > {
 	if ( needsSqliteIntegration( sitePath ) ) {
-		await installSqliteIntegration( sitePath, pluginPath );
+		await installSqliteIntegration( sitePath );
+	}
+}
+
+/**
+ * Sites pulled with Reprint wire SQLite through runtime.php and ship no db.php drop-in, so
+ * updateSqliteIntegration leaves them alone; tools that find the integration in wp-content
+ * (e.g. `wp sqlite export`) need it installed first.
+ */
+export async function ensureSqliteIntegrationForImportedSite( site: {
+	path: string;
+	runtimeBlueprintPath?: string;
+} ): Promise< void > {
+	if ( site.runtimeBlueprintPath && ! isSqliteIntegrationInstalled( site.path ) ) {
+		await installSqliteIntegration( site.path );
 	}
 }
 

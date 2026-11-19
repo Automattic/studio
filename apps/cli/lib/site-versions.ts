@@ -2,11 +2,13 @@ import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
-import { getSqliteDatabasePath, openDatabase } from '@studio/database/node';
 import { writeFile } from 'atomically';
 import { listArchiveEntries } from 'cli/lib/archive';
+import { getSiteDatabase } from 'cli/lib/database';
+import type { Database } from '@studio/database/node';
 
 type FileEntry = { hash: string; size: number; mtimeMs: number };
+type SiteVersionSite = Parameters< typeof getSiteDatabase >[ 0 ] & { id: string };
 
 const DEBUG_LOG_PATH = 'wp-content/debug.log';
 // Caches that plugins fill as the site is visited, such as Page Optimize on a site pulled from
@@ -97,25 +99,16 @@ async function hashFiles(
  * Hashes the rows of every table in the site's database, except the rows WordPress rewrites on its
  * own (see `isVolatileRow`).
  */
-async function hashDatabase( siteFolder: string ): Promise< string | null > {
-	const databasePath = getSqliteDatabasePath( siteFolder );
-	if ( ! fs.existsSync( databasePath ) ) {
+async function hashDatabase( database: Database ): Promise< string | null > {
+	if ( ! ( await database.exists() ) ) {
 		return null;
 	}
-	await using database = await openDatabase(
-		{ engine: 'sqlite', path: databasePath },
-		{ readOnly: true }
-	);
+	await using session = await database.open( { readOnly: true } );
 	const hash = createHash( 'sha256' );
-	const tables = await database.query< { name: string } >(
-		"SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-	);
-	for ( const { name } of tables ) {
-		hash.update( `table:${ name }\n` );
-		for await ( const row of database.rows(
-			`SELECT * FROM "${ name.replace( /"/g, '""' ) }" ORDER BY rowid`
-		) ) {
-			if ( isVolatileRow( name, row ) ) {
+	for ( const table of await session.tables() ) {
+		hash.update( `table:${ table }\n` );
+		for await ( const row of session.tableRows( table ) ) {
+			if ( isVolatileRow( table, row ) ) {
 				continue;
 			}
 			hash.update(
@@ -132,10 +125,10 @@ async function hashDatabase( siteFolder: string ): Promise< string | null > {
  * The site's version: a hash of every file that makes up its content and of its database. The
  * site holds the same content as long as its version stays the same.
  */
-export async function getSiteVersion( siteId: string, siteFolder: string ): Promise< string > {
-	const files = await hashFiles( siteFolder, readHashCache( siteId ) );
-	const database = await hashDatabase( siteFolder );
-	await writeHashCache( siteId, files );
+export async function getSiteVersion( site: SiteVersionSite ): Promise< string > {
+	const files = await hashFiles( site.path, readHashCache( site.id ) );
+	const database = await hashDatabase( await getSiteDatabase( site ) );
+	await writeHashCache( site.id, files );
 	const id = createHash( 'sha256' );
 	for ( const [ relativePath, { hash } ] of Object.entries( files ) ) {
 		id.update( `${ relativePath }\0${ hash }\n` );

@@ -13,13 +13,14 @@ import {
 } from '@studio/common/lib/sync/build-sync-event-props';
 import { formatRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { getSqliteDatabasePath } from '@studio/database/node';
+import { type DatabaseConnection } from '@studio/database';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { assertDatabaseCanBeTransferred } from 'cli/lib/database';
+import { assertDatabaseCanBeTransferred, getSiteDatabaseConnection } from 'cli/lib/database';
+import { getSqliteDatabasePath } from 'cli/lib/database/sqlite-integration';
 import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { canUseExistingCore } from 'cli/lib/pull/local-core';
 import {
@@ -63,6 +64,7 @@ import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-fai
 import type { SyncSite } from '@studio/common/types/sync';
 import type { PreviewSite } from '@studio/providers';
 import type { builder } from 'cli/commands/pull.command';
+import type { SiteData } from 'cli/lib/cli-config/core';
 import type { CommandArgs } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
@@ -123,17 +125,16 @@ async function findPreview( source: PullSource ): Promise< PreviewSite | null | 
  * one the site doesn't have. A partial pull leaves the site and preview in an unknown state.
  */
 async function linkPreview(
-	localSiteId: string,
-	localPath: string,
+	site: SiteData,
 	source: PullSource,
 	preview: PreviewSite,
 	pulledAt: number | undefined
 ): Promise< void > {
 	try {
 		const sync = pulledAt
-			? { versionId: await getSiteVersion( localSiteId, localPath ), syncedAt: pulledAt }
+			? { versionId: await getSiteVersion( site ), syncedAt: pulledAt }
 			: undefined;
-		await linkPulledPreview( localSiteId, source.wpComToken.id, preview, sync );
+		await linkPulledPreview( site.id, source.wpComToken.id, preview, sync );
 	} catch {
 		// The pulled site still works; only the preview link is missing.
 	}
@@ -404,7 +405,8 @@ async function pullSite(
 				reprintMetadata,
 				( phase ) => {
 					run.failurePhase = phase;
-				}
+				},
+				await getSiteDatabaseConnection( site )
 			);
 
 			// The site keeps its own wp-config.php, so point it at the pulled tables. A site created
@@ -467,7 +469,7 @@ async function pullSite(
 			} );
 			// After the start, so what WordPress writes as it boots is part of the pulled version.
 			if ( run.preview ) {
-				await linkPreview( site.id, localPath, sourceSite, run.preview, pulledAt );
+				await linkPreview( site, sourceSite, run.preview, pulledAt );
 			}
 
 			if ( studioMetadata.localUrl ) {
@@ -597,6 +599,21 @@ async function runPreflight(
  * generates its runtime configuration. Each step is a separate Reprint
  * command, so a selection can skip the database.
  */
+/** Reprint's flags for the database it writes a pulled site into. */
+function getReprintTargetArgs( database: DatabaseConnection ): string[] {
+	if ( database.engine === 'sqlite' ) {
+		return [ '--target-engine=sqlite', `--target-sqlite-path=${ database.path }` ];
+	}
+	return [
+		'--target-engine=mysql',
+		`--target-host=${ database.host }`,
+		`--target-port=${ database.port }`,
+		`--target-user=${ database.user }`,
+		`--target-pass=${ database.password }`,
+		`--target-db=${ database.database }`,
+	];
+}
+
 export async function runFullPull(
 	metadata: PullSession,
 	apiUrl: string,
@@ -604,7 +621,8 @@ export async function runFullPull(
 	isFirstPull: boolean,
 	selection: PullSelection = {},
 	reprintMetadata: ReprintMetadata = emptyReprintMetadata,
-	onPhase?: ( phase: SyncFailurePhase ) => void
+	onPhase?: ( phase: SyncFailurePhase ) => void,
+	siteDatabase?: DatabaseConnection
 ): Promise< void > {
 	// The database lives in the pulled wp-content, or in the local one when
 	// the remote's location is unknown and the database isn't pulled.
@@ -634,6 +652,10 @@ export async function runFullPull(
 			sqlitePath = existingSqlitePath;
 		}
 	}
+	// Reprint writes the pulled database into the site's: its SQLite file sits in the pulled tree.
+	const targetArgs = getReprintTargetArgs(
+		siteDatabase?.engine === 'mysql' ? siteDatabase : { engine: 'sqlite', path: sqlitePath }
+	);
 
 	// A database-only first pull still pulls core even when the site could use its own. Without
 	// any pulled files, flat-docroot couldn't set the site up the way it does after other first
@@ -672,8 +694,7 @@ export async function runFullPull(
 		await runStep( __( 'Pulling database' ), [
 			'pull-db',
 			apiUrl,
-			'--target-engine=sqlite',
-			`--target-sqlite-path=${ sqlitePath }`,
+			...targetArgs,
 			`--new-site-url=${ metadata.localUrl! }`,
 			'--no-adaptive',
 			`--state-dir=${ metadata.stateDirectory }`,
@@ -717,8 +738,7 @@ export async function runFullPull(
 		'apply-runtime',
 		apiUrl,
 		'--runtime=nginx-fpm',
-		'--target-engine=sqlite',
-		`--target-sqlite-path=${ sqlitePath }`,
+		...targetArgs,
 		`--output-dir=${ metadata.runtimeDirectory }`,
 		`--flat-document-root=${ metadata.sitePath }`,
 		`--state-dir=${ metadata.stateDirectory }`,

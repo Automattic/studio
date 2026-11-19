@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { getSqliteDatabasePath } from '@studio/database/node';
 import { __ } from '@wordpress/i18n';
+import { getSqliteDatabasePath } from 'cli/lib/database/sqlite-integration';
 import { type PullSession } from 'cli/lib/pull/pull-session';
 import { type ReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import {

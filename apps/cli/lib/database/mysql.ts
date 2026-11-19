@@ -1,15 +1,13 @@
 import { formatDbHost, parseDbHost, type MysqlConnection } from '@studio/database';
-import { openDatabase } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { defineWpConfigConstants, readWpConfigConstants } from 'cli/lib/native-php/site-setup';
 import { LoggerError } from 'cli/logger';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { SiteDatabase } from 'cli/lib/database';
 
 const DB_CONSTANTS = [ 'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME' ] as const;
 
 /** The connection the site's wp-config.php defines, the one source of truth for it. */
-async function readMysqlConnection(
+export async function readMysqlConnection(
 	sitePath: string,
 	phpVersion: SupportedPHPVersion
 ): Promise< MysqlConnection > {
@@ -47,19 +45,4 @@ export async function writeMysqlConfig(
 		DB_PASSWORD: connection.password,
 		DB_NAME: connection.database,
 	} );
-}
-
-export function createMysqlSiteDatabase( sitePath: string, phpVersion: SupportedPHPVersion ) {
-	const getConnection = () => readMysqlConnection( sitePath, phpVersion );
-	return {
-		engine: 'mysql',
-		async ensureReady() {
-			await ( await openDatabase( await getConnection() ) ).close();
-		},
-		getConnection,
-		// Created with the site, and ensureReady fails when it's gone.
-		exists: async () => true,
-		repair: async () => {},
-		prepareForSharing: async () => {},
-	} satisfies SiteDatabase;
 }

@@ -44,13 +44,8 @@ import {
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
-import {
-	hasDefaultDbConstants,
-	parseDbHost,
-	removeDefaultDbConstants,
-	type MysqlConnection,
-} from '@studio/database';
-import { createMysqlDatabase, needsSqliteIntegration } from '@studio/database/node';
+import { parseDbHost, type MysqlConnection } from '@studio/database';
+import { createDatabase } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { openBlueprintSource } from 'cli/lib/blueprint-library';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
@@ -70,7 +65,12 @@ import {
 } from 'cli/lib/daemon-client';
 import { type liberateWebsite } from 'cli/lib/data-liberation-client';
 import { ensureSiteDatabaseReady } from 'cli/lib/database';
+import {
+	hasDefaultDbConstants,
+	removeDefaultDbConstants,
+} from 'cli/lib/database/default-db-constants';
 import { writeMysqlConfig } from 'cli/lib/database/mysql';
+import { needsSqliteIntegration } from 'cli/lib/database/sqlite-integration';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -301,7 +301,7 @@ export async function runCommand(
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		if ( options.mysql ) {
-			await createMysqlDatabase( options.mysql );
+			await createDatabase( options.mysql ).create();
 		}
 		// A WordPress directory with a wp-config.php and none of SQLite's files already runs on
 		// the user's own database server.

@@ -3,11 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-	copySqliteDatabase,
-	replaceMysql8OnlyCollations,
-	resetSqliteJournalMode,
-} from '../sqlite-files';
+import { createDatabase } from '../database';
+import { copySqliteDatabase } from '../sqlite';
 
 let directory: string;
 let databasePath: string;
@@ -37,25 +34,27 @@ const journalMode = ( file: string ) =>
 			( database.prepare( 'PRAGMA journal_mode' ).get() as { journal_mode: string } ).journal_mode
 	);
 
-describe( 'resetSqliteJournalMode', () => {
+const sqlite = () => createDatabase( { engine: 'sqlite', path: databasePath } );
+
+describe( 'prepareForSharing', () => {
 	it( 'switches a WAL database to rollback mode', async () => {
 		withSqlite( databasePath, ( database ) => {
 			database.exec( 'PRAGMA journal_mode = WAL' );
 			database.exec( 'CREATE TABLE t ( id INTEGER )' );
 		} );
 
-		await resetSqliteJournalMode( databasePath );
+		await sqlite().prepareForSharing();
 
 		expect( journalMode( databasePath ) ).toBe( 'delete' );
 	} );
 
 	it( 'leaves a missing database alone', async () => {
-		await resetSqliteJournalMode( databasePath );
+		await sqlite().prepareForSharing();
 		expect( fs.existsSync( databasePath ) ).toBe( false );
 	} );
 } );
 
-describe( 'replaceMysql8OnlyCollations', () => {
+describe( 'repair', () => {
 	it( 'replaces MySQL 8-only collations and keeps the others', async () => {
 		withSqlite( databasePath, ( database ) =>
 			database.exec( `
@@ -73,7 +72,7 @@ describe( 'replaceMysql8OnlyCollations', () => {
 			` )
 		);
 
-		await replaceMysql8OnlyCollations( databasePath );
+		await sqlite().repair();
 
 		withSqlite( databasePath, ( database ) => {
 			expect(
@@ -99,7 +98,7 @@ describe( 'replaceMysql8OnlyCollations', () => {
 		withSqlite( databasePath, ( database ) =>
 			database.exec( 'CREATE TABLE wp_options ( option_name TEXT )' )
 		);
-		await expect( replaceMysql8OnlyCollations( databasePath ) ).resolves.toBeUndefined();
+		await expect( sqlite().repair() ).resolves.toBeUndefined();
 	} );
 } );
 

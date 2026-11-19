@@ -8,8 +8,10 @@ import {
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
-import { SQLITE_WP_CONFIG_CONSTANTS } from '@studio/database';
-import { isSqliteIntegrationInstalled } from '@studio/database/node';
+import {
+	SQLITE_WP_CONFIG_CONSTANTS,
+	isSqliteIntegrationInstalled,
+} from 'cli/lib/database/sqlite-integration';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';

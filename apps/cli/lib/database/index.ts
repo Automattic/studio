@@ -1,29 +1,13 @@
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
-import { getDatabaseEngine, type DatabaseConnection, type DatabaseEngine } from '@studio/database';
+import { type DatabaseConnection, type DatabaseEngine } from '@studio/database';
+import { createDatabase, type Database } from '@studio/database/node';
 import { __ } from '@wordpress/i18n';
-import { createMysqlSiteDatabase } from 'cli/lib/database/mysql';
-import { createSqliteSiteDatabase } from 'cli/lib/database/sqlite';
+import { readMysqlConnection } from 'cli/lib/database/mysql';
+import {
+	getSqliteDatabasePath,
+	updateSqliteIntegration,
+} from 'cli/lib/database/sqlite-integration';
 import { LoggerError, type Logger } from 'cli/logger';
-
-/** The database a site runs on, so site operations don't depend on its engine. */
-export interface SiteDatabase {
-	readonly engine: DatabaseEngine;
-	/** Gets the database ready for WordPress to run on it. */
-	ensureReady(): Promise< void >;
-	/** What the tools that write the database (Blueprints, Reprint) connect to. */
-	getConnection(): Promise< DatabaseConnection >;
-	/**
-	 * Whether the site's database has been created. WordPress may still need installing in it.
-	 */
-	exists(): Promise< boolean >;
-	/** Fixes what the database driver records wrongly. Safe while the site runs. */
-	repair(): Promise< void >;
-	/**
-	 * Gets the database ready to be opened by several processes at once (the site's server, WP-CLI),
-	 * then repairs it. Only while none of them has it open.
-	 */
-	prepareForSharing(): Promise< void >;
-}
 
 interface DatabaseSite {
 	path: string;
@@ -31,30 +15,54 @@ interface DatabaseSite {
 	databaseEngine?: DatabaseEngine;
 }
 
-export function getSiteDatabase( site: DatabaseSite ): SiteDatabase {
-	return getDatabaseEngine( site ) === 'mysql'
-		? createMysqlSiteDatabase( site.path, resolveSupportedPhpVersion( site.phpVersion ?? '' ) )
-		: createSqliteSiteDatabase( site.path );
+/** Studio records the engine only for sites on a MySQL server, so every other site runs on SQLite. */
+export function getDatabaseEngine( site: { databaseEngine?: DatabaseEngine } ): DatabaseEngine {
+	return site.databaseEngine ?? 'sqlite';
 }
 
+/** Where a site's database is: its SQLite file, or the MySQL database its wp-config.php names. */
+export async function getSiteDatabaseConnection(
+	site: DatabaseSite
+): Promise< DatabaseConnection > {
+	return getDatabaseEngine( site ) === 'mysql'
+		? readMysqlConnection( site.path, resolveSupportedPhpVersion( site.phpVersion ?? '' ) )
+		: { engine: 'sqlite', path: getSqliteDatabasePath( site.path ) };
+}
+
+export async function getSiteDatabase( site: DatabaseSite ): Promise< Database > {
+	return createDatabase( await getSiteDatabaseConnection( site ) );
+}
+
+/**
+ * Gets a site's database ready for WordPress to run on it: on SQLite, the integration WordPress
+ * runs on it through; on MySQL, a check that the database can be opened.
+ */
 export async function ensureSiteDatabaseReady< Action extends string >(
 	site: DatabaseSite,
 	logger: Logger< Action >,
 	action: Action
 ): Promise< void > {
 	logger.reportStart( action, __( 'Preparing the database…' ) );
-	await getSiteDatabase( site ).ensureReady();
+	if ( getDatabaseEngine( site ) === 'mysql' ) {
+		await ( await ( await getSiteDatabase( site ) ).open() ).close();
+	} else {
+		// Also leaves alone the sites people moved to their own database server by hand before
+		// Studio supported MySQL: they have a wp-config.php and none of the SQLite files.
+		await updateSqliteIntegration( site.path );
+	}
 	logger.reportSuccess( __( 'Database ready' ) );
 }
 
 /**
- * Import, export, push and pull move the database as SQL, which Studio can only read and
- * write on SQLite for now.
+ * Import, export, push, pull and previews move the database as SQL or as a SQLite file, which
+ * Studio can only do on SQLite for now.
  */
 export function assertDatabaseCanBeTransferred( site: DatabaseSite ): void {
 	if ( getDatabaseEngine( site ) === 'mysql' ) {
 		throw new LoggerError(
-			__( 'Studio can’t import, export, push or pull a site that uses a MySQL server yet.' )
+			__(
+				'Studio can’t import, export, push, pull or preview a site that uses a MySQL server yet.'
+			)
 		);
 	}
 }

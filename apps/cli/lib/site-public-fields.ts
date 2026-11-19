@@ -11,6 +11,7 @@ export const SITE_LIST_PUBLIC_FIELDS = [
 	'operation',
 	'phpVersion',
 	'fileAccess',
+	'databaseEngine',
 	'customDomain',
 	'enableHttps',
 	'adminUsername',

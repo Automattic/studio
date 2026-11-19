@@ -1,64 +1,56 @@
 # @studio/database
 
-The databases WordPress sites run on in Studio: a SQLite file, which is the default, or the user's own MySQL server. It opens and queries both the same way, and sets up the SQLite integration that lets WordPress run on SQLite. It imports no other workspace package.
+The databases WordPress sites run on in Studio, SQLite or a MySQL server, worked on the same way. It knows nothing about Studio sites: it takes a connection, which says where a database is, and gives one implementation per engine. It imports no other workspace package.
 
 ```
-index.ts               the browser-safe entry
-engine.ts              DatabaseEngine, getDatabaseEngine
-connection.ts          DatabaseConnection, parseDbHost, formatDbHost
-errors.ts              DatabaseError
-wp-config.ts           hasDefaultDbConstants, removeDefaultDbConstants
-sqlite.ts              SQLITE_INTEGRATION_FOLDER, SQLITE_WP_CONFIG_CONSTANTS
-node.ts                the Node entry
-open.ts                openDatabase, Database, createMysqlDatabase
-sqlite-integration.ts  the SQLite integration in a site
-sqlite-files.ts        resetSqliteJournalMode, replaceMysql8OnlyCollations, copySqliteDatabase
+index.ts       the browser-safe entry
+engine.ts      databaseEngineSchema, DatabaseEngine
+connection.ts  DatabaseConnection and its schema, parseDbHost, formatDbHost
+errors.ts      DatabaseError
+node.ts        the Node entry
+database.ts    createDatabase, Database
+session.ts     DatabaseSession, the error handling around each engine
+sqlite.ts      the SQLite engine (node:sqlite), copySqliteDatabase
+mysql.ts       the MySQL engine (mysql2, loaded only when a MySQL database is opened)
 ```
 
-## Two entries
+## Connections
 
-- **`@studio/database`** runs in Node and in the page: types, the engine, `DB_HOST` values, `wp-config.php` text and the SQLite integration's folder and constants.
-- **`@studio/database/node`** opens databases and changes site files. The CLI imports it.
-
-## Engines and connections
-
-A site records its engine only when it isn't SQLite, so `getDatabaseEngine( site )` reads a missing one as `sqlite`. A `DatabaseConnection` says where a database is: `{ engine: 'sqlite', path }` or `{ engine: 'mysql', host, port, user, password, database }`.
+A `DatabaseConnection` says where a database is: `{ engine: 'sqlite', path }` or `{ engine: 'mysql', host, port, user, password, database }`. `databaseConnectionSchema` checks one, for instance when it crosses a process boundary.
 
 `parseDbHost` and `formatDbHost` convert between a WordPress `DB_HOST` value (`host` or `host:port`) and a host and port. WordPress in Studio reaches MySQL over TCP, so a socket, and `localhost`, which PHP takes as a socket, throw a `socket_host` error.
 
-## Opening a database
+## Working on a database
 
 ```ts
-import { openDatabase } from '@studio/database/node';
+import { createDatabase } from '@studio/database/node';
 
-await using database = await openDatabase( connection );
-const rows = await database.query( 'SELECT option_value FROM wp_options WHERE option_name = ?', [ 'blogname' ] );
-for await ( const row of database.rows( 'SELECT * FROM wp_posts' ) ) {
-	// one row at a time
+const database = createDatabase( connection ); // opens nothing
+if ( ! ( await database.exists() ) ) {
+	await database.create();
+}
+await using session = await database.open();
+const rows = await session.query( 'SELECT option_value FROM wp_options WHERE option_name = ?', [ 'blogname' ] );
+for ( const table of await session.tables() ) {
+	for await ( const row of session.tableRows( table ) ) {
+		// one row at a time, in a stable order
+	}
 }
 ```
 
-`openDatabase( connection, { readOnly } )` opens a SQLite file with `node:sqlite`, waiting up to five seconds for a running site's write, or connects to MySQL with `mysql2`, loaded only then. `query` runs one statement with `?` placeholders and returns the rows it selects; `rows` yields them one at a time, for tables too large to hold in memory. SQL itself isn't translated: write SQL both engines accept, or check `database.connection.engine`.
+A `Database`:
 
-Failures throw a `DatabaseError` with a translated message and a `code`: `connection_failed` when the database can't be opened, `query_failed` when a statement fails.
+- `exists()` and `create()`: the SQLite file (`create` makes its folder; SQLite creates the file on first write), or the database on its MySQL server.
+- `open( { readOnly } )` returns a `DatabaseSession`: `query` runs one statement with `?` placeholders, `rows` yields rows one at a time, `tables` lists the tables (on SQLite, including the SQLite driver's own), `tableRows` reads a table in a stable order (`rowid` on SQLite, the primary key on MySQL). SQL isn't translated: write SQL both engines accept, or check `connection.engine`.
+- `prepareForSharing()` gets the database ready for several processes to open at once, then repairs it: on SQLite, it leaves the WAL journal mode the driver leaves it in, which processes sharing a site's database trip over. Only while none has it open.
+- `repair()` fixes what WordPress's SQLite driver records wrongly: the MySQL 8-only collations, which MariaDB rejects when an export is imported. Safe while the database is in use.
 
-`createMysqlDatabase( connection )` creates the connection's database on its server unless it exists.
+Both do nothing on MySQL and never throw: they only leave the problem in place.
 
-## The SQLite integration
+`copySqliteDatabase( source, destination )` copies a SQLite database consistently while a site writes to it.
 
-WordPress runs on SQLite through the SQLite Database Integration plugin: a `db.php` drop-in that loads the driver from `wp-content/mu-plugins/sqlite-database-integration` (`SQLITE_INTEGRATION_FOLDER`), and the database in `wp-content/database/.ht.sqlite` (`getSqliteDatabasePath`). The driver needs a non-empty `DB_NAME` in `wp-config.php` (`SQLITE_WP_CONFIG_CONSTANTS`).
-
-- `updateSqliteIntegration( sitePath, pluginPath )` installs or refreshes it on a site that runs on SQLite. It leaves alone a site moved to its own database server by hand, which has a `wp-config.php` and none of the SQLite files (`needsSqliteIntegration`).
-- `installSqliteIntegration( sitePath, pluginPath )` installs it regardless. A custom SQLite drop-in (one defining `SQLITE_DB_DROPIN_VERSION` without the stock header) is kept; any other `db.php` is replaced.
-
-## SQLite files
-
-- `resetSqliteJournalMode( path )` switches a database out of WAL mode, which processes sharing a site's database trip over.
-- `replaceMysql8OnlyCollations( path )` rewrites the MySQL 8-only collations the driver records, which MariaDB rejects on import.
-- `copySqliteDatabase( source, destination )` copies a database consistently while a site writes to it.
-
-The first two never throw: they are fix-ups that mustn't block a start or an import.
+Failures throw a `DatabaseError` with a translated message and a `code`: `connection_failed` when a database can't be opened, `query_failed` when a statement fails.
 
 ## Tests
 
-`npm test -- packages/database`. Set `STUDIO_TEST_MYSQL_URL` (e.g. `mysql://root:secret@127.0.0.1:3307`) to run `openDatabase` against MySQL too: the tests create and drop their own database.
+`npm test -- packages/database`. Set `STUDIO_TEST_MYSQL_URL` (e.g. `mysql://root:secret@127.0.0.1:3307`) to run them against MySQL too: they create and drop their own database.

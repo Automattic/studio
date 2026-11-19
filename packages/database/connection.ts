@@ -1,21 +1,30 @@
 import { __, sprintf } from '@wordpress/i18n';
+import { z } from 'zod';
 import { DatabaseError } from './errors';
 
-export interface SqliteConnection {
-	engine: 'sqlite';
-	path: string;
-}
+export const sqliteConnectionSchema = z.object( {
+	engine: z.literal( 'sqlite' ),
+	path: z.string(),
+} );
 
-export interface MysqlConnection {
-	engine: 'mysql';
-	host: string;
-	port: number;
-	user: string;
-	password: string;
-	database: string;
-}
+export const mysqlConnectionSchema = z.object( {
+	engine: z.literal( 'mysql' ),
+	host: z.string(),
+	port: z.number().int(),
+	user: z.string(),
+	password: z.string(),
+	database: z.string(),
+} );
 
-export type DatabaseConnection = SqliteConnection | MysqlConnection;
+/** Where a database is: a SQLite file, or a database on a MySQL server. */
+export const databaseConnectionSchema = z.discriminatedUnion( 'engine', [
+	sqliteConnectionSchema,
+	mysqlConnectionSchema,
+] );
+
+export type SqliteConnection = z.infer< typeof sqliteConnectionSchema >;
+export type MysqlConnection = z.infer< typeof mysqlConnectionSchema >;
+export type DatabaseConnection = z.infer< typeof databaseConnectionSchema >;
 
 // Not `localhost`, which PHP's MySQL driver takes as a socket connection.
 export const DEFAULT_MYSQL_HOST = '127.0.0.1';

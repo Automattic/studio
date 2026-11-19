@@ -33,6 +33,10 @@ it.each( [
 	expect( isPhpMyAdminSupported( { path: sitePath } ) ).toBe( true );
 } );
 
+it( 'doesn’t support sites on their own MySQL server yet', () => {
+	expect( isPhpMyAdminSupported( { path: sitePath, databaseEngine: 'mysql' } ) ).toBe( false );
+} );
+
 it( 'supports Reprint SQLite sites wired through runtime.php', () => {
 	write( 'wp-config.php' );
 	expect(

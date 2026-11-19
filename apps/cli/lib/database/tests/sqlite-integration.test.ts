@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	getSqliteDatabasePath,
 	getSqliteIntegrationPath,
@@ -11,6 +11,9 @@ import {
 	needsSqliteIntegration,
 	updateSqliteIntegration,
 } from '../sqlite-integration';
+
+// The plugin Studio ships, a copy of which each test puts in its own folder.
+vi.mock( 'cli/lib/dependency-management/paths', () => ( { getWpFilesPath: () => root } ) );
 
 const DB_COPY = "<?php\n$path = '{SQLITE_IMPLEMENTATION_FOLDER_PATH}';";
 const CUSTOM_DROPIN = "<?php\ndefine( 'SQLITE_DB_DROPIN_VERSION', '1.8.0' );\n// custom";
@@ -42,7 +45,7 @@ afterEach( () => {
 
 describe( 'installSqliteIntegration', () => {
 	it( 'writes a drop-in that loads the plugin and pins the database path', async () => {
-		await installSqliteIntegration( sitePath, pluginPath );
+		await installSqliteIntegration( sitePath );
 
 		const dropin = fs.readFileSync( dbPhpPath(), 'utf8' );
 		expect( dropin ).toMatch( /^<\?php\nif \( ! defined\( 'DB_PATH' \)/ );
@@ -59,7 +62,7 @@ describe( 'installSqliteIntegration', () => {
 
 	it( 'removes a db-path.php, so the pin is the only database path', async () => {
 		write( dbPathPhp(), '<?php' );
-		await installSqliteIntegration( sitePath, pluginPath );
+		await installSqliteIntegration( sitePath );
 		expect( fs.existsSync( dbPathPhp() ) ).toBe( false );
 	} );
 
@@ -67,7 +70,7 @@ describe( 'installSqliteIntegration', () => {
 		write( dbPhpPath(), CUSTOM_DROPIN );
 		write( dbPathPhp(), '<?php' );
 
-		await installSqliteIntegration( sitePath, pluginPath );
+		await installSqliteIntegration( sitePath );
 
 		expect( fs.readFileSync( dbPhpPath(), 'utf8' ) ).toBe( CUSTOM_DROPIN );
 		expect( fs.existsSync( dbPathPhp() ) ).toBe( true );
@@ -79,14 +82,14 @@ describe( 'installSqliteIntegration', () => {
 		[ 'a db.php that is not a SQLite drop-in', "<?php\nrequire_once 'qm-db.php';" ],
 	] )( 'replaces %s', async ( _description, content ) => {
 		write( dbPhpPath(), content );
-		await installSqliteIntegration( sitePath, pluginPath );
+		await installSqliteIntegration( sitePath );
 		expect( fs.readFileSync( dbPhpPath(), 'utf8' ) ).toContain( "define( 'DB_PATH'" );
 	} );
 
 	it( 'fails without the plugin’s files', async () => {
 		fs.rmSync( pluginPath, { recursive: true } );
-		expect( isSqliteIntegrationAvailable( pluginPath ) ).toBe( false );
-		await expect( installSqliteIntegration( sitePath, pluginPath ) ).rejects.toThrow(
+		expect( isSqliteIntegrationAvailable() ).toBe( false );
+		await expect( installSqliteIntegration( sitePath ) ).rejects.toThrow(
 			'SQLite integration files not found'
 		);
 	} );
@@ -118,7 +121,7 @@ describe( 'updateSqliteIntegration', () => {
 		write( path.join( sitePath, 'wp-config.php' ), '<?php' );
 		write( getSqliteDatabasePath( sitePath ) );
 
-		await updateSqliteIntegration( sitePath, pluginPath );
+		await updateSqliteIntegration( sitePath );
 
 		expect( isSqliteIntegrationInstalled( sitePath ) ).toBe( true );
 	} );
@@ -126,7 +129,7 @@ describe( 'updateSqliteIntegration', () => {
 	it( 'leaves a site on its own database server alone', async () => {
 		write( path.join( sitePath, 'wp-config.php' ), '<?php' );
 
-		await updateSqliteIntegration( sitePath, pluginPath );
+		await updateSqliteIntegration( sitePath );
 
 		expect( fs.existsSync( dbPhpPath() ) ).toBe( false );
 	} );

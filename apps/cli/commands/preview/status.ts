@@ -29,9 +29,7 @@ export async function getPreviewStatus( host: string ): Promise< PreviewStatus >
 	}
 	const site = snapshot.localSiteId ? await findSiteById( snapshot.localSiteId ) : undefined;
 	const localChanged =
-		site && snapshot.versionId
-			? ( await getSiteVersion( site.id, site.path ) ) !== snapshot.versionId
-			: null;
+		site && snapshot.versionId ? ( await getSiteVersion( site ) ) !== snapshot.versionId : null;
 	const previewChanged = snapshot.syncedAt
 		? ( await wpcomSites.editedAt!(
 				{ token: token.accessToken },

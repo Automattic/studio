@@ -2,14 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { formatDbHost, type DatabaseConnection } from '@studio/database';
-import { SQLITE_INTEGRATION_FOLDER, SQLITE_WP_CONFIG_CONSTANTS } from '@studio/database';
-import { getSqliteIntegrationPath, updateSqliteIntegration } from '@studio/database/node';
 import { parse as parseShellCommand } from 'shell-quote';
-import { getSiteDatabase } from 'cli/lib/database';
+import {
+	SQLITE_INTEGRATION_FOLDER,
+	SQLITE_WP_CONFIG_CONSTANTS,
+	getSqliteIntegrationPath,
+	updateSqliteIntegration,
+} from 'cli/lib/database/sqlite-integration';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
-	getSqlitePluginPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from 'cli/lib/native-php/tmp-dir';
@@ -249,13 +251,8 @@ export async function runBlueprint(
 		throw new Error( `Remote blueprint URIs are not supported: ${ blueprint.uri }` );
 	}
 
-	const databaseConnection = await getSiteDatabase( {
-		path: config.sitePath,
-		phpVersion,
-		databaseEngine: config.databaseEngine,
-	} ).getConnection();
 	const defaultConstants: Record< string, boolean | string > = {
-		...( databaseConnection.engine === 'sqlite' ? SQLITE_WP_CONFIG_CONSTANTS : {} ),
+		...( config.database.engine === 'sqlite' ? SQLITE_WP_CONFIG_CONSTANTS : {} ),
 		...getSettingsWpConfigConstants( config ),
 	};
 
@@ -320,7 +317,7 @@ export async function runBlueprint(
 				'--mode=apply-to-existing-site',
 				`--site-path=${ config.sitePath }`,
 				`--site-url=${ config.absoluteUrl ?? `http://localhost:${ config.port }` }`,
-				...getBlueprintDatabaseArgs( databaseConnection ),
+				...getBlueprintDatabaseArgs( config.database ),
 			],
 			{
 				phpVersion,
@@ -352,7 +349,7 @@ export async function runBlueprint(
 			// Remove only the link created here, not content that replaced it.
 			await removeOwnedSqliteSymlink( pluginsSqlite, muPluginsSqlite );
 			// The runner may remove the symlink target while managing its SQLite driver.
-			await updateSqliteIntegration( config.sitePath, getSqlitePluginPath() );
+			await updateSqliteIntegration( config.sitePath );
 		}
 	}
 }

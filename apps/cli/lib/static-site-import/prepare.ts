@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { isSqliteIntegrationAvailable } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
@@ -11,7 +10,7 @@ import {
 	liberateWebsite,
 	type PartialCaptureReport,
 } from 'cli/lib/data-liberation-client';
-import { getSqlitePluginPath } from 'cli/lib/dependency-management/paths';
+import { isSqliteIntegrationAvailable } from 'cli/lib/database/sqlite-integration';
 import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import {
 	STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS,
@@ -111,7 +110,7 @@ export async function prepareSourceImport(
 	}
 	let liberated: Awaited< ReturnType< typeof liberateWebsite > > | undefined;
 	if ( sourceUrl ) {
-		if ( ! isSqliteIntegrationAvailable( getSqlitePluginPath() ) ) {
+		if ( ! isSqliteIntegrationAvailable() ) {
 			throw new LoggerError(
 				__(
 					'Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.'

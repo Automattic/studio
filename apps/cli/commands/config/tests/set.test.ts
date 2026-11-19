@@ -1,11 +1,12 @@
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { encodePassword } from '@studio/common/lib/passwords';
+import { type Database } from '@studio/database/node';
 import { vi } from 'vitest';
 import { readCliConfig, saveCliConfig, unlockCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getSiteDatabase, type SiteDatabase } from 'cli/lib/database';
+import { getSiteDatabase } from 'cli/lib/database';
 import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { updateDomainInHosts } from 'cli/lib/hosts-file';
@@ -98,9 +99,9 @@ describe( 'CLI: studio config set', () => {
 		vi.mocked( pathExists ).mockImplementation( async ( filePath: string ) =>
 			filePath.endsWith( 'wp-config.php' ) ? wpConfig : database
 		);
-		vi.mocked( getSiteDatabase ).mockReturnValue( {
+		vi.mocked( getSiteDatabase ).mockResolvedValue( {
 			exists: async () => database,
-		} as SiteDatabase );
+		} as Database );
 	};
 
 	beforeEach( () => {

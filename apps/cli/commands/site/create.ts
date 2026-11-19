@@ -102,7 +102,7 @@ import {
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
 import { classifySiteCreateFailure, untildify } from 'cli/lib/utils';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { setUpSite, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {} from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/site/create.command';
@@ -292,10 +292,6 @@ export async function runCommand(
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
-		for ( const site of cliConfig.sites ) {
-			portFinder.addUnavailablePort( site.port );
-		}
-
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );
@@ -365,11 +361,6 @@ export async function runCommand(
 			);
 		}
 
-		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
-		const port = await portFinder.getOpenPort();
-		// translators: %d is the port number
-		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
-
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
 
@@ -403,29 +394,39 @@ export async function runCommand(
 			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
-		const siteDetails: SiteData = {
-			id: siteId,
-			name: siteName,
-			path: sitePath,
-			adminUsername,
-			adminPassword,
-			adminEmail,
-			port,
-			phpVersion,
-			fileAccess: options.fileAccess,
-			running: false,
-			status: 'ready',
-			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
-			customDomain: options.customDomain,
-			enableHttps: options.enableHttps,
-			landingPage: normalizeLandingPage( blueprint?.landingPage ),
-		};
-
-		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
-
+		let siteDetails: SiteData;
+		await lockCliConfig();
 		try {
-			await lockCliConfig();
 			const userData = await readCliConfig();
+			// Claim the port in cli.json before another create can select it, even if this
+			// site's server has not started listening yet.
+			for ( const site of userData.sites ) {
+				portFinder.addUnavailablePort( site.port );
+			}
+			logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
+			const port = await portFinder.getOpenPort();
+			// translators: %d is the port number
+			logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
+
+			siteDetails = {
+				id: siteId,
+				name: siteName,
+				path: sitePath,
+				adminUsername,
+				adminPassword,
+				adminEmail,
+				port,
+				phpVersion,
+				fileAccess: options.fileAccess,
+				running: false,
+				status: 'ready',
+				isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
+				customDomain: options.customDomain,
+				enableHttps: options.enableHttps,
+				landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			};
+
+			logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
 			userData.sites.push( siteDetails );
 			sortSites( userData.sites );
@@ -486,38 +487,44 @@ export async function runCommand(
 				);
 			}
 		} else {
-			if ( blueprint ) {
-				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-				await connectToDaemon();
-				logger.reportSuccess( __( 'Process daemon started' ) );
+			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
+			await connectToDaemon();
+			logger.reportSuccess( __( 'Process daemon started' ) );
 
-				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
-				try {
-					if ( ! blueprintUri ) {
-						throw new LoggerError( __( 'Blueprint source path is missing' ) );
-					}
-					await runBlueprint( siteDetails, logger, {
-						wpVersion: options.wpVersion,
-						blueprint,
-						blueprintUri,
-						siteLanguage,
-					} );
-					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
-
-					stripWpConfigDbConstants( sitePath );
-					await importRun?.run( siteDetails );
-				} catch ( error ) {
-					if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
-						await removeSiteFromConfig( siteDetails.id );
-						if ( ! isWordPressDirResult ) {
-							await fs.promises.rm( sitePath, { recursive: true, force: true } );
-						}
-					}
-					throw new LoggerError(
-						importRun ? __( 'Failed to import static site' ) : __( 'Failed to apply Blueprint' ),
-						error
-					);
+			logger.reportStart(
+				LoggerAction.START_SITE,
+				blueprint ? __( 'Applying Blueprint…' ) : __( 'Setting up WordPress…' )
+			);
+			try {
+				if ( blueprint && ! blueprintUri ) {
+					throw new LoggerError( __( 'Blueprint source path is missing' ) );
 				}
+				await setUpSite( siteDetails, logger, {
+					wpVersion: options.wpVersion,
+					blueprint,
+					blueprintUri,
+					siteLanguage,
+				} );
+				logger.reportSuccess(
+					blueprint ? __( 'Blueprint applied successfully' ) : __( 'WordPress set up' )
+				);
+
+				stripWpConfigDbConstants( sitePath );
+				await importRun?.run( siteDetails );
+			} catch ( error ) {
+				if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
+					await removeSiteFromConfig( siteDetails.id );
+					if ( ! isWordPressDirResult ) {
+						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					}
+				}
+				let message: string = __( 'Failed to set up WordPress' );
+				if ( importRun ) {
+					message = __( 'Failed to import static site' );
+				} else if ( blueprint ) {
+					message = __( 'Failed to apply Blueprint' );
+				}
+				throw new LoggerError( message, error );
 			}
 			console.log( '' );
 			console.log( __( 'Site created successfully' ) );

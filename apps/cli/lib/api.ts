@@ -4,37 +4,6 @@ import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
-export async function deleteSnapshot( atomicSiteId: number, token: string ): Promise< void > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-
-	try {
-		await wpcom.req.post( {
-			path: '/jurassic-ninja/delete',
-			apiNamespace: 'wpcom/v2',
-			body: { site_id: atomicSiteId },
-		} );
-	} catch ( error ) {
-		if ( error instanceof Error && 'code' in error && error.code === 'rest_site_already_deleted' ) {
-			return;
-		}
-
-		throw new LoggerError( __( 'Failed to delete preview site' ), error );
-	}
-}
-
-export async function deleteAllSnapshots( token: string ): Promise< void > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
-
-	try {
-		await wpcom.req.post( {
-			path: '/jurassic-ninja/delete/all',
-			apiNamespace: 'wpcom/v2',
-		} );
-	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to delete all preview sites' ), error );
-	}
-}
-
 const userResponseSchema = z.object( {
 	ID: z.number(),
 	email: z.string().email(),

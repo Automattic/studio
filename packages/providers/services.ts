@@ -28,6 +28,3 @@ export function getProviderServices< Id extends ProviderId >(
 ): ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > > {
 	return SERVICES[ id ];
 }
-
-// Previews upload to WordPress.com the way a push does, until they are a capability of their own.
-export { createTusUpload } from './wpcom/sites/upload';

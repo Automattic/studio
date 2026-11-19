@@ -529,6 +529,37 @@ describe( 'useAgentRun queued handoff', () => {
 		expect( JSON.stringify( entries ) ).toContain( 'Updated the header' );
 	} );
 
+	it( 'keeps only the latest progress of a running tool in the transcript', async () => {
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-1' ], session() );
+		const { connector } = await setup( { queryClient } );
+		const progress = ( message: string ) =>
+			connector.emit(
+				'onAgentEvent',
+				event( 'push-run', {
+					type: 'message',
+					timestamp: new Date().toISOString(),
+					message: {
+						type: 'tool_execution_update',
+						toolCallId: 'push-1',
+						partialResult: { content: [], details: { studioProgress: { message } } },
+					},
+				} as AgentRunEvent[ 'event' ] )
+			);
+		act( () => {
+			for ( let i = 0; i < 50; i++ ) {
+				progress( 'Uploading archive… (21%)' );
+			}
+			progress( 'Uploading archive… (22%)' );
+		} );
+		const entries = queryClient.getQueryData< LoadedAiSession >( [
+			...SESSIONS_QUERY_KEY,
+			'session-1',
+		] )!.entries;
+		expect( entries ).toHaveLength( 1 );
+		expect( JSON.stringify( entries ) ).toContain( 'Uploading archive… (22%)' );
+	} );
+
 	it( 'dispatches queued prompts after the chat panel unmounts', async () => {
 		function Toggle() {
 			const [ shown, setShown ] = useState( true );

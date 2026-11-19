@@ -95,7 +95,7 @@ export type StartServerOptions = z.infer< typeof startServerOptionsSchema >;
 
 function buildServerConfig(
 	site: SiteData,
-	options?: Partial< StartServerOptions & RunBlueprintOptions >
+	options?: Partial< StartServerOptions & SetUpSiteOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
@@ -257,6 +257,7 @@ export async function startWordPressServer(
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
 	let serverPid: number | undefined;
+	let processStarted = false;
 	const now = Date.now();
 	// Phases time from here; a `site start` an app asked for times from the request, so it includes
 	// spawning and loading this CLI and the preparation above.
@@ -265,6 +266,7 @@ export async function startWordPressServer(
 	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
+		processStarted = true;
 		serverPid = processDesc.status === 'online' ? processDesc.pid : undefined;
 		await readyOrExit.waitFor( processDesc.pmId );
 		phaseTimings.daemon_ms = Date.now() - now;
@@ -333,6 +335,11 @@ export async function startWordPressServer(
 			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
+		}
+		// A start that timed out leaves its process behind, so the site would look running while
+		// nothing serves it, and the next start would report it as already running.
+		if ( processStarted ) {
+			await stopWordPressServer( site.id ).catch( () => {} );
 		}
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {
@@ -719,28 +726,27 @@ async function waitForProcessToExit( processName: string ): Promise< void > {
 	}
 }
 
-export interface RunBlueprintOptions {
+export interface SetUpSiteOptions {
 	wpVersion?: string;
-	blueprint: unknown;
-	blueprintUri: string;
+	blueprint?: unknown;
+	blueprintUri?: string;
 	siteLanguage?: string;
 }
 
 /**
- * Run a blueprint on a site without starting a server
- * 1. Start the process (via the process manager daemon)
- * 2. Wait for 'ready' message
- * 3. Send 'run-blueprint' message with config
- * 4. Wait for completion
- * 5. Stop the process
+ * Set a site up without starting a server: write wp-config.php, install WordPress, and apply the
+ * Blueprint when one is given. Runs in a server child process that stops once it is done.
  */
-export async function runBlueprint(
+export async function setUpSite(
 	site: SiteData,
 	logger: Logger< string >,
-	options: RunBlueprintOptions
+	options: SetUpSiteOptions
 ): Promise< void > {
 	await ensureSitePhpBinaryAvailable( site, logger );
-	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
+	logger.reportStart(
+		SiteCommandLoggerAction.APPLY_BLUEPRINT,
+		options.blueprint ? __( 'Applying Blueprint…' ) : __( 'Setting up WordPress…' )
+	);
 
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
@@ -754,7 +760,7 @@ export async function runBlueprint(
 				processDesc.pmId,
 				processName,
 				{
-					topic: 'run-blueprint',
+					topic: 'set-up-site',
 					data: { config: serverConfig },
 				},
 				{ logger }

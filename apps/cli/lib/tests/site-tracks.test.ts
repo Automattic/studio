@@ -38,6 +38,12 @@ const preview = {
 	shareUrl: 'https://private-preview.wpcomstaging.com/?share=private-token',
 	date: Date.now(),
 };
+const providerPreview = {
+	id: preview.atomicSiteId,
+	name: preview.url,
+	url: `https://${ preview.url }`,
+	shareUrl: preview.shareUrl,
+};
 const siteEvents = [
 	TRACKS_EVENTS.SITE_EXPORT,
 	TRACKS_EVENTS.SYNC_CONNECT,
@@ -129,28 +135,13 @@ it( 'preserves IDs across renames, updates, reconciliation and saving a discover
 		await configStore.unlockCliConfig();
 	}
 	await setSnapshotInConfig( preview.url, { name: 'Renamed preview' } );
-	await updateSnapshotInConfig( preview.atomicSiteId, site.path );
+	await updateSnapshotInConfig( site.path, providerPreview );
 	await reconcilePreviews(
 		preview.userId,
-		new Map( [
-			[
-				preview.atomicSiteId,
-				{
-					hostname: preview.url,
-					expiresAt: Date.now() + 10000,
-					shareUrl: preview.shareUrl,
-				},
-			],
-		] ),
+		[ { ...providerPreview, expiresAt: Date.now() + 10000 } ],
 		Date.now() + 1
 	);
-	await saveSnapshotToConfig(
-		site.path,
-		preview.atomicSiteId,
-		preview.url,
-		preview.userId,
-		'Saved'
-	);
+	await saveSnapshotToConfig( site.path, providerPreview, preview.userId, 'Saved' );
 	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( props );
 } );
 
@@ -158,8 +149,7 @@ it( 'gives separate previews and a recreated preview distinct IDs for the same s
 	const first = await getSiteTracksProps( site.path, preview );
 	const next = await saveSnapshotToConfig(
 		site.path,
-		67890,
-		'another.wp.build',
+		{ id: 67890, name: 'another.wp.build', url: 'https://another.wp.build' },
 		preview.userId,
 		'Another'
 	);
@@ -170,8 +160,7 @@ it( 'gives separate previews and a recreated preview distinct IDs for the same s
 	await deleteSnapshotFromConfig( preview.url );
 	const recreated = await saveSnapshotToConfig(
 		site.path,
-		preview.atomicSiteId,
-		preview.url,
+		providerPreview,
 		preview.userId,
 		'Recreated'
 	);
@@ -191,7 +180,7 @@ it( 'uses the source site UUID on overwrite and keeps the preview UUID', async (
 	} finally {
 		await configStore.unlockCliConfig();
 	}
-	await updateSnapshotInConfig( preview.atomicSiteId, other.path );
+	await updateSnapshotInConfig( other.path, providerPreview );
 	const props = await getSiteTracksProps( other.path, preview );
 	expect( props.site_id ).toMatch( uuid );
 	expect( props.site_id ).not.toBe( first.site_id );

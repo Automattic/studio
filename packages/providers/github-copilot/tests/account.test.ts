@@ -140,7 +140,7 @@ describe( 'github-copilot account', () => {
 		} );
 		const error = await githubCopilotAccount.connect( 'github', handoff ).catch( ( e ) => e );
 		expect( error ).toBeInstanceOf( ConnectError );
-		expect( error.message ).toMatch( /no Copilot plan/ );
+		expect( error ).toMatchObject( { reason: 'ineligible', message: /no Copilot plan/ } );
 
 		// A plan that runs none of Studio's models is no more usable than no plan at all.
 		respond( {
@@ -148,9 +148,10 @@ describe( 'github-copilot account', () => {
 			'/copilot_internal/v2/token': () => json( 200, { token: copilotToken, expires_at: 2000 } ),
 			'/models': () => json( 200, { data: [ { id: 'gpt-4.1' } ] } ),
 		} );
-		await expect( githubCopilotAccount.connect( 'github', handoff ) ).rejects.toThrow(
-			/no Copilot plan/
-		);
+		await expect( githubCopilotAccount.connect( 'github', handoff ) ).rejects.toMatchObject( {
+			reason: 'ineligible',
+			message: /no Copilot plan/,
+		} );
 	} );
 
 	it( 'renews the Copilot token only when it is about to expire', async () => {

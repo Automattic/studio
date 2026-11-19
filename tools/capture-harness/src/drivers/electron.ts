@@ -16,10 +16,8 @@ import { answerGravatar } from './avatar.ts';
 import type { Box } from '../locators.ts';
 import type { LaunchOptions, RemoteTrees, Studio, Stubs } from './types.ts';
 
-// The account's preview-site count and limit: Jurassic Ninja's, or WordPress.com's for
-// accounts that create previews there (Automatticians first; `fetchSnapshotUsage` in Studio).
-const USAGE = 'https://public-api.wordpress.com/wpcom/v2/jurassic-ninja/usage';
-const WPCOM_USAGE = 'https://public-api.wordpress.com/wpcom/v2/wow-funnel/pending';
+// The account's preview sites and limit: `fetchSnapshotUsage` in Studio.
+const PREVIEW_USAGE = 'https://public-api.wordpress.com/wpcom/v2/wow-funnel/pending';
 // The account's AI credits, `STUDIO_ASSISTANT_QUOTA_URL` in the Studio source.
 const AI_QUOTA = 'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota';
 // The AI credit top-ups, with a `_locale` query: `STUDIO_ASSISTANT_TOP_UP_PRICING_URL`.
@@ -255,16 +253,10 @@ export async function launchElectron( {
 		}
 		if ( account?.previewSiteUrls ) {
 			const urls = account.previewSiteUrls;
-			routes.push(
-				{
-					url: USAGE,
-					json: { site_count: urls.length, site_limit: 10, site_creation_blocked: false },
-				},
-				{
-					url: WPCOM_USAGE,
-					json: { preview_sites: urls, preview_site_limit: 10, preview_sites_blocked: false },
-				}
-			);
+			routes.push( {
+				url: PREVIEW_USAGE,
+				json: { preview_sites: urls, preview_site_limit: 10, preview_sites_blocked: false },
+			} );
 		}
 		if ( routes.length ) {
 			for ( const { url, json } of routes ) {

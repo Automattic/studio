@@ -1,5 +1,6 @@
 import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import { getAgentEndFailure } from '@studio/agent/protocol/errors';
+import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import { getStudioToolProgress } from '@studio/agent/protocol/tool-progress';
 import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import { useQueryClient } from '@tanstack/react-query';
@@ -345,17 +346,33 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} else if ( inner.type === 'tool_execution_update' ) {
 						const progress = getStudioToolProgress( inner.partialResult );
 						if ( progress?.message.trim() ) {
-							updateCache( payload.sessionId, ( entries ) => [
-								...entries,
-								{
-									type: 'custom',
-									id: shortEntryId(),
-									parentId: null,
-									timestamp: event.timestamp,
-									customType: 'studio.tool_progress',
-									data: { message: progress.message, toolCallId: inner.toolCallId },
-								} as SessionEntry,
-							] );
+							const data = { message: progress.message, toolCallId: inner.toolCallId };
+							// Only the latest progress is shown, and a long upload reports it many
+							// times a second, so it replaces the previous one rather than piling up.
+							updateCache( payload.sessionId, ( entries ) => {
+								const last = entries[ entries.length - 1 ];
+								const previous =
+									last && isStudioCustomEntryOfType( last, 'studio.tool_progress' )
+										? last
+										: undefined;
+								if (
+									previous?.data?.message === data.message &&
+									previous.data.toolCallId === data.toolCallId
+								) {
+									return entries;
+								}
+								return [
+									...( previous ? entries.slice( 0, -1 ) : entries ),
+									{
+										type: 'custom',
+										id: shortEntryId(),
+										parentId: null,
+										timestamp: event.timestamp,
+										customType: 'studio.tool_progress',
+										data,
+									} as SessionEntry,
+								];
+							} );
 						}
 					}
 					return;

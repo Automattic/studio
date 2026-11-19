@@ -18,7 +18,7 @@ import chalk from 'chalk';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
+import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { canUseExistingCore } from 'cli/lib/pull/local-core';
 import {
 	applySelection,
@@ -59,6 +59,7 @@ import { Logger, LoggerError } from 'cli/logger';
 import type { SyncSelectionProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { PreviewSite } from '@studio/providers';
 import type { builder } from 'cli/commands/pull.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -103,10 +104,10 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
  * The source site's standing preview, or null when it is not one of the user's previews. Undefined
  * when previews could not be listed: that is not worth failing a pull over.
  */
-async function findPreview( source: PullSource ): Promise< StandingPreview | null | undefined > {
+async function findPreview( source: PullSource ): Promise< PreviewSite | null | undefined > {
 	try {
-		const previews = await getStandingPreviews( source.wpComToken.accessToken );
-		return previews.get( source.wpComSite.id ) ?? null;
+		const previews = await wpcomPreviews.list( { token: source.wpComToken.accessToken } );
+		return previews.find( ( preview ) => preview.id === source.wpComSite.id ) ?? null;
 	} catch {
 		return undefined;
 	}
@@ -123,20 +124,14 @@ async function linkPreview(
 	localSiteId: string,
 	localPath: string,
 	source: PullSource,
-	preview: StandingPreview,
+	preview: PreviewSite,
 	pulledAt: number | undefined
 ): Promise< void > {
 	try {
 		const sync = pulledAt
 			? { versionId: await getSiteVersion( localSiteId, localPath ), syncedAt: pulledAt }
 			: undefined;
-		await linkPulledPreview(
-			localSiteId,
-			source.wpComSite.id,
-			source.wpComToken.id,
-			preview,
-			sync
-		);
+		await linkPulledPreview( localSiteId, source.wpComToken.id, preview, sync );
 	} catch {
 		// The pulled site still works; only the preview link is missing.
 	}
@@ -187,7 +182,7 @@ interface PullRun {
 	selection?: SyncSelectionProps;
 	siteId?: string;
 	remoteSite?: SyncSite;
-	preview?: StandingPreview | null;
+	preview?: PreviewSite | null;
 	// Shown with the success, e.g. that the site is too big to push back.
 	warning?: string;
 	localChangesApplied: boolean;

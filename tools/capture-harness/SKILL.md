@@ -27,7 +27,7 @@ Pick a driver, or take the default: the browser driver on Linux (a cloud machine
 
 ## Choosing inputs
 
-- Docs images: the docs scripts in `docs/user/screenshots/shots/` on the `moire` scene and `docs` look (`npm run screenshots` in `docs/user`, which bakes Moire on a machine's first run). The docs look frames whole-window shots on the light dot field and leaves crops plain (`frame.mode: "window"`). Do not change a docs image's look.
+- Docs images: the docs scripts in `docs/user/screenshots/shots/` on the `moire` scene and `docs` look (`npm run screenshots` in `docs/user`, which bakes Moire on a machine's first run). That saves only the shots a docs page shows; for any other shot in those scripts (blog, marketing), use `npm run screenshots -- --extras --only <name>`, which writes to the untracked `screenshots/extras/`. Don't commit an image no page uses. The docs look frames whole-window shots on the light dot field and leaves crops plain (`frame.mode: "window"`). Do not change a docs image's look.
 - Someone's own site: `--blueprint <file|url>`; for reruns that must match, `SC bake --blueprint <file|url> --out <dir>` and capture from the baked scene.
 - The demo scene, and the default: `moire` (Rich's slow-fashion journal Blueprint). Bake it once per machine (`SC bake --scene moire`, into its `.baked/`, used automatically after); without a bake, every capture builds the site from the Blueprint first. `examples/moire.json` and `examples/moire-design-looks.json` are its main set; scripts written for one scene's content (Annotate targets, chat titles) need adapting for another.
 - Marketing or social: `--look marketing` (framed on Studio's dot field at full resolution, keeping the window's proportions) or `--look social` (1200×630, 1080×1080, 1600×900); `marketing-dark` and `social-dark` for the dark app on the dark dot field. `examples/workspace-tour.json` works on any scene with a site. Framing follows the crop: a whole window is centred, a crop at a corner or along one edge of the window runs off the image on its cut sides, and a crop cut on opposite sides (a dialog on its own) gets no frame unless the shot sets `capture.frame: "always"`. For a framed menu or panel, crop it from the window's corner rather than on its own: `capture.reach` (`["left", "bottom"]`) runs the crop from the `target` out to those window edges, so the real corner shows with a margin and the cut sides run off.
@@ -42,7 +42,7 @@ When the request doesn't say how the images will be used, ask once before captur
 
 Say they can give their own instructions instead (a size, more padding, no shadow, another background). Then write a look file for this request next to the output (copy the closest bundled look, change only what they asked, keep the `$schema` line, `SC validate` it) and pass it as `--look <file>`. Don't edit the bundled looks for one request: they are the shared design language, and the docs and every agent use them.
 - Video: `SC record <script> --only <shot> --look marketing --out <dir>`. Steps play at a watchable pace with a drawn pointer. MP4 and WebM need ffmpeg; WebP and GIF don't.
-- Did anything change? `SC check <scripts> --out <images dir> --diff-dir <dir> --json` leaves the images alone and exits 1 when pixels changed.
+- Did anything change? `SC check <scripts> --out <images dir> --diff-dir <dir> --json` leaves the images alone and exits 1 when pixels changed. Add `--min-change <percent>` to report small changes as `minor` and keep those files (the docs screenshots use 1%). Look at each minor diff: recapture it with `--only` when it shows something a reader would notice, such as a label the page quotes or a new control, and leave restyled icons, borders and spacing alone, since every rewritten image grows the repo.
 
 ## Review every image
 
@@ -60,6 +60,7 @@ Look at each image yourself before handing it over (a downscaled copy is enough)
 
 ## Rules
 
+- Repair what you find as you go. A shot that fails, times out or captures the wrong screen gets its script fixed in the same change (see "Shots change with the app" in `docs/user/README.md`); don't hand over a run with failed or "not run" shots, and say what you couldn't fix.
 - Scripts never log out, publish, pull, buy or start a real agent run. Signed-in launches block these, and a step that tries one fails. Use the `stubAgentRuns` and `playAgentTurn` helpers to show a conversation.
 - Signed-in shots show a demo person's name and avatar. With a real account (`STUDIO_CAPTURE_AUTH_TOKEN`), review them before sharing: its email is masked, but its name and avatar are real.
 - Don't edit WordPress core files or the user's own Studio profile. The harness works in a throwaway profile.

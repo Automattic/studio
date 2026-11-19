@@ -4,6 +4,7 @@ import {
 	writeGlobalInstructions,
 } from '@studio/agent/node/global-instructions';
 import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
+import { changeAiSettings } from '@studio/common/lib/ai-provider-tracks';
 import {
 	connectProvider,
 	disconnectProvider,
@@ -11,7 +12,6 @@ import {
 	selectProviderModels,
 	readAiSettings,
 	setAiProvider as setAiProviderInConfig,
-	type AiSettings,
 } from '@studio/common/lib/ai-settings';
 import {
 	connectAgentApp as connectAgentAppToStudio,
@@ -34,12 +34,7 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
-import {
-	AI_PROVIDER_IDS,
-	normalizeProviderId,
-	toStoredProviderId,
-	type AiModelId,
-} from '@studio/providers';
+import { AI_PROVIDER_IDS, normalizeProviderId, type AiModelId } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
@@ -141,33 +136,12 @@ export async function getAiSettings() {
 	return readAiSettings();
 }
 
-// One event for every change: disconnecting the selected provider also moves the selection back
-// to WordPress.com. The credential is never sent; the summary comparison only detects one being
-// swapped.
-async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
-	if ( JSON.stringify( previous ) === JSON.stringify( next ) ) {
-		return;
-	}
-	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-		provider: toStoredProviderId( next.provider ),
-		has_anthropic_api_key: next.accounts.anthropic.connected,
-		surface: 'settings',
-	} );
-}
-
 function parseProviderId( requested: string ) {
 	const provider = normalizeProviderId( requested );
 	if ( ! provider ) {
 		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
 	return provider;
-}
-
-async function changeAiSettings( change: () => Promise< AiSettings > ) {
-	const previous = await readAiSettings();
-	const settings = await change();
-	await recordAiSettingsChange( previous, settings );
-	return settings;
 }
 
 export async function startProviderConnect(
@@ -185,8 +159,10 @@ export async function connectAiProvider(
 	input: Record< string, string >
 ) {
 	const provider = parseProviderId( requested );
-	return changeAiSettings( () =>
-		connectProvider( getProviderServices( provider ), method, input )
+	return changeAiSettings(
+		{ action: 'connect', provider, method },
+		() => connectProvider( getProviderServices( provider ), method, input ),
+		recordTracksEvent
 	);
 }
 
@@ -199,13 +175,16 @@ export async function selectAiProviderModels(
 	requested: string,
 	ids: AiModelId[]
 ) {
-	const provider = parseProviderId( requested );
-	return changeAiSettings( () => selectProviderModels( getProviderServices( provider ), ids ) );
+	return selectProviderModels( getProviderServices( parseProviderId( requested ) ), ids );
 }
 
 export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
 	const provider = parseProviderId( requested );
-	return changeAiSettings( () => disconnectProvider( getProviderServices( provider ) ) );
+	return changeAiSettings(
+		{ action: 'disconnect', provider },
+		() => disconnectProvider( getProviderServices( provider ) ),
+		recordTracksEvent
+	);
 }
 
 export async function setAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
@@ -213,7 +192,11 @@ export async function setAiProvider( _event: IpcMainInvokeEvent, requested: stri
 	if ( ! provider ) {
 		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	return changeAiSettings( () => setAiProviderInConfig( provider ) );
+	return changeAiSettings(
+		{ action: 'select', provider },
+		() => setAiProviderInConfig( provider ),
+		recordTracksEvent
+	);
 }
 
 export async function saveGlobalAgentInstructions(

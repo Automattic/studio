@@ -6,14 +6,22 @@ vi.mock( '../../api' );
 
 const get = vi.fn();
 
-// Answers the posts endpoint by post type (`posts` for `any`, otherwise the type's own key), and
-// the comments endpoint with `comments`.
+// Answers the site with its UTC offset, the posts endpoint by post type (`posts` for `any`,
+// otherwise the type's own key), and the media and comments endpoints.
 function answers( {
+	gmtOffset = 0,
 	posts = { found: 0, posts: [] },
+	media = { found: 0, media: [] },
 	comments = { found: 0, comments: [] },
 	...siteDesign
 }: Record< string, unknown > ) {
 	get.mockImplementation( async ( path: string, query: { type?: string } ) => {
+		if ( path === '/sites/42' ) {
+			return { ID: 42, options: { gmt_offset: gmtOffset } };
+		}
+		if ( path.endsWith( '/media' ) ) {
+			return media;
+		}
 		if ( path.endsWith( '/comments' ) ) {
 			return comments;
 		}
@@ -56,8 +64,42 @@ describe( 'fetchLiveChangesSince', () => {
 		}
 		expect( get ).toHaveBeenCalledWith(
 			'/sites/42/comments',
-			expect.objectContaining( { status: 'all', after: '2026-11-01T00:00:00.000Z' } )
+			expect.objectContaining( { status: 'all', after: '2026-11-01T00:00:00+00:00' } )
 		);
+		expect( get ).toHaveBeenCalledWith(
+			'/sites/42/media',
+			expect.objectContaining( { after: '2026-11-01T00:00:00+00:00' } )
+		);
+	} );
+
+	it( 'asks for comments and media in the site’s local time, which those endpoints compare with', async () => {
+		answers( { gmtOffset: -3 } );
+
+		await fetchLiveChangesSince( 'token', 42, '2026-11-17T14:13:33.613Z' );
+
+		expect( get ).toHaveBeenCalledWith(
+			'/sites/42/posts',
+			expect.objectContaining( { type: 'any', modified_after: '2026-11-17T14:13:33.613Z' } )
+		);
+		expect( get ).toHaveBeenCalledWith(
+			'/sites/42/comments',
+			expect.objectContaining( { after: '2026-11-17T11:13:33-03:00' } )
+		);
+		expect( get ).toHaveBeenCalledWith(
+			'/sites/42/media',
+			expect.objectContaining( { after: '2026-11-17T11:13:33-03:00' } )
+		);
+	} );
+
+	it( 'counts media uploaded live as content', async () => {
+		answers( {
+			posts: { found: 2, posts: [] },
+			media: { found: 3, media: [] },
+		} );
+
+		await expect(
+			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )
+		).resolves.toEqual( { posts: 5, comments: 0, siteDesign: 0 } );
 	} );
 
 	it( 'adds up every part of the site design', async () => {

@@ -224,9 +224,10 @@ const liveChangesSchema = z.object( {
 	found: z.number(),
 	posts: z.array( z.unknown() ).optional(),
 	comments: z.array( z.unknown() ).optional(),
+	media: z.array( z.unknown() ).optional(),
 } );
 
-function countFound( response: unknown, items: 'posts' | 'comments' ): number {
+function countFound( response: unknown, items: 'posts' | 'comments' | 'media' ): number {
 	const parsed = liveChangesSchema.parse( response );
 	return parsed.found >= 0 ? parsed.found : parsed[ items ]?.length ?? 0;
 }
@@ -242,9 +243,31 @@ const SITE_DESIGN_TYPES = [
 	'wp_global_styles',
 ];
 
+const siteOffsetSchema = z.object( { options: z.object( { gmt_offset: z.coerce.number() } ) } );
+
 /**
- * How many posts (of any type) and pieces of the site's design (`SITE_DESIGN_TYPES`) were
- * modified on the site after `since`, an ISO 8601 time, and how many comments were made.
+ * `since` in the site's local time, with its offset, such as `2026-11-17T11:13:33-03:00`. The
+ * comments and media endpoints compare the date and time in `after` with the site's local dates
+ * and ignore the offset, and shift a value without one. The offset keeps it the same moment for a
+ * server that reads it. The site's current offset is used, so a daylight saving change since then
+ * moves it by an hour.
+ */
+function toSiteLocalTime( since: string, gmtOffset: number ): string {
+	const local = new Date( Date.parse( since ) + gmtOffset * 3_600_000 )
+		.toISOString()
+		.slice( 0, 19 );
+	const minutes = Math.round( Math.abs( gmtOffset ) * 60 );
+	const offset = `${ gmtOffset < 0 ? '-' : '+' }${ String( Math.floor( minutes / 60 ) ).padStart(
+		2,
+		'0'
+	) }:${ String( minutes % 60 ).padStart( 2, '0' ) }`;
+	return local + offset;
+}
+
+/**
+ * What changed on the site after `since`, an ISO 8601 time: posts of any type modified and media
+ * uploaded (`posts`), pieces of the site's design modified (`SITE_DESIGN_TYPES`), and comments
+ * made.
  */
 export async function fetchLiveChangesSince(
 	token: string,
@@ -252,6 +275,15 @@ export async function fetchLiveChangesSince(
 	since: string
 ): Promise< { posts: number; comments: number; siteDesign: number } > {
 	const wpcom = wpcomClient( token );
+	const { gmt_offset: gmtOffset } = siteOffsetSchema.parse(
+		await wpcom.req.get( `/sites/${ remoteSiteId }`, {
+			apiVersion: '1.1',
+			// `options` alone comes back as an empty list.
+			fields: 'ID,options',
+			options: 'gmt_offset',
+		} )
+	).options;
+	const localSince = toSiteLocalTime( since, gmtOffset );
 	const modifiedAfter = ( type: string ) =>
 		wpcom.req.get( `/sites/${ remoteSiteId }/posts`, {
 			apiVersion: '1.1',
@@ -261,12 +293,19 @@ export async function fetchLiveChangesSince(
 			number: LIVE_CHANGES_PAGE,
 			fields: 'ID',
 		} );
-	const [ posts, comments, ...siteDesign ] = await Promise.all( [
+	const [ posts, media, comments, ...siteDesign ] = await Promise.all( [
 		modifiedAfter( 'any' ),
+		// The posts endpoint never lists attachments.
+		wpcom.req.get( `/sites/${ remoteSiteId }/media`, {
+			apiVersion: '1.1',
+			after: localSince,
+			number: LIVE_CHANGES_PAGE,
+			fields: 'ID',
+		} ),
 		wpcom.req.get( `/sites/${ remoteSiteId }/comments`, {
 			apiVersion: '1.1',
 			status: 'all',
-			after: since,
+			after: localSince,
 			number: LIVE_CHANGES_PAGE,
 			fields: 'ID',
 		} ),
@@ -281,7 +320,7 @@ export async function fetchLiveChangesSince(
 		),
 	] );
 	return {
-		posts: countFound( posts, 'posts' ),
+		posts: countFound( posts, 'posts' ) + countFound( media, 'media' ),
 		comments: countFound( comments, 'comments' ),
 		siteDesign: siteDesign.reduce< number >(
 			( total, response ) => total + countFound( response, 'posts' ),

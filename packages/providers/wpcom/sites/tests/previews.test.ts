@@ -154,6 +154,20 @@ describe( 'previews', () => {
 		] );
 	} );
 
+	it( 'lists the title and origin WordPress.com reports for a preview', async () => {
+		get.mockResolvedValue( {
+			preview_sites: [
+				{ blog_id: siteId, share_url: shareUrl, title: 'My Preview', origin_id: 'local-site' },
+				{ blog_id: 2, site_slug: 'blank.wpcomstaging.com', title: '', origin_id: '' },
+			],
+		} );
+
+		const [ named, blank ] = await previews.list( config );
+		expect( named ).toMatchObject( { title: 'My Preview', originId: 'local-site' } );
+		expect( blank.title ).toBeUndefined();
+		expect( blank.originId ).toBeUndefined();
+	} );
+
 	it( 'discards the site, and treats one already gone as deleted', async () => {
 		await previews.delete( config, { id: siteId } );
 		expect( post ).toHaveBeenCalledWith(

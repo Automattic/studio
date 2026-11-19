@@ -294,6 +294,10 @@ export interface PreviewSite extends RemoteSite {
 	liveSiteId?: RemoteSite[ 'id' ];
 	// Where the owner makes it a site they keep.
 	launchUrl?: string;
+	// The title it was made with, when the provider reports one.
+	title?: string;
+	// The `PreviewOptions.originId` it was made with, which the provider reports only to this app.
+	originId?: string;
 }
 
 // What the provider sends with each build of a preview.

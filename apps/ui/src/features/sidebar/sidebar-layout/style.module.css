@@ -159,7 +159,8 @@
 	inset-block: 1px 0;
 	inset-inline-start: var( --sidebar-width );
 	width: var( --focus-width );
-	translate: -50%;
+	/* A whole CSS-pixel offset keeps the 1.5px Retina line on physical pixels. */
+	translate: -1px;
 	z-index: var( --z-overlay );
 	pointer-events: none;
 	background-color: var( --ring );
@@ -167,7 +168,7 @@
 }
 
 .root:dir( rtl )::after {
-	translate: 50%;
+	translate: 1px;
 }
 
 .root:has( > .sidebarResizing )::after,

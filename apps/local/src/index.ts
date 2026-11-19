@@ -290,7 +290,20 @@ const DEFAULT_PORT = 8081;
 
 const LOCAL_HOSTNAMES = new Set( [ 'localhost', '127.0.0.1', '[::1]', 'studio.local' ] );
 
-const WILDCARD_HOSTS: ReadonlySet< string > = new Set( [ '', '0.0.0.0', '::', '0:0:0:0:0:0:0:0' ] );
+const WILDCARD_HOSTS: ReadonlySet< string > = new Set( [ '', '0.0.0.0', '::', '::ffff:0:0' ] );
+
+// The host as a URL parser writes it, so every spelling of an address compares
+// equal: `::0` and `[::]` become `::`, `0` and `0x0` become `0.0.0.0`, as they
+// do when the server listens.
+function canonicalHost( host: string ): string {
+	const bare = host.replace( /^\[(.*)\]$/, '$1' );
+	try {
+		const { hostname } = new URL( `http://${ bare.includes( ':' ) ? `[${ bare }]` : bare }/` );
+		return hostname.replace( /^\[(.*)\]$/, '$1' );
+	} catch {
+		return bare;
+	}
+}
 
 function isLoopbackHost( host: string ): boolean {
 	return (
@@ -403,7 +416,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const host = options.host ?? '127.0.0.1';
 	const remote = options.remote;
 	// Remote mode prints one address in its QR code, so it cannot listen on all of them.
-	if ( remote && WILDCARD_HOSTS.has( host ) ) {
+	if ( remote && WILDCARD_HOSTS.has( canonicalHost( host ) ) ) {
 		throw new Error( 'Remote mode needs one address to listen on, not a wildcard.' );
 	}
 	if ( ! remote && ! isLoopbackHost( host ) ) {

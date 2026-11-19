@@ -30,6 +30,7 @@ import {
 } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { getSqliteDatabasePath } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import {
@@ -87,7 +88,7 @@ async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
 	}
 	const [ hasConfig, hasDatabase ] = await Promise.all( [
 		pathExists( path.join( site.path, 'wp-config.php' ) ),
-		pathExists( path.join( site.path, 'wp-content', 'database', '.ht.sqlite' ) ),
+		pathExists( getSqliteDatabasePath( site.path ) ),
 	] );
 	return ! hasConfig && ! hasDatabase;
 }

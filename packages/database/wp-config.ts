@@ -53,14 +53,16 @@ const REPLACEMENT_COMMENT = normalizeLineEndings( `/**
  *   DB_COLLATE
  */` );
 
-export function normalizeLineEndings( content: string ): string {
+function normalizeLineEndings( content: string ): string {
 	return content.replace( /\n/g, '\r\n' );
 }
 
-export function hasDefaultDbBlock( content: string ): boolean {
-	return DB_SETTINGS_BLOCK_REGEX.test( content );
+/** Whether a wp-config.php still has the database settings of wp-config-sample.php. */
+export function hasDefaultDbConstants( wpConfig: string ): boolean {
+	return DB_SETTINGS_BLOCK_REGEX.test( wpConfig );
 }
 
-export function removeDbConstants( content: string ): string {
-	return content.replace( DB_SETTINGS_BLOCK_REGEX, REPLACEMENT_COMMENT + '\n' );
+/** Replaces the sample database settings with a note that the database is provided. */
+export function removeDefaultDbConstants( wpConfig: string ): string {
+	return wpConfig.replace( DB_SETTINGS_BLOCK_REGEX, REPLACEMENT_COMMENT + '\n' );
 }

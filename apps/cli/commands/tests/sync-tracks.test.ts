@@ -28,7 +28,7 @@ vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	getSiteByFolder: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/database' );
 vi.mock( 'cli/lib/snapshots', () => ( {
 	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
 } ) );

@@ -2,12 +2,12 @@ import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { getSqliteDatabasePath, openDatabase } from '@studio/database/node';
 import { writeFile } from 'atomically';
 import { listArchiveEntries } from 'cli/lib/archive';
 
 type FileEntry = { hash: string; size: number; mtimeMs: number };
 
-const DATABASE_PATH = 'wp-content/database/.ht.sqlite';
 const DEBUG_LOG_PATH = 'wp-content/debug.log';
 // Caches that plugins fill as the site is visited, such as Page Optimize on a site pulled from
 // WordPress.com. They are rebuilt from the site, so they aren't part of its version.
@@ -98,39 +98,34 @@ async function hashFiles(
  * own (see `isVolatileRow`).
  */
 async function hashDatabase( siteFolder: string ): Promise< string | null > {
-	const databasePath = path.join( siteFolder, DATABASE_PATH );
+	const databasePath = getSqliteDatabasePath( siteFolder );
 	if ( ! fs.existsSync( databasePath ) ) {
 		return null;
 	}
-	const { DatabaseSync } = await import( 'node:sqlite' );
-	// A running site writes to its database, and a read during a write fails without a timeout.
-	const database = new DatabaseSync( databasePath, { readOnly: true, timeout: 5000 } );
-	try {
-		const hash = createHash( 'sha256' );
-		const tables = database
-			.prepare(
-				"SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-			)
-			.all() as { name: string }[];
-		for ( const { name } of tables ) {
-			hash.update( `table:${ name }\n` );
-			for ( const row of database
-				.prepare( `SELECT * FROM "${ name.replace( /"/g, '""' ) }" ORDER BY rowid` )
-				.iterate() as Iterable< Record< string, unknown > > ) {
-				if ( isVolatileRow( name, row ) ) {
-					continue;
-				}
-				hash.update(
-					JSON.stringify( Object.values( row ), ( _, value ) =>
-						value instanceof Uint8Array ? Buffer.from( value ).toString( 'base64' ) : value
-					) + '\n'
-				);
+	await using database = await openDatabase(
+		{ engine: 'sqlite', path: databasePath },
+		{ readOnly: true }
+	);
+	const hash = createHash( 'sha256' );
+	const tables = await database.query< { name: string } >(
+		"SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+	);
+	for ( const { name } of tables ) {
+		hash.update( `table:${ name }\n` );
+		for await ( const row of database.rows(
+			`SELECT * FROM "${ name.replace( /"/g, '""' ) }" ORDER BY rowid`
+		) ) {
+			if ( isVolatileRow( name, row ) ) {
+				continue;
 			}
+			hash.update(
+				JSON.stringify( Object.values( row ), ( _, value ) =>
+					value instanceof Uint8Array ? Buffer.from( value ).toString( 'base64' ) : value
+				) + '\n'
+			);
 		}
-		return hash.digest( 'hex' );
-	} finally {
-		database.close();
 	}
+	return hash.digest( 'hex' );
 }
 
 /**

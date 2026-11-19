@@ -1,12 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { needsSqliteSetup } from 'cli/lib/sqlite-integration';
+import {
+	getSqliteDatabasePath,
+	getSqliteIntegrationPath,
+	needsSqliteIntegration,
+} from '@studio/database/node';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
 
 export function isPhpMyAdminSupported( site: { path: string; runtimeBlueprintPath?: string } ) {
 	// Reprint sites wire SQLite through runtime.php instead of the regular drop-in.
-	return Boolean( site.runtimeBlueprintPath ) || needsSqliteSetup( site.path );
+	return Boolean( site.runtimeBlueprintPath ) || needsSqliteIntegration( site.path );
 }
 
 function phpStringLiteral( value: string ): string {
@@ -31,15 +35,12 @@ export function getPhpMyAdminSessionPath( config: Pick< ServerConfig, 'siteId' >
 export async function writeNativePhpMyAdminWpEnv( config: ServerConfig ): Promise< string > {
 	const wpEnvPath = getNativePhpMyAdminWpEnvPath( config );
 	const sqliteDriverPath = path.join(
-		config.sitePath,
-		'wp-content',
-		'mu-plugins',
-		'sqlite-database-integration',
+		getSqliteIntegrationPath( config.sitePath ),
 		'wp-includes',
 		'database',
 		'load.php'
 	);
-	const sqliteDatabasePath = path.join( config.sitePath, 'wp-content', 'database', '.ht.sqlite' );
+	const sqliteDatabasePath = getSqliteDatabasePath( config.sitePath );
 	const wpEnvPhp = `<?php return array (
   'db' => array (
     'type' => 'sqlite',

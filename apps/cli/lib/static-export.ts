@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
 import { extractZip } from '@studio/common/lib/extract-zip';
+import { copySqliteDatabase, getSqliteDatabasePath } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	getBundledSimplyStaticZipPath,
@@ -59,7 +60,12 @@ export async function exportStaticSite( {
 	const forgetStaging = onCancel( removeStaging );
 
 	try {
-		await snapshotDatabase( site.path, path.join( stagingDir, DATABASE_FILE ) );
+		// Simply Static keeps its settings and crawl state in the database: a copy keeps those
+		// writes out of the site.
+		await copySqliteDatabase(
+			getSqliteDatabasePath( site.path ),
+			path.join( stagingDir, DATABASE_FILE )
+		);
 		// The zip holds a single `simply-static/` folder.
 		await extractZip( getBundledSimplyStaticZipPath(), stagingDir );
 		await fs.promises.copyFile(
@@ -104,24 +110,4 @@ export async function exportStaticSite( {
 function isSameOrInside( child: string, parent: string ): boolean {
 	const relative = path.relative( path.resolve( parent ), path.resolve( child ) );
 	return ! relative.startsWith( '..' ) && ! path.isAbsolute( relative );
-}
-
-// Simply Static keeps its settings and crawl state in the database. A consistent snapshot
-// (the site may be serving requests, possibly in WAL mode) keeps those writes out of the site.
-async function snapshotDatabase( sitePath: string, destination: string ): Promise< void > {
-	const { DatabaseSync } = await import( 'node:sqlite' );
-	const source = new DatabaseSync( path.join( sitePath, 'wp-content', 'database', DATABASE_FILE ), {
-		readOnly: true,
-	} );
-	try {
-		source.prepare( 'VACUUM INTO ?' ).run( destination );
-	} finally {
-		source.close();
-	}
-	const copy = new DatabaseSync( destination );
-	try {
-		copy.exec( 'PRAGMA journal_mode = DELETE' );
-	} finally {
-		copy.close();
-	}
 }

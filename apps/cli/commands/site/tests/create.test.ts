@@ -12,13 +12,18 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { portFinder } from '@studio/common/lib/port-finder';
-import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
 import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
+import {
+	createMysqlDatabase,
+	isSqliteIntegrationAvailable,
+	needsSqliteIntegration,
+	updateSqliteIntegration,
+} from '@studio/database/node';
 import { Blueprint } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import yargs from 'yargs';
@@ -32,7 +37,7 @@ import {
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
-import { connectToMysql, writeMysqlConfig } from 'cli/lib/database/mysql';
+import { writeMysqlConfig } from 'cli/lib/database/mysql';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
@@ -41,11 +46,6 @@ import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import {
-	isSqliteIntegrationAvailable,
-	keepSqliteIntegrationUpdated,
-	needsSqliteSetup,
-} from 'cli/lib/sqlite-integration';
 import { buildCreateFromSourceBlueprint } from 'cli/lib/static-site-import/source';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -99,12 +99,17 @@ vi.mock( import( '@studio/common/lib/well-known-paths' ), async ( importOriginal
 vi.mock( 'cli/lib/site-language' );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( '@studio/common/lib/agent-skills' );
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( '@studio/database/node', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/database/node') >() ),
+	createMysqlDatabase: vi.fn(),
+	isSqliteIntegrationAvailable: vi.fn(),
+	needsSqliteIntegration: vi.fn(),
+	updateSqliteIntegration: vi.fn(),
+} ) );
 vi.mock( 'cli/lib/database/mysql', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/database/mysql') >() ),
-	connectToMysql: vi.fn(),
 	writeMysqlConfig: vi.fn(),
-	createMysqlDatabase: vi.fn( () => ( {
+	createMysqlSiteDatabase: vi.fn( () => ( {
 		engine: 'mysql',
 		ensureReady: vi.fn(),
 		getConnection: vi.fn(),
@@ -134,6 +139,8 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
 vi.mock( '@studio/common/lib/get-wordpress-version' );
+
+const normalizeLineEndings = ( content: string ) => content.replace( /\n/g, '\r\n' );
 
 describe( 'CLI: studio create', () => {
 	const mockSitePath = '/test/site/new-site';
@@ -266,9 +273,9 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
 		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
-		vi.mocked( needsSqliteSetup ).mockReturnValue( true );
-		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
+		vi.mocked( updateSqliteIntegration ).mockResolvedValue( undefined );
+		vi.mocked( needsSqliteIntegration ).mockReturnValue( true );
+		vi.mocked( isSqliteIntegrationAvailable ).mockReturnValue( true );
 		vi.mocked( listProcesses ).mockResolvedValue( [] );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
@@ -499,7 +506,7 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should error if SQLite integration is not available', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
+			vi.mocked( updateSqliteIntegration ).mockRejectedValue(
 				new Error( 'SQLite integration files not found. Please ensure Studio is installed.' )
 			);
 
@@ -1128,7 +1135,7 @@ describe( 'CLI: studio create', () => {
 
 		it( 'checks bundled SQLite before capturing a URL source', async () => {
 			const liberate = vi.fn();
-			vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( false );
+			vi.mocked( isSqliteIntegrationAvailable ).mockReturnValue( false );
 			const parser = registerCommand(
 				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
 				{ liberate }
@@ -1586,15 +1593,20 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'creates a site on the user’s MySQL server', async () => {
-			const mysql = { host: '127.0.0.1', port: 3307, user: 'wp', password: 'pw', name: 'blog' };
+			const mysql = {
+				engine: 'mysql' as const,
+				host: '127.0.0.1',
+				port: 3307,
+				user: 'wp',
+				password: 'pw',
+				database: 'blog',
+			};
 
 			await runCommand( mockSitePath, { ...defaultTestOptions, mysql } );
 
-			expect( connectToMysql ).toHaveBeenCalledWith( mysql, expect.any( String ), {
-				createDatabase: true,
-			} );
+			expect( createMysqlDatabase ).toHaveBeenCalledWith( mysql );
 			expect( writeMysqlConfig ).toHaveBeenCalledWith( mockSitePath, expect.any( String ), mysql );
-			expect( keepSqliteIntegrationUpdated ).not.toHaveBeenCalled();
+			expect( updateSqliteIntegration ).not.toHaveBeenCalled();
 			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [
@@ -1608,11 +1620,11 @@ describe( 'CLI: studio create', () => {
 			vi.mocked( pathExists ).mockResolvedValue( true );
 			vi.mocked( isEmptyDir ).mockResolvedValue( false );
 			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-			vi.mocked( needsSqliteSetup ).mockReturnValue( false );
+			vi.mocked( needsSqliteIntegration ).mockReturnValue( false );
 
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( keepSqliteIntegrationUpdated ).not.toHaveBeenCalled();
+			expect( updateSqliteIntegration ).not.toHaveBeenCalled();
 			expect( saveCliConfig ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					sites: expect.arrayContaining( [

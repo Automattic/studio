@@ -1,6 +1,6 @@
-import { databaseEngineSchema } from '@studio/common/lib/site-database';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
+import { databaseEngineSchema } from '@studio/database';
 import { z } from 'zod';
 
 // Zod schemas for validating IPC messages from wordpress-server-manager

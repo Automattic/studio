@@ -18,6 +18,11 @@ import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metada
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
+import {
+	getSqliteDatabasePath,
+	replaceMysql8OnlyCollations,
+	resetSqliteJournalMode,
+} from '@studio/database/node';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
@@ -34,8 +39,6 @@ import {
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
 import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
-import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
-import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { diagnoseStalledPhp } from 'cli/lib/stalled-php';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription, SITE_PROCESS_PREFIX } from 'cli/lib/types/process-manager-ipc';
@@ -241,11 +244,12 @@ export async function startWordPressServer(
 	// index is backed by file locks that fail when several processes open one
 	// site's database at once. Convert it back before the server touches the
 	// file — subprocesses (a WP-CLI process per table during an export) hit this.
-	await resetSqliteJournalModeToRollback( site.path );
-	await replaceMysql8OnlyCollations( site.path );
+	const sqliteDatabasePath = getSqliteDatabasePath( site.path );
+	await resetSqliteJournalMode( sqliteDatabasePath );
+	await replaceMysql8OnlyCollations( sqliteDatabasePath );
 	// WordPress installs and Blueprints run during the start below and can create new tables.
 	const mayCreateTablesDuringStart =
-		! fs.existsSync( getSiteDatabasePath( site.path ) ) || Boolean( options?.blueprint );
+		! fs.existsSync( sqliteDatabasePath ) || Boolean( options?.blueprint );
 
 	await clearStudioErrorLog( site );
 	const phpErrorLogPath = path.join(
@@ -285,7 +289,7 @@ export async function startWordPressServer(
 		);
 
 		if ( mayCreateTablesDuringStart ) {
-			await replaceMysql8OnlyCollations( site.path );
+			await replaceMysql8OnlyCollations( sqliteDatabasePath );
 		}
 
 		await recordSiteRuntimeUsage( site );

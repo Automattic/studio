@@ -2,11 +2,11 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { getSqliteDatabasePath } from '@studio/database/node';
 import { afterEach, expect, it, vi } from 'vitest';
 import { requestSetAdminCredentials } from 'cli/lib/admin-credentials';
 import { runBlueprint } from 'cli/lib/native-php/blueprints';
 import { runPhpCommand } from 'cli/lib/native-php/php-process';
-import { getSiteDatabasePath } from 'cli/lib/sqlite-collations';
 import { childMessageFromProcessManagerSchema } from 'cli/lib/types/wordpress-server-ipc';
 
 vi.mock( 'cli/lib/native-php/php-process', () => ( {
@@ -91,7 +91,7 @@ it.each( [
 		);
 		try {
 			if ( scenario.database ) {
-				const databasePath = getSiteDatabasePath( sitePath );
+				const databasePath = getSqliteDatabasePath( sitePath );
 				fs.mkdirSync( path.dirname( databasePath ), { recursive: true } );
 				fs.writeFileSync( databasePath, '' );
 			}

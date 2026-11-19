@@ -33,10 +33,6 @@ import {
 	type TracksSiteCreateFlowType,
 	type TracksSiteCreateSource,
 } from '@studio/common/lib/record-tracks-event';
-import {
-	hasDefaultDbBlock,
-	removeDbConstants,
-} from '@studio/common/lib/remove-default-db-constants';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import { sortSites } from '@studio/common/lib/sort-sites';
@@ -48,6 +44,13 @@ import {
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
+import {
+	hasDefaultDbConstants,
+	parseDbHost,
+	removeDefaultDbConstants,
+	type MysqlConnection,
+} from '@studio/database';
+import { createMysqlDatabase, needsSqliteIntegration } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { openBlueprintSource } from 'cli/lib/blueprint-library';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
@@ -67,12 +70,7 @@ import {
 } from 'cli/lib/daemon-client';
 import { type liberateWebsite } from 'cli/lib/data-liberation-client';
 import { ensureSiteDatabaseReady } from 'cli/lib/database';
-import {
-	connectToMysql,
-	parseMysqlHost,
-	writeMysqlConfig,
-	type MysqlConnection,
-} from 'cli/lib/database/mysql';
+import { writeMysqlConfig } from 'cli/lib/database/mysql';
 import {
 	getAiInstructionsPath,
 	getWordPressVersionPath,
@@ -88,7 +86,6 @@ import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { needsSqliteSetup } from 'cli/lib/sqlite-integration';
 import {
 	completeSourceImport,
 	prepareSourceImport,
@@ -304,12 +301,12 @@ export async function runCommand(
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		if ( options.mysql ) {
-			await connectToMysql( options.mysql, phpVersion, { createDatabase: true } );
+			await createMysqlDatabase( options.mysql );
 		}
 		// A WordPress directory with a wp-config.php and none of SQLite's files already runs on
 		// the user's own database server.
 		const databaseEngine =
-			options.mysql || ( isWordPressDirResult && ! needsSqliteSetup( sitePath ) )
+			options.mysql || ( isWordPressDirResult && ! needsSqliteIntegration( sitePath ) )
 				? 'mysql'
 				: undefined;
 
@@ -589,8 +586,8 @@ function stripWpConfigDbConstants( sitePath: string ): void {
 		return;
 	}
 	const content = fs.readFileSync( wpConfigPath, 'utf-8' );
-	if ( hasDefaultDbBlock( content ) ) {
-		fs.writeFileSync( wpConfigPath, removeDbConstants( content ), 'utf-8' );
+	if ( hasDefaultDbConstants( content ) ) {
+		fs.writeFileSync( wpConfigPath, removeDefaultDbConstants( content ), 'utf-8' );
 	}
 }
 
@@ -786,10 +783,11 @@ export async function commandHandler(
 		mysql:
 			argv.dbEngine === 'mysql' && argv.dbUser && argv.dbName
 				? {
-						...parseMysqlHost( argv.dbHost ),
+						engine: 'mysql',
+						...parseDbHost( argv.dbHost ),
 						user: argv.dbUser,
 						password: argv.dbPassword,
-						name: argv.dbName,
+						database: argv.dbName,
 				  }
 				: undefined,
 		noStart: ! argv.start,

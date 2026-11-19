@@ -3,6 +3,7 @@ import path from 'path';
 import { getConfiguredPhpBinaryPackageId } from '@studio/common/lib/php-binary-metadata';
 import { getConfigDirectory, getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { isSupportedPHPVersion, type SupportedPHPVersion } from '@studio/common/types/php-versions';
+import { SQLITE_INTEGRATION_FOLDER } from '@studio/database/node';
 
 const PHP_BINARY_FILENAME = process.platform === 'win32' ? 'php.exe' : 'php';
 
@@ -63,6 +64,11 @@ export function readBundledManifest(): BundledManifest | undefined {
 // `getWordPressVersionPath( 'latest' )`.
 export function getBundledWordPressZipPath(): string {
 	return path.join( getWpFilesPath(), 'latest', 'wordpress.zip' );
+}
+
+// The SQLite Database Integration plugin Studio installs in sites ships read-only with the CLI bundle.
+export function getSqlitePluginPath(): string {
+	return path.join( getWpFilesPath(), SQLITE_INTEGRATION_FOLDER );
 }
 
 // reprint.phar ships read-only with the CLI bundle (downloaded into `wp-files` at build time).

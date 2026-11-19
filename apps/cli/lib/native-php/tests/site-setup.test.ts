@@ -11,7 +11,7 @@ vi.mock( 'cli/lib/dependency-management/paths', () => ( {
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 	ensurePhpBinaryAvailable: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/sqlite-integration', () => ( {
+vi.mock( '@studio/database/node', () => ( {
 	isSqliteIntegrationInstalled,
 } ) );
 
@@ -27,7 +27,7 @@ async function getWrittenConstants(
 
 describe( 'ensureWpConfig', () => {
 	beforeEach( () => {
-		isSqliteIntegrationInstalled.mockResolvedValue( false );
+		isSqliteIntegrationInstalled.mockReturnValue( false );
 		runPhpCommand.mockResolvedValue( undefined );
 	} );
 

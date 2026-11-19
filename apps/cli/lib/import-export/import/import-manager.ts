@@ -6,9 +6,9 @@ import {
 	ImporterEvents,
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
+import { getSqliteDatabasePath, resetSqliteJournalMode } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
-import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../events';
 import { BackupHandlerFactory } from './handlers/backup-handler-factory';
@@ -141,7 +141,7 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 			// server: the single point every importer and both `import` and `pull`
 			// funnel through. Site start does the same conversion, but doing it here
 			// keeps the imported database ready for whoever opens it first.
-			await resetSqliteJournalModeToRollback( site.path );
+			await resetSqliteJournalMode( getSqliteDatabasePath( site.path ) );
 
 			return result;
 		} finally {

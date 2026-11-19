@@ -53,6 +53,9 @@
 		"packages/blueprints": {
 			"project": "**/*.ts"
 		},
+		"packages/database": {
+			"project": "**/*.ts"
+		},
 		"packages/common": {
 			"entry": ["globals.ts"],
 			"project": "**/*.ts"

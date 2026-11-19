@@ -1,16 +1,19 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { isSqliteIntegrationAvailable } from '@studio/database/node';
 import { vi } from 'vitest';
-import { isSqliteIntegrationAvailable } from 'cli/lib/sqlite-integration';
 import { prepareSourceImport } from 'cli/lib/static-site-import/prepare';
 import { Logger } from 'cli/logger';
 
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( '@studio/database/node', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/database/node') >() ),
+	isSqliteIntegrationAvailable: vi.fn(),
+} ) );
 
 describe( 'prepareSourceImport', () => {
 	beforeEach( () => {
-		vi.mocked( isSqliteIntegrationAvailable ).mockResolvedValue( true );
+		vi.mocked( isSqliteIntegrationAvailable ).mockReturnValue( true );
 	} );
 
 	it( 'resumes a staged URL import without capturing the source again', async () => {

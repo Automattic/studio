@@ -339,7 +339,7 @@ $zip->close();
 }
 
 // Same db.php as Studio writes from the plugin's db.copy
-// (packages/common/lib/sqlite-integration.ts).
+// (packages/database/sqlite-integration.ts).
 const STANDALONE_FILES = `
 $zip->addFile( "$base/wp-config.php", 'wp-config.php' );
 $sqlite = '/internal/shared/sqlite-database-integration';

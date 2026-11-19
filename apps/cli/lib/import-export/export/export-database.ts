@@ -2,10 +2,10 @@ import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
+import { getSqliteDatabasePath, replaceMysql8OnlyCollations } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -29,7 +29,7 @@ export async function exportDatabaseToFile(
 	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 
 	// Exports don't start the site, so the start-time collation fix may not have run yet.
-	await replaceMysql8OnlyCollations( site.path );
+	await replaceMysql8OnlyCollations( getSqliteDatabasePath( site.path ) );
 
 	// Execute the command to export directly to a temp file in the site directory (cwd).
 	await using command = await runWpCliCommand(
@@ -57,7 +57,7 @@ export async function exportDatabaseToMultipleFiles(
 	site: SiteData,
 	finalDestinationDir: string
 ): Promise< string[] > {
-	await replaceMysql8OnlyCollations( site.path );
+	await replaceMysql8OnlyCollations( getSqliteDatabasePath( site.path ) );
 
 	await using command = await runWpCliCommand(
 		site,

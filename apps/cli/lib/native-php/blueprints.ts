@@ -1,16 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
+import { formatDbHost, type DatabaseConnection } from '@studio/database';
+import {
+	getSqliteIntegrationPath,
+	SQLITE_INTEGRATION_FOLDER,
+	updateSqliteIntegration,
+} from '@studio/database/node';
 import { parse as parseShellCommand } from 'shell-quote';
-import { getSiteDatabase, type DatabaseConnection } from 'cli/lib/database';
-import { formatMysqlHost } from 'cli/lib/database/mysql';
+import { getSiteDatabase } from 'cli/lib/database';
 import {
 	getBlueprintsPharPath,
 	getPhpBinaryPath,
+	getSqlitePluginPath,
 	getWpCliPharPath,
 } from 'cli/lib/dependency-management/paths';
 import { getFullyResolvedTmpDirPath } from 'cli/lib/native-php/tmp-dir';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { getWpCliPhpIniArgs } from 'cli/lib/wp-cli-php-ini';
 import { PhpCommandError, runPhpCommand } from './php-process';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -229,10 +234,10 @@ function getBlueprintDatabaseArgs( connection: DatabaseConnection ): string[] {
 	}
 	return [
 		'--db-engine=mysql',
-		`--db-host=${ formatMysqlHost( connection ) }`,
+		`--db-host=${ formatDbHost( connection ) }`,
 		`--db-user=${ connection.user }`,
 		`--db-pass=${ connection.password }`,
-		`--db-name=${ connection.name }`,
+		`--db-name=${ connection.database }`,
 	];
 }
 
@@ -294,17 +299,12 @@ export async function runBlueprint(
 	}
 
 	// blueprints.phar detects SQLite under plugins, while Studio installs it under mu-plugins.
-	const muPluginsSqlite = path.join(
-		config.sitePath,
-		'wp-content',
-		'mu-plugins',
-		'sqlite-database-integration'
-	);
+	const muPluginsSqlite = getSqliteIntegrationPath( config.sitePath );
 	const pluginsSqlite = path.join(
 		config.sitePath,
 		'wp-content',
 		'plugins',
-		'sqlite-database-integration'
+		SQLITE_INTEGRATION_FOLDER
 	);
 	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
 	if ( needsSymlink ) {
@@ -356,7 +356,7 @@ export async function runBlueprint(
 			// Remove only the link created here, not content that replaced it.
 			await removeOwnedSqliteSymlink( pluginsSqlite, muPluginsSqlite );
 			// The runner may remove the symlink target while managing its SQLite driver.
-			await keepSqliteIntegrationUpdated( config.sitePath );
+			await updateSqliteIntegration( config.sitePath, getSqlitePluginPath() );
 		}
 	}
 }

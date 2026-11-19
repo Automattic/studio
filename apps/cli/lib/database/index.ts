@@ -1,13 +1,9 @@
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
-import { getDatabaseEngine, type DatabaseEngine } from '@studio/common/lib/site-database';
+import { getDatabaseEngine, type DatabaseConnection, type DatabaseEngine } from '@studio/database';
 import { __ } from '@wordpress/i18n';
-import { createMysqlDatabase, type MysqlConnection } from 'cli/lib/database/mysql';
-import { createSqliteDatabase } from 'cli/lib/database/sqlite';
+import { createMysqlSiteDatabase } from 'cli/lib/database/mysql';
+import { createSqliteSiteDatabase } from 'cli/lib/database/sqlite';
 import { LoggerError, type Logger } from 'cli/logger';
-
-export type DatabaseConnection =
-	| { engine: 'sqlite'; path: string }
-	| ( { engine: 'mysql' } & MysqlConnection );
 
 /** The database a site runs on, so site operations don't depend on its engine. */
 export interface SiteDatabase {
@@ -26,8 +22,8 @@ interface DatabaseSite {
 
 export function getSiteDatabase( site: DatabaseSite ): SiteDatabase {
 	return getDatabaseEngine( site ) === 'mysql'
-		? createMysqlDatabase( site.path, resolveSupportedPhpVersion( site.phpVersion ?? '' ) )
-		: createSqliteDatabase( site.path );
+		? createMysqlSiteDatabase( site.path, resolveSupportedPhpVersion( site.phpVersion ?? '' ) )
+		: createSqliteSiteDatabase( site.path );
 }
 
 export async function ensureSiteDatabaseReady< Action extends string >(

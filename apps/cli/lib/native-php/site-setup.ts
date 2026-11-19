@@ -8,8 +8,8 @@ import {
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
+import { isSqliteIntegrationInstalled } from '@studio/database/node';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
-import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
@@ -40,7 +40,7 @@ export async function ensureWpConfig(
 	config?: EnsureWpConfigOptions
 ): Promise< void > {
 	const shouldSetDefaultDatabaseName =
-		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
+		config?.forceDefaultDatabaseName ?? isSqliteIntegrationInstalled( siteFolder );
 	await defineWpConfigConstants(
 		siteFolder,
 		phpVersion,

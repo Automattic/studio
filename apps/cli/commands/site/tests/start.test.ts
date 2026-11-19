@@ -2,8 +2,8 @@ import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { ensureSiteDatabaseReady } from 'cli/lib/database';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
@@ -24,7 +24,7 @@ vi.mock( 'cli/lib/site-operations', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
-vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/database' );
 
 describe( 'CLI: studio site start', () => {
 	// Simple test data
@@ -54,7 +54,7 @@ describe( 'CLI: studio site start', () => {
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( setupCustomDomain ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( ensureSiteDatabaseReady ).mockResolvedValue( undefined );
 		vi.mocked( startWordPressServer ).mockResolvedValue( testProcessDescription );
 		vi.mocked( updateSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
@@ -101,7 +101,11 @@ describe( 'CLI: studio site start', () => {
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( setupCustomDomain ).toHaveBeenCalledWith( testSite, expect.any( Logger ) );
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( '/test/site' );
+			expect( ensureSiteDatabaseReady ).toHaveBeenCalledWith(
+				testSite,
+				expect.any( Logger ),
+				expect.any( String )
+			);
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				testSite,
 				expect.any( Logger ),

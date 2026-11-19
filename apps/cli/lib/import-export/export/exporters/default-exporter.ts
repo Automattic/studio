@@ -11,18 +11,15 @@ import {
 	STUDIO_LOADER_MU_PLUGIN_FILENAME,
 } from '@studio/common/lib/mu-plugins';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
-import {
-	hasDefaultDbBlock,
-	removeDbConstants,
-} from '@studio/common/lib/remove-default-db-constants';
+import { hasDefaultDbConstants, removeDefaultDbConstants } from '@studio/database';
 import { __, sprintf } from '@wordpress/i18n';
 import { Archiver, TarArchive, ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
 import { isAlreadyCompressedFile } from 'cli/lib/already-compressed-file';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/database/sqlite';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { ensureSqliteIntegrationForImportedSite } from 'cli/lib/sqlite-integration';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
@@ -184,8 +181,8 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
 			const content = fs.readFileSync( wpConfigPath, 'utf-8' );
-			if ( hasDefaultDbBlock( content ) ) {
-				const modifiedContent = removeDbConstants( content );
+			if ( hasDefaultDbConstants( content ) ) {
+				const modifiedContent = removeDefaultDbConstants( content );
 				fs.writeFileSync( wpConfigPath, modifiedContent, 'utf-8' );
 			}
 			if ( this.options.stripStudioWpConfigConstants ) {

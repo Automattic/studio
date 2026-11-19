@@ -1,8 +1,6 @@
-import {
-	hasDefaultDbBlock,
-	normalizeLineEndings,
-	removeDbConstants,
-} from '../remove-default-db-constants';
+import { hasDefaultDbConstants, removeDefaultDbConstants } from '../wp-config';
+
+const normalizeLineEndings = ( content: string ) => content.replace( /\n/g, '\r\n' );
 
 const WP_CONFIG_WITH_DEFAULTS = normalizeLineEndings( `<?php
 /**
@@ -176,43 +174,43 @@ $table_prefix = 'wp_';
 define( 'WP_DEBUG', false );
 ` );
 
-describe( 'hasDefaultDbBlock', () => {
+describe( 'hasDefaultDbConstants', () => {
 	it( 'should return true when the exact default DB block is present', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_DEFAULTS ) ).toBe( true );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS ) ).toBe( true );
 	} );
 
 	it( 'should return true when comments are in Polish', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_POLISH_COMMENTS ) ).toBe( true );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_POLISH_COMMENTS ) ).toBe( true );
 	} );
 
 	it( 'should return true when comments are in French', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_FRENCH_COMMENTS ) ).toBe( true );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_FRENCH_COMMENTS ) ).toBe( true );
 	} );
 
 	it( 'should return true when there are no comments at all', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_NO_COMMENTS ) ).toBe( true );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_NO_COMMENTS ) ).toBe( true );
 	} );
 
 	it( 'should return false when DB values are custom', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_CUSTOM_VALUES ) ).toBe( false );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_CUSTOM_VALUES ) ).toBe( false );
 	} );
 
 	it( 'should return false when DB values are mixed', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_MIXED_VALUES ) ).toBe( false );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_MIXED_VALUES ) ).toBe( false );
 	} );
 
 	it( 'should return false when no DB constants found', () => {
-		expect( hasDefaultDbBlock( '<?php\n$foo = "bar";\n' ) ).toBe( false );
+		expect( hasDefaultDbConstants( '<?php\n$foo = "bar";\n' ) ).toBe( false );
 	} );
 
 	it( 'should return false for already migrated content', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_ALREADY_MIGRATED ) ).toBe( false );
+		expect( hasDefaultDbConstants( WP_CONFIG_ALREADY_MIGRATED ) ).toBe( false );
 	} );
 } );
 
-describe( 'removeDbConstants', () => {
+describe( 'removeDefaultDbConstants', () => {
 	it( 'should remove the entire DB settings block', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_DEFAULTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS );
 
 		expect( result ).not.toContain( "define( 'DB_NAME'" );
 		expect( result ).not.toContain( "define( 'DB_USER'" );
@@ -223,7 +221,7 @@ describe( 'removeDbConstants', () => {
 	} );
 
 	it( 'should remove comments associated with the DB block', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_DEFAULTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS );
 
 		expect( result ).not.toContain( '// ** Database settings' );
 		expect( result ).not.toContain( 'The name of the database for WordPress' );
@@ -233,7 +231,7 @@ describe( 'removeDbConstants', () => {
 	} );
 
 	it( 'should remove translated comments (Polish)', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_POLISH_COMMENTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_POLISH_COMMENTS );
 
 		expect( result ).not.toContain( "define( 'DB_NAME'" );
 		expect( result ).not.toContain( 'Nazwa bazy danych' );
@@ -243,7 +241,7 @@ describe( 'removeDbConstants', () => {
 	} );
 
 	it( 'should remove translated comments (French)', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_FRENCH_COMMENTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_FRENCH_COMMENTS );
 
 		expect( result ).not.toContain( "define( 'DB_NAME'" );
 		expect( result ).not.toContain( 'Le nom de la base' );
@@ -252,7 +250,7 @@ describe( 'removeDbConstants', () => {
 	} );
 
 	it( 'should remove defines even without comments', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_NO_COMMENTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_NO_COMMENTS );
 
 		expect( result ).not.toContain( "define( 'DB_NAME'" );
 		expect( result ).not.toContain( "define( 'DB_USER'" );
@@ -261,25 +259,25 @@ describe( 'removeDbConstants', () => {
 	} );
 
 	it( 'should add the replacement comment block', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_DEFAULTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS );
 
 		expect( result ).toContain( 'Database connection information is automatically provided' );
 	} );
 
 	it( 'should preserve other defines', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_DEFAULTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS );
 
 		expect( result ).toContain( "define( 'WP_DEBUG', false )" );
 	} );
 
 	it( 'should preserve table_prefix', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_DEFAULTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS );
 
 		expect( result ).toContain( "$table_prefix = 'wp_'" );
 	} );
 
 	it( 'should preserve the WordPress header comment', () => {
-		const result = removeDbConstants( WP_CONFIG_WITH_DEFAULTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS );
 
 		expect( result ).toContain( 'The base configuration for WordPress' );
 	} );
@@ -287,30 +285,30 @@ describe( 'removeDbConstants', () => {
 
 describe( 'integration: full migration flow', () => {
 	it( 'should correctly process a standard wp-config.php with defaults', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_DEFAULTS ) ).toBe( true );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS ) ).toBe( true );
 
-		const result = removeDbConstants( WP_CONFIG_WITH_DEFAULTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS );
 		expect( result ).toContain( 'Database connection information is automatically provided' );
 	} );
 
 	it( 'should correctly process wp-config.php with translated comments', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_POLISH_COMMENTS ) ).toBe( true );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_POLISH_COMMENTS ) ).toBe( true );
 
-		const result = removeDbConstants( WP_CONFIG_WITH_POLISH_COMMENTS );
+		const result = removeDefaultDbConstants( WP_CONFIG_WITH_POLISH_COMMENTS );
 		expect( result ).toContain( 'Database connection information is automatically provided' );
-		expect( hasDefaultDbBlock( result ) ).toBe( false );
+		expect( hasDefaultDbConstants( result ) ).toBe( false );
 	} );
 
 	it( 'should not modify wp-config.php with custom values', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_CUSTOM_VALUES ) ).toBe( false );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_CUSTOM_VALUES ) ).toBe( false );
 	} );
 
 	it( 'should not modify wp-config.php with mixed values', () => {
-		expect( hasDefaultDbBlock( WP_CONFIG_WITH_MIXED_VALUES ) ).toBe( false );
+		expect( hasDefaultDbConstants( WP_CONFIG_WITH_MIXED_VALUES ) ).toBe( false );
 	} );
 
 	it( 'should be idempotent - migrated file has no default block', () => {
-		const firstRun = removeDbConstants( WP_CONFIG_WITH_DEFAULTS );
-		expect( hasDefaultDbBlock( firstRun ) ).toBe( false );
+		const firstRun = removeDefaultDbConstants( WP_CONFIG_WITH_DEFAULTS );
+		expect( hasDefaultDbConstants( firstRun ) ).toBe( false );
 	} );
 } );

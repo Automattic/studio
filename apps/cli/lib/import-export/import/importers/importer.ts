@@ -11,14 +11,15 @@ import {
 	SupportedPHPVersions,
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
+import { updateSqliteIntegration } from '@studio/database/node';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
 import { SiteData } from 'cli/lib/cli-config/core';
+import { getSqlitePluginPath } from 'cli/lib/dependency-management/paths';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
@@ -306,7 +307,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 			}
 		}
 
-		await keepSqliteIntegrationUpdated( site.path );
+		await updateSqliteIntegration( site.path, getSqlitePluginPath() );
 		await writeStudioMuPlugins( site.path, site.isWpAutoUpdating, site.id );
 
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
@@ -434,7 +435,7 @@ export class SQLImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_START, 'sql' );
 
 		try {
-			await keepSqliteIntegrationUpdated( site.path );
+			await updateSqliteIntegration( site.path, getSqlitePluginPath() );
 			await this.importDatabase( site, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE, 'sql' );

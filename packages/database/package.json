@@ -1,0 +1,20 @@
+{
+	"name": "@studio/database",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"description": "The databases WordPress sites run on in Studio: SQLite or a MySQL server, opened and queried the same way, and the SQLite integration that lets WordPress run on SQLite",
+	"exports": {
+		".": "./index.ts",
+		"./node": "./node.ts"
+	},
+	"scripts": {
+		"lint": "eslint .",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@wordpress/i18n": "^6.30.0",
+		"mysql2": "^3.24.6",
+		"zod": "^4.3.6"
+	}
+}

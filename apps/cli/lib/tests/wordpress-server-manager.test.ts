@@ -3,12 +3,12 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
+import { replaceMysql8OnlyCollations } from '@studio/database/node';
 import { vi } from 'vitest';
 import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
-import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { startWordPressServer, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -21,14 +21,10 @@ vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 vi.mock( 'cli/lib/site-runtime-stats', () => ( {
 	recordSiteRuntimeUsage: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/sqlite-collations', () => ( {
-	getSiteDatabasePath: vi.fn(
-		( sitePath: string ) => `${ sitePath }/wp-content/database/.ht.sqlite`
-	),
+vi.mock( '@studio/database/node', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/database/node') >() ),
 	replaceMysql8OnlyCollations: vi.fn().mockResolvedValue( undefined ),
-} ) );
-vi.mock( 'cli/lib/sqlite-journal-mode', () => ( {
-	resetSqliteJournalModeToRollback: vi.fn().mockResolvedValue( undefined ),
+	resetSqliteJournalMode: vi.fn().mockResolvedValue( undefined ),
 } ) );
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	updateSiteLatestCliPid: vi.fn(),

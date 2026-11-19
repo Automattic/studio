@@ -19,6 +19,7 @@ import {
 import { getSitePhpWorkers } from '@studio/common/lib/site-php-workers';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
+import { getSqliteDatabasePath } from '@studio/database/node';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -51,7 +52,6 @@ import {
 } from './lib/native-php/site-setup';
 import { StaticFiles } from './lib/native-php/static-files';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
-import { getSiteDatabasePath } from './lib/sqlite-collations';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
@@ -502,7 +502,7 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 	const deferInstallCheck =
 		! isImportedSite &&
 		! config.blueprint &&
-		fs.existsSync( getSiteDatabasePath( config.sitePath ) );
+		fs.existsSync( getSqliteDatabasePath( config.sitePath ) );
 	// Set when this start ran the installer, which created the admin user with the
 	// configured credentials, and no Blueprint ran after it that could change them.
 	let credentialsJustInstalled = false;

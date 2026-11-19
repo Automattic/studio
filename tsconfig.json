@@ -14,7 +14,9 @@
 			"@studio/providers": [ "./packages/providers/index.ts" ],
 			"@studio/providers/*": [ "./packages/providers/*" ],
 			"@studio/blueprints": [ "./packages/blueprints/index.ts" ],
-			"@studio/blueprints/node": [ "./packages/blueprints/node.ts" ]
+			"@studio/blueprints/node": [ "./packages/blueprints/node.ts" ],
+			"@studio/database": [ "./packages/database/index.ts" ],
+			"@studio/database/node": [ "./packages/database/node.ts" ]
 		}
 	},
 	"include": [
@@ -26,6 +28,7 @@
 		"./packages/design-md/**/*",
 		"./packages/providers/**/*",
 		"./packages/blueprints/**/*",
+		"./packages/database/**/*",
 		"./vitest.global-setup.ts",
 		"./scripts/**/*"
 	],

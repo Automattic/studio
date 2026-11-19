@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
-import { DEFAULT_MYSQL_HOST } from '@studio/common/lib/site-database';
 import {
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
 import { RecommendedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
+import { DEFAULT_MYSQL_HOST, parseDbHost } from '@studio/database';
 import { __ } from '@wordpress/i18n';
 import { isUrl } from 'cli/lib/static-site-import/source';
 import { untildify } from 'cli/lib/utils';
@@ -153,6 +153,18 @@ export const builder = ( yargs: StudioArgv ) => {
 			describe: __( 'MySQL server host, with an optional port (e.g. "127.0.0.1:3306")' ),
 			default: DEFAULT_MYSQL_HOST,
 			hidden: true,
+			coerce: ( value: string ) => {
+				try {
+					parseDbHost( value );
+				} catch {
+					throw new ValidationError(
+						'db-host',
+						value,
+						__( 'Must be a TCP host such as 127.0.0.1:3306, not localhost or a socket' )
+					);
+				}
+				return value;
+			},
 		} )
 		.option( 'db-user', {
 			type: 'string',

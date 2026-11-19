@@ -11,9 +11,9 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { vi } from 'vitest';
 import { getSiteByFolder, updateSitePhpVersion } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { ensureSiteDatabaseReady } from 'cli/lib/database';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getImporter } from 'cli/lib/import-export/import/import-manager';
-import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -28,8 +28,9 @@ vi.mock( 'cli/lib/cli-config/sites', () => ( {
 	updateSitePhpVersion: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
-vi.mock( 'cli/lib/sqlite-integration', () => ( {
-	keepSqliteIntegrationUpdated: vi.fn(),
+vi.mock( 'cli/lib/database', () => ( {
+	assertDatabaseCanBeTransferred: vi.fn(),
+	ensureSiteDatabaseReady: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/wordpress-server-manager', () => ( {
 	isServerRunning: vi.fn(),
@@ -100,7 +101,7 @@ describe( 'CLI: studio import', () => {
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
-		vi.mocked( keepSqliteIntegrationUpdated ).mockResolvedValue( undefined );
+		vi.mocked( ensureSiteDatabaseReady ).mockResolvedValue( undefined );
 		vi.mocked( isWordPressDirectory ).mockReturnValue( true );
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/server-files' );
 		vi.mocked( recursiveCopyDirectory ).mockResolvedValue( undefined );
@@ -211,7 +212,7 @@ describe( 'CLI: studio import', () => {
 				throw new Error( 'import failed' );
 			} ) as never
 		);
-		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
+		vi.mocked( ensureSiteDatabaseReady ).mockRejectedValue( new Error( 'restart failed' ) );
 
 		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow( 'import failed' );
 		expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
@@ -228,7 +229,7 @@ describe( 'CLI: studio import', () => {
 				);
 			} ) as never
 		);
-		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
+		vi.mocked( ensureSiteDatabaseReady ).mockRejectedValue( new Error( 'restart failed' ) );
 
 		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
 			'Failed to extract backup: unexpected end of file'
@@ -315,7 +316,7 @@ describe( 'CLI: studio import', () => {
 				throw new LoggerError( 'Database import failed: x', undefined, 'database_import' );
 			} ) as never
 		);
-		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'restart failed' ) );
+		vi.mocked( ensureSiteDatabaseReady ).mockRejectedValue( new Error( 'restart failed' ) );
 
 		await expect( runCommand( testSitePath, testImportPath ) ).rejects.toThrow(
 			'Database import failed'

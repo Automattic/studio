@@ -4,9 +4,9 @@
  * The CLI emits these events via the `_events` command, and Studio
  * subscribes to them to maintain its state without reading config files.
  */
+import { databaseEngineSchema } from '@studio/database';
 import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
-import { databaseEngineSchema } from '@studio/common/lib/site-database';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { siteOperationSchema } from '@studio/common/lib/site-operation';
 import { sitePhpWorkersSchema } from '@studio/common/lib/site-php-workers';

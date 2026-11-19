@@ -39,11 +39,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		return env;
 	}
 
-	// Offline, the previous release keeps the WordPress it bundles. Online, `site create --wp latest`
-	// downloads a newer one from wordpress.org, which closes the connection after the zip, and Node
-	// 24.22.1's fetch can crash on that (`assert(!this.paused)`).
-	async function runPreviousCli( args: string[] ) {
-		const result = await runCli( args, getEnv(), { cliMain: previousCli, offline: true } );
+	async function runPreviousCli( args: string[], { offline = false } = {} ) {
+		const result = await runCli( args, getEnv(), { cliMain: previousCli, offline } );
 		expect( result.code, result.stderr ).toBe( 0 );
 	}
 
@@ -90,20 +87,27 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		} );
 		runningSite = path.join( env.sitesDir, 'upgrade-running' );
 		stoppedSite = path.join( env.sitesDir, 'upgrade-stopped' );
+		// Offline, the previous release keeps the WordPress it bundles. Online, `site create --wp latest`
+		// downloads a newer one from wordpress.org, which closes the connection after the zip, and Node
+		// 24.22.1's fetch can crash on that (`assert(!this.paused)`). Starting a site needs the network
+		// to download PHP.
 		for ( const sitePath of [ runningSite, stoppedSite ] ) {
-			await runPreviousCli( [
-				'site',
-				'create',
-				'--name',
-				path.basename( sitePath ),
-				'--path',
-				sitePath,
-				'--wp',
-				'latest',
-				'--no-start',
-				'--skip-browser',
-				'--skip-log-details',
-			] );
+			await runPreviousCli(
+				[
+					'site',
+					'create',
+					'--name',
+					path.basename( sitePath ),
+					'--path',
+					sitePath,
+					'--wp',
+					'latest',
+					'--no-start',
+					'--skip-browser',
+					'--skip-log-details',
+				],
+				{ offline: true }
+			);
 		}
 	}, 600_000 );
 
@@ -189,6 +193,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 			expect( fs.existsSync( path.join( versionsPath, '6.0', 'wp-includes' ) ) ).toBe( true );
 			expect( fs.readFileSync( versionFile, 'utf8' ) ).not.toContain( "$wp_version = '6.0'" );
 
+			// Offline, like the previous release's creates, so it can't download a newer WordPress.
 			const newSite = path.join( getEnv().sitesDir, 'upgrade-new' );
 			const result = await runCli(
 				[
@@ -203,7 +208,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 					'--skip-browser',
 					'--skip-log-details',
 				],
-				getEnv()
+				getEnv(),
+				{ offline: true }
 			);
 			expect( result.code, result.stderr ).toBe( 0 );
 			expect( ( await waitForSiteResponse( siteUrl( newSite ) ) ).status ).toBeLessThan( 500 );

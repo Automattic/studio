@@ -148,6 +148,7 @@ export function buildConfigFromLegacy( { shared = {}, cli = {}, app = {} }: Lega
 		signInHostId,
 		remoteSites,
 		aiProvider,
+		aiImageProvider,
 		anthropicApiKey,
 		analyticsInstallId,
 		analyticsOptOut,
@@ -263,6 +264,7 @@ export function buildConfigFromLegacy( { shared = {}, cli = {}, app = {} }: Lega
 			install: { analyticsId: analyticsInstallId, sentryUserId, signInHostId },
 			providers: {
 				selected: aiProvider ?? cli.aiProvider,
+				selectedImage: aiImageProvider,
 				configs,
 				remembered: rememberedSignIns,
 			},

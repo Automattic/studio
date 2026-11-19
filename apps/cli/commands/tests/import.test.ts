@@ -235,6 +235,21 @@ describe( 'CLI: studio import', () => {
 		);
 	} );
 
+	it( 'completes the import with a warning when the site fails to start afterwards', async () => {
+		vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue( new Error( 'start timed out' ) );
+		const reportWarningSpy = vi.spyOn( Logger.prototype, 'reportWarning' );
+
+		await runCommand( testSitePath, testImportPath, true );
+
+		expect( reportWarningSpy ).toHaveBeenCalledWith(
+			'Site imported, but the WordPress server failed to start: start timed out'
+		);
+		expect( reportSyncActivity ).toHaveBeenLastCalledWith( testSite.id, {
+			kind: 'success',
+			direction: 'import',
+		} );
+	} );
+
 	it( 'records a success Tracks event with the importer type', async () => {
 		const importer = createImporter( async () => {
 			importer.emit( ImporterEvents.IMPORT_START, 'jetpack' );

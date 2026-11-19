@@ -8,7 +8,9 @@ import {
 	connectProvider,
 	disconnectProvider,
 	readAiSettings,
+	selectProviderModels,
 	setAiProvider,
+	setImageProvider,
 } from '@studio/common/lib/ai-settings';
 import { getConfigPath } from '@studio/common/lib/config/store';
 import {
@@ -64,8 +66,11 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
+			imageProviders: [],
+			imageProvider: null,
 		} );
 	} );
 
@@ -84,8 +89,11 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
+			imageProviders: [],
+			imageProvider: null,
 		} );
 		expect( readProviders() ).toMatchObject( {
 			selected: 'anthropic-api-key',
@@ -193,8 +201,11 @@ describe( 'ai settings', () => {
 				'github-copilot': disconnected,
 				meta: disconnected,
 				xai: disconnected,
+				openrouter: disconnected,
 				spacefast: disconnected,
 			},
+			imageProviders: [],
+			imageProvider: null,
 		} );
 		const written = JSON.parse( fs.readFileSync( getConfigPath(), 'utf8' ) );
 		expect( written ).toMatchObject( {
@@ -278,9 +289,58 @@ describe( 'ai settings', () => {
 		expect( ( await readSignInContext( 'openai' ) ).hostId ).toBe( context.hostId );
 	} );
 
+	it( 'offers the models picked from a provider’s catalog', async () => {
+		const openrouter = getProviderServices( 'openrouter' );
+		const model = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+		};
+		await expect( selectProviderModels( openrouter, [ model ] ) ).rejects.toBeInstanceOf(
+			ConnectError
+		);
+
+		writeProviders( { configs: { openrouter: { method: 'api-key', apiKey: 'sk-or-v1' } } } );
+		const settings = await selectProviderModels( openrouter, [ model ] );
+
+		expect( settings.accounts.openrouter ).toMatchObject( {
+			connected: true,
+			models: [ { id: 'openrouter/acme/model', label: 'Acme: Model' } ],
+		} );
+	} );
+
 	it( 'treats an unknown stored provider as the default', async () => {
 		writeProviders( { selected: 'claude-code' } );
 
 		await expect( readAiSettings() ).resolves.toMatchObject( { provider: 'wpcom' } );
+	} );
+
+	it( 'picks only a provider that generates images, and falls back to automatic without it', async () => {
+		const chatgpt = {
+			method: 'chatgpt',
+			clientId: 'oaiapp_1',
+			accessToken: 'access',
+			refreshToken: 'refresh',
+			accessTokenExpiresAt: 0,
+		};
+		writeProviders( {
+			configs: { gemini: { method: 'api-key', apiKey: 'gemini-key' }, openai: chatgpt },
+		} );
+		await expect( setImageProvider( 'openai' ) ).rejects.toBeInstanceOf( ConnectError );
+
+		await expect( setImageProvider( 'gemini' ) ).resolves.toMatchObject( {
+			imageProviders: [ 'gemini' ],
+			imageProvider: 'gemini',
+		} );
+		expect( readProviders().selectedImage ).toBe( 'gemini' );
+
+		writeProviders( { selectedImage: 'gemini', configs: { openai: chatgpt } } );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			imageProviders: [],
+			imageProvider: null,
+		} );
+
+		await setImageProvider( null );
+		expect( readProviders().selectedImage ).toBeUndefined();
 	} );
 } );

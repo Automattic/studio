@@ -307,6 +307,52 @@ describe( 'WordPress Server Manager', () => {
 			expect( props ).toMatchObject( { command, time_ms: timeMs } );
 		} );
 
+		it( 'stops the process it started when the start fails, so the site is not left running', async () => {
+			const readyInterval = setInterval( () => {
+				mockBus.emit( 'process-message', {
+					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+					raw: { topic: 'ready' },
+				} );
+			}, 1 );
+			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
+				clearInterval( readyInterval );
+				if ( message.topic === 'start-server' ) {
+					setImmediate( () => {
+						vi.mocked( daemonClient.isProcessRunning ).mockResolvedValueOnce(
+							mockProcessDescription
+						);
+						mockBus.emit( 'process-message', {
+							process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+							raw: {
+								topic: 'error',
+								originalMessageId: message.messageId,
+								errorMessage: 'start timed out',
+							},
+						} );
+					} );
+					return Promise.resolve();
+				}
+				return Promise.reject( new Error( 'stop-server not answered' ) );
+			} );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow(
+				'start timed out'
+			);
+
+			expect( vi.mocked( daemonClient.stopProcess ) ).toHaveBeenCalledWith(
+				mockProcessDescription.name
+			);
+		} );
+
+		it( 'does not stop anything when the process never started', async () => {
+			vi.mocked( daemonClient.startProcess ).mockRejectedValue( new Error( 'Failed' ) );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow();
+
+			expect( vi.mocked( daemonClient.isProcessRunning ) ).not.toHaveBeenCalled();
+			expect( vi.mocked( daemonClient.stopProcess ) ).not.toHaveBeenCalled();
+		} );
+
 		it( 'should handle start process failure', async () => {
 			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
 				new Error( 'Failed to start process' )

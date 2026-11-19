@@ -46,7 +46,5 @@ export const openaiAi: NonNullable< ProviderServices< OpenaiConfig >[ 'ai' ] > =
 			},
 		};
 	},
-	// A ChatGPT plan doesn't cover image generation.
-	canGenerateImages: ( config ) => config.method === 'api-key',
 	generateImages: generateOpenaiImages,
 };

@@ -52,6 +52,8 @@ const providersSchema = z.looseObject( {
 	// The AI provider Studio Code runs on. A plain string so a provider a newer build added
 	// degrades gracefully; readers go through `normalizeProviderId`.
 	selected: optional( z.string() ),
+	// The provider picked for image generation; absent picks it automatically.
+	selectedImage: optional( z.string() ),
 	// Each provider's config, checked against its provider's schema in `../provider-config.ts`.
 	configs: z.record( z.string(), z.unknown() ).catch( {} ).default( {} ),
 	// What each provider kept when it rejected its config (its descriptor's `remember`).

@@ -43,6 +43,7 @@ vi.mock( 'cli/lib/providers', () => ( {
 	isProviderConnected: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
+	describeAccount: vi.fn().mockReturnValue( { connected: false } ),
 	persistSelectedAiProvider: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );

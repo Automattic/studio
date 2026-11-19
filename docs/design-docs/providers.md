@@ -34,6 +34,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —        |
 | Meta (`meta`)                                | API key                        | Muse models; images                  | —          | —        |
 | xAI (`xai`)                                  | Grok plan or API key           | Grok models; images                  | —          | —        |
+| OpenRouter (`openrouter`)                    | Sign-in or API key             | Models from many labs                | —          | —        |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
 

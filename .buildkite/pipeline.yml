@@ -31,7 +31,7 @@ e2e_config: &e2e_config
 # Buildkite doesn't send the `notify:` of a skipped step. The custom `even-if-skipped: true` attribute next to a
 # `github_commit_status` makes the `notify_skipped_steps` script of the `a8c-ci-toolkit` plugin, which the pipeline upload
 # step (defined in `buildkite-ci`) runs on this file, report that status anyway, so Required checks don't wait forever.
-# Group-level checks stay on the group; skipping it also skips its children.
+# Put skip: on the group so notify_skipped_steps reports its group-level check; skipping children alone won't.
 steps:
   - label: Lint
     agents:

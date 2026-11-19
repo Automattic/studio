@@ -1267,7 +1267,9 @@ def bump_version_commit_and_push(version:, set_upstream: false)
   git_add(path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'])
   git_commit(
     path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'],
-    message: "[skip ci] Bump version to #{version}"
+    message: "[skip ci] Bump version to #{version}",
+    # A hotfix branch already has its final version when finalize_release runs
+    allow_nothing_to_commit: true
   )
   if DRY_RUN
     UI.message("[DRY RUN] Would push current branch to origin (set_upstream: #{set_upstream})")
@@ -1283,8 +1285,8 @@ end
 
 # Set the version in apps/studio/package.json and apps/cli/package.json (and update root package-lock.json via npm workspaces)
 def set_package_json_version(version:)
-  sh('npm', 'version', version, '--no-git-tag-version', '-w', 'studio-app', '--prefix', PROJECT_ROOT_FOLDER)
-  sh('npm', 'version', version, '--no-git-tag-version', '-w', 'wp-studio', '--prefix', PROJECT_ROOT_FOLDER)
+  sh('npm', 'version', version, '--no-git-tag-version', '--allow-same-version', '-w', 'studio-app', '--prefix', PROJECT_ROOT_FOLDER)
+  sh('npm', 'version', version, '--no-git-tag-version', '--allow-same-version', '-w', 'wp-studio', '--prefix', PROJECT_ROOT_FOLDER)
 end
 
 # Extract release notes for a specific version from RELEASE-NOTES.txt

@@ -52,9 +52,6 @@
 	"%s preview is ready": [
 		"Pratinjau %s sudah siap"
 	],
-	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
-		"%s berhenti melaporkan progres impor, tetapi pembaruan mungkin masih berjalan. Periksa situs aktif sebelum mendorong lagi."
-	],
 	"(No subject)": [
 		"(Tanpa subjek)"
 	],
@@ -64,17 +61,11 @@
 	"A coding agent that runs in your terminal.": [
 		"Agen coding yang berjalan di terminal Anda."
 	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"Operasi sinkronisasi sedang berlangsung di situs ini. Tunggu hingga selesai, lalu coba lagi."
-	],
 	"AI apps": [
 		"Aplikasi AI"
 	],
 	"API key": [
 		"Kunci API"
-	],
-	"API key is required": [
-		"Kunci API wajib diisi"
 	],
 	"Activate all plugins": [
 		"Aktifkan semua plugin"
@@ -108,9 +99,6 @@
 	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"Terjadi kesalahan saat memperbarui WordPress Studio CLI. Coba lagi."
-	],
-	"Annotate site elements visually in a browser.": [
-		"Beri anotasi elemen situs secara visual di browser."
 	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"Anotasi tersedia untuk sistem desain yang dibuat oleh Studio Code."
@@ -174,9 +162,6 @@
 	],
 	"Backup timed out — no progress detected": [
 		"Waktu pencadangan habis — tidak ada progres yang terdeteksi"
-	],
-	"Backups": [
-		"Cadangan"
 	],
 	"Balanced": [
 		"Seimbang"
@@ -475,9 +460,6 @@
 	"Deactivate all plugins": [
 		"Nonaktifkan semua plugin"
 	],
-	"Deactivate plugin": [
-		"Nonaktifkan plugin"
-	],
 	"Default AI provider": [
 		"Penyedia AI default"
 	],
@@ -643,9 +625,6 @@
 	"Failed to initiate backup": [
 		"Gagal memulai pencadangan"
 	],
-	"Failed to initiate import on remote site": [
-		"Gagal memulai impor di situs jarak jauh"
-	],
 	"Failed to load your %s sites": [
 		"Gagal memuat situs %s Anda"
 	],
@@ -682,12 +661,6 @@
 	"First use": [
 		"Penggunaan pertama"
 	],
-	"Flush cache": [
-		"Kosongkan cache"
-	],
-	"Flush permalinks": [
-		"Segarkan permalink"
-	],
 	"For publishing sites.": [
 		"Untuk menerbitkan situs."
 	],
@@ -705,12 +678,6 @@
 	],
 	"Generating static site…": [
 		"Membuat situs statis…"
-	],
-	"Get site info": [
-		"Dapatkan info situs"
-	],
-	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
-		"Mulai dengan alokasi gratis satu kali, lalu beli lagi sesuai kebutuhan. Tidak perlu kunci API."
 	],
 	"Getting your sign-in code…": [
 		"Mendapatkan kode login Anda…"
@@ -790,9 +757,6 @@
 	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
 		"Instal [Claude Code](https://code.claude.com/docs/en/setup) jika Anda belum memilikinya."
 	],
-	"Install plugin": [
-		"Instal plugin"
-	],
 	"Install taxonomy scripts": [
 		"Instal skrip taksonomi"
 	],
@@ -817,41 +781,11 @@
 	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
 		"Pelajari selengkapnya di <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
 	],
-	"Leave a note…": [
-		"Tinggalkan catatan…"
-	],
 	"Liberate": [
 		"Bebaskan"
 	],
-	"List": [
-		"Buat daftar"
-	],
-	"List %s": [
-		"Buat daftar %s"
-	],
-	"List connected remote sites": [
-		"Buat daftar situs jarak jauh yang terhubung"
-	],
-	"List menus": [
-		"Buat daftar menu"
-	],
-	"List plugins": [
-		"Buat daftar plugin"
-	],
 	"List previews": [
 		"Buat daftar pratinjau"
-	],
-	"List published %s": [
-		"Buat daftar %s yang diterbitkan"
-	],
-	"List terms": [
-		"Buat daftar istilah"
-	],
-	"List themes": [
-		"Buat daftar tema"
-	],
-	"List users": [
-		"Buat daftar pengguna"
 	],
 	"Load skill": [
 		"Muat keterampilan"
@@ -904,9 +838,6 @@
 	"Manage sharing": [
 		"Kelola berbagi"
 	],
-	"Manage site options": [
-		"Kelola opsi situs"
-	],
 	"Manage terms": [
 		"Kelola istilah"
 	],
@@ -930,9 +861,6 @@
 	],
 	"Meta rejected this API key. Check the key and try again.": [
 		"Meta menolak kunci API ini. Periksa kunci tersebut, lalu coba lagi."
-	],
-	"Migrate & rebuild a site from a closed platform.": [
-		"Migrasikan & bangun ulang situs dari platform tertutup."
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
@@ -1005,9 +933,6 @@
 	],
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"Agen coding OpenAI di aplikasi ChatGPT."
-	],
-	"Optimize category taxonomy with AI.": [
-		"Optimalkan taksonomi kategori dengan AI."
 	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"Jumlah PHP worker harus berupa bilangan bulat dari 1 hingga 64."
@@ -1084,9 +1009,6 @@
 	"Published to": [
 		"Diterbitkan ke"
 	],
-	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
-		"Penerbitan dan penarikan memerlukan situs WordPress.com atau Pressable yang didukung."
-	],
 	"Publishing cancelled": [
 		"Penerbitan dibatalkan"
 	],
@@ -1108,9 +1030,6 @@
 	"Pulling the preview replaces the changes made here.": [
 		"Menarik pratinjau akan menggantikan perubahan yang dibuat di sini."
 	],
-	"Push site": [
-		"Dorong situs"
-	],
 	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
 		"Dorong situs lokal Anda ke situs WordPress.com, atau terbitkan ke Spacefast"
 	],
@@ -1119,9 +1038,6 @@
 	],
 	"Read %s": [
 		"Baca %s"
-	],
-	"Read site option": [
-		"Baca opsi situs"
 	],
 	"Read site title": [
 		"Baca judul situs"
@@ -1155,9 +1071,6 @@
 	],
 	"Replace the contents of a non-empty output directory": [
 		"Ganti isi direktori output yang tidak kosong"
-	],
-	"Reply in your own words instead of picking an option.": [
-		"Balas dengan kata-kata Anda sendiri alih-alih memilih opsi."
 	],
 	"Report an issue on GitHub": [
 		"Laporkan masalah di GitHub"
@@ -1213,12 +1126,6 @@
 	"Run WordPress command": [
 		"Jalankan perintah WordPress"
 	],
-	"Run a performance audit on a site.": [
-		"Jalankan audit performa pada situs."
-	],
-	"Run an on-page SEO audit on a site.": [
-		"Jalankan audit SEO on-page pada situs."
-	],
 	"Run task": [
 		"Jalankan tugas"
 	],
@@ -1233,9 +1140,6 @@
 	],
 	"Save annotation (Enter)": [
 		"Simpan anotasi (Enter)"
-	],
-	"Scaffold theme": [
-		"Buat kerangka tema"
 	],
 	"Screenshots are available in the desktop app.": [
 		"Tangkapan layar tersedia di aplikasi desktop."
@@ -1337,9 +1241,6 @@
 	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
 		"Keterampilan memberikan panduan kepada agen AI untuk pengembangan WordPress. Perubahan di sini berlaku untuk semua situs yang sudah ada dan menjadi default untuk situs baru."
 	],
-	"Something went wrong while updating the live site.": [
-		"Terjadi masalah saat memperbarui situs aktif."
-	],
 	"Source is a temporary preview site.": [
 		"Sumbernya adalah situs pratinjau sementara."
 	],
@@ -1436,9 +1337,6 @@
 	"The Spacefast sign-in expired. Try again.": [
 		"Login Spacefast telah kedaluwarsa. Coba lagi."
 	],
-	"The database failed to import on the live site. Review your database and try again.": [
-		"Database gagal diimpor di situs aktif. Periksa database Anda, lalu coba lagi."
-	],
 	"The default browser for your sites.": [
 		"Browser default untuk situs Anda."
 	],
@@ -1447,9 +1345,6 @@
 	],
 	"The live site must be a qualifying connected site of this local site.": [
 		"Situs aktif harus merupakan situs terhubung yang memenuhi syarat dari situs lokal ini."
-	],
-	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
-		"Waktu situs aktif habis saat mengimpor, kemungkinan karena situsnya terlalu besar. Coba kurangi konten atau file-nya."
 	],
 	"The output directory %s is not empty.": [
 		"Direktori output %s tidak kosong."
@@ -1508,9 +1403,6 @@
 	"This site and its preview both changed": [
 		"Situs ini dan pratinjaunya sama-sama berubah"
 	],
-	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
-		"Situs ini belum mendukung penarikan. Perbarui Jetpack di situs ke versi terbaru, lalu coba lagi."
-	],
 	"This site has changes its preview doesn't": [
 		"Situs ini memiliki perubahan yang tidak ada di pratinjaunya"
 	],
@@ -1528,9 +1420,6 @@
 	],
 	"This website has been deleted. Choose another website.": [
 		"Situs ini telah dihapus. Pilih situs lain."
-	],
-	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
-		"Situs ini memerlukan paket hosting yang mendukung penerbitan dari WordPress Studio."
 	],
 	"Tips reset.": [
 		"Tips diatur ulang."
@@ -1556,9 +1445,6 @@
 	"Unable to open this source.": [
 		"Tidak dapat membuka sumber ini."
 	],
-	"Unexpected response from server while checking backup status": [
-		"Respons tak terduga dari server saat memeriksa status cadangan"
-	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"Penyedia %1$s tidak dikenal. Pilih salah satu dari: %2$s."
 	],
@@ -1574,17 +1460,11 @@
 	"Update plugin": [
 		"Perbarui plugin"
 	],
-	"Update site option": [
-		"Perbarui opsi situs"
-	],
 	"Update site title": [
 		"Perbarui judul situs"
 	],
 	"Update todo list": [
 		"Perbarui daftar tugas"
-	],
-	"Update user": [
-		"Perbarui pengguna"
 	],
 	"Uploading files…": [
 		"Mengunggah file…"
@@ -1706,9 +1586,6 @@
 	"WordPress.com API": [
 		"API WordPress.com"
 	],
-	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
-		"WordPress.com tidak mendukung multisitus. Menerbitkan jaringan ini dapat menimbulkan masalah."
-	],
 	"WordPress.com hosting": [
 		"Hosting WordPress.com"
 	],
@@ -1788,9 +1665,6 @@
 		"item media"
 	],
 	"page": [
-		"halaman"
-	],
-	"pages": [
 		"halaman"
 	],
 	"post": [

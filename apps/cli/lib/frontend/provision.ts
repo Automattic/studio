@@ -19,7 +19,8 @@ import { __, sprintf } from '@wordpress/i18n';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { LoggerError, type Logger } from 'cli/logger';
-import type { HeadlessSite, SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
+import type { HeadlessSite } from 'cli/lib/cli-config/sites';
 
 const FRONTEND_ENV_FILENAME = '.env.local';
 
@@ -29,7 +30,7 @@ interface WpCliResult {
 	stderr: string;
 }
 
-async function wp( site: SiteData, args: string[] ): Promise< WpCliResult > {
+async function wp( site: ConfigSite, args: string[] ): Promise< WpCliResult > {
 	await using command = await runWpCliCommand( site, args, {
 		phpVersion: resolveSupportedPhpVersion( site.phpVersion ),
 	} );
@@ -41,7 +42,7 @@ async function wp( site: SiteData, args: string[] ): Promise< WpCliResult > {
 	return { exitCode, stdout, stderr };
 }
 
-async function wpOrThrow( site: SiteData, args: string[], message: string ): Promise< string > {
+async function wpOrThrow( site: ConfigSite, args: string[], message: string ): Promise< string > {
 	const result = await wp( site, args );
 	if ( result.exitCode !== 0 ) {
 		throw new LoggerError( message, new Error( result.stderr.trim() || result.stdout.trim() ) );
@@ -64,7 +65,7 @@ export function writeFrontendEnvFile(
 	return envPath;
 }
 
-async function ensureFrontendUser( site: SiteData ): Promise< void > {
+async function ensureFrontendUser( site: ConfigSite ): Promise< void > {
 	const existing = await wp( site, [ 'user', 'get', HEADLESS_FRONTEND_USER, '--field=ID' ] );
 	if ( existing.exitCode === 0 && existing.stdout.trim() ) {
 		return;

@@ -1,17 +1,12 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-	type SiteData,
-} from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SiteOperation, SiteOperationKind } from '@studio/common/lib/site-operation';
 
 function siteBusyError( requested: SiteOperationKind, blockedBy: SiteOperationKind ): LoggerError {
@@ -46,7 +41,7 @@ function isProcessAlive( pid: number ): boolean {
  * behind by a crashed process would otherwise keep the site's actions disabled
  * in the UI.
  */
-export function getLiveSiteOperation( site: SiteData ): SiteOperation | undefined {
+export function getLiveSiteOperation( site: ConfigSite ): SiteOperation | undefined {
 	return site.operation && isProcessAlive( site.operation.pid ) ? site.operation : undefined;
 }
 
@@ -67,10 +62,8 @@ async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< S
 
 	for (;;) {
 		let isWaiting = false;
-		try {
-			await lockCliConfig();
-			const config = await readCliConfig();
-			const sites: SiteData[] = [];
+		await updateConfig( ( config ) => {
+			const sites: ConfigSite[] = [];
 
 			for ( const siteId of siteIds ) {
 				const site = config.sites.find( ( candidate ) => candidate.id === siteId );
@@ -92,24 +85,34 @@ async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< S
 				for ( const site of sites ) {
 					site.operation = operation;
 				}
-				await saveCliConfig( config );
 			}
-		} finally {
-			await unlockCliConfig();
-		}
+		} );
 
 		if ( ! isWaiting ) {
 			return operation;
 		}
-		await new Promise( ( resolve ) => setTimeout( resolve, START_WAIT_POLL_INTERVAL_MS ) );
+		await waitForOtherStarts( siteIds );
 	}
 }
 
-async function release( siteIds: string[], operation: SiteOperation ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+// Polls without the config lock, which every Studio process shares, until no other process's
+// start holds one of the sites.
+async function waitForOtherStarts( siteIds: string[] ): Promise< void > {
+	const isStartedElsewhere = ( site: ConfigSite ) => {
+		const blocking = getLiveSiteOperation( site );
+		return blocking?.kind === 'start' && blocking.pid !== process.pid;
+	};
+	do {
+		await new Promise( ( resolve ) => setTimeout( resolve, START_WAIT_POLL_INTERVAL_MS ) );
+	} while (
+		( await readConfig() ).sites.some(
+			( site ) => siteIds.includes( site.id ) && isStartedElsewhere( site )
+		)
+	);
+}
 
+async function release( siteIds: string[], operation: SiteOperation ): Promise< void > {
+	return updateConfig( ( config ) => {
 		for ( const siteId of siteIds ) {
 			const site = config.sites.find( ( candidate ) => candidate.id === siteId );
 
@@ -120,10 +123,7 @@ async function release( siteIds: string[], operation: SiteOperation ): Promise< 
 				delete site.operation;
 			}
 		}
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 // Both edges matter: without the release, an indicator raised by the daemon's

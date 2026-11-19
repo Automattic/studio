@@ -1,5 +1,5 @@
+import { readConfig } from '@studio/common/lib/config/store';
 import { getFrontendUrl, siteFrontendSchema } from '@studio/common/lib/site-frontend';
-import { readSites } from '@studio/common/sites/site-path';
 
 /**
  * The origins of each headless site: its WordPress addresses and its
@@ -7,12 +7,12 @@ import { readSites } from '@studio/common/sites/site-path';
  * links between them as staying on the site.
  *
  * Navigation guards run synchronously, so they read a cached copy, read from
- * `cli.json` rather than a CLI fork: warmed at boot and refreshed on each CLI
+ * the config file rather than a CLI fork: warmed at boot and refreshed on each CLI
  * site event (`cli-events-subscriber.ts`).
  */
 
 let cachedGroups: string[][] = [];
-// Refreshes run one after another, so the last one reads the newest `cli.json`.
+// Refreshes run one after another, so the last one reads the newest config file.
 let refreshQueue: Promise< void > = Promise.resolve();
 
 function toOrigin( url: string ): string | null {
@@ -63,7 +63,7 @@ export function areSameSiteOrigins( groups: string[][], a: string, b: string ): 
 export function refreshHeadlessSiteOrigins(): Promise< void > {
 	refreshQueue = refreshQueue.then( async () => {
 		try {
-			cachedGroups = getHeadlessSiteOriginGroups( await readSites() );
+			cachedGroups = getHeadlessSiteOriginGroups( ( await readConfig() ).sites );
 		} catch {
 			// Keep the last known groups.
 		}

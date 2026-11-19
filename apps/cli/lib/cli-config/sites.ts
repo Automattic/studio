@@ -1,18 +1,17 @@
 import path from 'path';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { HEADLESS_WORDPRESS_SUBDIR } from '@studio/common/lib/site-frontend';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	type SiteData,
-	unlockCliConfig,
-} from './core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
+import type { SiteFrontend } from '@studio/common/lib/site-frontend';
 
-export async function getSiteByFolder( siteFolder: string ): Promise< SiteData > {
-	const config = await readCliConfig();
+// A site with a frontend project Studio supervises next to WordPress.
+export type HeadlessSite = ConfigSite & { frontend: SiteFrontend };
+
+export async function getSiteByFolder( siteFolder: string ): Promise< ConfigSite > {
+	const config = await readConfig();
 	const site = config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
 
 	if ( ! site ) {
@@ -31,8 +30,8 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 // Like WP-CLI, finds the site from any directory inside it, not only its root.
 // A headless site is also found from its frontend project and from the
 // container folder holding both halves.
-export async function getSiteContainingFolder( folder: string ): Promise< SiteData > {
-	const config = await readCliConfig();
+export async function getSiteContainingFolder( folder: string ): Promise< ConfigSite > {
+	const config = await readConfig();
 	for ( let directory = path.resolve( folder ); ; directory = path.dirname( directory ) ) {
 		const site = config.sites.find(
 			( candidate ) =>
@@ -50,27 +49,27 @@ export async function getSiteContainingFolder( folder: string ): Promise< SiteDa
 	}
 }
 
-export async function findSiteByFolder( siteFolder: string ): Promise< SiteData | undefined > {
-	const config = await readCliConfig();
+export async function findSiteByFolder( siteFolder: string ): Promise< ConfigSite | undefined > {
+	const config = await readConfig();
 	return config.sites.find( ( site ) => arePathsEqual( site.path, siteFolder ) );
 }
 
-export async function findSiteById( siteId: string ): Promise< SiteData | undefined > {
-	const config = await readCliConfig();
+export async function findSiteById( siteId: string ): Promise< ConfigSite | undefined > {
+	const config = await readConfig();
 	return config.sites.find( ( site ) => site.id === siteId );
 }
 
 // The folder holding both halves of a headless site created with the default
 // layout (`<container>/wordpress` + `<container>/frontend`); the WordPress
 // directory itself otherwise.
-export function getHeadlessContainerPath( site: SiteData ): string {
+export function getHeadlessContainerPath( site: ConfigSite ): string {
 	if ( site.frontend && path.basename( site.path ) === HEADLESS_WORDPRESS_SUBDIR ) {
 		return path.dirname( site.path );
 	}
 	return site.path;
 }
 
-export function getSiteUrl( site: SiteData ): string {
+export function getSiteUrl( site: ConfigSite ): string {
 	if ( site.url ) {
 		return site.url;
 	}
@@ -84,9 +83,7 @@ export function getSiteUrl( site: SiteData ): string {
 }
 
 export async function updateSiteLatestCliPid( siteId: string, pid: number ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+	return updateConfig( ( config ) => {
 		const site = config.sites.find( ( s ) => s.id === siteId );
 
 		if ( ! site ) {
@@ -94,16 +91,11 @@ export async function updateSiteLatestCliPid( siteId: string, pid: number ): Pro
 		}
 
 		site.latestCliPid = pid;
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+	return updateConfig( ( config ) => {
 		const site = config.sites.find( ( s ) => s.id === siteId );
 
 		if ( ! site ) {
@@ -111,16 +103,11 @@ export async function clearSiteLatestCliPid( siteId: string ): Promise< void > {
 		}
 
 		delete site.latestCliPid;
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 export async function updateSitePhpVersion( siteId: string, phpVersion: string ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+	return updateConfig( ( config ) => {
 		const site = config.sites.find( ( s ) => s.id === siteId );
 
 		if ( ! site ) {
@@ -128,19 +115,11 @@ export async function updateSitePhpVersion( siteId: string, phpVersion: string )
 		}
 
 		site.phpVersion = phpVersion;
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 export async function removeSiteFromConfig( siteId: string ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+	return updateConfig( ( config ) => {
 		config.sites = config.sites.filter( ( s ) => s.id !== siteId );
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }

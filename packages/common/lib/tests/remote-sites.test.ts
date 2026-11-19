@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import { forgetRemoteSites, getRemoteSites, rememberRemoteSite } from '../remote-sites';
+import { getConfigPath, readConfig, updateConfig } from '../config/store';
+import { forgetRemoteSite, getRemoteSites, rememberRemoteSite } from '../remote-sites';
 import type { SyncSite } from '../../types/sync';
 
 // As the account's site list returns it: without sync times.
@@ -18,23 +19,23 @@ const listedSite: SyncSite = {
 	lastPushTimestamp: null,
 };
 
+const signIn = ( id: number ) => ( {
+	token: 'token',
+	expiresAt: Date.now() + 60_000,
+	user: { id, email: 'user@example.com', displayName: 'User' },
+} );
+
 let configDir: string;
 
 beforeEach( () => {
 	configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-remote-sites-' ) );
 	process.env.DEV_CONFIG_DIR = configDir;
 	writeFileSync(
-		path.join( configDir, 'shared.json' ),
+		getConfigPath(),
 		JSON.stringify( {
 			version: 1,
-			authToken: {
-				accessToken: 'token',
-				expirationTime: Date.now() + 60_000,
-				expiresIn: 60,
-				id: 7,
-				email: 'user@example.com',
-				displayName: 'User',
-			},
+			providers: { configs: { wpcom: signIn( 7 ) } },
+			sites: [ { id: 'local-a', name: 'Site', path: '/sites/a', port: 8881, phpVersion: '8.3' } ],
 		} )
 	);
 } );
@@ -66,7 +67,26 @@ it( 'records each sync and keeps the times of the others', async () => {
 	} );
 } );
 
-it( 'keeps the Spaces a site publishes to, and forgets them with the site', async () => {
+it( 'lists only the signed-in account’s WordPress.com connections', async () => {
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite );
+	await updateConfig( ( { providers } ) => {
+		providers.configs.wpcom = signIn( 8 );
+	} );
+
+	expect( await getRemoteSites( 'wpcom', 'local-a' ) ).toEqual( [] );
+	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, id: 2 } );
+	expect( ( await getRemoteSites( 'wpcom' ) ).map( ( site ) => site.id ) ).toEqual( [ 2 ] );
+	expect(
+		( await readConfig() ).sites[ 0 ].connections?.map( ( { account } ) => account )
+	).toEqual( [ '7', '8' ] );
+
+	await updateConfig( ( { providers } ) => {
+		delete providers.configs.wpcom;
+	} );
+	expect( await getRemoteSites( 'wpcom' ) ).toEqual( [] );
+} );
+
+it( 'keeps the Spaces a site publishes to, and forgets them', async () => {
 	const space = {
 		id: 'spc_1',
 		name: 'Site',
@@ -87,6 +107,7 @@ it( 'keeps the Spaces a site publishes to, and forgets them with the site', asyn
 		},
 	] );
 
-	await forgetRemoteSites( 'local-a' );
+	await forgetRemoteSite( 'spacefast', 'local-a', 'spc_1' );
 	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toEqual( [] );
+	expect( ( await readConfig() ).sites[ 0 ] ).not.toHaveProperty( 'connections' );
 } );

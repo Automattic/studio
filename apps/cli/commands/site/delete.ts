@@ -1,28 +1,22 @@
 import fs from 'fs';
 import path from 'path';
 import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
+import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/auth-token';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
-import { forgetRemoteSites } from '@studio/common/lib/remote-sites';
-import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import {
 	HEADLESS_FRONTEND_SUBDIR,
 	HEADLESS_WORDPRESS_SUBDIR,
 	isHeadlessSite,
 } from '@studio/common/lib/site-frontend';
+import { forgetSiteInSidebar } from '@studio/common/lib/user-settings/user-preferences';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-	type SiteData,
-} from 'cli/lib/cli-config/core';
 import { getHeadlessContainerPath } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { isFrontendRunning, stopFrontendServer } from 'cli/lib/frontend/server';
@@ -36,6 +30,7 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { untildify } from 'cli/lib/utils';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/site/delete.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -73,7 +68,7 @@ export type DeleteCommandOptions = {
 
 type ResolvedSite = {
 	identity: string;
-	site: SiteData;
+	site: ConfigSite;
 	filePaths: string[];
 };
 
@@ -125,7 +120,7 @@ const IGNORED_CONTAINER_ENTRIES = [ '.DS_Store' ];
 // The container folder of a headless site created with the default layout, when
 // it holds nothing but the site's `wordpress/` and `frontend/` folders and so can
 // go as a whole. Anything else in it is the user's, and only the halves are deleted.
-function getDeletableHeadlessContainer( site: SiteData ): string | undefined {
+function getDeletableHeadlessContainer( site: ConfigSite ): string | undefined {
 	if ( ! isHeadlessSite( site ) ) {
 		return undefined;
 	}
@@ -149,7 +144,7 @@ function getDeletableHeadlessContainer( site: SiteData ): string | undefined {
 	return onlyHoldsTheSite ? containerPath : undefined;
 }
 
-function getSelectedFilePaths( site: SiteData, deleteFiles: boolean ): string[] {
+function getSelectedFilePaths( site: ConfigSite, deleteFiles: boolean ): string[] {
 	if ( ! deleteFiles ) {
 		return [];
 	}
@@ -164,8 +159,8 @@ function getSelectedFilePaths( site: SiteData, deleteFiles: boolean ): string[] 
 
 function resolveSiteIdentity(
 	identity: string,
-	sites: SiteData[]
-): { site?: SiteData; error?: string } {
+	sites: ConfigSite[]
+): { site?: ConfigSite; error?: string } {
 	const trimmed = identity.trim();
 	if ( ! trimmed ) {
 		return { error: __( 'The specified directory is not added to Studio.' ) };
@@ -272,7 +267,7 @@ export async function runDeleteCommand(
 	} = options;
 
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Resolving sites…' ) );
-	const cliConfig = await readCliConfig();
+	const cliConfig = await readConfig();
 
 	const resolved: ResolvedSite[] = [];
 	const seenIds = new Set< string >();
@@ -427,7 +422,7 @@ export async function runDeleteCommand(
 }
 
 async function deleteSite(
-	site: SiteData,
+	site: ConfigSite,
 	filePaths: string[],
 	deleteFiles: boolean,
 	logger: Logger< LoggerAction >
@@ -468,30 +463,15 @@ async function deleteSite(
 		await deletePreviewSites( authToken, site.path, logger );
 	}
 
-	try {
-		await lockCliConfig();
-		const cliConfig = await readCliConfig();
-		const siteIndex = cliConfig.sites.findIndex( ( s ) => arePathsEqual( s.path, site.path ) );
+	// The site's record holds its connections and settings, so they go with it.
+	await updateConfig( ( { sites, preferences } ) => {
+		const siteIndex = sites.findIndex( ( s ) => arePathsEqual( s.path, site.path ) );
 		if ( siteIndex === -1 ) {
 			throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 		}
-		cliConfig.sites.splice( siteIndex, 1 );
-		await saveCliConfig( cliConfig );
-	} finally {
-		await unlockCliConfig();
-	}
-
-	try {
-		await forgetRemoteSites( site.id );
-	} catch ( error ) {
-		logger.reportError(
-			new LoggerError(
-				__( 'Failed to remove WordPress.com connections. Proceeding anyway…' ),
-				error
-			),
-			false
-		);
-	}
+		sites.splice( siteIndex, 1 );
+		forgetSiteInSidebar( preferences, site.id );
+	} );
 
 	try {
 		await deleteAiSessionsForSite( getSessionsDirectory(), {

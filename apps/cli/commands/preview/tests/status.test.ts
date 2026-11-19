@@ -6,7 +6,7 @@ import { findSiteById } from 'cli/lib/cli-config/sites';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { wpcomSites } from 'cli/lib/sync-api';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'cli/lib/wpcom-auth', () => ( {
 	requireAuthToken: vi.fn().mockResolvedValue( { id: 1, accessToken: 'token' } ),
@@ -25,7 +25,7 @@ describe( 'getPreviewStatus', () => {
 		sitePath = path.join( root, 'site' );
 		fs.mkdirSync( path.join( sitePath, 'wp-content' ), { recursive: true } );
 		fs.writeFileSync( path.join( sitePath, 'wp-config.php' ), '<?php' );
-		vi.mocked( findSiteById ).mockResolvedValue( { id: 'one', path: sitePath } as SiteData );
+		vi.mocked( findSiteById ).mockResolvedValue( { id: 'one', path: sitePath } as ConfigSite );
 	} );
 
 	afterEach( () => {

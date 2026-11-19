@@ -48,6 +48,10 @@ export const siteDetailsSchema = z.object( {
 	// The frontend half of a headless site; absent for a classic site.
 	frontend: siteFrontendSchema.optional(),
 	phpMyAdminSupported: z.boolean().optional(),
+	// Studio's own settings for the site.
+	sortOrder: z.number().optional(),
+	autoStart: z.boolean().optional(),
+	hideFrontendAdminBar: z.boolean().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

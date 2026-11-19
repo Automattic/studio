@@ -13,8 +13,8 @@ import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/si
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/site/start.command';
-import type { SiteData } from 'cli/lib/cli-config/core';
 import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
@@ -23,7 +23,7 @@ const defaultLogger = new Logger< LoggerAction >();
 // it. A frontend that fails to start (no Node.js, a broken project) is reported
 // without failing the start: WordPress is up, and the frontend's logs say why.
 async function startFrontendIfHeadless(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< LoggerAction >
 ): Promise< void > {
 	if ( ! isHeadlessSite( site ) ) {

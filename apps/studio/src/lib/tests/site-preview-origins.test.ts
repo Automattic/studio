@@ -1,5 +1,9 @@
-import { readSites } from '@studio/common/sites/site-path';
-import { describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { CONFIG_VERSION } from '@studio/common/lib/config/schema';
+import { getConfigPath } from '@studio/common/lib/config/store';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	areSameSiteOrigins,
 	getHeadlessSiteOriginGroups,
@@ -7,7 +11,8 @@ import {
 	refreshHeadlessSiteOrigins,
 } from 'src/lib/site-preview-origins';
 
-vi.mock( '@studio/common/sites/site-path' );
+vi.unmock( 'atomically' );
+vi.unmock( 'lockfile' );
 
 const frontend = { path: '/sites/blog/frontend', kind: 'static', port: 3000 };
 
@@ -75,26 +80,50 @@ describe( 'areSameSiteOrigins', () => {
 } );
 
 describe( 'isSameSitePreviewOrigin', () => {
+	let configDir: string;
+	const writeConfigFile = ( config: object ) =>
+		writeFileSync( getConfigPath(), JSON.stringify( config ) );
+
+	beforeEach( () => {
+		configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-preview-origins-' ) );
+		process.env.DEV_CONFIG_DIR = configDir;
+	} );
+
+	afterEach( () => {
+		delete process.env.DEV_CONFIG_DIR;
+		rmSync( configDir, { recursive: true, force: true } );
+	} );
+
 	it( 'answers from the groups read by the last refresh', async () => {
-		vi.mocked( readSites ).mockResolvedValueOnce( [
-			{ id: 'blog', path: '/sites/blog/wordpress', port: 8881, frontend },
-		] as never );
+		writeConfigFile( {
+			version: CONFIG_VERSION,
+			sites: [
+				{
+					id: 'blog',
+					name: 'Blog',
+					path: '/sites/blog/wordpress',
+					port: 8881,
+					phpVersion: '8.3',
+					frontend,
+				},
+			],
+		} );
 		await refreshHeadlessSiteOrigins();
 		expect( isSameSitePreviewOrigin( 'http://localhost:3000/', 'http://localhost:8881/' ) ).toBe(
 			true
 		);
 
-		vi.mocked( readSites ).mockRejectedValueOnce( new Error( 'unreadable' ) );
+		// A config file this build can't read keeps the last known groups.
+		writeConfigFile( { version: CONFIG_VERSION + 1 } );
 		await refreshHeadlessSiteOrigins();
 		expect( isSameSitePreviewOrigin( 'http://localhost:3000/', 'http://localhost:8881/' ) ).toBe(
 			true
 		);
 
-		vi.mocked( readSites ).mockResolvedValueOnce( [] as never );
+		writeConfigFile( { version: CONFIG_VERSION, sites: [] } );
 		await refreshHeadlessSiteOrigins();
 		expect( isSameSitePreviewOrigin( 'http://localhost:3000/', 'http://localhost:8881/' ) ).toBe(
 			false
 		);
-		expect( readSites ).toHaveBeenCalledTimes( 3 );
 	} );
 } );

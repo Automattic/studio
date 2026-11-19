@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getWpCliPhpIniArgs } from 'cli/lib/wp-cli-php-ini';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const spawnMock = vi.fn();
 
@@ -41,7 +41,7 @@ vi.mock( '@studio/common/lib/mu-plugins', () => ( {
 	getHeadlessMuPluginOptions: vi.fn(),
 } ) );
 
-const site: SiteData = {
+const site: ConfigSite = {
 	id: 'site-1',
 	name: 'Site',
 	path: '/fake/site',

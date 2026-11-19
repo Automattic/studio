@@ -15,14 +15,14 @@ import {
 	type ProviderId,
 	type ProviderServices,
 } from '@studio/providers';
+import { readConfig, updateConfig } from './config/store';
 import {
-	readAiFields,
 	readProviderConfig,
-	updateAiFields,
+	readSelectedProvider,
 	writeProviderConfig,
+	writeSelectedProvider,
 } from './provider-config';
 import { receiveRedirect } from './provider-connect';
-import { readSharedConfig, updateSharedConfig } from './shared-config';
 
 // A provider's account as surfaces show it; never the credential itself.
 export type ProviderAccount = { connected: false } | ( { connected: true } & AccountDetails );
@@ -38,7 +38,7 @@ export interface AiSettings {
 
 /** The saved chat provider, or undefined when none was ever chosen. */
 export async function readSelectedAiProvider(): Promise< AiProviderId | undefined > {
-	const { aiProvider } = await readAiFields();
+	const aiProvider = await readSelectedProvider();
 	return aiProvider === undefined ? undefined : normalizeProviderId( aiProvider, AI_PROVIDER_IDS );
 }
 
@@ -52,10 +52,10 @@ export function describeAccount( id: ProviderId, config: unknown ): ProviderAcco
 
 /** The provider picked for image generation, or undefined to pick it automatically. */
 export async function readSelectedImageProvider(): Promise< AiProviderId | undefined > {
-	const { aiImageProvider } = await readSharedConfig();
-	return aiImageProvider === undefined
+	const { selectedImage } = ( await readConfig() ).providers;
+	return selectedImage === undefined
 		? undefined
-		: normalizeProviderId( aiImageProvider, AI_PROVIDER_IDS );
+		: normalizeProviderId( selectedImage, AI_PROVIDER_IDS );
 }
 
 export async function readAiSettings(): Promise< AiSettings > {
@@ -81,7 +81,7 @@ export async function readAiSettings(): Promise< AiSettings > {
 
 /** Persists the provider without validation — for flows that already ran it. */
 export async function persistSelectedAiProvider( provider: AiProviderId ): Promise< void > {
-	await updateAiFields( { aiProvider: toStoredProviderId( provider ) } );
+	await writeSelectedProvider( toStoredProviderId( provider ) );
 }
 
 /**
@@ -177,8 +177,8 @@ export async function setImageProvider( provider: AiProviderId | null ): Promise
 	if ( provider && ! ( await readAiSettings() ).imageProviders.includes( provider ) ) {
 		throw new ConnectError( `${ getProvider( provider ).label } can't generate images here.` );
 	}
-	await updateSharedConfig( {
-		aiImageProvider: provider ? toStoredProviderId( provider ) : undefined,
+	await updateConfig( ( { providers } ) => {
+		providers.selectedImage = provider ? toStoredProviderId( provider ) : undefined;
 	} );
 	return readAiSettings();
 }

@@ -4,7 +4,7 @@
  * A headless site is a normal Studio site (WordPress, served by the native PHP
  * server) plus a frontend project Studio supervises: either a folder of static
  * files Studio serves itself, or a dev server started with a command. The
- * record lives on the site in `cli.json`, so the CLI can start and stop it,
+ * record lives on the site in the config file, so the CLI can start and stop it,
  * and travels to both front ends with the rest of the site details.
  */
 import { __ } from '@wordpress/i18n';
@@ -110,7 +110,7 @@ export const FRONTEND_ENV = {
 } as const;
 
 // The frontend record as the apps and `site list` may see it: the secrets stay
-// in `cli.json` and the frontend's `.env.local`.
+// in the config file and the frontend's `.env.local`.
 export function omitFrontendSecrets( frontend: SiteFrontend ): SiteFrontend {
 	const { previewSecret, revalidateSecret, ...rest } = frontend;
 	void previewSecret;

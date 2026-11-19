@@ -40,7 +40,7 @@ import {
 import { findLatestProcessLogPaths } from 'cli/lib/process-logs';
 import { subscribeForReadyOrExit } from 'cli/lib/wordpress-server-manager';
 import { LoggerError } from 'cli/logger';
-import type { HeadlessSite } from 'cli/lib/cli-config/core';
+import type { HeadlessSite } from 'cli/lib/cli-config/sites';
 import type { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import type { Logger } from 'cli/logger';
 

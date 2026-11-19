@@ -5,8 +5,8 @@ import { vi } from 'vitest';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { Logger } from 'cli/logger';
 import { provisionHeadlessBackend } from '../provision';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SiteFrontend } from '@studio/common/lib/site-frontend';
-import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( 'cli/lib/run-wp-cli-command' );
 
@@ -37,7 +37,7 @@ function calledArgs(): string[] {
 
 describe( 'provisionHeadlessBackend', () => {
 	let frontendPath: string;
-	let site: SiteData & { frontend: SiteFrontend };
+	let site: ConfigSite & { frontend: SiteFrontend };
 	const logger = new Logger< string >();
 
 	beforeEach( () => {

@@ -157,8 +157,11 @@ export default defineConfig( {
 			} ),
 	],
 	define: {
-		// The release the browser builds report under; the Electron renderer reports through the app.
-		__SENTRY_RELEASE__: JSON.stringify( target && ! isDevEnvironment ? sentryRelease : null ),
+		// The release the browser builds report under, when built in CI: a local build reports nothing.
+		// The Electron renderer reports through the app.
+		__SENTRY_RELEASE__: JSON.stringify(
+			target && ! isDevEnvironment && process.env.CI ? sentryRelease : null
+		),
 	},
 	resolve: {
 		alias: {

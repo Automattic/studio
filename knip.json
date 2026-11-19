@@ -9,7 +9,6 @@
 			"entry": [
 				"src/index.ts",
 				"src/preload.ts",
-				"src/migrations/index.ts",
 				"forge.config.ts",
 				"native/build.ts",
 				"e2e/global-setup.ts",
@@ -69,5 +68,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["mdfind", "attrib", "apt-get", "Xvfb", "ditto", "dpkg-deb", "pgrep"]
+	"ignoreBinaries": ["attrib", "apt-get", "Xvfb", "ditto", "dpkg-deb", "pgrep"]
 }

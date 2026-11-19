@@ -23,7 +23,6 @@ import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
@@ -49,6 +48,7 @@ import {
 	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 export { SITE_PROCESS_PREFIX };
 
@@ -97,7 +97,7 @@ const startServerOptionsSchema = serverConfigSchema
 export type StartServerOptions = z.infer< typeof startServerOptionsSchema >;
 
 function buildServerConfig(
-	site: SiteData,
+	site: ConfigSite,
 	options?: Partial< StartServerOptions & SetUpSiteOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
@@ -188,7 +188,7 @@ function buildServerConfig(
 }
 
 async function ensureSitePhpBinaryAvailable(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >
 ): Promise< void > {
 	const phpVersion = resolveSupportedPhpVersion( site.phpVersion );
@@ -215,7 +215,7 @@ async function ensureSitePhpBinaryAvailable(
 export type SiteStartCommand = 'start' | 'create' | 'import' | 'pull' | 'config';
 
 export async function startWordPressServer(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >,
 	command: SiteStartCommand,
 	options?: StartServerOptions
@@ -376,7 +376,7 @@ function classifyStartFailure( error: unknown ): string {
 	return 'unknown';
 }
 
-async function clearStudioErrorLog( site: SiteData ): Promise< void > {
+async function clearStudioErrorLog( site: ConfigSite ): Promise< void > {
 	const logPath = path.join( site.path, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
 	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
 }
@@ -750,7 +750,7 @@ export interface SetUpSiteOptions {
  * Blueprint when one is given. Runs in a server child process that stops once it is done.
  */
 export async function setUpSite(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >,
 	options: SetUpSiteOptions
 ): Promise< void > {

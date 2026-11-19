@@ -2,14 +2,12 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import * as configFile from '@studio/common/lib/cli-config-file';
+import { getConfigPath, readConfig, updateConfig } from '@studio/common/lib/config/store';
 import {
 	getSiteTracksProps as getHostSiteTracksProps,
 	resolveSiteTracksEventProps,
 } from '@studio/common/lib/site-tracks';
-import { getCliConfigPath, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { vi } from 'vitest';
-import * as configStore from 'cli/lib/cli-config/core';
 import {
 	deleteSnapshotFromConfig,
 	reconcilePreviews,
@@ -17,10 +15,13 @@ import {
 	setSnapshotInConfig,
 	updateSnapshotInConfig,
 } from 'cli/lib/cli-config/snapshots';
-import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 vi.unmock( 'lockfile' );
+vi.mock( '@studio/common/lib/config/store', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/config/store') >();
+	return { ...actual, updateConfig: vi.fn( actual.updateConfig ) };
+} );
 
 const site = {
 	id: 'caller-supplied-user@example.com',
@@ -60,7 +61,7 @@ beforeEach( async () => {
 	vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', true );
 	vi.stubGlobal( '__STUDIO_CLI_VERSION__', 'test' );
 	await fs.writeFile(
-		getCliConfigPath(),
+		getConfigPath(),
 		JSON.stringify( {
 			version: 1,
 			sites: [ site ],
@@ -78,15 +79,14 @@ afterEach( async () => {
 } );
 
 it( 'backfills legacy records with distinct UUIDs and persists them across reads', async () => {
-	const props = await getSiteTracksProps( site.path, preview );
+	const props = await getHostSiteTracksProps( { siteFolder: site.path }, preview );
 	expect( props ).toEqual( {
 		site_id: expect.stringMatching( uuid ),
 		preview_id: expect.stringMatching( uuid ),
 	} );
 	expect( props.site_id ).not.toBe( props.preview_id );
-	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( props );
-	const config = await configStore.readCliConfig();
-	expect( config.version ).toBe( 1 );
+	expect( await getHostSiteTracksProps( { siteFolder: site.path }, preview ) ).toEqual( props );
+	const config = await readConfig();
 	expect( config.sites[ 0 ].tracksId ).toBe( props.site_id );
 	expect( config.snapshots[ 0 ].tracksId ).toBe( props.preview_id );
 	for ( const value of [
@@ -105,8 +105,8 @@ it( 'backfills legacy records with distinct UUIDs and persists them across reads
 
 it( 'initializes one UUID across concurrent CLI and host lookups', async () => {
 	const results = await Promise.all( [
-		getSiteTracksProps( site.path, preview ),
-		getSiteTracksProps( site.path, preview ),
+		getHostSiteTracksProps( { siteFolder: site.path }, preview ),
+		getHostSiteTracksProps( { siteFolder: site.path }, preview ),
 		getHostSiteTracksProps( { siteId: site.id } ),
 		...siteEvents.map( ( event ) =>
 			resolveSiteTracksEventProps( event, { success: true }, site.id )
@@ -119,21 +119,16 @@ it( 'initializes one UUID across concurrent CLI and host lookups', async () => {
 		expect( result.site_id ).toBe( results[ 0 ].site_id );
 		expect( result ).not.toHaveProperty( 'preview_id' );
 	}
-	const config = await configFile.readCliConfigFileRaw();
+	const config = JSON.parse( await fs.readFile( getConfigPath(), 'utf8' ) );
 	expect( config.version ).toBe( 1 );
 	expect( config.otherSettings ).toEqual( { preserved: true } );
 } );
 
 it( 'preserves IDs across renames, updates, reconciliation and saving a discovered preview', async () => {
-	const props = await getSiteTracksProps( site.path, preview );
-	const config = await configStore.readCliConfig();
-	config.sites[ 0 ].name = 'Renamed';
-	await configStore.lockCliConfig();
-	try {
-		await configStore.saveCliConfig( config );
-	} finally {
-		await configStore.unlockCliConfig();
-	}
+	const props = await getHostSiteTracksProps( { siteFolder: site.path }, preview );
+	await updateConfig( ( { sites } ) => {
+		sites[ 0 ].name = 'Renamed';
+	} );
 	await setSnapshotInConfig( preview.url, { name: 'Renamed preview' } );
 	await updateSnapshotInConfig( site.path, providerPreview );
 	await reconcilePreviews(
@@ -142,18 +137,18 @@ it( 'preserves IDs across renames, updates, reconciliation and saving a discover
 		Date.now() + 1
 	);
 	await saveSnapshotToConfig( site.path, providerPreview, preview.userId, 'Saved' );
-	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( props );
+	expect( await getHostSiteTracksProps( { siteFolder: site.path }, preview ) ).toEqual( props );
 } );
 
 it( 'gives separate previews and a recreated preview distinct IDs for the same site', async () => {
-	const first = await getSiteTracksProps( site.path, preview );
+	const first = await getHostSiteTracksProps( { siteFolder: site.path }, preview );
 	const next = await saveSnapshotToConfig(
 		site.path,
 		{ id: 67890, name: 'another.wp.build', url: 'https://another.wp.build' },
 		preview.userId,
 		'Another'
 	);
-	const second = await getSiteTracksProps( site.path, next );
+	const second = await getHostSiteTracksProps( { siteFolder: site.path }, next );
 	expect( second.site_id ).toBe( first.site_id );
 	expect( second.preview_id ).toMatch( uuid );
 	expect( second.preview_id ).not.toBe( first.preview_id );
@@ -164,71 +159,55 @@ it( 'gives separate previews and a recreated preview distinct IDs for the same s
 		preview.userId,
 		'Recreated'
 	);
-	const third = await getSiteTracksProps( site.path, recreated );
+	const third = await getHostSiteTracksProps( { siteFolder: site.path }, recreated );
 	expect( third.site_id ).toBe( first.site_id );
 	expect( third.preview_id ).not.toBe( first.preview_id );
 } );
 
 it( 'uses the source site UUID on overwrite and keeps the preview UUID', async () => {
-	const first = await getSiteTracksProps( site.path, preview );
-	const config = await configStore.readCliConfig();
+	const first = await getHostSiteTracksProps( { siteFolder: site.path }, preview );
 	const other = { ...site, id: 'duplicate-site', path: '/other/site' };
-	config.sites.push( other );
-	await configStore.lockCliConfig();
-	try {
-		await configStore.saveCliConfig( config );
-	} finally {
-		await configStore.unlockCliConfig();
-	}
+	await updateConfig( ( { sites } ) => {
+		sites.push( other );
+	} );
 	await updateSnapshotInConfig( other.path, providerPreview );
-	const props = await getSiteTracksProps( other.path, preview );
+	const props = await getHostSiteTracksProps( { siteFolder: other.path }, preview );
 	expect( props.site_id ).toMatch( uuid );
 	expect( props.site_id ).not.toBe( first.site_id );
 	expect( props.preview_id ).toBe( first.preview_id );
 } );
 
 it( 'omits unresolved IDs and never creates a preview record for an attempt', async () => {
-	expect( await getSiteTracksProps( '/missing', { ...preview, atomicSiteId: 0 } ) ).toEqual( {} );
-	expect( await getSiteTracksProps( site.path ) ).toEqual( {
+	expect(
+		await getHostSiteTracksProps( { siteFolder: '/missing' }, { ...preview, atomicSiteId: 0 } )
+	).toEqual( {} );
+	expect( await getHostSiteTracksProps( { siteFolder: site.path } ) ).toEqual( {
 		site_id: expect.stringMatching( uuid ),
 	} );
-	expect( await getSiteTracksProps( site.path, { ...preview, userId: 999 } ) ).not.toHaveProperty(
-		'preview_id'
-	);
-	const config = await configStore.readCliConfig();
-	expect( config.snapshots ).toEqual( [ preview ] );
+	expect(
+		await getHostSiteTracksProps( { siteFolder: site.path }, { ...preview, userId: 999 } )
+	).not.toHaveProperty( 'preview_id' );
+	expect( ( await readConfig() ).snapshots ).toEqual( [ preview ] );
 } );
 
 it( 'replaces malformed stored identifiers without sending their contents', async () => {
-	const config = await configStore.readCliConfig();
-	config.sites[ 0 ].tracksId = site.id;
-	config.snapshots[ 0 ].tracksId = preview.url;
-	await configStore.lockCliConfig();
-	try {
-		await configStore.saveCliConfig( config );
-	} finally {
-		await configStore.unlockCliConfig();
-	}
-	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( {
+	await updateConfig( ( { sites, snapshots } ) => {
+		sites[ 0 ].tracksId = site.id;
+		snapshots[ 0 ].tracksId = preview.url;
+	} );
+	expect( await getHostSiteTracksProps( { siteFolder: site.path }, preview ) ).toEqual( {
 		site_id: expect.stringMatching( uuid ),
 		preview_id: expect.stringMatching( uuid ),
 	} );
 } );
 
-it( 'omits IDs on a storage failure and releases the lock for the next operation', async () => {
-	vi.spyOn( configStore, 'saveCliConfig' ).mockRejectedValueOnce( new Error( 'Cannot write' ) );
-	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( {} );
-	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( {
+it( 'omits IDs on a storage failure and stores them on the next operation', async () => {
+	vi.mocked( updateConfig ).mockRejectedValueOnce( new Error( 'Cannot write' ) );
+	expect( await getHostSiteTracksProps( { siteFolder: site.path }, preview ) ).toEqual( {} );
+	expect( await getHostSiteTracksProps( { siteFolder: site.path }, preview ) ).toEqual( {
 		site_id: expect.stringMatching( uuid ),
 		preview_id: expect.stringMatching( uuid ),
 	} );
-} );
-
-it( 'does not unlock another writer when acquiring the lock fails', async () => {
-	vi.spyOn( configStore, 'lockCliConfig' ).mockRejectedValueOnce( new Error( 'Locked' ) );
-	const unlock = vi.spyOn( configStore, 'unlockCliConfig' );
-	expect( await getSiteTracksProps( site.path, preview ) ).toEqual( {} );
-	expect( unlock ).not.toHaveBeenCalled();
 } );
 
 it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE ] )(
@@ -237,19 +216,19 @@ it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE 
 		vi.stubEnv( 'NODE_ENV', 'production' );
 		const send = vi.fn().mockResolvedValue( {} );
 		vi.stubGlobal( 'fetch', send );
-		const props = await getSiteTracksProps( site.path, preview );
+		const props = await getHostSiteTracksProps( { siteFolder: site.path }, preview );
 		await recordTracksEvent( event, props );
 		expect( send ).toHaveBeenCalledTimes( 1 );
 		const url = new URL( send.mock.calls[ 0 ][ 0 ] );
 		expect( url.searchParams.get( 'site_id' ) ).toBe( props.site_id );
 		expect( url.searchParams.get( 'preview_id' ) ).toBe( props.preview_id );
 		expect( url.searchParams.get( '_ut' ) ).toBe( 'anon' );
-		const shared = JSON.parse( await fs.readFile( getSharedConfigPath(), 'utf8' ) );
-		expect( url.searchParams.get( '_ui' ) ).toBe( shared.analyticsInstallId );
+		const { analyticsId } = ( await readConfig() ).install;
+		expect( url.searchParams.get( '_ui' ) ).toBe( analyticsId );
 		expect( Object.fromEntries( url.searchParams ) ).toEqual( {
 			_en: event,
 			_ut: 'anon',
-			_ui: shared.analyticsInstallId,
+			_ui: analyticsId,
 			_ts: expect.any( String ),
 			platform: process.platform,
 			arch: process.arch,
@@ -258,13 +237,14 @@ it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE 
 			...props,
 		} );
 		send.mockClear();
-		await fs.writeFile(
-			getSharedConfigPath(),
-			JSON.stringify( { ...shared, analyticsOptOut: true } )
-		);
+		const setOptOut = ( optOut: boolean ) =>
+			updateConfig( ( { preferences } ) => {
+				preferences.analyticsOptOut = optOut;
+			} );
+		await setOptOut( true );
 		await recordTracksEvent( event, props );
 		expect( send ).not.toHaveBeenCalled();
-		await fs.writeFile( getSharedConfigPath(), JSON.stringify( shared ) );
+		await setOptOut( false );
 		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
 		await recordTracksEvent( event, props );
 		expect( send ).not.toHaveBeenCalled();
@@ -295,13 +275,8 @@ it.each( siteEvents )(
 	}
 );
 
-it.each( [
-	'lockCliConfigFile',
-	'readCliConfigFileRaw',
-	'writeCliConfigFileRaw',
-	'unlockCliConfigFile',
-] as const )( 'preserves event props when shared ID %s fails', async ( operation ) => {
-	vi.spyOn( configFile, operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+it( 'preserves event props when storing the site ID fails', async () => {
+	vi.mocked( updateConfig ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
 	expect(
 		await resolveSiteTracksEventProps( TRACKS_EVENTS.SYNC_CONNECT, { success: false }, site.id )
 	).toEqual( { success: false } );
@@ -312,7 +287,10 @@ it( 'sends preview and site events with the same stored UUID', async () => {
 	const send = vi.fn().mockResolvedValue( {} );
 	vi.stubGlobal( 'fetch', send );
 	for ( const event of [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE ] ) {
-		await recordTracksEvent( event, await getSiteTracksProps( site.path, preview ) );
+		await recordTracksEvent(
+			event,
+			await getHostSiteTracksProps( { siteFolder: site.path }, preview )
+		);
 	}
 	for ( const event of siteEvents ) {
 		await recordTracksEvent(
@@ -321,7 +299,7 @@ it( 'sends preview and site events with the same stored UUID', async () => {
 		);
 	}
 	const payloads = send.mock.calls.map( ( [ url ] ) => new URL( url ).searchParams );
-	const config = await configStore.readCliConfig();
+	const config = await readConfig();
 	expect( payloads.map( ( payload ) => payload.get( '_en' ) ) ).toEqual( [
 		TRACKS_EVENTS.PREVIEW_SITE_CREATE,
 		TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
@@ -336,7 +314,7 @@ it( 'sends the creation UUID through the real Tracks wrapper without preview pro
 	vi.stubEnv( 'NODE_ENV', 'production' );
 	const send = vi.fn().mockResolvedValue( {} );
 	vi.stubGlobal( 'fetch', send );
-	const props = await getSiteTracksProps( site.path );
+	const props = await getHostSiteTracksProps( { siteFolder: site.path } );
 	await recordTracksEvent( TRACKS_EVENTS.SITE_CREATE, props );
 	expect( send ).toHaveBeenCalledTimes( 1 );
 	const payload = new URL( send.mock.calls[ 0 ][ 0 ] ).searchParams;
@@ -344,12 +322,3 @@ it( 'sends the creation UUID through the real Tracks wrapper without preview pro
 	expect( payload.has( 'preview_id' ) ).toBe( false );
 	expect( payload.get( '_ut' ) ).toBe( 'anon' );
 } );
-
-it.each( [ 'readCliConfig', 'unlockCliConfig' ] as const )(
-	'omits IDs when %s fails without changing the site record count',
-	async ( operation ) => {
-		vi.spyOn( configStore, operation ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
-		expect( await getSiteTracksProps( site.path ) ).toEqual( {} );
-		expect( ( await configStore.readCliConfig() ).sites ).toHaveLength( 1 );
-	}
-);

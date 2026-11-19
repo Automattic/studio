@@ -7,7 +7,7 @@ import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { removeStaleShipItTempDirs } from 'src/lib/macos-update-install';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { getExistingMainWindow } from 'src/main-window';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import { readDesktopState, updateDesktopState } from 'src/storage/desktop-state';
 import type { IpcMainInvokeEvent } from 'electron';
 
 type UpdpaterState =
@@ -135,7 +135,7 @@ export function setupUpdates() {
 		emitAppUpdateStatus();
 
 		if ( isDevRelease( app.getVersion() ) ) {
-			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
+			await updateDesktopState( { lastNightlyUpdateCheck: Date.now() } );
 		}
 
 		// Before the notice, so the dialog can name the version it's downloading.
@@ -163,7 +163,7 @@ export function setupUpdates() {
 		}
 
 		if ( isDevRelease( app.getVersion() ) ) {
-			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
+			await updateDesktopState( { lastNightlyUpdateCheck: Date.now() } );
 		}
 
 		queueUpdateCheck();
@@ -228,7 +228,7 @@ export function setupUpdates() {
 		// For nightly builds, respect a 24-hour TTL to avoid checking on every launch.
 		// If the TTL hasn't elapsed, schedule the next check for the remaining time.
 		void ( async () => {
-			const userData = await loadUserData();
+			const userData = await readDesktopState();
 			const lastCheck = userData.lastNightlyUpdateCheck ?? 0;
 			const elapsed = Date.now() - lastCheck;
 			if ( elapsed < NIGHTLY_UPDATE_TTL_MS ) {

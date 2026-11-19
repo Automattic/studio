@@ -89,7 +89,7 @@ Since June the code has moved: the agent lives in `packages/agent` (tools, skill
 | Application Passwords over HTTP | `WP_ENVIRONMENT_TYPE=local` default (`packages/common/lib/wp-environment-type.ts`) | Create one at provisioning (`wp user application-password create … --porcelain`) |
 | Install/configure plugins at create | Blueprints via `blueprints.phar`; `runWpCliCommand`; agent `wp_cli` | A headless Blueprint/provisioning step |
 | A second long-running process per site | Process-manager daemon runs any Node script (`startProcess(name, scriptPath, {args, env})`) | A `frontend-server-child` wrapper; start/stop coupling; log access; tree kill |
-| Per-site config for the frontend | `cli.json` site schema (CLI-acted) and `app.json` metadata (UI-only), both `.loose()` | New optional fields |
+| Per-site config for the frontend | The site's record in `config.json` (`packages/common/lib/config/schema.ts`), a loose schema | New optional fields |
 | Node/npm on the machine | Nothing; PHP is bundled, Node is not | Detection and, later, a managed runtime like native PHP |
 | A URL for the frontend in the UI | Preview realms are path-based within one origin (`address-bar.tsx`) | A new realm/surface with its own origin |
 | Previews, view links, revalidation | Nothing | The headless mu-plugin |
@@ -111,7 +111,7 @@ Since June the code has moved: the agent lives in `packages/agent` (tools, skill
 Keep `site.path` a plain WordPress install. Record the frontend on the site:
 
 ```ts
-// cli.json site record (CLI must act on it: start/stop, env, ports)
+// config.json site record (CLI must act on it: start/stop, env, ports)
 frontend?: {
   path: string;                  // absolute; default <container>/frontend for new sites
   kind: 'static' | 'command';    // static: Studio serves files; command: a dev server

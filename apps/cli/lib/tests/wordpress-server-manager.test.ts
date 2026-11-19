@@ -4,7 +4,6 @@ import os from 'os';
 import path from 'path';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { vi } from 'vitest';
-import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
@@ -13,6 +12,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { startWordPressServer, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
@@ -45,7 +45,7 @@ describe( 'WordPress Server Manager', () => {
 		reportWarning: vi.fn(),
 	} as unknown as Logger< string >;
 
-	const mockSiteData: SiteData = {
+	const mockSiteData: ConfigSite = {
 		id: 'test-site-id',
 		name: 'Test Site',
 		path: '/test/site/path',

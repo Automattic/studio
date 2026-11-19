@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotConnectedError } from '../../errors';
-import { findAiModel, getAiModels, servesAiModel } from '../../models';
+import { findAiModel, getAiModels, getDefaultAiModel, servesAiModel } from '../../models';
 import { openrouterAccount } from '../account';
 import { openrouterAi, rewriteOpenrouterError } from '../ai';
 import { openrouterProvider } from '../descriptor';
@@ -9,6 +9,14 @@ const json = ( status: number, body: unknown = {} ) =>
 	new Response( JSON.stringify( body ), { status } );
 
 const keyInfo = () => json( 200, { data: { limit_remaining: null, is_free_tier: true } } );
+
+const kimi = {
+	slug: 'moonshotai/kimi-k9',
+	label: 'MoonshotAI: Kimi K9',
+	images: false,
+	reasoning: true,
+	contextWindow: 1_000_000,
+};
 
 describe( 'openrouter account', () => {
 	const fetchMock = vi.fn();
@@ -85,14 +93,6 @@ describe( 'openrouter account', () => {
 } );
 
 describe( 'openrouter ai', () => {
-	const kimi = {
-		slug: 'moonshotai/kimi-k9',
-		label: 'MoonshotAI: Kimi K9',
-		images: false,
-		reasoning: true,
-		contextWindow: 1_000_000,
-	};
-
 	it( 'runs a model under OpenRouter’s name for it', async () => {
 		const config = { method: 'api-key' as const, apiKey: 'sk-or-v1-key', models: [ kimi ] };
 
@@ -187,6 +187,8 @@ describe( 'the OpenRouter catalog', () => {
 				id: 'openrouter/anthropic/claude-sonnet-5.5',
 				label: 'Anthropic: Claude Sonnet 5.5',
 				supportsImages: true,
+				reasoning: true,
+				contextWindow: 1_000_000,
 				details: '$3 / $15 per million tokens · 1M context',
 				recommended: true,
 			},
@@ -194,6 +196,8 @@ describe( 'the OpenRouter catalog', () => {
 				id: 'openrouter/acme/free-model:free',
 				label: 'Acme: Free Model',
 				supportsImages: false,
+				reasoning: false,
+				contextWindow: 262_144,
 				details: 'Free · 262K context',
 				recommended: false,
 			},
@@ -205,12 +209,9 @@ describe( 'the OpenRouter catalog', () => {
 	} );
 
 	it( 'keeps what running the picked models needs', async () => {
-		await expect(
-			openrouterAi.selectModels!( config, [
-				'openrouter/acme/free-model:free',
-				'openrouter/acme/gone',
-			] )
-		).resolves.toEqual( {
+		const [ , free ] = await openrouterAi.listModels!( config );
+
+		expect( openrouterAi.selectModels!( config, [ free ] ) ).toEqual( {
 			...config,
 			models: [
 				{
@@ -222,8 +223,15 @@ describe( 'the OpenRouter catalog', () => {
 				},
 			],
 		} );
-		await expect(
-			openrouterAi.selectModels!( config, [ 'openrouter/acme/gone' ] )
-		).rejects.toThrow( 'at least one model' );
+		expect( () => openrouterAi.selectModels!( config, [] ) ).toThrow( 'at least one model' );
+	} );
+
+	it( 'defaults to a picked model', () => {
+		const account = openrouterProvider.account.describe( { ...config, models: [ kimi ] } );
+
+		expect( getDefaultAiModel( 'openrouter' ) ).toBe( 'openrouter/anthropic/claude-sonnet-5.5' );
+		expect( getDefaultAiModel( 'openrouter', { account: { connected: true, ...account } } ) ).toBe(
+			'openrouter/moonshotai/kimi-k9'
+		);
 	} );
 } );

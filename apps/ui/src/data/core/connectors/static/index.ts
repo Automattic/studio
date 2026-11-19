@@ -444,7 +444,7 @@ export function createStaticConnector(): Connector {
 			agent.connectProvider( provider, method, input ),
 		disconnectProvider: ( provider ) => agent.disconnectProvider( provider ),
 		listProviderModels: ( provider ) => agent.listProviderModels( provider ),
-		selectProviderModels: ( provider, ids ) => agent.selectProviderModels( provider, ids ),
+		selectProviderModels: ( provider, models ) => agent.selectProviderModels( provider, models ),
 		async startProviderConnect() {
 			throw new UnsupportedError( 'startProviderConnect' );
 		},

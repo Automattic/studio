@@ -717,8 +717,8 @@ export function createIpcConnector(): Connector {
 		async listProviderModels( provider ) {
 			return unwrapIpcError( ipcApi.listAiProviderModels( provider ) );
 		},
-		async selectProviderModels( provider, ids ): Promise< AiSettings > {
-			return unwrapIpcError( ipcApi.selectAiProviderModels( provider, ids ) );
+		async selectProviderModels( provider, models ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.selectAiProviderModels( provider, models ) );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );

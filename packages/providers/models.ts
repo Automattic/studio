@@ -77,14 +77,20 @@ export function findAiModel(
 }
 
 // `paidDefaultModel` when the account has paid AI credits left; callers
-// without quota data get the plain default.
+// without quota data get the plain default. An account that narrows the models
+// (`AccountDetails.models`) without the default gets its first one.
 export function getDefaultAiModel(
 	provider: ProviderId,
-	options?: { canUsePaidModels?: boolean }
+	options?: {
+		canUsePaidModels?: boolean;
+		account?: { connected: boolean; models?: readonly AccountModel[] };
+	}
 ): AiModelId {
 	const ai = getProvider( provider ).ai;
 	if ( ! ai ) {
 		throw new Error( `${ provider } offers no AI models` );
 	}
-	return ( options?.canUsePaidModels && ai.paidDefaultModel ) || ai.defaultModel;
+	const model = ( options?.canUsePaidModels && ai.paidDefaultModel ) || ai.defaultModel;
+	const offered = options?.account?.models;
+	return ! offered?.length || offered.some( ( { id } ) => id === model ) ? model : offered[ 0 ].id;
 }

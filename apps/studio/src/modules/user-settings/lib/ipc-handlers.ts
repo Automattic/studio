@@ -35,7 +35,7 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
-import { AI_PROVIDER_IDS, normalizeProviderId, type AiModelId } from '@studio/providers';
+import { AI_PROVIDER_IDS, normalizeProviderId, type CatalogModel } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
@@ -174,9 +174,9 @@ export async function listAiProviderModels( _event: IpcMainInvokeEvent, requeste
 export async function selectAiProviderModels(
 	_event: IpcMainInvokeEvent,
 	requested: string,
-	ids: AiModelId[]
+	models: CatalogModel[]
 ) {
-	return selectProviderModels( getProviderServices( parseProviderId( requested ) ), ids );
+	return selectProviderModels( getProviderServices( parseProviderId( requested ) ), models );
 }
 
 export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {

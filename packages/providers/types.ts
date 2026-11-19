@@ -127,6 +127,9 @@ export interface CatalogModel {
 	id: AiModelId;
 	label: string;
 	supportsImages: boolean;
+	reasoning?: boolean;
+	contextWindow?: number;
+	maxTokens?: number;
 	// What tells it apart in a list, such as its price and context size.
 	details?: string;
 	// One of the models the provider lists, which run Studio Code's tools well.
@@ -396,8 +399,8 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 		): Promise< AiConnection >;
 		// The catalog of a provider that has one (`Provider.ai.catalog`).
 		listModels?( config: Config | undefined ): Promise< CatalogModel[] >;
-		// The config that offers these models from the catalog.
-		selectModels?( config: Config, ids: AiModelId[] ): Promise< Config >;
+		// The config that offers these models of the catalog, as `listModels` returned them.
+		selectModels?( config: Config, models: CatalogModel[] ): Config;
 		// Results keep the requests' order; a failure never aborts the rest.
 		generateImages?(
 			config: Config | undefined,

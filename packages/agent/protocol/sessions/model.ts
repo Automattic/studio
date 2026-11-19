@@ -63,7 +63,7 @@ export function resolveSessionModel(
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: ProviderId,
-	options?: { canUsePaidModels?: boolean }
+	options?: Parameters< typeof getDefaultAiModel >[ 1 ]
 ): AiModelId {
 	const defaultModel = getDefaultAiModel( provider, options );
 	const model = resolveSessionModel( entries, defaultModel );

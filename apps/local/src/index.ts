@@ -194,7 +194,7 @@ import {
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
-	type AiModelId,
+	type CatalogModel,
 	type SitesProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -853,15 +853,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/ai-settings/providers/:provider/models',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
-			const ids = req.body?.ids;
+			const models = req.body?.models;
 			if ( ! provider ) {
 				return;
 			}
-			if ( ! Array.isArray( ids ) || ! ids.every( ( id ) => typeof id === 'string' ) ) {
-				res.status( 400 ).json( { error: 'ids must be an array of strings' } );
+			if (
+				! Array.isArray( models ) ||
+				! models.every(
+					( model ) => typeof model?.id === 'string' && typeof model.label === 'string'
+				)
+			) {
+				res.status( 400 ).json( { error: 'models must be an array of catalog models' } );
 				return;
 			}
-			res.json( await selectProviderModels( getProviderServices( provider ), ids as AiModelId[] ) );
+			res.json(
+				await selectProviderModels( getProviderServices( provider ), models as CatalogModel[] )
+			);
 		} )
 	);
 

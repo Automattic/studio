@@ -339,13 +339,13 @@ export class StaticAgentRuns {
 		return listModels( await this.readConfig( id ) );
 	}
 
-	async selectProviderModels( id: ProviderId, ids: AiModelId[] ): Promise< AiSettings > {
+	async selectProviderModels( id: ProviderId, models: CatalogModel[] ): Promise< AiSettings > {
 		const config = await this.readConfig( id );
 		const selectModels = ( getProviderServices( id ) as ProviderServices ).ai?.selectModels;
 		if ( ! config || ! selectModels ) {
 			throw new Error( `Connect ${ getProvider( id ).label } first.` );
 		}
-		await this.writeConfig( id, await selectModels( config, ids ) );
+		await this.writeConfig( id, selectModels( config, models ) );
 		return this.getAiSettings();
 	}
 
@@ -482,6 +482,7 @@ export class StaticAgentRuns {
 				provider === 'wpcom' && token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
 			const model = resolveSessionModelForProvider( session.entries, provider, {
 				canUsePaidModels: canUsePaidAiModels( quota, token?.email ),
+				account: ( await this.getAiSettings() ).accounts[ provider ],
 			} );
 			const activeSite = await this.activeSite( sessionId );
 

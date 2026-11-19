@@ -523,9 +523,9 @@ export interface Connector {
 	startProviderConnect( provider: ProviderId, method: string ): Promise< PendingConnect >;
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The catalog of a provider whose account picks its models (`Provider.ai.catalog`), and
-	// offering these models from it.
+	// offering these models of it, as `listProviderModels` returned them.
 	listProviderModels( provider: ProviderId ): Promise< CatalogModel[] >;
-	selectProviderModels( provider: ProviderId, ids: AiModelId[] ): Promise< AiSettings >;
+	selectProviderModels( provider: ProviderId, models: CatalogModel[] ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 	// The provider that generates images, or null to pick it automatically.

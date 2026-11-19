@@ -326,26 +326,17 @@ describe( 'ai settings', () => {
 
 	it( 'offers the models picked from a provider’s catalog', async () => {
 		const openrouter = getProviderServices( 'openrouter' );
-		await expect(
-			selectProviderModels( openrouter, [ 'openrouter/acme/model' ] )
-		).rejects.toBeInstanceOf( ConnectError );
+		const model = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+		};
+		await expect( selectProviderModels( openrouter, [ model ] ) ).rejects.toBeInstanceOf(
+			ConnectError
+		);
 
 		writeShared( { providerConfigs: { openrouter: { method: 'api-key', apiKey: 'sk-or-v1' } } } );
-		vi.mocked( fetch ).mockResolvedValue(
-			new Response(
-				JSON.stringify( {
-					data: [
-						{
-							id: 'acme/model',
-							name: 'Acme: Model',
-							architecture: { output_modalities: [ 'text' ] },
-							supported_parameters: [ 'tools' ],
-						},
-					],
-				} )
-			)
-		);
-		const settings = await selectProviderModels( openrouter, [ 'openrouter/acme/model' ] );
+		const settings = await selectProviderModels( openrouter, [ model ] );
 
 		expect( settings.accounts.openrouter ).toMatchObject( {
 			connected: true,

@@ -89,6 +89,9 @@ export const listOpenrouterModels: NonNullable< OpenrouterAi[ 'listModels' ] > =
 				id: toId( model.id ),
 				label: model.name,
 				supportsImages: takesImages( model ),
+				reasoning: model.supported_parameters?.includes( 'reasoning' ) ?? false,
+				contextWindow: model.context_length,
+				maxTokens: model.top_provider?.max_completion_tokens ?? undefined,
 				details: describeModel( model ),
 				recommended: RECOMMENDED.includes( toId( model.id ) ),
 			} )
@@ -96,28 +99,24 @@ export const listOpenrouterModels: NonNullable< OpenrouterAi[ 'listModels' ] > =
 		.sort( ( a, b ) => rank( a.id ) - rank( b.id ) || a.label.localeCompare( b.label ) );
 };
 
-export const selectOpenrouterModels: NonNullable< OpenrouterAi[ 'selectModels' ] > = async (
+export const selectOpenrouterModels: NonNullable< OpenrouterAi[ 'selectModels' ] > = (
 	config,
-	ids
+	picked
 ) => {
-	const listed = new Map(
-		( await fetchModels( config.apiKey ) ).map( ( model ) => [ toId( model.id ), model ] )
-	);
-	const models = ids.flatMap( ( id ): OpenrouterPickedModel[] => {
-		const model = listed.get( id );
-		return model
+	const models = picked.flatMap( ( model ): OpenrouterPickedModel[] =>
+		model.id.startsWith( OPENROUTER_MODEL_PREFIX )
 			? [
 					{
-						slug: model.id,
-						label: model.name,
-						images: takesImages( model ),
-						reasoning: model.supported_parameters?.includes( 'reasoning' ) ?? false,
-						contextWindow: model.context_length ?? 128_000,
-						maxTokens: model.top_provider?.max_completion_tokens ?? undefined,
+						slug: model.id.slice( OPENROUTER_MODEL_PREFIX.length ),
+						label: model.label,
+						images: model.supportsImages,
+						reasoning: model.reasoning ?? false,
+						contextWindow: model.contextWindow ?? 128_000,
+						maxTokens: model.maxTokens,
 					},
 			  ]
-			: [];
-	} );
+			: []
+	);
 	if ( ! models.length ) {
 		throw new Error( __( 'Pick at least one model OpenRouter offers.' ) );
 	}

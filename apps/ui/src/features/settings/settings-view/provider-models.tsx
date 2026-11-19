@@ -41,12 +41,13 @@ export function ProviderModels( {
 	const ids = picking ?? offered.map( ( { id } ) => id );
 	const recommended = getProvider( provider ).ai?.models.map( ( { id } ) => id ) ?? [];
 
-	const pick = ( next: AiModelId[] ) => {
+	const pick = ( models: CatalogModel[] ) => {
+		const next = models.map( ( { id } ) => id );
 		if ( ! next.length ) {
 			return;
 		}
 		setPicking( next );
-		select.mutate( next, {
+		select.mutate( models, {
 			onSettled: () => setPicking( ( current ) => ( current === next ? undefined : current ) ),
 		} );
 	};
@@ -86,7 +87,7 @@ export function ProviderModels( {
 				items={ groups }
 				multiple
 				value={ catalog.data?.filter( ( model ) => ids.includes( model.id ) ) ?? [] }
-				onValueChange={ ( next: CatalogModel[] ) => pick( next.map( ( { id } ) => id ) ) }
+				onValueChange={ pick }
 				isItemEqualToValue={ ( item: CatalogModel, value: CatalogModel ) => item.id === value.id }
 				itemToStringLabel={ ( item: CatalogModel ) => item.label }
 			>
@@ -110,7 +111,13 @@ export function ProviderModels( {
 					empty={ catalog.isLoading ? __( 'Loading models…' ) : __( 'No models found.' ) }
 					footer={
 						ids.join() !== recommended.join() ? (
-							<Button variant="ghost" size="sm" onClick={ () => pick( recommended ) }>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={ () =>
+									pick( catalog.data?.filter( ( model ) => model.recommended ) ?? [] )
+								}
+							>
 								{ __( 'Reset to recommended' ) }
 							</Button>
 						) : null

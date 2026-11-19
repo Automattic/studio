@@ -739,7 +739,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 		fireEvent.click( await screen.findByRole( 'option', { name: /Acme: Model/ } ) );
 		await waitFor( () =>
-			expect( connector.selectProviderModels ).toHaveBeenCalledWith( 'openrouter', [ sonnet.id ] )
+			expect( connector.selectProviderModels ).toHaveBeenCalledWith( 'openrouter', [ sonnet ] )
 		);
 	} );
 

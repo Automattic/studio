@@ -9,7 +9,6 @@ import {
 	PROVIDER_IDS,
 	toStoredProviderId,
 	type AccountDetails,
-	type AiModelId,
 	type AiProviderId,
 	type CatalogModel,
 	type ProviderConfigs,
@@ -146,10 +145,10 @@ export async function listProviderModels< Config >(
 	return listModels( ( await readProviderConfig( services.id ) ) as Config | undefined );
 }
 
-// Offers these models of the provider's catalog.
+// Offers these models of the provider's catalog, as `listProviderModels` returned them.
 export async function selectProviderModels< Config >(
 	services: ProviderServices< Config >,
-	ids: AiModelId[]
+	models: CatalogModel[]
 ): Promise< AiSettings > {
 	const { id } = services;
 	const config = ( await readProviderConfig( id ) ) as Config | undefined;
@@ -157,10 +156,7 @@ export async function selectProviderModels< Config >(
 	if ( ! config || ! selectModels ) {
 		throw new ConnectError( `Connect ${ getProvider( id ).label } first.` );
 	}
-	await writeProviderConfig(
-		id,
-		( await selectModels( config, ids ) ) as ProviderConfigs[ ProviderId ]
-	);
+	await writeProviderConfig( id, selectModels( config, models ) as ProviderConfigs[ ProviderId ] );
 	return readAiSettings();
 }
 

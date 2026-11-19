@@ -858,10 +858,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async listProviderModels( provider ) {
 			return api< CatalogModel[] >( `/ai-settings/providers/${ provider }/models` );
 		},
-		async selectProviderModels( provider, ids ): Promise< AiSettings > {
+		async selectProviderModels( provider, models ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }/models`, {
 				method: 'PUT',
-				body: JSON.stringify( { ids } ),
+				body: JSON.stringify( { models } ),
 			} );
 		},
 		async startProviderConnect( provider, method ) {

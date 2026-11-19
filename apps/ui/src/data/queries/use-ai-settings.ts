@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
-import type { AiModelId, AiProviderId, PendingConnect, ProviderId } from '@studio/providers';
+import type { AiProviderId, CatalogModel, PendingConnect, ProviderId } from '@studio/providers';
 
 // The WordPress.com account is the sign-in, so auth changes refresh it too.
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
@@ -61,7 +61,7 @@ export function useSelectProviderModels( provider: ProviderId ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( ids: AiModelId[] ) => connector.selectProviderModels( provider, ids ),
+		mutationFn: ( models: CatalogModel[] ) => connector.selectProviderModels( provider, models ),
 		// One save at a time, so the last pick is the one that stays.
 		scope: { id: `select-models-${ provider }` },
 		onSuccess: ( settings ) => {

@@ -21,7 +21,12 @@ import {
 	resolveSkillFromPrompt,
 } from '@studio/agent/protocol/slash-commands';
 import { changeAiSettings, getAiTurnTracksProps } from '@studio/common/lib/ai-provider-tracks';
-import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import {
+	describeAccount,
+	persistSelectedAiProvider,
+	readSelectedAiProvider,
+} from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	canUsePaidAiModels,
@@ -125,6 +130,13 @@ function getErrorMessage( error: unknown ): string {
 // can't block the first turn — the free-tier default is the safe floor.
 const QUOTA_FETCH_TIMEOUT_MS = 3_000;
 
+// The provider's default, among the models its account offers.
+async function readDefaultModel( provider: AiProviderId ): Promise< AiModelId > {
+	return getDefaultAiModel( provider, {
+		account: describeAccount( provider, await readProviderConfig( provider ) ),
+	} );
+}
+
 async function resolveWpcomDefaultModel(): Promise< AiModelId > {
 	const token = await readAuthToken();
 	const quota = token
@@ -223,7 +235,7 @@ export async function runCommand( options: {
 		resumeContext.model && servesAiModel( currentProvider, resumeContext.model )
 			? resumeContext.model
 			: undefined;
-	let currentModel: AiModelId = recordedModel ?? getDefaultAiModel( currentProvider );
+	let currentModel: AiModelId = recordedModel ?? ( await readDefaultModel( currentProvider ) );
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
@@ -392,7 +404,7 @@ export async function runCommand( options: {
 			currentModel =
 				currentProvider === DEFAULT_PROVIDER_ID
 					? wpcomDefaultModel
-					: getDefaultAiModel( currentProvider );
+					: await readDefaultModel( currentProvider );
 			ui.currentModel = currentModel;
 		}
 

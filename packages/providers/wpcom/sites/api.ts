@@ -211,3 +211,218 @@ export async function fetchRemoteFileTreeContents(
 	}
 	return parsed.contents ?? {};
 }
+
+// Every status a post can be in on the live site, trash included: `any` leaves trash out, and a
+// post trashed live is a change a database push would undo.
+const LIVE_POST_STATUSES = 'publish,private,draft,pending,future,trash';
+
+// A date filter can leave WordPress.com without a total (`found: -1`), so the items returned, up
+// to `LIVE_CHANGES_PAGE`, count instead.
+const LIVE_CHANGES_PAGE = 100;
+
+const liveChangesSchema = z.object( {
+	found: z.number(),
+	posts: z.array( z.unknown() ).optional(),
+	comments: z.array( z.unknown() ).optional(),
+	media: z.array( z.unknown() ).optional(),
+} );
+
+function countFound( response: unknown, items: 'posts' | 'comments' | 'media' ): number {
+	const parsed = liveChangesSchema.parse( response );
+	return parsed.found >= 0 ? parsed.found : parsed[ items ]?.length ?? 0;
+}
+
+// What makes up the site's design, saved in the database: templates, template parts, navigation
+// menus, synced patterns and global styles. A query for `any` post type leaves them out, and the
+// endpoint takes one type at a time.
+const SITE_DESIGN_TYPES = [
+	'wp_template',
+	'wp_template_part',
+	'wp_navigation',
+	'wp_block',
+	'wp_global_styles',
+];
+
+const siteTimeSchema = z.object( {
+	options: z.object( {
+		gmt_offset: z.coerce.number(),
+		// The site's time zone, such as `America/New_York`; empty when it is set as a UTC offset.
+		timezone: z.string().optional(),
+	} ),
+} );
+
+// No daylight saving change moves a clock by more than this.
+const ZONE_CHANGE_WINDOW = 2 * 3_600_000;
+
+// How many minutes ahead of UTC `timeZone` was at `time`, or nothing for a zone this runtime
+// doesn't know.
+function zoneOffsetMinutes( timeZone: string, time: number ): number | undefined {
+	try {
+		const parts = new Intl.DateTimeFormat( 'en-US', {
+			timeZone,
+			hourCycle: 'h23',
+			year: 'numeric',
+			month: 'numeric',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: 'numeric',
+			second: 'numeric',
+		} ).formatToParts( time );
+		const part = ( type: Intl.DateTimeFormatPartTypes ) =>
+			Number( parts.find( ( candidate ) => candidate.type === type )?.value );
+		const wallClock = Date.UTC(
+			part( 'year' ),
+			part( 'month' ) - 1,
+			part( 'day' ),
+			part( 'hour' ),
+			part( 'minute' ),
+			part( 'second' )
+		);
+		return Math.round( ( wallClock - Math.floor( time / 1000 ) * 1000 ) / 60_000 );
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * `since` in the site's local time, with its offset, such as `2026-11-17T11:13:33-03:00`. The
+ * comments and media endpoints compare the date and time in `after` with the site's local dates
+ * and ignore the offset, and shift a value without one. The offset keeps it the same moment for a
+ * server that reads it.
+ *
+ * A site in a time zone uses the offset it had at `since`, not today's. When the clock went back
+ * soon after `since`, a local time can come round twice, so the earlier of the two readings is
+ * used: it may count something saved just before `since`, but never misses one saved after it.
+ */
+function toSiteLocalTime(
+	since: string,
+	{ gmt_offset: gmtOffset, timezone }: z.infer< typeof siteTimeSchema >[ 'options' ]
+): string {
+	const time = Date.parse( since );
+	const zoneOffsets = timezone
+		? [ time, time + ZONE_CHANGE_WINDOW ].map( ( at ) => zoneOffsetMinutes( timezone, at ) )
+		: [];
+	const minutes =
+		zoneOffsets.length > 0 && zoneOffsets.every( ( offset ) => offset !== undefined )
+			? Math.min( ...( zoneOffsets as number[] ) )
+			: Math.round( gmtOffset * 60 );
+	const local = new Date( time + minutes * 60_000 ).toISOString().slice( 0, 19 );
+	const hours = String( Math.floor( Math.abs( minutes ) / 60 ) ).padStart( 2, '0' );
+	const rest = String( Math.abs( minutes ) % 60 ).padStart( 2, '0' );
+	return `${ local }${ minutes < 0 ? '-' : '+' }${ hours }:${ rest }`;
+}
+
+/**
+ * What changed on the site after `since`, an ISO 8601 time: posts of any type modified and media
+ * uploaded (`posts`), pieces of the site's design modified (`SITE_DESIGN_TYPES` and classic menu
+ * items), and comments made.
+ *
+ * A failed request fails the check only when the others found nothing: a change any of them found
+ * is reason enough to stop, and the counts are then the least that changed.
+ */
+export async function fetchLiveChangesSince(
+	token: string,
+	remoteSiteId: number,
+	since: string
+): Promise< { posts: number; comments: number; siteDesign: number } > {
+	const wpcom = wpcomClient( token );
+	const localSince = wpcom.req
+		.get( `/sites/${ remoteSiteId }`, {
+			apiVersion: '1.1',
+			// `options` alone comes back as an empty list.
+			fields: 'ID,options',
+			options: 'gmt_offset,timezone',
+		} )
+		.then( ( site: unknown ) => toSiteLocalTime( since, siteTimeSchema.parse( site ).options ) );
+	const modifiedAfter = ( type: string ) =>
+		wpcom.req.get( `/sites/${ remoteSiteId }/posts`, {
+			apiVersion: '1.1',
+			type,
+			status: LIVE_POST_STATUSES,
+			modified_after: since,
+			number: LIVE_CHANGES_PAGE,
+			fields: 'ID',
+		} );
+	const afterLocal = ( endpoint: 'media' | 'comments', query: Record< string, string > = {} ) =>
+		localSince.then( ( after ) =>
+			wpcom.req.get( `/sites/${ remoteSiteId }/${ endpoint }`, {
+				apiVersion: '1.1',
+				...query,
+				after,
+				number: LIVE_CHANGES_PAGE,
+				fields: 'ID',
+			} )
+		);
+	const counted = ( request: Promise< unknown >, items: 'posts' | 'comments' | 'media' ) =>
+		request.then( ( response ) => countFound( response, items ) );
+
+	const [ posts, comments, siteDesign ] = await Promise.all( [
+		Promise.allSettled( [
+			counted( modifiedAfter( 'any' ), 'posts' ),
+			// The posts endpoint never lists attachments.
+			counted( afterLocal( 'media' ), 'media' ),
+		] ),
+		Promise.allSettled( [ counted( afterLocal( 'comments', { status: 'all' } ), 'comments' ) ] ),
+		Promise.allSettled( [
+			...SITE_DESIGN_TYPES.map( ( type ) =>
+				counted( modifiedAfter( type ), 'posts' ).catch( ( error: unknown ) => {
+					// A site that doesn't register the type has none of it to lose.
+					if ( isUnknownPostType( error ) ) {
+						return 0;
+					}
+					throw error;
+				} )
+			),
+			// Classic menus are saved as `nav_menu_item` posts, which the posts endpoint never lists.
+			wpcom.req
+				.get(
+					{ apiNamespace: 'wp/v2', path: `/sites/${ remoteSiteId }/menu-items` },
+					{ modified_after: since, per_page: LIVE_CHANGES_PAGE, _fields: 'id' }
+				)
+				.then(
+					( items: unknown ) => z.array( z.unknown() ).parse( items ).length,
+					( error: unknown ) => {
+						// Sites older than WordPress 5.9 have no menu items route.
+						if ( isNotFound( error ) ) {
+							return 0;
+						}
+						throw error;
+					}
+				),
+		] ),
+	] );
+
+	const total = ( results: PromiseSettledResult< number >[] ) =>
+		results.reduce(
+			( sum, result ) => sum + ( result.status === 'fulfilled' ? result.value : 0 ),
+			0
+		);
+	const changes = {
+		posts: total( posts ),
+		comments: total( comments ),
+		siteDesign: total( siteDesign ),
+	};
+	const failure = [ ...posts, ...comments, ...siteDesign ].find(
+		( result ): result is PromiseRejectedResult => result.status === 'rejected'
+	);
+	if ( failure && ! changes.posts && ! changes.comments && ! changes.siteDesign ) {
+		throw failure.reason;
+	}
+	return changes;
+}
+
+function isNotFound( error: unknown ): boolean {
+	return (
+		error instanceof Error &&
+		'statusCode' in error &&
+		( error as { statusCode?: unknown } ).statusCode === 404
+	);
+}
+
+function isUnknownPostType( error: unknown ): boolean {
+	return (
+		error instanceof Error &&
+		'error' in error &&
+		( error as { error?: unknown } ).error === 'unknown_post_type'
+	);
+}

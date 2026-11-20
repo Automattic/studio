@@ -294,6 +294,15 @@ export interface PushStatus {
 	progress?: number;
 }
 
+// What changed on a live site since a given time: posts (of any type) and pieces of the site's
+// design (templates, template parts, navigation menus, synced patterns, global styles) modified,
+// and comments made.
+export interface LiveChanges {
+	posts: number;
+	comments: number;
+	siteDesign: number;
+}
+
 // What Studio reads of any provider's remote site.
 export interface RemoteSite {
 	id: string | number;
@@ -347,6 +356,13 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		onStatus: ( status: PushStatus ) => void,
 		signal?: AbortSignal
 	): Promise< void | { launchError: string } >;
+	// What changed on the live site after `since` (ISO 8601), for a provider whose push replaces
+	// the site's database: such changes would be lost.
+	liveChanges?(
+		config: Config | undefined,
+		site: Pick< Site, 'id' >,
+		since: string
+	): Promise< LiveChanges >;
 	previews?: {
 		// Builds a new preview from the content, and resolves once it can be opened.
 		create(

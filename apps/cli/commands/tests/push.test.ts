@@ -60,7 +60,7 @@ vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/providers/services') >();
 	const sites = {
-		wpcom: { push: vi.fn() },
+		wpcom: { push: vi.fn(), liveChanges: vi.fn() },
 		spacefast: { list: vi.fn(), create: vi.fn(), push: vi.fn() },
 	};
 	return {
@@ -161,7 +161,8 @@ describe( 'CLI: studio push', () => {
 				'wpcom',
 				site.id,
 				expect.objectContaining( { launchAfterPush: failed } ),
-				'push'
+				'push',
+				true
 			);
 			expect( reported().at( -1 ) ).toMatchObject( { kind: failed ? 'error' : 'success' } );
 			expect( recordTracksEvent ).toHaveBeenCalledWith(
@@ -366,6 +367,157 @@ describe( 'CLI: studio push', () => {
 	);
 } );
 
+describe( 'CLI: studio push when the live site changed since the last sync', () => {
+	const connection = {
+		...remoteSite,
+		localSiteId: site.id,
+		lastPullTimestamp: '2026-11-01T10:00:00.000Z',
+		lastPushTimestamp: '2026-11-03T10:00:00.000Z',
+	};
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( onCancel ).mockReturnValue( () => true );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
+		vi.mocked( getSiteVersion ).mockResolvedValue( 'current' );
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token', id: 1 } as never );
+		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
+		vi.mocked( getRemoteSites ).mockResolvedValue( [ connection ] );
+		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
+			posts: 2,
+			comments: 5,
+			siteDesign: 0,
+		} );
+		pushes( [] );
+		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
+			return {
+				on: vi.fn(),
+				export: async () => fs.writeFileSync( backupFile, 'archive' ),
+			} as never;
+		} );
+	} );
+
+	it( 'refuses to replace the live database when it cannot ask', async () => {
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+		).rejects.toMatchObject( {
+			code: 'live_changed',
+			message: expect.stringContaining( 'Live has 2 content changes and 5 new comments' ),
+		} );
+
+		expect( wpcomSites.liveChanges ).toHaveBeenCalledWith(
+			{ token: 'token' },
+			expect.objectContaining( { id: remoteSite.id } ),
+			connection.lastPushTimestamp
+		);
+		expect( getExporter ).not.toHaveBeenCalled();
+		expect( wpcomSites.push ).not.toHaveBeenCalled();
+		expect( reported().at( -1 ) ).toMatchObject( { kind: 'error', code: 'live_changed' } );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.SYNC_PUSH,
+			expect.objectContaining( { success: false, failure_reason: 'live_changed' } )
+		);
+	} );
+
+	it( 'pushes over the live changes when told to', async () => {
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, {
+				overwriteLiveChanges: true,
+			} )
+		).resolves.toBe( remoteSite );
+
+		expect( wpcomSites.liveChanges ).not.toHaveBeenCalled();
+		expect( wpcomSites.push ).toHaveBeenCalled();
+	} );
+
+	it( 'asks when it can, and stops when the user keeps the live changes', async () => {
+		const confirmOverwriteLiveChanges = vi.fn( async () => false );
+
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, {
+				confirmOverwriteLiveChanges,
+			} )
+		).resolves.toBe( undefined );
+
+		expect( confirmOverwriteLiveChanges ).toHaveBeenCalledExactlyOnceWith(
+			expect.stringContaining( 'Live has 2 content changes and 5 new comments' )
+		);
+		expect( wpcomSites.push ).not.toHaveBeenCalled();
+		expect( reported().at( -1 ) ).toMatchObject( { kind: 'cancelled' } );
+	} );
+
+	it( 'asks when it can, and pushes when the user overwrites the live changes', async () => {
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, {
+				confirmOverwriteLiveChanges: async () => true,
+			} )
+		).resolves.toBe( remoteSite );
+
+		expect( wpcomSites.push ).toHaveBeenCalled();
+	} );
+
+	it( 'pushes when nothing changed live', async () => {
+		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
+			posts: 0,
+			comments: 0,
+			siteDesign: 0,
+		} );
+
+		await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).resolves.toBe(
+			remoteSite
+		);
+	} );
+
+	it( 'refuses when only the site design changed live', async () => {
+		vi.mocked( wpcomSites.liveChanges! ).mockResolvedValue( {
+			posts: 0,
+			comments: 0,
+			siteDesign: 1,
+		} );
+
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+		).rejects.toMatchObject( {
+			code: 'live_changed',
+			message: expect.stringContaining( 'Live has 1 design change' ),
+		} );
+		expect( wpcomSites.push ).not.toHaveBeenCalled();
+	} );
+
+	it( 'does not check a push that leaves the database alone', async () => {
+		await runCommand( site.path, [ 'uploads' ], String( remoteSite.id ) );
+
+		expect( wpcomSites.liveChanges ).not.toHaveBeenCalled();
+		expect( wpcomSites.push ).toHaveBeenCalled();
+	} );
+
+	it( 'does not check a site that was never pulled or pushed', async () => {
+		vi.mocked( getRemoteSites ).mockResolvedValue( [] );
+
+		await runCommand( site.path, [ 'all' ], String( remoteSite.id ) );
+
+		expect( wpcomSites.liveChanges ).not.toHaveBeenCalled();
+		expect( wpcomSites.push ).toHaveBeenCalled();
+	} );
+
+	it( 'warns and pushes when the live site cannot be checked', async () => {
+		vi.mocked( wpcomSites.liveChanges! ).mockRejectedValue( new Error( 'Forbidden' ) );
+		const messages: string[] = [];
+		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
+
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ), logger )
+		).resolves.toBe( remoteSite );
+
+		expect( messages ).toContainEqual( expect.stringContaining( 'Could not check Live' ) );
+		expect( reported().at( -1 ) ).toMatchObject( {
+			kind: 'success',
+			warning: expect.stringContaining( 'Could not check Live' ),
+		} );
+	} );
+} );
+
 describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 	const space = {
 		id: 'spc_1',
@@ -421,7 +573,8 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 			'spacefast',
 			site.id,
 			expect.objectContaining( { id: 'spc_2' } ),
-			'push'
+			'push',
+			false
 		);
 		expect( reported().at( -1 ) ).toEqual( {
 			kind: 'success',

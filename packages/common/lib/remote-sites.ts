@@ -1,7 +1,8 @@
+import { getProviderSites, type ProviderSites, type SitesProviderId } from '@studio/providers';
 import { authTokenFrom } from './auth-token';
 import { readConfig, updateConfig } from './config/store';
+import { getLastSyncTime } from './sync/live-changes';
 import type { Config, ConfigSite, SiteConnection } from './config/schema';
-import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
 /**
  * The remote sites each local site syncs with, per provider, kept on the local site's record.
@@ -13,6 +14,7 @@ export interface SyncTimes {
 	localSiteId: string;
 	lastPushTimestamp: string | null;
 	lastPullTimestamp: string | null;
+	lastDatabaseSyncTimestamp?: string | null;
 }
 
 export type RemoteSiteConnection< Id extends SitesProviderId > = ProviderSites[ Id ] & SyncTimes;
@@ -56,12 +58,13 @@ export async function getRemoteSites< Id extends SitesProviderId >(
 			( site.connections ?? [] )
 				.filter( ( connection ) => isConnection( connection, provider, account ) )
 				.map(
-					( { site: remote, lastPushTimestamp, lastPullTimestamp } ) =>
+					( { site: remote, lastPushTimestamp, lastPullTimestamp, lastDatabaseSyncTimestamp } ) =>
 						( {
 							...remote,
 							localSiteId: site.id,
 							lastPushTimestamp,
 							lastPullTimestamp,
+							...( lastDatabaseSyncTimestamp !== undefined ? { lastDatabaseSyncTimestamp } : {} ),
 						} ) as RemoteSiteConnection< Id >
 				)
 		);
@@ -85,18 +88,21 @@ async function updateConnections(
 	} );
 }
 
-// Connects the site, or updates it, and records the sync that just finished. Fields the update
-// lacks, like the sync times an account's site list doesn't have, are kept.
+// Connects the site, or updates it, and records the sync that just finished and whether it
+// included the database. Fields the update lacks, like the sync times an account's site list
+// doesn't have, are kept.
 export async function rememberRemoteSite< Id extends SitesProviderId >(
 	provider: Id,
 	localSiteId: string,
 	site: ProviderSites[ Id ],
-	synced?: 'push' | 'pull'
+	synced?: 'push' | 'pull',
+	database?: boolean
 ): Promise< void > {
 	const {
 		localSiteId: _localSiteId,
 		lastPushTimestamp,
 		lastPullTimestamp,
+		lastDatabaseSyncTimestamp: _lastDatabaseSyncTimestamp,
 		...remote
 	} = withoutUndefined( site );
 	if ( provider === 'wpcom' ) {
@@ -121,8 +127,17 @@ export async function rememberRemoteSite< Id extends SitesProviderId >(
 		connection.lastPushTimestamp = ( lastPushTimestamp as string ) ?? connection.lastPushTimestamp;
 		connection.lastPullTimestamp = ( lastPullTimestamp as string ) ?? connection.lastPullTimestamp;
 		if ( synced ) {
-			connection[ synced === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp' ] =
-				new Date().toISOString();
+			const now = new Date().toISOString();
+			// A provider that receives a static copy has no database to compare with.
+			const hasDatabase = getProviderSites( provider ).content !== 'static';
+			if ( hasDatabase && database ) {
+				connection.lastDatabaseSyncTimestamp = now;
+			} else if ( hasDatabase && connection.lastDatabaseSyncTimestamp === undefined ) {
+				// Saved before database syncs were recorded: the last sync of any kind is the best
+				// guess, and it stops being one once this sync moves it.
+				connection.lastDatabaseSyncTimestamp = getLastSyncTime( connection ) ?? null;
+			}
+			connection[ synced === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp' ] = now;
 		}
 	} );
 }

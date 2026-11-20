@@ -26,6 +26,10 @@ export const syncSiteSchema = z.object( {
 	syncSupport: z.enum( syncSupportValues ),
 	lastPullTimestamp: z.string().nullable(),
 	lastPushTimestamp: z.string().nullable(),
+	// The last pull or push that included the database: what the live-changes check compares
+	// with. Null when every sync since this was recorded left the database out; absent on
+	// connections saved before it was recorded.
+	lastDatabaseSyncTimestamp: z.string().nullable().optional(),
 	wpVersion: z.string().optional(),
 	planName: z.string().optional(),
 	pushNeedsUpgrade: z.boolean().optional(),
@@ -52,6 +56,8 @@ export type PushSyncOptions = {
 	optionsToSync?: SyncOption[];
 	specificSelectionPaths?: string[];
 	launchAfterPush?: boolean;
+	// Push the database even though the live site changed since the last pull or push.
+	overwriteLiveChanges?: boolean;
 };
 /**
  * What a pull includes. By default, all files and the database. A pick of files is sent both as

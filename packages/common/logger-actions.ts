@@ -80,6 +80,7 @@ export enum SyncCommandLoggerAction {
 	LOAD_SITES = 'loadSites',
 	INSTALL_SQLITE = 'installSqlite',
 	FETCH_REMOTE_SITES = 'fetchRemoteSites',
+	CHECK_LIVE_CHANGES = 'checkLiveChanges',
 	ARCHIVE = 'archive',
 	UPLOAD = 'upload',
 	INITIATE_IMPORT = 'initiateImport',

@@ -67,6 +67,37 @@ it( 'records each sync and keeps the times of the others', async () => {
 	} );
 } );
 
+it( 'records when a sync last included the database, and keeps it through file-only syncs', async () => {
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'pull', true );
+	const [ pulled ] = await getRemoteSites( 'wpcom', 'local-a' );
+	expect( pulled.lastDatabaseSyncTimestamp ).toBe( pulled.lastPullTimestamp );
+
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'push', false );
+	const [ pushedFiles ] = await getRemoteSites( 'wpcom', 'local-a' );
+	expect( pushedFiles.lastPushTimestamp ).not.toBeNull();
+	expect( pushedFiles.lastDatabaseSyncTimestamp ).toBe( pulled.lastPullTimestamp );
+} );
+
+it( 'starts recording database syncs on a connection saved before them from its last sync', async () => {
+	const lastPullTimestamp = '2026-11-01T10:00:00.000Z';
+	await updateConfig( ( config ) => {
+		config.sites[ 0 ].connections = [
+			{
+				provider: 'wpcom',
+				account: '7',
+				site: { id: 1, name: 'Live' },
+				lastPullTimestamp,
+				lastPushTimestamp: null,
+			},
+		];
+	} );
+
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'push', false );
+
+	const [ site ] = await getRemoteSites( 'wpcom', 'local-a' );
+	expect( site.lastDatabaseSyncTimestamp ).toBe( lastPullTimestamp );
+} );
+
 it( 'lists only the signed-in account’s WordPress.com connections', async () => {
 	await rememberRemoteSite( 'wpcom', 'local-a', listedSite );
 	await updateConfig( ( { providers } ) => {

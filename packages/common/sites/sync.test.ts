@@ -102,6 +102,28 @@ describe( 'pushSite', () => {
 			{ output: 'capture' }
 		);
 	} );
+
+	it( 'passes the override for a live site that changed since the last sync', async () => {
+		const { emitter, execute } = fakeCli();
+		const pushing = pushSite( execute, '/sites/local', LIVE_SITE, {
+			optionsToSync: [ 'all' ],
+			overwriteLiveChanges: true,
+		} );
+
+		emitter.emit( 'success' );
+
+		await pushing;
+		expect( vi.mocked( execute ).mock.calls[ 0 ][ 0 ] ).toEqual( [
+			'push',
+			'--path',
+			'/sites/local',
+			'--remote-site',
+			'42',
+			'--options',
+			'all',
+			'--overwrite-live-changes',
+		] );
+	} );
 } );
 
 describe( 'cancellable phases', () => {

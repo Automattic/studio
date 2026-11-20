@@ -511,9 +511,12 @@ echo implode( "\\n", $found );`,
 							site: remote,
 					  } ) )
 					: [],
-			push: async ( site, options, remoteSite ): Promise< SyncSite > => {
+			push: async ( site, options, remoteSite, _onProgress, flags ): Promise< SyncSite > => {
 				const remote = await findRemoteSite( site, remoteSite );
-				await wpcom.push( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
+				await wpcom.push( site.id, remote.id, {
+					optionsToSync: parseSyncOptions( options ),
+					overwriteLiveChanges: flags?.overwriteLiveChanges,
+				} );
 				return remote;
 			},
 			pull: async ( site, options, remoteSite ): Promise< SyncSite > => {

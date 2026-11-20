@@ -729,6 +729,22 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	);
 
+	it( 'pushes over live changes only when told to', async () => {
+		const push = getTool( 'site_push' );
+
+		await push.rawHandler( { nameOrPath: 'My Site', remoteSite: '42' } as never );
+		await push.rawHandler( {
+			nameOrPath: 'My Site',
+			remoteSite: '42',
+			overwriteLiveChanges: true,
+		} as never );
+
+		expect( vi.mocked( host.sync.push ).mock.calls.map( ( call ) => call[ 4 ] ) ).toEqual( [
+			{ overwriteLiveChanges: undefined },
+			{ overwriteLiveChanges: true },
+		] );
+	} );
+
 	it( 'refuses to pull from a provider that can only be published to', async () => {
 		await expect(
 			getTool( 'site_pull' ).rawHandler( {

@@ -52,6 +52,8 @@ export function Popup( {
 	'data-color-scheme': colorScheme,
 	'aria-label': ariaLabel,
 	'aria-describedby': ariaDescribedBy,
+	'aria-hidden': ariaHidden,
+	inert,
 }: {
 	children: ReactNode;
 	side?: PositionerProps[ 'side' ];
@@ -74,6 +76,8 @@ export function Popup( {
 	'data-color-scheme'?: 'light' | 'dark';
 	'aria-label'?: string;
 	'aria-describedby'?: string;
+	'aria-hidden'?: PopupProps[ 'aria-hidden' ];
+	inert?: boolean;
 } ) {
 	const commands = variant === 'commands';
 	return (
@@ -101,6 +105,8 @@ export function Popup( {
 					finalFocus={ finalFocus }
 					aria-label={ ariaLabel }
 					aria-describedby={ ariaDescribedBy }
+					aria-hidden={ ariaHidden }
+					inert={ inert }
 					render={
 						commands ? (
 							<div className={ clsx( styles.commands, className ) } style={ style } />

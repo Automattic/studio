@@ -48,7 +48,7 @@
 		line-height: var( --text-sm--line-height );
 		translate: -50% -50%;
 		transition-property: opacity, scale;
-		transition-duration: var( --motion-duration-surface );
+		transition-duration: var( --motion-duration-surface ), var( --motion-duration-quick );
 		transition-timing-function: var( --motion-ease-enter );
 	}
 
@@ -59,6 +59,10 @@
 	.content:is( [data-starting-style], [data-ending-style] ) {
 		opacity: 0;
 		scale: 0.97;
+	}
+
+	.content[data-ending-style] {
+		transition-duration: var( --motion-duration-feedback );
 	}
 
 	@starting-style {

@@ -61,6 +61,80 @@ describe( 'First message in the sidebar', () => {
 		);
 	} );
 
+	it( 'keeps the new chat visible while the saved first message catches up', async () => {
+		const { connector, history, queryClient } = setup();
+		const startup = deferred< { runId: string } >();
+		connector.continueSession.mockImplementationOnce( () => startup.promise );
+		fireEvent.change( await composer(), { target: { value: 'Build a gallery' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		expect( await sidebar().findByRole( 'button', { name: 'Build a gallery' } ) ).toBeVisible();
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		const staleList = deferred< Awaited< ReturnType< typeof connector.getSessions > > >();
+		connector.getSessions.mockImplementationOnce( () => staleList.promise );
+		const staleRefresh = queryClient.invalidateQueries( { queryKey: [ 'sessions' ], exact: true } );
+		await act( async () => startup.resolve( { runId: 'gallery-run' } ) );
+		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+		await act( async () => {
+			staleList.resolve( [] );
+			await staleRefresh;
+		} );
+		expect( sidebar().getAllByRole( 'button', { name: /Build a gallery/ } ) ).toHaveLength( 1 );
+
+		// The session exists, but the agent has not saved the first prompt yet.
+		await act( () => queryClient.invalidateQueries( { queryKey: [ 'sessions' ], exact: true } ) );
+		expect( sidebar().getAllByRole( 'button', { name: /Build a gallery/ } ) ).toHaveLength( 1 );
+
+		connector.state.sessions[ 0 ].summary = {
+			...connector.state.sessions[ 0 ].summary,
+			firstPrompt: 'Build a gallery',
+			title: 'Gallery plan',
+		};
+		await act( () => queryClient.invalidateQueries( { queryKey: [ 'sessions' ], exact: true } ) );
+		expect( await sidebar().findAllByRole( 'button', { name: /Gallery plan/ } ) ).toHaveLength( 1 );
+	} );
+
+	it( 'removes the optimistic row if the run ends without saving the message', async () => {
+		const { connector, history } = setup();
+		connector.continueSession.mockResolvedValueOnce( { runId: 'gallery-run' } );
+		fireEvent.change( await composer(), { target: { value: 'Build a gallery' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+		expect( await sidebar().findByRole( 'button', { name: /Build a gallery/ } ) ).toBeVisible();
+		act( () =>
+			connector.emit( 'onAgentEvent', {
+				sessionId: connector.state.sessions[ 0 ].summary.id,
+				runId: 'gallery-run',
+				event: {
+					type: 'run.exited',
+					timestamp: new Date().toISOString(),
+					status: 'error',
+					code: 1,
+				},
+			} )
+		);
+		await waitFor( () => {
+			expect(
+				sidebar().queryByRole( 'button', { name: /Build a gallery/ } )
+			).not.toBeInTheDocument();
+		} );
+	} );
+
+	it( 'does not retain a chat removed after it appeared', async () => {
+		const { connector, history, queryClient } = setup();
+		connector.continueSession.mockResolvedValueOnce( { runId: 'gallery-run' } );
+		fireEvent.change( await composer(), { target: { value: 'Build a gallery' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+		expect( await sidebar().findByRole( 'button', { name: /Build a gallery/ } ) ).toBeVisible();
+		connector.state.sessions = [];
+		await act( () => queryClient.invalidateQueries( { queryKey: [ 'sessions' ], exact: true } ) );
+		await waitFor( () => {
+			expect(
+				sidebar().queryByRole( 'button', { name: /Build a gallery/ } )
+			).not.toBeInTheDocument();
+		} );
+	} );
+
 	it.each( [ 'createSession', 'setSessionProvider', 'continueSession' ] as const )(
 		'removes the temporary row and restores the message when %s fails',
 		async ( operation ) => {

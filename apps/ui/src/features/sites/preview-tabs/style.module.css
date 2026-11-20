@@ -46,16 +46,13 @@
 	height: 32px;
 	border-radius: var( --radius-md );
 	background: var( --chat );
-	transition:
-		transform var( --motion-duration-layout ) ease-in-out,
-		background-color var( --motion-duration-feedback ) ease;
+	transition: transform var( --motion-duration-quick ) ease-in-out;
 }
 .tab[data-preview-selected] {
 	--muted: inherit;
 	--surface: var( --muted );
 
 	background: var( --muted );
-	transition: transform var( --motion-duration-layout ) ease-in-out;
 }
 .trigger {
 	width: 100%;
@@ -124,7 +121,7 @@
 	pointer-events: none;
 }
 .list[data-tab-drop-committed] .tab {
-	transition: background-color var( --motion-duration-feedback ) ease;
+	transition: none;
 }
 .list[data-tab-dragging] .trigger {
 	cursor: pointer;
@@ -149,7 +146,7 @@
 	will-change: transform;
 }
 .dragPreview[data-landing] {
-	transition: transform var( --motion-duration-layout ) ease-in-out;
+	transition: transform var( --motion-duration-quick ) ease-in-out;
 }
 @media ( prefers-reduced-motion: reduce ) {
 	.tab,

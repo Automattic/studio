@@ -12,7 +12,7 @@ import { SidebarIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
-export function SidebarToggle() {
+export function SidebarToggle( { tabIndex }: { tabIndex?: number } = {} ) {
 	const collapsed = ! useSidebarOpen();
 	const undocked = useSidebarCollapsed();
 	const toggleSidebar = useToggleSidebar();
@@ -24,6 +24,7 @@ export function SidebarToggle() {
 			aria-label={ collapsed || hover.peek ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
 			aria-expanded={ ! collapsed || hover.peek }
 			data-sidebar-toggle
+			tabIndex={ tabIndex }
 			onClick={ toggleSidebar }
 			onPointerEnter={ ( event ) => {
 				if ( event.pointerType === 'mouse' ) hover.onEnter();

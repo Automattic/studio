@@ -47,6 +47,8 @@ async function setup( running = true, signedIn = false ) {
 }
 const selectedTab = () =>
 	screen.getAllByRole( 'tab' ).find( ( tab ) => tab.getAttribute( 'aria-selected' ) === 'true' )!;
+const activePreview = ( element: 'iframe' | 'webview' ) =>
+	document.querySelector( `[data-active-tab] ${ element }` );
 async function newBrowserTab() {
 	fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
@@ -81,7 +83,7 @@ it.each( [ true, false ] )(
 			],
 		} );
 		const { user } = renderApp( { connector, path: '/sessions/chat' } );
-		const chip = await screen.findByRole( 'button', { name: 'Open Design System' } );
+		await screen.findByRole( 'button', { name: 'Open Design System' } );
 		if ( screen.queryByRole( 'button', { name: 'Show panel' } ) )
 			await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		const address = screen.getByRole( 'textbox', { name: 'Address' } );
@@ -91,7 +93,7 @@ it.each( [ true, false ] )(
 		const firstPage = document.querySelector( 'iframe' );
 		if ( ! open ) await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 		connector.trackEvent.mockClear();
-		await user.click( chip );
+		await user.click( screen.getByRole( 'button', { name: 'Open Design System' } ) );
 		expect( connector.trackEvent.mock.calls ).toEqual( [
 			[ TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM, { browser: 'internal' } ],
 			...( open ? [] : [ [ TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'split' }, 'one' ] ] ),
@@ -102,7 +104,7 @@ it.each( [ true, false ] )(
 			'true'
 		);
 		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
-		expect( document.querySelector( 'iframe' ) ).toBe( firstPage );
+		expect( firstPage ).toBeInTheDocument();
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 		await user.click( firstTab );
 		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
@@ -127,7 +129,7 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 		await newBrowserTab();
 		const guests = document.querySelectorAll( 'webview' );
 		expect( guests ).toHaveLength( 2 );
-		Object.assign( guests[ 1 ], { getWebContentsId: () => 43 } );
+		Object.assign( activePreview( 'webview' )!, { getWebContentsId: () => 43 } );
 		for ( const id of [ 43, 42 ] ) {
 			if ( id === 42 ) await user.click( first );
 			screen.getByRole( 'button', { name: 'Browser options' } ).focus();
@@ -135,7 +137,7 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 			await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );
 			expect( openWebviewDevTools ).toHaveBeenLastCalledWith( id );
 		}
-		expect( document.querySelector( 'webview' ) ).toBe( firstGuest );
+		expect( activePreview( 'webview' ) ).toBe( firstGuest );
 	} finally {
 		Object.defineProperty( window.navigator, 'userAgent', {
 			value: userAgent,
@@ -193,7 +195,7 @@ it.each( [ false, true ] )(
 		);
 		expect( document.querySelectorAll( 'iframe' ) ).toHaveLength( 2 );
 		fireEvent.click( first );
-		expect( document.querySelector( 'iframe' ) ).toBe( frame );
+		expect( activePreview( 'iframe' ) ).toBe( frame );
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Close First' } )[ 1 ] );
 		expect( first ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( connector.stopSite ).not.toHaveBeenCalled();
@@ -235,7 +237,7 @@ it( 'retains separate mounted pages and restores each project’s tabs', async (
 	).toContain( 'http://localhost:9010/about/' );
 	const tabs = screen.getAllByRole( 'tab' );
 	fireEvent.click( tabs[ 0 ] );
-	expect( document.querySelector( 'iframe' ) ).toBe( firstFrame );
+	expect( activePreview( 'iframe' ) ).toBe( firstFrame );
 	fireEvent.click( tabs[ 1 ] );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
 		'http://localhost:9010/about/'
@@ -253,16 +255,16 @@ it( 'reloads only the selected tab from the command palette', async () => {
 	await setup();
 	const first = document.querySelector( 'iframe' );
 	await newBrowserTab();
-	const second = document.querySelectorAll( 'iframe' )[ 1 ];
+	const second = activePreview( 'iframe' );
 	act( () => setCommandPaletteOpen( true ) );
 	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
 		target: { value: 'Reload' },
 	} );
 	fireEvent.click( screen.getByRole( 'option', { name: 'Reload' } ) );
 	await waitFor( () => expect( second ).not.toBeInTheDocument() );
-	expect( document.querySelector( 'iframe' ) ).toBe( first );
+	expect( first ).toBeInTheDocument();
 	fireEvent.click( screen.getAllByRole( 'tab' )[ 0 ] );
-	expect( document.querySelector( 'iframe' ) ).toBe( first );
+	expect( activePreview( 'iframe' ) ).toBe( first );
 } );
 it( 'restarts at home after stopping a project while another project is open', async () => {
 	const { connector } = await setup();
@@ -362,7 +364,7 @@ it( 'keeps Electron navigation and titles independent between mounted tabs', asy
 	fireEvent.change( input, { target: { value: '/about/' } } );
 	fireEvent.submit( input.closest( 'form' )! );
 	await waitFor( () => expect( document.querySelectorAll( 'webview' ) ).toHaveLength( 2 ) );
-	const second = document.querySelectorAll( 'webview' )[ 1 ];
+	const second = activePreview( 'webview' )!;
 	const secondBack = prepare( second, true, 'http://localhost:9010/about/' );
 	fireEvent(
 		second,
@@ -390,7 +392,7 @@ it( 'keeps Electron navigation and titles independent between mounted tabs', asy
 		'aria-disabled',
 		'true'
 	);
-	expect( document.querySelector( 'webview' ) ).toBe( first );
+	expect( activePreview( 'webview' ) ).toBe( first );
 	await act( async () => {} );
 } );
 
@@ -724,7 +726,7 @@ it.each( [ false, true ] )(
 			)
 		);
 		if ( running ) {
-			expect( document.querySelector( 'iframe' ) ).toBe( original );
+			expect( original ).toBeInTheDocument();
 			expect( original?.src ).toContain( '/about/' );
 			fireEvent.click( screen.getAllByRole( 'tab' )[ 0 ] );
 			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
@@ -927,6 +929,31 @@ it( 'moves neighboring tabs aside with one opaque drag chip and preserves pages 
 	expect( new Set( document.querySelectorAll( 'iframe' ) ) ).toEqual( new Set( pages ) );
 	expect( screen.getByText( 'First moved to position 3 of 3' ) ).toBeInTheDocument();
 } );
+it.each( [ 'pointer', 'keyboard' ] )(
+	'keeps preview panes attached when reordering tabs with the %s',
+	async ( input ) => {
+		const tabs = await sortableTabs();
+		const paneHost = document.querySelector( '[data-active-tab]' )!.parentElement!;
+		const panes = Array.from( paneHost.children );
+		const observer = new MutationObserver( () => {} );
+		observer.observe( paneHost, { childList: true } );
+
+		if ( input === 'pointer' ) {
+			fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
+			fireEvent( window, tabPointer( 'pointermove', 440 ) );
+			fireEvent( window, tabPointer( 'pointerup', 440 ) );
+		} else {
+			fireEvent.keyDown( tabs[ 0 ], { key: 'ArrowRight', altKey: true, shiftKey: true } );
+		}
+
+		expect( screen.getAllByRole( 'tab' )[ 0 ] ).not.toBe( tabs[ 0 ] );
+		expect( Array.from( paneHost.children ) ).toEqual( panes );
+		expect(
+			observer.takeRecords().flatMap( ( record ) => Array.from( record.removedNodes ) )
+		).toEqual( [] );
+		observer.disconnect();
+	}
+);
 it.each( [
 	{ x: -1000, y: -1000 },
 	{ x: 2000, y: 2000 },

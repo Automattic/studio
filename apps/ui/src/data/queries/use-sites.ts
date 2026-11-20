@@ -244,6 +244,21 @@ export function useStopSite() {
 	} );
 }
 
+export function getSiteStopState( queryClient: QueryClient, siteId: string ) {
+	const stops = queryClient.getMutationCache().findAll( {
+		mutationKey: STOP_SITE_MUTATION_KEY,
+		predicate: ( mutation ) => mutation.state.variables === siteId,
+	} );
+	const stop = stops[ stops.length - 1 ];
+	return stop
+		? {
+				id: stop.mutationId,
+				preservePanel: stop.state.status !== 'error',
+				pending: stop.state.status === 'pending',
+		  }
+		: undefined;
+}
+
 export function useRestartSite() {
 	const stop = useStopSite();
 	const start = useStartSite();

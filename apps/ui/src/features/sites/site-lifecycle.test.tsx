@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { clearComposerDrafts } from '@/features/composer';
-import splitStyles from '@/features/sites/panel-split-frame/style.module.css';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { SiteDetails } from '@/data/core';
@@ -43,6 +42,15 @@ async function restartFromPalette() {
 	fireEvent.click( await screen.findByRole( 'option', { name: /^Restart site/ } ) );
 }
 
+async function stopFromPalette() {
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, { code: 'KeyK', key: 'k', metaKey: isApple, ctrlKey: ! isApple } );
+	fireEvent.change( await screen.findByLabelText( 'Search commands' ), {
+		target: { value: 'Stop site' },
+	} );
+	fireEvent.click( await screen.findByRole( 'option', { name: /^Stop site/ } ) );
+}
+
 function deferred() {
 	let resolve!: () => void;
 	const promise = new Promise< void >( ( done ) => {
@@ -61,7 +69,7 @@ function lifecycle( siteName: string ) {
 
 const panelShown = () => screen.queryByRole( 'complementary', { name: 'Panel' } ) !== null;
 const frame = () => document.querySelector( 'iframe, webview' );
-const layoutMotion = () => document.querySelector( `.${ splitStyles.rootPreviewAnimating }` );
+const layoutMotion = () => document.querySelector( '[data-layout-moving]' );
 
 // jsdom's <webview> is a bare element; give it the guest id a loaded page reports.
 function loadWebview() {
@@ -284,7 +292,7 @@ describe( 'site lifecycle and preview', () => {
 	} );
 
 	it.each( [ 'split', 'panel', 'chat' ] )(
-		'returns to chat when stopped from the sidebar in %s',
+		'preserves the %s layout when stopped from the sidebar',
 		async ( layout ) => {
 			const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );
 			await screen.findByRole( 'textbox', { name: 'Address' } );
@@ -310,13 +318,125 @@ describe( 'site lifecycle and preview', () => {
 			connector.state.sites = [ site() ];
 			await act( async () => stop.resolve() );
 			await screen.findByRole( 'button', { name: 'Start My site' } );
-			await waitFor( () => expect( panelShown() ).toBe( false ) );
+			await waitFor( () => expect( panelShown() ).toBe( layout !== 'chat' ) );
 			expect( layoutMotion() ).toBeNull();
-			expect( composer ).toBeVisible();
-			expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+			if ( layout === 'panel' ) {
+				expect( composer.closest( '[aria-hidden="true"]' ) ).not.toBeNull();
+			} else {
+				expect( composer ).toBeVisible();
+			}
 			expect( composer ).toHaveValue( 'Keep this site draft' );
 			expect( screen.getByRole( 'combobox', { ...COMPOSER, hidden: true } ) ).toBe( composer );
 			expect( connector.createSession ).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each( [
+		{ source: 'composer', layout: 'split' },
+		{ source: 'palette', layout: 'split' },
+		{ source: 'palette', layout: 'panel' },
+		{ source: 'palette', layout: 'chat' },
+		{ source: 'palette', layout: 'site' },
+		{ source: 'site menu', layout: 'split' },
+		{ source: 'site menu', layout: 'panel' },
+		{ source: 'site menu', layout: 'chat' },
+	] )( 'keeps the $layout layout when stopped from the $source', async ( { source, layout } ) => {
+		const path = layout === 'site' ? '/sites/one' : '/sessions/one-chat';
+		const { connector, history } = setup( [ site( { running: true } ) ], path );
+		await screen.findByRole( 'textbox', { name: 'Address' } );
+		if ( layout === 'panel' ) {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
+		} else if ( layout === 'chat' ) {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+		}
+		const visible = layout !== 'chat';
+		await waitFor( () => expect( panelShown() ).toBe( visible ) );
+		const stop = deferred();
+		connector.stopSite.mockImplementationOnce( () => stop.promise );
+		if ( source === 'composer' ) {
+			const input = screen.getByRole( 'combobox', COMPOSER );
+			fireEvent.change( input, { target: { value: 'Keep this draft /stop' } } );
+			await screen.findByRole( 'option', { name: 'Stop site' } );
+			fireEvent.keyDown( input, { key: 'Enter' } );
+			expect( input ).toHaveValue( 'Keep this draft ' );
+		} else if ( source === 'palette' ) {
+			await stopFromPalette();
+		} else {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Stop(?:\s|$)/ } ) );
+		}
+		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+		expect( panelShown() ).toBe( visible );
+		connector.state.sites = [ site() ];
+		await act( async () => stop.resolve() );
+		await screen.findByRole( 'button', { name: 'Start My site' } );
+		await waitFor( () => expect( panelShown() ).toBe( visible ) );
+		expect( history.location.pathname ).toBe( path );
+		if ( layout === 'panel' || layout === 'site' ) {
+			expect( screen.queryByRole( 'combobox', COMPOSER ) ).not.toBeInTheDocument();
+		} else {
+			expect( screen.getByRole( 'combobox', COMPOSER ) ).toBeVisible();
+		}
+	} );
+
+	it( 'keeps the panel closed if it is hidden while a command is stopping the site', async () => {
+		const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );
+		await screen.findByRole( 'textbox', { name: 'Address' } );
+		const stop = deferred();
+		connector.stopSite.mockImplementationOnce( () => stop.promise );
+		await stopFromPalette();
+		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledOnce() );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+		await waitFor( () => expect( panelShown() ).toBe( false ) );
+		connector.state.sites = [ site() ];
+		await act( async () => stop.resolve() );
+		await screen.findByRole( 'button', { name: 'Start My site' } );
+		expect( panelShown() ).toBe( false );
+	} );
+
+	it( 'keeps the panel open when the stopped event arrives before the command finishes', async () => {
+		const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );
+		await screen.findByRole( 'textbox', { name: 'Address' } );
+		const stop = deferred();
+		connector.stopSite.mockImplementationOnce( () => stop.promise );
+		await stopFromPalette();
+		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledOnce() );
+		connector.state.sites = [ site() ];
+		await act( async () =>
+			connector.emit( 'onSiteEvent', {
+				event: SITE_EVENTS.UPDATED,
+				siteId: 'one',
+				running: false,
+			} )
+		);
+		await screen.findByRole( 'button', { name: 'Start My site' } );
+		expect( panelShown() ).toBe( true );
+		await act( async () => stop.resolve() );
+		expect( panelShown() ).toBe( true );
+	} );
+
+	it.each( [ false, true ] )(
+		'keeps the panel open for a later sidebar stop after a command stop (first stop fails: %s)',
+		async ( fails ) => {
+			const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );
+			await screen.findByRole( 'textbox', { name: 'Address' } );
+			if ( fails ) connector.stopSite.mockRejectedValueOnce( new Error( 'Stop failed' ) );
+			await stopFromPalette();
+			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledOnce() );
+			if ( fails ) {
+				await waitFor( () =>
+					expect(
+						getVisibleToasts().some( ( toast ) => toast.title === 'Failed to stop site' )
+					).toBe( true )
+				);
+			} else {
+				fireEvent.click( await screen.findByRole( 'button', { name: 'Start My site' } ) );
+				await screen.findByRole( 'button', { name: 'Stop My site' } );
+			}
+			expect( panelShown() ).toBe( true );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
+			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledTimes( 2 ) );
+			await waitFor( () => expect( panelShown() ).toBe( true ) );
 		}
 	);
 
@@ -438,7 +558,7 @@ describe( 'site lifecycle and preview', () => {
 		}
 	);
 
-	it( 'keeps preview visible until stopping completes without a sidebar loader', async () => {
+	it( 'keeps preview visible after stopping without a sidebar loader', async () => {
 		const { connector } = setup( [ site( { running: true } ) ] );
 		const stop = deferred();
 		connector.stopSite.mockImplementation( () => stop.promise );
@@ -452,7 +572,7 @@ describe( 'site lifecycle and preview', () => {
 		connector.state.sites = [ site() ];
 		await act( async () => stop.resolve() );
 		await waitFor( () => expect( lifecycle( 'My site' ) ).not.toHaveAttribute( 'aria-busy' ) );
-		await waitFor( () => expect( panelShown() ).toBe( false ) );
+		await waitFor( () => expect( panelShown() ).toBe( true ) );
 	} );
 
 	it.each( [ 'start', 'stop' ] as const )(
@@ -758,7 +878,7 @@ describe( 'site lifecycle and preview', () => {
 		loadWebview();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
 		await screen.findByRole( 'button', { name: 'Start My site' } );
-		await waitFor( () => expect( panelShown() ).toBe( false ) );
+		await waitFor( () => expect( panelShown() ).toBe( true ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start My site' } ) );
 		await screen.findByRole( 'button', { name: 'Stop My site' } );
 		expect( connector.startSite ).toHaveBeenCalledTimes( 2 );

@@ -44,8 +44,8 @@
 		)
 		scale( var( --scale ) );
 	transition:
-		transform var( --motion-duration-layout ) var( --motion-ease-enter ),
-		opacity var( --motion-duration-layout ) var( --motion-ease-enter );
+		transform var( --motion-duration-quick ) var( --motion-ease-enter ),
+		opacity var( --motion-duration-quick ) var( --motion-ease-enter );
 }
 
 .toast:focus {

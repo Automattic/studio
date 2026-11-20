@@ -18,6 +18,12 @@ import { applyTheme, resolveColorScheme } from '@/lib/theme';
 applyTheme( resolveColorScheme( preferences.colorScheme ), preferences.colorTint );
 ```
 
+## Motion
+
+Use `--motion-duration-layout` for deliberate changes to the sidebar or workspace panes and `--motion-duration-disclosure` for expanding content. Both use the shared soft-close curve. Small floating surfaces and feedback use the surface and feedback durations; dialogs use the quick duration for scale.
+
+Keep navigation, selection, streamed text and status updates, and initial or restored layouts immediate. A dragged or keyboard-resized boundary follows its input directly; transitions can finish a drag after release. Let movement reverse without blocking interaction, and wait for an exit to finish before replacing its visible content. Reduced motion removes layout movement while retaining brief opacity and color feedback.
+
 ## Surfaces and selection
 
 The numbered `--surface-0` through `--surface-4` tokens form the palette. Every element derives `--muted` / `--hover`, `--selected`, and `--border` directly from its current `--surface`, preserving hue and chroma. Interaction steps darken in light mode and lighten in dark mode; selection uses 1.5 times the hover step. There is no separate canvas palette or lookup table. Containers declare `--surface` using their opaque semantic token, including when the native sidebar paints a translucent version of chrome.

@@ -120,7 +120,7 @@ export function useSiteActions(
 		newChat: () => {
 			onOpen?.();
 			runLayoutTransition( () => {
-				preview.setChatHidden( false, site.id, { instant: true } );
+				preview.setChatHidden( false, site.id );
 				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 			} );
 		},

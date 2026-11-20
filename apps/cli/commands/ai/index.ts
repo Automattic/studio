@@ -23,6 +23,7 @@ import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
 } from '@studio/agent/protocol/slash-commands';
+import { type ThinkingSetting } from '@studio/agent/protocol/thinking';
 import { changeAiSettings, getAiTurnTracksProps } from '@studio/common/lib/ai-provider-tracks';
 import {
 	describeAccount,
@@ -48,7 +49,6 @@ import {
 	type AiModelId,
 	type AiProviderId,
 	type ProviderId,
-	type ThinkingLevel,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -347,7 +347,7 @@ export async function runCommand( options: {
 		);
 	}
 
-	async function persistThinking( thinking: ThinkingLevel | 'default' ): Promise< void > {
+	async function persistThinking( thinking: ThinkingSetting ): Promise< void > {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', { model: currentModel, thinking } )
 		);

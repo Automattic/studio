@@ -1,3 +1,8 @@
+import {
+	getThinkingOptions,
+	THINKING_SETTINGS,
+	type ThinkingSetting,
+} from '@studio/agent/protocol/thinking';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import {
 	findAiModel,
@@ -7,6 +12,7 @@ import {
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
+import { BrainIcon, CheckIcon } from 'lucide-react';
 import { useRef, useState, type ComponentType, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -39,6 +45,9 @@ interface ModelPickerProps {
 	disabled: boolean;
 	anchor: HTMLElement | null;
 	onChange: ( provider: ProviderId, model: AiModelId ) => void;
+	// How much the model thinks in this chat; without `onThinkingChange`, the menu doesn't offer it.
+	thinking?: ThinkingSetting;
+	onThinkingChange?: ( thinking: ThinkingSetting ) => void;
 	onAddCredits: ( returnFocus: RefObject< HTMLElement | null > ) => void;
 }
 
@@ -52,6 +61,8 @@ export function ModelPicker( {
 	disabled,
 	anchor,
 	onChange,
+	thinking = 'default',
+	onThinkingChange,
 	onAddCredits,
 }: ModelPickerProps ) {
 	const [ highlight, setHighlight ] = useState< string >();
@@ -87,7 +98,17 @@ export function ModelPicker( {
 			modelsOf( provider ).find( ( item ) => item.id === id ) ?? findAiModel( id )?.model
 		)?.label() ?? id;
 	const modelLabel = labelOf( sessionProvider, model );
+	const thinkingOptions = getThinkingOptions( getProvider( sessionProvider ).ai?.local );
 	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
+	if ( thinking !== 'default' ) {
+		modelDetails.push(
+			sprintf(
+				/* translators: %s: a thinking level, such as Off */
+				__( 'Thinking: %s' ),
+				thinkingOptions[ thinking ].label
+			)
+		);
+	}
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
 	}
@@ -100,6 +121,8 @@ export function ModelPicker( {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'providers', undefined, 'ai-providers' );
+		} else if ( value.startsWith( 'thinking:' ) ) {
+			onThinkingChange?.( value.slice( 'thinking:'.length ) as ThinkingSetting );
 		} else if ( value.startsWith( 'link:' ) ) {
 			void connector.openExternalUrl( value.slice( 'link:'.length ) );
 		} else {
@@ -137,6 +160,20 @@ export function ModelPicker( {
 					};
 				} )
 			),
+		},
+		{
+			label: __( 'Thinking' ),
+			heading: __( 'Thinking' ),
+			items:
+				onThinkingChange &&
+				modelsOf( sessionProvider ).find( ( { id } ) => id === model )?.thinking !== false
+					? THINKING_SETTINGS.map( ( id ) => ( {
+							value: `thinking:${ id }`,
+							...thinkingOptions[ id ],
+							icon: BrainIcon,
+							trailing: id === thinking ? <CheckIcon aria-label={ __( 'Current' ) } /> : null,
+					  } ) )
+					: [],
 		},
 		{
 			label: __( 'Actions' ),

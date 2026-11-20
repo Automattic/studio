@@ -5,8 +5,8 @@
 import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { StudioChatImageAttachment } from '@studio/agent/protocol/chat-images';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
-import type { ThinkingLevel } from '@studio/providers';
 
 export type StudioCustomEntryType =
 	| 'studio.site_selected'
@@ -56,7 +56,7 @@ export interface StudioTurnClosedData {
 export interface StudioSessionContextData {
 	provider?: string;
 	model: string;
-	thinking?: ThinkingLevel | 'default';
+	thinking?: ThinkingSetting;
 }
 
 // Lightweight attachment summaries persisted on a user-prompt entry so the

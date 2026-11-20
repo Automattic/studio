@@ -33,6 +33,7 @@ import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/se
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { THINKING_SETTINGS, type ThinkingSetting } from '@studio/agent/protocol/thinking';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { type Blueprint } from '@studio/blueprints';
 import { openBlueprint } from '@studio/blueprints/node';
@@ -386,6 +387,24 @@ export async function setAiSessionProvider(
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
 		provider: toStoredProviderId( provider ),
 		model,
+	} );
+}
+
+export async function setAiSessionThinking(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	model: string,
+	thinking: ThinkingSetting
+): Promise< void > {
+	if ( ! findAiModel( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	if ( ! THINKING_SETTINGS.includes( thinking ) ) {
+		throw new Error( `Unknown thinking level: ${ thinking }` );
+	}
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
+		model,
+		thinking,
 	} );
 }
 

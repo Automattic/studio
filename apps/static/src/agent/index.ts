@@ -5,7 +5,9 @@ import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
 import {
 	resolveSessionModelForProvider,
 	resolveSessionProvider,
+	resolveSessionThinking,
 } from '@studio/agent/protocol/sessions/model';
+import { type ThinkingSetting } from '@studio/agent/protocol/thinking';
 import {
 	canUsePaidAiModels,
 	fetchStudioAssistantQuota,
@@ -170,6 +172,10 @@ export class StaticAgentRuns {
 			provider: toStoredProviderId( provider ),
 			model,
 		} );
+	}
+
+	async setSessionThinking( sessionId: string, model: AiModelId, thinking: ThinkingSetting ) {
+		await this.sessions.appendCustom( sessionId, 'studio.session_context', { model, thinking } );
 	}
 
 	// Points the chat's next turn at its site, locally or on its connected
@@ -484,6 +490,7 @@ export class StaticAgentRuns {
 				canUsePaidModels: canUsePaidAiModels( quota, token?.email ),
 				account: ( await this.getAiSettings() ).accounts[ provider ],
 			} );
+			const thinking = resolveSessionThinking( session.entries, model );
 			const activeSite = await this.activeSite( sessionId );
 
 			await this.sessions.appendCustom( sessionId, 'studio.session_context', { model } );
@@ -531,9 +538,8 @@ export class StaticAgentRuns {
 				images: options.images,
 				files: options.files,
 				history: historyFromEntries( session.entries ),
-				ai: await chatAi.model( config, model, {
-					sessionId,
-				} ),
+				ai: await chatAi.model( config, model, { sessionId, thinking } ),
+				thinking,
 				activeSite,
 				userInstructions: instructionsEnabled
 					? await kvGet< string >( AGENT_INSTRUCTIONS_KEY )

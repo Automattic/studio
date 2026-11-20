@@ -394,6 +394,8 @@ export function createStaticConnector(): Connector {
 		setSessionModel: ( sessionId, model ) => agent.setSessionModel( sessionId, model ),
 		setSessionProvider: ( sessionId, provider, model ) =>
 			agent.setSessionProvider( sessionId, provider, model ),
+		setSessionThinking: ( sessionId, model, thinking ) =>
+			agent.setSessionThinking( sessionId, model, thinking ),
 		setSessionEnvironment: ( sessionId, environment ) =>
 			agent.setSessionEnvironment( sessionId, environment ),
 		interruptAgentRun: ( runId ) => agent.interrupt( runId ),

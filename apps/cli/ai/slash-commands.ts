@@ -1,4 +1,9 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import {
+	getThinkingOptions,
+	THINKING_SETTINGS,
+	type ThinkingSetting,
+} from '@studio/agent/protocol/thinking';
 import { changeAiSettings } from '@studio/common/lib/ai-provider-tracks';
 import { describeAccount, disconnectProvider } from '@studio/common/lib/ai-settings';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/auth-token';
@@ -22,7 +27,6 @@ import {
 	getProvider,
 	normalizeProviderId,
 	PROVIDER_IDS,
-	THINKING_LEVELS,
 	type AiModelId,
 	type AiProviderId,
 	type ProviderId,
@@ -56,7 +60,7 @@ export interface SlashCommandContext {
 	persistSessionContext(): Promise< void >;
 	// The thinking level this chat picked for the current model; undefined for the default.
 	readThinking(): Promise< ThinkingLevel | undefined >;
-	persistThinking( thinking: ThinkingLevel | 'default' ): Promise< void >;
+	persistThinking( thinking: ThinkingSetting ): Promise< void >;
 	clearSession(): Promise< void >;
 }
 
@@ -493,35 +497,27 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				);
 				return 'continue';
 			}
-			const levels = [ 'default', ...THINKING_LEVELS ] as const;
-			const options: Record< ( typeof levels )[ number ], { label: string; description: string } > =
-				{
-					default: { label: __( 'Default' ), description: __( 'What this model does by default' ) },
-					off: { label: __( 'Off' ), description: __( 'Answers right away, fastest' ) },
-					low: { label: __( 'Low' ), description: __( 'Thinks briefly' ) },
-					medium: { label: __( 'Medium' ), description: __( 'Thinks before answering' ) },
-					high: { label: __( 'High' ), description: __( 'Thinks longest, slowest' ) },
-				};
+			const options = getThinkingOptions( getProvider( ctx.currentProvider ).ai?.local );
 			const current = ( await ctx.readThinking() ) ?? 'default';
 			const named = prompt.trim().split( /\s+/ )[ 1 ]?.toLowerCase();
-			let level = named ? levels.find( ( id ) => id === named ) : undefined;
+			let level = named ? THINKING_SETTINGS.find( ( id ) => id === named ) : undefined;
 			if ( named && ! level ) {
 				ctx.ui.showError(
 					sprintf(
 						/* translators: 1: what the user typed, 2: a list of thinking levels */
 						__( 'Unknown level %1$s. Choose one of: %2$s.' ),
 						named,
-						levels.join( ', ' )
+						THINKING_SETTINGS.join( ', ' )
 					)
 				);
 				return 'continue';
 			}
 			if ( ! level ) {
-				const labelToLevel = new Map< string, ( typeof levels )[ number ] >();
+				const labelToLevel = new Map< string, ThinkingSetting >();
 				const answer = await ctx.ui.askUser( [
 					{
 						question: __( 'How much should the model think?' ),
-						options: levels.map( ( id ) => {
+						options: THINKING_SETTINGS.map( ( id ) => {
 							const label =
 								id === current
 									? sprintf(

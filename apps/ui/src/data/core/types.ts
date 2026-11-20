@@ -7,6 +7,7 @@ import type {
 	AiSessionSummary,
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { Blueprint } from '@studio/blueprints';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
@@ -458,6 +459,12 @@ export interface Connector {
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.
 	setSessionProvider( sessionId: string, provider: ProviderId, model: AiModelId ): Promise< void >;
+	// Set how much `model` thinks in the session, until it switches models.
+	setSessionThinking(
+		sessionId: string,
+		model: AiModelId,
+		thinking: ThinkingSetting
+	): Promise< void >;
 	// Point the session's next turn at its local site or its connected live site.
 	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;

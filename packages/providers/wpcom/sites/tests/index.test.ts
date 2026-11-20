@@ -194,6 +194,22 @@ describe( 'push', () => {
 		} );
 	} );
 
+	it( "keeps the live site's failure reason in the cause", async () => {
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: false,
+			status: 'failed',
+			error: 'Import failed',
+			error_data: { vp_restore_message: "Error: 'wp-config.php' not found." },
+		} as never );
+
+		const error = await push().catch( ( e: unknown ) => e );
+
+		expect( error ).toMatchObject( {
+			message: 'Something went wrong while updating the live site.',
+			cause: { message: "Error: 'wp-config.php' not found." },
+		} );
+	} );
+
 	it( 'says when another sync is already running on the site', async () => {
 		vi.mocked( initiateImport ).mockRejectedValue(
 			Object.assign( new Error( 'Conflict' ), { statusCode: 409 } )

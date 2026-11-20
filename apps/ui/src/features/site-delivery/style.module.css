@@ -46,44 +46,6 @@
 	transition: none;
 }
 
-.shareIntro {
-	--surface: color-mix( in oklab, var( --surface-1 ), var( --surface-2 ) 25% );
-	position: relative;
-	display: grid;
-	justify-items: center;
-	gap: var( --space-1 );
-	margin-block-end: var( --space-2 );
-	padding: var( --space-4 ) var( --space-6 );
-	border-radius: var( --radius-lg );
-	background: var( --surface );
-	text-align: center;
-}
-
-.shareIntroDismiss {
-	position: absolute;
-	inset-block-start: var( --space-1 );
-	inset-inline-end: var( --space-1 );
-}
-
-.shareIntroIcon {
-	inline-size: var( --space-6 );
-	block-size: var( --space-6 );
-	margin-block-end: var( --space-2 );
-}
-
-.shareIntro h2 {
-	margin: 0;
-	font-size: var( --text-sm );
-	font-weight: var( --font-weight-medium );
-	line-height: var( --text-sm--line-height );
-}
-
-.shareIntro p {
-	margin: 0;
-	color: var( --muted-foreground );
-	text-wrap: pretty;
-}
-
 .publishPopover :is( .accessTrigger, .destinationRowControl, .shareFooter button ) {
 	font-size: inherit;
 	font-weight: var( --font-weight-normal );

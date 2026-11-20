@@ -243,25 +243,73 @@ const SITE_DESIGN_TYPES = [
 	'wp_global_styles',
 ];
 
-const siteOffsetSchema = z.object( { options: z.object( { gmt_offset: z.coerce.number() } ) } );
+const siteTimeSchema = z.object( {
+	options: z.object( {
+		gmt_offset: z.coerce.number(),
+		// The site's time zone, such as `America/New_York`; empty when it is set as a UTC offset.
+		timezone: z.string().optional(),
+	} ),
+} );
+
+// No daylight saving change moves a clock by more than this.
+const ZONE_CHANGE_WINDOW = 2 * 3_600_000;
+
+// How many minutes ahead of UTC `timeZone` was at `time`, or nothing for a zone this runtime
+// doesn't know.
+function zoneOffsetMinutes( timeZone: string, time: number ): number | undefined {
+	try {
+		const parts = new Intl.DateTimeFormat( 'en-US', {
+			timeZone,
+			hourCycle: 'h23',
+			year: 'numeric',
+			month: 'numeric',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: 'numeric',
+			second: 'numeric',
+		} ).formatToParts( time );
+		const part = ( type: Intl.DateTimeFormatPartTypes ) =>
+			Number( parts.find( ( candidate ) => candidate.type === type )?.value );
+		const wallClock = Date.UTC(
+			part( 'year' ),
+			part( 'month' ) - 1,
+			part( 'day' ),
+			part( 'hour' ),
+			part( 'minute' ),
+			part( 'second' )
+		);
+		return Math.round( ( wallClock - Math.floor( time / 1000 ) * 1000 ) / 60_000 );
+	} catch {
+		return undefined;
+	}
+}
 
 /**
  * `since` in the site's local time, with its offset, such as `2026-11-17T11:13:33-03:00`. The
  * comments and media endpoints compare the date and time in `after` with the site's local dates
  * and ignore the offset, and shift a value without one. The offset keeps it the same moment for a
- * server that reads it. The site's current offset is used, so a daylight saving change since then
- * moves it by an hour.
+ * server that reads it.
+ *
+ * A site in a time zone uses the offset it had at `since`, not today's. When the clock went back
+ * soon after `since`, a local time can come round twice, so the earlier of the two readings is
+ * used: it may count something saved just before `since`, but never misses one saved after it.
  */
-function toSiteLocalTime( since: string, gmtOffset: number ): string {
-	const local = new Date( Date.parse( since ) + gmtOffset * 3_600_000 )
-		.toISOString()
-		.slice( 0, 19 );
-	const minutes = Math.round( Math.abs( gmtOffset ) * 60 );
-	const offset = `${ gmtOffset < 0 ? '-' : '+' }${ String( Math.floor( minutes / 60 ) ).padStart(
-		2,
-		'0'
-	) }:${ String( minutes % 60 ).padStart( 2, '0' ) }`;
-	return local + offset;
+function toSiteLocalTime(
+	since: string,
+	{ gmt_offset: gmtOffset, timezone }: z.infer< typeof siteTimeSchema >[ 'options' ]
+): string {
+	const time = Date.parse( since );
+	const zoneOffsets = timezone
+		? [ time, time + ZONE_CHANGE_WINDOW ].map( ( at ) => zoneOffsetMinutes( timezone, at ) )
+		: [];
+	const minutes =
+		zoneOffsets.length > 0 && zoneOffsets.every( ( offset ) => offset !== undefined )
+			? Math.min( ...( zoneOffsets as number[] ) )
+			: Math.round( gmtOffset * 60 );
+	const local = new Date( time + minutes * 60_000 ).toISOString().slice( 0, 19 );
+	const hours = String( Math.floor( Math.abs( minutes ) / 60 ) ).padStart( 2, '0' );
+	const rest = String( Math.abs( minutes ) % 60 ).padStart( 2, '0' );
+	return `${ local }${ minutes < 0 ? '-' : '+' }${ hours }:${ rest }`;
 }
 
 /**
@@ -275,15 +323,15 @@ export async function fetchLiveChangesSince(
 	since: string
 ): Promise< { posts: number; comments: number; siteDesign: number } > {
 	const wpcom = wpcomClient( token );
-	const { gmt_offset: gmtOffset } = siteOffsetSchema.parse(
+	const { options: siteTime } = siteTimeSchema.parse(
 		await wpcom.req.get( `/sites/${ remoteSiteId }`, {
 			apiVersion: '1.1',
 			// `options` alone comes back as an empty list.
 			fields: 'ID,options',
-			options: 'gmt_offset',
+			options: 'gmt_offset,timezone',
 		} )
-	).options;
-	const localSince = toSiteLocalTime( since, gmtOffset );
+	);
+	const localSince = toSiteLocalTime( since, siteTime );
 	const modifiedAfter = ( type: string ) =>
 		wpcom.req.get( `/sites/${ remoteSiteId }/posts`, {
 			apiVersion: '1.1',

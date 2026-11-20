@@ -87,7 +87,7 @@ Pushing the database replaces the live one, so whatever changed on the live site
 - design: templates, template parts, navigation menus, synced patterns and global styles modified since then,
 - comments made since then.
 
-WordPress.com filters by these times on its side. Posts take the time in UTC; the comments and media endpoints compare it with the site's local dates, so Studio sends those the site's local time. When something changed, the push stops before exporting anything:
+WordPress.com filters by these times on its side. Posts take the time in UTC; the comments and media endpoints compare it with the site's local dates, so Studio sends those the site's local time, using the offset the site's time zone had then rather than today's, and the earlier reading when the clocks went back. When something changed, the push stops before exporting anything:
 
 - In a terminal, `studio push` says what changed and asks whether to overwrite it. Without a terminal it fails with the code `live_changed`; `--overwrite-live-changes` pushes anyway.
 - The publish panel shows what changed and offers **Publish anyway**, which pushes again with `overwriteLiveChanges`. Studio on the web runs the same check in the page.

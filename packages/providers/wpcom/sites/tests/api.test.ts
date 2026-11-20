@@ -6,10 +6,11 @@ vi.mock( '../../api' );
 
 const get = vi.fn();
 
-// Answers the site with its UTC offset, the posts endpoint by post type (`posts` for `any`,
-// otherwise the type's own key), and the media and comments endpoints.
+// Answers the site with its UTC offset and time zone, the posts endpoint by post type (`posts`
+// for `any`, otherwise the type's own key), and the media and comments endpoints.
 function answers( {
 	gmtOffset = 0,
+	timezone = '',
 	posts = { found: 0, posts: [] },
 	media = { found: 0, media: [] },
 	comments = { found: 0, comments: [] },
@@ -17,7 +18,7 @@ function answers( {
 }: Record< string, unknown > ) {
 	get.mockImplementation( async ( path: string, query: { type?: string } ) => {
 		if ( path === '/sites/42' ) {
-			return { ID: 42, options: { gmt_offset: gmtOffset } };
+			return { ID: 42, options: { gmt_offset: gmtOffset, timezone } };
 		}
 		if ( path.endsWith( '/media' ) ) {
 			return media;
@@ -90,6 +91,29 @@ describe( 'fetchLiveChangesSince', () => {
 			expect.objectContaining( { after: '2026-11-17T11:13:33-03:00' } )
 		);
 	} );
+
+	it.each( [
+		// Synced before the clocks went forward: the offset then, not today's.
+		[ 'America/New_York', -4, '2026-03-08T06:30:00.000Z', '2026-03-08T01:30:00-05:00' ],
+		// Synced just before the clocks went back, when the next hour's local times come round again.
+		[ 'America/New_York', -5, '2026-11-01T05:45:00.000Z', '2026-11-01T00:45:00-05:00' ],
+		[ 'America/Fortaleza', -3, '2026-11-17T14:13:33.613Z', '2026-11-17T11:13:33-03:00' ],
+		[ 'Asia/Kolkata', 5.5, '2026-11-17T14:13:33.613Z', '2026-11-17T19:43:33+05:30' ],
+		// A zone the runtime doesn't know falls back to the site's offset.
+		[ 'Not/A_Zone', 2, '2026-11-17T14:13:33.613Z', '2026-11-17T16:13:33+02:00' ],
+	] )(
+		'asks a site in %s for comments with the offset it had at the time',
+		async ( timezone, gmtOffset, since, expected ) => {
+			answers( { timezone, gmtOffset } );
+
+			await fetchLiveChangesSince( 'token', 42, since );
+
+			expect( get ).toHaveBeenCalledWith(
+				'/sites/42/comments',
+				expect.objectContaining( { after: expected } )
+			);
+		}
+	);
 
 	it( 'counts media uploaded live as content', async () => {
 		answers( {

@@ -572,8 +572,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
 	// browser (or the phone, in remote mode) through `_events`, listening on the
 	// socket kept for `studio ui` or, in remote mode, the one of its own.
-	const [ cliEvents ] = execute( [ '_events', '--listener', remote ? 'remote' : 'ui' ], {
-		output: 'capture',
+	const [ cliEvents, cliEventsChild ] = execute(
+		[ '_events', '--listener', remote ? 'remote' : 'ui' ],
+		{
+			output: 'capture',
+		}
+	);
+	// The child holds the listener's socket until it exits. A server started
+	// next, as remote mode's Automatic does after a connection fails, binds the
+	// socket only once the old child is gone, so stopping waits for its exit.
+	const eventsChildExited = new Promise< void >( ( resolve ) => {
+		cliEventsChild.once( 'exit', () => resolve() );
+		cliEventsChild.once( 'error', () => resolve() );
 	} );
 	cliEvents.on( 'error', ( { error } ) => console.error( 'CLI events subscriber failed:', error ) );
 	cliEvents.on( 'data', ( { data } ) => {
@@ -2669,7 +2679,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const server = await new Promise< ReturnType< typeof app.listen > >( ( resolve, reject ) => {
 		const onError = ( error: Error ) => {
 			stopBackgroundWork();
-			reject( error );
+			void eventsChildExited.then( () => reject( error ) );
 		};
 		const listening = app.listen( port, host, () => {
 			listening.off( 'error', onError );
@@ -2711,6 +2721,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const dropConnections = setTimeout( () => server.closeAllConnections(), CLOSE_GRACE_MS );
 			await closed;
 			clearTimeout( dropConnections );
+			await eventsChildExited;
 		},
 	};
 }

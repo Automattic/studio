@@ -1,7 +1,8 @@
 // Stand-in for the Studio CLI in server tests. `site list` reports one site and
 // `_events` keeps running, reporting a site event and an auth event in a loop.
 // Every other command exits at once. When FAKE_CLI_PID_FILE is set, `_events`
-// appends its process id there, so a test can check it is gone.
+// appends its process id there, so a test can check it is gone. With
+// FAKE_CLI_SLOW_EXIT, `_events` takes 400 ms to exit after SIGTERM.
 import { appendFileSync } from 'node:fs';
 
 const site = {
@@ -18,6 +19,9 @@ const site = {
 if ( process.argv.includes( '_events' ) && process.send ) {
 	if ( process.env.FAKE_CLI_PID_FILE ) {
 		appendFileSync( process.env.FAKE_CLI_PID_FILE, `${ process.pid }\n` );
+	}
+	if ( process.env.FAKE_CLI_SLOW_EXIT ) {
+		process.on( 'SIGTERM', () => setTimeout( () => process.exit( 0 ), 400 ) );
 	}
 	setInterval( () => {
 		process.send( {

@@ -138,9 +138,7 @@ export function PublishButton( {
 	} >( undefined );
 	const [ preparing, setPreparing ] = useState< 'checkout' | 'create' | 'confirm' >();
 	const publishingNewSite = preparing === 'create' || preparing === 'confirm';
-	const changingDestination = contentView.kind === 'setup' && !! contentView.replacing;
-	const addingDestination =
-		contentView.kind === 'setup' && !! contentView.returnTo && ! changingDestination;
+	const addingDestination = contentView.kind === 'setup' && !! contentView.returnTo;
 	const selected =
 		! publishingNewSite && ( contentView.kind === 'details' || ! open )
 			? targets.selected
@@ -371,11 +369,7 @@ export function PublishButton( {
 				? { kind: 'chooser', focusKey: 'add-destination' }
 				: contentView.returnTo,
 			'back',
-			() =>
-				( contentView.replacing
-					? targetActionsTrigger.current
-					: addDestinationTrigger.current
-				)?.focus()
+			() => addDestinationTrigger.current?.focus()
 		);
 		setPublicPreviewKey( undefined );
 		setRequestedVisibility( undefined );
@@ -501,7 +495,6 @@ export function PublishButton( {
 		( selected ? !! previewLaunchUrl : !! publicDescriptor.previews );
 	const previewAccessKey = selected?.key ?? emptyDestination;
 	const previewPublicSelected = showPreviewAccess && publicPreviewKey === previewAccessKey;
-	const checkoutIsPrimary = previewPublicSelected || changingDestination;
 	const wpcomSite = selected?.provider === 'wpcom' ? ( remote as SyncSite | undefined ) : undefined;
 	const paidSite =
 		wpcomSite?.hasPaidPlan === true && ! wpcomSite.isPressable ? wpcomSite : undefined;
@@ -754,8 +747,7 @@ export function PublishButton( {
 			  activity.direction === 'push' &&
 			  activity.provider === selected?.provider &&
 			  activity.remoteSiteId === remote.id );
-	const canConnectExistingSite =
-		( ! hasLiveSite || changingDestination ) && connectedProviders.length > 0;
+	const canConnectExistingSite = ! hasLiveSite && connectedProviders.length > 0;
 
 	const previewPullIssue =
 		targets.previewAccountSite && descriptor?.issue( targets.previewAccountSite, 'pull' );
@@ -769,7 +761,7 @@ export function PublishButton( {
 	);
 	const comparison = preview.status.isSuccess ? preview.status.data : undefined;
 	const previewMayHaveChanges = comparison?.previewChanged !== false;
-	const showPreviewPull = canPullPreview && previewMayHaveChanges && ! checkoutIsPrimary;
+	const showPreviewPull = canPullPreview && previewMayHaveChanges && ! previewPublicSelected;
 	const pushIssue = remote && descriptor?.issue( remote, 'push' );
 	const showLivePullAction = canPullLiveTarget( selected );
 	const pullIsPrimary = showLivePullAction && !! pushIssue;
@@ -877,7 +869,7 @@ export function PublishButton( {
 				</Button>
 			);
 		}
-		if ( checkoutIsPrimary ) {
+		if ( previewPublicSelected ) {
 			return (
 				<Button
 					variant="accent"
@@ -958,13 +950,6 @@ export function PublishButton( {
 	};
 	const publishContent = (
 		<>
-			{ changingDestination && (
-				<p>
-					{ __(
-						'Your current site stays online. Studio will disconnect it when the new destination is ready.'
-					) }
-				</p>
-			) }
 			<div className={ styles.publishRows }>
 				{ ! selected && (
 					<ProviderPicker
@@ -1016,18 +1001,6 @@ export function PublishButton( {
 									canPullPreview && ! showPreviewPull ? () => openPreviewPull( true ) : undefined
 								}
 								onDeletePreview={ deletePreview }
-								onChangeDestination={
-									connectedProviders.length > 0
-										? () => {
-												chooseProvider( selected.provider );
-												if ( contentView.kind === 'details' )
-													navigate(
-														{ kind: 'setup', replacing: true, returnTo: contentView },
-														'forward'
-													);
-										  }
-										: undefined
-								}
 								onDisconnect={ () => {
 									close();
 									setRemoveTarget( selected );
@@ -1218,7 +1191,7 @@ export function PublishButton( {
 				role="group"
 				aria-label={ remote ? __( 'Published site actions' ) : __( 'Preview actions' ) }
 			>
-				{ ! addingDestination && ! checkoutIsPrimary && launchButton }
+				{ ! addingDestination && ! previewPublicSelected && launchButton }
 				{ showLivePullAction && ! pullingSelected && (
 					<Button
 						ref={ pullButton }

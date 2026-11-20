@@ -1900,13 +1900,7 @@ it.each( [ false, true, null ] )(
 			within( menu )
 				.getAllByRole( 'menuitem' )
 				.map( ( item ) => item.textContent?.trim() )
-		).toEqual( [
-			'Copy link',
-			'Manage domains',
-			'View backups',
-			'Change destination…',
-			'Disconnect site…',
-		] );
+		).toEqual( [ 'Copy link', 'Manage domains', 'View backups', 'Disconnect site…' ] );
 		await actions.keyboard( '{Escape}' );
 		const openSite = screen.getByRole( 'link', { name: 'Open actual.blog' } );
 		expect( within( openSite ).getByText( 'actual.blog', { exact: true } ) ).toBeVisible();

@@ -11,7 +11,7 @@ type DetailsView = {
 };
 type ShareDestinationView = ChooserView | DetailsView;
 
-type SetupView = { kind: 'setup'; returnTo?: ShareDestinationView; replacing?: boolean };
+type SetupView = { kind: 'setup'; returnTo?: ShareDestinationView };
 type ShareContentView = ShareDestinationView | SetupView;
 
 export type ShareView =
@@ -24,7 +24,6 @@ export function getShareViewTitle( view: ShareView, selected?: PublishTarget ): 
 		case 'entry':
 			return __( 'Publish' );
 		case 'setup':
-			if ( view.replacing ) return __( 'Change destination' );
 			return view.returnTo ? __( 'Publish somewhere else' ) : __( 'Publish' );
 		case 'chooser':
 			return __( 'Choose a site' );

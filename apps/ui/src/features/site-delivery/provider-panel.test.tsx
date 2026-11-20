@@ -526,13 +526,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [
-		'Copy link',
-		'Manage domains',
-		'View backups',
-		'Change destination…',
-		'Disconnect site…',
-	] );
+	).toEqual( [ 'Copy link', 'Manage domains', 'View backups', 'Disconnect site…' ] );
 	await user.keyboard( '{Escape}' );
 	await user.click( screen.getByRole( 'button', { name: 'Pull from live site…' } ) );
 	const confirmation = await screen.findByRole( 'alertdialog', {
@@ -568,13 +562,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		within( spacefastMenu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [
-		'Copy link',
-		'Open on Spacefast',
-		'Versions',
-		'Change destination…',
-		'Disconnect site…',
-	] );
+	).toEqual( [ 'Copy link', 'Open on Spacefast', 'Versions', 'Disconnect site…' ] );
 	await user.click(
 		within( spacefastMenu ).getByRole( 'menuitem', { name: 'Open on Spacefast' } )
 	);
@@ -599,7 +587,9 @@ it( 'navigates between a connected site and its preview without starting an oper
 	expect( within( panel ).getAllByText( 'lente.blog', { exact: true } ) ).toHaveLength( 1 );
 	await user.click( within( panel ).getByRole( 'button', { name: live.name } ) );
 	const menu = await openSiteActions( user );
-	expect( within( menu ).getByRole( 'menuitem', { name: 'Change destination…' } ) ).toBeEnabled();
+	expect(
+		within( menu ).queryByRole( 'menuitem', { name: 'Change destination…' } )
+	).not.toBeInTheDocument();
 	expect( within( menu ).queryByRole( 'menuitem', { name: 'Switch to' } ) ).not.toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
 	await selectPreview( user, 'Preview 1' );
@@ -631,13 +621,7 @@ it( 'shows a site actions menu for a single connected site', async () => {
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [
-		'Copy link',
-		'Open on Spacefast',
-		'Versions',
-		'Change destination…',
-		'Disconnect site…',
-	] );
+	).toEqual( [ 'Copy link', 'Open on Spacefast', 'Versions', 'Disconnect site…' ] );
 	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Versions' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		'https://my.spacefast.com/studio/lente/versions'
@@ -2626,18 +2610,19 @@ it( 'keeps available sites selectable when another provider cannot load', async 
 	expect( dialog.getByRole( 'button', { name: /Live.*lente.blog/ } ) ).toBeEnabled();
 } );
 
-it( 'opens a replacement destination without disconnecting the current site', async () => {
+it( 'offers publishing somewhere else without disconnecting the current site', async () => {
 	const { user, connector } = setup( {
 		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
 		getSnapshots: async () => [],
 	} );
 	await openFirstDestination();
 	const actions = await openSiteActions( user );
-	await user.click( within( actions ).getByRole( 'menuitem', { name: 'Change destination…' } ) );
-	expect( screen.getByText( /Your current site stays online/ ) ).toBeVisible();
-	expect( screen.getByRole( 'combobox', { name: 'Destination' } ) ).toBeVisible();
-	await openExistingSitePicker( user );
-	expect( await screen.findByRole( 'dialog', { name: 'Choose an existing site' } ) ).toBeVisible();
+	expect(
+		within( actions ).queryByRole( 'menuitem', { name: 'Change destination…' } )
+	).not.toBeInTheDocument();
+	await user.keyboard( '{Escape}' );
+	await user.click( screen.getByRole( 'button', { name: 'Publish somewhere else' } ) );
+	expect( await screen.findByRole( 'combobox', { name: 'Destination' } ) ).toBeVisible();
 	expect( connector.disconnectRemoteSite ).not.toHaveBeenCalled();
 	expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
 } );
@@ -2943,11 +2928,6 @@ it( 'keeps headings tied to the view when navigating and switching creation prov
 	await user.keyboard( '{Escape}' );
 	await waitFor( () => expect( panel ).toHaveAccessibleName( 'Choose a site' ) );
 	await user.click( getDestinationRow( panel, live.url.replace( 'https://', '' ) ) );
-	expect( panel ).toHaveAccessibleName( 'Publish' );
-	await openSiteActions( user );
-	await user.click( screen.getByRole( 'menuitem', { name: 'Change destination…' } ) );
-	expect( panel ).toHaveAccessibleName( 'Change destination' );
-	await user.click( within( panel ).getByRole( 'button', { name: 'Back' } ) );
 	expect( panel ).toHaveAccessibleName( 'Publish' );
 } );
 

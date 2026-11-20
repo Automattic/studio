@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
@@ -36,6 +36,7 @@ function SignInCode( { code }: { code: string } ) {
 
 export function SpacefastConnectDialog( {
 	open,
+	autoOpen = false,
 	pending,
 	isPending,
 	error,
@@ -44,6 +45,7 @@ export function SpacefastConnectDialog( {
 	onClose,
 }: {
 	open: boolean;
+	autoOpen?: boolean;
 	pending: PendingConnect | null;
 	isPending: boolean;
 	error?: string;
@@ -54,9 +56,32 @@ export function SpacefastConnectDialog( {
 	const connector = useConnector();
 	const offline = useOffline();
 	const [ opened, setOpened ] = useState< PendingConnect | null >( null );
+	const attempted = useRef< PendingConnect | null >( null );
 	const code = pending?.code;
 	const url = pending?.url;
 	const waiting = !! pending && pending === opened;
+	const openSpacefast = useCallback(
+		( attempt: PendingConnect ) => {
+			void connector
+				.openExternalUrl( attempt.url )
+				.then( () => setOpened( attempt ) )
+				.catch( ( openError ) => {
+					toast.error( __( 'Could not open Spacefast' ), {
+						description: errorMessage( openError ),
+					} );
+				} );
+		},
+		[ connector ]
+	);
+	useEffect( () => {
+		if ( ! open || ! pending ) {
+			attempted.current = null;
+			return;
+		}
+		if ( ! autoOpen || offline || attempted.current === pending ) return;
+		attempted.current = pending;
+		openSpacefast( pending );
+	}, [ open, autoOpen, pending, offline, openSpacefast ] );
 
 	return (
 		<Dialog open={ open } onOpenChange={ ( isOpen ) => ! isOpen && onClose() }>
@@ -74,9 +99,11 @@ export function SpacefastConnectDialog( {
 					{ url ? (
 						<DialogDescription>
 							{ code
-								? __(
-										'Open Spacefast in your browser. Make sure the codes match, then approve the connection.'
-								  )
+								? autoOpen
+									? __( 'Make sure the codes match in your browser, then approve the connection.' )
+									: __(
+											'Open Spacefast in your browser. Make sure the codes match, then approve the connection.'
+									  )
 								: __( 'Approve the connection in your browser.' ) }
 						</DialogDescription>
 					) : null }
@@ -108,16 +135,7 @@ export function SpacefastConnectDialog( {
 								<Button
 									variant="accent"
 									disabled={ offline }
-									onClick={ () => {
-										void connector
-											.openExternalUrl( url )
-											.then( () => setOpened( pending ) )
-											.catch( ( error ) => {
-												toast.error( __( 'Could not open Spacefast' ), {
-													description: errorMessage( error ),
-												} );
-											} );
-									} }
+									onClick={ () => pending && openSpacefast( pending ) }
 								>
 									{ __( 'Open Spacefast' ) }
 									<ExternalLinkIcon data-icon="inline-end" />

@@ -441,6 +441,45 @@ describe( 'Studio workspace', () => {
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 
+	it.each( [ 'Chat', 'Split view' ] as const )(
+		'opens Publish from the site menu without changing the %s layout',
+		async ( layout ) => {
+			const { connector } = setup( {
+				path: '/sites/one/new',
+				sites: [ site( { running: true } ) ],
+			} );
+			await chooseWorkspaceLayout( layout );
+			await findLayoutControl( layout === 'Chat' ? 'chat' : 'split' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+			expect( await screen.findByRole( 'dialog', { name: 'Publish' } ) ).toBeVisible();
+			expect( getLayoutControl( layout === 'Chat' ? 'chat' : 'split' ) ).toBeVisible();
+			expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'opens Publish for another site without reopening its hidden preview', async () => {
+		const { history } = setup( {
+			path: '/sites/one/new',
+			sites: [
+				site( { running: true } ),
+				site( { id: 'two', name: 'Other site', running: true } ),
+			],
+		} );
+		await findComposer();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		await chooseWorkspaceLayout( 'Chat' );
+		await findLayoutControl( 'chat' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'Other site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		expect( await screen.findByRole( 'dialog', { name: 'Publish' } ) ).toBeVisible();
+		expect( getLayoutControl( 'chat' ) ).toBeVisible();
+	} );
+
 	it( 'keeps an established header during a background site refresh', async () => {
 		const { connector, queryClient } = setup( { sites: [ site( { running: true } ) ] } );
 		const share = await screen.findByRole( 'button', { name: 'Publish…' } );

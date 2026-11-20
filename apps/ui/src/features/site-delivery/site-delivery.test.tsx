@@ -590,7 +590,7 @@ it( 'creates another preview without replacing the existing preview and copies i
 	expect( within( panel ).queryByRole( 'heading', { name: 'Previews' } ) ).not.toBeInTheDocument();
 	await actions.click( screen.getByRole( 'button', { name: 'Publish somewhere else' } ) );
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-	await actions.click( await screen.findByRole( 'button', { name: 'Create another preview' } ) );
+	await actions.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 	await waitFor( () =>
 		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
 			snapshot.localSiteId,
@@ -649,7 +649,7 @@ it.each( [ false, true ] )(
 		const trigger = await screen.findByRole( 'button', { name: /^Publish…$/ } );
 		await actions.click( trigger );
 		await actions.click( await screen.findByRole( 'button', { name: 'Publish somewhere else' } ) );
-		const create = await screen.findByRole( 'button', { name: 'Create another preview' } );
+		const create = await screen.findByRole( 'button', { name: 'Create preview' } );
 		if ( blocked ) {
 			expect( create ).toBeDisabled();
 		} else {

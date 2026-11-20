@@ -10,7 +10,7 @@ import {
 } from '@studio/providers';
 import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector, type SiteDetails, type Snapshot, SyncSite } from '@/data/core';
 import { useAiSettings, useSpacefastConnection } from '@/data/queries/use-ai-settings';
@@ -164,7 +164,7 @@ export function PublishButton( {
 	const publishingNewSite = preparing === 'create' || preparing === 'confirm';
 	const addingDestination = contentView.kind === 'setup' && !! contentView.returnTo;
 	const selected =
-		! publishingNewSite && ( contentView.kind === 'details' || ! open )
+		! publishingNewSite && ( contentView.kind === 'details' || ( ! open && view.kind === 'entry' ) )
 			? targets.selected
 			: undefined;
 	const hasLiveSite = targets.siteTargets.length > 0;
@@ -172,7 +172,7 @@ export function PublishButton( {
 	const remote = selected?.remote;
 	const descriptor = selected ? getProviderSites( selected.provider ) : undefined;
 	const targetsUnavailable = targets.previewsUnavailable || targets.unavailableProviders.length > 0;
-	useEffect( () => {
+	useLayoutEffect( () => {
 		if ( ! open || ! accountsReady || targets.loadingTargets ) return;
 		if ( view.kind === 'entry' ) {
 			const request = view.target;
@@ -263,7 +263,7 @@ export function PublishButton( {
 	const [ publicPreviewKey, setPublicPreviewKey ] = useState< string >();
 	const defaultProvider = preferences?.defaultHostingProvider;
 	const emptyDestination =
-		( publishProvider && connectedProviders.includes( publishProvider )
+		( publishProvider && targets.providers.includes( publishProvider )
 			? publishProvider
 			: undefined ) ??
 		( defaultProvider && connectedProviders.includes( defaultProvider )
@@ -462,6 +462,13 @@ export function PublishButton( {
 		activity?.kind === 'pending';
 	const disabled = pending || offline || busy || ( ! selected && connection.loading );
 	const selectedSignedOut = !! selected && ! connectedProviders.includes( selected.provider );
+	const resetClosedOptions = () => {
+		setPublicPreviewKey( undefined );
+		if ( ! publishingNewSite ) {
+			setRequestedVisibility( undefined );
+			if ( selected ) setPublishProvider( undefined );
+		}
+	};
 	const requestHandler = useRef(
 		( _request: {
 			provider?: SitesProviderId;
@@ -471,6 +478,7 @@ export function PublishButton( {
 	);
 	useEffect( () => {
 		requestHandler.current = ( request ) => {
+			if ( ! open ) resetClosedOptions();
 			if ( request.view === 'pull' ) transferOrigin.current = 'trigger';
 			setPullRequest( request.view === 'pull' ? request : undefined );
 			if ( ! creatingPreview && ! publishingNewSite )
@@ -500,9 +508,7 @@ export function PublishButton( {
 		};
 	}, [ site.id ] );
 	const canRequestPreview = preview.canCreate || preview.limitReached;
-	const createPreviewLabel = targets.targets.some( ( target ) => target.snapshot )
-		? __( 'Create another preview' )
-		: __( 'Create preview' );
+	const createPreviewLabel = __( 'Create preview' );
 	const previewOverwrite = preview.overwrite;
 	const selectCreatedPreview = targets.selectPreview;
 	const resetPreviewCreation = preview.resetCreation;
@@ -536,6 +542,7 @@ export function PublishButton( {
 		selected?.provider === 'spacefast' && domainSettingsUrl
 			? `${ domainSettingsUrl }/add`
 			: undefined;
+	const spacefastSecondaryUrl = spacefastAddDomainUrl ?? getProvider( 'spacefast' ).learnMoreUrl;
 	const publicDestination = snapshot ? selected!.provider : emptyDestination;
 	const publicDescriptor = getProviderSites( publicDestination );
 	const publicProviderLabel = getProvider( publicDestination ).label;
@@ -579,15 +586,9 @@ export function PublishButton( {
 	const close = () => {
 		pendingSignIn.current = undefined;
 		storePendingSignIn();
-		if ( ! creatingPreview && ! publishingNewSite ) setView( { kind: 'entry' } );
 		preview.cancelOverwrite();
 		setOpen( false );
 		setPullRequest( undefined );
-		setPublicPreviewKey( undefined );
-		if ( ! publishingNewSite ) {
-			setRequestedVisibility( undefined );
-			if ( selected ) setPublishProvider( undefined );
-		}
 	};
 	const select = ( target: PublishTarget ) => {
 		if ( contentView.kind !== 'chooser' && contentView.kind !== 'details' ) return;
@@ -745,6 +746,11 @@ export function PublishButton( {
 		setFailure( undefined );
 		setPublishProvider( provider );
 	};
+	const chooseDestination = ( provider: SitesProviderId ) => {
+		pendingSignIn.current = undefined;
+		storePendingSignIn();
+		chooseProvider( provider );
+	};
 	const restoreDestinationFocus = () => {
 		requestAnimationFrame(
 			() => ( destinationTrigger.current ?? backButton.current ?? trigger.current )?.focus()
@@ -758,6 +764,7 @@ export function PublishButton( {
 		restoreDestinationFocus();
 	} );
 	const wpcomLogin = useLogin( {
+		signup: true,
 		source: 'previews_tab',
 		analytics: { placement: 'share', intent: 'share' },
 		scope: site.id,
@@ -925,18 +932,22 @@ export function PublishButton( {
 				</Button>
 			);
 		}
-		if ( selected && selectedSignedOut ) {
+		if ( ! connectedProviders.includes( destinationProvider ) ) {
 			return (
 				<Button
 					variant="accent"
 					disabled={ disabled }
-					onClick={ () => selectProvider( selected.provider ) }
+					onClick={ () => selectProvider( destinationProvider ) }
 				>
-					{ sprintf(
-						/* translators: %s: hosting provider name. */
-						__( 'Connect to %s' ),
-						getProvider( selected.provider ).label
-					) }
+					{ selected || ! emptyDescriptor.previews
+						? sprintf(
+								/* translators: %s: hosting provider name. */
+								__( 'Connect to %s' ),
+								getProvider( destinationProvider ).label
+						  )
+						: previewPublicSelected
+						? __( 'Connect to publish' )
+						: __( 'Connect to share previews' ) }
 				</Button>
 			);
 		}
@@ -1018,14 +1029,8 @@ export function PublishButton( {
 		return (
 			<Button
 				variant="accent"
-				disabled={
-					( ! canRequestPreview && ! preview.signedOut ) || disabled || connectionUnavailable
-				}
-				onClick={ () => {
-					if ( preview.signedOut ) {
-						selectProvider( 'wpcom' );
-					} else newPreview();
-				} }
+				disabled={ ! canRequestPreview || disabled || connectionUnavailable }
+				onClick={ () => newPreview() }
 			>
 				{ createPreviewLabel }
 			</Button>
@@ -1040,7 +1045,7 @@ export function PublishButton( {
 						selectedProvider={ emptyDestination }
 						providers={ targets.providers }
 						onConnectExistingSite={ showExistingSite }
-						onSelect={ selectProvider }
+						onSelect={ chooseDestination }
 						disabled={ disabled }
 					/>
 				) }
@@ -1144,9 +1149,11 @@ export function PublishButton( {
 				) }
 				{ showCreationAccess && emptyDescriptor.visibilityOptions && (
 					<SiteCreationAccessControl
-						value={ creationVisibility }
+						value={
+							connectedProviders.includes( emptyDestination ) ? creationVisibility : 'private'
+						}
 						policy={ creationPolicy.data }
-						loading={ creationPolicy.isPending }
+						loading={ creationPolicy.isFetching }
 						disabled={ disabled || creationAccessUnavailable }
 						getOptions={ emptyDescriptor.visibilityOptions }
 						onChange={ setRequestedVisibility }
@@ -1293,19 +1300,13 @@ export function PublishButton( {
 						{ __( 'Pull from live site…' ) }
 					</Button>
 				) }
-				{ ! addingDestination && destinationProvider === 'spacefast' && (
+				{ ! addingDestination && destinationProvider === 'spacefast' && spacefastSecondaryUrl && (
 					<Button
 						variant="outline"
-						disabled={ ! spacefastAddDomainUrl }
-						aria-description={
-							! spacefastAddDomainUrl ? __( 'Publish your site to add a domain.' ) : undefined
-						}
-						onClick={ () => {
-							if ( spacefastAddDomainUrl ) void connector.openExternalUrl( spacefastAddDomainUrl );
-						} }
+						onClick={ () => void connector.openExternalUrl( spacefastSecondaryUrl ) }
 					>
-						<GlobeIcon data-icon="inline-start" />
-						{ __( 'Add a domain' ) }
+						{ spacefastAddDomainUrl && <GlobeIcon data-icon="inline-start" /> }
+						{ spacefastAddDomainUrl ? __( 'Add a domain' ) : __( 'Learn about Spacefast' ) }
 						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				) }
@@ -1313,7 +1314,7 @@ export function PublishButton( {
 			</div>
 			{ remote?.lastPushTimestamp && <PublishedTime timestamp={ remote.lastPushTimestamp } /> }
 			{ snapshot && (
-				<p className={ styles.footerNote }>
+				<p className={ styles.previewExpiry }>
 					<Popover.Root>
 						<Popover.Trigger
 							openOnHover
@@ -1329,6 +1330,7 @@ export function PublishButton( {
 						</Popover.Trigger>
 						<Popover.Popup
 							variant="tooltip"
+							className={ styles.previewExpiryPopover }
 							side="top"
 							align="center"
 							sideOffset={ 2 }
@@ -1416,11 +1418,17 @@ export function PublishButton( {
 					}
 					setOpen( next );
 					if ( next ) {
+						if ( ! open ) resetClosedOptions();
 						if ( ! creatingPreview && ! publishingNewSite ) setView( { kind: 'entry' } );
 						targets.refresh();
 						if ( remote && ! selectedSignedOut && descriptor?.visibility?.( remote ) )
 							void visibility.query.refetch();
 					} else close();
+				} }
+				onOpenChangeComplete={ ( next ) => {
+					if ( next || open ) return;
+					if ( ! creatingPreview && ! publishingNewSite ) setView( { kind: 'entry' } );
+					resetClosedOptions();
 				} }
 			>
 				<Tooltip>
@@ -1574,6 +1582,7 @@ export function PublishButton( {
 			</Popover.Root>
 			<SpacefastConnectDialog
 				open={ showingSpacefast }
+				autoOpen
 				pending={ spacefast.pending }
 				isPending={ spacefast.isPending }
 				error={ spacefast.error?.message }

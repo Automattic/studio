@@ -117,19 +117,16 @@
 	transition: background-color var( --motion-duration-feedback ) ease;
 }
 
-.siteAddressRow:not( [aria-disabled='true'] ):is(
-		:hover,
-		:has( :focus-visible, [aria-expanded='true'] )
-	) {
+.siteAddressRow:not( [aria-disabled='true'] ):has( > a:is( :hover, :focus-visible ) ) {
 	background-color: var( --hover );
 }
 
-.siteAddressRow > :is( a, button ) {
+.siteAddressRow > a {
 	--button-hover-background: transparent;
 }
 
 .siteAddressRow > button {
-	block-size: 100%;
+	align-self: center;
 }
 
 .publishRows :is( .accessTrigger, .destinationRowControl ) {
@@ -410,6 +407,16 @@
 	font-size: var( --text-xxs );
 	line-height: var( --text-xxs--line-height );
 	color: var( --muted-foreground );
+}
+
+.previewExpiry {
+	composes: footerNote;
+	margin-block-start: var( --space-3 );
+	margin-block-end: var( --space-2 );
+}
+
+.previewExpiryPopover {
+	padding: var( --space-4 );
 }
 
 .previewExpiryLink,

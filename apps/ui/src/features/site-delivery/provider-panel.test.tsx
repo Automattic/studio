@@ -696,7 +696,7 @@ it( 'reviews the destination and access before creating a new preview', async ()
 	).not.toBeInTheDocument();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
-	await user.click( within( creation ).getByRole( 'button', { name: 'Create another preview' } ) );
+	await user.click( within( creation ).getByRole( 'button', { name: 'Create preview' } ) );
 	await waitFor( () =>
 		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
 			site.id,
@@ -788,7 +788,7 @@ it( 'places Publish somewhere else below the details of a sole preview and resto
 	expect( add.parentElement?.lastElementChild ).toBe( add );
 	expect( within( panel ).queryByText( 'New preview' ) ).not.toBeInTheDocument();
 	expect(
-		within( panel ).queryByRole( 'button', { name: 'Create another preview' } )
+		within( panel ).queryByRole( 'button', { name: 'Create preview' } )
 	).not.toBeInTheDocument();
 	const addressRow = within( panel ).getByRole( 'group', { name: 'Preview: Preview 1' } );
 	expect( within( addressRow ).getByRole( 'link' ) ).toHaveAttribute( 'href', preview.shareUrl );
@@ -800,7 +800,7 @@ it( 'places Publish somewhere else below the details of a sole preview and resto
 	await user.keyboard( '{Escape}' );
 
 	await user.click( add );
-	expect( within( panel ).getByRole( 'button', { name: 'Create another preview' } ) ).toBeEnabled();
+	expect( within( panel ).getByRole( 'button', { name: 'Create preview' } ) ).toBeEnabled();
 	await openExistingSitePicker( user );
 	await user.keyboard( '{Escape}' );
 	expect( within( panel ).getByRole( 'combobox', { name: 'Destination' } ) ).toHaveFocus();
@@ -827,7 +827,7 @@ it( 'opens the connected WordPress.com site domains without creating another sit
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 
-it( 'keeps the Spacefast domain action visible until a site exists', async () => {
+it( 'offers information about Spacefast until a site exists', async () => {
 	const { user, connector } = setup( {
 		getSnapshots: async () => [],
 		getRemoteSites: async () => [],
@@ -835,14 +835,12 @@ it( 'keeps the Spacefast domain action visible until a site exists', async () =>
 	const panel = await openFirstDestination();
 	await user.click( within( panel ).getByRole( 'combobox', { name: 'Destination' } ) );
 	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
-	const domain = within( panel ).getByRole( 'button', { name: 'Add a domain' } );
-	expect( domain ).toBeDisabled();
-	expect( domain ).toHaveAccessibleDescription( 'Publish your site to add a domain.' );
+	const learnMore = within( panel ).getByRole( 'button', { name: 'Learn about Spacefast' } );
 	expect(
 		within( panel ).queryByRole( 'button', { name: 'Launch on WordPress.com' } )
 	).not.toBeInTheDocument();
-	await user.click( domain );
-	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	await user.click( learnMore );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith( 'https://spacefast.com' );
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 } );
 
@@ -1055,7 +1053,7 @@ it( 'keeps the previews step open while adding a preview', async () => {
 	const panel = await openFirstDestination();
 	const menu = await openDestinations();
 	await user.click( within( menu ).getByRole( 'button', { name: 'Publish somewhere else' } ) );
-	await user.click( await screen.findByRole( 'button', { name: 'Create another preview' } ) );
+	await user.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 	expect( await within( menu ).findByRole( 'button', { name: /Creating preview/ } ) ).toBeVisible();
 	expect( panel ).toBeVisible();
 	expect( panel ).toBe( menu );
@@ -1426,7 +1424,7 @@ it( 'shows WordPress.com publishing controls before connecting and returns after
 		'false'
 	);
 	await user.keyboard( '{Escape}' );
-	await user.click( within( panel ).getByRole( 'button', { name: 'Create preview' } ) );
+	await user.click( within( panel ).getByRole( 'button', { name: 'Connect to share previews' } ) );
 	await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
 	expect( history.location.search ).not.toContain( 'settings=providers' );
 	expect( destination ).toHaveAccessibleDescription( 'WordPress.com' );
@@ -1440,6 +1438,9 @@ it( 'shows WordPress.com publishing controls before connecting and returns after
 	expect(
 		await within( panel ).findByRole( 'button', { name: 'Continue on WordPress.com' } )
 	).toBeVisible();
+	await user.click( within( panel ).getByRole( 'combobox', { name: 'Who can view' } ) );
+	await user.click( await screen.findByRole( 'option', { name: 'Anyone with the link' } ) );
+	expect( within( panel ).getByRole( 'button', { name: 'Create preview' } ) ).toBeVisible();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 	expect( connector.pushSite ).not.toHaveBeenCalled();
@@ -1523,7 +1524,7 @@ it( 'restores the access choice after a web sign-in redirects back to Publish', 
 	await openShare();
 	await first.user.click( screen.getByRole( 'combobox', { name: 'Who can view' } ) );
 	await first.user.click( await screen.findByRole( 'option', { name: 'Everyone' } ) );
-	await first.user.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
+	await first.user.click( screen.getByRole( 'button', { name: 'Connect to publish' } ) );
 	const handoff = sessionStorage.getItem( 'studio-publish-sign-in' );
 	expect( handoff ).not.toBeNull();
 	first.unmount();
@@ -1555,8 +1556,7 @@ it( 'does not reopen Publish when a pending sign-in was dismissed', async () => 
 		getSnapshots: async () => [],
 	} );
 	await openShare();
-	await user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
-	await user.click( await screen.findByRole( 'option', { name: 'WordPress.com' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Connect to share previews' } ) );
 	await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
 	await user.keyboard( '{Escape}' );
 	await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
@@ -1622,9 +1622,11 @@ it( 'offers WordPress.com directly when Spacefast is the only connected destinat
 	);
 	expect( screen.getAllByRole( 'option', { selected: true } ) ).toHaveLength( 1 );
 	await user.click( screen.getByRole( 'option', { name: 'WordPress.com' } ) );
+	expect( connector.authenticate ).not.toHaveBeenCalled();
+	await user.click( screen.getByRole( 'button', { name: 'Connect to share previews' } ) );
 	await waitFor( () =>
 		expect( connector.authenticate ).toHaveBeenCalledWith(
-			false,
+			true,
 			'previews_tab',
 			expect.objectContaining( { placement: 'share', intent: 'share' } )
 		)
@@ -1659,19 +1661,37 @@ it( 'connects Spacefast from the destination picker and returns to publishing', 
 	await user.click( within( panel ).getByRole( 'combobox', { name: 'Destination' } ) );
 	expect( screen.queryByRole( 'option', { name: 'Add more providers' } ) ).not.toBeInTheDocument();
 	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	expect( connector.startProviderConnect ).not.toHaveBeenCalled();
+	expect(
+		within( panel ).getByRole( 'combobox', { name: 'Who can view' } )
+	).toHaveAccessibleDescription( 'Restricted' );
+	expect( within( panel ).getByRole( 'combobox', { name: 'Who can view' } ) ).toBeDisabled();
+	await user.click(
+		await within( panel ).findByRole( 'button', { name: 'Connect to Spacefast' } )
+	);
 	let dialog = await screen.findByRole( 'dialog', { name: 'Connect to Spacefast' } );
 	expect( await within( dialog ).findByText( signIn.code ) ).toBeVisible();
+	expect(
+		within( dialog ).getByText(
+			'Make sure the codes match in your browser, then approve the connection.'
+		)
+	).toBeVisible();
 	expect( screen.queryByRole( 'dialog', { name: 'Publish' } ) ).not.toBeInTheDocument();
-	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	await waitFor( () =>
+		expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith( signIn.url )
+	);
+	expect( await within( dialog ).findByText( 'Waiting for approval…' ) ).toBeVisible();
 
 	await user.click( within( dialog ).getByRole( 'button', { name: 'Close' } ) );
 	const destination = await screen.findByRole( 'combobox', { name: 'Destination' } );
 	await waitFor( () => expect( destination ).toHaveFocus() );
-	expect( destination ).toHaveAccessibleDescription( 'WordPress.com' );
-	await user.click( destination );
-	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	expect( destination ).toHaveAccessibleDescription( 'Spacefast' );
+	await user.click( screen.getByRole( 'button', { name: 'Connect to Spacefast' } ) );
 	dialog = await screen.findByRole( 'dialog', { name: 'Connect to Spacefast' } );
 	expect( await within( dialog ).findByText( signIn.code ) ).toBeVisible();
+	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 2 ) );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Open Spacefast' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 3 );
 	expect( connector.startProviderConnect ).toHaveBeenCalledTimes( 1 );
 	await act( async () => approve() );
 	const selected = await screen.findByRole( 'combobox', { name: 'Destination' } );
@@ -1718,6 +1738,35 @@ it( 'returns to existing sites after connecting Spacefast', async () => {
 	);
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it( 'does not open Spacefast if its connection dialog is closed before the link is ready', async () => {
+	const { connector, user } = setup( {
+		getAuthUser: async () => null,
+		getAiSettings: async () => aiSettings( 'wpcom', [] ),
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+	} );
+	let finishStart!: ( value: {
+		url: string;
+		code: string;
+		handoff: Record< string, string >;
+	} ) => void;
+	connector.startProviderConnect.mockReturnValue(
+		new Promise( ( resolve ) => ( finishStart = resolve ) )
+	);
+	connector.connectProvider.mockReturnValue( new Promise( () => {} ) );
+	await openShare();
+	await user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
+	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Connect to Spacefast' } ) );
+	const dialog = await screen.findByRole( 'dialog', { name: 'Connect to Spacefast' } );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Close' } ) );
+	await act( async () =>
+		finishStart( { url: 'https://auth.example.test/spacefast', code: 'ABCD', handoff: {} } )
+	);
+	await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalledOnce() );
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 } );
 
 it( 'keeps first publish steady through creation and upload', async () => {
@@ -2212,6 +2261,9 @@ it( 'offers existing sites in Destination and returns keyboard focus there', asy
 	expect( choices.getAllByRole( 'option' )[ 2 ] ).toHaveAccessibleName(
 		'Connect to an existing site'
 	);
+	expect( choices.getAllByRole( 'option' )[ 2 ] ).toHaveAccessibleDescription(
+		'Publish to a site you already have.'
+	);
 	expect( choices.queryByRole( 'option', { name: 'Add more providers' } ) ).not.toBeInTheDocument();
 	await waitFor( () => expect( wordpress ).toHaveFocus() );
 	await user.keyboard( '{End}{Enter}' );
@@ -2371,14 +2423,14 @@ it( 'chooses a live site before creating a preview when several sites qualify', 
 	await openFirstDestination();
 	await openDestinations();
 	await user.click( await screen.findByRole( 'button', { name: 'Publish somewhere else' } ) );
-	await user.click( await screen.findByRole( 'button', { name: 'Create another preview' } ) );
+	await user.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 	const dialog = await screen.findByRole( 'dialog', { name: 'Live site' } );
 	const select = within( dialog ).getByRole( 'combobox', { name: 'Live site' } );
 	expect( select ).toHaveTextContent( 'None' );
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	await user.click( select );
 	await user.click( await screen.findByRole( 'option', { name: 'Another live site other.blog' } ) );
-	await user.click( within( dialog ).getByRole( 'button', { name: 'Create another preview' } ) );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Create preview' } ) );
 	await waitFor( () =>
 		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
 			site.id,
@@ -2683,7 +2735,7 @@ it( 'keeps creation setup steady and disables navigation while creating a previe
 	} );
 	await openShare();
 	await user.click( screen.getByRole( 'button', { name: 'Publish somewhere else' } ) );
-	await user.click( await screen.findByRole( 'button', { name: 'Create another preview' } ) );
+	await user.click( await screen.findByRole( 'button', { name: 'Create preview' } ) );
 	expect( await screen.findByRole( 'button', { name: 'Creating preview' } ) ).toHaveAttribute(
 		'aria-disabled',
 		'true'

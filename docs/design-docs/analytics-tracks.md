@@ -196,9 +196,10 @@ where the sender actually runs — see Testing below for what fires in which bui
   minutes and is lost on host restart. Missing context remains `source=unknown`.
 - **`studio_wpcom_auth`** fires after token storage or for a callback/token-validation failure, from
   Desktop, browser, and CLI. `account_type=new` records signup intent, not confirmed account creation;
-  it is absent on CLI events. `studio_wpcom_auth_cancelled` records only observed popup/paste/input
-  cancellation. `studio_wpcom_auth_launch_failed` records failed browser handoffs. Closing Studio or
-  never returning produces no synthetic failure. CLI authentication already present is not a start.
+  it is absent for the combined Publish connection action and on CLI events.
+  `studio_wpcom_auth_cancelled` records only observed popup/paste/input cancellation.
+  `studio_wpcom_auth_launch_failed` records failed browser handoffs. Closing Studio or never returning
+  produces no synthetic failure. CLI authentication already present is not a start.
 - **Funnel denominators.** Use starts for auth conversion, prompt views for start rate, and first
   welcome exposure for onboarding completion. `studio_onboarding_complete.authenticated` measures
   authentication among completers only. A completion without an auth outcome does not prove the user

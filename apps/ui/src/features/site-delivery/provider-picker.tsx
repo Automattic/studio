@@ -55,6 +55,7 @@ export function ProviderPicker( {
 	const existingSite = {
 		value: 'existing-site',
 		label: __( 'Connect to an existing site' ),
+		description: __( 'Publish to a site you already have.' ),
 	} as const;
 	return (
 		<Select< SitesProviderId | 'existing-site' >
@@ -104,6 +105,9 @@ export function ProviderPicker( {
 						value={ existingSite.value }
 						label={ existingSite.label }
 						icon={ <ConnectSiteIcon /> }
+						description={ existingSite.description }
+						aria-label={ existingSite.label }
+						aria-description={ existingSite.description }
 					>
 						{ existingSite.label }
 					</SelectItem>

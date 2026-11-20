@@ -14,30 +14,6 @@ import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId =
-	| 'wpcom'
-	| 'anthropic'
-	| 'openai'
-	| 'gemini'
-	| 'github-copilot'
-	| 'meta'
-	| 'xai'
-	| 'openrouter'
-	| 'spacefast'
-	| 'local-llm';
-
-// The providers that serve AI models.
-export type AiProviderId =
-	| 'wpcom'
-	| 'anthropic'
-	| 'openai'
-	| 'gemini'
-	| 'github-copilot'
-	| 'meta'
-	| 'xai'
-	| 'openrouter'
-	| 'local-llm';
-
 // What Studio stores for each provider.
 export interface ProviderConfigs {
 	wpcom: WpcomConfig;
@@ -51,6 +27,11 @@ export interface ProviderConfigs {
 	spacefast: SpacefastConfig;
 	'local-llm': LocalLlmConfig;
 }
+
+export type ProviderId = keyof ProviderConfigs;
+
+// The providers that serve AI models: all but the ones that only host sites.
+export type AiProviderId = Exclude< ProviderId, 'spacefast' >;
 
 // The remote sites of each provider that offers them.
 export interface ProviderSites {

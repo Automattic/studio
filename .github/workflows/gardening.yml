@@ -39,7 +39,7 @@ jobs:
          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
      - name: 'Run gardening action'
-       uses: automattic/action-repo-gardening@trunk
+       uses: automattic/action-repo-gardening@84363a46f4ee1e542f2f0e81735e949a62558e25  # trunk
        with:
          github_token: ${{ secrets.GITHUB_TOKEN }}
          slack_token: ${{ secrets.SLACK_TOKEN }}

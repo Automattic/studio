@@ -20,7 +20,7 @@ const WP_UI_PACKAGES = {
 };
 
 const AGENT_NODE = {
-	group: [ '@studio/agent/node/*', '@studio/agent/shared/*' ],
+	group: [ '@studio/agent/node', '@studio/agent/node/*' ],
 	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
 };
 
@@ -284,8 +284,9 @@ export default defineConfig(
 		},
 	},
 	{
-		// Apps run the agent through `@studio/agent/node` (`createAgent`); its runtime,
-		// tools and host type are internal. Tests may still mock them.
+		// Apps run the agent through `@studio/agent/node` (`createAgent`). Only the
+		// modules the apps that show the agent read on their own are public besides it,
+		// so they never load the runtime. Tests may still reach the rest.
 		files: [ 'apps/**/*.{ts,tsx}' ],
 		ignores: [ 'apps/**/tests/**', 'apps/**/*.test.{ts,tsx}' ],
 		rules: {
@@ -295,11 +296,17 @@ export default defineConfig(
 					patterns: [
 						{
 							group: [
-								'@studio/agent/node/runtime',
-								'@studio/agent/node/runtime/*',
-								'@studio/agent/shared/tools',
-								'@studio/agent/shared/tools/*',
-								'@studio/agent/shared/host',
+								'@studio/agent/node/*',
+								'!@studio/agent/node/annotation-tracks',
+								'!@studio/agent/node/global-instructions',
+								'!@studio/agent/node/local-media',
+								'!@studio/agent/node/run-manager',
+								'!@studio/agent/node/sessions',
+								'@studio/agent/node/sessions/*',
+								'!@studio/agent/node/sessions/manage',
+								'!@studio/agent/node/sessions/placement',
+								'!@studio/agent/node/sessions/root-migration',
+								'!@studio/agent/node/sessions/store',
 							],
 							message: 'Import the agent from @studio/agent/node.',
 						},
@@ -440,42 +447,7 @@ export default defineConfig(
 						{
 							group: [ 'cli/*', 'src/*' ],
 							message:
-								'The agent never imports an app. Reach site operations through the host (shared/host.ts).',
-						},
-					],
-				},
-			],
-		},
-	},
-	{
-		// The agent's tools, prompt and skills reach files, pages and WordPress.com only through
-		// the host, which the CLI and `studio mcp` provide.
-		files: [ 'packages/agent/shared/**/*.ts' ],
-		ignores: [ 'packages/agent/shared/**/tests/**', 'packages/agent/shared/**/*.test.ts' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: [
-								'node:*',
-								'fs',
-								'fs/*',
-								'path',
-								'os',
-								'child_process',
-								'crypto',
-								'url',
-								'playwright',
-								'playwright-core',
-								'@earendil-works/pi-coding-agent',
-							],
-							message: 'shared/ reaches files and pages through the host.',
-						},
-						{
-							group: [ '@studio/agent/node', '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'shared/ depends on protocol and common, not on the Node agent.',
+								'The agent never imports an app. Reach site operations through the host (node/host.ts).',
 						},
 					],
 				},

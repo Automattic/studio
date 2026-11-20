@@ -1,5 +1,6 @@
 import fs from 'fs';
 import os from 'os';
+import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
 	isContextOverflow,
@@ -29,26 +30,29 @@ import {
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { type TSchema } from 'typebox';
+import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
+import { getFileToolPrompt } from '@studio/agent/node/file-tool-prompts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
+import { createConnectionStream } from '@studio/agent/node/models';
+import {
+	getPendingWork,
+	runWithPendingWork,
+	type PendingWork,
+} from '@studio/agent/node/pending-work';
+import { createResultNotes } from '@studio/agent/node/result-notes';
+import { findActiveSiteDesign } from '@studio/agent/node/site-selection';
+import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
+import { assertToolCallAllowed } from '@studio/agent/node/tool-safety';
+import { resolveConversationTools } from '@studio/agent/node/tools';
 import {
 	findLastAssistant,
 	getEmptyStopContinuation,
 	isEmptyStop,
 	MAX_EMPTY_STOP_CONTINUES,
 } from '@studio/agent/protocol/session-events';
-import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
-import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
-import { createConnectionStream } from '@studio/agent/shared/models';
-import { runWithPendingWork, type PendingWork } from '@studio/agent/shared/pending-work';
-import { createResultNotes } from '@studio/agent/shared/result-notes';
-import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
-import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/shared/system-prompt';
-import { assertToolCallAllowed } from '@studio/agent/shared/tool-safety';
-import { resolveConversationTools } from '@studio/agent/shared/tools';
-import { getPendingWork } from './pending-work';
+import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
-import type { StudioAgentHost } from '@studio/agent/shared/host';
-import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 import type { AiConnection } from '@studio/providers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -331,7 +335,7 @@ async function createStudioAgentSession(
 	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
 		readGlobalInstructions(),
 		config.host.imageGenerator?.().then( Boolean ) ?? false,
-		findActiveSiteDesign( config.host, config.activeSite ),
+		findActiveSiteDesign( config.activeSite ),
 	] );
 
 	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
@@ -347,7 +351,7 @@ async function createStudioAgentSession(
 
 	const pendingWork = getPendingWork( config.session );
 	const site = config.activeSite;
-	const notes = createResultNotes( config.host );
+	const notes = createResultNotes();
 	const resultNotes =
 		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
@@ -504,7 +508,7 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 }
 
 // Where pi's file tools put a path: without a leading `@`, with `~` expanded.
-function resolveToolPath( { path, sitesRoot }: StudioAgentHost, file: string ): string {
+function resolveToolPath( { sitesRoot }: StudioAgentHost, file: string ): string {
 	const withoutAt = file.replace( /^@/, '' );
 	const expanded =
 		withoutAt === '~' || withoutAt.startsWith( '~/' )

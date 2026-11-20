@@ -269,10 +269,10 @@ export interface GenerateImageResult {
 	filtered?: boolean;
 }
 
-// What a push sends: the site's WordPress archive (a readable stream of the file, or a Blob), or a
+// What a push sends: the site's WordPress archive (a readable stream of the file), or a
 // static export of its pages, each file read when the provider uploads it.
 export type PushContent =
-	| { kind: 'archive'; file: Blob | { pipe: unknown }; name: string; size: number }
+	| { kind: 'archive'; file: { pipe: unknown }; name: string; size: number }
 	| { kind: 'files'; files: PushFile[] };
 
 export interface PushFile {

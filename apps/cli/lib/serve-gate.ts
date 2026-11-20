@@ -67,6 +67,19 @@ function sendJson( res: ServerResponse, status: number, body: unknown ) {
 	res.end( JSON.stringify( body ) );
 }
 
+/**
+ * `value` as a path on `origin`, or null when it would lead anywhere else: an absolute URL, or
+ * one browsers read as another host (`//evil.example`, `/\evil.example`).
+ */
+function pathOn( origin: string, value: string ): string | null {
+	try {
+		const url = new URL( value, origin );
+		return url.origin === origin ? url.pathname + url.search : null;
+	} catch {
+		return null;
+	}
+}
+
 function redirect( res: ServerResponse, location: string ) {
 	res.statusCode = 302;
 	res.setHeader( 'Location', location );
@@ -134,13 +147,8 @@ export function createServeGate( options: ServeGateOptions ) {
 				options.secret,
 				'site-handoff'
 			);
-			const back = url.searchParams.get( 'return' ) ?? '/';
-			if (
-				! handoff ||
-				handoff.host !== host ||
-				! back.startsWith( '/' ) ||
-				back.startsWith( '//' )
-			) {
+			const back = pathOn( url.origin, url.searchParams.get( 'return' ) ?? '/' );
+			if ( ! handoff || handoff.host !== host || ! back ) {
 				sendJson( res, 403, { error: 'Access link expired' } );
 				return;
 			}
@@ -225,7 +233,11 @@ export function createServeGate( options: ServeGateOptions ) {
 				sendJson( res, 400, { error: 'Invalid return address' } );
 				return;
 			}
-			if ( ! options.siteHostSuffix || ! back.hostname.endsWith( options.siteHostSuffix ) ) {
+			if (
+				! options.siteHostSuffix ||
+				! [ 'https:', 'http:' ].includes( back.protocol ) ||
+				! back.hostname.endsWith( options.siteHostSuffix )
+			) {
 				sendJson( res, 400, { error: 'Not a site on this machine' } );
 				return;
 			}

@@ -133,6 +133,25 @@ describe( 'serve gate', () => {
 		expect( visit.status ).toBe( 301 );
 	} );
 
+	it( 'only sends a site access link back to the same site', async () => {
+		const site = { host: 'site1--m1.cloud.test' };
+		const handoff = await signToken(
+			{ purpose: 'site-handoff', host: site.host, exp: exp() },
+			SECRET
+		);
+		for ( const away of [ '//evil.test', '/\\evil.test', 'https://evil.test/' ] ) {
+			const access = await send(
+				`/__studio/access?t=${ handoff }&return=${ encodeURIComponent( away ) }`,
+				{ headers: site }
+			);
+			expect( access.status ).toBe( 403 );
+		}
+		const access = await send( `/__studio/access?t=${ handoff }&return=%2Fwp-admin%2F`, {
+			headers: site,
+		} );
+		expect( access.headers.location ).toBe( '/wp-admin/' );
+	} );
+
 	it( 'lets the machine itself reach its sites', async () => {
 		const response = await send( '/', {
 			headers: { host: 'site1--m1.cloud.test', 'x-test-from-machine': '1' },

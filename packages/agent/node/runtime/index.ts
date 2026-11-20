@@ -36,6 +36,7 @@ import {
 	isEmptyStop,
 	MAX_EMPTY_STOP_CONTINUES,
 } from '@studio/agent/protocol/session-events';
+import { DEFAULT_THINKING_LEVEL } from '@studio/agent/protocol/thinking';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
 import { createConnectionStream } from '@studio/agent/shared/models';
@@ -49,7 +50,7 @@ import { getPendingWork } from './pending-work';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
-import type { AiConnection } from '@studio/providers';
+import type { AiConnection, ThinkingLevel } from '@studio/providers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
@@ -169,6 +170,8 @@ export interface StudioAgentTurnConfig {
 	session: SessionManager;
 	// The model to run on, as the provider serving it connects to it.
 	ai: AiConnection;
+	// How much the model thinks; without it, Studio's default.
+	thinking?: ThinkingLevel;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
@@ -391,7 +394,7 @@ async function createStudioAgentSession(
 		agentDir: sitesRoot,
 		modelRuntime,
 		model,
-		thinkingLevel: 'medium',
+		thinkingLevel: config.thinking ?? DEFAULT_THINKING_LEVEL,
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,

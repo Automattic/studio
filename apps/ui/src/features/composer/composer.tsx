@@ -1,4 +1,5 @@
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
+import { type ThinkingSetting } from '@studio/agent/protocol/thinking';
 import { findAiModel, getAiModels, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -117,6 +118,8 @@ interface ComposerProps {
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
 	onModelChange?: ( model: AiModelId, provider: ProviderId ) => void;
+	thinking?: ThinkingSetting;
+	onThinkingChange?: ( thinking: ThinkingSetting ) => void;
 	// Why the chat can't send right now; a send attempt shakes it.
 	notice?: ComposerNotice;
 }
@@ -161,6 +164,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		dropTarget,
 		annotationSiteId,
 		onModelChange,
+		thinking,
+		onThinkingChange,
 		notice: blockingNotice,
 	},
 	ref
@@ -624,6 +629,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									disabled={ busy }
 									anchor={ rootNode }
 									onChange={ changeModel }
+									thinking={ thinking }
+									onThinkingChange={ onThinkingChange }
 									onAddCredits={ openAddCredits }
 								/>
 							) : null }

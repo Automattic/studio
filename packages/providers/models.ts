@@ -24,6 +24,11 @@ export type AiModelId =
 	| `openrouter/${ string }`
 	| `local-llm/${ string }`;
 
+// How much a model thinks before answering, from a chat's pick; pi runs a model that lacks the
+// level at the nearest one it has.
+export const THINKING_LEVELS = [ 'off', 'low', 'medium', 'high' ] as const;
+export type ThinkingLevel = ( typeof THINKING_LEVELS )[ number ];
+
 // The catalog model's provider, which names it with its own id and a slash.
 function catalogProvider( id: string ): AiProviderId | undefined {
 	return AI_PROVIDER_IDS.find(
@@ -39,8 +44,13 @@ export function servesAiModel( provider: ProviderId, id: string ): boolean {
 	);
 }
 
-function catalogModel( { id, label, supportsImages }: AccountModel ): AiModel< AiModelId > {
-	return { id, label: () => label ?? id.slice( id.indexOf( '/' ) + 1 ), supportsImages };
+function catalogModel( {
+	id,
+	label,
+	supportsImages,
+	thinking,
+}: AccountModel ): AiModel< AiModelId > {
+	return { id, label: () => label ?? id.slice( id.indexOf( '/' ) + 1 ), supportsImages, thinking };
 }
 
 /**

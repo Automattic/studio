@@ -32,6 +32,9 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 					const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
 					update( { sessionId } );
 					await connector.setSessionProvider( sessionId, provider, model );
+					if ( draft.thinking ) {
+						await connector.setSessionThinking( sessionId, model, draft.thinking );
+					}
 					await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
 					session = await connector.getSession( sessionId );
 					queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], session );
@@ -62,6 +65,7 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 			connector,
 			draft.activeEnvironment,
 			draft.sessionId,
+			draft.thinking,
 			queryClient,
 			router,
 			siteId,

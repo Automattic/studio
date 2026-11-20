@@ -1,9 +1,11 @@
-import { isRetryableAssistantError } from '@earendil-works/pi-ai';
+import { isRetryableAssistantError, normalizeContext } from '@earendil-works/pi-ai';
+import { streamSimple } from '@earendil-works/pi-ai/api/openai-completions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotConnectedError } from '../../errors';
 import { localLlmAi } from '../ai';
+import type { ThinkingLevel } from '../../models';
 import type { LocalLlmConfig } from '../config';
-import type { AssistantMessage } from '@earendil-works/pi-ai';
+import type { AssistantMessage, Model } from '@earendil-works/pi-ai';
 
 const json = ( status: number, body: unknown ) =>
 	new Response( JSON.stringify( body ), { status } );
@@ -248,6 +250,34 @@ describe( 'local-llm ai', () => {
 
 		expect( connection.exactContextWindow ).toBeUndefined();
 		expect( connection ).toMatchObject( { apiKey: 'secret', model: { input: [ 'text' ] } } );
+	} );
+
+	it( 'sends a reasoning effort only for a level the chat picked', async () => {
+		// The `reasoning_effort` a turn's request carries; the agent asks for no reasoning when off.
+		const reasoningEffort = async ( thinking?: ThinkingLevel ) => {
+			serve( 'vllm' );
+			const { model } = await localLlmAi.model(
+				config( 'http://localhost:8000/v1' ),
+				'local-llm/Qwen/Qwen3-8B',
+				{ thinking }
+			);
+			return new Promise( ( resolve ) => {
+				streamSimple(
+					model as Model< 'openai-completions' >,
+					normalizeContext( { messages: [] } ),
+					{
+						apiKey: 'none',
+						reasoning: thinking === 'off' ? undefined : thinking ?? 'medium',
+						onPayload: ( payload ) =>
+							resolve( ( payload as Record< string, unknown > ).reasoning_effort ),
+					}
+				);
+			} );
+		};
+
+		expect( await reasoningEffort() ).toBeUndefined();
+		expect( await reasoningEffort( 'off' ) ).toBe( 'none' );
+		expect( await reasoningEffort( 'high' ) ).toBe( 'high' );
 	} );
 
 	describe( 'rewriteError', () => {

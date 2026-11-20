@@ -16,6 +16,7 @@ import {
 	isEmptyStop,
 	MAX_EMPTY_STOP_CONTINUES,
 } from '@studio/agent/protocol/session-events';
+import { DEFAULT_THINKING_LEVEL } from '@studio/agent/protocol/thinking';
 import { PendingWork, runWithPendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
@@ -30,7 +31,7 @@ import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
 import type { AnyStudioAgentTool } from '@studio/agent/shared/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
-import type { AiConnection } from '@studio/providers';
+import type { AiConnection, ThinkingLevel } from '@studio/providers';
 
 export { compactionSummaryMessage, type Compaction } from './compaction';
 
@@ -44,6 +45,8 @@ interface BrowserAgentTurnConfig {
 	history: Message[];
 	// The model to run on, as the provider serving it connects to it.
 	ai: AiConnection;
+	// How much the model thinks; without it, Studio's default.
+	thinking?: ThinkingLevel;
 	activeSite?: SiteInfo | null;
 	userInstructions?: string;
 	onAskUser?: AskUserHandler;
@@ -122,7 +125,7 @@ async function runTurn(
 		initialState: {
 			systemPrompt,
 			model,
-			thinkingLevel: 'medium',
+			thinkingLevel: config.thinking ?? DEFAULT_THINKING_LEVEL,
 			tools: tools.map( ( tool ) => withPendingWork( host, tool, pendingWork, resultNotes ) ),
 			messages: config.history,
 		},

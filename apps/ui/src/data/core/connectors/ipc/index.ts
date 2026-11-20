@@ -605,6 +605,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setAiSessionProvider( sessionId, provider, model );
 		},
 
+		async setSessionThinking( sessionId, model, thinking ) {
+			await ipcApi.setAiSessionThinking( sessionId, model, thinking );
+		},
+
 		async setSessionEnvironment( sessionId, environment ) {
 			await ipcApi.setAiSessionEnvironment( sessionId, environment );
 		},

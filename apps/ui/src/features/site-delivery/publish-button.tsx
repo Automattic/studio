@@ -1261,8 +1261,8 @@ export function PublishButton( {
 					<p className={ styles.footerStatus }>
 						{ preview.unavailable }{ ' ' }
 						{ preview.availabilityError && (
-							<Button variant="inline-link" size="inline" onClick={ preview.retryAvailability }>
-								{ __( 'Try again' ) }
+							<Button variant="inline-accent" size="inline" onClick={ preview.retryAvailability }>
+								{ __( 'Retry' ) }
 							</Button>
 						) }
 					</p>

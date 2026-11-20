@@ -3598,7 +3598,7 @@ it( 'keeps the preview availability retry below the create action', async () => 
 		},
 	} );
 	const panel = await openShare();
-	const status = await within( panel ).findByText( /Preview availability could not be checked/ );
+	const status = await within( panel ).findByText( 'Couldn’t check previews.' );
 	const create = within( panel ).getByRole( 'button', { name: 'Create preview' } );
 	expect( create ).toBeDisabled();
 	expect( status ).toAppearAfter( create );
@@ -3607,7 +3607,7 @@ it( 'keeps the preview availability retry below the create action', async () => 
 		siteLimit: 5,
 		siteCreationBlocked: false,
 	} );
-	await user.click( within( status ).getByRole( 'button', { name: 'Try again' } ) );
+	await user.click( within( status ).getByRole( 'button', { name: 'Retry' } ) );
 	await waitFor( () => expect( create ).toBeEnabled() );
 	expect( status ).not.toBeInTheDocument();
 } );

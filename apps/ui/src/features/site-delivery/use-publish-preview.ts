@@ -192,7 +192,7 @@ export function usePublishPreview(
 	const unavailable = ! user.data
 		? __( 'Sign in to create a preview link.' )
 		: usage.isError || snapshots.isError
-		? __( 'Preview availability could not be checked. Try again.' )
+		? __( 'Couldn’t check previews.' )
 		: usage.data?.siteCreationBlocked
 		? __( 'Preview creation is temporarily unavailable for your account.' )
 		: undefined;

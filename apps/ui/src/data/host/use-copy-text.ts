@@ -13,9 +13,12 @@ export function useCopyText(
 	const connector = useConnector();
 	const [ copiedText, setCopiedText ] = useState< string >();
 	const resetTimer = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const unmounted = useRef( false );
 
 	useEffect( () => {
+		unmounted.current = false;
 		return () => {
+			unmounted.current = true;
 			if ( resetTimer.current ) {
 				clearTimeout( resetTimer.current );
 			}
@@ -28,6 +31,10 @@ export function useCopyText(
 			.then( () => {
 				dismissToast( 'clipboard-error' );
 				if ( successMessage ) toast.success( successMessage, { id: 'clipboard-success' } );
+				// A menu item unmounts as soon as it is clicked, before the copy settles.
+				if ( unmounted.current ) {
+					return;
+				}
 				setCopiedText( text );
 				// Re-arm the reset on every click so copying again mid-"Copied"
 				// doesn't let the earlier timer flip the state back too soon.

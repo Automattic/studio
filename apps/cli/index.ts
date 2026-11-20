@@ -11,6 +11,7 @@ import { registerCommand as registerImportCommand } from 'cli/commands/import.co
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp.command';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull.command';
 import { registerCommand as registerPushCommand } from 'cli/commands/push.command';
+import { registerCommand as registerServeCommand } from 'cli/commands/serve.command';
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create.command';
 import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete.command';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list.command';
@@ -256,6 +257,7 @@ async function main() {
 	registerExportStaticCommand( studioArgv );
 
 	registerUiCommand( studioArgv );
+	registerServeCommand( studioArgv );
 	registerUninstallCommand( studioArgv );
 
 	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {

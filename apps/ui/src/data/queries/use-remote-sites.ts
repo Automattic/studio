@@ -50,14 +50,9 @@ function excludeConnectedSites< Site extends ProviderSites[ SitesProviderId ] >(
 	return sites.filter( ( site ) => ! connectedIds.has( site.id ) );
 }
 
-// The providers this app publishes to: one that publishes a static export needs the site to run
-// on native PHP.
+// The providers this app publishes to, leaving out those that only make previews.
 export function usePublishProviders(): SitesProviderId[] {
-	const { capabilities } = useConnector();
-	return SITES_PROVIDER_IDS.filter( ( id ) => {
-		const sites = getProviderSites( id );
-		return sites.publish && ( capabilities.nativeSites || sites.content !== 'static' );
-	} );
+	return SITES_PROVIDER_IDS.filter( ( id ) => getProviderSites( id ).publish );
 }
 
 export function useConnectedHostingProviders( providers: SitesProviderId[] ) {

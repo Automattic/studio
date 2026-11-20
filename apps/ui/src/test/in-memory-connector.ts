@@ -310,7 +310,6 @@ export function createInMemoryConnector(
 		getPublishCheckoutUrl: () => undefined,
 		onSyncConnectSite: subscribe( 'onSyncConnectSite' ),
 		watchForPublishedSite: async () => {},
-		connectPreviewFrame: () => ( { run: () => {}, dispose: () => {} } ),
 		getSessions: async () => state.sessions.map( ( session ) => session.summary ),
 		getSession: async ( id ) => findSession( id ),
 		updateSessionMetadata: async ( id, patch ) => {
@@ -333,6 +332,7 @@ export function createInMemoryConnector(
 		getActiveAgentRuns: async () => [],
 		setSessionModel: async () => {},
 		setSessionProvider: async () => {},
+		setSessionThinking: async () => {},
 		setSessionEnvironment: async ( id, environment ) => {
 			const session = findSession( id );
 			session.summary = { ...session.summary, activeEnvironment: environment };
@@ -408,6 +408,8 @@ export function createInMemoryConnector(
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
 		sendFeedback: async () => ( { feedbackId: 1 } ),
+		getSiteLimits: async () => null,
+		getBilling: async () => ( { plan: null, receipts: [] } ),
 		getWapuuScore: async () => undefined,
 		saveWapuuScore: async () => {},
 		popupAppMenu: async () => {},
@@ -462,8 +464,8 @@ export function createInMemoryConnector(
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
-			nativeSites: true,
 			loopbackSignIn: true,
+			localMachine: true,
 			...overrides.capabilities,
 		},
 		state,

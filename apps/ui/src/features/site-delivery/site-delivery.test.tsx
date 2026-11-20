@@ -2,7 +2,7 @@ import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { buildPublishCheckoutUrl } from '@/data/core/connectors/publish-checkout-url';
 import { applySyncActivity } from '@/data/sync-activity';
@@ -35,7 +35,6 @@ function setup( overrides: Partial< Connector > = {}, signedIn = true ) {
 	const connector = createFakeConnector(
 		{ sites: [ site ], user: signedIn ? TEST_USER : null },
 		{
-			capabilities: { nativeSites: false },
 			getPublishCheckoutUrl: buildPublishCheckoutUrl,
 			getSnapshots: async () => snapshots,
 			getSnapshotUsage: async () => ( { siteCount: 0, siteLimit: 5, siteCreationBlocked: false } ),
@@ -56,12 +55,22 @@ function setup( overrides: Partial< Connector > = {}, signedIn = true ) {
 			...overrides,
 		}
 	);
+	// This suite's remote-site fixtures are WordPress.com sites.
+	const publishConnector = {
+		...connector,
+		getRemoteSites: vi.fn< Connector[ 'getRemoteSites' ] >( ( provider, siteId ) =>
+			provider === 'wpcom' ? connector.getRemoteSites( provider, siteId ) : Promise.resolve( [] )
+		),
+		listAccountSites: vi.fn< Connector[ 'listAccountSites' ] >( ( provider ) =>
+			provider === 'wpcom' ? connector.listAccountSites( provider ) : Promise.resolve( [] )
+		),
+	};
 	renderWithProviders(
 		<>
 			<ShareButton site={ site } />
 			<PublishButton site={ site } />
 		</>,
-		{ connector }
+		{ connector: publishConnector }
 	);
 	return connector;
 }
@@ -1429,7 +1438,14 @@ it( 'keeps checklist choices live in the confirmation and publishes the selectio
 } );
 
 it( 'opens and copies a preview from its preview row', async () => {
-	const connector = setup( { listAccountSites: async () => [ pullablePreview( 123 ) ] } );
+	let finishCopy!: () => void;
+	const connector = setup( {
+		listAccountSites: async () => [ pullablePreview( 123 ) ],
+		copyText: () =>
+			new Promise< void >( ( resolve ) => {
+				finishCopy = resolve;
+			} ),
+	} );
 	connector.getSnapshots.mockResolvedValue( [
 		{
 			atomicSiteId: 123,
@@ -1458,6 +1474,7 @@ it( 'opens and copies a preview from its preview row', async () => {
 	expect( within( panel ).queryByText( /^Last updated/ ) ).not.toBeInTheDocument();
 	const row = screen.getByRole( 'group', { name: 'Preview: Preview 1' } );
 	await copyPreviewLink( actions );
+	await act( async () => finishCopy() );
 	expect( getVisibleToasts().some( ( notice ) => notice.title === 'Link copied' ) ).toBe( true );
 	expect( connector.copyText ).toHaveBeenCalledWith( 'https://copy.example.com/?share=test' );
 	expect( connector.openExternalUrl ).not.toHaveBeenCalled();

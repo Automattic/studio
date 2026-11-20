@@ -202,8 +202,8 @@ describe( 'Studio workspace', () => {
 					annotatePreview: true,
 					nativeFolderPicker: true,
 					studioLogs: true,
-					nativeSites: true,
 					loopbackSignIn: true,
+					localMachine: true,
 				},
 			},
 		} );
@@ -1367,8 +1367,8 @@ describe( 'Studio workspace', () => {
 					nativeFolderPicker: true,
 					annotatePreview: true,
 					studioLogs: true,
-					nativeSites: true,
 					loopbackSignIn: true,
+					localMachine: true,
 				},
 			},
 		} );

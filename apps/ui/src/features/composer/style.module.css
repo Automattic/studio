@@ -79,3 +79,12 @@
 .dialogDescription {
 	text-wrap: pretty;
 }
+
+.flyoutChevron {
+	color: var( --muted-foreground );
+	rotate: -90deg;
+}
+
+.flyoutChevron:dir( rtl ) {
+	rotate: 90deg;
+}

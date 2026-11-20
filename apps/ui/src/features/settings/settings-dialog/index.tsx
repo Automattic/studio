@@ -170,19 +170,19 @@ export function SettingsDialog() {
 		setShown( settings );
 	}
 	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
-	const { nativeSites } = connector.capabilities;
+	const { localMachine, loopbackSignIn } = connector.capabilities;
 	const linkedSection =
-		settings === 'ai' || ( settings === 'mcp' && ! nativeSites )
+		settings === 'ai' || ( settings === 'mcp' && ! localMachine )
 			? 'providers'
 			: settings === 'providers' &&
-			  nativeSites &&
+			  localMachine &&
 			  settingsFocus &&
 			  resolveSettingsLink( settingsFocus ) === 'mcp'
 			? 'mcp'
 			: undefined;
 	const requested =
 		linkedSection ??
-		( shown === 'ai' || ( shown === 'mcp' && ! nativeSites ) || ( shown === 'usage' && ! signedIn )
+		( shown === 'ai' || ( shown === 'mcp' && ! localMachine ) || ( shown === 'usage' && ! signedIn )
 			? 'providers'
 			: shown );
 	const scope: SettingsScope =
@@ -376,7 +376,12 @@ export function SettingsDialog() {
 		};
 	}, [ target, section, content, spacefastOpen ] );
 
-	const results = searchSettings( query, scope, { hasSite: !! site, signedIn, nativeSites } );
+	const results = searchSettings( query, scope, {
+		hasSite: !! site,
+		signedIn,
+		localMachine,
+		loopbackSignIn,
+	} );
 	const searching = !! query.trim();
 	const open = ( result: SearchResult ) => {
 		go( result.section.id );
@@ -384,7 +389,7 @@ export function SettingsDialog() {
 			setTarget( result.setting.id ?? result.setting.title );
 		}
 	};
-	const sections = getSections( scope, { signedIn, nativeSites } );
+	const sections = getSections( scope, { signedIn, localMachine, loopbackSignIn } );
 	const current = sections.find( ( entry ) => entry.id === section ) ?? sections[ 0 ];
 
 	const settingsDialog = (
@@ -549,7 +554,7 @@ export function SettingsDialog() {
 									<StudioSection
 										id={ section }
 										onNavigate={ go }
-										hasSite={ !! site && nativeSites }
+										hasSite={ !! site }
 										spacefast={ {
 											isPending: spacefast.isPending,
 											onConnect: () => {

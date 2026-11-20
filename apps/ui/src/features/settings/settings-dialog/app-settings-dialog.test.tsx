@@ -1,6 +1,7 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
+import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
@@ -743,6 +744,37 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 	} );
 
+	it( 'offers no reset when the catalog recommends no model', async () => {
+		const acme = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+		};
+		const settings = aiSettings( 'wpcom', [ 'wpcom', 'openrouter' ] );
+		settings.accounts.openrouter = {
+			connected: true,
+			method: 'api-key',
+			models: [ { id: acme.id, label: acme.label } ],
+		};
+		await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings,
+				listProviderModels: async () => [ acme ],
+			},
+		} );
+
+		fireEvent.click(
+			await within( await findProviderRow( 'openrouter-models' ) ).findByRole( 'combobox', {
+				name: 'OpenRouter models',
+			} )
+		);
+		await screen.findByRole( 'option', { name: /Acme: Model/ } );
+		expect(
+			screen.queryByRole( 'button', { name: 'Reset to recommended' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'toggles custom instructions without changing saved text', async () => {
 		let enabled = true;
 		const { connector } = await setup( {
@@ -1071,7 +1103,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 	} );
 
-	it( 'offers only an OpenAI API key on the web, which cannot reach a ChatGPT sign-in', async () => {
+	it( 'offers only an OpenAI API key where a ChatGPT sign-in can’t come back', async () => {
 		const { connector } = await setup( {
 			section: 'ai',
 			overrides: {
@@ -1079,8 +1111,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					nativeFolderPicker: false,
 					annotatePreview: false,
 					studioLogs: false,
-					nativeSites: false,
 					loopbackSignIn: false,
+					localMachine: false,
 				},
 			},
 		} );
@@ -1096,6 +1128,11 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		// GitHub Copilot only signs in on its site, so the web offers nothing for it at all.
 		expect( row( 'github-copilot-provider' ) ).toBeNull();
 		expect( row( 'spacefast-provider' ) ).toBeNull();
+		// Nor can a page reach a model server on the user's computer.
+		expect( row( 'local-llm-provider' ) ).toBeNull();
+		fireEvent.change( searchBox(), { target: { value: 'Local LLM' } } );
+		expect( screen.queryByRole( 'tab', { name: 'Local LLM' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
 		expect( screen.queryByRole( 'tab', { name: 'Agents' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Use WordPress Studio with your agents' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Manual MCP setup' ) ).not.toBeInTheDocument();
@@ -1145,6 +1182,63 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			} )
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'connects a local model server by its address alone, and shows the address on its row', async () => {
+		let connected = false;
+		const settings = () => {
+			const current = aiSettings( 'wpcom', [ 'wpcom' ] );
+			if ( connected ) {
+				current.accounts[ 'local-llm' ] = {
+					connected: true,
+					...getProvider( 'local-llm' ).account.describe( {
+						method: 'server',
+						baseUrl: 'http://localhost:11434/v1',
+						models: [ { name: 'qwen3:0.6b', images: false } ],
+					} ),
+				};
+			}
+			return current;
+		};
+		const { connector } = await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings(),
+				connectProvider: async () => {
+					connected = true;
+					return settings();
+				},
+			},
+		} );
+		fireEvent.change( searchBox(), { target: { value: 'Local LLM' } } );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Local LLM' } ) );
+		fireEvent.click(
+			await within( await findProviderRow( 'local-llm-provider' ) ).findByRole( 'button', {
+				name: 'Connect',
+			} )
+		);
+		const form = await screen.findByRole( 'form', { name: 'Local LLM connection' } );
+		const save = within( form ).getByRole( 'button', { name: 'Save' } );
+		expect( within( form ).getByLabelText( 'API key', { selector: 'input' } ) ).toHaveAttribute(
+			'type',
+			'password'
+		);
+		expect( save ).toBeDisabled();
+		fireEvent.change( within( form ).getByLabelText( 'Server address', { selector: 'input' } ), {
+			target: { value: 'localhost:11434' },
+		} );
+		fireEvent.click( save );
+
+		await waitFor( () =>
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'local-llm', 'server', {
+				address: 'localhost:11434',
+			} )
+		);
+		expect(
+			await within( await findProviderRow( 'local-llm-provider' ) ).findByText(
+				'http://localhost:11434'
+			)
+		).toBeVisible();
 	} );
 
 	it( 'connects with the method the user picks', async () => {

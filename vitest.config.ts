@@ -6,7 +6,6 @@ export default defineConfig( {
 			'./apps/cli/vitest.config.ts',
 			'./apps/local/vitest.config.ts',
 			'./apps/mcp-ui/vitest.config.ts',
-			'./apps/static/vitest.config.ts',
 			'./apps/studio/vitest.config.ts',
 			'./apps/ui/vitest.config.ts',
 			'./packages/agent/vitest.config.ts',

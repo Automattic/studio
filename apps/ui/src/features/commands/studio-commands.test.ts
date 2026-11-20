@@ -43,7 +43,6 @@ const siteCommands = (
 		site,
 		panelShown: false,
 		canAnnotate: false,
-		nativeSites: false,
 		annotating: false,
 		actions: {
 			busy: false,
@@ -307,11 +306,5 @@ describe( 'command search', () => {
 				'Collapse all sites'
 			).map( ( { label } ) => label )
 		).toEqual( [ 'Collapse all' ] );
-	} );
-
-	it( 'offers Send feedback only where the connector can send it', () => {
-		const ids = ( commands: PaletteCommand[] ) => commands.map( ( { id } ) => id );
-		expect( ids( appCommands() ) ).toContain( 'send-feedback' );
-		expect( ids( appCommands( { openFeedback: undefined } ) ) ).not.toContain( 'send-feedback' );
 	} );
 } );

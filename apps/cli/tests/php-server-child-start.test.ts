@@ -77,12 +77,14 @@ it.each( [
 		const listeners = new Map( events.map( ( event ) => [ event, emitter.listeners( event ) ] ) );
 		const originalSend = process.send;
 		process.send = vi.fn();
-		let probes = 0;
 		vi.stubGlobal(
 			'fetch',
-			vi.fn( async () => {
-				// Only one worker needs to observe the installer redirect.
-				const redirect = probes++ === 2 ? scenario.redirect : undefined;
+			vi.fn( async ( url: string ) => {
+				// The start must not wait on the workers that warm up after it.
+				if ( /:900[2-4]\//.test( url ) ) {
+					return new Promise< never >( () => {} );
+				}
+				const redirect = scenario.redirect;
 				return new Response( null, {
 					status: redirect ? 302 : 200,
 					headers: redirect ? { location: redirect } : {},
@@ -123,10 +125,7 @@ it.each( [
 				.flatMap( ( result ) =>
 					result.success && result.data.raw.topic === 'start-phase' ? [ result.data.raw.data ] : []
 				);
-			const firstWorker = phases.filter( ( { phase } ) => phase === 'php_first_worker' );
-			const allWorkers = phases.find( ( { phase } ) => phase === 'php_workers' );
-			expect( firstWorker ).toHaveLength( 1 );
-			expect( firstWorker[ 0 ].ms ).toBeLessThanOrEqual( allWorkers!.ms );
+			expect( phases.filter( ( { phase } ) => phase === 'php_workers' ) ).toHaveLength( 1 );
 			const commands = vi.mocked( runPhpCommand ).mock.calls.map( ( [ args ] ) => args );
 			expect(
 				commands.some(

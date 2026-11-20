@@ -14,9 +14,9 @@ import type { AiModel, Provider } from '../types';
 // resolves each alias to an upstream model server-side, so the mapping can
 // change without a release.
 export const WPCOM_AI_MODELS = [
-	{ id: 'fast', label: () => __( 'Fast' ), supportsImages: false },
-	{ id: 'balanced', label: () => __( 'Balanced' ), requiresPaidAiCredits: true },
-	{ id: 'strong', label: () => __( 'Strong' ), requiresPaidAiCredits: true },
+	{ id: 'fast', label: () => __( 'Fast' ), supportsImages: false, thinking: false },
+	{ id: 'balanced', label: () => __( 'Balanced' ), requiresPaidAiCredits: true, thinking: false },
+	{ id: 'strong', label: () => __( 'Strong' ), requiresPaidAiCredits: true, thinking: false },
 ] as const satisfies readonly AiModel[];
 
 // Studio's OAuth app on WordPress.com.

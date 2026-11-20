@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	AI_PROVIDER_IDS,
 	findAiModel,
 	getConnectFields,
 	getConnectMethod,
@@ -28,6 +29,17 @@ describe( 'models', () => {
 		expect( findAiModel( 'gpt-4' ) ).toBeUndefined();
 	} );
 
+	it( 'names a model a local server lists without reaching the server', () => {
+		const found = findAiModel( 'local-llm/hf.co/unsloth/Qwen3-4B:Q4_K_M' );
+
+		expect( found?.provider ).toBe( 'local-llm' );
+		expect( found?.model.label() ).toBe( 'hf.co/unsloth/Qwen3-4B:Q4_K_M' );
+		expect( found?.model.supportsImages ).toBeUndefined();
+		expect( findAiModel( 'anthropic/claude-opus-5-5' ) ).toBeUndefined();
+		// Last in the fallback order, so WordPress.com stays first.
+		expect( AI_PROVIDER_IDS.at( -1 ) ).toBe( 'local-llm' );
+	} );
+
 	it( 'defaults to the paid model only when paid credits remain', () => {
 		expect( getDefaultAiModel( 'wpcom' ) ).toBe( 'fast' );
 		expect( getDefaultAiModel( 'wpcom', { canUsePaidModels: true } ) ).toBe( 'balanced' );
@@ -47,10 +59,18 @@ describe( 'connecting', () => {
 			title: 'Anthropic API key',
 			placeholder: 'sk-…',
 			secret: true,
+			required: true,
 		} );
 		expect( apiKey.validate( ' ' ) ).toBe( 'API key is required' );
 		expect( apiKey.validate( 'sk-ant-key' ) ).toBeUndefined();
 		expect( getConnectFields( getConnectMethod( 'wpcom' ) ) ).toEqual( [] );
+	} );
+
+	it( 'marks a field whose schema takes an empty value as optional', () => {
+		expect( getConnectFields( getConnectMethod( 'local-llm' ) ) ).toMatchObject( [
+			{ name: 'address', secret: false, required: true },
+			{ name: 'apiKey', secret: true, required: false },
+		] );
 	} );
 
 	it( 'finds a method by id, or the first', () => {

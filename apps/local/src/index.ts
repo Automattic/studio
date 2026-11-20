@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { statfs } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -28,6 +29,7 @@ import {
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { THINKING_SETTINGS } from '@studio/agent/protocol/thinking';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
@@ -152,7 +154,6 @@ import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit'
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { setSiteFrontendAdminBar, updateSiteMetadata } from '@studio/common/sites/metadata';
-import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import { getSitePublishStatus } from '@studio/common/sites/publish-status';
 import {
 	getSiteCreationVisibility,
@@ -220,7 +221,7 @@ import type {
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { UserPreferencesContext } from '@studio/common/lib/user-settings/user-preferences';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
-import type { Request, Response } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 
 const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 
@@ -263,6 +264,16 @@ export interface LocalServerOptions {
 	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
 	// `WordPressStudio/<version>`, sent with feedback reports. Injected by `studio ui`.
 	userAgent?: string;
+	// The Studio version, reported at `/api/version` so a client can adapt to an older server.
+	version?: string;
+	// Origins of a UI served from elsewhere (`studio serve`), allowed to call the API with
+	// credentials, on top of the `studio ui` ones.
+	allowedOrigins?: string[];
+	// Run before every route, for a host that authenticates requests or answers some itself.
+	middleware?: RequestHandler[];
+	// Limits the host set on sites and their storage (`studio serve` on a Studio Cloud plan),
+	// reported with the current counts at `/api/site-limits`.
+	siteLimits?: { sites?: number; runningSites?: number; storageGb?: number };
 }
 
 export interface LocalServer {
@@ -517,6 +528,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// real-path routes (`/sessions/:id` is both an app URL and an API resource).
 	const api = express.Router();
 
+	for ( const handler of options.middleware ?? [] ) {
+		app.use( handler );
+	}
+
 	// A website can point its own name at 127.0.0.1 (DNS rebinding) and then call
 	// this unauthenticated API same-origin, so on loopback only requests
 	// addressed to a local name get through.
@@ -545,18 +560,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		// The studio.local custom-domain setup.
 		'https://studio.local',
 	] );
+	// A UI served elsewhere (`studio serve`) also sends its cookies, so only real web origins
+	// qualify, never `null` or a wildcard.
+	const credentialedOrigins = new Set(
+		( options.allowedOrigins ?? [] ).filter( ( origin ) => /^https?:\/\/[^*]+$/.test( origin ) )
+	);
 	app.use( ( req: Request, res: Response, next ) => {
 		const origin = req.headers.origin;
 		if ( origin ) {
-			if ( ! allowedOrigins.has( origin ) ) {
+			// The header carries the allowlist's own entry rather than echoing the request's.
+			const allowed = [ ...allowedOrigins, ...credentialedOrigins ].find(
+				( candidate ) => candidate === origin
+			);
+			if ( ! allowed ) {
 				res.status( 403 ).json( { error: 'Origin not allowed' } );
 				return;
 			}
-			res.setHeader( 'Access-Control-Allow-Origin', origin );
+			res.setHeader( 'Access-Control-Allow-Origin', allowed );
 			res.setHeader( 'Vary', 'Origin' );
+			if ( credentialedOrigins.has( allowed ) ) {
+				res.setHeader( 'Access-Control-Allow-Credentials', 'true' );
+			}
 		}
-		res.setHeader( 'Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS' );
-		res.setHeader( 'Access-Control-Allow-Headers', 'Content-Type' );
+		res.setHeader( 'Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS' );
+		res.setHeader( 'Access-Control-Allow-Headers', 'Content-Type, Authorization' );
 		if ( req.method === 'OPTIONS' ) {
 			res.sendStatus( 204 );
 			return;
@@ -586,8 +613,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} );
 	} );
 
+	// `busy` lets a host that suspends idle servers (Studio Cloud's gateway) wait out an agent run.
 	api.get( '/health', ( _req: Request, res: Response ) => {
-		res.json( { status: 'ok' } );
+		res.json( { status: 'ok', busy: runManager.listActiveAgentRuns().length > 0 } );
+	} );
+
+	api.get( '/version', ( _req: Request, res: Response ) => {
+		res.json( { version: options.version ?? null } );
 	} );
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
@@ -921,6 +953,35 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// The host's limits on sites with the current counts, or null when it sets none. Storage is in
+	// bytes, measured on the disk that holds the sites.
+	api.get(
+		'/site-limits',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const limits = options.siteLimits;
+			if ( ! limits?.sites && ! limits?.runningSites && ! limits?.storageGb ) {
+				res.json( null );
+				return;
+			}
+			const sites = await listSites( execute );
+			const running = sites.filter( ( site ) => site.running ).length;
+			const disk = limits.storageGb ? await statfs( options.sitesRoot ) : undefined;
+			res.json( {
+				sites: limits.sites ? { used: sites.length, limit: limits.sites } : undefined,
+				runningSites: limits.runningSites
+					? { used: running, limit: limits.runningSites }
+					: undefined,
+				storage:
+					disk && limits.storageGb
+						? {
+								used: ( disk.blocks - disk.bfree ) * disk.bsize,
+								limit: limits.storageGb * 1024 ** 3,
+						  }
+						: undefined,
+			} );
+		} )
+	);
+
 	// Declared before `/sites/:id/*` so the literal path wins the match.
 	api.post(
 		'/sites/sort-order',
@@ -1133,7 +1194,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await readSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), () =>
+				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
 					readGlobalStyles( execute, sitePath )
 				)
 			);
@@ -1153,9 +1214,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid design fixes' } );
 				return;
 			}
-			res.json(
-				await fixSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), fixes.data )
-			);
+			res.json( await fixSiteDesign( sitePath, activeThemeSlug( sitePath ), fixes.data ) );
 		} )
 	);
 
@@ -2350,6 +2409,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
 				provider: toStoredProviderId( provider ),
 				model,
+			} );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sessions/:id/thinking',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { model, thinking } = req.body as { model?: string; thinking?: string };
+			if ( ! model || ! findAiModel( model ) ) {
+				res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
+				return;
+			}
+			const level = THINKING_SETTINGS.find( ( id ) => id === thinking );
+			if ( ! level ) {
+				res.status( 400 ).json( { error: `Unknown thinking level: ${ thinking }` } );
+				return;
+			}
+			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
+				model,
+				thinking: level,
 			} );
 			res.sendStatus( 204 );
 		} )

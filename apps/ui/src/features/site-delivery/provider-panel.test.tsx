@@ -1193,9 +1193,8 @@ it.each( [ 'last used', 'saved default' ] )(
 	}
 );
 
-it( 'shows preview access when WordPress.com is the only available destination', async () => {
+it( 'shows preview access for WordPress.com', async () => {
 	const { connector, user } = setup( {
-		capabilities: { nativeSites: false },
 		getRemoteSites: async () => [],
 		getSnapshots: async () => [],
 		getPreviewStatus: async () => ( {
@@ -1214,7 +1213,7 @@ it( 'shows preview access when WordPress.com is the only available destination',
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	await user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
 	expect( await screen.findByRole( 'option', { name: 'WordPress.com' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'option', { name: 'Spacefast' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'option', { name: 'Spacefast' } ) ).toBeVisible();
 	expect( screen.getByRole( 'option', { name: 'Connect to an existing site' } ) ).toBeVisible();
 } );
 
@@ -1446,13 +1445,12 @@ it( 'shows WordPress.com publishing controls before connecting and returns after
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 
-it.each( [ true, false ] )(
-	'connects a provider before choosing an existing site with native sites: %s',
-	async ( nativeSites ) => {
+it.each( [ false, true ] )(
+	'connects a provider before choosing an existing site with a sign-in redirect: %s',
+	async ( redirect ) => {
 		let signedIn = false;
 		let connected = false;
 		const first = setup( {
-			capabilities: { nativeSites },
 			getAuthUser: async () => ( signedIn ? TEST_USER : null ),
 			getAiSettings: async () => aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] ),
 			getRemoteSites: async ( provider ) => ( provider === 'wpcom' && connected ? [ live ] : [] ),
@@ -1461,7 +1459,7 @@ it.each( [ true, false ] )(
 			connectRemoteSite: async () => {
 				connected = true;
 			},
-			...( nativeSites ? {} : { authenticate: async () => new Promise< void >( () => {} ) } ),
+			...( redirect ? { authenticate: async () => new Promise< void >( () => {} ) } : {} ),
 		} );
 		await openShare();
 		await openExistingSitePicker( first.user );
@@ -1470,16 +1468,12 @@ it.each( [ true, false ] )(
 			within( step ).getByText( 'Connect a provider to see your existing sites.' )
 		).toBeVisible();
 		expect( within( step ).queryByText( 'No existing sites.' ) ).not.toBeInTheDocument();
-		if ( nativeSites ) {
-			expect(
-				within( step ).getByRole( 'button', { name: 'Connect to Spacefast' } )
-			).toBeVisible();
-		}
+		expect( within( step ).getByRole( 'button', { name: 'Connect to Spacefast' } ) ).toBeVisible();
 		await first.user.click(
 			within( step ).getByRole( 'button', { name: 'Connect to WordPress.com' } )
 		);
 		await waitFor( () => expect( first.connector.authenticate ).toHaveBeenCalledOnce() );
-		if ( nativeSites ) {
+		if ( ! redirect ) {
 			await act( async () => {
 				signedIn = true;
 				first.connector.emit( 'onAuthStateChanged' );
@@ -1510,10 +1504,9 @@ it.each( [ true, false ] )(
 	}
 );
 
-it( 'restores the access choice after a web sign-in redirects back to Publish', async () => {
+it( 'restores the access choice after sign-in redirects back to Publish', async () => {
 	let signedIn = false;
 	const overrides: ConnectorOverrides = {
-		capabilities: { nativeSites: false },
 		getAuthUser: async () => ( signedIn ? TEST_USER : null ),
 		getAiSettings: async () => aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] ),
 		getRemoteSites: async () => [],
@@ -2902,19 +2895,15 @@ it( 'offers publishing somewhere else without disconnecting the current site', a
 	expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
 } );
 
-it.each( [
-	{ nativeSites: true, provider: 'spacefast' },
-	{ nativeSites: false, provider: 'wpcom' },
-] as const )(
-	'connects an existing $provider site from Publish somewhere else',
-	async ( { nativeSites, provider } ) => {
+it.each( [ 'spacefast', 'wpcom' ] as const )(
+	'connects an existing %s site from Publish somewhere else',
+	async ( provider ) => {
 		const destination =
 			provider === 'wpcom'
 				? { ...live, id: 43, name: 'Another site', url: 'https://another.blog' }
 				: { ...space, id: 'spc_2', name: 'Another site', url: 'https://another.blog' };
 		let connected = false;
 		const { user, connector } = setup( {
-			capabilities: { nativeSites },
 			getSnapshots: async () => [],
 			getRemoteSites: async ( id ) =>
 				connected ? ( id === provider ? [ destination ] : [] ) : id === 'wpcom' ? [ live ] : [],

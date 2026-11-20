@@ -859,9 +859,16 @@ it.each( [ false, true ] )(
 				name: /^Publish…$/,
 			} )
 		);
-		expect(
-			await screen.findByText( localChanged ? 'Local and preview changes' : 'Preview has changes' )
-		).toBeVisible();
+		const status = await screen.findByText(
+			localChanged ? 'Local and preview changes' : 'Preview has changes'
+		);
+		expect( status ).toBeVisible();
+		expect( status ).toAppearAfter( await screen.findByRole( 'button', { name: 'Update…' } ) );
+		if ( localChanged ) {
+			expect(
+				screen.getByText( 'Pull replaces your local copy. Update replaces the preview.' )
+			).toAppearAfter( status );
+		}
 		const pull = await screen.findByRole( 'button', { name: 'Pull from preview…' } );
 		expect( pull ).toHaveAttribute( 'data-variant', 'outline' );
 		await actions.click( pull );

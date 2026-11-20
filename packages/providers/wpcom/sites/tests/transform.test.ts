@@ -163,7 +163,7 @@ describe( 'transformSitesResponse', () => {
 } );
 
 describe( 'withWpcomDetails', () => {
-	it( 'takes details from the site list, keeps the stored sync times, and keeps the stored name and URL of sites gone from WordPress.com', () => {
+	it( 'takes account details while preserving sync times and usable stored URLs', () => {
 		const atomic = { ...simpleBusinessSite(), ID: 3, is_wpcom_atomic: true, jetpack: true };
 		const [ business, free ] = transformSitesResponse( [ atomic, freeSite() ] );
 		const stored = ( id: number ) => ( {
@@ -193,5 +193,10 @@ describe( 'withWpcomDetails', () => {
 			url: business.url,
 			syncSupport: 'deleted',
 		} );
+		const [ invalidUrl ] = withWpcomDetails(
+			[ stored( business.id ) ],
+			[ { ...business, url: '' } ]
+		);
+		expect( invalidUrl.url ).toBe( business.url );
 	} );
 } );

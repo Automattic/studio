@@ -92,6 +92,7 @@ export function withWpcomDetails< Connection extends SyncSite >(
 			// A site gone from WordPress.com keeps the name and URL it was connected under.
 			...connection,
 			...site,
+			url: site && URL.canParse( site.url ) ? site.url : connection.url,
 			localSiteId,
 			syncSupport,
 			lastPullTimestamp,
@@ -101,6 +102,8 @@ export function withWpcomDetails< Connection extends SyncSite >(
 		};
 	} );
 }
+
+const publishingNeedsUpgrade = () => __( 'Publishing requires a supported plan.' );
 
 // Why a site can't be published to or pulled from, from what WordPress.com says about it.
 export function wpcomSiteIssue( site: SyncSite, direction: 'push' | 'pull' ): string | null {
@@ -114,9 +117,7 @@ export function wpcomSiteIssue( site: SyncSite, direction: 'push' | 'pull' ): st
 				return __(
 					'This website needs a hosting plan that supports pulling into WordPress Studio.'
 				);
-			return __(
-				'This website needs a hosting plan that supports publishing from WordPress Studio.'
-			);
+			return publishingNeedsUpgrade();
 		case 'needs-transfer':
 			return direction === 'pull'
 				? __( 'Finish activating hosting on WordPress.com before pulling.' )
@@ -124,9 +125,7 @@ export function wpcomSiteIssue( site: SyncSite, direction: 'push' | 'pull' ): st
 		case 'unsupported':
 			return __( 'Publishing and pulling require a supported WordPress.com or Pressable website.' );
 		default:
-			return direction === 'push' && site.pushNeedsUpgrade
-				? __( 'This website needs a hosting plan that supports publishing from WordPress Studio.' )
-				: null;
+			return direction === 'push' && site.pushNeedsUpgrade ? publishingNeedsUpgrade() : null;
 	}
 }
 

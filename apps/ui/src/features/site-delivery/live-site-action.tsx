@@ -137,7 +137,7 @@ export function LiveSiteAction( {
 			  ( selection.blocked ? __( 'Select something to publish.' ) : undefined )
 			: undefined );
 	const publishMessage = ! working && ! checking && ( message || selection.error ) && (
-		<p role="status" className={ styles.changeStatus }>
+		<p role="status" className={ confirmation ? styles.changeStatus : styles.footerStatus }>
 			{ message }
 			{ selection.error && (
 				<>
@@ -219,8 +219,8 @@ export function LiveSiteAction( {
 	if ( direction === 'push' )
 		return (
 			<div className={ styles.publishAction }>
-				{ publishMessage }
 				{ action }
+				{ publishMessage }
 			</div>
 		);
 	const hostname = new URL( remote.url ).hostname;

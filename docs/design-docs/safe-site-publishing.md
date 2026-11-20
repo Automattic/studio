@@ -2,7 +2,7 @@
 
 ## About this doc
 
-This is a proposal for discussion. The behavior it describes is not implemented. It covers publishing a local site's database to its live site; files are covered only where they affect the data. Until it is built, the live changes guard in [Sync](sync.md#live-changes-guard) (Automattic/studio#6045) stops a database push that would overwrite changes made on the live site since the last sync.
+This is a proposal for discussion. The behavior it describes is not implemented. It covers publishing a local site's database to its live site; files are covered only where they affect the data. Until it is built, the live changes guard proposed in Automattic/studio#6045 would stop a database push that overwrites changes made on the live site since the last sync. Pushes have no such protection before that guard ships.
 
 Out of scope: multisite networks, and WordPress.com's own staging-to-production sync.
 
@@ -145,7 +145,7 @@ A publish is seamless when it completes without a manual pull, a conflict decisi
 
 Measure over 28-day periods with the existing Tracks events (`studio_sync_push`, see [Analytics: Tracks](analytics-tracks.md)), extended with the outcome of each publish. Report unsupported changes, conflicts, connection failures, and manual retries separately. Do not remove difficult cases from the main result.
 
-The baseline is today's behavior: the share of database pushes that the live changes guard stops (`failure_reason: live_changed`) shows how often a full replacement would have lost live data.
+The baseline comes from the live changes guard (Automattic/studio#6045) once it ships: the share of database pushes it stops (`failure_reason: live_changed`) shows how often a full replacement would have lost live data.
 
 Also measure publishing time. A publish that avoids questions but takes too long is not a good result.
 
@@ -169,4 +169,4 @@ The 95% target needs evidence from real use. It does not guarantee that all conf
 - What original data must Studio store, and how will it protect sensitive data?
 - What publishing time is acceptable, and when should automatic retries stop?
 
-Until selective publishing is available, the live changes guard (Automattic/studio#6045) stops stale database replacement. That is temporary protection. The intended experience is automatic synchronization with questions only when a safe decision requires the user.
+Until selective publishing is available, the live changes guard proposed in Automattic/studio#6045 is the temporary protection against stale database replacement. The intended experience is automatic synchronization with questions only when a safe decision requires the user.

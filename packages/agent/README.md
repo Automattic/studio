@@ -1,15 +1,14 @@
 # @studio/agent
 
-The Studio Code agent: the model loop, its tools and skills, its system prompt, and the sessions it records. It runs in the CLI (`studio code`, the eval runner), serves its tools to agent apps through `studio mcp`, and runs in the page in Studio on the web; the Desktop app and `studio ui` show it by forking the CLI.
+The Studio Code agent: the model loop, its tools and skills, its system prompt, and the sessions it records. It runs in the CLI (`studio code`, the eval runner), and serves its tools to agent apps through `studio mcp`; the Desktop app, `studio ui` and Studio Cloud show it by forking the CLI.
 
 ```
 protocol/   the contract between the agent and the apps that show it
-shared/     what every agent runs, in Node or a browser: tools, skills, the system prompt, the host interface
+shared/     what every agent runs: tools, skills, the system prompt, the host interface
 node/       the agent in Node: pi's coding-agent runtime and file tools, sessions, run-manager
-browser/    the agent in a browser: pi-agent-core's loop and Studio's file tools, over the host
 ```
 
-The apps that show the agent import its **protocol**; the apps that run it import **node** or **browser**.
+The apps that show the agent import its **protocol**; the apps that run it import **node**.
 
 ## protocol/
 
@@ -46,7 +45,7 @@ const tools = agent.tools( { imageGeneration, canAskUser, imageLink } );
 
 ### The host
 
-The host (`StudioAgentHost`, `shared/host.ts`) is what the app running the agent provides. The agent never imports an app: everything it needs from one comes through the host, so the same tools run in Node and in a browser.
+The host (`StudioAgentHost`, `shared/host.ts`) is what the app running the agent provides. The agent never imports an app: everything it needs from one comes through the host, so the same tools run in every app that provides one.
 
 Every host provides these, each a named interface in `shared/host.ts`:
 
@@ -67,7 +66,7 @@ Some capabilities only some hosts have. Each is an optional member, and a host h
 
 There are no separate flags: a flag could say yes while the member is missing, or the other way round. Gate a tool, and any mention of it in the prompt, on the member itself (`if ( ! host.annotate )` in `resolveStudioTools`), which also narrows its type for the code that calls it. A new capability is a new optional member here, documented with the tools it turns on. (The UI's `Connector` uses `capabilities` flags instead, because a connector implements every method and throws from the ones it does not support.)
 
-In Node, `nodeHostServices()` provides `files`, `path`, `pages` (Playwright's Chromium), `saveImage` and `annotate`; the CLI's host spreads them in. Studio on the web's host (`apps/static/src/agent/host.ts`) runs sites in Playground, reads their files from the runtimes and loads pages in off-screen frames.
+In Node, `nodeHostServices()` provides `files`, `path`, `pages` (Playwright's Chromium), `saveImage` and `annotate`; the CLI's host spreads them in.
 
 ### Tools
 
@@ -95,19 +94,7 @@ Where guidance goes: the system prompt (`shared/system-prompt.ts`) holds only wh
 
 ### Models
 
-The runtime never picks a provider or reads credentials. The app asks the provider serving the chosen model for a connection (`ai.model` in `@studio/providers/services`) and passes it with each turn. Both runtimes stream through `shared/models.ts`, which applies the connection's upstream model name and error rewrite, strips stale screenshots and cleans leaked tool-call markup, whichever provider serves the turn.
-
-### In a browser
-
-`createBrowserAgent( { host } )`, from `@studio/agent/browser`, runs a turn with the same tools, skills and prompt. The model is called from the page. The file tools, Read, Write, Edit, Grep, Glob and Ls, are Studio's own over `host.files` (`browser/file-tools.ts`), with pi's names, schemas and descriptions (there is no Bash). Both runtimes refuse the same tool calls before running them (`shared/tool-safety.ts`). The app stores the conversation and passes its messages in with each turn:
-
-```ts
-const turn = createBrowserAgent( { host } ).runTurn( {
-	sessionId, prompt, history, ai, activeSite,
-	onEvent, onMessage, onCompaction, onAskUser,
-} );
-const { failure } = await turn.result;
-```
+The runtime never picks a provider or reads credentials. The app asks the provider serving the chosen model for a connection (`ai.model` in `@studio/providers/services`) and passes it with each turn. The runtime streams through `shared/models.ts`, which applies the connection's upstream model name and error rewrite, strips stale screenshots and cleans leaked tool-call markup, whichever provider serves the turn.
 
 ### Layout
 
@@ -125,11 +112,6 @@ node/
   runtime/        the pi coding-agent session, its file tools and compaction
   sessions/       session files and the sessions store
   global-instructions.ts, run-manager.ts, local-media.ts
-browser/
-  index.ts        createBrowserAgent
-  file-tools.ts   Read, Write, Edit, Grep, Glob and Ls over host.files
-  edit-text.ts    Edit's matching and diff, as pi's
-  models.ts, compaction.ts
 ```
 
 The last line, and the sessions store, are for the apps that show the agent: the Desktop main process and `apps/local` read and write instructions and sessions, and fork the CLI to run turns. They import these modules by path (`@studio/agent/node/sessions/store`) rather than from the entry, so they never load the runtime.
@@ -138,8 +120,8 @@ The last line, and the sessions store, are for the apps that show the agent: the
 
 Enforced by lint (`eslint.config.mjs`):
 
-- `apps/ui` imports only `@studio/agent/protocol/*`; Studio on the web's backend (`apps/static`) runs `@studio/agent/browser`.
-- `protocol/`, `shared/` and `browser/` use no Node APIs, and import nothing from `node/`.
+- `apps/ui` imports only `@studio/agent/protocol/*`.
+- `protocol/` and `shared/` use no Node APIs, and import nothing from `node/`.
 - The package imports no app code (`cli/*`, `src/*`).
 - Apps import the agent from `@studio/agent/node`, not its `runtime/`, `tools/` or `host` modules.
 - `@studio/common` never imports this package; this package builds on it.

@@ -302,7 +302,6 @@ export function createInMemoryConnector(
 		getPublishCheckoutUrl: () => undefined,
 		onSyncConnectSite: subscribe( 'onSyncConnectSite' ),
 		watchForPublishedSite: async () => {},
-		connectPreviewFrame: () => ( { run: () => {}, dispose: () => {} } ),
 		getSessions: async () => state.sessions.map( ( session ) => session.summary ),
 		getSession: async ( id ) => findSession( id ),
 		updateSessionMetadata: async ( id, patch ) => {
@@ -456,7 +455,6 @@ export function createInMemoryConnector(
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
-			nativeSites: true,
 			loopbackSignIn: true,
 			localMachine: true,
 			...overrides.capabilities,

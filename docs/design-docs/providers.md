@@ -51,7 +51,7 @@ The WordPress.com provider owns how sign-in works: the authorization URL, turnin
 - The user menu in the apps shows the signed-in WordPress.com user, and signing in and out from it is WordPress Studio sign-in.
 - Anything else that needs the signed-in user, such as Tracks identity, gets it the same way.
 
-Receiving the OAuth redirect stays with the shells, because it differs per runtime ([Auth across surfaces](./studio-apps-and-surfaces.md#auth-across-surfaces)): a deep link in the Desktop app, a callback page in `studio ui` and WordPress Studio on the web, and a token the user pastes in the CLI. Each hands what came back to the provider.
+Receiving the OAuth redirect stays with the shells, because it differs per runtime ([Auth across surfaces](./studio-apps-and-surfaces.md#auth-across-surfaces)): a deep link in the Desktop app, a callback page in `studio ui`, and a token the user pastes in the CLI. Each hands what came back to the provider.
 
 As a provider, WordPress.com's account is connected exactly when the user is signed in to WordPress Studio. No other provider connects that way.
 
@@ -64,7 +64,7 @@ The package is split in two parts, and lint keeps them apart:
 - **What surfaces read**: the registry, and each provider's descriptor, config schema and connection form. `apps/ui` imports only this part.
 - **The services**: the implementations, for the CLI, the apps' backends and the agent.
 
-Neither part uses Node APIs. WordPress Studio on the web runs the agent in the page, so the services connect accounts, connect to models and generate images there too.
+Neither part uses Node APIs.
 
 Dependencies point one way:
 
@@ -117,9 +117,9 @@ A connection may say its context window is exactly the one the model runs with, 
 - Each provider has a default model; WordPress.com picks a stronger one when the account has paid AI credits left. Switching provider keeps the conversation's model when the new provider serves it too, and falls back to its default otherwise.
 - The UI gates paid tiers using the WordPress.com quota. The proxy enforces access.
 
-### In the page
+### On another machine
 
-WordPress Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, and a `device` sign-in polls endpoints that don't accept the page's origin, so the web leaves both out, and with them the ChatGPT plan and GitHub Copilot; an OpenAI API key works there, since OpenAI's API accepts calls from a page. A method marked as one only a host can run is left out too: the Local LLM connector checks a server on the user's computer or network, which most servers refuse to answer from a page.
+Studio Cloud runs WordPress Studio on a machine away from the user's computer, so its settings offer only the connect methods that work from there. A `loopback` sign-in would return to a port on that machine, not the user's, so the settings leave it out, along with `device` sign-ins, and with them the ChatGPT plan and GitHub Copilot. A method marked as one only a host on the user's computer can run is left out too: the Local LLM connector checks a server on the user's computer or network.
 
 ### Images
 
@@ -137,7 +137,7 @@ The Local LLM connector is `local-llm`, with no stored alias: builds that don't 
 
 - A remote site is a site on a provider that a local site syncs with. Each provider with remote sites declares the shape of its site: WordPress.com's is `SyncSite`, Spacefast's a `Space`.
 - The provider owns the remote side of a sync: listing the account's sites, creating one when it can, sending what a push sends and applying it remotely, and, for pull, backing the site up remotely or opening the export API a local Reprint reads it through. It reports the steps it runs through as a status. Pull is optional: Spacefast only publishes.
-- WordPress Studio owns the local side, shared by every provider, and builds what the provider's push takes: the site's WordPress archive (WordPress.com), or a static export of its pages (Spacefast). On pull, it runs Reprint or imports a downloaded backup. The CLI does this; WordPress Studio on the web builds the archive in the page and hands the same provider a Blob.
+- WordPress Studio owns the local side, shared by every provider, and builds what the provider's push takes: the site's WordPress archive (WordPress.com), or a static export of its pages (Spacefast). On pull, it runs Reprint or imports a downloaded backup. The CLI does this.
 - Connections are WordPress Studio's data about its local sites, not provider config. `@studio/common/lib/remote-sites.ts` reads and writes them per provider, and records when each site was last pushed or pulled. WordPress.com's stay in `connectedWpcomSites`, so builds of every version read them; later providers' are in `remoteSites`.
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
 - `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. A remote that names any provider comes with the descriptor-driven UI _(planned)_.
@@ -153,8 +153,8 @@ The Local LLM connector is `local-llm`, with no stored alias: builds that don't 
 
 ## Surfaces
 
-- **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from WordPress Studio sign-in. The `ipc`, `local` and static connectors stay thin wrappers over WordPress Studio's storage in `@studio/common` and the providers' services.
-- **The agent**, in Node or in the page, receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires WordPress Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
+- **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from WordPress Studio sign-in. The `ipc` and `local` connectors stay thin wrappers over WordPress Studio's storage in `@studio/common` and the providers' services.
+- **The agent** receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires WordPress Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
 - **The CLI** lists providers and models from descriptors in `studio code`. `studio auth` is WordPress Studio sign-in. `studio push`, `pull` and `preview` hand the remote side to the provider.
 - **Analytics**: existing Tracks properties keep their names, so reporting stays continuous.
 

@@ -3,7 +3,6 @@ import { designSheet, parseDesignMd, themeJsonDesign } from '@studio/design-md';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useMemo, useRef } from 'react';
-import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
@@ -97,7 +96,6 @@ export function useSiteToolActions(
 }
 
 function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
-	const { nativeSites } = useConnector().capabilities;
 	const { data: design } = useSiteDesign( site );
 	const designAvailable = useMemo( () => {
 		if ( ! design ) return false;
@@ -113,9 +111,7 @@ function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
 	return ( [ 'frontend', 'admin', 'design', 'database', 'email' ] as const )
 		.filter(
 			( id ) =>
-				( ! live || id === 'frontend' || id === 'admin' ) &&
-				( id !== 'design' || designAvailable ) &&
-				( nativeSites || ( id !== 'database' && id !== 'email' ) )
+				( ! live || id === 'frontend' || id === 'admin' ) && ( id !== 'design' || designAvailable )
 		)
 		.map( ( id ) => ( {
 			id,

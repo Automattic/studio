@@ -19,7 +19,7 @@ errors.ts        NotConnectedError, ConnectError, RemoteSiteError
 ## Two halves of each provider
 
 - **`getProvider( id )`** (`@studio/providers`) is the provider as data: its label, description and icon, its `account` (config schema, connect methods, what to show of a connected account), its `ai` models and its `sites` presentation. Calling it never reaches a service. `apps/ui` imports only this entry, and `@studio/providers/wpcom`.
-- **`getProviderServices( id )`** (`@studio/providers/services`) is what the provider does, in the same groups: `account` (start, connect, refresh, disconnect), `ai` (a model connection, image generation) and `sites` (list, create, push, pull, and previews). The CLI, the apps' backends and the agent import it. It runs in Node and in the page, where Studio on the web runs the agent.
+- **`getProviderServices( id )`** (`@studio/providers/services`) is what the provider does, in the same groups: `account` (start, connect, refresh, disconnect), `ai` (a model connection, image generation) and `sites` (list, create, push, pull, and previews). The CLI, the apps' backends and the agent import it, in Node.
 
 ```ts
 import { getDefaultAiModel } from '@studio/providers';
@@ -39,11 +39,11 @@ Text a provider gives surfaces is plain strings, except a connect method's `inst
 - **`form`**: `input()` returns a zod object of string fields, whose metadata (`.meta()`) gives each field's `title`, `description` and `examples`; `writeOnly: true` marks a secret, and a field whose schema accepts an empty value is optional. `getConnectFields( method )` reads it for any surface: the settings render a form, `studio code` prompts. Anthropic asks for an API key, or a `claude setup-token` token, this way, OpenAI for an API key, and the Local LLM connector for a server's address and an optional key.
 - **`loopback`**: signing in on the provider's site, which redirects back to this computer. Studio listens on a free port (`startProviderConnect` in `@studio/common/lib/provider-connect.ts`) and passes the address to the provider's `start`. OpenAI connects a ChatGPT plan this way.
 - **`device`**: approving a code on the provider's site while Studio waits: `start` returns the code. Spacefast and GitHub Copilot connect this way.
-- **`redirect`**: the Studio sign-in. Each app receives WordPress.com's redirect its own way (Desktop's `wp-studio://auth` deep link, `studio ui`'s callback page, Studio on the web's page, the token the CLI user pastes) from `getSignInUrl` in `@studio/providers/wpcom`.
+- **`redirect`**: the Studio sign-in. Each app receives WordPress.com's redirect its own way (Desktop's `wp-studio://auth` deep link, `studio ui`'s callback page, the token the CLI user pastes) from `getSignInUrl` in `@studio/providers/wpcom`.
 
 For the methods that sign in on the provider's site, `account.start( method, context )` returns where the user goes (`url`), a `code` to approve when there is one, and a `handoff`. `account.connect( method, input )` takes a form's values, a redirect's parameters, or the handoff (with a loopback redirect's parameters), checks them and returns the config to store, or throws `ConnectError`. The same flow runs in every surface: `startProviderConnect`, then `connectProvider` in `@studio/common`.
 
-A method with `hostOnly: true` checks something a page can't reach, such as a server on the user's computer, so Studio on the web leaves it out.
+A method with `hostOnly: true` checks something only the user's computer can reach, such as a server on it, so a Studio running on another machine, as Studio Cloud does, leaves it out.
 
 `context.hostId` stays the same on this computer, and `context.remembered` is what `account.remember( config )` kept from a config the provider rejected, so signing in again continues the same registration.
 
@@ -76,7 +76,7 @@ Add a folder laid out like the others, add its id to `ProviderId` and `ProviderC
 Enforced by lint (`eslint.config.mjs`):
 
 - The package imports no other workspace package: Studio passes in what a provider needs.
-- It uses no Node APIs, since the agent runs it in the page too.
+- It uses no Node APIs, since `apps/ui` loads its surface entries in the browser.
 - The files the surface entries are made of import only each other.
 - `apps/ui` imports only `@studio/providers` and `@studio/providers/wpcom`, and `@studio/common` never imports `@studio/providers/services`.
 

@@ -22,7 +22,7 @@ export function getConnectMethod( provider: ProviderId, id?: string ): ConnectMe
 }
 
 // Whether only a process on the user's computer can connect with the method: a sign-in that comes
-// back to it or polls endpoints a page can't call, or a method that says so.
+// back to it or polls endpoints a browser can't call, or a method that says so.
 export function needsHost( { kind, hostOnly }: ConnectMethod ): boolean {
 	return kind === 'loopback' || kind === 'device' || hostOnly === true;
 }

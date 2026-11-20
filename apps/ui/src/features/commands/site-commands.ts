@@ -49,7 +49,6 @@ export function getSiteCommands( {
 	site,
 	panelShown,
 	canAnnotate,
-	nativeSites,
 	annotating,
 	actions,
 	destinations,
@@ -65,7 +64,6 @@ export function getSiteCommands( {
 	site: SiteDetails;
 	panelShown: boolean;
 	canAnnotate: boolean;
-	nativeSites: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
 	destinations: ReturnType< typeof useOpenInDestinations >;
@@ -142,7 +140,7 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					...( nativeSites && site.phpMyAdminSupported !== false
+					...( site.phpMyAdminSupported !== false
 						? [
 								{
 									id: 'database',
@@ -155,19 +153,15 @@ export function getSiteCommands( {
 								},
 						  ]
 						: [] ),
-					...( nativeSites
-						? [
-								{
-									id: 'email',
-									group: 'commands' as const,
-									label: __( 'Open email log' ),
-									icon: PaperPlaneIcon,
-									description,
-									keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
-									run: actions.openEmail,
-								},
-						  ]
-						: [] ),
+					{
+						id: 'email',
+						group: 'commands' as const,
+						label: __( 'Open email log' ),
+						icon: PaperPlaneIcon,
+						description,
+						keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
+						run: actions.openEmail,
+					},
 					...( site.running
 						? [
 								{

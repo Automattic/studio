@@ -20,7 +20,7 @@ const WP_UI_PACKAGES = {
 };
 
 const AGENT_NODE = {
-	group: [ '@studio/agent/node/*', '@studio/agent/shared/*', '@studio/agent/browser' ],
+	group: [ '@studio/agent/node/*', '@studio/agent/shared/*' ],
 	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
 };
 
@@ -46,11 +46,6 @@ const PROVIDERS_DESCRIPTORS = [
 
 const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];
 
-// Studio on the web's backend (`apps/static`) is reached through its connector.
-const STATIC_BACKEND = {
-	group: [ '@studio/static', '@studio/static/*' ],
-	message: 'Only the static connector imports @studio/static; features use useConnector().',
-};
 const BASE_UI = {
 	group: [ '@base-ui/react', '@base-ui/react/*' ],
 	message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
@@ -321,17 +316,11 @@ export default defineConfig(
 			'no-restricted-imports': [
 				'error',
 				{
-					patterns: [ WP_UI_PACKAGES, AGENT_NODE, PROVIDERS_SERVICES, STATIC_BACKEND, BASE_UI ],
+					patterns: [ WP_UI_PACKAGES, AGENT_NODE, PROVIDERS_SERVICES, BASE_UI ],
 				},
 			],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
 			'import-x/no-cycle': 'error',
-		},
-	},
-	{
-		files: [ 'apps/ui/src/data/core/connectors/static/**/*.{ts,tsx}' ],
-		rules: {
-			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES, AGENT_NODE, BASE_UI ] } ],
 		},
 	},
 	{
@@ -387,7 +376,7 @@ export default defineConfig(
 	},
 	{
 		// Studio passes providers their config, so they never depend on Studio's
-		// packages, and the agent runs them in Node and in the page.
+		// packages, and `apps/ui` loads their descriptors in the browser.
 		files: [ 'packages/providers/**/*.ts' ],
 		ignores: [ 'packages/providers/**/tests/**' ],
 		rules: {
@@ -397,7 +386,7 @@ export default defineConfig(
 					patterns: [
 						{
 							group: NODE_APIS,
-							message: '@studio/providers runs in the browser too; keep Node APIs out.',
+							message: '@studio/providers is loaded in the browser too; keep Node APIs out.',
 						},
 						{
 							group: [ '@studio/*', 'cli/*', 'src/*' ],
@@ -459,12 +448,10 @@ export default defineConfig(
 		},
 	},
 	{
-		// The tools, prompt and skills both agents share, and the browser agent.
-		files: [ 'packages/agent/shared/**/*.ts', 'packages/agent/browser/**/*.ts' ],
-		ignores: [
-			'packages/agent/{shared,browser}/**/tests/**',
-			'packages/agent/{shared,browser}/**/*.test.ts',
-		],
+		// The agent's tools, prompt and skills reach files, pages and WordPress.com only through
+		// the host, which the CLI and `studio mcp` provide.
+		files: [ 'packages/agent/shared/**/*.ts' ],
+		ignores: [ 'packages/agent/shared/**/tests/**', 'packages/agent/shared/**/*.test.ts' ],
 		rules: {
 			'no-restricted-imports': [
 				'error',
@@ -484,12 +471,11 @@ export default defineConfig(
 								'playwright-core',
 								'@earendil-works/pi-coding-agent',
 							],
-							message:
-								'shared/ and browser/ run in a browser; reach files and pages through the host.',
+							message: 'shared/ reaches files and pages through the host.',
 						},
 						{
 							group: [ '@studio/agent/node', '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'shared/ and browser/ depend on protocol and common, not on the Node agent.',
+							message: 'shared/ depends on protocol and common, not on the Node agent.',
 						},
 					],
 				},

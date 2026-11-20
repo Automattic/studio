@@ -25,8 +25,7 @@ export const designFixesSchema = z.array(
 	} )
 );
 
-// A site's files, by their path from the site root: on disk for a native site,
-// in Playground for Studio on the web.
+// A site's files, by their path from the site root.
 export interface SiteFiles {
 	// Null when the file is missing.
 	read( path: string ): Promise< string | null >;

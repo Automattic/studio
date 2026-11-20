@@ -9,8 +9,7 @@
 		"./shared/tools": "./shared/tools/index.ts",
 		"./shared/*": "./shared/*.ts",
 		"./node": "./node/index.ts",
-		"./node/*": "./node/*.ts",
-		"./browser": "./browser/index.ts"
+		"./node/*": "./node/*.ts"
 	},
 	"scripts": {
 		"lint": "eslint .",

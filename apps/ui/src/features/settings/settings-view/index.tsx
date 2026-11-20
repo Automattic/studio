@@ -194,7 +194,7 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</SettingsRow>
-				{ connector.capabilities.nativeSites && (
+				{ connector.capabilities.localMachine && (
 					<>
 						<SettingsRow
 							title={ __( 'Default code editor' ) }
@@ -265,7 +265,7 @@ function PreferencesPanel( {
 				) }
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				{ connector.capabilities.nativeSites && (
+				{ connector.capabilities.localMachine && (
 					<SettingsRow
 						title={ __( 'When WordPress Studio quits' ) }
 						description={ __(

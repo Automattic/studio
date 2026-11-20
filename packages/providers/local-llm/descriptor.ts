@@ -50,7 +50,7 @@ export const localLlmProvider: Provider< LocalLlmConfig > = {
 				label: () => __( 'Server address' ),
 				kind: 'form',
 				input: localLlmConnectInput,
-				// The server is on the user's computer or network, which a page can't reach.
+				// The server is on the user's computer or network, which Studio running elsewhere can't reach.
 				hostOnly: true,
 				instructions: () =>
 					__(

@@ -557,8 +557,7 @@ Sensitive values are never sent as strings (see `is_default` and the directory n
 selections through `changeAiSettings` in `packages/common/lib/ai-provider-tracks.ts`, which records
 the event: Desktop Main (the AI settings IPC handlers), the `studio ui` server (its `/ai-settings`
 routes) and the CLI (`/connect`, `/disconnect` and switching providers in `studio code`, and `studio
-push` connecting Spacefast). Studio on the web records no Tracks events at all (its connector's
-`trackEvent` does nothing). A connection, disconnection or selection emits only when it changed
+push` connecting Spacefast). A connection, disconnection or selection emits only when it changed
 the settings; a connection the provider refused (or that failed) always emits, with `success=false`
 and a `failure_reason`: `invalid` (the key or token was rejected, or what came back from a sign-in
 was incomplete or expired), `denied` (the user declined on the provider's site), `ineligible` (the

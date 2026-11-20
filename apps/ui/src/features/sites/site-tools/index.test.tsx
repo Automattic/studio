@@ -4,15 +4,16 @@ import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient, renderWithProviders } from '@/test/render';
 import { SiteToolLauncher } from './index';
 
-async function setup( active = true, phpMyAdminSupported = true ) {
+async function setup( active = true, siteOverrides: Parameters< typeof makeSite >[ 0 ] = {} ) {
 	const actions = {
+		openFrontendApp: vi.fn(),
 		openBrowser: vi.fn(),
 		openAdmin: vi.fn(),
 		openDatabase: vi.fn(),
 		openEmail: vi.fn(),
 		openDesignSystem: vi.fn(),
 	};
-	const site = makeSite( { running: false, phpMyAdminSupported } );
+	const site = makeSite( { running: false, ...siteOverrides } );
 	const view = renderWithProviders(
 		<>
 			<input aria-label="Chat" />
@@ -25,7 +26,7 @@ async function setup( active = true, phpMyAdminSupported = true ) {
 }
 
 it( 'disables the external database tool, explains the alternative, and leaves D alone', async () => {
-	const { actions } = await setup( true, false );
+	const { actions } = await setup( true, { phpMyAdminSupported: false } );
 	const button = screen.getByRole( 'button', { name: 'Database D' } );
 	expect( button ).toBeDisabled();
 	expect( button ).toHaveAccessibleDescription( /separate database client for external MySQL/ );
@@ -114,6 +115,7 @@ it( 'hides an unreadable design system and its shortcut in the launcher', async 
 		<SiteToolLauncher
 			site={ site }
 			actions={ {
+				openFrontendApp: vi.fn(),
 				openBrowser: vi.fn(),
 				openAdmin: vi.fn(),
 				openDatabase: vi.fn(),
@@ -135,4 +137,27 @@ it( 'hides an unreadable design system and its shortcut in the launcher', async 
 		} )
 	);
 	await screen.findByRole( 'button', { name: 'Design System S' } );
+} );
+
+it( 'offers the frontend app, with WordPress beside it, only for a headless site', async () => {
+	const { actions } = await setup( true, {
+		frontend: { path: '/sites/one/frontend', kind: 'static', framework: 'static', port: 3999 },
+	} );
+	expect( screen.getByRole( 'button', { name: 'Frontend app F' } ) ).toHaveAttribute(
+		'aria-keyshortcuts',
+		'F'
+	);
+	expect( screen.getByRole( 'button', { name: 'WordPress B' } ) ).toBeVisible();
+	fireEvent.keyDown( document.body, { key: 'f' } );
+	expect( actions.openFrontendApp ).toHaveBeenCalledOnce();
+	fireEvent.keyDown( document.body, { key: 'b' } );
+	expect( actions.openBrowser ).toHaveBeenCalledOnce();
+} );
+
+it( 'keeps the frontend app out of a classic site’s tools', async () => {
+	const { actions } = await setup();
+	expect( screen.queryByRole( 'button', { name: 'Frontend app F' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Browser B' } ) ).toBeVisible();
+	fireEvent.keyDown( document.body, { key: 'f' } );
+	expect( actions.openFrontendApp ).not.toHaveBeenCalled();
 } );

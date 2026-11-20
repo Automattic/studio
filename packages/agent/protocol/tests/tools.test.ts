@@ -102,6 +102,17 @@ describe( 'tool display helpers', () => {
 		expect( getToolDisplayName( 'open_annotation_browser' ) ).toBe( 'Open annotation browser' );
 	} );
 
+	it( 'names the frontend tools and the site or page a visual tool loads', () => {
+		expect( getToolDisplayName( 'frontend_restart' ) ).toBe( 'Restart frontend' );
+		expect( getToolDetail( 'frontend_logs', { nameOrPath: 'My Site' } ) ).toBe( 'My Site' );
+		expect( getToolDetail( 'take_screenshot', { url: 'http://localhost:8881/' } ) ).toBe(
+			'http://localhost:8881/'
+		);
+		expect( getToolDetail( 'inspect_design', { nameOrPath: 'My Site', url: '/about' } ) ).toBe(
+			'My Site /about'
+		);
+	} );
+
 	it( 'does not reveal which design options the agent chose', () => {
 		expect(
 			getToolDetail( 'pick_design', {

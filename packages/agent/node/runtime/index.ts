@@ -33,6 +33,7 @@ import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/node/file-tool-prompts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
+import { findActiveSiteHeadlessDetails } from '@studio/agent/node/headless';
 import { createConnectionStream } from '@studio/agent/node/models';
 import {
 	getPendingWork,
@@ -335,11 +336,13 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const { model } = config.ai;
 	const visionEnabled = model.input.includes( 'image' );
-	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
-		readGlobalInstructions(),
-		config.host.imageGenerator?.().then( Boolean ) ?? false,
-		findActiveSiteDesign( config.activeSite ),
-	] );
+	const [ userInstructions, imageGenerationEnabled, designPath, activeSiteHeadless ] =
+		await Promise.all( [
+			readGlobalInstructions(),
+			config.host.imageGenerator?.().then( Boolean ) ?? false,
+			findActiveSiteDesign( config.activeSite ),
+			findActiveSiteHeadlessDetails( config.host, config.activeSite ),
+		] );
 
 	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
 	const systemPrompt = buildSystemPrompt( {
@@ -350,6 +353,7 @@ async function createStudioAgentSession(
 		activeSiteEmailPath: config.activeSite?.id
 			? getSiteEmailDirectory( config.activeSite.id )
 			: undefined,
+		activeSiteHeadless,
 	} );
 
 	const pendingWork = getPendingWork( config.session );

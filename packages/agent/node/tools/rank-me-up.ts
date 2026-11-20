@@ -1,4 +1,5 @@
 import { Type } from 'typebox';
+import { getSiteRenderUrl } from '@studio/agent/node/headless';
 import { auditSeo } from '@studio/agent/node/seo-audit';
 import { defineTool, READ_ONLY } from './define-tool';
 import { textResult } from './utils';
@@ -8,7 +9,7 @@ export const auditSeoTool = defineTool(
 	'Runs an on-page SEO audit on a WordPress site page. Returns title and meta description, ' +
 		'canonical/robots/viewport tags, Open Graph and Twitter cards, heading structure, image alt-text ' +
 		'coverage, internal/external link counts, JSON-LD structured data, and robots.txt/sitemap.xml ' +
-		'availability. The site must be running. ' +
+		'availability. The site must be running. On a headless site it audits the frontend. ' +
 		'CALL ONLY ON EXPLICIT USER REQUEST — when the user asks for an SEO audit, mentions ' +
 		'meta tags / OpenGraph / sitemap / search visibility, or invokes /rank-me-up. Do NOT call this as ' +
 		'part of a normal "build a site" or "design a page" workflow.',
@@ -25,7 +26,7 @@ export const auditSeoTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const siteUrl = site.url;
+			const siteUrl = getSiteRenderUrl( site );
 			const urlPath = args.path ?? '/';
 
 			context.onProgress( `Auditing SEO of ${ siteUrl }${ urlPath }…` );

@@ -46,3 +46,8 @@
 .certificateNotice:empty {
 	display: none;
 }
+
+.frontendValue {
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+}

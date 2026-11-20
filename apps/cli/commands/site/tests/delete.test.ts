@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
 import { readAuthToken } from '@studio/common/lib/auth-token';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
@@ -9,6 +10,7 @@ import { vi } from 'vitest';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { isFrontendRunning, stopFrontendServer } from 'cli/lib/frontend/server';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
@@ -41,6 +43,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 vi.mock( 'cli/lib/certificate-manager' );
 vi.mock( 'cli/lib/hosts-file' );
 vi.mock( 'cli/lib/daemon-client' );
+vi.mock( 'cli/lib/frontend/server' );
 // Run the command body directly: these suites cover the command, not the
 // operation guard (lib/tests/site-operations.test.ts does that). Spreading the real module keeps
 // any other export real rather than silently stubbing it.
@@ -123,6 +126,8 @@ describe( 'CLI: studio site delete', () => {
 		config = { sites: [ testSite ], preferences: {} };
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
+		vi.mocked( isFrontendRunning ).mockResolvedValue( undefined );
+		vi.mocked( stopFrontendServer ).mockResolvedValue( undefined );
 		vi.mocked( removeDomainFromHosts ).mockResolvedValue( undefined );
 		vi.mocked( deleteSiteCertificate ).mockReturnValue( true );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
@@ -194,6 +199,80 @@ describe( 'CLI: studio site delete', () => {
 			await runCommand( testSiteFolder, true );
 
 			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder, '/test/.studio/imports/site' ] );
+		} );
+
+		describe( 'headless sites', () => {
+			const containerPath = path.join( '/test', 'headless' );
+			const wordpressPath = path.join( containerPath, 'wordpress' );
+			const frontendPath = path.join( containerPath, 'frontend' );
+
+			function useHeadlessSite( frontendFolder = frontendPath ) {
+				testSite = createTestSite( {
+					path: wordpressPath,
+					frontend: { path: frontendFolder, kind: 'static', port: 4321 },
+				} );
+				config = { sites: [ testSite ], preferences: {} };
+			}
+
+			function containerHolds( entries: string[] ) {
+				vi.spyOn( fs, 'readdirSync' ).mockImplementation( ( ( folder: string ) =>
+					folder === containerPath ? entries : [] ) as unknown as typeof fs.readdirSync );
+			}
+
+			it( 'stops the frontend before WordPress', async () => {
+				useHeadlessSite();
+				containerHolds( [ 'wordpress', 'frontend' ] );
+				vi.mocked( isFrontendRunning ).mockResolvedValue( {
+					...testProcessDescription,
+					name: 'studio-frontend-test-site-id',
+				} );
+				vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
+
+				await runCommand( wordpressPath, false );
+
+				expect( stopFrontendServer ).toHaveBeenCalledWith( testSite.id );
+				expect( vi.mocked( stopFrontendServer ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+					vi.mocked( stopWordPressServer ).mock.invocationCallOrder[ 0 ]
+				);
+			} );
+
+			it( 'does not stop a frontend that is not running', async () => {
+				useHeadlessSite();
+				containerHolds( [ 'wordpress', 'frontend' ] );
+
+				await runCommand( wordpressPath, false );
+
+				expect( isFrontendRunning ).toHaveBeenCalledWith( testSite.id );
+				expect( stopFrontendServer ).not.toHaveBeenCalled();
+			} );
+
+			it( 'trashes the container folder when it holds only the two halves', async () => {
+				useHeadlessSite();
+				containerHolds( [ 'wordpress', 'frontend', '.DS_Store' ] );
+
+				await runCommand( wordpressPath, true );
+
+				expect( trash ).toHaveBeenCalledWith( [ containerPath ] );
+			} );
+
+			it( 'trashes only the two halves when the container holds other files', async () => {
+				useHeadlessSite();
+				containerHolds( [ 'wordpress', 'frontend', 'notes.txt' ] );
+
+				await runCommand( wordpressPath, true );
+
+				expect( trash ).toHaveBeenCalledWith( [ wordpressPath, frontendPath ] );
+			} );
+
+			it( 'trashes a frontend that lives outside the container on its own', async () => {
+				const elsewhere = path.join( '/projects', 'my-frontend' );
+				useHeadlessSite( elsewhere );
+				containerHolds( [ 'wordpress', 'frontend' ] );
+
+				await runCommand( wordpressPath, true );
+
+				expect( trash ).toHaveBeenCalledWith( [ wordpressPath, elsewhere ] );
+			} );
 		} );
 
 		it( 'should delete associated preview sites', async () => {

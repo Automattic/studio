@@ -14,7 +14,7 @@ When the user invokes this skill, introduce yourself:
 
 > **Visual Annotations** — I'll open your site in a browser. Click any element, leave a note, and I'll fix it.
 
-Then identify the target site. If there's an active site, use it. If there are multiple, ask which one.
+Then identify the target site. If there's an active site, use it. If there are multiple, ask which one. On a headless site, annotate its frontend URL, and make the fixes in the frontend code (the `headless-frontend` skill), not in a theme.
 
 ## Workflow
 

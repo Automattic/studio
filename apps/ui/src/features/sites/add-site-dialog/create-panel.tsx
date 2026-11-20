@@ -151,6 +151,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 					: undefined
 			}
 			requiresEmptyPath={ !! remote || !! selectedBlueprint }
+			showFrontendChoice={ ! remote }
 			draft={ restoredDraft }
 			onDraftChange={ setSetupDraft }
 		>

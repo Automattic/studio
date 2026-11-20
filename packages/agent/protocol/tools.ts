@@ -325,6 +325,8 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		site_start: __( 'Start site' ),
 		site_stop: __( 'Stop site' ),
 		site_delete: __( 'Delete site' ),
+		frontend_restart: __( 'Restart frontend' ),
+		frontend_logs: __( 'Read frontend logs' ),
 		site_push: __( 'Push site' ),
 		site_pull: __( 'Pull site' ),
 		site_import: __( 'Import site' ),
@@ -425,6 +427,8 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 		case 'site_start':
 		case 'site_stop':
 		case 'site_delete':
+		case 'frontend_restart':
+		case 'frontend_logs':
 		case 'site_push':
 		case 'site_pull':
 		case 'site_import':
@@ -458,13 +462,15 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				.filter( Boolean )
 				.join( ' · ' );
 		case 'inspect_design':
-			return typeof input.url === 'string' ? input.url : '';
+		case 'take_screenshot':
+			return [ input.nameOrPath, input.url ]
+				.filter( ( part ): part is string => typeof part === 'string' && part !== '' )
+				.join( ' ' );
 		case 'validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
 			return __( 'inline content' );
-		case 'take_screenshot':
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'generate_images': {

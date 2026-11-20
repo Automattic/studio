@@ -14,7 +14,10 @@ import {
 } from '@studio/common/constants';
 import { SITE_START_REQUESTED_AT_ENV } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
-import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
+import {
+	getHeadlessMuPluginOptions,
+	STUDIO_ERROR_LOG_FILENAME,
+} from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
@@ -178,6 +181,11 @@ function buildServerConfig(
 	}
 
 	serverConfig.environmentType = getWpEnvironmentType( site );
+
+	const frontend = getHeadlessMuPluginOptions( site.frontend );
+	if ( frontend ) {
+		serverConfig.frontend = frontend;
+	}
 
 	return serverConfig;
 }
@@ -436,9 +444,13 @@ function buildChildExitedError( processName: string, stderrTail?: string ): Erro
  * Attaches listeners to the daemon bus *before* the child process is started so we cannot miss
  * an early `ready` or `exit` event. Events that arrive before the caller knows the pmId are
  * buffered (filtered by processName) and replayed once `waitFor(pmId)` is called.
- * Must be disposed via `dispose()` when done.
+ * Must be disposed via `dispose()` when done. `timeoutMs` bounds each `waitFor` (default
+ * SITE_SERVER_INACTIVITY_TIMEOUT).
  */
-export async function subscribeForReadyOrExit( processName: string ): Promise< {
+export async function subscribeForReadyOrExit(
+	processName: string,
+	{ timeoutMs = SITE_SERVER_INACTIVITY_TIMEOUT }: { timeoutMs?: number } = {}
+): Promise< {
 	waitFor: ( pmId: number ) => Promise< void >;
 	dispose: () => void;
 } > {
@@ -483,7 +495,7 @@ export async function subscribeForReadyOrExit( processName: string ): Promise< {
 		return new Promise< void >( ( resolve, reject ) => {
 			timeoutId = setTimeout( () => {
 				reject( new Error( 'Timeout waiting for ready message from server child process' ) );
-			}, SITE_SERVER_INACTIVITY_TIMEOUT );
+			}, timeoutMs );
 			abortListener = () => {
 				reject( new Error( 'Operation aborted' ) );
 			};

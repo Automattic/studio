@@ -42,12 +42,13 @@ interface PreviewUIState {
 	revealingSiteId: string | null;
 }
 
-// The path a site's preview shows: its last visited path, or home.
+// The path a site's preview shows: its last visited path, or `home`.
 export function pathForSite(
 	pathsBySiteId: Record< string, string >,
-	siteId: string | null | undefined
+	siteId: string | null | undefined,
+	home = '/'
 ): string {
-	return siteId ? pathsBySiteId[ siteId ] ?? '/' : '/';
+	return siteId ? pathsBySiteId[ siteId ] ?? home : home;
 }
 
 interface SessionUIState {

@@ -1,3 +1,4 @@
+import { omitFrontendSecrets } from '@studio/common/lib/site-frontend';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
@@ -13,6 +14,8 @@ export function getSiteDetails( {
 }: ConfigSite ) {
 	return {
 		...site,
+		// The frontend's preview and revalidation secrets never leave the CLI.
+		...( site.frontend && { frontend: omitFrontendSecrets( site.frontend ) } ),
 		// Overrides the stored value from `...site`: it can still name a process
 		// that has died, and both front ends decide which site actions to disable
 		// from what this reports.

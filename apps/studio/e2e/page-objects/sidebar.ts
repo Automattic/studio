@@ -1,5 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 
+const INTERACTIVE_SELECTOR = ':not([inert] *, [aria-hidden="true"] *)';
+
 export default class Sidebar {
 	constructor( private page: Page ) {}
 
@@ -31,11 +33,11 @@ export default class Sidebar {
 	}
 
 	private get interactiveLocator() {
-		return this.locator.and( this.page.locator( ':not([inert] *)' ) );
+		return this.locator.and( this.page.locator( INTERACTIVE_SELECTOR ) );
 	}
 
 	async ensureOpen() {
-		const toggle = this.page.locator( '[data-sidebar-toggle]:not([inert] *)' );
+		const toggle = this.page.locator( `[data-sidebar-toggle]${ INTERACTIVE_SELECTOR }` );
 		if ( ( await toggle.getAttribute( 'aria-expanded' ) ) === 'false' ) {
 			await toggle.click();
 		}
@@ -45,7 +47,7 @@ export default class Sidebar {
 	async toggleSite( siteName: string ) {
 		await this.ensureOpen();
 		await this.getSiteRow( siteName )
-			.and( this.page.locator( ':not([inert] *)' ) )
+			.and( this.page.locator( INTERACTIVE_SELECTOR ) )
 			.locator( 'button[data-state]' )
 			.click();
 	}
@@ -82,7 +84,7 @@ export default class Sidebar {
 	async importBackup( siteName: string, backupPath: string ) {
 		await this.ensureOpen();
 		await this.getSiteRow( siteName )
-			.and( this.page.locator( ':not([inert] *)' ) )
+			.and( this.page.locator( INTERACTIVE_SELECTOR ) )
 			.getByTestId( 'import-backup-file' )
 			.setInputFiles( backupPath );
 		const dialog = this.page.getByRole( 'alertdialog' );

@@ -14,12 +14,12 @@ export async function capturePreview(
 	if ( ! existsSync( chromium.executablePath() ) ) {
 		throw new Error( 'Chromium is not installed.' );
 	}
-	// A cloud machine serves its sites to itself with a certificate only it trusts.
+	// A hosted `studio serve` serves its sites to itself with a certificate only it trusts.
 	const page = await (
 		await getSharedBrowser()
 	).newPage( {
 		viewport: size,
-		ignoreHTTPSErrors: true,
+		ignoreHTTPSErrors: !! process.env.STUDIO_CA_BUNDLE,
 	} );
 	try {
 		await page.goto( new URL( '/?studio-hide-adminbar', url ).href, {

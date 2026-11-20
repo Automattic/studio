@@ -1,5 +1,5 @@
 import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import {
 	Select,
 	SelectContent,
@@ -33,7 +33,6 @@ export function orderedPublishProviders( providers: SitesProviderId[] ) {
 }
 export function ProviderPicker( {
 	providers,
-	connectedProviders,
 	onSelect,
 	onConnectExistingSite,
 	disabled,
@@ -41,7 +40,6 @@ export function ProviderPicker( {
 	ref,
 }: {
 	providers: SitesProviderId[];
-	connectedProviders: SitesProviderId[];
 	onSelect: ( provider: SitesProviderId ) => void;
 	onConnectExistingSite: () => void;
 	disabled?: boolean;
@@ -52,13 +50,7 @@ export function ProviderPicker( {
 	const items = providers.map( ( value ) => ( {
 		value,
 		label: getProvider( value ).label,
-		description: connectedProviders.includes( value )
-			? getProviderSites( value ).publishing.description()
-			: sprintf(
-					/* translators: %s: description of the hosting provider. */
-					__( '%s · Connect' ),
-					getProviderSites( value ).publishing.description()
-			  ),
+		description: getProviderSites( value ).publishing.description(),
 	} ) );
 	const existingSite = {
 		value: 'existing-site',

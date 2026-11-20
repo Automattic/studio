@@ -1039,7 +1039,6 @@ export function PublishButton( {
 						ref={ destinationTrigger }
 						selectedProvider={ emptyDestination }
 						providers={ targets.providers }
-						connectedProviders={ connectedProviders }
 						onConnectExistingSite={ showExistingSite }
 						onSelect={ selectProvider }
 						disabled={ disabled }

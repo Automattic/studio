@@ -1417,7 +1417,10 @@ it( 'shows WordPress.com publishing controls before connecting and returns after
 	await user.click( destination );
 	expect(
 		await screen.findByRole( 'option', { name: 'WordPress.com' } )
-	).toHaveAccessibleDescription( expect.stringContaining( 'Connect' ) );
+	).toHaveAccessibleDescription( 'The full WordPress, with a domain.' );
+	expect( screen.getByRole( 'option', { name: 'Spacefast' } ) ).toHaveAccessibleDescription(
+		'A static copy of your pages.'
+	);
 	expect( screen.getByRole( 'option', { name: 'Spacefast' } ) ).toHaveAttribute(
 		'aria-selected',
 		'false'

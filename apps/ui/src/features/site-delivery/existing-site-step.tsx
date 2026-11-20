@@ -26,13 +26,19 @@ export const connectExistingSiteKey = ( siteId: string ) => [ 'connect-existing-
 
 export function ExistingSiteStep( {
 	providers,
+	availableProviders,
 	siteId,
 	replacing,
+	disabled,
+	onConnectProvider,
 	onConnected,
 }: {
 	providers: SitesProviderId[];
+	availableProviders: SitesProviderId[];
 	siteId: string;
 	replacing: boolean;
+	disabled: boolean;
+	onConnectProvider: ( provider: SitesProviderId ) => void;
 	onConnected: ( provider: SitesProviderId, id: string | number ) => void;
 } ) {
 	const connector = useConnector();
@@ -106,6 +112,25 @@ export function ExistingSiteStep( {
 					) }
 				</p>
 			) }
+			{ providers.length === 0 && (
+				<>
+					<p>{ __( 'Connect a provider to see your existing sites.' ) }</p>
+					{ availableProviders.map( ( provider ) => (
+						<Button
+							key={ provider }
+							variant="outline"
+							disabled={ disabled }
+							onClick={ () => onConnectProvider( provider ) }
+						>
+							{ sprintf(
+								/* translators: %s: hosting provider name. */
+								__( 'Connect to %s' ),
+								getProvider( provider ).label
+							) }
+						</Button>
+					) ) }
+				</>
+			) }
 			{ loading && <Spinner aria-label={ __( 'Loading websites…' ) } /> }
 			{ failed.map( ( { provider } ) => (
 				<p role="alert" key={ provider }>
@@ -149,10 +174,10 @@ export function ExistingSiteStep( {
 					) }
 				/>
 			) }
-			{ ! loading && eligible.length === 0 && failed.length === 0 && (
+			{ providers.length > 0 && ! loading && eligible.length === 0 && failed.length === 0 && (
 				<p>{ __( 'No existing sites.' ) }</p>
 			) }
-			{ ( retry || ( ! loading && eligible.length === 0 ) ) && (
+			{ ( retry || ( providers.length > 0 && ! loading && eligible.length === 0 ) ) && (
 				<Button
 					variant="outline"
 					disabled={ connect.isPending || refreshing }

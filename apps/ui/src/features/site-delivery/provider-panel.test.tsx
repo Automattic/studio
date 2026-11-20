@@ -56,6 +56,7 @@ const preview: Snapshot = {
 let sequence = 0;
 beforeEach( () => {
 	localStorage.clear();
+	sessionStorage.removeItem( 'studio-publish-sign-in' );
 	site.id = `provider-panel-${ ++sequence }`;
 	live.localSiteId = site.id;
 	space.localSiteId = site.id;
@@ -1411,26 +1412,191 @@ it( 'restores the default for an unavailable destination and switches providers'
 	expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
 } );
 
-it( 'opens provider settings from the account prompt when no providers are connected', async () => {
-	const { connector, history } = setup( {
-		getAuthUser: async () => null,
-		getAiSettings: async () => aiSettings( 'wpcom', [] ),
+it( 'connects WordPress.com from an unselected destination and returns to Publish', async () => {
+	let signedIn = false;
+	const { connector, history, user } = setup( {
+		getAuthUser: async () => ( signedIn ? TEST_USER : null ),
+		getAiSettings: async () => aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] ),
 		getRemoteSites: async () => [],
 		getSnapshots: async () => [],
 	} );
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-	await screen.findByRole( 'dialog', { name: 'Share your WordPress' } );
-	expect( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'combobox', { name: 'Destination' } ) ).not.toBeInTheDocument();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
-	await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
+	const panel = await openShare();
+	const destination = within( panel ).getByRole( 'combobox', { name: 'Destination' } );
+	expect( destination ).toHaveAccessibleDescription( 'Choose a provider' );
 	expect(
-		screen.queryByRole( 'dialog', { name: 'Share your WordPress' } )
+		within( panel ).queryByRole( 'button', { name: 'Create preview' } )
 	).not.toBeInTheDocument();
-	expect( screen.queryByRole( 'combobox', { name: 'Destination' } ) ).not.toBeInTheDocument();
-	expect( connector.authenticate ).not.toHaveBeenCalled();
+	await user.click( destination );
+	expect(
+		await screen.findByRole( 'option', { name: 'WordPress.com' } )
+	).toHaveAccessibleDescription( expect.stringContaining( 'Connect' ) );
+	expect( screen.getByRole( 'option', { name: 'Spacefast' } ) ).toHaveAttribute(
+		'aria-selected',
+		'false'
+	);
+	await user.click( screen.getByRole( 'option', { name: 'WordPress.com' } ) );
+	await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+	expect( history.location.search ).not.toContain( 'settings=providers' );
+	expect( destination ).toHaveAccessibleDescription( 'Choose a provider' );
+	await act( async () => {
+		signedIn = true;
+		connector.emit( 'onAuthStateChanged' );
+	} );
+	await waitFor( () => expect( destination ).toHaveAccessibleDescription( 'WordPress.com' ) );
+	expect( await within( panel ).findByRole( 'button', { name: 'Create preview' } ) ).toBeVisible();
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it.each( [ true, false ] )(
+	'connects a provider before choosing an existing site with native sites: %s',
+	async ( nativeSites ) => {
+		let signedIn = false;
+		let connected = false;
+		const first = setup( {
+			capabilities: { nativeSites },
+			getAuthUser: async () => ( signedIn ? TEST_USER : null ),
+			getAiSettings: async () => aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] ),
+			getRemoteSites: async ( provider ) => ( provider === 'wpcom' && connected ? [ live ] : [] ),
+			listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+			getSnapshots: async () => [],
+			connectRemoteSite: async () => {
+				connected = true;
+			},
+			...( nativeSites ? {} : { authenticate: async () => new Promise< void >( () => {} ) } ),
+		} );
+		await openShare();
+		await openExistingSitePicker( first.user );
+		const step = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+		expect(
+			within( step ).getByText( 'Connect a provider to see your existing sites.' )
+		).toBeVisible();
+		expect( within( step ).queryByText( 'No existing sites.' ) ).not.toBeInTheDocument();
+		if ( nativeSites ) {
+			expect(
+				within( step ).getByRole( 'button', { name: 'Connect to Spacefast' } )
+			).toBeVisible();
+		}
+		await first.user.click(
+			within( step ).getByRole( 'button', { name: 'Connect to WordPress.com' } )
+		);
+		await waitFor( () => expect( first.connector.authenticate ).toHaveBeenCalledOnce() );
+		if ( nativeSites ) {
+			await act( async () => {
+				signedIn = true;
+				first.connector.emit( 'onAuthStateChanged' );
+			} );
+		} else {
+			const handoff = sessionStorage.getItem( 'studio-publish-sign-in' );
+			expect( handoff ).not.toBeNull();
+			first.unmount();
+			sessionStorage.setItem( 'studio-publish-sign-in', handoff! );
+			signedIn = true;
+			renderWithProviders( <PublishButton site={ site } />, {
+				connector: first.connector,
+				queryClient: first.queryClient,
+			} );
+		}
+		const chooser = within(
+			await screen.findByRole( 'dialog', { name: 'Choose an existing site' } )
+		);
+		await first.user.click( await chooser.findByRole( 'button', { name: /Live.*lente.blog/ } ) );
+		expect( await screen.findByRole( 'link', { name: 'Open lente.blog' } ) ).toBeVisible();
+		expect( first.connector.connectRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+			'wpcom',
+			site.id,
+			live
+		);
+		expect( first.connector.pushSite ).not.toHaveBeenCalled();
+		expect( first.connector.pullSite ).not.toHaveBeenCalled();
+	}
+);
+
+it( 'restores Publish after a web sign-in redirects back to the site', async () => {
+	let signedIn = false;
+	const overrides: ConnectorOverrides = {
+		capabilities: { nativeSites: false },
+		getAuthUser: async () => ( signedIn ? TEST_USER : null ),
+		getAiSettings: async () => aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] ),
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+		authenticate: async () => new Promise< void >( () => {} ),
+	};
+	const first = setup( overrides );
+	await openShare();
+	await first.user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
+	expect( await screen.findByRole( 'option', { name: 'WordPress.com' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'option', { name: 'Spacefast' } ) ).not.toBeInTheDocument();
+	await first.user.click( screen.getByRole( 'option', { name: 'WordPress.com' } ) );
+	const handoff = sessionStorage.getItem( 'studio-publish-sign-in' );
+	expect( handoff ).not.toBeNull();
+	first.unmount();
+	// A full-page redirect preserves session storage without unmounting the app.
+	sessionStorage.setItem( 'studio-publish-sign-in', handoff! );
+	signedIn = true;
+	renderWithProviders( <PublishButton site={ site } />, {
+		connector: first.connector,
+		queryClient: first.queryClient,
+	} );
+	const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+	expect( await within( panel ).findByText( 'WordPress.com' ) ).toBeVisible();
+	expect( await within( panel ).findByRole( 'button', { name: 'Create preview' } ) ).toBeVisible();
+	expect( first.connector.publishPreviewSite ).not.toHaveBeenCalled();
+} );
+
+it( 'does not reopen Publish when a pending sign-in was dismissed', async () => {
+	let signedIn = false;
+	const { connector, user } = setup( {
+		getAuthUser: async () => ( signedIn ? TEST_USER : null ),
+		getAiSettings: async () => aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] ),
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+	} );
+	await openShare();
+	await user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
+	await user.click( await screen.findByRole( 'option', { name: 'WordPress.com' } ) );
+	await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+	await user.keyboard( '{Escape}' );
+	await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+	await act( async () => {
+		signedIn = true;
+		connector.emit( 'onAuthStateChanged' );
+	} );
+	await waitFor( () => expect( connector.getAuthUser ).toHaveResolvedWith( TEST_USER ) );
+	expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
+
+it( 'reconnects a remembered destination without publishing it', async () => {
+	let signedIn = false;
+	const { connector, user } = setup( {
+		getAuthUser: async () => ( signedIn ? TEST_USER : null ),
+		getAiSettings: async () => aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] ),
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => [],
+	} );
+	await openShare();
+	expect( await screen.findByRole( 'link', { name: 'Open lente.blog' } ) ).toBeVisible();
+	expect( connector.getSiteVisibility ).not.toHaveBeenCalled();
+	expect( connector.getSitePublishStatus ).not.toHaveBeenCalled();
+	await user.click( screen.getByRole( 'button', { name: 'Connect to WordPress.com' } ) );
+	await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+	await act( async () => {
+		signedIn = true;
+		connector.emit( 'onAuthStateChanged' );
+	} );
+	await waitFor( () =>
+		expect(
+			screen.queryByRole( 'button', { name: 'Connect to WordPress.com' } )
+		).not.toBeInTheDocument()
+	);
+	expect( screen.getByRole( 'link', { name: 'Open lente.blog' } ) ).toBeVisible();
+	expect( connector.disconnectRemoteSite ).not.toHaveBeenCalled();
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	expect( connector.pullSite ).not.toHaveBeenCalled();
+} );
+
 it( 'offers WordPress.com directly when Spacefast is the only connected destination', async () => {
 	localStorage.setItem( 'studio-last-publish-provider', 'wpcom' );
 	const { connector, history, user } = setup( {
@@ -1472,7 +1638,8 @@ it( 'connects Spacefast from the destination picker and returns to publishing', 
 		handoff: { deviceCode: 'device-1' },
 	};
 	const { connector, user } = setup( {
-		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom' ] ),
+		getAuthUser: async () => null,
+		getAiSettings: async () => aiSettings( 'wpcom', [] ),
 		getRemoteSites: async () => [],
 		getSnapshots: async () => [],
 	} );
@@ -1481,7 +1648,7 @@ it( 'connects Spacefast from the destination picker and returns to publishing', 
 	connector.connectProvider.mockReturnValue(
 		new Promise( ( resolve ) => {
 			approve = () => {
-				const settings = aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] );
+				const settings = aiSettings( 'wpcom', [ 'spacefast' ] );
 				connector.getAiSettings.mockResolvedValue( settings );
 				resolve( settings );
 			};
@@ -1499,7 +1666,7 @@ it( 'connects Spacefast from the destination picker and returns to publishing', 
 	await user.click( within( dialog ).getByRole( 'button', { name: 'Close' } ) );
 	const destination = await screen.findByRole( 'combobox', { name: 'Destination' } );
 	await waitFor( () => expect( destination ).toHaveFocus() );
-	expect( destination ).toHaveAccessibleDescription( 'WordPress.com' );
+	expect( destination ).toHaveAccessibleDescription( 'Choose a provider' );
 	await user.click( destination );
 	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
 	dialog = await screen.findByRole( 'dialog', { name: 'Connect to Spacefast' } );
@@ -1509,6 +1676,45 @@ it( 'connects Spacefast from the destination picker and returns to publishing', 
 	const selected = await screen.findByRole( 'combobox', { name: 'Destination' } );
 	await waitFor( () => expect( selected ).toHaveAccessibleDescription( 'Spacefast' ) );
 	expect( await screen.findByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it( 'returns to existing sites after connecting Spacefast', async () => {
+	const { connector, user } = setup( {
+		getAuthUser: async () => null,
+		getAiSettings: async () => aiSettings( 'wpcom', [] ),
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+	} );
+	connector.startProviderConnect.mockResolvedValue( {
+		url: 'https://auth.example.test/spacefast',
+		code: 'ABCD-EFGH',
+		handoff: { deviceCode: 'device-1' },
+	} );
+	let approve!: () => void;
+	connector.connectProvider.mockReturnValue(
+		new Promise( ( resolve ) => {
+			approve = () => {
+				const settings = aiSettings( 'wpcom', [ 'spacefast' ] );
+				connector.getAiSettings.mockResolvedValue( settings );
+				resolve( settings );
+			};
+		} )
+	);
+	await openShare();
+	await openExistingSitePicker( user );
+	await user.click( screen.getByRole( 'button', { name: 'Connect to Spacefast' } ) );
+	const signIn = await screen.findByRole( 'dialog', { name: 'Connect to Spacefast' } );
+	expect( await within( signIn ).findByText( 'ABCD-EFGH' ) ).toBeVisible();
+	await act( async () => approve() );
+	const step = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+	expect(
+		await within( step ).findByRole( 'button', { name: /Static.*lente.space.fast/ } )
+	).toBeVisible();
+	await waitFor( () =>
+		expect( within( step ).getByRole( 'button', { name: 'Back' } ) ).toHaveFocus()
+	);
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );

@@ -236,9 +236,6 @@
 	"A pull is in progress or was interrupted before it finished.": [
 		"Отримання змін триває або його було перервано до завершення."
 	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"На цьому сайті вже триває синхронізація. Дочекайтеся її завершення та спробуйте ще раз."
-	],
 	"AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.": [
 		"Кредити ШІ — це спосіб оплати використання ШІ у WordPress Studio: генерування коду, створення сайту чи інших функцій на основі ШІ. Це не гроші. Їх не можна вивести, обміняти на готівку або використати поза WordPress Studio."
 	],
@@ -277,9 +274,6 @@
 	],
 	"API key": [
 		"Ключ API"
-	],
-	"API key is required": [
-		"Потрібен ключ API"
 	],
 	"Accent tag": [
 		"Акцентна мітка"
@@ -573,9 +567,6 @@
 	],
 	"Backup node ids to pull when using the \"paths\" option": [
 		"ID вузлів резервної копії для отримання, якщо використовується параметр \"paths\""
-	],
-	"Backup timed out — no progress detected": [
-		"Час очікування резервного копіювання минув — поступу не виявлено"
 	],
 	"Backups": [
 		"Резервні копії"
@@ -1481,9 +1472,6 @@
 	"Do not pull the database (keeps the local one)": [
 		"Не отримувати базу даних (зберігається локальна)"
 	],
-	"Domains": [
-		"Домени"
-	],
 	"Download & copy command": [
 		"Завантажити й скопіювати команду"
 	],
@@ -1667,12 +1655,6 @@
 	"Failed to check backup size": [
 		"Не вдалося перевірити розмір резервної копії"
 	],
-	"Failed to check backup status": [
-		"Не вдалося перевірити стан резервної копії"
-	],
-	"Failed to check import status": [
-		"Не вдалося перевірити стан імпорту"
-	],
 	"Failed to check the preview site": [
 		"Не вдалося перевірити сайт попереднього перегляду"
 	],
@@ -1726,12 +1708,6 @@
 	],
 	"Failed to import the backup. Please try again.": [
 		"Не вдалося імпортувати резервну копію. Спробуйте ще раз."
-	],
-	"Failed to initiate backup": [
-		"Не вдалося розпочати резервне копіювання"
-	],
-	"Failed to initiate import on remote site": [
-		"Не вдалося розпочати імпорт на віддаленому сайті"
 	],
 	"Failed to install the migration key on the WordPress.com site": [
 		"Не вдалося встановити ключ міграції на сайті WordPress.com"
@@ -1858,9 +1834,6 @@
 	],
 	"Flush cache": [
 		"Очистити кеш"
-	],
-	"Flush permalinks": [
-		"Оновити постійні посилання"
 	],
 	"Folder": [
 		"Папка"
@@ -2254,9 +2227,6 @@
 	],
 	"Link copied": [
 		"Посилання скопійовано"
-	],
-	"List": [
-		"Показати список"
 	],
 	"List %s": [
 		"Показати %s"
@@ -2705,9 +2675,6 @@
 	"Opening the local site…": [
 		"Відкриття локального сайту…"
 	],
-	"Optimize category taxonomy with AI.": [
-		"Оптимізуйте таксономію категорій за допомогою ШІ."
-	],
 	"Other files…": [
 		"Інші файли…"
 	],
@@ -2960,9 +2927,6 @@
 	"Pull progress": [
 		"Хід отримання"
 	],
-	"Pull site": [
-		"Отримати сайт"
-	],
 	"Pulled from %1$s (%2$s)": [
 		"Отримано з %1$s (%2$s)"
 	],
@@ -3029,12 +2993,6 @@
 	"Re-run the same command to resume the import.": [
 		"Виконайте ту саму команду ще раз, щоб відновити імпорт."
 	],
-	"Read": [
-		"Прочитати"
-	],
-	"Read %s": [
-		"Прочитати %s"
-	],
 	"Read site option": [
 		"Прочитати параметр сайту"
 	],
@@ -3076,9 +3034,6 @@
 	],
 	"Remote URLs must be rendered by Data Liberation before SSI materialization.": [
 		"Віддалені URL-адреси має бути відтворено за допомогою Data Liberation перед матеріалізацією SSI."
-	],
-	"Remote backup failed": [
-		"Не вдалося створити віддалену резервну копію"
 	],
 	"Remote environment: %s": [
 		"Віддалене середовище: %s"
@@ -3262,9 +3217,6 @@
 	"Round Midnight": [
 		"Round Midnight"
 	],
-	"Run": [
-		"Виконати"
-	],
 	"Run \"studio blueprint list\" to see available slugs.": [
 		"Виконайте \"studio blueprint list\", щоб переглянути доступні slug."
 	],
@@ -3279,9 +3231,6 @@
 	],
 	"Run WordPress command": [
 		"Виконати команду WordPress"
-	],
-	"Run a performance audit on a site.": [
-		"Проведіть аудит продуктивності сайту."
 	],
 	"Run a single headless turn, printing NDJSON events": [
 		"Виконати один крок без інтерфейсу з виводом подій NDJSON"
@@ -3831,9 +3780,6 @@
 	"Stopping site…": [
 		"Зупинка сайту…"
 	],
-	"Strong": [
-		"Потужна"
-	],
 	"Studio CLI requires Node.js %s or newer. You are running %s.\nUpgrade Node.js and run this command again.\nDownload: https://nodejs.org/en/download": [
 		"Studio CLI потребує Node.js %s або новішої версії. У вас встановлено %s.\nОновіть Node.js і виконайте цю команду ще раз.\nЗавантажити: https://nodejs.org/en/download"
 	],
@@ -4308,9 +4254,6 @@
 	"Unsupported backup file": [
 		"Непідтримуваний файл резервної копії"
 	],
-	"Update %s": [
-		"Оновити %s"
-	],
 	"Update all plugins": [
 		"Оновити всі плагіни"
 	],
@@ -4328,9 +4271,6 @@
 	],
 	"Update site title": [
 		"Оновити назву сайту"
-	],
-	"Update todo list": [
-		"Оновити список завдань"
 	],
 	"Update user": [
 		"Оновити користувача"
@@ -4719,9 +4659,6 @@
 	"Would delete %1$s (%2$s); files: %3$s": [
 		"Буде видалено %1$s (%2$s); файли: %3$s"
 	],
-	"Write": [
-		"Записати"
-	],
 	"Write PHP errors to wp-content/debug.log.": [
 		"Записувати помилки PHP у wp-content/debug.log."
 	],
@@ -4919,9 +4856,6 @@
 	"include-path-list must be an array": [
 		"include-path-list має бути масивом"
 	],
-	"inline content": [
-		"вбудований вміст"
-	],
 	"media item": [
 		"медіафайл"
 	],
@@ -4930,9 +4864,6 @@
 	],
 	"no files": [
 		"немає файлів"
-	],
-	"page": [
-		"сторінку"
 	],
 	"pages": [
 		"сторінки"
@@ -4945,9 +4876,6 @@
 	],
 	"preview link": [
 		"посилання попередній перегляд preview link"
-	],
-	"product": [
-		"товар"
 	],
 	"products": [
 		"товари"

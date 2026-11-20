@@ -30,10 +30,6 @@
 		"ביאור אחד מוכן לשליחה",
 		"%d ביאורים מוכנים לשליחה"
 	],
-	"%d image": [
-		"תמונה אחת",
-		"%d תמונות"
-	],
 	"%s (saved for future use):": [
 		"%s (יישמר לשימוש עתידי):"
 	],
@@ -52,9 +48,6 @@
 	"%s preview is ready": [
 		"התצוגה המקדימה של %s מוכנה"
 	],
-	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
-		"%s הפסיק לדווח על התקדמות הייבוא, אך ייתכן שהעדכון עדיין מתבצע. יש לבדוק את האתר הפעיל לפני שדוחפים שוב."
-	],
 	"(No subject)": [
 		"(ללא נושא)"
 	],
@@ -63,9 +56,6 @@
 	],
 	"A coding agent that runs in your terminal.": [
 		"סוכן תכנות שפועל במסוף."
-	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"פעולת סנכרון כבר מתבצעת באתר הזה. יש להמתין לסיומה ולנסות שוב."
 	],
 	"AI apps": [
 		"אפליקציות בינה מלאכותית"
@@ -78,12 +68,6 @@
 	],
 	"Activate all plugins": [
 		"הפעלת כל התוספים"
-	],
-	"Activate plugin": [
-		"הפעלת תוסף"
-	],
-	"Activate theme": [
-		"הפעלת ערכת עיצוב"
 	],
 	"Add annotation to batch": [
 		"הוספת הביאור לקבוצה"
@@ -108,9 +92,6 @@
 	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"אירעה שגיאה בעדכון ממשק שורת הפקודה של WordPress Studio. יש לנסות שוב."
-	],
-	"Annotate site elements visually in a browser.": [
-		"הוספת ביאורים חזותיים לרכיבי האתר בדפדפן."
 	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"ביאורים זמינים עבור מערכות עיצוב שנוצרו על ידי Studio Code."
@@ -145,17 +126,8 @@
 	"Approve the connection in your browser.": [
 		"יש לאשר את החיבור בדפדפן."
 	],
-	"Ask user": [
-		"שאלה למשתמש"
-	],
 	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
 		"נדרשת לפחות אפשרות אחת (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
-	],
-	"Audit SEO": [
-		"בדיקת SEO"
-	],
-	"Audit performance": [
-		"בדיקת ביצועים"
 	],
 	"Automatic sidebar collapsing disabled.": [
 		"המזעור האוטומטי של הסרגל הצדדי הושבת."
@@ -171,9 +143,6 @@
 	],
 	"Back to email list": [
 		"חזרה לרשימת האימיילים"
-	],
-	"Backup timed out — no progress detected": [
-		"הזמן הקצוב לגיבוי פג — לא זוהתה התקדמות"
 	],
 	"Backups": [
 		"גיבויים"
@@ -472,12 +441,6 @@
 	"Data Liberation could not capture the source website": [
 		"לשירות של Data Liberation לא הייתה אפשרות ללכוד את אתר המקור"
 	],
-	"Deactivate all plugins": [
-		"השבתת כל התוספים"
-	],
-	"Deactivate plugin": [
-		"השבתת תוסף"
-	],
 	"Default AI provider": [
 		"ספק הבינה המלאכותית שבברירת המחדל"
 	],
@@ -613,15 +576,6 @@
 	"Failed to back up the remote site": [
 		"הגיבוי של האתר המרוחק נכשל"
 	],
-	"Failed to check backup size": [
-		"בדיקת גודל הגיבוי נכשלה"
-	],
-	"Failed to check backup status": [
-		"בדיקת מצב הגיבוי נכשלה"
-	],
-	"Failed to check import status": [
-		"בדיקת מצב הייבוא נכשלה"
-	],
 	"Failed to check the preview site": [
 		"הבדיקה של אתר התצוגה המקדימה נכשלה"
 	],
@@ -639,12 +593,6 @@
 	],
 	"Failed to find existing preview site in config": [
 		"לא נמצא אתר תצוגה מקדימה קיים בהגדרות"
-	],
-	"Failed to initiate backup": [
-		"הפעלת הגיבוי נכשלה"
-	],
-	"Failed to initiate import on remote site": [
-		"הפעלת הייבוא באתר המרוחק נכשלה"
 	],
 	"Failed to load your %s sites": [
 		"טעינת האתרים שלך ב-%s נכשלה"
@@ -673,20 +621,11 @@
 	"File…": [
 		"קובץ…"
 	],
-	"Finish activating hosting on WordPress.com before publishing.": [
-		"יש להשלים את הפעלת האחסון ב-WordPress.com לפני הפרסום."
-	],
 	"Finish signing in to %s in your browser.": [
 		"יש להשלים את ההתחברות ל-%s בדפדפן."
 	],
 	"First use": [
 		"שימוש ראשון"
-	],
-	"Flush cache": [
-		"ניקוי המטמון"
-	],
-	"Flush permalinks": [
-		"רענון הקישורים הקבועים"
 	],
 	"For publishing sites.": [
 		"לפרסום אתרים."
@@ -705,12 +644,6 @@
 	],
 	"Generating static site…": [
 		"יוצר אתר סטטי…"
-	],
-	"Get site info": [
-		"קבלת פרטי האתר"
-	],
-	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
-		"אפשר להתחיל עם מכסה חד-פעמית בחינם ולרכוש עוד לפי הצורך. לא נדרש מפתח API."
 	],
 	"Getting your sign-in code…": [
 		"מקבל את קוד ההתחברות שלך…"
@@ -778,9 +711,6 @@
 	"Import media": [
 		"ייבוא מדיה"
 	],
-	"Import site": [
-		"ייבוא אתר"
-	],
 	"Include this chat’s transcript": [
 		"צירוף התמליל של הצ'אט הזה"
 	],
@@ -793,17 +723,11 @@
 	"Install plugin": [
 		"התקנת תוסף"
 	],
-	"Install taxonomy scripts": [
-		"התקנת סקריפטים לטקסונומיה"
-	],
 	"Install the WordPress Studio CLI and configure MCP for another app.": [
 		"התקנת ממשק שורת הפקודה של WordPress Studio והגדרת MCP לאפליקציה אחרת."
 	],
 	"Install the WordPress Studio CLI.": [
 		"יש להתקין את ממשק שורת הפקודה של WordPress Studio."
-	],
-	"Install theme": [
-		"התקנת ערכת עיצוב"
 	],
 	"Interface reset.": [
 		"הממשק אופס."
@@ -817,41 +741,14 @@
 	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
 		"מידע נוסף זמין בכתובת <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
 	],
-	"Leave a note…": [
-		"הוספת הערה…"
-	],
 	"Liberate": [
 		"שחרור"
 	],
 	"List": [
 		"רשימה"
 	],
-	"List %s": [
-		"רשימת %s"
-	],
-	"List connected remote sites": [
-		"רשימת האתרים המרוחקים המחוברים"
-	],
-	"List menus": [
-		"רשימת תפריטים"
-	],
-	"List plugins": [
-		"רשימת תוספים"
-	],
 	"List previews": [
 		"רשימת תצוגות מקדימות"
-	],
-	"List published %s": [
-		"רשימת %s שפורסמו"
-	],
-	"List terms": [
-		"רשימת מונחים"
-	],
-	"List themes": [
-		"רשימת ערכות עיצוב"
-	],
-	"List users": [
-		"רשימת משתמשים"
 	],
 	"Load skill": [
 		"טעינת מיומנות"
@@ -880,9 +777,6 @@
 	"Manage AI credits": [
 		"ניהול קרדיטים לבינה מלאכותית"
 	],
-	"Manage cache": [
-		"ניהול המטמון"
-	],
 	"Manage content": [
 		"ניהול תוכן"
 	],
@@ -903,9 +797,6 @@
 	],
 	"Manage sharing": [
 		"ניהול השיתוף"
-	],
-	"Manage site options": [
-		"ניהול אפשרויות האתר"
 	],
 	"Manage terms": [
 		"ניהול מונחים"
@@ -930,9 +821,6 @@
 	],
 	"Meta rejected this API key. Check the key and try again.": [
 		"חברת Meta דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
-	],
-	"Migrate & rebuild a site from a closed platform.": [
-		"העברה ובנייה מחדש של אתר מפלטפורמה סגורה."
 	],
 	"Mood Indigo": [
 		"מוד אינדיגו"
@@ -982,9 +870,6 @@
 	"Open a site or Blueprint": [
 		"פתיחת אתר או מודל"
 	],
-	"Open annotation browser": [
-		"פתיחת דפדפן הביאורים"
-	],
 	"Open documentation": [
 		"פתיחת התיעוד"
 	],
@@ -1005,9 +890,6 @@
 	],
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"סוכן התכנות של OpenAI באפליקציית ChatGPT."
-	],
-	"Optimize category taxonomy with AI.": [
-		"שיפור הטקסונומיה של הקטגוריות בעזרת בינה מלאכותית."
 	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"מספר תהליכי ה-PHP חייב להיות מספר שלם בין 1 ל-64."
@@ -1066,9 +948,6 @@
 	"Publish to Spacefast": [
 		"פרסום ב-Spacefast"
 	],
-	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
-		"אפשר לפרסם לאתר חדש ולבחור דומיין, או להשתמש באתר קיים ב-WordPress.com או ב-Pressable."
-	],
 	"Publish to another site…": [
 		"פרסום באתר אחר…"
 	],
@@ -1083,9 +962,6 @@
 	],
 	"Published to": [
 		"פורסם ב"
-	],
-	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
-		"לפרסום ולמשיכה נדרש אתר נתמך ב-WordPress.com או ב-Pressable."
 	],
 	"Publishing cancelled": [
 		"הפרסום בוטל"
@@ -1102,23 +978,11 @@
 	"Pull preview": [
 		"משיכת התצוגה המקדימה"
 	],
-	"Pull site": [
-		"משיכת האתר"
-	],
 	"Pulling the preview replaces the changes made here.": [
 		"משיכת התצוגה המקדימה תחליף את השינויים שבוצעו כאן."
 	],
-	"Push site": [
-		"דחיפת האתר"
-	],
 	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
 		"דחיפת האתר המקומי שלך לאתר ב-WordPress.com, או פרסום שלו ב-Spacefast"
-	],
-	"Read": [
-		"קריאה"
-	],
-	"Read %s": [
-		"קריאת %s"
 	],
 	"Read site option": [
 		"קריאת אפשרות אתר"
@@ -1137,9 +1001,6 @@
 	],
 	"Recent pages": [
 		"עמודים אחרונים"
-	],
-	"Refresh preview": [
-		"רענון התצוגה המקדימה"
 	],
 	"Remote backup failed": [
 		"הגיבוי המרוחק נכשל"
@@ -1201,9 +1062,6 @@
 	"Round Midnight": [
 		"ראונד מידנייט"
 	],
-	"Run": [
-		"הרצה"
-	],
 	"Run \"studio blueprint list\" to see available slugs.": [
 		"יש להריץ את \"studio blueprint list\" כדי לראות את מזהי הכתובת הזמינים."
 	],
@@ -1212,15 +1070,6 @@
 	],
 	"Run WordPress command": [
 		"הרצת פקודת WordPress"
-	],
-	"Run a performance audit on a site.": [
-		"הרצת בדיקת ביצועים לאתר."
-	],
-	"Run an on-page SEO audit on a site.": [
-		"הרצת בדיקת SEO לעמודי האתר."
-	],
-	"Run task": [
-		"הרצת משימה"
 	],
 	"Run this in a terminal, then sign in with your Claude account:": [
 		"יש להריץ את הפקודה הזו במסוף ולאחר מכן להתחבר עם חשבון Claude שלך:"
@@ -1233,9 +1082,6 @@
 	],
 	"Save annotation (Enter)": [
 		"שמירת הביאור (Enter)"
-	],
-	"Scaffold theme": [
-		"יצירת שלד לערכת העיצוב"
 	],
 	"Screenshots are available in the desktop app.": [
 		"צילומי מסך זמינים באפליקציה למחשב."
@@ -1251,10 +1097,6 @@
 	],
 	"Selected files, content, and settings on your website will be overwritten.": [
 		"הקבצים, התוכן וההגדרות שנבחרו באתר האינטרנט שלך יידרסו."
-	],
-	"Send %d annotation": [
-		"שליחת ביאור אחד",
-		"שליחת %d ביאורים"
 	],
 	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
 		"אפשר לשתף עותק זמני של האתר המקומי עם כל אחד. התוקף של אתר תצוגה מקדימה פג אם הוא לא מתעדכן במשך כשבוע."
@@ -1388,9 +1230,6 @@
 	"Stop annotating. Your notes will be kept.": [
 		"הפסקת הביאור. ההערות שלך יישמרו."
 	],
-	"Strong": [
-		"חזק"
-	],
 	"Studio was updated, and the site \"%s\" could not be started again.": [
 		"Studio עודכן, ולא ניתן היה להפעיל שוב את האתר \"%s\"."
 	],
@@ -1433,9 +1272,6 @@
 	"The Spacefast sign-in expired. Try again.": [
 		"תוקף ההתחברות ל-Spacefast פג. יש לנסות שוב."
 	],
-	"The database failed to import on the live site. Review your database and try again.": [
-		"ייבוא מסד הנתונים לאתר הפעיל נכשל. יש לבדוק את מסד הנתונים ולנסות שוב."
-	],
 	"The default browser for your sites.": [
 		"דפדפן ברירת המחדל עבור האתרים שלך."
 	],
@@ -1444,9 +1280,6 @@
 	],
 	"The live site must be a qualifying connected site of this local site.": [
 		"האתר הפעיל חייב להיות אתר מחובר מתאים של האתר המקומי הזה."
-	],
-	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
-		"הזמן הקצוב של האתר הפעיל פג במהלך הייבוא, כנראה מפני שהאתר גדול מדי. אפשר לנסות לצמצם את התוכן או הקבצים שלו."
 	],
 	"The output directory %s is not empty.": [
 		"תיקיית הפלט %s אינה ריקה."
@@ -1505,9 +1338,6 @@
 	"This site and its preview both changed": [
 		"גם האתר הזה וגם התצוגה המקדימה שלו השתנו"
 	],
-	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
-		"האתר הזה עדיין לא תומך במשיכה. יש לעדכן את Jetpack באתר לגרסה האחרונה ולנסות שוב."
-	],
 	"This site has changes its preview doesn't": [
 		"באתר הזה יש שינויים שאינם בתצוגה המקדימה שלו"
 	],
@@ -1522,9 +1352,6 @@
 	],
 	"This site isn't one of your WordPress.com or Pressable sites.": [
 		"האתר הזה אינו אחד מהאתרים שלך ב-WordPress.com או ב-Pressable."
-	],
-	"This website has been deleted. Choose another website.": [
-		"האתר הזה נמחק. יש לבחור אתר אחר."
 	],
 	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
 		"לאתר הזה נדרשת תוכנית אחסון שתומכת בפרסום מ-WordPress Studio."
@@ -1553,32 +1380,20 @@
 	"Unable to open this source.": [
 		"לא ניתן לפתוח את המקור הזה."
 	],
-	"Unexpected response from server while checking backup status": [
-		"התקבלה תגובה לא צפויה מהשרת במהלך בדיקת מצב הגיבוי"
-	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"ספק לא מוכר: %1$s. יש לבחור אחד מהבאים: %2$s."
 	],
 	"Unsupported backup file": [
 		"קובץ גיבוי לא נתמך"
 	],
-	"Update %s": [
-		"עדכון %s"
-	],
 	"Update all plugins": [
 		"עדכון כל התוספים"
-	],
-	"Update plugin": [
-		"עדכון תוסף"
 	],
 	"Update site option": [
 		"עדכון אפשרות אתר"
 	],
 	"Update site title": [
 		"עדכון כותרת האתר"
-	],
-	"Update todo list": [
-		"עדכון רשימת המשימות"
 	],
 	"Update user": [
 		"עדכון משתמש"
@@ -1703,9 +1518,6 @@
 	"WordPress.com API": [
 		"ה-API של WordPress.com"
 	],
-	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
-		"WordPress.com לא תומך ברשת אתרים. פרסום הרשת הזו עלול לגרום לבעיות."
-	],
 	"WordPress.com hosting": [
 		"אחסון ב-WordPress.com"
 	],
@@ -1774,15 +1586,6 @@
 	],
 	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
 		"base-url חייב להיות כתובת http(s)‎ ללא נתיב, לדוגמה https://example.com"
-	],
-	"inline content": [
-		"תוכן מוטבע"
-	],
-	"media item": [
-		"פריט מדיה"
-	],
-	"media items": [
-		"פריטי מדיה"
 	],
 	"page": [
 		"עמוד"

@@ -27,6 +27,7 @@
 		"./packages/providers/**/*",
 		"./packages/blueprints/**/*",
 		"./vitest.global-setup.ts",
+		"./vitest.setup-config-dir.ts",
 		"./scripts/**/*"
 	],
 	"exclude": [ "**/__mocks__/**/*", "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]

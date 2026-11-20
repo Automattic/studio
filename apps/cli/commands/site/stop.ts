@@ -1,12 +1,6 @@
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-	type SiteData,
-} from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
@@ -23,6 +17,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/site/stop.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -100,8 +95,8 @@ async function stopSites(
 				throw new LoggerError( __( 'Failed to stop WordPress server' ), error );
 			}
 		} else {
-			const cliConfig = await readCliConfig();
-			const runningSites: SiteData[] = [];
+			const cliConfig = await readConfig();
+			const runningSites: ConfigSite[] = [];
 
 			for ( const site of cliConfig.sites ) {
 				const runningProcess = await isServerRunning( site.id );
@@ -115,18 +110,13 @@ async function stopSites(
 				await killDaemonAndChildren();
 				logger.reportSuccess( __( 'No sites are currently running' ) );
 			} else {
-				try {
-					await lockCliConfig();
-					const cliConfig = await readCliConfig();
+				await updateConfig( ( cliConfig ) => {
 					for ( const site of cliConfig.sites ) {
 						if ( runningSites.find( ( r ) => r.id === site.id ) ) {
 							delete site.latestCliPid;
 						}
 					}
-					await saveCliConfig( cliConfig );
-				} finally {
-					await unlockCliConfig();
-				}
+				} );
 
 				logger.reportStart( LoggerAction.STOP_ALL_SITES, __( 'Stopping all WordPress servers…' ) );
 

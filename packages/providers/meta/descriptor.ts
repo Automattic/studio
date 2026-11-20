@@ -53,5 +53,6 @@ export const metaProvider: Provider< MetaConfig > = {
 	ai: {
 		models: META_AI_MODELS,
 		defaultModel: 'muse-spark-1.3',
+		generatesImages: () => true,
 	},
 };

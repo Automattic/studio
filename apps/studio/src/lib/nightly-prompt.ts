@@ -1,11 +1,11 @@
 import { app, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import { isDevRelease } from '@studio/common/lib/dev-release';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
 import { getExistingMainWindow } from 'src/main-window';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import { readDesktopState, updateDesktopState } from 'src/storage/desktop-state';
 import { switchToNightlyAndUpdate } from 'src/updates';
 
 let isPromptOpen = false;
@@ -26,7 +26,7 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 		return;
 	}
 
-	const userData = await loadUserData();
+	const userData = await readDesktopState();
 	const result = userData.nightlyPromptResult;
 
 	if ( result?.dontAskAgain ) {
@@ -75,7 +75,7 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 			// hasn't installed the nightly yet, we want to offer it again on next launch.
 			// The isDevRelease() guard at the top naturally suppresses once they're on nightly.
 			if ( checkboxChecked ) {
-				await updateAppdata( {
+				await updateDesktopState( {
 					nightlyPromptResult: { response: 'yes', dontAskAgain: true },
 				} );
 			}
@@ -83,7 +83,7 @@ export async function maybePromptNightlySwitch(): Promise< void > {
 			break;
 
 		case buttons.indexOf( NOT_NOW ):
-			await updateAppdata( {
+			await updateDesktopState( {
 				nightlyPromptResult: { response: 'no', dontAskAgain: checkboxChecked },
 			} );
 			break;

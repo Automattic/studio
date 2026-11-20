@@ -1,7 +1,7 @@
 import { captureScreenshotBuffer } from '@studio/agent/node';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import { cliAgentHost } from 'cli/ai/host';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus } from 'cli/lib/site-utils';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
@@ -9,7 +9,7 @@ import { fetchSyncableSites } from 'cli/lib/sync-api';
 // Reads the config directly rather than through site_list, whose console
 // capture loses output when the page's calls overlap.
 export async function readLocalSites() {
-	const { sites } = await readCliConfig();
+	const { sites } = await readConfig();
 	const running = await getSitesRunningStatus();
 	return sites.map( ( site ) => ( {
 		id: site.id,

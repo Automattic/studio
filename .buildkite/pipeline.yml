@@ -206,7 +206,9 @@ steps:
         depends_on: input-dev-mac
         agents:
           queue: mac
+        # Temporary: drop RBENV_VERSION once .ruby-version is 3.4.13 (AINFRA-3871); the Linux agents lack it until AINFRA-3889/3890/3891.
         command: |
+          export RBENV_VERSION=3.4.13
           .buildkite/commands/prepare-environment.sh
 
           .buildkite/commands/install-node-dependencies.sh
@@ -336,6 +338,7 @@ steps:
 
   - label: ":rocket: Distribute Dev Builds"
     command: |
+      export RBENV_VERSION=3.4.13
       echo "--- :node: Downloading Binaries"
       buildkite-agent artifact download "*.app.zip" .
       buildkite-agent artifact download "*.dmg" .
@@ -382,7 +385,7 @@ steps:
         depends_on: input-metrics
         agents:
           queue: mac
-        command: bash .buildkite/commands/run-metrics-tests.sh
+        command: RBENV_VERSION=3.4.13 bash .buildkite/commands/run-metrics-tests.sh
         # Guards the mac queue: some runs hang until the 3-hour default for reasons still unknown (AINFRA-3506).
         # E.g.:
         # - https://buildkite.com/automattic/studio/builds/23244

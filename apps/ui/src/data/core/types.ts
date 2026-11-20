@@ -110,6 +110,42 @@ export interface AiSessionPlacementUpdatedEvent {
 	placement: AiSessionSitePlacement;
 }
 
+export interface SiteLimit {
+	used: number;
+	limit: number;
+}
+
+export interface SiteLimits {
+	sites?: SiteLimit;
+	runningSites?: SiteLimit;
+	// In bytes.
+	storage?: SiteLimit;
+}
+
+export interface PlanPurchase {
+	name: string;
+	period: 'monthly' | 'yearly';
+	// When it renews, or ends without auto-renew. Null for a plan given without a purchase.
+	expiresAt: string | null;
+	autoRenew: boolean;
+	manageUrl: string;
+	// Set while the plan can still be renewed by hand.
+	renewUrl: string | null;
+}
+
+interface BillingReceipt {
+	id: number;
+	date: string;
+	amount: string;
+	items: string[];
+	url: string;
+}
+
+export interface Billing {
+	plan: PlanPurchase | null;
+	receipts: BillingReceipt[];
+}
+
 export interface SiteDetails {
 	id: string;
 	name: string;
@@ -184,6 +220,10 @@ interface ConnectorCapabilities {
 	// A sign-in on a provider's site runs in the host: a `loopback` one comes back to a local port,
 	// which the page can't listen on, and a `device` one waits on endpoints the page can't reach.
 	loopbackSignIn: boolean;
+	// The sites' files are on the computer the app runs on, so they can open in its apps (folder,
+	// editor, terminal) and use what needs it (custom domains, Xdebug). Studio Cloud's sites run
+	// natively on a machine somewhere else.
+	localMachine: boolean;
 }
 
 export interface Connector {
@@ -596,6 +636,13 @@ export interface Connector {
 	// service assigned it. Needs the WordPress.com login. Absent where the feedback service
 	// can't be reached, which hides Send feedback.
 	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
+
+	// The plan's limits on sites with the current counts, on a host that sets them (Studio Cloud).
+	// Absent elsewhere; null when the host sets none.
+	getSiteLimits?(): Promise< SiteLimits | null >;
+
+	// The plan and its receipts, on a host sold as a plan (Studio Cloud). Absent elsewhere.
+	getBilling?(): Promise< Billing >;
 
 	// Wapuu World easter-egg high score. Returns undefined when no score has
 	// been recorded yet; saving keeps only the highest score seen.

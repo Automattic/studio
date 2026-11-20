@@ -152,6 +152,7 @@ export function createStaticConnector(): Connector {
 			studioLogs: false,
 			nativeSites: false,
 			loopbackSignIn: false,
+			localMachine: false,
 		},
 
 		agenticRequiresAuth: false,

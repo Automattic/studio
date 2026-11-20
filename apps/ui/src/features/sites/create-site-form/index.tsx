@@ -112,7 +112,7 @@ export function CreateSiteForm( {
 	draft,
 	onDraftChange,
 }: CreateSiteFormProps ) {
-	const { nativeSites } = useConnector().capabilities;
+	const { nativeSites, localMachine } = useConnector().capabilities;
 	const formId = useId();
 	const advancedId = useId();
 	const advancedPanelRef = useRef< HTMLDivElement >( null );
@@ -495,7 +495,7 @@ export function CreateSiteForm( {
 								</Popover.Popup>
 							</Popover.Root>
 						</Field>
-						{ nativeSites && (
+						{ localMachine && (
 							<TextField
 								label={ __( 'Domain name' ) }
 								controlClassName={ styles.domainControls }
@@ -522,7 +522,7 @@ export function CreateSiteForm( {
 								}
 							/>
 						) }
-						{ nativeSites && enableHttps && (
+						{ localMachine && enableHttps && (
 							<FieldDescription className={ styles.certificateNotice }>
 								<CertificateTrustNotice />
 							</FieldDescription>
@@ -566,7 +566,7 @@ export function CreateSiteForm( {
 
 				{ children }
 
-				{ nativeSites && (
+				{ localMachine && (
 					<PathField
 						data={ { ...data, name } }
 						error={ pathError }

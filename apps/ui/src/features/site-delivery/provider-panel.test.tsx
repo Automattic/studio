@@ -2140,16 +2140,13 @@ it( 'shows an actionable Publish changes button once publish checks finish', asy
 it.each( [ 'wpcom', 'spacefast' ] as const )(
 	'shows the last update below the publish actions for %s destinations',
 	async ( provider ) => {
+		const destination = {
+			...( provider === 'wpcom' ? live : space ),
+			lastPushTimestamp: new Date().toISOString(),
+		};
 		setup( {
-			getRemoteSites: async ( id ) =>
-				id === provider
-					? [
-							{
-								...( provider === 'wpcom' ? live : space ),
-								lastPushTimestamp: new Date().toISOString(),
-							},
-					  ]
-					: [],
+			getRemoteSites: async ( id ) => ( id === provider ? [ destination ] : [] ),
+			listAccountSites: async ( id ) => ( id === provider ? [ destination ] : [] ),
 			getSnapshots: async () => [],
 			getSitePublishStatus: async () => ( { localChanged: false } ),
 		} );

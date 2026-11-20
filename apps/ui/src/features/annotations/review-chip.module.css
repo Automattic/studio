@@ -1,13 +1,3 @@
-.trigger {
-	--button-hover-background: light-dark(
-		var( --secondary ),
-		color-mix(
-			in oklab,
-			var( --attachment-chip-background, var( --muted ) ) 95%,
-			var( --foreground )
-		)
-	);
-}
 .popup {
 	width: max-content;
 	min-width: min( 160px, var( --annotation-popup-max-width, 160px ), calc( 100vw - 16px ) );

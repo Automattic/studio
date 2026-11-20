@@ -13,7 +13,7 @@ import {
 	type PreviewManagementAction,
 } from '@/features/sharing';
 import { PublishTab, usePublishTab, usePublishSetupError } from '@/features/sync';
-import { PublishTransferIcon, UploadIcon, CloudUploadIcon } from '@/lib/icons';
+import { PublishTransferIcon, UploadIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -249,11 +249,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 	);
 }
 
-export function PublishButton( props: {
-	site: SiteDetails;
-	variant?: 'accent' | 'outline';
-	compactWhenNarrow?: boolean;
-} ) {
+export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 'outline' } ) {
 	const activity = useSiteSyncActivity( props.site.id );
 	const setupError = usePublishSetupError( props.site.id );
 	const transfer =
@@ -269,7 +265,6 @@ export function PublishButton( props: {
 	return (
 		<Button
 			variant={ props.variant ?? 'accent' }
-			className={ props.compactWhenNarrow ? styles.responsivePublish : undefined }
 			size="sm"
 			title={ __( 'Publish' ) }
 			aria-label={ __( 'Publish…' ) }
@@ -296,8 +291,6 @@ export function PublishButton( props: {
 				<PublishTransferIcon direction={ transfer.direction === 'pull' ? 'pull' : 'push' } />
 			) : success ? (
 				<CheckIcon />
-			) : props.compactWhenNarrow ? (
-				<CloudUploadIcon className={ styles.publishIcon } />
 			) : null }
 			<span className={ styles.triggerLabel }>
 				{ __( 'Publish' ) }

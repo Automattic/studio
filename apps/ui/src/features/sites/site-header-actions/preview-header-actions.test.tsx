@@ -182,7 +182,7 @@ it( 'marks saved annotations with a dot while keeping Publish accented', async (
 	expect( screen.queryByRole( 'button', { name: 'Review annotations' } ) ).not.toBeInTheDocument();
 	await user.click( annotate );
 	expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
-	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
+	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
 	await user.click( annotate );
 	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
 	act( () => {

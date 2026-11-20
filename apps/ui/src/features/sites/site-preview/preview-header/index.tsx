@@ -137,6 +137,7 @@ export function PreviewHeader( {
 						shortcut={ shortcuts.reload }
 						tooltipSide="bottom"
 						disabled={ disabled }
+						variant="ghost"
 						onClick={ () => onBrowserCommand( 'reload' ) }
 					/>
 				</div>

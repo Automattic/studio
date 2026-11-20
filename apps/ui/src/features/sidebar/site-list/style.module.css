@@ -57,11 +57,7 @@
 	align-items: center;
 }
 
-.rowAction {
-	--button-hover-background: transparent;
-}
-
-.rowAction[aria-busy='true'] {
+.statusButton[aria-busy='true'] {
 	visibility: visible;
 }
 

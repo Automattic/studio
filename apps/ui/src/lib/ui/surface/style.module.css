@@ -1,16 +1,31 @@
 @layer ui {
+	.commandGeometry[data-slot],
 	.commands[data-slot] {
+		--command-inset: var( --space-command-inset );
+		--radius-command-surface: var( --radius-3xl );
+		--radius-command-inset: max(
+			0px,
+			calc( var( --radius-command-surface ) - var( --command-inset ) )
+		);
+
 		overflow: hidden;
-		padding: var( --space-1_5 );
-		border-radius: var( --radius-3xl );
+		padding: var( --command-inset );
+		border-radius: var( --radius-command-surface );
+	}
+
+	.commands[data-slot] {
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );
 	}
 
-	/* Menus, popovers, selects and dialogs float on this surface. */
 	.floating,
 	.commands[data-slot] {
 		--surface: var( --popover );
+	}
+
+	.raised,
+	.floating,
+	.commands[data-slot] {
 		background-color: var( --surface );
 		color: var( --popover-foreground );
 		outline: none;
@@ -20,11 +35,14 @@
 	}
 
 	.popup {
+		--popup-inset: var( --space-menu-inset );
+		--radius-popup: calc( var( --radius-menu-row ) + var( --popup-inset ) );
+
 		border-radius: var( --radius-popup );
 	}
 
 	.padded {
-		padding: var( --space-1_5 );
+		padding: var( --popup-inset, var( --space-menu-inset ) );
 	}
 
 	.motion {
@@ -98,7 +116,7 @@
 		min-height: 32px;
 		padding-block: var( --space-1_5 );
 		padding-inline: var( --space-2 ) var( --item-padding-inline-end, var( --space-2 ) );
-		border-radius: var( --radius-md );
+		border-radius: var( --radius-menu-row );
 		font-size: var( --text-xs );
 		font-weight: var( --font-weight-medium );
 		line-height: var( --text-xs--line-height );
@@ -114,8 +132,7 @@
 
 	.item:is( [data-highlighted], [data-popup-open] ) {
 		--hover: inherit;
-		--destructive-hover: inherit;
-		--surface: var( --item-hover-background, var( --hover ) );
+		--surface: var( --hover );
 		background-color: var( --surface );
 		color: var( --item-hover-foreground, var( --foreground ) );
 	}

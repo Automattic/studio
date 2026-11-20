@@ -26,6 +26,7 @@ export function SidebarHeader( { action }: { action?: ReactNode } ) {
 		>
 			{ connector.showsAppMenuButton && (
 				<IconButton
+					variant="ghost"
 					size="icon-sm"
 					icon={ <MenuIcon /> }
 					label={ __( 'Menu' ) }

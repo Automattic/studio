@@ -94,7 +94,6 @@ const SITE_START_PHASES = [
 	'blueprint',
 	'symlink_scan',
 	'php_workers',
-	'proxy_ready',
 	'admin_credentials',
 ] as const;
 export type SiteStartPhase = ( typeof SITE_START_PHASES )[ number ];

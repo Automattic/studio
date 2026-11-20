@@ -115,6 +115,7 @@ describe( 'Stop other sites', () => {
 			await open();
 			const newChat = await screen.findByRole( 'menuitem', { name: 'New chat' } );
 			expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toBe( newChat );
+			expect( newChat.nextElementSibling ).toHaveRole( 'separator' );
 			fireEvent.click( newChat );
 			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/selected/new' ) );
 			expect( connector.createSession ).not.toHaveBeenCalled();
@@ -123,7 +124,7 @@ describe( 'Stop other sites', () => {
 	);
 
 	it.each( [ false, true ] )(
-		'hides new chat without a connected provider (%s)',
+		'hides new chat and its separator without a connected provider (%s)',
 		async ( contextMenu ) => {
 			const { open, queryClient } = setup( { contextMenu } );
 			await open();
@@ -132,7 +133,9 @@ describe( 'Stop other sites', () => {
 				expect( queryClient.getQueryState( [ 'ai-settings' ] )?.status ).toBe( 'success' );
 			} );
 			expect( screen.queryByRole( 'menuitem', { name: 'New chat' } ) ).not.toBeInTheDocument();
-			expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toHaveTextContent( 'Stop' );
+			const firstItem = screen.getAllByRole( 'menuitem' )[ 0 ];
+			expect( firstItem ).toHaveTextContent( 'Stop' );
+			expect( firstItem.previousElementSibling ).toBeNull();
 		}
 	);
 

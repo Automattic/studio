@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it } from 'vitest';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 
 beforeEach( () => localStorage.clear() );
@@ -131,9 +131,10 @@ it( 'remembers each site’s layout and preserves the draft across layout change
 	);
 } );
 
-it( 'returns to chat using the panel and full-view controls while preserving the page and draft', async () => {
+it( 'returns to chat using the panel controls and site menu while preserving the page and draft', async () => {
 	const connector = createFakeConnector( {
 		sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
+		user: TEST_USER,
 	} );
 	const { user } = renderApp( { connector, path: '/sites/one/new' } );
 	const input = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
@@ -159,13 +160,22 @@ it( 'returns to chat using the panel and full-view controls while preserving the
 	await user.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
 	expect( screen.getByRole( 'button', { name: 'Show chat' } ) ).toBeVisible();
 	expect( screen.getByRole( 'tab', { name: 'First' } ) ).toHaveAttribute( 'aria-selected', 'true' );
-	await user.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+	const showChat = await screen.findByRole( 'menuitem', { name: 'Show chat' } );
+	expect( showChat.previousElementSibling ).toBe(
+		screen.getByRole( 'menuitem', { name: 'New chat' } )
+	);
+	expect( showChat.nextElementSibling ).toHaveRole( 'separator' );
+	await user.click( showChat );
 	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 		'Keep this draft'
 	);
 	expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
 	expect( document.querySelector( 'iframe' ) ).toBe( page );
 	expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'First' );
+	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+	expect( await screen.findByRole( 'menuitem', { name: 'New chat' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'menuitem', { name: 'Show chat' } ) ).not.toBeInTheDocument();
 	expect( connector.startSite ).not.toHaveBeenCalled();
 	expect( connector.stopSite ).not.toHaveBeenCalled();
 } );

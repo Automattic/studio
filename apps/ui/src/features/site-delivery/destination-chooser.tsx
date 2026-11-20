@@ -3,6 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { getSnapshotHostname } from '@/data/snapshot-url';
 import { ChevronRightIcon } from '@/lib/icons';
+import { NotificationDot } from '@/lib/ui';
 import { DestinationRow } from './destination-row';
 import { isNewDestination } from './new-destination';
 import { ProviderLogo } from './provider-logo';
@@ -11,6 +12,7 @@ import type { PublishTarget } from './use-publish-targets';
 
 export function DestinationChooser( {
 	targets,
+	hasChanges,
 	focusKey,
 	disabled,
 	onSelect,
@@ -18,6 +20,7 @@ export function DestinationChooser( {
 	actionRows,
 }: {
 	targets: PublishTarget[];
+	hasChanges: ( target: PublishTarget ) => boolean;
 	focusKey?: string;
 	disabled: boolean;
 	onSelect: ( target: PublishTarget ) => void;
@@ -41,6 +44,14 @@ export function DestinationChooser( {
 			( !! remote.lastPushTimestamp ||
 				getProviderSites( provider ).isLaunched?.( remote ) ||
 				( 'launchStatus' in remote && remote.launchStatus === 'launched' ) );
+		const changed = hasChanges( target );
+		const siteDescription = live
+			? sprintf(
+					/* translators: %s is the site's hostname. */
+					__( '%s · Live site' ),
+					hostname
+			  )
+			: hostname;
 		return (
 			<DestinationRow
 				key={ target.key }
@@ -50,17 +61,20 @@ export function DestinationChooser( {
 				} }
 				icon={ <ProviderLogo provider={ provider } site={ remote } branded compact /> }
 				label={ target.label }
+				labelAdornment={
+					changed ? <NotificationDot position="inline" tone="current" /> : undefined
+				}
 				description={ hostname !== target.label ? hostname : undefined }
 				data-site
 				aria-label={ target.label }
 				aria-description={
-					live
+					changed
 						? sprintf(
-								/* translators: %s is the site's hostname. */
-								__( '%s · Live site' ),
-								hostname
+								/* translators: %s describes the destination. */
+								__( '%s · Local changes' ),
+								siteDescription
 						  )
-						: hostname
+						: siteDescription
 				}
 				disabled={ disabled }
 				onClick={ () => onSelect( target ) }

@@ -239,6 +239,52 @@ it( 'checks only the selected destination in the background and refreshes the ot
 	}
 } );
 
+it( 'keeps the Publish indicator visible and marks the destinations with local changes', async () => {
+	const second = {
+		...preview,
+		atomicSiteId: 456,
+		date: preview.date + 1,
+		url: 'second.wpcomstaging.com',
+	};
+	let changedHostname: string | undefined = second.url;
+	const { queryClient, user } = setup( {
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [ preview, second ],
+		getPreviewStatus: async ( hostname ) => ( {
+			localSiteId: site.id,
+			localChanged: hostname === changedHostname,
+			previewChanged: false,
+		} ),
+	} );
+	await screen.findByRole( 'img', { name: 'Local changes' } );
+	const panel = await openShare();
+	const firstRow = within( panel ).getByRole( 'button', { name: 'Preview 1' } );
+	const secondRow = within( panel ).getByRole( 'button', { name: 'Preview 2' } );
+	const dot = '[data-slot="notification-dot"]';
+	expect( screen.getByRole( 'img', { name: 'Local changes' } ) ).toBeVisible();
+	expect( firstRow.querySelector( dot ) ).not.toBeInTheDocument();
+	expect( secondRow.querySelector( dot ) ).toBeVisible();
+	expect( secondRow ).toHaveAccessibleDescription( `${ second.url } · Local changes` );
+
+	await user.click( firstRow );
+	expect( screen.getByRole( 'img', { name: 'Local changes' } ) ).toBeVisible();
+	await openDestinations();
+	const firstRowAfterBack = within( panel ).getByRole( 'button', { name: 'Preview 1' } );
+	const secondRowAfterBack = within( panel ).getByRole( 'button', { name: 'Preview 2' } );
+	changedHostname = preview.url;
+	await act( () => queryClient.invalidateQueries( { queryKey: [ 'preview-status' ] } ) );
+	await waitFor( () => {
+		expect( firstRowAfterBack.querySelector( dot ) ).toBeVisible();
+		expect( secondRowAfterBack.querySelector( dot ) ).not.toBeInTheDocument();
+	} );
+	changedHostname = undefined;
+	await act( () => queryClient.invalidateQueries( { queryKey: [ 'preview-status' ] } ) );
+	await waitFor( () => {
+		expect( firstRowAfterBack.querySelector( dot ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'img', { name: 'Local changes' } ) ).not.toBeInTheDocument();
+	} );
+} );
+
 it.each( [ 'previews', 'connections' ] )(
 	'waits for delayed %s before choosing the entry view',
 	async ( source ) => {
@@ -516,13 +562,13 @@ it( 'keeps a failed disconnect open for retry and preserves the preview after su
 	expect( await screen.findByRole( 'button', { name: 'Publish somewhere else' } ) ).toBeVisible();
 } );
 
-it( 'renders the selected provider capabilities and isolates its change dot', async () => {
+it( 'renders the selected provider capabilities and retains another destination’s change dot', async () => {
 	const { user, connector } = setup();
 	await openFirstDestination();
 	expect( await screen.findByRole( 'combobox', { name: 'Who can view' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
 	expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
-	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+	expect( await screen.findByLabelText( 'Local changes' ) ).toBeVisible();
 	const menu = await openSiteActions( user );
 	expect(
 		within( menu )

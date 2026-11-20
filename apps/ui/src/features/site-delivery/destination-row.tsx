@@ -5,12 +5,14 @@ import type { ComponentProps, ReactNode } from 'react';
 export function DestinationRow( {
 	icon,
 	label,
+	labelAdornment,
 	description,
 	trailing,
 	...props
 }: Omit< ComponentProps< typeof Button >, 'children' > & {
 	icon: ReactNode;
 	label: string | undefined;
+	labelAdornment?: ReactNode;
 	description?: ReactNode;
 	trailing?: ReactNode;
 } ) {
@@ -18,8 +20,11 @@ export function DestinationRow( {
 		<>
 			<span className={ styles.destinationRowIcon }>{ icon }</span>
 			<span className={ styles.previewAddress }>
-				<span className={ styles.previewHostname } title={ label }>
-					{ label }
+				<span className={ styles.destinationRowTitle }>
+					<span className={ styles.previewHostname } title={ label }>
+						{ label }
+					</span>
+					{ labelAdornment }
 				</span>
 				{ description && (
 					<span

@@ -266,6 +266,15 @@
 	min-width: 0;
 }
 
+.destinationRowTitle {
+	display: flex;
+	align-items: center;
+	align-self: flex-start;
+	gap: var( --space-1_5 );
+	max-width: 100%;
+	min-width: 0;
+}
+
 .destinationRowDescription {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var( --muted-foreground );

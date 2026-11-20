@@ -552,7 +552,7 @@ export function PublishButton( {
 		selectCreatedPreview,
 		setView,
 	] );
-	const hasChanges = !! selected && targets.hasChanges( selected );
+	const hasChanges = targets.targets.some( targets.hasChanges );
 	const upToDate = ! newDestination && targets.selectedStatus?.data?.localChanged === false;
 	const url = snapshot ? getSnapshotUrl( snapshot ) : remoteUrl;
 	const hostname = url ? new URL( url ).hostname : undefined;
@@ -943,7 +943,6 @@ export function PublishButton( {
 				__( 'Launch on %s' ),
 				publicProviderLabel
 			) }
-			<ExternalLinkIcon data-icon="inline-end" />
 		</Button>
 	);
 	const renderPrimaryAction = () => {
@@ -1601,6 +1600,7 @@ export function PublishButton( {
 										</>
 									}
 									targets={ targets.targets }
+									hasChanges={ targets.hasChanges }
 									focusKey={ view.focusKey }
 									disabled={ pending }
 									onSelect={ select }

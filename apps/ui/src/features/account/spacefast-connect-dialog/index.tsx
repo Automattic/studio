@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
-import { ProviderLogo } from '@/features/settings/settings-view/provider-logo';
+import { ProviderLogo } from '@/features/account/provider-logo';
 import { useOffline } from '@/lib/hooks';
 import { DuplicateIcon, ExternalLinkIcon } from '@/lib/icons';
 import {
@@ -17,8 +17,9 @@ import {
 	DialogTitle,
 	Spinner,
 } from '@/lib/ui';
-import styles from './spacefast-connect-dialog.module.css';
+import styles from './style.module.css';
 import type { PendingConnect } from '@studio/providers';
+import type { ReactNode } from 'react';
 
 function SignInCode( { code }: { code: string } ) {
 	const { copied, copy } = useCopyText( code );
@@ -38,6 +39,7 @@ export function SpacefastConnectDialog( {
 	pending,
 	isPending,
 	error,
+	icon,
 	onRetry,
 	onClose,
 }: {
@@ -45,6 +47,7 @@ export function SpacefastConnectDialog( {
 	pending: PendingConnect | null;
 	isPending: boolean;
 	error?: string;
+	icon?: ReactNode;
 	onRetry: () => void;
 	onClose: () => void;
 } ) {
@@ -65,7 +68,7 @@ export function SpacefastConnectDialog( {
 			>
 				<DialogHeader>
 					<DialogTitle className={ styles.title }>
-						<ProviderLogo provider="spacefast" />
+						{ icon ?? <ProviderLogo provider="spacefast" /> }
 						{ __( 'Connect to Spacefast' ) }
 					</DialogTitle>
 					{ url ? (

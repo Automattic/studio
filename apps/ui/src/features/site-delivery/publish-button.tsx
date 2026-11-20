@@ -13,8 +13,8 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector, type SiteDetails, type Snapshot, SyncSite } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useAiSettings, useSpacefastConnection } from '@/data/queries/use-ai-settings';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import {
 	accountSitesQueryKey,
 	publishTargetQueryKey,
@@ -31,7 +31,7 @@ import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
-import { AccountPromptDialog } from '@/features/account';
+import { AccountPromptDialog, SpacefastConnectDialog } from '@/features/account';
 import { PreviewManagementDialog, type PreviewManagementAction } from '@/features/sharing';
 import { clearPublishSetupError, retryPublishSetup, usePublishSetupError } from '@/features/sync';
 import { useOffline, useSubmitFeedback } from '@/lib/hooks';
@@ -107,6 +107,8 @@ export function PublishButton( {
 	const trigger = useRef< HTMLButtonElement >( null );
 	const anchor = useRef< HTMLSpanElement >( null );
 	const [ open, setOpen ] = useState( false );
+	const [ showingSpacefast, setShowingSpacefast ] = useState( false );
+	const spacefastVisible = useRef( false );
 	const { view, setView, navigate, section, backButton } = usePublishNavigation();
 	const connecting = useIsMutating( { mutationKey: connectExistingSiteKey( site.id ) } ) > 0;
 	const contentView = view.kind === 'existing' ? view.returnTo : view;
@@ -396,7 +398,8 @@ export function PublishButton( {
 		previewAction ||
 		removeTarget ||
 		previewLiveSite !== undefined ||
-		publishConfirmation
+		publishConfirmation ||
+		showingSpacefast
 	);
 	const locale = useUserLocale();
 	const liveTransfer =
@@ -697,6 +700,41 @@ export function PublishButton( {
 		setFailure( undefined );
 		setPublishProvider( provider );
 	};
+	const restoreDestinationFocus = () => {
+		requestAnimationFrame( () => ( destinationTrigger.current ?? trigger.current )?.focus() );
+	};
+	const spacefast = useSpacefastConnection( () => {
+		if ( ! spacefastVisible.current ) return;
+		spacefastVisible.current = false;
+		chooseProvider( 'spacefast' );
+		setShowingSpacefast( false );
+		restoreDestinationFocus();
+	} );
+	const wpcomLogin = useLogin( {
+		source: 'previews_tab',
+		analytics: { placement: 'share', intent: 'share' },
+		scope: site.id,
+	} );
+	const selectProvider = ( provider: SitesProviderId ) => {
+		if ( connectedProviders.includes( provider ) ) {
+			chooseProvider( provider );
+		} else if ( provider === 'spacefast' ) {
+			spacefastVisible.current = true;
+			setShowingSpacefast( true );
+			spacefast.start();
+		} else if ( provider === 'wpcom' ) {
+			chooseProvider( provider );
+			wpcomLogin.mutate( undefined, {
+				onError: ( error ) =>
+					toast.error( __( 'Could not connect to WordPress.com' ), {
+						description: error.message,
+					} ),
+			} );
+		} else {
+			close();
+			openSettings( 'providers' );
+		}
+	};
 	const deletePreview = ( snapshot: Snapshot ) => {
 		close();
 		setPreviewAction( { kind: 'delete', snapshot, trigger: trigger.current } );
@@ -936,17 +974,9 @@ export function PublishButton( {
 					<ProviderPicker
 						ref={ destinationTrigger }
 						selectedProvider={ emptyDestination }
-						providers={ connectedProviders }
+						providers={ targets.providers }
 						onConnectExistingSite={ canConnectExistingSite ? showExistingSite : undefined }
-						onConnectProviders={
-							connectedProviders.length < targets.providers.length
-								? () => {
-										close();
-										openSettings( 'providers' );
-								  }
-								: undefined
-						}
-						onSelect={ chooseProvider }
+						onSelect={ selectProvider }
 						disabled={ disabled }
 					/>
 				) }
@@ -1293,7 +1323,8 @@ export function PublishButton( {
 					previewLiveSite === undefined &&
 					! publishConfirmation &&
 					! previewAction &&
-					! previewOverwrite
+					! previewOverwrite &&
+					! showingSpacefast
 				}
 				onOpenChange={ ( next, event ) => {
 					if ( ! next && view.kind === 'existing' && connecting ) {
@@ -1478,6 +1509,18 @@ export function PublishButton( {
 					</div>
 				</Popover.Popup>
 			</Popover.Root>
+			<SpacefastConnectDialog
+				open={ showingSpacefast }
+				pending={ spacefast.pending }
+				isPending={ spacefast.isPending }
+				error={ spacefast.error?.message }
+				onRetry={ spacefast.start }
+				onClose={ () => {
+					spacefastVisible.current = false;
+					setShowingSpacefast( false );
+					restoreDestinationFocus();
+				} }
+			/>
 			{ previewOverwrite && (
 				<PreviewOverwriteConfirmation
 					preview={ preview }

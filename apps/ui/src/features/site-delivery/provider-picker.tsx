@@ -1,6 +1,5 @@
 import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
-import { PlusIcon } from '@/lib/icons';
 import {
 	Select,
 	SelectContent,
@@ -35,7 +34,6 @@ export function orderedPublishProviders( providers: SitesProviderId[] ) {
 export function ProviderPicker( {
 	providers,
 	onSelect,
-	onConnectProviders,
 	onConnectExistingSite,
 	disabled,
 	selectedProvider,
@@ -43,7 +41,6 @@ export function ProviderPicker( {
 }: {
 	providers: SitesProviderId[];
 	onSelect: ( provider: SitesProviderId ) => void;
-	onConnectProviders?: () => void;
 	onConnectExistingSite?: () => void;
 	disabled?: boolean;
 	selectedProvider: SitesProviderId;
@@ -55,14 +52,12 @@ export function ProviderPicker( {
 		label: getProvider( value ).label,
 		description: getProviderSites( value ).publishing.description(),
 	} ) );
-	const moreProviders = { value: 'more-providers', label: __( 'Add more providers' ) } as const;
 	const existingSite = {
 		value: 'existing-site',
 		label: __( 'Connect to an existing site' ),
 	} as const;
 	const actions = [
 		...( onConnectExistingSite ? [ { ...existingSite, icon: <ConnectSiteIcon /> } ] : [] ),
-		...( onConnectProviders ? [ { ...moreProviders, icon: <PlusIcon /> } ] : [] ),
 	];
 
 	if ( items.length < 2 && actions.length === 0 ) {
@@ -81,13 +76,12 @@ export function ProviderPicker( {
 	}
 
 	return (
-		<Select< SitesProviderId | 'more-providers' | 'existing-site' >
+		<Select< SitesProviderId | 'existing-site' >
 			items={ [ ...items, ...actions ] }
 			value={ selectedProvider }
 			disabled={ disabled }
 			onValueChange={ ( value ) => {
 				if ( value === existingSite.value ) onConnectExistingSite?.();
-				else if ( value === moreProviders.value ) onConnectProviders?.();
 				else if ( value ) onSelect( value );
 			} }
 		>

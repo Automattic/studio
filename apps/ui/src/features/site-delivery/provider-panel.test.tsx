@@ -1298,6 +1298,7 @@ it( 'shows preview access when WordPress.com is the only available destination',
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	await user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
 	expect( await screen.findByRole( 'option', { name: 'WordPress.com' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'option', { name: 'Spacefast' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'option', { name: 'Connect to an existing site' } ) ).toBeVisible();
 } );
 
@@ -1497,9 +1498,9 @@ it( 'opens provider settings from the account prompt when no providers are conne
 	expect( connector.authenticate ).not.toHaveBeenCalled();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
-it( 'defaults to the connected destination even when a disconnected provider was used last', async () => {
+it( 'offers WordPress.com directly when Spacefast is the only connected destination', async () => {
 	localStorage.setItem( 'studio-last-publish-provider', 'wpcom' );
-	const { history, user } = setup( {
+	const { connector, history, user } = setup( {
 		getAuthUser: async () => null,
 		getAiSettings: async () => aiSettings( 'wpcom', [ 'spacefast' ] ),
 		getRemoteSites: async () => [],
@@ -1520,8 +1521,63 @@ it( 'defaults to the connected destination even when a disconnected provider was
 		'true'
 	);
 	expect( screen.getAllByRole( 'option', { selected: true } ) ).toHaveLength( 1 );
-	await user.click( screen.getByRole( 'option', { name: 'Add more providers' } ) );
-	await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
+	await user.click( screen.getByRole( 'option', { name: 'WordPress.com' } ) );
+	await waitFor( () =>
+		expect( connector.authenticate ).toHaveBeenCalledWith(
+			false,
+			'previews_tab',
+			expect.objectContaining( { placement: 'share', intent: 'share' } )
+		)
+	);
+	expect( history.location.search ).not.toContain( 'settings=providers' );
+} );
+
+it( 'connects Spacefast from the destination picker and returns to publishing', async () => {
+	const signIn = {
+		url: 'https://auth.example.test/spacefast',
+		code: 'ABCD-EFGH',
+		handoff: { deviceCode: 'device-1' },
+	};
+	const { connector, user } = setup( {
+		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom' ] ),
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+	} );
+	connector.startProviderConnect.mockResolvedValue( signIn );
+	let approve!: () => void;
+	connector.connectProvider.mockReturnValue(
+		new Promise( ( resolve ) => {
+			approve = () => {
+				const settings = aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] );
+				connector.getAiSettings.mockResolvedValue( settings );
+				resolve( settings );
+			};
+		} )
+	);
+	const panel = await openFirstDestination();
+	await user.click( within( panel ).getByRole( 'combobox', { name: 'Destination' } ) );
+	expect( screen.queryByRole( 'option', { name: 'Add more providers' } ) ).not.toBeInTheDocument();
+	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	let dialog = await screen.findByRole( 'dialog', { name: 'Connect to Spacefast' } );
+	expect( await within( dialog ).findByText( signIn.code ) ).toBeVisible();
+	expect( screen.queryByRole( 'dialog', { name: 'Publish' } ) ).not.toBeInTheDocument();
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Close' } ) );
+	const destination = await screen.findByRole( 'combobox', { name: 'Destination' } );
+	await waitFor( () => expect( destination ).toHaveFocus() );
+	expect( destination ).toHaveAccessibleDescription( 'WordPress.com' );
+	await user.click( destination );
+	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	dialog = await screen.findByRole( 'dialog', { name: 'Connect to Spacefast' } );
+	expect( await within( dialog ).findByText( signIn.code ) ).toBeVisible();
+	expect( connector.startProviderConnect ).toHaveBeenCalledTimes( 1 );
+	await act( async () => approve() );
+	const selected = await screen.findByRole( 'combobox', { name: 'Destination' } );
+	await waitFor( () => expect( selected ).toHaveAccessibleDescription( 'Spacefast' ) );
+	expect( await screen.findByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 
 it( 'keeps first publish steady through creation and upload', async () => {

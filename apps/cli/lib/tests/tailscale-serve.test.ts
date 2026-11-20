@@ -71,6 +71,22 @@ describe( 'startTailscaleServe', () => {
 		expect( child.disconnect ).toHaveBeenCalledTimes( 1 );
 		expect( child.kill ).not.toHaveBeenCalled();
 	} );
+
+	// The shutdown and the exit hook both stop it; a second stop must not kill the
+	// watchdog before its `disconnect` handler has ended `tailscale serve`.
+	it( 'stops only once, even when asked again before the watchdog ends', () => {
+		const child = Object.assign( fakeChild(), { connected: true, disconnect: vi.fn() } );
+		child.disconnect.mockImplementation( () => {
+			child.connected = false;
+		} );
+		const serve = startTailscaleServe( '/usr/bin/tailscale', 8084, () => child );
+
+		serve.stop();
+		serve.stop();
+
+		expect( child.disconnect ).toHaveBeenCalledTimes( 1 );
+		expect( child.kill ).not.toHaveBeenCalled();
+	} );
 } );
 
 describe( 'waitForTailscaleHttps', () => {

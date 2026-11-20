@@ -88,15 +88,18 @@ export function startTailscaleServe(
 		child.once( 'error', ( error: Error ) => resolve( error.message ) );
 		child.once( 'exit', () => resolve( lastError ) );
 	} );
+	let stopped = false;
 	return {
 		ended,
 		// Through the IPC channel when there is one: the watchdog's `disconnect`
 		// handler ends `tailscale serve`. On Windows `kill` would end the watchdog
-		// at once, without its handlers, and leave `tailscale serve` running.
+		// at once, without its handlers, and leave `tailscale serve` running. Only
+		// once: a second stop would find the channel closed and kill the watchdog.
 		stop: () => {
-			if ( child.exitCode !== null || child.signalCode !== null ) {
+			if ( stopped || child.exitCode !== null || child.signalCode !== null ) {
 				return;
 			}
+			stopped = true;
 			if ( child.connected && child.disconnect ) {
 				child.disconnect();
 			} else {

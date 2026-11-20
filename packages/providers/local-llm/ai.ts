@@ -71,7 +71,7 @@ function rewriteError( message: string, address: string ): string | undefined {
 }
 
 export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ] > = {
-	async model( config, modelId ): Promise< AiConnection > {
+	async model( config, modelId, { thinking } ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw notConnected();
 		}
@@ -118,11 +118,14 @@ export const localLlmAi: NonNullable< ProviderServices< LocalLlmConfig >[ 'ai' ]
 				contextWindow: facts.context ?? UNKNOWN_CONTEXT_WINDOW,
 				maxTokens: 32_000,
 				// The plain Chat Completions shape every server accepts: pi infers OpenAI's from the
-				// base URL, which adds fields only OpenAI takes, and no thinking switch is sent.
+				// base URL, which adds fields only OpenAI takes. `reasoning_effort` goes only with a
+				// level the chat picked, so the server's default holds otherwise; "none" turns
+				// thinking off on vLLM and Ollama.
+				...( thinking ? { thinkingLevelMap: { off: 'none' } } : {} ),
 				compat: {
 					supportsStore: false,
 					supportsDeveloperRole: false,
-					supportsReasoningEffort: false,
+					supportsReasoningEffort: Boolean( thinking ),
 					supportsStrictMode: false,
 					maxTokensField: 'max_tokens',
 				},

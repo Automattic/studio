@@ -820,6 +820,12 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( { provider, model } ),
 			} );
 		},
+		async setSessionThinking( sessionId, model, thinking ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/thinking`, {
+				method: 'POST',
+				body: JSON.stringify( { model, thinking } ),
+			} );
+		},
 		async setSessionEnvironment( sessionId, environment ) {
 			await api( `/sessions/${ encodeURIComponent( sessionId ) }/environment`, {
 				method: 'POST',

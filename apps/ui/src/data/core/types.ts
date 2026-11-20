@@ -7,6 +7,7 @@ import type {
 	AiSessionSummary,
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { Blueprint } from '@studio/blueprints';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
@@ -490,6 +491,12 @@ export interface Connector {
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.
 	setSessionProvider( sessionId: string, provider: ProviderId, model: AiModelId ): Promise< void >;
+	// Set how much `model` thinks in the session, until it switches models.
+	setSessionThinking(
+		sessionId: string,
+		model: AiModelId,
+		thinking: ThinkingSetting
+	): Promise< void >;
 	// Point the session's next turn at its local site or its connected live site.
 	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
@@ -611,6 +618,13 @@ export interface Connector {
 	// Sends feedback about WordPress Studio to the WordPress Studio team and returns the ID the
 	// service assigned it. Needs the WordPress.com login.
 	sendFeedback( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
+
+	// The plan's limits on sites with the current counts, on a host that sets them (Studio Cloud).
+	// Absent elsewhere; null when the host sets none.
+	getSiteLimits?(): Promise< SiteLimits | null >;
+
+	// The plan and its receipts, on a host sold as a plan (Studio Cloud). Absent elsewhere.
+	getBilling?(): Promise< Billing >;
 
 	// The plan's limits on sites with the current counts, on a host that sets them (Studio Cloud).
 	// Absent elsewhere; null when the host sets none.

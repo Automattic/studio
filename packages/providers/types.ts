@@ -3,7 +3,7 @@ import type { GeminiConfig } from './gemini/config';
 import type { GithubCopilotConfig } from './github-copilot/config';
 import type { LocalLlmConfig } from './local-llm/config';
 import type { MetaConfig } from './meta/config';
-import type { AiModelId } from './models';
+import type { AiModelId, ThinkingLevel } from './models';
 import type { OpenaiConfig } from './openai/config';
 import type { OpenrouterConfig } from './openrouter/config';
 import type { SpacefastConfig } from './spacefast/config';
@@ -75,6 +75,8 @@ export interface AiModel< Id extends string = string > {
 	// UI gating only: pickers disable the model unless purchased AI credits
 	// remain (Automatticians exempt). The provider enforces access.
 	requiresPaidAiCredits?: boolean;
+	// Defaults to true. Whether a chat can set how much the model thinks (`ThinkingLevel`).
+	thinking?: boolean;
 }
 
 // The values a connection form asks for: a flat object of strings. Each field's
@@ -127,6 +129,7 @@ export interface AccountModel {
 	id: AiModelId;
 	label?: string;
 	supportsImages?: boolean;
+	thinking?: boolean;
 }
 
 // A model in a provider's catalog, as the account's owner picks from it.
@@ -411,7 +414,8 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 		model(
 			config: Config | undefined,
 			model: AiModelId,
-			options: { sessionId?: string }
+			// `thinking` is the level the chat picked; without it, the provider's default.
+			options: { sessionId?: string; thinking?: ThinkingLevel }
 		): Promise< AiConnection >;
 		// The catalog of a provider that has one (`Provider.ai.catalog`).
 		listModels?( config: Config | undefined ): Promise< CatalogModel[] >;

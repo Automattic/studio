@@ -14,11 +14,15 @@ import {
 import { type StudioChatImage } from '@studio/agent/protocol/chat-images';
 import { getAgentEndFailure } from '@studio/agent/protocol/errors';
 import { getAgentEndTurnResult } from '@studio/agent/protocol/session-events';
-import { readRecordedSessionModel } from '@studio/agent/protocol/sessions/model';
+import {
+	readRecordedSessionModel,
+	resolveSessionThinking,
+} from '@studio/agent/protocol/sessions/model';
 import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
 } from '@studio/agent/protocol/slash-commands';
+import { type ThinkingSetting } from '@studio/agent/protocol/thinking';
 import { changeAiSettings, getAiTurnTracksProps } from '@studio/common/lib/ai-provider-tracks';
 import {
 	describeAccount,
@@ -340,6 +344,12 @@ export async function runCommand( options: {
 		);
 	}
 
+	async function persistThinking( thinking: ThinkingSetting ): Promise< void > {
+		await append( ( sm ) =>
+			appendStudioEntry( sm, 'studio.session_context', { model: currentModel, thinking } )
+		);
+	}
+
 	async function persistProviderPin(): Promise< void > {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', {
@@ -599,7 +609,8 @@ export async function runCommand( options: {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
-		const ai = await resolveAiConnection( currentProvider, currentModel, { sessionId } );
+		const thinking = resolveSessionThinking( sm.getEntries(), currentModel );
+		const ai = await resolveAiConnection( currentProvider, currentModel, { sessionId, thinking } );
 
 		ui.beginAgentTurn( sessionId );
 
@@ -647,6 +658,7 @@ export async function runCommand( options: {
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
 			...( await getAiTurnTracksProps( currentProvider, currentModel ) ),
+			thinking: thinking ?? 'default',
 		};
 		const turnStartedAt = Date.now();
 		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, () => ( {
@@ -679,6 +691,7 @@ export async function runCommand( options: {
 			prompt: enrichedPrompt,
 			images,
 			ai,
+			thinking,
 			session: sm,
 			activeSite: site,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
@@ -838,6 +851,10 @@ export async function runCommand( options: {
 		connect,
 		maybeAutoSwitchProvider,
 		persistSessionContext,
+		persistThinking,
+		async readThinking() {
+			return resolveSessionThinking( ( await ensureSession() ).getEntries(), currentModel );
+		},
 		async clearSession() {
 			session = await agent.sessions.create();
 			ui.clearTranscript();

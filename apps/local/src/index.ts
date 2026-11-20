@@ -29,6 +29,7 @@ import {
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { THINKING_SETTINGS } from '@studio/agent/protocol/thinking';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
@@ -2331,6 +2332,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
 				provider: toStoredProviderId( provider ),
 				model,
+			} );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/sessions/:id/thinking',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { model, thinking } = req.body as { model?: string; thinking?: string };
+			if ( ! model || ! findAiModel( model ) ) {
+				res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
+				return;
+			}
+			const level = THINKING_SETTINGS.find( ( id ) => id === thinking );
+			if ( ! level ) {
+				res.status( 400 ).json( { error: `Unknown thinking level: ${ thinking }` } );
+				return;
+			}
+			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
+				model,
+				thinking: level,
 			} );
 			res.sendStatus( 204 );
 		} )

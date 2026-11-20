@@ -11,8 +11,8 @@ type PublishState = typeof globalThis & {
 	publishTest: { connections: SyncSite[]; calls: PublishCall[]; finish?: () => void };
 };
 
-// These cases exercise Share and the IPC boundary with provider operations stubbed.
-test.describe( 'Share and publish', () => {
+// These cases exercise Publish and the IPC boundary with provider operations stubbed.
+test.describe( 'Publish', () => {
 	const session = new E2ESession();
 	const site = {
 		id: randomUUID(),
@@ -40,10 +40,13 @@ test.describe( 'Share and publish', () => {
 		await session.cleanup();
 	} );
 
-	test( 'copies a preview link and opens checkout from Share', async () => {
+	test( 'copies a preview link and opens its checkout', async () => {
 		const page = session.mainWindow;
 		await session.electronApp.evaluate( ( { ipcMain }, siteId ) => {
-			const captured = globalThis as typeof globalThis & { checkoutUrl?: string };
+			const captured = globalThis as typeof globalThis & {
+				checkoutUrl?: string;
+				copiedText?: string;
+			};
 			ipcMain.removeHandler( 'getAuthenticationToken' );
 			ipcMain.handle( 'getAuthenticationToken', () => ( {
 				id: 1,
@@ -57,7 +60,9 @@ test.describe( 'Share and publish', () => {
 					localSiteId: siteId,
 					userId: 1,
 					name: 'Client review',
-					url: 'sharing-verification.wp.build',
+					url: 'sharing-verification.wpcomstaging.com',
+					shareUrl: 'https://sharing-verification.wpcomstaging.com/?share=demo',
+					launchUrl: 'https://wordpress.com/setup/launch-site?siteId=9001',
 					date: Date.now(),
 				},
 			] );
@@ -68,6 +73,10 @@ test.describe( 'Share and publish', () => {
 			} ) );
 			ipcMain.removeHandler( 'getRemoteSites' );
 			ipcMain.handle( 'getRemoteSites', () => [] );
+			ipcMain.removeHandler( 'copyText' );
+			ipcMain.handle( 'copyText', ( _event, text: string ) => {
+				captured.copiedText = text;
+			} );
 			ipcMain.removeAllListeners( 'openURL' );
 			ipcMain.on( 'openURL', ( _event, url: string ) => {
 				captured.checkoutUrl = url;
@@ -75,8 +84,8 @@ test.describe( 'Share and publish', () => {
 		}, site.id );
 		await page.reload();
 
-		await page.getByRole( 'button', { name: 'Share…', exact: true } ).click();
-		const dialog = page.getByRole( 'dialog', { name: 'Share', exact: true } );
+		await page.getByRole( 'button', { name: 'Publish…', exact: true } ).click();
+		const dialog = page.getByRole( 'dialog', { name: 'Preview details', exact: true } );
 		await expect(
 			dialog.getByRole( 'group', {
 				name: 'Preview: Client review',
@@ -90,8 +99,12 @@ test.describe( 'Share and publish', () => {
 		await previewRow.getByRole( 'button', { name: 'Preview actions', exact: true } ).click();
 		await page.getByRole( 'menuitem', { name: 'Copy link', exact: true } ).click();
 		await expect
-			.poll( () => session.electronApp.evaluate( ( { clipboard } ) => clipboard.readText() ) )
-			.toBe( 'https://sharing-verification.wp.build' );
+			.poll( () =>
+				session.electronApp.evaluate(
+					() => ( globalThis as typeof globalThis & { copiedText?: string } ).copiedText
+				)
+			)
+			.toBe( 'https://sharing-verification.wpcomstaging.com/?share=demo' );
 
 		const access = dialog.getByRole( 'combobox', { name: 'Who can view', exact: true } );
 		await access.click();
@@ -107,10 +120,8 @@ test.describe( 'Share and publish', () => {
 			);
 		await expect.poll( checkoutUrl ).toBeTruthy();
 		const checkout = new URL( ( await checkoutUrl() )! );
-		expect( checkout.origin + checkout.pathname ).toBe(
-			'https://wordpress.com/setup/new-hosted-site'
-		);
-		expect( checkout.searchParams.get( 'studioSiteId' ) ).toBe( site.id );
+		expect( checkout.origin + checkout.pathname ).toBe( 'https://wordpress.com/setup/launch-site' );
+		expect( checkout.searchParams.get( 'siteId' ) ).toBe( '9001' );
 		await page.keyboard.press( 'Escape' );
 	} );
 
@@ -175,12 +186,8 @@ test.describe( 'Share and publish', () => {
 		const finishPublish = () =>
 			session.electronApp.evaluate( () => ( globalThis as PublishState ).publishTest.finish?.() );
 		await page.reload();
+		await expect( page.getByRole( 'button', { name: 'Publish…', exact: true } ) ).toBeVisible();
 
-		await page.getByRole( 'button', { name: 'Share…', exact: true } ).click();
-		await expect(
-			page.getByRole( 'dialog', { name: 'Share this WordPress', exact: true } )
-		).toBeVisible();
-		const panel = page.getByRole( 'dialog', { name: 'Share', exact: true } );
 		const mainWindow = await session.electronApp.browserWindow( page );
 		await mainWindow.evaluate( ( window, studioSiteId ) => {
 			window.webContents.send( 'sync-connect-site', {
@@ -189,6 +196,15 @@ test.describe( 'Share and publish', () => {
 				autoOpenPush: true,
 			} );
 		}, site.id );
+		await expect
+			.poll( () =>
+				session.electronApp.evaluate(
+					() => ( globalThis as PublishState ).publishTest.connections.length
+				)
+			)
+			.toBe( 1 );
+		await page.getByRole( 'button', { name: 'Publish…', exact: true } ).click();
+		const panel = page.getByRole( 'dialog', { name: 'Publish', exact: true } );
 		await expect( panel.getByRole( 'button', { name: 'Update', exact: true } ) ).toBeEnabled();
 		expect( await publishCalls() ).toHaveLength( 0 );
 		await expect( panel.getByRole( 'button', { name: 'What to publish' } ) ).toHaveCount( 0 );
@@ -212,8 +228,7 @@ test.describe( 'Share and publish', () => {
 		await finishPublish();
 		await expect( panel.getByRole( 'button', { name: 'Update…', exact: true } ) ).toBeEnabled();
 
-		await panel.getByRole( 'button', { name: 'Site actions', exact: true } ).click();
-		await page.getByRole( 'menuitem', { name: 'Update from live site…', exact: true } ).click();
+		await panel.getByRole( 'button', { name: 'Pull from live site…', exact: true } ).click();
 		const pull = page.getByRole( 'alertdialog', {
 			name: 'Update local site from example.wordpress.com?',
 		} );

@@ -75,6 +75,11 @@ export async function runCommand( options: {
 	try {
 		const port =
 			options.port ?? Number( process.env.STUDIO_REMOTE_SERVER_PORT ?? DEFAULT_REMOTE_PORT );
+		// A port the server cannot listen on throws after it has started its
+		// `_events` child, past the cleanup of a failed listen.
+		if ( ! Number.isInteger( port ) || port < 0 || port > 65535 ) {
+			throw new LoggerError( __( 'The port must be a whole number from 0 to 65535.' ) );
+		}
 
 		// `@studio/local` is bundled into the CLI from source; the dynamic import
 		// keeps Express off the startup path of every other command.

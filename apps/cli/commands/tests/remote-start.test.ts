@@ -420,6 +420,22 @@ it( 'fails with the reason when a connection asked for by name cannot listen', a
 	expect( await readRemoteServerInfo() ).toBeUndefined();
 } );
 
+it.each( [
+	[ '--port 65536', { port: 65536 }, undefined ],
+	[ 'a port that is not a number', {}, 'eighty' ],
+] )( 'refuses %s before it starts anything', async ( _name, options, environment ) => {
+	startedBy( 'terminal' );
+	vi.stubEnv( 'STUDIO_REMOTE_SERVER_PORT', environment );
+
+	await runCommand( options );
+
+	expect( startLocalServer ).not.toHaveBeenCalled();
+	expect( mockReportError ).toHaveBeenCalledWith(
+		expect.objectContaining( { message: 'The port must be a whole number from 0 to 65535.' } )
+	);
+	vi.unstubAllEnvs();
+} );
+
 it( 'takes its stop listeners off when a start fails, so it ends and the app hears why', async () => {
 	startedBy( 'app' );
 	vi.mocked( readTailscaleState ).mockResolvedValue( TAILSCALE_READY );

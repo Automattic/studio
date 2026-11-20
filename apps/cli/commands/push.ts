@@ -162,6 +162,9 @@ const PUSH_PROGRESS: Record< PushStatus[ 'phase' ], [ () => string, number, numb
 
 const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
 	creatingBackup: 'local_export',
+	startingSite: 'local_export',
+	generatingStaticSite: 'local_export',
+	stoppingSite: 'local_export',
 	uploading: 'upload',
 	creatingRemoteBackup: 'remote_backup',
 	applyingChanges: 'remote_import',
@@ -254,7 +257,9 @@ async function runPush(
 
 	pushed.selection ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
 
-	reportPhase( 'creatingBackup' );
+	if ( sites.content !== 'static' ) {
+		reportPhase( 'creatingBackup' );
+	}
 	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 	const removeTempDir = () => fs.promises.rm( tempDir, { recursive: true, force: true } );
 	const forgetTempDir = onCancel( removeTempDir );
@@ -277,7 +282,8 @@ async function runPush(
 				site.path,
 				remoteSite.url,
 				path.join( tempDir, 'site' ),
-				captureVersion
+				captureVersion,
+				reportPhase
 			);
 		} else {
 			await captureVersion();

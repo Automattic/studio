@@ -54,6 +54,9 @@ function scheduleExpiry( siteId: string ) {
 function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 	const message = {
 		creatingBackup: __( 'Creating backup…' ),
+		startingSite: __( 'Starting site…' ),
+		generatingStaticSite: __( 'Generating static site…' ),
+		stoppingSite: __( 'Stopping site…' ),
 		uploading: __( 'Uploading site…' ),
 		creatingRemoteBackup: __( 'Backing up remote site…' ),
 		applyingChanges: __( 'Applying changes…' ),

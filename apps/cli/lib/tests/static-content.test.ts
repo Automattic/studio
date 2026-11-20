@@ -29,11 +29,13 @@ afterEach( () => {
 
 it( 'exports the site with links to where it will be hosted, with the files kept at its root', async () => {
 	const beforeExport = async () => {};
+	const onStep = () => {};
 	const content = await exportStaticContent(
 		sitePath,
 		'https://my-site.space.fast',
 		outputDir,
-		beforeExport
+		beforeExport,
+		onStep
 	);
 
 	expect( exportStaticSite ).toHaveBeenCalledWith(
@@ -41,7 +43,8 @@ it( 'exports the site with links to where it will be hosted, with the files kept
 		outputDir,
 		'https://my-site.space.fast',
 		true,
-		beforeExport
+		beforeExport,
+		onStep
 	);
 	if ( content.kind !== 'files' ) {
 		throw new Error( 'Expected files' );

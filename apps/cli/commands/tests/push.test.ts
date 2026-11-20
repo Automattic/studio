@@ -395,10 +395,13 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 		vi.mocked( getSiteByFolder ).mockResolvedValue( { ...site, name: 'My Site' } );
 		vi.mocked( readProviderConfig ).mockResolvedValue( { apiKey: 'sfa_key' } as never );
 		vi.mocked( exportStaticContent ).mockImplementation(
-			async ( _path, _url, _output, beforeExport ) => {
+			async ( _path, _url, _output, beforeExport, onStep ) => {
 				expect( getSiteVersion ).not.toHaveBeenCalled();
+				onStep?.( 'startingSite' );
 				await beforeExport?.();
 				expect( getSiteVersion ).toHaveBeenCalledExactlyOnceWith( site.id, site.path );
+				onStep?.( 'generatingStaticSite' );
+				onStep?.( 'stoppingSite' );
 				return files;
 			}
 		);
@@ -424,6 +427,7 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 			site.path,
 			space.url,
 			expect.any( String ),
+			expect.any( Function ),
 			expect.any( Function )
 		);
 		expect( spacefastSites.push ).toHaveBeenCalledWith(
@@ -440,6 +444,11 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 			expect.objectContaining( { id: 'spc_2' } ),
 			'before-upload'
 		);
+		expect(
+			reported().flatMap( ( activity ) =>
+				'phase' in activity && activity.phase ? [ activity.phase ] : []
+			)
+		).toEqual( [ 'startingSite', 'generatingStaticSite', 'stoppingSite' ] );
 		expect( reported().at( -1 ) ).toEqual( {
 			kind: 'success',
 			direction: 'push',

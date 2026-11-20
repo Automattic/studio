@@ -555,17 +555,25 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		// The studio.local custom-domain setup.
 		'https://studio.local',
 	] );
-	const credentialedOrigins = new Set( options.allowedOrigins );
+	// A UI served elsewhere (`studio serve`) also sends its cookies, so only real web origins
+	// qualify, never `null` or a wildcard.
+	const credentialedOrigins = new Set(
+		( options.allowedOrigins ?? [] ).filter( ( origin ) => /^https?:\/\/[^*]+$/.test( origin ) )
+	);
 	app.use( ( req: Request, res: Response, next ) => {
 		const origin = req.headers.origin;
 		if ( origin ) {
-			if ( ! allowedOrigins.has( origin ) && ! credentialedOrigins.has( origin ) ) {
+			// The header carries the allowlist's own entry rather than echoing the request's.
+			const allowed = [ ...allowedOrigins, ...credentialedOrigins ].find(
+				( candidate ) => candidate === origin
+			);
+			if ( ! allowed ) {
 				res.status( 403 ).json( { error: 'Origin not allowed' } );
 				return;
 			}
-			res.setHeader( 'Access-Control-Allow-Origin', origin );
+			res.setHeader( 'Access-Control-Allow-Origin', allowed );
 			res.setHeader( 'Vary', 'Origin' );
-			if ( credentialedOrigins.has( origin ) ) {
+			if ( credentialedOrigins.has( allowed ) ) {
 				res.setHeader( 'Access-Control-Allow-Credentials', 'true' );
 			}
 		}

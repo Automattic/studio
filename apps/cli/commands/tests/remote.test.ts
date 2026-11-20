@@ -10,7 +10,7 @@ import {
 	setRemoteServerInfo,
 } from '@studio/common/lib/remote-access';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockReportError, mockReportSuccess } from 'cli/tests/test-utils';
+import { mockReportError, mockReportResult, mockReportSuccess } from 'cli/tests/test-utils';
 import { runListCommand, runRevokeCommand } from '../remote/devices';
 import { runCommand as runPairCommand } from '../remote/pair';
 
@@ -18,6 +18,7 @@ vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportSuccess = mockReportSuccess;
 		reportError = mockReportError;
+		reportResult = mockReportResult;
 	},
 	LoggerError: class LoggerError extends Error {},
 } ) );
@@ -95,12 +96,15 @@ describe( 'CLI: studio remote devices list', () => {
 		expect( printed ).toHaveLength( 1 );
 		expect( printed[ 0 ] ).toMatchObject( { name: 'Test phone', platform: 'ios' } );
 		expect( printed[ 0 ] ).not.toHaveProperty( 'tokenHash' );
+		expect( mockReportResult ).toHaveBeenCalledWith( printed );
+		expect( mockReportError ).not.toHaveBeenCalled();
 	} );
 
 	it( 'prints an empty array when no device is paired', async () => {
 		await runListCommand( 'json' );
 
 		expect( vi.mocked( console.log ).mock.calls[ 0 ][ 0 ] ).toBe( '[]' );
+		expect( mockReportError ).not.toHaveBeenCalled();
 	} );
 } );
 

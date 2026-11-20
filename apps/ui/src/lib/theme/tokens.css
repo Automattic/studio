@@ -54,6 +54,10 @@
 	--accent-subtle-hover-foreground-fill: initial;
 	--accent: var( --accent-fill, oklch( var( --accent-lightness ) var( --accent-chroma ) var( --accent-hue ) ) );
 	--accent-foreground: #fff;
+	--brand-blue: #3858e9;
+	--brand-blue-foreground: #fff;
+	--brand-green: #1efe57;
+	--brand-green-foreground: #003323;
 	--accent-hover: var( --accent-hover-fill, oklch( from #2b46c7 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
 	--accent-surface-primary-hover: color-mix( in srgb, var( --accent-foreground ) 82%, var( --accent ) );
 	--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );

@@ -104,7 +104,7 @@ import {
 import {
 	forgetRemoteSite,
 	getRemoteSites,
-	rememberRemoteSite,
+	connectPublishingSite,
 } from '@studio/common/lib/remote-sites';
 import {
 	ROOT_CA_CERT_PATH,
@@ -154,7 +154,11 @@ import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit'
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { setSiteFrontendAdminBar, updateSiteMetadata } from '@studio/common/sites/metadata';
+import { getSitePublishStatus } from '@studio/common/sites/publish-status';
 import {
+	getSiteCreationVisibility,
+	getSiteVisibility,
+	setSiteVisibility,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -178,6 +182,7 @@ import {
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
 import { createSyncRunner } from '@studio/common/sites/sync';
+import { siteVisibilitySchema } from '@studio/common/types/site-visibility';
 import {
 	AI_PROVIDER_IDS,
 	ConnectError,
@@ -2004,6 +2009,38 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	api.get(
+		'/remote-sites/:provider/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) return;
+			res.json(
+				await getSiteVisibility(
+					getProviderServices( provider ),
+					remoteSiteIdParam( provider, req )
+				)
+			);
+		} )
+	);
+	api.post(
+		'/remote-sites/:provider/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) return;
+			const visibility = siteVisibilitySchema.safeParse( req.body?.visibility );
+			if ( ! visibility.success ) {
+				res.status( 400 ).json( { error: 'Invalid visibility request.' } );
+				return;
+			}
+			res.json(
+				await setSiteVisibility(
+					getProviderServices( provider ),
+					remoteSiteIdParam( provider, req ),
+					visibility.data
+				)
+			);
+		} )
+	);
+	api.get(
 		'/remote-sites/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
@@ -2029,8 +2066,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				await rememberRemoteSite( provider, req.params.id, req.body as never );
+				await connectPublishingSite( provider, req.params.id, req.body as never );
 				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	api.get(
+		'/remote-sites/:provider/creation-visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json( await getSiteCreationVisibility( getProviderServices( provider ) ) );
 			}
 		} )
 	);
@@ -2039,15 +2086,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sites/:id/remote-sites/:provider/new',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
-			const { name } = req.body as { name?: string };
 			if ( ! provider ) {
 				return;
 			}
-			if ( ! name ) {
-				res.status( 400 ).json( { error: 'name is required' } );
+			const input = z
+				.object( {
+					name: z.string().min( 1 ),
+					visibility: z.enum( [ 'public', 'private' ] ).optional(),
+					connect: z.boolean().optional(),
+				} )
+				.safeParse( req.body );
+			if ( ! input.success ) {
+				res.status( 400 ).json( { error: 'Invalid site creation request.' } );
 				return;
 			}
-			res.json( await createRemoteSite( getProviderServices( provider ), req.params.id, name ) );
+			const { name, visibility, connect } = input.data;
+			res.json(
+				await createRemoteSite(
+					getProviderServices( provider ),
+					req.params.id,
+					name,
+					visibility,
+					connect
+				)
+			);
 		} )
 	);
 
@@ -2132,6 +2194,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/snapshots/:hostname/status',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			res.json( await getPreviewStatus( execute, req.params.hostname ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/publish-status/:remoteSiteId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json(
+				await getSitePublishStatus(
+					execute,
+					req.params.id,
+					req.params.remoteSiteId,
+					normalizeProviderId( String( req.query.provider ?? 'wpcom' ), SITES_PROVIDER_IDS ) ??
+						'wpcom'
+				)
+			);
 		} )
 	);
 

@@ -1,16 +1,16 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { createFakeConnector } from '@/test/fake-connector';
+import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteHeaderActions, SiteHeaderActionsProvider, SiteHeaderSpace } from './index';
 import type { SiteDetails } from '@/data/core';
 
 let siteCount = 0;
 
-async function renderActions() {
+async function renderActions( multipleTargets = false ) {
 	const site: SiteDetails = {
 		id: `header-site-${ ++siteCount }`,
 		name: 'Ada Portfolio',
@@ -19,7 +19,38 @@ async function renderActions() {
 		running: false,
 		phpVersion: '8.3',
 	};
-	const connector = createFakeConnector( { sites: [ site ] } );
+	const connector = createFakeConnector(
+		{ sites: [ site ] },
+		multipleTargets
+			? {
+					getRemoteSites: async ( provider ) =>
+						provider === 'wpcom'
+							? [
+									{
+										id: 42,
+										name: 'Published site',
+										url: 'https://published.example.com',
+										localSiteId: site.id,
+										isStaging: false,
+										isPressable: false,
+										syncSupport: 'syncable',
+										lastPushTimestamp: new Date().toISOString(),
+										lastPullTimestamp: null,
+									},
+							  ]
+							: [],
+					getSnapshots: async () => [
+						{
+							atomicSiteId: 123,
+							localSiteId: site.id,
+							userId: TEST_USER.id,
+							url: 'preview.example.com',
+							date: Date.now(),
+						},
+					],
+			  }
+			: {}
+	);
 	renderWithProviders(
 		<SessionUIProvider>
 			<SiteHeaderActionsProvider host="chat">
@@ -35,33 +66,59 @@ async function renderActions() {
 	return { site };
 }
 
+const publishPanelName = /^(Choose a site|Preview details|Publish|Publish somewhere else)$/;
+
 describe( 'SiteHeaderActions', () => {
 	it( 'keeps Publish visible for a stopped site and opens it from the site menu', async () => {
 		const { site } = await renderActions();
 
 		expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toHaveAttribute(
-			'data-variant',
-			'ghost'
-		);
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
 			'data-variant',
 			'accent'
 		);
+		expect(
+			screen.queryByRole( 'button', { name: 'Choose destination' } )
+		).not.toBeInTheDocument();
 
 		act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ) );
 
-		expect( await screen.findByRole( 'button', { name: 'New site…' } ) ).toBeInTheDocument();
+		expect( await screen.findByRole( 'dialog', { name: publishPanelName } ) ).toBeVisible();
 	} );
 
-	it( 'opens Share and returns focus to its fixed header button', async () => {
+	it( 'opens Publish and returns focus to its fixed header button', async () => {
 		await renderActions();
 		const actions = userEvent.setup();
-		const share = screen.getByRole( 'button', { name: 'Share' } );
+		const share = screen.getByRole( 'button', { name: 'Publish…' } );
 		await actions.click( share );
 		await screen.findByRole( 'dialog' );
 		await actions.keyboard( '{Escape}' );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await waitFor( () => expect( share ).toHaveFocus() );
+	} );
+
+	it( 'keeps the header to one Share button when the site has multiple targets', async () => {
+		const { site } = await renderActions( true );
+		const actions = userEvent.setup();
+		expect(
+			screen.queryByRole( 'button', { name: 'Choose destination' } )
+		).not.toBeInTheDocument();
+		await actions.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
+		const panel = await screen.findByRole( 'dialog', { name: publishPanelName } );
+		expect(
+			await within( panel ).findByRole( 'button', { name: 'Published site' } )
+		).toBeVisible();
+		expect( within( panel ).getByRole( 'button', { name: 'Preview 1' } ) ).toBeVisible();
+		await actions.click( within( panel ).getByRole( 'button', { name: 'Published site' } ) );
+		expect(
+			within( panel ).getByRole( 'link', { name: 'Open published.example.com' } )
+		).toBeVisible();
+		act( () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) );
+		expect( await within( panel ).findByRole( 'button', { name: 'Preview 1' } ) ).toBeVisible();
+		await actions.keyboard( '{Escape}' );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: publishPanelName } ) ).not.toBeInTheDocument()
+		);
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 } );

@@ -76,6 +76,7 @@ export async function buildWpcomPreview( {
 	reportStep,
 	onArchiveBytes,
 	liveSiteSelection,
+	existingPreview,
 }: {
 	siteId: string;
 	siteFolder: string;
@@ -86,13 +87,14 @@ export async function buildWpcomPreview( {
 	reportStep: ReportPreviewStep;
 	onArchiveBytes?: ( bytes: number | undefined ) => void;
 	liveSiteSelection?: string;
+	existingPreview?: import('@studio/common/types/snapshot').Snapshot;
 } ): Promise< {
 	preview: PreviewSite;
 	versionId: string;
 	liveSite: SyncSite | undefined;
 	warning: string | undefined;
 } > {
-	const liveSite = await getLivePreviewSite( siteId, liveSiteSelection );
+	const liveSite = await getLivePreviewSite( siteId, liveSiteSelection, existingPreview );
 	await validateSiteSize( siteFolder, { onWpcom: true } );
 	const warning = await warnAboutEditedDefaultThemes( siteFolder, logger );
 

@@ -10,4 +10,9 @@ export const USER_SCOPED_QUERY_KEYS: ReadonlyArray< readonly string[] > = [
 	REMOTE_SITES_QUERY_KEY,
 	SNAPSHOTS_QUERY_KEY,
 	SNAPSHOT_USAGE_QUERY_KEY,
+	[ 'site-publish-status' ],
+	[ 'destination-changes' ],
+	[ 'publish-target' ],
+	[ 'site-visibility' ],
+	[ 'preview-status' ],
 ];

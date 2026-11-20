@@ -2,7 +2,12 @@ import { __ } from '@wordpress/i18n';
 import type { PublishTarget } from './use-publish-targets';
 import type { SitesProviderId } from '@studio/providers';
 
-type ChooserView = { kind: 'chooser'; focusKey?: string; unavailableTarget?: boolean };
+type ChooserView = {
+	kind: 'chooser';
+	focusKey?: string;
+	unavailableTarget?: boolean;
+	autoSelectPreview?: true;
+};
 type DetailsView = {
 	kind: 'details';
 	targetKey: string;
@@ -17,7 +22,7 @@ type ShareContentView = ShareDestinationView | SetupView;
 export type ShareView =
 	| ShareContentView
 	| { kind: 'entry'; target?: { provider?: SitesProviderId; remoteSiteId: string | number } }
-	| { kind: 'existing'; returnTo: SetupView };
+	| { kind: 'existing'; returnTo: SetupView | ChooserView };
 
 export function getShareViewTitle( view: ShareView, selected?: PublishTarget ): string {
 	switch ( view.kind ) {
@@ -37,7 +42,7 @@ export function getShareViewTitle( view: ShareView, selected?: PublishTarget ): 
 }
 
 export function shareEntryView( targets: PublishTarget[], unavailable: boolean ): ShareContentView {
-	if ( unavailable || targets.length > 1 ) return { kind: 'chooser' };
+	if ( unavailable || targets.length > 1 ) return { kind: 'chooser', autoSelectPreview: true };
 	if ( targets.length === 1 )
 		return {
 			kind: 'details',

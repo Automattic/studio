@@ -15,18 +15,18 @@ export function DestinationChooser( {
 	disabled,
 	onSelect,
 	feedback,
-	addDestinationRow,
+	actionRows,
 }: {
 	targets: PublishTarget[];
 	focusKey?: string;
 	disabled: boolean;
 	onSelect: ( target: PublishTarget ) => void;
 	feedback?: ReactNode;
-	addDestinationRow: ReactNode;
+	actionRows: ReactNode;
 } ) {
 	const rows = useRef( new Map< string, HTMLElement >() );
 	useEffect( () => {
-		if ( disabled || focusKey === 'add-destination' ) return;
+		if ( disabled || focusKey === 'add-destination' || focusKey === 'connect-existing' ) return;
 		const row = focusKey ? rows.current.get( focusKey ) : undefined;
 		( row ?? rows.current.values().next().value )?.focus();
 	}, [ focusKey, disabled ] );
@@ -79,7 +79,7 @@ export function DestinationChooser( {
 				{ sites.map( renderTarget ) }
 				{ sites.length > 0 && previews.length > 0 && <hr className={ styles.chooserDivider } /> }
 				{ previews.map( renderTarget ) }
-				{ addDestinationRow }
+				{ actionRows }
 			</div>
 			{ feedback }
 		</>

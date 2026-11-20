@@ -202,10 +202,6 @@
 	flex: 1;
 	gap: var( --space-3 );
 }
-.publishAction > .changeStatus {
-	margin-top: 0;
-}
-
 .accessTrigger {
 	width: 100%;
 	color: var( --foreground );
@@ -411,8 +407,28 @@
 
 .previewExpiry {
 	composes: footerNote;
+}
+
+.footerStatus {
+	composes: footerNote;
+}
+
+.previewExpiry,
+.footerStatus {
 	margin-block-start: var( --space-3 );
 	margin-block-end: var( --space-2 );
+}
+
+.footerStatus + .footerNote {
+	margin-block-start: var( --space-1 );
+}
+
+.publishAction > .footerStatus {
+	margin-block-start: 0;
+}
+
+.footerActions > .footerStatus {
+	flex: 1;
 }
 
 .previewExpiryPopover {

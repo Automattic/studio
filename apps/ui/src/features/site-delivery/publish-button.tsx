@@ -63,6 +63,7 @@ import {
 	DialogFooter,
 } from '@/lib/ui';
 import { ChangesIcon } from './changes-icon';
+import { ConnectSiteIcon } from './connection-icons';
 import { DestinationActionsMenu } from './destination-actions-menu';
 import { DestinationChooser } from './destination-chooser';
 import { DestinationRow } from './destination-row';
@@ -203,9 +204,14 @@ export function PublishButton( {
 			! pullRequest &&
 			! targetsUnavailable &&
 			! targets.refreshingTargets &&
-			! targets.targets.length
+			( ! targets.targets.length ||
+				( view.autoSelectPreview &&
+					targets.targets.length === 1 &&
+					!! targets.targets[ 0 ].snapshot ) )
 		) {
-			setView( { kind: 'setup' } );
+			const next = shareEntryView( targets.targets, false );
+			if ( next.kind === 'details' ) targets.select( targets.targets[ 0 ] );
+			setView( next );
 		} else if ( view.kind === 'details' && contentView.kind === 'details' && ! publishingNewSite ) {
 			const current = targets.findTarget( contentView.targetKey );
 			if ( ! current && ! targets.refreshingTargets ) {
@@ -372,6 +378,7 @@ export function PublishButton( {
 	const destinationTrigger = useRef< HTMLButtonElement >( null );
 	const targetActionsTrigger = useRef< HTMLButtonElement >( null );
 	const addDestinationTrigger = useRef< HTMLButtonElement >( null );
+	const connectExistingSiteTrigger = useRef< HTMLButtonElement >( null );
 	const linkedSiteTrigger = useRef< HTMLButtonElement >( null );
 	const pullButton = useRef< HTMLButtonElement >( null );
 	const updateButton = useRef< HTMLButtonElement >( null );
@@ -388,14 +395,26 @@ export function PublishButton( {
 			  trigger.current;
 	const publishMain = useRef< HTMLDivElement >( null );
 	const showExistingSite = () => {
-		if ( view.kind === 'setup' ) navigate( { kind: 'existing', returnTo: view }, 'forward' );
+		if ( view.kind === 'setup' || view.kind === 'chooser' )
+			navigate(
+				{
+					kind: 'existing',
+					returnTo:
+						view.kind === 'chooser'
+							? { ...view, autoSelectPreview: undefined, focusKey: 'connect-existing' }
+							: view,
+				},
+				'forward'
+			);
 	};
 	const backFromExistingSite = () => {
 		if ( view.kind !== 'existing' ) return;
+		const returnFocus =
+			view.returnTo.kind === 'chooser' ? connectExistingSiteTrigger : destinationTrigger;
 		navigate(
 			view.returnTo,
 			'back',
-			() => ( destinationTrigger.current ?? publishMain.current )?.focus()
+			() => ( returnFocus.current ?? publishMain.current )?.focus()
 		);
 	};
 	const backFromDetails = () => {
@@ -857,6 +876,16 @@ export function PublishButton( {
 			onClick={ showDestinationSetup }
 		/>
 	);
+	const connectExistingSiteRow = (
+		<DestinationRow
+			ref={ connectExistingSiteTrigger }
+			icon={ <ConnectSiteIcon /> }
+			label={ __( 'Connect to an existing site' ) }
+			trailing={ <ChevronRightIcon data-navigation-chevron /> }
+			disabled={ disabled }
+			onClick={ showExistingSite }
+		/>
+	);
 	const destinationsFeedback = ( targetsUnavailable ||
 		missingPullTarget ||
 		( view.kind === 'chooser' && view.unavailableTarget ) ) && (
@@ -995,7 +1024,7 @@ export function PublishButton( {
 			}
 			if ( disabled && ! selectedPending && ! preview.pending && ! creatingPreview ) {
 				return (
-					<p role="status">
+					<p role="status" className={ styles.footerStatus }>
 						{ offline ? __( "You're offline" ) : __( 'Another operation is in progress.' ) }
 					</p>
 				);
@@ -1120,12 +1149,6 @@ export function PublishButton( {
 						onClick={ () => select( linkedSite ) }
 					/>
 				) }
-				{ newDestination && (
-					<div className={ styles.publishedStatusRow }>
-						<ChangesIcon />
-						<span>{ __( 'Not published yet' ) }</span>
-					</div>
-				) }
 				{ paidSite && planUrl && (
 					<DestinationRow
 						icon={ <PlanIcon /> }
@@ -1154,126 +1177,6 @@ export function PublishButton( {
 				) }
 				{ addDestinationRow }
 			</div>
-			{ ! selected && offline && (
-				<p role="status" className={ styles.changeStatus }>
-					{ __( "You're offline" ) }
-				</p>
-			) }
-			{ snapshot && comparison?.previewChanged && (
-				<p role="status" className={ styles.changeStatus }>
-					{ comparison.localChanged === true
-						? __( 'Local and preview changes' )
-						: __( 'Preview has changes' ) }
-				</p>
-			) }
-			{ showPreviewPull && comparison?.previewChanged && comparison.localChanged && (
-				<p className={ styles.changeStatus }>
-					{ __( 'Pull replaces your local copy. Update replaces the preview.' ) }
-				</p>
-			) }
-			{ snapshot &&
-				! canPullPreview &&
-				( comparison?.previewChanged || targets.selectedAccount?.isError ) && (
-					<p role="status" className={ styles.changeStatus }>
-						{ targets.selectedAccount?.isError
-							? __( 'Couldn’t check whether you can pull from this preview.' )
-							: targets.selectedAccount?.isSuccess
-							? previewPullIssue ??
-							  __( 'Pulling from this preview is unavailable for this account.' )
-							: __( 'Checking whether you can pull from this preview…' ) }
-						{ targets.selectedAccount?.isError && (
-							<>
-								{ ' ' }
-								<Button
-									variant="inline-link"
-									size="inline"
-									onClick={ () => void targets.selectedAccount?.refetch() }
-								>
-									{ __( 'Try again' ) }
-								</Button>
-							</>
-						) }
-					</p>
-				) }
-			{ pullIsPrimary && (
-				<p role="status" className={ styles.changeStatus }>
-					{ pushIssue }
-				</p>
-			) }
-			{ emptyDescriptor.previews &&
-				! snapshot &&
-				! remote &&
-				! preview.loading &&
-				preview.unavailable &&
-				! preview.signedOut && (
-					<p className={ styles.changeStatus }>
-						{ preview.unavailable }{ ' ' }
-						{ preview.availabilityError && (
-							<Button variant="inline-link" size="inline" onClick={ preview.retryAvailability }>
-								{ __( 'Try again' ) }
-							</Button>
-						) }
-					</p>
-				) }
-			{ setupError && (
-				<p role="alert" className={ styles.changeStatus }>
-					{ setupError }{ ' ' }
-					<Button
-						variant="inline-link"
-						size="inline"
-						onClick={ () => retryPublishSetup( site.id ) }
-					>
-						{ __( 'Try again' ) }
-					</Button>
-				</p>
-			) }
-			{ missingPullTarget && (
-				<p role="alert" className={ styles.changeStatus }>
-					{ __( 'The site requested for this pull is unavailable.' ) }
-				</p>
-			) }
-			{ connectionUnavailable && (
-				<Alert className={ styles.changeStatus }>
-					<AlertTitle>
-						{ sprintf(
-							/* translators: %s: hosting provider name. */
-							__( 'Couldn’t load your %s sites' ),
-							getProvider( destinationProvider ).label
-						) }
-					</AlertTitle>
-					<AlertDescription>
-						{ __( 'Try again to see where this WordPress is already connected.' ) }
-					</AlertDescription>
-					<AlertActions>
-						<Button
-							variant="outline"
-							loading={ connection.refreshing }
-							disabled={ connection.refreshing }
-							onClick={ connection.retry }
-						>
-							{ connection.refreshing ? __( 'Checking…' ) : __( 'Try again' ) }
-						</Button>
-					</AlertActions>
-				</Alert>
-			) }
-			{ showCreationAccess && creationPolicy.isError && (
-				<p role="alert" className={ styles.changeStatus }>
-					{ __( 'Couldn’t check who can view new sites for this team.' ) }{ ' ' }
-					<Button
-						variant="inline-accent"
-						size="inline"
-						disabled={ creationPolicy.isFetching }
-						onClick={ () => void creationPolicy.refetch() }
-					>
-						{ __( 'Try again' ) }
-					</Button>
-				</p>
-			) }
-			{ failure && (
-				<p role="alert" className={ styles.changeStatus }>
-					{ failure }
-				</p>
-			) }
 			<div
 				className={ styles.shareFooter }
 				role="group"
@@ -1305,6 +1208,131 @@ export function PublishButton( {
 				) }
 				<div className={ styles.footerActions }>{ renderPrimaryAction() }</div>
 			</div>
+			{ newDestination && (
+				<p role="status" className={ styles.footerStatus }>
+					{ __( 'Not published yet' ) }
+				</p>
+			) }
+			{ ! selected && offline && (
+				<p role="status" className={ styles.footerStatus }>
+					{ __( "You're offline" ) }
+				</p>
+			) }
+			{ snapshot && comparison?.previewChanged && (
+				<p role="status" className={ styles.footerStatus }>
+					{ comparison.localChanged === true
+						? __( 'Local and preview changes' )
+						: __( 'Preview has changes' ) }
+				</p>
+			) }
+			{ showPreviewPull && comparison?.previewChanged && comparison.localChanged && (
+				<p className={ styles.footerStatus }>
+					{ __( 'Pull replaces your local copy. Update replaces the preview.' ) }
+				</p>
+			) }
+			{ snapshot &&
+				! canPullPreview &&
+				( comparison?.previewChanged || targets.selectedAccount?.isError ) && (
+					<p role="status" className={ styles.footerStatus }>
+						{ targets.selectedAccount?.isError
+							? __( 'Couldn’t check whether you can pull from this preview.' )
+							: targets.selectedAccount?.isSuccess
+							? previewPullIssue ??
+							  __( 'Pulling from this preview is unavailable for this account.' )
+							: __( 'Checking whether you can pull from this preview…' ) }
+						{ targets.selectedAccount?.isError && (
+							<>
+								{ ' ' }
+								<Button
+									variant="inline-link"
+									size="inline"
+									onClick={ () => void targets.selectedAccount?.refetch() }
+								>
+									{ __( 'Try again' ) }
+								</Button>
+							</>
+						) }
+					</p>
+				) }
+			{ emptyDescriptor.previews &&
+				! snapshot &&
+				! remote &&
+				! preview.loading &&
+				preview.unavailable &&
+				! preview.signedOut && (
+					<p className={ styles.footerStatus }>
+						{ preview.unavailable }{ ' ' }
+						{ preview.availabilityError && (
+							<Button variant="inline-link" size="inline" onClick={ preview.retryAvailability }>
+								{ __( 'Try again' ) }
+							</Button>
+						) }
+					</p>
+				) }
+			{ setupError && (
+				<p role="alert" className={ styles.footerStatus }>
+					{ setupError }{ ' ' }
+					<Button
+						variant="inline-link"
+						size="inline"
+						onClick={ () => retryPublishSetup( site.id ) }
+					>
+						{ __( 'Try again' ) }
+					</Button>
+				</p>
+			) }
+			{ missingPullTarget && (
+				<p role="alert" className={ styles.footerStatus }>
+					{ __( 'The site requested for this pull is unavailable.' ) }
+				</p>
+			) }
+			{ connectionUnavailable && (
+				<Alert className={ styles.changeStatus }>
+					<AlertTitle>
+						{ sprintf(
+							/* translators: %s: hosting provider name. */
+							__( 'Couldn’t load your %s sites' ),
+							getProvider( destinationProvider ).label
+						) }
+					</AlertTitle>
+					<AlertDescription>
+						{ __( 'Try again to see where this WordPress is already connected.' ) }
+					</AlertDescription>
+					<AlertActions>
+						<Button
+							variant="outline"
+							loading={ connection.refreshing }
+							disabled={ connection.refreshing }
+							onClick={ connection.retry }
+						>
+							{ connection.refreshing ? __( 'Checking…' ) : __( 'Try again' ) }
+						</Button>
+					</AlertActions>
+				</Alert>
+			) }
+			{ showCreationAccess && creationPolicy.isError && (
+				<p role="alert" className={ styles.footerStatus }>
+					{ __( 'Couldn’t check who can view new sites for this team.' ) }{ ' ' }
+					<Button
+						variant="inline-accent"
+						size="inline"
+						disabled={ creationPolicy.isFetching }
+						onClick={ () => void creationPolicy.refetch() }
+					>
+						{ __( 'Try again' ) }
+					</Button>
+				</p>
+			) }
+			{ failure && (
+				<p role="alert" className={ styles.footerStatus }>
+					{ failure }
+				</p>
+			) }
+			{ pullIsPrimary && (
+				<p role="status" className={ styles.footerStatus }>
+					{ pushIssue }
+				</p>
+			) }
 			{ remote?.lastPushTimestamp && <PublishedTime timestamp={ remote.lastPushTimestamp } /> }
 			{ snapshot && (
 				<p className={ styles.previewExpiry }>
@@ -1559,7 +1587,12 @@ export function PublishButton( {
 								/>
 							) : view.kind === 'chooser' ? (
 								<DestinationChooser
-									addDestinationRow={ addDestinationRow }
+									actionRows={
+										<>
+											{ addDestinationRow }
+											{ connectExistingSiteRow }
+										</>
+									}
 									targets={ targets.targets }
 									focusKey={ view.focusKey }
 									disabled={ pending }

@@ -1,3 +1,4 @@
+import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
@@ -1122,6 +1123,7 @@ it( 'lists connected destinations above previews and marks only published sites 
 		space.name,
 		'Preview 1',
 		'Publish somewhere else',
+		'Connect to an existing site',
 	] );
 	expect( rows[ 0 ] ).toHaveAccessibleDescription( 'lente.blog · Live site' );
 	expect( within( rows[ 0 ] ).getByText( 'lente.blog', { exact: true } ) ).toBeVisible();
@@ -2143,6 +2145,7 @@ it( 'publishes everything on the first WordPress.com push and offers selective u
 	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
 	const publish = screen.getByRole( 'button', { name: 'Update' } );
 	await waitFor( () => expect( publish ).toBeEnabled() );
+	expect( screen.getByText( 'Not published yet' ) ).toAppearAfter( publish );
 	await user.click( publish );
 	expect( await screen.findByRole( 'button', { name: 'Updating…' } ) ).toBeVisible();
 	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith( 'wpcom', site.id, live.id, {
@@ -2250,6 +2253,52 @@ it.each( [ false, true ] )(
 		}
 	}
 );
+
+it( 'connects an existing site directly from the destination list', async () => {
+	let connected = false;
+	const second = { ...preview, atomicSiteId: 456, url: 'second.wpcomstaging.com' };
+	const { connector, user } = setup( {
+		getSnapshots: async () => [ preview, second ],
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' && connected ? [ live ] : [] ),
+		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		connectRemoteSite: async () => {
+			connected = true;
+		},
+	} );
+	const panel = await openShare();
+	const elsewhere = within( panel ).getByRole( 'button', { name: 'Publish somewhere else' } );
+	const connect = within( panel ).getByRole( 'button', { name: 'Connect to an existing site' } );
+	expect( elsewhere.nextElementSibling ).toBe( connect );
+	connect.focus();
+	await user.keyboard( '{Enter}' );
+	let picker = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+	expect( within( picker ).getByRole( 'button', { name: 'Back' } ) ).toHaveFocus();
+	await user.keyboard( '{Escape}' );
+	const returnedConnect = await screen.findByRole( 'button', {
+		name: 'Connect to an existing site',
+	} );
+	await waitFor( () => expect( returnedConnect ).toHaveFocus() );
+	await user.click( returnedConnect );
+	picker = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+	await user.click( await within( picker ).findByRole( 'button', { name: /Live.*lente.blog/ } ) );
+	expect( await screen.findByRole( 'link', { name: 'Open lente.blog' } ) ).toBeVisible();
+	expect( connector.connectRemoteSite ).toHaveBeenCalledExactlyOnceWith( 'wpcom', site.id, live );
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	expect( connector.pullSite ).not.toHaveBeenCalled();
+} );
+
+it( 'keeps a connected site visible when its account address is temporarily invalid', async () => {
+	const { connector } = setup( {
+		getSnapshots: async () => [],
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		listAccountSites: async ( provider ) =>
+			provider === 'wpcom' ? [ { ...live, url: '' } ] : [],
+		getSiteVisibility: () => new Promise( () => {} ),
+	} );
+	const panel = await openShare();
+	await waitFor( () => expect( connector.listAccountSites ).toHaveBeenCalledWith( 'wpcom' ) );
+	expect( await within( panel ).findByRole( 'link', { name: 'Open lente.blog' } ) ).toBeVisible();
+} );
 
 it( 'offers existing sites in Destination and returns keyboard focus there', async () => {
 	const { user } = setup( { getRemoteSites: async () => [], getSnapshots: async () => [] } );
@@ -3305,11 +3354,27 @@ it( 'keeps a selected folder from becoming an entire-site pull when its backup d
 } );
 
 it.each( [
-	{ syncSupport: 'syncable', pushNeedsUpgrade: true, allowed: true },
-	{ syncSupport: 'missing-permissions', pushNeedsUpgrade: false, allowed: false },
+	{
+		syncSupport: 'syncable',
+		pushNeedsUpgrade: true,
+		allowed: true,
+		notice: 'Publishing requires a supported plan.',
+	},
+	{
+		syncSupport: 'needs-upgrade',
+		pushNeedsUpgrade: true,
+		allowed: false,
+		notice: 'Publishing requires a supported plan.',
+	},
+	{
+		syncSupport: 'missing-permissions',
+		pushNeedsUpgrade: false,
+		allowed: false,
+		notice: 'You need administrator access to publish or pull changes.',
+	},
 ] as const )(
 	'checks live Pull independently of publishing for $syncSupport',
-	async ( { syncSupport, pushNeedsUpgrade, allowed } ) => {
+	async ( { syncSupport, pushNeedsUpgrade, allowed, notice } ) => {
 		const remote = { ...live, syncSupport, pushNeedsUpgrade };
 		const { user, connector } = setup( {
 			getSnapshots: async () => [],
@@ -3318,6 +3383,12 @@ it.each( [
 		} );
 		const panel = await openShare();
 		const pull = within( panel ).queryByRole( 'button', { name: 'Pull from live site…' } );
+		const status = await within( panel ).findByText( notice );
+		const action = allowed ? pull! : within( panel ).getByRole( 'button', { name: 'Update…' } );
+		expect( status ).toBeVisible();
+		expect(
+			action.compareDocumentPosition( status ) & Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
 		if ( allowed ) {
 			expect( pull ).toHaveAttribute( 'data-variant', 'accent' );
 			await user.click( pull! );
@@ -3326,7 +3397,7 @@ it.each( [
 			).toBeVisible();
 		} else {
 			expect( pull ).not.toBeInTheDocument();
-			expect( await within( panel ).findByText( /administrator access/ ) ).toBeVisible();
+			expect( action ).toBeDisabled();
 		}
 		expect( connector.pullSite ).not.toHaveBeenCalled();
 	}
@@ -3458,11 +3529,11 @@ it( 'keeps the local copy and preview available when the account cannot pull rem
 		],
 	} );
 	const panel = await openShare();
-	expect( await within( panel ).findByText( /hosting plan that supports pulling/ ) ).toBeVisible();
-	expect( within( panel ).getByRole( 'button', { name: 'Update…' } ) ).toHaveAttribute(
-		'data-variant',
-		'accent'
-	);
+	const notice = await within( panel ).findByText( /hosting plan that supports pulling/ );
+	const update = within( panel ).getByRole( 'button', { name: 'Update…' } );
+	expect( notice ).toBeVisible();
+	expect( notice ).toAppearAfter( update );
+	expect( update ).toHaveAttribute( 'data-variant', 'accent' );
 	expect(
 		within( panel ).queryByRole( 'button', { name: 'Pull from preview…' } )
 	).not.toBeInTheDocument();
@@ -3473,6 +3544,77 @@ it( 'keeps the local copy and preview available when the account cannot pull rem
 		screen.queryByRole( 'menuitem', { name: 'Pull from preview…' } )
 	).not.toBeInTheDocument();
 	expect( connector.pullSite ).not.toHaveBeenCalled();
+} );
+
+it( 'keeps the preview availability retry below the create action', async () => {
+	const { user, connector } = setup( {
+		getSnapshots: async () => [],
+		getRemoteSites: async () => [],
+		getSnapshotUsage: async () => {
+			throw new Error( 'Unavailable' );
+		},
+	} );
+	const panel = await openShare();
+	const status = await within( panel ).findByText( /Preview availability could not be checked/ );
+	const create = within( panel ).getByRole( 'button', { name: 'Create preview' } );
+	expect( create ).toBeDisabled();
+	expect( status ).toAppearAfter( create );
+	connector.getSnapshotUsage.mockResolvedValue( {
+		siteCount: 0,
+		siteLimit: 5,
+		siteCreationBlocked: false,
+	} );
+	await user.click( within( status ).getByRole( 'button', { name: 'Try again' } ) );
+	await waitFor( () => expect( create ).toBeEnabled() );
+	expect( status ).not.toBeInTheDocument();
+} );
+
+it( 'opens the first preview after destinations recover during creation', async () => {
+	let snapshots: Snapshot[] = [];
+	let failConnections = false;
+	let finish!: ( result: { url: string } ) => void;
+	const { connector, queryClient, user } = setup( {
+		getSnapshots: async () => snapshots,
+		getRemoteSites: async ( provider ) => {
+			if ( provider === 'wpcom' && failConnections ) throw new Error( 'Temporarily unavailable' );
+			return [];
+		},
+		publishPreviewSite: () => new Promise( ( resolve ) => ( finish = resolve ) ),
+	} );
+	const panel = await openShare();
+	await user.click( within( panel ).getByRole( 'button', { name: 'Create preview' } ) );
+	await waitFor( () => expect( finish ).toBeTypeOf( 'function' ) );
+
+	snapshots = [ preview ];
+	failConnections = true;
+	act( () =>
+		connector.emit( 'onSnapshotEvent', {
+			event: SNAPSHOT_EVENTS.CREATED,
+			snapshotUrl: preview.url,
+			snapshot: preview,
+		} )
+	);
+	await waitFor( () =>
+		expect( queryClient.getQueryState( remoteSitesQueryKey( 'wpcom', site.id ) )?.status ).toBe(
+			'error'
+		)
+	);
+	act( () =>
+		connector.emit( 'onSyncActivity', {
+			siteId: site.id,
+			activity: { kind: 'success', direction: 'preview' },
+		} )
+	);
+	expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+		'Some destinations could not be loaded'
+	);
+
+	failConnections = false;
+	await act( async () => {
+		await queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( 'wpcom', site.id ) } );
+	} );
+	expect( await screen.findByRole( 'dialog', { name: 'Preview details' } ) ).toBeVisible();
+	await act( async () => finish( { url: preview.url } ) );
 } );
 
 it( 'keeps launch secondary after creating a standalone preview and opens its checkout', async () => {

@@ -643,7 +643,8 @@ describe( 'Chat target selection', () => {
 			} as SessionEntry );
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Off/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Thinking/ } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: /^Off/ } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 				'aria-description',
@@ -661,7 +662,7 @@ describe( 'Chat target selection', () => {
 		await setupChat();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
 		await screen.findByRole( 'option', { name: /^Fast/ } );
-		expect( screen.queryByRole( 'option', { name: /^Off/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: /^Thinking/ } ) ).not.toBeInTheDocument();
 	} );
 } );
 

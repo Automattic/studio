@@ -12,8 +12,8 @@ import {
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
-import { BrainIcon, CheckIcon } from 'lucide-react';
-import { useRef, useState, type ComponentType, type RefObject } from 'react';
+import { BrainIcon } from 'lucide-react';
+import { useId, useRef, useState, type ComponentType, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -22,7 +22,8 @@ import { useOpenSettings } from '@/data/use-open-settings';
 import { ProviderLogo } from '@/features/account';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
 import { PlugIcon, PlusIcon, ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
-import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
+import { Button, CommandSheet, Menu, Popover, type Command, type CommandGroup } from '@/lib/ui';
+import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 
 const PROVIDER_ICONS = Object.fromEntries(
@@ -66,6 +67,8 @@ export function ModelPicker( {
 	onAddCredits,
 }: ModelPickerProps ) {
 	const [ highlight, setHighlight ] = useState< string >();
+	const [ thinkingOpen, setThinkingOpen ] = useState( false );
+	const listId = useId();
 	const listRef = useRef< HTMLDivElement | null >( null );
 	const triggerRef = useRef< HTMLButtonElement | null >( null );
 	const openSettings = useOpenSettings();
@@ -116,13 +119,15 @@ export function ModelPicker( {
 		modelDetails.push( note );
 	}
 	const pickCommand = ( value: string ) => {
+		if ( value === 'thinking' ) {
+			setThinkingOpen( true );
+			return;
+		}
 		onOpenChange( false );
 		if ( value === 'get-credits' ) {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'providers', undefined, 'ai-providers' );
-		} else if ( value.startsWith( 'thinking:' ) ) {
-			onThinkingChange?.( value.slice( 'thinking:'.length ) as ThinkingSetting );
 		} else if ( value.startsWith( 'link:' ) ) {
 			void connector.openExternalUrl( value.slice( 'link:'.length ) );
 		} else {
@@ -163,16 +168,18 @@ export function ModelPicker( {
 		},
 		{
 			label: __( 'Thinking' ),
-			heading: __( 'Thinking' ),
 			items:
 				onThinkingChange &&
 				modelsOf( sessionProvider ).find( ( { id } ) => id === model )?.thinking !== false
-					? THINKING_SETTINGS.map( ( id ) => ( {
-							value: `thinking:${ id }`,
-							...thinkingOptions[ id ],
-							icon: BrainIcon,
-							trailing: id === thinking ? <CheckIcon aria-label={ __( 'Current' ) } /> : null,
-					  } ) )
+					? [
+							{
+								value: 'thinking',
+								label: __( 'Thinking' ),
+								description: thinkingOptions[ thinking ].label,
+								icon: BrainIcon,
+								trailing: <ChevronDownIcon className={ styles.flyoutChevron } />,
+							},
+					  ]
 					: [],
 		},
 		{
@@ -212,6 +219,7 @@ export function ModelPicker( {
 				onOpenChange( next );
 				if ( next ) {
 					setHighlight( model );
+					setThinkingOpen( false );
 					if ( isWpcom ) {
 						void refetchQuota();
 					}
@@ -238,13 +246,46 @@ export function ModelPicker( {
 				label={ __( 'Choose a model' ) }
 				groups={ groups }
 				highlighted={ highlight }
-				onHighlight={ setHighlight }
+				onHighlight={ ( value, source ) => {
+					setHighlight( value );
+					if ( source === 'pointer' ) {
+						setThinkingOpen( value === 'thinking' );
+					}
+				} }
 				onSelect={ pickCommand }
 				listRef={ listRef }
+				id={ listId }
 				anchor={ anchor }
 				initialFocus={ listRef }
 				finalFocus={ triggerRef }
-			/>
+			>
+				<Menu.Root open={ thinkingOpen } onOpenChange={ setThinkingOpen } modal={ false }>
+					<Menu.SubmenuPopup
+						anchor={ () => document.getElementById( `${ listId }-thinking` ) }
+						// Beside the row, or above it when the window leaves no room on either side.
+						collisionAvoidance={ { side: 'flip', align: 'shift', fallbackAxisSide: 'start' } }
+						finalFocus={ listRef }
+					>
+						<Menu.RadioGroup
+							aria-label={ __( 'Thinking' ) }
+							value={ thinking }
+							onValueChange={ ( picked: ThinkingSetting ) => {
+								onOpenChange( false );
+								onThinkingChange?.( picked );
+							} }
+						>
+							{ THINKING_SETTINGS.map( ( id ) => (
+								<Menu.RadioItem key={ id } value={ id }>
+									{ thinkingOptions[ id ].label }
+									<span className={ styles.flyoutDescription }>
+										{ thinkingOptions[ id ].description }
+									</span>
+								</Menu.RadioItem>
+							) ) }
+						</Menu.RadioGroup>
+					</Menu.SubmenuPopup>
+				</Menu.Root>
+			</CommandSheet>
 		</Popover.Root>
 	);
 }

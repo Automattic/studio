@@ -7,7 +7,8 @@ vi.mock( '../../api' );
 const get = vi.fn();
 
 // Answers the site with its UTC offset and time zone, the posts endpoint by post type (`posts`
-// for `any`, otherwise the type's own key), and the media and comments endpoints. An answer that is an error is thrown.
+// for `any`, otherwise the type's own key), the media and comments endpoints, and classic menu
+// items. An answer that is an error is thrown.
 function answers( {
 	gmtOffset = 0,
 	timezone = '',
@@ -15,24 +16,30 @@ function answers( {
 	posts = { found: 0, posts: [] },
 	media = { found: 0, media: [] },
 	comments = { found: 0, comments: [] },
+	menuItems = [],
 	...siteDesign
 }: Record< string, unknown > ) {
-	get.mockImplementation( async ( path: string, query: { type?: string } ) => {
-		const answer =
-			path === '/sites/42'
-				? site
-				: path.endsWith( '/media' )
-				? media
-				: path.endsWith( '/comments' )
-				? comments
-				: query.type === 'any'
-				? posts
-				: siteDesign[ query.type ?? '' ] ?? { found: 0, posts: [] };
-		if ( answer instanceof Error ) {
-			throw answer;
+	get.mockImplementation(
+		async ( request: string | { path: string }, query: { type?: string } ) => {
+			const path = typeof request === 'string' ? request : request.path;
+			const answer =
+				path === '/sites/42'
+					? site
+					: path.endsWith( '/media' )
+					? media
+					: path.endsWith( '/comments' )
+					? comments
+					: path.endsWith( '/menu-items' )
+					? menuItems
+					: query.type === 'any'
+					? posts
+					: siteDesign[ query.type ?? '' ] ?? { found: 0, posts: [] };
+			if ( answer instanceof Error ) {
+				throw answer;
+			}
+			return answer;
 		}
-		return answer;
-	} );
+	);
 }
 
 const forbidden = () =>
@@ -73,6 +80,10 @@ describe( 'fetchLiveChangesSince', () => {
 		expect( get ).toHaveBeenCalledWith(
 			'/sites/42/media',
 			expect.objectContaining( { after: '2026-11-01T00:00:00+00:00' } )
+		);
+		expect( get ).toHaveBeenCalledWith(
+			{ apiNamespace: 'wp/v2', path: '/sites/42/menu-items' },
+			expect.objectContaining( { modified_after: '2026-11-01T00:00:00.000Z' } )
 		);
 	} );
 
@@ -117,6 +128,22 @@ describe( 'fetchLiveChangesSince', () => {
 			);
 		}
 	);
+
+	it( 'counts classic menu items edited live as design', async () => {
+		answers( { menuItems: [ { id: 1 }, { id: 2 } ] } );
+
+		await expect(
+			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )
+		).resolves.toEqual( { posts: 0, comments: 0, siteDesign: 2 } );
+	} );
+
+	it( 'counts no menu items on a site without the menu items route', async () => {
+		answers( { menuItems: Object.assign( new Error( 'No route' ), { statusCode: 404 } ) } );
+
+		await expect(
+			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )
+		).resolves.toEqual( { posts: 0, comments: 0, siteDesign: 0 } );
+	} );
 
 	it( 'counts media uploaded live as content', async () => {
 		answers( {
@@ -181,7 +208,7 @@ describe( 'fetchLiveChangesSince', () => {
 	} );
 
 	it( 'keeps the changes found when another request fails', async () => {
-		answers( { posts: { found: 2, posts: [] }, wp_template: forbidden() } );
+		answers( { posts: { found: 2, posts: [] }, wp_template: forbidden(), menuItems: forbidden() } );
 
 		await expect(
 			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )

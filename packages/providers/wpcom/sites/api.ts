@@ -314,8 +314,8 @@ function toSiteLocalTime(
 
 /**
  * What changed on the site after `since`, an ISO 8601 time: posts of any type modified and media
- * uploaded (`posts`), pieces of the site's design modified (`SITE_DESIGN_TYPES`), and comments
- * made.
+ * uploaded (`posts`), pieces of the site's design modified (`SITE_DESIGN_TYPES` and classic menu
+ * items), and comments made.
  *
  * A failed request fails the check only when the others found nothing: a change any of them found
  * is reason enough to stop, and the counts are then the least that changed.
@@ -373,6 +373,22 @@ export async function fetchLiveChangesSince(
 					throw error;
 				} )
 			),
+			// Classic menus are saved as `nav_menu_item` posts, which the posts endpoint never lists.
+			wpcom.req
+				.get(
+					{ apiNamespace: 'wp/v2', path: `/sites/${ remoteSiteId }/menu-items` },
+					{ modified_after: since, per_page: LIVE_CHANGES_PAGE, _fields: 'id' }
+				)
+				.then(
+					( items: unknown ) => z.array( z.unknown() ).parse( items ).length,
+					( error: unknown ) => {
+						// Sites older than WordPress 5.9 have no menu items route.
+						if ( isNotFound( error ) ) {
+							return 0;
+						}
+						throw error;
+					}
+				),
 		] ),
 	] );
 
@@ -393,6 +409,14 @@ export async function fetchLiveChangesSince(
 		throw failure.reason;
 	}
 	return changes;
+}
+
+function isNotFound( error: unknown ): boolean {
+	return (
+		error instanceof Error &&
+		'statusCode' in error &&
+		( error as { statusCode?: unknown } ).statusCode === 404
+	);
 }
 
 function isUnknownPostType( error: unknown ): boolean {

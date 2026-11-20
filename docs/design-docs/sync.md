@@ -84,10 +84,10 @@ The backend will send a success email after the push finishes, telling the user 
 Pushing the database replaces the live one, so whatever changed on the live site since the local copy was taken would be lost. Before a push that includes the database (`all` or `sqls`) to a WordPress.com site, Studio asks the live site what changed since the connection's last pull or push that included the database (`lastDatabaseSyncTimestamp`; a file-only sync doesn't move it):
 
 - content: posts of any type and status, including pages and trashed posts, modified since then, and media uploaded since then,
-- design: templates, template parts, navigation menus, synced patterns and global styles modified since then,
+- design: templates, template parts, navigation menus (block and classic), synced patterns and global styles modified since then,
 - comments made since then.
 
-WordPress.com filters by these times on its side. Posts take the time in UTC; the comments and media endpoints compare it with the site's local dates, so Studio sends those the site's local time, using the offset the site's time zone had then rather than today's, and the earlier reading when the clocks went back. When something changed, the push stops before exporting anything:
+WordPress.com filters by these times on its side. Posts and menu items take the time in UTC; the comments and media endpoints compare it with the site's local dates, so Studio sends those the site's local time, using the offset the site's time zone had then rather than today's, and the earlier reading when the clocks went back. When something changed, the push stops before exporting anything:
 
 - In a terminal, `studio push` says what changed and asks whether to overwrite it. Without a terminal it fails with the code `live_changed`; `--overwrite-live-changes` pushes anyway.
 - The publish panel shows what changed and offers **Publish anyway**, which pushes again with `overwriteLiveChanges`. Studio on the web runs the same check in the page.

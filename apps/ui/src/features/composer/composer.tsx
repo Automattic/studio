@@ -486,7 +486,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		? __( 'Queue message' )
 		: __( 'Send message' );
 	const addButton = (
-		<Button variant="ghost" size="icon" shape="round" aria-label={ __( 'Add' ) }>
+		<Button variant="ghost" size="icon" className={ styles.edgeAction } aria-label={ __( 'Add' ) }>
 			<PlusIcon />
 		</Button>
 	);

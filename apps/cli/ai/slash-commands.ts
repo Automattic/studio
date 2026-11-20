@@ -22,9 +22,11 @@ import {
 	getProvider,
 	normalizeProviderId,
 	PROVIDER_IDS,
+	THINKING_LEVELS,
 	type AiModelId,
 	type AiProviderId,
 	type ProviderId,
+	type ThinkingLevel,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
@@ -52,6 +54,9 @@ export interface SlashCommandContext {
 	connect( provider: ProviderId, options?: { force?: boolean } ): Promise< void >;
 	maybeAutoSwitchProvider(): Promise< void >;
 	persistSessionContext(): Promise< void >;
+	// The thinking level this chat picked for the current model; undefined for the default.
+	readThinking(): Promise< ThinkingLevel | undefined >;
+	persistThinking( thinking: ThinkingLevel | 'default' ): Promise< void >;
 	clearSession(): Promise< void >;
 }
 
@@ -461,6 +466,86 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					)
 				);
 				await ctx.persistSessionContext();
+			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'thinking',
+		description: __( 'Set how much the model thinks in this chat' ),
+		argument: '[level]',
+		handler: async ( prompt, ctx ) => {
+			const account = describeAccount(
+				ctx.currentProvider,
+				await readProviderConfig( ctx.currentProvider )
+			);
+			const model = getAiModels(
+				ctx.currentProvider,
+				account.connected ? account : undefined
+			).find( ( { id } ) => id === ctx.currentModel );
+			if ( model?.thinking === false ) {
+				ctx.ui.showInfo(
+					sprintf(
+						/* translators: %s: model name */
+						__( 'Studio Code sets how much %s thinks.' ),
+						getModelLabel( ctx.currentModel )
+					)
+				);
+				return 'continue';
+			}
+			const levels = [ 'default', ...THINKING_LEVELS ] as const;
+			const options: Record< ( typeof levels )[ number ], { label: string; description: string } > =
+				{
+					default: { label: __( 'Default' ), description: __( 'What this model does by default' ) },
+					off: { label: __( 'Off' ), description: __( 'Answers right away, fastest' ) },
+					low: { label: __( 'Low' ), description: __( 'Thinks briefly' ) },
+					medium: { label: __( 'Medium' ), description: __( 'Thinks before answering' ) },
+					high: { label: __( 'High' ), description: __( 'Thinks longest, slowest' ) },
+				};
+			const current = ( await ctx.readThinking() ) ?? 'default';
+			const named = prompt.trim().split( /\s+/ )[ 1 ]?.toLowerCase();
+			let level = named ? levels.find( ( id ) => id === named ) : undefined;
+			if ( named && ! level ) {
+				ctx.ui.showError(
+					sprintf(
+						/* translators: 1: what the user typed, 2: a list of thinking levels */
+						__( 'Unknown level %1$s. Choose one of: %2$s.' ),
+						named,
+						levels.join( ', ' )
+					)
+				);
+				return 'continue';
+			}
+			if ( ! level ) {
+				const labelToLevel = new Map< string, ( typeof levels )[ number ] >();
+				const answer = await ctx.ui.askUser( [
+					{
+						question: __( 'How much should the model think?' ),
+						options: levels.map( ( id ) => {
+							const label =
+								id === current
+									? sprintf(
+											/* translators: %s: a thinking level, such as Medium */
+											__( '%s (current)' ),
+											options[ id ].label
+									  )
+									: options[ id ].label;
+							labelToLevel.set( label, id );
+							return { label, description: options[ id ].description };
+						} ),
+					},
+				] );
+				level = labelToLevel.get( Object.values( answer )[ 0 ] as string );
+			}
+			if ( level && level !== current ) {
+				await ctx.persistThinking( level );
+				ctx.ui.showInfo(
+					sprintf(
+						/* translators: %s: a thinking level, such as Medium */
+						__( 'Thinking: %s' ),
+						options[ level ].label
+					)
+				);
 			}
 			return 'continue';
 		},

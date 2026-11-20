@@ -65,6 +65,21 @@ describe( '__buildTracksPixelUrl', () => {
 		expect( url.searchParams.get( '_ut' ) ).toBe( 'anon' );
 		expect( url.searchParams.get( '_ui' ) ).toBe( 'install-uuid-123' );
 		expect( url.searchParams.get( '_ts' ) ).toBe( '1700000000000' );
+		expect( url.searchParams.has( 'install_id' ) ).toBe( false );
+	} );
+
+	it( 'sends a logged-in identity as a WordPress.com user id', () => {
+		const url = new URL(
+			__buildTracksPixelUrl(
+				TRACKS_EVENTS.APP_LAUNCH,
+				{ type: 'wpcom:user_id', id: '12345', installId: 'install-uuid-123' },
+				{}
+			)
+		);
+
+		expect( url.searchParams.get( '_ut' ) ).toBe( 'wpcom:user_id' );
+		expect( url.searchParams.get( '_ui' ) ).toBe( '12345' );
+		expect( url.searchParams.get( 'install_id' ) ).toBe( 'install-uuid-123' );
 	} );
 
 	it( 'coerces prop values to strings and drops undefined props', () => {

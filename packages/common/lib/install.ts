@@ -1,4 +1,6 @@
+import { getCurrentUserId } from './auth-token';
 import { readConfig, readConfigSync, updateConfig } from './config/store';
+import type { TracksIdentity } from './record-tracks-event';
 
 /**
  * This install's anonymous ids, shared by Studio and the Studio CLI, and the analytics opt-out.
@@ -12,6 +14,18 @@ export async function getOrCreateAnalyticsInstallId(): Promise< string > {
 		return analyticsId;
 	}
 	return updateConfig( ( { install } ) => ( install.analyticsId ??= crypto.randomUUID() ) );
+}
+
+// The identity Tracks events are attributed to: the WordPress.com user id while logged in, the
+// anonymous install id otherwise. A logged-in identity also carries the install id, so the install's
+// logged-out and logged-in events can be joined.
+export async function getTracksIdentity(): Promise< TracksIdentity > {
+	const userId = await getCurrentUserId();
+	const installId = await getOrCreateAnalyticsInstallId();
+	if ( userId ) {
+		return { type: 'wpcom:user_id', id: String( userId ), installId };
+	}
+	return { type: 'anon', id: installId };
 }
 
 // The Desktop app mints it; the CLI only reads it, so its reports count the same install.

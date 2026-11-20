@@ -1,5 +1,5 @@
 import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
-import { getOrCreateAnalyticsInstallId, isAnalyticsOptedOut } from '@studio/common/lib/install';
+import { getTracksIdentity, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	isTracksChannel,
@@ -85,10 +85,8 @@ export async function recordTracksEvent(
 		return;
 	}
 
-	const installId = await getOrCreateAnalyticsInstallId();
-	__recordTracksEvent(
-		event,
-		{ type: 'anon', id: installId },
-		{ ...( await commonProps() ), ...props }
-	);
+	__recordTracksEvent( event, await getTracksIdentity(), {
+		...( await commonProps() ),
+		...props,
+	} );
 }

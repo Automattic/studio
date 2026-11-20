@@ -398,7 +398,10 @@ function SitePreviewContent( {
 		: () => {
 				trackOpen( safePath, 'external' );
 				void connector
-					.openSiteUrl( site.id, safePath, { autoLogin: activeRealm !== 'frontend' } )
+					.openSiteUrl( site.id, safePath, {
+						autoLogin: activeRealm !== 'frontend',
+						user: activeRealm === 'staff' ? site.staffAdmin : undefined,
+					} )
 					.catch( ( error ) => {
 						console.error( 'Failed to open site in browser:', error );
 					} );

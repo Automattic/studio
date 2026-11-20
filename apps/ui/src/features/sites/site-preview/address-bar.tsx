@@ -250,7 +250,7 @@ function AddressAction( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant="muted-ghost"
+						variant="ghost"
 						size="icon-2xs"
 						className={ styles.action }
 						aria-label={ label }

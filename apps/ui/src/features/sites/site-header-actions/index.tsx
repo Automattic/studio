@@ -72,7 +72,7 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	const inset = useInlineEndControlsInset();
 	const publishButton = (
 		<span data-site-header-publish className={ styles.publish }>
-			<PublishButton site={ site } compactWhenNarrow />
+			<PublishButton site={ site } />
 		</span>
 	);
 	return (

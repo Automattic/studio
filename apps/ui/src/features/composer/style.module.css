@@ -88,7 +88,3 @@
 .flyoutChevron:dir( rtl ) {
 	rotate: 90deg;
 }
-
-.flyoutDescription {
-	color: var( --muted-foreground );
-}

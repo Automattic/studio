@@ -1,6 +1,6 @@
 import {
+	DEFAULT_THINKING_LEVEL,
 	getThinkingOptions,
-	THINKING_SETTINGS,
 	type ThinkingSetting,
 } from '@studio/agent/protocol/thinking';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
@@ -9,6 +9,7 @@ import {
 	getAiModels,
 	getProvider,
 	PROVIDER_IDS,
+	THINKING_LEVELS,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
@@ -22,7 +23,15 @@ import { useOpenSettings } from '@/data/use-open-settings';
 import { ProviderLogo } from '@/features/account';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
 import { PlugIcon, PlusIcon, ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
-import { Button, CommandSheet, Menu, Popover, type Command, type CommandGroup } from '@/lib/ui';
+import {
+	Badge,
+	Button,
+	CommandSheet,
+	Menu,
+	Popover,
+	type Command,
+	type CommandGroup,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 
@@ -101,7 +110,11 @@ export function ModelPicker( {
 			modelsOf( provider ).find( ( item ) => item.id === id ) ?? findAiModel( id )?.model
 		)?.label() ?? id;
 	const modelLabel = labelOf( sessionProvider, model );
-	const thinkingOptions = getThinkingOptions( getProvider( sessionProvider ).ai?.local );
+	const local = getProvider( sessionProvider ).ai?.local;
+	const thinkingOptions = getThinkingOptions( local );
+	// A model on the user's own server thinks as the server says until the chat picks a level.
+	const defaultThinking = local ? undefined : DEFAULT_THINKING_LEVEL;
+	const currentThinking = thinking === 'default' ? defaultThinking : thinking;
 	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
 	if ( thinking !== 'default' ) {
 		modelDetails.push(
@@ -175,7 +188,9 @@ export function ModelPicker( {
 							{
 								value: 'thinking',
 								label: __( 'Thinking' ),
-								description: thinkingOptions[ thinking ].label,
+								description: currentThinking
+									? thinkingOptions[ currentThinking ].label
+									: thinkingOptions.default.description,
 								icon: BrainIcon,
 								trailing: <ChevronDownIcon className={ styles.flyoutChevron } />,
 							},
@@ -268,18 +283,20 @@ export function ModelPicker( {
 					>
 						<Menu.RadioGroup
 							aria-label={ __( 'Thinking' ) }
-							value={ thinking }
+							value={ currentThinking ?? '' }
 							onValueChange={ ( picked: ThinkingSetting ) => {
 								onOpenChange( false );
 								onThinkingChange?.( picked );
 							} }
 						>
-							{ THINKING_SETTINGS.map( ( id ) => (
+							{ THINKING_LEVELS.map( ( id ) => (
 								<Menu.RadioItem key={ id } value={ id }>
 									{ thinkingOptions[ id ].label }
-									<span className={ styles.flyoutDescription }>
-										{ thinkingOptions[ id ].description }
-									</span>
+									{ id === defaultThinking ? (
+										<Badge size="xs" variant="muted">
+											{ __( 'Default' ) }
+										</Badge>
+									) : null }
 								</Menu.RadioItem>
 							) ) }
 						</Menu.RadioGroup>

@@ -1,5 +1,8 @@
-import { THINKING_LEVELS } from '@studio/providers';
+import { THINKING_LEVELS, type ThinkingLevel } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
+
+// The level a chat runs at until it picks one, except on the user's own server, whose setting holds.
+export const DEFAULT_THINKING_LEVEL: ThinkingLevel = 'medium';
 
 // What a chat can pick: a level, or the default for its model.
 export const THINKING_SETTINGS = [ 'default', ...THINKING_LEVELS ] as const;

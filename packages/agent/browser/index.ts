@@ -16,6 +16,7 @@ import {
 	isEmptyStop,
 	MAX_EMPTY_STOP_CONTINUES,
 } from '@studio/agent/protocol/session-events';
+import { DEFAULT_THINKING_LEVEL } from '@studio/agent/protocol/thinking';
 import { PendingWork, runWithPendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
@@ -124,7 +125,7 @@ async function runTurn(
 		initialState: {
 			systemPrompt,
 			model,
-			thinkingLevel: config.thinking ?? 'medium',
+			thinkingLevel: config.thinking ?? DEFAULT_THINKING_LEVEL,
 			tools: tools.map( ( tool ) => withPendingWork( host, tool, pendingWork, resultNotes ) ),
 			messages: config.history,
 		},

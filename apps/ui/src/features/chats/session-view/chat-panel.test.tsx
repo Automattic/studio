@@ -644,7 +644,8 @@ describe( 'Chat target selection', () => {
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
 		fireEvent.click( await screen.findByRole( 'option', { name: /^Thinking/ } ) );
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: /^Off/ } ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Medium Default' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Off' } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 				'aria-description',

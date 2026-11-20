@@ -36,6 +36,7 @@ import {
 	isEmptyStop,
 	MAX_EMPTY_STOP_CONTINUES,
 } from '@studio/agent/protocol/session-events';
+import { DEFAULT_THINKING_LEVEL } from '@studio/agent/protocol/thinking';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
 import { createConnectionStream } from '@studio/agent/shared/models';
@@ -393,7 +394,7 @@ async function createStudioAgentSession(
 		agentDir: sitesRoot,
 		modelRuntime,
 		model,
-		thinkingLevel: config.thinking ?? 'medium',
+		thinkingLevel: config.thinking ?? DEFAULT_THINKING_LEVEL,
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,

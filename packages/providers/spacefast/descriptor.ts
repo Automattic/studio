@@ -74,7 +74,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 			const url = spaceDashboardUrl( space );
 			return {
 				details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
-				links: url ? [ { title: __( 'Versions' ), url: `${ url }/versions` } ] : [],
+				links: url ? [ { title: __( 'View versions' ), url: `${ url }/versions` } ] : [],
 			};
 		},
 		dashboardUrl: ( site ) => spaceDashboardUrl( site ) ?? 'https://my.spacefast.com/',

@@ -574,8 +574,18 @@ it( 'renders the selected provider capabilities and retains another destination�
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [ 'Copy link', 'Manage domains', 'View backups', 'Disconnect site…' ] );
-	await user.keyboard( '{Escape}' );
+	).toEqual( [
+		'Copy link',
+		'Manage on WordPress.com',
+		'Manage domains',
+		'View backups',
+		'Disconnect site…',
+	] );
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Manage on WordPress.com' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
+		'https://my.wordpress.com/sites/lente.blog'
+	);
+	connector.openExternalUrl.mockClear();
 	await user.click( screen.getByRole( 'button', { name: 'Pull from live site…' } ) );
 	const confirmation = await screen.findByRole( 'alertdialog', {
 		name: 'Update local site from lente.blog?',
@@ -610,9 +620,9 @@ it( 'renders the selected provider capabilities and retains another destination�
 		within( spacefastMenu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [ 'Copy link', 'Open on Spacefast', 'Versions', 'Disconnect site…' ] );
+	).toEqual( [ 'Copy link', 'Manage on Spacefast', 'View versions', 'Disconnect site…' ] );
 	await user.click(
-		within( spacefastMenu ).getByRole( 'menuitem', { name: 'Open on Spacefast' } )
+		within( spacefastMenu ).getByRole( 'menuitem', { name: 'Manage on Spacefast' } )
 	);
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		'https://my.spacefast.com/studio/lente'
@@ -669,8 +679,8 @@ it( 'shows a site actions menu for a single connected site', async () => {
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [ 'Copy link', 'Open on Spacefast', 'Versions', 'Disconnect site…' ] );
-	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Versions' } ) );
+	).toEqual( [ 'Copy link', 'Manage on Spacefast', 'View versions', 'Disconnect site…' ] );
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'View versions' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		'https://my.spacefast.com/studio/lente/versions'
 	);
@@ -688,7 +698,7 @@ it( 'opens a sole Spacefast destination from a Share request', async () => {
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
 
-it( 'opens Versions for a saved Spacefast connection without a team slug', async () => {
+it( 'opens View versions for a saved Spacefast connection without a team slug', async () => {
 	const { connector, user } = setup( {
 		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom' ] ),
 		getRemoteSites: async ( provider ) =>
@@ -696,7 +706,7 @@ it( 'opens Versions for a saved Spacefast connection without a team slug', async
 	} );
 	await openFirstDestination();
 	const menu = await openSiteActions( user );
-	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Versions' } ) );
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'View versions' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		'https://my.spacefast.com/team/spc_1/versions'
 	);
@@ -894,17 +904,28 @@ it( 'offers information about Spacefast until a site exists', async () => {
 it.each( [
 	{ hostname: 'lente.blog', url: live.url },
 	{ hostname: 'lente.space.fast', url: space.url },
-] )( 'copies $hostname from the site actions menu', async ( { hostname, url } ) => {
-	const { user, connector } = setup();
+] )( 'copies $hostname without a recorded publication', async ( { hostname, url } ) => {
+	const wpcomSite = {
+		...live,
+		lastPushTimestamp: null,
+		launchStatus: 'unlaunched' as const,
+		isPrivate: true,
+	};
+	const spacefastSite = { ...space, lastPushTimestamp: null };
+	const { user, connector } = setup( {
+		getRemoteSites: async ( provider ) =>
+			provider === 'wpcom' ? [ wpcomSite ] : [ spacefastSite ],
+		listAccountSites: async ( provider ) =>
+			provider === 'wpcom' ? [ wpcomSite ] : [ spacefastSite ],
+		getSiteVisibility: async ( provider ) => ( {
+			url: provider === 'wpcom' ? wpcomSite.url : spacefastSite.url,
+			visibility: 'private',
+			launchStatus: 'unlaunched',
+		} ),
+	} );
 	await openFirstDestination();
 	await switchTo( hostname );
 	const row = await screen.findByRole( 'link', { name: `Open ${ hostname }` } );
-	const actions = screen.getByRole( 'group', { name: 'Published site actions' } );
-	expect(
-		await within( actions ).findByRole( 'button', {
-			name: hostname === 'lente.blog' ? 'Update…' : 'Update',
-		} )
-	).toBeVisible();
 	expect( screen.queryByRole( 'heading', { name: 'Actions' } ) ).not.toBeInTheDocument();
 	fireEvent.contextMenu( row );
 	expect( screen.queryByRole( 'menu', { name: 'Site actions' } ) ).not.toBeInTheDocument();
@@ -1073,7 +1094,7 @@ it( 'omits rename and keeps deletion scoped to the selected preview', async () =
 	await openFirstDestination();
 	const actions = await openPreviewActions( user, second.name );
 	expect( within( actions ).queryByRole( 'menuitem', { name: 'Rename' } ) ).not.toBeInTheDocument();
-	await user.click( within( actions ).getByRole( 'menuitem', { name: 'Delete preview' } ) );
+	await user.click( within( actions ).getByRole( 'menuitem', { name: 'Delete preview…' } ) );
 	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
 	expect( within( confirmation ).getByText( second.name ) ).toBeVisible();
 	await user.click( within( confirmation ).getByRole( 'button', { name: 'Cancel' } ) );

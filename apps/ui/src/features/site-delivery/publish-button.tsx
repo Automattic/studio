@@ -596,12 +596,6 @@ export function PublishButton( {
 		__( 'Continue on %s' ),
 		publicProviderLabel
 	);
-	const publishedDestination =
-		!! remote &&
-		! newDestination &&
-		( !! remote.lastPushTimestamp ||
-			!! descriptor?.isLaunched?.( remote ) ||
-			visibility.query.data?.launchStatus === 'launched' );
 	const close = () => {
 		pendingSignIn.current = undefined;
 		storePendingSignIn();
@@ -1107,8 +1101,7 @@ export function PublishButton( {
 						{ ! ( preview.overwrite && ! remote ) && (
 							<DestinationActionsMenu
 								selected={ selected }
-								remoteUrl={ remoteUrl }
-								publishedDestination={ publishedDestination }
+								url={ url }
 								disabled={ disabled || selectedSignedOut }
 								openingCheckout={ openingCheckout }
 								openingDialog={ openingTargetDialog }

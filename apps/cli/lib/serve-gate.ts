@@ -1,6 +1,6 @@
+import { readConfig } from '@studio/common/lib/config/store';
 import { signToken, verifyToken } from '@studio/common/lib/signed-token';
 import httpProxy from 'http-proxy';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
@@ -75,7 +75,7 @@ function redirect( res: ServerResponse, location: string ) {
 }
 
 async function findSitePort( host: string ): Promise< number | undefined > {
-	const { sites } = await readCliConfig();
+	const { sites } = await readConfig();
 	const site = sites.find( ( candidate ) => {
 		try {
 			return new URL( getSiteUrl( candidate ) ).hostname === host;

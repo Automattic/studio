@@ -5,8 +5,8 @@ import { vi } from 'vitest';
 import { createServeGate } from 'cli/lib/serve-gate';
 
 const sites = vi.hoisted( () => [] as { id: string; port: number; url: string }[] );
-vi.mock( 'cli/lib/cli-config/core', () => ( {
-	readCliConfig: async () => ( { sites } ),
+vi.mock( '@studio/common/lib/config/store', () => ( {
+	readConfig: async () => ( { sites } ),
 } ) );
 
 const SECRET = 'machine-secret';

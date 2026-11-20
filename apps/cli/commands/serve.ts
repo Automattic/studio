@@ -1,9 +1,9 @@
 import path from 'node:path';
+import { readConfig } from '@studio/common/lib/config/store';
 import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { capturePreview } from 'cli/lib/capture-preview';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { createServeGate } from 'cli/lib/serve-gate';
 import { ensureMachineTls, startLocalTls, syncHostsFile } from 'cli/lib/serve-local-tls';
@@ -53,7 +53,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			console.error( 'Sites can’t be reached from this machine over HTTPS:', error )
 		);
 		const syncHosts = async () => {
-			const { sites } = await readCliConfig();
+			const { sites } = await readConfig();
 			syncHostsFile( [
 				new URL( apiOrigin! ).hostname,
 				...sites.map( ( site ) => new URL( getSiteUrl( site ) ).hostname ),

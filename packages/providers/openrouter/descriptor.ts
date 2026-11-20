@@ -65,6 +65,7 @@ export const openrouterProvider: Provider< OpenrouterConfig > = {
 				id: `${ OPENROUTER_MODEL_PREFIX }${ model.slug }` as const,
 				label: model.label,
 				supportsImages: model.images,
+				thinking: model.reasoning,
 			} ) ),
 			links: [ { label: __( 'Manage credits' ), url: 'https://openrouter.ai/settings/credits' } ],
 		} ),

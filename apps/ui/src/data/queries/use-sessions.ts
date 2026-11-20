@@ -14,6 +14,7 @@ import type {
 	SessionEntry,
 	SyncSite,
 } from '@/data/core';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 
 export { SESSIONS_QUERY_KEY };
 
@@ -157,6 +158,21 @@ export function useSetSessionEnvironment( sessionId: string ) {
 			connector.setSessionEnvironment( sessionId, environment ),
 		onError: ( error ) =>
 			toast.error( __( 'Couldn’t switch the site this chat works on' ), {
+				description: error.message,
+			} ),
+		onSettled: () =>
+			queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } ),
+	} );
+}
+
+export function useSetSessionThinking( sessionId: string ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( { model, thinking }: { model: AiModelId; thinking: ThinkingSetting } ) =>
+			connector.setSessionThinking( sessionId, model, thinking ),
+		onError: ( error ) =>
+			toast.error( __( 'Couldn’t change how much the model thinks' ), {
 				description: error.message,
 			} ),
 		onSettled: () =>

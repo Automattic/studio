@@ -20,7 +20,7 @@ const WP_UI_PACKAGES = {
 };
 
 const AGENT_NODE = {
-	group: [ '@studio/agent/node/*', '@studio/agent/shared/*', '@studio/agent/browser' ],
+	group: [ '@studio/agent/node', '@studio/agent/node/*' ],
 	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
 };
 
@@ -44,13 +44,13 @@ const PROVIDERS_DESCRIPTORS = [
 	'wpcom/sites/site.ts',
 ];
 
+const PROVIDER_FOLDERS = fs
+	.readdirSync( path.join( import.meta.dirname, 'packages/providers' ), { withFileTypes: true } )
+	.filter( ( entry ) => entry.isDirectory() )
+	.map( ( entry ) => entry.name );
+
 const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];
 
-// Studio on the web's backend (`apps/static`) is reached through its connector.
-const STATIC_BACKEND = {
-	group: [ '@studio/static', '@studio/static/*' ],
-	message: 'Only the static connector imports @studio/static; features use useConnector().',
-};
 const BASE_UI = {
 	group: [ '@base-ui/react', '@base-ui/react/*' ],
 	message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
@@ -289,8 +289,9 @@ export default defineConfig(
 		},
 	},
 	{
-		// Apps run the agent through `@studio/agent/node` (`createAgent`); its runtime,
-		// tools and host type are internal. Tests may still mock them.
+		// Apps run the agent through `@studio/agent/node` (`createAgent`). Only the
+		// modules the apps that show the agent read on their own are public besides it,
+		// so they never load the runtime. Tests may still reach the rest.
 		files: [ 'apps/**/*.{ts,tsx}' ],
 		ignores: [ 'apps/**/tests/**', 'apps/**/*.test.{ts,tsx}' ],
 		rules: {
@@ -300,11 +301,17 @@ export default defineConfig(
 					patterns: [
 						{
 							group: [
-								'@studio/agent/node/runtime',
-								'@studio/agent/node/runtime/*',
-								'@studio/agent/shared/tools',
-								'@studio/agent/shared/tools/*',
-								'@studio/agent/shared/host',
+								'@studio/agent/node/*',
+								'!@studio/agent/node/annotation-tracks',
+								'!@studio/agent/node/global-instructions',
+								'!@studio/agent/node/local-media',
+								'!@studio/agent/node/run-manager',
+								'!@studio/agent/node/sessions',
+								'@studio/agent/node/sessions/*',
+								'!@studio/agent/node/sessions/manage',
+								'!@studio/agent/node/sessions/placement',
+								'!@studio/agent/node/sessions/root-migration',
+								'!@studio/agent/node/sessions/store',
 							],
 							message: 'Import the agent from @studio/agent/node.',
 						},
@@ -321,17 +328,11 @@ export default defineConfig(
 			'no-restricted-imports': [
 				'error',
 				{
-					patterns: [ WP_UI_PACKAGES, AGENT_NODE, PROVIDERS_SERVICES, STATIC_BACKEND, BASE_UI ],
+					patterns: [ WP_UI_PACKAGES, AGENT_NODE, PROVIDERS_SERVICES, BASE_UI ],
 				},
 			],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
 			'import-x/no-cycle': 'error',
-		},
-	},
-	{
-		files: [ 'apps/ui/src/data/core/connectors/static/**/*.{ts,tsx}' ],
-		rules: {
-			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES, AGENT_NODE, BASE_UI ] } ],
 		},
 	},
 	{
@@ -387,7 +388,7 @@ export default defineConfig(
 	},
 	{
 		// Studio passes providers their config, so they never depend on Studio's
-		// packages, and the agent runs them in Node and in the page.
+		// packages, and `apps/ui` loads their descriptors in the browser.
 		files: [ 'packages/providers/**/*.ts' ],
 		ignores: [ 'packages/providers/**/tests/**' ],
 		rules: {
@@ -397,7 +398,7 @@ export default defineConfig(
 					patterns: [
 						{
 							group: NODE_APIS,
-							message: '@studio/providers runs in the browser too; keep Node APIs out.',
+							message: '@studio/providers is loaded in the browser too; keep Node APIs out.',
 						},
 						{
 							group: [ '@studio/*', 'cli/*', 'src/*' ],
@@ -420,17 +421,7 @@ export default defineConfig(
 							from: 'packages/providers',
 							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
 								file.startsWith( '*/' )
-									? [
-											'wpcom',
-											'anthropic',
-											'openai',
-											'gemini',
-											'github-copilot',
-											'meta',
-											'xai',
-											'openrouter',
-											'spacefast',
-									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
+									? PROVIDER_FOLDERS.map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]
 							),
 							message: 'The @studio/providers entry imports only the files it is made of.',
@@ -450,45 +441,7 @@ export default defineConfig(
 						{
 							group: [ 'cli/*', 'src/*' ],
 							message:
-								'The agent never imports an app. Reach site operations through the host (shared/host.ts).',
-						},
-					],
-				},
-			],
-		},
-	},
-	{
-		// The tools, prompt and skills both agents share, and the browser agent.
-		files: [ 'packages/agent/shared/**/*.ts', 'packages/agent/browser/**/*.ts' ],
-		ignores: [
-			'packages/agent/{shared,browser}/**/tests/**',
-			'packages/agent/{shared,browser}/**/*.test.ts',
-		],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: [
-								'node:*',
-								'fs',
-								'fs/*',
-								'path',
-								'os',
-								'child_process',
-								'crypto',
-								'url',
-								'playwright',
-								'playwright-core',
-								'@earendil-works/pi-coding-agent',
-							],
-							message:
-								'shared/ and browser/ run in a browser; reach files and pages through the host.',
-						},
-						{
-							group: [ '@studio/agent/node', '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'shared/ and browser/ depend on protocol and common, not on the Node agent.',
+								'The agent never imports an app. Reach site operations through the host (node/host.ts).',
 						},
 					],
 				},

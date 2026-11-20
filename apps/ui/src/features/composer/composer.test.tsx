@@ -1159,6 +1159,27 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
+	it( 'holds images back for a model its account says reads only text', async () => {
+		const settings = aiSettings( 'local-llm', [ 'local-llm' ] );
+		settings.accounts[ 'local-llm' ] = {
+			connected: true,
+			method: 'server',
+			models: [ { id: 'local-llm/qwen3:0.6b', label: 'qwen3:0.6b', supportsImages: false } ],
+		};
+		const connector = createFakeConnector( {}, { getAiSettings: async () => settings } );
+		saveComposerDraft( 'test', { text: 'What is this?', attachments: [ image( 'photo' ) ] } );
+		const { input, onSend } = await setup( { model: 'local-llm/qwen3:0.6b' }, connector );
+		await waitFor( () => expect( connector.getAiSettings ).toHaveBeenCalled() );
+
+		await waitFor( () => {
+			fireEvent.keyDown( input, { key: 'Enter' } );
+			expect(
+				screen.getByText( 'Choose a model that supports images before sending these attachments' )
+			).toBeVisible();
+		} );
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
 	it( 'adds a preview screenshot to the draft and sends it as an ordinary image', async () => {
 		saveComposerDraft( 'test', {
 			text: 'Please update this page',

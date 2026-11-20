@@ -12,7 +12,6 @@ import {
 } from '@/lib/icons';
 import { IconButton, Menu } from '@/lib/ui';
 import { DisconnectSiteIcon } from './connection-icons';
-import { DestinationIcon } from './destination-icon';
 import { PullPreviewIcon } from './pull-preview-icon';
 import type { PublishTarget } from './use-publish-targets';
 import type { ComponentProps, ReactNode, Ref } from 'react';
@@ -50,7 +49,6 @@ export function DestinationActionsMenu( {
 	triggerRef,
 	onPullPreview,
 	onDeletePreview,
-	onChangeDestination,
 	onDisconnect,
 }: {
 	selected: PublishTarget;
@@ -62,7 +60,6 @@ export function DestinationActionsMenu( {
 	triggerRef: Ref< HTMLButtonElement >;
 	onPullPreview?: () => void;
 	onDeletePreview: ( snapshot: Snapshot ) => void;
-	onChangeDestination?: () => void;
 	onDisconnect: () => void;
 } ) {
 	const connector = useConnector();
@@ -138,14 +135,6 @@ export function DestinationActionsMenu( {
 								onClick={ () => void connector.openExternalUrl( link.url ) }
 							/>
 						) ) }
-						{ onChangeDestination && (
-							<PublishMenuItem
-								icon={ <DestinationIcon /> }
-								label={ __( 'Change destination…' ) }
-								disabled={ disabled }
-								onClick={ onChangeDestination }
-							/>
-						) }
 						<Menu.Separator />
 						<PublishMenuItem
 							icon={ <DisconnectSiteIcon /> }

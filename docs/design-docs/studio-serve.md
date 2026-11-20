@@ -51,7 +51,7 @@ The same `apps/ui` app, built with `build:cloud` (`main.cloud.tsx`, `index.cloud
 - **Requests** carry the server's cookie (`credentials: 'include'`, and `EventSource` with `withCredentials`).
 - **Sign-in and sign-out** go to the host.
 - **The events stream follows focus**, so a forgotten tab doesn't keep a server that sleeps when idle awake, and reopens, refetching what changed, when the page has focus again. The site list refreshes only while the window has focus, for the same reason.
-- **Capabilities:** sites are native PHP, so `nativeSites` stays on. `localMachine` covers what needs the user's own computer, off for a remote server: opening a folder, editor or terminal, the site's path, custom domains, Xdebug. `loopbackSignIn` is off too: a provider sign-in that returns to a local port would return to the server.
+- **Capabilities:** `localMachine` covers what needs the user's own computer, off for a remote server: opening a folder, editor or terminal, the site's path, custom domains, Xdebug. `loopbackSignIn` is off too: a provider sign-in that returns to a local port would return to the server.
 - **Plans:** `getSiteLimits` and `getBilling` are optional connector methods that only a remote server's host provides, so the Plan, Receipts, Sites and storage sections of the Usage tab show only there.
 
 `main.cloud.tsx` is Studio Cloud's entry: it signs in through the Studio Cloud service at `/cloud/*` on the page's own origin, shows the plan picker (`features/cloud`) until the user has a plan, then opens the workspace on their machine.

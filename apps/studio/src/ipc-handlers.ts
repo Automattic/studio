@@ -112,7 +112,6 @@ import {
 	setSiteFrontendAdminBar as writeSiteFrontendAdminBar,
 	updateSiteMetadata,
 } from '@studio/common/sites/metadata';
-import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import {
 	designFixesSchema,
 	fixSiteDesign,
@@ -1045,7 +1044,7 @@ export async function getSiteDesign(
 ): Promise< SiteDesign | null > {
 	const sitePath = await readSitePath( id );
 	return sitePath
-		? readSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), () =>
+		? readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
 				readGlobalStyles( executeCliCommand, sitePath )
 		  )
 		: null;
@@ -1058,11 +1057,7 @@ export async function fixSiteDesignDrift(
 ): Promise< SiteDesign | null > {
 	const sitePath = await readSitePath( id );
 	return sitePath
-		? fixSiteDesign(
-				nodeSiteFiles( sitePath ),
-				activeThemeSlug( sitePath ),
-				designFixesSchema.parse( fixes )
-		  )
+		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
 		: null;
 }
 

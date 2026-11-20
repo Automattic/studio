@@ -5,7 +5,7 @@ import {
 	buildChromiumLaunchAttempts,
 	ensurePlaywrightChromiumInstalled,
 } from '@studio/agent/node/browser-utils';
-import { withTimeout } from '@studio/agent/shared/tools/utils';
+import { withTimeout } from '@studio/agent/node/tools/utils';
 
 vi.mock( 'playwright', () => ( {
 	chromium: { launch: vi.fn(), executablePath: vi.fn() },

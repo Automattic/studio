@@ -250,7 +250,6 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 			nativeFolderPicker: false,
 			annotatePreview: false,
 			studioLogs: false,
-			nativeSites: true,
 			localMachine: ! remote,
 			loopbackSignIn: ! remote,
 		},

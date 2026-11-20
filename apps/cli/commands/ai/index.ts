@@ -2,7 +2,6 @@ import {
 	closeSharedBrowser,
 	createAgent,
 	createTurnStatsTracker,
-	nodeHostServices,
 	resolveResumeSessionContext,
 	type StudioAgentHost,
 	AskUserQuestion,
@@ -184,16 +183,14 @@ export async function runCommand( options: {
 		// so artifacts in the transcript keep rendering after OS temp cleanup;
 		// `deleteAiSession` removes the sidecar together with the session.
 		imageGenerator: () => resolveImageGenerator( currentProvider ),
-		...nodeHostServices( {
-			imagesDirectory: async () => {
-				const sm = await ensureSession();
-				const sessionFile = sm.getSessionFile();
-				if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
-					return null;
-				}
-				return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
-			},
-		} ),
+		imagesDirectory: async () => {
+			const sm = await ensureSession();
+			const sessionFile = sm.getSessionFile();
+			if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+				return null;
+			}
+			return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+		},
 		selectSite:
 			ui instanceof JsonAdapter
 				? async ( site ) => {

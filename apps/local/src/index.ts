@@ -154,7 +154,6 @@ import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit'
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { setSiteFrontendAdminBar, updateSiteMetadata } from '@studio/common/sites/metadata';
-import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import {
 	createRemoteSite,
 	getRemoteBackupId,
@@ -1190,7 +1189,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await readSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), () =>
+				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
 					readGlobalStyles( execute, sitePath )
 				)
 			);
@@ -1210,9 +1209,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid design fixes' } );
 				return;
 			}
-			res.json(
-				await fixSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), fixes.data )
-			);
+			res.json( await fixSiteDesign( sitePath, activeThemeSlug( sitePath ), fixes.data ) );
 		} )
 	);
 

@@ -95,7 +95,7 @@ export type ConnectMethod = {
 	// What to do before connecting, in Markdown.
 	instructions?: () => string;
 	// Only a process on the user's computer can run it, such as the Desktop app, `studio ui`'s
-	// server or the CLI: a page can't reach what it checks.
+	// server or the CLI: Studio running elsewhere (Studio Cloud) can't reach what it checks.
 	hostOnly?: boolean;
 } & (
 	| // A form rendered from `input`.
@@ -180,8 +180,7 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	pull: boolean;
 	// Whether a push or pull can include only part of the site.
 	selective: boolean;
-	// What a push sends: the site's WordPress archive, or a static export of its
-	// pages, which needs the site to run on native PHP: Studio on the web can't make one.
+	// What a push sends: the site's WordPress archive, or a static export of its pages.
 	content: 'archive' | 'static';
 	// How a new site is made: a checkout on the provider's site, which then
 	// connects the site to the local one, or created right away from Studio.
@@ -273,11 +272,10 @@ export interface GenerateImageResult {
 	filtered?: boolean;
 }
 
-// What a push sends: the site's WordPress archive (a Blob in the page, a
-// readable stream of the file in Node), or a static export of its pages, each
-// file read when the provider uploads it.
+// What a push sends: the site's WordPress archive (a readable stream of the file), or a
+// static export of its pages, each file read when the provider uploads it.
 export type PushContent =
-	| { kind: 'archive'; file: Blob | { pipe: unknown }; name: string; size: number }
+	| { kind: 'archive'; file: { pipe: unknown }; name: string; size: number }
 	| { kind: 'files'; files: PushFile[] };
 
 export interface PushFile {

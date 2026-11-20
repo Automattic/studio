@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RemoteSiteError } from '../../../errors';
 import {
@@ -88,7 +89,7 @@ describe( 'pull.latestBackupId', () => {
 describe( 'push', () => {
 	const archive = {
 		kind: 'archive' as const,
-		file: new Blob( [ 'archive' ] ),
+		file: Readable.from( [ 'archive' ] ),
 		name: 'push.tar.gz',
 		size: 7,
 	};

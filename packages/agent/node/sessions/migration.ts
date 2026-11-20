@@ -153,9 +153,9 @@ function isPiHeader( value: unknown ): value is { type: 'session' } {
 	);
 }
 
-export type SessionFormat = 'pi' | 'legacy' | 'unknown' | 'empty';
+type SessionFormat = 'pi' | 'legacy' | 'unknown' | 'empty';
 
-export function detectSessionFormat( firstLine: string | undefined ): SessionFormat {
+function detectSessionFormat( firstLine: string | undefined ): SessionFormat {
 	if ( ! firstLine ) return 'empty';
 	let parsed: unknown;
 	try {

@@ -1103,7 +1103,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 	} );
 
-	it( 'offers only an OpenAI API key on the web, which cannot reach a ChatGPT sign-in', async () => {
+	it( 'offers only an OpenAI API key where a ChatGPT sign-in can’t come back', async () => {
 		const { connector } = await setup( {
 			section: 'ai',
 			overrides: {
@@ -1111,7 +1111,6 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					nativeFolderPicker: false,
 					annotatePreview: false,
 					studioLogs: false,
-					nativeSites: false,
 					loopbackSignIn: false,
 					localMachine: false,
 				},

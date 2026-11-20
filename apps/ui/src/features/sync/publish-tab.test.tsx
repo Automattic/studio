@@ -92,14 +92,6 @@ it( 'connects Spacefast, creates a Space named after the site, and publishes to 
 	);
 } );
 
-it( 'publishes to WordPress.com directly where a static export can’t be made', async () => {
-	const actions = userEvent.setup();
-	setup( { capabilities: { nativeSites: false } } );
-	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-	expect( await screen.findByRole( 'button', { name: 'New site…' } ) ).toBeVisible();
-	expect( screen.queryByText( 'Where do you want to publish?' ) ).not.toBeInTheDocument();
-} );
-
 it( 'lists the sites published on every provider and publishes to another Space', async () => {
 	const actions = userEvent.setup();
 	const wpcomSite: SyncSite = {
@@ -219,22 +211,6 @@ it( 'opens the only connected host while signed out of the saved WordPress.com a
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
 	expect( await screen.findByRole( 'button', { name: 'New site' } ) ).toBeVisible();
 	expect( connector.state.preferences.defaultHostingProvider ).toBe( 'wpcom' );
-} );
-
-it( 'opens the only available host when a saved host is unsupported', async () => {
-	const actions = userEvent.setup();
-	const { connector } = setup( {
-		capabilities: {
-			nativeFolderPicker: false,
-			annotatePreview: false,
-			studioLogs: false,
-			nativeSites: false,
-		},
-	} );
-	connector.state.preferences.defaultHostingProvider = 'spacefast';
-	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-	expect( await screen.findByRole( 'button', { name: 'New site…' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Choose another host' } ) ).not.toBeInTheDocument();
 } );
 
 it( 'resumes the destination of an active transfer ahead of the saved default', async () => {

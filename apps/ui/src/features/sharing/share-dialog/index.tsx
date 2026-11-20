@@ -51,9 +51,7 @@ export function SharePanel( {
 	const usage = useSnapshotUsage( user.data?.id );
 	const publish = usePublishPreviewSite();
 	const connected = useRemoteSites( 'wpcom', site.id );
-	const qualifying = connector.capabilities.nativeSites
-		? getQualifyingLiveSites( connected.data ?? [] )
-		: [];
+	const qualifying = getQualifyingLiveSites( connected.data ?? [] );
 	const [ attempt, setAttempt ] = useState< {
 		siteId: string;
 		userId: number;

@@ -86,13 +86,8 @@ export function useOpenInDestinations(
 	};
 
 	const openSiteUrl = async ( path: string, options?: { autoLogin: boolean } ) => {
-		// A failed start reports itself. Studio on the web starts the site in
-		// openSiteUrl, which must open its tab before anything is awaited.
-		if (
-			connector.capabilities.nativeSites &&
-			! site.running &&
-			! ( await startSite.mutateAsync( site.id ).catch( () => false ) )
-		) {
+		// A failed start reports itself.
+		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
 			return;
 		}
 		if ( options ) {
@@ -162,7 +157,7 @@ export function useOpenInDestinations(
 					return openSiteUrl( '/wp-admin/' );
 				} ),
 		},
-		connector.capabilities.nativeSites && {
+		{
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
 			logo: <AppIcon app="phpmyadmin" fallback={ <DatabaseIcon /> } />,

@@ -410,6 +410,9 @@ export class WpcomServices {
 					message,
 					remoteSiteId,
 				} );
+			// The UI shows a push's result only after it saw the push start, and the agent starts
+			// one without the UI.
+			this.emitSyncActivity( siteId, { kind: 'pending', direction: 'push', remoteSiteId } );
 			const remoteSite = ( await this.connections() ).find(
 				( site ) => site.localSiteId === siteId && site.id === remoteSiteId
 			);

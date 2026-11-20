@@ -1,6 +1,7 @@
 import type { AnthropicConfig } from './anthropic/config';
 import type { GeminiConfig } from './gemini/config';
 import type { GithubCopilotConfig } from './github-copilot/config';
+import type { LocalLlmConfig } from './local-llm/config';
 import type { MetaConfig } from './meta/config';
 import type { AiModelId } from './models';
 import type { OpenaiConfig } from './openai/config';
@@ -22,7 +23,8 @@ export type ProviderId =
 	| 'meta'
 	| 'xai'
 	| 'openrouter'
-	| 'spacefast';
+	| 'spacefast'
+	| 'local-llm';
 
 // The providers that serve AI models.
 export type AiProviderId =
@@ -33,7 +35,8 @@ export type AiProviderId =
 	| 'github-copilot'
 	| 'meta'
 	| 'xai'
-	| 'openrouter';
+	| 'openrouter'
+	| 'local-llm';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
@@ -46,6 +49,7 @@ export interface ProviderConfigs {
 	xai: XaiConfig;
 	openrouter: OpenrouterConfig;
 	spacefast: SpacefastConfig;
+	'local-llm': LocalLlmConfig;
 }
 
 // The remote sites of each provider that offers them.
@@ -88,6 +92,9 @@ export type ConnectMethod = {
 	label: () => string;
 	// What to do before connecting, in Markdown.
 	instructions?: () => string;
+	// Only a process on the user's computer can run it, such as the Desktop app, `studio ui`'s
+	// server or the CLI: a page can't reach what it checks.
+	hostOnly?: boolean;
 } & (
 	| // A form rendered from `input`.
 	{ kind: 'form'; input: () => ConnectInputSchema }
@@ -227,6 +234,9 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 		// The provider routes to more models than it lists: the account's owner picks which to
 		// offer from its catalog, under ids made of the provider's id, a slash and its own name.
 		catalog?: boolean;
+		// The models run on a server the user runs: chats on them need no internet, and analytics
+		// never name them, since the user does.
+		local?: boolean;
 	};
 	sites?: ProviderSitesInfo< Site >;
 }
@@ -241,6 +251,10 @@ export interface AiConnection {
 	requestModelId?: string;
 	// Replaces a stream error's message; `undefined` keeps it.
 	rewriteError?: ( message: string ) => string | undefined;
+	// `model.contextWindow` is exactly the context the server runs the model with: the runtime
+	// compacts to fit it and never sends a request it can't hold, and a turn that still can't fit
+	// ends with `overflowMessage`.
+	exactContextWindow?: { overflowMessage: string };
 }
 
 export interface GenerateImageRequest {
@@ -294,6 +308,10 @@ export interface PreviewSite extends RemoteSite {
 	liveSiteId?: RemoteSite[ 'id' ];
 	// Where the owner makes it a site they keep.
 	launchUrl?: string;
+	// The title it was made with, when the provider reports one.
+	title?: string;
+	// The `PreviewOptions.originId` it was made with, which the provider reports only to this app.
+	originId?: string;
 }
 
 // What the provider sends with each build of a preview.

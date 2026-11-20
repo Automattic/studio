@@ -1,8 +1,6 @@
-import { writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { updateProfileConfig } from './config.ts';
 import { launchBrowser } from './drivers/browser.ts';
 import { launchElectron } from './drivers/electron.ts';
-import { readJson } from './paths.ts';
 import type { DriverName, LaunchOptions, Studio } from './drivers/types.ts';
 import type { Look } from './schema.ts';
 
@@ -14,22 +12,13 @@ const ORIENTATION_GUIDE_VERSION = 2;
 const WHATS_NEW_VERSION = 1;
 
 /**
- * Initial `app.json` (Studio's own state, which both front ends read) for a
- * launch. `firstRun` starts on the Welcome dialog; otherwise onboarding and
- * both guides are marked done. The appearance comes from the look, so
- * captures don't follow the OS.
+ * The preferences for a launch. `firstRun` starts on the Welcome dialog;
+ * otherwise onboarding and both guides are marked done. The appearance comes
+ * from the look, so captures don't follow the OS.
  */
-function buildAppConfig( {
-	firstRun,
-	appData,
-	appearance,
-}: {
-	firstRun: boolean;
-	appData: Record< string, unknown >;
-	appearance: Look[ 'appearance' ];
-} ) {
+function buildPreferences( firstRun: boolean, appearance: Look[ 'appearance' ] ) {
 	return {
-		version: 1,
+		locale: 'en',
 		...appearance,
 		...( firstRun
 			? {}
@@ -41,7 +30,6 @@ function buildAppConfig( {
 						annotateHintDismissed: true,
 					},
 			  } ),
-		...appData,
 	};
 }
 
@@ -58,24 +46,41 @@ export async function launchStudio(
 		profile,
 		look,
 		firstRun = false,
-		appData = {},
+		siteSettings = {},
+		placements = {},
 		authToken = null,
 		avatar,
 		account,
 	}: LaunchOptions
 ): Promise< Studio > {
-	await writeFile(
-		path.join( profile.dirs.sharedConfig, 'app.json' ),
-		JSON.stringify( buildAppConfig( { firstRun, appData, appearance: look.appearance } ), null, 2 )
-	);
-	// Scripts sharing a profile can differ in whether they are signed in.
-	const sharedPath = path.join( profile.dirs.sharedConfig, 'shared.json' );
-	const { authToken: _previous, ...shared } =
-		await readJson< Record< string, unknown > >( sharedPath );
-	await writeFile(
-		sharedPath,
-		JSON.stringify( authToken ? { ...shared, authToken } : shared, null, 2 )
-	);
+	await updateProfileConfig( profile, ( config ) => {
+		config.preferences = buildPreferences( firstRun, look.appearance );
+		for ( const site of config.sites ?? [] ) {
+			Object.assign( site, siteSettings[ String( site.id ) ] );
+		}
+		for ( const [ id, placement ] of Object.entries( placements ) ) {
+			config.sessions = { ...config.sessions, [ id ]: { ...config.sessions?.[ id ], placement } };
+		}
+		// Scripts sharing a profile can differ in whether they are signed in.
+		const { wpcom: _previous, ...configs } = config.providers?.configs ?? {};
+		config.providers = {
+			...config.providers,
+			configs: authToken
+				? {
+						...configs,
+						wpcom: {
+							token: authToken.accessToken,
+							expiresAt: authToken.expirationTime,
+							user: {
+								id: authToken.id,
+								email: authToken.email,
+								displayName: authToken.displayName,
+							},
+						},
+				  }
+				: configs,
+		};
+	} );
 	const launch = driver === 'browser' ? launchBrowser : launchElectron;
-	return launch( { profile, look, firstRun, appData, authToken, avatar, account } );
+	return launch( { profile, look, firstRun, authToken, avatar, account } );
 }

@@ -21,7 +21,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 3. **Operations go through CLI commands.** Commands are generic and hand the work to the provider; see [How the CLI and WordPress Studio apps communicate](./cli-host-communication.md). Provider code never prompts or exits. The command asks the user for what is missing.
 4. **The agent receives resolved inputs, not provider knowledge.** The runtime is handed a ready-to-use model connection. Tools are available according to the capabilities of the connected providers.
 5. **Providers own no storage.** A provider never reads or writes a file. It defines its config, WordPress Studio passes that config into every call, and WordPress Studio stores any new config the provider hands back. WordPress Studio also owns everything that isn't a provider's: the selected chat provider, and which remote site each local site is connected to.
-6. **Persisted values are forever.** Desktop and CLI builds of different versions read the same `shared.json` and session files. A stored id or field is only ever added, or read through a mapping. Provider configs follow the same rule.
+6. **Persisted values are forever.** Desktop and CLI builds of different versions read the same config file and session files. A stored id or field is only ever added, or read through a mapping. Provider configs follow the same rule.
 
 ## Providers
 
@@ -35,6 +35,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | Meta (`meta`)                                | API key                        | Muse models; images                  | —          | —        |
 | xAI (`xai`)                                  | Grok plan or API key           | Grok models; images                  | —          | —        |
 | OpenRouter (`openrouter`)                    | Sign-in or API key             | Models from many labs                | —          | —        |
+| Local LLM (`local-llm`)                      | Server address, optional key   | The models the server lists          | —          | —        |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
 
@@ -68,7 +69,7 @@ Neither part uses Node APIs. WordPress Studio on the web runs the agent in the p
 Dependencies point one way:
 
 - `@studio/providers` imports no other workspace package. WordPress Studio passes in what a provider needs, such as its config.
-- `@studio/common` holds WordPress Studio's side, next to the rest of `shared.json`: storing provider configs, the selected chat provider and remote-site connections. It may import what surfaces read, for schemas and types, never the services; the apps pass in the provider a stored operation needs.
+- `@studio/common` holds WordPress Studio's side, next to the rest of the config store: storing provider configs, the selected chat provider and remote-site connections. It may import what surfaces read, for schemas and types, never the services; the apps pass in the provider a stored operation needs.
 
 It is a package of its own because sites and previews are not agent concerns, so the push command must not depend on `@studio/agent`. It isn't part of `@studio/common` because providers must stay free of WordPress Studio's storage, and the browser-safe boundary needs lint enforcement.
 
@@ -82,11 +83,11 @@ It is a package of its own because sites and previews are not agent concerns, so
   - **Several methods**, when a provider offers several ways. The user picks one, and only one is connected at a time. Anthropic takes an API key, or a token from `claude setup-token` that bills the Claude subscription; both are forms.
 - A method that signs in on the provider's site (a device code or a loopback redirect) runs the same way everywhere: the provider starts it and says where the user goes, WordPress Studio shows that address and any code, then hands the provider back what it started with, which waits for the user.
 - The provider says what surfaces show of a connected account: a summary such as an email or a key's first and last characters, a note such as whose plan pays for it, and links such as where to manage usage; never the credential.
-- Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
+- Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for. A field whose schema accepts an empty value is optional: the settings save the form, and `studio code` takes the answer, without it.
 - Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. WordPress Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then WordPress Studio removes the config.
 - A credential that expires before the account does, like a ChatGPT access token, is renewed by the provider (`refresh`) before WordPress Studio uses the config. WordPress Studio stores the renewed config, under a lock of its own, since a refresh token works once. A provider that no longer accepts the renewal is disconnected.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
-- WordPress Studio stores configs in `shared.json` and validates them against each provider's schema. Providers added after the first two keep their config in a per-provider section, `providerConfigs`. The first two keep using their existing fields (`authToken` and `anthropicApiKey`), which builds of every version read. An Anthropic subscription token is a later method, so it goes in `providerConfigs`, and connecting one method clears the other. This mapping is WordPress Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
+- WordPress Studio stores each provider's config under `providers.configs.<id>` in `config.json` and validates it against the provider's schema. Builds before `config.json` kept the first two in their own fields (`authToken` and `anthropicApiKey` in `shared.json`), which the legacy import moves there. Connecting one Anthropic method replaces the other. This storage is WordPress Studio's code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
 - The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the WordPress Studio sign-in; other providers show their form, picked from the Connect button's menu when the provider offers several methods. In `studio code`, `/connect [provider]` connects any provider the way it says, first asking how when it offers several methods, and `/disconnect [provider]` removes it; `/provider` asks for what is missing before switching. For WordPress.com these are `/login` and `/logout`, the WordPress Studio sign-in. No provider connects through `studio auth`.
 
 ## AI
@@ -97,15 +98,19 @@ Each provider lists the models it serves. Several providers can serve the same m
 
 Where the account decides which of those models it runs, rather than the provider, the connected account says so and the pickers offer only those; a provider that doesn't narrow them offers all it lists. The provider reads that set when it connects and keeps it current when it renews its credential, so the pickers never reach the service to build their list. A GitHub Copilot plan works this way: it includes its own set of models, and leaves some of them off until they are turned on.
 
+The Local LLM connector's catalog is the chat models the user's server lists, less those it says only make embeddings. Connecting offers them all, those the server says call tools first, and the settings narrow them like OpenRouter's. Its model ids are `local-llm/` and the server's name for the model (`local-llm/qwen3:0.6b`). Chats on these models need no internet, and analytics never name them.
+
 ### Connection
 
 To run a turn, the CLI asks the selected provider for a connection to the chosen model. The connection holds everything the runtime needs: endpoint, credentials, headers, API dialect and model limits. Credentials never travel through environment variables.
 
 The provider owns how its models are reached. For example, WordPress.com sends each tier over a different API, and rewrites its usage-cap errors. The runtime treats every connection the same way, and applies the same request clean-ups to every provider.
 
+A connection may say its context window is exactly the one the model runs with, as the Local LLM connector does when the server reports it, since some servers cut a request that doesn't fit without saying. The runtime then sizes compaction to that window, never sends a request its token estimate says the window can't hold, and ends a turn that still can't fit with the words the connection gives.
+
 ### Selection
 
-- The user picks a chat provider in the app's settings or with `/provider` in `studio code`. WordPress Studio saves it in `shared.json`, and every surface shares it.
+- The user picks a chat provider in the app's settings or with `/provider` in `studio code`. WordPress Studio saves it in `config.json` (`providers.selected`), and every surface shares it.
 - A conversation pinned to a provider keeps it. Without credentials for the pinned provider, the conversation runs on WordPress.com.
 - Connecting a provider makes it the default only when the current default isn't connected, so a connected WordPress.com stays the default until the user picks another.
 - When the selected provider isn't ready, WordPress.com, the WordPress Studio sign-in, falls back to another ready provider, and the others ask to be connected again. The app runs a chat on the first connected provider, WordPress.com first.
@@ -114,7 +119,7 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 
 ### In the page
 
-WordPress Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, and a `device` sign-in polls endpoints that don't accept the page's origin, so the web leaves both out, and with them the ChatGPT plan and GitHub Copilot; an OpenAI API key works there, since OpenAI's API accepts calls from a page.
+WordPress Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, and a `device` sign-in polls endpoints that don't accept the page's origin, so the web leaves both out, and with them the ChatGPT plan and GitHub Copilot; an OpenAI API key works there, since OpenAI's API accepts calls from a page. A method marked as one only a host can run is left out too: the Local LLM connector checks a server on the user's computer or network, which most servers refuse to answer from a page.
 
 ### Images
 
@@ -124,7 +129,9 @@ Image generation is available when a connected provider offers it, whichever pro
 
 An id names the provider only. How the account is connected (an API key, a subscription) is part of the config, so a new way of connecting never adds a provider.
 
-The Anthropic provider is `anthropic`. Builds before this design stored `anthropic-api-key`, in `shared.json` (`aiProvider`) and in session entries. Readers map it to `anthropic`, and writers keep storing `anthropic-api-key`. Older builds fall back to WordPress.com on an id they don't know, so this keeps the user's choice in every build.
+The Anthropic provider is `anthropic`. Builds before this design stored `anthropic-api-key`, in the stored selected provider and in session entries. Readers map it to `anthropic`, and writers keep storing `anthropic-api-key`. Older builds fall back to WordPress.com on an id they don't know, so this keeps the user's choice in every build.
+
+The Local LLM connector is `local-llm`, with no stored alias: builds that don't know it run chats on another connected provider and keep its config. Its model ids (`local-llm/<server name>`) are recorded in sessions like any other.
 
 ## Remote sites
 
@@ -141,7 +148,7 @@ The Anthropic provider is `anthropic`. Builds before this design stored `anthrop
 - A preview is a remote site that expires: the provider builds it from a local site and shares it by a link until it is taken down or bought. It is part of the provider's sites, not a capability of its own, so a provider publishes to sites the user keeps (`sites.publish`), makes previews (`sites.previews`), or both.
 - Updating a preview is a push to it, with `preview` set. Creating one is `previews.create`, since the provider builds the site from the first upload. `previews.list` gives the account's previews still up, and `previews.delete` takes one down. A bought preview keeps its site ID, and WordPress Studio then connects it to its local site like any remote site.
 - The descriptor says what a preview is built from (`previews.content`), as `content` does for a push. WordPress.com builds previews through its site importer, from the zip of the site's folder with its SQLite database, while a push to a site the user keeps goes through its sync import, which takes the export archive and needs a plan; an unpaid preview refuses it.
-- WordPress Studio owns which local site each preview was made from, with the version it holds (`snapshots` in `cli.json`), and which connected site it shows changes to. Previews made on Jurassic Ninja by older builds are left to expire: updating one makes a new WordPress.com preview, and deleting one only drops it from the list.
+- WordPress Studio owns which local site each preview was made from, with the version it holds (`snapshots` in `config.json`), and which connected site it shows changes to. Previews made on Jurassic Ninja by older builds are left to expire: updating one makes a new WordPress.com preview, and deleting one only drops it from the list.
 - `studio preview` stays the command family. WordPress.com is the only provider that offers previews, and the commands use it; naming the provider comes with a second one _(planned)_.
 
 ## Surfaces

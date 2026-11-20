@@ -3,9 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
 import { createLibraryTools } from 'cli/ai/runtimes/mcp/library';
 
-vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/cli-config/core') >() ),
-	readCliConfig: async () => ( { sites: [ { id: 'a1', name: 'Crumb', path: '/sites/crumb' } ] } ),
+vi.mock( '@studio/common/lib/config/store', () => ( {
+	readConfig: async () => ( { sites: [ { id: 'a1', name: 'Crumb', path: '/sites/crumb' } ] } ),
 } ) );
 vi.mock( 'cli/lib/site-utils', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/site-utils') >() ),

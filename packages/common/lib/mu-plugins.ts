@@ -375,6 +375,10 @@ STUDIO_PREVIEW_SHORTCUTS;
 			return;
 		}
 
+		// The API needs only WordPress core, so the site's plugins are not loaded for it.
+		add_filter( 'option_active_plugins', '__return_empty_array' );
+		add_filter( 'site_option_active_sitewide_plugins', '__return_empty_array' );
+
 		add_action( 'plugins_loaded', function() {
 
 			// Security: Only allow POST requests with the correct action

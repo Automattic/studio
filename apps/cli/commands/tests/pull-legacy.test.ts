@@ -1,4 +1,4 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -15,11 +15,11 @@ import {
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../pull-legacy';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteData } from 'cli/lib/cli-config/core';
 
-vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
-	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
+vi.mock( '@studio/common/lib/auth-token', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/auth-token') >() ),
 	readAuthToken: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/remote-sites' );
@@ -45,7 +45,7 @@ vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 } ) );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
-const site = { id: 'site-1', path: '/test/site', port: 8080 } as SiteData;
+const site = { id: 'site-1', path: '/test/site', port: 8080 } as ConfigSite;
 const remoteSite = { id: 42, syncSupport: 'syncable' } as SyncSite;
 
 describe( 'CLI: studio pull', () => {

@@ -2,12 +2,16 @@ import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { isDevRelease } from '@studio/common/lib/dev-release';
 import { sprintf, __ } from '@wordpress/i18n';
-import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
+import {
+	AUTO_UPDATE_INTERVAL_MS,
+	NIGHTLY_UPDATE_TTL_MS,
+	NO_OUTPUT_UPDATE_RETRY_MS,
+} from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { removeStaleShipItTempDirs } from 'src/lib/macos-update-install';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { getExistingMainWindow } from 'src/main-window';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import { readDesktopState, updateDesktopState } from 'src/storage/desktop-state';
 import type { IpcMainInvokeEvent } from 'electron';
 
 type UpdpaterState =
@@ -30,6 +34,10 @@ let activeChannel: 'nightly' | undefined;
 let timeout: NodeJS.Timeout | null = null;
 
 let showManualCheckDialogs = false;
+
+// One quick retry per run of no-output failures, so a machine that keeps hitting the race falls
+// back to hourly checks.
+let retriedSoonAfterNoOutput = false;
 
 const shouldPoll = process.env.NODE_ENV === 'production' && app.isPackaged;
 
@@ -73,8 +81,10 @@ const MAC_NETWORK_ERROR_CODES = [ -1001, -1003, -1004, -1005, -1009 ];
 /**
  * Errors that a later check may not hit, so they're retried rather than reported. On Windows
  * Squirrel's messages are localized, but the exception and frame names they include aren't.
+ * Electron reads Update.exe's output when the process exits rather than when its output closes,
+ * so while the main process is busy, as at launch, it can find no output yet: "Invalid result:".
  */
-function classifyTransientUpdateError( err: Error ): 'lock' | 'network' | null {
+function classifyTransientUpdateError( err: Error ): 'lock' | 'network' | 'no-output' | null {
 	if ( process.platform === 'darwin' ) {
 		const code = 'code' in err ? err.code : undefined;
 		return typeof code === 'number' && MAC_NETWORK_ERROR_CODES.includes( code ) ? 'network' : null;
@@ -87,6 +97,9 @@ function classifyTransientUpdateError( err: Error ): 'lock' | 'network' | null {
 	}
 	if ( /System\.Net\.(WebException|Sockets)/.test( err.message ) ) {
 		return 'network';
+	}
+	if ( err.message.trim() === 'Invalid result:' ) {
+		return 'no-output';
 	}
 	return null;
 }
@@ -135,7 +148,7 @@ export function setupUpdates() {
 		emitAppUpdateStatus();
 
 		if ( isDevRelease( app.getVersion() ) ) {
-			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
+			await updateDesktopState( { lastNightlyUpdateCheck: Date.now() } );
 		}
 
 		// Before the notice, so the dialog can name the version it's downloading.
@@ -155,6 +168,7 @@ export function setupUpdates() {
 
 		availableVersion = null;
 		lastError = null;
+		retriedSoonAfterNoOutput = false;
 
 		if ( ! shouldPoll ) {
 			updaterState = 'done';
@@ -163,7 +177,7 @@ export function setupUpdates() {
 		}
 
 		if ( isDevRelease( app.getVersion() ) ) {
-			await updateAppdata( { lastNightlyUpdateCheck: Date.now() } );
+			await updateDesktopState( { lastNightlyUpdateCheck: Date.now() } );
 		}
 
 		queueUpdateCheck();
@@ -173,7 +187,10 @@ export function setupUpdates() {
 	autoUpdater.on( 'error', ( err ) => {
 		const transientError = classifyTransientUpdateError( err );
 		if ( transientError ) {
-			queueUpdateCheck();
+			// The no-output race comes from a busy main process, so a check a minute later usually works.
+			const retrySoon = transientError === 'no-output' && ! retriedSoonAfterNoOutput;
+			retriedSoonAfterNoOutput ||= retrySoon;
+			queueUpdateCheck( retrySoon ? NO_OUTPUT_UPDATE_RETRY_MS : AUTO_UPDATE_INTERVAL_MS );
 			lastError =
 				transientError === 'network'
 					? { reason: 'generic', detail: __( 'Check your internet connection and try again.' ) }
@@ -228,7 +245,7 @@ export function setupUpdates() {
 		// For nightly builds, respect a 24-hour TTL to avoid checking on every launch.
 		// If the TTL hasn't elapsed, schedule the next check for the remaining time.
 		void ( async () => {
-			const userData = await loadUserData();
+			const userData = await readDesktopState();
 			const lastCheck = userData.lastNightlyUpdateCheck ?? 0;
 			const elapsed = Date.now() - lastCheck;
 			if ( elapsed < NIGHTLY_UPDATE_TTL_MS ) {
@@ -301,12 +318,12 @@ export function isUpdateReadyToInstall() {
 	return updaterState === 'waiting-for-restart';
 }
 
-function queueUpdateCheck() {
+function queueUpdateCheck( delayMs = AUTO_UPDATE_INTERVAL_MS ) {
 	updaterState = 'polling';
 	timeout = setTimeout( () => {
 		console.log( `Automatically checking for update: ${ autoUpdater.getFeedURL() }` );
 		autoUpdater.checkForUpdates();
-	}, AUTO_UPDATE_INTERVAL_MS );
+	}, delayMs );
 }
 
 async function showUpdateUnavailableNotice() {

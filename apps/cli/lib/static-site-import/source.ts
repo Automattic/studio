@@ -210,7 +210,6 @@ function buildStaticSiteImporterRequest(
 			source: 'studio-create-from',
 			source_path: originalSourceUrl ?? source.path,
 		},
-		fail_on_quality: true,
 		require_proven_dynamic_client_assets: true,
 		seed_entities: true,
 		materialize_dependencies: true,

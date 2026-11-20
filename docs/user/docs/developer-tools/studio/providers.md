@@ -30,6 +30,7 @@ The agent needs one AI provider before it can build. Use a plan or key you alrea
 | **Google Gemini** | A Gemini API key | Your Google AI Studio project | Gemini 3.8 Flash, Gemini 4 Argon | Yes |
 | **GitHub Copilot** | A GitHub account with a Copilot plan | Your Copilot plan | The ones your plan includes, from Sonnet 5.5, GPT-6.1 Terra, and Gemini 4 Argon | No |
 | **Meta** | A Meta API key | Your Meta Model API account | Muse Spark 1.3, Muse Wonder | Yes |
+| **Local LLM** | A model server you run, such as Ollama or LM Studio | Nobody | The ones your server serves | No |
 
 An API key is a long code that lets an app use your account with an AI company. You create one on that company’s site and paste it into WordPress Studio.
 
@@ -104,12 +105,23 @@ Your use counts against your Copilot plan. You only see the models your plan inc
 
 Meta bills your Meta Model API account for what you use.
 
+### Local LLM
+
+Local LLM uses the models a server you run serves, such as [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), llama.cpp’s `llama-server` or [vLLM](https://docs.vllm.ai).
+
+1.  Start the server with at least one chat model.
+2.  Click **Connect** next to **Local LLM**.
+3.  Enter the address the server listens on, such as `http://localhost:11434`. Add an API key only if your server asks for one, and click **Save**.
+
+The model menu offers your server’s chat models, those it says can use tools first. To offer models you add later, or fewer, pick them under **Local LLM** on this page. Chats need no WordPress.com account and work offline. Run the model with a context of 32,768 tokens or more: when it’s too small, the chat says so. WordPress Studio connects to one server at a time; to switch, connect again with the other address.
+
 ### Change or remove an AI provider
 
 | Provider | What to do |
 | --- | --- |
 | **OpenAI**, **Anthropic** | Click **Manage**. Choose the other way to sign in, or choose **Disconnect** |
 | **Google Gemini**, **Meta** | Click **Manage**. Paste a new key and click **Save**, or click **Disconnect** |
+| **Local LLM** | Click **Manage**. Enter another address and click **Save**, or click **Disconnect** |
 | **GitHub Copilot** | Click **Disconnect** |
 | **WordPress.com** | Choose **Log out** from the account menu. You will also need to sign in again before you publish to WordPress.com |
 
@@ -161,7 +173,7 @@ In `studio code`, you manage providers with commands.
 
 | Command | What it does |
 | --- | --- |
-| `/connect` | Sets up a provider. Choose one from the list, or name it, as in `/connect anthropic`. The names are `wpcom`, `anthropic`, `openai`, `gemini`, `github-copilot`, `meta`, and `spacefast`. Run it again for a provider you already have to change its key |
+| `/connect` | Sets up a provider. Choose one from the list, or name it, as in `/connect anthropic`. The names are `wpcom`, `anthropic`, `openai`, `gemini`, `github-copilot`, `meta`, `local-llm`, and `spacefast`. Run it again for a provider you already have to change its key |
 | `/disconnect` | Removes a provider. Removing WordPress.com logs you out |
 | `/provider` | Switches the AI provider. This also changes **Default AI provider** |
 | `/model` | Switches the model |

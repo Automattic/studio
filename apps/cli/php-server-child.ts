@@ -62,9 +62,11 @@ const FINISH_INSTALL_PATH = path.resolve( import.meta.dirname, 'php', 'finish-in
 // Each `php -S` worker processes one request at a time, so a non-zero count
 // means the worker is busy and any additional requests are queued at the TCP
 // layer. The picker uses these counts to prefer idle workers, then to balance
-// the queue depth when all are busy.
+// the queue depth when all are busy. Workers warm up in order, and only those
+// already warm take requests, so no visitor waits on a worker still compiling.
 class PhpWorkerRequestTracker {
 	private readonly counts: number[];
+	private warmCount = 0;
 
 	constructor( size: number ) {
 		this.counts = new Array( size ).fill( 0 );
@@ -81,9 +83,13 @@ class PhpWorkerRequestTracker {
 		this.counts[ index ] = Math.max( 0, value );
 	}
 
+	markNextWarm(): void {
+		this.warmCount = Math.min( this.warmCount + 1, this.counts.length );
+	}
+
 	getFirstFreeWorker(): number {
 		let bestIndex = 0;
-		for ( let i = 1; i < this.counts.length; i++ ) {
+		for ( let i = 1; i < this.warmCount; i++ ) {
 			if ( this.counts[ i ] < this.counts[ bestIndex ] ) {
 				bestIndex = i;
 			}
@@ -350,6 +356,7 @@ async function restartPhpServer(): Promise< void > {
 
 	try {
 		phpProcess = await doStartServer( runningConfig );
+		void warmRemainingWorkers();
 	} catch ( error ) {
 		errorToConsole( `Failed to restart PHP server:`, error );
 		process.exit( 1 );
@@ -602,6 +609,7 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 			await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
 			stopSignal.throwIfAborted();
 		}
+		void warmRemainingWorkers();
 	} catch ( error ) {
 		killPhpProcess();
 		phpProcess = null;
@@ -704,32 +712,23 @@ async function doStartServer(
 		}
 
 		stopSignal?.throwIfAborted();
-		let firstWorkerReady = false;
-		const needsInstallation = await Promise.all(
-			workerPorts.map( async ( workerPort ) => {
-				const needsInstall = await waitForServerReady(
-					`http://127.0.0.1:${ workerPort }/`,
-					stopSignal
-				);
-				if ( ! firstWorkerReady ) {
-					firstWorkerReady = true;
-					reportPhase( 'php_first_worker', workersStartedAt );
-				}
-				return needsInstall;
-			} )
+		// Each worker has its own opcache, so its first request compiles WordPress and every active
+		// plugin. Warmed together, the workers split the CPU and all finish late, which on a slow
+		// machine outlasts the start's inactivity timeout. The first worker warms up alone and
+		// serves the site, and warmRemainingWorkers warms the rest once the site is ready.
+		const needsInstallation = await waitForServerReady(
+			`http://127.0.0.1:${ workerPorts[ 0 ] }/`,
+			stopSignal
 		);
-
+		phpWorkerRequestTracker.markNextWarm();
 		reportPhase( 'php_workers', workersStartedAt );
-		await onWorkersReady?.( needsInstallation.some( Boolean ) );
+		await onWorkersReady?.( needsInstallation );
 
-		const proxyStartedAt = Date.now();
+		// The proxy serves requests once it listens, and the worker behind it has already answered.
 		proxyServer = await startPhpProxyServer( config, stopSignal );
 		phpProxyServer = proxyServer;
 		phpWorkerProcesses = spawnedChildren;
-
 		stopSignal?.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-		reportPhase( 'proxy_ready', proxyStartedAt );
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated
@@ -758,6 +757,26 @@ async function doStartServer(
 		await stopSymlinkWatcher();
 
 		throw error;
+	}
+}
+
+// Warms the workers after the first one at a time, once the start is done, so they compete
+// with neither the start nor each other. Stops quietly once the pool is replaced or stopped.
+async function warmRemainingWorkers(): Promise< void > {
+	const tracker = phpWorkerRequestTracker;
+	for ( const workerPort of phpWorkerPorts.slice( 1 ) ) {
+		try {
+			await waitForServerReady( `http://127.0.0.1:${ workerPort }/` );
+		} catch ( error ) {
+			if ( tracker === phpWorkerRequestTracker ) {
+				errorToConsole( `Failed to warm up the PHP worker on port ${ workerPort }:`, error );
+			}
+			return;
+		}
+		if ( tracker !== phpWorkerRequestTracker ) {
+			return;
+		}
+		tracker.markNextWarm();
 	}
 }
 

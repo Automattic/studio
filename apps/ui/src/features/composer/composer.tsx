@@ -1,5 +1,5 @@
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
-import { findAiModel, type ProviderId } from '@studio/providers';
+import { findAiModel, getAiModels, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import {
@@ -13,6 +13,7 @@ import {
 	type MouseEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -303,6 +304,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		textareaRef,
 	} );
 	const hasAttachments = attachments.length > 0;
+	// The account's models say whether one picked from a catalog reads images.
+	const { data: aiSettings } = useAiSettings();
+	const account = aiSettings?.accounts[ sessionProvider ];
+	const supportsImages = (
+		getAiModels( sessionProvider, account?.connected ? account : undefined ).find(
+			( { id } ) => id === model
+		) ?? findAiModel( model )?.model
+	)?.supportsImages;
 	const currentValidationError =
 		validationError?.value === value &&
 		validationError.model === model &&
@@ -384,10 +393,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			return;
 		}
-		if (
-			submission.options.images?.length &&
-			findAiModel( model )?.model.supportsImages === false
-		) {
+		if ( submission.options.images?.length && supportsImages === false ) {
 			setValidationError( {
 				message: __( 'Choose a model that supports images before sending these attachments' ),
 				value,
@@ -439,6 +445,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments,
 		annotationSiteId,
 		model,
+		supportsImages,
 		stagedNotes,
 	] );
 

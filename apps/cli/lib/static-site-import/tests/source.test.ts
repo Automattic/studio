@@ -38,7 +38,6 @@ describe( 'static site import sources', () => {
 			site_title: 'Captured Site',
 			activate: true,
 			overwrite: true,
-			fail_on_quality: true,
 			require_proven_dynamic_client_assets: true,
 			seed_entities: true,
 			materialize_dependencies: true,
@@ -53,6 +52,7 @@ describe( 'static site import sources', () => {
 				files: [ { path: 'website/index.html', content: '<main>Captured</main>' } ],
 			},
 		} );
+		expect( request ).not.toHaveProperty( 'fail_on_quality' );
 		expect( blueprint.staticSiteImport ).not.toHaveProperty( 'code' );
 		expect( blueprint.staticSiteImport ).not.toHaveProperty( 'source' );
 		expect(

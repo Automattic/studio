@@ -66,6 +66,31 @@ describe( 'PanelSplitFrame', () => {
 		expect( onPanelClose ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it.each( [
+		{ end: 703, closed: null },
+		{ end: 704, closed: 'panel' },
+		{ end: 297, closed: null },
+		{ end: 296, closed: 'chat' },
+	] )( 'closes $closed only past the drag threshold at $end', ( { end, closed } ) => {
+		window.localStorage.setItem( SITE_WIDTH_KEY, '480' );
+		const onPanelClose = vi.fn();
+		const onChatClose = vi.fn();
+		render(
+			<PanelSplitFrame
+				panelOpen
+				panel={ () => <aside /> }
+				onPanelClose={ onPanelClose }
+				onChatClose={ onChatClose }
+			/>
+		);
+		fireEvent.mouseDown( screen.getByRole( 'separator' ), { button: 0, clientX: 480 } );
+		fireEvent.mouseUp( document, { clientX: end } );
+		expect( onPanelClose ).toHaveBeenCalledTimes( closed === 'panel' ? 1 : 0 );
+		expect( onChatClose ).toHaveBeenCalledTimes( closed === 'chat' ? 1 : 0 );
+		if ( closed ) expect( window.localStorage.getItem( SITE_WIDTH_KEY ) ).toBe( '480' );
+		expect( document.body ).not.toHaveStyle( { cursor: 'col-resize' } );
+	} );
+
 	describe( 'closing panel content', () => {
 		beforeEach( () => {
 			vi.useFakeTimers();

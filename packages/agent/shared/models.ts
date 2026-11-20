@@ -2,6 +2,7 @@ import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/a
 import { googleGenerativeAIApi } from '@earendil-works/pi-ai/api/google-generative-ai.lazy';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
+import { contextOverflowStream, fitsContextWindow } from './runtime-guards/context-window';
 import { withErrorRewrite } from './runtime-guards/error-rewrite';
 import { withLeakedToolCallMarkupRemoved } from './runtime-guards/leaked-tool-call-markup';
 import { stripStaleImagesFromContext } from './runtime-guards/strip-stale-images';
@@ -13,9 +14,19 @@ const streamGoogleGenerativeAi = googleGenerativeAIApi().streamSimple;
 
 // pi's stock stream for the connection's API, with the connection's error
 // rewrite, the leaked tool-call cleanup, and stale screenshots stripped, which
-// would otherwise bloat requests past the provider's body limit.
-export function createConnectionStream( { requestModelId, rewriteError }: AiConnection ) {
+// would otherwise bloat requests past the provider's body limit. A connection
+// whose window is exact never sends a request the window can't hold: the
+// server may cut it without saying.
+export function createConnectionStream( {
+	requestModelId,
+	rewriteError,
+	exactContextWindow,
+}: AiConnection ) {
 	return ( model: Model< Api >, context: TranscriptContext, options?: SimpleStreamOptions ) => {
+		const transcript = stripStaleImagesFromContext( context );
+		if ( exactContextWindow && ! fitsContextWindow( model, transcript ) ) {
+			return contextOverflowStream( model );
+		}
 		// Each API's stream function is narrower than `Model< Api >`; the model is
 		// the one its API's function expects.
 		const stream = (
@@ -31,7 +42,7 @@ export function createConnectionStream( { requestModelId, rewriteError }: AiConn
 		// request names the provider's upstream alias.
 		return withErrorRewrite(
 			withLeakedToolCallMarkupRemoved(
-				stream( model as Model< 'openai-completions' >, stripStaleImagesFromContext( context ), {
+				stream( model as Model< 'openai-completions' >, transcript, {
 					...options,
 					...( requestModelId
 						? {

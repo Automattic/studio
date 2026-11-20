@@ -5,6 +5,7 @@
  * process that serves it with native PHP.
  */
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import {
 	SITE_SERVER_ACTIVITY_CHECK_INTERVAL,
@@ -20,7 +21,6 @@ import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
@@ -46,6 +46,7 @@ import {
 	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 export { SITE_PROCESS_PREFIX };
 
@@ -94,7 +95,7 @@ const startServerOptionsSchema = serverConfigSchema
 export type StartServerOptions = z.infer< typeof startServerOptionsSchema >;
 
 function buildServerConfig(
-	site: SiteData,
+	site: ConfigSite,
 	options?: Partial< StartServerOptions & SetUpSiteOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
@@ -182,7 +183,7 @@ function buildServerConfig(
 }
 
 async function ensureSitePhpBinaryAvailable(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >
 ): Promise< void > {
 	const phpVersion = resolveSupportedPhpVersion( site.phpVersion );
@@ -209,7 +210,7 @@ async function ensureSitePhpBinaryAvailable(
 export type SiteStartCommand = 'start' | 'create' | 'import' | 'pull' | 'config';
 
 export async function startWordPressServer(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >,
 	command: SiteStartCommand,
 	options?: StartServerOptions
@@ -302,6 +303,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: true,
+				...getMachineProps(),
 				file_access: getSiteFileAccess( site ),
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
@@ -329,6 +331,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: false,
+				...getMachineProps(),
 				file_access: getSiteFileAccess( site ),
 				failure_reason: failureReason,
 				...diagnosis,
@@ -347,6 +350,14 @@ export async function startWordPressServer(
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+// Lets start times and hangs be compared across machine sizes.
+function getMachineProps() {
+	return {
+		cpu_count: os.availableParallelism(),
+		memory_gb: Math.round( os.totalmem() / 1024 ** 3 ),
+	};
 }
 
 // Coarse, low-cardinality classification of a start failure for the `failure_reason` Tracks prop.
@@ -370,7 +381,7 @@ function classifyStartFailure( error: unknown ): string {
 	return 'unknown';
 }
 
-async function clearStudioErrorLog( site: SiteData ): Promise< void > {
+async function clearStudioErrorLog( site: ConfigSite ): Promise< void > {
 	const logPath = path.join( site.path, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
 	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
 }
@@ -601,6 +612,8 @@ async function sendMessage(
 				packet.raw.topic === 'start-phase' &&
 				packet.raw.originalMessageId === messageId
 			) {
+				// A finished step is progress, so a slow start that keeps finishing steps isn't cut off.
+				lastActivityTimestamp = Date.now();
 				options.onStartPhase?.( packet.raw.data );
 			} else if ( packet.raw.topic === 'error' && packet.raw.originalMessageId === messageId ) {
 				if ( exitRejectTimeoutId ) {
@@ -740,7 +753,7 @@ export interface SetUpSiteOptions {
  * Blueprint when one is given. Runs in a server child process that stops once it is done.
  */
 export async function setUpSite(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >,
 	options: SetUpSiteOptions
 ): Promise< void > {

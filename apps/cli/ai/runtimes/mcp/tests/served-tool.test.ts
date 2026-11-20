@@ -16,9 +16,11 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 		JSON.stringify( { attributes: { submenuVisibility: { enum: [ 'hover', 'click' ] } } } )
 	);
 	const site = { id: '1', name: 'My Site', path: sitePath, port: 8881, phpVersion: '8.3' };
-	writeFileSync( path.join( root, 'cli.json' ), JSON.stringify( { version: 1, sites: [ site ] } ) );
-	vi.stubEnv( 'E2E', '1' );
-	vi.stubEnv( 'E2E_CLI_CONFIG_PATH', root );
+	writeFileSync(
+		path.join( root, 'config.json' ),
+		JSON.stringify( { version: 1, sites: [ site ] } )
+	);
+	vi.stubEnv( 'DEV_CONFIG_DIR', root );
 
 	const tool = defineTool(
 		'show_header',

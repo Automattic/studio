@@ -8,22 +8,14 @@ import { createAiSession, loadAiSession } from '@studio/agent/node/sessions/stor
 const SITE = { id: 'site-1', name: 'My Site', path: '/tmp/my-site' };
 
 vi.mock( '@studio/common/sites/site-path', () => ( { readSites: async () => [ SITE ] } ) );
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
-	...( await importOriginal< object >() ),
-	readSharedSession: async () => undefined,
-} ) );
-vi.mock( '@studio/agent/node/sessions/placement', async ( importOriginal ) => ( {
-	...( await importOriginal< object >() ),
-	readAiSessionPlacement: async () => ( {
-		kind: 'site',
-		siteId: SITE.id,
-		sitePath: SITE.path,
-		siteName: SITE.name,
+vi.mock( '@studio/common/lib/session-metadata', () => ( {
+	readSessionMetadata: async () => ( {
+		placement: { kind: 'site', siteId: SITE.id, sitePath: SITE.path, siteName: SITE.name },
 	} ),
 } ) );
 const connected = vi.hoisted( () => ( { sites: [] as object[] } ) );
-vi.mock( '@studio/common/lib/connected-sites', () => ( {
-	getConnectedWpcomSitesForLocalSite: async () => connected.sites,
+vi.mock( '@studio/common/lib/remote-sites', () => ( {
+	getRemoteSites: async () => connected.sites,
 } ) );
 
 describe( 'setSessionEnvironment', () => {

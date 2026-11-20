@@ -1,31 +1,23 @@
 import { AggregateInterval } from '@studio/common/lib/bump-stat';
+import { updateConfig } from '@studio/common/lib/config/store';
 import { vi } from 'vitest';
-import { EMPTY_USER_DATA } from 'src/storage/storage-types';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import { bumpStat, bumpAggregatedUniqueStat, StatsGroup, StatsMetric } from '../bump-stats';
 
-vi.mock( 'src/storage/user-data', () => ( {
-	loadUserData: vi.fn(),
-	saveUserData: vi.fn(),
-	lockAppdata: vi.fn(),
-	unlockAppdata: vi.fn(),
+let lastBump: Record< string, Record< string, number > > = {};
+
+vi.mock( '@studio/common/lib/config/store', () => ( {
+	readConfig: vi.fn( async () => ( { stats: { lastBump } } ) ),
+	updateConfig: vi.fn( async ( update ) => update( { stats: { lastBump } } ) ),
 } ) );
 
 // Store original fetch to restore later
 const originalFetch = global.fetch;
 
 const originalEnv = { ...process.env };
-let mockUserData = structuredClone( EMPTY_USER_DATA );
 
 beforeEach( () => {
 	vi.clearAllMocks();
-	mockUserData = structuredClone( EMPTY_USER_DATA );
-	vi.mocked( lockAppdata ).mockResolvedValue( undefined );
-	vi.mocked( unlockAppdata ).mockResolvedValue( undefined );
-	vi.mocked( loadUserData ).mockImplementation( async () => structuredClone( mockUserData ) );
-	vi.mocked( saveUserData ).mockImplementation( async ( userData ) => {
-		mockUserData = structuredClone( userData );
-	} );
+	lastBump = {};
 } );
 
 afterEach( () => {
@@ -141,15 +133,13 @@ describe( 'bumpAggregatedUniqueStat', () => {
 	test( 'bump stat when it has never been recorded before', async () => {
 		const mockRequest = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
 
-		mockUserData.lastBumpStats = {};
-
 		await bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, 'weekly' );
 
 		await vi.waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 	} );
 
 	test( "don't bump forever stat when it has already been recorded", async () => {
-		mockUserData.lastBumpStats = {
+		lastBump = {
 			[ StatsGroup.STUDIO_APP_LAUNCH ]: {
 				[ StatsMetric.SUCCESS ]: Date.UTC( 2024, 0, 1 ),
 			},
@@ -157,7 +147,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 
 		await bumpAggregatedUniqueStat( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS, 'forever' );
 
-		expect( saveUserData ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 
 	test.each< [ AggregateInterval, number, number ] >( [
@@ -170,7 +160,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 			mockCurrentTime( currentTime );
 
 			const mockRequest = mockBumpStatRequest( StatsGroup.STUDIO_APP_LAUNCH, StatsMetric.SUCCESS );
-			mockUserData.lastBumpStats = {
+			lastBump = {
 				[ StatsGroup.STUDIO_APP_LAUNCH ]: {
 					[ StatsMetric.SUCCESS ]: lastBumpTime,
 				},
@@ -184,13 +174,9 @@ describe( 'bumpAggregatedUniqueStat', () => {
 
 			await vi.waitFor( () => expect( mockRequest.isDone() ).toBe( true ) );
 
-			expect( saveUserData ).toHaveBeenCalled();
-			const savedData = vi.mocked( saveUserData ).mock.calls[ 0 ][ 0 ];
-			expect( savedData ).toMatchObject( {
-				lastBumpStats: {
-					[ StatsGroup.STUDIO_APP_LAUNCH ]: {
-						[ StatsMetric.SUCCESS ]: currentTime,
-					},
+			expect( lastBump ).toEqual( {
+				[ StatsGroup.STUDIO_APP_LAUNCH ]: {
+					[ StatsMetric.SUCCESS ]: currentTime,
 				},
 			} );
 		}
@@ -207,7 +193,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 
 			// Don't create a nock mock so that we get errors if a network request is made
 
-			mockUserData.lastBumpStats = {
+			lastBump = {
 				[ StatsGroup.STUDIO_APP_LAUNCH ]: {
 					[ StatsMetric.SUCCESS ]: lastBumpTime,
 				},
@@ -219,7 +205,7 @@ describe( 'bumpAggregatedUniqueStat', () => {
 				aggregateBy
 			);
 
-			expect( saveUserData ).not.toHaveBeenCalled();
+			expect( updateConfig ).not.toHaveBeenCalled();
 		}
 	);
 } );

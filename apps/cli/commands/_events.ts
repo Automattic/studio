@@ -18,11 +18,11 @@ import {
 	SnapshotEvent,
 	AuthEvent,
 } from '@studio/common/lib/cli-events';
+import { readConfig } from '@studio/common/lib/config/store';
 import { isEmptyDir } from '@studio/common/lib/fs-utils';
 import { sequential } from '@studio/common/lib/sequential';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
@@ -37,16 +37,17 @@ import { isSiteRunning } from 'cli/lib/site-utils';
 import { SocketServer } from 'cli/lib/socket';
 import { SITE_PROCESS_PREFIX } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const logger = new Logger< LoggerAction >();
 
-function toSiteDetails( site: SiteData ) {
+function toSiteDetails( site: ConfigSite ) {
 	return siteDetailsSchema.parse( getSiteDetails( site ) );
 }
 
 const emitSiteEvent = sequential(
 	async ( event: SITE_EVENTS, siteId: string, running?: boolean ): Promise< void > => {
-		const cliConfig = await readCliConfig();
+		const cliConfig = await readConfig();
 		const site = cliConfig.sites.find( ( s ) => s.id === siteId );
 		const payload: SiteEvent = {
 			event,
@@ -61,7 +62,7 @@ const emitSiteEvent = sequential(
 );
 
 async function emitAllSitesStatus(): Promise< void > {
-	const cliConfig = await readCliConfig();
+	const cliConfig = await readConfig();
 	for ( const site of cliConfig.sites ) {
 		if ( site.path && ( await isEmptyDir( site.path ).catch( () => true ) ) ) {
 			await removeSiteFromConfig( site.id );
@@ -73,7 +74,7 @@ async function emitAllSitesStatus(): Promise< void > {
 }
 
 async function emitAllSitesStopped(): Promise< void > {
-	const cliConfig = await readCliConfig();
+	const cliConfig = await readConfig();
 	for ( const site of cliConfig.sites ) {
 		const payload: SiteEvent = {
 			event: SITE_EVENTS.UPDATED,
@@ -102,7 +103,7 @@ const emitSingleSnapshotEvent = sequential(
 		event: SNAPSHOT_EVENTS.CREATED | SNAPSHOT_EVENTS.UPDATED | SNAPSHOT_EVENTS.DELETED,
 		snapshotUrl: string
 	): Promise< void > => {
-		const cliConfig = await readCliConfig();
+		const cliConfig = await readConfig();
 
 		const snapshot = cliConfig.snapshots.find( ( s ) => s.url === snapshotUrl );
 		const payload: SnapshotEvent = {

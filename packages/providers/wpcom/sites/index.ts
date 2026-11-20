@@ -145,7 +145,9 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 				pollImportStatus( token, site.id )
 			);
 			if ( status.status === 'failed' ) {
-				throw new RemoteSiteError( getImportFailureMessage( status ), 'remote_import' );
+				throw new RemoteSiteError( getImportFailureMessage( status ), 'remote_import', {
+					cause: new Error( status.error_data?.vp_restore_message || status.error ),
+				} );
 			}
 			if ( ! status.success ) {
 				throw new RemoteSiteError(

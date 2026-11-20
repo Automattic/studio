@@ -79,7 +79,7 @@ This is the central design problem of selective publishing. The other rules depe
 
 Studio needs:
 
-- **A stable identity for each record.** Every supported record needs an identity that is the same in the local copy and on the live site. Some records already have one: templates and template parts (theme and slug), terms (taxonomy and slug), and options (name). Posts, attachments, and comments do not. The WordPress `guid` column is not reliable enough, because imports copy it and it contains the URL of the site that created the post.
+- **A stable identity for each record.** Every supported record needs an identity that is the same in the local copy and on the live site. Some records have a natural key that can match them the first time: templates and template parts (theme and slug), terms (taxonomy and slug), and options (name). A natural key is not an identity, because users can change a slug. After the first match, the ID map below carries the identity, so a term whose slug changed is still the same term, not a deletion and a new term. Posts, attachments, and comments have no natural key. The WordPress `guid` column is not reliable enough, because imports copy it and it contains the URL of the site that created the post.
 - **An ID map for each connection.** Studio must record which local ID matches which live ID. It must keep that map correct through pulls, publishes, and failed attempts.
 - **Reference rewriting.** When Studio creates a record with a new ID or URL, it must update every reference to the old one.
 

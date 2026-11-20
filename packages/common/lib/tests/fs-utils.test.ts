@@ -2,7 +2,11 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import { calculateDirectorySizeForArchive, confineToRoot } from '@studio/common/lib/fs-utils';
+import {
+	calculateDirectorySizeForArchive,
+	confineToRoot,
+	recursiveCopyDirectory,
+} from '@studio/common/lib/fs-utils';
 
 describe( 'calculateDirectorySizeForArchive', () => {
 	let tempDir: string;
@@ -87,5 +91,41 @@ describe( 'confineToRoot', () => {
 
 	it( 'resolves relative candidates against the root, not the cwd', () => {
 		expect( confineToRoot( root, 'my-site' ) ).toBe( path.resolve( root, 'my-site' ) );
+	} );
+} );
+
+// Symlinks aren't created without extra privileges on Windows.
+describe.skipIf( process.platform === 'win32' )( 'recursiveCopyDirectory', () => {
+	let root: string;
+
+	beforeEach( () => {
+		root = fs.mkdtempSync( path.join( os.tmpdir(), 'fs-utils-copy-' ) );
+	} );
+
+	afterEach( () => {
+		fs.rmSync( root, { recursive: true, force: true } );
+	} );
+
+	it( 'copies what symlinks point to, and skips a link back to a copied directory', async () => {
+		const outside = path.join( root, 'outside' );
+		fs.mkdirSync( path.join( outside, 'plugins' ), { recursive: true } );
+		fs.writeFileSync( path.join( outside, 'plugins', 'plugin.php' ), 'plugin' );
+		fs.writeFileSync( path.join( outside, 'note.txt' ), 'note' );
+		const source = path.join( root, 'site' );
+		fs.mkdirSync( source );
+		fs.symlinkSync( outside, path.join( source, 'wp-content' ) );
+		fs.symlinkSync( path.join( outside, 'note.txt' ), path.join( source, 'note.txt' ) );
+		fs.symlinkSync( source, path.join( source, 'loop' ) );
+		const destination = path.join( root, 'copy' );
+
+		await recursiveCopyDirectory( source, destination );
+
+		const copiedContent = path.join( destination, 'wp-content' );
+		expect( fs.lstatSync( copiedContent ).isDirectory() ).toBe( true );
+		expect( fs.readFileSync( path.join( copiedContent, 'plugins', 'plugin.php' ), 'utf8' ) ).toBe(
+			'plugin'
+		);
+		expect( fs.lstatSync( path.join( destination, 'note.txt' ) ).isFile() ).toBe( true );
+		expect( fs.existsSync( path.join( destination, 'loop' ) ) ).toBe( false );
 	} );
 } );

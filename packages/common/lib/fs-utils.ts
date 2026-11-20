@@ -125,10 +125,25 @@ export async function pathExists( path: string ): Promise< boolean > {
 // SQLite journal and cache files come and go), so entries that disappear between
 // enumeration and copy are skipped rather than failing the whole copy. A missing
 // top-level source still throws.
+// Symlinks are copied as what they point to, such as a pulled site's wp-content, so the copy doesn't
+// depend on the source. A link to a directory that is already being copied is skipped.
 export async function recursiveCopyDirectory(
 	source: string,
 	destination: string
 ): Promise< void > {
+	await copyDirectoryFollowingLinks( source, destination, new Set() );
+}
+
+async function copyDirectoryFollowingLinks(
+	source: string,
+	destination: string,
+	ancestorRealPaths: Set< string >
+): Promise< void > {
+	const realSource = await fsPromises.realpath( source );
+	if ( ancestorRealPaths.has( realSource ) ) {
+		return;
+	}
+	const realPathsBelow = new Set( ancestorRealPaths ).add( realSource );
 	const entries = await fsPromises.readdir( source, { withFileTypes: true } );
 
 	await fsPromises.mkdir( destination, { recursive: true } );
@@ -139,12 +154,14 @@ export async function recursiveCopyDirectory(
 			const destinationPath = path.join( destination, entry.name );
 
 			try {
-				if ( entry.isDirectory() ) {
-					await recursiveCopyDirectory( sourcePath, destinationPath );
-				} else if ( entry.isFile() ) {
+				const target = entry.isSymbolicLink() ? await fsPromises.stat( sourcePath ) : entry;
+				if ( target.isDirectory() ) {
+					await copyDirectoryFollowingLinks( sourcePath, destinationPath, realPathsBelow );
+				} else if ( target.isFile() ) {
 					await fsPromises.cp( sourcePath, destinationPath, {
 						mode: fs.constants.COPYFILE_FICLONE,
 						preserveTimestamps: true,
+						dereference: true,
 					} );
 				}
 			} catch ( error ) {

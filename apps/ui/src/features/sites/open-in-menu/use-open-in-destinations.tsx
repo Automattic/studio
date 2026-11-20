@@ -120,7 +120,7 @@ export function useOpenInDestinations(
 					return openSiteUrl( '/', { autoLogin: false } );
 				} ),
 		},
-		connector.capabilities.nativeSites && {
+		connector.capabilities.localMachine && {
 			id: 'files',
 			label: fileManager.label,
 			logo: fileManager.logo,
@@ -131,7 +131,7 @@ export function useOpenInDestinations(
 					return connector.openSiteFolder( site.id );
 				} ),
 		},
-		connector.capabilities.nativeSites &&
+		connector.capabilities.localMachine &&
 			!! editor && {
 				id: 'editor',
 				label: editorLabel,
@@ -139,7 +139,7 @@ export function useOpenInDestinations(
 				disabled: false,
 				open: () => open( 'editor', editorLabel, () => connector.openSiteInEditor( site.id ) ),
 			},
-		connector.capabilities.nativeSites && {
+		connector.capabilities.localMachine && {
 			id: 'terminal',
 			label: terminalLabel,
 			logo: (

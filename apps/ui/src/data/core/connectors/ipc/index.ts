@@ -141,6 +141,7 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 			nativeSites: true,
 			loopbackSignIn: true,
+			localMachine: true,
 		},
 
 		agenticRequiresAuth: true,

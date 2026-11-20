@@ -21,7 +21,7 @@ import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { SiteData } from 'cli/lib/cli-config/core';
-import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
 	listProcesses,
@@ -109,6 +109,8 @@ function buildServerConfig(
 	if ( site.customDomain ) {
 		const protocol = site.enableHttps ? 'https' : 'http';
 		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
+	} else if ( process.env.STUDIO_SITE_URL_TEMPLATE ) {
+		serverConfig.absoluteUrl = getSiteUrl( site );
 	}
 
 	if ( site.adminUsername ) {

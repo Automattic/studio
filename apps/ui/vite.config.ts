@@ -5,8 +5,8 @@ import { Readable } from 'stream';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Connect, type Plugin, type ServerOptions } from 'vite';
-import { GET as wpcomBackup } from '../static/functions/wpcom-backup/[site]/[download]/data';
 import { getSentryReleaseInfo } from '../../packages/common/lib/sentry-release';
+import { GET as wpcomBackup } from '../static/functions/wpcom-backup/[site]/[download]/data';
 import type { ReadableStream as NodeReadableStream } from 'stream/web';
 
 const __dirname = import.meta.dirname;
@@ -39,7 +39,9 @@ const browserDevEntryPlugin: Plugin = {
 				pathname.startsWith( '/@' ) ||
 				pathname.startsWith( '/src/' ) ||
 				pathname.startsWith( '/node_modules/' ) ||
-				pathname.includes( '.' );
+				pathname.includes( '.' ) ||
+				// Pages a server behind the dev proxy answers, such as the sign-in callback.
+				Object.keys( target?.proxy ?? {} ).some( ( prefix ) => pathname.startsWith( prefix ) );
 			if ( devEntry && accept.includes( 'text/html' ) && ! isInternal ) {
 				req.url = `/${ devEntry }`;
 			}
@@ -89,6 +91,9 @@ const staticHostPagesPlugin: Plugin = {
 // same-origin, as it does when that server serves the built app.
 const studioUiServer = process.env.STUDIO_UI_SERVER ?? 'http://localhost:8081';
 
+// Studio Cloud's control plane, a separate service, which serves `/cloud/*` next to the page.
+const studioCloudControl = process.env.STUDIO_CLOUD_CONTROL ?? 'http://localhost:3460';
+
 // The browser targets build the app on their own entry, output and port, so the
 // default Electron-renderer build (`dist/`, port 5200) stays byte-for-byte
 // unchanged. `local`, served by `studio ui`, is wired to the HTTP/SSE `local`
@@ -114,6 +119,16 @@ const TARGETS: Partial<
 		proxy: {
 			'/api': { target: studioUiServer, changeOrigin: true },
 			'/auth/callback': { target: studioUiServer, changeOrigin: true },
+		},
+	},
+	// Studio Cloud: the page and its control plane on one origin, the user's machine on another.
+	cloud: {
+		entry: 'index.cloud.html',
+		outDir: 'dist-cloud',
+		port: 3456,
+		proxy: {
+			'/cloud': { target: studioCloudControl, changeOrigin: true },
+			'/auth/callback': { target: studioCloudControl, changeOrigin: true },
 		},
 	},
 	static: {

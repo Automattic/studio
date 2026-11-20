@@ -519,6 +519,21 @@ STUDIO_PREVIEW_SHORTCUTS;
 		`,
 	} );
 
+	// A Studio Cloud machine serves its sites to itself with a certificate from its own authority
+	// (\`studio serve\`), which WordPress's bundled certificates don't include.
+	muPlugins.push( {
+		filename: '0-machine-ca-bundle.php',
+		content: `<?php
+		$studio_ca_bundle = getenv( 'STUDIO_CA_BUNDLE' );
+		if ( $studio_ca_bundle && is_readable( $studio_ca_bundle ) ) {
+			add_filter( 'http_request_args', function ( $args ) use ( $studio_ca_bundle ) {
+				$args['sslcertificates'] = $studio_ca_bundle;
+				return $args;
+			} );
+		}
+		`,
+	} );
+
 	// Auto-login functionality via dedicated endpoint
 	muPlugins.push( {
 		filename: '0-auto-login.php',

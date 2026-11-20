@@ -205,6 +205,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			studioLogs: false,
 			nativeSites: true,
 			loopbackSignIn: true,
+			phoneAccess: false,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -932,6 +933,28 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// `studio ui` — so there is nothing to open here.
 		async openStudioLogs() {
 			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		async getPhoneAccess() {
+			throw new UnsupportedError( 'getPhoneAccess' );
+		},
+		async setPhoneAccess() {
+			throw new UnsupportedError( 'setPhoneAccess' );
+		},
+		async getPhoneConnections() {
+			throw new UnsupportedError( 'getPhoneConnections' );
+		},
+		async setPhoneConnection() {
+			throw new UnsupportedError( 'setPhoneConnection' );
+		},
+		async getPhonePairingCode() {
+			throw new UnsupportedError( 'getPhonePairingCode' );
+		},
+		async getPairedPhones() {
+			throw new UnsupportedError( 'getPairedPhones' );
+		},
+		async removePairedPhone() {
+			throw new UnsupportedError( 'removePairedPhone' );
 		},
 
 		// The server attaches the origin and common props. Callers fire and forget, so a

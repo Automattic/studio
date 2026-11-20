@@ -130,6 +130,7 @@ export function useSettingCommands(
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
 		nativeSites: connector.capabilities.nativeSites,
+		phoneAccess: connector.capabilities.phoneAccess,
 		toggles,
 		actions: {
 			'reset-appearance': {

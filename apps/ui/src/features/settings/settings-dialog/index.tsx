@@ -26,6 +26,7 @@ import {
 	GeneralSettings,
 	InstructionsSettings,
 	KeyboardPanel,
+	PhonePanel,
 	SharingPanel,
 	SkillsPanel,
 	UsagePanel,
@@ -83,6 +84,8 @@ function StudioSection( {
 			return <AppearanceSettings />;
 		case 'sharing':
 			return <SharingPanel />;
+		case 'phone':
+			return <PhonePanel />;
 		case 'providers':
 			return (
 				<ProvidersPanel onManageCredits={ () => onNavigate( 'usage' ) } spacefast={ spacefast } />
@@ -170,7 +173,7 @@ export function SettingsDialog() {
 		setShown( settings );
 	}
 	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
-	const { nativeSites } = connector.capabilities;
+	const { nativeSites, phoneAccess } = connector.capabilities;
 	const linkedSection =
 		settings === 'ai' || ( settings === 'mcp' && ! nativeSites )
 			? 'providers'
@@ -184,6 +187,8 @@ export function SettingsDialog() {
 		linkedSection ??
 		( shown === 'ai' || ( shown === 'mcp' && ! nativeSites ) || ( shown === 'usage' && ! signedIn )
 			? 'providers'
+			: shown === 'phone' && ! phoneAccess
+			? 'general'
 			: shown );
 	const scope: SettingsScope =
 		isSiteSection( requested ) && ( site || sitePending ) ? 'site' : 'studio';
@@ -384,7 +389,12 @@ export function SettingsDialog() {
 		};
 	}, [ target, section, content, spacefastOpen ] );
 
-	const results = searchSettings( query, scope, { hasSite: !! site, signedIn, nativeSites } );
+	const results = searchSettings( query, scope, {
+		hasSite: !! site,
+		signedIn,
+		nativeSites,
+		phoneAccess,
+	} );
 	const searching = !! query.trim();
 	const open = ( result: SearchResult ) => {
 		go( result.section.id );
@@ -392,7 +402,7 @@ export function SettingsDialog() {
 			setTarget( result.setting.id ?? result.setting.title );
 		}
 	};
-	const sections = getSections( scope, { signedIn, nativeSites } );
+	const sections = getSections( scope, { signedIn, nativeSites, phoneAccess } );
 	const current = sections.find( ( entry ) => entry.id === section ) ?? sections[ 0 ];
 
 	const settingsDialog = (

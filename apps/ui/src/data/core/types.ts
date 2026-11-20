@@ -22,6 +22,11 @@ import type {
 	TracksProps,
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
+import type {
+	RemoteConnectionKind,
+	RemoteConnectionMissing,
+	RemoteConnectionRequest,
+} from '@studio/common/lib/remote-connection';
 import type { RemoteSiteConnection } from '@studio/common/lib/remote-sites';
 import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
@@ -183,6 +188,60 @@ interface ConnectorCapabilities {
 	// A sign-in on a provider's site runs in the host: a `loopback` one comes back to a local port,
 	// which the page can't listen on, and a `device` one waits on endpoints the page can't reach.
 	loopbackSignIn: boolean;
+	// The host runs remote mode for the Studio phone app (Settings > Phone). Only the desktop
+	// app does: `studio ui` is already a server, started from a terminal.
+	phoneAccess: boolean;
+}
+
+// Remote mode for the Studio phone app, as the desktop app runs it.
+export type PhoneAccessState =
+	| { status: 'off' }
+	| { status: 'starting' }
+	// `portChanged`: the remembered port was taken, so phones paired before must pair again.
+	// `movedFrom`: the address remote mode had the last time it ran, when it now has another one
+	// for another reason; phones paired at that address must pair again. `fallbackReason`: why
+	// Automatic did not take a safer connection. `connection` is missing for a remote mode
+	// started by an older CLI.
+	| {
+			status: 'on';
+			url: string;
+			connection?: RemoteConnectionKind;
+			portChanged: boolean;
+			movedFrom?: string;
+			fallbackReason?: string;
+	  }
+	// A `studio remote` started in a terminal. It stops there.
+	| {
+			status: 'terminal';
+			url: string;
+			connection?: RemoteConnectionKind;
+			fallbackReason?: string;
+	  }
+	| { status: 'error'; message: string };
+
+// How phones connect: what the person picked (Automatic or one connection), what Automatic
+// takes now (missing when nothing is ready), and what each connection still needs.
+export interface PhoneConnections {
+	request: RemoteConnectionRequest;
+	automatic?: RemoteConnectionKind;
+	options: Array< { kind: RemoteConnectionKind; missing?: RemoteConnectionMissing } >;
+}
+
+// A one-time code for the phone app, valid until `expiresAt`. `qrSvg` holds the pairing link.
+export interface PhonePairingCode {
+	address: string;
+	code: string;
+	expiresAt: number;
+	qrSvg: string;
+}
+
+export interface PairedPhone {
+	id: string;
+	name: string;
+	platform: string;
+	pairedAt: number;
+	lastSeenAt: number;
+	expiresAt: number;
 }
 
 export interface Connector {
@@ -577,6 +636,18 @@ export interface Connector {
 
 	// Open Studio's own log file. Gated by `capabilities.studioLogs`.
 	openStudioLogs(): Promise< void >;
+
+	// Remote mode for the Studio phone app (`capabilities.phoneAccess`).
+	getPhoneAccess(): Promise< PhoneAccessState >;
+	setPhoneAccess( on: boolean ): Promise< PhoneAccessState >;
+	// Runs the Tailscale CLI: read when the section or its list of connections opens.
+	getPhoneConnections(): Promise< PhoneConnections >;
+	// Saves the connection; a running remote mode starts again on it.
+	setPhoneConnection( request: RemoteConnectionRequest ): Promise< PhoneAccessState >;
+	// Rejects when remote mode is not running.
+	getPhonePairingCode(): Promise< PhonePairingCode >;
+	getPairedPhones(): Promise< PairedPhone[] >;
+	removePairedPhone( id: string ): Promise< void >;
 
 	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.

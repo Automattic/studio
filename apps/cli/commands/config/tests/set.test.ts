@@ -415,7 +415,7 @@ describe( 'CLI: studio config set', () => {
 	} );
 
 	describe( 'Xdebug changes', () => {
-		it( 'should throw when another site already has xdebug enabled', async () => {
+		it.each( [ false, true ] )( 'enables xdebug independently (running: %s)', async ( running ) => {
 			const testSite = getTestSite();
 			const otherSite = {
 				...getTestSite(),
@@ -425,11 +425,22 @@ describe( 'CLI: studio config set', () => {
 				enableXdebug: true,
 			};
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
+			vi.mocked( isServerRunning ).mockResolvedValue(
+				running ? testProcessDescription : undefined
+			);
 			store.config = { sites: [ testSite, otherSite ] };
 
-			await expect( runCommand( testSitePath, { xdebug: true } ) ).rejects.toThrow(
-				'Only one site can have Xdebug enabled at a time. Disable Xdebug on "Other Site" first.'
-			);
+			await runCommand( testSitePath, { xdebug: true } );
+
+			expect( savedSite().enableXdebug ).toBe( true );
+			expect( store.config.sites[ 1 ] ).toEqual( otherSite );
+			if ( running ) {
+				expect( stopWordPressServer ).toHaveBeenCalledExactlyOnceWith( testSite.id );
+				expect( startWordPressServer ).toHaveBeenCalledTimes( 1 );
+			} else {
+				expect( stopWordPressServer ).not.toHaveBeenCalled();
+				expect( startWordPressServer ).not.toHaveBeenCalled();
+			}
 		} );
 
 		it( 'should update xdebug setting without restart when site is stopped', async () => {
@@ -442,12 +453,14 @@ describe( 'CLI: studio config set', () => {
 
 		it( 'should disable xdebug', async () => {
 			const siteWithXdebug = { ...getTestSite(), enableXdebug: true };
+			const otherSite = { ...getTestSite(), id: 'site-2', enableXdebug: true };
 			vi.mocked( getSiteByFolder ).mockResolvedValue( siteWithXdebug );
-			store.config = { sites: [ siteWithXdebug ] };
+			store.config = { sites: [ siteWithXdebug, otherSite ] };
 
 			await runCommand( testSitePath, { xdebug: false } );
 
 			expect( savedSite().enableXdebug ).toBe( false );
+			expect( store.config.sites[ 1 ] ).toEqual( otherSite );
 		} );
 	} );
 

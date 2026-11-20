@@ -426,6 +426,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			setValue( ( current ) => current || value );
 			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
+			shake();
 			return;
 		} finally {
 			setSending( false );

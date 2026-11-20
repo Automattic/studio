@@ -27,10 +27,12 @@ export const connectExistingSiteKey = ( siteId: string ) => [ 'connect-existing-
 export function ExistingSiteStep( {
 	providers,
 	siteId,
+	replacing,
 	onConnected,
 }: {
 	providers: SitesProviderId[];
 	siteId: string;
+	replacing: boolean;
 	onConnected: ( provider: SitesProviderId, id: string | number ) => void;
 } ) {
 	const connector = useConnector();
@@ -97,6 +99,13 @@ export function ExistingSiteStep( {
 
 	return (
 		<div className={ styles.body }>
+			{ replacing && (
+				<p>
+					{ __(
+						'Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.'
+					) }
+				</p>
+			) }
 			{ loading && <Spinner aria-label={ __( 'Loading websites…' ) } /> }
 			{ failed.map( ( { provider } ) => (
 				<p role="alert" key={ provider }>

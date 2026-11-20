@@ -754,9 +754,6 @@ export function PublishButton( {
 			  activity.direction === 'push' &&
 			  activity.provider === selected?.provider &&
 			  activity.remoteSiteId === remote.id );
-	const canConnectExistingSite =
-		( ! hasLiveSite || changingDestination ) && connectedProviders.length > 0;
-
 	const previewPullIssue =
 		targets.previewAccountSite && descriptor?.issue( targets.previewAccountSite, 'pull' );
 	const canPullPreview = !! (
@@ -971,7 +968,7 @@ export function PublishButton( {
 						ref={ destinationTrigger }
 						selectedProvider={ emptyDestination }
 						providers={ targets.providers }
-						onConnectExistingSite={ canConnectExistingSite ? showExistingSite : undefined }
+						onConnectExistingSite={ showExistingSite }
 						onSelect={ selectProvider }
 						disabled={ disabled }
 					/>
@@ -1481,6 +1478,7 @@ export function PublishButton( {
 								<ExistingSiteStep
 									providers={ connectedProviders }
 									siteId={ site.id }
+									replacing={ hasLiveSite }
 									onConnected={ ( provider, id ) => {
 										client.setQueryData(
 											publishTargetQueryKey( site.id ),

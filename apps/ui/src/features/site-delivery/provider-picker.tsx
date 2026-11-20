@@ -41,7 +41,7 @@ export function ProviderPicker( {
 }: {
 	providers: SitesProviderId[];
 	onSelect: ( provider: SitesProviderId ) => void;
-	onConnectExistingSite?: () => void;
+	onConnectExistingSite: () => void;
 	disabled?: boolean;
 	selectedProvider: SitesProviderId;
 	ref?: ComponentProps< typeof SelectTrigger >[ 'ref' ];
@@ -56,32 +56,14 @@ export function ProviderPicker( {
 		value: 'existing-site',
 		label: __( 'Connect to an existing site' ),
 	} as const;
-	const actions = [
-		...( onConnectExistingSite ? [ { ...existingSite, icon: <ConnectSiteIcon /> } ] : [] ),
-	];
-
-	if ( items.length < 2 && actions.length === 0 ) {
-		return (
-			<div className={ styles.staticDestinationRow }>
-				<span className={ styles.destinationRowIcon }>
-					<DestinationIcon />
-				</span>
-				<span className={ styles.accessTriggerLabel }>{ __( 'Destination' ) }</span>
-				<span className={ styles.destinationProviderValue }>
-					<ProviderLogo provider={ selectedProvider } compact />
-					{ selected.label }
-				</span>
-			</div>
-		);
-	}
 
 	return (
 		<Select< SitesProviderId | 'existing-site' >
-			items={ [ ...items, ...actions ] }
+			items={ [ ...items, existingSite ] }
 			value={ selectedProvider }
 			disabled={ disabled }
 			onValueChange={ ( value ) => {
-				if ( value === existingSite.value ) onConnectExistingSite?.();
+				if ( value === existingSite.value ) onConnectExistingSite();
 				else if ( value ) onSelect( value );
 			} }
 		>
@@ -118,15 +100,15 @@ export function ProviderPicker( {
 						{ label }
 					</SelectItem>
 				) ) }
-				{ actions.length > 0 && (
-					<SelectGroup className={ styles.selectActions }>
-						{ actions.map( ( { value, label, icon } ) => (
-							<SelectItem key={ value } value={ value } label={ label } icon={ icon }>
-								{ label }
-							</SelectItem>
-						) ) }
-					</SelectGroup>
-				) }
+				<SelectGroup className={ styles.selectActions }>
+					<SelectItem
+						value={ existingSite.value }
+						label={ existingSite.label }
+						icon={ <ConnectSiteIcon /> }
+					>
+						{ existingSite.label }
+					</SelectItem>
+				</SelectGroup>
 			</SelectContent>
 		</Select>
 	);

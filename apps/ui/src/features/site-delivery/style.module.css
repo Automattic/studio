@@ -52,7 +52,7 @@
 	line-height: inherit;
 }
 
-.publishPopover :is( .accessTriggerEnd, .destinationProviderValue ) {
+.publishPopover .accessTriggerEnd {
 	color: var( --muted-foreground );
 }
 
@@ -76,7 +76,6 @@
 	)
 	:is(
 		.accessTriggerEnd,
-		.destinationProviderValue,
 		.destinationRowDescription,
 		.chooserLive,
 		.addressExternalIcon,
@@ -372,16 +371,6 @@
 	gap: var( --space-1 );
 }
 
-.destinationProviderValue {
-	display: inline-flex;
-	align-items: center;
-	gap: var( --space-1_5 );
-	min-width: 0;
-}
-.destinationProviderValue > svg {
-	flex-shrink: 0;
-}
-
 .providerLogo {
 	--app-icon-size: 32px;
 }
@@ -398,20 +387,6 @@
 }
 .destinationRowControl:hover:not( :disabled, [data-disabled] ) .addressExternalIcon {
 	color: var( --foreground );
-}
-
-.staticDestinationRow {
-	display: flex;
-	align-items: center;
-	gap: var( --space-1_5 );
-	min-block-size: var( --control-size );
-	padding-inline-start: calc( var( --space-2 ) - 1px );
-}
-.staticDestinationRow > svg {
-	flex-shrink: 0;
-}
-.staticDestinationRow > .destinationProviderValue {
-	padding-inline-end: var( --space-2 );
 }
 
 .publishOptionsPopover {

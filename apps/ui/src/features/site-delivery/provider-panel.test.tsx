@@ -2642,6 +2642,56 @@ it( 'opens a replacement destination without disconnecting the current site', as
 	expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
 } );
 
+it.each( [
+	{ nativeSites: true, provider: 'spacefast' },
+	{ nativeSites: false, provider: 'wpcom' },
+] as const )(
+	'connects an existing $provider site from Publish somewhere else',
+	async ( { nativeSites, provider } ) => {
+		const destination =
+			provider === 'wpcom'
+				? { ...live, id: 43, name: 'Another site', url: 'https://another.blog' }
+				: { ...space, id: 'spc_2', name: 'Another site', url: 'https://another.blog' };
+		let connected = false;
+		const { user, connector } = setup( {
+			capabilities: { nativeSites },
+			getSnapshots: async () => [],
+			getRemoteSites: async ( id ) =>
+				connected ? ( id === provider ? [ destination ] : [] ) : id === 'wpcom' ? [ live ] : [],
+			listAccountSites: async ( id ) => [
+				...( id === 'wpcom' ? [ live ] : [] ),
+				...( id === provider ? [ destination ] : [] ),
+			],
+			connectRemoteSite: async () => {
+				connected = true;
+			},
+			getSiteVisibility: async () => ( { url: destination.url, visibility: 'public' } ),
+		} );
+		await openFirstDestination();
+		await user.click( screen.getByRole( 'button', { name: 'Publish somewhere else' } ) );
+		if ( provider === 'spacefast' ) {
+			await user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
+			await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+		}
+		await openExistingSitePicker( user );
+		const dialog = within(
+			await screen.findByRole( 'dialog', { name: 'Choose an existing site' } )
+		);
+		expect( dialog.getByText( /Connecting an existing site will disconnect/ ) ).toBeVisible();
+		expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
+		await user.click( await dialog.findByRole( 'button', { name: /Another site.*another.blog/ } ) );
+		expect( await screen.findByRole( 'link', { name: 'Open another.blog' } ) ).toBeVisible();
+		expect( connector.connectRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+			provider,
+			site.id,
+			destination
+		);
+		expect( connector.disconnectRemoteSite ).not.toHaveBeenCalled();
+		expect( connector.pushSite ).not.toHaveBeenCalled();
+		expect( connector.pullSite ).not.toHaveBeenCalled();
+	}
+);
+
 it( 'opens the selected preview’s launch URL without creating or publishing a site', async () => {
 	const second = {
 		...preview,

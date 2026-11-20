@@ -77,7 +77,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 				links: url ? [ { title: __( 'Versions' ), url: `${ url }/versions` } ] : [],
 			};
 		},
-		dashboardUrl: () => 'https://my.spacefast.com/',
+		dashboardUrl: ( site ) => spaceDashboardUrl( site ) ?? 'https://my.spacefast.com/',
 		domainSettingsUrl: ( site ) => {
 			const url = spaceDashboardUrl( site );
 			return url ? `${ url }/domains` : undefined;

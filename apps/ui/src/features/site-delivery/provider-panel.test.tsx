@@ -636,7 +636,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		within( spacefastMenu ).getByRole( 'menuitem', { name: 'Open on Spacefast' } )
 	);
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
-		'https://my.spacefast.com/'
+		'https://my.spacefast.com/studio/lente'
 	);
 	await user.click(
 		screen.getByRole( 'button', {

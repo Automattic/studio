@@ -3,6 +3,17 @@ set -euo pipefail
 
 PLATFORM=${1:-mac}
 
+# Skipped here rather than with an `if:` guard on the group, which would stop
+# the required check reporting — see the CLI E2E group in .buildkite/pipeline.yml.
+if [[ "${BUILDKITE_PULL_REQUEST_DRAFT:-false}" == "true" ]]; then
+  message="Skipping CLI E2E - draft PR. They run in full once it is marked ready for review."
+  if command -v buildkite-agent &> /dev/null; then
+    echo "$message" | buildkite-agent annotate --style "info" --context "skip-cli-e2e-draft" || true
+  fi
+  echo "~~~ :fast_forward: $message"
+  exit 0
+fi
+
 if .buildkite/commands/should-skip-job.sh --job-type validation; then
   exit 0
 fi

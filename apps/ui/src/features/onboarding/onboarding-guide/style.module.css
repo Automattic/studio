@@ -12,19 +12,6 @@
 	z-index: 1;
 }
 
-/* This artwork stays dark in both themes, so match the dark theme's neutral
-   hover fill and keep the icon light in both themes. */
-.closeOnDark {
-	/* eslint-disable-next-line studio/use-theme-tokens -- this artwork stays dark in both themes. */
-	--button-hover-background: #282828;
-}
-
-.closeOnDark,
-.closeOnDark svg {
-	/* eslint-disable-next-line studio/use-theme-tokens -- this artwork stays dark in both themes. */
-	color: #fff;
-}
-
 /* The modal backdrop covers the window's usual drag region, so nothing is
    movable while the tour is open. The popup itself can't be a drag handle —
    it's centered with a CSS transform, and Chromium ignores -webkit-app-region

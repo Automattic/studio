@@ -154,7 +154,7 @@ export function ResponsiveToolbar( {
 				/>
 				<span className={ styles.divider } aria-hidden="true" />
 				<Menu.Root>
-					<Menu.Trigger render={ <Button variant="ghost" size="sm" /> }>
+					<Menu.Trigger render={ <Button variant="ghost" size="2xs" /> }>
 						{ settings.zoom === 'fit' ? __( 'Fit' ) : `${ settings.zoom * 100 }%` }
 						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 					</Menu.Trigger>

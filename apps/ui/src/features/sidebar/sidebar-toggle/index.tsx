@@ -20,6 +20,7 @@ export function SidebarToggle() {
 	const control = (
 		<Button
 			variant="ghost"
+			highlightOnToggle={ false }
 			size="icon-sm"
 			aria-label={ collapsed || hover.peek ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
 			aria-expanded={ ! collapsed || hover.peek }

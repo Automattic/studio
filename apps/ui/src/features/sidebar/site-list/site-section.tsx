@@ -164,7 +164,6 @@ export function SiteSection( {
 					</Badge>
 				) : null }
 				<IconButton
-					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
 					icon={ <SquarePenIcon /> }

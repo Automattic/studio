@@ -868,8 +868,12 @@ it( 'lets the only browser tab be picked up without changing its page or selecti
 	const page = document.querySelector( 'iframe' );
 	fireEvent( tab, tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 200, 100 ) );
-	expect( document.querySelector( '[data-tab-drag-preview]' ) ).toHaveTextContent( 'First' );
+	const dragPreview = document.querySelector( '[data-tab-drag-preview]' );
+	expect( dragPreview ).toHaveTextContent( 'First' );
+	expect( dragPreview ).toHaveAttribute( 'data-preview-selected' );
 	fireEvent( window, tabPointer( 'pointerup', 200, 100 ) );
+	expect( dragPreview ).toHaveAttribute( 'data-landing' );
+	expect( dragPreview ).toHaveAttribute( 'data-preview-selected' );
 	await waitFor( () => expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull() );
 	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 );
 	expect( selectedTab() ).toBe( tab );
@@ -911,6 +915,9 @@ it( 'moves neighboring tabs aside with one opaque drag chip and preserves pages 
 	expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull();
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	expect( document.querySelectorAll( '[data-tab-drag-preview]' ) ).toHaveLength( 1 );
+	expect( document.querySelector( '[data-tab-drag-preview]' ) ).not.toHaveAttribute(
+		'data-preview-selected'
+	);
 	expect( first ).toHaveAttribute( 'data-drag-source' );
 	expect( tabs[ 1 ].parentElement ).toHaveStyle( { transform: 'translateX(-162px)' } );
 	expect( tabs[ 2 ].parentElement ).toHaveStyle( { transform: 'translateX(-162px)' } );

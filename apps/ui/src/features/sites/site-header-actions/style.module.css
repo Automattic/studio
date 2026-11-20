@@ -6,7 +6,7 @@
 	z-index: 1;
 	display: flex;
 	align-items: center;
-	/* Keep the width container from excluding the whole title bar from dragging. */
+	/* Keep the overlay from excluding the whole title bar from dragging. */
 	height: 0;
 	-webkit-app-region: no-drag;
 	pointer-events: none;

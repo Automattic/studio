@@ -1,5 +1,5 @@
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
@@ -21,10 +21,7 @@ import {
 } from 'cli/tests/test-utils';
 import { Mode, runCommand } from '../delete';
 
-vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
-	...( await importOriginal() ),
-	readAuthToken: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/auth-token', () => ( { readAuthToken: vi.fn() } ) );
 vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/cli-config/snapshots' );
 vi.mock( 'cli/lib/daemon-client' );

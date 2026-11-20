@@ -1,5 +1,5 @@
 import { HOUR_MS, DAY_MS } from '@studio/common/constants';
-import { addConnectedWpcomSite } from '@studio/common/lib/connected-sites';
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __ } from '@wordpress/i18n';
 import { addHours } from 'date-fns/addHours';
@@ -47,7 +47,7 @@ export async function syncPreviewsWithServer( userId: number, token: string ): P
 	for ( const snapshot of forgotten ) {
 		const site = sites.find( ( candidate ) => candidate.id === snapshot.atomicSiteId );
 		if ( site ) {
-			await addConnectedWpcomSite( snapshot.localSiteId, site );
+			await rememberRemoteSite( 'wpcom', snapshot.localSiteId, site );
 		}
 	}
 }

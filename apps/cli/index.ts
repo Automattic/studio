@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { ConfigTooNewError, readConfig } from '@studio/common/lib/config/store';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
@@ -28,7 +29,7 @@ import { setupErrorReporting } from 'cli/lib/error-reporting';
 import { loadTranslations } from 'cli/lib/i18n';
 import { setupTosNotice } from 'cli/lib/tos-notice';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
-import { setupUpdateNotifier } from 'cli/lib/update-notifier';
+import { getUpdateInstruction, setupUpdateNotifier } from 'cli/lib/update-notifier';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
@@ -52,6 +53,17 @@ async function main() {
 				process.version
 			)
 		);
+		process.exit( 1 );
+	}
+
+	// Brings the config file up to date, and stops a CLI older than the file before it reads it.
+	try {
+		await readConfig();
+	} catch ( error ) {
+		if ( ! ( error instanceof ConfigTooNewError ) ) {
+			throw error;
+		}
+		console.error( `${ error.message } ${ getUpdateInstruction( version ) }` );
 		process.exit( 1 );
 	}
 
@@ -81,9 +93,12 @@ async function main() {
 			},
 		} )
 		.middleware( async () => {
-			const { runMigrations } = await import( '@studio/common/lib/migration' );
-			const { migrations } = await import( 'cli/migrations' );
-			await runMigrations( migrations );
+			const { runStartupTasks } = await import( '@studio/common/lib/startup-tasks' );
+			const { installBundledDefaultPhp } = await import( 'cli/lib/install-bundled-default-php' );
+			const { moveAiSessionsToStudioDir } = await import(
+				'@studio/agent/node/sessions/root-migration'
+			);
+			await runStartupTasks( [ installBundledDefaultPhp, moveAiSessionsToStudioDir ] );
 
 			const { prunePmLogs } = await import( 'cli/lib/prune-pm-logs' );
 			await prunePmLogs();

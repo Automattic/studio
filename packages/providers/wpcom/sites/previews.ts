@@ -29,6 +29,8 @@ const importResponseSchema = z
 // `preview_sites` is left out when the user has none. `expires_at` is in seconds. `share_url` is the
 // preview link WordPress.com creates when the site's first build is done, and '' until then.
 // `launch_url` is where the owner buys the preview; a preview of changes to a live site has none.
+// `title` is the site's title, and `origin_id` the `originId` it was made with, sent only to the app
+// that made it, so a preview whose local record is missing can still be put back with its local site.
 const pendingPreviewsSchema = z.object( {
 	preview_sites: z
 		.array(
@@ -39,6 +41,8 @@ const pendingPreviewsSchema = z.object( {
 				share_url: z.string().optional(),
 				live_site_id: z.number().optional(),
 				launch_url: z.string().optional(),
+				title: z.string().optional(),
+				origin_id: z.string().optional(),
 			} )
 		)
 		.optional(),
@@ -136,6 +140,8 @@ export async function listPreviews( token: string ): Promise< PreviewSite[] > {
 						expiresAt: site.expires_at === undefined ? undefined : site.expires_at * 1000,
 						liveSiteId: site.live_site_id,
 						launchUrl: site.launch_url || undefined,
+						title: site.title || undefined,
+						originId: site.origin_id || undefined,
 					},
 			  ]
 			: [];

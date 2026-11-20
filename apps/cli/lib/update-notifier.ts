@@ -1,13 +1,10 @@
 import chalk from '@studio/common/lib/chalk';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import { z } from 'zod';
 import { renderBannerBox } from 'cli/lib/banner-box';
-import {
-	readCliConfig,
-	updateCheckSchema,
-	updateCliConfigWithPartial,
-} from 'cli/lib/cli-config/core';
+import type { Config } from '@studio/common/lib/config/schema';
 
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const FETCH_TIMEOUT_MS = 3000;
@@ -28,22 +25,17 @@ const STUDIO_INSTALL_BASE = 'https://wordpress.studio';
 
 const NPM_UPDATE_COMMAND = 'npm update -g wp-studio';
 
-type UpdateCheck = z.infer< typeof updateCheckSchema >;
+type UpdateCheck = NonNullable< Config[ 'cli' ][ 'updateCheck' ] >;
 type CliConfigUpdateCheckField = 'updateCheck' | 'standaloneUpdateCheck';
 export type CliInstallKind = 'npm' | 'standalone' | 'embedded';
 
 const npmRegistryResponseSchema = z.object( { version: z.string() } );
 const updatesEndpointResponseSchema = z.object( { version: z.string() } );
 
-/**
- * Reads a cached update check from cli.json. Fails safe: `readCliConfig` throws on a
- * malformed or unreadable config, but a background update check must never crash the CLI,
- * so any error — or a missing/invalid field — just means "no cached check".
- */
+// A background update check must never crash the CLI, so any error means "no cached check".
 async function readUpdateCheck( field: CliConfigUpdateCheckField ): Promise< UpdateCheck | null > {
 	try {
-		const config = await readCliConfig();
-		return updateCheckSchema.parse( config[ field ] );
+		return ( await readConfig() ).cli[ field ] ?? null;
 	} catch {
 		return null;
 	}
@@ -127,8 +119,8 @@ async function notifyNpm( currentVersion: string ): Promise< void > {
 		const version = await fetchNpmLatestVersion();
 		if ( version ) {
 			try {
-				await updateCliConfigWithPartial( {
-					updateCheck: { lastChecked: now, latestVersion: version },
+				await updateConfig( ( { cli } ) => {
+					cli.updateCheck = { lastChecked: now, latestVersion: version };
 				} );
 			} catch {
 				// Non-critical, ignore write failures
@@ -215,11 +207,11 @@ async function notifyStandalone( currentVersion: string ): Promise< void > {
 		// Cache successful checks only; on error, retry on the next run.
 		if ( result.kind !== 'error' ) {
 			try {
-				await updateCliConfigWithPartial( {
-					standaloneUpdateCheck: {
+				await updateConfig( ( { cli } ) => {
+					cli.standaloneUpdateCheck = {
 						lastChecked: now,
 						latestVersion: latestVersion ?? currentVersion,
-					},
+					};
 				} );
 			} catch {
 				// Non-critical, ignore write failures
@@ -276,6 +268,21 @@ export function standaloneUpdateCommand(
 	// falls back to `latest`. `curl … | VAR=x bash` is what actually pins the channel.
 	const prefix = alias ? `STUDIO_CLI_VERSION=${ alias } ` : '';
 	return `curl -fsSL ${ STUDIO_INSTALL_BASE }/install.sh | ${ prefix }bash`;
+}
+
+// How to update this CLI, for when the config file is newer than it.
+export function getUpdateInstruction( currentVersion: string ): string {
+	switch ( getCliInstallKind() ) {
+		case 'npm':
+			return sprintf( __( 'Update the Studio CLI with `%s`.' ), NPM_UPDATE_COMMAND );
+		case 'standalone':
+			return sprintf(
+				__( 'Update the Studio CLI with `%s`.' ),
+				standaloneUpdateCommand( currentVersion )
+			);
+		default:
+			return __( 'Update WordPress Studio.' );
+	}
 }
 
 export function formatUpdateBanner(

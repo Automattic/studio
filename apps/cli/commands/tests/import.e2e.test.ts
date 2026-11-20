@@ -21,7 +21,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -102,7 +102,7 @@ async function wpLines( env: CliEnv, sitePath: string, ...args: string[] ): Prom
  * theme, posts and pages), with its URLs rewritten to this site's.
  */
 async function assertImportedContent( env: CliEnv, sitePath: string ): Promise< void > {
-	const site = readCliConfig( env ).sites.find( ( entry ) => entry.path === sitePath );
+	const site = readConfigFile( env ).sites.find( ( entry ) => entry.path === sitePath );
 	const siteUrl = `http://localhost:${ String( site?.port ) }`;
 	for ( const option of [ 'siteurl', 'home' ] ) {
 		expect( ( await wpLines( env, sitePath, 'option', 'get', option ) ).at( -1 ) ).toBe( siteUrl );
@@ -139,7 +139,7 @@ async function assertServesImportedSite( env: CliEnv, sitePath: string ): Promis
 	);
 	expect( start.code, start.stderr ).toBe( 0 );
 
-	const site = readCliConfig( env ).sites.find( ( entry ) => entry.path === sitePath );
+	const site = readConfigFile( env ).sites.find( ( entry ) => entry.path === sitePath );
 	const response = await waitForSiteResponse( `http://localhost:${ String( site?.port ) }/`, {
 		expectedStatus: 200,
 		timeoutMs: 60_000,

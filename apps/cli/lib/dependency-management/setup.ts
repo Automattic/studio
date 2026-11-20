@@ -1,6 +1,6 @@
 import fs from 'fs';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import semver from 'semver';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { installFromZip } from './install-from-zip';
 import { getBundledWordPressZipPath, getWordPressVersionPath, readBundledManifest } from './paths';
 import { getWordPressVersionFromInstallation, updateLatestWordPressVersion } from './wordpress';
@@ -58,7 +58,7 @@ export const DEPENDENCY_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 async function shouldCheckDependencyUpdates(): Promise< boolean > {
 	try {
-		const { lastDependencyCheckTime } = await readCliConfig();
+		const { lastDependencyCheckTime } = ( await readConfig() ).cli;
 		if ( typeof lastDependencyCheckTime !== 'number' ) {
 			return true;
 		}
@@ -75,7 +75,9 @@ async function shouldCheckDependencyUpdates(): Promise< boolean > {
 
 async function markDependencyCheckTime(): Promise< void > {
 	try {
-		await updateCliConfigWithPartial( { lastDependencyCheckTime: Date.now() } );
+		await updateConfig( ( { cli } ) => {
+			cli.lastDependencyCheckTime = Date.now();
+		} );
 	} catch ( error ) {
 		console.error( 'Failed to persist dependency check timestamp:', error );
 	}

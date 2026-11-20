@@ -1,13 +1,13 @@
 import os from 'os';
 import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { Archiver } from 'archiver';
 import { vi } from 'vitest';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { buildPreviewSite } from 'cli/lib/preview-sites';
-import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -19,10 +19,7 @@ import { LoggerError } from 'cli/logger';
 import { mockReportSuccess, mockReportError } from 'cli/tests/test-utils';
 import { runCommand } from '../update';
 
-vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
-	...( await importOriginal() ),
-	readAuthToken: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/auth-token', () => ( { readAuthToken: vi.fn() } ) );
 vi.mock( 'cli/lib/cli-config/sites', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
@@ -31,7 +28,7 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 	};
 } );
 vi.mock( 'cli/lib/archive' );
-vi.mock( 'cli/lib/site-tracks' );
+vi.mock( '@studio/common/lib/site-tracks' );
 vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/validation', () => ( {
@@ -207,7 +204,7 @@ describe( 'Preview Update Command', () => {
 	it( 'includes resolved IDs on an update failure', async () => {
 		vi.mocked( buildPreviewSite ).mockRejectedValueOnce( new Error( 'Upload failed' ) );
 		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow();
-		expect( getSiteTracksProps ).toHaveBeenCalledWith( mockFolder, mockSnapshot );
+		expect( getSiteTracksProps ).toHaveBeenCalledWith( { siteFolder: mockFolder }, mockSnapshot );
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.PREVIEW_SITE_UPDATE,
 			expect.objectContaining( {
@@ -221,7 +218,7 @@ describe( 'Preview Update Command', () => {
 	it( 'omits preview context when the preview cannot be resolved', async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValueOnce( [] );
 		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow();
-		expect( getSiteTracksProps ).toHaveBeenCalledWith( mockFolder, undefined );
+		expect( getSiteTracksProps ).toHaveBeenCalledWith( { siteFolder: mockFolder }, undefined );
 		const props = vi
 			.mocked( recordTracksEvent )
 			.mock.calls.find( ( [ event ] ) => event === TRACKS_EVENTS.PREVIEW_SITE_UPDATE )?.[ 1 ];

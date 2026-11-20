@@ -100,11 +100,6 @@
 		"Zaznaczono %d czaty",
 		"Zaznaczono %d czatów"
 	],
-	"%d image": [
-		"%d obraz",
-		"%d obrazy",
-		"%d obrazów"
-	],
 	"%d item updated": [
 		"Zaktualizowano %d element",
 		"Zaktualizowano %d elementy",
@@ -207,9 +202,6 @@
 	"A pull is in progress or was interrupted before it finished.": [
 		"Pobieranie jest w toku lub zostało przerwane przed zakończeniem."
 	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"W tej witrynie trwa już synchronizacja. Poczekaj, aż się zakończy, i spróbuj ponownie."
-	],
 	"AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.": [
 		"Kredytami AI płacisz za korzystanie z AI w WordPress Studio — na przykład za generowanie kodu, budowanie witryny czy używanie innych funkcji opartych na AI. Kredyty nie są pieniędzmi. Nie można ich wypłacić, wymienić na gotówkę ani używać poza WordPress Studio."
 	],
@@ -257,12 +249,6 @@
 	],
 	"Activate all plugins": [
 		"Włącz wszystkie wtyczki"
-	],
-	"Activate plugin": [
-		"Włącz wtyczkę"
-	],
-	"Activate theme": [
-		"Włącz motyw"
 	],
 	"Add AI credits": [
 		"Dodaj kredyty AI"
@@ -350,9 +336,6 @@
 	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"Podczas aktualizowania WordPress Studio CLI wystąpił błąd. Spróbuj ponownie."
-	],
-	"Annotate site elements visually in a browser.": [
-		"Dodawaj wizualne adnotacje do elementów witryny w przeglądarce."
 	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"Adnotacje są dostępne dla systemów projektowych utworzonych przez Studio Code."
@@ -464,12 +447,6 @@
 	"Attached images are too large to send together": [
 		"Załączone obrazy są zbyt duże, aby wysłać je razem"
 	],
-	"Audit SEO": [
-		"Przeprowadź audyt SEO"
-	],
-	"Audit performance": [
-		"Przeprowadź audyt wydajności"
-	],
 	"Auto-start": [
 		"Automatyczne uruchamianie"
 	],
@@ -517,9 +494,6 @@
 	],
 	"Backup node ids to pull when using the \"paths\" option": [
 		"ID węzłów kopii zapasowej do pobrania przy użyciu opcji \"paths\""
-	],
-	"Backup timed out — no progress detected": [
-		"Upłynął limit czasu kopii zapasowej — nie wykryto postępu"
 	],
 	"Backups": [
 		"Kopie zapasowe"
@@ -1359,9 +1333,6 @@
 	"Do not pull the database (keeps the local one)": [
 		"Nie pobieraj bazy danych (zachowuje lokalną)"
 	],
-	"Domains": [
-		"Domeny"
-	],
 	"Download & copy command": [
 		"Pobierz i skopiuj polecenie"
 	],
@@ -1524,12 +1495,6 @@
 	"Failed to check backup size": [
 		"Nie udało się sprawdzić rozmiaru kopii zapasowej"
 	],
-	"Failed to check backup status": [
-		"Nie udało się sprawdzić stanu kopii zapasowej"
-	],
-	"Failed to check import status": [
-		"Nie udało się sprawdzić stanu importu"
-	],
 	"Failed to check the preview site": [
 		"Nie udało się sprawdzić podglądu witryny"
 	],
@@ -1577,12 +1542,6 @@
 	],
 	"Failed to import the backup. Please try again.": [
 		"Nie udało się zaimportować kopii zapasowej. Spróbuj ponownie."
-	],
-	"Failed to initiate backup": [
-		"Nie udało się rozpocząć tworzenia kopii zapasowej"
-	],
-	"Failed to initiate import on remote site": [
-		"Nie udało się rozpocząć importu w zdalnej witrynie"
 	],
 	"Failed to install the migration key on the WordPress.com site": [
 		"Nie udało się zainstalować klucza migracji w witrynie WordPress.com"
@@ -1692,12 +1651,6 @@
 	"Flattening layout": [
 		"Spłaszczanie układu"
 	],
-	"Flush cache": [
-		"Wyczyść pamięć podręczną"
-	],
-	"Flush permalinks": [
-		"Odśwież bezpośrednie odnośniki"
-	],
 	"Folder": [
 		"Folder"
 	],
@@ -1760,9 +1713,6 @@
 	],
 	"Get site configuration": [
 		"Pobierz konfigurację witryny"
-	],
-	"Get site info": [
-		"Odczytaj informacje o witrynie"
 	],
 	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
 		"Zacznij od jednorazowego darmowego limitu, a potem dokupuj więcej w miarę potrzeb. Klucz API nie jest wymagany."
@@ -1883,9 +1833,6 @@
 	],
 	"Import media": [
 		"Importuj media"
-	],
-	"Import site": [
-		"Importuj witrynę"
 	],
 	"Import source directory is empty: %s": [
 		"Katalog źródła importu jest pusty: %s"
@@ -2044,17 +1991,11 @@
 	"Light mode": [
 		"Tryb jasny"
 	],
-	"List": [
-		"Wyświetl"
-	],
 	"List %s": [
 		"Wyświetl %s"
 	],
 	"List connected remote sites": [
 		"Wyświetl połączone zdalne witryny"
-	],
-	"List menus": [
-		"Wyświetl menu"
 	],
 	"List plugins": [
 		"Wyświetl wtyczki"
@@ -2070,9 +2011,6 @@
 	],
 	"List terms": [
 		"Wyświetl terminy"
-	],
-	"List themes": [
-		"Wyświetl motywy"
 	],
 	"List users": [
 		"Wyświetl użytkowników"
@@ -2434,9 +2372,6 @@
 	"Opening the local site…": [
 		"Otwieranie lokalnej witryny…"
 	],
-	"Optimize category taxonomy with AI.": [
-		"Optymalizuj taksonomię kategorii za pomocą AI."
-	],
 	"Other files…": [
 		"Inne pliki…"
 	],
@@ -2743,12 +2678,6 @@
 	"Re-run the same command to resume the import.": [
 		"Uruchom ponownie to samo polecenie, aby wznowić import."
 	],
-	"Read": [
-		"Odczytaj"
-	],
-	"Read %s": [
-		"Odczytaj %s"
-	],
 	"Read site option": [
 		"Odczytaj opcję witryny"
 	],
@@ -2973,14 +2902,8 @@
 	"Run WordPress command": [
 		"Uruchom polecenie WordPress"
 	],
-	"Run a performance audit on a site.": [
-		"Przeprowadź audyt wydajności witryny."
-	],
 	"Run a single headless turn, printing NDJSON events": [
 		"Wykonaj jedną turę bez interfejsu, wypisując zdarzenia NDJSON"
-	],
-	"Run an on-page SEO audit on a site.": [
-		"Przeprowadź audyt SEO on-page witryny."
 	],
 	"Run task": [
 		"Uruchom zadanie"
@@ -3011,9 +2934,6 @@
 	],
 	"Saving the instructions failed. Please try again.": [
 		"Nie udało się zapisać instrukcji. Spróbuj ponownie."
-	],
-	"Scaffold theme": [
-		"Utwórz szkielet motywu"
 	],
 	"Screenshots are available in the desktop app.": [
 		"Zrzuty ekranu są dostępne w aplikacji desktopowej."
@@ -3485,9 +3405,6 @@
 	"Stopping site…": [
 		"Zatrzymywanie witryny…"
 	],
-	"Strong": [
-		"Mocny"
-	],
 	"Studio CLI uninstalled. Removed:": [
 		"Studio CLI odinstalowane. Usunięto:"
 	],
@@ -3935,9 +3852,6 @@
 	"Unsupported backup file": [
 		"Nieobsługiwany plik kopii zapasowej"
 	],
-	"Update %s": [
-		"Zaktualizuj %s"
-	],
 	"Update all plugins": [
 		"Zaktualizuj wszystkie wtyczki"
 	],
@@ -4057,9 +3971,6 @@
 	],
 	"Using Copilot plan": [
 		"Korzysta z planu Copilot"
-	],
-	"Validate blocks": [
-		"Zweryfikuj bloki"
 	],
 	"View %s larger": [
 		"Powiększ %s"
@@ -4313,9 +4224,6 @@
 	"Would delete %1$s (%2$s); files: %3$s": [
 		"Zostałaby usunięta witryna %1$s (%2$s); pliki: %3$s"
 	],
-	"Write": [
-		"Zapisz"
-	],
 	"Write PHP errors to wp-content/debug.log.": [
 		"Zapisuj błędy PHP w wp-content/debug.log."
 	],
@@ -4501,9 +4409,6 @@
 	"include-path-list must be an array": [
 		"include-path-list musi być tablicą"
 	],
-	"inline content": [
-		"treść wbudowana"
-	],
 	"media item": [
 		"element multimediów"
 	],
@@ -4512,9 +4417,6 @@
 	],
 	"no files": [
 		"brak plików"
-	],
-	"page": [
-		"stronę"
 	],
 	"pages": [
 		"strony"

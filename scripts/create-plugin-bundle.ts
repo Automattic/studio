@@ -65,8 +65,8 @@ async function recordMcpSnapshot( file: string, client: string, config: string )
 	const home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-mcp-snapshot-' ) );
 	fs.mkdirSync( path.join( home, '.studio' ) );
 	fs.writeFileSync(
-		path.join( home, '.studio', 'shared.json' ),
-		JSON.stringify( { analyticsOptOut: true } )
+		path.join( home, '.studio', 'config.json' ),
+		JSON.stringify( { version: 1, preferences: { analyticsOptOut: true } } )
 	);
 	const { env } = JSON.parse( fs.readFileSync( config, 'utf8' ) ).mcpServers[ 'wordpress-studio' ];
 	const server = spawn(

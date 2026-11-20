@@ -18,7 +18,6 @@ import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
-import { UnsupportedError } from '../unsupported-error';
 import type {
 	AgentApp,
 	ActiveAgentRun,
@@ -139,8 +138,8 @@ export function createIpcConnector(): Connector {
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
-			nativeSites: true,
 			loopbackSignIn: true,
+			localMachine: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -345,9 +344,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 		async captureAnnotationRegion( request ) {
-			if ( ! ( 'guestId' in request ) ) {
-				throw new UnsupportedError( 'captureAnnotationRegion' );
-			}
 			return ipcApi.captureAnnotationRegion( request );
 		},
 		async captureSitePreview( siteId, { path, guestId } ) {
@@ -603,6 +599,10 @@ export function createIpcConnector(): Connector {
 
 		async setSessionProvider( sessionId, provider, model ) {
 			await ipcApi.setAiSessionProvider( sessionId, provider, model );
+		},
+
+		async setSessionThinking( sessionId, model, thinking ) {
+			await ipcApi.setAiSessionThinking( sessionId, model, thinking );
 		},
 
 		async setSessionEnvironment( sessionId, environment ) {

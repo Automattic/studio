@@ -28,7 +28,6 @@ import { validateBlocks } from '@studio/agent/node';
 import { readConfig } from '@studio/common/lib/config/store';
 import { getCurateAdminManifestPath } from '@studio/common/lib/curate-admin';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
-import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
@@ -356,7 +355,7 @@ async function captureSiteOutcome(
 			content: string;
 		} > ) {
 			if ( ! item.content.includes( '<!-- wp:' ) ) continue;
-			const report = await validateBlocks( cliAgentHost.pages, item.content, url );
+			const report = await validateBlocks( item.content, url );
 			if ( report.invalidBlocks > 0 ) {
 				invalid.push( {
 					id: item.id,
@@ -374,7 +373,7 @@ async function captureSiteOutcome(
 			outcome.themeFiles as Record< string, string >
 		) ) {
 			if ( ! /^(templates|parts)\/.+\.html$/.test( file ) || released( file ) ) continue;
-			const report = await validateBlocks( cliAgentHost.pages, text, url );
+			const report = await validateBlocks( text, url );
 			if ( report.invalidBlocks > 0 ) {
 				invalid.push( {
 					id: 0,

@@ -2,9 +2,9 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import { installCuratedAdmin, parseCurateAdminManifest } from '@studio/agent/shared/curate-admin';
+import { installCuratedAdmin, parseCurateAdminManifest } from '@studio/agent/node/curate-admin';
 import { createFakeHost } from './fake-host';
-import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 const PAGES = 'edit.php?post_type=page';
 

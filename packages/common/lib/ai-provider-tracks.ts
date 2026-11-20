@@ -118,8 +118,10 @@ export async function getAiTurnTracksProps(
 	return {
 		provider,
 		connection_method: account.connected ? account.method : fallback,
-		model,
-		model_family: getModelFamily( provider, model ),
+		// Analytics never name a local model: the user names it.
+		...( getProvider( provider ).ai?.local
+			? { model: 'local-model', model_family: provider }
+			: { model, model_family: getModelFamily( provider, model ) } ),
 	};
 }
 

@@ -93,9 +93,7 @@ const SITE_START_PHASES = [
 	'wordpress_install',
 	'blueprint',
 	'symlink_scan',
-	'php_first_worker',
 	'php_workers',
-	'proxy_ready',
 	'admin_credentials',
 ] as const;
 export type SiteStartPhase = ( typeof SITE_START_PHASES )[ number ];

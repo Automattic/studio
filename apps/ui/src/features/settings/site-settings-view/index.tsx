@@ -377,7 +377,7 @@ export function SiteSettingsForm( {
 				<ConnectionCard active={ active } />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
-					{ connector.capabilities.nativeSites && (
+					{ connector.capabilities.localMachine && (
 						<>
 							<SettingsRow
 								title={ __( 'Local path' ) }
@@ -420,7 +420,7 @@ export function SiteSettingsForm( {
 						</>
 					) }
 				</SettingsGroup>
-				{ connector.capabilities.nativeSites && (
+				{ connector.capabilities.localMachine && (
 					<SettingsGroup title={ __( 'Local domain' ) }>
 						{ toggleRow(
 							'useCustomDomain',
@@ -542,7 +542,7 @@ export function SiteSettingsForm( {
 					) }
 				</SettingsGroup>
 				<SettingsGroup title={ __( 'Debugging' ) }>
-					{ connector.capabilities.nativeSites &&
+					{ connector.capabilities.localMachine &&
 						toggleRow(
 							'enableXdebug',
 							__( 'Xdebug' ),

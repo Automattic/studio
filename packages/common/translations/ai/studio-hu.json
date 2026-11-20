@@ -236,9 +236,6 @@
 	"A pull is in progress or was interrupted before it finished.": [
 		"Egy lekérés folyamatban van, vagy befejezés előtt megszakadt."
 	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"Ezen az oldalon már folyamatban van egy szinkronizálás. Várd meg, amíg befejeződik, majd próbáld újra."
-	],
 	"AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.": [
 		"Az AI-kreditekkel fizetsz az AI használatáért a WordPress Studióban — például kódgenerálásért, egy oldal felépítéséért vagy más AI-alapú funkciók futtatásáért. A kreditek nem pénzt jelentenek: nem veheted fel, nem válthatod készpénzre, és nem használhatod őket a WordPress Studión kívül."
 	],
@@ -277,9 +274,6 @@
 	],
 	"API key": [
 		"API-kulcs"
-	],
-	"API key is required": [
-		"Az API-kulcs megadása kötelező"
 	],
 	"Accent tag": [
 		"Kiemelő címke"
@@ -572,9 +566,6 @@
 	],
 	"Backup node ids to pull when using the \"paths\" option": [
 		"A lekérendő biztonsági mentési csomópontok azonosítói a „paths” opció használatakor"
-	],
-	"Backup timed out — no progress detected": [
-		"A biztonsági mentés időtúllépés miatt leállt — nem észlelhető előrehaladás"
 	],
 	"Backups": [
 		"Biztonsági mentések"
@@ -1390,9 +1381,6 @@
 		"%d oldal törlése",
 		"%d oldal törlése"
 	],
-	"Delete %s": [
-		"Törlés: %s"
-	],
 	"Delete annotation": [
 		"Megjegyzés törlése"
 	],
@@ -1486,9 +1474,6 @@
 	],
 	"Do not pull the database (keeps the local one)": [
 		"Az adatbázis lekérésének kihagyása (a helyi megmarad)"
-	],
-	"Domains": [
-		"Domainek"
 	],
 	"Don't ask me again": [
 		"Ne kérdezd újra"
@@ -1663,12 +1648,6 @@
 	],
 	"Failed to back up the remote site": [
 		"Nem sikerült biztonsági mentést készíteni a távoli oldalról"
-	],
-	"Failed to check backup size": [
-		"Nem sikerült ellenőrizni a biztonsági mentés méretét"
-	],
-	"Failed to check backup status": [
-		"Nem sikerült ellenőrizni a biztonsági mentés állapotát"
 	],
 	"Failed to check import status": [
 		"Nem sikerült ellenőrizni az importálás állapotát"
@@ -1859,9 +1838,6 @@
 	"Flush cache": [
 		"Gyorsítótár ürítése"
 	],
-	"Flush permalinks": [
-		"Közvetlen hivatkozások frissítése"
-	],
 	"Folder": [
 		"Mappa"
 	],
@@ -1931,9 +1907,6 @@
 	],
 	"Get site configuration": [
 		"Oldalkonfiguráció lekérdezése"
-	],
-	"Get site info": [
-		"Oldalinformációk lekérése"
 	],
 	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
 		"Kezdd egy egyszeri ingyenes kerettel, aztán vásárolj többet, amikor kell. Nincs szükség API-kulcsra."
@@ -2248,9 +2221,6 @@
 	],
 	"Link copied": [
 		"Link kimásolva"
-	],
-	"List": [
-		"Listázás"
 	],
 	"List %s": [
 		"Listázás: %s"
@@ -2690,9 +2660,6 @@
 	"Opening the local site…": [
 		"Helyi oldal megnyitása…"
 	],
-	"Optimize category taxonomy with AI.": [
-		"A kategóriák rendszerének optimalizálása AI segítségével."
-	],
 	"Other files…": [
 		"Egyéb fájlok…"
 	],
@@ -3020,9 +2987,6 @@
 	"Read": [
 		"Olvasás"
 	],
-	"Read %s": [
-		"Olvasás: %s"
-	],
 	"Read site option": [
 		"Oldalbeállítás olvasása"
 	],
@@ -3064,9 +3028,6 @@
 	],
 	"Remote URLs must be rendered by Data Liberation before SSI materialization.": [
 		"A távoli URL-eket a Data Liberationnek kell renderelnie az SSI általi elkészítés előtt."
-	],
-	"Remote backup failed": [
-		"A távoli biztonsági mentés sikertelen"
 	],
 	"Remote environment: %s": [
 		"Távoli környezet: %s"
@@ -3266,9 +3227,6 @@
 	],
 	"Run WordPress command": [
 		"WordPress-parancs futtatása"
-	],
-	"Run a performance audit on a site.": [
-		"Teljesítményelemzés futtatása egy oldalon."
 	],
 	"Run a single headless turn, printing NDJSON events": [
 		"Egyetlen headless lépés futtatása NDJSON események kiírásával"
@@ -4300,9 +4258,6 @@
 	"Unsupported backup file": [
 		"Nem támogatott biztonsági mentési fájl"
 	],
-	"Update %s": [
-		"Frissítés: %s"
-	],
 	"Update all plugins": [
 		"Összes bővítmény frissítése"
 	],
@@ -4320,9 +4275,6 @@
 	],
 	"Update site title": [
 		"Oldalcím frissítése"
-	],
-	"Update todo list": [
-		"Teendőlista frissítése"
 	],
 	"Update user": [
 		"Felhasználó frissítése"
@@ -4901,9 +4853,6 @@
 	"include-path-list must be an array": [
 		"Az include-path-list értékének tömbnek kell lennie"
 	],
-	"inline content": [
-		"beágyazott tartalom"
-	],
 	"media item": [
 		"médiaelem"
 	],
@@ -4921,9 +4870,6 @@
 	],
 	"post": [
 		"bejegyzés"
-	],
-	"posts": [
-		"bejegyzések"
 	],
 	"preview link": [
 		"előnézeti link"

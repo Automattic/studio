@@ -479,6 +479,7 @@ function DashboardLayout() {
 					}
 					panelOpen={ showPanel }
 					onPanelClose={ () => setPanelOpen( false, { userInitiated: true } ) }
+					onChatClose={ () => setPanelFullscreen( true, { userInitiated: true } ) }
 					chatHidden={ chatHidden }
 					instant={ ( ! previewStopping || ! preview.open ) && preview.instant }
 					panel={ renderPanel }

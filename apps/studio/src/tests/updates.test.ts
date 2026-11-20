@@ -12,7 +12,7 @@ import {
 } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
-import { AUTO_UPDATE_INTERVAL_MS } from 'src/constants';
+import { AUTO_UPDATE_INTERVAL_MS, NO_OUTPUT_UPDATE_RETRY_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import {
 	checkForAppUpdates,
@@ -323,6 +323,8 @@ describe( 'update status emissions', () => {
 			'network',
 		],
 		[ 'win32', 'System.Net.Sockets.SocketException: Verbindungsfehler', undefined, 'network' ],
+		[ 'win32', 'Invalid result:\n', undefined, 'no-output' ],
+		[ 'win32', 'Invalid result:\n<html>', undefined, null ],
 		[ 'win32', 'Unrelated update failure', undefined, null ],
 		[ 'darwin', 'The request timed out.', -1001, 'network' ],
 		[ 'darwin', 'A server with the specified hostname could not be found.', -1003, 'network' ],
@@ -342,14 +344,14 @@ describe( 'update status emissions', () => {
 			if ( kind ) {
 				expect( Sentry.captureException ).not.toHaveBeenCalled();
 				expect( getLastEmittedStatus() ).toEqual(
-					kind === 'lock'
-						? { state: 'idle', currentVersion: '1.8.2' }
-						: {
+					kind === 'network'
+						? {
 								state: 'error',
 								currentVersion: '1.8.2',
 								reason: 'generic',
 								detail: 'Check your internet connection and try again.',
 						  }
+						: { state: 'idle', currentVersion: '1.8.2' }
 				);
 			} else {
 				expect( Sentry.captureException ).toHaveBeenCalledWith( err );
@@ -358,6 +360,30 @@ describe( 'update status emissions', () => {
 			vi.mocked( autoUpdater.checkForUpdates ).mockClear();
 			await vi.advanceTimersByTimeAsync( AUTO_UPDATE_INTERVAL_MS );
 			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( kind ? 1 : 0 );
+		} finally {
+			vi.clearAllTimers();
+			vi.useRealTimers();
+		}
+	} );
+
+	it( 'retries a minute after Update.exe prints nothing, then hourly if it happens again', async () => {
+		vi.useFakeTimers();
+		try {
+			Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+			setupUpdates();
+			await getHandler( 'update-not-available' )?.();
+			vi.clearAllTimers();
+			vi.mocked( autoUpdater.checkForUpdates ).mockClear();
+
+			await getHandler( 'error' )?.( new Error( 'Invalid result:\n' ) );
+			await vi.advanceTimersByTimeAsync( NO_OUTPUT_UPDATE_RETRY_MS );
+			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( 1 );
+
+			await getHandler( 'error' )?.( new Error( 'Invalid result:\n' ) );
+			await vi.advanceTimersByTimeAsync( NO_OUTPUT_UPDATE_RETRY_MS );
+			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( 1 );
+			await vi.advanceTimersByTimeAsync( AUTO_UPDATE_INTERVAL_MS );
+			expect( autoUpdater.checkForUpdates ).toHaveBeenCalledTimes( 2 );
 		} finally {
 			vi.clearAllTimers();
 			vi.useRealTimers();

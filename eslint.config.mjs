@@ -44,6 +44,11 @@ const PROVIDERS_DESCRIPTORS = [
 	'wpcom/sites/site.ts',
 ];
 
+const PROVIDER_FOLDERS = fs
+	.readdirSync( path.join( import.meta.dirname, 'packages/providers' ), { withFileTypes: true } )
+	.filter( ( entry ) => entry.isDirectory() )
+	.map( ( entry ) => entry.name );
+
 const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];
 
 const BASE_UI = {
@@ -416,18 +421,7 @@ export default defineConfig(
 							from: 'packages/providers',
 							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
 								file.startsWith( '*/' )
-									? [
-											'wpcom',
-											'anthropic',
-											'openai',
-											'gemini',
-											'github-copilot',
-											'meta',
-											'xai',
-											'openrouter',
-											'spacefast',
-											'local-llm',
-									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
+									? PROVIDER_FOLDERS.map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]
 							),
 							message: 'The @studio/providers entry imports only the files it is made of.',

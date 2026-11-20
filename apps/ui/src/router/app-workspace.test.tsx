@@ -424,13 +424,15 @@ describe( 'Studio workspace', () => {
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 
-	it( 'keeps the Share control available through account changes and prompts signed-out users', async () => {
+	it( 'keeps Publish available through account changes and lets signed-out users choose a destination', async () => {
 		const { connector, queryClient } = setup( { sites: [ site( { running: true } ) ] } );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Share your WordPress' } ) ).toBeVisible();
+		const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+		expect( await within( panel ).findByRole( 'combobox', { name: 'Destination' } ) ).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
+		await waitFor( () => expect( panel ).not.toBeInTheDocument() );
 		connector.state.user = TEST_USER;
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();

@@ -6,7 +6,7 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, isHttpsUsedByAnySite } from 'cli/lib/cli-config/sites';
 import {
 	isProxyProcessRunning,
 	listProcesses,
@@ -23,10 +23,34 @@ import { Logger, LoggerError } from 'cli/logger';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 /**
- * Starts the HTTP proxy server if it's not already running
+ * Whether the running proxy holds port 443, or undefined when it doesn't answer.
+ */
+async function isProxyServingHttps(): Promise< boolean | undefined > {
+	try {
+		const response = await fetch( 'http://127.0.0.1/__studio_health', {
+			signal: AbortSignal.timeout( 5000 ),
+		} );
+		const { https } = ( await response.json() ) as { https?: unknown };
+		return typeof https === 'boolean' ? https : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Starts the HTTP proxy server if it's not already running. The proxy decides whether to take
+ * port 443 when it starts, so it starts again once that no longer matches the sites' HTTPS
+ * settings.
  */
 async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< void > {
-	const proxyProcess = await isProxyProcessRunning();
+	let proxyProcess = await isProxyProcessRunning();
+	if ( proxyProcess ) {
+		const servesHttps = await isProxyServingHttps();
+		if ( servesHttps !== undefined && servesHttps !== ( await isHttpsUsedByAnySite() ) ) {
+			await stopProxyProcess();
+			proxyProcess = undefined;
+		}
+	}
 	if ( ! proxyProcess ) {
 		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server…' ) );
 		const readyOrExit = await subscribeForReadyOrExit( PROXY_PROCESS_NAME );

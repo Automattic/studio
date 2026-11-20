@@ -2,18 +2,25 @@ import { readConfig } from '@studio/common/lib/config/store';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi, type Mock } from 'vitest';
 import { openBrowser } from 'cli/lib/browser';
-import { isProxyProcessRunning, listProcesses, stopProxyProcess } from 'cli/lib/daemon-client';
+import {
+	isProxyProcessRunning,
+	listProcesses,
+	startProxyProcess,
+	stopProxyProcess,
+} from 'cli/lib/daemon-client';
 import {
 	getSitesRunningStatus,
 	openSiteInBrowser,
+	setupCustomDomain,
 	stopProxyIfNoSitesNeedIt,
 } from 'cli/lib/site-utils';
-import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { isServerRunning, subscribeForReadyOrExit } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( '@studio/common/lib/config/store' );
 vi.mock( 'cli/lib/browser' );
+vi.mock( 'cli/lib/certificate-manager' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
@@ -115,6 +122,95 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
 
 		expect( isServerRunning ).toHaveBeenCalledWith( 'running-site' );
+		expect( stopProxyProcess ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'setupCustomDomain', () => {
+	const logger = {
+		reportStart: vi.fn(),
+		reportSuccess: vi.fn(),
+	} as unknown as Logger< LoggerAction >;
+	const mockFetch = vi.fn();
+
+	// Starts a site while the proxy is already running, with or without port 443. The proxy doesn't
+	// answer when `proxyServesHttps` is undefined.
+	async function startSiteWithProxyRunning(
+		site: Partial< ConfigSite >,
+		proxyServesHttps: boolean | undefined,
+		otherSites: Partial< ConfigSite >[] = []
+	) {
+		const siteData: ConfigSite = {
+			id: 'site-1',
+			name: 'Site',
+			path: '/sites/site',
+			port: 8881,
+			phpVersion: '8.4',
+			customDomain: 'site.local',
+			...site,
+		};
+		( readConfig as Mock ).mockResolvedValue( {
+			version: 1,
+			sites: [ siteData, ...otherSites ],
+		} );
+		if ( proxyServesHttps === undefined ) {
+			mockFetch.mockRejectedValue( new Error( 'fetch failed' ) );
+		} else {
+			mockFetch.mockImplementation( async () => Response.json( { https: proxyServesHttps } ) );
+		}
+		await setupCustomDomain( siteData, logger, { skipHostsUpdate: true } );
+	}
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.stubGlobal( 'fetch', mockFetch );
+		( isProxyProcessRunning as Mock ).mockResolvedValue( { name: 'studio-proxy', pmId: 0 } );
+		( startProxyProcess as Mock ).mockResolvedValue( { name: 'studio-proxy', pmId: 1 } );
+		( subscribeForReadyOrExit as Mock ).mockResolvedValue( {
+			waitFor: vi.fn(),
+			dispose: vi.fn(),
+		} );
+	} );
+
+	afterEach( () => {
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'should restart a proxy without port 443 when a site uses HTTPS', async () => {
+		await startSiteWithProxyRunning( { enableHttps: true }, false );
+
+		expect( stopProxyProcess ).toHaveBeenCalled();
+		expect( startProxyProcess ).toHaveBeenCalled();
+	} );
+
+	it( 'should restart a proxy holding port 443 when no site uses HTTPS', async () => {
+		await startSiteWithProxyRunning( { enableHttps: false }, true );
+
+		expect( stopProxyProcess ).toHaveBeenCalled();
+		expect( startProxyProcess ).toHaveBeenCalled();
+	} );
+
+	it.each( [ true, false ] )(
+		'should keep the proxy running when its ports match the sites (HTTPS: %s)',
+		async ( enableHttps ) => {
+			await startSiteWithProxyRunning( { enableHttps }, enableHttps );
+
+			expect( stopProxyProcess ).not.toHaveBeenCalled();
+			expect( startProxyProcess ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'should keep port 443 for a site without HTTPS while another site uses HTTPS', async () => {
+		await startSiteWithProxyRunning( { enableHttps: false }, true, [
+			{ id: 'site-2', customDomain: 'other.local', enableHttps: true },
+		] );
+
+		expect( stopProxyProcess ).not.toHaveBeenCalled();
+	} );
+
+	it( 'should keep the proxy running when it does not answer', async () => {
+		await startSiteWithProxyRunning( { enableHttps: true }, undefined );
+
 		expect( stopProxyProcess ).not.toHaveBeenCalled();
 	} );
 } );

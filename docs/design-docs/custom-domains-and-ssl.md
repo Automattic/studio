@@ -39,7 +39,7 @@ Each site will have its own dedicated certificate rather than using wildcard cer
 
 The implementation uses a multi-layered approach:
 
-1. A proxy server listens on standard HTTP/HTTPS ports (80/443) and forwards requests to the appropriate WordPress site based on the requested domain.
+1. A proxy server listens on the standard HTTP port (80), and on the standard HTTPS port (443) when a site has HTTPS enabled, and forwards requests to the appropriate WordPress site based on the requested domain.
 2. The system hosts file is modified to resolve custom domain names to localhost (127.0.0.1).
 3. A certificate management system generates and manages a root CA and site-specific certificates for HTTPS support.
 4. UI components allow users to configure custom domains and HTTPS settings when creating or editing sites.
@@ -68,7 +68,7 @@ When a site with a custom domain is accessed, the proxy server handles the reque
 
 ### Proxy server requires standard ports
 
-**Risk**: The proxy server requires ports 80 and 443, which might already be in use on the user's system.
+**Risk**: The proxy server requires port 80, and port 443 when a site has HTTPS enabled, which might already be in use on the user's system.
 
 **Mitigation**: Provide clear error messages when ports are unavailable and document alternative approaches (like stopping other services temporarily).
 

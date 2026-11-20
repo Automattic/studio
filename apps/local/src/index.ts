@@ -288,6 +288,9 @@ export interface LocalServer {
 
 const DEFAULT_PORT = 8081;
 
+// How long `close()` lets unfinished requests run before it drops their connections.
+const CLOSE_GRACE_MS = 2000;
+
 const LOCAL_HOSTNAMES = new Set( [ 'localhost', '127.0.0.1', '[::1]', 'studio.local' ] );
 
 const WILDCARD_HOSTS: ReadonlySet< string > = new Set( [ '', '0.0.0.0', '::', '::ffff:0:0' ] );
@@ -2700,7 +2703,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			for ( const client of [ ...sseClients ] ) {
 				closeStream( client );
 			}
-			await new Promise< void >( ( resolve ) => server.close( () => resolve() ) );
+			const closed = new Promise< void >( ( resolve ) => server.close( () => resolve() ) );
+			// A request whose body never arrives would hold `server.close` until
+			// Node's request timeout, and a body is read before any token is
+			// checked: give requests a moment to finish, then drop the connections.
+			server.closeIdleConnections();
+			const dropConnections = setTimeout( () => server.closeAllConnections(), CLOSE_GRACE_MS );
+			await closed;
+			clearTimeout( dropConnections );
 		},
 	};
 }

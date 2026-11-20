@@ -7,33 +7,36 @@ vi.mock( '../../api' );
 const get = vi.fn();
 
 // Answers the site with its UTC offset and time zone, the posts endpoint by post type (`posts`
-// for `any`, otherwise the type's own key), and the media and comments endpoints.
+// for `any`, otherwise the type's own key), and the media and comments endpoints. An answer that is an error is thrown.
 function answers( {
 	gmtOffset = 0,
 	timezone = '',
+	site = { ID: 42, options: { gmt_offset: gmtOffset, timezone } },
 	posts = { found: 0, posts: [] },
 	media = { found: 0, media: [] },
 	comments = { found: 0, comments: [] },
 	...siteDesign
 }: Record< string, unknown > ) {
 	get.mockImplementation( async ( path: string, query: { type?: string } ) => {
-		if ( path === '/sites/42' ) {
-			return { ID: 42, options: { gmt_offset: gmtOffset, timezone } };
-		}
-		if ( path.endsWith( '/media' ) ) {
-			return media;
-		}
-		if ( path.endsWith( '/comments' ) ) {
-			return comments;
-		}
 		const answer =
-			query.type === 'any' ? posts : siteDesign[ query.type ?? '' ] ?? { found: 0, posts: [] };
+			path === '/sites/42'
+				? site
+				: path.endsWith( '/media' )
+				? media
+				: path.endsWith( '/comments' )
+				? comments
+				: query.type === 'any'
+				? posts
+				: siteDesign[ query.type ?? '' ] ?? { found: 0, posts: [] };
 		if ( answer instanceof Error ) {
 			throw answer;
 		}
 		return answer;
 	} );
 }
+
+const forbidden = () =>
+	Object.assign( new Error( 'Forbidden' ), { statusCode: 403, error: 'forbidden' } );
 
 beforeEach( () => {
 	vi.resetAllMocks();
@@ -169,16 +172,27 @@ describe( 'fetchLiveChangesSince', () => {
 		).resolves.toEqual( { posts: 0, comments: 0, siteDesign: 0 } );
 	} );
 
-	it( 'fails the check when a site design request fails otherwise', async () => {
-		answers( {
-			wp_template: Object.assign( new Error( 'Forbidden' ), {
-				statusCode: 403,
-				error: 'forbidden',
-			} ),
-		} );
+	it( 'fails the check when a request fails and the others found nothing', async () => {
+		answers( { wp_template: forbidden() } );
 
 		await expect(
 			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )
 		).rejects.toThrow( 'Forbidden' );
+	} );
+
+	it( 'keeps the changes found when another request fails', async () => {
+		answers( { posts: { found: 2, posts: [] }, wp_template: forbidden() } );
+
+		await expect(
+			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )
+		).resolves.toEqual( { posts: 2, comments: 0, siteDesign: 0 } );
+	} );
+
+	it( 'still counts posts and design when the site’s time zone can’t be read', async () => {
+		answers( { site: forbidden(), wp_block: { found: 1, posts: [] } } );
+
+		await expect(
+			fetchLiveChangesSince( 'token', 42, '2026-11-17T00:00:00.000Z' )
+		).resolves.toEqual( { posts: 0, comments: 0, siteDesign: 1 } );
 	} );
 } );

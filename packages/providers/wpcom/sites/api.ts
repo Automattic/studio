@@ -316,6 +316,9 @@ function toSiteLocalTime(
  * What changed on the site after `since`, an ISO 8601 time: posts of any type modified and media
  * uploaded (`posts`), pieces of the site's design modified (`SITE_DESIGN_TYPES`), and comments
  * made.
+ *
+ * A failed request fails the check only when the others found nothing: a change any of them found
+ * is reason enough to stop, and the counts are then the least that changed.
  */
 export async function fetchLiveChangesSince(
 	token: string,
@@ -323,15 +326,14 @@ export async function fetchLiveChangesSince(
 	since: string
 ): Promise< { posts: number; comments: number; siteDesign: number } > {
 	const wpcom = wpcomClient( token );
-	const { options: siteTime } = siteTimeSchema.parse(
-		await wpcom.req.get( `/sites/${ remoteSiteId }`, {
+	const localSince = wpcom.req
+		.get( `/sites/${ remoteSiteId }`, {
 			apiVersion: '1.1',
 			// `options` alone comes back as an empty list.
 			fields: 'ID,options',
 			options: 'gmt_offset,timezone',
 		} )
-	);
-	const localSince = toSiteLocalTime( since, siteTime );
+		.then( ( site: unknown ) => toSiteLocalTime( since, siteTimeSchema.parse( site ).options ) );
 	const modifiedAfter = ( type: string ) =>
 		wpcom.req.get( `/sites/${ remoteSiteId }/posts`, {
 			apiVersion: '1.1',
@@ -341,40 +343,56 @@ export async function fetchLiveChangesSince(
 			number: LIVE_CHANGES_PAGE,
 			fields: 'ID',
 		} );
-	const [ posts, media, comments, ...siteDesign ] = await Promise.all( [
-		modifiedAfter( 'any' ),
-		// The posts endpoint never lists attachments.
-		wpcom.req.get( `/sites/${ remoteSiteId }/media`, {
-			apiVersion: '1.1',
-			after: localSince,
-			number: LIVE_CHANGES_PAGE,
-			fields: 'ID',
-		} ),
-		wpcom.req.get( `/sites/${ remoteSiteId }/comments`, {
-			apiVersion: '1.1',
-			status: 'all',
-			after: localSince,
-			number: LIVE_CHANGES_PAGE,
-			fields: 'ID',
-		} ),
-		...SITE_DESIGN_TYPES.map( ( type ) =>
-			modifiedAfter( type ).catch( ( error: unknown ) => {
-				// A site that doesn't register the type has none of it to lose.
-				if ( isUnknownPostType( error ) ) {
-					return { found: 0 };
-				}
-				throw error;
+	const afterLocal = ( endpoint: 'media' | 'comments', query: Record< string, string > = {} ) =>
+		localSince.then( ( after ) =>
+			wpcom.req.get( `/sites/${ remoteSiteId }/${ endpoint }`, {
+				apiVersion: '1.1',
+				...query,
+				after,
+				number: LIVE_CHANGES_PAGE,
+				fields: 'ID',
 			} )
-		),
+		);
+	const counted = ( request: Promise< unknown >, items: 'posts' | 'comments' | 'media' ) =>
+		request.then( ( response ) => countFound( response, items ) );
+
+	const [ posts, comments, siteDesign ] = await Promise.all( [
+		Promise.allSettled( [
+			counted( modifiedAfter( 'any' ), 'posts' ),
+			// The posts endpoint never lists attachments.
+			counted( afterLocal( 'media' ), 'media' ),
+		] ),
+		Promise.allSettled( [ counted( afterLocal( 'comments', { status: 'all' } ), 'comments' ) ] ),
+		Promise.allSettled( [
+			...SITE_DESIGN_TYPES.map( ( type ) =>
+				counted( modifiedAfter( type ), 'posts' ).catch( ( error: unknown ) => {
+					// A site that doesn't register the type has none of it to lose.
+					if ( isUnknownPostType( error ) ) {
+						return 0;
+					}
+					throw error;
+				} )
+			),
+		] ),
 	] );
-	return {
-		posts: countFound( posts, 'posts' ) + countFound( media, 'media' ),
-		comments: countFound( comments, 'comments' ),
-		siteDesign: siteDesign.reduce< number >(
-			( total, response ) => total + countFound( response, 'posts' ),
+
+	const total = ( results: PromiseSettledResult< number >[] ) =>
+		results.reduce(
+			( sum, result ) => sum + ( result.status === 'fulfilled' ? result.value : 0 ),
 			0
-		),
+		);
+	const changes = {
+		posts: total( posts ),
+		comments: total( comments ),
+		siteDesign: total( siteDesign ),
 	};
+	const failure = [ ...posts, ...comments, ...siteDesign ].find(
+		( result ): result is PromiseRejectedResult => result.status === 'rejected'
+	);
+	if ( failure && ! changes.posts && ! changes.comments && ! changes.siteDesign ) {
+		throw failure.reason;
+	}
+	return changes;
 }
 
 function isUnknownPostType( error: unknown ): boolean {

@@ -95,7 +95,7 @@ WordPress.com filters by these times on its side. Posts take the time in UTC; th
 
 Pulling instead keeps the live changes, but it replaces the local database too, so the local changes would have to be made again.
 
-The check lives in `checkLiveChanges` (`packages/common/lib/sync/live-changes.ts`), shared by the CLI and Studio on the web. A check that fails, for example on a Jetpack site that blocks the posts endpoint, lets the push go ahead and says so in the result.
+The check lives in `checkLiveChanges` (`packages/common/lib/sync/live-changes.ts`), shared by the CLI and Studio on the web. A check that fails, for example on a Jetpack site that blocks the posts endpoint, lets the push go ahead and says so in the result. When only some of its requests fail, a change the others found still stops the push.
 
 This is interim protection, not merging. It does not see:
 

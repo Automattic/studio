@@ -36,6 +36,10 @@ The machine reaches its own sites at those addresses without leaving it (`apps/c
 
 The CLI refuses a new site past `STUDIO_MAX_SITES` (`site create`), a site start past `STUDIO_MAX_RUNNING_SITES` (the process manager, whoever asks), and an import whose backup won't fit in what `STUDIO_MAX_STORAGE_GB` leaves (`apps/cli/lib/site-capacity.ts`). `GET /api/site-limits` reports them with the current counts, and the Usage tab shows them. Without them, Studio keeps its defaults: no site or storage limit and 36 running sites.
 
+### WordPress.com and AI
+
+`studio serve` signs in to WordPress.com as Studio does on a computer: the UI hands it the user's token (`POST /api/auth/login`) when the server isn't signed in as that user. The agent's model calls then go from the server to the WordPress.com AI proxy, billed to the user's AI credits, and push, pull and preview sites work as on Desktop.
+
 ### Telling the host it's busy
 
 `GET /api/health` reports `busy` while an agent runs, so a host that suspends idle servers can wait out a build.

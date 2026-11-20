@@ -220,7 +220,7 @@ export async function runCommand(
 		: undefined;
 
 	try {
-		const updated = await updateServerFiles( options.wpVersion === DEFAULT_WORDPRESS_VERSION );
+		const updated = await updateServerFiles();
 		if ( updated ) {
 			logger.reportSuccess( __( 'Dependencies updated' ) );
 		}

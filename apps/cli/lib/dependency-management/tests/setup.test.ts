@@ -55,7 +55,6 @@ describe( 'updateServerFiles', () => {
 			expect( updateLatestWordPressVersion ).not.toHaveBeenCalled();
 		} );
 
-
 		it( 'runs the update when the timestamp is in the future (clock skew)', async () => {
 			config.cli.lastDependencyCheckTime = NOW + 60 * 1000;
 

@@ -60,6 +60,7 @@ Codes and tokens are stored as SHA-256 hashes in `~/.studio/remote.json`, throug
 - Behind `tailscale serve` every request comes from 127.0.0.1, so the pairing limit of 10 requests a minute per address is one limit for all callers. Programs on this computer can reach that loopback port; they still need a device token.
 - Changing the connection changes the address, so phones paired before pair again.
 - The run manager lives in the server process. A run started in the Desktop app does not stream to a phone, and the reverse. The chat appears on both after a reload.
+- Each run manager refuses a second run of a chat only among its own runs, so the Desktop app and remote mode can run two agents on one chat at once, as the Desktop app and `studio ui` already can. Both write the same session files and may edit the same site. A per-session lock taken by `studio code sessions resume` would close it for every surface; it is not part of remote mode.
 - A site's `url` is its `localhost` address, which a phone cannot open.
 - Revoking a device does not stop a run it started.
 - Only one `studio remote` can run at a time.

@@ -490,10 +490,20 @@ it( 'remembers dismissing the sharing tip and keeps keyboard focus in the panel'
 	const panel = await openFirstDestination();
 	const tip = await within( panel ).findByRole( 'heading', { name: 'Share your work' } );
 	expect( tip ).toBeVisible();
+	expect( within( panel ).getByRole( 'region', { name: 'About sharing' } ) ).toHaveTextContent(
+		'Choose a destination to create a preview or publish a live site. Available options depend on the provider.'
+	);
 	const destination = within( panel ).getByRole( 'combobox', { name: 'Destination' } );
 	expect(
-		destination.compareDocumentPosition( tip ) & Node.DOCUMENT_POSITION_FOLLOWING
+		tip.compareDocumentPosition( destination ) & Node.DOCUMENT_POSITION_FOLLOWING
 	).toBeTruthy();
+	await view.user.click( destination );
+	await view.user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	expect( tip ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+	expect(
+		within( panel ).queryByRole( 'button', { name: 'Create preview' } )
+	).not.toBeInTheDocument();
 	await view.user.click( screen.getByRole( 'button', { name: 'Dismiss sharing tip' } ) );
 	await waitFor( () =>
 		expect( screen.queryByRole( 'region', { name: 'About sharing' } ) ).not.toBeInTheDocument()

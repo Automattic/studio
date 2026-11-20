@@ -928,6 +928,9 @@ export function PublishButton( {
 					) }
 				</p>
 			) }
+			{ ! selected && ! targets.targets.length && (
+				<ShareIntro onDismiss={ () => publishMain.current?.focus() } />
+			) }
 			<div className={ styles.publishRows }>
 				{ ! selected && (
 					<ProviderPicker
@@ -1069,9 +1072,6 @@ export function PublishButton( {
 				) }
 				{ addDestinationRow }
 			</div>
-			{ ! selected && ! targets.targets.length && (
-				<ShareIntro onDismiss={ () => publishMain.current?.focus() } />
-			) }
 			{ snapshot && comparison?.previewChanged && (
 				<p role="status" className={ styles.changeStatus }>
 					{ comparison.localChanged === true

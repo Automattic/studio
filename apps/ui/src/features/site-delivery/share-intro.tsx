@@ -26,7 +26,7 @@ export function ShareIntro( { onDismiss }: { onDismiss: () => void } ) {
 			<h2>{ __( 'Share your work' ) }</h2>
 			<p>
 				{ __(
-					'Create a temporary preview for feedback, or publish a live site when you’re ready.'
+					'Choose a destination to create a preview or publish a live site. Available options depend on the provider.'
 				) }
 			</p>
 		</section>

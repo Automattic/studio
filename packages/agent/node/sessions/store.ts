@@ -7,6 +7,7 @@ import {
 } from '@studio/agent/node/sessions/file-naming';
 import { migrateLegacyFileInPlace } from '@studio/agent/node/sessions/migration';
 import { getAiSessionsDirectoryForDate } from '@studio/agent/node/sessions/paths';
+import { readNonEmptyLines } from '@studio/agent/node/sessions/read-lines';
 import { readAiSessionSummaryFromEntries } from '@studio/agent/node/sessions/summary';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type {
@@ -15,30 +16,38 @@ import type {
 } from '@studio/agent/protocol/sessions/entry-types';
 import type { AiSessionSummary, LoadedAiSession } from '@studio/agent/protocol/sessions/types';
 
-// Migrates the file in place on first read, then parses the (now-pi-format)
-// JSONL into pi `SessionEntry` records.
-export async function readPiFileEntries( filePath: string ): Promise< SessionEntry[] > {
-	let content: string;
-	try {
-		content = await fs.readFile( filePath, 'utf8' );
-	} catch ( error ) {
-		if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) return [];
-		throw error;
-	}
-	if ( ! content.trim() ) return [];
+// Summaries are read a few files at a time: each streams a whole session file,
+// and a long session with screenshots can be hundreds of megabytes.
+const SUMMARY_READ_CONCURRENCY = 4;
 
+function isMissingFile( error: unknown ): boolean {
+	return ( error as NodeJS.ErrnoException ).code === 'ENOENT';
+}
+
+// Migrates the file in place on first read, then streams the (now-pi-format)
+// JSONL as pi `SessionEntry` records.
+async function* streamPiFileEntries( filePath: string ): AsyncGenerator< SessionEntry > {
 	await migrateLegacyFileInPlace( filePath, '~/Studio' );
-	const refreshed = await fs.readFile( filePath, 'utf8' );
-
-	const entries: SessionEntry[] = [];
-	for ( const line of refreshed.split( '\n' ) ) {
-		const trimmed = line.trim();
-		if ( ! trimmed ) continue;
+	for await ( const line of readNonEmptyLines( filePath ) ) {
+		let entry: SessionEntry;
 		try {
-			entries.push( JSON.parse( trimmed ) as SessionEntry );
+			entry = JSON.parse( line ) as SessionEntry;
 		} catch {
-			// malformed line
+			continue; // malformed line
 		}
+		yield entry;
+	}
+}
+
+export async function readPiFileEntries( filePath: string ): Promise< SessionEntry[] > {
+	const entries: SessionEntry[] = [];
+	try {
+		for await ( const entry of streamPiFileEntries( filePath ) ) {
+			entries.push( entry );
+		}
+	} catch ( error ) {
+		if ( isMissingFile( error ) ) return [];
+		throw error;
 	}
 	return entries;
 }
@@ -75,7 +84,28 @@ async function listSessionFilesRecursively( directory: string ): Promise< string
 }
 
 async function readAiSessionSummary( filePath: string ): Promise< AiSessionSummary | undefined > {
-	return readAiSessionSummaryFromEntries( filePath, await readPiFileEntries( filePath ) );
+	try {
+		return await readAiSessionSummaryFromEntries( filePath, streamPiFileEntries( filePath ) );
+	} catch ( error ) {
+		if ( isMissingFile( error ) ) return undefined;
+		throw error;
+	}
+}
+
+// Leaves out the files that can't be read.
+async function readAiSessionSummaries( filePaths: string[] ): Promise< AiSessionSummary[] > {
+	const summaries: Array< AiSessionSummary | undefined > = [];
+	let next = 0;
+	const worker = async () => {
+		while ( next < filePaths.length ) {
+			const index = next++;
+			summaries[ index ] = await readAiSessionSummary( filePaths[ index ] ).catch(
+				() => undefined
+			);
+		}
+	};
+	await Promise.all( Array.from( { length: SUMMARY_READ_CONCURRENCY }, worker ) );
+	return summaries.filter( ( session ): session is AiSessionSummary => !! session );
 }
 
 // File names carry the session id, so only the matching files are parsed; the
@@ -150,16 +180,7 @@ async function pruneEmptySessionDirectories(
 
 export async function listAiSessions( rootDirectory: string ): Promise< AiSessionSummary[] > {
 	const sessionFiles = await listSessionFilesRecursively( rootDirectory );
-	const results = await Promise.allSettled( sessionFiles.map( readAiSessionSummary ) );
-
-	const sessions = results
-		.filter(
-			( result ): result is PromiseFulfilledResult< AiSessionSummary | undefined > =>
-				result.status === 'fulfilled'
-		)
-		.map( ( result ) => result.value )
-		.filter( ( session ): session is AiSessionSummary => !! session );
-
+	const sessions = await readAiSessionSummaries( sessionFiles );
 	return sessions.sort( ( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt ) );
 }
 

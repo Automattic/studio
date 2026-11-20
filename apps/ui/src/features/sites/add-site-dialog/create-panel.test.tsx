@@ -819,4 +819,25 @@ describe( 'Add site › frontend', () => {
 			api: 'graphql',
 		} );
 	} );
+
+	it( 'offers no headless frontend where the sites run on another machine', async () => {
+		const { connector, dialog } = await setup(
+			{},
+			{
+				capabilities: {
+					nativeFolderPicker: false,
+					annotatePreview: false,
+					studioLogs: false,
+					loopbackSignIn: false,
+					localMachine: false,
+				},
+			}
+		);
+		expect(
+			within( dialog ).queryByRole( 'combobox', { name: 'Frontend' } )
+		).not.toBeInTheDocument();
+		await createSite( dialog );
+		await waitFor( () => expect( connector.createSite ).toHaveBeenCalledOnce() );
+		expect( connector.createSite.mock.calls[ 0 ][ 0 ].frontend ).toBeUndefined();
+	} );
 } );

@@ -81,7 +81,7 @@ import { installFrontendDependencies, scaffoldFrontend } from 'cli/lib/frontend/
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { confirm, input, password, select } from 'cli/lib/prompts';
-import { assertSiteCapacity } from 'cli/lib/site-capacity';
+import { assertSiteCapacity, assertSiteCountLimit } from 'cli/lib/site-capacity';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -273,6 +273,7 @@ async function validateBeforeSourceImport(
 		throw new LoggerError( __( 'The selected directory is already in use.' ) );
 	}
 
+	assertSiteCountLimit( sites );
 	validateCustomDomain( options.customDomain, sites );
 
 	const adminEmail = options.adminEmail?.trim();
@@ -378,6 +379,7 @@ export async function runCommand(
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
+		assertSiteCountLimit( cliConfig.sites );
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );

@@ -1,8 +1,9 @@
 import type { AnthropicConfig } from './anthropic/config';
 import type { GeminiConfig } from './gemini/config';
 import type { GithubCopilotConfig } from './github-copilot/config';
+import type { LocalLlmConfig } from './local-llm/config';
 import type { MetaConfig } from './meta/config';
-import type { AiModelId } from './models';
+import type { AiModelId, ThinkingLevel } from './models';
 import type { OpenaiConfig } from './openai/config';
 import type { OpenrouterConfig } from './openrouter/config';
 import type { SpacefastConfig } from './spacefast/config';
@@ -12,28 +13,6 @@ import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/sites/s
 import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
-
-export type ProviderId =
-	| 'wpcom'
-	| 'anthropic'
-	| 'openai'
-	| 'gemini'
-	| 'github-copilot'
-	| 'meta'
-	| 'xai'
-	| 'openrouter'
-	| 'spacefast';
-
-// The providers that serve AI models.
-export type AiProviderId =
-	| 'wpcom'
-	| 'anthropic'
-	| 'openai'
-	| 'gemini'
-	| 'github-copilot'
-	| 'meta'
-	| 'xai'
-	| 'openrouter';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
@@ -46,7 +25,13 @@ export interface ProviderConfigs {
 	xai: XaiConfig;
 	openrouter: OpenrouterConfig;
 	spacefast: SpacefastConfig;
+	'local-llm': LocalLlmConfig;
 }
+
+export type ProviderId = keyof ProviderConfigs;
+
+// The providers that serve AI models: all but the ones that only host sites.
+export type AiProviderId = Exclude< ProviderId, 'spacefast' >;
 
 // The remote sites of each provider that offers them.
 export interface ProviderSites {
@@ -71,6 +56,8 @@ export interface AiModel< Id extends string = string > {
 	// UI gating only: pickers disable the model unless purchased AI credits
 	// remain (Automatticians exempt). The provider enforces access.
 	requiresPaidAiCredits?: boolean;
+	// Defaults to true. Whether a chat can set how much the model thinks (`ThinkingLevel`).
+	thinking?: boolean;
 }
 
 // The values a connection form asks for: a flat object of strings. Each field's
@@ -88,6 +75,9 @@ export type ConnectMethod = {
 	label: () => string;
 	// What to do before connecting, in Markdown.
 	instructions?: () => string;
+	// Only a process on the user's computer can run it, such as the Desktop app, `studio ui`'s
+	// server or the CLI: Studio running elsewhere (Studio Cloud) can't reach what it checks.
+	hostOnly?: boolean;
 } & (
 	| // A form rendered from `input`.
 	{ kind: 'form'; input: () => ConnectInputSchema }
@@ -120,6 +110,7 @@ export interface AccountModel {
 	id: AiModelId;
 	label?: string;
 	supportsImages?: boolean;
+	thinking?: boolean;
 }
 
 // A model in a provider's catalog, as the account's owner picks from it.
@@ -170,8 +161,7 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	pull: boolean;
 	// Whether a push or pull can include only part of the site.
 	selective: boolean;
-	// What a push sends: the site's WordPress archive, or a static export of its
-	// pages, which needs the site to run on native PHP: Studio on the web can't make one.
+	// What a push sends: the site's WordPress archive, or a static export of its pages.
 	content: 'archive' | 'static';
 	// How a new site is made: a checkout on the provider's site, which then
 	// connects the site to the local one, or created right away from Studio.
@@ -227,6 +217,9 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 		// The provider routes to more models than it lists: the account's owner picks which to
 		// offer from its catalog, under ids made of the provider's id, a slash and its own name.
 		catalog?: boolean;
+		// The models run on a server the user runs: chats on them need no internet, and analytics
+		// never name them, since the user does.
+		local?: boolean;
 	};
 	sites?: ProviderSitesInfo< Site >;
 }
@@ -241,6 +234,10 @@ export interface AiConnection {
 	requestModelId?: string;
 	// Replaces a stream error's message; `undefined` keeps it.
 	rewriteError?: ( message: string ) => string | undefined;
+	// `model.contextWindow` is exactly the context the server runs the model with: the runtime
+	// compacts to fit it and never sends a request it can't hold, and a turn that still can't fit
+	// ends with `overflowMessage`.
+	exactContextWindow?: { overflowMessage: string };
 }
 
 export interface GenerateImageRequest {
@@ -256,11 +253,10 @@ export interface GenerateImageResult {
 	filtered?: boolean;
 }
 
-// What a push sends: the site's WordPress archive (a Blob in the page, a
-// readable stream of the file in Node), or a static export of its pages, each
-// file read when the provider uploads it.
+// What a push sends: the site's WordPress archive (a readable stream of the file), or a
+// static export of its pages, each file read when the provider uploads it.
 export type PushContent =
-	| { kind: 'archive'; file: Blob | { pipe: unknown }; name: string; size: number }
+	| { kind: 'archive'; file: { pipe: unknown }; name: string; size: number }
 	| { kind: 'files'; files: PushFile[] };
 
 export interface PushFile {
@@ -294,6 +290,10 @@ export interface PreviewSite extends RemoteSite {
 	liveSiteId?: RemoteSite[ 'id' ];
 	// Where the owner makes it a site they keep.
 	launchUrl?: string;
+	// The title it was made with, when the provider reports one.
+	title?: string;
+	// The `PreviewOptions.originId` it was made with, which the provider reports only to this app.
+	originId?: string;
 }
 
 // What the provider sends with each build of a preview.
@@ -395,7 +395,8 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 		model(
 			config: Config | undefined,
 			model: AiModelId,
-			options: { sessionId?: string }
+			// `thinking` is the level the chat picked; without it, the provider's default.
+			options: { sessionId?: string; thinking?: ThinkingLevel }
 		): Promise< AiConnection >;
 		// The catalog of a provider that has one (`Provider.ai.catalog`).
 		listModels?( config: Config | undefined ): Promise< CatalogModel[] >;

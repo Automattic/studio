@@ -32,12 +32,10 @@ export function SupportMenu() {
 					<KeyboardIcon />
 					{ __( 'Keyboard shortcuts' ) }
 				</Menu.Item>
-				{ openFeedback && (
-					<Menu.Item onClick={ openFeedback }>
-						<MessageSquareTextIcon />
-						{ __( 'Send feedback' ) }
-					</Menu.Item>
-				) }
+				<Menu.Item onClick={ openFeedback }>
+					<MessageSquareTextIcon />
+					{ __( 'Send feedback' ) }
+				</Menu.Item>
 			</Menu.SubmenuPopup>
 		</Menu.SubmenuRoot>
 	);

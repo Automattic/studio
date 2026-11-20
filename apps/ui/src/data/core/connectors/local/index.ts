@@ -7,6 +7,7 @@ import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
+import { isSupportedServerVersion, UnsupportedServerError } from './server-version';
 import type {
 	AgentApp,
 	ActiveAgentRun,
@@ -22,6 +23,8 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteLimits,
+	Billing,
 	SiteAgentFile,
 	SkillStatus,
 	PreviewStatus,
@@ -52,6 +55,15 @@ interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
 	// http://localhost:8081.
 	apiBaseUrl: string;
+	// Set when the server is a `studio serve` on another origin, such as a Studio Cloud machine:
+	// requests carry the session cookie its host handed over, and signing in or out goes there.
+	remote?: RemoteServerOptions;
+}
+
+interface RemoteServerOptions {
+	signIn(): void;
+	signOut(): Promise< void >;
+	getBilling(): Promise< Billing >;
 }
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
@@ -78,7 +90,7 @@ type ServerEvent =
  * machine (the real site list, start/stop, the agent) are implemented for real;
  * the few a browser can't offer throw `UnsupportedError`.
  */
-export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): Connector {
+export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOptions ): Connector {
 	// The server namespaces its API under /api so the SPA's real-path routes
 	// (also /sessions/:id, /sites/:id) can share the same origin.
 	const base = `${ apiBaseUrl.replace( /\/$/, '' ) }/api`;
@@ -95,8 +107,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	let eventSource: EventSource | undefined;
 	const connectionRestoredListeners = new Set< () => void >();
 
+	function request( path: string, init?: RequestInit ): Promise< Response > {
+		const url = `${ base }${ path }`;
+		if ( remote ) {
+			return fetch( url, { ...init, credentials: 'include' } );
+		}
+		return init ? fetch( url, init ) : fetch( url );
+	}
+
 	async function api< T >( path: string, init?: RequestInit ): Promise< T > {
-		const response = await fetch( `${ base }${ path }`, {
+		const response = await request( path, {
 			...init,
 			headers: {
 				'Content-Type': 'application/json',
@@ -132,7 +152,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	// download mechanism — the browser-friendly substitute for a native Save-As
 	// dialog. Returns the saved filename.
 	async function downloadFromServer( endpoint: string ): Promise< string > {
-		const response = await fetch( `${ base }${ endpoint }` );
+		const response = await request( endpoint );
 		if ( ! response.ok ) {
 			const text = await response.text().catch( () => '' );
 			throw new Error( `GET ${ endpoint } failed (${ response.status }): ${ text }` );
@@ -147,7 +167,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	// substitute for an Electron filesystem path. Path-based operations (import a
 	// backup, attach a file for the agent) then work just as on the desktop.
 	async function uploadFile( file: File ): Promise< string > {
-		const response = await fetch( `${ base }/uploads?name=${ encodeURIComponent( file.name ) }`, {
+		const response = await request( `/uploads?name=${ encodeURIComponent( file.name ) }`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/octet-stream' },
 			body: file,
@@ -159,41 +179,68 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		return ( ( await response.json() ) as { path: string } ).path;
 	}
 
+	// The browser's EventSource reconnects on its own; `reconnected` counts a deliberate reopen
+	// as a restored connection too, so the app refetches what it missed.
+	function openEvents( reconnected: boolean ) {
+		eventSource?.close();
+		eventSource = new EventSource( `${ base }/events`, { withCredentials: !! remote } );
+		let hasConnected = reconnected;
+		eventSource.onopen = () => {
+			if ( hasConnected ) {
+				connectionRestoredListeners.forEach( ( listener ) => listener() );
+			}
+			hasConnected = true;
+		};
+		eventSource.onmessage = ( message ) => {
+			let parsed: ServerEvent;
+			try {
+				parsed = JSON.parse( message.data ) as ServerEvent;
+			} catch {
+				return;
+			}
+			if ( parsed.channel === 'agent' ) {
+				agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'placement' ) {
+				placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'sync-activity' ) {
+				syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'sync-connect' ) {
+				syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'site-event' ) {
+				siteEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'snapshot-event' ) {
+				snapshotEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'auth-event' ) {
+				authListeners.forEach( ( listener ) => listener() );
+			}
+		};
+	}
+
 	return {
 		async init() {
-			// The browser's EventSource reconnects automatically.
-			eventSource?.close();
-			eventSource = new EventSource( `${ base }/events` );
-			let hasConnected = false;
-			eventSource.onopen = () => {
-				if ( hasConnected ) {
-					connectionRestoredListeners.forEach( ( listener ) => listener() );
+			if ( remote ) {
+				const { version } = await api< { version: string | null } >( '/version' );
+				if ( ! isSupportedServerVersion( version ) ) {
+					throw new UnsupportedServerError( version );
 				}
-				hasConnected = true;
-			};
-			eventSource.onmessage = ( message ) => {
-				let parsed: ServerEvent;
-				try {
-					parsed = JSON.parse( message.data ) as ServerEvent;
-				} catch {
-					return;
-				}
-				if ( parsed.channel === 'agent' ) {
-					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'placement' ) {
-					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-activity' ) {
-					syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-connect' ) {
-					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'site-event' ) {
-					siteEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'snapshot-event' ) {
-					snapshotEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'auth-event' ) {
-					authListeners.forEach( ( listener ) => listener() );
-				}
-			};
+				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
+				// wake it, right after. So the stream runs only while the page has focus (the site
+				// preview's frame counts), and reopening it refetches what changed meanwhile.
+				const followFocus = () => {
+					if ( ! document.hasFocus() ) {
+						eventSource?.close();
+					} else if ( eventSource?.readyState === EventSource.CLOSED ) {
+						openEvents( true );
+					}
+				};
+				window.addEventListener( 'focus', followFocus );
+				// Focus moving into the preview's frame blurs the window but stays on the page.
+				window.addEventListener( 'blur', () => setTimeout( followFocus, 0 ) );
+				document.addEventListener( 'visibilitychange', followFocus );
+				// Focus can also leave from inside that frame without the page hearing of it.
+				setInterval( followFocus, 30_000 );
+			}
+			openEvents( false );
 		},
 
 		// Browser served by the local CLI: no native file dialogs, but the server
@@ -203,8 +250,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			nativeFolderPicker: false,
 			annotatePreview: false,
 			studioLogs: false,
-			nativeSites: true,
-			loopbackSignIn: true,
+			localMachine: ! remote,
+			loopbackSignIn: ! remote,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -223,6 +270,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			source: TracksAuthSource = 'unknown',
 			analytics?: AuthAnalytics
 		) {
+			if ( remote ) {
+				remote.signIn();
+				return;
+			}
 			// Open the popup synchronously (inside the click gesture) so it isn't
 			// blocked, then navigate it once the authorize URL is resolved.
 			const popupName = `studio-auth-${ crypto.randomUUID() }`;
@@ -316,8 +367,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		async logout() {
+			if ( remote ) {
+				await remote.signOut();
+				return;
+			}
 			await api( '/auth/logout', { method: 'POST' } );
 		},
+		// Only a remote server's host sells plans. One from before the route reports no limits.
+		...( remote && {
+			async getSiteLimits() {
+				const response = await request( '/site-limits' );
+				if ( response.status === 404 ) {
+					return null;
+				}
+				if ( ! response.ok ) {
+					throw new Error( `GET /site-limits failed (${ response.status })` );
+				}
+				return ( await response.json() ) as SiteLimits | null;
+			},
+			getBilling: remote.getBilling,
+		} ),
 		onAuthStateChanged( listener ) {
 			authListeners.add( listener );
 			return () => authListeners.delete( listener );
@@ -505,9 +574,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return uploadFile( file );
 		},
 		async readLocalMediaFile( filePath ): Promise< LocalMediaFile > {
-			const response = await fetch(
-				`${ base }/media/read?path=${ encodeURIComponent( filePath ) }`
-			);
+			const response = await request( `/media/read?path=${ encodeURIComponent( filePath ) }` );
 			if ( ! response.ok ) {
 				const text = await response.text().catch( () => '' );
 				throw new Error( `GET /media/read failed (${ response.status }): ${ text }` );
@@ -752,6 +819,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
 				method: 'POST',
 				body: JSON.stringify( { provider, model } ),
+			} );
+		},
+		async setSessionThinking( sessionId, model, thinking ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/thinking`, {
+				method: 'POST',
+				body: JSON.stringify( { model, thinking } ),
 			} );
 		},
 		async setSessionEnvironment( sessionId, environment ) {

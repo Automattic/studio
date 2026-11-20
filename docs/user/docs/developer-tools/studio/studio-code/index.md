@@ -222,6 +222,7 @@ The agent needs an AI provider to build. You can use the AI you already have, or
 -   **Google Gemini**, with an API key
 -   **GitHub Copilot**, with a Copilot plan
 -   **Meta**, with an API key
+-   **Local LLM**, with a model server you run, such as Ollama or LM Studio
 
 Set them up in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, the models it offers, and who bills you.
 
@@ -285,7 +286,7 @@ studio code --help
 
 ### [AI Credits](#18-ai-credits)
 
-When you use the default WordPress.com provider, WordPress Studio Code’s AI usage is paid for with AI Credits. Every account starts with a one-time free allowance, which can be used with the Fast tier. To keep going once it runs out, or to use Balanced and Strong, buy AI Credits from inside WordPress Studio Code. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) for details on purchases and account rules.
+When you use WordPress.com as your AI provider, you start with a one-time free allowance of AI Credits for the Fast tier. Your first purchase unlocks Balanced and Strong, and any remaining free allowance can be used with all three tiers. You can buy AI Credits from inside WordPress Studio Code. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) for details on purchases and account rules.
 
 ### [Check your usage](#19-check-your-usage)
 

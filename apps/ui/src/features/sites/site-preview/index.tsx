@@ -673,9 +673,6 @@ function SitePreviewContent( {
 												surfaceUrls[ key ]?.requestedUrl ?? `${ siteUrl }${ surface.requestedPath }`
 											}
 											title={ site.name }
-											{ ...inspectorProps }
-											annotationTool={ annotationTools.tool }
-											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={

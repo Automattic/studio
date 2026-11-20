@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getHeadlessDetails } from '@studio/agent/shared/headless';
-import { loadSkills } from '@studio/agent/shared/skills';
-import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
-import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/shared/tools';
+import { getHeadlessDetails } from '@studio/agent/node/headless';
+import { loadSkills } from '@studio/agent/node/skills';
+import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
+import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/node/tools';
 import { createFakeHost } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
 function extractReferencedSkillNames( prompt: string ): string[] {
 	return [

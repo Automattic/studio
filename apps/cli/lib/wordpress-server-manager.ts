@@ -5,6 +5,7 @@
  * process that serves it with native PHP.
  */
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import {
 	SITE_SERVER_ACTIVITY_CHECK_INTERVAL,
@@ -23,7 +24,7 @@ import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
 	listProcesses,
@@ -112,6 +113,8 @@ function buildServerConfig(
 	if ( site.customDomain ) {
 		const protocol = site.enableHttps ? 'https' : 'http';
 		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
+	} else if ( process.env.STUDIO_SITE_URL_TEMPLATE ) {
+		serverConfig.absoluteUrl = getSiteUrl( site );
 	}
 
 	if ( site.adminUsername ) {
@@ -308,6 +311,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: true,
+				...getMachineProps(),
 				file_access: getSiteFileAccess( site ),
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
@@ -335,6 +339,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: false,
+				...getMachineProps(),
 				file_access: getSiteFileAccess( site ),
 				failure_reason: failureReason,
 				...diagnosis,
@@ -353,6 +358,14 @@ export async function startWordPressServer(
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+// Lets start times and hangs be compared across machine sizes.
+function getMachineProps() {
+	return {
+		cpu_count: os.availableParallelism(),
+		memory_gb: Math.round( os.totalmem() / 1024 ** 3 ),
+	};
 }
 
 // Coarse, low-cardinality classification of a start failure for the `failure_reason` Tracks prop.
@@ -611,6 +624,8 @@ async function sendMessage(
 				packet.raw.topic === 'start-phase' &&
 				packet.raw.originalMessageId === messageId
 			) {
+				// A finished step is progress, so a slow start that keeps finishing steps isn't cut off.
+				lastActivityTimestamp = Date.now();
 				options.onStartPhase?.( packet.raw.data );
 			} else if ( packet.raw.topic === 'error' && packet.raw.originalMessageId === messageId ) {
 				if ( exitRejectTimeoutId ) {

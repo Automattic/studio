@@ -26,7 +26,8 @@ test.afterAll( async () => {
 
 test( 'starts the sites the previous version left running again after an update', async () => {
 	test.setTimeout( 600_000 );
-	session.appPath = ( await preparePreviousRelease() ).appPath;
+	const previousRelease = await preparePreviousRelease();
+	session.appPath = previousRelease.appPath;
 	await session.launch( PREVIOUS_RELEASE_ENV, { appData: { quitSitesBehavior: 'leave-running' } } );
 
 	// Driven through IPC rather than the previous version's UI, which the page objects don't follow.
@@ -45,7 +46,9 @@ test( 'starts the sites the previous version left running again after an update'
 
 	await session.closeApp();
 	// Quitting left the previous version's daemon running with the site.
-	expect( await daemonRequest( session.daemonHomePath, 'ping' ) ).toEqual( {} );
+	expect( ( await daemonRequest( session.daemonHomePath, 'ping' ) ).version ).toBe(
+		previousRelease.version
+	);
 	expect( await onlinePid( siteIds.running ) ).toBe( oldPid );
 
 	session.appPath = undefined;
@@ -57,9 +60,9 @@ test( 'starts the sites the previous version left running again after an update'
 		'data-state',
 		'stopped'
 	);
-	expect( await daemonRequest( session.daemonHomePath, 'ping' ) ).toEqual( {
-		version: cliPackageJson.version,
-	} );
+	expect( ( await daemonRequest( session.daemonHomePath, 'ping' ) ).version ).toBe(
+		cliPackageJson.version
+	);
 	await expect
 		.poll(
 			async () => {

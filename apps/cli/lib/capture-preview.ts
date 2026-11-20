@@ -14,7 +14,13 @@ export async function capturePreview(
 	if ( ! existsSync( chromium.executablePath() ) ) {
 		throw new Error( 'Chromium is not installed.' );
 	}
-	const page = await ( await getSharedBrowser() ).newPage( { viewport: size } );
+	// A hosted `studio serve` serves its sites to itself with a certificate only it trusts.
+	const page = await (
+		await getSharedBrowser()
+	).newPage( {
+		viewport: size,
+		ignoreHTTPSErrors: !! process.env.STUDIO_CA_BUNDLE,
+	} );
 	try {
 		await page.goto( new URL( '/?studio-hide-adminbar', url ).href, {
 			waitUntil: 'load',

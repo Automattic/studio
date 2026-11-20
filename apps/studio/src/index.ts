@@ -156,7 +156,8 @@ if ( ! process.env.IS_DEV_BUILD ) {
 	Sentry.init( {
 		dsn: SENTRY_DSN,
 		// A run from source reports as the release it's built from, so only packaged builds report.
-		enabled: app.isPackaged && ! isDevEnvironment,
+		// e2e runs launch packaged builds too, and their sessions would count in release health.
+		enabled: app.isPackaged && ! isDevEnvironment && ! process.env.E2E,
 		release: sentryRelease,
 		environment: isDevEnvironment ? 'development' : 'production',
 		initialScope: {

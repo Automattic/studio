@@ -30,10 +30,6 @@
 		"%d anotação pronta para enviar",
 		"%d anotações prontas para enviar"
 	],
-	"%d image": [
-		"%d imagem",
-		"%d imagens"
-	],
 	"%s (saved for future use):": [
 		"%s (salvo para uso futuro):"
 	],
@@ -52,17 +48,11 @@
 	"%s preview is ready": [
 		"A visualização de %s está pronta"
 	],
-	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
-		"%s parou de informar o progresso da importação, mas a atualização ainda pode estar em andamento. Verifique o site ativo antes de fazer push novamente."
-	],
 	"A code editor with a built-in AI agent.": [
 		"Um editor de código com um agente de IA integrado."
 	],
 	"A coding agent that runs in your terminal.": [
 		"Um agente de programação que é executado no seu terminal."
-	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"Já existe uma sincronização em andamento neste site. Aguarde a conclusão e tente novamente."
 	],
 	"AI apps": [
 		"Aplicativos de IA"
@@ -78,9 +68,6 @@
 	],
 	"Activate plugin": [
 		"Ativar plugin"
-	],
-	"Activate theme": [
-		"Ativar tema"
 	],
 	"Add annotation to batch": [
 		"Adicionar anotação ao grupo"
@@ -105,9 +92,6 @@
 	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"Ocorreu um erro ao atualizar a CLI do WordPress Studio. Tente novamente."
-	],
-	"Annotate site elements visually in a browser.": [
-		"Anote visualmente elementos do site em um navegador."
 	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"As anotações estão disponíveis para sistemas de design criados pelo Studio Code."
@@ -148,9 +132,6 @@
 	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
 		"É necessário informar pelo menos uma opção (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
 	],
-	"Audit SEO": [
-		"Auditar SEO"
-	],
 	"Audit performance": [
 		"Auditar desempenho"
 	],
@@ -168,9 +149,6 @@
 	],
 	"Back to email list": [
 		"Voltar para a lista de e-mails"
-	],
-	"Backup timed out — no progress detected": [
-		"O tempo limite do backup expirou — nenhum progresso detectado"
 	],
 	"Backups": [
 		"Backups"
@@ -664,20 +642,11 @@
 	"File…": [
 		"Arquivo…"
 	],
-	"Finish activating hosting on WordPress.com before publishing.": [
-		"Conclua a ativação da hospedagem no WordPress.com antes de publicar."
-	],
 	"Finish signing in to %s in your browser.": [
 		"Conclua o login em %s no navegador."
 	],
 	"First use": [
 		"Primeiro uso"
-	],
-	"Flush cache": [
-		"Limpar cache"
-	],
-	"Flush permalinks": [
-		"Regenerar links permanentes"
 	],
 	"For publishing sites.": [
 		"Para publicar sites."
@@ -699,9 +668,6 @@
 	],
 	"Get site info": [
 		"Obter informações do site"
-	],
-	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
-		"Comece com uma cota única gratuita e compre mais conforme precisar. Não é necessária uma chave de API."
 	],
 	"Getting your sign-in code…": [
 		"Obtendo seu código de login…"
@@ -808,14 +774,8 @@
 	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
 		"Saiba mais em <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
 	],
-	"Leave a note…": [
-		"Deixe uma nota…"
-	],
 	"Liberate": [
 		"Liberar"
-	],
-	"List": [
-		"Listar"
 	],
 	"List %s": [
 		"Listar %s"
@@ -831,9 +791,6 @@
 	],
 	"List previews": [
 		"Listar visualizações"
-	],
-	"List published %s": [
-		"Listar %s (status: publicado)"
 	],
 	"List terms": [
 		"Listar termos"
@@ -919,9 +876,6 @@
 	"Meta rejected this API key. Check the key and try again.": [
 		"A Meta rejeitou esta chave de API. Verifique a chave e tente novamente."
 	],
-	"Migrate & rebuild a site from a closed platform.": [
-		"Migre e reconstrua um site de uma plataforma fechada."
-	],
 	"Mood Indigo": [
 		"Mood Indigo"
 	],
@@ -970,9 +924,6 @@
 	"Open a site or Blueprint": [
 		"Abrir um site ou blueprint"
 	],
-	"Open annotation browser": [
-		"Abrir o navegador de anotações"
-	],
 	"Open documentation": [
 		"Abrir documentação"
 	],
@@ -994,9 +945,6 @@
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"O agente de programação da OpenAI no aplicativo ChatGPT."
 	],
-	"Optimize category taxonomy with AI.": [
-		"Otimize a taxonomia de categorias com IA."
-	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"O número de workers do PHP deve ser um número inteiro de 1 a 64."
 	],
@@ -1011,9 +959,6 @@
 	],
 	"Performance audit": [
 		"Auditoria de desempenho"
-	],
-	"Pick design": [
-		"Escolher design"
 	],
 	"Point or draw to suggest a change.": [
 		"Aponte ou desenhe para sugerir uma alteração."
@@ -1054,9 +999,6 @@
 	"Publish to Spacefast": [
 		"Publicar no Spacefast"
 	],
-	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
-		"Publique em um novo site e escolha um domínio, ou use um site existente no WordPress.com ou Pressable."
-	],
 	"Publish to another site…": [
 		"Publicar em outro site…"
 	],
@@ -1071,9 +1013,6 @@
 	],
 	"Published to": [
 		"Publicado em"
-	],
-	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
-		"Para publicar e fazer pull, é necessário um site compatível do WordPress.com ou Pressable."
 	],
 	"Publishing cancelled": [
 		"Publicação cancelada"
@@ -1107,12 +1046,6 @@
 	],
 	"Read %s": [
 		"Ler %s"
-	],
-	"Read site option": [
-		"Ler uma opção do site"
-	],
-	"Read site title": [
-		"Ler o título do site"
 	],
 	"Recent chats hidden.": [
 		"Chats recentes ocultos."
@@ -1198,12 +1131,6 @@
 	"Run WordPress command": [
 		"Executar comando do WordPress"
 	],
-	"Run a performance audit on a site.": [
-		"Faça uma auditoria de desempenho em um site."
-	],
-	"Run an on-page SEO audit on a site.": [
-		"Faça uma auditoria de SEO on-page em um site."
-	],
 	"Run task": [
 		"Executar tarefa"
 	],
@@ -1218,9 +1145,6 @@
 	],
 	"Save annotation (Enter)": [
 		"Salvar anotação (Enter)"
-	],
-	"Scaffold theme": [
-		"Criar a estrutura do tema"
 	],
 	"Screenshots are available in the desktop app.": [
 		"As capturas de tela estão disponíveis no aplicativo para desktop."
@@ -1322,9 +1246,6 @@
 	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
 		"As habilidades orientam os agentes de IA pelo desenvolvimento no WordPress. As alterações feitas aqui se aplicam a todos os sites existentes e definem o padrão para novos sites."
 	],
-	"Something went wrong while updating the live site.": [
-		"Algo deu errado ao atualizar o site ativo."
-	],
 	"Source is a temporary preview site.": [
 		"A origem é um site de prévia temporário."
 	],
@@ -1373,9 +1294,6 @@
 	"Stop annotating. Your notes will be kept.": [
 		"Parar de anotar. Suas anotações serão mantidas."
 	],
-	"Strong": [
-		"Potente"
-	],
 	"Studio was updated, and the site \"%s\" could not be started again.": [
 		"O Studio foi atualizado e não foi possível iniciar o site \"%s\" novamente."
 	],
@@ -1418,9 +1336,6 @@
 	"The Spacefast sign-in expired. Try again.": [
 		"O login no Spacefast expirou. Tente novamente."
 	],
-	"The database failed to import on the live site. Review your database and try again.": [
-		"Falha ao importar o banco de dados no site ativo. Revise seu banco de dados e tente novamente."
-	],
 	"The default browser for your sites.": [
 		"O navegador padrão dos seus sites."
 	],
@@ -1429,9 +1344,6 @@
 	],
 	"The live site must be a qualifying connected site of this local site.": [
 		"O site ativo deve ser um site conectado qualificado deste site local."
-	],
-	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
-		"O tempo limite do site ativo expirou durante a importação, provavelmente porque o site é grande demais. Tente reduzir o conteúdo ou os arquivos dele."
 	],
 	"The output directory %s is not empty.": [
 		"O diretório de saída %s não está vazio."
@@ -1490,9 +1402,6 @@
 	"This site and its preview both changed": [
 		"Este site e a visualização dele foram alterados"
 	],
-	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
-		"Este site ainda não permite fazer pull. Atualize o Jetpack no site para a versão mais recente e tente novamente."
-	],
 	"This site has changes its preview doesn't": [
 		"Este site tem alterações que a visualização dele não tem"
 	],
@@ -1510,9 +1419,6 @@
 	],
 	"This website has been deleted. Choose another website.": [
 		"Este site foi excluído. Escolha outro site."
-	],
-	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
-		"Este site precisa de um plano de hospedagem compatível com a publicação pelo WordPress Studio."
 	],
 	"Tips reset.": [
 		"Dicas redefinidas."
@@ -1547,20 +1453,11 @@
 	"Unsupported backup file": [
 		"Arquivo de backup incompatível"
 	],
-	"Update %s": [
-		"Atualizar %s"
-	],
 	"Update all plugins": [
 		"Atualizar todos os plugins"
 	],
 	"Update plugin": [
 		"Atualizar plugin"
-	],
-	"Update site option": [
-		"Atualizar uma opção do site"
-	],
-	"Update site title": [
-		"Atualizar o título do site"
 	],
 	"Update todo list": [
 		"Atualizar lista de tarefas"
@@ -1712,9 +1609,6 @@
 	"You can close this tab and return to WordPress Studio.": [
 		"Você pode fechar esta aba e voltar ao WordPress Studio."
 	],
-	"You need administrator access to publish or pull changes.": [
-		"Você precisa de acesso de administrador para publicar ou fazer pull das alterações."
-	],
 	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
 		"Você atingiu o limite de uso do seu plano do ChatGPT. Gerencie o uso em chatgpt.com/settings/usage."
 	],
@@ -1760,9 +1654,6 @@
 	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
 		"base-url deve ser uma URL http(s) sem caminho, por exemplo, https://example.com"
 	],
-	"inline content": [
-		"conteúdo em linha"
-	],
 	"media item": [
 		"item de mídia"
 	],
@@ -1780,9 +1671,6 @@
 	],
 	"posts": [
 		"posts"
-	],
-	"product": [
-		"produto"
 	],
 	"products": [
 		"produtos"

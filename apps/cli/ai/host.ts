@@ -1,10 +1,4 @@
 import path from 'path';
-import {
-	nodeHostServices,
-	type HostRemoteSite,
-	type HostSite,
-	type StudioAgentHost,
-} from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { readAuthToken } from '@studio/common/lib/auth-token';
 import { readConfig } from '@studio/common/lib/config/store';
@@ -55,6 +49,7 @@ import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { HostRemoteSite, HostSite, StudioAgentHost } from '@studio/agent/node';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 /**
@@ -302,5 +297,4 @@ export const cliAgentHost: StudioAgentHost = {
 			userAgent: getStudioUserAgent(),
 		} );
 	},
-	...nodeHostServices(),
 };

@@ -1,16 +1,18 @@
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import { findActiveSiteHeadlessDetails } from '@studio/agent/shared/headless';
-import { auditPerformance } from '@studio/agent/shared/performance-audit';
-import { auditSeo } from '@studio/agent/shared/seo-audit';
-import { resolveStudioTools, studioToolDefinitions } from '@studio/agent/shared/tools';
-import { bindTool, type AnyStudioAgentTool } from '@studio/agent/shared/tools/define-tool';
+import { findActiveSiteHeadlessDetails } from '@studio/agent/node/headless';
+import { openPage } from '@studio/agent/node/pages';
+import { auditPerformance } from '@studio/agent/node/performance-audit';
+import { auditSeo } from '@studio/agent/node/seo-audit';
+import { resolveStudioTools, studioToolDefinitions } from '@studio/agent/node/tools';
+import { bindTool, type AnyStudioAgentTool } from '@studio/agent/node/tools/define-tool';
 import { createFakeHost, fakeHeadlessSite, fakeSite } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
-vi.mock( '@studio/agent/shared/performance-audit', () => ( { auditPerformance: vi.fn() } ) );
-vi.mock( '@studio/agent/shared/seo-audit', () => ( { auditSeo: vi.fn() } ) );
+vi.mock( '@studio/agent/node/pages', () => ( { openPage: vi.fn() } ) );
+vi.mock( '@studio/agent/node/performance-audit', () => ( { auditPerformance: vi.fn() } ) );
+vi.mock( '@studio/agent/node/seo-audit', () => ( { auditSeo: vi.fn() } ) );
 
 describe( 'headless site tools', () => {
 	let host: StudioAgentHost;
@@ -199,7 +201,7 @@ describe( 'headless site tools', () => {
 				hover: vi.fn(),
 				close: vi.fn(),
 			};
-			vi.mocked( host.pages.open ).mockResolvedValue( page as never );
+			vi.mocked( openPage ).mockResolvedValue( page as never );
 			return page;
 		};
 
@@ -211,12 +213,8 @@ describe( 'headless site tools', () => {
 			await call( 'need_for_speed', { nameOrPath: 'My Site', path: '/blog' } );
 			await call( 'rank_me_up', { nameOrPath: 'My Site' } );
 
-			expect( auditPerformance ).toHaveBeenCalledWith(
-				host.pages,
-				'http://localhost:3000',
-				'/blog'
-			);
-			expect( auditSeo ).toHaveBeenCalledWith( host.pages, 'http://localhost:3000', '/' );
+			expect( auditPerformance ).toHaveBeenCalledWith( 'http://localhost:3000', '/blog' );
+			expect( auditSeo ).toHaveBeenCalledWith( 'http://localhost:3000', '/' );
 		} );
 
 		it( 'audit WordPress itself on a classic site', async () => {
@@ -224,7 +222,7 @@ describe( 'headless site tools', () => {
 
 			await call( 'need_for_speed', { nameOrPath: 'My Site' } );
 
-			expect( auditPerformance ).toHaveBeenCalledWith( host.pages, 'http://localhost:8888', '/' );
+			expect( auditPerformance ).toHaveBeenCalledWith( 'http://localhost:8888', '/' );
 		} );
 
 		it( 'inspect_design loads a page of the frontend given the site', async () => {
@@ -237,7 +235,7 @@ describe( 'headless site tools', () => {
 				selectors: [ 'h1' ],
 			} );
 
-			expect( host.pages.open ).toHaveBeenCalledWith(
+			expect( openPage ).toHaveBeenCalledWith(
 				{ url: 'http://localhost:3000/about' },
 				expect.anything()
 			);
@@ -248,7 +246,7 @@ describe( 'headless site tools', () => {
 			mockPage();
 
 			await call( 'inspect_design', { url: 'http://localhost:8888/', selectors: [ 'h1' ] } );
-			expect( host.pages.open ).toHaveBeenCalledWith(
+			expect( openPage ).toHaveBeenCalledWith(
 				{ url: 'http://localhost:8888/' },
 				expect.anything()
 			);

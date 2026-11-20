@@ -1396,7 +1396,7 @@ it( 'restores the default for an unavailable destination and switches providers'
 	expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
 } );
 
-it( 'connects WordPress.com from an unselected destination and returns to Publish', async () => {
+it( 'shows WordPress.com publishing controls before connecting and returns after sign-in', async () => {
 	let signedIn = false;
 	const { connector, history, user } = setup( {
 		getAuthUser: async () => ( signedIn ? TEST_USER : null ),
@@ -1406,10 +1406,14 @@ it( 'connects WordPress.com from an unselected destination and returns to Publis
 	} );
 	const panel = await openShare();
 	const destination = within( panel ).getByRole( 'combobox', { name: 'Destination' } );
-	expect( destination ).toHaveAccessibleDescription( 'Choose a provider' );
+	expect( destination ).toHaveAccessibleDescription( 'WordPress.com' );
 	expect(
-		within( panel ).queryByRole( 'button', { name: 'Create preview' } )
-	).not.toBeInTheDocument();
+		within( panel ).getByRole( 'combobox', { name: 'Who can view' } )
+	).toHaveAccessibleDescription( 'Anyone with the link' );
+	expect(
+		within( panel ).getByRole( 'button', { name: 'Launch on WordPress.com' } )
+	).toBeVisible();
+	expect( connector.authenticate ).not.toHaveBeenCalled();
 	await user.click( destination );
 	expect(
 		await screen.findByRole( 'option', { name: 'WordPress.com' } )
@@ -1418,16 +1422,21 @@ it( 'connects WordPress.com from an unselected destination and returns to Publis
 		'aria-selected',
 		'false'
 	);
-	await user.click( screen.getByRole( 'option', { name: 'WordPress.com' } ) );
+	await user.keyboard( '{Escape}' );
+	await user.click( within( panel ).getByRole( 'button', { name: 'Create preview' } ) );
 	await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
 	expect( history.location.search ).not.toContain( 'settings=providers' );
-	expect( destination ).toHaveAccessibleDescription( 'Choose a provider' );
+	expect( destination ).toHaveAccessibleDescription( 'WordPress.com' );
+	await user.click( within( panel ).getByRole( 'combobox', { name: 'Who can view' } ) );
+	await user.click( await screen.findByRole( 'option', { name: 'Everyone' } ) );
 	await act( async () => {
 		signedIn = true;
 		connector.emit( 'onAuthStateChanged' );
 	} );
 	await waitFor( () => expect( destination ).toHaveAccessibleDescription( 'WordPress.com' ) );
-	expect( await within( panel ).findByRole( 'button', { name: 'Create preview' } ) ).toBeVisible();
+	expect(
+		await within( panel ).findByRole( 'button', { name: 'Continue on WordPress.com' } )
+	).toBeVisible();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 	expect( connector.pushSite ).not.toHaveBeenCalled();
@@ -1497,7 +1506,7 @@ it.each( [ true, false ] )(
 	}
 );
 
-it( 'restores Publish after a web sign-in redirects back to the site', async () => {
+it( 'restores the access choice after a web sign-in redirects back to Publish', async () => {
 	let signedIn = false;
 	const overrides: ConnectorOverrides = {
 		capabilities: { nativeSites: false },
@@ -1509,10 +1518,9 @@ it( 'restores Publish after a web sign-in redirects back to the site', async () 
 	};
 	const first = setup( overrides );
 	await openShare();
-	await first.user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
-	expect( await screen.findByRole( 'option', { name: 'WordPress.com' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'option', { name: 'Spacefast' } ) ).not.toBeInTheDocument();
-	await first.user.click( screen.getByRole( 'option', { name: 'WordPress.com' } ) );
+	await first.user.click( screen.getByRole( 'combobox', { name: 'Who can view' } ) );
+	await first.user.click( await screen.findByRole( 'option', { name: 'Everyone' } ) );
+	await first.user.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
 	const handoff = sessionStorage.getItem( 'studio-publish-sign-in' );
 	expect( handoff ).not.toBeNull();
 	first.unmount();
@@ -1525,8 +1533,14 @@ it( 'restores Publish after a web sign-in redirects back to the site', async () 
 	} );
 	const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
 	expect( await within( panel ).findByText( 'WordPress.com' ) ).toBeVisible();
-	expect( await within( panel ).findByRole( 'button', { name: 'Create preview' } ) ).toBeVisible();
+	expect(
+		await within( panel ).findByRole( 'combobox', { name: 'Who can view' } )
+	).toHaveAccessibleDescription( 'Everyone' );
+	expect(
+		within( panel ).getByRole( 'button', { name: 'Continue on WordPress.com' } )
+	).toBeVisible();
 	expect( first.connector.publishPreviewSite ).not.toHaveBeenCalled();
+	expect( first.connector.openExternalUrl ).not.toHaveBeenCalled();
 } );
 
 it( 'does not reopen Publish when a pending sign-in was dismissed', async () => {
@@ -1650,7 +1664,7 @@ it( 'connects Spacefast from the destination picker and returns to publishing', 
 	await user.click( within( dialog ).getByRole( 'button', { name: 'Close' } ) );
 	const destination = await screen.findByRole( 'combobox', { name: 'Destination' } );
 	await waitFor( () => expect( destination ).toHaveFocus() );
-	expect( destination ).toHaveAccessibleDescription( 'Choose a provider' );
+	expect( destination ).toHaveAccessibleDescription( 'WordPress.com' );
 	await user.click( destination );
 	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
 	dialog = await screen.findByRole( 'dialog', { name: 'Connect to Spacefast' } );

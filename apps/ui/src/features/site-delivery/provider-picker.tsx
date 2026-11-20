@@ -45,10 +45,10 @@ export function ProviderPicker( {
 	onSelect: ( provider: SitesProviderId ) => void;
 	onConnectExistingSite: () => void;
 	disabled?: boolean;
-	selectedProvider?: SitesProviderId;
+	selectedProvider: SitesProviderId;
 	ref?: ComponentProps< typeof SelectTrigger >[ 'ref' ];
 } ) {
-	const selected = selectedProvider && getProvider( selectedProvider );
+	const selected = getProvider( selectedProvider );
 	const items = providers.map( ( value ) => ( {
 		value,
 		label: getProvider( value ).label,
@@ -67,7 +67,7 @@ export function ProviderPicker( {
 	return (
 		<Select< SitesProviderId | 'existing-site' >
 			items={ [ ...items, existingSite ] }
-			value={ selectedProvider ?? null }
+			value={ selectedProvider }
 			disabled={ disabled }
 			onValueChange={ ( value ) => {
 				if ( value === existingSite.value ) onConnectExistingSite();
@@ -80,7 +80,7 @@ export function ProviderPicker( {
 				fullWidth
 				className={ styles.accessTrigger }
 				aria-label={ __( 'Destination' ) }
-				aria-description={ selected?.label ?? __( 'Choose a provider' ) }
+				aria-description={ selected.label }
 			>
 				<span className={ styles.destinationRowIcon }>
 					<DestinationIcon />
@@ -88,8 +88,8 @@ export function ProviderPicker( {
 				<span className={ styles.accessTriggerLabel }>{ __( 'Destination' ) }</span>
 				<span className={ styles.accessTriggerEnd }>
 					<SelectValue className={ styles.selectedProviderValue }>
-						{ selectedProvider && <ProviderLogo provider={ selectedProvider } compact /> }
-						{ selected?.label ?? __( 'Choose a provider' ) }
+						<ProviderLogo provider={ selectedProvider } compact />
+						{ selected.label }
 					</SelectValue>
 				</span>
 			</SelectTrigger>

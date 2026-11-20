@@ -39,9 +39,20 @@ export function getLocaleData( locale: string ) {
 	return null;
 }
 
+export async function getLocaleDataAsync(
+	locale: string
+): Promise< ReturnType< typeof getLocaleData > > {
+	if ( locale === DEFAULT_LOCALE || ! isSupportedLocale( locale ) ) {
+		return null;
+	}
+	const { locale_data } = await import( `../translations/studio-${ locale }.jed.json` );
+	return locale_data;
+}
+
 export function isSupportedLocale( locale: string | undefined ): locale is SupportedLocale {
 	if ( ! locale ) {
 		return false;
 	}
-	return Object.prototype.hasOwnProperty.call( localeDataDictionary, locale );
+	// Checking names lets CLI builds tree-shake the synchronous catalog dictionary.
+	return Object.prototype.hasOwnProperty.call( supportedLocaleNames, locale );
 }

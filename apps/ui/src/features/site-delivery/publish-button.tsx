@@ -85,7 +85,6 @@ import {
 } from './provider-picker';
 import { PublishedTime } from './published-time';
 import { PullPreviewDialog } from './pull-preview-dialog';
-import { ShareIntro } from './share-intro';
 import { getShareViewTitle, shareEntryView } from './share-view';
 import { SiteDeliveryStep } from './site-delivery-step';
 import styles from './style.module.css';
@@ -927,9 +926,6 @@ export function PublishButton( {
 						'Your current site stays online. Studio will disconnect it when the new destination is ready.'
 					) }
 				</p>
-			) }
-			{ ! selected && ! targets.targets.length && (
-				<ShareIntro onDismiss={ () => publishMain.current?.focus() } />
 			) }
 			<div className={ styles.publishRows }>
 				{ ! selected && (

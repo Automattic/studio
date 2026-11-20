@@ -163,32 +163,6 @@ describe( 'WordPress Studio settings', () => {
 		expect( await screen.findByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
 	} );
 
-	it( 'restores the sharing tip when resetting the interface, including after a failed save', async () => {
-		let hints = { shareHintDismissed: true, annotateHintDismissed: true, tourCompletedVersion: 2 };
-		const { connector } = await setup( {
-			overrides: {
-				getOnboardingHints: async () => hints,
-				setOnboardingHints: async ( partial ) => {
-					hints = { ...hints, ...partial };
-				},
-			},
-		} );
-		connector.setOnboardingHints.mockRejectedValueOnce( new Error( 'Reset failed' ) );
-		const reset = await screen.findByRole( 'button', { name: 'Reset interface' } );
-		await waitFor( () => expect( reset ).toBeEnabled() );
-		fireEvent.click( reset );
-		expect( await screen.findByText( ERROR ) ).toBeVisible();
-		await waitFor( () => expect( reset ).toBeEnabled() );
-		fireEvent.click( reset );
-		await waitFor( () => expect( hints.shareHintDismissed ).toBe( false ) );
-		expect( hints ).toEqual( {
-			shareHintDismissed: false,
-			annotateHintDismissed: true,
-			tourCompletedVersion: 2,
-		} );
-		await waitFor( () => expect( reset ).toBeDisabled() );
-	} );
-
 	it.each( [
 		{ colorScheme: 'dark' as const },
 		{ accentColor: '#069e08' },

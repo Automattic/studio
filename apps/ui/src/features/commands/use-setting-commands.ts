@@ -161,7 +161,7 @@ export function useSettingCommands(
 			run: () => {
 				if ( setHints.isPending ) return;
 				setHints.mutate(
-					{ annotateHintDismissed: false, shareHintDismissed: false },
+					{ annotateHintDismissed: false },
 					{
 						onSuccess: () => toast.success( __( 'Tips reset.' ) ),
 						onError: () => toast.error( __( 'Could not reset tips. Please try again.' ) ),

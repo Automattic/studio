@@ -181,7 +181,6 @@ it( 'resets tips without resetting guide progress or interface preferences', asy
 	await waitFor( () =>
 		expect( connector.setOnboardingHints ).toHaveBeenCalledWith( {
 			annotateHintDismissed: false,
-			shareHintDismissed: false,
 		} )
 	);
 	expect( connector.setUserPreferences ).not.toHaveBeenCalled();

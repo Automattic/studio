@@ -782,7 +782,6 @@ export interface OnboardingHintsState {
 	// WHATS_NEW_VERSION of the What's New guide the user last saw.
 	whatsNewSeenVersion?: number;
 	annotateHintDismissed?: boolean;
-	shareHintDismissed?: boolean;
 }
 
 export type { SiteAgentFile, SiteAgentFileKind };

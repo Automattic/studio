@@ -17,7 +17,6 @@ import {
 } from '@/data/queries/use-agent-instructions';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
-import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
 import { useSites } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
@@ -330,7 +329,7 @@ function PreferencesPanel( {
 				<SettingsRow
 					title={ __( 'Reset interface' ) }
 					description={ __(
-						'Restore default panel widths, theme, colors, and interface settings, and show the sharing tip again.'
+						'Restore default panel widths, theme, colors, and interface settings.'
 					) }
 				>
 					<Button variant="outline" disabled={ interfaceIsDefault } onClick={ onResetInterface }>
@@ -443,7 +442,6 @@ export function GeneralSettings() {
 	const preview = useOptionalSessionPreviewUI();
 	const { data: sites } = useSites();
 	const { data: installedApps } = useInstalledApps();
-	const { data: hints } = useOnboardingHints();
 	const { saved, data, handleChange, resetInterface, saveError, loadFailed, retry } =
 		usePreferencesForm();
 	if ( ! data || ! saved ) {
@@ -468,9 +466,7 @@ export function GeneralSettings() {
 			data={ data }
 			installedApps={ installedApps }
 			saveError={ saveError }
-			interfaceIsDefault={
-				! hasCustomPreview && isDefaultInterface( saved ) && ! hints?.shareHintDismissed
-			}
+			interfaceIsDefault={ ! hasCustomPreview && isDefaultInterface( saved ) }
 			onResetInterface={ resetInterface }
 			onDefaultSiteDirectorySelect={
 				connector.capabilities.nativeFolderPicker ? () => void selectDefaultDirectory() : undefined

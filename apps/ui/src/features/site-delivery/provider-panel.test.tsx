@@ -15,7 +15,7 @@ import { createFakeConnector, makeSite, TEST_USER, aiSettings } from '@/test/fak
 import { renderWithProviders } from '@/test/render';
 import pressableLogo from './pressable-logo.svg?raw';
 import { PublishButton } from './publish-button';
-import type { OnboardingHintsState, Snapshot } from '@/data/core';
+import type { Snapshot } from '@/data/core';
 import type { ConnectorOverrides } from '@/test/in-memory-connector';
 const publishPanelName = /^(Choose a site|Preview details|Publish|Publish somewhere else)$/;
 
@@ -475,73 +475,6 @@ it( 'does not silently substitute a different destination for an unavailable exp
 	);
 	expect( screen.getByRole( 'button', { name: live.name } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Update…' } ) ).not.toBeInTheDocument();
-} );
-
-it( 'remembers dismissing the sharing tip and keeps keyboard focus in the panel', async () => {
-	let hints: OnboardingHintsState = { tourCompletedVersion: 2 };
-	const view = setup( {
-		getRemoteSites: async () => [],
-		getSnapshots: async () => [],
-		getOnboardingHints: async () => hints,
-		setOnboardingHints: async ( partial ) => {
-			hints = { ...hints, ...partial };
-		},
-	} );
-	const panel = await openFirstDestination();
-	const tip = await within( panel ).findByRole( 'heading', { name: 'Share your work' } );
-	expect( tip ).toBeVisible();
-	expect( within( panel ).getByRole( 'region', { name: 'About sharing' } ) ).toHaveTextContent(
-		'Choose a destination to create a preview or publish a live site. Available options depend on the provider.'
-	);
-	const destination = within( panel ).getByRole( 'combobox', { name: 'Destination' } );
-	expect(
-		tip.compareDocumentPosition( destination ) & Node.DOCUMENT_POSITION_FOLLOWING
-	).toBeTruthy();
-	await view.user.click( destination );
-	await view.user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
-	expect( tip ).toBeVisible();
-	expect( within( panel ).getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
-	expect(
-		within( panel ).queryByRole( 'button', { name: 'Create preview' } )
-	).not.toBeInTheDocument();
-	await view.user.click( screen.getByRole( 'button', { name: 'Dismiss sharing tip' } ) );
-	await waitFor( () =>
-		expect( screen.queryByRole( 'region', { name: 'About sharing' } ) ).not.toBeInTheDocument()
-	);
-	expect( view.connector.setOnboardingHints ).toHaveBeenCalledWith( { shareHintDismissed: true } );
-	expect( hints ).toEqual( { tourCompletedVersion: 2, shareHintDismissed: true } );
-	await view.user.tab();
-	expect( within( panel ).getByRole( 'combobox', { name: 'Destination' } ) ).toHaveFocus();
-	await view.user.keyboard( '{Escape}' );
-	await openFirstDestination();
-	expect( screen.queryByRole( 'region', { name: 'About sharing' } ) ).not.toBeInTheDocument();
-
-	view.unmount();
-	const reads = view.connector.getOnboardingHints.mock.calls.length;
-	renderWithProviders( <PublishButton site={ site } />, { connector: view.connector } );
-	await openFirstDestination();
-	await waitFor( () =>
-		expect( view.connector.getOnboardingHints.mock.calls.length ).toBeGreaterThan( reads )
-	);
-	expect( screen.queryByRole( 'region', { name: 'About sharing' } ) ).not.toBeInTheDocument();
-	expect( view.connector.publishPreviewSite ).not.toHaveBeenCalled();
-} );
-
-it( 'reserves the sharing tip for setup after the first preview exists', async () => {
-	const view = setup( { getRemoteSites: async () => [] } );
-	await openFirstDestination();
-	expect( screen.queryByRole( 'region', { name: 'About sharing' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'group', { name: 'Preview: Preview 1' } ) ).toBeVisible();
-	expect( screen.queryByText( 'Destination', { exact: true } ) ).not.toBeInTheDocument();
-	view.connector.getRemoteSites.mockImplementation( async ( provider ) =>
-		provider === 'wpcom' ? [ live ] : []
-	);
-	await act( () =>
-		view.queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( 'wpcom', site.id ) } )
-	);
-	await waitFor( () =>
-		expect( screen.queryByRole( 'region', { name: 'About sharing' } ) ).not.toBeInTheDocument()
-	);
 } );
 
 it( 'shares one in-flight preview comparison between the toolbar and Share panel', async () => {

@@ -130,6 +130,29 @@ describe( 'Settings > Phone', () => {
 		expect( screen.queryByText( 'Remote mode could not stop.' ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'says when remote mode stopped but the switch could not be saved, and saves it again', async () => {
+		const { connector, toggle } = await setupOn();
+		await screen.findByRole( 'img', QR_CODE );
+		const turn = connector.setPhoneAccess.getMockImplementation()!;
+		connector.setPhoneAccess.mockImplementationOnce( async ( on: boolean ) => {
+			await turn( on );
+			throw new Error( 'Config lock timed out' );
+		} );
+
+		fireEvent.click( toggle );
+
+		expect(
+			await screen.findByText(
+				'Remote mode stopped, but Studio could not save the switch, so remote mode would start again when Studio opens.'
+			)
+		).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		await waitFor( () => expect( connector.setPhoneAccess ).toHaveBeenLastCalledWith( false ) );
+		await waitFor( () =>
+			expect( screen.queryByText( /could not save the switch/ ) ).not.toBeInTheDocument()
+		);
+	} );
+
 	it( 'shows the code of a remote mode started in a terminal, with a switch that cannot stop it', async () => {
 		const connector = createFakeConnector();
 		connector.getPhoneAccess.mockResolvedValue( {

@@ -142,7 +142,8 @@ export function createPhoneAccess( parts: PhoneAccessParts ) {
 	// the reason, and nothing starts it again by itself.
 	function fail( message: string ): PhoneAccessState {
 		lastError = message;
-		void parts.saveSettings( { enabled: false } );
+		// A save that fails is reported by the app; the switch shows off either way.
+		void parts.saveSettings( { enabled: false } ).catch( () => undefined );
 		return { status: 'error', message };
 	}
 
@@ -232,7 +233,10 @@ export function createPhoneAccess( parts: PhoneAccessParts ) {
 			const server = await parts.readServer();
 			if ( server && server.pid === started.pid && own?.process === started && ! exit.ended ) {
 				// The switch is remembered as on only once remote mode runs.
-				await parts.saveSettings( { enabled: true, port: chosen.port, url: server.url } );
+				// A switch not saved as on only means it does not come back at the next launch.
+				await parts
+					.saveSettings( { enabled: true, port: chosen.port, url: server.url } )
+					.catch( () => undefined );
 				// Stopped or ended while saving: the checks above report it, after
 				// this write, so the switch ends as they leave it.
 				if ( own?.process === started && ! exit.ended ) {

@@ -207,6 +207,53 @@ describe( 'createPhoneAccess', () => {
 		expect( await stopping.access.turnOn() ).toMatchObject( { status: 'on' } );
 	} );
 
+	// Turning off reports a failed save, so the switch does not look off while
+	// the config still has it on; the other saves do not stop remote mode.
+	it( 'reports a switch it could not save as off, after stopping remote mode', async () => {
+		const { access, children, parts } = setup();
+		await access.turnOn();
+		vi.mocked( parts.saveSettings ).mockRejectedValue( new Error( 'Config lock timed out' ) );
+
+		await expect( access.turnOff() ).rejects.toThrow( 'Config lock timed out' );
+
+		expect( children[ 0 ].child.stop ).toHaveBeenCalled();
+		expect( await access.getState() ).toEqual( { status: 'off' } );
+	} );
+
+	// A plain function, not a mock: a mock's promise always has a handler, so its
+	// rejection would never count as unhandled.
+	const failingSave = async () => {
+		throw new Error( 'Config lock timed out' );
+	};
+
+	it( 'runs remote mode even when the switch cannot be saved as on', async () => {
+		const { access, parts } = setup();
+		parts.saveSettings = failingSave;
+
+		expect( await access.turnOn() ).toMatchObject( { status: 'on' } );
+	} );
+
+	it( 'turns the switch off with the reason even when the switch cannot be saved', async () => {
+		const { access, children, parts } = setup();
+		await access.turnOn();
+		parts.saveSettings = failingSave;
+
+		const unhandled = vi.fn();
+		process.on( 'unhandledRejection', unhandled );
+		try {
+			children[ 0 ].exit();
+			await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
+		} finally {
+			process.off( 'unhandledRejection', unhandled );
+		}
+
+		expect( unhandled ).not.toHaveBeenCalled();
+		expect( await access.getState() ).toEqual( {
+			status: 'error',
+			message: 'Remote mode stopped.',
+		} );
+	} );
+
 	it( 'gives up when remote mode does not start in time, and stops it', async () => {
 		const { access, parts, children } = setup( { connection: 'local' } );
 		vi.mocked( parts.sleep ).mockImplementation( async () => undefined );

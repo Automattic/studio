@@ -38,7 +38,10 @@ export const phoneAccess = createPhoneAccess( {
 				}
 			} );
 		} catch ( error ) {
+			// Turning off must not look done while the config still has the switch
+			// on: remote mode would start again at the next launch.
 			Sentry.captureException( error );
+			throw error;
 		}
 	},
 	sleep: ( ms ) => new Promise( ( resolve ) => setTimeout( resolve, ms ) ),

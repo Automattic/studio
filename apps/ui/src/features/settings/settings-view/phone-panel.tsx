@@ -404,9 +404,13 @@ export function PhonePanel() {
 	const terminal = state.status === 'terminal';
 	const url = state.status === 'on' || state.status === 'terminal' ? state.url : undefined;
 	const checked = setAccess.isPending ? setAccess.variables : starting || !! url;
-	// A failed turn on or off, shown until the state says otherwise.
+	// A failed turn on or off, shown until the state says otherwise. Turning off
+	// can stop remote mode and still fail to save the switch, which would start
+	// it again at the next launch.
 	const failed =
-		setAccess.isError && setAccess.variables !== undefined && setAccess.variables !== !! url
+		setAccess.isError &&
+		setAccess.variables !== undefined &&
+		( setAccess.variables !== !! url || setAccess.variables === false )
 			? setAccess.variables
 			: undefined;
 	const error =
@@ -414,8 +418,12 @@ export function PhonePanel() {
 			? state.message
 			: failed === true
 			? __( 'Remote mode could not start.' )
-			: failed === false
+			: failed === false && url
 			? __( 'Remote mode could not stop.' )
+			: failed === false
+			? __(
+					'Remote mode stopped, but Studio could not save the switch, so remote mode would start again when Studio opens.'
+			  )
 			: undefined;
 
 	return (

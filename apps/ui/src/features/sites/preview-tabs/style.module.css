@@ -51,9 +51,7 @@
 	max-width: var( --band-tab-width );
 	min-width: 0;
 	height: var( --control-size-sm );
-	transition:
-		transform var( --motion-duration-layout ) ease-in-out,
-		background-color var( --motion-duration-feedback ) ease;
+	transition: transform var( --motion-duration-quick ) ease-in-out;
 }
 
 .tab:not( [data-preview-selected] ) {
@@ -62,10 +60,6 @@
 
 .selected {
 	composes: floating from '@/lib/ui/surface/style.module.css';
-}
-
-.tab:where( .selected ) {
-	transition: transform var( --motion-duration-layout ) ease-in-out;
 }
 .trigger {
 	width: 100%;
@@ -134,7 +128,7 @@
 	pointer-events: none;
 }
 .list[data-tab-drop-committed] .tab {
-	transition: background-color var( --motion-duration-feedback ) ease;
+	transition: none;
 }
 .list[data-tab-dragging] .trigger {
 	cursor: pointer;
@@ -161,7 +155,7 @@
 }
 
 .dragPreview[data-landing] {
-	transition: transform var( --motion-duration-layout ) ease-in-out;
+	transition: transform var( --motion-duration-quick ) ease-in-out;
 }
 @media ( prefers-reduced-motion: reduce ) {
 	.tab,

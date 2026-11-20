@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { useEffect } from 'react';
+import { useContext, useEffect } from 'react';
+import { AgentRunContext } from '@/data/agent-runs/context';
 import { toast } from '@/data/app-messages';
 import { SESSIONS_QUERY_KEY, useConnector } from '@/data/core';
 import { useRemoteSites } from '@/data/queries/use-remote-sites';
@@ -82,9 +83,49 @@ export async function openNewSession(
 
 export function useSessions() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
+	const runs = useContext( AgentRunContext )?.stateStore;
 	return useQuery( {
 		queryKey: SESSIONS_QUERY_KEY,
-		queryFn: () => connector.getSessions(),
+		queryFn: async () => {
+			// A list requested before a chat was created can arrive after it appears.
+			const known = new Set(
+				queryClient
+					.getQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY )
+					?.map( ( session ) => session.id )
+			);
+			const sessions = await connector.getSessions();
+			// The run can start before its first prompt has reached the session list.
+			const state = runs?.getState();
+			const pending = new Map(
+				( queryClient.getQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY ) ?? [] )
+					.filter(
+						( session ) => session.firstPrompt && state?.[ session.id ]?.pendingFirstMessage
+					)
+					.map( ( session ) => [ session.id, session ] )
+			);
+			if ( ! pending.size ) return sessions;
+			const reconciled = sessions.map( ( session ) => {
+				const optimistic = pending.get( session.id );
+				pending.delete( session.id );
+				return optimistic && ! session.firstPrompt
+					? {
+							...session,
+							firstPrompt: optimistic.firstPrompt,
+							updatedAt:
+								Date.parse( session.updatedAt ) > Date.parse( optimistic.updatedAt )
+									? session.updatedAt
+									: optimistic.updatedAt,
+					  }
+					: session;
+			} );
+			const createdDuringFetch = [ ...pending.values() ].filter(
+				( session ) => ! known.has( session.id )
+			);
+			return [ ...createdDuringFetch, ...reconciled ].sort(
+				( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
+			);
+		},
 		// The sidebar mounts its retry row once a first load fails: refetched on
 		// that mount, the list would go back to loading, unmount the row, fail
 		// again and repeat forever.

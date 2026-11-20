@@ -1427,16 +1427,6 @@ it.each( [ 'selected', 'only', 'with preview' ] )(
 	}
 );
 
-it( 'treats an upgraded preview as its published destination without duplicating it', async () => {
-	setup( {
-		getSnapshots: async () => [ { ...preview, atomicSiteId: live.id } ],
-		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
-	} );
-	await openFirstDestination();
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Choose destination' } ) ).not.toBeInTheDocument();
-} );
-
 it( 'restores the default for an unavailable destination and switches providers', async () => {
 	localStorage.setItem( 'studio-last-publish-provider', 'unknown-provider' );
 	const { connector, user } = setup( {

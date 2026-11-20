@@ -1,6 +1,7 @@
 import { anthropicProvider } from './anthropic/descriptor';
 import { geminiProvider } from './gemini/descriptor';
 import { githubCopilotProvider } from './github-copilot/descriptor';
+import { localLlmProvider } from './local-llm/descriptor';
 import { metaProvider } from './meta/descriptor';
 import { openaiProvider } from './openai/descriptor';
 import { openrouterProvider } from './openrouter/descriptor';
@@ -27,6 +28,7 @@ export const AI_PROVIDER_IDS = [
 	'meta',
 	'xai',
 	'openrouter',
+	'local-llm',
 ] as const satisfies readonly AiProviderId[];
 
 // The providers with remote sites, in the order the publish panel offers them.
@@ -54,6 +56,7 @@ const PROVIDERS: {
 	xai: xaiProvider,
 	openrouter: openrouterProvider,
 	spacefast: spacefastProvider,
+	'local-llm': localLlmProvider,
 };
 
 export function getProvider< Id extends ProviderId >(
@@ -87,6 +90,7 @@ const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	xai: 'xai',
 	openrouter: 'openrouter',
 	spacefast: 'spacefast',
+	'local-llm': 'local-llm',
 };
 
 // The provider a stored or typed id names, among `ids`.

@@ -222,6 +222,7 @@ The agent needs an AI provider to build. You can use the AI you already have, or
 -   **Google Gemini**, with an API key
 -   **GitHub Copilot**, with a Copilot plan
 -   **Meta**, with an API key
+-   **Local LLM**, with a model server you run, such as Ollama or LM Studio
 
 Set them up in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, the models it offers, and who bills you.
 

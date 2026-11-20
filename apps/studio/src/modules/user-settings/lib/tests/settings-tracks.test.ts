@@ -127,6 +127,7 @@ describe( 'AI provider settings', () => {
 			meta: { connected: false },
 			xai: { connected: false },
 			openrouter: { connected: false },
+			'local-llm': { connected: false },
 			spacefast: { connected: false },
 		},
 		imageProviders: [],

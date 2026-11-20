@@ -430,6 +430,7 @@ export default defineConfig(
 											'xai',
 											'openrouter',
 											'spacefast',
+											'local-llm',
 									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]
 							),

@@ -35,6 +35,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | Meta (`meta`)                                | API key                        | Muse models; images                  | —          | —        |
 | xAI (`xai`)                                  | Grok plan or API key           | Grok models; images                  | —          | —        |
 | OpenRouter (`openrouter`)                    | Sign-in or API key             | Models from many labs                | —          | —        |
+| Local LLM (`local-llm`)                      | Server address, optional key   | The models the server lists          | —          | —        |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
 
@@ -82,7 +83,7 @@ It is a package of its own because sites and previews are not agent concerns, so
   - **Several methods**, when a provider offers several ways. The user picks one, and only one is connected at a time. Anthropic takes an API key, or a token from `claude setup-token` that bills the Claude subscription; both are forms.
 - A method that signs in on the provider's site (a device code or a loopback redirect) runs the same way everywhere: the provider starts it and says where the user goes, WordPress Studio shows that address and any code, then hands the provider back what it started with, which waits for the user.
 - The provider says what surfaces show of a connected account: a summary such as an email or a key's first and last characters, a note such as whose plan pays for it, and links such as where to manage usage; never the credential.
-- Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
+- Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for. A field whose schema accepts an empty value is optional: the settings save the form, and `studio code` takes the answer, without it.
 - Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. WordPress Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then WordPress Studio removes the config.
 - A credential that expires before the account does, like a ChatGPT access token, is renewed by the provider (`refresh`) before WordPress Studio uses the config. WordPress Studio stores the renewed config, under a lock of its own, since a refresh token works once. A provider that no longer accepts the renewal is disconnected.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
@@ -97,11 +98,15 @@ Each provider lists the models it serves. Several providers can serve the same m
 
 Where the account decides which of those models it runs, rather than the provider, the connected account says so and the pickers offer only those; a provider that doesn't narrow them offers all it lists. The provider reads that set when it connects and keeps it current when it renews its credential, so the pickers never reach the service to build their list. A GitHub Copilot plan works this way: it includes its own set of models, and leaves some of them off until they are turned on.
 
+The Local LLM connector's catalog is the chat models the user's server lists, less those it says only make embeddings. Connecting offers them all, those the server says call tools first, and the settings narrow them like OpenRouter's. Its model ids are `local-llm/` and the server's name for the model (`local-llm/qwen3:0.6b`). Chats on these models need no internet, and analytics never name them.
+
 ### Connection
 
 To run a turn, the CLI asks the selected provider for a connection to the chosen model. The connection holds everything the runtime needs: endpoint, credentials, headers, API dialect and model limits. Credentials never travel through environment variables.
 
 The provider owns how its models are reached. For example, WordPress.com sends each tier over a different API, and rewrites its usage-cap errors. The runtime treats every connection the same way, and applies the same request clean-ups to every provider.
+
+A connection may say its context window is exactly the one the model runs with, as the Local LLM connector does when the server reports it, since some servers cut a request that doesn't fit without saying. The runtime then sizes compaction to that window, never sends a request its token estimate says the window can't hold, and ends a turn that still can't fit with the words the connection gives.
 
 ### Selection
 
@@ -114,7 +119,7 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 
 ### In the page
 
-WordPress Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, and a `device` sign-in polls endpoints that don't accept the page's origin, so the web leaves both out, and with them the ChatGPT plan and GitHub Copilot; an OpenAI API key works there, since OpenAI's API accepts calls from a page.
+WordPress Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, and a `device` sign-in polls endpoints that don't accept the page's origin, so the web leaves both out, and with them the ChatGPT plan and GitHub Copilot; an OpenAI API key works there, since OpenAI's API accepts calls from a page. A method marked as one only a host can run is left out too: the Local LLM connector checks a server on the user's computer or network, which most servers refuse to answer from a page.
 
 ### Images
 
@@ -125,6 +130,8 @@ Image generation is available when a connected provider offers it, whichever pro
 An id names the provider only. How the account is connected (an API key, a subscription) is part of the config, so a new way of connecting never adds a provider.
 
 The Anthropic provider is `anthropic`. Builds before this design stored `anthropic-api-key`, in the stored selected provider and in session entries. Readers map it to `anthropic`, and writers keep storing `anthropic-api-key`. Older builds fall back to WordPress.com on an id they don't know, so this keeps the user's choice in every build.
+
+The Local LLM connector is `local-llm`, with no stored alias: builds that don't know it run chats on another connected provider and keep its config. Its model ids (`local-llm/<server name>`) are recorded in sessions like any other.
 
 ## Remote sites
 

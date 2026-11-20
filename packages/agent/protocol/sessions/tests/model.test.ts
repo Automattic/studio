@@ -20,6 +20,7 @@ const settings = ( provider: AiSettings[ 'provider' ], connected: string[] ): Ai
 		xai: { connected: false },
 		openrouter: { connected: false },
 		spacefast: { connected: false },
+		'local-llm': { connected: false },
 	},
 	imageProviders: [],
 	imageProvider: null,

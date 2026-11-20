@@ -21,7 +21,8 @@ export type AiModelId =
 			| typeof OPENROUTER_AI_MODELS
 	  )[ number ][ 'id' ]
 	// From a provider's catalog.
-	| `openrouter/${ string }`;
+	| `openrouter/${ string }`
+	| `local-llm/${ string }`;
 
 // The catalog model's provider, which names it with its own id and a slash.
 function catalogProvider( id: string ): AiProviderId | undefined {

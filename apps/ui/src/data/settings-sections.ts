@@ -4,6 +4,7 @@ import {
 	getProvider,
 	getProviderSites,
 	SITES_PROVIDER_IDS,
+	needsHost,
 } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import {
@@ -307,9 +308,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 							description?.() ?? __( 'Start building with free AI credits.' ),
 							`${ id }-provider`
 						),
-						nativeOnly: account.methods.every(
-							( { kind } ) => kind === 'device' || kind === 'loopback'
-						),
+						nativeOnly: account.methods.every( needsHost ),
 					};
 				} ),
 				setting(

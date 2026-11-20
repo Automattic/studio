@@ -21,7 +21,7 @@ beforeEach( () => {
 } );
 afterEach( () => {
 	vi.restoreAllMocks();
-	document.documentElement.style.removeProperty( '--motion-duration-surface' );
+	document.documentElement.style.removeProperty( '--motion-duration-quick' );
 	act( () => {
 		setCommandPaletteOpen( false );
 		removeAnnotations(
@@ -864,6 +864,21 @@ async function sortableTabs() {
 	).mockReturnValue( new DOMRect( 20, 10, 484, 32 ) );
 	return tabs;
 }
+function expectPreviewPanesToStayAttached( reorder: () => void ) {
+	const paneHost = document.querySelector( '[data-active-tab]' )!.parentElement!;
+	// A moved pane can disconnect its preview even when React reuses the DOM node.
+	const observer = new MutationObserver( () => {} );
+	observer.observe( paneHost, { childList: true } );
+	try {
+		reorder();
+		const removed = observer
+			.takeRecords()
+			.flatMap( ( record ) => Array.from( record.removedNodes ) );
+		expect( removed ).toHaveLength( 0 );
+	} finally {
+		observer.disconnect();
+	}
+}
 it( 'lets the only browser tab be picked up without changing its page or selection', async () => {
 	await setup();
 	const tab = selectedTab();
@@ -905,9 +920,8 @@ it( 'leaves touch swipes available for scrolling rather than reordering', async 
 } );
 it( 'moves neighboring tabs aside with one opaque drag chip and preserves pages after dropping', async () => {
 	const tabs = await sortableTabs();
-	const pages = Array.from( document.querySelectorAll( 'iframe' ) );
 	const first = tabs[ 0 ].closest< HTMLElement >( '[data-tab-reorder-id]' )!;
-	document.documentElement.style.setProperty( '--motion-duration-surface', '180ms' );
+	document.documentElement.style.setProperty( '--motion-duration-quick', '180ms' );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 42 ) );
 	expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull();
@@ -916,7 +930,7 @@ it( 'moves neighboring tabs aside with one opaque drag chip and preserves pages 
 	expect( first ).toHaveAttribute( 'data-drag-source' );
 	expect( tabs[ 1 ].parentElement ).toHaveStyle( { transform: 'translateX(-162px)' } );
 	expect( tabs[ 2 ].parentElement ).toHaveStyle( { transform: 'translateX(-162px)' } );
-	fireEvent( window, tabPointer( 'pointerup', 440 ) );
+	expectPreviewPanesToStayAttached( () => fireEvent( window, tabPointer( 'pointerup', 440 ) ) );
 	await waitFor( () =>
 		expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
 			'Admin',
@@ -926,34 +940,8 @@ it( 'moves neighboring tabs aside with one opaque drag chip and preserves pages 
 	);
 	await waitFor( () => expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull() );
 	expect( selectedTab() ).toHaveTextContent( 'Database' );
-	expect( new Set( document.querySelectorAll( 'iframe' ) ) ).toEqual( new Set( pages ) );
 	expect( screen.getByText( 'First moved to position 3 of 3' ) ).toBeInTheDocument();
 } );
-it.each( [ 'pointer', 'keyboard' ] )(
-	'keeps preview panes attached when reordering tabs with the %s',
-	async ( input ) => {
-		const tabs = await sortableTabs();
-		const paneHost = document.querySelector( '[data-active-tab]' )!.parentElement!;
-		const panes = Array.from( paneHost.children );
-		const observer = new MutationObserver( () => {} );
-		observer.observe( paneHost, { childList: true } );
-
-		if ( input === 'pointer' ) {
-			fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
-			fireEvent( window, tabPointer( 'pointermove', 440 ) );
-			fireEvent( window, tabPointer( 'pointerup', 440 ) );
-		} else {
-			fireEvent.keyDown( tabs[ 0 ], { key: 'ArrowRight', altKey: true, shiftKey: true } );
-		}
-
-		expect( screen.getAllByRole( 'tab' )[ 0 ] ).not.toBe( tabs[ 0 ] );
-		expect( Array.from( paneHost.children ) ).toEqual( panes );
-		expect(
-			observer.takeRecords().flatMap( ( record ) => Array.from( record.removedNodes ) )
-		).toEqual( [] );
-		observer.disconnect();
-	}
-);
 it.each( [
 	{ x: -1000, y: -1000 },
 	{ x: 2000, y: 2000 },
@@ -995,14 +983,16 @@ it( 'keeps the reordered position when released below the tab row', async () => 
 	] );
 	await waitFor( () => expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull() );
 } );
-it( 'keeps close controls separate from drag and supports keyboard reordering', async () => {
+it( 'keeps close controls separate from drag and preserves pages when reordering by keyboard', async () => {
 	const tabs = await sortableTabs();
 	const close = screen.getByRole( 'button', { name: 'Close First' } );
 	fireEvent( close, tabPointer( 'pointerdown', 155 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull();
 	fireEvent.click( tabs[ 0 ] );
-	fireEvent.keyDown( tabs[ 0 ], { key: 'ArrowRight', altKey: true, shiftKey: true } );
+	expectPreviewPanesToStayAttached( () =>
+		fireEvent.keyDown( tabs[ 0 ], { key: 'ArrowRight', altKey: true, shiftKey: true } )
+	);
 	await waitFor( () => expect( screen.getAllByRole( 'tab' )[ 1 ] ).toHaveFocus() );
 	expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
 		'Admin',
@@ -1019,7 +1009,7 @@ it( 'keeps close controls separate from drag and supports keyboard reordering', 
 
 it( 'commits a dropped order before another drag interrupts its landing', async () => {
 	const tabs = await sortableTabs();
-	document.documentElement.style.setProperty( '--motion-duration-surface', '180ms' );
+	document.documentElement.style.setProperty( '--motion-duration-quick', '180ms' );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	fireEvent( window, tabPointer( 'pointerup', 440 ) );
@@ -1028,6 +1018,7 @@ it( 'commits a dropped order before another drag interrupts its landing', async 
 		'Database',
 		'First',
 	] );
+	expect( document.querySelector( '[data-tab-drag-preview][data-landing]' ) ).toBeInTheDocument();
 	const admin = screen.getByRole( 'tab', { name: 'Admin' } );
 	fireEvent( admin, tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );

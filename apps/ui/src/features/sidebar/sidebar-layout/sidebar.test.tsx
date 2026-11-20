@@ -86,6 +86,7 @@ describe( 'resizable sidebar', () => {
 
 		expect( visualToggle.closest( '[aria-hidden="true"]' ) ).not.toBeNull();
 		expect( visualToggle ).toHaveAttribute( 'tabindex', '-1' );
+		expect( visualToggle.closest( '[inert]' ) ).toBeNull();
 		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
 		expect( toggle() ).toHaveFocus();
 

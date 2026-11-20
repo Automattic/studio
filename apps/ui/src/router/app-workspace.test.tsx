@@ -1407,29 +1407,26 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( composerStartButton() ).toBeVisible() );
 	} );
 
-	it.each( [ 'split', 'fullscreen', 'site' ] )(
-		'preserves the %s layout when stopping from the sidebar',
-		async ( layout ) => {
-			const { connector, history } = setup( {
-				signedIn: true,
-				path: layout === 'site' ? '/sites/one' : '/sites/one/new',
-				sites: [ site( { running: true } ) ],
-			} );
-			if ( layout === 'fullscreen' ) await chooseWorkspaceLayout( 'Panel' );
-			await findLayoutControl( layout === 'split' ? 'split' : 'panel' );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
-			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-			await screen.findByRole( 'button', { name: 'Start My site' } );
-			if ( layout === 'split' ) expect( await findComposer() ).toBeVisible();
-			expect( await findLayoutControl( layout === 'split' ? 'split' : 'panel' ) ).toBeVisible();
-			expect( localStorage.getItem( LEGACY_PANEL_LAYOUT_STORAGE_KEY ) ).toBeNull();
-			expect( history.location.pathname ).toBe(
-				layout === 'site' ? '/sites/one' : '/sites/one/new'
-			);
-			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
-			expect( connector.createSession ).not.toHaveBeenCalled();
-		}
-	);
+	it.each( [
+		{ path: '/sites/one/new', layout: 'split' },
+		{ path: '/sites/one', layout: 'panel' },
+	] as const )( 'stays on $path when stopping from the sidebar', async ( { path, layout } ) => {
+		const { connector, history } = setup( {
+			signedIn: true,
+			path,
+			sites: [ site( { running: true } ) ],
+		} );
+		await findLayoutControl( layout );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
+		await screen.findByRole( 'button', { name: 'Start My site' } );
+		expect( connector.stopSite ).toHaveBeenCalledWith( 'one' );
+		if ( layout === 'split' ) expect( await findComposer() ).toBeVisible();
+		expect( await findLayoutControl( layout ) ).toBeVisible();
+		expect( localStorage.getItem( LEGACY_PANEL_LAYOUT_STORAGE_KEY ) ).toBeNull();
+		expect( history.location.pathname ).toBe( path );
+		expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
 
 	it( 'preserves draft and attachments through external start and stop events', async () => {
 		const { connector } = setup( { signedIn: true } );

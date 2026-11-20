@@ -220,9 +220,9 @@ describe( 'PanelSplitFrame', () => {
 		it( 'finishes a manual slide when an instant layout restoration takes over', () => {
 			const { rerender } = render( frame( 'Stopped site', false ) );
 			rerender( frame( 'Stopped site', true ) );
-			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
+			expect( getFrameRoot() ).toHaveAttribute( 'data-layout-moving', 'true' );
 			rerender( frame( 'Starting site', true, true ) );
-			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
+			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
 		} );
 
 		it( 'closes immediately when an instant close interrupts an opening panel', async () => {

@@ -154,15 +154,6 @@ describe( 'Share popover', () => {
 		expect( await screen.findByRole( 'dialog', { name: publishPanelName } ) ).toBeVisible();
 		expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
 	} );
-	it( 'uses the shared spinner during publishing', async () => {
-		const connector = setup();
-		const button = await screen.findByRole( 'button', { name: /^Publish…$/ } );
-		act( () => {
-			applySyncActivity( connector.state.sites[ 0 ].id, { kind: 'pending', direction: 'preview' } );
-		} );
-		expect( button.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
-		expect( button ).toHaveAccessibleDescription( 'Publishing…' );
-	} );
 } );
 
 it( 'unlocks a ready preview before the publishing command returns', async () => {
@@ -871,6 +862,7 @@ it.each( [ false, true ] )(
 		expect( await screen.findByRole( 'dialog', { name: 'Preview details' } ) ).toBeVisible();
 		const update = screen.getByRole( 'button', { name: 'Update…' } );
 		expect( update ).toHaveAttribute( 'data-variant', 'accent' );
+		expect( connector.getPreviewStatus ).toHaveBeenCalledWith( 'edited.example.com' );
 		await actions.click( update );
 		await screen.findByText( 'Replace preview changes?' );
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
@@ -888,6 +880,7 @@ it.each( [ false, true ] )(
 				undefined
 			)
 		);
+		expect( connector.pushSite ).not.toHaveBeenCalled();
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	}
 );

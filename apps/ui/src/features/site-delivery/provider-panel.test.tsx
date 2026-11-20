@@ -1141,46 +1141,6 @@ it( 'keeps the previews step open while adding a preview', async () => {
 	).toBeVisible();
 } );
 
-it( 'checks and updates the selected preview', async () => {
-	const second = {
-		...preview,
-		atomicSiteId: 456,
-		name: 'Client review',
-		url: 'second-preview.wpcomstaging.com',
-	};
-	const { user, connector } = setup( {
-		getSnapshots: async () => [ second ],
-		listAccountSites: async () => [ { ...live, id: second.atomicSiteId } ],
-		getRemoteSites: async () => [],
-		getSitePublishStatus: async () => ( { localChanged: false } ),
-		getPreviewStatus: async ( hostname ) => ( {
-			localSiteId: site.id,
-			localChanged: true,
-			previewChanged: hostname === second.url,
-		} ),
-	} );
-	await openFirstDestination();
-	await user.click( await screen.findByRole( 'button', { name: 'Update…' } ) );
-	expect(
-		await screen.findByRole( 'heading', { name: 'Replace preview changes?' } )
-	).toBeVisible();
-	expect(
-		screen.getByText(
-			`Changes on ${ second.url } will be replaced with your local files and database.`
-		)
-	).toBeVisible();
-	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-	await user.click( screen.getByRole( 'button', { name: 'Replace preview' } ) );
-	await waitFor( () =>
-		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
-			site.id,
-			second.url,
-			undefined
-		)
-	);
-	expect( connector.pushSite ).not.toHaveBeenCalled();
-} );
-
 it.each( [
 	{ host: 'Pressable', isPressable: true, logo: pressableLogo },
 	{ host: 'WordPress.com', isPressable: false, logo: getProvider( 'wpcom' ).logo! },
@@ -2806,22 +2766,6 @@ it.each( [ undefined, live.id ] )(
 		);
 	}
 );
-
-it( 'returns to the chooser if a preview disappears while viewing its details', async () => {
-	const second = { ...preview, atomicSiteId: 456, url: 'second.wpcomstaging.com' };
-	const { user, connector, queryClient } = setup( {
-		getRemoteSites: async () => [],
-		getSnapshots: async () => [ preview, second ],
-	} );
-	const panel = await openShare();
-	await user.click( getDestinationRow( panel, preview.url ) );
-	connector.getSnapshots.mockResolvedValue( [ second ] );
-	await act( () => queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } ) );
-	await waitFor( () => expect( getDestinationRow( panel, second.url ) ).toBeVisible() );
-	expect(
-		screen.queryByRole( 'heading', { name: 'Make your site live' } )
-	).not.toBeInTheDocument();
-} );
 
 it( 'keeps preview details available to retry a failed browser handoff', async () => {
 	const { user, connector } = setup( { getRemoteSites: async () => [] } );

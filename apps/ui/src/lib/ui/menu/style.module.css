@@ -24,12 +24,8 @@
 	}
 
 	.destructive {
-		color: var( --destructive );
-	}
-
-	.destructive[data-highlighted] {
-		--item-hover-background: var( --destructive-hover );
 		--item-hover-foreground: var( --destructive );
+
 		color: var( --destructive );
 	}
 
@@ -57,7 +53,7 @@
 		letter-spacing: 0.1em;
 	}
 
-	.destructive .shortcut {
+	.destructive :is( svg, .shortcut ) {
 		color: inherit;
 	}
 }

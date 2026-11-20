@@ -19,7 +19,7 @@
 		position: relative;
 		width: 100%;
 		height: 160px;
-		border-radius: var( --radius-md );
+		border-radius: var( --radius-menu-row );
 		box-shadow: inset 0 0 0 1px var( --border );
 		touch-action: none;
 		forced-color-adjust: none;

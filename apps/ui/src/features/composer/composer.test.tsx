@@ -194,7 +194,7 @@ describe( 'Chat composer', () => {
 		expect( getComposerDraft( 'test' ).text ).toBe( '' );
 	} );
 
-	it( 'preserves a new draft and attachments when an earlier send fails', async () => {
+	it( 'briefly shows error feedback and preserves draft edits when a send fails', async () => {
 		let rejectSend!: ( error: Error ) => void;
 		const onSend = vi.fn(
 			() =>
@@ -213,9 +213,14 @@ describe( 'Chat composer', () => {
 		upload( 'second.txt' );
 		await screen.findByText( 'second.txt' );
 		await act( async () => rejectSend( new Error( 'Connection lost' ) ) );
+		const send = screen.getByRole( 'button', { name: 'Send message' } );
+		expect( send ).toHaveAttribute( 'data-variant', 'destructive' );
 		expect( input ).toHaveValue( 'New draft written while waiting' );
 		expect( screen.getByText( 'first.txt' ) ).toBeVisible();
 		expect( screen.getByText( 'second.txt' ) ).toBeVisible();
+		await waitFor( () => expect( send ).toHaveAttribute( 'data-variant', 'accent' ), {
+			timeout: 2000,
+		} );
 	} );
 
 	it( 'pastes files into the composer above the text without replacing the draft', async () => {

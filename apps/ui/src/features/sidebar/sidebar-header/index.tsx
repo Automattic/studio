@@ -23,6 +23,7 @@ export function SidebarHeader( { action }: { action?: ReactNode } ) {
 		<div className={ clsx( styles.root, ! reserveTrafficLightSpace && styles.flush ) }>
 			{ connector.showsAppMenuButton && (
 				<IconButton
+					variant="ghost"
 					size="icon-sm"
 					icon={ <MenuIcon /> }
 					label={ __( 'Menu' ) }

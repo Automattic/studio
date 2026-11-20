@@ -1,5 +1,5 @@
 .toolbar {
-	--control-size: 32px;
+	--control-size: var( --control-size-sm );
 	display: flex;
 	align-items: center;
 	flex-shrink: 0;
@@ -77,7 +77,7 @@
 
 .dimension {
 	width: 44px;
-	height: 28px;
+	height: var( --control-size-xs );
 	border-radius: var( --radius-sm );
 	padding: 0 var( --space-1 );
 	font-size: var( --text-xxs );

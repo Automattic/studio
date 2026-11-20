@@ -5,8 +5,8 @@
 	--notice-title-inset: calc( ( var( --notice-row-height ) - var( --text-sm--line-height ) ) / 2 );
 	position: relative;
 	pointer-events: auto;
-	padding: var( --space-3_5 );
-	border-radius: var( --radius-xl );
+	padding: var( --space-notice-inset );
+	border-radius: var( --radius-notice );
 	background-color: var( --secondary );
 	color: var( --secondary-foreground );
 	box-shadow:

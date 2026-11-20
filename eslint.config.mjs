@@ -115,6 +115,7 @@ const PRIMITIVE_HOOKS = [
 	'--button-background',
 	'--button-hover-background',
 	'--button-hover-color',
+	'--radius-button',
 ];
 const PRIMITIVE_PROPERTIES = [ ...new Set( cssCustomProperties( 'lib/ui' ) ) ].filter(
 	( property ) => ! THEME_TOKENS.includes( property ) && ! PRIMITIVE_HOOKS.includes( property )

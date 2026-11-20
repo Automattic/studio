@@ -9,7 +9,7 @@
 		min-width: 0;
 		height: var( --control-size );
 		border: var( --input-group-border-width ) solid var( --input );
-		border-radius: var( --radius-lg );
+		border-radius: var( --radius-control );
 		outline: none;
 	}
 
@@ -35,15 +35,34 @@
 	}
 
 	.group[data-variant='commands'] {
-		border-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
+		border-radius: var( --radius-command-inset, var( --radius-control ) );
 	}
 
 	.group[data-variant='composer'] {
 		--input-group-border-width: var( --hairline-width );
+		--radius-composer: var( --radius-3xl );
+		--composer-toolbar-inset: var( --space-composer-toolbar-inset );
+		--composer-attachment-inset: var( --space-2 );
+		--attachment-remove-inset: var( --space-attachment-chip-remove-inset );
+		--attachment-remove-hover-scale: 1;
+		--radius-composer-attachment: max(
+			0px,
+			calc(
+				var( --radius-composer ) - var( --input-group-border-width ) -
+					var( --composer-attachment-inset )
+			)
+		);
+		--radius-composer-action: max(
+			0px,
+			calc(
+				var( --radius-composer ) - var( --composer-toolbar-inset ) -
+					var( --input-group-border-width )
+			)
+		);
 		--surface: var( --popover );
 		box-shadow: var( --shadow-sm );
 		border-color: var( --popover-border );
-		border-radius: var( --radius-3xl );
+		border-radius: var( --radius-composer );
 		background-color: var( --surface );
 		color: var( --popover-foreground );
 	}

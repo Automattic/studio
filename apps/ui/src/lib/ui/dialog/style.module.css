@@ -31,7 +31,9 @@
 	}
 
 	.content {
-		--dialog-inset: var( --space-3 );
+		--dialog-inset: var( --space-dialog-inset );
+		--radius-dialog: var( --radius-2xl );
+
 		position: fixed;
 		top: 50%;
 		left: 50%;
@@ -42,8 +44,8 @@
 		max-width: 384px;
 		max-height: calc( 100dvh - 2rem );
 		overflow-y: auto;
-		padding: var( --dialog-inset, var( --space-3 ) );
-		border-radius: var( --radius-2xl );
+		padding: var( --dialog-inset );
+		border-radius: var( --radius-dialog );
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );
 		translate: -50% -50%;
@@ -94,7 +96,7 @@
 	}
 
 	.content:is( [data-layout='compact'], [data-layout='confirmation'] ) {
-		padding-inline-start: var( --space-4 );
+		padding-inline-start: var( --space-dialog-inset-roomy );
 	}
 
 	.content:is( [data-layout='compact'], [data-layout='confirmation'] ) .footer {
@@ -113,7 +115,6 @@
 		margin: auto;
 		overflow: hidden;
 		padding: 0;
-		border-radius: var( --radius-2xl );
 		translate: none;
 	}
 
@@ -136,7 +137,7 @@
 		flex-shrink: 0;
 		align-items: center;
 		column-gap: var( --space-3 );
-		padding: var( --dialog-inset, var( --space-3 ) );
+		padding: var( --dialog-inset, var( --space-dialog-inset ) );
 	}
 
 	.header {
@@ -202,7 +203,7 @@
 
 	.content:is( [data-layout='settings'], [data-layout='creation'] ) > .footer,
 	.panel > .footer {
-		padding: var( --dialog-inset, var( --space-3 ) );
+		padding: var( --dialog-inset, var( --space-dialog-inset ) );
 	}
 
 	.panelHeader {
@@ -250,18 +251,21 @@
 		flex-direction: column;
 		width: 100%;
 		min-height: 100%;
-		padding: 2px var( --dialog-inset, var( --space-3 ) ) var( --dialog-inset, var( --space-3 ) );
+		padding: var( --space-0_5 ) var( --dialog-inset, var( --space-dialog-inset ) )
+			var( --dialog-inset, var( --space-dialog-inset ) );
 	}
 
 	.content[data-layout='settings'] .panelBody {
-		padding-inline: var( --space-4 );
+		padding-inline: var( --space-dialog-inset-roomy );
 	}
 
 	.panelBody:has( > [data-slot='empty'] ),
 	.panelBody:has( > :only-child > [data-slot='empty'] ) {
 		padding-block-start: 0;
 		/* Balance the panel header so the empty state centers in the whole panel. */
-		padding-block-end: calc( var( --control-size ) + 2 * var( --dialog-inset, var( --space-3 ) ) );
+		padding-block-end: calc(
+			var( --control-size ) + 2 * var( --dialog-inset, var( --space-dialog-inset ) )
+		);
 	}
 
 	.scrollArea {

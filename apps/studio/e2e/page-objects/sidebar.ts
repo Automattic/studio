@@ -9,6 +9,10 @@ export default class Sidebar {
 		return this.page.getByRole( 'button', { name: 'Add site', exact: true } );
 	}
 
+	get toggle() {
+		return this.page.locator( `[data-sidebar-toggle]${ INTERACTIVE_SELECTOR }` );
+	}
+
 	get locator() {
 		// A bare <aside>; the site preview is the labelled one.
 		return this.page.locator( 'aside:not([aria-label])' );
@@ -18,18 +22,20 @@ export default class Sidebar {
 		return this.locator.getByRole( 'button', { name: siteName, exact: true } ).first();
 	}
 
-	getSiteRow( siteName: string ) {
+	getSiteRow( siteName: string, { includeHidden = false } = {} ) {
 		// The performance comparison runs these page objects against trunk builds
 		// too, whose rows are sections rather than list items.
 		return this.locator.locator( 'li, section' ).filter( {
-			has: this.page.getByRole( 'button', { name: siteName, exact: true } ),
+			has: this.page.getByRole( 'button', { name: siteName, exact: true, includeHidden } ),
 		} );
 	}
 
 	getStatusButton( siteName: string ) {
 		// By its state rather than its name, which is translated.
-		// A flyout adds a second row; keep state reads on the original row.
-		return this.getSiteRow( siteName ).locator( 'button[data-state]' ).first();
+		// The original row stays mounted while the sidebar is collapsed.
+		return this.getSiteRow( siteName, { includeHidden: true } )
+			.locator( 'button[data-state]' )
+			.first();
 	}
 
 	private get interactiveLocator() {
@@ -37,9 +43,8 @@ export default class Sidebar {
 	}
 
 	async ensureOpen() {
-		const toggle = this.page.locator( `[data-sidebar-toggle]${ INTERACTIVE_SELECTOR }` );
-		if ( ( await toggle.getAttribute( 'aria-expanded' ) ) === 'false' ) {
-			await toggle.click();
+		if ( ( await this.toggle.getAttribute( 'aria-expanded' ) ) === 'false' ) {
+			await this.toggle.click();
 		}
 		await expect( this.interactiveLocator ).toBeInViewport();
 	}

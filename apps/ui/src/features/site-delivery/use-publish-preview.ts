@@ -17,7 +17,8 @@ import type { SiteDetails, Snapshot } from '@/data/core';
 export function usePublishPreview(
 	site: SiteDetails,
 	selectedSnapshot: Snapshot | undefined,
-	viewingPreview: boolean
+	viewingPreview: boolean,
+	checkStatus: boolean
 ) {
 	const user = useAuthUser();
 	const connector = useConnector();
@@ -44,7 +45,7 @@ export function usePublishPreview(
 		previews[ 0 ];
 	const status = usePreviewStatus(
 		selectedPreview,
-		! offline && ! busy && activity?.kind !== 'pending'
+		checkStatus && ! offline && ! busy && activity?.kind !== 'pending'
 	);
 	const reportedStatusErrors = useRef( new Set< number >() );
 	const clearStatusError = useCallback( ( id: number ) => {

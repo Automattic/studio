@@ -197,7 +197,7 @@ export function usePublishTargets(
 					: await connector.getSitePublishStatus( siteId, target.remote!.id, target.provider );
 				return { ...result, checkedRunId };
 			},
-			enabled: activity?.kind !== 'pending',
+			enabled: activity?.kind !== 'pending' && ( open || target.key === selected?.key ),
 			// The selected preview's usePreviewStatus observer owns its polling interval.
 			refetchInterval: target.snapshot ? false : 30_000,
 			meta: { persist: false },

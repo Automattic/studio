@@ -88,6 +88,35 @@ describe( 'getPreviewStatus', () => {
 		}
 	);
 
+	it.each( [
+		[ 1000, false ],
+		[ 3000, true ],
+	] )(
+		'preserves remote change status when the local comparison fails (%s)',
+		async ( previewEditedAt, previewChanged ) => {
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
+				{
+					url: 'preview.wpcomstaging.com',
+					atomicSiteId: 7,
+					localSiteId: 'one',
+					date: 2000,
+					versionId: 'previous-version',
+					syncedAt: 2000,
+				},
+			] );
+			vi.mocked( wpcomSites.editedAt! ).mockResolvedValue( previewEditedAt );
+			const databaseDir = path.join( sitePath, 'wp-content', 'database' );
+			fs.mkdirSync( databaseDir );
+			fs.writeFileSync( path.join( databaseDir, '.ht.sqlite' ), 'not a database' );
+
+			expect( await getPreviewStatus( 'preview.wpcomstaging.com' ) ).toEqual( {
+				localSiteId: 'one',
+				localChanged: null,
+				previewChanged,
+			} );
+		}
+	);
+
 	it( "can't tell for a preview synced before Studio recorded versions", async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
 			{ url: 'preview.wpcomstaging.com', atomicSiteId: 7, localSiteId: 'one', date: 2000 },

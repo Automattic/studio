@@ -217,7 +217,8 @@ export function PublishButton( {
 	const preview = usePublishPreview(
 		site,
 		snapshot ?? targets.selectedPreview?.snapshot,
-		open && view.kind === 'details' && !! snapshot
+		open && view.kind === 'details' && !! snapshot,
+		open || !! snapshot
 	);
 	const visibility = useSiteVisibility(
 		selected?.provider ?? targets.providers[ 0 ],

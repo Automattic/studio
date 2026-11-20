@@ -1,7 +1,7 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, expect, it } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { getVisibleToasts, runNoticeAction } from '@/data/app-messages';
 import { buildPublishCheckoutUrl } from '@/data/core/connectors/publish-checkout-url';
 import { publishTargetQueryKey, remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
@@ -187,6 +187,55 @@ async function openExistingSitePicker( user: ReturnType< typeof setup >[ 'user' 
 	await user.click( await screen.findByRole( 'option', { name: 'Connect to an existing site' } ) );
 	return screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
 }
+
+it( 'checks only the selected destination in the background and refreshes the others when opened', async () => {
+	vi.useFakeTimers( { shouldAdvanceTime: true } );
+	const { connector, queryClient, unmount } = setup();
+	try {
+		await waitFor( () => {
+			expect( queryClient.getQueryData( remoteSitesQueryKey( 'wpcom', site.id ) ) ).toEqual( [
+				live,
+			] );
+			expect( queryClient.getQueryData( remoteSitesQueryKey( 'spacefast', site.id ) ) ).toEqual( [
+				space,
+			] );
+			expect( queryClient.getQueryData( SNAPSHOTS_QUERY_KEY ) ).toEqual( [ preview ] );
+			expect( connector.getSitePublishStatus ).toHaveBeenCalledWith( site.id, live.id, 'wpcom' );
+		} );
+		connector.getSitePublishStatus.mockClear();
+		connector.getPreviewStatus.mockClear();
+		await act( () => vi.advanceTimersByTimeAsync( 30_000 ) );
+		expect( connector.getSitePublishStatus ).toHaveBeenCalledWith( site.id, live.id, 'wpcom' );
+		expect( connector.getSitePublishStatus ).not.toHaveBeenCalledWith(
+			site.id,
+			space.id,
+			'spacefast'
+		);
+		expect( connector.getPreviewStatus ).not.toHaveBeenCalled();
+
+		const panel = await openShare();
+		await waitFor( () => {
+			expect( connector.getSitePublishStatus ).toHaveBeenCalledWith(
+				site.id,
+				space.id,
+				'spacefast'
+			);
+			expect( connector.getPreviewStatus ).toHaveBeenCalledWith( preview.url );
+		} );
+		fireEvent.click( within( panel ).getByRole( 'button', { name: 'Preview 1' } ) );
+		await screen.findByRole( 'group', { name: 'Preview: Preview 1' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
+		await waitFor( () => expect( panel ).not.toBeInTheDocument() );
+		connector.getSitePublishStatus.mockClear();
+		connector.getPreviewStatus.mockClear();
+		await act( () => vi.advanceTimersByTimeAsync( 30_000 ) );
+		expect( connector.getPreviewStatus ).toHaveBeenCalledWith( preview.url );
+		expect( connector.getSitePublishStatus ).not.toHaveBeenCalled();
+	} finally {
+		unmount();
+		vi.useRealTimers();
+	}
+} );
 
 it.each( [ 'previews', 'connections' ] )(
 	'waits for delayed %s before choosing the entry view',

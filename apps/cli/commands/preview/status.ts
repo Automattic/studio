@@ -10,8 +10,7 @@ import { StudioArgv } from 'cli/types';
 
 /**
  * What changed since Studio last pushed the local site to a preview or pulled the preview into it.
- * Each is null when Studio can't tell: the preview has no local site, or was last synced before
- * Studio recorded versions.
+ * Each is null when Studio can't tell, including when its comparison is unavailable.
  */
 export type PreviewStatus = {
 	localSiteId: string | null;
@@ -28,10 +27,14 @@ export async function getPreviewStatus( host: string ): Promise< PreviewStatus >
 		throw new LoggerError( __( 'Preview site not found' ), undefined, 'not_found' );
 	}
 	const site = snapshot.localSiteId ? await findSiteById( snapshot.localSiteId ) : undefined;
-	const localChanged =
-		site && snapshot.versionId
-			? ( await getSiteVersion( site.id, site.path ) ) !== snapshot.versionId
-			: null;
+	let localChanged: boolean | null = null;
+	if ( site && snapshot.versionId ) {
+		try {
+			localChanged = ( await getSiteVersion( site.id, site.path ) ) !== snapshot.versionId;
+		} catch {
+			// A failed local comparison must not hide whether the preview was edited.
+		}
+	}
 	let previewChanged: boolean | null = null;
 	if ( snapshot.syncedAt ) {
 		try {

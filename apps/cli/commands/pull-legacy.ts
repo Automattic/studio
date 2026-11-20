@@ -210,7 +210,10 @@ export async function runCommand(
 						/* The transfer succeeded even if comparison is unavailable. */
 					}
 				}
-				await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'pull', localVersionId );
+				await rememberRemoteSite( 'wpcom', site.id, remoteSite, {
+					synced: 'pull',
+					localVersionId,
+				} );
 			} catch ( error ) {
 				logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 			}

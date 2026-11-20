@@ -48,7 +48,12 @@ export async function syncPreviewsWithServer( userId: number, token: string ): P
 	for ( const snapshot of forgotten ) {
 		const site = sites.find( ( candidate ) => candidate.id === snapshot.atomicSiteId );
 		if ( site ) {
-			await rememberRemoteSite( 'wpcom', snapshot.localSiteId, site );
+			await rememberRemoteSite( 'wpcom', snapshot.localSiteId, site, {
+				previewBaseline:
+					snapshot.versionId && snapshot.syncedAt !== undefined
+						? { versionId: snapshot.versionId, syncedAt: snapshot.syncedAt }
+						: undefined,
+			} );
 		}
 	}
 	await reconcilePreviews( userId, previews, checkedAt );

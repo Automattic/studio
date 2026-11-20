@@ -74,12 +74,8 @@ it( 'routes provider visibility through the shared service', async () => {
 		body: JSON.stringify( { visibility: 'public' } ),
 	} );
 	expect( response.status ).toBe( 200 );
-	expect( getSiteVisibility ).toHaveBeenCalledWith( getProviderServices( 'wpcom' ), '42' );
-	expect( setSiteVisibility ).toHaveBeenCalledWith(
-		getProviderServices( 'wpcom' ),
-		'42',
-		'public'
-	);
+	expect( getSiteVisibility ).toHaveBeenCalledWith( getProviderServices( 'wpcom' ), 42 );
+	expect( setSiteVisibility ).toHaveBeenCalledWith( getProviderServices( 'wpcom' ), 42, 'public' );
 } );
 
 it( 'routes Spacefast restricted access and choice availability without losing metadata', async () => {

@@ -53,15 +53,25 @@ afterEach( () => {
 
 it( 'keeps publish intent across refreshes and failed launches until explicitly cleared', async () => {
 	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, launchAfterPush: true } );
-	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'push' );
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, { synced: 'push' } );
 	expect( ( await getRemoteSites( 'wpcom', 'local-a' ) )[ 0 ].launchAfterPush ).toBe( true );
-	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, launchAfterPush: false }, 'push' );
+	await rememberRemoteSite(
+		'wpcom',
+		'local-a',
+		{ ...listedSite, launchAfterPush: false },
+		{ synced: 'push' }
+	);
 	expect( ( await getRemoteSites( 'wpcom', 'local-a' ) )[ 0 ].launchAfterPush ).toBe( false );
 } );
 
 it( 'records each sync and keeps the times of the others', async () => {
-	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'pull' );
-	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, name: 'Renamed' }, 'push' );
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, { synced: 'pull' } );
+	await rememberRemoteSite(
+		'wpcom',
+		'local-a',
+		{ ...listedSite, name: 'Renamed' },
+		{ synced: 'push' }
+	);
 
 	const [ site ] = await getRemoteSites( 'wpcom', 'local-a' );
 	expect( site ).toMatchObject( {
@@ -100,7 +110,7 @@ it( 'keeps the Spaces a site publishes to, and forgets them', async () => {
 		slug: 'site',
 		teamId: 't',
 	};
-	await rememberRemoteSite( 'spacefast', 'local-a', space, 'push' );
+	await rememberRemoteSite( 'spacefast', 'local-a', space, { synced: 'push' } );
 	await rememberRemoteSite( 'spacefast', 'local-a', { ...space, name: 'Renamed' } );
 
 	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toEqual( [
@@ -120,12 +130,18 @@ it( 'keeps the Spaces a site publishes to, and forgets them', async () => {
 } );
 
 it( 'keeps a full-transfer baseline through metadata refreshes and invalidates it after a partial transfer', async () => {
-	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'push', 'full-version' );
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, {
+		synced: 'push',
+		localVersionId: 'full-version',
+	} );
 	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, name: 'Updated name' } );
 	expect( ( await getRemoteSites( 'wpcom', 'local-a' ) )[ 0 ].localVersionId ).toBe(
 		'full-version'
 	);
-	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'pull', null );
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, {
+		synced: 'pull',
+		localVersionId: null,
+	} );
 	expect( ( await getRemoteSites( 'wpcom', 'local-a' ) )[ 0 ].localVersionId ).toBeNull();
 } );
 
@@ -173,4 +189,26 @@ it( 'updates an existing destination without dropping other legacy connections',
 	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, id: 2 } );
 	await recordRemoteSitePublish( 'wpcom', 'local-a', listedSite, 'new-version' );
 	expect( await getRemoteSites( 'wpcom', 'local-a' ) ).toHaveLength( 2 );
+} );
+
+it( 'keeps existing connections when a new destination is pushed from the CLI', async () => {
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite );
+	await recordRemoteSitePublish(
+		'spacefast',
+		'local-a',
+		{
+			id: 'space',
+			name: 'Static',
+			url: 'https://example.space.fast',
+			slug: 'example',
+			teamId: 'team',
+		},
+		'new-version'
+	);
+	expect( ( await getRemoteSites( 'wpcom', 'local-a' ) ).map( ( remote ) => remote.id ) ).toEqual( [
+		1,
+	] );
+	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toMatchObject( [
+		{ id: 'space', localVersionId: 'new-version' },
+	] );
 } );

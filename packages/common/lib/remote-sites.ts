@@ -93,11 +93,19 @@ export async function rememberRemoteSite< Id extends SitesProviderId >(
 	provider: Id,
 	localSiteId: string,
 	site: ProviderSites[ Id ],
-	synced?: 'push' | 'pull',
-	localVersionId?: string | null
+	{
+		synced,
+		localVersionId,
+		previewBaseline,
+	}: {
+		synced?: 'push' | 'pull';
+		localVersionId?: string | null;
+		previewBaseline?: { versionId: string; syncedAt: number };
+	} = {}
 ): Promise< void > {
 	const {
 		localSiteId: _localSiteId,
+		localVersionId: _localVersionId,
 		lastPushTimestamp,
 		lastPullTimestamp,
 		...remote
@@ -127,6 +135,14 @@ export async function rememberRemoteSite< Id extends SitesProviderId >(
 			connection.localVersionId = localVersionId ?? null;
 			connection[ synced === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp' ] =
 				new Date().toISOString();
+		} else if (
+			previewBaseline &&
+			connection.localVersionId === undefined &&
+			[ connection.lastPushTimestamp, connection.lastPullTimestamp ].every(
+				( timestamp ) => ! timestamp || Date.parse( timestamp ) <= previewBaseline.syncedAt
+			)
+		) {
+			connection.localVersionId = previewBaseline.versionId;
 		}
 	} );
 }
@@ -147,13 +163,6 @@ export async function forgetRemoteSite< Id extends SitesProviderId >(
 	} );
 }
 
-export async function forgetRemoteSites( localSiteId: string ): Promise< void > {
-	await updateConfig( ( config ) => {
-		const site = config.sites.find( ( candidate ) => candidate.id === localSiteId );
-		if ( site ) delete site.connections;
-	} );
-}
-
 async function savePublishingSite< Id extends SitesProviderId >(
 	provider: Id,
 	localSiteId: string,
@@ -171,7 +180,6 @@ async function savePublishingSite< Id extends SitesProviderId >(
 				isConnection( connection, provider, account ) && connection.site.id === site.id
 		);
 		const published = localVersionId !== undefined;
-		const updating = published && previous && ! previous.site.launchAfterPush;
 		const remote = withoutUndefined( site );
 		delete remote.localSiteId;
 		delete remote.lastPushTimestamp;
@@ -187,8 +195,9 @@ async function savePublishingSite< Id extends SitesProviderId >(
 			lastPushTimestamp: published ? new Date().toISOString() : previous?.lastPushTimestamp ?? null,
 			...( published ? { localVersionId } : {} ),
 		};
-		if ( updating ) {
-			Object.assign( previous, connection );
+		if ( published && ! previous?.site.launchAfterPush ) {
+			if ( previous ) Object.assign( previous, connection );
+			else connections.push( connection );
 			return;
 		}
 		const wpcomAccount = getAccount( config, 'wpcom' );

@@ -1955,7 +1955,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const provider = readSitesProvider( req, res );
 			if ( ! provider ) return;
 			res.json(
-				await getSiteVisibility( getProviderServices( provider ), req.params.remoteSiteId as never )
+				await getSiteVisibility(
+					getProviderServices( provider ),
+					remoteSiteIdParam( provider, req )
+				)
 			);
 		} )
 	);
@@ -1972,7 +1975,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.json(
 				await setSiteVisibility(
 					getProviderServices( provider ),
-					req.params.remoteSiteId as never,
+					remoteSiteIdParam( provider, req ),
 					visibility.data
 				)
 			);

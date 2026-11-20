@@ -992,9 +992,7 @@ it( 'shows preview names in the chooser and only the domain in selected details'
 	);
 	const row = await selectPreview( user, 'Preview 7' );
 	expect( row ).toHaveTextContent( unnamed.url );
-	expect( within( row ).getByRole( 'link' ) ).toHaveTextContent(
-		new RegExp( `^${ unnamed.url }$` )
-	);
+	expect( within( row ).getByRole( 'link' ).textContent?.trim() ).toBe( unnamed.url );
 	expect( screen.queryByRole( 'button', { name: 'Previews' } ) ).not.toBeInTheDocument();
 	await user.click( screen.getByRole( 'link', { name: /^Open preview:/ } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith( unnamed.shareUrl );
@@ -1572,7 +1570,11 @@ it( 'keeps first publish steady through creation and upload', async () => {
 	expect(
 		within( panel ).queryByRole( 'button', { name: 'Manage domain' } )
 	).not.toBeInTheDocument();
+	expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
 	finishUpload();
+	await waitFor( () =>
+		expect( connector.connectRemoteSite ).toHaveBeenCalledWith( 'spacefast', site.id, space )
+	);
 	expect(
 		await within( panel ).findByRole( 'link', { name: 'Open lente.space.fast' }, { timeout: 4000 } )
 	).toBeEnabled();

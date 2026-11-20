@@ -165,7 +165,10 @@ async function rememberConnection(
 	localVersionId: string | null = null
 ): Promise< void > {
 	try {
-		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, 'pull', localVersionId );
+		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, {
+			synced: 'pull',
+			localVersionId,
+		} );
 	} catch ( error ) {
 		logger.reportError( new LoggerError( __( 'Failed to save connected site' ), error ), false );
 	}

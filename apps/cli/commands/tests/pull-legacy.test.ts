@@ -92,13 +92,10 @@ describe( 'CLI: studio pull', () => {
 		'records a comparison baseline only for a full pull ($options)',
 		async ( { options, version } ) => {
 			await runCommand( site.path, [ ...options ], String( remoteSite.id ) );
-			expect( rememberRemoteSite ).toHaveBeenCalledWith(
-				'wpcom',
-				site.id,
-				remoteSite,
-				'pull',
-				version
-			);
+			expect( rememberRemoteSite ).toHaveBeenCalledWith( 'wpcom', site.id, remoteSite, {
+				synced: 'pull',
+				localVersionId: version,
+			} );
 		}
 	);
 

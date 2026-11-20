@@ -90,12 +90,56 @@ export class WpcomServices {
 	}
 
 	async getSnapshots(): Promise< Snapshot[] > {
-		const key = await this.userKey( 'snapshots' );
-		const snapshots = key ? ( await kvGet< Snapshot[] >( key ) ) ?? [] : [];
+		const checkedAt = Date.now();
+		const user = await this.auth.user();
+		const key = user ? `snapshots:${ user.id }` : null;
+		let snapshots = key ? ( await kvGet< Snapshot[] >( key ) ) ?? [] : [];
 		if ( ! snapshots.some( isWpcomPreview ) ) return snapshots;
 		try {
-			const previews = await wpcomSites.previews!.list( { token: await this.auth.requireToken() } );
+			const token = await this.auth.requireToken();
+			const previews = await wpcomSites.previews!.list( { token } );
 			const standing = new Map( previews.map( ( preview ) => [ Number( preview.id ), preview ] ) );
+			const missing = snapshots.filter(
+				( snapshot ) =>
+					isWpcomPreview( snapshot ) &&
+					snapshot.date <= checkedAt &&
+					! standing.has( snapshot.atomicSiteId )
+			);
+			if ( missing.length && user && key ) {
+				const sites = missing.some( ( snapshot ) => snapshot.localSiteId )
+					? await wpcomSites.list( { token }, { planRequired: false } )
+					: [];
+				const purchased = missing.flatMap( ( snapshot ) => {
+					const site = sites.find( ( candidate ) => candidate.id === snapshot.atomicSiteId );
+					return site && snapshot.localSiteId
+						? [ { site, localSiteId: snapshot.localSiteId } ]
+						: [];
+				} );
+				if ( purchased.length ) {
+					await kvUpdate< SyncSite[] >( `connections:${ user.id }`, [], ( connections ) => {
+						const updated = [ ...connections ];
+						for ( const { site, localSiteId } of purchased ) {
+							if (
+								! updated.some(
+									( item ) => item.id === site.id && item.localSiteId === localSiteId
+								)
+							) {
+								updated.push( { ...site, localSiteId, syncSupport: 'already-connected' } );
+							}
+						}
+						return updated;
+					} );
+				}
+				const missingIds = new Set( missing.map( ( snapshot ) => snapshot.atomicSiteId ) );
+				snapshots = await kvUpdate< Snapshot[] >( key, [], ( current ) =>
+					current.filter(
+						( snapshot ) =>
+							! isWpcomPreview( snapshot ) ||
+							snapshot.date > checkedAt ||
+							! missingIds.has( snapshot.atomicSiteId )
+					)
+				);
+			}
 			return snapshots.map( ( snapshot ) => {
 				if ( ! isWpcomPreview( snapshot ) ) return snapshot;
 				const preview = standing.get( snapshot.atomicSiteId );

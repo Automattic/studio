@@ -4,6 +4,7 @@ import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import {
 	getProvider,
 	getProviderSites,
+	type ProviderSites,
 	type SiteCreationVisibility,
 	type SitesProviderId,
 } from '@studio/providers';
@@ -131,7 +132,7 @@ export function PublishButton( {
 	const stagedSite = useRef< {
 		provider: SitesProviderId;
 		siteId: string;
-		remoteId: string | number;
+		remote: ProviderSites[ SitesProviderId ];
 		visibility?: SiteCreationVisibility;
 	} >( undefined );
 	const [ preparing, setPreparing ] = useState< 'checkout' | 'create' | 'confirm' >();
@@ -641,22 +642,21 @@ export function PublishButton( {
 				if ( snapshot ) setPublicPreviewKey( undefined );
 			} else if ( sites.newSite === 'create' ) {
 				const staged = stagedSite.current;
-				const remoteId =
+				const remote =
 					staged?.siteId === site.id &&
 					staged.provider === provider &&
 					staged.visibility === visibility
-						? staged.remoteId
-						: (
-								await connector.createRemoteSite( provider, site.id, site.name, visibility, false )
-						  ).id;
-				stagedSite.current = { provider, siteId: site.id, remoteId, visibility };
+						? staged.remote
+						: await connector.createRemoteSite( provider, site.id, site.name, visibility, false );
+				stagedSite.current = { provider, siteId: site.id, remote, visibility };
 				dismissToast( creationErrorNotice );
 				try {
-					await push.mutateAsync( { provider, siteId: site.id, remoteSiteId: remoteId } );
+					await push.mutateAsync( { provider, siteId: site.id, remoteSiteId: remote.id } );
 				} catch {
 					// The sync activity already reports transfer failures.
 					return;
 				}
+				await connector.connectRemoteSite( provider, site.id, remote );
 				stagedSite.current = undefined;
 				await Promise.all(
 					targets.providers.map( ( id ) =>
@@ -665,7 +665,7 @@ export function PublishButton( {
 				);
 				client.setQueryData(
 					publishTargetQueryKey( site.id ),
-					remotePublishTargetKey( provider, remoteId )
+					remotePublishTargetKey( provider, remote.id )
 				);
 				createdSite = true;
 				void client.invalidateQueries( { queryKey: accountSitesQueryKey( provider ) } );

@@ -1,3 +1,4 @@
+import { PROVIDER_IDS } from '@studio/providers';
 import { describe, expect, it } from 'vitest';
 import {
 	getEffectiveSessionProvider,
@@ -9,24 +10,12 @@ import type { AiSettings } from '@studio/common/lib/ai-settings';
 
 const settings = ( provider: AiSettings[ 'provider' ], connected: string[] ): AiSettings => ( {
 	provider,
-	accounts: {
-		wpcom: connected.includes( 'wpcom' )
-			? { connected: true, method: 'sign-in' }
-			: { connected: false },
-		anthropic: connected.includes( 'anthropic' )
-			? { connected: true, method: 'api-key' }
-			: { connected: false },
-		openai: connected.includes( 'openai' )
-			? { connected: true, method: 'chatgpt' }
-			: { connected: false },
-		gemini: { connected: false },
-		'github-copilot': { connected: false },
-		meta: { connected: false },
-		xai: { connected: false },
-		openrouter: { connected: false },
-		spacefast: { connected: false },
-		'local-llm': { connected: false },
-	},
+	accounts: Object.fromEntries(
+		PROVIDER_IDS.map( ( id ) => [
+			id,
+			connected.includes( id ) ? { connected: true, method: 'api-key' } : { connected: false },
+		] )
+	) as AiSettings[ 'accounts' ],
 	imageProviders: [],
 	imageProvider: null,
 } );

@@ -73,11 +73,8 @@ function setup( {
 	const site = busy
 		? { ...sites[ 0 ], operation: { pid: 1, kind: 'settings' as const } }
 		: sites[ 0 ];
-	const requests = { share: vi.fn(), publish: vi.fn() };
-	unsubscribers.push(
-		subscribeHeaderPanelRequest( 'selected', 'share', requests.share ),
-		subscribeHeaderPanelRequest( 'selected', 'publish', requests.publish )
-	);
+	const requests = { publish: vi.fn() };
+	unsubscribers.push( subscribeHeaderPanelRequest( 'selected', 'publish', requests.publish ) );
 	const view = renderWithProviders(
 		<SessionUIProvider>
 			{ contextMenu ? (
@@ -160,37 +157,29 @@ describe( 'Stop other sites', () => {
 		}
 	);
 
-	it.each( [ false, true ] )(
-		'opens sharing and sync from either menu (%s)',
-		async ( contextMenu ) => {
-			for ( const action of [ 'Share', 'Publish' ] ) {
-				const { open, requests } = setup( { contextMenu } );
-				await open();
-				const share = await screen.findByRole( 'menuitem', { name: 'Share' } );
-				const sync = screen.getByRole( 'menuitem', { name: 'Publish' } );
-				const items = screen.getAllByRole( 'menuitem' );
-				expect( items[ items.indexOf( share ) + 1 ] ).toBe( sync );
-				expect( items[ items.indexOf( share ) - 1 ] ).toHaveTextContent( 'Settings' );
-				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Export' );
-				fireEvent.click( action === 'Share' ? share : sync );
-				if ( action === 'Share' ) {
-					fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
-					expect( requests.share ).toHaveBeenCalledExactlyOnceWith( {
-						panel: 'share',
-						siteId: 'selected',
-					} );
-				} else {
-					expect( requests.publish ).toHaveBeenCalledExactlyOnceWith( {
-						panel: 'publish',
-						siteId: 'selected',
-						view: 'publish',
-					} );
-				}
-				cleanup();
-				unsubscribers.splice( 0 ).forEach( ( unsubscribe ) => unsubscribe() );
-			}
-		}
-	);
+	it.each( [
+		[ false, false ],
+		[ false, true ],
+		[ true, false ],
+		[ true, true ],
+	] )( 'opens Publish from either menu (context: %s, busy: %s)', async ( contextMenu, busy ) => {
+		const { open, requests, connector } = setup( { contextMenu, busy } );
+		await open();
+		expect( screen.queryByRole( 'menuitem', { name: 'Share' } ) ).not.toBeInTheDocument();
+		const publish = await screen.findByRole( 'menuitem', { name: 'Publish' } );
+		expect( publish ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		const items = screen.getAllByRole( 'menuitem' );
+		expect( items[ items.indexOf( publish ) - 1 ] ).toHaveTextContent( 'Settings' );
+		expect( items[ items.indexOf( publish ) + 1 ] ).toHaveTextContent( 'Export' );
+		fireEvent.click( publish );
+		expect( requests.publish ).toHaveBeenCalledExactlyOnceWith( {
+			panel: 'publish',
+			siteId: 'selected',
+			view: 'publish',
+		} );
+		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		expect( connector.pushSite ).not.toHaveBeenCalled();
+	} );
 
 	it( 'keeps the header and context menus identical', async () => {
 		const readMenu = () =>

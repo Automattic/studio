@@ -129,6 +129,24 @@ it( 'derives labels and availability from active context', () => {
 	expect( app.filter( ( command ) => command.id === 'color-scheme' ) ).toHaveLength( 1 );
 } );
 
+it( 'finds the Publish command for sharing and previews', () => {
+	const current = makeSite( { id: 'one', name: 'Test' } );
+	const openHeaderPanel = vi.fn();
+	const commands = siteCommands( current, [ current ], { openHeaderPanel } );
+	expect( commands.find( ( command ) => command.id === 'share' ) ).toBeUndefined();
+	for ( const query of [ 'publish', 'share', 'preview' ] ) {
+		expect(
+			matchCommands( commands, query ).filter( ( command ) => command.id === 'publish' )
+		).toHaveLength( 1 );
+	}
+	commands.find( ( command ) => command.id === 'publish' )!.run();
+	expect( openHeaderPanel ).toHaveBeenCalledExactlyOnceWith( {
+		panel: 'publish',
+		siteId: 'one',
+		view: 'publish',
+	} );
+} );
+
 it.each( [
 	{ selectedRunning: false, others: 0 },
 	{ selectedRunning: true, others: 0 },

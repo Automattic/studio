@@ -14,7 +14,6 @@ import { useOpenSettings } from '@/data/use-open-settings';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
-import { SiteShareMenuItem } from '@/features/sharing';
 import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
 import {
 	ImportSiteDialog,
@@ -304,8 +303,7 @@ export function SiteMenuItems( {
 				{ __( 'Settings' ) }
 			</Menu.Item>
 			<Menu.Separator />
-			<SiteShareMenuItem site={ site } disabled={ busy } />
-			<SitePublishMenu site={ site } disabled={ busy } />
+			<SitePublishMenu site={ site } />
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
 					<ExportIcon />

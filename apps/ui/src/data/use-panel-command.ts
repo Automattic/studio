@@ -5,6 +5,7 @@ import { PanelRightIcon } from '@/lib/icons';
 export const PanelCommandContext = createContext< {
 	siteId?: string;
 	toggle: () => void;
+	showChat?: () => void;
 } | null >( null );
 
 export function usePanelCommand( siteId?: string ) {

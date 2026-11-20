@@ -1465,14 +1465,7 @@ export function PublishButton( {
 							/>
 						}
 					/>
-					<TooltipContent>
-						{ remote
-							? sprintf(
-									__( 'Publish changes to %s' ),
-									new URL( remoteUrl ?? remote.url ).hostname
-							  )
-							: __( 'Share a preview or make it public' ) }
-					</TooltipContent>
+					<TooltipContent>{ __( 'Share a preview or publish your site' ) }</TooltipContent>
 				</Tooltip>
 				<span
 					ref={ anchor }

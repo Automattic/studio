@@ -1835,11 +1835,7 @@ it.each( [ 'local', 'preview', 'unlaunched', 'launched' ] as const )(
 		expect( button ).toHaveTextContent( 'Publish' );
 		expect( button.querySelector( 'svg' ) ).not.toBeInTheDocument();
 		await actions.hover( button );
-		expect(
-			await screen.findByText(
-				connected ? 'Publish changes to current-domain.blog' : 'Share a preview or make it public'
-			)
-		).toBeVisible();
+		expect( await screen.findByText( 'Share a preview or publish your site' ) ).toBeVisible();
 		expect( screen.queryByRole( 'dialog', { name: publishPanelName } ) ).not.toBeInTheDocument();
 		await actions.click( button );
 		const panel = await screen.findByRole( 'dialog', {

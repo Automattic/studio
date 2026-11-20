@@ -2,7 +2,6 @@ import { getProvider, getProviderSites } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useConnector, type Snapshot, type SyncSite } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
-import { getSnapshotUrl } from '@/data/snapshot-url';
 import {
 	EllipsisVerticalIcon,
 	DuplicateIcon,
@@ -41,8 +40,7 @@ function CopyLinkMenuItem( { url }: { url: string } ) {
 
 export function DestinationActionsMenu( {
 	selected,
-	remoteUrl,
-	publishedDestination,
+	url,
 	disabled,
 	openingCheckout,
 	openingDialog,
@@ -52,8 +50,7 @@ export function DestinationActionsMenu( {
 	onDisconnect,
 }: {
 	selected: PublishTarget;
-	remoteUrl?: string;
-	publishedDestination: boolean;
+	url: string;
 	disabled: boolean;
 	openingCheckout: boolean;
 	openingDialog: boolean;
@@ -67,7 +64,6 @@ export function DestinationActionsMenu( {
 	const descriptor = getProviderSites( selected.provider );
 	const wpcomSite = selected.provider === 'wpcom' ? ( remote as SyncSite | undefined ) : undefined;
 	const dashboardUrl = remote && descriptor.dashboardUrl?.( remote );
-	const adminUrl = remote && descriptor.adminUrl?.( remote );
 	const domainSettingsUrl =
 		remote &&
 		( descriptor.domainSettingsUrl?.( remote ) ??
@@ -98,23 +94,15 @@ export function DestinationActionsMenu( {
 				aria-label={ selected.remote ? label : selected.label }
 				finalFocus={ openingDialog ? false : undefined }
 			>
-				{ ( selected.snapshot || publishedDestination ) && (
-					<CopyLinkMenuItem
-						url={
-							selected.snapshot
-								? getSnapshotUrl( selected.snapshot )
-								: remoteUrl ?? selected.remote!.url
-						}
-					/>
-				) }
+				<CopyLinkMenuItem url={ url } />
 				{ remote ? (
 					<>
-						{ ! adminUrl && dashboardUrl && (
+						{ dashboardUrl && (
 							<PublishMenuItem
 								icon={ <ExternalLinkIcon /> }
 								label={ sprintf(
 									/* translators: %s: hosting provider name. */
-									__( 'Open on %s' ),
+									__( 'Manage on %s' ),
 									getProvider( selected.provider ).label
 								) }
 								onClick={ () => void connector.openExternalUrl( dashboardUrl ) }
@@ -157,7 +145,7 @@ export function DestinationActionsMenu( {
 						<Menu.Separator />
 						<PublishMenuItem
 							icon={ <TrashIcon /> }
-							label={ __( 'Delete preview' ) }
+							label={ __( 'Delete preview…' ) }
 							destructive
 							disabled={ disabled }
 							onClick={ () => onDeletePreview( selected.snapshot! ) }

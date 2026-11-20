@@ -535,7 +535,7 @@ it( 'shows the server expiry and confirms deletion without recreating the previe
 	const trigger = await screen.findByRole( 'button', { name: /^Publish…$/ } );
 	await actions.click( trigger );
 	await actions.click( await screen.findByRole( 'button', { name: 'Preview actions' } ) );
-	await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
+	await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview…' } ) );
 	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
 	expect( confirmation ).toBeVisible();
 	expect( confirmation ).toHaveAccessibleDescription(
@@ -550,7 +550,7 @@ it( 'shows the server expiry and confirms deletion without recreating the previe
 	expect( trigger ).toHaveFocus();
 	await actions.click( trigger );
 	await actions.click( await screen.findByRole( 'button', { name: 'Preview actions' } ) );
-	await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
+	await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview…' } ) );
 	await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
 	await actions.click( screen.getByRole( 'button', { name: 'Delete preview' } ) );
 	await waitFor( () =>
@@ -1027,7 +1027,7 @@ it.each( [ false, true ] )(
 		const actions = userEvent.setup();
 		await actions.click( await screen.findByRole( 'button', { name: /^Publish…$/ } ) );
 		await openPreviewMenu( actions, 'Preview 1' );
-		await actions.click( screen.getByRole( 'menuitem', { name: 'Delete preview' } ) );
+		await actions.click( screen.getByRole( 'menuitem', { name: 'Delete preview…' } ) );
 		await actions.click( await screen.findByRole( 'button', { name: 'Delete preview' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
 		expect( screen.queryByRole( 'dialog', { name: publishPanelName } ) ).not.toBeInTheDocument();
@@ -1913,7 +1913,13 @@ it.each( [ false, true, null ] )(
 			within( menu )
 				.getAllByRole( 'menuitem' )
 				.map( ( item ) => item.textContent?.trim() )
-		).toEqual( [ 'Copy link', 'Manage domains', 'View backups', 'Disconnect site…' ] );
+		).toEqual( [
+			'Copy link',
+			'Manage on WordPress.com',
+			'Manage domains',
+			'View backups',
+			'Disconnect site…',
+		] );
 		await actions.keyboard( '{Escape}' );
 		const openSite = screen.getByRole( 'link', { name: 'Open actual.blog' } );
 		expect( within( openSite ).getByText( 'actual.blog', { exact: true } ) ).toBeVisible();

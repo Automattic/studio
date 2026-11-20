@@ -381,7 +381,7 @@ export interface Connector {
 	getSiteVisibility(
 		provider: SitesProviderId,
 		id: string | number
-	): Promise< SiteVisibilityDetails >;
+	): Promise< SiteVisibilityDetails | null >;
 	setSiteVisibility(
 		provider: SitesProviderId,
 		id: string | number,
@@ -409,7 +409,7 @@ export interface Connector {
 		localSiteId: string,
 		remoteSiteId: string | number
 	): Promise< void >;
-	getSiteCreationVisibility( provider: SitesProviderId ): Promise< SiteCreationVisibility >;
+	getSiteCreationVisibility( provider: SitesProviderId ): Promise< SiteCreationVisibility | null >;
 	// Creates a site on a provider whose `sites.newSite` is `create`, and connects the local
 	// site to it.
 	createRemoteSite(

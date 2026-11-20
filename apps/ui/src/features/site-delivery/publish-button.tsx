@@ -1,6 +1,5 @@
 import { getQualifyingLiveSites } from '@studio/common/lib/live-preview-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import {
 	getProvider,
 	getProviderSites,
@@ -24,7 +23,6 @@ import {
 import { useSiteVisibility } from '@/data/queries/use-site-visibility';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { usePushSite, useSyncNoticeVisibility } from '@/data/queries/use-sync-site';
-import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
@@ -77,6 +75,7 @@ import {
 import { LiveSiteAction } from './live-site-action';
 import { isNewDestination } from './new-destination';
 import { PlanIcon } from './plan-icon';
+import { PreviewExpiry } from './preview-expiry';
 import { PreviewOverwriteConfirmation } from './preview-overwrite-confirmation';
 import { PreviewTransferActions } from './preview-transfer-actions';
 import {
@@ -249,13 +248,12 @@ export function PublishButton( {
 		open && view.kind === 'details' && !! snapshot,
 		open || !! snapshot
 	);
+	const links = remote && descriptor?.describe( remote ).links;
+	const visibilityLink = links?.find( ( link ) => link.role === 'visibility' );
 	const visibility = useSiteVisibility(
 		selected?.provider ?? targets.providers[ 0 ],
 		remote?.id,
-		!! remote &&
-			!! selected &&
-			connectedProviders.includes( selected.provider ) &&
-			!! descriptor?.visibility?.( remote )
+		!! remote && !! selected && connectedProviders.includes( selected.provider )
 	);
 	const remoteUrl = visibility.query.data?.url ?? remote?.url;
 	const creationErrorNotice = `publish-create-${ site.id }`;
@@ -306,17 +304,20 @@ export function PublishButton( {
 	const destinationProvider = selected?.provider ?? emptyDestination;
 	const connection = targets.connectionState( destinationProvider );
 	const connectionUnavailable = ! selected && connection.unavailable;
-	const showCreationAccess = ! selected && !! emptyDescriptor.visibilityAtCreation;
+	const canCreate = ! selected && emptyDescriptor.newSite === 'create';
 	const [ requestedVisibility, setRequestedVisibility ] = useState< SiteCreationVisibility >();
 	const creationPolicy = useQuery( {
 		queryKey: [ 'site-creation-visibility', emptyDestination ],
 		queryFn: () => connector.getSiteCreationVisibility( emptyDestination ),
-		enabled: open && showCreationAccess && connectedProviders.includes( emptyDestination ),
+		enabled: open && canCreate && connectedProviders.includes( emptyDestination ),
 		retry: false,
 		meta: { persist: false },
 	} );
+	const showCreationAccess = canCreate && creationPolicy.data !== null;
 	const creationVisibility =
-		creationPolicy.data === 'public' ? requestedVisibility ?? 'private' : creationPolicy.data;
+		creationPolicy.data === 'public'
+			? requestedVisibility ?? 'private'
+			: creationPolicy.data ?? undefined;
 	const previewConnection =
 		targets.previewProvider && targets.connectionState( targets.previewProvider );
 	const previewConnectionUnavailable = !! (
@@ -463,7 +464,6 @@ export function PublishButton( {
 		publishConfirmation ||
 		showingSpacefast
 	);
-	const locale = useUserLocale();
 	const liveTransfer =
 		activity?.kind === 'pending' &&
 		( activity.direction === 'push' || activity.direction === 'pull' );
@@ -556,12 +556,8 @@ export function PublishButton( {
 	const upToDate = ! newDestination && targets.selectedStatus?.data?.localChanged === false;
 	const url = snapshot ? getSnapshotUrl( snapshot ) : remoteUrl;
 	const hostname = url ? new URL( url ).hostname : undefined;
-	const domainSettingsUrl = remote && descriptor?.domainSettingsUrl?.( remote );
-	const spacefastAddDomainUrl =
-		selected?.provider === 'spacefast' && domainSettingsUrl
-			? `${ domainSettingsUrl }/add`
-			: undefined;
-	const spacefastSecondaryUrl = spacefastAddDomainUrl ?? getProvider( 'spacefast' ).learnMoreUrl;
+	const addDomain = links?.find( ( link ) => link.role === 'add-domain' );
+	const spacefastSecondaryUrl = addDomain?.url ?? getProvider( 'spacefast' ).learnMoreUrl;
 	const publicDestination = snapshot ? selected!.provider : emptyDestination;
 	const publicDescriptor = getProviderSites( publicDestination );
 	const publicProviderLabel = getProvider( publicDestination ).label;
@@ -736,7 +732,7 @@ export function PublishButton( {
 				setFailure( __( 'This destination cannot create a site from this panel yet.' ) );
 			}
 		} catch ( error ) {
-			if ( sites.visibilityAtCreation ) void creationPolicy.refetch();
+			if ( sites.newSite === 'create' ) void creationPolicy.refetch();
 			const message =
 				error instanceof Error ? error.message : __( 'Could not publish. Please try again.' );
 			if ( sites.newSite === 'create' ) {
@@ -1118,15 +1114,18 @@ export function PublishButton( {
 						) }
 					</div>
 				) }
-				{ remote && descriptor?.visibility?.( remote ) && descriptor.visibilityOptions && (
-					<HostedAccessControl
-						state={ visibility }
-						getOptions={ descriptor.visibilityOptions }
-						disabled={ disabled || selectedSignedOut }
-						fallback={ descriptor.initialVisibility?.( remote ) }
-						managementLink={ descriptor.visibilitySettingsLink?.( remote ) }
-					/>
-				) }
+				{ remote &&
+					visibility.query.data !== null &&
+					visibilityLink &&
+					descriptor?.visibilityOptions && (
+						<HostedAccessControl
+							state={ visibility }
+							getOptions={ descriptor.visibilityOptions }
+							disabled={ disabled || selectedSignedOut }
+							fallback={ remote.visibility }
+							managementLink={ visibilityLink }
+						/>
+					) }
 				{ ( showPreviewAccess || snapshot ) && (
 					<PreviewAccessControl
 						publicSelected={ previewPublicSelected }
@@ -1167,7 +1166,7 @@ export function PublishButton( {
 						value={
 							connectedProviders.includes( emptyDestination ) ? creationVisibility : 'private'
 						}
-						policy={ creationPolicy.data }
+						policy={ creationPolicy.data ?? undefined }
 						loading={ creationPolicy.isFetching }
 						disabled={ disabled || creationAccessUnavailable }
 						getOptions={ emptyDescriptor.visibilityOptions }
@@ -1200,8 +1199,8 @@ export function PublishButton( {
 						variant="outline"
 						onClick={ () => void connector.openExternalUrl( spacefastSecondaryUrl ) }
 					>
-						{ spacefastAddDomainUrl && <GlobeIcon data-icon="inline-start" /> }
-						{ spacefastAddDomainUrl ? __( 'Add a domain' ) : __( 'Learn about Spacefast' ) }
+						{ addDomain && <GlobeIcon data-icon="inline-start" /> }
+						{ addDomain?.title ?? __( 'Learn about Spacefast' ) }
 						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				) }
@@ -1333,53 +1332,7 @@ export function PublishButton( {
 				</p>
 			) }
 			{ remote?.lastPushTimestamp && <PublishedTime timestamp={ remote.lastPushTimestamp } /> }
-			{ snapshot && (
-				<p className={ styles.previewExpiry }>
-					<Popover.Root>
-						<Popover.Trigger
-							openOnHover
-							render={
-								<Button
-									className={ styles.previewExpiryLink }
-									variant="inline-link"
-									size="inline"
-								/>
-							}
-						>
-							{ __( 'Expires' ) }
-						</Popover.Trigger>
-						<Popover.Popup
-							variant="tooltip"
-							className={ styles.previewExpiryPopover }
-							side="top"
-							align="center"
-							sideOffset={ 2 }
-							aria-label={ __( 'Preview expiration' ) }
-						>
-							<div>
-								{ __(
-									'Preview sites expire about a week after their last update. Updating your preview resets the expiration date.'
-								) }{ ' ' }
-								<Button
-									variant="inline-accent"
-									size="inline"
-									onClick={ () =>
-										void connector.openExternalUrl(
-											'https://wordpress.studio/docs/preview-sites/#5-preview-site-expiration'
-										)
-									}
-								>
-									{ __( 'Learn more' ) }
-								</Button>
-							</div>
-						</Popover.Popup>
-					</Popover.Root>{ ' ' }
-					{ new Date( getSnapshotExpiry( snapshot ) ).toLocaleDateString( locale, {
-						month: 'short',
-						day: 'numeric',
-					} ) }
-				</p>
-			) }
+			{ snapshot && <PreviewExpiry snapshot={ snapshot } /> }
 		</>
 	);
 
@@ -1441,8 +1394,7 @@ export function PublishButton( {
 						if ( ! open ) resetClosedOptions();
 						if ( ! creatingPreview && ! publishingNewSite ) setView( { kind: 'entry' } );
 						targets.refresh();
-						if ( remote && ! selectedSignedOut && descriptor?.visibility?.( remote ) )
-							void visibility.query.refetch();
+						if ( remote && ! selectedSignedOut ) void visibility.query.refetch();
 					} else close();
 				} }
 				onOpenChangeComplete={ ( next ) => {

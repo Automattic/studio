@@ -16,26 +16,32 @@ const siteSchema = z.object( {
 	URL: z.string().url(),
 	launch_status: z.string().optional(),
 	jetpack: z.boolean().optional(),
+	hosting_provider_guess: z.string().nullish(),
 	is_wpcom_atomic: z.boolean().optional(),
 } );
 
 async function readVisibility( token: string, remoteSiteId: number ) {
 	siteIdSchema.parse( remoteSiteId );
 	const wpcom = wpcomClient( token );
-	const [ settingsResponse, siteResponse ] = await Promise.all( [
-		wpcom.req.get( { path: `/sites/${ remoteSiteId }/settings`, apiVersion: '1.4' } ),
-		wpcom.req.get(
+	const site = siteSchema.parse(
+		await wpcom.req.get(
 			{ path: `/sites/${ remoteSiteId }`, apiVersion: '1.1' },
 			{
-				fields: 'ID,URL,launch_status,jetpack,is_wpcom_atomic',
+				fields: 'ID,URL,launch_status,jetpack,is_wpcom_atomic,hosting_provider_guess',
 			}
-		),
-	] );
-	const { settings } = settingsSchema.parse( settingsResponse );
-	const site = siteSchema.parse( siteResponse );
-	if ( site.jetpack && ! site.is_wpcom_atomic ) {
-		throw new Error( __( 'Visibility settings are only available for WordPress.com sites.' ) );
+		)
+	);
+	if ( site.hosting_provider_guess === 'pressable' || ( site.jetpack && ! site.is_wpcom_atomic ) ) {
+		const details: SiteVisibilityDetails = {
+			visibility: 'unknown',
+			availableValues: [],
+			url: site.URL,
+		};
+		return { details };
 	}
+	const { settings } = settingsSchema.parse(
+		await wpcom.req.get( { path: `/sites/${ remoteSiteId }/settings`, apiVersion: '1.4' } )
+	);
 	const visibility: SiteVisibility =
 		settings.wpcom_coming_soon === 1 || settings.wpcom_public_coming_soon === 1
 			? 'coming-soon'
@@ -63,6 +69,8 @@ export async function setWpcomSiteVisibility(
 ): Promise< SiteVisibilityDetails > {
 	wpcomSiteVisibilitySchema.parse( visibility );
 	const { details, settings } = await readVisibility( token, remoteSiteId );
+	if ( ! settings )
+		throw new Error( __( 'Visibility settings are only available for WordPress.com sites.' ) );
 	if ( details.visibility === visibility ) return details;
 	const wpcom = wpcomClient( token );
 	if ( visibility === 'public' && details.launchStatus === 'unlaunched' ) {

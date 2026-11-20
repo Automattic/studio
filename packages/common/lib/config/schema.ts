@@ -11,7 +11,7 @@ import { snapshotSchema } from '@studio/common/types/snapshot';
  */
 
 // Bump only when existing data changes shape, with a step in `./migrations.ts`.
-export const CONFIG_VERSION = 1;
+export const CONFIG_VERSION = 2;
 
 const optional = < T extends z.ZodType >( schema: T ) => schema.optional().catch( undefined );
 
@@ -71,7 +71,8 @@ const preferencesSchema = z.looseObject( {
 	onboardingHints: optional( z.record( z.string(), z.unknown() ) ),
 } );
 
-const siteConnectionSchema = z.looseObject( {
+export const siteConnectionSchema = z.looseObject( {
+	preview: z.literal( true ).optional(),
 	provider: z.string(),
 	// The account the connection belongs to, for providers whose sites depend on the signed-in
 	// account (the WordPress.com user id).

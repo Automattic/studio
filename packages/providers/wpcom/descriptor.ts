@@ -3,7 +3,6 @@ import { wpcomConfigSchema, type WpcomConfig } from './config';
 import {
 	describeWpcomSite,
 	withWpcomDetails,
-	wpcomDashboardUrl,
 	wpcomPushWarning,
 	wpcomSiteIssue,
 	type SyncSite,
@@ -84,7 +83,6 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		publishing: {
 			description: () => __( 'The full WordPress, with a domain.' ),
 		},
-		visibility: ( site ) => ! site.isPressable,
 		visibilityOptions: ( current ) => [
 			{
 				value: 'coming-soon',
@@ -103,22 +101,8 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 				  ]
 				: [] ),
 		],
-		visibilitySettingsLink: ( site ) => ( {
-			title: __( 'Manage on WordPress.com' ),
-			url: `https://wordpress.com/settings/general/${ site.id }`,
-		} ),
-		initialVisibility: ( site ) =>
-			site.isPrivate
-				? 'private'
-				: site.isComingSoon || site.launchStatus === 'unlaunched'
-				? 'coming-soon'
-				: site.launchStatus === 'launched'
-				? 'public'
-				: undefined,
-		isLaunched: ( site ) => site.isPressable || site.launchStatus === 'launched',
 		previews: {
 			content: 'site',
-			matchesSite: ( site, id ) => site.id === id,
 			isUpgraded: ( site ) =>
 				site.hasPaidPlan === true ||
 				site.launchStatus === 'launched' ||
@@ -138,8 +122,6 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 			learnMoreUrl: 'https://wordpress.studio/docs/sync/',
 		},
 		describe: describeWpcomSite,
-		dashboardUrl: wpcomDashboardUrl,
-		adminUrl: ( site ) => new URL( '/wp-admin/', site.url ).href,
 		issue: wpcomSiteIssue,
 		pushWarning: wpcomPushWarning,
 		// A site without a plan that supports publishing has no backups to browse.

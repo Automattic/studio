@@ -1,6 +1,6 @@
-import { getProvider, getProviderSites } from '@studio/providers';
-import { __, sprintf } from '@wordpress/i18n';
-import { useConnector, type Snapshot, type SyncSite } from '@/data/core';
+import { getProviderSites } from '@studio/providers';
+import { __ } from '@wordpress/i18n';
+import { useConnector, type Snapshot } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
 import {
 	EllipsisVerticalIcon,
@@ -62,16 +62,12 @@ export function DestinationActionsMenu( {
 	const connector = useConnector();
 	const remote = selected.remote;
 	const descriptor = getProviderSites( selected.provider );
-	const wpcomSite = selected.provider === 'wpcom' ? ( remote as SyncSite | undefined ) : undefined;
-	const dashboardUrl = remote && descriptor.dashboardUrl?.( remote );
-	const domainSettingsUrl =
-		remote &&
-		( descriptor.domainSettingsUrl?.( remote ) ??
-			( selected.provider === 'wpcom' && dashboardUrl ? `${ dashboardUrl }/domains` : undefined ) );
 	const hostingLinks = remote
 		? descriptor
 				.describe( remote )
-				.links.filter( ( link ) => link.url !== dashboardUrl && link.url !== domainSettingsUrl )
+				.links.filter(
+					( link ) => link.role === 'dashboard' || link.role === 'domains' || link.role === 'more'
+				)
 		: [];
 
 	const label = remote ? __( 'Site actions' ) : __( 'Preview actions' );
@@ -97,28 +93,10 @@ export function DestinationActionsMenu( {
 				<CopyLinkMenuItem url={ url } />
 				{ remote ? (
 					<>
-						{ dashboardUrl && (
-							<PublishMenuItem
-								icon={ <ExternalLinkIcon /> }
-								label={ sprintf(
-									/* translators: %s: hosting provider name. */
-									__( 'Manage on %s' ),
-									getProvider( selected.provider ).label
-								) }
-								onClick={ () => void connector.openExternalUrl( dashboardUrl ) }
-							/>
-						) }
-						{ wpcomSite && ! wpcomSite.isPressable && domainSettingsUrl && (
-							<PublishMenuItem
-								icon={ <GlobeIcon /> }
-								label={ __( 'Manage domains' ) }
-								onClick={ () => void connector.openExternalUrl( domainSettingsUrl ) }
-							/>
-						) }
 						{ hostingLinks.map( ( link ) => (
 							<PublishMenuItem
 								key={ link.url }
-								icon={ <ExternalLinkIcon /> }
+								icon={ link.role === 'domains' ? <GlobeIcon /> : <ExternalLinkIcon /> }
 								label={ link.title }
 								onClick={ () => void connector.openExternalUrl( link.url ) }
 							/>

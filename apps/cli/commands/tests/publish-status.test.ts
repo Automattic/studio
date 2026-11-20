@@ -3,16 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { getSnapshotsFromConfig } from 'cli/lib/cli-config/snapshots';
 import { getSiteVersion } from 'cli/lib/site-versions';
-import { runCommand } from '../publish-status';
+import { getDestinationStatus } from '../publish-status';
 import type { ConfigSite as SiteData } from '@studio/common/lib/config/schema';
 import type { SyncSite } from '@studio/common/types/sync';
 
 vi.mock( '@studio/common/lib/remote-sites' );
-vi.mock( '@studio/common/lib/auth-token', () => ( { getCurrentUserId: async () => 7 } ) );
 vi.mock( 'cli/lib/cli-config/sites', () => ( { getSiteByFolder: vi.fn() } ) );
-vi.mock( 'cli/lib/cli-config/snapshots', () => ( { getSnapshotsFromConfig: vi.fn() } ) );
 let root: string;
 let sitePath: string;
 let remote: SyncSite;
@@ -31,7 +28,6 @@ beforeEach( () => {
 		lastPullTimestamp: null,
 	} as SyncSite;
 	vi.mocked( getRemoteSites ).mockResolvedValue( [ remote ] );
-	vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 } );
 afterEach( () => {
 	vi.unstubAllEnvs();
@@ -39,58 +35,36 @@ afterEach( () => {
 } );
 it( 'uses the same contents comparison as previews and notices edits, additions and deletions', async () => {
 	remote.localVersionId = await getSiteVersion( 'local', sitePath );
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: false } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: false } );
 	fs.writeFileSync( path.join( sitePath, 'wp-content', 'theme.css' ), 'edited theme' );
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: true } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: true } );
 	fs.writeFileSync( path.join( sitePath, 'wp-content', 'theme.css' ), 'old' );
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: false } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: false } );
 	fs.writeFileSync( path.join( sitePath, 'wp-content', 'new.php' ), '<?php' );
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: true } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: true } );
 	fs.unlinkSync( path.join( sitePath, 'wp-content', 'new.php' ) );
 	fs.unlinkSync( path.join( sitePath, 'wp-content', 'theme.css' ) );
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: true } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: true } );
 } );
 it( 'keeps untracked connections unknown', async () => {
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: null } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: null } );
 } );
-it( 'reuses the matching upgraded preview baseline independent of its address', async () => {
-	vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
-		{
-			atomicSiteId: 42,
-			localSiteId: 'local',
-			userId: 7,
-			url: 'old.wpcomstaging.com',
-			date: 1000,
-			syncedAt: 1000,
-			versionId: await getSiteVersion( 'local', sitePath ),
-		},
-	] );
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: false } );
-	remote.lastPushTimestamp = new Date( 2000 ).toISOString();
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: null } );
-	remote.lastPushTimestamp = null;
-	remote.localVersionId = null;
-	expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: null } );
-} );
-it( 'does not use a different preview or a different local site baseline', async () => {
-	for ( const [ atomicSiteId, localSiteId ] of [
-		[ 99, 'local' ],
-		[ 42, 'another' ],
-	] as const ) {
-		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
-			{
-				atomicSiteId,
-				localSiteId,
-				userId: 7,
-				url: 'old.wpcomstaging.com',
-				date: 1000,
-				syncedAt: 1000,
-				versionId: await getSiteVersion( 'local', sitePath ),
-			},
-		] );
-		expect( await runCommand( sitePath, 42 ) ).toEqual( { localChanged: null } );
-	}
-	await expect( runCommand( sitePath, 99 ) ).rejects.toThrow( 'Connected site not found' );
+it( 'rejects a destination that is not connected to this local site', async () => {
+	await expect(
+		getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 99, provider: 'wpcom' } )
+	).rejects.toThrow( 'Connected site not found' );
 } );
 
 it( 'compares destinations independently across providers, including identical ids', async () => {
@@ -100,7 +74,14 @@ it( 'compares destinations independently across providers, including identical i
 	vi.mocked( getRemoteSites ).mockImplementation( async ( provider ) => [
 		{ ...remote, localVersionId: provider === 'wpcom' ? before : after },
 	] );
-	expect( await runCommand( sitePath, '42', 'wpcom' ) ).toEqual( { localChanged: true } );
-	expect( await runCommand( sitePath, '42', 'spacefast' ) ).toEqual( { localChanged: false } );
-	expect( getSnapshotsFromConfig ).not.toHaveBeenCalled();
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: '42', provider: 'wpcom' } )
+	).toMatchObject( { localChanged: true } );
+	expect(
+		await getDestinationStatus( {
+			siteFolder: sitePath,
+			remoteSiteId: '42',
+			provider: 'spacefast',
+		} )
+	).toMatchObject( { localChanged: false } );
 } );

@@ -1,4 +1,3 @@
-import { getProviderSites } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { getSnapshotHostname } from '@/data/snapshot-url';
@@ -41,9 +40,7 @@ export function DestinationChooser( {
 		const live =
 			remote &&
 			! isNewDestination( remote ) &&
-			( !! remote.lastPushTimestamp ||
-				getProviderSites( provider ).isLaunched?.( remote ) ||
-				( 'launchStatus' in remote && remote.launchStatus === 'launched' ) );
+			( !! remote.lastPushTimestamp || remote.launchStatus === 'launched' );
 		const changed = hasChanges( target );
 		const siteDescription = live
 			? sprintf(

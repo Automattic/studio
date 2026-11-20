@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { getConfigPath, readConfig } from '@studio/common/lib/config/store';
+import { getConfigPath, readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
-import { runCommand as publishStatus } from 'cli/commands/publish-status';
+import { getDestinationStatus } from 'cli/commands/publish-status';
 import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { syncPreviewsWithServer } from 'cli/lib/snapshots';
@@ -75,14 +75,39 @@ afterEach( () => {
 it( 'retains the comparison baseline when a purchased preview becomes a connected site', async () => {
 	await syncPreviewsWithServer( 7, 'token' );
 	expect( ( await readConfig() ).snapshots ).toEqual( [] );
-	expect( await publishStatus( sitePath, 42 ) ).toEqual( { localChanged: false } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: false } );
 	fs.writeFileSync( path.join( sitePath, 'wp-content', 'style.css' ), 'edited' );
-	expect( await publishStatus( sitePath, 42 ) ).toEqual( { localChanged: true } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: true } );
 } );
 
 it( 'does not restore a preview baseline invalidated by a later partial transfer', async () => {
 	await rememberRemoteSite( 'wpcom', 'local', remote, { synced: 'pull', localVersionId: null } );
 	await syncPreviewsWithServer( 7, 'token' );
 	expect( ( await getRemoteSites( 'wpcom', 'local' ) )[ 0 ].localVersionId ).toBeNull();
-	expect( await publishStatus( sitePath, 42 ) ).toEqual( { localChanged: null } );
+	expect(
+		await getDestinationStatus( { siteFolder: sitePath, remoteSiteId: 42, provider: 'wpcom' } )
+	).toMatchObject( { localChanged: null } );
+} );
+
+it( 'promotes the preview for the account that fetched it even if the user switches accounts', async () => {
+	vi.mocked( fetchSyncableSites ).mockImplementationOnce( async () => {
+		await updateConfig( ( config ) => {
+			delete config.providers.configs.wpcom;
+		} );
+		return [ remote ];
+	} );
+	await syncPreviewsWithServer( 7, 'token' );
+	const config = await readConfig();
+	expect( config.snapshots ).toEqual( [] );
+	expect( config.sites[ 0 ].connections ).toHaveLength( 1 );
+	expect( config.sites[ 0 ].connections![ 0 ] ).toMatchObject( {
+		account: '7',
+		site: { id: 42, name: 'Hosted' },
+		localVersionId: expect.any( String ),
+	} );
+	expect( config.sites[ 0 ].connections![ 0 ] ).not.toHaveProperty( 'preview' );
 } );

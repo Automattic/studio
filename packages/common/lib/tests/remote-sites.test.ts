@@ -145,7 +145,20 @@ it( 'keeps a full-transfer baseline through metadata refreshes and invalidates i
 	expect( ( await getRemoteSites( 'wpcom', 'local-a' ) )[ 0 ].localVersionId ).toBeNull();
 } );
 
-it( 'replaces the publishing destination without removing another account’s connection', async () => {
+it( 'replaces only the current publishing destination and preserves previews and other accounts', async () => {
+	await updateConfig( ( { sites } ) => {
+		sites[ 0 ].connections = [
+			{
+				provider: 'wpcom',
+				account: '8',
+				preview: true,
+				site: { id: 91 },
+				localVersionId: 'preview-version',
+				lastPullTimestamp: null,
+				lastPushTimestamp: null,
+			},
+		];
+	} );
 	await rememberRemoteSite( 'wpcom', 'local-a', listedSite );
 	await updateConfig( ( { providers } ) => {
 		providers.configs.wpcom = signIn( 8 );
@@ -159,6 +172,9 @@ it( 'replaces the publishing destination without removing another account’s co
 		teamId: 'team',
 	} );
 	expect( await getRemoteSites( 'wpcom', 'local-a' ) ).toEqual( [] );
+	expect( ( await readConfig() ).sites[ 0 ].connections ).toContainEqual(
+		expect.objectContaining( { preview: true, localVersionId: 'preview-version' } )
+	);
 	await updateConfig( ( { providers } ) => {
 		providers.configs.wpcom = signIn( 7 );
 	} );

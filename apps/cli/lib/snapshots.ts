@@ -1,5 +1,4 @@
 import { HOUR_MS, DAY_MS } from '@studio/common/constants';
-import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __ } from '@wordpress/i18n';
 import { addHours } from 'date-fns/addHours';
@@ -39,24 +38,13 @@ export async function syncPreviewsWithServer( userId: number, token: string ): P
 	} catch {
 		return;
 	}
-	const forgotten = await reconcilePreviews( userId, previews, checkedAt, true );
+	const forgotten = await reconcilePreviews( userId, previews, checkedAt, { keepMissing: true } );
 	if ( ! forgotten.length ) {
 		return;
 	}
 	const sites = await fetchSyncableSites( token, { planRequired: false } ).catch( () => null );
 	if ( ! sites ) return;
-	for ( const snapshot of forgotten ) {
-		const site = sites.find( ( candidate ) => candidate.id === snapshot.atomicSiteId );
-		if ( site ) {
-			await rememberRemoteSite( 'wpcom', snapshot.localSiteId, site, {
-				previewBaseline:
-					snapshot.versionId && snapshot.syncedAt !== undefined
-						? { versionId: snapshot.versionId, syncedAt: snapshot.syncedAt }
-						: undefined,
-			} );
-		}
-	}
-	await reconcilePreviews( userId, previews, checkedAt );
+	await reconcilePreviews( userId, previews, checkedAt, { hostedSites: sites } );
 }
 
 export function formatDurationUntilExpiry( snapshot: Snapshot ) {

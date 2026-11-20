@@ -40,11 +40,11 @@ export async function listAccountSites< Id extends SitesProviderId >(
 
 export async function getSiteCreationVisibility< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >
-): Promise< SiteCreationVisibility > {
+): Promise< SiteCreationVisibility | null > {
 	const id = provider.id as Id;
 	const creationVisibility = sites( provider ).creationVisibility;
 	if ( ! creationVisibility ) {
-		throw new Error( 'This provider does not support visibility at creation.' );
+		return null;
 	}
 	return forgetRejectedConfig( id, async () =>
 		creationVisibility( await readProviderConfig( id ) )
@@ -111,7 +111,7 @@ export async function getSiteVisibility< Id extends SitesProviderId >(
 	id: ProviderSites[ Id ][ 'id' ]
 ) {
 	const capability = sites( provider ).visibility;
-	if ( ! capability ) throw new Error( 'This provider does not support visibility settings.' );
+	if ( ! capability ) return null;
 	return capability.get( await readProviderConfig( provider.id as Id ), id );
 }
 export async function setSiteVisibility< Id extends SitesProviderId >(

@@ -83,7 +83,7 @@ describe( 'transformSitesResponse', () => {
 			},
 		] );
 		expect( site.hasPaidPlan ).toBe( paid );
-		expect( site.isPrivate ).toBe( true );
+		expect( site.visibility ).toBe( 'private' );
 		expect( site.launchStatus ).toBe( 'unlaunched' );
 	} );
 
@@ -98,8 +98,7 @@ describe( 'transformSitesResponse', () => {
 		] );
 		expect( site ).toMatchObject( {
 			launchStatus: 'unlaunched',
-			isComingSoon: true,
-			isPrivate: false,
+			visibility: 'coming-soon',
 		} );
 		const [ legacy ] = transformSitesResponse( [ simpleBusinessSite() ] );
 		expect( legacy.launchStatus ).toBeUndefined();
@@ -119,9 +118,8 @@ describe( 'transformSitesResponse', () => {
 
 		expect( result ).toHaveLength( 1 );
 		expect( result[ 0 ] ).toMatchObject( { isPressable: true, syncSupport: 'syncable' } );
-		expect( result[ 0 ].launchStatus ).toBeUndefined();
-		expect( result[ 0 ].isComingSoon ).toBeUndefined();
-		expect( result[ 0 ].isPrivate ).toBeUndefined();
+		expect( result[ 0 ].launchStatus ).toBe( 'launched' );
+		expect( result[ 0 ].visibility ).toBeUndefined();
 	} );
 	it( 'retains Simple sites whose options omit software_version and classifies them', () => {
 		const result = transformSitesResponse( [ simpleBusinessSite(), freeSite() ] );

@@ -909,7 +909,7 @@ it.each( [
 		...live,
 		lastPushTimestamp: null,
 		launchStatus: 'unlaunched' as const,
-		isPrivate: true,
+		visibility: 'private' as const,
 	};
 	const spacefastSite = { ...space, lastPushTimestamp: null };
 	const { user, connector } = setup( {
@@ -3256,7 +3256,7 @@ it( 'keeps the same site selected when checkout replaces a preview', async () =>
 		hasPaidPlan: true,
 		planName: 'Business',
 		launchStatus: 'unlaunched',
-		isComingSoon: true,
+		visibility: 'coming-soon' as const,
 	};
 	const { user, connector } = setup( {
 		getSnapshots: async () => ( upgraded ? [] : [ preview ] ),

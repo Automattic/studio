@@ -6,7 +6,13 @@ vi.mock( '../../api' );
 const get = vi.fn();
 const post = vi.fn();
 let settings: Record< string, number >;
-let site: { URL: string; launch_status: string; jetpack: boolean; is_wpcom_atomic: boolean };
+let site: {
+	URL: string;
+	hosting_provider_guess?: string;
+	launch_status: string;
+	jetpack: boolean;
+	is_wpcom_atomic: boolean;
+};
 beforeEach( () => {
 	vi.clearAllMocks();
 	settings = { blog_public: 1, wpcom_coming_soon: 0, wpcom_public_coming_soon: 0 };
@@ -91,8 +97,24 @@ describe( 'WordPress.com visibility', () => {
 		expect( ( await setWpcomSiteVisibility( 'token', 42, 'public' ) ).visibility ).toBe( 'public' );
 		expect( post ).not.toHaveBeenCalled();
 	} );
+	it( 'returns unknown for Pressable without reading WordPress.com settings', async () => {
+		site.hosting_provider_guess = 'pressable';
+		expect( await getWpcomSiteVisibility( 'token', 42 ) ).toMatchObject( {
+			visibility: 'unknown',
+			availableValues: [],
+		} );
+		expect( get ).toHaveBeenCalledTimes( 1 );
+	} );
 	it( 'rejects unsupported sites and invalid inputs before writing', async () => {
 		site.is_wpcom_atomic = false;
+		expect( await getWpcomSiteVisibility( 'token', 42 ) ).toEqual( {
+			visibility: 'unknown',
+			availableValues: [],
+			url: site.URL,
+		} );
+		expect( get ).not.toHaveBeenCalledWith(
+			expect.objectContaining( { path: '/sites/42/settings' } )
+		);
 		await expect( setWpcomSiteVisibility( 'token', 42, 'coming-soon' ) ).rejects.toThrow(
 			'only available'
 		);

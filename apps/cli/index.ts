@@ -235,16 +235,21 @@ async function main() {
 		builder: ( yargs ) =>
 			yargs
 				.positional( 'remoteSiteId', { type: 'string', demandOption: true } )
+				.option( 'preview', { type: 'boolean' } )
 				.option( 'provider', {
 					type: 'string',
 					choices: SITES_PROVIDER_IDS,
 					default: 'wpcom' as const,
 				} ),
 		handler: async ( argv ) => {
-			const { runCommand } = await import( 'cli/commands/publish-status' );
+			const { getDestinationStatus } = await import( 'cli/commands/publish-status' );
 			const { Logger } = await import( 'cli/logger' );
 			if ( ! argv.remoteSiteId ) throw new Error( 'Invalid remote site ID' );
-			const result = await runCommand( argv.path, argv.remoteSiteId, argv.provider );
+			const result = await getDestinationStatus(
+				argv.preview
+					? { host: argv.remoteSiteId }
+					: { siteFolder: argv.path, remoteSiteId: argv.remoteSiteId, provider: argv.provider }
+			);
 			new Logger< string >().reportResult( result );
 			console.log( JSON.stringify( result ) );
 		},

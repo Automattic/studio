@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getPreviewStatus } from 'cli/commands/preview/status';
+import { getDestinationStatus } from 'cli/commands/publish-status';
 import { findSiteById } from 'cli/lib/cli-config/sites';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
@@ -55,7 +55,7 @@ describe( 'getPreviewStatus', () => {
 			fs.writeFileSync( path.join( sitePath, 'wp-content', 'style.css' ), 'body {}' );
 		}
 
-		expect( await getPreviewStatus( 'preview.wpcomstaging.com' ) ).toEqual( {
+		expect( await getDestinationStatus( { host: 'preview.wpcomstaging.com' } ) ).toEqual( {
 			localSiteId: 'one',
 			...expected,
 		} );
@@ -80,7 +80,7 @@ describe( 'getPreviewStatus', () => {
 			);
 			if ( editLocal )
 				fs.writeFileSync( path.join( sitePath, 'wp-content', 'style.css' ), 'body {}' );
-			expect( await getPreviewStatus( 'preview.wpcomstaging.com' ) ).toEqual( {
+			expect( await getDestinationStatus( { host: 'preview.wpcomstaging.com' } ) ).toEqual( {
 				localSiteId: 'one',
 				localChanged: editLocal,
 				previewChanged: null,
@@ -109,7 +109,7 @@ describe( 'getPreviewStatus', () => {
 			fs.mkdirSync( databaseDir );
 			fs.writeFileSync( path.join( databaseDir, '.ht.sqlite' ), 'not a database' );
 
-			expect( await getPreviewStatus( 'preview.wpcomstaging.com' ) ).toEqual( {
+			expect( await getDestinationStatus( { host: 'preview.wpcomstaging.com' } ) ).toEqual( {
 				localSiteId: 'one',
 				localChanged: null,
 				previewChanged,
@@ -122,7 +122,7 @@ describe( 'getPreviewStatus', () => {
 			{ url: 'preview.wpcomstaging.com', atomicSiteId: 7, localSiteId: 'one', date: 2000 },
 		] );
 
-		expect( await getPreviewStatus( 'preview.wpcomstaging.com' ) ).toEqual( {
+		expect( await getDestinationStatus( { host: 'preview.wpcomstaging.com' } ) ).toEqual( {
 			localSiteId: 'one',
 			localChanged: null,
 			previewChanged: null,

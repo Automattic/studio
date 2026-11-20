@@ -91,7 +91,7 @@ export function usePublishTargets(
 					! (
 						! descriptor.previews?.isUpgraded?.( remote ) &&
 						previews.some(
-							( snapshot ) => descriptor.previews?.matchesSite?.( remote, snapshot.atomicSiteId )
+							( snapshot ) => provider === previewProvider && remote.id === snapshot.atomicSiteId
 						)
 					)
 			)
@@ -110,10 +110,8 @@ export function usePublishTargets(
 						! targets.some(
 							( target ) =>
 								target.remote &&
-								getProviderSites( target.provider ).previews?.matchesSite?.(
-									target.remote,
-									snapshot.atomicSiteId
-								)
+								target.provider === previewProvider &&
+								target.remote.id === snapshot.atomicSiteId
 						)
 				)
 				.map( ( snapshot ) => ( {
@@ -154,12 +152,7 @@ export function usePublishTargets(
 				( target ) =>
 					atomicSiteId !== undefined &&
 					target.provider === previewProvider &&
-					( target.snapshot?.atomicSiteId === atomicSiteId ||
-						( target.remote &&
-							getProviderSites( target.provider ).previews?.matchesSite?.(
-								target.remote,
-								atomicSiteId
-							) ) )
+					( target.snapshot?.atomicSiteId === atomicSiteId || target.remote?.id === atomicSiteId )
 			)
 		);
 	};
@@ -213,13 +206,7 @@ export function usePublishTargets(
 	const selectedAccount = selected && accountSites[ providers.indexOf( selected.provider ) ];
 	const previewAccountSite =
 		selected?.snapshot &&
-		selectedAccount?.data?.find(
-			( site ) =>
-				getProviderSites( selected.provider ).previews?.matchesSite?.(
-					site,
-					selected.snapshot!.atomicSiteId
-				)
-		);
+		selectedAccount?.data?.find( ( site ) => site.id === selected.snapshot!.atomicSiteId );
 	const selectedConnection =
 		selected?.remote && connections[ providers.indexOf( selected.provider ) ];
 	const confirmingPublish =

@@ -1528,7 +1528,7 @@ it( 'checks access while refreshing stored visibility', async () => {
 			name: 'Remote site',
 			url: 'https://published.example.com',
 			launchStatus: 'launched',
-			isPrivate: true,
+			visibility: 'private' as const,
 		},
 	] );
 	const actions = userEvent.setup();

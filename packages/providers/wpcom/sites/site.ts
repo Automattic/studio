@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
+import type { SiteLink } from '../../types';
 
 // Whether a WordPress.com site can sync with a local site, and why not.
 export const syncSupportValues = [
@@ -34,8 +35,7 @@ export const syncSiteSchema = z.object( {
 	launchAfterPush: z.boolean().optional(),
 	localVersionId: z.string().nullable().optional(),
 	launchStatus: z.string().optional(),
-	isComingSoon: z.boolean().optional(),
-	isPrivate: z.boolean().optional(),
+	visibility: z.enum( [ 'private', 'coming-soon', 'public' ] ).optional(),
 } );
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
@@ -160,23 +160,29 @@ export function describeWpcomSite( site: SyncSite ) {
 	};
 }
 
-export function wpcomDashboardUrl( site: SyncSite ): string | undefined {
-	if ( site.isPressable ) return;
-	try {
-		return `https://my.wordpress.com/sites/${ new URL( site.url ).hostname }`;
-	} catch {
-		return undefined;
-	}
-}
-
-// Pressable sites are managed on Pressable, so WordPress.com has no pages for them.
-function wpcomSiteLinks( site: SyncSite ): { title: string; url: string }[] {
-	const dashboard = wpcomDashboardUrl( site );
-	if ( ! dashboard ) return [];
+function wpcomSiteLinks( site: SyncSite ): SiteLink[] {
+	if ( ! URL.canParse( '/wp-admin/', site.url ) ) return [];
 	const hostname = new URL( site.url ).hostname;
+	const admin: SiteLink = {
+		role: 'admin',
+		title: __( 'WP admin' ),
+		url: new URL( '/wp-admin/', site.url ).href,
+	};
+	if ( site.isPressable ) return [ admin ];
+	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
 	return [
-		{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
-		{ title: __( 'View backups' ), url: `https://wordpress.com/backup/${ hostname }` },
-		{ title: __( 'Manage on WordPress.com' ), url: dashboard },
+		{ role: 'dashboard', title: __( 'Manage on WordPress.com' ), url: dashboard },
+		{ role: 'domains', title: __( 'Manage domains' ), url: `${ dashboard }/domains` },
+		{
+			role: 'more',
+			title: __( 'View backups' ),
+			url: `https://wordpress.com/backup/${ hostname }`,
+		},
+		{
+			role: 'visibility',
+			title: __( 'Manage on WordPress.com' ),
+			url: `https://wordpress.com/settings/general/${ site.id }`,
+		},
+		admin,
 	];
 }

@@ -7,16 +7,24 @@ function transformSingleSiteResponse(
 	syncSupport: SyncSupport,
 	isStaging: boolean
 ): SyncSite {
+	const pressable = isPressableSite( site );
 	return {
 		id: site.ID,
 		localSiteId: '',
 		name: site.name,
 		url: site.URL,
-		launchStatus: site.launch_status,
-		isComingSoon: site.is_coming_soon,
-		isPrivate: site.is_private,
+		launchStatus: pressable ? 'launched' : site.launch_status,
+		visibility: pressable
+			? undefined
+			: site.is_private
+			? 'private'
+			: site.is_coming_soon || site.launch_status === 'unlaunched'
+			? 'coming-soon'
+			: site.launch_status === 'launched'
+			? 'public'
+			: undefined,
 		isStaging,
-		isPressable: isPressableSite( site ),
+		isPressable: pressable,
 		environmentType: site.environment_type,
 		syncSupport,
 		lastPullTimestamp: null,

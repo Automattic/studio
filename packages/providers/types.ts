@@ -144,6 +144,12 @@ export interface ConnectContext {
 	remembered?: Record< string, string >;
 }
 
+export interface SiteLink {
+	role: 'dashboard' | 'admin' | 'domains' | 'add-domain' | 'visibility' | 'more';
+	title: string;
+	url: string;
+}
+
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
 export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// Whether the user publishes to sites they keep on the provider: lists, creates and pushes to
@@ -152,19 +158,13 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// Short destination-picker copy and presentation hints.
 	publishing: {
 		description: () => string;
-		staticSiteLabel?: () => string;
 	};
-	visibility?( site: Site ): boolean;
 	visibilityOptions?(
 		current?: SiteVisibilityDetails[ 'visibility' ]
 	): { value: SiteVisibility; label: string; description: string; disabled?: boolean }[];
-	visibilitySettingsLink?( site: Site ): { title: string; url: string };
-	domainSettingsUrl?( site: Site ): string | undefined;
-	initialVisibility?( site: Site ): SiteVisibility | undefined;
-	isLaunched?( site: Site ): boolean;
+
 	previews?: {
 		content: 'archive' | 'static' | 'site';
-		matchesSite?( site: Site, previewSiteId: number ): boolean;
 		isUpgraded?( site: Site ): boolean;
 	};
 	// The largest archive a push sends, in bytes.
@@ -178,16 +178,13 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// How a new site is made: a checkout on the provider's site, which then
 	// connects the site to the local one, or created right away from Studio.
 	newSite: 'checkout' | 'create';
-	visibilityAtCreation?: boolean;
 	// What the panel says before a site is connected.
 	intro: { title: () => string; description: () => string; learnMoreUrl: string };
 	// Facts about a connected site, and links to manage it on the provider.
 	describe( site: Site ): {
 		details: { title: string; value: string }[];
-		links: { title: string; url: string }[];
+		links: SiteLink[];
 	};
-	dashboardUrl?( site: Site ): string | undefined;
-	adminUrl?( site: Site ): string | undefined;
 	// Why the site can't be published to or pulled from now, or null.
 	issue( site: Site, direction: 'push' | 'pull' ): string | null;
 	// Something to know before pushing the local site, which doesn't block it.
@@ -299,6 +296,8 @@ export interface SiteVisibilityDetails {
 }
 // What Studio reads of any provider's remote site.
 export interface RemoteSite {
+	visibility?: SiteVisibility;
+	launchStatus?: string;
 	id: string | number;
 	name: string;
 	url: string;

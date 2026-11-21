@@ -630,9 +630,6 @@ function SitePreviewContent( {
 											key={ frameKey }
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
-											{ ...inspectorProps }
-											annotationTool={ annotationTools.tool }
-											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={
@@ -823,9 +820,11 @@ export function SitePreview( props: SitePreviewProps ) {
 		reviewStarting,
 		startReviewSite,
 	] );
+	// Moving an iframe or webview can reload or disconnect it, so keep panes in a stable order.
+	const previewPanes = [ ...workspace.tabs ].sort( ( a, b ) => a.id.localeCompare( b.id ) );
 	return (
 		<div ref={ root } className={ styles.tabWorkspace }>
-			{ workspace.tabs.map( ( tab ) => {
+			{ previewPanes.map( ( tab ) => {
 				const active = tab.id === workspace.selectedId;
 				return (
 					<div

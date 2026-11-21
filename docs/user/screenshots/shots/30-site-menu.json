@@ -15,9 +15,8 @@
 				"name": "Site menu"
 			},
 			{
-				"role": "button",
-				"name": "Add site",
-				"first": true
+				"role": "group",
+				"name": "Sites"
 			}
 		],
 		"pad": 24

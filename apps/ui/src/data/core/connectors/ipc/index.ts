@@ -18,7 +18,6 @@ import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
-import { UnsupportedError } from '../unsupported-error';
 import type {
 	AgentApp,
 	ActiveAgentRun,
@@ -139,8 +138,8 @@ export function createIpcConnector(): Connector {
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
-			nativeSites: true,
 			loopbackSignIn: true,
+			localMachine: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -228,8 +227,8 @@ export function createIpcConnector(): Connector {
 			return ( await unwrapIpcError( created ) ) as SiteDetails;
 		},
 
-		async deleteSite( id, deleteFiles = true ) {
-			await ipcApi.deleteSite( id, deleteFiles );
+		deleteSite( id, deleteFiles = true ) {
+			return ipcApi.deleteSite( id, deleteFiles );
 		},
 
 		async copySite( sourceSiteId ): Promise< SiteDetails > {
@@ -345,9 +344,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 		async captureAnnotationRegion( request ) {
-			if ( ! ( 'guestId' in request ) ) {
-				throw new UnsupportedError( 'captureAnnotationRegion' );
-			}
 			return ipcApi.captureAnnotationRegion( request );
 		},
 		async captureSitePreview( siteId, { path, guestId } ) {
@@ -605,6 +601,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setAiSessionProvider( sessionId, provider, model );
 		},
 
+		async setSessionThinking( sessionId, model, thinking ) {
+			await ipcApi.setAiSessionThinking( sessionId, model, thinking );
+		},
+
 		async setSessionEnvironment( sessionId, environment ) {
 			await ipcApi.setAiSessionEnvironment( sessionId, environment );
 		},
@@ -714,8 +714,17 @@ export function createIpcConnector(): Connector {
 		async startProviderConnect( provider, method ) {
 			return unwrapIpcError( ipcApi.startProviderConnect( provider, method ) );
 		},
+		async listProviderModels( provider ) {
+			return unwrapIpcError( ipcApi.listAiProviderModels( provider ) );
+		},
+		async selectProviderModels( provider, models ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.selectAiProviderModels( provider, models ) );
+		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
+		},
+		async setImageProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setImageProvider( provider ) );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

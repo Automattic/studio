@@ -137,9 +137,13 @@ const api: IpcApi = {
 	connectAiProvider: ( provider, method, input ) =>
 		ipcRendererInvoke( 'connectAiProvider', provider, method, input ),
 	disconnectAiProvider: ( provider ) => ipcRendererInvoke( 'disconnectAiProvider', provider ),
+	listAiProviderModels: ( provider ) => ipcRendererInvoke( 'listAiProviderModels', provider ),
+	selectAiProviderModels: ( provider, models ) =>
+		ipcRendererInvoke( 'selectAiProviderModels', provider, models ),
 	startProviderConnect: ( provider, method ) =>
 		ipcRendererInvoke( 'startProviderConnect', provider, method ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
+	setImageProvider: ( provider ) => ipcRendererInvoke( 'setImageProvider', provider ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
@@ -184,6 +188,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	setAiSessionProvider: ( sessionId, provider, model ) =>
 		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
+	setAiSessionThinking: ( sessionId, model, thinking ) =>
+		ipcRendererInvoke( 'setAiSessionThinking', sessionId, model, thinking ),
 	setAiSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setAiSessionEnvironment', sessionId, environment ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),

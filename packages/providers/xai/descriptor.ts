@@ -59,5 +59,6 @@ export const xaiProvider: Provider< XaiConfig > = {
 	ai: {
 		models: XAI_AI_MODELS,
 		defaultModel: 'grok-4.7',
+		generatesImages: () => true,
 	},
 };

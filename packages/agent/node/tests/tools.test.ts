@@ -4,31 +4,30 @@ import path from 'path';
 import { type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { vi } from 'vitest';
+import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { nodeHostServices } from '@studio/agent/node/node-host';
-import { validateBlocks } from '@studio/agent/shared/block-validator';
 import {
 	resolveConversationTools,
 	resolveStudioTools,
 	studioToolDefinitions,
 	withChatArtifactEmission,
 	type StudioToolsOptions,
-} from '@studio/agent/shared/tools';
-import { createSiteTool } from '@studio/agent/shared/tools/create-site';
+} from '@studio/agent/node/tools';
+import { createSiteTool } from '@studio/agent/node/tools/create-site';
 import {
 	bindTool,
 	LOCAL_CHANGE,
 	READ_ONLY,
 	REMOTE_READ,
 	type AnyStudioAgentTool,
-} from '@studio/agent/shared/tools/define-tool';
-import { enrichPreviewListOutput } from '@studio/agent/shared/tools/list-previews';
-import { createTakeScreenshotTool } from '@studio/agent/shared/tools/take-screenshot';
-import { splitCommandArgs } from '@studio/agent/shared/tools/wp-cli';
+} from '@studio/agent/node/tools/define-tool';
+import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
+import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
+import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
 import { createFakeHost, fakeRemoteSite, fakeSite } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
-vi.mock( '@studio/agent/shared/block-validator', () => ( {
+vi.mock( '@studio/agent/node/block-validator', () => ( {
 	validateBlocks: vi.fn(),
 } ) );
 
@@ -117,8 +116,7 @@ describe( 'Studio AI MCP tools', () => {
 
 	beforeEach( () => {
 		vi.resetAllMocks();
-		// The Node pages over a faked Playwright browser.
-		host = { ...createFakeHost( os.tmpdir() ), pages: nodeHostServices().pages };
+		host = createFakeHost( os.tmpdir() );
 	} );
 
 	it( 'offers refresh_browser only when a Studio UI shows the preview', async () => {
@@ -199,7 +197,6 @@ describe( 'Studio AI MCP tools', () => {
 		} as never );
 
 		expect( validateBlocks ).toHaveBeenCalledWith(
-			host.pages,
 			originalContent,
 			expect.stringContaining( 'localhost:8888' )
 		);
@@ -274,9 +271,7 @@ describe( 'Studio AI MCP tools', () => {
 
 		beforeEach( async () => {
 			screenshotDirectory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshots-' ) );
-			host.saveImage = nodeHostServices( {
-				imagesDirectory: () => screenshotDirectory,
-			} ).saveImage;
+			host.imagesDirectory = () => screenshotDirectory;
 		} );
 
 		afterEach( async () => {
@@ -628,6 +623,17 @@ describe( 'Studio AI MCP tools', () => {
 			path: '/sites/my-site',
 			running: true,
 		} );
+	} );
+
+	it( 'tells the agent when a deleted site left its files on disk', async () => {
+		vi.mocked( host.sites.delete ).mockResolvedValueOnce( {
+			warnings: [ 'The site files could not be moved to trash.' ],
+		} );
+
+		const result = await getTool( 'site_delete' ).rawHandler( { nameOrPath: 'My Site' } as never );
+
+		expect( host.sites.delete ).toHaveBeenCalledWith( mockSite, true, expect.any( Function ) );
+		expect( getTextContent( result ) ).toContain( 'The site files could not be moved to trash.' );
 	} );
 
 	it( 'lists previews as JSON for a resolved local site', async () => {

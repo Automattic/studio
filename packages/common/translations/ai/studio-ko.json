@@ -1,0 +1,896 @@
+{
+	"%1$dh %2$dm": [
+		"%1$d시간 %2$d분"
+	],
+	"%1$s screenshot %2$d": [
+		"%1$s 스크린샷 %2$d"
+	],
+	"%d image": [
+		"이미지 %d개"
+	],
+	"%s connection": [
+		"%s 연결"
+	],
+	"(No subject)": [
+		"(제목 없음)"
+	],
+	"AI apps": [
+		"AI 앱"
+	],
+	"API key": [
+		"API 키"
+	],
+	"Activate all plugins": [
+		"모든 플러그인 활성화"
+	],
+	"Activate plugin": [
+		"플러그인 활성화"
+	],
+	"Activate theme": [
+		"테마 활성화"
+	],
+	"Add or delete this annotation before starting another.": [
+		"다른 주석을 시작하기 전에 이 주석을 추가하거나 삭제하세요."
+	],
+	"Agent apps": [
+		"에이전트 앱"
+	],
+	"Agents": [
+		"에이전트"
+	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"로그인할 때 워드프레스 스튜디오가 ChatGPT 요금제를 사용하도록 허용하세요."
+	],
+	"Annotation tools": [
+		"주석 도구"
+	],
+	"Anonymous usage statistics enabled.": [
+		"익명 사용 통계가 활성화되었습니다."
+	],
+	"Anthropic API key": [
+		"Anthropic API 키"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic에서 이 API 키를 거부했습니다. 키를 확인하고 다시 시도하세요."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic에서 이 토큰을 거부했습니다. claude setup-token을 다시 실행하세요."
+	],
+	"Audit SEO": [
+		"SEO 감사"
+	],
+	"Back to email list": [
+		"이메일 목록으로 돌아가기"
+	],
+	"Backups": [
+		"백업"
+	],
+	"Birdland": [
+		"버드랜드"
+	],
+	"Blue Train": [
+		"블루 트레인"
+	],
+	"Blueprint file…": [
+		"청사진 파일..."
+	],
+	"Blueprint preview": [
+		"청사진 미리보기"
+	],
+	"Browse Blueprints": [
+		"청사진 둘러보기"
+	],
+	"Browser could not load.": [
+		"브라우저를 로드할 수 없습니다."
+	],
+	"Browser options": [
+		"브라우저 옵션"
+	],
+	"Cc": [
+		"참조"
+	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"변경 사항을 푸시했지만 사이트를 런칭할 수 없습니다. 요금제와 권한을 확인한 다음 다시 발행하여 런칭을 재시도하세요."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"변경 사항을 푸시했지만 사이트를 런칭할 수 없습니다. 다시 발행하여 런칭을 재시도하세요."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"변경 사항을 푸시했지만 사이트를 런칭할 수 없습니다. 이메일을 인증한 다음 다시 발행하여 런칭을 재시도하세요."
+	],
+	"ChatGPT plan": [
+		"ChatGPT 요금제"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"지금은 ChatGPT 요금제를 사용할 수 없습니다. 잠시 후 다시 시도하세요."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT에서 불완전한 로그인 정보를 반환했습니다."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"ChatGPT 로그인을 완료할 수 없습니다. 다시 시도하세요."
+	],
+	"Check your internet connection and try again.": [
+		"인터넷 연결을 확인하고 다시 시도하세요."
+	],
+	"Checking for updates…": [
+		"업데이트 확인 중..."
+	],
+	"Choose a Blueprint or backup": [
+		"청사진 또는 백업 선택"
+	],
+	"Choose a site source": [
+		"사이트 소스 선택"
+	],
+	"Choose a topic": [
+		"주제 선택"
+	],
+	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
+		"소스를 사용하려면 빈 폴더를 선택하세요. 선택한 폴더에 이미 워드프레스 사이트가 있습니다."
+	],
+	"Choose color": [
+		"색상 선택"
+	],
+	"Choosing individual files requires a backup of this website.": [
+		"개별 파일을 선택하려면 이 웹사이트의 백업이 필요합니다."
+	],
+	"Claude subscription": [
+		"Claude 구독"
+	],
+	"Claude subscription token": [
+		"Claude 구독 토큰"
+	],
+	"Click anything on the page to leave a note": [
+		"페이지에서 아무 요소나 클릭하여 메모를 남기세요"
+	],
+	"Close %s": [
+		"%s 닫기"
+	],
+	"Close all tabs": [
+		"모든 탭 닫기"
+	],
+	"Close other tabs": [
+		"다른 탭 닫기"
+	],
+	"Close tab": [
+		"탭 닫기"
+	],
+	"Close tabs to the right": [
+		"오른쪽 탭 닫기"
+	],
+	"Connect AI providers": [
+		"AI 제공업체 연결"
+	],
+	"Connect Spacefast to publish sites.": [
+		"사이트를 발행하려면 Spacefast를 연결하세요."
+	],
+	"Connect to an existing WordPress": [
+		"기존 워드프레스에 연결"
+	],
+	"Connect your WordPress": [
+		"워드프레스 연결"
+	],
+	"Connected live site ID, or none": [
+		"연결된 라이브 사이트 ID 또는 없음"
+	],
+	"Continue with GitHub": [
+		"GitHub로 계속하기"
+	],
+	"Copy links": [
+		"링크 복사"
+	],
+	"Cotton Tail": [
+		"코튼 테일"
+	],
+	"Could not delete the old preview site. It will expire on its own.": [
+		"이전 미리보기 사이트를 삭제할 수 없습니다. 해당 사이트는 자동으로 만료됩니다."
+	],
+	"Could not open Spacefast": [
+		"Spacefast를 열 수 없음"
+	],
+	"Could not reach Anthropic to verify the credential.": [
+		"자격 증명을 확인하기 위해 Anthropic에 연결할 수 없습니다."
+	],
+	"Could not take screenshot": [
+		"스크린샷을 찍을 수 없음"
+	],
+	"Could not update settings. Please try again.": [
+		"설정을 업데이트할 수 없습니다. 다시 시도해 주세요."
+	],
+	"Could not verify the credential with Anthropic.": [
+		"Anthropic에서 자격 증명을 확인할 수 없습니다."
+	],
+	"Couldn't load providers.": [
+		"제공업체를 로드할 수 없습니다."
+	],
+	"Couldn’t load apps.": [
+		"앱을 로드할 수 없습니다."
+	],
+	"Create %s": [
+		"%s 생성"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"[Google AI Studio](https://aistudio.google.com/apikey)에서 키를 만든 다음 아래에 붙여넣으세요."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"[Meta Model API 대시보드](https://dev.meta.ai)의 API 키 탭에서 키를 만든 다음 아래에 붙여넣으세요."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"[Claude Console](https://platform.claude.com/settings/keys)에서 키를 만든 다음 아래에 붙여넣으세요."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"[OpenAI Platform](https://platform.openai.com/api-keys)에서 키를 만든 다음 아래에 붙여넣으세요."
+	],
+	"Create another preview": [
+		"다른 미리보기 만들기"
+	],
+	"Create user": [
+		"사용자 생성"
+	],
+	"Deactivate all plugins": [
+		"모든 플러그인 비활성화"
+	],
+	"Deactivate plugin": [
+		"플러그인 비활성화"
+	],
+	"Default AI provider": [
+		"기본 AI 제공업체"
+	],
+	"Default browser": [
+		"기본 브라우저"
+	],
+	"Default code editor": [
+		"기본 코드 편집기"
+	],
+	"Default terminal app": [
+		"기본 터미널 앱"
+	],
+	"Delete %s": [
+		"%s 삭제"
+	],
+	"Delete annotation: %s": [
+		"주석 삭제: %s"
+	],
+	"Delete plugin": [
+		"플러그인 삭제"
+	],
+	"Delete theme": [
+		"테마 삭제"
+	],
+	"Delete user": [
+		"사용자 삭제"
+	],
+	"Design system could not load.": [
+		"디자인 시스템을 로드할 수 없습니다."
+	],
+	"Dismiss tip": [
+		"팁 닫기"
+	],
+	"Do more with WordPress": [
+		"워드프레스로 더 많은 작업 수행"
+	],
+	"Domains": [
+		"도메인"
+	],
+	"Download update": [
+		"업데이트 다운로드"
+	],
+	"Email log": [
+		"이메일 로그"
+	],
+	"Email log could not load.": [
+		"이메일 로그를 로드할 수 없습니다."
+	],
+	"Emails sent by your site appear here.": [
+		"사이트에서 보낸 이메일이 여기에 표시됩니다."
+	],
+	"Enable anonymous usage statistics": [
+		"익명 사용 통계 활성화"
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"API 키가 아닌 claude setup-token에서 받은 토큰을 입력하세요."
+	],
+	"Esc": [
+		"Esc"
+	],
+	"External AI apps": [
+		"외부 AI 앱"
+	],
+	"Failed after %s": [
+		"%s 후에 실패함"
+	],
+	"Failed to back up the remote site": [
+		"원격 사이트 백업 실패"
+	],
+	"Failed to check the preview site": [
+		"미리보기 사이트 확인 실패"
+	],
+	"Failed to create the Space": [
+		"Space를 생성하지 못했습니다"
+	],
+	"Failed to export static site": [
+		"정적 사이트 내보내기 실패"
+	],
+	"Failed to find existing preview site in config": [
+		"설정에서 기존 미리보기 사이트를 찾지 못했습니다"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"Spacefast Space를 로드하지 못했습니다"
+	],
+	"Failed to publish to Spacefast": [
+		"Spacefast에 발행하지 못했습니다"
+	],
+	"Feedback areas": [
+		"피드백 영역"
+	],
+	"Feedback type": [
+		"피드백 유형"
+	],
+	"Finish activating hosting on WordPress.com before publishing.": [
+		"발행하기 전에 워드프레스닷컴에서 호스팅 활성화를 완료하세요."
+	],
+	"Gemini API key": [
+		"Gemini API 키"
+	],
+	"Generate images": [
+		"이미지 생성"
+	],
+	"Generating static site…": [
+		"정적 사이트 생성 중..."
+	],
+	"Get site info": [
+		"사이트 정보 가져오기"
+	],
+	"Getting your sign-in code…": [
+		"로그인 코드 가져오는 중..."
+	],
+	"Giant Steps": [
+		"자이언트 스텝스"
+	],
+	"GitHub sign-in was declined.": [
+		"GitHub 로그인이 거부되었습니다."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google에서 이 API 키를 거부했습니다. 키를 확인하고 다시 시도하세요."
+	],
+	"Green Dolphin Street": [
+		"그린 돌핀 스트리트"
+	],
+	"Hide device toolbar": [
+		"기기 도구 모음 숨기기"
+	],
+	"Hide panel": [
+		"패널 숨기기"
+	],
+	"Hide recent chats": [
+		"최근 채팅 숨기기"
+	],
+	"Hints": [
+		"힌트"
+	],
+	"Hosting providers": [
+		"호스팅 제공업체"
+	],
+	"Hostname of the preview site": [
+		"미리보기 사이트의 호스트 이름"
+	],
+	"Image annotation": [
+		"이미지 주석"
+	],
+	"Import media": [
+		"미디어 가져오기"
+	],
+	"Import site": [
+		"사이트 가져오기"
+	],
+	"Inspect design": [
+		"디자인 검사"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"아직 없다면 [Claude Code](https://code.claude.com/docs/en/setup)를 설치하세요."
+	],
+	"Install plugin": [
+		"플러그인 설치"
+	],
+	"Install taxonomy scripts": [
+		"분류 스크립트 설치"
+	],
+	"Install theme": [
+		"테마 설치"
+	],
+	"Interface theme": [
+		"인터페이스 테마"
+	],
+	"Liberate": [
+		"사이트 이전"
+	],
+	"List": [
+		"목록"
+	],
+	"List connected remote sites": [
+		"연결된 원격 사이트 목록"
+	],
+	"List previews": [
+		"미리보기 목록"
+	],
+	"Load skill": [
+		"스킬 로드"
+	],
+	"Loading Blueprint…": [
+		"청사진 로드 중..."
+	],
+	"Loading file…": [
+		"파일 로드 중..."
+	],
+	"Log in to WordPress.com to sync sites.": [
+		"사이트를 동기화하려면 워드프레스닷컴에 로그인하세요."
+	],
+	"Manage AI credits": [
+		"AI 크레딧 관리"
+	],
+	"Manage cache": [
+		"캐시 관리"
+	],
+	"Manage content": [
+		"콘텐츠 관리"
+	],
+	"Manage media": [
+		"미디어 관리"
+	],
+	"Manage menus": [
+		"메뉴 관리"
+	],
+	"Manage plugins": [
+		"플러그인 관리"
+	],
+	"Manage sharing": [
+		"공유 관리"
+	],
+	"Manage site options": [
+		"사이트 옵션 관리"
+	],
+	"Manage terms": [
+		"용어 관리"
+	],
+	"Manage themes": [
+		"테마 관리"
+	],
+	"Manage usage": [
+		"사용량 관리"
+	],
+	"Manage users": [
+		"사용자 관리"
+	],
+	"Manual MCP setup": [
+		"수동 MCP 설정"
+	],
+	"Meta API key": [
+		"Meta API 키"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta에서 API 키의 요청을 제한하고 있습니다. 잠시 후 다시 시도하거나 dev.meta.ai에서 한도를 확인하세요."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta에서 이 API 키를 거부했습니다. 키를 확인하고 다시 시도하세요."
+	],
+	"Mood Indigo": [
+		"무드 인디고"
+	],
+	"New WordPress Studio Site": [
+		"새 워드프레스 스튜디오 사이트"
+	],
+	"New tab": [
+		"새 탭"
+	],
+	"No design system is available for this theme.": [
+		"이 테마에 사용할 수 있는 디자인 시스템이 없습니다."
+	],
+	"No matching sites.": [
+		"일치하는 사이트가 없습니다."
+	],
+	"No providers": [
+		"제공업체 없음"
+	],
+	"Open %s settings": [
+		"%s 설정 열기"
+	],
+	"Open Folder…": [
+		"폴더 열기..."
+	],
+	"Open a site or Blueprint": [
+		"사이트 또는 청사진 열기"
+	],
+	"Open annotation browser": [
+		"주석 브라우저 열기"
+	],
+	"Open email log": [
+		"이메일 로그 열기"
+	],
+	"Open on GitHub": [
+		"GitHub에서 열기"
+	],
+	"OpenAI API key": [
+		"OpenAI API 키"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI에서 이 API 키를 거부했습니다. 키를 확인하고 다시 시도하세요."
+	],
+	"Parent folder": [
+		"상위 폴더"
+	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"출력된 토큰을 붙여넣으세요. 사용량은 Claude 요금제에서 차감됩니다."
+	],
+	"Pending annotation": [
+		"대기 중인 주석"
+	],
+	"Performance audit": [
+		"성능 감사"
+	],
+	"Pick design": [
+		"디자인 선택"
+	],
+	"Present design options": [
+		"디자인 옵션 제시"
+	],
+	"Preview site not found": [
+		"미리보기 사이트를 찾을 수 없음"
+	],
+	"Project tools": [
+		"프로젝트 도구"
+	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"사이트의 정적 사본을 Spacefast Space에 발행합니다. 양식, 댓글 등 워드프레스가 실행되어야 하는 기능은 사본에서 작동하지 않습니다."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"사이트의 정적 사본을 Spacefast Space에 발행합니다."
+	],
+	"Publish to Spacefast": [
+		"Spacefast에 발행"
+	],
+	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
+		"발행하고 끌어오려면 지원되는 워드프레스닷컴 또는 Pressable 웹사이트가 필요합니다."
+	],
+	"Publishing changes…": [
+		"변경 사항 발행 중..."
+	],
+	"Pull preview": [
+		"미리보기 끌어오기"
+	],
+	"Pull site": [
+		"사이트 끌어오기"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"미리보기를 끌어오면 여기에서 변경한 내용이 대체됩니다."
+	],
+	"Push site": [
+		"사이트 푸시"
+	],
+	"Read": [
+		"읽기"
+	],
+	"Read %s": [
+		"%s 읽기"
+	],
+	"Read site option": [
+		"사이트 옵션 읽기"
+	],
+	"Read site title": [
+		"사이트 제목 읽기"
+	],
+	"Recent chats": [
+		"최근 채팅"
+	],
+	"Recent pages": [
+		"최근 페이지"
+	],
+	"Refresh preview": [
+		"미리보기 새로 고침"
+	],
+	"Remote backup failed": [
+		"원격 백업 실패"
+	],
+	"Remote environment: %s": [
+		"원격 환경: %s"
+	],
+	"Remove Blueprint": [
+		"청사진 제거"
+	],
+	"Report an issue on GitHub": [
+		"GitHub에서 문제 신고"
+	],
+	"Request a feature or report a bug.": [
+		"기능을 요청하거나 버그를 신고하세요."
+	],
+	"Resize panel": [
+		"패널 크기 조정"
+	],
+	"Resize viewport: %s": [
+		"뷰포트 크기 조정: %s"
+	],
+	"Responsive preview": [
+		"반응형 미리보기"
+	],
+	"Rotate to landscape": [
+		"가로 방향으로 회전"
+	],
+	"Rotate to portrait": [
+		"세로 방향으로 회전"
+	],
+	"Rotate viewport": [
+		"뷰포트 회전"
+	],
+	"Run": [
+		"실행"
+	],
+	"Run WordPress code": [
+		"워드프레스 코드 실행"
+	],
+	"Run WordPress command": [
+		"워드프레스 명령 실행"
+	],
+	"Run task": [
+		"작업 실행"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"터미널에서 다음을 실행한 다음 Claude 계정으로 로그인하세요:"
+	],
+	"SEO audit": [
+		"SEO 감사"
+	],
+	"Save annotation (Enter)": [
+		"주석 저장(Enter)"
+	],
+	"Select an email to read it.": [
+		"읽을 이메일을 선택하세요."
+	],
+	"Selected area": [
+		"선택한 영역"
+	],
+	"Show chat beside the panel when starting a site.": [
+		"사이트를 시작할 때 패널 옆에 채팅을 표시합니다."
+	],
+	"Show device toolbar": [
+		"기기 도구 모음 표시"
+	],
+	"Show panel": [
+		"패널 표시"
+	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"ChatGPT로 로그인하거나 OpenAI API 키를 사용하세요."
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"Copilot 액세스 권한이 있는 GitHub 계정으로 로그인하세요."
+	],
+	"Signing in was declined.": [
+		"로그인이 거부되었습니다."
+	],
+	"Signing in was started again.": [
+		"로그인이 다시 시작되었습니다."
+	],
+	"Site folder": [
+		"사이트 폴더"
+	],
+	"Site folder is required.": [
+		"사이트 폴더는 필수입니다."
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"사이트를 로드할 수 없습니다. 인터넷 연결을 확인하고 다시 시도하세요."
+	],
+	"Spacefast sign-in was declined.": [
+		"Spacefast 로그인이 거부되었습니다."
+	],
+	"Split view": [
+		"분할 보기"
+	],
+	"Start here": [
+		"여기에서 시작"
+	],
+	"Start signing in to Spacefast again.": [
+		"Spacefast 로그인을 처음부터 다시 시작하세요."
+	],
+	"Start signing in with ChatGPT again.": [
+		"ChatGPT 로그인을 처음부터 다시 시작하세요."
+	],
+	"Start signing in with GitHub again.": [
+		"GitHub 로그인을 처음부터 다시 시작하세요."
+	],
+	"Static export failed: %s": [
+		"정적 내보내기 실패: %s"
+	],
+	"Stop annotating": [
+		"주석 달기 중지"
+	],
+	"Swing Time": [
+		"스윙 타임"
+	],
+	"Taxonomist": [
+		"카테고리 정리"
+	],
+	"Team": [
+		"팀"
+	],
+	"The GitHub sign-in expired. Try again.": [
+		"GitHub 로그인이 만료되었습니다. 다시 시도하세요."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"Spacefast 로그인이 만료되었습니다. 다시 시도하세요."
+	],
+	"The preview site has no preview link.": [
+		"미리보기 사이트에 미리보기 링크가 없습니다."
+	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"이 GitHub 계정에는 Copilot 요금제가 없습니다. github.com/features/copilot에서 요금제를 선택하세요."
+	],
+	"This ZIP could not be read. Check that it is a valid zip file.": [
+		"이 ZIP을 읽을 수 없습니다. 유효한 zip 파일인지 확인하세요."
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"이 폴더는 이미 다른 스튜디오 사이트와 연결되어 있습니다. 다른 로컬 폴더를 선택하세요."
+	],
+	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
+		"이 폴더는 이미 다른 스튜디오 사이트와 연결되어 있습니다. 다른 사이트 이름이나 로컬 폴더를 선택하세요."
+	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"Anthropic 키입니다. 대신 Anthropic에 추가하세요."
+	],
+	"This website has been deleted. Choose another website.": [
+		"이 웹사이트는 삭제되었습니다. 다른 웹사이트를 선택하세요."
+	],
+	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
+		"이 웹사이트에는 워드프레스 스튜디오에서 발행을 지원하는 호스팅 요금제가 필요합니다."
+	],
+	"Token is required": [
+		"토큰이 필요합니다"
+	],
+	"Try downloading the update again.": [
+		"업데이트를 다시 다운로드해 보세요."
+	],
+	"Try starting the chat again, or open your site.": [
+		"채팅을 다시 시작하거나 사이트를 여세요."
+	],
+	"Unable to open this folder.": [
+		"이 폴더를 열 수 없습니다."
+	],
+	"Unable to open this source.": [
+		"이 소스를 열 수 없습니다."
+	],
+	"Unsupported backup file": [
+		"지원되지 않는 백업 파일"
+	],
+	"Update %s": [
+		"%s 업데이트"
+	],
+	"Update all plugins": [
+		"모든 플러그인 업데이트"
+	],
+	"Update plugin": [
+		"플러그인 업데이트"
+	],
+	"Update site option": [
+		"사이트 옵션 업데이트"
+	],
+	"Update user": [
+		"사용자 업데이트"
+	],
+	"Uploading files…": [
+		"파일 업로드 중..."
+	],
+	"Usage is billed through your Anthropic account.": [
+		"사용량은 Anthropic 계정으로 청구됩니다."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"사용량은 Google AI Studio 프로젝트로 청구됩니다."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"사용량은 Meta Model API 계정으로 청구됩니다."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"사용량은 OpenAI 계정으로 청구됩니다."
+	],
+	"Use Gemini with a Gemini API key.": [
+		"Gemini API 키로 Gemini를 사용하세요."
+	],
+	"Use Muse models with your Meta API key.": [
+		"Meta API 키로 Muse 모델을 사용하세요."
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"Anthropic API 키 또는 Claude 구독 토큰을 사용하세요."
+	],
+	"Using ChatGPT plan": [
+		"ChatGPT 요금제 사용 중"
+	],
+	"Using Claude plan": [
+		"Claude 요금제 사용 중"
+	],
+	"Using Copilot plan": [
+		"Copilot 요금제 사용 중"
+	],
+	"Validate blocks": [
+		"블록 유효성 검사"
+	],
+	"Visit previews": [
+		"미리보기 방문"
+	],
+	"Visual Annotations": [
+		"시각적 주석"
+	],
+	"Waiting for %s": [
+		"%s 동안 대기 중"
+	],
+	"Waiting for approval…": [
+		"승인 대기 중..."
+	],
+	"WordPress Studio could not download this backup.": [
+		"워드프레스 스튜디오에서 이 백업을 다운로드할 수 없습니다."
+	],
+	"WordPress Studio could not open the email folder.": [
+		"워드프레스 스튜디오에서 이메일 폴더를 열 수 없습니다."
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"워드프레스 스튜디오에서 폴더를 열 수 없습니다. 다시 시도해 주세요."
+	],
+	"WordPress Studio could not open the site.": [
+		"워드프레스 스튜디오에서 사이트를 열 수 없습니다."
+	],
+	"WordPress Studio team": [
+		"워드프레스 스튜디오 팀"
+	],
+	"WordPress.com API": [
+		"워드프레스닷컴 API"
+	],
+	"WordPress.com hosting": [
+		"워드프레스닷컴 호스팅"
+	],
+	"Workspace navigation": [
+		"작업 공간 탐색"
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"ChatGPT 요금제의 사용 한도에 도달했습니다. chatgpt.com/settings/usage에서 사용량을 관리하세요."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"Copilot 요금제의 사용 한도에 도달했습니다. github.com/settings/copilot에서 사용량을 관리하세요."
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"사용 중인 ChatGPT 요금제는 워드프레스 스튜디오에서 사용할 수 없습니다."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"ChatGPT 로그인이 더 이상 유효하지 않습니다. 설정에서 ChatGPT를 다시 연결하세요."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"사용 중인 Copilot 요금제에는 이 모델이 포함되어 있지 않습니다. 다른 모델을 선택하거나 github.com/settings/copilot에서 켜세요."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"Spacefast 로그인이 더 이상 유효하지 않습니다. Spacefast를 다시 연결하세요."
+	],
+	"Your site was created, but the AI chat could not start.": [
+		"사이트가 생성되었지만 AI 채팅을 시작할 수 없습니다."
+	],
+	"inline content": [
+		"인라인 콘텐츠"
+	],
+	"media item": [
+		"미디어 항목"
+	],
+	"media items": [
+		"미디어 항목"
+	],
+	"page": [
+		"페이지"
+	],
+	"pages": [
+		"페이지"
+	],
+	"post": [
+		"글"
+	],
+	"posts": [
+		"글"
+	],
+	"products": [
+		"상품"
+	],
+	"· %d%%": [
+		"· %d%%"
+	]
+}

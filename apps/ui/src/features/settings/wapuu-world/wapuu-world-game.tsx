@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { useSaveWapuuScore } from '@/data/queries/use-wapuu-score';
+import { DialogDismissButton } from '@/lib/ui';
 import wapuuIdleUrl from './assets/wapuu-player-idle-sprite.png';
 import { startGame, CANVAS_W, CANVAS_H } from './engine/game-loop';
 import { WIN_LINK } from './engine/renderer';
@@ -62,13 +63,12 @@ export function WapuuWorldGame( { onClose }: WapuuWorldGameProps ) {
 					</span>
 					<div className={ styles.titleActions }>
 						<span>{ __( 'ESC to close' ) }</span>
-						<button
+						<DialogDismissButton
 							onClick={ onClose }
 							className={ styles.closeButton }
-							aria-label={ __( 'Close game' ) }
-						>
-							✕
-						</button>
+							label={ __( 'Close game' ) }
+							size="icon-2xs"
+						/>
 					</div>
 				</div>
 

@@ -49,8 +49,8 @@ const managerMessageStartServer = z.object( {
 	} ),
 } );
 
-const managerMessageRunBlueprint = z.object( {
-	topic: z.literal( 'run-blueprint' ),
+const managerMessageSetUpSite = z.object( {
+	topic: z.literal( 'set-up-site' ),
 	data: z.object( {
 		config: serverConfigSchema,
 	} ),
@@ -64,7 +64,7 @@ const managerMessageStopServer = z.object( {
 const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
 	managerMessageAbort,
 	managerMessageStartServer,
-	managerMessageRunBlueprint,
+	managerMessageSetUpSite,
 	managerMessageStopServer,
 ] );
 export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema >;
@@ -73,7 +73,7 @@ const managerMessageBase = z.object( { messageId: z.string() } );
 export const managerMessageSchema = z.discriminatedUnion( 'topic', [
 	managerMessageBase.extend( managerMessageAbort.shape ),
 	managerMessageBase.extend( managerMessageStartServer.shape ),
-	managerMessageBase.extend( managerMessageRunBlueprint.shape ),
+	managerMessageBase.extend( managerMessageSetUpSite.shape ),
 	managerMessageBase.extend( managerMessageStopServer.shape ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
@@ -93,9 +93,7 @@ const SITE_START_PHASES = [
 	'wordpress_install',
 	'blueprint',
 	'symlink_scan',
-	'php_first_worker',
 	'php_workers',
-	'proxy_ready',
 	'admin_credentials',
 ] as const;
 export type SiteStartPhase = ( typeof SITE_START_PHASES )[ number ];

@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { z } from 'zod';
 import {
 	SITE_START_REQUESTED_AT_ENV,
 	siteListItemSchema,
@@ -16,32 +17,17 @@ import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 // Start / stop / delete a local site via the Studio CLI's one-shot `site`
 // commands, for the desktop main process and the `studio ui` server alike.
 
-function runSiteCommand(
+// Each command reports a result once it finishes: start and stop the site as it
+// is then, so the caller can show it without waiting for the matching site event.
+async function runSiteCommand< T >(
 	execute: ExecuteCliCommand,
 	args: string[],
-	baseMessage: string
-): Promise< void > {
-	return new Promise( ( resolve, reject ) => {
-		const [ emitter ] = execute( args, { output: 'capture' } );
-		emitter.on( 'success', () => resolve() );
-		emitter.on( 'failure', ( { error } ) => {
-			error.baseMessage = baseMessage;
-			reject( error );
-		} );
-		emitter.on( 'error', ( { error } ) => reject( error ) );
-	} );
-}
-
-// Start and stop report the site as it is once they finish, so the caller can
-// show it without waiting for the matching site event.
-async function runSiteStateCommand(
-	execute: ExecuteCliCommand,
-	args: string[],
+	schema: z.ZodType< T >,
 	baseMessage: string,
 	env?: NodeJS.ProcessEnv
-): Promise< SiteListItem > {
+): Promise< T > {
 	try {
-		return await runCliCommand( execute, args, siteListItemSchema, { env } );
+		return await runCliCommand( execute, args, schema, { env } );
 	} catch ( error ) {
 		if ( error instanceof CliCommandError ) {
 			error.baseMessage = baseMessage;
@@ -68,9 +54,10 @@ export async function startSite(
 		);
 	}
 	try {
-		return await runSiteStateCommand(
+		return await runSiteCommand(
 			execute,
 			[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+			siteListItemSchema,
 			'Failed to start site',
 			// Lets the CLI time the start from here, not from when its own process got going.
 			{ [ SITE_START_REQUESTED_AT_ENV ]: String( requestedAt ) }
@@ -97,22 +84,29 @@ export async function startSite(
 
 /** Stop a local site's server via the Studio CLI. */
 export function stopSite( execute: ExecuteCliCommand, sitePath: string ): Promise< SiteListItem > {
-	return runSiteStateCommand(
+	return runSiteCommand(
 		execute,
 		[ 'site', 'stop', '--path', sitePath ],
+		siteListItemSchema,
 		'Failed to stop site'
 	);
 }
 
-/** Remove a site from Studio via the Studio CLI, trashing its files unless `deleteFiles` is false. */
+const deleteSiteResultSchema = z.object( { warnings: z.array( z.string() ) } );
+
+/**
+ * Remove a site from Studio via the Studio CLI, trashing its files unless `deleteFiles` is false.
+ * `warnings` names what the delete left behind, such as files it could not move to trash.
+ */
 export function deleteSite(
 	execute: ExecuteCliCommand,
 	sitePath: string,
 	deleteFiles: boolean
-): Promise< void > {
+): Promise< z.infer< typeof deleteSiteResultSchema > > {
 	return runSiteCommand(
 		execute,
 		[ 'site', 'delete', '--path', sitePath, deleteFiles ? '--files' : '--no-files' ],
+		deleteSiteResultSchema,
 		'Failed to delete site'
 	);
 }

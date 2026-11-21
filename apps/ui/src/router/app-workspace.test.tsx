@@ -188,6 +188,7 @@ beforeEach( () => {
 
 afterEach( () => {
 	vi.restoreAllMocks();
+	document.documentElement.style.removeProperty( '--motion-duration-layout' );
 	act( () => setCommandPaletteOpen( false ) );
 } );
 
@@ -202,8 +203,8 @@ describe( 'Studio workspace', () => {
 					annotatePreview: true,
 					nativeFolderPicker: true,
 					studioLogs: true,
-					nativeSites: true,
 					loopbackSignIn: true,
+					localMachine: true,
 				},
 			},
 		} );
@@ -1052,6 +1053,7 @@ describe( 'Studio workspace', () => {
 		await findComposer();
 		await setChatFullscreen( true );
 		await waitForFullscreen( true );
+		document.documentElement.style.setProperty( '--motion-duration-layout', '320ms' );
 		if ( entry === 'site menu' ) {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'New chat' } ) );
@@ -1071,6 +1073,9 @@ describe( 'Studio workspace', () => {
 		} else {
 			fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
 		}
+		await waitFor( () =>
+			expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeNull()
+		);
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		await waitFor( () => expect( composer() ).toHaveFocus() );
 		expect( await findLayoutControl( 'split' ) ).toBeVisible();
@@ -1243,7 +1248,9 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 2 ) );
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
 		expect( connector.createSession ).toHaveBeenCalledWith( 'one' );
-		expect( await screen.findByText( 'Help me plan this site' ) ).toBeVisible();
+		expect(
+			await within( screen.getByRole( 'main' ) ).findByText( 'Help me plan this site' )
+		).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
 		expect( document.querySelector( 'iframe' ) ).toBeNull();
 		expect( connector.startSite ).not.toHaveBeenCalled();
@@ -1332,8 +1339,8 @@ describe( 'Studio workspace', () => {
 					nativeFolderPicker: true,
 					annotatePreview: true,
 					studioLogs: true,
-					nativeSites: true,
 					loopbackSignIn: true,
+					localMachine: true,
 				},
 			},
 		} );
@@ -1397,32 +1404,29 @@ describe( 'Studio workspace', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
+		await waitFor( () => expect( composerStartButton() ).toBeVisible() );
 	} );
 
-	it.each( [ 'split', 'fullscreen', 'site' ] )(
-		'returns to chat after stopping from the %s layout',
-		async ( layout ) => {
-			const { connector, history } = setup( {
-				signedIn: true,
-				path: layout === 'site' ? '/sites/one' : '/sites/one/new',
-				sites: [ site( { running: true } ) ],
-			} );
-			if ( layout === 'fullscreen' ) await chooseWorkspaceLayout( 'Panel' );
-			await findLayoutControl( layout === 'split' ? 'split' : 'panel' );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
-			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-			await screen.findByRole( 'button', { name: 'Start My site' } );
-			expect( await findComposer() ).toBeVisible();
-			expect( await findLayoutControl( 'chat' ) ).toBeVisible();
-			expect( localStorage.getItem( LEGACY_PANEL_LAYOUT_STORAGE_KEY ) ).toBeNull();
-			expect( history.location.pathname ).toBe( '/sites/one/new' );
-			await waitFor( () =>
-				expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument()
-			);
-			expect( connector.createSession ).not.toHaveBeenCalled();
-		}
-	);
+	it.each( [
+		{ path: '/sites/one/new', layout: 'split' },
+		{ path: '/sites/one', layout: 'panel' },
+	] as const )( 'stays on $path when stopping from the sidebar', async ( { path, layout } ) => {
+		const { connector, history } = setup( {
+			signedIn: true,
+			path,
+			sites: [ site( { running: true } ) ],
+		} );
+		await findLayoutControl( layout );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
+		await screen.findByRole( 'button', { name: 'Start My site' } );
+		expect( connector.stopSite ).toHaveBeenCalledWith( 'one' );
+		if ( layout === 'split' ) expect( await findComposer() ).toBeVisible();
+		expect( await findLayoutControl( layout ) ).toBeVisible();
+		expect( localStorage.getItem( LEGACY_PANEL_LAYOUT_STORAGE_KEY ) ).toBeNull();
+		expect( history.location.pathname ).toBe( path );
+		expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
 
 	it( 'preserves draft and attachments through external start and stop events', async () => {
 		const { connector } = setup( { signedIn: true } );

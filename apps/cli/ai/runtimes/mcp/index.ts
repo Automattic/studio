@@ -12,21 +12,13 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import {
 	bindTool,
-	buildSystemPrompt,
 	createAgent,
-	createPresentDesignOptionsTool,
-	createResultNotes,
-	defineTool,
-	loadSkills,
-	READ_ONLY,
-	renderSkill,
-	textResult,
+	type AnyStudioAgentTool,
 	type DesignTracksContext,
 	type StudioAgent,
 	type StudioAgentHost,
-	type StudioAgentTool,
 } from '@studio/agent/node';
-import { Type, type TSchema } from 'typebox';
+import { type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { cliAgentHost } from 'cli/ai/host';
 import {
@@ -67,7 +59,7 @@ function describeClient( server: Server ): ClientSupport {
 }
 
 interface ServedTool {
-	tool: StudioAgentTool;
+	tool: AnyStudioAgentTool;
 	// What the tools list adds to the tool, such as the MCP App page it opens.
 	listing?: Record< string, unknown >;
 }
@@ -79,58 +71,30 @@ function createTools(
 	imageGeneration: boolean,
 	tracks?: DesignTracksContext
 ): ServedTool[] {
-	const imageLink = ( file: string ) =>
-		client.fileImageLinks ? pathToFileURL( file ).href : file;
-	const definitions = agent.tools( {
+	const tools = agent.tools( {
 		imageGeneration: imageGeneration && ! client.ownImageTool,
 		canAskUser: true,
-		imageLink,
+		imageLink: ( file ) => ( client.fileImageLinks ? pathToFileURL( file ).href : file ),
+		picker: client.apps,
 		tracks,
 		wpcomRequest: client.wpcomRequest,
 	} );
-	const designOptions = bindTool(
-		createPresentDesignOptionsTool( { imageLink, picker: client.apps, tracks } ),
-		host
-	);
-	// Fetched on demand rather than sent as the server's instructions, which
-	// hosts keep in context for every conversation and may truncate.
-	const instructionsTool = defineTool(
-		'studio_instructions',
-		"Returns how to build and manage WordPress sites with the Studio tools: the rules every task follows and when to load which skill. Call it before your first WordPress site task and follow it. With `skill`, returns that skill's runbook instead. The skills for what users ask directly:\n" +
-			loadSkills()
-				.filter( ( skill ) => skill.userInvokable )
-				.map( ( skill ) => `- ${ skill.name }: ${ skill.description }` )
-				.join( '\n' ),
-		{
-			skill: Type.Optional(
-				Type.Enum(
-					loadSkills().map( ( skill ) => skill.name ),
-					{ description: 'A skill the instructions name.' }
-				)
-			),
-		},
-		async ( args ) =>
-			textResult(
-				args.skill
-					? renderSkill( args.skill )
-					: buildSystemPrompt( { external: true, tools: [ ...definitions, designOptions ] } )
-			),
-		{ annotations: READ_ONLY }
-	);
 	const library = client.apps ? libraryPage() : null;
 	return [
-		...[ bindTool( instructionsTool, host ), ...definitions ].map( ( tool ) => ( { tool } ) ),
-		{
-			tool: designOptions,
-			listing: client.apps ? { _meta: { ui: { resourceUri: DESIGN_PICKER_URI } } } : undefined,
-		},
+		...tools.map( ( tool ) => ( {
+			tool,
+			listing:
+				client.apps && tool.name === 'present_design_options'
+					? { _meta: { ui: { resourceUri: DESIGN_PICKER_URI } } }
+					: undefined,
+		} ) ),
 		...( library
 			? createLibraryTools( library.uri ).map( ( { tool, listing } ) => ( {
-					tool: bindTool( tool, host ),
+					tool: bindTool( tool, host ) as AnyStudioAgentTool,
 					listing,
 			  } ) )
 			: [] ),
-	] as ServedTool[];
+	];
 }
 
 // The MCP App pages: the design picker, and the WordPress library once built.
@@ -151,7 +115,6 @@ export async function startMcpStdioServer(): Promise< void > {
 	const host = cliAgentHost;
 	const agent = createAgent( { host } );
 	const sessionId = randomUUID();
-	const resultNotes = createResultNotes( host );
 	const imageGeneration = Boolean( await host.imageGenerator?.() );
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
@@ -209,7 +172,7 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		return runServedTool( host, tool, args, resultNotes );
+		return runServedTool( tool, args );
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

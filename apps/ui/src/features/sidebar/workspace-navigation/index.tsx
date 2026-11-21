@@ -10,7 +10,7 @@ export function WorkspaceNavigation( { hidden = false }: { hidden?: boolean } ) 
 	return (
 		<span className={ styles.root } role="group" aria-label={ __( 'Workspace navigation' ) }>
 			<IconButton
-				variant="muted-ghost"
+				variant="ghost"
 				size="icon-sm"
 				icon={ <ArrowLeftIcon /> }
 				label={ __( 'Back' ) }
@@ -19,7 +19,7 @@ export function WorkspaceNavigation( { hidden = false }: { hidden?: boolean } ) 
 				onClick={ history.goBack }
 			/>
 			<IconButton
-				variant="muted-ghost"
+				variant="ghost"
 				size="icon-sm"
 				icon={ <ArrowRightIcon /> }
 				label={ __( 'Forward' ) }

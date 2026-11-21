@@ -1,8 +1,10 @@
 import { anthropicProvider } from './anthropic/descriptor';
 import { geminiProvider } from './gemini/descriptor';
 import { githubCopilotProvider } from './github-copilot/descriptor';
+import { localLlmProvider } from './local-llm/descriptor';
 import { metaProvider } from './meta/descriptor';
 import { openaiProvider } from './openai/descriptor';
+import { openrouterProvider } from './openrouter/descriptor';
 import { spacefastProvider } from './spacefast/descriptor';
 import { wpcomProvider } from './wpcom/descriptor';
 import { xaiProvider } from './xai/descriptor';
@@ -16,30 +18,8 @@ import type {
 	SitesProviderId,
 } from './types';
 
-// The providers that serve AI models, in fallback order: the first ready provider wins.
-export const AI_PROVIDER_IDS = [
-	'wpcom',
-	'anthropic',
-	'openai',
-	'gemini',
-	'github-copilot',
-	'meta',
-	'xai',
-] as const satisfies readonly AiProviderId[];
-
-// The providers with remote sites, in the order the publish panel offers them.
-export const SITES_PROVIDER_IDS = [
-	'wpcom',
-	'spacefast',
-] as const satisfies readonly SitesProviderId[];
-
-export const PROVIDER_IDS = [
-	...AI_PROVIDER_IDS,
-	'spacefast',
-] as const satisfies readonly ProviderId[];
-
-export const DEFAULT_PROVIDER_ID: AiProviderId = 'wpcom';
-
+// Every provider, in order: the order of every list below. AI providers fall back in it (the
+// first ready one wins), and the publish panel offers hosting providers in it.
 const PROVIDERS: {
 	[ Id in ProviderId ]: Provider< ProviderConfigs[ Id ], ProviderSite< Id > >;
 } = {
@@ -50,8 +30,24 @@ const PROVIDERS: {
 	'github-copilot': githubCopilotProvider,
 	meta: metaProvider,
 	xai: xaiProvider,
+	openrouter: openrouterProvider,
+	'local-llm': localLlmProvider,
 	spacefast: spacefastProvider,
 };
+
+type Ids< Id > = readonly [ Id, ...Id[] ];
+
+export const PROVIDER_IDS = Object.keys( PROVIDERS ) as unknown as Ids< ProviderId >;
+
+export const AI_PROVIDER_IDS = PROVIDER_IDS.filter(
+	( id ) => PROVIDERS[ id ].ai
+) as unknown as Ids< AiProviderId >;
+
+export const SITES_PROVIDER_IDS = PROVIDER_IDS.filter(
+	( id ) => PROVIDERS[ id ].sites
+) as unknown as Ids< SitesProviderId >;
+
+export const DEFAULT_PROVIDER_ID: AiProviderId = 'wpcom';
 
 export function getProvider< Id extends ProviderId >(
 	id: Id
@@ -65,18 +61,18 @@ export function getProviderSites( provider: SitesProviderId ): ProviderSitesInfo
 	return getProvider( provider ).sites as unknown as ProviderSitesInfo;
 }
 
+// Whether the provider generates images with `config`.
+export function generatesImages( id: ProviderId, config: unknown ): boolean {
+	const { ai } = getProvider( id ) as { ai?: { generatesImages?( config: unknown ): boolean } };
+	return ai?.generatesImages?.( config ) ?? false;
+}
+
 // Builds before the `anthropic` id stored `anthropic-api-key` in shared.json
 // and session entries. Older builds fall back to WordPress.com on an id they
-// don't know, so writers keep storing the legacy id.
-const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
-	wpcom: 'wpcom',
+// don't know, so writers keep storing the legacy id. Every other provider is
+// stored under its id.
+const STORED_PROVIDER_IDS: Partial< Record< ProviderId, string > > = {
 	anthropic: 'anthropic-api-key',
-	openai: 'openai',
-	gemini: 'gemini',
-	'github-copilot': 'github-copilot',
-	meta: 'meta',
-	xai: 'xai',
-	spacefast: 'spacefast',
 };
 
 // The provider a stored or typed id names, among `ids`.
@@ -88,7 +84,7 @@ export function normalizeProviderId< Id extends ProviderId = ProviderId >(
 }
 
 export function toStoredProviderId( id: ProviderId ): string {
-	return STORED_PROVIDER_IDS[ id ];
+	return STORED_PROVIDER_IDS[ id ] ?? id;
 }
 
 // A remote site as the CLI and the agent name it: `<provider>:<site>`, or `<provider>` alone.

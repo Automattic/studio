@@ -52,14 +52,12 @@
 }
 
 .closeButton {
+	--muted-foreground: var( --accent-surface-muted-foreground );
+	--button-hover-background: var( --accent-surface-muted-hover );
+	--button-hover-color: var( --accent-foreground );
+	--ring: var( --accent-foreground );
+
 	margin-inline-start: var( --space-2 );
-	padding: 1px 7px;
-	border-radius: 4px;
-	background: color-mix( in srgb, var( --accent-foreground ) 20%, transparent );
-	color: var( --accent-foreground );
-	font-family: monospace;
-	font-size: var( --text-xs );
-	cursor: pointer;
 }
 
 .canvas {

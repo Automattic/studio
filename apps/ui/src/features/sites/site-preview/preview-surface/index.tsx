@@ -1,23 +1,13 @@
-import {
-	INSPECTOR_PAGE_SCRIPT,
-	parseInspectorMessage,
-	type InspectorEvent,
-} from '@studio/agent/protocol/inspector/page-script';
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { useEffect, useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
-import { useColorScheme } from '@/data/host/use-color-scheme';
+import { useEffect, useRef } from 'react';
 import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { normalizeDocumentTitle } from '@/features/sites/site-preview/browser-state';
 import { ResponsiveViewport } from '../responsive-preview/viewport';
-import { buildClearSelectionScript, buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import type { ResponsivePreviewSettings } from '@/data/responsive-preview';
-import type { SiteAnnotations } from '@/features/annotations';
 import type { BrowserCommand } from '@/features/sites/site-preview/browser-state';
-import type { AnnotationTool } from '@studio/agent/protocol/inspector/shortcuts';
 import type { ReactNode } from 'react';
 
 export { WebviewSurface } from './webview-surface';
@@ -72,9 +62,8 @@ function getIframeTitle( iframe: HTMLIFrameElement ) {
 	}
 }
 
-// Non-Electron fallback: plain iframe, with the annotation inspector where the
-// connector can reach the frame's pages. Reloads by remounting; back/forward
-// aren't reachable from the host.
+// Non-Electron fallback: plain iframe. Reloads by remounting; back/forward aren't reachable from
+// the host, and the annotation inspector can't reach a cross-origin frame's pages.
 export function FrameSurface( {
 	src,
 	title,
@@ -85,11 +74,6 @@ export function FrameSurface( {
 	browserCommand,
 	onCommandHandled,
 	onAdminBarVisibilityChange,
-	annotations,
-	annotationTool = 'select',
-	clearSelection,
-	onInspectorReady,
-	onInspectorEvent,
 }: {
 	src: string;
 	title: string;
@@ -101,22 +85,13 @@ export function FrameSurface( {
 	browserCommand?: BrowserCommand | null;
 	onCommandHandled?: () => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
-	annotations?: SiteAnnotations;
-	annotationTool?: AnnotationTool;
-	clearSelection?: string;
-	onInspectorReady?: ( ready: boolean ) => void;
-	onInspectorEvent?: ( event: InspectorEvent ) => void;
 } ) {
-	const connector = useConnector();
 	const ref = useRef< HTMLIFrameElement | null >( null );
-	const [ page, setPage ] = useState< { run( script: string ): void } | null >( null );
 	const callbacks = useRef( {
 		onAdminBarVisibilityChange,
 		onNavigate,
 		onLoadingChange,
 		onSettle,
-		onInspectorReady,
-		onInspectorEvent,
 	} );
 	const navigationId = useRef( 0 );
 	const pendingProbe = useRef( 0 );
@@ -131,17 +106,8 @@ export function FrameSurface( {
 			onNavigate,
 			onLoadingChange,
 			onSettle,
-			onInspectorReady,
-			onInspectorEvent,
 		};
-	}, [
-		onAdminBarVisibilityChange,
-		onNavigate,
-		onLoadingChange,
-		onSettle,
-		onInspectorReady,
-		onInspectorEvent,
-	] );
+	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
 	useEffect( () => {
 		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
 		ref.current?.contentWindow?.postMessage(
@@ -155,40 +121,6 @@ export function FrameSurface( {
 		);
 		onCommandHandled?.();
 	}, [ browserCommand, onCommandHandled, src ] );
-
-	const inspector = !! annotations && !! connector.connectPreviewFrame;
-	useEffect( () => {
-		const iframe = ref.current;
-		if ( ! inspector || ! iframe || ! connector.connectPreviewFrame ) return;
-		const connection = connector.connectPreviewFrame( iframe, {
-			onPage() {
-				connection.run( INSPECTOR_PAGE_SCRIPT );
-				// A new object for each page: its inspector starts with no notes.
-				setPage( { ...connection } );
-				callbacks.current.onInspectorReady?.( true );
-			},
-			onLog( message ) {
-				const event = parseInspectorMessage( message, iframe.getBoundingClientRect() );
-				if ( event ) callbacks.current.onInspectorEvent?.( event );
-			},
-		} );
-		return () => {
-			connection.dispose();
-			setPage( null );
-			callbacks.current.onInspectorReady?.( false );
-		};
-	}, [ connector, inspector ] );
-
-	// Mirrors the notes into the page, in the theme's accent.
-	const colorScheme = useColorScheme();
-	useEffect( () => {
-		if ( page && annotations && ref.current ) {
-			page.run( buildInspectorCommandScript( annotations, ref.current, annotationTool ) );
-		}
-	}, [ annotations, annotationTool, colorScheme, page ] );
-	useEffect( () => {
-		if ( page && clearSelection ) page.run( buildClearSelectionScript( clearSelection ) );
-	}, [ clearSelection, page ] );
 
 	useEffect( () => {
 		const onMessage = ( event: MessageEvent ) => {
@@ -262,7 +194,6 @@ export function FrameSurface( {
 			className={ styles.iframe }
 			src={ src }
 			title={ title }
-			data-annotation-surface={ inspector || undefined }
 			onLoad={ ( event ) => {
 				callbacks.current.onAdminBarVisibilityChange?.( null );
 				navigationId.current += 1;

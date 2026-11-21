@@ -5,6 +5,7 @@ import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import {
 	AI_PROVIDER_IDS,
 	getConnectMethod,
+	getProvider,
 	normalizeProviderId,
 	PROVIDER_IDS,
 	type AiProviderId,
@@ -96,6 +97,10 @@ export function aiSettings(
 ): AiSettings {
 	return {
 		provider,
+		imageProviders: AI_PROVIDER_IDS.filter(
+			( id ) => connected.includes( id ) && getProvider( id ).ai?.generatesImages
+		),
+		imageProvider: null,
 		accounts: Object.fromEntries(
 			PROVIDER_IDS.map( ( id ) => [
 				id,
@@ -214,6 +219,7 @@ export function createInMemoryConnector(
 			if ( site ) {
 				emitSiteEvent( SITE_EVENTS.DELETED, { ...site, running: false } );
 			}
+			return { warnings: [] };
 		},
 		copySite: async ( id ) => {
 			const source = state.sites.find( ( site ) => site.id === id )!;
@@ -296,7 +302,6 @@ export function createInMemoryConnector(
 		getPublishCheckoutUrl: () => undefined,
 		onSyncConnectSite: subscribe( 'onSyncConnectSite' ),
 		watchForPublishedSite: async () => {},
-		connectPreviewFrame: () => ( { run: () => {}, dispose: () => {} } ),
 		getSessions: async () => state.sessions.map( ( session ) => session.summary ),
 		getSession: async ( id ) => findSession( id ),
 		updateSessionMetadata: async ( id, patch ) => {
@@ -319,6 +324,7 @@ export function createInMemoryConnector(
 		getActiveAgentRuns: async () => [],
 		setSessionModel: async () => {},
 		setSessionProvider: async () => {},
+		setSessionThinking: async () => {},
 		setSessionEnvironment: async ( id, environment ) => {
 			const session = findSession( id );
 			session.summary = { ...session.summary, activeEnvironment: environment };
@@ -351,12 +357,18 @@ export function createInMemoryConnector(
 				? aiSettings( 'wpcom', [ 'wpcom', provider ] )
 				: aiSettings( normalizeProviderId( provider, AI_PROVIDER_IDS ) ?? 'wpcom', [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		listProviderModels: async () => [],
+		selectProviderModels: async ( provider ) => aiSettings( 'wpcom', [ 'wpcom', provider ] ),
 		startProviderConnect: async () => ( {
 			url: 'https://auth.example.test/sign-in',
 			handoff: { state: 'state-1' },
 		} ),
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
+		setImageProvider: async ( imageProvider ) => ( {
+			...aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+			imageProvider,
+		} ),
 		getInstalledApps: async () => installedApps(),
 		getAgentApps: async () =>
 			AGENT_APP_IDS.map( ( id ) => ( {
@@ -388,6 +400,8 @@ export function createInMemoryConnector(
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
 		sendFeedback: async () => ( { feedbackId: 1 } ),
+		getSiteLimits: async () => null,
+		getBilling: async () => ( { plan: null, receipts: [] } ),
 		getWapuuScore: async () => undefined,
 		saveWapuuScore: async () => {},
 		popupAppMenu: async () => {},
@@ -442,8 +456,8 @@ export function createInMemoryConnector(
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
-			nativeSites: true,
 			loopbackSignIn: true,
+			localMachine: true,
 			...overrides.capabilities,
 		},
 		state,

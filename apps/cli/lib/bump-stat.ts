@@ -2,32 +2,9 @@ import {
 	__bumpAggregatedUniqueStat,
 	__bumpStat,
 	AggregateInterval,
-	LastBumpStatsProvider,
 } from '@studio/common/lib/bump-stat';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { getCliInstallKind } from 'cli/lib/update-notifier';
-
-const lastBumpStatsProvider: LastBumpStatsProvider = {
-	load: async () => {
-		const { lastBumpStats } = await readCliConfig();
-		return lastBumpStats ?? {};
-	},
-	lock: lockCliConfig,
-	unlock: unlockCliConfig,
-	save: async ( lastBumpStats ) => {
-		const config = await readCliConfig();
-		config.lastBumpStats = lastBumpStats;
-		// Locking is handled in `@studio/common/lib/bump-stat`
-		// eslint-disable-next-line studio/require-lock-before-save
-		await saveCliConfig( config );
-	},
-};
 
 export function bumpStat( group: StatsGroup, stat: StatsMetric, bumpInDev = false ) {
 	return __bumpStat( group, stat, bumpInDev );
@@ -39,7 +16,7 @@ export async function bumpAggregatedUniqueStat(
 	aggregateBy: AggregateInterval,
 	bumpInDev = false
 ) {
-	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, lastBumpStatsProvider, bumpInDev );
+	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, bumpInDev );
 }
 
 export function getPlatformMetric(): StatsMetric {

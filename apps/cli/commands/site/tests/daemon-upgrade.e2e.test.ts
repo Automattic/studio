@@ -16,8 +16,9 @@ import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
 	daemonRequest,
+	handConfigBackToPreviousCli,
 	installPreviousCli,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -39,13 +40,13 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		return env;
 	}
 
-	async function runPreviousCli( args: string[] ) {
-		const result = await runCli( args, getEnv(), { cliMain: previousCli } );
+	async function runPreviousCli( args: string[], { offline = false } = {} ) {
+		const result = await runCli( args, getEnv(), { cliMain: previousCli, offline } );
 		expect( result.code, result.stderr ).toBe( 0 );
 	}
 
 	function siteId( sitePath: string ) {
-		return readCliConfig( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.id;
+		return readConfigFile( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.id;
 	}
 
 	async function siteProcesses( sitePath: string ): Promise< ProcessDescription[] > {
@@ -64,7 +65,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 	}
 
 	function siteUrl( sitePath: string, urlPath = '/' ) {
-		const port = readCliConfig( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.port;
+		const port = readConfigFile( getEnv() ).sites.find( ( site ) => site.path === sitePath )?.port;
 		return `http://localhost:${ port }${ urlPath }`;
 	}
 
@@ -87,20 +88,27 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		} );
 		runningSite = path.join( env.sitesDir, 'upgrade-running' );
 		stoppedSite = path.join( env.sitesDir, 'upgrade-stopped' );
+		// Offline, the previous release keeps the WordPress it bundles. Online, `site create --wp latest`
+		// downloads a newer one from wordpress.org, which closes the connection after the zip, and Node
+		// 24.22.1's fetch can crash on that (`assert(!this.paused)`). Starting a site needs the network
+		// to download PHP.
 		for ( const sitePath of [ runningSite, stoppedSite ] ) {
-			await runPreviousCli( [
-				'site',
-				'create',
-				'--name',
-				path.basename( sitePath ),
-				'--path',
-				sitePath,
-				'--wp',
-				'latest',
-				'--no-start',
-				'--skip-browser',
-				'--skip-log-details',
-			] );
+			await runPreviousCli(
+				[
+					'site',
+					'create',
+					'--name',
+					path.basename( sitePath ),
+					'--path',
+					sitePath,
+					'--wp',
+					'latest',
+					'--no-start',
+					'--skip-browser',
+					'--skip-log-details',
+				],
+				{ offline: true }
+			);
 		}
 	}, 600_000 );
 
@@ -186,6 +194,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 			expect( fs.existsSync( path.join( versionsPath, '6.0', 'wp-includes' ) ) ).toBe( true );
 			expect( fs.readFileSync( versionFile, 'utf8' ) ).not.toContain( "$wp_version = '6.0'" );
 
+			// Offline, like the previous release's creates, so it can't download a newer WordPress.
 			const newSite = path.join( getEnv().sitesDir, 'upgrade-new' );
 			const result = await runCli(
 				[
@@ -200,7 +209,8 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 					'--skip-browser',
 					'--skip-log-details',
 				],
-				getEnv()
+				getEnv(),
+				{ offline: true }
 			);
 			expect( result.code, result.stderr ).toBe( 0 );
 			expect( ( await waitForSiteResponse( siteUrl( newSite ) ) ).status ).toBeLessThan( 500 );
@@ -212,6 +222,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		{ tags: [ 'e2e' ], timeout: 300_000 },
 		async () => {
 			await runCli( [ 'site', 'stop', '--all' ], getEnv() );
+			handConfigBackToPreviousCli( getEnv() );
 			await runPreviousCli( [
 				'site',
 				'start',
@@ -245,6 +256,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 		{ tags: [ 'e2e' ], timeout: 300_000 },
 		async () => {
 			await runCli( [ 'site', 'stop', '--all' ], getEnv() );
+			handConfigBackToPreviousCli( getEnv() );
 			await runPreviousCli( [
 				'site',
 				'start',
@@ -259,7 +271,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: upgrading over a runnin
 			const list = runCli( [ 'site', 'list', '--format', 'json' ], getEnv() );
 			await vi.waitFor(
 				() => {
-					const site = readCliConfig( getEnv() ).sites.find(
+					const site = readConfigFile( getEnv() ).sites.find(
 						( item ) => item.path === runningSite
 					);
 					expect( site?.operation ).toMatchObject( { kind: 'start' } );

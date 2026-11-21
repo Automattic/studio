@@ -15,7 +15,6 @@ import {
 	PinIcon,
 	PencilIcon,
 	RotateCwIcon,
-	UploadIcon,
 	SlidersVerticalIcon,
 	PlayIcon,
 	CircleStopIcon,
@@ -242,21 +241,16 @@ export function getSiteCommands( {
 			  ]
 			: [] ),
 		{
-			id: 'share',
-			group: 'commands',
-			label: __( 'Share site…' ),
-			icon: UploadIcon,
-			description,
-			keywords: [ __( 'preview link' ) ],
-			run: () => openHeaderPanel( { panel: 'share', siteId: site.id } ),
-		},
-		{
 			id: 'publish',
 			group: 'commands',
 			label: __( 'Publish' ),
 			icon: CloudUploadIcon,
 			description,
-			keywords: [ __( 'publish site sync push pull upload download' ) ],
+			keywords: [
+				__( 'publish site sync push pull upload download' ),
+				__( 'Share' ),
+				__( 'preview link' ),
+			],
 			run: () => openHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ),
 		},
 		{

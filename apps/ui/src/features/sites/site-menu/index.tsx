@@ -318,7 +318,7 @@ export function SiteMenuItems( {
 			</Menu.Item>
 			<Menu.Separator />
 			<SiteShareMenuItem site={ site } disabled={ busy } />
-			<SitePublishMenu site={ site } disabled={ busy } />
+			<SitePublishMenu site={ site } />
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
 					<ExportIcon />

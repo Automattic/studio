@@ -7,19 +7,34 @@ function transformSingleSiteResponse(
 	syncSupport: SyncSupport,
 	isStaging: boolean
 ): SyncSite {
+	const pressable = isPressableSite( site );
 	return {
 		id: site.ID,
 		localSiteId: '',
 		name: site.name,
 		url: site.URL,
+		launchStatus: pressable ? 'launched' : site.launch_status,
+		visibility: pressable
+			? undefined
+			: site.is_private
+			? 'private'
+			: site.is_coming_soon || site.launch_status === 'unlaunched'
+			? 'coming-soon'
+			: site.launch_status === 'launched'
+			? 'public'
+			: undefined,
 		isStaging,
-		isPressable: isPressableSite( site ),
+		isPressable: pressable,
 		environmentType: site.environment_type,
 		syncSupport,
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
 		wpVersion: site.options?.software_version,
 		planName: site.plan?.product_name_short,
+		hasPaidPlan:
+			site.plan?.is_free === undefined
+				? undefined
+				: ! site.plan.is_free && site.plan.expired !== true,
 		pushNeedsUpgrade: pushNeedsUpgrade( site ),
 		createdAt: site.options?.created_at,
 	};

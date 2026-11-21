@@ -55,7 +55,6 @@ export * from './pin-icon';
 export * from './play-icon';
 export * from './plug-icon';
 export * from './plus-icon';
-export * from './publish-transfer-icon';
 export * from './rotate-ccw-icon';
 export * from './rotate-cw-icon';
 export * from './select-icon';
@@ -76,7 +75,6 @@ export * from './terminal-icon';
 export * from './trash-icon';
 export * from './trending-up-icon';
 export * from './triangle-alert-icon';
-export { UnlinkIcon } from './unlink-icon';
 export * from './unlock-icon';
 export * from './unpin-icon';
 export * from './upload-icon';
@@ -84,5 +82,5 @@ export * from './wordpress-icon';
 export * from './x-icon';
 
 export { ICON_SIZE } from './metrics';
-
 export { UpdateIcon } from './update-icon';
+export { SearchIcon } from 'lucide-react';

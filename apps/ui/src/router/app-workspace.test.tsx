@@ -419,36 +419,71 @@ describe( 'Studio workspace', () => {
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'keeps Share and Publish available while authentication is loading', async () => {
+	it( 'keeps the Share control available while authentication is loading', async () => {
 		const { connector } = setup( { sites: [ site( { running: true } ) ] } );
 		connector.getAuthUser.mockImplementation( () => new Promise( () => {} ) );
-		expect( await screen.findByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 
-	it( 'keeps Share and Publish available through account changes and opens contextual account copy', async () => {
+	it( 'keeps Publish available through account changes and lets signed-out users choose a destination', async () => {
 		const { connector, queryClient } = setup( { sites: [ site( { running: true } ) ] } );
-		expect( await screen.findByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		await paletteCommand( 'Publish' );
-		// Signing in is only needed to publish to WordPress.com.
-		fireEvent.click( await screen.findByRole( 'button', { name: /^WordPress\.com/ } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
+		const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+		expect( await within( panel ).findByRole( 'combobox', { name: 'Destination' } ) ).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
+		await waitFor( () => expect( panel ).not.toBeInTheDocument() );
 		connector.state.user = TEST_USER;
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		connector.state.user = null;
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
+	} );
+
+	it.each( [ 'Chat', 'Split view' ] as const )(
+		'opens Publish from the site menu without changing the %s layout',
+		async ( layout ) => {
+			const { connector } = setup( {
+				path: '/sites/one/new',
+				sites: [ site( { running: true } ) ],
+			} );
+			await chooseWorkspaceLayout( layout );
+			await findLayoutControl( layout === 'Chat' ? 'chat' : 'split' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+			expect( await screen.findByRole( 'dialog', { name: 'Publish' } ) ).toBeVisible();
+			expect( getLayoutControl( layout === 'Chat' ? 'chat' : 'split' ) ).toBeVisible();
+			expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'opens Publish for another site without reopening its hidden preview', async () => {
+		const { history } = setup( {
+			path: '/sites/one/new',
+			sites: [
+				site( { running: true } ),
+				site( { id: 'two', name: 'Other site', running: true } ),
+			],
+		} );
+		await findComposer();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		await chooseWorkspaceLayout( 'Chat' );
+		await findLayoutControl( 'chat' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'Other site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		expect( await screen.findByRole( 'dialog', { name: 'Publish' } ) ).toBeVisible();
+		expect( getLayoutControl( 'chat' ) ).toBeVisible();
 	} );
 
 	it( 'keeps an established header during a background site refresh', async () => {
 		const { connector, queryClient } = setup( { sites: [ site( { running: true } ) ] } );
-		const publish = await screen.findByRole( 'button', { name: 'Publish…' } );
+		const share = await screen.findByRole( 'button', { name: 'Publish…' } );
 		const address = await screen.findByRole( 'textbox', { name: 'Address' } );
 		let finish!: ( sites: SiteDetails[] ) => void;
 		connector.getSites.mockImplementationOnce(
@@ -460,10 +495,10 @@ describe( 'Studio workspace', () => {
 		act( () => {
 			void queryClient.invalidateQueries( { queryKey: [ 'sites' ] } );
 		} );
-		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( share );
 		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBe( address );
 		await act( async () => finish( [ site( { running: true } ) ] ) );
-		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( share );
 	} );
 
 	it( 'allows manual startup while offline', async () => {
@@ -1371,7 +1406,7 @@ describe( 'Studio workspace', () => {
 		expect(
 			within( screen.getByRole( 'complementary' ) ).queryByRole( 'button', { name: 'Start site' } )
 		).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		await refreshSessions( [ chat( { id: 'toolbar-chat', title: 'Plan my site' } ) ] );
 		fireEvent.click(
 			await within( screen.getByRole( 'group', { name: 'Sites' } ) ).findByRole( 'button', {
@@ -1399,7 +1434,6 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( getLayoutControl( 'split' ) ).toBeVisible() );
 		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
@@ -1497,7 +1531,6 @@ describe( 'Studio workspace', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible()
 		);
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		await chooseWorkspaceLayout( 'Split view' );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( composer() ).toBe( input );

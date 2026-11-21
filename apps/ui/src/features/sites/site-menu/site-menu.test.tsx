@@ -168,11 +168,13 @@ describe( 'Stop other sites', () => {
 	] )( 'opens Publish from either menu (context: %s, busy: %s)', async ( contextMenu, busy ) => {
 		const { open, requests, connector } = setup( { contextMenu, busy } );
 		await open();
-		expect( screen.queryByRole( 'menuitem', { name: 'Share' } ) ).not.toBeInTheDocument();
+		const share = screen.getByRole( 'menuitem', { name: 'Share' } );
+		if ( busy ) expect( share ).toHaveAttribute( 'aria-disabled', 'true' );
+		else expect( share ).not.toHaveAttribute( 'aria-disabled', 'true' );
 		const publish = await screen.findByRole( 'menuitem', { name: 'Publish' } );
 		expect( publish ).not.toHaveAttribute( 'aria-disabled', 'true' );
 		const items = screen.getAllByRole( 'menuitem' );
-		expect( items[ items.indexOf( publish ) - 1 ] ).toHaveTextContent( 'Settings' );
+		expect( items[ items.indexOf( publish ) - 1 ] ).toHaveTextContent( 'Share' );
 		expect( items[ items.indexOf( publish ) + 1 ] ).toHaveTextContent( 'Export' );
 		fireEvent.click( publish );
 		expect( requests.publish ).toHaveBeenCalledExactlyOnceWith( {

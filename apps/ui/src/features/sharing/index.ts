@@ -5,3 +5,5 @@ export {
 	PreviewManagementDialog,
 	type PreviewManagementAction,
 } from './share-dialog/preview-management-dialog';
+
+export { SiteShareMenuItem } from './share-dialog/share-menu-item';

@@ -11,6 +11,7 @@ import {
 } from '@/data/account-analytics';
 import {
 	dismissToast,
+	finishToastExit,
 	getVisibleToasts,
 	runNoticeAction,
 	notifyRendererMounted,
@@ -547,6 +548,8 @@ it( 'confirms copying before starting the preview notice dismissal timer', async
 	await act( () => vi.advanceTimersByTimeAsync( 4400 ) );
 	expect( notice()?.leaving ).toBeUndefined();
 	await act( () => vi.advanceTimersByTimeAsync( 400 ) );
+	expect( notice()?.leaving ).toBe( true );
+	act( () => finishToastExit( 'preview-copy-notice' ) );
 	expect( notice() ).toBeUndefined();
 } );
 

@@ -100,7 +100,7 @@ export function UserMenu() {
 					<AppUpdateButton />
 				</div>
 				<IconButton
-					variant="muted"
+					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
 					onClick={ openSettings }

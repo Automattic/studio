@@ -1,5 +1,7 @@
 /** A `--motion-duration-*` token in milliseconds, as resolved now (reduced motion shortens them). */
-export function getMotionDuration( name: 'feedback' | 'surface' | 'layout' | 'reveal' ): number {
+export function getMotionDuration(
+	name: 'feedback' | 'surface' | 'quick' | 'layout' | 'reveal'
+): number {
 	const value = getComputedStyle( document.documentElement )
 		.getPropertyValue( `--motion-duration-${ name }` )
 		.trim();

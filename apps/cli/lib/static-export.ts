@@ -1,15 +1,16 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { __, sprintf } from '@wordpress/i18n';
 import {
-	getBundledSimplyStaticPath,
+	getBundledSimplyStaticZipPath,
 	getBundledStaticExportScriptPath,
 } from 'cli/lib/dependency-management/paths';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { onCancel } from 'cli/lib/sync-activity';
 import { LoggerError } from 'cli/logger';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 // Staged inside the site folder, next to the site WP-CLI loads: the driver, the plugin, the
 // database copy and the output. One per export, removed afterwards.
@@ -17,7 +18,7 @@ const STAGING_PREFIX = '.studio-static-export-';
 const DATABASE_FILE = '.ht.sqlite';
 
 export type StaticExportOptions = {
-	site: SiteData;
+	site: ConfigSite;
 	// URL the running site is served on. Pages are crawled from it.
 	sourceUrl: string;
 	outputDir: string;
@@ -59,9 +60,8 @@ export async function exportStaticSite( {
 
 	try {
 		await snapshotDatabase( site.path, path.join( stagingDir, DATABASE_FILE ) );
-		await fs.promises.cp( getBundledSimplyStaticPath(), path.join( stagingDir, 'simply-static' ), {
-			recursive: true,
-		} );
+		// The zip holds a single `simply-static/` folder.
+		await extractZip( getBundledSimplyStaticZipPath(), stagingDir );
 		await fs.promises.copyFile(
 			getBundledStaticExportScriptPath(),
 			path.join( stagingDir, 'static-export.php' )

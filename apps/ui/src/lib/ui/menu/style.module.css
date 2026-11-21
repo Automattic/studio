@@ -3,14 +3,6 @@
 		padding-inline-end: var( --space-3 );
 	}
 
-	.itemLabel {
-		min-width: 0;
-		max-width: min( 320px, 60vw );
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
 	.positioner {
 		z-index: var( --z-popover );
 		outline: none;
@@ -24,12 +16,8 @@
 	}
 
 	.destructive {
-		color: var( --destructive );
-	}
-
-	.destructive[data-highlighted] {
-		--item-hover-background: var( --destructive-hover );
 		--item-hover-foreground: var( --destructive );
+
 		color: var( --destructive );
 	}
 
@@ -57,7 +45,7 @@
 		letter-spacing: 0.1em;
 	}
 
-	.destructive .shortcut {
+	.destructive :is( svg, .shortcut ) {
 		color: inherit;
 	}
 }

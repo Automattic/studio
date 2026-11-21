@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { exitOnCancel, onCancel, reportSyncActivity } from '../sync-activity';
 
-vi.mock( 'cli/lib/daemon-client' );
+// Not automocked: that loads the real module graph, whose `when-exit` re-sends the emitted SIGTERM
+// and, on Windows, kills the test worker.
+vi.mock( 'cli/lib/daemon-client', () => ( { emitCliEvent: vi.fn() } ) );
 
 describe( 'exitOnCancel', () => {
 	const existingListeners = process.listeners( 'SIGTERM' );

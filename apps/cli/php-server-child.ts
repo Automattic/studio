@@ -16,6 +16,7 @@ import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
+import { getSitePhpWorkers } from '@studio/common/lib/site-php-workers';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { z } from 'zod';
@@ -26,7 +27,10 @@ import {
 	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials } from './lib/admin-credentials';
-import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import {
+	getPhpMyAdminPath,
+	installBundledPhpMyAdmin,
+} from './lib/dependency-management/phpmyadmin';
 import { runBlueprint } from './lib/native-php/blueprints';
 import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
 import {
@@ -45,6 +49,7 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { StaticFiles } from './lib/native-php/static-files';
 import { getAvailablePorts } from './lib/native-php/worker-ports';
 import { getSiteDatabasePath } from './lib/sqlite-collations';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
@@ -57,9 +62,11 @@ const FINISH_INSTALL_PATH = path.resolve( import.meta.dirname, 'php', 'finish-in
 // Each `php -S` worker processes one request at a time, so a non-zero count
 // means the worker is busy and any additional requests are queued at the TCP
 // layer. The picker uses these counts to prefer idle workers, then to balance
-// the queue depth when all are busy.
+// the queue depth when all are busy. Workers warm up in order, and only those
+// already warm take requests, so no visitor waits on a worker still compiling.
 class PhpWorkerRequestTracker {
 	private readonly counts: number[];
+	private warmCount = 0;
 
 	constructor( size: number ) {
 		this.counts = new Array( size ).fill( 0 );
@@ -76,9 +83,13 @@ class PhpWorkerRequestTracker {
 		this.counts[ index ] = Math.max( 0, value );
 	}
 
+	markNextWarm(): void {
+		this.warmCount = Math.min( this.warmCount + 1, this.counts.length );
+	}
+
 	getFirstFreeWorker(): number {
 		let bestIndex = 0;
-		for ( let i = 1; i < this.counts.length; i++ ) {
+		for ( let i = 1; i < this.warmCount; i++ ) {
 			if ( this.counts[ i ] < this.counts[ bestIndex ] ) {
 				bestIndex = i;
 			}
@@ -116,7 +127,6 @@ let runningConfig: ServerConfig | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
-const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 
 // "Site directory" file access applies the open_basedir jail and
 // disable_functions list; "all files" runs PHP unrestricted.
@@ -346,6 +356,7 @@ async function restartPhpServer(): Promise< void > {
 
 	try {
 		phpProcess = await doStartServer( runningConfig );
+		void warmRemainingWorkers();
 	} catch ( error ) {
 		errorToConsole( `Failed to restart PHP server:`, error );
 		process.exit( 1 );
@@ -390,8 +401,13 @@ async function stopCurrentPhpServer(): Promise< void > {
 function proxyRequestToPhpWorker(
 	config: ServerConfig,
 	req: http.IncomingMessage,
-	res: http.ServerResponse
+	res: http.ServerResponse,
+	staticFiles: StaticFiles
 ): void {
+	if ( staticFiles.answer( req, res ) ) {
+		return;
+	}
+
 	let worker: { index: number; port: number };
 	try {
 		worker = pickPhpWorker( req );
@@ -431,6 +447,9 @@ function proxyRequestToPhpWorker(
 			headers,
 		},
 		( proxyRes ) => {
+			// PHP's built-in server closes every connection; keep the browser's open.
+			delete proxyRes.headers.connection;
+			staticFiles.addValidators( req, proxyRes.statusCode, proxyRes.headers );
 			res.writeHead( proxyRes.statusCode ?? 502, proxyRes.headers );
 			proxyRes.pipe( res );
 		}
@@ -451,8 +470,9 @@ async function startPhpProxyServer(
 	config: ServerConfig,
 	stopSignal?: AbortSignal
 ): Promise< http.Server > {
+	const staticFiles = new StaticFiles( config.sitePath );
 	const proxyServer = http.createServer( ( req, res ) =>
-		proxyRequestToPhpWorker( config, req, res )
+		proxyRequestToPhpWorker( config, req, res, staticFiles )
 	);
 
 	await new Promise< void >( ( resolve, reject ) => {
@@ -523,12 +543,19 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 			}
 		}
 
+		void installBundledPhpMyAdmin().catch( ( error ) =>
+			errorToConsole( 'Failed to unpack phpMyAdmin:', error )
+		);
+		const phpMyAdminPath = getPhpMyAdminPath();
+
 		// With "all files" access the allowlist stays empty, which disables
 		// open_basedir entirely (see getDefaultPhpArgs).
 		if ( isFileAccessRestricted( config ) ) {
 			staticOpenBasedirAllowlist.add( config.sitePath );
 			staticOpenBasedirAllowlist.add( ROUTER_PATH );
-			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+			if ( phpMyAdminPath ) {
+				staticOpenBasedirAllowlist.add( phpMyAdminPath );
+			}
 			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
 			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
 			// The whole root, not this start's hashed folder: a WP-CLI run from another
@@ -582,6 +609,7 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 			await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
 			stopSignal.throwIfAborted();
 		}
+		void warmRemainingWorkers();
 	} catch ( error ) {
 		killPhpProcess();
 		phpProcess = null;
@@ -613,9 +641,10 @@ async function doStartServer(
 	// were actually given, including on the failure paths that tear the pool down.
 	const openBasedirAllowlist = getEffectiveOpenBasedirAllowlist();
 	appliedOpenBasedirAllowlist = openBasedirAllowlist;
+	const workerCount = getSitePhpWorkers( config );
 
 	logToConsole(
-		`Spawning native PHP worker pool with ${ NATIVE_PHP_WORKER_POOL_SIZE } workers on public port ${ config.port }`
+		`Spawning native PHP worker pool with ${ workerCount } workers on public port ${ config.port }`
 	);
 
 	const workersStartedAt = Date.now();
@@ -631,23 +660,21 @@ async function doStartServer(
 		} catch ( error ) {
 			errorToConsole( `Failed to create the email folder ${ emailDirectory }:`, error );
 		}
-		const workerPorts = await getAvailablePorts( NATIVE_PHP_WORKER_POOL_SIZE );
+		const workerPorts = await getAvailablePorts( workerCount );
 
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
 
 		for ( const [ index, workerPort ] of workerPorts.entries() ) {
 			const phpAddress = `127.0.0.1:${ workerPort }`;
-			logToConsole(
-				`Spawning PHP worker ${ index + 1 }/${ NATIVE_PHP_WORKER_POOL_SIZE } on ${ phpAddress }`
-			);
+			logToConsole( `Spawning PHP worker ${ index + 1 }/${ workerCount } on ${ phpAddress }` );
 			// Workers are spawned without `detached`, so they share this wrapper's process
 			// group. That lets the daemon's group-kill reach every worker in one signal.
 			const serverChild = spawnPhpProcess( [ '-S', phpAddress, ROUTER_PATH ], {
 				phpVersion,
 				siteFolder: config.sitePath,
 				env: {
-					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath() ?? '',
 					STUDIO_PHPMYADMIN_SUPPORTED: config.phpMyAdminSupported === false ? '0' : '1',
 					STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
@@ -677,7 +704,7 @@ async function doStartServer(
 				errorToConsole(
 					`PHP worker ${
 						index + 1
-					}/${ NATIVE_PHP_WORKER_POOL_SIZE } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
+					}/${ workerCount } exited unexpectedly (code: ${ code }, signal: ${ signalName })`
 				);
 				killAllLivePhpProcesses();
 				process.exit( code ?? 1 );
@@ -685,32 +712,23 @@ async function doStartServer(
 		}
 
 		stopSignal?.throwIfAborted();
-		let firstWorkerReady = false;
-		const needsInstallation = await Promise.all(
-			workerPorts.map( async ( workerPort ) => {
-				const needsInstall = await waitForServerReady(
-					`http://127.0.0.1:${ workerPort }/`,
-					stopSignal
-				);
-				if ( ! firstWorkerReady ) {
-					firstWorkerReady = true;
-					reportPhase( 'php_first_worker', workersStartedAt );
-				}
-				return needsInstall;
-			} )
+		// Each worker has its own opcache, so its first request compiles WordPress and every active
+		// plugin. Warmed together, the workers split the CPU and all finish late, which on a slow
+		// machine outlasts the start's inactivity timeout. The first worker warms up alone and
+		// serves the site, and warmRemainingWorkers warms the rest once the site is ready.
+		const needsInstallation = await waitForServerReady(
+			`http://127.0.0.1:${ workerPorts[ 0 ] }/`,
+			stopSignal
 		);
-
+		phpWorkerRequestTracker.markNextWarm();
 		reportPhase( 'php_workers', workersStartedAt );
-		await onWorkersReady?.( needsInstallation.some( Boolean ) );
+		await onWorkersReady?.( needsInstallation );
 
-		const proxyStartedAt = Date.now();
+		// The proxy serves requests once it listens, and the worker behind it has already answered.
 		proxyServer = await startPhpProxyServer( config, stopSignal );
 		phpProxyServer = proxyServer;
 		phpWorkerProcesses = spawnedChildren;
-
 		stopSignal?.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-		reportPhase( 'proxy_ready', proxyStartedAt );
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated
@@ -739,6 +757,26 @@ async function doStartServer(
 		await stopSymlinkWatcher();
 
 		throw error;
+	}
+}
+
+// Warms the workers after the first one at a time, once the start is done, so they compete
+// with neither the start nor each other. Stops quietly once the pool is replaced or stopped.
+async function warmRemainingWorkers(): Promise< void > {
+	const tracker = phpWorkerRequestTracker;
+	for ( const workerPort of phpWorkerPorts.slice( 1 ) ) {
+		try {
+			await waitForServerReady( `http://127.0.0.1:${ workerPort }/` );
+		} catch ( error ) {
+			if ( tracker === phpWorkerRequestTracker ) {
+				errorToConsole( `Failed to warm up the PHP worker on port ${ workerPort }:`, error );
+			}
+			return;
+		}
+		if ( tracker !== phpWorkerRequestTracker ) {
+			return;
+		}
+		tracker.markNextWarm();
 	}
 }
 
@@ -840,7 +878,7 @@ async function ipcMessageHandler( packet: unknown ) {
 			case 'stop-server':
 				result = await stopServer();
 				break;
-			case 'run-blueprint': {
+			case 'set-up-site': {
 				const blueprintConfig = validMessage.data.config;
 				const blueprintPhpVersion = resolveSupportedPhpVersion( blueprintConfig.phpVersion ?? '' );
 				await ensureWpConfig(
@@ -861,10 +899,10 @@ async function ipcMessageHandler( packet: unknown ) {
 					FINISH_INSTALL_PATH,
 					logToConsole
 				);
-				if ( ! blueprintConfig.blueprint ) {
-					throw new Error( 'Blueprint is required' );
-				}
 				const blueprint = blueprintConfig.blueprint;
+				if ( ! blueprint ) {
+					break;
+				}
 				// Sequential queue: each message waits for the previous to settle before
 				// running its own blueprint. Distinct configs are not coalesced.
 				const next = blueprintQueue

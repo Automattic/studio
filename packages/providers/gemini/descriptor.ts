@@ -29,7 +29,7 @@ const mark =
 export const geminiProvider: Provider< GeminiConfig > = {
 	id: 'gemini',
 	label: 'Google Gemini',
-	description: () => __( 'Use Gemini with your own API key.' ),
+	description: () => __( 'Use Gemini with a Gemini API key.' ),
 	learnMoreUrl: 'https://aistudio.google.com/apikey',
 	icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${ mark }</svg>`,
 	logo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 36 36"><defs><linearGradient id="gemini-logo" x1="0" y1="24" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1C7DFF"/><stop offset=".52" stop-color="#9168C0"/><stop offset="1" stop-color="#E06B74"/></linearGradient></defs><rect x="-6" y="-6" width="36" height="36" fill="#FFF"/><g fill="url(#gemini-logo)">${ mark }</g></svg>`,
@@ -52,5 +52,6 @@ export const geminiProvider: Provider< GeminiConfig > = {
 	ai: {
 		models: GEMINI_AI_MODELS,
 		defaultModel: 'gemini-3.8-flash',
+		generatesImages: () => true,
 	},
 };

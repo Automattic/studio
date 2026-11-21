@@ -1,4 +1,4 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { vi } from 'vitest';
 import { getUserInfo } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
@@ -13,9 +13,7 @@ import {
 import { runCommand } from '../status';
 
 vi.mock( 'cli/lib/api' );
-vi.mock( '@studio/common/lib/shared-config', () => ( {
-	readAuthToken: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/auth-token', () => ( { readAuthToken: vi.fn() } ) );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
 		reportStart = mockReportStart;

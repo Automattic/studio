@@ -194,7 +194,7 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</SettingsRow>
-				{ connector.capabilities.nativeSites && (
+				{ connector.capabilities.localMachine && (
 					<>
 						<SettingsRow
 							title={ __( 'Default code editor' ) }
@@ -220,10 +220,12 @@ function PreferencesPanel( {
 									{ value: UNSET, label: __( 'System' ) },
 									...SUPPORTED_BROWSERS.filter(
 										( browser ) => installedApps?.[ browser ] || browser === data.browser
-									).map( ( browser ) => ( {
-										value: browser,
-										label: browserConfig[ browser ].name,
-									} ) ),
+									)
+										.map( ( browser ) => ( {
+											value: browser,
+											label: browserConfig[ browser ].name,
+										} ) )
+										.sort( ( a, b ) => a.label.localeCompare( b.label ) ),
 								] }
 								onChange={ ( browser ) => onChange( { browser } ) }
 							/>
@@ -263,7 +265,7 @@ function PreferencesPanel( {
 				) }
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				{ connector.capabilities.nativeSites && (
+				{ connector.capabilities.localMachine && (
 					<SettingsRow
 						title={ __( 'When WordPress Studio quits' ) }
 						description={ __(

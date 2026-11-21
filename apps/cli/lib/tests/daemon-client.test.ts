@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createConnectionMock = vi.fn();
 const spawnMock = vi.fn();
+const readConfigMock = vi.fn();
+const CLI_VERSION = '2.3.0';
 
 function frameMessage( message: unknown ) {
 	const json = JSON.stringify( message );
@@ -22,7 +24,7 @@ function createSuccessResponse(
 	return {
 		type: 'result',
 		originalMessageId: request.requestId,
-		payload,
+		payload: request.type === 'ping' ? { version: CLI_VERSION } : payload,
 	};
 }
 
@@ -39,6 +41,8 @@ vi.mock( 'net', () => {
 		default: mockedModule,
 	};
 } );
+
+vi.mock( '@studio/common/lib/config/store', () => ( { readConfig: readConfigMock } ) );
 
 vi.mock( 'child_process', () => {
 	const mockedModule = {
@@ -91,6 +95,7 @@ describe( 'process manager daemon client', () => {
 	beforeEach( () => {
 		vi.resetModules();
 		vi.clearAllMocks();
+		vi.stubGlobal( '__STUDIO_CLI_VERSION__', CLI_VERSION );
 		eventSocket = undefined;
 		process.env.STUDIO_PROCESS_MANAGER_HOME = '/tmp';
 		createConnectionMock.mockImplementation( ( peer?: string ) => {
@@ -310,5 +315,157 @@ describe( 'process manager daemon client', () => {
 				},
 			} )
 		);
+	} );
+} );
+
+describe( 'isDaemonOutdated()', () => {
+	it.each( [
+		[ 'an unversioned daemon', undefined, '2.3.0', true ],
+		[ 'an older daemon', '2.2.0', '2.3.0', true ],
+		[ 'a daemon of the same version', '2.3.0', '2.3.0', false ],
+		[ 'a newer daemon', '2.4.0', '2.3.0', false ],
+		[ 'any daemon, from a client without a release version', undefined, 'dev', false ],
+	] )( 'replacing %s: %s → %s is %s', async ( _label, daemonVersion, clientVersion, expected ) => {
+		const { isDaemonOutdated } = await import( '../daemon-client' );
+		expect( isDaemonOutdated( daemonVersion, clientVersion ) ).toBe( expected );
+	} );
+} );
+
+describe( 'replacing an outdated daemon', () => {
+	let home: string;
+	let daemon: { running: boolean; version?: string; processes: unknown[] };
+	let requests: string[];
+	let siteStarts: string[];
+
+	beforeEach( () => {
+		vi.resetModules();
+		vi.clearAllMocks();
+		vi.stubGlobal( '__STUDIO_CLI_VERSION__', CLI_VERSION );
+		home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pm-' ) );
+		process.env.STUDIO_PROCESS_MANAGER_HOME = home;
+		requests = [];
+		siteStarts = [];
+		daemon = {
+			running: true,
+			processes: [
+				{ name: 'studio-site-a', pmId: 1, status: 'online', pid: 101 },
+				{ name: 'studio-site-b', pmId: 2, status: 'online', pid: 102 },
+			],
+		};
+		readConfigMock.mockResolvedValue( {
+			sites: [ 'a', 'b', 'c' ].map( ( id ) => {
+				fs.mkdirSync( path.join( home, id ) );
+				return { id, name: id, path: path.join( home, id ) };
+			} ),
+		} );
+
+		createConnectionMock.mockImplementation( ( peer?: string ) => {
+			if ( isEventsSocketPath( peer ) ) {
+				return createMockSocket();
+			}
+			if ( ! daemon.running ) {
+				const error = new Error( 'refused' ) as NodeJS.ErrnoException;
+				error.code = 'ECONNREFUSED';
+				throw error;
+			}
+			return createMockSocket( ( socket, chunk ) => {
+				const request = JSON.parse( chunk.subarray( 4 ).toString( 'utf8' ) );
+				requests.push( request.type );
+				const payloads: Record< string, unknown > = {
+					ping: daemon.version ? { version: daemon.version } : {},
+					'list-processes': { processes: daemon.processes },
+				};
+				socket.emit(
+					'data',
+					frameMessage( {
+						type: 'result',
+						originalMessageId: request.requestId,
+						payload: payloads[ request.type ] ?? {},
+					} )
+				);
+				if ( request.type === 'kill-daemon' ) {
+					daemon.running = false;
+				}
+			} );
+		} );
+
+		spawnMock.mockImplementation( ( _execPath: string, args: string[] ) => {
+			if ( args[ 0 ].endsWith( 'process-manager-daemon.mjs' ) ) {
+				Object.assign( daemon, { running: true, version: CLI_VERSION, processes: [] } );
+				return { unref: vi.fn() };
+			}
+			siteStarts.push( args[ args.indexOf( '--path' ) + 1 ] );
+			const child = new EventEmitter();
+			setImmediate( () => child.emit( 'exit', 0 ) );
+			return child;
+		} );
+
+		return () => fs.rmSync( home, { recursive: true, force: true } );
+	} );
+
+	it( 'replaces a daemon without a version and starts its sites again with this CLI', async () => {
+		const { connectToDaemon } = await import( '../daemon-client' );
+		await connectToDaemon();
+
+		expect( requests ).toContain( 'kill-daemon' );
+		expect( daemon.version ).toBe( CLI_VERSION );
+		expect( siteStarts.sort() ).toEqual( [ path.join( home, 'a' ), path.join( home, 'b' ) ] );
+	} );
+
+	it( 'starts the sites a client exited before starting again', async () => {
+		daemon.version = CLI_VERSION;
+		fs.writeFileSync(
+			path.join( home, 'sites-to-restart.json' ),
+			JSON.stringify( { pid: 2147483646, processNames: [ 'studio-site-a' ] } )
+		);
+		const { connectToDaemon } = await import( '../daemon-client' );
+		await connectToDaemon();
+
+		expect( siteStarts ).toEqual( [ path.join( home, 'a' ) ] );
+		expect( fs.existsSync( path.join( home, 'sites-to-restart.json' ) ) ).toBe( false );
+	} );
+
+	it( 'reports only the sites no other process is starting when a start fails', async () => {
+		const { sites } = await readConfigMock();
+		sites[ 0 ].operation = { pid: process.ppid, kind: 'start' };
+		spawnMock.mockImplementation( ( _execPath: string, args: string[] ) => {
+			if ( args[ 0 ].endsWith( 'process-manager-daemon.mjs' ) ) {
+				Object.assign( daemon, { running: true, version: CLI_VERSION, processes: [] } );
+				return { unref: vi.fn() };
+			}
+			const child = new EventEmitter();
+			setImmediate( () => child.emit( 'exit', 1 ) );
+			return child;
+		} );
+		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const { connectToDaemon } = await import( '../daemon-client' );
+		await connectToDaemon();
+
+		expect( consoleError ).toHaveBeenCalledTimes( 1 );
+		expect( consoleError ).toHaveBeenCalledWith( expect.stringContaining( '"b"' ) );
+	} );
+
+	it( 'keeps a newer daemon and its sites', async () => {
+		daemon.version = '9.0.0';
+		const { connectToDaemon } = await import( '../daemon-client' );
+		await connectToDaemon();
+
+		expect( requests ).not.toContain( 'kill-daemon' );
+		expect( spawnMock ).not.toHaveBeenCalled();
+	} );
+
+	it( 'replaces the daemon once when clients connect at the same time', async () => {
+		// The real lockfile is what serializes clients.
+		vi.doUnmock( 'lockfile' );
+		const clients = [];
+		for ( let i = 0; i < 3; i++ ) {
+			vi.resetModules();
+			clients.push( await import( '../daemon-client' ) );
+		}
+
+		await Promise.all( clients.map( ( client ) => client.connectToDaemon() ) );
+
+		expect( requests.filter( ( type ) => type === 'kill-daemon' ) ).toHaveLength( 1 );
+		expect( siteStarts.sort() ).toEqual( [ path.join( home, 'a' ), path.join( home, 'b' ) ] );
 	} );
 } );

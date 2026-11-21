@@ -2,6 +2,7 @@ import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
+	resolveSessionThinking,
 } from '@studio/agent/protocol/sessions/model';
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
@@ -30,6 +31,7 @@ import {
 	useSessionLiveSite,
 	useSessions,
 	useSetSessionEnvironment,
+	useSetSessionThinking,
 } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
@@ -159,8 +161,9 @@ function SessionViewContent( {
 		() =>
 			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
 				canUsePaidModels: canUsePaidAiModels( quota, authUser?.email ),
+				account: aiSettings?.accounts[ sessionProvider ],
 			} ),
-		[ data?.entries, sessionProvider, quota, authUser?.email ]
+		[ data?.entries, sessionProvider, quota, authUser?.email, aiSettings ]
 	);
 	const currentModel = ( ! sessionId && draft.model ) || defaultModel;
 	const sendMessage = useCallback(
@@ -321,6 +324,10 @@ function SessionViewContent( {
 	const { data: connectedSites } = useRemoteSites( 'wpcom', ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites ?? [] );
 	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId ?? '' );
+	const { mutate: setThinking } = useSetSessionThinking( sessionId ?? '' );
+	const thinking = sessionId
+		? resolveSessionThinking( data?.entries ?? [], currentModel )
+		: draft.thinking;
 	const sendWithAutoStart = useCallback(
 		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
 			if (
@@ -521,7 +528,15 @@ function SessionViewContent( {
 						draftKey={ draftKey }
 						provider={ sessionProvider }
 						onModelChange={
-							sessionId ? undefined : ( model, provider ) => updateDraft( { model, provider } )
+							sessionId
+								? undefined
+								: ( model, provider ) => updateDraft( { model, provider, thinking: undefined } )
+						}
+						thinking={ thinking }
+						onThinkingChange={ ( picked ) =>
+							sessionId
+								? setThinking( { model: currentModel, thinking: picked } )
+								: updateDraft( { thinking: picked } )
 						}
 						autoFocus={ isEmpty }
 						entries={ data?.entries }

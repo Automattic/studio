@@ -155,8 +155,8 @@
 
 @layer ui {
 	.errorShake[data-feedback='shake'] {
-		animation: errorShake var( --error-shake-duration, var( --motion-duration-layout ) )
-			var( --motion-ease-layout );
+		animation: errorShake var( --error-shake-duration, var( --motion-duration-quick ) )
+			cubic-bezier( 0.645, 0.045, 0.355, 1 );
 	}
 	@keyframes errorShake {
 		20% {

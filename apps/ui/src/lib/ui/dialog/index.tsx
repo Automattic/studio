@@ -60,10 +60,10 @@ export const DialogClose = BaseDialog.Close;
 export function DialogDismissButton( {
 	label = __( 'Close' ),
 	...props
-}: Partial< ComponentProps< typeof IconButton > > ) {
+}: Partial< Omit< ComponentProps< typeof IconButton >, 'variant' > > ) {
 	return (
 		<IconButton
-			variant="ghost"
+			variant="muted-ghost"
 			size="icon-sm"
 			icon={ <XIcon /> }
 			label={ label }

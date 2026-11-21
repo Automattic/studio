@@ -4,12 +4,12 @@ import { vi } from 'vitest';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { LoggerError } from 'cli/logger';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'fs-extra' );
 vi.mock( 'cli/lib/run-wp-cli-command' );
 
-const site = { id: 'site-1', name: 'Test Site', path: '/test/site' } as SiteData;
+const site = { id: 'site-1', name: 'Test Site', path: '/test/site' } as ConfigSite;
 
 function mockWpCliResult( { exitCode = 0, stdout = '', stderr = '' } ) {
 	const response: Partial< WpCliResponse > = {

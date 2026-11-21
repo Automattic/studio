@@ -129,6 +129,19 @@ describe( 'sidebar site list', () => {
 		} );
 	} );
 
+	it( 'opens Publish for a busy site selected from the sidebar menu', async () => {
+		const { connector, history } = await setup( {
+			sites: [ { ...mySite, operation: { pid: 1, kind: 'settings' } }, runningSite ],
+		} );
+		fireEvent.contextMenu( await siteButton( 'My site' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+		await waitFor( () => expect( history.location.pathname ).toContain( '/sites/one' ) );
+		const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+		expect( within( panel ).getByRole( 'button', { name: 'Create preview' } ) ).toBeDisabled();
+		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		expect( connector.pushSite ).not.toHaveBeenCalled();
+	} );
+
 	it.each( [ true, false ] )(
 		'opens a new chat for a site without chats and records the assistant panel (signed in: %s)',
 		async ( signedIn ) => {

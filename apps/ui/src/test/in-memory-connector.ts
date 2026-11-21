@@ -288,15 +288,23 @@ export function createInMemoryConnector(
 		publishPreviewSite: async () => ( { url: 'preview.example.com' } ),
 		deleteSnapshot: async () => {},
 		renameSnapshot: async () => {},
+		getSitePublishStatus: async () => ( { localChanged: null } ),
 		getPreviewStatus: async () => ( {
 			localSiteId: null,
 			localChanged: null,
 			previewChanged: null,
 		} ),
+		getSiteVisibility: async () => {
+			throw new Error( 'Visibility unavailable' );
+		},
+		setSiteVisibility: async () => {
+			throw new Error( 'Visibility unavailable' );
+		},
 		getRemoteSites: async () => [],
 		listAccountSites: async () => [],
 		connectRemoteSite: async () => {},
 		disconnectRemoteSite: async () => {},
+		getSiteCreationVisibility: async () => 'public',
 		createRemoteSite: async () => {
 			throw new Error( 'createRemoteSite is not faked' );
 		},

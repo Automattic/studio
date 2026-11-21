@@ -231,7 +231,7 @@ describe( 'headless site tools', () => {
 
 			const text = await textOf( 'inspect_design', {
 				nameOrPath: 'My Site',
-				url: '/about',
+				path: 'about',
 				selectors: [ 'h1' ],
 			} );
 

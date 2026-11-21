@@ -1,6 +1,8 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { type TSchema } from 'typebox';
+import { Value } from 'typebox/value';
 import { vi } from 'vitest';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
@@ -22,7 +24,7 @@ import {
 import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
 import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
 import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
-import { createFakeHost, fakeRemoteSite, fakeSite } from './fake-host';
+import { createFakeHost, fakeHeadlessSite, fakeRemoteSite, fakeSite } from './fake-host';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 vi.mock( '@studio/agent/node/block-validator', () => ( {
@@ -319,6 +321,71 @@ describe( 'Studio AI MCP tools', () => {
 
 			expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
 			expect( result.studioArtifacts ).toBeUndefined();
+		} );
+
+		const openedUrl = async ( args: Record< string, unknown > ) => {
+			const page = createMockPage( {
+				buffer: Buffer.from( 'jpeg' ),
+				documentHeight: 900,
+			} );
+			mockScreenshotBrowser( page );
+			await getTool( 'take_screenshot' ).rawHandler( args as never );
+			return page.goto.mock.calls[ 0 ]?.[ 0 ];
+		};
+
+		it( 'screenshots the home page of a site resolved from nameOrPath', async () => {
+			const tool = getTool( 'take_screenshot' );
+			expect( Value.Check( tool.parameters as TSchema, { nameOrPath: 'My Site' } ) ).toBe( true );
+
+			await expect( openedUrl( { nameOrPath: 'My Site' } ) ).resolves.toBe(
+				'http://localhost:8888/'
+			);
+			expect( host.sites.resolve ).toHaveBeenCalledWith( 'My Site' );
+		} );
+
+		it( 'appends a normalized path to the resolved site url', async () => {
+			vi.mocked( host.sites.resolve ).mockResolvedValue( {
+				...mockSite,
+				url: 'http://localhost:8888/',
+			} );
+
+			await expect( openedUrl( { nameOrPath: '/sites/my-site', path: 'about' } ) ).resolves.toBe(
+				'http://localhost:8888/about'
+			);
+			await expect( openedUrl( { nameOrPath: 'My Site', path: '//blog/' } ) ).resolves.toBe(
+				'http://localhost:8888/blog/'
+			);
+			expect( host.sites.resolve ).toHaveBeenCalledWith( '/sites/my-site' );
+			expect( host.sites.resolve ).toHaveBeenCalledWith( 'My Site' );
+		} );
+
+		it( 'errors when neither url nor nameOrPath is provided', async () => {
+			const tool = getTool( 'take_screenshot' );
+			expect( Value.Check( tool.parameters as TSchema, {} ) ).toBe( true );
+
+			await expect( tool.rawHandler( {} as never ) ).rejects.toThrow(
+				'Screenshot failed: Provide either `url` or `nameOrPath`.'
+			);
+			expect( host.sites.resolve ).not.toHaveBeenCalled();
+		} );
+
+		it( 'uses url and ignores nameOrPath when both are given', async () => {
+			await expect(
+				openedUrl( {
+					url: 'http://example.test/exact',
+					nameOrPath: 'My Site',
+					path: '/about',
+				} )
+			).resolves.toBe( 'http://example.test/exact' );
+			expect( host.sites.resolve ).not.toHaveBeenCalled();
+		} );
+
+		it( 'screenshots a headless site on its frontend', async () => {
+			vi.mocked( host.sites.resolve ).mockResolvedValue( fakeHeadlessSite );
+
+			await expect( openedUrl( { nameOrPath: 'My Site', path: '/about' } ) ).resolves.toBe(
+				'http://localhost:3000/about'
+			);
 		} );
 
 		it( 'says when the user sees only the saved file path', async () => {

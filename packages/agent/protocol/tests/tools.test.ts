@@ -105,12 +105,30 @@ describe( 'tool display helpers', () => {
 	it( 'names the frontend tools and the site or page a visual tool loads', () => {
 		expect( getToolDisplayName( 'frontend_restart' ) ).toBe( 'Restart frontend' );
 		expect( getToolDetail( 'frontend_logs', { nameOrPath: 'My Site' } ) ).toBe( 'My Site' );
-		expect( getToolDetail( 'take_screenshot', { url: 'http://localhost:8881/' } ) ).toBe(
+		expect( getToolDetail( 'inspect_design', { url: 'http://localhost:8881/' } ) ).toBe(
 			'http://localhost:8881/'
 		);
-		expect( getToolDetail( 'inspect_design', { nameOrPath: 'My Site', url: '/about' } ) ).toBe(
+		expect( getToolDetail( 'inspect_design', { nameOrPath: 'My Site', path: '/about' } ) ).toBe(
 			'My Site /about'
 		);
+	} );
+
+	it( 'shows a screenshot target from a url or a local site', () => {
+		expect( getToolDetail( 'take_screenshot', { url: 'http://localhost:8888/pricing' } ) ).toBe(
+			'http://localhost:8888/pricing'
+		);
+		expect( getToolDetail( 'take_screenshot', { nameOrPath: 'My Site' } ) ).toBe( 'My Site' );
+		expect( getToolDetail( 'take_screenshot', { nameOrPath: 'My Site', path: '/about' } ) ).toBe(
+			'My Site /about'
+		);
+		expect( getToolDetail( 'take_screenshot', {} ) ).toBe( '' );
+		expect(
+			getToolDetail( 'take_screenshot', {
+				url: 'http://localhost:8888/exact',
+				nameOrPath: 'My Site',
+				path: '/about',
+			} )
+		).toBe( 'http://localhost:8888/exact' );
 	} );
 
 	it( 'does not reveal which design options the agent chose', () => {

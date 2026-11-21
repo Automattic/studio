@@ -41,38 +41,44 @@ export function getSiteRenderUrl( site: Pick< HostSite, 'url' | 'frontend' > ): 
 	return site.frontend ? getFrontendUrl( site.frontend ) : site.url;
 }
 
-// For tools that load a page: a full URL, or a path on a site, which for a
-// headless site is a path on its frontend.
+// For tools that load a page: a full URL, or a local site with an optional path, as
+// take_screenshot takes them. A headless site is loaded on its frontend.
 export const SITE_PAGE_URL_PARAMETERS = {
 	url: Type.Optional(
 		Type.String( {
 			description:
-				'The page to load: a full URL, or with `nameOrPath` a path such as "/about". Defaults to the home page of the `nameOrPath` site.',
+				'Absolute URL of the page to load. When set, this is used and `nameOrPath` and `path` are ignored.',
 		} )
 	),
 	nameOrPath: Type.Optional(
 		Type.String( {
 			description:
-				'A site name or path. Resolves `url` against the site: its frontend for a headless site, WordPress otherwise.',
+				'Local site name or file system path. Used only when `url` is omitted; the site must be running. A headless site resolves to its frontend.',
+		} )
+	),
+	path: Type.Optional(
+		Type.String( {
+			description:
+				'Site-relative path to load with `nameOrPath` (for example "/", "/about"). Defaults to "/". Ignored when `url` is set.',
 		} )
 	),
 };
 
-// Resolves `url` against the site when it is a path; a full URL is used as is.
+// The page a tool loads: `url` as given, or else `path` on the site, with one slash between them.
 export async function resolveSitePageUrl(
 	host: StudioAgentHost,
-	url: string | undefined,
-	nameOrPath: string | undefined
+	args: { url?: string; nameOrPath?: string; path?: string }
 ): Promise< string > {
-	if ( url && /^[a-z][a-z0-9+.-]*:\/\//i.test( url ) ) {
-		return url;
+	if ( args.url ) {
+		return args.url;
 	}
+	const nameOrPath = args.nameOrPath?.trim();
 	if ( ! nameOrPath ) {
-		throw new Error( "Pass a full `url`, or `nameOrPath` to use the site's own URL." );
+		throw new Error( 'Provide either `url` or `nameOrPath`.' );
 	}
-	const base = getSiteRenderUrl( await host.sites.resolve( nameOrPath ) ).replace( /\/$/, '' );
-	const pagePath = url ?? '/';
-	return `${ base }${ pagePath.startsWith( '/' ) ? pagePath : `/${ pagePath }` }`;
+	const base = getSiteRenderUrl( await host.sites.resolve( nameOrPath ) ).replace( /\/+$/, '' );
+	const relative = ( args.path ?? '' ).trim().replace( /^\/+/, '' );
+	return `${ base }/${ relative }`;
 }
 
 export async function resolveHeadlessSite(

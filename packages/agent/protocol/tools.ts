@@ -461,16 +461,24 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				)
 				.filter( Boolean )
 				.join( ' · ' );
-		case 'inspect_design':
-		case 'take_screenshot':
-			return [ input.nameOrPath, input.url ]
-				.filter( ( part ): part is string => typeof part === 'string' && part !== '' )
-				.join( ' ' );
 		case 'validate_blocks':
 			if ( typeof input.filePath === 'string' ) {
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
 			return __( 'inline content' );
+		case 'inspect_design':
+		case 'take_screenshot': {
+			const url = getInputString( input, 'url' );
+			if ( url ) {
+				return url;
+			}
+			const nameOrPath = getInputString( input, 'nameOrPath' );
+			if ( ! nameOrPath ) {
+				return '';
+			}
+			const sitePath = getInputString( input, 'path' );
+			return sitePath && sitePath !== '/' ? `${ nameOrPath } ${ sitePath }` : nameOrPath;
+		}
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'generate_images': {

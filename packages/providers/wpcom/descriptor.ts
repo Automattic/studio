@@ -80,7 +80,34 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 	},
 	sites: {
 		publish: true,
-		previews: { content: 'site' },
+		publishing: {
+			description: () => __( 'The full WordPress, with a domain.' ),
+		},
+		visibilityOptions: ( current ) => [
+			{
+				value: 'coming-soon',
+				label: __( 'Only you' ),
+				description: __( 'Visitors see a coming soon page' ),
+			},
+			{ value: 'public', label: __( 'Everyone' ), description: __( 'Your WordPress is public' ) },
+			...( current === 'private'
+				? [
+						{
+							value: 'private' as const,
+							label: __( 'Invited people' ),
+							description: __( 'Only you and people you invite can view.' ),
+							disabled: true,
+						},
+				  ]
+				: [] ),
+		],
+		previews: {
+			content: 'site',
+			isUpgraded: ( site ) =>
+				site.hasPaidPlan === true ||
+				site.launchStatus === 'launched' ||
+				site.pushNeedsUpgrade === false,
+		},
 		maxPushSize: 5 * 1024 * 1024 * 1024,
 		pull: true,
 		selective: true,

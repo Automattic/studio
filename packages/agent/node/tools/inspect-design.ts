@@ -83,7 +83,7 @@ const ANCESTOR_DEPTH = 6;
 export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boolean } ) {
 	return defineTool(
 		'inspect_design',
-		'Inspects the RENDERED DOM of a live page (a URL, or a page of a site given `nameOrPath`: its frontend for a headless site) to diagnose visual issues at their root cause. ' +
+		'Inspects the RENDERED DOM of a live page (a `url`, or a local site given `nameOrPath` with an optional `path`: its frontend for a headless site) to diagnose visual issues at their root cause. ' +
 			"Given CSS selectors, returns each matched element's tag and class list, bounding box (so you can see actual rendered width/height vs intent), " +
 			'curated computed styles (box model, background, typography, flex/grid, borders), ' +
 			'and the ancestor chain of layout classes (is-layout-constrained, alignfull, wp-block-group) that controls width and spacing. ' +
@@ -118,7 +118,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 		},
 		async ( args, context ) => {
 			const viewport: InspectViewport = ( args.viewport as InspectViewport ) ?? 'desktop';
-			const url = await resolveSitePageUrl( context.host, args.url, args.nameOrPath );
+			const url = await resolveSitePageUrl( context.host, args );
 			context.onProgress(
 				`Inspecting ${ args.selectors.length } selector(s) on ${ url } (${ viewport }${
 					args.colorScheme ? `, ${ args.colorScheme }` : ''

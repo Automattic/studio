@@ -647,6 +647,13 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( { name } ),
 			} );
 		},
+		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
+			return api(
+				`/sites/${ encodeURIComponent( siteId ) }/publish-status/${ remoteSiteId }?provider=${
+					provider ?? 'wpcom'
+				}`
+			);
+		},
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
 			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
@@ -656,6 +663,15 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 					localSiteId ? `?localSiteId=${ encodeURIComponent( localSiteId ) }` : ''
 				}`
 			);
+		},
+		async getSiteVisibility( provider, id ) {
+			return api( `/remote-sites/${ provider }/${ id }/visibility` );
+		},
+		async setSiteVisibility( provider, id, visibility ) {
+			return api( `/remote-sites/${ provider }/${ id }/visibility`, {
+				method: 'POST',
+				body: JSON.stringify( { visibility } ),
+			} );
 		},
 		async listAccountSites( provider ) {
 			return api( `/remote-sites/${ provider }/account` );
@@ -674,10 +690,13 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				{ method: 'DELETE' }
 			);
 		},
-		async createRemoteSite( provider, localSiteId, name ) {
+		async getSiteCreationVisibility( provider ) {
+			return api( `/remote-sites/${ provider }/creation-visibility` );
+		},
+		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
 			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
 				method: 'POST',
-				body: JSON.stringify( { name } ),
+				body: JSON.stringify( { name, visibility, connect } ),
 			} );
 		},
 		onSyncConnectSite( listener ) {

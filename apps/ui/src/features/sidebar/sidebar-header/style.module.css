@@ -40,6 +40,10 @@
 	transition: visibility 0s var( --motion-duration-layout );
 }
 
+.root[data-sidebar-docked='false'] .toggleSlot[data-sidebar-open='true'] {
+	pointer-events: none;
+}
+
 .action {
 	display: flex;
 	gap: var( --band-gap );

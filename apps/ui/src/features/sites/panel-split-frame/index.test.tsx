@@ -94,7 +94,7 @@ describe( 'PanelSplitFrame', () => {
 	describe( 'closing panel content', () => {
 		beforeEach( () => {
 			vi.useFakeTimers();
-			document.documentElement.style.setProperty( '--motion-duration-layout', '240ms' );
+			document.documentElement.style.setProperty( '--motion-duration-layout', '400ms' );
 			document.documentElement.style.setProperty( '--motion-duration-surface', '180ms' );
 		} );
 
@@ -130,7 +130,8 @@ describe( 'PanelSplitFrame', () => {
 			await act( () => vi.advanceTimersByTime( 100 ) );
 			rerender( frame( 'Ready', true ) );
 			expect( handle ).toBeInTheDocument();
-			await act( () => vi.advanceTimersByTime( 240 ) );
+			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBe( handle );
+			await act( () => vi.advanceTimersByTime( 400 ) );
 			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBe( handle );
 			expect( handle.closest( '[inert]' ) ).toBeNull();
 		} );
@@ -138,28 +139,48 @@ describe( 'PanelSplitFrame', () => {
 		it( 'keeps the slide running when loading changes midway through it', async () => {
 			const { rerender } = render( frame( 'Stopped', false ) );
 			rerender( frame( 'Starting', true ) );
-			await act( () => vi.advanceTimersByTime( 120 ) );
+			await act( () => vi.advanceTimersByTime( 200 ) );
 			rerender( frame( 'Ready', true ) );
 			expect( getFrameRoot() ).toHaveAttribute( 'data-layout-moving', 'true' );
-			expect( screen.queryByRole( 'separator', { name: 'Resize panel' } ) ).not.toBeInTheDocument();
-			await act( () => vi.advanceTimersByTime( 120 ) );
+			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
+			await act( () => vi.advanceTimersByTime( 200 ) );
 			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
 			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
 		} );
 
-		it( 'slides the ready panel and header together before enabling resizing', async () => {
+		it( 'slides the ready panel and header together while allowing resizing', async () => {
 			const { rerender } = render( frame( 'Loading site', false ) );
 			const panel = screen.getByLabelText( 'Panel' );
 			rerender( frame( 'Running site', true ) );
 			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( panel );
-			expect( screen.queryByRole( 'separator', { name: 'Resize panel' } ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
 			expect( getFrameRoot().style.getPropertyValue( '--panel-layout-duration' ) ).toBe(
 				'var(--motion-duration-layout)'
 			);
-			await act( () => vi.advanceTimersByTime( 240 ) );
+			await act( () => vi.advanceTimersByTime( 400 ) );
 			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
 			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBe( panel );
 		} );
+
+		it.each( [ 'pointer', 'keyboard' ] )(
+			'interrupts the opening slide when resizing with %s',
+			( input ) => {
+				const { rerender } = render( frame( 'Ready', false ) );
+				rerender( frame( 'Ready', true ) );
+				const handle = screen.getByRole( 'separator', { name: 'Resize panel' } );
+				expect( getFrameRoot() ).toHaveAttribute( 'data-layout-moving', 'true' );
+
+				if ( input === 'pointer' ) {
+					fireEvent.mouseDown( handle, { button: 0, clientX: 360 } );
+					fireEvent.mouseUp( document, { clientX: 400 } );
+				} else {
+					fireEvent.keyDown( handle, { key: 'ArrowRight' } );
+				}
+
+				expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
+				expect( Number( handle.getAttribute( 'aria-valuenow' ) ) ).toBeLessThan( 640 );
+			}
+		);
 
 		it( 'keeps the outgoing site through the exit, even when another stopped site is selected', async () => {
 			const { rerender } = render( frame( 'Running site', true ) );
@@ -169,11 +190,11 @@ describe( 'PanelSplitFrame', () => {
 			expect( screen.getByLabelText( 'Panel' ) ).toHaveTextContent( 'Running site' );
 			expect( screen.getByLabelText( 'Panel' ) ).toHaveAttribute( 'data-collapsed', 'true' );
 			expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument();
-			await act( () => vi.advanceTimersByTime( 120 ) );
+			await act( () => vi.advanceTimersByTime( 200 ) );
 			rerender( frame( 'Another stopped site', false ) );
 			expect( screen.getByLabelText( 'Panel' ) ).toHaveTextContent( 'Running site' );
 
-			await act( () => vi.advanceTimersByTime( 120 ) );
+			await act( () => vi.advanceTimersByTime( 200 ) );
 
 			expect( screen.getByLabelText( 'Panel' ) ).toHaveTextContent( 'Another stopped site' );
 			expect( screen.getByLabelText( 'Panel' ) ).toHaveAttribute( 'data-collapsed', 'true' );
@@ -182,7 +203,7 @@ describe( 'PanelSplitFrame', () => {
 		it( 'shows the incoming running site immediately when the exit is reversed', async () => {
 			const { rerender } = render( frame( 'Running site', true ) );
 			rerender( frame( 'Stopped site', false ) );
-			await act( () => vi.advanceTimersByTime( 120 ) );
+			await act( () => vi.advanceTimersByTime( 200 ) );
 
 			rerender( frame( 'Another running site', true ) );
 
@@ -190,7 +211,7 @@ describe( 'PanelSplitFrame', () => {
 				'Another running site'
 			);
 			expect( screen.getByLabelText( 'Panel' ) ).toHaveAttribute( 'data-collapsed', 'false' );
-			await act( () => vi.advanceTimersByTime( 240 ) );
+			await act( () => vi.advanceTimersByTime( 400 ) );
 			expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toHaveTextContent(
 				'Another running site'
 			);
@@ -199,15 +220,15 @@ describe( 'PanelSplitFrame', () => {
 		it( 'finishes a manual slide when an instant layout restoration takes over', () => {
 			const { rerender } = render( frame( 'Stopped site', false ) );
 			rerender( frame( 'Stopped site', true ) );
-			expect( screen.queryByRole( 'separator', { name: 'Resize panel' } ) ).not.toBeInTheDocument();
+			expect( getFrameRoot() ).toHaveAttribute( 'data-layout-moving', 'true' );
 			rerender( frame( 'Starting site', true, true ) );
-			expect( screen.getByRole( 'separator', { name: 'Resize panel' } ) ).toBeInTheDocument();
+			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
 		} );
 
 		it( 'closes immediately when an instant close interrupts an opening panel', async () => {
 			const { rerender } = render( frame( 'Stopped site', false ) );
 			rerender( frame( 'Running site', true ) );
-			await act( () => vi.advanceTimersByTime( 120 ) );
+			await act( () => vi.advanceTimersByTime( 200 ) );
 
 			rerender( frame( 'Stopped site', false, true ) );
 

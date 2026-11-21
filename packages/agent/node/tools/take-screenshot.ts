@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Type } from 'typebox';
-import { resolveSitePageUrl, SITE_PAGE_URL_PARAMETERS } from '@studio/agent/node/headless';
+import { getSiteRenderUrl } from '@studio/agent/node/headless';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
@@ -55,6 +55,13 @@ function getCaptureListLabel(
 	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
+// One leading slash, whether or not the site URL already ends with one.
+function sitePageUrl( siteUrl: string, path?: string ): string {
+	const base = siteUrl.replace( /\/+$/, '' );
+	const relative = ( path ?? '' ).trim().replace( /^\/+/, '' );
+	return `${ base }/${ relative }`;
+}
+
 const TEXT_ONLY_NOTE =
 	'This model cannot view images, so the capture is not shown to you: verify the rendered page with inspect_design.';
 
@@ -72,7 +79,7 @@ export function createTakeScreenshotTool( {
 } ) {
 	return defineTool(
 		'take_screenshot',
-		'Takes a full-page screenshot of a URL, or of a page of a site given `nameOrPath` (its frontend for a headless site). ' +
+		'Takes a full-page screenshot of a page. Pass `url` for any address, or `nameOrPath` for a local Studio site with an optional `path` (defaults to `/`); a headless site is captured on its frontend. When both `url` and `nameOrPath` are given, `url` is used and `nameOrPath` and `path` are ignored. ' +
 			( visionEnabled
 				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
@@ -85,7 +92,24 @@ export function createTakeScreenshotTool( {
 				: 'Captures are shown to the user in the chat by default; ' ) +
 			'pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
 		{
-			...SITE_PAGE_URL_PARAMETERS,
+			url: Type.Optional(
+				Type.String( {
+					description:
+						'Absolute URL to screenshot. When set, this is used and `nameOrPath` and `path` are ignored.',
+				} )
+			),
+			nameOrPath: Type.Optional(
+				Type.String( {
+					description:
+						'Local site name or file system path. Used only when `url` is omitted; the site must be running. A headless site resolves to its frontend.',
+				} )
+			),
+			path: Type.Optional(
+				Type.String( {
+					description:
+						'Site-relative path to screenshot with `nameOrPath` (for example "/", "/about"). Defaults to "/". A missing leading slash is added and extra leading slashes are collapsed. Ignored when `url` is set.',
+				} )
+			),
 			viewport: Type.Optional( screenshotViewportSchema ),
 			colorScheme: Type.Optional( screenshotColorSchemeSchema ),
 			display: Type.Optional(
@@ -110,6 +134,15 @@ export function createTakeScreenshotTool( {
 		},
 		async ( args, context ) => {
 			try {
+				let url = args.url;
+				if ( ! url ) {
+					const nameOrPath = args.nameOrPath?.trim();
+					if ( ! nameOrPath ) {
+						throw new Error( 'Provide either `url` or `nameOrPath`.' );
+					}
+					const site = await context.host.sites.resolve( nameOrPath );
+					url = sitePageUrl( getSiteRenderUrl( site ), args.path );
+				}
 				const themeDirectory = args.themeScreenshot && path.resolve( args.themeScreenshot );
 				if ( themeDirectory && ! themeDirectory.startsWith( context.host.sitesRoot + path.sep ) ) {
 					throw new Error(
@@ -125,7 +158,6 @@ export function createTakeScreenshotTool( {
 					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
 				);
 				const captureLabel = getCaptureListLabel( captureTargets );
-				const url = await resolveSitePageUrl( context.host, args.url, args.nameOrPath );
 				context.onProgress( `Taking ${ captureLabel } screenshot of ${ url }…` );
 				const captures = await Promise.all(
 					captureTargets.map( async ( { viewportType, colorScheme } ) => {
@@ -259,8 +291,8 @@ export function createTakeScreenshotTool( {
 			settlesPendingWork: true,
 			annotations: LOCAL_CHANGE,
 			promptSnippet: visionEnabled
-				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
-				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image, but it still sets the theme screenshot.',
+				? 'Take a full-page screenshot of a URL, or of a local site via `nameOrPath` and an optional `path` (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
+				: 'Save a full-page screenshot of a URL, or of a local site via `nameOrPath` and an optional `path`, to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image, but it still sets the theme screenshot.',
 		}
 	);
 }

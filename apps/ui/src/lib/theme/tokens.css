@@ -54,6 +54,10 @@
 	--accent-subtle-hover-foreground-fill: initial;
 	--accent: var( --accent-fill, oklch( var( --accent-lightness ) var( --accent-chroma ) var( --accent-hue ) ) );
 	--accent-foreground: #fff;
+	--brand-blue: #3858e9;
+	--brand-blue-foreground: #fff;
+	--brand-green: #1efe57;
+	--brand-green-foreground: #003323;
 	--accent-hover: var( --accent-hover-fill, oklch( from #2b46c7 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
 	--accent-surface-primary-hover: color-mix( in srgb, var( --accent-foreground ) 82%, var( --accent ) );
 	--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );
@@ -200,11 +204,14 @@
 
 	--motion-duration-feedback: 50ms;
 	--motion-duration-surface: 100ms;
-	--motion-duration-layout: 240ms;
+	--motion-duration-quick: 240ms;
+	--motion-duration-disclosure: var( --motion-duration-quick );
+	--motion-duration-layout: 320ms;
 	--motion-duration-reveal: 600ms;
-	--motion-ease-layout: cubic-bezier( 0.645, 0.045, 0.355, 1 );
-	--motion-ease-drawer: cubic-bezier( 0.32, 0.72, 0, 1 );
-	--motion-ease-enter: cubic-bezier( 0.165, 0.84, 0.44, 1 );
+	--motion-ease-soft-close: cubic-bezier( 0.2, 0.8, 0, 1 );
+	--motion-ease-layout: var( --motion-ease-soft-close );
+	--motion-ease-drawer: var( --motion-ease-soft-close );
+	--motion-ease-enter: var( --motion-ease-soft-close );
 	/* Sampled from a spring with stiffness 320, damping 20 and mass 1. */
 	--motion-ease-spring: linear(
 		0 0%,
@@ -363,6 +370,7 @@
 @media ( prefers-reduced-motion: reduce ) {
 	:root,
 	[data-color-scheme] {
+		--motion-duration-quick: 0ms;
 		--motion-duration-layout: 0ms;
 		--motion-duration-reveal: 150ms;
 	}

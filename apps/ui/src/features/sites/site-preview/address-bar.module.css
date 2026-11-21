@@ -32,7 +32,9 @@
 	transform: scale( 0.985, 0.9 );
 	transform-origin: bottom;
 	pointer-events: none;
-	transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
+	transition:
+		opacity var( --motion-duration-surface ) var( --motion-ease-enter ),
+		transform var( --motion-duration-quick ) var( --motion-ease-enter );
 }
 
 .addressBar[data-recent-open] {
@@ -103,7 +105,7 @@
 
 	isolation: isolate;
 	transform-origin: top;
-	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
+	transition: opacity var( --motion-duration-surface ) var( --motion-ease-enter );
 	clip-path: inset( 0 -24px -24px );
 	opacity: 1;
 	scale: 1;
@@ -158,7 +160,7 @@
 	transform: scale( 1 );
 	transform-origin: top;
 	pointer-events: none;
-	transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
+	transition: transform var( --motion-duration-quick ) var( --motion-ease-enter );
 }
 
 .recentPopup:is( [data-starting-style], [data-ending-style] ) {

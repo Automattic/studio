@@ -1,5 +1,6 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
+import { forgetRemoteSite } from '@studio/common/lib/remote-sites';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
@@ -58,6 +59,12 @@ export async function runCommand(
 				await deleteSnapshotSite( snapshotToDelete, token.accessToken );
 			}
 			await deleteSnapshotFromConfig( snapshotToDelete.url );
+			if ( snapshotToDelete.localSiteId )
+				await forgetRemoteSite(
+					'wpcom',
+					snapshotToDelete.localSiteId,
+					snapshotToDelete.atomicSiteId
+				);
 			await emitCliEvent( {
 				event: SNAPSHOT_EVENTS.DELETED,
 				data: { snapshotUrl: snapshotToDelete.url },
@@ -73,6 +80,10 @@ export async function runCommand(
 				if ( ! isSnapshotExpired( snapshot ) ) {
 					await deleteSnapshotSite( snapshot, token.accessToken );
 				}
+			}
+			for ( const snapshot of snapshots ) {
+				if ( snapshot.localSiteId )
+					await forgetRemoteSite( 'wpcom', snapshot.localSiteId, snapshot.atomicSiteId );
 			}
 			await deleteAllSnapshotsForUserFromConfig( token.id );
 			await emitCliEvent( { event: SNAPSHOT_EVENTS.DELETED_ALL } );

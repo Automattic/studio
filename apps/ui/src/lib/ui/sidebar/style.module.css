@@ -164,6 +164,7 @@
 
 	.item > .actions > button {
 		--button-control-size: var( --sidebar-row-action-size );
+		--button-hover-background: transparent;
 		--radius-button: max(
 			0px,
 			calc( var( --radius-sidebar-row ) - var( --sidebar-row-action-inset ) )

@@ -881,6 +881,59 @@ describe( 'ShareDialog', () => {
 		expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
 	} );
 
+	it( 'lists the previews that fill the limit from elsewhere, so they can be deleted here', async () => {
+		const actions = userEvent.setup();
+		const elsewhere = preview( {
+			atomicSiteId: 7,
+			localSiteId: '',
+			name: undefined,
+			url: 'failed-build.wordpress.com',
+		} );
+		const otherSite = preview( {
+			atomicSiteId: 8,
+			localSiteId: 'another-site',
+			name: 'Another site preview',
+			url: 'another.example.com',
+		} );
+		const { connector, ready } = setup( TEST_USER, [ preview(), elsewhere, otherSite ], {
+			getSnapshotUsage: async () => ( {
+				siteCount: 10,
+				siteLimit: 10,
+				siteCreationBlocked: false,
+			} ),
+		} );
+		await ready;
+		const others = await screen.findByRole( 'list', { name: 'Other previews' } );
+		expect( within( others ).getByText( 'failed-build.wordpress.com' ) ).toBeVisible();
+		expect( within( others ).getByText( 'Another site preview' ) ).toBeVisible();
+		expect( within( others ).queryByText( 'My site preview' ) ).not.toBeInTheDocument();
+		await actions.click(
+			within( others ).getByRole( 'button', { name: 'Delete failed-build.wordpress.com' } )
+		);
+		await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
+		await actions.click( screen.getByRole( 'button', { name: 'Delete preview' } ) );
+		await waitFor( () =>
+			expect( connector.deleteSnapshot ).toHaveBeenCalledWith( 'failed-build.wordpress.com' )
+		);
+	} );
+
+	it( 'does not list other sites’ previews below the limit', async () => {
+		const { ready } = setup(
+			TEST_USER,
+			[ preview(), preview( { atomicSiteId: 7, localSiteId: '', url: 'elsewhere.example.com' } ) ],
+			{
+				getSnapshotUsage: async () => ( {
+					siteCount: 2,
+					siteLimit: 10,
+					siteCreationBlocked: false,
+				} ),
+			}
+		);
+		await ready;
+		await screen.findByRole( 'list', { name: 'Previews' } );
+		expect( screen.queryByRole( 'list', { name: 'Other previews' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'keeps links copyable offline and explains why updates are disabled', async () => {
 		const { ready } = setup( TEST_USER, [ preview(), additionalPreview() ] );
 		await ready;

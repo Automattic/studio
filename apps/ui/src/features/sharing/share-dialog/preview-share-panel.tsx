@@ -139,6 +139,7 @@ export function PreviewSharePanel( {
 	connectedSites,
 	qualifyingSites,
 	previews,
+	otherPreviews = [],
 	busy,
 	creating,
 	offline,
@@ -156,6 +157,7 @@ export function PreviewSharePanel( {
 	connectedSites: SyncSite[];
 	qualifyingSites: SyncSite[];
 	previews: Snapshot[];
+	otherPreviews?: Snapshot[];
 	busy: boolean;
 	creating: boolean;
 	offline: boolean;
@@ -240,6 +242,40 @@ export function PreviewSharePanel( {
 				</p>
 			) : null }
 			{ notice ? <p className={ styles.notice }>{ notice }</p> : null }
+			{ otherPreviews.length ? (
+				<div className={ styles.otherPreviews }>
+					<p className={ styles.notice }>
+						{ __( 'Delete a preview to make room. These count toward your limit too:' ) }
+					</p>
+					<ul className={ styles.otherPreviewList } aria-label={ __( 'Other previews' ) }>
+						{ otherPreviews.map( ( item ) => {
+							const title = item.name || getSnapshotHostname( item );
+							return (
+								<li key={ item.atomicSiteId } className={ styles.otherPreviewRow }>
+									<span className={ styles.otherPreviewTitle } title={ title }>
+										{ title }
+									</span>
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={ managementLocked }
+										aria-label={ sprintf( __( 'Delete %s' ), title ) }
+										onClick={ ( event ) =>
+											onManagePreview( {
+												kind: 'delete',
+												snapshot: item,
+												trigger: event.currentTarget,
+											} )
+										}
+									>
+										{ __( 'Delete' ) }
+									</Button>
+								</li>
+							);
+						} ) }
+					</ul>
+				</div>
+			) : null }
 			{ error ? (
 				<div className={ styles.error } role="alert">
 					<p>{ error }</p>

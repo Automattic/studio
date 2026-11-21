@@ -99,13 +99,43 @@ describe( 'previews', () => {
 		] );
 	} );
 
-	it( 'fails when the archive import fails', async () => {
+	it( 'fails when the archive import fails, and discards the site so it does not count toward the limit', async () => {
 		attachments( '678' );
 		get.mockResolvedValue( { importId: 'new', importStatus: 'importFailure' } );
 
 		await expect(
 			previews.create( config, content, { name: 'My Preview' }, vi.fn() )
-		).rejects.toThrow( RemoteSiteError );
+		).rejects.toThrow( 'The preview site could not be built from the archive.' );
+		expect( post ).toHaveBeenCalledWith(
+			expect.objectContaining( { path: '/wow-funnel/pending/discard', body: { blog_id: siteId } } )
+		);
+	} );
+
+	it( 'reports the import failure when discarding the failed site fails too', async () => {
+		attachments( '678' );
+		get.mockResolvedValue( { importId: 'new', importStatus: 'importFailure' } );
+		post.mockImplementation( ( { path }: { path: string } ) =>
+			path === '/sites/new'
+				? Promise.resolve( { blog_details: { blogid: String( siteId ) } } )
+				: Promise.reject( new Error( 'Server error' ) )
+		);
+
+		await expect(
+			previews.create( config, content, { name: 'My Preview' }, vi.fn() )
+		).rejects.toThrow( 'The preview site could not be built from the archive.' );
+	} );
+
+	it( 'keeps the site when its import does not finish in time, since it may still finish', async () => {
+		attachments( '678' );
+		get.mockResolvedValue( { importId: 'new', importStatus: 'importPending' } );
+
+		const created = previews.create( config, content, { name: 'My Preview' }, vi.fn() );
+		const assertion = expect( created ).rejects.toThrow( RemoteSiteError );
+		await vi.advanceTimersByTimeAsync( 31 * 60 * 1000 );
+		await assertion;
+		expect( post ).not.toHaveBeenCalledWith(
+			expect.objectContaining( { path: '/wow-funnel/pending/discard' } )
+		);
 	} );
 
 	it( 'rebuilds a preview on a push to it, waiting for the new import', async () => {

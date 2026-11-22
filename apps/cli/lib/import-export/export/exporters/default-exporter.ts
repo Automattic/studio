@@ -100,6 +100,14 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		};
 	}
 
+	private isExcludedFile( resolvedPath: string ): boolean {
+		return (
+			this.archivePolicy.excludedFiles?.some(
+				( excludedPath ) => path.relative( excludedPath, resolvedPath ) === ''
+			) ?? false
+		);
+	}
+
 	async canHandle(): Promise< boolean > {
 		const supportedExtension = [ 'tar.gz', 'tgz', 'zip' ].find( ( ext ) =>
 			this.options.backupFile.endsWith( ext )
@@ -263,7 +271,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 				} else {
 					if (
 						this.archivePolicy.excludedFiles?.length &&
-						this.archivePolicy.excludedFiles.includes( fs.realpathSync( fullPath ) )
+						this.isExcludedFile( fs.realpathSync.native( fullPath ) )
 					) {
 						continue;
 					}
@@ -316,8 +324,8 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 				continue;
 			}
 			try {
-				const resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
-				if ( ! this.archivePolicy.excludedFiles?.includes( resolvedPath ) ) {
+				const resolvedPath = fs.realpathSync.native( fullEntryPathOnDisk );
+				if ( ! this.isExcludedFile( resolvedPath ) ) {
 					this.addWpContentFile( resolvedPath, entryPathRelativeToArchiveRoot );
 				}
 			} catch ( error ) {

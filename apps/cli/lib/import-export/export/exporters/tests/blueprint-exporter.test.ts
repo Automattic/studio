@@ -164,7 +164,9 @@ it.each( [ 'blueprint.zip', 'plugins/example/blueprint.zip' ] )(
 );
 
 it( 'excludes the destination if it appears during export', async () => {
-	options.backupFile = path.join( options.site.path, 'wp-content/plugins/example/blueprint.zip' );
+	options.backupFile = path.join( options.site.path, 'wp-content/plugins/example/Blueprint.zip' );
+	const newFileName = process.platform === 'win32' ? 'blueprint.zip' : 'Blueprint.zip';
+	const newFilePath = path.join( path.dirname( options.backupFile ), newFileName );
 	const originalAppend = ZipArchive.prototype.append;
 	let created = false;
 	const appendSpy = vi.spyOn( ZipArchive.prototype, 'append' ).mockImplementation( function (
@@ -173,7 +175,7 @@ it( 'excludes the destination if it appears during export', async () => {
 		data
 	) {
 		if ( data?.name === 'wp-config.php' ) {
-			fs.writeFileSync( options.backupFile, 'concurrent export' );
+			fs.writeFileSync( newFilePath, 'concurrent export' );
 			created = true;
 		}
 		return originalAppend.call( this, source, data );
@@ -185,7 +187,7 @@ it( 'excludes the destination if it appears during export', async () => {
 		const snapshotDir = path.join( root, 'without-concurrent-export' );
 		await extractZip( path.join( path.dirname( bundle.path ), 'site.zip' ), snapshotDir );
 		expect(
-			fs.existsSync( path.join( snapshotDir, 'wp-content/plugins/example/blueprint.zip' ) )
+			fs.existsSync( path.join( snapshotDir, 'wp-content/plugins/example', newFileName ) )
 		).toBe( false );
 	} finally {
 		appendSpy.mockRestore();
@@ -239,7 +241,7 @@ it.skipIf( process.platform === 'win32' )(
 );
 
 it( 'preserves an existing Blueprint if a source file disappears during export', async () => {
-	const source = fs.realpathSync(
+	const source = fs.realpathSync.native(
 		path.join( options.site.path, 'wp-content/plugins/example/plugin.php' )
 	);
 	const originalFile = ZipArchive.prototype.file;
@@ -264,11 +266,13 @@ it( 'preserves an existing Blueprint if a source file disappears during export',
 
 it( 'preserves an existing Blueprint if a discovered file disappears before it is queued', async () => {
 	const source = path.join( options.site.path, 'wp-content/plugins/example/plugin.php' );
-	const originalRealpath = fs.realpathSync;
-	const realpathSpy = vi.spyOn( fs, 'realpathSync' ).mockImplementation( ( file, ...args ) => {
-		if ( file === source ) fs.unlinkSync( source );
-		return originalRealpath( file, ...args );
-	} );
+	const originalRealpath = fs.realpathSync.native;
+	const realpathSpy = vi
+		.spyOn( fs.realpathSync, 'native' )
+		.mockImplementation( ( file, ...args ) => {
+			if ( file === source ) fs.unlinkSync( source );
+			return originalRealpath( file, ...args );
+		} );
 	fs.writeFileSync( options.backupFile, 'previous export' );
 	try {
 		await expect( new BlueprintExporter( options ).export() ).rejects.toThrow( /ENOENT/ );

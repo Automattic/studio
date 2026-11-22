@@ -20,6 +20,7 @@ import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/
 import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop.command';
 import { registerCommand as registerUiCommand } from 'cli/commands/ui.command';
 import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall.command';
+import { registerCommand as registerUpdateCommand } from 'cli/commands/update.command';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -31,7 +32,11 @@ import { setupErrorReporting } from 'cli/lib/error-reporting';
 import { loadTranslations } from 'cli/lib/i18n';
 import { setupTosNotice } from 'cli/lib/tos-notice';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
-import { getUpdateInstruction, setupUpdateNotifier } from 'cli/lib/update-notifier';
+import {
+	getCliInstallKind,
+	getUpdateInstruction,
+	setupUpdateNotifier,
+} from 'cli/lib/update-notifier';
 import { untildify } from 'cli/lib/utils';
 import { StudioArgv } from 'cli/types';
 
@@ -41,9 +46,12 @@ suppressPunycodeWarning();
 
 async function main() {
 	setupErrorReporting();
-	await setupUpdateNotifier( version );
-
 	const yargsLocale = await loadTranslations();
+	if ( getCliInstallKind() === 'standalone' ) {
+		const { setupStandaloneAutoUpdates } = await import( 'cli/lib/standalone-updates' );
+		await setupStandaloneAutoUpdates();
+	}
+	await setupUpdateNotifier( version );
 
 	if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {
 		console.error(
@@ -264,6 +272,7 @@ async function main() {
 	registerUiCommand( studioArgv );
 	registerServeCommand( studioArgv );
 	registerUninstallCommand( studioArgv );
+	registerUpdateCommand( studioArgv );
 
 	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {
 		const [

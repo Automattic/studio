@@ -100,14 +100,17 @@ describe( 'setupUpdateNotifier', () => {
 		expect( stderrWriteSpy ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should not show a banner when --json is passed', async () => {
-		process.argv = [ ...originalArgv, '--json' ];
-		const fetchMock = vi.fn();
-		vi.stubGlobal( 'fetch', fetchMock );
-		await setupUpdateNotifier( '1.0.0', 'standalone' );
-		expect( fetchMock ).not.toHaveBeenCalled();
-		expect( stderrWriteSpy ).not.toHaveBeenCalled();
-	} );
+	it.each( [ [ '--json' ], [ '--format', 'json' ], [ '--format=json' ] ] )(
+		'should not show a banner for JSON output (%s)',
+		async ( ...args ) => {
+			process.argv = [ ...originalArgv, ...args ];
+			const fetchMock = vi.fn();
+			vi.stubGlobal( 'fetch', fetchMock );
+			await setupUpdateNotifier( '1.0.0', 'standalone' );
+			expect( fetchMock ).not.toHaveBeenCalled();
+			expect( stderrWriteSpy ).not.toHaveBeenCalled();
+		}
+	);
 
 	it( 'should not show a banner for an embedded build', async () => {
 		const fetchMock = vi.fn();
@@ -134,7 +137,7 @@ describe( 'setupUpdateNotifier', () => {
 			} );
 		} );
 
-		it( 'shows a curl-install banner when the endpoint reports a newer version', async () => {
+		it( 'shows a studio update banner when the endpoint reports a newer version', async () => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn().mockResolvedValue( {
@@ -151,7 +154,7 @@ describe( 'setupUpdateNotifier', () => {
 				stderrWriteSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) ).join( '' )
 			);
 			expect( output ).toContain( '2.0.0' );
-			expect( output ).toContain( 'curl -fsSL https://wordpress.studio/install.sh | bash' );
+			expect( output ).toContain( 'studio update' );
 			expect( output ).not.toContain( 'npm update -g wp-studio' );
 		} );
 

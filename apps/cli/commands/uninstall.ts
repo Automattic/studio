@@ -7,16 +7,10 @@ import { __, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { Mode, runCommand as stopSites } from 'cli/commands/site/stop';
 import { confirm } from 'cli/lib/prompts';
+import { CLI_VERSIONS_DIRECTORY, getStandaloneInstallDir } from 'cli/lib/standalone-updates';
 import { getCliInstallKind } from 'cli/lib/update-notifier';
 import type { builder } from 'cli/commands/uninstall.command';
 import type { CommandArgs } from 'cli/types';
-
-// The launcher execs `<installDir>/bin/node`, so the running binary's grandparent
-// is the standalone install root (handles a STUDIO_CLI_HOME override too — no need
-// to assume ~/.studio).
-function getInstallDir(): string {
-	return path.dirname( path.dirname( process.execPath ) );
-}
 
 // Remove the `~/.local/bin/studio` PATH symlink, but only if it still points at
 // the bundle we're removing. The shared `export PATH=…/.local/bin` rc line is left
@@ -52,6 +46,7 @@ while (Get-Process -Id ${
 	} -ErrorAction SilentlyContinue) { Start-Sleep -Milliseconds 200 }
 Remove-Item -LiteralPath '${ q( binDir ) }' -Recurse -Force
 Remove-Item -LiteralPath '${ q( path.join( installDir, 'cli' ) ) }' -Recurse -Force
+Remove-Item -LiteralPath '${ q( path.join( installDir, CLI_VERSIONS_DIRECTORY ) ) }' -Recurse -Force
 Remove-Item -LiteralPath '${ q( installDir ) }' -Force
 $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
 if ($key) {
@@ -88,7 +83,7 @@ export async function runCommand( purge: boolean ): Promise< void > {
 		return;
 	}
 
-	const installDir = getInstallDir();
+	const installDir = getStandaloneInstallDir();
 
 	// Stop running sites + the daemon first so nothing holds open handles on the
 	// runtime we're about to delete (mandatory on Windows; tidy on POSIX).
@@ -116,9 +111,17 @@ export async function runCommand( purge: boolean ): Promise< void > {
 	if ( process.platform === 'win32' ) {
 		// PATH entry + runtime dirs are removed by the detached helper after exit.
 		scheduleWindowsCleanup( installDir );
-		removed.push( path.join( installDir, 'bin' ), path.join( installDir, 'cli' ) );
+		removed.push(
+			path.join( installDir, 'bin' ),
+			path.join( installDir, 'cli' ),
+			path.join( installDir, CLI_VERSIONS_DIRECTORY )
+		);
 	} else {
-		for ( const dir of [ path.join( installDir, 'bin' ), path.join( installDir, 'cli' ) ] ) {
+		for ( const dir of [
+			path.join( installDir, 'bin' ),
+			path.join( installDir, 'cli' ),
+			path.join( installDir, CLI_VERSIONS_DIRECTORY ),
+		] ) {
 			fs.rmSync( dir, { recursive: true, force: true } );
 			removed.push( dir );
 		}

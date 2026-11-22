@@ -15,6 +15,16 @@ describe( 'downloadFile', () => {
 	const server = http.createServer( ( req, res ) => {
 		if ( req.url === '/missing' ) {
 			res.writeHead( 404 ).end();
+		} else if ( req.url === '/redirect-same' ) {
+			res.writeHead( 302, { Location: '/data' } ).end();
+		} else if ( req.url === '/redirect-other' ) {
+			res
+				.writeHead( 302, {
+					Location: `http://localhost:${ ( server.address() as AddressInfo ).port }/data`,
+				} )
+				.end();
+		} else if ( req.url === '/data' ) {
+			res.writeHead( 200 ).end( 'download' );
 		} else if ( req.url === '/slow-body' ) {
 			res.writeHead( 200 ).write( 'part1-' );
 			setTimeout( () => res.end( 'part2' ), 6_000 );
@@ -62,5 +72,15 @@ describe( 'downloadFile', () => {
 	it( 'downloads a large file from a server that closes the connection after it', async () => {
 		await downloadFile( `${ base }/closing`, destination );
 		expect( fs.statSync( destination ).size ).toBe( largeBody.length );
+	} );
+
+	it( 'allows same-origin redirects and rejects redirects to another origin when restricted', async () => {
+		await downloadFile( `${ base }/redirect-same`, destination, undefined, {
+			allowedOrigin: base,
+		} );
+		expect( fs.readFileSync( destination, 'utf8' ) ).toBe( 'download' );
+		await expect(
+			downloadFile( `${ base }/redirect-other`, destination, undefined, { allowedOrigin: base } )
+		).rejects.toThrow( 'outside the allowed origin' );
 	} );
 } );

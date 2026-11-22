@@ -10,7 +10,8 @@ const RESPONSE_TIMEOUT_MS = 5_000;
 export async function downloadFile(
 	url: string,
 	destinationPath: string,
-	onProgress?: ( downloaded: number, total: number ) => void
+	onProgress?: ( downloaded: number, total: number ) => void,
+	options?: { allowedOrigin?: string }
 ): Promise< void > {
 	try {
 		await fs.promises.mkdir( path.dirname( destinationPath ), { recursive: true } );
@@ -33,7 +34,27 @@ export async function downloadFile(
 	);
 	let response;
 	try {
-		response = await fetch( url, { signal: controller.signal, dispatcher: new Agent() } );
+		const dispatcher = new Agent();
+		let requestUrl = url;
+		for ( let redirects = 0; ; redirects++ ) {
+			if ( options?.allowedOrigin && new URL( requestUrl ).origin !== options.allowedOrigin ) {
+				throw new Error( 'Download URL is outside the allowed origin.' );
+			}
+			response = await fetch( requestUrl, {
+				signal: controller.signal,
+				dispatcher,
+				...( options?.allowedOrigin ? { redirect: 'manual' as const } : {} ),
+			} );
+			if ( ! options?.allowedOrigin || ! [ 301, 302, 303, 307, 308 ].includes( response.status ) ) {
+				break;
+			}
+			const location = response.headers.get( 'location' );
+			await response.body?.cancel();
+			if ( ! location || redirects >= 19 ) {
+				throw new Error( 'Invalid or excessive download redirects.' );
+			}
+			requestUrl = new URL( location, requestUrl ).toString();
+		}
 	} finally {
 		clearTimeout( timer );
 	}

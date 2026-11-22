@@ -66,10 +66,12 @@ describe( 'CLI: studio uninstall', () => {
 	} );
 
 	it( 'removes the bundle dirs but keeps user config by default', async () => {
+		fs.mkdirSync( path.join( installDir, 'cli-versions', '2.2.0' ), { recursive: true } );
 		await runCommand( false );
 
 		expect( fs.existsSync( path.join( installDir, 'bin' ) ) ).toBe( false );
 		expect( fs.existsSync( path.join( installDir, 'cli' ) ) ).toBe( false );
+		expect( fs.existsSync( path.join( installDir, 'cli-versions' ) ) ).toBe( false );
 		expect( fs.existsSync( configDir ) ).toBe( true );
 	} );
 

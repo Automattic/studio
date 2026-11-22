@@ -177,6 +177,7 @@ const desktopSchema = z.looseObject( {
 
 // State only the CLI reads.
 const cliSchema = z.looseObject( {
+	cliAutoUpdates: optional( z.boolean() ),
 	updateCheck: optional( updateCheckSchema ),
 	// Same as `updateCheck`, for standalone installs that check the CDN endpoint.
 	standaloneUpdateCheck: optional( updateCheckSchema ),

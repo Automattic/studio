@@ -62,8 +62,8 @@ function getIframeTitle( iframe: HTMLIFrameElement ) {
 	}
 }
 
-// Non-Electron fallback: plain iframe, no inspector. Reloads by remounting;
-// back/forward aren't reachable from the host.
+// Non-Electron fallback: plain iframe. Reloads by remounting; back/forward aren't reachable from
+// the host, and the annotation inspector can't reach a cross-origin frame's pages.
 export function FrameSurface( {
 	src,
 	title,
@@ -86,8 +86,13 @@ export function FrameSurface( {
 	onCommandHandled?: () => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
 } ) {
-	const frame = useRef< HTMLIFrameElement >( null );
-	const callbacks = useRef( { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle } );
+	const ref = useRef< HTMLIFrameElement | null >( null );
+	const callbacks = useRef( {
+		onAdminBarVisibilityChange,
+		onNavigate,
+		onLoadingChange,
+		onSettle,
+	} );
 	const navigationId = useRef( 0 );
 	const pendingProbe = useRef( 0 );
 	const reportedPage = useRef< {
@@ -96,11 +101,16 @@ export function FrameSurface( {
 		title: string | null;
 	} | null >( null );
 	useEffect( () => {
-		callbacks.current = { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle };
+		callbacks.current = {
+			onAdminBarVisibilityChange,
+			onNavigate,
+			onLoadingChange,
+			onSettle,
+		};
 	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
 	useEffect( () => {
 		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
-		frame.current?.contentWindow?.postMessage(
+		ref.current?.contentWindow?.postMessage(
 			{
 				type:
 					browserCommand.type === 'login'
@@ -111,9 +121,10 @@ export function FrameSurface( {
 		);
 		onCommandHandled?.();
 	}, [ browserCommand, onCommandHandled, src ] );
+
 	useEffect( () => {
 		const onMessage = ( event: MessageEvent ) => {
-			const iframe = frame.current;
+			const iframe = ref.current;
 			if (
 				! iframe ||
 				event.source !== iframe.contentWindow ||
@@ -179,7 +190,7 @@ export function FrameSurface( {
 
 	return (
 		<iframe
-			ref={ frame }
+			ref={ ref }
 			className={ styles.iframe }
 			src={ src }
 			title={ title }

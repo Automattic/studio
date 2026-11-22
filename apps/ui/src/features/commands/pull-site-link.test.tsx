@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -32,8 +32,8 @@ function setup( {
 	const connector = createFakeConnector(
 		{ sites: [ makeSite( { id: 'one', name: 'First site' } ) ] },
 		{
-			getConnectedWpcomSites: async () => connected,
-			fetchSyncableWpcomSites: async () => syncable,
+			getRemoteSites: async () => connected,
+			listAccountSites: async () => syncable,
 			getSnapshots: async () => snapshots,
 			getPreviewStatus: async () => status,
 		}
@@ -41,13 +41,24 @@ function setup( {
 	return { ...renderApp( { connector, path: '/sites/one/new' } ), connector };
 }
 
-it( "opens the Pull view of the site connected to the link's remote site", async () => {
-	const { connector, history } = setup( { connected: [ remote( 42, 'one' ) ] } );
+it( "confirms before pulling from the link's remote site", async () => {
+	const { connector, history, user } = setup( {
+		connected: [ remote( 42, 'one' ) ],
+		syncable: [ remote( 42 ) ],
+	} );
 	await screen.findByRole( 'button', { name: 'First site' } );
 	act( () => connector.emit( 'onPullSite', { remoteSiteId: 42 } ) );
-	expect( await screen.findByRole( 'button', { name: 'Pull changes' } ) ).toBeVisible();
+	const dialog = await screen.findByRole( 'alertdialog', {
+		name: 'Update local site from remote-42.example.com?',
+	} );
 	expect( history.location.pathname ).toBe( '/sites/one/new' );
-	expect( connector.pullSiteFromLive ).not.toHaveBeenCalled();
+	expect( connector.pullSite ).not.toHaveBeenCalled();
+	const pull = within( dialog ).getByRole( 'button', { name: 'Replace selected content' } );
+	await waitFor( () => expect( pull ).toBeEnabled() );
+	await user.click( pull );
+	await waitFor( () =>
+		expect( connector.pullSite ).toHaveBeenCalledWith( 'wpcom', 'one', 42, expect.anything() )
+	);
 } );
 
 it( 'sets up a new local site for a remote site no local site is connected to', async () => {
@@ -88,10 +99,10 @@ it.each( [
 		expect( history.location.pathname ).toBe( '/sites/one/new' );
 		if ( previewChanged && ! localChanged ) {
 			await waitFor( () =>
-				expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( 'one', 42, undefined )
+				expect( connector.pullSite ).toHaveBeenCalledWith( 'wpcom', 'one', 42, undefined )
 			);
 		} else {
-			expect( connector.pullSiteFromLive ).not.toHaveBeenCalled();
+			expect( connector.pullSite ).not.toHaveBeenCalled();
 		}
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	}

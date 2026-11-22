@@ -1,12 +1,13 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { __ } from '@wordpress/i18n';
-import { FileArchiveIcon, FileIcon, LayoutTemplateIcon, XIcon } from 'lucide-react';
+import { FileIcon, LayoutTemplateIcon } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useFileDrop } from '@/data/use-composer-attachments';
+import { getRemoteSiteScreenshot } from '@/features/remote-site-picker';
 import { SITE_FILE_UPLOAD_TYPES } from '@/features/sites/blueprint-upload';
-import { ShuffleIcon } from '@/lib/icons';
+import { FileArchiveIcon, ShuffleIcon, XIcon } from '@/lib/icons';
 import {
 	Button,
 	DropZone,
@@ -51,6 +52,8 @@ export function SetupSourceField( { disabled = false }: { disabled?: boolean } )
 		: backup?.name ?? ( remote ? getRemoteSiteName( remote ) : undefined );
 	const image = blueprint?.image
 		? getBlueprintThumbnail( { slug: blueprint.slug ?? '', image: blueprint.image } )
+		: remote
+		? getRemoteSiteScreenshot( remote.url )
 		: undefined;
 	const description = blueprint
 		? __( 'Blueprint' )
@@ -118,12 +121,14 @@ export function SetupSourceField( { disabled = false }: { disabled?: boolean } )
 						{ selected ? (
 							<div className={ styles.selectedSource }>
 								{ image ? (
-									<PreviewFrame className={ styles.sourceThumbnail }>
+									<PreviewFrame
+										className={ remote ? styles.sourceSiteThumbnail : styles.sourceThumbnail }
+									>
 										<PreviewImage
 											key={ image }
 											src={ image }
-											alt={ __( 'Blueprint preview' ) }
-											className={ styles.sourceScreenshot }
+											alt={ remote ? __( 'Site preview' ) : __( 'Blueprint preview' ) }
+											className={ remote ? undefined : styles.sourceScreenshot }
 										/>
 									</PreviewFrame>
 								) : (

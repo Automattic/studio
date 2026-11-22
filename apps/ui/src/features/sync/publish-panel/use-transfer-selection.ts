@@ -1,10 +1,7 @@
-import { PRESSABLE_PHP_VERSION } from '@studio/common/constants';
-import {
-	SYNC_PUSH_SIZE_LIMIT_BYTES,
-	SYNC_PUSH_SIZE_LIMIT_GB,
-} from '@studio/common/lib/sync/constants';
+import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
+import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { presetOptions } from './options';
 import {
@@ -17,7 +14,7 @@ import {
 } from './selection';
 import type { PublishScope, TransferDirection } from './options';
 import type { SyncNode } from './selection';
-import type { SiteDetails, SyncSite } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 
 type Saved = { scope: PublishScope; nodes: SyncNode[]; content: boolean };
 const EMPTY: Saved = { scope: 'all', nodes: [], content: false };
@@ -41,29 +38,36 @@ function restoreSelection( entries: SyncNode[], previous: SyncNode[] ): SyncNode
 // direction for as long as the app runs.
 export function useTransferSelection(
 	site: SiteDetails,
-	remote: SyncSite,
+	provider: SitesProviderId,
+	remote: RemoteSite,
 	direction: TransferDirection,
-	enabled: boolean
+	enabled: boolean,
+	forceEntireSite = false,
+	draftSelection?: Saved
 ) {
 	const connector = useConnector();
+	const sites = getProviderSites( provider );
 	const client = useQueryClient();
-	const savedKey = [ 'publish-selection', site.id, remote.id, direction ];
-	const saved = useQuery( {
+	const savedKey = [ 'publish-selection', site.id, provider, remote.id, direction ];
+	const [ draft, setDraft ] = useState( draftSelection );
+	const committed = useQuery( {
 		queryKey: savedKey,
 		queryFn: () => EMPTY,
 		initialData: EMPTY,
 		staleTime: Infinity,
 		gcTime: Infinity,
 	} ).data;
-	const save = ( patch: ( current: Saved ) => Partial< Saved > ) =>
-		client.setQueryData< Saved >( savedKey, ( current = EMPTY ) => ( {
-			...current,
-			...patch( current ),
-		} ) );
+	const saved = draft ?? committed;
+	const save = ( patch: ( current: Saved ) => Partial< Saved > ) => {
+		const apply = ( current = EMPTY ) => ( { ...current, ...patch( current ) } );
+		if ( draftSelection ) setDraft( apply );
+		else client.setQueryData< Saved >( savedKey, apply );
+	};
 
 	const tree = useQuery( {
-		queryKey: [ 'publish-tree', site.id, remote.id, direction ],
-		enabled,
+		queryKey: [ 'publish-tree', site.id, provider, remote.id, direction, !! draftSelection ],
+		// Without selective sync, everything goes, so there's nothing to pick from.
+		enabled: enabled && sites.selective,
 		staleTime: 0,
 		gcTime: 0,
 		queryFn: async () => {
@@ -72,38 +76,33 @@ export function useTransferSelection(
 			if ( direction === 'push' ) {
 				nodes = localNodes( await connector.listLocalFileTree( site.id, 'wp-content', 3 ) );
 			} else {
-				// Without the plan that includes Backup there are no backups to browse, so only a
-				// full pull is offered.
-				rewind = remote.pushNeedsUpgrade ? null : await connector.getLatestRewindId( remote.id );
+				// Individual files can only be browsed when the website has a backup.
+				rewind =
+					sites.hasBackups?.( remote ) === false
+						? null
+						: await connector.getRemoteBackupId( provider, remote.id );
 				if ( ! rewind ) {
-					return { rewind, fullOnly: true };
+					return { rewind, filesUnavailable: true };
 				}
 				nodes = remoteNodes(
-					await connector.listRemoteFileTree( remote.id, rewind, '/wp-content/' ),
+					await connector.listRemoteBackupFiles( provider, remote.id, rewind, '/wp-content/' ),
 					'/wp-content/'
 				);
 			}
 			save( ( current ) => ( { nodes: restoreSelection( nodes, current.nodes ) } ) );
-			return { rewind, fullOnly: false };
+			return { rewind, filesUnavailable: false };
 		},
 	} );
 
-	const scope = tree.data?.fullOnly ? 'all' : saved.scope;
+	const scope = forceEntireSite ? 'all' : saved.scope;
 	const chosen = selectedNodes( saved.nodes );
 	const options =
 		scope === 'custom' ? syncOptions( saved.nodes, saved.content ) : presetOptions( scope );
 
-	const versions = useQuery( {
-		queryKey: [ 'publish-versions', site.id, remote.id ],
-		enabled: enabled && direction === 'push',
-		queryFn: async () => {
-			const [ wp, php, multisite ] = await Promise.all( [
-				connector.getWpVersion( site.id ),
-				remote.isPressable ? PRESSABLE_PHP_VERSION : connector.getHostingPhpVersion( remote.id ),
-				connector.getIsMultisite( site.id ),
-			] );
-			return { wp, php, multisite };
-		},
+	const multisite = useQuery( {
+		queryKey: [ 'publish-multisite', site.id ],
+		enabled: enabled && ! draftSelection && direction === 'push' && Boolean( sites.pushWarning ),
+		queryFn: async () => ( await connector.getIsMultisite( site.id ) ) ?? null,
 	} );
 	const size = useQuery( {
 		queryKey: [
@@ -113,7 +112,7 @@ export function useTransferSelection(
 			saved.content,
 			chosen.map( ( node ) => node.path ),
 		],
-		enabled: enabled && direction === 'push' && tree.isSuccess,
+		enabled: enabled && ! draftSelection && direction === 'push' && tree.isSuccess,
 		queryFn: async () => {
 			if ( scope === 'all' ) {
 				return connector.getDirectorySize( site.id, [ 'wp-content' ] );
@@ -134,41 +133,51 @@ export function useTransferSelection(
 		},
 	} );
 
-	const overLimit = ( size.data ?? 0 ) > SYNC_PUSH_SIZE_LIMIT_BYTES;
+	const overLimit = sites.maxPushSize !== undefined && ( size.data ?? 0 ) > sites.maxPushSize;
 	const pushing = direction === 'push';
 	let warning: string | undefined;
 	if ( overLimit ) {
 		warning = sprintf(
 			/* translators: %s: the publishing size limit in GB */
-			__( 'This selection exceeds the %s GB publishing limit. Choose fewer files to continue.' ),
-			String( SYNC_PUSH_SIZE_LIMIT_GB )
+			forceEntireSite
+				? __( 'Your WordPress exceeds the %s GB publishing limit.' )
+				: __(
+						'This selection exceeds the %s GB publishing limit. Choose fewer files to continue.'
+				  ),
+			String( sites.maxPushSize! / 1024 ** 3 )
 		);
-	} else if ( versions.data?.multisite && ! remote.isPressable ) {
-		warning = __(
-			'WordPress.com does not support multisite. Publishing this network may cause problems.'
-		);
+	} else if ( pushing ) {
+		warning =
+			sites.pushWarning?.( remote, { multisite: multisite.data ?? undefined } ) ?? undefined;
 	}
 
 	return {
 		scope,
+		snapshot: saved,
+		restore: ( snapshot: Saved ) => save( () => snapshot ),
 		setScope: ( value: PublishScope ) => save( () => ( { scope: value } ) ),
 		nodes: saved.nodes,
 		content: saved.content,
 		setContent: ( content: boolean ) => save( () => ( { content } ) ),
 		options,
-		fullOnly: tree.data?.fullOnly === true,
-		error: tree.error || size.error || versions.error,
-		loading: tree.isFetching || ( pushing && ( size.isFetching || versions.isFetching ) ),
-		loadingFiles: tree.isFetching && ! tree.data,
+		filesUnavailable: tree.data?.filesUnavailable === true,
+		error: tree.error || size.error || multisite.error,
+		loading: tree.isFetching || ( pushing && ( size.isFetching || multisite.isFetching ) ),
+		// A draft opens on the files its selection already lists, while they are read again.
+		loadingFiles: tree.isFetching && ! tree.data && ! ( draftSelection && saved.nodes.length ),
 		loadingDetails:
-			( tree.isFetching && ! tree.data ) || ( pushing && versions.isFetching && ! versions.data ),
-		blocked: overLimit || ( scope === 'custom' && ! chosen.length && ! saved.content ),
+			( tree.isFetching && ! tree.data ) ||
+			( pushing && multisite.isFetching && ! multisite.isSuccess ),
+		blocked:
+			overLimit ||
+			( scope === 'custom' &&
+				( tree.data?.filesUnavailable || ( ! chosen.length && ! saved.content ) ) ),
 		warning,
 		retry: () => {
 			void tree.refetch();
 			if ( pushing ) {
 				void size.refetch();
-				void versions.refetch();
+				void multisite.refetch();
 			}
 		},
 		change: ( id: string, checked: boolean ) =>
@@ -179,7 +188,8 @@ export function useTransferSelection(
 			const children = pushing
 				? localNodes( await connector.listLocalFileTree( site.id, node.path, 1 ) )
 				: remoteNodes(
-						await connector.listRemoteFileTree(
+						await connector.listRemoteBackupFiles(
+							provider,
 							remote.id,
 							tree.data?.rewind ?? '',
 							`${ node.path }/`

@@ -1,6 +1,11 @@
+import { ConnectError } from '@studio/providers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createAuthAttempt, createAuthAttemptStore, getAuthTracksProps } from '../auth-tracks';
-import { getAuthenticationUrl, getSignUpUrl } from '../oauth';
+import {
+	createAuthAttempt,
+	createAuthAttemptStore,
+	getAuthFailureReason,
+	getAuthTracksProps,
+} from '../auth-tracks';
 
 afterEach( () => vi.useRealTimers() );
 
@@ -44,16 +49,20 @@ describe( 'auth attempt attribution', () => {
 		} );
 		expect( JSON.stringify( getAuthTracksProps( attempt ) ) ).not.toMatch( /private|secret/ );
 		expect( getAuthTracksProps() ).toEqual( { source: 'unknown' } );
+		const shareAttempt = createAuthAttempt( 'previews_tab', true, {
+			placement: 'share',
+			intent: 'share',
+		} );
+		expect( getAuthTracksProps( shareAttempt ) ).toMatchObject( { auth_flow: 'signup' } );
+		expect( getAuthTracksProps( shareAttempt ) ).not.toHaveProperty( 'account_type' );
 	} );
 
-	it( 'carries the opaque state through both authorization URLs', () => {
-		const state = crypto.randomUUID();
-		expect(
-			new URL( getAuthenticationUrl( 'en', undefined, state ) ).searchParams.get( 'state' )
-		).toBe( state );
-		const signup = new URL( getSignUpUrl( 'en', undefined, state ) );
-		expect(
-			new URL( signup.searchParams.get( 'oauth2_redirect' )! ).searchParams.get( 'state' )
-		).toBe( state );
+	it( 'classifies a failed sign-in for Tracks without its message', () => {
+		expect( getAuthFailureReason( new ConnectError( 'x', 'denied' ) ) ).toBe( 'access_denied' );
+		expect( getAuthFailureReason( new ConnectError( 'x' ) ) ).toBe( 'token_error' );
+		expect( getAuthFailureReason( new ConnectError( 'x', 'unverified' ) ) ).toBe(
+			'profile_fetch_failed'
+		);
+		expect( getAuthFailureReason( new Error( 'x' ) ) ).toBe( 'unknown' );
 	} );
 } );

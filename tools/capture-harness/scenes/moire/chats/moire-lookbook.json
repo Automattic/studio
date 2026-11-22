@@ -1,0 +1,34 @@
+{
+	"description": "Renaming a nav item on Moire.",
+	"title": "Rename Shop to Lookbook in the nav",
+	"site": "moire",
+	"minutesAgo": 150,
+	"turns": [
+		{
+			"prompt": "Rename Shop to Lookbook in the nav.",
+			"replies": [
+				[
+					{
+						"name": "Edit",
+						"args": {
+							"path": "wp-content/themes/moire/parts/header.html",
+							"edits": [
+								{
+									"oldText": "Shop",
+									"newText": "Lookbook"
+								}
+							]
+						},
+						"result": "Successfully replaced 1 block(s).",
+						"details": {
+							"diff": "@@ -6,1 +6,1 @@\n-<!-- wp:navigation-link {\"label\":\"Shop\"} /-->\n+<!-- wp:navigation-link {\"label\":\"Lookbook\"} /-->"
+						}
+					}
+				],
+				[
+					"Done: the nav now reads **Lookbook**, and the page it links to is unchanged."
+				]
+			]
+		}
+	]
+}

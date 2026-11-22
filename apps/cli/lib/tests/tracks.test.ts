@@ -1,14 +1,11 @@
+import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
+import { getOrCreateAnalyticsInstallId, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	TRACKS_EVENTS,
 	type TracksProps,
 	type TracksEventName,
 } from '@studio/common/lib/record-tracks-event';
-import {
-	getOrCreateAnalyticsInstallId,
-	isAnalyticsOptedOut,
-	isAutomatticianFromToken,
-} from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 
@@ -16,11 +13,8 @@ vi.mock( '@studio/common/lib/record-tracks-event', async ( importActual ) => {
 	const actual = await importActual< typeof import('@studio/common/lib/record-tracks-event') >();
 	return { ...actual, __recordTracksEvent: vi.fn() };
 } );
-vi.mock( '@studio/common/lib/shared-config', () => ( {
-	getOrCreateAnalyticsInstallId: vi.fn(),
-	isAnalyticsOptedOut: vi.fn(),
-	isAutomatticianFromToken: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/install' );
+vi.mock( '@studio/common/lib/auth-token' );
 
 const mockRecord = vi.mocked( __recordTracksEvent );
 const mockInstallId = vi.mocked( getOrCreateAnalyticsInstallId );

@@ -115,6 +115,7 @@ describe( 'Settings in the Studio workspace', () => {
 				}
 			)
 		);
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Show sidebar' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 		await screen.findByRole( 'dialog', { name: 'Settings' } );

@@ -107,7 +107,7 @@
 }
 
 .advancedChevron {
-	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
+	transition: rotate var( --motion-duration-disclosure ) var( --motion-ease-layout );
 }
 
 .advancedTrigger[aria-expanded='true'] .advancedChevron {

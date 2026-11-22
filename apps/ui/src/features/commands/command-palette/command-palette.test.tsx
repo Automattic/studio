@@ -59,6 +59,22 @@ afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
 	beforeEach( () => localStorage.clear() );
+	it.each( [ true, false ] )(
+		'offers the database tool only when supported: %s',
+		async ( phpMyAdminSupported ) => {
+			await renderPalette( {
+				connector: createFakeConnector( {
+					sites: [ { ...testSite, running: true, phpMyAdminSupported } ],
+				} ),
+				path: '/sites/one/new',
+			} );
+			await openPalette();
+			search( 'Open database' );
+			expect( screen.queryByRole( 'option', { name: /^Open database/ } ) !== null ).toBe(
+				phpMyAdminSupported
+			);
+		}
+	);
 
 	it( 'opens a new chat for the current site from the application menu', async () => {
 		const connector = createFakeConnector( { sites: [ testSite ] } );
@@ -109,14 +125,19 @@ describe( 'command palette', () => {
 			expect( screen.queryByRole( 'option', { name: 'Usage' } ) !== null ).toBe( signedIn );
 			expect( screen.queryByRole( 'option', { name: /View AI usage/ } ) ).not.toBeInTheDocument();
 			search( 'Providers' );
-			expect( option( 'Providers' ) ).toBeVisible();
+			expect( option( 'AI providers Providers' ) ).toBeVisible();
 		}
 	);
 
 	it.each( [
-		[ 'MCP', 'MCP', 'mcp' ],
-		[ 'Connect', 'Providers', 'ai' ],
-		[ 'Connect provider', 'Providers', 'ai' ],
+		[ 'Providers', 'Providers', 'providers' ],
+		[ 'MCP', 'Agents', 'mcp' ],
+		[ 'AI apps', 'Agents', 'mcp' ],
+		[ 'Codex', 'ChatGPT (Codex) Agents', 'mcp' ],
+		[ 'Spacefast', 'Spacefast Providers', 'providers' ],
+		[ 'Hosting providers', 'Hosting providers Providers', 'providers' ],
+		[ 'Connect', 'AI providers Providers', 'providers' ],
+		[ 'Connect provider', 'AI providers Providers', 'providers' ],
 		[ 'credits', 'Usage', 'usage' ],
 		[ 'AI credits', 'Usage', 'usage' ],
 		[ 'credit balance', 'Usage', 'usage' ],

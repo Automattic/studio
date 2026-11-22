@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { createBlockSettingsNotes } from './block-settings';
 
 // The notes Studio adds to a tool result: facts read from a local site about

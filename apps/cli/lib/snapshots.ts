@@ -5,8 +5,10 @@ import { addHours } from 'date-fns/addHours';
 import { formatDuration } from 'date-fns/formatDuration';
 import { intervalToDuration } from 'date-fns/intervalToDuration';
 import { reconcilePreviews } from 'cli/lib/cli-config/snapshots';
-import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
+import { wpcomPreviews } from 'cli/lib/preview-sites';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 import type { Snapshot } from '@studio/common/types/snapshot';
+import type { PreviewSite } from '@studio/providers';
 import type { DurationUnit } from 'date-fns';
 
 export {
@@ -17,22 +19,32 @@ export {
 	pruneExpiredOrphanedSnapshots,
 } from 'cli/lib/cli-config/snapshots';
 
-export { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
+export { getSnapshotLink, isSnapshotExpired } from '@studio/common/lib/snapshots';
 
 /**
  * Brings saved previews in line with WordPress.com: drops those that ended there, so Studio does not
  * list or try to update them, and takes each one's expiry and preview link from the server. Best effort: when the
  * server cannot be asked, the saved list stands.
+ *
+ * A preview that was bought stays one of the user's sites, where one that expired or was deleted is
+ * gone, so a dropped preview still among their sites is connected to the local site it was made
+ * from: Publish offers it, and the next preview of that site shows changes to it.
  */
 export async function syncPreviewsWithServer( userId: number, token: string ): Promise< void > {
 	const checkedAt = Date.now();
-	let standing: Map< number, StandingPreview >;
+	let previews: PreviewSite[];
 	try {
-		standing = await getStandingPreviews( token );
+		previews = await wpcomPreviews.list( { token } );
 	} catch {
 		return;
 	}
-	await reconcilePreviews( userId, standing, checkedAt );
+	const forgotten = await reconcilePreviews( userId, previews, checkedAt, { keepMissing: true } );
+	if ( ! forgotten.length ) {
+		return;
+	}
+	const sites = await fetchSyncableSites( token, { planRequired: false } ).catch( () => null );
+	if ( ! sites ) return;
+	await reconcilePreviews( userId, previews, checkedAt, { hostedSites: sites } );
 }
 
 export function formatDurationUntilExpiry( snapshot: Snapshot ) {

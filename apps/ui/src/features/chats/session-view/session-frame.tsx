@@ -96,7 +96,11 @@ export function SessionFrame( {
 				} }
 			>
 				{ background }
-				<div ref={ headerRef } className={ styles.headerLayer }>
+				<div
+					ref={ headerRef }
+					className={ styles.headerLayer }
+					data-sidebar-flyout-header={ !! header || undefined }
+				>
 					{ header }
 				</div>
 				<div ref={ setScroller } className={ styles.scroll }>

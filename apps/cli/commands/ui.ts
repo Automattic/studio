@@ -49,9 +49,8 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	} );
 
 	// The browser UI's equivalent of the desktop's `appBoot` launch event. No
-	// `is_first_launch`: the marker the desktop reads lives in its own `app.json`,
-	// and the install id is shared, so neither can tell a first browser launch
-	// from a first desktop one.
+	// `is_first_launch`: the marker the desktop reads and the install id are
+	// shared, so neither can tell a first browser launch from a first desktop one.
 	void recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, { ...getTracksOrigin() } ).catch(
 		() => undefined
 	);

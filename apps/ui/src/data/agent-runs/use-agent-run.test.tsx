@@ -7,7 +7,12 @@ import { rememberAccountJourney } from '@/data/account-analytics';
 import { createLocalConnector } from '@/data/core/connectors/local';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import { createFakeConnector, makeSession, type FakeConnector } from '@/test/fake-connector';
+import {
+	aiSettings,
+	createFakeConnector,
+	makeSession,
+	type FakeConnector,
+} from '@/test/fake-connector';
 import { createTestQueryClient, renderWithProviders } from '@/test/render';
 import { useAgentRun, useSiteAgentActivity } from './use-agent-run';
 import type { AgentRunEvent, Connector, LoadedAiSession } from '@/data/core';
@@ -317,17 +322,13 @@ describe( 'useAgentRun queued handoff', () => {
 		).toBe( true );
 	} );
 
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'only holds WordPress.com queues when credits run out: %s',
 		async ( provider ) => {
 			const connector = createFakeConnector(
 				{ sessions: [ session() ] },
 				{
-					getAiSettings: async () => ( {
-						provider,
-						hasAnthropicApiKey: true,
-						anthropicApiKeyPreview: 'test',
-					} ),
+					getAiSettings: async () => aiSettings( provider, [ 'wpcom', 'anthropic' ] ),
 				}
 			);
 			const queryClient = createTestQueryClient();
@@ -526,6 +527,37 @@ describe( 'useAgentRun queued handoff', () => {
 		expect( new Set( entries.map( ( entry ) => entry.id ) ).size ).toBe( 2 );
 		expect( JSON.stringify( entries ) ).toContain( 'Inspecting your theme' );
 		expect( JSON.stringify( entries ) ).toContain( 'Updated the header' );
+	} );
+
+	it( 'keeps only the latest progress of a running tool in the transcript', async () => {
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-1' ], session() );
+		const { connector } = await setup( { queryClient } );
+		const progress = ( message: string ) =>
+			connector.emit(
+				'onAgentEvent',
+				event( 'push-run', {
+					type: 'message',
+					timestamp: new Date().toISOString(),
+					message: {
+						type: 'tool_execution_update',
+						toolCallId: 'push-1',
+						partialResult: { content: [], details: { studioProgress: { message } } },
+					},
+				} as AgentRunEvent[ 'event' ] )
+			);
+		act( () => {
+			for ( let i = 0; i < 50; i++ ) {
+				progress( 'Uploading archive… (21%)' );
+			}
+			progress( 'Uploading archive… (22%)' );
+		} );
+		const entries = queryClient.getQueryData< LoadedAiSession >( [
+			...SESSIONS_QUERY_KEY,
+			'session-1',
+		] )!.entries;
+		expect( entries ).toHaveLength( 1 );
+		expect( JSON.stringify( entries ) ).toContain( 'Uploading archive… (22%)' );
 	} );
 
 	it( 'dispatches queued prompts after the chat panel unmounts', async () => {

@@ -1,7 +1,8 @@
 import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { ChevronLeftIcon } from 'lucide-react';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { ChevronRightIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -56,7 +57,7 @@ export function QuestionOptionViewer( {
 				) : null }
 				<DialogClose
 					className={ styles.questionOptionZoomClose }
-					render={ <DialogDismissButton variant="ghost" size="icon-2xs" /> }
+					render={ <DialogDismissButton size="icon-2xs" /> }
 				/>
 				<IconButton
 					className={ clsx( styles.questionOptionZoomStep, styles.questionOptionZoomPrevious ) }

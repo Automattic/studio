@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { Type } from 'typebox';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { textResult } from './utils';

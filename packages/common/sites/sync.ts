@@ -2,6 +2,15 @@ import { killChild } from '@studio/common/lib/cli-process';
 import { isSyncCancelledError, SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
+import type { SitesProviderId } from '@studio/providers';
+
+// A connected site on a provider, as push and pull name it.
+export type RemoteSiteRef = { provider: SitesProviderId; id: string | number };
+
+// WordPress.com sites go by their id; others by the provider's name and the site's id.
+function remoteSiteArg( { provider, id }: RemoteSiteRef ): string {
+	return provider === 'wpcom' ? String( id ) : `${ provider }:${ id }`;
+}
 
 // Syncs run as CLI commands, which publish their progress as sync activity events.
 
@@ -47,7 +56,7 @@ function runSyncCommand(
 export function pushSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
-	remoteSiteId: number,
+	remote: RemoteSiteRef,
 	options?: PushSyncOptions,
 	signal?: AbortSignal
 ): Promise< void > {
@@ -58,7 +67,7 @@ export function pushSite(
 			'--path',
 			siteFolder,
 			'--remote-site',
-			String( remoteSiteId ),
+			remoteSiteArg( remote ),
 			'--options',
 			( options?.optionsToSync?.length ? options.optionsToSync : [ 'all' ] ).join( ',' ),
 			...( options?.specificSelectionPaths?.length
@@ -72,7 +81,7 @@ export function pushSite(
 export function pullSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
-	remoteSiteId: number,
+	remote: RemoteSiteRef,
 	options?: PullSyncOptions,
 	signal?: AbortSignal
 ): Promise< void > {
@@ -83,7 +92,7 @@ export function pullSite(
 			'--path',
 			siteFolder,
 			'--remote-site',
-			String( remoteSiteId ),
+			remoteSiteArg( remote ),
 			'--options',
 			( options?.optionsToSync?.length ? options.optionsToSync : [ 'all' ] ).join( ',' ),
 			// Pass each backup node id as its own argv value — ids can contain
@@ -106,11 +115,11 @@ export type SyncResult = { cancelled: boolean };
  */
 export function createSyncRunner( execute: ExecuteCliCommand ) {
 	const controllers = new Map< string, AbortController >();
-	const key = ( siteId: string, remoteSiteId: number ) => `${ siteId }-${ remoteSiteId }`;
+	const key = ( siteId: string, remoteSiteId: string | number ) => `${ siteId }-${ remoteSiteId }`;
 
 	async function run(
 		siteId: string,
-		remoteSiteId: number,
+		remoteSiteId: string | number,
 		sync: ( signal: AbortSignal ) => Promise< void >
 	): Promise< SyncResult > {
 		const id = key( siteId, remoteSiteId );
@@ -135,22 +144,22 @@ export function createSyncRunner( execute: ExecuteCliCommand ) {
 		push: (
 			siteId: string,
 			sitePath: string,
-			remoteSiteId: number,
+			remote: RemoteSiteRef,
 			options?: PushSyncOptions
 		): Promise< SyncResult > =>
-			run( siteId, remoteSiteId, ( signal ) =>
-				pushSite( execute, sitePath, remoteSiteId, options, signal )
+			run( siteId, remote.id, ( signal ) =>
+				pushSite( execute, sitePath, remote, options, signal )
 			),
 		pull: (
 			siteId: string,
 			sitePath: string,
-			remoteSiteId: number,
+			remote: RemoteSiteRef,
 			options?: PullSyncOptions
 		): Promise< SyncResult > =>
-			run( siteId, remoteSiteId, ( signal ) =>
-				pullSite( execute, sitePath, remoteSiteId, options, signal )
+			run( siteId, remote.id, ( signal ) =>
+				pullSite( execute, sitePath, remote, options, signal )
 			),
-		cancel: ( siteId: string, remoteSiteId: number ): void => {
+		cancel: ( siteId: string, remoteSiteId: string | number ): void => {
 			controllers.get( key( siteId, remoteSiteId ) )?.abort();
 		},
 	};

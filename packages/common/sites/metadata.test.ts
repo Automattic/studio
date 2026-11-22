@@ -1,48 +1,49 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { listSitesWithMetadata, updateSiteMetadata } from './metadata';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { getConfigPath, readConfig } from '@studio/common/lib/config/store';
+import { updateSiteMetadata } from './metadata';
 
-const appConfig = vi.hoisted( () => ( { current: {} as Record< string, unknown > } ) );
-const listSites = vi.hoisted( () => vi.fn() );
-
-vi.mock( '@studio/common/lib/app-config', () => ( {
-	readAppConfig: async () => appConfig.current,
-	updateAppConfig: async ( mutate: ( config: Record< string, unknown > ) => void ) =>
-		mutate( appConfig.current ),
-} ) );
-vi.mock( './list', () => ( { listSites } ) );
-vi.mock( '@studio/common/lib/mu-plugin-settings', () => ( {
-	updateMuPluginSettings: async ( mutate: ( config: Record< string, unknown > ) => void ) =>
-		mutate( appConfig.current ),
-} ) );
+const site = ( id: string, fields: object ) => ( {
+	id,
+	name: id,
+	path: `/sites/${ id }`,
+	port: 8881,
+	phpVersion: '8.3',
+	status: 'ready',
+	...fields,
+} );
 
 describe( 'site metadata', () => {
+	let configDir: string;
+
 	beforeEach( () => {
-		appConfig.current = {
-			siteMetadata: {
-				a: { sortOrder: 2, autoStart: true, futureField: 'kept' },
-				b: { sortOrder: 1 },
-			},
-		};
+		configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-site-metadata-' ) );
+		process.env.DEV_CONFIG_DIR = configDir;
+		writeFileSync(
+			getConfigPath(),
+			JSON.stringify( {
+				version: 1,
+				sites: [
+					site( 'a', { sortOrder: 2, autoStart: true, futureField: 'kept' } ),
+					site( 'b', { sortOrder: 1 } ),
+				],
+			} )
+		);
 	} );
 
-	it( 'merges patches, removes sites patched with null, and keeps unknown fields', async () => {
-		await updateSiteMetadata( { a: { autoStart: false }, b: null, c: { sortOrder: 3 } } );
-
-		expect( appConfig.current.siteMetadata ).toEqual( {
-			a: { sortOrder: 2, autoStart: false, futureField: 'kept' },
-			c: { sortOrder: 3 },
-		} );
+	afterEach( () => {
+		delete process.env.DEV_CONFIG_DIR;
+		rmSync( configDir, { recursive: true, force: true } );
 	} );
 
-	it( 'merges each listed site with its metadata, letting the CLI win on shared fields', async () => {
-		listSites.mockResolvedValue( [
-			{ id: 'a', name: 'A', running: true },
-			{ id: 'z', name: 'Z', running: false },
-		] );
+	it( 'merges patches into the site records, keeping unknown fields and ignoring unknown sites', async () => {
+		await updateSiteMetadata( { a: { autoStart: false }, c: { sortOrder: 3 } } );
 
-		await expect( listSitesWithMetadata( vi.fn() ) ).resolves.toEqual( [
-			expect.objectContaining( { id: 'a', name: 'A', sortOrder: 2, autoStart: true } ),
-			expect.objectContaining( { id: 'z', name: 'Z', sortOrder: undefined } ),
+		expect( ( await readConfig() ).sites ).toEqual( [
+			site( 'a', { sortOrder: 2, autoStart: false, futureField: 'kept' } ),
+			site( 'b', { sortOrder: 1 } ),
 		] );
 	} );
 } );

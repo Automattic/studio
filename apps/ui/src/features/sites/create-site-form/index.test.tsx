@@ -698,7 +698,7 @@ describe( 'CreateSiteForm path', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		expect(
 			await screen.findByText(
-				'Studio will use this WordPress site in place. No files will be moved.'
+				'WordPress Studio will use this WordPress site in place. No files will be moved.'
 			)
 		).toBeVisible();
 		advanced();
@@ -724,7 +724,9 @@ describe( 'CreateSiteForm path', () => {
 			expect( localPath() ).toHaveAccessibleDescription( /Choose an empty folder to use a source/ )
 		);
 		expect(
-			screen.queryByText( 'Studio will use this WordPress site in place. No files will be moved.' )
+			screen.queryByText(
+				'WordPress Studio will use this WordPress site in place. No files will be moved.'
+			)
 		).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
 	} );
@@ -816,13 +818,13 @@ describe( 'CreateSiteForm fields', () => {
 		advanced();
 		expect( screen.queryByRole( 'combobox', { name: /runtime/i } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'combobox', { name: 'File access' } ) ).toHaveTextContent(
-			'Site directory'
+			'All files'
 		);
-		await chooseOption( 'File access', /^All files/ );
+		await chooseOption( 'File access', /^Site directory/ );
 		await waitFor( () => expect( submitButton() ).toBeEnabled() );
 		fireEvent.click( submitButton() );
 		expect( onSubmit ).toHaveBeenCalledWith(
-			expect.objectContaining( { fileAccess: 'all-files' } )
+			expect.objectContaining( { fileAccess: 'site-directory' } )
 		);
 		expect( onSubmit.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'runtime' );
 	} );

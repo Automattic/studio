@@ -1,13 +1,13 @@
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
-} from '@studio/agent/protocol/providers';
+} from '@studio/agent/protocol/sessions/model';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { InfoIcon, PaperclipIcon } from 'lucide-react';
+import { InfoIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
@@ -26,6 +26,7 @@ import {
 	saveComposerDraft,
 	useComposerNotice,
 } from '@/features/composer';
+import { PaperclipIcon } from '@/lib/icons';
 import {
 	Alert,
 	AlertDescription,
@@ -76,9 +77,10 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const { data: user } = useAuthUser();
 	const provider = getEffectiveSessionProvider( [], settings );
 	const notice = useComposerNotice( provider );
-	const providerConnected = provider === 'wpcom' ? !! user : !! settings?.hasAnthropicApiKey;
+	const providerConnected = !! settings?.accounts[ provider ].connected;
 	const model = resolveSessionModelForProvider( [], provider, {
 		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
+		account: settings?.accounts[ provider ],
 	} );
 	const openSite = ( siteId: string ) =>
 		navigate( { to: '/sites/$siteId/new', params: { siteId } } );
@@ -160,7 +162,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 					<FeaturePopover.Popup
 						title={ __( 'Start with inspiration' ) }
 						description={ __(
-							'Share your site’s goals, style, or inspiration. Studio uses your instructions and attached files to start an AI chat after creating the site.'
+							'Share your site’s goals, style, or inspiration. WordPress Studio uses your instructions and attached files to start an AI chat after creating the site.'
 						) }
 						sideOffset={ 8 }
 					/>

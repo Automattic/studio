@@ -46,13 +46,14 @@ interface AddSiteContextValue {
 	source: SetupSource;
 	setSource: ( source: SetupSource ) => void;
 	changeSourceType: ( type: SetupType ) => void;
+	// Makes a chosen WordPress folder the source unless another source was picked.
+	adoptFolder: ( folder?: SelectedSiteFolder ) => void;
 	folderResetKey: number;
 	browseBlueprints: () => void;
 	browseSites: () => void;
 	onFile: ( file: File ) => void;
 	onFiles: ( files: FileList, transfer: DataTransfer ) => void;
 	onFolder: ( path?: string, usePath?: boolean ) => Promise< void >;
-	setBlueprintTransferred: ( transferred: boolean ) => void;
 	createdSite?: CreatedSetupSite;
 	setCreatedSite: Dispatch< SetStateAction< CreatedSetupSite | undefined > >;
 	briefDraftKey: string;

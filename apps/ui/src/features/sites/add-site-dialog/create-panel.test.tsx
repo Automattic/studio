@@ -2,11 +2,14 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { pendingPromptSlot } from '@/features/composer';
-import { createFakeConnector, type FakeConnectorInitialState } from '@/test/fake-connector';
+import {
+	aiSettings,
+	createFakeConnector,
+	type FakeConnectorInitialState,
+} from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SelectedSiteFolder, SyncSite } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
-import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { AiProviderId } from '@studio/providers';
 import type { Blueprint } from '@wp-playground/blueprints';
 
 afterEach( () => {
@@ -19,7 +22,7 @@ afterEach( () => {
 async function setup(
 	state: FakeConnectorInitialState = {},
 	overrides: Partial< Connector > = {},
-	blueprints: CatalogBlueprint[] = [
+	blueprints: object[] = [
 		{
 			slug: 'portfolio',
 			title: 'Portfolio',
@@ -88,7 +91,7 @@ describe( 'Add site › blank setup', () => {
 		await user.click( help );
 		const details = await screen.findByRole( 'dialog', { name: 'Start with inspiration' } );
 		expect( details ).toHaveAccessibleDescription(
-			'Share your site’s goals, style, or inspiration. Studio uses your instructions and attached files to start an AI chat after creating the site.'
+			'Share your site’s goals, style, or inspiration. WordPress Studio uses your instructions and attached files to start an AI chat after creating the site.'
 		);
 		await user.keyboard( '{Escape}' );
 		await waitFor( () => expect( details ).not.toBeInTheDocument() );
@@ -126,7 +129,13 @@ describe( 'Add site › blank setup', () => {
 		const { dialog, user } = await setup(
 			{},
 			{
-				capabilities: { nativeFolderPicker: false, annotatePreview: false, studioLogs: false },
+				capabilities: {
+					nativeFolderPicker: false,
+					annotatePreview: false,
+					studioLogs: false,
+					loopbackSignIn: false,
+					localMachine: true,
+				},
 			}
 		);
 		expect( screen.getByLabelText( 'Folder' ) ).toHaveAccessibleDescription(
@@ -149,10 +158,7 @@ describe( 'Add site › blank setup', () => {
 			syncSupport: 'syncable',
 			isPressable: false,
 		} as SyncSite;
-		const { connector, dialog } = await setup(
-			{},
-			{ fetchSyncableWpcomSites: async () => [ remote ] }
-		);
+		const { connector, dialog } = await setup( {}, { listAccountSites: async () => [ remote ] } );
 		fireEvent.change( screen.getByLabelText( 'Name' ), { target: { value: 'My bakery' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
 		fireEvent.click( await screen.findByRole( 'tab', { name: 'Connect' } ) );
@@ -170,10 +176,8 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'ignores a Blueprint load completed after changing its type to blank', async () => {
 		const { connector } = await setup();
-		let complete!: (
-			value: Awaited< ReturnType< Connector[ 'extractBlueprintBundle' ] > >
-		) => void;
-		connector.extractBlueprintBundle.mockReturnValueOnce(
+		let complete!: ( value: Awaited< ReturnType< Connector[ 'readBlueprint' ] > > ) => void;
+		connector.readBlueprint.mockReturnValueOnce(
 			new Promise( ( resolve ) => {
 				complete = resolve;
 			} )
@@ -182,16 +186,9 @@ describe( 'Add site › blank setup', () => {
 		fireEvent.change( screen.getByLabelText( 'Choose a Blueprint or backup' ), {
 			target: { files: [ new File( [], 'blueprint.zip' ) ] },
 		} );
-		await waitFor( () => expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce() );
+		await waitFor( () => expect( connector.readBlueprint ).toHaveBeenCalledOnce() );
 		await startBlank();
-		await act( async () =>
-			complete( {
-				blueprintJson: { steps: [] },
-				blueprintJsonPath: '/tmp/late/blueprint.json',
-				tempDir: '/tmp/late',
-			} )
-		);
-		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/late' );
+		await act( async () => complete( { steps: [] } ) );
 		expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent( 'Blank' );
 		expect( screen.queryByRole( 'group', { name: 'Source' } ) ).not.toBeInTheDocument();
 	} );
@@ -219,9 +216,7 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.createSite ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				name: 'My bakery',
-				blueprint: expect.objectContaining( {
-					blueprint: expect.objectContaining( { steps: expect.any( Array ) } ),
-				} ),
+				blueprint: { librarySlug: 'portfolio', blueprint: { steps: [] } },
 			} )
 		);
 		expect( connector.continueSession.mock.calls[ 0 ][ 1 ] ).toBe( 'Make this a bakery' );
@@ -425,22 +420,27 @@ describe( 'Add site › blank setup', () => {
 	} );
 
 	it( 'keeps the site draft and attachments when reconnecting a provider in settings', async () => {
-		let aiSettings: AiSettings = {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		};
+		let signedIn = true;
+		let anthropicConnected = false;
+		let selected: AiProviderId = 'wpcom';
+		const currentSettings = () =>
+			aiSettings( selected, [
+				...( signedIn ? [ 'wpcom' as const ] : [] ),
+				...( anthropicConnected ? [ 'anthropic' as const ] : [] ),
+			] );
 		const { connector, dialog, history } = await setup(
 			{},
 			{
-				getAiSettings: async () => aiSettings,
-				saveAnthropicApiKey: async () => {
-					aiSettings = { ...aiSettings, hasAnthropicApiKey: true };
-					return aiSettings;
+				getAiSettings: async () => currentSettings(),
+				// Without WordPress.com, the provider connected becomes the default.
+				connectProvider: async () => {
+					anthropicConnected = true;
+					selected = signedIn ? selected : 'anthropic';
+					return currentSettings();
 				},
 				setAiProvider: async ( provider ) => {
-					aiSettings = { ...aiSettings, provider };
-					return aiSettings;
+					selected = provider;
+					return currentSettings();
 				},
 			}
 		);
@@ -459,6 +459,7 @@ describe( 'Add site › blank setup', () => {
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		act( () => {
+			signedIn = false;
 			connector.state.user = null;
 			connector.emit( 'onAuthStateChanged' );
 		} );
@@ -475,6 +476,7 @@ describe( 'Add site › blank setup', () => {
 				{ name: 'Connect' }
 			)
 		);
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 		fireEvent.change(
 			within( settings ).getByLabelText( 'Anthropic API key', { selector: 'input' } ),
 			{
@@ -482,8 +484,9 @@ describe( 'Add site › blank setup', () => {
 			}
 		);
 		fireEvent.submit( within( settings ).getByRole( 'form', { name: 'Anthropic connection' } ) );
+		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalled() );
 		await waitFor( () =>
-			expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' )
+			expect( within( settings ).queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument()
 		);
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		const restored = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
@@ -502,7 +505,7 @@ describe( 'Add site › blank setup', () => {
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
 		expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 			expect.any( String ),
-			'anthropic-api-key',
+			'anthropic',
 			expect.any( String )
 		);
 	} );
@@ -664,7 +667,7 @@ describe( 'Add site › blank setup', () => {
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await screen.findByText(
-			'Studio will use this WordPress site in place. No files will be moved.'
+			'WordPress Studio will use this WordPress site in place. No files will be moved.'
 		);
 		expect( screen.getByLabelText( 'Folder' ) ).toHaveValue( '/projects/bakery' );
 		expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'readonly' );
@@ -685,7 +688,9 @@ describe( 'Add site › blank setup', () => {
 		);
 		expect( screen.getByLabelText( 'Folder' ) ).not.toHaveAttribute( 'readonly' );
 		expect(
-			screen.queryByText( 'Studio will use this WordPress site in place. No files will be moved.' )
+			screen.queryByText(
+				'WordPress Studio will use this WordPress site in place. No files will be moved.'
+			)
 		).not.toBeInTheDocument();
 		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled();
 		expect( connector.createSite ).not.toHaveBeenCalled();
@@ -701,7 +706,7 @@ describe( 'Add site › blank setup', () => {
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await screen.findByText(
-			'Studio will use this WordPress site in place. No files will be moved.'
+			'WordPress Studio will use this WordPress site in place. No files will be moved.'
 		);
 		connector.selectSiteFolder.mockResolvedValueOnce( null );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
@@ -760,7 +765,7 @@ describe( 'Add site › blank setup', () => {
 		} );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Change…' } ) );
 		await within( dialog ).findByText(
-			'Studio will use this WordPress site in place. No files will be moved.'
+			'WordPress Studio will use this WordPress site in place. No files will be moved.'
 		);
 		expect( within( dialog ).getByRole( 'heading', { name: 'Add a WordPress' } ) ).toBeVisible();
 		expect( within( dialog ).getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
@@ -781,7 +786,7 @@ describe( 'Add site › blank setup', () => {
 			} );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 			await screen.findByText(
-				'Studio will use this WordPress site in place. No files will be moved.'
+				'WordPress Studio will use this WordPress site in place. No files will be moved.'
 			);
 			if ( source === 'blueprint' ) await uploadBlueprint( { steps: [] } );
 			else
@@ -882,7 +887,7 @@ describe( 'Add site › blank setup', () => {
 			},
 		} );
 		await screen.findByText(
-			'Studio will use this WordPress site in place. No files will be moved.'
+			'WordPress Studio will use this WordPress site in place. No files will be moved.'
 		);
 		expect( screen.getByLabelText( 'Folder' ) ).toHaveValue( '/projects/bakery' );
 		expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'readonly' );
@@ -913,7 +918,7 @@ describe( 'Add site › blank setup', () => {
 		}
 		expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent( 'Blank' );
 		expect( connector.selectSiteFolder ).not.toHaveBeenCalled();
-		expect( connector.extractBlueprintBundle ).not.toHaveBeenCalled();
+		expect( connector.readBlueprint ).not.toHaveBeenCalled();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 	it( 'discards a folder selection that completes after the dialog closes', async () => {
@@ -935,15 +940,8 @@ describe( 'Add site › blank setup', () => {
 				path: '/tmp/late-blueprint',
 				isEmpty: false,
 				isWordPress: false,
-				blueprint: {
-					blueprintJson: { steps: [] },
-					blueprintJsonPath: '/tmp/late-blueprint/blueprint.json',
-					tempDir: '/tmp/late-blueprint',
-				},
+				blueprint: { steps: [] },
 			} )
-		);
-		await waitFor( () =>
-			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/late-blueprint' )
 		);
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		expect( screen.queryByRole( 'dialog', { name: 'Add a WordPress' } ) ).not.toBeInTheDocument();

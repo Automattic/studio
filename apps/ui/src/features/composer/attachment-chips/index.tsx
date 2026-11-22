@@ -7,16 +7,16 @@ import {
 	watchComposerAttachmentTextScroll,
 } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
-import { FileTextIcon } from 'lucide-react';
 import { useLayoutEffect, useRef } from 'react';
 import { AnnotationReviewChip } from '@/features/annotations';
-import { AnnotateIcon } from '@/lib/icons';
+import { StickerIcon } from '@/lib/icons';
 import {
 	AttachmentChip as AttachmentChipSurface,
 	AttachmentChipTrigger,
 	AttachmentRemoveButton,
 	Popover,
 } from '@/lib/ui';
+import { getComposerFileIcon } from './file-icon';
 import styles from './style.module.css';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
 
@@ -81,7 +81,7 @@ function AttachmentChip( {
 						<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
 					) : (
 						<>
-							{ isAnnotations ? <AnnotateIcon /> : <FileTextIcon /> }
+							{ isAnnotations ? <StickerIcon /> : getComposerFileIcon( attachment ) }
 							<span className={ styles.attachmentName }>{ attachment.name }</span>
 						</>
 					) }

@@ -5,18 +5,6 @@
 	-webkit-app-region: no-drag;
 }
 
-.root [data-sidebar-toggle] {
-	opacity: 1;
-}
-
-.root [aria-expanded='true'] {
-	background-color: transparent;
-}
-
-.root [aria-expanded='true']:hover {
-	background-color: var( --hover );
-}
-
 /* The drawer icon depicts the sidebar edge; mirror it when the sidebar sits
    on the right. */
 .root:dir( rtl ) svg {
@@ -31,7 +19,7 @@
 
 /* The negative margin cancels the header's gap while the slot is empty. */
 .headerSlot {
-	--control-size: 32px;
+	--control-size: var( --control-size-sm );
 	display: inline-flex;
 	flex-shrink: 0;
 	width: 0;

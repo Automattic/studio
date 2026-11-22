@@ -120,15 +120,22 @@ export function SelectItem( {
 	className,
 	children,
 	description,
+	icon,
 	...props
-}: ComponentProps< typeof BaseSelect.Item > & { description?: ReactNode } ) {
+}: ComponentProps< typeof BaseSelect.Item > & { description?: ReactNode; icon?: ReactNode } ) {
 	return (
 		<BaseSelect.Item
 			data-slot="select-item"
 			data-described={ description ? true : undefined }
+			data-has-icon={ icon ? true : undefined }
 			className={ clsx( surface.item, styles.item, className ) }
 			{ ...props }
 		>
+			{ icon && (
+				<span className={ styles.itemIcon } aria-hidden="true">
+					{ icon }
+				</span>
+			) }
 			<div className={ styles.itemBody }>
 				<BaseSelect.ItemText className={ styles.itemText }>{ children }</BaseSelect.ItemText>
 				{ description && <span className={ styles.itemDescription }>{ description }</span> }

@@ -1,6 +1,10 @@
 import { RecommendedPHPVersion, PressablePHPVersion } from './types/php-versions.ts';
 
 // Time constants
+// Studio's Sentry project, shared by the Desktop app, the CLI and the browser builds.
+export const SENTRY_DSN =
+	'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248';
+
 export const HOUR_MS = 1000 * 60 * 60;
 export const DAY_MS = HOUR_MS * 24;
 
@@ -15,9 +19,6 @@ export const PROTOCOL_PREFIX = 'wp-studio';
 export const DEFAULT_TOKEN_LIFETIME_MS = DAY_MS * 14;
 
 // Lockfile constants
-export const APP_CONFIG_LOCKFILE_NAME = 'app.json.lock';
-export const CLI_CONFIG_LOCKFILE_NAME = 'cli.json.lock';
-export const SHARED_CONFIG_LOCKFILE_NAME = 'shared.json.lock';
 export const SESSIONS_MIGRATION_LOCKFILE_NAME = 'sessions-migration.lock';
 export const LOCKFILE_STALE_TIME = 5000;
 export const LOCKFILE_WAIT_TIME = 5000;

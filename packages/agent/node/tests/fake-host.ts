@@ -12,7 +12,7 @@ export const fakeSite: HostSite = {
 	adminPassword: 'password',
 };
 
-export const fakePreview: Snapshot = {
+const fakePreview: Snapshot = {
 	url: 'demo.wp.build',
 	atomicSiteId: 12345,
 	localSiteId: 'site-123',
@@ -37,7 +37,6 @@ export const fakeRemoteSite: SyncSite = {
 export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 	return {
 		sitesRoot,
-		userAgent: 'WordPressStudio/test',
 		sites: {
 			resolve: vi.fn( async () => fakeSite ),
 			findByFolder: vi.fn( async () => undefined ),
@@ -56,7 +55,7 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 			create: vi.fn( async () => {} ),
 			start: vi.fn( async () => {} ),
 			stop: vi.fn( async () => {} ),
-			delete: vi.fn( async () => {} ),
+			delete: vi.fn( async () => ( { warnings: [] } ) ),
 			isRunning: vi.fn( async () => true ),
 			import: vi.fn( async () => {} ),
 			export: vi.fn( async () => {} ),
@@ -69,11 +68,15 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 			delete: vi.fn( async () => {} ),
 		},
 		sync: {
+			connectedSites: vi.fn( async () => [] ),
 			push: vi.fn( async () => fakeRemoteSite ),
 			pull: vi.fn( async () => fakeRemoteSite ),
 		},
 		wpcom: {
+			token: vi.fn( async () => 'token' ),
 			sites: vi.fn( async () => [] ),
+			request: vi.fn( async () => ( {} ) ),
+			payloadsDirectory: '/payloads',
 		},
 		tracks: {
 			record: vi.fn( async () => {} ),

@@ -1,11 +1,12 @@
 import { useSearch } from '@tanstack/react-router';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
+import { useWalkthroughTracking } from '@/data/walkthrough-analytics';
+import { walkthroughPromptSenders } from '@/data/walkthrough-prompt';
 import { FeaturePopover } from '@/lib/ui';
 import { useOnboardingGuide } from './onboarding-guide/use-onboarding-guide';
 import { WHATS_NEW_VERSION } from './onboarding-guide/whats-new';
@@ -13,13 +14,14 @@ import { GETTING_STARTED_REPLAY_EVENT, useOpenGettingStarted } from './use-open-
 import type { OnboardingHintsState } from '@/data/core';
 
 type Step = NonNullable< OnboardingHintsState[ 'walkthroughStep' ] >;
+const ANNOTATE_TARGET = '[data-walkthrough~="annotate"]:not(:disabled, [aria-disabled="true"])';
+
 type CreateStage = 'gallery' | 'details' | 'setup';
 type GalleryStep = 'fresh' | 'design';
 
 function getStep(
 	step: Step,
 	createStage: CreateStage,
-	signedIn: boolean,
 	galleryStep: GalleryStep,
 	sidebarClosed: boolean
 ) {
@@ -30,12 +32,13 @@ function getStep(
 				description: sidebarClosed
 					? __( 'Your sites live here. Open the sidebar to explore ways to add a new site.' )
 					: __(
-							'Start from scratch, try a design, or bring an existing site into Studio. You can explore without creating another site.'
+							'Start from scratch, try a design, or bring an existing site into WordPress Studio. You can explore without creating another site.'
 					  ),
 				action: sidebarClosed ? __( 'Show sidebar' ) : __( 'Next' ),
 				next: 'create' as const,
 			};
 		case 'create':
+			if ( createStage === 'setup' ) return null;
 			return {
 				title:
 					createStage === 'gallery'
@@ -44,52 +47,58 @@ function getStep(
 							: __( 'Start with a design' )
 						: __( 'Make it yours' ),
 				description:
-					createStage === 'setup'
-						? __(
-								'Create a fresh WordPress site, then shape it with prompts. You can change its name later.'
-						  )
-						: createStage === 'details'
-						? __( 'Create a site with this design and its content, then shape it with prompts.' )
+					createStage === 'details'
+						? __( 'Start with this design, then tell WordPress Studio what you’d like to change.' )
 						: galleryStep === 'fresh'
 						? __(
-								'A blank WordPress site, ready to become whatever you have in mind. Already have a site? Connect it or import a backup instead.'
+								'A blank WordPress site, ready to become whatever you have in mind. Already have a site? Connect it or import a backup.'
 						  )
-						: __( 'Pick a design with content already in place, then make it yours.' ),
+						: __(
+								'You can also start with one of these designs. Change anything you like, from the words and photos to the layout.'
+						  ),
 				action:
 					createStage === 'gallery'
 						? galleryStep === 'fresh'
 							? __( 'Next' )
 							: __( 'Browse designs' )
-						: __( 'Got it' ),
+						: __( 'Start with this site' ),
 				next: 'composer' as const,
 			};
 		case 'composer':
 			return {
-				title: __( 'Make any change' ),
+				title: __( 'Chat with your site' ),
 				description: __(
 					'Say what you want in plain words. Add a page, swap the colors, fix the thing that’s bugging you.'
 				),
 				action: __( 'Next' ),
-				next: 'share' as const,
+				next: 'publish' as const,
 			};
-		case 'share':
+		case 'annotate':
 			return {
-				title: __( 'Share a preview' ),
-				description: signedIn
-					? __( 'Grab a link and send it to whoever needs to weigh in.' )
-					: __( 'Log in to WordPress.com to get a preview link you can send around.' ),
+				title: __( 'Point to what you want to change' ),
+				description: __(
+					'Click an element, select an area, or draw right on the page. Add a note about what you’d like to change.'
+				),
 				action: __( 'Next' ),
 				next: 'publish' as const,
 			};
 		case 'publish':
 			return {
-				title: __( 'Publish when ready' ),
-				description: signedIn
-					? __( 'When it looks right, publish and it’s live.' )
-					: __( 'Log in to WordPress.com when you’re ready to take it live.' ),
+				title: __( 'Publish your WordPress' ),
+				description: __(
+					'Share a preview to get feedback, or publish your site so anyone can discover it.'
+				),
 				action: __( 'Done' ),
 				next: 'completed' as const,
 			};
+		case 'try-chat':
+			return {
+				title: __( 'Ask what’s possible' ),
+				description: __( 'Send a message to get ideas for making this site yours.' ),
+				action: __( 'Send message' ),
+				next: 'completed' as const,
+			};
+
 		default:
 			return null;
 	}
@@ -123,12 +132,12 @@ export function Walkthrough( {
 	const { data: hints } = useOnboardingHints();
 	const { mutate: setHints } = useSetOnboardingHints();
 	const { data: sites } = useSites();
-	const { data: user } = useAuthUser();
 	const descriptionId = useId();
 	const [ target, setTarget ] = useState< {
 		element: HTMLElement | null;
 		nextElement?: HTMLElement | null;
 		title?: string;
+		reason?: string;
 		description?: string;
 	} >( { element: null } );
 	const anchor = target.element;
@@ -146,19 +155,16 @@ export function Walkthrough( {
 	};
 	const { isOpen: guideOpen } = useOnboardingGuide();
 	const step = hints?.walkthroughStep;
+	const whatsNewSeenVersion = Math.max( hints?.whatsNewSeenVersion ?? 0, WHATS_NEW_VERSION );
 	const sidebarClosed = step === 'intro' && !! anchor?.hasAttribute( 'data-sidebar-toggle' );
 	const matchesPlacement = inSiteDialog ? step === 'create' : step !== 'create';
 	const content =
-		step && matchesPlacement
-			? getStep( step, createStage, !! user, galleryStep, sidebarClosed )
-			: null;
+		step && matchesPlacement ? getStep( step, createStage, galleryStep, sidebarClosed ) : null;
 	const hasContent = content !== null;
 	const targetStep =
 		step === 'create'
 			? createStage === 'details'
 				? 'create-blueprint'
-				: createStage === 'setup'
-				? 'create-site'
 				: galleryStep === 'design'
 				? 'create-design'
 				: step
@@ -194,12 +200,10 @@ export function Walkthrough( {
 			setHints( { walkthroughStep: 'create' } );
 		}
 		if ( step === 'create' && sites?.length && ! welcome && ! addSite ) {
-			setHints( { walkthroughStep: 'composer', whatsNewSeenVersion: WHATS_NEW_VERSION } );
+			setHints( { walkthroughStep: 'composer', whatsNewSeenVersion } );
 		}
-		if ( step === 'annotate' ) {
-			setHints( { walkthroughStep: 'share', annotateHintDismissed: true } );
-		}
-	}, [ step, sites?.length, welcome, addSite, setHints, inSiteDialog ] );
+		if ( step === 'share' ) setHints( { walkthroughStep: 'publish' } );
+	}, [ step, sites?.length, welcome, addSite, setHints, inSiteDialog, whatsNewSeenVersion ] );
 
 	useEffect( () => {
 		if ( ! hasContent || blocked ) {
@@ -209,28 +213,47 @@ export function Walkthrough( {
 		const findTarget = () => {
 			const target =
 				Array.from(
-					document.querySelectorAll< HTMLElement >( `[data-walkthrough~="${ targetStep }"]` )
+					document.querySelectorAll< HTMLElement >(
+						targetStep === 'annotate' ? ANNOTATE_TARGET : `[data-walkthrough~="${ targetStep }"]`
+					)
 				).find( isAvailable ) ??
 				( step === 'intro'
 					? Array.from( document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ).find(
 							isAvailable
 					  )
 					: undefined );
-			const nextElement =
+			if (
+				step === 'annotate' &&
+				! target &&
+				Array.from(
+					document.querySelectorAll< HTMLElement >( '[data-walkthrough~="publish"]' )
+				).some( isAvailable )
+			) {
+				setHints( { walkthroughStep: 'publish' } );
+				return;
+			}
+			const nextSelector =
 				targetStep === 'create'
-					? Array.from(
-							document.querySelectorAll< HTMLElement >( '[data-walkthrough~="create-design"]' )
-					  ).find( isAvailable ) ?? null
+					? '[data-walkthrough~="create-design"]'
+					: step === 'publish'
+					? '[data-walkthrough~="try-chat"]'
 					: null;
+			const nextElement = nextSelector
+				? Array.from( document.querySelectorAll< HTMLElement >( nextSelector ) ).find(
+						isAvailable
+				  ) ?? null
+				: null;
 			const title = target?.dataset.walkthroughTitle;
+			const reason = target?.dataset.walkthroughReason;
 			const description = target?.dataset.walkthroughDescription;
 			setTarget( ( current ) =>
 				current.element === ( target ?? null ) &&
 				current.nextElement === nextElement &&
 				current.title === title &&
+				current.reason === reason &&
 				current.description === description
 					? current
-					: { element: target ?? null, nextElement, title, description }
+					: { element: target ?? null, nextElement, title, reason, description }
 			);
 			setComposerBlocked( !! document.querySelector( '[data-walkthrough-blocked="true"]' ) );
 			const otherSurface = Array.from(
@@ -263,6 +286,7 @@ export function Walkthrough( {
 				'style',
 				'data-walkthrough',
 				'data-walkthrough-title',
+				'data-walkthrough-reason',
 				'data-walkthrough-description',
 				'data-walkthrough-blocked',
 				'data-open',
@@ -277,7 +301,7 @@ export function Walkthrough( {
 			observer.disconnect();
 			window.removeEventListener( 'resize', findTarget );
 		};
-	}, [ targetStep, hasContent, blocked, descriptionId, inSiteDialog, step ] );
+	}, [ targetStep, hasContent, blocked, descriptionId, inSiteDialog, step, setHints ] );
 
 	const eligible =
 		!! anchor &&
@@ -304,46 +328,51 @@ export function Walkthrough( {
 		return () => window.clearTimeout( timer );
 	}, [ eligible, anchor ] );
 	const open = eligible && revealedAnchor === anchor;
-	const nextStep = content?.next;
+	const track = useWalkthroughTracking(
+		targetStep ?? 'unknown',
+		open,
+		step === 'composer'
+			? composerBlocked
+				? target.reason ?? 'blocked'
+				: 'ready'
+			: step === 'intro' && sidebarClosed
+			? 'sidebar_closed'
+			: 'default'
+	);
+	const canTryChat = step === 'publish' && !! target.nextElement;
+	const nextStep = canTryChat ? 'try-chat' : content?.next;
 
 	useEffect( () => {
-		if (
-			( ! open && step !== 'create' ) ||
-			! nextStep ||
-			! anchor ||
-			! [ 'create', 'share', 'publish' ].includes( step ?? '' ) ||
-			( step === 'create' && createStage === 'gallery' )
-		)
-			return;
+		if ( ! anchor || ( ! open && step !== 'create' ) ) return;
 		const act = ( event: MouseEvent ) => {
-			if ( ! ( event.target instanceof Element ) || ! anchor.contains( event.target ) ) return;
-			const button = event.target.closest( 'button' );
+			if ( open ) track( 'target_clicked' );
+			const button = event.target instanceof Element ? event.target.closest( 'button' ) : null;
 			if ( ! button || button.disabled || button.getAttribute( 'aria-disabled' ) === 'true' )
 				return;
-			if ( step === 'create' ) {
+			if ( step === 'create' && createStage !== 'gallery' ) {
 				setDismissedCreateStages( ( stages ) =>
 					stages.includes( createStage ) ? stages : [ ...stages, createStage ]
 				);
-				return;
+			} else if ( nextStep && ( step === 'annotate' || step === 'publish' ) ) {
+				setHints( {
+					walkthroughStep: nextStep,
+					whatsNewSeenVersion,
+				} );
 			}
-			setHints( {
-				walkthroughStep: nextStep,
-				whatsNewSeenVersion: WHATS_NEW_VERSION,
-			} );
 		};
-		document.addEventListener( 'click', act, true );
-		return () => document.removeEventListener( 'click', act, true );
-	}, [ open, anchor, step, nextStep, setHints, createStage ] );
+		anchor.addEventListener( 'click', act, true );
+		return () => anchor.removeEventListener( 'click', act, true );
+	}, [ open, anchor, step, nextStep, setHints, createStage, track, whatsNewSeenVersion ] );
 
 	if ( ! content ) return null;
-	const steps = [ 'create', 'create-design', 'composer', 'share', 'publish' ];
+	const connectStep = step === 'composer' && target.reason === 'connect';
+	const blueprintDetails = step === 'create' && createStage === 'details';
+	const dismissCreateTip = () => {
+		track( 'dismiss' );
+		setDismissedCreateStages( ( stages ) => [ ...stages, createStage ] );
+		focusAnchor();
+	};
 	const firstStep = step === 'create' && createStage === 'gallery' && galleryStep === 'fresh';
-	const stepLabel = sprintf(
-		/* translators: 1: current walkthrough step, 2: total number of steps. */
-		__( '%1$d/%2$d' ),
-		steps.indexOf( step === 'create' && ! firstStep ? 'create-design' : step ?? '' ) + 1,
-		steps.length
-	);
 	const focusAnchor = () => {
 		const dialog = anchor?.closest( '[role="dialog"]' );
 		const focusTarget =
@@ -357,7 +386,8 @@ export function Walkthrough( {
 				  ) ?? dialog?.querySelector< HTMLElement >( '[data-start-blank]' );
 		focusTarget?.focus();
 	};
-	const finish = ( next: Step ) => {
+	const finish = ( next: Step, action = 'next' ) => {
+		track( action, next );
 		if (
 			( next === 'completed' || next === 'skipped' ) &&
 			document.activeElement
@@ -368,9 +398,74 @@ export function Walkthrough( {
 		}
 		setHints( {
 			walkthroughStep: next,
-			whatsNewSeenVersion: WHATS_NEW_VERSION,
+			whatsNewSeenVersion,
 		} );
 	};
+	const continueTour = () => {
+		showNextImmediately.current = true;
+		finish(
+			step === 'composer' &&
+				Array.from( document.querySelectorAll< HTMLElement >( ANNOTATE_TARGET ) ).some(
+					isAvailable
+				)
+				? 'annotate'
+				: nextStep ?? content.next
+		);
+	};
+	const onPrimary = () => {
+		if ( connectStep || step === 'intro' ) {
+			track( connectStep ? 'connect' : 'next' );
+			if ( sidebarClosed ) {
+				showNextImmediately.current = true;
+				focusNextAnchor.current = true;
+			}
+			anchor?.click();
+			return;
+		}
+		if ( step === 'create' ) {
+			if ( firstStep && target.nextElement ) {
+				track( 'next' );
+				showNextImmediately.current = true;
+				setGalleryStep( 'design' );
+				target.nextElement.focus();
+			} else if ( blueprintDetails ) {
+				track( 'next' );
+				anchor?.click();
+			} else if ( onContinue ) {
+				track( 'next' );
+				onContinue();
+			} else {
+				dismissCreateTip();
+			}
+			return;
+		}
+		if ( step === 'try-chat' ) {
+			const send = anchor && walkthroughPromptSenders.get( anchor );
+			if ( ! send ) {
+				track( 'prompt_result', 'unavailable' );
+				return;
+			}
+			finish( 'completed', 'send_prompt' );
+			void send( __( 'What can you do?' ) ).then(
+				() => track( 'prompt_result', 'sent' ),
+				() => {
+					track( 'prompt_result', 'failed' );
+					toast.error( __( 'Could not send the prompt. Please try again.' ) );
+				}
+			);
+			return;
+		}
+		continueTour();
+	};
+	const onSecondary = connectStep
+		? continueTour
+		: blueprintDetails
+		? dismissCreateTip
+		: step === 'try-chat'
+		? () => finish( 'completed', 'finish' )
+		: step === 'intro' || ( firstStep && sites?.length === 0 )
+		? () => finish( 'skipped', 'skip' )
+		: undefined;
 	return (
 		<FeaturePopover.Root
 			key={ sidebarClosed ? 'intro-sidebar' : targetStep }
@@ -379,14 +474,18 @@ export function Walkthrough( {
 			onOpenChange={ ( nextOpen, details ) => {
 				if ( ! nextOpen && details.reason === 'escape-key' ) {
 					details.event.stopPropagation();
-					finish( 'skipped' );
+					finish( 'skipped', 'escape' );
 				}
 			} }
 		>
 			<FeaturePopover.Popup
 				anchor={ anchor }
 				side={
-					step === 'intro' ? 'right' : step === 'composer' || step === 'create' ? 'top' : 'bottom'
+					step === 'intro'
+						? 'right'
+						: step === 'composer' || step === 'create' || step === 'try-chat'
+						? 'top'
+						: 'bottom'
 				}
 				align={
 					step === 'intro' || ( step === 'composer' && target.description ) || firstStep
@@ -406,66 +505,34 @@ export function Walkthrough( {
 						? target.title ?? __( 'Before your first prompt' )
 						: content.title
 				}
-				aria-label={
-					step === 'composer' && target.description
-						? target.title ?? __( 'Before your first prompt' )
-						: content.title
-				}
 				description={
 					step === 'composer' ? target.description ?? content.description : content.description
 				}
 				descriptionId={ descriptionId }
 				footer={
 					<FeaturePopover.Navigation
-						skipLabel={ __( 'Skip tour' ) }
-						stepLabel={
-							step === 'intro' ||
-							( step === 'create' && createStage !== 'gallery' ) ||
-							( step === 'composer' && composerBlocked )
-								? undefined
-								: stepLabel
+						skipLabel={
+							connectStep
+								? __( 'Next' )
+								: blueprintDetails
+								? __( 'Got it' )
+								: step === 'try-chat'
+								? __( 'Done' )
+								: __( 'Skip tour' )
 						}
 						nextLabel={
-							step === 'create' && onContinue
+							connectStep
+								? __( 'Connect' )
+								: canTryChat
+								? __( 'Next' )
+								: step === 'create' && ! blueprintDetails && onContinue
 								? __( 'Next' )
 								: firstStep && ! target.nextElement
 								? __( 'Got it' )
 								: content.action
 						}
-						onSkip={
-							step === 'intro' || ( firstStep && sites?.length === 0 )
-								? () => finish( 'skipped' )
-								: undefined
-						}
-						onNext={
-							step === 'intro'
-								? () => {
-										if ( sidebarClosed ) {
-											showNextImmediately.current = true;
-											focusNextAnchor.current = true;
-										}
-										anchor?.click();
-								  }
-								: step === 'create'
-								? () => {
-										if ( firstStep && target.nextElement ) {
-											showNextImmediately.current = true;
-											setGalleryStep( 'design' );
-											target.nextElement.focus();
-											return;
-										}
-										if ( onContinue ) {
-											onContinue();
-											return;
-										}
-										setDismissedCreateStages( ( stages ) => [ ...stages, createStage ] );
-										focusAnchor();
-								  }
-								: () => {
-										showNextImmediately.current = true;
-										finish( content.next );
-								  }
-						}
+						onSkip={ onSecondary }
+						onNext={ onPrimary }
 					/>
 				}
 			/>

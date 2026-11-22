@@ -128,7 +128,9 @@ describe( 'command palette', () => {
 			} )
 		);
 		expect( history.location.pathname ).toBe( '/sites/one' );
-		expect( screen.queryByRole( 'dialog', { name: 'Make any change' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'dialog', { name: 'Chat with your site' } )
+		).not.toBeInTheDocument();
 		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
 		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 	} );

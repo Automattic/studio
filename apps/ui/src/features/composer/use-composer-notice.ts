@@ -61,6 +61,7 @@ export function useComposerNotice(
 	};
 	const needsInternet = ! getProvider( provider ).ai?.local;
 	const offlineGuidance = {
+		walkthroughReason: 'offline' as const,
 		walkthroughTitle: __( 'You’re offline' ),
 		walkthroughDescription: __( 'Reconnect to send your first prompt.' ),
 	};
@@ -80,6 +81,7 @@ export function useComposerNotice(
 	if ( settings.isError ) {
 		return {
 			message: __( 'Couldn’t load your AI provider.' ),
+			walkthroughReason: 'provider_error',
 			walkthroughTitle: __( 'Couldn’t reach your provider' ),
 			walkthroughDescription: __( 'Try again. If it keeps failing, check your provider settings.' ),
 			action: refresh,
@@ -95,9 +97,10 @@ export function useComposerNotice(
 	};
 	if ( ! user ) {
 		return {
-			walkthroughTitle: __( 'Build with AI' ),
+			walkthroughReason: 'connect',
+			walkthroughTitle: __( 'Get ready to chat' ),
 			walkthroughDescription: __(
-				'Connect an AI provider and you can build and edit this site by talking to it.'
+				'Sign in with your AI subscription or start with WordPress.com. Chat to make changes.'
 			),
 			message: __( 'Connect a provider to build and edit your site.' ),
 			action: connect,
@@ -106,6 +109,7 @@ export function useComposerNotice(
 	if ( quotaError ) {
 		return {
 			message: __( 'AI usage is currently unavailable.' ),
+			walkthroughReason: 'quota_error',
 			walkthroughTitle: __( 'AI is unavailable right now' ),
 			walkthroughDescription: __( 'Give it a moment, then try again.' ),
 			action: refresh,
@@ -118,6 +122,7 @@ export function useComposerNotice(
 	if ( access === 'blocked' ) {
 		return {
 			message: __( 'Connect a different provider to continue this chat.' ),
+			walkthroughReason: 'provider_blocked',
 			walkthroughTitle: __( 'Switch providers' ),
 			walkthroughDescription: __(
 				'Your current provider isn’t available here. Connect another to keep editing through chat.'
@@ -128,6 +133,7 @@ export function useComposerNotice(
 	if ( access === 'not-enabled' ) {
 		return {
 			message: formatAiAccessRequiredHeadline( quota.data ),
+			walkthroughReason: 'beta_access',
 			walkthroughTitle:
 				quota.data.costUsage > 0 ? __( 'Thanks for testing the beta' ) : __( 'Join the beta' ),
 			walkthroughDescription:
@@ -145,6 +151,7 @@ export function useComposerNotice(
 	if ( ! quota.data.hasPaymentMethod ) {
 		return {
 			message: __( 'Add a payment method to use WordPress.com AI.' ),
+			walkthroughReason: 'payment_method',
 			walkthroughTitle: __( 'Add a payment method' ),
 			walkthroughDescription: __(
 				'WordPress.com AI needs a payment method on file before you can send a message.'

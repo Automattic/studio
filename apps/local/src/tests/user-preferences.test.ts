@@ -160,10 +160,11 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 		[ 'a value outside the supported set', { colorScheme: 'chartreuse' } ],
 		[ 'a locale with no translations', { locale: 'xx-fake' } ],
 	] )( 'rejects %s instead of storing it', async ( _label, body ) => {
+		const before = await readPreferences();
 		const response = await patchPreferences( body );
 
 		expect( response.status ).toBe( 400 );
-		await expect( readPreferences() ).resolves.toEqual( {} );
+		await expect( readPreferences() ).resolves.toEqual( before );
 	} );
 } );
 
@@ -231,11 +232,11 @@ describe( '/api/onboarding-hints', () => {
 		const response = await fetch( `${ server.url }/api/onboarding-hints`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { walkthroughStep: 'share', annotateHintDismissed: true } ),
+			body: JSON.stringify( { walkthroughStep: 'try-chat', annotateHintDismissed: true } ),
 		} );
 		expect( response.status ).toBe( 204 );
 		expect( await readPreferences() ).toMatchObject( {
-			onboardingHints: { walkthroughStep: 'share', annotateHintDismissed: true },
+			onboardingHints: { walkthroughStep: 'try-chat', annotateHintDismissed: true },
 		} );
 		const invalid = await fetch( `${ server.url }/api/onboarding-hints`, {
 			method: 'PATCH',
@@ -244,7 +245,7 @@ describe( '/api/onboarding-hints', () => {
 		} );
 		expect( invalid.status ).toBe( 400 );
 		expect( await readPreferences() ).toMatchObject( {
-			onboardingHints: { walkthroughStep: 'share' },
+			onboardingHints: { walkthroughStep: 'try-chat' },
 		} );
 	} );
 

@@ -93,8 +93,24 @@ it.each( [
 	expect( await readOnboardingHints() ).toMatchObject( { walkthroughStep: 'ineligible' } );
 } );
 
+it( 'recognizes a previously used installation even without onboarding or sites', async () => {
+	await updateConfig( ( config ) => {
+		config.stats.lastBump = { launch: { daily: 1 } };
+	} );
+	await initializeWalkthrough();
+	expect( await readOnboardingHints() ).toMatchObject( { walkthroughStep: 'ineligible' } );
+} );
+
 it( 'excludes users with existing CLI sites', async () => {
-	await updateConfig( ( config ) => { config.sites.push( { id: 'existing', name: 'Existing', path: '/sites/existing', port: 8881, phpVersion: '8.3' } ); } );
+	await updateConfig( ( config ) => {
+		config.sites.push( {
+			id: 'existing',
+			name: 'Existing',
+			path: '/sites/existing',
+			port: 8881,
+			phpVersion: '8.3',
+		} );
+	} );
 	await initializeWalkthrough();
 	expect( await readOnboardingHints() ).toMatchObject( { walkthroughStep: 'ineligible' } );
 } );

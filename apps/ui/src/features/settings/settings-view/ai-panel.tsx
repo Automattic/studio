@@ -7,7 +7,7 @@ import {
 	needsHost,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import {
@@ -17,11 +17,13 @@ import {
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
+import { useWalkthroughTracking } from '@/data/walkthrough-analytics';
 import { Markdown } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
-import { Button, Input, Menu } from '@/lib/ui';
+import { Button, FeaturePopover, Input, Menu } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
 import { ProviderModels } from './provider-models';
 import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
@@ -261,9 +263,11 @@ export function ProviderRow( {
 export function AiProviders( {
 	providers,
 	onManageCredits,
+	onResumeTour,
 }: {
 	providers: AiProviderId[];
 	onManageCredits: () => void;
+	onResumeTour: () => void;
 } ) {
 	const settings = useAiSettings();
 	const { data: user, isLoading: userLoading } = useAuthUser();
@@ -282,16 +286,44 @@ export function AiProviders( {
 	} );
 	const setProvider = useSetAiProvider();
 	const isOffline = useOffline();
-	const [ wpcomRequested, setWpcomRequested ] = useState( false );
+	const [ wpcomRequested, setWpcomRequested ] = useState< 'settings' | 'tour' >();
+
+	const { data: hints } = useOnboardingHints();
+	const [ connectButton, setConnectButton ] = useState< HTMLButtonElement | null >( null );
+	const [ dismissedJourney, setDismissedJourney ] = useState< string >();
+	const connectRef = useCallback(
+		( button: HTMLButtonElement | null ) => {
+			promptRef( button );
+			setConnectButton( button );
+		},
+		[ promptRef ]
+	);
+	const isTourConnection = hints?.walkthroughStep === 'composer' && origin?.intent === 'build';
+	const tourOpen =
+		!! connectButton &&
+		! user &&
+		! userLoading &&
+		! isOffline &&
+		isTourConnection &&
+		dismissedJourney !== origin?.journey_id;
+	const trackTour = useWalkthroughTracking( 'wpcom-connect', tourOpen );
+	const dismissTour = () => setDismissedJourney( origin?.journey_id );
 
 	// Connecting WordPress.com finishes once the sign-in lands.
 	const { mutate: selectProvider } = setProvider;
 	useEffect( () => {
 		if ( wpcomRequested && user ) {
-			setWpcomRequested( false );
-			selectProvider( 'wpcom' );
+			setWpcomRequested( undefined );
+			selectProvider( 'wpcom', {
+				onSuccess: () => {
+					if ( wpcomRequested === 'tour' ) {
+						trackTour( 'authenticated', 'resumed' );
+						onResumeTour();
+					}
+				},
+			} );
 		}
-	}, [ wpcomRequested, user, selectProvider ] );
+	}, [ wpcomRequested, user, selectProvider, onResumeTour, trackTour ] );
 
 	return (
 		<SettingsGroup
@@ -324,20 +356,64 @@ export function AiProviders( {
 				<Button
 					className={ styles.externalConnect }
 					disabled={ userLoading || ( ! user && isOffline ) }
-					ref={ promptRef }
+					ref={ connectRef }
 					aria-label={ user ? undefined : __( 'Connect to WordPress.com' ) }
 					onClick={ () => {
 						if ( user ) {
 							onManageCredits();
 							return;
 						}
-						setWpcomRequested( true );
-						login.mutate( undefined, { onError: () => setWpcomRequested( false ) } );
+						if ( isTourConnection ) trackTour( 'connect' );
+						dismissTour();
+						setWpcomRequested( isTourConnection ? 'tour' : 'settings' );
+						login.mutate( undefined, {
+							onError: () => {
+								if ( isTourConnection ) trackTour( 'authentication_failed' );
+								setWpcomRequested( undefined );
+							},
+						} );
 					} }
 				>
 					{ user ? __( 'Manage AI credits' ) : __( 'Connect' ) }
 					{ ! user ? <ExternalLinkIcon data-icon="inline-end" /> : null }
 				</Button>
+				{ tourOpen && connectButton ? (
+					<FeaturePopover.Root
+						open
+						modal={ false }
+						onOpenChange={ ( open, details ) => {
+							if ( ! open && details.reason === 'escape-key' ) {
+								details.event.stopPropagation();
+								trackTour( 'escape' );
+								dismissTour();
+							}
+						} }
+					>
+						<FeaturePopover.Popup
+							anchor={ connectButton }
+							side="right"
+							align="start"
+							sideOffset={ 8 }
+							backdrop={ false }
+							initialFocus={ false }
+							finalFocus={ false }
+							title={ __( 'Connect with WordPress.com' ) }
+							description={ __(
+								'Sign in or create a free account to start making changes to your site through chat.'
+							) }
+							footer={
+								<FeaturePopover.Navigation
+									nextLabel={ __( 'Got it' ) }
+									onNext={ () => {
+										trackTour( 'dismiss' );
+										dismissTour();
+										connectButton.focus();
+									} }
+								/>
+							}
+						/>
+					</FeaturePopover.Root>
+				) : null }
 			</SettingsRow>
 			{ providers
 				.filter( ( id ) => id !== 'wpcom' )

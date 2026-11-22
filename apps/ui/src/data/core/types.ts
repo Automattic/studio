@@ -821,6 +821,7 @@ export interface OnboardingHintsState {
 		| 'annotate'
 		| 'share'
 		| 'publish'
+		| 'try-chat'
 		| 'completed'
 		| 'skipped'
 		| 'ineligible';

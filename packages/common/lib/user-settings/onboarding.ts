@@ -13,9 +13,12 @@ export async function initializeWalkthrough(): Promise< void > {
 			hints.tourCompletedVersion !== undefined ||
 			hints.tourDismissedVersion !== undefined ||
 			hints.whatsNewSeenVersion !== undefined ||
-			( Array.isArray( config.sites ) && config.sites.length > 0 ) ||
-			( Array.isArray( config.snapshots ) && config.snapshots.length > 0 );
-		config.preferences.onboardingHints = { ...hints, walkthroughStep: usedBefore ? 'ineligible' : 'create' };
+			config.sites.length > 0 ||
+			config.snapshots.length > 0;
+		config.preferences.onboardingHints = {
+			...hints,
+			walkthroughStep: usedBefore ? 'ineligible' : 'create',
+		};
 	} );
 }
 

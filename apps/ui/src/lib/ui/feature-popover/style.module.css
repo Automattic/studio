@@ -73,12 +73,12 @@
 	}
 
 	.card .progress {
-		color: var( --muted-foreground );
+		color: var( --accent-foreground );
 	}
 
 	.card .actions button {
 		--button-background: var( --muted );
-		--button-hover-background: var( --hover );
+		--button-hover-background: var( --accent-surface-muted-hover );
 		--button-hover-color: var( --accent-foreground );
 		color: var( --accent-foreground );
 	}

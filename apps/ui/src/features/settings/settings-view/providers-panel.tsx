@@ -206,9 +206,11 @@ function HostingProviders( {
 
 export function ProvidersPanel( {
 	onManageCredits,
+	onResumeTour,
 	spacefast,
 }: {
 	onManageCredits: () => void;
+	onResumeTour: () => void;
 	spacefast: SpacefastConnectControl;
 } ) {
 	const { loopbackSignIn } = useConnector().capabilities;
@@ -222,7 +224,11 @@ export function ProvidersPanel( {
 	return (
 		<div className={ styles.preferencesPanel }>
 			<ProviderDefaults aiProviders={ aiProviders } hostingProviders={ hostingProviders } />
-			<AiProviders providers={ aiProviders } onManageCredits={ onManageCredits } />
+			<AiProviders
+				providers={ aiProviders }
+				onManageCredits={ onManageCredits }
+				onResumeTour={ onResumeTour }
+			/>
 			<HostingProviders providers={ hostingProviders } spacefast={ spacefast } />
 		</div>
 	);

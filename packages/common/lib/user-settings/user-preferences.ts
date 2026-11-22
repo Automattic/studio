@@ -351,6 +351,7 @@ export const onboardingHintsSchema = z
 				'annotate',
 				'share',
 				'publish',
+				'try-chat',
 				'completed',
 				'skipped',
 				'ineligible',

@@ -1,8 +1,8 @@
 import { AGENT_APP_IDS, AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
 import {
-	ACCOUNT_PROVIDER_IDS,
 	AI_PROVIDER_IDS,
 	getProvider,
+	getProviderSites,
 	SITES_PROVIDER_IDS,
 	needsHost,
 } from '@studio/providers';
@@ -77,6 +77,8 @@ type Setting = {
 	aliases?: string[];
 	// Shown only where a provider's sign-in can come back to this computer.
 	loopbackOnly?: boolean;
+	// Shown only where WordPress Studio runs on the user's computer.
+	localMachineOnly?: boolean;
 };
 
 type SectionIcon = ComponentType< { className?: string } >;
@@ -319,20 +321,19 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'hosting-providers'
 				),
 				setting( 'navigate', __( 'Default hosting provider' ), '', 'default-hosting-provider' ),
-				...SITES_PROVIDER_IDS.filter( ( id ) => ACCOUNT_PROVIDER_IDS.includes( id ) ).map(
-					( id ) => {
-						const { label, description } = getProvider( id );
-						return {
-							...setting(
-								'navigate',
-								id === 'wpcom' ? __( 'WordPress.com hosting' ) : label,
-								description?.() ??
-									__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
-								id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
-							),
-						};
-					}
-				),
+				...SITES_PROVIDER_IDS.map( ( id ) => {
+					const { label, description } = getProvider( id );
+					return {
+						...setting(
+							'navigate',
+							id === 'wpcom' ? __( 'WordPress.com hosting' ) : label,
+							description?.() ??
+								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
+							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
+						),
+						localMachineOnly: getProviderSites( id ).connect?.hostOnly,
+					};
+				} ),
 			],
 		},
 		{
@@ -626,7 +627,10 @@ export function getSections(
 		.map( ( section ) => ( {
 			...section,
 			settings: section.settings.filter(
-				( entry ) => shown( entry.id ) && ( loopbackSignIn || ! entry.loopbackOnly )
+				( entry ) =>
+					shown( entry.id ) &&
+					( localMachine || ! entry.localMachineOnly ) &&
+					( loopbackSignIn || ! entry.loopbackOnly )
 			),
 		} ) );
 }

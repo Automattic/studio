@@ -1,4 +1,3 @@
-<!-- DRAFT: batch rewrite of cli.md. Keeps the URL https://wordpress.studio/docs/cli/. Renamed headings change anchors: in the same PR, update blueprints/index.md (cli/#creating-a-local-site-using-blueprints-gallery → cli/#create-a-site-from-a-blueprint). -->
 # WordPress Studio CLI
 
 WordPress Studio CLI is the `studio` command. It lets you use [WordPress Studio](https://wordpress.studio/docs/) from your terminal to create and run local sites, share previews, publish and pull sites, and run WP-CLI, whether WordPress Studio is open or not. It comes with the WordPress Studio app, and you can also install it on its own.
@@ -14,7 +13,7 @@ Use the CLI to:
 - Work with AI coding agents. Every site comes with an `AGENTS.md` file.
 - Add WordPress Studio to scripts and build steps.
 
-## Install the CLI
+## Installation
 
 Choose one way to install the CLI. If you already have the WordPress Studio app, turn on the CLI in its settings.
 
@@ -72,7 +71,7 @@ This stops your running sites and removes the CLI and its `PATH` entry. Your sit
 | npm | `npm rm -g wp-studio` |
 | WordPress Studio app | Uninstall the app |
 
-## How commands work
+## Usage
 
 Commands that manage local sites, such as `studio create` or `studio start`, are top-level commands. Other commands are grouped by area:
 
@@ -285,7 +284,6 @@ A [preview](https://wordpress.studio/docs/preview-sites/) is a temporary copy of
 | `studio preview list` | Lists the site’s previews. Add `--all` for the previews of every local site |
 | `studio preview update <host>` | Updates a preview with your local changes |
 | `studio preview set <host>` | Changes a preview’s settings, such as its name |
-| `studio preview launch <host>` | Turns a preview into a live site on WordPress.com |
 | `studio preview delete <host>` | Deletes a preview, or every preview with `--all` |
 
 ### Create a preview
@@ -324,14 +322,6 @@ studio preview delete <host>
 # Delete all of your previews
 studio preview delete --all
 ```
-
-### Turn a preview into a live site
-
-```bash
-studio preview launch <host>
-```
-
-This opens WordPress.com, where you choose a domain and a plan. When you check out, the site goes live with everything that was on the preview. `studio preview create` and `studio preview update` also print this link.
 
 ## Publish and pull
 
@@ -473,7 +463,7 @@ When you work with an agent:
 
 ### Why does my terminal say studio isn’t found?
 
-After you install with the standalone installer, open a new terminal so `studio` is on your `PATH`. If you use the CLI that comes with the app, check that **WordPress Studio CLI for terminal** is turned on in **Settings → General**. The “not found” message comes from your shell, not from WordPress Studio. TODO: list the exact message for zsh, bash, and PowerShell.
+After you install with the standalone installer, open a new terminal so `studio` is on your `PATH`. If you use the CLI that comes with the app, check that **WordPress Studio CLI for terminal** is turned on in **Settings → General**. The “not found” message comes from your shell, not from WordPress Studio.
 
 ### Why can’t I turn off WordPress Studio CLI for terminal?
 

@@ -1,4 +1,3 @@
-<!-- DRAFT: batch rewrite of studio-code/index.md. Keeps the URL https://wordpress.studio/docs/studio-code/ and the anchors other pages link to (#ai-providers, #designing-a-site, #send-feedback-from-a-chat). -->
 # WordPress Studio Code
 
 WordPress Studio Code is the agent built into WordPress Studio. Describe what you want in the chat, and it builds and changes your site for you. It creates themes and plugins, edits files, runs WP-CLI commands, creates previews, and publishes your site.
@@ -7,8 +6,8 @@ WordPress Studio Code is the agent built into WordPress Studio. Describe what yo
 
 ## Before you start
 
-- An AI provider. To use WordPress.com AI credits, log in with your WordPress.com account and [add a payment method on WordPress.com](http://wordpress.com/me/purchases/add-payment-method), which is required to prevent abuse. To use another provider instead, see [AI providers](#ai-providers).
-- For the terminal only: [WordPress Studio CLI](https://wordpress.studio/docs/cli/#install-the-cli), or Node.js to run it with `npx`.
+- An AI provider. To use WordPress.com AI credits, log in with your WordPress.com account and [add a payment method on WordPress.com](http://wordpress.com/me/purchases/add-payment-method), which is required to prevent abuse. To use another provider instead, see [AI providers](https://wordpress.studio/docs/studio-code/#ai-providers).
+- For the terminal only: [WordPress Studio CLI](https://wordpress.studio/docs/cli/#installation), or Node.js to run it with `npx`.
 
 ## Start a chat in the desktop app
 
@@ -22,7 +21,7 @@ The agent replies in the chat and makes the changes in your site. If you haven�
 
 ## Start a chat in the terminal
 
-If the WordPress Studio app is installed with the [CLI turned on](https://wordpress.studio/docs/cli/#install-the-cli), run:
+If the WordPress Studio app is installed with the [CLI turned on](https://wordpress.studio/docs/cli/#installation), run:
 
 ```bash
 studio code
@@ -161,7 +160,6 @@ The agent needs an AI provider to build. Use the AI you already have, or start w
 - **Google Gemini**, with an API key
 - **GitHub Copilot**, with a Copilot plan
 - **Meta**, with an API key
-- **Local LLM**, with a model server you run, such as Ollama or LM Studio
 
 ![The Providers page of WordPress Studio's Settings: Default AI provider and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, and Meta with Connect buttons.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
@@ -190,9 +188,9 @@ You can also ask the agent in your own words to report something to the WordPres
 
 ## Slash commands
 
-In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see the common ones: **Add files** and the commands first, then the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, **SEO Audit** for `/rank-me-up`, and **Send feedback** for `/feedback`.
+In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see the common ones: **Add files** and the commands first, then the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance audit** for `/need-for-speed`, **SEO audit** for `/rank-me-up`, and **Send feedback** for `/feedback`.
 
-![The chat box + menu open, listing Add files, Annotate, and Connect AI providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, Liberate, and Send feedback.](../../../../screenshots/images/composer-add-menu.webp)
+![The chat box + menu open, listing Add files, Annotate, and Connect AI providers, then Skills: Taxonomist, Performance audit, SEO audit, Liberate, and Send feedback.](../../../../screenshots/images/composer-add-menu.webp)
 
 | Command | Description | Available in |
 | --- | --- | --- |
@@ -205,7 +203,7 @@ In the desktop app, type `/` in the chat box to list the commands and skills tha
 | `/credits` | Show your AI credit balance and buy more AI credits | Terminal |
 | `/disconnect` | Disconnect a provider | Terminal |
 | `/exit` | Exit the chat | Terminal |
-| `/feedback` | Send feedback about WordPress Studio to the WordPress Studio team (shown as **Send feedback**). See [Send feedback from a chat](#send-feedback-from-a-chat) | Terminal and desktop |
+| `/feedback` | Send feedback about WordPress Studio to the WordPress Studio team (shown as **Send feedback**). See [Send feedback from a chat](https://wordpress.studio/docs/studio-code/#send-feedback-from-a-chat) | Terminal and desktop |
 | `/liberate` | Migrate and rebuild a site from a closed platform to WordPress | Terminal and desktop |
 | `/local` | Switch a chat that works on the live site back to the local site (shown as **Work on local site**) | Desktop |
 | `/login` | Log in to WordPress.com | Terminal |
@@ -219,7 +217,6 @@ In the desktop app, type `/` in the chat box to list the commands and skills tha
 | `/start`, `/stop` | Start or stop the active site (shown as **Start site** and **Stop site**) | Desktop |
 | `/swag` | Treat yourself to some WordPress swag | Terminal |
 | `/taxonomist` | Optimize your category taxonomy | Terminal and desktop |
-| `/thinking` | Set how much the model thinks in this chat. WordPress.com tiers set this for you | Terminal |
 
 ## Terminal-specific guidance
 
@@ -271,7 +268,7 @@ In the desktop app, when a WordPress.com chat can’t send yet, the chat box say
 | “Add a payment method to use WordPress.com AI.” | Click **Set up** to add one on WordPress.com. WordPress Studio checks again when you come back to the app. |
 | “Studio Code AI is currently available through limited beta access.” | Click **Learn more**. |
 | “Connect a different provider to continue this chat.” | Click **Connect** to open **Settings → Providers**. |
-| “Add AI credits to send another message.” | Click **Add credits** to buy more. See [What happens when you reach the limit](#what-happens-when-you-reach-the-limit). |
+| “Add AI credits to send another message.” | Click **Add credits** to buy more. See [What happens when you reach the limit](https://wordpress.studio/docs/studio-code/#what-happens-when-you-reach-the-limit). |
 
 ### Why can’t I choose Balanced or Strong?
 

@@ -1,4 +1,3 @@
-<!-- DRAFT: batch rewrite of sync.md. Keeps the URL https://wordpress.studio/docs/sync/ and the anchors other pages link to. -->
 # Publish and pull your site
 
 To put your local site online, connect it to a website on WordPress.com or Pressable and click **Publish changes** in the **Publish** panel. To bring the website’s latest version into WordPress Studio, click **Pull changes**. Pulling copies the website into your local site and leaves the website unchanged.
@@ -26,14 +25,12 @@ Publishing and pulling rely on [Jetpack Backups](https://jetpack.com/support/bac
 | WordPress.com, paid plan | [Activate your plan features](https://wordpress.com/support/activate-your-plan/), if you haven’t. Commerce plan sites are activated automatically. |
 | Pressable | Activate and connect the Jetpack Security plugin, which Pressable includes. Use the same WordPress.com account in Jetpack and in WordPress Studio, or the site won’t appear in the list of sites to connect. See the [Pressable documentation](https://pressable.com/knowledgebase/studio-for-pressable/). |
 
-<!-- TODO: “Commerce plan sites are activated automatically” comes from trunk docs. The app only checks whether the plan includes the studio-sync feature, so the Studio source can’t confirm it. -->
-
 ### Hosting providers
 
 To publish from WordPress Studio, connect an account under **Hosting providers** in **Settings → Providers**. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) covers that page in full.
 
 - **WordPress.com** publishes to a new or existing WordPress.com site, or updates a site you host on Pressable. Click **Connect** to log in with your WordPress.com account.
-- **[Spacefast](https://spacefast.com)** hosts a static copy of your site. See [Publish a static copy to Spacefast](#publish-a-static-copy-to-spacefast).
+- **[Spacefast](https://spacefast.com)** hosts a static copy of your site. See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast).
 
 **Default hosting provider** sets which connected provider opens when you publish a site you haven’t published yet. If you’ve connected only one, WordPress Studio opens that one. Otherwise, it asks **Where do you want to publish?**
 
@@ -116,7 +113,7 @@ Publishing replaces the parts of the website you choose with the same parts of y
 
 1.  In the sidebar, select the local site.
 2.  Click **Publish** at the top right of the site preview.
-3.  If the local site is connected to more than one website, [choose one](#choose-a-connected-website).
+3.  If the local site is connected to more than one website, [choose one](https://wordpress.studio/docs/sync/#choose-a-connected-website).
 4.  Click **Publish changes**.
 5.  Under **What to publish**, choose **Entire site**, **Files only**, **Content and settings only**, or **Choose files…**.
 6.  Click **Publish changes**.
@@ -155,7 +152,7 @@ Pulling replaces the parts of your local site you choose with the same parts of 
 
 1.  In the sidebar, select the local site.
 2.  Click **Publish** at the top right of the site preview.
-3.  If the local site is connected to more than one website, [choose one](#choose-a-connected-website).
+3.  If the local site is connected to more than one website, [choose one](https://wordpress.studio/docs/sync/#choose-a-connected-website).
 4.  Click **Pull changes**.
 5.  Under **What to pull**, choose **Entire site**, **Files only**, **Content and settings only**, or **Choose files…**.
 6.  Click **Pull changes**.
@@ -204,7 +201,7 @@ See [Publish and pull](https://wordpress.studio/docs/cli/#publish-and-pull) in t
 
 ## Limits
 
-- Publishing and pulling support sites up to 5 GB. If your selection is larger, WordPress Studio asks you to choose fewer files. You can still publish parts of a site with **Choose files…**, as long as the selection is under 5 GB.
+- You can publish up to 5 GB at a time to WordPress.com. If your selection is larger, WordPress Studio tells you it exceeds the 5 GB publishing limit and won’t publish until you choose fewer files, for example with **Choose files…**. You can pull a larger site, but WordPress Studio warns you that publishing it back may fail.
 - If the website doesn’t have a backup yet, such as a site on a free plan, you can pull **Entire site**, **Files only**, or **Content and settings only**. **Choose files…** is unavailable until the website has a backup.
 - While a pull or publish is running, other actions on that site, such as starting and stopping it, are unavailable.
 - If you quit WordPress Studio during a pull or publish, WordPress Studio warns you first. If the operation can still be cancelled, quitting cancels it. If it can no longer be stopped safely, it keeps running and appears again in the **Publish** panel when you relaunch WordPress Studio.
@@ -224,7 +221,7 @@ WordPress Studio turns off both buttons, and tells you why, when:
 
 ### Why doesn’t my Pressable site appear in the list?
 
-Jetpack on the Pressable site must be activated, connected, and using the same WordPress.com account you use in WordPress Studio. See [Compatible sites](#compatible-sites).
+Jetpack on the Pressable site must be activated, connected, and using the same WordPress.com account you use in WordPress Studio. See [Compatible sites](https://wordpress.studio/docs/sync/#compatible-sites).
 
 ### Why can’t I create a site from the Connect tab?
 

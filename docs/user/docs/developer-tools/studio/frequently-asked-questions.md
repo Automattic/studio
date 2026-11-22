@@ -1,7 +1,6 @@
-<!-- DRAFT: batch rewrite of frequently-asked-questions.md. Keeps the URL https://wordpress.studio/docs/frequently-asked-questions/ and every question heading other pages link to. -->
 # WordPress Studio: Frequently asked questions
 
-This page answers common questions about the [WordPress Studio](https://wordpress.studio/) app, [WordPress Studio Code](#wordpress-studio-code-faqs), and [publishing and pulling](#publishing-and-pulling-faqs). Each answer links to the page with the full steps.
+This page answers common questions about the [WordPress Studio](https://wordpress.studio/) app, [WordPress Studio Code](https://wordpress.studio/docs/frequently-asked-questions/#wordpress-studio-code-faqs), and [publishing and pulling](https://wordpress.studio/docs/frequently-asked-questions/#wordpress-studio-sync-faqs). Each answer links to the page with the full steps.
 
 **Applies to:** the WordPress Studio app on macOS, Windows, and Linux. Answers that need a WordPress.com account or the CLI say so.
 
@@ -45,14 +44,17 @@ If the site files include a `wp-config.php` file, WordPress Studio skips the SQL
 
 To switch an existing WordPress Studio site from SQLite to MySQL:
 
-1.  Stop the site.
-2.  Open the site’s directory.
-3.  In `wp-content`, delete the `db.php` file and the `database` directory.
-4.  In `wp-content/mu-plugins`, delete the `sqlite-database-integration` directory.
-5.  In `wp-config.php`, enter your MySQL server’s credentials.
-6.  Start your MySQL server.
-7.  Start the site in WordPress Studio.
-8.  Open the site.
+1.  Export the site’s database: in the site menu, choose **Export → Export database** to save a `.sql` file. See [Export a site](https://wordpress.studio/docs/import-export/#export-a-site).
+2.  Start your MySQL server, create a database, and import the `.sql` file into it with a MySQL tool of your choice.
+3.  Stop the site.
+4.  Open the site’s directory.
+5.  In `wp-content`, delete the `db.php` file, and move the `database` directory out of the site’s directory as a backup. Don’t delete it until the site works with MySQL.
+6.  In `wp-content/mu-plugins`, delete the `sqlite-database-integration` directory.
+7.  In `wp-config.php`, add `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_HOST` with your MySQL database’s details. WordPress Studio leaves these settings out of the sites it creates.
+8.  Start the site in WordPress Studio.
+9.  Open the site.
+
+WordPress Studio sets up SQLite again if `db.php`, the `database` directory, or the `sqlite-database-integration` directory is still in the site, so remove all three.
 
 WordPress Studio’s phpMyAdmin supports SQLite only, so **Tools → Database** and **Open in → phpMyAdmin** are unavailable for a site that uses your own MySQL server. Use a separate database client, such as the one that comes with your MySQL server.
 
@@ -84,7 +86,7 @@ WordPress Studio offers to “speed up site creation” the first time you open 
 
 ### How can I regenerate my thumbnails?
 
-Run this [WordPress Studio CLI](https://wordpress.studio/docs/cli/#install-the-cli) command from the site’s directory:
+Run this [WordPress Studio CLI](https://wordpress.studio/docs/cli/#installation) command from the site’s directory:
 
 ```bash
 studio wp media regenerate --yes --only-missing
@@ -190,7 +192,7 @@ WordPress.com AI credits have no monthly prompt limit. Prompts through WordPress
 
 Type `/feedback` in the chat to [send feedback from a chat](https://wordpress.studio/docs/studio-code/#send-feedback-from-a-chat), or [write to support](https://developer.wordpress.com/contact/).
 
-## Publishing and pulling FAQs
+## WordPress Studio Sync FAQs
 
 For the full steps, see [Publish and pull your site](https://wordpress.studio/docs/sync/).
 

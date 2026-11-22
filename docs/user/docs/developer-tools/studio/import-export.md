@@ -1,4 +1,3 @@
-<!-- DRAFT: batch rewrite of import-export.md. Keeps the URL https://wordpress.studio/docs/import-export/. -->
 # Import and export sites
 
 To add a site from a backup file, choose **Import** in the **Add site** dialog and select the file. To save a local site as a backup file, choose **Export** from the site menu. You can also update an existing WordPress Studio site from a backup.
@@ -9,7 +8,7 @@ If your site is on a paid WordPress.com plan or on [Pressable](https://pressable
 
 ## Before you start
 
-- A backup file in a [supported format](#supported-backup-formats). You can download a backup of a WordPress.com site from the site or from Jetpack’s Activity Log page.
+- A backup file in a [supported format](https://wordpress.studio/docs/import-export/#supported-backup-formats). You can download a backup of a WordPress.com site from the site or from Jetpack’s Activity Log page.
 
 ## Add a new site from a backup
 
@@ -88,7 +87,7 @@ import-to-studio/
 └── wp-config.php
 ```
 
-To import it, [add a new site from the backup](#add-a-new-site-from-a-backup).
+To import it, [add a new site from the backup](https://wordpress.studio/docs/import-export/#add-a-new-site-from-a-backup).
 
 ## Supported backup formats
 
@@ -122,7 +121,7 @@ Exports from WordPress Studio also have a `meta.json` file, which records the si
 
 ### What do I do when an import fails?
 
-WordPress Studio explains what went wrong and lets you try again. To see more detail, [open the logs](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-access-wordpress-studio-logs). TODO: add the exact error messages for common import failures.
+WordPress Studio explains what went wrong and lets you try again. To see more detail, [open the logs](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-access-wordpress-studio-logs).
 
 ### Why can’t I add the site to this folder?
 

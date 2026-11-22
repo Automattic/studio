@@ -1,13 +1,16 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { useConnector } from '@/data/core';
 import { useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { restartWalkthroughTracking } from '@/data/walkthrough-analytics';
 
 export const GETTING_STARTED_REPLAY_EVENT = 'studio:getting-started-replay';
 
 export function useOpenGettingStarted() {
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const { data: sites } = useSites();
 	const { mutateAsync: setHints, isPending } = useSetOnboardingHints();
 	const preview = useOptionalSessionPreviewUI();
@@ -19,6 +22,7 @@ export function useOpenGettingStarted() {
 		await setHints( {
 			walkthroughStep: siteId ? 'intro' : 'create',
 		} );
+		restartWalkthroughTracking( connector );
 		window.dispatchEvent( new Event( GETTING_STARTED_REPLAY_EVENT ) );
 		if ( siteId ) {
 			setChatHidden?.( false, siteId );
@@ -26,7 +30,7 @@ export function useOpenGettingStarted() {
 		} else {
 			await navigate( { to: '/sites', search: { addSite: 'create' } } );
 		}
-	}, [ sites, siteId, isPending, setHints, setChatHidden, navigate ] );
+	}, [ connector, sites, siteId, isPending, setHints, setChatHidden, navigate ] );
 
 	return { open, isPending };
 }

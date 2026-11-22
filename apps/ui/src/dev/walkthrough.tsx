@@ -35,9 +35,10 @@ const connector = createInMemoryConnector(
 		getOnboardingCompleted: async () => true,
 		getAiSettings: async () => {
 			if ( gate === 'provider-error' ) throw new Error( 'Provider unavailable' );
-			return anthropic
-				? aiSettings( 'anthropic', [ 'anthropic' ] )
-				: aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] );
+			return aiSettings( anthropic ? 'anthropic' : 'wpcom', [
+				...( signedIn ? [ 'wpcom' as const ] : [] ),
+				...( anthropic ? [ 'anthropic' as const ] : [] ),
+			] );
 		},
 		getStudioAssistantQuota: async () => {
 			if ( gate === 'offline' || gate === 'quota-error' ) {

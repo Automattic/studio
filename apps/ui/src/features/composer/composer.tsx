@@ -215,6 +215,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		blockingNotice ??
 		( isOutOfCredits
 			? {
+					walkthroughReason: 'credits',
 					walkthroughTitle: __( 'Out of credits' ),
 					walkthroughDescription: __( 'Add AI credits to keep the conversation going.' ),
 					message: __( 'Add AI credits to send another message.' ),

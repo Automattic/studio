@@ -76,7 +76,7 @@ export function Navigation( {
 	stepLabel?: string;
 	nextLabel?: string;
 	skipLabel?: string;
-	onNext?: () => void;
+	onNext: () => void;
 	onSkip?: () => void;
 } ) {
 	return (
@@ -92,11 +92,9 @@ export function Navigation( {
 						{ skipLabel }
 					</Button>
 				) : null }
-				{ onNext ? (
-					<Button variant="accent" size="sm" onClick={ onNext }>
-						{ nextLabel }
-					</Button>
-				) : null }
+				<Button variant="accent" size="sm" onClick={ onNext }>
+					{ nextLabel }
+				</Button>
 			</div>
 		</div>
 	);

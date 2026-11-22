@@ -817,3 +817,33 @@ that attempt and its task marker. It is the same millisecond clock used for the 
 a retry refreshes it. Correlation requires matching journey, placement, intent and initiation timestamp,
 with task completion after successful auth and no later than initiation plus 24h. This adds timing
 metadata, not a new identifier, destination or identity mechanism.
+
+### Getting started walkthrough
+
+The renderer sends these through the existing connector and host Tracks wrappers, including the
+normal analytics opt-out and development/test gates.
+
+| Event | When | Properties |
+| --- | --- | --- |
+| `studio_walkthrough_step_viewed` | A tour popover becomes visible, once per step and variant per attempt. Hidden, suspended, and unavailable targets produce no view. Includes the WordPress.com connection tip. | `tour_version` (1), `attempt_id` (random UUID), `source` (`automatic` or `replay`), `step` (`intro`, `create`, `create-design`, `create-blueprint`, `composer`, `annotate`, `publish`, `try-chat`, `wpcom-connect`), `variant` (`default`, `sidebar_closed`, `blocked`, `ready`, `offline`, `provider_error`, `connect`, `quota_error`, `provider_blocked`, `beta_access`, `payment_method`, `credits`) |
+| `studio_walkthrough_action` | A tour button or highlighted target is activated, a tip is dismissed, or the tour ends. Also records WordPress.com authentication and sample-prompt dispatch outcomes. | Same context as views, `action` (`next`, `target_clicked`, `dismiss`, `skip`, `escape`, `finish`, `send_prompt`, `prompt_result`, `connect`, `authenticated`, `authentication_failed`), optional `outcome` (next saved step, terminal `completed`/`skipped`, auth `resumed`, or prompt `sent`/`failed`/`unavailable`), optional `elapsed_ms` since the first view of this step and variant |
+
+An attempt spans route changes and Settings/authentication in one running UI. Explicit replay
+starts a new attempt. A page reload or app restart starts a new attempt at the saved step.
+`source=automatic` includes resumed attempts, so it is not a first-install marker.
+Views are deduplicated across popover remounts and temporary hiding in the same attempt.
+A primary button that activates the highlighted control can emit both `next` and
+`target_clicked`; count by action and unique attempt rather than adding them together.
+
+Measure reach and progression by distinct anonymous installations and by attempts, partitioned by
+tour version and source. A terminal `skipped` outcome is an explicit skip. Infer passive drop-off
+from the last viewed step without a later view or terminal outcome after a defined observation
+window, allowing for users who return later. Closing the app is not reported as an explicit skip.
+Step views and actions describe use of the tour. They do not establish a causal lift.
+
+Use the existing `studio_site_created`, account/auth journey events, `studio_code_message_sent`,
+`studio_code_turn_completed`, `studio_annotation_submitted`, and publish/preview events to measure
+subsequent outcomes on the same anonymous installation over a stated time window. These retain
+their own identifiers and do not carry `attempt_id`; attribution is temporal within an installation.
+Prompt `sent` means the UI dispatch promise resolved. Agent success comes from turn completion.
+The events contain no user-entered text, prompt text, site content, URLs, paths, or account identity.

@@ -70,11 +70,13 @@ const SITE_FORM_SECTIONS: SettingsSectionId[] = [ 'site', 'debugging', 'php' ];
 function StudioSection( {
 	id,
 	onNavigate,
+	onClose,
 	hasSite,
 	spacefast,
 }: {
 	id: SettingsSectionId;
 	onNavigate: ( section: SettingsSectionId ) => void;
+	onClose: () => void;
 	hasSite: boolean;
 	spacefast: SpacefastConnectControl;
 } ) {
@@ -85,7 +87,11 @@ function StudioSection( {
 			return <SharingPanel />;
 		case 'providers':
 			return (
-				<ProvidersPanel onManageCredits={ () => onNavigate( 'usage' ) } spacefast={ spacefast } />
+				<ProvidersPanel
+					onManageCredits={ () => onNavigate( 'usage' ) }
+					onResumeTour={ onClose }
+					spacefast={ spacefast }
+				/>
 			);
 		case 'mcp':
 			return <ExternalAppsPanel />;
@@ -554,6 +560,7 @@ export function SettingsDialog() {
 									<StudioSection
 										id={ section }
 										onNavigate={ go }
+										onClose={ close }
 										hasSite={ !! site }
 										spacefast={ {
 											isPending: spacefast.isPending,

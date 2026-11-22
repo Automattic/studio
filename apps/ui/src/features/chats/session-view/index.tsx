@@ -47,6 +47,7 @@ import { useOpenSettings } from '@/data/use-open-settings';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { walkthroughPromptSenders } from '@/data/walkthrough-prompt';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -377,6 +378,17 @@ function SessionViewContent( {
 		! isQuotaLoading &&
 		! notice &&
 		! isOutOfCredits;
+	const walkthroughComposer = useRef< HTMLDivElement >( null );
+	const canSendWalkthroughPrompt = !! ownerSite && isChatReady && ! composerBusy;
+	useEffect( () => {
+		const element = walkthroughComposer.current;
+		if ( ! element || ! canSendWalkthroughPrompt ) return;
+		walkthroughPromptSenders.set( element, sendWithAutoStart );
+		return () => {
+			walkthroughPromptSenders.delete( element );
+		};
+	}, [ canSendWalkthroughPrompt, sendWithAutoStart ] );
+
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
 		// effect twice for one render, and the second pass must find it empty.
@@ -493,6 +505,8 @@ function SessionViewContent( {
 			}
 			composer={
 				<div
+					ref={ walkthroughComposer }
+					data-walkthrough={ canSendWalkthroughPrompt ? 'try-chat' : undefined }
 					className={ clsx(
 						styles.column,
 						styles.composerColumn,

@@ -47,7 +47,7 @@ it( 'reports only one completion when hosts save concurrently', async () => {
 	expect( completed.filter( Boolean ) ).toHaveLength( 1 );
 } );
 
-it( 'persists hints without losing guide progress or older fields', async () => {
+it( 'persists the annotation hint without losing other tips or guide progress', async () => {
 	await writeOnboardingHints( {
 		tourCompletedVersion: 2,
 		whatsNewSeenVersion: 3,
@@ -88,25 +88,25 @@ it.each( [
 	{ onboardingHints: { migratedFromClassic: true } },
 	{ onboardingHints: { whatsNewSeenVersion: 1 } },
 ] )( 'excludes prior users with no sites: %j', async ( prior ) => {
-	await updateConfig( ( { preferences } ) => Object.assign( preferences, prior ) );
+	await updateConfig( ( config ) => Object.assign( config.preferences, prior ) );
 	await initializeWalkthrough();
 	expect( await readOnboardingHints() ).toMatchObject( { walkthroughStep: 'ineligible' } );
 } );
 
-it( 'excludes users with previous launch stats', async () => {
-	await updateConfig( ( { stats } ) => {
-		stats.lastBump = { launch: { desktop: Date.now() } };
+it( 'recognizes a previously used installation even without onboarding or sites', async () => {
+	await updateConfig( ( config ) => {
+		config.stats.lastBump = { launch: { daily: 1 } };
 	} );
 	await initializeWalkthrough();
 	expect( await readOnboardingHints() ).toMatchObject( { walkthroughStep: 'ineligible' } );
 } );
 
 it( 'excludes users with existing CLI sites', async () => {
-	await updateConfig( ( { sites } ) => {
-		sites.push( {
+	await updateConfig( ( config ) => {
+		config.sites.push( {
 			id: 'existing',
-			path: '/sites/existing',
 			name: 'Existing',
+			path: '/sites/existing',
 			port: 8881,
 			phpVersion: '8.3',
 		} );

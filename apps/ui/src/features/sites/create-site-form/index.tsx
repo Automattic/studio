@@ -539,7 +539,6 @@ export function CreateSiteForm( {
 				loading={ isSubmitting }
 				loadingAnnouncement={ __( 'Adding site' ) }
 				data-testid="create-site-submit"
-				data-walkthrough={ isSubmitting ? undefined : 'create-site' }
 			>
 				{ __( 'Add site' ) }
 			</Button>

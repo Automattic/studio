@@ -59,6 +59,23 @@ afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
 	beforeEach( () => localStorage.clear() );
+	it.each( [ true, false ] )(
+		'offers the database tool only when supported: %s',
+		async ( phpMyAdminSupported ) => {
+			await renderPalette( {
+				connector: createFakeConnector( {
+					sites: [ { ...testSite, running: true, phpMyAdminSupported } ],
+				} ),
+				path: '/sites/one/new',
+			} );
+			await openPalette();
+			search( 'Open database' );
+			expect( screen.queryByRole( 'option', { name: /^Open database/ } ) !== null ).toBe(
+				phpMyAdminSupported
+			);
+		}
+	);
+
 	it( 'finds the tour by its aliases and replays it without resetting preferences', async () => {
 		let hints: OnboardingHintsState = {
 			walkthroughStep: 'skipped',
@@ -111,7 +128,9 @@ describe( 'command palette', () => {
 			} )
 		);
 		expect( history.location.pathname ).toBe( '/sites/one' );
-		expect( screen.queryByRole( 'dialog', { name: 'Make any change' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'dialog', { name: 'Chat with your site' } )
+		).not.toBeInTheDocument();
 		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
 		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 	} );
@@ -142,23 +161,6 @@ describe( 'command palette', () => {
 		expect( await screen.findByRole( 'dialog', { name: 'Start from scratch' } ) ).toBeVisible();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
-
-	it.each( [ true, false ] )(
-		'offers the database tool only when supported: %s',
-		async ( phpMyAdminSupported ) => {
-			await renderPalette( {
-				connector: createFakeConnector( {
-					sites: [ { ...testSite, running: true, phpMyAdminSupported } ],
-				} ),
-				path: '/sites/one/new',
-			} );
-			await openPalette();
-			search( 'Open database' );
-			expect( screen.queryByRole( 'option', { name: /^Open database/ } ) !== null ).toBe(
-				phpMyAdminSupported
-			);
-		}
-	);
 
 	it( 'opens a new chat for the current site from the application menu', async () => {
 		const connector = createFakeConnector( { sites: [ testSite ] } );

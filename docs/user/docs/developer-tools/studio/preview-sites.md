@@ -98,23 +98,27 @@ When creating or updating a preview site, WordPress Studio uploads the contents 
 
 The `.deployignore` file uses the same pattern syntax as `.gitignore`. For example:
 
-\# Exclude vendor dependencies
+```gitignore
+# Exclude vendor dependencies
 wp-content/plugins/my-plugin/vendor
 
 # Exclude all log files
-\*.log
+*.log
 
 # Exclude old uploads
 wp-content/uploads/2024
 
 # Exclude a specific plugin
 wp-content/plugins/wordpress-seo
+```
 
 You can also use negation patterns to re-include specific items:
 
-\# Exclude vendor, but keep important-lib
-wp-content/plugins/my-plugin/vendor/\*
+```gitignore
+# Exclude vendor, but keep important-lib
+wp-content/plugins/my-plugin/vendor/*
 !wp-content/plugins/my-plugin/vendor/important-lib
+```
 
 Note: Patterns are relative to the site root directory, not to `wp-content`. The following directories are excluded by default, even without a `.deployignore` file: `.git`, `node_modules`, `.DS_Store`, and `Thumbs.db`. WordPress Studio also leaves out themes that aren’t active (except the parent of the active theme), since they don’t change what the preview shows, and the plugins that WordPress.com provides on every site.
 

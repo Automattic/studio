@@ -4,7 +4,7 @@ import {
 	isAiBlockedError,
 	isOutOfCreditsError,
 	isUsageCapError,
-} from '@studio/agent/protocol/json-events';
+} from '@studio/agent/protocol/errors';
 import { addAssistantMessageUsage, createTokenUsage } from './token-usage';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { TurnStatus } from '@studio/agent/protocol/sessions/types';

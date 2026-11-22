@@ -19,6 +19,7 @@ export const serverConfigSchema = z.object( {
 	isWpAutoUpdating: z.boolean().optional(),
 	fileAccess: siteFileAccessSchema.optional(),
 	enableXdebug: z.boolean().optional(),
+	phpWorkers: z.number().int().positive().optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
 	enableScriptDebug: z.boolean().optional(),
@@ -31,6 +32,7 @@ export const serverConfigSchema = z.object( {
 		.optional(),
 	autoPrependFile: z.string().optional(),
 	openBasedirAllowList: z.array( z.string() ).optional(),
+	phpMyAdminSupported: z.boolean().optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfigSchema >;
@@ -47,8 +49,8 @@ const managerMessageStartServer = z.object( {
 	} ),
 } );
 
-const managerMessageRunBlueprint = z.object( {
-	topic: z.literal( 'run-blueprint' ),
+const managerMessageSetUpSite = z.object( {
+	topic: z.literal( 'set-up-site' ),
 	data: z.object( {
 		config: serverConfigSchema,
 	} ),
@@ -62,7 +64,7 @@ const managerMessageStopServer = z.object( {
 const _managerMessagePayloadSchema = z.discriminatedUnion( 'topic', [
 	managerMessageAbort,
 	managerMessageStartServer,
-	managerMessageRunBlueprint,
+	managerMessageSetUpSite,
 	managerMessageStopServer,
 ] );
 export type ManagerMessagePayload = z.infer< typeof _managerMessagePayloadSchema >;
@@ -71,7 +73,7 @@ const managerMessageBase = z.object( { messageId: z.string() } );
 export const managerMessageSchema = z.discriminatedUnion( 'topic', [
 	managerMessageBase.extend( managerMessageAbort.shape ),
 	managerMessageBase.extend( managerMessageStartServer.shape ),
-	managerMessageBase.extend( managerMessageRunBlueprint.shape ),
+	managerMessageBase.extend( managerMessageSetUpSite.shape ),
 	managerMessageBase.extend( managerMessageStopServer.shape ),
 ] );
 export type ManagerMessage = z.infer< typeof managerMessageSchema >;
@@ -92,7 +94,6 @@ const SITE_START_PHASES = [
 	'blueprint',
 	'symlink_scan',
 	'php_workers',
-	'proxy_ready',
 	'admin_credentials',
 ] as const;
 export type SiteStartPhase = ( typeof SITE_START_PHASES )[ number ];

@@ -352,30 +352,16 @@ describe( 'connectAgentApp for Cursor', () => {
 		).toBe( true );
 	} );
 
-	it( 'uses the plugin Cursor loads from Claude Code, with no copy of its own', async () => {
+	it( 'installs Cursor’s own copy even when Claude Code has the plugin', async () => {
 		recordPlugins( [ 'claude-code' ] );
-
-		await connectAgentApp( 'cursor', studio );
-		expect( fs.existsSync( cursorPlugin() ) ).toBe( false );
-		expect( openUrl ).toHaveBeenLastCalledWith(
-			'cursor://anysphere.cursor-deeplink/plugin/add?id=wp-studio%40studio'
-		);
 		expect(
 			( await detectAgentApps( studio ) ).find( ( app ) => app.id === 'cursor' )?.connected
-		).toBe( true );
-	} );
+		).toBe( false );
 
-	it.skipIf( process.platform === 'win32' )(
-		'preserves Cursor’s local copy when connecting Claude Code',
-		async () => {
-			installCli( `${ SHELL_BIN }/claude` );
-			await connectAgentApp( 'cursor', studio );
-			await connectAgentApp( 'claude-code', studio );
-			expect( fs.existsSync( cursorPlugin() ) ).toBe( true );
-			await connectAgentApp( 'cursor', studio );
-			expect( openUrl ).toHaveBeenLastCalledWith( pluginPage );
-		}
-	);
+		await connectAgentApp( 'cursor', studio );
+		expect( fs.existsSync( cursorPlugin() ) ).toBe( true );
+		expect( openUrl ).toHaveBeenLastCalledWith( pluginPage );
+	} );
 
 	it( 'only opens a plugin Cursor already has, and replaces one for another Studio', async () => {
 		await connectAgentApp( 'cursor', studio );
@@ -396,7 +382,7 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		installCli( `${ SHELL_BIN }/codex` );
 		recordPlugins( [ 'codex' ] );
 		await refreshAgentPlugins( studio );
-		expect( fs.existsSync( marketplace() ) ).toBe( false );
+		expect( fs.existsSync( path.join( home, '.studio' ) ) ).toBe( false );
 
 		await connectAgentApp( 'cursor', studio );
 		await refreshAgentPlugins( { ...studio, nodeBinary: '/another/node' } );
@@ -440,7 +426,7 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		expect( fs.readFileSync( skill, 'utf8' ) ).toBe( '# Build a site, updated' );
 	} );
 
-	it( 'updates Claude Code and preserves Cursor’s local copy', async () => {
+	it( 'updates the plugin in Claude Code and in Cursor’s copy', async () => {
 		installCli( `${ SHELL_BIN }/claude` );
 		await connectAgentApp( 'cursor', studio );
 		recordPlugins( [ 'claude-code' ] );

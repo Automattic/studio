@@ -1,0 +1,19 @@
+[
+	{
+		"url": "moirejournal-menu.wp.build",
+		"atomicSiteId": 240001102,
+		"site": "moire",
+		"name": "Autumn lookbook",
+		"sequence": 2,
+		"ageDays": 1,
+		"preview": "moire"
+	},
+	{
+		"url": "moirejournal.wp.build",
+		"atomicSiteId": 240001101,
+		"site": "moire",
+		"sequence": 1,
+		"ageDays": 4,
+		"preview": "moire"
+	}
+]

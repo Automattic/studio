@@ -1,0 +1,917 @@
+{
+	"%1$dh %2$dm": [
+		"%1$d時間%2$d分"
+	],
+	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
+		"%1$s は WordPress Studio プラグインをインストールできませんでした: %2$s"
+	],
+	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
+		"%1$s は WordPress Studio プラグインを更新できませんでした: %2$s"
+	],
+	"%d B": [
+		"%d B"
+	],
+	"%s KB": [
+		"%s KB"
+	],
+	"%s isn’t installed on this computer.": [
+		"%s はこのコンピューターにインストールされていません。"
+	],
+	"%s preview is ready": [
+		"%s のプレビューの準備ができました"
+	],
+	"A coding agent that runs in your terminal.": [
+		"ターミナルで動作するコーディングエージェント。"
+	],
+	"AI apps": [
+		"AI アプリ"
+	],
+	"AI providers": [
+		"AI プロバイダー"
+	],
+	"API key": [
+		"API キー"
+	],
+	"API key is required": [
+		"API キーは必須です"
+	],
+	"Activate all plugins": [
+		"すべてのプラグインを有効化"
+	],
+	"Activate plugin": [
+		"プラグインを有効化"
+	],
+	"Activate theme": [
+		"テーマを有効化"
+	],
+	"Agent apps": [
+		"エージェントアプリ"
+	],
+	"Agents": [
+		"エージェント"
+	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"ログイン時に、WordPress Studio に ChatGPT プランの使用を許可してください。"
+	],
+	"Annotation tools": [
+		"注釈ツール"
+	],
+	"Anthropic API key": [
+		"Anthropic API キー"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic がこのトークンを拒否しました。claude setup-token をもう一度実行してください。"
+	],
+	"Anthropic’s AI coding agent.": [
+		"Anthropic の AI コーディングエージェント。"
+	],
+	"Appearance reset.": [
+		"外観をリセットしました。"
+	],
+	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
+		"少なくとも1つのオプション (--name、--domain、--https、--php、--wp、--file-access、--xdebug、--php-workers、--admin-username、--admin-password、--admin-email、--debug-log、--debug-display、--script-debug、--environment-type) が必要です。"
+	],
+	"Audit SEO": [
+		"SEO を監査"
+	],
+	"Audit performance": [
+		"パフォーマンスを監査"
+	],
+	"Back to Blueprints": [
+		"ブループリントに戻る"
+	],
+	"Backups": [
+		"バックアップ"
+	],
+	"Blueprint file…": [
+		"ブループリントファイル…"
+	],
+	"Blueprint preview": [
+		"ブループリントのプレビュー"
+	],
+	"Blueprints, backups, and WordPress exports": [
+		"ブループリント、バックアップ、WordPress エクスポート"
+	],
+	"Browse Blueprints": [
+		"ブループリントを参照"
+	],
+	"Browser could not load.": [
+		"ブラウザーを読み込めませんでした。"
+	],
+	"Browser options": [
+		"ブラウザーオプション"
+	],
+	"Browsing data cleared": [
+		"閲覧データを消去しました"
+	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"変更はプッシュされましたが、サイトをローンチできませんでした。プランと権限を確認してから再度公開して、ローンチをやり直してください。"
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"変更はプッシュされましたが、サイトをローンチできませんでした。再度公開して、ローンチをやり直してください。"
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"変更はプッシュされましたが、サイトをローンチできませんでした。メールアドレスを確認してから再度公開して、ローンチをやり直してください。"
+	],
+	"ChatGPT plan": [
+		"ChatGPT プラン"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"現在、ChatGPT プランを利用できません。しばらくしてからもう一度お試しください。"
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT から返されたログイン情報が不完全です。"
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"ChatGPT へのログインを完了できませんでした。もう一度お試しください。"
+	],
+	"Check your internet connection and try again.": [
+		"インターネット接続を確認して、もう一度お試しください。"
+	],
+	"Choose a Blueprint or backup": [
+		"ブループリントまたはバックアップを選択"
+	],
+	"Choose a provider": [
+		"プロバイダーを選択"
+	],
+	"Choose a topic": [
+		"トピックを選択"
+	],
+	"Choose another host": [
+		"別のホストを選択"
+	],
+	"Choose color": [
+		"色を選択"
+	],
+	"Claude subscription": [
+		"Claude サブスクリプション"
+	],
+	"Claude subscription token": [
+		"Claude サブスクリプショントークン"
+	],
+	"Click anything on the page to leave a note": [
+		"ページ上の任意の要素をクリックしてメモを残します"
+	],
+	"Close %s": [
+		"%s を閉じる"
+	],
+	"Close all tabs": [
+		"すべてのタブを閉じる"
+	],
+	"Close other tabs": [
+		"他のタブを閉じる"
+	],
+	"Close tab": [
+		"タブを閉じる"
+	],
+	"Close tabs to the right": [
+		"右側のタブを閉じる"
+	],
+	"Color may be adapted for your theme.": [
+		"色はテーマに合わせて調整される場合があります。"
+	],
+	"Color picker": [
+		"カラーピッカー"
+	],
+	"Connect AI providers": [
+		"AI プロバイダーを連携"
+	],
+	"Connect Spacefast to publish sites.": [
+		"サイトを公開するには Spacefast に接続してください。"
+	],
+	"Connect a provider": [
+		"プロバイダーを連携"
+	],
+	"Connect your WordPress": [
+		"WordPress を連携"
+	],
+	"Continue with GitHub": [
+		"GitHub で続行"
+	],
+	"Copy links": [
+		"リンクをコピー"
+	],
+	"Could not clear browsing data": [
+		"閲覧データを消去できませんでした"
+	],
+	"Could not migrate your sites": [
+		"サイトを移行できませんでした"
+	],
+	"Could not open Spacefast": [
+		"Spacefast を開けませんでした"
+	],
+	"Could not reach Anthropic to verify the credential.": [
+		"認証情報を確認するために Anthropic に接続できませんでした。"
+	],
+	"Could not read the table prefix from wp-config.php": [
+		"wp-config.php からテーブル接頭辞を読み取れませんでした"
+	],
+	"Could not take screenshot": [
+		"スクリーンショットを撮影できませんでした"
+	],
+	"Could not verify the credential with Anthropic.": [
+		"Anthropic で認証情報を確認できませんでした。"
+	],
+	"Couldn't load providers.": [
+		"プロバイダーを読み込めませんでした。"
+	],
+	"Couldn’t load apps.": [
+		"アプリを読み込めませんでした。"
+	],
+	"Couldn’t sign in to WordPress.com": [
+		"WordPress.com にログインできませんでした"
+	],
+	"Create %s": [
+		"%sを作成"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"[Google AI Studio](https://aistudio.google.com/apikey) でキーを作成し、下に貼り付けてください。"
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"[Meta Model API ダッシュボード](https://dev.meta.ai)の「API キー」タブでキーを作成し、下に貼り付けてください。"
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"[Claude Console](https://platform.claude.com/settings/keys) でキーを作成し、下に貼り付けてください。"
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"[OpenAI Platform](https://platform.openai.com/api-keys) でキーを作成し、下に貼り付けてください。"
+	],
+	"Create a new WordPress": [
+		"新しい WordPress を作成"
+	],
+	"Create another preview": [
+		"別のプレビューを作成"
+	],
+	"Create user": [
+		"ユーザーを作成"
+	],
+	"Deactivate all plugins": [
+		"すべてのプラグインを無効化"
+	],
+	"Deactivate plugin": [
+		"プラグインを無効化"
+	],
+	"Default AI provider": [
+		"デフォルトの AI プロバイダー"
+	],
+	"Default browser": [
+		"デフォルトのブラウザー"
+	],
+	"Default code editor": [
+		"デフォルトのコードエディター"
+	],
+	"Default terminal app": [
+		"デフォルトのターミナルアプリ"
+	],
+	"Delete %s": [
+		"%sを削除"
+	],
+	"Delete annotation: %s": [
+		"注釈を削除: %s"
+	],
+	"Delete plugin": [
+		"プラグインを削除"
+	],
+	"Delete theme": [
+		"テーマを削除"
+	],
+	"Delete user": [
+		"ユーザーを削除"
+	],
+	"Design system could not load.": [
+		"デザインシステムを読み込めませんでした。"
+	],
+	"Disable automatic sidebar collapsing": [
+		"サイドバーの自動折りたたみを無効化"
+	],
+	"Discard changes?": [
+		"変更を破棄しますか ?"
+	],
+	"Disconnect a provider": [
+		"プロバイダーの連携を解除"
+	],
+	"Dismiss tip": [
+		"ヒントを閉じる"
+	],
+	"Do more with WordPress": [
+		"WordPress でもっと多くのことを"
+	],
+	"Domains": [
+		"ドメイン"
+	],
+	"Drop to add site": [
+		"ドロップしてサイトを追加"
+	],
+	"Edit annotation: %s": [
+		"注釈を編集: %s"
+	],
+	"Email log": [
+		"メールログ"
+	],
+	"Email log could not load.": [
+		"メールログを読み込めませんでした。"
+	],
+	"Emails sent by your site appear here.": [
+		"サイトから送信されたメールがここに表示されます。"
+	],
+	"Enable anonymous usage statistics": [
+		"匿名の利用統計情報を有効化"
+	],
+	"Enable automatic sidebar collapsing": [
+		"サイドバーの自動折りたたみを有効化"
+	],
+	"Enter a folder name other than “.” or “..”.": [
+		"「.」または「..」以外のフォルダー名を入力してください。"
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"API キーではなく、claude setup-token で取得したトークンを入力してください。"
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Existing WordPress site": [
+		"既存の WordPress サイト"
+	],
+	"Expand panel": [
+		"パネルを展開"
+	],
+	"Export site as static HTML files": [
+		"サイトを静的 HTML ファイルとしてエクスポート"
+	],
+	"External AI apps": [
+		"外部 AI アプリ"
+	],
+	"Failed after %s": [
+		"%s 後に失敗しました"
+	],
+	"Failed to check backup size": [
+		"バックアップのサイズを確認できませんでした"
+	],
+	"Failed to check the preview site": [
+		"プレビューサイトを確認できませんでした"
+	],
+	"Failed to create the Space": [
+		"Space を作成できませんでした"
+	],
+	"Failed to find existing preview site in config": [
+		"設定内に既存のプレビューサイトが見つかりませんでした"
+	],
+	"Failed to initiate backup": [
+		"バックアップを開始できませんでした"
+	],
+	"Failed to initiate import on remote site": [
+		"リモートサイトでインポートを開始できませんでした"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"Spacefast の Space を読み込めませんでした"
+	],
+	"Failed to publish to Spacefast": [
+		"Spacefast に公開できませんでした"
+	],
+	"Feedback sent": [
+		"フィードバックを送信しました"
+	],
+	"File…": [
+		"ファイル…"
+	],
+	"Flush cache": [
+		"キャッシュをフラッシュ"
+	],
+	"For publishing sites.": [
+		"サイトの公開用。"
+	],
+	"Gemini API key": [
+		"Gemini API キー"
+	],
+	"Generate images": [
+		"画像を生成"
+	],
+	"GitHub sign-in was declined.": [
+		"GitHub へのログインが拒否されました。"
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
+	],
+	"Hide admin bar": [
+		"管理バーを非表示"
+	],
+	"Hide admin bar by default": [
+		"管理バーをデフォルトで非表示"
+	],
+	"Hide device toolbar": [
+		"デバイスツールバーを非表示"
+	],
+	"Hide panel": [
+		"パネルを非表示"
+	],
+	"Hide recent chats": [
+		"最近のチャットを非表示"
+	],
+	"Hints": [
+		"ヒント"
+	],
+	"Hostname of the preview site": [
+		"プレビューサイトのホスト名"
+	],
+	"How to connect": [
+		"連携方法"
+	],
+	"Hue": [
+		"色相"
+	],
+	"Import a blueprint or backup": [
+		"ブループリントまたはバックアップをインポート"
+	],
+	"Import cancelled": [
+		"インポートをキャンセルしました"
+	],
+	"Import media": [
+		"メディアをインポート"
+	],
+	"Inspect design": [
+		"デザインを検査"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"まだお持ちでない場合は、[Claude Code](https://code.claude.com/docs/en/setup) をインストールしてください。"
+	],
+	"Install taxonomy scripts": [
+		"タクソノミースクリプトをインストール"
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"WordPress Studio CLI をインストールし、別のアプリ用に MCP を設定します。"
+	],
+	"Install the WordPress Studio CLI.": [
+		"WordPress Studio CLI をインストールします。"
+	],
+	"Install theme": [
+		"テーマをインストール"
+	],
+	"Interface reset.": [
+		"インターフェースをリセットしました。"
+	],
+	"Interface theme": [
+		"インターフェースのテーマ"
+	],
+	"Leave a note…": [
+		"メモを残す…"
+	],
+	"Liberate": [
+		"サイト移行"
+	],
+	"List %s": [
+		"%sを一覧表示"
+	],
+	"List menus": [
+		"メニューを一覧表示"
+	],
+	"List plugins": [
+		"プラグインを一覧表示"
+	],
+	"List previews": [
+		"プレビューを一覧表示"
+	],
+	"List published %s": [
+		"公開済みの%sを一覧表示"
+	],
+	"List terms": [
+		"タームを一覧表示"
+	],
+	"List themes": [
+		"テーマを一覧表示"
+	],
+	"List users": [
+		"ユーザーを一覧表示"
+	],
+	"Log in or create account": [
+		"ログインまたはアカウントを作成"
+	],
+	"Log in to WordPress.com to sync sites.": [
+		"サイトを同期するには WordPress.com にログインしてください。"
+	],
+	"Manage AI credits": [
+		"AI クレジットを管理"
+	],
+	"Manage cache": [
+		"キャッシュを管理"
+	],
+	"Manage content": [
+		"コンテンツを管理"
+	],
+	"Manage media": [
+		"メディアを管理"
+	],
+	"Manage on WordPress.com": [
+		"WordPress.com で管理"
+	],
+	"Manage permalinks": [
+		"パーマリンクを管理"
+	],
+	"Manage sharing": [
+		"共有を管理"
+	],
+	"Manage site options": [
+		"サイトのオプションを管理"
+	],
+	"Manage terms": [
+		"タームを管理"
+	],
+	"Manage themes": [
+		"テーマを管理"
+	],
+	"Manage usage": [
+		"使用量を管理"
+	],
+	"Manage users": [
+		"ユーザーを管理"
+	],
+	"Manual MCP setup": [
+		"MCP の手動設定"
+	],
+	"Meta API key": [
+		"Meta API キー"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta が API キーのリクエストを制限しています。しばらくしてからもう一度お試しいただくか、dev.meta.ai で制限を確認してください。"
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
+	],
+	"New WordPress Studio Site": [
+		"新しい WordPress Studio サイト"
+	],
+	"New site \"%s\"": [
+		"新しいサイト「%s」"
+	],
+	"No providers": [
+		"プロバイダーがありません"
+	],
+	"Open Folder…": [
+		"フォルダーを開く…"
+	],
+	"Open Spacefast": [
+		"Spacefast を開く"
+	],
+	"Open a site or Blueprint": [
+		"サイトまたはブループリントを開く"
+	],
+	"Open annotation browser": [
+		"注釈ブラウザーを開く"
+	],
+	"Open documentation": [
+		"ドキュメントを開く"
+	],
+	"Open email log": [
+		"メールログを開く"
+	],
+	"Open on GitHub": [
+		"GitHub で開く"
+	],
+	"OpenAI API key": [
+		"OpenAI API キー"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
+	],
+	"Parent folder": [
+		"親フォルダー"
+	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"表示されたトークンを貼り付けてください。使用量は Claude プランから差し引かれます。"
+	],
+	"Pending annotation": [
+		"保留中の注釈"
+	],
+	"Performance audit": [
+		"パフォーマンス監査"
+	],
+	"Pick design": [
+		"デザインを選択"
+	],
+	"Preview creation cancelled": [
+		"プレビューの作成をキャンセルしました"
+	],
+	"Preview site not found": [
+		"プレビューサイトが見つかりません"
+	],
+	"Project tools": [
+		"プロジェクトツール"
+	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"サイトの静的コピーを Spacefast の Space に公開します。フォームやコメントなど、WordPress の実行が必要な機能はコピーでは動作しません。"
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"サイトの静的コピーを Spacefast の Space に公開します。"
+	],
+	"Publish to Spacefast": [
+		"Spacefast に公開"
+	],
+	"Publish to another site…": [
+		"別のサイトに公開…"
+	],
+	"Publish your changes.": [
+		"変更を公開します。"
+	],
+	"Publishing cancelled": [
+		"公開をキャンセルしました"
+	],
+	"Pull preview": [
+		"プレビューをプル"
+	],
+	"Pull site": [
+		"サイトをプル"
+	],
+	"Push site": [
+		"サイトをプッシュ"
+	],
+	"Recent chats hidden.": [
+		"最近のチャットを非表示にしました。"
+	],
+	"Recent chats shown.": [
+		"最近のチャットを表示しました。"
+	],
+	"Remote backup failed": [
+		"リモートバックアップに失敗しました"
+	],
+	"Remote environment: %s": [
+		"リモート環境: %s"
+	],
+	"Remove Blueprint": [
+		"ブループリントを削除"
+	],
+	"Report an issue on GitHub": [
+		"GitHub で問題を報告"
+	],
+	"Request a feature or report a bug.": [
+		"機能をリクエストするか、バグを報告します。"
+	],
+	"Reset tips": [
+		"ヒントをリセット"
+	],
+	"Resize panel": [
+		"パネルのサイズを変更"
+	],
+	"Responsive preview": [
+		"レスポンシブプレビュー"
+	],
+	"Rotate to landscape": [
+		"横向きに回転"
+	],
+	"Rotate to portrait": [
+		"縦向きに回転"
+	],
+	"Run": [
+		"実行"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"ターミナルで次のコマンドを実行し、Claude アカウントでログインしてください:"
+	],
+	"SEO audit": [
+		"SEO 監査"
+	],
+	"Save annotation (Enter)": [
+		"注釈を保存 (Enter)"
+	],
+	"Screenshots are available in the desktop app.": [
+		"スクリーンショットはデスクトップアプリで利用できます。"
+	],
+	"Show admin bar": [
+		"管理バーを表示"
+	],
+	"Show admin bar by default": [
+		"管理バーをデフォルトで表示"
+	],
+	"Show device toolbar": [
+		"デバイスツールバーを表示"
+	],
+	"Show or hide the panel beside your chat.": [
+		"チャットの横のパネルを表示または非表示にします。"
+	],
+	"Show panel": [
+		"パネルを表示"
+	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"ChatGPT でログインするか、OpenAI API キーを使用します。"
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"Copilot にアクセスできる GitHub アカウントでログインします。"
+	],
+	"Signing in was declined.": [
+		"ログインが拒否されました。"
+	],
+	"Signing in was started again.": [
+		"ログインが再度開始されました。"
+	],
+	"Site folder": [
+		"サイトフォルダー"
+	],
+	"Site folder is required.": [
+		"サイトフォルダーは必須です。"
+	],
+	"Source is a temporary preview site.": [
+		"ソースは一時的なプレビューサイトです。"
+	],
+	"Spacefast sign-in was declined.": [
+		"Spacefast へのログインが拒否されました。"
+	],
+	"Start signing in to Spacefast again.": [
+		"Spacefast へのログインを最初からやり直してください。"
+	],
+	"Start signing in with ChatGPT again.": [
+		"ChatGPT でのログインを最初からやり直してください。"
+	],
+	"Start signing in with GitHub again.": [
+		"GitHub でのログインを最初からやり直してください。"
+	],
+	"Static export failed: %s": [
+		"静的エクスポートに失敗しました: %s"
+	],
+	"Strong": [
+		"強力"
+	],
+	"Taxonomist": [
+		"カテゴリー整理"
+	],
+	"Team": [
+		"チーム"
+	],
+	"The GitHub sign-in expired. Try again.": [
+		"GitHub へのログインの有効期限が切れました。もう一度お試しください。"
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"Spacefast へのログインの有効期限が切れました。もう一度お試しください。"
+	],
+	"The default browser for your sites.": [
+		"サイトのデフォルトブラウザー。"
+	],
+	"The output directory %s is not empty.": [
+		"出力ディレクトリ %s は空ではありません。"
+	],
+	"Then add this configuration to your app.": [
+		"次に、この設定をアプリに追加します。"
+	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"この GitHub アカウントには Copilot プランがありません。github.com/features/copilot でプランを選択してください。"
+	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"これは Anthropic のキーです。代わりに Anthropic に追加してください。"
+	],
+	"This site is no longer available in WordPress Studio.": [
+		"このサイトは WordPress Studio で利用できなくなりました。"
+	],
+	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
+		"このサイトには、WordPress Studio からの公開に対応したホスティングプランが必要です。"
+	],
+	"Tips reset.": [
+		"ヒントをリセットしました。"
+	],
+	"To %s": [
+		"宛先: %s"
+	],
+	"Token is required": [
+		"トークンは必須です"
+	],
+	"Unable to open this folder.": [
+		"このフォルダーを開けません。"
+	],
+	"Unable to open this source.": [
+		"このソースを開けません。"
+	],
+	"Unsupported backup file": [
+		"サポートされていないバックアップファイル"
+	],
+	"Update %s": [
+		"%sを更新"
+	],
+	"Update all plugins": [
+		"すべてのプラグインを更新"
+	],
+	"Update plugin": [
+		"プラグインを更新"
+	],
+	"Update site option": [
+		"サイトのオプションを更新"
+	],
+	"Update site title": [
+		"サイトのタイトルを更新"
+	],
+	"Update user": [
+		"ユーザーを更新"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"使用料金は Anthropic アカウントを通じて請求されます。"
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"使用料金は Google AI Studio プロジェクトを通じて請求されます。"
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"使用料金は Meta Model API アカウントを通じて請求されます。"
+	],
+	"Usage is billed through your OpenAI account.": [
+		"使用料金は OpenAI アカウントを通じて請求されます。"
+	],
+	"Use Gemini with a Gemini API key.": [
+		"Gemini API キーで Gemini を使用します。"
+	],
+	"Use Muse models with your Meta API key.": [
+		"Meta API キーで Muse モデルを使用します。"
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"Anthropic API キーまたは Claude サブスクリプショントークンを使用します。"
+	],
+	"Using ChatGPT plan": [
+		"ChatGPT プランを使用中"
+	],
+	"Using Claude plan": [
+		"Claude プランを使用中"
+	],
+	"Using Copilot plan": [
+		"Copilot プランを使用中"
+	],
+	"View Blueprint": [
+		"ブループリントを表示"
+	],
+	"Visit previews": [
+		"プレビューを表示"
+	],
+	"Visual Annotations": [
+		"ビジュアル注釈"
+	],
+	"Waiting for %s": [
+		"%s 待機中"
+	],
+	"What would you like to open?": [
+		"何を開きますか ?"
+	],
+	"Where do you want to publish?": [
+		"どこに公開しますか ?"
+	],
+	"WordPress Studio CLI for terminal": [
+		"ターミナル用 WordPress Studio CLI"
+	],
+	"WordPress Studio could not download this backup.": [
+		"WordPress Studio はこのバックアップをダウンロードできませんでした。"
+	],
+	"WordPress Studio team": [
+		"WordPress Studio チーム"
+	],
+	"WordPress export": [
+		"WordPress エクスポート"
+	],
+	"WordPress.com API": [
+		"WordPress.com API"
+	],
+	"Worked for %s": [
+		"%s 作業しました"
+	],
+	"Working for %s": [
+		"%s 作業中"
+	],
+	"Workspace navigation": [
+		"ワークスペースのナビゲーション"
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"ChatGPT プランの使用量の上限に達しました。chatgpt.com/settings/usage で使用量を管理してください。"
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"Copilot プランの使用量の上限に達しました。github.com/settings/copilot で使用量を管理してください。"
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"ご利用の ChatGPT プランは WordPress Studio では使用できません。"
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"ChatGPT のログインが無効になりました。設定で ChatGPT を再度連携してください。"
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"ご利用の Copilot プランにはこのモデルが含まれていません。別のモデルを選択するか、github.com/settings/copilot で有効にしてください。"
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"Spacefast のログインが無効になりました。Spacefast に再度接続してください。"
+	],
+	"Your site was created, but the AI chat could not start.": [
+		"サイトは作成されましたが、AI チャットを開始できませんでした。"
+	],
+	"Your unsaved changes will be lost.": [
+		"保存されていない変更は失われます。"
+	],
+	"inline content": [
+		"インラインコンテンツ"
+	],
+	"page": [
+		"ページ"
+	],
+	"post": [
+		"投稿"
+	],
+	"posts": [
+		"投稿"
+	],
+	"product": [
+		"商品"
+	],
+	"· %d%%": [
+		"· %d%%"
+	]
+}

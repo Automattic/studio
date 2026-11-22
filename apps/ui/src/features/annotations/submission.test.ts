@@ -98,6 +98,28 @@ describe( 'annotationSubmission', () => {
 		expect( prompt ).not.toContain( '"capturedImageId":' );
 	} );
 
+	it( 'labels a drawing and attaches its screenshot without sending raw strokes', () => {
+		const { prompt, options } = annotationSubmission(
+			'',
+			[],
+			[
+				note( {
+					kind: 'drawing',
+					tag: undefined,
+					images: [ image( 'capture' ) ],
+					drawing: { color: '#3858e9', width: 3, strokes: [ [ { x: 20, y: 30 } ] ] },
+				} ),
+			]
+		);
+		expect( prompt ).toContain( '### 1. drawing' );
+		expect( prompt ).toContain( '- Attached images (in attachment order): 1' );
+		expect( prompt ).not.toContain( '"strokes"' );
+		expect( options.visualAnnotations[ 0 ] ).toMatchObject( {
+			elementLabel: 'Drawing',
+			imageIds: [ 'capture' ],
+		} );
+	} );
+
 	it( 'rejects empty or repeated image references', () => {
 		for ( const imageIds of [ [], [ 'reference', 'reference' ] ] ) {
 			expect( () =>

@@ -2,17 +2,14 @@
  * @vitest-environment node
  */
 import { app } from 'electron';
+import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
+import { getOrCreateAnalyticsInstallId, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	TRACKS_EVENTS,
 	type TracksProps,
 	type TracksEventName,
 } from '@studio/common/lib/record-tracks-event';
-import {
-	getOrCreateAnalyticsInstallId,
-	isAnalyticsOptedOut,
-	isAutomatticianFromToken,
-} from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { recordTracksEvent } from '../tracks';
 
@@ -27,11 +24,11 @@ vi.mock( '@studio/common/lib/record-tracks-event', async ( importActual ) => {
 	const actual = await importActual< typeof import('@studio/common/lib/record-tracks-event') >();
 	return { ...actual, __recordTracksEvent: vi.fn() };
 } );
-vi.mock( '@studio/common/lib/shared-config', () => ( {
+vi.mock( '@studio/common/lib/install', () => ( {
 	getOrCreateAnalyticsInstallId: vi.fn(),
 	isAnalyticsOptedOut: vi.fn(),
-	isAutomatticianFromToken: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/auth-token', () => ( { isAutomatticianFromToken: vi.fn() } ) );
 
 const mockRecord = vi.mocked( __recordTracksEvent );
 const mockInstallId = vi.mocked( getOrCreateAnalyticsInstallId );
@@ -136,7 +133,16 @@ describe.each( [
 		{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
 	],
 	[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
-] satisfies [ TracksEventName, TracksProps ][] )( 'Blueprint dialog event %s', ( event, props ) => {
+	[
+		TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED,
+		{
+			action: 'manual_resize',
+			preset_category: 'custom',
+			width_bucket: 'under_600',
+			height_bucket: '600_to_1023',
+		},
+	],
+] satisfies [ TracksEventName, TracksProps ][] )( 'UI event %s', ( event, props ) => {
 	it( 'does not send or create an install identity when opted out', async () => {
 		mockOptedOut.mockResolvedValue( true );
 		await recordTracksEvent( event, props );

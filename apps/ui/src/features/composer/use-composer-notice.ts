@@ -3,8 +3,9 @@ import {
 	formatAiAccessRequiredHeadline,
 	getStudioCodeAiAccessState,
 	STUDIO_ASSISTANT_QUOTA_OFFLINE,
-	STUDIO_CODE_AI_BETA_APPLY_URL,
+	STUDIO_CODE_DOCS_URL,
 } from '@studio/common/lib/studio-assistant-quota';
+import { getProvider, type ProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -14,16 +15,15 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOffline } from '@/lib/hooks';
 import type { ComposerNotice } from './notice-tab';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
  * Why this chat can't send right now, shown above the composer while the
  * transcript stays readable. WordPress.com requirements only apply to chats
  * on WordPress.com; the proxy stays the enforcement point, so an unknown
- * quota fails open.
+ * quota fails open. A chat on a local model sends offline.
  */
 export function useComposerNotice(
-	provider: AiProviderId,
+	provider: ProviderId,
 	siteId?: string
 ): ComposerNotice | undefined {
 	const connector = useConnector();
@@ -63,10 +63,11 @@ export function useComposerNotice(
 		walkthroughTitle: __( 'You’re offline' ),
 		walkthroughDescription: __( 'Reconnect to send your first prompt.' ),
 	};
-	if ( isOffline ) {
+	const needsInternet = ! getProvider( provider ).ai?.local;
+	if ( isOffline && needsInternet ) {
 		return { ...offlineGuidance, message: __( 'You are offline. Reconnect to send a message.' ) };
 	}
-	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE ) {
+	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE && needsInternet ) {
 		return {
 			...offlineGuidance,
 			message: __( 'You are offline. Reconnect to send a message.' ),
@@ -89,7 +90,8 @@ export function useComposerNotice(
 	}
 	const connect = {
 		label: __( 'Connect' ),
-		onClick: () => openSettings( 'ai', undefined, undefined, { intent: 'build', scope: siteId } ),
+		onClick: () =>
+			openSettings( 'providers', undefined, 'ai-providers', { intent: 'build', scope: siteId } ),
 	};
 	if ( ! user ) {
 		return {
@@ -126,17 +128,11 @@ export function useComposerNotice(
 	if ( access === 'not-enabled' ) {
 		return {
 			message: formatAiAccessRequiredHeadline( quota.data ),
-			walkthroughTitle:
-				quota.data.costUsage > 0 ? __( 'Thanks for testing the beta' ) : __( 'Join the beta' ),
-			walkthroughDescription:
-				quota.data.costUsage > 0
-					? __( 'Access is limited for now. Apply again to keep going.' )
-					: __(
-							'WordPress.com AI is in limited beta. Apply for access to start building with it.'
-					  ),
+			walkthroughTitle: __( 'WordPress.com AI access' ),
+			walkthroughDescription: formatAiAccessRequiredHeadline( quota.data ),
 			action: {
-				label: __( 'Apply for access' ),
-				onClick: () => void connector.openExternalUrl( STUDIO_CODE_AI_BETA_APPLY_URL ),
+				label: __( 'Learn more' ),
+				onClick: () => void connector.openExternalUrl( STUDIO_CODE_DOCS_URL ),
 			},
 		};
 	}

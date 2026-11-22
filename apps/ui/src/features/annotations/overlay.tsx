@@ -2,11 +2,10 @@ import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
-import { SendIcon, TrashIcon } from '@/lib/icons';
+import { PaperclipIcon, ArrowUpIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing, isShortcut } from '@/lib/keyboard';
 import {
 	DropOverlay,
@@ -50,12 +49,13 @@ interface AnnotationOverlayProps {
 	anchor: AnnotationAnchor | null;
 	// Sends the notes (all of them with the chat draft, or just `noteIds`).
 	onSend: ( noteIds?: string[] ) => void;
+	onEscape?: () => boolean;
 }
 
 const EDGE = 8;
 const CORNER_OFFSET = 8;
 /** The note editor drawn over an annotated preview. */
-export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
+export function AnnotationOverlay( { siteId, anchor, onSend, onEscape }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
 	const { active, notes, editingId, blockedNavigation } = annotations;
 	const busy = isAnnotationsBusy( annotations );
@@ -72,11 +72,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				return;
 			}
 			event.preventDefault();
-			escapeAnnotations( siteId );
+			if ( ! onEscape?.() ) escapeAnnotations( siteId );
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ active, siteId ] );
+	}, [ active, siteId, onEscape ] );
 
 	return (
 		<div className={ styles.overlay } data-annotation-overlay>
@@ -129,6 +129,8 @@ function NoteEditor( {
 		error: attachmentError,
 		setError: setAttachmentError,
 	} = useComposerAttachments( note.images );
+	// Drawing annotations keep their captured page image first.
+	const visibleAttachments = note.kind === 'drawing' ? attachments.slice( 1 ) : attachments;
 	const addImages = useCallback(
 		( files: FileList | File[] ) => {
 			const list = Array.from( files );
@@ -215,23 +217,26 @@ function NoteEditor( {
 				</VisuallyHidden>
 			) }
 			{ isDragging ? <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay> : null }
-			{ attachments.length ? (
+			{ visibleAttachments.length ? (
 				<ul className={ styles.images } aria-label={ __( 'Attachments' ) }>
-					{ attachments.map( ( attachment ) => (
+					{ visibleAttachments.map( ( attachment ) => (
 						<li key={ attachment.id } className={ styles.image }>
 							<img
 								src={ getComposerAttachmentImageSrc( attachment ) ?? undefined }
 								alt={ attachment.name }
 							/>
-							<AttachmentRemoveButton
-								label={ __( 'Remove attachment' ) }
-								onClick={ () => removeAttachment( attachment.id ) }
-							/>
+							{ note.kind !== 'region' || attachment.id !== note.images[ 0 ]?.id ? (
+								<AttachmentRemoveButton
+									label={ __( 'Remove attachment' ) }
+									onClick={ () => removeAttachment( attachment.id ) }
+								/>
+							) : null }
 						</li>
 					) ) }
 				</ul>
 			) : null }
 			<Textarea
+				className={ styles.input }
 				autoFocus
 				rows={ 1 }
 				maxLength={ 10000 }
@@ -262,6 +267,7 @@ function NoteEditor( {
 				<IconButton
 					size="icon"
 					shape="round"
+					destructive
 					icon={ <TrashIcon /> }
 					label={ __( 'Delete annotation' ) }
 					disabled={ busy }
@@ -295,7 +301,7 @@ function NoteEditor( {
 							/>
 						}
 					>
-						<SendIcon />
+						<ArrowUpIcon />
 					</TooltipTrigger>
 					<TooltipContent className={ styles.submitTooltip }>
 						<span className={ styles.shortcutRow }>

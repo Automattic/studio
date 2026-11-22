@@ -21,7 +21,7 @@ beforeEach( () => {
 } );
 afterEach( () => {
 	vi.restoreAllMocks();
-	document.documentElement.style.removeProperty( '--motion-duration-surface' );
+	document.documentElement.style.removeProperty( '--motion-duration-quick' );
 	act( () => {
 		setCommandPaletteOpen( false );
 		removeAnnotations(
@@ -47,6 +47,8 @@ async function setup( running = true, signedIn = false ) {
 }
 const selectedTab = () =>
 	screen.getAllByRole( 'tab' ).find( ( tab ) => tab.getAttribute( 'aria-selected' ) === 'true' )!;
+const activePreview = ( element: 'iframe' | 'webview' ) =>
+	document.querySelector( `[data-active-tab] ${ element }` );
 async function newBrowserTab() {
 	fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
@@ -81,7 +83,7 @@ it.each( [ true, false ] )(
 			],
 		} );
 		const { user } = renderApp( { connector, path: '/sessions/chat' } );
-		const chip = await screen.findByRole( 'button', { name: 'Open Design System' } );
+		await screen.findByRole( 'button', { name: 'Open Design System' } );
 		if ( screen.queryByRole( 'button', { name: 'Show panel' } ) )
 			await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		const address = screen.getByRole( 'textbox', { name: 'Address' } );
@@ -91,7 +93,7 @@ it.each( [ true, false ] )(
 		const firstPage = document.querySelector( 'iframe' );
 		if ( ! open ) await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 		connector.trackEvent.mockClear();
-		await user.click( chip );
+		await user.click( screen.getByRole( 'button', { name: 'Open Design System' } ) );
 		expect( connector.trackEvent.mock.calls ).toEqual( [
 			[ TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM, { browser: 'internal' } ],
 			...( open ? [] : [ [ TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'split' }, 'one' ] ] ),
@@ -102,7 +104,7 @@ it.each( [ true, false ] )(
 			'true'
 		);
 		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
-		expect( document.querySelector( 'iframe' ) ).toBe( firstPage );
+		expect( firstPage ).toBeInTheDocument();
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 		await user.click( firstTab );
 		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
@@ -127,7 +129,7 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 		await newBrowserTab();
 		const guests = document.querySelectorAll( 'webview' );
 		expect( guests ).toHaveLength( 2 );
-		Object.assign( guests[ 1 ], { getWebContentsId: () => 43 } );
+		Object.assign( activePreview( 'webview' )!, { getWebContentsId: () => 43 } );
 		for ( const id of [ 43, 42 ] ) {
 			if ( id === 42 ) await user.click( first );
 			screen.getByRole( 'button', { name: 'Browser options' } ).focus();
@@ -135,7 +137,7 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 			await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );
 			expect( openWebviewDevTools ).toHaveBeenLastCalledWith( id );
 		}
-		expect( document.querySelector( 'webview' ) ).toBe( firstGuest );
+		expect( activePreview( 'webview' ) ).toBe( firstGuest );
 	} finally {
 		Object.defineProperty( window.navigator, 'userAgent', {
 			value: userAgent,
@@ -193,7 +195,7 @@ it.each( [ false, true ] )(
 		);
 		expect( document.querySelectorAll( 'iframe' ) ).toHaveLength( 2 );
 		fireEvent.click( first );
-		expect( document.querySelector( 'iframe' ) ).toBe( frame );
+		expect( activePreview( 'iframe' ) ).toBe( frame );
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Close First' } )[ 1 ] );
 		expect( first ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( connector.stopSite ).not.toHaveBeenCalled();
@@ -204,7 +206,7 @@ it.each( [ false, true ] )(
 		expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 		fireEvent.click( show );
 		await waitFor( () =>
-			expect( screen.queryByRole( 'button', { name: 'Expand panel' } ) ).not.toBeInTheDocument()
+			expect( screen.getByRole( 'button', { name: 'Expand panel' } ) ).toBeVisible()
 		);
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 		await waitFor( () => expect( screen.queryByRole( 'tab' ) ).not.toBeInTheDocument() );
@@ -235,7 +237,7 @@ it( 'retains separate mounted pages and restores each project’s tabs', async (
 	).toContain( 'http://localhost:9010/about/' );
 	const tabs = screen.getAllByRole( 'tab' );
 	fireEvent.click( tabs[ 0 ] );
-	expect( document.querySelector( 'iframe' ) ).toBe( firstFrame );
+	expect( activePreview( 'iframe' ) ).toBe( firstFrame );
 	fireEvent.click( tabs[ 1 ] );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
 		'http://localhost:9010/about/'
@@ -253,16 +255,16 @@ it( 'reloads only the selected tab from the command palette', async () => {
 	await setup();
 	const first = document.querySelector( 'iframe' );
 	await newBrowserTab();
-	const second = document.querySelectorAll( 'iframe' )[ 1 ];
+	const second = activePreview( 'iframe' );
 	act( () => setCommandPaletteOpen( true ) );
 	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
-		target: { value: 'Reload preview' },
+		target: { value: 'Reload' },
 	} );
-	fireEvent.click( screen.getByRole( 'option', { name: 'Reload preview' } ) );
+	fireEvent.click( screen.getByRole( 'option', { name: 'Reload' } ) );
 	await waitFor( () => expect( second ).not.toBeInTheDocument() );
-	expect( document.querySelector( 'iframe' ) ).toBe( first );
+	expect( first ).toBeInTheDocument();
 	fireEvent.click( screen.getAllByRole( 'tab' )[ 0 ] );
-	expect( document.querySelector( 'iframe' ) ).toBe( first );
+	expect( activePreview( 'iframe' ) ).toBe( first );
 } );
 it( 'restarts at home after stopping a project while another project is open', async () => {
 	const { connector } = await setup();
@@ -362,7 +364,7 @@ it( 'keeps Electron navigation and titles independent between mounted tabs', asy
 	fireEvent.change( input, { target: { value: '/about/' } } );
 	fireEvent.submit( input.closest( 'form' )! );
 	await waitFor( () => expect( document.querySelectorAll( 'webview' ) ).toHaveLength( 2 ) );
-	const second = document.querySelectorAll( 'webview' )[ 1 ];
+	const second = activePreview( 'webview' )!;
 	const secondBack = prepare( second, true, 'http://localhost:9010/about/' );
 	fireEvent(
 		second,
@@ -390,7 +392,7 @@ it( 'keeps Electron navigation and titles independent between mounted tabs', asy
 		'aria-disabled',
 		'true'
 	);
-	expect( document.querySelector( 'webview' ) ).toBe( first );
+	expect( activePreview( 'webview' ) ).toBe( first );
 	await act( async () => {} );
 } );
 
@@ -404,7 +406,7 @@ it( 'opens the right-clicked tab in the preferred browser without selecting it',
 	const tabs = screen.getAllByRole( 'tab' );
 	fireEvent.contextMenu( tabs[ 0 ] );
 	const open = await screen.findByRole( 'menuitem', { name: 'Open in Firefox' } );
-	expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toBe( open );
+	expect( open ).toBeEnabled();
 	expect( screen.getByRole( 'separator' ) ).toBeInTheDocument();
 	fireEvent.click( open );
 	expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/?source=preview#team', {
@@ -463,6 +465,7 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 	fireEvent.contextMenu( tabs[ 0 ] );
 	await screen.findByRole( 'menuitem', { name: 'Close other tabs' } );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'New tab',
 		'Open in Browser',
 		'Close tab',
 		'Close other tabs',
@@ -475,6 +478,7 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 	await waitFor( () => expect( remaining ).toHaveFocus() );
 	fireEvent.contextMenu( remaining );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'New tab',
 		'Open in Browser',
 		'Close tab',
 	] );
@@ -689,6 +693,7 @@ it( 'closes the panel immediately while the final tab’s site is still stopping
 	fireEvent.click( screen.getByRole( 'button', { name: 'Close First' } ) );
 	await screen.findByRole( 'button', { name: 'Show panel' } );
 	await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 	await act( async () => {
 		finish();
@@ -721,7 +726,7 @@ it.each( [ false, true ] )(
 			)
 		);
 		if ( running ) {
-			expect( document.querySelector( 'iframe' ) ).toBe( original );
+			expect( original ).toBeInTheDocument();
 			expect( original?.src ).toContain( '/about/' );
 			fireEvent.click( screen.getAllByRole( 'tab' )[ 0 ] );
 			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
@@ -749,6 +754,25 @@ it( 'opens the new-tab menu with the primary T shortcut, including from closed p
 		shiftKey: true,
 	} );
 	expect( screen.queryByRole( 'menuitem', { name: 'Browser' } ) ).not.toBeInTheDocument();
+} );
+
+it( 'opens a new tab with the primary T shortcut when the plus button is hidden', async () => {
+	await setup();
+	screen.getByRole( 'button', { name: 'New tab' } ).style.display = 'none';
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, { key: 't', code: 'KeyT', metaKey: isApple, ctrlKey: ! isApple } );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+	const tab = screen.getAllByRole( 'tab' )[ 1 ];
+	expect( tab ).toHaveAttribute( 'aria-selected', 'true' );
+	await waitFor( () => expect( tab ).toHaveFocus() );
+} );
+
+it( 'opens a new tab from the tab context menu', async () => {
+	await setup();
+	fireEvent.contextMenu( selectedTab() );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'New tab' } ) );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+	expect( screen.getAllByRole( 'tab' )[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
 } );
 
 it.each( [ 'composer', 'sidebar', 'palette' ] )(
@@ -840,14 +864,33 @@ async function sortableTabs() {
 	).mockReturnValue( new DOMRect( 20, 10, 484, 32 ) );
 	return tabs;
 }
+function expectPreviewPanesToStayAttached( reorder: () => void ) {
+	const paneHost = document.querySelector( '[data-active-tab]' )!.parentElement!;
+	// A moved pane can disconnect its preview even when React reuses the DOM node.
+	const observer = new MutationObserver( () => {} );
+	observer.observe( paneHost, { childList: true } );
+	try {
+		reorder();
+		const removed = observer
+			.takeRecords()
+			.flatMap( ( record ) => Array.from( record.removedNodes ) );
+		expect( removed ).toHaveLength( 0 );
+	} finally {
+		observer.disconnect();
+	}
+}
 it( 'lets the only browser tab be picked up without changing its page or selection', async () => {
 	await setup();
 	const tab = selectedTab();
 	const page = document.querySelector( 'iframe' );
 	fireEvent( tab, tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 200, 100 ) );
-	expect( document.querySelector( '[data-tab-drag-preview]' ) ).toHaveTextContent( 'First' );
+	const dragPreview = document.querySelector( '[data-tab-drag-preview]' );
+	expect( dragPreview ).toHaveTextContent( 'First' );
+	expect( dragPreview ).toHaveAttribute( 'data-preview-selected' );
 	fireEvent( window, tabPointer( 'pointerup', 200, 100 ) );
+	expect( dragPreview ).toHaveAttribute( 'data-landing' );
+	expect( dragPreview ).toHaveAttribute( 'data-preview-selected' );
 	await waitFor( () => expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull() );
 	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 );
 	expect( selectedTab() ).toBe( tab );
@@ -881,18 +924,20 @@ it( 'leaves touch swipes available for scrolling rather than reordering', async 
 } );
 it( 'moves neighboring tabs aside with one opaque drag chip and preserves pages after dropping', async () => {
 	const tabs = await sortableTabs();
-	const pages = Array.from( document.querySelectorAll( 'iframe' ) );
 	const first = tabs[ 0 ].closest< HTMLElement >( '[data-tab-reorder-id]' )!;
-	document.documentElement.style.setProperty( '--motion-duration-surface', '180ms' );
+	document.documentElement.style.setProperty( '--motion-duration-quick', '180ms' );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 42 ) );
 	expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull();
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	expect( document.querySelectorAll( '[data-tab-drag-preview]' ) ).toHaveLength( 1 );
+	expect( document.querySelector( '[data-tab-drag-preview]' ) ).not.toHaveAttribute(
+		'data-preview-selected'
+	);
 	expect( first ).toHaveAttribute( 'data-drag-source' );
 	expect( tabs[ 1 ].parentElement ).toHaveStyle( { transform: 'translateX(-162px)' } );
 	expect( tabs[ 2 ].parentElement ).toHaveStyle( { transform: 'translateX(-162px)' } );
-	fireEvent( window, tabPointer( 'pointerup', 440 ) );
+	expectPreviewPanesToStayAttached( () => fireEvent( window, tabPointer( 'pointerup', 440 ) ) );
 	await waitFor( () =>
 		expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
 			'Admin',
@@ -902,7 +947,6 @@ it( 'moves neighboring tabs aside with one opaque drag chip and preserves pages 
 	);
 	await waitFor( () => expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull() );
 	expect( selectedTab() ).toHaveTextContent( 'Database' );
-	expect( new Set( document.querySelectorAll( 'iframe' ) ) ).toEqual( new Set( pages ) );
 	expect( screen.getByText( 'First moved to position 3 of 3' ) ).toBeInTheDocument();
 } );
 it.each( [
@@ -946,14 +990,16 @@ it( 'keeps the reordered position when released below the tab row', async () => 
 	] );
 	await waitFor( () => expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull() );
 } );
-it( 'keeps close controls separate from drag and supports keyboard reordering', async () => {
+it( 'keeps close controls separate from drag and preserves pages when reordering by keyboard', async () => {
 	const tabs = await sortableTabs();
 	const close = screen.getByRole( 'button', { name: 'Close First' } );
 	fireEvent( close, tabPointer( 'pointerdown', 155 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull();
 	fireEvent.click( tabs[ 0 ] );
-	fireEvent.keyDown( tabs[ 0 ], { key: 'ArrowRight', altKey: true, shiftKey: true } );
+	expectPreviewPanesToStayAttached( () =>
+		fireEvent.keyDown( tabs[ 0 ], { key: 'ArrowRight', altKey: true, shiftKey: true } )
+	);
 	await waitFor( () => expect( screen.getAllByRole( 'tab' )[ 1 ] ).toHaveFocus() );
 	expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
 		'Admin',
@@ -970,7 +1016,7 @@ it( 'keeps close controls separate from drag and supports keyboard reordering', 
 
 it( 'commits a dropped order before another drag interrupts its landing', async () => {
 	const tabs = await sortableTabs();
-	document.documentElement.style.setProperty( '--motion-duration-surface', '180ms' );
+	document.documentElement.style.setProperty( '--motion-duration-quick', '180ms' );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	fireEvent( window, tabPointer( 'pointerup', 440 ) );
@@ -979,6 +1025,7 @@ it( 'commits a dropped order before another drag interrupts its landing', async 
 		'Database',
 		'First',
 	] );
+	expect( document.querySelector( '[data-tab-drag-preview][data-landing]' ) ).toBeInTheDocument();
 	const admin = screen.getByRole( 'tab', { name: 'Admin' } );
 	fireEvent( admin, tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
@@ -1103,7 +1150,7 @@ it( 'opens a WordPress style board without DESIGN.md and reloads saved style cha
 	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
 	connector.getSiteDesign.mockResolvedValue( board( '#654321' ) );
-	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Reload' } ) );
 	expect( await screen.findByText( '#654321' ) ).toBeVisible();
 	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
 } );

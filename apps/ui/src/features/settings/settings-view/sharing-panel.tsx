@@ -1,17 +1,16 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { PencilIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useDeleteSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getSnapshotHostname, getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { AccountPrompt, previewSiteImage } from '@/features/account';
 import { CopyButton } from '@/features/chats';
 import { previewExpiry, RenamePreview } from '@/features/sharing';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
-import { TrashIcon } from '@/lib/icons';
+import { PencilIcon, TrashIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -60,7 +59,7 @@ function PreviewRow( {
 							type="button"
 							className={ styles.previewLink }
 							title={ url }
-							onClick={ () => void connector.openExternalUrl( getSnapshotOpenUrl( snapshot ) ) }
+							onClick={ () => void connector.openExternalUrl( url ) }
 						>
 							{ getSnapshotHostname( snapshot ) }
 						</button>
@@ -85,6 +84,7 @@ function PreviewRow( {
 				<IconButton
 					variant="muted-ghost"
 					size="icon-sm"
+					destructive
 					icon={ <TrashIcon /> }
 					label={ expired ? __( 'Remove expired preview' ) : __( 'Delete preview' ) }
 					onClick={ () => onDelete( snapshot ) }
@@ -165,9 +165,7 @@ export function SharingPanel() {
 								variant="inline-accent"
 								size="inline"
 								onClick={ () =>
-									void connector.openExternalUrl(
-										'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
-									)
+									void connector.openExternalUrl( 'https://wordpress.studio/docs/preview-sites/' )
 								}
 							>
 								{ __( 'Learn more…' ) }
@@ -240,7 +238,7 @@ export function SharingPanel() {
 				>
 					<DialogHeader>
 						<DialogTitle>{ __( 'Delete preview' ) }</DialogTitle>
-						<DialogDescription tone="default" render={ <div /> }>
+						<DialogDescription render={ <div /> }>
 							<p>
 								{ sprintf(
 									/* translators: %s: preview name */

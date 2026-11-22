@@ -21,6 +21,7 @@ import {
 	DialogTitle,
 	VisuallyHidden,
 } from '@/lib/ui';
+import { AnnotationIllustration } from './annotation-illustration';
 import site1 from './assets/site-1.png';
 import site2 from './assets/site-2.png';
 import site3 from './assets/site-3.png';
@@ -48,6 +49,7 @@ export function AccountPrompt( {
 	disabled,
 	flush,
 	showStudioIcon = true,
+	illustration = 'sites',
 	className,
 }: {
 	title: string;
@@ -66,6 +68,7 @@ export function AccountPrompt( {
 	/** Drops the offsets that space it inside a dialog, for a container that spaces it already. */
 	flush?: boolean;
 	showStudioIcon?: boolean;
+	illustration?: 'sites' | 'annotations';
 	className?: string;
 } ) {
 	const offline = useOffline();
@@ -84,12 +87,16 @@ export function AccountPrompt( {
 	const error = login.error ?? signup.error;
 	return (
 		<div ref={ exposure } className={ clsx( styles.body, flush && styles.flush, className ) }>
-			<div aria-hidden="true" className={ styles.illustration }>
-				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
-				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
-				<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
-				{ showStudioIcon ? <StudioIcon className={ styles.studioIcon } /> : null }
-			</div>
+			{ illustration === 'annotations' ? (
+				<AnnotationIllustration />
+			) : (
+				<div aria-hidden="true" className={ styles.illustration }>
+					<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
+					<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
+					<span className={ styles.cardCenter } style={ { backgroundImage: `url(${ site2 })` } } />
+					{ showStudioIcon ? <StudioIcon className={ styles.studioIcon } /> : null }
+				</div>
+			) }
 			<h2 className={ styles.title }>{ title }</h2>
 			<p id={ descriptionId } className={ styles.description }>
 				{ offline && ! onContinue
@@ -127,8 +134,7 @@ export function AccountPrompt( {
 					<p className={ styles.loginPrompt }>
 						{ ! onSkip && <>{ __( 'Already have an account?' ) } </> }
 						<Button
-							className={ styles.login }
-							variant="inline-text"
+							variant="inline-accent"
 							size="inline"
 							disabled={ onSkip ? busy || disabled : offline || pending }
 							onClick={ () => {

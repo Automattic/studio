@@ -1,6 +1,6 @@
 # Agent Skills in WordPress Studio
 
-Agent Skills give your AI coding agent specialized knowledge about WordPress development. Studio bundles a set of skills you can install into your sites so agents like Claude Code or Cursor pick them up automatically.
+Agent Skills give your AI coding agent specialized knowledge about WordPress development. WordPress Studio bundles a set of skills you can install into your sites so agents like Claude Code or Cursor pick them up automatically.
 
 ## [What are Agent Skills?](#0-what-are-agent-skills-)
 
@@ -12,37 +12,55 @@ You can use skills to help agents handle tasks like:
 -   Creating a plugin that follows WordPress coding standards and security practices
 -   Working with REST API routes and authentication
 
-## [Available skills in Studio](#1-available-skills-in-studio)
+## [Available skills in WordPress Studio](#1-available-skills-in-studio)
 
-Studio ships with the following built-in skills:
+WordPress Studio ships with the following built-in skills:
 
--   **Studio CLI**: WordPress development workflows using Studio CLI
+-   **WordPress Studio CLI**: WordPress development workflows using WordPress Studio CLI
 -   **Plugin Development**: Hooks, settings API, security, and packaging
--   **Block Development**: `Block.json`, attributes, rendering, and deprecations
--   **Block Themes**: Theme.json, templates, patterns, and style variations
--   **REST API** — Routes, endpoints, schema, and authentication
--   **WP-CLI & Ops** — CLI commands, automation, and search-replace
+-   **Block Development**: `block.json`, attributes, rendering, and deprecations
+-   **Block Themes**: `theme.json`, templates, patterns, and style variations
+-   **REST API**: Routes, endpoints, schema, and authentication
+-   **WP-CLI & Ops**: CLI commands, automation, and search-replace
 
 ## [Where skills are stored](#2-where-skills-are-stored)
 
-When a skill is installed, Studio copies it into the site directory:
+WordPress Studio copies each installed skill into `.agents/skills/<skill-id>` in your site directory. It also creates a link for each skill in `.claude/skills/` so Claude Code can find it. This example shows all six installed skills and the Claude Code link for `studio-cli`.
 
-![Folder structure of a web development project showing directories and files related to WordPress, including 'wp-config.php' and various folders like 'skills' and 'studio-cli'.](https://developer.wordpress.com/wp-content/uploads/2026/04/image-6.png?w=624)
+```text
+my-site/
+├── .agents/
+│   └── skills/
+│       ├── studio-cli/
+│       │   └── SKILL.md
+│       ├── wp-block-development/
+│       ├── wp-block-themes/
+│       ├── wp-plugin-development/
+│       ├── wp-rest-api/
+│       └── wp-wpcli-and-ops/
+├── .claude/
+│   └── skills/
+│       └── studio-cli → ../../.agents/skills/studio-cli
+├── wp-admin/
+├── wp-content/
+├── wp-includes/
+└── wp-config.php
+```
 
-For agents that use Claude’s directory layout, Studio also creates a symlink at `.claude/skills/\<skill-id>` pointing to the same location. No additional configuration is needed for Claude Code to pick up the skill.
+## [Installing and removing skills in WordPress Studio](#3-installing-and-removing-skills-in-studio)
 
-## [Installing and removing skills in Studio](#3-installing-and-removing-skills-in-studio)
+There are two ways to manage skills in WordPress Studio – globally and per site.
 
-There are two ways to manage skills in Studio – globally and per site.
+You can find the global settings for skills in **Settings → Skills**. Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Skills** page.
 
-You can find the global settings for skills in **App settings → Skills**. Open **App settings** from the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Skills** tab:
+![The Skills page of WordPress Studio Settings, with the WordPress skills option to turn on skills for existing and new sites, and a Manage skills for this site link.](../../../screenshots/images/settings-skills.webp)
 
-[![](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-skills.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/app-settings-skills.png)
+From that page you can:
 
-From that screen you can:
-
+-   Turn on **WordPress skills** to install every available skill at once
 -   Turn on the toggle next to an individual skill to install it
--   Click **Install all** to install every available skill at once
 -   Turn off the toggle next to an installed skill to uninstall it
 
 Installing or removing a skill applies to all existing sites immediately. Any new site you create will also receive the currently installed skills automatically.
+
+To manage skills for a single site, open that site’s settings (choose **Settings** from the site menu) and select the **Skills** page, or click **Manage skills for this site** in **Settings → Skills**. Turn **WordPress skills** on or off for the site, and use the menu next to each installed skill to open it or **Uninstall** it. Changes there apply only to that site, and turning skills off keeps their files and any edits you made to them.

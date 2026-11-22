@@ -3,12 +3,32 @@
 		composes: dot from '@/lib/theme/recipes.module.css';
 	}
 
+	.dot[data-size='md'] {
+		width: var( --space-2 );
+		height: var( --space-2 );
+	}
+
+	.dot[data-tone='current'] {
+		background-color: currentColor;
+	}
+
+	.dot[data-position='inline'] {
+		position: static;
+		flex-shrink: 0;
+	}
+
 	.dot[data-position='icon'] {
 		top: -1.5px;
 		right: -1.5px;
 	}
 
-	:has( > .dot[data-position='icon'] ) {
+	.dot[data-position='icon-outside'] {
+		top: -4px;
+		right: -4px;
+	}
+
+	:has( > .dot[data-position='icon'] ),
+	:has( > .dot[data-position='icon-outside'] ) {
 		position: relative;
 	}
 

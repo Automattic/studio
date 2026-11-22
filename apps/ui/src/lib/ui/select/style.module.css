@@ -4,12 +4,6 @@
 		width: fit-content;
 	}
 
-	.trigger:focus-visible {
-		box-shadow: none;
-		outline: 1px solid var( --input-ring );
-		outline-offset: -1px;
-	}
-
 	.trigger[data-full-width] {
 		width: 100%;
 	}
@@ -54,12 +48,21 @@
 
 	.item {
 		width: 100%;
-		padding-inline-end: var( --space-8 );
+		--item-padding-inline-end: var( --space-8 );
 	}
 
 	.item[data-described] {
 		align-items: flex-start;
 		padding-block: var( --space-2 );
+	}
+
+	.item[data-has-icon] {
+		align-items: center;
+	}
+
+	.itemIcon {
+		display: flex;
+		flex-shrink: 0;
 	}
 
 	.itemBody {
@@ -75,6 +78,7 @@
 		flex: 1;
 		flex-shrink: 0;
 		gap: var( --space-1_5 );
+		align-items: center;
 		white-space: nowrap;
 	}
 

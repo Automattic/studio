@@ -1,10 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { createContext, useContext } from 'react';
-import { SplitViewIcon } from '@/lib/icons';
+import { PanelRightIcon } from '@/lib/icons';
 
 export const PanelCommandContext = createContext< {
 	siteId?: string;
 	toggle: () => void;
+	showChat?: () => void;
 } | null >( null );
 
 export function usePanelCommand( siteId?: string ) {
@@ -15,7 +16,7 @@ export function usePanelCommand( siteId?: string ) {
 		name: 'panel',
 		displayName: __( 'Toggle panel' ),
 		description: __( 'Show or hide the panel beside your chat.' ),
-		icon: SplitViewIcon,
+		icon: PanelRightIcon,
 		run: panel.toggle,
 	};
 }

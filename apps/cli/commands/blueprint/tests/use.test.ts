@@ -1,18 +1,13 @@
-import { readSharedConfig } from '@studio/common/lib/shared-config';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
-import { vol } from 'memfs';
+import { fetchLibraryBlueprints } from '@studio/blueprints';
+import { openBlueprint } from '@studio/blueprints/node';
+import { readConfig } from '@studio/common/lib/config/store';
 import { vi } from 'vitest';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand } from '../use';
 
-vi.mock( 'fs' );
-vi.mock( '@studio/common/lib/shared-config' );
-vi.mock( '@studio/common/lib/studio-blueprints-api' );
-vi.mock( '@studio/common/lib/blueprint-bundle', () => ( {
-	createBlueprintTempDir: vi.fn().mockResolvedValue( '/tmp/studio-blueprint-bundle-mock' ),
-	downloadAndExtractBlueprintBundle: vi.fn(),
-	removeBlueprintTempDir: vi.fn().mockResolvedValue( undefined ),
-} ) );
+vi.mock( '@studio/common/lib/config/store' );
+vi.mock( '@studio/blueprints' );
+vi.mock( '@studio/blueprints/node' );
 vi.mock( 'cli/commands/site/create', () => ( {
 	runCommand: vi.fn(),
 } ) );
@@ -36,18 +31,16 @@ const testBlueprints = [
 		title: 'Quick Start',
 		excerpt: 'Get started quickly',
 		image: 'https://example.com/qs.png',
-		playground_url: 'https://playground.wordpress.net/',
+		playgroundUrl: 'https://playground.wordpress.net/',
 		blueprint: { steps: [] },
-		bundle_url: null,
 	},
 	{
 		slug: 'woo-shop',
 		title: 'WooCommerce Shop',
 		excerpt: 'An online store',
 		image: 'https://example.com/woo.png',
-		playground_url: 'https://playground.wordpress.net/',
+		playgroundUrl: 'https://playground.wordpress.net/',
 		blueprint: { steps: [] },
-		bundle_url: null,
 	},
 ];
 
@@ -60,13 +53,14 @@ const defaultOptions = {
 describe( 'CLI: studio blueprint use', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
-		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( testBlueprints );
+		vi.mocked( readConfig ).mockResolvedValue( { preferences: {} } as never );
+		vi.mocked( fetchLibraryBlueprints ).mockResolvedValue( testBlueprints );
+		vi.mocked( openBlueprint ).mockImplementation( async ( source ) => ( {
+			blueprint: ( source as ( typeof testBlueprints )[ number ] ).blueprint,
+			path: '/tmp/opened/blueprint.json',
+			[ Symbol.asyncDispose ]: async () => {},
+		} ) );
 		vi.mocked( runCreateSiteCommand ).mockResolvedValue( undefined );
-		// The blueprint JSON is written into the (mocked) temp dir, which must
-		// exist in the memfs volume.
-		vol.reset();
-		vol.mkdirSync( '/tmp/studio-blueprint-bundle-mock', { recursive: true } );
 	} );
 
 	afterEach( () => {
@@ -79,15 +73,13 @@ describe( 'CLI: studio blueprint use', () => {
 		expect( runCreateSiteCommand ).toHaveBeenCalledWith(
 			'/tmp/test-site',
 			expect.objectContaining( {
-				blueprint: expect.objectContaining( {
-					contents: { steps: [] },
-				} ),
+				blueprint: { contents: { steps: [] }, uri: '/tmp/opened/blueprint.json' },
 			} )
 		);
 	} );
 
 	it( 'should throw when offline', async () => {
-		vi.mocked( fetchStudioBlueprints ).mockRejectedValue( new TypeError( 'fetch failed' ) );
+		vi.mocked( fetchLibraryBlueprints ).mockRejectedValue( new TypeError( 'fetch failed' ) );
 
 		await expect( runCommand( '/tmp/test-site', 'quick-start', defaultOptions ) ).rejects.toThrow(
 			'internet connection'
@@ -95,7 +87,7 @@ describe( 'CLI: studio blueprint use', () => {
 	} );
 
 	it( 'should throw when no blueprints are available', async () => {
-		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( [] );
+		vi.mocked( fetchLibraryBlueprints ).mockResolvedValue( [] );
 
 		await expect( runCommand( '/tmp/test-site', 'quick-start', defaultOptions ) ).rejects.toThrow(
 			'No blueprints available'
@@ -123,10 +115,10 @@ describe( 'CLI: studio blueprint use', () => {
 	} );
 
 	it( 'should pass locale from shared config when fetching blueprints', async () => {
-		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1, locale: 'de_DE' } );
+		vi.mocked( readConfig ).mockResolvedValue( { preferences: { locale: 'de_DE' } } as never );
 
 		await runCommand( '/tmp/test-site', 'quick-start', defaultOptions );
 
-		expect( fetchStudioBlueprints ).toHaveBeenCalledWith( 'de_DE' );
+		expect( fetchLibraryBlueprints ).toHaveBeenCalledWith( { locale: 'de_DE' } );
 	} );
 } );

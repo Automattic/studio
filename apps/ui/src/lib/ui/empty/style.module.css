@@ -32,19 +32,6 @@
 		text-wrap: balance;
 	}
 
-	.media {
-		display: flex;
-		width: 32px;
-		height: 32px;
-		flex-shrink: 0;
-		align-items: center;
-		justify-content: center;
-		margin-block-end: var( --space-2 );
-		border-radius: var( --radius-lg );
-		background: var( --muted );
-		color: var( --foreground );
-	}
-
 	.title {
 		font-size: var( --text-sm );
 		font-weight: var( --font-weight-medium );

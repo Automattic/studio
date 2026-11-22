@@ -44,6 +44,10 @@ export type ButtonProps = ComponentProps< typeof BaseButton > & {
 	shape?: 'default' | 'round';
 	layout?: 'default' | 'row' | 'inline';
 	disabledAppearance?: 'default' | 'icon' | 'outline';
+	/** Whether an expanded or pressed ARIA state keeps the button highlighted. */
+	highlightOnToggle?: boolean;
+	/** Uses a destructive foreground on hover, press, and keyboard focus. */
+	destructive?: boolean;
 	/** Disables the button and leads its label with a spinner. */
 	loading?: boolean;
 	/** Replaces the visible label with a centered spinner while preserving its width. */
@@ -58,6 +62,8 @@ export function Button( {
 	shape = 'default',
 	layout = 'default',
 	disabledAppearance = 'default',
+	highlightOnToggle = true,
+	destructive = false,
 	loading = false,
 	loadingMode = 'leading',
 	loadingAnnouncement,
@@ -75,6 +81,8 @@ export function Button( {
 			data-shape={ shape === 'default' ? undefined : shape }
 			data-layout={ layout === 'default' ? undefined : layout }
 			data-disabled-appearance={ disabledAppearance === 'default' ? undefined : disabledAppearance }
+			data-toggle-highlight={ highlightOnToggle ? undefined : 'false' }
+			data-destructive={ destructive || undefined }
 			data-loading-mode={ loadingMode === 'replace' ? loadingMode : undefined }
 			aria-busy={ loading || undefined }
 			disabled={ disabled || loading }
@@ -105,6 +113,8 @@ type IconButtonProps = Omit< ButtonProps, 'children' > & {
 	label: string;
 	shortcut?: Shortcut;
 	tooltip?: boolean;
+	tooltipLabel?: string;
+	tooltipSideOffset?: ComponentProps< typeof TooltipContent >[ 'sideOffset' ];
 	tooltipSide?: ComponentProps< typeof TooltipContent >[ 'side' ];
 	children?: ReactNode;
 };
@@ -115,7 +125,9 @@ export function IconButton( {
 	label,
 	shortcut,
 	tooltip = true,
+	tooltipLabel = label,
 	tooltipSide = 'top',
+	tooltipSideOffset,
 	variant = 'ghost',
 	size = 'icon',
 	children,
@@ -140,8 +152,8 @@ export function IconButton( {
 	return (
 		<Tooltip>
 			<TooltipTrigger render={ button } />
-			<TooltipContent side={ tooltipSide }>
-				{ label }
+			<TooltipContent side={ tooltipSide } sideOffset={ tooltipSideOffset }>
+				{ tooltipLabel }
 				{ shortcut && <Kbd>{ shortcut.displayShortcut }</Kbd> }
 			</TooltipContent>
 		</Tooltip>

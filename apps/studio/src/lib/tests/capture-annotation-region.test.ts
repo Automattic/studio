@@ -8,13 +8,14 @@ vi.mock( 'electron', () => ( { webContents: { fromId: vi.fn() } } ) );
 const selection: InspectorSelection = {
 	id: 'capture-1',
 	target: {
-		kind: 'region',
+		kind: 'drawing',
 		url: 'http://localhost:8881/',
 		viewport: { width: 800, height: 600 },
 		documentRect: { left: 20, top: 30, width: 200, height: 100 },
 	},
 	rect: { left: 20, top: 30, width: 200, height: 100 },
 	scroll: { left: 0, top: 0 },
+	drawing: { width: 3, color: '#3858e9', strokes: [ [ { x: 30, y: 40 } ] ] },
 };
 const sender = {};
 const event = { sender } as IpcMainInvokeEvent;
@@ -42,23 +43,34 @@ beforeEach( () => {
 afterEach( () => vi.useRealTimers() );
 
 describe( 'annotation region capture', () => {
-	it( 'captures visible guest pixels and returns a standard image attachment', async () => {
-		const result = await captureAnnotationRegion( event, { guestId: 7, selection } );
-		expect( guest.capturePage ).toHaveBeenCalledWith( { x: 20, y: 30, width: 200, height: 100 } );
-		expect( guest.executeJavaScript.mock.calls[ 0 ][ 0 ] ).toContain(
-			"host.setAttribute('data-capturing',"
-		);
-		expect( guest.executeJavaScript.mock.calls.at( -1 )?.[ 0 ] ).toContain(
-			"removeAttribute('data-capturing')"
-		);
-		expect( result ).toMatchObject( {
-			mimeType: 'image/png',
-			width: 400,
-			height: 200,
-			size: 3,
-			dataBase64: Buffer.from( 'png' ).toString( 'base64' ),
-		} );
-	} );
+	it.each( [ 'region', 'drawing' ] as const )(
+		'captures %s pixels as an image attachment',
+		async ( kind ) => {
+			const result = await captureAnnotationRegion( event, {
+				guestId: 7,
+				selection: {
+					...selection,
+					target: { ...selection.target, kind },
+					drawing: kind === 'drawing' ? selection.drawing : undefined,
+				},
+			} );
+			expect( guest.capturePage ).toHaveBeenCalledWith( { x: 20, y: 30, width: 200, height: 100 } );
+			expect( guest.executeJavaScript.mock.calls[ 0 ][ 0 ] ).toContain(
+				"host.setAttribute('data-capturing',"
+			);
+			expect( guest.executeJavaScript.mock.calls.at( -1 )?.[ 0 ] ).toContain(
+				"removeAttribute('data-capturing')"
+			);
+			expect( result ).toMatchObject( {
+				name: kind === 'drawing' ? 'Drawing.png' : 'Selected area.png',
+				mimeType: 'image/png',
+				width: 400,
+				height: 200,
+				size: 3,
+				dataBase64: Buffer.from( 'png' ).toString( 'base64' ),
+			} );
+		}
+	);
 	it( 'escapes page data in every capture script without changing its value', async () => {
 		const id = '</script>"\\\u2028\u2029';
 		await captureAnnotationRegion( event, {

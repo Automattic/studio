@@ -1,11 +1,13 @@
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { DEPENDENCY_CHECK_INTERVAL_MS, updateServerFiles } from '../setup';
 import { updateLatestWordPressVersion } from '../wordpress';
 
-vi.mock( 'cli/lib/cli-config/core', () => ( {
-	readCliConfig: vi.fn(),
-	updateCliConfigWithPartial: vi.fn(),
+let config: { cli: { lastDependencyCheckTime?: number } };
+
+vi.mock( '@studio/common/lib/config/store', () => ( {
+	readConfig: vi.fn( async () => config ),
+	updateConfig: vi.fn( async ( update: ( value: typeof config ) => void ) => update( config ) ),
 } ) );
 
 vi.mock( '../wordpress' );
@@ -19,7 +21,7 @@ describe( 'updateServerFiles', () => {
 		vi.setSystemTime( NOW );
 		vi.spyOn( console, 'error' ).mockImplementation( () => {} );
 		vi.mocked( updateLatestWordPressVersion ).mockResolvedValue( undefined );
-		vi.mocked( updateCliConfigWithPartial ).mockResolvedValue( undefined );
+		config = { cli: {} };
 	} );
 
 	afterEach( () => {
@@ -29,8 +31,6 @@ describe( 'updateServerFiles', () => {
 
 	describe( 'throttling', () => {
 		it( 'runs the update when no timestamp has been recorded', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
-
 			const result = await updateServerFiles();
 
 			expect( result ).toBe( true );
@@ -38,12 +38,7 @@ describe( 'updateServerFiles', () => {
 		} );
 
 		it( 'runs the update when the last check is older than the interval', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: [],
-				snapshots: [],
-				lastDependencyCheckTime: NOW - DEPENDENCY_CHECK_INTERVAL_MS - 1,
-			} );
+			config.cli.lastDependencyCheckTime = NOW - DEPENDENCY_CHECK_INTERVAL_MS - 1;
 
 			const result = await updateServerFiles();
 
@@ -52,12 +47,7 @@ describe( 'updateServerFiles', () => {
 		} );
 
 		it( 'skips the update when the last check is within the interval', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: [],
-				snapshots: [],
-				lastDependencyCheckTime: NOW - 60 * 1000,
-			} );
+			config.cli.lastDependencyCheckTime = NOW - 60 * 1000;
 
 			const result = await updateServerFiles();
 
@@ -65,29 +55,8 @@ describe( 'updateServerFiles', () => {
 			expect( updateLatestWordPressVersion ).not.toHaveBeenCalled();
 		} );
 
-		it( 'runs the update inside the interval when forced', async () => {
-			// Creating a site on "latest" installs by copying the cached directory,
-			// so it has to verify the cache is current no matter when we last looked.
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: [],
-				snapshots: [],
-				lastDependencyCheckTime: NOW - 60 * 1000,
-			} );
-
-			const result = await updateServerFiles( true );
-
-			expect( result ).toBe( true );
-			expect( updateLatestWordPressVersion ).toHaveBeenCalledTimes( 1 );
-		} );
-
 		it( 'runs the update when the timestamp is in the future (clock skew)', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: [],
-				snapshots: [],
-				lastDependencyCheckTime: NOW + 60 * 1000,
-			} );
+			config.cli.lastDependencyCheckTime = NOW + 60 * 1000;
 
 			const result = await updateServerFiles();
 
@@ -96,7 +65,7 @@ describe( 'updateServerFiles', () => {
 		} );
 
 		it( 'runs the update when reading the config throws', async () => {
-			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'boom' ) );
+			vi.mocked( readConfig ).mockRejectedValueOnce( new Error( 'boom' ) );
 
 			const result = await updateServerFiles();
 
@@ -107,42 +76,29 @@ describe( 'updateServerFiles', () => {
 
 	describe( 'timestamp persistence', () => {
 		it( 'persists the current time after a successful update', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
-
 			await updateServerFiles();
 
-			expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( {
-				lastDependencyCheckTime: NOW,
-			} );
+			expect( config.cli.lastDependencyCheckTime ).toBe( NOW );
 		} );
 
 		it( 'persists the timestamp even when the update throws', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
 			vi.mocked( updateLatestWordPressVersion ).mockRejectedValue( new Error( 'network' ) );
 
 			await updateServerFiles();
 
-			expect( updateCliConfigWithPartial ).toHaveBeenCalledWith( {
-				lastDependencyCheckTime: NOW,
-			} );
+			expect( config.cli.lastDependencyCheckTime ).toBe( NOW );
 		} );
 
 		it( 'does not persist the timestamp when the check is skipped', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: [],
-				snapshots: [],
-				lastDependencyCheckTime: NOW - 60 * 1000,
-			} );
+			config.cli.lastDependencyCheckTime = NOW - 60 * 1000;
 
 			await updateServerFiles();
 
-			expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+			expect( updateConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'swallows errors from the timestamp write', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( { version: 1, sites: [], snapshots: [] } );
-			vi.mocked( updateCliConfigWithPartial ).mockRejectedValue( new Error( 'write failed' ) );
+			vi.mocked( updateConfig ).mockRejectedValueOnce( new Error( 'write failed' ) );
 
 			await expect( updateServerFiles() ).resolves.toBe( true );
 		} );

@@ -46,7 +46,7 @@ describe( 'AccountMenu', () => {
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			if ( label === 'Help Center' ) {
 				expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-					'https://developer.wordpress.com/docs/developer-tools/studio/'
+					'https://wordpress.studio/docs/'
 				);
 			} else {
 				await waitFor( () =>
@@ -242,7 +242,7 @@ describe( 'AccountMenu', () => {
 		const { history } = setup( TEST_USER );
 		fireEvent.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Providers' } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 	} );
 
 	it( 'reports a failed logout in a toast', async () => {

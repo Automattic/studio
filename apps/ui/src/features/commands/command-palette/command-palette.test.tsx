@@ -11,7 +11,7 @@ import {
 	type FakeConnectorState,
 } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
-import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import type { AiSessionSummary, OnboardingHintsState, SiteDetails } from '@/data/core';
 
 const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
 const testSite = makeSite( { id: 'one', name: 'Test site' } );
@@ -60,14 +60,18 @@ afterEach( () => vi.unstubAllGlobals() );
 describe( 'command palette', () => {
 	beforeEach( () => localStorage.clear() );
 	it( 'finds the tour by its aliases and replays it without resetting preferences', async () => {
+		let hints: OnboardingHintsState = {
+			walkthroughStep: 'skipped',
+			annotateHintDismissed: true,
+			whatsNewSeenVersion: 10,
+		};
 		const connector = createFakeConnector(
 			{ sites: [ testSite ], preferences: { colorScheme: 'dark' } },
 			{
-				getOnboardingHints: async () => ( {
-					walkthroughStep: 'skipped',
-					annotateHintDismissed: true,
-					whatsNewSeenVersion: 10,
-				} ),
+				getOnboardingHints: async () => hints,
+				setOnboardingHints: async ( patch ) => {
+					hints = { ...hints, ...patch };
+				},
 			}
 		);
 		const { user, history } = await renderPalette( { connector } );
@@ -117,10 +121,14 @@ describe( 'command palette', () => {
 			'fetch',
 			vi.fn( async () => Response.json( { blueprints: [] } ) )
 		);
+		let hints: OnboardingHintsState = { walkthroughStep: 'skipped' };
 		const connector = createFakeConnector(
 			{ sites: [] },
 			{
-				getOnboardingHints: async () => ( { walkthroughStep: 'skipped' } ),
+				getOnboardingHints: async () => hints,
+				setOnboardingHints: async ( patch ) => {
+					hints = { ...hints, ...patch };
+				},
 			}
 		);
 		const { user } = renderApp( { connector, path: '/sites' } );
@@ -134,6 +142,23 @@ describe( 'command palette', () => {
 		expect( await screen.findByRole( 'dialog', { name: 'Start from scratch' } ) ).toBeVisible();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
+
+	it.each( [ true, false ] )(
+		'offers the database tool only when supported: %s',
+		async ( phpMyAdminSupported ) => {
+			await renderPalette( {
+				connector: createFakeConnector( {
+					sites: [ { ...testSite, running: true, phpMyAdminSupported } ],
+				} ),
+				path: '/sites/one/new',
+			} );
+			await openPalette();
+			search( 'Open database' );
+			expect( screen.queryByRole( 'option', { name: /^Open database/ } ) !== null ).toBe(
+				phpMyAdminSupported
+			);
+		}
+	);
 
 	it( 'opens a new chat for the current site from the application menu', async () => {
 		const connector = createFakeConnector( { sites: [ testSite ] } );
@@ -184,14 +209,19 @@ describe( 'command palette', () => {
 			expect( screen.queryByRole( 'option', { name: 'Usage' } ) !== null ).toBe( signedIn );
 			expect( screen.queryByRole( 'option', { name: /View AI usage/ } ) ).not.toBeInTheDocument();
 			search( 'Providers' );
-			expect( option( 'Providers' ) ).toBeVisible();
+			expect( option( 'AI providers Providers' ) ).toBeVisible();
 		}
 	);
 
 	it.each( [
-		[ 'MCP', 'MCP', 'mcp' ],
-		[ 'Connect', 'Providers', 'ai' ],
-		[ 'Connect provider', 'Providers', 'ai' ],
+		[ 'Providers', 'Providers', 'providers' ],
+		[ 'MCP', 'Agents', 'mcp' ],
+		[ 'AI apps', 'Agents', 'mcp' ],
+		[ 'Codex', 'ChatGPT (Codex) Agents', 'mcp' ],
+		[ 'Spacefast', 'Spacefast Providers', 'providers' ],
+		[ 'Hosting providers', 'Hosting providers Providers', 'providers' ],
+		[ 'Connect', 'AI providers Providers', 'providers' ],
+		[ 'Connect provider', 'AI providers Providers', 'providers' ],
 		[ 'credits', 'Usage', 'usage' ],
 		[ 'AI credits', 'Usage', 'usage' ],
 		[ 'credit balance', 'Usage', 'usage' ],

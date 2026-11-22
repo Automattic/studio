@@ -16,6 +16,43 @@ import {
 } from '@/test/session-entries';
 import type { SessionEntry } from '@/data/core';
 
+it( 'shows image notes without a redundant label and keeps actual element references', () => {
+	const previewDataUrl = 'data:image/png;base64,eA==';
+	const image = ( id: string ) => ( {
+		id,
+		kind: 'image',
+		name: `${ id }.png`,
+		previewDataUrl,
+	} );
+	renderConversation(
+		loadedSession( [
+			{
+				...promptEntry( '3 annotations submitted' ),
+				data: {
+					source: 'prompt',
+					attachments: [ image( 'Drawing' ), image( 'Area' ), { kind: 'file', name: 'brief.md' } ],
+					visualAnnotations: [
+						{ comment: 'Raise this curve', elementLabel: 'Drawing', imageIds: [ 'Drawing' ] },
+						{ comment: 'Add space here', elementLabel: 'Selected area', imageIds: [ 'Area' ] },
+						{ comment: 'Shorten the heading', tag: 'h1', elementLabel: 'h1.hero' },
+					],
+				},
+			} as unknown as SessionEntry,
+		] )
+	);
+
+	expect( screen.getByRole( 'img', { name: 'Drawing.png' } ) ).toHaveAttribute(
+		'src',
+		previewDataUrl
+	);
+	expect( screen.getByRole( 'img', { name: 'Area.png' } ) ).toBeInTheDocument();
+	expect( screen.queryByText( 'Drawing', { exact: true } ) ).not.toBeInTheDocument();
+	expect( screen.queryByText( 'Selected area', { exact: true } ) ).not.toBeInTheDocument();
+	expect( screen.getByText( 'h1.hero', { exact: true } ) ).toBeVisible();
+	expect( screen.getByText( 'brief.md', { exact: true } ) ).toBeVisible();
+	expect( screen.getByText( 'Raise this curve' ) ).toBeVisible();
+} );
+
 describe( 'Conversation copy buttons', () => {
 	it( 'copies any whole reply and the prompts the user sent', async () => {
 		const { connector } = renderConversation(

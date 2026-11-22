@@ -1,7 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp, renderWithProviders } from '@/test/render';
 import { Walkthrough } from './walkthrough';
 import type { OnboardingHintsState } from '@/data/core';
@@ -52,9 +52,6 @@ function Targets( { onAction }: { onAction?: () => void } ) {
 		<>
 			<textarea aria-label="Message" data-walkthrough="composer" />
 			<button data-walkthrough="annotate">Annotate</button>
-			<button data-walkthrough="share" onClick={ onAction }>
-				Share
-			</button>
 			<button data-walkthrough="publish" onClick={ onAction }>
 				Publish
 			</button>
@@ -74,7 +71,6 @@ function InteractiveTargets() {
 					Annotate
 				</button>
 			</span>
-			<button data-walkthrough="share">Share</button>
 			<button data-walkthrough="publish">Publish</button>
 			<Walkthrough />
 		</>
@@ -82,19 +78,25 @@ function InteractiveTargets() {
 }
 
 describe( 'first-time walkthrough', () => {
+	it( 'keeps the previous orientation on an older server without enrollment support', async () => {
+		const { connector } = setup( {} );
+		connector.capabilities.walkthroughEnrollment = false;
+		renderApp( { connector, path: '/sites/site-1/new' } );
+		expect(
+			await screen.findByRole( 'dialog', { name: 'Welcome to WordPress Studio' } )
+		).toBeVisible();
+	} );
+
 	it( 'introduces all workspace steps without running actions and persists completion', async () => {
 		const { connector, readHints } = setup( { walkthroughStep: 'composer' } );
 		const onAction = vi.fn();
 		const { user } = renderWithProviders( <Targets onAction={ onAction } />, { connector } );
 		expect( await screen.findByRole( 'dialog', { name: 'Make any change' } ) ).toBeVisible();
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '3/5' );
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '3/4' );
 		expect( screen.queryByRole( 'button', { name: 'Skip tour' } ) ).not.toBeInTheDocument();
 		await user.click( screen.getByRole( 'button', { name: 'Next' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Share a preview' } ) ).toBeVisible();
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '4/5' );
-		await user.click( screen.getByRole( 'button', { name: 'Next' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Publish when ready' } ) ).toBeVisible();
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '5/5' );
+		expect( await screen.findByRole( 'dialog', { name: 'Share or publish' } ) ).toBeVisible();
+		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '4/4' );
 		await user.click( screen.getByRole( 'button', { name: 'Done' } ) );
 		await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'completed' ) );
 		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toHaveFocus();
@@ -104,8 +106,8 @@ describe( 'first-time walkthrough', () => {
 	it( 'continues a saved annotation step at sharing without opening the preview', async () => {
 		const { connector, readHints } = setup( { walkthroughStep: 'annotate' } );
 		renderWithProviders( <Targets />, { connector } );
-		expect( await screen.findByRole( 'dialog', { name: 'Share a preview' } ) ).toBeVisible();
-		expect( readHints().walkthroughStep ).toBe( 'share' );
+		expect( await screen.findByRole( 'dialog', { name: 'Share or publish' } ) ).toBeVisible();
+		expect( readHints().walkthroughStep ).toBe( 'publish' );
 		expect( screen.queryByRole( 'dialog', { name: 'Point at it' } ) ).not.toBeInTheDocument();
 		expect( connector.startSite ).not.toHaveBeenCalled();
 	} );
@@ -129,10 +131,15 @@ describe( 'first-time walkthrough', () => {
 		const introduction = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
 		await user.click( within( introduction ).getByRole( 'button', { name: 'Skip tour' } ) );
 		await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'skipped' ) );
+		const readsBeforeRelaunch = connector.getOnboardingHints.mock.calls.length;
 		unmount();
 		renderApp( { connector, path: '/sites?addSite=create' } );
 		await screen.findByRole( 'dialog', { name: 'Add site' } );
-		await waitFor( () => expect( connector.getOnboardingHints ).toHaveBeenCalledTimes( 2 ) );
+		await waitFor( () =>
+			expect( connector.getOnboardingHints.mock.calls.length ).toBeGreaterThan(
+				readsBeforeRelaunch
+			)
+		);
 		expect(
 			screen.queryByRole( 'dialog', { name: 'Start from scratch' } )
 		).not.toBeInTheDocument();
@@ -153,14 +160,14 @@ describe( 'first-time walkthrough', () => {
 		const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
 		const introduction = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
 		expect( within( introduction ).getByRole( 'button', { name: 'Skip tour' } ) ).toBeVisible();
-		expect( within( introduction ).getByRole( 'status' ) ).toHaveTextContent( '1/5' );
+		expect( within( introduction ).getByRole( 'status' ) ).toHaveTextContent( '1/4' );
 		within( introduction ).getByRole( 'button', { name: 'Next' } ).focus();
 		await user.keyboard( '{Enter}' );
 		const designTip = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
 		expect(
 			within( designTip ).queryByRole( 'button', { name: 'Skip tour' } )
 		).not.toBeInTheDocument();
-		expect( within( designTip ).getByRole( 'status' ) ).toHaveTextContent( '2/5' );
+		expect( within( designTip ).getByRole( 'status' ) ).toHaveTextContent( '2/4' );
 		await user.click( within( designTip ).getByRole( 'button', { name: 'Browse designs' } ) );
 		await waitFor( () => expect( designTip ).not.toBeInTheDocument() );
 		expect( screen.getByRole( 'button', { name: 'View Substrata' } ) ).toHaveFocus();
@@ -234,8 +241,12 @@ describe( 'first-time walkthrough', () => {
 					name: 'Make it yours',
 				} );
 				await user.click( within( blueprintTip ).getByRole( 'button', { name: 'Got it' } ) );
-				expect( screen.getByRole( 'button', { name: 'Use Blueprint' } ) ).toHaveFocus();
-				await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
+				expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toHaveFocus();
+				expect( connector.createSite ).not.toHaveBeenCalled();
+				await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
+				await waitFor( () => expect( connector.createSite ).toHaveBeenCalled() );
+				await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'composer' ) );
+				return;
 			} else {
 				await user.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
 			}
@@ -351,16 +362,16 @@ describe( 'first-time walkthrough', () => {
 		const { user } = renderWithProviders( <InteractiveTargets />, { connector } );
 		await screen.findByRole( 'dialog', { name: 'Make any change' } );
 		await user.click( screen.getByRole( 'button', { name: 'Next' } ) );
-		await screen.findByRole( 'dialog', { name: 'Share a preview' } );
+		await screen.findByRole( 'dialog', { name: 'Share or publish' } );
 		await user.click( screen.getByRole( 'button', { name: 'Annotate' } ) );
-		await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'share' ) );
+		await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'publish' ) );
 		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveAttribute(
 			'aria-pressed',
 			'true'
 		);
-		expect( screen.queryByRole( 'dialog', { name: 'Share a preview' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: 'Share or publish' } ) ).not.toBeInTheDocument();
 		await user.click( screen.getByRole( 'button', { name: 'Annotate' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Share a preview' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'dialog', { name: 'Share or publish' } ) ).toBeVisible();
 	} );
 
 	it( 'guides a signed-out user to connect and preserves the step when settings close', async () => {
@@ -378,28 +389,25 @@ describe( 'first-time walkthrough', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Close settings' } ) );
 		expect( await screen.findByRole( 'dialog', { name: 'Build with AI' } ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Next' } ) );
-		const share = await screen.findByRole( 'dialog', { name: 'Share a preview' } );
+		const share = await screen.findByRole( 'dialog', { name: 'Share or publish' } );
 		expect( share ).toHaveTextContent(
-			'Log in to WordPress.com to get a preview link you can send around.'
+			'Connect a provider to share a preview or publish your site.'
 		);
 	} );
 
-	it( 'hands sharing to the login prompt, then resumes publishing after dismissal', async () => {
+	it( 'continues a saved share step at the unified publishing control', async () => {
 		const { connector, readHints } = setup( { walkthroughStep: 'share' }, { signedIn: false } );
 		const { user } = renderApp( { connector, path: '/sites/site-1/new' } );
-		await screen.findByRole( 'dialog', { name: 'Share a preview' } );
-		screen.getByRole( 'button', { name: 'Share' } ).focus();
-		await user.keyboard( '{Enter}' );
-		await screen.findByRole( 'dialog', { name: 'Share your WordPress' } );
+		await screen.findByRole( 'dialog', { name: 'Share or publish' } );
 		await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'publish' ) );
-		expect(
-			screen.queryByRole( 'dialog', { name: 'Publish when ready' } )
-		).not.toBeInTheDocument();
-		await user.click( screen.getByRole( 'button', { name: 'Close' } ) );
-		const publish = await screen.findByRole( 'dialog', { name: 'Publish when ready' } );
-		expect( publish ).toHaveTextContent(
-			'Log in to WordPress.com when you’re ready to take it live.'
+		screen.getByRole( 'button', { name: 'Publish…' } ).focus();
+		await user.keyboard( '{Enter}' );
+		await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'completed' ) );
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
 		);
+		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 
 	it.each( [
@@ -414,14 +422,14 @@ describe( 'first-time walkthrough', () => {
 			message: 'WordPress.com AI needs a payment method on file',
 		},
 		{
-			title: 'Join the beta',
+			title: 'WordPress.com AI access',
 			quota: { studioCodeAiHasAccess: false },
 			message: 'access',
 		},
 		{
-			title: 'Thanks for testing the beta',
+			title: 'WordPress.com AI access',
 			quota: { studioCodeAiHasAccess: false, costUsage: 1 },
-			message: 'Apply again to keep going.',
+			message: 'Access is now limited.',
 		},
 		{
 			title: 'Switch providers',
@@ -450,7 +458,7 @@ describe( 'first-time walkthrough', () => {
 			expect( tip ).toHaveTextContent( message );
 			expect( within( tip ).queryByRole( 'status' ) ).not.toBeInTheDocument();
 			await user.click( within( tip ).getByRole( 'button', { name: 'Next' } ) );
-			expect( await screen.findByRole( 'dialog', { name: 'Share a preview' } ) ).toBeVisible();
+			expect( await screen.findByRole( 'dialog', { name: 'Share or publish' } ) ).toBeVisible();
 			expect( screen.queryByRole( 'dialog', { name: 'Point at it' } ) ).not.toBeInTheDocument();
 		}
 	);
@@ -481,17 +489,14 @@ describe( 'first-time walkthrough', () => {
 		);
 		const { queryClient } = renderApp( { connector, path: '/sites/site-1/new' } );
 		await screen.findByRole( 'dialog', { name: 'Build with AI' } );
+		connector.getAiSettings.mockResolvedValue( aiSettings( 'anthropic', [ 'anthropic' ] ) );
 		await act( async () => {
-			queryClient.setQueryData( [ 'ai-settings' ], {
-				provider: 'anthropic-api-key',
-				hasAnthropicApiKey: true,
-				anthropicApiKeyPreview: 'test',
-			} );
+			queryClient.setQueryData( [ 'ai-settings' ], aiSettings( 'anthropic', [ 'anthropic' ] ) );
 		} );
 		const readyTip = await screen.findByRole( 'dialog', { name: 'Make any change' } );
 		expect( readyTip ).toBeVisible();
 		await waitFor( () =>
-			expect( within( readyTip ).getByRole( 'status' ) ).toHaveTextContent( '3/5' )
+			expect( within( readyTip ).getByRole( 'status' ) ).toHaveTextContent( '3/4' )
 		);
 	} );
 
@@ -500,7 +505,7 @@ describe( 'first-time walkthrough', () => {
 		const { user } = renderApp( { connector, path: '/sites/site-1/new' } );
 		await screen.findByRole( 'dialog', { name: 'Make any change' } );
 		await user.click( screen.getByRole( 'button', { name: 'Next' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Share a preview' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'dialog', { name: 'Share or publish' } ) ).toBeVisible();
 		expect( connector.startSite ).not.toHaveBeenCalled();
 	} );
 

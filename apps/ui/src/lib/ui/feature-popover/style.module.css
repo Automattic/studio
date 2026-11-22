@@ -1,5 +1,6 @@
 @layer ui {
 	.card {
+		--popover-action-inset: var( --space-2 );
 		--popover: var( --accent );
 		--popover-foreground: var( --accent-foreground );
 		--ring: var( --accent-foreground );
@@ -72,7 +73,7 @@
 	}
 
 	.card .progress {
-		color: var( --muted-foreground );
+		color: var( --accent-foreground );
 	}
 
 	.card .actions button {
@@ -100,12 +101,14 @@
 		padding-inline-end: var( --space-6 );
 	}
 
-	.dismiss {
-		position: absolute;
-		top: var( --space-2 );
-		right: var( --space-2 );
-		color: inherit;
+	.card .dismiss {
+		--radius-button: max( 0px, calc( var( --radius-popup ) - var( --popover-action-inset ) ) );
 		--button-background: transparent;
+
+		position: absolute;
+		inset-block-start: var( --popover-action-inset );
+		inset-inline-end: var( --popover-action-inset );
+		color: inherit;
 	}
 
 	.arrow {
@@ -144,8 +147,8 @@
 
 	.footer {
 		margin-top: var( --space-4 );
-		margin-inline: calc( var( --space-2 ) * -1 );
-		margin-bottom: calc( var( --space-2 ) * -1 );
+		margin-inline: calc( var( --popover-action-inset ) * -1 );
+		margin-bottom: calc( var( --popover-action-inset ) * -1 );
 	}
 
 	.navigation,

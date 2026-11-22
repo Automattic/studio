@@ -6,7 +6,12 @@ import { createMemoryHistory } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
-import { createInMemoryConnector, makeSite, TEST_USER } from '@/test/in-memory-connector';
+import {
+	aiSettings,
+	createInMemoryConnector,
+	makeSite,
+	TEST_USER,
+} from '@/test/in-memory-connector';
 import type { OnboardingHintsState } from '@/data/core';
 
 const params = new URLSearchParams( window.location.search );
@@ -30,11 +35,9 @@ const connector = createInMemoryConnector(
 		getOnboardingCompleted: async () => true,
 		getAiSettings: async () => {
 			if ( gate === 'provider-error' ) throw new Error( 'Provider unavailable' );
-			return {
-				provider: anthropic ? 'anthropic-api-key' : 'wpcom',
-				hasAnthropicApiKey: anthropic,
-				anthropicApiKeyPreview: anthropic ? 'test' : null,
-			};
+			return anthropic
+				? aiSettings( 'anthropic', [ 'anthropic' ] )
+				: aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] );
 		},
 		getStudioAssistantQuota: async () => {
 			if ( gate === 'offline' || gate === 'quota-error' ) {

@@ -3,6 +3,8 @@
 // and sender: it does NOT read config or opt-out state. Callers must go through the per-app wrappers
 // (`apps/studio/src/lib/tracks.ts`, `apps/cli/lib/tracks.ts`), which enforce the opt-out.
 
+import type { SitesProviderId } from '@studio/providers';
+
 const TRACKS_PIXEL_URL = 'https://pixel.wp.com/t.gif';
 
 // Event names follow Tracks naming rules. Register them for documentation and integrity checks;
@@ -11,6 +13,7 @@ export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
 	SITE_CREATE: 'studio_site_created',
+	SITE_CREATE_FAILED: 'studio_site_create_failed',
 	BLUEPRINT_VIEWED: 'studio_blueprint_viewed',
 	BLUEPRINT_USE_CASE_FILTER_CHANGED: 'studio_blueprint_use_case_filter_changed',
 	BLUEPRINT_PREVIEW_IN_BROWSER: 'studio_blueprint_preview_in_browser',
@@ -35,6 +38,7 @@ export const TRACKS_EVENTS = {
 	PREVIEW_SITE_DELETE_ALL: 'studio_preview_site_delete_all',
 	PANEL_OPENED: 'studio_panel_opened',
 	WORKSPACE_LAYOUT_CHANGED: 'studio_workspace_layout_changed',
+	RESPONSIVE_PREVIEW_CHANGED: 'studio_responsive_preview_changed',
 	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 	SETTING_APPEARANCE_CHANGE: 'studio_setting_appearance_change',
 	SETTING_LANGUAGE_CHANGE: 'studio_setting_language_change',
@@ -122,6 +126,17 @@ export type TracksSiteCreateSource = 'url' | 'capture' | 'directory';
 // browser (`external`); the agentic UI (v2) can open its in-app preview panel (`internal`).
 export type TracksBrowserTarget = 'external' | 'internal';
 
+export type TracksResponsivePreviewAction = 'preset_change' | 'manual_resize';
+export type TracksResponsivePreviewCategory = 'phone' | 'tablet' | 'desktop' | 'custom';
+export type TracksPreviewSizeBucket = 'under_600' | '600_to_1023' | '1024_to_1439' | '1440_plus';
+
+export type TracksResponsivePreviewProps = {
+	action: TracksResponsivePreviewAction;
+	preset_category: TracksResponsivePreviewCategory;
+	width_bucket: TracksPreviewSizeBucket;
+	height_bucket: TracksPreviewSizeBucket;
+};
+
 // The affordance a `studio_site_open_customize` event was launched from, sent as `entry_point`. Block
 // themes expose the site editor and its sub-views plus the media library; classic themes expose the
 // Customizer and (theme-dependent) Menus/Widgets screens.
@@ -204,10 +219,11 @@ export type TracksAuthFailureReason =
 	| 'profile_fetch_failed'
 	| 'unknown';
 
-// Which kind of live site a sync exchanged data with, sent as `sync_type` on the push/pull events.
-// Derived from the persisted `isPressable` flag; `unknown` is the connected site being unavailable at
-// emit time (a deep-link connection whose site lookup missed, so the hosting kind was never known).
-export type TracksSyncType = 'wpcom' | 'pressable' | 'unknown';
+// Which kind of live site a sync exchanged data with, sent as `sync_type` on the push/pull events:
+// the provider, or `pressable` for a WordPress.com site Pressable hosts (the persisted
+// `isPressable` flag). `unknown` is the connected site being unavailable at emit time (a deep-link
+// connection whose site lookup missed, so the hosting kind was never known).
+export type TracksSyncType = SitesProviderId | 'pressable' | 'unknown';
 
 // Coarse, low-cardinality sync failure classification, sent as `failure_reason` when `success` is
 // false. The raw error is never sent — it can embed site names, URLs, and filesystem paths. Buckets

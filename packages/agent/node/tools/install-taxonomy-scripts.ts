@@ -1,7 +1,7 @@
-import { cp } from 'fs/promises';
-import path from 'path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { Type } from 'typebox';
-import { getSkillPath } from '@studio/agent/node/skills';
+import { skillFiles } from '@studio/agent/node/skills';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { textResult } from './utils';
 
@@ -17,10 +17,11 @@ export const installTaxonomyScriptsTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const srcDir = getSkillPath( 'taxonomist', 'scripts' );
 			const destDir = path.join( site.path, TAXONOMIST_SCRIPTS_DIR );
-
-			await cp( srcDir, destDir, { recursive: true } );
+			await mkdir( destDir, { recursive: true } );
+			for ( const [ name, contents ] of skillFiles( 'taxonomist', 'scripts' ) ) {
+				await writeFile( path.join( destDir, name ), contents );
+			}
 
 			return textResult(
 				`Taxonomist scripts installed to ${ TAXONOMIST_SCRIPTS_DIR }/ in the site directory.`

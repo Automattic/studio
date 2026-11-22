@@ -1,6 +1,7 @@
 import { Popover as BasePopover } from '@base-ui/react/popover';
 import { clsx } from 'clsx';
 import { FloatingSurface } from '@/lib/ui/surface';
+import tooltipStyles from '../tooltip/style.module.css';
 import styles from './style.module.css';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
@@ -38,9 +39,11 @@ export function Popup( {
 	sideOffset = 4,
 	alignOffset,
 	arrowPadding,
+	collisionPadding,
 	anchor,
 	backdrop = false,
 	keepMounted = false,
+	container,
 	className,
 	style,
 	initialFocus,
@@ -51,6 +54,8 @@ export function Popup( {
 	preserveWindowDrag = false,
 	'aria-label': ariaLabel,
 	'aria-describedby': ariaDescribedBy,
+	'aria-hidden': ariaHidden,
+	inert,
 }: {
 	children: ReactNode;
 	side?: PositionerProps[ 'side' ];
@@ -58,24 +63,28 @@ export function Popup( {
 	sideOffset?: number;
 	alignOffset?: number;
 	arrowPadding?: PositionerProps[ 'arrowPadding' ];
+	collisionPadding?: PositionerProps[ 'collisionPadding' ];
 	anchor?: PositionerProps[ 'anchor' ];
 	// Catches outside clicks that would otherwise land in a webview and never dismiss it.
 	backdrop?: boolean;
 	keepMounted?: boolean;
+	container?: ComponentProps< typeof BasePopover.Portal >[ 'container' ];
 	className?: string;
 	style?: CSSProperties;
 	initialFocus?: PopupProps[ 'initialFocus' ];
 	finalFocus?: PopupProps[ 'finalFocus' ];
-	variant?: 'floating' | 'commands';
+	variant?: 'floating' | 'commands' | 'tooltip';
 	instant?: boolean;
 	'data-color-scheme'?: 'light' | 'dark';
 	preserveWindowDrag?: boolean;
 	'aria-label'?: string;
 	'aria-describedby'?: string;
+	'aria-hidden'?: PopupProps[ 'aria-hidden' ];
+	inert?: boolean;
 } ) {
 	const commands = variant === 'commands';
 	return (
-		<BasePopover.Portal keepMounted={ keepMounted }>
+		<BasePopover.Portal keepMounted={ keepMounted } container={ container }>
 			{ backdrop ? <BasePopover.Backdrop className={ styles.backdrop } /> : null }
 			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner
@@ -89,7 +98,7 @@ export function Popup( {
 				arrowPadding={ arrowPadding }
 				anchor={ anchor }
 				collisionAvoidance={ commands ? COMMANDS_COLLISION_AVOIDANCE : undefined }
-				collisionPadding={ commands ? 5 : undefined }
+				collisionPadding={ collisionPadding ?? ( commands ? 5 : undefined ) }
 				className={ styles.positioner }
 			>
 				<BasePopover.Popup
@@ -100,9 +109,13 @@ export function Popup( {
 					finalFocus={ finalFocus }
 					aria-label={ ariaLabel }
 					aria-describedby={ ariaDescribedBy }
+					aria-hidden={ ariaHidden }
+					inert={ inert }
 					render={
 						commands ? (
 							<div className={ clsx( styles.commands, className ) } style={ style } />
+						) : variant === 'tooltip' ? (
+							<div className={ clsx( tooltipStyles.content, className ) } style={ style } />
 						) : (
 							<FloatingSurface className={ className } style={ style } />
 						)

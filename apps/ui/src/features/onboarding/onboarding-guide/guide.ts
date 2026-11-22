@@ -1,6 +1,8 @@
 import type { DocsLinkKey } from '@studio/common/lib/docs-links';
 
-// The pages in What's New, rendered by index.tsx.
+// The shape both paged guides share: the first-run orientation tour
+// (orientation-guide.ts) and the per-release announcements (whats-new.ts).
+// Rendered by index.tsx.
 
 export type GuideIllustrationId =
 	// Orientation.
@@ -14,7 +16,7 @@ export type GuideIllustrationId =
 	| 'command-palette'
 	| 'appearance';
 
-interface GuidePage {
+export interface GuidePage {
 	illustration: GuideIllustrationId;
 	// Thunks, not strings: the pages are built once per open but the locale can
 	// change under them, so translation happens at render time.

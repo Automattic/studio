@@ -30,7 +30,7 @@ function getStep(
 				description: sidebarClosed
 					? __( 'Your sites live here. Open the sidebar to explore ways to add a new site.' )
 					: __(
-							'Start from scratch, try a design, or bring an existing site into Studio. You can explore without creating another site.'
+							'Start from scratch, try a design, or bring an existing site into WordPress Studio. You can explore without creating another site.'
 					  ),
 				action: sidebarClosed ? __( 'Show sidebar' ) : __( 'Next' ),
 				next: 'create' as const,
@@ -70,23 +70,15 @@ function getStep(
 					'Say what you want in plain words. Add a page, swap the colors, fix the thing that’s bugging you.'
 				),
 				action: __( 'Next' ),
-				next: 'share' as const,
-			};
-		case 'share':
-			return {
-				title: __( 'Share a preview' ),
-				description: signedIn
-					? __( 'Grab a link and send it to whoever needs to weigh in.' )
-					: __( 'Log in to WordPress.com to get a preview link you can send around.' ),
-				action: __( 'Next' ),
 				next: 'publish' as const,
 			};
+		case 'share':
 		case 'publish':
 			return {
-				title: __( 'Publish when ready' ),
+				title: __( 'Share or publish' ),
 				description: signedIn
-					? __( 'When it looks right, publish and it’s live.' )
-					: __( 'Log in to WordPress.com when you’re ready to take it live.' ),
+					? __( 'Create a preview to share, or publish your site when it’s ready.' )
+					: __( 'Connect a provider to share a preview or publish your site.' ),
 				action: __( 'Done' ),
 				next: 'completed' as const,
 			};
@@ -162,6 +154,8 @@ export function Walkthrough( {
 				: galleryStep === 'design'
 				? 'create-design'
 				: step
+			: step === 'share'
+			? 'publish'
 			: step;
 	const blocked =
 		!! welcome ||
@@ -196,8 +190,8 @@ export function Walkthrough( {
 		if ( step === 'create' && sites?.length && ! welcome && ! addSite ) {
 			setHints( { walkthroughStep: 'composer', whatsNewSeenVersion: WHATS_NEW_VERSION } );
 		}
-		if ( step === 'annotate' ) {
-			setHints( { walkthroughStep: 'share', annotateHintDismissed: true } );
+		if ( step === 'annotate' || step === 'share' ) {
+			setHints( { walkthroughStep: 'publish', annotateHintDismissed: true } );
 		}
 	}, [ step, sites?.length, welcome, addSite, setHints, inSiteDialog ] );
 
@@ -336,12 +330,14 @@ export function Walkthrough( {
 	}, [ open, anchor, step, nextStep, setHints, createStage ] );
 
 	if ( ! content ) return null;
-	const steps = [ 'create', 'create-design', 'composer', 'share', 'publish' ];
+	const steps = [ 'create', 'create-design', 'composer', 'publish' ];
 	const firstStep = step === 'create' && createStage === 'gallery' && galleryStep === 'fresh';
 	const stepLabel = sprintf(
 		/* translators: 1: current walkthrough step, 2: total number of steps. */
 		__( '%1$d/%2$d' ),
-		steps.indexOf( step === 'create' && ! firstStep ? 'create-design' : step ?? '' ) + 1,
+		steps.indexOf(
+			step === 'create' && ! firstStep ? 'create-design' : step === 'share' ? 'publish' : step ?? ''
+		) + 1,
 		steps.length
 	);
 	const focusAnchor = () => {

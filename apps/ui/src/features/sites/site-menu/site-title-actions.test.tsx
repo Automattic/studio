@@ -65,9 +65,9 @@ describe( 'sidebar site menu', () => {
 		await waitFor( () => expect( connector.openSiteFolder ).toHaveBeenCalledWith( 'other' ) );
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
 		fireEvent.contextMenu( row );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete' } ) );
 		const dialog = await screen.findByRole( 'alertdialog', {
-			name: 'Remove “Other site” from WordPress Studio?',
+			name: 'Remove Other site',
 		} );
 		expect( connector.deleteSite ).not.toHaveBeenCalled();
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );
@@ -76,8 +76,34 @@ describe( 'sidebar site menu', () => {
 } );
 
 describe( 'site title actions', () => {
+	it( 'disables external phpMyAdmin and explains the database client alternative', async () => {
+		const { connector } = setup( [ site( { phpMyAdminSupported: false } ) ] );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		const item = await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } );
+		expect( item ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( item ).toHaveAccessibleDescription( /separate database client for external MySQL/ );
+		fireEvent.click( item );
+		expect( connector.startSite ).not.toHaveBeenCalled();
+		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+	} );
+
+	it( 'disables the in-app database menu and its shortcut for an external database', async () => {
+		const { connector } = setup( [ site( { phpMyAdminSupported: false, running: true } ) ] );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+		const item = await screen.findByRole( 'menuitem', { name: /^Database/ } );
+		expect( item ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( item ).toHaveAccessibleDescription( /separate database client for external MySQL/ );
+		fireEvent.keyDown( item, { key: 'd' } );
+		fireEvent.click( item );
+		expect( screen.queryByRole( 'tab', { name: 'Database' } ) ).not.toBeInTheDocument();
+		expect( connector.startSite ).not.toHaveBeenCalled();
+	} );
+
 	it.each( [
 		[ 'Browser', '/', { autoLogin: false } ],
+		[ 'WordPress admin', '/wp-admin/', undefined ],
 		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],
 	] )( 'starts a stopped site before opening %s', async ( label, path, options ) => {
 		let finishStart!: () => void;
@@ -180,7 +206,6 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		expect( screen.queryByRole( 'menuitem', { name: /^Start(?:\s|$)/ } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 	} );
 
@@ -189,7 +214,7 @@ describe( 'site title actions', () => {
 		connector.deleteSite.mockRejectedValueOnce( new Error( 'Site is running' ) );
 		const openDelete = async () => {
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete' } ) );
 			return screen.findByRole( 'alertdialog' );
 		};
 		let dialog = await openDelete();
@@ -211,7 +236,7 @@ describe( 'site title actions', () => {
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		await waitFor( () =>
-			expect( screen.getByRole( 'menuitem', { name: /^Delete site/ } ) ).toHaveAttribute(
+			expect( screen.getByRole( 'menuitem', { name: 'Delete' } ) ).toHaveAttribute(
 				'aria-disabled',
 				'true'
 			)

@@ -54,7 +54,7 @@ export const builder = ( yargs: StudioArgv ) => {
 			type: 'string',
 			describe: __( 'Which files PHP can access: the site directory only, or all files' ),
 			choices: [ SITE_FILE_ACCESS_SITE_DIRECTORY, SITE_FILE_ACCESS_ALL_FILES ] as const,
-			default: SITE_FILE_ACCESS_SITE_DIRECTORY,
+			default: SITE_FILE_ACCESS_ALL_FILES,
 		} )
 		.option( 'domain', {
 			type: 'string',
@@ -67,7 +67,9 @@ export const builder = ( yargs: StudioArgv ) => {
 		} )
 		.option( 'blueprint', {
 			type: 'string',
-			describe: __( 'Path or URL to Blueprint JSON file' ),
+			describe: __(
+				'Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see "studio blueprint list")'
+			),
 		} )
 		.option( 'from', {
 			type: 'string',
@@ -122,10 +124,6 @@ export const builder = ( yargs: StudioArgv ) => {
 				}
 				return pluginPath;
 			},
-		} )
-		.option( 'original-blueprint-path', {
-			type: 'string',
-			hidden: true,
 		} )
 		.option( 'admin-username', {
 			type: 'string',

@@ -19,12 +19,12 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 	},
 	{
 		name: 'need-for-speed',
-		displayName: __( 'Performance Audit' ),
+		displayName: __( 'Performance audit' ),
 		description: __( 'Run a performance audit on a site.' ),
 	},
 	{
 		name: 'rank-me-up',
-		displayName: __( 'SEO Audit' ),
+		displayName: __( 'SEO audit' ),
 		description: __( 'Run an on-page SEO audit on a site.' ),
 	},
 	{

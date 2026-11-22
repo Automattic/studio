@@ -1,0 +1,104 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"type": "object",
+	"properties": {
+		"$schema": {
+			"type": "string"
+		},
+		"name": {
+			"type": "string"
+		},
+		"description": {
+			"type": "string"
+		},
+		"sites": {
+			"minItems": 1,
+			"type": "array",
+			"items": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"description": "Site id; derived from the slug if unset",
+						"type": "string",
+						"pattern": "^[0-9a-f-]{36}$"
+					},
+					"name": {
+						"type": "string"
+					},
+					"slug": {
+						"description": "Folder name; derived from the name",
+						"type": "string",
+						"pattern": "^[a-z0-9][a-z0-9-]*$"
+					},
+					"import": {
+						"description": "A Studio backup to load, relative to the scene",
+						"type": "string"
+					},
+					"blueprint": {
+						"description": "A Blueprint to create the site from: a path relative to the scene, or a URL",
+						"type": "string"
+					},
+					"design": {
+						"description": "A DESIGN.md to put in the site's folder",
+						"type": "string"
+					},
+					"bakedFrom": {
+						"description": "The Blueprint `bake` made the backup from",
+						"type": "string"
+					}
+				},
+				"required": [
+					"name"
+				],
+				"additionalProperties": false
+			},
+			"description": "In sidebar order. Sites with import or blueprint start with Studio"
+		},
+		"open": {
+			"description": "Slug of the site scripts open on; the first with import or blueprint",
+			"type": "string"
+		},
+		"account": {
+			"description": "Files answering for the signed-in account, relative to the scene",
+			"type": "object",
+			"properties": {
+				"wpcomSites": {
+					"description": "Made-up WordPress.com and Pressable sites",
+					"type": "string"
+				},
+				"previewSites": {
+					"description": "Made-up preview sites",
+					"type": "string"
+				},
+				"aiQuota": {
+					"description": "Made-up AI credits",
+					"type": "string"
+				},
+				"aiTopUpPricing": {
+					"description": "The AI credit top-ups the Add AI credits dialog offers",
+					"type": "string"
+				}
+			},
+			"additionalProperties": false
+		},
+		"chats": {
+			"description": "Folder of recorded chats (<name>.json)",
+			"type": "string"
+		},
+		"agentTurns": {
+			"description": "Folder of agent runs for playAgentTurn",
+			"type": "string"
+		},
+		"files": {
+			"description": "Folder of files for setFiles steps",
+			"type": "string"
+		}
+	},
+	"required": [
+		"name",
+		"sites"
+	],
+	"additionalProperties": false,
+	"$id": "https://github.com/Automattic/studio/tools/capture-harness/schemas/scene.schema.json",
+	"title": "Studio capture scene"
+}

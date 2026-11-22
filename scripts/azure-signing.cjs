@@ -6,6 +6,10 @@ const DEFAULTS = {
 	timestampServer: 'http://timestamp.acs.microsoft.com',
 };
 
+function isWindowsSigningRequested() {
+	return [ '1', 'true' ].includes( ( process.env.SIGN_WINDOWS_BUILD ?? '' ).trim().toLowerCase() );
+}
+
 function getAzureSigningConfig() {
 	return {
 		signtoolPath: process.env.SIGNTOOL_PATH,
@@ -56,4 +60,5 @@ module.exports = {
 	assertAzureSigningEnv,
 	getAzureSignArgs,
 	getAzureSigningConfig,
+	isWindowsSigningRequested,
 };

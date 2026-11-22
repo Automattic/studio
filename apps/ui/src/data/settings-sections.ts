@@ -1,28 +1,32 @@
+import { AGENT_APP_IDS, AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
+import { AI_PROVIDER_IDS, getProvider, SITES_PROVIDER_IDS, needsHost } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
-import { BugIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
 import {
-	AppearanceIcon,
+	BugIcon,
+	FileTextIcon,
+	SettingsIcon,
+	PaletteIcon,
 	CodeIcon,
 	ExternalLinkIcon,
-	IntelligenceIcon,
+	SparklesIcon,
 	KeyboardIcon,
-	LanguageIcon,
-	McpIcon,
-	PhpIcon,
-	ShareIcon,
-	SiteSettingsIcon,
+	EarthIcon,
+	PlugIcon,
+	UploadIcon,
+	SlidersVerticalIcon,
 	SkillsIcon,
 	TerminalIcon,
-	UsageIcon,
+	GaugeIcon,
 } from '@/lib/icons';
+import type { AgentAppId } from '@studio/common/lib/agent-apps';
 import type { ComponentType } from 'react';
 
 const STUDIO_SECTIONS = [
 	'general',
 	'appearance',
-	'ai',
-	'sharing',
+	'providers',
 	'mcp',
+	'sharing',
 	'usage',
 	'skills',
 	'instructions',
@@ -32,11 +36,22 @@ const SITE_SECTIONS = [ 'site', 'debugging', 'php', 'site-skills', 'site-instruc
 
 export type SettingsSectionId =
 	| ( typeof STUDIO_SECTIONS )[ number ]
+	| 'ai'
 	| ( typeof SITE_SECTIONS )[ number ];
 export type SettingsScope = 'studio' | 'site';
 
+const AI_PROVIDER_DISPLAY_ORDER: readonly ( typeof AI_PROVIDER_IDS )[ number ][] = [
+	'wpcom',
+	'openai',
+];
+
+export const SETTINGS_AI_PROVIDER_IDS = [
+	...AI_PROVIDER_DISPLAY_ORDER,
+	...AI_PROVIDER_IDS.filter( ( id ) => ! AI_PROVIDER_DISPLAY_ORDER.includes( id ) ),
+];
+
 export function isSettingsSection( value: unknown ): value is SettingsSectionId {
-	return ( [ ...STUDIO_SECTIONS, ...SITE_SECTIONS ] as unknown[] ).includes( value );
+	return ( [ ...STUDIO_SECTIONS, ...SITE_SECTIONS, 'ai' ] as unknown[] ).includes( value );
 }
 
 export function isSiteSection( value: SettingsSectionId ) {
@@ -54,6 +69,8 @@ type Setting = {
 	description: string;
 	icon?: SectionIcon;
 	aliases?: string[];
+	// Shown only where a provider's sign-in can come back to this computer.
+	loopbackOnly?: boolean;
 };
 
 type SectionIcon = ComponentType< { className?: string } >;
@@ -81,6 +98,23 @@ const setting = (
 	icon,
 } );
 
+export function getAgentAppConnectionName( id: AgentAppId ): string {
+	return id === 'codex' ? 'ChatGPT (Codex)' : AGENT_APP_NAMES[ id ];
+}
+
+export function getAgentAppDescription( id: AgentAppId ): string {
+	switch ( id ) {
+		case 'claude-code':
+			return __( 'Anthropic’s AI coding agent.' );
+		case 'codex':
+			return __( 'OpenAI’s coding agent in the ChatGPT app.' );
+		case 'cursor':
+			return __( 'A code editor with a built-in AI agent.' );
+		case 'grok-build':
+			return __( 'A coding agent that runs in your terminal.' );
+	}
+}
+
 function getStudioSections( signedIn: boolean ): Section[] {
 	const sections: Section[] = [
 		{
@@ -94,7 +128,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Language' ),
 					__( 'Default language for WordPress Studio.' ),
 					'language',
-					LanguageIcon
+					EarthIcon
 				),
 				setting(
 					'navigate',
@@ -106,7 +140,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				setting(
 					'navigate',
 					__( 'Default browser' ),
-					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
+					__( 'The default browser for your sites.' ),
 					'browser'
 				),
 				setting(
@@ -202,7 +236,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'appearance',
 			label: __( 'Appearance' ),
-			icon: AppearanceIcon,
+			icon: PaletteIcon,
 			settings: [
 				setting(
 					'navigate',
@@ -214,7 +248,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					...setting(
 						'navigate',
 						__( 'Accent' ),
-						__( 'Studio adapts your chosen color to work with your theme.' ),
+						__( 'Color may be adapted for your theme.' ),
 						'color'
 					),
 					aliases: [ __( 'Colour' ), __( 'Change color' ) ],
@@ -240,35 +274,101 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			id: 'ai',
+			id: 'providers',
 			label: __( 'Providers' ),
-			icon: IntelligenceIcon,
-			aliases: [ __( 'Connect provider' ) ],
+			icon: PlugIcon,
 			settings: [
+				{
+					...setting(
+						'navigate',
+						__( 'AI providers' ),
+						__(
+							'Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.'
+						),
+						'ai-providers'
+					),
+					aliases: [ __( 'Connect provider' ), __( 'Connect' ) ],
+				},
+				{
+					...setting( 'navigate', __( 'Default AI provider' ), '', 'default-provider' ),
+					aliases: [ __( 'Default provider' ) ],
+				},
+				setting( 'navigate', __( 'Default image provider' ), '', 'default-image-provider' ),
+				...SETTINGS_AI_PROVIDER_IDS.map( ( id ) => {
+					const { label, description, account } = getProvider( id );
+					return {
+						...setting(
+							'navigate',
+							label,
+							description?.() ?? __( 'Start building with free AI credits.' ),
+							`${ id }-provider`
+						),
+						loopbackOnly: account.methods.every( needsHost ),
+					};
+				} ),
 				setting(
 					'navigate',
-					__( 'WordPress.com' ),
-					__( 'Get started with a one-time free allowance, then buy more as you go.' ),
-					'wpcom-provider'
+					__( 'Hosting providers' ),
+					__( 'Publish your site when it’s ready, or share a preview through WordPress.com.' ),
+					'hosting-providers'
+				),
+				setting( 'navigate', __( 'Default hosting provider' ), '', 'default-hosting-provider' ),
+				...SITES_PROVIDER_IDS.map( ( id ) => {
+					const { label, description } = getProvider( id );
+					return {
+						...setting(
+							'navigate',
+							id === 'wpcom' ? __( 'WordPress.com hosting' ) : label,
+							description?.() ??
+								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
+							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
+						),
+					};
+				} ),
+			],
+		},
+		{
+			id: 'mcp',
+			label: __( 'Agents' ),
+			icon: SparklesIcon,
+			settings: [
+				{
+					...setting(
+						'section',
+						__( 'Use WordPress Studio with your agents' ),
+						__(
+							'Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.'
+						),
+						'external-ai-apps'
+					),
+					aliases: [
+						'MCP',
+						__( 'Agent apps' ),
+						__( 'AI apps' ),
+						__( 'External AI apps' ),
+						__( 'Plugins' ),
+					],
+				},
+				...AGENT_APP_IDS.map( ( id ) =>
+					setting(
+						'navigate',
+						getAgentAppConnectionName( id ),
+						getAgentAppDescription( id ),
+						`agent-app-${ id }`
+					)
 				),
 				setting(
 					'navigate',
-					__( 'Anthropic' ),
-					__( 'Use Claude with your own API key.' ),
-					'anthropic-provider'
-				),
-				setting(
-					'navigate',
-					__( 'Default provider' ),
-					__( 'The provider new chats use.' ),
-					'default-provider'
+					__( 'Manual MCP setup' ),
+					__( 'Install the WordPress Studio CLI and configure MCP for another app.' ),
+					'mcp-server'
 				),
 			],
 		},
 		{
 			id: 'sharing',
 			label: __( 'Sharing' ),
-			icon: ShareIcon,
+			icon: UploadIcon,
 			settings: [
 				{
 					...setting(
@@ -283,23 +383,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			id: 'mcp',
-			label: __( 'MCP' ),
-			icon: McpIcon,
-			aliases: [ __( 'Agent apps' ), 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok Build' ],
-			settings: [
-				setting(
-					'section',
-					__( 'MCP server' ),
-					__( 'Connect other AI assistants to WordPress Studio.' ),
-					'mcp-server'
-				),
-			],
-		},
-		{
 			id: 'usage',
 			label: __( 'Usage' ),
-			icon: UsageIcon,
+			icon: GaugeIcon,
 			settings: [
 				{
 					...setting(
@@ -371,7 +457,7 @@ function getSiteSections(): Section[] {
 			command: 'site-settings',
 			id: 'site',
 			label: __( 'Settings' ),
-			icon: SiteSettingsIcon,
+			icon: SlidersVerticalIcon,
 			settings: [
 				setting(
 					{ command: 'rename-site' },
@@ -463,7 +549,7 @@ function getSiteSections(): Section[] {
 		{
 			id: 'php',
 			label: __( 'PHP' ),
-			icon: PhpIcon,
+			icon: CodeIcon,
 			settings: [
 				setting(
 					'navigate',
@@ -498,8 +584,43 @@ function getSiteSections(): Section[] {
 	];
 }
 
-export function getSections( scope: SettingsScope, { signedIn = true } = {} ): Section[] {
-	return scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+// Sections and settings for the apps, folders and network of the computer the app runs on, which
+// a Studio running elsewhere (Studio Cloud) doesn't have.
+const LOCAL_MACHINE_IDS = new Set( [
+	'code-editor',
+	'browser',
+	'terminal',
+	'default-directory',
+	'quit-behavior',
+	'mcp',
+	'custom-domain',
+	'https',
+	'xdebug',
+] );
+
+export interface SectionCapabilities {
+	signedIn?: boolean;
+	localMachine?: boolean;
+	loopbackSignIn?: boolean;
+}
+
+export function getSections(
+	scope: SettingsScope,
+	{ signedIn = true, localMachine = true, loopbackSignIn = true }: SectionCapabilities = {}
+): Section[] {
+	const sections = scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+	if ( localMachine && loopbackSignIn ) {
+		return sections;
+	}
+	const shown = ( id = '' ) => localMachine || ! LOCAL_MACHINE_IDS.has( id );
+	return sections
+		.filter( ( section ) => shown( section.id ) )
+		.map( ( section ) => ( {
+			...section,
+			settings: section.settings.filter(
+				( entry ) => shown( entry.id ) && ( loopbackSignIn || ! entry.loopbackOnly )
+			),
+		} ) );
 }
 
 /** Alternate names for existing commands that already own a settings destination. */
@@ -544,7 +665,7 @@ export type SearchResult = { scope: SettingsScope; section: Section; setting?: S
 export function searchSettings(
 	query: string,
 	scope: SettingsScope,
-	{ hasSite, signedIn }: { hasSite: boolean; signedIn: boolean }
+	{ hasSite, ...capabilities }: SectionCapabilities & { hasSite: boolean }
 ): SearchResult[] {
 	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
 	if ( ! words.length ) {
@@ -554,13 +675,15 @@ export function searchSettings(
 	const scopes: SettingsScope[] = hasSite
 		? [ scope, scope === 'site' ? 'studio' : 'site' ]
 		: [ 'studio' ];
-	const rank = ( title: string ) => {
-		const lower = title.toLocaleLowerCase();
-		return lower === phrase ? 0 : words.every( ( word ) => lower.includes( word ) ) ? 1 : 2;
+	const rank = ( entry: Setting ) => {
+		const lower = entry.title.toLocaleLowerCase();
+		if ( lower === phrase ) return 0;
+		if ( entry.aliases?.some( ( alias ) => alias.toLocaleLowerCase() === phrase ) ) return 1;
+		return words.every( ( word ) => lower.includes( word ) ) ? 2 : 3;
 	};
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
-			getSections( candidate, { signedIn } ).flatMap( ( section ) =>
+			getSections( candidate, capabilities ).flatMap( ( section ) =>
 				[
 					{ ...setting( 'navigate', section.label ), aliases: section.aliases },
 					...section.settings,
@@ -579,7 +702,7 @@ export function searchSettings(
 							section,
 							setting: entry.title === section.label && ! entry.id ? undefined : entry,
 						},
-						order: rank( entry.title ) * 2 + scopeIndex,
+						order: rank( entry ) * 2 + scopeIndex,
 					} ) )
 			)
 		)

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import {
@@ -8,7 +7,7 @@ import {
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/agent/protocol/chat-artifacts';
 import type { AgentToolResult } from '@earendil-works/pi-agent-core';
-import type { StudioAgentUi } from '@studio/agent/node/host';
+import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/node/host';
 
 export async function emitChatArtifactWidgets(
 	ui: StudioAgentUi,
@@ -21,7 +20,7 @@ export async function emitChatArtifactWidgets(
 
 	const artifact: StudioChatArtifactData = {
 		version: STUDIO_CHAT_ARTIFACT_VERSION,
-		id: randomUUID(),
+		id: crypto.randomUUID(),
 		widgets: artifactWidgets,
 	};
 
@@ -57,13 +56,12 @@ interface FileWritingTool {
  */
 export function withDesignSystemPreview< TTool extends FileWritingTool >(
 	tool: TTool,
-	cwd: string,
-	ui?: StudioAgentUi
+	host: StudioAgentHost
 ): TTool {
+	const { ui } = host;
 	if ( ! ui ) {
 		return tool;
 	}
-
 	return {
 		...tool,
 		description: `${
@@ -71,7 +69,7 @@ export function withDesignSystemPreview< TTool extends FileWritingTool >(
 		} After successfully updating a site's DESIGN.md, include [Design System](${ DESIGN_SYSTEM_PREVIEW_PATH }) within a natural sentence describing the result in your final reply.`,
 		async execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ) {
 			const result = await tool.execute( toolCallId, params, ...rest );
-			const filePath = path.resolve( cwd, String( params.path ) );
+			const filePath = path.resolve( host.sitesRoot, String( params.path ) );
 			if (
 				! result.isError &&
 				path.basename( filePath ) === 'DESIGN.md' &&

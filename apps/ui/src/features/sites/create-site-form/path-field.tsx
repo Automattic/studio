@@ -69,7 +69,7 @@ export function PathField( {
 	const suggestedName = sanitizeFolderName( item.name );
 	const existing = requiresExistingPath || ( item.isWordPress && ! requiresEmptyPath );
 	const hint = existing
-		? __( 'Studio will use this WordPress site in place. No files will be moved.' )
+		? __( 'WordPress Studio will use this WordPress site in place. No files will be moved.' )
 		: description;
 	const describedBy = [
 		hint ? `${ id }-hint` : undefined,

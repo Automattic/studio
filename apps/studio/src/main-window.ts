@@ -9,6 +9,9 @@ import {
 import fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
+import { readConfig } from '@studio/common/lib/config/store';
+import { captureException } from '@studio/common/lib/error-reporting';
+import { SUPPORTED_COLOR_SCHEMES } from '@studio/common/lib/user-settings/preferences';
 import {
 	DEFAULT_HEIGHT,
 	AGENTIC_TITLEBAR_HEIGHT,
@@ -24,13 +27,8 @@ import { warnIfRunningUnderArm64Translation } from 'src/lib/arm64-translation-wa
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from 'src/logging';
 import { removeMenu } from 'src/menu';
-import {
-	loadUserData,
-	updateAppdata,
-	loadWindowBounds,
-	saveWindowBounds,
-} from 'src/storage/user-data';
-import type { WindowBounds } from 'src/storage/storage-types';
+import { updateDesktopState } from 'src/storage/desktop-state';
+import type { WindowBounds } from '@studio/common/lib/config/schema';
 
 const RENDERER_LOG_LEVELS: Record< 'info' | 'warning' | 'error', LogLevel > = {
 	info: 'info',
@@ -134,10 +132,13 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		return mainWindow;
 	}
 
-	const userData = await loadUserData();
-	nativeTheme.themeSource = userData.colorScheme ?? 'light';
+	const { preferences, desktop } = await readConfig();
+	const colorScheme = SUPPORTED_COLOR_SCHEMES.find(
+		( scheme ) => scheme === preferences.colorScheme
+	);
+	nativeTheme.themeSource = colorScheme ?? 'light';
 
-	const savedBounds = await loadWindowBounds();
+	const savedBounds = desktop.windowBounds;
 	let windowOptions: BrowserWindowConstructorOptions = {
 		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
@@ -203,14 +204,20 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation( mainWindow, getRendererLocation() );
+	const loadingWindow = mainWindow;
+	loadRendererLocation( loadingWindow, getRendererLocation() ).catch( ( error ) => {
+		// Closing the window, or quitting, while it loads cuts the load short: not a bug.
+		if ( ! loadingWindow.isDestroyed() ) {
+			captureException( error );
+		}
+	} );
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {
-		await updateAppdata( { devToolsOpen: true } );
+		await updateDesktopState( { devToolsOpen: true } );
 	} );
 
 	mainWindow.webContents.on( 'devtools-closed', async () => {
-		await updateAppdata( { devToolsOpen: false } );
+		await updateDesktopState( { devToolsOpen: false } );
 	} );
 
 	mainWindow.webContents.once( 'did-finish-load', () => {
@@ -218,7 +225,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		// preload script, so the UI boots to a blank screen with no `window.ipcApi`.
 		// Open the DevTools if the user had it open last time they used the app.
 		// During development the dev tools default to open.
-		setupDevTools( mainWindow, userData.devToolsOpen );
+		setupDevTools( mainWindow, desktop.devToolsOpen );
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 		void warnIfRunningUnderArm64Translation();
 	} );
@@ -242,7 +249,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', true );
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
-			void saveWindowBounds( { ...bounds, isFullScreen: true } );
+			void updateDesktopState( { windowBounds: { ...bounds, isFullScreen: true } } );
 		}
 	} );
 
@@ -250,7 +257,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', false );
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
-			void saveWindowBounds( { ...bounds, isFullScreen: false } );
+			void updateDesktopState( { windowBounds: { ...bounds, isFullScreen: false } } );
 		}
 	} );
 
@@ -262,7 +269,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		saveTimeout = setTimeout( () => {
 			if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.isFullScreen() ) {
 				const bounds = mainWindow.getBounds();
-				void saveWindowBounds( { ...bounds, isFullScreen: false } );
+				void updateDesktopState( { windowBounds: { ...bounds, isFullScreen: false } } );
 			}
 		}, 100 );
 	};
@@ -309,6 +316,9 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 		case 'darwin':
 			return {
 				frame: false,
+				backgroundColor: '#00000000',
+				vibrancy: 'sidebar',
+				visualEffectState: 'followWindow',
 				titleBarStyle: 'hidden',
 				trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION,
 			};

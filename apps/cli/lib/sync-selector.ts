@@ -3,9 +3,9 @@ import { categorizePath } from '@studio/common/lib/sync/tree-utils';
 import { __ } from '@wordpress/i18n';
 import { fetchLatestRewindId, fetchRemoteFileTree } from 'cli/lib/sync-api';
 import treeCheckbox from 'cli/lib/tree-checkbox';
-import type { RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 import type { SyncOption } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { RemoteFileEntry } from 'cli/lib/sync-api';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 function sortNodes( nodes: TreeNode[] ): TreeNode[] {
@@ -104,6 +104,7 @@ function convertCheckedToSyncOptions( selected: TreeNode[] ): {
 function convertCheckedToPullOptions( selected: TreeNode[] ): {
 	optionsToSync: SyncOption[];
 	includePathList?: string[];
+	specificSelectionPaths?: string[];
 } {
 	const hasDatabase = selected.some( ( n ) => n.value === 'database' );
 	const wpContentItems = selected.filter(
@@ -134,6 +135,9 @@ function convertCheckedToPullOptions( selected: TreeNode[] ): {
 	return {
 		optionsToSync,
 		includePathList: pathIds.length > 0 ? pathIds : undefined,
+		specificSelectionPaths: wpContentItems.length
+			? wpContentItems.map( ( node ) => node.value )
+			: undefined,
 	};
 }
 
@@ -187,7 +191,14 @@ export async function selectSyncItemsForPull(
 	token: string,
 	remoteSiteId: number,
 	tree: TreeNode[]
-): Promise< { optionsToSync: SyncOption[]; includePathList?: string[] } | undefined > {
+): Promise<
+	| {
+			optionsToSync: SyncOption[];
+			includePathList?: string[];
+			specificSelectionPaths?: string[];
+	  }
+	| undefined
+> {
 	if ( tree.length === 0 ) {
 		return { optionsToSync: [ 'all' ] };
 	}

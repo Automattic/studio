@@ -24,6 +24,7 @@ function truncateText( text: string, maxLength: number ): string {
  * of the element's own classes, e.g. `h1.hero-title`. */
 function describeElement( note: PreviewAnnotation ): string | undefined {
 	if ( note.kind === 'region' ) return __( 'Selected area' );
+	if ( note.kind === 'drawing' ) return __( 'Drawing' );
 	if ( note.designToken ) return note.designToken;
 	if ( note.email && ! note.tag ) return `paragraph ${ ( note.email.paragraph ?? 0 ) + 1 }`;
 	if ( ! note.tag ) return undefined;
@@ -78,8 +79,13 @@ export function annotationSubmission(
 			message,
 			formatVisualAnnotationsPrompt(
 				notes.map(
-					( { staged: _staged, batched: _batched, capturedImageId: _capturedImageId, ...note } ) =>
-						note
+					( {
+						staged: _staged,
+						batched: _batched,
+						drawing: _drawing,
+						capturedImageId: _capturedImageId,
+						...note
+					} ) => note
 				),
 				images
 			),

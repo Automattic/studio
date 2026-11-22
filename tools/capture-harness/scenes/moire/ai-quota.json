@@ -1,0 +1,11 @@
+{
+	"cost_usage": 437600,
+	"cost_cap": 1500000,
+	"email_verified": true,
+	"has_payment_method": true,
+	"studio_code_ai_has_access": true,
+	"studio_code_ai_access": "granted",
+	"allowance_remaining": 1062400,
+	"purchased_remaining": null,
+	"purchased_at_top_up": 0
+}

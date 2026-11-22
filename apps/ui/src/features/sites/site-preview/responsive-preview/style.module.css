@@ -1,5 +1,5 @@
 .toolbar {
-	--control-size: 32px;
+	--control-size: var( --control-size-sm );
 	display: flex;
 	align-items: center;
 	flex-shrink: 0;
@@ -19,7 +19,6 @@
 	grid-template-columns: var( --control-size ) minmax( 0, 1fr ) var( --control-size );
 	padding-block: var( --space-0_5 );
 	border-block-start: 1px solid var( --border );
-	background: var( --chrome );
 	overflow: visible;
 }
 
@@ -78,11 +77,12 @@
 
 .dimension {
 	width: 44px;
-	height: 32px;
+	height: var( --control-size-xs );
+	border-radius: var( --radius-sm );
 	padding: 0 var( --space-1 );
-	font-size: var( --text-xs );
+	font-size: var( --text-xxs );
 	font-weight: var( --font-weight-medium );
-	line-height: var( --text-xs--line-height );
+	line-height: var( --text-xxs--line-height );
 	font-variant-numeric: tabular-nums;
 	color: var( --foreground );
 	text-align: center;

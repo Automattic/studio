@@ -16,7 +16,7 @@ Work on the one site the request is about, and start it with site_start if it is
 
 For any change to content, templates, or the theme, load the `visual-design` skill first, along with the other skills the change calls for (Skill routing names them). Follow the site's existing look — its DESIGN.md and active theme — rather than redesigning it: the catalogs and design picks in `visual-design` are for builds. Then:
 
-- Before editing an existing theme's template or part, check for a copy saved in the Site Editor (`post list --post_type=wp_template,wp_template_part`): WordPress renders that saved copy instead of the file, so if one exists, make the change in the saved copy too, keep the user's other edits, and tell the user.
+- Before editing an existing theme's templates, parts, or `theme.json` styles, check for copies saved in the Site Editor: `post list --post_type=wp_template,wp_template_part` for templates and parts, and `eval 'echo wp_json_encode( WP_Theme_JSON_Resolver::get_user_data_from_wp_global_styles( wp_get_theme() ) );'` for styles. WordPress renders those copies instead of the theme's files, so if one exists, make the change in it too (`post update <id> <file>`), keep the user's other edits, and tell the user. WordPress reads only the copies tied to the active theme, so change the existing one rather than creating another.
 - Change an installed third-party theme only through a child theme, following the `block-content` skill's theme-file rules.
 - Validate every template, part, and piece of content you write with validate_blocks before it reaches the site.
 
@@ -24,4 +24,4 @@ For any change to content, templates, or the theme, load the `visual-design` ski
 
 Take one screenshot of the page you changed and compare it with what you intended; fix real defects. For a larger visual change, load the `visual-polish` skill instead. Then tell the user what changed and where to see it.
 
-To share or publish the site, preview_create makes a temporary preview site, and site_push publishes it to WordPress.com (its description says how to confirm the target).
+To share or publish the site, preview_create makes a temporary preview site, and site_push publishes it to one of its connected remote sites, on WordPress.com or another provider such as Spacefast (its description says how to confirm the target).

@@ -16,14 +16,15 @@ const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 const session = new E2ESession();
 
 async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean } ) {
-	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete site' );
+	const sidebar = new Sidebar( session.mainWindow );
+	await sidebar.openContextMenuItem( siteName, 'Delete' );
 	const dialog = session.mainWindow.getByRole( 'alertdialog' );
 	const deleteFiles = dialog.getByRole( 'checkbox', {
 		name: 'Also move files and database to Trash',
 	} );
 	await deleteFiles.setChecked( ! keepFiles );
 	await dialog.getByRole( 'button', { name: 'Remove site' } ).click();
-	await expect( new Sidebar( session.mainWindow ).getSiteButton( siteName ) ).not.toBeAttached( {
+	await expect( sidebar.getSiteRow( siteName, { includeHidden: true } ) ).toHaveCount( 0, {
 		timeout: 30_000,
 	} );
 }
@@ -36,14 +37,12 @@ async function expectStopped( siteName: string ) {
 	);
 }
 
-// The preview header folds its actions into a More menu when it runs out of room.
-async function previewAction( menuItem: string, button = menuItem ) {
+async function openPreviewInBrowser() {
 	const page = session.mainWindow;
-	const inline = page.getByRole( 'button', { name: button, exact: true } );
+	const inline = page.getByRole( 'button', { name: 'Open this page in your browser' } );
 	await expect( async () => {
 		try {
 			if ( await inline.isVisible() ) {
-				// The address bar reveals its own actions on hover.
 				await page
 					.locator( 'form' )
 					.filter( { has: page.getByRole( 'textbox', { name: 'Address' } ) } )
@@ -51,9 +50,10 @@ async function previewAction( menuItem: string, button = menuItem ) {
 				await inline.click( { timeout: 2000 } );
 			} else {
 				await page
-					.getByRole( 'button', { name: 'More preview actions' } )
-					.click( { timeout: 2000 } );
-				await page.getByRole( 'menuitem', { name: menuItem, exact: true } ).click( {
+					.getByRole( 'tablist', { name: 'Preview tabs' } )
+					.getByRole( 'tab', { selected: true } )
+					.click( { button: 'right', timeout: 2000 } );
+				await page.getByRole( 'menuitem', { name: /^Open in / } ).click( {
 					timeout: 2000,
 				} );
 			}
@@ -102,7 +102,7 @@ test.describe( 'Sites', () => {
 				captured.openedUrls.push( url );
 			};
 		} );
-		await previewAction( 'Open in browser', 'Open this page in your browser' );
+		await openPreviewInBrowser();
 		const openedUrls = () =>
 			session.electronApp.evaluate(
 				() => ( globalThis as typeof globalThis & { openedUrls: string[] } ).openedUrls
@@ -126,7 +126,7 @@ test.describe( 'Sites', () => {
 				{ id: guestId, url }
 			);
 		await loadInPreview( 'http://127.0.0.1:1/' );
-		await expect( session.mainWindow.getByText( 'Preview could not load' ) ).toBeVisible();
+		await expect( session.mainWindow.getByText( 'Browser could not load.' ) ).toBeVisible();
 		await loadInPreview( siteUrl );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
@@ -206,10 +206,12 @@ test.describe( 'Sites', () => {
 		await fs.ensureDir( thumbnailsDir );
 		await fs.writeFile( path.join( thumbnailsDir, `${ site.id }.png` ), 'test-thumbnail-data' );
 
-		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate' );
+		const sidebar = new Sidebar( session.mainWindow );
+		await sidebar.openContextMenuItem( siteName, 'Duplicate' );
 
 		const copyName = `${ siteName } Copy`;
-		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {
+		await sidebar.ensureOpen();
+		await expect( sidebar.getSiteButton( copyName ) ).toBeVisible( {
 			timeout: 120_000,
 		} );
 		const copy = await session.waitForSite( copyName );
@@ -253,7 +255,9 @@ test.describe( 'Site settings', () => {
 		} );
 		await settings.close();
 
-		await expect( new Sidebar( page ).getSiteButton( newSiteName ) ).toBeVisible();
+		const sidebar = new Sidebar( page );
+		await sidebar.ensureOpen();
+		await expect( sidebar.getSiteButton( newSiteName ) ).toBeVisible();
 		await expect
 			.poll( () => session.waitForSite( newSiteName ), { timeout: 120_000 } )
 			.toMatchObject( { enableDebugLog: true } );

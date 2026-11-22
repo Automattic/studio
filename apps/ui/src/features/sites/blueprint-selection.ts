@@ -1,35 +1,46 @@
-import { prepareBlueprint } from '@studio/common/lib/blueprint-selection';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import { inspectBlueprint, type Blueprint, type LibraryBlueprint } from '@studio/blueprints';
+import { generateDefaultBlueprintDescription } from './blueprint-description';
+import type { BlueprintSource } from '@/data/core';
 
 export interface SelectedBlueprint {
 	slug?: string;
 	title: string;
 	excerpt: string;
 	image?: string;
-	blueprint: BlueprintV1Declaration;
+	// What the form shows and pre-fills from.
+	blueprint: Blueprint;
+	// What the site is created from, which `createSite` opens again.
+	source: BlueprintSource;
 	file: Pick< File, 'name' | 'size' >;
-	filePath?: string;
-	tempDir?: string;
-	bundleUrl?: string;
 }
 
-export async function createSelectedBlueprint(
-	parsed: unknown,
-	file: Pick< File, 'name' | 'size' >,
-	options: { filePath?: string; tempDir?: string } = {}
-): Promise< SelectedBlueprint > {
-	const prepared = await prepareBlueprint( parsed, {
-		fallbackTitle: file.name.replace( /\.(json|zip)$/i, '' ),
-	} );
-	if ( ! prepared.valid ) {
-		throw new Error( prepared.error );
-	}
-
+export function toSelectedBlueprint( entry: LibraryBlueprint ): SelectedBlueprint {
 	return {
-		title: prepared.title,
-		excerpt: prepared.excerpt,
-		blueprint: prepared.blueprint,
+		slug: entry.slug,
+		title: entry.title,
+		excerpt: entry.excerpt,
+		image: entry.image,
+		blueprint: entry.blueprint,
+		source: {
+			librarySlug: entry.slug,
+			blueprint: entry.blueprint,
+			bundleUrl: entry.bundleUrl,
+		},
+		file: { name: entry.title, size: 0 },
+	};
+}
+
+export function createSelectedBlueprint(
+	blueprint: Blueprint,
+	file: Pick< File, 'name' | 'size' >,
+	source: BlueprintSource = blueprint
+): SelectedBlueprint {
+	const { title, description } = inspectBlueprint( blueprint );
+	return {
+		title: title || file.name.replace( /\.(json|zip)$/i, '' ),
+		excerpt: description || generateDefaultBlueprintDescription( blueprint ),
+		blueprint,
+		source,
 		file,
-		...options,
 	};
 }

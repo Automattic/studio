@@ -9,8 +9,9 @@ import fs from 'fs-extra';
 import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
+import { hashFile, listFiles, zipFiles } from './lib/zip-files.ts';
 
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.1.2';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.1.3';
 const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
@@ -26,9 +27,20 @@ async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
 }
 
 const WP_SERVER_FILES_PATH = path.join( import.meta.dirname, '..', 'wp-files' );
+const WORDPRESS_ZIP_PATH = path.join( WP_SERVER_FILES_PATH, 'latest', 'wordpress.zip' );
+const PHPMYADMIN_ZIP_PATH = path.join( WP_SERVER_FILES_PATH, 'phpmyadmin.zip' );
+// Read by the CLI (`dependency-management/paths.ts`) to compare and name what it unpacks.
+const MANIFEST_PATH = path.join( WP_SERVER_FILES_PATH, 'manifest.json' );
+// Folders earlier versions of this script extracted, which now ship as zips.
+const LEGACY_EXTRACTED_PATHS = [ 'phpmyadmin', 'wordpress-importer', 'simply-static' ].map(
+	( name ) => path.join( WP_SERVER_FILES_PATH, name )
+);
 
 // Pinned so builds are reproducible. Bump deliberately.
 const WORDPRESS_IMPORTER_VERSION = '0.9.5';
+const SIMPLY_STATIC_VERSION = '3.8.14';
+// Used only when the latest release cannot be looked up (no GitHub API access).
+const SQLITE_COMMAND_FALLBACK_VERSION = 'v1.1.11';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
@@ -107,7 +119,17 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		name: 'sqlite-command',
 		description: 'SQLite command',
 		getUrl: async () => {
-			const release = await fetchLatestGithubRelease( 'automattic/wp-cli-sqlite-command' );
+			let release;
+			try {
+				release = await fetchLatestGithubRelease( 'automattic/wp-cli-sqlite-command' );
+			} catch ( error ) {
+				console.warn(
+					`[sqlite-command] ${
+						error instanceof Error ? error.message : error
+					}; using ${ SQLITE_COMMAND_FALLBACK_VERSION }`
+				);
+				return `https://github.com/Automattic/wp-cli-sqlite-command/releases/download/${ SQLITE_COMMAND_FALLBACK_VERSION }/wp-cli-sqlite-command-${ SQLITE_COMMAND_FALLBACK_VERSION }.zip`;
+			}
 			const asset = release.assets[ 0 ];
 			if ( ! asset ) {
 				throw new Error(
@@ -122,19 +144,23 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 		name: 'phpmyadmin',
 		description: 'phpMyAdmin',
 		getUrl: () => PHPMYADMIN_DOWNLOAD_URL,
-		destinationPath: path.join( WP_SERVER_FILES_PATH, 'phpmyadmin' ),
 	},
 	{
 		name: 'wordpress-importer',
 		description: `wordpress-importer ${ WORDPRESS_IMPORTER_VERSION }`,
 		getUrl: () =>
 			`https://downloads.wordpress.org/plugin/wordpress-importer.${ WORDPRESS_IMPORTER_VERSION }.zip`,
-		destinationPath: WP_SERVER_FILES_PATH,
+	},
+	{
+		name: 'simply-static',
+		description: `simply-static ${ SIMPLY_STATIC_VERSION }`,
+		getUrl: () =>
+			`https://downloads.wordpress.org/plugin/simply-static.${ SIMPLY_STATIC_VERSION }.zip`,
 	},
 	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.7/reprint.phar',
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.10/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];
@@ -179,33 +205,26 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 		fs.moveSync( sourcePath, targetPath );
 	} else if ( name === 'phpmyadmin' ) {
 		/**
-		 * phpMyAdmin is extracted into a folder like phpMyAdmin-5.2.3-english.
-		 * We extract to a temp dir, rename to the destination, then inject the
-		 * Playground-specific config and SQLite adapter from @wp-playground/tools.
+		 * phpMyAdmin is extracted into a folder like phpMyAdmin-5.2.3-english. We extract to a
+		 * temp dir, inject the Playground-specific config and SQLite adapter from
+		 * @wp-playground/tools, and ship the result as a zip that the CLI unpacks on first use.
 		 */
 		console.log( `[${ name }] Extracting files from zip ...` );
 		const tmpExtractPath = path.join( os.tmpdir(), 'phpmyadmin-extract' );
-		if ( fs.existsSync( tmpExtractPath ) ) {
-			fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
-		}
-		await extractZip( zipPath, tmpExtractPath );
-
-		const innerFolder = `phpMyAdmin-${ PHPMYADMIN_VERSION }-english`;
-		const sourcePath = path.join( tmpExtractPath, innerFolder );
-		if ( fs.existsSync( extractedPath ) ) {
-			fs.rmSync( extractedPath, { recursive: true, force: true } );
-		}
-		fs.moveSync( sourcePath, extractedPath );
 		fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
+		await extractZip( zipPath, tmpExtractPath );
+		const phpMyAdminPath = path.join(
+			tmpExtractPath,
+			`phpMyAdmin-${ PHPMYADMIN_VERSION }-english`
+		);
 
-		// Inject Playground-specific config and SQLite adapter
 		console.log( `[${ name }] Injecting Playground-specific files ...` );
 		const installSteps = await getPhpMyAdminInstallSteps();
 		for ( const step of installSteps ) {
 			if ( step.step === 'writeFile' && typeof step.data === 'string' ) {
 				// step.path is like /tools/phpmyadmin/config.inc.php — strip the /tools/phpmyadmin prefix
 				const relativePath = step.path.replace( '/tools/phpmyadmin/', '' );
-				const destFile = path.join( extractedPath, relativePath );
+				const destFile = path.join( phpMyAdminPath, relativePath );
 				await fs.ensureDir( path.dirname( destFile ) );
 
 				const localPatchFile = PHPMYADMIN_LOCAL_PATCH_FILES.get( relativePath );
@@ -214,8 +233,31 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 			}
 		}
 		for ( const [ relativePath, sourcePath ] of PHPMYADMIN_ADDITIONAL_FILES ) {
-			await fs.copy( sourcePath, path.join( extractedPath, relativePath ), { overwrite: true } );
+			await fs.copy( sourcePath, path.join( phpMyAdminPath, relativePath ), { overwrite: true } );
 		}
+
+		console.log( `[${ name }] Zipping patched files ...` );
+		await zipFiles(
+			PHPMYADMIN_ZIP_PATH,
+			phpMyAdminPath,
+			listFiles( phpMyAdminPath ),
+			'phpmyadmin'
+		);
+		fs.rmSync( tmpExtractPath, { recursive: true, force: true } );
+	} else if ( name === 'wordpress-importer' || name === 'simply-static' ) {
+		// Plugin zips hold a single `<slug>/` folder and ship as they are.
+		fs.moveSync( zipPath, path.join( WP_SERVER_FILES_PATH, `${ name }.zip` ), { overwrite: true } );
+		console.log( `[${ name }] Saved zip` );
+		return;
+	} else if ( name === 'wordpress' ) {
+		// The extracted copy stays in the repo for the language packs script and the manifest;
+		// only the zip ships in the CLI bundle.
+		console.log( `[${ name }] Extracting files from zip ...` );
+		fs.rmSync( path.join( extractedPath, 'wordpress' ), { recursive: true, force: true } );
+		await extractZip( zipPath, extractedPath );
+		fs.moveSync( zipPath, WORDPRESS_ZIP_PATH, { overwrite: true } );
+		console.log( `[${ name }] Files extracted` );
+		return;
 	} else {
 		console.log( `[${ name }] Extracting files from zip ...` );
 		await extractZip( zipPath, extractedPath );
@@ -225,14 +267,37 @@ async function downloadFile( file: FileToDownload ): Promise< void > {
 	await fs.remove( zipPath );
 }
 
+function readWordPressVersion(): string {
+	const versionFile = path.join(
+		WP_SERVER_FILES_PATH,
+		'latest',
+		'wordpress',
+		'wp-includes',
+		'version.php'
+	);
+	const match = fs.readFileSync( versionFile, 'utf8' ).match( /\$wp_version\s*=\s*'([^']+)'/ );
+	if ( ! match ) {
+		throw new Error( `Could not read the WordPress version from ${ versionFile }` );
+	}
+	return match[ 1 ];
+}
+
 async function downloadFiles() {
-	for ( const file of FILES_TO_DOWNLOAD ) {
-		try {
+	try {
+		for ( const file of FILES_TO_DOWNLOAD ) {
 			await downloadFile( file );
-		} catch ( err ) {
-			console.error( err );
-			process.exit( 1 );
 		}
+		for ( const legacyPath of LEGACY_EXTRACTED_PATHS ) {
+			fs.rmSync( legacyPath, { recursive: true, force: true } );
+		}
+		const manifest = {
+			wordpressVersion: readWordPressVersion(),
+			phpMyAdminHash: hashFile( PHPMYADMIN_ZIP_PATH ).slice( 0, 16 ),
+		};
+		await fs.writeFile( MANIFEST_PATH, JSON.stringify( manifest, null, '\t' ) + '\n' );
+	} catch ( err ) {
+		console.error( err );
+		process.exit( 1 );
 	}
 }
 

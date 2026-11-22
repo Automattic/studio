@@ -1,3 +1,4 @@
+import { spawn } from 'child_process';
 import fs from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import os from 'os';
@@ -24,6 +25,7 @@ describe( 'site versions', () => {
 		site = path.join( root, 'site' );
 		write( 'wp-config.php', "<?php $table_prefix = 'wp_';" );
 		write( 'wp-content/themes/active/style.css', 'body {}' );
+		write( 'wp-content/themes/inactive/style.css', 'body {}' );
 		write( 'wp-content/database/.ht.sqlite', '' );
 		query(
 			`CREATE TABLE wp_options (option_name TEXT, option_value TEXT);
@@ -75,6 +77,23 @@ describe( 'site versions', () => {
 		const version = await getSiteVersion( 'one', site );
 		change();
 		expect( ( await getSiteVersion( 'one', site ) ) === version ).toBe( ! changed );
+	} );
+
+	it( 'reads the same version while the running site writes to its database', async () => {
+		const version = await getSiteVersion( 'one', site );
+		// Another process holds the write lock, as a running site does, for half a second.
+		const writer = spawn( process.execPath, [
+			'-e',
+			`const { DatabaseSync } = require( 'node:sqlite' );
+			const database = new DatabaseSync( ${ JSON.stringify(
+				path.join( site, 'wp-content/database/.ht.sqlite' )
+			) } );
+			database.exec( "BEGIN EXCLUSIVE; UPDATE wp_options SET option_value = 'Site' WHERE option_name = 'blogname'" );
+			console.log( 'locked' );
+			setTimeout( () => database.exec( 'COMMIT' ), 500 );`,
+		] );
+		await new Promise( ( resolve ) => writer.stdout.once( 'data', resolve ) );
+		expect( await getSiteVersion( 'one', site ) ).toBe( version );
 	} );
 
 	it( 'keeps one file of hashes per site, however many versions it has', async () => {

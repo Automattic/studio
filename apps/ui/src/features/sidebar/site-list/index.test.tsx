@@ -84,7 +84,7 @@ function drag( row: HTMLElement, toY: number ) {
 beforeEach( () => localStorage.clear() );
 
 describe( 'sidebar site list', () => {
-	it( 'records Tracks for the Open in destinations, opening admin pages through the host', async () => {
+	it( 'records external Open in destinations and internal project tools separately', async () => {
 		const { connector } = await setup();
 		await openIn( 'My site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Finder' } ) );
@@ -93,11 +93,9 @@ describe( 'sidebar site list', () => {
 
 		await openIn( 'Running site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
-		await openIn( 'Running site' );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'WordPress admin' } ) );
-		await waitFor( () =>
-			expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'two', '/wp-admin/' )
-		);
+		fireEvent.contextMenu( await siteButton( 'Running site' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Admin' } ) );
 		expect( connector.openSiteUrl ).toHaveBeenCalledWith(
 			'two',
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
@@ -106,9 +104,11 @@ describe( 'sidebar site list', () => {
 		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
 			browser: 'external',
 		} );
-		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'external',
-		} );
+		expect( connector.openSiteUrl ).not.toHaveBeenCalledWith( 'two', '/wp-admin/' );
+		expect( await screen.findByRole( 'tab', { name: 'Admin' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
 	} );
 
 	it( 'names the configured editor and terminal in Open in', async () => {
@@ -127,6 +127,19 @@ describe( 'sidebar site list', () => {
 		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_panel_opened', {
 			panel: 'settings',
 		} );
+	} );
+
+	it( 'opens Publish for a busy site selected from the sidebar menu', async () => {
+		const { connector, history } = await setup( {
+			sites: [ { ...mySite, operation: { pid: 1, kind: 'settings' } }, runningSite ],
+		} );
+		fireEvent.contextMenu( await siteButton( 'My site' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+		await waitFor( () => expect( history.location.pathname ).toContain( '/sites/one' ) );
+		const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+		expect( within( panel ).getByRole( 'button', { name: 'Create preview' } ) ).toBeDisabled();
+		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		expect( connector.pushSite ).not.toHaveBeenCalled();
 	} );
 
 	it.each( [ true, false ] )(
@@ -169,10 +182,10 @@ describe( 'sidebar site list', () => {
 		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sessions/older' ) );
 	} );
 
-	it( 'lists sites while chats are still loading', async () => {
+	it( 'lists sites while chats load within an open workspace', async () => {
 		const connector = createFakeConnector( { sites: [ mySite ] } );
 		connector.getSessions.mockReturnValue( new Promise( () => {} ) );
-		renderApp( { connector } );
+		renderApp( { connector, path: '/sites/one' } );
 		expect( await siteButton( 'My site' ) ).toBeVisible();
 	} );
 
@@ -258,20 +271,24 @@ describe( 'sidebar site list', () => {
 	it.each( [
 		[ { kind: 'pending', direction: 'import' }, 'Importing backup' ],
 		[ { kind: 'pending', direction: 'push', phase: 'uploading' }, 'Syncing live site' ],
+		[ { kind: 'pending', direction: 'pull' }, 'Syncing live site' ],
 	] as [ SyncActivity, string ][] )(
-		'shows %o activity on that site row only, before its name',
+		'shows %o in the affected site row’s trailing action',
 		async ( activity, label ) => {
-			const { connector } = await setup();
+			const { connector } = await setup( { path: '/sites/one' } );
 			await siteButton( 'My site' );
 			act( () => connector.emit( 'onSyncActivity', { siteId: 'two', activity } ) );
 			const row = await siteRow( 'Running site' );
-			const indicator = await within( row ).findByRole( 'status', { name: label } );
+			const indicator = await within( row ).findByRole( 'button', { name: label } );
+			expect( indicator ).toHaveAttribute( 'aria-busy', 'true' );
+			expect( indicator ).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( indicator.parentElement ).toHaveAttribute( 'data-show-on-hover', 'true' );
 			expect(
-				indicator.compareDocumentPosition( await siteButton( 'Running site' ) ) &
+				( await siteButton( 'Running site' ) ).compareDocumentPosition( indicator ) &
 					Node.DOCUMENT_POSITION_FOLLOWING
 			).toBeTruthy();
 			expect(
-				within( await siteRow( 'My site' ) ).queryByRole( 'status' )
+				within( await siteRow( 'My site' ) ).queryByRole( 'button', { name: label } )
 			).not.toBeInTheDocument();
 		}
 	);

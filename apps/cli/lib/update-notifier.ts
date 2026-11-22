@@ -1,18 +1,15 @@
 import chalk from '@studio/common/lib/chalk';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import { z } from 'zod';
 import { renderBannerBox } from 'cli/lib/banner-box';
-import {
-	readCliConfig,
-	updateCheckSchema,
-	updateCliConfigWithPartial,
-} from 'cli/lib/cli-config/core';
+import type { Config } from '@studio/common/lib/config/schema';
 
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const FETCH_TIMEOUT_MS = 3000;
 const NPM_REGISTRY_URL = 'https://registry.npmjs.org/wp-studio/latest';
-const CHANGELOG_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/changelog/';
+const CHANGELOG_URL = 'https://wordpress.studio/docs/changelog/';
 
 // Standalone (curl-installed) CLIs check the same wpcom endpoint the desktop app uses; the
 // `product` param selects the Studio CLI builds. The server detects the channel from the
@@ -20,10 +17,11 @@ const CHANGELOG_URL = 'https://developer.wordpress.com/docs/developer-tools/stud
 const STUDIO_API_BASE = 'https://public-api.wordpress.com/wpcom/v2/studio-app';
 const STUDIO_UPDATES_ENDPOINT = `${ STUDIO_API_BASE }/updates`;
 const CLI_PRODUCT_SLUG = 'wordpress-com-studio-cli';
+const STUDIO_INSTALL_BASE = 'https://wordpress.studio';
 
 const NPM_UPDATE_COMMAND = 'npm update -g wp-studio';
 
-type UpdateCheck = z.infer< typeof updateCheckSchema >;
+type UpdateCheck = NonNullable< Config[ 'cli' ][ 'updateCheck' ] >;
 type CliConfigUpdateCheckField = 'updateCheck' | 'standaloneUpdateCheck';
 export type CliInstallKind = 'npm' | 'standalone' | 'embedded';
 
@@ -39,15 +37,10 @@ export interface CliUpdate {
 	downloadUrl?: string;
 }
 
-/**
- * Reads a cached update check from cli.json. Fails safe: `readCliConfig` throws on a
- * malformed or unreadable config, but a background update check must never crash the CLI,
- * so any error — or a missing/invalid field — just means "no cached check".
- */
+// A background update check must never crash the CLI, so any error means "no cached check".
 async function readUpdateCheck( field: CliConfigUpdateCheckField ): Promise< UpdateCheck | null > {
 	try {
-		const config = await readCliConfig();
-		return updateCheckSchema.parse( config[ field ] );
+		return ( await readConfig() ).cli[ field ] ?? null;
 	} catch {
 		return null;
 	}
@@ -146,8 +139,8 @@ async function checkNpm( currentVersion: string, force: boolean ): Promise< CliU
 		if ( version ) {
 			latestVersion = version;
 			try {
-				await updateCliConfigWithPartial( {
-					updateCheck: { lastChecked: now, latestVersion: version },
+				await updateConfig( ( { cli } ) => {
+					cli.updateCheck = { lastChecked: now, latestVersion: version };
 				} );
 			} catch {
 				// Non-critical, ignore write failures
@@ -234,11 +227,11 @@ async function checkStandalone(
 		// Cache successful checks only; on error, retry on the next run.
 		if ( result.kind !== 'error' ) {
 			try {
-				await updateCliConfigWithPartial( {
-					standaloneUpdateCheck: {
+				await updateConfig( ( { cli } ) => {
+					cli.standaloneUpdateCheck = {
 						lastChecked: now,
 						latestVersion: latestVersion ?? currentVersion,
-					},
+					};
 				} );
 			} catch {
 				// Non-critical, ignore write failures
@@ -271,6 +264,48 @@ export function channelForVersion( version: string ): UpdateChannel {
 		return 'beta';
 	}
 	return 'production';
+}
+
+/**
+ * The OS-appropriate installer one-liner to update a standalone (curl-installed) CLI,
+ * pinned to the running version's channel via STUDIO_CLI_VERSION. Production uses the
+ * installer default (`latest`); nightly/beta use the matching CDN alias.
+ *
+ * The `beta` CDN alias is still pending (wpcom follow-up), but no beta CLI builds exist
+ * yet, so the beta branch is currently unreachable in practice.
+ */
+export function standaloneUpdateCommand(
+	currentVersion: string,
+	platform: NodeJS.Platform = process.platform
+): string {
+	const channel = channelForVersion( currentVersion );
+	const alias = channel === 'production' ? '' : channel;
+
+	if ( platform === 'win32' ) {
+		const prefix = alias ? `$env:STUDIO_CLI_VERSION='${ alias }'; ` : '';
+		return `${ prefix }irm ${ STUDIO_INSTALL_BASE }/install.ps1 | iex`;
+	}
+
+	// The env var must sit on the `bash` side of the pipe. In `VAR=x curl … | bash`,
+	// `VAR=x` scopes to curl only, so the piped bash runs install.sh without it and
+	// falls back to `latest`. `curl … | VAR=x bash` is what actually pins the channel.
+	const prefix = alias ? `STUDIO_CLI_VERSION=${ alias } ` : '';
+	return `curl -fsSL ${ STUDIO_INSTALL_BASE }/install.sh | ${ prefix }bash`;
+}
+
+// How to update this CLI, for when the config file is newer than it.
+export function getUpdateInstruction( currentVersion: string ): string {
+	switch ( getCliInstallKind() ) {
+		case 'npm':
+			return sprintf( __( 'Update the Studio CLI with `%s`.' ), NPM_UPDATE_COMMAND );
+		case 'standalone':
+			return sprintf(
+				__( 'Update the Studio CLI with `%s`.' ),
+				standaloneUpdateCommand( currentVersion )
+			);
+		default:
+			return __( 'Update WordPress Studio.' );
+	}
 }
 
 export function formatUpdateBanner(

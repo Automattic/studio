@@ -10,7 +10,7 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getSettingCommands } from '@/features/commands/studio-commands';
-import { ResetTipsIcon } from '@/lib/icons';
+import { RotateCcwIcon } from '@/lib/icons';
 import type { SiteDetails, UserPreferences } from '@/data/core';
 import type { PaletteCommand, SettingToggles } from '@/features/commands/studio-commands';
 
@@ -95,22 +95,20 @@ function useSettingToggles(): SettingToggles {
 			'openChatOnSiteStart',
 			preferences.openChatOnSiteStart,
 			preferences.openChatOnSiteStart
-				? __( 'Disable starting sites in split view' )
-				: __( 'Enable starting sites in split view' ),
+				? __( 'Hide chat when starting sites' )
+				: __( 'Show chat when starting sites' ),
 			preferences.openChatOnSiteStart
 				? __( 'Sites will start with the panel expanded.' )
-				: __( 'Sites will start in split view.' )
+				: __( 'Sites will start with chat.' )
 		),
-		'usage-statistics': toggle(
-			'analyticsEnabled',
-			preferences.analyticsEnabled,
-			preferences.analyticsEnabled
-				? __( 'Disable anonymous usage statistics' )
-				: __( 'Enable anonymous usage statistics' ),
-			preferences.analyticsEnabled
-				? __( 'Anonymous usage statistics disabled.' )
-				: __( 'Anonymous usage statistics enabled.' )
-		),
+		...( ! preferences.analyticsEnabled && {
+			'usage-statistics': toggle(
+				'analyticsEnabled',
+				false,
+				__( 'Enable anonymous usage statistics' ),
+				__( 'Anonymous usage statistics enabled.' )
+			),
+		} ),
 	};
 }
 
@@ -131,6 +129,8 @@ export function useSettingCommands(
 		scope,
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
+		localMachine: connector.capabilities.localMachine,
+		loopbackSignIn: connector.capabilities.loopbackSignIn,
 		toggles,
 		actions: {
 			'reset-appearance': {
@@ -157,7 +157,7 @@ export function useSettingCommands(
 			id: 'reset-tips',
 			group: 'commands',
 			label: __( 'Reset tips' ),
-			icon: ResetTipsIcon,
+			icon: RotateCcwIcon,
 			keywords: [ __( 'Hints' ), __( 'First use' ) ],
 			run: () => {
 				if ( setHints.isPending ) return;

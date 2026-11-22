@@ -26,6 +26,7 @@ import {
 } from '@studio/common/lib/wp-environment-type';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { WifiOffIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
@@ -44,7 +45,6 @@ import {
 	SelectLabel,
 	SelectTrigger,
 	SelectValue,
-	Switch,
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
@@ -54,6 +54,7 @@ import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { ComponentProps, ReactNode } from 'react';
 
 type SiteOption = {
+	icon?: ReactNode;
 	value: string;
 	label: string;
 	description?: string;
@@ -308,11 +309,13 @@ export function TextField( {
 	error,
 	orientation,
 	action,
+	controlClassName,
 	...props
 }: FieldLayout &
 	Omit< ComponentProps< typeof Input >, 'id' | 'aria-describedby' | 'aria-invalid' > & {
 		/** Buttons beside the input. */
 		action?: ReactNode;
+		controlClassName?: string;
 	} ) {
 	const { id, describedBy, element } = useDescription( { description, error } );
 	const input = (
@@ -332,7 +335,7 @@ export function TextField( {
 			disabled={ props.disabled }
 		>
 			{ action || orientation === 'horizontal' ? (
-				<div className={ styles.textControl }>
+				<div className={ clsx( styles.textControl, controlClassName ) }>
 					{ input }
 					{ action }
 				</div>
@@ -359,6 +362,7 @@ export function SiteSelect( {
 	disabledReason?: string;
 	onChange: ( value: string ) => void;
 } ) {
+	const selectedIcon = options.find( ( option ) => option.value === value )?.icon;
 	const offered = options.filter( ( option ) => ! option.hidden );
 	const groups = Array.from( new Set( offered.map( ( option ) => option.group ) ) );
 	const select = (
@@ -371,6 +375,11 @@ export function SiteSelect( {
 			} }
 		>
 			<SelectTrigger { ...props }>
+				{ selectedIcon && (
+					<span data-icon="inline-start" aria-hidden="true" className={ styles.selectIcon }>
+						{ selectedIcon }
+					</span>
+				) }
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent className={ styles.selectContent }>
@@ -384,6 +393,7 @@ export function SiteSelect( {
 									key={ option.value }
 									value={ option.value }
 									description={ option.description }
+									icon={ option.icon }
 								>
 									{ option.label }
 								</SelectItem>
@@ -418,39 +428,6 @@ export function SelectField( {
 			disabled={ disabled }
 		>
 			<SiteSelect id={ id } aria-describedby={ describedBy } disabled={ disabled } { ...props } />
-		</FieldLayoutRow>
-	);
-}
-
-export function ToggleField( {
-	label,
-	description,
-	error,
-	checked,
-	disabled,
-	onChange,
-}: Omit< FieldLayout, 'orientation' > & {
-	checked: boolean;
-	disabled?: boolean;
-	onChange: ( checked: boolean ) => void;
-} ) {
-	const { id, describedBy, element } = useDescription( { description, error } );
-	return (
-		<FieldLayoutRow
-			id={ id }
-			label={ label }
-			description={ element }
-			orientation="horizontal"
-			disabled={ disabled }
-		>
-			<Switch
-				id={ id }
-				aria-describedby={ describedBy }
-				aria-invalid={ error ? true : undefined }
-				checked={ checked }
-				disabled={ disabled }
-				onCheckedChange={ ( next ) => onChange( next ) }
-			/>
 		</FieldLayoutRow>
 	);
 }

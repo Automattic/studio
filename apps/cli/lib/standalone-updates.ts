@@ -2,13 +2,13 @@ import { execFile, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { downloadFile } from '@studio/common/lib/download-file';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { __ } from '@wordpress/i18n';
 import { writeFile } from 'atomically';
 import semver from 'semver';
 import { x as extract } from 'tar';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import { confirm } from 'cli/lib/prompts';
 import {
 	channelForVersion,
@@ -63,7 +63,7 @@ export async function setupStandaloneAutoUpdates(
 		return;
 	}
 	try {
-		let enabled = ( await readCliConfig() ).cliAutoUpdates;
+		let enabled = ( await readConfig() ).cli.cliAutoUpdates;
 		if (
 			enabled === undefined &&
 			process.stdin.isTTY &&
@@ -74,13 +74,15 @@ export async function setupStandaloneAutoUpdates(
 			enabled = await confirm(
 				{
 					message: __(
-						'Keep Studio CLI up to date automatically? Updates take effect on your next launch.'
+						'Keep WordPress Studio CLI up to date automatically? Updates take effect on your next launch.'
 					),
 					default: true,
 				},
 				{ output: process.stderr }
 			);
-			await updateCliConfigWithPartial( { cliAutoUpdates: enabled } );
+			await updateConfig( ( { cli } ) => {
+				cli.cliAutoUpdates = enabled;
+			} );
 		}
 		if ( ! enabled ) {
 			return;
@@ -108,7 +110,7 @@ export async function updateStandaloneCli(
 	if ( automatic ) {
 		if (
 			process.env.STUDIO_CLI_DISABLE_AUTO_UPDATES === '1' ||
-			! ( await readCliConfig() ).cliAutoUpdates ||
+			! ( await readConfig() ).cli.cliAutoUpdates ||
 			! ( await getAvailableCliUpdate( currentVersion, 'standalone' ) )
 		) {
 			return null;
@@ -119,7 +121,7 @@ export async function updateStandaloneCli(
 		await fs.promises.readFile( path.join( installDirectory, 'cli', 'version' ), 'utf8' )
 	).trim();
 	if ( ! semver.valid( installedVersion ) ) {
-		throw new Error( __( 'Invalid installed Studio CLI version.' ) );
+		throw new Error( __( 'Invalid installed WordPress Studio CLI version.' ) );
 	}
 	if ( channelForVersion( installedVersion ) !== channelForVersion( currentVersion ) ) {
 		return null;
@@ -149,7 +151,9 @@ export async function updateStandaloneCli(
 			url.origin !== 'https://appscdn.wordpress.com' ||
 			! url.pathname.startsWith( '/downloads/wordpress-com-studio-cli/' )
 		) {
-			throw new Error( __( 'The update server returned an invalid Studio CLI download URL.' ) );
+			throw new Error(
+				__( 'The update server returned an invalid WordPress Studio CLI download URL.' )
+			);
 		}
 		const destination = path.join( versionsDirectory, update.latestVersion );
 		if ( fs.existsSync( destination ) ) {
@@ -159,7 +163,9 @@ export async function updateStandaloneCli(
 		}
 		stagingDirectory = await fs.promises.mkdtemp( path.join( versionsDirectory, '.download-' ) );
 		const archive = path.join( stagingDirectory, 'studio.tgz' );
-		await downloadFile( url.toString(), archive );
+		await downloadFile( url.toString(), archive, undefined, {
+			allowedOrigin: 'https://appscdn.wordpress.com',
+		} );
 		const extracted = path.join( stagingDirectory, 'extracted' );
 		await fs.promises.mkdir( extracted );
 		await extract( { file: archive, cwd: extracted, strict: true } );
@@ -186,6 +192,8 @@ async function verifyRuntime( directory: string, version: string ): Promise< voi
 		windowsHide: true,
 	} );
 	if ( stdout.trim() !== version ) {
-		throw new Error( __( 'The downloaded Studio CLI version does not match the update.' ) );
+		throw new Error(
+			__( 'The downloaded WordPress Studio CLI version does not match the update.' )
+		);
 	}
 }

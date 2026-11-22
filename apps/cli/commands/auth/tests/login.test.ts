@@ -1,8 +1,11 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { confirm, input } from '@inquirer/prompts';
-import { getAuthenticationUrl } from '@studio/common/lib/oauth';
-import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { updateConfig } from '@studio/common/lib/config/store';
+import { writeProviderConfig } from '@studio/common/lib/provider-config';
 import { vi } from 'vitest';
-import { getUserInfo } from 'cli/lib/api';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -19,13 +22,7 @@ import {
 import { runCommand } from '../login';
 
 vi.mock( '@inquirer/prompts' );
-vi.mock( '@studio/common/lib/oauth' );
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
-	readAuthToken: vi.fn(),
-	updateSharedConfig: vi.fn(),
-} ) );
-vi.mock( 'cli/lib/api' );
+vi.mock( '@studio/common/lib/provider-config', { spy: true } );
 vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	emitCliEvent: vi.fn(),
@@ -69,40 +66,46 @@ async function withTerminal( isTTY: boolean, run: () => Promise< void > ) {
 
 describe( 'Auth Login Command', () => {
 	const mockAccessToken = 'mock-access-token-12345';
-	const mockAuthUrl = 'https://public-api.wordpress.com/oauth2/authorize?client_id=123';
 	const mockUserData = {
 		ID: 12345,
 		email: 'test@example.com',
 		display_name: 'Test User',
-		username: 'testuser',
 	};
-	const mockExistingToken = {
-		accessToken: 'existing-token',
-		id: 999,
-		email: 'existing@example.com',
-		displayName: 'Existing User',
-		expiresIn: 1209600,
-		expirationTime: Date.now() + 1209600000,
-	};
+	// WordPress.com's `/me`, which checks the pasted token.
+	const me = vi.fn();
+	let directory: string;
+	const authUrl = () => vi.mocked( openBrowser ).mock.calls[ 0 ][ 0 ];
+	const signIn = () =>
+		updateConfig( ( { providers } ) => {
+			providers.configs.wpcom = {
+				token: 'existing-token',
+				expiresAt: Date.now() + 1209600000,
+				user: { id: 999, email: 'existing@example.com', displayName: 'Existing User' },
+			};
+		} );
 
-	beforeEach( () => {
+	beforeEach( async () => {
 		vi.clearAllMocks();
+		vi.mocked( writeProviderConfig ).mockReset();
+		directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-login-' ) );
+		vi.stubEnv( 'DEV_CONFIG_DIR', directory );
 
-		vi.mocked( getAuthenticationUrl ).mockReturnValue( mockAuthUrl );
 		vi.mocked( getAppLocale ).mockResolvedValue( 'en' );
-		vi.mocked( getUserInfo ).mockResolvedValue( mockUserData );
+		me.mockResolvedValue( { ok: true, json: async () => mockUserData } );
+		vi.stubGlobal( 'fetch', me );
 		vi.mocked( openBrowser ).mockResolvedValue( undefined );
 		vi.mocked( input ).mockResolvedValue( mockAccessToken );
-		vi.mocked( readAuthToken ).mockResolvedValue( null );
-		vi.mocked( updateSharedConfig ).mockResolvedValue( undefined );
 	} );
 
-	afterEach( () => {
+	afterEach( async () => {
 		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+		vi.unstubAllEnvs();
+		await fs.rm( directory, { force: true, recursive: true } );
 	} );
 
 	it( 'should skip login if already authenticated', async () => {
-		vi.mocked( readAuthToken ).mockResolvedValue( mockExistingToken );
+		await signIn();
 
 		await runCommand();
 
@@ -113,24 +116,24 @@ describe( 'Auth Login Command', () => {
 	it( 'should complete the login process successfully', async () => {
 		await runCommand();
 
-		expect( getAuthenticationUrl ).toHaveBeenCalledWith(
-			'en',
+		const url = new URL( authUrl() );
+		expect( url.searchParams.get( 'redirect_uri' ) ).toBe(
 			'https://developer.wordpress.com/copy-oauth-token'
 		);
-		expect( openBrowser ).toHaveBeenCalledWith( mockAuthUrl );
+		expect( url.searchParams.get( 'locale' ) ).toBe( 'en' );
 		expect( input ).toHaveBeenCalledWith( {
 			message: 'Authentication token:',
 		} );
-		expect( getUserInfo ).toHaveBeenCalledWith( mockAccessToken );
-		expect( updateSharedConfig ).toHaveBeenCalledWith( {
-			authToken: {
-				accessToken: mockAccessToken,
-				id: mockUserData.ID,
-				email: mockUserData.email,
-				displayName: mockUserData.display_name,
-				expiresIn: expect.any( Number ),
-				expirationTime: expect.any( Number ),
-			},
+		expect( me ).toHaveBeenCalledWith( expect.stringContaining( '/rest/v1.1/me' ), {
+			headers: { Authorization: `Bearer ${ mockAccessToken }` },
+		} );
+		expect( await readAuthToken() ).toEqual( {
+			accessToken: mockAccessToken,
+			id: mockUserData.ID,
+			email: mockUserData.email,
+			displayName: mockUserData.display_name,
+			expiresIn: expect.any( Number ),
+			expirationTime: expect.any( Number ),
 		} );
 	} );
 
@@ -144,19 +147,17 @@ describe( 'Auth Login Command', () => {
 	} );
 
 	it( 'should handle API error when fetching user info', async () => {
-		const apiError = new LoggerError( 'Failed to fetch user info' );
-		vi.mocked( getUserInfo ).mockRejectedValue( apiError );
+		me.mockRejectedValue( new Error( 'Failed to fetch user info' ) );
 
 		await runCommand();
 
 		expect( mockReportError ).toHaveBeenCalled();
 		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( getUserInfo ).toHaveBeenCalled();
+		expect( me ).toHaveBeenCalled();
 	} );
 
-	it( 'should report error if updateSharedConfig fails', async () => {
-		const saveError = new Error( 'Failed to save' );
-		vi.mocked( updateSharedConfig ).mockRejectedValue( saveError );
+	it( 'should report error if storing the token fails', async () => {
+		vi.mocked( writeProviderConfig ).mockRejectedValue( new Error( 'Failed to save' ) );
 
 		await runCommand();
 
@@ -169,8 +170,7 @@ describe( 'Auth Login Command', () => {
 
 		await runCommand();
 
-		expect( openBrowser ).toHaveBeenCalledWith( mockAuthUrl );
-		expect( logSpy ).toHaveBeenCalledWith( mockAuthUrl );
+		expect( logSpy ).toHaveBeenCalledWith( authUrl() );
 
 		logSpy.mockRestore();
 	} );
@@ -180,10 +180,7 @@ describe( 'Auth Login Command', () => {
 
 		await runCommand();
 
-		expect( getAuthenticationUrl ).toHaveBeenCalledWith(
-			'fr',
-			'https://developer.wordpress.com/copy-oauth-token'
-		);
+		expect( new URL( authUrl() ).searchParams.get( 'locale' ) ).toBe( 'fr' );
 	} );
 
 	describe( 'Tracks event', () => {
@@ -304,7 +301,11 @@ describe( 'Auth Login Command', () => {
 		// `is_a11n` is derived from the stored token, so the event must follow the write.
 		it( 'records the success only after the token is stored', async () => {
 			const order: string[] = [];
-			vi.mocked( updateSharedConfig ).mockImplementation( async () => {
+			const { writeProviderConfig: write } = await vi.importActual<
+				typeof import('@studio/common/lib/provider-config')
+			>( '@studio/common/lib/provider-config' );
+			vi.mocked( writeProviderConfig ).mockImplementation( async ( ...args ) => {
+				await write( ...args );
 				order.push( 'write' );
 			} );
 			vi.mocked( recordTracksEvent ).mockImplementation( async () => {
@@ -317,7 +318,7 @@ describe( 'Auth Login Command', () => {
 		} );
 
 		it( 'records a failure when the token is rejected', async () => {
-			vi.mocked( getUserInfo ).mockRejectedValue( new LoggerError( 'nope' ) );
+			me.mockRejectedValue( new Error( 'nope' ) );
 
 			await runCommand();
 
@@ -335,7 +336,7 @@ describe( 'Auth Login Command', () => {
 		} );
 
 		it( 'records a failure when the token cannot be stored', async () => {
-			vi.mocked( updateSharedConfig ).mockRejectedValue( new LoggerError( 'disk full' ) );
+			vi.mocked( writeProviderConfig ).mockRejectedValue( new LoggerError( 'disk full' ) );
 
 			await runCommand();
 
@@ -349,7 +350,7 @@ describe( 'Auth Login Command', () => {
 
 		// Nothing was authenticated, so there is no outcome to record.
 		it( 'records nothing when already authenticated', async () => {
-			vi.mocked( readAuthToken ).mockResolvedValue( mockExistingToken );
+			await signIn();
 
 			await runCommand();
 

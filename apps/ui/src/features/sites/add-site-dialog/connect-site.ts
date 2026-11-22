@@ -1,12 +1,13 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
+import { getSyncType } from '@studio/common/lib/sync/sync-type';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { getAccountJourney, scopeAccountJourney } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useCreateSite, useDeleteSite, useStartSite } from '@/data/queries/use-sites';
-import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
+import { usePullSite } from '@/data/queries/use-sync-site';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useAddSite } from './context';
 import type { CreateSiteParams, SiteDetails, SyncSite } from '@/data/core';
@@ -85,7 +86,7 @@ export function useConnectSite() {
 	const navigate = useNavigate();
 	const createSite = useCreateSite();
 	const deleteSite = useDeleteSite();
-	const pullSite = usePullSiteFromLive();
+	const pullSite = usePullSite();
 	const startSite = useStartSite();
 	const { setProgress, pinNewSite } = useAddSite();
 
@@ -104,7 +105,7 @@ export function useConnectSite() {
 				},
 				persistConnection: async ( localSiteId ) => {
 					try {
-						await connector.connectWpcomSite( localSiteId, {
+						await connector.connectRemoteSite( 'wpcom', localSiteId, {
 							...remote,
 							localSiteId,
 							syncSupport: 'already-connected',
@@ -131,28 +132,34 @@ export function useConnectSite() {
 						{
 							success: true,
 							num_of_sites: 1,
+							sync_type: getSyncType( remote ),
 						},
 						localSiteId
 					);
 				},
 				pullRemoteSite: async ( localSiteId ) => {
 					await pullSite.mutateAsync( {
+						provider: 'wpcom',
 						siteId: localSiteId,
 						remoteSiteId: remote.id,
-						// The local site is created by this flow, so the connected-sites
-						// cache the hook would otherwise read has nothing for it yet.
-						syncSite: remote,
 					} );
 				},
 				startLocalSite: async ( localSiteId ) => {
 					await startSite.mutateAsync( localSiteId );
 				},
 				openLocalSite: ( localSiteId ) => {
-					requestHeaderPanel( { panel: 'publish', siteId: localSiteId, view: 'pull' } );
+					requestHeaderPanel( {
+						panel: 'publish',
+						siteId: localSiteId,
+						view: 'pull',
+						provider: 'wpcom',
+						remoteSiteId: remote.id,
+					} );
 					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
 				},
-				deleteLocalSite: ( localSiteId ) =>
-					deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } ),
+				deleteLocalSite: async ( localSiteId ) => {
+					await deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } );
+				},
 				onStage: ( stage ) => {
 					const messages = {
 						create: __( 'Creating the local site…' ),

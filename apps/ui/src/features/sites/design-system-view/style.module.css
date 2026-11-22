@@ -435,7 +435,6 @@
 	gap: var( --space-2 );
 	height: 100%;
 	padding: var( --space-8 );
-	color: var( --foreground );
 	text-align: center;
 }
 

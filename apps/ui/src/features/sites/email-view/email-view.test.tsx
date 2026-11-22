@@ -40,10 +40,43 @@ function renderEmail( emails: SiteEmail[] ) {
 }
 
 describe( 'EmailView', () => {
-	it( 'says when the site has sent no email', async () => {
+	it( 'retries the email list after it could not load', async () => {
+		const connector = createFakeConnector();
+		connector.getSiteEmails.mockRejectedValueOnce( new Error( 'Offline' ) );
+		renderWithProviders( <EmailView siteId="site-1" active={ false } onOpenLink={ vi.fn() } />, {
+			connector,
+		} );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Email log could not load.' );
+		expect( screen.queryByText( 'Select an email to read it.' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect( await screen.findByText( 'Emails sent by your site appear here.' ) ).toBeVisible();
+	} );
+
+	it( 'retries a failed email read without claiming the email is gone', async () => {
+		const connector = createFakeConnector( { emails: { 'site-1': [ makeEmail() ] } } );
+		connector.getSiteEmail.mockRejectedValueOnce( new Error( 'Offline' ) );
+		renderWithProviders( <EmailView siteId="site-1" active={ false } onOpenLink={ vi.fn() } />, {
+			connector,
+		} );
+		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Email log could not load.' );
+		expect( screen.queryByText( 'This email is gone.' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect(
+			await screen.findByRole( 'article', { name: '[My Site] Password Reset' } )
+		).toBeVisible();
+	} );
+
+	it( 'keeps the email list and explains an empty log in the reader', async () => {
 		renderEmail( [] );
 
-		expect( await screen.findByText( 'No email yet' ) ).toBeInTheDocument();
+		expect(
+			await screen.findByText( 'Emails sent by your site appear here.' )
+		).toBeInTheDocument();
+		expect( screen.getByRole( 'heading', { name: 'Emails' } ) ).toBeVisible();
+		expect( screen.getByRole( 'listbox', { name: 'Emails' } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'option' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Select an email to read it.' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'lists email newest first and reads the one picked', async () => {
@@ -56,9 +89,9 @@ describe( 'EmailView', () => {
 			} ),
 		] );
 
-		const list = await screen.findByRole( 'region', { name: 'Email log' } );
-		expect( await within( list ).findByText( '2 emails' ) ).toBeInTheDocument();
-		const rows = within( list ).getAllByRole( 'option' );
+		const list = await screen.findByRole( 'region', { name: 'Emails' } );
+		expect( within( list ).getByRole( 'heading', { name: 'Emails' } ) ).toBeInTheDocument();
+		const rows = await within( list ).findAllByRole( 'option' );
 		expect( rows.map( ( row ) => row.textContent ) ).toEqual( [
 			expect.stringContaining( 'Password Reset' ),
 			expect.stringContaining( 'To Jo' ),
@@ -120,7 +153,7 @@ describe( 'EmailView', () => {
 			makeEmail( { id: '20261026-090000-000001-cccccc.eml', subject: 'Comment to moderate' } ),
 		] );
 
-		const list = await screen.findByRole( 'listbox', { name: 'Email log' } );
+		const list = await screen.findByRole( 'listbox', { name: 'Emails' } );
 		const rows = within( list ).getAllByRole( 'option' );
 		expect( rows.map( ( row ) => row.tabIndex ) ).toEqual( [ 0, -1, -1 ] );
 
@@ -141,12 +174,18 @@ describe( 'EmailView', () => {
 		expect( rows[ 2 ] ).toHaveFocus();
 	} );
 
-	it( 'opens the folder the email is saved in', async () => {
+	it.each( [
+		[ 'MacIntel', 'Finder' ],
+		[ 'Win32', 'File Explorer' ],
+		[ 'Linux x86_64', 'File manager' ],
+	] )( 'opens the email folder in the system file manager on %s', async ( platform, label ) => {
+		const platformSpy = vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( platform );
 		const { connector } = renderEmail( [ makeEmail() ] );
 
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Open email folder' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: `Open in ${ label }` } ) );
 
 		expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'site-1' );
+		platformSpy.mockRestore();
 	} );
 
 	it( 'picks a paragraph of the text, not a link in it, in annotation mode', async () => {

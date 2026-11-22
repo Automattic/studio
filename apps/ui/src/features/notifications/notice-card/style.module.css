@@ -1,12 +1,12 @@
-/* A toast, and an entry in the notification history. */
+/* Toasts and contextual sidebar cards. */
 .card {
 	--notice-icon-size: 16px;
 	--notice-row-height: var( --text-sm--line-height );
 	--notice-title-inset: calc( ( var( --notice-row-height ) - var( --text-sm--line-height ) ) / 2 );
 	position: relative;
 	pointer-events: auto;
-	padding: var( --space-3_5 );
-	border-radius: var( --radius-xl );
+	padding: var( --space-notice-inset );
+	border-radius: var( --radius-notice );
 	background-color: var( --secondary );
 	color: var( --secondary-foreground );
 	box-shadow:
@@ -124,7 +124,7 @@
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	interpolate-size: allow-keywords;
-	transition: height var( --motion-duration-layout ) var( --motion-ease-layout );
+	transition: height var( --motion-duration-disclosure ) var( --motion-ease-layout );
 }
 
 .description[data-clamped] {
@@ -155,7 +155,7 @@
 	width: 14px;
 	height: 14px;
 	flex: none;
-	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
+	transition: rotate var( --motion-duration-disclosure ) var( --motion-ease-layout );
 }
 
 .toggle[aria-expanded='true'] .chevron svg {
@@ -166,9 +166,12 @@
 }
 
 .close {
+	opacity: 1;
+	transform: none;
+	pointer-events: auto;
 	inset-block-start: calc( var( --space-1_5 ) * -1 );
-	inset-inline-start: calc( var( --space-1_5 ) * -1 );
-	inset-inline-end: auto;
+	inset-inline-start: auto;
+	inset-inline-end: calc( var( --space-1_5 ) * -1 );
 }
 
 .trailing {
@@ -190,46 +193,20 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.trailing[data-swap] .timestamp {
-	display: none;
-}
 
 @media ( hover: hover ) and ( pointer: fine ) and ( not ( any-pointer: coarse ) ) {
-	.chevron,
-	.action {
+	.chevron {
 		opacity: 0;
 		transition: opacity var( --motion-duration-feedback ) ease-out;
 	}
 
-	.action {
-		pointer-events: none;
-	}
-
-	.card:hover :is( .chevron, .action ),
-	.card:focus-within :is( .chevron, .action ),
-	.trailing[data-pending] .action {
+	.card:hover .chevron,
+	.card:focus-within .chevron {
 		opacity: 1;
 	}
 
-	.card:hover .action,
-	.card:focus-within .action,
-	.trailing[data-pending] .action {
-		pointer-events: auto;
-	}
-
-	.card:focus-within :is( .chevron, .action ) {
+	.card:focus-within .chevron {
 		transition: none;
-	}
-
-	.trailing[data-swap] .timestamp {
-		display: block;
-	}
-
-	.card:hover .trailing[data-swap] .timestamp,
-	.card:focus-within .trailing[data-swap] .timestamp,
-	.trailing[data-pending] .timestamp {
-		opacity: 0;
-		pointer-events: none;
 	}
 }
 

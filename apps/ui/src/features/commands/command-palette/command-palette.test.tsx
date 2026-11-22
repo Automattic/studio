@@ -2,7 +2,6 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
-import { closeNoticeHistory } from '@/features/notifications';
 import {
 	createFakeConnector,
 	makeSession,
@@ -54,13 +53,28 @@ const searchParams = ( history: { location: { search: string } } ) =>
 afterEach( () =>
 	act( () => {
 		setCommandPaletteOpen( false );
-		closeNoticeHistory();
 	} )
 );
 afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
 	beforeEach( () => localStorage.clear() );
+	it.each( [ true, false ] )(
+		'offers the database tool only when supported: %s',
+		async ( phpMyAdminSupported ) => {
+			await renderPalette( {
+				connector: createFakeConnector( {
+					sites: [ { ...testSite, running: true, phpMyAdminSupported } ],
+				} ),
+				path: '/sites/one/new',
+			} );
+			await openPalette();
+			search( 'Open database' );
+			expect( screen.queryByRole( 'option', { name: /^Open database/ } ) !== null ).toBe(
+				phpMyAdminSupported
+			);
+		}
+	);
 
 	it( 'opens a new chat for the current site from the application menu', async () => {
 		const connector = createFakeConnector( { sites: [ testSite ] } );
@@ -89,22 +103,13 @@ describe( 'command palette', () => {
 		}
 	} );
 
-	it( 'opens one notification history from a collapsed sidebar after the palette closes', async () => {
+	it( 'does not offer notification history', async () => {
 		await renderPalette();
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Hide sidebar' } )[ 0 ] );
-		for ( let attempt = 0; attempt < 2; attempt++ ) {
-			await openPalette();
-			await waitFor( () =>
-				expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument()
-			);
-			search( 'Show notifications' );
-			fireEvent.click( option( 'Show notifications' ) );
-			await paletteClosed();
-			await screen.findByText( 'No notifications.' );
-			expect( screen.getAllByRole( 'dialog', { name: 'Notification history' } ) ).toHaveLength( 1 );
-			const bell = screen.getByRole( 'button', { name: 'Notification history' } );
-			expect( bell.closest( '[inert]' ) ).toBeNull();
-		}
+		await openPalette();
+		search( 'notifications' );
+		expect(
+			screen.queryByRole( 'option', { name: 'Show notifications' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it.each( [ false, true ] )(
@@ -120,14 +125,19 @@ describe( 'command palette', () => {
 			expect( screen.queryByRole( 'option', { name: 'Usage' } ) !== null ).toBe( signedIn );
 			expect( screen.queryByRole( 'option', { name: /View AI usage/ } ) ).not.toBeInTheDocument();
 			search( 'Providers' );
-			expect( option( 'Providers' ) ).toBeVisible();
+			expect( option( 'AI providers Providers' ) ).toBeVisible();
 		}
 	);
 
 	it.each( [
-		[ 'MCP', 'MCP', 'mcp' ],
-		[ 'Connect', 'Providers', 'ai' ],
-		[ 'Connect provider', 'Providers', 'ai' ],
+		[ 'Providers', 'Providers', 'providers' ],
+		[ 'MCP', 'Agents', 'mcp' ],
+		[ 'AI apps', 'Agents', 'mcp' ],
+		[ 'Codex', 'ChatGPT (Codex) Agents', 'mcp' ],
+		[ 'Spacefast', 'Spacefast Providers', 'providers' ],
+		[ 'Hosting providers', 'Hosting providers Providers', 'providers' ],
+		[ 'Connect', 'AI providers Providers', 'providers' ],
+		[ 'Connect provider', 'AI providers Providers', 'providers' ],
 		[ 'credits', 'Usage', 'usage' ],
 		[ 'AI credits', 'Usage', 'usage' ],
 		[ 'credit balance', 'Usage', 'usage' ],
@@ -256,7 +266,9 @@ describe( 'command palette', () => {
 		await paletteClosed();
 		await openPalette();
 		search( 'Start site' );
-		expect( screen.queryByRole( 'option', { name: /^Start site/ } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'option', { name: 'Start site Test site' } )
+		).not.toBeInTheDocument();
 		search( 'Open WordPress Admin' );
 		expect(
 			screen.queryByRole( 'option', { name: /^Open WordPress Admin/ } )
@@ -283,6 +295,22 @@ describe( 'command palette', () => {
 		);
 		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	} );
+
+	it( 'opens the gallery when New site is chosen', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => Response.json( { blueprints: [] } ) )
+		);
+		await renderPalette( {
+			connector: createFakeConnector( { sites: [ testSite ] } ),
+		} );
+		await openPalette();
+		fireEvent.click( option( 'New site' ) );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		expect(
+			await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
+		).toBeVisible();
 	} );
 
 	it( 'omits site commands without a site', async () => {

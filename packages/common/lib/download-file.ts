@@ -10,7 +10,8 @@ const RESPONSE_TIMEOUT_MS = 5_000;
 export async function downloadFile(
 	url: string,
 	destinationPath: string,
-	onProgress?: ( downloaded: number, total: number ) => void
+	onProgress?: ( downloaded: number, total: number ) => void,
+	options?: { allowedOrigin?: string }
 ): Promise< void > {
 	try {
 		await fs.promises.mkdir( path.dirname( destinationPath ), { recursive: true } );
@@ -20,14 +21,40 @@ export async function downloadFile(
 		}
 	}
 
+	// Node 24's own fetch (undici 7) kills the process with `assert(!this.paused)` when a server
+	// closes the connection while the file is still being written, as wordpress.org does
+	// (nodejs/undici#5360). undici 8 has the fix, and its own Agent keeps the download off Node's
+	// client. Imported here so that only downloads load it.
+	const { Agent, fetch } = await import( 'undici' );
+
 	const controller = new AbortController();
 	const timer = setTimeout(
 		() => controller.abort( new DOMException( 'No response from server', 'TimeoutError' ) ),
 		RESPONSE_TIMEOUT_MS
 	);
-	let response: Response;
+	let response;
 	try {
-		response = await fetch( url, { signal: controller.signal } );
+		const dispatcher = new Agent();
+		let requestUrl = url;
+		for ( let redirects = 0; ; redirects++ ) {
+			if ( options?.allowedOrigin && new URL( requestUrl ).origin !== options.allowedOrigin ) {
+				throw new Error( 'Download URL is outside the allowed origin.' );
+			}
+			response = await fetch( requestUrl, {
+				signal: controller.signal,
+				dispatcher,
+				...( options?.allowedOrigin ? { redirect: 'manual' as const } : {} ),
+			} );
+			if ( ! options?.allowedOrigin || ! [ 301, 302, 303, 307, 308 ].includes( response.status ) ) {
+				break;
+			}
+			const location = response.headers.get( 'location' );
+			await response.body?.cancel();
+			if ( ! location || redirects >= 19 ) {
+				throw new Error( 'Invalid or excessive download redirects.' );
+			}
+			requestUrl = new URL( location, requestUrl ).toString();
+		}
 	} finally {
 		clearTimeout( timer );
 	}

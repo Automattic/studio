@@ -18,32 +18,25 @@ async function setup() {
 }
 
 describe( 'Open Folder', () => {
-	it( 'loads a Blueprint bundle into the upload setup with its relative assets intact', async () => {
+	it( 'loads a Blueprint bundle into the setup and creates the site from it', async () => {
 		const { connector } = await setup();
 		connector.selectSiteFolder.mockResolvedValueOnce( {
 			...folder,
 			name: 'formwork.zip',
 			path: '/downloads/formwork.zip',
 			isWordPress: false,
-			blueprint: {
-				blueprintJson: { meta: { title: 'Fashion Magazine', author: 'Automattic' } },
-				blueprintJsonPath: '/tmp/bundle/formwork/blueprint.json',
-				tempDir: '/tmp/bundle',
-			},
+			blueprint: { meta: { title: 'Fashion Magazine', author: 'Automattic' } },
 		} );
 		act( () => connector.emit( 'onOpenFolder' ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-		await within( dialog ).findByText( 'Fashion Magazine', { selector: 'span' } );
+		await within( dialog ).findByText( 'formwork.zip', { selector: 'span' } );
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'Fashion Magazine' );
 		expect(
 			within( dialog ).queryByText( 'Existing local WordPress site' )
 		).not.toBeInTheDocument();
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Create site' } ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalled() );
-		expect( connector.createSite.mock.calls[ 0 ][ 0 ].blueprint ).toMatchObject( {
-			filePath: '/tmp/bundle/formwork/blueprint.json',
-			blueprint: { meta: { title: 'Fashion Magazine' } },
-		} );
+		expect( connector.createSite.mock.calls[ 0 ][ 0 ].blueprint ).toBe( '/downloads/formwork.zip' );
 	} );
 
 	it( 'prepares an existing WordPress folder using the normal site setup', async () => {
@@ -51,12 +44,14 @@ describe( 'Open Folder', () => {
 		connector.selectSiteFolder.mockResolvedValueOnce( folder );
 		act( () => connector.emit( 'onOpenFolder' ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-		await within( dialog ).findByText( 'Existing local WordPress site' );
+		await within( dialog ).findByText(
+			'WordPress Studio will use this WordPress site in place. No files will be moved.'
+		);
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( folder.name );
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
-		expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( folder.path );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced' } ) );
+		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', folder.path );
 		expect( connector.createSite ).not.toHaveBeenCalled();
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Create site' } ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalled() );
 		expect( connector.createSite.mock.calls[ 0 ][ 0 ] ).toMatchObject( {
 			name: folder.name,

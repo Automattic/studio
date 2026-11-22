@@ -41,6 +41,7 @@ export function BrowserHistoryButton( {
 			icon={ back ? <ArrowLeftIcon /> : <ArrowRightIcon /> }
 			label={ label }
 			shortcut={ shortcut }
+			variant="ghost"
 			tooltip={ ! disabled }
 			tooltipSide="bottom"
 			disabled={ disabled }

@@ -2,6 +2,7 @@ import child_process from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import packageJson from '../apps/studio/package.json' with { type: 'json' };
+import { dmgLayout } from './dmg-layout.ts';
 
 const fileArchitecture = process.env.FILE_ARCHITECTURE;
 
@@ -36,12 +37,12 @@ const backgroundPath = path.resolve(
 const dmgSpecs = {
 	title: 'WordPress Studio',
 	icon: volumeIconPath,
-	'icon-size': 80,
+	'icon-size': dmgLayout.iconSize,
 	background: backgroundPath,
-	window: { size: { width: 710, height: 502 } },
+	window: { size: { width: dmgLayout.width, height: dmgLayout.height } },
 	contents: [
-		{ type: 'file', path: appPath, x: 533, y: 122 },
-		{ type: 'link', path: '/Applications', x: 533, y: 354 },
+		{ type: 'file', path: appPath, ...dmgLayout.app },
+		{ type: 'link', path: '/Applications', ...dmgLayout.applications },
 		{ type: 'position', path: '.background', x: 900, y: 900 },
 		{ type: 'position', path: '.DS_Store', x: 900, y: 900 },
 		{ type: 'position', path: '.Trashes', x: 900, y: 900 },

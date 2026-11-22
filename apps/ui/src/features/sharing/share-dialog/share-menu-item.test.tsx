@@ -1,15 +1,17 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
+import { getVisibleToasts } from '@/data/app-messages';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { Menu } from '@/lib/ui';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteShareMenuItem } from './share-menu-item';
 
-it( 'copies an active preview and keeps the sharing dialog accessible', async () => {
+it( 'copies and visits previews and recovers from a failed copy', async () => {
 	const site = makeSite( { id: 'share-menu' } );
-	const copyText = vi.fn( async () => {} );
+	const copyText = vi
+		.fn( async () => {} )
+		.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
 	const openExternalUrl = vi.fn( async () => {} );
 	const publishPreviewSite = vi.fn( async () => ( { url: 'https://new.example.com' } ) );
 	const preview = {
@@ -25,6 +27,7 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 		{ sites: [ site ], user: TEST_USER },
 		{
 			publishPreviewSite,
+			getSnapshotUsage: async () => ( { siteCount: 1, siteLimit: 5, siteCreationBlocked: false } ),
 			copyText,
 			openExternalUrl,
 			getSnapshots: async () => [
@@ -34,61 +37,63 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 			],
 		}
 	);
-	const requested = vi.fn();
-	const unsubscribe = subscribeHeaderPanelRequest( site.id, 'share', requested );
-	try {
-		renderWithProviders(
-			<SessionUIProvider>
-				<Menu.Root>
-					<Menu.Trigger>Actions</Menu.Trigger>
-					<Menu.Popup>
-						<SiteShareMenuItem site={ site } disabled={ false } />
-					</Menu.Popup>
-				</Menu.Root>
-			</SessionUIProvider>,
-			{ connector }
-		);
-		const open = async () => {
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Actions' } ) );
-			await waitFor( () =>
-				expect( screen.getByRole( 'menuitem', { name: 'Share' } ) ).toHaveAttribute(
-					'aria-haspopup',
-					'menu'
-				)
-			);
-			const share = screen.getByRole( 'menuitem', { name: 'Share' } );
-			fireEvent.keyDown( share, { key: 'ArrowRight' } );
-		};
-		await open();
-		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Copy links' } ), {
-			key: 'ArrowRight',
-		} );
-		expect( screen.queryByRole( 'menuitem', { name: 'Expired' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
-		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( preview.shareUrl ) );
-		await open();
-		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Visit previews' } ), {
-			key: 'ArrowRight',
-		} );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
+	renderWithProviders(
+		<SessionUIProvider>
+			<Menu.Root>
+				<Menu.Trigger>Actions</Menu.Trigger>
+				<Menu.Popup>
+					<SiteShareMenuItem site={ site } disabled={ false } />
+				</Menu.Popup>
+			</Menu.Root>
+		</SessionUIProvider>,
+		{ connector }
+	);
+	const open = async () => {
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions' } ) );
 		await waitFor( () =>
-			expect( openExternalUrl ).toHaveBeenCalledWith(
-				'https://review.example.com/wp-login.php?redirect_to=https%3A%2F%2Freview.example.com%2F'
+			expect( screen.getByRole( 'menuitem', { name: 'Share' } ) ).toHaveAttribute(
+				'aria-haspopup',
+				'menu'
 			)
 		);
-		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Create preview' } ) );
-		await waitFor( () =>
-			expect( publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined )
-		);
-		expect( requested ).not.toHaveBeenCalled();
-		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
-		expect( requested ).toHaveBeenCalledWith( { panel: 'share', siteId: site.id } );
-	} finally {
-		unsubscribe();
-	}
+		const share = screen.getByRole( 'menuitem', { name: 'Share' } );
+		fireEvent.keyDown( share, { key: 'ArrowRight' } );
+	};
+	await open();
+	fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Copy links' } ), {
+		key: 'ArrowRight',
+	} );
+	expect( screen.queryByRole( 'menuitem', { name: 'Expired' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
+	await waitFor( () => expect( copyText ).toHaveBeenCalledWith( preview.shareUrl ) );
+	await waitFor( () =>
+		expect( getVisibleToasts().some( ( notice ) => notice.title === 'Could not copy' ) ).toBe(
+			true
+		)
+	);
+	await open();
+	fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Copy links' } ), {
+		key: 'ArrowRight',
+	} );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
+	await waitFor( () =>
+		expect( getVisibleToasts().some( ( notice ) => notice.title === 'Link copied' ) ).toBe( true )
+	);
+	expect(
+		getVisibleToasts().some( ( notice ) => notice.title === 'Could not copy' && ! notice.leaving )
+	).toBe( false );
+	await open();
+	fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Visit previews' } ), {
+		key: 'ArrowRight',
+	} );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
+	await waitFor( () => expect( openExternalUrl ).toHaveBeenCalledWith( preview.shareUrl ) );
+	await open();
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Create preview' } ) );
+	await waitFor( () =>
+		expect( publishPreviewSite ).toHaveBeenCalledWith( site.id, undefined, undefined )
+	);
 } );
 
 it.each( [ 'signed out', 'at the preview limit', 'blocked', 'offline', 'busy' ] )(
@@ -129,10 +134,6 @@ it.each( [ 'signed out', 'at the preview limit', 'blocked', 'offline', 'busy' ] 
 			}
 			fireEvent.keyDown( share, { key: 'ArrowRight' } );
 			expect( await screen.findByRole( 'menuitem', { name: 'Create preview' } ) ).toHaveAttribute(
-				'aria-disabled',
-				'true'
-			);
-			expect( screen.getByRole( 'menuitem', { name: 'Manage sharing' } ) ).not.toHaveAttribute(
 				'aria-disabled',
 				'true'
 			);

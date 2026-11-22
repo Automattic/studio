@@ -19,11 +19,13 @@ export function PreviewParticles( {
 	active = false,
 	showLogo = false,
 	showDots = true,
+	fade = true,
 	selectionTime,
 }: {
 	active?: boolean;
 	showLogo?: boolean;
 	showDots?: boolean;
+	fade?: boolean;
 	selectionTime?: number;
 } ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
@@ -85,7 +87,7 @@ export function PreviewParticles( {
 				context.fillStyle = color;
 				context.globalAlpha = point.opacity;
 				context.beginPath();
-				context.arc( point.x, point.y, 1, 0, Math.PI * 2 );
+				context.arc( point.x, point.y, 0.75, 0, Math.PI * 2 );
 				context.fill();
 				if ( highlight > 0 ) {
 					context.fillStyle = highlightColor;
@@ -109,7 +111,11 @@ export function PreviewParticles( {
 			);
 			draw( now );
 			lastDraw = now;
-			if ( activeRef.current || strength > 0 || logoStrength > 0 || waving( now ) ) {
+			if (
+				! motion.matches &&
+				! document.hidden &&
+				( activeRef.current || strength > 0 || logoStrength > 0 || waving( now ) )
+			) {
 				frame = requestAnimationFrame( animate );
 			}
 		};
@@ -169,7 +175,12 @@ export function PreviewParticles( {
 	return (
 		<>
 			{ showDots ? (
-				<canvas ref={ canvasRef } className={ styles.canvas } aria-hidden="true" />
+				<canvas
+					ref={ canvasRef }
+					className={ styles.canvas }
+					data-fade={ fade }
+					aria-hidden="true"
+				/>
 			) : null }
 			{ showLogo ? (
 				<span className={ styles.logo } data-active={ active || undefined } aria-hidden="true">

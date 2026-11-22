@@ -30,14 +30,14 @@ export abstract class SqliteIntegrationProvider {
 	 *
 	 * A user can run Studio against their own database server (e.g. MySQL) by removing
 	 * the SQLite drop-in, database, and mu-plugin, then pointing wp-config.php at it
-	 * (https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/#use-studio-with-mysql-server).
+	 * (https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-use-wordpress-studio-with-the-mysql-server-of-my-choice).
 	 * We must not reinstall SQLite over that. But a SQLite site whose db.php drop-in went
 	 * missing still has its database/mu-plugin, and needs the drop-in restored.
 	 *
 	 * So: set up SQLite for a fresh site (no wp-config.php), or whenever any SQLite artifact
 	 * is still present; skip only when wp-config.php exists and every SQLite artifact is gone.
 	 */
-	async needsSqliteSetup( sitePath: string ): Promise< boolean > {
+	needsSqliteSetup( sitePath: string ): boolean {
 		const wpContentPath = path.join( sitePath, 'wp-content' );
 		if ( ! fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ) {
 			return true;

@@ -1,0 +1,522 @@
+{
+	"$schema": "../schemas/script.schema.json",
+	"scene": "moire",
+	"name": "moire",
+	"description": "Moire, signed in with its chats: the workspace mid-conversation, the model menu from the window corner, the command palette, Share and Publish, Appearance, a phone-width preview and Annotate",
+	"signedIn": true,
+	"chats": [
+		"moire-home",
+		"moire-lookbook",
+		"moire-soft-armor",
+		"moire-fabric-archive",
+		"bistro-lune-reservations"
+	],
+	"shots": [
+		{
+			"name": "workspace-chat",
+			"description": "The main window with Moire pinned and a conversation polishing its home page",
+			"steps": [
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Loading site preview"
+					},
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				},
+				{
+					"helper": "openSiteMenu"
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "Pin"
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Pinned",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"text": "Update the home page text",
+						"first": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Want me to add alt text",
+						"first": true
+					}
+				},
+				{
+					"wait": 1500
+				}
+			],
+			"capture": {
+				"settle": 2500
+			}
+		},
+		{
+			"name": "model-menu",
+			"steps": [
+				{
+					"helper": "openSiteMenu"
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "New chat"
+					}
+				},
+				{
+					"wait": 1200
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Model"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "listbox",
+						"name": "Choose a model"
+					}
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Choose a model"
+					},
+					{
+						"role": "button",
+						"name": "Send message"
+					}
+				],
+				"pad": [
+					100,
+					110
+				],
+				"reach": [
+					"left",
+					"bottom"
+				]
+			},
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"wait": 400
+				},
+				{
+					"click": {
+						"text": "Update the home page text",
+						"first": true
+					}
+				},
+				{
+					"waitFor": {
+						"text": "Want me to add alt text",
+						"first": true
+					}
+				},
+				{
+					"wait": 800
+				}
+			],
+			"description": "The model menu, cropped from the window's bottom-left corner"
+		},
+		{
+			"name": "command-palette",
+			"description": "Command palette (⌘K)",
+			"steps": [
+				{
+					"press": "ControlOrMeta+K"
+				},
+				{
+					"waitFor": {
+						"role": "combobox",
+						"name": "Search commands"
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "combobox",
+						"name": "Search commands"
+					},
+					"hidden": true
+				}
+			]
+		},
+		{
+			"name": "command-palette-crop",
+			"description": "The command palette, cropped with the app around it",
+			"steps": [
+				{
+					"press": "ControlOrMeta+K"
+				},
+				{
+					"waitFor": {
+						"role": "combobox",
+						"name": "Search commands"
+					}
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Command palette"
+				},
+				"pad": 48
+			},
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "combobox",
+						"name": "Search commands"
+					},
+					"hidden": true
+				}
+			]
+		},
+		{
+			"name": "share",
+			"description": "Share and publish → Share, with Create preview",
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Share",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "Share",
+						"exact": true
+					}
+				}
+			]
+		},
+		{
+			"name": "publish",
+			"description": "Share and publish → Publish: Existing site… and New site…",
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Share and publish"
+						},
+						"role": "tab",
+						"name": "Publish",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "button",
+						"name": "Existing site…"
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"wait": 600
+				}
+			]
+		},
+		{
+			"name": "settings-appearance",
+			"description": "Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the bakery (the 2026 workspace announcement)",
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"pattern": "^Settings"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tablist",
+						"name": "Settings scope"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings scope"
+						},
+						"role": "tab",
+						"name": "App"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "tablist",
+							"name": "Settings sections"
+						},
+						"role": "tab",
+						"name": "Appearance",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "tabpanel",
+						"name": "Appearance",
+						"exact": true
+					}
+				}
+			],
+			"after": [
+				{
+					"press": "Escape"
+				}
+			]
+		},
+		{
+			"name": "responsive-phone",
+			"description": "The device toolbar at a phone size (iPhone 17), above the preview",
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Expand panel",
+						"exact": true
+					}
+				},
+				{
+					"wait": 800
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Browser options",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "Show device toolbar"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "toolbar",
+						"name": "Responsive preview"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "toolbar",
+							"name": "Responsive preview"
+						},
+						"role": "button",
+						"name": "Responsive",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "menuitemradio",
+						"pattern": "^iPhone 17\\s*402"
+					}
+				},
+				{
+					"click": {
+						"role": "menuitemradio",
+						"pattern": "^iPhone 17\\s*402"
+					}
+				},
+				{
+					"wait": 1500
+				}
+			],
+			"capture": {
+				"settle": 2000
+			},
+			"after": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Hide device toolbar"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "toolbar",
+						"name": "Responsive preview"
+					},
+					"hidden": true
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Show chat",
+						"exact": true
+					}
+				},
+				{
+					"wait": 800
+				}
+			]
+		},
+		{
+			"name": "annotate-toolbar",
+			"description": "Annotate turned on above the site preview, before any note",
+			"desktopOnly": true,
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Annotate",
+						"exact": true
+					}
+				},
+				{
+					"wait": 1000
+				}
+			]
+		},
+		{
+			"name": "annotate-note",
+			"description": "Annotate: two saved notes on the page, and a third open on the hero photo, being typed",
+			"desktopOnly": true,
+			"steps": [
+				{
+					"helper": "clickInPreview",
+					"args": [
+						"h1"
+					]
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "typeText",
+					"args": [
+						"Make the wordmark a touch smaller so more of the photo shows"
+					]
+				},
+				{
+					"press": "Enter"
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "clickInPreview",
+					"args": [
+						".wp-block-site-tagline"
+					]
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "typeText",
+					"args": [
+						"Add 'Autumn edit' after the tagline"
+					]
+				},
+				{
+					"press": "Enter"
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "clickInPreview",
+					"args": [
+						".wp-block-cover img, .wp-block-image img, img"
+					]
+				},
+				{
+					"wait": 600
+				},
+				{
+					"helper": "typeText",
+					"args": [
+						"Swap in the wool close-up"
+					]
+				},
+				{
+					"wait": 500
+				}
+			],
+			"capture": {
+				"keepMouse": true
+			},
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"wait": 600
+				}
+			]
+		},
+		{
+			"name": "annotate-staged",
+			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\"",
+			"desktopOnly": true,
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Delete annotation",
+						"exact": true
+					}
+				},
+				{
+					"wait": 600
+				}
+			],
+			"capture": {
+				"settle": 1200
+			},
+			"after": [
+				{
+					"helper": "discardAnnotations"
+				}
+			]
+		}
+	]
+}

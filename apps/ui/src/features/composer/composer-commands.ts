@@ -1,33 +1,35 @@
 import { __ } from '@wordpress/i18n';
+import { PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
 import {
-	ChartNoAxesCombinedIcon,
 	GaugeIcon,
+	TagIcon,
+	TrendingUpIcon,
 	PaperclipIcon,
-	PencilRulerIcon,
 	PlayIcon,
-	SlidersHorizontalIcon,
 	SparklesIcon,
-	TagsIcon,
 	UnlockIcon,
-} from 'lucide-react';
-import { FeedbackIcon, McpIcon, SplitViewIcon, StartSiteIcon, StopSiteIcon } from '@/lib/icons';
+	MessageSquareTextIcon,
+	PlugIcon,
+	PanelRightIcon,
+	SquareIcon,
+} from '@/lib/icons';
 import type { Command, CommandGroup } from '@/lib/ui';
 import type { SkillSlashCommand } from '@studio/agent/protocol/slash-commands';
 import type { ComponentType } from 'react';
 
 const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: string } > > > = {
 	'add-files': PaperclipIcon,
-	start: StartSiteIcon,
-	stop: StopSiteIcon,
+	start: PlayIcon,
+	stop: SquareIcon,
 	annotate: PencilRulerIcon,
-	taxonomist: TagsIcon,
+	taxonomist: TagIcon,
 	'need-for-speed': GaugeIcon,
-	'rank-me-up': ChartNoAxesCombinedIcon,
+	'rank-me-up': TrendingUpIcon,
 	liberate: UnlockIcon,
-	feedback: FeedbackIcon,
-	'auto-start': StartSiteIcon,
-	panel: SplitViewIcon,
-	'connect-provider': McpIcon,
+	feedback: MessageSquareTextIcon,
+	'auto-start': PlayIcon,
+	panel: PanelRightIcon,
+	'connect-provider': PlugIcon,
 	model: SlidersHorizontalIcon,
 	local: PlayIcon,
 };
@@ -41,6 +43,7 @@ export function getComposerCommands( {
 	canChangeEnvironment,
 	panelCommand,
 	siteCommand,
+	canAnnotate,
 }: {
 	canAutoStart: boolean;
 	autoStartOn: boolean;
@@ -49,6 +52,7 @@ export function getComposerCommands( {
 	canChangeEnvironment: boolean;
 	panelCommand?: SkillSlashCommand;
 	siteCommand?: 'start' | 'stop';
+	canAnnotate?: boolean;
 } ): SkillSlashCommand[] {
 	return [
 		{
@@ -56,6 +60,15 @@ export function getComposerCommands( {
 			displayName: __( 'Add files' ),
 			description: '',
 		},
+		...( canAnnotate
+			? [
+					{
+						name: 'annotate',
+						displayName: __( 'Annotate' ),
+						description: __( 'Point or draw to suggest a change.' ),
+					},
+			  ]
+			: [] ),
 		...( siteCommand
 			? [
 					{
@@ -86,8 +99,8 @@ export function getComposerCommands( {
 			: [] ),
 		{
 			name: 'connect-provider',
-			displayName: __( 'Connect providers' ),
-			description: __( 'Use WordPress.com AI credits or your own API key.' ),
+			displayName: __( 'Connect AI providers' ),
+			description: __( 'Choose what powers chat in WordPress Studio.' ),
 		},
 		...( canChangeEnvironment && environment === 'live'
 			? [
@@ -101,18 +114,20 @@ export function getComposerCommands( {
 	];
 }
 
-// The add menu lists everything; a `/fragment` lists its matches.
+// The add menu offers common actions; a `/fragment` also finds utility commands.
 export function getCommandGroups( {
 	addOpen,
 	commands,
 	skills,
 	matches,
+	searching = false,
 	isDisabled,
 }: {
 	addOpen: boolean;
 	commands: SkillSlashCommand[];
 	skills: SkillSlashCommand[];
 	matches: SkillSlashCommand[];
+	searching?: boolean;
 	isDisabled: ( name: string ) => boolean;
 } ): CommandGroup[] {
 	const isSkill = ( command: SkillSlashCommand ) =>
@@ -127,9 +142,11 @@ export function getCommandGroups( {
 	return [
 		{
 			label: __( 'Commands' ),
-			items: ( addOpen ? commands : matches.filter( ( command ) => ! isSkill( command ) ) ).map(
-				toCommand
-			),
+			items: ( addOpen ? commands : matches.filter( ( command ) => ! isSkill( command ) ) )
+				.filter(
+					( command ) => searching || ! [ 'stop', 'panel', 'model' ].includes( command.name )
+				)
+				.map( toCommand ),
 		},
 		{
 			label: __( 'Skills' ),

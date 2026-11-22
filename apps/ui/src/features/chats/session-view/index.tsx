@@ -1,8 +1,9 @@
+import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
-} from '@studio/agent/protocol/providers';
-import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
+	resolveSessionThinking,
+} from '@studio/agent/protocol/sessions/model';
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate, useRouter } from '@tanstack/react-router';
@@ -19,16 +20,18 @@ import {
 } from 'react';
 import { useAgentRun } from '@/data/agent-runs/use-agent-run';
 import { toast } from '@/data/app-messages';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useConnector } from '@/data/core';
+import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
+import { useRemoteSites } from '@/data/queries/use-remote-sites';
 import {
 	useSession,
 	useSessionLiveSite,
 	useSessions,
 	useSetSessionEnvironment,
+	useSetSessionThinking,
 } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
@@ -40,6 +43,7 @@ import {
 	useStopSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
@@ -47,6 +51,7 @@ import {
 	getSiteAnnotations,
 	hasAnnotationContent,
 	removeAnnotations,
+	setAnnotating,
 	stageAnnotations,
 	subscribeAnnotationSend,
 	annotationSubmission,
@@ -59,6 +64,7 @@ import {
 	Composer,
 	ComposerSkeleton,
 	pendingPromptSlot,
+	useComposerNotice,
 	type ComposerHandle,
 } from '@/features/composer';
 import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
@@ -71,7 +77,6 @@ import { SessionFrame } from './session-frame';
 import { SessionHeader } from './session-header';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
-import { useComposerNotice } from './use-composer-notice';
 import { useMarkChatRead } from './use-mark-chat-read';
 import { useSendSiteDraft } from './use-send-site-draft';
 import { useSessionCommands } from './use-session-commands';
@@ -156,8 +161,9 @@ function SessionViewContent( {
 		() =>
 			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
 				canUsePaidModels: canUsePaidAiModels( quota, authUser?.email ),
+				account: aiSettings?.accounts[ sessionProvider ],
 			} ),
-		[ data?.entries, sessionProvider, quota, authUser?.email ]
+		[ data?.entries, sessionProvider, quota, authUser?.email, aiSettings ]
 	);
 	const currentModel = ( ! sessionId && draft.model ) || defaultModel;
 	const sendMessage = useCallback(
@@ -285,7 +291,29 @@ function SessionViewContent( {
 	const { mutate: stopSite } = useStopSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
-	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
+	const preview = useOptionalSessionPreviewUI();
+	const revealingSiteId = preview?.revealingSiteId;
+	const connector = useConnector();
+	const openSettings = useOpenSettings();
+	const beginAnnotating = () => {
+		if ( ! ownerSite || ! preview ) return;
+		if ( ! hasConnectedProvider( aiSettings ) ) {
+			openSettings( 'providers', undefined, 'ai-providers', {
+				intent: 'build',
+				scope: ownerSite.id,
+			} );
+			return;
+		}
+		preview.setSite( ownerSite.id );
+		preview.setOpen( true, { siteId: ownerSite.id } );
+		preview.setChatHidden( false, ownerSite.id );
+		setAnnotating( ownerSite.id, true );
+		if ( ! ownerSite.running ) {
+			startSitePreview( ownerSite.id, {
+				onError: () => setAnnotating( ownerSite.id, false ),
+			} );
+		}
+	};
 	const siteLoading =
 		! isSiteStopping && ( isSiteStarting || ( !! ownerSite && revealingSiteId === ownerSite.id ) );
 	const showStoppedPreview =
@@ -293,9 +321,13 @@ function SessionViewContent( {
 	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
-	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
+	const { data: connectedSites } = useRemoteSites( 'wpcom', ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites ?? [] );
 	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId ?? '' );
+	const { mutate: setThinking } = useSetSessionThinking( sessionId ?? '' );
+	const thinking = sessionId
+		? resolveSessionThinking( data?.entries ?? [], currentModel )
+		: draft.thinking;
 	const sendWithAutoStart = useCallback(
 		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
 			if (
@@ -362,7 +394,7 @@ function SessionViewContent( {
 	useEffect( () => {
 		if ( ! isChatReady || ! annotationSiteId ) return;
 		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
-			stageAnnotations( annotationSiteId, noteIds );
+			if ( ! noteIds ) stageAnnotations( annotationSiteId );
 			if ( composerBusy && ! noteIds ) return;
 			if ( ! noteIds ) {
 				return composerRef.current?.send();
@@ -477,7 +509,7 @@ function SessionViewContent( {
 							className={ styles.scrollToLatestButton }
 							icon={ <ArrowDownIcon /> }
 							label={ __( 'Jump to latest' ) }
-							variant="default"
+							variant="outline"
 							shape="round"
 							data-visible={ isScrolledAway || undefined }
 							inert={ ! isScrolledAway }
@@ -496,7 +528,15 @@ function SessionViewContent( {
 						draftKey={ draftKey }
 						provider={ sessionProvider }
 						onModelChange={
-							sessionId ? undefined : ( model, provider ) => updateDraft( { model, provider } )
+							sessionId
+								? undefined
+								: ( model, provider ) => updateDraft( { model, provider, thinking: undefined } )
+						}
+						thinking={ thinking }
+						onThinkingChange={ ( picked ) =>
+							sessionId
+								? setThinking( { model: currentModel, thinking: picked } )
+								: updateDraft( { thinking: picked } )
 						}
 						autoFocus={ isEmpty }
 						entries={ data?.entries }
@@ -514,6 +554,10 @@ function SessionViewContent( {
 							canAutoStart && ownerSite.running ? () => stopSite( ownerSite.id ) : undefined
 						}
 						siteActionDisabled={ isSiteBusy }
+						onAnnotate={ beginAnnotating }
+						annotationDisabled={
+							! canTogglePreview || ! preview || ! connector.capabilities.annotatePreview
+						}
 						isSiteStarting={ isSiteStarting }
 						environment={ effectiveEnvironment }
 						onEnvironmentChange={

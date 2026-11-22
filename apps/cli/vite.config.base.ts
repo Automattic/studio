@@ -1,9 +1,9 @@
 import { execSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
-import { createRequire } from 'module';
-import { resolve } from 'path';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { builtinModules, createRequire } from 'module';
+import { dirname, relative, resolve } from 'path';
 import semver from 'semver';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 const __dirname = import.meta.dirname;
 const packageJson = createRequire( import.meta.url )( './package.json' ) as {
@@ -11,13 +11,6 @@ const packageJson = createRequire( import.meta.url )( './package.json' ) as {
 	engines?: { node?: string };
 	version: string;
 };
-
-const nodeBuiltinExternals: RegExp[] = [
-	/^node:/,
-	/^(path|fs|os|child_process|crypto|http|https|http2|url|querystring|stream|util|events|buffer|assert|net|tty|readline|zlib|constants|tls|domain|dns|async_hooks)$/,
-	/^fs\/promises$/,
-	/^dns\/promises$/,
-];
 
 // Kept external and installed by `install:bundle`; everything else, including the
 // workspace packages and their dependencies, is bundled. See "Bundled Workspace
@@ -37,11 +30,37 @@ if ( ! minimumNodeVersion ) {
 	);
 }
 
+// pi is bundled, but reads its version from its `package.json` and its themes from files. These
+// are copied to `<chunk dir>/pi-coding-agent`, where `PI_PACKAGE_DIR` points it.
+const piPackagePath = resolve( __dirname, '../../node_modules/@earendil-works/pi-coding-agent' );
+const PI_PACKAGE_FILES = [ 'package.json', 'dist/modes/interactive/theme' ];
+
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
-// The Skill tool loads skills from `<chunk dir>/skills` at runtime (see
-// `@studio/agent/node/skills.ts`), so they must sit directly next to the built chunks.
-const skillsSourcePath = resolve( __dirname, '../../packages/agent/node/skills' );
+
+// Settings installs the Studio plugin in agent apps from a marketplace Studio
+// writes from these, copied to `<chunk dir>/agent-plugins` with this version
+// (see `connect-agent-app.ts` in @studio/common). Its server is Studio's own CLI,
+// so the launcher scripts stay out, and so do the directory listing's screenshots.
+const pluginsSourcePath = resolve( __dirname, '../../plugins' );
+const AGENT_PLUGIN_FILES = [
+	'.claude-plugin/marketplace.json',
+	'.agents/plugins/marketplace.json',
+	'wp-studio/.claude-plugin',
+	'wp-studio/.codex-plugin',
+	'wp-studio/.cursor-plugin',
+	'wp-studio/.grok-plugin',
+	'wp-studio/.mcp.json',
+	'wp-studio/agents',
+	'wp-studio/assets/logo.png',
+	'wp-studio/skills',
+];
+const AGENT_PLUGIN_MANIFESTS = [
+	'.claude-plugin',
+	'.codex-plugin',
+	'.cursor-plugin',
+	'.grok-plugin',
+];
 
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
@@ -96,11 +115,83 @@ export function buildMcpUiPlugin() {
 	};
 }
 
+// Files that bundled code loads from next to its chunk at runtime, such as pi's image resize worker,
+// are invisible to the bundler, so the build fails when one is missing from the output. This matches
+// the first argument of each call, which may hold one level of parentheses.
+const RUNTIME_FILE_REFERENCE =
+	/new URL\(((?:[^()]|\([^()]*\))*?),\s*import\.meta\.url\s*\)|new Worker\(((?:[^(),]|\([^()]*\))*)[,)]|import\.meta\.resolve\(([^(),]*)\)/g;
+const RELATIVE_STRING_LITERAL = /(['"`])(\.\.?\/[^'"`$]+)\1/g;
+const UNREACHABLE_RUNTIME_FILE_REFERENCES = [
+	// pi's codemode extension, which Studio never creates.
+	'@earendil-works/pi-codemode/dist/runtime/host.js',
+];
+
+function checkRuntimeFilesPlugin(): Plugin {
+	let references: { chunk: string; module: string; candidates: string[] }[] = [];
+	let outDir = '';
+	return {
+		name: 'check-runtime-files',
+		apply: 'build',
+		writeBundle( options, bundle ) {
+			outDir = options.dir ?? resolve( __dirname, 'dist/cli' );
+			references = [];
+			for ( const chunk of Object.values( bundle ) ) {
+				if ( chunk.type !== 'chunk' ) {
+					continue;
+				}
+				for ( const [ module, { code } ] of Object.entries( chunk.modules ) ) {
+					if (
+						! code ||
+						UNREACHABLE_RUNTIME_FILE_REFERENCES.some( ( allowed ) => module.endsWith( allowed ) )
+					) {
+						continue;
+					}
+					for ( const match of code.matchAll( RUNTIME_FILE_REFERENCE ) ) {
+						const argument = match[ 1 ] ?? match[ 2 ] ?? match[ 3 ];
+						const candidates = [ ...argument.matchAll( RELATIVE_STRING_LITERAL ) ].map(
+							( literal ) => literal[ 2 ]
+						);
+						if ( candidates.length > 0 ) {
+							references.push( { chunk: chunk.fileName, module, candidates } );
+						}
+					}
+				}
+			}
+		},
+		// After every plugin's `writeBundle`, which is where copies like `viteStaticCopy` happen.
+		closeBundle() {
+			const missing = references.filter(
+				// A reference may pick between paths at runtime (`isTs ? './a.ts' : './a.js'`), so one
+				// of them existing is enough.
+				( { chunk, candidates } ) =>
+					! candidates.some( ( candidate ) =>
+						existsSync( resolve( outDir, dirname( chunk ), candidate ) )
+					)
+			);
+			if ( missing.length > 0 ) {
+				throw new Error(
+					'The CLI build output lacks files its code loads at runtime. Add them as a build entry or copy them into the output:\n' +
+						missing
+							.map(
+								( { chunk, module, candidates } ) =>
+									`  ${ candidates.join( ' or ' ) }, referenced by ${ chunk } (from ${ relative(
+										resolve( __dirname, '../..' ),
+										module
+									) })`
+							)
+							.join( '\n' )
+				);
+			}
+		},
+	};
+}
+
 export const baseConfig = defineConfig( {
 	oxc: {
 		target: `node${ semver.major( minimumNodeVersion ) }`,
 	},
 	plugins: [
+		checkRuntimeFilesPlugin(),
 		{
 			name: 'write-dist-extras',
 			apply: 'build',
@@ -116,10 +207,32 @@ export const baseConfig = defineConfig( {
 					cpSync( phpSourceCodePath, resolve( outDir, 'php' ), { recursive: true } );
 				}
 				if ( existsSync( bundledWpFilesPath ) ) {
-					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
+					// WordPress ships as `latest/wordpress.zip`; the extracted copy is for build scripts.
+					const extractedWordPressPath = resolve( bundledWpFilesPath, 'latest', 'wordpress' );
+					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), {
+						recursive: true,
+						filter: ( source ) => source !== extractedWordPressPath,
+					} );
 				}
-				if ( existsSync( skillsSourcePath ) ) {
-					cpSync( skillsSourcePath, resolve( outDir, 'skills' ), { recursive: true } );
+				for ( const file of PI_PACKAGE_FILES ) {
+					cpSync( resolve( piPackagePath, file ), resolve( outDir, 'pi-coding-agent', file ), {
+						recursive: true,
+						filter: ( source ) => ! /\.(js|ts|map)$/.test( source ),
+					} );
+				}
+				const agentPlugins = resolve( outDir, 'agent-plugins' );
+				for ( const file of AGENT_PLUGIN_FILES ) {
+					cpSync( resolve( pluginsSourcePath, file ), resolve( agentPlugins, file ), {
+						recursive: true,
+					} );
+				}
+				for ( const manifest of AGENT_PLUGIN_MANIFESTS ) {
+					const file = resolve( agentPlugins, 'wp-studio', manifest, 'plugin.json' );
+					const fields = JSON.parse( readFileSync( file, 'utf8' ) );
+					writeFileSync(
+						file,
+						JSON.stringify( { ...fields, version: packageJson.version }, null, 2 ) + '\n'
+					);
 				}
 
 				if ( existsSync( localUiDistPath ) ) {
@@ -140,6 +253,12 @@ export const baseConfig = defineConfig( {
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'php-server-child': resolve( __dirname, 'php-server-child.ts' ),
+				// pi starts its image resizing worker from `image-resize-worker.js` next to its own code,
+				// which is bundled here.
+				'image-resize-worker': resolve(
+					__dirname,
+					'../../node_modules/@earendil-works/pi-coding-agent/dist/utils/image-resize-worker.js'
+				),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],
@@ -149,7 +268,8 @@ export const baseConfig = defineConfig( {
 		rolldownOptions: {
 			output: {
 				format: 'es',
-				entryFileNames: '[name].mjs',
+				entryFileNames: ( chunk ) =>
+					chunk.name === 'image-resize-worker' ? '[name].js' : '[name].mjs',
 				chunkFileNames: '[name]-[hash].mjs',
 				// Some bundled CommonJS dependencies (e.g. `lockfile`, `debug`) call
 				// `require( ... )` for Node built-ins at module init. Rolldown (the
@@ -174,7 +294,7 @@ export const baseConfig = defineConfig( {
 					return false;
 				}
 
-				if ( nodeBuiltinExternals.some( ( pattern ) => pattern.test( id ) ) ) {
+				if ( id.startsWith( 'node:' ) || builtinModules.includes( id ) ) {
 					return true;
 				}
 
@@ -192,6 +312,7 @@ export const baseConfig = defineConfig( {
 			cli: resolve( __dirname, '.' ),
 			'@studio/common': resolve( __dirname, '../../packages/common' ),
 			'@studio/agent': resolve( __dirname, '../../packages/agent' ),
+			'@studio/providers': resolve( __dirname, '../../packages/providers' ),
 			'@studio/design-md': resolve( __dirname, '../../packages/design-md/index.ts' ),
 			// The `studio ui` local server (apps/local) is bundled into the CLI
 			// from source, the same way `@studio/common` is.
@@ -210,5 +331,6 @@ export const baseConfig = defineConfig( {
 		__IS_PACKAGED_FOR_STANDALONE__: false,
 		__MINIMUM_NODE_VERSION__: JSON.stringify( minimumNodeVersion ),
 		__STUDIO_CLI_VERSION__: JSON.stringify( packageJson.version ),
+		'process.env.PI_PACKAGE_DIR': 'import.meta.dirname + "/pi-coding-agent"',
 	},
 } );

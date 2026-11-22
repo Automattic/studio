@@ -3,8 +3,9 @@ import * as childProcess from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { readConfig } from '@studio/common/lib/config/store';
+import { downloadFile } from '@studio/common/lib/download-file';
 import { c as archive } from 'tar';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { confirm } from 'cli/lib/prompts';
 import {
 	getStandaloneInstallDir,
@@ -13,6 +14,7 @@ import {
 } from 'cli/lib/standalone-updates';
 
 vi.mock( 'cli/lib/prompts', () => ( { confirm: vi.fn() } ) );
+vi.mock( '@studio/common/lib/download-file', () => ( { downloadFile: vi.fn() } ) );
 vi.mock( 'node:child_process', async ( original ) => ( {
 	...( await original< typeof import('node:child_process') >() ),
 	spawn: vi.fn(),
@@ -100,12 +102,11 @@ async function releaseArchive( version = '2.0.0' ) {
 function serveRelease( body: Buffer | string, version = '2.0.0' ) {
 	const downloadUrl =
 		'https://appscdn.wordpress.com/downloads/wordpress-com-studio-cli/linux-x64/v2.0.0/full-install/studio.tgz';
-	const fetchMock = vi.fn( async ( input: string | URL | Request ) =>
-		String( input ) === downloadUrl
-			? new Response( new Uint8Array( Buffer.from( body ) ) )
-			: Response.json( { version, downloadUrl } )
-	);
+	const fetchMock = vi.fn( async () => Response.json( { version, downloadUrl } ) );
 	vi.stubGlobal( 'fetch', fetchMock );
+	vi.mocked( downloadFile ).mockImplementation( async ( _url, destination ) => {
+		await fs.writeFile( destination, body );
+	} );
 	return fetchMock;
 }
 
@@ -119,7 +120,15 @@ it( 'stages a runnable release for the next launch without replacing the current
 		'original runtime'
 	);
 	expect( await updateStandaloneCli( '1.0.0' ) ).toBe( '2.0.0' );
-	expect( fetchMock ).toHaveBeenCalledTimes( 3 );
+	expect( fetchMock ).toHaveBeenCalledTimes( 2 );
+	expect( downloadFile ).toHaveBeenCalledWith(
+		expect.any( String ),
+		expect.any( String ),
+		undefined,
+		{
+			allowedOrigin: 'https://appscdn.wordpress.com',
+		}
+	);
 	expect( ( await fs.readdir( versionsDirectory ) ).sort() ).toEqual( [
 		'2.0.0',
 		'current-1.0.0',
@@ -154,6 +163,6 @@ it.each( [ true, false ] )( 'remembers the one-time auto-update choice (%s)', as
 	await setupStandaloneAutoUpdates( 'standalone' );
 	await setupStandaloneAutoUpdates( 'standalone' );
 	expect( confirm ).toHaveBeenCalledTimes( 1 );
-	expect( ( await readCliConfig() ).cliAutoUpdates ).toBe( enabled );
+	expect( ( await readConfig() ).cli.cliAutoUpdates ).toBe( enabled );
 	expect( spawn ).toHaveBeenCalledTimes( enabled ? 2 : 0 );
 } );

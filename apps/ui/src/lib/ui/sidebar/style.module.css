@@ -15,7 +15,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		height: 36px;
+		height: var( --control-size );
 	}
 
 	.groupLabel {
@@ -59,13 +59,6 @@
 		opacity: 1;
 	}
 
-	.groupLabelSkeleton {
-		flex: none;
-		width: 36px;
-		height: 16px;
-		margin-inline: var( --space-2 );
-	}
-
 	.menu {
 		display: flex;
 		flex-direction: column;
@@ -73,6 +66,12 @@
 	}
 
 	.item {
+		--sidebar-row-action-inset: var( --space-0_5 );
+		--sidebar-row-action-size: calc(
+			var( --control-size ) - 2 * var( --sidebar-row-action-inset )
+		);
+		--radius-sidebar-row: var( --radius-control );
+
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -84,9 +83,9 @@
 		align-items: center;
 		gap: var( --space-1_5 );
 		min-width: 0;
-		height: 36px;
+		height: var( --control-size );
 		padding-inline: var( --space-2 );
-		border-radius: var( --radius-lg );
+		border-radius: var( --radius-sidebar-row, var( --radius-control ) );
 		color: var( --foreground );
 		text-align: start;
 		outline: none;
@@ -124,9 +123,17 @@
 		background-color: var( --hover );
 	}
 
-	.button:is( [data-active], [data-selected], [data-popup-open] ),
-	.item:is( [data-selected], [data-popup-open] ) > .button {
+	.button[data-popup-open],
+	.item[data-popup-open] > .button {
 		background-color: var( --hover );
+	}
+
+	.button:is( [data-active], [data-selected] ),
+	.item[data-selected] > .button {
+		--muted: inherit;
+		--surface: var( --muted );
+
+		background-color: var( --surface );
 	}
 
 	.button[data-muted]:hover {
@@ -146,12 +153,22 @@
 
 	/* Hovering an action also highlights its row. */
 	.actions {
+		--hover: inherit;
 		--surface: var( --hover );
 
 		position: absolute;
-		inset-block-start: var( --space-0_5 );
-		inset-inline-end: var( --space-0_5 );
+		inset-block-start: var( --sidebar-row-action-inset );
+		inset-inline-end: var( --sidebar-row-action-inset );
 		display: flex;
+	}
+
+	.item > .actions > button {
+		--button-control-size: var( --sidebar-row-action-size );
+		--button-hover-background: transparent;
+		--radius-button: max(
+			0px,
+			calc( var( --radius-sidebar-row ) - var( --sidebar-row-action-inset ) )
+		);
 	}
 
 	/* While the row is idle, hover-only actions hide, apart from a busy one. */
@@ -167,9 +184,14 @@
 		opacity: 0;
 	}
 
+	/* Reserve the last action's slot when only its spinner is visible. */
+	.item:has( > .actions > [aria-busy='true'] ) > .button {
+		padding-inline-end: calc( var( --sidebar-row-action-size ) + var( --space-2 ) );
+	}
+
 	/* A trailing dot sits in the last action's slot, and gives way to the actions. */
 	.button:has( > [data-slot='notification-dot'][data-position='end'] ) {
-		padding-inline-end: calc( 32px + var( --space-2 ) );
+		padding-inline-end: calc( var( --sidebar-row-action-size ) + var( --space-2 ) );
 	}
 
 	.item:is(
@@ -193,26 +215,19 @@
 			:has( > .actions:not( [data-show-on-hover] ) )
 		)
 		> .button {
-		padding-inline-end: calc( 2 * 32px + var( --space-2 ) );
+		padding-inline-end: calc( 2 * var( --sidebar-row-action-size ) + var( --space-2 ) );
 	}
 
 	.skeleton {
 		display: flex;
 		align-items: center;
-		gap: var( --space-1_5 );
-		height: 36px;
-		padding-inline: var( --space-2 );
-	}
-
-	.skeletonIcon {
-		flex: none;
-		width: 16px;
-		height: 16px;
+		height: 32px;
 	}
 
 	.skeletonLabel {
 		flex: 1;
 		max-width: var( --skeleton-width );
-		height: 16px;
+		height: 100%;
+		border-radius: var( --radius-lg );
 	}
 }

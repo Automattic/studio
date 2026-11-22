@@ -4,6 +4,8 @@ import {
 	managerMessageSchema,
 } from 'cli/lib/types/wordpress-server-ipc';
 
+export const SITE_PROCESS_PREFIX = 'studio-site-';
+
 const processDescriptionSchemaBase = z.object( {
 	name: z.string(),
 	pmId: z.number(),
@@ -72,6 +74,11 @@ const daemonResponseResultSchema = z.object( {
 	payload: z.unknown(),
 } );
 export type DaemonResponseResult = z.infer< typeof daemonResponseResultSchema >;
+
+export const daemonPingResponseSchema = z.object( {
+	// The version of the CLI that started the daemon; daemons that predate it report none.
+	version: z.string().optional(),
+} );
 
 const daemonResponseErrorSchema = z.object( {
 	type: z.literal( 'error' ),

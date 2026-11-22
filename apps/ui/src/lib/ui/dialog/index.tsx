@@ -2,9 +2,9 @@ import { AlertDialog as BaseAlertDialog } from '@base-ui/react/alert-dialog';
 import { Dialog as BaseDialog } from '@base-ui/react/dialog';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { XIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useImperativeHandle, useRef } from 'react';
 import { useScrollFade } from '@/lib/hooks';
+import { XIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui/button';
 import surfaceStyles from '@/lib/ui/surface/style.module.css';
 import { registerOpenDialog, replaceOpenDialogs } from './replacement';
@@ -60,10 +60,10 @@ export const DialogClose = BaseDialog.Close;
 export function DialogDismissButton( {
 	label = __( 'Close' ),
 	...props
-}: Partial< ComponentProps< typeof IconButton > > ) {
+}: Partial< Omit< ComponentProps< typeof IconButton >, 'variant' > > ) {
 	return (
 		<IconButton
-			variant="outline"
+			variant="muted-ghost"
 			size="icon-sm"
 			icon={ <XIcon /> }
 			label={ label }
@@ -149,13 +149,11 @@ export function DialogTitle( { className, ...props }: ComponentProps< typeof Bas
 
 export function DialogDescription( {
 	className,
-	tone = 'muted',
 	...props
-}: ComponentProps< typeof BaseDialog.Description > & { tone?: 'muted' | 'default' } ) {
+}: ComponentProps< typeof BaseDialog.Description > ) {
 	return (
 		<BaseDialog.Description
 			data-slot="dialog-description"
-			data-tone={ tone }
 			className={ clsx( styles.description, className ) }
 			{ ...props }
 		/>

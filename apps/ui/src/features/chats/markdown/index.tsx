@@ -7,7 +7,7 @@ import { useConnector } from '@/data/core';
 import { CopyButton } from '@/features/chats/copy-button';
 import { ToolLink } from '@/features/chats/tool-link';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
-import { AppearanceIcon } from '@/lib/icons';
+import { DesignSystemIcon } from '@/lib/icons';
 import { CodeBlock } from '@/lib/ui';
 import { closeOpenMarkdown, splitMarkdownBlocks } from './blocks';
 import styles from './style.module.css';
@@ -135,8 +135,8 @@ export const Markdown = memo( function Markdown( {
 				if ( href === DESIGN_SYSTEM_PREVIEW_PATH ) {
 					return (
 						<ToolLink
-							icon={ <AppearanceIcon aria-hidden="true" /> }
-							aria-label={ __( 'Open design system' ) }
+							icon={ <DesignSystemIcon aria-hidden="true" /> }
+							aria-label={ __( 'Open Design System' ) }
 							path={ DESIGN_SYSTEM_PREVIEW_PATH }
 						>
 							{ __( 'Design System' ) }

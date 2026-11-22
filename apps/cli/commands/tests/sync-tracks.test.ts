@@ -1,25 +1,35 @@
-import * as configFile from '@studio/common/lib/cli-config-file';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
+import { RemoteSiteError } from '@studio/providers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites, initiateBackup, pollBackupStatus } from 'cli/lib/sync-api';
+import { backupRemoteSite, fetchSyncableSites, wpcomSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { runCommand as runPull } from '../pull';
 import { runCommand as runBackupPull } from '../pull-legacy';
 import { runCommand as runPush } from '../push';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteData } from 'cli/lib/cli-config/core';
 
-vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
-	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
+vi.mock( '@studio/common/lib/auth-token', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/auth-token') >() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/connected-sites' );
+vi.mock( '@studio/common/lib/config/store', () => {
+	const config = () => ( {
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
+	return {
+		readConfig: vi.fn( async () => config() ),
+		updateConfig: vi.fn( async ( update: ( config: object ) => unknown ) => update( config() ) ),
+	};
+} );
+vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
 	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
 } ) );
@@ -29,15 +39,14 @@ vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/snapshots', () => ( {
+	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
+} ) );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
-	initiateBackup: vi.fn(),
-	pollBackupStatus: vi.fn(),
-} ) );
-vi.mock( 'cli/lib/api', async ( importActual ) => ( {
-	...( await importActual< typeof import('cli/lib/api') >() ),
-	enableReprintExporter: vi.fn(),
+	backupRemoteSite: vi.fn(),
+	wpcomSites: { pull: { openExporter: vi.fn() } },
 } ) );
 vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-site-picker', async ( importActual ) => ( {
@@ -45,14 +54,14 @@ vi.mock( 'cli/lib/sync-site-picker', async ( importActual ) => ( {
 	pickSyncSite: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/preview-sites', () => ( {
-	getStandingPreviews: vi.fn().mockResolvedValue( new Map() ),
+	wpcomPreviews: { list: vi.fn().mockResolvedValue( [] ) },
 } ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
 
-const testSite: SiteData = {
+const testSite: ConfigSite = {
 	id: 'site-1',
 	name: 'Test Site',
 	path: '/test/site',
@@ -78,26 +87,19 @@ const remoteSite = {
 beforeEach( () => {
 	vi.clearAllMocks();
 	vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
-	vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [] );
+	vi.mocked( getRemoteSites ).mockResolvedValue( [] );
 	vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 	vi.mocked( pickSyncSite ).mockResolvedValue( remoteSite );
 } );
 
 const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
-beforeEach( () => {
-	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
-		version: 1,
-		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
-		snapshots: [],
-	} );
-} );
 afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio pull Tracks events', () => {
 	it( "records a failure with the site's sync type and a classified reason, and tells the app", async () => {
-		vi.mocked( enableReprintExporter ).mockRejectedValue(
-			new LoggerError( 'Failed to enable the export', undefined, 'remote_backup' )
+		vi.mocked( wpcomSites.pull!.openExporter ).mockRejectedValue(
+			new RemoteSiteError( 'Failed to enable the export', 'remote_backup' )
 		);
 
 		await expect( runPull( testSite.path, String( remoteSite.id ) ) ).rejects.toThrow();
@@ -120,18 +122,6 @@ describe( 'CLI: studio pull Tracks events', () => {
 		] );
 	} );
 
-	// The agentic UI drives its pulls by forking this very command, and emits the
-	// event itself — without the flag the same pull would be counted twice.
-	it( 'records nothing when suppressed', async () => {
-		vi.mocked( fetchSyncableSites ).mockRejectedValue( new Error( 'offline' ) );
-
-		await expect(
-			runPull( testSite.path, String( remoteSite.id ), false, {}, true )
-		).rejects.toThrow();
-
-		expect( recordTracksEvent ).not.toHaveBeenCalled();
-	} );
-
 	it( 'records nothing when the user backs out of the site picker', async () => {
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite, { ...remoteSite, id: 43 } ] );
 		vi.mocked( pickSyncSite ).mockResolvedValue( undefined as never );
@@ -149,8 +139,9 @@ describe( 'CLI: studio pull Tracks events', () => {
 
 describe( 'CLI: studio pull Tracks events (Jetpack Backup engine)', () => {
 	it( "records a failure with the site's sync type and a classified reason", async () => {
-		vi.mocked( initiateBackup ).mockResolvedValue( 7 as never );
-		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
+		vi.mocked( backupRemoteSite ).mockRejectedValue(
+			new LoggerError( 'Remote backup failed', undefined, 'remote_backup' )
+		);
 
 		await expect(
 			runBackupPull( testSite.path, [ 'all' ], String( remoteSite.id ) )
@@ -167,19 +158,6 @@ describe( 'CLI: studio pull Tracks events (Jetpack Backup engine)', () => {
 				channel: 'studio-cli',
 			} )
 		);
-	} );
-
-	// The agentic UI drives its pulls by forking this very command, and emits the
-	// event itself — without the flag the same pull would be counted twice.
-	it( 'records nothing when suppressed', async () => {
-		vi.mocked( initiateBackup ).mockResolvedValue( 7 as never );
-		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
-
-		await expect(
-			runBackupPull( testSite.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
-		).rejects.toThrow();
-
-		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'records nothing when the user backs out of the site picker', async () => {
@@ -209,7 +187,7 @@ describe( 'CLI: studio pull Tracks events (Jetpack Backup engine)', () => {
 	} );
 
 	it( 'attributes a backup-initiation failure to the remote backup', async () => {
-		vi.mocked( initiateBackup ).mockRejectedValue(
+		vi.mocked( backupRemoteSite ).mockRejectedValue(
 			new LoggerError( 'Failed to initiate backup', undefined, 'remote_backup' )
 		);
 
@@ -266,9 +244,7 @@ describe( 'CLI: studio push Tracks events', () => {
 } );
 
 it( 'keeps a failed push and its event when the site ID cannot be read', async () => {
-	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
-		new Error( 'Storage unavailable' )
-	);
+	vi.mocked( readConfig ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
 	await expect( runPush( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
 	expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
 		TRACKS_EVENTS.SYNC_PUSH,

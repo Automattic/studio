@@ -24,7 +24,6 @@ const appCommands = ( overrides: Partial< Parameters< typeof getAppCommands >[ 0
 		openChat: vi.fn(),
 		savePreferences: vi.fn(),
 		toggleSidebar: vi.fn(),
-		openNotifications: vi.fn(),
 		openWhatsNew: vi.fn(),
 		openFeedback: vi.fn(),
 		...overrides,
@@ -129,6 +128,24 @@ it( 'derives labels and availability from active context', () => {
 	expect( app.filter( ( command ) => command.id === 'color-scheme' ) ).toHaveLength( 1 );
 } );
 
+it( 'finds the Publish command for sharing and previews', () => {
+	const current = makeSite( { id: 'one', name: 'Test' } );
+	const openHeaderPanel = vi.fn();
+	const commands = siteCommands( current, [ current ], { openHeaderPanel } );
+	expect( commands.find( ( command ) => command.id === 'share' ) ).toBeUndefined();
+	for ( const query of [ 'publish', 'share', 'preview' ] ) {
+		expect(
+			matchCommands( commands, query ).filter( ( command ) => command.id === 'publish' )
+		).toHaveLength( 1 );
+	}
+	commands.find( ( command ) => command.id === 'publish' )!.run();
+	expect( openHeaderPanel ).toHaveBeenCalledExactlyOnceWith( {
+		panel: 'publish',
+		siteId: 'one',
+		view: 'publish',
+	} );
+} );
+
 it.each( [
 	{ selectedRunning: false, others: 0 },
 	{ selectedRunning: true, others: 0 },
@@ -222,8 +239,8 @@ describe( 'getSettingCommands', () => {
 
 	it.each( [
 		[ 'shortcuts', 'settings-keyboard' ],
-		[ 'connect', 'settings-ai' ],
-		[ 'connect provider', 'settings-ai' ],
+		[ 'connect', 'settings-providers-ai-providers' ],
+		[ 'connect provider', 'settings-providers-ai-providers' ],
 		[ 'credit balance', 'settings-usage' ],
 		[ 'snapshots', 'settings-sharing' ],
 	] )( 'finds “%s” first by another name for a setting', ( query, id ) => {
@@ -239,7 +256,7 @@ describe( 'command search', () => {
 	it.each( [
 		[ 'colour', 'settings-appearance-color' ],
 		[ 'intensity tint', 'settings-appearance-intensity' ],
-		[ 'API key', 'settings-ai-anthropic-provider' ],
+		[ 'API key', 'settings-providers-anthropic-provider' ],
 		[ 'folder', 'settings-general-default-directory' ],
 		[ 'editor default', 'settings-general-code-editor' ],
 	] )( 'finds %s', ( query, id ) => {
@@ -268,9 +285,9 @@ describe( 'command search', () => {
 
 	it( 'keeps browse results unchanged and respects availability', () => {
 		expect( matchCommands( commands, '' ) ).toEqual( matchCommands( commands, '  ' ) );
-		expect( ids( 'credits', appCommands( { settingCommands: studioSettings( false ) } ) ) ).toEqual(
-			[]
-		);
+		expect(
+			ids( 'credits', appCommands( { settingCommands: studioSettings( false ) } ) )
+		).not.toContain( 'settings-usage' );
 		expect( ids( 'credtis' ) ).toEqual( [] );
 		expect( ids( 'Command' ) ).not.toContain( 'color-scheme' );
 	} );

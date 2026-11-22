@@ -28,6 +28,8 @@ export function SiteChats( {
 	loadError,
 	reorderable,
 	activeSessionId,
+	pendingChat,
+	onOpenDraft,
 	onReorderChats,
 	onSiteOpen,
 }: {
@@ -39,6 +41,8 @@ export function SiteChats( {
 	loadError: boolean;
 	reorderable: boolean;
 	activeSessionId?: string;
+	pendingChat?: { label: string; active: boolean };
+	onOpenDraft: () => void;
 	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
 } ) {
@@ -105,6 +109,22 @@ export function SiteChats( {
 				) }
 				className={ styles.chats }
 			>
+				{ pendingChat ? (
+					<SidebarMenu>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								inset
+								active={ pendingChat.active }
+								aria-current={ pendingChat.active ? 'page' : undefined }
+								onClick={ onOpenDraft }
+							>
+								<SidebarMenuLabel className="studio-shimmer">
+									{ pendingChat.label.trim() || __( 'New chat' ) }
+								</SidebarMenuLabel>
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					</SidebarMenu>
+				) : null }
 				{ loadError ? (
 					<SidebarMenu>
 						<RetryLoadingChats />

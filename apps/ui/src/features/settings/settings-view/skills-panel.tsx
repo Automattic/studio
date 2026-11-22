@@ -6,6 +6,7 @@ import {
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
 import { LearnMoreLink } from '@/features/onboarding';
+import { SkillActions } from '../skill-actions';
 import {
 	SettingsGroup,
 	SettingsLoadState,
@@ -90,6 +91,7 @@ export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
 							title={ skill.displayName }
 							description={ skill.description }
 						>
+							<SkillActions id={ skill.id } name={ skill.displayName } />
 							<SettingsToggle
 								label={ skill.displayName }
 								checked={ skill.installed }

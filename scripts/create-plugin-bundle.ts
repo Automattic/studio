@@ -7,7 +7,8 @@
  * package within the directory's limits, which this script checks.
  *
  * Anthropic's directory takes far smaller plugins, so it gets the plugin without the CLI and
- * without Codex's files: it downloads the same tarball from the matching Studio release instead.
+ * without the other apps' files: it downloads the same tarball from the matching Studio release
+ * instead.
  *
  * Output: standalone-bundles/wp-studio-<version>.zip, the plugin for Anthropic's directory in
  * standalone-bundles/wp-studio-directory, and its CLI download, wp-studio-cli-<version>.tar.br,
@@ -43,13 +44,14 @@ const MiB = 1024 * 1024;
 const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 * MiB };
 const DIRECTORY_LIMITS = { unpacked: 50 * MiB, entries: 512, entry: 5 * MiB };
 
-// What only Codex reads: its manifest, MCP config, app metadata, screenshots and launchers.
-const CODEX_ONLY = [
+// What only Codex, Cursor and Grok Build read: their manifests and MCP configs, and Codex's app
+// metadata and launchers.
+const NOT_FOR_CLAUDE = [
 	'.codex-plugin',
+	'.cursor-plugin',
+	'.grok-plugin',
 	'.mcp.json',
 	'agents',
-	'assets/screenshot-layout.png',
-	'assets/screenshot-look.png',
 	'scripts/launch-mcp',
 	'scripts/launch-mcp.cmd',
 ];
@@ -63,8 +65,8 @@ async function recordMcpSnapshot( file: string, client: string, config: string )
 	const home = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-mcp-snapshot-' ) );
 	fs.mkdirSync( path.join( home, '.studio' ) );
 	fs.writeFileSync(
-		path.join( home, '.studio', 'shared.json' ),
-		JSON.stringify( { analyticsOptOut: true } )
+		path.join( home, '.studio', 'config.json' ),
+		JSON.stringify( { version: 1, preferences: { analyticsOptOut: true } } )
 	);
 	const { env } = JSON.parse( fs.readFileSync( config, 'utf8' ) ).mcpServers[ 'wordpress-studio' ];
 	const server = spawn(
@@ -114,10 +116,15 @@ async function main(): Promise< void > {
 	console.log( '==> Assembling the plugin...' );
 	fs.rmSync( stagingDir, { recursive: true, force: true } );
 	fs.cpSync( path.join( repoRoot, 'plugins', 'wp-studio' ), stagingDir, { recursive: true } );
-	for ( const host of [ '.codex-plugin', '.claude-plugin' ] ) {
+	for ( const host of [ '.codex-plugin', '.claude-plugin', '.cursor-plugin', '.grok-plugin' ] ) {
 		const manifestPath = path.join( stagingDir, host, 'plugin.json' );
 		const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
-		fs.writeFileSync( manifestPath, JSON.stringify( { ...manifest, version }, null, 2 ) + '\n' );
+		manifest.version = version;
+		if ( host === '.codex-plugin' ) {
+			const { publication } = manifest.extensions[ 'com.openai' ];
+			publication.release_notes = `WordPress Studio ${ version }, with the Studio CLI of that release. What changed: https://github.com/Automattic/studio/releases/tag/v${ version }`;
+		}
+		fs.writeFileSync( manifestPath, JSON.stringify( manifest, null, 2 ) + '\n' );
 	}
 	await recordMcpSnapshot(
 		path.join( stagingDir, 'mcp-snapshot.json' ),
@@ -139,7 +146,6 @@ async function main(): Promise< void > {
 			'--exclude=@aws-sdk',
 			'--exclude=@aws-crypto',
 			'--exclude=@smithy',
-			'--exclude=@google/genai',
 			'-C',
 			path.join( repoRoot, 'apps', 'cli', 'dist' ),
 			'cli',
@@ -175,7 +181,7 @@ async function main(): Promise< void > {
 	fs.cpSync( stagingDir, directoryDir, {
 		recursive: true,
 		filter: ( source ) =>
-			! [ ...CODEX_ONLY, 'cli.tar.br' ].some(
+			! [ ...NOT_FOR_CLAUDE, 'cli.tar.br' ].some(
 				( entry ) => source === path.join( stagingDir, entry )
 			),
 	} );

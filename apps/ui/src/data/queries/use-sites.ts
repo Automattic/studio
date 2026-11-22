@@ -5,16 +5,20 @@ import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
-import { openStudioLogsAction, toast } from '@/data/app-messages';
+import { dismissToast, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { updateResponsivePreview } from '@/data/responsive-preview';
+import {
+	isSiteRestarting,
+	RESTART_SITE_MUTATION_KEY,
+	useIsSiteRestarting,
+} from '@/data/site-restarts';
 import { useOpenSite } from '@/data/use-open-site';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteEvent, SiteListItem } from '@studio/common/lib/cli-events';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
-import type { SiteMetadata } from '@studio/common/sites/metadata';
 import type { QueryClient } from '@tanstack/react-query';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -38,17 +42,22 @@ export const EXPORT_DATABASE_MUTATION_KEY = [ 'exportDatabase' ] as const;
 
 export function useSites() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
 		queryFn: async () => {
 			const sites = await connector.getSites();
 			for ( const site of sites ) {
-				if ( ! site.running ) updateResponsivePreview( site.id, { enabled: false } );
+				if ( ! site.running && ! isSiteRestarting( queryClient, site.id ) )
+					updateResponsivePreview( site.id, { enabled: false } );
 			}
 			return sites;
 		},
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
-		refetchInterval: 2 * 60 * 1000,
+		// Only while the window has focus: a remote server that sleeps when idle counts each
+		// request as use, so a tab left open in the background would keep it awake. Focusing the
+		// window again refetches anyway.
+		refetchInterval: () => ( document.hasFocus() ? 5 * 60 * 1000 : false ),
 		// The sidebar mounts another reader once the list stops loading: a failed
 		// list refetched on each new mount would go back to loading, unmount that
 		// reader, fail again and repeat forever.
@@ -169,7 +178,7 @@ function useExportSite( databaseOnly: boolean ) {
 					databaseOnly ? __( 'Failed to export database' ) : __( 'Failed to export site' ),
 					{
 						id,
-						description: siteName,
+						description: [ siteName, getErrorMessage( error ) ].filter( Boolean ).join( ' · ' ),
 						action: openStudioLogsAction( connector ),
 					}
 				);
@@ -201,6 +210,7 @@ export function useStartSite() {
 				return false;
 			}
 			await showSite( queryClient, await connector.startSite( id ) );
+			dismissToast( `start-${ id }` );
 			return true;
 		},
 		onError: ( error, id ) => {
@@ -210,7 +220,11 @@ export function useStartSite() {
 				__( 'Failed to start site' ),
 				getErrorMessage( error )
 			);
-			toast.error( title, { description, action: openStudioLogsAction( connector ) } );
+			toast.error( title, {
+				id: `start-${ id }`,
+				description,
+				action: openStudioLogsAction( connector ),
+			} );
 		},
 	} );
 }
@@ -222,11 +236,40 @@ export function useStopSite() {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
 			await showSite( queryClient, await connector.stopSite( id ) );
-			updateResponsivePreview( id, { enabled: false } );
+			dismissToast( `stop-${ id }` );
+			if ( ! isSiteRestarting( queryClient, id ) )
+				updateResponsivePreview( id, { enabled: false } );
 		},
 		onError: ( _error, id ) => {
 			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
-			toast.error( title, { description } );
+			toast.error( title, { id: `stop-${ id }`, description } );
+		},
+	} );
+}
+
+export function getSiteStopState( queryClient: QueryClient, siteId: string ) {
+	const stops = queryClient.getMutationCache().findAll( {
+		mutationKey: STOP_SITE_MUTATION_KEY,
+		predicate: ( mutation ) => mutation.state.variables === siteId,
+	} );
+	const stop = stops[ stops.length - 1 ];
+	return stop
+		? {
+				id: stop.mutationId,
+				preservePanel: stop.state.status !== 'error',
+				pending: stop.state.status === 'pending',
+		  }
+		: undefined;
+}
+
+export function useRestartSite() {
+	const stop = useStopSite();
+	const start = useStartSite();
+	return useMutation( {
+		mutationKey: RESTART_SITE_MUTATION_KEY,
+		mutationFn: async ( id: string ) => {
+			await stop.mutateAsync( id );
+			await start.mutateAsync( id );
 		},
 	} );
 }
@@ -238,7 +281,7 @@ interface UpdateSiteInput {
 	wpVersion?: string;
 }
 
-// Spaced values (1000, 2000, …), the convention of this app.json field.
+// Spaced values (1000, 2000, …), the convention of this stored field.
 const toSortOrderUpdates = ( orderedSiteIds: string[] ) =>
 	orderedSiteIds.map( ( siteId, index ) => ( { siteId, sortOrder: ( index + 1 ) * 1000 } ) );
 
@@ -397,7 +440,8 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
 	const isStarting = useIsSiteStarting( site?.id );
 	const isStopping = useIsSiteStopping( site?.id );
 	const operation = useSiteOperation( site );
-	return isStarting || isStopping || operation !== null;
+	const isRestarting = useIsSiteRestarting( site?.id );
+	return isStarting || isStopping || isRestarting || operation !== null;
 }
 
 /**
@@ -406,7 +450,11 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
  * have, or a create or delete, which change which sites there are.
  */
 function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
-	if ( event.event === SITE_EVENTS.UPDATED && ! event.running ) {
+	if (
+		event.event === SITE_EVENTS.UPDATED &&
+		! event.running &&
+		! isSiteRestarting( queryClient, event.siteId )
+	) {
 		updateResponsivePreview( event.siteId, { enabled: false } );
 	}
 	const { site } = event;
@@ -417,18 +465,10 @@ function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
 	if ( ! site || ! sites || ! cached || ! applies ) {
 		return false;
 	}
-	// Studio's own metadata, which events don't carry. `satisfies` stops a new
-	// field from compiling until it's carried over too.
-	const metadata = {
-		sortOrder: cached.sortOrder,
-		autoStart: cached.autoStart,
-		hideFrontendAdminBar: cached.hideFrontendAdminBar,
-	} satisfies Record< keyof SiteMetadata, unknown >;
 	const updated: SiteDetails = {
 		...site,
 		// An operation change says nothing about whether the site is running.
 		running: event.event === SITE_EVENTS.UPDATED ? event.running : cached.running,
-		...metadata,
 	};
 	queryClient.setQueryData< SiteDetails[] >(
 		SITES_QUERY_KEY,

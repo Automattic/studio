@@ -1,6 +1,331 @@
 Unreleased
 ==========
 
+2.3.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Providers: Sign in with a ChatGPT plan to chat on GPT models #5926
+* Providers: Connect Anthropic with a Claude subscription token #5929
+* Providers: Use a GitHub Copilot plan in Studio Code #5952
+* Providers: Connect OpenAI with an API key next to the ChatGPT plan #5951
+* Providers: Connect Google Gemini with an API key #5899
+* Providers: Connect Meta with an API key to chat on Muse models #5953
+* Providers: Update the Anthropic API key models to Sonnet 5.5 and Opus 5.5 #5898
+* Providers: Show each provider's colored logo in Settings and the model picker #5950
+* Providers: Show provider errors as readable text instead of raw JSON #5954
+* Providers: Read AI settings each launch so a release that adds a provider doesn't crash the app #5928
+* Providers: Publish a static copy of a site to Spacefast, from the CLI and the Publish panel #5902
+* Providers: Improve the Spacefast connection flow #5977
+* Studio Code: Publish to any provider's connected sites #5919
+* Organize Studio settings into Providers and Agents #5963
+* Settings: Move the default provider to its own group and rename it Default AI provider #5955
+* Settings: Line up provider connect forms, and load providers when signed out on the web #5956
+* Settings: Clarify provider connection requirements #5996
+* Studio on the web: Run Studio Code in the page over Playground #5520
+* Sites load faster: default new sites to All files access, which keeps PHP's realpath cache on #6006
+* Sites start faster: skip the separate WordPress install check when the site database already exists #5944
+* Serve static files from the site proxy with cache validators, so the editor reuses its scripts and styles #5991
+* Give each Windows PHP worker its own opcache segment instead of a file cache #5939
+* Ship the Imagick extension in the native PHP binaries #6008
+* Raise max_input_vars so large menus and option forms save completely #6043
+* CLI: Make the PHP worker count a per-site setting #5239
+* Add workspace back and forward navigation #5961
+* Refine Studio colors and control states #5967
+* Standardize Studio icons #5966
+* Animate shared Studio menus #5973
+* Improve startup logo visibility #5968
+* Keep the opening screen visible until the workspace is ready #5827
+* Polish workspace resize dividers #5945
+* Keep workspace headers and preview controls usable at narrow widths #5838
+* Keep the panel controls from covering the top bar in right-to-left languages #6007
+* Refine sidebar flyout and scrolling #5962
+* Keep sidebar controls fixed while scrolling and resizing #5847
+* Keep sidebar clicks responsive while opening sites #5850
+* Polish Studio sidebar and settings focus #5975
+* Unify site row loading indicators #5957
+* Simplify and group the site menu #5849
+* Simplify the Stop action for a single running site #5828
+* Restore the WordPress admin shortcut in Open in #5999
+* Add LibreWolf and alphabetize Studio browser choices #6000
+* Show editors, terminals and agent apps installed while Studio runs, without a restart #5947
+* Simplify everyday interface controls and labels #5835
+* Polish shared controls and keep preview dots steady #5839
+* Polish modal links and button activation #5808
+* Polish settings dialogs and preview details #5846
+* Center the preview dot grid #5946
+* Close the last preview tab instantly #5825
+* Keep preview header controls steady during layout transitions #5848
+* Add drawing tools to preview annotations #5799
+* Attach preview screenshots to chat drafts #5840
+* Polish annotation entry points and attachment controls #5836
+* Keep Annotate available while the site page navigates #5851
+* Give the annotation provider prompt its own illustration #5841
+* Update the Taxonomist and Rank Me Up composer icons #5972
+* Start stopped sites when opening chat tool links #5837
+* Stop the app running out of memory, and showing a white screen, while Studio Code publishes a site #6042
+* Keep processing notices visible until their operation finishes #5834
+* Cancel pulls from progress notifications #5807
+* Simplify feedback sign-in and keep the form open #5842
+* Add site: Create sites directly from Blueprint details #5940
+* Add site: Use the selected Blueprint when adding a site #5978
+* Add site: Keep a backup or Blueprint picked right after an existing folder #5895
+* Add site: Show the connected site's screenshot on the setup screen #5925
+* Add site: Derive Blueprint gallery categories from registry categories #5871
+* Deep links: Bring a WordPress.com or Pressable site into Studio with a pull-site link #5724
+* Deep links: Let a website hand Studio a backup to import with an import-site link #5794
+* Previews: Open the preview itself, and WP Admin as its own action #5870
+* Previews: Link a preview of a paid connected site to that site #5769
+* Previews: Store the live site a preview shows changes to #5867
+* Previews: Choose and show the live site a preview shows changes to #5933
+* Previews: Connect a bought preview to the local site it was made from #5932
+* Previews: Tell WordPress.com which local site a preview was made from #5910
+* Previews: Warn when a preview won't show edits to a default theme's files #5986
+* Previews: Wait for a running site's database write when taking the site's version #5778
+* Sync: Warn when publishing changes the linked preview did not show #5934
+* Sync: Launch the WordPress.com site when Studio publishes to a new site #5907
+* Pull: Keep the site's WordPress core when it matches the remote's, and copy the remote's otherwise #5810
+* Pull: Copy WordPress core when a pull can't keep the site's own #5832
+* Pull: Let sites without a backup pull files only or content only #5874
+* Pull: Point the site's wp-config.php at the remote's table prefix #5865
+* Pull: Install the Reprint key on every pull #5852
+* Pull: Exit non-zero when a pull fails to reach the remote site #5904
+* Push: Skip the users tables under the site's table prefix #5884
+* Sync: Preserve remote environment metadata in push and pull results #5818
+* Store already-compressed files as they are in full-site zip exports #5992
+* Reject backup SQL filename collisions before extraction #5813
+* Disable SQLite-only phpMyAdmin actions for external MySQL sites #5820
+* Studio Code: Check styles saved in the Site Editor before changing theme.json #6010
+* Studio Code: Help with other hosts when asked #5979
+* Studio Code: Send wpcom_request DELETE calls as HTTP DELETE so remote deletes take effect #5869
+* Agents: Skip the agent plugins lock when there is nothing to refresh #5855
+* Updates: Stop the macOS updater from breaking its own install #5958
+* Updates: Retry macOS update checks after network errors instead of reporting them #5916
+* Updates: Keep Windows update checks running through Squirrel lock and network errors #5901
+* Updates: Leave Microsoft Store builds' updates to the Store #5915
+* Updates: Refine Studio update controls #5974
+* Updates: Wait for a site start in progress so a restart after an update keeps its port #6003
+* Replace an older process-manager daemon on connect and restart its sites #5987
+* Treat a start refused by another site operation as a refusal, not a PHP error #6005
+* Don't quit on Windows while a sync that has to finish is running #5923
+* Migrate legacy sites when an empty CLI registry already exists #5812
+* Point app, CLI and plugin links at wordpress.studio/docs #5829
+* Replace the dead Studio Code beta application link with the docs #5830
+* Say WordPress Studio, not Studio, in new email and Add site strings #5890
+* CLI: Accept Blueprint Library slugs in studio create --blueprint #5912
+* CLI: Keep a Blueprint's replacement SQLite plugin folder on Linux #5936
+* CLI: Fix noisy Windows output when chcp is not on PATH #5911
+* Desktop: Ship the CLI's bundled WordPress, phpMyAdmin and language files as zips #5988
+* Desktop: Bundle the CLI's pure-JS dependencies instead of installing them as files #6004
+* Desktop: Bundle pi and its dependencies into the CLI #6009
+* Sentry: Stop reporting CLI commands Studio stopped itself as failures #5917
+* Sentry: Share one event handler, and route shared reports to the host's client #5918
+* Sentry: Upload main-process source maps, and end sessions on quit #5920
+* Sentry: Report errors from the CLI, studio ui and the web build #5922
+* Tracks: Track which AI provider and connection method Studio Code runs on, and why connecting fails #6030
+* Tracks: Record the real failure_reason for app-started syncs #5770
+* Tracks: Record what a pull or publish includes #5873
+* Tracks: Record explicit responsive preview interactions #5809
+* Tracks: Report failed site creates as studio_site_create_failed #5964
+* Tracks: Report when the first PHP worker is ready in site-start telemetry #5965
+* Tracks: Add the site's file-access mode to site-start telemetry #5993
+* Providers: Add @studio/providers for AI providers and account connections #5892
+* Providers: Move WordPress.com push and pull behind a sites capability #5897
+* Providers: Reshape the API around getProvider and getProviderServices, with one connect flow and /connect in studio code #5948
+* Add @studio/blueprints and open every Blueprint source through it #5914
+* Add a design doc for providers #5891
+* Studio capture harness: screenshots and recordings of Studio that any agent can make, locally or in the cloud #5641
+* Evals: Run eval cases against pluggable agent harnesses #5875
+* Evals: Give each case its own process manager and every provider's account #5900
+* Attach OpenAI's plugin package to each release, and add its submission to the release checklist #5893
+* Docs: Update the user docs for the refreshed UI #5517
+* Docs: Update the user docs and screenshots for WordPress Studio 2.2.0 #5894
+* Docs: Add the 2.0.0, 2.1.0 and 2.2.0 entries to the user docs changelog #5889
+* Docs: Make wordpress.studio the home of the docs and retire the mirror tooling #5831
+* Docs: Use relative image paths in the docs Markdown #5833
+* Docs: Restore wordpress.studio links in the READMEs #5826
+* Test upgrading Studio over a running daemon on every platform #5995
+* Fix the browser options test for Annotate's place below the device toolbar #5853
+* CI: Stop signing Windows Dev Builds #5879
+* CI: Use the Xcode 27.2 image #5868
+* CI: Use forward slashes in Windows artifact_paths #6001
+* CI: Skip the sideload AppX on unsigned Windows builds #5906
+* CI: Restore the npm cache in the Docker Lint step #5555
+* PHP: Update PHP 8.2.35-studio-2 metadata #6013
+* PHP: Update PHP 8.3.36-studio-2 metadata #6012
+* PHP: Update PHP 8.4.27-studio-2 metadata #6011
+* PHP: Update PHP 8.5.12-studio-2 metadata #6014
+* build(deps): bump @hono/node-server from 2.1.5 to 2.1.8 #5941
+* build(deps): bump hono from 4.13.13 to 4.13.18 #5943
+* build(deps): bump node-forge from 1.4.1 to 1.4.3 #5878
+* build(deps): bump glob from 13.0.6 to 14.0.2 #5649
+* build(deps): bump sharp from 0.34.3 to 0.35.5 in /docs/user #5824
+* build(deps): bump nokogiri from 1.19.4 to 1.19.5 #5877
+* build(deps): bump addressable from 2.9.0 to 2.9.1 #5942
+* @vjymisal0 made their first contribution in https://github.com/Automattic/studio/pull/5911
+* @fellyph made their first contribution in https://github.com/Automattic/studio/pull/5899
+**Full Changelog**: https://github.com/Automattic/studio/compare/v2.2.0...v2.3.0
+
+2.2.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Give each site browser tabs, with Chat, Split and full Browser layouts #5589
+* Give inactive chat tabs a background #5721
+* Use consistent panel terminology across workspace controls #5718
+* Keep the chat pane at least 360px wide beside previews #5591
+* Simplify workspace navigation and preserve restart state #5784
+* Refine the empty workspace welcome screen #5781
+* Refine the empty workspace and inactive group headers #5729
+* Collapse the sidebar by default in empty workspaces #5737
+* Add File menu shortcuts for a new chat and for opening a site folder or Blueprint #5714
+* Add macOS Spotlight actions to create a site or open one #5614
+* Polish application menus and footer controls #5705
+* Simplify the About window #5764
+* Improve sidebar expansion and flyout browsing #5634
+* Clip sidebar sections while they expand, so rows don't spill under the next group #5592
+* Remove three-dot icons from Show more controls #5600
+* Remove the notification dot from the sidebar toggle #5679
+* Polish shared controls and the sidebar footer #5783
+* Show the AI credits sidebar notice between 90% usage and exhaustion #5654
+* Add New chat and clarify the site Tools menu #5625
+* Prioritize Open in and browser in site menus #5716
+* Add more default browser options and their menu icons #5659
+* Show the system default browser in Open in menus #5690
+* Add an Email log to the site preview, listing the email each site sends #5526
+* Rename Email to Email log #5710
+* Refine preview controls and the email log #5785
+* Add browser options to the site preview: DevTools, appearance and clearing browsing data #5702
+* Hide the WordPress admin bar on local sites' front end, as a Studio default or per site #5760
+* Refine responsive preview fitting and device presets #5700
+* Add a close button to the device toolbar #5801
+* Reset responsive preview mode when stopping a site #5715
+* Use the home page for site thumbnails and restarts #5674
+* Hide the auto-start chip while the site is running #5703
+* Let WordPress's own ⌘K command palette open in wp-admin and the editors inside the preview #5740
+* Simplify panel load errors and add retry actions #5779
+* Fix Design System previews and panel links #5753
+* Update the Design System icon and labels #5803
+* Add rectangle selection to preview annotations #5793
+* Refine annotation drafting and review from the composer #5695
+* Refine annotation review with image thumbnails #5788
+* Refine annotation dot size and entrance #5696
+* Add a contextual Annotate tip and reusable feature popover #5621
+* Standardize image preview outlines #5757
+* Add files and start or stop the site from the composer's add menu and slash commands #5739
+* Start stopped sites from the composer and clarify action tooltips #5626
+* Clarify chat controls and simplify composer suggestions #5800
+* Show Design System links inline in chat #5682
+* Simplify inline tool link styling #5805
+* Show chat activity durations in minutes and seconds, and hide durations under 10s #5568
+* Remove the decorative chat environment badge #5670
+* Animate the chat scroll button and align its arrow #5680
+* Fix focus styling on chat activity disclosures #5687
+* Refine chat read icons and destructive menu styling #5684
+* Unify attachment and notification controls #5741
+* Refine command palette navigation and feedback #5610
+* Keep the command palette input fixed while filtering #5601
+* Align command palette icons with Studio controls #5712
+* Add a WordPress haiku to empty command search #5709
+* Add a Send feedback dialog to the command palette #5750
+* Studio Code: Let the agent send feedback to the Studio team #5599
+* Bring site setup and Blueprint, backup and XML imports together under Start, Connect and Import #5728
+* Refine Add site setup and source selection #5762
+* Offer jazz-inspired site-name suggestions #5782
+* Match the Blank site border to the gallery focus color #5806
+* Keep site creation failures visible until dismissed #5761
+* Simplify notifications and keep failures visible #5787
+* Unify progress notices for long-running site operations #5727
+* Show persistent progress while duplicating a site #5683
+* Show app update download progress, and offer a retry when an update fails #5691
+* Restore update notifications when checking again #5795
+* Add an accent color picker to Appearance settings #5797
+* Clarify settings scopes as App and Site #5603
+* Refine App and Site scope tabs #5606
+* Polish Settings controls and appearance #5609
+* Refine settings layout and skill source actions #5789
+* Shorten system default labels in app settings #5802
+* Move dev-build prompts inside their groups #5597
+* Refine shared appearance and scroll-edge fades #5694
+* Polish button states, dialog entrances, and thumbnail controls #5622
+* Polish accent buttons, popover borders, and account illustrations #5624
+* Align tooltip styling with popovers #5678
+* Clean up avatar fallback states #5605
+* Unify welcome and account prompt dialog spacing #5593
+* Keep browser sign-in buttons available for retries #5711
+* Previews: Create every new preview on WordPress.com #5756
+* Previews: Move a Jurassic Ninja preview to WordPress.com when it's updated #5754
+* Previews: Open your own WordPress.com preview signed in #5630
+* Previews: List the account's previews made on other computers or by other tools #5608
+* Previews: Share from the site menu, with links to copy or visit each preview #5662
+* Previews: Leave inactive themes out of the archive #5607
+* Previews: Leave plugins WordPress.com provides out of the archive #5631
+* Previews: Leave a pulled site's host-provided files out of the archive #5617
+* Previews: Check the size limit against what the archive holds #5635
+* Previews: Record a site version on every preview push and pull #5730
+* Upload preview and push archives in 10 MB chunks, for faster uploads #5632
+* Pull: Merge pull-reprint into pull, with Reprint behind STUDIO_ENABLE_PULL_REPRINT #5627
+* Pull: Let the app pull unpaid sites, such as preview sites, when pulls use Reprint #5686
+* Pull: Pull preview sites with Reprint and push changes back to them #5623
+* Pull: Keep the site's own WordPress core instead of pulling it #5752
+* Pull: Link a kept-core site's wp-content by its absolute path #5765
+* Pull: Warn when a pulled site is too big to push, and tag preview pulls #5735
+* Pull: Recognize the missing-key error relayed by WordPress.com #5612
+* Pull: Update reprint.phar to v0.11.7 #5749
+* Connect Claude Code, Codex, Cursor or Grok Build from Settings, and add the Cursor and Grok Build plugins #5708
+* Cursor: Connect with its own plugin copy, instead of guessing whether it loads Claude Code's #5859
+* Cursor: Show the design picker's options, which Cursor dropped from MCP App tool results #5858
+* Studio MCP: List the Studio MCP server in the MCP Registry #5645
+* Studio MCP: Describe Studio as a WordPress expert in the MCP Registry #5646
+* Studio Code: Suggest performance and SEO audits after a site build #5655
+* Studio Code: Stop validate_blocks from hanging behind the Chromium download #5661
+* Studio Code: Update pi packages to 1.5.0 #5733
+* Evals: Fix harness bugs that fail correct results or write to the user's Studio config #5604
+* CLI: Start a site whose theme or plugin has a fatal error #5576
+* CLI: Load PHP extensions on Windows when the profile path has non-ASCII characters #5860
+* CLI: Run studio wp from any directory inside a site #5577
+* CLI: Sign in and carry on when a command needs WordPress.com #5636
+* CLI: Bump the SQLite integration to v3.1.3 #5689
+* CLI: Preserve external MySQL database names #4690
+* CLI: Import partial captures whatever share of routes was dropped #5763
+* CLI: Keep the importer's title and tagline derivation unless --name is given #5672
+* CLI: Validate the site path before capturing a --from source #5748
+* CLI: Keep preview and connection fields an older build doesn't know in the shared config #5743
+* Desktop: Improve the macOS drag-to-Applications installer #5804
+* Tracks: Classify preview failures by code and failed step #5596
+* Tracks: Record how many previews the site has #5611
+* Tracks: Record the preview archive size #5633
+* Tracks: Add an opaque site_id and preview_id to preview events #5704
+* Tracks: Add an opaque site_id to export and Sync events #5707
+* Tracks: Add an opaque site_id to site creation events #5706
+* Tracks: Measure account prompts and authentication journeys #5595
+* Tracks: Extend account-funnel events to MCP auth #5719
+* Tracks: Record visual annotation submits #5720
+* Tracks: Record add-site Blueprint dialog actions #5722
+* Tracks: Record workspace layout changes #5726
+* Tracks: Complete preview and workspace interaction tracking #5786
+* Tracks: Report static site imports in studio_site_created #5616
+* Tracks: Time the whole site start and report its command in studio_site_start #5618
+* Metrics: Wait for the stop to finish before timing site startup #5732
+* Agentic UI: Align workspace layout code with Panel terminology #5723
+* Refresh the WordPress Studio README #5731
+* Fix the SQLite folder path in the mirrored Studio FAQ #5652
+* Prepare the repository for Amp orbs #5746
+* Stop unit tests from sending real Tracks events #5653
+* Fix the archive test for wp-config.php #5637
+* CI: Run the Lint step on the Linux default queue #5547
+* CI: Make Performance Metrics opt-in on PRs #5590
+* CI: Speed up the Performance Metrics step #5553
+* build(deps): bump @hono/node-server from 2.0.12 to 2.1.5 #5542
+* build(deps): bump node-forge from 1.4.0 to 1.4.1 #5648
+* build(deps): bump follow-redirects from 1.16.1 to 1.16.2 #5650
+* @atirna made their first contribution in https://github.com/Automattic/studio/pull/4690
+* @serabi made their first contribution in https://github.com/Automattic/studio/pull/5748
+**Full Changelog**: https://github.com/Automattic/studio/compare/v2.1.1...v2.2.0
+
+2.1.1
+=====
+* CLI: Fix site start crash from the unread readiness check response #5647
+* Keep the SQLite database at its fixed path on sites with a db-path.php, so imports and exports use the right database #5651
+
 2.1.0
 =====
 <!-- Release notes generated using configuration in .github/release.yml at HEAD -->

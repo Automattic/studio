@@ -23,12 +23,16 @@
 
 .amountOption:hover,
 .amountOption[data-selected] {
-	border-color: var( --accent );
-	background-color: color-mix( in oklab, var( --accent ) 10%, var( --background ) );
+	border-color: var( --accent-text );
+	background-color: var( --accent-subtle );
+}
+
+.amountOption:hover {
+	background-color: var( --accent-subtle-hover );
 }
 
 .amountOption[data-selected] {
-	box-shadow: inset 0 0 0 0.5px var( --accent );
+	box-shadow: inset 0 0 0 0.5px var( --accent-text );
 }
 
 .amountOption:focus-visible {

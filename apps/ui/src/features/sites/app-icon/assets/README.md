@@ -1,13 +1,30 @@
-# App menu icons
+# App icons
 
-Bundled PNGs keep the Open in menu offline and identical in the desktop and
-local browser renderers. These are static brand assets, not icons discovered
-from the user's installed applications. Missing assets and image load errors
-fall back to the menu's original symbol.
+Bundled PNGs keep the Open in menu and the agent apps in Settings offline and
+identical in the desktop and local browser renderers. These are static brand
+assets, not icons discovered from the user's installed applications. Missing
+assets and image load errors fall back to the original symbol.
 
-Cursor, Visual Studio Code, Ghostty, Warp, Finder, and Terminal were exported
+GitHub uses the GitHub Desktop macOS application icon, exported with `sips` at
+64 pixels on November 6, 2026.
+
+Visual Studio Code, Ghostty, Warp, Finder, and Terminal were exported
 from their macOS application bundle icons on October 6, 2026, using `sips` at
 64 pixels. Brand artwork belongs to its respective owner.
+
+Claude, ChatGPT, and Cursor were exported from their macOS application bundle
+icons on November 3, 2026, using `sips` at 256 pixels, for Settings' 32-pixel
+agent app logos. Claude Code and the Anthropic API use the Claude icon.
+Codex and the ChatGPT provider use the ChatGPT icon.
+
+GitHub Copilot uses the installed macOS app’s icon, exported with `sips` at 256 pixels.
+
+Gemini, Spacefast, and WordPress.com use the supplied icon artwork, exported at 128 pixels.
+
+Grok Build uses the Grok logo from
+[SVGL](https://github.com/pheralb/svgl/blob/main/static/library/grok-dark.svg),
+downloaded on November 3, 2026, as white on a dark tile with the margin of the
+macOS app icons, kept as an SVG.
 
 The phpMyAdmin icon was converted from the project's
 [favicon](https://github.com/phpmyadmin/phpmyadmin/blob/master/public/favicon.ico).
@@ -26,3 +43,6 @@ Opera, Vivaldi, and Firefox Developer Edition use the artwork from
 [official logo](https://duckduckgo.com/assets/logo_header.v109.svg).
 The SVGs were converted to 64-pixel PNGs with `sips`. Dia was exported from its
 macOS application bundle icon on November 1, 2026, at 64 pixels.
+
+LibreWolf was exported from the [official macOS application bundle](https://librewolf.net/installation/macos/)
+with `sips` at 64 pixels.

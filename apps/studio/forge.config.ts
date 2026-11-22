@@ -10,6 +10,7 @@ import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
 import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
+import { dmgLayout } from '../../scripts/dmg-layout';
 import { buildSpotlightNative } from './native/build';
 import { squirrelWindowsSign, windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
@@ -170,17 +171,17 @@ const config: ForgeConfig = {
 						{
 							title: displayName,
 							icon: path.join( __dirname, 'assets', 'studio-app-icon.icns' ),
+							iconSize: dmgLayout.iconSize,
 							background: path.join( __dirname, 'assets', 'dmg-background.png' ),
 							contents: [
 								{
-									x: 533,
-									y: 122,
+									...dmgLayout.app,
 									type: 'file',
 									path: `${ process.cwd() }/out/Studio-darwin-${
 										process.env.FILE_ARCHITECTURE || 'arm64'
 									}/Studio.app`,
 								},
-								{ x: 533, y: 354, type: 'link', path: '/Applications' },
+								{ ...dmgLayout.applications, type: 'link', path: '/Applications' },
 								{ x: 900, y: 900, type: 'position', path: '.background' },
 								{ x: 900, y: 900, type: 'position', path: '.DS_Store' },
 								{ x: 900, y: 900, type: 'position', path: '.Trashes' },
@@ -189,8 +190,8 @@ const config: ForgeConfig = {
 							additionalDMGOptions: {
 								window: {
 									size: {
-										width: 710,
-										height: 502,
+										width: dmgLayout.width,
+										height: dmgLayout.height,
 									},
 								},
 							},
@@ -285,14 +286,14 @@ const config: ForgeConfig = {
 				}
 			}
 
-			// Strip AI provider SDKs Studio never loads (Mistral, AWS Bedrock, Google). pi-ai
-			// loads them lazily and Studio only exposes Anthropic/OpenAI, so they're dead weight —
-			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow
-			// past Windows' 260-char path limit and crash the Squirrel maker.
+			// Strip AI provider SDKs Studio never loads (Mistral, AWS Bedrock). pi-ai loads them
+			// lazily and Studio doesn't expose them, so they're dead weight — and @mistralai's
+			// ~200-char generated filenames, nested under pi-coding-agent, blow past Windows'
+			// 260-char path limit and crash the Squirrel maker.
 			console.log( 'Removing unused AI provider SDKs from CLI bundle...' );
 			const unusedProviderPatterns = [
-				'{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
-				'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
+				'{@mistralai,@aws-sdk,@aws-crypto,@smithy}/',
+				'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy}/',
 			];
 			const unusedProviderPaths = globSync( unusedProviderPatterns, {
 				cwd: cliNodeModules,

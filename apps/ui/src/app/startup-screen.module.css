@@ -1,0 +1,24 @@
+.root {
+	position: fixed;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	color: var( --foreground );
+	-webkit-app-region: drag;
+}
+
+.content {
+	display: grid;
+	justify-items: center;
+	gap: var( --space-4 );
+}
+
+.root svg {
+	opacity: 0.5;
+}
+
+.message {
+	margin: 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+}

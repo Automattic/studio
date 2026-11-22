@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import { useId } from 'react';
+import { MarqueeLabel } from '@/lib/ui/marquee-label';
 import * as Popover from '@/lib/ui/popover';
 import styles from './style.module.css';
 import type { ComponentProps, ComponentType, KeyboardEvent, ReactNode, Ref } from 'react';
@@ -91,7 +92,8 @@ export function CommandList( {
 	label: string;
 	groups: CommandGroup[];
 	highlighted?: string;
-	onHighlight: ( value: string ) => void;
+	// `pointer` when the pointer moved onto the item, rather than the keyboard.
+	onHighlight: ( value: string, source?: 'pointer' ) => void;
 	onSelect: ( value: string ) => void;
 	listRef?: Ref< HTMLDivElement >;
 	id?: string;
@@ -135,12 +137,13 @@ export function CommandList( {
 								key={ value }
 								id={ optionId( value ) }
 								role="option"
+								data-marquee-row
 								aria-selected={ value === active?.value }
 								aria-disabled={ disabled || undefined }
 								data-highlighted={ value === active?.value ? '' : undefined }
 								data-disabled={ disabled ? '' : undefined }
 								className={ size === 'default' ? styles.menuItem : styles.item }
-								onPointerMove={ () => ! disabled && onHighlight( value ) }
+								onPointerMove={ () => ! disabled && onHighlight( value, 'pointer' ) }
 								onMouseDown={ ( event ) => event.preventDefault() }
 								onClick={ () => ! disabled && onSelect( value ) }
 							>
@@ -148,7 +151,7 @@ export function CommandList( {
 								{ description ? (
 									<span className={ styles.text }>
 										<span className={ styles.label }>{ itemLabel }</span>
-										<span className={ styles.description }>{ description }</span>
+										<MarqueeLabel className={ styles.description }>{ description }</MarqueeLabel>
 									</span>
 								) : (
 									<span className={ styles.label }>{ itemLabel }</span>
@@ -163,16 +166,21 @@ export function CommandList( {
 	);
 }
 
-/** A `CommandList` on a sheet above its anchor, as wide as it. */
+/**
+ * A `CommandList` on a sheet above its anchor, as wide as it. `children` render inside the sheet,
+ * so a menu among them opens as the sheet's own flyout.
+ */
 export function CommandSheet( {
 	anchor,
 	initialFocus,
 	finalFocus,
+	children,
 	...list
 }: ComponentProps< typeof CommandList > & {
 	anchor: ComponentProps< typeof Popover.Popup >[ 'anchor' ];
 	initialFocus?: ComponentProps< typeof Popover.Popup >[ 'initialFocus' ];
 	finalFocus?: ComponentProps< typeof Popover.Popup >[ 'finalFocus' ];
+	children?: ReactNode;
 } ) {
 	return (
 		<Popover.Popup
@@ -185,6 +193,7 @@ export function CommandSheet( {
 			className={ styles.sheet }
 		>
 			<CommandList { ...list } />
+			{ children }
 		</Popover.Popup>
 	);
 }

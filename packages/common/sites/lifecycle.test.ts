@@ -4,15 +4,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { CliCommandError, type ExecuteCliCommand } from '@studio/common/lib/cli-process';
+import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { SiteStartRefusedError, startSite } from '@studio/common/sites/lifecycle';
 
-function failingWith( lastErrorMessage: string ): ExecuteCliCommand {
+function failingWith( lastErrorMessage: string, lastErrorCode?: string ): ExecuteCliCommand {
 	return ( () => {
 		const emitter = new EventEmitter();
 		setImmediate( () =>
 			emitter.emit( 'failure', {
 				error: new CliCommandError( {
 					lastErrorMessage,
+					lastErrorCode,
 					cliCommandResult: undefined,
 					exitCode: 1,
 					signal: null,
@@ -32,6 +34,14 @@ describe( 'startSite', () => {
 
 		await expect( start ).rejects.toBeInstanceOf( SiteStartRefusedError );
 		await expect( start ).rejects.toThrow( 'The maximum number of running sites has been reached' );
+	} );
+
+	it( 'refuses a start while another operation holds the site', async () => {
+		const message = 'Cannot run a site start: a site import is already in progress for this site.';
+		const start = startSite( failingWith( message, SITE_BUSY_ERROR_CODE ), '/site' );
+
+		await expect( start ).rejects.toBeInstanceOf( SiteStartRefusedError );
+		await expect( start ).rejects.toThrow( message );
 	} );
 
 	it( 'explains a custom domain port held by another app', async () => {

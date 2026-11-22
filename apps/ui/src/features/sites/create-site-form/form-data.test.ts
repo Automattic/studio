@@ -1,4 +1,3 @@
-import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { describe, expect, it } from 'vitest';
 import {
 	applyFormChange,
@@ -45,21 +44,26 @@ describe( 'applyFormChange', () => {
 			isPathPending: false,
 		} );
 	} );
-
-	it( 'seeds the custom domain from the site name on first toggle', () => {
-		const named = { ...defaults, name: 'My Shop' };
-		expect( applyFormChange( named, { useCustomDomain: true } ).customDomain ).toBe(
-			generateCustomDomainFromSiteName( 'My Shop' )
-		);
-	} );
 } );
 
 describe( 'getSubmittedValues', () => {
-	it( 'trims the name and leaves the domain and HTTPS off without a custom domain', () => {
-		const values = getSubmittedValues( { ...defaults, name: ' Shop ', enableHttps: true } );
+	it.each( [ '', 'localhost' ] )(
+		'uses localhost without HTTPS when the domain is "%s"',
+		( customDomain ) => {
+			const values = getSubmittedValues( {
+				...defaults,
+				name: ' Shop ',
+				customDomain,
+				enableHttps: true,
+			} );
 
-		expect( values ).toMatchObject( { name: 'Shop', customDomain: undefined, enableHttps: false } );
-	} );
+			expect( values ).toMatchObject( {
+				name: 'Shop',
+				customDomain: undefined,
+				enableHttps: false,
+			} );
+		}
+	);
 } );
 
 describe( 'findOfferedWpVersion', () => {

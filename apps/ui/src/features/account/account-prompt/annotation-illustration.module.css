@@ -1,0 +1,64 @@
+.scene {
+	position: relative;
+	width: 100%;
+	max-width: 448px;
+	aspect-ratio: 2.6 / 1;
+	margin-bottom: var( --space-7 );
+	pointer-events: none;
+}
+
+.site {
+	composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
+	position: absolute;
+	top: 0;
+	left: 50%;
+	width: 50%;
+	border-radius: var( --radius-md );
+	transform: translateX( -50% );
+}
+
+.site img {
+	display: block;
+	width: 100%;
+	border-radius: inherit;
+}
+
+.annotations {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	stroke: var( --accent );
+	stroke-width: 4px;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.toolbar {
+	composes: floating padded from '@/lib/ui/surface/style.module.css';
+	--surface: var( --chat );
+
+	position: absolute;
+	left: 50%;
+	bottom: calc( var( --space-2 ) * -1 );
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+	border-radius: var( --radius-3xl );
+	transform: translateX( -50% );
+}
+
+.tool {
+	display: grid;
+	width: var( --control-size );
+	height: var( --control-size );
+	place-items: center;
+	border-radius: var( --radius-full );
+	color: var( --foreground );
+}
+
+.selectedTool {
+	composes: tool;
+	background: var( --accent-subtle );
+	color: var( --accent-text );
+}

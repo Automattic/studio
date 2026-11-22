@@ -32,6 +32,11 @@ it( 'passes the selected site identifier to the renderer', async () => {
 	expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'open-site', { siteId: 'site-one' } );
 } );
 
+it( 'passes the remote site to pull to the renderer', async () => {
+	await handleDeeplink( buildStudioActionLink( { action: 'pull-site', remoteSiteId: 42 } ) );
+	expect( sendIpcEventToRenderer ).toHaveBeenCalledWith( 'pull-site', { remoteSiteId: 42 } );
+} );
+
 it( 'does not open a window for a malformed action', async () => {
 	await handleStudioActionDeeplink( new URL( 'wp-studio://app/v1/open-site?id=' ) );
 	expect( getMainWindow ).not.toHaveBeenCalled();

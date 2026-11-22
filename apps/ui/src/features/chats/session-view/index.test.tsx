@@ -89,10 +89,13 @@ describe( 'SessionView loading', () => {
 
 	it( 'offers a retry instead of leaving when the chat fails to load', async () => {
 		const connector = chatConnector();
-		connector.getSession.mockRejectedValueOnce( new Error( 'EACCES' ) );
+		const loadSession = connector.getSession.getMockImplementation()!;
+		connector.getSession.mockRejectedValue( new Error( 'EACCES' ) );
 		const { history } = renderApp( { connector, path: PATH } );
 
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		expect( await screen.findByText( 'This chat could not load.' ) ).toBeInTheDocument();
+		connector.getSession.mockImplementation( loadSession );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
 
 		await composer();
@@ -205,7 +208,7 @@ describe( 'SessionView entitlement', () => {
 		await sleep( 50 );
 		expect( connector.getStudioAssistantQuota ).toHaveBeenCalledOnce();
 
-		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Refresh' } ) );
 		await waitFor( () => expect( connector.getStudioAssistantQuota ).toHaveBeenCalledTimes( 2 ) );
 	} );
 

@@ -1,4 +1,4 @@
-import { Button } from '@/lib/ui';
+import { Button, MarqueeLabel } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SubmitFeedback } from '@/lib/hooks';
 
@@ -17,13 +17,17 @@ export function NoticeTab( {
 } ) {
 	return (
 		<div className={ styles.notice } role="alert" data-feedback={ feedback ?? undefined }>
-			<div className={ styles.noticeContent } data-feedback={ feedback ?? undefined }>
-				<span className={ styles.noticeMessage }>{ notice.message }</span>
+			<div
+				className={ styles.noticeContent }
+				data-marquee-row
+				data-feedback={ feedback ?? undefined }
+			>
+				<MarqueeLabel>{ notice.message }</MarqueeLabel>
 				{ notice.action ? (
 					<Button
 						size="composer-notice"
 						shape="round"
-						variant={ feedback ? 'destructive' : 'default' }
+						variant={ feedback ? 'destructive' : 'outline' }
 						onClick={ notice.action.onClick }
 					>
 						{ notice.action.label }

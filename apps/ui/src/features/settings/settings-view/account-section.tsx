@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { useAuthUser, useLogin, useLogout } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
 import { Button } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
@@ -26,30 +26,13 @@ export function ConnectionCard( { active = true }: { active?: boolean } ) {
 				) }
 				error={ signup.error?.message }
 			>
-				<Button disabled={ isOffline } ref={ promptRef } onClick={ () => signup.mutate() }>
-					{ __( 'Connect' ) }
-				</Button>
-			</SettingsRow>
-		</SettingsGroup>
-	);
-}
-
-export function AccountSection() {
-	const { data: user } = useAuthUser();
-	const logout = useLogout();
-	if ( ! user ) {
-		return <ConnectionCard />;
-	}
-	return (
-		<SettingsGroup>
-			<SettingsRow title={ user.displayName } description={ user.email }>
 				<Button
 					variant="outline"
-					disabled={ logout.isPending }
-					aria-busy={ logout.isPending || undefined }
-					onClick={ () => logout.mutate() }
+					disabled={ isOffline }
+					ref={ promptRef }
+					onClick={ () => signup.mutate() }
 				>
-					{ __( 'Log out' ) }
+					{ __( 'Connect' ) }
 				</Button>
 			</SettingsRow>
 		</SettingsGroup>

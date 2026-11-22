@@ -89,7 +89,7 @@ studio config set --path ~/Studio/my-site --domain mysite.local --https
 studio config set --path ~/Studio/my-site --xdebug
 ```
 
-**Options:** `--name`, `--domain` (must be unique, typically `.local`), `--https` (requires domain), `--php`, `--wp`, `--xdebug`, `--admin-username`, `--admin-password`, `--admin-email`, `--debug-log`, `--debug-display`. At least one option is required.
+**Options:** `--name`, `--domain` (must be unique, typically `.local`), `--https` (requires domain), `--php`, `--wp`, `--xdebug`, `--php-workers` (how many requests the site serves at once, default 4), `--admin-username`, `--admin-password`, `--admin-email`, `--debug-log`, `--debug-display`. At least one option is required.
 
 **Restart behavior:** Changes to domain, HTTPS, PHP, WP, Xdebug, credentials, or debug flags trigger an automatic restart if the site is running.
 

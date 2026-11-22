@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef } from 'react';
 import styles from './style.module.css';
 import type { ComponentProps } from 'react';
 
-const ROW_SELECTOR = '[data-slot="tabs-trigger"]';
+const ROW_SELECTOR = '[data-slot="tabs-trigger"], [data-marquee-row]';
 const SPEED = 30; // px per second
 const HOLD = 1000;
 const RETURN = 180;
@@ -11,7 +11,7 @@ const DELAY = 600;
 
 /**
  * A one-line label that truncates, and scrolls once to show the rest when its
- * row (a tab) is hovered, focused or highlighted.
+ * row is hovered, focused or highlighted.
  */
 export function MarqueeLabel( { children, className, ...props }: ComponentProps< 'span' > ) {
 	const viewportRef = useRef< HTMLSpanElement >( null );
@@ -47,6 +47,7 @@ export function MarqueeLabel( { children, className, ...props }: ComponentProps<
 				! row.matches( ':disabled, [aria-disabled="true"], [data-disabled]' ) &&
 				( ( hovered && hoverPointer.matches ) ||
 					row.matches( ':focus-visible' ) ||
+					row.querySelector( ':focus-visible' ) !== null ||
 					row.hasAttribute( 'data-highlighted' ) );
 			const nextDistance = Math.max( 0, text.scrollWidth - viewport.clientWidth );
 			if ( ! active || reducedMotion.matches || nextDistance !== distance ) {

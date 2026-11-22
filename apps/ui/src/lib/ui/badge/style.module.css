@@ -58,7 +58,7 @@
 	}
 
 	.badge[data-variant='accent'] {
-		background-color: color-mix( in oklab, var( --accent ) 10%, transparent );
+		background-color: var( --accent-subtle );
 		color: var( --accent-text );
 	}
 

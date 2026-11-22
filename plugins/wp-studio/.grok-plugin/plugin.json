@@ -1,0 +1,20 @@
+{
+  "name": "wp-studio",
+  "version": "0.1.1",
+  "description": "Build, design, and manage WordPress sites with WordPress Studio: create local sites with Studio's design workflow, preview them, and publish to WordPress.com.",
+  "author": {
+    "name": "Automattic Inc.",
+    "url": "https://automattic.com"
+  },
+  "homepage": "https://wordpress.studio/",
+  "repository": "https://github.com/Automattic/studio",
+  "license": "GPL-2.0-or-later",
+  "keywords": [
+    "wordpress",
+    "wordpress-studio",
+    "wordpress-com",
+    "site-builder",
+    "block-theme"
+  ],
+  "mcpServers": "./.grok-plugin/mcp.json"
+}

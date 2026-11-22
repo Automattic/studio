@@ -1,5 +1,5 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { useCallback, useLayoutEffect, useReducer, useRef } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useReducer, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
@@ -7,6 +7,25 @@ interface LayoutState {
 	layout: WorkspaceLayout;
 	narrow: boolean;
 	siteId?: string;
+}
+
+type LayoutUpdate = () => void | Promise< unknown >;
+
+export const WorkspaceLayoutTracksContext = createContext< {
+	siteId?: string;
+	run: ( update: LayoutUpdate, userInitiated?: boolean ) => void;
+} | null >( null );
+
+export function useUserWorkspaceLayoutTransition( siteId?: string ) {
+	const workspace = useContext( WorkspaceLayoutTracksContext );
+	return useCallback(
+		( update: LayoutUpdate, targetSiteId = siteId ) => {
+			if ( workspace && targetSiteId && workspace.siteId === targetSiteId ) {
+				workspace.run( update, true );
+			} else void update();
+		},
+		[ workspace, siteId ]
+	);
 }
 
 export function useWorkspaceLayoutTracks( state: LayoutState ) {

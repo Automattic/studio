@@ -8,7 +8,7 @@ import { primeSessionQueryData, SESSIONS_QUERY_KEY } from '@/data/queries/use-se
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import type { SendMessageOptions } from '@/data/agent-runs/store';
 import type { AiModelId, LoadedAiSession } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ProviderId } from '@studio/providers';
 
 export function useSendSiteDraft( siteId: string | undefined ) {
 	const connector = useConnector();
@@ -20,43 +20,52 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 		async (
 			prompt: string,
 			options: SendMessageOptions | undefined,
-			provider: AiProviderId,
+			provider: ProviderId,
 			model: AiModelId
 		) => {
 			if ( ! siteId ) return;
 			const pathname = router.state.location.pathname;
-			let session: LoadedAiSession;
+			update( { pendingPrompt: options?.displayMessage ?? prompt } );
 			try {
-				const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
-				update( { sessionId } );
-				await connector.setSessionProvider( sessionId, provider, model );
-				await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
-				session = await connector.getSession( sessionId );
-				queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], session );
-			} catch ( error ) {
-				toast.error( error instanceof Error ? error.message : String( error ) );
-				throw error;
-			}
-			const { id: sessionId } = session.summary;
-			await startRun( sessionId, prompt, options );
-			const current = queryClient.getQueryData< LoadedAiSession >( [
-				...SESSIONS_QUERY_KEY,
-				sessionId,
-			] )?.summary;
-			primeSessionQueryData( queryClient, {
-				...( current ?? session.summary ),
-				firstPrompt: current?.firstPrompt || options?.displayMessage || prompt,
-				updatedAt: new Date().toISOString(),
-			} );
-			update( { sessionId: undefined } );
-			if ( router.state.location.pathname === pathname ) {
-				await router.navigate( { to: '/sessions/$sessionId', params: { sessionId } } );
+				let session: LoadedAiSession;
+				try {
+					const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
+					update( { sessionId } );
+					await connector.setSessionProvider( sessionId, provider, model );
+					if ( draft.thinking ) {
+						await connector.setSessionThinking( sessionId, model, draft.thinking );
+					}
+					await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
+					session = await connector.getSession( sessionId );
+					queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], session );
+				} catch ( error ) {
+					toast.error( error instanceof Error ? error.message : String( error ) );
+					throw error;
+				}
+				const { id: sessionId } = session.summary;
+				await startRun( sessionId, prompt, options );
+				const current = queryClient.getQueryData< LoadedAiSession >( [
+					...SESSIONS_QUERY_KEY,
+					sessionId,
+				] )?.summary;
+				primeSessionQueryData( queryClient, {
+					...( current ?? session.summary ),
+					firstPrompt: current?.firstPrompt || options?.displayMessage || prompt,
+					updatedAt: new Date().toISOString(),
+				} );
+				if ( router.state.location.pathname === pathname ) {
+					await router.navigate( { to: '/sessions/$sessionId', params: { sessionId } } );
+				}
+				update( { sessionId: undefined } );
+			} finally {
+				update( { pendingPrompt: undefined } );
 			}
 		},
 		[
 			connector,
 			draft.activeEnvironment,
 			draft.sessionId,
+			draft.thinking,
 			queryClient,
 			router,
 			siteId,

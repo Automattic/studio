@@ -15,6 +15,7 @@ import {
 	useAgentInstructionsEnabled,
 	useSetAgentInstructionsEnabled,
 } from '@/data/queries/use-agent-instructions';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
 import { useSites } from '@/data/queries/use-sites';
@@ -25,10 +26,9 @@ import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
-import { AccountSection } from './account-section';
+import { ConnectionCard } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';
-import { NewSiteBehaviorRow } from './new-site-behavior-row';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import {
 	SettingsGroup,
@@ -51,7 +51,7 @@ import type {
 	UserPreferences,
 } from '@/data/core';
 
-// "System default" first, then the installed apps and the saved one, even if it's gone.
+// "System" first, then the installed apps and the saved one, even if it's gone.
 function appElements< TApp extends keyof InstalledApps >(
 	apps: readonly TApp[],
 	installedApps: InstalledApps | undefined,
@@ -59,7 +59,7 @@ function appElements< TApp extends keyof InstalledApps >(
 	label: ( app: TApp ) => string
 ) {
 	return [
-		{ value: UNSET, label: __( 'System default' ) },
+		{ value: UNSET, label: __( 'System' ) },
 		...apps
 			.filter( ( app ) => ! installedApps || installedApps[ app ] || app === saved )
 			.map( ( app ) => ( { value: app, label: label( app ) } ) ),
@@ -173,15 +173,16 @@ function PreferencesPanel( {
 } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
+	const { data: user, isSuccess: authLoaded } = useAuthUser();
 	return (
 		<div className={ styles.preferencesPanel }>
-			<AccountSection />
+			<ConnectionCard />
 			{ saveError ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
 				</div>
 			) : null }
-			<SettingsGroup title={ __( 'Application' ) }>
+			<SettingsGroup title={ authLoaded && ! user ? __( 'Application' ) : undefined }>
 				<SettingsRow
 					title={ __( 'Language' ) }
 					description={ __( 'Default language for WordPress Studio.' ) }
@@ -193,82 +194,92 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default code editor' ) }
-					description={ __( 'The default code editor for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default code editor' ) }
-						value={ data.editor }
-						options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
-							supportedEditorConfig[ editor ].label()
-						) }
-						onChange={ ( editor ) => onChange( { editor } ) }
-					/>
-				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default browser' ) }
-					description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default browser' ) }
-						value={ data.browser }
-						options={ [
-							{ value: UNSET, label: __( 'System default' ) },
-							...SUPPORTED_BROWSERS.filter(
-								( browser ) => installedApps?.[ browser ] || browser === data.browser
-							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),
-						] }
-						onChange={ ( browser ) => onChange( { browser } ) }
-					/>
-				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default terminal app' ) }
-					description={ __( 'The default terminal for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default terminal app' ) }
-						value={ data.terminal }
-						options={ appElements(
-							SUPPORTED_TERMINALS,
-							installedApps,
-							data.terminal,
-							( terminal ) => terminalConfig[ terminal ].name()
-						) }
-						onChange={ ( terminal ) => onChange( { terminal } ) }
-					/>
-				</SettingsRow>
-				<DefaultSiteDirectoryRow
-					value={ data.defaultSiteDirectory }
-					onSelect={ onDefaultSiteDirectorySelect }
-					onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
-				/>
-				<SettingsRow
-					title={ __( 'Improve WordPress Studio for everyone' ) }
-					description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }
-				>
-					<SettingsToggle
-						label={ __( 'Improve WordPress Studio for everyone' ) }
-						checked={ data.analyticsEnabled }
-						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
-					/>
-				</SettingsRow>
+				{ connector.capabilities.localMachine && (
+					<>
+						<SettingsRow
+							title={ __( 'Default code editor' ) }
+							description={ __( 'The default code editor for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default code editor' ) }
+								value={ data.editor }
+								options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
+									supportedEditorConfig[ editor ].label()
+								) }
+								onChange={ ( editor ) => onChange( { editor } ) }
+							/>
+						</SettingsRow>
+						<SettingsRow
+							title={ __( 'Default browser' ) }
+							description={ __( 'The default browser for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default browser' ) }
+								value={ data.browser }
+								options={ [
+									{ value: UNSET, label: __( 'System' ) },
+									...SUPPORTED_BROWSERS.filter(
+										( browser ) => installedApps?.[ browser ] || browser === data.browser
+									)
+										.map( ( browser ) => ( {
+											value: browser,
+											label: browserConfig[ browser ].name,
+										} ) )
+										.sort( ( a, b ) => a.label.localeCompare( b.label ) ),
+								] }
+								onChange={ ( browser ) => onChange( { browser } ) }
+							/>
+						</SettingsRow>
+						<SettingsRow
+							title={ __( 'Default terminal app' ) }
+							description={ __( 'The default terminal for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default terminal app' ) }
+								value={ data.terminal }
+								options={ appElements(
+									SUPPORTED_TERMINALS,
+									installedApps,
+									data.terminal,
+									( terminal ) => terminalConfig[ terminal ].name()
+								) }
+								onChange={ ( terminal ) => onChange( { terminal } ) }
+							/>
+						</SettingsRow>
+						<DefaultSiteDirectoryRow
+							value={ data.defaultSiteDirectory }
+							onSelect={ onDefaultSiteDirectorySelect }
+							onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
+						/>
+						<SettingsRow
+							title={ __( 'Improve WordPress Studio for everyone' ) }
+							description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }
+						>
+							<SettingsToggle
+								label={ __( 'Improve WordPress Studio for everyone' ) }
+								checked={ data.analyticsEnabled }
+								onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+							/>
+						</SettingsRow>
+					</>
+				) }
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				<NewSiteBehaviorRow />
-				<SettingsRow
-					title={ __( 'When WordPress Studio quits' ) }
-					description={ __(
-						'Choose what happens to running sites when you quit WordPress Studio.'
-					) }
-				>
-					<SettingsSelect< QuitSitesBehavior | typeof UNSET >
-						label={ __( 'When WordPress Studio quits' ) }
-						value={ data.quitSitesBehavior }
-						options={ getQuitSitesBehaviorElements() }
-						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
-					/>
-				</SettingsRow>
+				{ connector.capabilities.localMachine && (
+					<SettingsRow
+						title={ __( 'When WordPress Studio quits' ) }
+						description={ __(
+							'Choose what happens to running sites when you quit WordPress Studio.'
+						) }
+					>
+						<SettingsSelect< QuitSitesBehavior | typeof UNSET >
+							label={ __( 'When WordPress Studio quits' ) }
+							value={ data.quitSitesBehavior }
+							options={ getQuitSitesBehaviorElements() }
+							onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
+						/>
+					</SettingsRow>
+				) }
 				<SettingsRow
 					title={ __( 'Start site when sending a prompt' ) }
 					description={ __( 'Automatically start stopped sites when you send a chat message.' ) }
@@ -280,11 +291,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Start sites in split view' ) }
+					title={ __( 'Start sites with chat' ) }
 					description={ __( 'Show chat beside the panel when starting a site.' ) }
 				>
 					<SettingsToggle
-						label={ __( 'Start sites in split view' ) }
+						label={ __( 'Start sites with chat' ) }
 						checked={ data.openChatOnSiteStart }
 						onChange={ ( openChatOnSiteStart ) => onChange( { openChatOnSiteStart } ) }
 					/>
@@ -492,7 +503,7 @@ export function AppearanceSettings() {
 						onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
 					/>
 				</SettingsRow>
-				<ColorTintSettings tint={ tint } onCommit={ ( next ) => savePreferences.mutate( next ) } />
+				<ColorTintSettings tint={ tint } onCommit={ savePreferences.mutateAsync } />
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Reset' ) }>
 				<SettingsRow
@@ -549,9 +560,9 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 	);
 }
 
-export { AiPanel } from './ai-panel';
+export { ProvidersPanel } from './providers-panel';
 export { KeyboardPanel } from './keyboard-panel';
-export { McpPanel } from './mcp-panel';
+export { ExternalAppsPanel } from './mcp-panel';
 export { SharingPanel } from './sharing-panel';
 export { SkillsPanel } from './skills-panel';
 export { UsagePanel } from './usage-panel';

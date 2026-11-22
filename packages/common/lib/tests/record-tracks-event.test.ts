@@ -18,6 +18,7 @@ describe( 'isTracksEventName', () => {
 		expect( isTracksEventName( TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.BLANK_SITE_SELECTED ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.SITE_START ) ).toBe( true );
+		expect( isTracksEventName( TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.CODE_MESSAGE_SENT ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.CODE_TURN_COMPLETED ) ).toBe( true );
 		expect( isTracksEventName( TRACKS_EVENTS.CODE_SESSION_CREATED ) ).toBe( true );
@@ -146,7 +147,7 @@ describe( '__recordTracksEvent', () => {
 		const info = vi.spyOn( console, 'info' ).mockImplementation( () => {} );
 
 		__recordTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, IDENTITY, {
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 			ability_name: undefined,
 		} );
 

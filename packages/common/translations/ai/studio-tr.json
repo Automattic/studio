@@ -1,0 +1,1639 @@
+{
+	"\"%s\" is not a Blueprint file, URL or Library slug.": [
+		"\"%s\" bir Model dosyası, URL veya Kütüphane kısa adı değil."
+	],
+	"%1$dh %2$dm": [
+		"%1$d sa. %2$d dk."
+	],
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%1$s Use /connect %2$s to connect it.": [
+		"%1$s Bağlamak için /connect %2$s komutunu kullanın."
+	],
+	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
+		"%1$s, WordPress Studio eklentisini yükleyemedi: %2$s"
+	],
+	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
+		"%1$s, WordPress Studio eklentisini güncelleyemedi: %2$s"
+	],
+	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
+		"%1$s bağlı değil. Bağlamak için /connect %2$s komutunu kullanın."
+	],
+	"%1$s screenshot %2$d": [
+		"%1$s ekran görüntüsü %2$d"
+	],
+	"%d B": [
+		"%d B"
+	],
+	"%d annotation ready to send": [
+		"%d ek açıklama gönderilmeye hazır",
+		"%d ek açıklama gönderilmeye hazır"
+	],
+	"%d image": [
+		"%d görsel",
+		"%d görsel"
+	],
+	"%s (saved for future use):": [
+		"%s (ileride kullanmak üzere kaydedilir):"
+	],
+	"%s KB": [
+		"%s KB"
+	],
+	"%s connection": [
+		"%s bağlantısı"
+	],
+	"%s is no longer installed. Choose another browser in Settings.": [
+		"%s artık yüklü değil. Ayarlar'dan başka bir tarayıcı seçin."
+	],
+	"%s isn’t installed on this computer.": [
+		"%s bu bilgisayarda yüklü değil."
+	],
+	"%s preview is ready": [
+		"%s önizlemesi hazır"
+	],
+	"A code editor with a built-in AI agent.": [
+		"Yerleşik yapay zeka aracısı olan bir kod düzenleyici."
+	],
+	"A coding agent that runs in your terminal.": [
+		"Terminalinizde çalışan bir kodlama aracısı."
+	],
+	"AI apps": [
+		"Yapay zeka uygulamaları"
+	],
+	"API key": [
+		"API anahtarı"
+	],
+	"Activate all plugins": [
+		"Tüm eklentileri etkinleştir"
+	],
+	"Activate plugin": [
+		"Eklentiyi etkinleştir"
+	],
+	"Add annotation to batch": [
+		"Ek açıklamayı topluya ekle"
+	],
+	"Add or delete this annotation before starting another.": [
+		"Başka bir ek açıklamaya başlamadan önce bunu ekleyin veya silin."
+	],
+	"Admin bar hidden by default.": [
+		"Yönetim çubuğu varsayılan olarak gizleniyor."
+	],
+	"Admin bar shown by default.": [
+		"Yönetim çubuğu varsayılan olarak gösteriliyor."
+	],
+	"Agent apps": [
+		"Aracı uygulamaları"
+	],
+	"Agents": [
+		"Aracılar"
+	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"Oturum açarken WordPress Studio'nun ChatGPT paketinizi kullanmasına izin verin."
+	],
+	"Alt": [
+		"Alt"
+	],
+	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
+		"WordPress Studio CLI güncellenirken bir hata oluştu. Lütfen tekrar deneyin."
+	],
+	"Annotation is available for design systems created by Studio Code.": [
+		"Ek açıklama, Studio Code tarafından oluşturulan tasarım sistemleri için kullanılabilir."
+	],
+	"Annotation tools": [
+		"Ek açıklama araçları"
+	],
+	"Anonymous usage statistics enabled.": [
+		"Anonim kullanım istatistikleri etkinleştirildi."
+	],
+	"Anthropic API key": [
+		"Anthropic API anahtarı"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic bu API anahtarını reddetti. Anahtarı kontrol edip tekrar deneyin."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic bu belirteci reddetti. claude setup-token komutunu yeniden çalıştırın."
+	],
+	"Anthropic’s AI coding agent.": [
+		"Anthropic'in yapay zeka kodlama aracısı."
+	],
+	"Appearance reset.": [
+		"Görünüm sıfırlandı."
+	],
+	"Approve the code %1$s at %2$s": [
+		"%1$s kodunu şu adreste onaylayın: %2$s"
+	],
+	"Approve the code %1$s on %2$s to connect.": [
+		"Bağlanmak için %1$s kodunu şurada onaylayın: %2$s."
+	],
+	"Approve the connection in your browser.": [
+		"Bağlantıyı tarayıcınızda onaylayın."
+	],
+	"Ask user": [
+		"Kullanıcıya sor"
+	],
+	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
+		"En az bir seçenek (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) gereklidir."
+	],
+	"Automatic sidebar collapsing disabled.": [
+		"Kenar çubuğunun otomatik daraltılması devre dışı bırakıldı."
+	],
+	"Automatic sidebar collapsing enabled.": [
+		"Kenar çubuğunun otomatik daraltılması etkinleştirildi."
+	],
+	"Automatic site start on prompt disabled.": [
+		"İstem gönderildiğinde siteyi otomatik başlatma devre dışı bırakıldı."
+	],
+	"Automatic site start on prompt enabled.": [
+		"İstem gönderildiğinde siteyi otomatik başlatma etkinleştirildi."
+	],
+	"Back to email list": [
+		"E-posta listesine dön"
+	],
+	"Backups": [
+		"Yedeklemeler"
+	],
+	"Balanced": [
+		"Dengeli"
+	],
+	"Batch notes": [
+		"Toplu notlar"
+	],
+	"Batch notes disabled.": [
+		"Toplu notlar devre dışı bırakıldı."
+	],
+	"Batch notes enabled.": [
+		"Toplu notlar etkinleştirildi."
+	],
+	"Birdland": [
+		"Birdland"
+	],
+	"Blue Note": [
+		"Blue Note"
+	],
+	"Blue Train": [
+		"Blue Train"
+	],
+	"Blue in Green": [
+		"Blue in Green"
+	],
+	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
+		"Model URL'si, JSON dosyası, klasör, zip paketi veya Model Kütüphanesi kısa adı (bkz. \"studio blueprint list\")"
+	],
+	"Blueprint file…": [
+		"Model dosyası…"
+	],
+	"Blueprint loaded": [
+		"Model yüklendi"
+	],
+	"Blueprint preview": [
+		"Model önizlemesi"
+	],
+	"Blueprints, backups, and WordPress exports": [
+		"Modeller, yedeklemeler ve WordPress dışa aktarımları"
+	],
+	"Browse Blueprints": [
+		"Modellere göz at"
+	],
+	"Browser could not load.": [
+		"Tarayıcı yüklenemedi."
+	],
+	"Browser options": [
+		"Tarayıcı seçenekleri"
+	],
+	"Browsing data cleared": [
+		"Tarama verileri temizlendi"
+	],
+	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
+		"Siteleri sohbet ederek oluşturun ve düzenleyin. WordPress.com yapay zeka kredilerini kullanın ya da kendi aboneliğinizi veya API anahtarınızı getirin."
+	],
+	"Cc": [
+		"Bilgi"
+	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"Değişiklikler gönderildi ancak site yayına alınamadı. Paketinizi ve izinlerinizi kontrol edin, ardından yayına almayı yeniden denemek için tekrar yayımlayın."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"Değişiklikler gönderildi ancak site yayına alınamadı. Yayına almayı yeniden denemek için tekrar yayımlayın."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"Değişiklikler gönderildi ancak site yayına alınamadı. E-posta adresinizi doğrulayın, ardından yayına almayı yeniden denemek için tekrar yayımlayın."
+	],
+	"Changes to %s": [
+		"Değişiklikler: %s"
+	],
+	"ChatGPT plan": [
+		"ChatGPT paketi"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"ChatGPT paketi kullanımı şu anda kullanılamıyor. Kısa bir süre sonra tekrar deneyin."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT eksik bir oturum açma yanıtı gönderdi."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"ChatGPT oturum açma işlemi tamamlanamadı. Tekrar deneyin."
+	],
+	"Check your internet connection and try again.": [
+		"İnternet bağlantınızı kontrol edip tekrar deneyin."
+	],
+	"Checking for updates…": [
+		"Güncellemeler denetleniyor…"
+	],
+	"Choose a Blueprint or backup": [
+		"Bir Model veya yedekleme seçin"
+	],
+	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
+		"Bir WordPress site klasörü, bir Model JSON dosyası veya bir ZIP paketi seçin."
+	],
+	"Choose a blueprint, backup, export, or existing WordPress folder.": [
+		"Bir model, yedekleme, dışa aktarım veya mevcut bir WordPress klasörü seçin."
+	],
+	"Choose a folder containing an existing WordPress site.": [
+		"Mevcut bir WordPress sitesi içeren bir klasör seçin."
+	],
+	"Choose a provider": [
+		"Bir sağlayıcı seçin"
+	],
+	"Choose a site source": [
+		"Bir site kaynağı seçin"
+	],
+	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
+		"`--remote-site %s:<site>` ile bir site seçin (kimliği veya URL'si)."
+	],
+	"Choose a topic": [
+		"Bir konu seçin"
+	],
+	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
+		"Bir kaynak kullanmak için boş bir klasör seçin. Seçilen klasör zaten bir WordPress sitesi içeriyor."
+	],
+	"Choose an existing WordPress folder, blueprint, backup, or export.": [
+		"Mevcut bir WordPress klasörü, model, yedekleme veya dışa aktarım seçin."
+	],
+	"Choose another host": [
+		"Başka bir barındırıcı seç"
+	],
+	"Choose color": [
+		"Renk seç"
+	],
+	"Choose what powers chat in WordPress Studio.": [
+		"WordPress Studio'daki sohbetin neyle çalışacağını seçin."
+	],
+	"Choosing individual files requires a backup of this website.": [
+		"Dosyaları tek tek seçmek için bu web sitesinin bir yedeklemesi gerekir."
+	],
+	"Claude subscription": [
+		"Claude aboneliği"
+	],
+	"Claude subscription token": [
+		"Claude abonelik belirteci"
+	],
+	"Clear browsing data": [
+		"Tarama verilerini temizle"
+	],
+	"Click anything on the page to leave a note": [
+		"Not bırakmak için sayfada herhangi bir yere tıklayın"
+	],
+	"Close %s": [
+		"Kapat: %s"
+	],
+	"Close all tabs": [
+		"Tüm sekmeleri kapat"
+	],
+	"Close other tabs": [
+		"Diğer sekmeleri kapat"
+	],
+	"Close tab": [
+		"Sekmeyi kapat"
+	],
+	"Close tabs to the right": [
+		"Sağdaki sekmeleri kapat"
+	],
+	"Collect annotations and send them together instead of one at a time.": [
+		"Ek açıklamaları tek tek göndermek yerine toplayıp birlikte gönder."
+	],
+	"Color may be adapted for your theme.": [
+		"Renk, temanıza göre uyarlanabilir."
+	],
+	"Color picker": [
+		"Renk seçici"
+	],
+	"Connect %s first.": [
+		"Önce şunu bağlayın: %s."
+	],
+	"Connect %s now?": [
+		"%s şimdi bağlansın mı?"
+	],
+	"Connect AI providers": [
+		"Yapay zeka sağlayıcılarını bağlayın"
+	],
+	"Connect Spacefast to publish sites.": [
+		"Siteleri yayımlamak için Spacefast'i bağlayın."
+	],
+	"Connect a provider": [
+		"Sağlayıcı bağla"
+	],
+	"Connect to Spacefast": [
+		"Spacefast'e bağlan"
+	],
+	"Connect to an existing WordPress": [
+		"Mevcut bir WordPress sitesine bağlan"
+	],
+	"Connect your WordPress": [
+		"WordPress sitenizi bağlayın"
+	],
+	"Connected %s.": [
+		"Bağlandı: %s."
+	],
+	"Connected live site ID, or none": [
+		"Bağlı canlı sitenin kimliği veya none"
+	],
+	"Connecting to WordPress.com": [
+		"WordPress.com'a bağlanılıyor"
+	],
+	"Continue with GitHub": [
+		"GitHub ile devam et"
+	],
+	"Copy links": [
+		"Bağlantıları kopyala"
+	],
+	"Cotton Tail": [
+		"Cotton Tail"
+	],
+	"Could not capture the area. Your selection is kept. Try again.": [
+		"Alan yakalanamadı. Seçiminiz korundu. Tekrar deneyin."
+	],
+	"Could not clear browsing data": [
+		"Tarama verileri temizlenemedi"
+	],
+	"Could not delete the old preview site. It will expire on its own.": [
+		"Eski önizleme sitesi silinemedi. Süresi kendiliğinden dolacak."
+	],
+	"Could not migrate your sites": [
+		"Siteleriniz taşınamadı"
+	],
+	"Could not open DevTools": [
+		"Geliştirici Araçları açılamadı"
+	],
+	"Could not open Spacefast": [
+		"Spacefast açılamadı"
+	],
+	"Could not reach Anthropic to verify the credential.": [
+		"Kimlik bilgisini doğrulamak için Anthropic'e ulaşılamadı."
+	],
+	"Could not read the table prefix from wp-config.php": [
+		"Tablo ön eki wp-config.php dosyasından okunamadı"
+	],
+	"Could not reset appearance. Please try again.": [
+		"Görünüm sıfırlanamadı. Lütfen tekrar deneyin."
+	],
+	"Could not reset interface. Please try again.": [
+		"Arayüz sıfırlanamadı. Lütfen tekrar deneyin."
+	],
+	"Could not reset tips. Please try again.": [
+		"İpuçları sıfırlanamadı. Lütfen tekrar deneyin."
+	],
+	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
+		"wp-config.php dosyasında $table_prefix değeri \"%s\" olarak ayarlanamadı."
+	],
+	"Could not take screenshot": [
+		"Ekran görüntüsü alınamadı"
+	],
+	"Could not update settings. Please try again.": [
+		"Ayarlar güncellenemedi. Lütfen tekrar deneyin."
+	],
+	"Could not update the admin bar setting. Please try again.": [
+		"Yönetim çubuğu ayarı güncellenemedi. Lütfen tekrar deneyin."
+	],
+	"Could not verify the credential with Anthropic.": [
+		"Kimlik bilgisi Anthropic ile doğrulanamadı."
+	],
+	"Couldn't load providers.": [
+		"Sağlayıcılar yüklenemedi."
+	],
+	"Couldn’t load apps.": [
+		"Uygulamalar yüklenemedi."
+	],
+	"Couldn’t sign in to WordPress.com": [
+		"WordPress.com'da oturum açılamadı"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"[Google AI Studio](https://aistudio.google.com/apikey) içinde bir anahtar oluşturun, ardından aşağıya yapıştırın."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"[Meta Model API panosunun](https://dev.meta.ai) API anahtarları sekmesinde bir anahtar oluşturun, ardından aşağıya yapıştırın."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"[Claude Console](https://platform.claude.com/settings/keys) içinde bir anahtar oluşturun, ardından aşağıya yapıştırın."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"[OpenAI Platform](https://platform.openai.com/api-keys) içinde bir anahtar oluşturun, ardından aşağıya yapıştırın."
+	],
+	"Create a new WordPress": [
+		"Yeni bir WordPress sitesi oluştur"
+	],
+	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
+		"WordPress.com veya Pressable sitelerinizi bağlamak için bir hesap oluşturun veya oturum açın."
+	],
+	"Create another preview": [
+		"Başka bir önizleme oluştur"
+	],
+	"Create user": [
+		"Kullanıcı oluştur"
+	],
+	"Data Liberation could not capture the source website": [
+		"Data Liberation kaynak web sitesini yakalayamadı"
+	],
+	"Deactivate all plugins": [
+		"Tüm eklentileri devre dışı bırak"
+	],
+	"Deactivate plugin": [
+		"Eklentiyi devre dışı bırak"
+	],
+	"Default AI provider": [
+		"Varsayılan yapay zeka sağlayıcısı"
+	],
+	"Default browser": [
+		"Varsayılan tarayıcı"
+	],
+	"Default code editor": [
+		"Varsayılan kod düzenleyici"
+	],
+	"Default hosting provider": [
+		"Varsayılan barındırma sağlayıcısı"
+	],
+	"Default terminal app": [
+		"Varsayılan terminal uygulaması"
+	],
+	"Delete annotation: %s": [
+		"Ek açıklamayı sil: %s"
+	],
+	"Delete plugin": [
+		"Eklentiyi sil"
+	],
+	"Delete theme": [
+		"Temayı sil"
+	],
+	"Delete user": [
+		"Kullanıcıyı sil"
+	],
+	"Describe the change": [
+		"Değişikliği açıklayın"
+	],
+	"Describe what you’d like to build or change (optional)…": [
+		"Neyi oluşturmak veya değiştirmek istediğinizi açıklayın (isteğe bağlı)…"
+	],
+	"Design system could not load.": [
+		"Tasarım sistemi yüklenemedi."
+	],
+	"Design systems are available for block themes.": [
+		"Tasarım sistemleri blok temaları için kullanılabilir."
+	],
+	"Directory to write the static site to": [
+		"Statik sitenin yazılacağı dizin"
+	],
+	"Disable automatic sidebar collapsing": [
+		"Kenar çubuğunun otomatik daraltılmasını devre dışı bırak"
+	],
+	"Disable automatic site start on prompt": [
+		"İstem gönderildiğinde siteyi otomatik başlatmayı devre dışı bırak"
+	],
+	"Disable batch notes": [
+		"Toplu notları devre dışı bırak"
+	],
+	"Discard changes?": [
+		"Değişiklikler atılsın mı?"
+	],
+	"Disconnect a provider": [
+		"Sağlayıcının bağlantısını kes"
+	],
+	"Disconnected %s.": [
+		"Bağlantı kesildi: %s."
+	],
+	"Dismiss tip": [
+		"İpucunu kapat"
+	],
+	"Do more with WordPress": [
+		"WordPress ile daha fazlasını yapın"
+	],
+	"Download update": [
+		"Güncellemeyi indir"
+	],
+	"Drop to add site": [
+		"Site eklemek için bırakın"
+	],
+	"Drop your file here": [
+		"Dosyanızı buraya bırakın"
+	],
+	"Edit annotation: %s": [
+		"Ek açıklamayı düzenle: %s"
+	],
+	"Email log": [
+		"E-posta günlüğü"
+	],
+	"Email log could not load.": [
+		"E-posta günlüğü yüklenemedi."
+	],
+	"Emails sent by your site appear here.": [
+		"Sitenizin gönderdiği e-postalar burada görünür."
+	],
+	"Enable anonymous usage statistics": [
+		"Anonim kullanım istatistiklerini etkinleştir"
+	],
+	"Enable automatic sidebar collapsing": [
+		"Kenar çubuğunun otomatik daraltılmasını etkinleştir"
+	],
+	"Enable automatic site start on prompt": [
+		"İstem gönderildiğinde siteyi otomatik başlatmayı etkinleştir"
+	],
+	"Enable batch notes": [
+		"Toplu notları etkinleştir"
+	],
+	"Enter a folder name other than “.” or “..”.": [
+		"“.” veya “..” dışında bir klasör adı girin."
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"API anahtarı değil, claude setup-token komutundan alınan bir belirteç girin."
+	],
+	"Enter the folder’s full path.": [
+		"Klasörün tam yolunu girin."
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Existing WordPress site": [
+		"Mevcut WordPress sitesi"
+	],
+	"Expand panel": [
+		"Paneli genişlet"
+	],
+	"Export site as static HTML files": [
+		"Siteyi statik HTML dosyaları olarak dışa aktar"
+	],
+	"External AI apps": [
+		"Harici yapay zeka uygulamaları"
+	],
+	"Failed after %s": [
+		"%s sonra başarısız oldu"
+	],
+	"Failed to back up the remote site": [
+		"Uzak site yedeklenemedi"
+	],
+	"Failed to check backup size": [
+		"Yedekleme boyutu kontrol edilemedi"
+	],
+	"Failed to check backup status": [
+		"Yedekleme durumu kontrol edilemedi"
+	],
+	"Failed to check the preview site": [
+		"Önizleme sitesi kontrol edilemedi"
+	],
+	"Failed to create the %s site": [
+		"%s sitesi oluşturulamadı"
+	],
+	"Failed to create the Space": [
+		"Space oluşturulamadı"
+	],
+	"Failed to export static site": [
+		"Statik site dışa aktarılamadı"
+	],
+	"Failed to fetch Blueprint: HTTP %d": [
+		"Model alınamadı: HTTP %d"
+	],
+	"Failed to find existing preview site in config": [
+		"Yapılandırmada mevcut önizleme sitesi bulunamadı"
+	],
+	"Failed to initiate backup": [
+		"Yedekleme başlatılamadı"
+	],
+	"Failed to load your %s sites": [
+		"%s siteleriniz yüklenemedi"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"Spacefast Space'leriniz yüklenemedi"
+	],
+	"Failed to publish to Spacefast": [
+		"Spacefast'te yayımlanamadı"
+	],
+	"Failed to save connected site": [
+		"Bağlı site kaydedilemedi"
+	],
+	"Feedback areas": [
+		"Geri bildirim alanları"
+	],
+	"Feedback sent": [
+		"Geri bildirim gönderildi"
+	],
+	"Feedback type": [
+		"Geri bildirim türü"
+	],
+	"Fetching %s sites…": [
+		"%s siteleri alınıyor…"
+	],
+	"File…": [
+		"Dosya…"
+	],
+	"Finish signing in to %s in your browser.": [
+		"Tarayıcınızda oturum açmayı tamamlayın: %s."
+	],
+	"First use": [
+		"İlk kullanım"
+	],
+	"Flush cache": [
+		"Önbelleği temizle"
+	],
+	"Flush permalinks": [
+		"Kalıcı bağlantıları yenile"
+	],
+	"For publishing sites.": [
+		"Siteleri yayımlamak için."
+	],
+	"For working on sites.": [
+		"Siteler üzerinde çalışmak için."
+	],
+	"From many, one tool.\nFind strength in community\nfor a better web.": [
+		"Birçoğundan tek bir araç.\nToplulukta güç bul,\ndaha iyi bir web için."
+	],
+	"Gemini API key": [
+		"Gemini API anahtarı"
+	],
+	"Generate images": [
+		"Görsel oluştur"
+	],
+	"Generating static site…": [
+		"Statik site oluşturuluyor…"
+	],
+	"Get site info": [
+		"Site bilgilerini al"
+	],
+	"Getting your sign-in code…": [
+		"Oturum açma kodunuz alınıyor…"
+	],
+	"Giant Steps": [
+		"Giant Steps"
+	],
+	"GitHub sign-in was declined.": [
+		"GitHub oturum açma isteği reddedildi."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google bu API anahtarını reddetti. Anahtarı kontrol edip tekrar deneyin."
+	],
+	"Green Dolphin Street": [
+		"Green Dolphin Street"
+	],
+	"Hide admin bar": [
+		"Yönetim çubuğunu gizle"
+	],
+	"Hide admin bar by default": [
+		"Yönetim çubuğunu varsayılan olarak gizle"
+	],
+	"Hide chat when starting sites": [
+		"Siteler başlatılırken sohbeti gizle"
+	],
+	"Hide device toolbar": [
+		"Cihaz araç çubuğunu gizle"
+	],
+	"Hide panel": [
+		"Paneli gizle"
+	],
+	"Hide recent chats": [
+		"Son sohbetleri gizle"
+	],
+	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
+		"Yerel sitelerde WordPress yönetim çubuğunu varsayılan olarak gizle. Bunu tek tek siteler için Tarayıcı seçeneklerinden değiştirebilirsiniz."
+	],
+	"Hints": [
+		"İpuçları"
+	],
+	"Hosting providers": [
+		"Barındırma sağlayıcıları"
+	],
+	"Hostname of the preview site": [
+		"Önizleme sitesinin ana bilgisayar adı"
+	],
+	"How do you want to connect %s?": [
+		"%s nasıl bağlansın?"
+	],
+	"How to connect": [
+		"Bağlanma yöntemi"
+	],
+	"Hue": [
+		"Renk tonu"
+	],
+	"Image annotation": [
+		"Görsel ek açıklaması"
+	],
+	"Import a blueprint or backup": [
+		"Bir model veya yedekleme içe aktar"
+	],
+	"Import cancelled": [
+		"İçe aktarma iptal edildi"
+	],
+	"Import site": [
+		"Siteyi içe aktar"
+	],
+	"Include this chat’s transcript": [
+		"Bu sohbetin dökümünü ekle"
+	],
+	"Inspect design": [
+		"Tasarımı incele"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"Henüz yoksa [Claude Code](https://code.claude.com/docs/en/setup) uygulamasını kurun."
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"WordPress Studio CLI'yi yükleyin ve başka bir uygulama için MCP'yi yapılandırın."
+	],
+	"Install the WordPress Studio CLI.": [
+		"WordPress Studio CLI'yi yükleyin."
+	],
+	"Interface reset.": [
+		"Arayüz sıfırlandı."
+	],
+	"Interface theme": [
+		"Arayüz teması"
+	],
+	"Kind of Blue": [
+		"Kind of Blue"
+	],
+	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
+		"Daha fazla bilgi için: <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
+	],
+	"Liberate": [
+		"Özgürleştir"
+	],
+	"List %s": [
+		"Listele: %s"
+	],
+	"List connected remote sites": [
+		"Bağlı uzak siteleri listele"
+	],
+	"List plugins": [
+		"Eklentileri listele"
+	],
+	"List previews": [
+		"Önizlemeleri listele"
+	],
+	"List terms": [
+		"Terimleri listele"
+	],
+	"List users": [
+		"Kullanıcıları listele"
+	],
+	"Load skill": [
+		"Beceri yükle"
+	],
+	"Loading Blueprint…": [
+		"Model yükleniyor…"
+	],
+	"Loading WordPress Studio…": [
+		"WordPress Studio yükleniyor…"
+	],
+	"Loading apps…": [
+		"Uygulamalar yükleniyor…"
+	],
+	"Loading file…": [
+		"Dosya yükleniyor…"
+	],
+	"Log in or create account": [
+		"Oturum açın veya hesap oluşturun"
+	],
+	"Log in to WordPress.com to sync sites.": [
+		"Siteleri senkronize etmek için WordPress.com'da oturum açın."
+	],
+	"Maiden Voyage": [
+		"Maiden Voyage"
+	],
+	"Manage AI credits": [
+		"Yapay zeka kredilerini yönet"
+	],
+	"Manage cache": [
+		"Önbelleği yönet"
+	],
+	"Manage content": [
+		"İçeriği yönet"
+	],
+	"Manage media": [
+		"Ortamı yönet"
+	],
+	"Manage menus": [
+		"Menüleri yönet"
+	],
+	"Manage permalinks": [
+		"Kalıcı bağlantıları yönet"
+	],
+	"Manage plugins": [
+		"Eklentileri yönet"
+	],
+	"Manage sharing": [
+		"Paylaşımı yönet"
+	],
+	"Manage site options": [
+		"Site seçeneklerini yönet"
+	],
+	"Manage terms": [
+		"Terimleri yönet"
+	],
+	"Manage themes": [
+		"Temaları yönet"
+	],
+	"Manage usage": [
+		"Kullanımı yönet"
+	],
+	"Manage users": [
+		"Kullanıcıları yönet"
+	],
+	"Manual MCP setup": [
+		"Manuel MCP kurulumu"
+	],
+	"Meta API key": [
+		"Meta API anahtarı"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta, API anahtarınızdaki istekleri sınırlıyor. Kısa bir süre sonra tekrar deneyin veya sınırlarınızı dev.meta.ai adresinden kontrol edin."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta bu API anahtarını reddetti. Anahtarı kontrol edip tekrar deneyin."
+	],
+	"Mood Indigo": [
+		"Mood Indigo"
+	],
+	"New WordPress Studio Site": [
+		"Yeni WordPress Studio Sitesi"
+	],
+	"New site \"%s\"": [
+		"Yeni site \"%s\""
+	],
+	"New tab": [
+		"Yeni sekme"
+	],
+	"No design system is available for this theme.": [
+		"Bu tema için kullanılabilir bir tasarım sistemi yok."
+	],
+	"No matching sites.": [
+		"Eşleşen site yok."
+	],
+	"No provider is connected.": [
+		"Bağlı sağlayıcı yok."
+	],
+	"No providers": [
+		"Sağlayıcı yok"
+	],
+	"No recipient": [
+		"Alıcı yok"
+	],
+	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
+		"Sitenin aynı anda kaç isteğe yanıt verebileceğini sınırlayan PHP çalışan sayısı (varsayılan: %d)"
+	],
+	"Open %s settings": [
+		"Ayarları aç: %s"
+	],
+	"Open Folder…": [
+		"Klasör Aç…"
+	],
+	"Open Spacefast": [
+		"Spacefast'i aç"
+	],
+	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
+		"Spacefast'i tarayıcınızda açın. Kodların eşleştiğinden emin olun, ardından bağlantıyı onaylayın."
+	],
+	"Open a project page to annotate.": [
+		"Ek açıklama eklemek için bir proje sayfası açın."
+	],
+	"Open a site or Blueprint": [
+		"Bir site veya Model açın"
+	],
+	"Open annotation browser": [
+		"Ek açıklama tarayıcısını aç"
+	],
+	"Open documentation": [
+		"Belgeleri aç"
+	],
+	"Open email log": [
+		"E-posta günlüğünü aç"
+	],
+	"Open on GitHub": [
+		"GitHub'da aç"
+	],
+	"Open the WordPress Studio app to add an existing WordPress folder.": [
+		"Mevcut bir WordPress klasörü eklemek için WordPress Studio uygulamasını açın."
+	],
+	"OpenAI API key": [
+		"OpenAI API anahtarı"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI bu API anahtarını reddetti. Anahtarı kontrol edip tekrar deneyin."
+	],
+	"OpenAI’s coding agent in the ChatGPT app.": [
+		"OpenAI'ın ChatGPT uygulamasındaki kodlama aracısı."
+	],
+	"PHP workers must be a whole number from 1 to 64.": [
+		"PHP çalışan sayısı 1 ile 64 arasında bir tam sayı olmalıdır."
+	],
+	"Parent folder": [
+		"Üst klasör"
+	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"Komutun yazdırdığı belirteci yapıştırın. Kullanım Claude paketinizden düşülür."
+	],
+	"Pending annotation": [
+		"Bekleyen ek açıklama"
+	],
+	"Performance audit": [
+		"Performans denetimi"
+	],
+	"Point or draw to suggest a change.": [
+		"Bir değişiklik önermek için işaret edin veya çizin."
+	],
+	"Point to something you’d like to change.": [
+		"Değiştirmek istediğiniz bir şeyi işaret edin."
+	],
+	"Preview browser controls": [
+		"Önizleme tarayıcısı denetimleri"
+	],
+	"Preview creation cancelled": [
+		"Önizleme oluşturma iptal edildi"
+	],
+	"Preview site not found": [
+		"Önizleme sitesi bulunamadı"
+	],
+	"Preview tabs": [
+		"Önizleme sekmeleri"
+	],
+	"Project tools": [
+		"Proje araçları"
+	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"Sitenizin statik bir kopyasını bir Spacefast Space'inde yayımlayın. Formlar, yorumlar ve WordPress'in çalışmasını gerektiren diğer özellikler kopyada çalışmaz."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"Sitelerinizin statik bir kopyasını bir Spacefast Space'inde yayımlayın."
+	],
+	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
+		"WordPress.com veya Pressable'da yeni siteler yayımlayın ya da mevcut siteleri güncelleyin."
+	],
+	"Publish to %s to apply these changes.": [
+		"Bu değişiklikleri uygulamak için şu siteye yayımlayın: %s."
+	],
+	"Publish to Spacefast": [
+		"Spacefast'te yayımla"
+	],
+	"Publish to another site…": [
+		"Başka bir siteye yayımla…"
+	],
+	"Publish your changes.": [
+		"Değişikliklerinizi yayımlayın."
+	],
+	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
+		"Siteniz hazır olduğunda yayımlayın veya WordPress.com üzerinden bir önizleme paylaşın."
+	],
+	"Published sites": [
+		"Yayımlanan siteler"
+	],
+	"Published to": [
+		"Yayımlandığı yer"
+	],
+	"Publishing cancelled": [
+		"Yayımlama iptal edildi"
+	],
+	"Publishing changes…": [
+		"Değişiklikler yayımlanıyor…"
+	],
+	"Pull a WordPress.com or Pressable site to your local site": [
+		"Bir WordPress.com veya Pressable sitesini yerel sitenize çekin"
+	],
+	"Pull only the database (keeps the local files)": [
+		"Yalnızca veritabanını çek (yerel dosyalar korunur)"
+	],
+	"Pull preview": [
+		"Önizlemeyi çek"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"Önizlemeyi çekmek, burada yapılan değişikliklerin yerine geçer."
+	],
+	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
+		"Yerel sitenizi bir WordPress.com sitesine gönderin veya Spacefast'te yayımlayın"
+	],
+	"Read": [
+		"Oku"
+	],
+	"Read %s": [
+		"%s oku"
+	],
+	"Read site option": [
+		"Site seçeneğini oku"
+	],
+	"Read site title": [
+		"Site başlığını oku"
+	],
+	"Recent chats": [
+		"Son sohbetler"
+	],
+	"Recent chats hidden.": [
+		"Son sohbetler gizlendi."
+	],
+	"Recent chats shown.": [
+		"Son sohbetler gösteriliyor."
+	],
+	"Recent pages": [
+		"Son sayfalar"
+	],
+	"Refresh preview": [
+		"Önizlemeyi yenile"
+	],
+	"Remote environment: %s": [
+		"Uzak ortam: %s"
+	],
+	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
+		"Uzak site URL'si veya kimliği ya da başka bir sağlayıcıdaki site için `<provider>[:<site>]`; örneğin statik bir kopyayı Spacefast'te yayımlamak için `spacefast`"
+	],
+	"Remove Blueprint": [
+		"Modeli kaldır"
+	],
+	"Replace the contents of a non-empty output directory": [
+		"Boş olmayan çıktı dizininin içeriğini değiştir"
+	],
+	"Report an issue on GitHub": [
+		"GitHub'da sorun bildir"
+	],
+	"Request a feature or report a bug.": [
+		"Bir özellik isteyin veya hata bildirin."
+	],
+	"Reset folder name to match site name": [
+		"Klasör adını site adıyla eşleşecek şekilde sıfırla"
+	],
+	"Reset tips": [
+		"İpuçlarını sıfırla"
+	],
+	"Resize panel": [
+		"Panelin boyutunu değiştir"
+	],
+	"Resize viewport: %s": [
+		"Görüntü alanını yeniden boyutlandır: %s"
+	],
+	"Responsive preview": [
+		"Duyarlı önizleme"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"Güncellemeyi tamamlamak için WordPress Studio'yu yeniden başlatın."
+	],
+	"Restore the default interface theme, accent color, intensity, and contrast.": [
+		"Varsayılan arayüz temasını, vurgu rengini, yoğunluğu ve kontrastı geri yükleyin."
+	],
+	"Review the advanced settings to finish creating your site.": [
+		"Sitenizi oluşturmayı tamamlamak için gelişmiş ayarları gözden geçirin."
+	],
+	"Rotate to landscape": [
+		"Yatay konuma döndür"
+	],
+	"Rotate to portrait": [
+		"Dikey konuma döndür"
+	],
+	"Rotate viewport": [
+		"Görüntü alanını döndür"
+	],
+	"Round Midnight": [
+		"Round Midnight"
+	],
+	"Run": [
+		"Çalıştır"
+	],
+	"Run \"studio blueprint list\" to see available slugs.": [
+		"Kullanılabilir kısa adları görmek için \"studio blueprint list\" komutunu çalıştırın."
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"Bunu bir terminalde çalıştırın, ardından Claude hesabınızla oturum açın:"
+	],
+	"SEO audit": [
+		"SEO denetimi"
+	],
+	"Saturation and brightness": [
+		"Doygunluk ve parlaklık"
+	],
+	"Save annotation (Enter)": [
+		"Ek açıklamayı kaydet (Enter)"
+	],
+	"Screenshots are available in the desktop app.": [
+		"Ekran görüntüleri masaüstü uygulamasında kullanılabilir."
+	],
+	"Select an email to read it.": [
+		"Okumak için bir e-posta seçin."
+	],
+	"Selected area": [
+		"Seçili alan"
+	],
+	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
+		"WordPress Studio'daki seçili dosyaların, içeriğin ve ayarların üzerine yazılacak. Web siteniz değişmeden kalır."
+	],
+	"Selected files, content, and settings on your website will be overwritten.": [
+		"Web sitenizdeki seçili dosyaların, içeriğin ve ayarların üzerine yazılacak."
+	],
+	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
+		"Yerel sitenizin geçici bir kopyasını herkesle paylaşın. Bir önizleme sitesi yaklaşık bir hafta güncellenmezse süresi dolar."
+	],
+	"Share details (required)": [
+		"Ayrıntıları paylaşın (zorunlu)"
+	],
+	"Share ideas and report problems directly to the Studio team.": [
+		"Fikirlerinizi paylaşın ve sorunları doğrudan Studio ekibine bildirin."
+	],
+	"Show admin bar": [
+		"Yönetim çubuğunu göster"
+	],
+	"Show admin bar by default": [
+		"Yönetim çubuğunu varsayılan olarak göster"
+	],
+	"Show chat beside the panel when starting a site.": [
+		"Bir site başlatılırken sohbeti panelin yanında göster."
+	],
+	"Show chat when starting sites": [
+		"Siteler başlatılırken sohbeti göster"
+	],
+	"Show device toolbar": [
+		"Cihaz araç çubuğunu göster"
+	],
+	"Show or hide the panel beside your chat.": [
+		"Sohbetinizin yanındaki paneli gösterin veya gizleyin."
+	],
+	"Show panel": [
+		"Paneli göster"
+	],
+	"Show whether a preview site or its local site changed since they were synced": [
+		"Bir önizleme sitesinin veya yerel sitesinin senkronize edildikten sonra değişip değişmediğini göster"
+	],
+	"Sign in at %s": [
+		"Şu adreste oturum açın: %s"
+	],
+	"Sign in to get a one-time grant of free AI credits.": [
+		"Tek seferlik ücretsiz yapay zeka kredisi almak için oturum açın."
+	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"ChatGPT ile oturum açın veya bir OpenAI API anahtarı kullanın."
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"Copilot erişimi olan bir GitHub hesabıyla oturum açın."
+	],
+	"Signing in took too long. Try again.": [
+		"Oturum açma çok uzun sürdü. Tekrar deneyin."
+	],
+	"Signing in was declined.": [
+		"Oturum açma reddedildi."
+	],
+	"Signing in was started again.": [
+		"Oturum açma yeniden başlatıldı."
+	],
+	"Site annotation is not available in the browser yet": [
+		"Site ek açıklaması henüz tarayıcıda kullanılamıyor"
+	],
+	"Site exported": [
+		"Site dışa aktarıldı"
+	],
+	"Site folder": [
+		"Site klasörü"
+	],
+	"Site folder is required.": [
+		"Site klasörü gereklidir."
+	],
+	"Site sources": [
+		"Site kaynakları"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"Siteler yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin."
+	],
+	"Sites will start with chat.": [
+		"Siteler sohbetle başlayacak."
+	],
+	"Sites will start with the panel expanded.": [
+		"Siteler panel genişletilmiş olarak başlayacak."
+	],
+	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
+		"Beceriler, yapay zeka aracılarına WordPress geliştirmesi için rehberlik sağlar. Buradaki değişiklikler mevcut tüm sitelere uygulanır ve yeni siteler için varsayılanları belirler."
+	],
+	"Source is a temporary preview site.": [
+		"Kaynak, geçici bir önizleme sitesidir."
+	],
+	"Spacefast sign-in was declined.": [
+		"Spacefast oturum açma isteği reddedildi."
+	],
+	"Split view": [
+		"Bölünmüş görünüm"
+	],
+	"Start building with free AI credits.": [
+		"Ücretsiz yapay zeka kredileriyle oluşturmaya başlayın."
+	],
+	"Start from": [
+		"Başlangıç noktası"
+	],
+	"Start signing in again.": [
+		"Oturum açmayı yeniden başlatın."
+	],
+	"Start signing in to Spacefast again.": [
+		"Spacefast'te oturum açmayı yeniden başlatın."
+	],
+	"Start signing in with ChatGPT again.": [
+		"ChatGPT ile oturum açmayı yeniden başlatın."
+	],
+	"Start signing in with GitHub again.": [
+		"GitHub ile oturum açmayı yeniden başlatın."
+	],
+	"Start sites with chat": [
+		"Siteleri sohbetle başlat"
+	],
+	"Start this site.": [
+		"Bu siteyi başlatın."
+	],
+	"Starting chat…": [
+		"Sohbet başlatılıyor…"
+	],
+	"Static export failed: %s": [
+		"Statik dışa aktarma başarısız oldu: %s"
+	],
+	"Static site exported to %s": [
+		"Statik site dışa aktarıldı: %s"
+	],
+	"Stop annotating": [
+		"Ek açıklamayı durdur"
+	],
+	"Stop annotating. Your notes will be kept.": [
+		"Ek açıklamayı durdurun. Notlarınız korunacak."
+	],
+	"Strong": [
+		"Güçlü"
+	],
+	"Studio was updated, and the site \"%s\" could not be started again.": [
+		"Studio güncellendi ve \"%s\" sitesi yeniden başlatılamadı."
+	],
+	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
+		"Studio'daki phpMyAdmin yalnızca SQLite'ı destekler. Harici MySQL için ayrı bir veritabanı istemcisi kullanın."
+	],
+	"Supported files: %s.": [
+		"Desteklenen dosyalar: %s."
+	],
+	"Swing Time": [
+		"Swing Time"
+	],
+	"Sync is finishing": [
+		"Senkronizasyon tamamlanıyor"
+	],
+	"Take Five": [
+		"Take Five"
+	],
+	"Taking screenshot…": [
+		"Ekran görüntüsü alınıyor…"
+	],
+	"Taxonomist": [
+		"Sınıflandırma Uzmanı"
+	],
+	"Team": [
+		"Ekip"
+	],
+	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
+		"WordPress Studio'yu geliştirmemize yardımcı olduğunuz için teşekkürler. Geri bildiriminizin referans kimliği: <id>%s</id>."
+	],
+	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
+		"Bu dosya türü desteklenmiyor. Bir Model, WordPress yedeklemesi veya XML dışa aktarma dosyası seçin."
+	],
+	"That sign-in was for another attempt. Try again.": [
+		"Bu oturum açma başka bir denemeye aitti. Tekrar deneyin."
+	],
+	"The GitHub sign-in expired. Try again.": [
+		"GitHub oturum açma isteğinin süresi doldu. Tekrar deneyin."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"Spacefast oturum açma isteğinin süresi doldu. Tekrar deneyin."
+	],
+	"The default browser for your sites.": [
+		"Siteleriniz için varsayılan tarayıcı."
+	],
+	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
+		"Bir siteyi ilk kez çekerken dosyaları da dahil edilmelidir. Önce sitenin tamamını çekin, ardından yalnızca veritabanını çekebilirsiniz."
+	],
+	"The live site must be a qualifying connected site of this local site.": [
+		"Canlı site, bu yerel sitenin uygun bir bağlı sitesi olmalıdır."
+	],
+	"The output directory %s is not empty.": [
+		"Çıktı dizini boş değil: %s."
+	],
+	"The output directory cannot be inside the site folder or contain it.": [
+		"Çıktı dizini site klasörünün içinde olamaz veya onu içeremez."
+	],
+	"The preview site could not be built from the archive.": [
+		"Önizleme sitesi arşivden oluşturulamadı."
+	],
+	"The preview site did not become ready within the timeout.": [
+		"Önizleme sitesi zaman aşımı süresi içinde hazır olmadı."
+	],
+	"The preview site has no preview link.": [
+		"Önizleme sitesinin önizleme bağlantısı yok."
+	],
+	"The site archive exceeds the %d GB size limit.": [
+		"Site arşivi %d GB boyut sınırını aşıyor."
+	],
+	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
+		"Tema dosyası düzenlemeleri görünmeyecek. %s tema dosyalarında yaptığınız değişiklikler dahil edilmez: bu önizleme, temanın WordPress.com'daki orijinal kopyasını kullanır. Önizlemelerde görmek için değişiklikleri Site Düzenleyici'de veya bir alt temada yapın."
+	],
+	"Then add this configuration to your app.": [
+		"Ardından bu yapılandırmayı uygulamanıza ekleyin."
+	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"Bu GitHub hesabının Copilot paketi yok. github.com/features/copilot adresinden bir paket seçin."
+	],
+	"This ZIP could not be read. Check that it is a valid zip file.": [
+		"Bu ZIP okunamadı. Geçerli bir zip dosyası olduğunu kontrol edin."
+	],
+	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
+		"Bu ZIP kullanılamadı. En üst düzeyde veya tek bir kapsayıcı klasörün içinde geçerli bir blueprint.json dosyası içerdiğinden emin olup tekrar deneyin."
+	],
+	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
+		"Bu yedekleme, adları yalnızca büyük/küçük harf bakımından farklı olan SQL dosyaları içeriyor: \"%1$s\" ve \"%2$s\". Kaynak sitedeki çakışan adları düzeltin, ardından yeni bir yedekleme oluşturup tekrar deneyin."
+	],
+	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
+		"Bu işlem birkaç dakika sürebilir. Güncelleme yüklendiğinde WordPress Studio kendiliğinden yeniden açılacak."
+	],
+	"This email is gone.": [
+		"Bu e-posta artık mevcut değil."
+	],
+	"This file took too long to load. Please try again or choose another file.": [
+		"Bu dosyanın yüklenmesi çok uzun sürdü. Lütfen tekrar deneyin veya başka bir dosya seçin."
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"Bu klasör zaten başka bir Studio sitesiyle ilişkili. Farklı bir yerel klasör seçin."
+	],
+	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
+		"Bu klasör zaten başka bir Studio sitesiyle ilişkili. Farklı bir site adı veya yerel klasör seçin."
+	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"Bu bir Anthropic anahtarı. Bunun yerine Anthropic'e ekleyin."
+	],
+	"This site and its preview both changed": [
+		"Hem bu site hem de önizlemesi değişti"
+	],
+	"This site has changes its preview doesn't": [
+		"Bu sitede önizlemesinde olmayan değişiklikler var"
+	],
+	"This site is no longer available in WordPress Studio.": [
+		"Bu site artık WordPress Studio'da kullanılamıyor."
+	],
+	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
+		"Bu site başlatılmaya hazır değil. %s Çekme işlemini tamamlamak için `studio pull` komutunu yeniden çalıştırın veya siteyi kaldırmak için `studio delete` komutunu kullanın."
+	],
+	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
+		"Bu site %d GB'tan büyük olduğu için WordPress.com'a geri yayımlanması başarısız olabilir. Bunun yerine daha küçük bir dosya seçimi yayımlayın."
+	],
+	"This site isn't one of your WordPress.com or Pressable sites.": [
+		"Bu site, WordPress.com veya Pressable sitelerinizden biri değil."
+	],
+	"This website has been deleted. Choose another website.": [
+		"Bu web sitesi silindi. Başka bir web sitesi seçin."
+	],
+	"Tips reset.": [
+		"İpuçları sıfırlandı."
+	],
+	"To %s": [
+		"Alıcı: %s"
+	],
+	"Token is required": [
+		"Belirteç gerekli"
+	],
+	"Try downloading the update again.": [
+		"Güncellemeyi yeniden indirmeyi deneyin."
+	],
+	"Try starting the chat again, or open your site.": [
+		"Sohbeti yeniden başlatmayı deneyin veya sitenizi açın."
+	],
+	"URL the static site will be hosted at. Links are root-relative when omitted.": [
+		"Statik sitenin barındırılacağı URL. Belirtilmezse bağlantılar köke göreli olur."
+	],
+	"Unable to open this folder.": [
+		"Bu klasör açılamıyor."
+	],
+	"Unable to open this source.": [
+		"Bu kaynak açılamıyor."
+	],
+	"Unknown provider %1$s. Choose one of: %2$s.": [
+		"Bilinmeyen sağlayıcı: %1$s. Şunlardan birini seçin: %2$s."
+	],
+	"Unsupported backup file": [
+		"Desteklenmeyen yedekleme dosyası"
+	],
+	"Update %s": [
+		"%s güncelle"
+	],
+	"Update all plugins": [
+		"Tüm eklentileri güncelle"
+	],
+	"Update todo list": [
+		"Yapılacaklar listesini güncelle"
+	],
+	"Update user": [
+		"Kullanıcıyı güncelle"
+	],
+	"Uploading files…": [
+		"Dosyalar karşıya yükleniyor…"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"Kullanım, Anthropic hesabınız üzerinden faturalandırılır."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"Kullanım, Google AI Studio projeniz üzerinden faturalandırılır."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"Kullanım, Meta Model API hesabınız üzerinden faturalandırılır."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"Kullanım, OpenAI hesabınız üzerinden faturalandırılır."
+	],
+	"Use /connect %1$s to connect %2$s again.": [
+		"%2$s sağlayıcısını yeniden bağlamak için /connect %1$s komutunu kullanın."
+	],
+	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
+		"Bu sekmeyi taşımak için Alt+Shift+Sol veya Sağ Ok tuşlarını kullanın."
+	],
+	"Use Blueprint": [
+		"Modeli kullan"
+	],
+	"Use Gemini with a Gemini API key.": [
+		"Gemini'yi bir Gemini API anahtarıyla kullanın."
+	],
+	"Use Muse models with your Meta API key.": [
+		"Muse modellerini Meta API anahtarınızla kullanın."
+	],
+	"Use WordPress Studio with your agents": [
+		"WordPress Studio'yu aracılarınızla kullanın"
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"Bir Anthropic API anahtarı veya Claude abonelik belirteci kullanın."
+	],
+	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
+		"Desteklenen bir siteden, 1 GB'tan küçük bir zip veya tar.gz dosyasına işaret eden HTTPS yedekleme bağlantısı kullanın. Bağlantınızı kontrol edip tekrar deneyin."
+	],
+	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
+		"Site oluşturmak, değişiklik yapmak ve çalışmanızı kontrol etmek için tercih ettiğiniz yapay zeka aracısını kullanın. Yerel sitelerinize erişebilmesi için WordPress Studio eklentisini yükleyin."
+	],
+	"Using ChatGPT plan": [
+		"ChatGPT paketi kullanılıyor"
+	],
+	"Using Claude plan": [
+		"Claude paketi kullanılıyor"
+	],
+	"Using Copilot plan": [
+		"Copilot paketi kullanılıyor"
+	],
+	"Validate blocks": [
+		"Blokları doğrula"
+	],
+	"Visit previews": [
+		"Önizlemeleri ziyaret et"
+	],
+	"Visual Annotations": [
+		"Görsel Ek Açıklamalar"
+	],
+	"Waiting for %s": [
+		"Bekleniyor: %s"
+	],
+	"Waiting for approval…": [
+		"Onay bekleniyor…"
+	],
+	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
+		"Tarayıcı bekleniyor. Tarayıcı bu bilgisayara ulaşamazsa son açılan adresi yapıştırın:"
+	],
+	"What would you like to open?": [
+		"Ne açmak istersiniz?"
+	],
+	"Where do you want to publish?": [
+		"Nerede yayımlamak istiyorsunuz?"
+	],
+	"WordPress Studio CLI for terminal": [
+		"Terminal için WordPress Studio CLI"
+	],
+	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
+		"WordPress Studio, senkronizasyon bittikten sonra kapatılabilir. Şimdi çıkmak senkronizasyonu yarıda keser ve sitenizi eksik bırakabilir."
+	],
+	"WordPress Studio could not download this backup.": [
+		"WordPress Studio bu yedeklemeyi indiremedi."
+	],
+	"WordPress Studio could not open the email folder.": [
+		"WordPress Studio e-posta klasörünü açamadı."
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"WordPress Studio klasörü açamadı. Lütfen tekrar deneyin."
+	],
+	"WordPress Studio could not open the site.": [
+		"WordPress Studio siteyi açamadı."
+	],
+	"WordPress Studio is finishing an update": [
+		"WordPress Studio bir güncellemeyi tamamlıyor"
+	],
+	"WordPress Studio team": [
+		"WordPress Studio ekibi"
+	],
+	"WordPress Studio will create a local copy of this site in an empty folder.": [
+		"WordPress Studio, bu sitenin yerel bir kopyasını boş bir klasörde oluşturacak."
+	],
+	"WordPress Studio will create a site from this blueprint in an empty folder.": [
+		"WordPress Studio, bu modelden boş bir klasörde bir site oluşturacak."
+	],
+	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
+		"WordPress Studio, boş bir klasörde bir site oluşturup bu WordPress dışa aktarımını içe aktaracak."
+	],
+	"WordPress Studio will restore this backup into an empty folder.": [
+		"WordPress Studio, bu yedeklemeyi boş bir klasöre geri yükleyecek."
+	],
+	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
+		"WordPress Studio bu WordPress sitesini bulunduğu yerde kullanacak. Hiçbir dosya taşınmayacak."
+	],
+	"WordPress export": [
+		"WordPress dışa aktarımı"
+	],
+	"WordPress.com API": [
+		"WordPress.com API"
+	],
+	"WordPress.com hosting": [
+		"WordPress.com barındırma"
+	],
+	"Worked for %s": [
+		"Çalışma süresi: %s"
+	],
+	"Working for %s": [
+		"Çalışıyor: %s"
+	],
+	"Workspace navigation": [
+		"Çalışma alanı gezintisi"
+	],
+	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
+		"En fazla %d görsel ekleyebilirsiniz. Başka bir alanı yakalamadan önce bir ek açıklamayı gönderin veya silin."
+	],
+	"You can close this tab and return to WordPress Studio.": [
+		"Bu sekmeyi kapatıp WordPress Studio'ya dönebilirsiniz."
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"ChatGPT paketinizin kullanım sınırına ulaştınız. Kullanımı chatgpt.com/settings/usage adresinden yönetin."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"Copilot paketinizin kullanım sınırına ulaştınız. Kullanımı github.com/settings/copilot adresinden yönetin."
+	],
+	"You stopped after %s": [
+		"%s sonra durdurdunuz"
+	],
+	"You're not logged in to WordPress.com. Log in now?": [
+		"WordPress.com'da oturum açmadınız. Şimdi oturum açılsın mı?"
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"ChatGPT paketiniz WordPress Studio'da kullanılamaz."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"ChatGPT oturumunuz artık çalışmıyor. Ayarlar'dan ChatGPT'yi yeniden bağlayın."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"Copilot paketiniz bu modeli içermiyor. Başka bir model seçin veya github.com/settings/copilot adresinden etkinleştirin."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"Spacefast oturumunuz artık çalışmıyor. Spacefast'i yeniden bağlayın."
+	],
+	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
+		"Önizlemeniz WordPress.com'a taşındığı için bağlantısı değişti. Yeni bağlantı: %s"
+	],
+	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
+		"“%s” önizlemesinin son güncellenmesinden bu yana siteniz değişti. Yayımlama, o önizlemede görünmeyen değişiklikler dahil olmak üzere mevcut yerel sitenizi gönderecek."
+	],
+	"Your site was created, but the AI chat could not start.": [
+		"Siteniz oluşturuldu ancak yapay zeka sohbeti başlatılamadı."
+	],
+	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"Siteleriniz hâlâ şu dosyada listeleniyor: %s. Tekrar denemek için WordPress Studio'yu yeniden başlatın. Bu durum devam ederse aşağıdaki ayrıntılarla destek ekibine başvurun."
+	],
+	"Your unsaved changes will be lost.": [
+		"Kaydedilmemiş değişiklikleriniz kaybolacak."
+	],
+	"Your website will be replaced with this site as it is now.": [
+		"Web siteniz, bu sitenin şu anki hâliyle değiştirilecek."
+	],
+	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
+		"base-url, yol içermeyen bir http(s) URL'si olmalıdır, örneğin https://example.com"
+	],
+	"inline content": [
+		"satır içi içerik"
+	],
+	"media item": [
+		"ortam öğesi"
+	],
+	"page": [
+		"sayfa"
+	],
+	"pages": [
+		"sayfalar"
+	],
+	"posts": [
+		"gönderiler"
+	],
+	"product": [
+		"ürün"
+	],
+	"products": [
+		"ürünler"
+	],
+	"· %d%%": [
+		"· %%%d"
+	]
+}

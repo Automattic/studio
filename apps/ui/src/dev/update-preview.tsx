@@ -31,7 +31,10 @@ function setStatus( next: AppUpdateStatus ) {
 
 const connector = createInMemoryConnector(
 	{
-		user: { id: 1, email: '', displayName: 'Rich Tabor' },
+		user:
+			params.get( 'account' ) === 'signed-out'
+				? null
+				: { id: 1, email: '', displayName: 'Rich Tabor' },
 		sites: [ makeSite( { name: 'My WordPress site', running: false } ) ],
 		preferences: { colorScheme: scheme },
 	},

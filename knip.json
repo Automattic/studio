@@ -9,7 +9,6 @@
 			"entry": [
 				"src/index.ts",
 				"src/preload.ts",
-				"src/migrations/index.ts",
 				"forge.config.ts",
 				"native/build.ts",
 				"e2e/global-setup.ts",
@@ -30,10 +29,17 @@
 				"commands/**/*.ts",
 				"vite.config.*.ts"
 			],
-			"project": "**/*.ts"
+			"project": "**/*.ts",
+			// Only the bundled pi imports it, to resize images in its Read tool. It stays installed
+			// because it reads its .wasm file from its own folder.
+			"ignoreDependencies": ["@silvia-odwyer/photon-node"]
 		},
 		"apps/ui": {
-			"entry": ["src/main.local.tsx", "src/dev/{chat,animation,annotate-tip,update-preview}.tsx"],
+			"entry": [
+				"src/main.local.tsx",
+				"src/main.cloud.tsx",
+				"src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview}.tsx"
+			],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {
@@ -43,8 +49,15 @@
 		"packages/agent": {
 			"project": "**/*.ts"
 		},
+		"packages/blueprints": {
+			"project": "**/*.ts"
+		},
 		"packages/common": {
 			"entry": ["globals.ts"],
+			"project": "**/*.ts"
+		},
+		"tools/capture-harness": {
+			"entry": ["src/tests/*.test.ts"],
 			"project": "**/*.ts"
 		},
 		"tools/eslint-plugin-studio": {
@@ -54,5 +67,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["mdfind", "attrib"]
+	"ignoreBinaries": ["attrib", "apt-get", "Xvfb", "ditto", "dpkg-deb", "pgrep"]
 }

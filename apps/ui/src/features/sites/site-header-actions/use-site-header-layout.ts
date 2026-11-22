@@ -29,21 +29,25 @@ export function useSiteHeaderLayout(
 		if ( ! header ) return;
 		let current: SiteHeaderLayout = 'inline';
 		const measure = () => {
-			const address = header.querySelector( '[data-site-header-address]' );
-			const next: SiteHeaderLayout = window.innerWidth <= 540 ? 'mobile-overflow' : 'inline';
+			if ( ! header.clientWidth ) return;
+			const annotation = header.querySelector( '[data-site-header-annotation]' );
+			const next: SiteHeaderLayout = header.clientWidth <= 540 ? 'mobile-overflow' : 'inline';
 			if ( next !== current ) {
 				const focused = document.activeElement;
 				refocus.current = Boolean(
-					focused && next === 'mobile-overflow' && address?.contains( focused )
+					focused && next === 'mobile-overflow' && annotation?.contains( focused )
 				);
 				current = next;
 				setLayout( next );
 			}
 		};
+		const observer = new ResizeObserver( measure );
+		observer.observe( header );
 		window.addEventListener( 'resize', measure );
 		setLayout( 'inline' );
 		measure();
 		return () => {
+			observer.disconnect();
 			window.removeEventListener( 'resize', measure );
 		};
 	}, [ browserHeader ] );
@@ -52,7 +56,7 @@ export function useSiteHeaderLayout(
 		if ( ! refocus.current ) return;
 		refocus.current = false;
 		(
-			browserHeader?.querySelector< HTMLElement >( '[data-preview-responsive]' ) ??
+			browserHeader?.querySelector< HTMLElement >( '[data-preview-browser-options]' ) ??
 			actions?.querySelector< HTMLElement >( 'button' )
 		)?.focus();
 	}, [ actions, browserHeader, layout ] );

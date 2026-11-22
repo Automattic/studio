@@ -1,4 +1,4 @@
-import * as configFile from '@studio/common/lib/cli-config-file';
+import { readConfig } from '@studio/common/lib/config/store';
 import { ExportEvents } from '@studio/common/lib/import-export-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi } from 'vitest';
@@ -13,7 +13,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../export';
 import { registerCommand } from '../export.command';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
 	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
@@ -45,19 +45,22 @@ vi.mock( 'cli/lib/site-operations', () => ( {
 } ) );
 
 const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
-beforeEach( () => {
-	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
-		version: 1,
+vi.mock( '@studio/common/lib/config/store', () => {
+	const config = () => ( {
 		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
 		snapshots: [],
 	} );
+	return {
+		readConfig: vi.fn( async () => config() ),
+		updateConfig: vi.fn( async ( update: ( config: object ) => unknown ) => update( config() ) ),
+	};
 } );
 afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio export', () => {
 	const testSitePath = '/test/site';
 	const testExportPath = '/tmp/site-backup.zip';
-	const testSite: SiteData = {
+	const testSite: ConfigSite = {
 		id: 'site-1',
 		name: 'Test Site',
 		path: testSitePath,
@@ -252,9 +255,7 @@ describe( 'CLI: studio export', () => {
 		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
 	} );
 	it( 'keeps export and its event when the site ID cannot be read', async () => {
-		vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
-			new Error( 'Storage unavailable' )
-		);
+		vi.mocked( readConfig ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
 		await expect( runCommand( testSitePath, testExportPath ) ).resolves.toBeUndefined();
 		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
 			TRACKS_EVENTS.SITE_EXPORT,

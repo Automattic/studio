@@ -1,13 +1,10 @@
-import { randomUUID } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
+import { openPage } from '@studio/agent/node/pages';
 import type { StudioAgentHost } from '@studio/agent/node/host';
-
-type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
-type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
+import type { Page } from 'playwright';
 
 /**
  * Tall portrait viewport used by `take_screenshot` for full-page captures
@@ -40,13 +37,6 @@ const MAX_IMAGE_DIMENSION_PX = 8000;
 const MODEL_IMAGE_MAX_EDGE_PX = 2000;
 
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
-const PAGE_SETTLE_TIMEOUT_MS = 2500;
-
-async function waitForPageToSettle( page: Page ): Promise< void > {
-	await page
-		.waitForLoadState( 'networkidle', { timeout: PAGE_SETTLE_TIMEOUT_MS } )
-		.catch( () => {} );
-}
 
 export type ScreenshotFormat = 'png' | 'jpeg';
 
@@ -56,23 +46,17 @@ export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
 	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
 
 /**
- * Apply the media emulation shared by every browser-driving tool. Keeping
- * this in one place guarantees `inspect_design` reports styles under the same
- * prefers-color-scheme mode `take_screenshot` renders.
+ * The page options shared by every tool that renders a page for the agent, so
+ * `inspect_design` reports styles under the same prefers-color-scheme mode
+ * `take_screenshot` renders.
  */
-export async function applyScreenshotMediaEmulation(
-	page: Page,
-	colorScheme?: ScreenshotColorScheme
-): Promise< void > {
-	await page.emulateMedia( {
-		reducedMotion: 'reduce',
-		...( colorScheme ? { colorScheme } : {} ),
-	} );
+export function screenshotPageOptions( colorScheme?: ScreenshotColorScheme ) {
+	return { reducedMotion: true, ...( colorScheme ? { colorScheme } : {} ) };
 }
 
 export interface ScreenshotCapture {
-	buffer: Buffer;
-	modelImage?: { buffer: Buffer; width: number; height: number };
+	buffer: Uint8Array;
+	modelImage?: { buffer: Uint8Array; width: number; height: number };
 	documentHeight: number;
 	/** Bottom edge of the lowest visible element, in CSS pixels from the top. */
 	contentHeight: number;
@@ -84,7 +68,7 @@ export interface ScreenshotCapture {
 /** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */
 async function scaleForModel(
 	page: Page,
-	capture: Buffer,
+	capture: Uint8Array,
 	width: number,
 	height: number
 ): Promise< ScreenshotCapture[ 'modelImage' ] > {
@@ -111,7 +95,11 @@ async function scaleForModel(
 			}
 			return btoa( binary );
 		},
-		{ source: capture.toString( 'base64' ), ...size, quality: MODEL_JPEG_QUALITY / 100 }
+		{
+			source: Buffer.from( capture ).toString( 'base64' ),
+			...size,
+			quality: MODEL_JPEG_QUALITY / 100,
+		}
 	);
 	return { buffer: Buffer.from( base64, 'base64' ), ...size };
 }
@@ -128,7 +116,7 @@ async function scaleForModel(
  * whether the page was clipped and how much remains.
  */
 export async function captureScreenshotBuffer(
-	url: string,
+	target: { url: string } | { html: string },
 	viewport: { width: number; height: number },
 	options: {
 		fullPage: boolean;
@@ -140,17 +128,13 @@ export async function captureScreenshotBuffer(
 	}
 ): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
-	const browser = await getSharedBrowser();
-	const page = await browser.newPage( {
+	const page = await openPage( target, {
 		viewport,
 		deviceScaleFactor: options.deviceScaleFactor,
+		...screenshotPageOptions( options.colorScheme ),
 	} );
 
 	try {
-		await applyScreenshotMediaEmulation( page, options.colorScheme );
-		await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
-		await waitForPageToSettle( page );
-
 		// For full-page captures, scroll through the entire document so
 		// lazy-loaded images can begin loading. For viewport captures we keep
 		// the page where it is and only wait on images that intersect the
@@ -205,13 +189,15 @@ export async function captureScreenshotBuffer(
 		);
 
 		// Hide the WordPress admin bar and scrollbars for cleaner shots.
-		await page.addStyleTag( {
-			content: `
+		await page.evaluate( () => {
+			const style = document.createElement( 'style' );
+			style.textContent = `
 				#wpadminbar { display: none !important; }
 				html { margin-top: 0 !important; }
 				::-webkit-scrollbar { display: none !important; }
 				html, body { scrollbar-width: none !important; }
-			`,
+			`;
+			document.head.appendChild( style );
 		} );
 
 		const dpr = options.deviceScaleFactor ?? 1;
@@ -234,7 +220,7 @@ export async function captureScreenshotBuffer(
 			);
 			const buffer = await page.screenshot( { ...formatOptions } );
 			return {
-				buffer: Buffer.from( buffer ),
+				buffer,
 				modelImage: options.forModel
 					? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
 					: undefined,
@@ -268,7 +254,7 @@ export async function captureScreenshotBuffer(
 			clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
 		} );
 		return {
-			buffer: Buffer.from( buffer ),
+			buffer,
 			modelImage: options.forModel
 				? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
 				: undefined,
@@ -283,9 +269,25 @@ export async function captureScreenshotBuffer(
 	}
 }
 
+// The host's folder for images, or a temporary one when it has none or it fails.
+async function imagesDirectory( host: StudioAgentHost ): Promise< string > {
+	try {
+		const directory = await host.imagesDirectory?.();
+		if ( directory ) {
+			await mkdir( directory, { recursive: true } );
+			return directory;
+		}
+	} catch ( error ) {
+		// Files in the temporary folder are purged by the OS, so persisted artifacts
+		// eventually show as unavailable and this line is the only clue why.
+		console.warn( '[screenshots] falling back to a temporary directory:', error );
+	}
+	return mkdtemp( path.join( os.tmpdir(), 'studio-screenshot-' ) );
+}
+
 export async function saveScreenshotFile(
 	host: StudioAgentHost,
-	buffer: Buffer,
+	buffer: Uint8Array,
 	options: { viewportType: string; format?: ScreenshotFormat; colorScheme?: ScreenshotColorScheme }
 ): Promise< {
 	path: string;
@@ -296,22 +298,13 @@ export async function saveScreenshotFile(
 	const format = options.format ?? 'png';
 	const extension = format === 'jpeg' ? 'jpg' : 'png';
 	const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/png';
-	const directory = await resolveScreenshotDirectory( host );
 	const colorSchemeSuffix = options.colorScheme ? `-${ options.colorScheme }` : '';
 	// The directory can be shared by every capture in a session, so the file
 	// name carries a random suffix to keep earlier captures addressable.
-	const name = `screenshot-${ options.viewportType }${ colorSchemeSuffix }-${ randomUUID().slice(
-		0,
-		8
-	) }.${ extension }`;
-	const filePath = path.join( directory, name );
-
-	await writeFile( filePath, buffer );
-
-	return {
-		path: filePath,
-		fileUrl: pathToFileURL( filePath ).href,
-		name,
-		mimeType,
-	};
+	const name = `screenshot-${ options.viewportType }${ colorSchemeSuffix }-${ crypto
+		.randomUUID()
+		.slice( 0, 8 ) }.${ extension }`;
+	const file = path.join( await imagesDirectory( host ), name );
+	await writeFile( file, buffer );
+	return { path: file, fileUrl: pathToFileURL( file ).href, name, mimeType };
 }

@@ -75,6 +75,19 @@ function focusVisible( row: HTMLElement, isFocused: () => boolean = () => true )
 	);
 }
 
+it( 'reveals a notice label when its action receives keyboard focus', async () => {
+	const view = render(
+		<div data-marquee-row>
+			<MarqueeLabel>A long notice</MarqueeLabel>
+			<button>Connect</button>
+		</div>
+	);
+	const action = view.getByRole( 'button' );
+	act( () => action.focus() );
+	await act( () => vi.advanceTimersByTime( 600 ) );
+	expect( animate ).toHaveBeenCalledOnce();
+} );
+
 it( 'waits 600ms, reveals the measured overflow, pauses and returns once', async () => {
 	const { row } = setup();
 	fireEvent.mouseEnter( row );

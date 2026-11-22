@@ -1,20 +1,21 @@
 import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
-import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
-import { __ } from '@wordpress/i18n';
-import { isShortcut } from '@/lib/keyboard';
+import { getSignInUrl } from '@studio/providers/wpcom';
+import { __, sprintf } from '@wordpress/i18n';
+import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
+import { isSupportedServerVersion, UnsupportedServerError } from './server-version';
 import type {
+	AgentApp,
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
 	AppGlobals,
 	AuthUser,
 	Connector,
-	ExtractedBlueprintBundle,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
@@ -22,22 +23,26 @@ import type {
 	ProposedSitePath,
 	SelectedSiteFolder,
 	SiteDetails,
+	SiteLimits,
+	Billing,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
-	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { Blueprint } from '@studio/blueprints';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { CatalogModel } from '@studio/providers';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
 
@@ -50,6 +55,15 @@ interface LocalConnectorOptions {
 	// Base URL of the local Studio server started by `studio ui`, e.g.
 	// http://localhost:8081.
 	apiBaseUrl: string;
+	// Set when the server is a `studio serve` on another origin, such as a Studio Cloud machine:
+	// requests carry the session cookie its host handed over, and signing in or out goes there.
+	remote?: RemoteServerOptions;
+}
+
+interface RemoteServerOptions {
+	signIn(): void;
+	signOut(): Promise< void >;
+	getBilling(): Promise< Billing >;
 }
 
 // Envelope used by the backend's `/events` SSE stream so a single connection
@@ -76,19 +90,7 @@ type ServerEvent =
  * machine (the real site list, start/stop, the agent) are implemented for real;
  * the few a browser can't offer throw `UnsupportedError`.
  */
-// A browser tab has no application menu, so the page binds its accelerators.
-function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
-	const onKeyDown = ( event: KeyboardEvent ) => {
-		if ( ! event.defaultPrevented && ! event.repeat && isShortcut( event, key, modifier ) ) {
-			event.preventDefault();
-			listener();
-		}
-	};
-	document.addEventListener( 'keydown', onKeyDown );
-	return () => document.removeEventListener( 'keydown', onKeyDown );
-}
-
-export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): Connector {
+export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOptions ): Connector {
 	// The server namespaces its API under /api so the SPA's real-path routes
 	// (also /sessions/:id, /sites/:id) can share the same origin.
 	const base = `${ apiBaseUrl.replace( /\/$/, '' ) }/api`;
@@ -105,8 +107,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	let eventSource: EventSource | undefined;
 	const connectionRestoredListeners = new Set< () => void >();
 
+	function request( path: string, init?: RequestInit ): Promise< Response > {
+		const url = `${ base }${ path }`;
+		if ( remote ) {
+			return fetch( url, { ...init, credentials: 'include' } );
+		}
+		return init ? fetch( url, init ) : fetch( url );
+	}
+
 	async function api< T >( path: string, init?: RequestInit ): Promise< T > {
-		const response = await fetch( `${ base }${ path }`, {
+		const response = await request( path, {
 			...init,
 			headers: {
 				'Content-Type': 'application/json',
@@ -142,7 +152,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	// download mechanism — the browser-friendly substitute for a native Save-As
 	// dialog. Returns the saved filename.
 	async function downloadFromServer( endpoint: string ): Promise< string > {
-		const response = await fetch( `${ base }${ endpoint }` );
+		const response = await request( endpoint );
 		if ( ! response.ok ) {
 			const text = await response.text().catch( () => '' );
 			throw new Error( `GET ${ endpoint } failed (${ response.status }): ${ text }` );
@@ -150,22 +160,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		const disposition = response.headers.get( 'Content-Disposition' ) ?? '';
 		const filename = /filename="?([^"]+)"?/.exec( disposition )?.[ 1 ] ?? 'download';
 		const blob = await response.blob();
-		const url = URL.createObjectURL( blob );
-		const anchor = document.createElement( 'a' );
-		anchor.href = url;
-		anchor.download = filename;
-		document.body.appendChild( anchor );
-		anchor.click();
-		anchor.remove();
-		URL.revokeObjectURL( url );
-		return filename;
+		return download( blob, filename, blob.type );
 	}
 
 	// Upload a File's bytes and get back a server-side temp path — the browser
 	// substitute for an Electron filesystem path. Path-based operations (import a
 	// backup, attach a file for the agent) then work just as on the desktop.
 	async function uploadFile( file: File ): Promise< string > {
-		const response = await fetch( `${ base }/uploads?name=${ encodeURIComponent( file.name ) }`, {
+		const response = await request( `/uploads?name=${ encodeURIComponent( file.name ) }`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/octet-stream' },
 			body: file,
@@ -177,41 +179,68 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		return ( ( await response.json() ) as { path: string } ).path;
 	}
 
+	// The browser's EventSource reconnects on its own; `reconnected` counts a deliberate reopen
+	// as a restored connection too, so the app refetches what it missed.
+	function openEvents( reconnected: boolean ) {
+		eventSource?.close();
+		eventSource = new EventSource( `${ base }/events`, { withCredentials: !! remote } );
+		let hasConnected = reconnected;
+		eventSource.onopen = () => {
+			if ( hasConnected ) {
+				connectionRestoredListeners.forEach( ( listener ) => listener() );
+			}
+			hasConnected = true;
+		};
+		eventSource.onmessage = ( message ) => {
+			let parsed: ServerEvent;
+			try {
+				parsed = JSON.parse( message.data ) as ServerEvent;
+			} catch {
+				return;
+			}
+			if ( parsed.channel === 'agent' ) {
+				agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'placement' ) {
+				placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'sync-activity' ) {
+				syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'sync-connect' ) {
+				syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'site-event' ) {
+				siteEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'snapshot-event' ) {
+				snapshotEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
+			} else if ( parsed.channel === 'auth-event' ) {
+				authListeners.forEach( ( listener ) => listener() );
+			}
+		};
+	}
+
 	return {
 		async init() {
-			// The browser's EventSource reconnects automatically.
-			eventSource?.close();
-			eventSource = new EventSource( `${ base }/events` );
-			let hasConnected = false;
-			eventSource.onopen = () => {
-				if ( hasConnected ) {
-					connectionRestoredListeners.forEach( ( listener ) => listener() );
+			if ( remote ) {
+				const { version } = await api< { version: string | null } >( '/version' );
+				if ( ! isSupportedServerVersion( version ) ) {
+					throw new UnsupportedServerError( version );
 				}
-				hasConnected = true;
-			};
-			eventSource.onmessage = ( message ) => {
-				let parsed: ServerEvent;
-				try {
-					parsed = JSON.parse( message.data ) as ServerEvent;
-				} catch {
-					return;
-				}
-				if ( parsed.channel === 'agent' ) {
-					agentListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'placement' ) {
-					placementListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-activity' ) {
-					syncActivityListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'sync-connect' ) {
-					syncConnectListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'site-event' ) {
-					siteEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'snapshot-event' ) {
-					snapshotEventListeners.forEach( ( listener ) => listener( parsed.payload ) );
-				} else if ( parsed.channel === 'auth-event' ) {
-					authListeners.forEach( ( listener ) => listener() );
-				}
-			};
+				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
+				// wake it, right after. So the stream runs only while the page has focus (the site
+				// preview's frame counts), and reopening it refetches what changed meanwhile.
+				const followFocus = () => {
+					if ( ! document.hasFocus() ) {
+						eventSource?.close();
+					} else if ( eventSource?.readyState === EventSource.CLOSED ) {
+						openEvents( true );
+					}
+				};
+				window.addEventListener( 'focus', followFocus );
+				// Focus moving into the preview's frame blurs the window but stays on the page.
+				window.addEventListener( 'blur', () => setTimeout( followFocus, 0 ) );
+				document.addEventListener( 'visibilitychange', followFocus );
+				// Focus can also leave from inside that frame without the page hearing of it.
+				setInterval( followFocus, 30_000 );
+			}
+			openEvents( false );
 		},
 
 		// Browser served by the local CLI: no native file dialogs, but the server
@@ -221,6 +250,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			nativeFolderPicker: false,
 			annotatePreview: false,
 			studioLogs: false,
+			localMachine: ! remote,
+			loopbackSignIn: ! remote,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -239,6 +270,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			source: TracksAuthSource = 'unknown',
 			analytics?: AuthAnalytics
 		) {
+			if ( remote ) {
+				remote.signIn();
+				return;
+			}
 			// Open the popup synchronously (inside the click gesture) so it isn't
 			// blocked, then navigate it once the authorize URL is resolved.
 			const popupName = `studio-auth-${ crypto.randomUUID() }`;
@@ -273,7 +308,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				popup?.close();
 				const redirectUri = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					signup ? getSignUpUrl( 'en', redirectUri ) : getAuthenticationUrl( 'en', redirectUri ),
+					getSignInUrl( { redirectUri, locale: 'en', signup } ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -332,8 +367,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 		async logout() {
+			if ( remote ) {
+				await remote.signOut();
+				return;
+			}
 			await api( '/auth/logout', { method: 'POST' } );
 		},
+		// Only a remote server's host sells plans. One from before the route reports no limits.
+		...( remote && {
+			async getSiteLimits() {
+				const response = await request( '/site-limits' );
+				if ( response.status === 404 ) {
+					return null;
+				}
+				if ( ! response.ok ) {
+					throw new Error( `GET /site-limits failed (${ response.status })` );
+				}
+				return ( await response.json() ) as SiteLimits | null;
+			},
+			getBilling: remote.getBilling,
+		} ),
 		onAuthStateChanged( listener ) {
 			authListeners.add( listener );
 			return () => authListeners.delete( listener );
@@ -366,6 +419,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			);
 			return thumbnail;
 		},
+		async captureAnnotationRegion() {
+			throw new Error( 'Annotation screenshots are not available in the browser yet.' );
+		},
 		async captureSitePreview( siteId, { path, width, height } ) {
 			const { thumbnail } = await api< { thumbnail: string | null } >(
 				`/sites/${ encodeURIComponent( siteId ) }/capture-preview`,
@@ -385,6 +441,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {
+			let { blueprint } = params;
+			if ( blueprint && typeof blueprint === 'object' && 'librarySlug' in blueprint ) {
+				const { bundleUrl, blueprint: declaration } = blueprint;
+				blueprint = declaration;
+				if ( bundleUrl ) {
+					const response = await fetch( bundleUrl );
+					if ( ! response.ok ) {
+						throw new Error(
+							sprintf( __( 'Failed to fetch Blueprint: HTTP %d' ), response.status )
+						);
+					}
+					blueprint = new File( [ await response.blob() ], 'blueprint.zip' );
+				}
+			}
 			return api< SiteDetails >( '/sites', {
 				method: 'POST',
 				body: JSON.stringify( {
@@ -400,9 +470,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
 					flowType: params.flowType,
-					// The server writes this to a temp file and passes --blueprint to
-					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
-					blueprint: params.blueprint,
+					blueprint: blueprint instanceof File ? await uploadFile( blueprint ) : blueprint,
 				} ),
 			} );
 		},
@@ -422,8 +490,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		// No native folder picker in a browser: the create form has the path typed
-		// (see capabilities.nativeFolderPicker), and this checks what it holds.
+		// The browser has no native folder picker; this checks a known path.
 		async selectSiteFolder( folderPath, options ): Promise< SelectedSiteFolder | null > {
 			return api< SelectedSiteFolder >( '/site-defaults/folder', {
 				method: 'POST',
@@ -452,7 +519,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// own default), so only forward the override when the caller opts out.
 		async deleteSite( id, deleteFiles ) {
 			const query = deleteFiles === false ? '?deleteFiles=false' : '';
-			await api( `/sites/${ encodeURIComponent( id ) }${ query }`, { method: 'DELETE' } );
+			return api< { warnings: string[] } >( `/sites/${ encodeURIComponent( id ) }${ query }`, {
+				method: 'DELETE',
+			} );
 		},
 		// Duplicate a site; the server picks the numbered name + new id and copies
 		// the files, mirroring the desktop's copy flow.
@@ -504,9 +573,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return uploadFile( file );
 		},
 		async readLocalMediaFile( filePath ): Promise< LocalMediaFile > {
-			const response = await fetch(
-				`${ base }/media/read?path=${ encodeURIComponent( filePath ) }`
-			);
+			const response = await request( `/media/read?path=${ encodeURIComponent( filePath ) }` );
 			if ( ! response.ok ) {
 				const text = await response.text().catch( () => '' );
 				throw new Error( `GET /media/read failed (${ response.status }): ${ text }` );
@@ -517,28 +584,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				data: await response.arrayBuffer(),
 			};
 		},
-		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
-			const data = await file.arrayBuffer();
-			const response = await fetch( `${ base }/blueprints/extract`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/octet-stream' },
-				body: data,
-				signal: AbortSignal.timeout( 60_000 ),
-			} );
-			if ( ! response.ok ) {
-				const text = await response.text().catch( () => '' );
-				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );
+		async readBlueprint( source ) {
+			if ( ! ( source instanceof File ) ) {
+				throw new UnsupportedError( 'readBlueprint' );
 			}
-			return ( await response.json() ) as ExtractedBlueprintBundle;
-		},
-		async cleanupBlueprintTempDir( tempDir ) {
-			await api( '/blueprints/cleanup', {
+			return api< Blueprint >( '/blueprints/read', {
 				method: 'POST',
-				body: JSON.stringify( { tempDir } ),
+				body: JSON.stringify( { path: await uploadFile( source ) } ),
 			} );
-		},
-		async readBlueprintFile() {
-			throw new UnsupportedError( 'readBlueprintFile' );
 		},
 		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
 			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
@@ -572,11 +625,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async deleteAllSnapshots() {
 			await api( '/snapshots', { method: 'DELETE' } );
 		},
-		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
+		async publishPreviewSite(
+			siteId,
+			existingHostname,
+			name,
+			liveSite
+		): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
 			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
 				method: 'POST',
-				body: JSON.stringify( { hostname: existingHostname, name } ),
+				body: JSON.stringify( { hostname: existingHostname, name, liveSite } ),
 			} );
 		},
 		async deleteSnapshot( hostname ) {
@@ -588,29 +646,57 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { name } ),
 			} );
 		},
-		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
-			return api< SyncSite[] >(
-				localSiteId
-					? `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`
-					: '/wpcom/connected-sites'
+		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
+			return api(
+				`/sites/${ encodeURIComponent( siteId ) }/publish-status/${ remoteSiteId }?provider=${
+					provider ?? 'wpcom'
+				}`
 			);
 		},
-		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
-			return api< SyncSite[] >( '/wpcom/syncable-sites' );
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
-		async connectWpcomSite( localSiteId, site ) {
-			await api( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`, {
+		async getRemoteSites( provider, localSiteId ) {
+			return api(
+				`/remote-sites/${ provider }${
+					localSiteId ? `?localSiteId=${ encodeURIComponent( localSiteId ) }` : ''
+				}`
+			);
+		},
+		async getSiteVisibility( provider, id ) {
+			return api( `/remote-sites/${ provider }/${ id }/visibility` );
+		},
+		async setSiteVisibility( provider, id, visibility ) {
+			return api( `/remote-sites/${ provider }/${ id }/visibility`, {
+				method: 'POST',
+				body: JSON.stringify( { visibility } ),
+			} );
+		},
+		async listAccountSites( provider ) {
+			return api( `/remote-sites/${ provider }/account` );
+		},
+		async connectRemoteSite( provider, localSiteId, site ) {
+			await api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }`, {
 				method: 'POST',
 				body: JSON.stringify( site ),
 			} );
 		},
-		async disconnectWpcomSite( localSiteId, remoteSiteId ) {
+		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {
 			await api(
-				`/sites/${ encodeURIComponent( localSiteId ) }/connected-sites/${ encodeURIComponent(
-					remoteSiteId
-				) }`,
+				`/sites/${ encodeURIComponent(
+					localSiteId
+				) }/remote-sites/${ provider }/${ encodeURIComponent( remoteSiteId ) }`,
 				{ method: 'DELETE' }
 			);
+		},
+		async getSiteCreationVisibility( provider ) {
+			return api( `/remote-sites/${ provider }/creation-visibility` );
+		},
+		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
+			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
+				method: 'POST',
+				body: JSON.stringify( { name, visibility, connect } ),
+			} );
 		},
 		onSyncConnectSite( listener ) {
 			syncConnectListeners.add( listener );
@@ -625,10 +711,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, options ) {
+		async pushSite( provider, siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(
-				`/sites/${ encodeURIComponent( siteId ) }/push`,
-				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/push`,
+				{ method: 'POST', body: JSON.stringify( { options } ) }
 			);
 			// The server reports a cancel instead of failing the request; turn it
 			// back into an error for the caller.
@@ -643,10 +731,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, options ) {
+		async pullSite( provider, siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(
-				`/sites/${ encodeURIComponent( siteId ) }/pull`,
-				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/pull`,
+				{ method: 'POST', body: JSON.stringify( { options } ) }
 			);
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
@@ -656,14 +746,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			syncActivityListeners.add( listener );
 			return () => syncActivityListeners.delete( listener );
 		},
-		async getLatestRewindId( remoteSiteId ) {
-			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		async getRemoteBackupId( provider, remoteSiteId ) {
+			return api< string | null >(
+				`/remote-sites/${ provider }/${ encodeURIComponent( remoteSiteId ) }/backup`
+			);
 		},
-		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+		async listRemoteBackupFiles( provider, remoteSiteId, backupId, path ) {
 			return api< Record< string, unknown > >(
-				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
-					rewindId
-				) }&path=${ encodeURIComponent( path ) }`
+				`/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/backup-files?backupId=${ encodeURIComponent( backupId ) }&path=${ encodeURIComponent(
+					path
+				) }`
 			);
 		},
 		async listLocalFileTree( siteId, path, depth ) {
@@ -689,12 +783,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getIsMultisite( siteId ) {
 			return api< boolean >( `/sites/${ encodeURIComponent( siteId ) }/multisite` );
-		},
-		async getHostingPhpVersion( remoteSiteId ) {
-			const version = await api< string | null >(
-				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
-			);
-			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which
@@ -749,6 +837,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
 				method: 'POST',
 				body: JSON.stringify( { provider, model } ),
+			} );
+		},
+		async setSessionThinking( sessionId, model, thinking ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/thinking`, {
+				method: 'POST',
+				body: JSON.stringify( { model, thinking } ),
 			} );
 		},
 		async setSessionEnvironment( sessionId, environment ) {
@@ -806,6 +900,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< InstalledApps >( '/installed-apps' );
 		},
 
+		async getAgentApps(): Promise< AgentApp[] > {
+			return api< AgentApp[] >( '/agent-apps' );
+		},
+		async connectAgentApp( id ): Promise< void > {
+			await api< void >( `/agent-apps/${ id }/connect`, { method: 'POST' } );
+		},
+
 		async getAppGlobals(): Promise< AppGlobals > {
 			return { platform: 'browser', isWindowsStore: false };
 		},
@@ -837,14 +938,38 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getAiSettings(): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings' );
 		},
-		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return api< AiSettings >( '/ai-settings', {
+		async connectProvider( provider, method, input ): Promise< AiSettings > {
+			return api< AiSettings >( `/ai-settings/providers/${ provider }`, {
 				method: 'PUT',
-				body: JSON.stringify( { anthropicApiKey: key } ),
+				body: JSON.stringify( { method, input } ),
+			} );
+		},
+		async disconnectProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( `/ai-settings/providers/${ provider }`, { method: 'DELETE' } );
+		},
+		async listProviderModels( provider ) {
+			return api< CatalogModel[] >( `/ai-settings/providers/${ provider }/models` );
+		},
+		async selectProviderModels( provider, models ): Promise< AiSettings > {
+			return api< AiSettings >( `/ai-settings/providers/${ provider }/models`, {
+				method: 'PUT',
+				body: JSON.stringify( { models } ),
+			} );
+		},
+		async startProviderConnect( provider, method ) {
+			return api( `/ai-settings/providers/${ provider }/start`, {
+				method: 'POST',
+				body: JSON.stringify( { method } ),
 			} );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings/provider', {
+				method: 'PUT',
+				body: JSON.stringify( { provider } ),
+			} );
+		},
+		async setImageProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/image-provider', {
 				method: 'PUT',
 				body: JSON.stringify( { provider } ),
 			} );
@@ -981,9 +1106,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
-		onTogglePanel( listener ) {
-			return onMenuShortcut( listener, 'b', 'shift' );
-		},
+		...menuShortcuts,
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
@@ -994,17 +1117,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				)
 			);
 		},
-		onToggleSidebar( listener ) {
-			return onMenuShortcut( listener, 'b' );
-		},
 		onOpenFolder() {
 			return () => {};
-		},
-		onNewChat( listener ) {
-			return onMenuShortcut( listener, 'n', 'shift' );
-		},
-		onAddSite( listener ) {
-			return onMenuShortcut( listener, 'n' );
 		},
 		onAddSiteWithBlueprint() {
 			return () => {};
@@ -1013,8 +1127,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			// Spotlight opens the installed desktop app.
 			return () => {};
 		},
-		onOpenSettings( listener ) {
-			return onMenuShortcut( () => listener( {} ), ',' );
+		onPullSite() {
+			// `pull-site` links open the installed desktop app.
+			return () => {};
 		},
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.

@@ -22,9 +22,10 @@ interface PanelSplitFrameProps {
 	// handles layout transitions.
 	panel?: ( props: PanelSplitFramePanelProps ) => ReactNode;
 	panelOpen?: boolean;
+	onPanelClose?: () => void;
+	onChatClose?: () => void;
 	// The panel fills the frame over the hidden chat; the sidebar stays.
 	chatHidden?: boolean;
-	chatTabActive?: boolean;
 	// Skip movement when restoring a different workspace.
 	instant?: boolean;
 	children?: ReactNode;
@@ -36,17 +37,19 @@ export function PanelSplitFrame( {
 	header,
 	panel,
 	panelOpen = false,
+	onPanelClose,
+	onChatClose,
 	chatHidden = false,
-	chatTabActive = false,
 	instant = false,
 	children,
 }: PanelSplitFrameProps ) {
 	const showPanel = panelOpen && panel != null;
 	const contentCollapsed = showPanel && chatHidden;
-	const showingChatTab = contentCollapsed && chatTabActive;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePanelSplit( {
 		showPanel,
 		siteId,
+		onPanelClose,
+		onChatClose,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
 	const resizable = ( containerWidth ?? Infinity ) >= PANEL_SPLIT_MIN_WIDTH;
@@ -64,15 +67,13 @@ export function PanelSplitFrame( {
 		mounted: panel != null,
 		open: showPanel,
 		collapsed: contentCollapsed,
-		chatSelected: showingChatTab,
 	} );
 	if (
 		previousPanel.siteId !== siteId ||
 		previousPanel.navigationKey !== navigationKey ||
 		previousPanel.mounted !== ( panel != null ) ||
 		previousPanel.open !== showPanel ||
-		previousPanel.collapsed !== contentCollapsed ||
-		previousPanel.chatSelected !== showingChatTab
+		previousPanel.collapsed !== contentCollapsed
 	) {
 		setPreviousPanel( {
 			siteId,
@@ -80,7 +81,6 @@ export function PanelSplitFrame( {
 			mounted: panel != null,
 			open: showPanel,
 			collapsed: contentCollapsed,
-			chatSelected: showingChatTab,
 		} );
 		const toggled =
 			previousPanel.open !== showPanel || previousPanel.collapsed !== contentCollapsed;
@@ -90,9 +90,7 @@ export function PanelSplitFrame( {
 			previousPanel.mounted &&
 			panel != null;
 		if ( toggled || ! samePanel ) {
-			setAnimatingPanelToggle(
-				toggled && samePanel && ! instant && ! ( previousPanel.chatSelected && ! showPanel )
-			);
+			setAnimatingPanelToggle( toggled && samePanel && ! instant );
 		}
 	}
 
@@ -114,9 +112,9 @@ export function PanelSplitFrame( {
 
 	const [ lastExpanded, setLastExpanded ] = useState( contentCollapsed );
 	if ( showPanel && lastExpanded !== contentCollapsed ) setLastExpanded( contentCollapsed );
-	const panelVisible = ( showPanel || animatingPanelToggle ) && ! showingChatTab;
+	const panelVisible = showPanel || animatingPanelToggle;
 	const renderPanel = ! showPanel && animatingPanelToggle ? lastVisiblePanel : panel;
-	const renderedPanel = renderPanel?.( { collapsed: ! showPanel || showingChatTab } );
+	const renderedPanel = renderPanel?.( { collapsed: ! showPanel } );
 	const rootStyle = {
 		'--panel-layout-duration': animatingPanelToggle ? 'var(--motion-duration-layout)' : '0ms',
 		'--panel-frame-boundary': showPanel ? ( contentCollapsed ? '0px' : contentWidthVar ) : '100%',
@@ -126,14 +124,13 @@ export function PanelSplitFrame( {
 			: contentWidthVar,
 	} as CSSProperties;
 	// The panel covers the chat as it closes; keep its layout intact underneath.
-	const contentHidden = contentCollapsed && ! animatingPanelToggle && ! showingChatTab;
+	const contentHidden = contentCollapsed && ! animatingPanelToggle;
 	// Which pane reaches the window's top-right corner. The panel sits at the
 	// inline end, so in RTL it only gets there when it fills the frame, and the
 	// content only when the sidebar isn't there.
 	const contentInCorner =
-		showingChatTab ||
-		( ! contentCollapsed && ( ! showPanel || ( isRTL() && isSidebarCollapsed ) ) );
-	const panelInCorner = showPanel && ! showingChatTab && ( contentCollapsed || ! isRTL() );
+		! contentCollapsed && ( ! showPanel || ( isRTL() && isSidebarCollapsed ) );
+	const panelInCorner = showPanel && ( contentCollapsed || ! isRTL() );
 
 	return (
 		<>
@@ -155,11 +152,10 @@ export function PanelSplitFrame( {
 					className={ clsx(
 						styles.contentColumn,
 						contentCollapsed && styles.contentColumnCollapsed,
-						showingChatTab && styles.contentColumnFull,
 						contentHidden && styles.contentColumnHidden
 					) }
 					aria-hidden={ contentHidden || undefined }
-					inert={ contentCollapsed && ! showingChatTab }
+					inert={ contentCollapsed }
 				>
 					<WindowControlsCornerContext.Provider value={ contentInCorner }>
 						{ children }
@@ -170,10 +166,10 @@ export function PanelSplitFrame( {
 						className={ clsx(
 							styles.panelSlot,
 							panelVisible && styles.panelSlotVisible,
-							showPanel && ! showingChatTab && styles.panelSlotInteractive
+							showPanel && styles.panelSlotInteractive
 						) }
-						aria-hidden={ ! showPanel || showingChatTab }
-						inert={ ! showPanel || showingChatTab }
+						aria-hidden={ ! showPanel }
+						inert={ ! showPanel }
 					>
 						<WindowControlsCornerContext.Provider value={ panelInCorner }>
 							{ renderedPanel }
@@ -183,13 +179,24 @@ export function PanelSplitFrame( {
 				{ panel && resizable ? (
 					<div
 						className={ styles.panelResizeHandle }
-						aria-hidden={ ! showPanel || contentCollapsed || animatingPanelToggle || undefined }
-						inert={ ! showPanel || contentCollapsed || animatingPanelToggle }
+						aria-hidden={ ! showPanel || contentCollapsed || undefined }
+						inert={ ! showPanel || contentCollapsed }
 					>
 						<ResizeHandle
 							className={ styles.panelResizeGrip }
 							label={ __( 'Resize panel' ) }
 							{ ...handleProps }
+							onResizeStart={ ( event ) => {
+								if ( event.button === 0 ) setAnimatingPanelToggle( false );
+								handleProps.onResizeStart( event );
+							} }
+							onKeyDown={ ( event ) => {
+								if ( [ 'ArrowLeft', 'ArrowRight', 'Home', 'End' ].includes( event.key ) ) {
+									setAnimatingPanelToggle( false );
+								}
+								handleProps.onKeyDown( event );
+							} }
+							onDoublePress={ onPanelClose }
 						/>
 					</div>
 				) : null }

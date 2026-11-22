@@ -2,6 +2,7 @@ import { IpcMainInvokeEvent } from 'electron';
 import {
 	deleteAllPreviewSites,
 	fetchSnapshots as fetchSnapshotsFromCli,
+	getPreviewStatus as getPreviewStatusFromCli,
 	deletePreviewSite as deletePreviewSiteViaCli,
 	publishPreviewSite as publishPreviewSiteViaCli,
 	renamePreviewSite as renamePreviewSiteViaCli,
@@ -19,9 +20,10 @@ export async function publishPreviewSite(
 	_event: IpcMainInvokeEvent,
 	siteFolder: string,
 	hostname?: string,
-	name?: string
+	name?: string,
+	liveSite?: string
 ): Promise< { url: string } > {
-	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname, name );
+	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname, name, liveSite );
 }
 
 export async function deletePreviewSite( _event: IpcMainInvokeEvent, hostname: string ) {
@@ -34,6 +36,10 @@ export async function renamePreviewSite(
 	name: string
 ) {
 	return renamePreviewSiteViaCli( executeCliCommand, hostname, name );
+}
+
+export async function getPreviewStatus( _event: IpcMainInvokeEvent, hostname: string ) {
+	return getPreviewStatusFromCli( executeCliCommand, hostname );
 }
 
 export async function deleteAllSnapshots() {

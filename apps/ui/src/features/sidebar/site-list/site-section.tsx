@@ -4,12 +4,15 @@ import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
 import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
-import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
+import { getStagedAnnotations } from '@/features/annotations';
+import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
-import { GlobeIcon, NeedsInputIcon, NewChatIcon } from '@/lib/icons';
+import { GlobeIcon, TriangleAlertIcon, SquarePenIcon } from '@/lib/icons';
 import {
 	Badge,
 	IconButton,
@@ -20,7 +23,6 @@ import {
 	SidebarMenuLabel,
 } from '@/lib/ui';
 import { useRowPressed, useSelectableRow } from './selection';
-import { SiteAgentActivityIndicator } from './site-activity-indicator';
 import { SiteChats } from './site-chats';
 import { SiteRowMenu } from './site-row-menu';
 import { getSiteStatus } from './site-status';
@@ -54,8 +56,8 @@ export function SiteSection( {
 	expanded: boolean;
 	loadError: boolean;
 	reorderable: boolean;
-	// Clicking the row, before it opens the site; folds or unfolds its chats.
-	onOpen?: () => void;
+	// Folds or unfolds the chats, then schedules opening another site's workspace.
+	onOpen?: ( openSite?: () => void ) => void;
 	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
 	// Drag handling, when the row is in a reorderable list.
@@ -67,11 +69,16 @@ export function SiteSection( {
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLLIElement >( null );
 	const isActive = isChatActive || isContextActive;
-	const showChats = expanded && ( chats.length > 0 || loadError );
+	const { draft } = useSiteChatDraft( site.id );
+	const pendingChat =
+		draft.pendingPrompt !== undefined && ! chats.some( ( chat ) => chat.id === draft.sessionId );
+	const showChats = expanded && ( chats.length > 0 || pendingChat || loadError );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const needsInput = ! expanded && agentActivity === 'pending-question';
 	// Highlighted, with its actions showing, unless its open chat is listed under it.
-	const highlighted = ( isChatActive && ( ! showChats || ! activeSessionId ) ) || isContextActive;
+	const highlighted =
+		( isChatActive && ( ! showChats || ( ! activeSessionId && ! pendingChat ) ) ) ||
+		isContextActive;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -83,23 +90,15 @@ export function SiteSection( {
 	const isStopping = useIsSiteStopping( site.id );
 	const operation = useSiteOperation( site );
 	const status = getSiteStatus( site, isStarting, isStopping, operation );
-	const syncActivity = useSiteSyncActivity( site.id );
-	// Import gets a row indicator of its own alongside push/pull: it is the only
-	// way to tell which site a long-running import belongs to when several are in
-	// flight, and it is a local operation, so it doesn't read as "syncing".
-	const pendingDirection = syncActivity?.kind === 'pending' ? syncActivity.direction : undefined;
-	const siteActivity =
-		pendingDirection === 'import'
-			? 'import'
-			: pendingDirection === 'push' || pendingDirection === 'pull'
-			? 'sync'
-			: undefined;
-	const displayActivity = siteActivity ?? 'idle';
-	const openSite = useOpenSite();
+	const openSite = useOpenSite( { animateSelection: ! ( onOpen && isActive && expanded ) } );
 	const preview = useOptionalSessionPreviewUI();
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 	const handleOpenSite = () => {
-		onOpen?.();
-		if ( ! onOpen ) onSiteOpen?.();
+		if ( onOpen ) {
+			onOpen( isChatActive ? undefined : () => openSite( site ) );
+			return;
+		}
+		onSiteOpen?.();
 		openSite( site );
 	};
 	const handleStartSite = () => {
@@ -134,13 +133,14 @@ export function SiteSection( {
 							{ status === 'running' ? <NotificationDot position="icon" /> : null }
 						</span>
 						<div className={ styles.siteText }>
-							<SiteAgentActivityIndicator activity={ displayActivity } />
 							<SidebarMenuLabel
 								render={ <button type="button" /> }
 								className={ status === 'transitioning' ? 'studio-shimmer' : undefined }
 								aria-current={ isChatActive ? 'page' : undefined }
 								aria-pressed={ pressed }
-								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
+								aria-expanded={
+									onOpen && ( chats.length > 0 || pendingChat ) ? showChats : undefined
+								}
 							>
 								{ site.name }
 							</SidebarMenuLabel>
@@ -160,19 +160,33 @@ export function SiteSection( {
 						role="status"
 						aria-label={ __( 'WordPress Studio needs an answer.' ) }
 					>
-						<NeedsInputIcon />
+						<TriangleAlertIcon />
 					</Badge>
 				) : null }
 				<IconButton
-					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
-					icon={ <NewChatIcon /> }
+					icon={ <SquarePenIcon /> }
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();
-						preview?.setChatHidden( false, site.id );
-						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+						const draft = getComposerDraft( `site:${ site.id }` );
+						const hideChat =
+							isChatActive &&
+							! activeSessionId &&
+							!! site.running &&
+							preview?.siteId === site.id &&
+							preview.open &&
+							! preview.chatHidden &&
+							! draft.text &&
+							draft.attachments.length === 0 &&
+							getStagedAnnotations( site.id ).length === 0;
+						runLayoutTransition( () => {
+							preview?.setChatHidden( hideChat, site.id );
+							if ( ! hideChat ) {
+								return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+							}
+						} );
 					} }
 				/>
 				<SiteStatusButton
@@ -190,6 +204,18 @@ export function SiteSection( {
 				loadError={ loadError }
 				reorderable={ reorderable }
 				activeSessionId={ activeSessionId }
+				pendingChat={
+					pendingChat
+						? { label: draft.pendingPrompt ?? '', active: isChatActive && ! activeSessionId }
+						: undefined
+				}
+				onOpenDraft={ () => {
+					onSiteOpen?.();
+					runLayoutTransition( () => {
+						preview?.setChatHidden( false, site.id );
+						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					} );
+				} }
 				onReorderChats={ onReorderChats }
 				onSiteOpen={ onSiteOpen }
 			/>

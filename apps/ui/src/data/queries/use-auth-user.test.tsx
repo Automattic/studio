@@ -1,7 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { getNoticeHistory } from '@/data/app-messages';
+import { getVisibleToasts } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
 import { createFakeConnector, TEST_USER, type FakeConnector } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
@@ -77,16 +77,16 @@ describe( 'useAuthUser', () => {
 
 		renderAuthUser( connector );
 		await waitFor( () => expect( screen.getByTestId( 'state' ) ).toHaveTextContent( 'signed-in' ) );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 
 		signIn( connector, null );
 		await waitFor( () =>
-			expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Logged out of WordPress.com' )
+			expect( getVisibleToasts().at( -1 )?.title ).toBe( 'Logged out of WordPress.com' )
 		);
 
 		signIn( connector, TEST_USER );
 		await waitFor( () =>
-			expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Logged in to WordPress.com' )
+			expect( getVisibleToasts().at( -1 )?.title ).toBe( 'Logged in to WordPress.com' )
 		);
 	} );
 } );

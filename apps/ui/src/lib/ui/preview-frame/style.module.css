@@ -10,6 +10,10 @@
 		background-color: var( --muted );
 	}
 
+	.frame:empty {
+		display: none;
+	}
+
 	.frame::after {
 		z-index: 1;
 	}
@@ -19,11 +23,5 @@
 		height: 100%;
 		object-fit: cover;
 		object-position: top;
-	}
-
-	.skeleton {
-		position: absolute;
-		inset: 0;
-		border-radius: 0;
 	}
 }

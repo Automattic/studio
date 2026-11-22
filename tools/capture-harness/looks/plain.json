@@ -1,0 +1,5 @@
+{
+	"$schema": "../schemas/look.schema.json",
+	"name": "plain",
+	"description": "The default: a 1440×900 window at 2×, light, crops at least 3:2, unframed WebP stills"
+}

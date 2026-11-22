@@ -8,14 +8,16 @@ export function DropZone( {
 	description,
 	children,
 	className,
+	size = 'default',
 	...props
 }: Omit< ComponentProps< 'div' >, 'title' > & {
 	icon?: ReactNode;
 	title: ReactNode;
 	description: ReactNode;
+	size?: 'default' | 'sm';
 } ) {
 	return (
-		<div { ...props } className={ clsx( styles.zone, className ) }>
+		<div { ...props } data-size={ size } className={ clsx( styles.zone, className ) }>
 			{ icon ? <div className={ styles.icon }>{ icon }</div> : null }
 			<div className={ styles.text }>
 				<p className={ styles.label }>{ title }</p>

@@ -2,11 +2,11 @@
 setlocal enabledelayedexpansion
 
 rem Save original code page
-for /f "tokens=2 delims=:" %%i in ('chcp') do set "ORIGINAL_CP=%%i"
+for /f "tokens=2 delims=:" %%i in ('"%SystemRoot%\System32\chcp.com"') do set "ORIGINAL_CP=%%i"
 set ORIGINAL_CP=!ORIGINAL_CP: =!
 
 rem Set code page to UTF-8
-chcp 65001 >nul
+"%SystemRoot%\System32\chcp.com" 65001 >nul
 
 set "INSTALL_DIR=%~dp0.."
 set "RUNTIME_DIR=!INSTALL_DIR!"
@@ -39,7 +39,7 @@ if exist "!BUNDLED_NODE_EXECUTABLE!" (
 set "EXIT_CODE=!ERRORLEVEL!"
 
 rem Restore original code page
-chcp !ORIGINAL_CP! >nul
+"%SystemRoot%\System32\chcp.com" !ORIGINAL_CP! >nul
 
 endlocal
 exit /b !EXIT_CODE!

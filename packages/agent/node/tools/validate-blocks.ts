@@ -1,9 +1,9 @@
-import { readFile, writeFile } from 'fs/promises';
-import path from 'path';
-import { generateUnifiedPatch } from '@earendil-works/pi-coding-agent';
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { Type } from 'typebox';
 import { validateHtmlBlockPolicy } from '@studio/agent/node/block-content-policy';
 import { validateBlocks, type ValidationReportBase } from '@studio/agent/node/block-validator';
+import { generateUnifiedPatch } from '@studio/agent/node/unified-patch';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
 
@@ -66,7 +66,7 @@ export const validateBlocksTool = defineTool(
 
 			if ( args.filePath ) {
 				filePath = path.resolve( site.path, args.filePath );
-				blockContent = await readFile( filePath, 'utf-8' );
+				blockContent = await readFile( filePath, 'utf8' );
 				fileName = filePath.split( path.sep ).slice( -2 ).join( '/' );
 			} else if ( args.content !== undefined ) {
 				blockContent = args.content;
@@ -150,7 +150,7 @@ export const validateBlocksTool = defineTool(
 					const fixedContent = report.proposedFix.fixedContent;
 					const diff = generateUnifiedPatch( fileName, blockContent, fixedContent );
 					if ( filePath ) {
-						await writeFile( filePath, fixedContent, 'utf-8' );
+						await writeFile( filePath, fixedContent );
 						context.onProgress( `${ fileName }: editor serialization fix applied` );
 						lines.push(
 							'',

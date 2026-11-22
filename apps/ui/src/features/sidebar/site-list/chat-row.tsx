@@ -7,8 +7,9 @@ import { useSessions } from '@/data/queries/use-sessions';
 import { chatPinKey } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { ChatActionsMenuItems, useChatActions, getSessionTitle } from '@/features/chats';
-import { ArchiveIcon, ChatIcon, NeedsInputIcon, PinIcon, UnpinIcon } from '@/lib/icons';
+import { ArchiveIcon, ChatIcon, TriangleAlertIcon, PinIcon, UnpinIcon } from '@/lib/icons';
 import {
 	Badge,
 	IconButton,
@@ -21,7 +22,6 @@ import {
 	VisuallyHidden,
 } from '@/lib/ui';
 import { BulkMenu, useIsBulkTarget, useRowPressed, useSelectableRow } from './selection';
-import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
@@ -60,6 +60,7 @@ export function ChatRow( {
 	const preview = useOptionalSessionPreviewUI();
 	const { data: sites } = useSites();
 	const owner = findAiSessionOwnerSite( sites, session );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( owner?.id );
 	const { sessionId } = useParams( { strict: false } );
 	const isCurrentChat = session.id === sessionId;
 	const activity = useSiteAgentActivity( [ session.id ] );
@@ -94,11 +95,13 @@ export function ChatRow( {
 								}
 								onClick={ () => {
 									onOpen?.();
-									if ( owner ) preview?.setChatHidden( false, owner.id );
-									void navigate( {
-										to: '/sessions/$sessionId',
-										params: { sessionId: session.id },
-										state: { chatNavigation: navigation },
+									runLayoutTransition( () => {
+										if ( owner ) preview?.setChatHidden( false, owner.id );
+										return navigate( {
+											to: '/sessions/$sessionId',
+											params: { sessionId: session.id },
+											state: { chatNavigation: navigation },
+										} );
 									} );
 								} }
 							>
@@ -114,7 +117,7 @@ export function ChatRow( {
 										role="status"
 										aria-label={ __( 'WordPress Studio needs an answer.' ) }
 									>
-										<NeedsInputIcon />
+										<TriangleAlertIcon />
 									</Badge>
 								) : null }
 								{ session.unread && ! isCurrentChat ? (
@@ -124,7 +127,6 @@ export function ChatRow( {
 							{ needsInput ? null : (
 								<SidebarMenuActions showOnHover={ ! active || nested } data-reorder-exclude>
 									<IconButton
-										className={ styles.rowAction }
 										variant="muted-ghost"
 										size="icon-sm"
 										icon={ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
@@ -132,7 +134,6 @@ export function ChatRow( {
 										onClick={ actions.togglePin }
 									/>
 									<IconButton
-										className={ styles.rowAction }
 										variant="muted-ghost"
 										size="icon-sm"
 										icon={ <ArchiveIcon /> }

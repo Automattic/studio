@@ -1,10 +1,11 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
 import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { showToast } from '@/data/app-messages';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useDeleteSite } from '@/data/queries/use-sites';
 import { SiteCard } from '@/features/site-card';
 import { getSiteUrl } from '@/features/sites/get-site-url';
+import { XIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,
@@ -79,8 +80,16 @@ export function DeleteSiteDialog( {
 		const deletedIds: string[] = [];
 		for ( const site of includedSites ) {
 			try {
-				await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
+				const { warnings } = await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
 				deletedIds.push( site.id );
+				for ( const warning of warnings ) {
+					showToast( {
+						intent: 'warning',
+						title: __( 'Site files left on disk' ),
+						description: warning,
+						durationMs: 0,
+					} );
+				}
 			} catch ( err ) {
 				errors.push( ( err as Error )?.message );
 			}
@@ -129,7 +138,7 @@ export function DeleteSiteDialog( {
 					<DialogTitle>
 						{ count === 1
 							? /* translators: %s: site name. */
-							  sprintf( __( 'Remove “%s” from WordPress Studio?' ), includedSites[ 0 ].name )
+							  sprintf( __( 'Remove %s' ), includedSites[ 0 ].name )
 							: sprintf(
 									/* translators: %d: number of sites. */
 									_n(
@@ -140,7 +149,7 @@ export function DeleteSiteDialog( {
 									count
 							  ) }
 					</DialogTitle>
-					<DialogDescription tone="default">
+					<DialogDescription>
 						{ count === 1
 							? __(
 									'Are you sure you want to remove this site and delete its chats and any shared preview sites?'

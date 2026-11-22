@@ -9,6 +9,14 @@
 	display: none;
 }
 
+.fileTypes {
+	max-width: 384px;
+	color: var( --muted-foreground );
+	font-size: var( --text-2xs );
+	line-height: var( --text-xxs--line-height );
+	text-wrap: pretty;
+}
+
 .zone:has( .choose:not( :disabled, [data-disabled] ) ):hover {
 	border-color: color-mix( in oklab, var( --foreground ) 25%, transparent );
 	background-color: var( --muted );

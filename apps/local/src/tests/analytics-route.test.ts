@@ -1,13 +1,12 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import * as configFile from '@studio/common/lib/cli-config-file';
+import * as store from '@studio/common/lib/config/store';
 import {
 	TRACKS_EVENTS,
 	type TracksEventName,
 	type TracksProps,
 } from '@studio/common/lib/record-tracks-event';
-import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
@@ -32,10 +31,18 @@ beforeEach( async () => {
 	directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-analytics-route-' ) );
 	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
 	await fs.writeFile(
-		getCliConfigPath(),
+		store.getConfigPath(),
 		JSON.stringify( {
 			version: 1,
-			sites: [ { id: operationalId, path: '/private/path', name: 'Private title' } ],
+			sites: [
+				{
+					id: operationalId,
+					path: '/private/path',
+					name: 'Private title',
+					port: 8881,
+					phpVersion: '8.3',
+				},
+			],
 			snapshots: [],
 			otherField: { preserved: true },
 		} )
@@ -81,14 +88,20 @@ describe( 'POST /api/analytics/event', () => {
 			{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
 		],
 		[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
-	] )(
-		'forwards Blueprint dialog event %s through the browser recorder',
-		async ( eventName, props ) => {
-			const response = await postEvent( { eventName, props } );
-			expect( response.status ).toBe( 204 );
-			expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith( eventName, props );
-		}
-	);
+		[
+			TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED,
+			{
+				action: 'manual_resize',
+				preset_category: 'custom',
+				width_bucket: 'under_600',
+				height_bucket: '600_to_1023',
+			},
+		],
+	] )( 'forwards UI event %s through the browser recorder', async ( eventName, props ) => {
+		const response = await postEvent( { eventName, props } );
+		expect( response.status ).toBe( 204 );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith( eventName, props );
+	} );
 
 	it( 'accepts an event with no props', async () => {
 		const response = await postEvent( { eventName: TRACKS_EVENTS.APP_LAUNCH } );
@@ -170,7 +183,7 @@ it.each(
 			siteId: operationalId,
 			props: { success, site_id: operationalId, preview_id: 'caller-preview' },
 		} );
-		const config = JSON.parse( await fs.readFile( getCliConfigPath(), 'utf8' ) );
+		const config = JSON.parse( await fs.readFile( store.getConfigPath(), 'utf8' ) );
 		const id = config.sites[ 0 ].tracksId;
 		expect( id ).toMatch( /^[0-9a-f-]{36}$/ );
 		expect( id ).not.toBe( operationalId );
@@ -191,9 +204,7 @@ it( 'omits an unresolved site ID and preserves the event', async () => {
 	} );
 } );
 it( 'preserves the event when site ID persistence fails', async () => {
-	vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
-		new Error( 'Storage unavailable' )
-	);
+	vi.spyOn( store, 'updateConfig' ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
 	const response = await postEvent( {
 		eventName: TRACKS_EVENTS.SYNC_CONNECT,
 		siteId: operationalId,
@@ -214,7 +225,7 @@ it.each( [ 'chat', 'split', 'panel' ] )(
 			props: { layout, site_id: operationalId, preview_id: '/private/path' },
 		} );
 		expect( response.status ).toBe( 204 );
-		const config = JSON.parse( await fs.readFile( getCliConfigPath(), 'utf8' ) );
+		const config = JSON.parse( await fs.readFile( store.getConfigPath(), 'utf8' ) );
 		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
 			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
 			{ layout, site_id: config.sites[ 0 ].tracksId }
@@ -228,9 +239,7 @@ it.each( [ 'missing', 'storage' ] )(
 	'preserves the workspace layout event when attribution is %s',
 	async ( failure ) => {
 		if ( failure === 'storage' )
-			vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
-				new Error( 'Unavailable' )
-			);
+			vi.spyOn( store, 'updateConfig' ).mockRejectedValueOnce( new Error( 'Unavailable' ) );
 		await postEvent( {
 			eventName: TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
 			siteId: failure === 'missing' ? 'missing' : operationalId,

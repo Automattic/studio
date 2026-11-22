@@ -1,18 +1,20 @@
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { EllipsisVertical } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useContext, useId, useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
+import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
-import { useIsSiteBusy, useSites, useStopSite } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useSites, useStopSite, useRestartSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { PanelCommandContext } from '@/data/use-panel-command';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { SiteShareMenuItem } from '@/features/sharing';
 import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
 import {
@@ -21,6 +23,7 @@ import {
 	useSiteBackupImport,
 } from '@/features/sites/import-site-dialog';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
+import { getPhpMyAdminUnavailableReason } from '@/features/sites/phpmyadmin';
 import { SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { useItemShortcuts } from '@/features/sites/use-item-shortcuts';
 import {
@@ -30,23 +33,22 @@ import {
 } from '@/features/sites/use-site-management-actions';
 import { SitePublishMenu } from '@/features/sync';
 import {
-	ArrowRightIcon,
-	ChatIcon,
 	ChevronDownIcon,
 	ExportIcon,
 	ExternalLinkIcon,
+	FullscreenIcon,
 	GlobeIcon,
-	NewChatIcon,
+	SquarePenIcon,
 	PinIcon,
-	RenameIcon,
-	RotateCwIcon,
-	SiteSettingsIcon,
-	StartSiteIcon,
-	StopOtherSitesIcon,
-	StopSiteIcon,
+	PlusIcon,
+	PencilIcon,
+	SlidersVerticalIcon,
+	PlayIcon,
+	CircleStopIcon,
+	SquareIcon,
 	UnpinIcon,
 } from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button, IconButton } from '@/lib/ui';
+import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -78,6 +80,7 @@ export function useSiteActions(
 	const { data: sites } = useSites();
 	const startSite = useStartSiteWithChat();
 	const stopSite = useStopSite();
+	const restartSite = useRestartSite();
 	const busy = useIsSiteBusy( site );
 	const { isPinned, togglePin } = useSidebarPins();
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -108,6 +111,7 @@ export function useSiteActions(
 	} );
 
 	const toolActions = useSiteToolActions( site );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 
 	return {
 		site,
@@ -117,8 +121,10 @@ export function useSiteActions(
 		shortcuts,
 		newChat: () => {
 			onOpen?.();
-			preview.setChatHidden( false, site.id );
-			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			runLayoutTransition( () => {
+				preview.setChatHidden( false, site.id );
+				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			} );
 		},
 		openSiteSettings: () => openSiteSettings(),
 		rename,
@@ -127,11 +133,7 @@ export function useSiteActions(
 		toggleRunning,
 		stop: ( stopping: SiteDetails[] ) =>
 			stopping.forEach( ( candidate ) => stopSite.mutate( candidate.id ) ),
-		restart: () =>
-			stopSite.mutateAsync( site.id ).then(
-				() => startSite.mutate( site.id ),
-				() => undefined
-			),
+		restart: () => restartSite.mutate( site.id ),
 		...toolActions,
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),
@@ -151,6 +153,8 @@ export function useSiteActions(
 				/>
 				<ImportSiteDialog
 					site={ site }
+					validationError={ backupImport.validationError }
+					onClearValidationError={ backupImport.clearValidationError }
 					file={ backupImport.file }
 					open={ backupImport.isConfirming }
 					onCancel={ backupImport.cancel }
@@ -173,7 +177,13 @@ export function SiteMenuItems( {
 	current?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
+	const { data: aiSettings } = useAiSettings();
+	const providerConnected = hasConnectedProvider( aiSettings );
+	const panel = useContext( PanelCommandContext );
+	const showChat = panel?.siteId === site.id ? panel.showChat : undefined;
 	const destinations = useOpenInDestinations( site );
+	const databaseReason = getPhpMyAdminUnavailableReason( site );
+	const databaseReasonId = useId();
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
 			onDelete: actions.openDelete,
@@ -198,58 +208,72 @@ export function SiteMenuItems( {
 
 	return (
 		<div className={ styles.items }>
-			<Menu.Item onClick={ actions.newChat }>
-				<NewChatIcon />
-				{ __( 'New chat' ) }
-			</Menu.Item>
-			<Menu.Item onClick={ actions.openSiteSettings }>
-				<SiteSettingsIcon />
-				{ __( 'Settings' ) }
-			</Menu.Item>
-			<Menu.Separator />
+			{ providerConnected ? (
+				<>
+					<Menu.Item onClick={ actions.newChat }>
+						<SquarePenIcon />
+						{ __( 'New chat' ) }
+					</Menu.Item>
+					{ showChat && (
+						<Menu.Item onClick={ showChat }>
+							<FullscreenIcon inward />
+							{ __( 'Show chat' ) }
+						</Menu.Item>
+					) }
+					<Menu.Separator />
+				</>
+			) : null }
 			{ site.running ? null : (
 				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
-					<StartSiteIcon />
-					{ __( 'Start site' ) }
+					<PlayIcon />
+					{ __( 'Start' ) }
 					{ lifecycleShortcut }
 				</Menu.Item>
 			) }
-			{ site.running || running.length > 1 ? (
+			{ site.running && running.length <= 1 ? (
+				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
+					<SquareIcon />
+					{ __( 'Stop' ) }
+					{ lifecycleShortcut }
+				</Menu.Item>
+			) : running.length > 1 ? (
 				<Menu.SubmenuRoot>
 					<Menu.SubmenuTrigger disabled={ busy }>
-						<StopSiteIcon />
+						<SquareIcon />
 						{ __( 'Stop' ) }
 					</Menu.SubmenuTrigger>
 					<Menu.SubmenuPopup { ...actions.shortcuts }>
 						{ site.running ? (
 							<Menu.Item onClick={ actions.toggleRunning }>
-								<StopSiteIcon />
+								<SquareIcon />
 								{ __( 'Stop site' ) }
 								{ lifecycleShortcut }
 							</Menu.Item>
 						) : null }
 						{ site.running && othersRunning.length ? (
 							<Menu.Item onClick={ () => actions.stop( othersRunning ) }>
-								<StopOtherSitesIcon />
+								<CircleStopIcon />
 								{ __( 'Stop other sites' ) }
 							</Menu.Item>
 						) : null }
 						{ running.length > 1 ? (
 							<Menu.Item onClick={ () => actions.stop( running ) }>
-								<StopOtherSitesIcon />
+								<CircleStopIcon />
 								{ __( 'Stop all sites' ) }
 							</Menu.Item>
 						) : null }
 					</Menu.SubmenuPopup>
 				</Menu.SubmenuRoot>
 			) : null }
-			{ site.running ? (
-				<Menu.Item disabled={ busy } onClick={ () => void actions.restart() }>
-					<RotateCwIcon />
-					{ __( 'Restart site' ) }
-				</Menu.Item>
-			) : null }
-			<Menu.Separator />
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ busy }>
+					<PlusIcon />
+					{ __( 'Tools' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					<SiteToolMenuItems site={ site } actions={ actions } />
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger>
 					<ExternalLinkIcon />
@@ -260,21 +284,20 @@ export function SiteMenuItems( {
 						<Menu.Item
 							key={ destination.id }
 							disabled={ destination.disabled }
+							aria-describedby={
+								destination.id === 'phpmyadmin' && databaseReason ? databaseReasonId : undefined
+							}
 							onClick={ destination.open }
 						>
 							{ destination.logo }
 							{ destination.label }
 						</Menu.Item>
 					) ) }
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ busy }>
-					<ArrowRightIcon />
-					{ __( 'Tools' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					<SiteToolMenuItems site={ site } actions={ actions } />
+					{ databaseReason && (
+						<p id={ databaseReasonId } className={ styles.databaseReason }>
+							{ databaseReason }
+						</p>
+					) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.Separator />
@@ -284,11 +307,18 @@ export function SiteMenuItems( {
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
-				<RenameIcon />
+				<PencilIcon />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
-			{ manageItem( manage.import ) }
+			{ manageItem( manage.duplicate ) }
+			<Menu.Item onClick={ actions.openSiteSettings }>
+				<SlidersVerticalIcon />
+				{ __( 'Settings' ) }
+			</Menu.Item>
+			<Menu.Separator />
+			<SiteShareMenuItem site={ site } disabled={ busy } />
+			<SitePublishMenu site={ site } />
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
 					<ExportIcon />
@@ -299,112 +329,43 @@ export function SiteMenuItems( {
 					{ manageItem( manage[ 'export-db' ] ) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
-			{ manageItem( manage.duplicate ) }
 			<Menu.Separator />
-			<SiteShareMenuItem site={ site } disabled={ busy } />
-			<SitePublishMenu site={ site } disabled={ busy } />
-			<Menu.Separator />
-			{ manageItem( manage.delete, __( 'Delete site' ), !! deleteBlocked ) }
+			{ manageItem( manage.delete, __( 'Delete' ), !! deleteBlocked ) }
 		</div>
 	);
 }
 
 // The site's control in the top band.
-export function SiteMenu( {
-	site,
-	onOpenChat,
-	chatTabActive = false,
-}: {
-	site: SiteDetails;
-	onOpenChat?: () => void;
-	chatTabActive?: boolean;
-} ) {
+export function SiteMenu( { site }: { site: SiteDetails } ) {
 	const actions = useSiteActions( site );
 	const label = __( 'Site menu' );
-	const [ menuOpen, setMenuOpen ] = useState( false );
-	const isChatTab = !! onOpenChat;
-	useLayoutEffect( () => setMenuOpen( false ), [ isChatTab, chatTabActive, site.id ] );
 	return (
 		<>
-			<Menu.Root
-				key={ onOpenChat ? 'chat' : 'menu' }
-				modal={ false }
-				open={ menuOpen }
-				onOpenChange={ setMenuOpen }
-			>
-				{ onOpenChat ? (
-					<div
-						className={ styles.chatTab }
-						data-site-chat-tab
-						data-chat-active={ chatTabActive || undefined }
-					>
-						<Tooltip>
+			<Menu.Root key={ site.id } modal={ false }>
+				<Tooltip>
+					<Menu.Trigger
+						render={
 							<TooltipTrigger
 								render={
 									<Button
-										variant="unstyled"
+										variant="ghost"
 										size="sm"
-										className={ styles.chatTrigger }
-										aria-label={ sprintf(
-											/* translators: %s: project name. */
-											__( 'Show chat for %s' ),
-											site.name
-										) }
-										aria-pressed={ chatTabActive }
-										onClick={ () => {
-											setMenuOpen( false );
-											onOpenChat();
-										} }
+										aria-label={ label }
+										aria-busy={ actions.busy || undefined }
+										className={ styles.trigger }
+										{ ...actions.shortcuts }
+										data-item-shortcuts-active="site"
 									/>
 								}
-							>
-								<ChatIcon />
-								<span className={ styles.chatName }>{ site.name }</span>
-							</TooltipTrigger>
-							<TooltipContent side="bottom">{ __( 'Show chat' ) }</TooltipContent>
-						</Tooltip>
-						<Menu.Trigger
-							render={
-								<IconButton
-									variant="muted-ghost"
-									size="icon-2xs"
-									className={ styles.chatMenu }
-									icon={ <EllipsisVertical /> }
-									label={ label }
-									tooltipSide="bottom"
-									aria-busy={ actions.busy || undefined }
-									{ ...actions.shortcuts }
-									data-item-shortcuts-active="site"
-								/>
-							}
-						/>
-					</div>
-				) : (
-					<Tooltip>
-						<Menu.Trigger
-							render={
-								<TooltipTrigger
-									render={
-										<Button
-											variant="ghost"
-											size="sm"
-											aria-label={ label }
-											aria-busy={ actions.busy || undefined }
-											className={ styles.trigger }
-											{ ...actions.shortcuts }
-											data-item-shortcuts-active="site"
-										/>
-									}
-								/>
-							}
-						>
-							<GlobeIcon data-icon="inline-start" />
-							<span className={ styles.siteName }>{ site.name }</span>
-							<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
-						</Menu.Trigger>
-						<TooltipContent side="bottom">{ label }</TooltipContent>
-					</Tooltip>
-				) }
+							/>
+						}
+					>
+						<GlobeIcon data-icon="inline-start" />
+						<span className={ styles.siteName }>{ site.name }</span>
+						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+					</Menu.Trigger>
+					<TooltipContent side="bottom">{ label }</TooltipContent>
+				</Tooltip>
 				<Menu.Popup side="bottom" align="start" { ...actions.shortcuts }>
 					<SiteMenuItems actions={ actions } current />
 				</Menu.Popup>

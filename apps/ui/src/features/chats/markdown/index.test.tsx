@@ -25,7 +25,7 @@ function renderMarkdown( markdown: string ) {
 describe( 'Markdown', () => {
 	it( 'renders the design system tool link within the reply', async () => {
 		renderMarkdown( 'Updated the [design system](studio:design-system) with warmer colors.' );
-		const chip = await screen.findByRole( 'button', { name: 'Open design system' } );
+		const chip = await screen.findByRole( 'button', { name: 'Open Design System' } );
 		expect( chip.closest( 'p' ) ).toHaveTextContent(
 			'Updated the Design System with warmer colors.'
 		);
@@ -36,7 +36,7 @@ describe( 'Markdown', () => {
 		expect( await screen.findByText( 'unsafe' ) ).toHaveAttribute( 'href', '' );
 		expect( screen.getByText( 'other' ) ).toHaveAttribute( 'href', '' );
 		expect(
-			screen.queryByRole( 'button', { name: 'Open design system' } )
+			screen.queryByRole( 'button', { name: 'Open Design System' } )
 		).not.toBeInTheDocument();
 	} );
 

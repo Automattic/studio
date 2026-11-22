@@ -1,6 +1,6 @@
 import { useRender } from '@base-ui/react/use-render';
 import { clsx } from 'clsx';
-import { ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon } from '@/lib/icons';
 import { Skeleton } from '@/lib/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui/tooltip';
 import styles from './style.module.css';
@@ -54,11 +54,6 @@ export function SidebarGroupLabel( {
 			<ChevronRightIcon />
 		</button>
 	);
-}
-
-/** A placeholder for a group label that's loading. */
-export function SidebarGroupLabelSkeleton() {
-	return <Skeleton className={ styles.groupLabelSkeleton } />;
 }
 
 export function SidebarMenu( { className, ...props }: ComponentProps< 'ul' > ) {
@@ -156,11 +151,10 @@ export function SidebarMenuActions( {
 	);
 }
 
-/** A placeholder row: an icon and a label of the given width. */
+/** A placeholder row with a single bar of the given width. */
 export function SidebarMenuSkeleton( { width }: { width: string } ) {
 	return (
 		<div className={ styles.skeleton }>
-			<Skeleton className={ styles.skeletonIcon } />
 			<Skeleton
 				className={ styles.skeletonLabel }
 				style={ { '--skeleton-width': width } as CSSProperties }

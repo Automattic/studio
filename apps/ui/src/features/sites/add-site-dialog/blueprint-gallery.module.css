@@ -22,6 +22,7 @@
 }
 
 .card {
+	--focus-width: 2px;
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-2 );
@@ -72,7 +73,8 @@
 }
 
 .card:is( :hover, :focus-visible ) .blank::after {
-	border: var( --focus-width ) solid var( --ring );
+	border-style: solid;
+	border-color: var( --ring );
 }
 
 .blankIcon {

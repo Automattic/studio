@@ -123,6 +123,7 @@ export function AiCreditsPurchaseDialog( {
 				<DialogFooter>
 					<DialogClose render={ <Button variant="outline" /> }>{ __( 'Cancel' ) }</DialogClose>
 					<Button
+						variant="accent"
 						disabled={ ! selected }
 						onClick={ () => {
 							if ( ! selected ) {

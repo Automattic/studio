@@ -22,14 +22,7 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { getSessionTitle } from '@/features/chats/session-view/session-chat-actions';
 import { useItemShortcuts } from '@/features/sites';
-import {
-	ArchiveIcon,
-	PinIcon,
-	ReadStatusIcon,
-	RenameIcon,
-	UnpinIcon,
-	UnreadStatusIcon,
-} from '@/lib/icons';
+import { ArchiveIcon, PinIcon, EyeIcon, PencilIcon, UnpinIcon, EyeOffIcon } from '@/lib/icons';
 import {
 	Spinner,
 	Menu,
@@ -147,9 +140,9 @@ export function useChatActions(
 			return;
 		}
 		toast.success( __( 'Chat archived' ), {
+			durationMs: 10_000,
 			action: {
 				label: __( 'Undo' ),
-				once: true,
 				onClick: () => mutateAsync( { sessionId: session.id, patch: { archived: false } } ),
 			},
 		} );
@@ -203,12 +196,12 @@ export function ChatActionsMenuItems( {
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
-				<RenameIcon />
+				<PencilIcon />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.toggleRead }>
-				{ actions.session.unread ? <ReadStatusIcon /> : <UnreadStatusIcon /> }
+				{ actions.session.unread ? <EyeIcon /> : <EyeOffIcon /> }
 				{ actions.session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
 			</Menu.Item>
 			{ children ? (
@@ -309,7 +302,7 @@ function RenameChatForm( {
 				<DialogClose render={ <Button variant="outline" /> } disabled={ saving }>
 					{ __( 'Cancel' ) }
 				</DialogClose>
-				<Button type="submit" disabled={ saving }>
+				<Button variant="accent" type="submit" disabled={ saving }>
 					{ saving ? <Spinner aria-hidden="true" /> : null }
 					{ __( 'Save' ) }
 				</Button>

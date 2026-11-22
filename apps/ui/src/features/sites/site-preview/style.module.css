@@ -25,6 +25,10 @@
 	overflow: hidden;
 }
 
+.root[data-browser-bar] .body {
+	border-block-start: 1px solid var( --border );
+}
+
 .previewViewport {
 	position: relative;
 	display: flex;

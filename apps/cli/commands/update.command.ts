@@ -11,7 +11,7 @@ export const builder = ( yargs: StudioArgv ) => {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'update',
-		describe: __( 'Update the standalone Studio CLI' ),
+		describe: __( 'Update the standalone WordPress Studio CLI' ),
 		builder,
 		handler: async ( argv ) => {
 			const { commandHandler } = await import( 'cli/commands/update' );

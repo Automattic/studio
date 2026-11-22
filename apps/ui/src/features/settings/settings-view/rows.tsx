@@ -1,13 +1,13 @@
 import { buildSettingsLink } from '@studio/common/lib/settings-link';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { CheckIcon, ChevronRightIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 import { createContext, useContext, useId } from 'react';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { findSettingId } from '@/data/settings-sections';
 import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
-import { LinkIcon } from '@/lib/icons';
-import { Button, type ButtonProps } from '@/lib/ui';
+import { ChevronRightIcon, LinkIcon } from '@/lib/icons';
+import { Badge, Button, type ButtonProps } from '@/lib/ui';
 import {
 	Field,
 	FieldContent,
@@ -27,19 +27,29 @@ import {
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
+/** A row's badge for a connected account or app. */
+export const connectedBadge = () => (
+	<Badge size="xs" variant="accent">
+		<CheckIcon aria-hidden="true" />
+		{ __( 'Connected' ) }
+	</Badge>
+);
+
 /** A card of setting rows, with an optional heading above it. */
 export function SettingsGroup( {
 	title,
+	settingId,
 	description,
 	children,
 }: {
 	title?: string;
+	settingId?: string;
 	description?: ReactNode;
 	children: ReactNode;
 } ) {
 	return (
 		// Without a heading the card isn't a group of its own, only its rows are.
-		<FieldSet role={ title ? undefined : 'none' }>
+		<FieldSet role={ title ? undefined : 'none' } data-settings-target={ settingId }>
 			{ title ? (
 				<FieldLegend variant="label" className={ clsx( description && styles.groupLegend ) }>
 					{ title }
@@ -66,6 +76,7 @@ const SettingsRowContext = createContext< ControlProps >( {} );
 export function SettingsRow( {
 	title,
 	settingId,
+	icon,
 	badge,
 	description,
 	additionalContent,
@@ -75,6 +86,8 @@ export function SettingsRow( {
 }: {
 	title: string;
 	settingId?: string;
+	// Shown before the title and description, like an app's logo.
+	icon?: ReactNode;
 	// Shown next to the title, like a "Connected" status.
 	badge?: ReactNode;
 	description?: ReactNode;
@@ -99,6 +112,30 @@ export function SettingsRow( {
 	};
 	const content = typeof children === 'function' ? children( control ) : children;
 	const fieldTitle = <FieldTitle id={ `${ rowId }-title` }>{ title }</FieldTitle>;
+	const fieldContent = (
+		<FieldContent>
+			{ linkId || badge ? (
+				<div className={ styles.rowTitle }>
+					{ fieldTitle }
+					{ badge }
+					{ linkId ? <SettingLinkButton id={ linkId } title={ title } /> : null }
+				</div>
+			) : (
+				fieldTitle
+			) }
+			{ hasDescription ? (
+				<FieldDescription
+					id={ `${ rowId }-description` }
+					className={ styles.rowDescription }
+					width={ content ? 'default' : 'full' }
+					error={ error }
+					additionalContent={ additionalContent }
+				>
+					{ description }
+				</FieldDescription>
+			) : null }
+		</FieldContent>
+	);
 	return (
 		<Field
 			orientation={ stacked || ! content ? 'vertical' : 'horizontal' }
@@ -107,30 +144,16 @@ export function SettingsRow( {
 			data-settings-row
 			data-setting-id={ id }
 		>
-			<FieldContent>
-				{ linkId || badge ? (
-					<div className={ styles.rowTitle }>
-						{ fieldTitle }
-						{ badge }
-						{ linkId ? <SettingLinkButton id={ linkId } title={ title } /> : null }
-					</div>
-				) : (
-					fieldTitle
-				) }
-				{ hasDescription ? (
-					<FieldDescription
-						id={ `${ rowId }-description` }
-						className={ styles.rowDescription }
-						width={ content ? 'default' : 'full' }
-						error={ error }
-						additionalContent={ additionalContent }
-					>
-						{ description }
-					</FieldDescription>
-				) : null }
-			</FieldContent>
+			{ icon ? (
+				<div className={ styles.rowLead }>
+					<div className={ styles.rowIcon }>{ icon }</div>
+					{ fieldContent }
+				</div>
+			) : (
+				fieldContent
+			) }
 			{ content ? (
-				<div className={ styles.settingsControl }>
+				<div className={ styles.settingsControl } data-settings-control>
 					<SettingsRowContext.Provider value={ control }>{ content }</SettingsRowContext.Provider>
 				</div>
 			) : null }
@@ -198,20 +221,23 @@ export function SettingsSelect< TValue extends string >( {
 	label,
 	value,
 	options,
+	placeholder,
 	disabled,
 	onChange,
 }: {
 	label: string;
-	value: TValue;
-	options: Array< { value: TValue; label: string } >;
+	value: TValue | null;
+	options: Array< { value: TValue; label: string; icon?: ReactNode } >;
+	placeholder?: string;
 	disabled?: boolean;
 	onChange: ( value: TValue ) => void;
 } ) {
 	const control = useContext( SettingsRowContext );
+	const selected = options.find( ( option ) => option.value === value );
 	return (
 		<Select
 			items={ options }
-			value={ options.some( ( option ) => option.value === value ) ? value : null }
+			value={ selected?.value ?? null }
 			disabled={ disabled }
 			onValueChange={ ( next ) => {
 				if ( next !== null ) {
@@ -219,12 +245,23 @@ export function SettingsSelect< TValue extends string >( {
 				}
 			} }
 		>
-			<SelectTrigger size="sm" aria-label={ label } { ...control }>
-				<SelectValue />
+			<SelectTrigger size="default" aria-label={ label } { ...control }>
+				<SelectValue
+					placeholder={ placeholder }
+					data-icon={ selected?.icon ? 'inline-start' : undefined }
+				>
+					{ selected?.icon ? (
+						<>
+							{ selected.icon }
+							{ selected.label }
+						</>
+					) : undefined }
+				</SelectValue>
 			</SelectTrigger>
 			<SelectContent>
 				{ options.map( ( option ) => (
-					<SelectItem key={ option.value } value={ option.value }>
+					<SelectItem key={ option.value } value={ option.value } label={ option.label }>
+						{ option.icon }
 						{ option.label }
 					</SelectItem>
 				) ) }

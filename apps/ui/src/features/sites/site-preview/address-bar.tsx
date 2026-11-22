@@ -3,11 +3,11 @@ import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-t
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
-	AppearanceIcon,
 	DatabaseIcon,
+	DesignSystemIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	MailIcon,
+	PaperPlaneIcon,
 	WordPressIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
@@ -20,14 +20,19 @@ import type { ComponentType, FormEvent, ReactNode } from 'react';
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
 		const parsedUrl = new URL( url );
-		const parsedBaseUrl = new URL( baseUrl );
-		if ( parsedUrl.origin !== parsedBaseUrl.origin ) {
+		if ( parsedUrl.origin !== new URL( baseUrl ).origin ) {
 			return null;
 		}
 		return `${ parsedUrl.pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
 	} catch {
 		return null;
 	}
+}
+
+function resolveSitePath( path: string, siteUrl: string ): URL {
+	return new URL(
+		`${ siteUrl.replace( /\/$/, '' ) }${ path.startsWith( '/' ) ? path : `/${ path }` }`
+	);
 }
 
 export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
@@ -87,7 +92,7 @@ export function getRealmNavigationPath( path: string, siteUrl: string ): string 
 		return path;
 	}
 	try {
-		const redirectTo = new URL( path, siteUrl ).toString();
+		const redirectTo = resolveSitePath( path, siteUrl ).toString();
 		return `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }`;
 	} catch {
 		return path;
@@ -130,6 +135,7 @@ interface PreviewAddressBarProps {
 	onOpenExternal?: () => void;
 	onExternalNavigate?: ( url: string ) => void;
 	disabled?: boolean;
+	compact?: boolean;
 }
 
 interface RecentPreviewLocation {
@@ -214,10 +220,12 @@ function storeRecentLocation(
 function getDisplayUrl( siteUrl: string, path: string ): string {
 	if ( path === EMAIL_PREVIEW_PATH ) return __( 'Email log' );
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
-		return __( 'Design system' );
+		return __( 'Design System' );
 	}
 	try {
-		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
+		return resolveSitePath( path, siteUrl )
+			.toString()
+			.replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
 	} catch {
 		return `${ siteUrl }${ path }`;
 	}
@@ -269,6 +277,7 @@ export function PreviewAddressBar( {
 	onOpenExternal,
 	onExternalNavigate,
 	disabled = false,
+	compact = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
@@ -365,8 +374,8 @@ export function PreviewAddressBar( {
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
-		email: MailIcon,
-		design: AppearanceIcon,
+		email: PaperPlaneIcon,
+		design: DesignSystemIcon,
 	};
 	const recentGroups: CommandGroup[] = [
 		{
@@ -409,6 +418,7 @@ export function PreviewAddressBar( {
 				ref={ addressBarRef }
 				className={ styles.addressBar }
 				data-recent-open={ isRecentOpen || undefined }
+				data-compact={ compact || undefined }
 				onSubmit={ handleSubmit }
 			>
 				<Popover.Trigger
@@ -416,7 +426,7 @@ export function PreviewAddressBar( {
 					nativeButton={ false }
 					render={
 						<Input
-							variant="ghost"
+							variant="group"
 							disabled={ disabled }
 							role="textbox"
 							value={ value }
@@ -473,6 +483,9 @@ export function PreviewAddressBar( {
 					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
 					spellCheck={ false }
 				/>
+				<span className={ styles.displayUrl } aria-hidden="true">
+					{ displayUrl.replace( /^https?:\/\//i, '' ) }
+				</span>
 				{ onOpenExternal ? (
 					<span className={ styles.actions } data-address-action>
 						<AddressAction

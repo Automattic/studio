@@ -1418,7 +1418,6 @@ export function PublishButton( {
 										className={ styles.publishTrigger }
 										variant={ variant }
 										size="sm"
-										data-walkthrough="publish"
 										aria-label={ __( 'Publish…' ) }
 										aria-description={
 											setupError ??

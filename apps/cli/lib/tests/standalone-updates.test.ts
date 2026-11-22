@@ -161,6 +161,13 @@ it( 'rejects a noncanonical release version before downloading or selecting a ru
 	expect( await fs.readdir( versionsDirectory ) ).toEqual( [] );
 } );
 
+it( 'retains valid build metadata in the staged version', async () => {
+	serveRelease( await releaseArchive( '2.0.0+build.1' ), '2.0.0+build.1' );
+	expect( await updateStandaloneCli( '1.0.0' ) ).toBe( '2.0.0+build.1' );
+	expect( await updateStandaloneCli( '1.0.0' ) ).toBe( '2.0.0+build.1' );
+	expect( downloadFile ).toHaveBeenCalledTimes( 1 );
+} );
+
 it.each( [ true, false ] )( 'remembers the one-time auto-update choice (%s)', async ( enabled ) => {
 	terminals.forEach( ( stream ) =>
 		Object.defineProperty( stream, 'isTTY', { value: true, configurable: true } )

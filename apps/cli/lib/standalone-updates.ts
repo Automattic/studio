@@ -34,7 +34,7 @@ export function getStandaloneInstallDir(): string {
 async function readActiveVersion( file: string ): Promise< string | null > {
 	try {
 		const version = ( await fs.promises.readFile( file, 'utf8' ) ).trim();
-		return semver.valid( version ) === version ? version : null;
+		return version.match( /^[0-9][0-9A-Za-z.+-]*$/ ) && semver.valid( version ) ? version : null;
 	} catch {
 		return null;
 	}
@@ -139,10 +139,7 @@ export async function updateStandaloneCli(
 			return null;
 		}
 		const latestVersion = update.latestVersion;
-		if (
-			! latestVersion.match( /^[0-9][0-9A-Za-z.+-]*$/ ) ||
-			semver.valid( latestVersion ) !== latestVersion
-		) {
+		if ( ! latestVersion.match( /^[0-9][0-9A-Za-z.+-]*$/ ) || ! semver.valid( latestVersion ) ) {
 			throw new Error(
 				__( 'The update server returned an invalid WordPress Studio CLI version.' )
 			);

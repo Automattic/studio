@@ -192,6 +192,39 @@ it( 'retains valid build metadata in the staged version', async () => {
 	expect( downloadFile ).toHaveBeenCalledTimes( 1 );
 } );
 
+it( 'updates a beta to the stable release and continues updating from that release', async () => {
+	await fs.writeFile( path.join( installDirectory, 'cli', 'version' ), '1.0.0-beta1\n' );
+	serveRelease( await releaseArchive( '1.0.0' ), '1.0.0' );
+
+	expect( await updateStandaloneCli( '1.0.0-beta1' ) ).toBe( '1.0.0' );
+	expect( await fs.readFile( path.join( versionsDirectory, 'current-1.0.0-beta1' ), 'utf8' ) ).toBe(
+		'1.0.0\n'
+	);
+
+	Object.defineProperty( process, 'execPath', {
+		value: path.join( versionsDirectory, '1.0.0', 'bin', 'node' ),
+		configurable: true,
+	} );
+	await fs.rm( path.join( root, 'release' ), { recursive: true } );
+	serveRelease( await releaseArchive( '1.0.1' ), '1.0.1' );
+
+	expect( await updateStandaloneCli( '1.0.0' ) ).toBe( '1.0.1' );
+	expect( await fs.readFile( path.join( versionsDirectory, 'current-1.0.0-beta1' ), 'utf8' ) ).toBe(
+		'1.0.1\n'
+	);
+} );
+
+it.each( [
+	[ '1.0.0', '2.0.0-dev1' ],
+	[ '1.0.0-dev1', '1.0.0' ],
+] )( 'does not cross from %s to the incompatible release %s', async ( current, latest ) => {
+	await fs.writeFile( path.join( installDirectory, 'cli', 'version' ), `${ current }\n` );
+	serveRelease( 'not downloaded', latest );
+
+	await expect( updateStandaloneCli( current ) ).resolves.toBeNull();
+	expect( downloadFile ).not.toHaveBeenCalled();
+} );
+
 it.each( [ [ '--json' ], [ '--format', 'json' ], [ '--format=json' ] ] )(
 	'does not prompt for JSON output (%s)',
 	async ( ...args ) => {

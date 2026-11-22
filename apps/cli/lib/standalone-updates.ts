@@ -15,6 +15,7 @@ import {
 	getAvailableCliUpdate,
 	getCliInstallKind,
 	hasJsonOutput,
+	isUpdateChannelCompatible,
 	type CliInstallKind,
 } from 'cli/lib/update-notifier';
 
@@ -124,7 +125,7 @@ export async function updateStandaloneCli(
 	if ( ! semver.valid( installedVersion ) ) {
 		throw new Error( __( 'Invalid installed WordPress Studio CLI version.' ) );
 	}
-	if ( channelForVersion( installedVersion ) !== channelForVersion( currentVersion ) ) {
+	if ( ! isUpdateChannelCompatible( installedVersion, currentVersion ) ) {
 		return null;
 	}
 	const versionsDirectory = path.join( installDirectory, CLI_VERSIONS_DIRECTORY );

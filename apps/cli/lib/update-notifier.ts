@@ -247,7 +247,7 @@ async function checkStandalone(
 	if (
 		latestVersion &&
 		semver.valid( latestVersion ) &&
-		channelForVersion( latestVersion ) === channelForVersion( currentVersion ) &&
+		isUpdateChannelCompatible( currentVersion, latestVersion ) &&
 		semver.gt( latestVersion, currentVersion )
 	) {
 		return {
@@ -269,6 +269,14 @@ export function channelForVersion( version: string ): UpdateChannel {
 		return 'beta';
 	}
 	return 'production';
+}
+
+export function isUpdateChannelCompatible( currentVersion: string, nextVersion: string ): boolean {
+	const currentChannel = channelForVersion( currentVersion );
+	const nextChannel = channelForVersion( nextVersion );
+	return (
+		currentChannel === nextChannel || ( currentChannel === 'beta' && nextChannel === 'production' )
+	);
 }
 
 /**

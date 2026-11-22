@@ -1,0 +1,587 @@
+import {
+	DEFAULT_THINKING_LEVEL,
+	getThinkingOptions,
+	THINKING_SETTINGS,
+	type ThinkingSetting,
+} from '@studio/agent/protocol/thinking';
+import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getModelFavoriteKey,
+	type ModelFavorite,
+} from '@studio/common/lib/user-settings/model-favorites';
+import {
+	getAiModels,
+	getProvider,
+	normalizeProviderId,
+	THINKING_LEVELS,
+	toStoredProviderId,
+	type ProviderId,
+} from '@studio/providers';
+import { __, sprintf } from '@wordpress/i18n';
+import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
+import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
+import { useEffect, useEffectEvent, useId, useRef, useState } from 'react';
+import { useConnector, type AiModelId } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useOpenSettings } from '@/data/use-open-settings';
+import { ProviderLogo } from '@/features/account';
+import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
+import { useModelFavorites } from '@/features/composer/use-model-favorites';
+import { ChevronDownIcon, DragHandleIcon, StarIcon } from '@/lib/icons';
+import { isDialogOpen, isShortcut, isTextEntry } from '@/lib/keyboard';
+import {
+	Button,
+	IconButton,
+	Input,
+	Menu,
+	Popover,
+	ReorderableList,
+	type ReorderableItemProps,
+} from '@/lib/ui';
+import styles from './model-favorites-picker.module.css';
+import type { ModelPickerProps } from './legacy-model-picker';
+
+type AvailableFavorite = { provider: ProviderId; model: AiModelId; effort: ThinkingSetting };
+type ModelRowKind = 'reorderable' | 'catalog' | 'preview';
+const DEFAULT_MODEL_COUNT = 3;
+
+function favoriteKey( favorite: ModelFavorite ): string {
+	const provider = normalizeProviderId( favorite.provider );
+	return getModelFavoriteKey( {
+		...favorite,
+		provider: provider ? toStoredProviderId( provider ) : favorite.provider,
+	} );
+}
+
+export function FavoritesModelPicker( {
+	open,
+	onOpenChange,
+	model,
+	providers,
+	sessionProvider,
+	isModelLocked,
+	disabled,
+	anchor,
+	onChange,
+	thinking = 'default',
+	onThinkingChange,
+	onAddCredits,
+}: ModelPickerProps ) {
+	const [ search, setSearch ] = useState( '' );
+	const [ searchThinking, setSearchThinking ] = useState< ThinkingSetting >( thinking );
+	const [ reordering, setReordering ] = useState( false );
+	const triggerRef = useRef< HTMLButtonElement | null >( null );
+	const choices = useRef( new Map< string, HTMLElement >() );
+	const resultsId = useId();
+	const searchRef = useRef< HTMLInputElement | null >( null );
+	const openSettings = useOpenSettings();
+	const connector = useConnector();
+	const { data: aiSettings } = useAiSettings();
+	const {
+		data: quota,
+		isError: isQuotaError,
+		refetch: refetchQuota,
+	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
+	const { data: preferences } = useUserPreferences();
+	const { favorites, update } = useModelFavorites();
+	const providerModels = new Map(
+		providers.map( ( provider ) => {
+			const account = aiSettings?.accounts[ provider ];
+			return [
+				provider,
+				getAiModels( provider, account?.connected ? account : undefined ),
+			] as const;
+		} )
+	);
+	const modelIndexes = new Map(
+		[ ...providerModels ].map( ( [ provider, models ] ) => [
+			provider,
+			new Map( models.map( ( item ) => [ item.id, item ] ) ),
+		] )
+	);
+	const modelProviderCounts = new Map< string, number >();
+	for ( const models of providerModels.values() ) {
+		for ( const item of models ) {
+			modelProviderCounts.set( item.id, ( modelProviderCounts.get( item.id ) ?? 0 ) + 1 );
+		}
+	}
+	const modelsOf = ( provider: ProviderId ) => providerModels.get( provider ) ?? [];
+	const modelOf = ( provider: ProviderId, id: string ) =>
+		modelIndexes.get( provider )?.get( id as AiModelId );
+	const modelLabelOf = ( provider: ProviderId, id: string ) =>
+		modelOf( provider, id )?.label() ?? id;
+	const available = ( favorite: ModelFavorite ): AvailableFavorite | undefined => {
+		const provider = normalizeProviderId( favorite.provider );
+		if ( ! provider || ! providers.includes( provider ) ) return;
+		const item = modelOf( provider, favorite.model );
+		const effort = THINKING_SETTINGS.find( ( level ) => level === favorite.effort );
+		if (
+			! item ||
+			! effort ||
+			( ( item.thinking === false || ! onThinkingChange ) && effort !== 'default' )
+		)
+			return;
+		return { provider, model: item.id, effort };
+	};
+	const visibleFavorites = favorites.flatMap( ( favorite ) => {
+		const item = available( favorite );
+		return item ? [ item ] : [];
+	} );
+	const shortcutFavorites = visibleFavorites.slice( 0, 9 );
+	const shortcutFor = ( item: AvailableFavorite ) => {
+		const index = shortcutFavorites.findIndex(
+			( favorite ) => favoriteKey( favorite ) === favoriteKey( item )
+		);
+		return index >= 0 && ! isModelLocked( item.model ) ? String( index + 1 ) : undefined;
+	};
+	const saveOrder = ( ids: string[], models: AvailableFavorite[] ) =>
+		update( [
+			...ids
+				.flatMap( ( id ) => models.filter( ( item ) => favoriteKey( item ) === id ) )
+				.map( ( item ) => ( { ...item, provider: toStoredProviderId( item.provider ) } ) ),
+			...favorites.filter( ( item ) => ! available( item ) ),
+		] );
+	const selectedModel = modelOf( sessionProvider, model );
+	const supportsThinking =
+		!! onThinkingChange && !! selectedModel && selectedModel.thinking !== false;
+	const current: AvailableFavorite = {
+		provider: sessionProvider,
+		model,
+		effort: supportsThinking ? thinking : 'default',
+	};
+	const key = favoriteKey( current );
+	const local = getProvider( sessionProvider ).ai?.local;
+	const thinkingOptions = getThinkingOptions( local );
+	const currentThinking =
+		thinking === 'default' ? ( local ? undefined : DEFAULT_THINKING_LEVEL ) : thinking;
+	const effortLabel = supportsThinking
+		? currentThinking
+			? thinkingOptions[ currentThinking ].label
+			: thinkingOptions.default.description
+		: __( 'Unavailable' );
+	const query = search.trim().toLocaleLowerCase();
+	const hasFavorite = ( favorite: ModelFavorite ) =>
+		favorites.some( ( item ) => favoriteKey( item ) === favoriteKey( favorite ) );
+	const toggleFavorite = ( favorite: AvailableFavorite ) =>
+		update(
+			hasFavorite( favorite )
+				? favorites.filter( ( item ) => favoriteKey( item ) !== favoriteKey( favorite ) )
+				: [ { ...favorite, provider: toStoredProviderId( favorite.provider ) }, ...favorites ]
+		);
+	const isWpcom = sessionProvider === 'wpcom';
+	const modelLabel = modelLabelOf( sessionProvider, model );
+	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
+	const canPurchaseWpcomCredits =
+		providers.includes( 'wpcom' ) &&
+		!! quota &&
+		credits.hasCredits &&
+		getStudioCodeAiAccessState( quota ) === 'available' &&
+		quota.hasPaymentMethod;
+	const canPurchaseCredits = isWpcom && canPurchaseWpcomCredits;
+	const maxExtraActions = Math.max(
+		0,
+		...providers.map( ( provider ) => {
+			const providerAccount = aiSettings?.accounts[ provider ];
+			return (
+				( providerAccount?.connected ? providerAccount.links?.length ?? 0 : 0 ) +
+				( provider === 'wpcom' && canPurchaseWpcomCredits ? 1 : 0 )
+			);
+		} )
+	);
+	const account = aiSettings?.accounts[ sessionProvider ];
+	const { note, links = [] } = account?.connected ? account : {};
+	const extraActionRows = query ? maxExtraActions : links.length + ( canPurchaseCredits ? 1 : 0 );
+	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
+	if ( supportsThinking ) modelDetails.push( sprintf( __( 'Thinking: %s' ), effortLabel ) );
+	if ( isWpcom ) modelDetails.push( credits.label );
+	if ( note ) modelDetails.push( note );
+	const presetLabel = ( item: AvailableFavorite ) => {
+		const sharedModel = ( modelProviderCounts.get( item.model ) ?? 0 ) > 1;
+		return [
+			modelLabelOf( item.provider, item.model ),
+			item.effort !== 'default'
+				? getThinkingOptions( getProvider( item.provider ).ai?.local )[ item.effort ].label
+				: '',
+			sharedModel ? getProvider( item.provider ).label : '',
+		]
+			.filter( Boolean )
+			.join( ' · ' );
+	};
+	const select = ( item: AvailableFavorite ) => {
+		if ( reordering ) return;
+		onChange( item.provider, item.model, item.effort );
+	};
+	const onModelShortcut = useEffectEvent( ( event: KeyboardEvent ) => {
+		const trigger = triggerRef.current;
+		if (
+			disabled ||
+			reordering ||
+			event.defaultPrevented ||
+			event.repeat ||
+			! trigger ||
+			trigger.closest( '[inert], [hidden], [aria-hidden="true"]' ) ||
+			isDialogOpen()
+		)
+			return;
+		const item = shortcutFavorites.find( ( _, index ) =>
+			isShortcut( event, String( index + 1 ), 'alt' )
+		);
+		if ( ! item || isModelLocked( item.model ) ) return;
+		const target = event.target instanceof Element ? event.target : null;
+		const popup = target?.closest( '[role="dialog"], [role="menu"]' );
+		if ( popup && ! popup.contains( searchRef.current ) ) return;
+		if (
+			isTextEntry( target ) &&
+			target !== searchRef.current &&
+			! trigger.closest( '[data-slot="input-group"]' )?.contains( target )
+		)
+			return;
+		event.preventDefault();
+		select( item );
+	} );
+	useEffect( () => {
+		document.addEventListener( 'keydown', onModelShortcut );
+		return () => document.removeEventListener( 'keydown', onModelShortcut );
+	}, [] );
+	const matches = ( item: AvailableFavorite ) => {
+		const options = getThinkingOptions( getProvider( item.provider ).ai?.local );
+		const level =
+			item.effort === 'default' ? options.default.description : options[ item.effort ].label;
+		const text = `${ modelLabelOf( item.provider, item.model ) } ${ item.model } ${
+			getProvider( item.provider ).label
+		} ${ level }`.toLocaleLowerCase();
+		return query.split( /\s+/ ).every( ( word ) => text.includes( word ) );
+	};
+	const favoriteResults = visibleFavorites.filter( matches );
+	const catalogResults = providers
+		.flatMap( ( provider ) =>
+			modelsOf( provider ).map(
+				( item ): AvailableFavorite => ( {
+					provider,
+					model: item.id,
+					effort:
+						item.thinking === false || ! onThinkingChange
+							? 'default'
+							: query
+							? searchThinking
+							: thinking,
+				} )
+			)
+		)
+		.filter( ( item ) => ! hasFavorite( item ) && matches( item ) );
+	const starterCount = Math.max( 0, DEFAULT_MODEL_COUNT - visibleFavorites.length );
+	const starterResults = catalogResults.slice( 0, starterCount );
+	const currentResult = catalogResults.find( ( item ) => favoriteKey( item ) === key );
+	if (
+		starterCount &&
+		currentResult &&
+		! starterResults.some( ( item ) => favoriteKey( item ) === key )
+	) {
+		starterResults.splice( starterCount - 1, 1, currentResult );
+	}
+	const otherResults = query ? catalogResults : starterResults;
+	const unsavedCurrent =
+		! query && currentResult && ! otherResults.some( ( item ) => favoriteKey( item ) === key )
+			? currentResult
+			: null;
+	const results = [
+		...favoriteResults,
+		...otherResults,
+		...( unsavedCurrent ? [ unsavedCurrent ] : [] ),
+	];
+	const showingStarters = ! query && otherResults.length > 0;
+	const reorderableResults = query ? favoriteResults : results;
+	const reorder = ( ids: string[], movedId: string ) => {
+		const keepCurrentUnsaved = !! unsavedCurrent && movedId !== key;
+		const savedIds = keepCurrentUnsaved ? ids.filter( ( id ) => id !== key ) : ids;
+		saveOrder( savedIds, reorderableResults );
+		return keepCurrentUnsaved ? [ ...savedIds, key ] : ids;
+	};
+	const selectable = results.filter( ( item ) => ! isModelLocked( item.model ) );
+	const focusResult = ( index: number ) => {
+		const item = selectable[ ( index + selectable.length ) % selectable.length ];
+		if ( item ) choices.current.get( favoriteKey( item ) )?.focus();
+	};
+	useEffect( () => {
+		if ( open ) setSearch( '' );
+	}, [ open ] );
+	useEffect( () => {
+		if ( open && isWpcom ) void refetchQuota();
+	}, [ open, isWpcom, refetchQuota ] );
+	const modelRow = (
+		item: AvailableFavorite,
+		kind: ModelRowKind,
+		itemProps?: ReorderableItemProps
+	) => {
+		const favorite = hasFavorite( item );
+		const itemKey = favoriteKey( item );
+		const selected = itemKey === key;
+		const label = presetLabel( item );
+		const shortcut = shortcutFor( item );
+		const Row = kind === 'catalog' ? 'div' : 'li';
+		return (
+			<Row
+				key={ itemKey }
+				{ ...itemProps }
+				className={ clsx( styles.row, itemProps?.className ) }
+				data-current={ selected || undefined }
+			>
+				{ ( kind === 'reorderable' && ! query ) || kind === 'preview' ? (
+					<IconButton
+						variant="muted-ghost"
+						size="icon-2xs"
+						className={ styles.grip }
+						icon={ <DragHandleIcon /> }
+						tooltip={ false }
+						label={ sprintf( __( 'Reorder %s' ), label ) }
+						aria-description={ __( 'Drag to reorder, or use the Up and Down arrow keys.' ) }
+						data-model-reorder-handle
+					/>
+				) : null }
+				<Menu.ItemButton
+					className={ styles.choice }
+					ref={ ( node ) => {
+						if ( kind === 'preview' ) return;
+						if ( node ) choices.current.set( itemKey, node );
+						else choices.current.delete( itemKey );
+					} }
+					aria-pressed={ selected }
+					aria-label={ label }
+					aria-keyshortcuts={ shortcut ? ariaKeyShortcut.primaryAlt( shortcut ) : undefined }
+					aria-description={
+						isModelLocked( item.model )
+							? `${ getProvider( item.provider ).label } · ${ __( 'Purchased credits required' ) }`
+							: [ getProvider( item.provider ).label, getModelDescription( item.model ) ]
+									.filter( Boolean )
+									.join( ' · ' )
+					}
+					disabled={ isModelLocked( item.model ) }
+					onClick={ () => select( item ) }
+					onKeyDown={ ( event ) => {
+						if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
+							event.preventDefault();
+							const index = selectable.findIndex( ( option ) => favoriteKey( option ) === itemKey );
+							if ( index === 0 && event.key === 'ArrowUp' ) searchRef.current?.focus();
+							else focusResult( index + ( event.key === 'ArrowDown' ? 1 : -1 ) );
+						}
+					} }
+				>
+					<ProviderLogo provider={ item.provider } className={ styles.providerIcon } />
+					<span className={ styles.label }>
+						{ modelLabelOf( item.provider, item.model ) }
+						{ item.effort !== 'default' ? (
+							<span className={ styles.presetEffort }>
+								{
+									getThinkingOptions( getProvider( item.provider ).ai?.local )[ item.effort ].label
+								}
+							</span>
+						) : null }
+					</span>
+					<span className={ styles.trailing } data-icon="inline-end" aria-hidden="true">
+						{ selected ? (
+							<CheckIcon className={ styles.check } />
+						) : shortcut ? (
+							<Menu.Shortcut>{ displayShortcut.primaryAlt( shortcut ) }</Menu.Shortcut>
+						) : null }
+					</span>
+				</Menu.ItemButton>
+				<IconButton
+					variant="muted-ghost"
+					size="icon-2xs"
+					className={ styles.star }
+					disabled={ reordering }
+					icon={ <StarIcon fill={ favorite ? 'currentColor' : 'none' } /> }
+					label={ sprintf( favorite ? __( 'Unstar %s' ) : __( 'Star %s' ), label ) }
+					aria-pressed={ favorite }
+					onClick={ () => {
+						searchRef.current?.focus();
+						toggleFavorite( item );
+					} }
+				/>
+			</Row>
+		);
+	};
+
+	return (
+		<Popover.Root open={ open } onOpenChange={ onOpenChange }>
+			<Popover.Trigger
+				render={
+					<Button
+						ref={ triggerRef }
+						variant="ghost"
+						shape="round"
+						aria-label={ __( 'Model' ) }
+						aria-description={ modelDetails.join( ' · ' ) }
+						title={ modelDetails.join( ' · ' ) }
+						disabled={ disabled }
+					/>
+				}
+			>
+				<ProviderLogo provider={ sessionProvider } />
+				<span>
+					{ modelLabel }
+					{ supportsThinking && thinking !== 'default'
+						? ` · ${ thinkingOptions[ thinking ].label }`
+						: '' }
+				</span>
+				<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+			</Popover.Trigger>
+			<Popover.Popup
+				backdrop
+				instant={ ! open }
+				anchor={ anchor }
+				side="top"
+				align="end"
+				className={ styles.popup }
+				aria-label={ __( 'Choose a model' ) }
+				initialFocus={ searchRef }
+				finalFocus={ triggerRef }
+			>
+				<Input
+					variant="group"
+					className={ styles.searchRow }
+					ref={ searchRef }
+					placeholder={ __( 'Search models…' ) }
+					aria-label={ __( 'Search models' ) }
+					aria-controls={ resultsId }
+					value={ search }
+					onChange={ ( event ) => {
+						setSearch( event.target.value );
+						setSearchThinking( thinking );
+					} }
+					onKeyDown={ ( event ) => {
+						if ( event.nativeEvent.isComposing ) return;
+						if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
+							event.preventDefault();
+							focusResult( event.key === 'ArrowDown' ? 0 : selectable.length - 1 );
+						} else if ( event.key === 'Enter' && selectable.length ) {
+							event.preventDefault();
+							select( selectable[ 0 ] );
+						}
+					} }
+				/>
+				<div id={ resultsId } className={ styles.models }>
+					{ reorderableResults.length ? (
+						<div
+							role="group"
+							aria-label={
+								showingStarters || unsavedCurrent
+									? __( 'Available models' )
+									: __( 'Favorite models' )
+							}
+						>
+							<ReorderableList
+								items={ reorderableResults }
+								getItemId={ favoriteKey }
+								getItemLabel={ presetLabel }
+								renderItem={ ( item, props ) =>
+									modelRow( item, props[ 'aria-hidden' ] ? 'preview' : 'reorderable', props )
+								}
+								onReorder={ reorder }
+								className={ styles.favorites }
+								previewClassName={ styles.dragPreview }
+								handleSelector="[data-model-reorder-handle]"
+								portalPreview
+								disabled={ ! open || !! query }
+								onReorderingChange={ ( active ) => {
+									setReordering( active );
+									if ( ! active ) searchRef.current?.focus( { preventScroll: true } );
+								} }
+							/>
+						</div>
+					) : null }
+					{ otherResults.length && query ? (
+						<div
+							role="group"
+							aria-label={
+								visibleFavorites.length ? __( 'Other models' ) : __( 'Available models' )
+							}
+						>
+							{ otherResults.map( ( item ) => modelRow( item, 'catalog' ) ) }
+						</div>
+					) : null }
+					{ ! results.length ? (
+						<p className={ styles.empty }>
+							{ query ? __( 'No matching models.' ) : __( 'No models available.' ) }
+						</p>
+					) : null }
+				</div>
+				<div className={ styles.separator } />
+				<div
+					className={ styles.actions }
+					style={ { minHeight: `${ ( 2 + extraActionRows ) * 32 }px` } }
+				>
+					<Menu.Root>
+						<Menu.Trigger
+							aria-label={ sprintf( __( 'Thinking: %s' ), effortLabel ) }
+							disabled={ ! supportsThinking || isModelLocked( model ) }
+							render={ <Menu.ItemButton /> }
+						>
+							<span>{ __( 'Thinking' ) }</span>
+							<span className={ styles.effortValue } data-icon="inline-end">
+								<span>{ effortLabel }</span>
+								<Menu.SubmenuIndicator />
+							</span>
+						</Menu.Trigger>
+						{ supportsThinking ? (
+							<Menu.SubmenuPopup aria-label={ __( 'Thinking' ) } data-instant>
+								<Menu.RadioGroup
+									value={ currentThinking ?? '' }
+									onValueChange={ ( value: ThinkingSetting ) => {
+										if ( value !== currentThinking ) onChange( sessionProvider, model, value );
+									} }
+								>
+									{ THINKING_LEVELS.map( ( level ) => (
+										<Menu.RadioItem key={ level } value={ level }>
+											{ thinkingOptions[ level ].label }
+										</Menu.RadioItem>
+									) ) }
+								</Menu.RadioGroup>
+							</Menu.SubmenuPopup>
+						) : null }
+					</Menu.Root>
+					{ canPurchaseCredits ? (
+						<Menu.ItemButton
+							onClick={ () => {
+								onOpenChange( false );
+								onAddCredits( triggerRef );
+							} }
+						>
+							{ __( 'Get more credits' ) }
+							<span className={ styles.actionDetail } title={ credits.label }>
+								{ credits.label }
+							</span>
+						</Menu.ItemButton>
+					) : null }
+					{ links.map( ( link ) => (
+						<Menu.ItemButton
+							key={ link.url }
+							onClick={ () => {
+								onOpenChange( false );
+								void connector.openExternalUrl( link.url );
+							} }
+						>
+							{ link.label }
+							{ note ? (
+								<span className={ styles.actionDetail } title={ note }>
+									{ note }
+								</span>
+							) : null }
+						</Menu.ItemButton>
+					) ) }
+					<Menu.ItemButton
+						onClick={ () => {
+							onOpenChange( false );
+							openSettings( 'providers', undefined, 'ai-providers' );
+						} }
+					>
+						{ __( 'Connect AI providers' ) }
+					</Menu.ItemButton>
+				</div>
+			</Popover.Popup>
+		</Popover.Root>
+	);
+}

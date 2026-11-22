@@ -13,7 +13,7 @@ import { mergeVisibleOrder } from './sidebar-collections';
 import { SidebarReorderableList } from './sidebar-reorderable-list';
 import styles from './style.module.css';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
-import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
+import type { ReorderableItemProps } from '@/lib/ui';
 
 // Chats listed at first under a site, and how many more each Show more adds.
 const CHATS_INITIAL_COUNT = 5;

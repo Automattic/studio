@@ -466,6 +466,23 @@ describe( 'createLocalConnector for a remote server', () => {
 	const checkIns = ( origin: string ) =>
 		fetchMock.mock.calls.filter( ( [ url ] ) => url === `${ origin }/api/health` ).length;
 
+	it.each( [
+		{ response: { version: '9.0.0' }, supported: false },
+		{ response: { version: '9.0.0', features: { modelFavorites: true } }, supported: true },
+	] )(
+		'gates model favorites on the remote server capability',
+		async ( { response, supported } ) => {
+			fetchMock.mockImplementation( async () => Response.json( response ) );
+			const connector = createLocalConnector( {
+				apiBaseUrl: `https://model-favorites-${ supported }.cloud.test`,
+				remote: { signIn: vi.fn(), signOut: vi.fn(), getBilling: vi.fn() },
+			} );
+			expect( connector.capabilities.modelFavorites ).toBe( false );
+			await connector.init?.();
+			expect( connector.capabilities.modelFavorites ).toBe( supported );
+		}
+	);
+
 	it( 'keeps the event stream open only while the page has focus', async () => {
 		await start( 'https://m1.cloud.test' );
 		const opened = streamsOf( 'https://m1.cloud.test' );

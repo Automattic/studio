@@ -23,7 +23,7 @@ import {
 } from '@/lib/ui';
 import { BulkMenu, useIsBulkTarget, useRowPressed, useSelectableRow } from './selection';
 import type { AiSessionSummary } from '@/data/core';
-import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
+import type { ReorderableItemProps } from '@/lib/ui';
 
 export function RetryLoadingChats() {
 	const { refetch } = useSessions();

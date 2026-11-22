@@ -25,6 +25,7 @@ export * from './marquee-label';
 export * as Menu from './menu';
 export * from './notification-dot';
 export * as Popover from './popover';
+export * from './reorderable-list';
 export * from './preview-frame';
 export * from './progress';
 export * from './questionnaire';

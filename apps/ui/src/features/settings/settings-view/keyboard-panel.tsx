@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
+import { useConnector } from '@/data/core';
 import { Kbd, KbdGroup } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
@@ -38,7 +39,7 @@ function getShortcutKeyAriaLabel( key: string ): string {
 	}
 }
 
-function getShortcutSections( isApple: boolean ): ShortcutSection[] {
+function getShortcutSections( isApple: boolean, modelFavorites: boolean ): ShortcutSection[] {
 	const modifierKey = isApple ? '⌘' : 'Ctrl';
 	const altKey = isApple ? '⌥' : 'Alt';
 	const shiftKey = isApple ? '⇧' : 'Shift';
@@ -78,6 +79,9 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			shortcuts: [
 				{ label: __( 'Send message' ), keys: [ '↩' ] },
 				{ label: __( 'Insert newline' ), keys: [ shiftKey, '↩' ] },
+				...( modelFavorites
+					? [ { label: __( 'Switch to starred model' ), keys: [ altKey, modifierKey, '1–9' ] } ]
+					: [] ),
 				{ label: __( 'Stop response' ), keys: [ 'Esc' ] },
 			],
 		},
@@ -94,9 +98,10 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 }
 
 export function KeyboardPanel() {
+	const { capabilities } = useConnector();
 	return (
 		<div className={ styles.preferencesPanel }>
-			{ getShortcutSections( isAppleOS() ).map( ( section ) => (
+			{ getShortcutSections( isAppleOS(), capabilities.modelFavorites ).map( ( section ) => (
 				<SettingsGroup key={ section.title ?? '' } title={ section.title }>
 					{ section.shortcuts.map( ( shortcut ) => (
 						<SettingsRow key={ shortcut.label } title={ shortcut.label }>

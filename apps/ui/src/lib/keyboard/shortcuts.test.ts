@@ -6,6 +6,9 @@ const keydown = ( init: KeyboardEventInit ) =>
 
 describe( 'isShortcut', () => {
 	it( 'reads the physical key when Option or the layout changes the typed one', () => {
+		expect( isShortcut( keydown( { key: '™', code: 'Digit2', altKey: true } ), '2', 'alt' ) ).toBe(
+			true
+		);
 		expect( isShortcut( keydown( { key: 'π', code: 'KeyP', altKey: true } ), 'p', 'alt' ) ).toBe(
 			true
 		);

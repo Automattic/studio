@@ -41,19 +41,17 @@ describe( 'Conversation usage and model picker', () => {
 			await screen.findByRole( 'button', { name: 'Site menu' } );
 			await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 			if ( provider === 'wpcom' ) {
-				expect( await screen.findByRole( 'option', { name: /Fast/ } ) ).toHaveTextContent(
-					'Quick fixes and questions'
+				expect( await screen.findByRole( 'button', { name: 'Fast' } ) ).toHaveAccessibleDescription(
+					expect.stringContaining( 'Quick fixes and questions' )
 				);
-				expect( screen.getByRole( 'option', { name: /Balanced/ } ) ).toHaveAttribute(
-					'aria-disabled',
-					'true'
-				);
-				expect( screen.getByRole( 'option', { name: /Strong/ } ) ).toHaveTextContent(
-					'Purchased credits required'
+				expect( screen.getByRole( 'button', { name: 'Balanced' } ) ).toBeDisabled();
+				expect( screen.getByRole( 'button', { name: 'Strong' } ) ).toHaveAccessibleDescription(
+					expect.stringContaining( 'Purchased credits required' )
 				);
 			}
-			expect( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) ).toBeVisible();
-			expect( screen.getByRole( 'option', { name: /^Connect AI providers/ } ) ).toBeVisible();
+			await user.type( screen.getByRole( 'textbox', { name: 'Search models' } ), 'Sonnet' );
+			expect( await screen.findByRole( 'button', { name: /^Sonnet 5.5/ } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: /^Connect AI providers/ } ) ).toBeVisible();
 			await user.keyboard( '{Escape}' );
 			if ( provider === 'wpcom' ) {
 				expect( await screen.findByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
@@ -75,7 +73,9 @@ describe( 'Conversation usage and model picker', () => {
 		const { user } = renderApp( { connector, path: '/sites/one/new' } );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
-		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) );
+		await user.type( screen.getByRole( 'textbox', { name: 'Search models' } ), 'Sonnet' );
+		await user.click( await screen.findByRole( 'button', { name: /^Sonnet 5.5/ } ) );
+		await user.keyboard( '{Escape}' );
 		expect( connector.createSession ).not.toHaveBeenCalled();
 		expect( connector.setSessionProvider ).not.toHaveBeenCalled();
 		await waitFor( () =>
@@ -94,7 +94,8 @@ describe( 'Conversation usage and model picker', () => {
 			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 				expect.any( String ),
 				'anthropic',
-				'claude-sonnet-5-5'
+				'claude-sonnet-5-5',
+				'default'
 			)
 		);
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );

@@ -205,6 +205,7 @@ describe( 'Studio workspace', () => {
 					studioLogs: true,
 					loopbackSignIn: true,
 					localMachine: true,
+					modelFavorites: true,
 				},
 			},
 		} );
@@ -1376,6 +1377,7 @@ describe( 'Studio workspace', () => {
 					studioLogs: true,
 					loopbackSignIn: true,
 					localMachine: true,
+					modelFavorites: true,
 				},
 			},
 		} );

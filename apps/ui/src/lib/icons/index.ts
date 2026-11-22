@@ -65,6 +65,8 @@ export * from './skills-icon';
 export * from './sliders-vertical-icon';
 export * from './sort-icon';
 export * from './sparkle-icon';
+export * from './star-icon';
+export * from './drag-handle-icon';
 export * from './sparkles-icon';
 export * from './square-icon';
 export * from './square-pen-icon';

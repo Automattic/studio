@@ -33,6 +33,7 @@ import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assi
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { SupportedBrowser, SystemBrowser } from '@studio/common/lib/user-settings/browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
+import type { ModelFavorite } from '@studio/common/lib/user-settings/model-favorites';
 import type {
 	SidebarPinnedSort,
 	SidebarSiteSort,
@@ -222,6 +223,8 @@ interface ConnectorCapabilities {
 	// editor, terminal) and use what needs it (custom domains, Xdebug). Studio Cloud's sites run
 	// natively on a machine somewhere else.
 	localMachine: boolean;
+	// The server persists model favorites and supports applying a saved preset.
+	modelFavorites: boolean;
 }
 
 export interface Connector {
@@ -506,11 +509,20 @@ export interface Connector {
 	// Persist a UI-driven model override for the session. The CLI picks this up
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
-	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
+	setSessionModel(
+		sessionId: string,
+		model: AiModelId,
+		thinking?: ThinkingSetting
+	): Promise< void >;
 	// Pin the session to an AI provider, with the model it should use there.
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.
-	setSessionProvider( sessionId: string, provider: ProviderId, model: AiModelId ): Promise< void >;
+	setSessionProvider(
+		sessionId: string,
+		provider: ProviderId,
+		model: AiModelId,
+		thinking?: ThinkingSetting
+	): Promise< void >;
 	// Set how much `model` thinks in the session, until it switches models.
 	setSessionThinking(
 		sessionId: string,
@@ -870,6 +882,7 @@ export interface UserPreferences {
 	hideFrontendAdminBar?: boolean;
 	// Save annotation notes for a combined send.
 	batchAnnotations?: boolean;
+	modelFavorites?: ModelFavorite[];
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;
 	tintIntensity?: number;

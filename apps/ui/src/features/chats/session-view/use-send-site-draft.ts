@@ -31,9 +31,13 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 				try {
 					const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
 					update( { sessionId } );
-					await connector.setSessionProvider( sessionId, provider, model );
-					if ( draft.thinking ) {
-						await connector.setSessionThinking( sessionId, model, draft.thinking );
+					if ( draft.thinking && connector.capabilities.modelFavorites ) {
+						await connector.setSessionProvider( sessionId, provider, model, draft.thinking );
+					} else {
+						await connector.setSessionProvider( sessionId, provider, model );
+						if ( draft.thinking ) {
+							await connector.setSessionThinking( sessionId, model, draft.thinking );
+						}
 					}
 					await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
 					session = await connector.getSession( sessionId );

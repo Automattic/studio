@@ -366,19 +366,31 @@ export async function listActiveAiAgentRuns(
 export async function setAiSessionModel(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
-	model: string
+	model: string,
+	thinking?: ThinkingSetting
 ): Promise< void > {
 	if ( ! findAiModel( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
-	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
+	if ( thinking !== undefined ) {
+		if ( ! THINKING_SETTINGS.includes( thinking ) ) {
+			throw new Error( `Unknown thinking level: ${ thinking }` );
+		}
+		await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
+			model,
+			thinking,
+		} );
+	} else {
+		await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
+	}
 }
 
 export async function setAiSessionProvider(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
 	requested: string,
-	model: string
+	model: string,
+	thinking?: ThinkingSetting
 ): Promise< void > {
 	const provider = normalizeProviderId( requested );
 	if ( ! provider ) {
@@ -387,9 +399,13 @@ export async function setAiSessionProvider(
 	if ( ! servesAiModel( provider, model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
+	if ( thinking !== undefined && ! THINKING_SETTINGS.includes( thinking ) ) {
+		throw new Error( `Unknown thinking level: ${ thinking }` );
+	}
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
 		provider: toStoredProviderId( provider ),
 		model,
+		...( thinking !== undefined ? { thinking } : {} ),
 	} );
 }
 

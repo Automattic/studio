@@ -117,7 +117,7 @@ interface ComposerProps {
 	dropTarget?: HTMLElement | null;
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
-	onModelChange?: ( model: AiModelId, provider: ProviderId ) => void;
+	onModelChange?: ( model: AiModelId, provider: ProviderId, thinking?: ThinkingSetting ) => void;
 	thinking?: ThinkingSetting;
 	onThinkingChange?: ( thinking: ThinkingSetting ) => void;
 	// Why the chat can't send right now; a send attempt shakes it.
@@ -340,6 +340,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	const {
 		changeModel,
+		waitForModelChange,
 		pendingModel,
 		familySwitchInFlight,
 		cancelFamilyChange,
@@ -415,6 +416,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments( [] );
 		setSending( true );
 		try {
+			await waitForModelChange();
 			await onSend( submission.prompt, submission.options );
 		} catch {
 			// The parent reports the failure in a toast. Keep the draft even if
@@ -448,6 +450,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		shake,
 		answerQuestion,
 		onSend,
+		waitForModelChange,
 		restoreAttachments,
 		annotationSiteId,
 		model,
@@ -627,7 +630,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									providers={ providers }
 									sessionProvider={ sessionProvider }
 									isModelLocked={ isModelLocked }
-									disabled={ busy }
+									disabled={ busy || sending }
 									anchor={ rootNode }
 									onChange={ changeModel }
 									thinking={ thinking }

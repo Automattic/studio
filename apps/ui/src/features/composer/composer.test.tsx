@@ -890,8 +890,8 @@ describe( 'Composer model picker', () => {
 			expect( trigger ).toHaveAccessibleDescription( 'Fast · WordPress.com · AI usage unavailable' )
 		);
 		fireEvent.click( trigger );
-		await screen.findByRole( 'option', { name: /^Fast/ } );
-		expect( screen.queryByRole( 'option', { name: /^Sonnet 5.5/ } ) ).not.toBeInTheDocument();
+		await screen.findByRole( 'button', { name: /^Fast/ } );
+		expect( screen.queryByRole( 'button', { name: /^Sonnet 5.5/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows the AI credits left as a count, not a share of past top-ups', async () => {
@@ -928,7 +928,7 @@ describe( 'Composer model picker', () => {
 		for ( const tier of [ 'Balanced', 'Strong' ] ) {
 			await waitFor( () =>
 				expect(
-					screen.getByRole( 'option', { name: new RegExp( `^${ tier }` ) } )
+					screen.getByRole( 'button', { name: new RegExp( `^${ tier }` ) } )
 				).not.toHaveAttribute( 'aria-disabled' )
 			);
 		}
@@ -947,7 +947,7 @@ describe( 'Composer model picker', () => {
 		for ( const tier of [ 'Balanced', 'Strong' ] ) {
 			await waitFor( () =>
 				expect(
-					screen.getByRole( 'option', { name: new RegExp( `^${ tier }` ) } )
+					screen.getByRole( 'button', { name: new RegExp( `^${ tier }` ) } )
 				).not.toHaveAttribute( 'aria-disabled' )
 			);
 		}
@@ -969,7 +969,7 @@ describe( 'Composer model picker', () => {
 
 		const trigger = await modelButton();
 		fireEvent.click( trigger );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Get more credits/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: /^Get more credits/ } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Cancel' } ) );
 
 		await waitFor( () => expect( trigger ).toHaveFocus() );
@@ -998,7 +998,10 @@ describe( 'Composer model picker', () => {
 		);
 
 		fireEvent.click( await modelButton() );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) );
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Search models' } ), {
+			target: { value: 'Sonnet' },
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: /^Sonnet 5.5/ } ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
 		expect( connector.createSession ).not.toHaveBeenCalled();
@@ -1011,7 +1014,8 @@ describe( 'Composer model picker', () => {
 		expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 			'fresh-session',
 			'anthropic',
-			'claude-sonnet-5-5'
+			'claude-sonnet-5-5',
+			'default'
 		);
 		const cached = queryClient.getQueryData< LoadedAiSession >( [
 			...SESSIONS_QUERY_KEY,
@@ -1021,7 +1025,7 @@ describe( 'Composer model picker', () => {
 		expect( cached?.entries ).toEqual( [
 			expect.objectContaining( {
 				customType: 'studio.session_context',
-				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5-5' },
+				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5-5', thinking: 'default' },
 			} ),
 		] );
 	} );
@@ -1068,8 +1072,8 @@ describe( 'Composer as a form field', () => {
 		} );
 
 		fireEvent.click( await modelButton() );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Fast/ } ) );
-		expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom' );
+		fireEvent.click( await screen.findByRole( 'button', { name: /^Fast/ } ) );
+		expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom', 'default' );
 		expect( connector.setSessionModel ).not.toHaveBeenCalled();
 	} );
 } );

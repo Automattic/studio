@@ -191,10 +191,10 @@ const api: IpcApi = {
 	continueAiSession: ( sessionId, prompt, options ) =>
 		ipcRendererInvoke( 'continueAiSession', sessionId, prompt, options ),
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
-	setAiSessionModel: ( sessionId, model ) =>
-		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
-	setAiSessionProvider: ( sessionId, provider, model ) =>
-		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
+	setAiSessionModel: ( sessionId, model, thinking ) =>
+		ipcRendererInvoke( 'setAiSessionModel', sessionId, model, thinking ),
+	setAiSessionProvider: ( sessionId, provider, model, thinking ) =>
+		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model, thinking ),
 	setAiSessionThinking: ( sessionId, model, thinking ) =>
 		ipcRendererInvoke( 'setAiSessionThinking', sessionId, model, thinking ),
 	setAiSessionEnvironment: ( sessionId, environment ) =>

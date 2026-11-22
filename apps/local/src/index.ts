@@ -626,7 +626,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	} );
 
 	api.get( '/version', ( _req: Request, res: Response ) => {
-		res.json( { version: options.version ?? null } );
+		res.json( { version: options.version ?? null, features: { modelFavorites: true } } );
 	} );
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
@@ -2390,12 +2390,24 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sessions/:id/model',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { model } = req.body as { model?: string };
+			const { model, thinking } = req.body as { model?: string; thinking?: string };
 			if ( ! model || ! findAiModel( model ) ) {
 				res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
 				return;
 			}
-			await appendModelChangeEntry( sessionsRoot, req.params.id, '', model );
+			if ( thinking !== undefined ) {
+				const level = THINKING_SETTINGS.find( ( id ) => id === thinking );
+				if ( ! level ) {
+					res.status( 400 ).json( { error: `Unknown thinking level: ${ thinking }` } );
+					return;
+				}
+				await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
+					model,
+					thinking: level,
+				} );
+			} else {
+				await appendModelChangeEntry( sessionsRoot, req.params.id, '', model );
+			}
 			res.sendStatus( 204 );
 		} )
 	);
@@ -2403,7 +2415,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sessions/:id/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { provider: requested, model } = req.body as { provider?: string; model?: string };
+			const {
+				provider: requested,
+				model,
+				thinking,
+			} = req.body as {
+				provider?: string;
+				model?: string;
+				thinking?: string;
+			};
 			const provider = requested ? normalizeProviderId( requested, AI_PROVIDER_IDS ) : undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
@@ -2413,9 +2433,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}
+			const level =
+				thinking === undefined ? undefined : THINKING_SETTINGS.find( ( id ) => id === thinking );
+			if ( thinking !== undefined && ! level ) {
+				res.status( 400 ).json( { error: `Unknown thinking level: ${ thinking }` } );
+				return;
+			}
 			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
 				provider: toStoredProviderId( provider ),
 				model,
+				...( level !== undefined ? { thinking: level } : {} ),
 			} );
 			res.sendStatus( 204 );
 		} )

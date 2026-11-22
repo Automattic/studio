@@ -86,6 +86,22 @@ it( 'keeps the sidebar preferences, which default to recent chats shown and site
 	} );
 } );
 
+it( 'persists ordered model favorites, including values a future build may understand', async () => {
+	const context = { sitesRoot: configDir };
+	const favorites = [
+		{ provider: 'wpcom', model: 'balanced', effort: 'high' },
+		{ provider: 'future-provider', model: 'future-model', effort: 'future-effort' },
+	];
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( [] );
+	await writeUserPreferences(
+		userPreferencesPatchSchema.parse( { modelFavorites: favorites } ),
+		context
+	);
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( favorites );
+	await writeUserPreferences( { modelFavorites: null }, context );
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( [] );
+} );
+
 it( 'ignores the retired Add site opening preference in saved settings and patches', async () => {
 	const preferences = await readUserPreferences( { sitesRoot: configDir } );
 	expect( preferences ).not.toHaveProperty( 'newSiteBehavior' );

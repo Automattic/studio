@@ -7,6 +7,10 @@ import { updateConfigAndMuPluginSettings } from '@studio/common/lib/mu-plugin-se
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
+	modelFavoritesSchema,
+	type ModelFavorite,
+} from '@studio/common/lib/user-settings/model-favorites';
+import {
 	DEFAULT_COLOR_SCHEME,
 	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	getColorTint,
@@ -63,6 +67,7 @@ export interface UserPreferences extends ColorTint {
 	openChatOnSiteStart: boolean;
 	hideFrontendAdminBar: boolean;
 	batchAnnotations: boolean;
+	modelFavorites: ModelFavorite[];
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -110,6 +115,7 @@ export const userPreferencesPatchSchema = z.object( {
 	openChatOnSiteStart: z.boolean().nullish(),
 	hideFrontendAdminBar: z.boolean().nullish(),
 	batchAnnotations: z.boolean().nullish(),
+	modelFavorites: modelFavoritesSchema.nullish(),
 	accentColor: z
 		.string()
 		.regex( /^#[0-9a-f]{6}$/i )
@@ -143,6 +149,7 @@ const STORED_KEYS = [
 	[ 'openChatOnSiteStart', 'openChatOnSiteStart' ],
 	[ 'hideFrontendAdminBar', 'hideFrontendAdminBar' ],
 	[ 'batchAnnotations', 'batchAnnotations' ],
+	[ 'modelFavorites', 'modelFavorites' ],
 	[ 'accentColor', 'accentColor' ],
 	[ 'tintIntensity', 'tintIntensity' ],
 	[ 'contrast', 'contrast' ],
@@ -213,6 +220,7 @@ export async function readUserPreferences( {
 			.catch( openChatOnSiteStart )
 			.parse( config.openChatOnSiteStart ),
 		batchAnnotations: z.boolean().catch( batchAnnotations ).parse( config.batchAnnotations ),
+		modelFavorites: modelFavoritesSchema.catch( [] ).parse( config.modelFavorites ),
 		hideFrontendAdminBar: z
 			.boolean()
 			.catch( DEFAULT_HIDE_FRONTEND_ADMIN_BAR )

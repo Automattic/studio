@@ -466,6 +466,7 @@ export function createInMemoryConnector(
 			studioLogs: true,
 			loopbackSignIn: true,
 			localMachine: true,
+			modelFavorites: true,
 			...overrides.capabilities,
 		},
 		state,

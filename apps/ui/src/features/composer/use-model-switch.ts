@@ -1,8 +1,15 @@
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import { toStoredProviderId, type ProviderId } from '@studio/providers';
 import { useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
 import { useCallback, useMemo, useState } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import {
+	clearFailedSessionModelWrite,
+	queueSessionModelWrite,
+	waitForSessionModelWrites,
+} from '@/data/queries/session-model-writes';
 import {
 	createModelChangeEntry,
 	openNewSession,
@@ -12,17 +19,26 @@ import {
 import { saveComposerDraft } from '@/features/composer/draft-store';
 import type { AiModelId, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 
 // Optimistic mirror of the `studio.session_context` entry the backend appends
 // for a provider switch, so the picker updates before the write lands.
-function createSessionContextEntry( provider: ProviderId, model: AiModelId ): SessionEntry {
+function createSessionContextEntry(
+	provider: ProviderId | undefined,
+	model: AiModelId,
+	thinking?: ThinkingSetting
+): SessionEntry {
 	return {
 		type: 'custom',
 		id: Math.random().toString( 36 ).slice( 2, 10 ),
 		parentId: null,
 		timestamp: new Date().toISOString(),
 		customType: 'studio.session_context',
-		data: { provider: toStoredProviderId( provider ), model },
+		data: {
+			...( provider ? { provider: toStoredProviderId( provider ) } : {} ),
+			model,
+			...( thinking ? { thinking } : {} ),
+		},
 	} as unknown as SessionEntry;
 }
 
@@ -33,7 +49,7 @@ interface ModelSwitchOptions {
 	sessionProvider: ProviderId;
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
-	onModelChange?: ( model: AiModelId, provider: ProviderId ) => void;
+	onModelChange?: ( model: AiModelId, provider: ProviderId, thinking?: ThinkingSetting ) => void;
 	isModelLocked: ( id: AiModelId ) => boolean;
 	// The draft carried over to a fresh session.
 	text: string;
@@ -61,6 +77,7 @@ export function useModelSwitch( {
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< {
 		model: AiModelId;
 		provider?: ProviderId;
+		thinking?: ThinkingSetting;
 	} | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
@@ -75,17 +92,30 @@ export function useModelSwitch( {
 			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) =>
 				prev ? { ...prev, entries: [ ...( prev.entries ?? [] ), entry ] } : prev
 			);
-			void write( sessionId ).catch( () => {
-				void queryClient.invalidateQueries( { queryKey } );
+			const next = queueSessionModelWrite( sessionId, () => write( sessionId ) );
+			void next.catch( ( error: unknown ) => {
+				toast.error( __( 'Couldn’t change the chat model' ), {
+					description: error instanceof Error ? error.message : String( error ),
+				} );
+				void queryClient.invalidateQueries( { queryKey } ).then(
+					() => clearFailedSessionModelWrite( sessionId, next ),
+					() => clearFailedSessionModelWrite( sessionId, next )
+				);
 			} );
 		},
 		[ queryClient, sessionId ]
 	);
 
 	const applySameFamilyModel = useCallback(
-		( picked: AiModelId ) => {
-			appendEntryOptimistically( createModelChangeEntry( picked ), ( id ) =>
-				connector.setSessionModel( id, picked )
+		( picked: AiModelId, thinking?: ThinkingSetting ) => {
+			appendEntryOptimistically(
+				thinking === undefined
+					? createModelChangeEntry( picked )
+					: createSessionContextEntry( undefined, picked, thinking ),
+				( id ) =>
+					thinking === undefined
+						? connector.setSessionModel( id, picked )
+						: connector.setSessionModel( id, picked, thinking )
 			);
 		},
 		[ appendEntryOptimistically, connector ]
@@ -103,32 +133,52 @@ export function useModelSwitch( {
 	// entry. Moving the conversation to another model goes through the
 	// fresh-session confirmation.
 	const handleProviderChange = useCallback(
-		( picked: ProviderId, nextModel: AiModelId ) => {
-			if ( model !== nextModel && onSwitchSession && sessionHasTurns ) {
-				setPendingFamilyChange( { model: nextModel, provider: picked } );
+		( picked: ProviderId, nextModel: AiModelId, thinking?: ThinkingSetting ) => {
+			if (
+				picked !== sessionProvider &&
+				model !== nextModel &&
+				onSwitchSession &&
+				sessionHasTurns
+			) {
+				setPendingFamilyChange( { model: nextModel, provider: picked, thinking } );
 				return;
 			}
-			appendEntryOptimistically( createSessionContextEntry( picked, nextModel ), ( id ) =>
-				connector.setSessionProvider( id, picked, nextModel )
+			appendEntryOptimistically(
+				createSessionContextEntry( picked, nextModel, thinking ),
+				( id ) =>
+					thinking === undefined
+						? connector.setSessionProvider( id, picked, nextModel )
+						: connector.setSessionProvider( id, picked, nextModel, thinking )
 			);
 		},
-		[ appendEntryOptimistically, connector, model, onSwitchSession, sessionHasTurns ]
+		[
+			appendEntryOptimistically,
+			connector,
+			model,
+			onSwitchSession,
+			sessionHasTurns,
+			sessionProvider,
+		]
 	);
 
 	const changeModel = useCallback(
-		( provider: ProviderId, picked: AiModelId ) => {
-			if ( picked === model || isModelLocked( picked ) ) {
+		( provider: ProviderId, picked: AiModelId, thinking?: ThinkingSetting ) => {
+			if (
+				( picked === model && provider === sessionProvider && thinking === undefined ) ||
+				isModelLocked( picked )
+			) {
 				return;
 			}
 			if ( onModelChange ) {
-				onModelChange( picked, provider );
+				if ( thinking === undefined ) onModelChange( picked, provider );
+				else onModelChange( picked, provider, thinking );
 				return;
 			}
 			if ( provider !== sessionProvider ) {
-				handleProviderChange( provider, picked );
+				handleProviderChange( provider, picked, thinking );
 				return;
 			}
-			applySameFamilyModel( picked );
+			applySameFamilyModel( picked, thinking );
 		},
 		[
 			applySameFamilyModel,
@@ -151,7 +201,11 @@ export function useModelSwitch( {
 		if ( ! pendingFamilyChange || ! onSwitchSession ) {
 			return;
 		}
-		const { model: pickedModel, provider: pickedProvider } = pendingFamilyChange;
+		const {
+			model: pickedModel,
+			provider: pickedProvider,
+			thinking: pickedThinking,
+		} = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
 			const newSession = await openNewSession(
@@ -160,21 +214,27 @@ export function useModelSwitch( {
 				pickedProvider ? undefined : pickedModel
 			);
 			if ( pickedProvider ) {
-				// Pin the fresh session to the provider (with a model it
-				// serves) before navigating; on failure the user re-picks
-				// from the new view's dropdown.
-				await connector
-					.setSessionProvider( newSession.id, pickedProvider, pickedModel )
-					.then( () =>
-						primeSessionQueryData( queryClient, newSession, [
-							createSessionContextEntry( pickedProvider, pickedModel ),
-						] )
-					)
-					.catch( () => undefined );
+				if ( pickedThinking === undefined ) {
+					await connector.setSessionProvider( newSession.id, pickedProvider, pickedModel );
+				} else {
+					await connector.setSessionProvider(
+						newSession.id,
+						pickedProvider,
+						pickedModel,
+						pickedThinking
+					);
+				}
+				primeSessionQueryData( queryClient, newSession, [
+					createSessionContextEntry( pickedProvider, pickedModel, pickedThinking ),
+				] );
 			}
 			saveComposerDraft( newSession.id, { text, attachments } );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
+		} catch ( error ) {
+			toast.error( __( 'Couldn’t change the chat model' ), {
+				description: error instanceof Error ? error.message : String( error ),
+			} );
 		} finally {
 			setFamilySwitchInFlight( false );
 		}
@@ -188,8 +248,14 @@ export function useModelSwitch( {
 		text,
 	] );
 
+	const waitForModelChange = useCallback(
+		() => ( sessionId ? waitForSessionModelWrites( sessionId ) : Promise.resolve() ),
+		[ sessionId ]
+	);
+
 	return {
 		changeModel,
+		waitForModelChange,
 		pendingModel: pendingFamilyChange?.model ?? null,
 		familySwitchInFlight,
 		cancelFamilyChange,

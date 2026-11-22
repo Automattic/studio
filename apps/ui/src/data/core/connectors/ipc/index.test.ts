@@ -3,6 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createIpcConnector } from './index';
 import type { SiteDetails } from '@/data/core';
 
+it( 'sends the complete model preset across the desktop bridge', async () => {
+	const setAiSessionProvider = vi.fn().mockResolvedValue( undefined );
+	vi.stubGlobal( 'ipcApi', { setAiSessionProvider } );
+	vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	try {
+		await createIpcConnector().setSessionProvider( 'chat', 'wpcom', 'balanced', 'high' );
+		expect( setAiSessionProvider ).toHaveBeenCalledWith( 'chat', 'wpcom', 'balanced', 'high' );
+	} finally {
+		vi.unstubAllGlobals();
+	}
+} );
+
 // Guards the renderer ↔ main IPC call shape: `exportSite` must be invoked as
 // ( siteId, destinationPath, options ) to match the main-process handler in
 // apps/studio/src/modules/import-export/lib/ipc-handlers.ts.

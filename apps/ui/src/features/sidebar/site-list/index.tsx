@@ -30,7 +30,7 @@ import { PinnedSortMenu, SitesSortMenu } from './sort-menu';
 import styles from './style.module.css';
 import { useRevealedSites } from './use-revealed-sites';
 import type { AiSessionSummary } from '@/data/core';
-import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
+import type { ReorderableItemProps } from '@/lib/ui';
 
 function useSidebarNavigation() {
 	const router = useRouter();

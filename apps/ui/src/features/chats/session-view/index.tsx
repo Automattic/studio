@@ -530,7 +530,8 @@ function SessionViewContent( {
 						onModelChange={
 							sessionId
 								? undefined
-								: ( model, provider ) => updateDraft( { model, provider, thinking: undefined } )
+								: ( model, provider, pickedThinking ) =>
+										updateDraft( { model, provider, thinking: pickedThinking } )
 						}
 						thinking={ thinking }
 						onThinkingChange={ ( picked ) =>

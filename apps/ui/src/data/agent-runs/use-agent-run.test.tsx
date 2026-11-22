@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { rememberAccountJourney } from '@/data/account-analytics';
 import { createLocalConnector } from '@/data/core/connectors/local';
+import { queueSessionModelWrite } from '@/data/queries/session-model-writes';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import {
@@ -79,6 +80,24 @@ const exited = ( runId: string ) =>
 const phase = () => screen.getByTestId( 'phase' );
 
 describe( 'useAgentRun queued handoff', () => {
+	it( 'waits for an in-flight model selection before sending a queued prompt', async () => {
+		const write = deferred< void >();
+		const { connector } = await setup();
+		act( () => connector.emit( 'onAgentEvent', started( 'run-old' ) ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		const saved = queueSessionModelWrite( 'session-1', () => write.promise );
+		act( () => connector.emit( 'onAgentEvent', exited( 'run-old' ) ) );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+		await act( async () => write.resolve() );
+		await saved;
+		await waitFor( () =>
+			expect( connector.continueSession ).toHaveBeenCalledWith(
+				'session-1',
+				'Queued follow-up',
+				expect.anything()
+			)
+		);
+	} );
 	it( 'hydrates an existing run when streaming starts before the snapshot arrives', async () => {
 		const snapshot = deferred< Runs >();
 		const connector = createFakeConnector( { sessions: [ session() ] } );

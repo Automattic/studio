@@ -1113,6 +1113,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					studioLogs: false,
 					loopbackSignIn: false,
 					localMachine: false,
+					modelFavorites: false,
 				},
 			},
 		} );

@@ -140,6 +140,7 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 			loopbackSignIn: true,
 			localMachine: true,
+			modelFavorites: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -607,12 +608,12 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.listActiveAiAgentRuns() ) as ActiveAgentRun[];
 		},
 
-		async setSessionModel( sessionId, model ) {
-			await ipcApi.setAiSessionModel( sessionId, model );
+		async setSessionModel( sessionId, model, thinking ) {
+			await ipcApi.setAiSessionModel( sessionId, model, thinking );
 		},
 
-		async setSessionProvider( sessionId, provider, model ) {
-			await ipcApi.setAiSessionProvider( sessionId, provider, model );
+		async setSessionProvider( sessionId, provider, model, thinking ) {
+			await ipcApi.setAiSessionProvider( sessionId, provider, model, thinking );
 		},
 
 		async setSessionThinking( sessionId, model, thinking ) {

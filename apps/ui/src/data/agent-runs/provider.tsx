@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildr
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
 import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { waitForSessionModelWrites } from '@/data/queries/session-model-writes';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { AgentRunContext, type AgentRunStore } from './context';
@@ -463,6 +464,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 			try {
 				dismissToast( `chat-send-${ sessionId }` );
+				await waitForSessionModelWrites( sessionId );
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
 					turnId,
 					displayMessage,

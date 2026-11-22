@@ -1,4 +1,8 @@
 @layer ui {
+	.itemButton {
+		width: 100%;
+		text-align: start;
+	}
 	.item:not( :has( > [data-icon='inline-end'] ) ) {
 		padding-inline-end: var( --space-3 );
 	}

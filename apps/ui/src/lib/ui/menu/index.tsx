@@ -1,3 +1,4 @@
+import { Button as BaseButton } from '@base-ui/react/button';
 import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { clsx } from 'clsx';
@@ -173,6 +174,29 @@ export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >(
 } );
 
 type SubmenuTriggerProps = ComponentPropsWithoutRef< typeof BaseMenu.SubmenuTrigger >;
+
+/** A menu-styled action for popovers with inputs and sibling controls. */
+export const ItemButton = forwardRef<
+	ElementRef< typeof BaseButton >,
+	ComponentPropsWithoutRef< typeof BaseButton >
+>( function ItemButton( { className, disabled, ...props }, ref ) {
+	return (
+		<BaseButton
+			ref={ ref }
+			{ ...props }
+			disabled={ disabled }
+			data-disabled={ disabled || undefined }
+			className={ clsx( surface.item, styles.item, styles.itemButton, className ) }
+		/>
+	);
+} );
+
+export function SubmenuIndicator( {
+	className,
+	...props
+}: ComponentPropsWithoutRef< typeof ChevronDownIcon > ) {
+	return <ChevronDownIcon { ...props } className={ clsx( styles.submenuChevron, className ) } />;
+}
 
 export const SubmenuTrigger = forwardRef<
 	ElementRef< typeof BaseMenu.SubmenuTrigger >,

@@ -571,14 +571,17 @@ describe( 'Chat target selection', () => {
 			return;
 		}
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		const connect = await screen.findByRole( 'option', { name: /^Connect AI providers/ } );
+		const connect = await screen.findByRole( 'button', { name: /^Connect AI providers/ } );
+		const search = screen.getByRole( 'textbox', { name: 'Search models' } );
 		for ( const name of [ 'Fast', 'Balanced', 'Strong' ] ) {
-			expect( !! screen.queryByRole( 'option', { name: new RegExp( `^${ name }` ) } ) ).toBe(
+			fireEvent.change( search, { target: { value: name } } );
+			expect( !! screen.queryByRole( 'button', { name: new RegExp( `^${ name }` ) } ) ).toBe(
 				connections.signedIn
 			);
 		}
 		for ( const name of [ 'Sonnet 5.5', 'Opus 5.5' ] ) {
-			expect( !! screen.queryByRole( 'option', { name: new RegExp( `^${ name }` ) } ) ).toBe(
+			fireEvent.change( search, { target: { value: name } } );
+			expect( !! screen.queryByRole( 'button', { name: new RegExp( `^${ name }` ) } ) ).toBe(
 				connections.hasAnthropicApiKey
 			);
 		}
@@ -620,22 +623,26 @@ describe( 'Chat target selection', () => {
 		} );
 		fireEvent.change( input, { target: { value: 'Preserve this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Opus 5.5/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: /^Opus 5.5/ } ) );
 		await waitFor( () =>
-			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5-5' )
+			expect( connector.setSessionModel ).toHaveBeenCalledWith(
+				'chat',
+				'claude-opus-5-5',
+				'default'
+			)
 		);
 		expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 			'Preserve this draft'
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 			'aria-description',
-			'Opus 5.5 · Anthropic'
+			'Opus 5.5 · Anthropic · Thinking: Medium'
 		);
 	} );
 
 	it( 'sets how much the model thinks in the chat', async () => {
 		const { connector } = await setupChat( { provider: 'anthropic', signedIn: false } );
-		connector.setSessionThinking.mockImplementation( async ( id, model, thinking ) => {
+		connector.setSessionModel.mockImplementation( async ( id, model, thinking ) => {
 			connector.state.sessions[ 0 ].entries.push( {
 				type: 'custom',
 				customType: 'studio.session_context',
@@ -643,8 +650,8 @@ describe( 'Chat target selection', () => {
 			} as SessionEntry );
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Thinking/ } ) );
-		expect( await screen.findByRole( 'menuitemradio', { name: 'Medium Default' } ) ).toBeChecked();
+		fireEvent.click( await screen.findByRole( 'button', { name: /^Thinking/ } ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Medium' } ) ).toBeChecked();
 		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Off' } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
@@ -652,18 +659,14 @@ describe( 'Chat target selection', () => {
 				'Sonnet 5.5 · Anthropic · Thinking: Off'
 			)
 		);
-		expect( connector.setSessionThinking ).toHaveBeenCalledWith(
-			'chat',
-			'claude-sonnet-5-5',
-			'off'
-		);
+		expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-sonnet-5-5', 'off' );
 	} );
 
 	it( 'doesn’t offer thinking levels on WordPress.com', async () => {
 		await setupChat();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		await screen.findByRole( 'option', { name: /^Fast/ } );
-		expect( screen.queryByRole( 'option', { name: /^Thinking/ } ) ).not.toBeInTheDocument();
+		await screen.findByRole( 'button', { name: /^Fast/ } );
+		expect( screen.getByRole( 'button', { name: 'Thinking: Unavailable' } ) ).toBeDisabled();
 	} );
 } );
 

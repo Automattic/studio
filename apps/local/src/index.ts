@@ -199,6 +199,7 @@ import { getSignInUrl } from '@studio/providers/wpcom';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
+import { createKeepAlive } from './keep-alive';
 import {
 	isEditor,
 	isTerminal,
@@ -274,6 +275,8 @@ export interface LocalServerOptions {
 	// Limits the host set on sites and their storage (`studio serve` on a Studio Cloud plan),
 	// reported with the current counts at `/api/site-limits`.
 	siteLimits?: { sites?: number; runningSites?: number; storageGb?: number };
+	// Requested while an agent run is in progress (see `createKeepAlive`).
+	keepAliveUrl?: string;
 }
 
 export interface LocalServer {
@@ -495,6 +498,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		surface: 'cliui',
 		// Agent-run events on `agent`, session-placement updates on `placement`.
 		emit: ( output ) => sseSend( { channel: output.kind, payload: output.event } ),
+	} );
+	const keepAlive = createKeepAlive( {
+		url: options.keepAliveUrl,
+		isBusy: () => runManager.listActiveAgentRuns().length > 0,
 	} );
 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
@@ -2481,6 +2488,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				files,
 				visualAnnotations: validatedVisualAnnotations,
 			} );
+			keepAlive.wake();
 			void recordAnnotationSubmitted( {
 				annotationCount: validatedVisualAnnotations?.length ?? 0,
 				sessionsRoot,
@@ -2671,6 +2679,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		url,
 		port: listeningPort,
 		async close() {
+			keepAlive.stop();
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {
 				watch.cancelled = true;

@@ -6,7 +6,7 @@ import { Badge } from '@/lib/ui/badge';
 import { Button, IconButton } from '@/lib/ui/button';
 import * as Popover from '@/lib/ui/popover';
 import styles from './style.module.css';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, KeyboardEventHandler, MouseEventHandler, ReactNode } from 'react';
 
 export const Root = Popover.Root;
 export const Trigger = Popover.Trigger;
@@ -71,13 +71,15 @@ export function Navigation( {
 	nextLabel = __( 'Next' ),
 	skipLabel = __( 'Skip' ),
 	onNext,
+	onNextKeyDown,
 	onSkip,
 }: {
 	stepLabel?: string;
 	nextLabel?: string;
 	skipLabel?: string;
-	onNext: () => void;
-	onSkip?: () => void;
+	onNext: MouseEventHandler< HTMLButtonElement >;
+	onNextKeyDown?: KeyboardEventHandler< HTMLButtonElement >;
+	onSkip?: MouseEventHandler< HTMLButtonElement >;
 } ) {
 	return (
 		<div className={ styles.navigation }>
@@ -92,7 +94,7 @@ export function Navigation( {
 						{ skipLabel }
 					</Button>
 				) : null }
-				<Button variant="accent" size="sm" onClick={ onNext }>
+				<Button variant="accent" size="sm" onClick={ onNext } onKeyDown={ onNextKeyDown }>
 					{ nextLabel }
 				</Button>
 			</div>

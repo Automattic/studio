@@ -242,6 +242,83 @@ describe( 'first-time walkthrough', () => {
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 
+	it( 'keeps the creation tips next to their highlighted cards in keyboard order', async () => {
+		const { connector } = setup( { walkthroughStep: 'create' }, { sites: [] } );
+		const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
+		const introduction = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
+		const blank = screen.getByRole( 'button', { name: 'Start with Blank site' } );
+		const skip = within( introduction ).getByRole( 'button', { name: 'Skip tour' } );
+		const next = within( introduction ).getByRole( 'button', { name: 'Next' } );
+		expect( blank ).toHaveFocus();
+		await waitFor( () =>
+			expect( blank ).toHaveAccessibleDescription(
+				'A blank WordPress site, ready to become whatever you have in mind. Already have a site? Connect it or import a backup.'
+			)
+		);
+		await user.tab();
+		expect( skip ).toHaveFocus();
+		await user.tab();
+		expect( next ).toHaveFocus();
+		await user.tab();
+		expect( screen.getByRole( 'button', { name: 'View Substrata' } ) ).toHaveFocus();
+		await user.tab( { shift: true } );
+		expect( next ).toHaveFocus();
+		await user.tab( { shift: true } );
+		expect( skip ).toHaveFocus();
+		await user.tab( { shift: true } );
+		expect( blank ).toHaveFocus();
+		await user.tab();
+		await user.tab();
+		await user.keyboard( '{Enter}' );
+		const designTip = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
+		const design = screen.getByRole( 'button', { name: 'View Substrata' } );
+		expect( design ).toHaveFocus();
+		await user.tab();
+		expect( within( designTip ).getByRole( 'button', { name: 'Browse designs' } ) ).toHaveFocus();
+	} );
+
+	it( 'preserves a control’s existing description when a tour tip closes', async () => {
+		const { connector } = setup( { walkthroughStep: 'composer' } );
+		const { user } = renderWithProviders(
+			<>
+				<span id="existing-description">Existing hint</span>
+				<textarea
+					aria-label="Message"
+					aria-describedby="existing-description"
+					data-walkthrough="composer"
+				/>
+				<Walkthrough />
+			</>,
+			{ connector }
+		);
+		await screen.findByRole( 'dialog', { name: 'Chat with your site' } );
+		const message = screen.getByRole( 'textbox', { name: 'Message' } );
+		await waitFor( () =>
+			expect( message ).toHaveAccessibleDescription( /Existing hint Say what you want/ )
+		);
+		message.focus();
+		await user.tab();
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => expect( message ).toHaveAccessibleDescription( 'Existing hint' ) );
+	} );
+
+	it( 'keeps a direct description available while a tour tip is open', async () => {
+		const { connector } = setup( { walkthroughStep: 'publish' } );
+		renderWithProviders(
+			<>
+				<button data-walkthrough="publish" aria-description="Publishing is unavailable">
+					Publish
+				</button>
+				<Walkthrough />
+			</>,
+			{ connector }
+		);
+		await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } );
+		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toHaveAccessibleDescription(
+			'Publishing is unavailable'
+		);
+	} );
+
 	it.each( [ 'Connect', 'Import' ] )(
 		'keeps %s available without touring the tab',
 		async ( tab ) => {
@@ -366,6 +443,50 @@ describe( 'first-time walkthrough', () => {
 		expect( screen.getByRole( 'textbox', { name: 'Other UI' } ) ).toHaveValue( 'still works' );
 	} );
 
+	it( 'moves keyboard focus to the next highlighted control when advancing', async () => {
+		const { connector } = setup( { walkthroughStep: 'composer' } );
+		const { user } = renderWithProviders( <Targets />, { connector } );
+		await screen.findByRole( 'dialog', { name: 'Chat with your site' } );
+		screen.getByRole( 'textbox', { name: 'Message' } ).focus();
+		await user.tab();
+		expect( screen.getByRole( 'button', { name: 'Next' } ) ).toHaveFocus();
+		await user.keyboard( '{Enter}' );
+		await screen.findByRole( 'dialog', { name: 'Point to what you want to change' } );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveFocus()
+		);
+		await user.tab();
+		expect( screen.getByRole( 'button', { name: 'Next' } ) ).toHaveFocus();
+		await user.keyboard( '{Enter}' );
+		await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toHaveFocus()
+		);
+	} );
+
+	it( 'focuses an available composer control when the final tip opens', async () => {
+		const { connector } = setup( { walkthroughStep: 'publish' } );
+		const { user } = renderWithProviders(
+			<>
+				<button data-walkthrough="publish">Publish</button>
+				<div data-walkthrough="try-chat">
+					<button inert>Jump to latest</button>
+					<textarea aria-label="Message" />
+				</div>
+				<Walkthrough />
+			</>,
+			{ connector }
+		);
+		await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } );
+		screen.getByRole( 'button', { name: 'Publish' } ).focus();
+		await user.tab();
+		await user.keyboard( '{Enter}' );
+		await screen.findByRole( 'dialog', { name: 'Ask what’s possible' } );
+		await waitFor( () =>
+			expect( screen.getByRole( 'textbox', { name: 'Message' } ) ).toHaveFocus()
+		);
+	} );
+
 	it( 'pauses publishing guidance during annotation mode and resumes after exiting', async () => {
 		const { connector, readHints } = setup( { walkthroughStep: 'composer' } );
 		const { user } = renderWithProviders( <InteractiveTargets />, { connector } );
@@ -425,6 +546,23 @@ describe( 'first-time walkthrough', () => {
 		const publish = await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } );
 		expect( publish ).toHaveTextContent(
 			'Share a preview to get feedback, or publish your site so anyone can discover it.'
+		);
+	} );
+
+	it( 'keeps keyboard focus in the tour when continuing without connecting', async () => {
+		const { connector } = setup(
+			{ walkthroughStep: 'composer' },
+			{ signedIn: false, annotate: false }
+		);
+		const { user } = renderApp( { connector, path: '/sites/site-1/new' } );
+		const tip = await screen.findByRole( 'dialog', { name: 'Get ready to chat' } );
+		within( screen.getByRole( 'alert' ) ).getByRole( 'button', { name: 'Connect' } ).focus();
+		await user.tab();
+		expect( within( tip ).getByRole( 'button', { name: 'Next' } ) ).toHaveFocus();
+		await user.keyboard( '{Enter}' );
+		await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveFocus()
 		);
 	} );
 

@@ -1,6 +1,7 @@
 import { useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
@@ -12,6 +13,7 @@ import { useOnboardingGuide } from './onboarding-guide/use-onboarding-guide';
 import { WHATS_NEW_VERSION } from './onboarding-guide/whats-new';
 import { GETTING_STARTED_REPLAY_EVENT, useOpenGettingStarted } from './use-open-getting-started';
 import type { OnboardingHintsState } from '@/data/core';
+import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 
 type Step = NonNullable< OnboardingHintsState[ 'walkthroughStep' ] >;
 const ANNOTATE_TARGET = '[data-walkthrough~="annotate"]:not(:disabled, [aria-disabled="true"])';
@@ -118,6 +120,26 @@ function isAvailable( element: HTMLElement ): boolean {
 	return true;
 }
 
+function getFocusTarget( anchor: HTMLElement | null ): HTMLElement | null | undefined {
+	const dialog = anchor?.closest( '[role="dialog"]' );
+	if ( anchor instanceof HTMLButtonElement && anchor.disabled ) {
+		return (
+			dialog?.querySelector< HTMLElement >( '[aria-invalid="true"]' ) ??
+			dialog?.querySelector< HTMLElement >( 'input:not([disabled])' )
+		);
+	}
+	if ( anchor?.matches( 'button, input, textarea, [tabindex]' ) ) return anchor;
+	return (
+		Array.from(
+			anchor?.querySelectorAll< HTMLElement >(
+				'textarea:not([disabled]), input:not([disabled]), [contenteditable="true"], button:not([disabled])'
+			) ?? []
+		).find(
+			( element ) => element.getAttribute( 'aria-disabled' ) !== 'true' && isAvailable( element )
+		) ?? dialog?.querySelector< HTMLElement >( '[data-start-blank]' )
+	);
+}
+
 export function Walkthrough( {
 	inSiteDialog = false,
 	createStage = 'gallery',
@@ -141,6 +163,10 @@ export function Walkthrough( {
 		description?: string;
 	} >( { element: null } );
 	const anchor = target.element;
+	const [ popoverHost, setPopoverHost ] = useState< {
+		anchor: HTMLElement;
+		element: HTMLElement;
+	} | null >( null );
 	const [ galleryStep, setGalleryStep ] = useState< GalleryStep >( 'fresh' );
 	const [ revealedAnchor, setRevealedAnchor ] = useState< HTMLElement | null >( null );
 	const showNextImmediately = useRef( false );
@@ -328,6 +354,29 @@ export function Walkthrough( {
 		return () => window.clearTimeout( timer );
 	}, [ eligible, anchor ] );
 	const open = eligible && revealedAnchor === anchor;
+	useEffect( () => {
+		if ( ! anchor?.parentElement ) return;
+		const element = document.createElement( 'span' );
+		element.style.display = 'contents';
+		anchor.after( element );
+		setPopoverHost( { anchor, element } );
+		return () => element.remove();
+	}, [ anchor ] );
+	useEffect( () => {
+		if ( ! open ) return;
+		const target = getFocusTarget( anchor );
+		if ( ! target || target.hasAttribute( 'aria-description' ) ) return;
+		const ids = target.getAttribute( 'aria-describedby' )?.split( /\s+/ ).filter( Boolean ) ?? [];
+		target.setAttribute( 'aria-describedby', [ ...ids, descriptionId ].join( ' ' ) );
+		return () => {
+			const remaining = target
+				.getAttribute( 'aria-describedby' )
+				?.split( /\s+/ )
+				.filter( ( id ) => id && id !== descriptionId );
+			if ( remaining?.length ) target.setAttribute( 'aria-describedby', remaining.join( ' ' ) );
+			else target.removeAttribute( 'aria-describedby' );
+		};
+	}, [ anchor, descriptionId, open ] );
 	const track = useWalkthroughTracking(
 		targetStep ?? 'unknown',
 		open,
@@ -364,7 +413,7 @@ export function Walkthrough( {
 		return () => anchor.removeEventListener( 'click', act, true );
 	}, [ open, anchor, step, nextStep, setHints, createStage, track, whatsNewSeenVersion ] );
 
-	if ( ! content ) return null;
+	if ( ! content || ! popoverHost || popoverHost.anchor !== anchor ) return null;
 	const connectStep = step === 'composer' && target.reason === 'connect';
 	const blueprintDetails = step === 'create' && createStage === 'details';
 	const dismissCreateTip = () => {
@@ -373,19 +422,7 @@ export function Walkthrough( {
 		focusAnchor();
 	};
 	const firstStep = step === 'create' && createStage === 'gallery' && galleryStep === 'fresh';
-	const focusAnchor = () => {
-		const dialog = anchor?.closest( '[role="dialog"]' );
-		const focusTarget =
-			anchor instanceof HTMLButtonElement && anchor.disabled
-				? dialog?.querySelector< HTMLElement >( '[aria-invalid="true"]' ) ??
-				  dialog?.querySelector< HTMLElement >( 'input:not([disabled])' )
-				: anchor?.matches( 'button, input, textarea, [tabindex]' )
-				? anchor
-				: anchor?.querySelector< HTMLElement >(
-						'textarea, input, [contenteditable="true"], button'
-				  ) ?? dialog?.querySelector< HTMLElement >( '[data-start-blank]' );
-		focusTarget?.focus();
-	};
+	const focusAnchor = () => getFocusTarget( anchor )?.focus();
 	const finish = ( next: Step, action = 'next' ) => {
 		track( action, next );
 		if (
@@ -412,7 +449,7 @@ export function Walkthrough( {
 				: nextStep ?? content.next
 		);
 	};
-	const onPrimary = () => {
+	const onPrimary = ( event: ReactMouseEvent< HTMLButtonElement > ) => {
 		if ( connectStep || step === 'intro' ) {
 			track( connectStep ? 'connect' : 'next' );
 			if ( sidebarClosed ) {
@@ -455,10 +492,14 @@ export function Walkthrough( {
 			);
 			return;
 		}
+		if ( event.detail === 0 && nextStep !== 'completed' ) focusNextAnchor.current = true;
 		continueTour();
 	};
 	const onSecondary = connectStep
-		? continueTour
+		? ( event: ReactMouseEvent< HTMLButtonElement > ) => {
+				if ( event.detail === 0 ) focusNextAnchor.current = true;
+				continueTour();
+		  }
 		: blueprintDetails
 		? dismissCreateTip
 		: step === 'try-chat'
@@ -466,7 +507,20 @@ export function Walkthrough( {
 		: step === 'intro' || ( firstStep && sites?.length === 0 )
 		? () => finish( 'skipped', 'skip' )
 		: undefined;
-	return (
+	const onNavigationKeyDown = ( event: KeyboardEvent< HTMLButtonElement > ) => {
+		if ( event.key !== 'Tab' || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey )
+			return;
+		// Base UI has no trigger to return focus to when this tip uses an external anchor.
+		const guards = popoverHost.element.querySelectorAll< HTMLElement >(
+			'[data-base-ui-focus-guard][data-type="outside"]'
+		);
+		const after = guards.item( guards.length - 1 );
+		if ( after ) {
+			event.preventDefault();
+			after.focus();
+		}
+	};
+	return createPortal(
 		<FeaturePopover.Root
 			key={ sidebarClosed ? 'intro-sidebar' : targetStep }
 			open={ open }
@@ -497,7 +551,7 @@ export function Walkthrough( {
 				initialFocus={ () => {
 					if ( ! focusNextAnchor.current ) return false;
 					focusNextAnchor.current = false;
-					return anchor ?? false;
+					return getFocusTarget( anchor ) ?? false;
 				} }
 				finalFocus={ false }
 				title={
@@ -533,9 +587,11 @@ export function Walkthrough( {
 						}
 						onSkip={ onSecondary }
 						onNext={ onPrimary }
+						onNextKeyDown={ onNavigationKeyDown }
 					/>
 				}
 			/>
-		</FeaturePopover.Root>
+		</FeaturePopover.Root>,
+		popoverHost.element
 	);
 }

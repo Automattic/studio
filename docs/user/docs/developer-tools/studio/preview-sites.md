@@ -55,7 +55,7 @@ Expired previews no longer appear in the **Share** panel. To see them:
 2.  Select the **Sharing** page.
 3.  Click **Show expired previews (N)**, where N is the number of expired previews.
 
-Expired previews are listed under **Expired previews**. To remove one from the list, click **Remove expired preview** next to it. To share the site again, [create a new preview](#create-a-preview) from the **Share** panel.
+Expired previews are listed under **Expired previews**. To remove one from the list, click **Remove expired preview** next to it. To share the site again, [create a new preview](https://wordpress.studio/docs/preview-sites/#create-a-preview) from the **Share** panel.
 
 ## Rename a preview
 

@@ -86,6 +86,88 @@ describe( 'export archive completion', () => {
 		expect( fs.existsSync( backupFile ) ).toBe( false );
 	} );
 
+	it( 'removes temporary metadata after a successful export', async () => {
+		vi.spyOn( os, 'tmpdir' ).mockReturnValue( root );
+
+		await exporter.export();
+
+		expect(
+			fs.readdirSync( root ).filter( ( name ) => name.startsWith( 'studio-export-' ) )
+		).toEqual( [] );
+	} );
+
+	it( 'removes temporary files and preserves the backup when the database export fails', async () => {
+		fs.writeFileSync( backupFile, 'previous backup' );
+		const originalFiles = fs.readdirSync( root );
+		vi.spyOn( os, 'tmpdir' ).mockReturnValue( root );
+		vi.spyOn( console, 'error' ).mockImplementation( () => {} );
+		vi.mocked( runWpCliCommand ).mockImplementation( async ( _site, args ) => {
+			fs.writeFileSync( path.join( root, String( args[ 2 ] ) ), 'partial SQL' );
+			return {
+				response: new WpCliResponse(
+					Readable.from( [] ),
+					Readable.from( [ 'Error: interrupted' ] ),
+					Promise.resolve( 1 )
+				),
+				[ Symbol.dispose ]: () => {},
+			};
+		} );
+		exporter = new DefaultExporter( {
+			site: { id: 'site-1', name: 'Export fixture', path: root, port: 8881 },
+			backupFile,
+			includes: { wpContent: true, database: true },
+			phpVersion: '8.3',
+		} as ExportOptions );
+
+		await expect( exporter.export() ).rejects.toThrow( 'Database export failed' );
+		expect( fs.readFileSync( backupFile, 'utf8' ) ).toBe( 'previous backup' );
+		expect( fs.readdirSync( root ) ).toEqual( originalFiles );
+	} );
+
+	it( 'removes earlier table dumps if a later table export fails', async () => {
+		fs.writeFileSync( backupFile, 'previous backup' );
+		const originalFiles = fs.readdirSync( root );
+		vi.spyOn( os, 'tmpdir' ).mockReturnValue( root );
+		vi.spyOn( console, 'error' ).mockImplementation( () => {} );
+		vi.mocked( runWpCliCommand ).mockImplementation( async ( _site, args ) => {
+			let stdout = '';
+			let stderr = '';
+			let exitCode = 0;
+			if ( args[ 1 ] === 'tables' ) {
+				stdout = '["wp_options","wp_posts"]';
+			} else if ( args[ 0 ] === 'config' ) {
+				stdout = 'wp_\n';
+			} else {
+				fs.writeFileSync( path.join( root, String( args[ 2 ] ) ), 'SQL dump' );
+				if ( args.includes( '--tables=wp_posts' ) ) {
+					stderr = 'Error: interrupted';
+					exitCode = 1;
+				}
+			}
+			return {
+				response: new WpCliResponse(
+					Readable.from( [ stdout ] ),
+					Readable.from( [ stderr ] ),
+					Promise.resolve( exitCode )
+				),
+				[ Symbol.dispose ]: () => {},
+			};
+		} );
+		exporter = new DefaultExporter( {
+			site: { id: 'site-1', name: 'Export fixture', path: root, port: 8881 },
+			backupFile,
+			includes: { wpContent: true, database: true },
+			splitDatabaseDumpByTable: true,
+			phpVersion: '8.3',
+		} as ExportOptions );
+
+		await expect( exporter.export() ).rejects.toThrow(
+			'Database export failed for table wp_posts'
+		);
+		expect( fs.readFileSync( backupFile, 'utf8' ) ).toBe( 'previous backup' );
+		expect( fs.readdirSync( root ) ).toEqual( originalFiles );
+	} );
+
 	it( 'preserves an existing destination when it cannot be opened for writing', async () => {
 		fs.writeFileSync( backupFile, 'previous backup must survive' );
 		const createWriteStream = fs.createWriteStream;

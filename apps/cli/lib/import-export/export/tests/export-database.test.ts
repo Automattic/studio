@@ -1,3 +1,5 @@
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { move } from 'fs-extra';
 import { vi } from 'vitest';
@@ -42,15 +44,40 @@ describe( 'export-database', () => {
 	} );
 
 	describe( 'exportDatabaseToFile', () => {
+		it( 'removes a partial SQL dump when the export process fails', async () => {
+			const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-db-export-test-' ) );
+			const testSite = { ...site, path: sitePath };
+			vi.mocked( runWpCliCommand ).mockImplementationOnce( async ( _site, args ) => {
+				fs.writeFileSync( path.join( sitePath, String( args[ 2 ] ) ), 'partial SQL' );
+				return {
+					response: {
+						exitCode: Promise.resolve( 1 ),
+						stderrText: Promise.resolve( 'Error: interrupted' ),
+					} as WpCliResponse,
+					[ Symbol.dispose ]: vi.fn(),
+				};
+			} );
+
+			try {
+				await expect( exportDatabaseToFile( testSite, '/dest/db.sql' ) ).rejects.toThrow(
+					'Database export failed'
+				);
+				expect( fs.readdirSync( sitePath ) ).toEqual( [] );
+			} finally {
+				fs.rmSync( sitePath, { recursive: true, force: true } );
+			}
+		} );
+
 		it( 'moves the exported file to its destination on success', async () => {
 			mockWpCliResult( {} );
 
 			await exportDatabaseToFile( site, '/dest/db.sql' );
 
-			expect( move ).toHaveBeenCalledWith(
-				expect.stringContaining( path.join( site.path, 'studio-backup-db-export' ) ),
-				'/dest/db.sql'
-			);
+			expect( move ).toHaveBeenCalledOnce();
+			const [ source, destination ] = vi.mocked( move ).mock.calls[ 0 ];
+			expect( path.dirname( String( source ) ) ).toBe( path.normalize( site.path ) );
+			expect( path.extname( String( source ) ) ).toBe( '.sql' );
+			expect( destination ).toBe( '/dest/db.sql' );
 			expect( consoleErrorSpy ).not.toHaveBeenCalled();
 		} );
 
@@ -89,6 +116,29 @@ describe( 'export-database', () => {
 	} );
 
 	describe( 'exportDatabaseToMultipleFiles', () => {
+		it( 'preserves a site file named after an exported table', async () => {
+			const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-db-export-test-' ) );
+			const testSite = { ...site, path: sitePath };
+			const existing = path.join( sitePath, 'wp_options.sql' );
+			fs.writeFileSync( existing, 'existing site file' );
+			mockWpCliResult( { stdout: '["wp_options"]' } );
+			mockWpCliResult( { stdout: 'wp_\n' } );
+			vi.mocked( runWpCliCommand ).mockImplementationOnce( async ( _site, args ) => {
+				fs.writeFileSync( path.join( sitePath, String( args[ 2 ] ) ), 'new SQL dump' );
+				return {
+					response: { exitCode: Promise.resolve( 0 ) } as WpCliResponse,
+					[ Symbol.dispose ]: vi.fn(),
+				};
+			} );
+
+			try {
+				await exportDatabaseToMultipleFiles( testSite, '/dest' );
+				expect( fs.readFileSync( existing, 'utf8' ) ).toBe( 'existing site file' );
+			} finally {
+				fs.rmSync( sitePath, { recursive: true, force: true } );
+			}
+		} );
+
 		it( 'logs and includes the WP-CLI SQLite error when listing tables fails', async () => {
 			mockWpCliResult( { exitCode: 1, stderr: 'Error: database disk image is malformed' } );
 

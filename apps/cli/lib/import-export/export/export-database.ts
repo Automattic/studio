@@ -1,6 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import { rm } from 'node:fs/promises';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
@@ -22,35 +23,53 @@ async function createDatabaseExportError(
 	return new LoggerError( message, new Error( summarizeWpCliStderr( stderr ) ), 'database_export' );
 }
 
+async function exportSqliteDump(
+	site: ConfigSite,
+	finalDestination: string,
+	errorMessage: string,
+	additionalArgs: string[] = []
+): Promise< void > {
+	const tempFileName = `studio-db-export-${ randomUUID() }.sql`;
+	const tempFilePath = path.join( site.path, tempFileName );
+
+	try {
+		await using command = await runWpCliCommand(
+			site,
+			[
+				'sqlite',
+				'export',
+				tempFileName,
+				...additionalArgs,
+				'--enable-ast-driver',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			{
+				requireSqliteCliCommand: true,
+				phpVersion: DEFAULT_PHP_VERSION,
+			}
+		);
+
+		const exitCode = await command.response.exitCode;
+		if ( exitCode !== 0 ) {
+			throw await createDatabaseExportError( errorMessage, command.response.stderrText );
+		}
+
+		await move( tempFilePath, finalDestination );
+	} finally {
+		await rm( tempFilePath, { force: true } ).catch( ( error ) =>
+			console.error( 'Failed to remove temporary database export:', error )
+		);
+	}
+}
+
 export async function exportDatabaseToFile(
 	site: ConfigSite,
 	finalDestination: string
 ): Promise< void > {
-	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
-
 	// Exports don't start the site, so the start-time collation fix may not have run yet.
 	await replaceMysql8OnlyCollations( site.path );
-
-	// Execute the command to export directly to a temp file in the site directory (cwd).
-	await using command = await runWpCliCommand(
-		site,
-		[ 'sqlite', 'export', tempFileName, '--enable-ast-driver', '--skip-plugins', '--skip-themes' ],
-		{
-			requireSqliteCliCommand: true,
-			phpVersion: DEFAULT_PHP_VERSION,
-		}
-	);
-
-	const exitCode = await command.response.exitCode;
-	if ( exitCode !== 0 ) {
-		throw await createDatabaseExportError(
-			__( 'Database export failed' ),
-			command.response.stderrText
-		);
-	}
-
-	const tempFilePath = path.join( site.path, tempFileName );
-	await move( tempFilePath, finalDestination );
+	await exportSqliteDump( site, finalDestination, __( 'Database export failed' ) );
 }
 
 export async function exportDatabaseToMultipleFiles(
@@ -121,37 +140,13 @@ export async function exportDatabaseToMultipleFiles(
 		}
 
 		const fileName = `${ table }.sql`;
-
-		// Execute the command to export directly to a temporary file in the project directory
-		await using command = await runWpCliCommand(
-			site,
-			[
-				'sqlite',
-				'export',
-				fileName,
-				`--tables=${ table }`,
-				'--enable-ast-driver',
-				'--skip-plugins',
-				'--skip-themes',
-			],
-			{
-				requireSqliteCliCommand: true,
-				phpVersion: DEFAULT_PHP_VERSION,
-			}
-		);
-
-		const exitCode = await command.response.exitCode;
-		if ( exitCode !== 0 ) {
-			throw await createDatabaseExportError(
-				sprintf( __( 'Database export failed for table %s' ), table ),
-				command.response.stderrText
-			);
-		}
-
-		const tempFilePath = path.join( site.path, fileName );
 		const finalDestination = path.join( finalDestinationDir, fileName );
-		await move( tempFilePath, finalDestination );
-
+		await exportSqliteDump(
+			site,
+			finalDestination,
+			sprintf( __( 'Database export failed for table %s' ), table ),
+			[ `--tables=${ table }` ]
+		);
 		tmpFiles.push( finalDestination );
 	}
 

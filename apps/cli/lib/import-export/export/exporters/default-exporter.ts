@@ -28,13 +28,7 @@ import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { exportDatabaseToFile, exportDatabaseToMultipleFiles } from '../export-database';
 import { stripStudioWpConfigConstants } from '../strip-studio-wp-config-constants';
-import {
-	ExportOptions,
-	BackupContents,
-	Exporter,
-	StudioJson,
-	StudioJsonPluginOrTheme,
-} from '../types';
+import { ExportOptions, Exporter, StudioJson, StudioJsonPluginOrTheme } from '../types';
 import { validateExportArchive } from '../validate-archive';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 
@@ -49,7 +43,7 @@ async function isDanglingSymlink( filePath: string, error: unknown ): Promise< b
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: Archiver;
-	private backup: BackupContents;
+	private readonly temporaryDirectories: string[] = [];
 	private readonly options: ExportOptions;
 
 	isExactPathExcluded( pathToCheck: string ) {
@@ -86,10 +80,6 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	constructor( options: ExportOptions ) {
 		super();
 		this.options = options;
-		this.backup = {
-			backupFile: options.backupFile,
-			sqlFiles: [],
-		};
 	}
 
 	async canHandle(): Promise< boolean > {
@@ -157,9 +147,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 					.rm( stagingDirectory, { recursive: true, force: true } )
 					.catch( ( error ) => console.error( 'Failed to remove staged export:', error ) );
 			}
-			if ( this.options.includes.database ) {
-				await this.cleanupTempFiles();
-			}
+			await this.cleanupTempFiles();
 		}
 	}
 
@@ -357,30 +345,34 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		await ensureSqliteIntegrationForImportedSite( this.options.site );
 
 		this.emit( ExportEvents.DATABASE_EXPORT_START );
-		const tmpFolder = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio_export' ) );
+		const tmpFolder = await this.createTemporaryDirectory( 'studio_export' );
 
 		if ( this.options.splitDatabaseDumpByTable ) {
 			const sqlFiles = await exportDatabaseToMultipleFiles( this.options.site, tmpFolder );
 			sqlFiles.forEach( ( file ) =>
 				this.archiveBuilder.file( file, { name: `sql/${ path.basename( file ) }` } )
 			);
-			this.backup.sqlFiles.push( ...sqlFiles );
 		} else {
 			const fileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 			const sqlDumpPath = path.join( tmpFolder, fileName );
 			await exportDatabaseToFile( this.options.site, sqlDumpPath );
 			this.archiveBuilder.file( sqlDumpPath, { name: `sql/${ fileName }` } );
-			this.backup.sqlFiles.push( sqlDumpPath );
 		}
 
 		this.emit( ExportEvents.DATABASE_EXPORT_COMPLETE );
 	}
 
+	private async createTemporaryDirectory( prefix: string ): Promise< string > {
+		const directory = await fsPromises.mkdtemp( path.join( os.tmpdir(), prefix ) );
+		this.temporaryDirectories.push( directory );
+		return directory;
+	}
+
 	private async cleanupTempFiles(): Promise< void > {
-		for ( const sqlFile of this.backup.sqlFiles ) {
+		for ( const directory of this.temporaryDirectories.splice( 0 ) ) {
 			await fsPromises
-				.unlink( sqlFile )
-				.catch( ( err ) => console.error( `Failed to delete temporary file ${ sqlFile }:`, err ) );
+				.rm( directory, { recursive: true, force: true } )
+				.catch( ( error ) => console.error( 'Failed to remove temporary export files:', error ) );
 		}
 	}
 
@@ -412,7 +404,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			  )
 			: themes;
 
-		const tempDir = await fsPromises.mkdtemp( path.join( os.tmpdir(), 'studio-export-' ) );
+		const tempDir = await this.createTemporaryDirectory( 'studio-export-' );
 		const studioJsonPath = path.join( tempDir, 'meta.json' );
 		await fsPromises.writeFile( studioJsonPath, JSON.stringify( studioJson, null, 2 ) );
 		return studioJsonPath;

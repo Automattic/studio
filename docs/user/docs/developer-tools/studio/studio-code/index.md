@@ -6,12 +6,12 @@ WordPress Studio Code is the agent built into WordPress Studio. Describe what yo
 
 ## Before you start
 
-- <a id="getting-started"></a>An AI provider. To use WordPress.com AI credits, log in with your WordPress.com account and [add a payment method on WordPress.com](http://wordpress.com/me/purchases/add-payment-method), which is required to prevent abuse. To use another provider instead, see [AI providers](https://wordpress.studio/docs/studio-code/#ai-providers).
+- <span id="getting-started"></span>An AI provider. To use WordPress.com AI credits, log in with your WordPress.com account and [add a payment method on WordPress.com](http://wordpress.com/me/purchases/add-payment-method), which is required to prevent abuse. To use another provider instead, see [AI providers](https://wordpress.studio/docs/studio-code/#ai-providers).
 - For the terminal only: [WordPress Studio CLI](https://wordpress.studio/docs/cli/#installation), or Node.js to run it with `npx`.
 
 ## Start a chat in the desktop app
 
-1.  <a id="wordpress-studio-code-in-wordpress-studio-desktop"></a>In the sidebar, select a site, or [add a new site](https://wordpress.studio/docs/sites/).
+1.  <span id="wordpress-studio-code-in-wordpress-studio-desktop"></span>In the sidebar, select a site, or [add a new site](https://wordpress.studio/docs/sites/).
 2.  Type your request in the chat box at the bottom of the chat, next to the site preview.
 3.  Send the message.
 
@@ -21,7 +21,7 @@ The agent replies in the chat and makes the changes in your site. If you haven�
 
 ## Start a chat in the terminal
 
-<a id="wordpress-studio-code-in-wordpress-studio-cli"></a>If the WordPress Studio app is installed with the [CLI turned on](https://wordpress.studio/docs/cli/#installation), run:
+<span id="wordpress-studio-code-in-wordpress-studio-cli"></span>If the WordPress Studio app is installed with the [CLI turned on](https://wordpress.studio/docs/cli/#installation), run:
 
 ```bash
 studio code
@@ -44,7 +44,7 @@ Press ↓ to work in your local WordPress Studio sites, or ↓ and then → to w
 
 ### Log in to WordPress.com from the terminal
 
-1.  <a id="connect-to-wordpresscom"></a>Run `studio code`.
+1.  <span id="connect-to-wordpresscom"></span>Run `studio code`.
 2.  Type `/login` in the chat.
 3.  In the browser window that opens, log in to your WordPress.com account.
 4.  Approve the connection.
@@ -54,7 +54,7 @@ To use another AI provider instead, type `/connect` and choose one. In the deskt
 
 ## Describe what you want
 
-<a id="using-wordpress-studio-code"></a><a id="example-workflows"></a>Type your request in your own words. The agent creates files, runs commands, and changes your site. Here are some examples:
+<span id="using-wordpress-studio-code"></span><span id="example-workflows"></span>Type your request in your own words. The agent creates files, runs commands, and changes your site. Here are some examples:
 
 - **Create a site and customize it:** “Create a new WordPress site called ‘My Portfolio’ with PHP 8.2.” “Build a minimal portfolio theme with a dark color scheme.” “Add a homepage with a hero section and project grid.”
 - **Share your work:** “Create a preview so I can share this with my client.” “Update the preview with my latest changes.”
@@ -80,14 +80,14 @@ The agent can also make images for your site. See [Image generation in WordPress
 
 ### Add files and images
 
-- <a id="uploads"></a>**Desktop:** drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**. To attach a screenshot of the site preview, choose **Take screenshot** from **Browser options** above the preview.
+- <span id="uploads"></span>**Desktop:** drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**. To attach a screenshot of the site preview, choose **Take screenshot** from **Browser options** above the preview.
 - **Terminal:** drag files into the chat, or point to a local file or folder.
 
 The Fast tier reads text only. To send an image, choose Balanced or Strong, or another provider’s model, first.
 
 ## Annotate the site preview
 
-<a id="annotate"></a>Instead of describing which part of the page you mean, point at it. Annotate works on a local site’s preview in the desktop app. If the site is stopped, turning on Annotate starts it.
+<span id="annotate"></span>Instead of describing which part of the page you mean, point at it. Annotate works on a local site’s preview in the desktop app. If the site is stopped, turning on Annotate starts it.
 
 1.  Click **Annotate** at the end of the site preview’s address bar. The annotation tools appear at the bottom of the preview: **Select** (V), **Draw** (D), and **Discard annotations** (the trash can).
 2.  With **Select**, click an element in the preview, or drag to select an area. With **Draw**, sketch on the page. A numbered marker appears, with a note box.
@@ -125,7 +125,7 @@ If the agent is still replying, a note you send waits in the queue until the rep
 
 ## Work on WordPress.com sites
 
-<a id="working-with-wordpresscom-sites"></a>One agent handles both your local sites and your WordPress.com sites, so a single chat can, for example, copy a live post into a local site. When the active site is a WordPress.com site, the agent works on the live site and only makes a local copy if you ask.
+<span id="working-with-wordpresscom-sites"></span>One agent handles both your local sites and your WordPress.com sites, so a single chat can, for example, copy a live post into a local site. When the active site is a WordPress.com site, the agent works on the live site and only makes a local copy if you ask.
 
 When a chat for a local site that’s [connected to a WordPress.com site](https://wordpress.studio/docs/sync/) works on the live site, a **Live** chip appears in the chat box. To switch back, click **+** and choose **Work on local site**, or remove the chip. The agent never pulls a live site over a local one without your confirmation.
 
@@ -133,7 +133,7 @@ When the agent edits a block theme’s template, template part, or styles that y
 
 ## Choose a model tier
 
-<a id="ai-model-tiers"></a>With WordPress.com, you choose a tier instead of a model by name:
+<span id="ai-model-tiers"></span>With WordPress.com, you choose a tier instead of a model by name:
 
 | Tier | Use it for |
 | --- | --- |
@@ -152,7 +152,7 @@ With another provider, the model menu lists that provider’s models by name ins
 
 ## AI providers
 
-<a id="use-your-own-anthropic-api-key"></a>The agent needs an AI provider to build. Use the AI you already have, or start with the one-time free allowance from WordPress.com.
+<span id="use-your-own-anthropic-api-key"></span>The agent needs an AI provider to build. Use the AI you already have, or start with the one-time free allowance from WordPress.com.
 
 - **WordPress.com**, with your WordPress.com account
 - **OpenAI**, with a ChatGPT plan or an API key
@@ -169,7 +169,7 @@ Set them up in **Settings → Providers** in the desktop app, or with `/connect`
 
 ## Start a new chat
 
-- <a id="new-conversations"></a>**Desktop:** hover over the site in the sidebar and click **New chat** (the pencil icon). You can also choose **New chat** from the site menu or the command palette, or press ⇧⌘N (Ctrl+Shift+N on Windows and Linux).
+- <span id="new-conversations"></span>**Desktop:** hover over the site in the sidebar and click **New chat** (the pencil icon). You can also choose **New chat** from the site menu or the command palette, or press ⇧⌘N (Ctrl+Shift+N on Windows and Linux).
 - **Terminal:** run `/clear`.
 
 In the desktop app, each site’s chats are listed under the site in the sidebar, and your latest chats also appear under **Recent**. When you switch to another site and back, WordPress Studio reopens the chat you last had open there. Right-click a chat to **Pin**, **Rename**, **Mark as unread**, or **Archive** it. Archiving removes the chat from the sidebar. To bring it back, click **Undo** in the notification.
@@ -220,7 +220,7 @@ In the desktop app, type `/` in the chat box to list the commands and skills tha
 
 ## Terminal-specific guidance
 
-<a id="sessions"></a><a id="resume-a-session"></a><a id="delete-a-session"></a><a id="command-references"></a>The terminal version saves your conversation history as sessions, so you can pick up where you left off.
+<span id="sessions"></span><span id="resume-a-session"></span><span id="delete-a-session"></span><span id="command-references"></span>The terminal version saves your conversation history as sessions, so you can pick up where you left off.
 
 ```bash
 studio code                                # Start a new chat session
@@ -238,7 +238,7 @@ studio code --help                         # Show every option
 
 ## AI credits and usage limits
 
-<a id="usage-limits"></a><a id="ai-credits"></a>With WordPress.com as your AI provider, you start with a one-time free allowance of AI credits for the Fast tier. Your first purchase unlocks Balanced and Strong, and any remaining free allowance works with all three tiers. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) for purchases and account rules.
+<span id="usage-limits"></span><span id="ai-credits"></span>With WordPress.com as your AI provider, you start with a one-time free allowance of AI credits for the Fast tier. Your first purchase unlocks Balanced and Strong, and any remaining free allowance works with all three tiers. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) for purchases and account rules.
 
 ### Check your usage
 
@@ -260,7 +260,7 @@ AI responses pause until you add more AI credits. Your local sites keep running,
 
 ### Why can’t I send a message?
 
-<a id="when-the-chat-box-cant-send"></a>In the desktop app, when a WordPress.com chat can’t send yet, the chat box says why and offers the next step. You can still read the chat while the notice shows.
+<span id="when-the-chat-box-cant-send"></span>In the desktop app, when a WordPress.com chat can’t send yet, the chat box says why and offers the next step. You can still read the chat while the notice shows.
 
 | The chat box shows | What to do |
 | --- | --- |

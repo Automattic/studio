@@ -19,7 +19,7 @@ Choose one way to install the CLI. If you already have the WordPress Studio app,
 
 ### Turn on the CLI in the WordPress Studio app
 
-1.  <a id="wordpress-studio-app"></a>Open WordPress Studio.
+1.  <span id="wordpress-studio-app"></span>Open WordPress Studio.
 2.  Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**.
 3.  On the **General** page, under **WordPress Studio CLI**, turn on **WordPress Studio CLI for terminal**.
 
@@ -31,13 +31,13 @@ The option isn’t available in the Microsoft Store version of WordPress Studio,
 
 ### Install with the standalone installer
 
-<a id="standalone-installer"></a>On macOS or Linux:
+<span id="standalone-installer"></span><span id="macos--linux"></span>On macOS or Linux:
 
 ```bash
 curl -fsSL https://wordpress.studio/install.sh | bash
 ```
 
-On Windows, in PowerShell:
+<span id="windows-powershell"></span>On Windows, in PowerShell:
 
 ```powershell
 irm https://wordpress.studio/install.ps1 | iex
@@ -51,7 +51,7 @@ studio --help
 
 ### Install with npm
 
-<a id="npm"></a>Install the `wp-studio` package globally:
+<span id="npm"></span>Install the `wp-studio` package globally:
 
 ```bash
 npm install -g wp-studio
@@ -59,7 +59,7 @@ npm install -g wp-studio
 
 ### Uninstall the CLI
 
-<a id="uninstall"></a>To remove a CLI installed with the standalone installer:
+<span id="uninstall"></span>To remove a CLI installed with the standalone installer:
 
 ```bash
 studio uninstall
@@ -75,7 +75,7 @@ This stops your running sites and removes the CLI and its `PATH` entry. Your sit
 
 ## Usage
 
-<a id="getting-help"></a>Commands that manage local sites, such as `studio create` or `studio start`, are top-level commands. Other commands are grouped by area:
+<span id="getting-help"></span>Commands that manage local sites, such as `studio create` or `studio start`, are top-level commands. Other commands are grouped by area:
 
 ```bash
 studio <area> <command> [options]
@@ -127,7 +127,7 @@ Every command and subcommand supports `--help`, for example `studio preview crea
 
 ## Log in to WordPress.com
 
-<a id="authentication-commands"></a>Previews, publishing, and pulling need a WordPress.com login.
+<span id="authentication-commands"></span>Previews, publishing, and pulling need a WordPress.com login.
 
 ```bash
 studio auth login      # Log in to WordPress.com
@@ -152,11 +152,11 @@ If you run a command that needs a login while logged out, the CLI asks “You’
 | `studio config get` | Shows a site’s settings |
 | `studio config set` | Changes a site’s settings |
 
-<a id="local-site-management-commands"></a>Earlier versions grouped these commands under `studio site`, for example `studio site create` and `studio site set`. Those forms still work but are deprecated. Use `studio create` and `studio config set` instead.
+<span id="local-site-management-commands"></span>Earlier versions grouped these commands under `studio site`, for example `studio site create` and `studio site set`. Those forms still work but are deprecated. Use `studio create` and `studio config set` instead.
 
 ### Create a site
 
-<a id="creating-a-local-site"></a>Run `studio create` from an empty directory, or from a directory with a WordPress site that isn’t in WordPress Studio yet.
+<span id="creating-a-local-site"></span>Run `studio create` from an empty directory, or from a directory with a WordPress site that isn’t in WordPress Studio yet.
 
 ```bash
 # Create a site in the current directory, with the default options
@@ -176,7 +176,7 @@ The CLI creates the site, starts it, and opens its front page in your browser. I
 
 ### Create a site from existing content
 
-<a id="creating-a-site-from-existing-content"></a>Use `--from` to build a site from static content. This can be compiled build output, a directory, a zip archive, or a URL. With a URL, WordPress Studio recreates the site from the live website and names it after the site’s title.
+<span id="creating-a-site-from-existing-content"></span>Use `--from` to build a site from static content. This can be compiled build output, a directory, a zip archive, or a URL. With a URL, WordPress Studio recreates the site from the live website and names it after the site’s title.
 
 ```bash
 # Create a site from a directory of static files
@@ -188,7 +188,7 @@ studio create --from https://example.com
 
 ### Create a site from a Blueprint
 
-<a id="creating-a-local-site-using-blueprints-gallery"></a>The [Blueprints library](https://wordpress.studio/docs/blueprints/) is available in the CLI too.
+<span id="creating-a-local-site-using-blueprints-gallery"></span>The [Blueprints library](https://wordpress.studio/docs/blueprints/) is available in the CLI too.
 
 ```bash
 # List the Blueprints in the library
@@ -219,7 +219,7 @@ studio status
 studio status --path /path/to/site
 ```
 
-<a id="listing-and-inspecting-sites"></a>`studio status` shows:
+<span id="listing-and-inspecting-sites"></span>`studio status` shows:
 
 - Whether the site is running.
 - The local URL, for example `http://localhost:PORT`.
@@ -241,11 +241,11 @@ studio stop --path /path/to/site
 studio stop --all
 ```
 
-<a id="starting-and-stopping-sites"></a>Starting a site launches the local services it needs to open in a browser. Stopping it shuts them down.
+<span id="starting-and-stopping-sites"></span>Starting a site launches the local services it needs to open in a browser. Stopping it shuts them down.
 
 ### Delete a site
 
-<a id="deleting-a-local-site"></a>`studio delete` removes a site from WordPress Studio.
+<span id="deleting-a-local-site"></span>`studio delete` removes a site from WordPress Studio.
 
 ```bash
 # Remove the site from WordPress Studio and move its directory to the trash
@@ -268,7 +268,7 @@ studio config set [options]
 studio config get [<key>]
 ```
 
-<a id="configuring-site-settings"></a>With `studio config set`, you can:
+<span id="configuring-site-settings"></span>With `studio config set`, you can:
 
 - Change the PHP version or WordPress version. Use `--wp auto-update` to let WordPress update itself.
 - Change the site name, custom domain, or HTTPS.
@@ -280,7 +280,7 @@ studio config get [<key>]
 
 ## Share previews
 
-<a id="preview-site-commands"></a><a id="listing-preview-sites"></a>A [preview](https://wordpress.studio/docs/preview-sites/) is a temporary copy of your site on WordPress.com that anyone with its preview link can open. Preview commands need a WordPress.com login.
+<span id="preview-site-commands"></span><span id="listing-preview-sites"></span>A [preview](https://wordpress.studio/docs/preview-sites/) is a temporary copy of your site on WordPress.com that anyone with its preview link can open. Preview commands need a WordPress.com login.
 
 | Command | What it does |
 | --- | --- |
@@ -297,7 +297,7 @@ cd /path/to/your/studio-site
 studio preview create
 ```
 
-<a id="creating-a-preview-site"></a>Or name the site directory:
+<span id="creating-a-preview-site"></span>Or name the site directory:
 
 ```bash
 studio preview create --path /path/to/your/studio-site
@@ -314,7 +314,7 @@ The CLI validates the site, archives and uploads it, and prints the preview link
 
 ### Update or delete a preview
 
-<a id="updating-and-deleting-preview-sites"></a>Each preview is identified by its host, for example `example-preview.wpcomstaging.com`. Run `studio preview list` to find it.
+<span id="updating-and-deleting-preview-sites"></span>Each preview is identified by its host, for example `example-preview.wpcomstaging.com`. Run `studio preview list` to find it.
 
 ```bash
 # Update a preview with your local changes
@@ -329,7 +329,7 @@ studio preview delete --all
 
 ## Publish and pull
 
-<a id="syncing-with-wordpresscom-and-pressable"></a>Use `studio push` to publish a local site to its connected WordPress.com or Pressable site, and `studio pull` to bring that site into the local site. Both need a WordPress.com login. See [Publish and pull your site](https://wordpress.studio/docs/sync/).
+<span id="syncing-with-wordpresscom-and-pressable"></span>Use `studio push` to publish a local site to its connected WordPress.com or Pressable site, and `studio pull` to bring that site into the local site. Both need a WordPress.com login. See [Publish and pull your site](https://wordpress.studio/docs/sync/).
 
 ```bash
 # Publish the local site to its connected website
@@ -349,7 +349,7 @@ studio push --remote-site spacefast
 
 ## Import and export
 
-<a id="importing-and-exporting"></a>Use `studio import` and `studio export` to import and export [backup files](https://wordpress.studio/docs/import-export/).
+<span id="importing-and-exporting"></span>Use `studio import` and `studio export` to import and export [backup files](https://wordpress.studio/docs/import-export/).
 
 ```bash
 # Import a backup file into the local site
@@ -380,7 +380,7 @@ Without `--base-url`, links are root-relative. If the folder isn’t empty, add 
 
 ## Run WP-CLI commands
 
-<a id="using-wp-cli-through-wordpress-studio"></a>`studio wp` runs [WP-CLI](https://developer.wordpress.org/cli/commands/) on a WordPress Studio site. You don’t need to install WP-CLI. WordPress Studio sets the environment, paths, and credentials for the site, so commands work on the right database and files.
+<span id="using-wp-cli-through-wordpress-studio"></span><span id="2-automated-debugging-and-wp-cli-operations"></span>`studio wp` runs [WP-CLI](https://developer.wordpress.org/cli/commands/) on a WordPress Studio site. You don’t need to install WP-CLI. WordPress Studio sets the environment, paths, and credentials for the site, so commands work on the right database and files.
 
 ```bash
 studio wp [<wp-cli-command>] [<wp-cli-arguments>...]
@@ -406,7 +406,7 @@ Run `studio wp help` or `studio wp help <command>` for every WP-CLI command.
 
 ## Start WordPress Studio Code
 
-<a id="wordpress-studio-code"></a>`studio code` starts [WordPress Studio Code](https://wordpress.studio/docs/studio-code/), the agent, as a chat in your terminal. `studio ai`, the command’s older name, still works and points you to `studio code`.
+<span id="wordpress-studio-code"></span>`studio code` starts [WordPress Studio Code](https://wordpress.studio/docs/studio-code/), the agent, as a chat in your terminal. `studio ai`, the command’s older name, still works and points you to `studio code`.
 
 ```bash
 studio code                            # Start a new chat
@@ -420,7 +420,7 @@ studio code sessions delete <id>       # Delete a saved chat
 
 ## Open WordPress Studio in your browser
 
-<a id="wordpress-studio-in-your-browser"></a>`studio ui` starts the WordPress Studio interface as a local web app and opens it in your browser. It shows the same sites, chats, and site preview as the desktop app, including attachments and generated images in WordPress Studio Code.
+<span id="wordpress-studio-in-your-browser"></span>`studio ui` starts the WordPress Studio interface as a local web app and opens it in your browser. It shows the same sites, chats, and site preview as the desktop app, including attachments and generated images in WordPress Studio Code.
 
 ```bash
 # Start it and open your browser
@@ -434,13 +434,13 @@ Press Ctrl+C in the terminal to stop it.
 
 ## Run the MCP server
 
-<a id="mcp-server"></a>`studio mcp` runs WordPress Studio’s MCP (Model Context Protocol) server. It lets AI agents create, configure, and inspect your local sites and work with your WordPress.com sites, and it serves WordPress Studio’s instructions and skills to the agent on demand. You don’t usually run it yourself. Add it to your agent’s MCP configuration instead. See [MCP on WordPress Studio](https://wordpress.studio/docs/mcp-on-studio/).
+<span id="mcp-server"></span>`studio mcp` runs WordPress Studio’s MCP (Model Context Protocol) server. It lets AI agents create, configure, and inspect your local sites and work with your WordPress.com sites, and it serves WordPress Studio’s instructions and skills to the agent on demand. You don’t usually run it yourself. Add it to your agent’s MCP configuration instead. See [MCP on WordPress Studio](https://wordpress.studio/docs/mcp-on-studio/).
 
 ## Use the CLI with AI coding agents
 
-<a id="using-wordpress-studio-cli-with-ai-coding-agents"></a><a id="typical-workflows-with-ai-agents"></a><a id="best-practices-when-using-ai-agents-with-wordpress-studio-cli"></a>Agents that can run shell commands, such as Claude Code and Cursor, can run `studio` commands for you. They can tell that a project is a WordPress Studio site, manage sites, previews, and WP-CLI tasks with `studio` commands, and use the output to guide their next change.
+<span id="using-wordpress-studio-cli-with-ai-coding-agents"></span><span id="typical-workflows-with-ai-agents"></span><span id="best-practices-when-using-ai-agents-with-wordpress-studio-cli"></span>Agents that can run shell commands, such as Claude Code and Cursor, can run `studio` commands for you. They can tell that a project is a WordPress Studio site, manage sites, previews, and WP-CLI tasks with `studio` commands, and use the output to guide their next change.
 
-For example, you might ask *“Set up a new local WordPress site using PHP version 8.2 using WordPress Studio in this folder, start it, and tell me the local URL.”* The agent might run these commands:
+<span id="1-spinning-up-and-managing-a-local-site"></span>For example, you might ask *“Set up a new local WordPress site using PHP version 8.2 using WordPress Studio in this folder, start it, and tell me the local URL.”* The agent might run these commands:
 
 ```bash
 studio create --php 8.2
@@ -448,7 +448,7 @@ studio start
 studio status
 ```
 
-You might also ask *“Create a preview of this project and give me the preview link. Then, after each code change, update the same preview.”* The agent might run these commands:
+<span id="3-creating-and-updating-preview-sites-for-review"></span>You might also ask *“Create a preview of this project and give me the preview link. Then, after each code change, update the same preview.”* The agent might run these commands:
 
 ```bash
 studio auth login              # if needed

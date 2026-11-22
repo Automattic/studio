@@ -12,7 +12,7 @@ If your site is on a paid WordPress.com plan or on [Pressable](https://pressable
 
 ## Add a new site from a backup
 
-1.  <a id="how-to-add-a-new-site-to-wordpress-studio-from-a-backup"></a>Click **Add site** (**+**) next to **Sites** at the top of the sidebar.
+1.  <span id="how-to-add-a-new-site-to-wordpress-studio-from-a-backup"></span>Click **Add site** (**+**) next to **Sites** at the top of the sidebar.
 2.  Choose **Import**.
 3.  Click **Choose file** and select your backup file. The **Add site** form opens with your backup under **Start from**.
 4.  Enter a name for the site.
@@ -29,7 +29,7 @@ Some websites that turn a site into a WordPress backup, such as [liberate.sh](ht
 
 > **Warning:** Importing a `.tar.gz`, `.tar`, `.zip`, or `.wpress` backup replaces the WordPress Studio site with the backup.
 
-1.  <a id="how-to-update-an-existing-wordpress-studio-site-from-a-backup"></a>In the sidebar, select the site.
+1.  <span id="how-to-update-an-existing-wordpress-studio-site-from-a-backup"></span>In the sidebar, select the site.
 2.  Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette.
 3.  Search for **Import backup…** and choose it.
 4.  Select your backup file.
@@ -45,7 +45,7 @@ What happens depends on the file:
 
 ## Export a site
 
-<a id="how-to-export-a-site-from-wordpress-studio"></a>You can export the whole site as a `.zip` file that works with Jetpack Backup, or only the database as a `.sql` file that works with MySQL.
+<span id="how-to-export-a-site-from-wordpress-studio"></span>You can export the whole site as a `.zip` file that works with Jetpack Backup, or only the database as a `.sql` file that works with MySQL.
 
 1.  Click the **Site menu** button, which shows the site’s name, at the top left of the site’s header.
 2.  Choose **Export**.
@@ -57,13 +57,13 @@ When the export is finished, WordPress Studio opens the folder that contains the
 
 ## Move an export to a hosted WordPress site
 
-<a id="how-to-upload-a-wordpress-studio-export-to-a-hosted-wordpress-site"></a>You can restore a WordPress Studio export on any WordPress site. For a site on a paid WordPress.com plan, follow [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/).
+<span id="how-to-upload-a-wordpress-studio-export-to-a-hosted-wordpress-site"></span>You can restore a WordPress Studio export on any WordPress site. For a site on a paid WordPress.com plan, follow [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/).
 
 If the site is on a paid WordPress.com plan or on Pressable, you can [publish to it from the Publish panel](https://wordpress.studio/docs/sync/) instead, with no file to upload.
 
 ## Create a backup without Jetpack Backup
 
-<a id="how-to-import-a-site-without-a-jetpack-backup"></a>If you don’t use Jetpack Backup, build a backup file by hand, then import it.
+<span id="how-to-import-a-site-without-a-jetpack-backup"></span>If you don’t use Jetpack Backup, build a backup file by hand, then import it.
 
 1.  Create a temporary import directory, for example `import-to-studio/`.
 2.  Inside it, create a `sql/` directory and a `wp-content/` directory.

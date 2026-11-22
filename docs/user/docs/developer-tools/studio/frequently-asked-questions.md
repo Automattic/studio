@@ -70,7 +70,7 @@ See [Edit a site](https://wordpress.studio/docs/sites/#edit-a-site).
 
 ### Why isn’t the Open in menu showing my preferred app?
 
-<a id="why-isnt-the-open-in-button-available-for-my-preferred-app"></a>The **Open in** menu only lists apps that WordPress Studio supports and finds on your computer. The [Open in menu](https://wordpress.studio/docs/sites/#open-in-menu) section lists the supported code editors and terminal apps.
+<span id="why-isnt-the-open-in-button-available-for-my-preferred-app"></span>The **Open in** menu only lists apps that WordPress Studio supports and finds on your computer. The [Open in menu](https://wordpress.studio/docs/sites/#open-in-menu) section lists the supported code editors and terminal apps.
 
 - On macOS, the app must be in your Applications folder (`/Applications` or `~/Applications`).
 - On Windows, WordPress Studio looks in each app’s usual install folder.

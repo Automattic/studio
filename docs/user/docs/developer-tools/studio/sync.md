@@ -14,7 +14,7 @@ In the app, publishing and pulling live under the **Publish** button above the s
 
 ### Compatible sites
 
-<a id="wordpress-studio-sync-and-jetpack-backups"></a><a id="wordpresscom-sites"></a><a id="pressable-sites"></a>Publishing and pulling rely on [Jetpack Backups](https://jetpack.com/support/backup/). The website must have one of these plugins activated and connected to WordPress.com:
+<span id="wordpress-studio-sync-and-jetpack-backups"></span><span id="wordpresscom-sites"></span><span id="pressable-sites"></span>Publishing and pulling rely on [Jetpack Backups](https://jetpack.com/support/backup/). The website must have one of these plugins activated and connected to WordPress.com:
 
 - VaultPress Backup
 - Jetpack Security
@@ -36,7 +36,7 @@ To publish from WordPress Studio, connect an account under **Hosting providers**
 
 ## Bring an existing website into WordPress Studio
 
-<a id="bring-an-existing-wordpresscom-site-into-wordpress-studio"></a>Use this when the website isn’t in WordPress Studio yet. WordPress Studio creates a new local site and pulls the website into it.
+<span id="bring-an-existing-wordpresscom-site-into-wordpress-studio"></span>Use this when the website isn’t in WordPress Studio yet. WordPress Studio creates a new local site and pulls the website into it.
 
 1.  Click **Add site** (**+**) next to **Sites** at the top of the sidebar.
 2.  Choose **Connect**.
@@ -55,7 +55,7 @@ To add a WordPress site that’s already on your computer instead, see [Add a ne
 
 ## Connect a local site to an existing website
 
-<a id="connect-wordpress-studio-to-an-existing-wordpresscom-site"></a>Use this when the site is already in WordPress Studio and the website already exists on WordPress.com or Pressable.
+<span id="connect-wordpress-studio-to-an-existing-wordpresscom-site"></span>Use this when the site is already in WordPress Studio and the website already exists on WordPress.com or Pressable.
 
 1.  In the sidebar, select the local site.
 2.  Click **Publish** at the top right of the site preview.
@@ -92,7 +92,7 @@ Disconnecting leaves both your local site and the website unchanged. The same me
 
 ## Publish to a new WordPress.com site
 
-<a id="connect-wordpress-studio-to-a-new-wordpresscom-site"></a>To publish your local site to a site that doesn’t exist yet, buy a WordPress.com hosting plan from WordPress Studio. WordPress Studio connects the new site for you.
+<span id="connect-wordpress-studio-to-a-new-wordpresscom-site"></span>To publish your local site to a site that doesn’t exist yet, buy a WordPress.com hosting plan from WordPress Studio. WordPress Studio connects the new site for you.
 
 1.  In the sidebar, select the local site.
 2.  Click **Publish** at the top right of the site preview.
@@ -212,7 +212,7 @@ See [Publish and pull](https://wordpress.studio/docs/cli/#publish-and-pull) in t
 
 ### Why are Pull changes and Publish changes turned off?
 
-<a id="when-you-cant-publish-or-pull"></a>WordPress Studio turns off both buttons, and tells you why, when:
+<span id="when-you-cant-publish-or-pull"></span>WordPress Studio turns off both buttons, and tells you why, when:
 
 - You don’t have administrator access to the website.
 - The website needs a hosting plan that supports publishing from WordPress Studio.

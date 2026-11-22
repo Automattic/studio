@@ -215,6 +215,9 @@ export interface ProviderAccount< Config > {
 	// What to keep once the provider rejects the config, so signing in again
 	// continues the same registration with it; never a credential.
 	remember?( config: Config ): Record< string, string > | undefined;
+	// Who the config signs in as, when connections belong to one account: Studio lists a
+	// connection only while the account that made it is connected.
+	owner?( config: Config ): string | undefined;
 }
 
 // A provider whose config can be `undefined` has no account: nothing to connect, and it counts as

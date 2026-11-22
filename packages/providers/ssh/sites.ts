@@ -20,13 +20,13 @@ function connection( site: Pick< SshSite, 'id' > & Partial< SshSite > ): SshConn
 
 const PROBE = `echo json_encode( array(
 	'home' => home_url(),
-	'name' => get_bloginfo( 'name' ),
+	'name' => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
 	'contentDir' => WP_CONTENT_DIR,
 	'multisite' => is_multisite(),
 ) );`;
 
-async function add( input: Record< string, string > ): Promise< SshSite > {
-	const form = sshProvider.sites!.add!.input().safeParse( { address: '', wpCli: '', ...input } );
+async function connect( input: Record< string, string > ): Promise< SshSite > {
+	const form = sshProvider.sites!.connect!.input().safeParse( { address: '', wpCli: '', ...input } );
 	if ( ! form.success ) {
 		throw new RemoteSiteError( form.error.issues[ 0 ].message, 'ssh_address' );
 	}
@@ -71,9 +71,9 @@ async function add( input: Record< string, string > ): Promise< SshSite > {
 }
 
 export const sshSites: SitesServices< undefined, SshSite > = {
-	// The connections are the sites: the user adds each one.
+	// The connections are the sites: the user connects each one.
 	list: async () => [],
-	add: ( _config, input ) => add( input ),
+	connect: ( _config, input ) => connect( input ),
 	push: ( _config, site, content, _options, onStatus, signal ) =>
 		pushOverSsh( connection( site ), content, onStatus, signal ),
 	pullArchive: ( _config, site, options, archive, onProgress, signal ) =>

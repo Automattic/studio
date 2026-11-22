@@ -1,7 +1,7 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
-import { getFormFields, getProviderSites, type SitesProviderId } from '@studio/providers';
+import { getConnectFields, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useId, useState } from 'react';
@@ -18,8 +18,8 @@ import {
 } from '@/lib/ui';
 import styles from './existing-site-step.module.css';
 
-// Connects the local site to a site the user describes in the provider's `sites.add` form.
-export function AddSiteForm( {
+// Connects the local site to a site the user describes in the provider's `sites.connect` form.
+export function ConnectSiteForm( {
 	provider,
 	siteId,
 	disabled,
@@ -33,11 +33,12 @@ export function AddSiteForm( {
 	const connector = useConnector();
 	const client = useQueryClient();
 	const id = useId();
-	const { intro, add } = getProviderSites( provider );
-	const fields = getFormFields( add!.input() );
+	const { intro, connect: method } = getProviderSites( provider );
+	const fields = getConnectFields( method! );
 	const [ values, setValues ] = useState< Record< string, string > >( {} );
 	const connect = useMutation( {
-		mutationFn: () => connector.addRemoteSite( provider, siteId, values ),
+		mutationFn: async () =>
+			( await connector.connectRemoteSite( provider, siteId, { input: values } ) ) || undefined,
 		onSuccess: async ( site ) => {
 			void connector.trackEvent(
 				TRACKS_EVENTS.SYNC_CONNECT,
@@ -48,7 +49,7 @@ export function AddSiteForm( {
 				client.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } ),
 				client.invalidateQueries( { queryKey: remoteSitesQueryKey( provider ) } ),
 			] );
-			onConnected( provider, site.id );
+			if ( site ) onConnected( provider, site.id );
 		},
 		onError: ( error ) =>
 			void connector.trackEvent(

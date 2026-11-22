@@ -42,7 +42,7 @@ import {
 	toLoggerError,
 } from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
-import { findSyncSiteByIdentifier, pickSyncSite, resolveAddedSite } from 'cli/lib/sync-site-picker';
+import { findSyncSiteByIdentifier, pickSyncSite, resolveFormConnectedSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
 import {
@@ -143,12 +143,12 @@ export async function runCommand(
 					sprintf( __( '%s sites can’t be pulled.' ), getProvider( provider ).label )
 				);
 			}
-			const added = await resolveAddedSite( provider, site.id, identifier, logger );
-			remoteSite = added;
+			const connected = await resolveFormConnectedSite( provider, site.id, identifier, logger );
+			remoteSite = connected;
 			fetchArchive = ( folder ) =>
 				pullProviderArchive(
 					provider,
-					added,
+					connected,
 					{ optionsToSync, onlyPaths: specificSelectionPaths },
 					folder,
 					logger

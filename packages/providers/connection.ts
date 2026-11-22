@@ -1,5 +1,5 @@
 import { getProvider } from './registry';
-import type { ConnectInputSchema, ConnectMethod, ProviderId } from './types';
+import type { ConnectMethod, ProviderId } from './types';
 
 // One field of a connection form, as a surface renders it.
 export interface ConnectField {
@@ -32,12 +32,10 @@ export function needsHost( { kind, hostOnly }: ConnectMethod ): boolean {
 
 // The fields a method's form asks for; empty when it doesn't connect with a form.
 export function getConnectFields( method: ConnectMethod ): ConnectField[] {
-	return method.kind === 'form' ? getFormFields( method.input() ) : [];
-}
-
-// The fields of a form a provider describes, such as a connect method's or a site's to add.
-export function getFormFields( input: ConnectInputSchema ): ConnectField[] {
-	return Object.entries( input.shape ).map( ( [ name, schema ] ) => {
+	if ( method.kind !== 'form' ) {
+		return [];
+	}
+	return Object.entries( method.input().shape ).map( ( [ name, schema ] ) => {
 		const meta = schema.meta() ?? {};
 		const examples = Array.isArray( meta.examples ) ? meta.examples : [];
 		return {

@@ -3,9 +3,9 @@ import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { lastTransferTime } from '@studio/common/lib/site-connections';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { addRemoteSite } from '@studio/common/sites/remote-sites';
+import { connectRemoteSite } from '@studio/common/sites/remote-sites';
 import {
-	getFormFields,
+	getConnectFields,
 	getProvider,
 	getProviderSites,
 	type ProviderSites,
@@ -298,11 +298,11 @@ export async function connectedSites< Id extends SitesProviderId >(
 }
 
 /**
- * A site of a provider whose sites the user adds (`sites.add`): the connected site `identifier`
- * names, or the one last synced without it, or else one added now, from `identifier` or, in a
- * terminal, the provider's form.
+ * A site of a provider whose sites the user connects with a form (`sites.connect`): the connected
+ * site `identifier` names, or the one last synced without it, or else one connected now, from
+ * `identifier` or, in a terminal, the provider's form.
  */
-export async function resolveAddedSite(
+export async function resolveFormConnectedSite(
 	provider: SitesProviderId,
 	localSiteId: string,
 	identifier: string | undefined,
@@ -314,7 +314,7 @@ export async function resolveAddedSite(
 		return known;
 	}
 	const { label } = getProvider( provider );
-	const form = getFormFields( getProviderSites( provider ).add!.input() );
+	const form = getConnectFields( getProviderSites( provider ).connect! );
 	const values = identifier
 		? { [ form[ 0 ].name ]: identifier }
 		: process.stdin.isTTY
@@ -330,9 +330,11 @@ export async function resolveAddedSite(
 		sprintf( __( 'Connecting to the %s site…' ), label )
 	);
 	try {
-		const added = await addRemoteSite( getProviderServices( provider ), localSiteId, values );
+		const site = await connectRemoteSite( getProviderServices( provider ), localSiteId, {
+			input: values,
+		} );
 		logger.spinner.stop();
-		return added;
+		return site;
 	} catch ( error ) {
 		throw toLoggerError( error, sprintf( __( 'Could not connect to the %s site' ), label ) );
 	}

@@ -685,7 +685,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 			return api( `/remote-sites/${ provider }/account` );
 		},
 		async connectRemoteSite( provider, localSiteId, site ) {
-			await api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }`, {
+			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }`, {
 				method: 'POST',
 				body: JSON.stringify( site ),
 			} );
@@ -697,12 +697,6 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				) }/remote-sites/${ provider }/${ encodeURIComponent( remoteSiteId ) }`,
 				{ method: 'DELETE' }
 			);
-		},
-		async addRemoteSite( provider, localSiteId, input ) {
-			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/add`, {
-				method: 'POST',
-				body: JSON.stringify( input ),
-			} );
 		},
 		async getSiteCreationVisibility( provider ) {
 			return api( `/remote-sites/${ provider }/creation-visibility` );

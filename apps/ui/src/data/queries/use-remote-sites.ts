@@ -52,13 +52,13 @@ function excludeConnectedSites< Site extends ProviderSites[ SitesProviderId ] >(
 	return sites.filter( ( site ) => ! connectedIds.has( site.id ) );
 }
 
-// The providers this app publishes to, leaving out those that only make previews, and those that
-// only the user's computer reaches when this app runs elsewhere.
+// The providers this app publishes to, leaving out those that only make previews, and those whose
+// sites only the user's computer connects when this app runs elsewhere.
 export function usePublishProviders(): SitesProviderId[] {
 	const { localMachine } = useConnector().capabilities;
 	return SITES_PROVIDER_IDS.filter( ( id ) => {
 		const sites = getProviderSites( id );
-		return sites.publish && ( localMachine || ! sites.hostOnly );
+		return sites.publish && ( localMachine || ! sites.connect?.hostOnly );
 	} );
 }
 

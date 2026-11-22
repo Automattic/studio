@@ -46,7 +46,7 @@ import {
 	findRemoteSite,
 	findSyncSiteByIdentifier,
 	pickSyncSite,
-	resolveAddedSite,
+	resolveFormConnectedSite,
 } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
@@ -488,8 +488,8 @@ async function resolveRemoteSite(
 	identifier: string | undefined,
 	logger: Logger< LoggerAction >
 ): Promise< RemoteSite | undefined > {
-	if ( getProviderSites( provider ).add ) {
-		return resolveAddedSite( provider, site.id, identifier, logger );
+	if ( getProviderSites( provider ).connect ) {
+		return resolveFormConnectedSite( provider, site.id, identifier, logger );
 	}
 	if ( ! identifier ) {
 		const [ last ] = await connectedSites( provider, site.id );

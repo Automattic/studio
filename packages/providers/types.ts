@@ -159,8 +159,6 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// Whether the user publishes to sites they keep on the provider: lists, creates and pushes to
 	// them. The rest of this describes those sites.
 	publish: boolean;
-	// Only a process on the user's computer reaches the sites, as with `ConnectMethod.hostOnly`.
-	hostOnly?: boolean;
 	// Short destination-picker copy and presentation hints.
 	publishing: {
 		description: () => string;
@@ -185,8 +183,9 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// connects the site to the local one, or created right away from Studio. Without it, the
 	// user only connects sites they already have.
 	newSite?: 'checkout' | 'create';
-	// A site the user connects by describing it in this form, which the services' `add` checks.
-	add?: { input: () => ConnectInputSchema };
+	// How the user connects a site that isn't listed from an account: a form describing it, which
+	// the services' `connect` checks by reaching the site.
+	connect?: ConnectMethod & { kind: 'form' };
 	// What the panel says before a site is connected.
 	intro: { title: () => string; description: () => string; learnMoreUrl: string };
 	// Facts about a connected site, and links to manage it on the provider.
@@ -367,8 +366,8 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		config: Config | undefined,
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
-	// The site the user described in the descriptor's `add` form, once the provider reached it.
-	add?( config: Config | undefined, input: Record< string, string > ): Promise< Site >;
+	// The site the user described in the descriptor's `connect` form, once the provider reached it.
+	connect?( config: Config | undefined, input: Record< string, string > ): Promise< Site >;
 	// A new site to push to, for a provider that can create one.
 	create?(
 		config: Config | undefined,

@@ -10,7 +10,7 @@ echo 'Notice: a plugin talks first'
 printf '{"home":"https://acme.test","name":"Acme","contentDir":"%s/wp-content","multisite":false}\\n' "$PWD"
 `;
 
-describe.skipIf( process.platform === 'win32' )( 'adding an SSH site', () => {
+describe.skipIf( process.platform === 'win32' )( 'connecting an SSH site', () => {
 	const server = useFakeServer( FAKE_WP );
 	const site = () => {
 		const folder = path.join( server.dir, 'it’s a site' );
@@ -21,7 +21,7 @@ describe.skipIf( process.platform === 'win32' )( 'adding an SSH site', () => {
 	it( 'reads the site in the folder, trusting a new host only now', async () => {
 		const folder = site();
 		await expect(
-			sshSites.add!( undefined, { address: `deploy@acme.test:${ folder }/`, wpCli: '' } )
+			sshSites.connect!( undefined, { address: `deploy@acme.test:${ folder }/`, wpCli: '' } )
 		).resolves.toEqual( {
 			id: `deploy@acme.test:${ folder }`,
 			name: 'Acme',
@@ -37,7 +37,7 @@ describe.skipIf( process.platform === 'win32' )( 'adding an SSH site', () => {
 	it( 'says what to fix when the server refuses the key', async () => {
 		vi.stubEnv( 'FAKE_SSH_FAIL', 'deploy@acme.test: Permission denied (publickey).' );
 		await expect(
-			sshSites.add!( undefined, { address: `deploy@acme.test:${ site() }` } )
+			sshSites.connect!( undefined, { address: `deploy@acme.test:${ site() }` } )
 		).rejects.toMatchObject( { code: 'ssh_auth' } );
 	} );
 } );

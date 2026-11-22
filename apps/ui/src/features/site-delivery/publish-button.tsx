@@ -1533,7 +1533,7 @@ export function PublishButton( {
 									replacing={ hasLiveSite }
 									disabled={ disabled || wpcomLogin.isPending }
 									onConnectProvider={ selectProvider }
-									onAddSite={
+									onShowConnectForm={
 										view.provider
 											? undefined
 											: ( provider ) => navigate( { ...view, provider }, 'forward' )

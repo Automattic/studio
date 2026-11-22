@@ -101,11 +101,7 @@ import {
 	isTracksEventName,
 	TRACKS_EVENTS,
 } from '@studio/common/lib/record-tracks-event';
-import {
-	forgetRemoteSite,
-	getRemoteSites,
-	connectPublishingSite,
-} from '@studio/common/lib/remote-sites';
+import { forgetRemoteSite, getRemoteSites } from '@studio/common/lib/remote-sites';
 import {
 	ROOT_CA_CERT_PATH,
 	hasUntrustedRootCA,
@@ -159,7 +155,7 @@ import {
 	getSiteCreationVisibility,
 	getSiteVisibility,
 	setSiteVisibility,
-	addRemoteSite,
+	connectRemoteSite,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -2074,8 +2070,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				await connectPublishingSite( provider, req.params.id, req.body as never );
-				res.sendStatus( 204 );
+				res.json(
+					await connectRemoteSite( getProviderServices( provider ), req.params.id, req.body )
+				);
 			}
 		} )
 	);
@@ -2118,22 +2115,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					connect
 				)
 			);
-		} )
-	);
-
-	api.post(
-		'/sites/:id/remote-sites/:provider/add',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const provider = readSitesProvider( req, res );
-			if ( ! provider ) {
-				return;
-			}
-			const input = z.record( z.string(), z.string() ).safeParse( req.body );
-			if ( ! input.success ) {
-				res.status( 400 ).json( { error: 'Invalid site details.' } );
-				return;
-			}
-			res.json( await addRemoteSite( getProviderServices( provider ), req.params.id, input.data ) );
 		} )
 	);
 

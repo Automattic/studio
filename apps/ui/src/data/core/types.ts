@@ -397,25 +397,19 @@ export interface Connector {
 	): Promise< RemoteSiteConnection< SitesProviderId >[] >;
 	// Every site the provider's account can connect a local site to.
 	listAccountSites( provider: SitesProviderId ): Promise< ProviderSites[ SitesProviderId ][] >;
-	// Connects the local site to a remote one, or updates the connection. The remote site is
-	// unchanged; disconnecting only forgets the connection.
+	// Connects the local site to a remote one, or updates the connection: a site from the provider's
+	// list, or one described in its `sites.connect` form, which the provider reaches first. The remote
+	// site is unchanged; disconnecting only forgets the connection.
 	connectRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,
-		site: ProviderSites[ SitesProviderId ]
-	): Promise< void >;
+		site: ProviderSites[ SitesProviderId ] | { input: Record< string, string > }
+	): Promise< ProviderSites[ SitesProviderId ] | void >;
 	disconnectRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,
 		remoteSiteId: string | number
 	): Promise< void >;
-	// Connects the local site to the site the user described in the provider's `sites.add` form, once
-	// the provider reached it.
-	addRemoteSite(
-		provider: SitesProviderId,
-		localSiteId: string,
-		input: Record< string, string >
-	): Promise< ProviderSites[ SitesProviderId ] >;
 	getSiteCreationVisibility( provider: SitesProviderId ): Promise< SiteCreationVisibility | null >;
 	// Creates a site on a provider whose `sites.newSite` is `create`, and connects the local
 	// site to it.

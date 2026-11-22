@@ -21,12 +21,6 @@ export {
 	type AiModelId,
 	type ThinkingLevel,
 } from './models';
-export {
-	getConnectFields,
-	getConnectMethod,
-	getFormFields,
-	needsHost,
-	type ConnectField,
-} from './connection';
+export { getConnectFields, getConnectMethod, needsHost, type ConnectField } from './connection';
 export { ConnectError, NotConnectedError, RemoteSiteError } from './errors';
 export type * from './types';

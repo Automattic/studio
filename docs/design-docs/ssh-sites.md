@@ -48,8 +48,7 @@ The id is the address in one form (`formatSshAddress`): `user@host:/path`, or `s
 Each addition is generic:
 
 - **A provider without an account.** A provider whose config is `undefined` has no `account` (`WithAccount` in `types.ts`): there is nothing to connect, and surfaces treat it as connected. Settings and `/connect` leave it out. Publish opens on it only when it was the last provider used.
-- **`sites.add`**: a site the user adds by describing it, with the same zod form connect methods use (`getFormFields`). `SitesServices.add( config, input )` reaches the site and returns it. `newSite` is optional: a provider without it only connects existing sites.
-- **`sites.hostOnly`**: only a process on the user's computer reaches the sites. Surfaces without `capabilities.localMachine` (Studio Cloud) leave SSH out.
+- **`sites.connect`**: how the user connects a site that isn't listed from an account, as a `ConnectMethod` of kind `form`, like an account's. `SitesServices.connect( config, input )` reaches the site and returns it, and `connectRemoteSite` takes either a picked site or `{ input }`. SSH's method is `hostOnly`, so surfaces without `capabilities.localMachine` (Studio Cloud) leave SSH out. `newSite` is optional: a provider without it only connects existing sites.
 - **`SitesServices.pullArchive( config, site, options, archive, onProgress, signal )`**: writes the site, as a tar of the backup format, to a `WritableStream`. It is the pull of a provider that sends the site rather than a backup to download.
 - **`SitesServices.push`** gets the connected site as Studio stored it, not only its id and name.
 
@@ -60,9 +59,9 @@ The package's surface entries still use no Node APIs. The lint ban now covers on
 | File | Contents |
 |---|---|
 | `ssh/address.ts` | Parsing and formatting addresses, and checking the WP-CLI command. Browser-safe: the add form validates with it. |
-| `ssh/descriptor.ts` | `SshSite`, and the provider: the add form, `hostOnly`, `pull`, `selective`, the intro, and the details and admin link shown for a connected site. |
+| `ssh/descriptor.ts` | `SshSite`, and the provider: the connect form, `pull`, `selective`, the intro, and the details and admin link shown for a connected site. |
 | `ssh/shell.ts` | `shellQuote`, the run folder on the server (`syncFolder`), and `runSsh`, which spawns `ssh`, streams stdin or stdout, and turns its failures into messages that say what to fix. |
-| `ssh/sites.ts` | `add`, which reads the site with one `wp eval`; `list` returns none, since the connections are the list. |
+| `ssh/sites.ts` | `connect`, which reads the site with one `wp eval`; `list` returns none, since the connections are the list. |
 | `ssh/push.ts`, `ssh/pull.ts` | The remote steps, each a POSIX shell script run by one `ssh` call. |
 
 ## SSH invocation
@@ -110,7 +109,7 @@ studio push --path ~/Studio/acme --remote-site ssh:acme.com --options plugins,th
 
 ## UI
 
-In Publish, SSH is a destination. Choosing it offers "Connect a site", which opens the provider's form; "Choose an existing site" offers the same form as "Connect to SSH", next to the other providers. On success the site is the destination, with "Update…" (push, with the usual selection) and "Pull from live site…". `Connector.addRemoteSite` runs `addRemoteSite` in `@studio/common` from the main process and from `studio ui`'s server. No server version gate is needed: the `local` connector meets older servers only on Studio Cloud, which doesn't offer SSH.
+In Publish, SSH is a destination. Choosing it offers "Connect a site", which opens the provider's form; "Choose an existing site" offers the same form as "Connect to SSH", next to the other providers. On success the site is the destination, with "Update…" (push, with the usual selection) and "Pull from live site…". `Connector.connectRemoteSite` sends the form's values as `{ input }` to `connectRemoteSite` in `@studio/common`, from the main process and from `studio ui`'s server. No server version gate is needed: the `local` connector meets older servers only on Studio Cloud, which doesn't offer SSH.
 
 ## Security
 

@@ -74,19 +74,25 @@ export async function createRemoteSite< Id extends SitesProviderId >(
 	return site;
 }
 
-// Connects the local site to the site the user described in the provider's `add` form, once the
-// provider reached it.
-export async function addRemoteSite< Id extends SitesProviderId >(
+// A site to connect: one picked from the provider's list, or the values of its `connect` form.
+export type RemoteSiteToConnect< Id extends SitesProviderId = SitesProviderId > =
+	| ProviderSites[ Id ]
+	| { input: Record< string, string > };
+
+// Connects the local site to that site, once the provider reached a site described in its form.
+export async function connectRemoteSite< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >,
 	localSiteId: string,
-	input: Record< string, string >
+	site: RemoteSiteToConnect< Id >
 ): Promise< ProviderSites[ Id ] > {
 	const id = provider.id as Id;
-	const add = sites( provider ).add;
-	if ( ! add ) {
-		throw new Error( `Studio can't add ${ getProvider( provider.id ).label } sites.` );
+	if ( 'input' in site ) {
+		const connect = sites( provider ).connect;
+		if ( ! connect ) {
+			throw new Error( `Studio can't connect ${ getProvider( provider.id ).label } sites by form.` );
+		}
+		site = await connect( await readProviderConfig( id ), site.input );
 	}
-	const site = await add( await readProviderConfig( id ), input );
 	await connectPublishingSite( id, localSiteId, site );
 	return site;
 }

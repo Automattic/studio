@@ -17,7 +17,7 @@ import {
 } from '@/data/queries/use-remote-sites';
 import { RemoteSitePicker, RemoteSiteCard } from '@/features/remote-site-picker';
 import { Button, Badge, Spinner } from '@/lib/ui';
-import { AddSiteForm } from './add-site-form';
+import { ConnectSiteForm } from './connect-site-form';
 import styles from './existing-site-step.module.css';
 import { ProviderLogo } from './provider-logo';
 
@@ -32,7 +32,7 @@ export function ExistingSiteStep( {
 	replacing,
 	disabled,
 	onConnectProvider,
-	onAddSite,
+	onShowConnectForm,
 	onConnected,
 }: {
 	providers: SitesProviderId[];
@@ -41,15 +41,15 @@ export function ExistingSiteStep( {
 	replacing: boolean;
 	disabled: boolean;
 	onConnectProvider: ( provider: SitesProviderId ) => void;
-	// Opens a provider's form for adding a site; without it, the forms show here.
-	onAddSite?: ( provider: SitesProviderId ) => void;
+	// Opens a provider's `sites.connect` form; without it, the forms show here.
+	onShowConnectForm?: ( provider: SitesProviderId ) => void;
 	onConnected: ( provider: SitesProviderId, id: string | number ) => void;
 } ) {
 	const connector = useConnector();
 	const client = useQueryClient();
-	// A provider whose sites the user adds has no list to pick from: it offers its form instead.
-	const listed = providers.filter( ( provider ) => ! getProviderSites( provider ).add );
-	const adding = providers.filter( ( provider ) => getProviderSites( provider ).add );
+	// A provider whose sites the user connects with a form has no list to pick from.
+	const listed = providers.filter( ( provider ) => ! getProviderSites( provider ).connect );
+	const described = providers.filter( ( provider ) => getProviderSites( provider ).connect );
 	const sitesByProvider = usePickableSitesByProvider( listed );
 	const connectable = availableProviders.filter( ( provider ) => ! providers.includes( provider ) );
 	const connect = useMutation( {
@@ -194,13 +194,13 @@ export function ExistingSiteStep( {
 					{ retry || failed.length ? __( 'Try again' ) : __( 'Refresh' ) }
 				</Button>
 			) }
-			{ adding.map( ( provider ) =>
-				onAddSite ? (
+			{ described.map( ( provider ) =>
+				onShowConnectForm ? (
 					<Button
 						key={ provider }
 						variant="outline"
 						disabled={ disabled }
-						onClick={ () => onAddSite( provider ) }
+						onClick={ () => onShowConnectForm( provider ) }
 					>
 						{ sprintf(
 							/* translators: %s: hosting provider name. */
@@ -209,7 +209,7 @@ export function ExistingSiteStep( {
 						) }
 					</Button>
 				) : (
-					<AddSiteForm
+					<ConnectSiteForm
 						key={ provider }
 						provider={ provider }
 						siteId={ siteId }

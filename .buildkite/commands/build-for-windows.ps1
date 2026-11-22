@@ -32,8 +32,11 @@ $signWindows = "$($env:SIGN_WINDOWS_BUILD)".Trim().ToLower()
 If (@('1', 'true') -contains $signWindows) {
     Write-Host "--- :lock: Setting up Azure Trusted Signing"
     $setupScript = (Get-Command setup_azure_trusted_signing.ps1 -ErrorAction Stop).Source
-    & $setupScript
+    & $setupScript -SkipSmokeTest
     If ($LastExitCode -ne 0) { Exit $LastExitCode }
+} ElseIf ($BuildType -eq $BUILD_TYPE_RELEASE) {
+    Write-Host "Error: Release builds must be signed. Set SIGN_WINDOWS_BUILD." -ForegroundColor Red
+    Exit 1
 }
 
 Write-Host "--- :npm: Installing Node dependencies"

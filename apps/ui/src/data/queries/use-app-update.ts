@@ -108,7 +108,7 @@ export function useSyncAppUpdateStatus(): void {
 				processing.current = false;
 				toast.success( __( 'Update ready' ), {
 					id: APP_UPDATE_NOTICE_ID,
-					description: __( 'Restart Studio to finish updating.' ),
+					description: __( 'Restart WordPress Studio to finish updating.' ),
 				} );
 			} else {
 				clearToast( APP_UPDATE_NOTICE_ID );

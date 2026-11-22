@@ -1,9 +1,8 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node/ai-gateway';
+import type { GenerateImageRequest, GenerateImageResult } from '@studio/providers';
 
 /**
- * AI image generation through the WP.com AI proxy's OpenAI-compatible images
- * route.
+ * Prompt composition for AI image generation; a provider that offers it
+ * renders the prompts (`ai.generateImages` in `@studio/providers`).
  *
  * A TypeScript port of minimalistic-site-builder's image subsystem
  * (GeminiImage / WpcomImageClient / ImagePromptComposer), trimmed for an
@@ -12,18 +11,14 @@ import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node/ai-gateway';
  * machinery (grade-token stripping, pictorial page-context recasting) is
  * replaced by authoring guidance, and its LLM prompt-repair pass is replaced by
  * reporting safety-filtered failures back to the agent to rewrite and retry.
- * The route only delivers PNG.
  */
 
-// The proxy picks the actual model behind the `image` alias; a real model id
-// is rejected.
-const IMAGE_MODEL_ALIAS = 'image';
-// The proxy accepts only `low` or `medium`.
-const IMAGE_QUALITY = 'medium';
-// Studio's image slug on the proxy; it accepts regular user OAuth tokens.
-const IMAGE_FEATURE_SLUG = 'studio-image';
-const MAX_CONCURRENT_REQUESTS = 5;
-const RETRY_DELAYS_SECONDS = [ 2, 5, 12 ];
+// A connected provider's image generation, bound to its config.
+export type ImageGenerator = (
+	requests: GenerateImageRequest[],
+	onResult?: ( index: number, result: GenerateImageResult ) => void
+) => Promise< GenerateImageResult[] >;
+
 // Prompt budget inherited from the builder: the model accepts longer prompts,
 // but a tight prompt keeps the subject dominant instead of drowning it in context.
 const MAX_PROMPT_TOKENS = 480;
@@ -39,62 +34,15 @@ export const IMAGE_STYLES = [
 	'watercolor',
 ] as const;
 
-// The route renders only these three canvases, so each slot shape maps to the
-// nearest one and CSS crops to the slot.
-const IMAGE_SIZE_BY_KEYWORD = {
-	square: '1024x1024',
-	landscape: '1536x1024',
-	ultrawide: '1536x1024',
-	portrait: '1024x1536',
-	'card-landscape': '1536x1024',
-	'card-portrait': '1024x1536',
-} as const;
-export const IMAGE_ASPECT_RATIOS = Object.keys(
-	IMAGE_SIZE_BY_KEYWORD
-) as ImageAspectRatioKeyword[];
-export type ImageAspectRatioKeyword = keyof typeof IMAGE_SIZE_BY_KEYWORD;
-
-// Error codes the proxy passes through when the moderation system rejected the
-// prompt; any other failure must not be reported as repairable-by-rewriting.
-const FILTERED_ERROR_CODES = new Set( [ 'moderation_blocked', 'content_policy_violation' ] );
-
-/**
- * Whether the generate_images capability is enabled for this session: an
- * explicit token, or a valid WP.com login (the proxy's `studio-image` slug
- * accepts user OAuth tokens). Sessions with neither — e.g. BYO Anthropic key
- * without a WP.com login — get no tool and no imagery prompt sections.
- */
-export async function isImageGenerationAvailable(): Promise< boolean > {
-	if ( process.env.STUDIO_IMAGE_API_TOKEN?.trim() ) {
-		return true;
-	}
-	return ( await readAuthToken() ) !== null;
-}
-
-async function resolveImageAuthToken(): Promise< string > {
-	const envToken = process.env.STUDIO_IMAGE_API_TOKEN?.trim();
-	if ( envToken ) {
-		return envToken;
-	}
-	const token = await readAuthToken();
-	if ( ! token?.accessToken ) {
-		throw new Error(
-			'Image generation requires a WordPress.com login (studio auth login) or STUDIO_IMAGE_API_TOKEN.'
-		);
-	}
-	return token.accessToken;
-}
-
-function getImageEndpoint(): string {
-	const base = getWpcomAiGatewayBaseUrl().replace( /\/+$/, '' );
-	return `${ base }/v1/images/generations`;
-}
-
-export function resolveImageSize( keyword: string | undefined ): string {
-	return (
-		IMAGE_SIZE_BY_KEYWORD[ ( keyword ?? 'landscape' ) as ImageAspectRatioKeyword ] ?? '1536x1024'
-	);
-}
+// Slot shapes; the provider maps each to the nearest canvas it renders.
+export const IMAGE_ASPECT_RATIOS = [
+	'square',
+	'landscape',
+	'ultrawide',
+	'portrait',
+	'card-landscape',
+	'card-portrait',
+] as const;
 
 export interface ImagePromptSpec {
 	subject: string;
@@ -178,158 +126,4 @@ export function composeImagePrompt(
 	}
 
 	return fitToTokens( parts.join( '\n\n' ), MAX_PROMPT_TOKENS );
-}
-
-export function buildImageRequestBody(
-	prompt: string,
-	aspectRatioKeyword: string | undefined
-): Record< string, unknown > {
-	// No `stream` and no `n` above 1: the proxy rejects both.
-	return {
-		model: IMAGE_MODEL_ALIAS,
-		prompt,
-		quality: IMAGE_QUALITY,
-		size: resolveImageSize( aspectRatioKeyword ),
-	};
-}
-
-export class TransientImageError extends Error {}
-export class ImageFilteredError extends Error {}
-
-interface ImagesResponse {
-	data?: Array< { b64_json?: string } >;
-	error?: { code?: string; message?: string };
-}
-
-function parseJson( raw: string ): ImagesResponse | null {
-	try {
-		return JSON.parse( raw ) as ImagesResponse;
-	} catch {
-		return null;
-	}
-}
-
-const PNG_SIGNATURE = Buffer.from( [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ] );
-
-/**
- * Interpret a completed transfer: HTTP-status classification plus images
- * response parsing. Returns decoded PNG bytes or throws TransientImageError
- * (429/5xx — retryable), ImageFilteredError (moderation — retryable, and
- * repairable by rewriting the subject), or Error (permanent).
- */
-export function interpretImageResponse( raw: string, status: number ): Buffer {
-	if ( status === 429 || status >= 500 ) {
-		throw new TransientImageError( `HTTP ${ status }: ${ raw.slice( 0, 300 ) }` );
-	}
-	const data = parseJson( raw );
-	const errorCode = data?.error?.code;
-	if ( errorCode && FILTERED_ERROR_CODES.has( errorCode ) ) {
-		throw new ImageFilteredError(
-			`Image safety filter rejected the prompt: ${ data?.error?.message ?? errorCode }`
-		);
-	}
-	if ( status < 200 || status >= 300 ) {
-		throw new Error( `Image proxy HTTP ${ status }: ${ raw.slice( 0, 500 ) }` );
-	}
-	if ( ! data ) {
-		throw new Error( `Image proxy returned non-JSON response: ${ raw.slice( 0, 300 ) }` );
-	}
-
-	const base64 = data.data?.[ 0 ]?.b64_json;
-	if ( ! base64 ) {
-		throw new Error( `Image proxy response had no image data: ${ raw.slice( 0, 300 ) }` );
-	}
-
-	const bytes = Buffer.from( base64, 'base64' );
-	// Byte magic is the source of truth: never deliver non-PNG bytes under a
-	// .png filename.
-	if ( ! bytes.subarray( 0, PNG_SIGNATURE.length ).equals( PNG_SIGNATURE ) ) {
-		throw new Error( 'Image proxy returned bytes that are not a PNG' );
-	}
-	return bytes;
-}
-
-export interface GenerateImageRequest {
-	prompt: string;
-	aspectRatio?: string;
-}
-
-export interface GenerateImageResult {
-	ok: boolean;
-	bytes?: Buffer;
-	error?: string;
-	filtered?: boolean;
-}
-
-const sleep = ( seconds: number ) =>
-	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
-
-async function generateOne(
-	userAgent: string,
-	endpoint: string,
-	authToken: string,
-	request: GenerateImageRequest
-): Promise< GenerateImageResult > {
-	const body = JSON.stringify( buildImageRequestBody( request.prompt, request.aspectRatio ) );
-	// Transient transport errors AND safety-filtered prompts retry: the
-	// non-deterministic filter can pass the same prompt on a later attempt.
-	for ( let attempt = 0; ; attempt++ ) {
-		try {
-			const response = await fetch( endpoint, {
-				method: 'POST',
-				headers: {
-					authorization: `Bearer ${ authToken }`,
-					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
-					'content-type': 'application/json',
-					'user-agent': userAgent,
-				},
-				body,
-			} );
-			const raw = await response.text();
-			return { ok: true, bytes: interpretImageResponse( raw, response.status ) };
-		} catch ( error ) {
-			const transient =
-				error instanceof TransientImageError ||
-				error instanceof ImageFilteredError ||
-				// fetch network failures (DNS, reset, timeout) surface as TypeError.
-				error instanceof TypeError;
-			if ( transient && attempt < RETRY_DELAYS_SECONDS.length ) {
-				await sleep( RETRY_DELAYS_SECONDS[ attempt ] );
-				continue;
-			}
-			return {
-				ok: false,
-				error: error instanceof Error ? error.message : String( error ),
-				...( error instanceof ImageFilteredError ? { filtered: true } : {} ),
-			};
-		}
-	}
-}
-
-/**
- * Generate a batch of images concurrently (bounded pool). Results are keyed by
- * the same index as the requests; a failure never aborts the rest.
- */
-export async function generateImages(
-	userAgent: string,
-	requests: GenerateImageRequest[],
-	onResult?: ( index: number, result: GenerateImageResult ) => void
-): Promise< GenerateImageResult[] > {
-	const endpoint = getImageEndpoint();
-	const authToken = await resolveImageAuthToken();
-	const results: GenerateImageResult[] = new Array( requests.length );
-	let next = 0;
-
-	const worker = async () => {
-		while ( next < requests.length ) {
-			const index = next++;
-			const result = await generateOne( userAgent, endpoint, authToken, requests[ index ] );
-			results[ index ] = result;
-			onResult?.( index, result );
-		}
-	};
-	await Promise.all(
-		Array.from( { length: Math.min( MAX_CONCURRENT_REQUESTS, requests.length ) }, worker )
-	);
-	return results;
 }

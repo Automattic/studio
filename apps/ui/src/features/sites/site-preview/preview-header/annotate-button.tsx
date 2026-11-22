@@ -43,7 +43,7 @@ export function AnnotateButton( {
 				event.repeat ||
 				! isShortcut( event, '.', 'shift' ) ||
 				isDialogOpen() ||
-				modeButton.current?.closest( '[inert], [hidden], [aria-hidden="true"]' )
+				modeButton.current?.closest( '[inert], [aria-hidden="true"]' )
 			)
 				return;
 			event.preventDefault();
@@ -69,13 +69,14 @@ export function AnnotateButton( {
 				render={
 					<IconButton
 						ref={ modeButton }
+						className={ styles.button }
 						tooltip={ false }
 						variant="accent-ghost"
 						size="icon-sm"
 						icon={
 							<span className={ styles.icon }>
 								<AnnotateIcon />
-								{ annotationCount > 0 && ! active && <NotificationDot position="icon" /> }
+								{ annotationCount > 0 && <NotificationDot position="icon" /> }
 							</span>
 						}
 						label={ disabledReason ?? label }

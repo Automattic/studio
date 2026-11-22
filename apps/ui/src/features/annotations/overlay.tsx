@@ -2,11 +2,10 @@ import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
-import { SendIcon, TrashIcon } from '@/lib/icons';
+import { PaperclipIcon, ArrowUpIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing, isShortcut } from '@/lib/keyboard';
 import {
 	DropOverlay,
@@ -226,15 +225,18 @@ function NoteEditor( {
 								src={ getComposerAttachmentImageSrc( attachment ) ?? undefined }
 								alt={ attachment.name }
 							/>
-							<AttachmentRemoveButton
-								label={ __( 'Remove attachment' ) }
-								onClick={ () => removeAttachment( attachment.id ) }
-							/>
+							{ note.kind !== 'region' || attachment.id !== note.images[ 0 ]?.id ? (
+								<AttachmentRemoveButton
+									label={ __( 'Remove attachment' ) }
+									onClick={ () => removeAttachment( attachment.id ) }
+								/>
+							) : null }
 						</li>
 					) ) }
 				</ul>
 			) : null }
 			<Textarea
+				className={ styles.input }
 				autoFocus
 				rows={ 1 }
 				maxLength={ 10000 }
@@ -299,7 +301,7 @@ function NoteEditor( {
 							/>
 						}
 					>
-						<SendIcon />
+						<ArrowUpIcon />
 					</TooltipTrigger>
 					<TooltipContent className={ styles.submitTooltip }>
 						<span className={ styles.shortcutRow }>

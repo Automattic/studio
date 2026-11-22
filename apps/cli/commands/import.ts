@@ -14,7 +14,6 @@ import { getImportStatusMessage } from '@studio/common/lib/import-progress';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { SiteData } from 'cli/lib/cli-config/core';
 import {
 	clearSiteLatestCliPid,
 	getSiteByFolder,
@@ -24,6 +23,7 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
+import { assertStorageAvailable } from 'cli/lib/site-capacity';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
@@ -35,6 +35,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/import.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -296,7 +297,7 @@ async function importBackup(
 	logger: Logger< LoggerAction >
 ): Promise< void > {
 	const startedAt = Date.now();
-	let site: SiteData | undefined;
+	let site: ConfigSite | undefined;
 	let wasServerRunning = false;
 	let importError: unknown;
 	let restartSiteError: unknown;
@@ -319,6 +320,8 @@ async function importBackup(
 				'file_not_found'
 			);
 		}
+		// A backup unpacks to about twice its archive.
+		await assertStorageAvailable( () => fs.statSync( importFile ).size * 2, siteFolder );
 
 		wasServerRunning = !! ( await isServerRunning( site.id ) );
 
@@ -381,16 +384,15 @@ async function importBackup(
 		}
 	}
 
-	const failure = importError ?? restartSiteError;
 	if ( site ) {
 		await reportSyncActivity(
 			site.id,
-			failure === undefined
+			importError === undefined
 				? { kind: 'success', direction: 'import' }
 				: {
 						kind: 'error',
 						direction: 'import',
-						message: failure instanceof Error ? failure.message : String( failure ),
+						message: importError instanceof Error ? importError.message : String( importError ),
 				  }
 		);
 	}
@@ -428,8 +430,15 @@ async function importBackup(
 		throw importError;
 	}
 
-	if ( restartSiteError instanceof Error ) {
-		throw restartSiteError;
+	// The backup is restored, so a site that fails to start afterwards is still a usable import:
+	// failing here would make the app delete a site it just created for the import.
+	if ( restartSiteError !== undefined ) {
+		logger.reportWarning(
+			sprintf(
+				__( 'Site imported, but the WordPress server failed to start: %s' ),
+				restartSiteError instanceof Error ? restartSiteError.message : String( restartSiteError )
+			)
+		);
 	}
 }
 

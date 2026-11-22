@@ -1,6 +1,5 @@
-/* The footer shares the site list's horizontal inset. */
 .root {
-	padding: 0 var( --space-3 ) var( --space-2_5 );
+	padding: 0 var( --space-2_5 ) var( --space-2_5 );
 }
 
 .row {
@@ -9,18 +8,9 @@
 	gap: var( --space-1 );
 }
 
-.offline {
-	display: flex;
-	color: var( --muted-foreground );
-}
-
 .avatar {
-	width: 24px;
-	height: 24px;
-}
-
-.loginTrigger {
-	--button-background: var( --studio-sidebar-bg, var( --chrome ) );
+	width: 26px;
+	height: 26px;
 }
 
 .updateSlot {

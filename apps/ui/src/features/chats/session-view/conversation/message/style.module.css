@@ -1,4 +1,5 @@
 .userTurn {
+	container-type: inline-size;
 	display: flex;
 	flex-direction: column;
 }
@@ -94,6 +95,13 @@
 
 .userImageAttachment {
 	composes: attachmentThumbnail from '@/lib/theme/recipes.module.css';
+}
+
+@container ( max-width: 400px ) {
+	.userImageAttachment {
+		width: 48px;
+		height: 48px;
+	}
 }
 
 .userImageAttachmentContent {

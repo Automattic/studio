@@ -50,6 +50,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	const style = document.createElement('style');
 	style.textContent =
 		'.highlight{position:fixed;pointer-events:none;box-sizing:border-box;border:2px solid var(--accent);box-shadow:0 0 0 0.5px color-mix(in srgb,var(--on-accent) 20%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)}' +
+		'.highlight[data-region]{border:0;box-shadow:none}' +
+		'.highlight[data-region]::after{content:"";position:absolute;inset:0;box-sizing:border-box;border:2px dashed var(--accent);filter:drop-shadow(0 0 0.5px color-mix(in srgb,var(--on-accent) 20%,transparent))}' +
 		'button{position:fixed;transform:translate(-50%,-50%);border:0;border-radius:50%;width:36px;height:36px;padding:0;font:500 12px var(--marker-font-family,system-ui);font-variant-numeric:tabular-nums;background:var(--marker) center/contain no-repeat;color:var(--on-accent);cursor:pointer;pointer-events:auto}' +
 		'button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}' +
 		'.enter{animation:marker-in 600ms linear(0 0%,.0325 2.5%,.1163 5%,.2331 7.5%,.6385 15%,.7594 17.5%,.8639 20%,.9497 22.5%,1.0164 25%,1.0648 27.5%,1.0966 30%,1.1142 32.5%,1.1172 37.5%,1.0941 42.5%,1.0178 55%,.9887 65%,.9858 72.5%,1 100%) both,marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}' +
@@ -240,11 +242,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const path = '${ RENAME_ICON.path }';
 		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="${
 			RENAME_ICON.viewBox
-		}" stroke-linecap="${ RENAME_ICON.strokeLinecap }" stroke-linejoin="${
-			RENAME_ICON.strokeLinejoin
-		}" fill="white"><path d="' + path + '" stroke="white" stroke-width="${
-			RENAME_ICON.strokeWidth + 2
-		}"/><path d="' + path + '" stroke="black" stroke-width="${ RENAME_ICON.strokeWidth }"/></svg>';
+		}" stroke-linejoin="round"><path d="' + path + '" fill="white" stroke="white" stroke-width="28"/><path d="' + path + '" fill="black"/></svg>';
 		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 2 16, crosshair';
 	}
 	function selector(el) {
@@ -367,11 +365,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				marker.className = 'enter';
 				marker.innerHTML = '<span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="${
 					PLUS_ICON.viewBox
-				}" fill="none"><path d="${ PLUS_ICON.path }" stroke-width="${
-					PLUS_ICON.strokeWidth
-				}" stroke-linecap="${
-					PLUS_ICON.strokeLinecap
-				}" stroke="currentColor"/></svg></span><span class="number" aria-hidden="true"></span>';
+				}" fill="currentColor"><path d="${
+					PLUS_ICON.path
+				}"/></svg></span><span class="number" aria-hidden="true"></span>';
 				marker.addEventListener('animationend', (event) => {
 					if (event.target !== marker) return;
 					if (event.animationName === 'marker-out' || event.animationName === 'marker-fade-out') { finishExit(); return; }
@@ -415,6 +411,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		if (note) emit({ type: 'anchor', id: note.id, anchor: onPage(note) ? anchor(note) : null });
 		const el = hovered || selected;
 		const region = note?.kind === 'region' && onPage(note) ? note.documentRect : null;
+		highlight.toggleAttribute('data-region', Boolean(gesture?.kind === 'region' && gesture.dragged || pendingSelection?.target.kind === 'region' || region));
 		let r = gesture?.rect || (pendingSelection?.target.kind === 'region' ? pendingSelection.rect : null);
 		if (!r && state.tool !== 'draw') {
 			if (region) r = { ...region, left: region.left - scrollX, top: region.top - scrollY };

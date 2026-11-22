@@ -95,7 +95,7 @@ Studio ships an MCP (Model Context Protocol) server so an AI assistant can drive
 }
 ```
 
-Run `studio mcp --help` for per-assistant install commands and config paths. Docs: https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/
+Run `studio mcp --help` for per-assistant install commands and config paths. Docs: https://wordpress.studio/docs/mcp-on-studio/
 
 **Available tools:**
 

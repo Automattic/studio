@@ -100,7 +100,7 @@ export async function downloadThemeFonts(
 		return {
 			...face,
 			fontWeight: min === max ? String( min ) : `${ min } ${ max }`,
-			file: path.posix.join( 'assets', 'fonts', familySlug, `${ fileName }.woff2` ),
+			file: `assets/fonts/${ familySlug }/${ fileName }.woff2`,
 		};
 	} );
 	if ( ! faces.length ) {

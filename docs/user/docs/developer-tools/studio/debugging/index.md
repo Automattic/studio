@@ -8,7 +8,7 @@ Sometimes you just need to see what WordPress is logging. WordPress Studio makes
 
 ### [Enabling the debug log](#1-enabling-the-debug-log)
 
-1.  Open the site’s settings: choose **Settings** from the site menu (click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar).
+1.  Open the site’s settings: choose **Settings** from the site menu (click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar).
 2.  Select the **Debug** page.
 3.  Turn on **Debug log**.
 4.  Click **Save** at the top of the dialog.
@@ -17,7 +17,9 @@ When the debug log is enabled, your site will capture PHP errors, notices, and w
 
 You can also write your own messages to the log using PHP’s `error_log()` function:
 
-error\_log( 'My value: ' . print\_r( $my\_variable, true ) );
+```php
+error_log( 'My value: ' . print_r( $my_variable, true ) );
+```
 
 ### [Show errors in browser](#2-show-errors-in-browser)
 
@@ -45,10 +47,12 @@ Inspecting or editing your local database used to mean a separate tool and a sep
 
 To open phpMyAdmin for a running site, select the site and use either of these:
 
--   Click the site preview’s address bar and choose **Database**, or choose **Tools → Database** from the site menu. phpMyAdmin opens inside the preview.
+-   Click **New tab** (**+**) above the site preview and choose **Database**, or choose **Tools → Database** from the site menu. phpMyAdmin opens in a tab of the preview.
 -   Choose **Open in → phpMyAdmin** from the site menu to open it in your browser.
 
-[![The address bar menu in WordPress Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)
+WordPress Studio’s phpMyAdmin supports SQLite only. If a site uses an external MySQL server (see [How can I use WordPress Studio with the MySQL server of my choice?](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-use-wordpress-studio-with-the-mysql-server-of-my-choice)), **Database** and **phpMyAdmin** are unavailable for it, and WordPress Studio suggests a separate database client instead.
+
+![The New tab menu in WordPress Studio's site preview, open next to the preview tab, with Browser, Admin, Design System, Database, and Email log.](../../../../screenshots/images/preview-destinations.webp)
 
 ## [Step-through debugging with Xdebug](#6-step-through-debugging-with-xdebug)
 
@@ -56,4 +60,4 @@ For deeper investigation, WordPress Studio includes [Xdebug](https://xdebug.org/
 
 Xdebug is available for all WordPress Studio sites and requires no system-level installation. When a request runs, Xdebug connects out to your editor or IDE on port `9003`, so your editor needs to be listening for debug connections on that port.
 
-For full setup instructions, including how to connect VS Code and PhpStorm, see [Xdebug in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/xdebug/).
+For full setup instructions, including how to connect VS Code and PhpStorm, see [Xdebug in WordPress Studio](https://wordpress.studio/docs/xdebug/).

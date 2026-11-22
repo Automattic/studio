@@ -1,8 +1,9 @@
-import { readRecordedSessionModel, type AiModelId } from '@studio/agent/protocol/models';
-import { isAiProviderId } from '@studio/agent/protocol/providers';
-import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import {
+	readRecordedSessionModel,
+	resolveSessionProvider,
+} from '@studio/agent/protocol/sessions/model';
 import type { LoadedAiSession } from '@studio/agent/protocol/sessions/types';
+import type { AiModelId, AiProviderId } from '@studio/providers';
 
 export interface ResumeSessionContext {
 	sessionId?: string;
@@ -28,17 +29,7 @@ export function resolveResumeSessionContext(
 	// applies its provider-appropriate default instead of pinning a dead id.
 	context.model = readRecordedSessionModel( resumeSession.entries );
 
-	for ( let index = resumeSession.entries.length - 1; index >= 0; index -= 1 ) {
-		const entry = resumeSession.entries[ index ];
-
-		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
-			const data = entry.data;
-			if ( data?.provider && isAiProviderId( data.provider ) ) {
-				context.provider = data.provider;
-				break;
-			}
-		}
-	}
+	context.provider = resolveSessionProvider( resumeSession.entries );
 
 	return context;
 }

@@ -1,10 +1,20 @@
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
+import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
+import { sendStudioFeedback } from '@studio/common/lib/feedback';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
+import { SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { listAccountSites } from '@studio/common/sites/remote-sites';
+import { getProviderSites, SITES_PROVIDER_IDS } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
-import { getStudioUserAgent } from 'cli/ai/providers';
+import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -23,7 +33,6 @@ import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { getSiteStatus } from 'cli/commands/site/status';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { getWpComSites } from 'cli/lib/api';
-import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
@@ -34,9 +43,34 @@ import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node';
+import type { HostRemoteSite, HostSite, StudioAgentHost } from '@studio/agent/node';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
-function toHostSite( site: SiteData ): HostSite {
+/**
+ * The remote sites a local site is connected to, on every provider. With `fillIn`, each is filled
+ * in from its provider's account when the account can be reached, which says whether it can
+ * still be synced; the stored connection otherwise.
+ */
+export async function connectedRemoteSites(
+	site: HostSite,
+	fillIn: boolean
+): Promise< HostRemoteSite[] > {
+	const connected = await Promise.all(
+		SITES_PROVIDER_IDS.map( async ( provider ) => {
+			const stored = await getRemoteSites( provider, site.id );
+			const account =
+				fillIn && stored.length
+					? await listAccountSites( getProviderServices( provider ) ).catch( () => undefined )
+					: undefined;
+			return ( account ? getProviderSites( provider ).withDetails( stored, account ) : stored ).map(
+				( remote ) => ( { provider, site: remote } )
+			);
+		} )
+	);
+	return connected.flat();
+}
+
+function toHostSite( site: ConfigSite ): HostSite {
 	return {
 		id: site.id,
 		name: site.name,
@@ -47,8 +81,8 @@ function toHostSite( site: SiteData ): HostSite {
 	};
 }
 
-async function findSiteByName( name: string ): Promise< SiteData | undefined > {
-	const config = await readCliConfig();
+async function findSiteByName( name: string ): Promise< ConfigSite | undefined > {
+	const config = await readConfig();
 	const sites = config.sites.filter( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
 	if ( sites.length > 1 ) {
 		const paths = sites.map( ( site ) => site.path ).join( ', ' );
@@ -59,7 +93,7 @@ async function findSiteByName( name: string ): Promise< SiteData | undefined > {
 	return sites[ 0 ];
 }
 
-async function resolveSite( nameOrPath: string ): Promise< SiteData > {
+async function resolveSite( nameOrPath: string ): Promise< ConfigSite > {
 	const siteByName = await findSiteByName( nameOrPath );
 	if ( siteByName ) {
 		return siteByName;
@@ -68,7 +102,7 @@ async function resolveSite( nameOrPath: string ): Promise< SiteData > {
 	// Also try matching by the last folder segment of the site path,
 	// since the agent may pass just the folder name instead of the full path.
 	if ( ! path.isAbsolute( nameOrPath ) ) {
-		const config = await readCliConfig();
+		const config = await readConfig();
 		const siteByFolder = config.sites.find( ( site ) => path.basename( site.path ) === nameOrPath );
 		if ( siteByFolder ) {
 			return siteByFolder;
@@ -89,16 +123,14 @@ async function withDaemon< T >( fn: () => Promise< T > ): Promise< T > {
 
 export const cliAgentHost: StudioAgentHost = {
 	sitesRoot: STUDIO_SITES_ROOT,
-	get userAgent() {
-		return getStudioUserAgent();
-	},
+	imageGenerator: resolveImageGenerator,
 	sites: {
 		resolve: async ( nameOrPath ) => toHostSite( await resolveSite( nameOrPath ) ),
 		findByFolder: async ( folder ) => {
 			const site = await findSiteByFolder( folder );
 			return site && toHostSite( site );
 		},
-		all: async () => ( await readCliConfig() ).sites.map( toHostSite ),
+		all: async () => ( await readConfig() ).sites.map( toHostSite ),
 		list: () => listSites(),
 		status: ( site ) =>
 			withDaemon( async () => getSiteStatus( await getSiteByFolder( site.path ) ) ),
@@ -109,7 +141,7 @@ export const cliAgentHost: StudioAgentHost = {
 					name,
 					wpVersion: 'latest',
 					phpVersion: DEFAULT_PHP_VERSION,
-					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					fileAccess: SITE_FILE_ACCESS_ALL_FILES,
 					enableHttps: false,
 					noStart: false,
 					skipBrowser: true,
@@ -170,6 +202,7 @@ export const cliAgentHost: StudioAgentHost = {
 			),
 	},
 	sync: {
+		connectedSites: ( site ) => connectedRemoteSites( site, true ),
 		push: async ( site, options, remoteSite, onProgress ) =>
 			runPushCommand(
 				site.path,
@@ -195,9 +228,49 @@ export const cliAgentHost: StudioAgentHost = {
 				  ),
 	},
 	wpcom: {
-		sites: ( accessToken ) => getWpComSites( accessToken ),
+		token: async () => ( await readAuthToken() )?.accessToken,
+		sites: async () => {
+			const token = await readAuthToken();
+			return token ? getWpComSites( token.accessToken ) : [];
+		},
+		request: async ( method, path, query, body ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				throw new Error(
+					'Not logged in to WordPress.com. Ask the user to log in with `studio auth login`.'
+				);
+			}
+			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+			switch ( method ) {
+				case 'GET':
+					return wpcom.req.get( path, query );
+				case 'POST':
+					return wpcom.req.post( path, query, body );
+				case 'PUT':
+					return wpcom.req.put( path, query, body );
+				case 'DELETE':
+					// wpcom.js's req.del() sends a POST, which wp/v2 handles as an update. req.get()
+					// keeps an explicit method and, unlike req.post(), leaves the query as the query.
+					return wpcom.req.get( { path, method: 'DELETE' }, query );
+			}
+		},
+		get payloadsDirectory() {
+			return getAiPayloadsPath();
+		},
 	},
 	tracks: {
 		record: ( event, props ) => recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
+	},
+	sendFeedback: async ( feedback ) => {
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			throw new Error(
+				`Not logged in to WordPress.com. Ask the user to log in with \`studio auth login\`, or to share feedback at ${ REPORT_ISSUE_URL }.`
+			);
+		}
+		return sendStudioFeedback( feedback, {
+			accessToken: token.accessToken,
+			userAgent: getStudioUserAgent(),
+		} );
 	},
 };

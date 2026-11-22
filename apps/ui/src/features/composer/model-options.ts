@@ -1,4 +1,3 @@
-import { aiModelSupportsImages, getAiModelLabel } from '@studio/agent/protocol/models';
 import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
@@ -7,30 +6,38 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import type { AiModelId } from '@/data/core';
+import type { AiModel } from '@studio/providers';
 
 export function getModelDescription( id: AiModelId ): string {
 	switch ( id ) {
 		case 'fast':
 			return __( 'Quick fixes and questions (text only)' );
 		case 'balanced':
-		case 'claude-sonnet-5':
+		case 'claude-sonnet-5-5':
 			return __( 'Build features, style pages, and fix bugs' );
 		case 'strong':
-		case 'claude-opus-5':
+		case 'claude-opus-5-5':
 			return __( 'Plan complex builds and solve harder problems' );
 		default:
 			return '';
 	}
 }
 
-export function getModelImageSupportError( model: AiModelId ): string | null {
-	return aiModelSupportsImages( model )
-		? null
-		: sprintf(
-				/* translators: %s: selected AI model name (e.g. Fast). */
-				__( '%s does not support images. Choose a different model to attach an image.' ),
-				getAiModelLabel( model )
-		  );
+export function getModelImageSupportError(
+	model: AiModel | undefined,
+	context: 'chat' | 'setup' = 'chat'
+): string | null {
+	if ( model?.supportsImages !== false ) return null;
+	return sprintf(
+		context === 'setup'
+			? /* translators: %s: selected AI model name (e.g. Fast). */
+			  __(
+					'%s does not support images. Choose an image-capable AI provider in Settings to attach an image.'
+			  )
+			: /* translators: %s: selected AI model name (e.g. Fast). */
+			  __( '%s does not support images. Choose a different model to attach an image.' ),
+		model.label()
+	);
 }
 
 // Accounts on the older monthly cap have no credit counts, only usage against the cap.

@@ -1,11 +1,15 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { SYNC_PUSH_SIZE_LIMIT_BYTES } from '@studio/common/lib/sync/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getImporter } from 'cli/lib/import-export/import/import-manager';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import { checkBackupSize, fetchSyncableSites, pollBackupStatus } from 'cli/lib/sync-api';
+import { backupRemoteSite, fetchSyncableSites } from 'cli/lib/sync-api';
+import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -13,14 +17,14 @@ import {
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../pull-legacy';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteData } from 'cli/lib/cli-config/core';
 
-vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
-	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
+vi.mock( '@studio/common/lib/auth-token', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/auth-token') >() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/connected-sites' );
+vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/cli-config/sites') >() ),
 	getSiteByFolder: vi.fn(),
@@ -32,19 +36,19 @@ vi.mock( 'cli/lib/import-export/import/import-manager', async ( importActual ) =
 	getImporter: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/site-operations' );
+vi.mock( 'cli/lib/site-versions' );
 vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/tracks' );
+vi.mock( 'cli/lib/sync-selector' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
-	initiateBackup: vi.fn(),
-	pollBackupStatus: vi.fn(),
-	checkBackupSize: vi.fn(),
+	backupRemoteSite: vi.fn(),
 	downloadBackup: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
-const site = { id: 'site-1', path: '/test/site', port: 8080 } as SiteData;
+const site = { id: 'site-1', path: '/test/site', port: 8080 } as ConfigSite;
 const remoteSite = { id: 42, syncSupport: 'syncable' } as SyncSite;
 
 describe( 'CLI: studio pull', () => {
@@ -53,15 +57,15 @@ describe( 'CLI: studio pull', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getSiteVersion ).mockResolvedValue( 'local-version' );
 		steps.length = 0;
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
-		vi.mocked( pollBackupStatus ).mockResolvedValue( {
-			status: 'finished',
-			downloadUrl: 'https://example.com/backup.tar.gz',
-		} as never );
-		vi.mocked( checkBackupSize ).mockResolvedValue( 1 );
+		vi.mocked( backupRemoteSite ).mockResolvedValue( {
+			url: 'https://example.com/backup.tar.gz',
+			size: 1,
+		} );
 		vi.mocked( isServerRunning ).mockResolvedValue( {} as never );
 		vi.mocked( stopWordPressServer ).mockImplementation( async () => void steps.push( 'stop' ) );
 		vi.mocked( startWordPressServer ).mockImplementation( async () => {
@@ -79,6 +83,21 @@ describe( 'CLI: studio pull', () => {
 			}
 		} );
 	} );
+
+	it.each( [
+		{ options: [ 'all' ] as const, version: 'local-version' },
+		{ options: [ 'sqls' ] as const, version: null },
+		{ options: [ 'themes' ] as const, version: null },
+	] )(
+		'records a comparison baseline only for a full pull ($options)',
+		async ( { options, version } ) => {
+			await runCommand( site.path, [ ...options ], String( remoteSite.id ) );
+			expect( rememberRemoteSite ).toHaveBeenCalledWith( 'wpcom', site.id, remoteSite, {
+				synced: 'pull',
+				localVersionId: version,
+			} );
+		}
+	);
 
 	it.each( [
 		[ 'succeeds', [ 'hold import', 'stop', 'import', 'start', 'release' ], 'success' ],
@@ -100,11 +119,62 @@ describe( 'CLI: studio pull', () => {
 		}
 	);
 
+	it( 'reports the remote environment in a completed backup pull', async () => {
+		const destination = {
+			...remoteSite,
+			name: 'Live',
+			url: 'https://example.wpcomstaging.com',
+			isStaging: false,
+			environmentType: 'production',
+		};
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ destination ] );
+		const messages: string[] = [];
+		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
+		await runCommand( site.path, [ 'all' ], String( destination.id ), undefined, logger );
+		expect( messages[ messages.length - 1 ] ).toContain( destination.url );
+		expect( messages[ messages.length - 1 ] ).toContain(
+			'Remote environment: {"isStaging":false,"environmentType":"production"}'
+		);
+	} );
+
+	it.each( [ false, true ] )( 'classifies real paths (interactive: %s)', async ( interactive ) => {
+		vi.mocked( fetchPullTree ).mockResolvedValueOnce( { tree: [], rewindId: 'rewind' } );
+		vi.mocked( selectSyncItemsForPull ).mockResolvedValueOnce( {
+			optionsToSync: [ 'paths' ],
+			includePathList: [ 'opaque-id' ],
+			specificSelectionPaths: [ 'plugins' ],
+		} );
+
+		await runCommand(
+			site.path,
+			interactive ? undefined : [ 'paths' ],
+			String( remoteSite.id ),
+			interactive ? undefined : [ 'opaque-id' ],
+			undefined,
+			undefined,
+			interactive ? undefined : [ 'plugins' ]
+		);
+
+		expect( backupRemoteSite ).toHaveBeenCalledWith(
+			'token',
+			remoteSite.id,
+			{ optionsToSync: [ 'paths' ], includePathList: [ 'opaque-id' ] },
+			expect.any( Function )
+		);
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_PULL,
+			expect.objectContaining( { selection: 'categories', includes_database: false } )
+		);
+	} );
+
 	it.each( [
 		[ 'warns and continues without asking when nobody can answer', undefined, true ],
 		[ 'stops when the user declines', async () => false, false ],
 	] )( 'pulling a backup over the size limit %s', async ( _case, confirm, imported ) => {
-		vi.mocked( checkBackupSize ).mockResolvedValue( SYNC_PUSH_SIZE_LIMIT_BYTES + 1 );
+		vi.mocked( backupRemoteSite ).mockResolvedValue( {
+			url: 'https://example.com/backup.tar.gz',
+			size: SYNC_PUSH_SIZE_LIMIT_BYTES + 1,
+		} );
 		const messages: string[] = [];
 		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
 

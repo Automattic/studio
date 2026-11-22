@@ -55,7 +55,7 @@ describe( 'getCommandGroups', () => {
 			matches: [],
 			isDisabled: () => false,
 		} );
-		expect( values( actions ) ).toEqual( [ 'add-files', 'model', 'connect-provider' ] );
+		expect( values( actions ) ).toEqual( [ 'add-files', 'connect-provider' ] );
 		expect( values( skillGroup ) ).toEqual( [ 'annotate', 'liberate' ] );
 		expect( skillGroup.heading ).toBe( 'Skills' );
 	} );
@@ -66,6 +66,7 @@ describe( 'getCommandGroups', () => {
 			commands,
 			skills,
 			matches: [ command( 'liberate' ), command( 'model' ) ],
+			searching: true,
 			isDisabled: ( name ) => name === 'model',
 		} );
 		expect( actions.items ).toEqual( [
@@ -85,7 +86,7 @@ describe( 'getCommandGroups', () => {
 		};
 		for ( const addOpen of [ true, false ] ) {
 			const [ actions ] = getCommandGroups( { ...options, addOpen } );
-			expect( values( actions ) ).toEqual( [ 'add-files', 'model', 'connect-provider' ] );
+			expect( values( actions ) ).toEqual( [ 'add-files', 'connect-provider' ] );
 		}
 		const [ actions ] = getCommandGroups( {
 			...options,

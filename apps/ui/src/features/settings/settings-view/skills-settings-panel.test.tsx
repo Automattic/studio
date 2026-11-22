@@ -120,7 +120,7 @@ describe( 'App skills selection', () => {
 			fireEvent.click( link );
 		}
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/'
+			'https://wordpress.studio/docs/agent-skills-wordpress-studio/'
 		);
 	} );
 

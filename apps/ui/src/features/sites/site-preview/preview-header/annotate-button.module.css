@@ -1,3 +1,7 @@
+.button[aria-pressed='false'] {
+	color: var( --foreground );
+}
+
 .icon {
 	display: flex;
 }

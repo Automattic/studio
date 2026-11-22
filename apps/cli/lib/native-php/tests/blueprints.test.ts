@@ -179,10 +179,9 @@ describe( 'removeOwnedSqliteSymlink', () => {
 		const symlink = path.join( tempDir, 'plugin' );
 		fs.mkdirSync( target );
 		fs.symlinkSync( target, symlink, 'junction' );
-		const symlinkIno = fs.lstatSync( symlink ).ino;
 		fs.rmSync( target, { recursive: true } );
 
-		await removeOwnedSqliteSymlink( symlink, symlinkIno );
+		await removeOwnedSqliteSymlink( symlink, target );
 
 		expect( fs.existsSync( symlink ) ).toBe( false );
 		expect( () => fs.lstatSync( symlink ) ).toThrow();
@@ -195,11 +194,10 @@ describe( 'removeOwnedSqliteSymlink', () => {
 		const symlink = path.join( tempDir, 'plugin' );
 		fs.mkdirSync( target );
 		fs.symlinkSync( target, symlink, 'junction' );
-		const symlinkIno = fs.lstatSync( symlink ).ino;
 		fs.rmSync( symlink );
 		fs.mkdirSync( symlink );
 
-		await removeOwnedSqliteSymlink( symlink, symlinkIno );
+		await removeOwnedSqliteSymlink( symlink, target );
 
 		expect( fs.statSync( symlink ).isDirectory() ).toBe( true );
 	} );

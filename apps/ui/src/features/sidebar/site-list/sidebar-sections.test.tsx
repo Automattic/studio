@@ -172,12 +172,10 @@ describe( 'sidebar site sections', () => {
 			fireEvent.click( secondSite );
 			await waitFor( () => expect( secondSite ).toHaveAttribute( 'aria-expanded', 'true' ) );
 			expect( firstSite ).toHaveAttribute( 'aria-expanded', 'false' );
-			await act( () => history.back() );
-			await waitFor( () =>
-				expect( within( pinned ).getByRole( 'button', { name: 'Pinned-chat' } ) ).toHaveAttribute(
-					'aria-current',
-					'page'
-				)
+			expect( history.location.pathname ).toBe( '/sessions/pinned-chat' );
+			expect( within( pinned ).getByRole( 'button', { name: 'Pinned-chat' } ) ).toHaveAttribute(
+				'aria-current',
+				'page'
 			);
 			expect( secondSite ).not.toHaveAttribute( 'aria-current' );
 		}
@@ -367,6 +365,7 @@ describe( 'sidebar site sections', () => {
 		expect( screen.queryByRole( 'button', { name: 'Collapse all' } ) ).not.toBeInTheDocument();
 		fireEvent.click( secondRow );
 		await waitFor( () => expect( secondRow ).toHaveAttribute( 'aria-expanded', 'true' ) );
+		await waitFor( () => expect( secondRow ).toHaveAttribute( 'aria-current', 'page' ) );
 		expect( first ).toHaveAttribute( 'aria-expanded', 'true' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Collapse all' } ) );
 		expect( first ).toHaveAttribute( 'aria-expanded', 'false' );

@@ -7,6 +7,8 @@
 			"src/*": [ "./src/*" ],
 			"@studio/common/*": [ "../../packages/common/*" ],
 			"@studio/agent/*": [ "../../packages/agent/*" ],
+			"@studio/providers": [ "../../packages/providers/index.ts" ],
+			"@studio/providers/*": [ "../../packages/providers/*" ],
 			"wpcom/types": [ "../../node_modules/wpcom/types/index.d.ts" ],
 			"@wp-playground/blueprints/blueprint-schema-validator": [ "../../node_modules/@wp-playground/blueprints/blueprint-schema-validator" ]
 		}

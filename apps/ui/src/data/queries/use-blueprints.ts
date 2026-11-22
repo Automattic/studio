@@ -1,4 +1,4 @@
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
+import { fetchLibraryBlueprints } from '@studio/blueprints';
 import { useQuery } from '@tanstack/react-query';
 import { useUserLocale } from './use-user-locale';
 
@@ -8,7 +8,7 @@ export function useBlueprints() {
 	const locale = useUserLocale();
 	return useQuery( {
 		queryKey: [ ...BLUEPRINTS_QUERY_KEY, locale ],
-		queryFn: () => fetchStudioBlueprints( locale ),
+		queryFn: () => fetchLibraryBlueprints( { locale } ),
 		staleTime: 60 * 60 * 1000,
 		retry: 1,
 	} );

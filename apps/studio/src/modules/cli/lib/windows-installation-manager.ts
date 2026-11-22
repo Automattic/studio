@@ -10,7 +10,7 @@ import {
 	showCliErrorDialog,
 	showCliInfoDialog,
 } from 'src/modules/cli/lib/unix-installation-manager';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import { readDesktopState, updateDesktopState } from 'src/storage/desktop-state';
 
 // `STABLE_BIN_DIR_PATH` resolves to C:\Users\<USERNAME>\AppData\Local\studio\bin
 export const STABLE_BIN_DIR_PATH = path.resolve( path.dirname( app.getPath( 'exe' ) ), '../bin' );
@@ -49,7 +49,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	}
 
 	async autoInstallIfNeeded(): Promise< void > {
-		const userData = await loadUserData();
+		const userData = await readDesktopState();
 		if ( userData.cliUserUninstalled ) {
 			return;
 		}
@@ -66,7 +66,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();
-			await updateAppdata( { cliUserUninstalled: false } );
+			await updateDesktopState( { cliUserUninstalled: false } );
 			await showCliInfoDialog(
 				__( 'CLI Installed' ),
 				__( 'The CLI has been installed successfully.' )
@@ -89,7 +89,7 @@ export class WindowsCliInstallationManager implements StudioCliInstallationManag
 	async uninstallCliWithConfirmation(): Promise< void > {
 		try {
 			await this.uninstallCli();
-			await updateAppdata( { cliUserUninstalled: true } );
+			await updateDesktopState( { cliUserUninstalled: true } );
 			await showCliInfoDialog(
 				__( 'CLI uninstalled' ),
 				__( 'The CLI has been uninstalled successfully.' )

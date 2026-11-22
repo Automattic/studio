@@ -22,6 +22,8 @@ interface PanelSplitFrameProps {
 	// handles layout transitions.
 	panel?: ( props: PanelSplitFramePanelProps ) => ReactNode;
 	panelOpen?: boolean;
+	onPanelClose?: () => void;
+	onChatClose?: () => void;
 	// The panel fills the frame over the hidden chat; the sidebar stays.
 	chatHidden?: boolean;
 	// Skip movement when restoring a different workspace.
@@ -35,6 +37,8 @@ export function PanelSplitFrame( {
 	header,
 	panel,
 	panelOpen = false,
+	onPanelClose,
+	onChatClose,
 	chatHidden = false,
 	instant = false,
 	children,
@@ -44,6 +48,8 @@ export function PanelSplitFrame( {
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePanelSplit( {
 		showPanel,
 		siteId,
+		onPanelClose,
+		onChatClose,
 	} );
 	const isSidebarCollapsed = useSidebarCollapsed();
 	const resizable = ( containerWidth ?? Infinity ) >= PANEL_SPLIT_MIN_WIDTH;
@@ -173,13 +179,24 @@ export function PanelSplitFrame( {
 				{ panel && resizable ? (
 					<div
 						className={ styles.panelResizeHandle }
-						aria-hidden={ ! showPanel || contentCollapsed || animatingPanelToggle || undefined }
-						inert={ ! showPanel || contentCollapsed || animatingPanelToggle }
+						aria-hidden={ ! showPanel || contentCollapsed || undefined }
+						inert={ ! showPanel || contentCollapsed }
 					>
 						<ResizeHandle
 							className={ styles.panelResizeGrip }
 							label={ __( 'Resize panel' ) }
 							{ ...handleProps }
+							onResizeStart={ ( event ) => {
+								if ( event.button === 0 ) setAnimatingPanelToggle( false );
+								handleProps.onResizeStart( event );
+							} }
+							onKeyDown={ ( event ) => {
+								if ( [ 'ArrowLeft', 'ArrowRight', 'Home', 'End' ].includes( event.key ) ) {
+									setAnimatingPanelToggle( false );
+								}
+								handleProps.onKeyDown( event );
+							} }
+							onDoublePress={ onPanelClose }
 						/>
 					</div>
 				) : null }

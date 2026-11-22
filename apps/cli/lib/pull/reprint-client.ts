@@ -52,20 +52,9 @@ function getBundledReprintPhar(): string {
 	return candidate;
 }
 
-/** A failed Reprint command. `errorCode` is Reprint's, e.g. `AUTH_UNKNOWN_KEY`. */
-export class ReprintError extends Error {
-	constructor(
-		message: string,
-		readonly errorCode: string | null
-	) {
-		super( message );
-		this.name = 'ReprintError';
-	}
-}
-
 /**
  * Runs a Reprint command to completion. Exit code 2 means the command made
- * progress and needs another run; any other non-zero code throws a ReprintError.
+ * progress and needs another run; any other non-zero code throws.
  */
 export async function runReprintCommandUntilComplete(
 	args: string[],
@@ -101,12 +90,11 @@ export async function runReprintCommandUntilComplete(
 				? [ report.error_code, report.error ].filter( Boolean ).join( ': ' )
 				: '';
 			const details = [ reportError, result.stderr, result.stdout ].filter( Boolean ).join( '\n' );
-			throw new ReprintError(
+			throw new Error(
 				details ||
 					`reprint.phar exited with code ${ result.exitCode } (command: ${
 						args[ 0 ] ?? 'unknown'
-					}). No output was captured.`,
-				report?.error_code ?? null
+					}). No output was captured.`
 			);
 		}
 	} finally {

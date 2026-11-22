@@ -9,9 +9,7 @@ const backup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.zip' )
 
 async function setup() {
 	const connector = createFakeConnector();
-	connector.extractBlueprintBundle.mockRejectedValue(
-		new Error( 'No blueprint.json found in the ZIP.' )
-	);
+	connector.readBlueprint.mockRejectedValue( new Error( 'No blueprint.json found in the ZIP.' ) );
 	connector.getFilePath.mockResolvedValue( '/tmp/backup.zip' );
 	const view = renderApp( { connector, path: '/?addSite=import' } );
 	const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );

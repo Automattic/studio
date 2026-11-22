@@ -1,73 +1,168 @@
-# User Documentation
+# WordPress Studio user docs
 
-The WordPress Studio user documentation, kept here as a Markdown mirror of the Studio docs on developer.wordpress.com, plus the scripts that keep it up to date and generate screenshots. This directory is self-contained: it has its own `package.json` and `node_modules`, and is not part of the Studio npm workspaces.
+This folder is the source of the WordPress Studio documentation published at [wordpress.studio/docs](https://wordpress.studio/docs/), along with the script that captures its screenshots.
+
+It has its own `package.json`, with no dependencies of its own, and isn't part of the repo's npm workspaces. Screenshots are captured with the capture harness in [`tools/capture-harness`](../../tools/capture-harness/README.md), which is part of the workspaces.
+
+**On this page**
+
+- [What's in this folder](#whats-in-this-folder)
+- [How the docs get published](#how-the-docs-get-published)
+- [Editing the docs](#editing-the-docs)
+- [Commands](#commands)
+- [Screenshots](#screenshots)
+  - [Capture screenshots](#capture-screenshots)
+  - [Choose which build to capture from](#choose-which-build-to-capture-from)
+  - [Suites](#suites)
+  - [Signed-in suites](#signed-in-suites)
+  - [Write a shot](#write-a-shot)
+  - [Docs shots and extras](#docs-shots-and-extras)
+
+## What's in this folder
+
+| Path | What it holds |
+| --- | --- |
+| `docs/` | The Markdown pages |
+| `screenshots/images/` | The images the pages use, and `index.md`, which lists them |
+| `screenshots/extras/` | Shots no page uses, captured on demand (not committed) |
+| `screenshots/shots/` | The script for each group of screenshots |
+| `scripts/` | The script behind `npm run screenshots` |
+| `plans/` | Working notes from past docs projects |
+
+## How the docs get published
+
+1. A docs change merges to `trunk` here.
+2. [`Automattic/studio-website`](https://github.com/Automattic/studio-website) checks out `docs/user/docs` and `docs/user/screenshots/images` from `trunk` and imports them as WordPress pages.
+3. Someone builds and publishes the site. **Nothing publishes on its own.**
+
+From a checkout of `studio-website`:
 
 ```sh
-cd docs/user
-npm install
-npx playwright install chromium   # first time only, for screenshots
+npm run docs:check      # is the live site behind trunk?
+npm run deploy          # build and publish to production
+```
+
+See the [`studio-website` README](https://github.com/Automattic/studio-website#publishing) for the full process.
+
+## Editing the docs
+
+**Links to other docs pages:** use the page's full URL, such as `https://wordpress.studio/docs/sync/#exclude-files-with-deployignore`. The site build turns these into links between pages.
+
+**Images:** use a relative path into `screenshots/images/`, such as `../../../screenshots/images/site-menu.webp` from a page in `docs/developer-tools/studio/`. They display on GitHub, and the site build imports the same file.
+
+**Headings:** new headings can be plain Markdown. Existing `## [Heading](#anchor)` lines also work; the site build generates the anchor from the heading text either way.
+
+**New pages:** add the page to the `PAGES` list in [`scripts/build-docs-manifest.mjs`](https://github.com/Automattic/studio-website/blob/main/scripts/build-docs-manifest.mjs) in `studio-website`, or it won't appear on the site.
+
+## Commands
+
+First-time setup:
+
+```sh
+node --experimental-strip-types tools/capture-harness/cli.ts setup   # at the repo root: installs and builds what captures need
 ```
 
 | Command | Purpose |
 | --- | --- |
-| `npm run build-manifest` | Rebuild `manifest.json` from the site's docs index |
-| `npm run fetch -- --section <slug>` | Fetch a section as Markdown into `docs/` |
-| `npm run verify -- --section <slug>` | Compare local Markdown with the live site (reports in `reports/`) |
-| `npm run screenshots` | Capture screenshots of the Studio app into `screenshots/images/` |
-| `npm run demo-site:build` | Rebuild the demo site backup the screenshots open on, from `screenshots/demo-site/wren-and-barley/` |
+| `npm run screenshots` | Capture the screenshots the docs pages show into `screenshots/images/` |
+| `npm run screenshots -- --check` | Report which of them changed, without writing them |
+| `npm run screenshots -- --extras` | Capture the shots no page shows into `screenshots/extras/`, which git ignores |
 
 ## Screenshots
 
-`npm run screenshots` drives the Studio Desktop app (2.0 or later) through a throwaway profile, so your own sites and settings are never touched. It is meant to give the same images on any machine: the window size, color scheme, locale and site content are fixed, and a shot is rewritten only when its pixels change beyond anti-aliasing noise, so unchanged shots leave git clean.
+`npm run screenshots` runs the scripts in `screenshots/shots/*.json` through the capture harness, on its Moire scene (Rich's Moire Blueprint, baked the first time you run it on a machine), in the `docs` look. It saves only the shots a page in `docs/` shows; see [Docs shots and extras](#docs-shots-and-extras).
 
-The shots are defined in `screenshots/shots/*.json`, one file per feature (a *suite*). Each suite says how Studio is launched and lists its shots in order: the steps that reach the screen, what to capture, optional annotations, and the docs pages and uploaded images the shot is for. `screenshots/images/index.md` lists every shot and which upload it replaces, plus the shots that need a WordPress.com login, which you capture by hand (`90-manual.json`). Images that no suite can capture (a browser or Keychain dialog, a terminal, an old release in the changelog) are also in `screenshots/images/`, under **Kept by hand** in the index, and are replaced by hand.
+The harness drives a built WordPress Studio in a throwaway profile, so your own sites and settings are never touched.
 
-- `10-first-run.json` launches with an empty profile: the welcome dialog, Add site, creating a site, the orientation guide.
-- The other suites launch with the demo sites from `screenshots/demo-site/sites.json`, created through the Studio CLI before Studio opens: "Wren & Barley", running and selected, is loaded from the backup `wren-and-barley.zip`; "Bistro Lune" and "Ada Portfolio" are blank, stopped sites that fill out the sidebar. The sidebar keeps the order of the file.
-- `60-signed-in.json` (`"signedIn": true`) runs on the demo sites signed in to WordPress.com: the account menu, Annotate, Share and publish, the model menu and the account settings. It uses the login of the Studio on your machine, copied into the throwaway profile, or `STUDIO_DOCS_AUTH_TOKEN` when set (the `authToken` object of a Studio `shared.json`, as JSON), and fails up front without one. The account's email is replaced by `you@example.com` on screen before every capture, and a shot fails rather than save if it reappears; the name and avatar are the account's own, so review those shots before uploading. The AI credits are made up, from `screenshots/demo-site/ai-quota.json` (a free account partway through its allowance), and so is the preview-site count, which matches `preview-sites.json`. The WordPress.com and Pressable sites it lists are made up, from `screenshots/demo-site/wpcom-sites.json`: Studio's site list is answered from that file, and each site's thumbnail is the front page of the demo site its `preview` names. No step logs out, since that would revoke the token, and none publishes, pulls or buys anything. Signed-in launches also guard against a step that tries: logging out, publishing, pulling, connecting sites, changing preview sites and starting an agent run throw instead (`BLOCKED_SIGNED_IN_HANDLERS` in `scripts/lib/studio-app.mjs`), and the window's requests to WordPress.com other than reads are aborted.
-- `61-signed-in-previews.json` (`"previewSites": true`) is signed in the same way, with made-up preview sites from `screenshots/demo-site/preview-sites.json` in the Share panel: Studio's preview list is answered from that file (each entry names its demo site, how many days old it is, and the demo site whose front page is its thumbnail). Nothing is created on WordPress.com.
-- `62-signed-in-connected.json` (`"connectedSites": true`) is signed in the same way, with the demo site connected to the made-up sites in `wpcom-sites.json` that name it in `connectedTo`: Studio's connected-site list, the hosting PHP version, the latest backup and the backup's files are answered by the harness, the files being the demo site's own `wp-content` without Studio's SQLite files. It opens the website switcher and the Pull changes and Publish changes review steps with Choose files…, and never starts a pull or publish.
-- `63-signed-in-agent.json` is signed in on an empty profile (`"firstRun": true`), so its shots tell the story from a new blank site, created through Add site, before the bakery exists. It stands in for Studio Code, for shots of a conversation without running a model or using credits. The `stubAgentRuns` helper replaces the main process's `continueAiSession` handler, so sending a prompt from the real composer answers with a made-up run instead of starting the agent; `playAgentTurn` then sends that run's events to the window over `ai-agent-event`, as the CLI would, from `screenshots/demo-site/agent-turns/<name>.json` (a `demo-site:<path>` string in an event is a file copied into the profile's sessions folder, since Studio only shows local media from there or a site). Everything on screen is the real renderer: `design-looks` is the design picker with a pending "Which look should I build?". Its four looks are in `screenshots/demo-site/design-looks/`: `looks.json` lists each one's label, description, DESIGN.md draft (Wren & Barley's own is one of them) and photo, and `npm run design-looks:build` draws them as design boards with the agent's own `renderDesignBoard`, as `present_design_options` does. To show another conversation, write its events (`message`, `chat.artifact`, `question.asked` and the rest of `AgentEvent`) in a new file in `agent-turns/` and play it the same way.
-- `64-signed-in-chat.json` (`"chats"`) opens on a conversation that already happened: before Studio launches, each chat named in `chats` is written from `screenshots/demo-site/chats/<name>.json` into the profile's sessions folder as Studio Code records one, placed under its site in `app.json`, with its `title` in `shared.json`, and removed again after the suite. A chat file names its `site`, how many `minutesAgo` it started and its `turns`: a `prompt` and the agent's `replies`, each a message of text and tool calls (`{ name, args, result, details? }`, with `details.diff` for an edit). `wren-and-barley-homepage` is the bakery's home page being polished, every change one the preview shows.
-- `70-signed-in-blog.json` holds one-off images for blog posts and announcements, which no docs page uses: keep them here rather than in a throwaway suite, so the next post can recapture them. For a post, `npm run screenshots:frame -- <image…>` puts images on a light gray margin with rounded corners, a hairline and a soft shadow, so the app's white edges don't wash out on a white page; it writes `screenshots/framed/` (ignored), or `--out <dir>`.
+It gives the same images on any machine. The window size, color scheme, locale and site content are fixed, and a shot is rewritten only when at least 1% of its pixels change, so unchanged shots leave git clean and a restyled icon or border doesn't rewrite every image. The run reports those smaller changes as `minor` and keeps the committed image.
 
-The bakery is a small bakery-and-café site on a Twenty Twenty-Five child theme: a photo-first front page, Menu, Our story, Visit us and Order pages, three posts with featured images, and its own header, footer and journal templates. Its source is `screenshots/demo-site/wren-and-barley/`: `theme/` is the child theme (its `theme.json` holds the palette, Literata type and flat square buttons), `DESIGN.md` is the design system Studio Code would have written for it, so the site preview's **Design system** view has something to show, `images.json` lists the photos (all CC0, fetched from Wikimedia Commons, with the author for credits) and `content/` holds the block markup of the pages, posts, templates and template parts, with `{{url:name}}`, `{{id:name}}` and `{{alt:name}}` placeholders for the photos. Keep `DESIGN.md` and `theme/theme.json` in step: the Design system view lists every color, font and font size where they differ. After editing them, `npm run demo-site:build` creates the site in a throwaway profile, installs the theme, imports the photos and content, and exports the backup (database, uploads and the child theme; about 7 MB) over the old one. `DESIGN.md` isn't in the backup: the screenshot script copies it into the site's folder after importing (`design` in `sites.json`). The build needs the internet for the photos the first time, then keeps them in `.cache/`.
+Whole-window shots are framed on the app's light dot field. Cropped shots keep the app around them, with no frame.
 
-A shot looks like this:
+### Capture screenshots
 
-```json
-{
-  "name": "preview-destinations",
-  "description": "Site preview address bar shortcuts",
-  "pages": ["sites.md"],
-  "replaces": ["2026/04/preview-destinations.png"],
-  "steps": [
-    { "click": { "role": "textbox", "name": "Address" } },
-    { "waitFor": { "role": "dialog", "name": "Preview shortcuts" } }
-  ],
-  "annotate": [{ "outline": { "role": "dialog", "name": "Preview shortcuts" } }],
-  "after": [{ "press": "Escape" }]
-}
-```
+| Option | What it does |
+| --- | --- |
+| `--extras` | Captures the shots no page shows, into `screenshots/extras/` |
+| `--suite <name,…>` | Runs only some suites |
+| `--only <name,…>` | Saves only these shots, whether or not a page shows them yet (the steps before them still run) |
+| `--check` | Reports which shots changed without writing them |
+| `--keep-profile` | Keeps the throwaway profiles for inspection |
+| `--min-change <percent>` | Rewrites an image only when at least this share of its pixels changed (default `1`; `0` writes every change). Shots named with `--only` are written whatever changed |
 
-Elements are found by accessible role and name (`scripts/lib/locators.mjs` lists the forms, including `within`, `has`, `css` and `{{site.name}}`). The step verbs (`waitFor`, `click`, `hover`, `fill`, `press`, `toggle`, `scrollTo`, `waitForImages`, `setFiles`, `wait`, `helper`) and the named helpers for Studio's menus and settings are in `scripts/lib/steps.mjs`. `capture` takes `target` (a locator to crop to, or a list of locators framed together: a menu, the button that opened it, and anything else to keep whole in the frame; `pad` is the margin, 48 unless given, as a number or `[x, y]`; `aspect` the least width-to-height ratio, 1.5 unless given, since a tall crop sits badly on a docs page), `settle` (ms) and `keepMouse`. A suite's own `capture` is the default for its shots, so the Settings suites say the dialog once. A dialog or menu is cropped to itself with some of the window around it, and only shots of the whole workspace keep the full window. `annotate` takes `outline`, `badge` (numbered) and `arrow` (with `from`). A shot with annotations is saved twice, as `<name>.webp` and `<name>-annotated.webp`, so the plain image can be reused elsewhere, for example in a blog post. Shots are captured at 2× regardless of the display and saved as WebP, lossless when that is smaller (plain UI) and otherwise at quality 90, which keeps 2× text sharp at about a fifth of the PNG size. On macOS the window's close, minimize and zoom buttons are drawn into the image, because the system draws them outside what Electron captures.
+Other options are passed to the harness's `capture` command. A failed shot stops its suite, and the window at that moment is saved under `screenshots/images/failures/`.
 
-Options: `--suite <name,…>` runs some suites, `--only <name,…>` saves only some shots (the steps before them still run), `--list` prints the suites and shots, `--out <dir>` changes the output folder, and `--keep-profile` keeps the throwaway profiles for inspection. A failed shot stops its suite, and the window at that moment is saved under `screenshots/images/failures/`.
+After a full run, [`screenshots/images/index.md`](screenshots/images/index.md) lists every docs shot and the upload it replaces, and the extras. It has two groups of images you handle by hand:
 
-The script uses the first Studio it finds:
+- **Capture manually:** shots listed in `90-manual.json`.
+- **Kept by hand:** images no suite can capture, such as a browser or Keychain dialog, a terminal, or an old release in the changelog. A full run keeps this section as it is.
 
-1.  `STUDIO_APP`, if set, for example `STUDIO_APP=/Applications/Studio.app/Contents/MacOS/Studio`.
-2.  A build of this repo, from `npm run package` at the repo root (`apps/studio/out/Studio-<platform>-<arch>/`).
-3.  On macOS, the installed `/Applications/Studio.app`.
+### Choose which build to capture from
 
-The first-run shots need the welcome dialog that came after Studio 2.0.4, so until the next release capture from a build of this branch. To do that without packaging it (on macOS, `npm run package` needs Xcode), build it and point `STUDIO_APP_DIR` at the app. The script runs it in a copy of the repo's Electron, with the CLI from `apps/cli/dist`:
+The harness uses the first of these it finds:
+
+1. `STUDIO_APP_DIR`
+2. `STUDIO_APP`
+3. A packaged build of this repo
+4. A build of `apps/studio`
+5. `/Applications/Studio.app`
+
+The first-run shots need the welcome dialog added after WordPress Studio 2.0.4, so capture those from a build of this branch until the next release. From the repo root:
 
 ```sh
-# at the repo root
-npm run cli:build
-(cd apps/studio && npx electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts)
-# in docs/user
-STUDIO_APP_DIR=apps/studio npm run screenshots
+npx studio-capture setup     # builds the app and the CLI
+npx studio-capture doctor    # says what's missing
 ```
 
-`STUDIO_APP_DIR` takes precedence over `STUDIO_APP`. If npm skipped Electron's install script, run `node node_modules/electron/install.js` at the repo root first. The demo sites are created with the CLI build in `apps/cli/dist`, so `npm run cli:build` is needed for every mode. WordPress and PHP come from your own Studio's caches in `~/.studio` when present, so the run works offline.
+### Suites
+
+Shots live in `screenshots/shots/*.json`, one file per feature (a *suite*), with each suite's shots in order.
+
+| Suite | Launches with | Shows |
+| --- | --- | --- |
+| `10-first-run.json` | An empty profile | The welcome dialog, Add site, creating a site, the orientation guide |
+| `20`–`50` | The scene's sites: "Moire", running and selected, then the blank "Bistro Lune" and "Ada Portfolio" | The workspace, site menu, site settings and app settings |
+| `60-signed-in.json` | Signed in (`"signedIn": true`) | The account menu, Annotate, Share and publish, the model menu, account settings |
+| `61-signed-in-previews.json` | Signed in, with made-up preview sites (`"previewSites": true`) | The Share panel |
+| `62-signed-in-connected.json` | Signed in, connected to made-up WordPress.com sites (`"connectedSites": true`) | The website switcher, and the Pull changes and Publish changes review steps with Choose files… |
+| `63-signed-in-agent.json` | Signed in, on an empty profile | A story from a new blank site. The `stubAgentRuns` and `playAgentTurn` helpers stand in for WordPress Studio Code, so no model runs. `design-looks` is the design picker with a pending "Which look should I build?" |
+| `64-signed-in-chat.json` | Signed in, with a recorded conversation (`"chats"`) | The Moire home page's text being updated |
+| `70-signed-in-blog.json` | Signed in | One-off images for blog posts, captured as [extras](#docs-shots-and-extras) |
+| `90-manual.json` | Not automated | Shots you capture by hand |
+
+### Signed-in suites
+
+- **Login:** suites sign in as a made-up demo person from the harness's `personas/`, so they need no account and never use the login of the WordPress Studio on your machine.
+- **Name, avatar and email:** these are the demo person's.
+- **Made-up data:** the AI credits, preview-site count and WordPress.com sites come from the scene.
+- **No real changes:** the harness blocks logging out, publishing, pulling and anything else that would change the account. The connected suite never starts a pull or publish.
+
+### Write a shot
+
+Each suite is one feature's shots, in order. The [capture harness README](../../tools/capture-harness/README.md) describes the steps, locators, crops and annotations they use.
+
+To find the accessible names to use in a new shot, run this from the repo root:
+
+```sh
+npx studio-capture inspect
+```
+
+#### Shots change with the app
+
+The shot scripts follow the UI of the WordPress Studio in the same checkout, so expect to repair some of them with each release: a renamed button or a regrouped menu makes a step time out. A few habits keep that to a minimum, and let one script run against both a release and `trunk`:
+
+- **Wait for the container, not one of its items.** Wait for the menu, dialog or tab panel a step opens (`{ "role": "menu", "name": "Site menu" }`), not for an item inside it that may be renamed.
+- **Match a label that is changing with `pattern`.** `{ "role": "menuitem", "pattern": "^Delete( site)?$" }` finds the item under either name.
+- **Open things the way both drivers can.** A keyboard shortcut that Studio Desktop handles from its application menu (such as ⌘, for Settings) does nothing when a script presses it there; click through the UI instead (the account menu, then **Settings**).
+- **Leave the app as the next shot expects it.** Use `after` to close what a shot opened and to remove what it left behind, such as notes staged in the chat box, so a failure in one shot doesn't cascade.
+- **Run the Desktop-only shots too.** The browser driver skips shots marked `desktopOnly`, so they go stale unnoticed. Capture them with `--driver electron`, which also runs on Linux under a virtual display.
+- **Recapture only what a reader would notice.** A change smaller than 1% of an image's pixels is reported as `minor` and keeps the committed image, since most are restyled icons, borders or spacing and each rewritten image grows the repo. A label the page quotes or a new control can be that small too, so read the `minor` list (`--check --diff-dir <dir>` draws each difference) and recapture those shots with `--only <names>`.
+- **Repair as you go.** When a run fails, or a shot shows something that's broken or no longer matches its page, fix the script in the same change rather than leaving it for the next release: a failed shot stops the rest of its suite, so one stale step hides every shot after it. Check the whole set (`npm run screenshots -- --check`, then the Desktop-only shots with `--driver electron`) until nothing fails or is "not run", and update the shot's `description` when its screen changes.
+
+### Docs shots and extras
+
+The shot scripts hold two kinds of shots, and only one kind is committed:
+
+- **Docs shots** are the ones a page shows: its Markdown links `screenshots/images/<name>.webp` (or `<name>-annotated.webp`). Every release refreshes them with `npm run screenshots`, and only their images live in `screenshots/images/`. A plain or annotated copy that no page shows is deleted after a full run.
+- **Extras** are every other shot: blog posts, marketing, social, or a screen a page may show later. They keep their scripts, since later shots often build on their steps and the next post can reuse them, but a docs run only plays their steps and saves no image. Capture them when you need them with `npm run screenshots -- --extras` (all of them) or `--extras --only <name,…>`, into `screenshots/extras/`, which git ignores. Keep one-off blog images in `70-signed-in-blog.json` rather than a throwaway suite. To frame one for a white page, use the harness's `frame --look blog <image…>`.
+
+**Adding a docs shot for a new feature:** add the shot to the suite it belongs to, link its image from the page, then run `npm run screenshots -- --only <name>`. A shot becomes a docs shot when a page links it and an extra when no page does any more, so delete its image from `screenshots/images/` when you take it out of the last page that shows it.

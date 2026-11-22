@@ -160,6 +160,27 @@ describe( 'AnnotationOverlay', () => {
 	} );
 
 	describe( 'images', () => {
+		it( 'keeps the region capture attached while allowing reference images to be removed', async () => {
+			annotate();
+			act( () => {
+				pickAnnotation(
+					SITE,
+					{ kind: 'region', path: '/' },
+					{ images: [ image( 'capture' ), image( 'reference' ) ] }
+				);
+			} );
+			await setup();
+			expect( screen.getByRole( 'img', { name: 'capture.png' } ) ).toBeVisible();
+			expect( screen.getAllByRole( 'button', { name: 'Remove attachment' } ) ).toHaveLength( 1 );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			expect( getSiteAnnotations( SITE ).notes[ 0 ].images ).toEqual( [ image( 'capture' ) ] );
+			expect( screen.queryByRole( 'img', { name: 'reference.png' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'button', { name: 'Remove attachment' } )
+			).not.toBeInTheDocument();
+			expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
+		} );
+
 		it( 'hides the drawing capture while keeping reference images editable', async () => {
 			annotate();
 			act( () => {

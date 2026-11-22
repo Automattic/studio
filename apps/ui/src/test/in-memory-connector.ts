@@ -2,6 +2,15 @@ import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
+import {
+	AI_PROVIDER_IDS,
+	getConnectMethod,
+	getProvider,
+	normalizeProviderId,
+	PROVIDER_IDS,
+	type AiProviderId,
+	type ProviderId,
+} from '@studio/providers';
 import type {
 	AgentAppId,
 	AiSessionSummary,
@@ -13,6 +22,7 @@ import type {
 	SiteEmail,
 	UserPreferences,
 } from '@/data/core';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 
 type Methods = {
 	[ K in keyof Connector as Required< Connector >[ K ] extends ( ...args: never[] ) => unknown
@@ -43,6 +53,10 @@ export interface FakeConnectorState {
 
 export type FakeConnectorInitialState = Partial< Omit< FakeConnectorState, 'preferences' > > & {
 	preferences?: Partial< UserPreferences >;
+};
+
+export type ConnectorOverrides = Partial< Omit< Connector, 'capabilities' > > & {
+	capabilities?: Partial< Connector[ 'capabilities' ] >;
 };
 
 export function makeSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
@@ -76,6 +90,28 @@ export function makeSession( overrides: Partial< AiSessionSummary > = {} ): AiSe
 // module-level stores keyed by id (composer drafts) outlive a render.
 let nextId = 1;
 
+// AI settings with `provider` selected and the `connected` providers' accounts connected.
+export function aiSettings(
+	provider: AiProviderId = 'wpcom',
+	connected: readonly ProviderId[] = []
+): AiSettings {
+	return {
+		provider,
+		imageProviders: AI_PROVIDER_IDS.filter(
+			( id ) => connected.includes( id ) && getProvider( id ).ai?.generatesImages
+		),
+		imageProvider: null,
+		accounts: Object.fromEntries(
+			PROVIDER_IDS.map( ( id ) => [
+				id,
+				connected.includes( id )
+					? { connected: true, summary: 'sk-ant-…test', method: getConnectMethod( id ).id }
+					: { connected: false },
+			] )
+		) as AiSettings[ 'accounts' ],
+	};
+}
+
 export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayName: 'Test User' };
 
 const defaultPreferences = (): UserPreferences => ( {
@@ -106,7 +142,7 @@ const installedApps = () =>
  */
 export function createInMemoryConnector(
 	initial: FakeConnectorInitialState = {},
-	overrides: Partial< Connector > = {}
+	overrides: ConnectorOverrides = {}
 ): InMemoryConnector {
 	const state: FakeConnectorState = {
 		sites: [],
@@ -183,6 +219,7 @@ export function createInMemoryConnector(
 			if ( site ) {
 				emitSiteEvent( SITE_EVENTS.DELETED, { ...site, running: false } );
 			}
+			return { warnings: [] };
 		},
 		copySite: async ( id ) => {
 			const source = state.sites.find( ( site ) => site.id === id )!;
@@ -227,11 +264,9 @@ export function createInMemoryConnector(
 			mimeType: 'image/png',
 			data: new ArrayBuffer( 0 ),
 		} ),
-		extractBlueprintBundle: async () => {
+		readBlueprint: async () => {
 			throw new Error( 'Not implemented in the fake connector' );
 		},
-		cleanupBlueprintTempDir: async () => {},
-		readBlueprintFile: async () => ( {} ),
 		importSiteFromBackup: async () => {},
 		getSnapshots: async () => [],
 		getSnapshotUsage: async () => null,
@@ -242,22 +277,32 @@ export function createInMemoryConnector(
 		publishPreviewSite: async () => ( { url: 'preview.example.com' } ),
 		deleteSnapshot: async () => {},
 		renameSnapshot: async () => {},
+		getSitePublishStatus: async () => ( { localChanged: null } ),
 		getPreviewStatus: async () => ( {
 			localSiteId: null,
 			localChanged: null,
 			previewChanged: null,
 		} ),
-		getConnectedWpcomSites: async () => [],
-		fetchSyncableWpcomSites: async () => [],
-		connectWpcomSite: async () => {},
-		disconnectWpcomSite: async () => {},
-		pushSiteToLive: async () => {},
-		pullSiteFromLive: async () => {},
+		getSiteVisibility: async () => {
+			throw new Error( 'Visibility unavailable' );
+		},
+		setSiteVisibility: async () => {
+			throw new Error( 'Visibility unavailable' );
+		},
+		getRemoteSites: async () => [],
+		listAccountSites: async () => [],
+		connectRemoteSite: async () => {},
+		disconnectRemoteSite: async () => {},
+		getSiteCreationVisibility: async () => 'public',
+		createRemoteSite: async () => {
+			throw new Error( 'createRemoteSite is not faked' );
+		},
+		pushSite: async () => {},
+		pullSite: async () => {},
 		onSyncActivity: subscribe( 'onSyncActivity' ),
 		cancelSync: async () => {},
-		getLatestRewindId: async () => null,
-		listRemoteFileTree: async () => ( {} ),
-		getHostingPhpVersion: async () => undefined,
+		getRemoteBackupId: async () => null,
+		listRemoteBackupFiles: async () => ( {} ),
 		listLocalFileTree: async () => [],
 		getDirectorySize: async () => 0,
 		getFileSize: async () => 0,
@@ -287,6 +332,7 @@ export function createInMemoryConnector(
 		getActiveAgentRuns: async () => [],
 		setSessionModel: async () => {},
 		setSessionProvider: async () => {},
+		setSessionThinking: async () => {},
 		setSessionEnvironment: async ( id, environment ) => {
 			const session = findSession( id );
 			session.summary = { ...session.summary, activeEnvironment: environment };
@@ -311,20 +357,25 @@ export function createInMemoryConnector(
 		saveAgentInstructions: async ( content ) => {
 			agentInstructions = content;
 		},
-		getAiSettings: async () => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
+		// WordPress.com is connected while signed in.
+		getAiSettings: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		// Without WordPress.com, the provider connected becomes the default.
+		connectProvider: async ( provider ) =>
+			state.user
+				? aiSettings( 'wpcom', [ 'wpcom', provider ] )
+				: aiSettings( normalizeProviderId( provider, AI_PROVIDER_IDS ) ?? 'wpcom', [ provider ] ),
+		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		listProviderModels: async () => [],
+		selectProviderModels: async ( provider ) => aiSettings( 'wpcom', [ 'wpcom', provider ] ),
+		startProviderConnect: async () => ( {
+			url: 'https://auth.example.test/sign-in',
+			handoff: { state: 'state-1' },
 		} ),
-		saveAnthropicApiKey: async ( key ) => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: !! key,
-			anthropicApiKeyPreview: key ? 'sk-ant-…test' : null,
-		} ),
-		setAiProvider: async ( provider ) => ( {
-			provider,
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
+		setAiProvider: async ( provider ) =>
+			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
+		setImageProvider: async ( imageProvider ) => ( {
+			...aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+			imageProvider,
 		} ),
 		getInstalledApps: async () => installedApps(),
 		getAgentApps: async () =>
@@ -357,6 +408,8 @@ export function createInMemoryConnector(
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
 		sendFeedback: async () => ( { feedbackId: 1 } ),
+		getSiteLimits: async () => null,
+		getBilling: async () => ( { plan: null, receipts: [] } ),
 		getWapuuScore: async () => undefined,
 		saveWapuuScore: async () => {},
 		popupAppMenu: async () => {},
@@ -402,16 +455,19 @@ export function createInMemoryConnector(
 	};
 
 	return {
-		capabilities: {
-			nativeFolderPicker: true,
-			annotatePreview: true,
-			studioLogs: true,
-		},
 		agenticRequiresAuth: true,
 		showsAppMenuButton: false,
 		reservesTrafficLightSpace: false,
 		...methods,
 		...overrides,
+		capabilities: {
+			nativeFolderPicker: true,
+			annotatePreview: true,
+			studioLogs: true,
+			loopbackSignIn: true,
+			localMachine: true,
+			...overrides.capabilities,
+		},
 		state,
 		emit,
 		listenerCount: ( event ) => listeners.get( event )?.size ?? 0,

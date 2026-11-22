@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
+import { clsx } from 'clsx';
 import { X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -15,7 +16,7 @@ import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in
 import { getPreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
 import { getSiteTool, SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
-import { PlusIcon } from '@/lib/icons';
+import { PlusIcon, XIcon } from '@/lib/icons';
 import { isDialogOpen, isShortcut } from '@/lib/keyboard';
 import { IconButton, Menu, Tabs, TabsList, TabsTrigger, VisuallyHidden } from '@/lib/ui';
 import styles from './style.module.css';
@@ -77,6 +78,7 @@ export function PreviewTabs( {
 			} ),
 	} );
 	const draggedTab = workspace.tabs.find( ( tab ) => tab.id === reorder.drag?.id );
+	const dragSelected = draggedTab?.id === workspace.selectedId;
 	const DragIcon = getSiteTool(
 		draggedTab?.path ? getPreviewRealm( draggedTab.path ) : 'frontend'
 	).Icon;
@@ -134,6 +136,13 @@ export function PreviewTabs( {
 			event.preventDefault();
 			runLayoutTransition( () => setOpen( true, { siteId } ) );
 			requestAnimationFrame( () => {
+				if ( newTabButton.current && getComputedStyle( newTabButton.current ).display === 'none' ) {
+					add( '/' );
+					requestAnimationFrame( () => {
+						list.current?.querySelector< HTMLElement >( '[data-active]' )?.focus();
+					} );
+					return;
+				}
 				newTabButton.current?.focus();
 				if ( newTabButton.current?.getAttribute( 'aria-expanded' ) !== 'true' ) {
 					newTabButton.current?.click();
@@ -142,11 +151,11 @@ export function PreviewTabs( {
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ busy, setOpen, siteId, runLayoutTransition ] );
+	}, [ add, busy, setOpen, siteId, runLayoutTransition ] );
 	const openEmailFolder = () => {
 		void connector.openSiteEmailFolder( siteId ).catch( () =>
 			showToast( {
-				title: __( 'Studio could not open the email folder.' ),
+				title: __( 'WordPress Studio could not open the email folder.' ),
 				intent: 'error',
 			} )
 		);
@@ -208,18 +217,19 @@ export function PreviewTabs( {
 							const realm = tab.path === null ? 'frontend' : getPreviewRealm( tab.path );
 							const { Icon } = getSiteTool( realm );
 							const destination = realm === 'email' ? fileManager : browser;
+							const selected = tab.id === workspace.selectedId;
 							return (
 								<Menu.ContextMenuRoot key={ tab.id }>
 									<Menu.ContextMenuTrigger
 										render={
 											<div
-												className={ styles.tab }
+												className={ clsx( styles.tab, selected && styles.selected ) }
 												data-tab-reorder-id={ tab.id }
 												data-drag-source={ reorder.drag?.id === tab.id || undefined }
 												style={ {
 													transform: `translateX(${ reorder.getOffset( tab.id ) }px)`,
 												} }
-												data-preview-selected={ tab.id === workspace.selectedId || undefined }
+												data-preview-selected={ selected || undefined }
 											/>
 										}
 									>
@@ -241,17 +251,21 @@ export function PreviewTabs( {
 											<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
 										</TabsTrigger>
 										<IconButton
-											variant="muted-ghost"
+											variant="ghost"
 											size="icon-2xs"
 											className={ styles.close }
 											data-tab-close
-											icon={ <X /> }
+											icon={ <XIcon width={ 14 } height={ 14 } /> }
 											label={ sprintf( __( 'Close %s' ), getTabTitle( tab, siteName ) ) }
 											onClick={ () => closeTabs( [ tab.id ] ) }
 											tooltipSide="bottom"
 										/>
 									</Menu.ContextMenuTrigger>
 									<Menu.ContextPopup>
+										<Menu.Item disabled={ busy } onClick={ () => add( '/' ) }>
+											<PlusIcon />
+											{ __( 'New tab' ) }
+										</Menu.Item>
 										<Menu.Item
 											disabled={ busy || tab.path === null || realm === 'design' }
 											onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
@@ -311,8 +325,9 @@ export function PreviewTabs( {
 					render={
 						<IconButton
 							ref={ newTabButton }
+							className={ running ? styles.newTab : undefined }
 							size="icon-sm"
-							variant="muted-ghost"
+							variant="ghost"
 							icon={ <PlusIcon /> }
 							shortcut={ {
 								displayShortcut: displayShortcut.primary( 't' ),
@@ -332,8 +347,9 @@ export function PreviewTabs( {
 			{ reorder.drag && draggedTab
 				? createPortal(
 						<div
-							className={ styles.dragPreview }
+							className={ clsx( styles.dragPreview, dragSelected && styles.selected ) }
 							data-tab-drag-preview
+							data-preview-selected={ dragSelected || undefined }
 							data-landing={ reorder.drag.landing || undefined }
 							aria-hidden="true"
 							style={ {

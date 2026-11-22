@@ -6,16 +6,23 @@ import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 console.log( '--- :electron: Packaging AppX' );
 
-const { assertAzureSigningEnv, getAzureSignArgs, getAzureSigningConfig } = (
-	await import( './azure-signing.cjs' )
-).default;
+const {
+	assertAzureSigningEnv,
+	getAzureSignArgs,
+	getAzureSigningConfig,
+	isWindowsSigningRequested,
+} = ( await import( './azure-signing.cjs' ) ).default;
 
-console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
-try {
-	assertAzureSigningEnv();
-} catch ( error ) {
-	console.error( error instanceof Error ? error.message : error );
-	process.exit( 1 );
+const signWindows = isWindowsSigningRequested();
+
+if ( signWindows ) {
+	console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
+	try {
+		assertAzureSigningEnv();
+	} catch ( error ) {
+		console.error( error instanceof Error ? error.message : error );
+		process.exit( 1 );
+	}
 }
 
 // Get architecture from environment variable, default to x64 for backward compatibility
@@ -174,6 +181,12 @@ await convertToWindowsStore( {
 	devCert: 'nil', // skip code signing for Store upload
 	outputDirectory: appxOutputPathUnsigned,
 } );
+
+// An unsigned sideload AppX can't be installed without developer mode.
+if ( ! signWindows ) {
+	console.log( '~~~ SIGN_WINDOWS_BUILD is not set, skipping the sideload .appx.' );
+	process.exit( 0 );
+}
 
 // Create signed AppX (used for local testing via sideloading)
 const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );

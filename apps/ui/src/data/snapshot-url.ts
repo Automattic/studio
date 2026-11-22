@@ -9,13 +9,13 @@ export function getSnapshotUrl( snapshot: Snapshot ): string {
 	return snapshot.shareUrl ?? `https://${ getSnapshotHostname( snapshot ) }`;
 }
 
-// Opening your own preview: a WordPress.com preview signs its owner in through WordPress.com on the way
-// (Jetpack SSO), so they land on it as its owner, not as a visitor with the preview link. Other
-// previews are public, so they open as they are.
-export function getSnapshotOpenUrl( snapshot: Snapshot ): string {
+// A WordPress.com preview's WP Admin, which signs its owner in through WordPress.com on the way
+// (Jetpack SSO). The preview itself opens through its preview link, as visitors see it, the moment it
+// is built; signing in to it can take a little longer. Jurassic Ninja previews have none.
+export function getSnapshotAdminUrl( snapshot: Snapshot ): string | undefined {
 	if ( ! snapshot.shareUrl ) {
-		return getSnapshotUrl( snapshot );
+		return undefined;
 	}
 	const home = `https://${ getSnapshotHostname( snapshot ) }/`;
-	return `${ home }wp-login.php?redirect_to=${ encodeURIComponent( home ) }`;
+	return `${ home }wp-login.php?redirect_to=${ encodeURIComponent( `${ home }wp-admin/` ) }`;
 }

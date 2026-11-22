@@ -1,9 +1,9 @@
-import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/agent/node/global-instructions';
+import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/agent/protocol/global-instructions-length';
 import { formatActiveSite } from './site-selection';
 import { findSkill } from './skills';
 import type { SiteInfo } from './types';
 
-const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
+const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — recommend WordPress.com and Pressable by default. If the user asks about or names another hosting provider, help them with it. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them.`;
 
 // What a registered tool contributes to the prompt: its one-line entry in the
 // tool list. Only tools with a snippet are listed.
@@ -24,6 +24,10 @@ export interface BuildSystemPromptOptions {
 	// The site this turn works on. The prompt is rebuilt every turn, so this
 	// always reflects the current site, also after compaction.
 	activeSite?: SiteInfo | null;
+	// The active site's DESIGN.md, when it has one.
+	activeSiteDesignPath?: string;
+	// The folder where Studio saves the email the active site sends.
+	activeSiteEmailPath?: string;
 }
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
@@ -44,20 +48,26 @@ ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
 	) }
 
-${ SKILL_ROUTING }${ buildActiveSiteSection( options.activeSite ) }${ buildUserInstructionsSection(
-		options.userInstructions
-	) }
+${ SKILL_ROUTING }${ buildActiveSiteSection(
+		options.activeSite,
+		options.activeSiteDesignPath,
+		options.activeSiteEmailPath
+	) }${ buildUserInstructionsSection( options.userInstructions ) }
 `;
 }
 
-function buildActiveSiteSection( site?: SiteInfo | null ): string {
+function buildActiveSiteSection(
+	site?: SiteInfo | null,
+	designPath?: string,
+	emailPath?: string
+): string {
 	if ( ! site ) {
 		return '';
 	}
 	// A WordPress.com site is live and changes only through wpcom_request, so
 	// its runbook comes with it rather than waiting for the agent to load it.
 	const runbook = site.remote ? findSkill( 'edit-manage-remote-site' )?.body : undefined;
-	return `\n\n## Active site\n\n${ formatActiveSite( site ) }${
+	return `\n\n## Active site\n\n${ formatActiveSite( site, designPath, emailPath ) }${
 		runbook ? `\n\n${ runbook }` : ''
 	}`;
 }

@@ -188,7 +188,6 @@ async function main(): Promise< void > {
 		'--exclude=@aws-sdk',
 		'--exclude=@aws-crypto',
 		'--exclude=@smithy',
-		'--exclude=@google/genai',
 	] );
 
 	// Emit a SHA-256 checksum file alongside the tarball so the curl installers

@@ -199,13 +199,13 @@ describe( 'canUsePaidAiModels', () => {
 describe( 'formatAiAccessRequiredNotice', () => {
 	it( 'tells accounts with spend this billing cycle that beta access is now required', () => {
 		expect( formatAiAccessRequiredNotice( { costUsage: 3 } ) ).toBe(
-			'Thanks for participating in the Studio Code AI beta. Access is now limited. Apply to continue at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
+			'Thanks for participating in the Studio Code AI beta. Access is now limited. Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.'
 		);
 	} );
 
 	it( 'falls back to the generic beta copy without spend or without a quota', () => {
 		const genericNotice =
-			'Studio Code AI is currently available through limited beta access. Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.';
+			'Studio Code AI is currently available through limited beta access. Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.';
 		expect( formatAiAccessRequiredNotice( { costUsage: 0 } ) ).toBe( genericNotice );
 		expect( formatAiAccessRequiredNotice( undefined ) ).toBe( genericNotice );
 		expect( formatAiAccessRequiredNotice( null ) ).toBe( genericNotice );

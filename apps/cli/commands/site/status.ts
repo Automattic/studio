@@ -5,12 +5,12 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { __, _n } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { builder } from 'cli/commands/site/status.command';
 import type { CommandArgs } from 'cli/types';
@@ -18,7 +18,7 @@ import type { CommandArgs } from 'cli/types';
 const logger = new Logger< LoggerAction >();
 
 // The site's details. Callers connect to the daemon first.
-export async function getSiteStatus( site: SiteData ): Promise< SiteStatus > {
+export async function getSiteStatus( site: ConfigSite ): Promise< SiteStatus > {
 	const running = Boolean( await isServerRunning( site.id ) );
 	const url = new URL( getSiteUrl( site ) ).toString();
 	const autoLoginUrl = new URL( url );

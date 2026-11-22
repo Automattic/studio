@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+/// <reference types="vite/client" />
 
 export interface Skill {
 	name: string;
@@ -10,8 +9,15 @@ export interface Skill {
 	userInvokable: boolean;
 }
 
-function parseSkillFile( filePath: string ): Skill | null {
-	const contents = fs.readFileSync( filePath, 'utf-8' );
+// Every file of every skill, by its path from here (`./skills/<name>/…`),
+// bundled as text so the skills load the same in Node and in a browser.
+const SKILL_FILES = import.meta.glob< string >( './skills/**/*.{md,php}', {
+	query: '?raw',
+	import: 'default',
+	eager: true,
+} );
+
+function parseSkillFile( contents: string ): Skill | null {
 	const match = contents.match( /^---\n([\s\S]*?)\n---\n([\s\S]*)$/ );
 	if ( ! match ) return null;
 	const [ , frontmatter, body ] = match;
@@ -24,51 +30,27 @@ function parseSkillFile( filePath: string ): Skill | null {
 	return { name, description, body: body.trim(), userInvokable };
 }
 
+// The files in one folder of a skill, such as `skillFiles( 'taxonomist', 'scripts' )`,
+// as [ name, contents ] pairs sorted by name.
+export function skillFiles( skillName: string, folder: string ): [ string, string ][] {
+	const prefix = `./skills/${ skillName }/${ folder }/`;
+	return Object.entries( SKILL_FILES )
+		.filter(
+			( [ file ] ) => file.startsWith( prefix ) && ! file.slice( prefix.length ).includes( '/' )
+		)
+		.map( ( [ file, contents ] ): [ string, string ] => [ file.slice( prefix.length ), contents ] )
+		.sort( ( [ a ], [ b ] ) => a.localeCompare( b ) );
+}
+
 let cachedSkills: Skill[] | null = null;
 
-// Resolves the skills directory. In source this is `packages/agent/node/skills`
-// (next to this file); after bundling everything collapses into the CLI
-// out dir and the `viteStaticCopy` step places skills at `<outDir>/skills`
-// (e.g. `dist/cli/skills`), which is again next to this (bundled) file.
-// Resolving relative to `import.meta.dirname` therefore works in both
-// cases — callers that need a skill asset MUST go through this helper
-// rather than hand-rolling their own relative path.
-function getSkillsRoot(): string {
-	return path.resolve( import.meta.dirname, 'skills' );
-}
-
-// Returns the absolute path to a file/dir inside a specific skill, e.g.
-// `getSkillPath( 'taxonomist', 'scripts' )`.
-export function getSkillPath( skillName: string, ...segments: string[] ): string {
-	return path.join( getSkillsRoot(), skillName, ...segments );
-}
-
-// Discovers `packages/agent/node/skills/<name>/SKILL.md` files at startup; cached
-// for the process lifetime since skills never change at runtime.
+// The skills in `skills/<name>/SKILL.md`, in folder order.
 export function loadSkills(): Skill[] {
-	if ( cachedSkills ) return cachedSkills;
-
-	const skillsRoot = getSkillsRoot();
-
-	if ( ! fs.existsSync( skillsRoot ) ) {
-		// Loud warning so a broken bundle path doesn't silently disable Skill.
-		console.warn(
-			`[skills] skills directory not found at ${ skillsRoot } — Skill tool will be unavailable.`
-		);
-		cachedSkills = [];
-		return cachedSkills;
-	}
-
-	const skills: Skill[] = [];
-	for ( const entry of fs.readdirSync( skillsRoot, { withFileTypes: true } ) ) {
-		if ( ! entry.isDirectory() ) continue;
-		const skillPath = path.join( skillsRoot, entry.name, 'SKILL.md' );
-		if ( ! fs.existsSync( skillPath ) ) continue;
-		const skill = parseSkillFile( skillPath );
-		if ( skill ) skills.push( skill );
-	}
-	cachedSkills = skills;
-	return skills;
+	cachedSkills ??= Object.keys( SKILL_FILES )
+		.filter( ( file ) => /^\.\/skills\/[^/]+\/SKILL\.md$/.test( file ) )
+		.sort()
+		.flatMap( ( file ) => parseSkillFile( SKILL_FILES[ file ] ) ?? [] );
+	return cachedSkills;
 }
 
 export function findSkill( name: string ): Skill | undefined {

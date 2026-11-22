@@ -3,15 +3,16 @@ import os from 'os';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
+import { getConfigPath, readConfig } from '@studio/common/lib/config/store';
+import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { getLiveSiteOperation, withSiteOperation, withSiteOperations } from '../site-operations';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'cli/lib/daemon-client', () => ( { emitCliEvent: vi.fn() } ) );
 
-const site: SiteData = {
+const site: ConfigSite = {
 	id: 'site-1',
 	name: 'My WordPress Site',
 	path: '/home/user/Studio/my-wordpress-site',
@@ -19,19 +20,19 @@ const site: SiteData = {
 	phpVersion: DEFAULT_PHP_VERSION,
 } as const;
 
-const secondSite: SiteData = {
+const secondSite: ConfigSite = {
 	...site,
 	id: 'site-2',
 	name: 'Second Site',
 	path: '/home/user/Studio/second-site',
 };
 
-function writeSites( sites: SiteData[] ) {
-	fs.writeFileSync( getCliConfigPath(), JSON.stringify( { version: 1, sites, snapshots: [] } ) );
+function writeSites( sites: ConfigSite[] ) {
+	fs.writeFileSync( getConfigPath(), JSON.stringify( { version: 1, sites } ) );
 }
 
 async function storedSites() {
-	return ( await readCliConfig() ).sites;
+	return ( await readConfig() ).sites;
 }
 
 async function storedOperation() {
@@ -102,10 +103,20 @@ describe( 'withSiteOperation', () => {
 
 	it( 'refuses an operation while another holds the site', async () => {
 		await withSiteOperation( site.path, 'delete', async () => {
-			await expect( withSiteOperation( site.path, 'stop', async () => undefined ) ).rejects.toThrow(
-				/already in progress/
-			);
+			const refused = withSiteOperation( site.path, 'stop', async () => undefined );
+			await expect( refused ).rejects.toThrow( /already in progress/ );
+			await expect( refused ).rejects.toMatchObject( { code: SITE_BUSY_ERROR_CODE } );
 		} );
+	} );
+
+	it( "waits for another process's start instead of refusing a start", async () => {
+		writeSites( [ { ...site, operation: { pid: process.ppid, kind: 'start' } } ] );
+		setTimeout( () => writeSites( [ site ] ), 300 );
+
+		const result = await withSiteOperation( site.path, 'start', async () => 'started' );
+
+		expect( result ).toBe( 'started' );
+		expect( await storedOperation() ).toBeUndefined();
 	} );
 
 	it( 'names both operations in the error so the agent can act on it', async () => {

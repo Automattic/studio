@@ -25,3 +25,10 @@ export function hasActiveSyncOperations(): boolean {
 export function hasCancellableSyncOperations(): boolean {
 	return [ ...PENDING_SYNCS.values() ].some( canCancelSyncActivity );
 }
+
+/**
+ * Whether a sync is past the point where stopping is safe, so it has to finish.
+ */
+export function hasUncancellableSyncOperations(): boolean {
+	return [ ...PENDING_SYNCS.values() ].some( ( activity ) => ! canCancelSyncActivity( activity ) );
+}

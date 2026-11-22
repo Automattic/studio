@@ -1,4 +1,6 @@
 import { emitChatArtifactWidgets } from '@studio/agent/node/chat-artifacts';
+import { createResultNotes } from '@studio/agent/node/result-notes';
+import { createAskUserQuestionTool } from './ask-user-question';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
 import { bindTool } from './define-tool';
@@ -15,6 +17,7 @@ import { listSitesTool } from './list-sites';
 import { auditPerformanceTool } from './need-for-speed';
 import { openAnnotationBrowserTool } from './open-annotation-browser';
 import { createPickDesignTool, pickDesignTool } from './pick-design';
+import { createPresentDesignOptionsTool } from './present-design-options';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
@@ -22,13 +25,15 @@ import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { sendFeedbackTool } from './send-feedback';
 import { getSiteInfoTool } from './site-info';
+import { createSkillTool } from './skill';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
+import { createStudioInstructionsTool } from './studio-instructions';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
 import { runWpCliTool } from './wp-cli';
-import { wpcomRequestTool } from './wpcom-request';
+import { createWpcomRequestTool, WPCOM_REQUEST_TOOL_NAME } from './wpcom-request';
 import type {
 	AnyStudioAgentTool,
 	StudioToolDefinition,
@@ -36,43 +41,45 @@ import type {
 } from './define-tool';
 import type { DesignTracksContext } from '@studio/agent/node/design-tracks';
 import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/node/host';
+import type { AskUserHandler } from '@studio/agent/node/types';
 
-export const studioToolDefinitions: StudioToolDefinition[] = [
-	createSiteTool,
-	listSitesTool,
-	getSiteInfoTool,
-	startSiteTool,
-	stopSiteTool,
-	deleteSiteTool,
-	createPreviewTool,
-	listPreviewsTool,
-	updatePreviewTool,
-	deletePreviewTool,
-	runWpCliTool,
-	scaffoldThemeTool,
-	pickDesignTool,
-	validateBlocksTool,
-	takeScreenshotTool,
-	inspectDesignTool,
-	generateImagesTool,
-	installTaxonomyScriptsTool,
-	auditPerformanceTool,
-	auditSeoTool,
-	listConnectedRemoteSitesTool,
-	wpcomRequestTool,
-	pushSiteTool,
-	pullSiteTool,
-	importSiteTool,
-	exportSiteTool,
-	openAnnotationBrowserTool,
-	refreshBrowserTool,
-	sendFeedbackTool,
-];
+// The tools as defined for `host`.
+export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefinition[] {
+	return [
+		createSiteTool,
+		listSitesTool,
+		getSiteInfoTool,
+		startSiteTool,
+		stopSiteTool,
+		deleteSiteTool,
+		createPreviewTool,
+		listPreviewsTool,
+		updatePreviewTool,
+		deletePreviewTool,
+		runWpCliTool,
+		scaffoldThemeTool,
+		pickDesignTool,
+		validateBlocksTool,
+		takeScreenshotTool,
+		inspectDesignTool,
+		generateImagesTool,
+		installTaxonomyScriptsTool,
+		auditPerformanceTool,
+		auditSeoTool,
+		listConnectedRemoteSitesTool,
+		createWpcomRequestTool( host.wpcom.payloadsDirectory ),
+		pushSiteTool,
+		pullSiteTool,
+		importSiteTool,
+		exportSiteTool,
+		openAnnotationBrowserTool,
+		refreshBrowserTool,
+		sendFeedbackTool,
+	];
+}
 
 export interface StudioToolsOptions {
-	// Enable generate_images. Callers resolve isImageGenerationAvailable()
-	// (async) and pass it; when off, sessions behave exactly as before the tool
-	// existed (no tool, no imagery prompt sections).
+	// Enable generate_images, when the host has an image generator.
 	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
@@ -94,15 +101,18 @@ export function resolveStudioTools(
 	host: StudioAgentHost,
 	options: StudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
-	return studioToolDefinitions.flatMap( ( candidate ) => {
+	return studioToolDefinitions( host ).flatMap( ( candidate ) => {
 		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
-		if ( candidate.name === wpcomRequestTool.name && options.wpcomRequest === false ) {
+		if ( candidate.name === WPCOM_REQUEST_TOOL_NAME && options.wpcomRequest === false ) {
 			return [];
 		}
 		// Only a Studio UI shows the preview it reloads.
 		if ( candidate.name === refreshBrowserTool.name && ! host.ui ) {
+			return [];
+		}
+		if ( candidate.name === sendFeedbackTool.name && ! host.sendFeedback ) {
 			return [];
 		}
 		let tool = candidate;
@@ -124,6 +134,89 @@ export function resolveStudioTools(
 		}
 		return [ withChatArtifactEmission( bindTool( tool, host ), host.ui ) ];
 	} );
+}
+
+// The tools of a conversation with the model: Studio's, the questions when the
+// user can answer them, and the skills.
+export function resolveConversationTools(
+	host: StudioAgentHost,
+	{
+		onAskUser,
+		tracks,
+		...options
+	}: Pick< StudioToolsOptions, 'imageGeneration' | 'visionEnabled' > & {
+		onAskUser?: AskUserHandler;
+		tracks: DesignTracksContext;
+	}
+): AnyStudioAgentTool[] {
+	// The feedback skill only works through send_feedback.
+	const skillTool = createSkillTool( host.sendFeedback ? [] : [ 'feedback' ] );
+	return [
+		...resolveStudioTools( host, { ...options, canAskUser: Boolean( onAskUser ), tracks } ),
+		...( onAskUser ? [ bindTool( createAskUserQuestionTool( onAskUser ), host ) ] : [] ),
+		...( onAskUser && host.ui
+			? [ bindTool( createPresentDesignOptionsTool( { onAskUser, tracks } ), host ) ]
+			: [] ),
+		...( skillTool ? [ bindTool( skillTool, host ) ] : [] ),
+	] as AnyStudioAgentTool[];
+}
+
+export interface ExternalToolsOptions
+	extends Pick<
+		StudioToolsOptions,
+		'imageGeneration' | 'wpcomRequest' | 'canAskUser' | 'tracks' | 'imageLink'
+	> {
+	// The host shows present_design_options' options as a clickable picker (an MCP App).
+	picker?: boolean;
+}
+
+// The tools of an agent that runs them itself, such as one connected to `studio
+// mcp`: studio_instructions, which hands it the prompt and the skills, and
+// Studio's tools, whose results carry the notes and background reports the
+// runtime adds in a conversation.
+export function resolveExternalTools(
+	host: StudioAgentHost,
+	{ picker, ...options }: ExternalToolsOptions = {}
+): AnyStudioAgentTool[] {
+	const tools = [
+		...resolveStudioTools( host, options ),
+		bindTool(
+			createPresentDesignOptionsTool( {
+				imageLink: options.imageLink,
+				picker,
+				tracks: options.tracks,
+			} ),
+			host
+		),
+	] as AnyStudioAgentTool[];
+	const notes = createResultNotes();
+	return [ bindTool( createStudioInstructionsTool( tools ), host ), ...tools ].map( ( tool ) => ( {
+		...tool,
+		rawHandler: async ( args: never, context ) => {
+			const result = await tool.rawHandler( args, context );
+			const text = result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
+			const site = await siteNamed( host, args );
+			const added = [
+				site && ( await notes( site.path, text.join( '\n' ) ) ),
+				await result.pending,
+			]
+				.filter( Boolean )
+				.join( '\n' );
+			return {
+				...result,
+				content: added ? [ ...result.content, { type: 'text', text: added } ] : result.content,
+				pending: undefined,
+			};
+		},
+	} ) ) as AnyStudioAgentTool[];
+}
+
+// The site a call names, if any.
+async function siteNamed( host: StudioAgentHost, args: { nameOrPath?: unknown } ) {
+	if ( typeof args.nameOrPath !== 'string' ) {
+		return undefined;
+	}
+	return host.sites.resolve( args.nameOrPath ).catch( () => undefined );
 }
 
 export function withChatArtifactEmission< TTool extends AnyStudioAgentTool >(

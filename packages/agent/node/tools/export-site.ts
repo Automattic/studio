@@ -1,4 +1,4 @@
-import path from 'path';
+import path from 'node:path';
 import { Type } from 'typebox';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
@@ -32,7 +32,7 @@ export const exportSiteTool = defineTool(
 			if ( ! exportFile ) {
 				const timestamp = new Date().toISOString().replace( /[:.]/g, '-' ).slice( 0, 19 );
 				const ext = mode === 'db' ? '.sql' : '.zip';
-				exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }${ ext }` );
+				exportFile = path.resolve( `studio-backup-${ timestamp }${ ext }` );
 			}
 
 			await context.host.sites.export( site, exportFile, mode, context.onProgress );

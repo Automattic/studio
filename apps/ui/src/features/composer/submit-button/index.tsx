@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { SendIcon, StartSiteIcon, StopSiteIcon } from '@/lib/icons';
+import { ArrowUpIcon, PlayIcon, SquareIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SubmitFeedback } from '@/lib/hooks';
@@ -19,12 +19,12 @@ export function SendButton( {
 		<IconButton
 			variant={ feedback ? 'destructive' : 'accent' }
 			size="icon"
-			shape="round"
+			className={ styles.edgeAction }
 			onClick={ onSend }
 			disabled={ ! canSend }
 			label={ label }
 			shortcut={ { ariaKeyShortcut: 'Enter', displayShortcut: '↵' } }
-			icon={ <SendIcon /> }
+			icon={ <ArrowUpIcon /> }
 		/>
 	);
 }
@@ -42,9 +42,9 @@ export function StartButton( {
 		<IconButton
 			variant="accent"
 			size="icon"
-			shape="round"
+			className={ styles.edgeAction }
 			label={ isStarting ? __( 'Starting site' ) : __( 'Start site' ) }
-			icon={ <StartSiteIcon fill="currentColor" /> }
+			icon={ <PlayIcon filled /> }
 			loading={ isStarting }
 			loadingMode="replace"
 			disabled={ disabled }
@@ -64,11 +64,10 @@ export function StopButton( {
 		<IconButton
 			variant="accent"
 			size="icon"
-			shape="round"
 			className={ styles.stopButton }
 			onClick={ onStop }
 			label={ isInterrupting ? __( 'Force stop' ) : __( 'Stop response' ) }
-			icon={ <StopSiteIcon fill="currentColor" /> }
+			icon={ <SquareIcon fill="currentColor" /> }
 			aria-busy={ isInterrupting }
 		/>
 	);

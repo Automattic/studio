@@ -1,20 +1,17 @@
-import fs from 'fs/promises';
-import path from 'path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { Type } from 'typebox';
 import {
 	composeImagePrompt,
-	generateImages,
-	type GenerateImageResult,
 	IMAGE_ASPECT_RATIOS,
 	IMAGE_STYLES,
-	isImageGenerationAvailable,
 } from '@studio/agent/node/image-generation';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import type { GenerateImageResult } from '@studio/providers';
 
 const MAX_IMAGES_PER_CALL = 20;
-const UPLOADS_DIR = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
 // Exported for tests. Generated files are jailed to the sites root like the
 // pi Write tool, and must be PNGs — the only format the pipeline delivers.
@@ -142,18 +139,20 @@ export const generateImagesTool = defineTool(
 		),
 	},
 	async ( args, { host } ) => {
-		if ( ! ( await isImageGenerationAvailable() ) ) {
+		const generateImages = await host.imageGenerator?.();
+		if ( ! generateImages ) {
 			throw new Error(
 				'Image generation is not available in this session. Build the site without generated imagery.'
 			);
 		}
+		const uploadsDirectory = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
 
 		const targets = args.images.map( ( image ) => ( {
 			...image,
 			resolvedPath: resolveImageFilePath( host.sitesRoot, image.path ),
 		} ) );
 		const libraryTargets = targets.filter( ( target ) =>
-			target.resolvedPath.includes( UPLOADS_DIR )
+			target.resolvedPath.includes( uploadsDirectory )
 		);
 		const site = libraryTargets.length
 			? await findSiteContaining(
@@ -186,7 +185,7 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
-		const generation = generateImages( host.userAgent, requests )
+		const generation = generateImages( requests )
 			.catch( ( error ): GenerateImageResult[] =>
 				requests.map( () => ( { ok: false, error: String( error ) } ) )
 			)
@@ -203,8 +202,8 @@ export const generateImagesTool = defineTool(
 							return;
 						}
 						const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
-						await fs.mkdir( path.dirname( file ), { recursive: true } );
-						await fs.writeFile( file, result.bytes );
+						await mkdir( path.dirname( file ), { recursive: true } );
+						await writeFile( file, result.bytes );
 					} )
 				);
 				if ( site ) {

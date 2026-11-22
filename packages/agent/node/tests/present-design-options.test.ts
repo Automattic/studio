@@ -54,5 +54,13 @@ describe( 'present_design_options', () => {
 				expect.objectContaining( { label: 'Collage' } ),
 			],
 		} );
+		const choices = result.content.at( -1 );
+		expect( choices?.type === 'text' && JSON.parse( choices.text ) ).toEqual( {
+			question: 'Which layout should I build?',
+			options: [
+				{ label: 'Broadsheet', description: 'Newspaper columns.' },
+				{ label: 'Collage', description: 'Overlapping photos.' },
+			],
+		} );
 	} );
 } );

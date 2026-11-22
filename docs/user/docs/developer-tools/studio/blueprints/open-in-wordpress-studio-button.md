@@ -1,6 +1,6 @@
 # Open in WordPress Studio button
 
-The Open in WordPress Studio button lets users spin up a new WordPress Studio site from a [Blueprint](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/) with a single click. When someone clicks the button or link, WordPress Studio launches on their machine (if installed) and opens the **Add site** dialog with the Blueprint you provide, ready to create a new site from it. If they don’t have WordPress Studio installed, they’re sent to [the WordPress Studio landing page](https://developer.wordpress.com/studio/) to download the app. Once installed, click the button again to launch the site.
+The Open in WordPress Studio button lets users spin up a new WordPress Studio site from a [Blueprint](https://wordpress.studio/docs/blueprints/) with a single click. When someone clicks the button or link, WordPress Studio launches on their machine (if installed) and opens the **Add site** dialog with the Blueprint you provide, ready to create a new site from it. If they don’t have WordPress Studio installed, they’re sent to [the WordPress Studio landing page](https://wordpress.studio/) to download the app. Once installed, click the button again to launch the site.
 
 You can embed Open in WordPress Studio buttons and links anywhere you share your work: GitHub repositories, plugin or theme listings, documentation, YouTube descriptions, and more. It’s a quick way to help users start working in WordPress Studio with your recommended setup.
 
@@ -10,7 +10,7 @@ Here’s an example that creates a new site in WordPress Studio with a Blueprint
 
 ## [Generate your own](#0-generate-your-own)
 
-Use this tool to build your own Open in WordPress Studio button or link. Paste any publicly accessible Blueprint URL, Base64 encoded JSON, or raw JSON, and an embed code will be generated. If you haven’t created a Blueprint before, see the [Blueprint guide](https://developer.wordpress.com/docs/guides/how-to-create-custom-blueprints/) for how to create one.
+Use this tool to build your own Open in WordPress Studio button or link. Paste any publicly accessible Blueprint URL, Base64 encoded JSON, or raw JSON, and an embed code will be generated. If you haven’t created a Blueprint before, see the [Blueprint guide](https://wordpress.studio/docs/blueprints/how-to-create-custom-blueprints/) for how to create one.
 
 Blueprint
 

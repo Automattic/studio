@@ -18,16 +18,24 @@ export function PanelLayoutControls( {
 } ) {
 	return (
 		<div className={ styles.controls }>
-			{ showFullView ? (
+			<div
+				className={ styles.fullView }
+				data-visible={ showFullView || undefined }
+				aria-hidden={ ! showFullView || undefined }
+				inert={ ! showFullView }
+			>
 				<IconButton
+					variant="ghost"
 					size="icon-sm"
 					icon={ <FullscreenIcon inward={ fullscreen } /> }
 					label={ fullscreen ? __( 'Show chat' ) : __( 'Expand panel' ) }
 					onClick={ () => onFullscreenChange( ! fullscreen ) }
 					tooltipSide="bottom"
 				/>
-			) : null }
+			</div>
 			<IconButton
+				variant="ghost"
+				highlightOnToggle={ false }
 				size="icon-sm"
 				icon={ <SidebarIcon side="right" /> }
 				label={ open ? __( 'Hide panel' ) : __( 'Show panel' ) }

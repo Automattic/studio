@@ -156,9 +156,9 @@ WordPress Studio disables **Pull changes** and **Publish changes**, and tells yo
 
 ### [Exclude files with .deployignore](#11-exclude-files-with-deployignore)
 
-When publishing a WordPress Studio site to WordPress.com or Pressable, WordPress Studio honors the same `.deployignore` file [used by Preview Sites](https://wordpress.studio/docs/preview-sites/#exclude-files-with-deployignore). Place a `.deployignore` file at the root of your site directory to exclude files from the publish — for example, build artifacts, vendor dependencies, or large media folders.
+When publishing a WordPress Studio site to WordPress.com or Pressable, WordPress Studio honors the same `.deployignore` file [used by Preview Sites](https://wordpress.studio/docs/deployignore/). Place a `.deployignore` file at the root of your site directory to exclude files from the publish — for example, build artifacts, vendor dependencies, or large media folders.
 
-The file uses the same .gitignore-style syntax. See the [Preview Sites documentation](https://wordpress.studio/docs/preview-sites/#exclude-files-with-deployignore) for the full syntax reference and examples.
+The file uses the same .gitignore-style syntax. See the [Preview Sites documentation](https://wordpress.studio/docs/deployignore/) for the full syntax reference and examples.
 
 In addition to the defaults applied by Preview Sites (`.git`, `node_modules`, `.DS_Store`, `Thumbs.db`), Sync also excludes WordPress Studio-internal files that  
 shouldn’t be uploaded to the remote site:

@@ -343,6 +343,20 @@ export async function writeUserPreferences(
 // end settles both. `.loose()` keeps any field a newer build adds.
 export const onboardingHintsSchema = z
 	.object( {
+		walkthroughStep: z
+			.enum( [
+				'intro',
+				'create',
+				'composer',
+				'annotate',
+				'share',
+				'publish',
+				'try-chat',
+				'completed',
+				'skipped',
+				'ineligible',
+			] )
+			.optional(),
 		tourCompletedVersion: z.number().optional(),
 		tourDismissedVersion: z.number().optional(),
 		migratedFromClassic: z.boolean().optional(),

@@ -94,7 +94,7 @@ async function main() {
 				return path.resolve( untildify( value ) );
 			},
 		} )
-		.middleware( async () => {
+		.middleware( async ( argv ) => {
 			const { runStartupTasks } = await import( '@studio/common/lib/startup-tasks' );
 			const { installBundledDefaultPhp } = await import( 'cli/lib/install-bundled-default-php' );
 			const { moveAiSessionsToStudioDir } = await import(
@@ -104,6 +104,12 @@ async function main() {
 
 			const { prunePmLogs } = await import( 'cli/lib/prune-pm-logs' );
 			await prunePmLogs();
+			if ( argv._[ 0 ] === 'ui' || argv._[ 0 ] === 'serve' ) {
+				const { initializeWalkthrough } = await import(
+					'@studio/common/lib/user-settings/onboarding'
+				);
+				await initializeWalkthrough();
+			}
 		} )
 		.middleware( async ( argv ) => {
 			if ( __ENABLE_CLI_TELEMETRY__ && ! argv.avoidTelemetry ) {

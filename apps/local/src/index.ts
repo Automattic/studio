@@ -134,6 +134,7 @@ import {
 	detectInstalledAppsWithDefaultBrowser,
 } from '@studio/common/lib/user-settings/installed-apps';
 import {
+	initializeWalkthrough,
 	readOnboardingCompleted,
 	writeOnboardingCompleted,
 } from '@studio/common/lib/user-settings/onboarding';
@@ -391,6 +392,7 @@ function sanitizeTracksProps( value: unknown ): TracksProps {
 }
 
 export async function startLocalServer( options: LocalServerOptions ): Promise< LocalServer > {
+	await initializeWalkthrough();
 	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist } = options;
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
@@ -626,7 +628,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	} );
 
 	api.get( '/version', ( _req: Request, res: Response ) => {
-		res.json( { version: options.version ?? null } );
+		res.json( { version: options.version ?? null, features: { walkthroughEnrollment: true } } );
 	} );
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --

@@ -51,6 +51,7 @@ export function Popup( {
 	variant = 'floating',
 	instant = false,
 	'data-color-scheme': colorScheme,
+	preserveWindowDrag = false,
 	'aria-label': ariaLabel,
 	'aria-describedby': ariaDescribedBy,
 	'aria-hidden': ariaHidden,
@@ -75,6 +76,7 @@ export function Popup( {
 	variant?: 'floating' | 'commands' | 'tooltip';
 	instant?: boolean;
 	'data-color-scheme'?: 'light' | 'dark';
+	preserveWindowDrag?: boolean;
 	'aria-label'?: string;
 	'aria-describedby'?: string;
 	'aria-hidden'?: PopupProps[ 'aria-hidden' ];
@@ -101,6 +103,7 @@ export function Popup( {
 			>
 				<BasePopover.Popup
 					data-slot="popover-content"
+					data-preserve-window-drag={ preserveWindowDrag || undefined }
 					data-instant={ instant || undefined }
 					initialFocus={ initialFocus }
 					finalFocus={ finalFocus }

@@ -56,6 +56,8 @@ export const TRACKS_EVENTS = {
 	CODE_DESIGN_OPTION_PROPOSED: 'studio_code_design_option_proposed',
 	CODE_DESIGN_OPTION_PICKED: 'studio_code_design_option_picked',
 	MCP_SESSION_START: 'studio_mcp_session_start',
+	WALKTHROUGH_STEP_VIEWED: 'studio_walkthrough_step_viewed',
+	WALKTHROUGH_ACTION: 'studio_walkthrough_action',
 	ONBOARDING_COMPLETE: 'studio_onboarding_complete',
 	WPCOM_AUTH: 'studio_wpcom_auth',
 	ACCOUNT_PROMPT_VIEWED: 'studio_account_prompt_viewed',

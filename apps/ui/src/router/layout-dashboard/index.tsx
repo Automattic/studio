@@ -38,7 +38,6 @@ import { CommandPalette } from '@/features/commands';
 import { pendingComposerFilesSlot } from '@/features/composer';
 import {
 	useOrientationAutostart,
-	useOrientationReplay,
 	useWhatsNewAutostart,
 	useWhatsNewReplay,
 } from '@/features/onboarding';
@@ -114,11 +113,8 @@ function DashboardLayout() {
 	const { data: sessions } = useSessions();
 	const sessionSummary =
 		sessionData?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
-	// Open the orientation guide on first workbench arrival, and let Help ▸
-	// Getting Started replay it.
-	useOrientationAutostart();
-	useOrientationReplay();
-	// Same, for the per-release announcements behind Help ▸ What's New.
+	// Per-release announcements behind Help ▸ What's New.
+	useOrientationAutostart( connector.capabilities.walkthroughEnrollment === false );
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();

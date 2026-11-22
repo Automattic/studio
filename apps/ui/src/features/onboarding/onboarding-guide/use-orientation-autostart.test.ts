@@ -35,6 +35,12 @@ describe( 'deriveOrientationAutostart', () => {
 		expect( deriveOrientationAutostart( { ...base, hints: undefined } ) ).toBeNull();
 	} );
 
+	it( 'does not compete with an interactive tour', () => {
+		expect(
+			deriveOrientationAutostart( { ...base, hints: { walkthroughStep: 'composer' } } )
+		).toBeNull();
+	} );
+
 	it( 'does not re-open a completed guide of the current version', () => {
 		expect(
 			deriveOrientationAutostart( {

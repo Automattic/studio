@@ -160,10 +160,11 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 		[ 'a value outside the supported set', { colorScheme: 'chartreuse' } ],
 		[ 'a locale with no translations', { locale: 'xx-fake' } ],
 	] )( 'rejects %s instead of storing it', async ( _label, body ) => {
+		const before = await readPreferences();
 		const response = await patchPreferences( body );
 
 		expect( response.status ).toBe( 400 );
-		await expect( readPreferences() ).resolves.toEqual( {} );
+		await expect( readPreferences() ).resolves.toEqual( before );
 	} );
 } );
 
@@ -192,10 +193,11 @@ describe( 'PATCH /api/sites/:id/frontend-admin-bar', () => {
 	} );
 
 	it( 'rejects malformed preferences and unknown sites', async () => {
+		const before = await readConfig();
 		expect( ( await patchAdminBar( 'one', 'hide' ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'one', undefined ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'missing', true ) ).status ).toBe( 404 );
-		await expect( readConfig() ).resolves.toMatchObject( { preferences: {}, sites: [] } );
+		await expect( readConfig() ).resolves.toEqual( before );
 	} );
 } );
 
@@ -225,6 +227,34 @@ describe( 'POST /api/sites/sort-order', () => {
 } );
 
 describe( '/api/onboarding-hints', () => {
+	it( 'advertises support for first-run enrollment', async () => {
+		const version = await ( await fetch( `${ server.url }/api/version` ) ).json();
+		expect( version ).toMatchObject( { features: { walkthroughEnrollment: true } } );
+	} );
+
+	it( 'initializes fresh profiles and persists walkthrough progress alongside desktop hints', async () => {
+		const initial = await ( await fetch( `${ server.url }/api/onboarding-hints` ) ).json();
+		expect( initial ).toMatchObject( { walkthroughStep: 'create' } );
+		const response = await fetch( `${ server.url }/api/onboarding-hints`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { walkthroughStep: 'try-chat', annotateHintDismissed: true } ),
+		} );
+		expect( response.status ).toBe( 204 );
+		expect( await readPreferences() ).toMatchObject( {
+			onboardingHints: { walkthroughStep: 'try-chat', annotateHintDismissed: true },
+		} );
+		const invalid = await fetch( `${ server.url }/api/onboarding-hints`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { walkthroughStep: 'invalid' } ),
+		} );
+		expect( invalid.status ).toBe( 400 );
+		expect( await readPreferences() ).toMatchObject( {
+			onboardingHints: { walkthroughStep: 'try-chat' },
+		} );
+	} );
+
 	it( 'merges a patch into the progress the desktop stored', async () => {
 		writePreferences( { onboardingHints: { tourCompletedVersion: 1, migratedFromClassic: true } } );
 

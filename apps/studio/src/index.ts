@@ -23,6 +23,7 @@ import { getOrCreateSentryUserId, readSentryUserId } from '@studio/common/lib/in
 import { getSentryReleaseInfo } from '@studio/common/lib/sentry-release';
 import { runStartupTasks } from '@studio/common/lib/startup-tasks';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { initializeWalkthrough } from '@studio/common/lib/user-settings/onboarding';
 import {
 	readQuitSitesBehavior,
 	writeQuitSitesBehavior,
@@ -552,6 +553,8 @@ async function appBoot() {
 
 		await startCliEventsSubscriber();
 		void refreshSpotlightIndex();
+
+		await initializeWalkthrough();
 
 		await createMainWindow();
 

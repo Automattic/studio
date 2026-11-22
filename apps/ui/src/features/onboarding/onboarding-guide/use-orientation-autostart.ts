@@ -42,7 +42,7 @@ export function deriveOrientationAutostart( {
 	if ( siteCount < 1 || ! agenticReady ) {
 		return null;
 	}
-	if ( hints === undefined ) {
+	if ( hints === undefined || hints.walkthroughStep !== undefined ) {
 		return null;
 	}
 	const seen =
@@ -62,7 +62,7 @@ const GUIDE_START_DELAY_MS = 500;
  * Auto-opens the orientation guide once on first arrival in the workbench.
  * Mounted in the dashboard layout.
  */
-export function useOrientationAutostart(): void {
+export function useOrientationAutostart( enabled = true ): void {
 	const { data: sites } = useSites();
 	const { isReady: agenticReady } = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
@@ -74,6 +74,7 @@ export function useOrientationAutostart(): void {
 	const startTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 
 	useEffect( () => {
+		if ( ! enabled ) return;
 		const variant = deriveOrientationAutostart( {
 			siteCount: sites?.length ?? 0,
 			agenticReady,
@@ -102,7 +103,7 @@ export function useOrientationAutostart(): void {
 		// No timer cleanup here: a dependency change re-runs this effect and
 		// returns early (startedRef guard); clearing on every re-run would
 		// cancel the pending open. The mount-scoped cleanup below handles it.
-	}, [ sites?.length, agenticReady, hints, dialogOpen, isOpen, openGuide, setHints ] );
+	}, [ enabled, sites?.length, agenticReady, hints, dialogOpen, isOpen, openGuide, setHints ] );
 
 	useEffect( () => {
 		return () => {

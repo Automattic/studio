@@ -14,6 +14,31 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.unstubAllGlobals();
 	} );
 
+	it.each( [ false, true ] )(
+		'detects remote walkthrough enrollment support: %s',
+		async ( supported ) => {
+			fetchMock.mockResolvedValue(
+				Response.json( {
+					version: '2.3.1',
+					...( supported ? { features: { walkthroughEnrollment: true } } : {} ),
+				} )
+			);
+			vi.stubGlobal(
+				'EventSource',
+				class {
+					close() {}
+				}
+			);
+			vi.spyOn( window, 'setInterval' ).mockReturnValue( 0 as never );
+			const connector = createLocalConnector( {
+				apiBaseUrl: 'http://localhost:8081',
+				remote: { signIn: vi.fn(), signOut: vi.fn(), getBilling: vi.fn() },
+			} );
+			await connector.init?.();
+			expect( connector.capabilities.walkthroughEnrollment ).toBe( supported );
+		}
+	);
+
 	it( 'uploads a picked Blueprint and reads it back for the preview', async () => {
 		const file = new File( [ 'zip fixture' ], 'blueprint.zip', { type: 'application/zip' } );
 		fetchMock

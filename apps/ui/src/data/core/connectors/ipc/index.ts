@@ -140,6 +140,7 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 			loopbackSignIn: true,
 			localMachine: true,
+			walkthroughEnrollment: true,
 		},
 
 		agenticRequiresAuth: true,

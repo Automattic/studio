@@ -371,7 +371,7 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 					},
 				},
 				{
-					label: __( 'Getting Started' ),
+					label: __( 'Take a tour' ),
 					click: async () => {
 						void sendIpcEventToRenderer( 'show-getting-started' );
 					},

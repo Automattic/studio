@@ -69,6 +69,7 @@ export function AnnotateButton( {
 				render={
 					<IconButton
 						ref={ modeButton }
+						data-walkthrough="annotate"
 						className={ styles.button }
 						tooltip={ false }
 						variant="accent-ghost"

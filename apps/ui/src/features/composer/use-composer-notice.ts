@@ -60,17 +60,32 @@ export function useComposerNotice(
 		},
 	};
 	const needsInternet = ! getProvider( provider ).ai?.local;
+	const offlineGuidance = {
+		walkthroughReason: 'offline' as const,
+		walkthroughTitle: __( 'You’re offline' ),
+		walkthroughDescription: __( 'Reconnect to send your first prompt.' ),
+	};
 	if ( isOffline && needsInternet ) {
-		return { message: __( 'You are offline. Reconnect to send a message.' ) };
+		return { ...offlineGuidance, message: __( 'You are offline. Reconnect to send a message.' ) };
 	}
 	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE && needsInternet ) {
-		return { message: __( 'You are offline. Reconnect to send a message.' ), action: refresh };
+		return {
+			...offlineGuidance,
+			message: __( 'You are offline. Reconnect to send a message.' ),
+			action: refresh,
+		};
 	}
 	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {
 		return;
 	}
 	if ( settings.isError ) {
-		return { message: __( 'Couldn’t load your AI provider.' ), action: refresh };
+		return {
+			message: __( 'Couldn’t load your AI provider.' ),
+			walkthroughReason: 'provider_error',
+			walkthroughTitle: __( 'Couldn’t reach your provider' ),
+			walkthroughDescription: __( 'Try again. If it keeps failing, check your provider settings.' ),
+			action: refresh,
+		};
 	}
 	if ( provider !== 'wpcom' ) {
 		return;
@@ -82,12 +97,23 @@ export function useComposerNotice(
 	};
 	if ( ! user ) {
 		return {
+			walkthroughReason: 'connect',
+			walkthroughTitle: __( 'Get ready to chat' ),
+			walkthroughDescription: __(
+				'Sign in with your AI subscription or start with WordPress.com. Chat to make changes.'
+			),
 			message: __( 'Connect a provider to build and edit your site.' ),
 			action: connect,
 		};
 	}
 	if ( quotaError ) {
-		return { message: __( 'AI usage is currently unavailable.' ), action: refresh };
+		return {
+			message: __( 'AI usage is currently unavailable.' ),
+			walkthroughReason: 'quota_error',
+			walkthroughTitle: __( 'AI is unavailable right now' ),
+			walkthroughDescription: __( 'Give it a moment, then try again.' ),
+			action: refresh,
+		};
 	}
 	if ( ! quota.data ) {
 		return;
@@ -96,12 +122,20 @@ export function useComposerNotice(
 	if ( access === 'blocked' ) {
 		return {
 			message: __( 'Connect a different provider to continue this chat.' ),
+			walkthroughReason: 'provider_blocked',
+			walkthroughTitle: __( 'Switch providers' ),
+			walkthroughDescription: __(
+				'Your current provider isn’t available here. Connect another to keep editing through chat.'
+			),
 			action: connect,
 		};
 	}
 	if ( access === 'not-enabled' ) {
 		return {
 			message: formatAiAccessRequiredHeadline( quota.data ),
+			walkthroughReason: 'beta_access',
+			walkthroughTitle: __( 'WordPress.com AI access' ),
+			walkthroughDescription: formatAiAccessRequiredHeadline( quota.data ),
 			action: {
 				label: __( 'Learn more' ),
 				onClick: () => void connector.openExternalUrl( STUDIO_CODE_DOCS_URL ),
@@ -111,6 +145,11 @@ export function useComposerNotice(
 	if ( ! quota.data.hasPaymentMethod ) {
 		return {
 			message: __( 'Add a payment method to use WordPress.com AI.' ),
+			walkthroughReason: 'payment_method',
+			walkthroughTitle: __( 'Add a payment method' ),
+			walkthroughDescription: __(
+				'WordPress.com AI needs a payment method on file before you can send a message.'
+			),
 			action: {
 				label: __( 'Set up' ),
 				onClick: () => void connector.openExternalUrl( ADD_PAYMENT_METHOD_URL ),

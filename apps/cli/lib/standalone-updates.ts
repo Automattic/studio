@@ -152,7 +152,11 @@ export async function updateStandaloneCli(
 			channelForVersion( active ) === channelForVersion( latestVersion ) &&
 			semver.gte( active, latestVersion )
 		) {
-			return active;
+			const activeDirectory = path.join( versionsDirectory, active );
+			if ( fs.existsSync( activeDirectory ) ) {
+				await verifyRuntime( activeDirectory, active );
+				return active;
+			}
 		}
 		const url = new URL( update.downloadUrl ?? '' );
 		if (

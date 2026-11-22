@@ -152,6 +152,30 @@ it( 'leaves the active runtime intact when a download is corrupt', async () => {
 	expect( await fs.readdir( versionsDirectory ) ).toEqual( [ 'current-1.0.0' ] );
 } );
 
+it( 'downloads the selected version again if its runtime directory is missing', async () => {
+	await fs.mkdir( versionsDirectory, { recursive: true } );
+	await fs.writeFile( path.join( versionsDirectory, 'current-1.0.0' ), '2.0.0\n' );
+	serveRelease( await releaseArchive() );
+
+	await expect( updateStandaloneCli( '1.0.0' ) ).resolves.toBe( '2.0.0' );
+	expect( downloadFile ).toHaveBeenCalledOnce();
+	expect(
+		await fs.readFile( path.join( versionsDirectory, '2.0.0/cli/main.mjs' ), 'utf8' )
+	).toContain( '2.0.0' );
+} );
+
+it( 'reports failure when the selected runtime directory is incomplete', async () => {
+	await fs.mkdir( path.join( versionsDirectory, '2.0.0' ), { recursive: true } );
+	await fs.writeFile( path.join( versionsDirectory, 'current-1.0.0' ), '2.0.0\n' );
+	serveRelease( await releaseArchive() );
+
+	await expect( updateStandaloneCli( '1.0.0' ) ).rejects.toThrow();
+	expect( downloadFile ).not.toHaveBeenCalled();
+	expect( await fs.readFile( path.join( versionsDirectory, 'current-1.0.0' ), 'utf8' ) ).toBe(
+		'2.0.0\n'
+	);
+} );
+
 it( 'rejects a noncanonical release version before downloading or selecting a runtime', async () => {
 	serveRelease( 'not downloaded', 'v2.0.0' );
 	await expect( updateStandaloneCli( '1.0.0' ) ).rejects.toThrow(

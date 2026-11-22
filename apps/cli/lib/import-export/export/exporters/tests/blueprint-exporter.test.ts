@@ -98,9 +98,9 @@ it( 'bundles a valid Blueprint with a consistent SQLite snapshot and custom file
 		} finally {
 			snapshot.close();
 		}
-		expect( fs.readFileSync( path.join( snapshotDir, 'wp-config.php' ), 'utf8' ) ).toBe(
-			"<?php $table_prefix = 'custom_';"
-		);
+		const config = fs.readFileSync( path.join( snapshotDir, 'wp-config.php' ), 'utf8' );
+		expect( config ).toContain( "$table_prefix = 'custom_'" );
+		expect( config ).toContain( "require_once ABSPATH . 'wp-settings.php';" );
 		expect( fs.readFileSync( path.join( options.site.path, 'wp-config.php' ), 'utf8' ) ).toBe(
 			'source credentials'
 		);
@@ -114,6 +114,31 @@ it( 'bundles a valid Blueprint with a consistent SQLite snapshot and custom file
 			false
 		);
 	}
+} );
+
+it( 'exports a site without a sample configuration file', async () => {
+	fs.unlinkSync( path.join( options.site.path, 'wp-config-sample.php' ) );
+	await new BlueprintExporter( options ).export();
+	await using bundle = await openBlueprint( options.backupFile );
+	const snapshotDir = path.join( root, 'without-sample' );
+	await extractZip( path.join( path.dirname( bundle.path ), 'site.zip' ), snapshotDir );
+	expect( fs.readFileSync( path.join( snapshotDir, 'wp-config.php' ), 'utf8' ) ).toContain(
+		"$table_prefix = 'custom_'"
+	);
+} );
+
+it( 'does not copy source sample configuration code or secrets', async () => {
+	fs.writeFileSync(
+		path.join( options.site.path, 'wp-config-sample.php' ),
+		'<?php $table_prefix = "wp_"; define( "SOURCE_SAMPLE_SECRET", "synthetic-secret" );'
+	);
+	await new BlueprintExporter( options ).export();
+	await using bundle = await openBlueprint( options.backupFile );
+	const snapshotDir = path.join( root, 'modified-sample' );
+	await extractZip( path.join( path.dirname( bundle.path ), 'site.zip' ), snapshotDir );
+	const config = fs.readFileSync( path.join( snapshotDir, 'wp-config.php' ), 'utf8' );
+	expect( config ).toContain( "$table_prefix = 'custom_'" );
+	expect( config ).not.toContain( 'synthetic-secret' );
 } );
 
 it( 'preserves an existing destination if export fails', async () => {

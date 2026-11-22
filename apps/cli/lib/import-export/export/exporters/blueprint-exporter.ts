@@ -27,15 +27,21 @@ class SnapshotExporter extends DefaultExporter {
 	}
 
 	protected addWpConfig(): void {
-		// Keep the table prefix without distributing the source site's credentials or paths.
-		const sample = fs.readFileSync(
-			path.join( this.options.site.path, 'wp-config-sample.php' ),
-			'utf8'
-		);
-		this.archiveBuilder.append(
-			sample.replace( /(\$table_prefix\s*=\s*)'[^']*'/, `$1'${ this.tablePrefix }'` ),
-			{ name: 'wp-config.php' }
-		);
+		// Build a clean config without relying on a possibly modified source sample.
+		const config = `<?php
+define( 'DB_NAME', 'wordpress' );
+define( 'DB_USER', 'username_here' );
+define( 'DB_PASSWORD', 'password_here' );
+define( 'DB_HOST', 'localhost' );
+define( 'DB_CHARSET', 'utf8mb4' );
+define( 'DB_COLLATE', '' );
+$table_prefix = '${ this.tablePrefix }';
+if ( ! defined( 'ABSPATH' ) ) {
+	define( 'ABSPATH', __DIR__ . '/' );
+}
+require_once ABSPATH . 'wp-settings.php';
+`;
+		this.archiveBuilder.append( config, { name: 'wp-config.php' } );
 	}
 
 	protected async addMetadata(): Promise< void > {}

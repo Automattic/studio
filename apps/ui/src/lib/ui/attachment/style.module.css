@@ -15,6 +15,16 @@
 		--button-hover-color: var( --popover-foreground );
 	}
 
+	.remove[data-slot][data-shape='round'] {
+		--radius-button: max(
+			0px,
+			calc(
+				var( --radius-composer-attachment, var( --radius-full ) ) -
+					var( --attachment-remove-inset, var( --space-1 ) )
+			)
+		);
+	}
+
 	.face {
 		composes: floating from '@/lib/ui/surface/style.module.css';
 
@@ -69,7 +79,7 @@
 			}
 
 			.remove:hover:not( :active, :disabled, [data-disabled], :focus-visible ) .face {
-				transform: scale( 1.05 );
+				transform: scale( var( --attachment-remove-hover-scale, 1.05 ) );
 			}
 		}
 	}

@@ -2,10 +2,10 @@ import fs from 'fs';
 import http from 'http';
 import os from 'os';
 import path from 'path';
-import { StaticFileValidators } from 'cli/lib/native-php/static-files';
+import { StaticFiles } from 'cli/lib/native-php/static-files';
 import type { AddressInfo } from 'net';
 
-describe( 'StaticFileValidators', () => {
+describe( 'StaticFiles', () => {
 	let sitePath: string;
 	let server: http.Server;
 	let baseUrl: string;
@@ -19,15 +19,15 @@ describe( 'StaticFileValidators', () => {
 
 		// Stands in for the proxy in front of PHP's built-in server, which serves existing files
 		// and answers 404 for private ones such as dotfiles.
-		const validators = new StaticFileValidators( sitePath );
+		const staticFiles = new StaticFiles( sitePath );
 		server = http.createServer( ( req, res ) => {
-			if ( validators.answerRevalidation( req, res ) ) {
+			if ( staticFiles.answer( req, res ) ) {
 				return;
 			}
 			phpRequests.push( req.url! );
 			const isPrivate = req.url!.startsWith( '/.' );
-			const headers: http.IncomingHttpHeaders = {};
-			validators.addValidators( req, isPrivate ? 404 : 200, headers );
+			const headers: http.IncomingHttpHeaders = { 'content-type': 'text/javascript' };
+			staticFiles.addValidators( req, isPrivate ? 404 : 200, headers );
 			res.writeHead( isPrivate ? 404 : 200, headers as http.OutgoingHttpHeaders );
 			// The only public file the tests request.
 			res.end( isPrivate ? '' : fs.readFileSync( path.join( sitePath, 'wp-includes', 'app.js' ) ) );
@@ -45,12 +45,17 @@ describe( 'StaticFileValidators', () => {
 		fs.rmSync( sitePath, { recursive: true, force: true } );
 	} );
 
-	it( 'answers the revalidation of an unchanged file without PHP, and sends PHP a changed one', async () => {
+	it( 'serves a file PHP has served, with its content type, and revalidates it without PHP', async () => {
 		const url = `${ baseUrl }/wp-includes/app.js?ver=1`;
 		const first = await fetch( url );
 		const etag = first.headers.get( 'etag' )!;
 		expect( etag ).toMatch( /^W\/"/ );
 		expect( first.headers.get( 'cache-control' ) ).toBe( 'no-cache' );
+
+		const again = await fetch( url );
+		expect( again.status ).toBe( 200 );
+		expect( again.headers.get( 'content-type' ) ).toBe( 'text/javascript' );
+		expect( await again.text() ).toBe( 'console.log(1);' );
 
 		const unchanged = await fetch( url, { headers: { 'If-None-Match': etag } } );
 		expect( unchanged.status ).toBe( 304 );
@@ -62,7 +67,7 @@ describe( 'StaticFileValidators', () => {
 		expect( changed.status ).toBe( 200 );
 		expect( await changed.text() ).toBe( 'console.log(2);' );
 
-		expect( phpRequests ).toEqual( [ '/wp-includes/app.js?ver=1', '/wp-includes/app.js?ver=1' ] );
+		expect( phpRequests ).toEqual( [ '/wp-includes/app.js?ver=1' ] );
 	} );
 
 	it( 'leaves a path PHP keeps private to PHP, even with a matching validator', async () => {
@@ -74,6 +79,7 @@ describe( 'StaticFileValidators', () => {
 		const response = await fetch( `${ baseUrl }/.env`, { headers: { 'If-None-Match': etag } } );
 		expect( response.status ).toBe( 404 );
 		expect( response.headers.get( 'etag' ) ).toBeNull();
-		expect( phpRequests ).toEqual( [ '/.env' ] );
+		await fetch( `${ baseUrl }/.env` );
+		expect( phpRequests ).toEqual( [ '/.env', '/.env' ] );
 	} );
 } );

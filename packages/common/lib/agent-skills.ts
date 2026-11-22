@@ -2,9 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { readSitePaths } from '../sites/site-path';
+import { readConfig, updateConfig } from './config/store';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
 import { isErrnoException } from './is-errno-exception';
-import { readSharedConfig, updateSharedConfig } from './shared-config';
 
 /**
  * Managed instruction files that are always kept up-to-date on server start.
@@ -197,7 +197,7 @@ export const getBundledSkills = () => [
 
 // "Installed" means selected for every site: new sites get it too, on creation.
 export async function getSkillsStatusForAllSites(): Promise< SkillStatus[] > {
-	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
+	const selectedSkills = ( await readConfig() ).preferences.selectedSkills ?? [];
 	return getBundledSkills().map( ( skill ) => ( {
 		...skill,
 		installed: selectedSkills.includes( skill.id ),
@@ -212,16 +212,18 @@ export async function installSkillToAllSites(
 	await forEachSite( ( sitePath ) =>
 		installSkillToSite( { path: sitePath }, bundledPath, skillId, overwrite )
 	);
-	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
-	await updateSharedConfig( {
-		selectedSkills: Array.from( new Set( [ ...selectedSkills, skillId ] ) ),
+	await updateConfig( ( { preferences } ) => {
+		preferences.selectedSkills = Array.from(
+			new Set( [ ...( preferences.selectedSkills ?? [] ), skillId ] )
+		);
 	} );
 }
 
 export async function removeSkillFromAllSites( skillId: string ): Promise< void > {
 	await forEachSite( ( sitePath ) => removeSkillFromSite( sitePath, skillId ) );
-	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
-	await updateSharedConfig( { selectedSkills: selectedSkills.filter( ( id ) => id !== skillId ) } );
+	await updateConfig( ( { preferences } ) => {
+		preferences.selectedSkills = preferences.selectedSkills?.filter( ( id ) => id !== skillId );
+	} );
 }
 
 // One site failing (moved, unreadable) shouldn't stop the others.

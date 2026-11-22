@@ -632,6 +632,39 @@ describe( 'Chat target selection', () => {
 			'Opus 5.5 · Anthropic'
 		);
 	} );
+
+	it( 'sets how much the model thinks in the chat', async () => {
+		const { connector } = await setupChat( { provider: 'anthropic', signedIn: false } );
+		connector.setSessionThinking.mockImplementation( async ( id, model, thinking ) => {
+			connector.state.sessions[ 0 ].entries.push( {
+				type: 'custom',
+				customType: 'studio.session_context',
+				data: { model, thinking },
+			} as SessionEntry );
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Thinking/ } ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'Medium Default' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Off' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
+				'aria-description',
+				'Sonnet 5.5 · Anthropic · Thinking: Off'
+			)
+		);
+		expect( connector.setSessionThinking ).toHaveBeenCalledWith(
+			'chat',
+			'claude-sonnet-5-5',
+			'off'
+		);
+	} );
+
+	it( 'doesn’t offer thinking levels on WordPress.com', async () => {
+		await setupChat();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
+		await screen.findByRole( 'option', { name: /^Fast/ } );
+		expect( screen.queryByRole( 'option', { name: /^Thinking/ } ) ).not.toBeInTheDocument();
+	} );
 } );
 
 describe( 'Chat pane context menu', () => {

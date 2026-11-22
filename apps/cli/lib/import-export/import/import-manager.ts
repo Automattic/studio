@@ -7,7 +7,6 @@ import {
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
 import { __, sprintf } from '@wordpress/i18n';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../events';
@@ -30,6 +29,7 @@ import { SqlValidator } from './validators/sql-validator';
 import { Validator } from './validators/validator';
 import { WpressValidator } from './validators/wpress-validator';
 import { XmlValidator } from './validators/xml-validator';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 interface ImporterOption {
 	validator: Validator;
@@ -85,7 +85,7 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 		super();
 	}
 
-	async import( site: SiteData ): Promise< ImporterResult > {
+	async import( site: ConfigSite ): Promise< ImporterResult > {
 		const backupHandler = BackupHandlerFactory.create( this.backupFile );
 		if ( ! backupHandler ) {
 			throw new LoggerError(

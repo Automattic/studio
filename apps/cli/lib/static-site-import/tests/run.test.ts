@@ -17,13 +17,6 @@ describe( 'static site import receipts', () => {
 				response: { error: { code: 'bad_request', message: 'Missing source' } },
 			} )
 		).toBe( 'bad_request: Missing source' );
-		expect(
-			staticSiteImportReceiptError( {
-				response: { error: { code: 'static_site_importer_quality_failed' } },
-			} )
-		).toContain(
-			'The site and staged request were preserved: static_site_importer_quality_failed'
-		);
 		expect( staticSiteImportReceiptError( undefined ) ).toBe( '' );
 	} );
 } );

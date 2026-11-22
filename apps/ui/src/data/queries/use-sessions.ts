@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { useEffect } from 'react';
+import { useContext, useEffect } from 'react';
+import { AgentRunContext } from '@/data/agent-runs/context';
 import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
+import { SESSIONS_QUERY_KEY, useConnector } from '@/data/core';
 import { useRemoteSites } from '@/data/queries/use-remote-sites';
 import type {
 	AiModelId,
@@ -13,8 +14,9 @@ import type {
 	SessionEntry,
 	SyncSite,
 } from '@/data/core';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 
-export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
+export { SESSIONS_QUERY_KEY };
 
 export function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
 	return {
@@ -81,9 +83,49 @@ export async function openNewSession(
 
 export function useSessions() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
+	const runs = useContext( AgentRunContext )?.stateStore;
 	return useQuery( {
 		queryKey: SESSIONS_QUERY_KEY,
-		queryFn: () => connector.getSessions(),
+		queryFn: async () => {
+			// A list requested before a chat was created can arrive after it appears.
+			const known = new Set(
+				queryClient
+					.getQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY )
+					?.map( ( session ) => session.id )
+			);
+			const sessions = await connector.getSessions();
+			// The run can start before its first prompt has reached the session list.
+			const state = runs?.getState();
+			const pending = new Map(
+				( queryClient.getQueryData< AiSessionSummary[] >( SESSIONS_QUERY_KEY ) ?? [] )
+					.filter(
+						( session ) => session.firstPrompt && state?.[ session.id ]?.pendingFirstMessage
+					)
+					.map( ( session ) => [ session.id, session ] )
+			);
+			if ( ! pending.size ) return sessions;
+			const reconciled = sessions.map( ( session ) => {
+				const optimistic = pending.get( session.id );
+				pending.delete( session.id );
+				return optimistic && ! session.firstPrompt
+					? {
+							...session,
+							firstPrompt: optimistic.firstPrompt,
+							updatedAt:
+								Date.parse( session.updatedAt ) > Date.parse( optimistic.updatedAt )
+									? session.updatedAt
+									: optimistic.updatedAt,
+					  }
+					: session;
+			} );
+			const createdDuringFetch = [ ...pending.values() ].filter(
+				( session ) => ! known.has( session.id )
+			);
+			return [ ...createdDuringFetch, ...reconciled ].sort(
+				( a, b ) => Date.parse( b.updatedAt ) - Date.parse( a.updatedAt )
+			);
+		},
 		// The sidebar mounts its retry row once a first load fails: refetched on
 		// that mount, the list would go back to loading, unmount the row, fail
 		// again and repeat forever.
@@ -99,10 +141,8 @@ export function useSession( sessionId: string | undefined ) {
 		enabled: !! sessionId,
 		// `useAgentRun` mutates the cache during a live run and invalidates
 		// explicitly on `run.exited`. Any implicit refetch would race those
-		// cache writes and flicker the transcript. A transcript restored from the
-		// persisted cache can miss entries, so only that one refetches on mount.
-		refetchOnMount: ( query ) =>
-			query.state.dataUpdatedAt < performance.timeOrigin ? 'always' : false,
+		// cache writes and flicker the transcript.
+		refetchOnMount: false,
 		retryOnMount: false,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
@@ -118,6 +158,21 @@ export function useSetSessionEnvironment( sessionId: string ) {
 			connector.setSessionEnvironment( sessionId, environment ),
 		onError: ( error ) =>
 			toast.error( __( 'Couldn’t switch the site this chat works on' ), {
+				description: error.message,
+			} ),
+		onSettled: () =>
+			queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } ),
+	} );
+}
+
+export function useSetSessionThinking( sessionId: string ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( { model, thinking }: { model: AiModelId; thinking: ThinkingSetting } ) =>
+			connector.setSessionThinking( sessionId, model, thinking ),
+		onError: ( error ) =>
+			toast.error( __( 'Couldn’t change how much the model thinks' ), {
 				description: error.message,
 			} ),
 		onSettled: () =>

@@ -49,6 +49,12 @@ describe( 'auth attempt attribution', () => {
 		} );
 		expect( JSON.stringify( getAuthTracksProps( attempt ) ) ).not.toMatch( /private|secret/ );
 		expect( getAuthTracksProps() ).toEqual( { source: 'unknown' } );
+		const shareAttempt = createAuthAttempt( 'previews_tab', true, {
+			placement: 'share',
+			intent: 'share',
+		} );
+		expect( getAuthTracksProps( shareAttempt ) ).toMatchObject( { auth_flow: 'signup' } );
+		expect( getAuthTracksProps( shareAttempt ) ).not.toHaveProperty( 'account_type' );
 	} );
 
 	it( 'classifies a failed sign-in for Tracks without its message', () => {

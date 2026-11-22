@@ -2,8 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
-import { writeCliConfigFileRaw } from '@studio/common/lib/cli-config-file';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import {
 	initializeWalkthrough,
 	readOnboardingCompleted,
@@ -25,15 +24,15 @@ afterEach( () => {
 } );
 
 it( 'persists completion without losing unrelated preferences or legacy tour state', async () => {
-	await updateAppConfig( ( config ) => {
-		config.colorScheme = 'dark';
-		config.onboardingHints = { tourCompletedVersion: 2 };
+	await updateConfig( ( { preferences } ) => {
+		preferences.colorScheme = 'dark';
+		preferences.onboardingHints = { tourCompletedVersion: 2 };
 	} );
 	expect( await readOnboardingCompleted() ).toBe( false );
 	expect( await writeOnboardingCompleted( true ) ).toBe( true );
 	expect( await readOnboardingCompleted() ).toBe( true );
 	expect( await writeOnboardingCompleted( true ) ).toBe( false );
-	expect( await readAppConfig() ).toMatchObject( {
+	expect( ( await readConfig() ).preferences ).toMatchObject( {
 		colorScheme: 'dark',
 		onboardingHints: { tourCompletedVersion: 2 },
 		onboardingCompleted: true,
@@ -53,12 +52,14 @@ it( 'persists the annotation hint without losing other tips or guide progress', 
 		tourCompletedVersion: 2,
 		whatsNewSeenVersion: 3,
 		walkthroughStep: 'composer',
+		shareHintDismissed: true,
 	} );
 	await writeOnboardingHints( { annotateHintDismissed: true } );
 	expect( await readOnboardingHints() ).toMatchObject( {
 		tourCompletedVersion: 2,
 		whatsNewSeenVersion: 3,
 		walkthroughStep: 'composer',
+		shareHintDismissed: true,
 		annotateHintDismissed: true,
 	} );
 } );
@@ -82,19 +83,18 @@ it( 'persists the existing-site introduction across hosts', async () => {
 
 it.each( [
 	{ onboardingCompleted: true },
-	{ lastBumpStats: {} },
 	{ onboardingHints: { tourCompletedVersion: 1 } },
 	{ onboardingHints: { tourDismissedVersion: 1 } },
 	{ onboardingHints: { migratedFromClassic: true } },
 	{ onboardingHints: { whatsNewSeenVersion: 1 } },
 ] )( 'excludes prior users with no sites: %j', async ( prior ) => {
-	await updateAppConfig( ( config ) => Object.assign( config, prior ) );
+	await updateConfig( ( config ) => Object.assign( config.preferences, prior ) );
 	await initializeWalkthrough();
 	expect( await readOnboardingHints() ).toMatchObject( { walkthroughStep: 'ineligible' } );
 } );
 
 it( 'excludes users with existing CLI sites', async () => {
-	await writeCliConfigFileRaw( { sites: [ { id: 'existing', path: '/sites/existing' } ] } );
+	await updateConfig( ( config ) => { config.sites.push( { id: 'existing', name: 'Existing', path: '/sites/existing', port: 8881, phpVersion: '8.3' } ); } );
 	await initializeWalkthrough();
 	expect( await readOnboardingHints() ).toMatchObject( { walkthroughStep: 'ineligible' } );
 } );

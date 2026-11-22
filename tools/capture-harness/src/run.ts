@@ -7,7 +7,7 @@ import { loadLook, withBackground } from './look.ts';
 import { DEFAULT_LOOK, DEFAULT_SCENE, firstLine } from './paths.ts';
 import { createProfile, type Profile } from './profile.ts';
 import { loadScene, type LoadedScene, type ResolvedSite } from './scene.ts';
-import { seedChats, seedSites, siteMetadata } from './seed.ts';
+import { seedChats, seedSites, siteSettings } from './seed.ts';
 import { runSteps } from './steps.ts';
 import {
 	assertEmailHidden,
@@ -51,6 +51,8 @@ export interface RunOptions {
 	suites?: Set< string > | null;
 	only?: Set< string > | null;
 	diffDir?: string;
+	// Percentage of an image's pixels that must change before it's rewritten.
+	minChange?: number;
 	keepProfile?: boolean;
 	log?: ( message: string ) => void;
 	// In inspect mode, what to do at the selected shots instead of capturing.
@@ -88,6 +90,8 @@ export interface RunResult {
 	summary: {
 		new: number;
 		changed: number;
+		// Changed by less than `minChange`; the file on disk was kept.
+		minor: number;
 		unchanged: number;
 		failed: number;
 		skipped: number;
@@ -306,7 +310,16 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 		} ) ),
 		shots: [],
 		manual,
-		summary: { new: 0, changed: 0, unchanged: 0, failed: 0, skipped: 0, notRun: 0, videos: 0 },
+		summary: {
+			new: 0,
+			changed: 0,
+			minor: 0,
+			unchanged: 0,
+			failed: 0,
+			skipped: 0,
+			notRun: 0,
+			videos: 0,
+		},
 	};
 
 	const profiles: Profile[] = [];
@@ -372,9 +385,8 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 					profile,
 					look,
 					firstRun,
-					appData: firstRun
-						? {}
-						: { ...siteMetadata( scene.sites ), aiSessionPlacements: chats?.placements },
+					siteSettings: firstRun ? {} : siteSettings( scene.sites ),
+					placements: firstRun ? {} : chats?.placements,
 					authToken: signedIn ? authToken : null,
 					avatar: signedIn ? signedInAs?.avatar : undefined,
 					account: signedIn ? await loadAccount( scene ) : undefined,
@@ -484,14 +496,20 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 							shotResult.files = await captureShot( ctx, { ...shot, capture }, options.outDir, {
 								check: options.mode === 'check',
 								diffDir: options.diffDir,
+								minChange: options.minChange,
 							} );
 							for ( const file of shotResult.files ) {
 								const label = {
 									new: options.mode === 'check' ? 'new      ' : 'saved    ',
 									changed: options.mode === 'check' ? 'changed  ' : 'saved    ',
+									minor: 'minor    ',
 									unchanged: 'unchanged',
 								}[ file.status ];
-								log( `  ${ label } ${ path.basename( file.file ) }` );
+								const percent =
+									file.diffPercent !== undefined && file.status !== 'unchanged'
+										? ` (${ file.diffPercent }% of pixels)`
+										: '';
+								log( `  ${ label } ${ path.basename( file.file ) }${ percent }` );
 								result.summary[ file.status ]++;
 							}
 						}

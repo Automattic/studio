@@ -1,6 +1,7 @@
 import { Popover as BasePopover } from '@base-ui/react/popover';
 import { clsx } from 'clsx';
 import { FloatingSurface } from '@/lib/ui/surface';
+import tooltipStyles from '../tooltip/style.module.css';
 import styles from './style.module.css';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
@@ -53,6 +54,8 @@ export function Popup( {
 	preserveWindowDrag = false,
 	'aria-label': ariaLabel,
 	'aria-describedby': ariaDescribedBy,
+	'aria-hidden': ariaHidden,
+	inert,
 }: {
 	children: ReactNode;
 	side?: PositionerProps[ 'side' ];
@@ -70,12 +73,14 @@ export function Popup( {
 	style?: CSSProperties;
 	initialFocus?: PopupProps[ 'initialFocus' ];
 	finalFocus?: PopupProps[ 'finalFocus' ];
-	variant?: 'floating' | 'commands';
+	variant?: 'floating' | 'commands' | 'tooltip';
 	instant?: boolean;
 	'data-color-scheme'?: 'light' | 'dark';
 	preserveWindowDrag?: boolean;
 	'aria-label'?: string;
 	'aria-describedby'?: string;
+	'aria-hidden'?: PopupProps[ 'aria-hidden' ];
+	inert?: boolean;
 } ) {
 	const commands = variant === 'commands';
 	return (
@@ -104,9 +109,13 @@ export function Popup( {
 					finalFocus={ finalFocus }
 					aria-label={ ariaLabel }
 					aria-describedby={ ariaDescribedBy }
+					aria-hidden={ ariaHidden }
+					inert={ inert }
 					render={
 						commands ? (
 							<div className={ clsx( styles.commands, className ) } style={ style } />
+						) : variant === 'tooltip' ? (
+							<div className={ clsx( tooltipStyles.content, className ) } style={ style } />
 						) : (
 							<FloatingSurface className={ className } style={ style } />
 						)

@@ -182,11 +182,12 @@ describe( 'Add site flow', () => {
 					site.id
 				)
 			);
-			const retry = await screen.findByRole(
-				'button',
-				{ name: 'Try pulling again' },
-				{ timeout: 5000 }
-			);
+			const confirmation = await screen.findByRole( 'alertdialog', {
+				name: 'Update local site from remote.example?',
+			} );
+			const retry = within( confirmation ).getByRole( 'button', {
+				name: 'Replace selected content',
+			} );
 			expect(
 				connector.trackEvent.mock.calls.filter(
 					( [ name ] ) => name === TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED

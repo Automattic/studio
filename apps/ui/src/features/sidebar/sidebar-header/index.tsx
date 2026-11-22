@@ -20,17 +20,22 @@ export function SidebarHeader( { action }: { action?: ReactNode } ) {
 		void connector.popupAppMenu( { x: Math.round( rect.left ), y: Math.round( rect.bottom ) } );
 	};
 	return (
-		<div className={ clsx( styles.root, ! reserveTrafficLightSpace && styles.flush ) }>
+		<div
+			className={ clsx( styles.root, ! reserveTrafficLightSpace && styles.flush ) }
+			data-sidebar-docked={ ! collapsed }
+		>
 			{ connector.showsAppMenuButton && (
 				<IconButton
+					variant="ghost"
 					size="icon-sm"
 					icon={ <MenuIcon /> }
 					label={ __( 'Menu' ) }
+					tabIndex={ collapsed ? -1 : undefined }
 					onClick={ handleOpenAppMenu }
 				/>
 			) }
 			<span className={ styles.toggleSlot } data-sidebar-open={ sidebarOpen }>
-				<SidebarToggle />
+				<SidebarToggle tabIndex={ collapsed ? -1 : undefined } />
 			</span>
 			<div className={ styles.action }>
 				<WorkspaceNavigation hidden={ collapsed } />

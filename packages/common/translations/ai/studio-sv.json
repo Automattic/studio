@@ -1,0 +1,1370 @@
+{
+	"%1$dh %2$dm": [
+		"%1$d tim %2$d min"
+	],
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%1$s Use /connect %2$s to connect it.": [
+		"%1$s Använd /connect %2$s för att ansluta den."
+	],
+	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
+		"%1$s kunde inte installera WordPress Studio-tillägget: %2$s"
+	],
+	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
+		"%1$s kunde inte uppdatera WordPress Studio-tillägget: %2$s"
+	],
+	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
+		"%1$s är inte ansluten. Använd /connect %2$s för att ansluta den."
+	],
+	"%1$s screenshot %2$d": [
+		"%1$s skärmbild %2$d"
+	],
+	"%d B": [
+		"%d B"
+	],
+	"%d annotation ready to send": [
+		"%d anteckning redo att skickas",
+		"%d anteckningar redo att skickas"
+	],
+	"%d image": [
+		"%d bild",
+		"%d bilder"
+	],
+	"%s KB": [
+		"%s kB"
+	],
+	"%s is no longer installed. Choose another browser in Settings.": [
+		"%s är inte längre installerad. Välj en annan webbläsare i Inställningar."
+	],
+	"%s isn’t installed on this computer.": [
+		"%s är inte installerat på den här datorn."
+	],
+	"%s preview is ready": [
+		"Förhandsgranskningen av %s är klar"
+	],
+	"A code editor with a built-in AI agent.": [
+		"En kodredigerare med en inbyggd AI-agent."
+	],
+	"A coding agent that runs in your terminal.": [
+		"En kodningsagent som körs i din terminal."
+	],
+	"AI apps": [
+		"AI-appar"
+	],
+	"API key": [
+		"API-nyckel"
+	],
+	"Activate all plugins": [
+		"Aktivera alla tillägg"
+	],
+	"Activate plugin": [
+		"Aktivera tillägg"
+	],
+	"Activate theme": [
+		"Aktivera tema"
+	],
+	"Add annotation to batch": [
+		"Lägg till anteckningen i samlingen"
+	],
+	"Add or delete this annotation before starting another.": [
+		"Lägg till eller ta bort den här anteckningen innan du börjar på en ny."
+	],
+	"Admin bar hidden by default.": [
+		"Adminfältet döljs som standard."
+	],
+	"Admin bar shown by default.": [
+		"Adminfältet visas som standard."
+	],
+	"Agent apps": [
+		"Agentappar"
+	],
+	"Agents": [
+		"Agenter"
+	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"Tillåt WordPress Studio att använda ditt ChatGPT-abonnemang när du loggar in."
+	],
+	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
+		"Ett fel uppstod när WordPress Studio CLI uppdaterades. Försök igen."
+	],
+	"Annotation is available for design systems created by Studio Code.": [
+		"Anteckningar är tillgängliga för designsystem som skapats av Studio Code."
+	],
+	"Annotation tools": [
+		"Anteckningsverktyg"
+	],
+	"Anonymous usage statistics enabled.": [
+		"Anonym användningsstatistik har aktiverats."
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic avvisade den här API-nyckeln. Kontrollera nyckeln och försök igen."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic avvisade den här token. Kör claude setup-token igen."
+	],
+	"Appearance reset.": [
+		"Utseendet har återställts."
+	],
+	"Approve the code %1$s at %2$s": [
+		"Godkänn koden %1$s på %2$s"
+	],
+	"Approve the code %1$s on %2$s to connect.": [
+		"Godkänn koden %1$s på %2$s för att ansluta."
+	],
+	"Approve the connection in your browser.": [
+		"Godkänn anslutningen i din webbläsare."
+	],
+	"Audit SEO": [
+		"Granska SEO"
+	],
+	"Audit performance": [
+		"Granska prestanda"
+	],
+	"Automatic sidebar collapsing disabled.": [
+		"Automatisk minimering av sidopanelen har inaktiverats."
+	],
+	"Automatic sidebar collapsing enabled.": [
+		"Automatisk minimering av sidopanelen har aktiverats."
+	],
+	"Automatic site start on prompt disabled.": [
+		"Automatisk start av webbplatsen vid prompt har inaktiverats."
+	],
+	"Automatic site start on prompt enabled.": [
+		"Automatisk start av webbplatsen vid prompt har aktiverats."
+	],
+	"Back to email list": [
+		"Tillbaka till e-postlistan"
+	],
+	"Backups": [
+		"Säkerhetskopior"
+	],
+	"Balanced": [
+		"Balanserad"
+	],
+	"Batch notes": [
+		"Samla anteckningar"
+	],
+	"Batch notes disabled.": [
+		"Samlade anteckningar har inaktiverats."
+	],
+	"Batch notes enabled.": [
+		"Samlade anteckningar har aktiverats."
+	],
+	"Birdland": [
+		"Birdland"
+	],
+	"Blue Note": [
+		"Blue Note"
+	],
+	"Blue Train": [
+		"Blue Train"
+	],
+	"Blue in Green": [
+		"Blue in Green"
+	],
+	"Blueprint file…": [
+		"Blueprint-fil…"
+	],
+	"Blueprint preview": [
+		"Förhandsgranskning av blueprint"
+	],
+	"Blueprints, backups, and WordPress exports": [
+		"Blueprints, säkerhetskopior och WordPress-exporter"
+	],
+	"Browse Blueprints": [
+		"Bläddra bland blueprints"
+	],
+	"Browser options": [
+		"Webbläsaralternativ"
+	],
+	"Browsing data cleared": [
+		"Webbinformationen har rensats"
+	],
+	"Cc": [
+		"Kopia"
+	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"Ändringarna har överförts, men webbplatsen kunde inte lanseras. Kontrollera ditt paket och dina behörigheter och publicera sedan igen för att försöka lansera på nytt."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"Ändringarna har överförts, men webbplatsen kunde inte lanseras. Publicera igen för att försöka lansera på nytt."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"Ändringarna har överförts, men webbplatsen kunde inte lanseras. Verifiera din e-postadress och publicera sedan igen för att försöka lansera på nytt."
+	],
+	"Changes to %s": [
+		"Ändringar i %s"
+	],
+	"ChatGPT plan": [
+		"ChatGPT-abonnemang"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"Användningen av ditt ChatGPT-abonnemang är inte tillgänglig just nu. Försök igen om en stund."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT skickade tillbaka en ofullständig inloggning."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"Det gick inte att slutföra inloggningen med ChatGPT. Försök igen."
+	],
+	"Check your internet connection and try again.": [
+		"Kontrollera din internetanslutning och försök igen."
+	],
+	"Checking for updates…": [
+		"Söker efter uppdateringar…"
+	],
+	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
+		"Välj en WordPress-webbplatsmapp, en JSON-fil för blueprint eller ett ZIP-paket."
+	],
+	"Choose a folder containing an existing WordPress site.": [
+		"Välj en mapp som innehåller en befintlig WordPress-webbplats."
+	],
+	"Choose a provider": [
+		"Välj en leverantör"
+	],
+	"Choose a site source": [
+		"Välj en webbplatskälla"
+	],
+	"Choose a topic": [
+		"Välj ett ämne"
+	],
+	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
+		"Välj en tom mapp för att använda en källa. Den valda mappen innehåller redan en WordPress-webbplats."
+	],
+	"Choose an existing WordPress folder, blueprint, backup, or export.": [
+		"Välj en befintlig WordPress-mapp, blueprint, säkerhetskopia eller export."
+	],
+	"Choose another host": [
+		"Välj ett annat webbhotell"
+	],
+	"Choose color": [
+		"Välj färg"
+	],
+	"Claude subscription": [
+		"Claude-abonnemang"
+	],
+	"Claude subscription token": [
+		"Token för Claude-abonnemang"
+	],
+	"Clear browsing data": [
+		"Rensa webbinformation"
+	],
+	"Click anything on the page to leave a note": [
+		"Klicka på valfritt element på sidan för att lämna en anteckning"
+	],
+	"Close %s": [
+		"Stäng %s"
+	],
+	"Close all tabs": [
+		"Stäng alla flikar"
+	],
+	"Close other tabs": [
+		"Stäng andra flikar"
+	],
+	"Close tab": [
+		"Stäng flik"
+	],
+	"Close tabs to the right": [
+		"Stäng flikar till höger"
+	],
+	"Collect annotations and send them together instead of one at a time.": [
+		"Samla anteckningar och skicka dem tillsammans i stället för en i taget."
+	],
+	"Color picker": [
+		"Färgväljare"
+	],
+	"Connect %s first.": [
+		"Anslut %s först."
+	],
+	"Connect AI providers": [
+		"Anslut AI-leverantörer"
+	],
+	"Connect Spacefast to publish sites.": [
+		"Anslut Spacefast för att publicera webbplatser."
+	],
+	"Connect a provider": [
+		"Anslut en leverantör"
+	],
+	"Connect to Spacefast": [
+		"Anslut till Spacefast"
+	],
+	"Connect to an existing WordPress": [
+		"Anslut till en befintlig WordPress-webbplats"
+	],
+	"Connect your WordPress": [
+		"Anslut din WordPress-webbplats"
+	],
+	"Connecting to WordPress.com": [
+		"Ansluter till WordPress.com"
+	],
+	"Continue with GitHub": [
+		"Fortsätt med GitHub"
+	],
+	"Copy links": [
+		"Kopiera länkar"
+	],
+	"Cotton Tail": [
+		"Cotton Tail"
+	],
+	"Could not clear browsing data": [
+		"Det gick inte att rensa webbinformationen"
+	],
+	"Could not delete the old preview site. It will expire on its own.": [
+		"Det gick inte att ta bort den gamla förhandsgranskningswebbplatsen. Den upphör att gälla av sig själv."
+	],
+	"Could not migrate your sites": [
+		"Det gick inte att migrera dina webbplatser"
+	],
+	"Could not open DevTools": [
+		"Det gick inte att öppna utvecklingsverktygen"
+	],
+	"Could not open Spacefast": [
+		"Det gick inte att öppna Spacefast"
+	],
+	"Could not reach Anthropic to verify the credential.": [
+		"Det gick inte att nå Anthropic för att verifiera autentiseringsuppgifterna."
+	],
+	"Could not read the table prefix from wp-config.php": [
+		"Det gick inte att läsa tabellprefixet från wp-config.php"
+	],
+	"Could not reset appearance. Please try again.": [
+		"Det gick inte att återställa utseendet. Försök igen."
+	],
+	"Could not reset interface. Please try again.": [
+		"Det gick inte att återställa gränssnittet. Försök igen."
+	],
+	"Could not reset tips. Please try again.": [
+		"Det gick inte att återställa tipsen. Försök igen."
+	],
+	"Could not update settings. Please try again.": [
+		"Det gick inte att uppdatera inställningarna. Försök igen."
+	],
+	"Could not update the admin bar setting. Please try again.": [
+		"Det gick inte att uppdatera inställningen för adminfältet. Försök igen."
+	],
+	"Could not verify the credential with Anthropic.": [
+		"Det gick inte att verifiera autentiseringsuppgifterna hos Anthropic."
+	],
+	"Couldn't load providers.": [
+		"Det gick inte att hämta leverantörer."
+	],
+	"Couldn’t load apps.": [
+		"Det gick inte att hämta appar."
+	],
+	"Couldn’t sign in to WordPress.com": [
+		"Det gick inte att logga in på WordPress.com"
+	],
+	"Create %s": [
+		"Skapa %s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"Skapa en nyckel i [Google AI Studio](https://aistudio.google.com/apikey) och klistra sedan in den nedan."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"Skapa en nyckel på fliken API keys i [instrumentpanelen för Meta Model API](https://dev.meta.ai) och klistra sedan in den nedan."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"Skapa en nyckel i [Claude Console](https://platform.claude.com/settings/keys) och klistra sedan in den nedan."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"Skapa en nyckel på [OpenAI Platform](https://platform.openai.com/api-keys) och klistra sedan in den nedan."
+	],
+	"Create a new WordPress": [
+		"Skapa en ny WordPress-webbplats"
+	],
+	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
+		"Skapa ett konto, eller logga in, för att ansluta dina WordPress.com- eller Pressable-webbplatser."
+	],
+	"Create another preview": [
+		"Skapa en till förhandsgranskning"
+	],
+	"Create user": [
+		"Skapa användare"
+	],
+	"Deactivate all plugins": [
+		"Inaktivera alla tillägg"
+	],
+	"Deactivate plugin": [
+		"Inaktivera tillägg"
+	],
+	"Default AI provider": [
+		"Standard-AI-leverantör"
+	],
+	"Default browser": [
+		"Standardwebbläsare"
+	],
+	"Default code editor": [
+		"Standardkodredigerare"
+	],
+	"Default hosting provider": [
+		"Standardwebbhotell"
+	],
+	"Default terminal app": [
+		"Standardterminalapp"
+	],
+	"Delete %s": [
+		"Ta bort %s"
+	],
+	"Delete plugin": [
+		"Ta bort tillägg"
+	],
+	"Delete theme": [
+		"Ta bort tema"
+	],
+	"Delete user": [
+		"Ta bort användare"
+	],
+	"Describe the change": [
+		"Beskriv ändringen"
+	],
+	"Design systems are available for block themes.": [
+		"Designsystem finns för blockteman."
+	],
+	"Disable automatic sidebar collapsing": [
+		"Inaktivera automatisk minimering av sidopanelen"
+	],
+	"Disable automatic site start on prompt": [
+		"Inaktivera automatisk start av webbplatsen vid prompt"
+	],
+	"Disable batch notes": [
+		"Inaktivera samlade anteckningar"
+	],
+	"Discard changes?": [
+		"Vill du förkasta ändringarna?"
+	],
+	"Disconnect a provider": [
+		"Koppla från en leverantör"
+	],
+	"Dismiss tip": [
+		"Stäng tips"
+	],
+	"Do more with WordPress": [
+		"Gör mer med WordPress"
+	],
+	"Domains": [
+		"Domäner"
+	],
+	"Download update": [
+		"Ladda ner uppdatering"
+	],
+	"Drop to add site": [
+		"Släpp för att lägga till webbplats"
+	],
+	"Drop your file here": [
+		"Släpp din fil här"
+	],
+	"Edit annotation: %s": [
+		"Redigera anteckning: %s"
+	],
+	"Email log": [
+		"E-postlogg"
+	],
+	"Enable anonymous usage statistics": [
+		"Aktivera anonym användningsstatistik"
+	],
+	"Enable automatic sidebar collapsing": [
+		"Aktivera automatisk minimering av sidopanelen"
+	],
+	"Enable automatic site start on prompt": [
+		"Aktivera automatisk start av webbplatsen vid prompt"
+	],
+	"Enable batch notes": [
+		"Aktivera samlade anteckningar"
+	],
+	"Enter a folder name other than “.” or “..”.": [
+		"Ange ett annat mappnamn än ”.” eller ”..”."
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"Ange en token från claude setup-token, inte en API-nyckel."
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Existing WordPress site": [
+		"Befintlig WordPress-webbplats"
+	],
+	"Expand panel": [
+		"Expandera panelen"
+	],
+	"External AI apps": [
+		"Externa AI-appar"
+	],
+	"Failed after %s": [
+		"Misslyckades efter %s"
+	],
+	"Failed to back up the remote site": [
+		"Det gick inte att säkerhetskopiera fjärrwebbplatsen"
+	],
+	"Failed to check backup size": [
+		"Det gick inte att kontrollera säkerhetskopians storlek"
+	],
+	"Failed to check the preview site": [
+		"Det gick inte att kontrollera förhandsgranskningswebbplatsen"
+	],
+	"Failed to create the %s site": [
+		"Det gick inte att skapa %s-webbplatsen"
+	],
+	"Failed to create the Space": [
+		"Det gick inte att skapa Space"
+	],
+	"Failed to find existing preview site in config": [
+		"Det gick inte att hitta en befintlig förhandsgranskningswebbplats i konfigurationen"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"Det gick inte att läsa in dina Spacefast Spaces"
+	],
+	"Failed to publish to Spacefast": [
+		"Det gick inte att publicera till Spacefast"
+	],
+	"Failed to save connected site": [
+		"Det gick inte att spara den anslutna webbplatsen"
+	],
+	"Feedback areas": [
+		"Områden för feedback"
+	],
+	"Feedback sent": [
+		"Feedback skickad"
+	],
+	"Feedback type": [
+		"Typ av feedback"
+	],
+	"Finish signing in to %s in your browser.": [
+		"Slutför inloggningen på %s i din webbläsare."
+	],
+	"First use": [
+		"Första användning"
+	],
+	"For publishing sites.": [
+		"För att publicera webbplatser."
+	],
+	"From many, one tool.\nFind strength in community\nfor a better web.": [
+		"Av många, ett verktyg.\nFinn styrka i gemenskap\nför en bättre webb."
+	],
+	"Gemini API key": [
+		"API-nyckel för Gemini"
+	],
+	"Generate images": [
+		"Generera bilder"
+	],
+	"Giant Steps": [
+		"Giant Steps"
+	],
+	"GitHub sign-in was declined.": [
+		"Inloggningen med GitHub nekades."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google avvisade den här API-nyckeln. Kontrollera nyckeln och försök igen."
+	],
+	"Green Dolphin Street": [
+		"Green Dolphin Street"
+	],
+	"Hide admin bar": [
+		"Dölj adminfältet"
+	],
+	"Hide admin bar by default": [
+		"Dölj adminfältet som standard"
+	],
+	"Hide chat when starting sites": [
+		"Dölj chatten när webbplatser startas"
+	],
+	"Hide panel": [
+		"Dölj panelen"
+	],
+	"Hide recent chats": [
+		"Dölj senaste chattar"
+	],
+	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
+		"Dölj WordPress-adminfältet som standard på lokala webbplatser. Ändra detta för enskilda webbplatser i webbläsaralternativen."
+	],
+	"Hints": [
+		"Tips"
+	],
+	"Hosting providers": [
+		"Webbhotell"
+	],
+	"Hostname of the preview site": [
+		"Värdnamn för förhandsgranskningswebbplatsen"
+	],
+	"How do you want to connect %s?": [
+		"Hur vill du ansluta %s?"
+	],
+	"How to connect": [
+		"Så ansluter du"
+	],
+	"Hue": [
+		"Nyans"
+	],
+	"Image annotation": [
+		"Bildanteckning"
+	],
+	"Import a blueprint or backup": [
+		"Importera en blueprint eller säkerhetskopia"
+	],
+	"Import cancelled": [
+		"Importen avbröts"
+	],
+	"Import media": [
+		"Importera media"
+	],
+	"Import site": [
+		"Importera webbplats"
+	],
+	"Include this chat’s transcript": [
+		"Inkludera den här chattens utskrift"
+	],
+	"Inspect design": [
+		"Inspektera design"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"Installera [Claude Code](https://code.claude.com/docs/en/setup) om du inte redan har det."
+	],
+	"Install plugin": [
+		"Installera tillägg"
+	],
+	"Install taxonomy scripts": [
+		"Installera taxonomiskript"
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"Installera WordPress Studio CLI och konfigurera MCP för en annan app."
+	],
+	"Install the WordPress Studio CLI.": [
+		"Installera WordPress Studio CLI."
+	],
+	"Install theme": [
+		"Installera tema"
+	],
+	"Interface reset.": [
+		"Gränssnittet har återställts."
+	],
+	"Interface theme": [
+		"Gränssnittstema"
+	],
+	"Kind of Blue": [
+		"Kind of Blue"
+	],
+	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
+		"Läs mer på <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
+	],
+	"Liberate": [
+		"Befria"
+	],
+	"List": [
+		"Lista"
+	],
+	"List %s": [
+		"Lista %s"
+	],
+	"List connected remote sites": [
+		"Lista anslutna fjärrwebbplatser"
+	],
+	"List menus": [
+		"Lista menyer"
+	],
+	"List plugins": [
+		"Lista tillägg"
+	],
+	"List previews": [
+		"Lista förhandsgranskningar"
+	],
+	"List published %s": [
+		"Lista publicerade %s"
+	],
+	"List terms": [
+		"Lista termer"
+	],
+	"List themes": [
+		"Lista teman"
+	],
+	"List users": [
+		"Lista användare"
+	],
+	"Loading file…": [
+		"Läser in fil…"
+	],
+	"Log in or create account": [
+		"Logga in eller skapa ett konto"
+	],
+	"Log in to WordPress.com to sync sites.": [
+		"Logga in på WordPress.com för att synkronisera webbplatser."
+	],
+	"Maiden Voyage": [
+		"Maiden Voyage"
+	],
+	"Manage AI credits": [
+		"Hantera AI-krediter"
+	],
+	"Manage cache": [
+		"Hantera cache"
+	],
+	"Manage content": [
+		"Hantera innehåll"
+	],
+	"Manage media": [
+		"Hantera media"
+	],
+	"Manage menus": [
+		"Hantera menyer"
+	],
+	"Manage on WordPress.com": [
+		"Hantera på WordPress.com"
+	],
+	"Manage permalinks": [
+		"Hantera permalänkar"
+	],
+	"Manage plugins": [
+		"Hantera tillägg"
+	],
+	"Manage sharing": [
+		"Hantera delning"
+	],
+	"Manage site options": [
+		"Hantera webbplatsalternativ"
+	],
+	"Manage terms": [
+		"Hantera termer"
+	],
+	"Manage themes": [
+		"Hantera teman"
+	],
+	"Manage usage": [
+		"Hantera användning"
+	],
+	"Manage users": [
+		"Hantera användare"
+	],
+	"Manual MCP setup": [
+		"Manuell MCP-konfiguration"
+	],
+	"Meta API key": [
+		"API-nyckel för Meta"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta begränsar förfrågningarna med din API-nyckel. Försök igen om en stund eller kontrollera dina gränser på dev.meta.ai."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta avvisade den här API-nyckeln. Kontrollera nyckeln och försök igen."
+	],
+	"Mood Indigo": [
+		"Mood Indigo"
+	],
+	"New WordPress Studio Site": [
+		"Ny WordPress Studio-webbplats"
+	],
+	"New tab": [
+		"Ny flik"
+	],
+	"No design system is available for this theme.": [
+		"Det finns inget designsystem för det här temat."
+	],
+	"No matching sites.": [
+		"Inga matchande webbplatser."
+	],
+	"No provider is connected.": [
+		"Ingen leverantör är ansluten."
+	],
+	"No providers": [
+		"Inga leverantörer"
+	],
+	"No recipient": [
+		"Ingen mottagare"
+	],
+	"Open %s settings": [
+		"Öppna inställningar för %s"
+	],
+	"Open Folder…": [
+		"Öppna mapp…"
+	],
+	"Open Spacefast": [
+		"Öppna Spacefast"
+	],
+	"Open a project page to annotate.": [
+		"Öppna en projektsida för att göra anteckningar."
+	],
+	"Open a site or Blueprint": [
+		"Öppna en webbplats eller blueprint"
+	],
+	"Open documentation": [
+		"Öppna dokumentationen"
+	],
+	"Open email log": [
+		"Öppna e-postloggen"
+	],
+	"Open on GitHub": [
+		"Öppna på GitHub"
+	],
+	"Open the WordPress Studio app to add an existing WordPress folder.": [
+		"Öppna WordPress Studio-appen för att lägga till en befintlig WordPress-mapp."
+	],
+	"OpenAI API key": [
+		"API-nyckel för OpenAI"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI avvisade den här API-nyckeln. Kontrollera nyckeln och försök igen."
+	],
+	"OpenAI’s coding agent in the ChatGPT app.": [
+		"OpenAI:s kodningsagent i ChatGPT-appen."
+	],
+	"Parent folder": [
+		"Överordnad mapp"
+	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"Klistra in den token som skrivs ut. Användningen räknas mot ditt Claude-abonnemang."
+	],
+	"Pending annotation": [
+		"Väntande anteckning"
+	],
+	"Performance audit": [
+		"Prestandagranskning"
+	],
+	"Pick design": [
+		"Välj design"
+	],
+	"Point or draw to suggest a change.": [
+		"Peka eller rita för att föreslå en ändring."
+	],
+	"Point to something you’d like to change.": [
+		"Peka på något du vill ändra."
+	],
+	"Preview browser controls": [
+		"Kontroller för förhandsgranskningswebbläsaren"
+	],
+	"Preview creation cancelled": [
+		"Skapandet av förhandsgranskningen avbröts"
+	],
+	"Preview site not found": [
+		"Förhandsgranskningswebbplatsen hittades inte"
+	],
+	"Preview tabs": [
+		"Förhandsgranskningsflikar"
+	],
+	"Project tools": [
+		"Projektverktyg"
+	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"Publicera en statisk kopia av din webbplats till en Spacefast Space. Formulär, kommentarer och andra funktioner som kräver att WordPress körs fungerar inte i kopian."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"Publicera en statisk kopia av dina webbplatser till en Spacefast Space."
+	],
+	"Publish to %s to apply these changes.": [
+		"Publicera till %s för att tillämpa ändringarna."
+	],
+	"Publish to Spacefast": [
+		"Publicera till Spacefast"
+	],
+	"Publish your changes.": [
+		"Publicera dina ändringar."
+	],
+	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
+		"Publicera din webbplats när den är klar, eller dela en förhandsgranskning via WordPress.com."
+	],
+	"Published sites": [
+		"Publicerade webbplatser"
+	],
+	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
+		"Publicering och hämtning kräver en WordPress.com- eller Pressable-webbplats som stöds."
+	],
+	"Publishing cancelled": [
+		"Publiceringen avbröts"
+	],
+	"Publishing changes…": [
+		"Publicerar ändringar…"
+	],
+	"Pull a WordPress.com or Pressable site to your local site": [
+		"Hämta en WordPress.com- eller Pressable-webbplats till din lokala webbplats"
+	],
+	"Pull only the database (keeps the local files)": [
+		"Hämta endast databasen (behåller de lokala filerna)"
+	],
+	"Pull preview": [
+		"Hämta förhandsgranskning"
+	],
+	"Pull site": [
+		"Hämta webbplats"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"Om du hämtar förhandsgranskningen ersätts ändringarna som gjorts här."
+	],
+	"Push site": [
+		"Överför webbplats"
+	],
+	"Read": [
+		"Läs"
+	],
+	"Read %s": [
+		"Läs %s"
+	],
+	"Read site option": [
+		"Läs webbplatsalternativ"
+	],
+	"Recent chats": [
+		"Senaste chattar"
+	],
+	"Recent chats hidden.": [
+		"Senaste chattar döljs."
+	],
+	"Recent chats shown.": [
+		"Senaste chattar visas."
+	],
+	"Recent pages": [
+		"Senaste sidor"
+	],
+	"Remote environment: %s": [
+		"Fjärrmiljö: %s"
+	],
+	"Remove Blueprint": [
+		"Ta bort blueprint"
+	],
+	"Replace the contents of a non-empty output directory": [
+		"Ersätt innehållet i en utdatakatalog som inte är tom"
+	],
+	"Report an issue on GitHub": [
+		"Rapportera ett problem på GitHub"
+	],
+	"Request a feature or report a bug.": [
+		"Föreslå en funktion eller rapportera en bugg."
+	],
+	"Reset folder name to match site name": [
+		"Återställ mappnamnet så att det matchar webbplatsnamnet"
+	],
+	"Reset tips": [
+		"Återställ tips"
+	],
+	"Resize panel": [
+		"Ändra panelens storlek"
+	],
+	"Resize viewport: %s": [
+		"Ändra storlek på visningsområdet: %s"
+	],
+	"Responsive preview": [
+		"Responsiv förhandsgranskning"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"Starta om WordPress Studio för att slutföra uppdateringen."
+	],
+	"Restore the default interface theme, accent color, intensity, and contrast.": [
+		"Återställ standardinställningarna för gränssnittstema, accentfärg, intensitet och kontrast."
+	],
+	"Rotate to landscape": [
+		"Rotera till liggande"
+	],
+	"Rotate to portrait": [
+		"Rotera till stående"
+	],
+	"Rotate viewport": [
+		"Rotera visningsområdet"
+	],
+	"Round Midnight": [
+		"Round Midnight"
+	],
+	"Run": [
+		"Kör"
+	],
+	"Run WordPress code": [
+		"Kör WordPress-kod"
+	],
+	"Run WordPress command": [
+		"Kör WordPress-kommando"
+	],
+	"Run task": [
+		"Kör uppgift"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"Kör detta i en terminal och logga sedan in med ditt Claude-konto:"
+	],
+	"SEO audit": [
+		"SEO-granskning"
+	],
+	"Saturation and brightness": [
+		"Mättnad och ljusstyrka"
+	],
+	"Save annotation (Enter)": [
+		"Spara anteckning (Enter)"
+	],
+	"Select an email to read it.": [
+		"Välj ett e-postmeddelande för att läsa det."
+	],
+	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
+		"Valda filer, innehåll och inställningar i WordPress Studio skrivs över. Din webbplats förblir oförändrad."
+	],
+	"Selected files, content, and settings on your website will be overwritten.": [
+		"Valda filer, innehåll och inställningar på din webbplats skrivs över."
+	],
+	"Send %d annotation": [
+		"Skicka %d anteckning",
+		"Skicka %d anteckningar"
+	],
+	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
+		"Dela en tillfällig kopia av din lokala webbplats med vem som helst. En förhandsgranskningswebbplats upphör att gälla om den inte uppdateras på ungefär en vecka."
+	],
+	"Share details (required)": [
+		"Beskriv närmare (obligatoriskt)"
+	],
+	"Share ideas and report problems directly to the Studio team.": [
+		"Dela idéer och rapportera problem direkt till Studio-teamet."
+	],
+	"Show admin bar by default": [
+		"Visa adminfältet som standard"
+	],
+	"Show chat beside the panel when starting a site.": [
+		"Visa chatten bredvid panelen när en webbplats startas."
+	],
+	"Show chat when starting sites": [
+		"Visa chatten när webbplatser startas"
+	],
+	"Show or hide the panel beside your chat.": [
+		"Visa eller dölj panelen bredvid chatten."
+	],
+	"Show panel": [
+		"Visa panelen"
+	],
+	"Show whether a preview site or its local site changed since they were synced": [
+		"Visa om en förhandsgranskningswebbplats eller dess lokala webbplats har ändrats sedan de synkroniserades"
+	],
+	"Sign in at %s": [
+		"Logga in på %s"
+	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"Logga in med ChatGPT eller använd en API-nyckel för OpenAI."
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"Logga in med ett GitHub-konto som har åtkomst till Copilot."
+	],
+	"Signing in took too long. Try again.": [
+		"Inloggningen tog för lång tid. Försök igen."
+	],
+	"Site annotation is not available in the browser yet": [
+		"Anteckningar på webbplatsen är inte tillgängliga i webbläsaren ännu"
+	],
+	"Site exported": [
+		"Webbplatsen har exporterats"
+	],
+	"Site folder": [
+		"Webbplatsmapp"
+	],
+	"Site sources": [
+		"Webbplatskällor"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"Det gick inte att hämta webbplatser. Kontrollera din internetanslutning och försök igen."
+	],
+	"Sites will start with the panel expanded.": [
+		"Webbplatser startas med panelen expanderad."
+	],
+	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
+		"Färdigheter ger AI-agenter vägledning för WordPress-utveckling. Ändringar här gäller för alla befintliga webbplatser och blir standard för nya webbplatser."
+	],
+	"Spacefast sign-in was declined.": [
+		"Inloggningen på Spacefast nekades."
+	],
+	"Split view": [
+		"Delad vy"
+	],
+	"Start building with free AI credits.": [
+		"Börja bygga med gratis AI-krediter."
+	],
+	"Start signing in again.": [
+		"Börja logga in igen."
+	],
+	"Start signing in to Spacefast again.": [
+		"Börja logga in på Spacefast igen."
+	],
+	"Start signing in with ChatGPT again.": [
+		"Börja logga in med ChatGPT igen."
+	],
+	"Start signing in with GitHub again.": [
+		"Börja logga in med GitHub igen."
+	],
+	"Start this site.": [
+		"Starta den här webbplatsen."
+	],
+	"Static export failed: %s": [
+		"Statisk export misslyckades: %s"
+	],
+	"Stop annotating": [
+		"Sluta anteckna"
+	],
+	"Stop annotating. Your notes will be kept.": [
+		"Sluta anteckna. Dina anteckningar sparas."
+	],
+	"Supported files: %s.": [
+		"Filer som stöds: %s."
+	],
+	"Swing Time": [
+		"Swing Time"
+	],
+	"Take Five": [
+		"Take Five"
+	],
+	"Taxonomist": [
+		"Taxonom"
+	],
+	"Team": [
+		"Team"
+	],
+	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
+		"Tack för att du hjälper till att förbättra WordPress Studio. Referens-ID:t för din feedback är <id>%s</id>."
+	],
+	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
+		"Den filtypen stöds inte. Välj en blueprint, en WordPress-säkerhetskopia eller en XML-exportfil."
+	],
+	"The GitHub sign-in expired. Try again.": [
+		"Inloggningen med GitHub har gått ut. Försök igen."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"Inloggningen på Spacefast har gått ut. Försök igen."
+	],
+	"The database failed to import on the live site. Review your database and try again.": [
+		"Det gick inte att importera databasen på live-webbplatsen. Granska din databas och försök igen."
+	],
+	"The default browser for your sites.": [
+		"Standardwebbläsaren för dina webbplatser."
+	],
+	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
+		"Den första hämtningen av en webbplats måste innehålla dess filer. Hämta hela webbplatsen en gång och hämta sedan endast databasen."
+	],
+	"The output directory %s is not empty.": [
+		"Utdatakatalogen %s är inte tom."
+	],
+	"The preview site could not be built from the archive.": [
+		"Förhandsgranskningswebbplatsen kunde inte byggas från arkivet."
+	],
+	"The preview site did not become ready within the timeout.": [
+		"Förhandsgranskningswebbplatsen blev inte klar inom tidsgränsen."
+	],
+	"The preview site has no preview link.": [
+		"Förhandsgranskningswebbplatsen har ingen förhandsgranskningslänk."
+	],
+	"The site archive exceeds the %d GB size limit.": [
+		"Webbplatsarkivet överskrider storleksgränsen på %d GB."
+	],
+	"Then add this configuration to your app.": [
+		"Lägg sedan till den här konfigurationen i din app."
+	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"Det här GitHub-kontot har inget Copilot-abonnemang. Välj ett abonnemang på github.com/features/copilot."
+	],
+	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
+		"Den här ZIP-filen kunde inte användas. Kontrollera att den innehåller en giltig blueprint.json-fil på översta nivån eller i en omslutande mapp och försök igen."
+	],
+	"This email is gone.": [
+		"Det här e-postmeddelandet finns inte längre."
+	],
+	"This file took too long to load. Please try again or choose another file.": [
+		"Det tog för lång tid att läsa in filen. Försök igen eller välj en annan fil."
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"Den här mappen är redan kopplad till en annan Studio-webbplats. Välj en annan lokal mapp."
+	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"Det här är en nyckel för Anthropic. Lägg till den hos Anthropic i stället."
+	],
+	"This site is no longer available in WordPress Studio.": [
+		"Den här webbplatsen är inte längre tillgänglig i WordPress Studio."
+	],
+	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
+		"Den här webbplatsen är inte redo att startas. %s Kör `studio pull` igen för att slutföra hämtningen, eller `studio delete` för att ta bort webbplatsen."
+	],
+	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
+		"Den här webbplatsen är större än %d GB, så det kan misslyckas att publicera den tillbaka till WordPress.com. Publicera ett mindre urval av filer i stället."
+	],
+	"This site isn't one of your WordPress.com or Pressable sites.": [
+		"Den här webbplatsen är inte en av dina WordPress.com- eller Pressable-webbplatser."
+	],
+	"Tips reset.": [
+		"Tipsen har återställts."
+	],
+	"To %s": [
+		"Till %s"
+	],
+	"Token is required": [
+		"Token krävs"
+	],
+	"Try downloading the update again.": [
+		"Försök ladda ner uppdateringen igen."
+	],
+	"Unable to open this folder.": [
+		"Det gick inte att öppna den här mappen."
+	],
+	"Unable to open this source.": [
+		"Det gick inte att öppna den här källan."
+	],
+	"Unknown provider %1$s. Choose one of: %2$s.": [
+		"Okänd leverantör %1$s. Välj en av: %2$s."
+	],
+	"Update %s": [
+		"Uppdatera %s"
+	],
+	"Update all plugins": [
+		"Uppdatera alla tillägg"
+	],
+	"Update plugin": [
+		"Uppdatera tillägg"
+	],
+	"Update site option": [
+		"Uppdatera webbplatsalternativ"
+	],
+	"Update user": [
+		"Uppdatera användare"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"Användningen faktureras via ditt Anthropic-konto."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"Användningen faktureras via ditt Google AI Studio-projekt."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"Användningen faktureras via ditt Meta Model API-konto."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"Användningen faktureras via ditt OpenAI-konto."
+	],
+	"Use /connect %1$s to connect %2$s again.": [
+		"Använd /connect %1$s för att ansluta %2$s igen."
+	],
+	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
+		"Använd Alt+Skift+Vänsterpil eller Högerpil för att flytta den här fliken."
+	],
+	"Use Blueprint": [
+		"Använd blueprint"
+	],
+	"Use Gemini with a Gemini API key.": [
+		"Använd Gemini med en API-nyckel för Gemini."
+	],
+	"Use Muse models with your Meta API key.": [
+		"Använd Muse-modeller med din API-nyckel för Meta."
+	],
+	"Use WordPress Studio with your agents": [
+		"Använd WordPress Studio med dina agenter"
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"Använd en API-nyckel för Anthropic eller en token för ett Claude-abonnemang."
+	],
+	"Using ChatGPT plan": [
+		"Använder ChatGPT-abonnemang"
+	],
+	"Using Claude plan": [
+		"Använder Claude-abonnemang"
+	],
+	"Using Copilot plan": [
+		"Använder Copilot-abonnemang"
+	],
+	"Validate blocks": [
+		"Validera block"
+	],
+	"Visit previews": [
+		"Besök förhandsgranskningar"
+	],
+	"Visual Annotations": [
+		"Visuella anteckningar"
+	],
+	"Waiting for %s": [
+		"Väntar i %s"
+	],
+	"What would you like to open?": [
+		"Vad vill du öppna?"
+	],
+	"Where do you want to publish?": [
+		"Var vill du publicera?"
+	],
+	"WordPress Studio CLI for terminal": [
+		"WordPress Studio CLI för terminalen"
+	],
+	"WordPress Studio could not open the email folder.": [
+		"WordPress Studio kunde inte öppna e-postmappen."
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"WordPress Studio kunde inte öppna mappen. Försök igen."
+	],
+	"WordPress Studio could not open the site.": [
+		"WordPress Studio kunde inte öppna webbplatsen."
+	],
+	"WordPress Studio team": [
+		"WordPress Studio-teamet"
+	],
+	"WordPress Studio will create a local copy of this site in an empty folder.": [
+		"WordPress Studio skapar en lokal kopia av den här webbplatsen i en tom mapp."
+	],
+	"WordPress Studio will create a site from this blueprint in an empty folder.": [
+		"WordPress Studio skapar en webbplats från den här blueprinten i en tom mapp."
+	],
+	"WordPress Studio will restore this backup into an empty folder.": [
+		"WordPress Studio återställer den här säkerhetskopian till en tom mapp."
+	],
+	"WordPress export": [
+		"WordPress-export"
+	],
+	"WordPress.com API": [
+		"WordPress.com-API"
+	],
+	"WordPress.com hosting": [
+		"WordPress.com-webbhotell"
+	],
+	"Worked for %s": [
+		"Arbetade i %s"
+	],
+	"Working for %s": [
+		"Har arbetat i %s"
+	],
+	"Write": [
+		"Skriv"
+	],
+	"You need administrator access to publish or pull changes.": [
+		"Du behöver administratörsåtkomst för att publicera eller hämta ändringar."
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"Du har nått användningsgränsen för ditt ChatGPT-abonnemang. Hantera användningen på chatgpt.com/settings/usage."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"Du har nått användningsgränsen för ditt Copilot-abonnemang. Hantera användningen på github.com/settings/copilot."
+	],
+	"You stopped after %s": [
+		"Du stoppade efter %s"
+	],
+	"You're not logged in to WordPress.com. Log in now?": [
+		"Du är inte inloggad på WordPress.com. Vill du logga in nu?"
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"Ditt ChatGPT-abonnemang kan inte användas i WordPress Studio."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"Din ChatGPT-inloggning fungerar inte längre. Anslut ChatGPT igen i Inställningar."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"Ditt Copilot-abonnemang inkluderar inte den här modellen. Välj en annan eller aktivera den på github.com/settings/copilot."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"Din Spacefast-inloggning fungerar inte längre. Anslut Spacefast igen."
+	],
+	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
+		"Din förhandsgranskning har flyttats till WordPress.com, så länken har ändrats. Ny länk: %s"
+	],
+	"Your unsaved changes will be lost.": [
+		"Dina osparade ändringar går förlorade."
+	],
+	"media item": [
+		"mediaobjekt"
+	],
+	"media items": [
+		"mediaobjekt"
+	],
+	"page": [
+		"sida"
+	],
+	"pages": [
+		"sidor"
+	],
+	"posts": [
+		"inlägg"
+	],
+	"product": [
+		"produkt"
+	],
+	"products": [
+		"produkter"
+	],
+	"· %d%%": [
+		"· %d %%"
+	]
+}

@@ -375,6 +375,10 @@ STUDIO_PREVIEW_SHORTCUTS;
 			return;
 		}
 
+		// The API needs only WordPress core, so the site's plugins are not loaded for it.
+		add_filter( 'option_active_plugins', '__return_empty_array' );
+		add_filter( 'site_option_active_sitewide_plugins', '__return_empty_array' );
+
 		add_action( 'plugins_loaded', function() {
 
 			// Security: Only allow POST requests with the correct action
@@ -518,6 +522,23 @@ STUDIO_PREVIEW_SHORTCUTS;
 		add_action( 'login_init', 'studio_send_frame_options_header', 0 );
 		`,
 	} );
+
+	// A hosted `studio serve` serves its sites to itself with a certificate from its own
+	// authority, which WordPress's bundled certificates don't include.
+	if ( process.env.STUDIO_CA_BUNDLE ) {
+		muPlugins.push( {
+			filename: '0-machine-ca-bundle.php',
+			content: `<?php
+			$studio_ca_bundle = getenv( 'STUDIO_CA_BUNDLE' );
+			if ( $studio_ca_bundle && is_readable( $studio_ca_bundle ) ) {
+				add_filter( 'http_request_args', function ( $args ) use ( $studio_ca_bundle ) {
+					$args['sslcertificates'] = $studio_ca_bundle;
+					return $args;
+				} );
+			}
+			`,
+		} );
+	}
 
 	// Auto-login functionality via dedicated endpoint
 	muPlugins.push( {

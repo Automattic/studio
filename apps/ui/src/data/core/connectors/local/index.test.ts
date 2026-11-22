@@ -526,7 +526,7 @@ describe( 'createLocalConnector for a remote server', () => {
 			} );
 			await connector.init?.();
 			const opened = () =>
-				streams.filter( ( { url } ) => url.startsWith( 'https://m3.cloud.test' ) );
+				streams.filter( ( { url } ) => url === 'https://m3.cloud.test/api/events' );
 
 			visibility.mockReturnValue( 'hidden' );
 			document.dispatchEvent( new Event( 'visibilitychange' ) );

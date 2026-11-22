@@ -42,7 +42,11 @@ import {
 	toLoggerError,
 } from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
-import { findSyncSiteByIdentifier, pickSyncSite, resolveFormConnectedSite } from 'cli/lib/sync-site-picker';
+import {
+	findSyncSiteByIdentifier,
+	pickSyncSite,
+	resolveFormConnectedSite,
+} from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
 import {

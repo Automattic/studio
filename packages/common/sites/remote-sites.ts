@@ -89,7 +89,9 @@ export async function connectRemoteSite< Id extends SitesProviderId >(
 	if ( 'input' in site ) {
 		const connect = sites( provider ).connect;
 		if ( ! connect ) {
-			throw new Error( `Studio can't connect ${ getProvider( provider.id ).label } sites by form.` );
+			throw new Error(
+				`Studio can't connect ${ getProvider( provider.id ).label } sites by form.`
+			);
 		}
 		site = await connect( await readProviderConfig( id ), site.input );
 	}

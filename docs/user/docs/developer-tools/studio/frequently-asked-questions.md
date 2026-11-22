@@ -10,7 +10,7 @@ WordPress Studio is an [open source project](https://github.com/Automattic/studi
 
 ### How can I publish my WordPress Studio site so that it’s publicly available?
 
-You need a hosting plan. A [preview](https://wordpress.studio/docs/preview-sites/) is only for sharing work and gathering early feedback. It expires 30 days after its last update.
+You need a hosting plan. A [preview](https://wordpress.studio/docs/preview-sites/) is only for sharing work and gathering early feedback. It expires if it goes without an update for a while, and the **Share** panel shows when. See [Preview expiration](https://wordpress.studio/docs/preview-sites/#preview-expiration).
 
 - **On WordPress.com or Pressable:** [publish your site](https://wordpress.studio/docs/sync/) from the **Publish** panel. You can also buy a plan for a preview on WordPress.com, which turns the preview into a WordPress.com site.
 - **On another WordPress host:** [export your site](https://wordpress.studio/docs/import-export/), then import the export on the destination site, for example with the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
@@ -44,17 +44,17 @@ If the site files include a `wp-config.php` file, WordPress Studio skips the SQL
 
 To switch an existing WordPress Studio site from SQLite to MySQL:
 
-1.  Export the site’s database: in the site menu, choose **Export → Export database** to save a `.sql` file. See [Export a site](https://wordpress.studio/docs/import-export/#export-a-site).
-2.  Start your MySQL server, create a database, and import the `.sql` file into it with a MySQL tool of your choice.
-3.  Stop the site.
+1.  Stop the site, so nothing changes after you export the database.
+2.  Export the site’s database: in the site menu, choose **Export → Export database** to save a `.sql` file. Export works while the site is stopped. See [Export a site](https://wordpress.studio/docs/import-export/#export-a-site).
+3.  Start your MySQL server, create a database, and import the `.sql` file into it with a MySQL tool of your choice.
 4.  Open the site’s directory.
 5.  In `wp-content`, delete the `db.php` file, and move the `database` directory out of the site’s directory as a backup. Don’t delete it until the site works with MySQL.
 6.  In `wp-content/mu-plugins`, delete the `sqlite-database-integration` directory.
-7.  In `wp-config.php`, add `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_HOST` with your MySQL database’s details. WordPress Studio leaves these settings out of the sites it creates.
+7.  In `wp-config.php`, set `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_HOST` to your MySQL database’s details. If a constant is already defined, for example `define( 'DB_NAME', 'wordpress' );`, which WordPress Studio adds for SQLite, change its value. Add only the ones that are missing. A second `define()` for the same constant has no effect.
 8.  Start the site in WordPress Studio.
 9.  Open the site.
 
-WordPress Studio sets up SQLite again if `db.php`, the `database` directory, or the `sqlite-database-integration` directory is still in the site, so remove all three.
+WordPress Studio sets up SQLite again if `db.php`, `database/.ht.sqlite`, or the `sqlite-database-integration` directory is still in the site, so remove all three.
 
 WordPress Studio’s phpMyAdmin supports SQLite only, so **Tools → Database** and **Open in → phpMyAdmin** are unavailable for a site that uses your own MySQL server. Use a separate database client, such as the one that comes with your MySQL server.
 
@@ -70,7 +70,7 @@ See [Edit a site](https://wordpress.studio/docs/sites/#edit-a-site).
 
 ### Why isn’t the Open in menu showing my preferred app?
 
-The **Open in** menu only lists apps that WordPress Studio supports and finds on your computer. The [Open in menu](https://wordpress.studio/docs/sites/#open-in-menu) section lists the supported code editors and terminal apps.
+<a id="why-isnt-the-open-in-button-available-for-my-preferred-app"></a>The **Open in** menu only lists apps that WordPress Studio supports and finds on your computer. The [Open in menu](https://wordpress.studio/docs/sites/#open-in-menu) section lists the supported code editors and terminal apps.
 
 - On macOS, the app must be in your Applications folder (`/Applications` or `~/Applications`).
 - On Windows, WordPress Studio looks in each app’s usual install folder.

@@ -32,6 +32,7 @@ export function ExistingSiteStep( {
 	replacing,
 	disabled,
 	onConnectProvider,
+	onAddSite,
 	onConnected,
 }: {
 	providers: SitesProviderId[];
@@ -40,6 +41,8 @@ export function ExistingSiteStep( {
 	replacing: boolean;
 	disabled: boolean;
 	onConnectProvider: ( provider: SitesProviderId ) => void;
+	// Opens a provider's form for adding a site; without it, the forms show here.
+	onAddSite?: ( provider: SitesProviderId ) => void;
 	onConnected: ( provider: SitesProviderId, id: string | number ) => void;
 } ) {
 	const connector = useConnector();
@@ -191,15 +194,30 @@ export function ExistingSiteStep( {
 					{ retry || failed.length ? __( 'Try again' ) : __( 'Refresh' ) }
 				</Button>
 			) }
-			{ adding.map( ( provider ) => (
-				<AddSiteForm
-					key={ provider }
-					provider={ provider }
-					siteId={ siteId }
-					disabled={ disabled }
-					onConnected={ onConnected }
-				/>
-			) ) }
+			{ adding.map( ( provider ) =>
+				onAddSite ? (
+					<Button
+						key={ provider }
+						variant="outline"
+						disabled={ disabled }
+						onClick={ () => onAddSite( provider ) }
+					>
+						{ sprintf(
+							/* translators: %s: hosting provider name. */
+							__( 'Connect to %s' ),
+							getProvider( provider ).label
+						) }
+					</Button>
+				) : (
+					<AddSiteForm
+						key={ provider }
+						provider={ provider }
+						siteId={ siteId }
+						disabled={ disabled }
+						onConnected={ onConnected }
+					/>
+				)
+			) }
 		</div>
 	);
 }

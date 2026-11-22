@@ -94,6 +94,16 @@ describe( 'createDeployIgnoreFilter', () => {
 		expect( ig.ignores( 'wp-content/index.php' ) ).toBe( false );
 	} );
 
+	it( 'should only exclude the SQLite database and drop-in from wp-content with sync defaults', async () => {
+		const ig = await createDeployIgnoreFilter( tempDir, SYNC_IGNORE_DEFAULTS );
+		expect( ig.ignores( 'wp-content/database/.ht.sqlite' ) ).toBe( true );
+		expect( ig.ignores( 'wp-content/db.php' ) ).toBe( true );
+		expect(
+			ig.ignores( 'wp-content/plugins/woocommerce/src/Database/Migrations/MigrationHelper.php' )
+		).toBe( false );
+		expect( ig.ignores( 'wp-content/plugins/foo/db.php' ) ).toBe( false );
+	} );
+
 	it( 'should only exclude the wp-content cache directory with sync defaults', async () => {
 		const ig = await createDeployIgnoreFilter( tempDir, SYNC_IGNORE_DEFAULTS );
 		expect( ig.ignores( 'wp-content/cache' ) ).toBe( true );

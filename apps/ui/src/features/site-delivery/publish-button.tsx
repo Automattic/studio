@@ -1533,6 +1533,11 @@ export function PublishButton( {
 									replacing={ hasLiveSite }
 									disabled={ disabled || wpcomLogin.isPending }
 									onConnectProvider={ selectProvider }
+									onAddSite={
+										view.provider
+											? undefined
+											: ( provider ) => navigate( { ...view, provider }, 'forward' )
+									}
 									onConnected={ ( provider, id ) => {
 										client.setQueryData(
 											publishTargetQueryKey( site.id ),

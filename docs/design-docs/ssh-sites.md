@@ -110,7 +110,7 @@ studio push --path ~/Studio/acme --remote-site ssh:acme.com --options plugins,th
 
 ## UI
 
-In Publish, SSH is a destination. Choosing it offers "Connect a site", which opens the provider's form. On success the site is the destination, with "Update…" (push, with the usual selection) and "Pull from live site…". `Connector.addRemoteSite` runs `addRemoteSite` in `@studio/common` from the main process and from `studio ui`'s server. No server version gate is needed: the `local` connector meets older servers only on Studio Cloud, which doesn't offer SSH.
+In Publish, SSH is a destination. Choosing it offers "Connect a site", which opens the provider's form; "Choose an existing site" offers the same form as "Connect to SSH", next to the other providers. On success the site is the destination, with "Update…" (push, with the usual selection) and "Pull from live site…". `Connector.addRemoteSite` runs `addRemoteSite` in `@studio/common` from the main process and from `studio ui`'s server. No server version gate is needed: the `local` connector meets older servers only on Studio Cloud, which doesn't offer SSH.
 
 ## Security
 

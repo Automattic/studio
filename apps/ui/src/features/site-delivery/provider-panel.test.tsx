@@ -1829,11 +1829,31 @@ it( 'connects a site over SSH from its address, then publishes to it', async () 
 	} );
 	await openShare();
 	await openExistingSitePicker( user );
-	const step = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+	const picker = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+	expect( within( picker ).queryByRole( 'textbox' ) ).not.toBeInTheDocument();
+	await user.click( within( picker ).getByRole( 'button', { name: 'Connect to SSH' } ) );
+	const step = await screen.findByRole( 'dialog', { name: 'Publish over SSH' } );
 	await user.type( within( step ).getByRole( 'textbox', { name: 'Server' } ), sshSite.id );
 	await user.click( within( step ).getByRole( 'button', { name: 'Connect' } ) );
 	expect( connector.addRemoteSite ).toHaveBeenCalledWith( 'ssh', site.id, { address: sshSite.id } );
 	expect( await screen.findByRole( 'link', { name: 'Open acme.test' } ) ).toBeVisible();
+
+	await user.click( await screen.findByRole( 'button', { name: 'Update…' } ) );
+	const confirmation = await screen.findByRole( 'alertdialog', {
+		name: /Publish (again|changes)\?/,
+	} );
+	await user.click( within( confirmation ).getByRole( 'button', { name: /^Publish/ } ) );
+	await screen.findByRole( 'button', { name: 'Updating…' } );
+	act( () =>
+		connector.emit( 'onSyncActivity', {
+			siteId: site.id,
+			activity: { kind: 'success', direction: 'push', provider: 'ssh', remoteSiteId: sshSite.id },
+		} )
+	);
+	expect( await screen.findByRole( 'button', { name: 'Update…' } ) ).toBeEnabled();
+	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith( 'ssh', site.id, sshSite.id, {
+		optionsToSync: [ 'all' ],
+	} );
 } );
 
 it( 'does not open Spacefast if its connection dialog is closed before the link is ready', async () => {

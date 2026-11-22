@@ -11,6 +11,7 @@ import {
 	accountSitesQueryKey,
 	publishTargetQueryKey,
 	remotePublishTargetKey,
+	useConnectedHostingProviders,
 	usePublishProviders,
 } from '@/data/queries/use-remote-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
@@ -40,6 +41,7 @@ export function usePublishTargets(
 	const providers = usePublishProviders();
 	const user = useAuthUser();
 	const accounts = useAiSettings();
+	const connectedProviders = useConnectedHostingProviders( providers ).connected;
 	const snapshots = useSnapshots( user.data?.id );
 	const activity = useSiteSyncActivity( siteId );
 	const connections = useQueries( {
@@ -191,9 +193,7 @@ export function usePublishTargets(
 				return { ...result, checkedRunId };
 			},
 			enabled:
-				( target.provider === 'wpcom'
-					? !! user.data
-					: !! accounts.data?.accounts[ target.provider ].connected ) &&
+				connectedProviders.includes( target.provider ) &&
 				activity?.kind !== 'pending' &&
 				( open || target.key === selected?.key ),
 			// The selected preview's usePreviewStatus observer owns its polling interval.

@@ -341,6 +341,26 @@ describe( 'useSites', () => {
 } );
 
 describe( 'export notices', () => {
+	it( 'identifies the site and discloses private data in a blueprint export', async () => {
+		const connector = createFakeConnector( {
+			sites: [ makeSite( { id: 'site-1', name: 'Portfolio' } ) ],
+		} );
+		connector.exportBlueprint.mockResolvedValue( '/tmp/portfolio.zip' );
+		const { result } = renderHook( () => ( { sites: useSites(), export: useExportBlueprint() } ), {
+			wrapper: providers( connector ),
+		} );
+		await waitFor( () => expect( result.current.sites.data ).toHaveLength( 1 ) );
+		await act( async () => {
+			await result.current.export.mutateAsync( 'site-1' );
+		} );
+		expect( getVisibleToasts() ).toContainEqual(
+			expect.objectContaining( {
+				title: 'Blueprint exported',
+				description: 'May include private data or credentials · Portfolio',
+			} )
+		);
+	} );
+
 	it.each( [
 		[ useExportFullSite, 'exportFullSite', 'Exporting site…', 'Site exported' ],
 		[ useExportDatabase, 'exportDatabase', 'Exporting database…', 'Database exported' ],

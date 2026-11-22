@@ -184,7 +184,15 @@ function useExportSite( mode: 'site' | 'database' | 'blueprint' ) {
 				const result = await connector[ messages.method ]( siteId, {
 					onStarted: () => toast.processing( messages.progress, { id, description: siteName } ),
 				} );
-				if ( result !== null ) toast.success( messages.success, { id, description: siteName } );
+				if ( result !== null ) {
+					const description =
+						mode === 'blueprint'
+							? [ __( 'May include private data or credentials' ), siteName ]
+									.filter( Boolean )
+									.join( ' · ' )
+							: siteName;
+					toast.success( messages.success, { id, description } );
+				}
 				return result;
 			} catch ( error ) {
 				toast.error( messages.failure, {

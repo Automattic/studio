@@ -21,7 +21,7 @@ export const builder = ( yargs: StudioArgv ) => {
 			choices: [ 'full', 'content', 'db', 'blueprint' ] as const,
 			default: 'full' as const,
 			description: __(
-				'Export the full site, just the content, just the database, or a Blueprint ZIP bundle. Default exports full site.'
+				'Export the full site, just the content, just the database, or a Blueprint ZIP bundle. Blueprints may contain private site data and credentials. Default exports full site.'
 			),
 		} )
 		.option( 'split-db-dump-by-table', {

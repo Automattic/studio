@@ -26,7 +26,9 @@ const PROBE = `echo json_encode( array(
 ) );`;
 
 async function connect( input: Record< string, string > ): Promise< SshSite > {
-	const form = sshProvider.sites!.connect!.input().safeParse( { address: '', wpCli: '', ...input } );
+	const form = sshProvider
+		.sites!.connect!.input()
+		.safeParse( { address: '', wpCli: '', ...input } );
 	if ( ! form.success ) {
 		throw new RemoteSiteError( form.error.issues[ 0 ].message, 'ssh_address' );
 	}

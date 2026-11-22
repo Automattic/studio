@@ -45,6 +45,7 @@ import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { CatalogModel } from '@studio/providers';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
+const CHECK_IN_INTERVAL_MS = 5 * 60_000;
 
 type ServerUserPreferences = Omit<
 	UserPreferences,
@@ -225,14 +226,19 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				}
 				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
 				// wake it, right after. So the stream runs only while the page has focus (the site
-				// preview's frame counts), and reopening it refetches what changed meanwhile.
+				// preview's frame counts), and reopening it refetches what changed meanwhile. The
+				// stream doesn't count as use, so a focused page also checks in every few minutes.
+				const isFocused = () => document.visibilityState === 'visible' && document.hasFocus();
+				const checkIn = () => void request( '/health' ).catch( () => undefined );
 				const followFocus = () => {
-					if ( ! document.hasFocus() ) {
+					if ( ! isFocused() ) {
 						eventSource?.close();
 					} else if ( eventSource?.readyState === EventSource.CLOSED ) {
 						openEvents( true );
+						checkIn();
 					}
 				};
+				setInterval( () => isFocused() && checkIn(), CHECK_IN_INTERVAL_MS );
 				window.addEventListener( 'focus', followFocus );
 				// Focus moving into the preview's frame blurs the window but stays on the page.
 				window.addEventListener( 'blur', () => setTimeout( followFocus, 0 ) );

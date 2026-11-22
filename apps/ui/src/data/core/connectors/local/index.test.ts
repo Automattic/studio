@@ -460,4 +460,96 @@ describe( 'createLocalConnector for a remote server', () => {
 		expect( opened ).toHaveLength( 2 );
 		expect( opened[ 1 ].closed ).toBe( false );
 	} );
+
+	describe( 'checking in', () => {
+		const FIVE_MINUTES = 5 * 60_000;
+		let fetchMock: ReturnType< typeof vi.fn >;
+		let streams: { url: string; closed: boolean }[];
+		let focused: ReturnType< typeof vi.spyOn >;
+		let visibility: ReturnType< typeof vi.spyOn >;
+
+		beforeEach( () => {
+			vi.useFakeTimers( { toFake: [ 'setInterval', 'setTimeout' ] } );
+			streams = [];
+			class MockEventSource {
+				static CLOSED = 2;
+				closed = false;
+				get readyState() {
+					return this.closed ? 2 : 1;
+				}
+				constructor( readonly url: string ) {
+					streams.push( this );
+				}
+				close() {
+					this.closed = true;
+				}
+			}
+			vi.stubGlobal( 'EventSource', MockEventSource );
+			fetchMock = vi.fn( async () => Response.json( { version: '9.0.0' } ) );
+			vi.stubGlobal( 'fetch', fetchMock );
+			focused = vi.spyOn( document, 'hasFocus' ).mockReturnValue( true );
+			visibility = vi.spyOn( document, 'visibilityState', 'get' ).mockReturnValue( 'visible' );
+		} );
+
+		afterEach( () => {
+			vi.useRealTimers();
+		} );
+
+		const checkIns = ( origin: string ) =>
+			fetchMock.mock.calls.filter( ( [ url ] ) => url === `${ origin }/api/health` ).length;
+
+		it( 'checks in every five minutes while the page has focus, and again on focus', async () => {
+			const connector = createLocalConnector( {
+				apiBaseUrl: 'https://m2.cloud.test',
+				remote: { signIn: vi.fn(), signOut: vi.fn(), getBilling: vi.fn() },
+			} );
+			await connector.init?.();
+			expect( checkIns( 'https://m2.cloud.test' ) ).toBe( 0 );
+
+			vi.advanceTimersByTime( FIVE_MINUTES );
+			expect( checkIns( 'https://m2.cloud.test' ) ).toBe( 1 );
+
+			focused.mockReturnValue( false );
+			window.dispatchEvent( new Event( 'blur' ) );
+			vi.advanceTimersByTime( FIVE_MINUTES * 2 );
+			expect( checkIns( 'https://m2.cloud.test' ) ).toBe( 1 );
+
+			focused.mockReturnValue( true );
+			window.dispatchEvent( new Event( 'focus' ) );
+			expect( checkIns( 'https://m2.cloud.test' ) ).toBe( 2 );
+		} );
+
+		it( 'closes the event stream and stops checking in while the page is hidden', async () => {
+			const connector = createLocalConnector( {
+				apiBaseUrl: 'https://m3.cloud.test',
+				remote: { signIn: vi.fn(), signOut: vi.fn(), getBilling: vi.fn() },
+			} );
+			await connector.init?.();
+			const opened = () =>
+				streams.filter( ( { url } ) => url.startsWith( 'https://m3.cloud.test' ) );
+
+			visibility.mockReturnValue( 'hidden' );
+			document.dispatchEvent( new Event( 'visibilitychange' ) );
+			expect( opened()[ 0 ].closed ).toBe( true );
+			vi.advanceTimersByTime( FIVE_MINUTES );
+			expect( checkIns( 'https://m3.cloud.test' ) ).toBe( 0 );
+
+			visibility.mockReturnValue( 'visible' );
+			document.dispatchEvent( new Event( 'visibilitychange' ) );
+			expect( opened() ).toHaveLength( 2 );
+			expect( checkIns( 'https://m3.cloud.test' ) ).toBe( 1 );
+		} );
+
+		it( 'never checks in with a local server', async () => {
+			const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+			await connector.init?.();
+			focused.mockReturnValue( false );
+			window.dispatchEvent( new Event( 'blur' ) );
+			vi.advanceTimersByTime( FIVE_MINUTES * 2 );
+			focused.mockReturnValue( true );
+			window.dispatchEvent( new Event( 'focus' ) );
+
+			expect( checkIns( 'http://localhost:8081' ) ).toBe( 0 );
+		} );
+	} );
 } );

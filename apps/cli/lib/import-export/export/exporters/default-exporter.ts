@@ -318,7 +318,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			}
 			let resolvedPath: string;
 			try {
-				resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
+				resolvedPath = fs.realpathSync.native( fullEntryPathOnDisk );
 			} catch ( error ) {
 				if ( ! ( await isDanglingSymlink( fullEntryPathOnDisk, error ) ) ) throw error;
 				console.warn( `Skipping ${ entryPathRelativeToArchiveRoot }: ${ error }` );

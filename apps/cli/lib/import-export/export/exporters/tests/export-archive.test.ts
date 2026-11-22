@@ -331,8 +331,8 @@ describe( 'export archive completion', () => {
 		fs.mkdirSync( directory );
 		fs.writeFileSync( source, 'Site content' );
 		fs.writeFileSync( backupFile, 'previous backup' );
-		const realpath = fs.realpathSync;
-		vi.spyOn( fs, 'realpathSync' ).mockImplementation( ( ...args ) => {
+		const realpath = fs.realpathSync.native;
+		vi.spyOn( fs.realpathSync, 'native' ).mockImplementation( ( ...args ) => {
 			if ( args[ 0 ] === source ) {
 				throw Object.assign( new Error( 'Source disappeared' ), { code: 'ENOENT' } );
 			}

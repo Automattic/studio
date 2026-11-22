@@ -544,10 +544,10 @@ it( 'confirms copying before starting the preview notice dismissal timer', async
 	} );
 	await act( () => vi.advanceTimersByTimeAsync( 2000 ) );
 	expect( notice() ).toMatchObject( { durationMs: 4500, action: { label: 'Copy link' } } );
-	await act( () => vi.advanceTimersByTimeAsync( 4400 ) );
+	await act( () => vi.advanceTimersByTimeAsync( 4499 ) );
 	expect( notice()?.leaving ).toBeUndefined();
-	await act( () => vi.advanceTimersByTimeAsync( 400 ) );
-	expect( notice() ).toBeUndefined();
+	await act( () => vi.advanceTimersByTimeAsync( 1 ) );
+	expect( notice()?.leaving ).toBe( true );
 } );
 
 it.each( [

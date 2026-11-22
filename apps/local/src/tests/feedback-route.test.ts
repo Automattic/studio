@@ -1,7 +1,8 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
+import { writeProviderConfig } from '@studio/common/lib/provider-config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
@@ -14,20 +15,11 @@ let server: LocalServer;
 let configDir: string;
 
 function writeToken() {
-	writeFileSync(
-		path.join( configDir, 'shared.json' ),
-		JSON.stringify( {
-			version: 1,
-			authToken: {
-				accessToken: 'token',
-				expiresIn: 3600,
-				expirationTime: Date.now() + 3_600_000,
-				id: 1,
-				email: 'user@example.com',
-				displayName: 'User',
-			},
-		} )
-	);
+	return writeProviderConfig( 'wpcom', {
+		token: 'token',
+		expiresAt: Date.now() + 3_600_000,
+		user: { id: 1, email: 'user@example.com', displayName: 'User' },
+	} );
 }
 
 const post = ( body: unknown ) =>
@@ -58,7 +50,7 @@ afterEach( async () => {
 
 describe( 'POST /api/feedback', () => {
 	it( 'sends the report through the shared sender with the login token', async () => {
-		writeToken();
+		await writeToken();
 		vi.mocked( sendStudioFeedback ).mockResolvedValue( { feedbackId: 42 } );
 		const response = await post( { type: 'bug', message: 'It broke.' } );
 		expect( response.status ).toBe( 200 );
@@ -70,7 +62,7 @@ describe( 'POST /api/feedback', () => {
 	} );
 
 	it( 'rejects a report without a type or message', async () => {
-		writeToken();
+		await writeToken();
 		expect( ( await post( { type: 'praise', message: 'Nice' } ) ).status ).toBe( 400 );
 		expect( ( await post( { type: 'bug', message: '   ' } ) ).status ).toBe( 400 );
 		expect( sendStudioFeedback ).not.toHaveBeenCalled();
@@ -86,7 +78,7 @@ describe( 'POST /api/feedback', () => {
 	} );
 
 	it( 'passes the service error on', async () => {
-		writeToken();
+		await writeToken();
 		vi.mocked( sendStudioFeedback ).mockRejectedValue( new Error( 'Rate limited.' ) );
 		const response = await post( { type: 'request', message: 'Add dark mode.' } );
 		expect( response.status ).toBe( 502 );

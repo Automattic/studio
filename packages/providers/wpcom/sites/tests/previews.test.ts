@@ -155,6 +155,28 @@ describe( 'previews', () => {
 		} );
 	} );
 
+	it( 'reports the import reference when an updated preview fails', async () => {
+		attachments( '679' );
+		get
+			.mockResolvedValueOnce( { importId: 'old', importStatus: 'importSuccess' } )
+			.mockResolvedValueOnce( {
+				importId: 'new',
+				importStatus: 'importFailure',
+				errorData: {
+					description:
+						'An error occurred while importing your content. Import reference #117984062207',
+				},
+			} );
+
+		await expect(
+			wpcomSites.push( config, { id: siteId, name: '' }, content, { preview: {} }, vi.fn() )
+		).rejects.toMatchObject( {
+			message:
+				'The preview site could not be built from the archive. Import reference #117984062207.',
+			code: 'preview_import_failed',
+		} );
+	} );
+
 	it( 'lists standing previews by their preview link host, with expiry in milliseconds', async () => {
 		get.mockResolvedValue( {
 			preview_sites: [

@@ -100,14 +100,17 @@ describe( 'setupUpdateNotifier', () => {
 		expect( stderrWriteSpy ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should not show a banner when --json is passed', async () => {
-		process.argv = [ ...originalArgv, '--json' ];
-		const fetchMock = vi.fn();
-		vi.stubGlobal( 'fetch', fetchMock );
-		await setupUpdateNotifier( '1.0.0', 'standalone' );
-		expect( fetchMock ).not.toHaveBeenCalled();
-		expect( stderrWriteSpy ).not.toHaveBeenCalled();
-	} );
+	it.each( [ [ '--json' ], [ '--format', 'json' ], [ '--format=json' ] ] )(
+		'should not show a banner for JSON output (%s)',
+		async ( ...args ) => {
+			process.argv = [ ...originalArgv, ...args ];
+			const fetchMock = vi.fn();
+			vi.stubGlobal( 'fetch', fetchMock );
+			await setupUpdateNotifier( '1.0.0', 'standalone' );
+			expect( fetchMock ).not.toHaveBeenCalled();
+			expect( stderrWriteSpy ).not.toHaveBeenCalled();
+		}
+	);
 
 	it( 'should not show a banner for an embedded build', async () => {
 		const fetchMock = vi.fn();

@@ -14,6 +14,7 @@ import {
 	channelForVersion,
 	getAvailableCliUpdate,
 	getCliInstallKind,
+	hasJsonOutput,
 	type CliInstallKind,
 } from 'cli/lib/update-notifier';
 
@@ -69,7 +70,7 @@ export async function setupStandaloneAutoUpdates(
 			process.stdin.isTTY &&
 			process.stdout.isTTY &&
 			process.stderr.isTTY &&
-			! process.argv.includes( '--json' )
+			! hasJsonOutput()
 		) {
 			enabled = await confirm(
 				{

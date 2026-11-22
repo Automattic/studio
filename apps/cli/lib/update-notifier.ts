@@ -62,8 +62,13 @@ export function getCliInstallKind(): CliInstallKind {
 	return 'embedded';
 }
 
-function hasJsonFlag(): boolean {
-	return process.argv.includes( '--json' );
+export function hasJsonOutput(): boolean {
+	return process.argv.some(
+		( arg, index ) =>
+			arg === '--json' ||
+			arg === '--format=json' ||
+			( arg === '--format' && process.argv[ index + 1 ] === 'json' )
+	);
 }
 
 /**
@@ -71,7 +76,7 @@ function hasJsonFlag(): boolean {
  *
  * Branches by install kind: npm builds check the npm registry; standalone (curl) installs
  * check the wpcom updates endpoint for the Studio CLI product. The banner is suppressed in
- * IPC mode, when --json is used, and for desktop-embedded/dev builds.
+ * IPC mode, for JSON output, and for desktop-embedded/dev builds.
  */
 export async function setupUpdateNotifier(
 	currentVersion: string,
@@ -79,7 +84,7 @@ export async function setupUpdateNotifier(
 ): Promise< void > {
 	if (
 		Boolean( process.send ) ||
-		hasJsonFlag() ||
+		hasJsonOutput() ||
 		process.argv
 			.slice( 2 )
 			.some( ( arg ) =>

@@ -168,6 +168,22 @@ it( 'retains valid build metadata in the staged version', async () => {
 	expect( downloadFile ).toHaveBeenCalledTimes( 1 );
 } );
 
+it.each( [ [ '--json' ], [ '--format', 'json' ], [ '--format=json' ] ] )(
+	'does not prompt for JSON output (%s)',
+	async ( ...args ) => {
+		process.argv = [ nodeExecutable, 'studio', 'site', 'list', ...args ];
+		terminals.forEach( ( stream ) =>
+			Object.defineProperty( stream, 'isTTY', { value: true, configurable: true } )
+		);
+		vi.mocked( confirm ).mockClear();
+
+		await setupStandaloneAutoUpdates( 'standalone' );
+
+		expect( confirm ).not.toHaveBeenCalled();
+		expect( ( await readConfig() ).cli.cliAutoUpdates ).toBeUndefined();
+	}
+);
+
 it.each( [ true, false ] )( 'remembers the one-time auto-update choice (%s)', async ( enabled ) => {
 	terminals.forEach( ( stream ) =>
 		Object.defineProperty( stream, 'isTTY', { value: true, configurable: true } )

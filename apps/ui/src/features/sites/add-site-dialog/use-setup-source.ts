@@ -5,13 +5,14 @@ import type { SelectedSiteFolder } from '@/data/core';
 export function useSetupSource() {
 	const [ source, setSource ] = useState< SetupSource >( { type: 'blank' } );
 	const [ folderResetKey, setFolderResetKey ] = useState( 0 );
-	const adoptFolder = useCallback( ( folder: SelectedSiteFolder ) => {
-		setSource( ( current ) =>
-			current.type === 'blank' ||
-			( current.type === 'folder' && current.folder.path !== folder.path )
+	const adoptFolder = useCallback( ( folder?: SelectedSiteFolder ) => {
+		setSource( ( current ) => {
+			if ( ! folder ) return current.type === 'folder' ? { type: 'blank' } : current;
+			return current.type === 'blank' ||
+				( current.type === 'folder' && current.folder.path !== folder.path )
 				? { type: 'folder', folder }
-				: current
-		);
+				: current;
+		} );
 	}, [] );
 	const removeFolder = useCallback( () => {
 		setSource( { type: 'blank' } );

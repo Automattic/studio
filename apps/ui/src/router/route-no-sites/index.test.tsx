@@ -9,16 +9,16 @@ describe( 'the empty workspace', () => {
 		expect(
 			await screen.findByRole( 'dialog', { name: 'Welcome to WordPress Studio' } )
 		).toBeVisible();
-		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: 'Add a WordPress' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'offers Add site, then leaves for a site that appears', async () => {
 		const connector = createFakeConnector();
 		const { history, user } = renderApp( { connector, path: '/sites' } );
-		expect( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'dialog', { name: 'Add a WordPress' } ) ).toBeVisible();
 		await user.keyboard( '{Escape}' );
 		await waitFor( () =>
-			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+			expect( screen.queryByRole( 'dialog', { name: 'Add a WordPress' } ) ).not.toBeInTheDocument()
 		);
 
 		const toggle = screen

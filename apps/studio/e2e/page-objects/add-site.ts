@@ -13,11 +13,11 @@ export default class AddSite {
 	constructor( private page: Page ) {}
 
 	get dialog() {
-		return this.page.getByRole( 'dialog', { name: 'Add site' } );
+		return this.page.getByRole( 'dialog', { name: 'Add a WordPress' } );
 	}
 
 	get siteNameInput() {
-		return this.dialog.getByRole( 'textbox', { name: 'Site name' } );
+		return this.dialog.getByRole( 'textbox', { name: 'Name' } );
 	}
 
 	get submitButton() {
@@ -55,7 +55,7 @@ export default class AddSite {
 			await this.siteNameInput.fill( siteName );
 		}
 		if ( pickFolder ) {
-			const folder = this.dialog.getByRole( 'textbox', { name: 'Site folder' } );
+			const folder = this.dialog.getByRole( 'textbox', { name: 'Folder' } );
 			const previousPath = await folder.getAttribute( 'title' );
 			await this.dialog.getByRole( 'button', { name: 'Change…', exact: true } ).click();
 			await expect( folder ).not.toHaveAttribute( 'title', previousPath ?? '' );
@@ -65,6 +65,7 @@ export default class AddSite {
 		if ( ! name ) {
 			await expect( this.siteNameInput ).toHaveAttribute( 'placeholder', /\S+/ );
 			name = ( await this.siteNameInput.getAttribute( 'placeholder' ) ) ?? '';
+			await this.siteNameInput.fill( name );
 		}
 		expect( name ).toMatch( /\S+/ );
 

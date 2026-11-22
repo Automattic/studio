@@ -83,9 +83,9 @@ describe( 'sidebar site sections', () => {
 
 		fireEvent.click( shortcutChat );
 		await waitFor( () => expect( selected() ).toBe( shortcutChat ) );
-		for ( const [ open, close ] of [
-			[ 'Settings', 'Close settings' ],
-			[ 'Add site', 'Close Add site' ],
+		for ( const [ open, title, close ] of [
+			[ 'Settings', 'Settings', 'Close settings' ],
+			[ 'Add site', 'Add a WordPress', 'Close Add site' ],
 		] ) {
 			if ( open === 'Settings' ) {
 				fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
@@ -93,7 +93,7 @@ describe( 'sidebar site sections', () => {
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: open } ) );
 			}
-			const dialog = await screen.findByRole( 'dialog', { name: open } );
+			const dialog = await screen.findByRole( 'dialog', { name: title } );
 			expect( shortcutChat ).toHaveAttribute( 'aria-current', 'page' );
 			fireEvent.click( within( dialog ).getByRole( 'button', { name: close } ) );
 			await waitFor( () => expect( selected() ).toBe( shortcutChat ) );

@@ -42,7 +42,7 @@ describe( 'Welcome dialog', () => {
 				screen.getByRole( 'checkbox', { name: 'Share anonymous usage statistics' } )
 			).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: dismissLabel } ) );
-			await screen.findByRole( 'dialog', { name: 'Add site' } );
+			await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 			expect( connector.authenticate ).not.toHaveBeenCalled();
 			expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith(
 				true,
@@ -58,7 +58,7 @@ describe( 'Welcome dialog', () => {
 	it( 'completes after confirmed authentication', async () => {
 		const { connector } = await firstLaunch();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
-		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
 			true,
 			'onboarding',
@@ -74,7 +74,7 @@ describe( 'Welcome dialog', () => {
 		fireEvent.keyDown( screen.getByRole( 'dialog', { name: 'Welcome to WordPress Studio' } ), {
 			key: 'Escape',
 		} );
-		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		expect( connector.setOnboardingCompleted ).toHaveBeenCalledExactlyOnceWith(
 			true,
 			expect.any( Object )
@@ -97,13 +97,13 @@ describe( 'Welcome dialog', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
 		expect( await screen.findByText( 'Login window closed' ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
-		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 	} );
 
 	it( 'continues without OAuth when already signed in', async () => {
 		const { connector } = await firstLaunch( { signedIn: true } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Continue' } ) );
-		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 
@@ -112,7 +112,7 @@ describe( 'Welcome dialog', () => {
 		await firstLaunch();
 		expect( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) ).toBeDisabled();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Not now' } ) );
-		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 	} );
 
 	it( 'can save setup again after a persistence failure', async () => {
@@ -123,7 +123,7 @@ describe( 'Welcome dialog', () => {
 			await screen.findByText( 'Setup could not be saved. Please try again.' )
 		).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
-		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 	} );
 
 	it( 'does not interrupt Add site if authentication finishes after closing', async () => {
@@ -138,12 +138,12 @@ describe( 'Welcome dialog', () => {
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
-		await screen.findByRole( 'dialog', { name: 'Add site' } );
+		await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		await act( async () => {
 			connector.state.user = TEST_USER;
 			resolveLogin();
 		} );
-		expect( screen.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'dialog', { name: 'Add a WordPress' } ) ).toBeVisible();
 		expect( connector.setOnboardingCompleted ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

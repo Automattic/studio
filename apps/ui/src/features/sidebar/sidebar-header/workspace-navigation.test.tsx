@@ -61,7 +61,7 @@ describe( 'workspace navigation', () => {
 		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Close settings' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		const addSite = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		const addSite = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		fireEvent.click( within( addSite ).getByRole( 'button', { name: 'Close Add site' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await visit( history, '/sites/two' );

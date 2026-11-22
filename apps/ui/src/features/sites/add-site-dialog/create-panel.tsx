@@ -13,6 +13,7 @@ import { usePendingSiteFolder } from '@/features/sites/pending-site-folder';
 import { useConnectSite } from './connect-site';
 import { useAddSite } from './context';
 import { SetupSourceField } from './setup-source-field';
+import { SetupTypeField } from './setup-type-field';
 import { getRemoteSiteName } from './site-presentation';
 import { useSetupPrompt } from './use-setup-prompt';
 import type { SyncSite } from '@/data/core';
@@ -46,7 +47,13 @@ export function mapBlueprintToFormValues(
 	};
 }
 
-export function CreatePanel( { remote }: { remote?: SyncSite } ) {
+export function CreatePanel( {
+	remote,
+	showType = false,
+}: {
+	remote?: SyncSite;
+	showType?: boolean;
+} ) {
 	const {
 		setProgress,
 		pinNewSite,
@@ -77,7 +84,10 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 		useState< Partial< CreateSiteFormValues > | null >( null );
 	const selectedFolder = usePendingSiteFolder();
 	const working = useRef( false );
-	const prompt = useSetupPrompt( { enabled: ! remote, busy: submittedInitialValues !== null } );
+	const prompt = useSetupPrompt( {
+		enabled: source.type !== 'connect',
+		busy: submittedInitialValues !== null,
+	} );
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 	const requiresCustomDomain =
 		!! selectedBlueprint && inspectBlueprint( selectedBlueprint.blueprint ).multisite;
@@ -133,24 +143,30 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			isSubmitting={ submittedInitialValues !== null }
 			isSubmitDisabled={
 				! isBlueprintValid ||
-				( ! remote &&
-					! existing &&
-					( ( source.type === 'blueprint' && ! selectedBlueprint ) || source.type === 'import' ) )
+				( source.type === 'blueprint' && ! selectedBlueprint ) ||
+				source.type === 'import'
 			}
 			requiresCustomDomain={ requiresCustomDomain }
+			typeControl={
+				showType && source.type !== 'connect' ? (
+					<SetupTypeField disabled={ submittedInitialValues !== null } />
+				) : undefined
+			}
 			sourceControl={ <SetupSourceField disabled={ submittedInitialValues !== null } /> }
 			onExistingChange={ setExisting }
 			onFolderChange={ adoptFolder }
 			resetPathKey={ folderResetKey }
-			requiresExistingPath={ source.type === 'folder' }
+			requiresExistingPath={ source.type === 'folder' && ! showType }
 			folderDescription={
-				selectedBlueprint
+				source.type === 'blueprint'
 					? __( 'WordPress Studio will create a site from this blueprint in an empty folder.' )
 					: remote
 					? __( 'WordPress Studio will create a local copy of this site in an empty folder.' )
-					: undefined
+					: __( 'You can also choose a folder containing an existing WordPress site.' )
 			}
-			requiresEmptyPath={ !! remote || !! selectedBlueprint }
+			requiresEmptyPath={
+				source.type === 'connect' || source.type === 'blueprint' || source.type === 'import'
+			}
 			draft={ restoredDraft }
 			onDraftChange={ setSetupDraft }
 		>

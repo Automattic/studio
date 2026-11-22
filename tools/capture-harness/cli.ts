@@ -44,6 +44,8 @@ Options:
   --suite <a,b>           Only these scripts       --only <a,b>    Only these shots
   --out <dir>             Output folder (default ./captures)
   --diff-dir <dir>        check: write pictures of what changed here
+  --min-change <percent>  Keep an image when less than this share of its pixels changed
+                          (reported as minor; default 0: every change is written)
   --json                  Print the results as JSON on stdout; progress goes to stderr
   --keep-profile          Keep the throwaway Studio profiles for a look afterwards
 
@@ -72,6 +74,7 @@ const { values: args, positionals } = parseArgs( {
 		only: { type: 'string' },
 		out: { type: 'string' },
 		'diff-dir': { type: 'string' },
+		'min-change': { type: 'string' },
 		json: { type: 'boolean', default: false },
 		'keep-profile': { type: 'boolean', default: false },
 		script: { type: 'string' },

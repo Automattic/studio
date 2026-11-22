@@ -91,7 +91,11 @@ function NoticeDescription( {
 	const toggle = () => {
 		setExpanded( ! expanded );
 		// Without size interpolation the height snaps and no transition ends.
-		if ( ! expanded || ! globalThis.CSS?.supports( 'interpolate-size', 'allow-keywords' ) ) {
+		if (
+			! expanded ||
+			! globalThis.CSS?.supports( 'interpolate-size', 'allow-keywords' ) ||
+			window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches
+		) {
 			setClamped( expanded );
 		}
 	};

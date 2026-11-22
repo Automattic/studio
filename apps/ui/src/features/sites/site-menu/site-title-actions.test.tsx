@@ -103,6 +103,7 @@ describe( 'site title actions', () => {
 
 	it.each( [
 		[ 'Browser', '/', { autoLogin: false } ],
+		[ 'WordPress admin', '/wp-admin/', undefined ],
 		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],
 	] )( 'starts a stopped site before opening %s', async ( label, path, options ) => {
 		let finishStart!: () => void;

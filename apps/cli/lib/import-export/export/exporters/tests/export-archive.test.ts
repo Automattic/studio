@@ -1,4 +1,5 @@
 import fs from 'fs';
+import fsPromises from 'fs/promises';
 import { Readable } from 'node:stream';
 import os from 'os';
 import path from 'path';
@@ -151,6 +152,19 @@ describe( 'export archive completion', () => {
 		expect( fs.readdirSync( root ) ).toEqual( originalFiles );
 	} );
 
+	it( 'keeps the previous backup if the verified archive cannot replace it', async () => {
+		fs.writeFileSync( backupFile, 'previous backup' );
+		const originalFiles = fs.readdirSync( root );
+		const complete = vi.fn();
+		exporter.on( ExportEvents.EXPORT_COMPLETE, complete );
+		vi.spyOn( fsPromises, 'rename' ).mockRejectedValueOnce( new Error( 'Destination is locked' ) );
+
+		await expect( exporter.export() ).rejects.toThrow( 'Destination is locked' );
+		expect( fs.readFileSync( backupFile, 'utf8' ) ).toBe( 'previous backup' );
+		expect( fs.readdirSync( root ) ).toEqual( originalFiles );
+		expect( complete ).not.toHaveBeenCalled();
+	} );
+
 	it.each( [ 'zip', 'tar.gz' ] )(
 		'replaces the old backup with a usable %s archive',
 		async ( extension ) => {
@@ -191,6 +205,84 @@ describe( 'export archive completion', () => {
 			'wp-content/uploads/photo.txt',
 		] );
 		expect( fs.readdirSync( backupDirectory ) ).toEqual( [ 'backup.zip', 'photo.txt' ] );
+	} );
+
+	it.skipIf( process.platform === 'win32' )(
+		'replaces a symlink destination without archiving the linked backup',
+		async () => {
+			const backupDirectory = path.join( root, 'wp-content', 'uploads' );
+			fs.mkdirSync( backupDirectory );
+			const target = path.join( backupDirectory, 'backup-data' );
+			backupFile = path.join( backupDirectory, 'backup-link.zip' );
+			fs.writeFileSync( target, 'previous backup' );
+			fs.symlinkSync( target, backupFile );
+			exporter = new DefaultExporter( {
+				site: { id: 'site-1', name: 'Export fixture', path: root, port: 8881 },
+				backupFile,
+				includes: { wpContent: true, database: false },
+				phpVersion: '8.3',
+			} as ExportOptions );
+
+			await exporter.export();
+
+			expect( fs.lstatSync( backupFile ).isSymbolicLink() ).toBe( true );
+			const entries = ( await readZipEntries( backupFile ) ).map( ( entry ) => entry.fileName );
+			expect( entries ).not.toContain( 'wp-content/uploads/backup-data' );
+			expect( entries ).not.toContain( 'wp-content/uploads/backup-link.zip' );
+			expect( entries ).toContain( 'wp-content/example.txt' );
+		}
+	);
+
+	it.skipIf( process.platform === 'win32' )(
+		'does not replace a destination symlink whose target is missing',
+		async () => {
+			fs.symlinkSync( path.join( root, 'missing.zip' ), backupFile );
+
+			await expect( exporter.export() ).rejects.toThrow();
+			expect( fs.lstatSync( backupFile ).isSymbolicLink() ).toBe( true );
+		}
+	);
+
+	it( 'preserves the old backup if a source file disappears during collection', async () => {
+		const directory = path.join( root, 'wp-content', 'uploads' );
+		const source = path.join( directory, 'missing.txt' );
+		fs.mkdirSync( directory );
+		fs.writeFileSync( source, 'Site content' );
+		fs.writeFileSync( backupFile, 'previous backup' );
+		const realpath = fs.realpathSync;
+		vi.spyOn( fs, 'realpathSync' ).mockImplementation( ( ...args ) => {
+			if ( args[ 0 ] === source ) {
+				throw Object.assign( new Error( 'Source disappeared' ), { code: 'ENOENT' } );
+			}
+			return realpath( ...args );
+		} );
+
+		await expect( exporter.export() ).rejects.toThrow( 'Source disappeared' );
+		expect( fs.readFileSync( backupFile, 'utf8' ) ).toBe( 'previous backup' );
+	} );
+
+	it( 'fails if a selected source file no longer exists', async () => {
+		fs.writeFileSync( backupFile, 'previous backup' );
+		exporter = new DefaultExporter( {
+			site: { id: 'site-1', name: 'Export fixture', path: root, port: 8881 },
+			backupFile,
+			includes: { wpContent: true, database: false },
+			specificSelectionPaths: [ 'missing.txt' ],
+			phpVersion: '8.3',
+		} as ExportOptions );
+
+		await expect( exporter.export() ).rejects.toThrow();
+		expect( fs.readFileSync( backupFile, 'utf8' ) ).toBe( 'previous backup' );
+	} );
+
+	it.skipIf( process.platform === 'win32' )( 'skips a dangling source symlink', async () => {
+		fs.symlinkSync( path.join( root, 'missing' ), path.join( root, 'wp-content', 'broken' ) );
+		vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
+
+		await expect( exporter.export() ).resolves.toBeUndefined();
+		expect( ( await readZipEntries( backupFile ) ).map( ( entry ) => entry.fileName ) ).toContain(
+			'wp-content/example.txt'
+		);
 	} );
 
 	it( 'removes the partial archive when collecting site metadata fails', async () => {

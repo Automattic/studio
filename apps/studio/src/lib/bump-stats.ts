@@ -1,10 +1,8 @@
 import {
 	__bumpAggregatedUniqueStat,
 	__bumpStat,
-	LastBumpStatsProvider,
 	AggregateInterval,
 } from '@studio/common/lib/bump-stat';
-import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
 import type { ImporterType } from '@studio/common/lib/import-export-events';
 
 export enum StatsGroup {
@@ -40,23 +38,6 @@ export enum StatsMetric {
 	NO_BLUEPRINT = 'no-blueprint',
 }
 
-// Backs the desktop's aggregated weekly/monthly unique stats with app.json.
-const lastBumpStatsProvider: LastBumpStatsProvider = {
-	load: async () => {
-		const { lastBumpStats } = await loadUserData();
-		return lastBumpStats ?? {};
-	},
-	lock: lockAppdata,
-	unlock: unlockAppdata,
-	save: async ( lastBumpStats ) => {
-		const userData = await loadUserData();
-		userData.lastBumpStats = lastBumpStats;
-		// Locking is handled in `@studio/common/lib/bump-stat`
-		// eslint-disable-next-line studio/require-lock-before-save
-		await saveUserData( userData );
-	},
-};
-
 export function bumpStat( group: StatsGroup, stat: StatsMetric | string, bumpInDev = false ) {
 	return __bumpStat( group, stat, bumpInDev );
 }
@@ -67,7 +48,7 @@ export async function bumpAggregatedUniqueStat(
 	aggregateBy: AggregateInterval,
 	bumpInDev = false
 ) {
-	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, lastBumpStatsProvider, bumpInDev );
+	return __bumpAggregatedUniqueStat( group, stat, aggregateBy, bumpInDev );
 }
 
 export function getPlatformMetric(): StatsMetric {

@@ -1,36 +1,24 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { writeFile } from 'atomically';
-import { z } from 'zod';
-import {
-	lockAppConfig,
-	readAppConfig,
-	saveAppConfig,
-	unlockAppConfig,
-	type AppConfig,
-} from './app-config';
+import { readConfig, updateConfig } from './config/store';
 import { DEFAULT_HIDE_FRONTEND_ADMIN_BAR } from './user-settings/preferences';
 import { getMuPluginSettingsPath } from './well-known-paths';
+import type { Config } from './config/schema';
 
-const settingsSchema = z.object( {
-	hideFrontendAdminBar: z.boolean().catch( DEFAULT_HIDE_FRONTEND_ADMIN_BAR ),
-	siteMetadata: z
-		.record(
-			z.string(),
-			z.object( { hideFrontendAdminBar: z.boolean().optional().catch( undefined ) } ).catch( {} )
-		)
-		.catch( {} ),
-} );
-
-async function writeRuntimeSettings( config: AppConfig ): Promise< void > {
-	const settings = settingsSchema.parse( config );
+// Only the public runtime preferences reach PHP; the config file holds private state.
+export async function syncMuPluginSettings(): Promise< void > {
+	const { preferences, sites } = await readConfig();
 	const content =
 		JSON.stringify( {
-			hideFrontendAdminBar: settings.hideFrontendAdminBar,
+			hideFrontendAdminBar:
+				typeof preferences.hideFrontendAdminBar === 'boolean'
+					? preferences.hideFrontendAdminBar
+					: DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 			sites: Object.fromEntries(
-				Object.entries( settings.siteMetadata )
-					.filter( ( [ , site ] ) => typeof site.hideFrontendAdminBar === 'boolean' )
-					.map( ( [ id, site ] ) => [ id, site.hideFrontendAdminBar ] )
+				sites
+					.filter( ( site ) => typeof site.hideFrontendAdminBar === 'boolean' )
+					.map( ( site ) => [ site.id, site.hideFrontendAdminBar ] )
 			),
 		} ) + '\n';
 	const settingsPath = getMuPluginSettingsPath();
@@ -43,33 +31,11 @@ async function writeRuntimeSettings( config: AppConfig ): Promise< void > {
 	await writeFile( settingsPath, content, 'utf8' );
 }
 
-// Only the public runtime preferences reach PHP; app.json can contain private state.
-export async function syncMuPluginSettings(): Promise< void > {
-	await lockAppConfig();
-	try {
-		await writeRuntimeSettings( await readAppConfig() );
-	} finally {
-		await unlockAppConfig();
-	}
-}
-
-export async function updateMuPluginSettings< T >(
-	mutate: ( config: AppConfig ) => T
+// For updates that can change what PHP reads.
+export async function updateConfigAndMuPluginSettings< T >(
+	update: ( config: Config ) => T
 ): Promise< T > {
-	await lockAppConfig();
-	try {
-		const previous = await readAppConfig();
-		const config = structuredClone( previous );
-		const result = mutate( config );
-		await writeRuntimeSettings( config );
-		try {
-			await saveAppConfig( config );
-		} catch ( error ) {
-			await writeRuntimeSettings( previous );
-			throw error;
-		}
-		return result;
-	} finally {
-		await unlockAppConfig();
-	}
+	const result = await updateConfig( update );
+	await syncMuPluginSettings();
+	return result;
 }

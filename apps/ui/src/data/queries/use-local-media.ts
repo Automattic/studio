@@ -23,5 +23,7 @@ export function useLocalMediaDataUrl( path: string | null ) {
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
 		retry: false,
+		// Too large to write to localStorage on every cache change.
+		meta: { persist: false },
 	} );
 }

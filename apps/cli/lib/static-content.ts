@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { runCommand as exportStaticSite } from 'cli/commands/export-static';
+import { runCommand as exportStaticSite, type StaticExportStep } from 'cli/commands/export-static';
 import type { PushContent, PushFile } from '@studio/providers';
 
 // Files served from the root of the site. WordPress never serves them, so the static export
@@ -12,9 +12,11 @@ const ROOT_FILES = [ '_redirects', '_headers', 'robots.txt', 'llms.txt' ];
 export async function exportStaticContent(
 	sitePath: string,
 	destinationUrl: string,
-	outputDir: string
+	outputDir: string,
+	beforeExport?: () => Promise< void >,
+	onStep?: ( step: StaticExportStep ) => void
 ): Promise< PushContent > {
-	await exportStaticSite( sitePath, outputDir, destinationUrl, true );
+	await exportStaticSite( sitePath, outputDir, destinationUrl, true, beforeExport, onStep );
 	for ( const name of ROOT_FILES ) {
 		try {
 			await fs.promises.copyFile( path.join( sitePath, name ), path.join( outputDir, name ) );

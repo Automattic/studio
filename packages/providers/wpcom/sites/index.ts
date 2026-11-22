@@ -12,8 +12,10 @@ import {
 	pollBackupStatus,
 	pollImportStatus,
 } from './api';
+import { createPreview, deletePreview, getEditedAt, listPreviews, updatePreview } from './previews';
 import { enableReprintExporter, getReprintApiUrl, installReprintPublicKey } from './reprint';
 import { createTusUpload } from './upload';
+import { getWpcomSiteVisibility, setWpcomSiteVisibility } from './visibility';
 import type { SitesServices } from '../../types';
 import type { WpcomConfig } from '../config';
 import type { ImportResponse } from './schemas';
@@ -88,6 +90,11 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 }
 
 export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
+	visibility: {
+		get: ( config, id ) => getWpcomSiteVisibility( requireToken( config ), Number( id ) ),
+		set: ( config, id, value ) =>
+			setWpcomSiteVisibility( requireToken( config ), Number( id ), value ),
+	},
 	list: ( config, options = {} ) =>
 		step( __( 'Failed to fetch WordPress.com sites' ), 'site_fetch', () =>
 			fetchSyncableSites( requireToken( config ), {
@@ -98,6 +105,9 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 
 	async push( config, site, content, options, onStatus, signal ) {
 		const token = requireToken( config );
+		if ( options.preview ) {
+			return updatePreview( token, site.id, content, options.preview, onStatus, signal );
+		}
 		if ( content.kind !== 'archive' ) {
 			throw new Error( 'WordPress.com imports a WordPress archive.' );
 		}
@@ -141,7 +151,9 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 				pollImportStatus( token, site.id )
 			);
 			if ( status.status === 'failed' ) {
-				throw new RemoteSiteError( getImportFailureMessage( status ), 'remote_import' );
+				throw new RemoteSiteError( getImportFailureMessage( status ), 'remote_import', {
+					cause: new Error( status.error_data?.vp_restore_message || status.error ),
+				} );
 			}
 			if ( ! status.success ) {
 				throw new RemoteSiteError(
@@ -204,6 +216,15 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 			'timeout'
 		);
 	},
+
+	previews: {
+		create: ( config, content, options, onStatus, signal ) =>
+			createPreview( requireToken( config ), content, options, onStatus, signal ),
+		list: ( config ) => listPreviews( requireToken( config ) ),
+		delete: ( config, preview ) => deletePreview( requireToken( config ), Number( preview.id ) ),
+	},
+
+	editedAt: ( config, site ) => getEditedAt( requireToken( config ), site.id ),
 
 	pull: {
 		async backup( config, site, options, onProgress, signal ) {

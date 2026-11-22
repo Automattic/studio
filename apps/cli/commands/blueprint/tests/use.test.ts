@@ -1,11 +1,11 @@
 import { fetchLibraryBlueprints } from '@studio/blueprints';
 import { openBlueprint } from '@studio/blueprints/node';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
+import { readConfig } from '@studio/common/lib/config/store';
 import { vi } from 'vitest';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand } from '../use';
 
-vi.mock( '@studio/common/lib/shared-config' );
+vi.mock( '@studio/common/lib/config/store' );
 vi.mock( '@studio/blueprints' );
 vi.mock( '@studio/blueprints/node' );
 vi.mock( 'cli/commands/site/create', () => ( {
@@ -53,7 +53,7 @@ const defaultOptions = {
 describe( 'CLI: studio blueprint use', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
+		vi.mocked( readConfig ).mockResolvedValue( { preferences: {} } as never );
 		vi.mocked( fetchLibraryBlueprints ).mockResolvedValue( testBlueprints );
 		vi.mocked( openBlueprint ).mockImplementation( async ( source ) => ( {
 			blueprint: ( source as ( typeof testBlueprints )[ number ] ).blueprint,
@@ -115,7 +115,7 @@ describe( 'CLI: studio blueprint use', () => {
 	} );
 
 	it( 'should pass locale from shared config when fetching blueprints', async () => {
-		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1, locale: 'de_DE' } );
+		vi.mocked( readConfig ).mockResolvedValue( { preferences: { locale: 'de_DE' } } as never );
 
 		await runCommand( '/tmp/test-site', 'quick-start', defaultOptions );
 

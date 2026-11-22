@@ -17,8 +17,9 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { __, sprintf } from '@wordpress/i18n';
-import { Archiver, TarArchive, ZipArchive } from 'archiver';
+import { Archiver, TarArchive, ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
+import { isAlreadyCompressedFile } from 'cli/lib/already-compressed-file';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -35,11 +36,16 @@ import {
 	StudioJsonPluginOrTheme,
 } from '../types';
 import { validateExportArchive } from '../validate-archive';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 	( name ) => `wp-content/mu-plugins/${ name }`
 );
+
+async function isDanglingSymlink( filePath: string, error: unknown ): Promise< boolean > {
+	if ( ( error as NodeJS.ErrnoException )?.code !== 'ENOENT' ) return false;
+	return ( await fsPromises.lstat( filePath ).catch( () => undefined ) )?.isSymbolicLink() ?? false;
+}
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	private archiveBuilder!: Archiver;
@@ -125,9 +131,18 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		let stagingDirectory: string | undefined;
 		try {
 			const parent = await fsPromises.realpath( path.dirname( this.options.backupFile ) );
-			const destination = path.join( parent, path.basename( this.options.backupFile ) );
-			stagingDirectory = await fsPromises.mkdtemp( path.join( parent, '.studio-export-' ) );
-			const stagedArchive = path.join( stagingDirectory, path.basename( destination ) );
+			let destination = path.join( parent, path.basename( this.options.backupFile ) );
+			const existing = await fsPromises
+				.lstat( destination )
+				.catch( ( error: NodeJS.ErrnoException ) => {
+					if ( error.code === 'ENOENT' ) return undefined;
+					throw error;
+				} );
+			if ( existing?.isSymbolicLink() ) destination = await fsPromises.realpath( destination );
+			stagingDirectory = await fsPromises.mkdtemp(
+				path.join( path.dirname( destination ), '.studio-export-' )
+			);
+			const stagedArchive = path.join( stagingDirectory, path.basename( this.options.backupFile ) );
 			await this.writeArchive( stagedArchive, destination );
 			await validateExportArchive( stagedArchive );
 			await fsPromises.rename( stagedArchive, destination );
@@ -230,11 +245,10 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 				const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
 				const archivePath = path.join( 'wp-content', itemPath );
 
-				if ( ! fs.existsSync( fullPath ) ) {
-					continue;
-				}
-
-				if ( this.options.ignoreFilter?.ignores( archivePath ) ) {
+				if (
+					this.isExactPathExcluded( archivePath ) ||
+					this.options.ignoreFilter?.ignores( archivePath )
+				) {
 					continue;
 				}
 
@@ -242,7 +256,14 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 				if ( path.relative( resolvedPath, stagingDirectory ) === '' ) {
 					continue;
 				}
-				const stat = await fsPromises.stat( fullPath );
+				let stat: fs.Stats;
+				try {
+					stat = await fsPromises.stat( fullPath );
+				} catch ( error ) {
+					if ( ! ( await isDanglingSymlink( fullPath, error ) ) ) throw error;
+					console.warn( `Skipping ${ archivePath }: ${ error }` );
+					continue;
+				}
 				if ( stat.isDirectory() ) {
 					await this.addDirectory( fullPath, archivePath, outputPaths );
 				} else {
@@ -255,12 +276,22 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 					) {
 						continue;
 					}
-					this.archiveBuilder.file( fullPath, { name: archivePath } );
+					this.addWpContentFile( fullPath, archivePath );
 				}
 			}
 		}
 
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
+	}
+
+	// Zip stores media and archives as they are; the tar.gz stream compresses everything as a whole.
+	private addWpContentFile( sourcePath: string, name: string ): void {
+		// `file()` passes the zip-only `store` option through, though its types omit it.
+		const entry: ZipEntryData = {
+			name,
+			store: this.options.backupFile.endsWith( '.zip' ) && isAlreadyCompressedFile( name ),
+		};
+		this.archiveBuilder.file( sourcePath, entry );
 	}
 
 	// `Archiver.directory()` does not follow symlinks, so we glob the directory
@@ -297,19 +328,21 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			) {
 				continue;
 			}
+			let resolvedPath: string;
 			try {
-				const resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
-				// The destination may be inside wp-content, including through a symlink.
-				if (
-					outputPaths.some( ( outputPath ) => path.relative( resolvedPath, outputPath ) === '' )
-				) {
-					continue;
-				}
-				this.archiveBuilder.file( resolvedPath, { name: entryPathRelativeToArchiveRoot } );
+				resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
 			} catch ( error ) {
-				// Dangling symlink. Skip it rather than aborting the whole archive.
+				if ( ! ( await isDanglingSymlink( fullEntryPathOnDisk, error ) ) ) throw error;
 				console.warn( `Skipping ${ entryPathRelativeToArchiveRoot }: ${ error }` );
+				continue;
 			}
+			// The destination may be inside wp-content, including through a symlink.
+			if (
+				outputPaths.some( ( outputPath ) => path.relative( resolvedPath, outputPath ) === '' )
+			) {
+				continue;
+			}
+			this.addWpContentFile( resolvedPath, entryPathRelativeToArchiveRoot );
 		}
 	}
 
@@ -385,7 +418,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		return studioJsonPath;
 	}
 
-	private async getSitePlugins( site: SiteData ) {
+	private async getSitePlugins( site: ConfigSite ) {
 		await using command = await runWpCliCommand(
 			site,
 			[
@@ -431,7 +464,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private async getSiteThemes( site: SiteData ) {
+	private async getSiteThemes( site: ConfigSite ) {
 		await using command = await runWpCliCommand(
 			site,
 			[

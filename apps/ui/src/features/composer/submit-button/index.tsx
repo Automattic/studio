@@ -19,7 +19,7 @@ export function SendButton( {
 		<IconButton
 			variant={ feedback ? 'destructive' : 'accent' }
 			size="icon"
-			shape="round"
+			className={ styles.edgeAction }
 			onClick={ onSend }
 			disabled={ ! canSend }
 			label={ label }
@@ -42,7 +42,7 @@ export function StartButton( {
 		<IconButton
 			variant="accent"
 			size="icon"
-			shape="round"
+			className={ styles.edgeAction }
 			label={ isStarting ? __( 'Starting site' ) : __( 'Start site' ) }
 			icon={ <PlayIcon filled /> }
 			loading={ isStarting }
@@ -64,7 +64,6 @@ export function StopButton( {
 		<IconButton
 			variant="accent"
 			size="icon"
-			shape="round"
 			className={ styles.stopButton }
 			onClick={ onStop }
 			label={ isInterrupting ? __( 'Force stop' ) : __( 'Stop response' ) }

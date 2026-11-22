@@ -6,6 +6,7 @@ import {
 	getStoredResizablePanelWidth,
 	getViewportWidth,
 	PANEL_WIDTHS_RESET_EVENT,
+	PANEL_COLLAPSE_OVERSHOOT,
 	storeResizablePanelWidth,
 	type ResizablePanelConfig,
 } from '@/data/resizable-panels';
@@ -15,9 +16,10 @@ import type { KeyboardEvent } from 'react';
 interface UseResizablePanelOptions {
 	config: ResizablePanelConfig;
 	storageKey: string;
+	onCollapse?: () => void;
 }
 
-export function useResizablePanel( { config, storageKey }: UseResizablePanelOptions ) {
+export function useResizablePanel( { config, storageKey, onCollapse }: UseResizablePanelOptions ) {
 	// In RTL the panel (and its resize edge) sits mirrored, so a rightward drag
 	// shrinks it.
 	const growsWithDeltaX = ! isRTL();
@@ -47,9 +49,14 @@ export function useResizablePanel( { config, storageKey }: UseResizablePanelOpti
 			const delta = growsWithDeltaX ? deltaX : -deltaX;
 			const nextWidth = clampResizablePanelWidth( start + delta, config, getViewportWidth() );
 			setWidth( nextWidth );
-			return nextWidth;
+			return start + delta;
 		},
 		onCommit: ( latest ) => {
+			if ( onCollapse && latest <= config.minWidth - PANEL_COLLAPSE_OVERSHOOT ) {
+				setWidth( width );
+				onCollapse();
+				return;
+			}
 			saveWidth( latest );
 		},
 	} );

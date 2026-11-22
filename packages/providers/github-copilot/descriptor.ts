@@ -16,7 +16,7 @@ const mark =
 export const githubCopilotProvider: Provider< GithubCopilotConfig > = {
 	id: 'github-copilot',
 	label: 'GitHub Copilot',
-	description: () => __( 'Use your GitHub Copilot plan. No API key required.' ),
+	description: () => __( 'Sign in with a GitHub account that has Copilot access.' ),
 	learnMoreUrl: 'https://github.com/features/copilot/plans',
 	icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${ mark }</svg>`,
 	logo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 36 36"><rect x="-6" y="-6" width="36" height="36" fill="#000"/><g fill="#FFF">${ mark }</g></svg>`,
@@ -26,9 +26,9 @@ export const githubCopilotProvider: Provider< GithubCopilotConfig > = {
 		describe: ( config ) => ( {
 			method: 'github',
 			summary: config.login,
-			models: config.models?.filter( ( id ) =>
-				GITHUB_COPILOT_AI_MODELS.some( ( model ) => model.id === id )
-			) as AiModelId[] | undefined,
+			models: config.models
+				?.filter( ( id ) => GITHUB_COPILOT_AI_MODELS.some( ( model ) => model.id === id ) )
+				.map( ( id ) => ( { id: id as AiModelId } ) ),
 			note: __( 'Using Copilot plan' ),
 			links: [ { label: __( 'Manage usage' ), url: 'https://github.com/settings/copilot' } ],
 		} ),

@@ -15,7 +15,6 @@ import {
 	PinIcon,
 	PencilIcon,
 	RotateCwIcon,
-	UploadIcon,
 	SlidersVerticalIcon,
 	PlayIcon,
 	CircleStopIcon,
@@ -49,7 +48,6 @@ export function getSiteCommands( {
 	site,
 	panelShown,
 	canAnnotate,
-	nativeSites,
 	annotating,
 	actions,
 	destinations,
@@ -65,7 +63,6 @@ export function getSiteCommands( {
 	site: SiteDetails;
 	panelShown: boolean;
 	canAnnotate: boolean;
-	nativeSites: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
 	destinations: ReturnType< typeof useOpenInDestinations >;
@@ -142,7 +139,7 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					...( nativeSites && site.phpMyAdminSupported !== false
+					...( site.phpMyAdminSupported !== false
 						? [
 								{
 									id: 'database',
@@ -155,19 +152,15 @@ export function getSiteCommands( {
 								},
 						  ]
 						: [] ),
-					...( nativeSites
-						? [
-								{
-									id: 'email',
-									group: 'commands' as const,
-									label: __( 'Open email log' ),
-									icon: PaperPlaneIcon,
-									description,
-									keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
-									run: actions.openEmail,
-								},
-						  ]
-						: [] ),
+					{
+						id: 'email',
+						group: 'commands' as const,
+						label: __( 'Open email log' ),
+						icon: PaperPlaneIcon,
+						description,
+						keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
+						run: actions.openEmail,
+					},
 					...( site.running
 						? [
 								{
@@ -248,21 +241,16 @@ export function getSiteCommands( {
 			  ]
 			: [] ),
 		{
-			id: 'share',
-			group: 'commands',
-			label: __( 'Share site…' ),
-			icon: UploadIcon,
-			description,
-			keywords: [ __( 'preview link' ) ],
-			run: () => openHeaderPanel( { panel: 'share', siteId: site.id } ),
-		},
-		{
 			id: 'publish',
 			group: 'commands',
 			label: __( 'Publish' ),
 			icon: CloudUploadIcon,
 			description,
-			keywords: [ __( 'publish site sync push pull upload download' ) ],
+			keywords: [
+				__( 'publish site sync push pull upload download' ),
+				__( 'Share' ),
+				__( 'preview link' ),
+			],
 			run: () => openHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ),
 		},
 		{

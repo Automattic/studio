@@ -1,0 +1,279 @@
+{
+	"%d image": [
+		"%d وێنە",
+		"%d وێنە"
+	],
+	"API key": [
+		"کلیلی (API)"
+	],
+	"API key is required": [
+		"کلیلی (API) پێویستە"
+	],
+	"Activate all plugins": [
+		"چالاککردنی هەموو پێوەکراوەکان"
+	],
+	"Activate plugin": [
+		"چالاککردنی پێوەکراو"
+	],
+	"Activate theme": [
+		"چالاککردنی ڕووکار"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"(Anthropic) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
+	],
+	"Backups": [
+		"پاڵپشتەکان"
+	],
+	"Balanced": [
+		"هاوسەنگ"
+	],
+	"ChatGPT plan": [
+		"پلانی (ChatGPT)"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"بەکارهێنانی پلانی (ChatGPT) لە ئێستادا بەردەست نییە. کەمێکی تر دووبارە هەوڵ بدەرەوە."
+	],
+	"Claude subscription": [
+		"بەشداریکردنی (Claude)"
+	],
+	"Claude subscription token": [
+		"تۆکنی بەشداریکردنی (Claude)"
+	],
+	"Connect Spacefast to publish sites.": [
+		"(Spacefast) پەیوەست بکە بۆ بڵاوکردنەوەی ماڵپەڕەکان."
+	],
+	"Create %s": [
+		"دروستکردنی %s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"کلیلێک لە [Google AI Studio](https://aistudio.google.com/apikey) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"کلیلێک لە [Claude Console](https://platform.claude.com/settings/keys) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"کلیلێک لە [OpenAI Platform](https://platform.openai.com/api-keys) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create user": [
+		"دروستکردنی بەکارهێنەر"
+	],
+	"Deactivate all plugins": [
+		"ناچالاککردنی هەموو پێوەکراوەکان"
+	],
+	"Deactivate plugin": [
+		"ناچالاککردنی پێوەکراو"
+	],
+	"Delete %s": [
+		"سڕینەوەی %s"
+	],
+	"Delete plugin": [
+		"سڕینەوەی پێوەکراو"
+	],
+	"Delete theme": [
+		"سڕینەوەی ڕووکار"
+	],
+	"Delete user": [
+		"سڕینەوەی بەکارهێنەر"
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"تۆکنێک لە claude setup-token بنووسە، نەک کلیلی (API)."
+	],
+	"Failed to check backup size": [
+		"پشکنینی قەبارەی پاڵپشت شکستی هێنا"
+	],
+	"Failed to check backup status": [
+		"پشکنینی دۆخی پاڵپشت شکستی هێنا"
+	],
+	"Failed to check import status": [
+		"پشکنینی دۆخی هاوردن شکستی هێنا"
+	],
+	"Failed to find existing preview site in config": [
+		"دۆزینەوەی ماڵپەڕی پێشبینینی بەردەست لە شێوەپێدانەکەدا شکستی هێنا"
+	],
+	"Failed to initiate backup": [
+		"دەستپێکردنی پاڵپشت شکستی هێنا"
+	],
+	"Flush cache": [
+		"پاککردنەوەی کاش"
+	],
+	"Gemini API key": [
+		"کلیلی (API)ـی (Gemini)"
+	],
+	"Generate images": [
+		"بەدیهێنانی وێنەکان"
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"(Google) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
+	],
+	"Import media": [
+		"هاوردنی ڕەنگاڵە"
+	],
+	"Import site": [
+		"هاوردنی ماڵپەڕ"
+	],
+	"Inspect design": [
+		"پشکنینی دیزاین"
+	],
+	"Install plugin": [
+		"دامەزراندنی پێوەکراو"
+	],
+	"Install theme": [
+		"دامەزراندنی ڕووکار"
+	],
+	"Liberate": [
+		"ئازادکردن"
+	],
+	"List %s": [
+		"لیستکردنی %s"
+	],
+	"List menus": [
+		"لیستکردنی لیستەکان"
+	],
+	"List plugins": [
+		"لیستکردنی پێوەکراوەکان"
+	],
+	"List previews": [
+		"لیستکردنی پێشبینینەکان"
+	],
+	"List published %s": [
+		"لیستکردنی %sی بڵاوکراوە"
+	],
+	"List terms": [
+		"لیستکردنی زاراوەکان"
+	],
+	"List themes": [
+		"لیستکردنی ڕووکارەکان"
+	],
+	"List users": [
+		"لیستکردنی بەکارهێنەران"
+	],
+	"Manage cache": [
+		"بەڕێوەبردنی کاش"
+	],
+	"Manage content": [
+		"بەڕێوەبردنی ناوەڕۆک"
+	],
+	"Manage media": [
+		"بەڕێوەبردنی ڕەنگاڵە"
+	],
+	"Manage menus": [
+		"بەڕێوەبردنی لیستەکان"
+	],
+	"Manage permalinks": [
+		"بەڕێوەبردنی بەستەرە هەمیشەییەکان"
+	],
+	"Manage plugins": [
+		"بەڕێوەبردنی پێوەکراوەکان"
+	],
+	"Manage terms": [
+		"بەڕێوەبردنی زاراوەکان"
+	],
+	"Manage themes": [
+		"بەڕێوەبردنی ڕووکارەکان"
+	],
+	"Manage usage": [
+		"بەڕێوەبردنی بەکارهێنان"
+	],
+	"Manage users": [
+		"بەڕێوەبردنی بەکارهێنەران"
+	],
+	"Meta API key": [
+		"کلیلی (API)ـی (Meta)"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"(Meta) داواکارییەکانی سەر کلیلی (API)ـەکەت سنووردار دەکات. کەمێکی تر دووبارە هەوڵ بدەرەوە، یان سنوورەکانت لە dev.meta.ai بپشکنە."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"(Meta) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
+	],
+	"OpenAI API key": [
+		"کلیلی (API)ـی (OpenAI)"
+	],
+	"Pull site": [
+		"ڕاکێشانی ماڵپەڕ"
+	],
+	"Push site": [
+		"پەستاوتنی ماڵپەڕ"
+	],
+	"Read": [
+		"خوێندنەوە"
+	],
+	"Read %s": [
+		"خوێندنەوەی %s"
+	],
+	"Read site title": [
+		"خوێندنەوەی ناونیشانی ماڵپەڕ"
+	],
+	"Refresh preview": [
+		"نوێکردنەوەی پێشبینین"
+	],
+	"Remote backup failed": [
+		"پاڵپشتی دوور شکستی هێنا"
+	],
+	"Run WordPress code": [
+		"جێبەجێکردنی کۆدی وۆردپرێس"
+	],
+	"Run WordPress command": [
+		"جێبەجێکردنی فەرمانی وۆردپرێس"
+	],
+	"Taxonomist": [
+		"پۆلێنکار"
+	],
+	"Team": [
+		"تیم"
+	],
+	"This website has been deleted. Choose another website.": [
+		"ئەم ماڵپەڕە سڕاوەتەوە. ماڵپەڕێکی تر هەڵبژێرە."
+	],
+	"Token is required": [
+		"تۆکن پێویستە"
+	],
+	"Unexpected response from server while checking backup status": [
+		"وەڵامێکی چاوەڕواننەکراو لە ڕاژەکارەوە لە کاتی پشکنینی دۆخی پاڵپشت"
+	],
+	"Update %s": [
+		"بەڕۆژکردنەوەی %s"
+	],
+	"Update all plugins": [
+		"بەڕۆژکردنەوەی هەموو پێوەکراوەکان"
+	],
+	"Update plugin": [
+		"بەڕۆژکردنەوەی پێوەکراو"
+	],
+	"Update site title": [
+		"بەڕۆژکردنەوەی ناونیشانی ماڵپەڕ"
+	],
+	"Update user": [
+		"بەڕۆژکردنەوەی بەکارهێنەر"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"بەکارهێنان لە ڕێگەی هەژماری (Anthropic)ـەکەتەوە پارەی لێ وەردەگیرێت."
+	],
+	"Visual Annotations": [
+		"یاداشتە بینراوەکان"
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"پلانی (ChatGPT)ـەکەت ناتوانرێت لە وۆردپرێس ستۆدیۆدا بەکاربهێنرێت."
+	],
+	"media item": [
+		"بڕگەی ڕەنگاڵە"
+	],
+	"media items": [
+		"بڕگەکانی ڕەنگاڵە"
+	],
+	"page": [
+		"پەڕە"
+	],
+	"post": [
+		"بابەت"
+	],
+	"posts": [
+		"بابەتەکان"
+	],
+	"product": [
+		"بەرهەم"
+	],
+	"products": [
+		"بەرهەمەکان"
+	]
+}

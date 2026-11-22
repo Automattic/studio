@@ -31,11 +31,11 @@ Creating local sites from Blueprints is incorporated into the site creation flow
 ![The Business category of the Blueprints library in WordPress Studio's Add site dialog, showing the University Website, Non-profit Organization, and Quick Start Blueprints.](../../../../screenshots/images/blueprints-library.webp)
 
 3.  Click a Blueprint to see a larger preview. Click **Preview in browser** to try it out first. To go back to the library, click **Blueprints** at the top of the dialog.
-4.  Click **Use Blueprint**. The **Add site** form opens with the Blueprint under **Start from**, and the Blueprint’s name as the site name.
-5.  Change the **Site name** and **Site folder** if you like. The folder must be empty. Click **Advanced** to review the WordPress and PHP versions, the admin credentials, and the domain name.
-6.  Click **Add site**.
+4.  Click **Add site**. WordPress Studio creates the site right away with the Blueprint’s settings, names it after the Blueprint (adding a number if you already have a site with that name), puts it in your **Default directory**, and opens it.
 
-![A larger preview of the University Website Blueprint in WordPress Studio's Add site dialog, with Preview in browser and Use Blueprint buttons at the top.](../../../../screenshots/images/blueprint-details.webp)
+![A larger preview of the University Website Blueprint in WordPress Studio's Add site dialog, with Preview in browser and Add site buttons at the top.](../../../../screenshots/images/blueprint-details.webp)
+
+If the Blueprint sets a custom domain or a multisite, the site’s default folder isn’t available, or creating the site fails, the **Add site** form opens instead, with the Blueprint under **Start from**. Change the **Site name** and **Site folder** if you like (the folder must be empty), click **Advanced** to review the WordPress and PHP versions, the admin credentials, and the domain name, and click **Add site**.
 
 To use your own Blueprint:
 
@@ -47,11 +47,13 @@ To use your own Blueprint:
 
 You can also start from the form: click **Blank site**, then click **Choose…** under **Start from** and select the Blueprint file. In the desktop app, **File → Open Folder…** opens a Blueprint file, or a folder that contains a `blueprint.json`, the same way.
 
-To swap the Blueprint, click **Browse Blueprints** next to it. To use a blank site instead, click **Remove Blueprint**.
+To swap the Blueprint, click **Browse Blueprints** next to it, pick another one, and click **Use Blueprint**: the form keeps what you entered. To use a blank site instead, click **Remove Blueprint**.
 
 A Blueprint that sets up a WordPress multisite requires a custom domain. When you pick one, the form shows “This Blueprint requires a custom domain.” under **Advanced**, and you need to enter a **Domain name** before you can add the site.
 
 Behind the scenes, WordPress Studio builds the site from whichever Blueprint you selected or added. 
+
+In the terminal, `studio create --blueprint <blueprint-slug>` creates a site from a Blueprint in the library. Run `studio blueprint list` to see the slugs. See [Creating a local site using Blueprints Gallery](https://wordpress.studio/docs/cli/#creating-a-local-site-using-blueprints-gallery).
 
 ## [Featured Blueprints](#2-featured-blueprints)
 

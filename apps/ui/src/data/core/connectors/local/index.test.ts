@@ -415,3 +415,49 @@ it.each( [
 		vi.unstubAllGlobals();
 	}
 } );
+
+describe( 'createLocalConnector for a remote server', () => {
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	} );
+
+	it( 'keeps the event stream open only while the page has focus', async () => {
+		const opened: { closed: boolean }[] = [];
+		class MockEventSource {
+			static CLOSED = 2;
+			closed = false;
+			get readyState() {
+				return this.closed ? 2 : 1;
+			}
+			constructor() {
+				opened.push( this );
+			}
+			close() {
+				this.closed = true;
+			}
+		}
+		vi.stubGlobal( 'EventSource', MockEventSource );
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => Response.json( { version: '9.0.0' } ) )
+		);
+		const focused = vi.spyOn( document, 'hasFocus' ).mockReturnValue( true );
+		const connector = createLocalConnector( {
+			apiBaseUrl: 'https://m1.cloud.test',
+			remote: { signIn: vi.fn(), signOut: vi.fn(), getBilling: vi.fn() },
+		} );
+		await connector.init?.();
+		expect( opened ).toHaveLength( 1 );
+
+		focused.mockReturnValue( false );
+		window.dispatchEvent( new Event( 'blur' ) );
+		await new Promise( ( resolve ) => setTimeout( resolve, 0 ) );
+		expect( opened[ 0 ].closed ).toBe( true );
+
+		focused.mockReturnValue( true );
+		window.dispatchEvent( new Event( 'focus' ) );
+		expect( opened ).toHaveLength( 2 );
+		expect( opened[ 1 ].closed ).toBe( false );
+	} );
+} );

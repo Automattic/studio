@@ -2,9 +2,8 @@ import { app, type IpcMainInvokeEvent } from 'electron';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import * as configFile from '@studio/common/lib/cli-config-file';
+import * as store from '@studio/common/lib/config/store';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { getCliConfigPath, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { recordAnalyticsEvent } from 'src/ipc-handlers';
 
 vi.unmock( 'atomically' );
@@ -25,10 +24,19 @@ beforeEach( async () => {
 	vi.stubGlobal( 'fetch', send );
 	vi.mocked( app.getVersion ).mockReturnValue( 'test' );
 	await fs.writeFile(
-		getCliConfigPath(),
+		store.getConfigPath(),
 		JSON.stringify( {
 			version: 1,
-			sites: [ { id: operationalId, path: '/private/path', name: 'Private title' } ],
+			install: { analyticsId: 'install-id' },
+			sites: [
+				{
+					id: operationalId,
+					path: '/private/path',
+					name: 'Private title',
+					port: 8881,
+					phpVersion: '8.3',
+				},
+			],
 			snapshots: [],
 			otherField: { preserved: true },
 		} )
@@ -54,16 +62,15 @@ it.each(
 		);
 		expect( send ).toHaveBeenCalledTimes( 1 );
 		const payload = new URL( send.mock.calls[ 0 ][ 0 ] ).searchParams;
-		const config = JSON.parse( await fs.readFile( getCliConfigPath(), 'utf8' ) );
+		const config = JSON.parse( await fs.readFile( store.getConfigPath(), 'utf8' ) );
 		expect( payload.get( 'site_id' ) ).toMatch( uuid );
 		expect( payload.get( 'site_id' ) ).toBe( config.sites[ 0 ].tracksId );
 		expect( config.otherField ).toEqual( { preserved: true } );
 		expect( payload.has( 'preview_id' ) ).toBe( false );
-		const shared = JSON.parse( await fs.readFile( getSharedConfigPath(), 'utf8' ) );
 		expect( Object.fromEntries( payload ) ).toEqual( {
 			_en: event,
 			_ut: 'anon',
-			_ui: shared.analyticsInstallId,
+			_ui: 'install-id',
 			_ts: expect.any( String ),
 			platform: process.platform,
 			arch: process.arch,
@@ -96,9 +103,7 @@ it( 'omits unresolved IDs and still sends the event', async () => {
 } );
 
 it( 'preserves the event when site ID persistence fails', async () => {
-	vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
-		new Error( 'Storage unavailable' )
-	);
+	vi.spyOn( store, 'updateConfig' ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
 	await expect(
 		recordAnalyticsEvent( ipcEvent, TRACKS_EVENTS.SYNC_CONNECT, { success: false }, operationalId )
 	).resolves.toBeUndefined();
@@ -110,13 +115,14 @@ it( 'preserves the event when site ID persistence fails', async () => {
 
 it( 'honors desktop opt-out and disable paths with site props', async () => {
 	const event = TRACKS_EVENTS.SYNC_CONNECT;
-	await fs.writeFile(
-		getSharedConfigPath(),
-		JSON.stringify( { version: 1, analyticsOptOut: true } )
-	);
+	const setOptOut = ( optOut: boolean ) =>
+		store.updateConfig( ( { preferences } ) => {
+			preferences.analyticsOptOut = optOut;
+		} );
+	await setOptOut( true );
 	await recordAnalyticsEvent( ipcEvent, event, { success: true }, operationalId );
 	expect( send ).not.toHaveBeenCalled();
-	await fs.writeFile( getSharedConfigPath(), '{"version":1}' );
+	await setOptOut( false );
 	for ( const [ key, value ] of [
 		[ 'CI', 'true' ],
 		[ 'IS_DEV_BUILD', 'true' ],
@@ -157,9 +163,7 @@ it.each( [ 'missing', 'storage' ] )(
 	'preserves layout telemetry when attribution is %s',
 	async ( failure ) => {
 		if ( failure === 'storage' )
-			vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
-				new Error( 'Unavailable' )
-			);
+			vi.spyOn( store, 'updateConfig' ).mockRejectedValueOnce( new Error( 'Unavailable' ) );
 		await recordAnalyticsEvent(
 			ipcEvent,
 			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,

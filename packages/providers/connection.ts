@@ -9,6 +9,8 @@ export interface ConnectField {
 	placeholder?: string;
 	// Never shown back: a password input, or a masked prompt.
 	secret: boolean;
+	// Whether it needs a value; one whose schema accepts an empty value may be left empty.
+	required: boolean;
 	// An error message for the value, or undefined when it is valid.
 	validate( value: string ): string | undefined;
 }
@@ -17,6 +19,12 @@ export interface ConnectField {
 export function getConnectMethod( provider: ProviderId, id?: string ): ConnectMethod {
 	const { methods } = getProvider( provider ).account;
 	return methods.find( ( method ) => method.id === id ) ?? methods[ 0 ];
+}
+
+// Whether only a process on the user's computer can connect with the method: a sign-in that comes
+// back to it or polls endpoints a browser can't call, or a method that says so.
+export function needsHost( { kind, hostOnly }: ConnectMethod ): boolean {
+	return kind === 'loopback' || kind === 'device' || hostOnly === true;
 }
 
 // The fields a method's form asks for; empty when it doesn't connect with a form.
@@ -33,6 +41,7 @@ export function getConnectFields( method: ConnectMethod ): ConnectField[] {
 			description: typeof meta.description === 'string' ? meta.description : undefined,
 			placeholder: typeof examples[ 0 ] === 'string' ? examples[ 0 ] : undefined,
 			secret: meta.writeOnly === true,
+			required: ! schema.safeParse( '' ).success,
 			validate: ( value ) => {
 				const result = schema.safeParse( value );
 				return result.success ? undefined : result.error.issues[ 0 ]?.message;

@@ -119,7 +119,10 @@ async function hideCarets( ctx: Ctx ) {
 
 /** Dismisses toasts, parks the pointer and waits for the UI to settle. */
 async function prepareFrame( ctx: Ctx, capture: Capture ) {
-	for ( const dismiss of await ctx.w.getByRole( 'button', { name: 'Dismiss' } ).all() ) {
+	for ( const dismiss of await ctx.w
+		.locator( '[data-slot="toast-viewport"]' )
+		.getByRole( 'button', { name: 'Dismiss' } )
+		.all() ) {
 		await dismiss.click().catch( () => {} );
 	}
 	if ( ! capture.keepMouse ) {
@@ -279,12 +282,15 @@ export async function encodeStill( png: Buffer, still: Look[ 'still' ] ) {
 const decode = ( image: Buffer ) =>
 	sharp( image ).ensureAlpha().raw().toBuffer( { resolveWithObject: true } );
 
-type FileStatus = 'new' | 'changed' | 'unchanged';
+// `minor`: changed by less than `WriteMode.minChange`, so the file on disk is kept.
+type FileStatus = 'new' | 'changed' | 'minor' | 'unchanged';
 export interface FileResult {
 	file: string;
 	status: FileStatus;
 	// Pixels that differ from the file it replaces, beyond anti-aliasing noise.
 	diffPixels?: number;
+	// The same as a percentage of the image's pixels.
+	diffPercent?: number;
 	// A picture of the differences, in check mode.
 	diff?: string;
 }
@@ -294,13 +300,18 @@ export interface WriteMode {
 	check?: boolean;
 	// Where a visual check puts pictures of what changed.
 	diffDir?: string;
+	// Keep the file on disk when less than this percentage of its pixels
+	// changed (default 0: any change is written). The image keeps its size.
+	minChange?: number;
 }
 
 /**
  * Writes `image` unless the file already holds the same picture, so unchanged
  * shots leave git clean. Pixels within anti-aliasing noise of each other count
- * as the same (pixelmatch's threshold), since a few vary from run to run. In
- * check mode nothing is written, and a changed image's differences are drawn
+ * as the same (pixelmatch's threshold), since a few vary from run to run. A
+ * change below `minChange` percent of the pixels is `minor` and not written,
+ * so restyled icons and borders don't rewrite every image. In check mode
+ * nothing is written, and a changed or minor image's differences are drawn
  * into `diffDir`.
  */
 export async function writeIfChanged(
@@ -323,7 +334,10 @@ export async function writeIfChanged(
 			if ( diffPixels === 0 ) {
 				return { file, status: 'unchanged', diffPixels };
 			}
-			result.diffPixels = diffPixels;
+			const diffPercent =
+				Math.round( ( diffPixels / ( a.info.width * a.info.height ) ) * 100_000 ) / 1000;
+			const minor = diffPercent < ( mode.minChange ?? 0 );
+			result = { ...result, status: minor ? 'minor' : 'changed', diffPixels, diffPercent };
 			if ( mode.check && output && mode.diffDir ) {
 				const diff = path.join( mode.diffDir, `${ path.parse( file ).name }.png` );
 				await mkdir( mode.diffDir, { recursive: true } );
@@ -334,7 +348,7 @@ export async function writeIfChanged(
 			}
 		}
 	}
-	if ( ! mode.check ) {
+	if ( ! mode.check && result.status !== 'minor' ) {
 		await mkdir( path.dirname( file ), { recursive: true } );
 		await writeFile( file, image );
 	}

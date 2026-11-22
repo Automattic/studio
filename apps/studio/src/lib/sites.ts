@@ -1,10 +1,6 @@
 import fs from 'fs';
 import * as Sentry from '@sentry/electron/main';
-import {
-	listSitesWithMetadata,
-	updateSiteMetadata,
-	type SiteMetadata,
-} from '@studio/common/sites/metadata';
+import { listSites } from '@studio/common/sites/list';
 import {
 	WP_CLI_DEFAULT_RESPONSE_TIMEOUT,
 	WP_CLI_IMPORT_EXPORT_RESPONSE_TIMEOUT,
@@ -18,11 +14,9 @@ export type WpCliResult = { stdout: string; stderr: string; exitCode: number };
 
 type SiteRef = { id: string; path: string };
 
-export type Site = SiteListItem & SiteMetadata;
-
-/** The user's sites as the CLI reports them, with Studio's own metadata merged in. */
-export async function getSites(): Promise< Site[] > {
-	const sites = await listSitesWithMetadata( executeCliCommand );
+/** The user's sites as the CLI reports them. */
+export async function getSites(): Promise< SiteListItem[] > {
+	const sites = await listSites( executeCliCommand );
 	// A site serving a PHP-error page counts as running even though the CLI reports it stopped.
 	return sites.map( ( site ) =>
 		isInErrorRecovery( site.id )
@@ -31,7 +25,7 @@ export async function getSites(): Promise< Site[] > {
 	);
 }
 
-export async function getSite( id: string ): Promise< Site | undefined > {
+export async function getSite( id: string ): Promise< SiteListItem | undefined > {
 	return ( await getSites() ).find( ( site ) => site.id === id );
 }
 
@@ -40,7 +34,6 @@ export async function forgetSite( id: string ): Promise< void > {
 	// Releases the site's port and stops watching its deleted folder.
 	await stopErrorRecovery( id );
 	await fs.promises.rm( getSiteThumbnailPath( id ), { force: true } );
-	await updateSiteMetadata( { [ id ]: null } );
 }
 
 /**

@@ -6,6 +6,7 @@ import { DatabaseSync, backup } from 'node:sqlite';
 import { Readable } from 'node:stream';
 import { openBlueprint } from '@studio/blueprints/node';
 import { extractZip } from '@studio/common/lib/extract-zip';
+import { ZipArchive } from 'archiver';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { BlueprintExporter } from '../blueprint-exporter';
@@ -148,6 +149,190 @@ it( 'preserves an existing destination if export fails', async () => {
 	expect( fs.readFileSync( options.backupFile, 'utf8' ) ).toBe( 'previous export' );
 	expect( fs.readdirSync( root ).filter( ( file ) => file.endsWith( '.tmp' ) ) ).toEqual( [] );
 } );
+
+it.each( [ 'blueprint.zip', 'plugins/example/blueprint.zip' ] )(
+	'does not include a previous Blueprint export from wp-content/%s',
+	async ( relativePath ) => {
+		options.backupFile = path.join( options.site.path, 'wp-content', relativePath );
+		fs.writeFileSync( options.backupFile, 'previous export' );
+		await new BlueprintExporter( options ).export();
+		await using bundle = await openBlueprint( options.backupFile );
+		const snapshotDir = path.join( root, 'without-previous-export' );
+		await extractZip( path.join( path.dirname( bundle.path ), 'site.zip' ), snapshotDir );
+		expect( fs.existsSync( path.join( snapshotDir, 'wp-content', relativePath ) ) ).toBe( false );
+	}
+);
+
+it( 'excludes the destination if it appears during export', async () => {
+	options.backupFile = path.join( options.site.path, 'wp-content/plugins/example/blueprint.zip' );
+	const originalAppend = ZipArchive.prototype.append;
+	let created = false;
+	const appendSpy = vi.spyOn( ZipArchive.prototype, 'append' ).mockImplementation( function (
+		this: ZipArchive,
+		source,
+		data
+	) {
+		if ( data?.name === 'wp-config.php' ) {
+			fs.writeFileSync( options.backupFile, 'concurrent export' );
+			created = true;
+		}
+		return originalAppend.call( this, source, data );
+	} );
+	try {
+		await new BlueprintExporter( options ).export();
+		expect( created ).toBe( true );
+		await using bundle = await openBlueprint( options.backupFile );
+		const snapshotDir = path.join( root, 'without-concurrent-export' );
+		await extractZip( path.join( path.dirname( bundle.path ), 'site.zip' ), snapshotDir );
+		expect(
+			fs.existsSync( path.join( snapshotDir, 'wp-content/plugins/example/blueprint.zip' ) )
+		).toBe( false );
+	} finally {
+		appendSpy.mockRestore();
+	}
+} );
+
+it.skipIf( process.platform === 'win32' )(
+	'does not include a previous Blueprint through a symlinked directory',
+	async () => {
+		const pluginDir = path.join( options.site.path, 'wp-content/plugins/example' );
+		options.backupFile = path.join( pluginDir, 'blueprint.zip' );
+		fs.writeFileSync( options.backupFile, 'previous export' );
+		fs.symlinkSync( pluginDir, path.join( options.site.path, 'wp-content/alias' ), 'dir' );
+		await new BlueprintExporter( options ).export();
+		await using bundle = await openBlueprint( options.backupFile );
+		const snapshotDir = path.join( root, 'without-previous-alias' );
+		await extractZip( path.join( path.dirname( bundle.path ), 'site.zip' ), snapshotDir );
+		expect( fs.existsSync( path.join( snapshotDir, 'wp-content/alias/plugin.php' ) ) ).toBe( true );
+		expect( fs.existsSync( path.join( snapshotDir, 'wp-content/alias/blueprint.zip' ) ) ).toBe(
+			false
+		);
+	}
+);
+
+it.skipIf( process.platform === 'win32' )(
+	'replaces the destination symlink target without replacing the symlink',
+	async () => {
+		const target = path.join( options.site.path, 'wp-content/plugins/example/old-blueprint.zip' );
+		options.backupFile = path.join( options.site.path, 'wp-content/blueprint.zip' );
+		fs.writeFileSync( target, 'previous export' );
+		fs.symlinkSync( target, options.backupFile );
+		await new BlueprintExporter( options ).export();
+		expect( fs.lstatSync( options.backupFile ).isSymbolicLink() ).toBe( true );
+		await using bundle = await openBlueprint( options.backupFile );
+		const snapshotDir = path.join( root, 'without-symlink-target' );
+		await extractZip( path.join( path.dirname( bundle.path ), 'site.zip' ), snapshotDir );
+		expect( fs.existsSync( path.join( snapshotDir, 'wp-content/blueprint.zip' ) ) ).toBe( false );
+		expect(
+			fs.existsSync( path.join( snapshotDir, 'wp-content/plugins/example/old-blueprint.zip' ) )
+		).toBe( false );
+	}
+);
+
+it.skipIf( process.platform === 'win32' )(
+	'leaves a dangling destination symlink in place when export fails',
+	async () => {
+		fs.symlinkSync( path.join( root, 'missing-target.zip' ), options.backupFile );
+		await expect( new BlueprintExporter( options ).export() ).rejects.toThrow( /ENOENT/ );
+		expect( fs.lstatSync( options.backupFile ).isSymbolicLink() ).toBe( true );
+	}
+);
+
+it( 'preserves an existing Blueprint if a source file disappears during export', async () => {
+	const source = fs.realpathSync(
+		path.join( options.site.path, 'wp-content/plugins/example/plugin.php' )
+	);
+	const originalFile = ZipArchive.prototype.file;
+	const fileSpy = vi.spyOn( ZipArchive.prototype, 'file' ).mockImplementation( function (
+		this: ZipArchive,
+		file,
+		data
+	) {
+		const result = originalFile.call( this, file, data );
+		if ( file === source ) fs.unlinkSync( source );
+		return result;
+	} );
+	fs.writeFileSync( options.backupFile, 'previous export' );
+	try {
+		await expect( new BlueprintExporter( options ).export() ).rejects.toThrow( /ENOENT/ );
+		expect( fs.existsSync( source ) ).toBe( false );
+		expect( fs.readFileSync( options.backupFile, 'utf8' ) ).toBe( 'previous export' );
+	} finally {
+		fileSpy.mockRestore();
+	}
+} );
+
+it( 'preserves an existing Blueprint if a discovered file disappears before it is queued', async () => {
+	const source = path.join( options.site.path, 'wp-content/plugins/example/plugin.php' );
+	const originalRealpath = fs.realpathSync;
+	const realpathSpy = vi.spyOn( fs, 'realpathSync' ).mockImplementation( ( file, ...args ) => {
+		if ( file === source ) fs.unlinkSync( source );
+		return originalRealpath( file, ...args );
+	} );
+	fs.writeFileSync( options.backupFile, 'previous export' );
+	try {
+		await expect( new BlueprintExporter( options ).export() ).rejects.toThrow( /ENOENT/ );
+		expect( fs.existsSync( source ) ).toBe( false );
+		expect( fs.readFileSync( options.backupFile, 'utf8' ) ).toBe( 'previous export' );
+	} finally {
+		realpathSpy.mockRestore();
+	}
+} );
+
+it( 'preserves an existing Blueprint if the generated snapshot disappears', async () => {
+	const originalFile = ZipArchive.prototype.file;
+	let snapshotPath = '';
+	const fileSpy = vi.spyOn( ZipArchive.prototype, 'file' ).mockImplementation( function (
+		this: ZipArchive,
+		file,
+		data
+	) {
+		const result = originalFile.call( this, file, data );
+		if ( data?.name === 'site.zip' ) {
+			snapshotPath = file;
+			fs.unlinkSync( file );
+		}
+		return result;
+	} );
+	fs.writeFileSync( options.backupFile, 'previous export' );
+	try {
+		await expect( new BlueprintExporter( options ).export() ).rejects.toThrow( /ENOENT/ );
+		expect( snapshotPath ).not.toBe( '' );
+		expect( fs.readFileSync( options.backupFile, 'utf8' ) ).toBe( 'previous export' );
+	} finally {
+		fileSpy.mockRestore();
+	}
+} );
+
+it( 'preserves an existing Blueprint if the snapshot cannot be written', async () => {
+	const originalCreateWriteStream = fs.createWriteStream;
+	const streamSpy = vi
+		.spyOn( fs, 'createWriteStream' )
+		.mockImplementation( ( file, streamOptions ) => {
+			if ( path.basename( String( file ) ) === 'site.zip' ) fs.mkdirSync( file );
+			return originalCreateWriteStream( file, streamOptions );
+		} );
+	fs.writeFileSync( options.backupFile, 'previous export' );
+	try {
+		await expect( new BlueprintExporter( options ).export() ).rejects.toThrow(
+			/EISDIR|EACCES|EPERM/
+		);
+		expect( fs.readFileSync( options.backupFile, 'utf8' ) ).toBe( 'previous export' );
+	} finally {
+		streamSpy.mockRestore();
+	}
+} );
+
+it.skipIf( process.platform === 'win32' )(
+	'skips a dangling symlink without failing the Blueprint export',
+	async () => {
+		fs.symlinkSync(
+			path.join( root, 'missing' ),
+			path.join( options.site.path, 'wp-content/broken' )
+		);
+		await expect( new BlueprintExporter( options ).export() ).resolves.toBeUndefined();
+	}
+);
 
 it( 'requires a ZIP destination', async () => {
 	expect(

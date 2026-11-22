@@ -21,9 +21,10 @@ class SnapshotExporter extends DefaultExporter {
 	constructor(
 		options: ExportOptions,
 		private readonly tempDir: string,
-		private readonly tablePrefix: string
+		private readonly tablePrefix: string,
+		excludedFiles: string[]
 	) {
-		super( options );
+		super( options, { rejectMissingFiles: true, excludedFiles } );
 	}
 
 	protected addWpConfig(): void {
@@ -82,10 +83,7 @@ export class BlueprintExporter extends ImportExportEventEmitter implements Expor
 		const tempDir = await fs.promises.mkdtemp(
 			path.join( os.tmpdir(), 'studio-blueprint-export-' )
 		);
-		const stagedOutput = path.join(
-			path.dirname( this.options.backupFile ),
-			`.${ path.basename( this.options.backupFile ) }.${ randomUUID() }.tmp`
-		);
+		let stagedOutput: string | undefined;
 		try {
 			await using command = await runWpCliCommand( this.options.site, [
 				'eval',
@@ -110,10 +108,23 @@ export class BlueprintExporter extends ImportExportEventEmitter implements Expor
 				throw new Error( stderr || __( 'Could not read the site database prefix.' ) );
 			}
 			const snapshotPath = path.join( tempDir, 'site.zip' );
+			const outputDirectory = await fs.promises.realpath( path.dirname( this.options.backupFile ) );
+			const existing = await fs.promises.lstat( this.options.backupFile ).catch( ( error ) => {
+				if ( ( error as NodeJS.ErrnoException ).code === 'ENOENT' ) return undefined;
+				throw error;
+			} );
+			const outputPath = existing
+				? await fs.promises.realpath( this.options.backupFile )
+				: path.join( outputDirectory, path.basename( this.options.backupFile ) );
+			stagedOutput = path.join(
+				path.dirname( outputPath ),
+				`.${ path.basename( outputPath ) }.${ randomUUID() }.tmp`
+			);
 			const snapshot = new SnapshotExporter(
 				{ ...this.options, backupFile: snapshotPath },
 				tempDir,
-				tablePrefix
+				tablePrefix,
+				[ outputPath ]
 			);
 			for ( const event of Object.values( ExportEvents ) ) {
 				if (
@@ -143,19 +154,20 @@ export class BlueprintExporter extends ImportExportEventEmitter implements Expor
 				],
 			};
 			const archive = new ZipArchive( ARCHIVER_OPTIONS.zip );
+			archive.on( 'warning', ( error ) => archive.destroy( error ) );
 			archive.append( JSON.stringify( blueprint, null, 2 ), { name: 'blueprint.json' } );
 			archive.file( snapshotPath, { name: 'site.zip' } );
 			await Promise.all( [
 				pipeline( archive, fs.createWriteStream( stagedOutput ) ),
 				archive.finalize(),
 			] );
-			await fs.promises.rename( stagedOutput, this.options.backupFile );
+			await fs.promises.rename( stagedOutput, outputPath );
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
 			throw error;
 		} finally {
-			await fs.promises.rm( stagedOutput, { force: true } );
+			if ( stagedOutput ) await fs.promises.rm( stagedOutput, { force: true } );
 			await fs.promises.rm( tempDir, { recursive: true, force: true } );
 		}
 	}

@@ -40,6 +40,15 @@ const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 	( name ) => `wp-content/mu-plugins/${ name }`
 );
 
+function isDanglingSymlink( filePath: string, error: unknown ): boolean {
+	if ( ( error as NodeJS.ErrnoException )?.code !== 'ENOENT' ) return false;
+	try {
+		return fs.lstatSync( filePath ).isSymbolicLink();
+	} catch {
+		return false;
+	}
+}
+
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
 	protected archiveBuilder!: Archiver;
 	private backup: BackupContents;
@@ -76,7 +85,13 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		return directoryParts.some( ( part ) => DIRECTORY_NAMES_TO_EXCLUDE.includes( part ) );
 	}
 
-	constructor( options: ExportOptions ) {
+	constructor(
+		options: ExportOptions,
+		private readonly archivePolicy: {
+			rejectMissingFiles?: boolean;
+			excludedFiles?: string[];
+		} = {}
+	) {
 		super();
 		this.options = options;
 		this.backup = {
@@ -125,6 +140,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		this.archiveBuilder = this.createArchiveBuilder();
 
 		const archiveClosedPromise = this.setupArchiveListeners( output );
+		void archiveClosedPromise.catch( () => {} );
 
 		this.archiveBuilder.pipe( output );
 
@@ -133,12 +149,13 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			await this.addWpContent();
 			await this.addDatabase();
 			await this.addMetadata();
-			await this.archiveBuilder.finalize();
+			await Promise.all( [ this.archiveBuilder.finalize(), archiveClosedPromise ] );
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
-			await archiveClosedPromise;
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.archiveBuilder.abort();
+			output.destroy();
+			await archiveClosedPromise.catch( () => {} );
 			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
 			throw error;
 		} finally {
@@ -166,9 +183,10 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			output.on( 'close', () => {
 				resolve();
 			} );
+			output.on( 'error', reject );
 
 			this.archiveBuilder.on( 'warning', ( err ) => {
-				if ( err.code === 'ENOENT' ) {
+				if ( err.code === 'ENOENT' && ! this.archivePolicy.rejectMissingFiles ) {
 					console.warn( __( 'Archiver warning:' ), err );
 				} else {
 					reject( err );
@@ -221,21 +239,31 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 				const fullPath = path.join( this.options.site.path, 'wp-content', itemPath );
 				const archivePath = path.join( 'wp-content', itemPath );
 
-				if ( ! fs.existsSync( fullPath ) ) {
+				if (
+					this.isExactPathExcluded( archivePath ) ||
+					this.options.ignoreFilter?.ignores( archivePath )
+				) {
 					continue;
 				}
 
-				if ( this.options.ignoreFilter?.ignores( archivePath ) ) {
-					continue;
+				let stat: fs.Stats;
+				try {
+					stat = await fsPromises.stat( fullPath );
+				} catch ( error ) {
+					if (
+						( error as NodeJS.ErrnoException )?.code === 'ENOENT' &&
+						( ! this.archivePolicy.rejectMissingFiles || isDanglingSymlink( fullPath, error ) )
+					) {
+						continue;
+					}
+					throw error;
 				}
-
-				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
 					await this.addDirectory( fullPath, archivePath );
 				} else {
 					if (
-						this.isExactPathExcluded( archivePath ) ||
-						this.options.ignoreFilter?.ignores( archivePath )
+						this.archivePolicy.excludedFiles?.length &&
+						this.archivePolicy.excludedFiles.includes( fs.realpathSync( fullPath ) )
 					) {
 						continue;
 					}
@@ -289,9 +317,16 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			}
 			try {
 				const resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
-				this.addWpContentFile( resolvedPath, entryPathRelativeToArchiveRoot );
+				if ( ! this.archivePolicy.excludedFiles?.includes( resolvedPath ) ) {
+					this.addWpContentFile( resolvedPath, entryPathRelativeToArchiveRoot );
+				}
 			} catch ( error ) {
-				// Dangling symlink. Skip it rather than aborting the whole archive.
+				if (
+					this.archivePolicy.rejectMissingFiles &&
+					! isDanglingSymlink( fullEntryPathOnDisk, error )
+				) {
+					throw error;
+				}
 				console.warn( `Skipping ${ entryPathRelativeToArchiveRoot }: ${ error }` );
 			}
 		}

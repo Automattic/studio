@@ -150,7 +150,7 @@ To connect WordPress Studio to WordPress.com:
 1.  Click the account button at the bottom of the sidebar, choose **Log in or create account**, and click **Log in** (or **Create account** if you don’t have one yet). You can also log in from the welcome dialog when you first open WordPress Studio, from **Connect** under **Do more with WordPress** in **Settings → General**, or from the prompt that appears when you click **Publish** or **Share** while logged out.
 2.  A new browser window will open. Log into WordPress.com.
 3.  On the authorization screen, click **Approve** to connect WordPress Studio to your account.
-4.  Once approved, a popup will appear prompting you to open the WordPress Studio app. Click on the **“Open Studio”** button to finalize the process.
+4.  Once approved, a popup will appear prompting you to open the WordPress Studio app. Click on the **Open Studio** button to finalize the process.
 
 Once you’ve logged into WordPress.com, the account button at the bottom of the sidebar shows your profile picture, WordPress Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
 

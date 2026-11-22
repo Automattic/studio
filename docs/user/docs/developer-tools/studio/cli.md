@@ -18,10 +18,10 @@ It’s especially useful for:
 
 ### [WordPress Studio app](#1-studio-app)
 
-1.  Open the **“WordPress Studio**” application.
+1.  Open the **WordPress Studio** application.
 2.  Open **Settings**: click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
 3.  On the **General** page, under **WordPress Studio CLI**, turn on the **WordPress Studio CLI for terminal** option.
-4.  On macOS, you’ll be prompted for your account password to allow installation.
+4.  No password is needed. WordPress Studio also turns this option on by itself the first time you open the app, unless you turned it off before.
 
 ![The General page of WordPress Studio Settings, scrolled to the WordPress Studio CLI section with the WordPress Studio CLI for terminal option turned off.](../../../screenshots/images/settings-studio-cli.webp)
 

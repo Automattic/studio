@@ -92,7 +92,7 @@ If you’d like to publish your local site to a new WordPress.com-hosted site, y
 2.  Click **Publish** at the top right of the site preview. For a local site without a connected website, choose **WordPress.com** under **Where do you want to publish?** You’ll see **Existing site…** and **New site…**.
 3.  Click **New site…** to set up a new site on WordPress.com in your browser.
 4.  Choose a domain and a plan for the new site, and complete the checkout.
-5.  When the new site is added, accept the prompt to open WordPress Studio or click “**Connect Studio**” on your site’s Home screen.
+5.  When the new site is added, accept the prompt to open WordPress Studio or click **Connect Studio** on your site’s Home screen.
 
 WordPress Studio connects the new site automatically and shows it in the **Publish** tab, so you can synchronize the WordPress Studio site with the connected WordPress.com site in either direction. If the new site isn’t available yet, WordPress Studio tells you, and you can try again.
 

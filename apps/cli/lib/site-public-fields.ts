@@ -17,6 +17,7 @@ export const SITE_LIST_PUBLIC_FIELDS = [
 	'adminEmail',
 	'isWpAutoUpdating',
 	'enableXdebug',
+	'phpWorkers',
 	'enableDebugLog',
 	'enableDebugDisplay',
 	'landingPage',

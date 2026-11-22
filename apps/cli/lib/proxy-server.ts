@@ -1,10 +1,12 @@
 import http from 'http';
 import https from 'https';
+import { stat } from 'node:fs/promises';
 import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
+import { getConfigPath, readConfig } from '@studio/common/lib/config/store';
 import httpProxy from 'http-proxy';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import { readCliConfig } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;
@@ -32,10 +34,21 @@ function logProxyBindError( err: NodeJS.ErrnoException, port: number ): void {
 	}
 }
 
+// Every request looks its site up, so the sites are parsed again only when the file changed.
+let cachedSites: { version: string; sites: ConfigSite[] } | undefined;
+
+async function readSites(): Promise< ConfigSite[] > {
+	const { mtimeMs, size } = await stat( getConfigPath() );
+	const version = `${ mtimeMs }:${ size }`;
+	if ( cachedSites?.version !== version ) {
+		cachedSites = { version, sites: ( await readConfig() ).sites };
+	}
+	return cachedSites.sites;
+}
+
 async function getSiteByHost( domain: string ) {
 	try {
-		const cliConfig = await readCliConfig();
-		const site = cliConfig.sites.find(
+		const site = ( await readSites() ).find(
 			( site ) => domainToASCII( site.customDomain ?? '' ) === domainToASCII( domain )
 		);
 		return site ?? null;

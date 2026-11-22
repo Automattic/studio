@@ -3,9 +3,9 @@
 		width: 100%;
 		min-width: 0;
 		height: var( --control-size );
-		padding: var( --space-1 ) var( --space-2_5 );
+		padding: var( --space-1 ) var( --space-control-inline );
 		border: var( --border-width ) solid var( --input );
-		border-radius: var( --radius-lg );
+		border-radius: var( --radius-control );
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );
 		outline: none;

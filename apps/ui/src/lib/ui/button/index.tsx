@@ -44,7 +44,9 @@ export type ButtonProps = ComponentProps< typeof BaseButton > & {
 	shape?: 'default' | 'round';
 	layout?: 'default' | 'row' | 'inline';
 	disabledAppearance?: 'default' | 'icon' | 'outline';
-	/** Uses destructive hover and focus colors while preserving the resting style. */
+	/** Whether an expanded or pressed ARIA state keeps the button highlighted. */
+	highlightOnToggle?: boolean;
+	/** Uses a destructive foreground on hover, press, and keyboard focus. */
 	destructive?: boolean;
 	/** Disables the button and leads its label with a spinner. */
 	loading?: boolean;
@@ -60,6 +62,7 @@ export function Button( {
 	shape = 'default',
 	layout = 'default',
 	disabledAppearance = 'default',
+	highlightOnToggle = true,
 	destructive = false,
 	loading = false,
 	loadingMode = 'leading',
@@ -78,6 +81,7 @@ export function Button( {
 			data-shape={ shape === 'default' ? undefined : shape }
 			data-layout={ layout === 'default' ? undefined : layout }
 			data-disabled-appearance={ disabledAppearance === 'default' ? undefined : disabledAppearance }
+			data-toggle-highlight={ highlightOnToggle ? undefined : 'false' }
 			data-destructive={ destructive || undefined }
 			data-loading-mode={ loadingMode === 'replace' ? loadingMode : undefined }
 			aria-busy={ loading || undefined }

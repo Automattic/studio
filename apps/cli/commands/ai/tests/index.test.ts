@@ -6,8 +6,8 @@ import {
 	openStudioSession,
 } from '@studio/agent/node/sessions/pi-session';
 import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
 import { resolveAiConnection, resolveInitialAiProvider } from 'cli/ai/auth';
@@ -19,7 +19,7 @@ import { isSiteRunning } from 'cli/lib/site-utils';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../index';
 
-vi.mock( '@studio/common/lib/shared-config', () => ( {
+vi.mock( '@studio/common/lib/auth-token', () => ( {
 	readAuthToken: vi.fn(),
 } ) );
 // The quota-based wpcom default must never hit the network in tests.
@@ -43,6 +43,7 @@ vi.mock( 'cli/lib/providers', () => ( {
 	isProviderConnected: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
+	describeAccount: vi.fn().mockReturnValue( { connected: false } ),
 	persistSelectedAiProvider: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );
@@ -362,6 +363,7 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props ).toMatchObject( {
 			outcome: 'interrupted',
 			provider: 'wpcom',
+			connection_method: 'sign-in',
 			model_family: 'studio',
 			ai_session_id: 'session-id',
 			client: 'studio-code',
@@ -586,5 +588,52 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		);
 		// The Desktop wpcom default must not overwrite the pin on disk.
 		expect( persistSelectedAiProvider ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'AI runCommand — a chat on a local server', () => {
+	let stdoutSpy: ReturnType< typeof vi.spyOn >;
+	const appendCustomEntry = vi.fn( ( _type: string, _data: unknown ) => 'entry-id' );
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		( readAuthToken as Mock ).mockResolvedValue( null );
+		( readSelectedAiProvider as Mock ).mockResolvedValue( 'local-llm' );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'local-llm' );
+		( isProviderConnected as Mock ).mockResolvedValue( true );
+		( resolveResumeSessionContext as Mock ).mockReturnValue( {} );
+		( readProviderConfig as Mock ).mockResolvedValue( {
+			method: 'server',
+			baseUrl: 'http://localhost:11434/v1',
+			models: [ { name: 'gemma3:4b', images: true } ],
+		} );
+		( createStudioSession as Mock ).mockResolvedValue( {
+			appendCustomEntry,
+			getSessionId: () => 'session-id',
+			getEntries: () => [],
+		} );
+		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		stdoutSpy.mockRestore();
+	} );
+
+	it( 'names neither the model nor the server in the chat events', async () => {
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		const calls = ( recordTracksEvent as Mock ).mock.calls;
+		expect( calls.map( ( [ name ] ) => name ) ).toEqual( [
+			TRACKS_EVENTS.CODE_MESSAGE_SENT,
+			TRACKS_EVENTS.CODE_TURN_COMPLETED,
+		] );
+		for ( const [ , props ] of calls ) {
+			expect( props ).toMatchObject( {
+				provider: 'local-llm',
+				model: 'local-model',
+				model_family: 'local-llm',
+			} );
+		}
+		expect( JSON.stringify( calls ) ).not.toMatch( /gemma3|localhost/ );
 	} );
 } );

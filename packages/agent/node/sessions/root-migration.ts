@@ -5,7 +5,7 @@ import { LOCKFILE_STALE_TIME, SESSIONS_MIGRATION_LOCKFILE_NAME } from '@studio/c
 import { redactHomePaths } from '@studio/common/lib/error-reporting';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getConfigDirectory, getSessionsDirectory } from '@studio/common/lib/well-known-paths';
-import type { Migration } from '@studio/common/lib/migration';
+import type { StartupTask } from '@studio/common/lib/startup-tasks';
 
 const SESSIONS_MIGRATION_LOCK_WAIT_TIME = 10 * 60 * 1000;
 
@@ -218,7 +218,7 @@ export async function withSessionsMigrationLock(
 	}
 }
 
-export const moveAiSessionsToStudioDir: Migration = {
+export const moveAiSessionsToStudioDir: StartupTask = {
 	async needsToRun() {
 		if ( process.env.E2E || process.env.DEV_CONFIG_DIR ) {
 			return false;

@@ -3,11 +3,12 @@ import {
 	DEFAULT_PROVIDER_ID,
 	findAiModel,
 	getDefaultAiModel,
-	getProvider,
+	servesAiModel,
 	normalizeProviderId,
 	type AiModelId,
 	type AiProviderId,
 	type ProviderId,
+	type ThinkingLevel,
 } from '@studio/providers';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
@@ -63,13 +64,32 @@ export function resolveSessionModel(
 export function resolveSessionModelForProvider(
 	entries: SessionEntry[],
 	provider: ProviderId,
-	options?: { canUsePaidModels?: boolean }
+	options?: Parameters< typeof getDefaultAiModel >[ 1 ]
 ): AiModelId {
 	const defaultModel = getDefaultAiModel( provider, options );
 	const model = resolveSessionModel( entries, defaultModel );
-	return getProvider( provider ).ai?.models.some( ( { id } ) => id === model )
-		? model
-		: defaultModel;
+	return servesAiModel( provider, model ) ? model : defaultModel;
+}
+
+/**
+ * The thinking level the user picked for `model` in this session, or undefined for the
+ * provider's default. A pick lasts until the session switches models.
+ */
+export function resolveSessionThinking(
+	entries: SessionEntry[],
+	model: string
+): ThinkingLevel | undefined {
+	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+		const entry = entries[ index ];
+		const recordedModel = readEntryModelId( entry );
+		if ( recordedModel !== undefined && recordedModel !== model ) {
+			return undefined;
+		}
+		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) && entry.data?.thinking ) {
+			return entry.data.thinking === 'default' ? undefined : entry.data.thinking;
+		}
+	}
+	return undefined;
 }
 
 /**

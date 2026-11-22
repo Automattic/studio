@@ -153,11 +153,13 @@ export function useConnectSite() {
 						siteId: localSiteId,
 						view: 'pull',
 						provider: 'wpcom',
+						remoteSiteId: remote.id,
 					} );
 					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
 				},
-				deleteLocalSite: ( localSiteId ) =>
-					deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } ),
+				deleteLocalSite: async ( localSiteId ) => {
+					await deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } );
+				},
 				onStage: ( stage ) => {
 					const messages = {
 						create: __( 'Creating the local site…' ),

@@ -1,15 +1,23 @@
 import { __ } from '@wordpress/i18n';
 import { spacefastConfigSchema, type SpacefastConfig } from './config';
-import type { Provider } from '../types';
+import type { Provider, SiteLink, RemoteSite } from '../types';
 
 // A Space: a static site on Spacefast, served at `url`, in one of the account's teams.
-export interface Space {
+export interface Space extends RemoteSite {
 	id: string;
-	name: string;
-	url: string;
 	slug: string;
 	teamId: string;
 	teamName?: string;
+	teamSlug?: string;
+}
+
+function spaceDashboardUrl( { teamSlug, slug, teamId, id }: Space ) {
+	const [ teamRef, spaceRef ] = teamSlug && slug ? [ teamSlug, slug ] : [ teamId, id ];
+	return teamRef && spaceRef
+		? `https://my.spacefast.com/${ encodeURIComponent( teamRef ) }/${ encodeURIComponent(
+				spaceRef
+		  ) }`
+		: undefined;
 }
 
 export const spacefastProvider: Provider< SpacefastConfig, Space > = {
@@ -26,6 +34,18 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		expiresAt: ( config ) => ( config.expiresAt ? Date.parse( config.expiresAt ) : undefined ),
 	},
 	sites: {
+		publish: true,
+		publishing: {
+			description: () => __( 'A static copy of your pages.' ),
+		},
+		visibilityOptions: () => [
+			{
+				value: 'private',
+				label: __( 'Restricted' ),
+				description: __( 'Your team and people you give access to' ),
+			},
+			{ value: 'public', label: __( 'Everyone' ), description: __( 'Anyone can view your site' ) },
+		],
 		pull: false,
 		selective: false,
 		content: 'static',
@@ -38,10 +58,27 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 				),
 			learnMoreUrl: 'https://spacefast.com',
 		},
-		describe: ( space ) => ( {
-			details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
-			links: [],
-		} ),
+		describe: ( space ) => {
+			const url = spaceDashboardUrl( space );
+			const dashboard = url ?? 'https://my.spacefast.com/';
+			const links: SiteLink[] = [
+				{ role: 'dashboard', title: __( 'Manage on Spacefast' ), url: dashboard },
+				{
+					role: 'visibility',
+					title: __( 'Manage on Spacefast' ),
+					url: url ? `${ url }/access` : dashboard,
+				},
+			];
+			if ( url )
+				links.push(
+					{ role: 'add-domain', title: __( 'Add a domain' ), url: `${ url }/domains/add` },
+					{ role: 'more', title: __( 'View versions' ), url: `${ url }/versions` }
+				);
+			return {
+				details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
+				links,
+			};
+		},
 		issue: () => null,
 		// A Space renamed on Spacefast shows its new name; one gone from the account keeps the
 		// stored one.

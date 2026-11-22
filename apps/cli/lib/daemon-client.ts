@@ -8,8 +8,11 @@ import {
 	LOCKFILE_WAIT_TIME,
 	PROXY_PROCESS_NAME,
 } from '@studio/common/constants';
+import { readConfig } from '@studio/common/lib/config/store';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
+import { __, sprintf } from '@wordpress/i18n';
+import semver from 'semver';
 import { z } from 'zod';
 import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
@@ -21,7 +24,9 @@ import { SocketStreamClient, SocketMessageDecoder, SocketRequestClient } from 'c
 import {
 	ProcessDescription,
 	DaemonRequest,
+	SITE_PROCESS_PREFIX,
 	daemonEventSchema,
+	daemonPingResponseSchema,
 	daemonResponseSchema,
 	processDescriptionSchema,
 	processEventSchema,
@@ -168,6 +173,10 @@ export class DaemonBus extends DaemonBusEventEmitter {
 	}
 }
 
+const daemonListProcessesSuccessResponseSchema = z.object( {
+	processes: z.array( processDescriptionSchema ),
+} );
+
 async function sendDaemonRequest( request: DaemonRequest ): Promise< unknown > {
 	const socketClient = new SocketRequestClient(
 		PROCESS_MANAGER_CONTROL_SOCKET_PATH,
@@ -187,25 +196,22 @@ async function sendDaemonRequest( request: DaemonRequest ): Promise< unknown > {
 	return response.payload;
 }
 
-async function waitForDaemonReady() {
+async function pingDaemon(): Promise< string | undefined > {
+	const response = daemonPingResponseSchema.safeParse(
+		await sendDaemonRequest( { type: 'ping' } )
+	);
+	return response.success ? response.data.version : undefined;
+}
+
+async function waitFor( isDone: () => Promise< boolean >, timeoutMessage: string ) {
 	const start = Date.now();
-	let lastError: unknown;
-
 	while ( Date.now() - start < CONNECTION_TIMEOUT_MS ) {
-		try {
-			await sendDaemonRequest( { type: 'ping' } );
+		if ( await isDone() ) {
 			return;
-		} catch ( error ) {
-			lastError = error;
-			await new Promise( ( resolve ) => setTimeout( resolve, 100 ) );
 		}
+		await new Promise( ( resolve ) => setTimeout( resolve, 100 ) );
 	}
-
-	if ( lastError instanceof Error ) {
-		throw lastError;
-	}
-
-	throw new Error( `Daemon connection timeout after ${ CONNECTION_TIMEOUT_MS / 1000 } seconds` );
+	throw new Error( timeoutMessage );
 }
 
 function spawnDaemonProcess() {
@@ -218,6 +224,18 @@ function spawnDaemonProcess() {
 	daemonProcess.unref();
 }
 
+async function startDaemon() {
+	spawnDaemonProcess();
+	await waitFor(
+		() =>
+			pingDaemon().then(
+				() => true,
+				() => false
+			),
+		`Daemon connection timeout after ${ CONNECTION_TIMEOUT_MS / 1000 } seconds`
+	);
+}
+
 function isRecoverableConnectError( error: unknown ) {
 	return (
 		isErrnoException( error ) &&
@@ -225,18 +243,142 @@ function isRecoverableConnectError( error: unknown ) {
 	);
 }
 
-async function ensureDaemonIsRunning(): Promise< void > {
+/**
+ * Whether a client should replace a daemon started by another version of the CLI. Only an older
+ * daemon is replaced, so a Desktop app and an npm CLI of different versions don't keep replacing
+ * each other's. Daemons that predate versioned pings report no version and count as older.
+ */
+export function isDaemonOutdated( daemonVersion: string | undefined, clientVersion: string ) {
+	if ( ! semver.valid( clientVersion ) ) {
+		return false;
+	}
+	if ( daemonVersion === undefined ) {
+		return true;
+	}
+	return semver.valid( daemonVersion ) !== null && semver.lt( daemonVersion, clientVersion );
+}
+
+// The sites a replaced daemon was running, kept on disk until they're started again, so a client
+// interrupted halfway through leaves them to the next one.
+const SITES_TO_RESTART_PATH = path.join( PROCESS_MANAGER_HOME, 'sites-to-restart.json' );
+const sitesToRestartSchema = z.object( {
+	pid: z.number(),
+	processNames: z.array( z.string() ),
+} );
+
+function writeSitesToRestart( processNames: string[] ) {
+	fs.writeFileSync( SITES_TO_RESTART_PATH, JSON.stringify( { pid: process.pid, processNames } ) );
+}
+
+function readSitesToRestart() {
 	try {
-		await sendDaemonRequest( { type: 'ping' } );
+		return sitesToRestartSchema.parse(
+			JSON.parse( fs.readFileSync( SITES_TO_RESTART_PATH, 'utf8' ) )
+		);
+	} catch {
+		return undefined;
+	}
+}
+
+// Takes over the sites a client left to restart when it exited before finishing.
+function claimSitesToRestart(): string[] {
+	const pending = readSitesToRestart();
+	if ( ! pending || isProcessAlive( pending.pid ) ) {
+		return [];
+	}
+	writeSitesToRestart( pending.processNames );
+	return pending.processNames;
+}
+
+/**
+ * Stops an outdated daemon, with the processes it supervises, and starts this CLI's. Returns the
+ * names of the processes that were running, so their sites can be started again.
+ */
+async function replaceDaemon(): Promise< string[] > {
+	const { processes } = daemonListProcessesSuccessResponseSchema.parse(
+		await sendDaemonRequest( { type: 'list-processes' } )
+	);
+	const processNames = processes.filter( ( p ) => p.status === 'online' ).map( ( p ) => p.name );
+	writeSitesToRestart( processNames );
+	await sendDaemonRequest( { type: 'kill-daemon' } );
+	await waitFor(
+		() =>
+			pingDaemon().then(
+				() => false,
+				( error ) => isRecoverableConnectError( error )
+			),
+		'The outdated process daemon did not stop'
+	);
+	await startDaemon();
+	return processNames;
+}
+
+async function ensureDaemonIsRunning(): Promise< string[] > {
+	let daemonVersion: string | undefined;
+	try {
+		daemonVersion = await pingDaemon();
 	} catch ( error ) {
 		if ( ! isRecoverableConnectError( error ) ) {
 			throw error;
 		}
-
-		spawnDaemonProcess();
-		await waitForDaemonReady();
-		await sendDaemonRequest( { type: 'ping' } );
+		await startDaemon();
+		return [];
 	}
+
+	if ( ! isDaemonOutdated( daemonVersion, __STUDIO_CLI_VERSION__ ) ) {
+		return [];
+	}
+	return replaceDaemon();
+}
+
+function runSiteStart( sitePath: string ): Promise< boolean > {
+	const cliPath = path.resolve( import.meta.dirname, 'main.mjs' );
+	return new Promise( ( resolve ) => {
+		const child = spawn(
+			process.execPath,
+			[ cliPath, 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+			{ stdio: 'ignore', windowsHide: true }
+		);
+		child.once( 'error', () => resolve( false ) );
+		child.once( 'exit', ( code ) => resolve( code === 0 ) );
+	} );
+}
+
+/**
+ * Starts the sites the replaced daemon was running, through this CLI's `site start`. A site this
+ * process holds an operation on is left to that operation, and one whose folder is gone stays
+ * stopped: starting it would recreate part of the folder.
+ */
+async function restartSites( processNames: string[] ) {
+	const { sites } = await readConfig();
+	const sitesToStart = sites.filter(
+		( site ) =>
+			processNames.includes( `${ SITE_PROCESS_PREFIX }${ site.id }` ) &&
+			site.operation?.pid !== process.pid &&
+			fs.existsSync( site.path )
+	);
+	// A start can fail because another process, like the Desktop app starting its sites at launch,
+	// holds an operation on the site. That site is left to that process.
+	const isHandledElsewhere = async ( siteId: string ) => {
+		const site = ( await readConfig() ).sites.find( ( { id } ) => id === siteId );
+		return (
+			( site?.operation !== undefined && isProcessAlive( site.operation.pid ) ) ||
+			( await isProcessRunning( `${ SITE_PROCESS_PREFIX }${ siteId }` ) ) !== undefined
+		);
+	};
+	await Promise.all(
+		sitesToStart.map( async ( site ) => {
+			if ( ! ( await runSiteStart( site.path ) ) && ! ( await isHandledElsewhere( site.id ) ) ) {
+				console.error(
+					sprintf(
+						// translators: %s: site name.
+						__( 'Studio was updated, and the site "%s" could not be started again.' ),
+						site.name
+					)
+				);
+			}
+		} )
+	);
 }
 
 let daemonBus: DaemonBus | null = null;
@@ -276,8 +418,14 @@ export async function connectToDaemon(): Promise< void > {
 		stale: LOCKFILE_STALE_TIME,
 	} );
 
+	let processesToRestart: string[];
 	try {
-		await ensureDaemonIsRunning();
+		// Replaced inside the lock, so concurrent clients wait for one replacement instead of
+		// starting their own.
+		processesToRestart = await ensureDaemonIsRunning();
+		if ( ! processesToRestart.length ) {
+			processesToRestart = claimSitesToRestart();
+		}
 		await ensureDaemonBus();
 		isConnected = true;
 	} catch ( error ) {
@@ -285,6 +433,14 @@ export async function connectToDaemon(): Promise< void > {
 		throw error;
 	} finally {
 		await unlockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH );
+	}
+
+	// After unlocking: each `site start` connects to the daemon itself.
+	if ( processesToRestart.length ) {
+		await restartSites( processesToRestart );
+	}
+	if ( readSitesToRestart()?.pid === process.pid ) {
+		fs.rmSync( SITES_TO_RESTART_PATH, { force: true } );
 	}
 }
 
@@ -296,10 +452,6 @@ export async function disconnectFromDaemon(): Promise< void > {
 export async function killDaemonAndChildren() {
 	await sendDaemonRequest( { type: 'kill-daemon' } );
 }
-
-const daemonListProcessesSuccessResponseSchema = z.object( {
-	processes: z.array( processDescriptionSchema ),
-} );
 
 // Cache the process list returned from the process manager for a very short time to make multiple
 // calls in quick succession more efficient

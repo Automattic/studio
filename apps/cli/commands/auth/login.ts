@@ -1,4 +1,4 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { signInInteractively } from 'cli/lib/wpcom-auth';
@@ -25,7 +25,7 @@ export async function runCommand(): Promise< void > {
 		logger.reportError(
 			new LoggerError(
 				__(
-					'Login requires an interactive terminal. Ask the user to run `studio auth login` in their own terminal and complete browser sign-in themselves. Do not ask them to paste the authentication token into chat.'
+					'Login requires an interactive terminal. Run `studio auth login` in your own terminal and complete sign-in there. Do not share authentication tokens in chat.'
 				)
 			)
 		);

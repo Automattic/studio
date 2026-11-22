@@ -67,6 +67,60 @@ function atomicSite() {
 }
 
 describe( 'transformSitesResponse', () => {
+	it.each( [
+		{ plan: { ...simpleBusinessSite().plan, is_free: false }, paid: true },
+		{ plan: { ...simpleBusinessSite().plan, is_free: false, expired: true }, paid: false },
+		{ plan: freeSite().plan, paid: false },
+		{ plan: simpleBusinessSite().plan, paid: undefined },
+		{ plan: undefined, paid: undefined },
+	] )( 'derives paid status from the active plan: $paid', ( { plan, paid } ) => {
+		const [ site ] = transformSitesResponse( [
+			{
+				...simpleBusinessSite(),
+				plan,
+				launch_status: 'unlaunched',
+				is_private: true,
+			},
+		] );
+		expect( site.hasPaidPlan ).toBe( paid );
+		expect( site.visibility ).toBe( 'private' );
+		expect( site.launchStatus ).toBe( 'unlaunched' );
+	} );
+
+	it( 'preserves launch and visibility state independently from a paid plan', () => {
+		const [ site ] = transformSitesResponse( [
+			{
+				...simpleBusinessSite(),
+				launch_status: 'unlaunched',
+				is_coming_soon: true,
+				is_private: false,
+			},
+		] );
+		expect( site ).toMatchObject( {
+			launchStatus: 'unlaunched',
+			visibility: 'coming-soon',
+		} );
+		const [ legacy ] = transformSitesResponse( [ simpleBusinessSite() ] );
+		expect( legacy.launchStatus ).toBeUndefined();
+	} );
+
+	it( 'keeps a site whose launch and visibility fields have unexpected types', () => {
+		const result = transformSitesResponse( [
+			{
+				...atomicSite(),
+				is_wpcom_atomic: false,
+				hosting_provider_guess: 'pressable',
+				launch_status: false,
+				is_coming_soon: 0,
+				is_private: null,
+			},
+		] );
+
+		expect( result ).toHaveLength( 1 );
+		expect( result[ 0 ] ).toMatchObject( { isPressable: true, syncSupport: 'syncable' } );
+		expect( result[ 0 ].launchStatus ).toBe( 'launched' );
+		expect( result[ 0 ].visibility ).toBeUndefined();
+	} );
 	it( 'retains Simple sites whose options omit software_version and classifies them', () => {
 		const result = transformSitesResponse( [ simpleBusinessSite(), freeSite() ] );
 
@@ -107,7 +161,7 @@ describe( 'transformSitesResponse', () => {
 } );
 
 describe( 'withWpcomDetails', () => {
-	it( 'takes details from the site list, keeps the stored sync times, and keeps the stored name and URL of sites gone from WordPress.com', () => {
+	it( 'takes account details while preserving sync times and usable stored URLs', () => {
 		const atomic = { ...simpleBusinessSite(), ID: 3, is_wpcom_atomic: true, jetpack: true };
 		const [ business, free ] = transformSitesResponse( [ atomic, freeSite() ] );
 		const stored = ( id: number ) => ( {
@@ -137,5 +191,10 @@ describe( 'withWpcomDetails', () => {
 			url: business.url,
 			syncSupport: 'deleted',
 		} );
+		const [ invalidUrl ] = withWpcomDetails(
+			[ stored( business.id ) ],
+			[ { ...business, url: '' } ]
+		);
+		expect( invalidUrl.url ).toBe( business.url );
 	} );
 } );

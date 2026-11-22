@@ -55,7 +55,7 @@ export function SiteStatusButton( {
 			<TooltipTrigger
 				render={
 					<Button
-						className={ styles.rowAction }
+						className={ styles.statusButton }
 						variant="muted-ghost"
 						size="icon-sm"
 						aria-label={ visualBusy ? statusName : label }

@@ -8,6 +8,7 @@ import { downloadFile } from '@studio/common/lib/download-file';
 import { c as archive } from 'tar';
 import { confirm } from 'cli/lib/prompts';
 import {
+	CliUpdateInProgressError,
 	getStandaloneInstallDir,
 	setupStandaloneAutoUpdates,
 	updateStandaloneCli,
@@ -15,6 +16,7 @@ import {
 
 vi.mock( 'cli/lib/prompts', () => ( { confirm: vi.fn() } ) );
 vi.mock( '@studio/common/lib/download-file', () => ( { downloadFile: vi.fn() } ) );
+vi.unmock( 'lockfile' );
 vi.mock( 'node:child_process', async ( original ) => ( {
 	...( await original< typeof import('node:child_process') >() ),
 	spawn: vi.fn(),
@@ -150,6 +152,36 @@ it( 'leaves the active runtime intact when a download is corrupt', async () => {
 		'1.1.0\n'
 	);
 	expect( await fs.readdir( versionsDirectory ) ).toEqual( [ 'current-1.0.0' ] );
+} );
+
+it( 'reports another update in progress without disturbing its staged release', async () => {
+	const release = await releaseArchive();
+	serveRelease( release );
+	let signalDownload!: () => void;
+	let finishDownload!: () => void;
+	const downloading = new Promise< void >( ( resolve ) => ( signalDownload = resolve ) );
+	const continueDownload = new Promise< void >( ( resolve ) => ( finishDownload = resolve ) );
+	vi.mocked( downloadFile ).mockImplementation( async ( _url, destination ) => {
+		signalDownload();
+		await continueDownload;
+		await fs.writeFile( destination, release );
+	} );
+	const first = updateStandaloneCli( '1.0.0' );
+	await downloading;
+	try {
+		await expect( updateStandaloneCli( '1.0.0' ) ).rejects.toThrow( CliUpdateInProgressError );
+		expect( downloadFile ).toHaveBeenCalledOnce();
+	} finally {
+		finishDownload();
+		await expect( first ).resolves.toBe( '2.0.0' );
+	}
+	expect( await fs.readFile( path.join( versionsDirectory, 'current-1.0.0' ), 'utf8' ) ).toBe(
+		'2.0.0\n'
+	);
+	expect( ( await fs.readdir( versionsDirectory ) ).sort() ).toEqual( [
+		'2.0.0',
+		'current-1.0.0',
+	] );
 } );
 
 it( 'downloads the selected version again if its runtime directory is missing', async () => {

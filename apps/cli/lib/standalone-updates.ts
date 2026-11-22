@@ -4,6 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { downloadFile } from '@studio/common/lib/download-file';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { __ } from '@wordpress/i18n';
 import { writeFile } from 'atomically';
@@ -21,6 +22,15 @@ import {
 
 export const CLI_VERSIONS_DIRECTORY = 'cli-versions';
 const execFileAsync = promisify( execFile );
+
+export class CliUpdateInProgressError extends Error {
+	constructor() {
+		super(
+			__( 'Another WordPress Studio CLI update is in progress. Try again when it finishes.' )
+		);
+		this.name = 'CliUpdateInProgressError';
+	}
+}
 
 export function getStandaloneInstallDir(): string {
 	const runtimeDirectory = path.dirname( path.dirname( process.execPath ) );
@@ -133,7 +143,14 @@ export async function updateStandaloneCli(
 	const currentFile = path.join( versionsDirectory, `current-${ installedVersion }` );
 	await fs.promises.mkdir( versionsDirectory, { recursive: true } );
 	const lock = path.join( versionsDirectory, 'update.lock' );
-	await lockFileAsync( lock, { wait: 0, stale: 60 * 60 * 1000 } );
+	try {
+		await lockFileAsync( lock, { wait: 0, stale: 60 * 60 * 1000 } );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'EEXIST' ) {
+			throw new CliUpdateInProgressError();
+		}
+		throw error;
+	}
 	let stagingDirectory: string | undefined;
 	try {
 		const update = await getAvailableCliUpdate( currentVersion, 'standalone', true );

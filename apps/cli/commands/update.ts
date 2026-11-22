@@ -1,6 +1,6 @@
 import { updateConfig } from '@studio/common/lib/config/store';
 import { __, sprintf } from '@wordpress/i18n';
-import { updateStandaloneCli } from 'cli/lib/standalone-updates';
+import { CliUpdateInProgressError, updateStandaloneCli } from 'cli/lib/standalone-updates';
 import { getCliInstallKind } from 'cli/lib/update-notifier';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/update.command';
@@ -45,7 +45,11 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ): Pro
 				: __( 'WordPress Studio CLI is up to date.' )
 		);
 	} catch ( error ) {
-		logger.reportError( new LoggerError( __( 'Failed to update WordPress Studio CLI.' ), error ) );
+		logger.reportError(
+			error instanceof CliUpdateInProgressError
+				? new LoggerError( error.message )
+				: new LoggerError( __( 'Failed to update WordPress Studio CLI.' ), error )
+		);
 		process.exitCode = 1;
 	}
 }

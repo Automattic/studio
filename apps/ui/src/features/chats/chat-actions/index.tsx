@@ -22,14 +22,7 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { getSessionTitle } from '@/features/chats/session-view/session-chat-actions';
 import { useItemShortcuts } from '@/features/sites';
-import {
-	ArchiveIcon,
-	PinIcon,
-	ReadStatusIcon,
-	RenameIcon,
-	UnpinIcon,
-	UnreadStatusIcon,
-} from '@/lib/icons';
+import { ArchiveIcon, PinIcon, EyeIcon, PencilIcon, UnpinIcon, EyeOffIcon } from '@/lib/icons';
 import {
 	Spinner,
 	Menu,
@@ -203,12 +196,12 @@ export function ChatActionsMenuItems( {
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.rename }>
-				<RenameIcon />
+				<PencilIcon />
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.toggleRead }>
-				{ actions.session.unread ? <ReadStatusIcon /> : <UnreadStatusIcon /> }
+				{ actions.session.unread ? <EyeIcon /> : <EyeOffIcon /> }
 				{ actions.session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
 			</Menu.Item>
 			{ children ? (

@@ -8,7 +8,8 @@ import { createFakeHost } from './fake-host';
 describe( 'screenshot helpers', () => {
 	it( 'falls back to a temporary directory when the host names none', async () => {
 		const buffer = Buffer.from( 'not-really-a-png' );
-		const result = await saveScreenshotFile( createFakeHost(), buffer, {
+		const host = createFakeHost();
+		const result = await saveScreenshotFile( host, buffer, {
 			viewportType: 'desktop',
 		} );
 
@@ -26,7 +27,10 @@ describe( 'screenshot helpers', () => {
 	it( "saves captures into the host's session directory with unique names", async () => {
 		const sessionRoot = await mkdtemp( path.join( os.tmpdir(), 'studio-session-' ) );
 		const screenshotsDirectory = path.join( sessionRoot, 'session.screenshots' );
-		const host = { ...createFakeHost(), screenshotsDirectory: () => screenshotsDirectory };
+		const host = {
+			...createFakeHost(),
+			imagesDirectory: () => screenshotsDirectory,
+		};
 
 		try {
 			const first = await saveScreenshotFile( host, Buffer.from( 'first' ), {
@@ -55,7 +59,7 @@ describe( 'screenshot helpers', () => {
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 		const host = {
 			...createFakeHost(),
-			screenshotsDirectory: () => {
+			imagesDirectory: () => {
 				throw new Error( 'no session' );
 			},
 		};

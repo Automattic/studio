@@ -1,14 +1,13 @@
 import { z } from 'zod';
 
-export const AI_EFFORT_LEVELS = [ 'default', 'low', 'medium', 'high', 'xhigh', 'max' ] as const;
-export type AiEffort = ( typeof AI_EFFORT_LEVELS )[ number ];
-
+// Keep provider, model, and effort values as strings so preferences created by
+// a newer build survive when an older build cannot offer that preset.
 export const modelFavoritesSchema = z
 	.array(
 		z.object( {
 			provider: z.string().min( 1 ).max( 256 ),
 			model: z.string().min( 1 ).max( 512 ),
-			effort: z.enum( AI_EFFORT_LEVELS ),
+			effort: z.string().min( 1 ).max( 64 ),
 		} )
 	)
 	.max( 200 );

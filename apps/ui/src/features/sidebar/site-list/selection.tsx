@@ -10,14 +10,7 @@ import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useLeaveArchivedChat } from '@/features/chats';
 import { useDeleteBlockedReason, DeleteSiteDialog } from '@/features/sites';
-import {
-	ArchiveIcon,
-	PinIcon,
-	ReadStatusIcon,
-	TrashIcon,
-	UnpinIcon,
-	UnreadStatusIcon,
-} from '@/lib/icons';
+import { ArchiveIcon, PinIcon, EyeIcon, TrashIcon, UnpinIcon, EyeOffIcon } from '@/lib/icons';
 import { isShortcut } from '@/lib/keyboard';
 import { VisuallyHidden, Menu } from '@/lib/ui';
 import styles from './style.module.css';
@@ -408,14 +401,14 @@ export function BulkMenu( {
 						disabled={ chats.every( ( chat ) => ! chat.unread ) }
 						onClick={ () => void updateChats( { unread: false } ) }
 					>
-						<ReadStatusIcon />
+						<EyeIcon />
 						{ __( 'Mark as read' ) }
 					</Menu.Item>
 					<Menu.Item
 						disabled={ chats.every( ( chat ) => chat.unread ) }
 						onClick={ () => void updateChats( { unread: true } ) }
 					>
-						<UnreadStatusIcon />
+						<EyeOffIcon />
 						{ __( 'Mark as unread' ) }
 					</Menu.Item>
 				</>

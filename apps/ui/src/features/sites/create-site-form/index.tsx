@@ -3,9 +3,9 @@ import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { ChevronDownIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useConnector } from '@/data/core';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import {
 	CertificateTrustNotice,
@@ -18,6 +18,7 @@ import {
 	validateSiteName,
 } from '@/features/sites/site-fields';
 import { useOffline } from '@/lib/hooks';
+import { ChevronDownIcon } from '@/lib/icons';
 import {
 	Alert,
 	AlertDescription,
@@ -111,6 +112,7 @@ export function CreateSiteForm( {
 	draft,
 	onDraftChange,
 }: CreateSiteFormProps ) {
+	const { localMachine } = useConnector().capabilities;
 	const formId = useId();
 	const advancedId = useId();
 	const advancedPanelRef = useRef< HTMLDivElement >( null );
@@ -489,30 +491,34 @@ export function CreateSiteForm( {
 								</Popover.Popup>
 							</Popover.Root>
 						</Field>
-						<TextField
-							label={ __( 'Domain name' ) }
-							controlClassName={ styles.domainControls }
-							value={ data.customDomain }
-							placeholder="localhost"
-							error={ advancedErrors.customDomain }
-							description={
-								requiresCustomDomain ? __( 'This Blueprint requires a custom domain.' ) : undefined
-							}
-							onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
-							action={
-								<FieldLabel htmlFor={ `${ formId }-https` } className={ styles.httpsToggle }>
-									{ __( 'HTTPS' ) }
-									<Switch
-										id={ `${ formId }-https` }
-										aria-label={ __( 'Enable HTTPS' ) }
-										checked={ enableHttps }
-										disabled={ ! customDomain || !! advancedErrors.customDomain }
-										onCheckedChange={ ( checked ) => handleChange( { enableHttps: checked } ) }
-									/>
-								</FieldLabel>
-							}
-						/>
-						{ enableHttps && (
+						{ localMachine && (
+							<TextField
+								label={ __( 'Domain name' ) }
+								controlClassName={ styles.domainControls }
+								value={ data.customDomain }
+								placeholder="localhost"
+								error={ advancedErrors.customDomain }
+								description={
+									requiresCustomDomain
+										? __( 'This Blueprint requires a custom domain.' )
+										: undefined
+								}
+								onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
+								action={
+									<FieldLabel htmlFor={ `${ formId }-https` } className={ styles.httpsToggle }>
+										{ __( 'HTTPS' ) }
+										<Switch
+											id={ `${ formId }-https` }
+											aria-label={ __( 'Enable HTTPS' ) }
+											checked={ enableHttps }
+											disabled={ ! customDomain || !! advancedErrors.customDomain }
+											onCheckedChange={ ( checked ) => handleChange( { enableHttps: checked } ) }
+										/>
+									</FieldLabel>
+								}
+							/>
+						) }
+						{ localMachine && enableHttps && (
 							<FieldDescription className={ styles.certificateNotice }>
 								<CertificateTrustNotice />
 							</FieldDescription>
@@ -556,15 +562,17 @@ export function CreateSiteForm( {
 
 				{ children }
 
-				<PathField
-					data={ { ...data, name } }
-					error={ pathError }
-					requiresEmptyPath={ requiresEmptyPath }
-					requiresExistingPath={ requiresExistingPath }
-					description={ folderDescription }
-					disabled={ isSubmitting }
-					onChange={ handleChange }
-				/>
+				{ localMachine && (
+					<PathField
+						data={ { ...data, name } }
+						error={ pathError }
+						requiresEmptyPath={ requiresEmptyPath }
+						requiresExistingPath={ requiresExistingPath }
+						description={ folderDescription }
+						disabled={ isSubmitting }
+						onChange={ handleChange }
+					/>
+				) }
 
 				{ sourceControl }
 

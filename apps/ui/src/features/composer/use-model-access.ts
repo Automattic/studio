@@ -1,12 +1,12 @@
-import { aiModelRequiresPaidCredits } from '@studio/agent/protocol/models';
-import { AI_PROVIDER_IDS, getEffectiveSessionProvider } from '@studio/agent/protocol/providers';
+import { getEffectiveSessionProvider } from '@studio/agent/protocol/sessions/model';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
+import { findAiModel, AI_PROVIDER_IDS } from '@studio/providers';
 import { useCallback, useMemo } from 'react';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import type { AiModelId, SessionEntry } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ProviderId } from '@studio/providers';
 
 // The provider the chat is on, the providers it can use, and which models are
 // out of reach.
@@ -17,7 +17,7 @@ export function useModelAccess( {
 }: {
 	sessionId?: string;
 	entries?: SessionEntry[];
-	provider?: AiProviderId;
+	provider?: ProviderId;
 } ) {
 	const { data: aiSettings } = useAiSettings();
 	const sessionProvider = useMemo(
@@ -32,12 +32,13 @@ export function useModelAccess( {
 	// Connected providers are available in saved chats and site drafts.
 	const providers = AI_PROVIDER_IDS.filter(
 		( id ) =>
-			( id === 'wpcom' ? !! authUser : aiSettings?.hasAnthropicApiKey ) &&
+			aiSettings?.accounts[ id ].connected &&
 			( !! sessionId || !! provider || id === sessionProvider )
 	);
 	const canUsePaidTiers = canUsePaidAiModels( quota, authUser?.email );
 	const isModelLocked = useCallback(
-		( id: AiModelId ) => aiModelRequiresPaidCredits( id ) && ! canUsePaidTiers,
+		( id: AiModelId ) =>
+			Boolean( findAiModel( id )?.model.requiresPaidAiCredits ) && ! canUsePaidTiers,
 		[ canUsePaidTiers ]
 	);
 

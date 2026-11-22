@@ -8,6 +8,7 @@ npm -w @studio/ui run playground
 
 It opens http://localhost:5300, which links to each page:
 
+- `/model-selector.html`: the real composer with sample model presets. Use `?scheme=dark`, `?favorites=empty`, or `?state=conversation` to inspect those states.
 - `/chat.html`: the chat transcript in every state: Markdown, tool calls with results, diffs and errors, a running turn, streaming, pending and answered questions, the image picker, screenshots, annotations and the error markers. Samples are in `chat-samples.ts`.
 - `/animation.html`: the preview loading animation, active, still, easing and the selection wave.
 
@@ -18,5 +19,3 @@ Each page shows light and dark side by side, or one scheme from the header. To a
 - `/email-preview.html`: the email log loading skeleton, empty state, multiple selectable sample emails, and loading error. Use `?state=skeleton`, `?state=empty`, `?state=multiple`, or `?state=error` to start in a particular state.
 - `/sidebar-preview.html`: the real app shell with its sidebar held in loading. Use the links to switch to loaded rows or between light and dark mode.
   Add `&rows=30` for a scrolling sidebar or `&chat=long` for a sample conversation.
-
-- `/model-selector.html`: the real composer and model selector with sample favorites. Use `?scheme=dark` for dark mode, `?favorites=empty` to start without favorites, `?providers=all` to include direct Claude, or `?providers=all&state=conversation` to check family-switch confirmation. Preferences are in memory; no live agent or provider is used.

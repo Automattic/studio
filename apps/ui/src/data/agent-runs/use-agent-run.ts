@@ -74,8 +74,6 @@ export function useAgentRun( sessionId: string | undefined ): LiveAgentEvents {
 					prompt: {
 						id: newId(),
 						prompt,
-						model: options.model,
-						effort: options.effort,
 						displayMessage: options.displayMessage,
 						images: options.images,
 						files: options.files,

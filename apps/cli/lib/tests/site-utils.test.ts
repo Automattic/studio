@@ -1,19 +1,18 @@
+import { readConfig } from '@studio/common/lib/config/store';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi, type Mock } from 'vitest';
 import { openBrowser } from 'cli/lib/browser';
-import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
-import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/daemon-client';
-import { openSiteInBrowser, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { isProxyProcessRunning, listProcesses, stopProxyProcess } from 'cli/lib/daemon-client';
+import {
+	getSitesRunningStatus,
+	openSiteInBrowser,
+	stopProxyIfNoSitesNeedIt,
+} from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
-vi.mock( 'cli/lib/cli-config/core', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
-	return {
-		...actual,
-		readCliConfig: vi.fn(),
-	};
-} );
+vi.mock( '@studio/common/lib/config/store' );
 vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
@@ -28,7 +27,7 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	let mockLogger: Logger< LoggerAction >;
 
-	const createSiteData = ( overrides: Partial< SiteData > = {} ): SiteData => ( {
+	const createSiteData = ( overrides: Partial< ConfigSite > = {} ): ConfigSite => ( {
 		id: 'site-1',
 		name: 'Test Site',
 		path: '/test/site',
@@ -49,7 +48,7 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
 		( stopProxyProcess as Mock ).mockResolvedValue( undefined );
 		( isServerRunning as Mock ).mockResolvedValue( undefined );
-		( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [] } );
+		( readConfig as Mock ).mockResolvedValue( { sites: [] } );
 	} );
 
 	afterEach( () => {
@@ -58,9 +57,8 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	it( 'should stop proxy if no other sites exist', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readCliConfig as Mock ).mockResolvedValue( {
+		( readConfig as Mock ).mockResolvedValue( {
 			sites: [ createSiteData( { id: 'stopped-site' } ) ],
-			version: 1,
 		} );
 
 		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
@@ -75,13 +73,12 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	it( 'should stop proxy if other sites exist but none have custom domains', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readCliConfig as Mock ).mockResolvedValue( {
+		( readConfig as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'other-site-1' } ),
 				createSiteData( { id: 'other-site-2' } ),
 			],
-			version: 1,
 		} );
 
 		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
@@ -91,12 +88,11 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	it( 'should stop proxy if other sites have custom domains but are not running', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readCliConfig as Mock ).mockResolvedValue( {
+		( readConfig as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'other-site', customDomain: 'other.local' } ),
 			],
-			version: 1,
 		} );
 		( isServerRunning as Mock ).mockResolvedValue( undefined );
 
@@ -108,12 +104,11 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	it( 'should not stop proxy if another site with custom domain is running', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readCliConfig as Mock ).mockResolvedValue( {
+		( readConfig as Mock ).mockResolvedValue( {
 			sites: [
 				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ),
 				createSiteData( { id: 'running-site', customDomain: 'running.local' } ),
 			],
-			version: 1,
 		} );
 		( isServerRunning as Mock ).mockResolvedValue( mockProcessDescription );
 
@@ -125,7 +120,7 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 } );
 
 describe( 'openSiteInBrowser', () => {
-	const site: SiteData = {
+	const site: ConfigSite = {
 		id: 'site-1',
 		name: 'Site',
 		path: '/sites/site',
@@ -149,6 +144,32 @@ describe( 'openSiteInBrowser', () => {
 		expect( openBrowser ).toHaveBeenCalledWith(
 			'http://localhost:8881/studio-auto-login?redirect_to=' +
 				encodeURIComponent( 'http://localhost:8881/wp-admin/edit.php' )
+		);
+	} );
+} );
+
+describe( 'getSitesRunningStatus', () => {
+	const site = { name: 'Site', path: '/site', port: 8881, phpVersion: '8.3' };
+
+	it( 'counts a saved site as running when its online process has the pid saved for it', async () => {
+		( listProcesses as Mock ).mockResolvedValue( [
+			{ name: 'studio-site-current', pmId: 0, status: 'online', pid: 200 },
+			{ name: 'studio-site-stale', pmId: 1, status: 'online', pid: 300 },
+		] );
+		( readConfig as Mock ).mockResolvedValue( {
+			sites: [
+				{ ...site, id: 'current', latestCliPid: 200 },
+				{ ...site, id: 'stale', latestCliPid: 299 },
+				{ ...site, id: 'stopped' },
+			],
+		} );
+
+		expect( await getSitesRunningStatus() ).toEqual(
+			new Map( [
+				[ 'current', true ],
+				[ 'stale', false ],
+				[ 'stopped', false ],
+			] )
 		);
 	} );
 } );

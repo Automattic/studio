@@ -3,7 +3,6 @@
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;
 	--site-list-chat-status-gap: var( --space-1_5 );
-	--site-list-sync-indicator-bg: var( --status-sync );
 
 	padding: 0 var( --space-3 ) var( --space-5 );
 	display: flex;
@@ -29,11 +28,15 @@
 	display: none;
 }
 
+.dragPreview {
+	opacity: 0.95;
+	border-radius: var( --radius-md );
+	background-color: var( --hover );
+}
+
 .groupPanel,
 .chatsPanel {
 	overflow: clip;
-	transition-duration: calc( var( --motion-duration-layout ) * 2 / 3 );
-	transition-timing-function: var( --motion-ease-layout );
 }
 
 .groupPanel:has( [data-drag-source] ),
@@ -54,8 +57,8 @@
 	align-items: center;
 }
 
-.rowAction {
-	--button-hover-background: transparent;
+.statusButton[aria-busy='true'] {
+	visibility: visible;
 }
 
 .siteRow[data-needs-input] {

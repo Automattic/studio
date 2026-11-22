@@ -16,14 +16,15 @@ const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 const session = new E2ESession();
 
 async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean } ) {
-	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete' );
+	const sidebar = new Sidebar( session.mainWindow );
+	await sidebar.openContextMenuItem( siteName, 'Delete' );
 	const dialog = session.mainWindow.getByRole( 'alertdialog' );
 	const deleteFiles = dialog.getByRole( 'checkbox', {
 		name: 'Also move files and database to Trash',
 	} );
 	await deleteFiles.setChecked( ! keepFiles );
 	await dialog.getByRole( 'button', { name: 'Remove site' } ).click();
-	await expect( new Sidebar( session.mainWindow ).getSiteButton( siteName ) ).not.toBeAttached( {
+	await expect( sidebar.getSiteRow( siteName, { includeHidden: true } ) ).toHaveCount( 0, {
 		timeout: 30_000,
 	} );
 }
@@ -205,10 +206,12 @@ test.describe( 'Sites', () => {
 		await fs.ensureDir( thumbnailsDir );
 		await fs.writeFile( path.join( thumbnailsDir, `${ site.id }.png` ), 'test-thumbnail-data' );
 
-		await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Duplicate' );
+		const sidebar = new Sidebar( session.mainWindow );
+		await sidebar.openContextMenuItem( siteName, 'Duplicate' );
 
 		const copyName = `${ siteName } Copy`;
-		await expect( new Sidebar( session.mainWindow ).getSiteButton( copyName ) ).toBeVisible( {
+		await sidebar.ensureOpen();
+		await expect( sidebar.getSiteButton( copyName ) ).toBeVisible( {
 			timeout: 120_000,
 		} );
 		const copy = await session.waitForSite( copyName );
@@ -252,7 +255,9 @@ test.describe( 'Site settings', () => {
 		} );
 		await settings.close();
 
-		await expect( new Sidebar( page ).getSiteButton( newSiteName ) ).toBeVisible();
+		const sidebar = new Sidebar( page );
+		await sidebar.ensureOpen();
+		await expect( sidebar.getSiteButton( newSiteName ) ).toBeVisible();
 		await expect
 			.poll( () => session.waitForSite( newSiteName ), { timeout: 120_000 } )
 			.toMatchObject( { enableDebugLog: true } );

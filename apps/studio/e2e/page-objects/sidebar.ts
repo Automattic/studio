@@ -1,10 +1,16 @@
 import { type Page, expect } from '@playwright/test';
 
+const INTERACTIVE_SELECTOR = ':not([inert] *, [aria-hidden="true"] *)';
+
 export default class Sidebar {
 	constructor( private page: Page ) {}
 
 	get addSiteButton() {
 		return this.page.getByRole( 'button', { name: 'Add site', exact: true } );
+	}
+
+	get toggle() {
+		return this.page.locator( `[data-sidebar-toggle]${ INTERACTIVE_SELECTOR }` );
 	}
 
 	get locator() {
@@ -16,28 +22,29 @@ export default class Sidebar {
 		return this.locator.getByRole( 'button', { name: siteName, exact: true } ).first();
 	}
 
-	getSiteRow( siteName: string ) {
+	getSiteRow( siteName: string, { includeHidden = false } = {} ) {
 		// The performance comparison runs these page objects against trunk builds
 		// too, whose rows are sections rather than list items.
 		return this.locator.locator( 'li, section' ).filter( {
-			has: this.page.getByRole( 'button', { name: siteName, exact: true } ),
+			has: this.page.getByRole( 'button', { name: siteName, exact: true, includeHidden } ),
 		} );
 	}
 
 	getStatusButton( siteName: string ) {
 		// By its state rather than its name, which is translated.
-		// A flyout adds a second row; keep state reads on the original row.
-		return this.getSiteRow( siteName ).locator( 'button[data-state]' ).first();
+		// The original row stays mounted while the sidebar is collapsed.
+		return this.getSiteRow( siteName, { includeHidden: true } )
+			.locator( 'button[data-state]' )
+			.first();
 	}
 
 	private get interactiveLocator() {
-		return this.locator.and( this.page.locator( ':not([inert] *)' ) );
+		return this.locator.and( this.page.locator( INTERACTIVE_SELECTOR ) );
 	}
 
 	async ensureOpen() {
-		const toggle = this.page.locator( '[data-sidebar-toggle]:not([inert] *)' );
-		if ( ( await toggle.getAttribute( 'aria-expanded' ) ) === 'false' ) {
-			await toggle.click();
+		if ( ( await this.toggle.getAttribute( 'aria-expanded' ) ) === 'false' ) {
+			await this.toggle.click();
 		}
 		await expect( this.interactiveLocator ).toBeInViewport();
 	}
@@ -45,7 +52,7 @@ export default class Sidebar {
 	async toggleSite( siteName: string ) {
 		await this.ensureOpen();
 		await this.getSiteRow( siteName )
-			.and( this.page.locator( ':not([inert] *)' ) )
+			.and( this.page.locator( INTERACTIVE_SELECTOR ) )
 			.locator( 'button[data-state]' )
 			.click();
 	}
@@ -82,7 +89,7 @@ export default class Sidebar {
 	async importBackup( siteName: string, backupPath: string ) {
 		await this.ensureOpen();
 		await this.getSiteRow( siteName )
-			.and( this.page.locator( ':not([inert] *)' ) )
+			.and( this.page.locator( INTERACTIVE_SELECTOR ) )
 			.getByTestId( 'import-backup-file' )
 			.setInputFiles( backupPath );
 		const dialog = this.page.getByRole( 'alertdialog' );

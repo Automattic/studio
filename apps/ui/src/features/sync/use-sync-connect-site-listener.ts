@@ -1,12 +1,18 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
+import { getSyncType } from '@studio/common/lib/sync/sync-type';
+import { getProviderSites } from '@studio/providers';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useEffectEvent, useRef, useSyncExternalStore } from 'react';
+import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
-import { websiteIssue } from '@/features/sync/publish-panel/options';
+import {
+	accountSitesQueryKey,
+	publishTargetQueryKey,
+	remotePublishTargetKey,
+	remoteSitesQueryKey,
+} from '@/data/queries/use-remote-sites';
 import type { Connector, SyncSite } from '@/data/core';
 
 type ConnectSiteEvent = Parameters< Parameters< Connector[ 'onSyncConnectSite' ] >[ 0 ] >[ 0 ];
@@ -55,8 +61,23 @@ export const clearPublishSetupError = ( siteId: string ) => setSetupFailure( sit
 export function useSyncConnectSiteListener(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const sites = getProviderSites( 'wpcom' );
 	// The deep link can arrive more than once for the same checkout.
 	const handled = useRef( new Set< string >() );
+
+	const listSites = () =>
+		queryClient.fetchQuery( {
+			queryKey: accountSitesQueryKey( 'wpcom' ),
+			queryFn: async () => ( await connector.listAccountSites( 'wpcom' ) ) as SyncSite[],
+			staleTime: 0,
+		} );
+	const showReady = ( studioSiteId: string, remote: SyncSite ) => {
+		queryClient.setQueryData(
+			publishTargetQueryKey( studioSiteId ),
+			remotePublishTargetKey( 'wpcom', remote.id )
+		);
+		toast.success( __( 'Your site is ready to publish' ), { description: remote.name } );
+	};
 
 	const handleConnect = useEffectEvent( async ( event: ConnectSiteEvent ) => {
 		const { remoteSiteId, studioSiteId } = event;
@@ -66,21 +87,16 @@ export function useSyncConnectSiteListener(): void {
 		}
 		handled.current.add( key );
 		const connectedSites = () =>
-			queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) ) ?? [];
+			queryClient.getQueryData< SyncSite[] >( remoteSitesQueryKey( 'wpcom', studioSiteId ) ) ?? [];
 		let connected = false;
 		try {
-			const syncable = await queryClient.fetchQuery( {
-				queryKey: SYNCABLE_WPCOM_SITES_QUERY_KEY,
-				queryFn: () => connector.fetchSyncableWpcomSites(),
-				staleTime: 0,
-			} );
-			const remote = syncable.find( ( site ) => site.id === remoteSiteId );
+			const remote = ( await listSites() ).find( ( site ) => site.id === remoteSiteId );
 			if ( ! remote ) {
 				throw new Error(
 					__( 'Your new website isn’t available yet. Refresh the website list to try again.' )
 				);
 			}
-			const issue = websiteIssue( remote, 'push' );
+			const issue = sites.issue( remote, 'push' );
 			if ( issue ) {
 				throw new Error( issue );
 			}
@@ -88,14 +104,20 @@ export function useSyncConnectSiteListener(): void {
 				...remote,
 				localSiteId: studioSiteId,
 				syncSupport: 'already-connected',
+				...( event.autoOpenPush ? { launchAfterPush: true } : {} ),
 			};
-			await connector.connectWpcomSite( studioSiteId, siteToSave );
+			await connector.connectRemoteSite( 'wpcom', studioSiteId, siteToSave );
 			connected = true;
+			setSetupFailure( studioSiteId );
+			if ( event.autoOpenPush ) {
+				showReady( studioSiteId, siteToSave );
+			}
 			void connector.trackEvent(
 				TRACKS_EVENTS.SYNC_CONNECT,
 				{
 					success: true,
 					num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
+					sync_type: getSyncType( siteToSave ),
 				},
 				studioSiteId
 			);
@@ -118,7 +140,7 @@ export function useSyncConnectSiteListener(): void {
 			}
 		} finally {
 			void queryClient.invalidateQueries( {
-				queryKey: connectedWpcomSitesQueryKey( studioSiteId ),
+				queryKey: remoteSitesQueryKey( 'wpcom', studioSiteId ),
 			} );
 		}
 	} );

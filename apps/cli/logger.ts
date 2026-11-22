@@ -1,5 +1,7 @@
 import 'cli/lib/picospinner-stderr-patch';
+import { isNetworkError } from '@studio/common/lib/network-utils';
 import { Spinner } from 'picospinner';
+import { reportCommandFailure } from 'cli/lib/error-reporting';
 
 const isIpcMode = Boolean( process.send );
 
@@ -29,6 +31,16 @@ export class LoggerError extends Error {
 		if ( previousError instanceof Error ) {
 			this.previousError = previousError;
 		}
+	}
+
+	// Sentry reports the cause's stack along with this error's.
+	get cause(): Error | undefined {
+		return this.previousError;
+	}
+
+	// Being offline or closing a prompt isn't a bug, so neither the CLI nor its host reports it.
+	get expected(): boolean {
+		return isNetworkError( this.previousError ) || this.previousError?.name === 'ExitPromptError';
 	}
 
 	get message(): string {
@@ -127,12 +139,22 @@ export class Logger< T extends string > {
 	public reportError( error: LoggerError, isFatal = true ) {
 		if ( isFatal ) {
 			process.exitCode = 1;
+			// Without a cause, the failure is one the command expects, like a missing site.
+			if ( error.previousError ) {
+				reportCommandFailure( error );
+			}
 		}
 
 		if ( this.onProgress ) {
 			this.onProgress( error.message );
 		} else if ( canSend() ) {
-			process.send!( { action: this.currentAction, status: 'fail', message: error.message } );
+			process.send!( {
+				action: this.currentAction,
+				status: 'fail',
+				message: error.message,
+				code: error.code,
+				expected: error.expected || undefined,
+			} );
 		} else if ( shouldUsePlainOutput() ) {
 			console.error( error.message );
 		} else {

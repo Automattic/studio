@@ -1,18 +1,19 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSitePhpWorkers } from '@studio/common/lib/site-php-workers';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const logger = new Logger< LoggerAction >();
 
-type ConfigValue = string | boolean | undefined;
+type ConfigValue = string | number | boolean | undefined;
 
 interface ConfigEntry {
 	key: string;
@@ -26,7 +27,7 @@ interface ConfigEntry {
 // back with `config get <key>` and written with `config set --<key>`. This is
 // intentionally narrower than the runtime-oriented `status` output (no URLs, no
 // online state).
-function getConfigEntries( site: SiteData ): ConfigEntry[] {
+function getConfigEntries( site: ConfigSite ): ConfigEntry[] {
 	return [
 		{ key: 'name', value: site.name },
 		{ key: 'domain', value: site.customDomain },
@@ -35,6 +36,7 @@ function getConfigEntries( site: SiteData ): ConfigEntry[] {
 		{ key: 'wp', value: getWordPressVersion( site.path ) },
 		{ key: 'file-access', value: getSiteFileAccess( site ) },
 		{ key: 'xdebug', value: site.enableXdebug ?? false },
+		{ key: 'php-workers', value: getSitePhpWorkers( site ) },
 		{ key: 'admin-username', value: site.adminUsername ?? 'admin' },
 		{
 			key: 'admin-password',

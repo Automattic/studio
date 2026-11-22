@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
 import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences';
-import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
 	changeAnnotation,
@@ -373,6 +372,14 @@ describe( 'site preview', () => {
 		}
 	);
 
+	it( 'keeps the page showing when a running site is started again', async () => {
+		const { update } = await renderPreview( 'browser' );
+		finishLoading( 'browser' );
+		update( { site: site( { operation: { pid: 1, kind: 'start' } } ) } );
+		update( { site: site() } );
+		expect( isPageHidden() ).toBe( false );
+	} );
+
 	it( 'reports the guest URL and native history after navigation', async () => {
 		const onPathChange = vi.fn();
 		const { user } = await renderPreview( 'desktop', { onPathChange } );
@@ -620,55 +627,6 @@ describe( 'site preview controls', () => {
 			browser: 'external',
 		} );
 	} );
-
-	it.each( [ undefined, 'https://example.wordpress.com' ] )(
-		'keeps responsive settings on site surfaces and suspends the toolbar for tools (live: %s)',
-		async ( liveUrl ) => {
-			const siteId = `responsive-surfaces-${ liveUrl ?? 'local' }`;
-			const { update, user } = await renderPreview( 'browser', {
-				site: site( { id: siteId } ),
-				liveUrl,
-			} );
-			await openBrowserOptions( user );
-			await user.click( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) );
-			act( () => updateResponsivePreview( siteId, { width: 512 } ) );
-			for ( const path of [ '/phpmyadmin/index.php', DESIGN_SYSTEM_PREVIEW_PATH ] ) {
-				update( { path } );
-				await openBrowserOptions( user );
-				expect( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) ).toHaveAttribute(
-					'aria-disabled',
-					'true'
-				);
-				expect(
-					screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
-				).not.toBeInTheDocument();
-				await user.keyboard( '{Escape}' );
-			}
-			update( { path: '/wp-admin/' } );
-			await openBrowserOptions( user );
-			expect( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) ).not.toHaveAttribute(
-				'aria-disabled',
-				'true'
-			);
-			expect( screen.getByRole( 'textbox', { name: 'Width' } ) ).toHaveValue( '512' );
-		}
-	);
-
-	it.each( [ undefined, 'https://example.wordpress.com' ] )(
-		'leaves WP Admin alone when the host reloads (live: %s)',
-		async ( liveUrl ) => {
-			const { update } = await renderPreview( 'desktop', {
-				liveUrl,
-				path: '/wp-admin/post.php?post=1&action=edit',
-			} );
-			const webview = guest();
-			fireEvent( webview, new Event( 'dom-ready' ) );
-			update( { reloadNonce: 1 } );
-			await act( async () => {} );
-			expect( webview.reload ).not.toHaveBeenCalled();
-			expect( clearWebviewCache() ).not.toHaveBeenCalled();
-		}
-	);
 
 	it( 'navigates without dropping the cache when the path changes with the nonce', async () => {
 		const { update } = await renderPreview( 'desktop' );

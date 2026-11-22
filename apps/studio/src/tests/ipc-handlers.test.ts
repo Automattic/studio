@@ -2,20 +2,12 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent, dialog, shell } from 'electron';
-import { existsSync } from 'fs';
-import { normalize } from 'path';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readSitePath } from '@studio/common/sites/site-path';
+import { getProviderServices } from '@studio/providers/services';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import {
-	fetchSyncableWpcomSites,
-	getFileSize,
-	openURL,
-	readBlueprintFile,
-	showOpenFolderDialog,
-} from 'src/ipc-handlers';
-import { getAuthenticationToken } from 'src/lib/oauth';
+import { listAccountSites, getFileSize, openURL, showOpenFolderDialog } from 'src/ipc-handlers';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
@@ -23,7 +15,15 @@ vi.mock( 'fs/promises', async () => {
 	return { default: fs.promises };
 } );
 vi.mock( '@studio/common/sites/site-path' );
-vi.mock( '@studio/common/lib/sync/sync-api' );
+vi.mock( '@studio/common/lib/provider-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/provider-config') >() ),
+	readProviderConfig: vi.fn(),
+} ) );
+vi.mock( '@studio/providers/services', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/providers/services') >();
+	const sites = { list: vi.fn() };
+	return { ...actual, getProviderServices: () => ( { descriptor: { id: 'wpcom' }, sites } ) };
+} );
 vi.mock( 'src/lib/oauth' );
 
 beforeEach( () => {
@@ -35,7 +35,7 @@ const mockIpcMainInvokeEvent = {
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 
-describe( 'fetchSyncableWpcomSites', () => {
+describe( 'listAccountSites', () => {
 	afterEach( () => vi.unstubAllEnvs() );
 
 	it.each( [
@@ -45,36 +45,15 @@ describe( 'fetchSyncableWpcomSites', () => {
 		'requires a plan: $planRequired with Reprint flag $flag',
 		async ( { flag, planRequired } ) => {
 			vi.stubEnv( 'STUDIO_ENABLE_PULL_REPRINT', flag );
-			vi.mocked( getAuthenticationToken ).mockResolvedValue( {
-				accessToken: 'test-token',
-			} as Awaited< ReturnType< typeof getAuthenticationToken > > );
-			vi.mocked( fetchSyncableSites ).mockResolvedValue( [] );
+			vi.mocked( readProviderConfig ).mockResolvedValue( { token: 'test-token' } );
+			const { list } = getProviderServices( 'wpcom' ).sites!;
+			vi.mocked( list ).mockResolvedValue( [] );
 
-			await fetchSyncableWpcomSites( mockIpcMainInvokeEvent );
+			await listAccountSites( mockIpcMainInvokeEvent, 'wpcom' );
 
-			expect( fetchSyncableSites ).toHaveBeenCalledWith( 'test-token', { planRequired } );
+			expect( list ).toHaveBeenCalledWith( { token: 'test-token' }, { planRequired } );
 		}
 	);
-} );
-
-describe( 'readBlueprintFile', () => {
-	it( 'deletes the temporary deep-link file after reading it', async () => {
-		const filePath = normalize( '/mock/path/wp-studio-blueprints/blueprint.json' );
-		vol.fromJSON( { [ filePath ]: JSON.stringify( { meta: { title: 'Deep link' } } ) } );
-
-		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).resolves.toEqual( {
-			meta: { title: 'Deep link' },
-		} );
-		expect( existsSync( filePath ) ).toBe( false );
-	} );
-
-	it( 'deletes invalid temporary deep-link JSON', async () => {
-		const filePath = normalize( '/mock/path/wp-studio-blueprints/invalid.json' );
-		vol.fromJSON( { [ filePath ]: '{invalid' } );
-
-		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).rejects.toThrow();
-		expect( existsSync( filePath ) ).toBe( false );
-	} );
 } );
 
 describe( 'getFileSize', () => {
@@ -197,7 +176,7 @@ describe( 'site source picker', () => {
 			allowBlueprints: true,
 			usePath: true,
 		} );
-		expect( result?.blueprint?.blueprintJson ).toEqual( { steps: [] } );
+		expect( result?.blueprint ).toEqual( { steps: [] } );
 		expect( result?.path ).toBe( '/sites/starter' );
 		expect( dialog.showOpenDialog ).not.toHaveBeenCalled();
 	} );
@@ -215,7 +194,7 @@ describe( 'site source picker', () => {
 				allowSiteFiles: true,
 			} );
 			expect( result?.path ).toBe( '/sites/' + name );
-			if ( name.endsWith( '.json' ) ) expect( result?.blueprint?.blueprintJson ).toEqual( {} );
+			if ( name.endsWith( '.json' ) ) expect( result?.blueprint ).toEqual( {} );
 			else expect( result?.file ).toEqual( { path: '/sites/' + name, name } );
 			expect( dialog.showOpenDialog ).toHaveBeenLastCalledWith(
 				expect.anything(),

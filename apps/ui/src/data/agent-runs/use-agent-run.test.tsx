@@ -5,9 +5,15 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { rememberAccountJourney } from '@/data/account-analytics';
 import { createLocalConnector } from '@/data/core/connectors/local';
+import { queueSessionModelWrite } from '@/data/queries/session-model-writes';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
-import { createFakeConnector, makeSession, type FakeConnector } from '@/test/fake-connector';
+import {
+	aiSettings,
+	createFakeConnector,
+	makeSession,
+	type FakeConnector,
+} from '@/test/fake-connector';
 import { createTestQueryClient, renderWithProviders } from '@/test/render';
 import { useAgentRun, useSiteAgentActivity } from './use-agent-run';
 import type { AgentRunEvent, Connector, LoadedAiSession } from '@/data/core';
@@ -74,6 +80,24 @@ const exited = ( runId: string ) =>
 const phase = () => screen.getByTestId( 'phase' );
 
 describe( 'useAgentRun queued handoff', () => {
+	it( 'waits for an in-flight model selection before sending a queued prompt', async () => {
+		const write = deferred< void >();
+		const { connector } = await setup();
+		act( () => connector.emit( 'onAgentEvent', started( 'run-old' ) ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Queue' } ) );
+		const saved = queueSessionModelWrite( 'session-1', () => write.promise );
+		act( () => connector.emit( 'onAgentEvent', exited( 'run-old' ) ) );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+		await act( async () => write.resolve() );
+		await saved;
+		await waitFor( () =>
+			expect( connector.continueSession ).toHaveBeenCalledWith(
+				'session-1',
+				'Queued follow-up',
+				expect.anything()
+			)
+		);
+	} );
 	it( 'hydrates an existing run when streaming starts before the snapshot arrives', async () => {
 		const snapshot = deferred< Runs >();
 		const connector = createFakeConnector( { sessions: [ session() ] } );
@@ -317,17 +341,13 @@ describe( 'useAgentRun queued handoff', () => {
 		).toBe( true );
 	} );
 
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'only holds WordPress.com queues when credits run out: %s',
 		async ( provider ) => {
 			const connector = createFakeConnector(
 				{ sessions: [ session() ] },
 				{
-					getAiSettings: async () => ( {
-						provider,
-						hasAnthropicApiKey: true,
-						anthropicApiKeyPreview: 'test',
-					} ),
+					getAiSettings: async () => aiSettings( provider, [ 'wpcom', 'anthropic' ] ),
 				}
 			);
 			const queryClient = createTestQueryClient();
@@ -526,6 +546,37 @@ describe( 'useAgentRun queued handoff', () => {
 		expect( new Set( entries.map( ( entry ) => entry.id ) ).size ).toBe( 2 );
 		expect( JSON.stringify( entries ) ).toContain( 'Inspecting your theme' );
 		expect( JSON.stringify( entries ) ).toContain( 'Updated the header' );
+	} );
+
+	it( 'keeps only the latest progress of a running tool in the transcript', async () => {
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-1' ], session() );
+		const { connector } = await setup( { queryClient } );
+		const progress = ( message: string ) =>
+			connector.emit(
+				'onAgentEvent',
+				event( 'push-run', {
+					type: 'message',
+					timestamp: new Date().toISOString(),
+					message: {
+						type: 'tool_execution_update',
+						toolCallId: 'push-1',
+						partialResult: { content: [], details: { studioProgress: { message } } },
+					},
+				} as AgentRunEvent[ 'event' ] )
+			);
+		act( () => {
+			for ( let i = 0; i < 50; i++ ) {
+				progress( 'Uploading archive… (21%)' );
+			}
+			progress( 'Uploading archive… (22%)' );
+		} );
+		const entries = queryClient.getQueryData< LoadedAiSession >( [
+			...SESSIONS_QUERY_KEY,
+			'session-1',
+		] )!.entries;
+		expect( entries ).toHaveLength( 1 );
+		expect( JSON.stringify( entries ) ).toContain( 'Uploading archive… (22%)' );
 	} );
 
 	it( 'dispatches queued prompts after the chat panel unmounts', async () => {
@@ -794,42 +845,4 @@ it( 'does not cross attribution between overlapping sessions', async () => {
 		turn_id: idA,
 		completion_kind: 'ai_edit',
 	} );
-} );
-
-it( 'keeps the model and effort chosen for a queued turn', async () => {
-	function SettingsQueue() {
-		const run = useAgentRun( 'session-1' );
-		const [ effort, setEffort ] = useState< 'low' | 'high' >( 'high' );
-		return (
-			<>
-				<button
-					onClick={ () =>
-						void run.sendMessage( 'Queued with settings', {
-							model: 'balanced',
-							effort,
-						} )
-					}
-				>
-					Queue settings
-				</button>
-				<button onClick={ () => setEffort( 'low' ) }>Change effort</button>
-			</>
-		);
-	}
-	const { connector, user } = await setup( {}, <SettingsQueue /> );
-	act( () => connector.emit( 'onAgentEvent', started( 'working-run' ) ) );
-	await user.click( screen.getByRole( 'button', { name: 'Queue settings' } ) );
-	await user.click( screen.getByRole( 'button', { name: 'Change effort' } ) );
-	act( () => connector.emit( 'onAgentEvent', exited( 'working-run' ) ) );
-	await waitFor( () =>
-		expect( connector.continueSession ).toHaveBeenCalledWith(
-			'session-1',
-			'Queued with settings',
-			expect.objectContaining( {
-				model: 'balanced',
-				effort: 'high',
-				turnId: expect.stringMatching( /^[0-9a-f-]{36}$/ ),
-			} )
-		)
-	);
 } );

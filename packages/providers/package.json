@@ -1,0 +1,24 @@
+{
+	"name": "@studio/providers",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"description": "The services Studio holds an account with, such as WordPress.com and Anthropic",
+	"exports": {
+		".": "./index.ts",
+		"./services": "./services.ts",
+		"./wpcom": "./wpcom.ts"
+	},
+	"scripts": {
+		"lint": "eslint .",
+		"typecheck": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"@earendil-works/pi-ai": "1.5.0",
+		"@wordpress/i18n": "^6.30.0",
+		"tus-js-client": "^4.3.1",
+		"wpcom": "^7.1.1",
+		"wpcom-xhr-request": "^1.3.0",
+		"zod": "^4.3.6"
+	}
+}

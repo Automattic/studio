@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { Type } from 'typebox';
 import {
@@ -72,7 +71,7 @@ export function createPickDesignTool( {
 			const chosen = new Set(
 				args.chosen?.map( ( entry ) => findDesignEntry( args.catalog, entry.name )?.name )
 			);
-			const drawId = randomUUID();
+			const drawId = crypto.randomUUID();
 			for ( const [ index, entry ] of entries.entries() ) {
 				await recordDesignTracksEvent( host, TRACKS_EVENTS.CODE_DESIGN_OPTION_PROPOSED, tracks, {
 					catalog: args.catalog,

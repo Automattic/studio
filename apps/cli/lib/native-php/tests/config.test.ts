@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
@@ -72,6 +73,25 @@ describe( 'getNativePhpIniContents', () => {
 		] );
 	} );
 
+	it( 'points the CA bundle at the real php-bin when it is reached through a link', () => {
+		const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-php-ini-' ) );
+		const realDir = path.join( root, 'real' );
+		const linkedDir = path.join( root, 'linked' );
+		fs.mkdirSync( realDir );
+		fs.symlinkSync( realDir, linkedDir, 'junction' );
+		phpBinary.path = path.join( linkedDir, 'php' );
+
+		try {
+			const caBundlePath = path
+				.join( fs.realpathSync( realDir ), 'ca-bundle.crt' )
+				.replace( /\\/g, '/' );
+
+			expect( getNativePhpIniContents( '8.4' ) ).toContain( `curl.cainfo="${ caBundlePath }"` );
+		} finally {
+			fs.rmSync( root, { recursive: true, force: true } );
+		}
+	} );
+
 	it( 'keeps an ASCII Windows extension_dir as is', () => {
 		setPlatform( 'win32' );
 
@@ -83,34 +103,29 @@ describe( 'getNativePhpIniContents', () => {
 } );
 
 describe( 'getDefaultPhpArgs', () => {
-	function getFileCacheDirectory( args: string[] ): string {
-		const directive = args.find( ( arg ) => arg.startsWith( 'opcache.file_cache=' ) );
-		return directive?.match( /^opcache\.file_cache="(.*)"$/ )?.[ 1 ] ?? '';
+	function getOpcacheDirectives( args: string[] ): string[] {
+		return args.filter( ( arg ) => arg.startsWith( 'opcache.' ) );
 	}
 
-	it.each( [ 'darwin', 'linux' ] as const )( 'gives no opcache file cache on %s', ( platform ) => {
-		setPlatform( platform );
+	it.each( [ 'darwin', 'linux', 'win32' ] as const )(
+		'writes no opcache file cache on %s',
+		( platform ) => {
+			setPlatform( platform );
+			const args = [ getDefaultPhpArgs( '8.4', { workerIndex: 0 } ), getDefaultPhpArgs( '8.4' ) ];
 
-		expect( getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 0 } ) ) ).toBe( '' );
-		expect( getFileCacheDirectory( getDefaultPhpArgs( '8.4' ) ) ).toBe( '' );
-	} );
+			expect( args.flat().join( ' ' ) ).not.toContain( 'opcache.file_cache' );
+		}
+	);
 
-	it( 'gives each server worker its own opcache file cache directory on Windows', () => {
+	it( 'gives every Windows server worker spawn its own opcache segment', () => {
 		setPlatform( 'win32' );
-		const first = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 0 } ) );
-		const second = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 1 } ) );
+		const ids = [ 0, 1, 0 ].map( ( workerIndex ) =>
+			getOpcacheDirectives( getDefaultPhpArgs( '8.4', { workerIndex } ) )
+		);
 
-		expect( first ).not.toBe( second );
-		expect( path.basename( first ) ).toBe( 'worker-0' );
-		expect( fs.existsSync( first ) ).toBe( true );
-		expect( fs.existsSync( second ) ).toBe( true );
-	} );
-
-	it( 'partitions the opcache file cache by PHP version on Windows', () => {
-		setPlatform( 'win32' );
-		const cacheDirectory = getFileCacheDirectory( getDefaultPhpArgs( '8.4' ) );
-
-		expect( path.basename( cacheDirectory ) ).toBe( 'php8.4' );
+		expect( ids.flat() ).toHaveLength( 3 );
+		expect( new Set( ids.flat() ).size ).toBe( 3 );
+		expect( getOpcacheDirectives( getDefaultPhpArgs( '8.4' ) ) ).toEqual( [] );
 	} );
 
 	it( 'omits Xdebug directives by default', () => {

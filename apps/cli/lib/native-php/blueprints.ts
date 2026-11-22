@@ -1,10 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {
-	createBlueprintTempDir,
-	removeBlueprintTempDir,
-} from '@studio/common/lib/blueprint-bundle';
-import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { parse as parseShellCommand } from 'shell-quote';
 import {
 	getBlueprintsPharPath,
@@ -172,10 +168,14 @@ function toPhpSingleQuotedString( value: string ): string {
 
 export async function removeOwnedSqliteSymlink(
 	symlinkPath: string,
-	symlinkIno: number
+	target: string
 ): Promise< void > {
 	try {
-		if ( fs.lstatSync( symlinkPath ).ino === symlinkIno ) {
+		if (
+			fs.lstatSync( symlinkPath ).isSymbolicLink() &&
+			path.resolve( path.dirname( symlinkPath ), fs.readlinkSync( symlinkPath ) ) ===
+				path.resolve( target )
+		) {
 			await fs.promises.rm( symlinkPath, { recursive: true, force: true } );
 		}
 	} catch {
@@ -232,18 +232,10 @@ export async function runBlueprint(
 		throw new Error( `Remote blueprint URIs are not supported: ${ blueprint.uri }` );
 	}
 
-	const enableDebugLog = config.enableDebugLog ?? false;
-	const enableDebugDisplay = config.enableDebugDisplay ?? false;
 	const defaultConstants: Record< string, boolean | string > = {
 		// The SQLite driver requires a non-empty DB_NAME at runtime.
 		DB_NAME: 'wordpress',
-		WP_DEBUG: enableDebugLog || enableDebugDisplay,
-		WP_DEBUG_LOG: enableDebugLog,
-		WP_DEBUG_DISPLAY: enableDebugDisplay,
-		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
-		// feed the WP_DEBUG expression above.
-		SCRIPT_DEBUG: config.enableScriptDebug ?? false,
-		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ),
+		...getSettingsWpConfigConstants( config ),
 	};
 
 	blueprint.contents.constants = {
@@ -267,14 +259,16 @@ export async function runBlueprint(
 		if ( ! isWriteAccessError( error ) ) {
 			throw error;
 		}
-		fallbackTempDir = await createBlueprintTempDir();
+		fallbackTempDir = await fs.promises.mkdtemp(
+			path.join( getFullyResolvedTmpDirPath(), 'studio-blueprint-' )
+		);
 		tmpPath = path.join( fallbackTempDir, blueprintFilename );
 		try {
 			await fs.promises.writeFile( tmpPath, serializedBlueprint );
 		} catch ( fallbackError ) {
 			// The finally below only runs once the run-blueprint try starts, so clean
 			// up the just-created temp dir here to avoid leaking it under os.tmpdir().
-			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
+			await fs.promises.rm( fallbackTempDir, { recursive: true, force: true } ).catch( () => {} );
 			throw fallbackError;
 		}
 	}
@@ -293,11 +287,8 @@ export async function runBlueprint(
 		'sqlite-database-integration'
 	);
 	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
-	let symlinkIno: number | undefined;
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
-		// Remove only the entry created here, not unrelated content that replaced it.
-		symlinkIno = fs.lstatSync( pluginsSqlite ).ino;
 	}
 
 	const prependPath = writeBlueprintRunnerPrependFile(
@@ -340,10 +331,11 @@ export async function runBlueprint(
 			.rm( path.dirname( prependPath ), { recursive: true, force: true } )
 			.catch( () => {} );
 		if ( fallbackTempDir ) {
-			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
+			await fs.promises.rm( fallbackTempDir, { recursive: true, force: true } ).catch( () => {} );
 		}
 		if ( needsSymlink ) {
-			await removeOwnedSqliteSymlink( pluginsSqlite, symlinkIno! );
+			// Remove only the link created here, not content that replaced it.
+			await removeOwnedSqliteSymlink( pluginsSqlite, muPluginsSqlite );
 			// The runner may remove the symlink target while managing its SQLite driver.
 			await keepSqliteIntegrationUpdated( config.sitePath );
 		}

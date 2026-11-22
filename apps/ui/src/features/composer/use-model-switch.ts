@@ -1,11 +1,17 @@
-import { normalizeModelEffort, type AiEffort } from '@studio/agent/protocol/model-effort';
-import { getAiModelFamily } from '@studio/agent/protocol/models';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { toStoredProviderId, type ProviderId } from '@studio/providers';
+import { useQueryClient } from '@tanstack/react-query';
+import { __ } from '@wordpress/i18n';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import {
+	clearFailedSessionModelWrite,
+	queueSessionModelWrite,
+	waitForSessionModelWrites,
+} from '@/data/queries/session-model-writes';
+import {
+	createModelChangeEntry,
 	openNewSession,
 	primeSessionQueryData,
 	SESSIONS_QUERY_KEY,
@@ -13,38 +19,45 @@ import {
 import { saveComposerDraft } from '@/features/composer/draft-store';
 import type { AiModelId, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 
-function contextEntry( provider: AiProviderId, model: AiModelId, effort: AiEffort ): SessionEntry {
+// Optimistic mirror of the `studio.session_context` entry the backend appends
+// for a provider switch, so the picker updates before the write lands.
+function createSessionContextEntry(
+	provider: ProviderId | undefined,
+	model: AiModelId,
+	thinking?: ThinkingSetting
+): SessionEntry {
 	return {
 		type: 'custom',
-		id: crypto.randomUUID(),
+		id: Math.random().toString( 36 ).slice( 2, 10 ),
 		parentId: null,
 		timestamp: new Date().toISOString(),
 		customType: 'studio.session_context',
-		data: { provider, model, effort },
-	} as SessionEntry;
+		data: {
+			...( provider ? { provider: toStoredProviderId( provider ) } : {} ),
+			model,
+			...( thinking ? { thinking } : {} ),
+		},
+	} as unknown as SessionEntry;
 }
 
 interface ModelSwitchOptions {
 	model: AiModelId;
-	effort: AiEffort;
-	onEffortChange: ( effort: AiEffort ) => void;
 	sessionId?: string;
 	entries?: SessionEntry[];
-	sessionProvider: AiProviderId;
+	sessionProvider: ProviderId;
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
-	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
+	onModelChange?: ( model: AiModelId, provider: ProviderId, thinking?: ThinkingSetting ) => void;
 	isModelLocked: ( id: AiModelId ) => boolean;
+	// The draft carried over to a fresh session.
 	text: string;
 	attachments: ComposerAttachment[];
 }
 
 export function useModelSwitch( {
 	model,
-	effort,
-	onEffortChange,
 	sessionId,
 	entries,
 	sessionProvider,
@@ -57,106 +70,195 @@ export function useModelSwitch( {
 }: ModelSwitchOptions ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
-	const { mutate: saveModel } = useMutation( {
-		scope: { id: `session-model-${ sessionId }` },
-		mutationFn: ( settings: { provider: AiProviderId; model: AiModelId; effort: AiEffort } ) =>
-			settings.provider === sessionProvider
-				? connector.setSessionModel( sessionId!, settings.model, settings.effort )
-				: connector.setSessionProvider(
-						sessionId!,
-						settings.provider,
-						settings.model,
-						settings.effort
-				  ),
-		onError: ( error ) => {
-			toast.error( error instanceof Error ? error.message : String( error ) );
-			void queryClient.invalidateQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
-		},
-	} );
-	const [ pending, setPending ] = useState< {
+
+	// Cross-family swap state: the picked model (and provider, for a provider
+	// switch) waits here while the confirmation dialog is open; nothing is
+	// persisted until the user confirms.
+	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< {
 		model: AiModelId;
-		provider: AiProviderId;
-		effort: AiEffort;
+		provider?: ProviderId;
+		thinking?: ThinkingSetting;
 	} | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
-	const changeModel = useCallback(
-		( provider: AiProviderId, picked: AiModelId, requestedEffort: AiEffort = 'default' ) => {
-			const nextEffort = normalizeModelEffort( picked, requestedEffort );
-			if (
-				isModelLocked( picked ) ||
-				( picked === model && provider === sessionProvider && nextEffort === effort )
-			)
-				return;
-			if ( onModelChange ) {
-				onModelChange( picked, provider );
-				onEffortChange( nextEffort );
+
+	// Show the entry right away, then write it; refetch on write fail so the
+	// transcript falls back to what actually landed.
+	const appendEntryOptimistically = useCallback(
+		( entry: SessionEntry, write: ( id: string ) => Promise< void > ) => {
+			if ( ! sessionId ) {
 				return;
 			}
-			if (
-				getAiModelFamily( model ) !== getAiModelFamily( picked ) &&
-				onSwitchSession &&
-				entries?.some( ( entry ) => isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) )
-			) {
-				setPending( { model: picked, provider, effort: nextEffort } );
-				return;
-			}
-			onEffortChange( nextEffort );
-			if ( ! sessionId ) return;
-			const key = [ ...SESSIONS_QUERY_KEY, sessionId ];
-			queryClient.setQueryData< LoadedAiSession >( key, ( previous ) =>
-				previous
-					? {
-							...previous,
-							entries: [ ...previous.entries, contextEntry( provider, picked, nextEffort ) ],
-					  }
-					: previous
+			const queryKey = [ ...SESSIONS_QUERY_KEY, sessionId ];
+			queryClient.setQueryData< LoadedAiSession >( queryKey, ( prev ) =>
+				prev ? { ...prev, entries: [ ...( prev.entries ?? [] ), entry ] } : prev
 			);
-			saveModel( { provider, model: picked, effort: nextEffort } );
+			const next = queueSessionModelWrite( sessionId, () => write( sessionId ) );
+			void next.catch( ( error: unknown ) => {
+				toast.error( __( 'Couldn’t change the chat model' ), {
+					description: error instanceof Error ? error.message : String( error ),
+				} );
+				void queryClient.invalidateQueries( { queryKey } ).then(
+					() => clearFailedSessionModelWrite( sessionId, next ),
+					() => clearFailedSessionModelWrite( sessionId, next )
+				);
+			} );
+		},
+		[ queryClient, sessionId ]
+	);
+
+	const applySameFamilyModel = useCallback(
+		( picked: AiModelId, thinking?: ThinkingSetting ) => {
+			appendEntryOptimistically(
+				thinking === undefined
+					? createModelChangeEntry( picked )
+					: createSessionContextEntry( undefined, picked, thinking ),
+				( id ) =>
+					thinking === undefined
+						? connector.setSessionModel( id, picked )
+						: connector.setSessionModel( id, picked, thinking )
+			);
+		},
+		[ appendEntryOptimistically, connector ]
+	);
+
+	const sessionHasTurns = useMemo(
+		() =>
+			( entries ?? [] ).some( ( entry ) =>
+				isStudioCustomEntryOfType( entry, 'studio.user_prompt' )
+			),
+		[ entries ]
+	);
+
+	// Pin this conversation to a provider and one of its models in the same
+	// entry. Moving the conversation to another model goes through the
+	// fresh-session confirmation.
+	const handleProviderChange = useCallback(
+		( picked: ProviderId, nextModel: AiModelId, thinking?: ThinkingSetting ) => {
+			if (
+				picked !== sessionProvider &&
+				model !== nextModel &&
+				onSwitchSession &&
+				sessionHasTurns
+			) {
+				setPendingFamilyChange( { model: nextModel, provider: picked, thinking } );
+				return;
+			}
+			appendEntryOptimistically(
+				createSessionContextEntry( picked, nextModel, thinking ),
+				( id ) =>
+					thinking === undefined
+						? connector.setSessionProvider( id, picked, nextModel )
+						: connector.setSessionProvider( id, picked, nextModel, thinking )
+			);
 		},
 		[
-			saveModel,
-			effort,
-			entries,
-			isModelLocked,
+			appendEntryOptimistically,
+			connector,
 			model,
-			onEffortChange,
-			onModelChange,
 			onSwitchSession,
-			queryClient,
-			sessionId,
+			sessionHasTurns,
 			sessionProvider,
 		]
 	);
+
+	const changeModel = useCallback(
+		( provider: ProviderId, picked: AiModelId, thinking?: ThinkingSetting ) => {
+			if (
+				( picked === model && provider === sessionProvider && thinking === undefined ) ||
+				isModelLocked( picked )
+			) {
+				return;
+			}
+			if ( onModelChange ) {
+				if ( thinking === undefined ) onModelChange( picked, provider );
+				else onModelChange( picked, provider, thinking );
+				return;
+			}
+			if ( provider !== sessionProvider ) {
+				handleProviderChange( provider, picked, thinking );
+				return;
+			}
+			applySameFamilyModel( picked, thinking );
+		},
+		[
+			applySameFamilyModel,
+			handleProviderChange,
+			isModelLocked,
+			model,
+			onModelChange,
+			sessionProvider,
+		]
+	);
+
+	const cancelFamilyChange = useCallback( () => {
+		if ( familySwitchInFlight ) {
+			return;
+		}
+		setPendingFamilyChange( null );
+	}, [ familySwitchInFlight ] );
+
 	const confirmFamilyChange = useCallback( async () => {
-		if ( ! pending || ! onSwitchSession ) return;
+		if ( ! pendingFamilyChange || ! onSwitchSession ) {
+			return;
+		}
+		const {
+			model: pickedModel,
+			provider: pickedProvider,
+			thinking: pickedThinking,
+		} = pendingFamilyChange;
 		setFamilySwitchInFlight( true );
 		try {
-			const created = await openNewSession( { connector, queryClient }, ownerSiteId );
-			await connector.setSessionProvider(
-				created.id,
-				pending.provider,
-				pending.model,
-				pending.effort
+			const newSession = await openNewSession(
+				{ connector, queryClient },
+				ownerSiteId,
+				pickedProvider ? undefined : pickedModel
 			);
-			primeSessionQueryData( queryClient, created, [
-				contextEntry( pending.provider, pending.model, pending.effort ),
-			] );
-			saveComposerDraft( created.id, { text, attachments, effort: pending.effort } );
-			setPending( null );
-			onSwitchSession( created.id );
+			if ( pickedProvider ) {
+				if ( pickedThinking === undefined ) {
+					await connector.setSessionProvider( newSession.id, pickedProvider, pickedModel );
+				} else {
+					await connector.setSessionProvider(
+						newSession.id,
+						pickedProvider,
+						pickedModel,
+						pickedThinking
+					);
+				}
+				primeSessionQueryData( queryClient, newSession, [
+					createSessionContextEntry( pickedProvider, pickedModel, pickedThinking ),
+				] );
+			}
+			saveComposerDraft( newSession.id, { text, attachments } );
+			setPendingFamilyChange( null );
+			onSwitchSession( newSession.id );
 		} catch ( error ) {
-			toast.error( error instanceof Error ? error.message : String( error ) );
+			toast.error( __( 'Couldn’t change the chat model' ), {
+				description: error instanceof Error ? error.message : String( error ),
+			} );
 		} finally {
 			setFamilySwitchInFlight( false );
 		}
-	}, [ attachments, connector, onSwitchSession, ownerSiteId, pending, queryClient, text ] );
+	}, [
+		attachments,
+		connector,
+		onSwitchSession,
+		ownerSiteId,
+		pendingFamilyChange,
+		queryClient,
+		text,
+	] );
+
+	const waitForModelChange = useCallback(
+		() => ( sessionId ? waitForSessionModelWrites( sessionId ) : Promise.resolve() ),
+		[ sessionId ]
+	);
+
 	return {
 		changeModel,
-		pendingModel: pending?.model ?? null,
+		waitForModelChange,
+		pendingModel: pendingFamilyChange?.model ?? null,
 		familySwitchInFlight,
-		cancelFamilyChange: () => {
-			if ( ! familySwitchInFlight ) setPending( null );
-		},
+		cancelFamilyChange,
 		confirmFamilyChange,
 	};
 }

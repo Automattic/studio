@@ -40,3 +40,8 @@ it( 'only answers requests addressed to a local name', async () => {
 	expect( await statusFor( `localhost:${ server.port }` ) ).toBe( 200 );
 	expect( await statusFor( `rebound.example:${ server.port }` ) ).toBe( 403 );
 } );
+
+it( 'advertises model favorites support to a remote UI', async () => {
+	const response = await fetch( `http://127.0.0.1:${ server.port }/api/version` );
+	expect( await response.json() ).toMatchObject( { features: { modelFavorites: true } } );
+} );

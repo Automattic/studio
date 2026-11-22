@@ -30,16 +30,16 @@ describe( 'createLocalConnector server contracts', () => {
 
 	it( 'remembers the AI provider through the shared settings endpoint', async () => {
 		fetchMock.mockResolvedValue(
-			new Response( JSON.stringify( { provider: 'anthropic-api-key', hasAnthropicApiKey: true } ) )
+			new Response( JSON.stringify( { provider: 'anthropic', hasAnthropicApiKey: true } ) )
 		);
-		await expect( connector().setAiProvider( 'anthropic-api-key' ) ).resolves.toMatchObject( {
-			provider: 'anthropic-api-key',
+		await expect( connector().setAiProvider( 'anthropic' ) ).resolves.toMatchObject( {
+			provider: 'anthropic',
 		} );
 		expect( fetchMock ).toHaveBeenCalledWith(
 			'http://localhost:8081/api/ai-settings/provider',
 			expect.objectContaining( {
 				method: 'PUT',
-				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
+				body: JSON.stringify( { provider: 'anthropic' } ),
 			} )
 		);
 	} );
@@ -116,41 +116,6 @@ describe( 'createLocalConnector server contracts', () => {
 		expect( fetchMock ).not.toHaveBeenCalledWith(
 			'http://localhost:8081/api/auth/login',
 			expect.anything()
-		);
-	} );
-
-	it( 'forwards model and effort together for session settings and turns', async () => {
-		fetchMock.mockImplementation(
-			async () => new Response( JSON.stringify( { runId: 'run-1' } ) )
-		);
-		const local = connector();
-		await local.setSessionModel( 'chat', 'balanced', 'high' );
-		expect( fetchMock ).toHaveBeenLastCalledWith(
-			'http://localhost:8081/api/sessions/chat/model',
-			expect.objectContaining( {
-				method: 'POST',
-				body: JSON.stringify( { model: 'balanced', effort: 'high' } ),
-			} )
-		);
-		await local.setSessionProvider( 'chat', 'anthropic-api-key', 'claude-sonnet-5', 'low' );
-		expect( fetchMock ).toHaveBeenLastCalledWith(
-			'http://localhost:8081/api/sessions/chat/provider',
-			expect.objectContaining( {
-				method: 'POST',
-				body: JSON.stringify( {
-					provider: 'anthropic-api-key',
-					model: 'claude-sonnet-5',
-					effort: 'low',
-				} ),
-			} )
-		);
-		await local.continueSession( 'chat', 'Build a site', { model: 'balanced', effort: 'high' } );
-		expect( fetchMock ).toHaveBeenLastCalledWith(
-			'http://localhost:8081/api/sessions/chat/messages',
-			expect.objectContaining( {
-				method: 'POST',
-				body: JSON.stringify( { prompt: 'Build a site', model: 'balanced', effort: 'high' } ),
-			} )
 		);
 	} );
 

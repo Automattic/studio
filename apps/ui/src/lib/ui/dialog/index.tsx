@@ -2,9 +2,9 @@ import { AlertDialog as BaseAlertDialog } from '@base-ui/react/alert-dialog';
 import { Dialog as BaseDialog } from '@base-ui/react/dialog';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { XIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useImperativeHandle, useRef } from 'react';
 import { useScrollFade } from '@/lib/hooks';
+import { XIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui/button';
 import surfaceStyles from '@/lib/ui/surface/style.module.css';
 import { registerOpenDialog, replaceOpenDialogs } from './replacement';
@@ -60,10 +60,10 @@ export const DialogClose = BaseDialog.Close;
 export function DialogDismissButton( {
 	label = __( 'Close' ),
 	...props
-}: Partial< ComponentProps< typeof IconButton > > ) {
+}: Partial< Omit< ComponentProps< typeof IconButton >, 'variant' > > ) {
 	return (
 		<IconButton
-			variant="ghost"
+			variant="muted-ghost"
 			size="icon-sm"
 			icon={ <XIcon /> }
 			label={ label }

@@ -8,7 +8,13 @@ import {
 	pullSelectionFromSyncOptions,
 } from 'cli/lib/pull/pull-selection';
 import { emptyReprintMetadata } from 'cli/lib/pull/reprint-metadata';
-import { fetchJetpackPullTree, selectPullItems } from 'cli/lib/pull/reprint-selector';
+import {
+	buildCategoryPullTree,
+	fetchJetpackPullTree,
+	mapCheckedNodesToSelection,
+	selectPullItems,
+} from 'cli/lib/pull/reprint-selector';
+import { LoggerError } from 'cli/logger';
 import type { SyncOption } from '@studio/common/types/sync';
 
 vi.mock( 'cli/lib/pull/reprint-selector', async ( importOriginal ) => ( {
@@ -76,7 +82,10 @@ describe( 'applySelection with the picker', () => {
 		vi.resetAllMocks();
 	} );
 
-	const pick = ( picked: Awaited< ReturnType< typeof selectPullItems > > ) => {
+	const pick = (
+		picked: Awaited< ReturnType< typeof selectPullItems > >,
+		filesUnavailable = false
+	) => {
 		vi.mocked( selectPullItems ).mockResolvedValue( picked );
 		return applySelection( {
 			session: {
@@ -95,8 +104,48 @@ describe( 'applySelection with the picker', () => {
 			cli: {},
 			wpComAccessToken: 'token',
 			wpComSiteId: 1,
+			filesUnavailable,
 		} );
 	};
+
+	it( 'offers fixed categories when the remote has no backup', async () => {
+		vi.mocked( fetchJetpackPullTree ).mockRejectedValue(
+			new LoggerError( 'Failed to fetch latest rewind ID', undefined, 'missing_backup' )
+		);
+		const tree = buildCategoryPullTree();
+		const plugins = tree[ 1 ].children![ 0 ];
+		const selection = await pick( mapCheckedNodesToSelection( [ tree[ 0 ], plugins ] ) );
+		expect( selectPullItems ).toHaveBeenCalledWith( tree, {
+			allowDatabaseOnly: true,
+			token: undefined,
+			remoteSiteId: undefined,
+		} );
+		expect( tree[ 1 ].children?.map( ( node ) => node.value ) ).toEqual( [
+			'plugins',
+			'themes',
+			'uploads',
+		] );
+		expect( selection ).toEqual( {
+			skipDatabase: false,
+			fileOnlyPaths: [ ':wp-content:/plugins' ],
+		} );
+	} );
+
+	it( 'skips the backup lookup when the remote needs an upgrade', async () => {
+		await pick( { fileOnlyPaths: [], skipDatabase: false, hasAnyFile: true }, true );
+		expect( fetchJetpackPullTree ).not.toHaveBeenCalled();
+		expect( selectPullItems ).toHaveBeenCalledWith( buildCategoryPullTree(), {
+			allowDatabaseOnly: true,
+			token: undefined,
+			remoteSiteId: undefined,
+		} );
+	} );
+
+	it( 'surfaces other backup lookup failures', async () => {
+		vi.mocked( fetchJetpackPullTree ).mockRejectedValue( new Error( 'Network failure' ) );
+		await expect( pick( undefined ) ).rejects.toThrow( 'Network failure' );
+		expect( selectPullItems ).not.toHaveBeenCalled();
+	} );
 
 	it( 'records a database-only first pull', async () => {
 		const selection = await pick( { fileOnlyPaths: [], skipDatabase: false, hasAnyFile: false } );

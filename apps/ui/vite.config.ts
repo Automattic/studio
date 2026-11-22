@@ -2,8 +2,8 @@ import { createRequire } from 'module';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
-import { defineConfig, type Plugin } from 'vite';
-import { getSentryReleaseInfo } from '../studio/src/lib/sentry-release';
+import { defineConfig, type Plugin, type ServerOptions } from 'vite';
+import { getSentryReleaseInfo } from '../../packages/common/lib/sentry-release';
 
 const __dirname = import.meta.dirname;
 const pkg = createRequire( import.meta.url )( './package.json' ) as {
@@ -18,27 +18,6 @@ const pkg = createRequire( import.meta.url )( './package.json' ) as {
 const directDeps = Object.entries( pkg.dependencies ?? {} )
 	.filter( ( [ , version ] ) => ! version.startsWith( 'file:' ) )
 	.map( ( [ name ] ) => name );
-
-// The browser target (`STUDIO_TARGET=local`, served by `studio ui`) builds a
-// standalone browser app wired to the HTTP/SSE `local` connector instead of the
-// Electron IPC bridge. It uses its own entry/output/port so the default
-// Electron-renderer build (`dist/`, port 5200) stays byte-for-byte unchanged.
-const isBrowser = process.env.STUDIO_TARGET === 'local';
-const active = isBrowser
-	? { entry: 'index.local.html', outDir: 'dist-local', port: 5400 }
-	: undefined;
-
-// The Electron renderer reports errors through the desktop app's Sentry
-// client, so release builds upload its source maps under the app's release.
-const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(
-	createRequire( import.meta.url )( '../studio/package.json' ).version
-);
-const uploadSourceMaps = ! isBrowser && ! isDevEnvironment && !! process.env.SENTRY_AUTH_TOKEN;
-
-// The page the dev server serves for document navigations: the browser app, or
-// the playground homepage (`STUDIO_TARGET=playground`, see src/dev/README.md).
-const devEntry =
-	active?.entry ?? ( process.env.STUDIO_TARGET === 'playground' ? 'playground.html' : undefined );
 
 // In dev, Vite serves the root `index.html` (which loads the Electron entry,
 // `main.tsx`) for every SPA navigation, regardless of `build` input options.
@@ -56,7 +35,9 @@ const browserDevEntryPlugin: Plugin = {
 				pathname.startsWith( '/@' ) ||
 				pathname.startsWith( '/src/' ) ||
 				pathname.startsWith( '/node_modules/' ) ||
-				pathname.includes( '.' );
+				pathname.includes( '.' ) ||
+				// Pages a server behind the dev proxy answers, such as the sign-in callback.
+				Object.keys( target?.proxy ?? {} ).some( ( prefix ) => pathname.startsWith( prefix ) );
 			if ( devEntry && accept.includes( 'text/html' ) && ! isInternal ) {
 				req.url = `/${ devEntry }`;
 			}
@@ -69,6 +50,59 @@ const browserDevEntryPlugin: Plugin = {
 // same-origin, as it does when that server serves the built app.
 const studioUiServer = process.env.STUDIO_UI_SERVER ?? 'http://localhost:8081';
 
+// Studio Cloud's control plane, a separate service, which serves `/cloud/*` next to the page.
+const studioCloudControl = process.env.STUDIO_CLOUD_CONTROL ?? 'http://localhost:3460';
+
+// The browser targets build the app on their own entry, output and port, so the
+// default Electron-renderer build (`dist/`, port 5200) stays byte-for-byte
+// unchanged. Both are wired to the HTTP/SSE `local` connector: `local` is served
+// by `studio ui`, `cloud` by Studio Cloud next to its control plane.
+const TARGETS: Partial<
+	Record<
+		string,
+		{
+			entry: string;
+			outDir: string;
+			port: number;
+			proxy?: ServerOptions[ 'proxy' ];
+		}
+	>
+> = {
+	local: {
+		entry: 'index.local.html',
+		outDir: 'dist-local',
+		port: 5400,
+		proxy: {
+			'/api': { target: studioUiServer, changeOrigin: true },
+			'/auth/callback': { target: studioUiServer, changeOrigin: true },
+		},
+	},
+	// Studio Cloud: the page and its control plane on one origin, the user's machine on another.
+	cloud: {
+		entry: 'index.cloud.html',
+		outDir: 'dist-cloud',
+		port: 3456,
+		proxy: {
+			'/cloud': { target: studioCloudControl, changeOrigin: true },
+			'/auth/callback': { target: studioCloudControl, changeOrigin: true },
+		},
+	},
+};
+const target = TARGETS[ process.env.STUDIO_TARGET ?? '' ];
+
+// Release builds upload source maps under the app's release. The Electron renderer reports through
+// the desktop app's Sentry client; the browser builds (`studio ui`, Studio Cloud) report on their own,
+// and don't serve their maps.
+const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(
+	createRequire( import.meta.url )( '../studio/package.json' ).version
+);
+const uploadSourceMaps = ! isDevEnvironment && !! process.env.SENTRY_AUTH_TOKEN;
+
+// The page the dev server serves for document navigations: the browser app, or
+// the playground homepage (`STUDIO_TARGET=playground`, see src/dev/README.md).
+const devEntry =
+	target?.entry ?? ( process.env.STUDIO_TARGET === 'playground' ? 'playground.html' : undefined );
+
 export default defineConfig( {
 	plugins: [
 		react(),
@@ -80,14 +114,24 @@ export default defineConfig( {
 				org: 'a8c',
 				project: 'studio',
 				release: { name: sentryRelease },
+				sourcemaps: target
+					? { filesToDeleteAfterUpload: [ resolve( __dirname, target.outDir, '**/*.map' ) ] }
+					: undefined,
 			} ),
 	],
+	define: {
+		// The release the browser builds report under, when built in CI: a local build reports nothing.
+		// The Electron renderer reports through the app.
+		__SENTRY_RELEASE__: JSON.stringify(
+			target && ! isDevEnvironment && process.env.CI ? sentryRelease : null
+		),
+	},
 	resolve: {
 		alias: {
 			'@': resolve( __dirname, 'src' ),
 			// `@wp-playground/blueprints` ships the schema validator as a sibling
 			// module that isn't listed in the package's `exports` map. Shared
-			// helpers in @studio/common (blueprint-validation.ts) import it via
+			// helpers in @studio/blueprints (validate.ts) import it via
 			// this subpath, so map it through explicitly — matches the apps/cli
 			// and apps/studio vite configs.
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
@@ -101,19 +145,14 @@ export default defineConfig( {
 		include: directDeps,
 	},
 	server: {
-		port: active?.port ?? 5200,
-		proxy: isBrowser
-			? {
-					'/api': { target: studioUiServer, changeOrigin: true },
-					'/auth/callback': { target: studioUiServer, changeOrigin: true },
-			  }
-			: undefined,
+		port: target?.port ?? 5200,
+		proxy: target?.proxy,
 	},
 	build: {
-		outDir: active?.outDir ?? 'dist',
-		sourcemap: ! isBrowser,
+		outDir: target?.outDir ?? 'dist',
+		sourcemap: ! target || ( uploadSourceMaps && 'hidden' ),
 		rolldownOptions: {
-			input: resolve( __dirname, active?.entry ?? 'index.html' ),
+			input: resolve( __dirname, target?.entry ?? 'index.html' ),
 		},
 	},
 } );

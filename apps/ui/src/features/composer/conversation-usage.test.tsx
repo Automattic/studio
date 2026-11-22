@@ -1,25 +1,14 @@
-import { AI_MODELS } from '@studio/agent/protocol/models';
 import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
-
-const allFavorites = AI_MODELS.map( ( model ) => ( {
-	provider: model.family === 'studio' ? 'wpcom' : 'anthropic-api-key',
-	model: model.id,
-	effort: 'default' as const,
-} ) );
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 
 const site = makeSite( { id: 'one', name: 'My site', path: '/sites/my-site' } );
 
 const withKey = ( provider: AiSettings[ 'provider' ] ): Partial< Connector > => ( {
-	getAiSettings: async () => ( {
-		provider,
-		hasAnthropicApiKey: true,
-		anthropicApiKeyPreview: 'test',
-	} ),
+	getAiSettings: async () => aiSettings( provider, [ 'wpcom', 'anthropic' ] ),
 } );
 
 beforeEach( () => {
@@ -27,11 +16,11 @@ beforeEach( () => {
 } );
 
 describe( 'Conversation usage and model picker', () => {
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'shows credits for the effective provider with a saved key: %s',
 		async ( provider ) => {
 			const connector = createFakeConnector(
-				{ sites: [ site ], preferences: { modelFavorites: allFavorites } },
+				{ sites: [ site ] },
 				{
 					...withKey( provider ),
 					getStudioAssistantQuota: async () => ( {
@@ -52,18 +41,17 @@ describe( 'Conversation usage and model picker', () => {
 			await screen.findByRole( 'button', { name: 'Site menu' } );
 			await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 			if ( provider === 'wpcom' ) {
-				expect(
-					await screen.findByRole( 'button', { name: /^Fast$/ } )
-				).toHaveAccessibleDescription( 'Quick fixes and questions' );
-				expect( screen.getByRole( 'button', { name: /^Balanced$/ } ) ).toBeDisabled();
-				expect( screen.getByRole( 'button', { name: /^Strong$/ } ) ).toHaveAccessibleDescription(
-					'Purchased credits required'
+				expect( await screen.findByRole( 'button', { name: 'Fast' } ) ).toHaveAccessibleDescription(
+					expect.stringContaining( 'Quick fixes and questions' )
+				);
+				expect( screen.getByRole( 'button', { name: 'Balanced' } ) ).toBeDisabled();
+				expect( screen.getByRole( 'button', { name: 'Strong' } ) ).toHaveAccessibleDescription(
+					expect.stringContaining( 'Purchased credits required' )
 				);
 			}
-			expect( await screen.findByRole( 'button', { name: /^Sonnet 5/ } ) ).toBeVisible();
-			expect(
-				screen.queryByRole( 'button', { name: /^Manage providers…/ } )
-			).not.toBeInTheDocument();
+			await user.type( screen.getByRole( 'textbox', { name: 'Search models' } ), 'Sonnet' );
+			expect( await screen.findByRole( 'button', { name: /^Sonnet 5.5/ } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: /^Connect AI providers/ } ) ).toBeVisible();
 			await user.keyboard( '{Escape}' );
 			if ( provider === 'wpcom' ) {
 				expect( await screen.findByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
@@ -81,18 +69,17 @@ describe( 'Conversation usage and model picker', () => {
 	);
 
 	it( 'selects the personal-key model and its provider from one footer picker', async () => {
-		const connector = createFakeConnector(
-			{ sites: [ site ], preferences: { modelFavorites: allFavorites } },
-			withKey( 'wpcom' )
-		);
+		const connector = createFakeConnector( { sites: [ site ] }, withKey( 'wpcom' ) );
 		const { user } = renderApp( { connector, path: '/sites/one/new' } );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
-		await user.click( await screen.findByRole( 'button', { name: /^Sonnet 5/ } ) );
+		await user.type( screen.getByRole( 'textbox', { name: 'Search models' } ), 'Sonnet' );
+		await user.click( await screen.findByRole( 'button', { name: /^Sonnet 5.5/ } ) );
+		await user.keyboard( '{Escape}' );
 		expect( connector.createSession ).not.toHaveBeenCalled();
 		expect( connector.setSessionProvider ).not.toHaveBeenCalled();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'Sonnet 5' )
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'Sonnet 5.5' )
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).not.toHaveAttribute(
 			'aria-description',
@@ -106,8 +93,8 @@ describe( 'Conversation usage and model picker', () => {
 		await waitFor( () =>
 			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 				expect.any( String ),
-				'anthropic-api-key',
-				'claude-sonnet-5',
+				'anthropic',
+				'claude-sonnet-5-5',
 				'default'
 			)
 		);

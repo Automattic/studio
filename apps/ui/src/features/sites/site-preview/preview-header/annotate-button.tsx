@@ -69,13 +69,14 @@ export function AnnotateButton( {
 				render={
 					<IconButton
 						ref={ modeButton }
+						className={ styles.button }
 						tooltip={ false }
 						variant="accent-ghost"
 						size="icon-sm"
 						icon={
 							<span className={ styles.icon }>
 								<AnnotateIcon />
-								{ annotationCount > 0 && ! active && <NotificationDot position="icon" /> }
+								{ annotationCount > 0 && <NotificationDot position="icon" /> }
 							</span>
 						}
 						label={ disabledReason ?? label }

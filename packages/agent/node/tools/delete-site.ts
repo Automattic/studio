@@ -16,8 +16,12 @@ export const deleteSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			await context.host.sites.delete( site, args.deleteFiles ?? true, context.onProgress );
-			return textResult( `Site "${ site.name }" deleted.` );
+			const { warnings } = await context.host.sites.delete(
+				site,
+				args.deleteFiles ?? true,
+				context.onProgress
+			);
+			return textResult( [ `Site "${ site.name }" deleted.`, ...warnings ].join( '\n' ) );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to delete site: ${ error instanceof Error ? error.message : String( error ) }`

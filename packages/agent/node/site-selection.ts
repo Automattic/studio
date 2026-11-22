@@ -1,20 +1,31 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import type { SiteInfo } from './types';
 
 // The active site, as the system prompt states it: which site the session is
 // attached to, rebuilt every turn from Studio's site data.
-export function formatActiveSite( site: SiteInfo ): string {
+export function formatActiveSite(
+	site: SiteInfo,
+	designPath?: string,
+	emailPath?: string
+): string {
 	if ( site.remote && site.url ) {
 		return `"${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)`;
 	}
-	const designPath = path.join( site.path, 'DESIGN.md' );
-	const design = existsSync( designPath ) ? `, design system: ${ designPath }` : '';
-	const email = site.id
-		? `, email it sends: ${ getSiteEmailDirectory( site.id ) } (one .eml file per message)`
-		: '';
+	const design = designPath ? `, design system: ${ designPath }` : '';
+	const email = emailPath ? `, email it sends: ${ emailPath } (one .eml file per message)` : '';
 	return `"${ site.name }" at ${ site.path }${
 		site.running ? ' (running)' : ' (stopped)'
 	}${ design }${ email }`;
+}
+
+// The active local site's DESIGN.md, when it has one.
+export async function findActiveSiteDesign(
+	site: SiteInfo | null | undefined
+): Promise< string | undefined > {
+	if ( ! site || site.remote ) {
+		return undefined;
+	}
+	const designPath = path.join( site.path, 'DESIGN.md' );
+	return existsSync( designPath ) ? designPath : undefined;
 }

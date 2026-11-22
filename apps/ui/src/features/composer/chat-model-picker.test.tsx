@@ -1,19 +1,11 @@
-import { AI_MODELS } from '@studio/agent/protocol/models';
+import { getProvider, type ProviderId } from '@studio/providers';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
-import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
-
-const allFavorites = AI_MODELS.map( ( model ) => ( {
-	provider: model.family === 'studio' ? 'wpcom' : 'anthropic-api-key',
-	model: model.id,
-	effort: 'default' as const,
-} ) );
 
 const paidQuota: StudioAssistantQuota = {
 	costCap: 1000,
@@ -42,13 +34,10 @@ function connectorFor( {
 	quota = async () => paidQuota,
 }: { anthropic?: boolean; quota?: () => Promise< StudioAssistantQuota | null > } = {} ) {
 	return createFakeConnector(
-		{ preferences: { modelFavorites: allFavorites } },
+		{},
 		{
-			getAiSettings: async () => ( {
-				provider: anthropic ? 'anthropic-api-key' : 'wpcom',
-				hasAnthropicApiKey: anthropic,
-				anthropicApiKeyPreview: null,
-			} ),
+			getAiSettings: async () =>
+				aiSettings( 'wpcom', anthropic ? [ 'wpcom', 'anthropic' ] : [ 'wpcom' ] ),
 			getStudioAssistantQuota: quota,
 			getStudioAssistantTopUpPricing: async () =>
 				( { options: [ { credits: 100000, display: '$10' } ] } ) as never,
@@ -56,11 +45,17 @@ function connectorFor( {
 	);
 }
 
-async function renderPicker( model: AiModelId, connector: FakeConnector, onModelChange = vi.fn() ) {
+async function renderPicker(
+	model: AiModelId,
+	connector: FakeConnector,
+	onModelChange = vi.fn(),
+	provider?: ProviderId
+) {
 	const view = renderWithProviders(
 		<Composer
 			busy={ false }
 			model={ model }
+			provider={ provider }
 			sessionId="test"
 			entries={ [] }
 			onSend={ vi.fn() }
@@ -76,84 +71,79 @@ async function renderPicker( model: AiModelId, connector: FakeConnector, onModel
 
 describe( 'Chat model picker', () => {
 	it( 'opens with the current model selected for keyboard navigation', async () => {
-		const { trigger } = await renderPicker( 'claude-opus-5', connectorFor( { anthropic: true } ) );
+		const { trigger } = await renderPicker(
+			'claude-opus-5-5',
+			connectorFor( { anthropic: true } ),
+			undefined,
+			'anthropic'
+		);
 		fireEvent.click( trigger );
-		const current = await screen.findByRole( 'button', { name: /^Opus 5$/ } );
+		const current = await screen.findByRole( 'button', { name: 'Opus 5.5' } );
 		expect( current ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( current ).toHaveAccessibleDescription(
-			'Plan complex builds and solve harder problems'
+			'Anthropic · Plan complex builds and solve harder problems'
 		);
 	} );
 
-	it( 'lists the tiers and stays open after selection', async () => {
+	it( 'offers to manage usage only when Anthropic connects with a Claude subscription', async () => {
+		const connectedWith = ( method: 'api-key' | 'setup-token' ) => {
+			const settings = aiSettings( 'anthropic', [ 'anthropic' ] );
+			settings.accounts.anthropic = {
+				connected: true,
+				...getProvider( 'anthropic' ).account.describe(
+					method === 'api-key'
+						? { method, apiKey: 'sk-ant-api03-test' }
+						: { method, token: 'sk-ant-oat01-test' }
+				),
+			};
+			return createFakeConnector( {}, { getAiSettings: async () => settings } );
+		};
+		const subscription = await renderPicker( 'claude-opus-5-5', connectedWith( 'setup-token' ) );
+		fireEvent.click( subscription.trigger );
+		expect( await screen.findByRole( 'button', { name: /Manage usage/ } ) ).toHaveTextContent(
+			'Using Claude plan'
+		);
+		subscription.unmount();
+
+		const apiKey = await renderPicker( 'claude-opus-5-5', connectedWith( 'api-key' ) );
+		fireEvent.click( apiKey.trigger );
+		await screen.findByRole( 'button', { name: 'Opus 5.5' } );
+		expect( screen.queryByRole( 'button', { name: /Manage usage/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers only the models the connected account can run', async () => {
+		const settings = aiSettings( 'github-copilot', [ 'github-copilot' ] );
+		settings.accounts[ 'github-copilot' ] = {
+			connected: true,
+			...getProvider( 'github-copilot' ).account.describe( {
+				method: 'github',
+				githubToken: 'gho_1',
+				copilotToken: 'copilot',
+				copilotTokenExpiresAt: Date.now() + 60_000,
+				models: [ 'claude-sonnet-5-5' ],
+			} ),
+		};
+		const { trigger } = await renderPicker(
+			'claude-sonnet-5-5',
+			createFakeConnector( {}, { getAiSettings: async () => settings } )
+		);
+		fireEvent.click( trigger );
+		await screen.findByRole( 'button', { name: 'Sonnet 5.5' } );
+		expect( screen.queryByRole( 'button', { name: /Gemini/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'lists the tiers and keeps the picker open after selection', async () => {
 		const { trigger, onModelChange } = await renderPicker( 'balanced', connectorFor() );
 		fireEvent.click( trigger );
 		expect( await screen.findByRole( 'button', { name: /^Fast/ } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: /^Balanced/ } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: /^Strong/ } ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: /^Fast/ } ) );
-		await waitFor( () => expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom' ) );
-		expect( screen.getByRole( 'dialog', { name: 'Choose a model' } ) ).toBeVisible();
+		await waitFor( () =>
+			expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom', 'default' )
+		);
+		expect( screen.getByRole( 'textbox', { name: 'Search models' } ) ).toBeVisible();
 	} );
-
-	it.each( [ 'pointer', 'keyboard' ] )(
-		'lets a %s selection change the model and effort without reopening the picker',
-		async ( method ) => {
-			function ModelSelection() {
-				const [ model, setModel ] = useState< AiModelId >( 'fast' );
-				const [ provider, setProvider ] = useState< AiProviderId >( 'wpcom' );
-				return (
-					<Composer
-						model={ model }
-						provider={ provider }
-						busy={ false }
-						onSend={ vi.fn() }
-						onInterrupt={ vi.fn() }
-						onModelChange={ ( nextModel, nextProvider ) => {
-							setModel( nextModel );
-							setProvider( nextProvider );
-						} }
-					/>
-				);
-			}
-			const { user } = renderWithProviders( <ModelSelection />, {
-				connector: connectorFor( { anthropic: true } ),
-			} );
-			const trigger = await screen.findByRole( 'button', { name: 'Model' } );
-			await user.click( trigger );
-			expect( screen.getByRole( 'button', { name: 'Effort: Unavailable' } ) ).toBeDisabled();
-			const balanced = await screen.findByRole( 'button', { name: 'Balanced' } );
-			if ( method === 'keyboard' ) {
-				balanced.focus();
-				await user.keyboard( '{Enter}' );
-			} else await user.click( balanced );
-			expect( screen.getByRole( 'dialog', { name: 'Choose a model' } ) ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'Balanced', pressed: true } ) ).toBeVisible();
-			await user.click( screen.getByRole( 'button', { name: 'Effort: Medium' } ) );
-			await user.click( await screen.findByRole( 'menuitemradio', { name: 'High' } ) );
-			expect( trigger ).toHaveTextContent( 'Balanced · High' );
-			expect( screen.getByRole( 'button', { name: 'Effort: High' } ) ).toBeVisible();
-			await user.keyboard( '{Escape}' );
-			expect( screen.queryByRole( 'dialog', { name: 'Choose a model' } ) ).not.toBeInTheDocument();
-			expect( trigger ).toHaveTextContent( 'Balanced · High' );
-			await user.click( trigger );
-			const search = screen.getByRole( 'textbox', { name: 'Search models' } );
-			await user.type( search, 'claude' );
-			const sonnet = screen.getByRole( 'button', { name: 'Sonnet 5' } );
-			if ( method === 'keyboard' ) {
-				sonnet.focus();
-				await user.keyboard( '{Enter}' );
-			} else await user.click( sonnet );
-			expect( search ).toHaveValue( 'claude' );
-			expect( screen.getByRole( 'button', { name: 'Sonnet 5', pressed: true } ) ).toBeVisible();
-			await user.click( screen.getByRole( 'button', { name: 'Opus 5' } ) );
-			expect( search ).toHaveValue( 'claude' );
-			expect( screen.getByRole( 'button', { name: 'Opus 5', pressed: true } ) ).toBeVisible();
-			await user.keyboard( '{Escape}' );
-			await user.click( trigger );
-			expect( screen.getByRole( 'textbox', { name: 'Search models' } ) ).toHaveValue( '' );
-		}
-	);
 
 	it( 'keeps paid models locked', async () => {
 		const connector = connectorFor( {
@@ -209,11 +199,22 @@ describe( 'Chat model picker', () => {
 		expect( screen.queryByRole( 'button', { name: /^Get more credits/ } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps provider setup and credit purchases outside the model picker', async () => {
-		const { trigger } = await renderPicker( 'balanced', connectorFor() );
+	it( 'opens the existing purchase dialog from the model picker and continues to desktop checkout', async () => {
+		const { connector, trigger } = await renderPicker(
+			'fast',
+			connectorFor( { quota: async () => allowanceQuota } )
+		);
 		fireEvent.click( trigger );
-		await screen.findByRole( 'button', { name: 'Balanced' } );
-		expect( screen.queryByRole( 'button', { name: /^Get more credits/ } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: /^Manage providers/ } ) ).not.toBeInTheDocument();
+		const buy = await screen.findByRole( 'button', { name: /^Get more credits/ } );
+		await waitFor( () => expect( buy ).not.toHaveAttribute( 'aria-disabled', 'true' ) );
+		fireEvent.click( buy );
+		expect( await screen.findByRole( 'heading', { name: 'Add AI credits' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: /^Fast/ } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: /^Continue/ } ) );
+		await waitFor( () =>
+			expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+				expect.stringContaining( 'studioReturnTo=ai-credits-purchased' )
+			)
+		);
 	} );
 } );

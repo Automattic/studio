@@ -1,19 +1,10 @@
 @layer ui {
-	.item:not( :has( > [data-icon='inline-end'] ) ) {
-		padding-inline-end: var( --space-3 );
-	}
-
 	.itemButton {
 		width: 100%;
 		text-align: start;
 	}
-
-	.itemLabel {
-		min-width: 0;
-		max-width: min( 320px, 60vw );
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+	.item:not( :has( > [data-icon='inline-end'] ) ) {
+		padding-inline-end: var( --space-3 );
 	}
 
 	.positioner {
@@ -22,18 +13,15 @@
 	}
 
 	.popup {
+		composes: menuMotion from '@/lib/ui/surface/style.module.css';
 		display: flex;
 		flex-direction: column;
 		min-width: 160px;
 	}
 
 	.destructive {
-		color: var( --destructive );
-	}
-
-	.destructive[data-highlighted] {
-		--item-hover-background: var( --destructive-hover );
 		--item-hover-foreground: var( --destructive );
+
 		color: var( --destructive );
 	}
 
@@ -61,7 +49,7 @@
 		letter-spacing: 0.1em;
 	}
 
-	.destructive .shortcut {
+	.destructive :is( svg, .shortcut ) {
 		color: inherit;
 	}
 }

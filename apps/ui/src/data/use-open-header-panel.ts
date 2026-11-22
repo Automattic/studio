@@ -1,20 +1,23 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { useSites } from '@/data/queries/use-sites';
+import { useOpenSite } from '@/data/use-open-site';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
+import type { SitesProviderId } from '@studio/providers';
 
 type HeaderPanelRequest = (
 	| {
 			panel: 'publish';
 			siteId: string;
-			view: 'publish' | 'pull' | 'websites';
-			remoteSiteId?: number;
+			view: 'publish' | 'pull';
+			// The provider to publish to; without one, the panel lists the published sites.
+			provider?: SitesProviderId;
+			remoteSiteId?: string | number;
 	  }
-	| { panel: 'share'; siteId: string }
+	| { panel: 'share'; siteId: string; createIfMissing?: boolean }
 ) & { trigger?: HTMLElement };
 
-// A request to open one of the preview header's panels from elsewhere (the
-// site menu, the command palette, onboarding), held until that site's header
-// is on screen.
+// A request to open a site's header panel, held until that site's header is on screen.
 let pending: HeaderPanelRequest | null = null;
 const listeners = new Set< () => void >();
 
@@ -42,18 +45,21 @@ export function subscribeHeaderPanelRequest< Panel extends HeaderPanelRequest[ '
 	};
 }
 
-// Shows the site's preview, where the header panels live, and opens one.
+// Opens a header panel without changing the site's preview layout.
 export function useOpenHeaderPanel() {
 	const navigate = useNavigate();
-	const { setOpen, siteId: previewSiteId } = useSessionPreviewUI();
+	const { data: sites } = useSites();
+	const openSite = useOpenSite( { animateSelection: false } );
+	const { siteId: previewSiteId } = useSessionPreviewUI();
 	return useCallback(
 		( request: HeaderPanelRequest ) => {
 			requestHeaderPanel( request );
-			setOpen( true );
 			if ( previewSiteId !== request.siteId ) {
-				void navigate( { to: '/sites/$siteId', params: { siteId: request.siteId } } );
+				const site = sites?.find( ( candidate ) => candidate.id === request.siteId );
+				if ( site ) openSite( site );
+				else void navigate( { to: '/sites/$siteId/new', params: { siteId: request.siteId } } );
 			}
 		},
-		[ navigate, previewSiteId, setOpen ]
+		[ navigate, openSite, previewSiteId, sites ]
 	);
 }

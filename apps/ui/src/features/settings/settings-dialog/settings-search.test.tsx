@@ -48,6 +48,16 @@ describe( 'Settings search', () => {
 		}
 	);
 
+	it( 'opens Providers without highlighting or focusing the AI providers group', async () => {
+		const { input, section } = await renderSearch();
+		fireEvent.change( input, { target: { value: 'AI providers' } } );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'AI providers' } ) );
+		await waitFor( () => expect( section() ).toBe( 'providers' ) );
+		const group = await screen.findByRole( 'group', { name: 'AI providers' } );
+		expect( group ).not.toHaveAttribute( 'data-settings-match' );
+		expect( group ).not.toHaveAttribute( 'tabindex' );
+	} );
+
 	it( 'temporarily highlights the whole field and restarts when selecting it again', async () => {
 		const { input, unmount } = await renderSearch();
 		fireEvent.change( input, { target: { value: 'theme' } } );

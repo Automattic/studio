@@ -4,7 +4,7 @@ WordPress Studio includes Xdebug support for local sites. [Xdebug](https://xdebu
 
 ## [Enabling Xdebug](#0-enabling-xdebug)
 
-1.  Open the site’s settings: choose **Settings** from the site menu (click the **Site menu** button at the top left of the site’s header, or right-click the site in the sidebar).
+1.  Open the site’s settings: choose **Settings** from the site menu (click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar).
 2.  Select the **Debug** page.
 3.  Turn on **Xdebug**.
 4.  Click **Save** at the top of the dialog.
@@ -25,23 +25,24 @@ WordPress Studio runs sites on native PHP, which uses the real file paths on dis
 ### [Visual Studio Code setup](#3-visual-studio-code-setup)
 
 1.  Install the [PHP Debug extension](https://marketplace.visualstudio.com/items?itemName=xdebug.php-debug).
-2.  Create a `.vscode/launch.json` file in your project:
+2.  Create a `.vscode/launch.json` file in your project using the example below.
+3.  Set breakpoints in your code.
+4.  Start the debugging session in Visual Studio Code (**Run** → **Start Debugging**).
+5.  Navigate to your site in the browser to trigger the breakpoints.
 
+```json
 {
   "version": "0.2.0",
-  "configurations": \[
+  "configurations": [
     {
       "name": "Listen for Xdebug",
       "type": "php",
       "request": "launch",
       "port": 9003
     }
-  \]
+  ]
 }
-
-3.  Set breakpoints in your code.
-4.  Start the debugging session in Visual Studio Code (**Run** → **Start Debugging**).
-5.  Navigate to your site in the browser to trigger the breakpoints.
+```
 
 ### [PhpStorm Setup](#4-phpstorm-setup)
 

@@ -64,6 +64,9 @@ type PopupProps = ContextPopupProps & {
 	align?: 'start' | 'center' | 'end';
 	sideOffset?: number;
 	alignOffset?: number;
+	collisionAvoidance?: ComponentPropsWithoutRef<
+		typeof BaseMenu.Positioner
+	>[ 'collisionAvoidance' ];
 };
 
 /**
@@ -76,6 +79,7 @@ export function Popup( {
 	align = 'start',
 	sideOffset = 4,
 	alignOffset,
+	collisionAvoidance,
 	className,
 	...props
 }: PopupProps ) {
@@ -87,6 +91,7 @@ export function Popup( {
 				align={ align }
 				sideOffset={ sideOffset }
 				alignOffset={ alignOffset }
+				collisionAvoidance={ collisionAvoidance }
 				className={ styles.positioner }
 			>
 				<BaseMenu.Popup
@@ -148,10 +153,6 @@ export function ContextPopup( { children, className, ...props }: ContextPopupPro
 	);
 }
 
-export function ItemLabel( { className, ...props }: ComponentPropsWithoutRef< 'span' > ) {
-	return <span className={ clsx( styles.itemLabel, className ) } { ...props } />;
-}
-
 type ItemProps = ComponentPropsWithoutRef< typeof BaseMenu.Item > & {
 	/** Renders the item in error colors, for actions that destroy data. */
 	destructive?: boolean;
@@ -172,6 +173,8 @@ export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >(
 	);
 } );
 
+type SubmenuTriggerProps = ComponentPropsWithoutRef< typeof BaseMenu.SubmenuTrigger >;
+
 /** A menu-styled action for popovers with inputs and sibling controls. */
 export const ItemButton = forwardRef<
 	ElementRef< typeof BaseButton >,
@@ -182,14 +185,11 @@ export const ItemButton = forwardRef<
 			ref={ ref }
 			{ ...props }
 			disabled={ disabled }
-			data-slot="menu-item-button"
 			data-disabled={ disabled || undefined }
 			className={ clsx( surface.item, styles.item, styles.itemButton, className ) }
 		/>
 	);
 } );
-
-type SubmenuTriggerProps = ComponentPropsWithoutRef< typeof BaseMenu.SubmenuTrigger >;
 
 export function SubmenuIndicator( {
 	className,
@@ -205,7 +205,7 @@ export const SubmenuTrigger = forwardRef<
 	return (
 		<BaseMenu.SubmenuTrigger ref={ ref } className={ clsx( surface.item, className ) } { ...props }>
 			{ children }
-			<SubmenuIndicator />
+			<ChevronDownIcon className={ styles.submenuChevron } />
 		</BaseMenu.SubmenuTrigger>
 	);
 } );

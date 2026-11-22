@@ -6,13 +6,17 @@ import { createMemoryHistory } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
-import { createInMemoryConnector, makeSession, makeSite } from '@/test/in-memory-connector';
+import {
+	aiSettings,
+	createInMemoryConnector,
+	makeSession,
+	makeSite,
+} from '@/test/in-memory-connector';
 import type { SessionEntry } from '@/data/core';
 import type { ModelFavorite } from '@studio/common/lib/user-settings/model-favorites';
 
 const params = new URLSearchParams( window.location.search );
 const scheme = params.get( 'scheme' ) === 'dark' ? 'dark' : 'light';
-const direct = params.get( 'providers' ) === 'all';
 const conversation = params.get( 'state' ) === 'conversation';
 const sites = [ 'My WordPress site', 'Personal blog', 'Design portfolio' ].map( ( name, index ) =>
 	makeSite( { id: `model-preview-${ index }`, name } )
@@ -30,7 +34,7 @@ const entries: SessionEntry[] = [
 		parentId: null,
 		timestamp: new Date().toISOString(),
 		customType: 'studio.session_context',
-		data: { provider: 'wpcom', model: 'balanced', effort: 'default' },
+		data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5-5', thinking: 'default' },
 	},
 	{
 		type: 'custom',
@@ -42,13 +46,10 @@ const entries: SessionEntry[] = [
 	},
 ];
 const modelFavorites: ModelFavorite[] = [
-	{ provider: 'wpcom', model: 'balanced', effort: 'default' },
-	{ provider: 'wpcom', model: 'balanced', effort: 'high' },
+	{ provider: 'anthropic-api-key', model: 'claude-sonnet-5-5', effort: 'default' },
+	{ provider: 'anthropic-api-key', model: 'claude-sonnet-5-5', effort: 'high' },
 	{ provider: 'wpcom', model: 'fast', effort: 'default' },
 	{ provider: 'wpcom', model: 'strong', effort: 'default' },
-	...( direct
-		? [ { provider: 'anthropic-api-key', model: 'claude-sonnet-5', effort: 'default' as const } ]
-		: [] ),
 ];
 const connector = createInMemoryConnector(
 	{
@@ -61,17 +62,13 @@ const connector = createInMemoryConnector(
 	},
 	{
 		getOnboardingCompleted: async () => true,
-		getAiSettings: async () => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: direct,
-			anthropicApiKeyPreview: null,
-		} ),
+		getAiSettings: async () => aiSettings( 'anthropic', [ 'wpcom', 'anthropic' ] ),
 		getStudioAssistantQuota: async () => ( {
+			costCap: 1000,
+			costUsage: 0,
 			costResetDate: undefined,
 			studioCodeAiHasAccess: undefined,
 			studioCodeAiAccess: undefined,
-			costCap: 1000,
-			costUsage: 0,
 			allowanceRemaining: 1000,
 			purchasedRemaining: 500,
 			purchasedAtTopUp: 500,

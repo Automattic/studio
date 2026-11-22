@@ -1,14 +1,16 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import {
+	customizeBlueprint,
+	inspectBlueprint,
+	validateBlueprint,
+	type Blueprint,
+} from '@studio/blueprints';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
-import {
-	__isStepDefinition,
-	extractFormValuesFromBlueprint,
-} from '@studio/common/lib/blueprint-settings';
-import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
 	arePathsEqual,
@@ -36,8 +38,8 @@ import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
@@ -48,16 +50,15 @@ import {
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
+import { openBlueprintSource } from 'cli/lib/blueprint-library';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	SiteData,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
-import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import {
+	connectToDaemon,
+	disconnectFromDaemon,
+	emitCliEvent,
+	listProcesses,
+} from 'cli/lib/daemon-client';
 import { type liberateWebsite } from 'cli/lib/data-liberation-client';
 import {
 	getAiInstructionsPath,
@@ -68,10 +69,10 @@ import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { confirm, input, password, select } from 'cli/lib/prompts';
+import { assertSiteCapacity, assertSiteCountLimit } from 'cli/lib/site-capacity';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
-import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
@@ -93,11 +94,11 @@ import {
 } from 'cli/lib/static-site-import/source';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
-import { untildify } from 'cli/lib/utils';
-import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { classifySiteCreateFailure, untildify } from 'cli/lib/utils';
+import { setUpSite, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {} from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/site/create.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -152,7 +153,7 @@ async function validateSitePath( sitePath: string ) {
 	return { exists, isWordPressDir };
 }
 
-function validateCustomDomain( customDomain: string | undefined, sites: SiteData[] ) {
+function validateCustomDomain( customDomain: string | undefined, sites: ConfigSite[] ) {
 	if ( ! customDomain ) {
 		return;
 	}
@@ -172,11 +173,18 @@ function validateCustomDomain( customDomain: string | undefined, sites: SiteData
 async function validateBeforeSourceImport(
 	sitePath: string,
 	source: string,
-	options: Pick< CreateCommandOptions, 'customDomain' | 'adminUsername' | 'adminEmail' >
+	options: Pick< CreateCommandOptions, 'customDomain' | 'adminUsername' | 'adminEmail' | 'noStart' >
 ) {
+	if ( ! options.noStart ) {
+		try {
+			assertSiteCapacity( await listProcesses() );
+		} finally {
+			await disconnectFromDaemon();
+		}
+	}
 	await validateSitePath( sitePath );
 
-	const { sites } = await readCliConfig();
+	const { sites } = await readConfig();
 	const isSiteInUse = sites.some( ( site ) => arePathsEqual( site.path, sitePath ) );
 	if ( isSiteInUse ) {
 		// A staged import resumes on the existing site, so its creation options aren't reapplied.
@@ -189,6 +197,7 @@ async function validateBeforeSourceImport(
 		throw new LoggerError( __( 'The selected directory is already in use.' ) );
 	}
 
+	assertSiteCountLimit( sites );
 	validateCustomDomain( options.customDomain, sites );
 
 	const adminEmail = options.adminEmail?.trim();
@@ -212,7 +221,7 @@ export async function runCommand(
 		: undefined;
 
 	try {
-		const updated = await updateServerFiles( options.wpVersion === DEFAULT_WORDPRESS_VERSION );
+		const updated = await updateServerFiles();
 		if ( updated ) {
 			logger.reportSuccess( __( 'Dependencies updated' ) );
 		}
@@ -234,35 +243,32 @@ export async function runCommand(
 			await validateSitePath( sitePath );
 
 		let blueprintUri: string | undefined;
-		let blueprint: BlueprintV1Declaration | undefined;
+		let blueprint: Blueprint | undefined;
 		let blueprintCredentials: { adminUsername?: string; adminPassword?: string } | null = null;
 
 		if ( options.blueprint ) {
-			const validation = await validateBlueprintData( options.blueprint.contents );
-			if ( ! validation.valid ) {
-				throw new LoggerError( validation.error );
+			try {
+				blueprint = validateBlueprint( options.blueprint.contents );
+			} catch ( error ) {
+				throw new LoggerError( ( error as Error ).message );
 			}
-
-			// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
-			// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
-			const formValues = extractFormValuesFromBlueprint(
-				options.blueprint.contents as BlueprintV1Declaration
-			);
-			if ( formValues.adminUsername || formValues.adminPassword ) {
+			const details = inspectBlueprint( blueprint );
+			if ( details.login?.username || details.login?.password ) {
 				blueprintCredentials = {
-					adminUsername: formValues.adminUsername,
-					adminPassword: formValues.adminPassword,
+					adminUsername: details.login.username,
+					adminPassword: details.login.password,
 				};
 			}
 
+			// The site's own name and domain win over what the Blueprint sets.
+			const scheme = options.enableHttps ? 'https' : 'http';
+			blueprint = customizeBlueprint( blueprint, {
+				siteTitle: options.name,
+				siteUrl: options.customDomain ? `${ scheme }://${ options.customDomain }` : undefined,
+			} );
 			blueprintUri = options.blueprint.uri;
-			blueprint = options.blueprint.contents as BlueprintV1Declaration;
 
-			const blueprintHasMultisite = blueprint?.steps
-				?.filter( __isStepDefinition )
-				.some( ( step ) => step.step === 'enableMultisite' );
-
-			if ( blueprintHasMultisite && ! options.customDomain ) {
+			if ( details.multisite && ! options.customDomain ) {
 				throw new LoggerError(
 					__(
 						'The enableMultisite Blueprint step requires a custom domain. WordPress multisite does not support custom ports. Use --domain <name>.local to set a custom domain.'
@@ -271,7 +277,7 @@ export async function runCommand(
 			}
 		}
 
-		const cliConfig = await readCliConfig();
+		const cliConfig = await readConfig();
 		const existingSite = cliConfig.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
 		if ( importRun?.canResumeOn( existingSite ) ) {
 			await importRun.resume( existingSite );
@@ -281,10 +287,7 @@ export async function runCommand(
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
-		for ( const site of cliConfig.sites ) {
-			portFinder.addUnavailablePort( site.port );
-		}
-
+		assertSiteCountLimit( cliConfig.sites );
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );
@@ -340,8 +343,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
 		try {
-			const sharedConfig = await readSharedConfig();
-			const selectedSkills = sharedConfig.selectedSkills ?? [];
+			const selectedSkills = ( await readConfig() ).preferences.selectedSkills ?? [];
 			await installAiInstructionsToSite(
 				{ path: sitePath },
 				getAiInstructionsPath(),
@@ -353,11 +355,6 @@ export async function runCommand(
 				false
 			);
 		}
-
-		logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
-		const port = await portFinder.getOpenPort();
-		// translators: %d is the port number
-		logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
 		const siteName = options.name || path.basename( sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
@@ -392,38 +389,41 @@ export async function runCommand(
 			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
-		const siteDetails: SiteData = {
-			id: siteId,
-			name: siteName,
-			path: sitePath,
-			adminUsername,
-			adminPassword,
-			adminEmail,
-			port,
-			phpVersion,
-			fileAccess: options.fileAccess,
-			running: false,
-			status: 'ready',
-			isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
-			customDomain: options.customDomain,
-			enableHttps: options.enableHttps,
-			landingPage: normalizeLandingPage( blueprint?.landingPage ),
-		};
+		const siteDetails = await updateConfig( async ( userData ) => {
+			// Claim the port in the config file before another create can select it, even if this
+			// site's server has not started listening yet.
+			for ( const site of userData.sites ) {
+				portFinder.addUnavailablePort( site.port );
+			}
+			logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
+			const port = await portFinder.getOpenPort();
+			// translators: %d is the port number
+			logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
-		logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
+			const site: ConfigSite = {
+				id: siteId,
+				name: siteName,
+				path: sitePath,
+				adminUsername,
+				adminPassword,
+				adminEmail,
+				port,
+				phpVersion,
+				fileAccess: options.fileAccess,
+				status: 'ready',
+				isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
+				customDomain: options.customDomain,
+				enableHttps: options.enableHttps,
+				landingPage: normalizeLandingPage( blueprint?.landingPage ),
+			};
 
-		try {
-			await lockCliConfig();
-			const userData = await readCliConfig();
+			logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
-			userData.sites.push( siteDetails );
+			userData.sites.push( site );
 			sortSites( userData.sites );
-
-			await saveCliConfig( userData );
-			logger.reportSuccess( __( 'Site created successfully' ) );
-		} finally {
-			await unlockCliConfig();
-		}
+			return site;
+		} );
+		logger.reportSuccess( __( 'Site created successfully' ) );
 
 		if ( ! options.noStart ) {
 			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -475,38 +475,44 @@ export async function runCommand(
 				);
 			}
 		} else {
-			if ( blueprint ) {
-				logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
-				await connectToDaemon();
-				logger.reportSuccess( __( 'Process daemon started' ) );
+			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
+			await connectToDaemon();
+			logger.reportSuccess( __( 'Process daemon started' ) );
 
-				logger.reportStart( LoggerAction.START_SITE, __( 'Applying Blueprint…' ) );
-				try {
-					if ( ! blueprintUri ) {
-						throw new LoggerError( __( 'Blueprint source path is missing' ) );
-					}
-					await runBlueprint( siteDetails, logger, {
-						wpVersion: options.wpVersion,
-						blueprint,
-						blueprintUri,
-						siteLanguage,
-					} );
-					logger.reportSuccess( __( 'Blueprint applied successfully' ) );
-
-					stripWpConfigDbConstants( sitePath );
-					await importRun?.run( siteDetails );
-				} catch ( error ) {
-					if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
-						await removeSiteFromConfig( siteDetails.id );
-						if ( ! isWordPressDirResult ) {
-							await fs.promises.rm( sitePath, { recursive: true, force: true } );
-						}
-					}
-					throw new LoggerError(
-						importRun ? __( 'Failed to import static site' ) : __( 'Failed to apply Blueprint' ),
-						error
-					);
+			logger.reportStart(
+				LoggerAction.START_SITE,
+				blueprint ? __( 'Applying Blueprint…' ) : __( 'Setting up WordPress…' )
+			);
+			try {
+				if ( blueprint && ! blueprintUri ) {
+					throw new LoggerError( __( 'Blueprint source path is missing' ) );
 				}
+				await setUpSite( siteDetails, logger, {
+					wpVersion: options.wpVersion,
+					blueprint,
+					blueprintUri,
+					siteLanguage,
+				} );
+				logger.reportSuccess(
+					blueprint ? __( 'Blueprint applied successfully' ) : __( 'WordPress set up' )
+				);
+
+				stripWpConfigDbConstants( sitePath );
+				await importRun?.run( siteDetails );
+			} catch ( error ) {
+				if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
+					await removeSiteFromConfig( siteDetails.id );
+					if ( ! isWordPressDirResult ) {
+						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+					}
+				}
+				let message: string = __( 'Failed to set up WordPress' );
+				if ( importRun ) {
+					message = __( 'Failed to import static site' );
+				} else if ( blueprint ) {
+					message = __( 'Failed to apply Blueprint' );
+				}
+				throw new LoggerError( message, error );
 			}
 			console.log( '' );
 			console.log( __( 'Site created successfully' ) );
@@ -517,7 +523,11 @@ export async function runCommand(
 			console.log( __( 'Run "studio start" to start the site.' ) );
 		}
 
-		logger.reportResult( { ...siteDetails, url: getSiteUrl( siteDetails ) } );
+		logger.reportResult( {
+			...siteDetails,
+			url: getSiteUrl( siteDetails ),
+			running: siteDetails.running === true,
+		} );
 
 		// Tracks: the CLI is the sole emitter of site-creation, so every path a site comes into
 		// existence (new/blueprint/import/sync/duplicate, app-spawned or standalone) is counted once.
@@ -532,7 +542,7 @@ export async function runCommand(
 				custom_domain: !! options.customDomain,
 				ssl_enabled: !! options.enableHttps,
 				time_ms: Date.now() - createStartedAt,
-				...( await getSiteTracksProps( sitePath ) ),
+				...( await getSiteTracksProps( { siteFolder: sitePath } ) ),
 				...getTracksOrigin(),
 			} );
 		} catch {
@@ -546,20 +556,6 @@ export async function runCommand(
 	}
 }
 
-async function fetchBlueprint( url: string ) {
-	const res = await fetch( url );
-
-	if ( ! res.ok ) {
-		throw new LoggerError( __( 'Failed to fetch Blueprint' ) );
-	}
-
-	try {
-		return await res.json();
-	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to parse Blueprint JSON' ), error );
-	}
-}
-
 function stripWpConfigDbConstants( sitePath: string ): void {
 	const wpConfigPath = path.join( sitePath, 'wp-config.php' );
 	if ( ! fs.existsSync( wpConfigPath ) ) {
@@ -568,22 +564,6 @@ function stripWpConfigDbConstants( sitePath: string ): void {
 	const content = fs.readFileSync( wpConfigPath, 'utf-8' );
 	if ( hasDefaultDbBlock( content ) ) {
 		fs.writeFileSync( wpConfigPath, removeDbConstants( content ), 'utf-8' );
-	}
-}
-
-function readBlueprint( blueprintPath: string ) {
-	if ( ! fs.existsSync( blueprintPath ) ) {
-		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
-	}
-
-	try {
-		const blueprintContent = fs.readFileSync( blueprintPath, 'utf-8' );
-		return JSON.parse( blueprintContent );
-	} catch ( error ) {
-		throw new LoggerError(
-			sprintf( __( 'Failed to parse Blueprint JSON file: %s' ), blueprintPath ),
-			error
-		);
 	}
 }
 
@@ -712,7 +692,7 @@ export async function commandHandler(
 			}
 
 			if ( ! customDomain ) {
-				const cliConfig = await readCliConfig();
+				const cliConfig = await readConfig();
 				const existingDomains = cliConfig.sites
 					.map( ( site ) => site.customDomain )
 					.filter( ( domain ): domain is string => Boolean( domain ) );
@@ -782,8 +762,21 @@ export async function commandHandler(
 		flowType: parseFlowType( argv.flowType ),
 	};
 
+	if ( argv.from ) {
+		// A `--from` create becomes a blueprint internally, so the inference must win over the
+		// `--flow-type` hint to stay measurable as a static site import.
+		config.flowType = 'static_site_import';
+		config.source = classifySourceImport( argv.from );
+	}
+
+	const startedAt = Date.now();
+	let step: 'prepare' | 'create' = 'prepare';
 	try {
 		let preparedImport: PreparedSourceImport | undefined;
+		await using openedBlueprint =
+			! argv.from && argv.blueprint
+				? await openBlueprintSource( untildify( argv.blueprint ) )
+				: undefined;
 		if ( argv.from ) {
 			await validateBeforeSourceImport( sitePath, argv.from, config );
 			preparedImport = await prepareSourceImport( argv.from, sitePath, siteName, defaultLogger, {
@@ -795,36 +788,11 @@ export async function commandHandler(
 			} );
 			config.blueprint = preparedImport.blueprint;
 			config.name = preparedImport.siteName;
-			// A `--from` create becomes a blueprint internally, so the inference must win over the
-			// `--flow-type` hint to stay measurable as a static site import.
-			config.flowType = 'static_site_import';
-			config.source = classifySourceImport( argv.from );
-		} else if ( argv.blueprint ) {
-			if ( isUrl( argv.blueprint ) ) {
-				config.blueprint = {
-					uri: argv.blueprint,
-					contents: await fetchBlueprint( argv.blueprint ),
-				};
-			} else {
-				const uri = path.resolve( untildify( argv.blueprint ) );
-
-				config.blueprint = {
-					uri,
-					contents: readBlueprint( uri ),
-				};
-
-				// When invoked by the desktop app, the blueprint contents come from a temp file
-				// but resources should be resolved relative to the original file location.
-				// For gallery blueprints the path is a URL; use it directly.
-				if ( argv.originalBlueprintPath ) {
-					const originalPath = argv.originalBlueprintPath;
-					config.blueprint.uri = isUrl( originalPath )
-						? originalPath
-						: path.resolve( originalPath );
-				}
-			}
+		} else if ( openedBlueprint ) {
+			config.blueprint = { contents: openedBlueprint.blueprint, uri: openedBlueprint.path };
 		}
 
+		step = 'create';
 		try {
 			await runCommand( sitePath, config );
 			if ( preparedImport ) {
@@ -845,6 +813,17 @@ export async function commandHandler(
 			);
 		}
 	} catch ( error ) {
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_CREATE_FAILED, {
+				flow_type: config.flowType ?? ( config.blueprint || argv.blueprint ? 'blueprint' : 'new' ),
+				source: config.source,
+				failure_reason: classifySiteCreateFailure( error, step ),
+				time_ms: Date.now() - startedAt,
+				...getTracksOrigin(),
+			} );
+		} catch {
+			// Best-effort telemetry — never mask the creation error.
+		}
 		if ( error instanceof LoggerError ) {
 			defaultLogger.reportError( error );
 		} else {

@@ -12,7 +12,6 @@ export function useOnboardingHints() {
 	return useQuery( {
 		queryKey: ONBOARDING_HINTS_QUERY_KEY,
 		queryFn: () => connector.getOnboardingHints(),
-		staleTime: Infinity,
 		meta: { persist: false },
 	} );
 }
@@ -23,8 +22,9 @@ export function useSetOnboardingHints() {
 	return useMutation( {
 		mutationFn: ( partial: Partial< OnboardingHintsState > ) =>
 			connector.setOnboardingHints( partial ),
-		onError: () => queryClient.invalidateQueries( { queryKey: ONBOARDING_HINTS_QUERY_KEY } ),
-		onMutate: ( partial ) => {
+		onSettled: () => queryClient.invalidateQueries( { queryKey: ONBOARDING_HINTS_QUERY_KEY } ),
+		onMutate: async ( partial ) => {
+			await queryClient.cancelQueries( { queryKey: ONBOARDING_HINTS_QUERY_KEY } );
 			queryClient.setQueryData(
 				ONBOARDING_HINTS_QUERY_KEY,
 				( current: OnboardingHintsState | undefined ) => ( { ...( current ?? {} ), ...partial } )

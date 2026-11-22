@@ -12,10 +12,10 @@ export function getModelDescription( id: AiModelId ): string {
 		case 'fast':
 			return __( 'Quick fixes and questions' );
 		case 'balanced':
-		case 'claude-sonnet-5':
+		case 'claude-sonnet-5-5':
 			return __( 'Build features, style pages, and fix bugs' );
 		case 'strong':
-		case 'claude-opus-5':
+		case 'claude-opus-5-5':
 			return __( 'Plan complex builds and solve harder problems' );
 		default:
 			return '';

@@ -13,6 +13,7 @@ export function SidebarReorderableList< T >(
 		<ReorderableList
 			{ ...props }
 			itemClassName={ styles.dragWrapper }
+			previewClassName={ styles.dragPreview }
 			excludeSelector="[data-reorder-exclude]"
 			disabled={ useIsSelecting() }
 		/>

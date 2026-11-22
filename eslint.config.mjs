@@ -20,8 +20,40 @@ const WP_UI_PACKAGES = {
 };
 
 const AGENT_NODE = {
-	group: [ '@studio/agent/node/*' ],
+	group: [ '@studio/agent/node', '@studio/agent/node/*' ],
 	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
+};
+
+const PROVIDERS_SERVICES = {
+	group: [ '@studio/providers/*', '!@studio/providers/wpcom' ],
+	message: 'Surfaces read @studio/providers; its services run in the backends and the agent.',
+};
+
+// The entries surfaces read, and the files they are made of.
+const PROVIDERS_DESCRIPTORS = [
+	'index.ts',
+	'wpcom.ts',
+	'types.ts',
+	'models.ts',
+	'registry.ts',
+	'errors.ts',
+	'connection.ts',
+	'api-key.ts',
+	'*/descriptor.ts',
+	'*/config.ts',
+	'wpcom/sites/site.ts',
+];
+
+const PROVIDER_FOLDERS = fs
+	.readdirSync( path.join( import.meta.dirname, 'packages/providers' ), { withFileTypes: true } )
+	.filter( ( entry ) => entry.isDirectory() )
+	.map( ( entry ) => entry.name );
+
+const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];
+
+const BASE_UI = {
+	group: [ '@base-ui/react', '@base-ui/react/*' ],
+	message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
 };
 
 // `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
@@ -79,9 +111,11 @@ const cssCustomProperties = ( dir ) =>
 		);
 const THEME_TOKENS = cssCustomProperties( 'lib/theme' );
 const PRIMITIVE_HOOKS = [
+	'--app-icon-size',
 	'--button-background',
 	'--button-hover-background',
 	'--button-hover-color',
+	'--radius-button',
 ];
 const PRIMITIVE_PROPERTIES = [ ...new Set( cssCustomProperties( 'lib/ui' ) ) ].filter(
 	( property ) => ! THEME_TOKENS.includes( property ) && ! PRIMITIVE_HOOKS.includes( property )
@@ -149,6 +183,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/providers/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],
@@ -199,28 +234,6 @@ export default defineConfig(
 			],
 			'react-hooks/set-state-in-effect': 'off',
 			'studio/no-module-level-translations': 'error',
-			'studio/require-lock-before-save': [
-				'error',
-				{
-					pairs: [
-						{
-							save: [ 'saveUserData', 'saveAppdata' ],
-							lock: 'lockAppdata',
-							unlock: 'unlockAppdata',
-						},
-						{
-							save: 'saveCliConfig',
-							lock: 'lockCliConfig',
-							unlock: 'unlockCliConfig',
-						},
-						{
-							save: 'saveSharedConfig',
-							lock: 'lockSharedConfig',
-							unlock: 'unlockSharedConfig',
-						},
-					],
-				},
-			],
 		},
 	},
 	{
@@ -277,8 +290,9 @@ export default defineConfig(
 		},
 	},
 	{
-		// Apps run the agent through `@studio/agent/node` (`createAgent`); its runtime
-		// and tools are internal. Tests may still mock them.
+		// Apps run the agent through `@studio/agent/node` (`createAgent`). Only the
+		// modules the apps that show the agent read on their own are public besides it,
+		// so they never load the runtime. Tests may still reach the rest.
 		files: [ 'apps/**/*.{ts,tsx}' ],
 		ignores: [ 'apps/**/tests/**', 'apps/**/*.test.{ts,tsx}' ],
 		rules: {
@@ -288,11 +302,17 @@ export default defineConfig(
 					patterns: [
 						{
 							group: [
-								'@studio/agent/node/runtime',
-								'@studio/agent/node/runtime/*',
-								'@studio/agent/node/tools',
-								'@studio/agent/node/tools/*',
-								'@studio/agent/node/host',
+								'@studio/agent/node/*',
+								'!@studio/agent/node/annotation-tracks',
+								'!@studio/agent/node/global-instructions',
+								'!@studio/agent/node/local-media',
+								'!@studio/agent/node/run-manager',
+								'!@studio/agent/node/sessions',
+								'@studio/agent/node/sessions/*',
+								'!@studio/agent/node/sessions/manage',
+								'!@studio/agent/node/sessions/placement',
+								'!@studio/agent/node/sessions/root-migration',
+								'!@studio/agent/node/sessions/store',
 							],
 							message: 'Import the agent from @studio/agent/node.',
 						},
@@ -309,14 +329,7 @@ export default defineConfig(
 			'no-restricted-imports': [
 				'error',
 				{
-					patterns: [
-						WP_UI_PACKAGES,
-						AGENT_NODE,
-						{
-							group: [ '@base-ui/react', '@base-ui/react/*' ],
-							message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
-						},
-					],
+					patterns: [ WP_UI_PACKAGES, AGENT_NODE, PROVIDERS_SERVICES, BASE_UI ],
 				},
 			],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
@@ -332,6 +345,7 @@ export default defineConfig(
 					patterns: [
 						WP_UI_PACKAGES,
 						AGENT_NODE,
+						PROVIDERS_SERVICES,
 						{ group: [ '@tanstack/*' ], message: 'lib/ packages stay independent of app code.' },
 					],
 				},
@@ -355,6 +369,70 @@ export default defineConfig(
 		},
 	},
 	{
+		// Common stores provider config; the apps pass in the implementations it needs.
+		files: [ 'packages/common/**/*.ts' ],
+		ignores: [ 'packages/common/**/tests/**' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ '@studio/agent/*' ],
+							message: '@studio/agent builds on common, not the reverse.',
+						},
+						PROVIDERS_SERVICES,
+					],
+				},
+			],
+		},
+	},
+	{
+		// Studio passes providers their config, so they never depend on Studio's
+		// packages, and `apps/ui` loads their descriptors in the browser.
+		files: [ 'packages/providers/**/*.ts' ],
+		ignores: [ 'packages/providers/**/tests/**' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: NODE_APIS,
+							message: '@studio/providers is loaded in the browser too; keep Node APIs out.',
+						},
+						{
+							group: [ '@studio/*', 'cli/*', 'src/*' ],
+							message: '@studio/providers imports no other workspace package.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
+		rules: {
+			'import-x/no-restricted-paths': [
+				'error',
+				{
+					zones: [
+						{
+							target: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
+							from: 'packages/providers',
+							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
+								file.startsWith( '*/' )
+									? PROVIDER_FOLDERS.map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
+									: [ `./${ file }` ]
+							),
+							message: 'The @studio/providers entry imports only the files it is made of.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
 		files: [ 'packages/agent/**/*.ts' ],
 		rules: {
 			'no-restricted-imports': [
@@ -364,7 +442,7 @@ export default defineConfig(
 						{
 							group: [ 'cli/*', 'src/*' ],
 							message:
-								'The agent never imports an app. Reach site operations through studioHost() (node/host.ts).',
+								'The agent never imports an app. Reach site operations through the host (node/host.ts).',
 						},
 					],
 				},
@@ -381,13 +459,14 @@ export default defineConfig(
 				{
 					patterns: [
 						{
-							group: [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ],
+							group: NODE_APIS,
 							message: 'protocol/ runs in the browser too; keep Node APIs in node/.',
 						},
 						{
 							group: [ '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'protocol/ depends on nothing but common.',
+							message: 'protocol/ depends on nothing but common and @studio/providers.',
 						},
+						PROVIDERS_SERVICES,
 					],
 				},
 			],

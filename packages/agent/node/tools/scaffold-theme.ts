@@ -1,5 +1,6 @@
-import { mkdir, readFile, stat, writeFile } from 'fs/promises';
-import path from 'path';
+import { existsSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { downloadThemeFonts } from '@studio/common/lib/theme-fonts';
 import { parseDesignMd, ThemeJson, themeJsonFromDesign } from '@studio/design-md';
 import { Type } from 'typebox';
@@ -34,15 +35,6 @@ function deriveSlug( input: string ): string {
 		.toLowerCase()
 		.replace( /[^a-z0-9]+/g, '-' )
 		.replace( /^-+|-+$/g, '' );
-}
-
-async function pathExists( p: string ): Promise< boolean > {
-	try {
-		await stat( p );
-		return true;
-	} catch {
-		return false;
-	}
 }
 
 function renderStyleCss( name: string, slug: string ): string {
@@ -434,7 +426,7 @@ export const scaffoldThemeTool = defineTool(
 			}
 
 			const themesDir = path.join( site.path, 'wp-content', 'themes' );
-			if ( ! ( await pathExists( themesDir ) ) ) {
+			if ( ! existsSync( themesDir ) ) {
 				throw new Error( `wp-content/themes directory not found in site: ${ themesDir }` );
 			}
 
@@ -454,7 +446,7 @@ export const scaffoldThemeTool = defineTool(
 					);
 				}
 				const parentStyleCssPath = path.join( themesDir, parentSlug, 'style.css' );
-				if ( ! ( await pathExists( parentStyleCssPath ) ) ) {
+				if ( ! existsSync( parentStyleCssPath ) ) {
 					throw new Error(
 						`Parent theme '${ parentSlug }' is not installed at wp-content/themes/${ parentSlug }/.`
 					);
@@ -470,7 +462,7 @@ export const scaffoldThemeTool = defineTool(
 			}
 
 			const themeDir = path.join( themesDir, slug );
-			if ( await pathExists( themeDir ) ) {
+			if ( existsSync( themeDir ) ) {
 				throw new Error(
 					`A theme already exists at wp-content/themes/${ slug }. Choose a different slug or remove the existing directory first.`
 				);
@@ -478,7 +470,7 @@ export const scaffoldThemeTool = defineTool(
 
 			const baseJson = parentSlug !== undefined ? childThemeJson() : baseThemeJson();
 			const designPath = path.join( site.path, 'DESIGN.md' );
-			const tokens = ( await pathExists( designPath ) )
+			const tokens = existsSync( designPath )
 				? parseDesignMd( await readFile( designPath, 'utf8' ) )
 				: undefined;
 			let design = tokens && themeJsonFromDesign( tokens, baseJson );
@@ -496,24 +488,22 @@ export const scaffoldThemeTool = defineTool(
 			}
 			const themeJson = design?.themeJson ?? baseJson;
 
-			let files: Array< [ string, string ] >;
+			let themeFiles: Array< [ string, string ] >;
 			if ( parentSlug !== undefined ) {
 				// A block child theme inherits templates, parts, patterns, theme.json
 				// settings, and styles from the parent by path resolution — the child
 				// only needs the three root files until the agent adds overrides.
-				await mkdir( themeDir, { recursive: true } );
-				files = [
+				themeFiles = [
 					[ 'style.css', renderChildStyleCss( trimmedName, slug, parentSlug ) ],
 					[ 'theme.json', renderThemeJson( themeJson ) ],
 					[ 'functions.php', renderChildFunctionsPhp( trimmedName, slug, parentSlug ) ],
 				];
 			} else {
-				await mkdir( path.join( themeDir, 'templates' ), { recursive: true } );
-				await mkdir( path.join( themeDir, 'parts' ), { recursive: true } );
-				await mkdir( path.join( themeDir, 'assets', 'fonts' ), { recursive: true } );
-				await mkdir( path.join( themeDir, 'patterns' ), { recursive: true } );
+				for ( const folder of [ 'patterns', path.join( 'assets', 'fonts' ) ] ) {
+					await mkdir( path.join( themeDir, folder ), { recursive: true } );
+				}
 
-				files = [
+				themeFiles = [
 					[ 'style.css', renderStyleCss( trimmedName, slug ) ],
 					[ 'theme.json', renderThemeJson( themeJson ) ],
 					[ 'functions.php', renderFunctionsPhp( trimmedName, slug ) ],
@@ -528,8 +518,10 @@ export const scaffoldThemeTool = defineTool(
 				];
 			}
 
-			for ( const [ relPath, content ] of files ) {
-				await writeFile( path.join( themeDir, relPath ), content, 'utf8' );
+			for ( const [ relPath, content ] of themeFiles ) {
+				const file = path.join( themeDir, relPath );
+				await mkdir( path.dirname( file ), { recursive: true } );
+				await writeFile( file, content );
 			}
 
 			const shouldActivate = args.activate ?? true;
@@ -573,7 +565,7 @@ export const scaffoldThemeTool = defineTool(
 			summaryLines.push(
 				'',
 				'The files it wrote, in full: Edit or overwrite them without reading them first.',
-				...files.map(
+				...themeFiles.map(
 					( [ relPath, content ] ) => `\n<file path="${ relPath }">\n${ content }</file>`
 				)
 			);

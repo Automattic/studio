@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { arePathsEqual, pathExists, recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import {
@@ -16,6 +17,11 @@ import {
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
 import { siteNeedsRestart } from '@studio/common/lib/site-needs-restart';
+import {
+	DEFAULT_SITE_PHP_WORKERS,
+	getSitePhpWorkers,
+	sitePhpWorkersSchema,
+} from '@studio/common/lib/site-php-workers';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import {
 	getWpEnvironmentType,
@@ -27,13 +33,6 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-	type SiteData,
-} from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { getWordPressVersionPath } from 'cli/lib/dependency-management/paths';
@@ -52,6 +51,7 @@ import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { coerceWpVersionOption, getWpVersionOptionDescription } from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const logger = new Logger< LoggerAction >();
 
@@ -63,6 +63,7 @@ export interface SetCommandOptions {
 	wp?: string;
 	fileAccess?: SiteFileAccess;
 	xdebug?: boolean;
+	phpWorkers?: number;
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
@@ -72,10 +73,10 @@ export interface SetCommandOptions {
 	environmentType?: WpEnvironmentType;
 }
 
-// WordPress is installed on the first start, which writes wp-config.php and creates the database.
-// A site with neither (e.g. `site create --no-start`) can't boot WP-CLI. Pulled/imported sites
-// keep their config outside the site directory, so they never count as unprovisioned.
-async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
+// Installing WordPress writes wp-config.php and creates the database. A site with neither (one an
+// older `site create --no-start` left) can't boot WP-CLI. Pulled/imported sites keep their config
+// outside the site directory, so they never count as unprovisioned.
+async function isUnprovisionedSite( site: ConfigSite ): Promise< boolean > {
 	if ( site.runtimeBlueprintPath ) {
 		return false;
 	}
@@ -86,7 +87,7 @@ async function isUnprovisionedSite( site: SiteData ): Promise< boolean > {
 	return ! hasConfig && ! hasDatabase;
 }
 
-async function setWordPressVersion( site: SiteData, wp: string ): Promise< void > {
+async function setWordPressVersion( site: ConfigSite, wp: string ): Promise< void > {
 	// Swap the core files like `site create --wp` does; the installer runs on the first start.
 	// Installing up front instead would leave a newer DB schema than the code on a downgrade.
 	if ( await isUnprovisionedSite( site ) ) {
@@ -135,6 +136,7 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		wp,
 		fileAccess,
 		xdebug,
+		phpWorkers,
 		adminUsername,
 		adminPassword,
 		debugLog,
@@ -152,6 +154,7 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 		wp === undefined &&
 		fileAccess === undefined &&
 		xdebug === undefined &&
+		phpWorkers === undefined &&
 		adminUsername === undefined &&
 		adminPassword === undefined &&
 		adminEmail === undefined &&
@@ -162,9 +165,13 @@ function validateSetOptions( options: SetCommandOptions ): SetCommandOptions {
 	) {
 		throw new LoggerError(
 			__(
-				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
+				'At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.'
 			)
 		);
+	}
+
+	if ( phpWorkers !== undefined && ! sitePhpWorkersSchema.safeParse( phpWorkers ).success ) {
+		throw new LoggerError( __( 'PHP workers must be a whole number from 1 to 64.' ) );
 	}
 
 	if ( name !== undefined && ! name.trim() ) {
@@ -209,6 +216,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		wp,
 		fileAccess,
 		xdebug,
+		phpWorkers,
 		adminUsername,
 		adminPassword,
 		adminEmail,
@@ -225,7 +233,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 
 		const validatedPhp = php === undefined ? undefined : validateSupportedPhpVersion( php );
 
-		const initialCliConfig = await readCliConfig();
+		const initialCliConfig = await readConfig();
 
 		if ( domain ) {
 			const existingDomainNames = initialCliConfig.sites
@@ -267,6 +275,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 		const wpChanged = wp !== undefined;
 		const fileAccessChanged = fileAccess !== undefined && fileAccess !== getSiteFileAccess( site );
 		const xdebugChanged = xdebug !== undefined && xdebug !== site.enableXdebug;
+		const phpWorkersChanged = phpWorkers !== undefined && phpWorkers !== getSitePhpWorkers( site );
 		const adminUsernameChanged =
 			adminUsername !== undefined && adminUsername !== ( site.adminUsername ?? 'admin' );
 		const adminPasswordChanged = adminPassword !== undefined;
@@ -287,6 +296,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			wpChanged ||
 			fileAccessChanged ||
 			xdebugChanged ||
+			phpWorkersChanged ||
 			credentialsChanged ||
 			debugLogChanged ||
 			debugDisplayChanged ||
@@ -305,6 +315,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			wpChanged,
 			fileAccessChanged,
 			xdebugChanged,
+			phpWorkersChanged,
 			credentialsChanged,
 			debugLogChanged,
 			debugDisplayChanged,
@@ -318,9 +329,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			adminEmail: site.adminEmail,
 		};
 
-		try {
-			await lockCliConfig();
-			const cliConfig = await readCliConfig();
+		await updateConfig( ( cliConfig ) => {
 			const foundSite = cliConfig.sites.find( ( s ) => arePathsEqual( s.path, sitePath ) );
 			if ( ! foundSite ) {
 				throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
@@ -344,6 +353,9 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			if ( xdebugChanged ) {
 				foundSite.enableXdebug = xdebug;
 			}
+			if ( phpWorkersChanged ) {
+				foundSite.phpWorkers = phpWorkers;
+			}
 			if ( adminUsernameChanged ) {
 				foundSite.adminUsername = adminUsername!;
 			}
@@ -366,11 +378,8 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 				foundSite.environmentType = environmentType;
 			}
 
-			await saveCliConfig( cliConfig );
 			site = foundSite;
-		} finally {
-			await unlockCliConfig();
-		}
+		} );
 
 		if ( domainChanged ) {
 			logger.reportStart( LoggerAction.ADD_DOMAIN_TO_HOSTS, __( 'Updating hosts file…' ) );
@@ -401,18 +410,13 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			await setWordPressVersion( site, wp );
 			logger.reportSuccess( __( 'WordPress version updated' ) );
 
-			try {
-				await lockCliConfig();
-				const cliConfig = await readCliConfig();
+			await updateConfig( ( cliConfig ) => {
 				const updatedSite = cliConfig.sites.find( ( s ) => s.id === site.id );
 				if ( updatedSite ) {
 					updatedSite.isWpAutoUpdating = wp === DEFAULT_WORDPRESS_VERSION;
-					await saveCliConfig( cliConfig );
 					site = updatedSite;
 				}
-			} finally {
-				await unlockCliConfig();
-			}
+			} );
 		}
 
 		if ( needsRestart && wasRunning ) {
@@ -450,21 +454,16 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 
 async function restoreAdminCredentials(
 	siteId: string,
-	credentials: Pick< SiteData, 'adminUsername' | 'adminPassword' | 'adminEmail' >
-): Promise< SiteData > {
-	try {
-		await lockCliConfig();
-		const cliConfig = await readCliConfig();
+	credentials: Pick< ConfigSite, 'adminUsername' | 'adminPassword' | 'adminEmail' >
+): Promise< ConfigSite > {
+	return updateConfig( ( cliConfig ) => {
 		const site = cliConfig.sites.find( ( s ) => s.id === siteId );
 		if ( ! site ) {
 			throw new LoggerError( __( 'The specified directory is not added to Studio.' ) );
 		}
 		Object.assign( site, credentials );
-		await saveCliConfig( cliConfig );
 		return site;
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {
@@ -503,6 +502,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				.option( 'xdebug', {
 					type: 'boolean',
 					description: __( 'Enable Xdebug' ),
+				} )
+				.option( 'php-workers', {
+					type: 'number',
+					description: sprintf(
+						/* translators: %d: default number of PHP workers */
+						__(
+							'Number of PHP workers, which caps how many requests the site serves at once (default %d)'
+						),
+						DEFAULT_SITE_PHP_WORKERS
+					),
 				} )
 				.option( 'admin-username', {
 					type: 'string',
@@ -544,6 +553,7 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 					wp: argv.wp,
 					fileAccess: siteFileAccessSchema.optional().parse( argv.fileAccess ),
 					xdebug: argv.xdebug,
+					phpWorkers: argv.phpWorkers,
 					adminUsername: argv.adminUsername,
 					adminPassword: argv.adminPassword,
 					adminEmail: argv.adminEmail,

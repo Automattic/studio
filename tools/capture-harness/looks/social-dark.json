@@ -1,0 +1,25 @@
+{
+	"$schema": "../schemas/look.schema.json",
+	"name": "social-dark",
+	"description": "The social look with Studio in its dark color scheme, on the dark dot field",
+	"window": { "width": 1440, "height": 900 },
+	"scale": 2,
+	"appearance": { "colorScheme": "dark" },
+	"annotations": { "accent": "#7b90ff", "halo": "#1e1e1e" },
+	"frame": {
+		"background": "dots",
+		"dotScale": 1.6,
+		"padding": 0.05,
+		"radius": 0.0083,
+		"shadow": "auto",
+		"blur": 0.007,
+		"hairline": "auto"
+	},
+	"outputs": [
+		{ "suffix": "card", "width": 1200, "height": 630, "margin": 0.07 },
+		{ "suffix": "square", "width": 1080, "height": 1080, "margin": 0.08 },
+		{ "suffix": "wide", "width": 1600, "height": 900, "margin": 0.07 }
+	],
+	"keepRaw": false,
+	"video": { "formats": [ "mp4", "gif" ], "fps": 12, "width": 1200, "hold": 1500, "cursor": true, "typingDelay": 55 }
+}

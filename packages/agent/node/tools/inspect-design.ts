@@ -1,12 +1,13 @@
 import { Type } from 'typebox';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { openPage } from '@studio/agent/node/pages';
 import { defineTool, READ_ONLY } from './define-tool';
 import {
-	applyScreenshotMediaEmulation,
+	screenshotPageOptions,
 	SCREENSHOT_COLOR_SCHEME_DESCRIPTION,
 	SCREENSHOT_COLOR_SCHEME_VALUES,
 } from './screenshot-helpers';
 import { textResult } from './utils';
+import type { Page } from 'playwright';
 
 /**
  * Viewports mirror `take_screenshot` so the DOM the agent inspects matches the
@@ -122,16 +123,12 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 				})…`
 			);
 
-			const browser = await getSharedBrowser();
-			const page = await browser.newPage( {
-				viewport: INSPECT_VIEWPORTS[ viewport ],
-				ignoreHTTPSErrors: true,
-			} );
-
+			let page: Page | undefined;
 			try {
-				await applyScreenshotMediaEmulation( page, args.colorScheme );
-				await page.goto( args.url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
-				await page.waitForLoadState( 'networkidle', { timeout: 2500 } ).catch( () => {} );
+				page = await openPage(
+					{ url: args.url },
+					{ viewport: INSPECT_VIEWPORTS[ viewport ], ...screenshotPageOptions( args.colorScheme ) }
+				);
 				await page.evaluate(
 					() => new Promise< void >( ( resolve ) => requestAnimationFrame( () => resolve() ) )
 				);
@@ -267,7 +264,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 					`Design inspection failed: ${ error instanceof Error ? error.message : String( error ) }`
 				);
 			} finally {
-				await page.close();
+				await page?.close();
 			}
 		},
 		{

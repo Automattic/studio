@@ -2,8 +2,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { getConfigPath } from '@studio/common/lib/config/store';
+import { isAnalyticsOptedOut } from '@studio/common/lib/install';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
 import {
 	readUserPreferences,
 	userPreferencesPatchSchema,
@@ -12,13 +13,13 @@ import {
 
 let configDir: string;
 
+const writePreferences = ( preferences: object ) =>
+	writeFileSync( getConfigPath(), JSON.stringify( { version: 1, preferences } ) );
+
 beforeEach( () => {
 	configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-prefs-' ) );
 	process.env.DEV_CONFIG_DIR = configDir;
-	writeFileSync(
-		path.join( configDir, 'app.json' ),
-		JSON.stringify( { preferredEditor: 'vscode', colorScheme: 'dark', newSiteBehavior: 'blank' } )
-	);
+	writePreferences( { preferredEditor: 'vscode', colorScheme: 'dark', newSiteBehavior: 'blank' } );
 } );
 
 afterEach( () => {
@@ -42,7 +43,7 @@ it( 'records each preference the patch changes, and only those', async () => {
 it( 'records the analytics toggle while analytics is on', async () => {
 	const optedOutWhenRecorded: boolean[] = [];
 	const recordTracksEvent = vi.fn( async () => {
-		optedOutWhenRecorded.push( !! ( await readSharedConfig() ).analyticsOptOut );
+		optedOutWhenRecorded.push( await isAnalyticsOptedOut() );
 	} );
 
 	await writeUserPreferences(
@@ -85,6 +86,22 @@ it( 'keeps the sidebar preferences, which default to recent chats shown and site
 	} );
 } );
 
+it( 'persists ordered model favorites, including values a future build may understand', async () => {
+	const context = { sitesRoot: configDir };
+	const favorites = [
+		{ provider: 'wpcom', model: 'balanced', effort: 'high' },
+		{ provider: 'future-provider', model: 'future-model', effort: 'future-effort' },
+	];
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( [] );
+	await writeUserPreferences(
+		userPreferencesPatchSchema.parse( { modelFavorites: favorites } ),
+		context
+	);
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( favorites );
+	await writeUserPreferences( { modelFavorites: null }, context );
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( [] );
+} );
+
 it( 'ignores the retired Add site opening preference in saved settings and patches', async () => {
 	const preferences = await readUserPreferences( { sitesRoot: configDir } );
 	expect( preferences ).not.toHaveProperty( 'newSiteBehavior' );
@@ -109,10 +126,7 @@ it( 'keeps the appearance tint, falling back to the defaults for unset or invali
 		contrast: 45,
 	} );
 
-	writeFileSync(
-		path.join( configDir, 'app.json' ),
-		JSON.stringify( { accentColor: 'green', tintIntensity: 140, contrast: -1 } )
-	);
+	writePreferences( { accentColor: 'green', tintIntensity: 140, contrast: -1 } );
 	expect( await readUserPreferences( context ) ).toMatchObject( {
 		accentColor: '#3858e9',
 		tintIntensity: 0,
@@ -159,14 +173,11 @@ it( 'rejects invalid sort choices and recovers invalid stored values', async () 
 	for ( const key of [ 'sidebarPinnedSort', 'sidebarSiteSort', 'sidebarChatSort' ] ) {
 		expect( userPreferencesPatchSchema.safeParse( { [ key ]: 'invalid' } ).success ).toBe( false );
 	}
-	writeFileSync(
-		path.join( configDir, 'app.json' ),
-		JSON.stringify( {
-			sidebarPinnedSort: 'invalid',
-			sidebarSiteSort: 'invalid',
-			sidebarChatSort: 'invalid',
-		} )
-	);
+	writePreferences( {
+		sidebarPinnedSort: 'invalid',
+		sidebarSiteSort: 'invalid',
+		sidebarChatSort: 'invalid',
+	} );
 	expect( await readUserPreferences( { sitesRoot: configDir } ) ).toMatchObject( {
 		sidebarPinnedSort: 'type',
 		sidebarSiteSort: 'manual',
@@ -211,26 +222,11 @@ it( 'keeps annotation batching on by default and persists it across preference r
 	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( true );
 } );
 
-it( 'persists ordered model and effort favorites without constraining future providers', async () => {
+it( 'stores and clears the default hosting provider', async () => {
 	const context = { sitesRoot: configDir };
-	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( [] );
-	const modelFavorites = [
-		{ provider: 'wpcom', model: 'balanced', effort: 'high' as const },
-		{ provider: 'wpcom', model: 'balanced', effort: 'default' as const },
-		{ provider: 'another-provider', model: 'a-future-model', effort: 'max' as const },
-	];
-	await writeUserPreferences( { modelFavorites }, context );
-	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( modelFavorites );
-	await writeUserPreferences( { modelFavorites: [] }, context );
-	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( [] );
-	expect(
-		userPreferencesPatchSchema.safeParse( {
-			modelFavorites: [ { provider: '', model: 'balanced', effort: 'high' } ],
-		} ).success
-	).toBe( false );
-	expect(
-		userPreferencesPatchSchema.safeParse( {
-			modelFavorites: [ { provider: 'wpcom', model: 'balanced', effort: 'unknown' } ],
-		} ).success
-	).toBe( false );
+	expect( ( await readUserPreferences( context ) ).defaultHostingProvider ).toBeNull();
+	await writeUserPreferences( { defaultHostingProvider: 'spacefast' }, context );
+	expect( ( await readUserPreferences( context ) ).defaultHostingProvider ).toBe( 'spacefast' );
+	await writeUserPreferences( { defaultHostingProvider: null }, context );
+	expect( ( await readUserPreferences( context ) ).defaultHostingProvider ).toBeNull();
 } );

@@ -1,6 +1,5 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { PlusIcon } from 'lucide-react';
 import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -8,9 +7,8 @@ import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOffline } from '@/lib/hooks';
-import { DuplicateIcon, ExternalLinkIcon, GlobeIcon, ShareIcon } from '@/lib/icons';
+import { PlusIcon, DuplicateIcon, ExternalLinkIcon, GlobeIcon, UploadIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
@@ -41,16 +39,13 @@ function PreviewLink( {
 			} }
 		>
 			{ visit ? <GlobeIcon /> : <DuplicateIcon /> }
-			<Menu.ItemLabel>
-				{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }
-			</Menu.ItemLabel>
+			<span>{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }</span>
 			{ visit ? <ExternalLinkIcon data-icon="inline-end" /> : null }
 		</Menu.Item>
 	);
 }
 
 export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disabled: boolean } ) {
-	const openHeaderPanel = useOpenHeaderPanel();
 	const user = useAuthUser();
 	const snapshots = useSnapshots( user.data?.id );
 	const usage = useSnapshotUsage( user.data?.id );
@@ -60,8 +55,9 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 	const canCreate =
 		!! user.data &&
 		usage.isSuccess &&
-		! usage.data?.siteCreationBlocked &&
-		( usage.data?.siteCount ?? 0 ) < ( usage.data?.siteLimit ?? Infinity );
+		!! usage.data &&
+		! usage.data.siteCreationBlocked &&
+		usage.data.siteCount < usage.data.siteLimit;
 	const createDisabled =
 		disabled || offline || publish.isPending || activity?.kind === 'pending' || ! canCreate;
 	const createPreview = () => {
@@ -71,21 +67,16 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 	const previews = ( snapshots.data ?? [] )
 		.filter( ( snapshot ) => snapshot.localSiteId === site.id && ! isSnapshotExpired( snapshot ) )
 		.sort( ( a, b ) => b.date - a.date );
-	const openSharing = () => openHeaderPanel( { panel: 'share', siteId: site.id } );
 	return (
 		<Menu.SubmenuRoot>
 			<Menu.SubmenuTrigger disabled={ disabled }>
-				<ShareIcon />
+				<UploadIcon />
 				{ __( 'Share' ) }
 			</Menu.SubmenuTrigger>
 			<Menu.SubmenuPopup>
 				<Menu.Item disabled={ createDisabled } onClick={ createPreview }>
 					<PlusIcon />
 					{ __( 'Create preview' ) }
-				</Menu.Item>
-				<Menu.Item onClick={ openSharing }>
-					<ShareIcon />
-					{ __( 'Manage sharing' ) }
 				</Menu.Item>
 				{ previews.length ? (
 					<>

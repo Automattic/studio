@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { authTokenSchema } from '@studio/common/lib/auth-token-schema';
 import { siteFileAccessSchema } from '@studio/common/lib/site-file-access';
 import { siteOperationSchema } from '@studio/common/lib/site-operation';
+import { sitePhpWorkersSchema } from '@studio/common/lib/site-php-workers';
 import { syncEventSchema } from '@studio/common/lib/sync/activity';
 import { wpEnvironmentTypeSchema } from '@studio/common/lib/wp-environment-type';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -30,6 +31,7 @@ export const siteDetailsSchema = z.object( {
 	adminEmail: z.string().optional(),
 	isWpAutoUpdating: z.boolean().optional(),
 	enableXdebug: z.boolean().optional(),
+	phpWorkers: sitePhpWorkersSchema.optional(),
 	enableDebugLog: z.boolean().optional(),
 	enableDebugDisplay: z.boolean().optional(),
 	enableScriptDebug: z.boolean().optional(),
@@ -42,6 +44,11 @@ export const siteDetailsSchema = z.object( {
 	operation: siteOperationSchema.optional(),
 	// The folder the email the site sends is saved in.
 	emailPath: z.string().optional(),
+	phpMyAdminSupported: z.boolean().optional(),
+	// Studio's own settings for the site.
+	sortOrder: z.number().optional(),
+	autoStart: z.boolean().optional(),
+	hideFrontendAdminBar: z.boolean().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

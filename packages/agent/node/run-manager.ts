@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { isDevRun } from '@studio/common/lib/dev-run';
 import { captureException } from '@studio/common/lib/error-reporting';
-import { updateSharedSession } from '@studio/common/lib/shared-config';
+import { updateSessionMetadata } from '@studio/common/lib/session-metadata';
 import { recordAgentRun, recordAgentSend, type AgentSurface } from '@studio/agent/node/agent-stats';
 import {
 	getCreatedSiteFromArtifact,
@@ -66,8 +66,6 @@ export interface AgentRunManagerConfig {
 }
 
 export interface StartAgentRunOptions {
-	model?: import('@studio/agent/protocol/models').AiModelId;
-	effort?: import('@studio/agent/protocol/model-effort').AiEffort;
 	turnId?: string;
 	sessionId: string;
 	prompt: string;
@@ -120,7 +118,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 	}
 
 	// When the agent reports it created a site, bind the session to it and tell
-	// the UI. Persisted to app.json.
+	// the UI. Persisted to the config file.
 	async function applyPlacementFromEvent( run: AgentRun, event: JsonEvent ): Promise< void > {
 		if ( event.type !== 'chat.artifact' ) {
 			return;
@@ -174,8 +172,6 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			files = [],
 			visualAnnotations,
 			turnId,
-			model,
-			effort,
 		} = options;
 
 		if ( runsBySessionId.has( sessionId ) ) {
@@ -185,12 +181,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		const runId = crypto.randomUUID();
 		const startedAt = Date.now();
 		const inputPayload =
-			model ||
-			effort ||
-			turnId ||
-			images.length > 0 ||
-			files.length > 0 ||
-			( visualAnnotations?.length ?? 0 ) > 0
+			turnId || images.length > 0 || files.length > 0 || ( visualAnnotations?.length ?? 0 ) > 0
 				? writeInputPayloadFile( {
 						prompt,
 						displayMessage,
@@ -198,8 +189,6 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 						files,
 						visualAnnotations,
 						turnId,
-						model,
-						effort,
 				  } )
 				: undefined;
 		const args = [ 'code', 'sessions', 'resume', sessionId ];
@@ -277,7 +266,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 				// Opening the chat in any Studio app clears it. Written before
 				// `run.exited` so the refetch that event triggers sees it.
 				if ( ! run.interrupted ) {
-					await updateSharedSession( run.sessionId, { unread: true } ).catch( captureException );
+					await updateSessionMetadata( run.sessionId, { unread: true } ).catch( captureException );
 				}
 				if ( run.interrupted ) {
 					sendEvent( run, { type: 'run.interrupted', timestamp: nowIso() } );

@@ -45,11 +45,13 @@
 	}
 
 	.group[data-variant='settings'] {
+		--muted: inherit;
 		--surface: var( --muted );
 		gap: 0;
-		padding: var( --space-5 );
+		padding: var( --space-4 ) var( --space-5 );
 		border-radius: var( --radius-xl );
 		background-color: var( --surface );
+		color: var( --foreground );
 	}
 
 	.group[data-variant='settings'] > .field {

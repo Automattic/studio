@@ -1,4 +1,3 @@
-import { getBlueprintUseCases } from '@studio/common/lib/blueprint-catalog';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
@@ -16,11 +15,12 @@ import {
 	PreviewImage,
 	Spinner,
 } from '@/lib/ui';
+import { getBlueprintUseCases } from './blueprint-catalog';
 import styles from './blueprint-gallery.module.css';
 import { getBlueprintThumbnail } from './blueprint-screenshots';
 import dialogStyles from './style.module.css';
-import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
-import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { BlueprintUseCase } from './blueprint-catalog';
+import type { LibraryBlueprint } from '@studio/blueprints';
 
 export function getUseCases(): { value: BlueprintUseCase; label: string }[] {
 	return [
@@ -49,7 +49,7 @@ export function BlueprintGallery( {
 	focusSlug?: string;
 	onClearFilters: () => void;
 	onBlank: () => void;
-	onView: ( blueprint: Blueprint ) => void;
+	onView: ( blueprint: LibraryBlueprint ) => void;
 } ) {
 	const connector = useConnector();
 	const isOffline = useOffline();

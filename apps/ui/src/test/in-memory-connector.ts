@@ -293,6 +293,9 @@ export function createInMemoryConnector(
 		listAccountSites: async () => [],
 		connectRemoteSite: async () => {},
 		disconnectRemoteSite: async () => {},
+		addRemoteSite: async () => {
+			throw new Error( 'addRemoteSite is not faked' );
+		},
 		getSiteCreationVisibility: async () => 'public',
 		createRemoteSite: async () => {
 			throw new Error( 'createRemoteSite is not faked' );

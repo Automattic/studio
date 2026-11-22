@@ -17,6 +17,7 @@ import {
 } from '@/data/queries/use-remote-sites';
 import { RemoteSitePicker, RemoteSiteCard } from '@/features/remote-site-picker';
 import { Button, Badge, Spinner } from '@/lib/ui';
+import { AddSiteForm } from './add-site-form';
 import styles from './existing-site-step.module.css';
 import { ProviderLogo } from './provider-logo';
 
@@ -43,7 +44,11 @@ export function ExistingSiteStep( {
 } ) {
 	const connector = useConnector();
 	const client = useQueryClient();
-	const sitesByProvider = usePickableSitesByProvider( providers );
+	// A provider whose sites the user adds has no list to pick from: it offers its form instead.
+	const listed = providers.filter( ( provider ) => ! getProviderSites( provider ).add );
+	const adding = providers.filter( ( provider ) => getProviderSites( provider ).add );
+	const sitesByProvider = usePickableSitesByProvider( listed );
+	const connectable = availableProviders.filter( ( provider ) => ! providers.includes( provider ) );
 	const connect = useMutation( {
 		mutationKey: connectExistingSiteKey( siteId ),
 		mutationFn: ( { provider, site }: ExistingSite ) =>
@@ -112,10 +117,10 @@ export function ExistingSiteStep( {
 					) }
 				</p>
 			) }
-			{ providers.length === 0 && (
+			{ listed.length === 0 && connectable.length > 0 && (
 				<>
 					<p>{ __( 'Connect a provider to see your existing sites.' ) }</p>
-					{ availableProviders.map( ( provider ) => (
+					{ connectable.map( ( provider ) => (
 						<Button
 							key={ provider }
 							variant="outline"
@@ -174,10 +179,10 @@ export function ExistingSiteStep( {
 					) }
 				/>
 			) }
-			{ providers.length > 0 && ! loading && eligible.length === 0 && failed.length === 0 && (
+			{ listed.length > 0 && ! loading && eligible.length === 0 && failed.length === 0 && (
 				<p>{ __( 'No existing sites.' ) }</p>
 			) }
-			{ ( retry || ( providers.length > 0 && ! loading && eligible.length === 0 ) ) && (
+			{ ( retry || ( listed.length > 0 && ! loading && eligible.length === 0 ) ) && (
 				<Button
 					variant="outline"
 					disabled={ connect.isPending || refreshing }
@@ -186,6 +191,15 @@ export function ExistingSiteStep( {
 					{ retry || failed.length ? __( 'Try again' ) : __( 'Refresh' ) }
 				</Button>
 			) }
+			{ adding.map( ( provider ) => (
+				<AddSiteForm
+					key={ provider }
+					provider={ provider }
+					siteId={ siteId }
+					disabled={ disabled }
+					onConnected={ onConnected }
+				/>
+			) ) }
 		</div>
 	);
 }

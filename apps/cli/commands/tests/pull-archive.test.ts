@@ -16,7 +16,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { runCommand } from '../pull-legacy';
+import { runCommand } from '../pull-archive';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SyncSite } from '@studio/common/types/sync';
 

@@ -42,6 +42,7 @@ const PROVIDERS_DESCRIPTORS = [
 	'*/descriptor.ts',
 	'*/config.ts',
 	'wpcom/sites/site.ts',
+	'ssh/address.ts',
 ];
 
 const PROVIDER_FOLDERS = fs
@@ -388,8 +389,7 @@ export default defineConfig(
 		},
 	},
 	{
-		// Studio passes providers their config, so they never depend on Studio's
-		// packages, and `apps/ui` loads their descriptors in the browser.
+		// Studio passes providers their config, so they never depend on Studio's packages.
 		files: [ 'packages/providers/**/*.ts' ],
 		ignores: [ 'packages/providers/**/tests/**' ],
 		rules: {
@@ -398,8 +398,25 @@ export default defineConfig(
 				{
 					patterns: [
 						{
+							group: [ '@studio/*', 'cli/*', 'src/*' ],
+							message: '@studio/providers imports no other workspace package.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		// `apps/ui` loads the descriptors in the browser; the services run in Node.
+		files: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
 							group: NODE_APIS,
-							message: '@studio/providers is loaded in the browser too; keep Node APIs out.',
+							message: 'The @studio/providers entry is loaded in the browser; keep Node APIs out.',
 						},
 						{
 							group: [ '@studio/*', 'cli/*', 'src/*' ],

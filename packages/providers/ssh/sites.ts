@@ -1,0 +1,81 @@
+import { __, sprintf } from '@wordpress/i18n';
+import { RemoteSiteError } from '../errors';
+import { formatSshAddress, parseSshAddress } from './address';
+import { sshProvider, type SshSite } from './descriptor';
+import { pullOverSsh } from './pull';
+import { pushOverSsh } from './push';
+import { inSite, runSsh, shellQuote, type SshConnection } from './shell';
+import type { SitesServices } from '../types';
+
+function connection( site: Pick< SshSite, 'id' > & Partial< SshSite > ): SshConnection {
+	const target = parseSshAddress( site.id );
+	if ( ! target || ! site.contentDir ) {
+		throw new RemoteSiteError(
+			__( 'Studio doesn’t know how to reach this site. Connect it again.' ),
+			'ssh_probe'
+		);
+	}
+	return { ...target, wpCli: site.wpCli ?? 'wp', contentDir: site.contentDir };
+}
+
+const PROBE = `echo json_encode( array(
+	'home' => home_url(),
+	'name' => get_bloginfo( 'name' ),
+	'contentDir' => WP_CONTENT_DIR,
+	'multisite' => is_multisite(),
+) );`;
+
+async function add( input: Record< string, string > ): Promise< SshSite > {
+	const form = sshProvider.sites!.add!.input().safeParse( { address: '', wpCli: '', ...input } );
+	if ( ! form.success ) {
+		throw new RemoteSiteError( form.error.issues[ 0 ].message, 'ssh_address' );
+	}
+	const server = parseSshAddress( form.data.address )!;
+	const wpCli = form.data.wpCli?.trim() || 'wp';
+	const output = await runSsh(
+		server,
+		`${ inSite( { path: server.path, wpCli } ) }\nstudio_wp eval ${ shellQuote( PROBE ) }`,
+		{ acceptNewHostKey: true }
+	);
+	// Plugins and the server's shell may print before the JSON.
+	const line = output
+		.trim()
+		.split( '\n' )
+		.reverse()
+		.find( ( candidate ) => candidate.startsWith( '{' ) );
+	let probe: { home?: string; name: string; contentDir: string; multisite: boolean } | undefined;
+	try {
+		probe = line ? JSON.parse( line ) : undefined;
+	} catch {
+		// Reported below.
+	}
+	if ( ! probe?.home || ! /^https?:\/\//.test( probe.home ) ) {
+		throw new RemoteSiteError(
+			sprintf( __( 'Could not read the WordPress site in %s.' ), server.path ),
+			'ssh_probe'
+		);
+	}
+	if ( probe.multisite ) {
+		throw new RemoteSiteError(
+			__( 'Studio can’t push to or pull from a multisite network yet.' ),
+			'ssh_multisite'
+		);
+	}
+	return {
+		id: formatSshAddress( server ),
+		name: probe.name || new URL( probe.home ).hostname,
+		url: probe.home,
+		wpCli,
+		contentDir: probe.contentDir,
+	};
+}
+
+export const sshSites: SitesServices< undefined, SshSite > = {
+	// The connections are the sites: the user adds each one.
+	list: async () => [],
+	add: ( _config, input ) => add( input ),
+	push: ( _config, site, content, _options, onStatus, signal ) =>
+		pushOverSsh( connection( site ), content, onStatus, signal ),
+	pullArchive: ( _config, site, options, archive, onProgress, signal ) =>
+		pullOverSsh( connection( site ), options, archive, onProgress, signal ),
+};

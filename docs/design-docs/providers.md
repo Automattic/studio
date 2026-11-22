@@ -37,7 +37,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | OpenRouter (`openrouter`)                    | Sign-in or API key             | Models from many labs                | —          | —        |
 | Local LLM (`local-llm`)                      | Server address, optional key   | The models the server lists          | —          | —        |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
-| Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
+| SSH (`ssh`)                                  | None: the user's SSH setup     | —                                    | push, pull | —        |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
 
@@ -64,7 +64,7 @@ The package is split in two parts, and lint keeps them apart:
 - **What surfaces read**: the registry, and each provider's descriptor, config schema and connection form. `apps/ui` imports only this part.
 - **The services**: the implementations, for the CLI, the apps' backends and the agent.
 
-Neither part uses Node APIs.
+What surfaces read uses no Node APIs. The services may, where a provider runs a program on the user's computer, as SSH runs `ssh`.
 
 Dependencies point one way:
 
@@ -142,6 +142,7 @@ The Local LLM connector is `local-llm`, with no stored alias: builds that don't 
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
 - `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. The Share and Publish panel uses the same provider descriptors and remote-site connections.
 - A provider declares whether it supports selective sync.
+- A provider without an account, such as SSH, has nothing to connect and counts as connected. Its sites aren't listed from an account: the user adds one by describing it in the provider's form (`sites.add`), which the provider checks by reaching the site. On pull, such a provider sends the site itself as an archive (`pullArchive`), which the CLI imports like a downloaded backup. A provider whose sites only the user's computer reaches (`hostOnly`) is left out where WordPress Studio runs elsewhere, as Studio Cloud does. See `ssh-sites.md`.
 
 ### Share and Publish panel
 

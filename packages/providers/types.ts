@@ -8,6 +8,7 @@ import type { OpenaiConfig } from './openai/config';
 import type { OpenrouterConfig } from './openrouter/config';
 import type { SpacefastConfig } from './spacefast/config';
 import type { Space } from './spacefast/descriptor';
+import type { SshSite } from './ssh/descriptor';
 import type { WpcomConfig } from './wpcom/config';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/sites/site';
 import type { XaiConfig } from './xai/config';
@@ -26,17 +27,20 @@ export interface ProviderConfigs {
 	openrouter: OpenrouterConfig;
 	spacefast: SpacefastConfig;
 	'local-llm': LocalLlmConfig;
+	// No account: the user's own SSH setup reaches the sites.
+	ssh: undefined;
 }
 
 export type ProviderId = keyof ProviderConfigs;
 
 // The providers that serve AI models: all but the ones that only host sites.
-export type AiProviderId = Exclude< ProviderId, 'spacefast' >;
+export type AiProviderId = Exclude< ProviderId, 'spacefast' | 'ssh' >;
 
 // The remote sites of each provider that offers them.
 export interface ProviderSites {
 	wpcom: SyncSite;
 	spacefast: Space;
+	ssh: SshSite;
 }
 
 export type SitesProviderId = keyof ProviderSites;
@@ -155,6 +159,8 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// Whether the user publishes to sites they keep on the provider: lists, creates and pushes to
 	// them. The rest of this describes those sites.
 	publish: boolean;
+	// Only a process on the user's computer reaches the sites, as with `ConnectMethod.hostOnly`.
+	hostOnly?: boolean;
 	// Short destination-picker copy and presentation hints.
 	publishing: {
 		description: () => string;
@@ -176,8 +182,11 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// What a push sends: the site's WordPress archive, or a static export of its pages.
 	content: 'archive' | 'static';
 	// How a new site is made: a checkout on the provider's site, which then
-	// connects the site to the local one, or created right away from Studio.
-	newSite: 'checkout' | 'create';
+	// connects the site to the local one, or created right away from Studio. Without it, the
+	// user only connects sites they already have.
+	newSite?: 'checkout' | 'create';
+	// A site the user connects by describing it in this form, which the services' `add` checks.
+	add?: { input: () => ConnectInputSchema };
 	// What the panel says before a site is connected.
 	intro: { title: () => string; description: () => string; learnMoreUrl: string };
 	// Facts about a connected site, and links to manage it on the provider.
@@ -195,8 +204,34 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	withDetails< Connection extends Site >( connections: Connection[], sites: Site[] ): Connection[];
 }
 
+// How a provider's account connects, and what surfaces show of it.
+export interface ProviderAccount< Config > {
+	// What Studio stores.
+	configSchema: z.ZodType< Config >;
+	// The first is the default.
+	methods: readonly [ ConnectMethod, ...ConnectMethod[] ];
+	describe( config: Config ): AccountDetails;
+	// When the config stops working, in milliseconds since the epoch.
+	expiresAt?( config: Config ): number | undefined;
+	// What to keep once the provider rejects the config, so signing in again
+	// continues the same registration with it; never a credential.
+	remember?( config: Config ): Record< string, string > | undefined;
+}
+
+// A provider whose config can be `undefined` has no account: nothing to connect, and it counts as
+// connected. Code that handles any provider checks for one.
+type WithAccount< Config, Account > = undefined extends Config
+	? { account?: Account }
+	: { account: Account };
+
 // A provider as surfaces show it: browser-safe data, from `getProvider`.
-export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSite > {
+export type Provider< Config = unknown, Site extends RemoteSite = RemoteSite > = ProviderInfo<
+	Config,
+	Site
+> &
+	WithAccount< Config, ProviderAccount< Exclude< Config, undefined > > >;
+
+interface ProviderInfo< Config, Site extends RemoteSite > {
 	id: ProviderId;
 	// Brand name, not translated.
 	label: string;
@@ -207,18 +242,6 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 	// The provider's logo in its brand colors: a square SVG document that fills its canvas,
 	// which surfaces round into a tile like an app icon. Surfaces fall back to `icon` without one.
 	logo?: string;
-	account: {
-		// What Studio stores.
-		configSchema: z.ZodType< Config >;
-		// The first is the default.
-		methods: readonly [ ConnectMethod, ...ConnectMethod[] ];
-		describe( config: Config ): AccountDetails;
-		// When the config stops working, in milliseconds since the epoch.
-		expiresAt?( config: Config ): number | undefined;
-		// What to keep once the provider rejects the config, so signing in again
-		// continues the same registration with it; never a credential.
-		remember?( config: Config ): Record< string, string > | undefined;
-	};
 	ai?: {
 		models: readonly AiModel< AiModelId >[];
 		defaultModel: AiModelId;
@@ -344,6 +367,8 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		config: Config | undefined,
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
+	// The site the user described in the descriptor's `add` form, once the provider reached it.
+	add?( config: Config | undefined, input: Record< string, string > ): Promise< Site >;
 	// A new site to push to, for a provider that can create one.
 	create?(
 		config: Config | undefined,
@@ -355,7 +380,8 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 	// `previews.list`'s sites passes `preview`, and rebuilds the preview from the content.
 	push(
 		config: Config | undefined,
-		site: Pick< Site, 'id' | 'name' >,
+		// The connected site as Studio stored it; a preview update knows only its id.
+		site: Pick< Site, 'id' | 'name' > & Partial< Site >,
 		content: PushContent,
 		options: PushSyncOptions & { preview?: PreviewOptions },
 		onStatus: ( status: PushStatus ) => void,
@@ -377,6 +403,16 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 	};
 	// When the site's content was last edited on the provider, in milliseconds since the epoch.
 	editedAt?( config: Config | undefined, site: Pick< Site, 'id' > ): Promise< number >;
+	// Writes the site to `archive` as a tar of Studio's backup format (`sql/`, `wp-content/`): the
+	// pull of a provider that sends the site itself. `onProgress` gets its percentage.
+	pullArchive?(
+		config: Config | undefined,
+		site: Site,
+		options: PullSyncOptions,
+		archive: WritableStream< Uint8Array >,
+		onProgress: ( percent: number ) => void,
+		signal?: AbortSignal
+	): Promise< void >;
 	pull?: {
 		// Backs the site up remotely and resolves with where to download the
 		// archive. `onProgress` gets the backup's percentage.
@@ -409,23 +445,25 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 	};
 }
 
+// Connects and keeps up a provider's account.
+export interface AccountServices< Config > {
+	// Starts connecting with a method that signs in on the provider's site
+	// (`loopback` or `device`).
+	start?( method: string, context: ConnectContext ): Promise< PendingConnect >;
+	// Checks what the user gave: a form's values, a redirect's parameters, or
+	// a started connection's `handoff`, with a loopback redirect's parameters.
+	// Returns the config to store; throws ConnectError when it fails.
+	connect( method: string, input: Record< string, string > ): Promise< Config >;
+	// A renewed config when its credential is about to expire, which Studio
+	// stores; undefined while the config still works.
+	refresh?( config: Config ): Promise< Config | undefined >;
+	// Cleans up on the provider's side before Studio removes the config.
+	disconnect?( config: Config ): Promise< void >;
+}
+
 // What a provider does, for the hosts that run operations: from `getProviderServices`.
-export interface ProviderServices< Config = unknown, Site extends RemoteSite = RemoteSite > {
+export type ProviderServices< Config = unknown, Site extends RemoteSite = RemoteSite > = {
 	id: ProviderId;
-	account: {
-		// Starts connecting with a method that signs in on the provider's site
-		// (`loopback` or `device`).
-		start?( method: string, context: ConnectContext ): Promise< PendingConnect >;
-		// Checks what the user gave: a form's values, a redirect's parameters, or
-		// a started connection's `handoff`, with a loopback redirect's parameters.
-		// Returns the config to store; throws ConnectError when it fails.
-		connect( method: string, input: Record< string, string > ): Promise< Config >;
-		// A renewed config when its credential is about to expire, which Studio
-		// stores; undefined while the config still works.
-		refresh?( config: Config ): Promise< Config | undefined >;
-		// Cleans up on the provider's side before Studio removes the config.
-		disconnect?( config: Config ): Promise< void >;
-	};
 	ai?: {
 		model(
 			config: Config | undefined,
@@ -445,4 +483,4 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 		): Promise< GenerateImageResult[] >;
 	};
 	sites?: SitesServices< Config, Site >;
-}
+} & WithAccount< Config, AccountServices< Exclude< Config, undefined > > >;

@@ -689,6 +689,12 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				{ method: 'DELETE' }
 			);
 		},
+		async addRemoteSite( provider, localSiteId, input ) {
+			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/add`, {
+				method: 'POST',
+				body: JSON.stringify( input ),
+			} );
+		},
 		async getSiteCreationVisibility( provider ) {
 			return api( `/remote-sites/${ provider }/creation-visibility` );
 		},

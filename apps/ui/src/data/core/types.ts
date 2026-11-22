@@ -409,6 +409,13 @@ export interface Connector {
 		localSiteId: string,
 		remoteSiteId: string | number
 	): Promise< void >;
+	// Connects the local site to the site the user described in the provider's `sites.add` form, once
+	// the provider reached it.
+	addRemoteSite(
+		provider: SitesProviderId,
+		localSiteId: string,
+		input: Record< string, string >
+	): Promise< ProviderSites[ SitesProviderId ] >;
 	getSiteCreationVisibility( provider: SitesProviderId ): Promise< SiteCreationVisibility | null >;
 	// Creates a site on a provider whose `sites.newSite` is `create`, and connects the local
 	// site to it.

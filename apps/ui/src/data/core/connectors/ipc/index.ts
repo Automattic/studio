@@ -497,6 +497,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.disconnectRemoteSite( provider, localSiteId, remoteSiteId );
 		},
 
+		async addRemoteSite( provider, localSiteId, input ) {
+			return unwrapIpcError( ipcApi.addRemoteSite( provider, localSiteId, input ) );
+		},
+
 		async getSiteCreationVisibility( provider ) {
 			return unwrapIpcError( ipcApi.getSiteCreationVisibility( provider ) );
 		},

@@ -1,0 +1,43 @@
+import { mkdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
+import { sshSites } from '../sites';
+import { useFakeServer } from './fake-ssh';
+
+const FAKE_WP = `#!/bin/sh
+case "$2" in *"get_bloginfo( 'name' )"*) ;; *) exit 1 ;; esac
+echo 'Notice: a plugin talks first'
+printf '{"home":"https://acme.test","name":"Acme","contentDir":"%s/wp-content","multisite":false}\\n' "$PWD"
+`;
+
+describe.skipIf( process.platform === 'win32' )( 'adding an SSH site', () => {
+	const server = useFakeServer( FAKE_WP );
+	const site = () => {
+		const folder = path.join( server.dir, 'it’s a site' );
+		mkdirSync( folder, { recursive: true } );
+		return folder;
+	};
+
+	it( 'reads the site in the folder, trusting a new host only now', async () => {
+		const folder = site();
+		await expect(
+			sshSites.add!( undefined, { address: `deploy@acme.test:${ folder }/`, wpCli: '' } )
+		).resolves.toEqual( {
+			id: `deploy@acme.test:${ folder }`,
+			name: 'Acme',
+			url: 'https://acme.test',
+			wpCli: 'wp',
+			contentDir: `${ folder }/wp-content`,
+		} );
+		expect( readFileSync( path.join( server.dir, 'args' ), 'utf8' ) ).toContain(
+			'StrictHostKeyChecking=accept-new'
+		);
+	} );
+
+	it( 'says what to fix when the server refuses the key', async () => {
+		vi.stubEnv( 'FAKE_SSH_FAIL', 'deploy@acme.test: Permission denied (publickey).' );
+		await expect(
+			sshSites.add!( undefined, { address: `deploy@acme.test:${ site() }` } )
+		).rejects.toMatchObject( { code: 'ssh_auth' } );
+	} );
+} );

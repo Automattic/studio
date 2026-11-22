@@ -1,5 +1,11 @@
 import { AGENT_APP_IDS, AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
-import { AI_PROVIDER_IDS, getProvider, SITES_PROVIDER_IDS, needsHost } from '@studio/providers';
+import {
+	ACCOUNT_PROVIDER_IDS,
+	AI_PROVIDER_IDS,
+	getProvider,
+	SITES_PROVIDER_IDS,
+	needsHost,
+} from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import {
 	BugIcon,
@@ -313,18 +319,20 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'hosting-providers'
 				),
 				setting( 'navigate', __( 'Default hosting provider' ), '', 'default-hosting-provider' ),
-				...SITES_PROVIDER_IDS.map( ( id ) => {
-					const { label, description } = getProvider( id );
-					return {
-						...setting(
-							'navigate',
-							id === 'wpcom' ? __( 'WordPress.com hosting' ) : label,
-							description?.() ??
-								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
-							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
-						),
-					};
-				} ),
+				...SITES_PROVIDER_IDS.filter( ( id ) => ACCOUNT_PROVIDER_IDS.includes( id ) ).map(
+					( id ) => {
+						const { label, description } = getProvider( id );
+						return {
+							...setting(
+								'navigate',
+								id === 'wpcom' ? __( 'WordPress.com hosting' ) : label,
+								description?.() ??
+									__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
+								id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
+							),
+						};
+					}
+				),
 			],
 		},
 		{

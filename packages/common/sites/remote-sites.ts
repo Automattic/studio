@@ -1,6 +1,6 @@
 import { getProvider } from '@studio/providers';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
-import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import { connectPublishingSite, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import type {
 	ProviderConfigs,
@@ -71,6 +71,23 @@ export async function createRemoteSite< Id extends SitesProviderId >(
 		create( await readProviderConfig( id ), { name, visibility } )
 	);
 	if ( connect ) await rememberRemoteSite( id, localSiteId, site );
+	return site;
+}
+
+// Connects the local site to the site the user described in the provider's `add` form, once the
+// provider reached it.
+export async function addRemoteSite< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	localSiteId: string,
+	input: Record< string, string >
+): Promise< ProviderSites[ Id ] > {
+	const id = provider.id as Id;
+	const add = sites( provider ).add;
+	if ( ! add ) {
+		throw new Error( `Studio can't add ${ getProvider( provider.id ).label } sites.` );
+	}
+	const site = await add( await readProviderConfig( id ), input );
+	await connectPublishingSite( id, localSiteId, site );
 	return site;
 }
 

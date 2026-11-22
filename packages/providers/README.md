@@ -1,6 +1,6 @@
 # @studio/providers
 
-The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`), Google Gemini (`gemini`), GitHub Copilot (`github-copilot`), Meta (`meta`), xAI (`xai`), OpenRouter (`openrouter`), Spacefast (`spacefast`), and the Local LLM connector (`local-llm`), a model server the user runs. Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
+The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`), Google Gemini (`gemini`), GitHub Copilot (`github-copilot`), Meta (`meta`), xAI (`xai`), OpenRouter (`openrouter`), Spacefast (`spacefast`), the Local LLM connector (`local-llm`), a model server the user runs, and SSH (`ssh`), WordPress sites on servers the user reaches with their own `ssh`. Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
 
 ```
 index.ts         @studio/providers: what surfaces read
@@ -59,6 +59,8 @@ A model connection whose `model.contextWindow` is exactly the context the server
 
 `sites` sends local sites to the provider's sites. `publish` in the descriptor says whether the user publishes to sites they keep there, and `previews` whether the provider builds temporary previews shared by a link; a provider offers either or both. A preview is updated with a push to it, with `preview` set, and created, listed and deleted through `previews`.
 
+A provider whose config is `undefined`, such as SSH, has no `account`: there is nothing to connect, and surfaces treat it as connected. The user adds its sites with the descriptor's `sites.add` form, which the services' `add` checks, and it pulls by writing the site's archive (`pullArchive`). `sites.hostOnly` says only the user's computer reaches its sites.
+
 ## Providers own no storage
 
 A provider never reads or writes a file. It defines its config (`config.ts`, a zod schema), and every call takes that config, or `undefined` when there is none. Studio stores the configs in `config.json` through `@studio/common/lib/provider-config.ts`, and the selected chat provider through `@studio/common/lib/ai-settings.ts`. A call without a usable config throws `NotConnectedError`; the CLI turns it into a message that says how to connect.
@@ -76,7 +78,7 @@ Add a folder laid out like the others, then register it in three places: its con
 Enforced by lint (`eslint.config.mjs`):
 
 - The package imports no other workspace package: Studio passes in what a provider needs.
-- It uses no Node APIs, since `apps/ui` loads its surface entries in the browser.
+- Its surface entries use no Node APIs, since `apps/ui` loads them in the browser. The services may, as SSH runs `ssh`.
 - The files the surface entries are made of import only each other.
 - `apps/ui` imports only `@studio/providers` and `@studio/providers/wpcom`, and `@studio/common` never imports `@studio/providers/services`.
 

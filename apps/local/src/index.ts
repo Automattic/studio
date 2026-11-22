@@ -159,6 +159,7 @@ import {
 	getSiteCreationVisibility,
 	getSiteVisibility,
 	setSiteVisibility,
+	addRemoteSite,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -859,7 +860,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( ! provider ) {
 				return;
 			}
-			if ( typeof method !== 'string' || ! getProviderServices( provider ).account.start ) {
+			if ( typeof method !== 'string' || ! getProviderServices( provider ).account?.start ) {
 				res.status( 400 ).json( { error: `${ provider } does not sign in on its site` } );
 				return;
 			}
@@ -2110,6 +2111,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					connect
 				)
 			);
+		} )
+	);
+
+	api.post(
+		'/sites/:id/remote-sites/:provider/add',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) {
+				return;
+			}
+			const input = z.record( z.string(), z.string() ).safeParse( req.body );
+			if ( ! input.success ) {
+				res.status( 400 ).json( { error: 'Invalid site details.' } );
+				return;
+			}
+			res.json( await addRemoteSite( getProviderServices( provider ), req.params.id, input.data ) );
 		} )
 	);
 

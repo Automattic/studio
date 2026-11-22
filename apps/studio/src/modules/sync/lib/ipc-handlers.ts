@@ -10,6 +10,7 @@ import {
 	getSiteCreationVisibility as readCreationVisibility,
 	getSiteVisibility as readVisibility,
 	setSiteVisibility as writeVisibility,
+	addRemoteSite as addRemoteSiteOnProvider,
 	createRemoteSite as createRemoteSiteOnProvider,
 	getRemoteBackupId as readRemoteBackupId,
 	listAccountSites as listProviderAccountSites,
@@ -82,6 +83,19 @@ export async function disconnectRemoteSite(
 
 export function getSiteCreationVisibility( _event: IpcMainInvokeEvent, provider: string ) {
 	return readCreationVisibility( getProviderServices( parseProvider( provider ) ) );
+}
+
+export async function addRemoteSite(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	localSiteId: string,
+	input: Record< string, string >
+): Promise< ProviderSites[ SitesProviderId ] > {
+	return addRemoteSiteOnProvider(
+		getProviderServices( parseProvider( provider ) ),
+		localSiteId,
+		input
+	);
 }
 
 export async function createRemoteSite(

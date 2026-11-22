@@ -135,14 +135,24 @@ export async function updateStandaloneCli(
 	let stagingDirectory: string | undefined;
 	try {
 		const update = await getAvailableCliUpdate( currentVersion, 'standalone', true );
-		if ( ! update || semver.lte( update.latestVersion, installedVersion ) ) {
+		if ( ! update ) {
 			return null;
 		}
+		const latestVersion = update.latestVersion;
+		if (
+			! latestVersion.match( /^[0-9][0-9A-Za-z.+-]*$/ ) ||
+			semver.valid( latestVersion ) !== latestVersion
+		) {
+			throw new Error(
+				__( 'The update server returned an invalid WordPress Studio CLI version.' )
+			);
+		}
+		if ( semver.lte( latestVersion, installedVersion ) ) return null;
 		const active = await readActiveVersion( currentFile );
 		if (
 			active &&
-			channelForVersion( active ) === channelForVersion( update.latestVersion ) &&
-			semver.gte( active, update.latestVersion )
+			channelForVersion( active ) === channelForVersion( latestVersion ) &&
+			semver.gte( active, latestVersion )
 		) {
 			return active;
 		}
@@ -155,11 +165,11 @@ export async function updateStandaloneCli(
 				__( 'The update server returned an invalid WordPress Studio CLI download URL.' )
 			);
 		}
-		const destination = path.join( versionsDirectory, update.latestVersion );
+		const destination = path.join( versionsDirectory, latestVersion );
 		if ( fs.existsSync( destination ) ) {
-			await verifyRuntime( destination, update.latestVersion );
-			await writeFile( currentFile, `${ update.latestVersion }\n` );
-			return update.latestVersion;
+			await verifyRuntime( destination, latestVersion );
+			await writeFile( currentFile, `${ latestVersion }\n` );
+			return latestVersion;
 		}
 		stagingDirectory = await fs.promises.mkdtemp( path.join( versionsDirectory, '.download-' ) );
 		const archive = path.join( stagingDirectory, 'studio.tgz' );
@@ -173,10 +183,10 @@ export async function updateStandaloneCli(
 		if ( process.platform !== 'win32' ) {
 			await fs.promises.chmod( runtime.node, 0o755 );
 		}
-		await verifyRuntime( extracted, update.latestVersion );
+		await verifyRuntime( extracted, latestVersion );
 		await fs.promises.rename( extracted, destination );
-		await writeFile( currentFile, `${ update.latestVersion }\n` );
-		return update.latestVersion;
+		await writeFile( currentFile, `${ latestVersion }\n` );
+		return latestVersion;
 	} finally {
 		if ( stagingDirectory ) {
 			await fs.promises.rm( stagingDirectory, { recursive: true, force: true } );

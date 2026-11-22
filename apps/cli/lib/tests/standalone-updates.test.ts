@@ -53,6 +53,7 @@ beforeEach( async () => {
 	vi.stubEnv( 'DEV_CONFIG_DIR', configDirectory );
 	vi.stubEnv( 'STUDIO_CLI_DISABLE_AUTO_UPDATES', '' );
 	vi.mocked( childProcess.spawn ).mockReset();
+	vi.mocked( downloadFile ).mockReset();
 } );
 
 afterEach( async () => {
@@ -149,6 +150,15 @@ it( 'leaves the active runtime intact when a download is corrupt', async () => {
 		'1.1.0\n'
 	);
 	expect( await fs.readdir( versionsDirectory ) ).toEqual( [ 'current-1.0.0' ] );
+} );
+
+it( 'rejects a noncanonical release version before downloading or selecting a runtime', async () => {
+	serveRelease( 'not downloaded', 'v2.0.0' );
+	await expect( updateStandaloneCli( '1.0.0' ) ).rejects.toThrow(
+		'invalid WordPress Studio CLI version'
+	);
+	expect( downloadFile ).not.toHaveBeenCalled();
+	expect( await fs.readdir( versionsDirectory ) ).toEqual( [] );
 } );
 
 it.each( [ true, false ] )( 'remembers the one-time auto-update choice (%s)', async ( enabled ) => {

@@ -33,6 +33,9 @@ export const SITE_OPERATIONS = [
 
 export type SiteOperationKind = ( typeof SITE_OPERATIONS )[ number ];
 
+/** Error code the CLI reports when a command is refused because another operation holds the site. */
+export const SITE_BUSY_ERROR_CODE = 'site_busy';
+
 export const siteOperationSchema = z.object( {
 	// Owning process, and the only identity an operation needs: a site holds at
 	// most one at a time. Once the process is gone the entry is stale and gets

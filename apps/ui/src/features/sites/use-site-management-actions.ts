@@ -1,4 +1,5 @@
 import { __ } from '@wordpress/i18n';
+import { useConnector } from '@/data/core';
 import {
 	EXPORT_BLUEPRINT_MUTATION_KEY,
 	EXPORT_DATABASE_MUTATION_KEY,
@@ -14,9 +15,9 @@ import { useSiteSyncActivity } from '@/data/sync-activity';
 import {
 	BlueprintIcon,
 	DatabaseIcon,
+	DownloadIcon,
 	DuplicateIcon,
-	ExportSiteIcon,
-	ImportIcon,
+	FileArchiveIcon,
 	TrashIcon,
 } from '@/lib/icons';
 import type { SiteDetails } from '@/data/core';
@@ -51,6 +52,7 @@ export function useSiteManagementActions(
 	site: SiteDetails,
 	{ onDelete, onImport }: { onDelete: () => void; onImport: () => void }
 ): SiteManagementAction[] {
+	const { capabilities } = useConnector();
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
@@ -88,7 +90,7 @@ export function useSiteManagementActions(
 		},
 		{
 			id: 'import',
-			icon: ImportIcon,
+			icon: DownloadIcon,
 			label: __( 'Import' ),
 			disabled: isWriting || isExporting,
 			destructive: false,
@@ -96,7 +98,7 @@ export function useSiteManagementActions(
 		},
 		{
 			id: 'export',
-			icon: ExportSiteIcon,
+			icon: FileArchiveIcon,
 			label: __( 'Export site' ),
 			disabled: isWriting || isExporting,
 			destructive: false,
@@ -110,14 +112,18 @@ export function useSiteManagementActions(
 			destructive: false,
 			run: () => exportDatabase.mutate( site.id ),
 		},
-		{
-			id: 'export-blueprint',
-			icon: BlueprintIcon,
-			label: __( 'Export blueprint' ),
-			disabled: isWriting || isExporting,
-			destructive: false,
-			run: () => exportBlueprint.mutate( site.id ),
-		},
+		...( capabilities.blueprintSnapshots
+			? [
+					{
+						id: 'export-blueprint' as const,
+						icon: BlueprintIcon,
+						label: __( 'Export blueprint' ),
+						disabled: isWriting || isExporting,
+						destructive: false,
+						run: () => exportBlueprint.mutate( site.id ),
+					},
+			  ]
+			: [] ),
 		{
 			id: 'delete',
 			icon: TrashIcon,

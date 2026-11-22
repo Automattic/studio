@@ -26,12 +26,13 @@ import {
 import { NOTE_EDITOR_BINDING, NOTE_EDITOR_EVENT, NOTE_EDITOR_SCRIPT } from './note-editor';
 import type { VisualAnnotation } from '@studio/agent/protocol/visual-annotations';
 
-type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
-type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
-
-export interface BrowserAnnotation extends VisualAnnotation {
+// A note the user left on a page, with the images they attached to it.
+interface BrowserAnnotation extends VisualAnnotation {
 	images: StudioChatImage[];
 }
+
+type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
+type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
 
 interface Anchor {
 	left: number;

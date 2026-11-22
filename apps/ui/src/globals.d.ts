@@ -3,3 +3,10 @@
 // runtime file explicitly — this declaration keeps the TypeScript bundler
 // resolver happy without a matching alias.
 declare module '@wp-playground/blueprints/blueprint-schema-validator';
+
+// `wpcom-xhr-request` ships no types; `@studio/common`'s sync code imports it
+// (pulled in here through the static backend's WordPress.com sync).
+declare module 'wpcom-xhr-request';
+
+// Set by `vite.config.ts` for the `studio ui` and web builds, which report errors on their own.
+declare const __SENTRY_RELEASE__: string | null;

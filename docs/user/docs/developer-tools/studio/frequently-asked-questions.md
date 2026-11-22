@@ -1,6 +1,6 @@
 # WordPress Studio: Frequently asked questions
 
-On this page you’ll find answers to common questions about the [WordPress Studio](https://wordpress.studio/) app and certain features like the [WordPress Studio Code](#studio-code) and [WordPress Studio Sync.](#sync)
+On this page you’ll find answers to common questions about the [WordPress Studio](https://wordpress.studio/) app and certain features like the [WordPress Studio Code](#wordpress-studio-code-faqs) and [WordPress Studio Sync.](#wordpress-studio-sync-faqs)
 
 As a reminder, WordPress Studio is an [open source project](https://github.com/Automattic/studio) that welcomes all contributions. If you spot a bug or the WordPress Studio feature you need is missing, we have some options:
 
@@ -17,7 +17,7 @@ Themes created in WordPress Studio are the same as themes created on traditional
 
 1.  Select the local site within WordPress Studio.
 2.  Ensure that your site is already running.
-3.  Click the site preview’s address bar and choose **WordPress Admin**.
+3.  Click **New tab** (**+**) above the site preview and choose **Admin**.
 4.  In WP Admin, go to **Appearance → Editor**.
 5.  Once the site editor loads, expand the editor by clicking anywhere on the site preview.
 6.  Click the **Options** menu button in the top right of the screen, represented by the ellipsis icon (⋮). 
@@ -55,6 +55,8 @@ If you have already created a site in WordPress Studio, and want to switch SQLit
 6.  Start your MySQL server.
 7.  Start the WordPress Studio’s site.
 8.  Open the site.
+
+WordPress Studio’s built-in phpMyAdmin supports SQLite only, so the site menu’s **Tools → Database** and **Open in → phpMyAdmin** are unavailable for a site that uses your own MySQL server. Use a separate database client, such as the one that comes with your MySQL server.
 
 ### [How do I select the PHP and WordPress versions for my site?](#15-how-do-i-change-the-php-version-used-for-my-site-) 
 
@@ -96,7 +98,7 @@ When publishing, pulling, importing or exporting fails, WordPress Studio offers 
 
 ### [Where do emails sent by my site go?](#site-email)
 
-WordPress Studio saves them instead of sending them. To see them, choose **Tools → Email** from the site menu, which opens the site’s email folder. See [Site email](https://wordpress.studio/docs/sites/#site-email).
+WordPress Studio saves them instead of sending them. To read them, choose **Tools → Email log** from the site menu, which lists the site’s emails in the preview. See [Site email](https://wordpress.studio/docs/sites/#site-email).
 
 ### [Is it possible to change the port or URL of my WordPress Studio site?](#10-is-it-possible-to-change-the-port-or-url-of-my-studio-site-)
 
@@ -153,17 +155,17 @@ You can talk with WordPress Studio Code in any language you prefer.
 
 ### [Can I use WordPress Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
-Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → AI Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
+Yes, with another AI provider, such as your own Anthropic API key. Connect **Anthropic**, **OpenAI**, **Google Gemini**, **GitHub Copilot**, or **Meta** in **Settings → Providers** in the desktop app, or use `/connect` in the terminal. Usage is billed through that provider or plan. See [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) for how to connect each one.
 
 To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://wordpress.studio/docs/#connect-to-wordpresscom). Some features, such as [image generation](https://wordpress.studio/docs/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 
 ### [Is there any cost to use WordPress Studio Code?](#6-is-there-any-cost-to-use-the-studio-assistant-)
 
-WordPress Studio Code runs on AI Credits. Every account starts with a free allowance for the Fast tier; after that, or to use Balanced and Strong, you buy more. With your own Anthropic API key, Anthropic bills you instead. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
+With WordPress.com as your AI provider, you start with a free allowance of AI Credits for Fast. Your first purchase unlocks Balanced and Strong, and you can use any remaining free allowance with either tier. If you connect your own Anthropic API key, Anthropic bills you for that usage. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
 
 ### [How many prompts can I use per month?](#7-how-many-prompts-can-i-use-per-month-)
 
-There’s no monthly limit. Each prompt uses AI Credits, and when you run out, AI responses pause until you add more. Your local sites keep running normally.
+WordPress.com AI Credits have no monthly prompt limit. Prompts through WordPress.com pause when your credit balance runs out and resume when you add more. Your local sites keep running normally.
 
 ### [Where can I give feedback about WordPress Studio Code responses?](#8-where-can-i-give-feedback-about-the-studio-assistant-s-responses-)
 

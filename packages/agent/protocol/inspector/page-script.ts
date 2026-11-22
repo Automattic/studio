@@ -242,11 +242,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const path = '${ RENAME_ICON.path }';
 		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="${
 			RENAME_ICON.viewBox
-		}" stroke-linecap="${ RENAME_ICON.strokeLinecap }" stroke-linejoin="${
-			RENAME_ICON.strokeLinejoin
-		}" fill="white"><path d="' + path + '" stroke="white" stroke-width="${
-			RENAME_ICON.strokeWidth + 2
-		}"/><path d="' + path + '" stroke="black" stroke-width="${ RENAME_ICON.strokeWidth }"/></svg>';
+		}" stroke-linejoin="round"><path d="' + path + '" fill="white" stroke="white" stroke-width="28"/><path d="' + path + '" fill="black"/></svg>';
 		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 2 16, crosshair';
 	}
 	function selector(el) {
@@ -369,11 +365,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				marker.className = 'enter';
 				marker.innerHTML = '<span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="${
 					PLUS_ICON.viewBox
-				}" fill="none"><path d="${ PLUS_ICON.path }" stroke-width="${
-					PLUS_ICON.strokeWidth
-				}" stroke-linecap="${
-					PLUS_ICON.strokeLinecap
-				}" stroke="currentColor"/></svg></span><span class="number" aria-hidden="true"></span>';
+				}" fill="currentColor"><path d="${
+					PLUS_ICON.path
+				}"/></svg></span><span class="number" aria-hidden="true"></span>';
 				marker.addEventListener('animationend', (event) => {
 					if (event.target !== marker) return;
 					if (event.animationName === 'marker-out' || event.animationName === 'marker-fade-out') { finishExit(); return; }

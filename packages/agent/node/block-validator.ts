@@ -1,4 +1,6 @@
-import { EditorPage, withTimeout } from './browser-utils';
+import { openPage } from '@studio/agent/node/pages';
+import { withTimeout } from '@studio/agent/node/tools/utils';
+import type { Page } from 'playwright';
 
 const BLOCK_EVALUATION_TIMEOUT_MS = 60_000;
 
@@ -27,17 +29,101 @@ export interface ValidationReport extends ValidationReportBase {
 	proposedFix?: BlockFixProposal;
 }
 
-// Cache one EditorPage per site URL so repeated validations reuse the same
-// browser tab instead of navigating and loading the block editor each time.
-const editorPages = new Map< string, EditorPage >();
+const EDITOR_LOAD_TIMEOUT_MS = 30_000;
 
-function getEditorPage( siteUrl: string ): EditorPage {
-	let ep = editorPages.get( siteUrl );
-	if ( ! ep ) {
-		ep = new EditorPage( siteUrl );
-		editorPages.set( siteUrl, ep );
+// One page per site stays open on its block editor, so repeated validations
+// don't navigate and load every block script again.
+const editorPages = new Map< string, Promise< Page > >();
+
+function blocksRegistered(): boolean {
+	try {
+		// wp is set early as a global but wp.blocks is populated later, so every
+		// level must be checked to avoid "Cannot read properties of undefined".
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const wp = ( window as any ).wp;
+		return (
+			wp &&
+			wp.blocks &&
+			typeof wp.blocks.getBlockTypes === 'function' &&
+			wp.blocks.getBlockTypes().length > 0
+		);
+	} catch {
+		return false;
 	}
-	return ep;
+}
+
+// Diagnostic info from the page, to help debug editor load failures.
+async function describeEditorPage( page: Page ): Promise< string > {
+	try {
+		const info = await page.evaluate( () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const wp = ( window as any ).wp;
+			return {
+				hasWp: typeof wp !== 'undefined',
+				hasWpBlocks: !! ( wp && wp.blocks ),
+				hasGetBlockTypes: !! ( wp && wp.blocks && typeof wp.blocks.getBlockTypes === 'function' ),
+				blockTypeCount: wp?.blocks?.getBlockTypes?.()?.length ?? 0,
+				title: document.title,
+				bodyClasses: document.body?.className?.slice( 0, 200 ) ?? '',
+			};
+		} );
+		return `url=${ page.url() }, title="${ info.title }", wp=${ info.hasWp }, wp.blocks=${
+			info.hasWpBlocks
+		}, getBlockTypes=${ info.hasGetBlockTypes }, blockTypes=${ info.blockTypeCount }, body="${
+			info.bodyClasses
+		}"`;
+	} catch ( e ) {
+		return `(diagnostics failed: ${ e instanceof Error ? e.message : String( e ) })`;
+	}
+}
+
+async function loadEditorPage( siteUrl: string ): Promise< Page > {
+	const page = await openPage( {
+		url: `${ siteUrl.replace( /\/+$/, '' ) }/wp-admin/post-new.php`,
+		signIn: true,
+	} );
+	try {
+		await page.waitForFunction( blocksRegistered, undefined, { timeout: EDITOR_LOAD_TIMEOUT_MS } );
+	} catch ( error ) {
+		const diag = await describeEditorPage( page );
+		await page.close();
+		throw new Error(
+			`Block editor failed to load (${ diag }): ${
+				error instanceof Error ? error.message : String( error )
+			}`
+		);
+	}
+	return page;
+}
+
+async function getEditorPage( siteUrl: string ): Promise< Page > {
+	const cached = editorPages.get( siteUrl );
+	if ( cached ) {
+		const page = await cached.catch( () => undefined );
+		if ( page && ! page.isClosed() ) {
+			return page;
+		}
+		// Another call already replaced the closed page while this one waited.
+		if ( editorPages.get( siteUrl ) !== cached ) {
+			return getEditorPage( siteUrl );
+		}
+	}
+	// Concurrent auto-logins overwrite each other's session tokens, so calls share one load.
+	const loading = loadEditorPage( siteUrl );
+	editorPages.set( siteUrl, loading );
+	loading.catch( () => {
+		if ( editorPages.get( siteUrl ) === loading ) {
+			editorPages.delete( siteUrl );
+		}
+	} );
+	return loading;
+}
+
+async function discardEditorPage( siteUrl: string ): Promise< void > {
+	const cached = editorPages.get( siteUrl );
+	editorPages.delete( siteUrl );
+	const page = await cached?.catch( () => undefined );
+	await page?.close().catch( () => {} );
 }
 
 /**
@@ -54,10 +140,8 @@ export async function validateBlocks(
 	content: string,
 	siteUrl: string
 ): Promise< ValidationReport > {
-	const editorPage = getEditorPage( siteUrl );
-
 	try {
-		const page = await editorPage.getPage();
+		const page = await getEditorPage( siteUrl );
 
 		const evaluation = page.evaluate( ( html: string ) => {
 			/* eslint-disable @typescript-eslint/no-explicit-any */
@@ -327,8 +411,7 @@ export async function validateBlocks(
 	} catch ( error ) {
 		// If navigation or evaluation failed, discard the cached page so the
 		// next call gets a fresh one.
-		await editorPage.close();
-		editorPages.delete( siteUrl );
+		await discardEditorPage( siteUrl );
 
 		return {
 			totalBlocks: 0,

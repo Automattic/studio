@@ -25,6 +25,7 @@ export function PanelLayoutControls( {
 				inert={ ! showFullView }
 			>
 				<IconButton
+					variant="ghost"
 					size="icon-sm"
 					icon={ <FullscreenIcon inward={ fullscreen } /> }
 					label={ fullscreen ? __( 'Show chat' ) : __( 'Expand panel' ) }
@@ -33,6 +34,8 @@ export function PanelLayoutControls( {
 				/>
 			</div>
 			<IconButton
+				variant="ghost"
+				highlightOnToggle={ false }
 				size="icon-sm"
 				icon={ <SidebarIcon side="right" /> }
 				label={ open ? __( 'Hide panel' ) : __( 'Show panel' ) }

@@ -31,7 +31,7 @@ describe( 'readSiteSource', () => {
 		await fs.writeFile( source, '{"steps":[]}' );
 		for ( const selected of [ source, folder ] ) {
 			expect( await readSiteSource( selected ) ).toMatchObject( {
-				blueprint: { blueprintJson: { steps: [] }, blueprintJsonPath: source },
+				blueprint: { steps: [] },
 				isWordPress: false,
 			} );
 		}

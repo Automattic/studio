@@ -26,7 +26,6 @@ import type {
 	AppGlobals,
 	AuthUser,
 	Connector,
-	ExtractedBlueprintBundle,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
@@ -42,11 +41,11 @@ import type {
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
 	SupportedEditor,
-	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { Blueprint } from '@studio/blueprints';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
@@ -54,7 +53,6 @@ import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();
@@ -79,6 +77,16 @@ export function createIpcConnector(): Connector {
 		throw new Error(
 			'IPC API not available. Are you running inside Electron with the preload script?'
 		);
+	}
+
+	function getBlueprintFilePath( file: File ): string {
+		const filePath = ( ipcApi.getPathForFile( file ) as string ) ?? '';
+		if ( ! filePath ) {
+			throw new Error(
+				__( 'Unable to resolve the ZIP file path. Try choosing the file via the button.' )
+			);
+		}
+		return filePath;
 	}
 
 	// The IPC connector only runs in Electron, so `navigator` reflects the
@@ -130,6 +138,9 @@ export function createIpcConnector(): Connector {
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
+			loopbackSignIn: true,
+			localMachine: true,
+			blueprintSnapshots: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -194,6 +205,11 @@ export function createIpcConnector(): Connector {
 				blueprint,
 				flowType,
 			} = params;
+			const libraryEntry =
+				blueprint && typeof blueprint === 'object' && 'librarySlug' in blueprint
+					? blueprint
+					: undefined;
+			const source = libraryEntry ? libraryEntry.bundleUrl ?? libraryEntry.blueprint : blueprint;
 			const created = ipcApi.createSite( path, {
 				siteName: name,
 				phpVersion,
@@ -205,21 +221,15 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				noStart: skipStart,
-				// Map the UI's camelCase `bundleUrl` to the API-shaped `bundle_url`
-				// the desktop IPC handler expects.
-				blueprint: blueprint
-					? {
-							...blueprint,
-							bundle_url: blueprint.bundleUrl,
-					  }
-					: undefined,
+				blueprint: source instanceof File ? getBlueprintFilePath( source ) : source,
+				blueprintSlug: libraryEntry?.librarySlug,
 				flowType,
 			} );
 			return ( await unwrapIpcError( created ) ) as SiteDetails;
 		},
 
-		async deleteSite( id, deleteFiles = true ) {
-			await ipcApi.deleteSite( id, deleteFiles );
+		deleteSite( id, deleteFiles = true ) {
+			return ipcApi.deleteSite( id, deleteFiles );
 		},
 
 		async copySite( sourceSiteId ): Promise< SiteDetails > {
@@ -296,22 +306,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
 		},
 
-		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
-			const zipFilePath = ( ipcApi.getPathForFile( file ) as string ) ?? '';
-			if ( ! zipFilePath ) {
-				throw new Error(
-					__( 'Unable to resolve the ZIP file path. Try choosing the file via the button.' )
-				);
-			}
-			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
-		},
-
-		async cleanupBlueprintTempDir( tempDir ) {
-			await ipcApi.cleanupBlueprintTempDir( tempDir );
-		},
-
-		async readBlueprintFile( filePath ) {
-			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
+		async readBlueprint( source ) {
+			return unwrapIpcError(
+				ipcApi.readBlueprint( source instanceof File ? getBlueprintFilePath( source ) : source )
+			) as Promise< Blueprint >;
 		},
 
 		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
@@ -465,9 +463,19 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAllSnapshots();
 		},
 
-		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
+		async publishPreviewSite(
+			siteId,
+			existingHostname,
+			name,
+			liveSite
+		): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
-			return ( await ipcApi.publishPreviewSite( siteFolder, existingHostname, name ) ) as {
+			return ( await ipcApi.publishPreviewSite(
+				siteFolder,
+				existingHostname,
+				name,
+				liveSite
+			) ) as {
 				url: string;
 			};
 		},
@@ -480,25 +488,43 @@ export function createIpcConnector(): Connector {
 			await ipcApi.renamePreviewSite( hostname, name );
 		},
 
+		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
+			return ipcApi.getSitePublishStatus( siteId, remoteSiteId, provider );
+		},
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
 			return ( await ipcApi.getPreviewStatus( hostname ) ) as PreviewStatus;
 		},
 
-		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
-			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+		// Remote sites
+		async getRemoteSites( provider, localSiteId ) {
+			return await ipcApi.getRemoteSites( provider, localSiteId );
 		},
 
-		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
-			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
+		async getSiteVisibility( provider, id ) {
+			return ipcApi.getSiteVisibility( provider, id );
+		},
+		async setSiteVisibility( provider, id, value ) {
+			return ipcApi.setSiteVisibility( provider, id, value );
+		},
+		async listAccountSites( provider ) {
+			return await ipcApi.listAccountSites( provider );
 		},
 
-		async connectWpcomSite( localSiteId, site ): Promise< void > {
-			await ipcApi.connectWpcomSites( [ { sites: [ site ], localSiteId } ] );
+		async connectRemoteSite( provider, localSiteId, site ): Promise< void > {
+			await ipcApi.connectRemoteSite( provider, localSiteId, site );
 		},
 
-		async disconnectWpcomSite( localSiteId, remoteSiteId ): Promise< void > {
-			await ipcApi.disconnectWpcomSites( [ { siteIds: [ remoteSiteId ], localSiteId } ] );
+		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ): Promise< void > {
+			await ipcApi.disconnectRemoteSite( provider, localSiteId, remoteSiteId );
+		},
+
+		async getSiteCreationVisibility( provider ) {
+			return unwrapIpcError( ipcApi.getSiteCreationVisibility( provider ) );
+		},
+		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
+			return unwrapIpcError(
+				ipcApi.createRemoteSite( provider, localSiteId, name, visibility, connect )
+			);
 		},
 
 		onSyncConnectSite( listener ) {
@@ -511,8 +537,8 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId, options ): Promise< void > {
-			const result = await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
+		async pushSite( provider, siteId, remoteSiteId, options ): Promise< void > {
+			const result = await ipcApi.pushSite( provider, siteId, remoteSiteId, options );
 			// The main process reports a cancel instead of rejecting, to keep it out
 			// of the logs as an error; turn it back into one for the caller.
 			if ( result?.cancelled ) {
@@ -524,8 +550,8 @@ export function createIpcConnector(): Connector {
 			ipcApi.cancelSyncOperation( siteId, remoteSiteId );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId, options ): Promise< void > {
-			const result = await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
+		async pullSite( provider, siteId, remoteSiteId, options ): Promise< void > {
+			const result = await ipcApi.pullSite( provider, siteId, remoteSiteId, options );
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
 			}
@@ -537,19 +563,22 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async getLatestRewindId( remoteSiteId ): Promise< string | null > {
-			return ( await ipcApi.getLatestRewindId( remoteSiteId ) ) as string | null;
+		async getRemoteBackupId( provider, remoteSiteId ): Promise< string | null > {
+			return ( await ipcApi.getRemoteBackupId( provider, remoteSiteId ) ) as string | null;
 		},
 
-		async listRemoteFileTree( remoteSiteId, rewindId, path ): Promise< Record< string, unknown > > {
-			return ( await ipcApi.listRemoteFileTree( remoteSiteId, rewindId, path ) ) as Record<
-				string,
-				unknown
-			>;
-		},
-
-		async getHostingPhpVersion( remoteSiteId ): Promise< string | undefined > {
-			return ( await ipcApi.getHostingPhpVersion( remoteSiteId ) ) as string | undefined;
+		async listRemoteBackupFiles(
+			provider,
+			remoteSiteId,
+			backupId,
+			path
+		): Promise< Record< string, unknown > > {
+			return ( await ipcApi.listRemoteBackupFiles(
+				provider,
+				remoteSiteId,
+				backupId,
+				path
+			) ) as Record< string, unknown >;
 		},
 
 		async listLocalFileTree( siteId, path, depth ): Promise< RawDirectoryEntry[] > {
@@ -605,6 +634,10 @@ export function createIpcConnector(): Connector {
 
 		async setSessionProvider( sessionId, provider, model ) {
 			await ipcApi.setAiSessionProvider( sessionId, provider, model );
+		},
+
+		async setSessionThinking( sessionId, model, thinking ) {
+			await ipcApi.setAiSessionThinking( sessionId, model, thinking );
 		},
 
 		async setSessionEnvironment( sessionId, environment ) {
@@ -707,11 +740,26 @@ export function createIpcConnector(): Connector {
 		async getAiSettings(): Promise< AiSettings > {
 			return ( await ipcApi.getAiSettings() ) as AiSettings;
 		},
-		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
+		async connectProvider( provider, method, input ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.connectAiProvider( provider, method, input ) );
+		},
+		async disconnectProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.disconnectAiProvider( provider ) );
+		},
+		async startProviderConnect( provider, method ) {
+			return unwrapIpcError( ipcApi.startProviderConnect( provider, method ) );
+		},
+		async listProviderModels( provider ) {
+			return unwrapIpcError( ipcApi.listAiProviderModels( provider ) );
+		},
+		async selectProviderModels( provider, models ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.selectAiProviderModels( provider, models ) );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
+		},
+		async setImageProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setImageProvider( provider ) );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
@@ -957,7 +1005,8 @@ export function createIpcConnector(): Connector {
 		onAddSiteWithBlueprint( listener ) {
 			return ipcListener.subscribe(
 				'add-site-with-blueprint',
-				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
+				( _event: unknown, payload: { blueprint: Blueprint; source?: string } ) =>
+					listener( payload )
 			);
 		},
 

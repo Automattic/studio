@@ -1,15 +1,15 @@
 import { captureScreenshotBuffer } from '@studio/agent/node';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
-import { readCliConfig } from 'cli/lib/cli-config/core';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus } from 'cli/lib/site-utils';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 
 // Reads the config directly rather than through site_list, whose console
 // capture loses output when the page's calls overlap.
 export async function readLocalSites() {
-	const { sites } = await readCliConfig();
-	const running = await getSitesRunningStatus( sites );
+	const { sites } = await readConfig();
+	const running = await getSitesRunningStatus();
 	return sites.map( ( site ) => ( {
 		id: site.id,
 		name: site.name,
@@ -54,9 +54,9 @@ export async function readWpcomSites() {
 // A small JPEG of a site's front page, as a data URL.
 export async function capturePreview( url: string ) {
 	const { buffer } = await captureScreenshotBuffer(
-		url,
+		{ url },
 		{ width: 1280, height: 582 },
 		{ fullPage: false, format: 'jpeg', deviceScaleFactor: 0.5 }
 	);
-	return `data:image/jpeg;base64,${ buffer.toString( 'base64' ) }`;
+	return `data:image/jpeg;base64,${ Buffer.from( buffer ).toString( 'base64' ) }`;
 }

@@ -16,8 +16,9 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { __, sprintf } from '@wordpress/i18n';
-import { Archiver, TarArchive, ZipArchive } from 'archiver';
+import { Archiver, TarArchive, ZipArchive, type ZipEntryData } from 'archiver';
 import { glob } from 'glob';
+import { isAlreadyCompressedFile } from 'cli/lib/already-compressed-file';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -33,7 +34,7 @@ import {
 	StudioJson,
 	StudioJsonPluginOrTheme,
 } from '../types';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 	( name ) => `wp-content/mu-plugins/${ name }`
@@ -238,12 +239,22 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 					) {
 						continue;
 					}
-					this.archiveBuilder.file( fullPath, { name: archivePath } );
+					this.addWpContentFile( fullPath, archivePath );
 				}
 			}
 		}
 
 		this.emit( ExportEvents.WP_CONTENT_EXPORT_COMPLETE );
+	}
+
+	// Zip stores media and archives as they are; the tar.gz stream compresses everything as a whole.
+	private addWpContentFile( sourcePath: string, name: string ): void {
+		// `file()` passes the zip-only `store` option through, though its types omit it.
+		const entry: ZipEntryData = {
+			name,
+			store: this.options.backupFile.endsWith( '.zip' ) && isAlreadyCompressedFile( name ),
+		};
+		this.archiveBuilder.file( sourcePath, entry );
 	}
 
 	// `Archiver.directory()` does not follow symlinks, so we glob the directory
@@ -278,7 +289,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			}
 			try {
 				const resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
-				this.archiveBuilder.file( resolvedPath, { name: entryPathRelativeToArchiveRoot } );
+				this.addWpContentFile( resolvedPath, entryPathRelativeToArchiveRoot );
 			} catch ( error ) {
 				// Dangling symlink. Skip it rather than aborting the whole archive.
 				console.warn( `Skipping ${ entryPathRelativeToArchiveRoot }: ${ error }` );
@@ -358,7 +369,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		return studioJsonPath;
 	}
 
-	private async getSitePlugins( site: SiteData ) {
+	private async getSitePlugins( site: ConfigSite ) {
 		await using command = await runWpCliCommand(
 			site,
 			[
@@ -404,7 +415,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private async getSiteThemes( site: SiteData ) {
+	private async getSiteThemes( site: ConfigSite ) {
 		await using command = await runWpCliCommand(
 			site,
 			[

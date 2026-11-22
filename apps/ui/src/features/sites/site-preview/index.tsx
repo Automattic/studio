@@ -578,6 +578,14 @@ function SitePreviewContent( {
 								);
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
+							const inspectorProps = {
+								annotations: key === 'site' && ! inactive ? annotations : undefined,
+								onInspectorReady: ( inspectorReady: boolean ) => {
+									patchSurface( key, { inspectorReady } );
+									if ( ! inspectorReady ) setAnnotationAnchor( null );
+								},
+								onInspectorEvent: handleInspectorEvent,
+							};
 							return (
 								<SurfaceLayer
 									key={ key }
@@ -604,12 +612,7 @@ function SitePreviewContent( {
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.
 											inspector={ key === 'site' && ! inactive }
-											annotations={ key === 'site' && ! inactive ? annotations : undefined }
-											onInspectorReady={ ( inspectorReady ) => {
-												patchSurface( key, { inspectorReady } );
-												if ( ! inspectorReady ) setAnnotationAnchor( null );
-											} }
-											onInspectorEvent={ handleInspectorEvent }
+											{ ...inspectorProps }
 											annotationTool={ annotationTools.tool }
 											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
@@ -817,9 +820,11 @@ export function SitePreview( props: SitePreviewProps ) {
 		reviewStarting,
 		startReviewSite,
 	] );
+	// Moving an iframe or webview can reload or disconnect it, so keep panes in a stable order.
+	const previewPanes = [ ...workspace.tabs ].sort( ( a, b ) => a.id.localeCompare( b.id ) );
 	return (
 		<div ref={ root } className={ styles.tabWorkspace }>
-			{ workspace.tabs.map( ( tab ) => {
+			{ previewPanes.map( ( tab ) => {
 				const active = tab.id === workspace.selectedId;
 				return (
 					<div

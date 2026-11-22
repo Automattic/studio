@@ -1,0 +1,188 @@
+import { __ } from '@wordpress/i18n';
+import { z } from 'zod';
+import type { SiteLink } from '../../types';
+
+// Whether a WordPress.com site can sync with a local site, and why not.
+export const syncSupportValues = [
+	'unsupported',
+	'syncable',
+	'needs-transfer',
+	'already-connected',
+	'needs-upgrade',
+	'deleted',
+	'missing-permissions',
+] as const;
+
+export type SyncSupport = ( typeof syncSupportValues )[ number ];
+
+// A WordPress.com or Pressable site a local site syncs with.
+export const syncSiteSchema = z.object( {
+	id: z.number(),
+	localSiteId: z.string(),
+	name: z.string(),
+	url: z.string(),
+	isStaging: z.boolean(),
+	isPressable: z.boolean(),
+	environmentType: z.string().nullable().optional(),
+	syncSupport: z.enum( syncSupportValues ),
+	lastPullTimestamp: z.string().nullable(),
+	lastPushTimestamp: z.string().nullable(),
+	wpVersion: z.string().optional(),
+	planName: z.string().optional(),
+	hasPaidPlan: z.boolean().optional(),
+	pushNeedsUpgrade: z.boolean().optional(),
+	createdAt: z.string().optional(),
+	launchAfterPush: z.boolean().optional(),
+	localVersionId: z.string().nullable().optional(),
+	launchStatus: z.string().optional(),
+	visibility: z.enum( [ 'private', 'coming-soon', 'public' ] ).optional(),
+} );
+
+export type SyncSite = z.infer< typeof syncSiteSchema >;
+
+// What a push or pull includes.
+export const syncOptionSchema = z.enum( [
+	'all',
+	'sqls',
+	'paths',
+	'uploads',
+	'plugins',
+	'themes',
+	'contents',
+] );
+export type SyncOption = z.infer< typeof syncOptionSchema >;
+
+// Push selects local paths (relative, e.g. "wp-content/plugins/foo").
+export type PushSyncOptions = {
+	optionsToSync?: SyncOption[];
+	specificSelectionPaths?: string[];
+	launchAfterPush?: boolean;
+};
+/**
+ * What a pull includes. By default, all files and the database. A pick of files is sent both as
+ * Backup node ids for the Jetpack Backup pull and as paths for the Reprint pull
+ * (`STUDIO_ENABLE_PULL_REPRINT`).
+ */
+export type PullSyncOptions = {
+	optionsToSync?: SyncOption[];
+	/** Backup node ids, used with the `paths` option. */
+	includePathList?: string[];
+	/** The same picks as paths relative to wp-content, such as `plugins/akismet`. */
+	onlyPaths?: string[];
+};
+
+/**
+ * Fills stored connections in from the account's current site list: only the link and the sync
+ * times are read from storage. A connection missing from the list was deleted, or the user lost
+ * access to it.
+ */
+export function withWpcomDetails< Connection extends SyncSite >(
+	connections: Connection[],
+	wpcomSites: SyncSite[]
+): Connection[] {
+	return connections.map( ( connection ) => {
+		const { id, localSiteId, lastPullTimestamp, lastPushTimestamp } = connection;
+		const site = wpcomSites.find( ( candidate ) => candidate.id === id );
+		const syncSupport = ! site
+			? 'deleted'
+			: site.syncSupport === 'syncable'
+			? 'already-connected'
+			: site.syncSupport;
+		return {
+			// A site gone from WordPress.com keeps the name and URL it was connected under.
+			...connection,
+			...site,
+			url: site && URL.canParse( site.url ) ? site.url : connection.url,
+			localSiteId,
+			syncSupport,
+			lastPullTimestamp,
+			lastPushTimestamp,
+			launchAfterPush: connection.launchAfterPush,
+			localVersionId: connection.localVersionId,
+		};
+	} );
+}
+
+const publishingNeedsUpgrade = () => __( 'Publishing requires a supported plan.' );
+
+// Why a site can't be published to or pulled from, from what WordPress.com says about it.
+export function wpcomSiteIssue( site: SyncSite, direction: 'push' | 'pull' ): string | null {
+	switch ( site.syncSupport ) {
+		case 'deleted':
+			return __( 'This website has been deleted. Choose another website.' );
+		case 'missing-permissions':
+			return __( 'You need administrator access to publish or pull changes.' );
+		case 'needs-upgrade':
+			if ( direction === 'pull' )
+				return __(
+					'This website needs a hosting plan that supports pulling into WordPress Studio.'
+				);
+			return publishingNeedsUpgrade();
+		case 'needs-transfer':
+			return direction === 'pull'
+				? __( 'Finish activating hosting on WordPress.com before pulling.' )
+				: __( 'Finish activating hosting on WordPress.com before publishing.' );
+		case 'unsupported':
+			return __( 'Publishing and pulling require a supported WordPress.com or Pressable website.' );
+		default:
+			return direction === 'push' && site.pushNeedsUpgrade ? publishingNeedsUpgrade() : null;
+	}
+}
+
+function wpcomEnvironmentLabel( site: SyncSite ): string {
+	const environment =
+		site.isPressable &&
+		( site.environmentType === 'staging' || site.environmentType === 'development' )
+			? site.environmentType
+			: site.isStaging
+			? 'staging'
+			: 'production';
+	switch ( environment ) {
+		case 'staging':
+			return __( 'Staging' );
+		case 'development':
+			return __( 'Development' );
+		default:
+			return __( 'Production' );
+	}
+}
+
+export function wpcomPushWarning( site: SyncSite, local: { multisite?: boolean } ): string | null {
+	return local.multisite && ! site.isPressable
+		? __( 'WordPress.com does not support multisite. Publishing this network may cause problems.' )
+		: null;
+}
+
+export function describeWpcomSite( site: SyncSite ) {
+	return {
+		details: [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ],
+		links: wpcomSiteLinks( site ),
+	};
+}
+
+function wpcomSiteLinks( site: SyncSite ): SiteLink[] {
+	if ( ! URL.canParse( '/wp-admin/', site.url ) ) return [];
+	const hostname = new URL( site.url ).hostname;
+	const admin: SiteLink = {
+		role: 'admin',
+		title: __( 'WP admin' ),
+		url: new URL( '/wp-admin/', site.url ).href,
+	};
+	if ( site.isPressable ) return [ admin ];
+	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
+	return [
+		{ role: 'dashboard', title: __( 'Manage on WordPress.com' ), url: dashboard },
+		{ role: 'domains', title: __( 'Manage domains' ), url: `${ dashboard }/domains` },
+		{
+			role: 'more',
+			title: __( 'View backups' ),
+			url: `https://wordpress.com/backup/${ hostname }`,
+		},
+		{
+			role: 'visibility',
+			title: __( 'Manage on WordPress.com' ),
+			url: `https://wordpress.com/settings/general/${ site.id }`,
+		},
+		admin,
+	];
+}

@@ -4,12 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync, backup } from 'node:sqlite';
 import { Readable } from 'node:stream';
-import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
+import { openBlueprint } from '@studio/blueprints/node';
 import { extractZip } from '@studio/common/lib/extract-zip';
-import {
-	extractBlueprintBundle,
-	cleanupBlueprintTempDir,
-} from '@studio/common/sites/blueprint-extract';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { BlueprintExporter } from '../blueprint-exporter';
@@ -87,11 +83,13 @@ afterEach( () => {
 
 it( 'bundles a valid Blueprint with a consistent SQLite snapshot and custom files', async () => {
 	await new BlueprintExporter( options ).export();
-	const bundle = await extractBlueprintBundle( options.backupFile );
-	try {
-		expect( ( await validateBlueprintData( bundle.blueprintJson ) ).valid ).toBe( true );
+	await using bundle = await openBlueprint( options.backupFile );
+	{
+		expect( bundle.blueprint.steps ).toEqual( [
+			expect.objectContaining( { step: 'importWordPressFiles' } ),
+		] );
 		const snapshotDir = path.join( root, 'snapshot' );
-		await extractZip( path.join( bundle.tempDir, 'site.zip' ), snapshotDir );
+		await extractZip( path.join( path.dirname( bundle.path ), 'site.zip' ), snapshotDir );
 		const snapshot = new DatabaseSync( path.join( snapshotDir, 'wp-content/database/.ht.sqlite' ) );
 		try {
 			expect( snapshot.prepare( 'SELECT value FROM example' ).get()?.value ).toBe(
@@ -115,8 +113,6 @@ it( 'bundles a valid Blueprint with a consistent SQLite snapshot and custom file
 		expect( fs.existsSync( path.join( snapshotDir, 'wp-content/database/.ht.sqlite-wal' ) ) ).toBe(
 			false
 		);
-	} finally {
-		await cleanupBlueprintTempDir( bundle.tempDir );
 	}
 } );
 

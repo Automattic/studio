@@ -56,9 +56,6 @@ export function useBlueprintUpload( {
 			try {
 				const blueprint = await loadBlueprintFile( file, connector );
 				if ( request !== requestRef.current ) {
-					if ( blueprint.tempDir ) {
-						await connector.cleanupBlueprintTempDir( blueprint.tempDir ).catch( () => undefined );
-					}
 					return;
 				}
 				onSelect( blueprint );

@@ -7,7 +7,7 @@ import {
 	DesignSystemIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	MailIcon,
+	PaperPlaneIcon,
 	WordPressIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
@@ -20,14 +20,19 @@ import type { ComponentType, FormEvent, ReactNode } from 'react';
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
 		const parsedUrl = new URL( url );
-		const parsedBaseUrl = new URL( baseUrl );
-		if ( parsedUrl.origin !== parsedBaseUrl.origin ) {
+		if ( parsedUrl.origin !== new URL( baseUrl ).origin ) {
 			return null;
 		}
 		return `${ parsedUrl.pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
 	} catch {
 		return null;
 	}
+}
+
+function resolveSitePath( path: string, siteUrl: string ): URL {
+	return new URL(
+		`${ siteUrl.replace( /\/$/, '' ) }${ path.startsWith( '/' ) ? path : `/${ path }` }`
+	);
 }
 
 export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
@@ -87,7 +92,7 @@ export function getRealmNavigationPath( path: string, siteUrl: string ): string 
 		return path;
 	}
 	try {
-		const redirectTo = new URL( path, siteUrl ).toString();
+		const redirectTo = resolveSitePath( path, siteUrl ).toString();
 		return `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }`;
 	} catch {
 		return path;
@@ -218,7 +223,9 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 		return __( 'Design System' );
 	}
 	try {
-		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
+		return resolveSitePath( path, siteUrl )
+			.toString()
+			.replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
 	} catch {
 		return `${ siteUrl }${ path }`;
 	}
@@ -243,7 +250,7 @@ function AddressAction( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant="muted-ghost"
+						variant="ghost"
 						size="icon-2xs"
 						className={ styles.action }
 						aria-label={ label }
@@ -367,7 +374,7 @@ export function PreviewAddressBar( {
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
-		email: MailIcon,
+		email: PaperPlaneIcon,
 		design: DesignSystemIcon,
 	};
 	const recentGroups: CommandGroup[] = [

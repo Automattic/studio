@@ -17,6 +17,11 @@ test.describe( 'Localization', () => {
 		await settings.closeWithEscape();
 	};
 
+	const expectAddSiteLabel = async ( name: string ) => {
+		await new Sidebar( session.mainWindow ).ensureOpen();
+		await expect( session.mainWindow.getByRole( 'button', { name, exact: true } ) ).toBeVisible();
+	};
+
 	test.beforeAll( async () => {
 		await launchWithSite( session );
 	} );
@@ -35,15 +40,15 @@ test.describe( 'Localization', () => {
 	test( 'applies a language, right-to-left included, and keeps it across a restart', async () => {
 		await changeLanguage( 'العربية', 'ar' );
 		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'rtl' );
-		await expect( session.mainWindow.getByRole( 'button', { name: 'إضافة موقع' } ) ).toBeVisible();
+		await expectAddSiteLabel( 'إضافة موقع' );
 
 		await session.restart();
 		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'rtl' );
-		await expect( session.mainWindow.getByRole( 'button', { name: 'إضافة موقع' } ) ).toBeVisible();
+		await expectAddSiteLabel( 'إضافة موقع' );
 
 		await changeLanguage( 'English', 'en' );
 		await expect( session.mainWindow.locator( 'html' ) ).toHaveAttribute( 'dir', 'ltr' );
-		await expect( session.mainWindow.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
+		await expectAddSiteLabel( 'Add site' );
 	} );
 
 	test( 'created site language matches Studio language', async ( { page } ) => {

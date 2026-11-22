@@ -1,6 +1,4 @@
-import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
-
-export { getSignUpUrl } from '@studio/common/lib/oauth';
+import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/auth-token';
 
 export async function getAuthenticationToken(): Promise< StoredAuthToken | null > {
 	return readAuthToken();

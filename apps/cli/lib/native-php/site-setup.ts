@@ -7,7 +7,7 @@ import {
 	DEFAULT_ADMIN_USERNAME,
 	decodeAdminPassword,
 } from '@studio/common/lib/passwords';
-import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
@@ -57,19 +57,11 @@ $transformer->to_file( $wp_config_path );
 		await fs.promises.copyFile( wpConfigSamplePath, wpConfigPath );
 	}
 
-	const enableDebugLog = config?.enableDebugLog ?? false;
-	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
 	const shouldSetDefaultDatabaseName =
 		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
 	const constants = {
 		...( shouldSetDefaultDatabaseName ? DEFAULT_WP_CONFIG_CONSTANTS : {} ),
-		WP_DEBUG: enableDebugLog || enableDebugDisplay,
-		WP_DEBUG_LOG: enableDebugLog,
-		WP_DEBUG_DISPLAY: enableDebugDisplay,
-		// SCRIPT_DEBUG is independent of WP_DEBUG in WordPress, so it must not
-		// feed the WP_DEBUG expression above.
-		SCRIPT_DEBUG: config?.enableScriptDebug ?? false,
-		WP_ENVIRONMENT_TYPE: getWpEnvironmentType( config ?? {} ),
+		...getSettingsWpConfigConstants( config ?? {} ),
 	};
 	await ensurePhpBinaryAvailable( phpVersion );
 
@@ -189,9 +181,12 @@ export async function installWordPress(
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal,
 	finishInstallPath: string,
-	logToConsole: Logger
+	logToConsole: Logger,
+	skipInstallationCheck = false
 ): Promise< boolean > {
-	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
+	const alreadyInstalled =
+		! skipInstallationCheck &&
+		( await isWordPressInstalled( config.sitePath, phpVersion, signal ) );
 	if ( alreadyInstalled ) {
 		logToConsole( `WordPress already installed; skipping installer` );
 		return false;

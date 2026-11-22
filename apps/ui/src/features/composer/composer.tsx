@@ -1,8 +1,8 @@
-import { aiModelSupportsImages } from '@studio/agent/protocol/models';
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
+import { type ThinkingSetting } from '@studio/agent/protocol/thinking';
+import { findAiModel, getAiModels, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { GlobeIcon } from 'lucide-react';
 import {
 	forwardRef,
 	useCallback,
@@ -14,6 +14,7 @@ import {
 	type MouseEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -40,7 +41,7 @@ import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
 import { useSubmitFeedback } from '@/lib/hooks';
-import { PlusIcon, StartSiteIcon } from '@/lib/icons';
+import { GlobeIcon, PlusIcon, PlayIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
 	DropOverlay,
@@ -54,7 +55,6 @@ import {
 import styles from './style.module.css';
 import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
 import type { ComposerAttachment, ComposerSendAttachments } from '@/data/use-composer-attachments';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
  * Invisible structural placeholder that mirrors Composer's outer DOM, so the
@@ -88,7 +88,7 @@ interface ComposerProps {
 	onInterrupt: () => Promise< void >;
 	sessionId?: string;
 	draftKey?: string;
-	provider?: AiProviderId;
+	provider?: ProviderId;
 	entries?: SessionEntry[];
 	// The local site the session belongs to; a confirmed family switch opens
 	// the fresh session under it.
@@ -117,7 +117,9 @@ interface ComposerProps {
 	dropTarget?: HTMLElement | null;
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
-	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
+	onModelChange?: ( model: AiModelId, provider: ProviderId ) => void;
+	thinking?: ThinkingSetting;
+	onThinkingChange?: ( thinking: ThinkingSetting ) => void;
 	// Why the chat can't send right now; a send attempt shakes it.
 	notice?: ComposerNotice;
 }
@@ -162,6 +164,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		dropTarget,
 		annotationSiteId,
 		onModelChange,
+		thinking,
+		onThinkingChange,
 		notice: blockingNotice,
 	},
 	ref
@@ -261,7 +265,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} else if ( name === 'model' ) {
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {
-				openSettings( 'ai' );
+				openSettings( 'providers', undefined, 'ai-providers' );
 			} else if ( name === 'local' ) {
 				onEnvironmentChange?.( name );
 			} else if ( name === 'panel' ) {
@@ -305,6 +309,14 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		textareaRef,
 	} );
 	const hasAttachments = attachments.length > 0;
+	// The account's models say whether one picked from a catalog reads images.
+	const { data: aiSettings } = useAiSettings();
+	const account = aiSettings?.accounts[ sessionProvider ];
+	const supportsImages = (
+		getAiModels( sessionProvider, account?.connected ? account : undefined ).find(
+			( { id } ) => id === model
+		) ?? findAiModel( model )?.model
+	)?.supportsImages;
 	const currentValidationError =
 		validationError?.value === value &&
 		validationError.model === model &&
@@ -386,7 +398,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			return;
 		}
-		if ( submission.options.images?.length && ! aiModelSupportsImages( model ) ) {
+		if ( submission.options.images?.length && supportsImages === false ) {
 			setValidationError( {
 				message: __( 'Choose a model that supports images before sending these attachments' ),
 				value,
@@ -414,6 +426,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			setValue( ( current ) => current || value );
 			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
+			shake();
 			return;
 		} finally {
 			setSending( false );
@@ -438,6 +451,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments,
 		annotationSiteId,
 		model,
+		supportsImages,
 		stagedNotes,
 	] );
 
@@ -472,7 +486,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		? __( 'Queue message' )
 		: __( 'Send message' );
 	const addButton = (
-		<Button variant="ghost" size="icon" shape="round" aria-label={ __( 'Add' ) }>
+		<Button variant="ghost" size="icon" className={ styles.edgeAction } aria-label={ __( 'Add' ) }>
 			<PlusIcon />
 		</Button>
 	);
@@ -582,7 +596,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							<Popover.Trigger render={ addButton } />
 							{ autoStartOn ? (
 								<ModeChip
-									icon={ StartSiteIcon }
+									icon={ PlayIcon }
 									label={ __( 'Auto-start' ) }
 									onRemove={ () => setAutoStart( false ) }
 								/>
@@ -616,6 +630,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									disabled={ busy }
 									anchor={ rootNode }
 									onChange={ changeModel }
+									thinking={ thinking }
+									onThinkingChange={ onThinkingChange }
 									onAddCredits={ openAddCredits }
 								/>
 							) : null }

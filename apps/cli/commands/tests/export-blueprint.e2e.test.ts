@@ -3,17 +3,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import {
-	extractBlueprintBundle,
-	cleanupBlueprintTempDir,
-} from '@studio/common/sites/blueprint-extract';
+import { openBlueprint } from '@studio/blueprints/node';
 import { buildSiteCreateArgs } from '@studio/common/sites/create';
 import { afterEach, describe, expect, it } from 'vitest';
+import { getWordPressVersionFromInstallation } from 'cli/lib/dependency-management/wordpress';
 import {
 	autoLoginCookie,
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -66,18 +64,10 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'Blueprint snapshot export', () =
 				'--skip-browser'
 			);
 			if ( ! running ) {
-				await wp(
-					source,
-					'config',
-					'create',
-					'--dbname=wordpress',
-					'--dbuser=root',
-					'--dbprefix=custom_',
-					'--skip-check'
-				);
+				await wp( source, 'config', 'set', 'table_prefix', 'custom_', '--type=variable' );
 			}
 			await cli( 'site', 'start', '--path', source, '--skip-browser' );
-			const sourceSite = readCliConfig( env ).sites.find( ( site ) => site.path === source )!;
+			const sourceSite = readConfigFile( env ).sites.find( ( site ) => site.path === source )!;
 			const sourceUrl = `http://localhost:${ sourceSite.port }`;
 			fs.mkdirSync( path.join( source, 'wp-content/uploads' ), { recursive: true } );
 			fs.writeFileSync( path.join( source, 'wp-content/uploads/example.txt' ), 'Blueprint media' );
@@ -124,9 +114,9 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'Blueprint snapshot export', () =
 			expect( fs.readFileSync( path.join( source, 'wp-config.php' ), 'utf8' ) ).toBe(
 				originalConfig
 			);
-			const bundle = await extractBlueprintBundle( archive );
-			try {
-				expect( bundle.blueprintJson ).toMatchObject( {
+			await using bundle = await openBlueprint( archive );
+			{
+				expect( bundle.blueprint ).toMatchObject( {
 					meta: { title: 'Blueprint Source' },
 					steps: [
 						{
@@ -135,21 +125,44 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'Blueprint snapshot export', () =
 						},
 					],
 				} );
-				bundle.blueprintJson.steps = [
+				const snapshotWpVersion = bundle.blueprint.preferredVersions?.wp;
+				if ( typeof snapshotWpVersion !== 'string' || ! snapshotWpVersion ) {
+					throw new Error( 'The export did not record the WordPress version.' );
+				}
+				const versionCache = path.join( serverFiles, 'wordpress-versions', snapshotWpVersion );
+				if ( ! fs.existsSync( versionCache ) ) {
+					fs.mkdirSync( versionCache, { recursive: true } );
+					for ( const name of fs.readdirSync( source ) ) {
+						if (
+							name === 'wp-admin' ||
+							name === 'wp-includes' ||
+							( /^(?:wp-.*|index|xmlrpc)\.php$/.test( name ) && name !== 'wp-config.php' )
+						) {
+							fs.cpSync( path.join( source, name ), path.join( versionCache, name ), {
+								recursive: true,
+							} );
+						}
+					}
+					fs.cpSync(
+						path.join( serverFiles, 'wordpress-versions/latest/wp-content' ),
+						path.join( versionCache, 'wp-content' ),
+						{ recursive: true }
+					);
+				}
+				bundle.blueprint.steps = [
 					{
 						step: 'runPHP',
 						code: "<?php file_put_contents('/wordpress/before-snapshot.txt', 'Before snapshot');",
 					},
-					...( bundle.blueprintJson.steps ?? [] ),
+					...( bundle.blueprint.steps ?? [] ),
 					{ step: 'setSiteOptions', options: { blogdescription: 'After snapshot' } },
 				];
-				fs.writeFileSync( bundle.blueprintJsonPath, JSON.stringify( bundle.blueprintJson ) );
+				fs.writeFileSync( bundle.path, JSON.stringify( bundle.blueprint ) );
 				const request = buildSiteCreateArgs( {
 					name: 'From Blueprint',
 					path: destination,
-					wpVersion: bundle.blueprintJson.preferredVersions?.wp || undefined,
-					blueprint: bundle.blueprintJson,
-					originalBlueprintPath: bundle.blueprintJsonPath,
+					wpVersion: bundle.blueprint.preferredVersions?.wp || undefined,
+					blueprint: bundle.path,
 					noStart: true,
 				} );
 				try {
@@ -157,12 +170,14 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'Blueprint snapshot export', () =
 				} finally {
 					request.cleanup();
 				}
-			} finally {
-				await cleanupBlueprintTempDir( bundle.tempDir );
 			}
-			const destinationSite = readCliConfig( env ).sites.find(
+			const destinationSite = readConfigFile( env ).sites.find(
 				( site ) => site.path === destination
 			)!;
+			expect( await getWordPressVersionFromInstallation( destination ) ).toBe(
+				bundle.blueprint.preferredVersions?.wp
+			);
+			expect( destinationSite.phpVersion ).toBe( sourceSite.phpVersion );
 			const destinationUrl = `http://localhost:${ destinationSite.port }`;
 			const restoredDatabase = new DatabaseSync(
 				path.join( destination, 'wp-content/database/.ht.sqlite' )

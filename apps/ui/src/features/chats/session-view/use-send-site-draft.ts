@@ -8,7 +8,7 @@ import { primeSessionQueryData, SESSIONS_QUERY_KEY } from '@/data/queries/use-se
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import type { SendMessageOptions } from '@/data/agent-runs/store';
 import type { AiModelId, LoadedAiSession } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ProviderId } from '@studio/providers';
 
 export function useSendSiteDraft( siteId: string | undefined ) {
 	const connector = useConnector();
@@ -20,7 +20,7 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 		async (
 			prompt: string,
 			options: SendMessageOptions | undefined,
-			provider: AiProviderId,
+			provider: ProviderId,
 			model: AiModelId
 		) => {
 			if ( ! siteId ) return;
@@ -32,6 +32,9 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 					const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
 					update( { sessionId } );
 					await connector.setSessionProvider( sessionId, provider, model );
+					if ( draft.thinking ) {
+						await connector.setSessionThinking( sessionId, model, draft.thinking );
+					}
 					await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
 					session = await connector.getSession( sessionId );
 					queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], session );
@@ -62,6 +65,7 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 			connector,
 			draft.activeEnvironment,
 			draft.sessionId,
+			draft.thinking,
 			queryClient,
 			router,
 			siteId,

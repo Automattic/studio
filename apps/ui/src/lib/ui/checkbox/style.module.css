@@ -24,7 +24,8 @@
 		content: '';
 	}
 
-	.checkbox[data-checked] {
+	.checkbox[data-checked],
+	.checkbox[data-indeterminate] {
 		border-color: var( --primary );
 		background-color: var( --primary );
 		color: var( --primary-foreground );

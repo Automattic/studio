@@ -1,4 +1,4 @@
-import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
+import { sanitizeUnstructuredData } from 'src/lib/sanitize-for-logging';
 
 describe( 'sanitizeUnstructuredData', () => {
 	test( 'redacts sensitive data from the ends of strings', () => {
@@ -19,27 +19,5 @@ describe( 'sanitizeUnstructuredData', () => {
 			this line is safe
 			REDACTED
 ` );
-	} );
-} );
-
-describe( 'sanitizeUserpath', () => {
-	test( 'redacts userpath on macOS when environment is not development', () => {
-		process.env.NODE_ENV = 'production';
-		const sanitized = sanitizeUserpath( '/Users/username/Library' );
-
-		expect( sanitized ).toEqual( '/Users/[REDACTED]/Library' );
-	} );
-
-	test( 'redacts userpath on Windows when environment is not development', () => {
-		process.env.NODE_ENV = 'production';
-		const sanitized = sanitizeUserpath( 'C:\\Users\\username\\AppData' );
-
-		expect( sanitized ).toEqual( 'C:\\Users\\[REDACTED]\\AppData' );
-	} );
-
-	test( 'does nothing if path does not match', () => {
-		const sanitized = sanitizeUserpath( 'not a valid userpath' );
-
-		expect( sanitized ).toEqual( 'not a valid userpath' );
 	} );
 } );

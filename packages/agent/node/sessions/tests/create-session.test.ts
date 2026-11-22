@@ -60,4 +60,32 @@ describe( 'createAiSession', () => {
 		const offContract = await loadAiSession( rootDirectory, other.id );
 		expect( offContract.summary.filePath ).toBe( renamed );
 	} );
+
+	it( 'migrates a legacy session file when listing', async () => {
+		rootDirectory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-create-session-' ) );
+		const filePath = path.join( rootDirectory, 'legacy.jsonl' );
+		const events = [
+			{
+				type: 'session.started',
+				timestamp: '2026-01-01T00:00:00.000Z',
+				version: 1,
+				sessionId: 'legacy-1',
+			},
+			{
+				type: 'user.message',
+				timestamp: '2026-01-01T00:00:01.000Z',
+				text: 'Build a bakery site',
+				source: 'prompt',
+			},
+		];
+		await fs.writeFile(
+			filePath,
+			events.map( ( event ) => JSON.stringify( event ) ).join( '\r\n' )
+		);
+
+		const [ summary ] = await listAiSessions( rootDirectory );
+		expect( summary ).toMatchObject( { id: 'legacy-1', firstPrompt: 'Build a bakery site' } );
+		const entries = await readPiFileEntries( filePath );
+		expect( entries[ 0 ] ).toMatchObject( { type: 'session', id: 'legacy-1' } );
+	} );
 } );

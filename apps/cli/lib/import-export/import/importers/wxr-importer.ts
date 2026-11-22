@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { __, sprintf } from '@wordpress/i18n';
-import { SiteData } from 'cli/lib/cli-config/core';
 import {
-	getBundledWordPressImporterPath,
+	getBundledWordPressImporterZipPath,
 	getBundledWxrImportScriptPath,
 } from 'cli/lib/dependency-management/paths';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -13,13 +13,14 @@ import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents } from '../types';
 import { ensureDir, Importer, ImporterResult } from './importer';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 // Files staged into the site for the import are placed under this directory (at the
 // site root) so they don't collide with real site content and are easy to clean up.
 const IMPORT_STAGING_SUBDIR = '.studio-wxr-import';
 
 // The wordpress-importer plugin ships in the CLI bundle (downloaded at build time, see
-// `getBundledWordPressImporterPath`) and is installed here so the WXR import works offline
+// `getBundledWordPressImporterZipPath`) and is installed here so the WXR import works offline
 // (no wordpress.org fetch). It is loaded directly by the PHP driver, so no `wp plugin
 // activate` step is required.
 const WORDPRESS_IMPORTER_PLUGIN_SLUG = 'wordpress-importer';
@@ -33,7 +34,7 @@ export class WxrImporter extends ImportExportEventEmitter implements Importer {
 		super();
 	}
 
-	async import( site: SiteData ): Promise< ImporterResult > {
+	async import( site: ConfigSite ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START, 'xml' );
 
 		const wxrFile = this.backup.wxrFiles?.[ 0 ];
@@ -123,11 +124,12 @@ export class WxrImporter extends ImportExportEventEmitter implements Importer {
 
 	// Install the vendored wordpress-importer plugin into the site's plugins directory
 	// so it's available offline. Overwrites any existing copy to keep it up to date.
-	protected async ensureWordPressImporterPlugin( site: SiteData ): Promise< void > {
+	protected async ensureWordPressImporterPlugin( site: ConfigSite ): Promise< void > {
 		const pluginsDir = path.join( site.path, 'wp-content', 'plugins' );
 		const destDir = path.join( pluginsDir, WORDPRESS_IMPORTER_PLUGIN_SLUG );
 		await ensureDir( pluginsDir );
 		await fs.promises.rm( destDir, { recursive: true, force: true } );
-		await fs.promises.cp( getBundledWordPressImporterPath(), destDir, { recursive: true } );
+		// The zip holds a single `wordpress-importer/` folder.
+		await extractZip( getBundledWordPressImporterZipPath(), pluginsDir );
 	}
 }

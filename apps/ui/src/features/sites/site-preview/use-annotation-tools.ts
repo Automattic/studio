@@ -111,10 +111,10 @@ export function useAnnotationTools( {
 				);
 				return;
 			}
-			const webview = viewportRef.current?.querySelector< WebviewTag >(
-				'webview[data-annotation-surface]'
+			const surface = viewportRef.current?.querySelector< HTMLElement >(
+				'[data-annotation-surface]'
 			);
-			if ( ! webview ) return;
+			if ( ! surface ) return;
 			const attempt = generation.current;
 			capturing.current = true;
 			setCapturePending( true );
@@ -122,12 +122,12 @@ export function useAnnotationTools( {
 			setAnnotationsPreparing( siteId, true );
 			try {
 				const image = await connector.captureAnnotationRegion( {
-					guestId: getWebviewContentsId( webview ),
+					guestId: getWebviewContentsId( surface as WebviewTag ),
 					selection,
 				} );
 				if ( generation.current !== attempt || draftRef.current?.id !== selection.id ) return;
 				validateStudioChatImages( [ ...otherImages, image ] );
-				const box = webview.getBoundingClientRect();
+				const box = surface.getBoundingClientRect();
 				const scaleX = box.width / selection.target.viewport.width;
 				const scaleY = box.height / selection.target.viewport.height;
 				setAnnotationsPreparing( siteId, false );

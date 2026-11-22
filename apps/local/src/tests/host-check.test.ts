@@ -12,6 +12,7 @@ beforeAll( async () => {
 		sessionsRoot: path.join( os.tmpdir(), 'studio-test-sessions' ),
 		sitesRoot: path.join( os.tmpdir(), 'studio-test-sites' ),
 		port: 0,
+		version: '2.3.1',
 	} );
 } );
 
@@ -39,4 +40,12 @@ function statusFor( hostHeader: string ): Promise< number | undefined > {
 it( 'only answers requests addressed to a local name', async () => {
 	expect( await statusFor( `localhost:${ server.port }` ) ).toBe( 200 );
 	expect( await statusFor( `rebound.example:${ server.port }` ) ).toBe( 403 );
+} );
+
+it( 'advertises Blueprint snapshot support with its version', async () => {
+	const response = await fetch( `http://127.0.0.1:${ server.port }/api/version` );
+	expect( await response.json() ).toMatchObject( {
+		version: '2.3.1',
+		features: { blueprintSnapshots: true },
+	} );
 } );

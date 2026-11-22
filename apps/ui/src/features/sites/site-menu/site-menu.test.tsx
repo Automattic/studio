@@ -6,11 +6,11 @@ import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteMenu } from './index';
 import type { SyncSite } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { AiProviderId } from '@studio/providers';
 
 const DATABASE_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 const autoLogin = ( path: string ) =>
@@ -54,12 +54,12 @@ function setup( {
 	const connector = createFakeConnector(
 		{ sites, user: connections || providerConnection === 'wpcom' ? TEST_USER : null },
 		{
-			getAiSettings: async () => ( {
-				provider: providerConnection ?? 'wpcom',
-				hasAnthropicApiKey: providerConnection === 'anthropic-api-key',
-				anthropicApiKeyPreview: null,
-			} ),
-			getConnectedWpcomSites: async () => connections ?? [],
+			getAiSettings: async () =>
+				aiSettings( providerConnection ?? 'wpcom', [
+					...( connections || providerConnection === 'wpcom' ? [ 'wpcom' as const ] : [] ),
+					...( providerConnection === 'anthropic' ? [ 'anthropic' as const ] : [] ),
+				] ),
+			getRemoteSites: async () => connections ?? [],
 			getSiteDesign: async () =>
 				designAvailable
 					? {
@@ -73,11 +73,8 @@ function setup( {
 	const site = busy
 		? { ...sites[ 0 ], operation: { pid: 1, kind: 'settings' as const } }
 		: sites[ 0 ];
-	const requests = { share: vi.fn(), publish: vi.fn() };
-	unsubscribers.push(
-		subscribeHeaderPanelRequest( 'selected', 'share', requests.share ),
-		subscribeHeaderPanelRequest( 'selected', 'publish', requests.publish )
-	);
+	const requests = { publish: vi.fn() };
+	unsubscribers.push( subscribeHeaderPanelRequest( 'selected', 'publish', requests.publish ) );
 	const view = renderWithProviders(
 		<SessionUIProvider>
 			{ contextMenu ? (
@@ -104,8 +101,8 @@ function setup( {
 describe( 'Stop other sites', () => {
 	it.each( [
 		[ false, false, 'wpcom' ],
-		[ false, true, 'anthropic-api-key' ],
-		[ true, false, 'anthropic-api-key' ],
+		[ false, true, 'anthropic' ],
+		[ true, false, 'anthropic' ],
 		[ true, true, 'wpcom' ],
 	] as const )(
 		'opens a new chat from the first item (context menu: %s, running: %s, provider: %s)',
@@ -118,6 +115,7 @@ describe( 'Stop other sites', () => {
 			await open();
 			const newChat = await screen.findByRole( 'menuitem', { name: 'New chat' } );
 			expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toBe( newChat );
+			expect( newChat.nextElementSibling ).toHaveRole( 'separator' );
 			fireEvent.click( newChat );
 			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/selected/new' ) );
 			expect( connector.createSession ).not.toHaveBeenCalled();
@@ -126,7 +124,7 @@ describe( 'Stop other sites', () => {
 	);
 
 	it.each( [ false, true ] )(
-		'hides new chat without a connected provider (%s)',
+		'hides new chat and its separator without a connected provider (%s)',
 		async ( contextMenu ) => {
 			const { open, queryClient } = setup( { contextMenu } );
 			await open();
@@ -135,7 +133,9 @@ describe( 'Stop other sites', () => {
 				expect( queryClient.getQueryState( [ 'ai-settings' ] )?.status ).toBe( 'success' );
 			} );
 			expect( screen.queryByRole( 'menuitem', { name: 'New chat' } ) ).not.toBeInTheDocument();
-			expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toHaveTextContent( 'Stop' );
+			const firstItem = screen.getAllByRole( 'menuitem' )[ 0 ];
+			expect( firstItem ).toHaveTextContent( 'Stop' );
+			expect( firstItem.previousElementSibling ).toBeNull();
 		}
 	);
 
@@ -160,37 +160,31 @@ describe( 'Stop other sites', () => {
 		}
 	);
 
-	it.each( [ false, true ] )(
-		'opens sharing and sync from either menu (%s)',
-		async ( contextMenu ) => {
-			for ( const action of [ 'Share', 'Publish' ] ) {
-				const { open, requests } = setup( { contextMenu } );
-				await open();
-				const share = await screen.findByRole( 'menuitem', { name: 'Share' } );
-				const sync = screen.getByRole( 'menuitem', { name: 'Publish' } );
-				const items = screen.getAllByRole( 'menuitem' );
-				expect( items[ items.indexOf( share ) + 1 ] ).toBe( sync );
-				expect( items[ items.indexOf( share ) - 1 ] ).toHaveTextContent( 'Settings' );
-				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Export' );
-				fireEvent.click( action === 'Share' ? share : sync );
-				if ( action === 'Share' ) {
-					fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
-					expect( requests.share ).toHaveBeenCalledExactlyOnceWith( {
-						panel: 'share',
-						siteId: 'selected',
-					} );
-				} else {
-					expect( requests.publish ).toHaveBeenCalledExactlyOnceWith( {
-						panel: 'publish',
-						siteId: 'selected',
-						view: 'publish',
-					} );
-				}
-				cleanup();
-				unsubscribers.splice( 0 ).forEach( ( unsubscribe ) => unsubscribe() );
-			}
-		}
-	);
+	it.each( [
+		[ false, false ],
+		[ false, true ],
+		[ true, false ],
+		[ true, true ],
+	] )( 'opens Publish from either menu (context: %s, busy: %s)', async ( contextMenu, busy ) => {
+		const { open, requests, connector } = setup( { contextMenu, busy } );
+		await open();
+		const share = screen.getByRole( 'menuitem', { name: 'Share' } );
+		if ( busy ) expect( share ).toHaveAttribute( 'aria-disabled', 'true' );
+		else expect( share ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		const publish = await screen.findByRole( 'menuitem', { name: 'Publish' } );
+		expect( publish ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		const items = screen.getAllByRole( 'menuitem' );
+		expect( items[ items.indexOf( publish ) - 1 ] ).toHaveTextContent( 'Share' );
+		expect( items[ items.indexOf( publish ) + 1 ] ).toHaveTextContent( 'Export' );
+		fireEvent.click( publish );
+		expect( requests.publish ).toHaveBeenCalledExactlyOnceWith( {
+			panel: 'publish',
+			siteId: 'selected',
+			view: 'publish',
+		} );
+		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		expect( connector.pushSite ).not.toHaveBeenCalled();
+	} );
 
 	it( 'keeps the header and context menus identical', async () => {
 		const readMenu = () =>
@@ -216,7 +210,7 @@ describe( 'Stop other sites', () => {
 			const { open } = setup( {
 				contextMenu,
 				busy: true,
-				providerConnection: 'anthropic-api-key',
+				providerConnection: 'anthropic',
 			} );
 			await open();
 			expect( await screen.findByRole( 'menuitem', { name: 'New chat' } ) ).not.toHaveAttribute(

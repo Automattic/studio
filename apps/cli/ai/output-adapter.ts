@@ -1,12 +1,16 @@
-import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
+import {
+	DEFAULT_PROVIDER_ID,
+	getDefaultAiModel,
+	type AiModelId,
+	type ProviderId,
+} from '@studio/providers';
 import { emitEvent, type TurnCompletedStatus } from 'cli/ai/json-events';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { AskUserQuestion, SiteInfo } from '@studio/agent/node';
-import type { AiProviderId } from 'cli/ai/providers';
 
 export interface AiOutputAdapter {
-	currentProvider: AiProviderId;
+	currentProvider: ProviderId;
 	currentModel: AiModelId;
 	activeSite: SiteInfo | null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null;
@@ -38,8 +42,8 @@ export interface AiOutputAdapter {
 }
 
 export class JsonAdapter implements AiOutputAdapter {
-	currentProvider: AiProviderId = 'wpcom';
-	currentModel: AiModelId = DEFAULT_MODEL;
+	currentProvider: ProviderId = DEFAULT_PROVIDER_ID;
+	currentModel: AiModelId = getDefaultAiModel( DEFAULT_PROVIDER_ID );
 	activeSite: SiteInfo | null = null;
 	onSiteSelected: ( ( site: SiteInfo ) => void ) | null = null;
 	onInterrupt: ( () => void ) | null = null;

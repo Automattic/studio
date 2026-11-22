@@ -9,7 +9,7 @@
 // A failure makes `mail()` return false. The reason goes to stderr: stdout is the
 // sending process's own, such as WP-CLI's output.
 function studio_sendmail_fail( string $reason ): void {
-	fwrite( STDERR, "Studio could not save the email: $reason\n" );
+	fwrite( STDERR, "WordPress Studio could not save the email: $reason\n" );
 	exit( 1 );
 }
 

@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { exitOnCancel, reportSyncActivity } from '../sync-activity';
+import { exitOnCancel, onCancel, reportSyncActivity } from '../sync-activity';
 
-vi.mock( 'cli/lib/daemon-client' );
+// Not automocked: that loads the real module graph, whose `when-exit` re-sends the emitted SIGTERM
+// and, on Windows, kills the test worker.
+vi.mock( 'cli/lib/daemon-client', () => ( { emitCliEvent: vi.fn() } ) );
 
 describe( 'exitOnCancel', () => {
 	const existingListeners = process.listeners( 'SIGTERM' );
@@ -34,5 +36,34 @@ describe( 'exitOnCancel', () => {
 				data: { siteId: 'site-1', activity: { kind: 'cancelled', direction: 'push' } },
 			} );
 		}
+	} );
+
+	it( 'cleans up what a cancelled step would leave behind before exiting', async () => {
+		vi.mocked( emitCliEvent ).mockResolvedValue();
+		const exit = vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
+		const cleanup = vi.fn().mockResolvedValue( undefined );
+		const finished = vi.fn().mockResolvedValue( undefined );
+		exitOnCancel();
+		onCancel( cleanup );
+		onCancel( finished )();
+		await reportSyncActivity( 'site-1', {
+			kind: 'pending',
+			direction: 'push',
+			phase: 'creatingBackup',
+			provider: 'spacefast',
+		} );
+
+		process.emit( 'SIGTERM' );
+
+		await vi.waitFor( () => expect( exit ).toHaveBeenCalledTimes( 1 ) );
+		expect( cleanup ).toHaveBeenCalled();
+		expect( finished ).not.toHaveBeenCalled();
+		expect( emitCliEvent ).toHaveBeenLastCalledWith( {
+			event: 'sync-activity',
+			data: {
+				siteId: 'site-1',
+				activity: { kind: 'cancelled', direction: 'push', provider: 'spacefast' },
+			},
+		} );
 	} );
 } );

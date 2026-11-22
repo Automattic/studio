@@ -55,6 +55,12 @@ beforeEach( () => {
 } );
 
 describe( 'useSiteManagementActions', () => {
+	it( 'hides Blueprint export when the connected server cannot provide it', () => {
+		connector.capabilities.blueprintSnapshots = false;
+		const { result } = renderActions();
+		expect( result.current.map( ( action ) => action.id ) ).not.toContain( 'export-blueprint' );
+	} );
+
 	it( 'offers every action on an idle site', () => {
 		const { result } = renderActions();
 

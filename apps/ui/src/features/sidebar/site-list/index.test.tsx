@@ -129,6 +129,19 @@ describe( 'sidebar site list', () => {
 		} );
 	} );
 
+	it( 'opens Publish for a busy site selected from the sidebar menu', async () => {
+		const { connector, history } = await setup( {
+			sites: [ { ...mySite, operation: { pid: 1, kind: 'settings' } }, runningSite ],
+		} );
+		fireEvent.contextMenu( await siteButton( 'My site' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+		await waitFor( () => expect( history.location.pathname ).toContain( '/sites/one' ) );
+		const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+		expect( within( panel ).getByRole( 'button', { name: 'Create preview' } ) ).toBeDisabled();
+		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		expect( connector.pushSite ).not.toHaveBeenCalled();
+	} );
+
 	it.each( [ true, false ] )(
 		'opens a new chat for a site without chats and records the assistant panel (signed in: %s)',
 		async ( signedIn ) => {
@@ -258,20 +271,24 @@ describe( 'sidebar site list', () => {
 	it.each( [
 		[ { kind: 'pending', direction: 'import' }, 'Importing backup' ],
 		[ { kind: 'pending', direction: 'push', phase: 'uploading' }, 'Syncing live site' ],
+		[ { kind: 'pending', direction: 'pull' }, 'Syncing live site' ],
 	] as [ SyncActivity, string ][] )(
-		'shows %o activity on that site row only, before its name',
+		'shows %o in the affected site row’s trailing action',
 		async ( activity, label ) => {
-			const { connector } = await setup();
+			const { connector } = await setup( { path: '/sites/one' } );
 			await siteButton( 'My site' );
 			act( () => connector.emit( 'onSyncActivity', { siteId: 'two', activity } ) );
 			const row = await siteRow( 'Running site' );
-			const indicator = await within( row ).findByRole( 'status', { name: label } );
+			const indicator = await within( row ).findByRole( 'button', { name: label } );
+			expect( indicator ).toHaveAttribute( 'aria-busy', 'true' );
+			expect( indicator ).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( indicator.parentElement ).toHaveAttribute( 'data-show-on-hover', 'true' );
 			expect(
-				indicator.compareDocumentPosition( await siteButton( 'Running site' ) ) &
+				( await siteButton( 'Running site' ) ).compareDocumentPosition( indicator ) &
 					Node.DOCUMENT_POSITION_FOLLOWING
 			).toBeTruthy();
 			expect(
-				within( await siteRow( 'My site' ) ).queryByRole( 'status' )
+				within( await siteRow( 'My site' ) ).queryByRole( 'button', { name: label } )
 			).not.toBeInTheDocument();
 		}
 	);

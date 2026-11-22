@@ -1,0 +1,7 @@
+{
+	"$schema": "../schemas/persona.schema.json",
+	"name": "Daniel Ferreira",
+	"email": "daniel@wordpress.studio",
+	"id": 424202,
+	"avatar": "daniel-ferreira.jpg"
+}

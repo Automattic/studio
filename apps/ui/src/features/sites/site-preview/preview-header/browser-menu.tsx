@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { EllipsisVerticalIcon } from 'lucide-react';
+import { EllipsisVerticalIcon } from '@/lib/icons';
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import type { PreviewColorScheme } from '../preview-surface/webview';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';

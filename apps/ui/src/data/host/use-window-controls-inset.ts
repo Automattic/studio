@@ -1,4 +1,6 @@
+import { isRTL } from '@wordpress/i18n';
 import { createContext, useContext } from 'react';
+import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsSurface } from '@/data/host/use-window-controls-surface';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 
@@ -20,4 +22,18 @@ export function useWindowControlsInset( surface: 'content' | 'toolbar' ): number
 	const inset = inCorner && windowControls ? windowControls.controlsWidth : 0;
 	useWindowControlsSurface( inset > 0 ? surface : null );
 	return inset;
+}
+
+/**
+ * Width a top-bar control pinned to the inline end must leave for the window
+ * controls there: the Windows/Linux controls at the physical right in LTR, the
+ * macOS traffic lights at the physical left in RTL.
+ */
+export function useInlineEndControlsInset(): number {
+	const windowControls = useWindowControlsOverlay();
+	const trafficLightSpace = useTrafficLightSpace();
+	if ( isRTL() ) {
+		return trafficLightSpace.end ? 88 : 0;
+	}
+	return windowControls?.controlsWidth ?? 0;
 }

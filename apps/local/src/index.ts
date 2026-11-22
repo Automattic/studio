@@ -275,8 +275,7 @@ export interface LocalServerOptions {
 	// Limits the host set on sites and their storage (`studio serve` on a Studio Cloud plan),
 	// reported with the current counts at `/api/site-limits`.
 	siteLimits?: { sites?: number; runningSites?: number; storageGb?: number };
-	// Requested while an agent run is in progress, for a host that pauses idle servers: its
-	// public address for this server, so the request keeps the server awake.
+	// Requested while an agent run is in progress (see `createKeepAlive`).
 	keepAliveUrl?: string;
 }
 

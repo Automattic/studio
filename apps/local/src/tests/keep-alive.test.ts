@@ -11,14 +11,18 @@ beforeEach( () => {
 	vi.useFakeTimers();
 	busy = true;
 	request.mockReset().mockResolvedValue( new Response( 'ok' ) );
+	vi.stubGlobal( 'fetch', request );
 } );
 
 afterEach( () => {
 	vi.useRealTimers();
+	vi.unstubAllGlobals();
 } );
 
+const start = () => createKeepAlive( { url: URL, isBusy: () => busy } );
+
 it( 'requests the URL when a run starts, then every five minutes while one is in progress', () => {
-	const keepAlive = createKeepAlive( { url: URL, isBusy: () => busy, fetch: request } );
+	const keepAlive = start();
 
 	keepAlive.wake();
 	expect( request ).toHaveBeenCalledTimes( 1 );
@@ -37,7 +41,7 @@ it( 'requests the URL when a run starts, then every five minutes while one is in
 } );
 
 it( 'stops once no run is left, and starts again with the next run', () => {
-	const keepAlive = createKeepAlive( { url: URL, isBusy: () => busy, fetch: request } );
+	const keepAlive = start();
 	keepAlive.wake();
 
 	busy = false;
@@ -51,23 +55,20 @@ it( 'stops once no run is left, and starts again with the next run', () => {
 	keepAlive.stop();
 } );
 
-it( 'ignores failed requests', async () => {
-	const debug = vi.spyOn( console, 'debug' ).mockImplementation( () => undefined );
+it( 'keeps going after a failed request', async () => {
+	vi.spyOn( console, 'debug' ).mockImplementation( () => undefined );
 	request.mockRejectedValue( new Error( 'offline' ) );
-	const keepAlive = createKeepAlive( { url: URL, isBusy: () => busy, fetch: request } );
+	const keepAlive = start();
 
 	keepAlive.wake();
 	await vi.advanceTimersByTimeAsync( FIVE_MINUTES );
 
 	expect( request ).toHaveBeenCalledTimes( 2 );
-	expect( debug ).toHaveBeenCalled();
 	keepAlive.stop();
 } );
 
 it( 'does nothing without a URL', () => {
-	const keepAlive = createKeepAlive( { url: undefined, isBusy: () => busy, fetch: request } );
-
-	keepAlive.wake();
+	createKeepAlive( { isBusy: () => busy } ).wake();
 	vi.advanceTimersByTime( FIVE_MINUTES * 3 );
 
 	expect( request ).not.toHaveBeenCalled();

@@ -106,11 +106,13 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 	const snapshotEventListeners = new Set< ( event: SnapshotEvent ) => void >();
 	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
+	let lastRequestAt = 0;
 	const connectionRestoredListeners = new Set< () => void >();
 
 	function request( path: string, init?: RequestInit ): Promise< Response > {
 		const url = `${ base }${ path }`;
 		if ( remote ) {
+			lastRequestAt = Date.now();
 			return fetch( url, { ...init, credentials: 'include' } );
 		}
 		return init ? fetch( url, init ) : fetch( url );
@@ -227,18 +229,19 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
 				// wake it, right after. So the stream runs only while the page has focus (the site
 				// preview's frame counts), and reopening it refetches what changed meanwhile. The
-				// stream doesn't count as use, so a focused page also checks in every few minutes.
-				const isFocused = () => document.visibilityState === 'visible' && document.hasFocus();
+				// stream doesn't count as use either, so a focused page checks in when it has sent
+				// nothing for a while.
 				const checkIn = () => void request( '/health' ).catch( () => undefined );
 				const followFocus = () => {
-					if ( ! isFocused() ) {
+					if ( document.visibilityState !== 'visible' || ! document.hasFocus() ) {
 						eventSource?.close();
 					} else if ( eventSource?.readyState === EventSource.CLOSED ) {
 						openEvents( true );
 						checkIn();
+					} else if ( Date.now() - lastRequestAt >= CHECK_IN_INTERVAL_MS ) {
+						checkIn();
 					}
 				};
-				setInterval( () => isFocused() && checkIn(), CHECK_IN_INTERVAL_MS );
 				window.addEventListener( 'focus', followFocus );
 				// Focus moving into the preview's frame blurs the window but stays on the page.
 				window.addEventListener( 'blur', () => setTimeout( followFocus, 0 ) );

@@ -1,25 +1,20 @@
 const KEEP_ALIVE_INTERVAL_MS = 5 * 60_000;
 
-interface KeepAliveOptions {
-	url?: string;
-	isBusy: () => boolean;
-	fetch?: typeof fetch;
-}
-
 /**
- * Requests `url` while an agent run is in progress: once when `wake()` is called, as a run
- * starts, then every few minutes until no run is left. A host that pauses idle servers points
- * `url` at the server's own public address, so the request reaches it like any other and keeps
- * the server awake while the agent works. Without `url` it does nothing, and failures are ignored:
- * they never affect the run.
+ * Requests `url` as a run starts and every few minutes while one is in progress. A host that
+ * pauses idle servers passes this server's public address, so the request reaches the host like
+ * any other and counts as use. Failures never affect the run.
  */
-export function createKeepAlive( { url, isBusy, fetch: request = fetch }: KeepAliveOptions ) {
+export function createKeepAlive( { url, isBusy }: { url?: string; isBusy: () => boolean } ) {
+	if ( ! url ) {
+		return { wake() {}, stop() {} };
+	}
 	let timer: ReturnType< typeof setInterval > | undefined;
 
-	const send = ( target: string ) => {
-		request( target ).then(
+	const send = () => {
+		fetch( url ).then(
 			( response ) => void response.body?.cancel(),
-			( error: unknown ) => console.debug( `Keepalive request to ${ target } failed:`, error )
+			( error: unknown ) => console.debug( `Keepalive request to ${ url } failed:`, error )
 		);
 	};
 
@@ -30,11 +25,11 @@ export function createKeepAlive( { url, isBusy, fetch: request = fetch }: KeepAl
 
 	return {
 		wake() {
-			if ( ! url || timer ) {
+			if ( timer ) {
 				return;
 			}
-			send( url );
-			timer = setInterval( () => ( isBusy() ? send( url ) : stop() ), KEEP_ALIVE_INTERVAL_MS );
+			send();
+			timer = setInterval( () => ( isBusy() ? send() : stop() ), KEEP_ALIVE_INTERVAL_MS );
 			timer.unref();
 		},
 		stop,

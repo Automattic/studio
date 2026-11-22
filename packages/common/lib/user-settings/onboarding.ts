@@ -3,19 +3,19 @@ import { onboardingHintsSchema } from './user-preferences';
 
 /** Capture first-use eligibility before launch stats or welcome completion are written. */
 export async function initializeWalkthrough(): Promise< void > {
-	await updateConfig( ( config ) => {
-		const hints = onboardingHintsSchema.catch( {} ).parse( config.preferences.onboardingHints );
+	await updateConfig( ( { preferences, stats, sites, snapshots } ) => {
+		const hints = onboardingHintsSchema.catch( {} ).parse( preferences.onboardingHints );
 		if ( hints.walkthroughStep !== undefined ) return;
 		const usedBefore =
-			config.preferences.onboardingCompleted === true ||
-			Object.keys( config.stats.lastBump ).length > 0 ||
+			preferences.onboardingCompleted === true ||
+			Object.keys( stats.lastBump ).length > 0 ||
 			hints.migratedFromClassic === true ||
 			hints.tourCompletedVersion !== undefined ||
 			hints.tourDismissedVersion !== undefined ||
 			hints.whatsNewSeenVersion !== undefined ||
-			config.sites.length > 0 ||
-			config.snapshots.length > 0;
-		config.preferences.onboardingHints = {
+			sites.length > 0 ||
+			snapshots.length > 0;
+		preferences.onboardingHints = {
 			...hints,
 			walkthroughStep: usedBefore ? 'ineligible' : 'create',
 		};

@@ -134,14 +134,8 @@ export function useComposerNotice(
 		return {
 			message: formatAiAccessRequiredHeadline( quota.data ),
 			walkthroughReason: 'beta_access',
-			walkthroughTitle:
-				quota.data.costUsage > 0 ? __( 'Thanks for testing the beta' ) : __( 'Join the beta' ),
-			walkthroughDescription:
-				quota.data.costUsage > 0
-					? __( 'Access is limited for now. Apply again to keep going.' )
-					: __(
-							'WordPress.com AI is in limited beta. Apply for access to start building with it.'
-					  ),
+			walkthroughTitle: __( 'WordPress.com AI access' ),
+			walkthroughDescription: formatAiAccessRequiredHeadline( quota.data ),
 			action: {
 				label: __( 'Learn more' ),
 				onClick: () => void connector.openExternalUrl( STUDIO_CODE_DOCS_URL ),

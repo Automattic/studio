@@ -1,5 +1,6 @@
 export { LearnHowLink, LearnMoreLink } from './learn-more';
 export { OnboardingGuideProvider } from './onboarding-guide/use-onboarding-guide';
+export { useOrientationAutostart } from './onboarding-guide/use-orientation-autostart';
 export { Walkthrough } from './walkthrough';
 export { useOpenGettingStarted } from './use-open-getting-started';
 export { useWhatsNewAutostart } from './onboarding-guide/use-whats-new-autostart';

@@ -621,7 +621,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	} );
 
 	api.get( '/version', ( _req: Request, res: Response ) => {
-		res.json( { version: options.version ?? null } );
+		res.json( { version: options.version ?? null, features: { walkthroughEnrollment: true } } );
 	} );
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --

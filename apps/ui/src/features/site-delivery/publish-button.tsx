@@ -14,6 +14,7 @@ import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector, type SiteDetails, type Snapshot, SyncSite } from '@/data/core';
 import { useAiSettings, useSpacefastConnection } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import {
 	accountSitesQueryKey,
 	publishTargetQueryKey,
@@ -144,6 +145,7 @@ export function PublishButton( {
 		contentView.kind === 'details' ? contentView.previewSiteId : undefined
 	);
 	const user = useAuthUser();
+	const { data: hints } = useOnboardingHints();
 	const accounts = useAiSettings();
 	const { data: preferences } = useUserPreferences();
 	const openSettings = useOpenSettings();
@@ -1403,13 +1405,16 @@ export function PublishButton( {
 					resetClosedOptions();
 				} }
 			>
-				<Tooltip>
+				<Tooltip
+					disabled={ hints?.walkthroughStep === 'share' || hints?.walkthroughStep === 'publish' }
+				>
 					<TooltipTrigger
 						render={
 							<Popover.Trigger
 								render={
 									<Button
 										ref={ trigger }
+										data-walkthrough="publish"
 										className={ styles.publishTrigger }
 										variant={ variant }
 										size="sm"

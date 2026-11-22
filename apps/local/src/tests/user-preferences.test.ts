@@ -193,10 +193,11 @@ describe( 'PATCH /api/sites/:id/frontend-admin-bar', () => {
 	} );
 
 	it( 'rejects malformed preferences and unknown sites', async () => {
+		const before = await readConfig();
 		expect( ( await patchAdminBar( 'one', 'hide' ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'one', undefined ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'missing', true ) ).status ).toBe( 404 );
-		await expect( readConfig() ).resolves.toMatchObject( { preferences: {}, sites: [] } );
+		await expect( readConfig() ).resolves.toEqual( before );
 	} );
 } );
 
@@ -226,6 +227,11 @@ describe( 'POST /api/sites/sort-order', () => {
 } );
 
 describe( '/api/onboarding-hints', () => {
+	it( 'advertises support for first-run enrollment', async () => {
+		const version = await ( await fetch( `${ server.url }/api/version` ) ).json();
+		expect( version ).toMatchObject( { features: { walkthroughEnrollment: true } } );
+	} );
+
 	it( 'initializes fresh profiles and persists walkthrough progress alongside desktop hints', async () => {
 		const initial = await ( await fetch( `${ server.url }/api/onboarding-hints` ) ).json();
 		expect( initial ).toMatchObject( { walkthroughStep: 'create' } );

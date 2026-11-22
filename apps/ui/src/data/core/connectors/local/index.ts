@@ -216,13 +216,25 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		};
 	}
 
+	const capabilities: Connector[ 'capabilities' ] = {
+		nativeFolderPicker: false,
+		annotatePreview: false,
+		studioLogs: false,
+		localMachine: ! remote,
+		loopbackSignIn: ! remote,
+		walkthroughEnrollment: ! remote,
+	};
 	return {
 		async init() {
 			if ( remote ) {
-				const { version } = await api< { version: string | null } >( '/version' );
+				const { version, features } = await api< {
+					version: string | null;
+					features?: { walkthroughEnrollment?: boolean };
+				} >( '/version' );
 				if ( ! isSupportedServerVersion( version ) ) {
 					throw new UnsupportedServerError( version );
 				}
+				capabilities.walkthroughEnrollment = features?.walkthroughEnrollment === true;
 				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
 				// wake it, right after. So the stream runs only while the page has focus (the site
 				// preview's frame counts), and reopening it refetches what changed meanwhile.
@@ -246,13 +258,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		// Browser served by the local CLI: no native file dialogs, but the server
 		// runs on the user's machine so it can still open paths in OS apps. The
 		// preview is a cross-origin iframe, so the annotation inspector can't run.
-		capabilities: {
-			nativeFolderPicker: false,
-			annotatePreview: false,
-			studioLogs: false,
-			localMachine: ! remote,
-			loopbackSignIn: ! remote,
-		},
+		capabilities,
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
 		// (read from the shared auth token by the server). The app isn't gated on

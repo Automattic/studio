@@ -489,14 +489,9 @@ describe( 'first-time walkthrough', () => {
 			message: 'WordPress.com AI needs a payment method on file',
 		},
 		{
-			title: 'Join the beta',
+			title: 'WordPress.com AI access',
 			quota: { studioCodeAiHasAccess: false },
 			message: 'access',
-		},
-		{
-			title: 'Thanks for testing the beta',
-			quota: { studioCodeAiHasAccess: false, costUsage: 1 },
-			message: 'Apply again to keep going.',
 		},
 		{
 			title: 'Switch providers',

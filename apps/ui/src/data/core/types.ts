@@ -222,6 +222,8 @@ interface ConnectorCapabilities {
 	// editor, terminal) and use what needs it (custom domains, Xdebug). Studio Cloud's sites run
 	// natively on a machine somewhere else.
 	localMachine: boolean;
+	// The host enrolls fresh profiles in the interactive getting-started tour.
+	walkthroughEnrollment?: boolean;
 }
 
 export interface Connector {

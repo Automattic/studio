@@ -36,7 +36,11 @@ import {
 import { SiteWorkspace, SessionHeader } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
 import { pendingComposerFilesSlot } from '@/features/composer';
-import { useWhatsNewAutostart, useWhatsNewReplay } from '@/features/onboarding';
+import {
+	useOrientationAutostart,
+	useWhatsNewAutostart,
+	useWhatsNewReplay,
+} from '@/features/onboarding';
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
 import { PanelSplitFrame, type PanelSplitFramePanelProps } from '@/features/sites';
 import {
@@ -110,6 +114,7 @@ function DashboardLayout() {
 	const sessionSummary =
 		sessionData?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
 	// Per-release announcements behind Help ▸ What's New.
+	useOrientationAutostart( connector.capabilities.walkthroughEnrollment === false );
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();

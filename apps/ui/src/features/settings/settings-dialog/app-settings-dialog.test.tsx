@@ -1011,7 +1011,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 	} );
 
-	it( 'picks the image provider among those that generate images, or Automatic', async () => {
+	it( 'picks the image provider among those that generate images, or Auto', async () => {
 		let settings = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'gemini' ] );
 		const { connector } = await setup( {
 			section: 'providers',
@@ -1021,13 +1021,13 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			},
 		} );
 		const images = await screen.findByRole( 'combobox', { name: 'Default image provider' } );
-		await waitFor( () => expect( images ).toHaveTextContent( 'Automatic' ) );
+		await waitFor( () => expect( images ).toHaveTextContent( 'Auto' ) );
 
 		await choose( 'Default image provider', 'Google Gemini' );
 		await waitFor( () => expect( images ).toHaveTextContent( 'Google Gemini' ) );
 		expect( screen.queryByRole( 'option', { name: 'Anthropic' } ) ).not.toBeInTheDocument();
-		await choose( 'Default image provider', 'Automatic' );
-		await waitFor( () => expect( images ).toHaveTextContent( 'Automatic' ) );
+		await choose( 'Default image provider', 'Auto' );
+		await waitFor( () => expect( images ).toHaveTextContent( 'Auto' ) );
 		expect( vi.mocked( connector.setImageProvider ).mock.calls ).toEqual( [
 			[ 'gemini' ],
 			[ null ],

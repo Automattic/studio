@@ -108,7 +108,7 @@ save_cache "$LOCAL_NPM_CACHE" "$CACHEKEY"
 
 # Only trunk saves node_modules. npm checks the packages of its cache against the lockfile's hashes,
 # but nothing checks a restored node_modules, so a pull request must not write the copy that others use.
-if [ "$IS_WINDOWS" = true ] && [[ "${BUILDKITE_BRANCH:-}" =~ ^(trunk|cache-windows-node-modules)$ ]]; then
+if [ "$IS_WINDOWS" = true ] && [ "${BUILDKITE_BRANCH:-}" = trunk ]; then
   echo "--- :npm: Save node_modules cache if necessary"
   # `save_cache` archives one folder, so move each shard's part of the node_modules folders into its own
   # (a move is a rename, so it takes no time), without the links to the workspaces.

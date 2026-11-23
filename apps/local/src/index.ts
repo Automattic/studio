@@ -2004,9 +2004,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// All backed by the same @studio/common code the desktop uses. Reads the
 	// providers' configs from the config file (WordPress.com: `studio auth login`).
 	// WordPress.com site ids are numbers; other providers' are strings.
-	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): never {
+	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): string | number {
 		const { remoteSiteId } = req.params;
-		return ( provider === 'wpcom' ? Number( remoteSiteId ) : remoteSiteId ) as never;
+		return provider === 'wpcom' ? Number( remoteSiteId ) : remoteSiteId;
 	}
 
 	function readSitesProvider( req: Request, res: Response ): SitesProviderId | undefined {
@@ -2075,7 +2075,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				await connectPublishingSite( provider, req.params.id, req.body as never );
+				await connectPublishingSite( provider, req.params.id, req.body );
 				res.sendStatus( 204 );
 			}
 		} )

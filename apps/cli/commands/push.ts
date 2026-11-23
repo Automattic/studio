@@ -335,8 +335,8 @@ async function runPush(
 		try {
 			const result = await forgetRejectedConfig( provider, () =>
 				service.push(
-					config as never,
-					remoteSite as never,
+					config,
+					remoteSite,
 					content,
 					{ optionsToSync, specificSelectionPaths, launchAfterPush },
 					( { phase, progress } ) => {
@@ -376,7 +376,7 @@ async function runPush(
 		// can surface it without re-selecting from the full site list.
 		try {
 			if ( ! pushed.launchError ) {
-				await recordRemoteSitePublish( provider, site.id, remoteSite as never, localVersionId );
+				await recordRemoteSitePublish( provider, site.id, remoteSite, localVersionId );
 			}
 		} catch ( error ) {
 			throw toLoggerError( error, __( 'Failed to save connected site' ) );
@@ -502,7 +502,7 @@ async function resolveRemoteSite(
 	);
 	let remoteSites: RemoteSite[];
 	try {
-		remoteSites = await service.list( config as never );
+		remoteSites = await service.list( config );
 	} catch ( error ) {
 		throw toLoggerError( error, sprintf( __( 'Failed to load your %s sites' ), label ) );
 	}
@@ -542,7 +542,7 @@ async function resolveRemoteSite(
 	}
 	try {
 		return await forgetRejectedConfig( provider, () =>
-			service.create!( config as never, { name: site.name } )
+			service.create!( config, { name: site.name } )
 		);
 	} catch ( error ) {
 		throw toLoggerError( error, sprintf( __( 'Failed to create the %s site' ), label ) );

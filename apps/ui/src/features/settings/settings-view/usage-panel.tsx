@@ -7,6 +7,16 @@ import {
 	getAiCreditsMeterIntent,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
+import {
+	Progress,
+	Menu,
+	Field,
+	FieldDescription,
+	FieldTitle,
+	Button,
+	IconButton,
+} from '@studio/ds';
+import { CircleHelpIcon } from '@studio/ds/icons';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { EllipsisIcon } from 'lucide-react';
@@ -15,6 +25,8 @@ import { useConnector } from '@/data/core';
 import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useBilling } from '@/data/queries/use-billing';
+import { useSiteLimits } from '@/data/queries/use-site-limits';
 import {
 	useDeleteAllSnapshots,
 	useSnapshotUsage,
@@ -31,10 +43,9 @@ import {
 import { LearnMoreLink } from '@/features/onboarding';
 import { SigninNotice } from '@/features/settings/agentic-signin-banner';
 import { OfflineNotice } from '@/features/settings/offline-banner';
-import { CircleHelpIcon } from '@/lib/icons';
-import { Progress, Menu, Field, FieldDescription, FieldTitle, Button, IconButton } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
+import type { PlanPurchase, SiteLimit } from '@/data/core';
 import type { AiCreditsMeterIntent } from '@studio/common/lib/studio-assistant-quota';
 import type { ReactNode } from 'react';
 
@@ -392,6 +403,151 @@ export function PreviewSitesUsage() {
 	);
 }
 
+function planDescription( plan: PlanPurchase, date: string ): string {
+	if ( ! plan.autoRenew ) {
+		/* translators: %s: the date the plan ends, e.g. December 19, 2026. */
+		return sprintf( __( 'Ends on %s' ), date );
+	}
+	return plan.period === 'yearly'
+		? /* translators: %s: the date the plan renews, e.g. December 19, 2026. */
+		  sprintf( __( 'Billed yearly, renews on %s' ), date )
+		: /* translators: %s: the date the plan renews, e.g. December 19, 2026. */
+		  sprintf( __( 'Billed monthly, renews on %s' ), date );
+}
+
+// The plan and its receipts, shown where the connector has them (Studio Cloud).
+function PlanUsage() {
+	const connector = useConnector();
+	const locale = useUserLocale();
+	const { data: billing } = useBilling();
+	if ( ! billing ) {
+		return null;
+	}
+	const { plan, receipts } = billing;
+	const open = ( url: string ) => () => void connector.openExternalUrl( url );
+	return (
+		<>
+			{ plan ? (
+				<SettingsGroup title={ __( 'Plan' ) }>
+					<SettingsRow
+						settingId="plan"
+						title={ plan.name }
+						description={
+							plan.expiresAt
+								? planDescription( plan, formatQuotaResetDate( plan.expiresAt, locale ) )
+								: undefined
+						}
+					>
+						{ plan.renewUrl && ! plan.autoRenew ? (
+							<Button variant="accent" onClick={ open( plan.renewUrl ) }>
+								{ __( 'Renew' ) }
+							</Button>
+						) : null }
+						<Button onClick={ open( plan.manageUrl ) }>{ __( 'Manage' ) }</Button>
+					</SettingsRow>
+				</SettingsGroup>
+			) : null }
+			{ receipts.length ? (
+				<SettingsGroup title={ __( 'Receipts' ) }>
+					{ receipts.slice( 0, 5 ).map( ( receipt ) => (
+						<SettingsRow
+							key={ receipt.id }
+							title={ formatQuotaResetDate( receipt.date, locale ) }
+							description={ `${ receipt.amount } · ${ receipt.items.join( ', ' ) }` }
+						>
+							<Button variant="ghost" onClick={ open( receipt.url ) }>
+								{ __( 'View' ) }
+							</Button>
+						</SettingsRow>
+					) ) }
+				</SettingsGroup>
+			) : null }
+		</>
+	);
+}
+
+// The plan's limits on sites, shown where the connector has them (Studio Cloud).
+function SiteLimitsUsage() {
+	const locale = useUserLocale();
+	const { data: limits } = useSiteLimits();
+	if ( ! limits || ( ! limits.sites && ! limits.runningSites && ! limits.storage ) ) {
+		return null;
+	}
+	const gigabytes = ( bytes: number ) =>
+		new Intl.NumberFormat( locale, { maximumFractionDigits: 1 } ).format( bytes / 1024 ** 3 );
+	const meter = ( { used, limit }: SiteLimit ) => (
+		<UsageProgressBar
+			fraction={ clampQuotaFraction( used, limit ) }
+			intent={ used >= limit ? 'warning' : 'ok' }
+		/>
+	);
+	return (
+		<SettingsGroup title={ __( 'Sites' ) }>
+			{ limits.sites ? (
+				<MeterRow
+					settingId="site-limit"
+					label={ sprintf(
+						/* translators: 1: number of sites, 2: the most the plan allows */
+						_n( '%1$d of %2$d site', '%1$d of %2$d sites', limits.sites.limit ),
+						limits.sites.used,
+						limits.sites.limit
+					) }
+					detail={
+						limits.sites.used >= limits.sites.limit
+							? __( 'Delete a site to create a new one.' )
+							: undefined
+					}
+				>
+					{ meter( limits.sites ) }
+				</MeterRow>
+			) : null }
+			{ limits.runningSites ? (
+				<MeterRow
+					settingId="running-site-limit"
+					label={ sprintf(
+						/* translators: 1: number of running sites, 2: the most the plan allows at once */
+						_n(
+							'%1$d of %2$d site running at once',
+							'%1$d of %2$d sites running at once',
+							limits.runningSites.limit
+						),
+						limits.runningSites.used,
+						limits.runningSites.limit
+					) }
+					detail={
+						limits.runningSites.used >= limits.runningSites.limit
+							? __( 'Stop a site to start another.' )
+							: undefined
+					}
+				>
+					{ meter( limits.runningSites ) }
+				</MeterRow>
+			) : null }
+			{ limits.storage ? (
+				<MeterRow
+					settingId="storage-limit"
+					label={ sprintf(
+						/* translators: 1: storage used in GB, e.g. 1.2. 2: storage the plan includes in GB, e.g. 6 */
+						__( '%1$s GB of %2$s GB of storage used' ),
+						gigabytes( limits.storage.used ),
+						gigabytes( limits.storage.limit )
+					) }
+					detail={
+						limits.storage.used >= limits.storage.limit * 0.9
+							? __( 'Delete sites you no longer need to free up space.' )
+							: undefined
+					}
+				>
+					<UsageProgressBar
+						fraction={ clampQuotaFraction( limits.storage.used, limits.storage.limit ) }
+						intent={ limits.storage.used >= limits.storage.limit * 0.9 ? 'warning' : 'ok' }
+					/>
+				</MeterRow>
+			) : null }
+		</SettingsGroup>
+	);
+}
+
 export function UsagePanel() {
 	// Same signed-out/offline split the rest of the app banners use. Either way
 	// the figures can't be read or refreshed, so the meters go disabled rather
@@ -423,6 +579,8 @@ export function UsagePanel() {
 					<AiCreditsRows />
 				) }
 			</SettingsGroup>
+			<PlanUsage />
+			<SiteLimitsUsage />
 			<PreviewSitesUsage />
 		</div>
 	);

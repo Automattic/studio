@@ -1,7 +1,7 @@
+import { Button } from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
 import { __ } from '@wordpress/i18n';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { useOffline } from '@/lib/hooks';
-import { Button } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 
 // Shown while signed out: connecting goes through WordPress.com sign-up.

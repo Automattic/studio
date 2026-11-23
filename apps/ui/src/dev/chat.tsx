@@ -1,5 +1,5 @@
-import '@/lib/theme/tokens.css';
-import '@/lib/theme/base.css';
+import '@studio/ds/theme/tokens.css';
+import '@studio/ds/theme/base.css';
 import '@/index.css';
 import { useState } from 'react';
 import { Conversation } from '@/features/chats/session-view/conversation';

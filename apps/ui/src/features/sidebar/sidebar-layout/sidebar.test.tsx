@@ -76,6 +76,25 @@ describe( 'resizable sidebar', () => {
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '272' );
 	} );
 
+	it( 'keeps the closing toggle clickable while moving focus to the header', async () => {
+		await setup();
+		const closingToggle = toggle();
+		const sidebar = closingToggle.closest( 'aside' )!;
+		closingToggle.focus();
+		fireEvent.click( closingToggle );
+		const visualToggle = sidebar.querySelector< HTMLElement >( '[data-sidebar-toggle]' )!;
+
+		expect( visualToggle.closest( '[aria-hidden="true"]' ) ).not.toBeNull();
+		expect( visualToggle ).toHaveAttribute( 'tabindex', '-1' );
+		expect( visualToggle.closest( '[inert]' ) ).toBeNull();
+		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
+		expect( toggle() ).toHaveFocus();
+
+		fireEvent.click( visualToggle );
+		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
+		expect( handle() ).toBeInTheDocument();
+	} );
+
 	it( 'stays collapsed across restarts until the interface is reset', async () => {
 		const { unmount } = await setup();
 		fireEvent.click( toggle() );

@@ -45,9 +45,10 @@ const switcherClosed = () =>
 beforeEach( () => {
 	localStorage.clear();
 } );
-afterEach( () =>
-	Object.defineProperty( window, 'innerWidth', { configurable: true, value: originalWidth } )
-);
+afterEach( () => {
+	document.documentElement.style.removeProperty( '--motion-duration-layout' );
+	Object.defineProperty( window, 'innerWidth', { configurable: true, value: originalWidth } );
+} );
 
 describe( 'sidebar hover overlay', () => {
 	it( 'keeps the flyout open while toggling sites and closes when a chat opens', async () => {
@@ -89,9 +90,12 @@ describe( 'sidebar hover overlay', () => {
 	it( 'keeps the sidebar scroll position when the hovered toggle is clicked', async () => {
 		const { trigger, open } = await setup();
 		const sidebar = await open();
+		const flyout = sidebar.closest( '[role="dialog"]' )!;
 		const scrollport = sidebar.querySelector< HTMLElement >( `.${ styles.sidebarScroll }` )!;
 		scrollport.scrollTop = 120;
+		document.documentElement.style.setProperty( '--motion-duration-layout', '320ms' );
 		fireEvent.click( trigger );
+		expect( flyout ).not.toBeInTheDocument();
 		expect(
 			await screen.findByRole( 'separator', { name: 'Resize sidebar' } )
 		).toBeInTheDocument();

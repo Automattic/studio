@@ -1,6 +1,6 @@
+import { IconButton } from '@studio/ds';
+import { FullscreenIcon, SidebarIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { FullscreenIcon, SidebarIcon } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function PanelLayoutControls( {
@@ -25,6 +25,7 @@ export function PanelLayoutControls( {
 				inert={ ! showFullView }
 			>
 				<IconButton
+					variant="ghost"
 					size="icon-sm"
 					icon={ <FullscreenIcon inward={ fullscreen } /> }
 					label={ fullscreen ? __( 'Show chat' ) : __( 'Expand panel' ) }
@@ -33,6 +34,8 @@ export function PanelLayoutControls( {
 				/>
 			</div>
 			<IconButton
+				variant="ghost"
+				highlightOnToggle={ false }
 				size="icon-sm"
 				icon={ <SidebarIcon side="right" /> }
 				label={ open ? __( 'Hide panel' ) : __( 'Show panel' ) }

@@ -52,17 +52,11 @@
 	"%s preview is ready": [
 		"Voorbeeld van %s is klaar"
 	],
-	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
-		"%s meldt geen importvoortgang meer, maar de update loopt mogelijk nog. Controleer de live site voordat je opnieuw pusht."
-	],
 	"A code editor with a built-in AI agent.": [
 		"Een code-editor met een ingebouwde AI-agent."
 	],
 	"A coding agent that runs in your terminal.": [
 		"Een codeeragent die in je terminal draait."
-	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"Er wordt al een synchronisatie uitgevoerd op deze site. Wacht tot deze klaar is en probeer het opnieuw."
 	],
 	"AI apps": [
 		"AI-apps"
@@ -106,9 +100,6 @@
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"Er is een fout opgetreden bij het bijwerken van de WordPress Studio CLI. Probeer het opnieuw."
 	],
-	"Annotate site elements visually in a browser.": [
-		"Voorzie elementen van je site visueel van aantekeningen in een browser."
-	],
 	"Annotation is available for design systems created by Studio Code.": [
 		"Aantekeningen zijn beschikbaar voor ontwerpsystemen die door Studio Code zijn gemaakt."
 	],
@@ -142,17 +133,8 @@
 	"Approve the connection in your browser.": [
 		"Keur de koppeling goed in je browser."
 	],
-	"Ask user": [
-		"Gebruiker vragen"
-	],
 	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
 		"Ten minste één optie (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is vereist."
-	],
-	"Audit SEO": [
-		"SEO controleren"
-	],
-	"Audit performance": [
-		"Prestaties controleren"
 	],
 	"Automatic sidebar collapsing disabled.": [
 		"Automatisch inklappen van de zijbalk uitgeschakeld."
@@ -169,14 +151,8 @@
 	"Back to email list": [
 		"Terug naar e-maillijst"
 	],
-	"Backup timed out — no progress detected": [
-		"Time-out bij back-up — geen voortgang gedetecteerd"
-	],
 	"Backups": [
 		"Back-ups"
-	],
-	"Balanced": [
-		"Gebalanceerd"
 	],
 	"Batch notes": [
 		"Aantekeningen bundelen"
@@ -439,9 +415,6 @@
 	"Couldn’t sign in to WordPress.com": [
 		"Kon niet inloggen bij WordPress.com"
 	],
-	"Create %s": [
-		"Maak %s aan"
-	],
 	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
 		"Maak een sleutel aan in [Google AI Studio](https://aistudio.google.com/apikey) en plak deze hieronder."
 	],
@@ -495,9 +468,6 @@
 	],
 	"Delete annotation: %s": [
 		"Aantekening verwijderen: %s"
-	],
-	"Delete plugin": [
-		"Plugin verwijderen"
 	],
 	"Delete theme": [
 		"Thema verwijderen"
@@ -610,15 +580,6 @@
 	"Failed to back up the remote site": [
 		"Back-up maken van de externe site mislukt"
 	],
-	"Failed to check backup size": [
-		"Controleren van de back-upgrootte mislukt"
-	],
-	"Failed to check backup status": [
-		"Controleren van de back-upstatus mislukt"
-	],
-	"Failed to check import status": [
-		"Controleren van de importstatus mislukt"
-	],
 	"Failed to check the preview site": [
 		"Controleren van de voorbeeldsite mislukt"
 	],
@@ -636,12 +597,6 @@
 	],
 	"Failed to find existing preview site in config": [
 		"Bestaande voorbeeldsite niet gevonden in configuratie"
-	],
-	"Failed to initiate backup": [
-		"Starten van de back-up mislukt"
-	],
-	"Failed to initiate import on remote site": [
-		"Starten van de import op de externe site mislukt"
 	],
 	"Failed to load your %s sites": [
 		"Laden van je %s-sites mislukt"
@@ -670,20 +625,11 @@
 	"File…": [
 		"Bestand …"
 	],
-	"Finish activating hosting on WordPress.com before publishing.": [
-		"Rond het activeren van hosting op WordPress.com af voordat je publiceert."
-	],
 	"Finish signing in to %s in your browser.": [
 		"Rond het inloggen bij %s af in je browser."
 	],
 	"First use": [
 		"Eerste gebruik"
-	],
-	"Flush cache": [
-		"Cache legen"
-	],
-	"Flush permalinks": [
-		"Permalinks vernieuwen"
 	],
 	"For publishing sites.": [
 		"Om sites te publiceren."
@@ -702,12 +648,6 @@
 	],
 	"Generating static site…": [
 		"Statische site genereren …"
-	],
-	"Get site info": [
-		"Site-info ophalen"
-	],
-	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
-		"Begin met een eenmalig gratis tegoed en koop daarna meer wanneer je het nodig hebt. Geen API-sleutel vereist."
 	],
 	"Getting your sign-in code…": [
 		"Je inlogcode ophalen …"
@@ -799,9 +739,6 @@
 	"Install the WordPress Studio CLI.": [
 		"Installeer de WordPress Studio CLI."
 	],
-	"Install theme": [
-		"Thema installeren"
-	],
 	"Interface reset.": [
 		"Interface gereset."
 	],
@@ -820,35 +757,11 @@
 	"Liberate": [
 		"Bevrijden"
 	],
-	"List": [
-		"Weergeven"
-	],
-	"List %s": [
-		"Toon %s"
-	],
-	"List connected remote sites": [
-		"Gekoppelde externe sites weergeven"
-	],
-	"List menus": [
-		"Menu’s weergeven"
-	],
 	"List plugins": [
 		"Plugins weergeven"
 	],
 	"List previews": [
 		"Voorbeelden weergeven"
-	],
-	"List published %s": [
-		"Toon gepubliceerde %s"
-	],
-	"List terms": [
-		"Termen weergeven"
-	],
-	"List themes": [
-		"Thema’s weergeven"
-	],
-	"List users": [
-		"Gebruikers weergeven"
 	],
 	"Load skill": [
 		"Vaardigheid laden"
@@ -880,14 +793,8 @@
 	"Manage cache": [
 		"Cache beheren"
 	],
-	"Manage content": [
-		"Inhoud beheren"
-	],
 	"Manage media": [
 		"Media beheren"
-	],
-	"Manage menus": [
-		"Menu’s beheren"
 	],
 	"Manage on WordPress.com": [
 		"Beheren op WordPress.com"
@@ -904,17 +811,8 @@
 	"Manage site options": [
 		"Site-opties beheren"
 	],
-	"Manage terms": [
-		"Termen beheren"
-	],
-	"Manage themes": [
-		"Thema’s beheren"
-	],
 	"Manage usage": [
 		"Gebruik beheren"
-	],
-	"Manage users": [
-		"Gebruikers beheren"
 	],
 	"Manual MCP setup": [
 		"Handmatige MCP-configuratie"
@@ -927,9 +825,6 @@
 	],
 	"Meta rejected this API key. Check the key and try again.": [
 		"Meta heeft deze API-sleutel geweigerd. Controleer de sleutel en probeer het opnieuw."
-	],
-	"Migrate & rebuild a site from a closed platform.": [
-		"Migreer een site van een gesloten platform en bouw hem opnieuw op."
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
@@ -979,9 +874,6 @@
 	"Open a site or Blueprint": [
 		"Een site of Blueprint openen"
 	],
-	"Open annotation browser": [
-		"Aantekeningenbrowser openen"
-	],
 	"Open documentation": [
 		"Documentatie openen"
 	],
@@ -1002,9 +894,6 @@
 	],
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"De codeeragent van OpenAI in de ChatGPT-app."
-	],
-	"Optimize category taxonomy with AI.": [
-		"Optimaliseer de categorietaxonomie met AI."
 	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"Het aantal PHP-workers moet een geheel getal van 1 tot en met 64 zijn."
@@ -1029,9 +918,6 @@
 	],
 	"Point to something you’d like to change.": [
 		"Wijs iets aan dat je wilt wijzigen."
-	],
-	"Present design options": [
-		"Ontwerpopties tonen"
 	],
 	"Preview browser controls": [
 		"Browserbediening van het voorbeeld"
@@ -1063,9 +949,6 @@
 	"Publish to Spacefast": [
 		"Publiceren naar Spacefast"
 	],
-	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
-		"Publiceer naar een nieuwe site en kies een domein, of gebruik een bestaande site op WordPress.com of Pressable."
-	],
 	"Publish to another site…": [
 		"Publiceren op een andere site …"
 	],
@@ -1080,9 +963,6 @@
 	],
 	"Published to": [
 		"Gepubliceerd op"
-	],
-	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
-		"Voor publiceren en ophalen is een ondersteunde WordPress.com- of Pressable-website vereist."
 	],
 	"Publishing cancelled": [
 		"Publiceren geannuleerd"
@@ -1111,14 +991,8 @@
 	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
 		"Je lokale site naar een WordPress.com-site pushen, of publiceren op Spacefast"
 	],
-	"Read": [
-		"Lezen"
-	],
 	"Read %s": [
 		"Lees %s"
-	],
-	"Read site option": [
-		"Site-optie lezen"
 	],
 	"Read site title": [
 		"Sitetitel lezen"
@@ -1138,9 +1012,6 @@
 	"Refresh preview": [
 		"Voorbeeld vernieuwen"
 	],
-	"Remote backup failed": [
-		"Externe back-up mislukt"
-	],
 	"Remote environment: %s": [
 		"Externe omgeving: %s"
 	],
@@ -1152,9 +1023,6 @@
 	],
 	"Replace the contents of a non-empty output directory": [
 		"De inhoud van een niet-lege uitvoermap vervangen"
-	],
-	"Reply in your own words instead of picking an option.": [
-		"Antwoord in je eigen woorden in plaats van een optie te kiezen."
 	],
 	"Report an issue on GitHub": [
 		"Een probleem melden op GitHub"
@@ -1210,12 +1078,6 @@
 	"Run WordPress command": [
 		"WordPress-opdracht uitvoeren"
 	],
-	"Run a performance audit on a site.": [
-		"Voer een prestatie-audit uit op een site."
-	],
-	"Run an on-page SEO audit on a site.": [
-		"Voer een on-page SEO-audit uit op een site."
-	],
 	"Run task": [
 		"Taak uitvoeren"
 	],
@@ -1231,9 +1093,6 @@
 	"Save annotation (Enter)": [
 		"Aantekening opslaan (Enter)"
 	],
-	"Scaffold theme": [
-		"Themabasis opzetten"
-	],
 	"Screenshots are available in the desktop app.": [
 		"Schermafbeeldingen zijn beschikbaar in de desktop-app."
 	],
@@ -1248,10 +1107,6 @@
 	],
 	"Selected files, content, and settings on your website will be overwritten.": [
 		"Geselecteerde bestanden, inhoud en instellingen op je website worden overschreven."
-	],
-	"Send %d annotation": [
-		"%d aantekening versturen",
-		"%d aantekeningen versturen"
 	],
 	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
 		"Deel een tijdelijke kopie van je lokale site met wie je maar wilt. Een voorbeeldsite verloopt als deze ongeveer een week niet is bijgewerkt."
@@ -1333,9 +1188,6 @@
 	],
 	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
 		"Vaardigheden geven AI-agents houvast bij de ontwikkeling van WordPress. Wijzigingen hier gelden voor alle bestaande sites en bepalen de standaardinstellingen voor nieuwe sites."
-	],
-	"Something went wrong while updating the live site.": [
-		"Er is iets misgegaan bij het bijwerken van de live site."
 	],
 	"Source is a temporary preview site.": [
 		"De bron is een tijdelijke voorbeeldsite."
@@ -1442,9 +1294,6 @@
 	"The live site must be a qualifying connected site of this local site.": [
 		"De live site moet een geschikte gekoppelde site van deze lokale site zijn."
 	],
-	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
-		"Er is een time-out opgetreden op de live site tijdens het importeren, waarschijnlijk omdat de site te groot is. Probeer de inhoud of bestanden te verkleinen."
-	],
 	"The output directory %s is not empty.": [
 		"De uitvoermap %s is niet leeg."
 	],
@@ -1502,9 +1351,6 @@
 	"This site and its preview both changed": [
 		"Deze site en het voorbeeld zijn allebei gewijzigd"
 	],
-	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
-		"Deze site ondersteunt ophalen nog niet. Werk Jetpack op de site bij naar de nieuwste versie en probeer het opnieuw."
-	],
 	"This site has changes its preview doesn't": [
 		"Deze site heeft wijzigingen die niet in het voorbeeld staan"
 	],
@@ -1550,32 +1396,14 @@
 	"Unable to open this source.": [
 		"Kan deze bron niet openen."
 	],
-	"Unexpected response from server while checking backup status": [
-		"Onverwacht antwoord van de server bij het controleren van de back-upstatus"
-	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"Onbekende provider %1$s. Kies een van: %2$s."
 	],
 	"Unsupported backup file": [
 		"Niet-ondersteund back-upbestand"
 	],
-	"Update %s": [
-		"Werk %s bij"
-	],
 	"Update all plugins": [
 		"Alle plugins bijwerken"
-	],
-	"Update plugin": [
-		"Plugin bijwerken"
-	],
-	"Update site option": [
-		"Site-optie bijwerken"
-	],
-	"Update site title": [
-		"Sitetitel bijwerken"
-	],
-	"Update todo list": [
-		"Takenlijst bijwerken"
 	],
 	"Update user": [
 		"Gebruiker bijwerken"
@@ -1700,9 +1528,6 @@
 	"WordPress.com API": [
 		"WordPress.com-API"
 	],
-	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
-		"WordPress.com ondersteunt geen multisite. Het publiceren van dit netwerk kan problemen veroorzaken."
-	],
 	"WordPress.com hosting": [
 		"WordPress.com-hosting"
 	],
@@ -1723,9 +1548,6 @@
 	],
 	"You can close this tab and return to WordPress Studio.": [
 		"Je kunt dit tabblad sluiten en teruggaan naar WordPress Studio."
-	],
-	"You need administrator access to publish or pull changes.": [
-		"Je hebt beheerderstoegang nodig om wijzigingen te publiceren of op te halen."
 	],
 	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
 		"Je hebt de gebruikslimiet van je ChatGPT-abonnement bereikt. Beheer je gebruik op chatgpt.com/settings/usage."
@@ -1772,20 +1594,8 @@
 	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
 		"base-url moet een http(s)-URL zonder pad zijn, bijv. https://example.com"
 	],
-	"inline content": [
-		"inline-inhoud"
-	],
-	"media item": [
-		"media-item"
-	],
-	"media items": [
-		"media-items"
-	],
 	"page": [
 		"pagina"
-	],
-	"pages": [
-		"pagina’s"
 	],
 	"post": [
 		"bericht"

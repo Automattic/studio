@@ -5,8 +5,8 @@
 	--notice-title-inset: calc( ( var( --notice-row-height ) - var( --text-sm--line-height ) ) / 2 );
 	position: relative;
 	pointer-events: auto;
-	padding: var( --space-3_5 );
-	border-radius: var( --radius-xl );
+	padding: var( --space-notice-inset );
+	border-radius: var( --radius-notice );
 	background-color: var( --secondary );
 	color: var( --secondary-foreground );
 	box-shadow:
@@ -124,7 +124,7 @@
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	interpolate-size: allow-keywords;
-	transition: height var( --motion-duration-layout ) var( --motion-ease-layout );
+	transition: height var( --motion-duration-disclosure ) var( --motion-ease-layout );
 }
 
 .description[data-clamped] {
@@ -155,7 +155,7 @@
 	width: 14px;
 	height: 14px;
 	flex: none;
-	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
+	transition: rotate var( --motion-duration-disclosure ) var( --motion-ease-layout );
 }
 
 .toggle[aria-expanded='true'] .chevron svg {

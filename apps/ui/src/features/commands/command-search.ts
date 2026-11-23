@@ -1,6 +1,6 @@
 import { GROUPS, getGroupLabel } from '@/features/commands/studio-commands';
 import type { GroupId, PaletteCommand } from '@/features/commands/studio-commands';
-import type { CommandGroup } from '@/lib/ui';
+import type { CommandGroup } from '@studio/ds';
 
 const byPriority = ( a: PaletteCommand, b: PaletteCommand ) =>
 	( a.priority ?? 0 ) - ( b.priority ?? 0 );

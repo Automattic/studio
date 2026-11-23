@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RemoteSiteError } from '../../../errors';
 import { wpcomClient } from '../../api';
@@ -13,7 +14,12 @@ const siteId = 12345;
 const shareUrl = 'https://preview-site.wpcomstaging.com/?share=abc123';
 const launchUrl =
 	'https://wordpress.com/setup/launch-site?siteSlug=preview-site.wpcomstaging.com&hide_free_plan=1';
-const content: PushContent = { kind: 'archive', file: new Blob(), name: 'site.zip', size: 1 };
+const content: PushContent = {
+	kind: 'archive',
+	file: Readable.from( [] ),
+	name: 'site.zip',
+	size: 1,
+};
 const preview = {
 	id: siteId,
 	name: 'preview-site.wpcomstaging.com',
@@ -152,6 +158,20 @@ describe( 'previews', () => {
 			},
 			{ ...preview, launchUrl: undefined },
 		] );
+	} );
+
+	it( 'lists the title and origin WordPress.com reports for a preview', async () => {
+		get.mockResolvedValue( {
+			preview_sites: [
+				{ blog_id: siteId, share_url: shareUrl, title: 'My Preview', origin_id: 'local-site' },
+				{ blog_id: 2, site_slug: 'blank.wpcomstaging.com', title: '', origin_id: '' },
+			],
+		} );
+
+		const [ named, blank ] = await previews.list( config );
+		expect( named ).toMatchObject( { title: 'My Preview', originId: 'local-site' } );
+		expect( blank.title ).toBeUndefined();
+		expect( blank.originId ).toBeUndefined();
 	} );
 
 	it( 'discards the site, and treats one already gone as deleted', async () => {

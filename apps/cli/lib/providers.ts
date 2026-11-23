@@ -33,44 +33,59 @@ export async function isProviderConnected( provider: ProviderId ): Promise< bool
 	return ( readInlineConfig( provider ) ?? ( await readProviderConfig( provider ) ) ) !== undefined;
 }
 
-// Asks for a form's fields. The provider checks the values once the last one is entered, and a
-// rejection asks again.
+// What the provider says when it rejects the form's values, or `true` when it connects with them.
+async function connectWith(
+	provider: ProviderId,
+	method: ConnectMethod,
+	values: Record< string, string >
+): Promise< string | true > {
+	try {
+		await changeAiSettings(
+			{ action: 'connect', provider, method: method.id, surface: 'terminal' },
+			() => connectProvider( getProviderServices( provider ), method.id, values ),
+			recordTracksEvent
+		);
+		return true;
+	} catch ( rejection ) {
+		if ( rejection instanceof ConnectError ) {
+			return rejection.message;
+		}
+		throw rejection;
+	}
+}
+
+// Asks for a form's fields, of which an optional one takes an empty answer. The provider's
+// rejection of a form of one field is that field's error, so it's asked again; a longer form is
+// asked again whole, so any of its fields can be corrected.
 async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise< void > {
 	const fields = getConnectFields( method );
-	const values: Record< string, string > = {};
-	for ( const [ index, field ] of fields.entries() ) {
-		const prompt = field.secret ? password : input;
-		values[ field.name ] = await prompt( {
-			message: sprintf(
-				/* translators: %s: what the provider asks for, such as an API key */
-				__( '%s (saved for future use):' ),
-				field.title
-			),
-			...( field.secret ? { mask: '*' } : {} ),
-			validate: async ( value: string ) => {
-				const error = field.validate( value );
-				if ( error || index < fields.length - 1 ) {
-					return error ?? true;
-				}
-				try {
-					await changeAiSettings(
-						{ action: 'connect', provider, method: method.id, surface: 'terminal' },
-						() =>
-							connectProvider( getProviderServices( provider ), method.id, {
-								...values,
-								[ field.name ]: value,
-							} ),
-						recordTracksEvent
-					);
-					return true;
-				} catch ( rejection ) {
-					if ( rejection instanceof ConnectError ) {
-						return rejection.message;
-					}
-					throw rejection;
-				}
-			},
-		} );
+	for (;;) {
+		const values: Record< string, string > = {};
+		for ( const field of fields ) {
+			const prompt = field.secret ? password : input;
+			values[ field.name ] = await prompt( {
+				message: sprintf(
+					field.required
+						? /* translators: %s: what the provider asks for, such as an API key */
+						  __( '%s (saved for future use):' )
+						: /* translators: %s: what the provider asks for, such as an API key */
+						  __( '%s (optional, saved for future use):' ),
+					field.title
+				),
+				...( field.secret ? { mask: '*' } : {} ),
+				validate: async ( value: string ) =>
+					field.validate( value ) ??
+					( fields.length > 1 || connectWith( provider, method, { [ field.name ]: value } ) ),
+			} );
+		}
+		if ( fields.length === 1 ) {
+			return;
+		}
+		const rejection = await connectWith( provider, method, values );
+		if ( rejection === true ) {
+			return;
+		}
+		console.error( rejection );
 	}
 }
 

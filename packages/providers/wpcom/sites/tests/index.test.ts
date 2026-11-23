@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RemoteSiteError } from '../../../errors';
 import {
@@ -88,7 +89,7 @@ describe( 'pull.latestBackupId', () => {
 describe( 'push', () => {
 	const archive = {
 		kind: 'archive' as const,
-		file: new Blob( [ 'archive' ] ),
+		file: Readable.from( [ 'archive' ] ),
 		name: 'push.tar.gz',
 		size: 7,
 	};
@@ -191,6 +192,22 @@ describe( 'push', () => {
 			message:
 				'The database failed to import on the live site. Review your database and try again.',
 			code: 'remote_import',
+		} );
+	} );
+
+	it( "keeps the live site's failure reason in the cause", async () => {
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: false,
+			status: 'failed',
+			error: 'Import failed',
+			error_data: { vp_restore_message: "Error: 'wp-config.php' not found." },
+		} as never );
+
+		const error = await push().catch( ( e: unknown ) => e );
+
+		expect( error ).toMatchObject( {
+			message: 'Something went wrong while updating the live site.',
+			cause: { message: "Error: 'wp-config.php' not found." },
 		} );
 	} );
 

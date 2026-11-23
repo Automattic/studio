@@ -27,3 +27,7 @@
 	padding-block-start: var( --space-1_5 );
 	border-block-start: 1px solid var( --border );
 }
+
+.selectIcon {
+	display: flex;
+}

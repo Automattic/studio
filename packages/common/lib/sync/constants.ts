@@ -17,8 +17,8 @@ export const SYNC_PUSH_SIZE_LIMIT_GB = SYNC_PUSH_SIZE_LIMIT_BYTES / 1024 ** 3;
 export const SYNC_IGNORE_DEFAULTS = [
 	...DEPLOY_IGNORE_DEFAULTS,
 	// Studio-internal sync exclusions
-	'database',
-	'db.php',
+	'/wp-content/database',
+	'/wp-content/db.php',
 	'debug.log',
 	'studio-error.log',
 	'sqlite-database-integration',

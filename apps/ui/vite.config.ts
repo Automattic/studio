@@ -1,13 +1,9 @@
-import { copyFileSync, cpSync } from 'fs';
 import { createRequire } from 'module';
 import { resolve } from 'path';
-import { Readable } from 'stream';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
-import { defineConfig, type Connect, type Plugin, type ServerOptions } from 'vite';
-import { GET as wpcomBackup } from '../static/functions/wpcom-backup/[site]/[download]/data';
+import { defineConfig, type Plugin, type ServerOptions } from 'vite';
 import { getSentryReleaseInfo } from '../../packages/common/lib/sentry-release';
-import type { ReadableStream as NodeReadableStream } from 'stream/web';
 
 const __dirname = import.meta.dirname;
 const pkg = createRequire( import.meta.url )( './package.json' ) as {
@@ -39,7 +35,9 @@ const browserDevEntryPlugin: Plugin = {
 				pathname.startsWith( '/@' ) ||
 				pathname.startsWith( '/src/' ) ||
 				pathname.startsWith( '/node_modules/' ) ||
-				pathname.includes( '.' );
+				pathname.includes( '.' ) ||
+				// Pages a server behind the dev proxy answers, such as the sign-in callback.
+				Object.keys( target?.proxy ?? {} ).some( ( prefix ) => pathname.startsWith( prefix ) );
 			if ( devEntry && accept.includes( 'text/html' ) && ! isInternal ) {
 				req.url = `/${ devEntry }`;
 			}
@@ -48,52 +46,17 @@ const browserDevEntryPlugin: Plugin = {
 	},
 };
 
-// The static host serves `functions/` as workers. The dev server runs the same
-// handler, which the static app reads WordPress.com backups through.
-const wpcomBackupMiddleware: Connect.NextHandleFunction = ( req, res, next ) => {
-	const [ , site, download ] = req.url?.match( /^\/wpcom-backup\/([^/]+)\/([^/]+)\/data/ ) ?? [];
-	if ( ! site ) {
-		return next();
-	}
-	const request = new Request( `http://localhost${ req.url }`, {
-		headers: req.headers as Record< string, string >,
-	} );
-	wpcomBackup( request, { params: { site, download } } )
-		.then( ( response ) => {
-			res.writeHead( response.status, Object.fromEntries( response.headers ) );
-			Readable.fromWeb( response.body as NodeReadableStream ).pipe( res );
-		} )
-		.catch( next );
-};
-const wpcomBackupPlugin: Plugin = {
-	name: 'studio-wpcom-backup',
-	configureServer: ( server ) => void server.middlewares.use( wpcomBackupMiddleware ),
-};
-
-// Static hosts serve `index.html`, and `404.html` for the app's other routes
-// (`/sessions/:id`, `/sites/:id`), which the router resolves client-side.
-const staticHostPagesPlugin: Plugin = {
-	name: 'studio-static-host-pages',
-	apply: 'build',
-	closeBundle() {
-		const outDir = resolve( __dirname, target!.outDir );
-		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, 'index.html' ) );
-		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, '404.html' ) );
-		cpSync( resolve( __dirname, '../static/functions' ), resolve( outDir, 'functions' ), {
-			recursive: true,
-		} );
-	},
-};
-
 // The browser dev server proxies the `studio ui` server, so the app calls it
 // same-origin, as it does when that server serves the built app.
 const studioUiServer = process.env.STUDIO_UI_SERVER ?? 'http://localhost:8081';
 
+// Studio Cloud's control plane, a separate service, which serves `/cloud/*` next to the page.
+const studioCloudControl = process.env.STUDIO_CLOUD_CONTROL ?? 'http://localhost:3460';
+
 // The browser targets build the app on their own entry, output and port, so the
 // default Electron-renderer build (`dist/`, port 5200) stays byte-for-byte
-// unchanged. `local`, served by `studio ui`, is wired to the HTTP/SSE `local`
-// connector; `static` builds Studio on the web, a static site wired to the
-// `static` connector, which needs no Studio server at all.
+// unchanged. Both are wired to the HTTP/SSE `local` connector: `local` is served
+// by `studio ui`, `cloud` by Studio Cloud next to its control plane.
 const TARGETS: Partial<
 	Record<
 		string,
@@ -101,8 +64,6 @@ const TARGETS: Partial<
 			entry: string;
 			outDir: string;
 			port: number;
-			pages?: string[];
-			plugins?: Plugin[];
 			proxy?: ServerOptions[ 'proxy' ];
 		}
 	>
@@ -116,18 +77,21 @@ const TARGETS: Partial<
 			'/auth/callback': { target: studioUiServer, changeOrigin: true },
 		},
 	},
-	static: {
-		entry: 'index.static.html',
-		outDir: 'dist-static',
+	// Studio Cloud: the page and its control plane on one origin, the user's machine on another.
+	cloud: {
+		entry: 'index.cloud.html',
+		outDir: 'dist-cloud',
 		port: 3456,
-		pages: [ 'site-viewer.html' ],
-		plugins: [ staticHostPagesPlugin, wpcomBackupPlugin ],
+		proxy: {
+			'/cloud': { target: studioCloudControl, changeOrigin: true },
+			'/auth/callback': { target: studioCloudControl, changeOrigin: true },
+		},
 	},
 };
 const target = TARGETS[ process.env.STUDIO_TARGET ?? '' ];
 
 // Release builds upload source maps under the app's release. The Electron renderer reports through
-// the desktop app's Sentry client; the browser builds (`studio ui`, the web) report on their own,
+// the desktop app's Sentry client; the browser builds (`studio ui`, Studio Cloud) report on their own,
 // and don't serve their maps.
 const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(
 	createRequire( import.meta.url )( '../studio/package.json' ).version
@@ -143,7 +107,6 @@ export default defineConfig( {
 	plugins: [
 		react(),
 		...( devEntry ? [ browserDevEntryPlugin ] : [] ),
-		...( target?.plugins ?? [] ),
 		// Sentry must be the last plugin
 		uploadSourceMaps &&
 			sentryVitePlugin( {
@@ -189,9 +152,7 @@ export default defineConfig( {
 		outDir: target?.outDir ?? 'dist',
 		sourcemap: ! target || ( uploadSourceMaps && 'hidden' ),
 		rolldownOptions: {
-			input: [ target?.entry ?? 'index.html', ...( target?.pages ?? [] ) ].map( ( page ) =>
-				resolve( __dirname, page )
-			),
+			input: resolve( __dirname, target?.entry ?? 'index.html' ),
 		},
 	},
 } );

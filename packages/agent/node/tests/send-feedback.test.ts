@@ -1,7 +1,7 @@
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindTool } from '@studio/agent/shared/tools/define-tool';
-import { sendFeedbackTool } from '@studio/agent/shared/tools/send-feedback';
+import { bindTool } from '@studio/agent/node/tools/define-tool';
+import { sendFeedbackTool } from '@studio/agent/node/tools/send-feedback';
 import { createFakeHost } from './fake-host';
 
 const host = {

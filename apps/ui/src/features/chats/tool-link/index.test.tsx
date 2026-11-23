@@ -55,6 +55,7 @@ it.each( [ 'browser', 'desktop' ] )(
 			await pending;
 			return start( id );
 		} );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
 		const link = await screen.findByRole( 'button', { name: 'Open Design System' } );
 		fireEvent.click( link );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
@@ -79,6 +80,7 @@ it.each( [ 'browser', 'desktop' ] )(
 it( 'reports a failed start and lets the tool link retry without opening a tab', async () => {
 	const { connector, history } = setup();
 	connector.startSite.mockRejectedValueOnce( new Error( 'Port is unavailable' ) );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
 	const link = await screen.findByRole( 'button', { name: 'Open Design System' } );
 	fireEvent.click( link );
 	expect( ( await screen.findAllByText( 'Port is unavailable' ) )[ 0 ] ).toBeVisible();
@@ -92,7 +94,9 @@ it( 'reports a failed start and lets the tool link retry without opening a tab',
 
 it( 'opens a tool directly when its site is already running', async () => {
 	const { connector } = setup( true );
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Open Design System' } ) );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
+	const link = await screen.findByRole( 'button', { name: 'Open Design System' } );
+	fireEvent.click( link );
 	await screen.findByRole( 'tab', { name: 'Design System' } );
 	expect( connector.startSite ).not.toHaveBeenCalled();
 } );

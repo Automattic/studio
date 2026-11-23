@@ -46,15 +46,17 @@ it( 'reports only one completion when hosts save concurrently', async () => {
 	expect( completed.filter( Boolean ) ).toHaveLength( 1 );
 } );
 
-it( 'persists the annotation hint without losing guide progress', async () => {
+it( 'persists hints without losing guide progress or older fields', async () => {
 	await writeOnboardingHints( {
 		tourCompletedVersion: 2,
 		whatsNewSeenVersion: 3,
+		shareHintDismissed: true,
 	} );
 	await writeOnboardingHints( { annotateHintDismissed: true } );
 	expect( await readOnboardingHints() ).toMatchObject( {
 		tourCompletedVersion: 2,
 		whatsNewSeenVersion: 3,
+		shareHintDismissed: true,
 		annotateHintDismissed: true,
 	} );
 } );

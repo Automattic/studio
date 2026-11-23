@@ -40,7 +40,7 @@ describe( 'Welcome dialog', () => {
 			const { connector, history } = await firstLaunch();
 			expect(
 				screen.getByRole( 'checkbox', {
-					name: "Share usage statistics. When you're logged in to WordPress.com, they're linked to your account.",
+					name: "Share usage statistics. When you're logged in to WordPress.com, stats are linked to your account.",
 				} )
 			).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: dismissLabel } ) );

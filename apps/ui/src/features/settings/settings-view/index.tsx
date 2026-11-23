@@ -254,7 +254,7 @@ function PreferencesPanel( {
 						<SettingsRow
 							title={ __( 'Improve WordPress Studio for everyone' ) }
 							description={ __(
-								"Share usage statistics to improve WordPress Studio. When you're logged in to WordPress.com, they're linked to your account."
+								"Share usage statistics to improve WordPress Studio. When you're logged in to WordPress.com, stats are linked to your account."
 							) }
 						>
 							<SettingsToggle

@@ -126,7 +126,7 @@ function WelcomeFlow() {
 							/>
 							<FieldLabel htmlFor={ analyticsId } className={ styles.analyticsLabel }>
 								{ __(
-									"Share usage statistics. When you're logged in to WordPress.com, they're linked to your account."
+									"Share usage statistics. When you're logged in to WordPress.com, stats are linked to your account."
 								) }
 							</FieldLabel>
 						</Field>

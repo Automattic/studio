@@ -66,7 +66,7 @@ To install and start using WordPress Studio on a 64-bit Debian-based Linux syste
 
 The first time you open WordPress Studio, it walks you through a short setup:
 
-1.  The **Welcome to WordPress Studio** dialog explains what a free WordPress.com account adds: building with the agent, sharing previews, and publishing. Click **Continue with WordPress.com** to log in or create a free account, or click **Not now** to go straight to creating your first local site. You can also choose whether to **Share usage statistics** here. When you're logged in to WordPress.com, they're linked to your account.
+1.  The **Welcome to WordPress Studio** dialog explains what a free WordPress.com account adds: building with the agent, sharing previews, and publishing. Click **Continue with WordPress.com** to log in or create a free account, or click **Not now** to go straight to creating your first local site. You can also choose whether to **Share usage statistics** here. When you're logged in to WordPress.com, stats are linked to your account.
 2.  The **Add site** dialog opens. You can create a new site, start from a Blueprint, connect an existing WordPress.com or Pressable site, or import a backup or a Blueprint of your own. See [WordPress Studio Sites](https://wordpress.studio/docs/sites/) for each option.
 3.  Once your first site is ready, a short guide introduces the sidebar, building with WordPress Studio Code, and the live site preview. Click **Next** to step through it and **Let’s go** to finish, or **Skip** to close it.
 

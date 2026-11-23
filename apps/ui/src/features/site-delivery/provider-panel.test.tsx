@@ -1823,9 +1823,9 @@ it( 'connects a site over SSH from its address, then publishes to it', async () 
 		getSiteVisibility: async () => null,
 		getSnapshots: async () => [],
 	} );
+	connector.resolveRemoteSite.mockResolvedValue( sshSite );
 	connector.connectRemoteSite.mockImplementation( async () => {
 		added = true;
-		return sshSite;
 	} );
 	await openShare();
 	await openExistingSitePicker( user );
@@ -1835,9 +1835,8 @@ it( 'connects a site over SSH from its address, then publishes to it', async () 
 	const step = await screen.findByRole( 'dialog', { name: 'Publish over SSH' } );
 	await user.type( within( step ).getByRole( 'textbox', { name: 'Server' } ), sshSite.id );
 	await user.click( within( step ).getByRole( 'button', { name: 'Connect' } ) );
-	expect( connector.connectRemoteSite ).toHaveBeenCalledWith( 'ssh', site.id, {
-		input: { address: sshSite.id },
-	} );
+	expect( connector.resolveRemoteSite ).toHaveBeenCalledWith( 'ssh', { address: sshSite.id } );
+	expect( connector.connectRemoteSite ).toHaveBeenCalledWith( 'ssh', site.id, sshSite );
 	expect( await screen.findByRole( 'link', { name: 'Open acme.test' } ) ).toBeVisible();
 
 	await user.click( await screen.findByRole( 'button', { name: 'Update…' } ) );

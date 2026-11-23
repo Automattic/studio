@@ -685,9 +685,15 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 			return api( `/remote-sites/${ provider }/account` );
 		},
 		async connectRemoteSite( provider, localSiteId, site ) {
-			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }`, {
+			await api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }`, {
 				method: 'POST',
 				body: JSON.stringify( site ),
+			} );
+		},
+		async resolveRemoteSite( provider, input ) {
+			return api( `/remote-sites/${ provider }/resolve`, {
+				method: 'POST',
+				body: JSON.stringify( input ),
 			} );
 		},
 		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {

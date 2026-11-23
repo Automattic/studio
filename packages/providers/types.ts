@@ -370,7 +370,7 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
 	// The site the user described in the descriptor's `connect` form, once the provider reached it.
-	connect?( config: Config | undefined, input: Record< string, string > ): Promise< Site >;
+	resolve?( config: Config | undefined, input: Record< string, string > ): Promise< Site >;
 	// A new site to push to, for a provider that can create one.
 	create?(
 		config: Config | undefined,

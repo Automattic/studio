@@ -1,6 +1,6 @@
 import { getProvider } from '@studio/providers';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
-import { connectPublishingSite, rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import type {
 	ProviderConfigs,
@@ -74,29 +74,16 @@ export async function createRemoteSite< Id extends SitesProviderId >(
 	return site;
 }
 
-// A site to connect: one picked from the provider's list, or the values of its `connect` form.
-export type RemoteSiteToConnect< Id extends SitesProviderId = SitesProviderId > =
-	| ProviderSites[ Id ]
-	| { input: Record< string, string > };
-
-// Connects the local site to that site, once the provider reached a site described in its form.
-export async function connectRemoteSite< Id extends SitesProviderId >(
+// The site the values of the provider's `connect` form describe, once the provider reached it.
+export async function resolveRemoteSite< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >,
-	localSiteId: string,
-	site: RemoteSiteToConnect< Id >
+	input: Record< string, string >
 ): Promise< ProviderSites[ Id ] > {
-	const id = provider.id as Id;
-	if ( 'input' in site ) {
-		const connect = sites( provider ).connect;
-		if ( ! connect ) {
-			throw new Error(
-				`Studio can't connect ${ getProvider( provider.id ).label } sites by form.`
-			);
-		}
-		site = await connect( await readProviderConfig( id ), site.input );
+	const resolve = sites( provider ).resolve;
+	if ( ! resolve ) {
+		throw new Error( `Studio can't connect ${ getProvider( provider.id ).label } sites by form.` );
 	}
-	await connectPublishingSite( id, localSiteId, site );
-	return site;
+	return resolve( await readProviderConfig( provider.id as Id ), input );
 }
 
 // What a selective pull needs: the latest backup, and the files in it.

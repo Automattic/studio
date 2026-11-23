@@ -397,14 +397,18 @@ export interface Connector {
 	): Promise< RemoteSiteConnection< SitesProviderId >[] >;
 	// Every site the provider's account can connect a local site to.
 	listAccountSites( provider: SitesProviderId ): Promise< ProviderSites[ SitesProviderId ][] >;
-	// Connects the local site to a remote one, or updates the connection: a site from the provider's
-	// list, or one described in its `sites.connect` form, which the provider reaches first. The remote
-	// site is unchanged; disconnecting only forgets the connection.
+	// Connects the local site to a remote one, or updates the connection. The remote site is
+	// unchanged; disconnecting only forgets the connection.
 	connectRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,
-		site: ProviderSites[ SitesProviderId ] | { input: Record< string, string > }
-	): Promise< ProviderSites[ SitesProviderId ] | void >;
+		site: ProviderSites[ SitesProviderId ]
+	): Promise< void >;
+	// The site the values of the provider's `sites.connect` form describe, once the provider reached it.
+	resolveRemoteSite(
+		provider: SitesProviderId,
+		input: Record< string, string >
+	): Promise< ProviderSites[ SitesProviderId ] >;
 	disconnectRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,

@@ -291,9 +291,9 @@ export function createInMemoryConnector(
 		},
 		getRemoteSites: async () => [],
 		listAccountSites: async () => [],
-		connectRemoteSite: async ( _provider, _localSiteId, site ) => {
-			if ( 'input' in site ) throw new Error( 'Connecting a site by form is not faked' );
-			return site;
+		connectRemoteSite: async () => {},
+		resolveRemoteSite: async () => {
+			throw new Error( 'resolveRemoteSite is not faked' );
 		},
 		disconnectRemoteSite: async () => {},
 		getSiteCreationVisibility: async () => 'public',

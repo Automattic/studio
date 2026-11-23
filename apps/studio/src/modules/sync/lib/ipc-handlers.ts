@@ -2,6 +2,7 @@ import { IpcMainInvokeEvent } from 'electron';
 import {
 	forgetRemoteSite,
 	getRemoteSites as readRemoteSites,
+	connectPublishingSite,
 	type RemoteSiteConnection,
 } from '@studio/common/lib/remote-sites';
 import { getSitePublishStatus as getPublishStatus } from '@studio/common/sites/publish-status';
@@ -13,8 +14,7 @@ import {
 	getRemoteBackupId as readRemoteBackupId,
 	listAccountSites as listProviderAccountSites,
 	listRemoteBackupFiles as readRemoteBackupFiles,
-	connectRemoteSite as connectRemoteSiteOnProvider,
-	type RemoteSiteToConnect,
+	resolveRemoteSite as resolveRemoteSiteOnProvider,
 } from '@studio/common/sites/remote-sites';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
@@ -67,13 +67,17 @@ export async function connectRemoteSite(
 	_event: IpcMainInvokeEvent,
 	provider: string,
 	localSiteId: string,
-	site: RemoteSiteToConnect
+	site: ProviderSites[ SitesProviderId ]
+): Promise< void > {
+	await connectPublishingSite( parseProvider( provider ), localSiteId, site as never );
+}
+
+export async function resolveRemoteSite(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	input: Record< string, string >
 ): Promise< ProviderSites[ SitesProviderId ] > {
-	return connectRemoteSiteOnProvider(
-		getProviderServices( parseProvider( provider ) ),
-		localSiteId,
-		site as never
-	);
+	return resolveRemoteSiteOnProvider( getProviderServices( parseProvider( provider ) ), input );
 }
 
 export async function disconnectRemoteSite(

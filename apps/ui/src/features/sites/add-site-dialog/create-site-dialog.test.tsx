@@ -155,6 +155,37 @@ describe( 'Add site flow', () => {
 		}
 	);
 
+	it( 'creates the local copy of a site it reaches over SSH', async () => {
+		const { connector, site } = setup();
+		const sshSite = {
+			id: 'deploy@acme.test:/srv/www',
+			name: 'Acme',
+			url: 'https://acme.test',
+			wpCli: 'wp',
+			contentDir: '/srv/www/wp-content',
+		};
+		connector.resolveRemoteSite.mockResolvedValue( sshSite );
+		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'SSH' } ) );
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Server' } ), {
+			target: { value: sshSite.id },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
+		const name = await screen.findByLabelText( 'Site name' );
+		await waitFor( () => expect( name ).toHaveValue( 'Acme' ) );
+		expect( connector.resolveRemoteSite ).toHaveBeenCalledWith( 'ssh', { address: sshSite.id } );
+
+		await submit();
+		await waitFor( () => expect( connector.pullSite ).toHaveBeenCalled() );
+		expect( connector.connectRemoteSite ).toHaveBeenCalledWith( 'ssh', site.id, sshSite );
+		expect( connector.pullSite.mock.calls[ 0 ].slice( 0, 3 ) ).toEqual( [
+			'ssh',
+			site.id,
+			sshSite.id,
+		] );
+	} );
+
 	it( 'retraces tab changes and closes from the initial screen', async () => {
 		setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );

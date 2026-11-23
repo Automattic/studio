@@ -1,9 +1,9 @@
 import chalk from '@studio/common/lib/chalk';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
-import { getRemoteSites } from '@studio/common/lib/remote-sites';
+import { connectPublishingSite, getRemoteSites } from '@studio/common/lib/remote-sites';
 import { lastTransferTime } from '@studio/common/lib/site-connections';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { connectRemoteSite } from '@studio/common/sites/remote-sites';
+import { resolveRemoteSite } from '@studio/common/sites/remote-sites';
 import {
 	getConnectFields,
 	getProvider,
@@ -330,9 +330,8 @@ export async function resolveFormConnectedSite(
 		sprintf( __( 'Connecting to the %s site…' ), label )
 	);
 	try {
-		const site = await connectRemoteSite( getProviderServices( provider ), localSiteId, {
-			input: values,
-		} );
+		const site = await resolveRemoteSite( getProviderServices( provider ), values );
+		await connectPublishingSite( provider, localSiteId, site );
 		logger.spinner.stop();
 		return site;
 	} catch ( error ) {

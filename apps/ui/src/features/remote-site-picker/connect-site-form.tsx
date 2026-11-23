@@ -1,12 +1,16 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
-import { getConnectFields, getProviderSites, type SitesProviderId } from '@studio/providers';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+	getConnectFields,
+	getProviderSites,
+	type ProviderSites,
+	type SitesProviderId,
+} from '@studio/providers';
+import { useMutation } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useId, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
 import {
 	Button,
 	Field,
@@ -16,51 +20,42 @@ import {
 	FieldLabel,
 	Input,
 } from '@/lib/ui';
-import styles from './existing-site-step.module.css';
+import styles from './style.module.css';
 
-// Connects the local site to a site the user describes in the provider's `sites.connect` form.
+// A site the user describes in the provider's `sites.connect` form, once the provider reached it.
 export function ConnectSiteForm( {
 	provider,
 	siteId,
-	disabled,
-	onConnected,
+	disabled = false,
+	onSite,
 }: {
 	provider: SitesProviderId;
-	siteId: string;
-	disabled: boolean;
-	onConnected: ( provider: SitesProviderId, id: string | number ) => void;
+	// The local site, when there is one yet.
+	siteId?: string;
+	disabled?: boolean;
+	onSite: ( site: ProviderSites[ SitesProviderId ] ) => Promise< void > | void;
 } ) {
 	const connector = useConnector();
-	const client = useQueryClient();
 	const id = useId();
 	const { intro, connect: method } = getProviderSites( provider );
 	const fields = getConnectFields( method! );
 	const [ values, setValues ] = useState< Record< string, string > >( {} );
 	const connect = useMutation( {
-		mutationFn: async () =>
-			( await connector.connectRemoteSite( provider, siteId, { input: values } ) ) || undefined,
-		onSuccess: async ( site ) => {
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_CONNECT,
-				{ success: true, num_of_sites: 1, sync_type: getSyncType( site, provider ) },
-				siteId
-			);
-			await Promise.all( [
-				client.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } ),
-				client.invalidateQueries( { queryKey: remoteSitesQueryKey( provider ) } ),
-			] );
-			if ( site ) onConnected( provider, site.id );
+		mutationFn: async () => {
+			const site = await connector.resolveRemoteSite( provider, values ).catch( ( error ) => {
+				void connector.trackEvent(
+					TRACKS_EVENTS.SYNC_CONNECT,
+					{
+						success: false,
+						sync_type: getSyncType( undefined, provider ),
+						failure_reason: classifySyncFailure( error ),
+					},
+					siteId
+				);
+				throw error;
+			} );
+			await onSite( site );
 		},
-		onError: ( error ) =>
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_CONNECT,
-				{
-					success: false,
-					sync_type: getSyncType( undefined, provider ),
-					failure_reason: classifySyncFailure( error ),
-				},
-				siteId
-			),
 	} );
 	const errors = fields.map( ( field ) =>
 		values[ field.name ] ? field.validate( values[ field.name ] ) : undefined
@@ -71,7 +66,7 @@ export function ConnectSiteForm( {
 
 	return (
 		<form
-			className={ styles.body }
+			className={ styles.form }
 			aria-label={ intro.title() }
 			onSubmit={ ( event ) => {
 				event.preventDefault();

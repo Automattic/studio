@@ -489,8 +489,12 @@ export function createIpcConnector(): Connector {
 			return await ipcApi.listAccountSites( provider );
 		},
 
-		async connectRemoteSite( provider, localSiteId, site ) {
-			return unwrapIpcError( ipcApi.connectRemoteSite( provider, localSiteId, site ) );
+		async connectRemoteSite( provider, localSiteId, site ): Promise< void > {
+			await ipcApi.connectRemoteSite( provider, localSiteId, site );
+		},
+
+		async resolveRemoteSite( provider, input ) {
+			return unwrapIpcError( ipcApi.resolveRemoteSite( provider, input ) );
 		},
 
 		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ): Promise< void > {

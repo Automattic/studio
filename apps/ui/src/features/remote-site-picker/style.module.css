@@ -148,3 +148,10 @@
 	min-width: 0;
 	border-color: transparent;
 }
+
+.form {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
+	min-width: 0;
+}

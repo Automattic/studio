@@ -1,14 +1,25 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import {
+	getProvider,
+	getProviderSites,
+	SITES_PROVIDER_IDS,
+	type ProviderSites,
+	type SitesProviderId,
+} from '@studio/providers';
 import { __, _x } from '@wordpress/i18n';
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useAccountSites } from '@/data/queries/use-remote-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { AccountPrompt } from '@/features/account';
-import { RemoteSiteCard as SiteCard, RemoteSitePicker } from '@/features/remote-site-picker';
+import {
+	ConnectSiteForm,
+	RemoteSiteCard as SiteCard,
+	RemoteSitePicker,
+} from '@/features/remote-site-picker';
 import { pendingRemoteSiteSlot } from '@/features/sites/pending-remote-site';
 import { useOffline } from '@/lib/hooks';
 import { ExternalLinkIcon } from '@/lib/icons';
@@ -21,6 +32,10 @@ import {
 	Empty,
 	Button,
 	Spinner,
+	Tabs,
+	TabsList,
+	TabsScopeIndicator,
+	TabsTrigger,
 } from '@/lib/ui';
 import styles from './connect-panel.module.css';
 import { getRemoteSiteName, presentRemoteSites, type ConnectSiteGroup } from './site-presentation';
@@ -123,7 +138,47 @@ function RemoteSiteCard( {
 	);
 }
 
-export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => void } ) {
+// The sites the user can create a local copy of: from each provider that pulls.
+export function ConnectPanel( {
+	onConnect,
+}: {
+	onConnect: ( provider: SitesProviderId, site: ProviderSites[ SitesProviderId ] ) => void;
+} ) {
+	const { localMachine } = useConnector().capabilities;
+	const providers = SITES_PROVIDER_IDS.filter( ( id ) => {
+		const sites = getProviderSites( id );
+		return sites.pull && ( localMachine || ! sites.connect?.hostOnly );
+	} );
+	const [ provider, setProvider ] = useState( providers[ 0 ] );
+
+	return (
+		<div className={ styles.page }>
+			{ providers.length > 1 && (
+				<Tabs value={ provider } onValueChange={ setProvider }>
+					<TabsList variant="scope" aria-label={ __( 'Where the site is hosted' ) }>
+						{ providers.map( ( id ) => (
+							<TabsTrigger key={ id } value={ id }>
+								{ getProvider( id ).label }
+							</TabsTrigger>
+						) ) }
+						<TabsScopeIndicator />
+					</TabsList>
+				</Tabs>
+			) }
+			{ getProviderSites( provider ).connect ? (
+				<ConnectSiteForm
+					key={ provider }
+					provider={ provider }
+					onSite={ ( site ) => onConnect( provider, site ) }
+				/>
+			) : (
+				<WpcomSites onConnect={ ( site ) => onConnect( 'wpcom', site ) } />
+			) }
+		</div>
+	);
+}
+
+function WpcomSites( { onConnect }: { onConnect: ( site: SyncSite ) => void } ) {
 	const connector = useConnector();
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
 	const locale = useUserLocale();
@@ -191,7 +246,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 	}
 
 	return (
-		<div className={ styles.page }>
+		<>
 			<p className={ styles.intro }>
 				{ __( 'Select a WordPress.com or Pressable site to bring into your WordPress Studio.' ) }
 			</p>
@@ -271,6 +326,6 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 					}
 				/>
 			) }
-		</div>
+		</>
 	);
 }

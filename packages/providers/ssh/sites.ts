@@ -25,7 +25,7 @@ const PROBE = `echo json_encode( array(
 	'multisite' => is_multisite(),
 ) );`;
 
-async function connect( input: Record< string, string > ): Promise< SshSite > {
+async function resolve( input: Record< string, string > ): Promise< SshSite > {
 	const form = sshProvider
 		.sites!.connect!.input()
 		.safeParse( { address: '', wpCli: '', ...input } );
@@ -75,7 +75,7 @@ async function connect( input: Record< string, string > ): Promise< SshSite > {
 export const sshSites: SitesServices< undefined, SshSite > = {
 	// The connections are the sites: the user connects each one.
 	list: async () => [],
-	connect: ( _config, input ) => connect( input ),
+	resolve: ( _config, input ) => resolve( input ),
 	push: ( _config, site, content, _options, onStatus, signal ) =>
 		pushOverSsh( connection( site ), content, onStatus, signal ),
 	pullArchive: ( _config, site, options, archive, onProgress, signal ) =>

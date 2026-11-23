@@ -21,7 +21,7 @@ describe.skipIf( process.platform === 'win32' )( 'connecting an SSH site', () =>
 	it( 'reads the site in the folder, trusting a new host only now', async () => {
 		const folder = site();
 		await expect(
-			sshSites.connect!( undefined, { address: `deploy@acme.test:${ folder }/`, wpCli: '' } )
+			sshSites.resolve!( undefined, { address: `deploy@acme.test:${ folder }/`, wpCli: '' } )
 		).resolves.toEqual( {
 			id: `deploy@acme.test:${ folder }`,
 			name: 'Acme',
@@ -37,7 +37,7 @@ describe.skipIf( process.platform === 'win32' )( 'connecting an SSH site', () =>
 	it( 'says what to fix when the server refuses the key', async () => {
 		vi.stubEnv( 'FAKE_SSH_FAIL', 'deploy@acme.test: Permission denied (publickey).' );
 		await expect(
-			sshSites.connect!( undefined, { address: `deploy@acme.test:${ site() }` } )
+			sshSites.resolve!( undefined, { address: `deploy@acme.test:${ site() }` } )
 		).rejects.toMatchObject( { code: 'ssh_auth' } );
 	} );
 } );

@@ -15,9 +15,8 @@ import {
 	remoteSitesQueryKey,
 	usePickableSitesByProvider,
 } from '@/data/queries/use-remote-sites';
-import { RemoteSitePicker, RemoteSiteCard } from '@/features/remote-site-picker';
+import { ConnectSiteForm, RemoteSitePicker, RemoteSiteCard } from '@/features/remote-site-picker';
 import { Button, Badge, Spinner } from '@/lib/ui';
-import { ConnectSiteForm } from './connect-site-form';
 import styles from './existing-site-step.module.css';
 import { ProviderLogo } from './provider-logo';
 
@@ -149,7 +148,9 @@ export function ExistingSiteStep( {
 					) }
 				</p>
 			) ) }
-			{ connect.error && <p role="alert">{ connect.error.message }</p> }
+			{ connect.error && ! getProviderSites( connect.variables.provider ).connect && (
+				<p role="alert">{ connect.error.message }</p>
+			) }
 			{ eligible.length > 0 && (
 				<RemoteSitePicker
 					compactControls
@@ -213,8 +214,8 @@ export function ExistingSiteStep( {
 						key={ provider }
 						provider={ provider }
 						siteId={ siteId }
-						disabled={ disabled }
-						onConnected={ onConnected }
+						disabled={ disabled || connect.isPending }
+						onSite={ ( site ) => connect.mutateAsync( { provider, site } ) }
 					/>
 				)
 			) }

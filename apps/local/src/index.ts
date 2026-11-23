@@ -101,7 +101,11 @@ import {
 	isTracksEventName,
 	TRACKS_EVENTS,
 } from '@studio/common/lib/record-tracks-event';
-import { forgetRemoteSite, getRemoteSites } from '@studio/common/lib/remote-sites';
+import {
+	forgetRemoteSite,
+	getRemoteSites,
+	connectPublishingSite,
+} from '@studio/common/lib/remote-sites';
 import {
 	ROOT_CA_CERT_PATH,
 	hasUntrustedRootCA,
@@ -155,7 +159,7 @@ import {
 	getSiteCreationVisibility,
 	getSiteVisibility,
 	setSiteVisibility,
-	connectRemoteSite,
+	resolveRemoteSite,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -2070,9 +2074,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				res.json(
-					await connectRemoteSite( getProviderServices( provider ), req.params.id, req.body )
-				);
+				await connectPublishingSite( provider, req.params.id, req.body as never );
+				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	api.post(
+		'/remote-sites/:provider/resolve',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json( await resolveRemoteSite( getProviderServices( provider ), req.body ) );
 			}
 		} )
 	);

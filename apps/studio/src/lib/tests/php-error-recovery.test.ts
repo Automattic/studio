@@ -1,5 +1,6 @@
 import fs from 'fs';
 import http from 'http';
+import net, { type AddressInfo } from 'net';
 import os from 'os';
 import nodePath from 'path';
 import nock from 'nock';
@@ -44,12 +45,21 @@ function httpGet( port: number ): Promise< { status?: number; body: string } > {
 	} );
 }
 
+function activeHandles(): unknown[] {
+	return ( process as unknown as { _getActiveHandles: () => unknown[] } )._getActiveHandles();
+}
+
 function activeHandleNames(): string[] {
-	return ( process as unknown as { _getActiveHandles: () => unknown[] } )
-		._getActiveHandles()
-		.map(
-			( handle ) => ( handle as { constructor?: { name?: string } } )?.constructor?.name ?? ''
-		);
+	return activeHandles().map(
+		( handle ) => ( handle as { constructor?: { name?: string } } )?.constructor?.name ?? ''
+	);
+}
+
+function isListeningInThisProcess( port: number ): boolean {
+	return activeHandles().some(
+		( handle ) =>
+			handle instanceof net.Server && ( handle.address() as AddressInfo | null )?.port === port
+	);
 }
 
 describe( 'isPhpUserError', () => {
@@ -165,6 +175,7 @@ describe( 'error recovery port lifecycle', () => {
 			);
 			expect( isInErrorRecovery( 'test-site' ) ).toBe( true );
 			expect( await canBind( port ) ).toBe( false );
+			expect( isListeningInThisProcess( port ) ).toBe( true );
 			// The error page is served with status 200 so the thumbnail screenshot can capture it
 			// (the screenshot window rejects responses with status >= 500).
 			nock.enableNetConnect( '127.0.0.1' );
@@ -179,8 +190,9 @@ describe( 'error recovery port lifecycle', () => {
 
 			await stopErrorRecovery( 'test-site' );
 			expect( isInErrorRecovery( 'test-site' ) ).toBe( false );
-			// The port is released, so a real restart can proceed.
-			expect( await canBind( port ) ).toBe( true );
+			// The port is released, so a real restart can proceed. Binding it again to check would be
+			// flaky: another test worker can take the freed port before the bind.
+			expect( isListeningInThisProcess( port ) ).toBe( false );
 		} finally {
 			await stopErrorRecovery( 'test-site' );
 			fs.rmSync( dir, { recursive: true, force: true } );

@@ -18,6 +18,10 @@ const resultsFiles = [
 		file: 'app-size.summary.json',
 		metricsPrefix: '',
 	},
+	{
+		file: 'agent-browser-memory.summary.json',
+		metricsPrefix: '',
+	},
 ];
 
 const performanceResults = resultsFiles.map( ( { file } ) => {

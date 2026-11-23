@@ -11,6 +11,16 @@ const timeFormatter = ( value: number ) => `${ value } ms`;
 
 const METRIC_CONFIG: Record< string, MetricConfig > = {
 	appSizeMac: { label: 'App Size (Mac)', format: sizeFormatter, threshold: BYTES_PER_MB },
+	agentBrowserMemoryPeak: {
+		label: 'Agent Browser Memory (Peak)',
+		format: sizeFormatter,
+		threshold: 20 * BYTES_PER_MB,
+	},
+	agentBrowserMemoryIdle: {
+		label: 'Agent Browser Memory (Idle)',
+		format: sizeFormatter,
+		threshold: 20 * BYTES_PER_MB,
+	},
 };
 
 const DEFAULT_METRIC_CONFIG: MetricConfig = { label: '', format: timeFormatter, threshold: 50 };

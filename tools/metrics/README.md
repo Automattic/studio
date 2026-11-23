@@ -28,6 +28,11 @@ The performance tests simulate key user workflows and measure the time they take
 - **siteStartup**: How long it takes to restart an existing site
 - **siteEditorLoad**: How long it takes to load the site editor (from navigation until the first block appears)
 
+Two suites measure something other than time:
+
+- **appSizeMac**: The size of the packaged app, in bytes
+- **agentBrowserMemoryPeak** and **agentBrowserMemoryIdle**: The memory of the browser behind the agent tools (screenshots, block validation, audits), in bytes. The test starts the packaged CLI's MCP server, takes three screenshots of a fixed page, and adds up the resident memory of the browser's processes: the highest value seen during the screenshots, and the value once the browser waits for the next call. Chromium's processes share memory, so the sum is higher than the browser's real use; it is for comparing builds, not for sizing a machine
+
 ## Comparing Performance Between Commits
 
 You can compare performance metrics between different commits or branches:
@@ -64,4 +69,4 @@ The `performance-metrics.json` output file contains a summary of the results, ex
 }
 ```
 
-All measurements are in milliseconds (ms), and lower values indicate better performance.
+Times are in milliseconds (ms), sizes and memory are in bytes, and lower values indicate better performance.

@@ -1,4 +1,4 @@
-import { PLUS_ICON } from '@studio/common/lib/plus-icon';
+import { PLUS_ICON } from './paths';
 import type { ComponentProps } from 'react';
 
 export function PlusIcon( props: ComponentProps< 'svg' > ) {

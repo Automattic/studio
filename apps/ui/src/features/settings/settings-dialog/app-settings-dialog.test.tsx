@@ -1,7 +1,10 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
-import { applyColorTint, DEFAULT_COLOR_TINT } from '@studio/ds/theme';
+import {
+	DEFAULT_COLOR_TINT,
+	INTERFACE_PREFERENCE_DEFAULTS,
+} from '@studio/common/lib/user-settings/preferences';
+import { applyColorTint } from '@studio/ds/theme';
 import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

@@ -5,11 +5,11 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import {
 	getColorTint,
 	INTERFACE_PREFERENCE_DEFAULTS,
+	isDefaultColorTint,
 } from '@studio/common/lib/user-settings/preferences';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { Input, Button } from '@studio/ds';
 import { ExternalLinkIcon } from '@studio/ds/icons';
-import { isDefaultColorTint } from '@studio/ds/theme';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';

@@ -8,7 +8,7 @@ The design tokens, the base element styles, and the code that applies the color 
 
 - `tokens.css`: every token (`--background`, `--foreground`, `--muted`, `--border`, `--accent`, `--text-*`, `--radius-*`, `--motion-*`, `--z-*`, …). Dark values apply under `[data-color-scheme='dark']`.
 - `base.css`: the reset, fonts, body and element defaults, reduced transparency.
-- `@studio/ds/theme`: `applyTheme`, `applyColorTint`, `resolveColorScheme`, `previewAccentColor`, `DEFAULT_COLOR_TINT`, `isDefaultColorTint`, `getMotionDuration`.
+- `@studio/ds/theme`: `applyTheme`, `applyColorTint`, `resolveColorScheme`, `getMotionDuration`, `getEmbeddedFontData`.
 
 ```ts
 import '@studio/ds/theme/tokens.css';
@@ -52,4 +52,4 @@ Placeholders use `--placeholder-foreground`, a quieter foreground checked agains
 
 - The two stylesheets are imported once, by the app entries, before anything else.
 - Colors derive in CSS from a few inputs on the root (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`). Add a token rather than a literal color anywhere in the app.
-- Imports nothing from the app; `@studio/common` only for the preference types and defaults.
+- Imports nothing from the app or another workspace package. The saved preferences and their defaults belong to `@studio/common`; `applyColorTint` treats a missing value as the base palette `tokens.css` is drawn from.

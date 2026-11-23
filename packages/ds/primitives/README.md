@@ -71,4 +71,4 @@ Styles sit in the `ui` cascade layer, so a feature's CSS module overrides them w
 - One folder per primitive: `index.tsx` and its `style.module.css`.
 - Colors, type, radius and motion come from the tokens in `@studio/ds/theme`.
 - CodeBlock loads Shiki lazily on first render, with a fixed set of languages in `code-block/highlight.ts`. Add a language there.
-- Imports the other folders of `@studio/ds` through their entries, `@studio/common` and libraries. No `@tanstack/*`, `@wordpress/ui` or `@wordpress/components` (lint-enforced).
+- Imports the other folders of `@studio/ds` through their entries, and libraries. No `@tanstack/*`, `@wordpress/ui` or `@wordpress/components` (lint-enforced).

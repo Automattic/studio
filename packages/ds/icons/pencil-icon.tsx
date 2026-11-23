@@ -1,4 +1,4 @@
-import { RENAME_ICON } from '@studio/common/lib/rename-icon';
+import { RENAME_ICON } from './paths';
 import type { ComponentProps } from 'react';
 
 export function PencilIcon( props: ComponentProps< 'svg' > ) {

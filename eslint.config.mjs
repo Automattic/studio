@@ -383,8 +383,8 @@ export default defineConfig(
 						WP_UI_PACKAGES,
 						{ group: [ '@tanstack/*' ], message: '@studio/ds stays independent of app code.' },
 						{
-							group: [ '@studio/*', '!@studio/common' ],
-							message: '@studio/ds builds only on @studio/common.',
+							group: [ '@studio/*' ],
+							message: '@studio/ds builds on no other workspace package.',
 						},
 					],
 				},
@@ -505,7 +505,7 @@ export default defineConfig(
 						},
 						{
 							group: [ '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'protocol/ depends on nothing but common and @studio/providers.',
+							message: 'protocol/ depends on nothing but common, @studio/providers and @studio/ds.',
 						},
 						PROVIDERS_SERVICES,
 					],

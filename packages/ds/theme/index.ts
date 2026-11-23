@@ -1,31 +1,21 @@
-import {
-	DEFAULT_ACCENT_COLOR,
-	DEFAULT_CONTRAST,
-	DEFAULT_TINT_INTENSITY,
-	getColorTint,
-	type ColorScheme,
-	type ColorTint,
-} from '@studio/common/lib/user-settings/preferences';
 import { applyAccentContrast } from './accent-contrast';
 import { hexToOklch } from './color';
 
-const DEFAULT_TINT_HUE = 260;
+// The accent and tint hue `tokens.css` is drawn from. Other accents rotate its palette.
+const BASE_ACCENT_COLOR = '#3858e9';
+const BASE_TINT_HUE = 260;
 
-export const DEFAULT_COLOR_TINT: ColorTint = {
-	accentColor: DEFAULT_ACCENT_COLOR,
-	tintIntensity: DEFAULT_TINT_INTENSITY,
-	contrast: DEFAULT_CONTRAST,
-};
-
-export function isDefaultColorTint( tint: ColorTint ): boolean {
-	return (
-		tint.accentColor === DEFAULT_ACCENT_COLOR &&
-		tint.tintIntensity === DEFAULT_TINT_INTENSITY &&
-		tint.contrast === DEFAULT_CONTRAST
-	);
+interface ColorTint {
+	// A `#rrggbb` hex color.
+	accentColor: string;
+	// Percentages, 0–100.
+	tintIntensity: number;
+	contrast: number;
 }
 
-export function resolveColorScheme( saved: ColorScheme = 'system' ): 'light' | 'dark' {
+export function resolveColorScheme(
+	saved: 'system' | 'light' | 'dark' = 'system'
+): 'light' | 'dark' {
 	if ( saved !== 'system' ) {
 		return saved;
 	}
@@ -34,13 +24,12 @@ export function resolveColorScheme( saved: ColorScheme = 'system' ): 'light' | '
 
 /** Sets the appearance inputs the color tokens in `tokens.css` derive from. */
 export function applyColorTint(
-	tint: Partial< ColorTint >,
+	{ accentColor = BASE_ACCENT_COLOR, tintIntensity = 0, contrast = 0 }: Partial< ColorTint >,
 	root: HTMLElement = document.documentElement
 ): void {
-	const { accentColor, tintIntensity, contrast } = getColorTint( tint );
 	root.dataset.accentColor = accentColor;
-	const custom = accentColor !== DEFAULT_ACCENT_COLOR ? hexToOklch( accentColor ) : undefined;
-	root.style.setProperty( '--tint-hue', String( custom?.h ?? DEFAULT_TINT_HUE ) );
+	const custom = accentColor !== BASE_ACCENT_COLOR ? hexToOklch( accentColor ) : undefined;
+	root.style.setProperty( '--tint-hue', String( custom?.h ?? BASE_TINT_HUE ) );
 	root.style.setProperty(
 		'--accent-palette-hue-shift',
 		String( custom ? custom.h - 268.048352 : 0 )

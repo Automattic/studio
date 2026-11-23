@@ -1,8 +1,8 @@
 import {
+	DEFAULT_COLOR_TINT,
 	DEFAULT_COLOR_SCHEME,
 	INTERFACE_PREFERENCE_DEFAULTS,
 } from '@studio/common/lib/user-settings/preferences';
-import { DEFAULT_COLOR_TINT } from '@studio/ds/theme';
 import { __ } from '@wordpress/i18n';
 import { toast } from '@/data/app-messages';
 import { resetPanelLayout } from '@/data/resizable-panels';

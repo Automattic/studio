@@ -14,6 +14,8 @@ import { PinIcon } from '@studio/ds/icons';
 <PinIcon className={ styles.icon } />;
 ```
 
+Code that draws without React, such as the annotation script injected into the site preview, reads the shared paths from `@studio/ds/icons/paths`, so its pencil and plus match the components.
+
 ## Constraints
 
 - One file per icon, named `<name>-icon.tsx`, re-exported from `index.ts`.

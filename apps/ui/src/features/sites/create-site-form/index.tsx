@@ -6,23 +6,6 @@ import {
 	getFrontendFrameworkLabel,
 } from '@studio/common/lib/site-frontend';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
-import { __, sprintf } from '@wordpress/i18n';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useConnector } from '@/data/core';
-import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
-import {
-	CertificateTrustNotice,
-	getFileAccessOptions,
-	getPhpVersionOptions,
-	getWpVersionOptions,
-	SelectField,
-	TextField,
-	validateAdminPassword,
-	validateSiteName,
-} from '@/features/sites/site-fields';
-import { useOffline } from '@/lib/hooks';
-import { ChevronDownIcon } from '@/lib/icons';
 import {
 	Alert,
 	AlertDescription,
@@ -38,7 +21,24 @@ import {
 	FieldTitle,
 	Popover,
 	Switch,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { ChevronDownIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useConnector } from '@/data/core';
+import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import {
+	CertificateTrustNotice,
+	getFileAccessOptions,
+	getPhpVersionOptions,
+	getWpVersionOptions,
+	SelectField,
+	TextField,
+	validateAdminPassword,
+	validateSiteName,
+} from '@/features/sites/site-fields';
 import { getFolderNameError, splitFolderPath } from './folder-path';
 import {
 	applyFormChange,

@@ -1,4 +1,5 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { Button } from '@studio/ds';
 import { DEFAULT_PROVIDER_ID, getDefaultAiModel } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createRef, useState, type ComponentProps } from 'react';
@@ -14,7 +15,6 @@ import {
 	subscribeAnnotationReview,
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
-import { Button } from '@/lib/ui';
 import { aiSettings, createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';

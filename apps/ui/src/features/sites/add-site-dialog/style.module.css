@@ -95,7 +95,7 @@
 
 .selectedSourceName,
 .sourceDescription {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 }
 
 .sourceDescription {
@@ -168,7 +168,7 @@
 }
 
 .title {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	display: block;
 }
 

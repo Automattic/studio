@@ -1,4 +1,4 @@
-/* The rows themselves come from the sidebar kit in @/lib/ui. */
+/* The rows themselves come from the sidebar kit in @studio/ds. */
 .root {
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;

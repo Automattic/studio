@@ -1,8 +1,3 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
-import { useEffect, useRef, useState } from 'react';
-import { AnnotateIcon } from '@/lib/icons';
-import { isDialogOpen, isShortcut } from '@/lib/keyboard';
 import {
 	IconButton,
 	Kbd,
@@ -10,7 +5,12 @@ import {
 	Tooltip,
 	TooltipTrigger,
 	TooltipContent,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { AnnotateIcon } from '@studio/ds/icons';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
+import { useEffect, useRef, useState } from 'react';
+import { isDialogOpen, isShortcut } from '@/lib/keyboard';
 import styles from './annotate-button.module.css';
 
 export function AnnotateButton( {

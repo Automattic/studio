@@ -52,6 +52,9 @@
 		"packages/blueprints": {
 			"project": "**/*.ts"
 		},
+		"packages/ds": {
+			"project": "**/*.{ts,tsx}"
+		},
 		"packages/common": {
 			"entry": ["globals.ts"],
 			"project": "**/*.ts"

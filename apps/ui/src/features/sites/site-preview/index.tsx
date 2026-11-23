@@ -1,5 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
+import { VisuallyHidden } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -34,7 +35,6 @@ import { PreviewParticles } from '@/features/sites/preview-particles';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { SiteToolLauncher, useSiteToolActions } from '@/features/sites/site-tools';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
-import { VisuallyHidden } from '@/lib/ui';
 import {
 	EMAIL_PREVIEW_PATH,
 	getFrontendAppRelativePath,

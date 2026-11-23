@@ -1,5 +1,3 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	XIcon,
 	AnnotateIcon,
@@ -23,7 +21,9 @@ import {
 	TerminalIcon,
 	UnpinIcon,
 	WordPressIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { getSettingsCommandAliases } from '@/data/settings-sections';
 import type { SiteDetails } from '@/data/core';
 import type { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import type { useOpenSettings } from '@/data/use-open-settings';

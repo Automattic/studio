@@ -8,7 +8,7 @@ import {
 	FilePdfIcon,
 	FileTextIcon,
 	TableIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
 import type { ComposerFileAttachment } from '@studio/agent/protocol/composer-attachments';
 import type { ReactElement } from 'react';
 

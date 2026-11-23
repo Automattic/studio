@@ -1,5 +1,14 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { designSheet, parseDesignMd, themeJsonDesign } from '@studio/design-md';
+import { Button, Kbd, Menu } from '@studio/ds';
+import {
+	CodeIcon,
+	DatabaseIcon,
+	DesignSystemIcon,
+	GlobeIcon,
+	PaperPlaneIcon,
+	WordPressIcon,
+} from '@studio/ds/icons';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useMemo, useRef } from 'react';
@@ -17,16 +26,7 @@ import {
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
 import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
-import {
-	CodeIcon,
-	DatabaseIcon,
-	DesignSystemIcon,
-	GlobeIcon,
-	PaperPlaneIcon,
-	WordPressIcon,
-} from '@/lib/icons';
 import { isDialogOpen, isTextEntry } from '@/lib/keyboard';
-import { Button, Kbd, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 

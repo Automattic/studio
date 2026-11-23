@@ -1,5 +1,22 @@
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@studio/ds';
+import {
+	ChevronDownIcon,
+	ExportIcon,
+	ExternalLinkIcon,
+	FullscreenIcon,
+	GlobeIcon,
+	SquarePenIcon,
+	PinIcon,
+	PlusIcon,
+	PencilIcon,
+	SlidersVerticalIcon,
+	PlayIcon,
+	CircleStopIcon,
+	SquareIcon,
+	UnpinIcon,
+} from '@studio/ds/icons';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
@@ -32,23 +49,6 @@ import {
 	type SiteManagementActionId,
 } from '@/features/sites/use-site-management-actions';
 import { SitePublishMenu } from '@/features/sync';
-import {
-	ChevronDownIcon,
-	ExportIcon,
-	ExternalLinkIcon,
-	FullscreenIcon,
-	GlobeIcon,
-	SquarePenIcon,
-	PinIcon,
-	PlusIcon,
-	PencilIcon,
-	SlidersVerticalIcon,
-	PlayIcon,
-	CircleStopIcon,
-	SquareIcon,
-	UnpinIcon,
-} from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 

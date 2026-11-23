@@ -25,6 +25,8 @@ const HOSTS_SYNC_MS = 3000;
  *   `https://<site id>--<machine>.<domain>`, where the machine is `STUDIO_SERVE_MACHINE_ID` or
  *   Fly's `FLY_MACHINE_ID`. Sites are then private to the signed-in user, and the machine reaches
  *   them itself over HTTPS on 127.0.0.1 (see `serve-local-tls`).
+ * - `STUDIO_SERVE_KEEPALIVE_URL`: requested every few minutes while an agent run is in progress,
+ *   for a host that pauses idle servers. Typically this server's public `/api/health`.
  */
 export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	const host = argv.host as string;
@@ -89,6 +91,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 		version: __STUDIO_CLI_VERSION__,
 		allowedOrigins,
 		siteLimits: getHostSiteLimits(),
+		keepAliveUrl: process.env.STUDIO_SERVE_KEEPALIVE_URL || undefined,
 		middleware: secret
 			? [ createServeGate( { secret, machineId, apiOrigin, siteHostSuffix, allowedOrigins } ) ]
 			: [],

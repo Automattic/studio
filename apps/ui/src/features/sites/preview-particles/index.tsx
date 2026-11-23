@@ -1,5 +1,5 @@
+import { WordPressIcon } from '@studio/ds/icons';
 import { useEffect, useRef } from 'react';
-import { WordPressIcon } from '@/lib/icons';
 import {
 	createPreviewDots,
 	getPreviewDotFrame,

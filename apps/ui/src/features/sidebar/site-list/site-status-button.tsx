@@ -1,9 +1,9 @@
+import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
+import { PlayIcon, SquareIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useIsSiteBusy, useSiteOperation, useStopSite } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
-import { PlayIcon, SquareIcon } from '@/lib/icons';
-import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';

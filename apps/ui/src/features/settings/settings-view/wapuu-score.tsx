@@ -1,8 +1,3 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { useConnector } from '@/data/core';
-import { useWapuuScore } from '@/data/queries/use-wapuu-score';
-import wapuuIdleUrl from '@/features/settings/wapuu-world/assets/wapuu-player-idle-sprite.png';
-import { MAX_SCORE } from '@/features/settings/wapuu-world/engine/game-loop';
 import {
 	Button,
 	Field,
@@ -12,7 +7,12 @@ import {
 	FieldLegend,
 	FieldSet,
 	Progress,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __, sprintf } from '@wordpress/i18n';
+import { useConnector } from '@/data/core';
+import { useWapuuScore } from '@/data/queries/use-wapuu-score';
+import wapuuIdleUrl from '@/features/settings/wapuu-world/assets/wapuu-player-idle-sprite.png';
+import { MAX_SCORE } from '@/features/settings/wapuu-world/engine/game-loop';
 import styles from './style.module.css';
 
 const WAPUU_STUDIO_URL = 'https://wapuu.studio';

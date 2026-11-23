@@ -1,8 +1,8 @@
+import { Button, IconButton, Input, Menu } from '@studio/ds';
+import { XIcon, ChevronDownIcon, DeviceRotateIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef, useState } from 'react';
 import { updateResponsivePreview, type ResponsivePreviewSettings } from '@/data/responsive-preview';
-import { XIcon, ChevronDownIcon, DeviceRotateIcon } from '@/lib/icons';
-import { Button, IconButton, Input, Menu } from '@/lib/ui';
 import { devicePresets, parseDimension } from './settings';
 import styles from './style.module.css';
 import { useResponsivePreviewTracks } from './use-responsive-preview-tracks';

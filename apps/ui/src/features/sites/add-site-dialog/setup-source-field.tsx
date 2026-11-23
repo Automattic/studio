@@ -1,12 +1,4 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
-import { __ } from '@wordpress/i18n';
-import { FileIcon, LayoutTemplateIcon } from 'lucide-react';
-import { useId, useRef, useState } from 'react';
-import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
-import { getRemoteSiteScreenshot } from '@/features/remote-site-picker';
-import { SITE_FILE_UPLOAD_TYPES } from '@/features/sites/blueprint-upload';
-import { FileArchiveIcon, FolderIcon, XIcon, ShuffleIcon } from '@/lib/icons';
 import {
 	Button,
 	DropZone,
@@ -16,7 +8,15 @@ import {
 	Menu,
 	PreviewFrame,
 	PreviewImage,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { FileArchiveIcon, FolderIcon, XIcon, ShuffleIcon } from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { FileIcon, LayoutTemplateIcon } from 'lucide-react';
+import { useId, useRef, useState } from 'react';
+import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
+import { getRemoteSiteScreenshot } from '@/features/remote-site-picker';
+import { SITE_FILE_UPLOAD_TYPES } from '@/features/sites/blueprint-upload';
 import { getBlueprintThumbnail } from './blueprint-screenshots';
 import { useAddSite } from './context';
 import styles from './style.module.css';

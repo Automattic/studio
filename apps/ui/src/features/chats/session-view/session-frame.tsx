@@ -1,3 +1,5 @@
+import { ScrollBlur } from '@studio/ds';
+import { useScrollFade } from '@studio/ds/hooks';
 import {
 	useCallback,
 	useImperativeHandle,
@@ -7,8 +9,6 @@ import {
 	type Ref,
 } from 'react';
 import { ActiveChatShortcuts } from '@/features/chats/chat-actions';
-import { useScrollFade } from '@/lib/hooks';
-import { ScrollBlur } from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 

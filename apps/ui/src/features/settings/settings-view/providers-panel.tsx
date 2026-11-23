@@ -1,5 +1,5 @@
 import { getProvider } from '@studio/providers';
-import { __ } from '@wordpress/i18n';
+import { __, _x } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
@@ -68,7 +68,17 @@ function DefaultProviderRow< Id extends ProviderId >( {
 				placeholder={ placeholder }
 				disabled={ disabled || ! hasProviders }
 				options={ [
-					...( automatic ? [ { value: AUTOMATIC, label: __( 'Auto' ) } as const ] : [] ),
+					...( automatic
+						? [
+								{
+									value: AUTOMATIC,
+									label: _x(
+										'Auto',
+										'Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com'
+									),
+								} as const,
+						  ]
+						: [] ),
 					...connected.map( ( id ) => ( {
 						value: id,
 						label: getProvider( id ).label,

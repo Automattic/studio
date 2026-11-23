@@ -21,6 +21,10 @@ echo "--- :npm: Set npm to use $LOCAL_NPM_CACHE for cache"
 npm set cache "$PWD/$LOCAL_NPM_CACHE"
 echo "npm cache set to $(npm get cache)"
 
+echo "--- :npm: Restore npm cache if present"
+# Needed even when node_modules comes from its cache: packaging the app runs `npm install` for its bundle.
+restore_cache "$CACHEKEY"
+
 # On Windows, `npm ci` spends about 2 minutes writing the packages into node_modules, against 20 s on Mac.
 # So Windows also caches node_modules itself, keyed on everything that decides its content: the lockfile,
 # the patches, the OS, the CPU and the Node version (which brings its npm).
@@ -31,33 +35,27 @@ case "$PLATFORM" in
 esac
 NODE_MODULES_CACHEKEY="$BUILDKITE_PIPELINE_SLUG-node-modules-v1-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
 
-if [ "$IS_WINDOWS" = true ]; then
+NODE_MODULES_RESTORED=false
+if [ "$IS_WINDOWS" = true ] && [ ! -e node_modules ]; then
   echo "--- :npm: Restore node_modules cache if present"
   restore_cache "$NODE_MODULES_CACHEKEY"
+  if [ -f node_modules/.package-lock.json ]; then
+    NODE_MODULES_RESTORED=true
+  fi
 fi
 
-if [ -f node_modules/.package-lock.json ]; then
-  echo "--- :npm: Link workspaces and run postinstall"
-  # The cached node_modules leaves out the links to the workspaces, which point into this checkout.
-  # `npm install` finds the rest in place: it adds the links and runs the lifecycle scripts, as `npm ci` does.
-  npm install \
-    --prefer-offline \
-    --no-audit \
-    --no-fund \
-    --no-progress \
-    "$@"
+if [ "$NODE_MODULES_RESTORED" = true ]; then
+  echo "--- :npm: Link the workspaces"
+  node .buildkite/commands/workspace-links.mjs add
 
-  # `npm ci` fails when package.json and the lockfile disagree, where `npm install` updates the lockfile.
-  if ! git diff --quiet -- package-lock.json; then
-    echo "^^^ +++ package-lock.json does not match package.json. Run \`npm install\` and commit package-lock.json."
-    git diff --stat -- package-lock.json
-    exit 1
-  fi
+  echo "--- :npm: Check that package.json and package-lock.json agree"
+  # `npm ci` runs this check before it installs anything, and `--dry-run` stops it there.
+  npm ci --dry-run --ignore-scripts --prefer-offline --no-audit --no-fund "$@"
+
+  echo "--- :npm: Run postinstall"
+  npm run postinstall
   exit 0
 fi
-
-echo "--- :npm: Restore npm cache if present"
-restore_cache "$CACHEKEY"
 
 echo "--- :npm: Install Node dependencies"
 
@@ -95,18 +93,20 @@ save_cache "$LOCAL_NPM_CACHE" "$CACHEKEY"
 # but nothing checks a restored node_modules, so a pull request must not write the copy that others use.
 if [ "$IS_WINDOWS" = true ] && [[ "${BUILDKITE_BRANCH:-}" =~ ^(trunk|cache-windows-node-modules)$ ]]; then
   echo "--- :npm: Save node_modules cache if necessary"
-  # Archive every node_modules folder of the workspace, but not the links to the workspaces, which `npm install` recreates.
-  NODE_MODULES_FOLDERS=$(mktemp)
-  WORKSPACE_LINKS=$(mktemp)
-  ls -d apps/*/node_modules packages/*/node_modules tools/*/node_modules 2> /dev/null > "$NODE_MODULES_FOLDERS" || true
-  node -e '
-    const { packages } = require( "./package-lock.json" );
-    for ( const [ path, entry ] of Object.entries( packages ) ) {
-      if ( entry.link ) console.log( path );
-    }
-  ' > "$WORKSPACE_LINKS"
-  # `save_cache` archives one path with GNU tar, which also reads options from TAR_OPTIONS.
-  TAR_OPTIONS="--files-from=$NODE_MODULES_FOLDERS --anchored --exclude-from=$WORKSPACE_LINKS" \
-    save_cache node_modules "$NODE_MODULES_CACHEKEY"
-  rm -f "$NODE_MODULES_FOLDERS" "$WORKSPACE_LINKS"
+  # `save_cache` archives one folder, so gather every node_modules folder of the workspace in one
+  # (moving a folder is a rename, so it takes no time), without the links to the workspaces.
+  NODE_MODULES_STAGING=vendor/node-modules-cache
+  NODE_MODULES_FOLDERS=$(ls -d node_modules apps/*/node_modules packages/*/node_modules tools/*/node_modules 2> /dev/null || true)
+  node .buildkite/commands/workspace-links.mjs remove
+  for folder in $NODE_MODULES_FOLDERS; do
+    mkdir -p "$NODE_MODULES_STAGING/$(dirname "$folder")"
+    mv "$folder" "$NODE_MODULES_STAGING/$folder"
+  done
+  # Paths relative to the staging folder, so that `restore_cache` extracts them in place.
+  save_cache "$NODE_MODULES_STAGING" "$NODE_MODULES_CACHEKEY" "" --use_relative_path_in_tar
+  for folder in $NODE_MODULES_FOLDERS; do
+    mv "$NODE_MODULES_STAGING/$folder" "$folder"
+  done
+  rm -rf "$NODE_MODULES_STAGING"
+  node .buildkite/commands/workspace-links.mjs add
 fi

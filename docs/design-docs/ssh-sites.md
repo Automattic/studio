@@ -48,7 +48,7 @@ The id is the address in one form (`formatSshAddress`): `user@host:/path`, or `s
 Each addition is generic:
 
 - **A provider without an account.** A provider whose config is `undefined` has no `account` (`WithAccount` in `types.ts`): there is nothing to connect, and surfaces treat it as connected. Settings and `/connect` leave it out. Publish opens on it only when it was the last provider used.
-- **`sites.connect`**: how the user connects a site that isn't listed from an account, as a `ConnectMethod` of kind `form`, like an account's. `SitesServices.resolve( config, input )` reaches the site and returns it (`resolveRemoteSite` in `@studio/common` and `Connector`), and connecting it is the same as connecting a listed site. SSH's method is `hostOnly`, so surfaces without `capabilities.localMachine` (Studio Cloud) leave SSH out. `newSite` is optional: a provider without it only connects existing sites.
+- **`sites.connect`**: how the user connects a site that isn't listed from an account, as a `ConnectMethod` of kind `form`, like an account's. The CLI asks for its fields; the apps show the provider's own form, `ConnectForm` from `@studio/providers/ui`, which may run the services' `action( config, name, input )` on the computer, such as listing the user's SSH hosts. `SitesServices.resolve( config, input )` reaches the site and returns it (`resolveRemoteSite` in `@studio/common` and `Connector`), and connecting it is the same as connecting a listed site. SSH's method is `hostOnly`, so surfaces without `capabilities.localMachine` (Studio Cloud) leave SSH out. `newSite` is optional: a provider without it only connects existing sites.
 - **`SitesServices.pullArchive( config, site, options, archive, onProgress, signal )`**: writes the site, as a tar of the backup format, to a `WritableStream`. It is the pull of a provider that sends the site rather than a backup to download.
 - **`SitesServices.push`** gets the connected site as Studio stored it, not only its id and name.
 
@@ -58,10 +58,12 @@ The package's surface entries still use no Node APIs. The lint ban now covers on
 
 | File | Contents |
 |---|---|
-| `ssh/address.ts` | Parsing and formatting addresses, and checking the WP-CLI command. Browser-safe: the connect form validates with it. |
-| `ssh/descriptor.ts` | `SshSite`, and the provider: the connect form, `pull`, `selective`, the intro, and the details and admin link shown for a connected site. |
+| `ssh/address.ts` | Parsing and formatting addresses and hosts, checking the WP-CLI command, and the schema of a host to add. Browser-safe: the connect form validates with it. |
+| `ssh/descriptor.ts` | `SshSite`, and the provider: the connect form's fields (host, WordPress folder, WP-CLI command), `pull`, `selective`, the intro, and the details and admin link shown for a connected site. |
+| `ssh/connect-form.tsx` | The form the apps show (`@studio/providers/ui`): a host from the user's SSH config, or one they add, then the folder and WP-CLI command. |
+| `ssh/ssh-config.ts` | The hosts of the user's SSH config (`Host` lines, following `Include`), described with `ssh -G`, and adding one to `~/.ssh/studio_config`. |
 | `ssh/shell.ts` | `shellQuote`, the run folder on the server (`syncFolder`), and `runSsh`, which spawns `ssh`, streams stdin or stdout, and turns its failures into messages that say what to fix. |
-| `ssh/sites.ts` | `connect`, which reads the site with one `wp eval`; `list` returns none, since the connections are the list. |
+| `ssh/sites.ts` | `resolve`, which reads the site with one `wp eval`; `list` returns none, since the connections are the list; and the form's actions, `hosts` and `addHost`. |
 | `ssh/push.ts`, `ssh/pull.ts` | The remote steps, each a POSIX shell script run by one `ssh` call. |
 
 ## SSH invocation
@@ -109,11 +111,13 @@ studio push --path ~/Studio/acme --remote-site ssh:acme.com --options plugins,th
 
 ## UI
 
-In Publish, SSH is a destination. Choosing it offers "Connect a site", which opens the provider's form; "Choose an existing site" offers the same form as "Connect to SSH", next to the other providers. On success the site is the destination, with "Update…" (push, with the usual selection) and "Pull from live site…".
+In Publish, SSH is a destination. Choosing it offers "Connect a site", which opens the provider's own form (`ConnectForm` in `@studio/providers/ui`, so `apps/ui` has no SSH code); "Choose an existing site" offers the same form as "Connect to SSH", next to the other providers. On success the site is the destination, with "Update…" (push, with the usual selection) and "Pull from live site…".
 
 In Add site, Connect lists every provider that pulls (`sites.pull`), WordPress.com and SSH, behind a switch. SSH shows the same form; once the server answers, setup proposes the site's name, and creating the site connects it and pulls it in the background, as for a WordPress.com site.
 
-The form's values go to `Connector.resolveRemoteSite`, which reaches the server before Studio creates or changes anything; `connectRemoteSite` then saves the site it returned. Both run in `@studio/common`, from the main process and from `studio ui`'s server (`POST /remote-sites/:provider/resolve`). No server version gate is needed: the `local` connector meets older servers only on Studio Cloud, which doesn't offer SSH.
+The form picks a host from the user's SSH config: Studio lists the `Host` names of `~/.ssh/config` and the files it includes, without patterns, and `ssh -G` says who and where each connects as. "Add SSH host…" asks for a name, the user and server, a port and a key, writes the host to `~/.ssh/studio_config`, puts `Include ~/.ssh/studio_config` first in `~/.ssh/config` once, and keeps it only when `ssh` reaches the server with it, so the host works from the user's terminal too and Studio stores no connection details. The form reaches these through `Connector.runSitesAction` (`SitesServices.action`), which runs one of the provider's actions on the computer.
+
+The form's values go to `Connector.resolveRemoteSite`, which reaches the server before Studio creates or changes anything; `connectRemoteSite` then saves the site it returned. Both run in `@studio/common`, from the main process and from `studio ui`'s server (`POST /remote-sites/:provider/resolve`, and `POST /remote-sites/:provider/actions/:action` for the form's actions). No server version gate is needed: the `local` connector meets older servers only on Studio Cloud, which doesn't offer SSH.
 
 ## Security
 

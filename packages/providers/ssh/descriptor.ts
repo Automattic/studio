@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { isWpCliCommand, parseSshAddress } from './address';
+import { isSitePath, isWpCliCommand, parseSshAddress, parseSshHost } from './address';
 import type { Provider, RemoteSite } from '../types';
 
 // A WordPress site on a server Studio reaches with the user's `ssh`, and manages with WP-CLI there.
@@ -35,19 +35,21 @@ export const sshProvider: Provider< undefined, SshSite > = {
 			hostOnly: true,
 			input: () =>
 				z.object( {
-					address: z
+					host: z
 						.string()
-						.refine( ( value ) => parseSshAddress( value ) !== undefined, {
-							message: __(
-								'Enter the server and the WordPress folder, such as deploy@example.com:/var/www/html.'
-							),
+						.refine( ( value ) => parseSshHost( value ) !== undefined, {
+							message: __( 'Enter a host from your SSH config, or user@server.' ),
+						} )
+						.meta( { title: __( 'Host' ), examples: [ 'deploy@example.com' ] } ),
+					path: z
+						.string()
+						.refine( isSitePath, {
+							message: __( 'Enter the folder WordPress is in, such as /var/www/html.' ),
 						} )
 						.meta( {
-							title: __( 'Server' ),
-							description: __(
-								'The SSH user, server and WordPress folder. Use ssh://user@server:port/folder for another port.'
-							),
-							examples: [ 'deploy@example.com:/var/www/html' ],
+							title: __( 'WordPress folder' ),
+							description: __( 'The folder with wp-config.php on the server.' ),
+							examples: [ '/var/www/html' ],
 						} ),
 					wpCli: z
 						.string()

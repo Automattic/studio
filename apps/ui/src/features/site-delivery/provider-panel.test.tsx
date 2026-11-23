@@ -1823,6 +1823,9 @@ it( 'connects a site over SSH from its address, then publishes to it', async () 
 		getSiteVisibility: async () => null,
 		getSnapshots: async () => [],
 	} );
+	connector.runSitesAction.mockResolvedValue( [
+		{ name: 'acme', description: 'deploy@acme.test' },
+	] );
 	connector.resolveRemoteSite.mockResolvedValue( sshSite );
 	connector.connectRemoteSite.mockImplementation( async () => {
 		added = true;
@@ -1833,9 +1836,17 @@ it( 'connects a site over SSH from its address, then publishes to it', async () 
 	expect( within( picker ).queryByRole( 'textbox' ) ).not.toBeInTheDocument();
 	await user.click( within( picker ).getByRole( 'button', { name: 'Connect to SSH' } ) );
 	const step = await screen.findByRole( 'dialog', { name: 'Publish over SSH' } );
-	await user.type( within( step ).getByRole( 'textbox', { name: 'Server' } ), sshSite.id );
+	await user.click( within( step ).getByRole( 'combobox', { name: 'Host' } ) );
+	await user.click( await screen.findByRole( 'option', { name: /^acme/ } ) );
+	await user.type(
+		within( step ).getByRole( 'textbox', { name: 'WordPress folder' } ),
+		'/srv/www'
+	);
 	await user.click( within( step ).getByRole( 'button', { name: 'Connect' } ) );
-	expect( connector.resolveRemoteSite ).toHaveBeenCalledWith( 'ssh', { address: sshSite.id } );
+	expect( connector.resolveRemoteSite ).toHaveBeenCalledWith( 'ssh', {
+		host: 'acme',
+		path: '/srv/www',
+	} );
 	expect( connector.connectRemoteSite ).toHaveBeenCalledWith( 'ssh', site.id, sshSite );
 	expect( await screen.findByRole( 'link', { name: 'Open acme.test' } ) ).toBeVisible();
 

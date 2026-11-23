@@ -164,17 +164,25 @@ describe( 'Add site flow', () => {
 			wpCli: 'wp',
 			contentDir: '/srv/www/wp-content',
 		};
+		connector.runSitesAction.mockResolvedValue( [ { name: 'acme' } ] );
 		connector.resolveRemoteSite.mockResolvedValue( sshSite );
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 		fireEvent.click( await screen.findByRole( 'tab', { name: 'SSH' } ) );
-		fireEvent.change( screen.getByRole( 'textbox', { name: 'Server' } ), {
-			target: { value: sshSite.id },
+		fireEvent.click( screen.getByRole( 'combobox', { name: 'Host' } ) );
+		const host = await screen.findByRole( 'option', { name: 'acme' } );
+		fireEvent.pointerDown( host, { pointerType: 'mouse' } );
+		fireEvent.click( host );
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'WordPress folder' } ), {
+			target: { value: '/srv/www' },
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
 		const name = await screen.findByLabelText( 'Site name' );
 		await waitFor( () => expect( name ).toHaveValue( 'Acme' ) );
-		expect( connector.resolveRemoteSite ).toHaveBeenCalledWith( 'ssh', { address: sshSite.id } );
+		expect( connector.resolveRemoteSite ).toHaveBeenCalledWith( 'ssh', {
+			host: 'acme',
+			path: '/srv/www',
+		} );
 
 		await submit();
 		await waitFor( () => expect( connector.pullSite ).toHaveBeenCalled() );

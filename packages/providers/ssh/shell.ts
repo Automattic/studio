@@ -36,7 +36,7 @@ dir="$base/.studio-sync/${ run }"`;
 }
 
 // Windows ships the OpenSSH client, which an app's PATH doesn't always include.
-function sshExecutable(): string {
+export function sshExecutable(): string {
 	const bundled =
 		process.platform === 'win32' && process.env.SystemRoot
 			? path.join( process.env.SystemRoot, 'System32', 'OpenSSH', 'ssh.exe' )

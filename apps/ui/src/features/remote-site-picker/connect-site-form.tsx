@@ -1,28 +1,13 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
-import {
-	Button,
-	Field,
-	FieldDescription,
-	FieldError,
-	FieldGroup,
-	FieldLabel,
-	Input,
-} from '@studio/ds';
-import {
-	getConnectFields,
-	getProviderSites,
-	type ProviderSites,
-	type SitesProviderId,
-} from '@studio/providers';
+import { ConnectForm } from '@studio/providers/ui';
 import { useMutation } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
-import { useId, useState } from 'react';
+import { useCallback } from 'react';
 import { useConnector } from '@/data/core';
-import styles from './style.module.css';
+import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
-// A site the user describes in the provider's `sites.connect` form, once the provider reached it.
+// A site the user describes in the provider's own form, once the provider reached it.
 export function ConnectSiteForm( {
 	provider,
 	siteId,
@@ -36,13 +21,14 @@ export function ConnectSiteForm( {
 	onSite: ( site: ProviderSites[ SitesProviderId ] ) => Promise< void > | void;
 } ) {
 	const connector = useConnector();
-	const id = useId();
-	const { intro, connect: method } = getProviderSites( provider );
-	const fields = getConnectFields( method! );
-	const [ values, setValues ] = useState< Record< string, string > >( {} );
+	const run = useCallback(
+		( action: string, input?: Record< string, string > ) =>
+			connector.runSitesAction( provider, action, input ),
+		[ connector, provider ]
+	);
 	const connect = useMutation( {
-		mutationFn: async () => {
-			const site = await connector.resolveRemoteSite( provider, values ).catch( ( error ) => {
+		mutationFn: async ( input: Record< string, string > ) => {
+			const site = await connector.resolveRemoteSite( provider, input ).catch( ( error ) => {
 				void connector.trackEvent(
 					TRACKS_EVENTS.SYNC_CONNECT,
 					{
@@ -57,52 +43,15 @@ export function ConnectSiteForm( {
 			await onSite( site );
 		},
 	} );
-	const errors = fields.map( ( field ) =>
-		values[ field.name ] ? field.validate( values[ field.name ] ) : undefined
-	);
-	const ready = fields.every(
-		( field, index ) => ! errors[ index ] && ( ! field.required || values[ field.name ]?.trim() )
-	);
 
 	return (
-		<form
-			className={ styles.form }
-			aria-label={ intro.title() }
-			onSubmit={ ( event ) => {
-				event.preventDefault();
-				if ( ready && ! connect.isPending ) connect.mutate();
-			} }
-		>
-			<p>{ intro.description() }</p>
-			<FieldGroup>
-				{ fields.map( ( field, index ) => (
-					<Field key={ field.name }>
-						<FieldLabel htmlFor={ `${ id }-${ field.name }` }>{ field.title }</FieldLabel>
-						<Input
-							id={ `${ id }-${ field.name }` }
-							autoComplete="off"
-							spellCheck={ false }
-							placeholder={ field.placeholder }
-							value={ values[ field.name ] ?? '' }
-							disabled={ disabled || connect.isPending }
-							onChange={ ( event ) =>
-								setValues( { ...values, [ field.name ]: event.target.value } )
-							}
-						/>
-						<FieldDescription error={ errors[ index ] }>{ field.description }</FieldDescription>
-					</Field>
-				) ) }
-			</FieldGroup>
-			<FieldError>{ connect.error?.message }</FieldError>
-			<Button
-				type="submit"
-				variant="accent"
-				disabled={ disabled || ! ready }
-				loading={ connect.isPending }
-				loadingAnnouncement={ __( 'Connecting' ) }
-			>
-				{ __( 'Connect' ) }
-			</Button>
-		</form>
+		<ConnectForm
+			provider={ provider }
+			disabled={ disabled }
+			pending={ connect.isPending }
+			error={ connect.error?.message }
+			onSubmit={ ( input ) => connect.mutate( input ) }
+			run={ run }
+		/>
 	);
 }

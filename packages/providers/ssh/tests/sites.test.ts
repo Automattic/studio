@@ -21,7 +21,7 @@ describe.skipIf( process.platform === 'win32' )( 'connecting an SSH site', () =>
 	it( 'reads the site in the folder, trusting a new host only now', async () => {
 		const folder = site();
 		await expect(
-			sshSites.resolve!( undefined, { address: `deploy@acme.test:${ folder }/`, wpCli: '' } )
+			sshSites.resolve!( undefined, { host: 'deploy@acme.test', path: `${ folder }/`, wpCli: '' } )
 		).resolves.toEqual( {
 			id: `deploy@acme.test:${ folder }`,
 			name: 'Acme',
@@ -34,10 +34,17 @@ describe.skipIf( process.platform === 'win32' )( 'connecting an SSH site', () =>
 		);
 	} );
 
+	it( 'takes a whole address as the host, with its port', async () => {
+		const folder = site();
+		await expect(
+			sshSites.resolve!( undefined, { host: `ssh://deploy@acme.test:2222${ folder }` } )
+		).resolves.toMatchObject( { id: `ssh://deploy@acme.test:2222${ folder }` } );
+	} );
+
 	it( 'says what to fix when the server refuses the key', async () => {
 		vi.stubEnv( 'FAKE_SSH_FAIL', 'deploy@acme.test: Permission denied (publickey).' );
 		await expect(
-			sshSites.resolve!( undefined, { address: `deploy@acme.test:${ site() }` } )
+			sshSites.resolve!( undefined, { host: 'deploy@acme.test', path: site() } )
 		).rejects.toMatchObject( { code: 'ssh_auth' } );
 	} );
 } );

@@ -409,6 +409,12 @@ export interface Connector {
 		provider: SitesProviderId,
 		input: Record< string, string >
 	): Promise< ProviderSites[ SitesProviderId ] >;
+	// Runs one of the provider's actions on the computer, for its connect form.
+	runSitesAction(
+		provider: SitesProviderId,
+		action: string,
+		input?: Record< string, string >
+	): Promise< unknown >;
 	disconnectRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,

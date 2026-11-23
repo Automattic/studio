@@ -1,10 +1,12 @@
 import { __, sprintf } from '@wordpress/i18n';
+import { z } from 'zod';
 import { RemoteSiteError } from '../errors';
-import { formatSshAddress, parseSshAddress } from './address';
+import { formatSshAddress, parseSshAddress, parseSshHost, sshHostInput } from './address';
 import { sshProvider, type SshSite } from './descriptor';
 import { pullOverSsh } from './pull';
 import { pushOverSsh } from './push';
 import { inSite, runSsh, shellQuote, type SshConnection } from './shell';
+import { addSshHost, listSshHosts } from './ssh-config';
 import type { SitesServices } from '../types';
 
 function connection( site: Pick< SshSite, 'id' > & Partial< SshSite > ): SshConnection {
@@ -25,15 +27,30 @@ const PROBE = `echo json_encode( array(
 	'multisite' => is_multisite(),
 ) );`;
 
-async function resolve( input: Record< string, string > ): Promise< SshSite > {
-	const form = sshProvider
-		.sites!.connect!.input()
-		.safeParse( { address: '', wpCli: '', ...input } );
+function parseForm< Schema extends z.ZodType >(
+	schema: Schema,
+	input: unknown
+): z.infer< Schema > {
+	const form = schema.safeParse( input );
 	if ( ! form.success ) {
 		throw new RemoteSiteError( form.error.issues[ 0 ].message, 'ssh_address' );
 	}
-	const server = parseSshAddress( form.data.address )!;
-	const wpCli = form.data.wpCli?.trim() || 'wp';
+	return form.data;
+}
+
+async function resolve( input: Record< string, string > ): Promise< SshSite > {
+	const values = { host: '', path: '', wpCli: '', ...input };
+	// A whole address as the host, as `--remote-site ssh:<address>` gives it.
+	const address = values.path ? undefined : parseSshAddress( values.host );
+	if ( address && ! /^\d+$/.test( address.path ) ) {
+		values.host = address.port ? `${ address.destination }:${ address.port }` : address.destination;
+		values.path = address.path;
+	}
+	const form = parseForm( sshProvider.sites!.connect!.input(), values );
+	const server = parseSshAddress(
+		formatSshAddress( { ...parseSshHost( form.host )!, path: form.path } )
+	)!;
+	const wpCli = form.wpCli.trim() || 'wp';
 	const output = await runSsh(
 		server,
 		`${ inSite( { path: server.path, wpCli } ) }\nstudio_wp eval ${ shellQuote( PROBE ) }`,
@@ -76,6 +93,15 @@ export const sshSites: SitesServices< undefined, SshSite > = {
 	// The connections are the sites: the user connects each one.
 	list: async () => [],
 	resolve: ( _config, input ) => resolve( input ),
+	action: async ( _config, name, input ) => {
+		if ( name === 'hosts' ) {
+			return listSshHosts();
+		}
+		if ( name === 'addHost' ) {
+			return addSshHost( parseForm( sshHostInput(), { port: '', key: '', ...input } ) );
+		}
+		throw new Error( `SSH has no ${ name } action.` );
+	},
 	push: ( _config, site, content, _options, onStatus, signal ) =>
 		pushOverSsh( connection( site ), content, onStatus, signal ),
 	pullArchive: ( _config, site, options, archive, onProgress, signal ) =>

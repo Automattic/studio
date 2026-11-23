@@ -95,6 +95,18 @@ export type ConnectMethod = {
 	| { kind: 'device' }
 );
 
+// What Studio gives a provider's own connect form, from `@studio/providers/ui`.
+export interface ConnectFormProps {
+	disabled: boolean;
+	// Studio is reaching the site the form described.
+	pending: boolean;
+	error?: string;
+	// Reaches the site the values describe, with the services' `resolve`.
+	onSubmit( input: Record< string, string > ): void;
+	// Runs one of the services' actions on the computer.
+	run( action: string, input?: Record< string, string > ): Promise< unknown >;
+}
+
 // What surfaces show of a connected account; never the credential itself.
 export interface AccountDetails {
 	// The method it connected with.
@@ -371,6 +383,13 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 	): Promise< Site[] >;
 	// The site the user described in the descriptor's `connect` form, once the provider reached it.
 	resolve?( config: Config | undefined, input: Record< string, string > ): Promise< Site >;
+	// What the provider's connect form (`@studio/providers/ui`) asks of the computer, by name, such
+	// as the hosts of the user's SSH config.
+	action?(
+		config: Config | undefined,
+		name: string,
+		input: Record< string, string >
+	): Promise< unknown >;
 	// A new site to push to, for a provider that can create one.
 	create?(
 		config: Config | undefined,

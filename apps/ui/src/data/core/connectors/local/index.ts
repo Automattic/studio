@@ -690,6 +690,12 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( site ),
 			} );
 		},
+		async runSitesAction( provider, action, input = {} ) {
+			return api( `/remote-sites/${ provider }/actions/${ action }`, {
+				method: 'POST',
+				body: JSON.stringify( input ),
+			} );
+		},
 		async resolveRemoteSite( provider, input ) {
 			return api( `/remote-sites/${ provider }/resolve`, {
 				method: 'POST',

@@ -15,6 +15,7 @@ import {
 	listAccountSites as listProviderAccountSites,
 	listRemoteBackupFiles as readRemoteBackupFiles,
 	resolveRemoteSite as resolveRemoteSiteOnProvider,
+	runSitesAction as runProviderSitesAction,
 } from '@studio/common/sites/remote-sites';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
@@ -78,6 +79,15 @@ export async function resolveRemoteSite(
 	input: Record< string, string >
 ): Promise< ProviderSites[ SitesProviderId ] > {
 	return resolveRemoteSiteOnProvider( getProviderServices( parseProvider( provider ) ), input );
+}
+
+export async function runSitesAction(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	action: string,
+	input: Record< string, string > = {}
+) {
+	return runProviderSitesAction( getProviderServices( parseProvider( provider ) ), action, input );
 }
 
 export async function disconnectRemoteSite(

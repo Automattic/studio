@@ -25,7 +25,7 @@ const AGENT_NODE = {
 };
 
 const PROVIDERS_SERVICES = {
-	group: [ '@studio/providers/*', '!@studio/providers/wpcom' ],
+	group: [ '@studio/providers/*', '!@studio/providers/wpcom', '!@studio/providers/ui' ],
 	message: 'Surfaces read @studio/providers; its services run in the backends and the agent.',
 };
 
@@ -448,6 +448,25 @@ export default defineConfig(
 		},
 	},
 	{
+		// A provider's own forms, which `@studio/providers/ui` gives the apps, build on `@studio/ds`.
+		files: [ 'packages/providers/**/*.tsx' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						WP_UI_PACKAGES,
+						BASE_UI,
+						{
+							group: [ '@studio/*', '!@studio/ds', '!@studio/ds/*', 'cli/*', 'src/*' ],
+							message: 'Provider forms build on @studio/ds and no other workspace package.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
 		// `apps/ui` loads the descriptors in the browser; the services run in Node.
 		files: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
 		rules: {
@@ -541,7 +560,7 @@ export default defineConfig(
 		},
 	},
 	{
-		files: [ 'apps/ui/src/**/*.css', 'packages/ds/**/*.css' ],
+		files: [ 'apps/ui/src/**/*.css', 'packages/ds/**/*.css', 'packages/providers/**/*.css' ],
 		plugins: { css, prettier: pluginPrettier.plugins.prettier, studio: pluginStudio },
 		language: 'css/css',
 		languageOptions: { tolerant: true },

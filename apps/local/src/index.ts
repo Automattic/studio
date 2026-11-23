@@ -160,6 +160,7 @@ import {
 	getSiteVisibility,
 	setSiteVisibility,
 	resolveRemoteSite,
+	runSitesAction,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -2076,6 +2077,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( provider ) {
 				await connectPublishingSite( provider, req.params.id, req.body as never );
 				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	api.post(
+		'/remote-sites/:provider/actions/:action',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json(
+					await runSitesAction( getProviderServices( provider ), req.params.action, req.body )
+				);
 			}
 		} )
 	);

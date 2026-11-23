@@ -105,7 +105,32 @@ describe( 'ConnectPanel', () => {
 		);
 		expect( screen.queryByRole( 'tab', { name: 'Spacefast' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'tab', { name: 'SSH' } ) );
-		expect( await screen.findByRole( 'textbox', { name: 'Server' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'combobox', { name: 'Host' } ) ).toBeVisible();
+	} );
+
+	it( 'adds an SSH host from the host menu and picks it', async () => {
+		const { connector } = setup();
+		connector.runSitesAction.mockImplementation( async ( _provider, action ) =>
+			action === 'hosts' ? [] : { name: 'acme' }
+		);
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'SSH' } ) );
+		fireEvent.click( screen.getByRole( 'combobox', { name: 'Host' } ) );
+		const add = await screen.findByRole( 'option', { name: 'Add SSH host…' } );
+		fireEvent.pointerDown( add, { pointerType: 'mouse' } );
+		fireEvent.click( add );
+		const form = await screen.findByRole( 'form', { name: 'Add SSH host' } );
+		fireEvent.change( within( form ).getByRole( 'textbox', { name: 'Name' } ), {
+			target: { value: 'acme' },
+		} );
+		fireEvent.change( within( form ).getByRole( 'textbox', { name: 'Server' } ), {
+			target: { value: 'deploy@acme.com' },
+		} );
+		fireEvent.click( within( form ).getByRole( 'button', { name: 'Add SSH host' } ) );
+		expect( await screen.findByRole( 'combobox', { name: 'Host' } ) ).toHaveTextContent( 'acme' );
+		expect( connector.runSitesAction ).toHaveBeenCalledWith( 'ssh', 'addHost', {
+			name: 'acme',
+			server: 'deploy@acme.com',
+		} );
 	} );
 
 	it( 'shows only WordPress.com sites off the local machine', async () => {

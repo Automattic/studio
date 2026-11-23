@@ -9,16 +9,17 @@ wpcom.ts         @studio/providers/wpcom: the Studio sign-in URL, and WordPress.
 registry.ts      the provider ids, getProvider( id ), the stored ids, remote-site names
 models.ts        findAiModel( id ), servesAiModel( provider, id ), getAiModels( provider, account ),
                  getDefaultAiModel( provider, options )
-connection.ts    getConnectMethod( provider, id ), getConnectFields( method )
+connection.ts    getConnectMethod( provider, id ), getConnectFields( method ), getFormFields( schema )
 types.ts         Provider, ProviderServices, ConnectMethod, AccountDetails, AiConnection, …
 errors.ts        NotConnectedError, ConnectError, RemoteSiteError
+ui.tsx           ConnectForm: a provider's own form for connecting a site, such as SSH's
 <provider>/      descriptor.ts (its Provider and connect forms), config.ts, services.ts (its
                  ProviderServices), account.ts, and api.ts, ai.ts and sites.ts or folders of them
 ```
 
 ## Two halves of each provider
 
-- **`getProvider( id )`** (`@studio/providers`) is the provider as data: its label, description and icon, its `account` (config schema, connect methods, what to show of a connected account), its `ai` models and its `sites` presentation. Calling it never reaches a service. `apps/ui` imports only this entry, and `@studio/providers/wpcom`.
+- **`getProvider( id )`** (`@studio/providers`) is the provider as data: its label, description and icon, its `account` (config schema, connect methods, what to show of a connected account), its `ai` models and its `sites` presentation. Calling it never reaches a service. `apps/ui` imports only this entry, `@studio/providers/wpcom`, and `@studio/providers/ui`, the React forms a provider shows for connecting a site.
 - **`getProviderServices( id )`** (`@studio/providers/services`) is what the provider does, in the same groups: `account` (start, connect, refresh, disconnect), `ai` (a model connection, image generation) and `sites` (list, create, push, pull, and previews). The CLI, the apps' backends and the agent import it, in Node.
 
 ```ts
@@ -77,10 +78,10 @@ Add a folder laid out like the others, then register it in three places: its con
 
 Enforced by lint (`eslint.config.mjs`):
 
-- The package imports no other workspace package: Studio passes in what a provider needs.
+- The package imports no other workspace package: Studio passes in what a provider needs. Its forms (`.tsx`) build on `@studio/ds` alone.
 - Its surface entries use no Node APIs, since `apps/ui` loads them in the browser. The services may, as SSH runs `ssh`.
 - The files the surface entries are made of import only each other.
-- `apps/ui` imports only `@studio/providers` and `@studio/providers/wpcom`, and `@studio/common` never imports `@studio/providers/services`.
+- `apps/ui` imports only `@studio/providers`, `@studio/providers/wpcom` and `@studio/providers/ui`, and `@studio/common` never imports `@studio/providers/services`.
 
 ## Tests
 

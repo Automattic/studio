@@ -50,6 +50,17 @@ steps:
       - github_commit_status:
           context: Lint
 
+  # Experiment: Vitest and `bun test` (pinned canary) on the same files, side by
+  # side, reported in an annotation. Soft-fail and no status: it never gates.
+  - label: ":bun: bun test canary experiment"
+    key: bun_test_experiment
+    soft_fail: true
+    timeout_in_minutes: 60
+    agents:
+      queue: default
+    command: bash .buildkite/commands/try-bun-test.sh
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+
   - label: ":fastlane: fastlane Helper Tests"
     agents:
       queue: default

@@ -1,6 +1,6 @@
+import { PanelRightIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { createContext, useContext } from 'react';
-import { PanelRightIcon } from '@/lib/icons';
 
 export const PanelCommandContext = createContext< {
 	siteId?: string;

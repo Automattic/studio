@@ -1,4 +1,5 @@
 import { validateSelectedSitePath } from '@studio/common/lib/site-path-validation';
+import { replaceOpenDialogs } from '@studio/ds';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
@@ -21,7 +22,6 @@ import {
 	pendingRemoteSiteSlot,
 	pendingSiteFolderSlot,
 } from '@/features/sites';
-import { replaceOpenDialogs } from '@/lib/ui';
 
 export function useAppMenuNavigation() {
 	const connector = useConnector();

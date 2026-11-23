@@ -1,9 +1,9 @@
+import { Tabs, TabsList, TabsScopeIndicator, TabsTrigger, TooltipProvider } from '@studio/ds';
+import { applyTheme } from '@studio/ds/theme';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode, useLayoutEffect, useState, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ConnectorProvider, type Connector } from '@/data/core';
-import { applyTheme } from '@/lib/theme';
-import { Tabs, TabsList, TabsScopeIndicator, TabsTrigger, TooltipProvider } from '@/lib/ui';
 import { createInMemoryConnector } from '@/test/in-memory-connector';
 import styles from './style.module.css';
 

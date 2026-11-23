@@ -1,3 +1,6 @@
+import { Button } from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { ExternalLinkIcon } from '@studio/ds/icons';
 import { getProvider } from '@studio/providers';
 import { __, _x } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
@@ -11,9 +14,6 @@ import { useConnectedHostingProviders, usePublishProviders } from '@/data/querie
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SETTINGS_AI_PROVIDER_IDS } from '@/data/settings-sections';
 import { LearnMoreLink } from '@/features/onboarding';
-import { useOffline } from '@/lib/hooks';
-import { ExternalLinkIcon } from '@/lib/icons';
-import { Button } from '@/lib/ui';
 import { AiProviders, getProviderConnectMethods, ProviderRow } from './ai-panel';
 import { ProviderLogo } from './provider-logo';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';

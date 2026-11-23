@@ -59,7 +59,7 @@
 }
 
 .selected {
-	composes: floating from '@/lib/ui/surface/style.module.css';
+	composes: floating from '@studio/ds/surface.module.css';
 }
 .trigger {
 	width: 100%;

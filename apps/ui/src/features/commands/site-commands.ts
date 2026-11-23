@@ -1,6 +1,3 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { UserRoundIcon } from 'lucide-react';
-import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	XIcon,
 	AnnotateIcon,
@@ -16,7 +13,6 @@ import {
 	PinIcon,
 	PencilIcon,
 	RotateCwIcon,
-	UploadIcon,
 	SlidersVerticalIcon,
 	PlayIcon,
 	CircleStopIcon,
@@ -25,7 +21,10 @@ import {
 	TerminalIcon,
 	UnpinIcon,
 	WordPressIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { UserRoundIcon } from 'lucide-react';
+import { getSettingsCommandAliases } from '@/data/settings-sections';
 import type { SiteDetails } from '@/data/core';
 import type { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import type { useOpenSettings } from '@/data/use-open-settings';
@@ -259,21 +258,16 @@ export function getSiteCommands( {
 			  ]
 			: [] ),
 		{
-			id: 'share',
-			group: 'commands',
-			label: __( 'Share site…' ),
-			icon: UploadIcon,
-			description,
-			keywords: [ __( 'preview link' ) ],
-			run: () => openHeaderPanel( { panel: 'share', siteId: site.id } ),
-		},
-		{
 			id: 'publish',
 			group: 'commands',
 			label: __( 'Publish' ),
 			icon: CloudUploadIcon,
 			description,
-			keywords: [ __( 'publish site sync push pull upload download' ) ],
+			keywords: [
+				__( 'publish site sync push pull upload download' ),
+				__( 'Share' ),
+				__( 'preview link' ),
+			],
 			run: () => openHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ),
 		},
 		{

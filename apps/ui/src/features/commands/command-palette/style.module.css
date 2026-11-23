@@ -1,5 +1,5 @@
 .popup {
-	composes: padded from '@/lib/ui/surface/style.module.css';
+	composes: commandGeometry from '@studio/ds/surface.module.css';
 	--surface: var( --popover );
 	top: 25dvh;
 	display: flex;
@@ -7,8 +7,6 @@
 	gap: 0;
 	max-width: 400px;
 	max-height: calc( 75dvh - var( --space-4 ) );
-	overflow: hidden;
-	border-radius: var( --radius-3xl );
 	scale: 1;
 	translate: -50% 0;
 }
@@ -18,7 +16,6 @@
 }
 
 .input {
-	border-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
 	flex-shrink: 0;
 }
 

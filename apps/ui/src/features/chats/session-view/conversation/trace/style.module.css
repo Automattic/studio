@@ -19,7 +19,7 @@
 }
 
 .activityProgress {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );
@@ -47,7 +47,7 @@
 }
 
 .traceTitle {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	min-width: 0;
 }
 

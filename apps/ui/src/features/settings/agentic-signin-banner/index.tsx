@@ -1,6 +1,6 @@
+import { Button } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useLogin } from '@/data/queries/use-auth-user';
-import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 

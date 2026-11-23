@@ -38,9 +38,7 @@ export type ToastMessage = {
 	durationMs: number;
 	dismissible?: boolean;
 	processing?: boolean;
-	// True while the exit transition plays. The toast stays in the visible
-	// list (so the renderer can animate it out) and is actually removed —
-	// and the queue promoted — TOAST_EXIT_MS later.
+	// The renderer removes the toast and promotes the queue after its exit.
 	leaving?: boolean;
 	// True while the action runs; it can't be clicked again until it fails.
 	actionPending?: boolean;
@@ -55,8 +53,8 @@ export type Notice = Pick<
 
 const DEFAULT_TOAST_TTL_MS = 4_500;
 const MAX_VISIBLE_TOASTS = 3;
-// The length of the deck's exit slide, before the queue is promoted.
-export const TOAST_EXIT_MS = 240;
+// Prevent a lost renderer callback from stranding the queue.
+const TOAST_EXIT_FALLBACK_MS = 2000;
 
 let visible: ToastMessage[] = [];
 let queued: ToastMessage[] = [];
@@ -125,6 +123,12 @@ function finalizeToastRemoval( id: string ) {
 	emit();
 }
 
+export function finishToastExit( id: string ) {
+	if ( visible.some( ( toast ) => toast.id === id && toast.leaving ) ) {
+		finalizeToastRemoval( id );
+	}
+}
+
 function beginToastExit( id: string ) {
 	const target = visible.find( ( toast ) => toast.id === id );
 	if ( ! target ) {
@@ -137,12 +141,16 @@ function beginToastExit( id: string ) {
 	}
 	clearExpiryTimer( id );
 	visible = visible.map( ( toast ) => ( toast.id === id ? { ...toast, leaving: true } : toast ) );
-	emit();
+	if ( ! rendererMounted ) {
+		finishToastExit( id );
+		return;
+	}
 	const timer = setTimeout( () => {
 		timers.delete( id );
-		finalizeToastRemoval( id );
-	}, TOAST_EXIT_MS );
+		finishToastExit( id );
+	}, TOAST_EXIT_FALLBACK_MS );
 	timers.set( id, timer );
+	emit();
 }
 
 export function showToast( input: ToastInput ): string {
@@ -328,8 +336,10 @@ export function notifyRendererMounted(): void {
 
 export function notifyRendererUnmounted(): void {
 	rendererMounted = false;
-	for ( const toast of visible ) {
-		if ( ! toast.leaving ) {
+	for ( const toast of [ ...visible ] ) {
+		if ( toast.leaving ) {
+			finishToastExit( toast.id );
+		} else {
 			clearExpiryTimer( toast.id );
 		}
 	}

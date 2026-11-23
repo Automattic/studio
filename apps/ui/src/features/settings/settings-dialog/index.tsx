@@ -1,38 +1,4 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
-import { getConnectMethod } from '@studio/providers';
-import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
-import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { clsx } from 'clsx';
-import { ChevronLeftIcon, SearchIcon } from 'lucide-react';
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { setProviderIntent } from '@/data/account-analytics';
-import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
-import { useConnectProvider } from '@/data/queries/use-ai-settings';
-import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useSessions } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
-import {
-	getSections,
-	isSiteSection,
-	resolveSettingsLink,
-	searchSettings,
-} from '@/data/settings-sections';
-import {
-	ProvidersPanel,
-	AppearanceSettings,
-	ExternalAppsPanel,
-	GeneralSettings,
-	InstructionsSettings,
-	KeyboardPanel,
-	SharingPanel,
-	SkillsPanel,
-	UsagePanel,
-} from '@/features/settings/settings-view';
-import { SiteSettingsForm } from '@/features/settings/site-settings-view';
-import { readLastVisited } from '@/features/sidebar';
-import { XIcon } from '@/lib/icons';
 import {
 	AlertDialog,
 	Button,
@@ -56,10 +22,44 @@ import {
 	TabsSidebar,
 	TabsTrigger,
 	VisuallyHidden,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { XIcon } from '@studio/ds/icons';
+import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
+import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
+import { clsx } from 'clsx';
+import { ChevronLeftIcon, SearchIcon } from 'lucide-react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { setProviderIntent } from '@/data/account-analytics';
+import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
+import { useSpacefastConnection } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useSessions } from '@/data/queries/use-sessions';
+import { useSites } from '@/data/queries/use-sites';
+import {
+	getSections,
+	isSiteSection,
+	resolveSettingsLink,
+	searchSettings,
+} from '@/data/settings-sections';
+import { SpacefastConnectDialog } from '@/features/account';
+import {
+	ProvidersPanel,
+	AppearanceSettings,
+	ExternalAppsPanel,
+	GeneralSettings,
+	InstructionsSettings,
+	KeyboardPanel,
+	SharingPanel,
+	SkillsPanel,
+	UsagePanel,
+} from '@/features/settings/settings-view';
+import { ProviderLogo } from '@/features/settings/settings-view/provider-logo';
+import { SiteSettingsForm } from '@/features/settings/site-settings-view';
+import { readLastVisited } from '@/features/sidebar';
 import { SettingsDialogContext, SettingsLinkContext } from './context';
 import { SiteAgentFiles } from './site-agent-files';
-import { SpacefastConnectDialog } from './spacefast-connect-dialog';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from './context';
 import type { SearchResult, SettingsScope, SettingsSectionId } from '@/data/settings-sections';
@@ -205,7 +205,7 @@ export function SettingsDialog() {
 	const [ confirmingDiscard, setConfirmingDiscard ] = useState( false );
 	const [ showingSpacefast, setShowingSpacefast ] = useState( false );
 	const restoreSpacefastFocus = useRef( false );
-	const spacefast = useConnectProvider( 'spacefast', { openBrowser: false } );
+	const spacefast = useSpacefastConnection( () => setShowingSpacefast( false ) );
 	const spacefastOpen = !! settings && section === 'providers' && showingSpacefast;
 	if ( showingSpacefast && ! spacefastOpen ) {
 		setShowingSpacefast( false );
@@ -215,14 +215,6 @@ export function SettingsDialog() {
 	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
 	const pendingExit = useRef< ( () => void ) | null >( null );
 	const panelId = useId();
-	const startSpacefast = () => {
-		if ( ! spacefast.isPending ) {
-			spacefast.mutate(
-				{ method: getConnectMethod( 'spacefast' ).id },
-				{ onSuccess: () => setShowingSpacefast( false ) }
-			);
-		}
-	};
 
 	// Each opening starts fresh.
 	useEffect( () => {
@@ -568,7 +560,7 @@ export function SettingsDialog() {
 											onConnect: () => {
 												restoreSpacefastFocus.current = true;
 												setShowingSpacefast( true );
-												startSpacefast();
+												spacefast.start();
 											},
 										} }
 									/>
@@ -646,10 +638,11 @@ export function SettingsDialog() {
 			{ settingsDialog }
 			<SpacefastConnectDialog
 				open={ spacefastOpen }
+				icon={ <ProviderLogo provider="spacefast" /> }
 				pending={ spacefast.pending }
 				isPending={ spacefast.isPending }
 				error={ spacefast.error?.message }
-				onRetry={ startSpacefast }
+				onRetry={ spacefast.start }
 				onClose={ () => setShowingSpacefast( false ) }
 			/>
 		</>

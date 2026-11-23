@@ -104,7 +104,7 @@ import {
 import {
 	forgetRemoteSite,
 	getRemoteSites,
-	rememberRemoteSite,
+	connectPublishingSite,
 } from '@studio/common/lib/remote-sites';
 import {
 	ROOT_CA_CERT_PATH,
@@ -154,7 +154,11 @@ import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit'
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
 import { setSiteFrontendAdminBar, updateSiteMetadata } from '@studio/common/sites/metadata';
+import { getSitePublishStatus } from '@studio/common/sites/publish-status';
 import {
+	getSiteCreationVisibility,
+	getSiteVisibility,
+	setSiteVisibility,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -178,6 +182,7 @@ import {
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
 import { createSyncRunner } from '@studio/common/sites/sync';
+import { siteVisibilitySchema } from '@studio/common/types/site-visibility';
 import {
 	AI_PROVIDER_IDS,
 	ConnectError,
@@ -194,6 +199,7 @@ import { getSignInUrl } from '@studio/providers/wpcom';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
+import { createKeepAlive } from './keep-alive';
 import {
 	isEditor,
 	isTerminal,
@@ -269,6 +275,8 @@ export interface LocalServerOptions {
 	// Limits the host set on sites and their storage (`studio serve` on a Studio Cloud plan),
 	// reported with the current counts at `/api/site-limits`.
 	siteLimits?: { sites?: number; runningSites?: number; storageGb?: number };
+	// Requested while an agent run is in progress (see `createKeepAlive`).
+	keepAliveUrl?: string;
 }
 
 export interface LocalServer {
@@ -491,6 +499,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		surface: 'cliui',
 		// Agent-run events on `agent`, session-placement updates on `placement`.
 		emit: ( output ) => sseSend( { channel: output.kind, payload: output.event } ),
+	} );
+	const keepAlive = createKeepAlive( {
+		url: options.keepAliveUrl,
+		isBusy: () => runManager.listActiveAgentRuns().length > 0,
 	} );
 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
@@ -2010,6 +2022,38 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	api.get(
+		'/remote-sites/:provider/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) return;
+			res.json(
+				await getSiteVisibility(
+					getProviderServices( provider ),
+					remoteSiteIdParam( provider, req )
+				)
+			);
+		} )
+	);
+	api.post(
+		'/remote-sites/:provider/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) return;
+			const visibility = siteVisibilitySchema.safeParse( req.body?.visibility );
+			if ( ! visibility.success ) {
+				res.status( 400 ).json( { error: 'Invalid visibility request.' } );
+				return;
+			}
+			res.json(
+				await setSiteVisibility(
+					getProviderServices( provider ),
+					remoteSiteIdParam( provider, req ),
+					visibility.data
+				)
+			);
+		} )
+	);
+	api.get(
 		'/remote-sites/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
@@ -2035,8 +2079,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				await rememberRemoteSite( provider, req.params.id, req.body as never );
+				await connectPublishingSite( provider, req.params.id, req.body as never );
 				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	api.get(
+		'/remote-sites/:provider/creation-visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json( await getSiteCreationVisibility( getProviderServices( provider ) ) );
 			}
 		} )
 	);
@@ -2045,15 +2099,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sites/:id/remote-sites/:provider/new',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
-			const { name } = req.body as { name?: string };
 			if ( ! provider ) {
 				return;
 			}
-			if ( ! name ) {
-				res.status( 400 ).json( { error: 'name is required' } );
+			const input = z
+				.object( {
+					name: z.string().min( 1 ),
+					visibility: z.enum( [ 'public', 'private' ] ).optional(),
+					connect: z.boolean().optional(),
+				} )
+				.safeParse( req.body );
+			if ( ! input.success ) {
+				res.status( 400 ).json( { error: 'Invalid site creation request.' } );
 				return;
 			}
-			res.json( await createRemoteSite( getProviderServices( provider ), req.params.id, name ) );
+			const { name, visibility, connect } = input.data;
+			res.json(
+				await createRemoteSite(
+					getProviderServices( provider ),
+					req.params.id,
+					name,
+					visibility,
+					connect
+				)
+			);
 		} )
 	);
 
@@ -2138,6 +2207,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/snapshots/:hostname/status',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			res.json( await getPreviewStatus( execute, req.params.hostname ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/publish-status/:remoteSiteId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json(
+				await getSitePublishStatus(
+					execute,
+					req.params.id,
+					req.params.remoteSiteId,
+					normalizeProviderId( String( req.query.provider ?? 'wpcom' ), SITES_PROVIDER_IDS ) ??
+						'wpcom'
+				)
+			);
 		} )
 	);
 
@@ -2410,6 +2494,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				files,
 				visualAnnotations: validatedVisualAnnotations,
 			} );
+			keepAlive.wake();
 			void recordAnnotationSubmitted( {
 				annotationCount: validatedVisualAnnotations?.length ?? 0,
 				sessionsRoot,
@@ -2600,6 +2685,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		url,
 		port: listeningPort,
 		async close() {
+			keepAlive.stop();
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {
 				watch.cancelled = true;

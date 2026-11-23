@@ -1,4 +1,5 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { Button } from '@studio/ds';
 import { DEFAULT_PROVIDER_ID, getDefaultAiModel } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createRef, useState, type ComponentProps } from 'react';
@@ -14,7 +15,6 @@ import {
 	subscribeAnnotationReview,
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
-import { Button } from '@/lib/ui';
 import { aiSettings, createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
@@ -194,7 +194,7 @@ describe( 'Chat composer', () => {
 		expect( getComposerDraft( 'test' ).text ).toBe( '' );
 	} );
 
-	it( 'preserves a new draft and attachments when an earlier send fails', async () => {
+	it( 'briefly shows error feedback and preserves draft edits when a send fails', async () => {
 		let rejectSend!: ( error: Error ) => void;
 		const onSend = vi.fn(
 			() =>
@@ -213,9 +213,14 @@ describe( 'Chat composer', () => {
 		upload( 'second.txt' );
 		await screen.findByText( 'second.txt' );
 		await act( async () => rejectSend( new Error( 'Connection lost' ) ) );
+		const send = screen.getByRole( 'button', { name: 'Send message' } );
+		expect( send ).toHaveAttribute( 'data-variant', 'destructive' );
 		expect( input ).toHaveValue( 'New draft written while waiting' );
 		expect( screen.getByText( 'first.txt' ) ).toBeVisible();
 		expect( screen.getByText( 'second.txt' ) ).toBeVisible();
+		await waitFor( () => expect( send ).toHaveAttribute( 'data-variant', 'accent' ), {
+			timeout: 2000,
+		} );
 	} );
 
 	it( 'pastes files into the composer above the text without replacing the draft', async () => {

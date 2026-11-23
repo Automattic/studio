@@ -1,13 +1,3 @@
-.trigger {
-	--button-hover-background: light-dark(
-		var( --secondary ),
-		color-mix(
-			in oklab,
-			var( --attachment-chip-background, var( --muted ) ) 95%,
-			var( --foreground )
-		)
-	);
-}
 .popup {
 	width: max-content;
 	min-width: min( 160px, var( --annotation-popup-max-width, 160px ), calc( 100vw - 16px ) );
@@ -75,7 +65,7 @@
 	}
 }
 .label {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 }
 .content {
 	display: flex;
@@ -85,7 +75,7 @@
 	gap: var( --space-1_5 );
 }
 .thumbnail {
-	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	composes: imageOutline from '@studio/ds/theme/recipes.module.css';
 
 	position: relative;
 	display: inline-flex;

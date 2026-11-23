@@ -14,30 +14,6 @@ import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId =
-	| 'wpcom'
-	| 'anthropic'
-	| 'openai'
-	| 'gemini'
-	| 'github-copilot'
-	| 'meta'
-	| 'xai'
-	| 'openrouter'
-	| 'spacefast'
-	| 'local-llm';
-
-// The providers that serve AI models.
-export type AiProviderId =
-	| 'wpcom'
-	| 'anthropic'
-	| 'openai'
-	| 'gemini'
-	| 'github-copilot'
-	| 'meta'
-	| 'xai'
-	| 'openrouter'
-	| 'local-llm';
-
 // What Studio stores for each provider.
 export interface ProviderConfigs {
 	wpcom: WpcomConfig;
@@ -51,6 +27,11 @@ export interface ProviderConfigs {
 	spacefast: SpacefastConfig;
 	'local-llm': LocalLlmConfig;
 }
+
+export type ProviderId = keyof ProviderConfigs;
+
+// The providers that serve AI models: all but the ones that only host sites.
+export type AiProviderId = Exclude< ProviderId, 'spacefast' >;
 
 // The remote sites of each provider that offers them.
 export interface ProviderSites {
@@ -163,16 +144,28 @@ export interface ConnectContext {
 	remembered?: Record< string, string >;
 }
 
+export interface SiteLink {
+	role: 'dashboard' | 'admin' | 'domains' | 'add-domain' | 'visibility' | 'more';
+	title: string;
+	url: string;
+}
+
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
 export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// Whether the user publishes to sites they keep on the provider: lists, creates and pushes to
 	// them. The rest of this describes those sites.
 	publish: boolean;
-	// Temporary sites the provider builds from a local site, shared by a link until they expire.
+	// Short destination-picker copy and presentation hints.
+	publishing: {
+		description: () => string;
+	};
+	visibilityOptions?(
+		current?: SiteVisibilityDetails[ 'visibility' ]
+	): { value: SiteVisibility; label: string; description: string; disabled?: boolean }[];
+
 	previews?: {
-		// What a preview is built from: what `content` says, or the site's folder as a zip, its
-		// SQLite database included.
 		content: 'archive' | 'static' | 'site';
+		isUpgraded?( site: Site ): boolean;
 	};
 	// The largest archive a push sends, in bytes.
 	maxPushSize?: number;
@@ -190,7 +183,7 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// Facts about a connected site, and links to manage it on the provider.
 	describe( site: Site ): {
 		details: { title: string; value: string }[];
-		links: { title: string; url: string }[];
+		links: SiteLink[];
 	};
 	// Why the site can't be published to or pulled from now, or null.
 	issue( site: Site, direction: 'push' | 'pull' ): string | null;
@@ -292,8 +285,19 @@ export interface PushStatus {
 	progress?: number;
 }
 
+export type SiteVisibility = 'public' | 'coming-soon' | 'private';
+export type SiteCreationVisibility = Extract< SiteVisibility, 'public' | 'private' >;
+export interface SiteVisibilityDetails {
+	visibility: SiteVisibility | 'unknown';
+	availableValues?: SiteVisibility[];
+	message?: string;
+	url: string;
+	launchStatus?: string;
+}
 // What Studio reads of any provider's remote site.
 export interface RemoteSite {
+	visibility?: SiteVisibility;
+	launchStatus?: string;
 	id: string | number;
 	name: string;
 	url: string;
@@ -326,6 +330,14 @@ export interface PreviewOptions {
 // Sends local sites to a provider's sites and brings them back. The provider
 // owns the remote side; Studio builds the content and applies what it pulls.
 export interface SitesServices< Config, Site extends RemoteSite > {
+	visibility?: {
+		get( config: Config | undefined, id: Site[ 'id' ] ): Promise< SiteVisibilityDetails >;
+		set(
+			config: Config | undefined,
+			id: Site[ 'id' ],
+			value: SiteVisibility
+		): Promise< SiteVisibilityDetails >;
+	};
 	// The sites the account can sync with. A deleted site stays in the list
 	// while it is connected (`connectedIds`).
 	list(
@@ -333,7 +345,11 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
 	// A new site to push to, for a provider that can create one.
-	create?( config: Config | undefined, options: { name: string } ): Promise< Site >;
+	create?(
+		config: Config | undefined,
+		options: { name: string; visibility?: SiteCreationVisibility }
+	): Promise< Site >;
+	creationVisibility?( config: Config | undefined ): Promise< SiteCreationVisibility >;
 	// A launch error means the import succeeded; callers keep the publish intent
 	// for a retry and must not show the site as published yet. A push to one of
 	// `previews.list`'s sites passes `preview`, and rebuilds the preview from the content.

@@ -1,5 +1,6 @@
 import { authTokenFrom } from './auth-token';
 import { readConfig, updateConfig } from './config/store';
+import { destinationConnection, recordTransfer } from './site-connections';
 import type { Config, ConfigSite, SiteConnection } from './config/schema';
 import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
@@ -13,6 +14,7 @@ export interface SyncTimes {
 	localSiteId: string;
 	lastPushTimestamp: string | null;
 	lastPullTimestamp: string | null;
+	localVersionId?: string | null;
 }
 
 export type RemoteSiteConnection< Id extends SitesProviderId > = ProviderSites[ Id ] & SyncTimes;
@@ -54,11 +56,14 @@ export async function getRemoteSites< Id extends SitesProviderId >(
 		.filter( ( site ) => localSiteId === undefined || site.id === localSiteId )
 		.flatMap( ( site ) =>
 			( site.connections ?? [] )
-				.filter( ( connection ) => isConnection( connection, provider, account ) )
+				.filter(
+					( connection ) => ! connection.preview && isConnection( connection, provider, account )
+				)
 				.map(
-					( { site: remote, lastPushTimestamp, lastPullTimestamp } ) =>
+					( { site: remote, lastPushTimestamp, lastPullTimestamp, localVersionId } ) =>
 						( {
 							...remote,
+							...( localVersionId === undefined ? {} : { localVersionId } ),
 							localSiteId: site.id,
 							lastPushTimestamp,
 							lastPullTimestamp,
@@ -70,60 +75,50 @@ export async function getRemoteSites< Id extends SitesProviderId >(
 async function updateConnections(
 	provider: SitesProviderId,
 	localSiteId: string,
-	update: ( connections: SiteConnection[], account: string | undefined, site: ConfigSite ) => void
+	update: ( site: ConfigSite, account: string | undefined ) => void
 ): Promise< void > {
 	await updateConfig( ( config ) => {
 		const account = getAccount( config, provider );
 		const site = config.sites.find( ( candidate ) => candidate.id === localSiteId );
 		if ( site && account !== null ) {
-			site.connections ??= [];
-			update( site.connections, account, site );
-			if ( ! site.connections.length ) {
+			update( site, account );
+			if ( ! site.connections?.length ) {
 				delete site.connections;
 			}
 		}
 	} );
 }
 
-// Connects the site, or updates it, and records the sync that just finished. Fields the update
-// lacks, like the sync times an account's site list doesn't have, are kept.
-export async function rememberRemoteSite< Id extends SitesProviderId >(
+// A bought preview becomes a hosted connection in place, keeping every recorded transfer.
+export function setRemoteSiteDetails< Id extends SitesProviderId >(
+	connection: SiteConnection,
 	provider: Id,
-	localSiteId: string,
-	site: ProviderSites[ Id ],
-	synced?: 'push' | 'pull'
-): Promise< void > {
+	site: ProviderSites[ Id ]
+) {
 	const {
-		localSiteId: _localSiteId,
+		localSiteId: _local,
+		localVersionId: _version,
 		lastPushTimestamp,
 		lastPullTimestamp,
 		...remote
 	} = withoutUndefined( site );
-	if ( provider === 'wpcom' ) {
-		remote.syncSupport = 'already-connected';
-	}
-	await updateConnections( provider, localSiteId, ( connections, account ) => {
-		let connection = connections.find(
-			( candidate ) =>
-				isConnection( candidate, provider, account ) && candidate.site.id === remote.id
-		);
-		if ( ! connection ) {
-			connection = {
-				provider,
-				...( account ? { account } : {} ),
-				site: {},
-				lastPushTimestamp: null,
-				lastPullTimestamp: null,
-			};
-			connections.push( connection );
-		}
-		connection.site = { ...connection.site, ...remote };
-		connection.lastPushTimestamp = ( lastPushTimestamp as string ) ?? connection.lastPushTimestamp;
-		connection.lastPullTimestamp = ( lastPullTimestamp as string ) ?? connection.lastPullTimestamp;
-		if ( synced ) {
-			connection[ synced === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp' ] =
-				new Date().toISOString();
-		}
+	if ( provider === 'wpcom' ) remote.syncSupport = 'already-connected';
+	delete connection.preview;
+	Object.assign( connection.site, remote );
+	if ( typeof lastPushTimestamp === 'string' ) connection.lastPushTimestamp = lastPushTimestamp;
+	if ( typeof lastPullTimestamp === 'string' ) connection.lastPullTimestamp = lastPullTimestamp;
+}
+
+export async function rememberRemoteSite< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ],
+	{ synced, localVersionId }: { synced?: 'push' | 'pull'; localVersionId?: string | null } = {}
+): Promise< void > {
+	await updateConnections( provider, localSiteId, ( local, account ) => {
+		const connection = destinationConnection( local, provider, account, site.id );
+		setRemoteSiteDetails( connection, provider, site );
+		if ( synced ) recordTransfer( connection, synced, localVersionId ?? null );
 	} );
 }
 
@@ -132,13 +127,65 @@ export async function forgetRemoteSite< Id extends SitesProviderId >(
 	localSiteId: string,
 	siteId: ProviderSites[ Id ][ 'id' ]
 ): Promise< void > {
-	await updateConnections( provider, localSiteId, ( connections, account ) => {
-		const index = connections.findIndex(
+	await updateConnections( provider, localSiteId, ( local, account ) => {
+		local.connections = local.connections?.filter(
 			( connection ) =>
-				isConnection( connection, provider, account ) && connection.site.id === siteId
+				! isConnection( connection, provider, account ) || connection.site.id !== siteId
 		);
-		if ( index !== -1 ) {
-			connections.splice( index, 1 );
-		}
 	} );
+}
+
+function replacePublishingDestination(
+	local: ConfigSite,
+	destination: SiteConnection,
+	wpcomAccount: string | null | undefined
+) {
+	local.connections = ( local.connections ?? [] ).filter(
+		( connection ) =>
+			connection === destination ||
+			connection.preview ||
+			( connection.provider === 'wpcom' && connection.account !== wpcomAccount )
+	);
+}
+
+async function savePublishingSite< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ],
+	localVersionId?: string | null
+): Promise< void > {
+	await updateConfig( ( config ) => {
+		const account = getAccount( config, provider );
+		if ( account === null ) throw new Error( 'Sign in to WordPress.com to connect this site.' );
+		const local = config.sites.find( ( candidate ) => candidate.id === localSiteId );
+		if ( ! local ) return;
+		const connection = destinationConnection( local, provider, account, site.id );
+		const published = localVersionId !== undefined;
+		const replacing = ! published || connection.site.launchAfterPush;
+		setRemoteSiteDetails( connection, provider, site );
+		if ( published ) {
+			recordTransfer( connection, 'push', localVersionId );
+		}
+		if ( replacing )
+			replacePublishingDestination( local, connection, getAccount( config, 'wpcom' ) );
+	} );
+}
+
+export function recordRemoteSitePublish< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ],
+	localVersionId: string | null
+): Promise< void > {
+	return savePublishingSite( provider, localSiteId, site, localVersionId );
+}
+
+export function connectPublishingSite< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	site: ProviderSites[ Id ]
+): Promise< void > {
+	return 'launchAfterPush' in site && site.launchAfterPush
+		? rememberRemoteSite( provider, localSiteId, site )
+		: savePublishingSite( provider, localSiteId, site );
 }

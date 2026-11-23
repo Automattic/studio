@@ -417,10 +417,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
-			const ownerSiteId = queryClient.getQueryData< LoadedAiSession >( [
+			const summary = queryClient.getQueryData< LoadedAiSession >( [
 				...SESSIONS_QUERY_KEY,
 				sessionId,
-			] )?.summary.ownerSiteId;
+			] )?.summary;
+			const ownerSiteId = summary?.ownerSiteId;
 			const turnId = crypto.randomUUID();
 			accountJourneysRef.current.set( sessionId, {
 				turnId,
@@ -437,7 +438,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const files = options.files ?? [];
 			const visualAnnotations = options.visualAnnotations;
 			// Synchronous, so a second send in the same tick queues behind this one.
-			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
+			dispatchSession( sessionId, {
+				type: 'send_pending',
+				startedAt: Date.now(),
+				pendingFirstMessage: !! summary && ! summary.firstPrompt,
+			} );
 			const revision = sessionRevisionsRef.current.get( sessionId );
 			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 

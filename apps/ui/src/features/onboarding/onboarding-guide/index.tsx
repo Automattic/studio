@@ -1,7 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { useRef, useState } from 'react';
-import { LearnMoreLink } from '@/features/onboarding/learn-more';
 import {
 	Button,
 	Dialog,
@@ -12,7 +8,11 @@ import {
 	DialogFooter,
 	DialogTitle,
 	VisuallyHidden,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
+import { useRef, useState } from 'react';
+import { LearnMoreLink } from '@/features/onboarding/learn-more';
 import { GuideIllustration, isDarkGuideIllustration } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from './guide';
@@ -73,10 +73,8 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 			>
 				<GuideIllustration id={ page.illustration } />
 				<DialogClose
-					className={ clsx(
-						styles.close,
-						isDarkGuideIllustration( page.illustration ) && styles.closeOnDark
-					) }
+					className={ styles.close }
+					data-color-scheme={ isDarkGuideIllustration( page.illustration ) ? 'dark' : undefined }
 					render={ <DialogDismissButton label={ __( 'Skip' ) } /> }
 				/>
 				<div className={ styles.content }>

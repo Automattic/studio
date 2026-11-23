@@ -19,6 +19,7 @@ const BLOCKED_SIGNED_IN_HANDLERS = [
 	'pullSite',
 	'pushSite',
 	'renamePreviewSite',
+	'setSiteVisibility',
 ];
 
 const WPCOM_API = 'https://public-api.wordpress.com/**';

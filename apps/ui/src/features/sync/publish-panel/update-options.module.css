@@ -1,0 +1,39 @@
+.selection {
+	display: flex;
+	flex-direction: column;
+}
+.row {
+	composes: item from '@studio/ds/surface.module.css';
+	gap: var( --space-1_5 );
+}
+.row[data-described] {
+	padding-block: var( --space-2 );
+}
+.row:hover:not( :has( [data-disabled] ) ) {
+	--hover: inherit;
+	--surface: var( --hover );
+	background-color: var( --surface );
+}
+.label {
+	align-items: flex-start;
+	text-align: start;
+	line-height: inherit;
+	flex: 1;
+	flex-direction: column;
+	gap: var( --space-0_5 );
+	cursor: pointer;
+}
+.description {
+	font-size: var( --text-xs );
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-normal );
+}
+.divider {
+	border: 0;
+	border-top: var( --hairline-width ) solid var( --border );
+	margin: var( --space-2 ) 0;
+}
+
+.checkbox {
+	composes: selectionCheckbox from './style.module.css';
+}

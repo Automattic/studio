@@ -45,6 +45,7 @@ import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { CatalogModel } from '@studio/providers';
 
 const WAPUU_SCORE_STORAGE_KEY = 'studio-local-wapuu-score';
+const CHECK_IN_INTERVAL_MS = 5 * 60_000;
 
 type ServerUserPreferences = Omit<
 	UserPreferences,
@@ -105,11 +106,13 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 	const snapshotEventListeners = new Set< ( event: SnapshotEvent ) => void >();
 	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
+	let lastRequestAt = 0;
 	const connectionRestoredListeners = new Set< () => void >();
 
 	function request( path: string, init?: RequestInit ): Promise< Response > {
 		const url = `${ base }${ path }`;
 		if ( remote ) {
+			lastRequestAt = Date.now();
 			return fetch( url, { ...init, credentials: 'include' } );
 		}
 		return init ? fetch( url, init ) : fetch( url );
@@ -225,12 +228,18 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				}
 				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
 				// wake it, right after. So the stream runs only while the page has focus (the site
-				// preview's frame counts), and reopening it refetches what changed meanwhile.
+				// preview's frame counts), and reopening it refetches what changed meanwhile. The
+				// stream doesn't count as use either, so a focused page checks in when it has sent
+				// nothing for a while.
+				const checkIn = () => void request( '/health' ).catch( () => undefined );
 				const followFocus = () => {
-					if ( ! document.hasFocus() ) {
+					if ( document.visibilityState !== 'visible' || ! document.hasFocus() ) {
 						eventSource?.close();
 					} else if ( eventSource?.readyState === EventSource.CLOSED ) {
 						openEvents( true );
+						checkIn();
+					} else if ( Date.now() - lastRequestAt >= CHECK_IN_INTERVAL_MS ) {
+						checkIn();
 					}
 				};
 				window.addEventListener( 'focus', followFocus );
@@ -646,6 +655,13 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( { name } ),
 			} );
 		},
+		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
+			return api(
+				`/sites/${ encodeURIComponent( siteId ) }/publish-status/${ remoteSiteId }?provider=${
+					provider ?? 'wpcom'
+				}`
+			);
+		},
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
 			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
@@ -655,6 +671,15 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 					localSiteId ? `?localSiteId=${ encodeURIComponent( localSiteId ) }` : ''
 				}`
 			);
+		},
+		async getSiteVisibility( provider, id ) {
+			return api( `/remote-sites/${ provider }/${ id }/visibility` );
+		},
+		async setSiteVisibility( provider, id, visibility ) {
+			return api( `/remote-sites/${ provider }/${ id }/visibility`, {
+				method: 'POST',
+				body: JSON.stringify( { visibility } ),
+			} );
 		},
 		async listAccountSites( provider ) {
 			return api( `/remote-sites/${ provider }/account` );
@@ -673,10 +698,13 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				{ method: 'DELETE' }
 			);
 		},
-		async createRemoteSite( provider, localSiteId, name ) {
+		async getSiteCreationVisibility( provider ) {
+			return api( `/remote-sites/${ provider }/creation-visibility` );
+		},
+		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
 			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
 				method: 'POST',
-				body: JSON.stringify( { name } ),
+				body: JSON.stringify( { name, visibility, connect } ),
 			} );
 		},
 		onSyncConnectSite( listener ) {

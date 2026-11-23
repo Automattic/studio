@@ -467,7 +467,18 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
 			return __( 'inline content' );
-		case 'take_screenshot':
+		case 'take_screenshot': {
+			const url = getInputString( input, 'url' );
+			if ( url ) {
+				return url;
+			}
+			const nameOrPath = getInputString( input, 'nameOrPath' );
+			if ( ! nameOrPath ) {
+				return '';
+			}
+			const sitePath = getInputString( input, 'path' );
+			return sitePath && sitePath !== '/' ? `${ nameOrPath } ${ sitePath }` : nameOrPath;
+		}
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'generate_images': {

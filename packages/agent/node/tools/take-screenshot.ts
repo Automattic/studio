@@ -54,6 +54,13 @@ function getCaptureListLabel(
 	return targets.map( getCaptureLabel ).join( ', ' );
 }
 
+// One leading slash, whether or not the site URL already ends with one.
+function sitePageUrl( siteUrl: string, path?: string ): string {
+	const base = siteUrl.replace( /\/+$/, '' );
+	const relative = ( path ?? '' ).trim().replace( /^\/+/, '' );
+	return `${ base }/${ relative }`;
+}
+
 const TEXT_ONLY_NOTE =
 	'This model cannot view images, so the capture is not shown to you: verify the rendered page with inspect_design.';
 
@@ -71,7 +78,7 @@ export function createTakeScreenshotTool( {
 } ) {
 	return defineTool(
 		'take_screenshot',
-		'Takes a full-page screenshot of a URL. ' +
+		'Takes a full-page screenshot of a page. Pass `url` for any address, or `nameOrPath` for a local Studio site with an optional `path` (defaults to `/`). When both `url` and `nameOrPath` are given, `url` is used and `nameOrPath` and `path` are ignored. ' +
 			( visionEnabled
 				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
@@ -84,7 +91,24 @@ export function createTakeScreenshotTool( {
 				: 'Captures are shown to the user in the chat by default; ' ) +
 			'pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
 		{
-			url: Type.String( { description: 'The URL to screenshot' } ),
+			url: Type.Optional(
+				Type.String( {
+					description:
+						'Absolute URL to screenshot. When set, this is used and `nameOrPath` and `path` are ignored.',
+				} )
+			),
+			nameOrPath: Type.Optional(
+				Type.String( {
+					description:
+						'Local site name or file system path. Used only when `url` is omitted; the site must be running.',
+				} )
+			),
+			path: Type.Optional(
+				Type.String( {
+					description:
+						'Site-relative path to screenshot with `nameOrPath` (for example "/", "/about"). Defaults to "/". A missing leading slash is added and extra leading slashes are collapsed. Ignored when `url` is set.',
+				} )
+			),
 			viewport: Type.Optional( screenshotViewportSchema ),
 			colorScheme: Type.Optional( screenshotColorSchemeSchema ),
 			display: Type.Optional(
@@ -109,6 +133,15 @@ export function createTakeScreenshotTool( {
 		},
 		async ( args, context ) => {
 			try {
+				let url = args.url;
+				if ( ! url ) {
+					const nameOrPath = args.nameOrPath?.trim();
+					if ( ! nameOrPath ) {
+						throw new Error( 'Provide either `url` or `nameOrPath`.' );
+					}
+					const site = await context.host.sites.resolve( nameOrPath );
+					url = sitePageUrl( site.url, args.path );
+				}
 				const themeDirectory = args.themeScreenshot && path.resolve( args.themeScreenshot );
 				if ( themeDirectory && ! themeDirectory.startsWith( context.host.sitesRoot + path.sep ) ) {
 					throw new Error(
@@ -124,20 +157,16 @@ export function createTakeScreenshotTool( {
 					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
 				);
 				const captureLabel = getCaptureListLabel( captureTargets );
-				context.onProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
+				context.onProgress( `Taking ${ captureLabel } screenshot of ${ url }…` );
 				const captures = await Promise.all(
 					captureTargets.map( async ( { viewportType, colorScheme } ) => {
-						const capture = await captureScreenshotBuffer(
-							{ url: args.url },
-							VIEWPORTS[ viewportType ],
-							{
-								fullPage: true,
-								format: 'jpeg',
-								offset: args.offset,
-								colorScheme,
-								forModel: visionEnabled,
-							}
-						);
+						const capture = await captureScreenshotBuffer( { url }, VIEWPORTS[ viewportType ], {
+							fullPage: true,
+							format: 'jpeg',
+							offset: args.offset,
+							colorScheme,
+							forModel: visionEnabled,
+						} );
 						const screenshotFile = await saveScreenshotFile( context.host, capture.buffer, {
 							viewportType,
 							format: 'jpeg',
@@ -167,7 +196,7 @@ export function createTakeScreenshotTool( {
 								widgetProps: {
 									url: screenshotFile.fileUrl,
 									mediaKind: 'image',
-									alt: `Screenshot of ${ args.url } (${ getCaptureLabel( {
+									alt: `Screenshot of ${ url } (${ getCaptureLabel( {
 										viewportType,
 										colorScheme,
 									} ) })`,
@@ -261,8 +290,8 @@ export function createTakeScreenshotTool( {
 			settlesPendingWork: true,
 			annotations: LOCAL_CHANGE,
 			promptSnippet: visionEnabled
-				? 'Take a full-page screenshot of a URL (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
-				: 'Save a full-page screenshot of a URL to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image, but it still sets the theme screenshot.',
+				? 'Take a full-page screenshot of a URL, or of a local site via `nameOrPath` and an optional `path` (supports desktop, mobile, or `viewport: "all"` for both). Use this to visually check the site after building it.'
+				: 'Save a full-page screenshot of a URL, or of a local site via `nameOrPath` and an optional `path`, to a file (supports desktop, mobile, or `viewport: "all"` for both). You cannot view the image, but it still sets the theme screenshot.',
 		}
 	);
 }

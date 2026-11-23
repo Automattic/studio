@@ -14,6 +14,8 @@ import {
 	isUsageCapError,
 } from '@studio/agent/protocol/errors';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import { Button } from '@studio/ds';
+import { WordPressIcon } from '@studio/ds/icons';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { UserRoundIcon } from 'lucide-react';
@@ -31,8 +33,6 @@ import {
 	getSender,
 } from '@/features/chats/session-view/conversation/transcript-items';
 import { AiAccessRequiredNotice, AiBlockedNotice } from '@/features/credits';
-import { WordPressIcon } from '@/lib/icons';
-import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { LoadedAiSession } from '@/data/core';
 import type { TranscriptItem } from '@/features/chats/session-view/conversation/transcript-items';

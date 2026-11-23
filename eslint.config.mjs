@@ -16,7 +16,7 @@ const WP_UI_PACKAGES = {
 		`@wordpress/${ name }`,
 		`@wordpress/${ name }/*`,
 	] ),
-	message: 'Use the primitives in @/lib/ui and the tokens in @/lib/theme.',
+	message: 'Use the primitives in @studio/ds and the tokens in @studio/ds/theme.',
 };
 
 const AGENT_NODE = {
@@ -44,11 +44,16 @@ const PROVIDERS_DESCRIPTORS = [
 	'wpcom/sites/site.ts',
 ];
 
+const PROVIDER_FOLDERS = fs
+	.readdirSync( path.join( import.meta.dirname, 'packages/providers' ), { withFileTypes: true } )
+	.filter( ( entry ) => entry.isDirectory() )
+	.map( ( entry ) => entry.name );
+
 const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];
 
 const BASE_UI = {
 	group: [ '@base-ui/react', '@base-ui/react/*' ],
-	message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
+	message: 'Use the primitives in @studio/ds, and add one there when none fits.',
 };
 
 // `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
@@ -70,7 +75,7 @@ const UI_LAYERS = {
 				...UI_LIB.filter( ( other ) => other !== pkg ),
 			].map( uiPath ),
 			from: uiPath( pkg ),
-			except: [ './index.ts', ...( pkg === 'lib/theme' ? [ './tokens.css', './base.css' ] : [] ) ],
+			except: [ './index.ts' ],
 			message: `Import from @/${ pkg }, its public entry.`,
 		} ) ),
 		{
@@ -94,24 +99,45 @@ const UI_LAYERS = {
 	],
 };
 
+// `@studio/ds` is one package of four folders, which import each other through their entries.
+const DS = path.join( import.meta.dirname, 'packages/ds' );
+const DS_FOLDERS = [ 'primitives', 'theme', 'icons', 'hooks' ];
+const DS_LAYERS = {
+	zones: [
+		...DS_FOLDERS.map( ( folder ) => ( {
+			target: DS_FOLDERS.filter( ( other ) => other !== folder ).map( ( other ) =>
+				path.join( DS, other )
+			),
+			from: path.join( DS, folder ),
+			except: [ './index.ts' ],
+			message: `Import ${ folder }/ from its entry, ${ folder }/index.ts.`,
+		} ) ),
+		{
+			target: DS,
+			from: path.join( import.meta.dirname, 'apps' ),
+			message: '@studio/ds knows nothing about the apps.',
+		},
+	],
+};
+
 // Custom properties the primitives use, beyond the theme tokens. Feature CSS may
-// set only the documented hooks (see apps/ui/src/lib/ui/README.md).
+// set only the documented hooks (see packages/ds/primitives/README.md).
 const cssCustomProperties = ( dir ) =>
 	fs
-		.readdirSync( uiPath( dir ), { recursive: true } )
+		.readdirSync( path.join( DS, dir ), { recursive: true } )
 		.filter( ( file ) => file.endsWith( '.css' ) )
 		.flatMap(
-			( file ) =>
-				fs.readFileSync( path.join( uiPath( dir ), file ), 'utf8' ).match( /--[\w-]+/g ) ?? []
+			( file ) => fs.readFileSync( path.join( DS, dir, file ), 'utf8' ).match( /--[\w-]+/g ) ?? []
 		);
-const THEME_TOKENS = cssCustomProperties( 'lib/theme' );
+const THEME_TOKENS = cssCustomProperties( 'theme' );
 const PRIMITIVE_HOOKS = [
 	'--app-icon-size',
 	'--button-background',
 	'--button-hover-background',
 	'--button-hover-color',
+	'--radius-button',
 ];
-const PRIMITIVE_PROPERTIES = [ ...new Set( cssCustomProperties( 'lib/ui' ) ) ].filter(
+const PRIMITIVE_PROPERTIES = [ ...new Set( cssCustomProperties( 'primitives' ) ) ].filter(
 	( property ) => ! THEME_TOKENS.includes( property ) && ! PRIMITIVE_HOOKS.includes( property )
 );
 
@@ -154,6 +180,7 @@ export default defineConfig(
 						'plugins/wp-studio/scripts/*.mjs',
 						'apps/ui/vite.config.ts',
 						'apps/ui/vitest.setup.ts',
+						'packages/ds/vitest.config.ts',
 						'eslint.config.mjs',
 						'vitest.config.ts',
 						'tools/eslint-plugin-studio/vitest.config.ts',
@@ -177,6 +204,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/ds/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/providers/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
@@ -316,8 +344,7 @@ export default defineConfig(
 		},
 	},
 	{
-		// The agentic UI owns its design system: theme tokens in `src/lib/theme/` and
-		// primitives in `src/lib/ui/`, which stay independent of app code.
+		// The agentic UI builds on its design system, `@studio/ds`.
 		files: [ 'apps/ui/src/**/*.{ts,tsx}' ],
 		rules: {
 			'no-restricted-imports': [
@@ -344,6 +371,26 @@ export default defineConfig(
 					],
 				},
 			],
+		},
+	},
+	{
+		files: [ 'packages/ds/**/*.{ts,tsx}' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						WP_UI_PACKAGES,
+						{ group: [ '@tanstack/*' ], message: '@studio/ds stays independent of app code.' },
+						{
+							group: [ '@studio/*' ],
+							message: '@studio/ds builds on no other workspace package.',
+						},
+					],
+				},
+			],
+			'import-x/no-restricted-paths': [ 'error', DS_LAYERS ],
+			'import-x/no-cycle': 'error',
 		},
 	},
 	{
@@ -416,18 +463,7 @@ export default defineConfig(
 							from: 'packages/providers',
 							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
 								file.startsWith( '*/' )
-									? [
-											'wpcom',
-											'anthropic',
-											'openai',
-											'gemini',
-											'github-copilot',
-											'meta',
-											'xai',
-											'openrouter',
-											'spacefast',
-											'local-llm',
-									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
+									? PROVIDER_FOLDERS.map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]
 							),
 							message: 'The @studio/providers entry imports only the files it is made of.',
@@ -469,7 +505,7 @@ export default defineConfig(
 						},
 						{
 							group: [ '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'protocol/ depends on nothing but common and @studio/providers.',
+							message: 'protocol/ depends on nothing but common, @studio/providers and @studio/ds.',
 						},
 						PROVIDERS_SERVICES,
 					],
@@ -482,13 +518,13 @@ export default defineConfig(
 		// (slider/separator/progressbar elements). eslint-plugin-jest-dom 5.10 flags
 		// those `toHaveAttribute` calls and autofixes them to `toHaveValue()`, which only
 		// reads the form `value` property and returns undefined for these non-form elements.
-		files: [ 'apps/ui/**/*.test.{ts,tsx}' ],
+		files: [ 'apps/ui/**/*.test.{ts,tsx}', 'packages/ds/**/*.test.{ts,tsx}' ],
 		rules: {
 			'jest-dom/prefer-to-have-value': 'off',
 		},
 	},
 	{
-		files: [ 'apps/ui/src/**/*.css' ],
+		files: [ 'apps/ui/src/**/*.css', 'packages/ds/**/*.css' ],
 		plugins: { css, prettier: pluginPrettier.plugins.prettier, studio: pluginStudio },
 		language: 'css/css',
 		languageOptions: { tolerant: true },
@@ -500,7 +536,6 @@ export default defineConfig(
 	},
 	{
 		files: [ 'apps/ui/src/**/*.css' ],
-		ignores: [ 'apps/ui/src/lib/**' ],
 		rules: {
 			'studio/no-primitive-overrides': [ 'error', { properties: PRIMITIVE_PROPERTIES } ],
 		},
@@ -508,7 +543,7 @@ export default defineConfig(
 	{
 		// The reduced-transparency reset has to beat class-scoped rules, and Shiki
 		// colors code tokens with inline styles.
-		files: [ 'apps/ui/src/lib/theme/base.css', 'apps/ui/src/lib/ui/code-block/style.module.css' ],
+		files: [ 'packages/ds/theme/base.css', 'packages/ds/primitives/code-block/style.module.css' ],
 		rules: {
 			'css/no-important': 'off',
 		},
@@ -518,7 +553,7 @@ export default defineConfig(
 		// are artwork drawn with their own values, and the design system view renders
 		// a site's own type, colors and radii.
 		files: [
-			'apps/ui/src/lib/theme/**',
+			'packages/ds/theme/**',
 			'apps/ui/src/features/onboarding/onboarding-guide/illustrations/**',
 			'apps/ui/src/features/settings/wapuu-world/**',
 			'apps/ui/src/features/sites/design-system-view/**',

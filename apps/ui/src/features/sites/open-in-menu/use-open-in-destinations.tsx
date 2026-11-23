@@ -7,6 +7,13 @@ import {
 	supportedEditorConfig,
 } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import {
+	CodeIcon,
+	DatabaseIcon,
+	ExternalLinkIcon,
+	TerminalIcon,
+	WordPressIcon,
+} from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { UserRoundIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
@@ -16,7 +23,6 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { AppIcon } from '@/features/sites/app-icon';
 import { DATABASE_HOME_PATH } from '@/features/sites/site-preview/address-bar';
-import { CodeIcon, DatabaseIcon, ExternalLinkIcon, TerminalIcon, WordPressIcon } from '@/lib/icons';
 import { getFileManager } from './get-file-manager';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';

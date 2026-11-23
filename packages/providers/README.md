@@ -69,7 +69,7 @@ Provider ids and model ids are stored, so they never change. Builds before the `
 
 ## Adding a provider
 
-Add a folder laid out like the others, add its id to `ProviderId` and `ProviderConfigs` in `types.ts`, and register it in `registry.ts` and `services.ts`. Studio then needs to know where to store its config (`provider-config.ts`); the provider then shows up in the settings and in `studio code`'s `/connect` on its own. A provider with remote sites also adds its site to `ProviderSites`, and Studio a place to store its connections (`remote-sites.ts`).
+Add a folder laid out like the others, then register it in three places: its config in `ProviderConfigs` (`types.ts`), which names its id, its descriptor in `registry.ts`, and its services in `services.ts`. Typecheck reports a provider missing from either map. The provider then shows up in the settings, the model picker and `studio code`'s `/connect` on its own, and Studio stores its config. The order in `registry.ts` is the order of every provider list: AI providers fall back in it, and the publish panel offers hosting providers in it. A provider that lists models adds their ids to `AiModelId` (`models.ts`). A provider with remote sites adds its site to `ProviderSites`; one that only hosts sites is left out of `AiProviderId`.
 
 ## Boundaries
 

@@ -18,8 +18,15 @@ for ( const [ location, { link, resolved } ] of Object.entries( packages ) ) {
 		fs.mkdirSync( path.dirname( location ), { recursive: true } );
 		fs.symlinkSync( path.relative( path.dirname( location ), resolved ), location, 'junction' );
 	} else if ( action === 'remove' ) {
-		// Removes the link only, never what it points to.
-		fs.rmSync( location, { force: true } );
+		const stats = fs.lstatSync( location, { throwIfNoEntry: false } );
+		if ( ! stats ) {
+			continue;
+		}
+		if ( ! stats.isSymbolicLink() ) {
+			throw new Error( `${ location } is not a link` );
+		}
+		// Removes the link only, never what it points to (a junction counts as a link on Windows).
+		fs.unlinkSync( location );
 	} else {
 		throw new Error( 'Usage: node .buildkite/commands/workspace-links.mjs add|remove' );
 	}

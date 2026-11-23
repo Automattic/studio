@@ -1,8 +1,8 @@
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
+import { Button, Popover } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useConnector, type Snapshot } from '@/data/core';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { Button, Popover } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function PreviewExpiry( { snapshot }: { snapshot: Snapshot } ) {

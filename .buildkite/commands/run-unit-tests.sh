@@ -3,10 +3,6 @@ set -euo pipefail
 
 MATRIX=${1:-}
 
-if .buildkite/commands/should-skip-job.sh --job-type validation; then
-  exit 0
-fi
-
 echo '--- :package: Install deps'
 if [ "$MATRIX" = "linux" ]; then
   # Linux runs inside a Docker container; the a8c-ci-toolkit cache helpers

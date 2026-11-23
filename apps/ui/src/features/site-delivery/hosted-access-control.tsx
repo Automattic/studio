@@ -1,7 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
-import { ExternalLinkIcon } from '@/lib/icons';
 import {
 	Select,
 	SelectContent,
@@ -9,7 +5,11 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { ExternalLinkIcon } from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { useRef, useState } from 'react';
+import { useConnector } from '@/data/core';
 import styles from './style.module.css';
 import { VisibilityIcon, type AccessValue } from './visibility-icon';
 import type { useSiteVisibility } from '@/data/queries/use-site-visibility';

@@ -14,7 +14,7 @@ async function generateBackground() {
 		const page = await browser.newPage();
 		await page.setContent(
 			`<style>${ await fs.readFile(
-				path.join( root, 'apps/ui/src/lib/theme/tokens.css' ),
+				path.join( root, 'packages/ds/theme/tokens.css' ),
 				'utf8'
 			) }</style>`
 		);

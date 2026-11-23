@@ -1,8 +1,8 @@
+import { Button, Tooltip, TooltipTrigger, TooltipContent } from '@studio/ds';
+import { UploadIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { ShareStatusIcon, useShareStatus } from '@/features/sharing';
-import { UploadIcon } from '@/lib/icons';
-import { Button, Tooltip, TooltipTrigger, TooltipContent } from '@/lib/ui';
 import type { SiteDetails } from '@/data/core';
 export function ShareButton( props: { site: SiteDetails; className?: string } ) {
 	const status = useShareStatus( props.site.id );

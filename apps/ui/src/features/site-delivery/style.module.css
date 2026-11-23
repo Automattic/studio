@@ -276,7 +276,7 @@
 }
 
 .destinationRowDescription {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --muted-foreground );
 	font-size: var( --text-xxs );
 	line-height: var( --text-xxs--line-height );
@@ -392,7 +392,7 @@
 }
 
 .publishOptionsPopover {
-	composes: padded from '@/lib/ui/surface/style.module.css';
+	composes: padded from '@studio/ds/surface.module.css';
 	max-width: var( --available-width );
 	max-height: var( --available-height );
 	overflow: auto;

@@ -5,6 +5,7 @@ import {
 	STUDIO_ASSISTANT_QUOTA_OFFLINE,
 	STUDIO_CODE_DOCS_URL,
 } from '@studio/common/lib/studio-assistant-quota';
+import { useOffline } from '@studio/ds/hooks';
 import { getProvider, type ProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
@@ -13,7 +14,6 @@ import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOpenSettings } from '@/data/use-open-settings';
-import { useOffline } from '@/lib/hooks';
 import type { ComposerNotice } from './notice-tab';
 
 /**

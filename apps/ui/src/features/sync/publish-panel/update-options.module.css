@@ -3,7 +3,7 @@
 	flex-direction: column;
 }
 .row {
-	composes: item from '@/lib/ui/surface/style.module.css';
+	composes: item from '@studio/ds/surface.module.css';
 	gap: var( --space-1_5 );
 }
 .row[data-described] {

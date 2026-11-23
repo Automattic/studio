@@ -1,11 +1,11 @@
+import { ResizeHandle, ResizeOverlay } from '@studio/ds';
+import { getMotionDuration } from '@studio/ds/theme';
 import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { PANEL_SPLIT_MIN_WIDTH } from '@/data/resizable-panels';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
-import { getMotionDuration } from '@/lib/theme';
-import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';
 import { usePanelSplit } from './use-panel-split';
 

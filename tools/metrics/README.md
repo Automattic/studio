@@ -58,14 +58,6 @@ The metrics are sent when:
 
 Note that the job sends the metrics for the current command and a reference commit as well. This allows CodeVitals to compare the performance metrics between the two commits and normalize the current commit's values to avoid the CI fluctuations.
 
-### Adding a metric
-
-CodeVitals charts only the metrics its project settings list. For a new metric:
-
-1. Add its suite's summary file to `resultsFiles` in `tools/compare-perf/log-to-codevitals.ts`, and its label and format to `tools/metrics/metric-config.ts`.
-2. In the project's settings on CodeVitals, add a metric whose key is the name the test reports (for example `memoryIdle`), with the prefix from `resultsFiles` in front of it if there is one.
-3. Sizes and memory are sent in bytes. Set their unit to `MB`: CodeVitals scales the chart to it. The noise floor is compared with the stored value, so enter it in bytes too.
-
 ## Understanding the Results
 
 The `performance-metrics.json` output file contains a summary of the results, example:

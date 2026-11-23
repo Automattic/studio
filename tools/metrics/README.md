@@ -31,7 +31,7 @@ The performance tests simulate key user workflows and measure the time they take
 Two suites measure something other than time:
 
 - **appSizeMac**: The size of the packaged app, in bytes
-- **memoryIdle** and **memoryPeak**: The memory of everything Studio runs, in bytes: the app, the CLI, the site servers and the browser behind the agent tools. The test opens the app, creates a site, and takes three screenshots of it through the packaged CLI's MCP server. `memoryPeak` is the highest total seen on the way. `memoryIdle` is the total at the end, when the app is open, the site runs and the browser waits for the next call. The test prints the split by part. The total adds up the resident memory of each process, and processes share memory, so it is higher than Studio's real use; it is for comparing builds, not for sizing a machine
+- **memoryIdle** and **memoryPeak**: The memory of everything Studio runs, in bytes.
 
 ## Comparing Performance Between Commits
 

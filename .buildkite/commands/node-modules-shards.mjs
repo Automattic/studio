@@ -38,12 +38,26 @@ function countEntries( entryPath, dirent ) {
 	return count;
 }
 
+// The packages in a node_modules folder, with each package of a scope (`@scope/name`) on its own,
+// as a scope can hold a fifth of all the files.
+function packageEntries( folder ) {
+	return fs.readdirSync( folder, { withFileTypes: true } ).flatMap( ( dirent ) => {
+		const entryPath = path.join( folder, dirent.name );
+		return dirent.name.startsWith( '@' ) && dirent.isDirectory()
+			? fs.readdirSync( entryPath, { withFileTypes: true } ).map( ( child ) => ( {
+					entryPath: path.join( entryPath, child.name ),
+					dirent: child,
+			  } ) )
+			: [ { entryPath, dirent } ];
+	} );
+}
+
 function stage( stagingFolder, shardCount ) {
 	const entries = nodeModulesFolders().flatMap( ( folder ) =>
-		fs.readdirSync( folder, { withFileTypes: true } ).map( ( dirent ) => {
-			const entryPath = path.join( folder, dirent.name );
-			return { entryPath, size: countEntries( entryPath, dirent ) };
-		} )
+		packageEntries( folder ).map( ( { entryPath, dirent } ) => ( {
+			entryPath,
+			size: countEntries( entryPath, dirent ),
+		} ) )
 	);
 
 	// Largest first, each into the shard with the fewest files so far.

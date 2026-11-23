@@ -13,11 +13,19 @@ apt-get install -y --no-install-recommends awscli jq
 echo '--- :package: Install deps'
 bash .buildkite/commands/install-node-dependencies.sh
 
+# Run every check even when an earlier one fails, so one run lists every failure.
+failed=()
+
 echo '--- :eslint: Lint'
-npm run lint
+npm run lint || failed+=(lint)
 
 echo '--- :scissors: Unused code'
-npm run knip
+npm run knip || failed+=(knip)
 
 echo '--- :typescript: Typecheck'
-npm run typecheck
+npm run typecheck || failed+=(typecheck)
+
+if [ ${#failed[@]} -gt 0 ]; then
+  echo "^^^ +++ Failed: ${failed[*]}"
+  exit 1
+fi

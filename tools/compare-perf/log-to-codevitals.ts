@@ -19,7 +19,7 @@ const resultsFiles = [
 		metricsPrefix: '',
 	},
 	{
-		file: 'agent-browser-memory.summary.json',
+		file: 'memory.summary.json',
 		metricsPrefix: '',
 	},
 ];

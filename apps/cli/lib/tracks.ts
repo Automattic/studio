@@ -1,5 +1,5 @@
 import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
-import { getTracksIdentity, isAnalyticsOptedOut } from '@studio/common/lib/install';
+import { identifyTracksEvent, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	isTracksChannel,
@@ -38,6 +38,14 @@ export function getTracksOrigin(): TracksOrigin {
 		return { channel: 'studio-cli' };
 	}
 	return { channel, ui_version: version === 'v2' ? 'v2' : 'v1' };
+}
+
+// Events are linked to the WordPress.com account only where a Studio app runs the CLI: the Desktop
+// app, `studio ui` and `studio serve`, which show the usage notice. A standalone run, `studio mcp`
+// included, stays anonymous even when logged in.
+function isStudioAppOrigin(): boolean {
+	const { channel } = getTracksOrigin();
+	return channel === 'studio-ui' || channel === 'studio-web';
 }
 
 async function commonProps(): Promise< TracksProps > {
@@ -85,8 +93,9 @@ export async function recordTracksEvent(
 		return;
 	}
 
-	__recordTracksEvent( event, await getTracksIdentity(), {
-		...( await commonProps() ),
-		...props,
-	} );
+	const identified = await identifyTracksEvent(
+		{ ...( await commonProps() ), ...props },
+		{ linkAccount: isStudioAppOrigin() }
+	);
+	__recordTracksEvent( event, identified.identity, identified.props );
 }

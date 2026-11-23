@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
-import { getTracksIdentity, isAnalyticsOptedOut } from '@studio/common/lib/install';
+import { identifyTracksEvent, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	type TracksEventName,
@@ -47,8 +47,9 @@ export async function recordTracksEvent(
 		return;
 	}
 
-	__recordTracksEvent( event, await getTracksIdentity(), {
-		...( await commonProps() ),
-		...props,
-	} );
+	const identified = await identifyTracksEvent(
+		{ ...( await commonProps() ), ...props },
+		{ linkAccount: true }
+	);
+	__recordTracksEvent( event, identified.identity, identified.props );
 }

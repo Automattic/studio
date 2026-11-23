@@ -24,6 +24,7 @@ function buildPreferences( firstRun: boolean, appearance: Look[ 'appearance' ] )
 			? {}
 			: {
 					onboardingCompleted: true,
+					usageNoticeSeen: true,
 					onboardingHints: {
 						tourDismissedVersion: ORIENTATION_GUIDE_VERSION,
 						whatsNewSeenVersion: WHATS_NEW_VERSION,

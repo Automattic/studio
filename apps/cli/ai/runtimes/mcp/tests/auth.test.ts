@@ -59,7 +59,11 @@ function events() {
 	return send.mock.calls.map( ( [ url ] ) => Object.fromEntries( new URL( url ).searchParams ) );
 }
 
-it( 'joins visible prompt, explicit login and token outcome, identifying only the logged-in outcome', async () => {
+it( 'joins visible prompt, explicit login and token outcome, keeping the logged-in outcome anonymous', async () => {
+	// Seen at onboarding or in the notice; `studio mcp` still never links the account.
+	await updateConfig( ( { preferences } ) => {
+		preferences.usageNoticeSeen = true;
+	} );
 	const journeyId = crypto.randomUUID();
 	await call( 'wpcom_login_event', { event: 'prompt_viewed', journeyId } );
 	const start = await call( 'wpcom_login', { journeyId } );
@@ -76,16 +80,10 @@ it( 'joins visible prompt, explicit login and token outcome, identifying only th
 	] );
 	const config = await readConfig();
 	expect( config.providers.configs.wpcom ).toMatchObject( { token: 'private-token' } );
-	const installId = config.install.analyticsId;
-	const identities = events().map( ( event ) => [ event._ut, event._ui ] );
-	expect( identities ).toEqual( [
-		[ 'anon', installId ],
-		[ 'anon', installId ],
-		[ 'wpcom:user_id', '123' ],
-	] );
-	expect( events()[ 2 ].install_id ).toBe( installId );
 	for ( const event of events() ) {
 		expect( event ).toMatchObject( {
+			_ut: 'anon',
+			_ui: config.install.analyticsId,
 			channel: 'studio-mcp',
 			source: 'mcp',
 			placement: 'mcp_library',

@@ -1,5 +1,5 @@
 import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
-import { getTracksIdentity, isAnalyticsOptedOut } from '@studio/common/lib/install';
+import { identifyTracksEvent, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	TRACKS_EVENTS,
@@ -17,7 +17,7 @@ vi.mock( '@studio/common/lib/install' );
 vi.mock( '@studio/common/lib/auth-token' );
 
 const mockRecord = vi.mocked( __recordTracksEvent );
-const mockIdentity = vi.mocked( getTracksIdentity );
+const mockIdentify = vi.mocked( identifyTracksEvent );
 const mockOptedOut = vi.mocked( isAnalyticsOptedOut );
 const mockIsA11n = vi.mocked( isAutomatticianFromToken );
 
@@ -27,7 +27,10 @@ beforeEach( () => {
 	vi.clearAllMocks();
 	vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', true );
 	vi.stubGlobal( '__STUDIO_CLI_VERSION__', '2.3.4' );
-	mockIdentity.mockResolvedValue( { type: 'anon', id: 'install-uuid' } );
+	mockIdentify.mockImplementation( async ( props ) => ( {
+		identity: { type: 'anon', id: 'install-uuid' },
+		props,
+	} ) );
 	mockIsA11n.mockResolvedValue( false );
 	mockOptedOut.mockResolvedValue( false );
 } );
@@ -142,7 +145,7 @@ describe( 'recordTracksEvent', () => {
 		await recordTracksEvent( TRACKS_EVENTS.SITE_START, { channel: 'studio-cli' } );
 
 		expect( mockRecord ).not.toHaveBeenCalled();
-		expect( mockIdentity ).not.toHaveBeenCalled();
+		expect( mockIdentify ).not.toHaveBeenCalled();
 	} );
 
 	it( 'sends with anonymous identity and common props when enabled and opted in', async () => {
@@ -181,7 +184,7 @@ it.each( [
 		await recordTracksEvent( name, { channel } );
 	}
 	expect( mockRecord ).not.toHaveBeenCalled();
-	expect( mockIdentity ).not.toHaveBeenCalled();
+	expect( mockIdentify ).not.toHaveBeenCalled();
 } );
 
 describe.each( [
@@ -211,7 +214,7 @@ describe.each( [
 		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
 		await recordTracksEvent( event, { ...getTracksOrigin(), ...props } );
 		expect( mockRecord ).not.toHaveBeenCalled();
-		expect( mockIdentity ).not.toHaveBeenCalled();
+		expect( mockIdentify ).not.toHaveBeenCalled();
 	} );
 	it( 'does not send when browser telemetry is disabled in the build', async () => {
 		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
@@ -220,7 +223,7 @@ describe.each( [
 		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
 		await recordTracksEvent( event, { ...getTracksOrigin(), ...props } );
 		expect( mockRecord ).not.toHaveBeenCalled();
-		expect( mockIdentity ).not.toHaveBeenCalled();
+		expect( mockIdentify ).not.toHaveBeenCalled();
 	} );
 	it( 'sends once with anonymous identity, common props and the original action props', async () => {
 		mockOptedOut.mockResolvedValue( false );
@@ -249,7 +252,7 @@ it( 'keeps workspace layout telemetry silent when opted out', async () => {
 		channel: 'studio-web',
 	} );
 	expect( mockRecord ).not.toHaveBeenCalled();
-	expect( mockIdentity ).not.toHaveBeenCalled();
+	expect( mockIdentify ).not.toHaveBeenCalled();
 } );
 
 it( 'records workspace layouts from studio-web with the browser origin', async () => {
@@ -276,19 +279,40 @@ it( 'disables browser workspace telemetry when the telemetry build flag is off',
 	expect( mockRecord ).not.toHaveBeenCalled();
 } );
 
-it( 'attributes the event to the WordPress.com user when logged in', async () => {
-	mockOptedOut.mockResolvedValue( false );
-	mockIdentity.mockResolvedValue( {
-		type: 'wpcom:user_id',
-		id: '12345',
-		installId: 'install-uuid',
+it.each( [
+	[ undefined, false ],
+	[ 'studio-cli', false ],
+	[ 'studio-mcp', false ],
+	[ 'studio-ui:v2', true ],
+	[ 'studio-web:v2', true ],
+] )( 'links the account for origin %s: %s', async ( origin, linkAccount ) => {
+	if ( origin ) {
+		process.env.STUDIO_TRACKS_ORIGIN = origin;
+	} else {
+		delete process.env.STUDIO_TRACKS_ORIGIN;
+	}
+
+	await recordTracksEvent( TRACKS_EVENTS.SITE_START );
+
+	expect( mockIdentify ).toHaveBeenCalledWith( expect.any( Object ), { linkAccount } );
+} );
+
+it( 'sends the identity and props the identity resolver returns', async () => {
+	process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+	mockIdentify.mockResolvedValue( {
+		identity: { type: 'wpcom:user_id', id: '12345' },
+		props: { site_id: 'account-scoped' },
 	} );
 
-	await recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH );
+	await recordTracksEvent( TRACKS_EVENTS.SITE_START, { site_id: 'site-uuid' } );
 
+	expect( mockIdentify ).toHaveBeenCalledWith(
+		expect.objectContaining( { site_id: 'site-uuid', app_version: '2.3.4' } ),
+		{ linkAccount: true }
+	);
 	expect( mockRecord ).toHaveBeenCalledWith(
-		TRACKS_EVENTS.APP_LAUNCH,
-		{ type: 'wpcom:user_id', id: '12345', installId: 'install-uuid' },
-		expect.any( Object )
+		TRACKS_EVENTS.SITE_START,
+		{ type: 'wpcom:user_id', id: '12345' },
+		{ site_id: 'account-scoped' }
 	);
 } );

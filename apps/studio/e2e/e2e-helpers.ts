@@ -80,6 +80,7 @@ export class E2ESession {
 				? {}
 				: {
 						onboardingCompleted: true,
+						usageNoticeSeen: true,
 						// What's New is never due, whatever its version.
 						onboardingHints: {
 							tourDismissedVersion: ORIENTATION_GUIDE_VERSION,

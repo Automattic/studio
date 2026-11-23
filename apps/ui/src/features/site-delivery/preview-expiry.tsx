@@ -29,14 +29,14 @@ export function PreviewExpiry( { snapshot }: { snapshot: Snapshot } ) {
 				>
 					<div>
 						{ __(
-							'Preview sites expire about a week after their last update. Updating your preview resets the expiration date.'
+							'Preview sites are temporary. Updating your preview resets the expiration date.'
 						) }{ ' ' }
 						<Button
 							variant="inline-accent"
 							size="inline"
 							onClick={ () =>
 								void connector.openExternalUrl(
-									'https://wordpress.studio/docs/preview-sites/#5-preview-site-expiration'
+									'https://wordpress.studio/docs/preview-sites/#preview-expiration'
 								)
 							}
 						>

@@ -3,10 +3,6 @@ set -euo pipefail
 
 PLATFORM=${1:-mac}
 
-if .buildkite/commands/should-skip-job.sh --job-type validation; then
-  exit 0
-fi
-
 echo '--- :package: Install deps'
 if [ "$PLATFORM" = "linux" ]; then
   # The a8c-ci-toolkit cache helpers only exist on the host, so

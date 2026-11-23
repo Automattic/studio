@@ -1,6 +1,8 @@
 # Import and export sites
 
-To add a site from a backup file, choose **Import** in the **Add site** dialog and select the file. To save a local site as a backup file, choose **Export** from the site menu. You can also update an existing WordPress Studio site from a backup.
+Add a site to WordPress Studio from a backup file, or save a local site as a backup file. You can also update an existing site from a backup.
+
+To import, choose **Import** in the **Add site** dialog and select the file. To export, choose **Export** from the site menu.
 
 **Applies to:** the WordPress Studio app. The same imports and exports are available in the terminal with [WordPress Studio CLI](https://wordpress.studio/docs/cli/#import-and-export). You don’t need a WordPress.com account to import or export.
 

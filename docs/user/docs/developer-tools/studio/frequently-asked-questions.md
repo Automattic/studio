@@ -1,6 +1,8 @@
 # WordPress Studio: Frequently asked questions
 
-This page answers common questions about the [WordPress Studio](https://wordpress.studio/) app, [WordPress Studio Code](https://wordpress.studio/docs/frequently-asked-questions/#wordpress-studio-code-faqs), and [publishing and pulling](https://wordpress.studio/docs/frequently-asked-questions/#wordpress-studio-sync-faqs). Each answer links to the page with the full steps.
+This page answers common questions about the WordPress Studio app, WordPress Studio Code, and publishing and pulling.
+
+Jump to [WordPress Studio Code FAQs](https://wordpress.studio/docs/frequently-asked-questions/#wordpress-studio-code-faqs) or [WordPress Studio Sync FAQs](https://wordpress.studio/docs/frequently-asked-questions/#wordpress-studio-sync-faqs). Each answer links to the page with the full steps.
 
 **Applies to:** the WordPress Studio app on macOS, Windows, and Linux. Answers that need a WordPress.com account or the CLI say so.
 

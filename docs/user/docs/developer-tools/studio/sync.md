@@ -1,6 +1,8 @@
 # Publish and pull your site
 
-To put your local site online, connect it to a website on WordPress.com or Pressable and click **Publish changes** in the **Publish** panel. To bring the website’s latest version into WordPress Studio, click **Pull changes**. Pulling copies the website into your local site and leaves the website unchanged.
+Publish your local site to a website on WordPress.com or Pressable, or pull the website’s latest version back into WordPress Studio.
+
+To publish, connect your local site to the website and click **Publish changes** in the **Publish** panel. To pull, click **Pull changes**. Pulling copies the website into your local site and leaves the website unchanged.
 
 **Applies to:** the WordPress Studio app and WordPress Studio CLI, with a WordPress.com account. The website must be on a paid WordPress.com plan, or on Pressable with Jetpack enabled, and you must be an administrator of it. To publish a static copy instead, you need a Spacefast account.
 

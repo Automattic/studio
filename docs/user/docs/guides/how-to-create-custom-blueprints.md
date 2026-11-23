@@ -1,6 +1,8 @@
 # How to create custom WordPress Blueprints
 
-WordPress Studio supports [WordPress Playground](https://wordpress.org/playground/) Blueprints. WordPress Studio runs them with its own Blueprint runner on native PHP. [Blueprints in WordPress Studio](https://wordpress.studio/docs/blueprints/) help you:
+WordPress Studio supports WordPress Playground Blueprints and runs them with its own Blueprint runner on native PHP.
+
+[Blueprints in WordPress Studio](https://wordpress.studio/docs/blueprints/) use the [WordPress Playground](https://wordpress.org/playground/) format and help you:
 
 -   **Streamline repeatable setups:** Create Blueprints for common site types (like blog, portfolio, or store) to start new WordPress Studio projects more efficiently. 
 -   **Keep teams aligned:** Add a blueprint.json file to your project’s GitHub repository, whether you’re building a plugin, theme, or full site. It scaffolds the same environment every time, so teammates can start building a plugin, theme, or full site in minutes, while version control keeps changes reviewable and consistent.

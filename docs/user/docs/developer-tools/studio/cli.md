@@ -1,6 +1,8 @@
 # WordPress Studio CLI
 
-WordPress Studio CLI is the `studio` command. It lets you use [WordPress Studio](https://wordpress.studio/docs/) from your terminal to create and run local sites, share previews, publish and pull sites, and run WP-CLI, whether WordPress Studio is open or not. It comes with the WordPress Studio app, and you can also install it on its own.
+WordPress Studio CLI is the `studio` command. Use it to create and run local sites, share previews, publish and pull sites, and run WP-CLI from your terminal.
+
+It works whether the [WordPress Studio](https://wordpress.studio/docs/) app is open or not. It comes with the app, and you can also install it on its own.
 
 **Applies to:** macOS, Windows, and Linux. The CLI comes with the WordPress Studio app, except the Microsoft Store version. You can also install it with the standalone installer or from npm as [wp-studio](https://www.npmjs.com/package/wp-studio). Commands for previews, publishing, and pulling need a WordPress.com account.
 

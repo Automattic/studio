@@ -35,6 +35,11 @@ const EDITOR_LOAD_TIMEOUT_MS = 30_000;
 // don't navigate and load every block script again.
 const editorPages = new Map< string, Promise< Page > >();
 
+// An open block editor holds a few hundred megabytes of browser memory, so its
+// page closes once the site has had no validation for this long.
+const EDITOR_IDLE_CLOSE_MS = 2 * 60_000;
+const editorUses = new Map< string, { active: number; idleTimer?: NodeJS.Timeout } >();
+
 function blocksRegistered(): boolean {
 	try {
 		// wp is set early as a global but wp.blocks is populated later, so every
@@ -126,6 +131,27 @@ async function discardEditorPage( siteUrl: string ): Promise< void > {
 	await page?.close().catch( () => {} );
 }
 
+// Keeps the site's editor page open while a validation runs. The returned
+// function ends the hold; the page closes when no validation follows in time.
+function holdEditorPage( siteUrl: string ): () => void {
+	const use = editorUses.get( siteUrl ) ?? { active: 0 };
+	editorUses.set( siteUrl, use );
+	clearTimeout( use.idleTimer );
+	use.active++;
+	return () => {
+		use.active--;
+		if ( use.active > 0 ) {
+			return;
+		}
+		use.idleTimer = setTimeout( () => {
+			editorUses.delete( siteUrl );
+			void discardEditorPage( siteUrl );
+		}, EDITOR_IDLE_CLOSE_MS );
+		// The timer must not keep a finished CLI command alive.
+		use.idleTimer.unref();
+	};
+}
+
 /**
  * Validate WordPress block content using the site's own block editor in a
  * real browser.
@@ -140,6 +166,7 @@ export async function validateBlocks(
 	content: string,
 	siteUrl: string
 ): Promise< ValidationReport > {
+	const release = holdEditorPage( siteUrl );
 	try {
 		const page = await getEditorPage( siteUrl );
 
@@ -420,5 +447,7 @@ export async function validateBlocks(
 			results: [],
 			error: error instanceof Error ? error.message : String( error ),
 		};
+	} finally {
+		release();
 	}
 }

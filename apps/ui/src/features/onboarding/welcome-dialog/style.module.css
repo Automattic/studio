@@ -16,11 +16,11 @@
 
 .analytics {
 	justify-content: center;
-	text-align: center;
 }
 
 .analyticsLabel {
 	flex: 0 1 auto;
+	text-align: start;
 	color: var( --muted-foreground );
 	font-size: var( --text-xxs );
 	line-height: var( --leading-normal );

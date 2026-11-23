@@ -39,7 +39,9 @@ describe( 'Welcome dialog', () => {
 		async ( dismissLabel ) => {
 			const { connector, history } = await firstLaunch();
 			expect(
-				screen.getByRole( 'checkbox', { name: 'Share anonymous usage statistics' } )
+				screen.getByRole( 'checkbox', {
+					name: "Share usage statistics. When you're logged in to WordPress.com, they're linked to your account.",
+				} )
 			).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: dismissLabel } ) );
 			await screen.findByRole( 'dialog', { name: 'Add site' } );

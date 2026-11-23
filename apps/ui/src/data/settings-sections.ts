@@ -159,7 +159,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				setting(
 					'action',
 					__( 'Improve WordPress Studio for everyone' ),
-					__( 'Share anonymous usage statistics to improve WordPress Studio.' ),
+					__(
+						"Share usage statistics to improve WordPress Studio. When you're logged in to WordPress.com, they're linked to your account."
+					),
 					'usage-statistics'
 				),
 				setting(

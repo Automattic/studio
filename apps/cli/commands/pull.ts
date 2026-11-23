@@ -493,7 +493,12 @@ async function pullSite(
 			} );
 		}
 
-		const resumeCommand = [ 'studio pull', `--path "${ localPath }"` ];
+		// The remote is remembered only once a pull succeeds, so name it for the resume.
+		const resumeCommand = [
+			'studio pull',
+			`--path "${ localPath }"`,
+			`--remote-site ${ sourceSite.wpComSite.id }`,
+		];
 		console.log( '' );
 		console.log( 'To resume this pull, re-run the same command:' );
 		console.log( `  ${ resumeCommand.join( ' ' ) }` );

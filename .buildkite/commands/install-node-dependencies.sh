@@ -28,23 +28,28 @@ restore_cache "$CACHEKEY"
 # On Windows, `npm ci` spends about 2 minutes writing the packages into node_modules, against 20 s on Mac.
 # So Windows also caches node_modules itself, keyed on everything that decides its content: the lockfile,
 # the patches, the OS, the CPU and the Node version (which brings its npm).
-# Bump the version in the key to drop every entry, e.g. if one turns out to be broken.
+# Writing its 100,000 files takes Windows about a minute on one core, so the cache comes in shards
+# that are extracted in parallel. Bump the version in the key to drop every entry, e.g. if one turns out to be broken.
 IS_WINDOWS=false
 case "$PLATFORM" in
   MINGW* | MSYS* | CYGWIN*) IS_WINDOWS=true ;;
 esac
-NODE_MODULES_CACHEKEY="$BUILDKITE_PIPELINE_SLUG-node-modules-v1-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
+NODE_MODULES_SHARDS=4
+NODE_MODULES_CACHEKEY="$BUILDKITE_PIPELINE_SLUG-node-modules-v2-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
 
 NODE_MODULES_RESTORED=false
 if [ "$IS_WINDOWS" = true ] && [ ! -e node_modules ]; then
   echo "--- :npm: Restore node_modules cache if present"
-  # Windows' own tar writes the 100,000 files faster than the GNU tar of Git Bash, so `restore_cache` uses it.
-  WINDOWS_TAR_SHIM=$(mktemp -d)
-  printf '#!/bin/bash\nexec /c/Windows/System32/tar.exe "$@"\n' > "$WINDOWS_TAR_SHIM/tar"
-  chmod +x "$WINDOWS_TAR_SHIM/tar"
-  PATH="$WINDOWS_TAR_SHIM:$PATH" restore_cache "$NODE_MODULES_CACHEKEY"
-  rm -rf "$WINDOWS_TAR_SHIM"
-  if [ -f node_modules/.package-lock.json ]; then
+  pids=()
+  for shard in $(seq 0 $((NODE_MODULES_SHARDS - 1))); do
+    restore_cache "$NODE_MODULES_CACHEKEY-$shard-of-$NODE_MODULES_SHARDS" &
+    pids+=($!)
+  done
+  for pid in "${pids[@]}"; do
+    wait "$pid"
+  done
+  # When a shard is missing, `npm ci` below removes the others, as it empties node_modules first.
+  if node .buildkite/commands/node-modules-shards.mjs check "$NODE_MODULES_SHARDS"; then
     NODE_MODULES_RESTORED=true
   fi
 fi
@@ -99,20 +104,21 @@ save_cache "$LOCAL_NPM_CACHE" "$CACHEKEY"
 # but nothing checks a restored node_modules, so a pull request must not write the copy that others use.
 if [ "$IS_WINDOWS" = true ] && [[ "${BUILDKITE_BRANCH:-}" =~ ^(trunk|cache-windows-node-modules)$ ]]; then
   echo "--- :npm: Save node_modules cache if necessary"
-  # `save_cache` archives one folder, so gather every node_modules folder of the workspace in one
-  # (moving a folder is a rename, so it takes no time), without the links to the workspaces.
+  # `save_cache` archives one folder, so move each shard's part of the node_modules folders into its own
+  # (a move is a rename, so it takes no time), without the links to the workspaces.
   NODE_MODULES_STAGING=vendor/node-modules-cache
-  NODE_MODULES_FOLDERS=$(ls -d node_modules apps/*/node_modules packages/*/node_modules tools/*/node_modules 2> /dev/null || true)
   node .buildkite/commands/workspace-links.mjs remove
-  for folder in $NODE_MODULES_FOLDERS; do
-    mkdir -p "$NODE_MODULES_STAGING/$(dirname "$folder")"
-    mv "$folder" "$NODE_MODULES_STAGING/$folder"
+  node .buildkite/commands/node-modules-shards.mjs stage "$NODE_MODULES_STAGING" "$NODE_MODULES_SHARDS"
+  pids=()
+  for shard in $(seq 0 $((NODE_MODULES_SHARDS - 1))); do
+    # Paths relative to the shard's folder, so that `restore_cache` extracts them in place.
+    save_cache "$NODE_MODULES_STAGING/$shard" "$NODE_MODULES_CACHEKEY-$shard-of-$NODE_MODULES_SHARDS" "" --use_relative_path_in_tar &
+    pids+=($!)
   done
-  # Paths relative to the staging folder, so that `restore_cache` extracts them in place.
-  save_cache "$NODE_MODULES_STAGING" "$NODE_MODULES_CACHEKEY" "" --use_relative_path_in_tar
-  for folder in $NODE_MODULES_FOLDERS; do
-    mv "$NODE_MODULES_STAGING/$folder" "$folder"
+  for pid in "${pids[@]}"; do
+    wait "$pid"
   done
+  node .buildkite/commands/node-modules-shards.mjs unstage "$NODE_MODULES_STAGING"
   rm -rf "$NODE_MODULES_STAGING"
   node .buildkite/commands/workspace-links.mjs add
 fi

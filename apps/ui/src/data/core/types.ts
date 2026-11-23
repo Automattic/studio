@@ -250,6 +250,11 @@ export interface Connector {
 	// first-run welcome screen.
 	getOnboardingCompleted(): Promise< boolean >;
 	setOnboardingCompleted( completed: boolean, analytics?: OnboardingAnalytics ): Promise< void >;
+	// Whether the one-time notice that usage statistics are linked to the WordPress.com account is
+	// due: the person was onboarded before it existed and hasn't dismissed it. Until it is seen,
+	// logged-in events stay anonymous.
+	getUsageNoticePending(): Promise< boolean >;
+	setUsageNoticeSeen(): Promise< void >;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;

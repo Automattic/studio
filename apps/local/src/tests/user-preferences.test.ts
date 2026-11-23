@@ -317,6 +317,32 @@ describe( 'GET/PATCH /api/onboarding', () => {
 	);
 } );
 
+describe( '/api/usage-notice', () => {
+	const pending = async () => ( await fetch( `${ server.url }/api/usage-notice` ) ).json();
+
+	it( 'is due once for someone onboarded before it, until it is seen', async () => {
+		writePreferences( { onboardingCompleted: true } );
+		expect( await pending() ).toBe( true );
+
+		const response = await fetch( `${ server.url }/api/usage-notice/seen`, { method: 'PUT' } );
+
+		expect( response.status ).toBe( 204 );
+		expect( await pending() ).toBe( false );
+		await expect( readPreferences() ).resolves.toMatchObject( { usageNoticeSeen: true } );
+	} );
+
+	it( 'is never due for someone who finishes onboarding now', async () => {
+		expect( await pending() ).toBe( false );
+		await fetch( `${ server.url }/api/onboarding`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { completed: true } ),
+		} );
+		expect( await pending() ).toBe( false );
+		await expect( readPreferences() ).resolves.toMatchObject( { usageNoticeSeen: true } );
+	} );
+} );
+
 it( 'shares the browser preference over HTTP and clears it back to the OS default', async () => {
 	expect( ( await getPreferences() ).browser ).toBeNull();
 	expect( ( await patchPreferences( { browser: 'chrome' } ) ).status ).toBe( 204 );

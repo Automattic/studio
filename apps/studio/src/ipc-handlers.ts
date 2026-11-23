@@ -93,7 +93,9 @@ import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import {
 	readOnboardingCompleted,
+	readUsageNoticePending,
 	writeOnboardingCompleted,
+	writeUsageNoticeSeen,
 } from '@studio/common/lib/user-settings/onboarding';
 import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
@@ -1200,6 +1202,14 @@ export async function saveOnboarding(
 			...onboardingAnalyticsSchema.safeParse( analytics ).data,
 		} );
 	}
+}
+
+export async function getUsageNoticePending( _event: IpcMainInvokeEvent ): Promise< boolean > {
+	return readUsageNoticePending();
+}
+
+export async function saveUsageNoticeSeen( _event: IpcMainInvokeEvent ): Promise< void > {
+	await writeUsageNoticeSeen();
 }
 
 export { getAppUpdateStatus, checkForAppUpdates, installAppUpdate } from 'src/updates';

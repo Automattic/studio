@@ -201,6 +201,8 @@ export function createInMemoryConnector(
 		onAuthStateChanged: subscribe( 'onAuthStateChanged' ),
 		getOnboardingCompleted: async () => true,
 		setOnboardingCompleted: async () => {},
+		getUsageNoticePending: async () => false,
+		setUsageNoticeSeen: async () => {},
 		getSites: async () => state.sites,
 		createSite: async ( params ) => {
 			const site = makeSite( {

@@ -135,7 +135,9 @@ import {
 } from '@studio/common/lib/user-settings/installed-apps';
 import {
 	readOnboardingCompleted,
+	readUsageNoticePending,
 	writeOnboardingCompleted,
+	writeUsageNoticeSeen,
 } from '@studio/common/lib/user-settings/onboarding';
 import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
@@ -1826,6 +1828,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					...parsed.data.analytics,
 				} );
 			}
+			res.status( 204 ).end();
+		} )
+	);
+
+	api.get(
+		'/usage-notice',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readUsageNoticePending() );
+		} )
+	);
+
+	api.put(
+		'/usage-notice/seen',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			await writeUsageNoticeSeen();
 			res.status( 204 ).end();
 		} )
 	);

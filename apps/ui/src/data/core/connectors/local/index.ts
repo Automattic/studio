@@ -409,6 +409,12 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( { completed, analytics } ),
 			} );
 		},
+		async getUsageNoticePending() {
+			return api< boolean >( '/usage-notice' );
+		},
+		async setUsageNoticeSeen() {
+			await api( '/usage-notice/seen', { method: 'PUT' } );
+		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {

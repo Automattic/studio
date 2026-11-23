@@ -68,7 +68,7 @@ function DefaultProviderRow< Id extends ProviderId >( {
 				placeholder={ placeholder }
 				disabled={ disabled || ! hasProviders }
 				options={ [
-					...( automatic ? [ { value: AUTOMATIC, label: __( 'Automatic' ) } as const ] : [] ),
+					...( automatic ? [ { value: AUTOMATIC, label: __( 'Auto' ) } as const ] : [] ),
 					...connected.map( ( id ) => ( {
 						value: id,
 						label: getProvider( id ).label,
@@ -114,7 +114,7 @@ function ProviderDefaults( {
 			/>
 			<DefaultProviderRow
 				title={ __( 'Default image provider' ) }
-				description={ __( 'For generating images. Automatic uses the AI provider when it can.' ) }
+				description={ __( 'For generating images. Auto uses the AI provider when it can.' ) }
 				settingId="default-image-provider"
 				connected={ settings.data?.imageProviders ?? [] }
 				value={ settings.data?.imageProvider ?? null }

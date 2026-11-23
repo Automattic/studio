@@ -13,12 +13,6 @@
 		"%1$d von %2$d Website gleichzeitig aktiv",
 		"%1$d von %2$d Websites gleichzeitig aktiv"
 	],
-	"%1$dh %2$dm": [
-		"%1$d Std. %2$d Min."
-	],
-	"%1$s +%2$d": [
-		"%1$s +%2$d"
-	],
 	"%1$s / %2$s per million tokens": [
 		"%1$s / %2$s pro Million Token"
 	],
@@ -35,21 +29,11 @@
 	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
 		"%1$s konnte das WordPress Studio-Plugin nicht aktualisieren: %2$s"
 	],
-	"%1$s screenshot %2$d": [
-		"%1$s Screenshot %2$d"
-	],
 	"%1$s · %2$s context": [
 		"%1$s · %2$s Kontext"
 	],
 	"%1$s, %2$s, and %3$s": [
 		"%1$s, %2$s und %3$s"
-	],
-	"%d B": [
-		"%d B"
-	],
-	"%d annotation ready to send": [
-		"%d Anmerkung bereit zum Senden",
-		"%d Anmerkungen bereit zum Senden"
 	],
 	"%d model": [
 		"%d Modell",
@@ -57,9 +41,6 @@
 	],
 	"%s (optional, saved for future use):": [
 		"%s (optional, wird für später gespeichert):"
-	],
-	"%s KB": [
-		"%s KB"
 	],
 	"%s billed yearly": [
 		"%s bei jährlicher Abrechnung"
@@ -78,9 +59,6 @@
 	],
 	"%s only makes previews.": [
 		"%s erstellt nur Vorschauen."
-	],
-	"%s preview is ready": [
-		"Vorschau von %s ist fertig"
 	],
 	"%s · Live site": [
 		"%s · Aktive Website"
@@ -124,23 +102,11 @@
 	"Add a domain": [
 		"Domain hinzufügen"
 	],
-	"Add annotation to batch": [
-		"Anmerkung zur Sammlung hinzufügen"
-	],
-	"Add or delete this annotation before starting another.": [
-		"Füge diese Anmerkung hinzu oder lösche sie, bevor du eine weitere beginnst."
-	],
 	"Address is required": [
 		"Adresse ist erforderlich"
 	],
 	"Address to listen on": [
 		"Adresse, auf der gelauscht wird"
-	],
-	"Admin bar hidden by default.": [
-		"Admin-Leiste wird standardmäßig ausgeblendet."
-	],
-	"Admin bar shown by default.": [
-		"Admin-Leiste wird standardmäßig angezeigt."
 	],
 	"Agent apps": [
 		"Agenten-Apps"
@@ -159,9 +125,6 @@
 	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"Beim Aktualisieren der WordPress Studio-CLI ist ein Fehler aufgetreten. Bitte versuche es erneut."
-	],
-	"Annotation is available for design systems created by Studio Code.": [
-		"Anmerkungen sind für Designsysteme verfügbar, die von Studio Code erstellt wurden."
 	],
 	"Annotation tools": [
 		"Anmerkungswerkzeuge"
@@ -208,32 +171,11 @@
 	"Audit performance": [
 		"Performance prüfen"
 	],
-	"Automatic sidebar collapsing disabled.": [
-		"Automatisches Einklappen der Seitenleiste deaktiviert."
-	],
-	"Automatic sidebar collapsing enabled.": [
-		"Automatisches Einklappen der Seitenleiste aktiviert."
-	],
-	"Automatic site start on prompt disabled.": [
-		"Automatischer Website-Start bei Prompts deaktiviert."
-	],
-	"Automatic site start on prompt enabled.": [
-		"Automatischer Website-Start bei Prompts aktiviert."
-	],
 	"Back to email list": [
 		"Zurück zur E-Mail-Liste"
 	],
 	"Balanced": [
 		"Ausgewogen"
-	],
-	"Batch notes": [
-		"Anmerkungen sammeln"
-	],
-	"Batch notes disabled.": [
-		"Sammeln von Anmerkungen deaktiviert."
-	],
-	"Batch notes enabled.": [
-		"Sammeln von Anmerkungen aktiviert."
 	],
 	"Billed monthly": [
 		"Monatliche Abrechnung"
@@ -246,9 +188,6 @@
 	],
 	"Billing period": [
 		"Abrechnungszeitraum"
-	],
-	"Blueprint file…": [
-		"Blueprint-Datei …"
 	],
 	"Blueprint loaded": [
 		"Blueprint geladen"
@@ -306,9 +245,6 @@
 	],
 	"Checking access…": [
 		"Zugriff wird geprüft …"
-	],
-	"Checking for updates…": [
-		"Nach Updates wird gesucht …"
 	],
 	"Checking whether you can pull from this preview…": [
 		"Es wird geprüft, ob du von dieser Vorschau pullen kannst …"
@@ -376,9 +312,6 @@
 	"Close tabs to the right": [
 		"Tabs rechts schließen"
 	],
-	"Collect annotations and send them together instead of one at a time.": [
-		"Anmerkungen sammeln und gemeinsam statt einzeln senden."
-	],
 	"Color picker": [
 		"Farbwähler"
 	],
@@ -415,9 +348,6 @@
 	"Connect to share previews": [
 		"Zum Teilen von Vorschauen verbinden"
 	],
-	"Connect your WordPress": [
-		"Deine WordPress-Website verbinden"
-	],
 	"Connected %s.": [
 		"%s verbunden."
 	],
@@ -448,9 +378,6 @@
 	"Could not load %s sites.": [
 		"%s-Websites konnten nicht geladen werden."
 	],
-	"Could not open DevTools": [
-		"DevTools konnten nicht geöffnet werden"
-	],
 	"Could not open Spacefast": [
 		"Spacefast konnte nicht geöffnet werden"
 	],
@@ -472,26 +399,11 @@
 	"Could not read your settings": [
 		"Deine Einstellungen konnten nicht gelesen werden"
 	],
-	"Could not reset appearance. Please try again.": [
-		"Das Design konnte nicht zurückgesetzt werden. Bitte versuche es erneut."
-	],
-	"Could not reset interface. Please try again.": [
-		"Die Benutzeroberfläche konnte nicht zurückgesetzt werden. Bitte versuche es erneut."
-	],
-	"Could not reset tips. Please try again.": [
-		"Die Tipps konnten nicht zurückgesetzt werden. Bitte versuche es erneut."
-	],
 	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
 		"$table_prefix konnte in wp-config.php nicht auf „%s“ gesetzt werden."
 	],
 	"Could not take screenshot": [
 		"Screenshot konnte nicht erstellt werden"
-	],
-	"Could not update settings. Please try again.": [
-		"Die Einstellungen konnten nicht aktualisiert werden. Bitte versuche es erneut."
-	],
-	"Could not update the admin bar setting. Please try again.": [
-		"Die Einstellung für die Admin-Leiste konnte nicht aktualisiert werden. Bitte versuche es erneut."
 	],
 	"Could not update your local site from this preview. Please try again.": [
 		"Deine lokale Website konnte nicht aus dieser Vorschau aktualisiert werden. Bitte versuche es erneut."
@@ -556,9 +468,6 @@
 	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
 		"Erstelle einen Schlüssel in deinen [OpenRouter-Einstellungen](https://openrouter.ai/settings/keys) und füge ihn dann unten ein."
 	],
-	"Create a new WordPress": [
-		"Eine neue WordPress-Website erstellen"
-	],
 	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
 		"Erstelle ein Konto oder melde dich an, um deine WordPress.com- oder Pressable-Websites zu verbinden."
 	],
@@ -585,9 +494,6 @@
 	],
 	"Default AI provider": [
 		"Standard-KI-Anbieter"
-	],
-	"Default browser": [
-		"Standardbrowser"
 	],
 	"Default code editor": [
 		"Standard-Code-Editor"
@@ -643,15 +549,6 @@
 	"Destination": [
 		"Ziel"
 	],
-	"Disable automatic sidebar collapsing": [
-		"Automatisches Einklappen der Seitenleiste deaktivieren"
-	],
-	"Disable automatic site start on prompt": [
-		"Automatischen Website-Start bei Prompts deaktivieren"
-	],
-	"Disable batch notes": [
-		"Sammeln von Anmerkungen deaktivieren"
-	],
 	"Discard changes?": [
 		"Änderungen verwerfen?"
 	],
@@ -666,9 +563,6 @@
 	],
 	"Dismiss tip": [
 		"Tipp schließen"
-	],
-	"Do more with WordPress": [
-		"Mehr mit WordPress erreichen"
 	],
 	"Download WordPress Studio": [
 		"WordPress Studio herunterladen"
@@ -690,15 +584,6 @@
 	],
 	"Enable anonymous usage statistics": [
 		"Anonyme Nutzungsstatistiken aktivieren"
-	],
-	"Enable automatic sidebar collapsing": [
-		"Automatisches Einklappen der Seitenleiste aktivieren"
-	],
-	"Enable automatic site start on prompt": [
-		"Automatischen Website-Start bei Prompts aktivieren"
-	],
-	"Enable batch notes": [
-		"Sammeln von Anmerkungen aktivieren"
 	],
 	"Ends on %s": [
 		"Endet am %s"
@@ -736,12 +621,6 @@
 	"External AI apps": [
 		"Externe KI-Apps"
 	],
-	"Failed after %s": [
-		"Nach %s fehlgeschlagen"
-	],
-	"Failed to check the preview site": [
-		"Die Vorschau-Website konnte nicht überprüft werden"
-	],
 	"Failed to create the Space": [
 		"Der Space konnte nicht erstellt werden"
 	],
@@ -769,14 +648,8 @@
 	"Failed to set up WordPress": [
 		"WordPress konnte nicht eingerichtet werden"
 	],
-	"Feedback areas": [
-		"Bereiche des Feedbacks"
-	],
 	"Feedback sent": [
 		"Feedback gesendet"
-	],
-	"Feedback type": [
-		"Art des Feedbacks"
 	],
 	"Files could not be loaded.": [
 		"Die Dateien konnten nicht geladen werden."
@@ -790,9 +663,6 @@
 	"Finish signing in to %s in your browser.": [
 		"Schließe die Anmeldung bei %s in deinem Browser ab."
 	],
-	"First use": [
-		"Erste Nutzung"
-	],
 	"Flush cache": [
 		"Cache leeren"
 	],
@@ -801,9 +671,6 @@
 	],
 	"Free": [
 		"Kostenlos"
-	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"Aus vielen ein Werkzeug.\nStärke in Gemeinschaft\nfür ein besseres Web."
 	],
 	"Gemini API key": [
 		"Gemini-API-Schlüssel"
@@ -829,12 +696,6 @@
 	"Grok sign-in was declined.": [
 		"Die Anmeldung mit Grok wurde abgelehnt."
 	],
-	"Hide admin bar": [
-		"Admin-Leiste ausblenden"
-	],
-	"Hide admin bar by default": [
-		"Admin-Leiste standardmäßig ausblenden"
-	],
 	"Hide chat when starting sites": [
 		"Chat beim Starten von Websites ausblenden"
 	],
@@ -843,9 +704,6 @@
 	],
 	"Hide recent chats": [
 		"Letzte Chats ausblenden"
-	],
-	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
-		"Die WordPress-Admin-Leiste auf lokalen Websites standardmäßig ausblenden. Ändere dies für einzelne Websites in den Browser-Optionen."
 	],
 	"High": [
 		"Hoch"
@@ -871,9 +729,6 @@
 	"Image annotation": [
 		"Bildanmerkung"
 	],
-	"Import a blueprint or backup": [
-		"Einen Blueprint oder ein Backup importieren"
-	],
 	"Import cancelled": [
 		"Import abgebrochen"
 	],
@@ -882,9 +737,6 @@
 	],
 	"Import site": [
 		"Website importieren"
-	],
-	"Include this chat’s transcript": [
-		"Verlauf dieses Chats einschließen"
 	],
 	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
 		"Installiere [Claude Code](https://code.claude.com/docs/en/setup), falls du es noch nicht hast."
@@ -963,9 +815,6 @@
 	],
 	"Loading destinations": [
 		"Ziele werden geladen"
-	],
-	"Loading file…": [
-		"Datei wird geladen …"
 	],
 	"Loading models…": [
 		"Modelle werden geladen …"
@@ -1087,9 +936,6 @@
 	"No local server answered at %s. Check the address, and that your server is running.": [
 		"Unter %s hat kein lokaler Server geantwortet. Überprüfe die Adresse und ob dein Server läuft."
 	],
-	"No matching sites.": [
-		"Keine passenden Websites."
-	],
 	"No models found.": [
 		"Keine Modelle gefunden."
 	],
@@ -1117,23 +963,11 @@
 	"Only you and people you invite can view.": [
 		"Nur du und Personen, die du einlädst, können sie sehen."
 	],
-	"Open %s settings": [
-		"Einstellungen für %s öffnen"
-	],
 	"Open Config File (dev only)": [
 		"Konfigurationsdatei öffnen (nur Entwicklung)"
 	],
-	"Open Folder…": [
-		"Ordner öffnen …"
-	],
 	"Open Spacefast": [
 		"Spacefast öffnen"
-	],
-	"Open a project page to annotate.": [
-		"Öffne eine Projektseite, um Anmerkungen hinzuzufügen."
-	],
-	"Open a site or Blueprint": [
-		"Eine Website oder einen Blueprint öffnen"
 	],
 	"Open annotation browser": [
 		"Anmerkungsbrowser öffnen"
@@ -1219,9 +1053,6 @@
 	"Posts, pages, and settings": [
 		"Beiträge, Seiten und Einstellungen"
 	],
-	"Preview browser controls": [
-		"Browser-Steuerelemente der Vorschau"
-	],
 	"Preview creation cancelled": [
 		"Erstellung der Vorschau abgebrochen"
 	],
@@ -1252,17 +1083,11 @@
 	"Preview sites are temporary. Updating your preview resets the expiration date.": [
 		"Vorschau-Websites sind temporär. Wenn du deine Vorschau aktualisierst, wird das Ablaufdatum zurückgesetzt."
 	],
-	"Preview tabs": [
-		"Vorschau-Tabs"
-	],
 	"Preview: %s": [
 		"Vorschau: %s"
 	],
 	"Private sites and preview links": [
 		"Private Websites und Vorschaulinks"
-	],
-	"Project tools": [
-		"Projektwerkzeuge"
 	],
 	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
 		"Veröffentliche eine statische Kopie deiner Website in einem Spacefast Space. Formulare, Kommentare und andere Funktionen, für die WordPress laufen muss, funktionieren in der Kopie nicht."
@@ -1306,26 +1131,17 @@
 	"Publishing cancelled": [
 		"Veröffentlichung abgebrochen"
 	],
-	"Publishing changes…": [
-		"Änderungen werden veröffentlicht …"
-	],
 	"Publishing requires a supported plan.": [
 		"Für die Veröffentlichung ist ein unterstützter Tarif erforderlich."
 	],
 	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
 		"Beim Veröffentlichen der Datenbank werden Änderungen auf der aktiven Website ersetzt, auch neue Kommentare oder Bestellungen."
 	],
-	"Pull a WordPress.com or Pressable site to your local site": [
-		"Eine WordPress.com- oder Pressable-Website auf deine lokale Website pullen"
-	],
 	"Pull from live site…": [
 		"Von aktiver Website pullen …"
 	],
 	"Pull from preview…": [
 		"Von Vorschau pullen …"
-	],
-	"Pull only the database (keeps the local files)": [
-		"Nur die Datenbank pullen (behält die lokalen Dateien bei)"
 	],
 	"Pull replaces your local copy. Update replaces the preview.": [
 		"Pullen ersetzt deine lokale Kopie. Aktualisieren ersetzt die Vorschau."
@@ -1350,12 +1166,6 @@
 	],
 	"Recent chats hidden.": [
 		"Letzte Chats ausgeblendet."
-	],
-	"Recent chats shown.": [
-		"Letzte Chats eingeblendet."
-	],
-	"Recent pages": [
-		"Letzte Seiten"
 	],
 	"Recommended": [
 		"Empfohlen"
@@ -1407,12 +1217,6 @@
 	],
 	"Reset to recommended": [
 		"Auf empfohlene Modelle zurücksetzen"
-	],
-	"Resize panel": [
-		"Größe des Bereichs ändern"
-	],
-	"Resize viewport: %s": [
-		"Größe des Viewports ändern: %s"
 	],
 	"Responsive preview": [
 		"Responsive Vorschau"
@@ -1504,26 +1308,11 @@
 	"Share a temporary preview link.": [
 		"Teile einen temporären Vorschaulink."
 	],
-	"Share details (required)": [
-		"Details angeben (erforderlich)"
-	],
-	"Show admin bar by default": [
-		"Admin-Leiste standardmäßig anzeigen"
-	],
-	"Show chat beside the panel when starting a site.": [
-		"Beim Starten einer Website den Chat neben dem Bereich anzeigen."
-	],
 	"Show chat when starting sites": [
 		"Chat beim Starten von Websites anzeigen"
 	],
-	"Show or hide the panel beside your chat.": [
-		"Den Bereich neben deinem Chat ein- oder ausblenden."
-	],
 	"Show panel": [
 		"Bereich anzeigen"
-	],
-	"Show whether a preview site or its local site changed since they were synced": [
-		"Anzeigen, ob sich eine Vorschau-Website oder ihre lokale Website seit der letzten Synchronisierung geändert hat"
 	],
 	"Sign in to create a preview link.": [
 		"Melde dich an, um einen Vorschaulink zu erstellen."
@@ -1558,9 +1347,6 @@
 	"Signing in was started again.": [
 		"Die Anmeldung wurde erneut gestartet."
 	],
-	"Site annotation is not available in the browser yet": [
-		"Anmerkungen zu Websites sind im Browser noch nicht verfügbar"
-	],
 	"Site exported": [
 		"Website exportiert"
 	],
@@ -1582,9 +1368,6 @@
 	"Sites will start with the panel expanded.": [
 		"Websites werden mit erweitertem Bereich gestartet."
 	],
-	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
-		"Fähigkeiten geben KI-Agenten Hilfestellung bei der Entwicklung von WordPress. Die hier vorgenommenen Änderungen gelten für alle bestehenden Websites und legen die Standardwerte für neue Websites fest."
-	],
 	"Some destinations could not be loaded": [
 		"Einige Ziele konnten nicht geladen werden"
 	],
@@ -1599,9 +1382,6 @@
 	],
 	"Spacefast sign-in was declined.": [
 		"Die Anmeldung bei Spacefast wurde abgelehnt."
-	],
-	"Split view": [
-		"Geteilte Ansicht"
 	],
 	"Start signing in to Spacefast again.": [
 		"Starte die Anmeldung bei Spacefast erneut."
@@ -1669,12 +1449,6 @@
 	"Team": [
 		"Team"
 	],
-	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
-		"Danke, dass du hilfst, WordPress Studio zu verbessern. Die Referenz-ID für dein Feedback lautet <id>%s</id>."
-	],
-	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
-		"Dieser Dateityp wird nicht unterstützt. Wähle einen Blueprint, ein WordPress-Backup oder eine XML-Exportdatei aus."
-	],
 	"The GitHub sign-in expired. Try again.": [
 		"Die Anmeldung bei GitHub ist abgelaufen. Versuche es erneut."
 	],
@@ -1686,9 +1460,6 @@
 	],
 	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
 		"Der Kontext, mit dem %s läuft, ist zu klein für Studio Code. Erhöhe die Kontextlänge in den Einstellungen deines Servers."
-	],
-	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
-		"Der erste Pull einer Website muss ihre Dateien enthalten. Pulle die gesamte Website einmal und danach nur die Datenbank."
 	],
 	"The full WordPress, with a domain.": [
 		"Das vollständige WordPress, mit Domain."
@@ -1704,9 +1475,6 @@
 	],
 	"The preview site could not be built from the archive.": [
 		"Die Vorschau-Website konnte nicht aus dem Archiv erstellt werden."
-	],
-	"The preview site did not become ready within the timeout.": [
-		"Die Vorschau-Website war nicht innerhalb der Zeitüberschreitung bereit."
 	],
 	"The preview site has no preview link.": [
 		"Die Vorschau-Website hat keinen Vorschaulink."
@@ -1756,9 +1524,6 @@
 	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
 		"Dieses Grok-Konto hat kein Guthaben mehr. Füge Guthaben hinzu oder hol dir SuperGrok auf grok.com."
 	],
-	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
-		"Diese ZIP-Datei kann nicht verwendet werden. Vergewissere dich, dass sie auf oberster Ebene oder in einem umschließenden Ordner eine gültige blueprint.json-Datei enthält, und versuche es erneut."
-	],
 	"This destination cannot create a site from this panel yet.": [
 		"Dieses Ziel kann über dieses Panel noch keine Website erstellen."
 	],
@@ -1789,12 +1554,6 @@
 	"This site is no longer available in WordPress Studio.": [
 		"Diese Website ist in WordPress Studio nicht mehr verfügbar."
 	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"Diese Website kann noch nicht gestartet werden. %s Führe `studio pull` erneut aus, um den Pull abzuschließen, oder `studio delete`, um die Website zu entfernen."
-	],
-	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
-		"Diese Website ist größer als %d GB, daher kann das Veröffentlichen zurück auf WordPress.com fehlschlagen. Veröffentliche stattdessen eine kleinere Auswahl an Dateien."
-	],
 	"This website has been deleted. Choose another website.": [
 		"Diese Website wurde gelöscht. Wähle eine andere Website aus."
 	],
@@ -1815,9 +1574,6 @@
 	],
 	"Try again to see where this WordPress is already connected.": [
 		"Versuche es erneut, um zu sehen, wo dieses WordPress bereits verbunden ist."
-	],
-	"Try downloading the update again.": [
-		"Versuche erneut, das Update herunterzuladen."
 	],
 	"Try starting the chat again, or open your site.": [
 		"Versuche erneut, den Chat zu starten, oder öffne deine Website."
@@ -1915,9 +1671,6 @@
 	"Use /connect %1$s to connect %2$s again.": [
 		"Verwende /connect %1$s, um %2$s erneut zu verbinden."
 	],
-	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
-		"Verwende Alt+Umschalt+Pfeil nach links oder rechts, um diesen Tab zu verschieben."
-	],
 	"Use Blueprint": [
 		"Blueprint verwenden"
 	],
@@ -1963,9 +1716,6 @@
 	"Visibility settings are only available for WordPress.com sites.": [
 		"Sichtbarkeitseinstellungen sind nur für WordPress.com-Websites verfügbar."
 	],
-	"Visit previews": [
-		"Vorschauen besuchen"
-	],
 	"Visitors see a coming soon page": [
 		"Besucher sehen eine „Demnächst verfügbar“-Seite"
 	],
@@ -1974,9 +1724,6 @@
 	],
 	"WP admin": [
 		"WP Admin"
-	],
-	"Waiting for %s": [
-		"Wartet seit %s"
 	],
 	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
 		"Warten auf den Browser. Wenn er diesen Computer nicht erreichen kann, füge die Adresse ein, auf der er endet:"
@@ -1992,9 +1739,6 @@
 	],
 	"Who can view": [
 		"Wer sie sehen kann"
-	],
-	"WordPress Studio CLI for terminal": [
-		"WordPress Studio-CLI für das Terminal"
 	],
 	"WordPress Studio could not download this backup.": [
 		"WordPress Studio konnte dieses Backup nicht herunterladen."
@@ -2047,12 +1791,6 @@
 	"WordPress.com hosting": [
 		"WordPress.com-Hosting"
 	],
-	"Worked for %s": [
-		"Hat %s gearbeitet"
-	],
-	"Working for %s": [
-		"Arbeitet seit %s"
-	],
 	"Yearly, save 20%": [
 		"Jährlich, spare 20 %"
 	],
@@ -2067,9 +1805,6 @@
 	],
 	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
 		"Du hast das Nutzungslimit deines Grok-Abos erreicht. Überprüfe deine Nutzung auf grok.com."
-	],
-	"You stopped after %s": [
-		"Von dir nach %s gestoppt"
 	],
 	"You're not logged in to WordPress.com. Log in now?": [
 		"Du bist nicht bei WordPress.com angemeldet. Jetzt anmelden?"
@@ -2113,9 +1848,6 @@
 	],
 	"Your plan has ended.": [
 		"Dein Tarif ist abgelaufen."
-	],
-	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
-		"Deine Vorschau ist zu WordPress.com umgezogen, daher hat sich ihr Link geändert. Neuer Link: %s"
 	],
 	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
 		"Deine ausgewählten Dateien sind nicht verfügbar. Wiederhole die Backup-Prüfung oder wähle eine andere Option, um fortzufahren."
@@ -2200,8 +1932,5 @@
 	],
 	"xAI rejected this API key. Check the key and try again.": [
 		"xAI hat diesen API-Schlüssel abgelehnt. Überprüfe den Schlüssel und versuche es erneut."
-	],
-	"· %d%%": [
-		"· %d %%"
 	]
 }

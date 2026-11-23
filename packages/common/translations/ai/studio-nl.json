@@ -1,7 +1,4 @@
 {
-	"\"%s\" is not a Blueprint file, URL or Library slug.": [
-		"\"%s\" is geen Blueprint-bestand, URL of slug uit de bibliotheek."
-	],
 	"$10 of AI credits every month": [
 		"Elke maand $10 aan AI-credits"
 	],
@@ -16,20 +13,11 @@
 		"%1$d van %2$d site tegelijk actief",
 		"%1$d van %2$d sites tegelijk actief"
 	],
-	"%1$dh %2$dm": [
-		"%1$d u %2$d m"
-	],
-	"%1$s +%2$d": [
-		"%1$s +%2$d"
-	],
 	"%1$s / %2$s per million tokens": [
 		"%1$s / %2$s per miljoen tokens"
 	],
 	"%1$s GB of %2$s GB of storage used": [
 		"%1$s GB van %2$s GB opslagruimte gebruikt"
-	],
-	"%1$s Use /connect %2$s to connect it.": [
-		"%1$s Gebruik /connect %2$s om hem te koppelen."
 	],
 	"%1$s and %2$d other": [
 		"%1$s en %2$d ander",
@@ -41,12 +29,6 @@
 	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
 		"%1$s kon de WordPress Studio-plugin niet bijwerken: %2$s"
 	],
-	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
-		"%1$s is niet gekoppeld. Gebruik /connect %2$s om hem te koppelen."
-	],
-	"%1$s screenshot %2$d": [
-		"%1$s schermafbeelding %2$d"
-	],
 	"%1$s · %2$s context": [
 		"%1$s · %2$s context"
 	],
@@ -55,10 +37,6 @@
 	],
 	"%d B": [
 		"%d B"
-	],
-	"%d annotation ready to send": [
-		"%d aantekening klaar om te versturen",
-		"%d aantekeningen klaar om te versturen"
 	],
 	"%d image": [
 		"%d afbeelding",
@@ -71,17 +49,11 @@
 	"%s (optional, saved for future use):": [
 		"%s (optioneel, bewaard voor later gebruik):"
 	],
-	"%s (saved for future use):": [
-		"%s (wordt bewaard voor later gebruik):"
-	],
 	"%s KB": [
 		"%s KB"
 	],
 	"%s billed yearly": [
 		"%s per jaar gefactureerd"
-	],
-	"%s connection": [
-		"%s-koppeling"
 	],
 	"%s is no longer installed. Choose another browser in Settings.": [
 		"%s is niet meer geïnstalleerd. Kies een andere browser in Instellingen."
@@ -94,9 +66,6 @@
 	],
 	"%s only makes previews.": [
 		"%s maakt alleen voorbeelden."
-	],
-	"%s preview is ready": [
-		"Voorbeeld van %s is klaar"
 	],
 	"%s · Live site": [
 		"%s · Live site"
@@ -115,9 +84,6 @@
 	],
 	"A code editor with a built-in AI agent.": [
 		"Een code-editor met een ingebouwde AI-agent."
-	],
-	"A coding agent that runs in your terminal.": [
-		"Een codeeragent die in je terminal draait."
 	],
 	"A static copy of your pages.": [
 		"Een statische kopie van je pagina's."
@@ -146,23 +112,11 @@
 	"Add a domain": [
 		"Een domein toevoegen"
 	],
-	"Add annotation to batch": [
-		"Aantekening aan bundel toevoegen"
-	],
-	"Add or delete this annotation before starting another.": [
-		"Voeg deze aantekening toe of verwijder deze voordat je een nieuwe begint."
-	],
 	"Address is required": [
 		"Adres is vereist"
 	],
 	"Address to listen on": [
 		"Adres om op te luisteren"
-	],
-	"Admin bar hidden by default.": [
-		"Beheerbalk wordt standaard verborgen."
-	],
-	"Admin bar shown by default.": [
-		"Beheerbalk wordt standaard getoond."
 	],
 	"Agent apps": [
 		"Agent-apps"
@@ -178,15 +132,6 @@
 	],
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"Sta WordPress Studio bij het inloggen toe om je ChatGPT-abonnement te gebruiken."
-	],
-	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
-		"Er is een fout opgetreden bij het bijwerken van de WordPress Studio CLI. Probeer het opnieuw."
-	],
-	"Annotation is available for design systems created by Studio Code.": [
-		"Aantekeningen zijn beschikbaar voor ontwerpsystemen die door Studio Code zijn gemaakt."
-	],
-	"Annotation tools": [
-		"Aantekeningshulpmiddelen"
 	],
 	"Anonymous usage statistics enabled.": [
 		"Anonieme gebruiksstatistieken ingeschakeld."
@@ -221,41 +166,8 @@
 	"Appearance reset.": [
 		"Weergave gereset."
 	],
-	"Approve the code %1$s at %2$s": [
-		"Keur de code %1$s goed op %2$s"
-	],
-	"Approve the code %1$s on %2$s to connect.": [
-		"Keur de code %1$s goed op %2$s om te koppelen."
-	],
-	"Approve the connection in your browser.": [
-		"Keur de koppeling goed in je browser."
-	],
-	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
-		"Ten minste één optie (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is vereist."
-	],
-	"Automatic sidebar collapsing disabled.": [
-		"Automatisch inklappen van de zijbalk uitgeschakeld."
-	],
-	"Automatic sidebar collapsing enabled.": [
-		"Automatisch inklappen van de zijbalk ingeschakeld."
-	],
-	"Automatic site start on prompt disabled.": [
-		"Automatisch starten van de site bij een prompt uitgeschakeld."
-	],
-	"Automatic site start on prompt enabled.": [
-		"Automatisch starten van de site bij een prompt ingeschakeld."
-	],
 	"Back to email list": [
 		"Terug naar e-maillijst"
-	],
-	"Batch notes": [
-		"Aantekeningen bundelen"
-	],
-	"Batch notes disabled.": [
-		"Bundelen van aantekeningen uitgeschakeld."
-	],
-	"Batch notes enabled.": [
-		"Bundelen van aantekeningen ingeschakeld."
 	],
 	"Billed monthly": [
 		"Maandelijks gefactureerd"
@@ -281,35 +193,14 @@
 	"Blue in Green": [
 		"Blue in Green"
 	],
-	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
-		"Blueprint-URL, JSON-bestand, map, zip-bundel of slug uit de Blueprint-bibliotheek (zie \"studio blueprint list\")"
-	],
 	"Blueprint file…": [
 		"Blueprint-bestand …"
-	],
-	"Blueprint loaded": [
-		"Blueprint geladen"
-	],
-	"Blueprint preview": [
-		"Blueprint-voorbeeld"
-	],
-	"Blueprints, backups, and WordPress exports": [
-		"Blueprints, back-ups en WordPress-exports"
-	],
-	"Browse Blueprints": [
-		"Blueprints bekijken"
-	],
-	"Browser could not load.": [
-		"Browser kon niet worden geladen."
 	],
 	"Browser options": [
 		"Browseropties"
 	],
 	"Browsing data cleared": [
 		"Browsegegevens gewist"
-	],
-	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
-		"Bouw en bewerk sites via chat. Gebruik AI-credits van WordPress.com of je eigen abonnement of API-sleutel."
 	],
 	"Can’t see screenshots": [
 		"Kan geen schermafbeeldingen zien"
@@ -350,9 +241,6 @@
 	"Check again": [
 		"Opnieuw controleren"
 	],
-	"Check your internet connection and try again.": [
-		"Controleer je internetverbinding en probeer het opnieuw."
-	],
 	"Checking access…": [
 		"Toegang controleren …"
 	],
@@ -364,15 +252,6 @@
 	],
 	"Checking…": [
 		"Controleren …"
-	],
-	"Choose a Blueprint or backup": [
-		"Kies een Blueprint of back-up"
-	],
-	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
-		"Kies een map met een WordPress-site, een Blueprint JSON-bestand of een ZIP-bundel."
-	],
-	"Choose a blueprint, backup, export, or existing WordPress folder.": [
-		"Kies een Blueprint, back-up, export of bestaande WordPress-map."
 	],
 	"Choose a folder containing an existing WordPress site.": [
 		"Kies een map met een bestaande WordPress-site."
@@ -398,9 +277,6 @@
 	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
 		"Kies een lege map om een bron te gebruiken. De geselecteerde map bevat al een WordPress-site."
 	],
-	"Choose an existing WordPress folder, blueprint, backup, or export.": [
-		"Kies een bestaande WordPress-map, Blueprint, back-up of export."
-	],
 	"Choose color": [
 		"Kleur kiezen"
 	],
@@ -410,17 +286,11 @@
 	"Choose specific files": [
 		"Specifieke bestanden kiezen"
 	],
-	"Choose what powers chat in WordPress Studio.": [
-		"Kies waarmee de chat in WordPress Studio werkt."
-	],
 	"Choose which live site this preview shows changes to.": [
 		"Kies van welke live site dit voorbeeld de wijzigingen toont."
 	],
 	"Choose your plan.": [
 		"Kies je abonnement."
-	],
-	"Choosing individual files requires a backup of this website.": [
-		"Om afzonderlijke bestanden te kiezen is een back-up van deze website nodig."
 	],
 	"Claude subscription": [
 		"Claude-abonnement"
@@ -449,15 +319,6 @@
 	"Close tabs to the right": [
 		"Tabbladen rechts sluiten"
 	],
-	"Collect annotations and send them together instead of one at a time.": [
-		"Aantekeningen verzamelen en samen versturen in plaats van één voor één."
-	],
-	"Color may be adapted for your theme.": [
-		"De kleur kan worden aangepast aan je thema."
-	],
-	"Color picker": [
-		"Kleurkiezer"
-	],
 	"Connect %s first.": [
 		"Koppel eerst %s."
 	],
@@ -479,12 +340,6 @@
 	"Connect to %s": [
 		"Koppelen met %s"
 	],
-	"Connect to Spacefast": [
-		"Koppelen met Spacefast"
-	],
-	"Connect to an existing WordPress": [
-		"Koppelen met een bestaande WordPress-site"
-	],
 	"Connect to an existing site": [
 		"Koppelen met een bestaande site"
 	],
@@ -494,20 +349,11 @@
 	"Connect to share previews": [
 		"Koppelen om voorbeelden te delen"
 	],
-	"Connect your WordPress": [
-		"Je WordPress-site koppelen"
-	],
 	"Connected %s.": [
 		"%s gekoppeld."
 	],
-	"Connected live site ID, or none": [
-		"ID van de gekoppelde live site, of none"
-	],
 	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
 		"Als je een bestaande site koppelt, wordt je huidige bestemming losgekoppeld van WordPress Studio. De inhoud ervan verandert niet."
-	],
-	"Connecting to WordPress.com": [
-		"Verbinding maken met WordPress.com"
 	],
 	"Continue on %s": [
 		"Doorgaan op %s"
@@ -524,9 +370,6 @@
 	"Cotton Tail": [
 		"Cotton Tail"
 	],
-	"Could not capture the area. Your selection is kept. Try again.": [
-		"Kon het gebied niet vastleggen. Je selectie blijft behouden. Probeer het opnieuw."
-	],
 	"Could not check Spacefast team access": [
 		"Kon de teamtoegang op Spacefast niet controleren"
 	],
@@ -542,9 +385,6 @@
 	"Could not open DevTools": [
 		"Kon DevTools niet openen"
 	],
-	"Could not open Spacefast": [
-		"Kon Spacefast niet openen"
-	],
 	"Could not open the new preview. Please try again.": [
 		"Kon het nieuwe voorbeeld niet openen. Probeer het opnieuw."
 	],
@@ -557,32 +397,8 @@
 	"Could not reach Anthropic to verify the credential.": [
 		"Kon Anthropic niet bereiken om de inloggegevens te verifiëren."
 	],
-	"Could not read the table prefix from wp-config.php": [
-		"Kon het tabelvoorvoegsel niet lezen uit wp-config.php"
-	],
 	"Could not read your settings": [
 		"Kon je instellingen niet lezen"
-	],
-	"Could not reset appearance. Please try again.": [
-		"Kon de weergave niet resetten. Probeer het opnieuw."
-	],
-	"Could not reset interface. Please try again.": [
-		"Kon de interface niet resetten. Probeer het opnieuw."
-	],
-	"Could not reset tips. Please try again.": [
-		"Kon de tips niet resetten. Probeer het opnieuw."
-	],
-	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
-		"Kon $table_prefix in wp-config.php niet instellen op \"%s\"."
-	],
-	"Could not take screenshot": [
-		"Kon geen schermafbeelding maken"
-	],
-	"Could not update settings. Please try again.": [
-		"Kon de instellingen niet bijwerken. Probeer het opnieuw."
-	],
-	"Could not update the admin bar setting. Please try again.": [
-		"Kon de instelling voor de beheerbalk niet bijwerken. Probeer het opnieuw."
 	],
 	"Could not update your local site from this preview. Please try again.": [
 		"Kon je lokale site niet bijwerken vanuit dit voorbeeld. Probeer het opnieuw."
@@ -644,12 +460,6 @@
 	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
 		"Maak een sleutel aan in je [OpenRouter-instellingen](https://openrouter.ai/settings/keys) en plak deze hieronder."
 	],
-	"Create a new WordPress": [
-		"Een nieuwe WordPress-site maken"
-	],
-	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
-		"Maak een account aan of log in om je WordPress.com- of Pressable-sites te koppelen."
-	],
 	"Create user": [
 		"Gebruiker aanmaken"
 	],
@@ -661,9 +471,6 @@
 	],
 	"Custom selection": [
 		"Aangepaste selectie"
-	],
-	"Data Liberation could not capture the source website": [
-		"Data Liberation kon de bronwebsite niet vastleggen"
 	],
 	"Database only": [
 		"Alleen database"
@@ -695,9 +502,6 @@
 	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
 		"Automatisch"
 	],
-	"Default terminal app": [
-		"Standaard terminal-app"
-	],
 	"Delete %s": [
 		"Verwijder %s"
 	],
@@ -706,9 +510,6 @@
 	],
 	"Delete a site to create a new one.": [
 		"Verwijder een site om een nieuwe te maken."
-	],
-	"Delete annotation: %s": [
-		"Aantekening verwijderen: %s"
 	],
 	"Delete preview…": [
 		"Voorbeeld verwijderen …"
@@ -725,32 +526,11 @@
 	"Describe the change": [
 		"Beschrijf de wijziging"
 	],
-	"Describe what you’d like to build or change (optional)…": [
-		"Beschrijf wat je wilt bouwen of wijzigen (optioneel) …"
-	],
-	"Design system could not load.": [
-		"Ontwerpsysteem kon niet worden geladen."
-	],
 	"Design systems are available for block themes.": [
 		"Ontwerpsystemen zijn beschikbaar voor blokthema's."
 	],
 	"Destination": [
 		"Bestemming"
-	],
-	"Directory to write the static site to": [
-		"Map waarin de statische site wordt geschreven"
-	],
-	"Disable automatic sidebar collapsing": [
-		"Automatisch inklappen van de zijbalk uitschakelen"
-	],
-	"Disable automatic site start on prompt": [
-		"Site niet meer automatisch starten bij een prompt"
-	],
-	"Disable batch notes": [
-		"Bundelen van aantekeningen uitschakelen"
-	],
-	"Discard changes?": [
-		"Wijzigingen negeren?"
 	],
 	"Disconnect a provider": [
 		"Een provider loskoppelen"
@@ -764,12 +544,6 @@
 	"Disconnect site…": [
 		"Site loskoppelen …"
 	],
-	"Disconnected %s.": [
-		"%s losgekoppeld."
-	],
-	"Dismiss tip": [
-		"Tip sluiten"
-	],
 	"Do more with WordPress": [
 		"Doe meer met WordPress"
 	],
@@ -779,41 +553,11 @@
 	"Download update": [
 		"Update downloaden"
 	],
-	"Drop to add site": [
-		"Loslaten om site toe te voegen"
-	],
-	"Drop your file here": [
-		"Zet je bestand hier neer"
-	],
-	"Edit annotation: %s": [
-		"Aantekening bewerken: %s"
-	],
-	"Email log": [
-		"E-maillogboek"
-	],
-	"Email log could not load.": [
-		"E-maillogboek kon niet worden geladen."
-	],
-	"Emails sent by your site appear here.": [
-		"E-mails die je site verstuurt, verschijnen hier."
-	],
 	"Enable anonymous usage statistics": [
 		"Anonieme gebruiksstatistieken inschakelen"
 	],
-	"Enable automatic sidebar collapsing": [
-		"Automatisch inklappen van de zijbalk inschakelen"
-	],
-	"Enable automatic site start on prompt": [
-		"Site automatisch starten bij een prompt"
-	],
-	"Enable batch notes": [
-		"Bundelen van aantekeningen inschakelen"
-	],
 	"Ends on %s": [
 		"Eindigt op %s"
-	],
-	"Enter a folder name other than “.” or “..”.": [
-		"Voer een andere mapnaam in dan “.” of “..”."
 	],
 	"Enter a token from claude setup-token, not an API key.": [
 		"Voer een token van claude setup-token in, geen API-sleutel."
@@ -836,9 +580,6 @@
 	"Existing WordPress site": [
 		"Bestaande WordPress-site"
 	],
-	"Expand panel": [
-		"Paneel uitklappen"
-	],
 	"Export site as static HTML files": [
 		"Site exporteren als statische HTML-bestanden"
 	],
@@ -848,23 +589,8 @@
 	"Failed after %s": [
 		"Mislukt na %s"
 	],
-	"Failed to back up the remote site": [
-		"Back-up maken van de externe site mislukt"
-	],
-	"Failed to check the preview site": [
-		"Controleren van de voorbeeldsite mislukt"
-	],
-	"Failed to create the %s site": [
-		"Aanmaken van de %s-site mislukt"
-	],
 	"Failed to create the Space": [
 		"Aanmaken van de Space mislukt"
-	],
-	"Failed to export static site": [
-		"Exporteren van statische site mislukt"
-	],
-	"Failed to fetch Blueprint: HTTP %d": [
-		"Ophalen van Blueprint mislukt: HTTP %d"
 	],
 	"Failed to find existing preview site in config": [
 		"Bestaande voorbeeldsite niet gevonden in configuratie"
@@ -872,47 +598,26 @@
 	"Failed to find the preview site’s launch link": [
 		"Kon de lanceerlink van de voorbeeldsite niet vinden"
 	],
-	"Failed to load your %s sites": [
-		"Laden van je %s-sites mislukt"
-	],
 	"Failed to load your Spacefast Spaces": [
 		"Laden van je Spacefast Spaces mislukt"
 	],
 	"Failed to publish to Spacefast": [
 		"Publiceren naar Spacefast mislukt"
 	],
-	"Failed to save connected site": [
-		"Opslaan van gekoppelde site mislukt"
-	],
 	"Failed to set up WordPress": [
 		"Kon WordPress niet instellen"
-	],
-	"Feedback areas": [
-		"Onderdelen"
 	],
 	"Feedback sent": [
 		"Feedback verzonden"
 	],
-	"Feedback type": [
-		"Soort feedback"
-	],
-	"Fetching %s sites…": [
-		"%s-sites ophalen …"
-	],
 	"Files could not be loaded.": [
 		"Kon de bestanden niet laden."
-	],
-	"File…": [
-		"Bestand …"
 	],
 	"Finish activating hosting on WordPress.com before pulling.": [
 		"Rond het activeren van hosting op WordPress.com af voordat je ophaalt."
 	],
 	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
 		"Rond het afrekenen af in het WordPress.com-tabblad en kom dan hier terug. Je werkruimte wordt ingesteld zodra je abonnement actief is."
-	],
-	"Finish signing in to %s in your browser.": [
-		"Rond het inloggen bij %s af in je browser."
 	],
 	"First use": [
 		"Eerste gebruik"
@@ -929,20 +634,11 @@
 	"Free": [
 		"Gratis"
 	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"Uit velen, één tool.\nVind kracht in gemeenschap\nvoor een beter web."
-	],
 	"Gemini API key": [
 		"Gemini API-sleutel"
 	],
 	"Generate images": [
 		"Afbeeldingen genereren"
-	],
-	"Generating static site…": [
-		"Statische site genereren …"
-	],
-	"Getting your sign-in code…": [
-		"Je inlogcode ophalen …"
 	],
 	"Giant Steps": [
 		"Giant Steps"
@@ -971,20 +667,8 @@
 	"Hide admin bar by default": [
 		"Beheerbalk standaard verbergen"
 	],
-	"Hide chat when starting sites": [
-		"Chat verbergen bij het starten van sites"
-	],
-	"Hide device toolbar": [
-		"Apparaatwerkbalk verbergen"
-	],
-	"Hide panel": [
-		"Paneel verbergen"
-	],
 	"Hide recent chats": [
 		"Recente chats verbergen"
-	],
-	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
-		"De WordPress-beheerbalk standaard verbergen op lokale sites. Wijzig dit per site in Browseropties."
 	],
 	"High": [
 		"Hoog"
@@ -998,35 +682,14 @@
 	"Hostname of the preview site": [
 		"Hostnaam van de voorbeeldsite"
 	],
-	"How do you want to connect %s?": [
-		"Hoe wil je %s koppelen?"
-	],
 	"How much should the model think?": [
 		"Hoeveel moet het model nadenken?"
-	],
-	"How to connect": [
-		"Manier van koppelen"
-	],
-	"Hue": [
-		"Kleurtoon"
-	],
-	"Image annotation": [
-		"Afbeeldingsaantekening"
-	],
-	"Import a blueprint or backup": [
-		"Een Blueprint of back-up importeren"
-	],
-	"Import cancelled": [
-		"Import geannuleerd"
 	],
 	"Import media": [
 		"Media importeren"
 	],
 	"Import site": [
 		"Site importeren"
-	],
-	"Include this chat’s transcript": [
-		"Transcript van deze chat meesturen"
 	],
 	"Inspect design": [
 		"Ontwerp inspecteren"
@@ -1079,9 +742,6 @@
 	"Learn about Spacefast": [
 		"Meer over Spacefast"
 	],
-	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
-		"Meer informatie op <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
-	],
 	"Leave a note…": [
 		"Laat een notitie achter…"
 	],
@@ -1097,20 +757,8 @@
 	"Load skill": [
 		"Vaardigheid laden"
 	],
-	"Loading Blueprint…": [
-		"Blueprint laden …"
-	],
-	"Loading WordPress Studio…": [
-		"WordPress Studio laden …"
-	],
-	"Loading apps…": [
-		"Apps laden …"
-	],
 	"Loading destinations": [
 		"Bestemmingen laden"
-	],
-	"Loading file…": [
-		"Bestand laden …"
 	],
 	"Loading models…": [
 		"Modellen laden …"
@@ -1120,9 +768,6 @@
 	],
 	"Local changes": [
 		"Lokale wijzigingen"
-	],
-	"Log in or create account": [
-		"Inloggen of account aanmaken"
 	],
 	"Log in to WordPress.com to sync sites.": [
 		"Log in bij WordPress.com om sites te synchroniseren."
@@ -1238,9 +883,6 @@
 	"No recipient": [
 		"Geen ontvanger"
 	],
-	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
-		"Aantal PHP-workers, dat bepaalt hoeveel verzoeken de site tegelijk afhandelt (standaard %d)"
-	],
 	"Off": [
 		"Uit"
 	],
@@ -1256,35 +898,17 @@
 	"Only you and people you invite can view.": [
 		"Alleen jij en mensen die je uitnodigt kunnen het bekijken."
 	],
-	"Open %s settings": [
-		"Instellingen voor %s openen"
-	],
 	"Open Config File (dev only)": [
 		"Configuratiebestand openen (alleen dev)"
 	],
 	"Open Folder…": [
 		"Map openen …"
 	],
-	"Open Spacefast": [
-		"Spacefast openen"
-	],
-	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
-		"Open Spacefast in je browser. Controleer of de codes overeenkomen en keur de koppeling daarna goed."
-	],
 	"Open a project page to annotate.": [
 		"Open een projectpagina om aantekeningen te maken."
 	],
-	"Open a site or Blueprint": [
-		"Een site of Blueprint openen"
-	],
 	"Open documentation": [
 		"Documentatie openen"
-	],
-	"Open email log": [
-		"E-maillogboek openen"
-	],
-	"Open on GitHub": [
-		"Openen op GitHub"
 	],
 	"Open preview: %s": [
 		"Voorbeeld openen: %s"
@@ -1328,9 +952,6 @@
 	"Other files": [
 		"Andere bestanden"
 	],
-	"PHP workers must be a whole number from 1 to 64.": [
-		"Het aantal PHP-workers moet een geheel getal van 1 tot en met 64 zijn."
-	],
 	"Paid plan": [
 		"Betaald abonnement"
 	],
@@ -1339,9 +960,6 @@
 	],
 	"Paste the token it prints. Usage counts against your Claude plan.": [
 		"Plak het token dat wordt weergegeven. Het gebruik telt mee voor je Claude-abonnement."
-	],
-	"Pending annotation": [
-		"Openstaande aantekening"
 	],
 	"Performance audit": [
 		"Prestatie-audit"
@@ -1361,20 +979,8 @@
 	"Plan ended": [
 		"Abonnement beëindigd"
 	],
-	"Point or draw to suggest a change.": [
-		"Wijs iets aan of teken om een wijziging voor te stellen."
-	],
-	"Point to something you’d like to change.": [
-		"Wijs iets aan dat je wilt wijzigen."
-	],
 	"Posts, pages, and settings": [
 		"Berichten, pagina's en instellingen"
-	],
-	"Preview browser controls": [
-		"Browserbediening van het voorbeeld"
-	],
-	"Preview creation cancelled": [
-		"Aanmaken van voorbeeld geannuleerd"
 	],
 	"Preview creation is temporarily unavailable for your account.": [
 		"Voorbeelden maken is tijdelijk niet beschikbaar voor je account."
@@ -1397,9 +1003,6 @@
 	"Preview link ready": [
 		"Voorbeeldlink klaar"
 	],
-	"Preview site not found": [
-		"Voorbeeldsite niet gevonden"
-	],
 	"Preview sites are temporary. Updating your preview resets the expiration date.": [
 		"Voorbeeldsites zijn tijdelijk. Als je je voorbeeld bijwerkt, wordt de vervaldatum opnieuw ingesteld."
 	],
@@ -1411,9 +1014,6 @@
 	],
 	"Private sites and preview links": [
 		"Privésites en voorbeeldlinks"
-	],
-	"Project tools": [
-		"Projecthulpmiddelen"
 	],
 	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
 		"Publiceer een statische kopie van je site naar een Spacefast Space. Formulieren, reacties en andere functies waarvoor WordPress moet draaien, werken niet in de kopie."
@@ -1427,17 +1027,11 @@
 	"Publish changes?": [
 		"Wijzigingen publiceren?"
 	],
-	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
-		"Publiceer nieuwe sites of werk bestaande sites bij op WordPress.com of Pressable."
-	],
 	"Publish options could not be loaded.": [
 		"Kon de publicatieopties niet laden."
 	],
 	"Publish somewhere else": [
 		"Ergens anders publiceren"
-	],
-	"Publish to %s to apply these changes.": [
-		"Publiceer naar %s om deze wijzigingen toe te passen."
 	],
 	"Publish to %s.": [
 		"Publiceren naar %s."
@@ -1466,17 +1060,11 @@
 	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
 		"Als je de database publiceert, worden wijzigingen op de live site vervangen, waaronder nieuwe reacties of bestellingen."
 	],
-	"Pull a WordPress.com or Pressable site to your local site": [
-		"Een WordPress.com- of Pressable-site naar je lokale site ophalen"
-	],
 	"Pull from live site…": [
 		"Ophalen van live site …"
 	],
 	"Pull from preview…": [
 		"Ophalen uit voorbeeld …"
-	],
-	"Pull only the database (keeps the local files)": [
-		"Alleen de database ophalen (behoudt de lokale bestanden)"
 	],
 	"Pull preview": [
 		"Voorbeeld ophalen"
@@ -1490,14 +1078,8 @@
 	"Pulling from this preview is unavailable for this account.": [
 		"Ophalen uit dit voorbeeld is niet beschikbaar voor dit account."
 	],
-	"Pulling the preview replaces the changes made here.": [
-		"Als je het voorbeeld ophaalt, worden de wijzigingen die hier zijn gemaakt vervangen."
-	],
 	"Push site": [
 		"Site pushen"
-	],
-	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
-		"Je lokale site naar een WordPress.com-site pushen, of publiceren op Spacefast"
 	],
 	"Read %s": [
 		"Lees %s"
@@ -1529,14 +1111,8 @@
 	"Remote environment: %s": [
 		"Externe omgeving: %s"
 	],
-	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
-		"URL of ID van de externe site, of `<provider>[:<site>]` voor een site bij een andere provider, zoals `spacefast` om een statische kopie op Spacefast te publiceren"
-	],
 	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
 		"%s verwijderen uit WordPress Studio? De gepubliceerde site en je lokale WordPress veranderen niet."
-	],
-	"Remove Blueprint": [
-		"Blueprint verwijderen"
 	],
 	"Renew": [
 		"Verlengen"
@@ -1559,17 +1135,8 @@
 	"Replace selected content": [
 		"Geselecteerde inhoud vervangen"
 	],
-	"Replace the contents of a non-empty output directory": [
-		"De inhoud van een niet-lege uitvoermap vervangen"
-	],
-	"Report an issue on GitHub": [
-		"Een probleem melden op GitHub"
-	],
 	"Request a feature or report a bug.": [
 		"Vraag een functie aan of meld een bug."
-	],
-	"Reset folder name to match site name": [
-		"Mapnaam gelijkzetten met sitenaam"
 	],
 	"Reset tips": [
 		"Tips resetten"
@@ -1577,35 +1144,11 @@
 	"Reset to recommended": [
 		"Terugzetten naar aanbevolen"
 	],
-	"Resize panel": [
-		"Paneelgrootte aanpassen"
-	],
-	"Resize viewport: %s": [
-		"Viewportgrootte aanpassen: %s"
-	],
 	"Responsive preview": [
 		"Responsief voorbeeld"
 	],
-	"Restart WordPress Studio to finish updating.": [
-		"Start WordPress Studio opnieuw om de update te voltooien."
-	],
-	"Restore the default interface theme, accent color, intensity, and contrast.": [
-		"Herstel het standaard interfacethema, de accentkleur, de intensiteit en het contrast."
-	],
 	"Restricted": [
 		"Beperkt"
-	],
-	"Review the advanced settings to finish creating your site.": [
-		"Controleer de geavanceerde instellingen om het aanmaken van je site af te ronden."
-	],
-	"Rotate to landscape": [
-		"Naar liggend draaien"
-	],
-	"Rotate to portrait": [
-		"Naar staand draaien"
-	],
-	"Rotate viewport": [
-		"Viewport draaien"
 	],
 	"Round Midnight": [
 		"Round Midnight"
@@ -1636,9 +1179,6 @@
 	],
 	"Save annotation (Enter)": [
 		"Aantekening opslaan (Enter)"
-	],
-	"Screenshots are available in the desktop app.": [
-		"Schermafbeeldingen zijn beschikbaar in de desktop-app."
 	],
 	"Search models": [
 		"Modellen zoeken"
@@ -1676,50 +1216,14 @@
 	"Share a preview or publish your site": [
 		"Deel een voorbeeld of publiceer je site"
 	],
-	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
-		"Deel een tijdelijke kopie van je lokale site met wie je maar wilt. Een voorbeeldsite verloopt als deze ongeveer een week niet is bijgewerkt."
-	],
 	"Share a temporary preview link.": [
 		"Deel een tijdelijke voorbeeldlink."
-	],
-	"Share details (required)": [
-		"Details delen (verplicht)"
-	],
-	"Share ideas and report problems directly to the Studio team.": [
-		"Deel ideeën en meld problemen rechtstreeks aan het Studio-team."
 	],
 	"Show admin bar": [
 		"Beheerbalk tonen"
 	],
-	"Show admin bar by default": [
-		"Beheerbalk standaard tonen"
-	],
-	"Show chat beside the panel when starting a site.": [
-		"De chat naast het paneel tonen bij het starten van een site."
-	],
-	"Show chat when starting sites": [
-		"Chat tonen bij het starten van sites"
-	],
-	"Show device toolbar": [
-		"Apparaatwerkbalk tonen"
-	],
-	"Show or hide the panel beside your chat.": [
-		"Het paneel naast je chat tonen of verbergen."
-	],
-	"Show panel": [
-		"Paneel tonen"
-	],
-	"Show whether a preview site or its local site changed since they were synced": [
-		"Tonen of een voorbeeldsite of de bijbehorende lokale site is gewijzigd sinds ze zijn gesynchroniseerd"
-	],
-	"Sign in at %s": [
-		"Log in op %s"
-	],
 	"Sign in to create a preview link.": [
 		"Log in om een voorbeeldlink te maken."
-	],
-	"Sign in to get a one-time grant of free AI credits.": [
-		"Log in om eenmalig gratis AI-credits te krijgen."
 	],
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"Log in met ChatGPT of gebruik een OpenAI API-sleutel."
@@ -1742,29 +1246,11 @@
 	"Sign out": [
 		"Uitloggen"
 	],
-	"Signing in took too long. Try again.": [
-		"Het inloggen duurde te lang. Probeer het opnieuw."
-	],
-	"Signing in was declined.": [
-		"Het inloggen is geweigerd."
-	],
-	"Signing in was started again.": [
-		"Het inloggen is opnieuw gestart."
-	],
-	"Site annotation is not available in the browser yet": [
-		"Aantekeningen op sites zijn nog niet beschikbaar in de browser"
-	],
 	"Site exported": [
 		"Site geëxporteerd"
 	],
 	"Site files left on disk": [
 		"Sitebestanden achtergebleven op schijf"
-	],
-	"Site folder": [
-		"Map van de site"
-	],
-	"Site folder is required.": [
-		"Een map voor de site is vereist."
 	],
 	"Site imported, but the WordPress server failed to start: %s": [
 		"Site geïmporteerd, maar de WordPress-server kon niet starten: %s"
@@ -1772,23 +1258,8 @@
 	"Site sources": [
 		"Sitebronnen"
 	],
-	"Sites could not be loaded. Check your internet connection and try again.": [
-		"Sites konden niet worden geladen. Controleer je internetverbinding en probeer het opnieuw."
-	],
-	"Sites will start with chat.": [
-		"Sites starten met chat."
-	],
-	"Sites will start with the panel expanded.": [
-		"Sites starten met het paneel uitgeklapt."
-	],
-	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
-		"Vaardigheden geven AI-agents houvast bij de ontwikkeling van WordPress. Wijzigingen hier gelden voor alle bestaande sites en bepalen de standaardinstellingen voor nieuwe sites."
-	],
 	"Some destinations could not be loaded": [
 		"Sommige bestemmingen konden niet worden geladen"
-	],
-	"Source is a temporary preview site.": [
-		"De bron is een tijdelijke voorbeeldsite."
 	],
 	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
 		"Spacefast past de wijziging van de zichtbaarheid nog toe. Controleer de toegang op Spacefast."
@@ -1801,12 +1272,6 @@
 	],
 	"Start building with free AI credits.": [
 		"Begin met bouwen met gratis AI-credits."
-	],
-	"Start from": [
-		"Beginnen vanaf"
-	],
-	"Start signing in again.": [
-		"Begin opnieuw met inloggen."
 	],
 	"Start signing in to Spacefast again.": [
 		"Begin opnieuw met inloggen bij Spacefast."
@@ -1823,17 +1288,11 @@
 	"Start signing in with OpenRouter again.": [
 		"Begin opnieuw met inloggen via OpenRouter."
 	],
-	"Start sites with chat": [
-		"Sites starten met chat"
-	],
 	"Start this site.": [
 		"Start deze site."
 	],
 	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
 		"Start je modelserver met ten minste één model en voer dan het adres in waarop hij luistert. Studio biedt de modellen aan die hij serveert."
-	],
-	"Starting chat…": [
-		"Chat starten …"
 	],
 	"Static export failed: %s": [
 		"Statische export mislukt: %s"
@@ -1843,12 +1302,6 @@
 	],
 	"Stop a site to start another.": [
 		"Stop een site om een andere te starten."
-	],
-	"Stop annotating": [
-		"Stoppen met aantekeningen"
-	],
-	"Stop annotating. Your notes will be kept.": [
-		"Stoppen met aantekeningen. Je notities blijven bewaard."
 	],
 	"Strong": [
 		"Sterk"
@@ -1865,41 +1318,20 @@
 	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
 		"Studio kan niet zien of iemand %s heeft bewerkt. Als je het voorbeeld bijwerkt, wordt het vervangen door je lokale site."
 	],
-	"Studio was updated, and the site \"%s\" could not be started again.": [
-		"Studio is bijgewerkt en de site \"%s\" kon niet opnieuw worden gestart."
-	],
-	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
-		"phpMyAdmin in Studio ondersteunt alleen SQLite. Gebruik een aparte databaseclient voor externe MySQL."
-	],
 	"Supported files: %s.": [
 		"Ondersteunde bestanden: %s."
 	],
 	"Swing Time": [
 		"Swing Time"
 	],
-	"Sync is finishing": [
-		"Synchronisatie wordt afgerond"
-	],
 	"Take Five": [
 		"Take Five"
-	],
-	"Taking screenshot…": [
-		"Schermafbeelding maken …"
 	],
 	"Taxonomist": [
 		"Taxonoom"
 	],
 	"Team": [
 		"Team"
-	],
-	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
-		"Bedankt dat je helpt WordPress Studio te verbeteren. De referentie-ID van je feedback is <id>%s</id>."
-	],
-	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
-		"Dat bestandstype wordt niet ondersteund. Kies een Blueprint, WordPress-back-up of XML-exportbestand."
-	],
-	"That sign-in was for another attempt. Try again.": [
-		"Die inlogactie hoorde bij een andere poging. Probeer het opnieuw."
 	],
 	"The GitHub sign-in expired. Try again.": [
 		"Het inloggen bij GitHub is verlopen. Probeer het opnieuw."
@@ -1916,17 +1348,8 @@
 	"The database failed to import on the live site. Review your database and try again.": [
 		"De database kon niet worden geïmporteerd op de live site. Controleer je database en probeer het opnieuw."
 	],
-	"The default browser for your sites.": [
-		"De standaardbrowser voor je sites."
-	],
-	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
-		"De eerste keer dat je een site ophaalt, moeten de bestanden worden meegenomen. Haal de hele site één keer op en daarna alleen de database."
-	],
 	"The full WordPress, with a domain.": [
 		"De volledige WordPress, met een domein."
-	],
-	"The live site must be a qualifying connected site of this local site.": [
-		"De live site moet een geschikte gekoppelde site van deze lokale site zijn."
 	],
 	"The local server at %s isn’t answering. Start it, then send your message again.": [
 		"De lokale server op %s reageert niet. Start hem en stuur je bericht dan opnieuw."
@@ -1939,15 +1362,6 @@
 	],
 	"The output directory %s is not empty.": [
 		"De uitvoermap %s is niet leeg."
-	],
-	"The output directory cannot be inside the site folder or contain it.": [
-		"De uitvoermap mag niet in de map van de site staan en mag die ook niet bevatten."
-	],
-	"The preview site could not be built from the archive.": [
-		"De voorbeeldsite kon niet worden gebouwd vanuit het archief."
-	],
-	"The preview site did not become ready within the timeout.": [
-		"De voorbeeldsite was niet op tijd klaar."
 	],
 	"The preview site has no preview link.": [
 		"De voorbeeldsite heeft geen voorbeeldlink."
@@ -1967,14 +1381,8 @@
 	"The visibility change could not be applied. Check access on Spacefast.": [
 		"De wijziging van de zichtbaarheid kon niet worden toegepast. Controleer de toegang op Spacefast."
 	],
-	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
-		"Bewerkingen van themabestanden worden niet getoond. Je wijzigingen aan de bestanden van %s worden weggelaten: dit voorbeeld gebruikt de originele kopie van het thema van WordPress.com. Breng ze aan in de site-editor of een childthema om ze in voorbeelden te zien."
-	],
 	"Themes": [
 		"Thema's"
-	],
-	"Then add this configuration to your app.": [
-		"Voeg daarna deze configuratie toe aan je app."
 	],
 	"Thinking": [
 		"Nadenken"
@@ -2000,26 +1408,8 @@
 	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
 		"Dit Grok-account heeft geen credits meer. Voeg credits toe of neem SuperGrok op grok.com."
 	],
-	"This ZIP could not be read. Check that it is a valid zip file.": [
-		"Deze ZIP kon niet worden gelezen. Controleer of het een geldig zip-bestand is."
-	],
-	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
-		"Deze ZIP kan niet worden gebruikt. Zorg dat er een geldig blueprint.json-bestand in staat, op het hoogste niveau of in één omsluitende map, en probeer het opnieuw."
-	],
-	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
-		"Deze back-up bevat SQL-bestanden waarvan de namen alleen in hoofdletters en kleine letters verschillen: \"%1$s\" en \"%2$s\". Los de conflicterende namen op de bronsite op, maak daarna een nieuwe back-up en probeer het opnieuw."
-	],
-	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
-		"Dit kan een paar minuten duren. WordPress Studio wordt vanzelf weer geopend zodra de update is geïnstalleerd."
-	],
 	"This destination cannot create a site from this panel yet.": [
 		"Deze bestemming kan vanuit dit paneel nog geen site maken."
-	],
-	"This email is gone.": [
-		"Deze e-mail bestaat niet meer."
-	],
-	"This file took too long to load. Please try again or choose another file.": [
-		"Het laden van dit bestand duurde te lang. Probeer het opnieuw of kies een ander bestand."
 	],
 	"This folder is already associated with another Studio site. Choose a different local folder.": [
 		"Deze map is al gekoppeld aan een andere Studio-site. Kies een andere lokale map."
@@ -2045,21 +1435,6 @@
 	"This replaces your local site with the preview. Any local changes will be lost.": [
 		"Hiermee wordt je lokale site vervangen door het voorbeeld. Lokale wijzigingen gaan verloren."
 	],
-	"This site and its preview both changed": [
-		"Deze site en het voorbeeld zijn allebei gewijzigd"
-	],
-	"This site has changes its preview doesn't": [
-		"Deze site heeft wijzigingen die niet in het voorbeeld staan"
-	],
-	"This site is no longer available in WordPress Studio.": [
-		"Deze site is niet langer beschikbaar in WordPress Studio."
-	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"Deze site is nog niet klaar om te starten. %s Voer `studio pull` opnieuw uit om het ophalen te voltooien, of `studio delete` om de site te verwijderen."
-	],
-	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
-		"Deze site is groter dan %d GB, dus terug publiceren naar WordPress.com kan mislukken. Publiceer in plaats daarvan een kleinere selectie bestanden."
-	],
 	"This site isn't one of your WordPress.com or Pressable sites.": [
 		"Deze site is niet een van je WordPress.com- of Pressable-sites."
 	],
@@ -2071,9 +1446,6 @@
 	],
 	"This xAI account has no credits left. Add credits in the xAI Console.": [
 		"Dit xAI-account heeft geen credits meer. Voeg credits toe in de xAI Console."
-	],
-	"Tips reset.": [
-		"Tips gereset."
 	],
 	"To %s": [
 		"Aan %s"
@@ -2087,14 +1459,8 @@
 	"Try downloading the update again.": [
 		"Probeer de update opnieuw te downloaden."
 	],
-	"Try starting the chat again, or open your site.": [
-		"Probeer de chat opnieuw te starten, of open je site."
-	],
 	"Twice the CPU for faster builds": [
 		"Twee keer zoveel CPU voor snellere builds"
-	],
-	"URL the static site will be hosted at. Links are root-relative when omitted.": [
-		"URL waarop de statische site wordt gehost. Zonder URL zijn links relatief ten opzichte van de root."
 	],
 	"Unable to open this folder.": [
 		"Kan deze map niet openen."
@@ -2105,14 +1471,8 @@
 	"Unknown level %1$s. Choose one of: %2$s.": [
 		"Onbekend niveau %1$s. Kies een van: %2$s."
 	],
-	"Unknown provider %1$s. Choose one of: %2$s.": [
-		"Onbekende provider %1$s. Kies een van: %2$s."
-	],
 	"Unlimited sites, 5 running at once": [
 		"Onbeperkt aantal sites, waarvan 5 tegelijk actief"
-	],
-	"Unsupported backup file": [
-		"Niet-ondersteund back-upbestand"
 	],
 	"Unsupported visibility setting.": [
 		"Niet-ondersteunde zichtbaarheidsinstelling."
@@ -2147,9 +1507,6 @@
 	"Updating your workspace…": [
 		"Je werkruimte bijwerken …"
 	],
-	"Uploading files…": [
-		"Bestanden uploaden …"
-	],
 	"Uploads": [
 		"Uploads"
 	],
@@ -2171,38 +1528,20 @@
 	"Usage is paid with your OpenRouter credits.": [
 		"Het gebruik wordt betaald met je OpenRouter-credits."
 	],
-	"Use /connect %1$s to connect %2$s again.": [
-		"Gebruik /connect %1$s om %2$s opnieuw te koppelen."
-	],
-	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
-		"Gebruik Alt+Shift+pijl-links of pijl-rechts om dit tabblad te verplaatsen."
-	],
-	"Use Blueprint": [
-		"Blueprint gebruiken"
-	],
 	"Use Gemini with a Gemini API key.": [
 		"Gebruik Gemini met een Gemini API-sleutel."
 	],
 	"Use Muse models with your Meta API key.": [
 		"Gebruik Muse-modellen met je Meta API-sleutel."
 	],
-	"Use WordPress Studio with your agents": [
-		"WordPress Studio gebruiken met je agents"
-	],
 	"Use an Anthropic API key or a Claude subscription token.": [
 		"Gebruik een Anthropic API-sleutel of een token voor je Claude-abonnement."
-	],
-	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
-		"Gebruik een HTTPS-back-uplink van een ondersteunde site, met een zip- of tar.gz-bestand kleiner dan 1 GB. Controleer je verbinding en probeer het opnieuw."
 	],
 	"Use models from many labs with your OpenRouter credits.": [
 		"Gebruik modellen van veel AI-labs met je OpenRouter-credits."
 	],
 	"Use the models a server you run serves, such as on this computer.": [
 		"Gebruik de modellen van een server die je zelf draait, bijvoorbeeld op deze computer."
-	],
-	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
-		"Gebruik je favoriete AI-agent om sites te maken, wijzigingen aan te brengen en je werk te controleren. Installeer de WordPress Studio-plugin om de agent toegang te geven tot je lokale sites."
 	],
 	"Using ChatGPT plan": [
 		"ChatGPT-abonnement in gebruik"
@@ -2231,9 +1570,6 @@
 	"Visibility settings are only available for WordPress.com sites.": [
 		"Zichtbaarheidsinstellingen zijn alleen beschikbaar voor WordPress.com-sites."
 	],
-	"Visit previews": [
-		"Voorbeelden bezoeken"
-	],
 	"Visitors see a coming soon page": [
 		"Bezoekers zien een pagina ‘Binnenkort beschikbaar’"
 	],
@@ -2242,15 +1578,6 @@
 	],
 	"WP admin": [
 		"WP Admin"
-	],
-	"Waiting for %s": [
-		"Wacht al %s"
-	],
-	"Waiting for approval…": [
-		"Wachten op goedkeuring …"
-	],
-	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
-		"Wachten op de browser. Als deze computer niet bereikbaar is, plak dan het adres waarop de browser eindigt:"
 	],
 	"What to replace": [
 		"Wat vervangen"
@@ -2264,29 +1591,11 @@
 	"Who can view": [
 		"Wie kan het zien"
 	],
-	"WordPress Studio CLI for terminal": [
-		"WordPress Studio CLI voor de terminal"
-	],
-	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
-		"WordPress Studio kan afsluiten zodra de synchronisatie klaar is. Nu afsluiten onderbreekt de synchronisatie en kan je site onvolledig achterlaten."
-	],
-	"WordPress Studio could not download this backup.": [
-		"WordPress Studio kon deze back-up niet downloaden."
-	],
-	"WordPress Studio could not open the email folder.": [
-		"WordPress Studio kon de e-mailmap niet openen."
-	],
-	"WordPress Studio could not open the folder. Please try again.": [
-		"WordPress Studio kon de map niet openen. Probeer het opnieuw."
-	],
 	"WordPress Studio could not open the site.": [
 		"WordPress Studio kon de site niet openen."
 	],
 	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
 		"WordPress Studio kon de instellingen in %s niet lezen. Start WordPress Studio opnieuw om het nog eens te proberen. Als dit blijft gebeuren, neem dan contact op met support en vermeld de onderstaande gegevens."
-	],
-	"WordPress Studio is finishing an update": [
-		"WordPress Studio rondt een update af"
 	],
 	"WordPress Studio is missing some of its files": [
 		"Er ontbreken bestanden van WordPress Studio"
@@ -2300,17 +1609,11 @@
 	"WordPress Studio will create a local copy of this site in an empty folder.": [
 		"WordPress Studio maakt een lokale kopie van deze site in een lege map."
 	],
-	"WordPress Studio will create a site from this blueprint in an empty folder.": [
-		"WordPress Studio maakt op basis van deze Blueprint een site in een lege map."
-	],
 	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
 		"WordPress Studio maakt een site in een lege map en importeert deze WordPress-export."
 	],
 	"WordPress Studio will restore this backup into an empty folder.": [
 		"WordPress Studio zet deze back-up terug in een lege map."
-	],
-	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
-		"WordPress Studio gebruikt deze WordPress-site op de huidige locatie. Er worden geen bestanden verplaatst."
 	],
 	"WordPress export": [
 		"WordPress-export"
@@ -2324,29 +1627,11 @@
 	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
 		"WordPress.com heeft de wijziging van de zichtbaarheid nog niet bevestigd. Probeer het opnieuw."
 	],
-	"WordPress.com hosting": [
-		"WordPress.com-hosting"
-	],
-	"Worked for %s": [
-		"%s gewerkt"
-	],
-	"Working for %s": [
-		"Bezig sinds %s"
-	],
-	"Workspace navigation": [
-		"Navigatie in werkruimte"
-	],
 	"Write": [
 		"Schrijven"
 	],
 	"Yearly, save 20%": [
 		"Jaarlijks, bespaar 20%"
-	],
-	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
-		"Je kunt maximaal %d afbeeldingen bijvoegen. Verstuur of verwijder een aantekening voordat je een ander gebied vastlegt."
-	],
-	"You can close this tab and return to WordPress Studio.": [
-		"Je kunt dit tabblad sluiten en teruggaan naar WordPress Studio."
 	],
 	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
 		"Je hebt de gebruikslimiet van je ChatGPT-abonnement bereikt. Beheer je gebruik op chatgpt.com/settings/usage."
@@ -2356,12 +1641,6 @@
 	],
 	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
 		"Je hebt de gebruikslimiet van je Grok-abonnement bereikt. Bekijk je gebruik op grok.com."
-	],
-	"You stopped after %s": [
-		"Je bent na %s gestopt"
-	],
-	"You're not logged in to WordPress.com. Log in now?": [
-		"Je bent niet ingelogd bij WordPress.com. Nu inloggen?"
 	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"Je ChatGPT-abonnement kan niet worden gebruikt in WordPress Studio."
@@ -2403,9 +1682,6 @@
 	"Your plan has ended.": [
 		"Je abonnement is beëindigd."
 	],
-	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
-		"Je voorbeeld is verhuisd naar WordPress.com, dus de link is gewijzigd. Nieuwe link: %s"
-	],
 	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
 		"Je geselecteerde bestanden zijn niet beschikbaar. Voer de back-upcontrole opnieuw uit of kies een andere optie om door te gaan."
 	],
@@ -2415,14 +1691,8 @@
 	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
 		"Je instellingen zijn opgeslagen door een nieuwere versie van de Studio CLI. Werk WordPress Studio bij om ze te blijven gebruiken."
 	],
-	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
-		"Je site is gewijzigd sinds het voorbeeld “%s” voor het laatst is bijgewerkt. Bij publiceren wordt je huidige lokale site verzonden, inclusief wijzigingen die niet in dat voorbeeld te zien zijn."
-	],
 	"Your site is ready to publish": [
 		"Je site is klaar om te publiceren"
-	],
-	"Your site was created, but the AI chat could not start.": [
-		"Je site is gemaakt, maar de AI-chat kon niet starten."
 	],
 	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
 		"Je sites en Studio Code op een eigen machine, vanuit elke browser. Log in met je WordPress.com-account om je werkruimte te openen."
@@ -2441,9 +1711,6 @@
 	],
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"Je werkruimte draait op een Studio Cloud-abonnement. Afrekenen gebeurt op WordPress.com en je werkruimte is ongeveer een minuut na betaling klaar."
-	],
-	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
-		"base-url moet een http(s)-URL zonder pad zijn, bijv. https://example.com"
 	],
 	"database": [
 		"database"

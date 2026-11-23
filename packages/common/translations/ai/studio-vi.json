@@ -1,7 +1,4 @@
 {
-	"\"%s\" is not a Blueprint file, URL or Library slug.": [
-		"\"%s\" không phải là tệp bản thiết kế, URL hoặc slug trong Thư viện."
-	],
 	"$10 of AI credits every month": [
 		"$10 credit AI mỗi tháng"
 	],
@@ -32,17 +29,11 @@
 	"%1$s and %2$d other": [
 		"%1$s và %2$d mô hình khác"
 	],
-	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
-		"%1$s không thể cài đặt plugin WordPress Studio: %2$s"
-	],
 	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
 		"%1$s không thể cập nhật plugin WordPress Studio: %2$s"
 	],
 	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
 		"%1$s chưa được kết nối. Dùng /connect %2$s để kết nối."
-	],
-	"%1$s screenshot %2$d": [
-		"Ảnh chụp màn hình %1$s %2$d"
 	],
 	"%1$s · %2$s context": [
 		"%1$s · ngữ cảnh %2$s"
@@ -65,9 +56,6 @@
 	"%s (optional, saved for future use):": [
 		"%s (tùy chọn, được lưu để dùng sau):"
 	],
-	"%s (saved for future use):": [
-		"%s (được lưu để dùng về sau):"
-	],
 	"%s KB": [
 		"%s KB"
 	],
@@ -76,12 +64,6 @@
 	],
 	"%s connection": [
 		"Kết nối %s"
-	],
-	"%s is no longer installed. Choose another browser in Settings.": [
-		"%s không còn được cài đặt. Hãy chọn trình duyệt khác trong Cài đặt."
-	],
-	"%s isn’t installed on this computer.": [
-		"%s chưa được cài đặt trên máy tính này."
 	],
 	"%s models": [
 		"Mô hình %s"
@@ -98,9 +80,6 @@
 	"%s · Local changes": [
 		"%s · Thay đổi cục bộ"
 	],
-	"(No subject)": [
-		"(Không có tiêu đề)"
-	],
 	"/month": [
 		"/tháng"
 	],
@@ -110,23 +89,11 @@
 	"6 GB of storage": [
 		"6 GB dung lượng lưu trữ"
 	],
-	"A code editor with a built-in AI agent.": [
-		"Trình chỉnh sửa mã có tích hợp sẵn tác nhân AI."
-	],
-	"A coding agent that runs in your terminal.": [
-		"Tác nhân lập trình chạy trong terminal của bạn."
-	],
 	"A static copy of your pages.": [
 		"Bản sao tĩnh các trang của bạn."
 	],
-	"AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.": [
-		"Tín dụng AI là cách bạn thanh toán cho việc sử dụng AI trong WordPress Studio — chẳng hạn như tạo mã, xây dựng trang web hoặc chạy các tính năng khác dùng AI. Tín dụng AI không phải là tiền. Bạn không thể rút, đổi chúng thành tiền mặt hoặc sử dụng chúng bên ngoài WordPress Studio."
-	],
 	"AI apps": [
 		"Ứng dụng AI"
-	],
-	"AI credits: %s remaining": [
-		"Tín dụng AI: còn lại %s"
 	],
 	"Access unknown": [
 		"Không rõ quyền truy cập"
@@ -143,29 +110,11 @@
 	"Add a domain": [
 		"Thêm tên miền"
 	],
-	"Add annotation to batch": [
-		"Thêm chú thích vào nhóm"
-	],
-	"Add or delete this annotation before starting another.": [
-		"Thêm hoặc xóa chú thích này trước khi bắt đầu chú thích khác."
-	],
 	"Address is required": [
 		"Cần nhập địa chỉ"
 	],
 	"Address to listen on": [
 		"Địa chỉ để lắng nghe"
-	],
-	"Admin bar hidden by default.": [
-		"Thanh quản trị được ẩn theo mặc định."
-	],
-	"Admin bar shown by default.": [
-		"Thanh quản trị được hiển thị theo mặc định."
-	],
-	"Agent apps": [
-		"Ứng dụng tác nhân"
-	],
-	"Agents": [
-		"Tác nhân"
 	],
 	"All but %s": [
 		"Tất cả trừ %s"
@@ -173,20 +122,11 @@
 	"All models": [
 		"Tất cả mô hình"
 	],
-	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
-		"Khi đăng nhập, hãy cho phép WordPress Studio sử dụng gói ChatGPT của bạn."
-	],
 	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
 		"Đã xảy ra lỗi khi cập nhật WordPress Studio CLI. Vui lòng thử lại."
 	],
-	"Annotation is available for design systems created by Studio Code.": [
-		"Tính năng chú thích có sẵn cho các hệ thống thiết kế do Studio Code tạo."
-	],
 	"Annotation tools": [
 		"Công cụ chú thích"
-	],
-	"Anonymous usage statistics enabled.": [
-		"Đã bật số liệu thống kê sử dụng ẩn danh."
 	],
 	"Another operation is in progress.": [
 		"Một thao tác khác đang diễn ra."
@@ -197,14 +137,8 @@
 	"Anthropic API key": [
 		"Khóa API Anthropic"
 	],
-	"Anthropic rejected this API key. Check the key and try again.": [
-		"Anthropic đã từ chối khóa API này. Hãy kiểm tra khóa và thử lại."
-	],
 	"Anthropic rejected this token. Run claude setup-token again.": [
 		"Anthropic đã từ chối token này. Hãy chạy lại claude setup-token."
-	],
-	"Anthropic’s AI coding agent.": [
-		"Tác nhân AI lập trình của Anthropic."
 	],
 	"Anyone can view your site": [
 		"Bất kỳ ai cũng có thể xem trang web của bạn"
@@ -215,21 +149,6 @@
 	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
 		"Bất kỳ ai có liên kết sẽ mất quyền truy cập và không thể hoàn tác thao tác này. WordPress cục bộ của bạn sẽ không thay đổi."
 	],
-	"Appearance reset.": [
-		"Đã đặt lại giao diện hiển thị."
-	],
-	"Approve the code %1$s at %2$s": [
-		"Phê duyệt mã %1$s tại %2$s"
-	],
-	"Approve the code %1$s on %2$s to connect.": [
-		"Phê duyệt mã %1$s trên %2$s để kết nối."
-	],
-	"Approve the connection in your browser.": [
-		"Phê duyệt kết nối trong trình duyệt của bạn."
-	],
-	"As an Automattician, you can run the latest trunk build of WordPress Studio and get updates daily.": [
-		"Là một Automattician, bạn có thể chạy bản dựng trunk mới nhất của WordPress Studio và nhận bản cập nhật hằng ngày."
-	],
 	"Ask user": [
 		"Hỏi người dùng"
 	],
@@ -239,20 +158,11 @@
 	"Audit SEO": [
 		"Kiểm tra SEO"
 	],
-	"Audit performance": [
-		"Kiểm tra hiệu suất"
-	],
 	"Automatic sidebar collapsing disabled.": [
 		"Đã tắt tự động thu gọn thanh bên."
 	],
 	"Automatic sidebar collapsing enabled.": [
 		"Đã bật tự động thu gọn thanh bên."
-	],
-	"Automatic site start on prompt disabled.": [
-		"Đã tắt tự động khởi động trang web khi gửi lời nhắc."
-	],
-	"Automatic site start on prompt enabled.": [
-		"Đã bật tự động khởi động trang web khi gửi lời nhắc."
 	],
 	"Back to email list": [
 		"Quay lại danh sách email"
@@ -293,27 +203,6 @@
 	"Blue in Green": [
 		"Blue in Green"
 	],
-	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
-		"URL bản thiết kế, tệp JSON, thư mục, gói zip hoặc slug trong Thư viện bản thiết kế (xem \"studio blueprint list\")"
-	],
-	"Blueprint file…": [
-		"Tệp bản thiết kế…"
-	],
-	"Blueprint loaded": [
-		"Đã tải bản thiết kế"
-	],
-	"Blueprint preview": [
-		"Xem trước bản thiết kế"
-	],
-	"Blueprints": [
-		"Bản thiết kế"
-	],
-	"Blueprints, backups, and WordPress exports": [
-		"Bản thiết kế, bản sao lưu và tệp xuất WordPress"
-	],
-	"Browse Blueprints": [
-		"Duyệt bản thiết kế"
-	],
 	"Browser could not load.": [
 		"Không thể tải trình duyệt."
 	],
@@ -338,35 +227,14 @@
 	"Changes published": [
 		"Đã xuất bản các thay đổi"
 	],
-	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
-		"Đã đẩy các thay đổi, nhưng không thể ra mắt trang web. Hãy kiểm tra gói và quyền của bạn, sau đó xuất bản lại để thử ra mắt lại."
-	],
-	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
-		"Đã đẩy các thay đổi, nhưng không thể ra mắt trang web. Hãy xuất bản lại để thử ra mắt lại."
-	],
-	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
-		"Đã đẩy các thay đổi, nhưng không thể ra mắt trang web. Hãy xác minh email của bạn, sau đó xuất bản lại để thử ra mắt lại."
-	],
-	"Changes to %s": [
-		"Thay đổi đối với %s"
-	],
 	"ChatGPT plan": [
 		"Gói ChatGPT"
-	],
-	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
-		"Hiện không thể sử dụng gói ChatGPT. Hãy thử lại sau ít phút."
-	],
-	"ChatGPT sent back an incomplete sign-in.": [
-		"ChatGPT đã trả về thông tin đăng nhập không đầy đủ."
 	],
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"Không thể hoàn tất đăng nhập ChatGPT. Hãy thử lại."
 	],
 	"Check again": [
 		"Kiểm tra lại"
-	],
-	"Check your internet connection and try again.": [
-		"Kiểm tra kết nối internet của bạn và thử lại."
 	],
 	"Checking access…": [
 		"Đang kiểm tra quyền truy cập…"
@@ -380,20 +248,8 @@
 	"Checking…": [
 		"Đang kiểm tra…"
 	],
-	"Choose a Blueprint or backup": [
-		"Chọn bản thiết kế hoặc bản sao lưu"
-	],
-	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
-		"Chọn thư mục trang web WordPress, tệp JSON bản thiết kế hoặc gói ZIP."
-	],
-	"Choose a blueprint, backup, export, or existing WordPress folder.": [
-		"Chọn bản thiết kế, bản sao lưu, tệp xuất hoặc thư mục WordPress hiện có."
-	],
 	"Choose a default directory": [
 		"Chọn thư mục mặc định"
-	],
-	"Choose a folder containing an existing WordPress site.": [
-		"Chọn thư mục chứa một trang web WordPress hiện có."
 	],
 	"Choose a plan to make it live: %s": [
 		"Chọn một gói để đưa trang web lên trực tiếp: %s"
@@ -407,20 +263,8 @@
 	"Choose a site source": [
 		"Chọn nguồn trang web"
 	],
-	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
-		"Chọn trang web bằng `--remote-site %s:<site>` (ID hoặc URL của trang)."
-	],
 	"Choose a topic": [
 		"Chọn chủ đề"
-	],
-	"Choose an accent color, tint and contrast in Settings ▸ Appearance.": [
-		"Chọn màu nhấn, sắc màu và độ tương phản trong Cài đặt ▸ Giao diện."
-	],
-	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
-		"Chọn một thư mục trống để dùng nguồn. Thư mục đã chọn đã chứa một trang web WordPress."
-	],
-	"Choose an existing WordPress folder, blueprint, backup, or export.": [
-		"Chọn thư mục WordPress hiện có, bản thiết kế, bản sao lưu hoặc tệp xuất."
 	],
 	"Choose color": [
 		"Chọn màu"
@@ -431,17 +275,11 @@
 	"Choose specific files": [
 		"Chọn các tệp cụ thể"
 	],
-	"Choose what powers chat in WordPress Studio.": [
-		"Chọn dịch vụ vận hành tính năng trò chuyện trong WordPress Studio."
-	],
 	"Choose which live site this preview shows changes to.": [
 		"Chọn trang web trực tiếp mà bản xem trước này hiển thị các thay đổi."
 	],
 	"Choose your plan.": [
 		"Chọn gói của bạn."
-	],
-	"Choosing individual files requires a backup of this website.": [
-		"Để chọn từng tệp riêng lẻ, cần có bản sao lưu của trang web này."
 	],
 	"Claude subscription": [
 		"Gói đăng ký Claude"
@@ -452,35 +290,11 @@
 	"Clear browsing data": [
 		"Xóa dữ liệu duyệt web"
 	],
-	"Click anything on the page to leave a note": [
-		"Nhấp vào bất kỳ thành phần nào trên trang để để lại ghi chú"
-	],
 	"Close %s": [
 		"Đóng %s"
 	],
-	"Close all tabs": [
-		"Đóng tất cả các thẻ"
-	],
-	"Close other tabs": [
-		"Đóng các thẻ khác"
-	],
-	"Close tab": [
-		"Đóng thẻ"
-	],
-	"Close tabs to the right": [
-		"Đóng các thẻ bên phải"
-	],
-	"Collect annotations and send them together instead of one at a time.": [
-		"Gom các chú thích và gửi cùng lúc thay vì gửi từng cái một."
-	],
-	"Color may be adapted for your theme.": [
-		"Màu sắc có thể được điều chỉnh theo chủ đề của bạn."
-	],
 	"Color picker": [
 		"Bộ chọn màu"
-	],
-	"Colour": [
-		"Màu sắc"
 	],
 	"Commands": [
 		"Lệnh"
@@ -488,14 +302,8 @@
 	"Connect %s first.": [
 		"Hãy kết nối %s trước."
 	],
-	"Connect %s now?": [
-		"Kết nối %s ngay bây giờ?"
-	],
 	"Connect AI providers": [
 		"Kết nối nhà cung cấp AI"
-	],
-	"Connect Spacefast to publish sites.": [
-		"Kết nối Spacefast để xuất bản trang web."
 	],
 	"Connect a provider": [
 		"Kết nối nhà cung cấp"
@@ -509,9 +317,6 @@
 	"Connect to Spacefast": [
 		"Kết nối với Spacefast"
 	],
-	"Connect to an existing WordPress": [
-		"Kết nối với một WordPress hiện có"
-	],
 	"Connect to an existing site": [
 		"Kết nối với một trang web hiện có"
 	],
@@ -521,14 +326,8 @@
 	"Connect to share previews": [
 		"Kết nối để chia sẻ bản xem trước"
 	],
-	"Connect your WordPress": [
-		"Kết nối WordPress của bạn"
-	],
 	"Connected %s.": [
 		"Đã kết nối %s."
-	],
-	"Connected live site ID, or none": [
-		"ID của trang web trực tiếp đã kết nối, hoặc none"
 	],
 	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
 		"Kết nối một trang web hiện có sẽ ngắt kết nối đích hiện tại của bạn khỏi WordPress Studio. Nội dung của nó sẽ không thay đổi."
@@ -590,12 +389,6 @@
 	"Could not read your settings": [
 		"Không thể đọc cài đặt của bạn"
 	],
-	"Could not reset appearance. Please try again.": [
-		"Không thể đặt lại giao diện hiển thị. Vui lòng thử lại."
-	],
-	"Could not reset interface. Please try again.": [
-		"Không thể đặt lại giao diện. Vui lòng thử lại."
-	],
 	"Could not reset tips. Please try again.": [
 		"Không thể đặt lại mẹo. Vui lòng thử lại."
 	],
@@ -619,21 +412,6 @@
 	],
 	"Could not watch for your new site. Please try again.": [
 		"Không thể theo dõi trang web mới của bạn. Vui lòng thử lại."
-	],
-	"Couldn't copy the live site. Try again.": [
-		"Không thể sao chép trang web trực tiếp. Hãy thử lại."
-	],
-	"Couldn't copy the live site. Try again. If the problem continues, check the logs for details.": [
-		"Không thể sao chép trang web trực tiếp. Hãy thử lại. Nếu sự cố vẫn tiếp diễn, hãy xem nhật ký để biết chi tiết."
-	],
-	"Couldn't import this backup. Check that it's a complete, supported backup and try again.": [
-		"Không thể nhập bản sao lưu này. Hãy kiểm tra xem bản sao lưu có đầy đủ và được hỗ trợ không, rồi thử lại."
-	],
-	"Couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check the logs for details.": [
-		"Không thể nhập bản sao lưu này. Hãy kiểm tra xem bản sao lưu có đầy đủ và được hỗ trợ không, rồi thử lại. Nếu sự cố vẫn tiếp diễn, hãy xem nhật ký để biết chi tiết."
-	],
-	"Couldn't load providers.": [
-		"Không thể tải nhà cung cấp."
 	],
 	"Couldn’t change how much the model thinks": [
 		"Không thể thay đổi mức suy nghĩ của mô hình"
@@ -668,29 +446,11 @@
 	"Create %s": [
 		"Tạo %s"
 	],
-	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
-		"Tạo khóa trong [Google AI Studio](https://aistudio.google.com/apikey), sau đó dán vào bên dưới."
-	],
-	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
-		"Tạo khóa trong tab Khóa API của [bảng điều khiển Meta Model API](https://dev.meta.ai), sau đó dán vào bên dưới."
-	],
-	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
-		"Tạo khóa trong [Claude Console](https://platform.claude.com/settings/keys), sau đó dán vào bên dưới."
-	],
-	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
-		"Tạo khóa trong [OpenAI Platform](https://platform.openai.com/api-keys), sau đó dán vào bên dưới."
-	],
 	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
 		"Tạo khóa trong [xAI Console](https://console.x.ai), sau đó dán vào bên dưới."
 	],
 	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
 		"Tạo khóa trong [cài đặt OpenRouter](https://openrouter.ai/settings/keys) của bạn, sau đó dán vào bên dưới."
-	],
-	"Create a new WordPress": [
-		"Tạo WordPress mới"
-	],
-	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
-		"Tạo tài khoản hoặc đăng nhập để kết nối các trang web WordPress.com hoặc Pressable của bạn."
 	],
 	"Create user": [
 		"Tạo người dùng"
@@ -704,9 +464,6 @@
 	"Custom selection": [
 		"Lựa chọn tùy chỉnh"
 	],
-	"Data Liberation could not capture the source website": [
-		"Data Liberation không thể trích xuất trang web nguồn"
-	],
 	"Database only": [
 		"Chỉ cơ sở dữ liệu"
 	],
@@ -719,14 +476,8 @@
 	"Default browser": [
 		"Trình duyệt mặc định"
 	],
-	"Default code editor": [
-		"Trình chỉnh sửa mã mặc định"
-	],
 	"Default directory: %s. Choose a different folder.": [
 		"Thư mục mặc định: %s. Chọn thư mục khác."
-	],
-	"Default hosting provider": [
-		"Nhà cung cấp lưu trữ mặc định"
 	],
 	"Default image provider": [
 		"Nhà cung cấp hình ảnh mặc định"
@@ -770,14 +521,8 @@
 	"Describe the change": [
 		"Mô tả thay đổi"
 	],
-	"Describe what you’d like to build or change (optional)…": [
-		"Mô tả những gì bạn muốn xây dựng hoặc thay đổi (không bắt buộc)…"
-	],
 	"Design system could not load.": [
 		"Không thể tải hệ thống thiết kế."
-	],
-	"Design systems are available for block themes.": [
-		"Hệ thống thiết kế có sẵn cho giao diện khối."
 	],
 	"Destination": [
 		"Đích"
@@ -788,14 +533,8 @@
 	"Disable automatic sidebar collapsing": [
 		"Tắt tự động thu gọn thanh bên"
 	],
-	"Disable automatic site start on prompt": [
-		"Tắt tự động khởi động trang web khi gửi lời nhắc"
-	],
 	"Disable batch notes": [
 		"Tắt gom ghi chú"
-	],
-	"Discard changes?": [
-		"Hủy bỏ thay đổi?"
 	],
 	"Disconnect a provider": [
 		"Ngắt kết nối nhà cung cấp"
@@ -821,23 +560,11 @@
 	"Download WordPress Studio": [
 		"Tải xuống WordPress Studio"
 	],
-	"Download update": [
-		"Tải xuống bản cập nhật"
-	],
-	"Downloading the ARM version of WordPress Studio will provide better performance.": [
-		"Tải xuống phiên bản ARM của WordPress Studio sẽ mang lại hiệu năng tốt hơn."
-	],
-	"Downloading the Apple Silicon Chip version of WordPress Studio will provide better performance.": [
-		"Tải xuống phiên bản WordPress Studio dành cho chip Apple Silicon sẽ mang lại hiệu năng tốt hơn."
-	],
 	"Draw": [
 		"Vẽ"
 	],
 	"Drop to add site": [
 		"Thả để thêm trang web"
-	],
-	"Drop your file here": [
-		"Thả tệp của bạn vào đây"
 	],
 	"Edit annotation: %s": [
 		"Sửa chú thích: %s"
@@ -848,29 +575,14 @@
 	"Email log could not load.": [
 		"Không thể tải nhật ký email."
 	],
-	"Emails sent by your site appear here.": [
-		"Email do trang web của bạn gửi sẽ xuất hiện ở đây."
-	],
-	"Enable anonymous usage statistics": [
-		"Bật số liệu thống kê sử dụng ẩn danh"
-	],
 	"Enable automatic sidebar collapsing": [
 		"Bật tự động thu gọn thanh bên"
-	],
-	"Enable automatic site start on prompt": [
-		"Bật tự động khởi động trang web khi gửi lời nhắc"
 	],
 	"Enable batch notes": [
 		"Bật gom ghi chú"
 	],
 	"Ends on %s": [
 		"Kết thúc vào %s"
-	],
-	"Enter a folder name other than “.” or “..”.": [
-		"Nhập tên thư mục khác “.” hoặc “..”."
-	],
-	"Enter a token from claude setup-token, not an API key.": [
-		"Nhập token từ claude setup-token, không phải khóa API."
 	],
 	"Enter the folder’s full path.": [
 		"Nhập đường dẫn đầy đủ của thư mục."
@@ -884,38 +596,17 @@
 	"Everything": [
 		"Tất cả"
 	],
-	"Everything you built in WordPress Studio is right here in the sidebar. Same sites, same files with a new workbench around them.": [
-		"Mọi thứ bạn đã xây dựng trong WordPress Studio đều nằm ngay trong thanh bên. Vẫn là các trang web và tệp ấy, nhưng với một không gian làm việc mới."
-	],
 	"Everything you need to build WordPress sites with Studio Code.": [
 		"Mọi thứ bạn cần để xây dựng trang web WordPress với Studio Code."
 	],
-	"Existing WordPress site": [
-		"Trang web WordPress hiện có"
-	],
-	"Expand panel": [
-		"Mở rộng bảng điều khiển"
-	],
-	"Expires %s": [
-		"Hết hạn %s"
-	],
-	"Export site as static HTML files": [
-		"Xuất trang web dưới dạng tệp HTML tĩnh"
-	],
 	"External AI apps": [
 		"Ứng dụng AI bên ngoài"
-	],
-	"Failed after %s": [
-		"Thất bại sau %s"
 	],
 	"Failed to back up the remote site": [
 		"Không thể sao lưu trang web từ xa"
 	],
 	"Failed to check backup status": [
 		"Không thể kiểm tra trạng thái sao lưu"
-	],
-	"Failed to check the preview site": [
-		"Không thể kiểm tra trang web xem trước"
 	],
 	"Failed to create the %s site": [
 		"Không thể tạo trang web %s"
@@ -925,9 +616,6 @@
 	],
 	"Failed to export static site": [
 		"Không thể xuất trang web tĩnh"
-	],
-	"Failed to fetch Blueprint: HTTP %d": [
-		"Không thể tải bản thiết kế: HTTP %d"
 	],
 	"Failed to find existing preview site in config": [
 		"Không tìm thấy trang web xem trước hiện có trong cấu hình"
@@ -968,59 +656,26 @@
 	"Files could not be loaded.": [
 		"Không thể tải các tệp."
 	],
-	"File…": [
-		"Tệp…"
-	],
 	"Finish activating hosting on WordPress.com before pulling.": [
 		"Hãy hoàn tất kích hoạt lưu trữ trên WordPress.com trước khi kéo."
 	],
 	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
 		"Hoàn tất thanh toán trong tab WordPress.com, sau đó quay lại đây. Không gian làm việc của bạn sẽ tự thiết lập ngay khi gói được kích hoạt."
 	],
-	"Finish signing in to %s in your browser.": [
-		"Hoàn tất đăng nhập vào %s trong trình duyệt của bạn."
-	],
-	"First use": [
-		"Lần sử dụng đầu tiên"
-	],
 	"For generating images. Auto uses the AI provider when it can.": [
 		"Dùng để tạo hình ảnh. Tự động sẽ dùng nhà cung cấp AI khi có thể."
-	],
-	"For publishing sites.": [
-		"Để xuất bản trang web."
-	],
-	"For working on sites.": [
-		"Để làm việc với trang web."
 	],
 	"Free": [
 		"Miễn phí"
 	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"Từ nhiều người, một công cụ.\nSức mạnh từ cộng đồng\nvì một web tốt hơn."
-	],
 	"Gemini API key": [
 		"Khóa API Gemini"
-	],
-	"Generate images": [
-		"Tạo hình ảnh"
 	],
 	"Generating static site…": [
 		"Đang tạo trang web tĩnh…"
 	],
-	"Get more credits": [
-		"Nhận thêm tín dụng"
-	],
-	"Getting your sign-in code…": [
-		"Đang lấy mã đăng nhập của bạn…"
-	],
 	"Giant Steps": [
 		"Giant Steps"
-	],
-	"GitHub sign-in was declined.": [
-		"Đăng nhập GitHub đã bị từ chối."
-	],
-	"Google rejected this API key. Check the key and try again.": [
-		"Google đã từ chối khóa API này. Hãy kiểm tra khóa và thử lại."
 	],
 	"Green Dolphin Street": [
 		"Green Dolphin Street"
@@ -1037,35 +692,20 @@
 	"Hide admin bar": [
 		"Ẩn thanh quản trị"
 	],
-	"Hide admin bar by default": [
-		"Ẩn thanh quản trị theo mặc định"
-	],
 	"Hide chat when starting sites": [
 		"Ẩn cuộc trò chuyện khi khởi động trang web"
 	],
 	"Hide device toolbar": [
 		"Ẩn thanh công cụ thiết bị"
 	],
-	"Hide panel": [
-		"Ẩn bảng điều khiển"
-	],
 	"Hide recent chats": [
 		"Ẩn cuộc trò chuyện gần đây"
-	],
-	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
-		"Ẩn thanh quản trị WordPress theo mặc định trên các trang web cục bộ. Thay đổi cài đặt này cho từng trang web trong Tùy chọn trình duyệt."
 	],
 	"High": [
 		"Cao"
 	],
 	"Hints": [
 		"Gợi ý"
-	],
-	"Hosting providers": [
-		"Nhà cung cấp lưu trữ"
-	],
-	"Hostname of the preview site": [
-		"Tên máy chủ của trang web xem trước"
 	],
 	"How do you want to connect %s?": [
 		"Bạn muốn kết nối %s theo cách nào?"
@@ -1076,14 +716,8 @@
 	"How to connect": [
 		"Cách kết nối"
 	],
-	"Hue": [
-		"Sắc độ"
-	],
 	"Image annotation": [
 		"Chú thích hình ảnh"
-	],
-	"Import a blueprint or backup": [
-		"Nhập bản thiết kế hoặc bản sao lưu"
 	],
 	"Import backup…": [
 		"Nhập bản sao lưu…"
@@ -1099,27 +733,6 @@
 	],
 	"Inspect design": [
 		"Kiểm tra thiết kế"
-	],
-	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
-		"Cài đặt [Claude Code](https://code.claude.com/docs/en/setup) nếu bạn chưa có."
-	],
-	"Install plugin": [
-		"Cài đặt plugin"
-	],
-	"Install taxonomy scripts": [
-		"Cài đặt tập lệnh phân loại"
-	],
-	"Install the WordPress Studio CLI and configure MCP for another app.": [
-		"Cài đặt WordPress Studio CLI và cấu hình MCP cho ứng dụng khác."
-	],
-	"Install the WordPress Studio CLI.": [
-		"Cài đặt WordPress Studio CLI."
-	],
-	"Interface reset.": [
-		"Đã đặt lại giao diện."
-	],
-	"Interface theme": [
-		"Chủ đề giao diện"
 	],
 	"Invited people": [
 		"Người được mời"
@@ -1154,9 +767,6 @@
 	"Leave a note…": [
 		"Để lại ghi chú…"
 	],
-	"Liberate": [
-		"Chuyển trang web"
-	],
 	"Link copied": [
 		"Đã sao chép liên kết"
 	],
@@ -1169,20 +779,8 @@
 	"List previews": [
 		"Liệt kê bản xem trước"
 	],
-	"List published %s": [
-		"Liệt kê %s đã xuất bản"
-	],
-	"List terms": [
-		"Liệt kê thuật ngữ"
-	],
 	"List users": [
 		"Liệt kê người dùng"
-	],
-	"Live previews": [
-		"Bản xem trước trực tiếp"
-	],
-	"Loading Blueprint…": [
-		"Đang tải bản thiết kế…"
 	],
 	"Loading WordPress Studio…": [
 		"Đang tải WordPress Studio…"
@@ -1193,14 +791,8 @@
 	"Loading destinations": [
 		"Đang tải các đích"
 	],
-	"Loading file…": [
-		"Đang tải tệp…"
-	],
 	"Loading models…": [
 		"Đang tải mô hình…"
-	],
-	"Loading websites…": [
-		"Đang tải các trang web…"
 	],
 	"Local and preview changes": [
 		"Thay đổi cục bộ và trên bản xem trước"
@@ -1210,12 +802,6 @@
 	],
 	"Log in or create account": [
 		"Đăng nhập hoặc tạo tài khoản"
-	],
-	"Log in to WordPress.com to sync sites.": [
-		"Đăng nhập vào WordPress.com để đồng bộ trang web."
-	],
-	"Logged in to WordPress.com": [
-		"Đã đăng nhập vào WordPress.com"
 	],
 	"Low": [
 		"Thấp"
@@ -1256,9 +842,6 @@
 	"Manage site options": [
 		"Quản lý tùy chọn trang web"
 	],
-	"Manage terms": [
-		"Quản lý thuật ngữ"
-	],
 	"Manage themes": [
 		"Quản lý giao diện"
 	],
@@ -1283,15 +866,6 @@
 	"Meta API key": [
 		"Khóa API Meta"
 	],
-	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
-		"Meta đang giới hạn yêu cầu trên khóa API của bạn. Hãy thử lại sau ít phút hoặc kiểm tra giới hạn tại dev.meta.ai."
-	],
-	"Meta rejected this API key. Check the key and try again.": [
-		"Meta đã từ chối khóa API này. Hãy kiểm tra khóa và thử lại."
-	],
-	"Microsoft Defender's Real-time protection may slow site creation.\n\nTo create sites quickly, we recommend disabling Real-time protection for WordPress Studio.": [
-		"Tính năng Bảo vệ theo thời gian thực của Microsoft Defender có thể làm chậm quá trình tạo trang web.\n\nĐể tạo trang web nhanh hơn, chúng tôi khuyên bạn nên tắt Bảo vệ theo thời gian thực cho WordPress Studio."
-	],
 	"Monthly": [
 		"Hàng tháng"
 	],
@@ -1301,20 +875,11 @@
 	"More room and more AI, for building every day.": [
 		"Nhiều dung lượng hơn và nhiều AI hơn, để xây dựng mỗi ngày."
 	],
-	"Multiple WordPress.com sites are available. Re-run with `--remote-site <site-url-or-id>`.": [
-		"Có nhiều trang web WordPress.com khả dụng. Chạy lại với `--remote-site <site-url-or-id>`."
-	],
 	"New WordPress Studio Site": [
 		"Trang web WordPress Studio mới"
 	],
 	"New site \"%s\"": [
 		"Trang web mới \"%s\""
-	],
-	"New tab": [
-		"Thẻ mới"
-	],
-	"No design system is available for this theme.": [
-		"Không có hệ thống thiết kế nào cho giao diện này."
 	],
 	"No files are available to choose.": [
 		"Không có tệp nào để chọn."
@@ -1322,17 +887,11 @@
 	"No local server answered at %s. Check the address, and that your server is running.": [
 		"Không có máy chủ cục bộ nào phản hồi tại %s. Hãy kiểm tra địa chỉ và đảm bảo máy chủ của bạn đang chạy."
 	],
-	"No matching sites.": [
-		"Không có trang web phù hợp."
-	],
 	"No models found.": [
 		"Không tìm thấy mô hình nào."
 	],
 	"No provider is connected.": [
 		"Chưa kết nối nhà cung cấp nào."
-	],
-	"No providers": [
-		"Không có nhà cung cấp"
 	],
 	"No recipient": [
 		"Không có người nhận"
@@ -1342,9 +901,6 @@
 	],
 	"Off": [
 		"Tắt"
-	],
-	"Once the download finishes, quit WordPress Studio, open a terminal, and paste the command to install:": [
-		"Khi tải xuống xong, hãy thoát WordPress Studio, mở terminal và dán lệnh để cài đặt:"
 	],
 	"One more step": [
 		"Thêm một bước nữa"
@@ -1370,18 +926,6 @@
 	"Open Spacefast": [
 		"Mở Spacefast"
 	],
-	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
-		"Mở Spacefast trong trình duyệt. Đảm bảo các mã khớp nhau, sau đó phê duyệt kết nối."
-	],
-	"Open a project page to annotate.": [
-		"Mở một trang của dự án để chú thích."
-	],
-	"Open a site or Blueprint": [
-		"Mở trang web hoặc bản thiết kế"
-	],
-	"Open annotation browser": [
-		"Mở trình duyệt chú thích"
-	],
 	"Open documentation": [
 		"Mở tài liệu"
 	],
@@ -1394,17 +938,8 @@
 	"Open preview: %s": [
 		"Mở bản xem trước: %s"
 	],
-	"Open the WordPress Studio app to add an existing WordPress folder.": [
-		"Mở ứng dụng WordPress Studio để thêm một thư mục WordPress hiện có."
-	],
 	"OpenAI API key": [
 		"Khóa API OpenAI"
-	],
-	"OpenAI rejected this API key. Check the key and try again.": [
-		"OpenAI đã từ chối khóa API này. Hãy kiểm tra khóa và thử lại."
-	],
-	"OpenAI’s coding agent in the ChatGPT app.": [
-		"Tác nhân lập trình của OpenAI trong ứng dụng ChatGPT."
 	],
 	"OpenRouter API key": [
 		"Khóa API OpenRouter"
@@ -1439,14 +974,8 @@
 	"Paid plan": [
 		"Gói trả phí"
 	],
-	"Panel": [
-		"Bảng điều khiển"
-	],
 	"Parent folder": [
 		"Thư mục cha"
-	],
-	"Paste the token it prints. Usage counts against your Claude plan.": [
-		"Dán token mà lệnh in ra. Mức sử dụng được tính vào gói Claude của bạn."
 	],
 	"Pending annotation": [
 		"Chú thích đang chờ"
@@ -1468,12 +997,6 @@
 	],
 	"Plan ended": [
 		"Gói đã kết thúc"
-	],
-	"Point or draw to suggest a change.": [
-		"Chỉ vào hoặc vẽ để đề xuất thay đổi."
-	],
-	"Point to something you’d like to change.": [
-		"Chỉ vào thứ bạn muốn thay đổi."
 	],
 	"Posts, pages, and settings": [
 		"Bài viết, trang và cài đặt"
@@ -1505,14 +1028,8 @@
 	"Preview link ready": [
 		"Liên kết xem trước đã sẵn sàng"
 	],
-	"Preview site not found": [
-		"Không tìm thấy trang web xem trước"
-	],
 	"Preview sites are temporary. Updating your preview resets the expiration date.": [
 		"Trang web xem trước chỉ là tạm thời. Cập nhật bản xem trước sẽ đặt lại ngày hết hạn."
-	],
-	"Preview tabs": [
-		"Các thẻ xem trước"
 	],
 	"Preview: %s": [
 		"Bản xem trước: %s"
@@ -1523,9 +1040,6 @@
 	"Project tools": [
 		"Công cụ dự án"
 	],
-	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
-		"Xuất bản bản sao tĩnh của trang web lên một Space trên Spacefast. Biểu mẫu, bình luận và các tính năng khác cần WordPress chạy sẽ không hoạt động trong bản sao."
-	],
 	"Publish a static copy of your sites to a Spacefast Space.": [
 		"Xuất bản bản sao tĩnh của các trang web lên một Space trên Spacefast."
 	],
@@ -1535,17 +1049,11 @@
 	"Publish changes?": [
 		"Xuất bản các thay đổi?"
 	],
-	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
-		"Xuất bản trang web mới hoặc cập nhật trang web hiện có trên WordPress.com hoặc Pressable."
-	],
 	"Publish options could not be loaded.": [
 		"Không thể tải các tùy chọn xuất bản."
 	],
 	"Publish somewhere else": [
 		"Xuất bản ở nơi khác"
-	],
-	"Publish to %s to apply these changes.": [
-		"Xuất bản lên %s để áp dụng các thay đổi này."
 	],
 	"Publish to %s.": [
 		"Xuất bản lên %s."
@@ -1562,14 +1070,8 @@
 	"Published site actions": [
 		"Thao tác với trang web đã xuất bản"
 	],
-	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
-		"Việc xuất bản và kéo yêu cầu một trang web WordPress.com hoặc Pressable được hỗ trợ."
-	],
 	"Publishing cancelled": [
 		"Đã hủy xuất bản"
-	],
-	"Publishing changes…": [
-		"Đang xuất bản thay đổi…"
 	],
 	"Publishing requires a supported plan.": [
 		"Cần có gói được hỗ trợ để xuất bản."
@@ -1577,38 +1079,17 @@
 	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
 		"Xuất bản cơ sở dữ liệu sẽ thay thế các thay đổi đã thực hiện trên trang web trực tiếp, bao gồm cả bình luận hoặc đơn hàng mới."
 	],
-	"Pull a WordPress.com or Pressable site to your local site": [
-		"Kéo một trang web WordPress.com hoặc Pressable về trang web cục bộ của bạn"
-	],
 	"Pull from live site…": [
 		"Kéo từ trang web trực tiếp…"
 	],
 	"Pull from preview…": [
 		"Kéo từ bản xem trước…"
 	],
-	"Pull only the database (keeps the local files)": [
-		"Chỉ kéo cơ sở dữ liệu (giữ nguyên các tệp cục bộ)"
-	],
-	"Pull preview": [
-		"Kéo bản xem trước"
-	],
 	"Pull replaces your local copy. Update replaces the preview.": [
 		"Kéo sẽ thay thế bản sao cục bộ của bạn. Cập nhật sẽ thay thế bản xem trước."
 	],
-	"Pulling changes…": [
-		"Đang kéo thay đổi…"
-	],
 	"Pulling from this preview is unavailable for this account.": [
 		"Tài khoản này không thể kéo từ bản xem trước này."
-	],
-	"Pulling the preview replaces the changes made here.": [
-		"Kéo bản xem trước sẽ thay thế các thay đổi đã thực hiện ở đây."
-	],
-	"Push site": [
-		"Đẩy trang web"
-	],
-	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
-		"Đẩy trang web cục bộ của bạn lên một trang web WordPress.com, hoặc xuất bản lên Spacefast"
 	],
 	"Read": [
 		"Đọc"
@@ -1631,32 +1112,17 @@
 	"Recent chats hidden.": [
 		"Đã ẩn cuộc trò chuyện gần đây."
 	],
-	"Recent chats shown.": [
-		"Đã hiển thị cuộc trò chuyện gần đây."
-	],
 	"Recent pages": [
 		"Trang gần đây"
 	],
 	"Recommended": [
 		"Được đề xuất"
 	],
-	"Refresh preview": [
-		"Làm mới bản xem trước"
-	],
-	"Remote backup failed": [
-		"Sao lưu từ xa thất bại"
-	],
 	"Remote environment: %s": [
 		"Môi trường từ xa: %s"
 	],
-	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
-		"URL hoặc ID của trang web từ xa, hoặc `<provider>[:<site>]` cho trang web ở nhà cung cấp khác, chẳng hạn `spacefast` để xuất bản bản sao tĩnh lên Spacefast"
-	],
 	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
 		"Xóa %s khỏi WordPress Studio? Trang web đã xuất bản và WordPress cục bộ của bạn sẽ không thay đổi."
-	],
-	"Remove Blueprint": [
-		"Gỡ bản thiết kế"
 	],
 	"Renew": [
 		"Gia hạn"
@@ -1688,9 +1154,6 @@
 	"Report an issue on GitHub": [
 		"Báo cáo sự cố trên GitHub"
 	],
-	"Request a feature or report a bug.": [
-		"Yêu cầu tính năng hoặc báo cáo lỗi."
-	],
 	"Reset folder name to match site name": [
 		"Đặt lại tên thư mục theo tên trang web"
 	],
@@ -1700,35 +1163,17 @@
 	"Reset to recommended": [
 		"Đặt lại về mô hình được đề xuất"
 	],
-	"Resize panel": [
-		"Đổi kích thước bảng điều khiển"
-	],
 	"Resize viewport: %s": [
 		"Đổi kích thước khung nhìn: %s"
 	],
-	"Responsive preview": [
-		"Xem trước đáp ứng"
-	],
-	"Restart WordPress Studio to finish updating.": [
-		"Khởi động lại WordPress Studio để hoàn tất cập nhật."
-	],
 	"Restarting site…": [
 		"Đang khởi động lại trang web…"
-	],
-	"Restore the default interface theme, accent color, intensity, and contrast.": [
-		"Khôi phục chủ đề giao diện, màu nhấn, cường độ và độ tương phản mặc định."
 	],
 	"Restricted": [
 		"Bị hạn chế"
 	],
 	"Review the advanced settings to finish creating your site.": [
 		"Xem lại cài đặt nâng cao để hoàn tất việc tạo trang web."
-	],
-	"Rotate to landscape": [
-		"Xoay sang chiều ngang"
-	],
-	"Rotate to portrait": [
-		"Xoay sang chiều dọc"
 	],
 	"Rotate viewport": [
 		"Xoay khung nhìn"
@@ -1739,17 +1184,11 @@
 	"Run": [
 		"Chạy"
 	],
-	"Run \"studio blueprint list\" to see available slugs.": [
-		"Chạy \"studio blueprint list\" để xem các slug khả dụng."
-	],
 	"Run WordPress code": [
 		"Chạy mã WordPress"
 	],
 	"Run WordPress command": [
 		"Chạy lệnh WordPress"
-	],
-	"Run this in a terminal, then sign in with your Claude account:": [
-		"Chạy lệnh này trong terminal, sau đó đăng nhập bằng tài khoản Claude của bạn:"
 	],
 	"SEO audit": [
 		"Kiểm tra SEO"
@@ -1760,17 +1199,8 @@
 	"Save annotation (Enter)": [
 		"Lưu chú thích (Enter)"
 	],
-	"Screenshots are available in the desktop app.": [
-		"Ảnh chụp màn hình có sẵn trong ứng dụng máy tính."
-	],
-	"Search commands": [
-		"Tìm kiếm lệnh"
-	],
 	"Search models": [
 		"Tìm mô hình"
-	],
-	"Select a WordPress.com or Pressable site to bring into your WordPress Studio.": [
-		"Chọn một trang web WordPress.com hoặc Pressable để đưa vào WordPress Studio của bạn."
 	],
 	"Select an email to read it.": [
 		"Chọn một email để đọc."
@@ -1808,53 +1238,17 @@
 	"Share a preview or publish your site": [
 		"Chia sẻ bản xem trước hoặc xuất bản trang web của bạn"
 	],
-	"Share a temporary copy of your local site with anyone.": [
-		"Chia sẻ bản sao tạm thời của trang web cục bộ với bất kỳ ai."
-	],
-	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
-		"Chia sẻ bản sao tạm thời của trang web cục bộ với bất kỳ ai. Trang web xem trước sẽ hết hạn nếu không được cập nhật trong khoảng một tuần."
-	],
 	"Share a temporary preview link.": [
 		"Chia sẻ một liên kết xem trước tạm thời."
 	],
 	"Share details (required)": [
 		"Chia sẻ chi tiết (bắt buộc)"
 	],
-	"Share ideas and report problems directly to the Studio team.": [
-		"Chia sẻ ý tưởng và báo cáo sự cố trực tiếp với đội ngũ Studio."
-	],
-	"Show admin bar": [
-		"Hiển thị thanh quản trị"
-	],
-	"Show admin bar by default": [
-		"Hiển thị thanh quản trị theo mặc định"
-	],
-	"Show chat beside the panel when starting a site.": [
-		"Hiển thị cuộc trò chuyện bên cạnh bảng điều khiển khi khởi động trang web."
-	],
-	"Show chat when starting sites": [
-		"Hiển thị cuộc trò chuyện khi khởi động trang web"
-	],
-	"Show device toolbar": [
-		"Hiển thị thanh công cụ thiết bị"
-	],
-	"Show or hide the panel beside your chat.": [
-		"Hiển thị hoặc ẩn bảng điều khiển bên cạnh cuộc trò chuyện."
-	],
-	"Show panel": [
-		"Hiển thị bảng điều khiển"
-	],
-	"Show whether a preview site or its local site changed since they were synced": [
-		"Hiển thị liệu trang web xem trước hoặc trang web cục bộ của nó có thay đổi kể từ lần đồng bộ hay không"
-	],
 	"Sign in at %s": [
 		"Đăng nhập tại %s"
 	],
 	"Sign in to create a preview link.": [
 		"Đăng nhập để tạo liên kết xem trước."
-	],
-	"Sign in to get a one-time grant of free AI credits.": [
-		"Đăng nhập để nhận tín dụng AI miễn phí một lần."
 	],
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"Đăng nhập bằng ChatGPT hoặc dùng khóa API OpenAI."
@@ -1868,9 +1262,6 @@
 	"Sign in with WordPress.com": [
 		"Đăng nhập bằng WordPress.com"
 	],
-	"Sign in with a GitHub account that has Copilot access.": [
-		"Đăng nhập bằng tài khoản GitHub có quyền truy cập Copilot."
-	],
 	"Sign in with an eligible Grok account or use an xAI API key.": [
 		"Đăng nhập bằng tài khoản Grok đủ điều kiện hoặc dùng khóa API xAI."
 	],
@@ -1880,14 +1271,8 @@
 	"Signing in took too long. Try again.": [
 		"Đăng nhập mất quá nhiều thời gian. Hãy thử lại."
 	],
-	"Signing in was declined.": [
-		"Đăng nhập đã bị từ chối."
-	],
 	"Signing in was started again.": [
 		"Quá trình đăng nhập đã được bắt đầu lại."
-	],
-	"Site annotation is not available in the browser yet": [
-		"Tính năng chú thích trang web chưa có trên trình duyệt"
 	],
 	"Site exported": [
 		"Đã xuất trang web"
@@ -1898,41 +1283,17 @@
 	"Site folder": [
 		"Thư mục trang web"
 	],
-	"Site folder is required.": [
-		"Cần có thư mục trang web."
-	],
 	"Site imported, but the WordPress server failed to start: %s": [
 		"Đã nhập trang web, nhưng máy chủ WordPress không khởi động được: %s"
 	],
 	"Site sources": [
 		"Nguồn trang web"
 	],
-	"Sites could not be loaded. Check your internet connection and try again.": [
-		"Không thể tải các trang web. Kiểm tra kết nối internet của bạn và thử lại."
-	],
-	"Sites will start with chat.": [
-		"Trang web sẽ khởi động cùng cuộc trò chuyện."
-	],
-	"Sites will start with the panel expanded.": [
-		"Trang web sẽ khởi động với bảng điều khiển được mở rộng."
-	],
-	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
-		"Kỹ năng cung cấp hướng dẫn cho tác nhân AI trong phát triển WordPress. Các thay đổi tại đây áp dụng cho tất cả trang web hiện có và trở thành mặc định cho trang web mới."
-	],
 	"Some destinations could not be loaded": [
 		"Không thể tải một số đích"
 	],
-	"Source is a temporary preview site.": [
-		"Nguồn là một trang web xem trước tạm thời."
-	],
 	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
 		"Spacefast vẫn đang áp dụng thay đổi chế độ hiển thị. Hãy kiểm tra quyền truy cập trên Spacefast."
-	],
-	"Spacefast sign-in was declined.": [
-		"Đăng nhập Spacefast đã bị từ chối."
-	],
-	"Split view": [
-		"Chia đôi màn hình"
 	],
 	"Start building with free AI credits.": [
 		"Bắt đầu xây dựng với tín dụng AI miễn phí."
@@ -1943,23 +1304,11 @@
 	"Start signing in again.": [
 		"Bắt đầu đăng nhập lại."
 	],
-	"Start signing in to Spacefast again.": [
-		"Hãy bắt đầu đăng nhập Spacefast lại từ đầu."
-	],
-	"Start signing in with ChatGPT again.": [
-		"Hãy bắt đầu đăng nhập bằng ChatGPT lại từ đầu."
-	],
-	"Start signing in with GitHub again.": [
-		"Hãy bắt đầu đăng nhập bằng GitHub lại từ đầu."
-	],
 	"Start signing in with Grok again.": [
 		"Hãy bắt đầu đăng nhập bằng Grok lại."
 	],
 	"Start signing in with OpenRouter again.": [
 		"Hãy bắt đầu đăng nhập bằng OpenRouter lại."
-	],
-	"Start sites with chat": [
-		"Khởi động trang web cùng cuộc trò chuyện"
 	],
 	"Start this site.": [
 		"Khởi động trang web này."
@@ -1970,9 +1319,6 @@
 	"Starting chat…": [
 		"Đang bắt đầu cuộc trò chuyện…"
 	],
-	"Static export failed: %s": [
-		"Xuất tĩnh thất bại: %s"
-	],
 	"Static site exported to %s": [
 		"Đã xuất trang web tĩnh vào %s"
 	],
@@ -1981,9 +1327,6 @@
 	],
 	"Stop annotating": [
 		"Dừng chú thích"
-	],
-	"Stop annotating. Your notes will be kept.": [
-		"Dừng chú thích. Ghi chú của bạn sẽ được giữ lại."
 	],
 	"Stopping site…": [
 		"Đang dừng trang web…"
@@ -2000,20 +1343,8 @@
 	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
 		"Studio không thể biết liệu có ai đã chỉnh sửa %s hay chưa. Cập nhật bản xem trước sẽ thay thế nó bằng trang web cục bộ của bạn."
 	],
-	"Studio was updated, and the site \"%s\" could not be started again.": [
-		"Studio đã được cập nhật và không thể khởi động lại trang web \"%s\"."
-	],
-	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
-		"phpMyAdmin của Studio chỉ hỗ trợ SQLite. Hãy dùng một ứng dụng cơ sở dữ liệu riêng cho MySQL bên ngoài."
-	],
-	"Supported files: %s.": [
-		"Tệp được hỗ trợ: %s."
-	],
 	"Swing Time": [
 		"Swing Time"
-	],
-	"Sync is finishing": [
-		"Đang hoàn tất đồng bộ hóa"
 	],
 	"Take Five": [
 		"Take Five"
@@ -2021,20 +1352,8 @@
 	"Taking screenshot…": [
 		"Đang chụp màn hình…"
 	],
-	"Taxonomist": [
-		"Sắp xếp chuyên mục"
-	],
 	"Team": [
 		"Nhóm"
-	],
-	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
-		"Cảm ơn bạn đã giúp cải thiện WordPress Studio. Mã tham chiếu cho phản hồi bạn đã gửi là <id>%s</id>."
-	],
-	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
-		"Loại tệp này không được hỗ trợ. Hãy chọn tệp bản thiết kế, bản sao lưu WordPress hoặc tệp xuất XML."
-	],
-	"That sign-in was for another attempt. Try again.": [
-		"Lần đăng nhập đó thuộc về một lần thử khác. Hãy thử lại."
 	],
 	"The GitHub sign-in expired. Try again.": [
 		"Phiên đăng nhập GitHub đã hết hạn. Hãy thử lại."
@@ -2045,29 +1364,14 @@
 	"The Spacefast sign-in expired. Try again.": [
 		"Phiên đăng nhập Spacefast đã hết hạn. Hãy thử lại."
 	],
-	"The backup may be damaged or use an unsupported format. WordPress Studio removed the incomplete site, so you can retry or choose another backup.": [
-		"Bản sao lưu có thể bị hỏng hoặc dùng định dạng không được hỗ trợ. WordPress Studio đã xóa trang web chưa hoàn chỉnh để bạn có thể thử lại hoặc chọn bản sao lưu khác."
-	],
-	"The configuration couldn't be changed to speed up site creation.\n\nTo initiate this process again, please go to \"Help > How can I make WordPress Studio faster?\" in the application menu.": [
-		"Không thể thay đổi cấu hình để tăng tốc việc tạo trang web.\n\nĐể bắt đầu lại quá trình này, vui lòng vào \"Hỗ trợ > Làm thế nào để tôi có thể làm cho WordPress Studio nhanh hơn?\" trong menu ứng dụng."
-	],
 	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
 		"Ngữ cảnh mà %s đang chạy quá nhỏ đối với Studio Code. Hãy tăng độ dài ngữ cảnh trong cài đặt của máy chủ."
 	],
 	"The default browser for your sites.": [
 		"Trình duyệt mặc định cho các trang web của bạn."
 	],
-	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
-		"Lần kéo đầu tiên của một trang web phải bao gồm các tệp của trang. Hãy kéo toàn bộ trang web một lần, sau đó chỉ kéo cơ sở dữ liệu."
-	],
 	"The full WordPress, with a domain.": [
 		"WordPress đầy đủ, kèm tên miền."
-	],
-	"The import failed, and WordPress Studio could not remove “%s”. Remove the incomplete site before trying this location again.": [
-		"Nhập thất bại và WordPress Studio không thể xóa “%s”. Hãy xóa trang web chưa hoàn chỉnh trước khi thử lại vị trí này."
-	],
-	"The live site must be a qualifying connected site of this local site.": [
-		"Trang web trực tiếp phải là một trang web đủ điều kiện đã được kết nối với trang web cục bộ này."
 	],
 	"The local server at %s isn’t answering. Start it, then send your message again.": [
 		"Máy chủ cục bộ tại %s không phản hồi. Hãy khởi động máy chủ, sau đó gửi lại tin nhắn."
@@ -2078,23 +1382,11 @@
 	"The local server refused the API key. Check the key, and connect again.": [
 		"Máy chủ cục bộ đã từ chối khóa API. Hãy kiểm tra khóa và kết nối lại."
 	],
-	"The maximum number of running sites has been reached. Stop some running sites before starting new ones.": [
-		"Đã đạt số lượng trang web đang chạy tối đa. Hãy dừng một số trang web đang chạy trước khi khởi động trang web mới."
-	],
 	"The output directory %s is not empty.": [
 		"Thư mục đầu ra %s không trống."
 	],
 	"The output directory cannot be inside the site folder or contain it.": [
 		"Thư mục đầu ra không được nằm trong thư mục trang web hoặc chứa thư mục đó."
-	],
-	"The preview site could not be built from the archive.": [
-		"Không thể tạo trang web xem trước từ tệp lưu trữ."
-	],
-	"The preview site did not become ready within the timeout.": [
-		"Trang web xem trước chưa sẵn sàng trong thời gian chờ."
-	],
-	"The preview site has no preview link.": [
-		"Trang web xem trước không có liên kết xem trước."
 	],
 	"The requested site is unavailable.": [
 		"Trang web được yêu cầu không khả dụng."
@@ -2111,17 +1403,11 @@
 	"The visibility change could not be applied. Check access on Spacefast.": [
 		"Không thể áp dụng thay đổi chế độ hiển thị. Hãy kiểm tra quyền truy cập trên Spacefast."
 	],
-	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
-		"Chỉnh sửa tệp giao diện sẽ không hiển thị. Các thay đổi của bạn với tệp của %s bị bỏ qua: bản xem trước này dùng bản gốc của giao diện từ WordPress.com. Hãy thực hiện thay đổi trong Trình chỉnh sửa trang web hoặc giao diện con để thấy chúng trong bản xem trước."
-	],
 	"Themes": [
 		"Giao diện"
 	],
 	"Then add this configuration to your app.": [
 		"Sau đó thêm cấu hình này vào ứng dụng của bạn."
-	],
-	"These sites cannot currently be connected to WordPress Studio.": [
-		"Hiện không thể kết nối các trang web này với WordPress Studio."
 	],
 	"Thinking": [
 		"Suy nghĩ"
@@ -2141,44 +1427,14 @@
 	"This API key is blocked or disabled. Check it in the xAI Console.": [
 		"Khóa API này đã bị chặn hoặc vô hiệu hóa. Hãy kiểm tra trong xAI Console."
 	],
-	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
-		"Tài khoản GitHub này không có gói Copilot. Hãy chọn một gói tại github.com/features/copilot."
-	],
 	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
 		"Tài khoản Grok này đã hết credit. Hãy thêm credit hoặc đăng ký SuperGrok trên grok.com."
-	],
-	"This ZIP could not be read. Check that it is a valid zip file.": [
-		"Không thể đọc tệp ZIP này. Hãy kiểm tra xem đây có phải là tệp zip hợp lệ không."
-	],
-	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
-		"Không thể dùng tệp ZIP này. Hãy đảm bảo tệp chứa một tệp blueprint.json hợp lệ ở cấp cao nhất hoặc bên trong một thư mục bao ngoài, rồi thử lại."
-	],
-	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
-		"Bản sao lưu này chứa các tệp SQL có tên chỉ khác nhau ở chữ hoa/chữ thường: \"%1$s\" và \"%2$s\". Hãy xử lý các tên bị trùng trên trang web nguồn, sau đó tạo bản sao lưu mới và thử lại."
-	],
-	"This backup contains a file path WordPress Studio cannot safely restore. Export the site again with a supported backup tool, then choose the new backup.": [
-		"Bản sao lưu này chứa một đường dẫn tệp mà WordPress Studio không thể khôi phục an toàn. Hãy xuất lại trang web bằng một công cụ sao lưu được hỗ trợ, sau đó chọn bản sao lưu mới."
-	],
-	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
-		"Việc này có thể mất vài phút. WordPress Studio sẽ tự mở lại khi bản cập nhật được cài đặt xong."
 	],
 	"This destination cannot create a site from this panel yet.": [
 		"Đích này chưa thể tạo trang web từ bảng điều khiển này."
 	],
 	"This email is gone.": [
 		"Email này không còn nữa."
-	],
-	"This file took too long to load. Please try again or choose another file.": [
-		"Tệp này tải quá lâu. Vui lòng thử lại hoặc chọn tệp khác."
-	],
-	"This folder is already associated with another Studio site. Choose a different local folder.": [
-		"Thư mục này đã được liên kết với một trang web Studio khác. Hãy chọn thư mục cục bộ khác."
-	],
-	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
-		"Thư mục này đã được liên kết với một trang web Studio khác. Hãy chọn tên trang web hoặc thư mục cục bộ khác."
-	],
-	"This is an Anthropic key. Add it to Anthropic instead.": [
-		"Đây là khóa Anthropic. Hãy thêm khóa này vào Anthropic."
 	],
 	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
 		"Thao tác này cần khoảng %1$s GB dung lượng lưu trữ và gói của bạn còn %2$s GB. Hãy xóa những trang web bạn không còn cần, sau đó thử lại."
@@ -2195,32 +1451,8 @@
 	"This replaces your local site with the preview. Any local changes will be lost.": [
 		"Thao tác này sẽ thay thế trang web cục bộ của bạn bằng bản xem trước. Mọi thay đổi cục bộ sẽ bị mất."
 	],
-	"This site and its preview both changed": [
-		"Cả trang web này và bản xem trước của nó đều đã thay đổi"
-	],
 	"This site does not support pulling into WordPress Studio.": [
 		"Trang web này không hỗ trợ kéo về WordPress Studio."
-	],
-	"This site has changes its preview doesn't": [
-		"Trang web này có những thay đổi mà bản xem trước không có"
-	],
-	"This site is no longer available in WordPress Studio.": [
-		"Trang web này không còn khả dụng trong WordPress Studio."
-	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"Trang web này chưa sẵn sàng để khởi động. %s Chạy lại `studio pull` để hoàn tất việc kéo, hoặc `studio delete` để xóa trang web."
-	],
-	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
-		"Trang web này lớn hơn %d GB nên việc xuất bản lại lên WordPress.com có thể thất bại. Thay vào đó, hãy xuất bản một nhóm tệp nhỏ hơn."
-	],
-	"This site isn't one of your WordPress.com or Pressable sites.": [
-		"Trang web này không thuộc các trang web WordPress.com hoặc Pressable của bạn."
-	],
-	"This studio command was installed with the standalone CLI installer, so WordPress Studio can’t manage it. Run studio uninstall in a terminal to remove it.": [
-		"Lệnh studio này được cài đặt bằng trình cài đặt CLI độc lập nên WordPress Studio không thể quản lý. Chạy studio uninstall trong terminal để gỡ bỏ."
-	],
-	"This version of WordPress Studio is not optimized for your computer": [
-		"Phiên bản WordPress Studio này chưa được tối ưu hóa cho máy tính của bạn"
 	],
 	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
 		"Trang web này cần gói lưu trữ hỗ trợ kéo về WordPress Studio."
@@ -2234,23 +1466,11 @@
 	"To %s": [
 		"Đến %s"
 	],
-	"Token is required": [
-		"Cần có token"
-	],
 	"Try again to see where this WordPress is already connected.": [
 		"Hãy thử lại để xem WordPress này đã được kết nối ở đâu."
 	],
-	"Try downloading the update again.": [
-		"Thử tải xuống bản cập nhật lại."
-	],
-	"Try starting the chat again, or open your site.": [
-		"Thử bắt đầu lại cuộc trò chuyện, hoặc mở trang web của bạn."
-	],
 	"Twice the CPU for faster builds": [
 		"Gấp đôi CPU để xây dựng nhanh hơn"
-	],
-	"URL the static site will be hosted at. Links are root-relative when omitted.": [
-		"URL nơi trang web tĩnh sẽ được lưu trữ. Nếu bỏ trống, các liên kết sẽ là đường dẫn tương đối từ gốc."
 	],
 	"Unable to open this folder.": [
 		"Không thể mở thư mục này."
@@ -2261,14 +1481,8 @@
 	"Unknown level %1$s. Choose one of: %2$s.": [
 		"Mức không xác định: %1$s. Hãy chọn một trong các mức: %2$s."
 	],
-	"Unknown provider %1$s. Choose one of: %2$s.": [
-		"Không rõ nhà cung cấp %1$s. Chọn một trong các nhà cung cấp sau: %2$s."
-	],
 	"Unlimited sites, 5 running at once": [
 		"Không giới hạn trang web, 5 trang chạy cùng lúc"
-	],
-	"Unsupported backup file": [
-		"Tệp sao lưu không được hỗ trợ"
 	],
 	"Unsupported visibility setting.": [
 		"Cài đặt chế độ hiển thị không được hỗ trợ."
@@ -2306,9 +1520,6 @@
 	"Update user": [
 		"Cập nhật người dùng"
 	],
-	"Updated %s": [
-		"Đã cập nhật %s"
-	],
 	"Update…": [
 		"Cập nhật…"
 	],
@@ -2317,12 +1528,6 @@
 	],
 	"Updating your workspace…": [
 		"Đang cập nhật không gian làm việc của bạn…"
-	],
-	"Upload attachments": [
-		"Tải lên tệp đính kèm"
-	],
-	"Uploading files…": [
-		"Đang tải tệp lên…"
 	],
 	"Uploads": [
 		"Tệp tải lên"
@@ -2348,35 +1553,14 @@
 	"Use /connect %1$s to connect %2$s again.": [
 		"Dùng /connect %1$s để kết nối lại %2$s."
 	],
-	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
-		"Dùng Alt+Shift+Mũi tên trái hoặc phải để di chuyển thẻ này."
-	],
-	"Use Blueprint": [
-		"Dùng bản thiết kế"
-	],
-	"Use Gemini with a Gemini API key.": [
-		"Dùng Gemini với khóa API Gemini."
-	],
-	"Use Muse models with your Meta API key.": [
-		"Dùng các mô hình Muse với khóa API Meta của bạn."
-	],
-	"Use WordPress Studio with your agents": [
-		"Dùng WordPress Studio với các tác nhân của bạn"
-	],
 	"Use an Anthropic API key or a Claude subscription token.": [
 		"Dùng khóa API Anthropic hoặc token gói đăng ký Claude."
-	],
-	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
-		"Hãy dùng liên kết sao lưu HTTPS từ một trang web được hỗ trợ, với tệp zip hoặc tar.gz nhỏ hơn 1 GB. Kiểm tra kết nối và thử lại."
 	],
 	"Use models from many labs with your OpenRouter credits.": [
 		"Dùng mô hình từ nhiều phòng thí nghiệm với credit OpenRouter của bạn."
 	],
 	"Use the models a server you run serves, such as on this computer.": [
 		"Dùng các mô hình do máy chủ bạn tự chạy cung cấp, chẳng hạn trên máy tính này."
-	],
-	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
-		"Dùng tác nhân AI bạn ưa thích để tạo trang web, thực hiện thay đổi và kiểm tra kết quả. Cài đặt plugin WordPress Studio để cấp cho tác nhân quyền truy cập vào các trang web cục bộ của bạn."
 	],
 	"Using ChatGPT plan": [
 		"Đang dùng gói ChatGPT"
@@ -2402,9 +1586,6 @@
 	"Visibility settings are only available for WordPress.com sites.": [
 		"Cài đặt chế độ hiển thị chỉ khả dụng cho các trang web WordPress.com."
 	],
-	"Visit previews": [
-		"Truy cập bản xem trước"
-	],
 	"Visitors see a coming soon page": [
 		"Khách truy cập sẽ thấy trang Sắp ra mắt"
 	],
@@ -2414,20 +1595,8 @@
 	"WP admin": [
 		"Trang quản trị WP"
 	],
-	"Waiting for %s": [
-		"Đã chờ %s"
-	],
-	"Waiting for approval…": [
-		"Đang chờ phê duyệt…"
-	],
-	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
-		"Đang chờ trình duyệt. Nếu trình duyệt không thể kết nối tới máy tính này, hãy dán địa chỉ cuối cùng mà nó mở:"
-	],
 	"What to replace": [
 		"Nội dung cần thay thế"
-	],
-	"What would you like to open?": [
-		"Bạn muốn mở gì?"
 	],
 	"What’s New": [
 		"Có gì mới"
@@ -2440,18 +1609,6 @@
 	],
 	"WordPress Studio CLI for terminal": [
 		"WordPress Studio CLI cho terminal"
-	],
-	"WordPress Studio can only update automatically from the Applications folder. Please move WordPress Studio to Applications and try again.": [
-		"WordPress Studio chỉ có thể tự động cập nhật từ thư mục Applications. Vui lòng di chuyển WordPress Studio vào Applications và thử lại."
-	],
-	"WordPress Studio can only update from the writable Applications folder. Please check write permissions and try again.": [
-		"WordPress Studio chỉ có thể cập nhật từ thư mục Applications có quyền ghi. Vui lòng kiểm tra quyền ghi và thử lại."
-	],
-	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
-		"WordPress Studio có thể thoát sau khi đồng bộ hóa xong. Thoát ngay bây giờ sẽ làm gián đoạn quá trình này và có thể khiến trang web của bạn không hoàn chỉnh."
-	],
-	"WordPress Studio could not download this backup.": [
-		"WordPress Studio không thể tải xuống bản sao lưu này."
 	],
 	"WordPress Studio could not open the email folder.": [
 		"WordPress Studio không thể mở thư mục email."
@@ -2474,68 +1631,20 @@
 	"WordPress Studio is serving at:": [
 		"WordPress Studio đang phục vụ tại:"
 	],
-	"WordPress Studio is unable to open PHPStorm. Please ensure it is functioning correctly.": [
-		"WordPress Studio không thể mở PHPStorm. Vui lòng đảm bảo ứng dụng này đang hoạt động bình thường."
-	],
-	"WordPress Studio is unable to open your default browser. Please ensure it is functioning correctly.": [
-		"WordPress Studio không thể mở trình duyệt mặc định của bạn. Vui lòng đảm bảo trình duyệt đang hoạt động bình thường."
-	],
-	"WordPress Studio team": [
-		"Đội ngũ WordPress Studio"
-	],
-	"WordPress Studio was unable to trust the certificate automatically. You may need to trust it manually using certificate manager.": [
-		"WordPress Studio không thể tự động tin cậy chứng chỉ. Bạn có thể cần tin cậy chứng chỉ theo cách thủ công bằng trình quản lý chứng chỉ."
-	],
-	"WordPress Studio will create a local copy of this site in an empty folder.": [
-		"WordPress Studio sẽ tạo bản sao cục bộ của trang web này trong một thư mục trống."
-	],
-	"WordPress Studio will create a site from this blueprint in an empty folder.": [
-		"WordPress Studio sẽ tạo trang web từ bản thiết kế này trong một thư mục trống."
-	],
-	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
-		"WordPress Studio sẽ tạo trang web trong một thư mục trống và nhập tệp xuất WordPress này."
-	],
 	"WordPress Studio will restore this backup into an empty folder.": [
 		"WordPress Studio sẽ khôi phục bản sao lưu này vào một thư mục trống."
-	],
-	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
-		"WordPress Studio sẽ dùng trang web WordPress này tại vị trí hiện tại. Không có tệp nào bị di chuyển."
-	],
-	"WordPress export": [
-		"Tệp xuất WordPress"
 	],
 	"WordPress set up": [
 		"Đã thiết lập WordPress"
 	],
-	"WordPress.com AI": [
-		"WordPress.com AI"
-	],
-	"WordPress.com API": [
-		"API WordPress.com"
-	],
 	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
 		"WordPress.com chưa xác nhận thay đổi chế độ hiển thị. Vui lòng thử lại."
-	],
-	"WordPress.com hosting": [
-		"Lưu trữ WordPress.com"
-	],
-	"Worked for %s": [
-		"Đã làm việc trong %s"
-	],
-	"Working for %s": [
-		"Đang làm việc trong %s"
 	],
 	"Workspace navigation": [
 		"Điều hướng không gian làm việc"
 	],
 	"Yearly, save 20%": [
 		"Hàng năm, tiết kiệm 20%"
-	],
-	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
-		"Bạn có thể đính kèm tối đa %d hình ảnh. Hãy gửi hoặc xóa một chú thích trước khi chụp vùng khác."
-	],
-	"You can close this tab and return to WordPress Studio.": [
-		"Bạn có thể đóng thẻ này và quay lại WordPress Studio."
 	],
 	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
 		"Bạn đã đạt giới hạn sử dụng của gói ChatGPT. Quản lý mức sử dụng tại chatgpt.com/settings/usage."
@@ -2549,17 +1658,8 @@
 	"You stopped after %s": [
 		"Bạn đã dừng sau %s"
 	],
-	"You're not logged in to WordPress.com. Log in now?": [
-		"Bạn chưa đăng nhập vào WordPress.com. Đăng nhập ngay?"
-	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"Không thể dùng gói ChatGPT của bạn trong WordPress Studio."
-	],
-	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
-		"Thông tin đăng nhập ChatGPT của bạn không còn hoạt động. Hãy kết nối lại ChatGPT trong Cài đặt."
-	],
-	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
-		"Gói Copilot của bạn không bao gồm mô hình này. Hãy chọn mô hình khác hoặc bật mô hình này tại github.com/settings/copilot."
 	],
 	"Your Grok or X plan can’t be used in WordPress Studio.": [
 		"Không thể dùng gói Grok hoặc X của bạn trong WordPress Studio."
@@ -2569,9 +1669,6 @@
 	],
 	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
 		"Credit OpenRouter của bạn đã hết hoặc khóa này đã đạt giới hạn credit. Hãy thêm credit trên openrouter.ai."
-	],
-	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
-		"Thông tin đăng nhập Spacefast của bạn không còn hoạt động. Hãy kết nối lại Spacefast."
 	],
 	"Your Studio, in the cloud.": [
 		"Studio của bạn, trên đám mây."
@@ -2591,9 +1688,6 @@
 	"Your plan has ended.": [
 		"Gói của bạn đã kết thúc."
 	],
-	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
-		"Bản xem trước của bạn đã chuyển sang WordPress.com nên liên kết đã thay đổi. Liên kết mới: %s"
-	],
 	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
 		"Các tệp bạn đã chọn không khả dụng. Hãy thử kiểm tra bản sao lưu lại hoặc chọn tùy chọn khác để tiếp tục."
 	],
@@ -2603,17 +1697,8 @@
 	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
 		"Cài đặt của bạn đã được lưu bởi một phiên bản Studio CLI mới hơn. Hãy cập nhật WordPress Studio để tiếp tục sử dụng chúng."
 	],
-	"Your site can stay available in the background after WordPress Studio quits.": [
-		"Các trang web của bạn có thể tiếp tục hoạt động ở chế độ nền sau khi WordPress Studio thoát."
-	],
-	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
-		"Trang web của bạn đã thay đổi kể từ lần cuối cập nhật bản xem trước “%s”. Khi xuất bản, trang web cục bộ hiện tại của bạn sẽ được gửi đi, bao gồm cả các thay đổi không có trong bản xem trước đó."
-	],
 	"Your site is ready to publish": [
 		"Trang web của bạn đã sẵn sàng để xuất bản"
-	],
-	"Your site was created, but the AI chat could not start.": [
-		"Trang web của bạn đã được tạo, nhưng không thể bắt đầu cuộc trò chuyện AI."
 	],
 	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
 		"Các trang web của bạn và Studio Code trên một máy riêng của bạn, từ bất kỳ trình duyệt nào. Hãy đăng nhập bằng tài khoản WordPress.com để mở không gian làm việc của bạn."
@@ -2627,14 +1712,8 @@
 	"Your team only allows restricted sites.": [
 		"Nhóm của bạn chỉ cho phép các trang web bị hạn chế."
 	],
-	"Your unsaved changes will be lost.": [
-		"Các thay đổi chưa lưu của bạn sẽ bị mất."
-	],
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"Không gian làm việc của bạn chạy trên gói Studio Cloud. Trang thanh toán sẽ mở trên WordPress.com, và không gian làm việc của bạn sẽ sẵn sàng khoảng một phút sau khi bạn thanh toán."
-	],
-	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
-		"base-url phải là URL http(s) không có đường dẫn, ví dụ https://example.com"
 	],
 	"database": [
 		"cơ sở dữ liệu"

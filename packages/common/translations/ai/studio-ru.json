@@ -1,7 +1,4 @@
 {
-	"\"%s\" is not a Blueprint file, URL or Library slug.": [
-		"«%s» не является файлом Blueprint, URL-адресом или слагом из библиотеки."
-	],
 	"$10 of AI credits every month": [
 		"ИИ-кредиты на $10 каждый месяц"
 	],
@@ -18,9 +15,6 @@
 		"Одновременно запущено сайтов: %1$d из %2$d",
 		"Одновременно запущено сайтов: %1$d из %2$d"
 	],
-	"%1$dh %2$dm": [
-		"%1$d ч %2$d мин"
-	],
 	"%1$s +%2$d": [
 		"%1$s +%2$d"
 	],
@@ -29,9 +23,6 @@
 	],
 	"%1$s GB of %2$s GB of storage used": [
 		"Использовано %1$s ГБ из %2$s ГБ хранилища"
-	],
-	"%1$s Use /connect %2$s to connect it.": [
-		"%1$s Используйте /connect %2$s, чтобы подключить его."
 	],
 	"%1$s and %2$d other": [
 		"%1$s и ещё %2$d",
@@ -44,25 +35,11 @@
 	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
 		"%1$s не удалось обновить плагин WordPress Studio: %2$s"
 	],
-	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
-		"%1$s не подключён. Используйте /connect %2$s, чтобы подключить его."
-	],
-	"%1$s screenshot %2$d": [
-		"%1$s, снимок экрана %2$d"
-	],
 	"%1$s · %2$s context": [
 		"%1$s · контекст %2$s"
 	],
 	"%1$s, %2$s, and %3$s": [
 		"%1$s, %2$s и %3$s"
-	],
-	"%d B": [
-		"%d Б"
-	],
-	"%d annotation ready to send": [
-		"%d аннотация готова к отправке",
-		"%d аннотации готовы к отправке",
-		"%d аннотаций готовы к отправке"
 	],
 	"%d image": [
 		"%d изображение",
@@ -76,12 +53,6 @@
 	],
 	"%s (optional, saved for future use):": [
 		"%s (необязательно, сохраняется для дальнейшего использования):"
-	],
-	"%s (saved for future use):": [
-		"%s (будет сохранено для дальнейшего использования):"
-	],
-	"%s KB": [
-		"%s КБ"
 	],
 	"%s billed yearly": [
 		"%s при оплате за год"
@@ -122,9 +93,6 @@
 	"A code editor with a built-in AI agent.": [
 		"Редактор кода со встроенным ИИ-агентом."
 	],
-	"A coding agent that runs in your terminal.": [
-		"Агент для программирования, работающий в терминале."
-	],
 	"A static copy of your pages.": [
 		"Статическая копия ваших страниц."
 	],
@@ -155,15 +123,6 @@
 	"Address to listen on": [
 		"Адрес для прослушивания"
 	],
-	"Admin bar hidden by default.": [
-		"Панель администратора скрыта по умолчанию."
-	],
-	"Admin bar shown by default.": [
-		"Панель администратора отображается по умолчанию."
-	],
-	"Agent apps": [
-		"Приложения-агенты"
-	],
 	"Agents": [
 		"Агенты"
 	],
@@ -178,18 +137,6 @@
 	],
 	"Alt": [
 		"Alt"
-	],
-	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
-		"При обновлении WordPress Studio CLI произошла ошибка. Повторите попытку."
-	],
-	"Annotation is available for design systems created by Studio Code.": [
-		"Аннотирование доступно для дизайн-систем, созданных Studio Code."
-	],
-	"Annotation tools": [
-		"Инструменты аннотирования"
-	],
-	"Anonymous usage statistics enabled.": [
-		"Анонимная статистика использования включена."
 	],
 	"Another operation is in progress.": [
 		"Выполняется другая операция."
@@ -206,9 +153,6 @@
 	"Anthropic rejected this token. Run claude setup-token again.": [
 		"Anthropic отклонил этот токен. Выполните claude setup-token ещё раз."
 	],
-	"Anthropic’s AI coding agent.": [
-		"ИИ-агент для программирования от Anthropic."
-	],
 	"Anyone can view your site": [
 		"Ваш сайт может просматривать кто угодно"
 	],
@@ -218,23 +162,8 @@
 	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
 		"Все, у кого есть ссылка, потеряют доступ, и это действие нельзя отменить. Ваш локальный WordPress не изменится."
 	],
-	"Appearance reset.": [
-		"Внешний вид сброшен."
-	],
-	"Approve the code %1$s at %2$s": [
-		"Подтвердите код %1$s на странице %2$s"
-	],
-	"Approve the code %1$s on %2$s to connect.": [
-		"Подтвердите код %1$s на %2$s, чтобы подключиться."
-	],
-	"Approve the connection in your browser.": [
-		"Подтвердите подключение в браузере."
-	],
 	"Ask user": [
 		"Спросить пользователя"
-	],
-	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
-		"Необходимо указать хотя бы один параметр (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
 	],
 	"Automatic sidebar collapsing disabled.": [
 		"Автоматическое сворачивание боковой панели отключено."
@@ -242,23 +171,8 @@
 	"Automatic sidebar collapsing enabled.": [
 		"Автоматическое сворачивание боковой панели включено."
 	],
-	"Automatic site start on prompt disabled.": [
-		"Автоматический запуск сайта при запросе отключён."
-	],
-	"Automatic site start on prompt enabled.": [
-		"Автоматический запуск сайта при запросе включён."
-	],
 	"Back to email list": [
 		"Назад к списку писем"
-	],
-	"Batch notes": [
-		"Пакетные аннотации"
-	],
-	"Batch notes disabled.": [
-		"Пакетные аннотации отключены."
-	],
-	"Batch notes enabled.": [
-		"Пакетные аннотации включены."
 	],
 	"Billed monthly": [
 		"Ежемесячная оплата"
@@ -284,9 +198,6 @@
 	"Blue in Green": [
 		"Blue in Green"
 	],
-	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
-		"URL-адрес Blueprint, JSON-файл, папка, ZIP-архив или слаг из библиотеки Blueprint (см. \"studio blueprint list\")"
-	],
 	"Blueprint file…": [
 		"Файл Blueprint…"
 	],
@@ -296,12 +207,6 @@
 	"Blueprint preview": [
 		"Предварительный просмотр Blueprint"
 	],
-	"Blueprints, backups, and WordPress exports": [
-		"Blueprints, резервные копии и файлы экспорта WordPress"
-	],
-	"Browse Blueprints": [
-		"Просмотреть Blueprints"
-	],
 	"Browser could not load.": [
 		"Не удалось загрузить браузер."
 	],
@@ -310,9 +215,6 @@
 	],
 	"Browsing data cleared": [
 		"Данные браузера очищены"
-	],
-	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
-		"Создавайте и редактируйте сайты в чате. Используйте ИИ-кредиты WordPress.com или собственную подписку либо ключ API."
 	],
 	"Can’t see screenshots": [
 		"Не видит снимки экрана"
@@ -334,9 +236,6 @@
 	],
 	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
 		"Изменения отправлены, но сайт не удалось запустить. Подтвердите адрес электронной почты, а затем опубликуйте сайт ещё раз, чтобы повторить запуск."
-	],
-	"Changes to %s": [
-		"Изменения в %s"
 	],
 	"ChatGPT plan": [
 		"Тарифный план ChatGPT"
@@ -371,15 +270,6 @@
 	"Choose a Blueprint or backup": [
 		"Выберите Blueprint или резервную копию"
 	],
-	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
-		"Выберите папку сайта WordPress, JSON-файл Blueprint или ZIP-архив."
-	],
-	"Choose a blueprint, backup, export, or existing WordPress folder.": [
-		"Выберите Blueprint, резервную копию, файл экспорта или существующую папку WordPress."
-	],
-	"Choose a folder containing an existing WordPress site.": [
-		"Выберите папку с существующим сайтом WordPress."
-	],
 	"Choose a plan to make it live: %s": [
 		"Выберите тарифный план, чтобы сделать сайт рабочим: %s"
 	],
@@ -392,17 +282,8 @@
 	"Choose a site source": [
 		"Выберите источник сайта"
 	],
-	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
-		"Выберите сайт с помощью `--remote-site %s:<site>` (его ID или URL-адрес)."
-	],
 	"Choose a topic": [
 		"Выберите тему"
-	],
-	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
-		"Чтобы использовать источник, выберите пустую папку. Выбранная папка уже содержит сайт WordPress."
-	],
-	"Choose an existing WordPress folder, blueprint, backup, or export.": [
-		"Выберите существующую папку WordPress, Blueprint, резервную копию или файл экспорта."
 	],
 	"Choose color": [
 		"Выбрать цвет"
@@ -413,17 +294,11 @@
 	"Choose specific files": [
 		"Выбрать определённые файлы"
 	],
-	"Choose what powers chat in WordPress Studio.": [
-		"Выберите, на чём будет работать чат в WordPress Studio."
-	],
 	"Choose which live site this preview shows changes to.": [
 		"Выберите рабочий сайт, изменения которого показывает этот предварительный просмотр."
 	],
 	"Choose your plan.": [
 		"Выберите тарифный план."
-	],
-	"Choosing individual files requires a backup of this website.": [
-		"Для выбора отдельных файлов требуется резервная копия этого сайта."
 	],
 	"Claude subscription": [
 		"Подписка Claude"
@@ -452,12 +327,6 @@
 	"Close tabs to the right": [
 		"Закрыть вкладки справа"
 	],
-	"Collect annotations and send them together instead of one at a time.": [
-		"Собирать аннотации и отправлять их вместе, а не по одной."
-	],
-	"Color may be adapted for your theme.": [
-		"Цвет может быть адаптирован к вашей теме."
-	],
 	"Color picker": [
 		"Выбор цвета"
 	],
@@ -466,9 +335,6 @@
 	],
 	"Connect %s now?": [
 		"Подключить %s сейчас?"
-	],
-	"Connect AI providers": [
-		"Подключите ИИ-провайдеров"
 	],
 	"Connect Spacefast to publish sites.": [
 		"Подключите Spacefast, чтобы публиковать сайты."
@@ -485,9 +351,6 @@
 	"Connect to Spacefast": [
 		"Подключиться к Spacefast"
 	],
-	"Connect to an existing WordPress": [
-		"Подключиться к существующему сайту WordPress"
-	],
 	"Connect to an existing site": [
 		"Подключиться к существующему сайту"
 	],
@@ -497,20 +360,8 @@
 	"Connect to share previews": [
 		"Подключитесь, чтобы делиться предварительными просмотрами"
 	],
-	"Connect your WordPress": [
-		"Подключите свой сайт WordPress"
-	],
-	"Connected %s.": [
-		"Подключено: %s."
-	],
-	"Connected live site ID, or none": [
-		"ID подключённого рабочего сайта или none"
-	],
 	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
 		"При подключении существующего сайта текущее место публикации будет отключено от WordPress Studio. Его содержимое не изменится."
-	],
-	"Connecting to WordPress.com": [
-		"Подключение к WordPress.com"
 	],
 	"Continue on %s": [
 		"Продолжить на %s"
@@ -527,9 +378,6 @@
 	"Cotton Tail": [
 		"Cotton Tail"
 	],
-	"Could not capture the area. Your selection is kept. Try again.": [
-		"Не удалось захватить область. Выделение сохранено. Повторите попытку."
-	],
 	"Could not check Spacefast team access": [
 		"Не удалось проверить доступ команды Spacefast"
 	],
@@ -541,9 +389,6 @@
 	],
 	"Could not load %s sites.": [
 		"Не удалось загрузить сайты %s."
-	],
-	"Could not open DevTools": [
-		"Не удалось открыть инструменты разработки"
 	],
 	"Could not open Spacefast": [
 		"Не удалось открыть Spacefast"
@@ -560,32 +405,14 @@
 	"Could not reach Anthropic to verify the credential.": [
 		"Не удалось связаться с Anthropic для проверки учётных данных."
 	],
-	"Could not read the table prefix from wp-config.php": [
-		"Не удалось прочитать префикс таблиц из wp-config.php"
-	],
 	"Could not read your settings": [
 		"Не удалось прочитать настройки"
-	],
-	"Could not reset appearance. Please try again.": [
-		"Не удалось сбросить внешний вид. Повторите попытку."
 	],
 	"Could not reset interface. Please try again.": [
 		"Не удалось сбросить настройки интерфейса. Повторите попытку."
 	],
 	"Could not reset tips. Please try again.": [
 		"Не удалось сбросить подсказки. Повторите попытку."
-	],
-	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
-		"Не удалось задать для $table_prefix значение «%s» в wp-config.php."
-	],
-	"Could not take screenshot": [
-		"Не удалось создать снимок экрана"
-	],
-	"Could not update settings. Please try again.": [
-		"Не удалось изменить настройки. Повторите попытку."
-	],
-	"Could not update the admin bar setting. Please try again.": [
-		"Не удалось изменить настройку панели администратора. Повторите попытку."
 	],
 	"Could not update your local site from this preview. Please try again.": [
 		"Не удалось обновить локальный сайт из этого предварительного просмотра. Повторите попытку."
@@ -653,9 +480,6 @@
 	"Create a new WordPress": [
 		"Создать новый сайт WordPress"
 	],
-	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
-		"Создайте учётную запись или войдите, чтобы подключить свои сайты WordPress.com или Pressable."
-	],
 	"Create user": [
 		"Создать пользователя"
 	],
@@ -667,9 +491,6 @@
 	],
 	"Custom selection": [
 		"Выборочно"
-	],
-	"Data Liberation could not capture the source website": [
-		"Службе Data Liberation не удалось захватить исходный сайт"
 	],
 	"Database only": [
 		"Только база данных"
@@ -683,26 +504,17 @@
 	"Default": [
 		"По умолчанию"
 	],
-	"Default AI provider": [
-		"ИИ-провайдер по умолчанию"
-	],
 	"Default browser": [
 		"Браузер по умолчанию"
 	],
 	"Default code editor": [
 		"Редактор кода по умолчанию"
 	],
-	"Default hosting provider": [
-		"Хостинг-провайдер по умолчанию"
-	],
 	"Default image provider": [
 		"Провайдер изображений по умолчанию"
 	],
 	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
 		"Авто"
-	],
-	"Default terminal app": [
-		"Терминал по умолчанию"
 	],
 	"Delete %s": [
 		"Удалить %s"
@@ -712,9 +524,6 @@
 	],
 	"Delete a site to create a new one.": [
 		"Удалите сайт, чтобы создать новый."
-	],
-	"Delete annotation: %s": [
-		"Удалить аннотацию: %s"
 	],
 	"Delete plugin": [
 		"Удалить плагин"
@@ -746,17 +555,8 @@
 	"Destination": [
 		"Место публикации"
 	],
-	"Directory to write the static site to": [
-		"Каталог, в который будет записан статический сайт"
-	],
 	"Disable automatic sidebar collapsing": [
 		"Отключить автоматическое сворачивание боковой панели"
-	],
-	"Disable automatic site start on prompt": [
-		"Отключить автоматический запуск сайта при запросе"
-	],
-	"Disable batch notes": [
-		"Отключить пакетные аннотации"
 	],
 	"Discard changes?": [
 		"Отменить изменения?"
@@ -773,14 +573,8 @@
 	"Disconnect site…": [
 		"Отключить сайт…"
 	],
-	"Disconnected %s.": [
-		"Отключено: %s."
-	],
 	"Dismiss tip": [
 		"Скрыть подсказку"
-	],
-	"Do more with WordPress": [
-		"Расширьте возможности WordPress"
 	],
 	"Download WordPress Studio": [
 		"Скачать WordPress Studio"
@@ -788,17 +582,8 @@
 	"Download update": [
 		"Скачать обновление"
 	],
-	"Drop to add site": [
-		"Перетащите сюда, чтобы добавить сайт"
-	],
 	"Drop your file here": [
 		"Перетащите файл сюда"
-	],
-	"Edit annotation: %s": [
-		"Изменить аннотацию: %s"
-	],
-	"Email log": [
-		"Журнал электронной почты"
 	],
 	"Email log could not load.": [
 		"Не удалось загрузить журнал электронной почты."
@@ -806,23 +591,11 @@
 	"Emails sent by your site appear here.": [
 		"Здесь отображаются письма, отправленные вашим сайтом."
 	],
-	"Enable anonymous usage statistics": [
-		"Включить анонимную статистику использования"
-	],
 	"Enable automatic sidebar collapsing": [
 		"Включить автоматическое сворачивание боковой панели"
 	],
-	"Enable automatic site start on prompt": [
-		"Включить автоматический запуск сайта при запросе"
-	],
-	"Enable batch notes": [
-		"Включить пакетные аннотации"
-	],
 	"Ends on %s": [
 		"Действует до %s"
-	],
-	"Enter a folder name other than “.” or “..”.": [
-		"Введите имя папки, отличное от «.» и «..»."
 	],
 	"Enter a token from claude setup-token, not an API key.": [
 		"Введите токен из claude setup-token, а не API-ключ."
@@ -842,17 +615,8 @@
 	"Everything you need to build WordPress sites with Studio Code.": [
 		"Всё необходимое для создания сайтов WordPress с помощью Studio Code."
 	],
-	"Existing WordPress site": [
-		"Существующий сайт WordPress"
-	],
 	"Expand panel": [
 		"Развернуть панель"
-	],
-	"Export site as static HTML files": [
-		"Экспортировать сайт в виде статических HTML-файлов"
-	],
-	"External AI apps": [
-		"Внешние ИИ-приложения"
 	],
 	"Failed after %s": [
 		"Сбой через %s"
@@ -875,9 +639,6 @@
 	"Failed to export static site": [
 		"Не удалось экспортировать статический сайт"
 	],
-	"Failed to fetch Blueprint: HTTP %d": [
-		"Не удалось получить Blueprint: HTTP %d"
-	],
 	"Failed to find existing preview site in config": [
 		"Не удалось найти существующий сайт предварительного просмотра в конфигурации"
 	],
@@ -886,9 +647,6 @@
 	],
 	"Failed to initiate backup": [
 		"Не удалось запустить резервное копирование"
-	],
-	"Failed to load your %s sites": [
-		"Не удалось загрузить ваши сайты %s"
 	],
 	"Failed to load your Spacefast Spaces": [
 		"Не удалось загрузить ваши пространства Spacefast"
@@ -901,9 +659,6 @@
 	],
 	"Failed to set up WordPress": [
 		"Не удалось настроить WordPress"
-	],
-	"Feedback areas": [
-		"Области отзыва"
 	],
 	"Feedback sent": [
 		"Отзыв отправлен"
@@ -953,9 +708,6 @@
 	"Free": [
 		"Бесплатно"
 	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"Из многих — один.\nСила — в сообществе,\nради лучшего веба."
-	],
 	"Gemini API key": [
 		"API-ключ Gemini"
 	],
@@ -986,35 +738,17 @@
 	"Grok sign-in was declined.": [
 		"Вход через Grok отклонён."
 	],
-	"Hide admin bar": [
-		"Скрыть панель администратора"
-	],
-	"Hide admin bar by default": [
-		"Скрывать панель администратора по умолчанию"
-	],
 	"Hide chat when starting sites": [
 		"Скрывать чат при запуске сайтов"
 	],
-	"Hide device toolbar": [
-		"Скрыть панель устройств"
-	],
 	"Hide panel": [
 		"Скрыть панель"
-	],
-	"Hide recent chats": [
-		"Скрыть последние чаты"
-	],
-	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
-		"Скрывать панель администратора WordPress на локальных сайтах по умолчанию. Для отдельных сайтов это можно изменить в параметрах браузера."
 	],
 	"High": [
 		"Высокий"
 	],
 	"Hints": [
 		"Подсказки"
-	],
-	"Hosting providers": [
-		"Хостинг-провайдеры"
 	],
 	"Hostname of the preview site": [
 		"Имя хоста сайта предварительного просмотра"
@@ -1025,23 +759,14 @@
 	"How much should the model think?": [
 		"Насколько глубоко должна размышлять модель?"
 	],
-	"How to connect": [
-		"Способ подключения"
-	],
 	"Hue": [
 		"Оттенок"
-	],
-	"Image annotation": [
-		"Аннотация к изображению"
 	],
 	"Import a blueprint or backup": [
 		"Импортировать Blueprint или резервную копию"
 	],
 	"Import cancelled": [
 		"Импорт отменён"
-	],
-	"Include this chat’s transcript": [
-		"Приложить запись этого чата"
 	],
 	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
 		"Установите [Claude Code](https://code.claude.com/docs/en/setup), если он у вас ещё не установлен."
@@ -1094,9 +819,6 @@
 	"Learn about Spacefast": [
 		"Подробнее о Spacefast"
 	],
-	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
-		"Подробнее: <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
-	],
 	"Leave a note…": [
 		"Оставьте заметку…"
 	],
@@ -1132,9 +854,6 @@
 	],
 	"Local changes": [
 		"Локальные изменения"
-	],
-	"Log in or create account": [
-		"Войти или создать учётную запись"
 	],
 	"Log in to WordPress.com to sync sites.": [
 		"Войдите в WordPress.com, чтобы синхронизировать сайты."
@@ -1202,9 +921,6 @@
 	"Manage visibility on Spacefast.": [
 		"Управляйте видимостью в Spacefast."
 	],
-	"Manual MCP setup": [
-		"Ручная настройка MCP"
-	],
 	"Medium": [
 		"Средний"
 	],
@@ -1235,32 +951,20 @@
 	"New tab": [
 		"Новая вкладка"
 	],
-	"No design system is available for this theme.": [
-		"Для этой темы нет дизайн-системы."
-	],
 	"No files are available to choose.": [
 		"Нет файлов для выбора."
 	],
 	"No local server answered at %s. Check the address, and that your server is running.": [
 		"Локальный сервер по адресу %s не ответил. Проверьте адрес и убедитесь, что сервер запущен."
 	],
-	"No matching sites.": [
-		"Нет подходящих сайтов."
-	],
 	"No models found.": [
 		"Модели не найдены."
-	],
-	"No provider is connected.": [
-		"Ни один провайдер не подключён."
 	],
 	"No providers": [
 		"Нет провайдеров"
 	],
 	"No recipient": [
 		"Нет получателя"
-	],
-	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
-		"Число обработчиков PHP, ограничивающее количество запросов, которые сайт обслуживает одновременно (по умолчанию %d)"
 	],
 	"Off": [
 		"Выкл."
@@ -1277,9 +981,6 @@
 	"Only you and people you invite can view.": [
 		"Просматривать могут только вы и приглашённые вами пользователи."
 	],
-	"Open %s settings": [
-		"Открыть настройки: %s"
-	],
 	"Open Config File (dev only)": [
 		"Открыть файл конфигурации (только для разработки)"
 	],
@@ -1289,20 +990,11 @@
 	"Open Spacefast": [
 		"Открыть Spacefast"
 	],
-	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
-		"Откройте Spacefast в браузере. Убедитесь, что коды совпадают, затем подтвердите подключение."
-	],
-	"Open a project page to annotate.": [
-		"Откройте страницу проекта, чтобы добавить аннотации."
-	],
 	"Open a site or Blueprint": [
 		"Открыть сайт или Blueprint"
 	],
 	"Open documentation": [
 		"Открыть документацию"
-	],
-	"Open email log": [
-		"Открыть журнал электронной почты"
 	],
 	"Open on GitHub": [
 		"Открыть на GitHub"
@@ -1310,17 +1002,11 @@
 	"Open preview: %s": [
 		"Открыть предварительный просмотр: %s"
 	],
-	"Open the WordPress Studio app to add an existing WordPress folder.": [
-		"Откройте приложение WordPress Studio, чтобы добавить существующую папку WordPress."
-	],
 	"OpenAI API key": [
 		"API-ключ OpenAI"
 	],
 	"OpenAI rejected this API key. Check the key and try again.": [
 		"OpenAI отклонил этот API-ключ. Проверьте ключ и повторите попытку."
-	],
-	"OpenAI’s coding agent in the ChatGPT app.": [
-		"Агент для программирования от OpenAI в приложении ChatGPT."
 	],
 	"OpenRouter API key": [
 		"API-ключ OpenRouter"
@@ -1349,9 +1035,6 @@
 	"Other files": [
 		"Другие файлы"
 	],
-	"PHP workers must be a whole number from 1 to 64.": [
-		"Число обработчиков PHP должно быть целым числом от 1 до 64."
-	],
 	"Paid plan": [
 		"Платный тарифный план"
 	],
@@ -1360,9 +1043,6 @@
 	],
 	"Paste the token it prints. Usage counts against your Claude plan.": [
 		"Вставьте выведенный токен. Использование учитывается в рамках вашего тарифного плана Claude."
-	],
-	"Pending annotation": [
-		"Неотправленная аннотация"
 	],
 	"Performance audit": [
 		"Аудит производительности"
@@ -1384,9 +1064,6 @@
 	],
 	"Point or draw to suggest a change.": [
 		"Укажите или нарисуйте, чтобы предложить изменение."
-	],
-	"Point to something you’d like to change.": [
-		"Укажите то, что вы хотите изменить."
 	],
 	"Posts, pages, and settings": [
 		"Записи, страницы и настройки"
@@ -1448,9 +1125,6 @@
 	"Publish changes?": [
 		"Опубликовать изменения?"
 	],
-	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
-		"Публикуйте новые сайты или обновляйте существующие на WordPress.com или Pressable."
-	],
 	"Publish options could not be loaded.": [
 		"Не удалось загрузить параметры публикации."
 	],
@@ -1490,32 +1164,17 @@
 	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
 		"Публикация базы данных заменит изменения, внесённые на рабочем сайте, включая новые комментарии и заказы."
 	],
-	"Pull a WordPress.com or Pressable site to your local site": [
-		"Получить сайт WordPress.com или Pressable в ваш локальный сайт"
-	],
 	"Pull from live site…": [
 		"Получить с рабочего сайта…"
 	],
 	"Pull from preview…": [
 		"Получить из предварительного просмотра…"
 	],
-	"Pull only the database (keeps the local files)": [
-		"Получить только базу данных (локальные файлы сохраняются)"
-	],
-	"Pull preview": [
-		"Получить предварительный просмотр"
-	],
 	"Pull replaces your local copy. Update replaces the preview.": [
 		"«Получить» заменяет вашу локальную копию. «Обновить» заменяет предварительный просмотр."
 	],
 	"Pulling from this preview is unavailable for this account.": [
 		"Получение данных из этого предварительного просмотра недоступно для этой учётной записи."
-	],
-	"Pulling the preview replaces the changes made here.": [
-		"Получение предварительного просмотра заменит изменения, внесённые здесь."
-	],
-	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
-		"Отправить локальный сайт на сайт WordPress.com или опубликовать его на Spacefast"
 	],
 	"Read": [
 		"Прочитать"
@@ -1526,26 +1185,8 @@
 	"Receipts": [
 		"Квитанции"
 	],
-	"Recent chats": [
-		"Последние чаты"
-	],
-	"Recent chats hidden.": [
-		"Последние чаты скрыты."
-	],
-	"Recent chats shown.": [
-		"Последние чаты отображаются."
-	],
-	"Recent pages": [
-		"Последние страницы"
-	],
 	"Recommended": [
 		"Рекомендуемые"
-	],
-	"Remote environment: %s": [
-		"Удалённое окружение: %s"
-	],
-	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
-		"URL-адрес или ID удалённого сайта либо `<provider>[:<site>]` для сайта у другого провайдера, например `spacefast` для публикации статической копии на Spacefast"
 	],
 	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
 		"Удалить %s из WordPress Studio? Опубликованный сайт и ваш локальный WordPress не изменятся."
@@ -1574,17 +1215,11 @@
 	"Replace selected content": [
 		"Заменить выбранное содержимое"
 	],
-	"Replace the contents of a non-empty output directory": [
-		"Заменить содержимое непустого выходного каталога"
-	],
 	"Report an issue on GitHub": [
 		"Сообщить о проблеме на GitHub"
 	],
 	"Request a feature or report a bug.": [
 		"Предложите функцию или сообщите об ошибке."
-	],
-	"Reset folder name to match site name": [
-		"Сбросить имя папки в соответствии с названием сайта"
 	],
 	"Reset tips": [
 		"Сбросить подсказки"
@@ -1604,14 +1239,8 @@
 	"Restart WordPress Studio to finish updating.": [
 		"Перезапустите WordPress Studio, чтобы завершить обновление."
 	],
-	"Restore the default interface theme, accent color, intensity, and contrast.": [
-		"Восстановить исходные тему интерфейса, акцентный цвет, интенсивность и контрастность."
-	],
 	"Restricted": [
 		"Ограниченный доступ"
-	],
-	"Review the advanced settings to finish creating your site.": [
-		"Проверьте дополнительные настройки, чтобы завершить создание сайта."
 	],
 	"Rotate to landscape": [
 		"Повернуть в альбомную ориентацию"
@@ -1628,9 +1257,6 @@
 	"Run": [
 		"Выполнить"
 	],
-	"Run \"studio blueprint list\" to see available slugs.": [
-		"Выполните \"studio blueprint list\", чтобы увидеть доступные слаги."
-	],
 	"Run this in a terminal, then sign in with your Claude account:": [
 		"Выполните эту команду в терминале, а затем войдите с помощью учётной записи Claude:"
 	],
@@ -1642,9 +1268,6 @@
 	],
 	"Save annotation (Enter)": [
 		"Сохранить аннотацию (Enter)"
-	],
-	"Screenshots are available in the desktop app.": [
-		"Снимки экрана доступны в настольном приложении."
 	],
 	"Search models": [
 		"Поиск моделей"
@@ -1660,9 +1283,6 @@
 	],
 	"Select the files and folders to publish.": [
 		"Выберите файлы и папки для публикации."
-	],
-	"Selected area": [
-		"Выделенная область"
 	],
 	"Server address": [
 		"Адрес сервера"
@@ -1682,23 +1302,11 @@
 	"Share a preview or publish your site": [
 		"Поделитесь предварительным просмотром или опубликуйте сайт"
 	],
-	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
-		"Делитесь временной копией локального сайта с кем угодно. Срок действия сайта предварительного просмотра истекает, если он не обновляется около недели."
-	],
 	"Share a temporary preview link.": [
 		"Поделитесь временной ссылкой для предварительного просмотра."
 	],
-	"Share details (required)": [
-		"Подробности (обязательно)"
-	],
 	"Share ideas and report problems directly to the Studio team.": [
 		"Делитесь идеями и сообщайте о проблемах напрямую команде Studio."
-	],
-	"Show admin bar": [
-		"Показать панель администратора"
-	],
-	"Show admin bar by default": [
-		"Показывать панель администратора по умолчанию"
 	],
 	"Show chat beside the panel when starting a site.": [
 		"Показывать чат рядом с панелью при запуске сайта."
@@ -1706,26 +1314,14 @@
 	"Show chat when starting sites": [
 		"Показывать чат при запуске сайтов"
 	],
-	"Show device toolbar": [
-		"Показать панель устройств"
-	],
 	"Show or hide the panel beside your chat.": [
 		"Показать или скрыть панель рядом с чатом."
 	],
 	"Show panel": [
 		"Показать панель"
 	],
-	"Show whether a preview site or its local site changed since they were synced": [
-		"Показать, изменились ли сайт предварительного просмотра или его локальный сайт после синхронизации"
-	],
-	"Sign in at %s": [
-		"Войдите на странице %s"
-	],
 	"Sign in to create a preview link.": [
 		"Войдите, чтобы создать ссылку для предварительного просмотра."
-	],
-	"Sign in to get a one-time grant of free AI credits.": [
-		"Войдите, чтобы получить разовый пакет бесплатных ИИ-кредитов."
 	],
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"Войдите через ChatGPT или используйте API-ключ OpenAI."
@@ -1748,14 +1344,8 @@
 	"Sign out": [
 		"Выйти"
 	],
-	"Signing in took too long. Try again.": [
-		"Вход занял слишком много времени. Повторите попытку."
-	],
 	"Signing in was declined.": [
 		"Вход отклонён."
-	],
-	"Signing in was started again.": [
-		"Вход был начат заново."
 	],
 	"Site annotation is not available in the browser yet": [
 		"Аннотирование сайта пока недоступно в браузере"
@@ -1769,9 +1359,6 @@
 	"Site folder": [
 		"Папка сайта"
 	],
-	"Site folder is required.": [
-		"Необходимо указать папку сайта."
-	],
 	"Site imported, but the WordPress server failed to start: %s": [
 		"Сайт импортирован, но не удалось запустить сервер WordPress: %s"
 	],
@@ -1781,20 +1368,8 @@
 	"Sites could not be loaded. Check your internet connection and try again.": [
 		"Не удалось загрузить сайты. Проверьте подключение к Интернету и повторите попытку."
 	],
-	"Sites will start with chat.": [
-		"Сайты будут открываться с чатом."
-	],
-	"Sites will start with the panel expanded.": [
-		"Сайты будут открываться с развёрнутой панелью."
-	],
-	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
-		"Навыки дают ИИ-агентам инструкции по разработке в WordPress. Изменения здесь применяются ко всем существующим сайтам и задают значения по умолчанию для новых сайтов."
-	],
 	"Some destinations could not be loaded": [
 		"Не удалось загрузить некоторые места публикации"
-	],
-	"Source is a temporary preview site.": [
-		"Источник — временный сайт предварительного просмотра."
 	],
 	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
 		"Spacefast ещё применяет изменение видимости. Проверьте доступ в Spacefast."
@@ -1802,20 +1377,8 @@
 	"Spacefast sign-in was declined.": [
 		"Вход в Spacefast отклонён."
 	],
-	"Split view": [
-		"Разделённый вид"
-	],
-	"Start building with free AI credits.": [
-		"Начните создавать с бесплатными ИИ-кредитами."
-	],
 	"Start from": [
 		"Начать с"
-	],
-	"Start here": [
-		"Начните здесь"
-	],
-	"Start signing in again.": [
-		"Начните вход заново."
 	],
 	"Start signing in to Spacefast again.": [
 		"Начните вход в Spacefast заново."
@@ -1832,17 +1395,11 @@
 	"Start signing in with OpenRouter again.": [
 		"Начните вход через OpenRouter заново."
 	],
-	"Start sites with chat": [
-		"Открывать сайты с чатом"
-	],
 	"Start this site.": [
 		"Запустите этот сайт."
 	],
 	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
 		"Запустите сервер моделей хотя бы с одной моделью, а затем введите адрес, на котором он работает. Studio предложит модели, которые он предоставляет."
-	],
-	"Starting chat…": [
-		"Запуск чата…"
 	],
 	"Static export failed: %s": [
 		"Не удалось выполнить статический экспорт: %s"
@@ -1852,12 +1409,6 @@
 	],
 	"Stop a site to start another.": [
 		"Остановите сайт, чтобы запустить другой."
-	],
-	"Stop annotating": [
-		"Завершить аннотирование"
-	],
-	"Stop annotating. Your notes will be kept.": [
-		"Завершить аннотирование. Ваши заметки сохранятся."
 	],
 	"Studio Cloud": [
 		"Studio Cloud"
@@ -1871,15 +1422,6 @@
 	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
 		"Studio не может определить, редактировал ли кто-нибудь %s. При обновлении предварительного просмотра он будет заменён вашим локальным сайтом."
 	],
-	"Studio was updated, and the site \"%s\" could not be started again.": [
-		"Studio было обновлено, и сайт «%s» не удалось запустить снова."
-	],
-	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
-		"phpMyAdmin в Studio поддерживает только SQLite. Для внешней базы данных MySQL используйте отдельный клиент."
-	],
-	"Supported files: %s.": [
-		"Поддерживаемые файлы: %s."
-	],
 	"Swing Time": [
 		"Swing Time"
 	],
@@ -1889,23 +1431,11 @@
 	"Take Five": [
 		"Take Five"
 	],
-	"Taking screenshot…": [
-		"Создание снимка экрана…"
-	],
 	"Taxonomist": [
 		"Таксономист"
 	],
 	"Team": [
 		"Команда"
-	],
-	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
-		"Спасибо, что помогаете улучшить WordPress Studio. Идентификатор вашего отзыва: <id>%s</id>."
-	],
-	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
-		"Этот тип файла не поддерживается. Выберите Blueprint, резервную копию WordPress или XML-файл экспорта."
-	],
-	"That sign-in was for another attempt. Try again.": [
-		"Этот вход относился к другой попытке. Повторите попытку."
 	],
 	"The GitHub sign-in expired. Try again.": [
 		"Срок действия входа через GitHub истёк. Повторите попытку."
@@ -1925,14 +1455,8 @@
 	"The default browser for your sites.": [
 		"Браузер по умолчанию для ваших сайтов."
 	],
-	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
-		"Первое получение сайта должно включать его файлы. Сначала получите весь сайт, а затем можно получать только базу данных."
-	],
 	"The full WordPress, with a domain.": [
 		"Полноценный WordPress с доменом."
-	],
-	"The live site must be a qualifying connected site of this local site.": [
-		"Рабочий сайт должен быть подходящим подключённым сайтом этого локального сайта."
 	],
 	"The local server at %s isn’t answering. Start it, then send your message again.": [
 		"Локальный сервер по адресу %s не отвечает. Запустите его, а затем отправьте сообщение ещё раз."
@@ -1943,20 +1467,8 @@
 	"The local server refused the API key. Check the key, and connect again.": [
 		"Локальный сервер отклонил API-ключ. Проверьте ключ и подключитесь снова."
 	],
-	"The output directory %s is not empty.": [
-		"Выходной каталог %s не пуст."
-	],
-	"The output directory cannot be inside the site folder or contain it.": [
-		"Выходной каталог не может находиться внутри папки сайта или содержать её."
-	],
 	"The preview site could not be built from the archive.": [
 		"Не удалось собрать сайт предварительного просмотра из архива."
-	],
-	"The preview site did not become ready within the timeout.": [
-		"Сайт предварительного просмотра не был готов в течение отведённого времени."
-	],
-	"The preview site has no preview link.": [
-		"У сайта предварительного просмотра нет ссылки для просмотра."
 	],
 	"The requested site is unavailable.": [
 		"Запрошенный сайт недоступен."
@@ -1973,14 +1485,8 @@
 	"The visibility change could not be applied. Check access on Spacefast.": [
 		"Не удалось применить изменение видимости. Проверьте доступ в Spacefast."
 	],
-	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
-		"Правки файлов темы не отобразятся. Ваши изменения в файлах темы %s не учитываются: в этом предварительном просмотре используется оригинальная копия темы с WordPress.com. Вносите их в редакторе сайта или в дочерней теме, чтобы видеть их в предварительном просмотре."
-	],
 	"Themes": [
 		"Темы"
-	],
-	"Then add this configuration to your app.": [
-		"Затем добавьте эту конфигурацию в своё приложение."
 	],
 	"Thinking": [
 		"Размышления"
@@ -2006,32 +1512,14 @@
 	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
 		"В этой учётной записи Grok не осталось кредитов. Пополните кредиты или оформите SuperGrok на grok.com."
 	],
-	"This ZIP could not be read. Check that it is a valid zip file.": [
-		"Не удалось прочитать этот ZIP-файл. Убедитесь, что это допустимый ZIP-архив."
-	],
-	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
-		"Не удалось использовать этот ZIP-файл. Убедитесь, что он содержит допустимый файл blueprint.json на верхнем уровне или внутри одной вложенной папки, и повторите попытку."
-	],
-	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
-		"Эта резервная копия содержит SQL-файлы, имена которых отличаются только регистром букв: «%1$s» и «%2$s». Устраните конфликт имён на исходном сайте, затем создайте новую резервную копию и повторите попытку."
-	],
-	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
-		"Это может занять несколько минут. WordPress Studio снова откроется автоматически после установки обновления."
-	],
 	"This destination cannot create a site from this panel yet.": [
 		"В этом месте публикации пока нельзя создать сайт из этой панели."
-	],
-	"This email is gone.": [
-		"Это письмо больше не существует."
 	],
 	"This file took too long to load. Please try again or choose another file.": [
 		"Загрузка этого файла заняла слишком много времени. Повторите попытку или выберите другой файл."
 	],
 	"This folder is already associated with another Studio site. Choose a different local folder.": [
 		"Эта папка уже связана с другим сайтом Studio. Выберите другую локальную папку."
-	],
-	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
-		"Эта папка уже связана с другим сайтом Studio. Выберите другое название сайта или другую локальную папку."
 	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"Это ключ Anthropic. Добавьте его в Anthropic."
@@ -2051,23 +1539,8 @@
 	"This replaces your local site with the preview. Any local changes will be lost.": [
 		"Ваш локальный сайт будет заменён предварительным просмотром. Все локальные изменения будут потеряны."
 	],
-	"This site and its preview both changed": [
-		"Изменились и этот сайт, и его предварительный просмотр"
-	],
-	"This site has changes its preview doesn't": [
-		"На этом сайте есть изменения, которых нет в его предварительном просмотре"
-	],
 	"This site is no longer available in WordPress Studio.": [
 		"Этот сайт больше не доступен в WordPress Studio."
-	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"Этот сайт не готов к запуску. %s Повторно выполните `studio pull`, чтобы завершить получение, или `studio delete`, чтобы удалить сайт."
-	],
-	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
-		"Размер этого сайта превышает %d ГБ, поэтому опубликовать его обратно на WordPress.com может не получиться. Вместо этого опубликуйте меньшую выборку файлов."
-	],
-	"This site isn't one of your WordPress.com or Pressable sites.": [
-		"Этот сайт не входит в число ваших сайтов WordPress.com или Pressable."
 	],
 	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
 		"Этому сайту нужен тарифный план хостинга, поддерживающий получение данных в WordPress Studio."
@@ -2090,26 +1563,11 @@
 	"Try downloading the update again.": [
 		"Попробуйте скачать обновление ещё раз."
 	],
-	"Try starting the chat again, or open your site.": [
-		"Попробуйте снова запустить чат или откройте сайт."
-	],
 	"Twice the CPU for faster builds": [
 		"Вдвое больше мощности ЦП для более быстрого создания сайтов"
 	],
-	"URL the static site will be hosted at. Links are root-relative when omitted.": [
-		"URL-адрес, по которому будет размещён статический сайт. Если не указан, ссылки будут относительными от корня."
-	],
-	"Unable to open this folder.": [
-		"Не удаётся открыть эту папку."
-	],
-	"Unable to open this source.": [
-		"Не удаётся открыть этот источник."
-	],
 	"Unknown level %1$s. Choose one of: %2$s.": [
 		"Неизвестный уровень %1$s. Выберите один из вариантов: %2$s."
-	],
-	"Unknown provider %1$s. Choose one of: %2$s.": [
-		"Неизвестный провайдер %1$s. Выберите один из следующих: %2$s."
 	],
 	"Unlimited sites, 5 running at once": [
 		"Неограниченное число сайтов, одновременно работают 5"
@@ -2177,12 +1635,6 @@
 	"Usage is paid with your OpenRouter credits.": [
 		"Использование оплачивается вашими кредитами OpenRouter."
 	],
-	"Use /connect %1$s to connect %2$s again.": [
-		"Используйте /connect %1$s, чтобы снова подключить %2$s."
-	],
-	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
-		"Используйте Alt+Shift+Стрелка влево или вправо, чтобы переместить эту вкладку."
-	],
 	"Use Blueprint": [
 		"Использовать Blueprint"
 	],
@@ -2192,23 +1644,14 @@
 	"Use Muse models with your Meta API key.": [
 		"Используйте модели Muse с вашим API-ключом Meta."
 	],
-	"Use WordPress Studio with your agents": [
-		"Используйте WordPress Studio со своими агентами"
-	],
 	"Use an Anthropic API key or a Claude subscription token.": [
 		"Используйте API-ключ Anthropic или токен подписки Claude."
-	],
-	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
-		"Используйте HTTPS-ссылку на резервную копию с поддерживаемого сайта — файл zip или tar.gz размером менее 1 ГБ. Проверьте подключение и повторите попытку."
 	],
 	"Use models from many labs with your OpenRouter credits.": [
 		"Используйте модели разных разработчиков за кредиты OpenRouter."
 	],
 	"Use the models a server you run serves, such as on this computer.": [
 		"Используйте модели, которые предоставляет ваш собственный сервер, например на этом компьютере."
-	],
-	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
-		"Используйте предпочитаемого ИИ-агента, чтобы создавать сайты, вносить изменения и проверять результат. Установите плагин WordPress Studio, чтобы предоставить ему доступ к вашим локальным сайтам."
 	],
 	"Using ChatGPT plan": [
 		"Используется тарифный план ChatGPT"
@@ -2234,9 +1677,6 @@
 	"Visibility settings are only available for WordPress.com sites.": [
 		"Настройки видимости доступны только для сайтов WordPress.com."
 	],
-	"Visit previews": [
-		"Открыть предварительные просмотры"
-	],
 	"Visitors see a coming soon page": [
 		"Посетители видят страницу «Скоро открытие»"
 	],
@@ -2246,20 +1686,8 @@
 	"WP admin": [
 		"WP Admin"
 	],
-	"Waiting for %s": [
-		"Ожидание: %s"
-	],
-	"Waiting for approval…": [
-		"Ожидание подтверждения…"
-	],
-	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
-		"Ожидание браузера. Если он не может связаться с этим компьютером, вставьте адрес, на котором он остановился:"
-	],
 	"What to replace": [
 		"Что заменить"
-	],
-	"What would you like to open?": [
-		"Что вы хотите открыть?"
 	],
 	"Where your server listens, as it prints it when it starts.": [
 		"Адрес, на котором работает ваш сервер, — в том виде, в каком сервер выводит его при запуске."
@@ -2269,15 +1697,6 @@
 	],
 	"WordPress Studio CLI for terminal": [
 		"WordPress Studio CLI для терминала"
-	],
-	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
-		"WordPress Studio можно будет закрыть после завершения синхронизации. Выход сейчас прервёт её, и сайт может остаться неполным."
-	],
-	"WordPress Studio could not download this backup.": [
-		"WordPress Studio не удалось скачать эту резервную копию."
-	],
-	"WordPress Studio could not open the email folder.": [
-		"WordPress Studio не удалось открыть папку с письмами."
 	],
 	"WordPress Studio could not open the folder. Please try again.": [
 		"WordPress Studio не удалось открыть папку. Повторите попытку."
@@ -2303,20 +1722,8 @@
 	"WordPress Studio will create a local copy of this site in an empty folder.": [
 		"WordPress Studio создаст локальную копию этого сайта в пустой папке."
 	],
-	"WordPress Studio will create a site from this blueprint in an empty folder.": [
-		"WordPress Studio создаст сайт на основе этого Blueprint в пустой папке."
-	],
-	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
-		"WordPress Studio создаст сайт в пустой папке и импортирует этот файл экспорта WordPress."
-	],
 	"WordPress Studio will restore this backup into an empty folder.": [
 		"WordPress Studio восстановит эту резервную копию в пустую папку."
-	],
-	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
-		"WordPress Studio будет использовать этот сайт WordPress на текущем месте. Файлы не будут перемещены."
-	],
-	"WordPress export": [
-		"Файл экспорта WordPress"
 	],
 	"WordPress set up": [
 		"WordPress настроен"
@@ -2330,20 +1737,8 @@
 	"WordPress.com hosting": [
 		"Хостинг WordPress.com"
 	],
-	"Worked for %s": [
-		"Время работы: %s"
-	],
-	"Working for %s": [
-		"Работа: %s"
-	],
-	"Workspace navigation": [
-		"Навигация по рабочей области"
-	],
 	"Yearly, save 20%": [
 		"Ежегодно, экономия 20%"
-	],
-	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
-		"Можно прикрепить не более %d изображений. Отправьте или удалите аннотацию, прежде чем захватывать другую область."
 	],
 	"You can close this tab and return to WordPress Studio.": [
 		"Вы можете закрыть эту вкладку и вернуться в WordPress Studio."
@@ -2356,12 +1751,6 @@
 	],
 	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
 		"Вы достигли лимита использования тарифного плана Grok. Проверьте использование на grok.com."
-	],
-	"You stopped after %s": [
-		"Вы остановили через %s"
-	],
-	"You're not logged in to WordPress.com. Log in now?": [
-		"Вы не вошли в WordPress.com. Войти сейчас?"
 	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"Ваш тарифный план ChatGPT нельзя использовать в WordPress Studio."
@@ -2404,9 +1793,6 @@
 	"Your plan has ended.": [
 		"Срок действия вашего тарифного плана истёк."
 	],
-	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
-		"Ваш предварительный просмотр перенесён на WordPress.com, поэтому его ссылка изменилась. Новая ссылка: %s"
-	],
 	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
 		"Выбранные файлы недоступны. Повторите проверку резервной копии или выберите другой вариант, чтобы продолжить."
 	],
@@ -2416,14 +1802,8 @@
 	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
 		"Ваши настройки были сохранены более новой версией Studio CLI. Обновите WordPress Studio, чтобы и дальше их использовать."
 	],
-	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
-		"Ваш сайт изменился с момента последнего обновления предварительного просмотра «%s». При публикации будет отправлен текущий локальный сайт, включая изменения, которых нет в этом предварительном просмотре."
-	],
 	"Your site is ready to publish": [
 		"Ваш сайт готов к публикации"
-	],
-	"Your site was created, but the AI chat could not start.": [
-		"Сайт создан, но не удалось запустить ИИ-чат."
 	],
 	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
 		"Ваши сайты и Studio Code на вашей собственной машине, доступной из любого браузера. Войдите с помощью учётной записи WordPress.com, чтобы открыть рабочую область."
@@ -2436,9 +1816,6 @@
 	],
 	"Your team only allows restricted sites.": [
 		"Ваша команда разрешает только сайты с ограниченным доступом."
-	],
-	"Your unsaved changes will be lost.": [
-		"Несохранённые изменения будут потеряны."
 	],
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"Ваша рабочая область работает на тарифном плане Studio Cloud. Оформление заказа откроется на WordPress.com, а рабочая область будет готова примерно через минуту после оплаты."

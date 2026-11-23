@@ -11,12 +11,6 @@
 	"%1$d of %2$d site running at once": [
 		"同時執行 %1$d / %2$d 個網站"
 	],
-	"%1$dh %2$dm": [
-		"%1$d 小時 %2$d 分鐘"
-	],
-	"%1$s +%2$d": [
-		"%1$s +%2$d"
-	],
 	"%1$s / %2$s per million tokens": [
 		"每百萬權杖 %1$s / %2$s"
 	],
@@ -32,9 +26,6 @@
 	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
 		"%1$s 無法更新 WordPress Studio 外掛程式：%2$s"
 	],
-	"%1$s screenshot %2$d": [
-		"「%1$s」螢幕截圖 %2$d"
-	],
 	"%1$s · %2$s context": [
 		"%1$s · %2$s 上下文"
 	],
@@ -43,9 +34,6 @@
 	],
 	"%d B": [
 		"%d B"
-	],
-	"%d annotation ready to send": [
-		"%d 個註解可供傳送"
 	],
 	"%d image": [
 		"%d 張圖片"
@@ -62,20 +50,11 @@
 	"%s billed yearly": [
 		"按年計費 %s"
 	],
-	"%s is no longer installed. Choose another browser in Settings.": [
-		"已不再安裝 %s。請在「設定」中選擇其他瀏覽器。"
-	],
-	"%s isn’t installed on this computer.": [
-		"這台電腦未安裝 %s。"
-	],
 	"%s models": [
 		"%s 模型"
 	],
 	"%s only makes previews.": [
 		"%s 只能建立預覽。"
-	],
-	"%s preview is ready": [
-		"「%s」的預覽已準備就緒"
 	],
 	"%s · Live site": [
 		"%s · 已上線的網站"
@@ -119,26 +98,11 @@
 	"Add a domain": [
 		"新增網域"
 	],
-	"Add annotation to batch": [
-		"將註解加入批次"
-	],
-	"Add or delete this annotation before starting another.": [
-		"請先新增或刪除此註解，再開始新的註解。"
-	],
 	"Address is required": [
 		"位址為必填"
 	],
 	"Address to listen on": [
 		"要監聽的位址"
-	],
-	"Admin bar hidden by default.": [
-		"已預設隱藏管理工具列。"
-	],
-	"Admin bar shown by default.": [
-		"已預設顯示管理工具列。"
-	],
-	"Agent apps": [
-		"代理程式應用程式"
 	],
 	"Agents": [
 		"代理程式"
@@ -152,17 +116,8 @@
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"登入時，請允許 WordPress Studio 使用你的 ChatGPT 方案。"
 	],
-	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
-		"更新 WordPress Studio CLI 時發生錯誤，請再試一次。"
-	],
-	"Annotation is available for design systems created by Studio Code.": [
-		"註解功能適用於 Studio Code 建立的設計系統。"
-	],
 	"Annotation tools": [
 		"註解工具"
-	],
-	"Anonymous usage statistics enabled.": [
-		"已啟用匿名使用統計資料。"
 	],
 	"Another operation is in progress.": [
 		"另一項作業正在進行中。"
@@ -203,29 +158,8 @@
 	"Audit performance": [
 		"稽核效能"
 	],
-	"Automatic sidebar collapsing disabled.": [
-		"已停用側邊欄自動收合。"
-	],
-	"Automatic sidebar collapsing enabled.": [
-		"已啟用側邊欄自動收合。"
-	],
-	"Automatic site start on prompt disabled.": [
-		"已停用傳送提示時自動啟動網站。"
-	],
-	"Automatic site start on prompt enabled.": [
-		"已啟用傳送提示時自動啟動網站。"
-	],
 	"Back to email list": [
 		"返回電子郵件清單"
-	],
-	"Batch notes": [
-		"批次註解"
-	],
-	"Batch notes disabled.": [
-		"已停用批次註解。"
-	],
-	"Batch notes enabled.": [
-		"已啟用批次註解。"
 	],
 	"Billed monthly": [
 		"按月計費"
@@ -251,9 +185,6 @@
 	"Blue in Green": [
 		"Blue in Green"
 	],
-	"Blueprint file…": [
-		"藍圖檔案…"
-	],
 	"Blueprint loaded": [
 		"藍圖已載入"
 	],
@@ -268,9 +199,6 @@
 	],
 	"Browser options": [
 		"瀏覽器選項"
-	],
-	"Browsing data cleared": [
-		"已清除瀏覽資料"
 	],
 	"Can’t see screenshots": [
 		"無法查看螢幕截圖"
@@ -308,14 +236,8 @@
 	"Check again": [
 		"再次檢查"
 	],
-	"Check your internet connection and try again.": [
-		"請檢查網際網路連線，然後再試一次。"
-	],
 	"Checking access…": [
 		"正在檢查存取權…"
-	],
-	"Checking for updates…": [
-		"正在檢查更新…"
 	],
 	"Checking whether you can pull from this preview…": [
 		"正在檢查你是否可以從此預覽提取…"
@@ -325,9 +247,6 @@
 	],
 	"Choose a Blueprint or backup": [
 		"選擇藍圖或備份"
-	],
-	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
-		"選擇 WordPress 網站資料夾、藍圖 JSON 檔案或 ZIP 套件。"
 	],
 	"Choose a folder containing an existing WordPress site.": [
 		"選擇包含現有 WordPress 網站的資料夾。"
@@ -371,9 +290,6 @@
 	"Click anything on the page to leave a note": [
 		"按一下頁面上的任何內容即可留下註解"
 	],
-	"Close %s": [
-		"關閉「%s」"
-	],
 	"Close all tabs": [
 		"關閉所有分頁"
 	],
@@ -382,12 +298,6 @@
 	],
 	"Close tab": [
 		"關閉分頁"
-	],
-	"Close tabs to the right": [
-		"關閉右側分頁"
-	],
-	"Collect annotations and send them together instead of one at a time.": [
-		"收集註解後一次傳送，而不是逐一傳送。"
 	],
 	"Connect %s first.": [
 		"請先連結 %s。"
@@ -404,9 +314,6 @@
 	"Connect to %s": [
 		"連結至 %s"
 	],
-	"Connect to an existing WordPress": [
-		"連結至現有的 WordPress"
-	],
 	"Connect to an existing site": [
 		"連結至現有網站"
 	],
@@ -415,9 +322,6 @@
 	],
 	"Connect to share previews": [
 		"連結以分享預覽"
-	],
-	"Connect your WordPress": [
-		"連結你的 WordPress"
 	],
 	"Connected %s.": [
 		"已連結 %s。"
@@ -473,23 +377,8 @@
 	"Could not read your settings": [
 		"無法讀取你的設定"
 	],
-	"Could not reset appearance. Please try again.": [
-		"無法重設外觀，請再試一次。"
-	],
-	"Could not reset interface. Please try again.": [
-		"無法重設介面，請再試一次。"
-	],
-	"Could not reset tips. Please try again.": [
-		"無法重設提示，請再試一次。"
-	],
 	"Could not take screenshot": [
 		"無法擷取螢幕截圖"
-	],
-	"Could not update settings. Please try again.": [
-		"無法更新設定，請再試一次。"
-	],
-	"Could not update the admin bar setting. Please try again.": [
-		"無法更新管理工具列設定，請再試一次。"
 	],
 	"Could not update your local site from this preview. Please try again.": [
 		"無法從此預覽更新你的本機網站。請再試一次。"
@@ -499,9 +388,6 @@
 	],
 	"Could not watch for your new site. Please try again.": [
 		"無法偵測你的新網站。請再試一次。"
-	],
-	"Couldn't load providers.": [
-		"無法載入提供者。"
 	],
 	"Couldn’t change how much the model thinks": [
 		"無法變更模型的思考程度"
@@ -556,9 +442,6 @@
 	],
 	"Create a new WordPress": [
 		"建立新的 WordPress"
-	],
-	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
-		"建立帳號或登入，以連結你的 WordPress.com 或 Pressable 網站。"
 	],
 	"Create user": [
 		"建立使用者"
@@ -635,20 +518,8 @@
 	"Design system could not load.": [
 		"無法載入設計系統。"
 	],
-	"Design systems are available for block themes.": [
-		"設計系統適用於區塊佈景主題。"
-	],
 	"Destination": [
 		"目的地"
-	],
-	"Disable automatic sidebar collapsing": [
-		"停用側邊欄自動收合"
-	],
-	"Disable automatic site start on prompt": [
-		"停用傳送提示時自動啟動網站"
-	],
-	"Disable batch notes": [
-		"停用批次註解"
 	],
 	"Discard changes?": [
 		"要捨棄變更嗎？"
@@ -662,23 +533,11 @@
 	"Disconnect site…": [
 		"中斷網站連結…"
 	],
-	"Dismiss tip": [
-		"關閉提示"
-	],
-	"Do more with WordPress": [
-		"使用 WordPress 完成更多工作"
-	],
 	"Download WordPress Studio": [
 		"下載 WordPress Studio"
 	],
 	"Download update": [
 		"下載更新"
-	],
-	"Drop to add site": [
-		"放開以新增網站"
-	],
-	"Drop your file here": [
-		"將檔案拖放至此處"
 	],
 	"Edit annotation: %s": [
 		"編輯註解：%s"
@@ -688,18 +547,6 @@
 	],
 	"Email log could not load.": [
 		"無法載入電子郵件記錄。"
-	],
-	"Enable anonymous usage statistics": [
-		"啟用匿名使用統計資料"
-	],
-	"Enable automatic sidebar collapsing": [
-		"啟用側邊欄自動收合"
-	],
-	"Enable automatic site start on prompt": [
-		"啟用傳送提示時自動啟動網站"
-	],
-	"Enable batch notes": [
-		"啟用批次註解"
 	],
 	"Ends on %s": [
 		"將於 %s 結束"
@@ -725,9 +572,6 @@
 	"External AI apps": [
 		"外部 AI 應用程式"
 	],
-	"Failed after %s": [
-		"%s 後失敗"
-	],
 	"Failed to back up the remote site": [
 		"無法備份遠端網站"
 	],
@@ -739,9 +583,6 @@
 	],
 	"Failed to check import status": [
 		"無法檢查匯入狀態"
-	],
-	"Failed to check the preview site": [
-		"無法檢查預覽網站"
 	],
 	"Failed to create the %s site": [
 		"無法建立 %s 網站"
@@ -773,12 +614,6 @@
 	"Failed to set up WordPress": [
 		"無法設定 WordPress"
 	],
-	"Feedback areas": [
-		"意見回饋範圍"
-	],
-	"Feedback sent": [
-		"已傳送意見回饋"
-	],
 	"Feedback type": [
 		"意見回饋類型"
 	],
@@ -790,9 +625,6 @@
 	],
 	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
 		"請在 WordPress.com 分頁中完成結帳，然後回到這裡。方案啟用後，你的工作區就會自動完成設定。"
-	],
-	"First use": [
-		"首次使用"
 	],
 	"Flush cache": [
 		"清除快取"
@@ -808,9 +640,6 @@
 	],
 	"Free": [
 		"免費"
-	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"眾人成一器，\n社群聚力量，\n共創好網路。"
 	],
 	"Gemini API key": [
 		"Gemini API 金鑰"
@@ -839,12 +668,6 @@
 	"Grok sign-in was declined.": [
 		"Grok 登入遭拒。"
 	],
-	"Hide admin bar": [
-		"隱藏管理工具列"
-	],
-	"Hide admin bar by default": [
-		"預設隱藏管理工具列"
-	],
 	"Hide device toolbar": [
 		"隱藏裝置工具列"
 	],
@@ -853,9 +676,6 @@
 	],
 	"Hide recent chats": [
 		"隱藏最近的聊天"
-	],
-	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
-		"在本機網站上預設隱藏 WordPress 管理工具列。可在「瀏覽器選項」中為個別網站變更此設定。"
 	],
 	"High": [
 		"高"
@@ -884,14 +704,8 @@
 	"Import a blueprint or backup": [
 		"匯入藍圖或備份"
 	],
-	"Import cancelled": [
-		"已取消匯入"
-	],
 	"Import site": [
 		"匯入網站"
-	],
-	"Include this chat’s transcript": [
-		"附上此聊天的記錄"
 	],
 	"Inspect design": [
 		"檢查設計"
@@ -910,9 +724,6 @@
 	],
 	"Interface reset.": [
 		"介面已重設。"
-	],
-	"Interface theme": [
-		"介面主題"
 	],
 	"Invited people": [
 		"受邀人員"
@@ -970,9 +781,6 @@
 	],
 	"Loading destinations": [
 		"正在載入目的地"
-	],
-	"Loading file…": [
-		"正在載入檔案…"
 	],
 	"Loading models…": [
 		"正在載入模型…"
@@ -1070,17 +878,11 @@
 	"More room and more AI, for building every day.": [
 		"更多空間、更多 AI，滿足每天的建置需求。"
 	],
-	"New WordPress Studio Site": [
-		"新增 WordPress Studio 網站"
-	],
 	"New site \"%s\"": [
 		"新網站「%s」"
 	],
 	"New tab": [
 		"新分頁"
-	],
-	"No design system is available for this theme.": [
-		"此佈景主題沒有可用的設計系統。"
 	],
 	"No files are available to choose.": [
 		"沒有可供選擇的檔案。"
@@ -1088,14 +890,8 @@
 	"No local server answered at %s. Check the address, and that your server is running.": [
 		"%s 沒有本機伺服器回應。請檢查位址，並確認你的伺服器正在執行。"
 	],
-	"No matching sites.": [
-		"沒有相符的網站。"
-	],
 	"No models found.": [
 		"找不到模型。"
-	],
-	"No recipient": [
-		"沒有收件者"
 	],
 	"Off": [
 		"關閉"
@@ -1118,14 +914,8 @@
 	"Open Config File (dev only)": [
 		"開啟設定檔 (僅限開發)"
 	],
-	"Open Folder…": [
-		"開啟資料夾…"
-	],
 	"Open Spacefast": [
 		"開啟 Spacefast"
-	],
-	"Open a project page to annotate.": [
-		"開啟專案頁面以加上註解。"
 	],
 	"Open a site or Blueprint": [
 		"開啟網站或藍圖"
@@ -1187,9 +977,6 @@
 	"Paste the token it prints. Usage counts against your Claude plan.": [
 		"貼上它輸出的權杖。用量會計入你的 Claude 方案。"
 	],
-	"Pending annotation": [
-		"待處理的註解"
-	],
 	"Performance audit": [
 		"效能稽核"
 	],
@@ -1213,9 +1000,6 @@
 	],
 	"Preview browser controls": [
 		"預覽瀏覽器控制項"
-	],
-	"Preview creation cancelled": [
-		"已取消建立預覽"
 	],
 	"Preview creation is temporarily unavailable for your account.": [
 		"你的帳號暫時無法建立預覽。"
@@ -1289,29 +1073,17 @@
 	"Published site actions": [
 		"已發佈網站的動作"
 	],
-	"Publishing cancelled": [
-		"已取消發佈"
-	],
-	"Publishing changes…": [
-		"正在發佈變更…"
-	],
 	"Publishing requires a supported plan.": [
 		"發佈需要支援的方案。"
 	],
 	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
 		"發佈資料庫會取代在已上線網站上所做的變更，包括新的留言或訂單。"
 	],
-	"Pull a WordPress.com or Pressable site to your local site": [
-		"將 WordPress.com 或 Pressable 網站提取至你的本機網站"
-	],
 	"Pull from live site…": [
 		"從已上線的網站提取…"
 	],
 	"Pull from preview…": [
 		"從預覽提取…"
-	],
-	"Pull only the database (keeps the local files)": [
-		"僅提取資料庫 (保留本機檔案)"
 	],
 	"Pull preview": [
 		"提取預覽"
@@ -1345,9 +1117,6 @@
 	],
 	"Recent chats shown.": [
 		"已顯示最近的聊天。"
-	],
-	"Recent pages": [
-		"最近的頁面"
 	],
 	"Recommended": [
 		"建議"
@@ -1391,9 +1160,6 @@
 	"Request a feature or report a bug.": [
 		"提出功能要求或回報錯誤。"
 	],
-	"Reset tips": [
-		"重設提示"
-	],
 	"Reset to recommended": [
 		"重設為建議設定"
 	],
@@ -1403,20 +1169,8 @@
 	"Resize viewport: %s": [
 		"調整檢視區大小：%s"
 	],
-	"Responsive preview": [
-		"回應式預覽"
-	],
-	"Restore the default interface theme, accent color, intensity, and contrast.": [
-		"還原預設的介面主題、輔色、強度和對比。"
-	],
 	"Restricted": [
 		"受限"
-	],
-	"Rotate to landscape": [
-		"旋轉為橫向"
-	],
-	"Rotate to portrait": [
-		"旋轉為直向"
 	],
 	"Rotate viewport": [
 		"旋轉檢視區"
@@ -1448,9 +1202,6 @@
 	"Search models": [
 		"搜尋模型"
 	],
-	"Select an email to read it.": [
-		"選取電子郵件即可閱讀。"
-	],
 	"Select at least one file or folder.": [
 		"請至少選取一個檔案或資料夾。"
 	],
@@ -1478,17 +1229,8 @@
 	"Share a preview or publish your site": [
 		"分享預覽或發佈你的網站"
 	],
-	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
-		"與任何人分享本機網站的暫時副本。預覽網站若約一週未更新，就會到期。"
-	],
 	"Share a temporary preview link.": [
 		"分享臨時預覽連結。"
-	],
-	"Share details (required)": [
-		"詳細說明 (必填)"
-	],
-	"Show admin bar by default": [
-		"預設顯示管理工具列"
 	],
 	"Show chat beside the panel when starting a site.": [
 		"啟動網站時，在面板旁顯示聊天。"
@@ -1496,14 +1238,8 @@
 	"Show device toolbar": [
 		"顯示裝置工具列"
 	],
-	"Show or hide the panel beside your chat.": [
-		"顯示或隱藏聊天旁的面板。"
-	],
 	"Show panel": [
 		"顯示面板"
-	],
-	"Show whether a preview site or its local site changed since they were synced": [
-		"顯示預覽網站或其本機網站在上次同步後是否有變更"
 	],
 	"Sign in to create a preview link.": [
 		"登入以建立預覽連結。"
@@ -1529,9 +1265,6 @@
 	"Sign out": [
 		"登出"
 	],
-	"Site annotation is not available in the browser yet": [
-		"瀏覽器中尚無法使用網站註解"
-	],
 	"Site exported": [
 		"網站已匯出"
 	],
@@ -1546,15 +1279,6 @@
 	],
 	"Site sources": [
 		"網站來源"
-	],
-	"Sites could not be loaded. Check your internet connection and try again.": [
-		"無法載入網站。請檢查網際網路連線，然後再試一次。"
-	],
-	"Sites will start with the panel expanded.": [
-		"網站啟動時會展開面板。"
-	],
-	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
-		"技能可以替 AI 代理程式提供 WordPress 開發指引。此處的變更會套用至所有現有網站，並作為新網站的預設值。"
 	],
 	"Some destinations could not be loaded": [
 		"部分目的地無法載入"
@@ -1571,14 +1295,8 @@
 	"Spacefast sign-in was declined.": [
 		"Spacefast 登入遭拒。"
 	],
-	"Split view": [
-		"分割畫面"
-	],
 	"Start building with free AI credits.": [
 		"使用免費 AI 點數開始建置。"
-	],
-	"Start here": [
-		"從這裡開始"
 	],
 	"Start signing in to Spacefast again.": [
 		"請重新開始登入 Spacefast。"
@@ -1637,12 +1355,6 @@
 	"Team": [
 		"團隊"
 	],
-	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
-		"感謝你協助改善 WordPress Studio。你提交的意見回饋參考 ID 為 <id>%s</id>。"
-	],
-	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
-		"不支援此檔案類型。請選擇藍圖、WordPress 備份或 XML 匯出檔案。"
-	],
 	"The GitHub sign-in expired. Try again.": [
 		"GitHub 登入已過期，請再試一次。"
 	],
@@ -1654,9 +1366,6 @@
 	],
 	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
 		"%s 執行時使用的上下文對 Studio Code 來說太小。請在伺服器設定中提高其上下文長度。"
-	],
-	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
-		"第一次提取網站時必須包含檔案。請先完整提取網站一次，之後再僅提取資料庫。"
 	],
 	"The full WordPress, with a domain.": [
 		"完整的 WordPress，附帶網域。"
@@ -1670,14 +1379,8 @@
 	"The local server refused the API key. Check the key, and connect again.": [
 		"本機伺服器拒絕了此 API 金鑰。請檢查金鑰，然後重新連結。"
 	],
-	"The preview site could not be built from the archive.": [
-		"無法從封存檔建置預覽網站。"
-	],
 	"The preview site did not become ready within the timeout.": [
 		"預覽網站未在逾時前準備就緒。"
-	],
-	"The preview site has no preview link.": [
-		"此預覽網站沒有預覽連結。"
 	],
 	"The requested site is unavailable.": [
 		"要求的網站無法使用。"
@@ -1721,17 +1424,8 @@
 	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
 		"此 Grok 帳號已無剩餘點數。請在 grok.com 上新增點數或取得 SuperGrok。"
 	],
-	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
-		"無法使用此 ZIP 檔案。請確認其最上層或某個外層資料夾中包含有效的 blueprint.json 檔案，然後再試一次。"
-	],
 	"This destination cannot create a site from this panel yet.": [
 		"此目的地尚無法從此面板建立網站。"
-	],
-	"This email is gone.": [
-		"此電子郵件已不存在。"
-	],
-	"This file took too long to load. Please try again or choose another file.": [
-		"此檔案載入時間過長。請再試一次或選擇其他檔案。"
 	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"這是 Anthropic 金鑰，請改為新增至 Anthropic。"
@@ -1751,26 +1445,11 @@
 	"This replaces your local site with the preview. Any local changes will be lost.": [
 		"此動作會以預覽取代你的本機網站。所有本機變更都將遺失。"
 	],
-	"This site is no longer available in WordPress Studio.": [
-		"WordPress Studio 中已無法使用此網站。"
-	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"此網站尚未準備好啟動。%s 請重新執行 `studio pull` 以完成提取，或執行 `studio delete` 以移除網站。"
-	],
-	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
-		"此網站超過 %d GB，因此發佈回 WordPress.com 可能會失敗。請改為發佈較少的檔案。"
-	],
 	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
 		"此網站需要支援提取至 WordPress Studio 的主機方案。"
 	],
 	"This xAI account has no credits left. Add credits in the xAI Console.": [
 		"此 xAI 帳號已無剩餘點數。請在 xAI Console 中新增點數。"
-	],
-	"Tips reset.": [
-		"提示已重設。"
-	],
-	"To %s": [
-		"收件者：%s"
 	],
 	"Token is required": [
 		"必須提供權杖"
@@ -1868,9 +1547,6 @@
 	"Usage is paid with your OpenRouter credits.": [
 		"用量將以你的 OpenRouter 點數支付。"
 	],
-	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
-		"使用 Alt+Shift+向左鍵或向右鍵移動此分頁。"
-	],
 	"Use Gemini with a Gemini API key.": [
 		"透過 Gemini API 金鑰使用 Gemini。"
 	],
@@ -1913,9 +1589,6 @@
 	"Visibility settings are only available for WordPress.com sites.": [
 		"可見度設定僅適用於 WordPress.com 網站。"
 	],
-	"Visit previews": [
-		"造訪預覽"
-	],
 	"Visitors see a coming soon page": [
 		"訪客會看到「即將推出」頁面"
 	],
@@ -1924,9 +1597,6 @@
 	],
 	"WP admin": [
 		"WP 管理後台"
-	],
-	"Waiting for %s": [
-		"已等候 %s"
 	],
 	"What to replace": [
 		"要取代的內容"
@@ -1948,9 +1618,6 @@
 	],
 	"WordPress Studio could not open the email folder.": [
 		"WordPress Studio 無法開啟電子郵件資料夾。"
-	],
-	"WordPress Studio could not open the folder. Please try again.": [
-		"WordPress Studio 無法開啟資料夾，請再試一次。"
 	],
 	"WordPress Studio could not open the site.": [
 		"WordPress Studio 無法開啟網站。"
@@ -1982,12 +1649,6 @@
 	"WordPress.com hosting": [
 		"WordPress.com 主機服務"
 	],
-	"Worked for %s": [
-		"共處理 %s"
-	],
-	"Working for %s": [
-		"已處理 %s"
-	],
 	"Workspace navigation": [
 		"工作區導覽"
 	],
@@ -2005,12 +1666,6 @@
 	],
 	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
 		"你已達到 Grok 方案的用量上限。請在 grok.com 上查看你的用量。"
-	],
-	"You stopped after %s": [
-		"你在 %s 後停止"
-	],
-	"You're not logged in to WordPress.com. Log in now?": [
-		"你尚未登入 WordPress.com。要立即登入嗎？"
 	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"你的 ChatGPT 方案無法在 WordPress Studio 中使用。"
@@ -2051,9 +1706,6 @@
 	"Your plan has ended.": [
 		"你的方案已結束。"
 	],
-	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
-		"你的預覽已移至 WordPress.com，因此連結已變更。新連結：%s"
-	],
 	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
 		"你所選的檔案無法使用。請重試備份檢查，或選擇其他選項以繼續。"
 	],
@@ -2077,9 +1729,6 @@
 	],
 	"Your team only allows restricted sites.": [
 		"你的團隊只允許受限網站。"
-	],
-	"Your unsaved changes will be lost.": [
-		"你尚未儲存的變更將會遺失。"
 	],
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"你的工作區在 Studio Cloud 方案上執行。結帳頁面會在 WordPress.com 上開啟，付款後約一分鐘工作區即可就緒。"

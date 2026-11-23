@@ -106,9 +106,6 @@
 	"Answers right away, fastest": [
 		"دەستبەجێ وەڵام دەداتەوە، خێراترین"
 	],
-	"Anthropic rejected this API key. Check the key and try again.": [
-		"(Anthropic) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
-	],
 	"Anyone can view your site": [
 		"هەر کەسێک دەتوانێت ماڵپەڕەکەت ببینێت"
 	],
@@ -412,9 +409,6 @@
 	"Generate images": [
 		"بەدیهێنانی وێنەکان"
 	],
-	"Google rejected this API key. Check the key and try again.": [
-		"(Google) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
-	],
 	"Grok sent back an incomplete sign-in.": [
 		"(Grok) چوونەژوورەوەیەکی ناتەواوی گەڕاندەوە."
 	],
@@ -573,9 +567,6 @@
 	],
 	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
 		"(Meta) داواکارییەکانی سەر کلیلی (API)ـەکەت سنووردار دەکات. کەمێکی تر دووبارە هەوڵ بدەرەوە، یان سنوورەکانت لە dev.meta.ai بپشکنە."
-	],
-	"Meta rejected this API key. Check the key and try again.": [
-		"(Meta) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
 	],
 	"Monthly": [
 		"مانگانە"
@@ -1032,9 +1023,6 @@
 	],
 	"Uploads": [
 		"بارکراوەکان"
-	],
-	"Usage is billed through your Anthropic account.": [
-		"بەکارهێنان لە ڕێگەی هەژماری (Anthropic)ـەکەتەوە پارەی لێ وەردەگیرێت."
 	],
 	"Usage is billed through your xAI account.": [
 		"پارەی بەکارهێنان لە ڕێگەی هەژماری (xAI)ـەکەتەوە دەدرێت."

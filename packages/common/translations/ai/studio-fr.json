@@ -13,12 +13,6 @@
 		"%1$d sur %2$d site exécuté simultanément",
 		"%1$d sur %2$d sites exécutés simultanément"
 	],
-	"%1$dh %2$dm": [
-		"%1$d h %2$d min"
-	],
-	"%1$s +%2$d": [
-		"%1$s +%2$d"
-	],
 	"%1$s / %2$s per million tokens": [
 		"%1$s / %2$s par million de jetons"
 	],
@@ -104,9 +98,6 @@
 	],
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"Autorisez WordPress Studio à utiliser votre plan ChatGPT lors de la connexion."
-	],
-	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
-		"Une erreur s’est produite lors de la mise à jour de la CLI de WordPress Studio. Veuillez réessayer."
 	],
 	"Annotation tools": [
 		"Outils d’annotation"
@@ -474,9 +465,6 @@
 	"Disconnected %s.": [
 		"%s déconnecté."
 	],
-	"Do more with WordPress": [
-		"Faites-en plus avec WordPress"
-	],
 	"Download WordPress Studio": [
 		"Télécharger WordPress Studio"
 	],
@@ -581,9 +569,6 @@
 	],
 	"Free": [
 		"Gratuit"
-	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"De tous, un outil.\nPuiser sa force dans la communauté\npour un Web meilleur."
 	],
 	"Gemini API key": [
 		"Clé d’API Gemini"
@@ -815,9 +800,6 @@
 	],
 	"Open Config File (dev only)": [
 		"Ouvrir le fichier de configuration (dev uniquement)"
-	],
-	"Open Folder…": [
-		"Ouvrir un dossier…"
 	],
 	"Open Spacefast": [
 		"Ouvrir Spacefast"
@@ -1146,9 +1128,6 @@
 	"Site imported, but the WordPress server failed to start: %s": [
 		"Site importé, mais le serveur WordPress n’a pas pu démarrer : %s"
 	],
-	"Sites could not be loaded. Check your internet connection and try again.": [
-		"Impossible de charger les sites. Vérifiez votre connexion Internet et réessayez."
-	],
 	"Some destinations could not be loaded": [
 		"Certaines destinations n’ont pas pu être chargées"
 	],
@@ -1311,9 +1290,6 @@
 	"This replaces your local site with the preview. Any local changes will be lost.": [
 		"Cette action remplace votre site local par la prévisualisation. Toutes les modifications locales seront perdues."
 	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"Ce site n’est pas prêt à démarrer. %s Relancez `studio pull` pour terminer l’extraction, ou `studio delete` pour supprimer le site."
-	],
 	"This site isn't one of your WordPress.com or Pressable sites.": [
 		"Ce site ne fait pas partie de vos sites WordPress.com ou Pressable."
 	],
@@ -1449,9 +1425,6 @@
 	"Visibility settings are only available for WordPress.com sites.": [
 		"Les réglages de visibilité ne sont disponibles que pour les sites WordPress.com."
 	],
-	"Visit previews": [
-		"Consulter les aperçus"
-	],
 	"Visitors see a coming soon page": [
 		"Les visiteurs voient une page « Bientôt disponible »"
 	],
@@ -1466,9 +1439,6 @@
 	],
 	"What to replace": [
 		"Éléments à remplacer"
-	],
-	"What would you like to open?": [
-		"Que voulez-vous ouvrir ?"
 	],
 	"Where your server listens, as it prints it when it starts.": [
 		"L’adresse d’écoute de votre serveur, telle qu’il l’affiche au démarrage."
@@ -1490,9 +1460,6 @@
 	],
 	"WordPress Studio is serving at:": [
 		"WordPress Studio est servi à l’adresse :"
-	],
-	"WordPress Studio team": [
-		"L’équipe WordPress Studio"
 	],
 	"WordPress export": [
 		"Exportation WordPress"

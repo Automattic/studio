@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
+import { glob, mkdir, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { __, sprintf } from '@wordpress/i18n';
+import { writeFile } from 'atomically';
 import { RemoteSiteError } from '../errors';
 import { parseSshHost, type SshHost } from './address';
 import { runSsh, sshExecutable } from './shell';
@@ -26,24 +27,14 @@ function words( line: string ): string[] {
 	);
 }
 
-// The files an `Include` names: relative to ~/.ssh, with `*` and `?` in the file name.
+// The files an `Include` names, relative to ~/.ssh, expanding its glob patterns in order.
 async function includedFiles( pattern: string ): Promise< string[] > {
-	const file = path.resolve( sshFolder(), expandHome( pattern ) );
-	const name = path.basename( file );
-	if ( ! /[*?]/.test( name ) ) {
-		return [ file ];
+	const files: string[] = [];
+	const absolute = path.resolve( sshFolder(), expandHome( pattern ) );
+	for await ( const file of glob( absolute.split( path.sep ).join( '/' ) ) ) {
+		files.push( file );
 	}
-	const matches = new RegExp(
-		`^${ name
-			.replace( /[.+^${}()|[\]\\]/g, '\\$&' )
-			.replace( /\*/g, '.*' )
-			.replace( /\?/g, '.' ) }$`
-	);
-	const names = await readdir( path.dirname( file ) ).catch( () => [] );
-	return names
-		.filter( ( candidate ) => matches.test( candidate ) )
-		.sort()
-		.map( ( candidate ) => path.join( path.dirname( file ), candidate ) );
+	return files.sort();
 }
 
 // The host names a config file and the files it includes declare, without patterns.
@@ -97,16 +88,8 @@ export async function listSshHosts(): Promise< SshHost[] > {
 }
 
 // Replaces the file in one step, through a link to it, keeping its permissions.
-async function writeConfig( file: string, text: string ) {
-	const target = await realpath( file ).catch( () => file );
-	const mode = await stat( target ).then(
-		( stats ) => stats.mode & 0o777,
-		() => 0o600
-	);
-	const temporary = `${ target }.studio-${ process.pid }`;
-	await writeFile( temporary, text, { mode } );
-	await rename( temporary, target );
-}
+const writeConfig = ( file: string, text: string ) =>
+	writeFile( file, text, existsSync( file ) ? {} : { mode: 0o600 } );
 
 // Puts `Include ~/.ssh/studio_config` first in the user's config, once.
 async function includeStudioConfig() {
@@ -167,7 +150,7 @@ export async function addSshHost( host: {
 	await writeConfig( file, `${ before.trimEnd() }${ before.trim() ? '\n\n' : '' }${ block }\n` );
 	try {
 		await includeStudioConfig();
-		await runSsh( { destination: host.name, path: '' }, 'true', { acceptNewHostKey: true } );
+		await runSsh( { destination: host.name }, 'true', { acceptNewHostKey: true } );
 	} catch ( error ) {
 		await writeConfig( file, before );
 		throw error;

@@ -45,7 +45,7 @@ export function parseSshAddress( address: string ): SshTarget | undefined {
 	return DESTINATION.test( target.destination ) && isSitePath( target.path ) ? target : undefined;
 }
 
-function sitePath( value: string ): string {
+export function sitePath( value: string ): string {
 	return value.trim().replace( /(.)\/+$/, '$1' );
 }
 

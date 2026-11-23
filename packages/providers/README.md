@@ -78,7 +78,7 @@ Add a folder laid out like the others, then register it in three places: its con
 
 Enforced by lint (`eslint.config.mjs`):
 
-- The package imports no other workspace package: Studio passes in what a provider needs. Its forms (`.tsx`) build on `@studio/ds` alone.
+- The package imports no other workspace package but `@studio/ds`, which its forms (`.tsx`) build on alone: Studio passes in what a provider needs.
 - Its surface entries use no Node APIs, since `apps/ui` loads them in the browser. The services may, as SSH runs `ssh`.
 - The files the surface entries are made of import only each other.
 - `apps/ui` imports only `@studio/providers`, `@studio/providers/wpcom` and `@studio/providers/ui`, and `@studio/common` never imports `@studio/providers/services`.

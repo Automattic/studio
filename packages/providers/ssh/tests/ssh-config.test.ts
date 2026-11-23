@@ -15,9 +15,9 @@ describe.skipIf( process.platform === 'win32' )( 'SSH config hosts', () => {
 	it( 'lists the hosts of the config and the files it includes, without patterns', async () => {
 		writeSsh(
 			'config',
-			'Include config.d/*\n# Host commented\nHost acme staging *.internal !bad\n\tUser deploy\nHost=quoted "spaced"\nHost *\n'
+			'Include config.d/*/config\n# Host commented\nHost acme staging *.internal !bad\n\tUser deploy\nHost=quoted "spaced"\nHost *\n'
 		);
-		writeSsh( 'config.d/work', 'Host work\n' );
+		writeSsh( 'config.d/work/config', 'Host work\n' );
 		await expect( listSshHosts() ).resolves.toEqual( [
 			{ name: 'work', description: 'deploy@work.test' },
 			{ name: 'acme', description: 'deploy@acme.test' },

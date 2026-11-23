@@ -68,7 +68,7 @@ What surfaces read uses no Node APIs. The services may, where a provider runs a 
 
 Dependencies point one way:
 
-- `@studio/providers` imports no other workspace package. WordPress Studio passes in what a provider needs, such as its config.
+- `@studio/providers` imports no other workspace package but `@studio/ds`, for the forms in `./ui`. WordPress Studio passes in what a provider needs, such as its config.
 - `@studio/common` holds WordPress Studio's side, next to the rest of the config store: storing provider configs, the selected chat provider and remote-site connections. It may import what surfaces read, for schemas and types, never the services; the apps pass in the provider a stored operation needs.
 
 It is a package of its own because sites and previews are not agent concerns, so the push command must not depend on `@studio/agent`. It isn't part of `@studio/common` because providers must stay free of WordPress Studio's storage, and the browser-safe boundary needs lint enforcement.

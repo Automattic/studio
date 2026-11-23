@@ -23,7 +23,7 @@ describe( 'getSections', () => {
 
 	it( 'leaves out hosting providers whose sites only the user’s computer connects', () => {
 		const settingIds = ( localMachine: boolean ) =>
-			getSections( 'studio', { localMachine } )
+			getSections( 'studio', { localMachine, loopbackSignIn: localMachine } )
 				.flatMap( ( section ) => section.settings )
 				.map( ( setting ) => setting.id );
 		expect( settingIds( true ) ).toContain( 'ssh-provider' );

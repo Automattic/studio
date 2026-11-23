@@ -31,8 +31,7 @@ A connection is stored like any other, on the local site's record (`packages/com
 		"name": "Acme",                   // blogname, read when connecting
 		"url": "https://acme.com",        // home, read when connecting
 		"wpCli": "php ~/wp-cli.phar",     // only when not `wp`
-		"contentDir": "/srv/www/acme/current/wp-content", // WP_CONTENT_DIR
-		"tablePrefix": "wp_"
+		"contentDir": "/srv/www/acme/current/wp-content" // WP_CONTENT_DIR
 	},
 	"lastPushTimestamp": null,
 	"lastPullTimestamp": "2026-11-22T10:00:00.000Z"
@@ -45,14 +44,14 @@ The id is the address in one form (`formatSshAddress`): `user@host:/path`, or `s
 
 ## Provider API
 
-Each addition is generic:
+What SSH needs of the provider API, none of it specific to SSH:
 
 - **A provider without an account.** A provider whose config is `undefined` has no `account` (`WithAccount` in `types.ts`): there is nothing to connect, and surfaces treat it as connected. Settings and `/connect` leave it out. Publish opens on it only when it was the last provider used.
 - **`sites.connect`**: how the user connects a site that isn't listed from an account, as a `ConnectMethod` of kind `form`, like an account's. The CLI asks for its fields; the apps show the provider's own form, `ConnectForm` from `@studio/providers/ui`, which may run the services' `action( config, name, input )` on the computer, such as listing the user's SSH hosts. `SitesServices.resolve( config, input )` reaches the site and returns it (`resolveRemoteSite` in `@studio/common` and `Connector`), and connecting it is the same as connecting a listed site. SSH's method is `hostOnly`, so surfaces without `capabilities.localMachine` (Studio Cloud) leave SSH out. `newSite` is optional: a provider without it only connects existing sites.
 - **`SitesServices.pullArchive( config, site, options, archive, onProgress, signal )`**: writes the site, as a tar of the backup format, to a `WritableStream`. It is the pull of a provider that sends the site rather than a backup to download.
 - **`SitesServices.push`** gets the connected site as Studio stored it, not only its id and name.
 
-The package's surface entries still use no Node APIs. The lint ban now covers only those files, so the services may use Node: `ssh/shell.ts` runs `ssh`.
+The package's surface entries use no Node APIs; its services may, so `ssh/shell.ts` runs `ssh`.
 
 ## Files
 
@@ -92,13 +91,13 @@ The package's surface entries still use no Node APIs. The lint ban now covers on
 
 ## Pull
 
-`pull-archive.ts` is the archive engine of `studio pull`. It runs for WordPress.com's Jetpack Backup unless Reprint is on, and for any provider with `pullArchive`. Site loading, the selection, the import, the restart of a running site, activity, Tracks and remembering the connection are shared; only fetching the archive differs.
+`pull-archive.ts` is the archive engine of `studio pull`. It runs for WordPress.com's Jetpack Backup unless Reprint is on, and for any provider with `pullArchive`. Site loading, the selection, the import, activity, Tracks and remembering the connection are shared; only fetching the archive differs. A full pull starts the site, running or not, before it records the version Studio compares local changes against, so what the first start writes (the Studio admin user, the SQLite driver's schema) doesn't count as a change.
 
 On the server, a first call exports the site's own tables (`--all-tables-with-prefix`) and lists what was picked, in a folder where `wp-content` links to the site's content folder (a Bedrock `app` folder arrives as `wp-content`). It also measures the selection for progress. A second call streams it as an uncompressed tar, leaving out caches, backup-plugin folders, logs and the MySQL-bound drop-ins (`db.php`, `object-cache.php`, `advanced-cache.php`), then removes the folder, also when cancelled.
 
-Locally, the importer now points `wp-config.php` at the imported tables' prefix: the shortest prefix of a table named `…options`. This also fixes importing any backup or `.sql` file whose tables aren't prefixed `wp_`.
+Locally, the importer points `wp-config.php` at the imported tables' prefix, the shortest prefix of a table named `…options`, so a backup or `.sql` file whose tables aren't prefixed `wp_` imports too.
 
-Selection: `--options` (`sqls`, `uploads`, `plugins`, `themes`, `contents`) and `--only <wp-content paths>`. The panel offers whole-site and content choices. Browsing individual remote files is a follow-up.
+Selection: `--options` (`sqls`, `uploads`, `plugins`, `themes`, `contents`) and `--only <wp-content paths>`. The pull dialog offers the entire site, files only, or content and settings only; individual files need backups to browse, which SSH sites don't have.
 
 ## CLI
 

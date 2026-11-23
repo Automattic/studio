@@ -12,7 +12,7 @@ import {
 	publishTargetQueryKey,
 	remotePublishTargetKey,
 	useConnectedHostingProviders,
-	usePublishProviders,
+	useSitesProviders,
 } from '@/data/queries/use-remote-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
@@ -38,7 +38,7 @@ export function usePublishTargets(
 ) {
 	const connector = useConnector();
 	const client = useQueryClient();
-	const providers = usePublishProviders();
+	const providers = useSitesProviders( 'publish' );
 	const user = useAuthUser();
 	const accounts = useAiSettings();
 	const connectedProviders = useConnectedHostingProviders( providers ).connected;

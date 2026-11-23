@@ -102,6 +102,54 @@ async function pullProviderArchive(
 	return destPath;
 }
 
+// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%). Undefined when the user
+// backs out of a backup too large to push back.
+async function fetchWpcomBackup(
+	accessToken: string,
+	remoteSiteId: number,
+	options: PullSyncOptions,
+	folder: string,
+	logger: Logger< LoggerAction >,
+	confirmLargeBackup?: () => Promise< boolean >
+): Promise< string | undefined > {
+	logger.reportStart(
+		LoggerAction.INITIATE_BACKUP,
+		formatProgressLabel( __( 'Initializing remote backup…' ), 0 )
+	);
+	const { url: downloadUrl, size: backupFileSize } = await backupRemoteSite(
+		accessToken,
+		remoteSiteId,
+		options,
+		( percent ) => {
+			logger.reportProgress(
+				formatProgressLabel( __( 'Creating remote backup…' ), Math.round( percent * 0.5 ) )
+			);
+		}
+	);
+
+	if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+		if ( confirmLargeBackup ) {
+			logger.spinner.stop();
+			if ( ! ( await confirmLargeBackup() ) ) {
+				return;
+			}
+		} else {
+			logger.reportWarning(
+				sprintf(
+					__(
+						"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back."
+					),
+					SYNC_PUSH_SIZE_LIMIT_GB
+				)
+			);
+		}
+	}
+	logger.reportProgress( formatProgressLabel( __( 'Downloading backup…' ), 50 ) );
+	const destPath = path.join( folder, `pull-${ remoteSiteId }-${ Date.now() }.tar.gz` );
+	await downloadBackup( downloadUrl, destPath );
+	return destPath;
+}
+
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
@@ -185,47 +233,16 @@ export async function runCommand(
 				specificSelectionPaths = selection.specificSelectionPaths;
 			}
 
-			fetchArchive = async ( folder ) => {
-				// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
+			fetchArchive = ( folder ) => {
 				failurePhase = 'remote_backup';
-				logger.reportStart(
-					LoggerAction.INITIATE_BACKUP,
-					formatProgressLabel( __( 'Initializing remote backup…' ), 0 )
-				);
-				const { url: downloadUrl, size: backupFileSize } = await backupRemoteSite(
+				return fetchWpcomBackup(
 					accessToken,
 					wpcomSite.id,
 					{ optionsToSync, includePathList },
-					( percent ) => {
-						// Backup phase: 0-50%
-						logger.reportProgress(
-							formatProgressLabel( __( 'Creating remote backup…' ), Math.round( percent * 0.5 ) )
-						);
-					}
+					folder,
+					logger,
+					confirmLargeBackup
 				);
-
-				if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-					if ( confirmLargeBackup ) {
-						logger.spinner.stop();
-						if ( ! ( await confirmLargeBackup() ) ) {
-							return;
-						}
-					} else {
-						logger.reportWarning(
-							sprintf(
-								__(
-									"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back."
-								),
-								SYNC_PUSH_SIZE_LIMIT_GB
-							)
-						);
-					}
-				}
-				// Download phase: 50-80%
-				logger.reportProgress( formatProgressLabel( __( 'Downloading backup…' ), 50 ) );
-				const destPath = path.join( folder, `pull-${ wpcomSite.id }-${ Date.now() }.tar.gz` );
-				await downloadBackup( downloadUrl, destPath );
-				return destPath;
 			};
 		}
 
@@ -269,9 +286,9 @@ export async function runCommand(
 					}
 					imported = true;
 				} finally {
-					// A pulled site starts before its version is read, so the version includes what the
-					// first start writes, such as the Studio admin user.
-					if ( wasServerRunning || imported ) {
+					// A full pull starts the site before its version is read, so the version includes what
+					// the first start writes, such as the Studio admin user.
+					if ( wasServerRunning || ( imported && fullPull ) ) {
 						try {
 							logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 							await startWordPressServer( site, logger, 'pull' );

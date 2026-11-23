@@ -19,7 +19,6 @@ import { ExternalLinkIcon } from '@studio/ds/icons';
 import {
 	getProvider,
 	getProviderSites,
-	SITES_PROVIDER_IDS,
 	type ProviderSites,
 	type SitesProviderId,
 } from '@studio/providers';
@@ -28,7 +27,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useAccountSites } from '@/data/queries/use-remote-sites';
+import { useAccountSites, useSitesProviders } from '@/data/queries/use-remote-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { AccountPrompt } from '@/features/account';
 import {
@@ -144,11 +143,7 @@ export function ConnectPanel( {
 }: {
 	onConnect: ( provider: SitesProviderId, site: ProviderSites[ SitesProviderId ] ) => void;
 } ) {
-	const { localMachine } = useConnector().capabilities;
-	const providers = SITES_PROVIDER_IDS.filter( ( id ) => {
-		const sites = getProviderSites( id );
-		return sites.pull && ( localMachine || ! sites.connect?.hostOnly );
-	} );
+	const providers = useSitesProviders( 'pull' );
 	const [ provider, setProvider ] = useState( providers[ 0 ] );
 
 	return (

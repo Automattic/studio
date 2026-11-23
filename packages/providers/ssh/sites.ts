@@ -1,7 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { RemoteSiteError } from '../errors';
-import { formatSshAddress, parseSshAddress, parseSshHost, sshHostInput } from './address';
+import { formatSshAddress, parseSshAddress, parseSshHost, sitePath, sshHostInput } from './address';
 import { sshProvider, type SshSite } from './descriptor';
 import { pullOverSsh } from './pull';
 import { pushOverSsh } from './push';
@@ -47,9 +47,7 @@ async function resolve( input: Record< string, string > ): Promise< SshSite > {
 		values.path = address.path;
 	}
 	const form = parseForm( sshProvider.sites!.connect!.input(), values );
-	const server = parseSshAddress(
-		formatSshAddress( { ...parseSshHost( form.host )!, path: form.path } )
-	)!;
+	const server = { ...parseSshHost( form.host )!, path: sitePath( form.path ) };
 	const wpCli = form.wpCli.trim() || 'wp';
 	const output = await runSsh(
 		server,

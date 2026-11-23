@@ -45,7 +45,7 @@ export function sshExecutable(): string {
 }
 
 function sshArgs(
-	{ destination, port }: SshTarget,
+	{ destination, port }: Omit< SshTarget, 'path' >,
 	command: string,
 	acceptNewHostKey = false,
 	compress = false
@@ -74,7 +74,11 @@ function sshArgs(
 	];
 }
 
-function sshError( target: SshTarget, exitCode: number | null, stderr: string ): RemoteSiteError {
+function sshError(
+	target: Omit< SshTarget, 'path' >,
+	exitCode: number | null,
+	stderr: string
+): RemoteSiteError {
 	const hostname = target.destination.replace( /^.*@/, '' );
 	// How known_hosts names it: a host on another port is `[host]:port`.
 	const host = target.port ? `[${ hostname }]:${ target.port }` : hostname;
@@ -148,7 +152,7 @@ function sshError( target: SshTarget, exitCode: number | null, stderr: string ):
  * known hosts apply. Resolves with its output; rejects with a RemoteSiteError that says what to fix.
  */
 export function runSsh(
-	target: SshTarget,
+	target: Omit< SshTarget, 'path' >,
 	command: string,
 	options: {
 		acceptNewHostKey?: boolean;

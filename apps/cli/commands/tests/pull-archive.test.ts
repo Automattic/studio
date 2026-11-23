@@ -120,21 +120,24 @@ describe( 'CLI: studio pull', () => {
 	);
 
 	it.each( [
-		[ 'succeeds', [ 'hold import', 'import', 'start', 'release', 'version' ] ],
-		[ 'fails', [ 'hold import', 'release' ] ],
-	] )(
-		'starts a stopped site when the import %s, before reading its version',
-		async ( outcome, expected ) => {
+		[ 'a full pull', [ 'all' ], false, [ 'hold import', 'import', 'start', 'release', 'version' ] ],
+		[ 'a failed full pull', [ 'all' ], true, [ 'hold import', 'release' ] ],
+		[ 'a partial pull', [ 'themes' ], false, [ 'hold import', 'import', 'release' ] ],
+	] as const )(
+		'starts a stopped site before reading its version only after %s',
+		async ( _case, options, fails, expected ) => {
 			vi.mocked( isServerRunning ).mockResolvedValue( undefined as never );
 			vi.mocked( getSiteVersion ).mockImplementation( async () => {
 				steps.push( 'version' );
 				return 'local-version';
 			} );
-			if ( outcome === 'fails' ) {
+			if ( fails ) {
 				importBackup.mockRejectedValue( new Error( 'boom' ) );
 			}
 
-			await runCommand( site.path, [ 'all' ], String( remoteSite.id ) ).catch( () => undefined );
+			await runCommand( site.path, [ ...options ], String( remoteSite.id ) ).catch(
+				() => undefined
+			);
 
 			expect( steps ).toEqual( expected );
 		}

@@ -75,10 +75,8 @@ type Setting = {
 	description: string;
 	icon?: SectionIcon;
 	aliases?: string[];
-	// Shown only where a provider's sign-in can come back to this computer.
+	// Shown only where the app can reach the user's computer, as a sign-in coming back to it or SSH do.
 	loopbackOnly?: boolean;
-	// Shown only where WordPress Studio runs on the user's computer.
-	localMachineOnly?: boolean;
 };
 
 type SectionIcon = ComponentType< { className?: string } >;
@@ -331,7 +329,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
 							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
 						),
-						localMachineOnly: getProviderSites( id ).connect?.hostOnly,
+						loopbackOnly: getProviderSites( id ).connect?.hostOnly,
 					};
 				} ),
 			],
@@ -627,10 +625,7 @@ export function getSections(
 		.map( ( section ) => ( {
 			...section,
 			settings: section.settings.filter(
-				( entry ) =>
-					shown( entry.id ) &&
-					( localMachine || ! entry.localMachineOnly ) &&
-					( loopbackSignIn || ! entry.loopbackOnly )
+				( entry ) => shown( entry.id ) && ( loopbackSignIn || ! entry.loopbackOnly )
 			),
 		} ) );
 }

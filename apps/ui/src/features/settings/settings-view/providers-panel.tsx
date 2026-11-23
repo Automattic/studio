@@ -10,7 +10,7 @@ import {
 	useSetImageProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { useConnectedHostingProviders, usePublishProviders } from '@/data/queries/use-remote-sites';
+import { useConnectedHostingProviders, useSitesProviders } from '@/data/queries/use-remote-sites';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SETTINGS_AI_PROVIDER_IDS } from '@/data/settings-sections';
 import { LearnMoreLink } from '@/features/onboarding';
@@ -243,7 +243,7 @@ export function ProvidersPanel( {
 		( id ) => id === 'wpcom' || getProviderConnectMethods( id, loopbackSignIn ).length > 0
 	);
 	// A provider without an account has nothing to connect here, and is always ready.
-	const hostingProviders = usePublishProviders().filter(
+	const hostingProviders = useSitesProviders( 'publish' ).filter(
 		( id ) =>
 			id === 'wpcom' ||
 			! getProvider( id ).account ||

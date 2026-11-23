@@ -49,7 +49,7 @@ This tool is useful for:
 
 ## CodeVitals Integration
 
-Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://www.codevitals.run/project/studio/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
+Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://codevitals.run/public/Automattic/studio/metrics) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
 
 The metrics are sent when:
 
@@ -57,6 +57,14 @@ The metrics are sent when:
 2. The `CODEVITALS_AUTH_TOKEN` secret is available in the GitHub repository
 
 Note that the job sends the metrics for the current command and a reference commit as well. This allows CodeVitals to compare the performance metrics between the two commits and normalize the current commit's values to avoid the CI fluctuations.
+
+### Adding a metric
+
+CodeVitals charts only the metrics its project settings list. For a new metric:
+
+1. Add its suite's summary file to `resultsFiles` in `tools/compare-perf/log-to-codevitals.ts`, and its label and format to `tools/metrics/metric-config.ts`.
+2. In the project's settings on CodeVitals, add a metric whose key is the name the test reports (for example `memoryIdle`), with the prefix from `resultsFiles` in front of it if there is one.
+3. Sizes and memory are sent in bytes. Set their unit to `MB`: CodeVitals scales the chart to it. The noise floor is compared with the stored value, so enter it in bytes too.
 
 ## Understanding the Results
 

@@ -129,7 +129,8 @@ export function useSettingCommands(
 		scope,
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
-		nativeSites: connector.capabilities.nativeSites,
+		localMachine: connector.capabilities.localMachine,
+		loopbackSignIn: connector.capabilities.loopbackSignIn,
 		toggles,
 		actions: {
 			'reset-appearance': {

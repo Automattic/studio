@@ -73,10 +73,8 @@ export function OnboardingGuide( { guide, onComplete, onDismiss }: OnboardingGui
 			>
 				<GuideIllustration id={ page.illustration } />
 				<DialogClose
-					className={ clsx(
-						styles.close,
-						isDarkGuideIllustration( page.illustration ) && styles.closeOnDark
-					) }
+					className={ styles.close }
+					data-color-scheme={ isDarkGuideIllustration( page.illustration ) ? 'dark' : undefined }
 					render={ <DialogDismissButton label={ __( 'Skip' ) } /> }
 				/>
 				<div className={ styles.content }>

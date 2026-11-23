@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { CONFIG_VERSION } from '@studio/common/lib/config/schema';
 import { writeFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
@@ -98,7 +99,7 @@ describe( 'Snapshots Module', () => {
 		it( 'should add a new preview site to appdata with sequence number', async () => {
 			const mockSiteId = 'abc123';
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				sites: [
 					{
 						id: mockSiteId,
@@ -128,7 +129,6 @@ describe( 'Snapshots Module', () => {
 				atomicSiteId: mockAtomicSiteId,
 				localSiteId: mockSiteId,
 				date: 1234567890,
-				syncedAt: 1234567890,
 				name: 'Test Site Preview 1',
 				userId: mockUserId,
 				sequence: 1,
@@ -149,7 +149,7 @@ describe( 'Snapshots Module', () => {
 			};
 
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				sites: [
 					{
 						id: mockSiteId,
@@ -185,7 +185,6 @@ describe( 'Snapshots Module', () => {
 				atomicSiteId: mockAtomicSiteId + 1,
 				localSiteId: mockSiteId,
 				date: 1234567890,
-				syncedAt: 1234567890,
 				name: 'Test Site Preview 2',
 				userId: mockUserId,
 				sequence: 2,
@@ -195,7 +194,7 @@ describe( 'Snapshots Module', () => {
 
 		it( 'should throw error if site is not found', async () => {
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				sites: [
 					{
 						id: 'site-123',
@@ -234,7 +233,7 @@ describe( 'Snapshots Module', () => {
 		it( 'should update the date of an existing snapshot', async () => {
 			const mockSiteId = 'abc123';
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				snapshots: [
 					{
 						url: 'test.com',
@@ -265,13 +264,14 @@ describe( 'Snapshots Module', () => {
 			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
 
 			expect( savedData.snapshots[ 0 ].date ).toBe( 1234567890 );
-			expect( updatedSnapshot ).toEqual( savedData.snapshots[ 0 ] );
+			expect( savedData.snapshots[ 0 ] ).not.toHaveProperty( 'syncedAt' );
+			expect( updatedSnapshot ).toEqual( { ...savedData.snapshots[ 0 ], syncedAt: 1234567890 } );
 			expect( updatedSnapshot.date ).toBe( 1234567890 );
 		} );
 
 		it( 'should throw an error if snapshot not found', async () => {
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				snapshots: [],
 			};
 
@@ -286,7 +286,7 @@ describe( 'Snapshots Module', () => {
 	describe( 'getSnapshotsFromConfig', () => {
 		it( 'should return snapshots filtered by userId', async () => {
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				snapshots: [
 					{
 						userId: 9876,
@@ -319,7 +319,7 @@ describe( 'Snapshots Module', () => {
 
 		it( 'should return snapshots filtered by userId and siteFolder', async () => {
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				snapshots: [
 					{
 						userId: 9876,
@@ -355,7 +355,7 @@ describe( 'Snapshots Module', () => {
 
 		it( 'should return empty array if no snapshots exist', async () => {
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				snapshots: [],
 			};
 
@@ -370,7 +370,7 @@ describe( 'Snapshots Module', () => {
 	describe( 'deleteSnapshotFromConfig', () => {
 		it( 'should delete snapshot by url', async () => {
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				snapshots: [
 					{
 						url: 'test1.com',
@@ -403,7 +403,7 @@ describe( 'Snapshots Module', () => {
 
 		it( 'should not modify snapshots if url not found', async () => {
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				snapshots: [
 					{
 						url: 'test1.com',
@@ -425,7 +425,7 @@ describe( 'Snapshots Module', () => {
 
 		it( 'should handle empty snapshots array', async () => {
 			const mockUserData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				snapshots: [],
 			};
 
@@ -443,7 +443,7 @@ describe( 'Snapshots Module', () => {
 
 		it( 'should remove only expired snapshots with no associated site for the given user', async () => {
 			const mockData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				sites: [ { id: 'live-site', name: 'Live', path: '/x', port: 80, phpVersion: '8.3' } ],
 				snapshots: [
 					{
@@ -501,7 +501,7 @@ describe( 'Snapshots Module', () => {
 
 		it( 'should not write the config when nothing needs pruning', async () => {
 			const mockData = {
-				version: 1,
+				version: CONFIG_VERSION,
 				sites: [ { id: 'live-site', name: 'Live', path: '/x', port: 80, phpVersion: '8.3' } ],
 				snapshots: [
 					{
@@ -532,11 +532,57 @@ describe( 'Snapshots Module', () => {
 			userId,
 		} );
 
+		it( 'refreshes, clears and discovers the server’s preview launch URLs', async () => {
+			mocks.readFile.mockResolvedValue(
+				JSON.stringify( {
+					version: CONFIG_VERSION,
+					sites: [],
+					snapshots: [
+						{
+							...snapshot( 'first.wpcomstaging.com', 1, 1000 ),
+							launchUrl: 'https://wordpress.com/old',
+						},
+						{
+							...snapshot( 'linked.wpcomstaging.com', 2, 1000 ),
+							launchUrl: 'https://wordpress.com/stale',
+						},
+					],
+				} )
+			);
+			await reconcilePreviews(
+				USER_ID,
+				[
+					{
+						id: 1,
+						name: 'First',
+						url: 'https://first.wpcomstaging.com',
+						launchUrl: 'https://wordpress.com/launch/1',
+					},
+					{ id: 2, name: 'Linked', url: 'https://linked.wpcomstaging.com', liveSiteId: 20 },
+					{
+						id: 3,
+						name: 'New',
+						url: 'https://new.wpcomstaging.com',
+						launchUrl: 'https://wordpress.com/launch/3',
+					},
+				],
+				5000
+			);
+			const saved = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
+			expect(
+				saved.snapshots.map( ( item: Snapshot ) => [ item.atomicSiteId, item.launchUrl ] )
+			).toEqual( [
+				[ 1, 'https://wordpress.com/launch/1' ],
+				[ 2, undefined ],
+				[ 3, 'https://wordpress.com/launch/3' ],
+			] );
+		} );
+
 		it( "forgets the user's ended WordPress.com previews, updates the rest and lists ones made elsewhere", async () => {
 			// The live site a preview shows changes to follows the server: set, cleared and listed.
 			mocks.readFile.mockResolvedValue(
 				JSON.stringify( {
-					version: 1,
+					version: CONFIG_VERSION,
 					sites: [],
 					snapshots: [
 						snapshot( 'standing.wpcomstaging.com', 1, 1000 ),
@@ -601,7 +647,7 @@ describe( 'Snapshots Module', () => {
 		it( 'puts a preview back with the local site WordPress.com says it was made from, when that site is here', async () => {
 			mocks.readFile.mockResolvedValue(
 				JSON.stringify( {
-					version: 1,
+					version: CONFIG_VERSION,
 					sites: [
 						{ id: 'here', path: '/sites/here', name: 'Here', phpVersion: '8.0', port: 8881 },
 					],
@@ -657,16 +703,30 @@ describe( 'Snapshots Module', () => {
 			} );
 			mocks.readFile.mockResolvedValue(
 				JSON.stringify( {
-					version: 1,
-					sites: [],
+					version: CONFIG_VERSION,
+					sites: [
+						{
+							id: 'pulled-site',
+							name: 'Local',
+							path: '/local',
+							port: 8881,
+							phpVersion: '8.3',
+							connections: [
+								{
+									provider: 'wpcom',
+									account: '42',
+									preview: true,
+									site: { id: 4 },
+									localVersionId: 'old',
+									lastPushTimestamp: new Date( 1 ).toISOString(),
+								},
+							],
+						},
+					],
 					snapshots: [
 						preview( 'made-elsewhere.wpcomstaging.com', 1, '' ),
 						preview( 'taken.wpcomstaging.com', 2, 'other-site' ),
-						{
-							...preview( 'pulled-before.wpcomstaging.com', 4, 'pulled-site' ),
-							versionId: 'old',
-							syncedAt: 1,
-						},
+						preview( 'pulled-before.wpcomstaging.com', 4, 'pulled-site' ),
 					],
 				} )
 			);
@@ -681,13 +741,27 @@ describe( 'Snapshots Module', () => {
 				// The pull of preview 4 was partial, which leaves its sync unknown.
 				const sync =
 					atomicSiteId === 4 ? undefined : { versionId: `v${ atomicSiteId }`, syncedAt: 5 };
-				await linkPulledPreview( 'pulled-site', 42, standing( atomicSiteId ), sync );
+				const previewSite = standing( atomicSiteId );
+				await linkPulledPreview(
+					'pulled-site',
+					42,
+					previewSite,
+					{
+						...previewSite,
+						localSiteId: '',
+						isStaging: false,
+						isPressable: false,
+						syncSupport: 'syncable',
+						lastPushTimestamp: null,
+						lastPullTimestamp: null,
+					},
+					sync
+				);
 				mocks.readFile.mockResolvedValue( mocks.writeFile.mock.lastCall?.[ 1 ] );
 			}
 
-			const savedData = JSON.parse( mocks.writeFile.mock.lastCall?.[ 1 ] );
 			expect(
-				savedData.snapshots.map( ( s: Snapshot ) => [
+				( await getSnapshotsFromConfig( 42 ) ).map( ( s: Snapshot ) => [
 					s.url,
 					s.localSiteId,
 					s.versionId,

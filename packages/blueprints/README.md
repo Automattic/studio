@@ -1,6 +1,6 @@
 # @studio/blueprints
 
-WordPress Blueprints in Studio: the Blueprint Library, checking a Blueprint, reading and changing what it asks for, and opening one from wherever it comes from. The CLI, the Desktop app, the `studio ui` server, `apps/ui` and Studio on the web all go through it, so a Blueprint is resolved the same way everywhere. It imports no other workspace package.
+WordPress Blueprints in Studio: the Blueprint Library, checking a Blueprint, reading and changing what it asks for, and opening one from wherever it comes from. The CLI, the Desktop app, the `studio ui` server and `apps/ui` all go through it, so a Blueprint is resolved the same way everywhere. It imports no other workspace package.
 
 ```
 index.ts      the browser-safe entry
@@ -12,7 +12,7 @@ node.ts       openBlueprint, the Node entry
 
 ## Two entries
 
-- **`@studio/blueprints`** runs in Node and in the page. `apps/ui` and Studio on the web import only this.
+- **`@studio/blueprints`** is browser-safe and runs in Node too. `apps/ui` imports only this.
 - **`@studio/blueprints/node`** reads and writes files. The CLI, the Desktop main process and `apps/local` import it.
 
 ```ts

@@ -63,6 +63,9 @@ type PopupProps = ContextPopupProps & {
 	align?: 'start' | 'center' | 'end';
 	sideOffset?: number;
 	alignOffset?: number;
+	collisionAvoidance?: ComponentPropsWithoutRef<
+		typeof BaseMenu.Positioner
+	>[ 'collisionAvoidance' ];
 };
 
 /**
@@ -75,6 +78,7 @@ export function Popup( {
 	align = 'start',
 	sideOffset = 4,
 	alignOffset,
+	collisionAvoidance,
 	className,
 	...props
 }: PopupProps ) {
@@ -86,6 +90,7 @@ export function Popup( {
 				align={ align }
 				sideOffset={ sideOffset }
 				alignOffset={ alignOffset }
+				collisionAvoidance={ collisionAvoidance }
 				className={ styles.positioner }
 			>
 				<BaseMenu.Popup
@@ -145,10 +150,6 @@ export function ContextPopup( { children, className, ...props }: ContextPopupPro
 			</BaseMenu.Positioner>
 		</BaseMenu.Portal>
 	);
-}
-
-export function ItemLabel( { className, ...props }: ComponentPropsWithoutRef< 'span' > ) {
-	return <span className={ clsx( styles.itemLabel, className ) } { ...props } />;
 }
 
 type ItemProps = ComponentPropsWithoutRef< typeof BaseMenu.Item > & {

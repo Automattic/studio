@@ -12,6 +12,7 @@ import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-setti
 import { useSession, useSessionLiveSite, useSessions } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
+	getSiteStopState,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSiteOperation,
@@ -71,6 +72,16 @@ function getRouteHomeSiteId( pathname: string ): string | undefined {
 function getNewSessionSiteId( pathname: string ): string | undefined {
 	const match = /^\/sites\/([^/]+)\/new\/?$/.exec( pathname );
 	return match ? decodeURIComponent( match[ 1 ] ) : undefined;
+}
+
+function preservesPanelForStop(
+	stop: ReturnType< typeof getSiteStopState >,
+	previous: { stopId?: number; preservingStop: boolean } | null | undefined
+) {
+	return (
+		!! stop?.preservePanel &&
+		( stop.pending || previous?.preservingStop || stop.id !== previous?.stopId )
+	);
 }
 
 // Hosts the site preview at the dashboard level so the webview stays mounted
@@ -249,7 +260,14 @@ function DashboardLayout() {
 	const previousSites = useRef(
 		new Map<
 			string,
-			{ running: boolean; starting: boolean; restarting: boolean; restartId?: number }
+			{
+				running: boolean;
+				starting: boolean;
+				restarting: boolean;
+				restartId?: number;
+				stopId?: number;
+				preservingStop: boolean;
+			}
 		>()
 	);
 	useLayoutEffect( () => {
@@ -263,11 +281,16 @@ function DashboardLayout() {
 				site.operation?.kind === 'start' || ( site.id === previewSiteId && startPending );
 			const restarting = isSiteRestarting( queryClient, site.id );
 			const restartId = getSiteRestartId( queryClient, site.id );
+			const stop = getSiteStopState( queryClient, site.id );
+			const preservingStop = !! stop?.preservePanel && stop.pending;
+			const preservePanel = preservesPanelForStop( stop, previous );
 			previousSites.current.set( site.id, {
 				running: !! site.running,
 				starting,
 				restarting,
 				restartId,
+				stopId: stop?.id,
+				preservingStop,
 			} );
 			// A fast restart can finish before React observes its pending state.
 			if (
@@ -291,6 +314,7 @@ function DashboardLayout() {
 			} else if (
 				previous?.running &&
 				! site.running &&
+				! preservePanel &&
 				! ( site.id === previewSiteId && liveUrl )
 			) {
 				updateSiteLayout( site.id, () => setOpen( false, { siteId: site.id } ) );
@@ -326,17 +350,30 @@ function DashboardLayout() {
 		active: boolean;
 		restarting: boolean;
 		restartId?: number;
+		stopId?: number;
+		preservingStop: boolean;
 	} | null >( null );
 	useEffect( () => {
 		if ( ! previewSiteId ) return;
 		const previous = previousSite.current;
 		const restartId = getSiteRestartId( queryClient, previewSiteId );
-		previousSite.current = { id: previewSiteId, active: siteActive, restarting, restartId };
+		const stop = getSiteStopState( queryClient, previewSiteId );
+		const preservingStop = !! stop?.preservePanel && stop.pending;
+		const preservePanel = preservesPanelForStop( stop, previous );
+		previousSite.current = {
+			id: previewSiteId,
+			active: siteActive,
+			restarting,
+			restartId,
+			stopId: stop?.id,
+			preservingStop,
+		};
 		if (
 			homeSiteId &&
 			previous?.id === previewSiteId &&
 			previous.active &&
 			! siteActive &&
+			! preservePanel &&
 			! previous.restarting &&
 			! restarting &&
 			previous.restartId === restartId
@@ -359,6 +396,8 @@ function DashboardLayout() {
 		},
 		[ setOpen, setChatHidden, previewSiteId, homeSiteId, navigate, runLayoutTransition ]
 	);
+	const changePanelFullscreen = ( fullscreen: boolean ) =>
+		setPanelFullscreen( fullscreen, { instant: true, userInitiated: true } );
 	useEffect(
 		() =>
 			connector.onTogglePanel( () => {
@@ -472,11 +511,7 @@ function DashboardLayout() {
 			<SiteHeaderActionsProvider host={ panelExpanded ? 'panel' : 'chat' }>
 				<PanelSplitFrame
 					siteId={ previewSiteId }
-					navigationKey={
-						homeSiteId || newSessionSiteId
-							? `/sites/${ homeSiteId ?? newSessionSiteId }`
-							: routePreviewContext.pathname
-					}
+					navigationKey={ routeSite ? `/sites/${ routeSite.id }` : routePreviewContext.pathname }
 					panelOpen={ showPanel }
 					onPanelClose={ () => setPanelOpen( false, { userInitiated: true } ) }
 					onChatClose={ () => setPanelFullscreen( true, { userInitiated: true } ) }
@@ -520,9 +555,7 @@ function DashboardLayout() {
 											open={ panelVisible }
 											onOpenChange={ ( open ) => setPanelOpen( open, { userInitiated: true } ) }
 											fullscreen={ chatHidden }
-											onFullscreenChange={ ( fullscreen ) =>
-												setPanelFullscreen( fullscreen, { instant: true, userInitiated: true } )
-											}
+											onFullscreenChange={ changePanelFullscreen }
 										/>
 									</div>
 								</div>
@@ -544,6 +577,7 @@ function DashboardLayout() {
 		<PanelCommandContext.Provider
 			value={ {
 				siteId: routeSite?.id,
+				showChat: chatHidden ? () => changePanelFullscreen( false ) : undefined,
 				toggle: () => {
 					if ( panelVisible ) setPanelOpen( false, { instant: true, userInitiated: true } );
 					else setPanelFullscreen( false, { instant: true, userInitiated: true } );

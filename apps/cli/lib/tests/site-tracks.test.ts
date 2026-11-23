@@ -2,6 +2,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { CONFIG_VERSION } from '@studio/common/lib/config/schema';
 import { getConfigPath, readConfig, updateConfig } from '@studio/common/lib/config/store';
 import {
 	getSiteTracksProps as getHostSiteTracksProps,
@@ -120,7 +121,7 @@ it( 'initializes one UUID across concurrent CLI and host lookups', async () => {
 		expect( result ).not.toHaveProperty( 'preview_id' );
 	}
 	const config = JSON.parse( await fs.readFile( getConfigPath(), 'utf8' ) );
-	expect( config.version ).toBe( 1 );
+	expect( config.version ).toBe( CONFIG_VERSION );
 	expect( config.otherSettings ).toEqual( { preserved: true } );
 } );
 

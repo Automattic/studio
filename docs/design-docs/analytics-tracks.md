@@ -43,24 +43,35 @@ The pieces mirror the MC Stats layering:
 | Shared core        | `packages/common/lib/record-tracks-event.ts` | Pure, environment-agnostic URL builder + fire-and-forget pixel sender. No config/opt-out logic. No-ops in E2E/dev/tests.                                                                                             |
 | Desktop wrapper    | `apps/studio/src/lib/tracks.ts`              | Single entry point for the desktop (Main process). Enforces the opt-out, attaches common props including `channel` and `ui_version` (always `v2`).                                                                   |
 | CLI wrapper        | `apps/cli/lib/tracks.ts`                     | Single entry point for the CLI **and** the `studio ui` server, which is bundled into it. Enforces the opt-out **and** the build-time `__ENABLE_CLI_TELEMETRY__` switch. Resolves origin from `STUDIO_TRACKS_ORIGIN`. |
-| Identity + opt-out | `packages/common/lib/install.ts`, `auth-token.ts` | `getOrCreateAnalyticsInstallId()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `config.json`.                                                                                       |
+| Identity + opt-out | `packages/common/lib/install.ts`, `auth-token.ts` | `identifyTracksEvent()`, `isAnalyticsOptedOut()`, `isAutomatticianFromToken()`. Persisted in `config.json`.                                                                                                 |
 
 Events are sent as a **pixel GET** to `https://pixel.wp.com/t.gif` with query params. The reserved
 Tracks pixel params the core builder attaches are:
 
 - `_en` — event name (snake*case, `studio*` prefix)
-- `_ut` + `_ui` — identity: `anon` + the install UUID when logged out, `wpcom:user_id` + the
-  WordPress.com user id when logged in (see note below)
-- `install_id` — the install UUID, on logged-in events only (logged out it is already `_ui`)
+- `_ut` + `_ui` — identity: `anon` + the install UUID, or `wpcom:user_id` + the WordPress.com user
+  id once the account is linked (see note below)
 - `_ts` — timestamp (ms)
 - one query param per event property (all values coerced to strings)
 
 The reserved `_`-prefixed params are a fixed set owned by the Tracks libraries.
 
-**Identity follows the WordPress.com login.** Logged out, we send `_ut=anon` with the install UUID.
-Logged in, we send `_ut=wpcom:user_id` with the account's user id, which ties Studio usage to the
-account for cross-product analytics and lifecycle email, and add the install UUID as `install_id` so
-the install's logged-out and logged-in events can be joined. `getTracksIdentity()`
+**Identity follows the WordPress.com login, going forward only.** An event is attributed to the
+WordPress.com account (`_ut=wpcom:user_id`, the user id) when all of these hold, and is anonymous
+(`_ut=anon`, the install UUID) otherwise:
+
+- a valid auth token is stored (logged in);
+- a Studio app sent it: the Desktop app, or the CLI run by one (`channel` `studio-ui` or
+  `studio-web`, i.e. app-spawned, `studio ui` or `studio serve`). The standalone CLI and `studio mcp`
+  stay anonymous even when logged in with `studio auth login`;
+- the person has seen that usage statistics are linked (`preferences.usageNoticeSeen`, see below).
+
+A linked event never carries the install UUID, so the install's anonymous events, earlier or later,
+can't be joined to the account. The same goes for the random ids that join events to each other
+(`site_id`, `preview_id`, `ai_session_id`, `journey_id`, `auth_attempt_id`, `turn_id`, `draw_id`): on
+a linked event each is replaced by an HMAC of it under `install.accountTracksKey`, a random secret that
+never leaves the computer. Linked events still join each other, but never an anonymous one.
+`journey_started_at` is dropped from linked events. `identifyTracksEvent()`
 (`packages/common/lib/install.ts`) is the single place this is decided; both wrappers call it.
 
 Set the `STUDIO_DEBUG_TRACKS` env var to log the exact pixel URL for each event. Note this only helps
@@ -70,13 +81,18 @@ where the sender actually runs — see Testing below for what fires in which bui
 
 - **Anonymous install UUID.** Generated on first event and stored as `install.analyticsId` in
   `config.json`. Because the desktop app and the CLI read the same file, both attribute
-  events to the same install. It is the identity while logged out and the `install_id` prop while
-  logged in.
-- **WordPress.com user id.** While a valid auth token is stored, events carry the account's user id
-  as their identity, and the install UUID as `install_id`. That lets analysis join an install's
-  anonymous events, earlier and later, to the account. Logging out returns the install to its
-  anonymous id.
-  No email, display name or other account detail is attached.
+  events to the same install. It is only ever sent on anonymous events.
+- **WordPress.com user id.** The identity of linked events (above). No email, display name or other
+  account detail is attached. Logging out returns the install to its anonymous id.
+- **Usage notice seen.** `preferences.usageNoticeSeen` in `config.json`, shared by every app and the
+  CLI. Until it is set, logged-in events stay anonymous. It is set when someone finishes onboarding
+  (`writeOnboardingCompleted`, whose welcome dialog explains it), or, for people onboarded before
+  this, when they dismiss the one-time "Usage statistics are changing" notice
+  (`apps/ui/src/features/onboarding/usage-notice/`), with either button. The notice is due when
+  `onboardingCompleted` is set and `usageNoticeSeen` isn't (`readUsageNoticePending`), is shown in
+  the Desktop app and `studio ui` whether or not the person is logged in, and waits for the Welcome,
+  Settings and Add site dialogs and the guides; the guides wait for it in turn. "Open Settings" and
+  the Settings link open General focused on the usage statistics toggle.
 - **Opt-out.** `preferences.analyticsOptOut` in `config.json` (absent/false = opted **in**; analytics default ON).
   Enforced in both wrappers before any send. The user controls it from Settings → Preferences and the
   onboarding screen, in both the desktop app and `studio ui`: it is the `analyticsEnabled` preference,
@@ -790,13 +806,18 @@ What fires depends on the build, so pick the right method:
 
 ## Privacy / GDPR
 
-The install UUID is a persistent pseudonymous identifier. Logged-out events are anonymous
-(`_ut=anon`). Logged-in events carry the WordPress.com user id, which is personal data: they are no
-longer anonymous, and the telemetry notice and Privacy Policy reference must say so. Because they also
-carry the install UUID, the install's logged-out events can be linked to the account as well. No other account
-detail is sent, and events still carry no site names or paths. Analytics defaults ON with an opt-out
-in Settings and onboarding; opting out stops identified and anonymous events alike. `is_a11n` is a
-boolean flag, not an identifier.
+The install UUID is a persistent pseudonymous identifier. Anonymous events (`_ut=anon`) carry it;
+linked events carry the WordPress.com user id instead, which is personal data, so they are no longer
+anonymous. Linking goes forward only: nothing is linked before the person has seen the disclosure
+(onboarding or the usage notice), and a linked event carries no id an anonymous event also carries,
+so past anonymous events can't be tied to the account. Standalone CLI use stays anonymous. No other
+account detail is sent, and events still carry no site names or paths. Analytics defaults ON with an
+opt-out in Settings and onboarding; opting out stops linked and anonymous events alike, so someone who
+opts out from the notice never has anything linked. `is_a11n` is a boolean flag, not an identifier.
+
+A consequence for analysis: an account journey that starts logged out and finishes logged in (a
+sign-in) can't be joined across the sign-in by `journey_id` or `auth_attempt_id`, because the linked
+outcome carries its own values.
 
 ### Account journey result meaning
 

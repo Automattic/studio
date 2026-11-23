@@ -95,3 +95,5 @@ For substantial new features, open an issue first so the approach can be discuss
 ## License
 
 WordPress Studio is licensed under [GPLv2](LICENSE.md).
+
+This line is a test and will be removed.

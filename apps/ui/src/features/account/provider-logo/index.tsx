@@ -1,6 +1,6 @@
+import { LogoTile } from '@studio/ds';
+import { SparklesIcon } from '@studio/ds/icons';
 import { getProvider, type ProviderId } from '@studio/providers';
-import { SparklesIcon } from '@/lib/icons';
-import { LogoTile } from '@/lib/ui';
 
 export function ProviderLogo( {
 	provider,

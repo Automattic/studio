@@ -1,3 +1,5 @@
+import { AttachmentChip } from '@studio/ds';
+import { FileTextIcon, CodeIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { ImageIcon } from 'lucide-react';
 import { memo } from 'react';
@@ -9,8 +11,6 @@ import {
 	MESSAGE_TEXT_ATTRIBUTE,
 	QUOTABLE_TEXT_ATTRIBUTE,
 } from '@/features/chats/use-text-context-menu';
-import { FileTextIcon, CodeIcon } from '@/lib/icons';
-import { AttachmentChip } from '@/lib/ui';
 import styles from './style.module.css';
 import type { StudioChatAttachmentSummary } from '@studio/agent/protocol/sessions/entry-types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';

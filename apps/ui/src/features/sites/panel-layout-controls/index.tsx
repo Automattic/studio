@@ -1,6 +1,6 @@
+import { IconButton } from '@studio/ds';
+import { FullscreenIcon, SidebarIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { FullscreenIcon, SidebarIcon } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function PanelLayoutControls( {

@@ -7,6 +7,16 @@ import {
 	getAiCreditsMeterIntent,
 	getStudioCodeAiAccessState,
 } from '@studio/common/lib/studio-assistant-quota';
+import {
+	Progress,
+	Menu,
+	Field,
+	FieldDescription,
+	FieldTitle,
+	Button,
+	IconButton,
+} from '@studio/ds';
+import { CircleHelpIcon } from '@studio/ds/icons';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { EllipsisIcon } from 'lucide-react';
@@ -33,8 +43,6 @@ import {
 import { LearnMoreLink } from '@/features/onboarding';
 import { SigninNotice } from '@/features/settings/agentic-signin-banner';
 import { OfflineNotice } from '@/features/settings/offline-banner';
-import { CircleHelpIcon } from '@/lib/icons';
-import { Progress, Menu, Field, FieldDescription, FieldTitle, Button, IconButton } from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
 import type { PlanPurchase, SiteLimit } from '@/data/core';

@@ -65,7 +65,7 @@
 	}
 }
 .label {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 }
 .content {
 	display: flex;
@@ -75,7 +75,7 @@
 	gap: var( --space-1_5 );
 }
 .thumbnail {
-	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	composes: imageOutline from '@studio/ds/theme/recipes.module.css';
 
 	position: relative;
 	display: inline-flex;

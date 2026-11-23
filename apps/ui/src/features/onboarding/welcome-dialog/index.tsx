@@ -1,5 +1,6 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { Button, Checkbox, Field, FieldLabel } from '@studio/ds';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -11,7 +12,6 @@ import { useSites } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AccountPromptDialog } from '@/features/account';
-import { Button, Checkbox, Field, FieldLabel } from '@/lib/ui';
 import styles from './style.module.css';
 import type { OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 

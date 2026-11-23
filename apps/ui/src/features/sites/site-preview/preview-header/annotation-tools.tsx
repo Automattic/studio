@@ -1,7 +1,7 @@
+import { IconButton } from '@studio/ds';
+import { DrawIcon, SelectIcon, TrashIcon, DrawIconHandle } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useRef } from 'react';
-import { DrawIcon, SelectIcon, TrashIcon, DrawIconHandle } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
 export function AnnotationTools( {

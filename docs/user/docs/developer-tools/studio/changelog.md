@@ -1,6 +1,8 @@
 # WordPress Studio Changelog
 
-WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release. While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
+WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release.
+
+While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
 
 ## [2.3.0](#0-2-3-0)
 

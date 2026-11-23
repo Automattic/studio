@@ -54,6 +54,7 @@ import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { ComponentProps, ReactNode } from 'react';
 
 type SiteOption = {
+	icon?: ReactNode;
 	value: string;
 	label: string;
 	description?: string;
@@ -361,6 +362,7 @@ export function SiteSelect( {
 	disabledReason?: string;
 	onChange: ( value: string ) => void;
 } ) {
+	const selectedIcon = options.find( ( option ) => option.value === value )?.icon;
 	const offered = options.filter( ( option ) => ! option.hidden );
 	const groups = Array.from( new Set( offered.map( ( option ) => option.group ) ) );
 	const select = (
@@ -373,6 +375,11 @@ export function SiteSelect( {
 			} }
 		>
 			<SelectTrigger { ...props }>
+				{ selectedIcon && (
+					<span data-icon="inline-start" aria-hidden="true" className={ styles.selectIcon }>
+						{ selectedIcon }
+					</span>
+				) }
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent className={ styles.selectContent }>
@@ -386,6 +393,7 @@ export function SiteSelect( {
 									key={ option.value }
 									value={ option.value }
 									description={ option.description }
+									icon={ option.icon }
 								>
 									{ option.label }
 								</SelectItem>

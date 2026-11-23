@@ -1,9 +1,19 @@
 import { readConfig, updateConfig } from '@studio/common/lib/config/store';
+import { setRemoteSiteDetails } from '@studio/common/lib/remote-sites';
+import {
+	destinationConnection,
+	recordTransfer,
+	findPreviewConnection,
+	lastTransferTime,
+	recordPreviewTransfer,
+} from '@studio/common/lib/site-connections';
 import { isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
 import { getSiteByFolder } from './sites';
+import type { Config } from '@studio/common/lib/config/schema';
+import type { SyncSite } from '@studio/common/types/sync';
 import type { PreviewSite } from '@studio/providers';
 
 /** How many unexpired previews the user has of one local site. */
@@ -37,9 +47,30 @@ function previewFields( preview: PreviewSite ) {
 		url: new URL( preview.url ).hostname,
 		atomicSiteId: Number( preview.id ),
 		shareUrl: preview.shareUrl,
+		launchUrl: preview.launchUrl,
 		expiresAt: preview.expiresAt,
 		liveSiteId: preview.liveSiteId === undefined ? undefined : Number( preview.liveSiteId ),
 	};
+}
+
+function withTransfer( config: Config, snapshot: Snapshot ): Snapshot {
+	const local = config.sites.find( ( site ) => site.id === snapshot.localSiteId );
+	const connection = findPreviewConnection( local, snapshot );
+	if ( ! connection ) return snapshot;
+	return {
+		...snapshot,
+		versionId: connection.localVersionId ?? undefined,
+		syncedAt: connection.localVersionId === null ? undefined : lastTransferTime( connection ),
+	};
+}
+
+function forgetPreviewConnection( config: Config, preview: Snapshot ) {
+	const local = config.sites.find( ( site ) => site.id === preview.localSiteId );
+	const connection = findPreviewConnection( local, preview );
+	if ( local?.connections && connection?.preview ) {
+		local.connections = local.connections.filter( ( item ) => item !== connection );
+		if ( ! local.connections.length ) delete local.connections;
+	}
 }
 
 export async function getSnapshotsFromConfig(
@@ -54,7 +85,7 @@ export async function getSnapshotsFromConfig(
 		snapshots = snapshots.filter( ( snapshot ) => snapshot.localSiteId === site.id );
 	}
 
-	return snapshots;
+	return snapshots.map( ( snapshot ) => withTransfer( config, snapshot ) );
 }
 
 export async function saveSnapshotToConfig(
@@ -78,14 +109,14 @@ export async function saveSnapshotToConfig(
 			name,
 			sequence: nextSequenceNumber,
 			userId,
-			versionId,
-			syncedAt: Date.now(),
 		};
 
 		// A sync while the preview was being created may already have listed it.
 		config.snapshots = config.snapshots.filter( ( s ) => s.atomicSiteId !== atomicSiteId );
 		config.snapshots.push( snapshot );
-		return snapshot;
+		const local = config.sites.find( ( item ) => item.id === site.id );
+		if ( local ) recordPreviewTransfer( local, snapshot, 'push', versionId, snapshot.date );
+		return withTransfer( config, snapshot );
 	} );
 }
 
@@ -98,7 +129,8 @@ export async function linkPulledPreview(
 	localSiteId: string,
 	userId: number,
 	preview: PreviewSite,
-	sync?: { versionId: string; syncedAt: number }
+	remote: SyncSite,
+	sync?: { versionId?: string; syncedAt: number }
 ): Promise< void > {
 	const fields = previewFields( preview );
 	return updateConfig( ( config ) => {
@@ -107,12 +139,23 @@ export async function linkPulledPreview(
 			snapshot = { ...fields, localSiteId: '', date: Date.now(), userId };
 			config.snapshots.push( snapshot );
 		}
-		if ( snapshot.localSiteId && snapshot.localSiteId !== localSiteId ) {
-			return;
+		const local = config.sites.find( ( item ) => item.id === localSiteId );
+		if ( local ) {
+			// Remember this pull even if another local site owns the preview.
+			const connection = destinationConnection( local, 'wpcom', String( userId ), remote.id );
+			setRemoteSiteDetails( connection, 'wpcom', remote );
+			recordTransfer(
+				connection,
+				'pull',
+				sync ? sync.versionId : null,
+				sync?.syncedAt ?? Date.now()
+			);
 		}
-		snapshot.localSiteId = localSiteId;
-		snapshot.versionId = sync?.versionId;
-		snapshot.syncedAt = sync?.syncedAt;
+		if ( ! snapshot.localSiteId ) snapshot.localSiteId = localSiteId;
+		if ( snapshot.localSiteId === localSiteId ) {
+			delete snapshot.versionId;
+			delete snapshot.syncedAt;
+		}
 	} );
 }
 
@@ -129,10 +172,13 @@ export async function updateSnapshotInConfig(
 			throw new LoggerError( __( 'Failed to find existing preview site in config' ) );
 		}
 
+		if ( snapshot.localSiteId !== site.id ) forgetPreviewConnection( config, snapshot );
 		snapshot.localSiteId = site.id;
+		delete snapshot.versionId;
+		delete snapshot.syncedAt;
 		snapshot.date = Date.now();
-		snapshot.versionId = versionId;
-		snapshot.syncedAt = snapshot.date;
+		const local = config.sites.find( ( item ) => item.id === site.id );
+		if ( local ) recordPreviewTransfer( local, snapshot, 'push', versionId, snapshot.date );
 		snapshot.liveSiteId = liveSiteId;
 		// The update restarted the server's window; the next sync reports where it now ends.
 		delete snapshot.expiresAt;
@@ -140,18 +186,22 @@ export async function updateSnapshotInConfig(
 			snapshot.shareUrl = shareUrl;
 		}
 
-		return snapshot;
+		return withTransfer( config, snapshot );
 	} );
 }
 
 export async function deleteSnapshotFromConfig( snapshotUrl: string ): Promise< void > {
 	return updateConfig( ( config ) => {
+		for ( const preview of config.snapshots.filter( ( s ) => s.url === snapshotUrl ) )
+			forgetPreviewConnection( config, preview );
 		config.snapshots = config.snapshots.filter( ( s ) => s.url !== snapshotUrl );
 	} );
 }
 
 export async function deleteAllSnapshotsForUserFromConfig( userId: number ): Promise< void > {
 	return updateConfig( ( config ) => {
+		for ( const preview of config.snapshots.filter( ( s ) => s.userId === userId ) )
+			forgetPreviewConnection( config, preview );
 		config.snapshots = config.snapshots.filter( ( s ) => s.userId !== userId );
 	} );
 }
@@ -191,7 +241,7 @@ export async function setSnapshotInConfig(
 			snapshot.name = updates.name;
 		}
 
-		return snapshot;
+		return withTransfer( config, snapshot );
 	} );
 }
 
@@ -208,7 +258,8 @@ export async function setSnapshotInConfig(
 export async function reconcilePreviews(
 	userId: number,
 	previews: PreviewSite[],
-	checkedAt: number
+	checkedAt: number,
+	options: { keepMissing?: boolean; hostedSites?: SyncSite[] } = {}
 ): Promise< Snapshot[] > {
 	const standing = new Map(
 		previews.map( ( preview ) => {
@@ -239,11 +290,23 @@ export async function reconcilePreviews(
 			if ( ! preview ) {
 				if ( snapshot.localSiteId ) {
 					forgotten.push( snapshot );
+					if ( options.keepMissing ) return true;
+					const hosted = options.hostedSites?.find(
+						( candidate ) => candidate.id === snapshot.atomicSiteId
+					);
+					const local = config.sites.find( ( candidate ) => candidate.id === snapshot.localSiteId );
+					if ( hosted && local ) {
+						const connection = destinationConnection( local, 'wpcom', String( userId ), hosted.id );
+						setRemoteSiteDetails( connection, 'wpcom', hosted );
+					} else {
+						forgetPreviewConnection( config, snapshot );
+					}
 				}
 				return false;
 			}
 			snapshot.expiresAt = preview.expiresAt;
 			snapshot.liveSiteId = preview.liveSiteId;
+			snapshot.launchUrl = preview.launchUrl;
 			if ( ! snapshot.localSiteId ) {
 				snapshot.localSiteId = originOf( snapshot.atomicSiteId );
 			}

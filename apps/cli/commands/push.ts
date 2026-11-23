@@ -6,7 +6,7 @@ import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
-import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import { getRemoteSites, recordRemoteSitePublish } from '@studio/common/lib/remote-sites';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import {
@@ -162,6 +162,9 @@ const PUSH_PROGRESS: Record< PushStatus[ 'phase' ], [ () => string, number, numb
 
 const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
 	creatingBackup: 'local_export',
+	startingSite: 'local_export',
+	generatingStaticSite: 'local_export',
+	stoppingSite: 'local_export',
 	uploading: 'upload',
 	creatingRemoteBackup: 'remote_backup',
 	applyingChanges: 'remote_import',
@@ -227,8 +230,12 @@ async function runPush(
 	pushed.remoteSite = remoteSite;
 	reportPhase();
 
-	if ( provider === 'wpcom' ) {
-		await warnIfPreviewIsBehind( site, Number( remoteSite.id ), logger );
+	if ( sites.previews ) {
+		try {
+			await warnIfPreviewIsBehind( site, Number( remoteSite.id ), logger );
+		} catch {
+			// A preview comparison is advisory.
+		}
 	}
 
 	let optionsToSync: SyncOption[] = [ 'all' ];
@@ -250,23 +257,45 @@ async function runPush(
 
 	pushed.selection ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
 
-	reportPhase( 'creatingBackup' );
+	if ( sites.content !== 'static' ) {
+		reportPhase( 'creatingBackup' );
+	}
 	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 	const removeTempDir = () => fs.promises.rm( tempDir, { recursive: true, force: true } );
 	const forgetTempDir = onCancel( removeTempDir );
 
 	try {
-		const content =
-			sites.content === 'static'
-				? await exportStaticContent( site.path, remoteSite.url, path.join( tempDir, 'site' ) )
-				: await exportArchive(
-						provider,
-						site,
-						tempDir,
-						optionsToSync,
-						specificSelectionPaths,
-						logger
-				  );
+		let localVersionId: string | null = null;
+		const captureVersion = async () => {
+			if ( ! optionsToSync.includes( 'all' ) || specificSelectionPaths?.length ) return;
+			try {
+				localVersionId = await getSiteVersion( site.id, site.path );
+			} catch {
+				/* Comparison must not block publishing. */
+			}
+		};
+		let content: PushContent;
+		if ( sites.content === 'static' ) {
+			// Starting a stopped site can update its files. Capture the version after startup
+			// and before rendering the static pages.
+			content = await exportStaticContent(
+				site.path,
+				remoteSite.url,
+				path.join( tempDir, 'site' ),
+				captureVersion,
+				reportPhase
+			);
+		} else {
+			await captureVersion();
+			content = await exportArchive(
+				provider,
+				site,
+				tempDir,
+				optionsToSync,
+				specificSelectionPaths,
+				logger
+			);
+		}
 		const uploadLabel =
 			content.kind === 'archive' ? __( 'Uploading archive…' ) : __( 'Uploading files…' );
 
@@ -345,9 +374,11 @@ async function runPush(
 		// Remember this connection so future push/pull runs (and the Desktop UI)
 		// can surface it without re-selecting from the full site list.
 		try {
-			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push' );
+			if ( ! pushed.launchError ) {
+				await recordRemoteSitePublish( provider, site.id, remoteSite as never, localVersionId );
+			}
 		} catch ( error ) {
-			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
+			throw toLoggerError( error, __( 'Failed to save connected site' ) );
 		}
 
 		logger.reportSuccess(

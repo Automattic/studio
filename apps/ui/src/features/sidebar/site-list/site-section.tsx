@@ -164,7 +164,6 @@ export function SiteSection( {
 					</Badge>
 				) : null }
 				<IconButton
-					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
 					icon={ <SquarePenIcon /> }
@@ -183,7 +182,7 @@ export function SiteSection( {
 							draft.attachments.length === 0 &&
 							getStagedAnnotations( site.id ).length === 0;
 						runLayoutTransition( () => {
-							preview?.setChatHidden( hideChat, site.id, { instant: true } );
+							preview?.setChatHidden( hideChat, site.id );
 							if ( ! hideChat ) {
 								return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 							}

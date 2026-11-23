@@ -4,8 +4,8 @@ import {
 	type ProviderSites,
 	type SitesProviderId,
 } from '@studio/providers';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useConnector } from '@/data/core';
 import { AI_SETTINGS_QUERY_KEY, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -13,7 +13,7 @@ import {
 	ACCOUNT_SITES_QUERY_KEY,
 	REMOTE_SITES_QUERY_KEY,
 } from '@/data/queries/user-scoped-query-keys';
-import type { RemoteSiteConnection } from '@/data/core';
+import type { Connector, RemoteSiteConnection } from '@/data/core';
 
 export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: string ) =>
 	[ ...REMOTE_SITES_QUERY_KEY, provider, localSiteId ?? null ] as const;
@@ -21,14 +21,38 @@ export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: st
 export const accountSitesQueryKey = ( provider: SitesProviderId ) =>
 	[ ...ACCOUNT_SITES_QUERY_KEY, provider ] as const;
 
-// The providers this app publishes to, leaving out those that only make previews: one that
-// publishes a static export needs the site to run on native PHP.
+export const publishTargetQueryKey = ( siteId: string ) => [ 'publish-target', siteId ] as const;
+
+export const remotePublishTargetKey = ( provider: SitesProviderId, id: string | number ) =>
+	`${ provider }:site:${ id }`;
+
+function accountSitesQuery< Id extends SitesProviderId >( connector: Connector, provider: Id ) {
+	return {
+		queryKey: accountSitesQueryKey( provider ),
+		queryFn: async () => ( await connector.listAccountSites( provider ) ) as ProviderSites[ Id ][],
+		staleTime: 5 * 60 * 1000,
+	};
+}
+
+function allRemoteConnectionsQuery( connector: Connector, provider: SitesProviderId ) {
+	return {
+		queryKey: remoteSitesQueryKey( provider ),
+		queryFn: () => connector.getRemoteSites( provider ),
+	};
+}
+
+function excludeConnectedSites< Site extends ProviderSites[ SitesProviderId ] >(
+	sites: Site[] | undefined,
+	connections: RemoteSiteConnection< SitesProviderId >[] | undefined
+) {
+	if ( ! sites ) return undefined;
+	const connectedIds = new Set( ( connections ?? [] ).map( ( site ) => site.id ) );
+	return sites.filter( ( site ) => ! connectedIds.has( site.id ) );
+}
+
+// The providers this app publishes to, leaving out those that only make previews.
 export function usePublishProviders(): SitesProviderId[] {
-	const { capabilities } = useConnector();
-	return SITES_PROVIDER_IDS.filter( ( id ) => {
-		const sites = getProviderSites( id );
-		return sites.publish && ( capabilities.nativeSites || sites.content !== 'static' );
-	} );
+	return SITES_PROVIDER_IDS.filter( ( id ) => getProviderSites( id ).publish );
 }
 
 export function useConnectedHostingProviders( providers: SitesProviderId[] ) {
@@ -43,7 +67,7 @@ export function useConnectedHostingProviders( providers: SitesProviderId[] ) {
 }
 
 // Whether the provider's account is connected. WordPress.com's is the Studio sign-in.
-export function useProviderConnected( provider: SitesProviderId ): boolean | undefined {
+function useProviderConnected( provider: SitesProviderId ): boolean | undefined {
 	const { data: authUser, isSuccess } = useAuthUser();
 	const settings = useAiSettings();
 	if ( provider === 'wpcom' ) {
@@ -76,13 +100,8 @@ export function useAccountSites< Id extends SitesProviderId >(
 	const queryClient = useQueryClient();
 	const connected = useProviderConnected( provider );
 	const query = useQuery( {
-		queryKey: accountSitesQueryKey( provider ),
-		queryFn: async () => ( await connector.listAccountSites( provider ) ) as ProviderSites[ Id ][],
+		...accountSitesQuery( connector, provider ),
 		enabled: ( options.enabled ?? true ) && !! connected,
-		// This query hits the network and the data doesn't change often.
-		// Keep it fresh for a few minutes so opening/closing the picker
-		// repeatedly doesn't spam the provider.
-		staleTime: 5 * 60 * 1000,
 	} );
 	// A provider that rejects its config forgets it, which disconnects the account.
 	const { error } = query;
@@ -94,36 +113,39 @@ export function useAccountSites< Id extends SitesProviderId >(
 	return query;
 }
 
-// The account's sites no local site is connected to yet.
-export function usePickableSites< Id extends SitesProviderId >(
-	provider: Id,
-	options: { enabled?: boolean } = {}
-) {
+export function usePickableSitesByProvider( providers: SitesProviderId[] ) {
 	const connector = useConnector();
-	const account = useAccountSites( provider, options );
-	const providerConnected = useProviderConnected( provider );
-	const connected = useQuery( {
-		queryKey: remoteSitesQueryKey( provider ),
-		queryFn: () => connector.getRemoteSites( provider ),
-		enabled: ( options.enabled ?? true ) && !! providerConnected,
+	const client = useQueryClient();
+	const accounts = useQueries( {
+		queries: providers.map( ( provider ) => accountSitesQuery( connector, provider ) ),
 	} );
+	const connections = useQueries( {
+		queries: providers.map( ( provider ) => allRemoteConnectionsQuery( connector, provider ) ),
+	} );
+	const latestAccountError = Math.max(
+		0,
+		...accounts.map( ( account ) => account.errorUpdatedAt )
+	);
+	useEffect( () => {
+		if ( latestAccountError ) void client.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );
+	}, [ client, latestAccountError ] );
 
-	const data = useMemo< ProviderSites[ Id ][] | undefined >( () => {
-		if ( ! account.data ) {
-			return undefined;
-		}
-		const connectedIds = new Set( ( connected.data ?? [] ).map( ( site ) => site.id ) );
-		return account.data.filter( ( site ) => ! connectedIds.has( site.id ) );
-	}, [ account.data, connected.data ] );
-
-	return {
-		data,
-		isLoading: account.isLoading || connected.isLoading,
-		isFetching: account.isFetching || connected.isFetching,
-		error: account.error ?? connected.error,
-		refetch: () => {
-			void account.refetch();
-			void connected.refetch();
-		},
-	};
+	return providers.map( ( provider, index ) => {
+		const account = accounts[ index ];
+		const connected = connections[ index ];
+		return {
+			provider,
+			data:
+				account.isSuccess && connected.isSuccess
+					? excludeConnectedSites( account.data, connected.data ) ?? []
+					: [],
+			isLoading: account.isLoading || connected.isLoading,
+			isFetching: account.isFetching || connected.isFetching,
+			error: account.error ?? connected.error,
+			refetch: () => {
+				void account.refetch();
+				void connected.refetch();
+			},
+		};
+	} );
 }

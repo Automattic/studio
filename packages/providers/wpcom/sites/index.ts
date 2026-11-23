@@ -15,6 +15,7 @@ import {
 import { createPreview, deletePreview, getEditedAt, listPreviews, updatePreview } from './previews';
 import { enableReprintExporter, getReprintApiUrl, installReprintPublicKey } from './reprint';
 import { createTusUpload } from './upload';
+import { getWpcomSiteVisibility, setWpcomSiteVisibility } from './visibility';
 import type { SitesServices } from '../../types';
 import type { WpcomConfig } from '../config';
 import type { ImportResponse } from './schemas';
@@ -89,6 +90,11 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 }
 
 export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
+	visibility: {
+		get: ( config, id ) => getWpcomSiteVisibility( requireToken( config ), Number( id ) ),
+		set: ( config, id, value ) =>
+			setWpcomSiteVisibility( requireToken( config ), Number( id ), value ),
+	},
 	list: ( config, options = {} ) =>
 		step( __( 'Failed to fetch WordPress.com sites' ), 'site_fetch', () =>
 			fetchSyncableSites( requireToken( config ), {
@@ -145,7 +151,9 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 				pollImportStatus( token, site.id )
 			);
 			if ( status.status === 'failed' ) {
-				throw new RemoteSiteError( getImportFailureMessage( status ), 'remote_import' );
+				throw new RemoteSiteError( getImportFailureMessage( status ), 'remote_import', {
+					cause: new Error( status.error_data?.vp_restore_message || status.error ),
+				} );
 			}
 			if ( ! status.success ) {
 				throw new RemoteSiteError(

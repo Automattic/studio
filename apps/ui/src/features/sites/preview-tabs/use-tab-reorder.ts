@@ -68,7 +68,7 @@ export function useTabReorder( {
 		dropRects.current = undefined;
 		const duration = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches
 			? 0
-			: getMotionDuration( 'layout' );
+			: getMotionDuration( 'quick' );
 		if ( ! duration ) return;
 		animations.current = Array.from(
 			before.list.querySelectorAll< HTMLElement >( '[data-tab-reorder-id]' )
@@ -178,7 +178,7 @@ export function useTabReorder( {
 			const reduced = window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 			landingTimer.current = setTimeout(
 				() => setCurrent( null ),
-				reduced ? 0 : getMotionDuration( 'layout' )
+				reduced ? 0 : getMotionDuration( 'quick' )
 			);
 			setTimeout( () => {
 				suppressClick.current = false;

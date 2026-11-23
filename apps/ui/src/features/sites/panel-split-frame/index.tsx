@@ -179,13 +179,23 @@ export function PanelSplitFrame( {
 				{ panel && resizable ? (
 					<div
 						className={ styles.panelResizeHandle }
-						aria-hidden={ ! showPanel || contentCollapsed || animatingPanelToggle || undefined }
-						inert={ ! showPanel || contentCollapsed || animatingPanelToggle }
+						aria-hidden={ ! showPanel || contentCollapsed || undefined }
+						inert={ ! showPanel || contentCollapsed }
 					>
 						<ResizeHandle
 							className={ styles.panelResizeGrip }
 							label={ __( 'Resize panel' ) }
 							{ ...handleProps }
+							onResizeStart={ ( event ) => {
+								if ( event.button === 0 ) setAnimatingPanelToggle( false );
+								handleProps.onResizeStart( event );
+							} }
+							onKeyDown={ ( event ) => {
+								if ( [ 'ArrowLeft', 'ArrowRight', 'Home', 'End' ].includes( event.key ) ) {
+									setAnimatingPanelToggle( false );
+								}
+								handleProps.onKeyDown( event );
+							} }
 							onDoublePress={ onPanelClose }
 						/>
 					</div>

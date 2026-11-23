@@ -106,7 +106,7 @@ function SiteCommands( {
 			connector.onNewChat( () => {
 				replaceOpenDialogs( () => {
 					runLayoutTransition( () => {
-						preview.setChatHidden( false, site.id, { instant: true } );
+						preview.setChatHidden( false, site.id );
 						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 					} );
 				} );
@@ -118,7 +118,6 @@ function SiteCommands( {
 		site,
 		panelShown: panelShown ?? preview.open,
 		canAnnotate: connector.capabilities.annotatePreview,
-		nativeSites: connector.capabilities.nativeSites,
 		annotating: annotations.active,
 		actions,
 		destinations,
@@ -128,7 +127,7 @@ function SiteCommands( {
 		openHeaderPanel,
 		newChat: () =>
 			runLayoutTransition( () => {
-				preview.setChatHidden( false, site.id, { instant: true } );
+				preview.setChatHidden( false, site.id );
 				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 			} ),
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),

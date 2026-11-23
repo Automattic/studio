@@ -47,7 +47,7 @@ Then the release author has an agent translate the strings GlotPress is missing 
 
 **Fastlane lane**: `publish_release`
 
-- Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which builds the plugins with the Studio CLI inside (`npm run cli:bundle:plugin`) and publishes them to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from, as that repository's single commit. It also attaches `wp-studio-openai-<version>.zip`, the package for OpenAI's plugin directory, to the release. The same event triggers `deploy-static.yml`, which publishes Studio on the web to Spacefast (`app.wordpress.studio`) and checks the live site
+- Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which builds the plugins with the Studio CLI inside (`npm run cli:bundle:plugin`) and publishes them to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from, as that repository's single commit. It also attaches `wp-studio-openai-<version>.zip`, the package for OpenAI's plugin directory, to the release.
 - Creates a backmerge PR from `release/<version>` into `trunk`
 - Removes the branch protection from `release/<version>` and deletes the branch
 

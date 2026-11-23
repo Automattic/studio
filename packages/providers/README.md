@@ -58,9 +58,9 @@ A model connection whose `model.contextWindow` is exactly the context the server
 
 ## Sites and previews
 
-`sites` sends local sites to the provider's sites. `publish` in the descriptor says whether the user publishes to sites they keep there, and `previews` whether the provider builds temporary previews shared by a link; a provider offers either or both. A preview is updated with a push to it, with `preview` set, and created, listed and deleted through `previews`.
+`sites` sends local sites to sites the user keeps on the provider, and `previews` says whether it also builds temporary previews shared by a link. A preview is updated with a push to it, with `preview` set, and created, listed and deleted through `previews`.
 
-A provider whose config is `undefined`, such as SSH, has no `account`: there is nothing to connect, and surfaces treat it as connected. The user connects each of its sites with the descriptor's `sites.connect` method, a form the services' `resolve` checks by reaching the site, and it pulls by writing the site's archive (`pullArchive`). Its method is `hostOnly`, so only the user's computer offers it.
+A provider whose config is `undefined`, such as SSH, has no `account`: there is nothing to connect, and surfaces treat it as connected. The user connects each of its sites with the descriptor's `sites.connect` form, which the services' `resolve` checks by reaching the site, and it pulls by writing the site's archive (`pullArchive`). Its sites are `hostOnly`, so only the user's computer offers it.
 
 ## Providers own no storage
 

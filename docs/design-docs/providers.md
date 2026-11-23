@@ -142,7 +142,7 @@ The Local LLM connector is `local-llm`, with no stored alias: builds that don't 
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
 - `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. The Share and Publish panel uses the same provider descriptors and remote-site connections.
 - A provider declares whether it supports selective sync.
-- A provider without an account, such as SSH, has nothing to connect and counts as connected. Its sites aren't listed from an account: the user connects one by describing it with the provider's site connect method (`sites.connect`, a form), which the provider checks by reaching the site. On pull, such a provider sends the site itself as an archive (`pullArchive`), which the CLI imports like a downloaded backup. A provider whose sites connect with a `hostOnly` method is left out where WordPress Studio runs elsewhere, as Studio Cloud does. See `ssh-sites.md`.
+- A provider without an account, such as SSH, has nothing to connect and counts as connected. Its sites aren't listed from an account: the user connects one by describing it in the provider's site form (`sites.connect`), which the provider checks by reaching the site. On pull, such a provider sends the site itself as an archive (`pullArchive`), which the CLI imports like a downloaded backup. A provider whose sites are `hostOnly` is left out where WordPress Studio runs elsewhere, as Studio Cloud does. See `ssh-sites.md`.
 
 ### Share and Publish panel
 
@@ -156,9 +156,9 @@ The destination picker groups connected sites and previews by provider. Removing
 
 ## Previews
 
-- A preview is a remote site that expires: the provider builds it from a local site and shares it by a link until it is taken down or bought. It is part of the provider's sites, not a capability of its own, so a provider publishes to sites the user keeps (`sites.publish`), makes previews (`sites.previews`), or both.
+- A preview is a remote site that expires: the provider builds it from a local site and shares it by a link until it is taken down or bought. It is part of the provider's sites, not a capability of its own, so a provider with `sites.previews` makes previews as well as publishing to sites the user keeps.
 - Updating a preview is a push to it, with `preview` set. Creating one is `previews.create`, since the provider builds the site from the first upload. `previews.list` gives the account's previews still up, and `previews.delete` takes one down. A bought preview keeps its site ID, and WordPress Studio then connects it to its local site like any remote site.
-- The descriptor says what a preview is built from (`previews.content`), as `content` does for a push. WordPress.com builds previews through its site importer, from the zip of the site's folder with its SQLite database, while a push to a site the user keeps goes through its sync import, which takes the export archive and needs a plan; an unpaid preview refuses it.
+- WordPress.com builds previews through its site importer, from the zip of the site's folder with its SQLite database, while a push to a site the user keeps goes through its sync import, which takes the export archive and needs a plan; an unpaid preview refuses it.
 - WordPress Studio owns which local site each preview was made from and which connected site it shows changes to. Previews made on Jurassic Ninja by older builds are left to expire: updating one makes a new WordPress.com preview, and deleting one only drops it from the list.
 - Each transfer records its comparison version on the local site’s connection to that remote ID. A bought preview keeps the same connection. A partial transfer clears the comparison version.
 - `studio preview` stays the command family. WordPress.com is the only provider that offers previews, and the commands use it; naming the provider comes with a second one _(planned)_.

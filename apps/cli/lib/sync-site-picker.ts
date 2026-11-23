@@ -5,7 +5,7 @@ import { lastTransferTime } from '@studio/common/lib/site-connections';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { resolveRemoteSite } from '@studio/common/sites/remote-sites';
 import {
-	getConnectFields,
+	getFormFields,
 	getProvider,
 	getProviderSites,
 	type ProviderSites,
@@ -314,7 +314,7 @@ export async function resolveFormConnectedSite(
 		return known;
 	}
 	const { label } = getProvider( provider );
-	const form = getConnectFields( getProviderSites( provider ).connect! );
+	const form = getFormFields( getProviderSites( provider ).connect!.input() );
 	const values = identifier
 		? { [ form[ 0 ].name ]: identifier }
 		: process.stdin.isTTY

@@ -19,8 +19,8 @@ export const listConnectedRemoteSitesTool = defineTool(
 			const connected = await context.host.sync.connectedSites( site );
 			const summary = connected.map( ( { provider, site: remote } ) => {
 				const sites = getProviderSites( provider );
-				const pushIssue = sites.issue( remote, 'push' );
-				const pullIssue = sites.pull ? sites.issue( remote, 'pull' ) : null;
+				const pushIssue = sites.issue?.( remote, 'push' ) ?? null;
+				const pullIssue = sites.pull ? sites.issue?.( remote, 'pull' ) ?? null : null;
 				return {
 					type: 'remote-site' as const,
 					provider,

@@ -326,7 +326,7 @@ export function PublishButton( {
 		)
 			return false;
 		const sites = getProviderSites( target.provider );
-		return !! sites.pull && ! sites.issue( target.remote, 'pull' );
+		return !! sites.pull && ! sites.issue?.( target.remote, 'pull' );
 	};
 	const pullTarget =
 		pullRequest &&
@@ -835,7 +835,7 @@ export function PublishButton( {
 			  activity.provider === selected?.provider &&
 			  activity.remoteSiteId === remote.id );
 	const previewPullIssue =
-		targets.previewAccountSite && descriptor?.issue( targets.previewAccountSite, 'pull' );
+		targets.previewAccountSite && descriptor?.issue?.( targets.previewAccountSite, 'pull' );
 	const canPullPreview = !! (
 		snapshot &&
 		descriptor?.pull &&
@@ -847,7 +847,7 @@ export function PublishButton( {
 	const comparison = preview.status.isSuccess ? preview.status.data : undefined;
 	const previewMayHaveChanges = comparison?.previewChanged !== false;
 	const showPreviewPull = canPullPreview && previewMayHaveChanges && ! previewPublicSelected;
-	const pushIssue = remote && descriptor?.issue( remote, 'push' );
+	const pushIssue = remote && descriptor?.issue?.( remote, 'push' );
 	const showLivePullAction = canPullLiveTarget( selected );
 	const pullIsPrimary = showLivePullAction && !! pushIssue;
 	const openPreviewPull = ( fromMenu = false ) => {

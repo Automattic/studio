@@ -189,12 +189,6 @@ async function runPush(
 ): Promise< void > {
 	const { provider } = pushed;
 	const sites = getProviderSites( provider );
-	if ( ! sites.publish ) {
-		throw new LoggerError(
-			// translators: %s: the provider's name
-			sprintf( __( '%s only makes previews.' ), getProvider( provider ).label )
-		);
-	}
 	const service = getProviderServices( provider ).sites!;
 	const config = await requireConfig( provider );
 
@@ -519,7 +513,7 @@ async function resolveRemoteSite(
 		if ( ! remoteSite ) {
 			throw new LoggerError( sprintf( __( 'No site found matching "%s"' ), identifier ) );
 		}
-		const issue = getProviderSites( provider ).issue( remoteSite, 'push' );
+		const issue = getProviderSites( provider ).issue?.( remoteSite, 'push' );
 		if ( issue ) {
 			throw new LoggerError( issue );
 		}

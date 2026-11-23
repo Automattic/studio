@@ -80,7 +80,6 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		generatesImages: () => true,
 	},
 	sites: {
-		publish: true,
 		publishing: {
 			description: () => __( 'The full WordPress, with a domain.' ),
 		},
@@ -103,7 +102,6 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 				: [] ),
 		],
 		previews: {
-			content: 'site',
 			isUpgraded: ( site ) =>
 				site.hasPaidPlan === true ||
 				site.launchStatus === 'launched' ||
@@ -120,7 +118,6 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 				__(
 					'Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.'
 				),
-			learnMoreUrl: 'https://wordpress.studio/docs/sync/',
 		},
 		describe: describeWpcomSite,
 		issue: wpcomSiteIssue,

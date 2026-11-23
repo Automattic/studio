@@ -34,7 +34,6 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		expiresAt: ( config ) => ( config.expiresAt ? Date.parse( config.expiresAt ) : undefined ),
 	},
 	sites: {
-		publish: true,
 		publishing: {
 			description: () => __( 'A static copy of your pages.' ),
 		},
@@ -56,7 +55,6 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 				__(
 					'Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.'
 				),
-			learnMoreUrl: 'https://spacefast.com',
 		},
 		describe: ( space ) => {
 			const url = spaceDashboardUrl( space );
@@ -79,7 +77,6 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 				links,
 			};
 		},
-		issue: () => null,
 		// A Space renamed on Spacefast shows its new name; one gone from the account keeps the
 		// stored one.
 		withDetails: ( connections, spaces ) =>

@@ -69,6 +69,9 @@ export interface AiModel< Id extends string = string > {
 // `writeOnly: true` marks a secret, which is never shown back.
 export type ConnectInputSchema = z.ZodObject< Record< string, z.ZodType< string > > >;
 
+// A form rendered from `input`.
+type FormConnectMethod = { kind: 'form'; input: () => ConnectInputSchema; hostOnly?: boolean };
+
 // One way a provider's account connects. Studio hands what the user gave, or
 // what came back from the provider's site, to the provider's `connect` with the
 // method's id, and the provider turns it into the config to store.
@@ -83,8 +86,7 @@ export type ConnectMethod = {
 	// server or the CLI: Studio running elsewhere (Studio Cloud) can't reach what it checks.
 	hostOnly?: boolean;
 } & (
-	| // A form rendered from `input`.
-	{ kind: 'form'; input: () => ConnectInputSchema }
+	| FormConnectMethod
 	// Approving access on the provider's site, which redirects back to the app:
 	// the Studio sign-in, which each app receives its own way.
 	| { kind: 'redirect' }
@@ -168,10 +170,7 @@ export interface SiteLink {
 
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
 export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
-	// Whether the user publishes to sites they keep on the provider: lists, creates and pushes to
-	// them. The rest of this describes those sites.
-	publish: boolean;
-	// Short destination-picker copy and presentation hints.
+	// Short destination-picker copy.
 	publishing: {
 		description: () => string;
 	};
@@ -179,8 +178,8 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 		current?: SiteVisibilityDetails[ 'visibility' ]
 	): { value: SiteVisibility; label: string; description: string; disabled?: boolean }[];
 
+	// The provider also builds previews; an upgraded one is a site the user keeps.
 	previews?: {
-		content: 'archive' | 'static' | 'site';
 		isUpgraded?( site: Site ): boolean;
 	};
 	// The largest archive a push sends, in bytes.
@@ -195,24 +194,24 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// connects the site to the local one, or created right away from Studio. Without it, the
 	// user only connects sites they already have.
 	newSite?: 'checkout' | 'create';
-	// How the user connects a site that isn't listed from an account: a form describing it, which
-	// the services' `connect` checks by reaching the site.
-	connect?: ConnectMethod & { kind: 'form' };
+	// The form that describes a site the account doesn't list, which the services' `resolve` checks
+	// by reaching the site.
+	connect?: Pick< FormConnectMethod, 'input' | 'hostOnly' >;
 	// What the panel says before a site is connected.
-	intro: { title: () => string; description: () => string; learnMoreUrl: string };
+	intro: { title: () => string; description: () => string };
 	// Facts about a connected site, and links to manage it on the provider.
 	describe( site: Site ): {
 		details: { title: string; value: string }[];
 		links: SiteLink[];
 	};
 	// Why the site can't be published to or pulled from now, or null.
-	issue( site: Site, direction: 'push' | 'pull' ): string | null;
+	issue?( site: Site, direction: 'push' | 'pull' ): string | null;
 	// Something to know before pushing the local site, which doesn't block it.
 	pushWarning?( site: Site, local: { multisite?: boolean } ): string | null;
 	// Whether the site keeps backups a selective pull can browse.
 	hasBackups?( site: Site ): boolean;
 	// Fills stored connections in from the account's current sites.
-	withDetails< Connection extends Site >( connections: Connection[], sites: Site[] ): Connection[];
+	withDetails?< Connection extends Site >( connections: Connection[], sites: Site[] ): Connection[];
 }
 
 // How a provider's account connects, and what surfaces show of it.

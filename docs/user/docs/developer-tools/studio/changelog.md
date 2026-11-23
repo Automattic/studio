@@ -4,6 +4,51 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
 
+## [2.4.0](#0-2-4-0)
+
+-   AI providers
+    -   Chat in WordPress Studio Code with a SuperGrok or X Premium plan or an xAI API key, and generate site images with xAI
+    -   Connect OpenRouter with a sign-in or an API key, and choose which of its models the model menu offers
+    -   Chat on the models of a server you run, such as Ollama, LM Studio, `llama-server` or vLLM, with the new Local LLM provider
+    -   Choose which provider makes site images with Default image provider, or leave it on Auto
+-   WordPress Studio Code
+    -   Set how much the model thinks, from Off to High, from the model menu or with `/thinking`
+    -   A message that fails to send goes back into the chat box, with its attachments
+-   Publishing and previews
+    -   Share previews and publish from one Publish panel: choose a Destination or Connect to an existing site, and switch with Publish somewhere else
+    -   Choose who can view a WordPress.com site or Spacefast Space from the Publish panel, and see the site’s plan
+    -   Choose what to publish in Publish changes?, down to individual files with Choose specific files
+    -   Pull a preview’s changes into your local site with Pull from preview…
+    -   Make a preview your live site with a paid WordPress.com plan, from the Publish panel or with `studio preview launch`
+    -   A failed publish shows the live site’s own reason
+-   Workspace
+    -   Drag the sidebar’s edge, or the edge between the chat and the preview, past its narrowest width to hide it, and it comes back at the same width
+    -   Bring the chat back with Show chat in the site menu
+    -   Tabs, menus, the composer, dialogs and toolbar buttons share one consistent look, with smoother motion
+-   Sites
+    -   Sites start faster: they’re ready once the first PHP worker is, and creating a site no longer waits on wordpress.org
+    -   Sites no longer hang while several requests download images
+    -   Deleting a site lists the folders it couldn’t move to the Trash
+    -   Sites and settings now live in one `~/.studio/config.json`, shared by the app, the CLI, `studio ui` and `studio mcp`
+-   CLI
+    -   `studio create --no-start` installs WordPress, so `studio wp` and `studio export` work before the site’s first start
+-   Other Fixes
+    -   Publishing no longer leaves out plugin folders named Database or files named db.php, so plugins such as WooCommerce arrive complete
+    -   Pulling works with more site layouts on Windows, and is faster for sites with many small files
+    -   Database exports load into MySQL, even when plugins add foreign keys
+    -   An imported site is kept when its server fails to start
+    -   Previews whose record went missing show with their local site again
+    -   WordPress Studio no longer runs out of memory listing large chats on Windows, and the agent’s browser tools use less memory
+    -   If antivirus software removes a file WordPress Studio needs, it says so once and links to a fresh download
+    -   Windows update checks retry instead of failing with “Invalid result:”
+    -   The WordPress.com sign-in confirmation stays until you close it
+-   Updated multiple dependencies
+-   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.4.0)
+
+*TBD*
+
 ## [2.3.0](#0-2-3-0)
 
 -   AI providers

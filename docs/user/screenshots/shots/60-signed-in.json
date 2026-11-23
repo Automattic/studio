@@ -1,7 +1,7 @@
 {
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in",
-	"description": "Signed in to WordPress.com: the account menu, Share and publish, the model menu, the account settings, and Send feedback",
+	"description": "Signed in to WordPress.com: the account menu, the Publish panel, the model menu, the account settings, and Send feedback",
 	"scene": "moire",
 	"look": "docs",
 	"signedIn": true,
@@ -220,97 +220,87 @@
 		},
 		{
 			"name": "share-create-preview",
-			"description": "Share and publish → Share, with Create preview",
-			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-site-new-preview-1.png" ] },
+			"description": "Publish, on a site with nowhere to publish yet: Destination, Who can view, Launch on WordPress.com and Create preview",
+			"meta": {
+				"pages": [
+					"preview-sites.md"
+				],
+				"replaces": [
+					"2025/01/studio-site-new-preview-1.png"
+				]
+			},
 			"steps": [
 				{
 					"click": {
 						"role": "button",
-						"name": "Share",
+						"name": "Publish…",
 						"exact": true
 					}
 				},
 				{
 					"waitFor": {
-						"role": "tabpanel",
-						"name": "Share",
+						"role": "button",
+						"name": "Create preview",
 						"exact": true
 					}
 				}
 			],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Share and publish"
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Publish"
+					},
+					"hidden": true
 				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Publish"
+					},
+					{
+						"role": "button",
+						"name": "Publish…",
+						"exact": true
+					}
+				],
+				"pad": 24
 			}
 		},
 		{
 			"name": "publish-panel",
-			"description": "Share and publish → Publish → Choose another host: where to publish, WordPress.com or Spacefast",
-			"meta": { "pages": [ "sync.md" ] },
+			"description": "Publish → Destination: where to publish, WordPress.com, Spacefast or an existing site",
+			"meta": {
+				"pages": [
+					"sync.md"
+				]
+			},
 			"steps": [
 				{
 					"click": {
-						"within": {
-							"role": "tablist",
-							"name": "Share and publish"
-						},
-						"role": "tab",
-						"name": "Publish",
+						"role": "button",
+						"name": "Publish…",
 						"exact": true
 					}
 				},
 				{
 					"click": {
-						"role": "button",
-						"name": "Choose another host"
+						"role": "combobox",
+						"name": "Destination"
 					}
 				},
 				{
 					"waitFor": {
-						"role": "heading",
-						"name": "Where do you want to publish?"
+						"role": "option",
+						"name": "Connect to an existing site"
 					}
 				}
 			],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Share and publish"
-				}
-			}
-		},
-		{
-			"name": "publish-choose-site",
-			"description": "Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites",
-			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-connect-live-site.png" ] },
-			"steps": [
-				{
-					"click": {
-						"role": "button",
-						"pattern": "^WordPress\\.com"
-					}
-				},
-				{
-					"click": {
-						"role": "button",
-						"name": "Existing site…"
-					}
-				},
-				{
-					"waitFor": {
-						"role": "listbox",
-						"name": "Existing sites"
-					}
-				}
-			],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Share and publish"
-				}
-			},
 			"after": [
 				{
 					"press": "Escape"
@@ -321,7 +311,96 @@
 				{
 					"waitFor": {
 						"role": "dialog",
-						"name": "Share and publish"
+						"name": "Publish"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Publish"
+					},
+					{
+						"role": "listbox"
+					},
+					{
+						"role": "button",
+						"name": "Publish…",
+						"exact": true
+					}
+				],
+				"pad": 24
+			}
+		},
+		{
+			"name": "publish-choose-site",
+			"description": "Publish → Connect to an existing site → Choose an existing site, listing the account’s WordPress.com and Pressable sites",
+			"meta": {
+				"pages": [
+					"sync.md"
+				],
+				"replaces": [
+					"2025/01/studio-connect-live-site.png"
+				]
+			},
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Publish…",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "combobox",
+						"name": "Destination"
+					}
+				},
+				{
+					"click": {
+						"role": "option",
+						"name": "Connect to an existing site"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "heading",
+						"name": "Choose an existing site"
+					}
+				},
+				{
+					"waitForImages": {
+						"role": "dialog",
+						"name": "Choose an existing site"
+					}
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Choose an existing site"
+				}
+			},
+			"after": [
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Publish"
+					}
+				},
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Publish"
 					},
 					"hidden": true
 				}

@@ -174,7 +174,7 @@ studio create --path /path/to/site
 studio create --wp auto-update
 ```
 
-The CLI creates the site, starts it, and opens its front page in your browser. If the site comes from a Blueprint that sets a `landingPage`, it opens that page instead. Add `--skip-browser` to leave the browser closed. Run `studio create --help` for every option.
+The CLI creates the site, starts it, and opens its front page in your browser. If the site comes from a Blueprint that sets a `landingPage`, it opens that page instead. Add `--skip-browser` to leave the browser closed. Add `--no-start` to create the site without starting it. WordPress is still installed, so commands such as `studio wp` and `studio export` work on the site right away. Run `studio create --help` for every option.
 
 ### Create a site from existing content
 
@@ -289,7 +289,9 @@ studio config get [<key>]
 | `studio preview create` | Creates a preview of the site and prints its preview link |
 | `studio preview list` | Lists the site’s previews. Add `--all` for the previews of every local site |
 | `studio preview update <host>` | Updates a preview with your local changes |
+| `studio preview status <host>` | Shows whether the preview or its local site changed since they were last synced |
 | `studio preview set <host>` | Changes a preview’s settings, such as its name |
+| `studio preview launch <host>` | Opens the link to make the preview your live site with a paid WordPress.com plan |
 | `studio preview delete <host>` | Deletes a preview, or every preview with `--all` |
 
 ### Create a preview
@@ -313,6 +315,10 @@ The CLI validates the site, archives and uploads it, and prints the preview link
 ✔ Preview site available at: https://wrenandbarley.wpcomstaging.com/?share=…
 ✔ Preview site saved to Studio
 ```
+
+Add `--name` to name the preview. If the site is connected to one production WordPress.com site on a paid plan, the preview shows changes to it. Add `--live-site` with a connected site’s ID to choose which live site it shows changes to, or `--live-site none` for a preview that isn’t tied to one. See [Preview changes to a live site](https://wordpress.studio/docs/preview-sites/#preview-changes-to-a-live-site).
+
+When WordPress.com offers it, `preview create` and `preview update` also print a “Make it your live site” link. Open it to choose a paid plan for the preview, so it becomes a WordPress.com site of its own. `studio preview launch <host>` prints the same link and opens it in your browser. A preview of changes to a live site has no such link.
 
 ### Update or delete a preview
 
@@ -347,7 +353,7 @@ studio push --remote-site example.com --options plugins,themes
 studio push --remote-site spacefast
 ```
 
-`--options` takes a comma-separated list of `all`, `sqls` (the database), `uploads`, `plugins`, `themes`, and `contents`. For Spacefast, `--remote-site spacefast:<space>` takes a Space’s ID, URL, or slug. See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast).
+`--options` takes a comma-separated list of `all`, `sqls` (the database), `uploads`, `plugins`, `themes`, and `contents`. With `studio push`, `--include-only` limits the push to the paths you list, from what `--options` selected. For Spacefast, `--remote-site spacefast:<space>` takes a Space’s ID, URL, or slug. See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast).
 
 ## Import and export
 

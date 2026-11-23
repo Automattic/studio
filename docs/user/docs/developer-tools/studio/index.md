@@ -82,11 +82,13 @@ The WordPress Studio window has three areas:
 -   **Chat** (middle): WordPress Studio Code for the selected site.
 -   **Panel** (right): the selected site’s preview, in tabs.
 
+Drag the edge between two areas to resize them. To hide an area, keep dragging past its narrowest width and release: drag the sidebar’s edge to the left, or the edge between the chat and the panel toward the one you want to hide. When you bring the area back, it has the width it had before. While the sidebar is hidden, hover over **Show sidebar** at the top left of the window to see it, and click **Show sidebar** to keep it open.
+
 When WordPress Studio Code asks a question, a triangle with an exclamation mark appears beside the chat in the sidebar. The chat stays where it is. If the site is collapsed, the badge appears beside the site name. Open the chat and answer the question to continue. The badge clears when the question is resolved.
 
-![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle under the Site menu button, and the panel on the right with a preview tab, New tab, Share, Publish, Expand panel and Hide panel, and below them Back, Forward, Reload, the address bar, Annotate, and Browser options](../../../screenshots/images/main-window-signed-in.webp)
+![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle under the Site menu button, and the panel on the right with a preview tab, New tab, Publish, Expand panel and Hide panel, and below them Back, Forward, Reload, the address bar, Annotate, and Browser options](../../../screenshots/images/main-window-signed-in.webp)
 
-The header above the chat has the **Site menu** button, which shows the site’s name and opens the site’s actions menu. Above the panel are the preview’s tabs and **New tab** (**+**), followed by **Share**, **Publish**, **Expand panel**, and **Hide panel**. Each tab has its own **Back**, **Forward**, and **Reload** buttons and address bar, with **Annotate** and **Browser options** (**⋮**) at the end.
+The header above the chat has the **Site menu** button, which shows the site’s name and opens the site’s actions menu. Above the panel are the preview’s tabs and **New tab** (**+**), followed by **Publish**, **Expand panel**, and **Hide panel**. Each tab has its own **Back**, **Forward**, and **Reload** buttons and address bar, with **Annotate** and **Browser options** (**⋮**) at the end.
 
 When WordPress Studio finds a new version, an update button appears at the bottom of the sidebar, next to the account menu. It shows **Downloading update…** while the update downloads, and **Update** when it’s ready to install: hover over it to see the new version, and click it to update WordPress Studio. The account menu shows **Update available** too. If the download fails, the button changes to **Download update**, which tries again. If the update can’t be installed, WordPress Studio shows “Couldn’t update Studio” with the reason. If you installed WordPress Studio from the Microsoft Store, the Store updates it instead.
 
@@ -154,7 +156,7 @@ To connect WordPress Studio to WordPress.com:
 3.  On the authorization screen, click **Approve** to connect WordPress Studio to your account.
 4.  Once approved, a popup will appear prompting you to open the WordPress Studio app. Click on the **Open Studio** button to finalize the process.
 
-Once you’ve logged into WordPress.com, the account button at the bottom of the sidebar shows your profile picture, WordPress Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
+Back in WordPress Studio, “Logged in to WordPress.com” stays on screen until you close it. Once you’ve logged into WordPress.com, the account button at the bottom of the sidebar shows your profile picture, WordPress Studio Code can use your WordPress.com AI credits, and the **Publish** button above the site preview lets you publish your site and share preview links. If it still asks you to log in, you might need to *restart* the desktop application.
 
 ![The account menu open at the bottom of the WordPress Studio sidebar, showing the account name and email with Providers, Usage, Support, Settings, and Log out](../../../screenshots/images/account-menu.webp)
 

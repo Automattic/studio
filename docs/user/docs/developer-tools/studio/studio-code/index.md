@@ -4,7 +4,7 @@ WordPress Studio Code is the agent built into WordPress Studio. Describe what yo
 
 WordPress Studio Code creates themes and plugins, edits files, runs WP-CLI commands, creates previews, and publishes your site.
 
-**Applies to:** the WordPress Studio desktop app and WordPress Studio CLI (`studio code`). The agent needs an AI provider. This can be WordPress.com, with a WordPress.com account and a payment method, or another provider such as a ChatGPT plan, a Claude subscription, or your own API key.
+**Applies to:** the WordPress Studio desktop app and WordPress Studio CLI (`studio code`). The agent needs an AI provider. This can be WordPress.com, with a WordPress.com account and a payment method, or another provider such as a ChatGPT plan, a Claude subscription, your own API key, or a model server you run.
 
 ## Before you start
 
@@ -152,6 +152,17 @@ To switch tiers, including mid-conversation:
 
 With another provider, the model menu lists that provider’s models by name instead, such as **Sonnet 5.5** and **Opus 5.5** for Anthropic.
 
+### Set how much the model thinks
+
+With a provider other than WordPress.com, you can choose how much the model thinks before it answers. Less thinking answers faster, especially with a model on your own computer.
+
+- **Desktop:** open the model menu in the chat box and choose **Thinking**, which shows the chat’s current level. Choose **Off**, **Low**, **Medium**, or **High**. The level the model uses when you choose none is marked **Default**.
+- **Terminal:** run `/thinking` and choose a level, or name it, as in `/thinking off`. `/thinking default` goes back to the default.
+
+The level applies to the chat from your next message. **Default** is Medium, except with Local LLM, where your server’s own setting applies. When you switch the chat to another model, it goes back to **Default**. A model that doesn’t have the level you choose uses the nearest one it has.
+
+WordPress.com tiers don’t offer **Thinking**: WordPress Studio Code sets how much they think. Neither do models that don’t think, such as some OpenRouter models.
+
 ## AI providers
 
 <span id="use-your-own-anthropic-api-key"></span>The agent needs an AI provider to build. Use the AI you already have, or start with the one-time free allowance from WordPress.com.
@@ -162,8 +173,11 @@ With another provider, the model menu lists that provider’s models by name ins
 - **Google Gemini**, with an API key
 - **GitHub Copilot**, with a Copilot plan
 - **Meta**, with an API key
+- **xAI**, with a SuperGrok or X Premium plan or an API key
+- **OpenRouter**, with a sign-in or an API key
+- **Local LLM**, with a model server you run, such as Ollama or LM Studio
 
-![The Providers page of WordPress Studio's Settings: Default AI provider and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, and Meta with Connect buttons.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
+![The Providers page of WordPress Studio's Settings: Default AI provider, Default image provider set to Auto, and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI and Anthropic with Connect buttons.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
 Set them up in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, including [your own Anthropic API key](https://wordpress.studio/docs/providers/#anthropic), the models each offers, and who bills you.
 
@@ -200,7 +214,7 @@ In the desktop app, type `/` in the chat box to list the commands and skills tha
 | `/auto-start` | Start stopped sites when you send a chat message (shown as **Auto-start** while it’s off) | Desktop |
 | `/browser` | Open the active site in your browser | Terminal |
 | `/clear` | Clear the conversation and start a new session | Terminal |
-| `/connect` | Connect a provider: choose one from the list, or name it, such as `/connect anthropic`, `/connect openai`, `/connect gemini`, `/connect github-copilot`, or `/connect meta` | Terminal |
+| `/connect` | Connect a provider: choose one from the list, or name it, such as `/connect anthropic`, `/connect openai`, `/connect gemini`, `/connect github-copilot`, `/connect meta`, `/connect xai`, `/connect openrouter`, or `/connect local-llm` | Terminal |
 | `/connect-provider` | Open **Settings → Providers** to choose what powers chat (shown as **Connect AI providers**) | Desktop |
 | `/credits` | Show your AI credit balance and buy more AI credits | Terminal |
 | `/disconnect` | Disconnect a provider | Terminal |
@@ -219,6 +233,7 @@ In the desktop app, type `/` in the chat box to list the commands and skills tha
 | `/start`, `/stop` | Start or stop the active site (shown as **Start site** and **Stop site**) | Desktop |
 | `/swag` | Treat yourself to some WordPress swag | Terminal |
 | `/taxonomist` | Optimize your category taxonomy | Terminal and desktop |
+| `/thinking` | Set how much the model thinks in this chat. See [Set how much the model thinks](https://wordpress.studio/docs/studio-code/#set-how-much-the-model-thinks) | Terminal |
 
 ## Terminal-specific guidance
 

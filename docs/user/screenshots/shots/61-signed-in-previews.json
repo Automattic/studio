@@ -1,7 +1,7 @@
 {
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-previews",
-	"description": "Signed in, with made-up preview sites from preview-sites.json: the Share panel's previews list and a preview's actions",
+	"description": "Signed in, with made-up preview sites from preview-sites.json: the Publish panel's Choose a site list and a preview's Preview actions",
 	"scene": "moire",
 	"look": "docs",
 	"signedIn": true,
@@ -9,52 +9,60 @@
 	"shots": [
 		{
 			"name": "share-previews",
-			"description": "Share tab with previews: the previews list with expiry dates and Create another preview",
-			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-new-site-preview-link.png" ] },
+			"description": "Publish → Choose a site, with the site’s two previews, Publish somewhere else and Connect to an existing site. Settings → Sharing is opened first so the previews are loaded",
+			"meta": {
+				"pages": [
+					"preview-sites.md"
+				],
+				"replaces": [
+					"2025/01/studio-new-site-preview-link.png"
+				]
+			},
 			"steps": [
+				{
+					"wait": 3000
+				},
 				{
 					"click": {
 						"role": "button",
-						"name": "Share",
+						"name": "Settings",
+						"exact": true,
+						"first": true
+					}
+				},
+				{
+					"click": {
+						"role": "tab",
+						"pattern": "Sharing"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "group",
+						"name": "Live previews"
+					}
+				},
+				{
+					"press": "Escape"
+				},
+				{
+					"waitFor": {
+						"role": "group",
+						"name": "Live previews"
+					},
+					"hidden": true
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Publish…",
 						"exact": true
 					}
 				},
 				{
 					"waitFor": {
-						"role": "button",
-						"name": "Create another preview"
-					}
-				},
-				{
-					"waitForImages": {
-						"role": "list",
-						"name": "Previews"
-					}
-				}
-			],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Share and publish"
-				}
-			}
-		},
-		{
-			"name": "share-preview-actions",
-			"description": "Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview)",
-			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-preview-more-actions.png" ] },
-			"steps": [
-				{
-					"click": {
-						"role": "button",
-						"name": "Preview actions",
-						"first": true
-					}
-				},
-				{
-					"waitFor": {
-						"role": "menuitem",
-						"name": "Delete preview"
+						"role": "dialog",
+						"name": "Choose a site"
 					}
 				}
 			],
@@ -62,12 +70,79 @@
 				"target": [
 					{
 						"role": "dialog",
-						"name": "Share and publish"
+						"name": "Choose a site"
+					},
+					{
+						"role": "button",
+						"name": "Publish…",
+						"exact": true
+					}
+				],
+				"pad": 24
+			}
+		},
+		{
+			"name": "share-preview-actions",
+			"description": "Publish → a preview’s Preview details, with its Preview actions menu open (Copy link, Delete preview…)",
+			"meta": {
+				"pages": [
+					"preview-sites.md"
+				],
+				"replaces": [
+					"2025/01/studio-preview-more-actions.png"
+				]
+			},
+			"steps": [
+				{
+					"click": {
+						"within": {
+							"role": "dialog",
+							"name": "Choose a site"
+						},
+						"role": "button",
+						"name": "Autumn lookbook"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "heading",
+						"name": "Preview details"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "dialog",
+							"name": "Preview details"
+						},
+						"role": "button",
+						"name": "Preview actions",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "menuitem",
+						"name": "Delete preview…"
+					}
+				}
+			],
+			"capture": {
+				"target": [
+					{
+						"role": "dialog",
+						"name": "Preview details"
 					},
 					{
 						"role": "menu"
+					},
+					{
+						"role": "button",
+						"name": "Publish…",
+						"exact": true
 					}
-				]
+				],
+				"pad": 24
 			}
 		}
 	]

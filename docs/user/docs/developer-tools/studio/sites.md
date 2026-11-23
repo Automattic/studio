@@ -100,7 +100,7 @@ To view a running site in your browser:
 
 Links in the site preview that open a new window, such as **View post** and the editor’s **Preview**, open in the preview. Links to other websites open in your system browser.
 
-To give the preview more room, click **Expand panel** in the header, which hides the chat. Click **Show chat** to bring it back. To hide the panel instead, click **Hide panel** or press ⇧⌘B (Ctrl+Shift+B on Windows and Linux). In the desktop app, the **View** menu also switches between **Chat** (⌘1), **Split view** (⌘2), and **Panel** (⌘3). Each site remembers its layout and how wide the chat and panel are. To restore the defaults, click **Reset interface** in **Settings → General**.
+To give the preview more room, click **Expand panel** in the header, which hides the chat. To bring the chat back, click **Show chat** in the header, or choose **Show chat** from the [site menu](#site-menu). To hide the panel instead, click **Hide panel** or press ⇧⌘B (Ctrl+Shift+B on Windows and Linux), and click **Show panel** to bring it back. You can also drag the edge between the chat and the panel past the narrowest width of either one to hide it. In the desktop app, the **View** menu also switches between **Chat** (⌘1), **Split view** (⌘2), and **Panel** (⌘3). Each site remembers its layout and how wide the chat and panel are. To restore the defaults, click **Reset interface** in **Settings → General**.
 
 ### [Browser options](#browser-options)
 
@@ -139,6 +139,7 @@ Each site has a menu with quick access to everything you can do with it. To open
 The site menu groups its items:
 
 -   **New chat**: starts a new [WordPress Studio Code](https://wordpress.studio/docs/studio-code/) chat for the site, once you’ve logged in or connected an AI provider
+-   **Show chat**: brings the chat back beside the panel when the chat is hidden, with your chat and any draft as you left them
 -   **Start** or **Stop**. When several sites are running, **Stop** is a submenu with **Stop site**, **Stop other sites**, and **Stop all sites**.
 -   **Tools**: opens the site’s **Browser**, **Admin**, **Design System** (when it has one), **Database**, or **Email log** in the site preview (see [View sites](#view-sites))
 -   **Open in**: opens the site in other apps (see below)
@@ -243,6 +244,8 @@ Each site in the sidebar can be expanded to show its WordPress Studio Code chats
 ### [Delete a site](#12-delete-a-site)
 
 To delete a local site, choose **Delete** from the [site menu](#site-menu). WordPress Studio asks you to confirm that you want to remove the site from WordPress Studio. To also delete its files from your computer, select **Also move files and database to Trash**, then click **Remove site**.
+
+If WordPress Studio can’t move all of the site’s files to the Trash, it still removes the site and shows “Site files left on disk”, with the folders you need to delete yourself. The notice stays until you close it.
 
 To delete several sites at once, select them in the sidebar, right-click the selection, and choose **Delete *N* sites**. To keep one of them, click **Exclude** (**×**) next to its name in the confirmation, then click **Remove sites**.
 

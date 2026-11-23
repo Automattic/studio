@@ -125,6 +125,10 @@ Exports from WordPress Studio also have a `meta.json` file, which records the si
 
 WordPress Studio explains what went wrong and lets you try again. To see more detail, [open the logs](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-access-wordpress-studio-logs).
 
+### Why isn’t my imported site running?
+
+The backup was restored, but the site didn’t start afterwards, for example because it took too long. WordPress Studio keeps the imported site, so start it again. In the terminal, `studio import` warns “Site imported, but the WordPress server failed to start” and gives the reason.
+
 ### Why can’t I add the site to this folder?
 
 The **Site folder** for an imported site must be empty. Choose an empty folder, or type a new folder name.

@@ -12,9 +12,9 @@ In the desktop app, open **Settings** from the account menu at the bottom of the
 
 Two shortcuts lead to the same page. Choose **Providers** from the account menu, or choose **Connect AI providers** from the **+** menu in the chat box.
 
-The page has three groups. Your defaults are at the top, then **AI providers**, then **Hosting providers**. A provider you have set up is marked **Connected**.
+The page has three groups. Your defaults are at the top: **Default AI provider**, **Default image provider**, and **Default hosting provider**. Then come **AI providers** and **Hosting providers**. A provider you have set up is marked **Connected**.
 
-![The Providers page of WordPress Studio's Settings: Default AI provider and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, and Meta with Connect buttons.](../../../screenshots/images/settings-ai-providers-signed-in.webp)
+![The Providers page of WordPress Studio's Settings: Default AI provider, Default image provider set to Auto, and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI and Anthropic with Connect buttons.](../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
 WordPress Studio UI, which you start with `studio ui`, has the same page. In the terminal you use commands instead. See [Providers in the terminal](https://wordpress.studio/docs/providers/#providers-in-the-terminal).
 
@@ -30,6 +30,9 @@ The agent needs one AI provider before it can build. Use a plan or key you alrea
 | **Google Gemini** | A Gemini API key | Your Google AI Studio project | Gemini 3.8 Flash, Gemini 4 Argon | Yes |
 | **GitHub Copilot** | A GitHub account with a Copilot plan | Your Copilot plan | The ones your plan includes, from Sonnet 5.5, GPT-6.1 Terra, and Gemini 4 Argon | No |
 | **Meta** | A Meta API key | Your Meta Model API account | Muse Spark 1.3, Muse Wonder | Yes |
+| **xAI** | A SuperGrok or X Premium plan, or an xAI API key | Your Grok plan, or your xAI account | Grok 4.7, Grok 4.3 | Yes |
+| **OpenRouter** | An OpenRouter account | Your OpenRouter credits | The ones you pick from OpenRouter’s models. Until you pick, Sonnet 5.5, Opus 5.5, GPT-6.1 Terra, Gemini 4 Argon, Grok 4.7, DeepSeek V4.1 Flash, and Kimi K3 | No |
+| **Local LLM** | A model server you run, such as Ollama, LM Studio, `llama-server`, or vLLM | No one | The ones your server serves | No |
 
 An API key is a long code that lets an app use your account with an AI company. You create one on that company’s site and paste it into WordPress Studio.
 
@@ -104,12 +107,62 @@ Your use counts against your Copilot plan. You only see the models your plan inc
 
 Meta bills your Meta Model API account for what you use.
 
+### xAI
+
+To sign in with a SuperGrok or X Premium plan:
+
+1.  Click **Connect** next to **xAI** and choose **Sign in with Grok**. WordPress Studio shows a sign-in code and opens xAI in your browser.
+2.  Approve that code on xAI.
+
+Your use counts against your Grok plan.
+
+To use an API key:
+
+1.  Create a key in the [xAI Console](https://console.x.ai).
+2.  Click **Connect** next to **xAI** and choose **API key**.
+3.  Paste the key in **xAI API key** and click **Save**.
+
+xAI bills your account for what you use. Both ways can [make images](https://wordpress.studio/docs/studio-code/image-generation/).
+
+### OpenRouter
+
+To sign in with OpenRouter:
+
+1.  Click **Connect** next to **OpenRouter** and choose **Sign in with OpenRouter**.
+2.  Sign in to OpenRouter in the browser window that opens, and approve. You can set a credit limit for WordPress Studio there.
+
+To use an API key:
+
+1.  Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys).
+2.  Click **Connect** next to **OpenRouter** and choose **API key**.
+3.  Paste the key in **OpenRouter API key** and click **Save**.
+
+Either way, you pay with your OpenRouter credits. An account without credits can still use OpenRouter’s free models.
+
+To choose which models the model menu offers, click the **Models** button under **OpenRouter**, such as **7 models**. It lists the models your key can use that work with WordPress Studio Code, with their prices and context sizes. Recommended models come first. Check the ones you want, or click **Reset to recommended**. Models marked **Can’t see screenshots** read text only.
+
+### Local LLM
+
+Local LLM chats with the models on a server you run, on your computer or your network. It works with servers that have an OpenAI-compatible API, such as Ollama, LM Studio, llama.cpp’s `llama-server`, or vLLM.
+
+1.  Start your model server with at least one model.
+2.  Click **Connect** next to **Local LLM**.
+3.  In **Server address**, enter the address the server listens on, as it prints it when it starts, such as `http://localhost:11434`.
+4.  If your server asks for an API key, paste it in **API key**.
+5.  Click **Save**.
+
+WordPress Studio offers all the server’s chat models, by the names the server gives them. To choose which ones, click the **Models** button under **Local LLM**. Models the server says can work with WordPress Studio Code’s tools are listed under **Recommended**, and new chats start on one of them. A model you add to the server later shows up in this list.
+
+You don’t need a WordPress.com account or AI credits, and chats keep working when your computer is offline. WordPress Studio doesn’t start the server, download models, or change the server’s settings. If a model’s context is too small for a request, raise it in your server’s settings.
+
 ### Change or remove an AI provider
 
 | Provider | What to do |
 | --- | --- |
 | **OpenAI**, **Anthropic** | Click **Manage**. Choose the other way to sign in, or choose **Disconnect** |
+| **xAI**, **OpenRouter** | Click **Manage**. Choose the other way to sign in, or choose **Disconnect** |
 | **Google Gemini**, **Meta** | Click **Manage**. Paste a new key and click **Save**, or click **Disconnect** |
+| **Local LLM** | Click **Manage**. Enter another server’s address and click **Save**, or click **Disconnect** |
 | **GitHub Copilot** | Click **Disconnect** |
 | **WordPress.com** | Choose **Log out** from the account menu. You will also need to sign in again before you publish to WordPress.com |
 
@@ -117,13 +170,17 @@ Meta bills your Meta Model API account for what you use.
 
 **Default AI provider**, at the top of the page, sets which provider a new chat uses.
 
-You can pick a different model for one chat. Open the model menu in the chat box, which lists the models of every provider you have set up. When you use a ChatGPT, Claude, or Copilot plan, the menu names the plan and links to **Manage usage**.
+You can pick a different model for one chat. Open the model menu in the chat box, which lists the models of every provider you have set up. When you use a ChatGPT, Claude, Copilot, or Grok plan, the menu names the plan and links to **Manage usage**. With OpenRouter, it links to **Manage credits**.
 
 ![The WordPress Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect AI providers listed under Actions.](../../../screenshots/images/model-menu.webp)
 
 If you switch a chat to another provider’s model, WordPress Studio starts a new chat, because the new model can’t read the old one’s conversation. It asks **Start a new chat?** first. Your earlier chat stays in the sidebar.
 
-The agent can make images for your site with WordPress.com, OpenAI with an API key, Google Gemini, or Meta. It uses the chat’s provider when that one can make images, and the first of the others when it can’t. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
+### Choose who makes images
+
+The agent can make images for your site with WordPress.com, OpenAI with an API key, Google Gemini, Meta, or xAI.
+
+**Default image provider**, at the top of the page, sets which one it uses. It lists every connected provider that can make images. With **Auto**, the default, the agent uses the chat’s provider when that one can make images, and the first of the others when it can’t. If the provider you chose is disconnected or can no longer make images, the setting goes back to **Auto**. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
 
 ## Hosting providers
 
@@ -161,10 +218,11 @@ In `studio code`, you manage providers with commands.
 
 | Command | What it does |
 | --- | --- |
-| `/connect` | Sets up a provider. Choose one from the list, or name it, as in `/connect anthropic`. The names are `wpcom`, `anthropic`, `openai`, `gemini`, `github-copilot`, `meta`, and `spacefast`. Run it again for a provider you already have to change its key |
+| `/connect` | Sets up a provider. Choose one from the list, or name it, as in `/connect anthropic`. The names are `wpcom`, `anthropic`, `openai`, `gemini`, `github-copilot`, `meta`, `xai`, `openrouter`, `local-llm`, and `spacefast`. Run it again for a provider you already have to change its key |
 | `/disconnect` | Removes a provider. Removing WordPress.com logs you out |
 | `/provider` | Switches the AI provider. This also changes **Default AI provider** |
 | `/model` | Switches the model |
+| `/thinking` | Sets how much the model thinks in this chat |
 | `/login`, `/logout` | Signs you in to or out of WordPress.com |
 
 A provider you set up in the terminal is also set up in the desktop app, and the other way around.

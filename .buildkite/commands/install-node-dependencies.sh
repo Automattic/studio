@@ -50,7 +50,8 @@ if [ "$NODE_MODULES_RESTORED" = true ]; then
 
   echo "--- :npm: Check that package.json and package-lock.json agree"
   # `npm ci` runs this check before it installs anything, and `--dry-run` stops it there.
-  npm ci --dry-run --ignore-scripts --prefer-offline --no-audit --no-fund "$@"
+  # Its output lists what a real run would change, so it is hidden; a mismatch is reported on stderr.
+  npm ci --dry-run --ignore-scripts --prefer-offline --no-audit --no-fund "$@" > /dev/null
 
   echo "--- :npm: Run postinstall"
   npm run postinstall

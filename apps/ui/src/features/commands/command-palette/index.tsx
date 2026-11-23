@@ -1,3 +1,4 @@
+import { replaceOpenDialogs } from '@studio/ds';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
@@ -22,7 +23,6 @@ import {
 	getSiteUrl,
 } from '@/features/sites';
 import { isShortcut } from '@/lib/keyboard';
-import { replaceOpenDialogs } from '@/lib/ui';
 import { PaletteDialog, type PaletteProps } from './palette-dialog';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 

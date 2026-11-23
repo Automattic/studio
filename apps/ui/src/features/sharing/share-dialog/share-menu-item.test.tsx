@@ -1,8 +1,8 @@
+import { Menu } from '@studio/ds';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { Menu } from '@/lib/ui';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteShareMenuItem } from './share-menu-item';

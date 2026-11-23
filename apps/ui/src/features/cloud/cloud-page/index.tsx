@@ -1,5 +1,5 @@
+import { WordPressIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { WordPressIcon } from '@/lib/icons';
 import styles from '../style.module.css';
 import type { ReactNode } from 'react';
 

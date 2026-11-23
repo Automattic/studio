@@ -1,3 +1,15 @@
+import {
+	CodeBlock,
+	IconButton,
+	SidebarGroupHeader,
+	Skeleton,
+	Spinner,
+	Tabs,
+	TabsList,
+	TabsScopeIndicator,
+	TabsTrigger,
+} from '@studio/ds';
+import { ArrowLeftIcon, FolderOpenIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	useEffect,
@@ -14,18 +26,6 @@ import { useSiteEmail, useSiteEmails } from '@/data/queries/use-site-emails';
 import { useSiteAnnotations, type PreviewAnnotation } from '@/features/annotations';
 import { getFileManager } from '@/features/sites/open-in-menu/get-file-manager';
 import { PanelLoadError } from '@/features/sites/panel-load-error';
-import { ArrowLeftIcon, FolderOpenIcon } from '@/lib/icons';
-import {
-	CodeBlock,
-	IconButton,
-	SidebarGroupHeader,
-	Skeleton,
-	Spinner,
-	Tabs,
-	TabsList,
-	TabsScopeIndicator,
-	TabsTrigger,
-} from '@/lib/ui';
 import { useEmailAnnotations, type EmailAnnotationProps } from './annotations';
 import { EmailHtml, EmailText } from './email-body';
 import styles from './style.module.css';

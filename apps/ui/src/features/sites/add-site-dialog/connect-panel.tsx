@@ -1,5 +1,17 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import {
+	Alert,
+	AlertActions,
+	AlertDescription,
+	AlertTitle,
+	Badge,
+	Empty,
+	Button,
+	Spinner,
+} from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { ExternalLinkIcon } from '@studio/ds/icons';
 import { __, _x } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { toast } from '@/data/app-messages';
@@ -10,18 +22,6 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { AccountPrompt } from '@/features/account';
 import { RemoteSiteCard as SiteCard, RemoteSitePicker } from '@/features/remote-site-picker';
 import { pendingRemoteSiteSlot } from '@/features/sites/pending-remote-site';
-import { useOffline } from '@/lib/hooks';
-import { ExternalLinkIcon } from '@/lib/icons';
-import {
-	Alert,
-	AlertActions,
-	AlertDescription,
-	AlertTitle,
-	Badge,
-	Empty,
-	Button,
-	Spinner,
-} from '@/lib/ui';
 import styles from './connect-panel.module.css';
 import { getRemoteSiteName, presentRemoteSites, type ConnectSiteGroup } from './site-presentation';
 import dialogStyles from './style.module.css';

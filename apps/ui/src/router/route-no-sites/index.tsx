@@ -1,3 +1,12 @@
+import {
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyTitle,
+	Button,
+	StudioIcon,
+} from '@studio/ds';
 import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -7,15 +16,6 @@ import { useSites } from '@/data/queries/use-sites';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { HeaderSidebarToggle } from '@/features/sidebar';
 import { PreviewParticles, useOpenAddSite } from '@/features/sites';
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyTitle,
-	Button,
-	StudioIcon,
-} from '@/lib/ui';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import styles from './style.module.css';
 

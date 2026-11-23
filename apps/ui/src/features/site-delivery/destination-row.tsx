@@ -1,4 +1,4 @@
-import { Button } from '@/lib/ui';
+import { Button } from '@studio/ds';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode } from 'react';
 

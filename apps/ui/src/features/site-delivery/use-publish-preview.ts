@@ -1,4 +1,5 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
+import { useOffline } from '@studio/ds/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -11,7 +12,6 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSnapshots, useSnapshotUsage } from '@/data/queries/use-snapshots';
 import { getSnapshotHostname } from '@/data/snapshot-url';
 import { getSyncActivityRunId, useSiteSyncActivity } from '@/data/sync-activity';
-import { useOffline } from '@/lib/hooks';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
 export function usePublishPreview(

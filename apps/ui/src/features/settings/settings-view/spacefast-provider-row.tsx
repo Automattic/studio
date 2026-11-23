@@ -1,8 +1,8 @@
+import { Button } from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
 import { getProvider } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useAiSettings, useDisconnectProvider } from '@/data/queries/use-ai-settings';
-import { useOffline } from '@/lib/hooks';
-import { Button } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
 import { connectedBadge, SettingsRow } from './rows';
 

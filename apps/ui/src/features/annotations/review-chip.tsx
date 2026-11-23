@@ -1,8 +1,4 @@
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
-import { __, sprintf } from '@wordpress/i18n';
-import { useLayoutEffect, useRef, useState } from 'react';
-import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
-import { StickerIcon, TrashIcon } from '@/lib/icons';
 import {
 	AttachmentChip,
 	AttachmentChipTrigger,
@@ -13,7 +9,11 @@ import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { StickerIcon, TrashIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import styles from './review-chip.module.css';
 import {
 	isAnnotationsBusy,

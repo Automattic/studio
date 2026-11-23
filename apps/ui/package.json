@@ -27,6 +27,7 @@
 		"@studio/common": "file:../../packages/common",
 		"@studio/providers": "file:../../packages/providers",
 		"@studio/design-md": "file:../../packages/design-md",
+		"@studio/ds": "file:../../packages/ds",
 		"@tanstack/query-sync-storage-persister": "^5.96.2",
 		"@tanstack/react-query": "^5.75.5",
 		"@tanstack/react-query-persist-client": "^5.96.2",

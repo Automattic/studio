@@ -1,4 +1,4 @@
-import { CircleHelpIcon } from '@/lib/icons';
+import { CircleHelpIcon } from '@studio/ds/icons';
 import type { SiteVisibility } from '@studio/providers';
 
 export type AccessValue = SiteVisibility | 'link';

@@ -1,6 +1,3 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { useState, Fragment, type ReactNode } from 'react';
-import { ExternalLinkIcon, RotateCwIcon, SearchIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -9,7 +6,10 @@ import {
 	InputGroupInput,
 	PreviewFrame,
 	PreviewImage,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { ExternalLinkIcon, RotateCwIcon, SearchIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useState, Fragment, type ReactNode } from 'react';
 import styles from './style.module.css';
 
 export function getRemoteSiteScreenshot( url: string ): string {

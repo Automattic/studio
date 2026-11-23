@@ -1,13 +1,6 @@
 import { ACCEPTED_IMPORT_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
-import { __, sprintf } from '@wordpress/i18n';
-import { useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
-import { useImportSite } from '@/data/queries/use-import-site';
-import { useSettleSync } from '@/data/queries/use-sync-site';
-import { useSiteSyncActivity } from '@/data/sync-activity';
-import { useConfirmOnEnter } from '@/lib/keyboard';
 import {
 	AlertDialog,
 	DialogContent,
@@ -16,7 +9,14 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Button,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __, sprintf } from '@wordpress/i18n';
+import { useRef, useState } from 'react';
+import { useConnector } from '@/data/core';
+import { useImportSite } from '@/data/queries/use-import-site';
+import { useSettleSync } from '@/data/queries/use-sync-site';
+import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useConfirmOnEnter } from '@/lib/keyboard';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 

@@ -1,8 +1,8 @@
+import { DialogDismissButton } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { useSaveWapuuScore } from '@/data/queries/use-wapuu-score';
-import { DialogDismissButton } from '@/lib/ui';
 import wapuuIdleUrl from './assets/wapuu-player-idle-sprite.png';
 import { startGame, CANVAS_W, CANVAS_H } from './engine/game-loop';
 import { WIN_LINK } from './engine/renderer';

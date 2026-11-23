@@ -1,7 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { SearchIcon } from 'lucide-react';
-import { useId, useState } from 'react';
-import { groupCommands, matchCommands } from '@/features/commands/command-search';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -11,7 +7,11 @@ import {
 	CommandList,
 	getActiveCommand,
 	handleCommandKey,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __ } from '@wordpress/i18n';
+import { SearchIcon } from 'lucide-react';
+import { useId, useState } from 'react';
+import { groupCommands, matchCommands } from '@/features/commands/command-search';
 import styles from './style.module.css';
 import type { PaletteCommand } from '@/features/commands/studio-commands';
 

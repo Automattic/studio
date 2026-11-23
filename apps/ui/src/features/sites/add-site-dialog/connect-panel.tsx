@@ -1,6 +1,22 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import {
+	Alert,
+	AlertActions,
+	AlertDescription,
+	AlertTitle,
+	Badge,
+	Empty,
+	Button,
+	Spinner,
+	Tabs,
+	TabsList,
+	TabsScopeIndicator,
+	TabsTrigger,
+} from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { ExternalLinkIcon } from '@studio/ds/icons';
+import {
 	getProvider,
 	getProviderSites,
 	SITES_PROVIDER_IDS,
@@ -21,22 +37,6 @@ import {
 	RemoteSitePicker,
 } from '@/features/remote-site-picker';
 import { pendingRemoteSiteSlot } from '@/features/sites/pending-remote-site';
-import { useOffline } from '@/lib/hooks';
-import { ExternalLinkIcon } from '@/lib/icons';
-import {
-	Alert,
-	AlertActions,
-	AlertDescription,
-	AlertTitle,
-	Badge,
-	Empty,
-	Button,
-	Spinner,
-	Tabs,
-	TabsList,
-	TabsScopeIndicator,
-	TabsTrigger,
-} from '@/lib/ui';
 import styles from './connect-panel.module.css';
 import { getRemoteSiteName, presentRemoteSites, type ConnectSiteGroup } from './site-presentation';
 import dialogStyles from './style.module.css';

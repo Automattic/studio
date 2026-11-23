@@ -2,6 +2,15 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
 import {
+	Button,
+	Field,
+	FieldDescription,
+	FieldError,
+	FieldGroup,
+	FieldLabel,
+	Input,
+} from '@studio/ds';
+import {
 	getConnectFields,
 	getProviderSites,
 	type ProviderSites,
@@ -11,15 +20,6 @@ import { useMutation } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useId, useState } from 'react';
 import { useConnector } from '@/data/core';
-import {
-	Button,
-	Field,
-	FieldDescription,
-	FieldError,
-	FieldGroup,
-	FieldLabel,
-	Input,
-} from '@/lib/ui';
 import styles from './style.module.css';
 
 // A site the user describes in the provider's `sites.connect` form, once the provider reached it.

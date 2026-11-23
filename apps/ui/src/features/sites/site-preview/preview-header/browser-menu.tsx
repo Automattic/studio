@@ -1,6 +1,6 @@
+import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
+import { EllipsisVerticalIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { EllipsisVerticalIcon } from '@/lib/icons';
-import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import type { PreviewColorScheme } from '../preview-surface/webview';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 

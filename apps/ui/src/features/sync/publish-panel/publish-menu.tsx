@@ -1,7 +1,7 @@
+import { Menu } from '@studio/ds';
+import { CloudUploadIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
-import { CloudUploadIcon } from '@/lib/icons';
-import { Menu } from '@/lib/ui';
 import type { SiteDetails } from '@/data/core';
 
 export function SitePublishMenu( { site }: { site: SiteDetails } ) {

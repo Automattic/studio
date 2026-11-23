@@ -4,6 +4,23 @@ import {
 } from '@studio/agent/protocol/sessions/model';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+	AttachmentChip,
+	AttachmentRemoveButton,
+	Button,
+	DropOverlay,
+	Field,
+	FieldDescription,
+	FieldError,
+	FieldLabel,
+	IconButton,
+	InputGroup,
+	InputGroupTextarea,
+} from '@studio/ds';
+import { PaperclipIcon } from '@studio/ds/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
@@ -25,23 +42,6 @@ import {
 	saveComposerDraft,
 	useComposerNotice,
 } from '@/features/composer';
-import { PaperclipIcon } from '@/lib/icons';
-import {
-	Alert,
-	AlertDescription,
-	AlertTitle,
-	AttachmentChip,
-	AttachmentRemoveButton,
-	Button,
-	DropOverlay,
-	Field,
-	FieldDescription,
-	FieldError,
-	FieldLabel,
-	IconButton,
-	InputGroup,
-	InputGroupTextarea,
-} from '@/lib/ui';
 import { useAddSite } from './context';
 import styles from './style.module.css';
 import type { SetupBrief } from './context';

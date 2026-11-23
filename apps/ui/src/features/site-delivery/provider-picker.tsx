@@ -1,5 +1,3 @@
-import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
-import { __ } from '@wordpress/i18n';
 import {
 	Select,
 	SelectContent,
@@ -7,7 +5,9 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
+import { __ } from '@wordpress/i18n';
 import { ConnectSiteIcon } from './connection-icons';
 import { DestinationIcon } from './destination-icon';
 import { ProviderLogo } from './provider-logo';

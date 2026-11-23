@@ -1,3 +1,5 @@
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
+import { SidebarIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useContext } from 'react';
@@ -8,8 +10,6 @@ import {
 	useSidebarHover,
 	useToggleSidebar,
 } from '@/data/use-sidebar-collapsed';
-import { SidebarIcon } from '@/lib/icons';
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function SidebarToggle( { tabIndex }: { tabIndex?: number } = {} ) {

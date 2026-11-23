@@ -21,10 +21,6 @@ echo "--- :npm: Set npm to use $LOCAL_NPM_CACHE for cache"
 npm set cache "$PWD/$LOCAL_NPM_CACHE"
 echo "npm cache set to $(npm get cache)"
 
-echo "--- :npm: Restore npm cache if present"
-# Needed even when node_modules comes from its cache: packaging the app runs `npm install` for its bundle.
-restore_cache "$CACHEKEY"
-
 # On Windows, `npm ci` spends about 2 minutes writing the packages into node_modules, against 20 s on Mac.
 # So Windows also caches node_modules itself, keyed on everything that decides its content: the lockfile,
 # the patches, the OS, the CPU and the Node version (which brings its npm).
@@ -34,20 +30,30 @@ IS_WINDOWS=false
 case "$PLATFORM" in
   MINGW* | MSYS* | CYGWIN*) IS_WINDOWS=true ;;
 esac
-NODE_MODULES_SHARDS=4
+NODE_MODULES_SHARDS=8
 NODE_MODULES_CACHEKEY="$BUILDKITE_PIPELINE_SLUG-node-modules-v2-$PLATFORM-$ARCHITECTURE-node-$NODE_VERSION-$PACKAGE_HASH-$PATCHES_HASH"
-
-NODE_MODULES_RESTORED=false
+RESTORE_NODE_MODULES=false
 if [ "$IS_WINDOWS" = true ] && [ ! -e node_modules ]; then
-  echo "--- :npm: Restore node_modules cache if present"
-  pids=()
+  RESTORE_NODE_MODULES=true
+fi
+
+echo "--- :npm: Restore caches if present"
+# The npm cache is needed even when node_modules comes from its cache: packaging the app runs `npm install` for its bundle.
+pids=()
+restore_cache "$CACHEKEY" &
+pids+=($!)
+if [ "$RESTORE_NODE_MODULES" = true ]; then
   for shard in $(seq 0 $((NODE_MODULES_SHARDS - 1))); do
     restore_cache "$NODE_MODULES_CACHEKEY-$shard-of-$NODE_MODULES_SHARDS" &
     pids+=($!)
   done
-  for pid in "${pids[@]}"; do
-    wait "$pid"
-  done
+fi
+for pid in "${pids[@]}"; do
+  wait "$pid"
+done
+
+NODE_MODULES_RESTORED=false
+if [ "$RESTORE_NODE_MODULES" = true ]; then
   # When a shard is missing, `npm ci` below removes the others, as it empties node_modules first.
   if node .buildkite/commands/node-modules-shards.mjs check "$NODE_MODULES_SHARDS"; then
     NODE_MODULES_RESTORED=true

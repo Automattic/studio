@@ -72,9 +72,9 @@ connects to WordPress.com only for your WordPress.com sites, once you log in.
 
 ## Telemetry
 
-The plugin itself sends no telemetry. The Studio CLI sends usage events to Automattic
-(Tracks), tied to a random install ID or, when you're logged in to WordPress.com, linked to your
-account, plus anonymous usage counters. To turn the usage events off, set `"analyticsOptOut": true`
+The plugin itself sends no telemetry. The Studio CLI sends anonymous usage events to Automattic
+(Tracks), tied to a random install ID rather than to you or your WordPress.com account, plus
+anonymous usage counters. To turn the usage events off, set `"analyticsOptOut": true`
 in the `preferences` of `~/.studio/config.json`, or switch off analytics in the Studio desktop app's settings. See the
 [privacy policy](https://automattic.com/privacy/) and the
 [terms of service](https://automattic.com/tos/).

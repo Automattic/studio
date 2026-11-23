@@ -1866,6 +1866,16 @@ it( 'connects a site over SSH from its address, then publishes to it', async () 
 	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith( 'ssh', site.id, sshSite.id, {
 		optionsToSync: [ 'all' ],
 	} );
+
+	await user.click( screen.getByRole( 'button', { name: 'Pull from live site…' } ) );
+	const pull = await screen.findByRole( 'alertdialog', {
+		name: 'Update local site from acme.test?',
+	} );
+	await user.click( within( pull ).getByRole( 'combobox', { name: 'What to replace' } ) );
+	expect(
+		( await screen.findAllByRole( 'option' ) ).map( ( option ) => option.textContent )
+	).toEqual( [ 'Entire site', 'Files only', 'Content and settings only' ] );
+	expect( pull ).not.toHaveTextContent( 'backup' );
 } );
 
 it( 'does not open Spacefast if its connection dialog is closed before the link is ready', async () => {

@@ -132,6 +132,7 @@ describe( 'Add site flow', () => {
 					site.id
 				)
 			);
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Pull from live site…' } ) );
 			const confirmation = await screen.findByRole( 'alertdialog', {
 				name: 'Update local site from remote.example?',
 			} );

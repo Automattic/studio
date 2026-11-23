@@ -153,7 +153,7 @@ export function useConnectSite() {
 					requestHeaderPanel( {
 						panel: 'publish',
 						siteId: localSiteId,
-						view: 'pull',
+						view: 'publish',
 						provider,
 						remoteSiteId: remote.id,
 					} );

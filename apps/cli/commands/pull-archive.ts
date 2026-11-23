@@ -246,6 +246,7 @@ export async function runCommand(
 
 			await withSiteOperation( site.path, 'import', async () => {
 				const wasServerRunning = !! ( await isServerRunning( site.id ) );
+				let imported = false;
 				try {
 					if ( wasServerRunning ) {
 						logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
@@ -266,8 +267,11 @@ export async function runCommand(
 						// falling back to `unknown` — the remote steps tag themselves in `sync-api`.
 						throw new LoggerError( __( 'Failed to import the backup' ), error, 'local_import' );
 					}
+					imported = true;
 				} finally {
-					if ( wasServerRunning ) {
+					// A pulled site starts before its version is read, so the version includes what the
+					// first start writes, such as the Studio admin user.
+					if ( wasServerRunning || imported ) {
 						try {
 							logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 							await startWordPressServer( site, logger, 'pull' );

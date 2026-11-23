@@ -119,6 +119,27 @@ describe( 'CLI: studio pull', () => {
 		}
 	);
 
+	it.each( [
+		[ 'succeeds', [ 'hold import', 'import', 'start', 'release', 'version' ] ],
+		[ 'fails', [ 'hold import', 'release' ] ],
+	] )(
+		'starts a stopped site when the import %s, before reading its version',
+		async ( outcome, expected ) => {
+			vi.mocked( isServerRunning ).mockResolvedValue( undefined as never );
+			vi.mocked( getSiteVersion ).mockImplementation( async () => {
+				steps.push( 'version' );
+				return 'local-version';
+			} );
+			if ( outcome === 'fails' ) {
+				importBackup.mockRejectedValue( new Error( 'boom' ) );
+			}
+
+			await runCommand( site.path, [ 'all' ], String( remoteSite.id ) ).catch( () => undefined );
+
+			expect( steps ).toEqual( expected );
+		}
+	);
+
 	it( 'reports the remote environment in a completed backup pull', async () => {
 		const destination = {
 			...remoteSite,

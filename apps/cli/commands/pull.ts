@@ -647,11 +647,15 @@ export async function runFullPull(
 				apiUrl,
 				...filesArgs,
 				'--mode=mirror',
+				// A later pull restores the files a previous pull brought in and keeps the ones the
+				// user added locally since, like a theme in progress, which a mirror would delete.
+				...( isFirstPull ? [] : [ '--on-fs-root-nonempty=preserve-local' ] ),
 				'--no-adaptive',
 				`--state-dir=${ metadata.stateDirectory }`,
 				`--fs-root=${ metadata.rawDirectory }`,
 			] );
-		// A mirror deletes the local files the remote doesn't have, the local database among them.
+		// A mirror deletes the files a previous pull brought in that the remote no longer has, the
+		// local database among them.
 		await ( selection.skipDatabase && sqlitePath.startsWith( metadata.rawDirectory + path.sep )
 			? keepingDatabase( path.dirname( sqlitePath ), metadata.stateDirectory, pullFiles )
 			: pullFiles() );

@@ -402,6 +402,8 @@ describe( 'CLI: studio pull single pull phase', () => {
 			'apply-runtime',
 		] );
 		expect( calls[ 0 ] ).toContain( '--include=:wp-core:' );
+		// The mirror keeps the files the user added since the last pull.
+		expect( calls[ 0 ] ).toContain( '--on-fs-root-nonempty=preserve-local' );
 		// Copying core replaces both a site's own core files and links to an older pulled core, so
 		// a repeat pull needs no --force.
 		expect( calls[ 2 ] ).toContain( '--core-files=copy' );

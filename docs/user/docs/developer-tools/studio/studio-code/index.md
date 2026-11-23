@@ -1,6 +1,8 @@
 # WordPress Studio Code
 
-WordPress Studio Code is the agent built into WordPress Studio. Describe what you want in the chat, and it builds and changes your site for you. It creates themes and plugins, edits files, runs WP-CLI commands, creates previews, and publishes your site.
+WordPress Studio Code is the agent built into WordPress Studio. Describe what you want in the chat, and it builds and changes your site for you.
+
+WordPress Studio Code creates themes and plugins, edits files, runs WP-CLI commands, creates previews, and publishes your site.
 
 **Applies to:** the WordPress Studio desktop app and WordPress Studio CLI (`studio code`). The agent needs an AI provider. This can be WordPress.com, with a WordPress.com account and a payment method, or another provider such as a ChatGPT plan, a Claude subscription, or your own API key.
 

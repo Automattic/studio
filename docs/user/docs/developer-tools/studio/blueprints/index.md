@@ -1,6 +1,8 @@
 # Blueprints in WordPress Studio
 
-A Blueprint is a JSON file that describes how to build a site in WordPress Studio. This “recipe” tells WordPress Studio which WordPress and PHP versions to use, which plugins and themes to install, what content or settings to apply, and more.
+A Blueprint is a JSON file that tells WordPress Studio how to build a site.
+
+A Blueprint sets which WordPress and PHP versions to use, which plugins and themes to install, what content or settings to apply, and more.
 
 Unlike full-site Blueprints in other local development environments, WordPress Studio Blueprints are lightweight, declarative, and easy to share. Choose from one of our free starter Blueprints or upload a [Blueprint of your own](https://wordpress.studio/docs/blueprints/how-to-create-custom-blueprints/).
 

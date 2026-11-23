@@ -1,6 +1,6 @@
 # Share a preview of your site
 
-To share your local site with someone, create a preview in WordPress Studio. A preview is a temporary copy of your site on [WordPress.com](https://wordpress.com/?ref=dev-doc) that anyone with its preview link can open until it expires.
+To share your local site, create a preview. A preview is a temporary copy of your site on WordPress.com that anyone with its link can open until it expires.
 
 **Applies to:** the WordPress Studio app, with a WordPress.com account. Previews are hosted on WordPress.com.
 

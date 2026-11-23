@@ -1,6 +1,8 @@
 # WordPress Studio
 
-[WordPress Studio](https://wordpress.studio/) is the agentic local development tool for WordPress. Spin up [local sites](https://wordpress.studio/docs/sites/) in seconds and generate anything from plugins, themes, images and content to full site builds using [WordPress Studio Code](https://wordpress.studio/docs/studio-code/), our custom WordPress AI agent. 
+WordPress Studio is the agentic local development tool for WordPress. It runs WordPress sites on your computer and builds them with an AI agent.
+
+Spin up [local sites](https://wordpress.studio/docs/sites/) in seconds and generate anything from plugins, themes, images and content to full site builds using [WordPress Studio Code](https://wordpress.studio/docs/studio-code/), our custom WordPress AI agent.
 
 Your sites and their WordPress Studio Code chats share one sidebar, with the live site preview right beside the chat. The preview opens the front end, WP Admin, the site database, and the site’s email log in tabs, without leaving the app. Batch smaller updates quickly and easily and dispatch them to the WordPress Studio Code agent with one click using the Annotate tool. 
 

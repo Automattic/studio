@@ -1,6 +1,6 @@
 # Exclude files from a preview with .deployignore
 
-To leave files out of a preview, list them in a `.deployignore` file at the root of your site directory. The file uses the same pattern syntax as `.gitignore`, and WordPress Studio also honors it when you publish a site to WordPress.com or Pressable.
+To leave files out of a preview, list them in a `.deployignore` file at the root of your site directory. The file uses the same pattern syntax as `.gitignore`.
 
 **Applies to:** the WordPress Studio app, with a WordPress.com account. Previews are hosted on WordPress.com. The same file applies when you [publish](https://wordpress.studio/docs/sync/#exclude-files-with-deployignore) to WordPress.com or Pressable.
 

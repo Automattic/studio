@@ -12,7 +12,7 @@
 		"schemas": "node --experimental-strip-types cli.ts schemas",
 		"moire:looks": "node --experimental-strip-types src/build-design-looks.ts scenes/moire",
 		"lint": "eslint .",
-		"typecheck": "tsc -p tsconfig.json --noEmit"
+		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"esbuild": "^0.28.0",

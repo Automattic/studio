@@ -49,7 +49,7 @@
 		"lint": "eslint .",
 		"watch": "vite build --config ./vite.config.dev.ts --watch",
 		"prepublishOnly": "npm run build:npm",
-		"typecheck": "tsc -p tsconfig.json --noEmit"
+		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
 		"@earendil-works/pi-ai": "1.5.0",

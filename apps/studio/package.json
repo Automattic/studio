@@ -26,7 +26,7 @@
 		"package": "electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge package .",
 		"release": "electron-forge release .",
 		"start-wayland": "npm -w wp-studio run build && electron-vite build --config ./electron.vite.config.ts --outDir=dist && node --experimental-strip-types ../../scripts/build-ui-renderer.ts && electron-forge start . -- --enable-features=UseOzonePlatform --ozone-platform=wayland",
-		"typecheck": "tsc -p tsconfig.json --noEmit"
+		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"@formatjs/intl-localematcher": "^0.5.4",

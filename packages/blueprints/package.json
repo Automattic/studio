@@ -10,7 +10,7 @@
 	},
 	"scripts": {
 		"lint": "eslint .",
-		"typecheck": "tsc -p tsconfig.json --noEmit"
+		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"@wordpress/i18n": "^6.30.0",

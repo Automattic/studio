@@ -53,7 +53,7 @@ A Blueprint that sets up a WordPress multisite requires a custom domain. When yo
 
 Behind the scenes, WordPress Studio builds the site from whichever Blueprint you selected or added. 
 
-In the terminal, `studio create --blueprint <blueprint-slug>` creates a site from a Blueprint in the library. Run `studio blueprint list` to see the slugs. See [Creating a local site using Blueprints Gallery](https://wordpress.studio/docs/cli/#creating-a-local-site-using-blueprints-gallery).
+In the terminal, `studio create --blueprint <blueprint-slug>` creates a site from a Blueprint in the library. Run `studio blueprint list` to see the slugs. See [Create a site from a Blueprint](https://wordpress.studio/docs/cli/#create-a-site-from-a-blueprint).
 
 ## [Featured Blueprints](#2-featured-blueprints)
 

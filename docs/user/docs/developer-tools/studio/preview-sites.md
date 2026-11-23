@@ -1,6 +1,6 @@
 # Share a preview of your site
 
-To share your local site with someone, create a preview in WordPress Studio. A preview is a temporary copy of your site on [WordPress.com](https://wordpress.com/?ref=dev-doc) that anyone with its preview link can open for 30 days after its last update.
+To share your local site with someone, create a preview in WordPress Studio. A preview is a temporary copy of your site on [WordPress.com](https://wordpress.com/?ref=dev-doc) that anyone with its preview link can open until it expires.
 
 **Applies to:** the WordPress Studio app, with a WordPress.com account. Previews are hosted on WordPress.com.
 
@@ -18,7 +18,7 @@ Use previews to share work with clients or team members and gather early feedbac
 3.  If you aren’t logged in, [log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom).
 4.  Under **Share a preview**, click **Create preview**.
 
-The button shows **Creating preview…** while WordPress Studio builds the preview. Your preview should be ready in about a minute. You can close the panel while you wait: a notice shows the progress, and when the preview is ready, the notice changes to a confirmation with a **Copy link** button. Anyone with the preview link can open the preview for 30 days.
+The button shows **Creating preview…** while WordPress Studio builds the preview. Your preview should be ready in about a minute. You can close the panel while you wait: a notice shows the progress, and when the preview is ready, the notice changes to a confirmation with a **Copy link** button. Anyone with the preview link can open the preview until it expires.
 
 You can also start from the site menu: choose **Share → Create preview**, or **Share → Manage sharing** to open the **Share** panel. Once the site has previews, the **Share** submenu also has **Copy link** and **Visit preview** (**Copy links** and **Visit previews** when there are several).
 
@@ -47,7 +47,7 @@ Previews created with an earlier version of WordPress Studio, on a `wp.build` ad
 
 ## Preview expiration
 
-Each preview is **automatically deleted 30 days after its last update**. The **Share** panel shows the date each preview expires. Previews are temporary so that they’re used for short-term feedback and review.
+Previews are temporary, for short-term feedback and review. A preview expires if it goes without an update for a while. WordPress.com sets the expiry date, and the **Share** panel shows it for each preview. When WordPress Studio has no expiry date from WordPress.com, for example for a preview on a `wp.build` address made by an earlier version of WordPress Studio, it shows an expiry one week after the preview’s last update.
 
 Expired previews no longer appear in the **Share** panel. To see them:
 
@@ -55,7 +55,7 @@ Expired previews no longer appear in the **Share** panel. To see them:
 2.  Select the **Sharing** page.
 3.  Click **Show expired previews (N)**, where N is the number of expired previews.
 
-Expired previews are listed under **Expired previews**. To remove one from the list, click **Remove expired preview** next to it. To share the site again, [create a new preview](#create-a-preview) from the **Share** panel.
+Expired previews are listed under **Expired previews**. To remove one from the list, click **Remove expired preview** next to it. To share the site again, [create a new preview](https://wordpress.studio/docs/preview-sites/#create-a-preview) from the **Share** panel.
 
 ## Rename a preview
 
@@ -149,7 +149,7 @@ The preview was created with an earlier version of WordPress Studio, on a `wp.bu
 
 ### Why is a preview missing from the Share panel?
 
-The preview has probably expired. Previews are deleted 30 days after their last update. To see expired previews, open **Settings → Sharing** and click **Show expired previews (N)**.
+The preview has probably expired. A preview expires if it goes without an update for a while. See [Preview expiration](https://wordpress.studio/docs/preview-sites/#preview-expiration). To see expired previews, open **Settings → Sharing** and click **Show expired previews (N)**.
 
 ### Why doesn’t my preview show changes to my live site?
 

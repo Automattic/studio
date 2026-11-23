@@ -38,7 +38,12 @@ NODE_MODULES_CACHEKEY="$BUILDKITE_PIPELINE_SLUG-node-modules-v1-$PLATFORM-$ARCHI
 NODE_MODULES_RESTORED=false
 if [ "$IS_WINDOWS" = true ] && [ ! -e node_modules ]; then
   echo "--- :npm: Restore node_modules cache if present"
-  restore_cache "$NODE_MODULES_CACHEKEY"
+  # Windows' own tar writes the 100,000 files faster than the GNU tar of Git Bash, so `restore_cache` uses it.
+  WINDOWS_TAR_SHIM=$(mktemp -d)
+  printf '#!/bin/bash\nexec /c/Windows/System32/tar.exe "$@"\n' > "$WINDOWS_TAR_SHIM/tar"
+  chmod +x "$WINDOWS_TAR_SHIM/tar"
+  PATH="$WINDOWS_TAR_SHIM:$PATH" restore_cache "$NODE_MODULES_CACHEKEY"
+  rm -rf "$WINDOWS_TAR_SHIM"
   if [ -f node_modules/.package-lock.json ]; then
     NODE_MODULES_RESTORED=true
   fi

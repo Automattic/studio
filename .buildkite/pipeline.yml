@@ -90,8 +90,11 @@ steps:
       # container — the same pattern the Linux build group uses. Kept as a
       # separate step (rather than another matrix entry above) because Mac and
       # Windows share queue/plugin defaults that Linux doesn't.
+      # The `default` agents are small: one Linux run took 7 min, against 2 min
+      # on Mac. Each parallel job runs its shard of the test files.
       - label: Unit Tests on linux
         key: unit_tests_linux
+        parallelism: 4
         command: |
           export PATH="$$PATH:/a8c-ci-toolkit/bin"
           bash .buildkite/commands/run-unit-tests.sh "linux"

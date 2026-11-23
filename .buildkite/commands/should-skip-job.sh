@@ -7,7 +7,7 @@ set -eu
 # which `pipeline.yml` uses as the `skip:` of matching steps, so skipped jobs never start.
 #
 # Usage:
-#   should-skip-job.sh --job-type <type>
+#   should-skip-job.sh <job-type>
 #
 # Prints the reason to skip the job, or `false` to run it. Exits 0 either way, and 15 for invalid arguments.
 # Webhook PR and trunk builds can skip; STUDIO_CI_FULL_BUILD=1 forces a full run, and other builds always run.
@@ -110,24 +110,8 @@ run_job() { echo false; exit 0; }
 # Buildkite rejects the whole pipeline upload if a `skip:` reason is longer than 70 characters.
 skip_job() { echo "${1:0:70}"; exit 0; }
 
-# Parse arguments
-job_type=""
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --job-type)
-      job_type="${2:-}"
-      shift 2 || shift
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      exit 15
-      ;;
-  esac
-done
-
-if [[ -z "$job_type" ]]; then
-  echo "Error: --job-type is required" >&2
-  echo "Usage: should-skip-job.sh --job-type <validation|e2e|metrics|build|fastlane>" >&2
+if [[ $# -ne 1 || -z "${1:-}" ]]; then
+  echo "Usage: should-skip-job.sh <validation|e2e|metrics|build|fastlane>" >&2
   exit 15
 fi
 
@@ -153,7 +137,7 @@ else
   run_job
 fi
 
-case "$job_type" in
+case "$1" in
   "validation")
     # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in
     # non-code files OR localization-only changes
@@ -200,7 +184,7 @@ case "$job_type" in
     ;;
 
   *)
-    echo "Unknown job type: $job_type" >&2
+    echo "Unknown job type: $1" >&2
     echo "Valid types: validation, e2e, metrics, build, fastlane" >&2
     exit 15
     ;;

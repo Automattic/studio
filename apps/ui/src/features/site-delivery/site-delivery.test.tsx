@@ -1560,11 +1560,15 @@ it( 'updates an up-to-date preview from the primary button and copies its link f
 	expect( await screen.findByRole( 'group', { name: /^Preview: / } ) ).toBeVisible();
 	await actions.hover( screen.getByRole( 'button', { name: 'Expires' } ) );
 	const expiration = await screen.findByRole( 'dialog', { name: 'Preview expiration' } );
-	expect( within( expiration ).getByText( /Updating your preview resets/ ) ).toBeVisible();
+	expect(
+		within( expiration ).getByText(
+			/Preview sites are temporary\. Updating your preview resets the expiration date\./
+		)
+	).toBeVisible();
 	await actions.click( screen.getByRole( 'button', { name: 'Expires' } ) );
 	await actions.click( within( expiration ).getByRole( 'button', { name: 'Learn more' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-		'https://wordpress.studio/docs/preview-sites/#5-preview-site-expiration'
+		'https://wordpress.studio/docs/preview-sites/#preview-expiration'
 	);
 	await actions.keyboard( '{Escape}' );
 	expect( screen.getByRole( 'button', { name: 'Expires' } ) ).toHaveFocus();

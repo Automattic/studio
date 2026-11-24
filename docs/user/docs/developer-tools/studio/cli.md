@@ -67,7 +67,7 @@ npm install -g wp-studio
 studio uninstall
 ```
 
-This stops your running sites and removes the CLI and its `PATH` entry. Your sites and your WordPress Studio configuration in `~/.studio` stay. Add `--purge` to also delete `~/.studio`.
+This stops your running sites and removes the CLI and its `PATH` entry. Your sites and your WordPress Studio configuration, which lives in `~/.studio/config.json`, stay. Add `--purge` to also delete `~/.studio`.
 
 | Installed with | How to remove it |
 | --- | --- |
@@ -262,6 +262,8 @@ studio delete /path/to/site-one /path/to/site-two
 # Show what would be deleted, without deleting anything
 studio delete /path/to/site-one --dry-run
 ```
+
+If the CLI can’t move a site’s files to the trash, it still removes the site and warns “The site files could not be moved to trash. Delete them yourself:”, followed by the folders to delete.
 
 ### Change site settings
 

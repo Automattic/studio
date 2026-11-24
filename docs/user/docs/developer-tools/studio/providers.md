@@ -16,7 +16,7 @@ The page has three groups. Your defaults are at the top, then **AI providers**, 
 
 ![The Providers page of WordPress Studio's Settings: Default AI provider and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, and Meta with Connect buttons.](../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
-WordPress Studio UI, which you start with `studio ui`, has the same page. In the terminal you use commands instead. See [Providers in the terminal](#providers-in-the-terminal).
+WordPress Studio UI, which you start with `studio ui`, has the same page. In the terminal you use commands instead. See [Providers in the terminal](https://wordpress.studio/docs/providers/#providers-in-the-terminal).
 
 ## AI providers
 

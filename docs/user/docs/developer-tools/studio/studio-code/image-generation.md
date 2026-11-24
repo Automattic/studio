@@ -1,6 +1,8 @@
 # Image generation
 
-WordPress Studio Code can generate original images as it builds and edits your site. When a design calls for imagery — a cover background, feature or gallery images, team photos, product shots — the agent can create and use those images, so pages arrive with real pictures instead of grey placeholder boxes or broken image references.
+WordPress Studio Code can generate original images as it builds and edits your site.
+
+When a design calls for imagery — a cover background, feature or gallery images, team photos, product shots — the agent can create and use those images, so pages arrive with real pictures instead of grey placeholder boxes or broken image references.
 
 Image generation is available in WordPress Studio 1.20.0 and later.
 

@@ -1,4 +1,6 @@
 import { sortSites } from '@studio/common/lib/sort-sites';
+import { IconButton, SidebarMenu, SidebarMenuItem, SidebarMenuSkeleton } from '@studio/ds';
+import { CollapseAllIcon, PlusIcon } from '@studio/ds/icons';
 import { useParams, useRouter, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -9,8 +11,6 @@ import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import { useSites, useUpdateSitesSortOrder } from '@/data/queries/use-sites';
 import { getSessionTitle } from '@/features/chats';
 import { useOpenAddSite } from '@/features/sites';
-import { CollapseAllIcon, PlusIcon } from '@/lib/icons';
-import { IconButton, SidebarMenu, SidebarMenuItem, SidebarMenuSkeleton } from '@/lib/ui';
 import { ChatRow, RetryLoadingChats } from './chat-row';
 import { useProvideCollapseAll } from './collapse-all';
 import { SidebarSelection } from './selection';

@@ -35,6 +35,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | Meta (`meta`)                                | API key                        | Muse models; images                  | —          | —        |
 | xAI (`xai`)                                  | Grok plan or API key           | Grok models; images                  | —          | —        |
 | OpenRouter (`openrouter`)                    | Sign-in or API key             | Models from many labs                | —          | —        |
+| Local LLM (`local-llm`)                      | Server address, optional key   | The models the server lists          | —          | —        |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
 
@@ -50,7 +51,7 @@ The WordPress.com provider owns how sign-in works: the authorization URL, turnin
 - The user menu in the apps shows the signed-in WordPress.com user, and signing in and out from it is WordPress Studio sign-in.
 - Anything else that needs the signed-in user, such as Tracks identity, gets it the same way.
 
-Receiving the OAuth redirect stays with the shells, because it differs per runtime ([Auth across surfaces](./studio-apps-and-surfaces.md#auth-across-surfaces)): a deep link in the Desktop app, a callback page in `studio ui` and WordPress Studio on the web, and a token the user pastes in the CLI. Each hands what came back to the provider.
+Receiving the OAuth redirect stays with the shells, because it differs per runtime ([Auth across surfaces](./studio-apps-and-surfaces.md#auth-across-surfaces)): a deep link in the Desktop app, a callback page in `studio ui`, and a token the user pastes in the CLI. Each hands what came back to the provider.
 
 As a provider, WordPress.com's account is connected exactly when the user is signed in to WordPress Studio. No other provider connects that way.
 
@@ -63,7 +64,7 @@ The package is split in two parts, and lint keeps them apart:
 - **What surfaces read**: the registry, and each provider's descriptor, config schema and connection form. `apps/ui` imports only this part.
 - **The services**: the implementations, for the CLI, the apps' backends and the agent.
 
-Neither part uses Node APIs. WordPress Studio on the web runs the agent in the page, so the services connect accounts, connect to models and generate images there too.
+Neither part uses Node APIs.
 
 Dependencies point one way:
 
@@ -82,7 +83,7 @@ It is a package of its own because sites and previews are not agent concerns, so
   - **Several methods**, when a provider offers several ways. The user picks one, and only one is connected at a time. Anthropic takes an API key, or a token from `claude setup-token` that bills the Claude subscription; both are forms.
 - A method that signs in on the provider's site (a device code or a loopback redirect) runs the same way everywhere: the provider starts it and says where the user goes, WordPress Studio shows that address and any code, then hands the provider back what it started with, which waits for the user.
 - The provider says what surfaces show of a connected account: a summary such as an email or a key's first and last characters, a note such as whose plan pays for it, and links such as where to manage usage; never the credential.
-- Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
+- Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for. A field whose schema accepts an empty value is optional: the settings save the form, and `studio code` takes the answer, without it.
 - Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. WordPress Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then WordPress Studio removes the config.
 - A credential that expires before the account does, like a ChatGPT access token, is renewed by the provider (`refresh`) before WordPress Studio uses the config. WordPress Studio stores the renewed config, under a lock of its own, since a refresh token works once. A provider that no longer accepts the renewal is disconnected.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
@@ -97,11 +98,15 @@ Each provider lists the models it serves. Several providers can serve the same m
 
 Where the account decides which of those models it runs, rather than the provider, the connected account says so and the pickers offer only those; a provider that doesn't narrow them offers all it lists. The provider reads that set when it connects and keeps it current when it renews its credential, so the pickers never reach the service to build their list. A GitHub Copilot plan works this way: it includes its own set of models, and leaves some of them off until they are turned on.
 
+The Local LLM connector's catalog is the chat models the user's server lists, less those it says only make embeddings. Connecting offers them all, those the server says call tools first, and the settings narrow them like OpenRouter's. Its model ids are `local-llm/` and the server's name for the model (`local-llm/qwen3:0.6b`). Chats on these models need no internet, and analytics never name them.
+
 ### Connection
 
 To run a turn, the CLI asks the selected provider for a connection to the chosen model. The connection holds everything the runtime needs: endpoint, credentials, headers, API dialect and model limits. Credentials never travel through environment variables.
 
 The provider owns how its models are reached. For example, WordPress.com sends each tier over a different API, and rewrites its usage-cap errors. The runtime treats every connection the same way, and applies the same request clean-ups to every provider.
+
+A connection may say its context window is exactly the one the model runs with, as the Local LLM connector does when the server reports it, since some servers cut a request that doesn't fit without saying. The runtime then sizes compaction to that window, never sends a request its token estimate says the window can't hold, and ends a turn that still can't fit with the words the connection gives.
 
 ### Selection
 
@@ -112,9 +117,9 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 - Each provider has a default model; WordPress.com picks a stronger one when the account has paid AI credits left. Switching provider keeps the conversation's model when the new provider serves it too, and falls back to its default otherwise.
 - The UI gates paid tiers using the WordPress.com quota. The proxy enforces access.
 
-### In the page
+### On another machine
 
-WordPress Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, and a `device` sign-in polls endpoints that don't accept the page's origin, so the web leaves both out, and with them the ChatGPT plan and GitHub Copilot; an OpenAI API key works there, since OpenAI's API accepts calls from a page.
+Studio Cloud runs WordPress Studio on a machine away from the user's computer, so its settings offer only the connect methods that work from there. A `loopback` sign-in would return to a port on that machine, not the user's, so the settings leave it out, along with `device` sign-ins, and with them the ChatGPT plan and GitHub Copilot. A method marked as one only a host on the user's computer can run is left out too: the Local LLM connector checks a server on the user's computer or network.
 
 ### Images
 
@@ -126,28 +131,41 @@ An id names the provider only. How the account is connected (an API key, a subsc
 
 The Anthropic provider is `anthropic`. Builds before this design stored `anthropic-api-key`, in the stored selected provider and in session entries. Readers map it to `anthropic`, and writers keep storing `anthropic-api-key`. Older builds fall back to WordPress.com on an id they don't know, so this keeps the user's choice in every build.
 
+The Local LLM connector is `local-llm`, with no stored alias: builds that don't know it run chats on another connected provider and keep its config. Its model ids (`local-llm/<server name>`) are recorded in sessions like any other.
+
 ## Remote sites
 
 - A remote site is a site on a provider that a local site syncs with. Each provider with remote sites declares the shape of its site: WordPress.com's is `SyncSite`, Spacefast's a `Space`.
 - The provider owns the remote side of a sync: listing the account's sites, creating one when it can, sending what a push sends and applying it remotely, and, for pull, backing the site up remotely or opening the export API a local Reprint reads it through. It reports the steps it runs through as a status. Pull is optional: Spacefast only publishes.
-- WordPress Studio owns the local side, shared by every provider, and builds what the provider's push takes: the site's WordPress archive (WordPress.com), or a static export of its pages (Spacefast). On pull, it runs Reprint or imports a downloaded backup. The CLI does this; WordPress Studio on the web builds the archive in the page and hands the same provider a Blob.
+- WordPress Studio owns the local side, shared by every provider, and builds what the provider's push takes: the site's WordPress archive (WordPress.com), or a static export of its pages (Spacefast). On pull, it runs Reprint or imports a downloaded backup. The CLI does this.
 - Connections are WordPress Studio's data about its local sites, not provider config. `@studio/common/lib/remote-sites.ts` reads and writes them per provider, and records when each site was last pushed or pulled. WordPress.com's stay in `connectedWpcomSites`, so builds of every version read them; later providers' are in `remoteSites`.
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
-- `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. A remote that names any provider comes with the descriptor-driven UI _(planned)_.
-- A provider declares whether it supports selective sync _(planned)_.
+- `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. The Share and Publish panel uses the same provider descriptors and remote-site connections.
+- A provider declares whether it supports selective sync.
+
+### Share and Publish panel
+
+The selected destination owns the panel state. Studio stores selection by local site, provider and remote id (or preview hostname), and compares each destination with its own last successful full-transfer baseline. A partial transfer leaves that comparison unknown; it does not mark other destinations up to date.
+
+The sites descriptor supplies a publishing description and links with roles such as dashboard, admin, and visibility. The remote site carries its launch state and last known visibility. Providers with a visibility service can read or change access. The panel uses the provider's shared logo, alongside `selective`, `content`, `pull`, and `newSite`; it never chooses a provider-specific layout by id. The destination picker offers connected providers; connecting another provider opens provider settings. Selecting a destination does not create or publish anything.
+
+In Publish, each local site has one publishing destination for the current account. Choosing another replaces it across hosting providers. A checkout replaces it after the first successful publish. Temporary previews and connections belonging to other accounts stay available. A routine CLI transfer updates its own connection.
+
+The destination picker groups connected sites and previews by provider. Removing a preview deletes the preview after confirmation. Removing a published destination disconnects it from the local site; providers do not currently expose remote-site deletion.
 
 ## Previews
 
 - A preview is a remote site that expires: the provider builds it from a local site and shares it by a link until it is taken down or bought. It is part of the provider's sites, not a capability of its own, so a provider publishes to sites the user keeps (`sites.publish`), makes previews (`sites.previews`), or both.
 - Updating a preview is a push to it, with `preview` set. Creating one is `previews.create`, since the provider builds the site from the first upload. `previews.list` gives the account's previews still up, and `previews.delete` takes one down. A bought preview keeps its site ID, and WordPress Studio then connects it to its local site like any remote site.
 - The descriptor says what a preview is built from (`previews.content`), as `content` does for a push. WordPress.com builds previews through its site importer, from the zip of the site's folder with its SQLite database, while a push to a site the user keeps goes through its sync import, which takes the export archive and needs a plan; an unpaid preview refuses it.
-- WordPress Studio owns which local site each preview was made from, with the version it holds (`snapshots` in `config.json`), and which connected site it shows changes to. Previews made on Jurassic Ninja by older builds are left to expire: updating one makes a new WordPress.com preview, and deleting one only drops it from the list.
+- WordPress Studio owns which local site each preview was made from and which connected site it shows changes to. Previews made on Jurassic Ninja by older builds are left to expire: updating one makes a new WordPress.com preview, and deleting one only drops it from the list.
+- Each transfer records its comparison version on the local site’s connection to that remote ID. A bought preview keeps the same connection. A partial transfer clears the comparison version.
 - `studio preview` stays the command family. WordPress.com is the only provider that offers previews, and the commands use it; naming the provider comes with a second one _(planned)_.
 
 ## Surfaces
 
-- **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from WordPress Studio sign-in. The `ipc`, `local` and static connectors stay thin wrappers over WordPress Studio's storage in `@studio/common` and the providers' services.
-- **The agent**, in Node or in the page, receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires WordPress Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
+- **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from WordPress Studio sign-in. The `ipc` and `local` connectors stay thin wrappers over WordPress Studio's storage in `@studio/common` and the providers' services.
+- **The agent** receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires WordPress Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
 - **The CLI** lists providers and models from descriptors in `studio code`. `studio auth` is WordPress Studio sign-in. `studio push`, `pull` and `preview` hand the remote side to the provider.
 - **Analytics**: existing Tracks properties keep their names, so reporting stays continuous.
 
@@ -158,4 +176,4 @@ The Anthropic provider is `anthropic`. Builds before this design stored `anthrop
 
 ## Open questions
 
-1. **The UI for remote sites.** Settings and Share and publish still name WordPress.com. They should render every provider with remote sites from its descriptor: its connection, its sites and the statuses a site can sync with.
+1. **Provider-owned interaction flows.** Descriptors cover the current connection and publishing flows. Providers that require richer interactions may need to supply a component rather than expanding the shared panel with provider-specific behavior.

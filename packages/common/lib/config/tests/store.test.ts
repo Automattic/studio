@@ -7,6 +7,7 @@ import {
 	ConfigTooNewError,
 	getConfigPath,
 	readConfig,
+	readConfigSync,
 	updateConfig,
 } from '@studio/common/lib/config/store';
 
@@ -80,6 +81,96 @@ it( 'hides the entries of a list that do not parse, and keeps them on disk', asy
 		{ ...site, name: 'Renamed', status: 'ready' },
 		{ id: 'no-path' },
 	] );
+} );
+
+it( 'moves preview versions onto the matching local site, provider and account once', async () => {
+	const preview = {
+		atomicSiteId: 42,
+		url: 'demo.wpcomstaging.com',
+		date: 100,
+		localSiteId: site.id,
+		userId: 7,
+	};
+	const otherAccount = {
+		provider: 'wpcom',
+		account: '8',
+		site: { id: 42 },
+		localVersionId: 'other-account',
+	};
+	const otherProvider = {
+		provider: 'spacefast',
+		site: { id: 42 },
+		localVersionId: 'other-provider',
+	};
+	const newerPartial = {
+		provider: 'wpcom',
+		account: '7',
+		site: { id: 43 },
+		localVersionId: null,
+		lastPullTimestamp: new Date( 200 ).toISOString(),
+	};
+	const orphan = {
+		...preview,
+		localSiteId: 'missing',
+		atomicSiteId: 44,
+		versionId: 'orphan',
+		syncedAt: 100,
+	};
+	writeConfig( {
+		version: 1,
+		future: 'preserved',
+		sites: [
+			{ ...site, futureSiteField: 1, connections: [ otherAccount, otherProvider, newerPartial ] },
+		],
+		snapshots: [
+			{ ...preview, versionId: 'version', syncedAt: 100, futurePreviewField: 2 },
+			{ ...preview, atomicSiteId: 43, versionId: 'stale', syncedAt: 100 },
+			orphan,
+		],
+	} );
+	await readConfig();
+	const migrated = readFile();
+	expect( migrated ).toMatchObject( {
+		version: CONFIG_VERSION,
+		future: 'preserved',
+		sites: [ { futureSiteField: 1 } ],
+	} );
+	expect( migrated.sites[ 0 ].connections ).toEqual( [
+		otherAccount,
+		otherProvider,
+		newerPartial,
+		{
+			provider: 'wpcom',
+			account: '7',
+			site: { id: 42 },
+			preview: true,
+			localVersionId: 'version',
+			lastPushTimestamp: new Date( 100 ).toISOString(),
+			lastPullTimestamp: null,
+		},
+	] );
+	expect( migrated.snapshots ).toEqual( [
+		{ ...preview, futurePreviewField: 2 },
+		{ ...preview, atomicSiteId: 43 },
+		orphan,
+	] );
+	await readConfig();
+	expect( readFile() ).toEqual( migrated );
+} );
+
+it( 'reads startup settings from an older config before the first locked migration', async () => {
+	writeConfig( {
+		version: 1,
+		cli: { tosNoticeShownAt: 123 },
+		install: { sentryUserId: 'existing' },
+	} );
+	expect( readConfigSync() ).toMatchObject( {
+		cli: { tosNoticeShownAt: 123 },
+		install: { sentryUserId: 'existing' },
+	} );
+	expect( readFile().version ).toBe( 1 );
+	await readConfig();
+	expect( readFile().version ).toBe( CONFIG_VERSION );
 } );
 
 it( 'refuses a config file from a newer build', async () => {

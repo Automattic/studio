@@ -31,6 +31,7 @@ export interface AgentRunState {
 	phase: RunPhase;
 	runId: string | null;
 	startedAt: number | null;
+	pendingFirstMessage?: boolean;
 	isInterrupting: boolean;
 	pendingQuestions: PendingQuestion[];
 	pendingAnswers: Record< string, string >;
@@ -55,7 +56,7 @@ export type AgentRunAction =
 			interrupting: boolean;
 			pendingQuestions?: PendingQuestion[];
 	  }
-	| { type: 'send_pending'; startedAt: number }
+	| { type: 'send_pending'; startedAt: number; pendingFirstMessage?: boolean }
 	| { type: 'send_start'; runId: string; startedAt: number }
 	| { type: 'turn_completed' }
 	| { type: 'run_ended' }
@@ -98,6 +99,7 @@ function agentRunReducer( state: AgentRunState, action: AgentRunAction ): AgentR
 				phase: 'starting',
 				runId: null,
 				startedAt: action.startedAt,
+				pendingFirstMessage: action.pendingFirstMessage,
 				isInterrupting: false,
 			};
 		case 'send_start':

@@ -1,3 +1,5 @@
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
+import { SidebarIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useContext } from 'react';
@@ -8,11 +10,9 @@ import {
 	useSidebarHover,
 	useToggleSidebar,
 } from '@/data/use-sidebar-collapsed';
-import { SidebarIcon } from '@/lib/icons';
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 
-export function SidebarToggle() {
+export function SidebarToggle( { tabIndex }: { tabIndex?: number } = {} ) {
 	const collapsed = ! useSidebarOpen();
 	const undocked = useSidebarCollapsed();
 	const toggleSidebar = useToggleSidebar();
@@ -20,10 +20,12 @@ export function SidebarToggle() {
 	const control = (
 		<Button
 			variant="ghost"
+			highlightOnToggle={ false }
 			size="icon-sm"
 			aria-label={ collapsed || hover.peek ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
 			aria-expanded={ ! collapsed || hover.peek }
 			data-sidebar-toggle
+			tabIndex={ tabIndex }
 			onClick={ toggleSidebar }
 			onPointerEnter={ ( event ) => {
 				if ( event.pointerType === 'mouse' ) hover.onEnter();

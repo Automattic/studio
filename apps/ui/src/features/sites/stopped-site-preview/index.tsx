@@ -1,10 +1,10 @@
+import { IconButton, Menu } from '@studio/ds';
+import { PlayIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { SiteMenuItems, useSiteActions } from '@/features/sites/site-menu';
-import { PlayIcon } from '@/lib/icons';
-import { IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';

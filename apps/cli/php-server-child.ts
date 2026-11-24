@@ -724,14 +724,11 @@ async function doStartServer(
 		reportPhase( 'php_workers', workersStartedAt );
 		await onWorkersReady?.( needsInstallation );
 
-		const proxyStartedAt = Date.now();
+		// The proxy serves requests once it listens, and the worker behind it has already answered.
 		proxyServer = await startPhpProxyServer( config, stopSignal );
 		phpProxyServer = proxyServer;
 		phpWorkerProcesses = spawnedChildren;
-
 		stopSignal?.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
-		reportPhase( 'proxy_ready', proxyStartedAt );
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
 		// at runtime, so the watcher triggers a debounced restart with an updated

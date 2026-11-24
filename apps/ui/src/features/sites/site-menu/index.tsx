@@ -1,9 +1,26 @@
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@studio/ds';
+import {
+	ChevronDownIcon,
+	ExportIcon,
+	ExternalLinkIcon,
+	FullscreenIcon,
+	GlobeIcon,
+	SquarePenIcon,
+	PinIcon,
+	PlusIcon,
+	PencilIcon,
+	SlidersVerticalIcon,
+	PlayIcon,
+	CircleStopIcon,
+	SquareIcon,
+	UnpinIcon,
+} from '@studio/ds/icons';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { useId, useRef, useState } from 'react';
+import { useContext, useId, useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
 import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
@@ -11,6 +28,7 @@ import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStopSite, useRestartSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { PanelCommandContext } from '@/data/use-panel-command';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
@@ -31,22 +49,6 @@ import {
 	type SiteManagementActionId,
 } from '@/features/sites/use-site-management-actions';
 import { SitePublishMenu } from '@/features/sync';
-import {
-	ChevronDownIcon,
-	ExportIcon,
-	ExternalLinkIcon,
-	GlobeIcon,
-	SquarePenIcon,
-	PinIcon,
-	PlusIcon,
-	PencilIcon,
-	SlidersVerticalIcon,
-	PlayIcon,
-	CircleStopIcon,
-	SquareIcon,
-	UnpinIcon,
-} from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -120,7 +122,7 @@ export function useSiteActions(
 		newChat: () => {
 			onOpen?.();
 			runLayoutTransition( () => {
-				preview.setChatHidden( false, site.id, { instant: true } );
+				preview.setChatHidden( false, site.id );
 				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 			} );
 		},
@@ -177,6 +179,8 @@ export function SiteMenuItems( {
 	const { site, busy, running, othersRunning } = actions;
 	const { data: aiSettings } = useAiSettings();
 	const providerConnected = hasConnectedProvider( aiSettings );
+	const panel = useContext( PanelCommandContext );
+	const showChat = panel?.siteId === site.id ? panel.showChat : undefined;
 	const destinations = useOpenInDestinations( site );
 	const databaseReason = getPhpMyAdminUnavailableReason( site );
 	const databaseReasonId = useId();
@@ -205,10 +209,19 @@ export function SiteMenuItems( {
 	return (
 		<div className={ styles.items }>
 			{ providerConnected ? (
-				<Menu.Item onClick={ actions.newChat }>
-					<SquarePenIcon />
-					{ __( 'New chat' ) }
-				</Menu.Item>
+				<>
+					<Menu.Item onClick={ actions.newChat }>
+						<SquarePenIcon />
+						{ __( 'New chat' ) }
+					</Menu.Item>
+					{ showChat && (
+						<Menu.Item onClick={ showChat }>
+							<FullscreenIcon inward />
+							{ __( 'Show chat' ) }
+						</Menu.Item>
+					) }
+					<Menu.Separator />
+				</>
 			) : null }
 			{ site.running ? null : (
 				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
@@ -305,7 +318,7 @@ export function SiteMenuItems( {
 			</Menu.Item>
 			<Menu.Separator />
 			<SiteShareMenuItem site={ site } disabled={ busy } />
-			<SitePublishMenu site={ site } disabled={ busy } />
+			<SitePublishMenu site={ site } />
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
 					<ExportIcon />

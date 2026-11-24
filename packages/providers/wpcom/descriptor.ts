@@ -71,6 +71,7 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		methods: [ { id: 'sign-in', label: () => __( 'Log in' ), kind: 'redirect' } ],
 		describe: ( config ) => ( { method: 'sign-in', summary: config.user?.email } ),
 		expiresAt: ( config ) => config.expiresAt,
+		owner: ( config ) => config.user && String( config.user.id ),
 	},
 	ai: {
 		models: WPCOM_AI_MODELS,

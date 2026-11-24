@@ -26,6 +26,7 @@ import {
 	getInstallTypeLaunchStatGroups,
 	getPlatformMetric,
 } from 'cli/lib/bump-stat';
+import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { setupErrorReporting } from 'cli/lib/error-reporting';
 import { loadTranslations } from 'cli/lib/i18n';
@@ -38,6 +39,8 @@ import { StudioArgv } from 'cli/types';
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
+// The WP-CLI the SSH sites provider runs on the servers it reaches.
+process.env.STUDIO_WP_CLI_PHAR = getWpCliPharPath();
 
 async function main() {
 	setupErrorReporting();

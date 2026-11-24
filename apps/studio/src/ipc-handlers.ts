@@ -217,6 +217,8 @@ export {
 	getSiteVisibility,
 	setSiteVisibility,
 	connectRemoteSite,
+	resolveRemoteSite,
+	runSitesAction,
 	createRemoteSite,
 	disconnectRemoteSite,
 	getRemoteBackupId,

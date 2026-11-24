@@ -40,7 +40,7 @@ export default defineConfig(
 		'wp-files/',
 	] ),
 	{
-		files: [ 'apps/ui/src/**/*.css', 'packages/ds/**/*.css' ],
+		files: [ 'apps/ui/src/**/*.css', 'packages/ds/**/*.css', 'packages/providers/**/*.css' ],
 		plugins: { css, prettier: pluginPrettier.plugins.prettier, studio: pluginStudio },
 		language: 'css/css',
 		languageOptions: { tolerant: true },

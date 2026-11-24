@@ -658,9 +658,9 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		},
 		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
 			return api(
-				`/sites/${ encodeURIComponent( siteId ) }/publish-status/${ remoteSiteId }?provider=${
-					provider ?? 'wpcom'
-				}`
+				`/sites/${ encodeURIComponent( siteId ) }/publish-status/${ encodeURIComponent(
+					remoteSiteId
+				) }?provider=${ provider ?? 'wpcom' }`
 			);
 		},
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
@@ -674,10 +674,10 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 			);
 		},
 		async getSiteVisibility( provider, id ) {
-			return api( `/remote-sites/${ provider }/${ id }/visibility` );
+			return api( `/remote-sites/${ provider }/${ encodeURIComponent( id ) }/visibility` );
 		},
 		async setSiteVisibility( provider, id, visibility ) {
-			return api( `/remote-sites/${ provider }/${ id }/visibility`, {
+			return api( `/remote-sites/${ provider }/${ encodeURIComponent( id ) }/visibility`, {
 				method: 'POST',
 				body: JSON.stringify( { visibility } ),
 			} );
@@ -689,6 +689,18 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 			await api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }`, {
 				method: 'POST',
 				body: JSON.stringify( site ),
+			} );
+		},
+		async runSitesAction( provider, action, input = {} ) {
+			return api( `/remote-sites/${ provider }/actions/${ action }`, {
+				method: 'POST',
+				body: JSON.stringify( input ),
+			} );
+		},
+		async resolveRemoteSite( provider, input ) {
+			return api( `/remote-sites/${ provider }/resolve`, {
+				method: 'POST',
+				body: JSON.stringify( input ),
 			} );
 		},
 		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {

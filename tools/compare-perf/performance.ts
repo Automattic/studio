@@ -3,9 +3,9 @@ import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
 import { simpleGit } from 'simple-git';
-import { getMetricConfig } from '../metrics/metric-config';
-import config from './config';
-import { runShellScript, readJSONFile, askForConfirmation, getFilesFromDir } from './utils';
+import { getMetricConfig } from '../metrics/metric-config.ts';
+import config from './config.ts';
+import { runShellScript, readJSONFile, askForConfirmation, getFilesFromDir } from './utils.ts';
 
 const formats = {
 	title: chalk.bold,

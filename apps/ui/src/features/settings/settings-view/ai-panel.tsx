@@ -28,8 +28,10 @@ import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 
 export function getProviderConnectMethods( id: ProviderId, loopbackSignIn: boolean ) {
-	return getProvider( id ).account.methods.filter(
-		( method ) => method.kind !== 'redirect' && ( loopbackSignIn || ! needsHost( method ) )
+	return (
+		getProvider( id ).account?.methods.filter(
+			( method ) => method.kind !== 'redirect' && ( loopbackSignIn || ! needsHost( method ) )
+		) ?? []
 	);
 }
 

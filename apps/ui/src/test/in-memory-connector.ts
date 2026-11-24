@@ -303,6 +303,12 @@ export function createInMemoryConnector(
 		getRemoteSites: async () => [],
 		listAccountSites: async () => [],
 		connectRemoteSite: async () => {},
+		runSitesAction: async ( _provider, action ) => {
+			throw new Error( `The ${ action } action is not faked` );
+		},
+		resolveRemoteSite: async () => {
+			throw new Error( 'resolveRemoteSite is not faked' );
+		},
 		disconnectRemoteSite: async () => {},
 		getSiteCreationVisibility: async () => 'public',
 		createRemoteSite: async () => {

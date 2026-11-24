@@ -34,6 +34,11 @@ export function getCliPath(): string {
 		: path.join( getResourcesPath(), 'cli', 'main.mjs' );
 }
 
+// The WP-CLI that ships with the CLI, in its bundle's `wp-files`.
+export function getWpCliPharPath(): string {
+	return path.join( path.dirname( getCliPath() ), 'wp-files', 'wp-cli', 'wp-cli.phar' );
+}
+
 export function getBundledNodeBinaryPath(): string {
 	const nodeBinaryName = process.platform === 'win32' ? 'node.exe' : 'node';
 

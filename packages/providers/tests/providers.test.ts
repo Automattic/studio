@@ -25,9 +25,9 @@ describe( 'registry', () => {
 			expect( Boolean( services.sites ) ).toBe( Boolean( sites ) );
 			expect( ! ai || servesAiModel( id, ai.defaultModel ) ).toBe( true );
 			// The Studio sign-in, which each app receives its own way.
-			expect( id === 'wpcom' || account.methods.every( ( { kind } ) => kind !== 'redirect' ) ).toBe(
-				true
-			);
+			expect(
+				id === 'wpcom' || ! account || account.methods.every( ( { kind } ) => kind !== 'redirect' )
+			).toBe( true );
 		}
 	} );
 } );

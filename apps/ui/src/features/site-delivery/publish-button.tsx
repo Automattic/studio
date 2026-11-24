@@ -760,10 +760,16 @@ export function PublishButton( {
 		storePendingSignIn();
 		chooseProvider( provider );
 	};
+	// The popover reopens when the Spacefast dialog closes. Its content mounts
+	// later than any fixed frame on a slow machine, so the popover focuses it.
+	const focusDestinationOnOpen = useRef( false );
 	const restoreDestinationFocus = () => {
-		requestAnimationFrame(
-			() => ( destinationTrigger.current ?? backButton.current ?? trigger.current )?.focus()
-		);
+		focusDestinationOnOpen.current = true;
+	};
+	const popoverInitialFocus = () => {
+		if ( ! focusDestinationOnOpen.current ) return false;
+		focusDestinationOnOpen.current = false;
+		return destinationTrigger.current ?? backButton.current ?? trigger.current;
 	};
 	const spacefast = useSpacefastConnection( () => {
 		if ( ! spacefastVisible.current ) return;
@@ -1460,7 +1466,7 @@ export function PublishButton( {
 					instant={ openingTargetDialog || !! previewOverwrite }
 					backdrop
 					className={ styles.publishPopover }
-					initialFocus={ false }
+					initialFocus={ popoverInitialFocus }
 					finalFocus={ openingTargetDialog || previewOverwrite ? false : undefined }
 				>
 					<div

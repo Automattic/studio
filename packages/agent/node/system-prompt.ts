@@ -21,6 +21,9 @@ export interface BuildSystemPromptOptions {
 	// Another agent (Codex, Claude Code, …) drives the Studio tools over MCP,
 	// with its own file tools and conversation.
 	external?: boolean;
+	// The user's own skills for all sites, for an external agent: Studio Code finds its
+	// own in the Skill tool instead.
+	userSkills?: { name: string; description: string }[];
 	// The site this turn works on. The prompt is rebuilt every turn, so this
 	// always reflects the current site, also after compaction.
 	activeSite?: SiteInfo | null;
@@ -48,7 +51,7 @@ ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
 	) }
 
-${ SKILL_ROUTING }${ buildActiveSiteSection(
+${ SKILL_ROUTING }${ buildUserSkillsSection( options.userSkills ) }${ buildActiveSiteSection(
 		options.activeSite,
 		options.activeSiteDesignPath,
 		options.activeSiteEmailPath
@@ -70,6 +73,19 @@ function buildActiveSiteSection(
 	return `\n\n## Active site\n\n${ formatActiveSite( site, designPath, emailPath ) }${
 		runbook ? `\n\n${ runbook }` : ''
 	}`;
+}
+
+function buildUserSkillsSection( userSkills: { name: string; description: string }[] = [] ) {
+	if ( ! userSkills.length ) {
+		return '';
+	}
+	return `
+
+## The user's own skills
+
+The user saved these skills in Studio, for all their sites. When the request matches a skill's description, or the user names the skill (also as \`/\` and its name), load it with \`studio_instructions\` (\`user_skill\` set to its name) and follow it.
+
+${ userSkills.map( ( skill ) => `- ${ skill.name }: ${ skill.description }` ).join( '\n' ) }`;
 }
 
 function buildUserInstructionsSection( userInstructions?: string ): string {

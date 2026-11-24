@@ -52,6 +52,8 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 
 - **identity** — The reply identifies as WordPress Studio.
 - **global-instructions** — The reply carries the sentinel token from the seeded global instructions (`~/.studio/knowledge/instructions.md`, restored after the turn).
+- **site-skill** — The reply carries the sentinel token from a skill seeded in the active site's `.agents/skills` folder.
+- **create-skill** — `/create-skill` with the task and "only for this site" ends in one `save_skill` call for the site, and a reply that gives the new command.
 - **site-creation** — The requested site exists and works.
 - **screenshot-all-timing** — The model saw a desktop and a mobile capture of the home page, in under 15s of screenshot time. Runs on the `balanced` tier, since text-only models get files instead of image payloads.
 - **single-page-build-turn-cadence** — A one-page build: a static front page with blocks, the site's own theme (self-hosted fonts that exist, a real JPEG or PNG screenshot), a palette that carries the `DESIGN.md` colors, no turn over 60s, and a closing message offering the performance and SEO audits.

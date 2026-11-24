@@ -65,6 +65,8 @@ const preferencesSchema = z.looseObject( {
 	locale: optional( z.string() ),
 	analyticsOptOut: optional( z.boolean() ),
 	selectedSkills: optional( z.array( z.string() ) ),
+	// The skills in `~/.agents/skills` the user switched on for Studio.
+	agentsSkills: optional( z.array( z.string() ) ),
 	// False when the user switched their global agent instructions off.
 	globalInstructionsEnabled: optional( z.boolean() ),
 	onboardingCompleted: optional( z.boolean() ),
@@ -111,6 +113,8 @@ export const configSiteSchema = siteDetailsSchema
 		sortOrder: optional( z.number() ),
 		autoStart: optional( z.boolean() ),
 		hideFrontendAdminBar: optional( z.boolean() ),
+		// The global skills switched off for this site only.
+		disabledGlobalSkills: optional( z.array( z.string() ) ),
 		connections: z.array( siteConnectionSchema ).catch( [] ).optional(),
 		// The day's runtime adoption stat, so it's bumped once a day per site.
 		runtimeStat: optional( z.object( { bumpedAt: z.number(), stat: z.string() } ) ),

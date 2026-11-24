@@ -34,7 +34,7 @@ import type {
 	SelectedSiteFolder,
 	SiteDetails,
 	SiteAgentFile,
-	SkillStatus,
+	GlobalSkill,
 	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
@@ -140,6 +140,8 @@ export function createIpcConnector(): Connector {
 			studioLogs: true,
 			loopbackSignIn: true,
 			localMachine: true,
+			globalSkills: true,
+			skillEditing: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -883,16 +885,26 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
-		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
-			return ( await ipcApi.getWordPressSkillsStatusAllSites() ) as SkillStatus[];
+		async getGlobalSkills() {
+			return ( await ipcApi.getGlobalSkills() ) as GlobalSkill[];
 		},
-
-		async installWordPressSkillToAllSites( skillId: string ): Promise< void > {
-			await ipcApi.installWordPressSkillsToAllSites( { skillId } );
+		async setGlobalSkillEnabled( source, id, enabled ) {
+			await ipcApi.setGlobalSkillEnabled( source, id, enabled );
 		},
-
-		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
-			await ipcApi.removeWordPressSkillFromAllSites( skillId );
+		async removeGlobalSkill( id ) {
+			await ipcApi.removeGlobalSkill( id );
+		},
+		async openGlobalSkill( source, id ) {
+			await ipcApi.openGlobalSkill( source, id );
+		},
+		async createSkill( siteId, draft ) {
+			return ipcApi.createSkill( siteId, draft );
+		},
+		async getSkill( siteId, id ) {
+			return ipcApi.getSkill( siteId, id );
+		},
+		async updateSkill( siteId, id, draft ) {
+			return ipcApi.updateSkill( siteId, id, draft );
 		},
 		async getSiteAgentFiles( siteId, kind ) {
 			return ( await ipcApi.getSiteAgentFiles( siteId, kind ) ) as SiteAgentFile[];

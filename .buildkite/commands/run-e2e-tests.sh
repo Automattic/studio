@@ -4,6 +4,14 @@ set -euo pipefail
 trap 'echo "Termination signal received — failing the job."; exit 1' TERM INT
 
 PLATFORM=${1:?Expected platform to be provided as first parameter}
+
+if [ "$PLATFORM" = "linux" ]; then
+  # This runs as root in a container, on a checkout the agent shares with later jobs. Hand
+  # what it creates (fixtures, the packaged app) back to the checkout's owner on exit, or the
+  # next job's `git clean` can't delete it and its checkout fails.
+  trap 'chown -R "$(stat -c %u:%g .)" . || true' EXIT
+fi
+
 ARCH=${2:?Expected architecture to be provided as second parameter}
 
 echo '--- :package: Install deps'

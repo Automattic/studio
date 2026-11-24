@@ -39,6 +39,7 @@ const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
 const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
 export const EXPORT_FULL_SITE_MUTATION_KEY = [ 'exportFullSite' ] as const;
 export const EXPORT_DATABASE_MUTATION_KEY = [ 'exportDatabase' ] as const;
+export const EXPORT_BLUEPRINT_MUTATION_KEY = [ 'exportBlueprint' ] as const;
 
 export function useSites() {
 	const connector = useConnector();
@@ -145,51 +146,66 @@ export function useCopySite() {
 	} );
 }
 
-function useExportSite( databaseOnly: boolean ) {
+function useExportSite( mode: 'site' | 'database' | 'blueprint' ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
+	const options =
+		mode === 'database'
+			? {
+					key: EXPORT_DATABASE_MUTATION_KEY,
+					method: 'exportDatabase' as const,
+					processing: __( 'Exporting database…' ),
+					success: __( 'Database exported' ),
+					failure: __( 'Failed to export database' ),
+			  }
+			: mode === 'blueprint'
+			? {
+					key: EXPORT_BLUEPRINT_MUTATION_KEY,
+					method: 'exportBlueprint' as const,
+					processing: __( 'Exporting Blueprint…' ),
+					success: __( 'Blueprint exported' ),
+					failure: __( 'Failed to export Blueprint' ),
+			  }
+			: {
+					key: EXPORT_FULL_SITE_MUTATION_KEY,
+					method: 'exportFullSite' as const,
+					processing: __( 'Exporting site…' ),
+					success: __( 'Site exported' ),
+					failure: __( 'Failed to export site' ),
+			  };
 	return useMutation( {
-		mutationKey: databaseOnly ? EXPORT_DATABASE_MUTATION_KEY : EXPORT_FULL_SITE_MUTATION_KEY,
+		mutationKey: options.key,
 		mutationFn: async ( siteId: string ) => {
-			const id = `export-${ databaseOnly ? 'database' : 'site' }-${ siteId }`;
+			const id = `export-${ mode }-${ siteId }`;
 			const siteName = queryClient
 				.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
 				?.find( ( site ) => site.id === siteId )?.name;
 			try {
-				const result = await connector[ databaseOnly ? 'exportDatabase' : 'exportFullSite' ](
-					siteId,
-					{
-						onStarted: () =>
-							toast.processing(
-								databaseOnly ? __( 'Exporting database…' ) : __( 'Exporting site…' ),
-								{ id, description: siteName }
-							),
-					}
-				);
+				const result = await connector[ options.method ]( siteId, {
+					onStarted: () => toast.processing( options.processing, { id, description: siteName } ),
+				} );
 				if ( result !== null ) {
-					toast.success( databaseOnly ? __( 'Database exported' ) : __( 'Site exported' ), {
+					toast.success( options.success, {
 						id,
 						description: siteName,
 					} );
 				}
 				return result;
 			} catch ( error ) {
-				toast.error(
-					databaseOnly ? __( 'Failed to export database' ) : __( 'Failed to export site' ),
-					{
-						id,
-						description: [ siteName, getErrorMessage( error ) ].filter( Boolean ).join( ' · ' ),
-						action: openStudioLogsAction( connector ),
-					}
-				);
+				toast.error( options.failure, {
+					id,
+					description: [ siteName, getErrorMessage( error ) ].filter( Boolean ).join( ' · ' ),
+					action: openStudioLogsAction( connector ),
+				} );
 				throw error;
 			}
 		},
 	} );
 }
 
-export const useExportFullSite = () => useExportSite( false );
-export const useExportDatabase = () => useExportSite( true );
+export const useExportFullSite = () => useExportSite( 'site' );
+export const useExportDatabase = () => useExportSite( 'database' );
+export const useExportBlueprint = () => useExportSite( 'blueprint' );
 
 // Invalidation is awaited inside `mutationFn` (not `onSettled`) so
 // `isPending` stays true until `site.running` reflects the new state. The

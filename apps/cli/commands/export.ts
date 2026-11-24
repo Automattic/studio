@@ -10,6 +10,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
+import { BlueprintExporter } from 'cli/lib/import-export/export/exporters/blueprint-exporter';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -126,7 +127,7 @@ export function handleExportEvents(
 export async function runCommand(
 	siteFolder: string,
 	exportPath: string,
-	mode: 'full' | 'content' | 'db' = 'full',
+	mode: 'full' | 'content' | 'db' | 'blueprint' = 'full',
 	splitDbDumpByTable = false,
 	includeOnlyPaths?: string[],
 	applyDeployIgnore = false,
@@ -150,7 +151,7 @@ export async function runCommand(
 async function exportSite(
 	siteFolder: string,
 	exportPath: string,
-	mode: 'full' | 'content' | 'db',
+	mode: 'full' | 'content' | 'db' | 'blueprint',
 	splitDbDumpByTable: boolean,
 	includeOnlyPaths: string[] | undefined,
 	applyDeployIgnore: boolean,
@@ -186,15 +187,20 @@ async function exportSite(
 			? await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS )
 			: undefined;
 
-		const exporter = await getExporter( {
+		const exportOptions: ExportOptions = {
 			site,
 			backupFile: exportPath,
-			phpVersion: DEFAULT_PHP_VERSION,
+			phpVersion:
+				mode === 'blueprint' ? site.phpVersion || DEFAULT_PHP_VERSION : DEFAULT_PHP_VERSION,
 			includes,
 			splitDatabaseDumpByTable: splitDbDumpByTable,
 			specificSelectionPaths: includeOnlyPaths,
 			ignoreFilter,
-		} );
+		};
+		const exporter =
+			mode === 'blueprint'
+				? new BlueprintExporter( exportOptions )
+				: await getExporter( exportOptions );
 
 		if ( ! exporter ) {
 			throw new LoggerError(
@@ -239,7 +245,7 @@ async function recordSiteExportEvent(
 	siteFolder: string,
 	props: {
 		success: boolean;
-		export_type: 'full' | 'content' | 'db';
+		export_type: 'full' | 'content' | 'db' | 'blueprint';
 		failure_reason?: string;
 		time_ms: number;
 	}
@@ -274,6 +280,8 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 
 		if ( argv.exportFile ) {
 			exportFile = argv.exportFile;
+		} else if ( argv.mode === 'blueprint' ) {
+			exportFile = path.join( process.cwd(), `studio-blueprint-${ timestamp }.zip` );
 		} else if ( argv.mode === 'full' || argv.mode === 'content' ) {
 			exportFile = path.join( process.cwd(), `studio-backup-${ timestamp }.zip` );
 		} else {
@@ -288,6 +296,9 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			throw new LoggerError(
 				__( 'Invalid export file extension. Must be .zip or .tar.gz when exporting the full site.' )
 			);
+		}
+		if ( argv.mode === 'blueprint' && ! exportFile.toLowerCase().endsWith( '.zip' ) ) {
+			throw new LoggerError( __( 'A Blueprint export must be a .zip file.' ) );
 		}
 
 		await runCommand(

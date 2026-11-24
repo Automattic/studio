@@ -6,20 +6,30 @@ import {
 	TrashIcon,
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
+import { useConnector } from '@/data/core';
 import {
+	EXPORT_BLUEPRINT_MUTATION_KEY,
 	EXPORT_DATABASE_MUTATION_KEY,
 	EXPORT_FULL_SITE_MUTATION_KEY,
 	useCopySite,
 	useExportDatabase,
+	useExportBlueprint,
 	useExportFullSite,
 	useIsSiteBusy,
 	useIsSiteMutating,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
+import { BlueprintIcon } from './blueprint-icon';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType } from 'react';
 
-export type SiteManagementActionId = 'duplicate' | 'import' | 'export' | 'export-db' | 'delete';
+export type SiteManagementActionId =
+	| 'duplicate'
+	| 'import'
+	| 'export'
+	| 'export-db'
+	| 'export-blueprint'
+	| 'delete';
 
 export interface SiteManagementAction {
 	id: SiteManagementActionId;
@@ -45,16 +55,19 @@ export function useSiteManagementActions(
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
+	const exportBlueprint = useExportBlueprint();
+	const connector = useConnector();
 
 	// Read from the mutation cache rather than each mutation's own `isPending`,
 	// so progress survives navigating away and back — the observers these hooks
 	// create die with the screen, the cache entries don't.
 	const isExportingFullSite = useIsSiteMutating( site.id, EXPORT_FULL_SITE_MUTATION_KEY );
 	const isExportingDatabase = useIsSiteMutating( site.id, EXPORT_DATABASE_MUTATION_KEY );
+	const isExportingBlueprint = useIsSiteMutating( site.id, EXPORT_BLUEPRINT_MUTATION_KEY );
 
 	// Full-site and database exports share one backend queue, so either
 	// running disables both.
-	const isExporting = isExportingFullSite || isExportingDatabase;
+	const isExporting = isExportingFullSite || isExportingDatabase || isExportingBlueprint;
 
 	// Every one of these reads or rewrites the site tree, so none should run
 	// while an operation holds the site — including work started by the agent or
@@ -100,6 +113,18 @@ export function useSiteManagementActions(
 			destructive: false,
 			run: () => exportDatabase.mutate( site.id ),
 		},
+		...( connector.capabilities.blueprintExport
+			? [
+					{
+						id: 'export-blueprint' as const,
+						icon: BlueprintIcon,
+						label: __( 'Export Blueprint' ),
+						disabled: isWriting || isExporting,
+						destructive: false,
+						run: () => exportBlueprint.mutate( site.id ),
+					},
+			  ]
+			: [] ),
 		{
 			id: 'delete',
 			icon: TrashIcon,

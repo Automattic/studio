@@ -400,6 +400,7 @@ it( 'passes telemetry site lookup context outside the event properties', async (
 it.each( [
 	[ 'exportFullSite', 'full' ],
 	[ 'exportDatabase', 'database' ],
+	[ 'exportBlueprint', 'blueprint' ],
 ] as const )( 'announces %s before preparing the browser download', async ( method, mode ) => {
 	const onStarted = vi.fn();
 	const fetchMock = vi.fn( async () => {
@@ -479,6 +480,16 @@ describe( 'createLocalConnector for a remote server', () => {
 		streams.filter( ( { url } ) => url === `${ origin }/api/events` );
 	const checkIns = ( origin: string ) =>
 		fetchMock.mock.calls.filter( ( [ url ] ) => url === `${ origin }/api/health` ).length;
+
+	it( 'only exposes Blueprint export when the remote server advertises it', async () => {
+		const older = await start( 'https://older.cloud.test' );
+		expect( older.capabilities.blueprintExport ).toBe( false );
+		fetchMock.mockResolvedValue(
+			Response.json( { version: '2.4.0', features: { blueprintExport: true } } )
+		);
+		const current = await start( 'https://current.cloud.test' );
+		expect( current.capabilities.blueprintExport ).toBe( true );
+	} );
 
 	it( 'keeps the event stream open only while the page has focus', async () => {
 		await start( 'https://m1.cloud.test' );

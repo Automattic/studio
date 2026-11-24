@@ -349,13 +349,13 @@ function toSiteDetails( site: SiteListItem ) {
 }
 
 // `studio-backup-<site>-<timestamp>`, matching the desktop's backup naming.
-function backupFilename( siteName: string ): string {
+function backupFilename( siteName: string, kind: 'backup' | 'blueprint' = 'backup' ): string {
 	const now = new Date();
 	const pad = ( n: number ) => String( n ).padStart( 2, '0' );
 	const ts =
 		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
 		`_${ pad( now.getHours() ) }_${ pad( now.getMinutes() ) }_${ pad( now.getSeconds() ) }`;
-	return sanitizeFolderName( `studio-backup-${ siteName }-${ ts }` );
+	return sanitizeFolderName( `studio-${ kind }-${ siteName }-${ ts }` );
 }
 
 // Express 4 doesn't forward async rejections to the error middleware — an
@@ -628,7 +628,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	} );
 
 	api.get( '/version', ( _req: Request, res: Response ) => {
-		res.json( { version: options.version ?? null } );
+		res.json( { version: options.version ?? null, features: { blueprintExport: true } } );
 	} );
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
@@ -1545,14 +1545,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites/:id/export',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const mode = req.query.mode === 'database' ? 'db' : 'full';
+			const mode =
+				req.query.mode === 'database'
+					? 'db'
+					: req.query.mode === 'blueprint'
+					? 'blueprint'
+					: 'full';
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-export-' ) );
-			const filename = `${ backupFilename( site.name ) }.${ mode === 'db' ? 'sql' : 'tar.gz' }`;
+			const filename = `${ backupFilename(
+				site.name,
+				mode === 'blueprint' ? 'blueprint' : 'backup'
+			) }.${ mode === 'db' ? 'sql' : mode === 'blueprint' ? 'zip' : 'tar.gz' }`;
 			const dest = path.join( dir, filename );
 			const cleanup = () => rm( dir, { recursive: true, force: true }, () => undefined );
 			try {

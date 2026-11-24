@@ -7,7 +7,11 @@ import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
-import { isSupportedServerVersion, UnsupportedServerError } from './server-version';
+import {
+	isSupportedServerVersion,
+	supportsBlueprintExport,
+	UnsupportedServerError,
+} from './server-version';
 import type {
 	AgentApp,
 	ActiveAgentRun,
@@ -95,6 +99,14 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 	// The server namespaces its API under /api so the SPA's real-path routes
 	// (also /sessions/:id, /sites/:id) can share the same origin.
 	const base = `${ apiBaseUrl.replace( /\/$/, '' ) }/api`;
+	const capabilities: Connector[ 'capabilities' ] = {
+		nativeFolderPicker: false,
+		annotatePreview: false,
+		studioLogs: false,
+		localMachine: ! remote,
+		loopbackSignIn: ! remote,
+		blueprintExport: ! remote,
+	};
 
 	const agentListeners = new Set< ( event: AgentRunEvent ) => void >();
 	const placementListeners = new Set< ( event: AiSessionPlacementUpdatedEvent ) => void >();
@@ -222,10 +234,17 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 	return {
 		async init() {
 			if ( remote ) {
-				const { version } = await api< { version: string | null } >( '/version' );
+				const { version, features } = await api< {
+					version: string | null;
+					features?: { blueprintExport?: boolean };
+				} >( '/version' );
 				if ( ! isSupportedServerVersion( version ) ) {
 					throw new UnsupportedServerError( version );
 				}
+				capabilities.blueprintExport = supportsBlueprintExport(
+					version,
+					features?.blueprintExport === true
+				);
 				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
 				// wake it, right after. So the stream runs only while the page has focus (the site
 				// preview's frame counts), and reopening it refetches what changed meanwhile. The
@@ -255,13 +274,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		// Browser served by the local CLI: no native file dialogs, but the server
 		// runs on the user's machine so it can still open paths in OS apps. The
 		// preview is a cross-origin iframe, so the annotation inspector can't run.
-		capabilities: {
-			nativeFolderPicker: false,
-			annotatePreview: false,
-			studioLogs: false,
-			localMachine: ! remote,
-			loopbackSignIn: ! remote,
-		},
+		capabilities,
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
 		// (read from the shared auth token by the server). The app isn't gated on
@@ -561,6 +574,10 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		async exportFullSite( siteId, options ): Promise< string | null > {
 			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=full` );
+		},
+		async exportBlueprint( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
+			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=blueprint` );
 		},
 		async exportDatabase( siteId, options ): Promise< string | null > {
 			options?.onStarted?.();

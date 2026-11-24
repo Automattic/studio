@@ -247,6 +247,7 @@ export function createInMemoryConnector(
 		fixSiteDesignDrift: async () => null,
 		exportFullSite: async () => null,
 		exportDatabase: async () => null,
+		exportBlueprint: async () => null,
 		generateProposedSitePath: async ( name ) => ( {
 			path: `/sites/${ name }`,
 			isEmpty: true,
@@ -467,6 +468,7 @@ export function createInMemoryConnector(
 		...methods,
 		...overrides,
 		capabilities: {
+			blueprintExport: true,
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,

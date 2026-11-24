@@ -67,6 +67,14 @@ WordPress Studio currently has three free featured Blueprints that you can use w
 
 The rest of the Blueprints library, built into the **Add site** dialog, offers a growing set of pre-configured sites for things like blogging, ecommerce, portfolios, and organizations. Use the **Categories** on the left of the dialog to find one.
 
+## Export a site as a Blueprint
+
+To create a reusable starting point from a site, open its **Site menu**, choose **Export → Export Blueprint**, and save the ZIP file. Use that ZIP in **Add site → Import**, or share it with someone who uses WordPress Studio or WordPress Playground.
+
+The Blueprint includes the active block theme and its Site Editor templates and styles, published pages and posts, reusable blocks, navigation, referenced media, and common site settings. It can also include simple and variable WooCommerce products, their images, and common product and currency settings. It installs active plugins from WordPress.org. Each new site starts with its own database and administrator; the source database, user accounts, login sessions, and connections are not included.
+
+Blueprint export currently requires a block theme and active plugins available from WordPress.org. It does not include drafts, comments, password-protected content, or most plugin settings. Sites with fonts installed in the WordPress font library, published custom post types other than supported WooCommerce products, or downloadable products cannot yet be exported. Orders, customer data, and payment settings are not included. Review the included theme files and starter content before sharing, and update the Blueprint's author and description before submitting it to a library.
+
 ## [Building your own Blueprints](#3-building-your-own-blueprints)
 
 Beyond the featured Blueprints, you can also create a custom JSON file to define your specific site requirements. For details on supported steps, JSON structure, and examples, refer to [How to create custom Blueprints](https://wordpress.studio/docs/blueprints/how-to-create-custom-blueprints/).

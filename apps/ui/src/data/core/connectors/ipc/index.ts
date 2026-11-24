@@ -54,13 +54,16 @@ import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
-function generateBackupFilename( siteName: string ): string {
+function generateBackupFilename(
+	siteName: string,
+	kind: 'backup' | 'blueprint' = 'backup'
+): string {
 	const now = new Date();
 	const pad = ( n: number ) => String( n ).padStart( 2, '0' );
 	const timestamp =
 		`${ now.getFullYear() }-${ pad( now.getMonth() + 1 ) }-${ pad( now.getDate() ) }` +
 		`-${ pad( now.getHours() ) }-${ pad( now.getMinutes() ) }-${ pad( now.getSeconds() ) }`;
-	return sanitizeFolderName( `studio-backup-${ siteName }-${ timestamp }` );
+	return sanitizeFolderName( `studio-${ kind }-${ siteName }-${ timestamp }` );
 }
 
 /**
@@ -135,6 +138,7 @@ export function createIpcConnector(): Connector {
 
 		// Native desktop app: every affordance is available.
 		capabilities: {
+			blueprintExport: true,
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
@@ -414,6 +418,28 @@ export function createIpcConnector(): Connector {
 				showNotification: true,
 			} );
 			return backupFile;
+		},
+
+		async exportBlueprint( siteId, options ): Promise< string | null > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const site = sites.find( ( candidate ) => candidate.id === siteId );
+			if ( ! site ) {
+				throw new Error( `Site ${ siteId } not found` );
+			}
+			const destination = ( await ipcApi.showSaveAsDialog( {
+				title: __( 'Save Blueprint' ),
+				defaultPath: `${ generateBackupFilename( site.name, 'blueprint' ) }.zip`,
+				filters: [ { name: 'Blueprint bundle', extensions: [ 'zip' ] } ],
+			} ) ) as string;
+			if ( ! destination ) return null;
+			options?.onStarted?.();
+			await ipcApi.exportSite( site.id, destination, {
+				mode: 'blueprint',
+				showErrorModal: false,
+				showItemInFolder: true,
+				showNotification: true,
+			} );
+			return destination;
 		},
 
 		// Preview snapshots

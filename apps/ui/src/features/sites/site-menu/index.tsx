@@ -327,6 +327,7 @@ export function SiteMenuItems( {
 				<Menu.SubmenuPopup>
 					{ manageItem( manage.export, __( 'Export site' ) ) }
 					{ manageItem( manage[ 'export-db' ] ) }
+					{ manage[ 'export-blueprint' ] && manageItem( manage[ 'export-blueprint' ] ) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.Separator />

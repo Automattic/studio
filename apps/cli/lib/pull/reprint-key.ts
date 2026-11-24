@@ -12,7 +12,7 @@ import { LoggerError } from 'cli/logger';
  * The one key this machine signs Reprint requests with. A site holds one key, so a key per local
  * site would let two local sites pulling the same remote replace each other's key mid-pull.
  */
-export function getReprintKeyPath(): string {
+function getReprintKeyPath(): string {
 	return path.join( os.homedir(), '.studio', 'reprint-key.pem' );
 }
 

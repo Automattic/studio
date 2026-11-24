@@ -14,7 +14,7 @@ Two shortcuts lead to the same page. Choose **Providers** from the account menu,
 
 The page has three groups. Your defaults are at the top: **Default AI provider**, **Default image provider**, and **Default hosting provider**. Below them are **AI providers**, then **Hosting providers**. A provider you have set up is marked **Connected**.
 
-![The Providers page of WordPress Studio's Settings: Default AI provider, Default image provider, and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, Meta, xAI, OpenRouter, and Local LLM with Connect buttons.](../../../screenshots/images/settings-ai-providers-signed-in.webp)
+![The Providers page of WordPress Studio's Settings: Default AI provider, Default image provider, and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI and Anthropic with Connect buttons.](../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
 WordPress Studio UI, which you start with `studio ui`, has the same page. In the terminal you use commands instead. See [Providers in the terminal](https://wordpress.studio/docs/providers/#providers-in-the-terminal).
 
@@ -124,6 +124,8 @@ To use an API key:
 
 xAI bills your account for what you use. Both ways can [make images](https://wordpress.studio/docs/studio-code/image-generation/).
 
+![The xAI row on the Providers page of WordPress Studio's Settings, with its Connect menu open on Sign in with Grok and API key.](../../../screenshots/images/settings-provider-xai.webp)
+
 ### OpenRouter
 
 OpenRouter offers models from many AI companies, paid with your OpenRouter credits.
@@ -149,6 +151,8 @@ Local LLM uses the models a server you run serves, such as [Ollama](https://olla
 2.  Click **Connect** next to **Local LLM**.
 3.  In **Server address**, enter the address the server listens on, such as `http://localhost:11434`. Fill in **API key** only if your server asks for one.
 4.  Click **Save**.
+
+![The Local LLM row on the Providers page of WordPress Studio's Settings, open on How to connect, with the Server address field showing http://localhost:11434, an API key field, and Save and Cancel buttons.](../../../screenshots/images/settings-provider-local-llm.webp)
 
 The model menu offers your server’s chat models, those that can use tools first. To offer fewer models, pick them in **Local LLM models** under **Local LLM** on this page. Chats with a local model don’t need a WordPress.com account and keep working offline. If the model runs with too small a context, the chat says so: raise the context length in your server’s settings. WordPress Studio connects to one server at a time. To switch, connect again with the other address.
 

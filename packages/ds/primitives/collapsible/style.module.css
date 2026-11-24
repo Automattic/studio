@@ -1,0 +1,17 @@
+@layer ui {
+	.root {
+		display: contents;
+	}
+
+	.panel {
+		height: var( --collapsible-panel-height );
+		/* `clip`, not `hidden`, so the panel is never a scroll container: a row
+		   scrolled into view while the panel folds open would scroll it. */
+		overflow: clip;
+		transition: height var( --motion-duration-disclosure ) var( --motion-ease-layout );
+	}
+
+	.panel:is( [data-starting-style], [data-ending-style] ) {
+		height: 0;
+	}
+}

@@ -7,7 +7,7 @@ set -eu
 # which `pipeline.yml` uses as the `skip:` of matching steps, so skipped jobs never start.
 #
 # Usage:
-#   should-skip-job.sh --job-type <type>
+#   should-skip-job.sh <job-type>
 #
 # Prints the reason to skip the job, or `false` to run it. Exits 0 either way, and 15 for invalid arguments.
 # Webhook PR and trunk builds can skip; STUDIO_CI_FULL_BUILD=1 forces a full run, and other builds always run.
@@ -34,6 +34,8 @@ COMMON_NON_CODE_PATTERNS=(
   "*.md"
   "*.txt"
   "docs/**"
+  "CODE-OF-CONDUCT.md"
+  "SECURITY.md"
   "LICENSE*"
 
   # Editor and IDE config
@@ -44,9 +46,8 @@ COMMON_NON_CODE_PATTERNS=(
   ".gitignore"
   ".gitattributes"
 
-  # GitHub and CI configuration (workflows, templates, dependabot, Buildkite)
+  # GitHub-specific (workflows, templates, dependabot)
   ".github/**"
-  ".buildkite/**"
 
   # Ruby/Fastlane - only affects CI distribution, not app code
   "fastlane/**"
@@ -55,12 +56,19 @@ COMMON_NON_CODE_PATTERNS=(
   ".ruby-version"
   ".bundle/**"
 
+  # Release pipelines don't run the test jobs. The PR pipeline, its shared
+  # variables and the scripts in .buildkite/commands do, so changes to them
+  # run every check.
+  ".buildkite/release-pipelines/**"
+  ".buildkite/release-build-and-distribute.yml"
+
   # Installer assets and configuration
   "installers/**"
   "apps/studio/assets/appx/**"
 
   # Claude AI configuration
   ".claude/**"
+  "CLAUDE.md"
 )
 
 # Localization files - changes here don't affect runtime behavior or performance
@@ -110,24 +118,8 @@ run_job() { echo false; exit 0; }
 # Buildkite rejects the whole pipeline upload if a `skip:` reason is longer than 70 characters.
 skip_job() { echo "${1:0:70}"; exit 0; }
 
-# Parse arguments
-job_type=""
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --job-type)
-      job_type="${2:-}"
-      shift 2 || shift
-      ;;
-    *)
-      echo "Unknown option: $1" >&2
-      exit 15
-      ;;
-  esac
-done
-
-if [[ -z "$job_type" ]]; then
-  echo "Error: --job-type is required" >&2
-  echo "Usage: should-skip-job.sh --job-type <validation|e2e|metrics|build|fastlane>" >&2
+if [[ $# -ne 1 || -z "${1:-}" ]]; then
+  echo "Usage: should-skip-job.sh <validation|e2e|metrics|build|fastlane>" >&2
   exit 15
 fi
 
@@ -138,9 +130,7 @@ fi
 if [[ "${BUILDKITE_PULL_REQUEST-false}" =~ ^[0-9]+$ ]]; then
   changed_files=(pr_changed_files)
 elif [[ "${BUILDKITE_PULL_REQUEST-false}" == false && "${BUILDKITE_BRANCH:-}" == trunk ]]; then
-  # Runs on the upload agent: until its toolkit has `commit_changed_files`, trunk runs everything.
-  command -v commit_changed_files >/dev/null 2>&1 || run_job
-  changed_files=(commit_changed_files)
+  changed_files=(check_changed_files)
   if [[ -n "${CI_CHANGED_FILES_BASE:-}" ]]; then
     changed_files+=(--base "$CI_CHANGED_FILES_BASE")
   else
@@ -153,7 +143,7 @@ else
   run_job
 fi
 
-case "$job_type" in
+case "$1" in
   "validation")
     # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in
     # non-code files OR localization-only changes
@@ -200,7 +190,7 @@ case "$job_type" in
     ;;
 
   *)
-    echo "Unknown job type: $job_type" >&2
+    echo "Unknown job type: $1" >&2
     echo "Valid types: validation, e2e, metrics, build, fastlane" >&2
     exit 15
     ;;

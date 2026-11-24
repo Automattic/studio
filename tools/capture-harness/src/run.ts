@@ -7,7 +7,7 @@ import { loadLook, withBackground } from './look.ts';
 import { DEFAULT_LOOK, DEFAULT_SCENE, firstLine } from './paths.ts';
 import { createProfile, type Profile } from './profile.ts';
 import { loadScene, type LoadedScene, type ResolvedSite } from './scene.ts';
-import { seedChats, seedSites, siteMetadata } from './seed.ts';
+import { seedChats, seedSites, siteSettings } from './seed.ts';
 import { runSteps } from './steps.ts';
 import {
 	assertEmailHidden,
@@ -385,9 +385,8 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 					profile,
 					look,
 					firstRun,
-					appData: firstRun
-						? {}
-						: { ...siteMetadata( scene.sites ), aiSessionPlacements: chats?.placements },
+					siteSettings: firstRun ? {} : siteSettings( scene.sites ),
+					placements: firstRun ? {} : chats?.placements,
 					authToken: signedIn ? authToken : null,
 					avatar: signedIn ? signedInAs?.avatar : undefined,
 					account: signedIn ? await loadAccount( scene ) : undefined,

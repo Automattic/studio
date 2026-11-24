@@ -2,6 +2,20 @@ import {
 	aiSessionBelongsToSite,
 	findAiSessionOwnerSite,
 } from '@studio/agent/protocol/sessions/owner-site';
+import {
+	Spinner,
+	Menu,
+	Input,
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	Button,
+} from '@studio/ds';
+import { ArchiveIcon, PinIcon, EyeIcon, PencilIcon, UnpinIcon, EyeOffIcon } from '@studio/ds/icons';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
@@ -22,20 +36,6 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { getSessionTitle } from '@/features/chats/session-view/session-chat-actions';
 import { useItemShortcuts } from '@/features/sites';
-import { ArchiveIcon, PinIcon, EyeIcon, PencilIcon, UnpinIcon, EyeOffIcon } from '@/lib/icons';
-import {
-	Spinner,
-	Menu,
-	Input,
-	Dialog,
-	DialogClose,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	Button,
-} from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 

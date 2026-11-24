@@ -5,8 +5,11 @@ import { SUPPORTED_EDITORS, supportedEditorConfig } from '@studio/common/lib/use
 import {
 	getColorTint,
 	INTERFACE_PREFERENCE_DEFAULTS,
+	isDefaultColorTint,
 } from '@studio/common/lib/user-settings/preferences';
 import { SUPPORTED_TERMINALS, terminalConfig } from '@studio/common/lib/user-settings/terminal';
+import { Input, Button } from '@studio/ds';
+import { ExternalLinkIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -23,9 +26,6 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { hasCustomPanelLayout } from '@/data/resizable-panels';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
-import { ExternalLinkIcon } from '@/lib/icons';
-import { isDefaultColorTint } from '@/lib/theme';
-import { Input, Button } from '@/lib/ui';
 import { ConnectionCard } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';
@@ -194,7 +194,7 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</SettingsRow>
-				{ connector.capabilities.nativeSites && (
+				{ connector.capabilities.localMachine && (
 					<>
 						<SettingsRow
 							title={ __( 'Default code editor' ) }
@@ -265,7 +265,7 @@ function PreferencesPanel( {
 				) }
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				{ connector.capabilities.nativeSites && (
+				{ connector.capabilities.localMachine && (
 					<SettingsRow
 						title={ __( 'When WordPress Studio quits' ) }
 						description={ __(

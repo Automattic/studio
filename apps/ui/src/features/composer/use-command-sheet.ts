@@ -3,9 +3,9 @@ import {
 	getSlashCommandMatches,
 	type SkillSlashCommand,
 } from '@studio/agent/protocol/slash-commands';
+import { getActiveCommand } from '@studio/ds';
 import { useState } from 'react';
 import { getCommandGroups } from '@/features/composer/composer-commands';
-import { getActiveCommand } from '@/lib/ui';
 
 // The sheet of commands and skills: the add button opens suggestions, a
 // `/fragment` in the draft its matches, until Escape dismisses that text.

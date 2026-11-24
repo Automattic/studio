@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
+import type { SiteLink } from '../../types';
 
 // Whether a WordPress.com site can sync with a local site, and why not.
 export const syncSupportValues = [
@@ -28,9 +29,13 @@ export const syncSiteSchema = z.object( {
 	lastPushTimestamp: z.string().nullable(),
 	wpVersion: z.string().optional(),
 	planName: z.string().optional(),
+	hasPaidPlan: z.boolean().optional(),
 	pushNeedsUpgrade: z.boolean().optional(),
 	createdAt: z.string().optional(),
 	launchAfterPush: z.boolean().optional(),
+	localVersionId: z.string().nullable().optional(),
+	launchStatus: z.string().optional(),
+	visibility: z.enum( [ 'private', 'coming-soon', 'public' ] ).optional(),
 } );
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
@@ -87,14 +92,18 @@ export function withWpcomDetails< Connection extends SyncSite >(
 			// A site gone from WordPress.com keeps the name and URL it was connected under.
 			...connection,
 			...site,
+			url: site && URL.canParse( site.url ) ? site.url : connection.url,
 			localSiteId,
 			syncSupport,
 			lastPullTimestamp,
 			lastPushTimestamp,
 			launchAfterPush: connection.launchAfterPush,
+			localVersionId: connection.localVersionId,
 		};
 	} );
 }
+
+const publishingNeedsUpgrade = () => __( 'Publishing requires a supported plan.' );
 
 // Why a site can't be published to or pulled from, from what WordPress.com says about it.
 export function wpcomSiteIssue( site: SyncSite, direction: 'push' | 'pull' ): string | null {
@@ -104,17 +113,19 @@ export function wpcomSiteIssue( site: SyncSite, direction: 'push' | 'pull' ): st
 		case 'missing-permissions':
 			return __( 'You need administrator access to publish or pull changes.' );
 		case 'needs-upgrade':
-			return __(
-				'This website needs a hosting plan that supports publishing from WordPress Studio.'
-			);
+			if ( direction === 'pull' )
+				return __(
+					'This website needs a hosting plan that supports pulling into WordPress Studio.'
+				);
+			return publishingNeedsUpgrade();
 		case 'needs-transfer':
-			return __( 'Finish activating hosting on WordPress.com before publishing.' );
+			return direction === 'pull'
+				? __( 'Finish activating hosting on WordPress.com before pulling.' )
+				: __( 'Finish activating hosting on WordPress.com before publishing.' );
 		case 'unsupported':
 			return __( 'Publishing and pulling require a supported WordPress.com or Pressable website.' );
 		default:
-			return direction === 'push' && site.pushNeedsUpgrade
-				? __( 'This website needs a hosting plan that supports publishing from WordPress Studio.' )
-				: null;
+			return direction === 'push' && site.pushNeedsUpgrade ? publishingNeedsUpgrade() : null;
 	}
 }
 
@@ -142,29 +153,36 @@ export function wpcomPushWarning( site: SyncSite, local: { multisite?: boolean }
 		: null;
 }
 
-// What WordPress.com says about a site, and its pages there. Pressable sites are managed on
-// Pressable, so WordPress.com has no pages for them.
-export function describeWpcomSite( site: SyncSite ): {
-	details: { title: string; value: string }[];
-	links: { title: string; url: string }[];
-} {
-	const details = [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ];
-	let hostname: string | undefined;
-	try {
-		hostname = site.isPressable ? undefined : new URL( site.url ).hostname;
-	} catch {
-		hostname = undefined;
-	}
-	if ( ! hostname ) {
-		return { details, links: [] };
-	}
-	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
+export function describeWpcomSite( site: SyncSite ) {
 	return {
-		details,
-		links: [
-			{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
-			{ title: __( 'Backups' ), url: `https://wordpress.com/backup/${ hostname }` },
-			{ title: __( 'Manage on WordPress.com' ), url: dashboard },
-		],
+		details: [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ],
+		links: wpcomSiteLinks( site ),
 	};
+}
+
+function wpcomSiteLinks( site: SyncSite ): SiteLink[] {
+	if ( ! URL.canParse( '/wp-admin/', site.url ) ) return [];
+	const hostname = new URL( site.url ).hostname;
+	const admin: SiteLink = {
+		role: 'admin',
+		title: __( 'WP admin' ),
+		url: new URL( '/wp-admin/', site.url ).href,
+	};
+	if ( site.isPressable ) return [ admin ];
+	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
+	return [
+		{ role: 'dashboard', title: __( 'Manage on WordPress.com' ), url: dashboard },
+		{ role: 'domains', title: __( 'Manage domains' ), url: `${ dashboard }/domains` },
+		{
+			role: 'more',
+			title: __( 'View backups' ),
+			url: `https://wordpress.com/backup/${ hostname }`,
+		},
+		{
+			role: 'visibility',
+			title: __( 'Manage on WordPress.com' ),
+			url: `https://wordpress.com/settings/general/${ site.id }`,
+		},
+		admin,
+	];
 }

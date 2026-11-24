@@ -13,3 +13,10 @@
 		animation: none;
 	}
 }
+.edgeAction {
+	composes: edgeAction from '../style.module.css';
+}
+
+.stopButton {
+	composes: edgeAction;
+}

@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -64,7 +64,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 
 			expect( result.code, result.stderr ).toBe( 0 );
 
-			const config = readCliConfig( env );
+			const config = readConfigFile( env );
 			expect( config.sites ).toHaveLength( 1 );
 			const [ site ] = config.sites;
 			expect( site.name ).toBe( siteName );
@@ -130,13 +130,12 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 
 			// --no-start skips the hosts-file / certificate setup that running would do,
 			// so this only checks the custom domain and HTTPS preference are persisted.
-			const config = readCliConfig( env );
+			const config = readConfigFile( env );
 			expect( config.sites ).toHaveLength( 1 );
 			const [ site ] = config.sites;
 			expect( site.name ).toBe( siteName );
 			expect( site.customDomain ).toBe( customDomain );
 			expect( site.enableHttps ).toBe( true );
-			expect( site.running ).toBe( false );
 
 			expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
 			const siteUrl = await runCli( [ 'wp', '--path', sitePath, 'option', 'get', 'siteurl' ], env );

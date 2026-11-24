@@ -6,6 +6,11 @@ export const sitesEndpointSiteSchema = z.object( {
 	is_wpcom_atomic: z.boolean(),
 	name: z.string(),
 	URL: z.string(),
+	// WordPress.com returns other types here for some sites (`launch_status: false`), which
+	// must not drop the site from the list.
+	launch_status: z.string().optional().catch( undefined ),
+	is_coming_soon: z.boolean().optional().catch( undefined ),
+	is_private: z.boolean().optional().catch( undefined ),
 	jetpack: z.boolean().optional(),
 	is_deleted: z.boolean(),
 	hosting_provider_guess: z.string().optional(),

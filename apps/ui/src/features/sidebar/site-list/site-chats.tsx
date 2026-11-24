@@ -1,13 +1,13 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { getSessionTitle } from '@/features/chats';
 import {
 	CollapsiblePanel,
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarMenuLabel,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __, sprintf } from '@wordpress/i18n';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { getSessionTitle } from '@/features/chats';
 import { ChatRow, RetryLoadingChats } from './chat-row';
 import { mergeVisibleOrder } from './sidebar-collections';
 import { SidebarReorderableList } from './sidebar-reorderable-list';

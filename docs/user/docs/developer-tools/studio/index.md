@@ -1,6 +1,8 @@
 # WordPress Studio
 
-[WordPress Studio](https://wordpress.studio/) is the agentic local development tool for WordPress. Spin up [local sites](https://wordpress.studio/docs/sites/) in seconds and generate anything from plugins, themes, images and content to full site builds using [WordPress Studio Code](https://wordpress.studio/docs/studio-code/), our custom WordPress AI agent. 
+WordPress Studio is the agentic local development tool for WordPress. It runs WordPress sites on your computer and builds them with an AI agent.
+
+Spin up [local sites](https://wordpress.studio/docs/sites/) in seconds and generate anything from plugins, themes, images and content to full site builds using [WordPress Studio Code](https://wordpress.studio/docs/studio-code/), our custom WordPress AI agent.
 
 Your sites and their WordPress Studio Code chats share one sidebar, with the live site preview right beside the chat. The preview opens the front end, WP Admin, the site database, and the site’s email log in tabs, without leaving the app. Batch smaller updates quickly and easily and dispatch them to the WordPress Studio Code agent with one click using the Annotate tool. 
 
@@ -80,6 +82,8 @@ The WordPress Studio window has three areas:
 -   **Chat** (middle): WordPress Studio Code for the selected site.
 -   **Panel** (right): the selected site’s preview, in tabs.
 
+When WordPress Studio Code asks a question, a triangle with an exclamation mark appears beside the chat in the sidebar. The chat stays where it is. If the site is collapsed, the badge appears beside the site name. Open the chat and answer the question to continue. The badge clears when the question is resolved.
+
 ![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle under the Site menu button, and the panel on the right with a preview tab, New tab, Share, Publish, Expand panel and Hide panel, and below them Back, Forward, Reload, the address bar, Annotate, and Browser options](../../../screenshots/images/main-window-signed-in.webp)
 
 The header above the chat has the **Site menu** button, which shows the site’s name and opens the site’s actions menu. Above the panel are the preview’s tabs and **New tab** (**+**), followed by **Share**, **Publish**, **Expand panel**, and **Hide panel**. Each tab has its own **Back**, **Forward**, and **Reload** buttons and address bar, with **Annotate** and **Browser options** (**⋮**) at the end.
@@ -127,6 +131,16 @@ The menu bar of the desktop app has a few more:
 | View → Split view (the chat beside the panel) | ⌘2 | Ctrl+2 |
 | View → Panel (only the panel) | ⌘3 | Ctrl+3 |
 
+### App appearance
+
+Open **Settings → Appearance** to customize the WordPress Studio interface.
+
+-   **Interface theme** switches the app between **Light**, **Dark**, and **System**.
+-   **Accent** sets the accent color. **Intensity** adjusts the strength of the tint, and **Contrast** adjusts how clearly app surfaces stand apart.
+-   **Reset** under **Reset appearance** restores the default theme, accent, intensity, and contrast.
+
+To change the color scheme of the site in the browser preview, open **Browser options → Appearance** in the preview toolbar. See [Browser options](https://wordpress.studio/docs/sites/#browser-options).
+
 ### [Connect to WordPress.com](#connect-wordpress-com)
 
 By connecting your WordPress.com account to WordPress Studio, you unlock features like preview sites, publishing to WordPress.com and Pressable, and access to WordPress Studio Code with WordPress.com AI credits. It also ensures you’re ready for upcoming improvements that rely on a WordPress.com connection.
@@ -138,7 +152,7 @@ To connect WordPress Studio to WordPress.com:
 1.  Click the account button at the bottom of the sidebar, choose **Log in or create account**, and click **Log in** (or **Create account** if you don’t have one yet). You can also log in from the welcome dialog when you first open WordPress Studio, from **Connect** under **Do more with WordPress** in **Settings → General**, or from the prompt that appears when you click **Publish** or **Share** while logged out.
 2.  A new browser window will open. Log into WordPress.com.
 3.  On the authorization screen, click **Approve** to connect WordPress Studio to your account.
-4.  Once approved, a popup will appear prompting you to open the WordPress Studio app. Click on the **“Open Studio”** button to finalize the process.
+4.  Once approved, a popup will appear prompting you to open the WordPress Studio app. Click on the **Open Studio** button to finalize the process.
 
 Once you’ve logged into WordPress.com, the account button at the bottom of the sidebar shows your profile picture, WordPress Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
 

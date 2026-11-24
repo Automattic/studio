@@ -17,6 +17,9 @@ import {
 	getClosestSupportedPhpVersion,
 	RecommendedPHPVersion,
 } from '@studio/common/types/php-versions';
+import { Button, IconButton, Input } from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { EyeIcon, EyeOffIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -40,9 +43,6 @@ import {
 	validateAdminPassword,
 	validateSiteName,
 } from '@/features/sites';
-import { useOffline } from '@/lib/hooks';
-import { EyeIcon, EyeOffIcon } from '@/lib/icons';
-import { Button, IconButton, Input } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { SiteSettingsSectionId } from '@/features/settings/settings-dialog/context';
@@ -377,7 +377,7 @@ export function SiteSettingsForm( {
 				<ConnectionCard active={ active } />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
-					{ connector.capabilities.nativeSites && (
+					{ connector.capabilities.localMachine && (
 						<>
 							<SettingsRow
 								title={ __( 'Local path' ) }
@@ -420,7 +420,7 @@ export function SiteSettingsForm( {
 						</>
 					) }
 				</SettingsGroup>
-				{ connector.capabilities.nativeSites && (
+				{ connector.capabilities.localMachine && (
 					<SettingsGroup title={ __( 'Local domain' ) }>
 						{ toggleRow(
 							'useCustomDomain',
@@ -542,7 +542,7 @@ export function SiteSettingsForm( {
 					) }
 				</SettingsGroup>
 				<SettingsGroup title={ __( 'Debugging' ) }>
-					{ connector.capabilities.nativeSites &&
+					{ connector.capabilities.localMachine &&
 						toggleRow(
 							'enableXdebug',
 							__( 'Xdebug' ),

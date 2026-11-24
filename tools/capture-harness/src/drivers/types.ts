@@ -34,7 +34,7 @@ export interface Stubs {
 	syncableSites( sites: unknown[] ): Promise< void >;
 	previewSites( snapshots: unknown[] ): Promise< void >;
 	connectedSites(
-		connected: { localSiteId: string }[],
+		connected: { localSiteId: string; url: string; [ key: string ]: unknown }[],
 		trees: RemoteTrees,
 		backupId: string
 	): Promise< void >;
@@ -69,7 +69,10 @@ export interface LaunchOptions {
 	profile: Profile;
 	look: Look;
 	firstRun?: boolean;
-	appData?: Record< string, unknown >;
+	// Each site's sidebar order and whether it starts on launch, by site id.
+	siteSettings?: Record< string, { sortOrder: number; autoStart: boolean } >;
+	// The site each seeded chat belongs to, by session id.
+	placements?: Record< string, unknown >;
 	authToken?: AuthToken | null;
 	// Answers Studio's Gravatar requests (`null`: none, so Studio draws its own);
 	// unset leaves them to Gravatar.

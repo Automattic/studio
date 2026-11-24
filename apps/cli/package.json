@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "2.3.0",
+	"version": "2.4.0-beta1",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"homepage": "https://wordpress.studio/",
@@ -46,7 +46,6 @@
 		"install:bundle": "npm install --omit=dev --no-audit --no-fund --no-package-lock --no-progress --install-links --no-workspaces",
 		"package": "npm run install:bundle && npm run build:prod",
 		"package:standalone": "npm run install:bundle && npm run build:standalone",
-		"lint": "eslint .",
 		"watch": "vite build --config ./vite.config.dev.ts --watch",
 		"prepublishOnly": "npm run build:npm",
 		"typecheck": "tsc -p tsconfig.json --noEmit"

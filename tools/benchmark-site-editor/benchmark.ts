@@ -1,4 +1,4 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env node
 
 /**
  * Site Editor Performance Benchmark — Orchestration Script
@@ -279,17 +279,6 @@ function createStudioAppdata( appdataDir: string ): void {
 	const studioDir = path.join( appdataDir, 'Studio' );
 	fs.mkdirSync( studioDir, { recursive: true } );
 
-	const appdata = {
-		version: 1,
-		sites: [],
-		snapshots: [],
-		betaFeatures: {
-			studioSitesCli: true,
-		},
-	};
-
-	fs.writeFileSync( path.join( studioDir, 'appdata-v1.json' ), JSON.stringify( appdata, null, 2 ) );
-
 	// Set up server-files with symlinks to the repo's bundled wp-files.
 	// The CLI expects these at <appdataDir>/Studio/server-files/.
 	const serverFilesDir = path.join( studioDir, 'server-files' );
@@ -318,6 +307,7 @@ function getStudioCliEnv( appdataDir: string ): NodeJS.ProcessEnv {
 	return {
 		E2E: 'true',
 		E2E_APP_DATA_PATH: appdataDir,
+		DEV_CONFIG_DIR: path.join( appdataDir, 'config' ),
 	};
 }
 
@@ -361,10 +351,10 @@ async function setupStudioSite(
 		throw new Error( `Studio site creation failed` );
 	}
 
-	// Extract the URL from the appdata (site was created and started)
-	const appdataPath = path.join( appdataDir, 'Studio', 'appdata-v1.json' );
-	const appdata = JSON.parse( fs.readFileSync( appdataPath, 'utf-8' ) );
-	const site = appdata.sites?.[ 0 ];
+	// Extract the URL from the config file (site was created and started)
+	const configPath = path.join( appdataDir, 'config', 'config.json' );
+	const config = JSON.parse( fs.readFileSync( configPath, 'utf-8' ) );
+	const site = config.sites?.[ 0 ];
 	if ( ! site?.port ) {
 		throw new Error( 'Studio site was created but no port was assigned' );
 	}

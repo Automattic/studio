@@ -1,6 +1,6 @@
 /**
  * Preference values shared by every Studio front end. They all read the same
- * `app.json`, so the accepted values and their defaults are stated once here.
+ * config file, so the accepted values and their defaults are stated once here.
  */
 
 export const SUPPORTED_COLOR_SCHEMES = [ 'system', 'light', 'dark' ] as const;
@@ -40,6 +40,20 @@ export function getColorTint( config: {
 		tintIntensity: percent( config.tintIntensity, DEFAULT_TINT_INTENSITY ),
 		contrast: percent( config.contrast, DEFAULT_CONTRAST ),
 	};
+}
+
+export const DEFAULT_COLOR_TINT: ColorTint = {
+	accentColor: DEFAULT_ACCENT_COLOR,
+	tintIntensity: DEFAULT_TINT_INTENSITY,
+	contrast: DEFAULT_CONTRAST,
+};
+
+export function isDefaultColorTint( tint: ColorTint ): boolean {
+	return (
+		tint.accentColor === DEFAULT_ACCENT_COLOR &&
+		tint.tintIntensity === DEFAULT_TINT_INTENSITY &&
+		tint.contrast === DEFAULT_CONTRAST
+	);
 }
 
 /**

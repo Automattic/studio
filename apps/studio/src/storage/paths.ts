@@ -1,26 +1,5 @@
 import { app } from 'electron';
 import path from 'path';
-import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
-
-// This file was renamed by apps/studio/src/migrations/02-migrate-to-split-config.ts
-// and later removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
-export function getOldAppdataFilePath(): string {
-	return path.join( getAppDataPath(), getAppName(), 'appdata-v1.json' );
-}
-
-// This directory was removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
-export function getOldServerFilesPath(): string {
-	return path.join( getAppDataPath(), getAppName(), 'server-files' );
-}
-
-// This directory was removed by apps/studio/src/migrations/05-remove-old-server-files-and-certificates.ts
-export function getOldUserDataCertificatesPath(): string {
-	return path.join( getAppDataPath(), getAppName(), 'certificates' );
-}
-
-export function getUserDataFilePath(): string {
-	return getAppConfigPath();
-}
 
 export const defaultSitePath = path.join(
 	process.env.E2E && process.env.E2E_HOME_PATH ? process.env.E2E_HOME_PATH : app.getPath( 'home' ),
@@ -53,6 +32,11 @@ export function getCliPath(): string {
 	return process.env.NODE_ENV === 'development'
 		? path.join( getResourcesPath(), '..', 'cli', 'dist', 'cli', 'main.mjs' )
 		: path.join( getResourcesPath(), 'cli', 'main.mjs' );
+}
+
+// The WP-CLI that ships with the CLI, in its bundle's `wp-files`.
+export function getWpCliPharPath(): string {
+	return path.join( path.dirname( getCliPath() ), 'wp-files', 'wp-cli', 'wp-cli.phar' );
 }
 
 export function getBundledNodeBinaryPath(): string {

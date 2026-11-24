@@ -64,19 +64,19 @@ function getAssistantReplyPreview( entry: SessionEntry ): string | undefined {
 	return `${ text.slice( 0, ASSISTANT_REPLY_PREVIEW_MAX_LENGTH ).trimEnd() }...`;
 }
 
-// The summary of a session from its entries. `getFallbackTimestamp` dates a
-// session whose entries carry no timestamp.
+// The summary of a session from its entries, read in one pass so a caller can
+// stream them. `getFallbackTimestamp` dates a session whose entries carry no
+// timestamp.
 export async function summarizeAiSessionEntries(
 	filePath: string,
-	fileEntries: Array< SessionEntry | PiSessionHeader >,
+	fileEntries:
+		| Iterable< SessionEntry | PiSessionHeader >
+		| AsyncIterable< SessionEntry | PiSessionHeader >,
 	getFallbackTimestamp: () => Promise< string >
 ): Promise< AiSessionSummary | undefined > {
-	if ( fileEntries.length === 0 ) return undefined;
-
-	const header = fileEntries.find( isPiHeader );
-	const createdAt = header?.timestamp;
-	let updatedAt = header?.timestamp;
-	const sessionId = header?.id ?? '';
+	let isEmpty = true;
+	let header: PiSessionHeader | undefined;
+	let lastEntryTimestamp: string | undefined;
 	let firstPrompt: string | undefined;
 	let assistantReplyPreview: string | undefined;
 	let selectedSiteName: string | undefined;
@@ -85,11 +85,15 @@ export async function summarizeAiSessionEntries(
 	let endReason: 'error' | 'stopped' | undefined;
 	let entryCount = 0;
 
-	for ( const entry of fileEntries ) {
-		if ( isPiHeader( entry ) ) continue;
+	for await ( const entry of fileEntries ) {
+		isEmpty = false;
+		if ( isPiHeader( entry ) ) {
+			header ??= entry;
+			continue;
+		}
 		entryCount += 1;
 		const ts = entry.timestamp;
-		if ( typeof ts === 'string' ) updatedAt = ts;
+		if ( typeof ts === 'string' ) lastEntryTimestamp = ts;
 
 		const replyPreview = getAssistantReplyPreview( entry );
 		if ( replyPreview ) {
@@ -122,13 +126,18 @@ export async function summarizeAiSessionEntries(
 		}
 	}
 
+	if ( isEmpty ) return undefined;
+
+	const sessionId = header?.id ?? '';
+	const createdAt = header?.timestamp;
+	const updatedAt = lastEntryTimestamp ?? createdAt;
 	const fallbackTimestamp = createdAt && updatedAt ? createdAt : await getFallbackTimestamp();
 
 	return {
 		id: sessionId,
 		filePath,
 		createdAt: createdAt ?? fallbackTimestamp,
-		updatedAt: updatedAt ?? createdAt ?? fallbackTimestamp,
+		updatedAt: updatedAt ?? fallbackTimestamp,
 		firstPrompt,
 		assistantReplyPreview,
 		ownerSiteId: undefined,

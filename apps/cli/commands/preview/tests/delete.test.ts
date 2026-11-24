@@ -1,5 +1,6 @@
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { forgetRemoteSite } from '@studio/common/lib/remote-sites';
 import { vi } from 'vitest';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
@@ -21,10 +22,8 @@ import {
 } from 'cli/tests/test-utils';
 import { Mode, runCommand } from '../delete';
 
-vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
-	...( await importOriginal() ),
-	readAuthToken: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/auth-token', () => ( { readAuthToken: vi.fn() } ) );
+vi.mock( '@studio/common/lib/remote-sites', () => ( { forgetRemoteSite: vi.fn() } ) );
 vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/cli-config/snapshots' );
 vi.mock( 'cli/lib/daemon-client' );
@@ -91,6 +90,11 @@ describe( 'Preview Delete Command', () => {
 		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
 		expect( deleteSnapshotSite ).toHaveBeenCalledWith( mockSnapshot, mockAuthToken.accessToken );
 		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
+		expect( forgetRemoteSite ).toHaveBeenCalledWith(
+			'wpcom',
+			mockSnapshot.localSiteId,
+			mockAtomicSiteId
+		);
 		expect( emitCliEvent ).toHaveBeenCalledWith( {
 			event: SNAPSHOT_EVENTS.DELETED,
 			data: { snapshotUrl: mockSiteUrl },
@@ -131,6 +135,11 @@ describe( 'Preview Delete Command', () => {
 
 		expect( deleteSnapshotSite ).not.toHaveBeenCalled();
 		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
+		expect( forgetRemoteSite ).toHaveBeenCalledWith(
+			'wpcom',
+			mockSnapshot.localSiteId,
+			mockAtomicSiteId
+		);
 		expect( emitCliEvent ).toHaveBeenCalledWith( {
 			event: SNAPSHOT_EVENTS.DELETED,
 			data: { snapshotUrl: mockSiteUrl },
@@ -148,6 +157,7 @@ describe( 'Preview Delete Command', () => {
 			LoggerError
 		);
 		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
+		expect( forgetRemoteSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should complete deleting all preview sites successfully', async () => {
@@ -156,6 +166,11 @@ describe( 'Preview Delete Command', () => {
 		expect( readAuthToken ).toHaveBeenCalled();
 		expect( deleteSnapshotSite ).toHaveBeenCalledWith( mockSnapshot, mockAuthToken.accessToken );
 		expect( deleteAllSnapshotsForUserFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
+		expect( forgetRemoteSite ).toHaveBeenCalledWith(
+			'wpcom',
+			mockSnapshot.localSiteId,
+			mockAtomicSiteId
+		);
 		expect( emitCliEvent ).toHaveBeenCalledWith( { event: SNAPSHOT_EVENTS.DELETED_ALL } );
 		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
 

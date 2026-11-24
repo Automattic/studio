@@ -1,5 +1,5 @@
-import '@/lib/theme/tokens.css';
-import '@/lib/theme/base.css';
+import '@studio/ds/theme/tokens.css';
+import '@studio/ds/theme/base.css';
 import '@/index.css';
 import { createMemoryHistory } from '@tanstack/react-router';
 import { StrictMode } from 'react';

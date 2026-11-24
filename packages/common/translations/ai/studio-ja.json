@@ -1,15 +1,27 @@
 {
-	"\"%s\" is not a Blueprint file, URL or Library slug.": [
-		"「%s」はブループリントのファイル、URL、ライブラリのスラッグではありません。"
+	"$10 of AI credits every month": [
+		"毎月 $10 分の AI クレジット"
+	],
+	"$30 of AI credits every month": [
+		"毎月 $30 分の AI クレジット"
+	],
+	"%1$d of %2$d site": [
+		"%1$d / %2$d サイト"
+	],
+	"%1$d of %2$d site running at once": [
+		"同時実行中のサイト: %1$d / %2$d"
 	],
 	"%1$dh %2$dm": [
 		"%1$d時間%2$d分"
 	],
-	"%1$s +%2$d": [
-		"%1$s 他 %2$d 件"
+	"%1$s / %2$s per million tokens": [
+		"100 万トークンあたり %1$s / %2$s"
 	],
-	"%1$s Use /connect %2$s to connect it.": [
-		"%1$s /connect %2$s を使用して連携してください。"
+	"%1$s GB of %2$s GB of storage used": [
+		"ストレージ使用量: %1$s GB / %2$s GB"
+	],
+	"%1$s and %2$d other": [
+		"%1$s 他 %2$d 件"
 	],
 	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
 		"%1$s は WordPress Studio プラグインをインストールできませんでした: %2$s"
@@ -17,50 +29,59 @@
 	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
 		"%1$s は WordPress Studio プラグインを更新できませんでした: %2$s"
 	],
-	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
-		"%1$s は連携されていません。/connect %2$s を使用して連携してください。"
+	"%1$s · %2$s context": [
+		"%1$s · コンテキスト %2$s"
 	],
-	"%1$s screenshot %2$d": [
-		"%1$s のスクリーンショット %2$d"
+	"%1$s, %2$s, and %3$s": [
+		"%1$s、%2$s、%3$s"
 	],
 	"%d B": [
 		"%d B"
 	],
-	"%d annotation ready to send": [
-		"送信できる注釈%d件"
+	"%d model": [
+		"%d 個のモデル"
 	],
-	"%d image": [
-		"画像%d枚"
-	],
-	"%s (saved for future use):": [
-		"%s (今後のために保存されます):"
+	"%s (optional, saved for future use):": [
+		"%s (任意、今後のために保存されます):"
 	],
 	"%s KB": [
 		"%s KB"
 	],
-	"%s connection": [
-		"%s の連携"
-	],
-	"%s is no longer installed. Choose another browser in Settings.": [
-		"%s はインストールされていません。設定で別のブラウザーを選択してください。"
+	"%s billed yearly": [
+		"年払い %s"
 	],
 	"%s isn’t installed on this computer.": [
 		"%s はこのコンピューターにインストールされていません。"
 	],
+	"%s models": [
+		"%s のモデル"
+	],
+	"%s only makes previews.": [
+		"%s ではプレビューのみ作成できます。"
+	],
 	"%s preview is ready": [
 		"%s のプレビューの準備ができました"
 	],
-	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
-		"%s からインポートの進捗が届かなくなりましたが、更新はまだ実行中の可能性があります。再度プッシュする前にライブサイトを確認してください。"
+	"%s · Live site": [
+		"%s · ライブサイト"
 	],
-	"A code editor with a built-in AI agent.": [
-		"AI エージェントを内蔵したコードエディター。"
+	"%s · Local changes": [
+		"%s · ローカルの変更"
+	],
+	"/month": [
+		"/月"
+	],
+	"30 GB of storage": [
+		"30 GB のストレージ"
+	],
+	"6 GB of storage": [
+		"6 GB のストレージ"
 	],
 	"A coding agent that runs in your terminal.": [
 		"ターミナルで動作するコーディングエージェント。"
 	],
-	"A sync operation is already in progress on this site. Please wait for it to finish and try again.": [
-		"このサイトではすでに同期処理が進行中です。完了するまで待ってから、もう一度お試しください。"
+	"A static copy of your pages.": [
+		"ページの静的コピー。"
 	],
 	"AI apps": [
 		"AI アプリ"
@@ -74,6 +95,9 @@
 	"API key is required": [
 		"API キーは必須です"
 	],
+	"Access unknown": [
+		"アクセス状況不明"
+	],
 	"Activate all plugins": [
 		"すべてのプラグインを有効化"
 	],
@@ -83,17 +107,14 @@
 	"Activate theme": [
 		"テーマを有効化"
 	],
-	"Add annotation to batch": [
-		"注釈をまとめて送信する一覧に追加"
+	"Add a domain": [
+		"ドメインを追加"
 	],
-	"Add or delete this annotation before starting another.": [
-		"別の注釈を始める前に、この注釈を追加または削除してください。"
+	"Address is required": [
+		"アドレスは必須です"
 	],
-	"Admin bar hidden by default.": [
-		"管理バーをデフォルトで非表示にします。"
-	],
-	"Admin bar shown by default.": [
-		"管理バーをデフォルトで表示します。"
+	"Address to listen on": [
+		"待ち受けるアドレス"
 	],
 	"Agent apps": [
 		"エージェントアプリ"
@@ -101,23 +122,23 @@
 	"Agents": [
 		"エージェント"
 	],
+	"All but %s": [
+		"%s 以外すべて"
+	],
+	"All models": [
+		"すべてのモデル"
+	],
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"ログイン時に、WordPress Studio に ChatGPT プランの使用を許可してください。"
-	],
-	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
-		"WordPress Studio CLI の更新中にエラーが発生しました。もう一度お試しください。"
-	],
-	"Annotate site elements visually in a browser.": [
-		"ブラウザーでサイトの要素に視覚的に注釈を付けます。"
-	],
-	"Annotation is available for design systems created by Studio Code.": [
-		"注釈は Studio Code で作成したデザインシステムで利用できます。"
 	],
 	"Annotation tools": [
 		"注釈ツール"
 	],
-	"Anonymous usage statistics enabled.": [
-		"匿名の利用統計情報を有効にしました。"
+	"Another operation is in progress.": [
+		"別の操作が進行中です。"
+	],
+	"Answers right away, fastest": [
+		"すぐに回答、最速"
 	],
 	"Anthropic API key": [
 		"Anthropic API キー"
@@ -131,20 +152,17 @@
 	"Anthropic’s AI coding agent.": [
 		"Anthropic の AI コーディングエージェント。"
 	],
+	"Anyone can view your site": [
+		"誰でもサイトを閲覧できます"
+	],
+	"Anyone with the link": [
+		"リンクを知っている全員"
+	],
+	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
+		"リンクを知っているユーザーはアクセスできなくなります。この操作は元に戻せません。ローカルの WordPress は変更されません。"
+	],
 	"Appearance reset.": [
 		"外観をリセットしました。"
-	],
-	"Approve the code %1$s at %2$s": [
-		"%2$s でコード %1$s を承認してください"
-	],
-	"Approve the code %1$s on %2$s to connect.": [
-		"接続するには、%2$s でコード %1$s を承認してください。"
-	],
-	"Approve the connection in your browser.": [
-		"ブラウザーで接続を承認してください。"
-	],
-	"Ask user": [
-		"ユーザーに質問"
 	],
 	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
 		"少なくとも1つのオプション (--name、--domain、--https、--php、--wp、--file-access、--xdebug、--php-workers、--admin-username、--admin-password、--admin-email、--debug-log、--debug-display、--script-debug、--environment-type) が必要です。"
@@ -155,62 +173,23 @@
 	"Audit performance": [
 		"パフォーマンスを監査"
 	],
-	"Automatic sidebar collapsing disabled.": [
-		"サイドバーの自動折りたたみを無効にしました。"
-	],
-	"Automatic sidebar collapsing enabled.": [
-		"サイドバーの自動折りたたみを有効にしました。"
-	],
-	"Automatic site start on prompt disabled.": [
-		"プロンプト送信時のサイト自動起動を無効にしました。"
-	],
-	"Automatic site start on prompt enabled.": [
-		"プロンプト送信時のサイト自動起動を有効にしました。"
-	],
 	"Back to Blueprints": [
 		"ブループリントに戻る"
 	],
-	"Back to email list": [
-		"メール一覧に戻る"
+	"Billed monthly": [
+		"月払い"
 	],
-	"Backup timed out — no progress detected": [
-		"バックアップがタイムアウトしました — 進捗が検出されませんでした"
+	"Billed monthly, renews on %s": [
+		"月払い、%s に更新"
 	],
-	"Backups": [
-		"バックアップ"
+	"Billed yearly, renews on %s": [
+		"年払い、%s に更新"
 	],
-	"Balanced": [
-		"バランス"
-	],
-	"Batch notes": [
-		"メモをまとめて送信"
-	],
-	"Batch notes disabled.": [
-		"メモのまとめて送信を無効にしました。"
-	],
-	"Batch notes enabled.": [
-		"メモのまとめて送信を有効にしました。"
-	],
-	"Birdland": [
-		"バードランド"
-	],
-	"Blue Note": [
-		"ブルー・ノート"
-	],
-	"Blue Train": [
-		"ブルー・トレイン"
-	],
-	"Blue in Green": [
-		"ブルー・イン・グリーン"
-	],
-	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
-		"ブループリントの URL、JSON ファイル、フォルダー、zip バンドル、またはブループリントライブラリのスラッグ (\"studio blueprint list\" を参照)"
+	"Billing period": [
+		"請求期間"
 	],
 	"Blueprint file…": [
 		"ブループリントファイル…"
-	],
-	"Blueprint loaded": [
-		"ブループリントを読み込みました"
 	],
 	"Blueprint preview": [
 		"ブループリントのプレビュー"
@@ -230,11 +209,14 @@
 	"Browsing data cleared": [
 		"閲覧データを消去しました"
 	],
-	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
-		"チャットでサイトを構築、編集できます。WordPress.com の AI クレジットを使用するか、ご自身のサブスクリプションまたは API キーを利用してください。"
+	"Can’t see screenshots": [
+		"スクリーンショットを認識できません"
 	],
-	"Cc": [
-		"Cc"
+	"Changes on %s will be replaced with your local files and database.": [
+		"%s の変更は、ローカルのファイルとデータベースで置き換えられます。"
+	],
+	"Changes published": [
+		"変更を公開しました"
 	],
 	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
 		"変更はプッシュされましたが、サイトをローンチできませんでした。プランと権限を確認してから再度公開して、ローンチをやり直してください。"
@@ -244,9 +226,6 @@
 	],
 	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
 		"変更はプッシュされましたが、サイトをローンチできませんでした。メールアドレスを確認してから再度公開して、ローンチをやり直してください。"
-	],
-	"Changes to %s": [
-		"%s の変更点"
 	],
 	"ChatGPT plan": [
 		"ChatGPT プラン"
@@ -260,62 +239,56 @@
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"ChatGPT へのログインを完了できませんでした。もう一度お試しください。"
 	],
+	"Check again": [
+		"再確認"
+	],
 	"Check your internet connection and try again.": [
 		"インターネット接続を確認して、もう一度お試しください。"
 	],
-	"Checking for updates…": [
-		"アップデートを確認しています…"
+	"Checking access…": [
+		"アクセスを確認中…"
+	],
+	"Checking whether you can pull from this preview…": [
+		"このプレビューからプルできるかどうかを確認中…"
+	],
+	"Checking…": [
+		"確認中…"
 	],
 	"Choose a Blueprint or backup": [
 		"ブループリントまたはバックアップを選択"
 	],
-	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
-		"WordPress サイトのフォルダー、ブループリントの JSON ファイル、または ZIP バンドルを選択してください。"
-	],
-	"Choose a blueprint, backup, export, or existing WordPress folder.": [
-		"ブループリント、バックアップ、エクスポート、または既存の WordPress フォルダーを選択してください。"
-	],
-	"Choose a folder containing an existing WordPress site.": [
-		"既存の WordPress サイトを含むフォルダーを選択してください。"
+	"Choose a plan to make it live: %s": [
+		"ライブサイトにするにはプランを選択してください: %s"
 	],
 	"Choose a provider": [
 		"プロバイダーを選択"
 	],
-	"Choose a site source": [
-		"サイトのソースを選択"
-	],
-	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
-		"`--remote-site %s:<site>` (サイトの ID または URL) でサイトを選択してください。"
+	"Choose a site": [
+		"サイトを選択"
 	],
 	"Choose a topic": [
 		"トピックを選択"
 	],
-	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
-		"ソースを使用するには空のフォルダーを選択してください。選択したフォルダーにはすでに WordPress サイトが含まれています。"
-	],
-	"Choose an existing WordPress folder, blueprint, backup, or export.": [
-		"既存の WordPress フォルダー、ブループリント、バックアップ、またはエクスポートを選択してください。"
-	],
-	"Choose another host": [
-		"別のホストを選択"
-	],
 	"Choose color": [
 		"色を選択"
 	],
-	"Choose what powers chat in WordPress Studio.": [
-		"WordPress Studio のチャットで使用するサービスを選択します。"
+	"Choose files": [
+		"ファイルを選択"
 	],
-	"Choosing individual files requires a backup of this website.": [
-		"個別のファイルを選択するには、このサイトのバックアップが必要です。"
+	"Choose specific files": [
+		"特定のファイルを選択"
+	],
+	"Choose which live site this preview shows changes to.": [
+		"このプレビューで変更を表示するライブサイトを選択してください。"
+	],
+	"Choose your plan.": [
+		"プランを選択してください。"
 	],
 	"Claude subscription": [
 		"Claude サブスクリプション"
 	],
 	"Claude subscription token": [
 		"Claude サブスクリプショントークン"
-	],
-	"Clear browsing data": [
-		"閲覧データを消去"
 	],
 	"Click anything on the page to leave a note": [
 		"ページ上の任意の要素をクリックしてメモを残します"
@@ -335,20 +308,11 @@
 	"Close tabs to the right": [
 		"右側のタブを閉じる"
 	],
-	"Collect annotations and send them together instead of one at a time.": [
-		"注釈を1件ずつではなく、まとめて送信します。"
-	],
 	"Color may be adapted for your theme.": [
 		"色はテーマに合わせて調整される場合があります。"
 	],
 	"Color picker": [
 		"カラーピッカー"
-	],
-	"Connect %s first.": [
-		"先に %s を連携してください。"
-	],
-	"Connect %s now?": [
-		"今すぐ %s を連携しますか ?"
 	],
 	"Connect AI providers": [
 		"AI プロバイダーを連携"
@@ -359,23 +323,32 @@
 	"Connect a provider": [
 		"プロバイダーを連携"
 	],
-	"Connect to Spacefast": [
-		"Spacefast に接続"
+	"Connect a provider to see your existing sites.": [
+		"既存のサイトを表示するには、プロバイダーを連携してください。"
 	],
-	"Connect to an existing WordPress": [
-		"既存の WordPress に接続"
+	"Connect to %s": [
+		"%s と連携"
+	],
+	"Connect to an existing site": [
+		"既存のサイトと連携"
+	],
+	"Connect to publish": [
+		"連携して公開"
+	],
+	"Connect to share previews": [
+		"連携してプレビューを共有"
 	],
 	"Connect your WordPress": [
 		"WordPress を連携"
 	],
-	"Connected %s.": [
-		"%s を連携しました。"
+	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
+		"既存のサイトを連携すると、現在の公開先と WordPress Studio の連携が解除されます。公開先のコンテンツは変更されません。"
 	],
-	"Connected live site ID, or none": [
-		"連携しているライブサイトの ID、またはなし"
+	"Continue on %s": [
+		"%s で続行"
 	],
-	"Connecting to WordPress.com": [
-		"WordPress.com に接続しています"
+	"Continue to checkout": [
+		"購入手続きに進む"
 	],
 	"Continue with GitHub": [
 		"GitHub で続行"
@@ -383,26 +356,29 @@
 	"Copy links": [
 		"リンクをコピー"
 	],
-	"Cotton Tail": [
-		"コットン・テイル"
-	],
-	"Could not capture the area. Your selection is kept. Try again.": [
-		"領域をキャプチャできませんでした。選択範囲は保持されています。もう一度お試しください。"
+	"Could not check Spacefast team access": [
+		"Spacefast チームのアクセス権を確認できませんでした"
 	],
 	"Could not clear browsing data": [
 		"閲覧データを消去できませんでした"
 	],
-	"Could not delete the old preview site. It will expire on its own.": [
-		"古いプレビューサイトを削除できませんでした。このサイトは自動的に期限切れになります。"
+	"Could not connect to WordPress.com": [
+		"WordPress.com に接続できませんでした"
 	],
-	"Could not migrate your sites": [
-		"サイトを移行できませんでした"
-	],
-	"Could not open DevTools": [
-		"開発者ツールを開けませんでした"
+	"Could not load %s sites.": [
+		"%s のサイトを読み込めませんでした。"
 	],
 	"Could not open Spacefast": [
 		"Spacefast を開けませんでした"
+	],
+	"Could not open the new preview. Please try again.": [
+		"新しいプレビューを開けませんでした。もう一度お試しください。"
+	],
+	"Could not open the setup page. Please try again.": [
+		"セットアップページを開けませんでした。もう一度お試しください。"
+	],
+	"Could not publish. Please try again.": [
+		"公開できませんでした。もう一度お試しください。"
 	],
 	"Could not reach Anthropic to verify the credential.": [
 		"認証情報を確認するために Anthropic に接続できませんでした。"
@@ -410,38 +386,53 @@
 	"Could not read the table prefix from wp-config.php": [
 		"wp-config.php からテーブル接頭辞を読み取れませんでした"
 	],
-	"Could not reset appearance. Please try again.": [
-		"外観をリセットできませんでした。もう一度お試しください。"
-	],
-	"Could not reset interface. Please try again.": [
-		"インターフェースをリセットできませんでした。もう一度お試しください。"
-	],
-	"Could not reset tips. Please try again.": [
-		"ヒントをリセットできませんでした。もう一度お試しください。"
-	],
-	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
-		"wp-config.php の $table_prefix を「%s」に設定できませんでした。"
+	"Could not read your settings": [
+		"設定を読み込めませんでした"
 	],
 	"Could not take screenshot": [
 		"スクリーンショットを撮影できませんでした"
 	],
-	"Could not update settings. Please try again.": [
-		"設定を更新できませんでした。もう一度お試しください。"
-	],
-	"Could not update the admin bar setting. Please try again.": [
-		"管理バーの設定を更新できませんでした。もう一度お試しください。"
+	"Could not update your local site from this preview. Please try again.": [
+		"このプレビューからローカルサイトを更新できませんでした。もう一度お試しください。"
 	],
 	"Could not verify the credential with Anthropic.": [
 		"Anthropic で認証情報を確認できませんでした。"
 	],
+	"Could not watch for your new site. Please try again.": [
+		"新しいサイトの作成を確認できませんでした。もう一度お試しください。"
+	],
 	"Couldn't load providers.": [
 		"プロバイダーを読み込めませんでした。"
+	],
+	"Couldn’t change how much the model thinks": [
+		"モデルの思考の度合いを変更できませんでした"
+	],
+	"Couldn’t check for preview edits": [
+		"プレビューの編集を確認できませんでした"
+	],
+	"Couldn’t check previews.": [
+		"プレビューを確認できませんでした。"
+	],
+	"Couldn’t check whether you can pull from this preview.": [
+		"このプレビューからプルできるかどうかを確認できませんでした。"
+	],
+	"Couldn’t check who can view new sites for this team.": [
+		"このチームの新しいサイトを閲覧できるユーザーを確認できませんでした。"
 	],
 	"Couldn’t load apps.": [
 		"アプリを読み込めませんでした。"
 	],
-	"Couldn’t sign in to WordPress.com": [
-		"WordPress.com にログインできませんでした"
+	"Couldn’t load publishing accounts": [
+		"公開用アカウントを読み込めませんでした"
+	],
+	"Couldn’t load your %s sites": [
+		"%s のサイトを読み込めませんでした"
+	],
+	"Couldn’t load your %s sites.": [
+		"%s のサイトを読み込めませんでした。"
+	],
+	"Couldn’t load your previews.": [
+		"プレビューを読み込めませんでした。"
 	],
 	"Create %s": [
 		"%sを作成"
@@ -458,26 +449,38 @@
 	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
 		"[OpenAI Platform](https://platform.openai.com/api-keys) でキーを作成し、下に貼り付けてください。"
 	],
+	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
+		"[xAI Console](https://console.x.ai) でキーを作成し、下に貼り付けてください。"
+	],
+	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
+		"[OpenRouter の設定](https://openrouter.ai/settings/keys)でキーを作成し、下に貼り付けてください。"
+	],
 	"Create a new WordPress": [
 		"新しい WordPress を作成"
-	],
-	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
-		"WordPress.com または Pressable のサイトを連携するには、アカウントを作成するかログインしてください。"
-	],
-	"Create another preview": [
-		"別のプレビューを作成"
 	],
 	"Create user": [
 		"ユーザーを作成"
 	],
-	"Data Liberation could not capture the source website": [
-		"データ解放でソースサイトをキャプチャできませんでした"
+	"Creating preview": [
+		"プレビューを作成中"
+	],
+	"Creating preview link…": [
+		"プレビューリンクを作成しています…"
+	],
+	"Custom selection": [
+		"カスタム選択"
+	],
+	"Database only": [
+		"データベースのみ"
 	],
 	"Deactivate all plugins": [
 		"すべてのプラグインを無効化"
 	],
 	"Deactivate plugin": [
 		"プラグインを無効化"
+	],
+	"Default": [
+		"デフォルト"
 	],
 	"Default AI provider": [
 		"デフォルトの AI プロバイダー"
@@ -488,8 +491,11 @@
 	"Default code editor": [
 		"デフォルトのコードエディター"
 	],
-	"Default hosting provider": [
-		"デフォルトのホスティングプロバイダー"
+	"Default image provider": [
+		"デフォルトの画像プロバイダー"
+	],
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"自動"
 	],
 	"Default terminal app": [
 		"デフォルトのターミナルアプリ"
@@ -497,11 +503,23 @@
 	"Delete %s": [
 		"%sを削除"
 	],
+	"Delete a preview in Sharing settings to create another.": [
+		"新しいプレビューを作成するには、共有設定でプレビューを削除してください。"
+	],
+	"Delete a site to create a new one.": [
+		"新しいサイトを作成するには、サイトを削除してください。"
+	],
 	"Delete annotation: %s": [
 		"注釈を削除: %s"
 	],
 	"Delete plugin": [
 		"プラグインを削除"
+	],
+	"Delete preview…": [
+		"プレビューを削除…"
+	],
+	"Delete sites you no longer need to free up space.": [
+		"不要になったサイトを削除して、容量を空けてください。"
 	],
 	"Delete theme": [
 		"テーマを削除"
@@ -509,29 +527,14 @@
 	"Delete user": [
 		"ユーザーを削除"
 	],
-	"Describe the change": [
-		"変更内容を説明"
-	],
-	"Describe what you’d like to build or change (optional)…": [
-		"作成または変更したい内容を説明してください (任意)…"
-	],
 	"Design system could not load.": [
 		"デザインシステムを読み込めませんでした。"
 	],
-	"Design systems are available for block themes.": [
-		"デザインシステムはブロックテーマで利用できます。"
-	],
-	"Directory to write the static site to": [
-		"静的サイトの書き出し先ディレクトリ"
+	"Destination": [
+		"公開先"
 	],
 	"Disable automatic sidebar collapsing": [
 		"サイドバーの自動折りたたみを無効化"
-	],
-	"Disable automatic site start on prompt": [
-		"プロンプト送信時のサイト自動起動を無効化"
-	],
-	"Disable batch notes": [
-		"メモのまとめて送信を無効化"
 	],
 	"Discard changes?": [
 		"変更を破棄しますか ?"
@@ -539,8 +542,14 @@
 	"Disconnect a provider": [
 		"プロバイダーの連携を解除"
 	],
-	"Disconnected %s.": [
-		"%s の連携を解除しました。"
+	"Disconnect site": [
+		"サイトの連携を解除"
+	],
+	"Disconnect site?": [
+		"サイトの連携を解除しますか ?"
+	],
+	"Disconnect site…": [
+		"サイトの連携を解除…"
 	],
 	"Dismiss tip": [
 		"ヒントを閉じる"
@@ -548,14 +557,11 @@
 	"Do more with WordPress": [
 		"WordPress でもっと多くのことを"
 	],
-	"Domains": [
-		"ドメイン"
+	"Download WordPress Studio": [
+		"WordPress Studio をダウンロード"
 	],
 	"Drop to add site": [
 		"ドロップしてサイトを追加"
-	],
-	"Drop your file here": [
-		"ここにファイルをドロップ"
 	],
 	"Edit annotation: %s": [
 		"注釈を編集: %s"
@@ -575,11 +581,8 @@
 	"Enable automatic sidebar collapsing": [
 		"サイドバーの自動折りたたみを有効化"
 	],
-	"Enable automatic site start on prompt": [
-		"プロンプト送信時のサイト自動起動を有効化"
-	],
-	"Enable batch notes": [
-		"メモのまとめて送信を有効化"
+	"Ends on %s": [
+		"%s に終了"
 	],
 	"Enter a folder name other than “.” or “..”.": [
 		"「.」または「..」以外のフォルダー名を入力してください。"
@@ -587,11 +590,17 @@
 	"Enter a token from claude setup-token, not an API key.": [
 		"API キーではなく、claude setup-token で取得したトークンを入力してください。"
 	],
-	"Enter the folder’s full path.": [
-		"フォルダーのフルパスを入力してください。"
-	],
 	"Esc": [
 		"Esc"
+	],
+	"Everyone": [
+		"全員"
+	],
+	"Everything": [
+		"すべて"
+	],
+	"Everything you need to build WordPress sites with Studio Code.": [
+		"Studio Code で WordPress サイトを構築するのに必要なものがすべて揃っています。"
 	],
 	"Existing WordPress site": [
 		"既存の WordPress サイト"
@@ -608,35 +617,20 @@
 	"Failed after %s": [
 		"%s 後に失敗しました"
 	],
-	"Failed to back up the remote site": [
-		"リモートサイトをバックアップできませんでした"
-	],
 	"Failed to check backup size": [
 		"バックアップのサイズを確認できませんでした"
-	],
-	"Failed to check backup status": [
-		"バックアップ状態を確認できませんでした"
-	],
-	"Failed to check import status": [
-		"インポート状態を確認できませんでした"
 	],
 	"Failed to check the preview site": [
 		"プレビューサイトを確認できませんでした"
 	],
-	"Failed to create the %s site": [
-		"%s のサイトを作成できませんでした"
-	],
 	"Failed to create the Space": [
 		"Space を作成できませんでした"
 	],
-	"Failed to export static site": [
-		"静的サイトをエクスポートできませんでした"
-	],
-	"Failed to fetch Blueprint: HTTP %d": [
-		"ブループリントを取得できませんでした: HTTP %d"
-	],
 	"Failed to find existing preview site in config": [
 		"設定内に既存のプレビューサイトが見つかりませんでした"
+	],
+	"Failed to find the preview site’s launch link": [
+		"プレビューサイトのローンチリンクが見つかりませんでした"
 	],
 	"Failed to initiate backup": [
 		"バックアップを開始できませんでした"
@@ -644,56 +638,41 @@
 	"Failed to initiate import on remote site": [
 		"リモートサイトでインポートを開始できませんでした"
 	],
-	"Failed to load your %s sites": [
-		"%s のサイトを読み込めませんでした"
-	],
 	"Failed to load your Spacefast Spaces": [
 		"Spacefast の Space を読み込めませんでした"
 	],
 	"Failed to publish to Spacefast": [
 		"Spacefast に公開できませんでした"
 	],
-	"Failed to save connected site": [
-		"連携サイトを保存できませんでした"
-	],
-	"Feedback areas": [
-		"フィードバックの対象"
+	"Failed to set up WordPress": [
+		"WordPress をセットアップできませんでした"
 	],
 	"Feedback sent": [
 		"フィードバックを送信しました"
 	],
-	"Feedback type": [
-		"フィードバックの種類"
-	],
-	"Fetching %s sites…": [
-		"%s のサイトを取得しています…"
+	"Files could not be loaded.": [
+		"ファイルを読み込めませんでした。"
 	],
 	"File…": [
 		"ファイル…"
 	],
-	"Finish activating hosting on WordPress.com before publishing.": [
-		"公開する前に、WordPress.com でホスティングの有効化を完了してください。"
+	"Finish activating hosting on WordPress.com before pulling.": [
+		"プルする前に WordPress.com でのホスティングの有効化を完了してください。"
 	],
-	"Finish signing in to %s in your browser.": [
-		"ブラウザーで %s へのログインを完了してください。"
-	],
-	"First use": [
-		"初回使用"
+	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
+		"WordPress.com のタブで購入手続きを完了してから、ここに戻ってください。プランが有効になると、ワークスペースが自動的にセットアップされます。"
 	],
 	"Flush cache": [
 		"キャッシュをフラッシュ"
 	],
-	"Flush permalinks": [
-		"パーマリンクをフラッシュ"
+	"For generating images. Auto uses the AI provider when it can.": [
+		"画像の生成に使用します。「自動」では、可能な場合は AI プロバイダーを使用します。"
 	],
 	"For publishing sites.": [
 		"サイトの公開用。"
 	],
-	"For working on sites.": [
-		"サイトでの作業用。"
-	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"多くの手から ひとつの道具\nコミュニティの力で\nより良いウェブを"
+	"Free": [
+		"無料"
 	],
 	"Gemini API key": [
 		"Gemini API キー"
@@ -701,38 +680,26 @@
 	"Generate images": [
 		"画像を生成"
 	],
-	"Generating static site…": [
-		"静的サイトを生成しています…"
-	],
-	"Get site info": [
-		"サイト情報を取得"
-	],
-	"Get started with a one-time free allowance, then buy more as you go. No API key required.": [
-		"1回限りの無料枠で始めて、必要に応じて追加購入できます。API キーは不要です。"
-	],
-	"Getting your sign-in code…": [
-		"ログインコードを取得しています…"
-	],
-	"Giant Steps": [
-		"ジャイアント・ステップス"
-	],
 	"GitHub sign-in was declined.": [
 		"GitHub へのログインが拒否されました。"
 	],
 	"Google rejected this API key. Check the key and try again.": [
 		"Google がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
 	],
-	"Green Dolphin Street": [
-		"グリーン・ドルフィン・ストリート"
+	"Grok sent back an incomplete sign-in.": [
+		"Grok から返されたログイン情報が不完全です。"
+	],
+	"Grok sign-in could not be started. Try again.": [
+		"Grok へのログインを開始できませんでした。もう一度お試しください。"
+	],
+	"Grok sign-in was declined.": [
+		"Grok へのログインが拒否されました。"
 	],
 	"Hide admin bar": [
 		"管理バーを非表示"
 	],
 	"Hide admin bar by default": [
 		"管理バーをデフォルトで非表示"
-	],
-	"Hide chat when starting sites": [
-		"サイトの起動時にチャットを非表示"
 	],
 	"Hide device toolbar": [
 		"デバイスツールバーを非表示"
@@ -743,29 +710,23 @@
 	"Hide recent chats": [
 		"最近のチャットを非表示"
 	],
-	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
-		"ローカルサイトで WordPress の管理バーをデフォルトで非表示にします。個別のサイトについては「ブラウザーオプション」で変更できます。"
+	"High": [
+		"高"
 	],
 	"Hints": [
 		"ヒント"
 	],
-	"Hosting providers": [
-		"ホスティングプロバイダー"
-	],
 	"Hostname of the preview site": [
 		"プレビューサイトのホスト名"
 	],
-	"How do you want to connect %s?": [
-		"%s をどの方法で連携しますか ?"
+	"How much should the model think?": [
+		"モデルにどの程度思考させますか ?"
 	],
 	"How to connect": [
 		"連携方法"
 	],
 	"Hue": [
 		"色相"
-	],
-	"Image annotation": [
-		"画像の注釈"
 	],
 	"Import a blueprint or backup": [
 		"ブループリントまたはバックアップをインポート"
@@ -776,20 +737,11 @@
 	"Import media": [
 		"メディアをインポート"
 	],
-	"Import site": [
-		"サイトをインポート"
-	],
-	"Include this chat’s transcript": [
-		"このチャットの履歴を含める"
-	],
 	"Inspect design": [
 		"デザインを検査"
 	],
 	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
 		"まだお持ちでない場合は、[Claude Code](https://code.claude.com/docs/en/setup) をインストールしてください。"
-	],
-	"Install plugin": [
-		"プラグインをインストール"
 	],
 	"Install taxonomy scripts": [
 		"タクソノミースクリプトをインストール"
@@ -809,11 +761,29 @@
 	"Interface theme": [
 		"インターフェースのテーマ"
 	],
-	"Kind of Blue": [
-		"カインド・オブ・ブルー"
+	"Invited people": [
+		"招待したユーザー"
 	],
-	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
-		"詳しくは <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink> をご覧ください。"
+	"I’ve paid, continue": [
+		"支払い済み、続行"
+	],
+	"Last updated %s": [
+		"最終更新: %s"
+	],
+	"Last updated just now": [
+		"たった今更新"
+	],
+	"Last updated on %s": [
+		"最終更新日: %s"
+	],
+	"Launch a public site with a paid plan.": [
+		"有料プランで公開サイトをローンチします。"
+	],
+	"Launch on %s": [
+		"%s でローンチ"
+	],
+	"Learn about Spacefast": [
+		"Spacefast について"
 	],
 	"Leave a note…": [
 		"メモを残す…"
@@ -821,14 +791,8 @@
 	"Liberate": [
 		"サイト移行"
 	],
-	"List": [
-		"一覧表示"
-	],
 	"List %s": [
 		"%sを一覧表示"
-	],
-	"List connected remote sites": [
-		"連携済みのリモートサイトを一覧表示"
 	],
 	"List menus": [
 		"メニューを一覧表示"
@@ -851,20 +815,17 @@
 	"List users": [
 		"ユーザーを一覧表示"
 	],
-	"Load skill": [
-		"スキルを読み込み"
+	"Loading destinations": [
+		"公開先を読み込み中"
 	],
-	"Loading Blueprint…": [
-		"ブループリントを読み込んでいます…"
+	"Loading models…": [
+		"モデルを読み込み中…"
 	],
-	"Loading WordPress Studio…": [
-		"WordPress Studio を読み込んでいます…"
+	"Local and preview changes": [
+		"ローカルとプレビューの両方に変更あり"
 	],
-	"Loading apps…": [
-		"アプリを読み込んでいます…"
-	],
-	"Loading file…": [
-		"ファイルを読み込んでいます…"
+	"Local changes": [
+		"ローカルの変更"
 	],
 	"Log in or create account": [
 		"ログインまたはアカウントを作成"
@@ -872,8 +833,17 @@
 	"Log in to WordPress.com to sync sites.": [
 		"サイトを同期するには WordPress.com にログインしてください。"
 	],
-	"Maiden Voyage": [
-		"処女航海"
+	"Low": [
+		"低"
+	],
+	"Make a preview site your live site": [
+		"プレビューサイトをライブサイトにする"
+	],
+	"Make it your live site: %s": [
+		"ライブサイトとして公開するには: %s"
+	],
+	"Make sure the codes match in your browser, then approve the connection.": [
+		"ブラウザーでコードが一致していることを確認してから、連携を承認してください。"
 	],
 	"Manage AI credits": [
 		"AI クレジットを管理"
@@ -884,23 +854,23 @@
 	"Manage content": [
 		"コンテンツを管理"
 	],
+	"Manage credits": [
+		"クレジットを管理"
+	],
+	"Manage domains": [
+		"ドメインを管理"
+	],
 	"Manage media": [
 		"メディアを管理"
 	],
-	"Manage menus": [
-		"メニューを管理"
+	"Manage on Spacefast": [
+		"Spacefast で管理"
 	],
 	"Manage on WordPress.com": [
 		"WordPress.com で管理"
 	],
 	"Manage permalinks": [
 		"パーマリンクを管理"
-	],
-	"Manage plugins": [
-		"プラグインを管理"
-	],
-	"Manage sharing": [
-		"共有を管理"
 	],
 	"Manage site options": [
 		"サイトのオプションを管理"
@@ -911,14 +881,23 @@
 	"Manage themes": [
 		"テーマを管理"
 	],
+	"Manage these access rules on Spacefast.": [
+		"これらのアクセスルールは Spacefast で管理してください。"
+	],
 	"Manage usage": [
 		"使用量を管理"
 	],
 	"Manage users": [
 		"ユーザーを管理"
 	],
+	"Manage visibility on Spacefast.": [
+		"公開設定は Spacefast で管理してください。"
+	],
 	"Manual MCP setup": [
 		"MCP の手動設定"
+	],
+	"Medium": [
+		"中"
 	],
 	"Meta API key": [
 		"Meta API キー"
@@ -929,11 +908,11 @@
 	"Meta rejected this API key. Check the key and try again.": [
 		"Meta がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
 	],
-	"Migrate & rebuild a site from a closed platform.": [
-		"クローズドなプラットフォームからサイトを移行して再構築します。"
+	"Monthly": [
+		"月払い"
 	],
-	"Mood Indigo": [
-		"ムード・インディゴ"
+	"More room and more AI, for building every day.": [
+		"毎日の構築に、より多くの容量と AI を。"
 	],
 	"New WordPress Studio Site": [
 		"新しい WordPress Studio サイト"
@@ -941,41 +920,41 @@
 	"New site \"%s\"": [
 		"新しいサイト「%s」"
 	],
-	"New tab": [
-		"新しいタブ"
+	"No files are available to choose.": [
+		"選択できるファイルがありません。"
 	],
-	"No design system is available for this theme.": [
-		"このテーマで利用できるデザインシステムはありません。"
+	"No local server answered at %s. Check the address, and that your server is running.": [
+		"%s でローカルサーバーが応答しませんでした。アドレスと、サーバーが実行中であることを確認してください。"
 	],
-	"No matching sites.": [
-		"一致するサイトはありません。"
-	],
-	"No provider is connected.": [
-		"連携しているプロバイダーはありません。"
+	"No models found.": [
+		"モデルが見つかりませんでした。"
 	],
 	"No providers": [
 		"プロバイダーがありません"
 	],
-	"No recipient": [
-		"受信者なし"
+	"Off": [
+		"オフ"
 	],
-	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
-		"PHP ワーカー数。サイトが同時に処理できるリクエスト数の上限になります (デフォルト: %d)"
+	"One more step": [
+		"あと 1 ステップ"
 	],
-	"Open %s settings": [
-		"%s の設定を開く"
+	"Only if your server asks for one.": [
+		"サーバーで必要な場合のみ。"
+	],
+	"Only you": [
+		"自分のみ"
+	],
+	"Only you and people you invite can view.": [
+		"自分と招待したユーザーのみが閲覧できます。"
+	],
+	"Open Config File (dev only)": [
+		"設定ファイルを開く (開発のみ)"
 	],
 	"Open Folder…": [
 		"フォルダーを開く…"
 	],
 	"Open Spacefast": [
 		"Spacefast を開く"
-	],
-	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
-		"ブラウザーで Spacefast を開いてください。コードが一致していることを確認してから、接続を承認してください。"
-	],
-	"Open a project page to annotate.": [
-		"注釈を付けるにはプロジェクトのページを開いてください。"
 	],
 	"Open a site or Blueprint": [
 		"サイトまたはブループリントを開く"
@@ -992,8 +971,8 @@
 	"Open on GitHub": [
 		"GitHub で開く"
 	],
-	"Open the WordPress Studio app to add an existing WordPress folder.": [
-		"既存の WordPress フォルダーを追加するには、WordPress Studio アプリを開いてください。"
+	"Open preview: %s": [
+		"プレビューを開く: %s"
 	],
 	"OpenAI API key": [
 		"OpenAI API キー"
@@ -1001,14 +980,35 @@
 	"OpenAI rejected this API key. Check the key and try again.": [
 		"OpenAI がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
 	],
-	"OpenAI’s coding agent in the ChatGPT app.": [
-		"ChatGPT アプリに搭載された OpenAI のコーディングエージェント。"
+	"OpenRouter API key": [
+		"OpenRouter API キー"
 	],
-	"Optimize category taxonomy with AI.": [
-		"AI でカテゴリーのタクソノミーを最適化します。"
+	"OpenRouter is limiting requests on your key. Try again shortly.": [
+		"OpenRouter がキーのリクエストを制限しています。しばらくしてから、もう一度お試しください。"
 	],
-	"PHP workers must be a whole number from 1 to 64.": [
-		"PHP ワーカー数は1から64までの整数である必要があります。"
+	"OpenRouter is limiting requests right now. Wait a moment and try again.": [
+		"現在、OpenRouter がリクエストを制限しています。しばらく待ってから、もう一度お試しください。"
+	],
+	"OpenRouter rejected the API key. Connect OpenRouter again in Settings.": [
+		"OpenRouter が API キーを拒否しました。設定で OpenRouter を再度連携してください。"
+	],
+	"OpenRouter rejected this API key. Check the key and try again.": [
+		"OpenRouter がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
+	],
+	"OpenRouter sign-in could not be completed. Try again.": [
+		"OpenRouter へのログインを完了できませんでした。もう一度お試しください。"
+	],
+	"OpenRouter’s moderation refused this request.": [
+		"OpenRouter のモデレーションにより、このリクエストは拒否されました。"
+	],
+	"Opening %s": [
+		"%s を開いています"
+	],
+	"Other files": [
+		"その他のファイル"
+	],
+	"Paid plan": [
+		"有料プラン"
 	],
 	"Parent folder": [
 		"親フォルダー"
@@ -1022,29 +1022,59 @@
 	"Performance audit": [
 		"パフォーマンス監査"
 	],
+	"Pick at least one model OpenRouter offers.": [
+		"OpenRouter が提供するモデルを 1 つ以上選択してください。"
+	],
+	"Pick at least one model your server offers.": [
+		"サーバーが提供するモデルを 1 つ以上選択してください。"
+	],
 	"Pick design": [
 		"デザインを選択"
 	],
-	"Point or draw to suggest a change.": [
-		"指し示すか描いて変更を提案しましょう。"
+	"Plan": [
+		"プラン"
 	],
-	"Point to something you’d like to change.": [
-		"変更したい箇所を指し示してください。"
+	"Plan ended": [
+		"プランが終了しました"
 	],
-	"Present design options": [
-		"デザインの候補を提示"
-	],
-	"Preview browser controls": [
-		"プレビューブラウザーのコントロール"
+	"Posts, pages, and settings": [
+		"投稿、固定ページ、設定"
 	],
 	"Preview creation cancelled": [
 		"プレビューの作成をキャンセルしました"
 	],
+	"Preview creation is temporarily unavailable for your account.": [
+		"お使いのアカウントでは、プレビューの作成を一時的に利用できません。"
+	],
+	"Preview details": [
+		"プレビューの詳細"
+	],
+	"Preview expiration": [
+		"プレビューの有効期限"
+	],
+	"Preview has changes": [
+		"プレビューに変更あり"
+	],
+	"Preview limit reached": [
+		"プレビューの上限に達しました"
+	],
+	"Preview link is not available yet. Please try again.": [
+		"プレビューリンクはまだ利用できません。もう一度お試しください。"
+	],
+	"Preview link ready": [
+		"プレビューリンクの準備ができました"
+	],
 	"Preview site not found": [
 		"プレビューサイトが見つかりません"
 	],
-	"Preview tabs": [
-		"プレビュータブ"
+	"Preview sites are temporary. Updating your preview resets the expiration date.": [
+		"プレビューサイトは一時的なものです。プレビューを更新すると、有効期限がリセットされます。"
+	],
+	"Preview: %s": [
+		"プレビュー: %s"
+	],
+	"Private sites and preview links": [
+		"非公開サイトとプレビューリンク"
 	],
 	"Project tools": [
 		"プロジェクトツール"
@@ -1055,74 +1085,62 @@
 	"Publish a static copy of your sites to a Spacefast Space.": [
 		"サイトの静的コピーを Spacefast の Space に公開します。"
 	],
-	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
-		"WordPress.com または Pressable で、新しいサイトを公開したり既存のサイトを更新したりできます。"
+	"Publish again?": [
+		"もう一度公開しますか ?"
 	],
-	"Publish to %s to apply these changes.": [
-		"これらの変更を反映するには %s に公開してください。"
+	"Publish changes?": [
+		"変更を公開しますか ?"
+	],
+	"Publish options could not be loaded.": [
+		"公開オプションを読み込めませんでした。"
+	],
+	"Publish somewhere else": [
+		"別の場所に公開"
+	],
+	"Publish to %s.": [
+		"%s に公開します。"
 	],
 	"Publish to Spacefast": [
 		"Spacefast に公開"
 	],
-	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
-		"新しいサイトに公開してドメインを選択するか、WordPress.com または Pressable の既存サイトを使用します。"
+	"Publish to a site you already have.": [
+		"お持ちのサイトに公開します。"
 	],
-	"Publish to another site…": [
-		"別のサイトに公開…"
-	],
-	"Publish your changes.": [
-		"変更を公開します。"
-	],
-	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
-		"準備ができたらサイトを公開するか、WordPress.com でプレビューを共有しましょう。"
-	],
-	"Published sites": [
-		"公開済みのサイト"
-	],
-	"Published to": [
-		"公開先"
-	],
-	"Publishing and pulling require a supported WordPress.com or Pressable website.": [
-		"公開とプルには、サポート対象の WordPress.com または Pressable のサイトが必要です。"
+	"Published site actions": [
+		"公開済みサイトの操作"
 	],
 	"Publishing cancelled": [
 		"公開をキャンセルしました"
 	],
-	"Publishing changes…": [
-		"変更を公開しています…"
+	"Publishing requires a supported plan.": [
+		"公開するには、対応プランが必要です。"
 	],
-	"Pull a WordPress.com or Pressable site to your local site": [
-		"WordPress.com または Pressable のサイトをローカルサイトにプル"
+	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
+		"データベースを公開すると、新しいコメントや注文など、ライブサイトで行われた変更が置き換えられます。"
 	],
-	"Pull only the database (keeps the local files)": [
-		"データベースのみをプル (ローカルのファイルを保持)"
+	"Pull from live site…": [
+		"ライブサイトからプル…"
+	],
+	"Pull from preview…": [
+		"プレビューからプル…"
 	],
 	"Pull preview": [
 		"プレビューをプル"
 	],
+	"Pull replaces your local copy. Update replaces the preview.": [
+		"プルするとローカルのコピーが置き換えられます。更新するとプレビューが置き換えられます。"
+	],
 	"Pull site": [
 		"サイトをプル"
 	],
-	"Pulling the preview replaces the changes made here.": [
-		"プレビューをプルすると、ここで行った変更が置き換えられます。"
+	"Pulling from this preview is unavailable for this account.": [
+		"このアカウントでは、このプレビューからプルできません。"
 	],
 	"Push site": [
 		"サイトをプッシュ"
 	],
-	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
-		"ローカルサイトを WordPress.com のサイトにプッシュするか、Spacefast に公開します"
-	],
-	"Read": [
-		"読み取り"
-	],
-	"Read %s": [
-		"%sを読み取り"
-	],
-	"Read site option": [
-		"サイトのオプションを読み取り"
-	],
-	"Read site title": [
-		"サイトのタイトルを読み取り"
+	"Receipts": [
+		"領収書"
 	],
 	"Recent chats hidden.": [
 		"最近のチャットを非表示にしました。"
@@ -1130,11 +1148,8 @@
 	"Recent chats shown.": [
 		"最近のチャットを表示しました。"
 	],
-	"Recent pages": [
-		"最近のページ"
-	],
-	"Refresh preview": [
-		"プレビューを再読み込み"
+	"Recommended": [
+		"おすすめ"
 	],
 	"Remote backup failed": [
 		"リモートバックアップに失敗しました"
@@ -1142,17 +1157,32 @@
 	"Remote environment: %s": [
 		"リモート環境: %s"
 	],
-	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
-		"リモートサイトの URL または ID。別のプロバイダーのサイトの場合は `<provider>[:<site>]` (例: Spacefast に静的コピーを公開する場合は `spacefast`)"
+	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
+		"%s を WordPress Studio から削除しますか ? 公開済みのサイトとローカルの WordPress は変更されません。"
 	],
 	"Remove Blueprint": [
 		"ブループリントを削除"
 	],
-	"Replace the contents of a non-empty output directory": [
-		"空でない出力ディレクトリの内容を置き換える"
+	"Renew": [
+		"更新"
 	],
-	"Reply in your own words instead of picking an option.": [
-		"選択肢を選ぶ代わりに、自分の言葉で返信します。"
+	"Renew your plan": [
+		"プランを更新"
+	],
+	"Replace local site": [
+		"ローカルサイトを置き換え"
+	],
+	"Replace preview": [
+		"プレビューを置き換え"
+	],
+	"Replace preview changes?": [
+		"プレビューの変更を置き換えますか ?"
+	],
+	"Replace preview contents?": [
+		"プレビューの内容を置き換えますか ?"
+	],
+	"Replace selected content": [
+		"選択したコンテンツを置き換え"
 	],
 	"Report an issue on GitHub": [
 		"GitHub で問題を報告"
@@ -1160,29 +1190,20 @@
 	"Request a feature or report a bug.": [
 		"機能をリクエストするか、バグを報告します。"
 	],
-	"Reset folder name to match site name": [
-		"フォルダー名をサイト名に合わせてリセット"
-	],
 	"Reset tips": [
 		"ヒントをリセット"
+	],
+	"Reset to recommended": [
+		"おすすめにリセット"
 	],
 	"Resize panel": [
 		"パネルのサイズを変更"
 	],
-	"Resize viewport: %s": [
-		"表示領域のサイズを変更: %s"
-	],
 	"Responsive preview": [
 		"レスポンシブプレビュー"
 	],
-	"Restart WordPress Studio to finish updating.": [
-		"アップデートを完了するには WordPress Studio を再起動してください。"
-	],
-	"Restore the default interface theme, accent color, intensity, and contrast.": [
-		"インターフェースのテーマ、アクセントカラー、強度、コントラストをデフォルトに戻します。"
-	],
-	"Review the advanced settings to finish creating your site.": [
-		"サイトの作成を完了するには、詳細設定を確認してください。"
+	"Restricted": [
+		"制限付き"
 	],
 	"Rotate to landscape": [
 		"横向きに回転"
@@ -1190,32 +1211,8 @@
 	"Rotate to portrait": [
 		"縦向きに回転"
 	],
-	"Rotate viewport": [
-		"表示領域を回転"
-	],
-	"Round Midnight": [
-		"ラウンド・ミッドナイト"
-	],
 	"Run": [
 		"実行"
-	],
-	"Run \"studio blueprint list\" to see available slugs.": [
-		"\"studio blueprint list\" を実行して、利用可能なスラッグを確認してください。"
-	],
-	"Run WordPress code": [
-		"WordPress のコードを実行"
-	],
-	"Run WordPress command": [
-		"WordPress のコマンドを実行"
-	],
-	"Run a performance audit on a site.": [
-		"サイトのパフォーマンス監査を実行します。"
-	],
-	"Run an on-page SEO audit on a site.": [
-		"サイトのページ内 SEO 監査を実行します。"
-	],
-	"Run task": [
-		"タスクを実行"
 	],
 	"Run this in a terminal, then sign in with your Claude account:": [
 		"ターミナルで次のコマンドを実行し、Claude アカウントでログインしてください:"
@@ -1223,53 +1220,50 @@
 	"SEO audit": [
 		"SEO 監査"
 	],
-	"Saturation and brightness": [
-		"彩度と明るさ"
-	],
 	"Save annotation (Enter)": [
 		"注釈を保存 (Enter)"
-	],
-	"Scaffold theme": [
-		"テーマの雛形を作成"
 	],
 	"Screenshots are available in the desktop app.": [
 		"スクリーンショットはデスクトップアプリで利用できます。"
 	],
-	"Select an email to read it.": [
-		"メールを選択すると内容が表示されます。"
+	"Search models": [
+		"モデルを検索"
 	],
-	"Selected area": [
-		"選択範囲"
+	"Select at least one file or folder.": [
+		"ファイルまたはフォルダーを 1 つ以上選択してください。"
 	],
-	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
-		"WordPress Studio 内の選択したファイル、コンテンツ、設定が上書きされます。ウェブサイトは変更されません。"
+	"Select something to publish.": [
+		"公開する項目を選択してください。"
 	],
-	"Selected files, content, and settings on your website will be overwritten.": [
-		"ウェブサイト上の選択したファイル、コンテンツ、設定が上書きされます。"
+	"Select the files and folders to publish.": [
+		"公開するファイルとフォルダーを選択してください。"
 	],
-	"Send %d annotation": [
-		"注釈%d件を送信"
+	"Server address": [
+		"サーバーアドレス"
 	],
-	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
-		"ローカルサイトの一時的なコピーを誰とでも共有できます。プレビューサイトは約1週間更新がないと期限切れになります。"
+	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
+		"このコンピューター以外からアクセスできるようにするには、STUDIO_SERVE_SECRET を設定してください。"
 	],
-	"Share details (required)": [
-		"詳細を入力 (必須)"
+	"Set how much the model thinks in this chat": [
+		"このチャットでモデルが思考する度合いを設定"
 	],
-	"Share ideas and report problems directly to the Studio team.": [
-		"アイデアの共有や問題の報告を Studio チームに直接お送りください。"
+	"Setting up WordPress…": [
+		"WordPress をセットアップしています…"
+	],
+	"Setting up your workspace…": [
+		"ワークスペースをセットアップしています…"
+	],
+	"Share a preview or publish your site": [
+		"プレビューを共有、またはサイトを公開"
+	],
+	"Share a temporary preview link.": [
+		"一時的なプレビューリンクを共有します。"
 	],
 	"Show admin bar": [
 		"管理バーを表示"
 	],
 	"Show admin bar by default": [
 		"管理バーをデフォルトで表示"
-	],
-	"Show chat beside the panel when starting a site.": [
-		"サイトの起動時に、パネルの横にチャットを表示します。"
-	],
-	"Show chat when starting sites": [
-		"サイトの起動時にチャットを表示"
 	],
 	"Show device toolbar": [
 		"デバイスツールバーを表示"
@@ -1280,23 +1274,29 @@
 	"Show panel": [
 		"パネルを表示"
 	],
-	"Show whether a preview site or its local site changed since they were synced": [
-		"同期以降にプレビューサイトまたはそのローカルサイトが変更されたかどうかを表示"
-	],
-	"Sign in at %s": [
-		"%s でログインしてください"
-	],
-	"Sign in to get a one-time grant of free AI credits.": [
-		"ログインすると、無料の AI クレジットを1回限り受け取れます。"
+	"Sign in to create a preview link.": [
+		"プレビューリンクを作成するには、ログインしてください。"
 	],
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"ChatGPT でログインするか、OpenAI API キーを使用します。"
 	],
+	"Sign in with Grok": [
+		"Grok でログイン"
+	],
+	"Sign in with OpenRouter": [
+		"OpenRouter でログイン"
+	],
+	"Sign in with WordPress.com": [
+		"WordPress.com でログイン"
+	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Copilot にアクセスできる GitHub アカウントでログインします。"
 	],
-	"Signing in took too long. Try again.": [
-		"ログインに時間がかかりすぎました。もう一度お試しください。"
+	"Sign in with an eligible Grok account or use an xAI API key.": [
+		"対象の Grok アカウントでログインするか、xAI API キーを使用します。"
+	],
+	"Sign out": [
+		"ログアウト"
 	],
 	"Signing in was declined.": [
 		"ログインが拒否されました。"
@@ -1304,11 +1304,8 @@
 	"Signing in was started again.": [
 		"ログインが再度開始されました。"
 	],
-	"Site annotation is not available in the browser yet": [
-		"ブラウザーではサイトの注釈はまだ利用できません"
-	],
-	"Site exported": [
-		"サイトをエクスポートしました"
+	"Site files left on disk": [
+		"ディスクに残っているサイトファイル"
 	],
 	"Site folder": [
 		"サイトフォルダー"
@@ -1316,41 +1313,20 @@
 	"Site folder is required.": [
 		"サイトフォルダーは必須です。"
 	],
-	"Site sources": [
-		"サイトのソース"
+	"Site imported, but the WordPress server failed to start: %s": [
+		"サイトはインポートされましたが、WordPress サーバーを起動できませんでした: %s"
 	],
-	"Sites could not be loaded. Check your internet connection and try again.": [
-		"サイトを読み込めませんでした。インターネット接続を確認して、もう一度お試しください。"
-	],
-	"Sites will start with chat.": [
-		"サイトはチャットを表示した状態で起動します。"
-	],
-	"Sites will start with the panel expanded.": [
-		"サイトはパネルを展開した状態で起動します。"
-	],
-	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
-		"スキルは WordPress 開発用の AI エージェントガイダンスを提供します。ここでの変更は既存のすべてのサイトに適用され、新しいサイトのデフォルトになります。"
-	],
-	"Something went wrong while updating the live site.": [
-		"ライブサイトの更新中に問題が発生しました。"
+	"Some destinations could not be loaded": [
+		"一部の公開先を読み込めませんでした"
 	],
 	"Source is a temporary preview site.": [
 		"ソースは一時的なプレビューサイトです。"
 	],
+	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
+		"Spacefast は公開設定の変更をまだ適用中です。Spacefast でアクセス権を確認してください。"
+	],
 	"Spacefast sign-in was declined.": [
 		"Spacefast へのログインが拒否されました。"
-	],
-	"Split view": [
-		"分割表示"
-	],
-	"Start building with free AI credits.": [
-		"無料の AI クレジットで構築を始めましょう。"
-	],
-	"Start from": [
-		"開始元"
-	],
-	"Start signing in again.": [
-		"もう一度ログインを開始してください。"
 	],
 	"Start signing in to Spacefast again.": [
 		"Spacefast へのログインを最初からやり直してください。"
@@ -1361,50 +1337,35 @@
 	"Start signing in with GitHub again.": [
 		"GitHub でのログインを最初からやり直してください。"
 	],
-	"Start sites with chat": [
-		"チャットを表示してサイトを起動"
+	"Start signing in with Grok again.": [
+		"Grok へのログインを最初からやり直してください。"
 	],
-	"Start this site.": [
-		"このサイトを起動します。"
+	"Start signing in with OpenRouter again.": [
+		"OpenRouter へのログインを最初からやり直してください。"
 	],
-	"Starting chat…": [
-		"チャットを開始しています…"
+	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
+		"1 つ以上のモデルを読み込んだ状態でモデルサーバーを起動し、待ち受けアドレスを入力してください。サーバーが提供するモデルを Studio で使用できるようになります。"
 	],
 	"Static export failed: %s": [
 		"静的エクスポートに失敗しました: %s"
 	],
-	"Static site exported to %s": [
-		"静的サイトを %s にエクスポートしました"
-	],
-	"Stop annotating": [
-		"注釈を終了"
-	],
-	"Stop annotating. Your notes will be kept.": [
-		"注釈を終了します。メモは保持されます。"
+	"Stop a site to start another.": [
+		"別のサイトを起動するには、サイトを停止してください。"
 	],
 	"Strong": [
 		"強力"
 	],
-	"Studio was updated, and the site \"%s\" could not be started again.": [
-		"Studio が更新されましたが、サイト「%s」を再起動できませんでした。"
+	"Studio Cloud": [
+		"Studio Cloud"
 	],
-	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
-		"Studio の phpMyAdmin は SQLite のみに対応しています。外部の MySQL には別のデータベースクライアントを使用してください。"
+	"Studio Code sets how much %s thinks.": [
+		"%s の思考の度合いは Studio Code が設定します。"
 	],
-	"Supported files: %s.": [
-		"サポートされているファイル: %s。"
+	"Studio can’t run your sites because one of its files was removed, often by antivirus software. Reinstall WordPress Studio to restore it. If it happens again, allow WordPress Studio in your antivirus settings.": [
+		"Studio のファイルの一部が削除されたため、サイトを実行できません。多くの場合、ウイルス対策ソフトウェアによって削除されています。WordPress Studio を再インストールして復元してください。再び発生する場合は、ウイルス対策ソフトウェアの設定で WordPress Studio を許可してください。"
 	],
-	"Swing Time": [
-		"スウィング・タイム"
-	],
-	"Sync is finishing": [
-		"同期を完了しています"
-	],
-	"Take Five": [
-		"テイク・ファイヴ"
-	],
-	"Taking screenshot…": [
-		"スクリーンショットを撮影しています…"
+	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
+		"Studio は %s が編集されたかどうかを確認できません。プレビューを更新すると、ローカルサイトの内容で置き換えられます。"
 	],
 	"Taxonomist": [
 		"カテゴリー整理"
@@ -1412,116 +1373,110 @@
 	"Team": [
 		"チーム"
 	],
-	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
-		"WordPress Studio の改善にご協力いただきありがとうございます。送信されたフィードバックの参照 ID は <id>%s</id> です。"
-	],
-	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
-		"そのファイル形式はサポートされていません。ブループリント、WordPress バックアップ、または XML エクスポートファイルを選択してください。"
-	],
-	"That sign-in was for another attempt. Try again.": [
-		"そのログインは別の試行のものです。もう一度お試しください。"
-	],
 	"The GitHub sign-in expired. Try again.": [
 		"GitHub へのログインの有効期限が切れました。もう一度お試しください。"
+	],
+	"The Grok sign-in expired. Try again.": [
+		"Grok へのログインの有効期限が切れました。もう一度お試しください。"
 	],
 	"The Spacefast sign-in expired. Try again.": [
 		"Spacefast へのログインの有効期限が切れました。もう一度お試しください。"
 	],
-	"The database failed to import on the live site. Review your database and try again.": [
-		"ライブサイトでデータベースをインポートできませんでした。データベースを確認して、もう一度お試しください。"
+	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
+		"%s のコンテキストは Studio Code には小さすぎます。サーバーの設定でコンテキスト長を増やしてください。"
 	],
 	"The default browser for your sites.": [
 		"サイトのデフォルトブラウザー。"
 	],
-	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
-		"サイトの初回のプルにはファイルを含める必要があります。一度サイト全体をプルしてから、データベースのみをプルしてください。"
+	"The full WordPress, with a domain.": [
+		"ドメイン付きのフル機能の WordPress。"
 	],
-	"The live site must be a qualifying connected site of this local site.": [
-		"ライブサイトは、このローカルサイトの条件を満たす連携サイトである必要があります。"
+	"The local server at %s isn’t answering. Start it, then send your message again.": [
+		"%s のローカルサーバーが応答していません。サーバーを起動してから、メッセージをもう一度送信してください。"
 	],
-	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
-		"ライブサイトでのインポート中にタイムアウトしました。サイトが大きすぎる可能性があります。コンテンツやファイルを減らしてみてください。"
+	"The local server has no chat model yet. Add one to your server, then connect again.": [
+		"ローカルサーバーにはまだチャットモデルがありません。サーバーにモデルを追加してから、もう一度連携してください。"
+	],
+	"The local server refused the API key. Check the key, and connect again.": [
+		"ローカルサーバーが API キーを拒否しました。キーを確認して、もう一度連携してください。"
 	],
 	"The output directory %s is not empty.": [
 		"出力ディレクトリ %s は空ではありません。"
 	],
-	"The output directory cannot be inside the site folder or contain it.": [
-		"出力ディレクトリをサイトフォルダー内に置いたり、サイトフォルダーを含むディレクトリにしたりすることはできません。"
+	"The requested site is unavailable.": [
+		"リクエストされたサイトは利用できません。"
 	],
-	"The preview site could not be built from the archive.": [
-		"アーカイブからプレビューサイトを構築できませんでした。"
+	"The site files could not be moved to trash. Delete them yourself: %s": [
+		"サイトファイルをゴミ箱に移動できませんでした。手動で削除してください: %s"
 	],
-	"The preview site did not become ready within the timeout.": [
-		"制限時間内にプレビューサイトの準備が完了しませんでした。"
+	"The site requested for this pull is unavailable.": [
+		"このプルでリクエストされたサイトは利用できません。"
 	],
-	"The preview site has no preview link.": [
-		"プレビューサイトにプレビューリンクがありません。"
+	"The transfer could not be completed. Please try again.": [
+		"転送を完了できませんでした。もう一度お試しください。"
 	],
-	"The site archive exceeds the %d GB size limit.": [
-		"サイトのアーカイブがサイズ上限の %d GB を超えています。"
+	"The visibility change could not be applied. Check access on Spacefast.": [
+		"公開設定の変更を適用できませんでした。Spacefast でアクセス権を確認してください。"
 	],
-	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
-		"テーマファイルの編集は表示されません。このプレビューでは WordPress.com にあるテーマの元のコピーを使用するため、%s のファイルへの変更は含まれません。プレビューに反映するには、サイトエディターまたは子テーマで変更してください。"
+	"Themes": [
+		"テーマ"
 	],
 	"Then add this configuration to your app.": [
 		"次に、この設定をアプリに追加します。"
 	],
+	"Thinking": [
+		"思考"
+	],
+	"Thinking: %s": [
+		"思考: %s"
+	],
+	"Thinks before answering": [
+		"回答前に思考"
+	],
+	"Thinks briefly": [
+		"短く思考"
+	],
+	"Thinks longest, slowest": [
+		"最も長く思考、最も低速"
+	],
+	"This API key is blocked or disabled. Check it in the xAI Console.": [
+		"この API キーはブロックされているか、無効になっています。xAI Console で確認してください。"
+	],
 	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
 		"この GitHub アカウントには Copilot プランがありません。github.com/features/copilot でプランを選択してください。"
 	],
-	"This ZIP could not be read. Check that it is a valid zip file.": [
-		"この ZIP を読み取れませんでした。有効な zip ファイルであることを確認してください。"
+	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
+		"この Grok アカウントにはクレジットが残っていません。grok.com でクレジットを追加するか、SuperGrok を入手してください。"
 	],
-	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
-		"この ZIP は使用できません。最上位、または1つの親フォルダー内に有効な blueprint.json ファイルが含まれていることを確認して、もう一度お試しください。"
-	],
-	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
-		"このバックアップには、大文字と小文字の違いだけで名前が異なる SQL ファイルが含まれています: 「%1$s」と「%2$s」。ソースサイトで競合する名前を解消してから、新しいバックアップを作成してもう一度お試しください。"
-	],
-	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
-		"数分かかる場合があります。アップデートがインストールされると、WordPress Studio は自動的に再び開きます。"
-	],
-	"This email is gone.": [
-		"このメールはもう存在しません。"
-	],
-	"This file took too long to load. Please try again or choose another file.": [
-		"このファイルの読み込みに時間がかかりすぎました。もう一度お試しいただくか、別のファイルを選択してください。"
-	],
-	"This folder is already associated with another Studio site. Choose a different local folder.": [
-		"このフォルダーはすでに別の Studio サイトに関連付けられています。別のローカルフォルダーを選択してください。"
-	],
-	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
-		"このフォルダーはすでに別の Studio サイトに関連付けられています。別のサイト名またはローカルフォルダーを選択してください。"
+	"This destination cannot create a site from this panel yet.": [
+		"この公開先では、まだこのパネルからサイトを作成できません。"
 	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"これは Anthropic のキーです。代わりに Anthropic に追加してください。"
 	],
-	"This site and its preview both changed": [
-		"このサイトとそのプレビューの両方が変更されています"
+	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
+		"約 %1$s GB のストレージが必要ですが、プランの残り容量は %2$s GB です。不要になったサイトを削除してから、もう一度お試しください。"
 	],
-	"This site does not support pulling yet. Update Jetpack on the site to the latest version and try again.": [
-		"このサイトはまだプルに対応していません。サイトの Jetpack を最新バージョンに更新して、もう一度お試しください。"
+	"This preview site can’t be made live: it was bought, ended or deleted, or it shows changes to a live site.": [
+		"このプレビューサイトはライブサイトにできません。購入済み、終了済み、削除済みであるか、ライブサイトへの変更を表示するプレビューです。"
 	],
-	"This site has changes its preview doesn't": [
-		"このサイトにはプレビューにない変更があります"
+	"This provider doesn’t make previews.": [
+		"このプロバイダーではプレビューを作成できません。"
+	],
+	"This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.": [
+		"ローカルサイトの選択した部分が %s の内容で置き換えられます。その部分に加えたローカルの変更は失われます。"
+	],
+	"This replaces your local site with the preview. Any local changes will be lost.": [
+		"ローカルサイトがプレビューで置き換えられます。ローカルの変更はすべて失われます。"
 	],
 	"This site is no longer available in WordPress Studio.": [
 		"このサイトは WordPress Studio で利用できなくなりました。"
 	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"このサイトはまだ起動できません。%s プルを完了するには `studio pull` を再実行し、サイトを削除するには `studio delete` を実行してください。"
+	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
+		"このサイトには、WordPress Studio へのプルに対応したホスティングプランが必要です。"
 	],
-	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
-		"このサイトは %d GB を超えているため、WordPress.com への公開に失敗する可能性があります。代わりに、公開するファイルの選択を減らしてください。"
-	],
-	"This site isn't one of your WordPress.com or Pressable sites.": [
-		"このサイトはお使いの WordPress.com または Pressable のサイトではありません。"
-	],
-	"This website has been deleted. Choose another website.": [
-		"このサイトは削除されています。別のサイトを選択してください。"
-	],
-	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
-		"このサイトには、WordPress Studio からの公開に対応したホスティングプランが必要です。"
+	"This xAI account has no credits left. Add credits in the xAI Console.": [
+		"この xAI アカウントにはクレジットが残っていません。xAI Console でクレジットを追加してください。"
 	],
 	"Tips reset.": [
 		"ヒントをリセットしました。"
@@ -1532,14 +1487,11 @@
 	"Token is required": [
 		"トークンは必須です"
 	],
-	"Try downloading the update again.": [
-		"アップデートをもう一度ダウンロードしてください。"
+	"Try again to see where this WordPress is already connected.": [
+		"この WordPress がすでにどこに連携されているかを確認するには、もう一度お試しください。"
 	],
-	"Try starting the chat again, or open your site.": [
-		"チャットをもう一度開始するか、サイトを開いてください。"
-	],
-	"URL the static site will be hosted at. Links are root-relative when omitted.": [
-		"静的サイトをホストする URL。省略した場合、リンクはルート相対パスになります。"
+	"Twice the CPU for faster builds": [
+		"2 倍の CPU でより高速なビルド"
 	],
 	"Unable to open this folder.": [
 		"このフォルダーを開けません。"
@@ -1547,20 +1499,35 @@
 	"Unable to open this source.": [
 		"このソースを開けません。"
 	],
-	"Unexpected response from server while checking backup status": [
-		"バックアップ状態の確認中にサーバーから予期しない応答がありました"
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"不明なレベル %1$s です。次のいずれかを選択してください: %2$s。"
 	],
-	"Unknown provider %1$s. Choose one of: %2$s.": [
-		"不明なプロバイダー %1$s です。次のいずれかを選択してください: %2$s。"
+	"Unlimited sites, 5 running at once": [
+		"サイト数無制限、同時実行は 5 サイトまで"
 	],
 	"Unsupported backup file": [
 		"サポートされていないバックアップファイル"
 	],
+	"Unsupported visibility setting.": [
+		"サポートされていない公開設定です。"
+	],
+	"Up to 10 sites, 2 running at once": [
+		"最大 10 サイト、同時実行は 2 サイトまで"
+	],
 	"Update %s": [
 		"%sを更新"
 	],
+	"Update WordPress Studio": [
+		"WordPress Studio を更新"
+	],
+	"Update WordPress Studio.": [
+		"WordPress Studio を更新してください。"
+	],
 	"Update all plugins": [
 		"すべてのプラグインを更新"
+	],
+	"Update local site from %s?": [
+		"%s からローカルサイトを更新しますか ?"
 	],
 	"Update plugin": [
 		"プラグインを更新"
@@ -1571,14 +1538,23 @@
 	"Update site title": [
 		"サイトのタイトルを更新"
 	],
-	"Update todo list": [
-		"ToDo リストを更新"
+	"Update the Studio CLI with `%s`.": [
+		"`%s` で Studio CLI を更新してください。"
 	],
 	"Update user": [
 		"ユーザーを更新"
 	],
-	"Uploading files…": [
-		"ファイルをアップロードしています…"
+	"Update…": [
+		"更新…"
+	],
+	"Updating %s will replace any edits made on the preview with your local copy.": [
+		"%s を更新すると、プレビューで行われた編集はすべてローカルのコピーで置き換えられます。"
+	],
+	"Updating your workspace…": [
+		"ワークスペースを更新しています…"
+	],
+	"Uploads": [
+		"アップロード"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"使用料金は Anthropic アカウントを通じて請求されます。"
@@ -1592,14 +1568,11 @@
 	"Usage is billed through your OpenAI account.": [
 		"使用料金は OpenAI アカウントを通じて請求されます。"
 	],
-	"Use /connect %1$s to connect %2$s again.": [
-		"%2$s を再度連携するには /connect %1$s を使用してください。"
+	"Usage is billed through your xAI account.": [
+		"使用料金は xAI アカウントを通じて請求されます。"
 	],
-	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
-		"Alt+Shift+左矢印キーまたは右矢印キーでこのタブを移動します。"
-	],
-	"Use Blueprint": [
-		"ブループリントを使用"
+	"Usage is paid with your OpenRouter credits.": [
+		"使用料金は OpenRouter のクレジットで支払われます。"
 	],
 	"Use Gemini with a Gemini API key.": [
 		"Gemini API キーで Gemini を使用します。"
@@ -1607,17 +1580,14 @@
 	"Use Muse models with your Meta API key.": [
 		"Meta API キーで Muse モデルを使用します。"
 	],
-	"Use WordPress Studio with your agents": [
-		"エージェントで WordPress Studio を使用"
-	],
 	"Use an Anthropic API key or a Claude subscription token.": [
 		"Anthropic API キーまたは Claude サブスクリプショントークンを使用します。"
 	],
-	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
-		"サポートされているサイトの HTTPS バックアップリンクで、1 GB 未満の zip または tar.gz ファイルを使用してください。接続を確認して、もう一度お試しください。"
+	"Use models from many labs with your OpenRouter credits.": [
+		"OpenRouter のクレジットで、さまざまな開発元のモデルを使用します。"
 	],
-	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
-		"お好みの AI エージェントを使用して、サイトの作成、変更、作業内容の確認を行えます。WordPress Studio プラグインをインストールすると、エージェントがローカルサイトにアクセスできるようになります。"
+	"Use the models a server you run serves, such as on this computer.": [
+		"このコンピューター上など、自分で実行しているサーバーが提供するモデルを使用します。"
 	],
 	"Using ChatGPT plan": [
 		"ChatGPT プランを使用中"
@@ -1628,83 +1598,80 @@
 	"Using Copilot plan": [
 		"Copilot プランを使用中"
 	],
-	"Validate blocks": [
-		"ブロックを検証"
+	"Using Grok plan": [
+		"Grok プランを使用中"
 	],
 	"View Blueprint": [
 		"ブループリントを表示"
 	],
+	"View backups": [
+		"バックアップを表示"
+	],
+	"View versions": [
+		"バージョンを表示"
+	],
+	"Visibility could not be confirmed. Check access on Spacefast.": [
+		"公開設定を確認できませんでした。Spacefast でアクセス権を確認してください。"
+	],
+	"Visibility settings are only available for WordPress.com sites.": [
+		"公開設定は WordPress.com サイトでのみ利用できます。"
+	],
 	"Visit previews": [
 		"プレビューを表示"
+	],
+	"Visitors see a coming soon page": [
+		"訪問者には「近日公開」ページが表示されます"
 	],
 	"Visual Annotations": [
 		"ビジュアル注釈"
 	],
+	"WP admin": [
+		"WP 管理画面"
+	],
 	"Waiting for %s": [
 		"%s 待機中"
 	],
-	"Waiting for approval…": [
-		"承認を待っています…"
-	],
-	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
-		"ブラウザーを待機しています。ブラウザーがこのコンピューターに接続できない場合は、最後に表示されたアドレスを貼り付けてください:"
+	"What to replace": [
+		"置き換える対象"
 	],
 	"What would you like to open?": [
 		"何を開きますか ?"
 	],
-	"Where do you want to publish?": [
-		"どこに公開しますか ?"
+	"Where your server listens, as it prints it when it starts.": [
+		"サーバーが待ち受けるアドレス (サーバーの起動時に表示されるもの)。"
+	],
+	"Who can view": [
+		"閲覧できるユーザー"
 	],
 	"WordPress Studio CLI for terminal": [
 		"ターミナル用 WordPress Studio CLI"
 	],
-	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
-		"同期が完了すると WordPress Studio を終了できます。今すぐ終了すると同期が中断され、サイトが不完全な状態になる可能性があります。"
-	],
 	"WordPress Studio could not download this backup.": [
 		"WordPress Studio はこのバックアップをダウンロードできませんでした。"
 	],
-	"WordPress Studio could not open the email folder.": [
-		"WordPress Studio はメールフォルダーを開けませんでした。"
+	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"WordPress Studio は %s の設定を読み込めませんでした。WordPress Studio を再起動して、もう一度お試しください。問題が解決しない場合は、以下の詳細をサポートにご連絡ください。"
 	],
-	"WordPress Studio could not open the folder. Please try again.": [
-		"WordPress Studio はフォルダーを開けませんでした。もう一度お試しください。"
+	"WordPress Studio is missing some of its files": [
+		"WordPress Studio の一部のファイルが見つかりません"
 	],
-	"WordPress Studio could not open the site.": [
-		"WordPress Studio はサイトを開けませんでした。"
-	],
-	"WordPress Studio is finishing an update": [
-		"WordPress Studio はアップデートを完了しています"
+	"WordPress Studio is serving at:": [
+		"WordPress Studio の提供先:"
 	],
 	"WordPress Studio team": [
 		"WordPress Studio チーム"
 	],
-	"WordPress Studio will create a local copy of this site in an empty folder.": [
-		"WordPress Studio は、空のフォルダーにこのサイトのローカルコピーを作成します。"
-	],
-	"WordPress Studio will create a site from this blueprint in an empty folder.": [
-		"WordPress Studio は、このブループリントから空のフォルダーにサイトを作成します。"
-	],
-	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
-		"WordPress Studio は、空のフォルダーにサイトを作成し、この WordPress エクスポートをインポートします。"
-	],
-	"WordPress Studio will restore this backup into an empty folder.": [
-		"WordPress Studio は、このバックアップを空のフォルダーに復元します。"
-	],
-	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
-		"WordPress Studio はこの WordPress サイトを現在の場所のまま使用します。ファイルは移動されません。"
-	],
 	"WordPress export": [
 		"WordPress エクスポート"
+	],
+	"WordPress set up": [
+		"WordPress をセットアップしました"
 	],
 	"WordPress.com API": [
 		"WordPress.com API"
 	],
-	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
-		"WordPress.com はマルチサイトに対応していません。このネットワークを公開すると問題が発生する可能性があります。"
-	],
-	"WordPress.com hosting": [
-		"WordPress.com ホスティング"
+	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
+		"WordPress.com で公開設定の変更がまだ確認されていません。もう一度お試しください。"
 	],
 	"Worked for %s": [
 		"%s 作業しました"
@@ -1715,17 +1682,8 @@
 	"Workspace navigation": [
 		"ワークスペースのナビゲーション"
 	],
-	"Write": [
-		"書き込み"
-	],
-	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
-		"画像は最大 %d 枚まで添付できます。別の領域をキャプチャする前に、注釈を送信または削除してください。"
-	],
-	"You can close this tab and return to WordPress Studio.": [
-		"このタブを閉じて WordPress Studio に戻ってください。"
-	],
-	"You need administrator access to publish or pull changes.": [
-		"変更を公開またはプルするには管理者権限が必要です。"
+	"Yearly, save 20%": [
+		"年払い (20% お得)"
 	],
 	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
 		"ChatGPT プランの使用量の上限に達しました。chatgpt.com/settings/usage で使用量を管理してください。"
@@ -1733,11 +1691,8 @@
 	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
 		"Copilot プランの使用量の上限に達しました。github.com/settings/copilot で使用量を管理してください。"
 	],
-	"You stopped after %s": [
-		"%s 後に停止しました"
-	],
-	"You're not logged in to WordPress.com. Log in now?": [
-		"WordPress.com にログインしていません。今すぐログインしますか ?"
+	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
+		"Grok プランの使用量の上限に達しました。grok.com で使用量を確認してください。"
 	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"ご利用の ChatGPT プランは WordPress Studio では使用できません。"
@@ -1748,43 +1703,79 @@
 	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
 		"ご利用の Copilot プランにはこのモデルが含まれていません。別のモデルを選択するか、github.com/settings/copilot で有効にしてください。"
 	],
+	"Your Grok or X plan can’t be used in WordPress Studio.": [
+		"お使いの Grok または X のプランは WordPress Studio では使用できません。"
+	],
+	"Your Grok sign-in no longer works. Connect xAI again in Settings.": [
+		"Grok のログインが無効になりました。設定で xAI を再度連携してください。"
+	],
+	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
+		"OpenRouter のクレジットを使い切ったか、このキーのクレジット上限に達しました。openrouter.ai でクレジットを追加してください。"
+	],
 	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
 		"Spacefast のログインが無効になりました。Spacefast に再度接続してください。"
 	],
-	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
-		"プレビューが WordPress.com に移動したため、リンクが変更されました。新しいリンク: %s"
+	"Your Studio, in the cloud.": [
+		"あなたの Studio を、クラウドで。"
 	],
-	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
-		"プレビュー「%s」の最終更新以降にサイトが変更されています。公開すると、そのプレビューに表示されていない変更も含め、現在のローカルサイトが送信されます。"
+	"Your WordPress exceeds the %s GB publishing limit.": [
+		"WordPress が公開の上限である %s GB を超えています。"
+	],
+	"Your WordPress is public": [
+		"WordPress は一般公開されています"
+	],
+	"Your local server refused the request: %s.": [
+		"ローカルサーバーがリクエストを拒否しました: %s。"
+	],
+	"Your plan allows %d site. Delete a site to create a new one.": [
+		"ご利用のプランで作成できるサイトは %d 件までです。新しいサイトを作成するには、サイトを削除してください。"
+	],
+	"Your plan has ended.": [
+		"プランが終了しました。"
+	],
+	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
+		"選択したファイルを利用できません。続行するには、バックアップの確認を再試行するか、別のオプションを選択してください。"
+	],
+	"Your server’s setting": [
+		"サーバーの設定"
+	],
+	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
+		"設定は新しいバージョンの Studio CLI で保存されています。引き続き使用するには、WordPress Studio を更新してください。"
+	],
+	"Your site is ready to publish": [
+		"サイトを公開する準備ができました"
 	],
 	"Your site was created, but the AI chat could not start.": [
 		"サイトは作成されましたが、AI チャットを開始できませんでした。"
 	],
-	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
-		"サイトはまだ %s に記載されています。WordPress Studio を再起動してもう一度お試しください。問題が解決しない場合は、以下の詳細を添えてサポートにお問い合わせください。"
+	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
+		"専用マシン上のサイトと Studio Code を、どのブラウザーからでも利用できます。WordPress.com アカウントでログインして、ワークスペースを開いてください。"
+	],
+	"Your sites are kept until %s. Renew to pick up where you left off, or choose a plan below.": [
+		"サイトは %s まで保持されます。プランを更新して中断したところから再開するか、以下からプランを選択してください。"
+	],
+	"Your team and people you give access to": [
+		"チームとアクセス権を付与したユーザー"
+	],
+	"Your team only allows restricted sites.": [
+		"このチームでは、アクセス制限付きのサイトのみ許可されています。"
 	],
 	"Your unsaved changes will be lost.": [
 		"保存されていない変更は失われます。"
 	],
-	"Your website will be replaced with this site as it is now.": [
-		"ウェブサイトは、現在のこのサイトの状態に置き換えられます。"
+	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
+		"ワークスペースは Studio Cloud プランで動作します。購入手続きは WordPress.com で行われ、お支払いから約 1 分でワークスペースの準備が整います。"
 	],
-	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
-		"base-url はパスを含まない http(s) の URL である必要があります (例: https://example.com)"
+	"database": [
+		"データベース"
 	],
 	"inline content": [
 		"インラインコンテンツ"
 	],
-	"media item": [
-		"メディア項目"
-	],
-	"media items": [
-		"メディア項目"
+	"other files": [
+		"その他のファイル"
 	],
 	"page": [
-		"ページ"
-	],
-	"pages": [
 		"ページ"
 	],
 	"post": [
@@ -1796,8 +1787,23 @@
 	"product": [
 		"商品"
 	],
-	"products": [
-		"商品"
+	"themes": [
+		"テーマ"
+	],
+	"uploads": [
+		"アップロード"
+	],
+	"xAI API key": [
+		"xAI API キー"
+	],
+	"xAI refused the API key. Check its permissions and credits in the xAI Console.": [
+		"xAI が API キーを拒否しました。xAI Console でキーの権限とクレジットを確認してください。"
+	],
+	"xAI rejected the API key. Connect xAI again in Settings.": [
+		"xAI が API キーを拒否しました。設定で xAI を再度連携してください。"
+	],
+	"xAI rejected this API key. Check the key and try again.": [
+		"xAI がこの API キーを拒否しました。キーを確認して、もう一度お試しください。"
 	],
 	"· %d%%": [
 		"· %d%%"

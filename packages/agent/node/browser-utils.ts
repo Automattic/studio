@@ -38,23 +38,27 @@ export function buildChromiumLaunchAttempts(
 	chromium: Pick< Chromium, 'executablePath' >,
 	overrides: ChromiumLaunchOptions = {}
 ): ChromiumLaunchOptions[] {
-	const attempts: ChromiumLaunchOptions[] = [];
 	const executablePath = chromium.executablePath();
 	const base: ChromiumLaunchOptions = {
 		args: DEFAULT_BROWSER_ARGS,
 		...overrides,
 		timeout: BROWSER_LAUNCH_TIMEOUT_MS,
 	};
+	// `executablePath()` names the full Chromium build, which a window needs. Left to
+	// itself, Playwright runs a headless launch on its headless shell: the same engine
+	// in fewer processes, holding far less memory.
+	const playwrightDefault: ChromiumLaunchOptions = { ...base };
+	const fullBrowsers: ChromiumLaunchOptions[] =
+		executablePath && existsSync( executablePath )
+			? [ { ...base, executablePath } ]
+			: [
+					{ ...base, channel: 'chrome' },
+					{ ...base, channel: 'msedge' },
+			  ];
 
-	if ( executablePath && existsSync( executablePath ) ) {
-		attempts.push( { ...base, executablePath } );
-	} else {
-		attempts.push( { ...base, channel: 'chrome' }, { ...base, channel: 'msedge' } );
-	}
-
-	attempts.push( { ...base } );
-
-	return attempts;
+	return base.headless === false
+		? [ ...fullBrowsers, playwrightDefault ]
+		: [ playwrightDefault, ...fullBrowsers ];
 }
 
 async function installPlaywrightChromium(): Promise< void > {

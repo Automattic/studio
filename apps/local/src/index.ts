@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
+import { statfs } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -14,24 +15,21 @@ import { resolveLocalMediaFile } from '@studio/agent/node/local-media';
 import { createAgentRunManager } from '@studio/agent/node/run-manager';
 import {
 	createHydratedAiSession,
+	deleteHydratedAiSession,
 	listHydratedAiSessions,
 	loadHydratedAiSession,
 	reconcileSessionEnvironment,
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/agent/node/sessions/manage';
-import { deleteAiSessionPlacement } from '@studio/agent/node/sessions/placement';
-import {
-	appendModelChangeEntry,
-	appendStudioEntry,
-	deleteAiSession,
-} from '@studio/agent/node/sessions/store';
+import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import {
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { THINKING_SETTINGS } from '@studio/agent/protocol/thinking';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
@@ -58,6 +56,7 @@ import {
 	setAiProvider,
 	setImageProvider,
 } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import {
 	onboardingAnalyticsSchema,
 	authAnalyticsSchema,
@@ -105,7 +104,7 @@ import {
 import {
 	forgetRemoteSite,
 	getRemoteSites,
-	rememberRemoteSite,
+	connectPublishingSite,
 } from '@studio/common/lib/remote-sites';
 import {
 	ROOT_CA_CERT_PATH,
@@ -113,7 +112,6 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { deleteSharedSession, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	getSiteAgentFileFolder,
 	getSiteAgentFilePaths,
@@ -155,14 +153,14 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
+import { setSiteFrontendAdminBar, updateSiteMetadata } from '@studio/common/sites/metadata';
+import { getSitePublishStatus } from '@studio/common/sites/publish-status';
 import {
-	listSitesWithMetadata,
-	setSiteFrontendAdminBar,
-	updateSiteMetadata,
-	type SiteMetadata,
-} from '@studio/common/sites/metadata';
-import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
-import {
+	getSiteCreationVisibility,
+	getSiteVisibility,
+	setSiteVisibility,
+	resolveRemoteSite,
+	runSitesAction,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -186,6 +184,7 @@ import {
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
 import { createSyncRunner } from '@studio/common/sites/sync';
+import { siteVisibilitySchema } from '@studio/common/types/site-visibility';
 import {
 	AI_PROVIDER_IDS,
 	ConnectError,
@@ -202,6 +201,7 @@ import { getSignInUrl } from '@studio/providers/wpcom';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
+import { createKeepAlive } from './keep-alive';
 import {
 	isEditor,
 	isTerminal,
@@ -224,7 +224,7 @@ import type {
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { UserPreferencesContext } from '@studio/common/lib/user-settings/user-preferences';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
-import type { Request, Response } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 
 const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 
@@ -267,6 +267,18 @@ export interface LocalServerOptions {
 	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
 	// `WordPressStudio/<version>`, sent with feedback reports. Injected by `studio ui`.
 	userAgent?: string;
+	// The Studio version, reported at `/api/version` so a client can adapt to an older server.
+	version?: string;
+	// Origins of a UI served from elsewhere (`studio serve`), allowed to call the API with
+	// credentials, on top of the `studio ui` ones.
+	allowedOrigins?: string[];
+	// Run before every route, for a host that authenticates requests or answers some itself.
+	middleware?: RequestHandler[];
+	// Limits the host set on sites and their storage (`studio serve` on a Studio Cloud plan),
+	// reported with the current counts at `/api/site-limits`.
+	siteLimits?: { sites?: number; runningSites?: number; storageGb?: number };
+	// Requested while an agent run is in progress (see `createKeepAlive`).
+	keepAliveUrl?: string;
 }
 
 export interface LocalServer {
@@ -305,9 +317,8 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 })();
 </script></body></html>`;
 
-// The agentic UI's SiteDetails shape. The CLI's `site list` already reports
-// nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
-function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) {
+// The agentic UI's SiteDetails shape, from what the CLI's `site list` reports.
+function toSiteDetails( site: SiteListItem ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -331,7 +342,8 @@ function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) 
 		operation: site.operation,
 		emailPath: site.emailPath,
 		phpMyAdminSupported: site.phpMyAdminSupported,
-		sortOrder,
+		sortOrder: site.sortOrder,
+		autoStart: site.autoStart,
 		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
 }
@@ -489,6 +501,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		// Agent-run events on `agent`, session-placement updates on `placement`.
 		emit: ( output ) => sseSend( { channel: output.kind, payload: output.event } ),
 	} );
+	const keepAlive = createKeepAlive( {
+		url: options.keepAliveUrl,
+		isBusy: () => runManager.listActiveAgentRuns().length > 0,
+	} );
 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
 	// browser through `_events`, listening on the socket kept for `studio ui`.
@@ -521,6 +537,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// real-path routes (`/sessions/:id` is both an app URL and an API resource).
 	const api = express.Router();
 
+	for ( const handler of options.middleware ?? [] ) {
+		app.use( handler );
+	}
+
 	// A website can point its own name at 127.0.0.1 (DNS rebinding) and then call
 	// this unauthenticated API same-origin, so on loopback only requests
 	// addressed to a local name get through.
@@ -549,18 +569,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		// The studio.local custom-domain setup.
 		'https://studio.local',
 	] );
+	// A UI served elsewhere (`studio serve`) also sends its cookies, so only real web origins
+	// qualify, never `null` or a wildcard.
+	const credentialedOrigins = new Set(
+		( options.allowedOrigins ?? [] ).filter( ( origin ) => /^https?:\/\/[^*]+$/.test( origin ) )
+	);
 	app.use( ( req: Request, res: Response, next ) => {
 		const origin = req.headers.origin;
 		if ( origin ) {
-			if ( ! allowedOrigins.has( origin ) ) {
+			// The header carries the allowlist's own entry rather than echoing the request's.
+			const allowed = [ ...allowedOrigins, ...credentialedOrigins ].find(
+				( candidate ) => candidate === origin
+			);
+			if ( ! allowed ) {
 				res.status( 403 ).json( { error: 'Origin not allowed' } );
 				return;
 			}
-			res.setHeader( 'Access-Control-Allow-Origin', origin );
+			res.setHeader( 'Access-Control-Allow-Origin', allowed );
 			res.setHeader( 'Vary', 'Origin' );
+			if ( credentialedOrigins.has( allowed ) ) {
+				res.setHeader( 'Access-Control-Allow-Credentials', 'true' );
+			}
 		}
-		res.setHeader( 'Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS' );
-		res.setHeader( 'Access-Control-Allow-Headers', 'Content-Type' );
+		res.setHeader( 'Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS' );
+		res.setHeader( 'Access-Control-Allow-Headers', 'Content-Type, Authorization' );
 		if ( req.method === 'OPTIONS' ) {
 			res.sendStatus( 204 );
 			return;
@@ -590,8 +622,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} );
 	} );
 
+	// `busy` lets a host that suspends idle servers (Studio Cloud's gateway) wait out an agent run.
 	api.get( '/health', ( _req: Request, res: Response ) => {
-		res.json( { status: 'ok' } );
+		res.json( { status: 'ok', busy: runManager.listActiveAgentRuns().length > 0 } );
+	} );
+
+	api.get( '/version', ( _req: Request, res: Response ) => {
+		res.json( { version: options.version ?? null } );
 	} );
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
@@ -622,7 +659,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
-	// Read straight from the shared auth token (`~/.studio/shared.json`); the
+	// Read straight from the shared sign-in (`~/.studio/config.json`); the
 	// stored token carries the user's id/email/displayName, so no API call.
 	api.get(
 		'/auth/user',
@@ -770,7 +807,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- AI settings — provider + Anthropic API key in shared.json ------------
+	// --- AI settings — the selected provider and each provider's config ------
 	api.get(
 		'/ai-settings',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -831,7 +868,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( ! provider ) {
 				return;
 			}
-			if ( typeof method !== 'string' || ! getProviderServices( provider ).account.start ) {
+			if ( typeof method !== 'string' || ! getProviderServices( provider ).account?.start ) {
 				res.status( 400 ).json( { error: `${ provider } does not sign in on its site` } );
 				return;
 			}
@@ -920,8 +957,37 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			const sites = await listSitesWithMetadata( execute );
-			res.json( sites.map( ( site ) => toSiteDetails( site, site.sortOrder ) ) );
+			const sites = await listSites( execute );
+			res.json( sites.map( toSiteDetails ) );
+		} )
+	);
+
+	// The host's limits on sites with the current counts, or null when it sets none. Storage is in
+	// bytes, measured on the disk that holds the sites.
+	api.get(
+		'/site-limits',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			const limits = options.siteLimits;
+			if ( ! limits?.sites && ! limits?.runningSites && ! limits?.storageGb ) {
+				res.json( null );
+				return;
+			}
+			const sites = await listSites( execute );
+			const running = sites.filter( ( site ) => site.running ).length;
+			const disk = limits.storageGb ? await statfs( options.sitesRoot ) : undefined;
+			res.json( {
+				sites: limits.sites ? { used: sites.length, limit: limits.sites } : undefined,
+				runningSites: limits.runningSites
+					? { used: running, limit: limits.runningSites }
+					: undefined,
+				storage:
+					disk && limits.storageGb
+						? {
+								used: ( disk.blocks - disk.bfree ) * disk.bsize,
+								limit: limits.storageGb * 1024 ** 3,
+						  }
+						: undefined,
+			} );
 		} )
 	);
 
@@ -1137,7 +1203,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await readSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), () =>
+				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
 					readGlobalStyles( execute, sitePath )
 				)
 			);
@@ -1157,9 +1223,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid design fixes' } );
 				return;
 			}
-			res.json(
-				await fixSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), fixes.data )
-			);
+			res.json( await fixSiteDesign( sitePath, activeThemeSlug( sitePath ), fixes.data ) );
 		} )
 	);
 
@@ -1408,10 +1472,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					emitter.on( 'error', ( { error } ) => reject( error ) );
 				} );
 			}
-			const refreshed = ( await listSitesWithMetadata( execute ) ).find(
-				( s ) => s.id === req.params.id
-			);
-			res.json( toSiteDetails( refreshed ?? current, refreshed?.sortOrder ) );
+			const refreshed = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			res.json( toSiteDetails( refreshed ?? current ) );
 		} )
 	);
 
@@ -1688,7 +1750,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- Global preferences — the same app.json/shared.json the desktop uses ---
+	// --- Global preferences — the same config file the desktop uses ----------
 	api.get(
 		'/user-preferences',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -1940,7 +2002,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// --- Remote sites: connections to sites on a provider ---------------------
 	// All backed by the same @studio/common code the desktop uses. Reads the
-	// providers' configs from shared.json (WordPress.com: `studio auth login`).
+	// providers' configs from the config file (WordPress.com: `studio auth login`).
 	// WordPress.com site ids are numbers; other providers' are strings.
 	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): never {
 		const { remoteSiteId } = req.params;
@@ -1955,6 +2017,38 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		return provider;
 	}
 
+	api.get(
+		'/remote-sites/:provider/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) return;
+			res.json(
+				await getSiteVisibility(
+					getProviderServices( provider ),
+					remoteSiteIdParam( provider, req )
+				)
+			);
+		} )
+	);
+	api.post(
+		'/remote-sites/:provider/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) return;
+			const visibility = siteVisibilitySchema.safeParse( req.body?.visibility );
+			if ( ! visibility.success ) {
+				res.status( 400 ).json( { error: 'Invalid visibility request.' } );
+				return;
+			}
+			res.json(
+				await setSiteVisibility(
+					getProviderServices( provider ),
+					remoteSiteIdParam( provider, req ),
+					visibility.data
+				)
+			);
+		} )
+	);
 	api.get(
 		'/remote-sites/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1981,8 +2075,40 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				await rememberRemoteSite( provider, req.params.id, req.body as never );
+				await connectPublishingSite( provider, req.params.id, req.body as never );
 				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	api.post(
+		'/remote-sites/:provider/actions/:action',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json(
+					await runSitesAction( getProviderServices( provider ), req.params.action, req.body )
+				);
+			}
+		} )
+	);
+
+	api.post(
+		'/remote-sites/:provider/resolve',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json( await resolveRemoteSite( getProviderServices( provider ), req.body ) );
+			}
+		} )
+	);
+
+	api.get(
+		'/remote-sites/:provider/creation-visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json( await getSiteCreationVisibility( getProviderServices( provider ) ) );
 			}
 		} )
 	);
@@ -1991,15 +2117,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sites/:id/remote-sites/:provider/new',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
-			const { name } = req.body as { name?: string };
 			if ( ! provider ) {
 				return;
 			}
-			if ( ! name ) {
-				res.status( 400 ).json( { error: 'name is required' } );
+			const input = z
+				.object( {
+					name: z.string().min( 1 ),
+					visibility: z.enum( [ 'public', 'private' ] ).optional(),
+					connect: z.boolean().optional(),
+				} )
+				.safeParse( req.body );
+			if ( ! input.success ) {
+				res.status( 400 ).json( { error: 'Invalid site creation request.' } );
 				return;
 			}
-			res.json( await createRemoteSite( getProviderServices( provider ), req.params.id, name ) );
+			const { name, visibility, connect } = input.data;
+			res.json(
+				await createRemoteSite(
+					getProviderServices( provider ),
+					req.params.id,
+					name,
+					visibility,
+					connect
+				)
+			);
 		} )
 	);
 
@@ -2084,6 +2225,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/snapshots/:hostname/status',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			res.json( await getPreviewStatus( execute, req.params.hostname ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/publish-status/:remoteSiteId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json(
+				await getSitePublishStatus(
+					execute,
+					req.params.id,
+					req.params.remoteSiteId,
+					normalizeProviderId( String( req.query.provider ?? 'wpcom' ), SITES_PROVIDER_IDS ) ??
+						'wpcom'
+				)
+			);
 		} )
 	);
 
@@ -2237,9 +2393,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.delete(
 		'/sessions/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const deleted = await deleteAiSession( sessionsRoot, req.params.id );
-			await deleteSharedSession( deleted.id );
-			await deleteAiSessionPlacement( deleted.id );
+			await deleteHydratedAiSession( sessionsRoot, req.params.id );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -2292,6 +2446,27 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	api.post(
+		'/sessions/:id/thinking',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { model, thinking } = req.body as { model?: string; thinking?: string };
+			if ( ! model || ! findAiModel( model ) ) {
+				res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
+				return;
+			}
+			const level = THINKING_SETTINGS.find( ( id ) => id === thinking );
+			if ( ! level ) {
+				res.status( 400 ).json( { error: `Unknown thinking level: ${ thinking }` } );
+				return;
+			}
+			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
+				model,
+				thinking: level,
+			} );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
 		'/sessions/:id/environment',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { environment } = req.body as { environment?: string };
@@ -2337,6 +2512,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				files,
 				visualAnnotations: validatedVisualAnnotations,
 			} );
+			keepAlive.wake();
 			void recordAnnotationSubmitted( {
 				annotationCount: validatedVisualAnnotations?.length ?? 0,
 				sessionsRoot,
@@ -2527,6 +2703,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		url,
 		port: listeningPort,
 		async close() {
+			keepAlive.stop();
 			cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {
 				watch.cancelled = true;

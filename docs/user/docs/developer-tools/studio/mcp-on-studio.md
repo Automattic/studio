@@ -1,6 +1,8 @@
 # MCP on WordPress Studio
 
-Agent instruction files tell agents how to work with a WordPress Studio site, but they do not give agents direct access to it. For that, WordPress Studio also exposes an MCP (Model Context Protocol) server that agents connect to in order to create, start, stop, and interact with your local WordPress sites.
+WordPress Studio exposes an MCP (Model Context Protocol) server. Agents connect to it to create, start, stop, and interact with your local WordPress sites.
+
+Agent instruction files tell agents how to work with a WordPress Studio site, but they do not give agents direct access to it. The MCP server does.
 
 ## [Install the WordPress Studio plugin](#install-the-wordpress-studio-plugin)
 
@@ -10,8 +12,8 @@ If you use Claude Code, Codex (in the ChatGPT app), Cursor, or Grok Build, insta
 
 The quickest way is from the app:
 
-1.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Agents** page.
-2.  Click **Install** next to **Claude Code**, **ChatGPT (Codex)**, **Cursor**, or **Grok Build**. Apps WordPress Studio doesn’t find on your computer show **Not installed**, and apps that have the plugin are marked **Installed**.
+1.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux). Select **Agents**. In WordPress Studio 2.2.0, this page is called **MCP**.
+2.  Next to **Claude Code**, **ChatGPT (Codex)**, **Cursor**, or **Grok Build**, click **Install** (**Connect** in 2.2.0). Apps WordPress Studio doesn’t find on your computer show **Not installed**, and apps that have the plugin are marked **Installed**.
 3.  Start a new session or chat in that app. For ChatGPT, restart the app.
 
 When a newer version of the plugin comes with a WordPress Studio update, the button shows **Update**.
@@ -44,7 +46,7 @@ If you use Codex in the ChatGPT app, restart the app afterwards.
 
 ## [Connect with manual MCP configuration](#connect-with-manual-mcp-configuration)
 
-As an alternative to the plugin, connect your agent with an MCP configuration. To connect an agent, open **Settings** in WordPress Studio (from the account menu at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **Agents** page. Under **Manual MCP setup**, WordPress Studio shows the command to install the WordPress Studio CLI and the JSON configuration to add; use **Copy install command** and **Copy MCP configuration** to copy them. Add it to your agent’s MCP settings:
+As an alternative to the plugin, connect your agent with an MCP configuration. To connect an agent, open **Settings** in WordPress Studio (from the account menu at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **Agents** page (**Settings → MCP** in WordPress Studio 2.2.0). Under **Manual MCP setup** (**Manual setup** in 2.2.0), WordPress Studio shows the command to install the WordPress Studio CLI and the JSON configuration to add; use **Copy install command** and **Copy MCP configuration** to copy them. Add it to your agent’s MCP settings:
 
 ```json
 {

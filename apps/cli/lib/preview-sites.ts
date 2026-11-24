@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { selectLiveSite } from '@studio/common/lib/live-preview-site';
+import { getQualifyingLiveSites, selectLiveSite } from '@studio/common/lib/live-preview-site';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { buildPreview, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { __ } from '@wordpress/i18n';
 import { toLoggerError, wpcomSites } from 'cli/lib/sync-api';
@@ -10,7 +10,7 @@ import type { SyncSite } from '@studio/common/types/sync';
 import type { PreviewOptions, PreviewSite, PushContent, PushStatus } from '@studio/providers';
 
 // Previews are WordPress.com's (`sites.previews`), which makes and rebuilds them from a push.
-// Studio keeps which local site each one was made from, in `cli.json`.
+// Studio keeps which local site each one was made from, in the config file.
 
 export const wpcomPreviews = wpcomSites.previews!;
 
@@ -53,9 +53,16 @@ export async function buildPreviewSite(
 /** The local site's live site that a preview shows changes to; see `selectLiveSite`. */
 export async function getLivePreviewSite(
 	localSiteId: string,
-	selection?: string
+	selection?: string,
+	existingPreview?: Snapshot
 ): Promise< SyncSite | undefined > {
-	return selectLiveSite( await getConnectedWpcomSitesForLocalSite( localSiteId ), selection );
+	const sites = await getRemoteSites( 'wpcom', localSiteId );
+	if ( selection === undefined && existingPreview ) {
+		return getQualifyingLiveSites( sites ).find(
+			( site ) => site.id === existingPreview.liveSiteId
+		);
+	}
+	return selectLiveSite( sites, selection );
 }
 
 /**

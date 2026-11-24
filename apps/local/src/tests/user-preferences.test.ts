@@ -1,6 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { CONFIG_VERSION } from '@studio/common/lib/config/schema';
+import { getConfigPath, readConfig } from '@studio/common/lib/config/store';
 import * as defaultBrowser from '@studio/common/lib/user-settings/default-browser';
 import { getMuPluginSettingsPath } from '@studio/common/lib/well-known-paths';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -12,15 +14,26 @@ import { startLocalServer, type LocalServer } from '../index';
 let server: LocalServer;
 let configDir: string;
 
-function writeAppConfig( config: unknown ): void {
-	writeFileSync( path.join( configDir, 'app.json' ), JSON.stringify( config ), 'utf-8' );
+function writeConfig( sections: Record< string, unknown > ): void {
+	writeFileSync( getConfigPath(), JSON.stringify( { version: CONFIG_VERSION, ...sections } ) );
 }
 
-// `{}` when absent: a rejected write leaves no app.json at all.
-function readAppConfigFile(): Record< string, unknown > {
-	const configPath = path.join( configDir, 'app.json' );
-	return existsSync( configPath ) ? JSON.parse( readFileSync( configPath, 'utf-8' ) ) : {};
+function writePreferences( preferences: Record< string, unknown > ): void {
+	writeConfig( { preferences } );
 }
+
+async function readPreferences(): Promise< Record< string, unknown > > {
+	return ( await readConfig() ).preferences;
+}
+
+const site = ( id: string, metadata: Record< string, unknown > = {} ) => ( {
+	id,
+	name: id,
+	path: path.join( configDir, id ),
+	port: 8881,
+	phpVersion: '8.3',
+	...metadata,
+} );
 
 async function getPreferences(): Promise< Record< string, unknown > > {
 	const response = await fetch( `${ server.url }/api/user-preferences` );
@@ -89,7 +102,7 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 		expect( ( await patchPreferences( { hideFrontendAdminBar: 'hide' } ) ).status ).toBe( 400 );
 	} );
 	it( 'reports what the desktop stored', async () => {
-		writeAppConfig( { preferredEditor: 'zed', preferredTerminal: 'iterm', colorScheme: 'dark' } );
+		writePreferences( { preferredEditor: 'zed', preferredTerminal: 'iterm', colorScheme: 'dark' } );
 
 		await expect( getPreferences() ).resolves.toMatchObject( {
 			editor: 'zed',
@@ -113,25 +126,27 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 		const response = await patchPreferences( { colorScheme: 'dark', terminal: 'iterm' } );
 
 		expect( response.status ).toBe( 204 );
-		expect( readAppConfigFile() ).toMatchObject( {
+		await expect( readPreferences() ).resolves.toMatchObject( {
 			colorScheme: 'dark',
 			preferredTerminal: 'iterm',
 		} );
 	} );
 
 	it( 'treats null as a clear, leaving unrelated state alone', async () => {
-		writeAppConfig( { sentryUserId: 'abc', preferredEditor: 'zed', quitSitesBehavior: 'stop' } );
+		writeConfig( {
+			install: { sentryUserId: 'abc' },
+			preferences: { preferredEditor: 'zed', quitSitesBehavior: 'stop', colorScheme: 'dark' },
+		} );
 
 		const response = await patchPreferences( { editor: null, quitSitesBehavior: null } );
 
 		expect( response.status ).toBe( 204 );
-		const config = readAppConfigFile();
-		expect( config ).not.toHaveProperty( 'preferredEditor' );
-		expect( config ).not.toHaveProperty( 'quitSitesBehavior' );
-		expect( config ).toMatchObject( { sentryUserId: 'abc' } );
+		const config = await readConfig();
+		expect( config.preferences ).toEqual( { colorScheme: 'dark' } );
+		expect( config.install ).toEqual( { sentryUserId: 'abc' } );
 	} );
 
-	it( 'routes locale and the analytics opt-out to shared.json', async () => {
+	it( 'stores locale and the analytics opt-out', async () => {
 		const response = await patchPreferences( { locale: 'fr', analyticsEnabled: false } );
 
 		expect( response.status ).toBe( 204 );
@@ -148,7 +163,7 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 		const response = await patchPreferences( body );
 
 		expect( response.status ).toBe( 400 );
-		expect( readAppConfigFile() ).toEqual( {} );
+		await expect( readPreferences() ).resolves.toEqual( {} );
 	} );
 } );
 
@@ -161,13 +176,9 @@ describe( 'PATCH /api/sites/:id/frontend-admin-bar', () => {
 		} );
 
 	it( 'sets and clears only the site override, preserving the default and other metadata', async () => {
-		writeFileSync(
-			path.join( configDir, 'cli.json' ),
-			JSON.stringify( { sites: [ { id: 'one', name: 'One', path: configDir } ] } )
-		);
-		writeAppConfig( {
-			hideFrontendAdminBar: true,
-			siteMetadata: { one: { sortOrder: 2, autoStart: true } },
+		writeConfig( {
+			preferences: { hideFrontendAdminBar: true },
+			sites: [ site( 'one', { sortOrder: 2, autoStart: true } ) ],
 		} );
 		expect( ( await patchAdminBar( 'one', false ) ).status ).toBe( 204 );
 		expect( JSON.parse( readFileSync( getMuPluginSettingsPath(), 'utf8' ) ) ).toEqual( {
@@ -175,23 +186,23 @@ describe( 'PATCH /api/sites/:id/frontend-admin-bar', () => {
 			sites: { one: false },
 		} );
 		expect( ( await patchAdminBar( 'one', null ) ).status ).toBe( 204 );
-		expect( readAppConfigFile().siteMetadata ).toEqual( {
-			one: { sortOrder: 2, autoStart: true },
-		} );
+		const [ stored ] = ( await readConfig() ).sites;
+		expect( stored ).toMatchObject( { sortOrder: 2, autoStart: true } );
+		expect( stored ).not.toHaveProperty( 'hideFrontendAdminBar' );
 	} );
 
 	it( 'rejects malformed preferences and unknown sites', async () => {
 		expect( ( await patchAdminBar( 'one', 'hide' ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'one', undefined ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'missing', true ) ).status ).toBe( 404 );
-		expect( readAppConfigFile() ).toEqual( {} );
+		await expect( readConfig() ).resolves.toMatchObject( { preferences: {}, sites: [] } );
 	} );
 } );
 
 describe( 'POST /api/sites/sort-order', () => {
 	it( 'stores the order without disturbing the desktop-only metadata', async () => {
-		writeAppConfig( {
-			siteMetadata: { 'site-1': { sortOrder: 9000, siteIconPath: '/tmp/icon.png' } },
+		writeConfig( {
+			sites: [ site( 'site-1', { sortOrder: 9000, autoStart: true } ), site( 'site-2' ) ],
 		} );
 
 		const response = await postSortOrder( {
@@ -202,19 +213,10 @@ describe( 'POST /api/sites/sort-order', () => {
 		} );
 
 		expect( response.status ).toBe( 204 );
-		expect( readAppConfigFile().siteMetadata ).toEqual( {
-			'site-1': { sortOrder: 1000, siteIconPath: '/tmp/icon.png' },
-			'site-2': { sortOrder: 2000 },
-		} );
-	} );
-
-	it( 'recovers from malformed site metadata instead of failing the write', async () => {
-		writeAppConfig( { siteMetadata: 'not-an-object' } );
-
-		const response = await postSortOrder( { updates: [ { siteId: 'site-1', sortOrder: 1000 } ] } );
-
-		expect( response.status ).toBe( 204 );
-		expect( readAppConfigFile().siteMetadata ).toEqual( { 'site-1': { sortOrder: 1000 } } );
+		expect( ( await readConfig() ).sites ).toMatchObject( [
+			{ id: 'site-1', sortOrder: 1000, autoStart: true },
+			{ id: 'site-2', sortOrder: 2000 },
+		] );
 	} );
 
 	it( 'rejects a malformed payload', async () => {
@@ -224,7 +226,7 @@ describe( 'POST /api/sites/sort-order', () => {
 
 describe( '/api/onboarding-hints', () => {
 	it( 'merges a patch into the progress the desktop stored', async () => {
-		writeAppConfig( { onboardingHints: { tourCompletedVersion: 1, migratedFromClassic: true } } );
+		writePreferences( { onboardingHints: { tourCompletedVersion: 1, migratedFromClassic: true } } );
 
 		const response = await fetch( `${ server.url }/api/onboarding-hints`, {
 			method: 'PATCH',
@@ -241,7 +243,7 @@ describe( '/api/onboarding-hints', () => {
 describe( 'GET /api/site-defaults/path', () => {
 	it( "proposes new sites under the desktop's default site directory", async () => {
 		const siteDirectory = path.join( configDir, 'Sites' );
-		writeAppConfig( { defaultSiteDirectory: siteDirectory } );
+		writePreferences( { defaultSiteDirectory: siteDirectory } );
 
 		const response = await fetch( `${ server.url }/api/site-defaults/path?name=My%20Site` );
 
@@ -258,7 +260,7 @@ describe( 'POST /api/site-defaults/folder', () => {
 		} );
 
 	it( 'says whether a typed folder in the site directory is empty or holds WordPress', async () => {
-		writeAppConfig( { defaultSiteDirectory: configDir } );
+		writePreferences( { defaultSiteDirectory: configDir } );
 		const wordPress = path.join( configDir, 'existing' );
 		mkdirSync( path.join( wordPress, 'wp-content' ), { recursive: true } );
 		mkdirSync( path.join( wordPress, 'wp-includes' ) );
@@ -286,7 +288,7 @@ describe( 'POST /api/site-defaults/folder', () => {
 describe( 'GET/PATCH /api/onboarding', () => {
 	it( 'shares the desktop completion flag and retains other settings', async () => {
 		expect( await ( await fetch( `${ server.url }/api/onboarding` ) ).json() ).toBe( false );
-		writeAppConfig( { colorScheme: 'dark', onboardingHints: { tourDismissedVersion: 2 } } );
+		writePreferences( { colorScheme: 'dark', onboardingHints: { tourDismissedVersion: 2 } } );
 		const response = await fetch( `${ server.url }/api/onboarding`, {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
@@ -294,7 +296,7 @@ describe( 'GET/PATCH /api/onboarding', () => {
 		} );
 		expect( response.status ).toBe( 204 );
 		expect( await ( await fetch( `${ server.url }/api/onboarding` ) ).json() ).toBe( true );
-		expect( readAppConfigFile() ).toMatchObject( {
+		await expect( readPreferences() ).resolves.toMatchObject( {
 			colorScheme: 'dark',
 			onboardingHints: { tourDismissedVersion: 2 },
 			onboardingCompleted: true,
@@ -310,7 +312,7 @@ describe( 'GET/PATCH /api/onboarding', () => {
 				body: JSON.stringify( body ),
 			} );
 			expect( response.status ).toBe( 400 );
-			expect( readAppConfigFile().onboardingCompleted ).toBeUndefined();
+			expect( ( await readPreferences() ).onboardingCompleted ).toBeUndefined();
 		}
 	);
 } );
@@ -319,7 +321,7 @@ it( 'shares the browser preference over HTTP and clears it back to the OS defaul
 	expect( ( await getPreferences() ).browser ).toBeNull();
 	expect( ( await patchPreferences( { browser: 'chrome' } ) ).status ).toBe( 204 );
 	expect( ( await getPreferences() ).browser ).toBe( 'chrome' );
-	expect( readAppConfigFile().preferredBrowser ).toBe( 'chrome' );
+	expect( ( await readPreferences() ).preferredBrowser ).toBe( 'chrome' );
 	expect( ( await patchPreferences( { browser: 'unknown' } ) ).status ).toBe( 400 );
 	expect( ( await patchPreferences( { browser: null } ) ).status ).toBe( 204 );
 	expect( ( await getPreferences() ).browser ).toBeNull();

@@ -1,16 +1,4 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
-import { __, sprintf } from '@wordpress/i18n';
-import { useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
-import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useDeleteSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
-import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
-import { AccountPrompt, previewSiteImage } from '@/features/account';
-import { CopyButton } from '@/features/chats';
-import { previewExpiry, RenamePreview } from '@/features/sharing';
-import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
-import { PencilIcon, TrashIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -22,7 +10,19 @@ import {
 	DialogTitle,
 	Empty,
 	Field,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { PencilIcon, TrashIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useRef, useState } from 'react';
+import { useConnector } from '@/data/core';
+import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useDeleteSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
+import { useUserLocale } from '@/data/queries/use-user-locale';
+import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { AccountPrompt, previewSiteImage } from '@/features/account';
+import { CopyButton } from '@/features/chats';
+import { previewExpiry, RenamePreview } from '@/features/sharing';
+import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 import { PreviewSitesUsage } from './usage-panel';

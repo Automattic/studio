@@ -8,7 +8,9 @@ import type { AiSessionSummary } from '@studio/agent/protocol/sessions/types';
 
 export async function readAiSessionSummaryFromEntries(
 	filePath: string,
-	fileEntries: Array< SessionEntry | PiSessionHeader >
+	fileEntries:
+		| Iterable< SessionEntry | PiSessionHeader >
+		| AsyncIterable< SessionEntry | PiSessionHeader >
 ): Promise< AiSessionSummary | undefined > {
 	return summarizeAiSessionEntries( filePath, fileEntries, async () =>
 		( await fs.stat( filePath ) ).mtime.toISOString()

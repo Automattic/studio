@@ -6,6 +6,8 @@ import type {
 	ProviderConfigs,
 	ProviderServices,
 	ProviderSites,
+	SiteCreationVisibility,
+	SiteVisibility,
 	SitesProviderId,
 } from '@studio/providers';
 
@@ -36,22 +38,65 @@ export async function listAccountSites< Id extends SitesProviderId >(
 	);
 }
 
+export async function getSiteCreationVisibility< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >
+): Promise< SiteCreationVisibility | null > {
+	const id = provider.id as Id;
+	const creationVisibility = sites( provider ).creationVisibility;
+	if ( ! creationVisibility ) {
+		return null;
+	}
+	return forgetRejectedConfig( id, async () =>
+		creationVisibility( await readProviderConfig( id ) )
+	);
+}
+
 // Creates a site on the provider and connects the local site to it.
 export async function createRemoteSite< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >,
 	localSiteId: string,
-	name: string
+	name: string,
+	visibility?: SiteCreationVisibility,
+	connect = true
 ): Promise< ProviderSites[ Id ] > {
+	if ( visibility !== undefined && visibility !== 'public' && visibility !== 'private' ) {
+		throw new Error( 'Invalid visibility for a new site.' );
+	}
 	const id = provider.id as Id;
 	const create = sites( provider ).create;
 	if ( ! create ) {
 		throw new Error( `Studio can't create ${ getProvider( provider.id ).label } sites.` );
 	}
 	const site = await forgetRejectedConfig( id, async () =>
-		create( await readProviderConfig( id ), { name } )
+		create( await readProviderConfig( id ), { name, visibility } )
 	);
-	await rememberRemoteSite( id, localSiteId, site );
+	if ( connect ) await rememberRemoteSite( id, localSiteId, site );
 	return site;
+}
+
+// The site the values of the provider's `connect` form describe, once the provider reached it.
+export async function resolveRemoteSite< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	input: Record< string, string >
+): Promise< ProviderSites[ Id ] > {
+	const resolve = sites( provider ).resolve;
+	if ( ! resolve ) {
+		throw new Error( `Studio can't connect ${ getProvider( provider.id ).label } sites by form.` );
+	}
+	return resolve( await readProviderConfig( provider.id as Id ), input );
+}
+
+// Runs an action the provider's connect form asks for, such as listing the user's SSH hosts.
+export async function runSitesAction< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	action: string,
+	input: Record< string, string >
+): Promise< unknown > {
+	const run = sites( provider ).action;
+	if ( ! run ) {
+		throw new Error( `${ getProvider( provider.id ).label } has no actions.` );
+	}
+	return run( await readProviderConfig( provider.id as Id ), action, input );
 }
 
 // What a selective pull needs: the latest backup, and the files in it.
@@ -84,4 +129,22 @@ export async function listRemoteBackupFiles< Id extends SitesProviderId >(
 		backupId,
 		path
 	);
+}
+
+export async function getSiteVisibility< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	id: ProviderSites[ Id ][ 'id' ]
+) {
+	const capability = sites( provider ).visibility;
+	if ( ! capability ) return null;
+	return capability.get( await readProviderConfig( provider.id as Id ), id );
+}
+export async function setSiteVisibility< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	id: ProviderSites[ Id ][ 'id' ],
+	value: SiteVisibility
+) {
+	const capability = sites( provider ).visibility;
+	if ( ! capability ) throw new Error( 'This provider does not support visibility settings.' );
+	return capability.set( await readProviderConfig( provider.id as Id ), id, value );
 }

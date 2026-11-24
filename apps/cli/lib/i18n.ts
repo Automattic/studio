@@ -1,16 +1,16 @@
+import { readConfig } from '@studio/common/lib/config/store';
 import {
 	SupportedLocale,
 	getLocaleData,
 	DEFAULT_LOCALE,
 	isSupportedLocale,
 } from '@studio/common/lib/locale';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { defaultI18n } from '@wordpress/i18n';
 
 async function getLocaleFromSharedConfig(): Promise< SupportedLocale | undefined > {
 	try {
-		const config = await readSharedConfig();
-		return isSupportedLocale( config.locale ) ? config.locale : undefined;
+		const { locale } = ( await readConfig() ).preferences;
+		return isSupportedLocale( locale ) ? locale : undefined;
 	} catch {
 		return undefined;
 	}

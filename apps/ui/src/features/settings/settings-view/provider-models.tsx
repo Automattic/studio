@@ -1,14 +1,4 @@
 import {
-	getAiModels,
-	getProvider,
-	type AiModelId,
-	type CatalogModel,
-	type ProviderId,
-} from '@studio/providers';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { useMemo, useRef, useState } from 'react';
-import { useProviderCatalog, useSelectProviderModels } from '@/data/queries/use-ai-settings';
-import {
 	Button,
 	Combobox,
 	ComboboxCollection,
@@ -18,7 +8,17 @@ import {
 	ComboboxItem,
 	ComboboxList,
 	ComboboxTrigger,
-} from '@/lib/ui';
+} from '@studio/ds';
+import {
+	getAiModels,
+	getProvider,
+	type AiModelId,
+	type CatalogModel,
+	type ProviderId,
+} from '@studio/providers';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { useMemo, useRef, useState } from 'react';
+import { useProviderCatalog, useSelectProviderModels } from '@/data/queries/use-ai-settings';
 import { SettingsRow } from './rows';
 import type { ProviderAccount } from '@studio/common/lib/ai-settings';
 
@@ -39,7 +39,7 @@ export function ProviderModels( {
 	const triggerRef = useRef< HTMLButtonElement >( null );
 	const offered = getAiModels( provider, account );
 	const ids = picking ?? offered.map( ( { id } ) => id );
-	const recommended = getProvider( provider ).ai?.models.map( ( { id } ) => id ) ?? [];
+	const recommended = catalog.data?.filter( ( model ) => model.recommended ) ?? [];
 
 	const pick = ( models: CatalogModel[] ) => {
 		const next = models.map( ( { id } ) => id );
@@ -110,14 +110,8 @@ export function ProviderModels( {
 					searchLabel={ __( 'Search models' ) }
 					empty={ catalog.isLoading ? __( 'Loading models…' ) : __( 'No models found.' ) }
 					footer={
-						ids.join() !== recommended.join() ? (
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={ () =>
-									pick( catalog.data?.filter( ( model ) => model.recommended ) ?? [] )
-								}
-							>
+						recommended.length > 0 && ids.join() !== recommended.map( ( { id } ) => id ).join() ? (
+							<Button variant="ghost" size="sm" onClick={ () => pick( recommended ) }>
 								{ __( 'Reset to recommended' ) }
 							</Button>
 						) : null

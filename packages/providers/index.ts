@@ -1,4 +1,5 @@
 export {
+	ACCOUNT_PROVIDER_IDS,
 	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
 	formatRemoteSite,
@@ -16,8 +17,10 @@ export {
 	getAiModels,
 	getDefaultAiModel,
 	servesAiModel,
+	THINKING_LEVELS,
 	type AiModelId,
+	type ThinkingLevel,
 } from './models';
-export { getConnectFields, getConnectMethod, type ConnectField } from './connection';
+export { getConnectFields, getConnectMethod, needsHost, type ConnectField } from './connection';
 export { ConnectError, NotConnectedError, RemoteSiteError } from './errors';
 export type * from './types';

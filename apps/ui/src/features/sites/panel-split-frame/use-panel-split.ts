@@ -1,3 +1,4 @@
+import { usePointerDrag } from '@studio/ds/hooks';
 import { isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -7,14 +8,16 @@ import {
 	PANEL_CONTENT_WIDTH_STORAGE_KEY,
 	PANEL_CONTENT_DEFAULT_WIDTH,
 	PANEL_MIN_WIDTH,
+	PANEL_COLLAPSE_OVERSHOOT,
 	storeResizablePanelWidth,
 } from '@/data/resizable-panels';
-import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent, MouseEventHandler, RefObject } from 'react';
 
 interface UsePanelSplitOptions {
 	siteId?: string;
 	showPanel: boolean;
+	onPanelClose?: () => void;
+	onChatClose?: () => void;
 }
 
 interface PanelSplitHandleProps {
@@ -40,7 +43,12 @@ interface UsePanelSplitResult {
 // CSS never re-clamps. Keeps two state atoms — the user's preferred content
 // width (persisted) and the measured container width — and derives everything
 // else.
-export function usePanelSplit( { showPanel, siteId }: UsePanelSplitOptions ): UsePanelSplitResult {
+export function usePanelSplit( {
+	showPanel,
+	siteId,
+	onPanelClose,
+	onChatClose,
+}: UsePanelSplitOptions ): UsePanelSplitResult {
 	const rootRef = useRef< HTMLDivElement >( null );
 
 	// `preferredContentWidth` is the user's intent (persisted); the displayed
@@ -145,11 +153,28 @@ export function usePanelSplit( { showPanel, siteId }: UsePanelSplitOptions ): Us
 			);
 			// The content column is anchored to the inline-start edge, so in RTL a
 			// rightward drag shrinks it instead of growing it.
-			const layout = getPanelSplitLayout( container, start + ( isRTL() ? -deltaX : deltaX ) );
+			const next = start + ( isRTL() ? -deltaX : deltaX );
+			const layout = getPanelSplitLayout( container, next );
 			setPreferred( layout.contentWidth );
-			return layout.contentWidth;
+			return next;
 		},
-		onCommit: ( latest ) => persistContentWidth( latest ),
+		onCommit: ( latest ) => {
+			const container = measureRootWidth();
+			if ( container === null ) return;
+			const layout = getPanelSplitLayout( container, latest );
+			const close =
+				latest >= container - layout.panelMinWidth + PANEL_COLLAPSE_OVERSHOOT
+					? onPanelClose
+					: latest <= container - layout.panelMaxWidth - PANEL_COLLAPSE_OVERSHOOT
+					? onChatClose
+					: undefined;
+			if ( close ) {
+				setPreferred( preferredContentWidth ?? PANEL_CONTENT_DEFAULT_WIDTH );
+				close();
+				return;
+			}
+			persistContentWidth( layout.contentWidth );
+		},
 	} );
 
 	useLayoutEffect( () => {

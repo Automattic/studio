@@ -5,5 +5,5 @@
 	"description": "Performance and app-size metrics tests for Studio.",
 	"author": "Automattic",
 	"license": "GPLv2",
-	"type": "commonjs"
+	"type": "module"
 }

@@ -6,9 +6,9 @@
  * one brotli-compressed tarball that the plugin unpacks on first start. A single archive keeps the
  * package within the directory's limits, which this script checks.
  *
- * Anthropic's directory takes far smaller plugins, so it gets the plugin without the CLI and
- * without the other apps' files: it downloads the same tarball from the matching Studio release
- * instead.
+ * Anthropic's directory and Antigravity's marketplace take far smaller plugins, so they get the
+ * plugin without the CLI and without the other apps' files: it downloads the same tarball from the
+ * matching Studio release instead.
  *
  * Output: standalone-bundles/wp-studio-<version>.zip, the plugin for Anthropic's directory in
  * standalone-bundles/wp-studio-directory, and its CLI download, wp-studio-cli-<version>.tar.br,
@@ -44,15 +44,14 @@ const MiB = 1024 * 1024;
 const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 * MiB };
 const DIRECTORY_LIMITS = { unpacked: 50 * MiB, entries: 512, entry: 5 * MiB };
 
-// What only Codex, Cursor, Grok Build and Antigravity read: their manifests and MCP configs, and
-// Codex's app metadata and launchers.
+// What only Codex, Cursor and Grok Build read: their manifests and MCP configs, and Codex's app
+// metadata and launchers. Antigravity's files stay: its marketplace takes plugin zips up to
+// 64 MiB, less than the plugin with the CLI inside.
 const NOT_FOR_CLAUDE = [
-	'.antigravity-plugin',
 	'.codex-plugin',
 	'.cursor-plugin',
 	'.grok-plugin',
 	'.mcp.json',
-	'mcp_config.json',
 	'agents',
 	'scripts/launch-mcp',
 	'scripts/launch-mcp.cmd',

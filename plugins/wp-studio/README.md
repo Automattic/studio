@@ -67,8 +67,8 @@ into Studio, or log in to WordPress.com.
 
 ## The Studio CLI
 
-The plugin carries the Studio CLI of its own version. The copy in Anthropic's directory is too small
-to carry it: the first time it starts, it downloads it from that version's
+The plugin carries the Studio CLI of its own version. The copies in Anthropic's directory and
+Antigravity's marketplace are too small to carry it: the first time one starts, it downloads it from that version's
 [Studio release](https://github.com/Automattic/studio/releases) on GitHub and checks it against the
 SHA-256 it carries. The plugin unpacks the CLI on its first start, which takes a few seconds, or a
 minute or two on Windows, and it updates with the plugin. In Antigravity, the CLI is unpacked in the

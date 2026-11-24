@@ -166,7 +166,7 @@ With another provider, the model menu lists that provider’s models by name ins
 - **OpenRouter**, with an OpenRouter sign-in or an API key
 - **Local LLM**, with a model server you run, such as Ollama or LM Studio
 
-![The Providers page of WordPress Studio's Settings: Default AI provider, Default image provider, and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, Meta, xAI, OpenRouter, and Local LLM with Connect buttons.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
+![The Providers page of WordPress Studio's Settings: Default AI provider, Default image provider, and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI and Anthropic with Connect buttons.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
 Set them up in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, including [your own Anthropic API key](https://wordpress.studio/docs/providers/#anthropic), the models each offers, and who bills you.
 

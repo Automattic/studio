@@ -457,12 +457,61 @@
 					"name": "Settings",
 					"exact": true
 				}
+			}
+		},
+		{
+			"name": "settings-provider-xai",
+			"description": "Settings → Providers → xAI → Connect: Sign in with Grok and API key",
+			"meta": { "pages": [ "providers.md" ] },
+			"steps": [
+				{ "scrollTo": { "css": "[data-setting-id=\"xai-provider\"]" } },
+				{
+					"click": {
+						"within": { "css": "[data-setting-id=\"xai-provider\"]" },
+						"role": "button",
+						"name": "Connect"
+					}
+				},
+				{ "waitFor": { "role": "menuitemradio", "name": "Sign in with Grok" } }
+			],
+			"capture": {
+				"target": [ { "css": "[data-setting-id=\"xai-provider\"]" }, { "role": "menu" } ],
+				"pad": 32
 			},
 			"after": [
 				{
-					"press": "Escape"
-				}
+					"click": {
+						"within": { "css": "[data-setting-id=\"xai-provider\"]" },
+						"role": "button",
+						"name": "Connect"
+					}
+				},
+				{ "waitFor": { "role": "menu" }, "hidden": true }
 			]
+		},
+		{
+			"name": "settings-provider-local-llm",
+			"description": "Settings → Providers → Local LLM → Connect: Server address, API key, Save and Cancel",
+			"meta": { "pages": [ "providers.md" ] },
+			"steps": [
+				{
+					"click": {
+						"within": { "css": "[data-setting-id=\"local-llm-provider\"]" },
+						"role": "button",
+						"name": "Connect"
+					}
+				},
+				{ "waitFor": { "role": "textbox", "name": "Server address" } },
+				{ "scrollTo": { "role": "button", "name": "Save", "exact": true }, "offset": 400 }
+			],
+			"capture": {
+				"target": [
+					{ "css": "[data-setting-id=\"local-llm-provider\"]" },
+					{ "role": "form", "name": "Local LLM connection" }
+				],
+				"pad": 32
+			},
+			"after": [ { "press": "Escape" } ]
 		},
 		{
 			"name": "add-site-connect-signed-in",

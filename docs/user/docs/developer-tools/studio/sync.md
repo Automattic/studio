@@ -63,7 +63,7 @@ To add a WordPress site that’s already on your computer instead, see [Add a ne
 
 1.  In the sidebar, select the local site.
 2.  Click **Publish** at the top right of the site preview.
-3.  If you aren’t logged in, click **Connect to publish** and [log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom).
+3.  If you aren’t logged in, [log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom).
 4.  Choose **Connect to an existing site**. On a site you haven’t published or shared yet, it’s an option of **Destination**. Otherwise, it’s at the bottom of the panel.
 5.  In the **Choose an existing site** list, click the website.
 

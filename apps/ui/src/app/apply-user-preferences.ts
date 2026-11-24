@@ -1,8 +1,8 @@
 import { getLocaleData, isSupportedLocale } from '@studio/common/lib/locale';
+import { applyTheme, resolveColorScheme } from '@studio/ds/theme';
 import { _x, defaultI18n } from '@wordpress/i18n';
 import { queryClient } from '@/data/core';
 import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences';
-import { applyTheme, resolveColorScheme } from '@/lib/theme';
 import type { Connector } from '@/data/core';
 
 /**

@@ -513,6 +513,8 @@ it( 'keeps preview creation progress and completion visible after reopening the 
 } );
 
 it( 'confirms copying before starting the preview notice dismissal timer', async () => {
+	// The exact timings below fail when the clock also follows real time.
+	vi.useFakeTimers();
 	const queryClient = createTestQueryClient();
 	queryClient.setQueryData( SITES_QUERY_KEY, [ makeSite( { id: 'copy-notice', name: 'Ocean' } ) ] );
 	queryClient.setQueryData( SNAPSHOTS_QUERY_KEY, [

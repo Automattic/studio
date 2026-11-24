@@ -1,4 +1,29 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
+import {
+	AlertDialog,
+	Button,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	IconButton,
+	Dialog,
+	DialogContent,
+	DialogPanel,
+	DialogTitle,
+	PanelHeader,
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	MarqueeLabel,
+	Tabs,
+	TabsList,
+	TabsScopeIndicator,
+	TabsScopeLabel,
+	TabsSidebar,
+	TabsTrigger,
+	VisuallyHidden,
+} from '@studio/ds';
+import { XIcon } from '@studio/ds/icons';
 import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
@@ -33,31 +58,6 @@ import {
 import { ProviderLogo } from '@/features/settings/settings-view/provider-logo';
 import { SiteSettingsForm } from '@/features/settings/site-settings-view';
 import { readLastVisited } from '@/features/sidebar';
-import { XIcon } from '@/lib/icons';
-import {
-	AlertDialog,
-	Button,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	IconButton,
-	Dialog,
-	DialogContent,
-	DialogPanel,
-	DialogTitle,
-	PanelHeader,
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	MarqueeLabel,
-	Tabs,
-	TabsList,
-	TabsScopeIndicator,
-	TabsScopeLabel,
-	TabsSidebar,
-	TabsTrigger,
-	VisuallyHidden,
-} from '@/lib/ui';
 import { SettingsDialogContext, SettingsLinkContext } from './context';
 import { SiteAgentFiles } from './site-agent-files';
 import styles from './style.module.css';

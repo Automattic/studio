@@ -62,7 +62,7 @@ export default {
 		},
 		schema: [],
 		messages: {
-			color: 'Use a color token from lib/theme/tokens.css instead of a literal color.',
+			color: 'Use a color token from @studio/ds/theme/tokens.css instead of a literal color.',
 			fontSize: 'Use a `--text-*` token instead of a literal font size.',
 			radius: 'Use a `--radius-*` token instead of a literal radius.',
 			shadow: 'Use a `--shadow-*` token instead of a literal shadow.',

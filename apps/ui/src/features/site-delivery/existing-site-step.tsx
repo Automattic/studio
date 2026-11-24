@@ -1,6 +1,7 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
+import { Button, Badge, Spinner } from '@studio/ds';
 import {
 	getProvider,
 	getProviderSites,
@@ -16,7 +17,6 @@ import {
 	usePickableSitesByProvider,
 } from '@/data/queries/use-remote-sites';
 import { RemoteSitePicker, RemoteSiteCard } from '@/features/remote-site-picker';
-import { Button, Badge, Spinner } from '@/lib/ui';
 import styles from './existing-site-step.module.css';
 import { ProviderLogo } from './provider-logo';
 

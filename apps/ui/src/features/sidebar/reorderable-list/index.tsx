@@ -1,3 +1,5 @@
+import { SidebarMenu, VisuallyHidden } from '@studio/ds';
+import { getMotionDuration } from '@studio/ds/theme';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import {
@@ -12,8 +14,6 @@ import {
 	type PointerEvent as ReactPointerEvent,
 	type ReactNode,
 } from 'react';
-import { getMotionDuration } from '@/lib/theme';
-import { SidebarMenu, VisuallyHidden } from '@/lib/ui';
 import styles from './style.module.css';
 
 type ActiveDrag = {

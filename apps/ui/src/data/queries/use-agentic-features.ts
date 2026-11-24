@@ -1,6 +1,6 @@
+import { useOffline } from '@studio/ds/hooks';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useOffline } from '@/lib/hooks';
 import type { AuthUser, Connector } from '@/data/core';
 
 type AgenticFeatureReason = 'signed-out' | 'offline' | null;

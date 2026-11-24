@@ -1,6 +1,34 @@
 import { getQualifyingLiveSites } from '@studio/common/lib/live-preview-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import {
+	Alert,
+	AlertTitle,
+	AlertDescription,
+	AlertActions,
+	Button,
+	NotificationDot,
+	Popover,
+	Skeleton,
+	Spinner,
+	Tooltip,
+	TooltipTrigger,
+	TooltipContent,
+	AlertDialog,
+	Dialog,
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+} from '@studio/ds';
+import { useOffline, useSubmitFeedback } from '@studio/ds/hooks';
+import { GlobeIcon, PlusIcon, ExternalLinkIcon, ChevronRightIcon } from '@studio/ds/icons';
+import {
 	getProvider,
 	getProviderSites,
 	type ProviderSites,
@@ -32,34 +60,6 @@ import { useOpenSettings } from '@/data/use-open-settings';
 import { SpacefastConnectDialog } from '@/features/account';
 import { PreviewManagementDialog, type PreviewManagementAction } from '@/features/sharing';
 import { clearPublishSetupError, retryPublishSetup, usePublishSetupError } from '@/features/sync';
-import { useOffline, useSubmitFeedback } from '@/lib/hooks';
-import { GlobeIcon, PlusIcon, ExternalLinkIcon, ChevronRightIcon } from '@/lib/icons';
-import {
-	Alert,
-	AlertTitle,
-	AlertDescription,
-	AlertActions,
-	Button,
-	NotificationDot,
-	Popover,
-	Skeleton,
-	Spinner,
-	Tooltip,
-	TooltipTrigger,
-	TooltipContent,
-	AlertDialog,
-	Dialog,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogDescription,
-	DialogFooter,
-} from '@/lib/ui';
 import { ChangesIcon } from './changes-icon';
 import { ConnectSiteIcon } from './connection-icons';
 import { DestinationActionsMenu } from './destination-actions-menu';

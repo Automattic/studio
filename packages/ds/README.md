@@ -18,4 +18,4 @@ Studio's design system: the UI primitives, the theme, the icons and generic Reac
 - The four folders import each other only through their entries (`index.ts`).
 - Styles are CSS Modules in the `ui` cascade layer, which `tokens.css` declares after `base`, so an app's own CSS overrides them.
 
-These are lint-enforced in the root `eslint.config.mjs`.
+These are lint-enforced in the root `.oxlintrc.json`, and the styles in `eslint.config.mjs`.

@@ -1,6 +1,7 @@
 import { isSameDay } from 'date-fns/isSameDay';
 import { isSameMonth } from 'date-fns/isSameMonth';
 import { isSameWeek } from 'date-fns/isSameWeek';
+import { isAutomatedRun } from './analytics-environment';
 import { readConfig, updateConfig } from './config/store';
 
 // Database columns are varchar(32). Group limit is 27 to account for the '-a11n' suffix
@@ -26,7 +27,7 @@ export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
 		return false;
 	}
 
-	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
+	if ( isAutomatedRun() || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
 		console.info( `Would have bumped stat: ${ group }=${ stat }` );
 		return false;
 	}

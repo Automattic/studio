@@ -44,9 +44,10 @@ import {
 	useWhatsNewReplay,
 } from '@/features/onboarding';
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
-import { PanelSplitFrame, type PanelSplitFramePanelProps } from '@/features/sites';
 import {
 	getPreviewHomePath,
+	PanelSplitFrame,
+	type PanelSplitFramePanelProps,
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SitePreview,

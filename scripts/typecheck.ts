@@ -1,9 +1,6 @@
 /**
- * Typechecks every workspace that has a `typecheck` script, plus `scripts/`, with TypeScript 7.
- * The projects run in parallel; the output of each failing one is printed in full.
- *
- * TypeScript 6 stays installed as `typescript` for the tools that use its JavaScript API
- * (typescript-eslint, knip, Vite plugins); TypeScript 7 is installed as `typescript-7`.
+ * Typechecks every workspace that has a `typecheck` script, plus `scripts/`, in parallel.
+ * The output of each failing project is printed in full.
  */
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
@@ -14,7 +11,7 @@ import { promisify } from 'node:util';
 const run = promisify( execFile );
 const root = path.resolve( import.meta.dirname, '..' );
 const require = createRequire( import.meta.url );
-const tsc = path.join( path.dirname( require.resolve( 'typescript-7/package.json' ) ), 'bin/tsc' );
+const tsc = path.join( path.dirname( require.resolve( 'typescript/package.json' ) ), 'bin/tsc' );
 
 const rootPackage = JSON.parse( fs.readFileSync( path.join( root, 'package.json' ), 'utf8' ) );
 const workspaces: string[] = rootPackage.workspaces.flatMap( ( pattern: string ) => {
@@ -57,7 +54,7 @@ async function main() {
 		console.error( `\n✖ ${ project }\n${ output }` );
 	}
 	console.log(
-		`${ results.length - failed.length }/${ results.length } projects typecheck with TypeScript 7`
+		`${ results.length - failed.length }/${ results.length } projects typecheck`
 	);
 	process.exitCode = failed.length ? 1 : 0;
 }

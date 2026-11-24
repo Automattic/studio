@@ -1,7 +1,7 @@
 import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
+import { Button, DropZone } from '@studio/ds';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef } from 'react';
-import { Button, DropZone } from '@/lib/ui';
 import styles from './style.module.css';
 
 export const SITE_FILE_UPLOAD_TYPES = [ '.json', ...ACCEPTED_ADD_SITE_FILE_TYPES ];

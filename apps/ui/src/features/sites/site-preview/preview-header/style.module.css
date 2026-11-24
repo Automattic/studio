@@ -34,12 +34,12 @@
 }
 
 .historyTitle {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --foreground );
 }
 
 .historyPath {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --muted-foreground );
 	font-size: var( --text-2xs );
 }

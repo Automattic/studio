@@ -9,8 +9,7 @@
 		"./node": "./node.ts"
 	},
 	"scripts": {
-		"lint": "eslint .",
-		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
+		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"@wordpress/i18n": "^6.30.0",

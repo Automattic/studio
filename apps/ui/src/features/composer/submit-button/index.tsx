@@ -1,8 +1,8 @@
+import { IconButton } from '@studio/ds';
+import { ArrowUpIcon, PlayIcon, SquareIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { ArrowUpIcon, PlayIcon, SquareIcon } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
-import type { SubmitFeedback } from '@/lib/hooks';
+import type { SubmitFeedback } from '@studio/ds/hooks';
 
 export function SendButton( {
 	label,

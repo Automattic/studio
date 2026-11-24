@@ -1,3 +1,13 @@
+import {
+	AlertDialog,
+	Button,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
 import { __ } from '@wordpress/i18n';
 import { useRef } from 'react';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
@@ -7,16 +17,6 @@ import { getSnapshotName } from '@/data/snapshot-name';
 import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
-import { useOffline } from '@/lib/hooks';
-import {
-	AlertDialog,
-	Button,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/lib/ui';
 import { previewExpiry } from './preview-details';
 import { RenamePreviewDialog } from './rename-preview-dialog';
 import styles from './style.module.css';

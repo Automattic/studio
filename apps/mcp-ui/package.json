@@ -5,8 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "vite build",
-		"lint": "eslint src",
-		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
+		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"@tanstack/react-query": "^5.75.5",
@@ -16,7 +15,7 @@
 	"devDependencies": {
 		"@types/react": "^19.2.15",
 		"@types/react-dom": "^19.2.3",
-		"typescript": "~6.0.3",
+		"typescript": "~7.0.2",
 		"vite": "^8.3.5"
 	}
 }

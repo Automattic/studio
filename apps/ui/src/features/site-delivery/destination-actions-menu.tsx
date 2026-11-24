@@ -1,15 +1,15 @@
-import { getProviderSites } from '@studio/providers';
-import { __ } from '@wordpress/i18n';
-import { useConnector, type Snapshot } from '@/data/core';
-import { useCopyText } from '@/data/host/use-copy-text';
+import { IconButton, Menu } from '@studio/ds';
 import {
 	EllipsisVerticalIcon,
 	DuplicateIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
 	TrashIcon,
-} from '@/lib/icons';
-import { IconButton, Menu } from '@/lib/ui';
+} from '@studio/ds/icons';
+import { getProviderSites } from '@studio/providers';
+import { __ } from '@wordpress/i18n';
+import { useConnector, type Snapshot } from '@/data/core';
+import { useCopyText } from '@/data/host/use-copy-text';
 import { DisconnectSiteIcon } from './connection-icons';
 import { PullPreviewIcon } from './pull-preview-icon';
 import type { PublishTarget } from './use-publish-targets';

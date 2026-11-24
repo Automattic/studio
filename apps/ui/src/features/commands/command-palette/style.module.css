@@ -1,5 +1,5 @@
 .popup {
-	composes: commandGeometry from '@/lib/ui/surface/style.module.css';
+	composes: commandGeometry from '@studio/ds/surface.module.css';
 	--surface: var( --popover );
 	top: 25dvh;
 	display: flex;

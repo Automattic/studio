@@ -1,8 +1,8 @@
+import { NotificationDot } from '@studio/ds';
+import { ChevronRightIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { getSnapshotHostname } from '@/data/snapshot-url';
-import { ChevronRightIcon } from '@/lib/icons';
-import { NotificationDot } from '@/lib/ui';
 import { DestinationRow } from './destination-row';
 import { isNewDestination } from './new-destination';
 import { ProviderLogo } from './provider-logo';

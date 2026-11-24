@@ -1,6 +1,6 @@
+import { Button, Checkbox, Field, FieldLabel } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useId, type ReactNode } from 'react';
-import { Button, Checkbox, Field, FieldLabel } from '@/lib/ui';
 import { checkNodes } from './selection';
 import styles from './update-options.module.css';
 import type { TransferSelection } from './use-transfer-selection';

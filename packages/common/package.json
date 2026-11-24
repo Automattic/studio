@@ -14,8 +14,7 @@
 		"./translations/*.json": "./translations/*.json"
 	},
 	"scripts": {
-		"lint": "eslint .",
-		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
+		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"@automattic/generate-password": "^0.2.0",

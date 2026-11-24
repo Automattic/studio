@@ -38,7 +38,7 @@
 }
 
 .placeholder {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	position: absolute;
 	inset-block-start: var( --composer-input-inset );
 	inset-inline: var( --composer-input-inset );

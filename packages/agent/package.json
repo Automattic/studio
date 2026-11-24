@@ -17,14 +17,14 @@
 		"./node/sessions/store": "./node/sessions/store.ts"
 	},
 	"scripts": {
-		"lint": "eslint .",
-		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
+		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"@earendil-works/pi-agent-core": "1.5.0",
 		"@earendil-works/pi-ai": "1.5.0",
 		"@earendil-works/pi-coding-agent": "1.5.0",
 		"@studio/common": "file:../common",
+		"@studio/ds": "file:../ds",
 		"@studio/providers": "file:../providers",
 		"@studio/design-md": "file:../design-md",
 		"@wordpress/i18n": "^6.30.0",

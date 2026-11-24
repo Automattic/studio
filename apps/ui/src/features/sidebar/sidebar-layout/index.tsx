@@ -1,3 +1,6 @@
+import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@studio/ds';
+import { useScrollFade, useStoredFlag } from '@studio/ds/hooks';
+import { getMotionDuration } from '@studio/ds/theme';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -21,9 +24,6 @@ import { UserMenu } from '@/features/account';
 import { AppMessageCards, AppToasts } from '@/features/notifications';
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
-import { useScrollFade, useStoredFlag } from '@/lib/hooks';
-import { getMotionDuration } from '@/lib/theme';
-import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@/lib/ui';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode, RefCallback } from 'react';

@@ -10,8 +10,7 @@
 		"./wpcom": "./wpcom.ts"
 	},
 	"scripts": {
-		"lint": "eslint .",
-		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
+		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"@earendil-works/pi-ai": "1.5.0",

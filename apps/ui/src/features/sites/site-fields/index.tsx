@@ -25,12 +25,6 @@ import {
 	WP_ENVIRONMENT_TYPE_STAGING,
 } from '@studio/common/lib/wp-environment-type';
 import { SupportedPHPVersions } from '@studio/common/types/php-versions';
-import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { WifiOffIcon } from 'lucide-react';
-import { useId, useState } from 'react';
-import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
-import { LearnHowLink } from '@/features/onboarding';
 import {
 	Button,
 	Field,
@@ -48,7 +42,13 @@ import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
+import { WifiOffIcon } from 'lucide-react';
+import { useId, useState } from 'react';
+import { useCertificateTrust, useTrustCertificate } from '@/data/queries/use-certificate-trust';
+import { LearnHowLink } from '@/features/onboarding';
 import styles from './style.module.css';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { ComponentProps, ReactNode } from 'react';

@@ -6,8 +6,7 @@
 	"description": "Parse a DESIGN.md design spec and turn its tokens into a WordPress theme.json",
 	"exports": "./index.ts",
 	"scripts": {
-		"lint": "eslint .",
-		"typecheck": "node ../../node_modules/typescript-7/bin/tsc -p tsconfig.json --noEmit"
+		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
 		"yaml": "^2.9.0"

@@ -1,7 +1,7 @@
+import { IconButton } from '@studio/ds';
+import { ArrowLeftIcon, ArrowRightIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useWorkspaceHistory } from '@/features/sidebar/use-workspace-history';
-import { ArrowLeftIcon, ArrowRightIcon } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function WorkspaceNavigation( { hidden = false }: { hidden?: boolean } ) {

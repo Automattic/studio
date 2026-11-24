@@ -1,12 +1,4 @@
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
-import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
-import { __, sprintf } from '@wordpress/i18n';
-import { useId, useRef, useState, type RefObject } from 'react';
-import { useAuthUser } from '@/data/queries/use-auth-user';
-import { usePreviewStatus } from '@/data/queries/use-preview-status';
-import { useSnapshots } from '@/data/queries/use-snapshots';
-import { usePushSite, usePullSite } from '@/data/queries/use-sync-site';
-import { useTransferSelection, FilePicker } from '@/features/sync';
 import {
 	AlertDialog,
 	Button,
@@ -20,7 +12,15 @@ import {
 	SelectValue,
 	SelectContent,
 	SelectItem,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
+import { __, sprintf } from '@wordpress/i18n';
+import { useId, useRef, useState, type RefObject } from 'react';
+import { useAuthUser } from '@/data/queries/use-auth-user';
+import { usePreviewStatus } from '@/data/queries/use-preview-status';
+import { useSnapshots } from '@/data/queries/use-snapshots';
+import { usePushSite, usePullSite } from '@/data/queries/use-sync-site';
+import { useTransferSelection, FilePicker } from '@/features/sync';
 import { PublishFilesDialog, PublishOptionsControl } from './publish-options-control';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';

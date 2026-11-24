@@ -1,3 +1,4 @@
+import { usePointerDrag } from '@studio/ds/hooks';
 import { isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -10,7 +11,6 @@ import {
 	PANEL_COLLAPSE_OVERSHOOT,
 	storeResizablePanelWidth,
 } from '@/data/resizable-panels';
-import { usePointerDrag } from '@/lib/hooks';
 import type { KeyboardEvent, MouseEventHandler, RefObject } from 'react';
 
 interface UsePanelSplitOptions {

@@ -1,6 +1,4 @@
 import { AGENT_APP_IDS, AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
-import { AI_PROVIDER_IDS, getProvider, SITES_PROVIDER_IDS, needsHost } from '@studio/providers';
-import { __ } from '@wordpress/i18n';
 import {
 	BugIcon,
 	FileTextIcon,
@@ -17,7 +15,9 @@ import {
 	SkillsIcon,
 	TerminalIcon,
 	GaugeIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
+import { AI_PROVIDER_IDS, getProvider, SITES_PROVIDER_IDS, needsHost } from '@studio/providers';
+import { __ } from '@wordpress/i18n';
 import type { AgentAppId } from '@studio/common/lib/agent-apps';
 import type { ComponentType } from 'react';
 

@@ -1,5 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
 import {
 	GaugeIcon,
 	TagIcon,
@@ -12,9 +10,11 @@ import {
 	PlugIcon,
 	PanelRightIcon,
 	SquareIcon,
-} from '@/lib/icons';
-import type { Command, CommandGroup } from '@/lib/ui';
+} from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
 import type { SkillSlashCommand } from '@studio/agent/protocol/slash-commands';
+import type { Command, CommandGroup } from '@studio/ds';
 import type { ComponentType } from 'react';
 
 const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: string } > > > = {

@@ -1,7 +1,4 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
-import { __, sprintf } from '@wordpress/i18n';
-import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
-import { getSessionTitle } from '@/features/chats';
 import {
 	SettingsIcon,
 	PlusIcon,
@@ -16,7 +13,10 @@ import {
 	SidebarIcon,
 	UnpinIcon,
 	SparkleIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
+import { getSessionTitle } from '@/features/chats';
 import type { AiSessionSummary, SiteDetails, WritableUserPreferences } from '@/data/core';
 import type { useOpenSettings } from '@/data/use-open-settings';
 import type { useChatActions } from '@/features/chats';

@@ -1,3 +1,11 @@
+import { Button, DismissButton, Spinner } from '@studio/ds';
+import {
+	ChevronRightIcon,
+	CircleXIcon,
+	CircleInfoIcon,
+	CircleCheckIcon,
+	TriangleAlertIcon,
+} from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
@@ -9,14 +17,6 @@ import {
 	type ToastAction,
 } from '@/data/app-messages';
 import { useCopyText } from '@/data/host/use-copy-text';
-import {
-	ChevronRightIcon,
-	CircleXIcon,
-	CircleInfoIcon,
-	CircleCheckIcon,
-	TriangleAlertIcon,
-} from '@/lib/icons';
-import { Button, DismissButton, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 
 function StatusIcon( { intent, source }: { intent: NoticeIntent; source?: 'studio' } ) {

@@ -1,12 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { CheckIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { errorMessage, toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
-import { useCopyText } from '@/data/host/use-copy-text';
-import { ProviderLogo } from '@/features/account/provider-logo';
-import { useOffline } from '@/lib/hooks';
-import { DuplicateIcon, ExternalLinkIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -16,7 +7,16 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Spinner,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { DuplicateIcon, ExternalLinkIcon } from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { CheckIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { errorMessage, toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
+import { useCopyText } from '@/data/host/use-copy-text';
+import { ProviderLogo } from '@/features/account/provider-logo';
 import styles from './style.module.css';
 import type { PendingConnect } from '@studio/providers';
 import type { ReactNode } from 'react';

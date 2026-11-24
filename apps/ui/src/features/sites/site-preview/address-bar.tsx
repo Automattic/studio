@@ -1,7 +1,16 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
-import { __ } from '@wordpress/i18n';
-import { useEffect, useId, useRef, useState } from 'react';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+	Popover,
+	Button,
+	Input,
+	CommandList,
+	handleCommandKey,
+	type CommandGroup,
+} from '@studio/ds';
 import {
 	DatabaseIcon,
 	DesignSystemIcon,
@@ -9,9 +18,9 @@ import {
 	GlobeIcon,
 	PaperPlaneIcon,
 	WordPressIcon,
-} from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
-import { CommandList, handleCommandKey, type CommandGroup } from '@/lib/ui';
+} from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { useEffect, useId, useRef, useState } from 'react';
 import styles from './address-bar.module.css';
 import { PREVIEW_HISTORY_CLEARED_EVENT } from './preview-browser-settings';
 import type { SiteDetails } from '@/data/core';

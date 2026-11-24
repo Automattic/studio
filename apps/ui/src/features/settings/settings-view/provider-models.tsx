@@ -1,14 +1,4 @@
 import {
-	getAiModels,
-	getProvider,
-	type AiModelId,
-	type CatalogModel,
-	type ProviderId,
-} from '@studio/providers';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { useMemo, useRef, useState } from 'react';
-import { useProviderCatalog, useSelectProviderModels } from '@/data/queries/use-ai-settings';
-import {
 	Button,
 	Combobox,
 	ComboboxCollection,
@@ -18,7 +8,17 @@ import {
 	ComboboxItem,
 	ComboboxList,
 	ComboboxTrigger,
-} from '@/lib/ui';
+} from '@studio/ds';
+import {
+	getAiModels,
+	getProvider,
+	type AiModelId,
+	type CatalogModel,
+	type ProviderId,
+} from '@studio/providers';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { useMemo, useRef, useState } from 'react';
+import { useProviderCatalog, useSelectProviderModels } from '@/data/queries/use-ai-settings';
 import { SettingsRow } from './rows';
 import type { ProviderAccount } from '@studio/common/lib/ai-settings';
 

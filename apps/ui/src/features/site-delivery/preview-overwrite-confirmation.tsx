@@ -1,6 +1,3 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { useRef } from 'react';
-import { getSnapshotHostname } from '@/data/snapshot-url';
 import {
 	AlertDialog,
 	Button,
@@ -9,7 +6,10 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __, sprintf } from '@wordpress/i18n';
+import { useRef } from 'react';
+import { getSnapshotHostname } from '@/data/snapshot-url';
 import type { usePublishPreview } from './use-publish-preview';
 
 export function PreviewOverwriteConfirmation( {

@@ -53,6 +53,7 @@ vi.mock( 'electron', () => {
 		app: {
 			getVersion: vi.fn(),
 			getPath: vi.fn().mockReturnValue( '/mock/path' ),
+			isPackaged: true,
 		},
 		dialog: {
 			showMessageBox: vi.fn(),

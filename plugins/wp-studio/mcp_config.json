@@ -5,7 +5,8 @@
 			"args": [ "${PLUGIN_ROOT}/scripts/bootstrap-mcp.mjs" ],
 			"env": {
 				"STUDIO_PLUGIN_ID": "wp-studio@studio"
-			}
+			},
+			"timeoutSeconds": 3600
 		}
 	}
 }

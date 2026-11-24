@@ -1,7 +1,3 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useRef } from 'react';
-import { usePullSite } from '@/data/queries/use-sync-site';
-import { useSiteSyncActivity } from '@/data/sync-activity';
 import {
 	AlertDialog,
 	Button,
@@ -10,7 +6,11 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __, sprintf } from '@wordpress/i18n';
+import { useEffect, useRef } from 'react';
+import { usePullSite } from '@/data/queries/use-sync-site';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import type { SiteDetails, Snapshot } from '@/data/core';
 import type { SitesProviderId } from '@studio/providers';
 

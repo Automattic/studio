@@ -1,11 +1,11 @@
+import { IconButton, Menu } from '@studio/ds';
+import { ExternalLinkIcon, TrashIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
 import { Children } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { AppIcon } from '@/features/sites';
-import { ExternalLinkIcon, TrashIcon } from '@/lib/icons';
-import { IconButton, Menu } from '@/lib/ui';
 import type { ReactNode } from 'react';
 
 const SKILL_SOURCES: Record< string, string > = {

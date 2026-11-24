@@ -20,7 +20,7 @@ beforeEach( async () => {
 	directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-desktop-site-tracks-' ) );
 	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
 	vi.stubEnv( 'NODE_ENV', 'production' );
-	for ( const key of [ 'CI', 'IS_DEV_BUILD', 'E2E' ] ) vi.stubEnv( key, '' );
+	for ( const key of [ 'CI', 'IS_DEV_BUILD', 'E2E', 'VITEST' ] ) vi.stubEnv( key, '' );
 	vi.stubGlobal( 'fetch', send );
 	vi.mocked( app.getVersion ).mockReturnValue( 'test' );
 	await fs.writeFile(
@@ -127,6 +127,7 @@ it( 'honors desktop opt-out and disable paths with site props', async () => {
 		[ 'CI', 'true' ],
 		[ 'IS_DEV_BUILD', 'true' ],
 		[ 'E2E', 'true' ],
+		[ 'VITEST', 'true' ],
 		[ 'NODE_ENV', 'development' ],
 		[ 'NODE_ENV', 'test' ],
 	] ) {

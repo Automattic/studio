@@ -1,5 +1,5 @@
+import { Button } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
-import { Button } from '@/lib/ui';
 import type { Ref } from 'react';
 
 export function PreviewTransferActions( {

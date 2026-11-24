@@ -1,13 +1,5 @@
 import { buildSettingsLink } from '@studio/common/lib/settings-link';
-import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { CheckIcon } from 'lucide-react';
-import { createContext, useContext, useId } from 'react';
-import { useCopyText } from '@/data/host/use-copy-text';
-import { findSettingId } from '@/data/settings-sections';
-import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
-import { ChevronRightIcon, LinkIcon } from '@/lib/icons';
-import { Badge, Button, type ButtonProps } from '@/lib/ui';
+import { Badge, Button, type ButtonProps } from '@studio/ds';
 import {
 	Field,
 	FieldContent,
@@ -23,7 +15,15 @@ import {
 	SelectValue,
 	Switch,
 	VisuallyHidden,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { ChevronRightIcon, LinkIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
+import { createContext, useContext, useId } from 'react';
+import { useCopyText } from '@/data/host/use-copy-text';
+import { findSettingId } from '@/data/settings-sections';
+import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 

@@ -18,7 +18,7 @@
 }
 
 .noticeContent {
-	composes: errorShake from '@/lib/theme/recipes.module.css';
+	composes: errorShake from '@studio/ds/theme/recipes.module.css';
 	display: flex;
 	min-height: 36px;
 	align-items: center;

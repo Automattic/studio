@@ -1,12 +1,12 @@
-import '@/lib/theme/tokens.css';
-import '@/lib/theme/base.css';
+import '@studio/ds/theme/tokens.css';
+import '@studio/ds/theme/base.css';
 import '@/index.css';
+import { Button } from '@studio/ds';
 import { useState } from 'react';
 import { SessionFrame } from '@/features/chats/session-view/session-frame';
 import sessionStyles from '@/features/chats/session-view/style.module.css';
 import { ComposerSkeleton } from '@/features/composer';
 import { PreviewParticles } from '@/features/sites';
-import { Button } from '@/lib/ui';
 import { renderPlayground } from './playground';
 import styles from './style.module.css';
 

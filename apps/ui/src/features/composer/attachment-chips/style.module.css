@@ -8,7 +8,7 @@
 }
 
 .attachment {
-	composes: attachmentThumbnail from '@/lib/theme/recipes.module.css';
+	composes: attachmentThumbnail from '@studio/ds/theme/recipes.module.css';
 
 	border-radius: var( --radius-composer-attachment );
 	font-size: var( --text-sm );
@@ -31,11 +31,11 @@
 }
 
 .attachmentThumb {
-	composes: attachmentThumbnailImage from '@/lib/theme/recipes.module.css';
+	composes: attachmentThumbnailImage from '@studio/ds/theme/recipes.module.css';
 }
 
 .attachmentName {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	min-width: 0;
 }
 
@@ -49,7 +49,7 @@
 }
 
 .attachmentPreviewArtwork {
-	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	composes: imageOutline from '@studio/ds/theme/recipes.module.css';
 	position: relative;
 	display: block;
 	width: 100%;

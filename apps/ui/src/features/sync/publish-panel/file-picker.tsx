@@ -1,6 +1,3 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { useId, useState, type ReactNode } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, LinkIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,
@@ -10,7 +7,10 @@ import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { ChevronDownIcon, ChevronRightIcon, LinkIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useId, useState, type ReactNode } from 'react';
 import styles from './style.module.css';
 import type { SyncNode } from './selection';
 import type { TransferSelection } from './use-transfer-selection';

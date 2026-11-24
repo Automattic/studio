@@ -1,3 +1,4 @@
+import { IconButton } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { MenuIcon } from 'lucide-react';
@@ -6,7 +7,6 @@ import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useSidebarCollapsed, useSidebarOpen } from '@/data/use-sidebar-collapsed';
 import { SidebarToggle } from '@/features/sidebar/sidebar-toggle';
 import { WorkspaceNavigation } from '@/features/sidebar/workspace-navigation';
-import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
 

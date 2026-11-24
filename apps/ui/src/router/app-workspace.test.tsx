@@ -1177,8 +1177,12 @@ describe( 'Studio workspace', () => {
 		fireEvent.change( document.querySelector( 'input[type="file"][multiple]' )!, {
 			target: { files: [ new File( [ 'notes' ], 'draft.txt', { type: 'text/plain' } ) ] },
 		} );
-		await screen.findByText( 'draft.txt' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+		// Clicks as soon as the attachment shows, before React runs any deferred effects.
+		const newChat = screen.getByRole( 'button', { name: 'New chat for My site' } );
+		await waitFor( () => {
+			screen.getByText( 'draft.txt' );
+			fireEvent.click( newChat );
+		} );
 		expect( await findLayoutControl( 'split' ) ).toBeVisible();
 		expect( composer() ).toHaveValue( '' );
 		expect( screen.getByText( 'draft.txt' ) ).toBeVisible();

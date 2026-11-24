@@ -330,7 +330,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			? { message: attachmentError || currentValidationError! }
 			: undefined );
 
-	useEffect( () => {
+	// A layout effect, so the saved draft matches the screen as soon as it changes: the sidebar's
+	// New chat reads it, and a click can land before React runs plain effects.
+	useLayoutEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
 			saveComposerDraft( draftKey, { text: value, attachments } );
 		} else {

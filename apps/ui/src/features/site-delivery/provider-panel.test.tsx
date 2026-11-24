@@ -2,7 +2,7 @@ import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, onTestFinished, vi } from 'vitest';
 import { getVisibleToasts, runNoticeAction } from '@/data/app-messages';
 import { buildPublishCheckoutUrl } from '@/data/core/connectors/publish-checkout-url';
 import { publishTargetQueryKey, remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
@@ -1754,6 +1754,12 @@ it( 'connects Spacefast from the destination picker and returns to publishing', 
 } );
 
 it( 'returns to existing sites after connecting Spacefast', async () => {
+	// On a slow machine the next frame can come before the popover content mounts.
+	const frame = vi.spyOn( window, 'requestAnimationFrame' ).mockImplementation( ( callback ) => {
+		queueMicrotask( () => callback( performance.now() ) );
+		return 0;
+	} );
+	onTestFinished( () => frame.mockRestore() );
 	const { connector, user } = setup( {
 		getAuthUser: async () => null,
 		getAiSettings: async () => aiSettings( 'wpcom', [] ),

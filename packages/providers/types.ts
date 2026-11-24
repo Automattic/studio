@@ -281,7 +281,14 @@ export interface PushFile {
 // The steps of a push on the provider's side, after Studio built the content.
 // `progress` is the step's own percentage, when the provider reports one.
 export interface PushStatus {
-	phase: 'uploading' | 'creatingRemoteBackup' | 'applyingChanges' | 'finishing' | 'launching';
+	phase:
+		| 'uploading'
+		// Another import is running on the remote site, which takes one at a time.
+		| 'waitingForRemote'
+		| 'creatingRemoteBackup'
+		| 'applyingChanges'
+		| 'finishing'
+		| 'launching';
 	progress?: number;
 }
 

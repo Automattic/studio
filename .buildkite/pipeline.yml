@@ -101,14 +101,24 @@ steps:
       - label: Unit Tests on linux
         key: unit_tests_linux
         parallelism: 4
-        command: bash .buildkite/commands/run-unit-tests.sh "linux"
+        command: |
+          export PATH="$$PATH:/a8c-ci-toolkit/bin"
+          bash .buildkite/commands/run-unit-tests.sh "linux"
         agents:
           queue: default
         plugins:
+          - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
+              propagate-aws-auth-tokens: true
+              environment:
+                - CACHE_BUCKET_NAME
               mount-buildkite-agent: true
+              # The cache helpers (hash_file, restore_cache…) come from the CI toolkit.
+              expand-volume-vars: true
+              volumes:
+                - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
 
   - group: E2E Tests
     key: e2e-tests
@@ -132,14 +142,24 @@ steps:
       # Mac and Windows share queue/plugin defaults that Linux doesn't.
       - label: E2E Tests on linux-x64
         key: e2e_tests_linux
-        command: bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
+        command: |
+          export PATH="$$PATH:/a8c-ci-toolkit/bin"
+          bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
         agents:
           queue: default
         plugins:
+          - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
+              propagate-aws-auth-tokens: true
+              environment:
+                - CACHE_BUCKET_NAME
               mount-buildkite-agent: true
+              # The cache helpers (hash_file, restore_cache…) come from the CI toolkit.
+              expand-volume-vars: true
+              volumes:
+                - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
         artifact_paths:
           - test-results/**/*.zip
           - test-results/**/*.png
@@ -176,17 +196,27 @@ steps:
       # defaults that Linux doesn't. Same pattern as the unit-test group.
       - label: CLI E2E Tests on linux
         key: cli_e2e_tests_linux
-        command: bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
+        command: |
+          export PATH="$$PATH:/a8c-ci-toolkit/bin"
+          bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
         artifact_paths:
           - test-results/daemon-logs/**/*.log
         agents:
           queue: default
         timeout_in_minutes: 30
         plugins:
+          - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
+              propagate-aws-auth-tokens: true
+              environment:
+                - CACHE_BUCKET_NAME
               mount-buildkite-agent: true
+              # The cache helpers (hash_file, restore_cache…) come from the CI toolkit.
+              expand-volume-vars: true
+              volumes:
+                - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
 
   - group: 📦 Build for Mac
     key: dev-mac

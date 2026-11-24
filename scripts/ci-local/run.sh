@@ -31,6 +31,29 @@ done
 DEV_CONFIG_DIR=$( mktemp -d "${TMPDIR:-/tmp}/studio-ci-local.XXXXXX" )
 export DEV_CONFIG_DIR
 
+# Build native code against Xcode's SDK, as the Mac agents do: a Command Line Tools SDK
+# can be out of step with the linker.
+if [ "$( uname )" = Darwin ] && [ -z "${SDKROOT:-}" ]; then
+	sdk="$( xcode-select -p 2> /dev/null )/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+	[ -d "$sdk" ] && export SDKROOT="$sdk"
+fi
+
+# Postinstall downloads PHP, WordPress and Studio's plugins into the config folder. Copy them into
+# the temporary one (reading the real folder only), or download them there when it has none.
+seed_config() {
+	[ -n "${SEEDED:-}" ] && return 0
+	local real="$HOME/.studio" dir
+	if [ -d "$real/php-bin" ] && [ -d "$real/server-files" ]; then
+		for dir in php-bin server-files import-runtime mu-plugins; do
+			[ -d "$real/$dir" ] && cp -Rc "$real/$dir" "$DEV_CONFIG_DIR/" 2> /dev/null || cp -R "$real/$dir" "$DEV_CONFIG_DIR/" 2> /dev/null
+		done
+	else
+		node --experimental-strip-types scripts/download-wp-server-files.ts &&
+			node --experimental-strip-types scripts/download-php-binary.ts || return 1
+	fi
+	SEEDED=1
+}
+
 stage_pipeline() {
 	echo "Checking the CI scripts and pipeline file"
 	local f ok=0
@@ -67,25 +90,38 @@ stage_unit() {
 }
 
 stage_cli_e2e() {
-	npm run cli:build &&
+	seed_config && npm run cli:build &&
 		node apps/cli/dist/cli/main.mjs site list &&
 		npm test -- --project cli --tagsFilter='e2e' --no-file-parallelism .e2e.test.ts
 }
+
+# Packaging installs the bundled dependencies into apps/cli/node_modules and apps/studio/node_modules.
+# Left there, they shadow the root ones and break the unit tests' mocks, so remove the ones it adds.
+BUNDLE_DIRS=()
+for dir in apps/cli/node_modules apps/studio/node_modules; do
+	[ -e "$dir" ] || BUNDLE_DIRS+=( "$dir" )
+done
 
 package_app() {
 	[ -n "${PACKAGED:-}" ] && return 0
 	local arch
 	arch=$( uname -m )
 	[ "$arch" = x86_64 ] && arch=x64
-	IS_DEV_BUILD=true npm -w studio-app run package -- --arch="$arch" --platform=darwin && PACKAGED=1
+	if ! actool --version > /dev/null 2>&1; then
+		echo "✖ Packaging needs Xcode 26 or later (actool), which compiles the app icon."
+		return 1
+	fi
+	IS_DEV_BUILD=true npm -w studio-app run package -- --arch="$arch" --platform=darwin && PACKAGED=1 && return 0
+	echo "✖ Packaging failed. If actool crashed on the app icon, this Xcode doesn't match this macOS."
+	return 1
 }
 
 stage_e2e() {
-	npm run e2e:fixtures -- --require && package_app && npx playwright test
+	seed_config && npm run e2e:fixtures -- --require && package_app && npx playwright test
 }
 
 stage_metrics() {
-	package_app &&
+	seed_config && package_app &&
 		ARTIFACTS_PATH="$DEV_CONFIG_DIR/metrics" npm run test:metrics &&
 		npm -w compare-perf run compare -- --help > /dev/null
 }
@@ -122,6 +158,9 @@ for stage in "${stages[@]}"; do
 done
 
 rm -rf "$DEV_CONFIG_DIR"
+for dir in ${BUNDLE_DIRS[@]+"${BUNDLE_DIRS[@]}"}; do
+	rm -rf "$dir"
+done
 echo
 printf '%s\n' "${results[@]}"
 exit $failed

@@ -21,12 +21,11 @@ describe.skipIf( process.platform === 'win32' )( 'connecting an SSH site', () =>
 	it( 'reads the site in the folder, trusting a new host only now', async () => {
 		const folder = site();
 		await expect(
-			sshSites.resolve!( undefined, { host: 'deploy@acme.test', path: `${ folder }/`, wpCli: '' } )
+			sshSites.resolve!( undefined, { host: 'deploy@acme.test', path: `${ folder }/`, php: '' } )
 		).resolves.toEqual( {
 			id: `deploy@acme.test:${ folder }`,
 			name: 'Acme',
 			url: 'https://acme.test',
-			wpCli: 'wp',
 			contentDir: `${ folder }/wp-content`,
 		} );
 		expect( readFileSync( path.join( server.dir, 'args' ), 'utf8' ) ).toContain(

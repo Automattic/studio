@@ -69,8 +69,9 @@ export function formatSshAddress( { destination, port, path }: SshTarget ): stri
 	return port ? `ssh://${ destination }:${ port }${ path }` : `${ destination }:${ path }`;
 }
 
-// A command such as `php ~/bin/wp-cli.phar`: words of path characters, which the server's shell runs.
-export function isWpCliCommand( command: string ): boolean {
+// A command such as `/opt/plesk/php/8.3/bin/php`: words of path characters, which the server's shell
+// runs.
+export function isPhpCommand( command: string ): boolean {
 	return /^[\w./~@+=-]+(?: [\w./~@+=-]+)*$/.test( command );
 }
 

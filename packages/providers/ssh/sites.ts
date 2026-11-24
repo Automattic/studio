@@ -5,7 +5,7 @@ import { formatSshAddress, parseSshAddress, parseSshHost, sitePath, sshHostInput
 import { sshProvider, type SshSite } from './descriptor';
 import { pullOverSsh } from './pull';
 import { pushOverSsh } from './push';
-import { inSite, runSsh, shellQuote, type SshConnection } from './shell';
+import { inSite, shellQuote, uploadWpCli, withSsh, type SshConnection } from './shell';
 import { addSshHost, listSshHosts } from './ssh-config';
 import type { SitesServices } from '../types';
 
@@ -17,7 +17,7 @@ function connection( site: Pick< SshSite, 'id' > & Partial< SshSite > ): SshConn
 			'ssh_probe'
 		);
 	}
-	return { ...target, wpCli: site.wpCli ?? 'wp', contentDir: site.contentDir };
+	return { ...target, php: site.php || 'php', contentDir: site.contentDir };
 }
 
 const PROBE = `echo json_encode( array(
@@ -39,7 +39,7 @@ function parseForm< Schema extends z.ZodType >(
 }
 
 async function resolve( input: Record< string, string > ): Promise< SshSite > {
-	const values = { host: '', path: '', wpCli: '', ...input };
+	const values = { host: '', path: '', php: '', ...input };
 	// A whole address as the host, as `--remote-site ssh:<address>` gives it.
 	const address = values.path ? undefined : parseSshAddress( values.host );
 	if ( address && ! /^\d+$/.test( address.path ) ) {
@@ -48,10 +48,14 @@ async function resolve( input: Record< string, string > ): Promise< SshSite > {
 	}
 	const form = parseForm( sshProvider.sites!.connect!.input(), values );
 	const server = { ...parseSshHost( form.host )!, path: sitePath( form.path ) };
-	const wpCli = form.wpCli.trim() || 'wp';
-	const output = await runSsh(
+	const php = form.php.trim();
+	const output = await withSsh(
 		server,
-		`${ inSite( { path: server.path, wpCli } ) }\nstudio_wp eval ${ shellQuote( PROBE ) }`,
+		async ( ssh ) => {
+			const site = { ...server, php: php || 'php' };
+			const wpCli = await uploadWpCli( ssh, site );
+			return ssh.run( `${ inSite( site, wpCli ) }\nstudio_wp eval ${ shellQuote( PROBE ) }` );
+		},
 		{ acceptNewHostKey: true }
 	);
 	// Plugins and the server's shell may print before the JSON.
@@ -82,7 +86,7 @@ async function resolve( input: Record< string, string > ): Promise< SshSite > {
 		id: formatSshAddress( server ),
 		name: probe.name || new URL( probe.home ).hostname,
 		url: probe.home,
-		wpCli,
+		...( php ? { php } : {} ),
 		contentDir: probe.contentDir,
 	};
 }

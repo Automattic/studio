@@ -7,20 +7,29 @@ import { afterEach, beforeEach, vi } from 'vitest';
 // would, in a home folder of its own.
 const FAKE_SSH = `#!/bin/sh
 if [ "$1" = -G ]; then printf 'user deploy\\nhostname %s.test\\nport 22\\n' "$3"; exit 0; fi
+printf '%s\\n' "$*" | tr '\\n' ' ' >> "$FAKE_SSH_ARGS.log"; echo >> "$FAKE_SSH_ARGS.log"
+[ "$1" != -O ] || exit 0
 printf '%s\\n' "$@" > "$FAKE_SSH_ARGS"
 if [ -n "$FAKE_SSH_FAIL" ]; then echo "$FAKE_SSH_FAIL" >&2; exit 255; fi
 for command; do :; done
 exec sh -c "$command"
 `;
 
-/** Puts a fake `ssh` and the given fake `wp` first on PATH for each test; returns their folder. */
+/**
+ * Puts a fake `ssh` first on PATH for each test, and a `php` that runs the given fake WP-CLI in place of
+ * Studio's; returns their folder.
+ */
 export function useFakeServer( wp: string ): { dir: string } {
 	const server = { dir: '' };
 	beforeEach( () => {
 		server.dir = mkdtempSync( path.join( tmpdir(), 'studio-ssh-' ) );
+		// The server has the MySQL client, so WP-CLI's own commands run rather than the PHP fallbacks.
 		for ( const [ name, script ] of [
 			[ 'ssh', FAKE_SSH ],
 			[ 'wp', wp ],
+			[ 'php', '#!/bin/sh\nshift\nexec "$(dirname "$0")/wp" "$@"\n' ],
+			[ 'mysql', '#!/bin/sh\n' ],
+			[ 'mysqldump', '#!/bin/sh\n' ],
 		] ) {
 			writeFileSync( path.join( server.dir, name ), script );
 			chmodSync( path.join( server.dir, name ), 0o755 );
@@ -30,6 +39,8 @@ export function useFakeServer( wp: string ): { dir: string } {
 		// Worker threads don't pass a stubbed HOME to os.homedir(), which would be the user's own.
 		vi.spyOn( os, 'homedir' ).mockReturnValue( server.dir );
 		vi.stubEnv( 'FAKE_SSH_ARGS', path.join( server.dir, 'args' ) );
+		writeFileSync( path.join( server.dir, 'studio-wp-cli.phar' ), 'phar' );
+		vi.stubEnv( 'STUDIO_WP_CLI_PHAR', path.join( server.dir, 'studio-wp-cli.phar' ) );
 	} );
 	afterEach( () => {
 		vi.unstubAllEnvs();

@@ -1,14 +1,15 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { isSitePath, isWpCliCommand, parseSshAddress, parseSshHost } from './address';
+import { isPhpCommand, isSitePath, parseSshAddress, parseSshHost } from './address';
 import type { Provider, RemoteSite } from '../types';
 
-// A WordPress site on a server Studio reaches with the user's `ssh`, and manages with WP-CLI there.
+// A WordPress site on a server Studio reaches with the user's `ssh`, and manages there with its own
+// WP-CLI.
 export interface SshSite extends RemoteSite {
 	// Its address, as `formatSshAddress` writes it: `user@host:/path`, or `ssh://user@host:port/path`.
 	id: string;
-	// How to run WP-CLI on the server, such as `wp`.
-	wpCli: string;
+	// How to run PHP on the server, when it isn't `php`.
+	php?: string;
 	// The server's WP_CONTENT_DIR, read when connecting.
 	contentDir: string;
 }
@@ -51,15 +52,17 @@ export const sshProvider: Provider< undefined, SshSite > = {
 							description: __( 'The folder with wp-config.php on the server.' ),
 							examples: [ '/var/www/html' ],
 						} ),
-					wpCli: z
+					php: z
 						.string()
-						.refine( ( value ) => ! value.trim() || isWpCliCommand( value.trim() ), {
-							message: __( 'Enter the command that runs WP-CLI, such as wp or php ~/wp-cli.phar.' ),
+						.refine( ( value ) => ! value.trim() || isPhpCommand( value.trim() ), {
+							message: __(
+								'Enter the command that runs PHP, such as php or /opt/plesk/php/8.3/bin/php.'
+							),
 						} )
 						.meta( {
-							title: __( 'WP-CLI command' ),
-							description: __( 'How to run WP-CLI on the server, when it isn’t wp.' ),
-							examples: [ 'wp' ],
+							title: __( 'PHP command' ),
+							description: __( 'How to run PHP on the server, when it isn’t php.' ),
+							examples: [ 'php' ],
 						} ),
 				} ),
 		},
@@ -67,7 +70,7 @@ export const sshProvider: Provider< undefined, SshSite > = {
 			title: () => __( 'Publish over SSH' ),
 			description: () =>
 				__(
-					'Push to and pull from a WordPress site on any server you reach over SSH with a key, with WP-CLI installed there. Studio uses your SSH setup and never stores a password.'
+					'Push to and pull from a WordPress site on any server you reach over SSH with a key and that runs PHP. Studio uses your SSH setup and never stores a password.'
 				),
 			learnMoreUrl: 'https://make.wordpress.org/cli/handbook/guides/installing/',
 		},

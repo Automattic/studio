@@ -1811,7 +1811,6 @@ it( 'connects a site over SSH from its address, then publishes to it', async () 
 		id: 'deploy@acme.test:/srv/www',
 		name: 'Acme',
 		url: 'https://acme.test',
-		wpCli: 'wp',
 		contentDir: '/srv/www/wp-content',
 		localSiteId: site.id,
 		lastPushTimestamp: null,

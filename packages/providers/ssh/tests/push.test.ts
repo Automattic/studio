@@ -39,7 +39,7 @@ function write( file: string, content: string ) {
 describe.skipIf( process.platform === 'win32' )( 'pushing over SSH', () => {
 	const server = useFakeServer( FAKE_WP );
 
-	it( 'backs up, then replaces plugins whole, merges uploads, and swaps staged tables in', async () => {
+	it( 'backs up, then replaces plugins whole, merges uploads, leaves caching drop-ins, and swaps staged tables in', async () => {
 		const local = path.join( server.dir, 'local' );
 		write( path.join( local, 'wp-config.php' ), 'local config' );
 		write( path.join( local, 'sql/wp_options.sql' ), 'INSERT INTO `wp_options` VALUES (1);\n' );
@@ -53,6 +53,7 @@ describe.skipIf( process.platform === 'win32' )( 'pushing over SSH', () => {
 		);
 		write( path.join( local, 'wp-content/plugins/akismet/new.php' ), 'new' );
 		write( path.join( local, 'wp-content/uploads/a.jpg' ), 'new a' );
+		write( path.join( local, 'wp-content/object-cache.php' ), 'local cache' );
 		const archive = path.join( server.dir, 'site.tar.gz' );
 		execFileSync( 'tar', [ '-czf', archive, '-C', local, '.' ] );
 
@@ -88,6 +89,7 @@ describe.skipIf( process.platform === 'win32' )( 'pushing over SSH', () => {
 		expect( readFileSync( path.join( content, 'uploads/a.jpg' ), 'utf8' ) ).toBe( 'new a' );
 		expect( existsSync( path.join( content, 'uploads/b.jpg' ) ) ).toBe( true );
 		expect( existsSync( path.join( root, 'wp-config.php' ) ) ).toBe( false );
+		expect( existsSync( path.join( content, 'object-cache.php' ) ) ).toBe( false );
 
 		expect( readFileSync( path.join( server.dir, 'imported.sql' ), 'utf8' ) ).toBe(
 			'CREATE TABLE `studio_new_bp_xprofile_options` (\n  `id` int\n);\n' +
@@ -103,7 +105,9 @@ describe.skipIf( process.platform === 'win32' )( 'pushing over SSH', () => {
 			'',
 		] );
 
-		const [ run ] = readdirSync( path.join( server.dir, '.studio-sync' ) );
+		const run = readdirSync( path.join( server.dir, '.studio-sync' ) ).find( ( name ) =>
+			name.startsWith( 'push-' )
+		)!;
 		expect( readdirSync( path.join( server.dir, '.studio-sync', run ) ).sort() ).toEqual( [
 			'backup.sql.gz',
 			'old',

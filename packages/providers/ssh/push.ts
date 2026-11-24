@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { RemoteSiteError } from '../errors';
-import { inSite, runSsh, shellQuote, syncFolder, type SshConnection } from './shell';
+import { FALLBACKS } from './fallbacks';
+import { inSite, shellQuote, syncFolder, uploadWpCli, withSsh, type SshConnection } from './shell';
 import type { SshTarget } from './address';
 import type { PushContent, PushStatus } from '../types';
 import type { Readable } from 'node:stream';
@@ -28,20 +29,21 @@ printf '%s\\n' "$dir"`;
 }
 
 // What every later step starts with: in the site's folder, with WP-CLI and the push's folder at hand.
-function prelude( site: SshConnection, dir: string ): string {
+function prelude( site: SshConnection, wpCli: string, dir: string ): string {
 	return `set -e
 umask 022
-${ inSite( site ) }
+${ inSite( site, wpCli ) }
+${ FALLBACKS }
 dir=${ shellQuote( dir ) }
 # The shortest prefix of a table named …options: the core table's, not a plugin's.
 source_prefix() { ls "$dir/site/sql" | sed -n 's/options\\.sql$//p' | awk '{ print length, $0 }' | sort -n | head -n 1 | cut -d ' ' -f 2-; }`;
 }
 
-function backupScript( site: SshConnection, dir: string ): string {
-	return `${ prelude( site, dir ) }
+function backupScript( site: SshConnection, wpCli: string, dir: string ): string {
+	return `${ prelude( site, wpCli, dir ) }
 rm -rf "$dir/site"
 mkdir "$dir/site"
-tar -xzf "$dir/site.tar.gz" -C "$dir/site"
+studio_untar "$dir/site.tar.gz" "$dir/site"
 rm "$dir/site.tar.gz"
 [ -d "$dir/site/sql" ] || exit 0
 from=$(source_prefix)
@@ -54,7 +56,9 @@ for file in "$dir"/site/sql/*.sql; do
 	table=$prefix\${name#"$from"}
 	case "$existing" in *",$table,"*) tables=$tables,$table ;; esac
 done
-[ -z "$tables" ] || { studio_wp db export "$dir/backup.sql" --tables="\${tables#,}"; gzip "$dir/backup.sql"; }`;
+[ -n "$tables" ] || exit 0
+studio_export "$dir/backup.sql" "\${tables#,}"
+if studio_has gzip; then gzip "$dir/backup.sql"; fi`;
 }
 
 // Gives the staging tables the server's URL wherever the local one is, in each way it's written, and
@@ -80,8 +84,13 @@ if ( $local ) {
 		}
 	}
 }
-foreach ( array( 'home', 'siteurl' ) as $option ) {
-	$wpdb->update( "{$staging}options", array( 'option_value' => get_option( $option ) ), array( 'option_name' => $option ) );
+// The server keeps its own address, search engine visibility and Jetpack connection.
+foreach ( array( 'home', 'siteurl', 'blog_public', 'jetpack_options', 'jetpack_private_options' ) as $option ) {
+	$live = $wpdb->get_row( $wpdb->prepare( "SELECT option_value, autoload FROM {$wpdb->options} WHERE option_name = %s", $option ), ARRAY_A );
+	$wpdb->delete( "{$staging}options", array( 'option_name' => $option ) );
+	if ( $live ) {
+		$wpdb->insert( "{$staging}options", array( 'option_name' => $option ) + $live );
+	}
 }
 $wpdb->update(
 	"{$staging}options",
@@ -120,8 +129,8 @@ if ( $old ) {
 	$wpdb->query( 'DROP TABLE ' . implode( ', ', $old ) );
 }`;
 
-function applyScript( site: SshConnection, dir: string ): string {
-	return `${ prelude( site, dir ) }
+function applyScript( site: SshConnection, wpCli: string, dir: string ): string {
+	return `${ prelude( site, wpCli, dir ) }
 content=${ shellQuote( site.contentDir ) }
 tick=$(printf '\\140')
 if [ -d "$dir/site/sql" ]; then
@@ -129,10 +138,12 @@ if [ -d "$dir/site/sql" ]; then
 	studio_wp eval ${ shellQuote( DROP_STAGING ) }
 	for file in "$dir"/site/sql/*.sql; do
 		sed -E "s/^(DROP TABLE IF EXISTS|CREATE TABLE|INSERT INTO) \${tick}\${STUDIO_SOURCE_PREFIX}/\\1 \${tick}${ STAGING }/" "$file"
-	done | studio_wp db import -
+	done | studio_import
 	studio_wp eval ${ shellQuote( REPLACE_URLS ) }
 fi
 if [ -d "$dir/site/wp-content" ]; then
+	# The server's caching drop-ins belong to its host.
+	rm -f "$dir/site/wp-content/advanced-cache.php" "$dir/site/wp-content/object-cache.php"
 	for item in "$dir"/site/wp-content/plugins/* "$dir"/site/wp-content/themes/*; do
 		[ -e "$item" ] || continue
 		rel=\${item#"$dir/site/wp-content/"}
@@ -151,8 +162,8 @@ if [ -d "$dir/site/sql" ]; then
 fi`;
 }
 
-function finishScript( site: SshConnection, dir: string ): string {
-	return `${ prelude( site, dir ) }
+function finishScript( site: SshConnection, wpCli: string, dir: string ): string {
+	return `${ prelude( site, wpCli, dir ) }
 rm -rf "$dir/site"
 studio_wp cache flush`;
 }
@@ -171,21 +182,25 @@ export async function pushOverSsh(
 		throw new RemoteSiteError( __( 'Studio pushes a site over SSH as an archive.' ) );
 	}
 	const archive = content.file as Readable;
-	let sent = 0;
-	archive.on( 'data', ( chunk: Buffer ) => {
-		sent += chunk.length;
-		onStatus( { phase: 'uploading', progress: ( sent / content.size ) * 100 } );
-	} );
 	onStatus( { phase: 'uploading' } );
-	const output = await runSsh( site, uploadScript( site, `push-${ Date.now() }` ), {
-		stdin: archive,
-		signal,
+	await withSsh( site, async ( ssh ) => {
+		const wpCli = await uploadWpCli( ssh, site );
+		// Counting the bytes starts the archive flowing, so it starts with the upload.
+		let sent = 0;
+		archive.on( 'data', ( chunk: Buffer ) => {
+			sent += chunk.length;
+			onStatus( { phase: 'uploading', progress: ( sent / content.size ) * 100 } );
+		} );
+		const output = await ssh.transfer( uploadScript( site, `push-${ Date.now() }` ), {
+			stdin: archive,
+			signal,
+		} );
+		const dir = output.trim().split( '\n' ).pop()!;
+		onStatus( { phase: 'creatingRemoteBackup' } );
+		await ssh.run( backupScript( site, wpCli, dir ) );
+		onStatus( { phase: 'applyingChanges' } );
+		await ssh.run( applyScript( site, wpCli, dir ) );
+		onStatus( { phase: 'finishing' } );
+		await ssh.run( finishScript( site, wpCli, dir ) );
 	} );
-	const dir = output.trim().split( '\n' ).pop()!;
-	onStatus( { phase: 'creatingRemoteBackup' } );
-	await runSsh( site, backupScript( site, dir ) );
-	onStatus( { phase: 'applyingChanges' } );
-	await runSsh( site, applyScript( site, dir ) );
-	onStatus( { phase: 'finishing' } );
-	await runSsh( site, finishScript( site, dir ) );
 }

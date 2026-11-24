@@ -162,7 +162,6 @@ describe( 'Add site flow', () => {
 			id: 'deploy@acme.test:/srv/www',
 			name: 'Acme',
 			url: 'https://acme.test',
-			wpCli: 'wp',
 			contentDir: '/srv/www/wp-content',
 		};
 		connector.runSitesAction.mockResolvedValue( [ { name: 'acme' } ] );

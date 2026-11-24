@@ -36,7 +36,6 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 				id: `deploy@acme.test:${ root }`,
 				name: 'Acme',
 				url: 'https://acme.test',
-				wpCli: 'wp',
 				contentDir: content,
 			},
 			{ optionsToSync },
@@ -60,7 +59,11 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 			'wp-content/uploads/a.jpg',
 		] );
 		expect( percents.at( -1 ) ).toBeGreaterThan( 0 );
-		expect( readdirSync( path.join( server.dir, '.studio-sync' ) ) ).toEqual( [] );
+		expect(
+			readdirSync( path.join( server.dir, '.studio-sync' ) ).filter( ( name ) =>
+				name.startsWith( 'pull-' )
+			)
+		).toEqual( [] );
 	} );
 
 	it( 'sends only what was picked', async () => {

@@ -1,4 +1,5 @@
-import { inSite, runSsh, shellQuote, syncFolder, type SshConnection } from './shell';
+import { CREATE_TAR, FALLBACKS } from './fallbacks';
+import { inSite, shellQuote, syncFolder, uploadWpCli, withSsh, type SshConnection } from './shell';
 import type { PullSyncOptions } from '../wpcom/sites/site';
 
 // What a local site can't use, or doesn't need: caches, backups, logs, and the drop-ins that bind
@@ -22,13 +23,14 @@ const EXCLUDED = [
  */
 function prepareScript(
 	site: SshConnection,
+	wpCli: string,
 	{ optionsToSync = [], onlyPaths = [] }: PullSyncOptions
 ): string {
 	const all = ! optionsToSync.length || optionsToSync.includes( 'all' );
 	const wants = ( option: 'plugins' | 'themes' | 'uploads' | 'contents' ) =>
 		all || optionsToSync.includes( option ) ? '1' : '';
 	const database = `mkdir "$dir/sql"
-studio_wp db export "$dir/sql/database.sql" --tables="$(studio_wp db tables --all-tables-with-prefix --format=csv)" >&2
+studio_export "$dir/sql/database.sql" "$(studio_wp db tables --all-tables-with-prefix --format=csv)"
 echo sql >> "$dir/items"`;
 	const content = onlyPaths.length
 		? `for only in ${ onlyPaths.map( shellQuote ).join( ' ' ) }; do
@@ -50,7 +52,8 @@ rm -rf "$base"/.studio-sync/pull-*
 mkdir -p "$dir"
 ln -s ${ shellQuote( site.contentDir ) } "$dir/wp-content"
 : > "$dir/items"
-${ inSite( site ) }
+${ inSite( site, wpCli ) }
+${ FALLBACKS }
 ${ all || optionsToSync.includes( 'sqls' ) ? database : '' }
 cd "$dir"
 ${ content }
@@ -59,18 +62,25 @@ printf '%s\\n%s\\n' "$dir" "\${total:-0}"`;
 }
 
 // Sends what the folder lists as a tar, then removes the folder, also when the pull is cancelled.
-function streamScript( dir: string ): string {
+function streamScript( site: SshConnection, wpCli: string, dir: string ): string {
 	return `set -e
+${ inSite( site, wpCli ) }
 dir=${ shellQuote( dir ) }
 trap 'rm -rf "$dir"' EXIT
 trap 'exit 1' HUP INT TERM PIPE
 cd "$dir"
-set --
-while IFS= read -r item; do set -- "$@" "$item"; done < items
-[ $# -gt 0 ] || { echo 'Error: There is nothing to pull.' >&2; exit 1; }
-tar -cf - ${ EXCLUDED.map( ( pattern ) => `--exclude=${ shellQuote( pattern ) }` ).join(
+[ -s items ] || { echo 'Error: There is nothing to pull.' >&2; exit 1; }
+if command -v tar >/dev/null 2>&1; then
+	set --
+	while IFS= read -r item; do set -- "$@" "$item"; done < items
+	tar -cf - ${ EXCLUDED.map( ( pattern ) => `--exclude=${ shellQuote( pattern ) }` ).join(
 		' '
-	) } "$@"`;
+	) } "$@"
+else
+	STUDIO_EXCLUDE=${ shellQuote(
+		EXCLUDED.join( '\n' )
+	) } studio_wp eval --skip-wordpress ${ shellQuote( CREATE_TAR ) } < items 3>&1 1>&2
+fi`;
 }
 
 export async function pullOverSsh(
@@ -80,19 +90,26 @@ export async function pullOverSsh(
 	onProgress: ( percent: number ) => void,
 	signal?: AbortSignal
 ): Promise< void > {
-	const output = await runSsh( site, prepareScript( site, options ), { signal } );
-	const [ dir, kilobytes ] = output.trim().split( '\n' ).slice( -2 );
-	const total = Math.max( 1, Number( kilobytes ) * 1024 );
-	let received = 0;
-	const writer = archive.getWriter();
-	const counted = new WritableStream< Uint8Array >( {
-		write: async ( chunk ) => {
-			received += chunk.length;
-			onProgress( Math.min( 99, ( received / total ) * 100 ) );
-			await writer.write( chunk );
-		},
-		close: () => writer.close(),
-		abort: ( reason ) => writer.abort( reason ),
+	await withSsh( site, async ( ssh ) => {
+		const wpCli = await uploadWpCli( ssh, site );
+		const output = await ssh.run( prepareScript( site, wpCli, options ), { signal } );
+		const [ dir, kilobytes ] = output.trim().split( '\n' ).slice( -2 );
+		const total = Math.max( 1, Number( kilobytes ) * 1024 );
+		let received = 0;
+		const writer = archive.getWriter();
+		const counted = new WritableStream< Uint8Array >( {
+			write: async ( chunk ) => {
+				received += chunk.length;
+				onProgress( Math.min( 99, ( received / total ) * 100 ) );
+				await writer.write( chunk );
+			},
+			close: () => writer.close(),
+			abort: ( reason ) => writer.abort( reason ),
+		} );
+		await ssh.transfer( streamScript( site, wpCli, dir ), {
+			stdout: counted,
+			compress: true,
+			signal,
+		} );
 	} );
-	await runSsh( site, streamScript( dir ), { stdout: counted, compress: true, signal } );
 }

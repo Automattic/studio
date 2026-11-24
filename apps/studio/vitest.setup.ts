@@ -85,6 +85,7 @@ vi.mock( import( './src/storage/paths' ), () => ( {
 	getResourcesPath: vi.fn().mockReturnValue( '/mock/resources' ),
 	getCliPath: vi.fn().mockReturnValue( '/mock/cli/path' ),
 	getBundledNodeBinaryPath: vi.fn().mockReturnValue( '/mock/node/binary' ),
+	getWpCliPharPath: vi.fn().mockReturnValue( '/mock/cli/wp-files/wp-cli/wp-cli.phar' ),
 	getSiteThumbnailPath: vi.fn().mockReturnValue( '/mock/thumbnail.png' ),
 } ) );
 

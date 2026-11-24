@@ -58,6 +58,7 @@
 		"lint": "oxlint scripts apps/cli apps/local apps/mcp-ui/src apps/studio/src apps/studio/e2e apps/ui/src packages tools/capture-harness && eslint \"apps/ui/src/**/*.css\" \"packages/ds/**/*.css\"",
 		"typecheck": "npm run typecheck --workspaces --if-present && tsc -p scripts/tsconfig.json --noEmit",
 		"knip": "knip",
+		"ci:local": "bash scripts/ci-local/run.sh",
 		"format": "oxlint --fix scripts apps/cli apps/local apps/mcp-ui/src apps/studio/src apps/studio/e2e apps/ui/src packages tools/capture-harness && prettier --write --log-level warn \"{scripts,apps/cli,apps/local,apps/mcp-ui/src,apps/studio/src,apps/studio/e2e,apps/ui/src,packages,tools/capture-harness}/**/*.{js,mjs,cjs,ts,tsx,mts,cts}\" && eslint --fix \"apps/ui/src/**/*.css\" \"packages/ds/**/*.css\"",
 		"test": "vitest run",
 		"test:watch": "vitest",

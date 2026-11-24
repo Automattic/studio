@@ -1,0 +1,33 @@
+#!/bin/bash
+# Stand-in for the a8c-ci-toolkit command: compares the working tree, untracked files included,
+# with its merge base on origin/trunk, so it sees what a push would send.
+#   pr_changed_files                      exit 0 when the branch changes files
+#   pr_changed_files --all-match P...     exit 0 when every changed file matches a pattern
+#   pr_changed_files --any-match P...     exit 0 when some changed file matches a pattern
+#   --stdout                              print true/false instead (exit 0)
+set -u
+base=$(git merge-base HEAD "${CI_LOCAL_BASE:-origin/trunk}") || exit 1
+files=()
+while IFS= read -r line; do files+=( "$line" ); done < <( git diff --name-only "$base"; git ls-files --others --exclude-standard )
+mode=any; stdout=false; patterns=()
+for arg in "$@"; do
+	case "$arg" in
+		--all-match) mode=all ;;
+		--any-match) mode=any ;;
+		--stdout) stdout=true ;;
+		*) patterns+=( "$arg" ) ;;
+	esac
+done
+matches() { local p; for p in "${patterns[@]+"${patterns[@]}"}"; do [[ "$1" == $p ]] && return 0; done; return 1; }
+result=false
+if [ ${#patterns[@]} -eq 0 ]; then
+	[ ${#files[@]} -gt 0 ] && result=true
+elif [ "$mode" = all ]; then
+	result=true
+	for f in ${files[@]+"${files[@]}"}; do matches "$f" || { result=false; break; }; done
+	[ ${#files[@]} -eq 0 ] && result=false
+else
+	for f in ${files[@]+"${files[@]}"}; do matches "$f" && { result=true; break; }; done
+fi
+if $stdout; then echo "$result"; exit 0; fi
+$result

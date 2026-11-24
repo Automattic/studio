@@ -1,0 +1,3 @@
+#!/bin/bash
+# Stand-in for the a8c-ci-toolkit command: there is no S3 cache locally.
+echo "(local run: no cache to restore for $1)"

@@ -54,11 +54,8 @@ COMMON_NON_CODE_PATTERNS=(
   ".ruby-version"
   ".bundle/**"
 
-  # Release pipelines don't run the test jobs. The PR pipeline, its shared
-  # variables and the scripts in .buildkite/commands do, so changes to them
-  # run every check.
-  ".buildkite/release-pipelines/**"
-  ".buildkite/release-build-and-distribute.yml"
+  # CI configuration changes don't need app tests
+  ".buildkite/**"
 
   # Installer assets and configuration
   "installers/**"

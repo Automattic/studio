@@ -44,13 +44,15 @@ const MiB = 1024 * 1024;
 const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 * MiB };
 const DIRECTORY_LIMITS = { unpacked: 50 * MiB, entries: 512, entry: 5 * MiB };
 
-// What only Codex, Cursor and Grok Build read: their manifests and MCP configs, and Codex's app
-// metadata and launchers.
+// What only Codex, Cursor, Grok Build and Antigravity read: their manifests and MCP configs, and
+// Codex's app metadata and launchers.
 const NOT_FOR_CLAUDE = [
+	'.antigravity-plugin',
 	'.codex-plugin',
 	'.cursor-plugin',
 	'.grok-plugin',
 	'.mcp.json',
+	'mcp_config.json',
 	'agents',
 	'scripts/launch-mcp',
 	'scripts/launch-mcp.cmd',
@@ -116,7 +118,13 @@ async function main(): Promise< void > {
 	console.log( '==> Assembling the plugin...' );
 	fs.rmSync( stagingDir, { recursive: true, force: true } );
 	fs.cpSync( path.join( repoRoot, 'plugins', 'wp-studio' ), stagingDir, { recursive: true } );
-	for ( const host of [ '.codex-plugin', '.claude-plugin', '.cursor-plugin', '.grok-plugin' ] ) {
+	for ( const host of [
+		'.antigravity-plugin',
+		'.codex-plugin',
+		'.claude-plugin',
+		'.cursor-plugin',
+		'.grok-plugin',
+	] ) {
 		const manifestPath = path.join( stagingDir, host, 'plugin.json' );
 		const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
 		manifest.version = version;

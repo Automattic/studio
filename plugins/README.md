@@ -3,7 +3,7 @@
 Plugins that bring [WordPress Studio](https://wordpress.studio/) to agent apps.
 
 - [wp-studio](wp-studio): build, design, and manage WordPress sites from Codex in the ChatGPT app,
-  from Claude Code, from Cursor, and from Grok Build.
+  from Claude Code, from Cursor, from Grok Build, and from Google Antigravity.
 
 With the Studio app, open **Settings** → **MCP** and select **Connect** next to your agent app. It
 installs the plugin for you.
@@ -56,6 +56,16 @@ downloads the CLI the first time it starts. Grok Build runs the plugin with the 
 `PATH`, version 22 or later. Start a new session afterwards. To update, run
 `grok plugin update wp-studio`.
 
+## Install in Antigravity
+
+```bash
+agy plugin install https://github.com/Automattic/studio-plugins/tree/trunk/wp-studio
+```
+
+Antigravity keeps an installed plugin in a read-only folder, so the plugin unpacks the Studio CLI
+in the data folder Antigravity gives it instead, and replaces it there when the plugin updates.
+Start a new conversation afterwards. To update, install it again.
+
 ## Development
 
 The plugins are developed in [Automattic/studio](https://github.com/Automattic/studio/tree/trunk/plugins)
@@ -68,7 +78,8 @@ Automattic/studio.
 
 To try your changes, add the marketplace from your checkout (`codex plugin marketplace add ./plugins`,
 `claude --plugin-dir ./plugins/wp-studio` for one Claude Code session, a copy of `plugins/wp-studio`
-in `~/.cursor/plugins/local/WordPress-Studio`, as Cursor skips symlinks to folders outside it, or
-`grok plugin install ./plugins/wp-studio --trust`) and point the plugin at a Studio CLI build with
+in `~/.cursor/plugins/local/WordPress-Studio`, as Cursor skips symlinks to folders outside it,
+`grok plugin install ./plugins/wp-studio --trust`, or `agy plugin install ./plugins/wp-studio`, after
+`agy plugin validate --strict ./plugins/wp-studio`) and point the plugin at a Studio CLI build with
 `STUDIO_CLI_BIN`. `npm run cli:bundle:plugin` builds the plugin with the CLI inside, the plugin for
 Anthropic's directory, and the CLI download to attach to the release.

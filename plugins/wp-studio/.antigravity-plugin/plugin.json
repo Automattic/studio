@@ -1,0 +1,27 @@
+{
+	"$schema": "https://antigravity.google/schemas/v1/plugin.json",
+	"name": "wp-studio",
+	"displayName": "WordPress Studio",
+	"version": "0.1.1",
+	"description": "Build and manage WordPress sites on your computer with WordPress Studio: create a local site, design its block theme, preview it, and publish when ready.",
+	"logo": "assets/logo.png",
+	"suggestedPrompts": [
+		"Build a WordPress site for my bakery on my computer.",
+		"Redesign the home page of my local Studio site.",
+		"Check the speed and SEO of my local site and tell me what to fix."
+	],
+	"author": {
+		"name": "Automattic Inc.",
+		"url": "https://automattic.com"
+	},
+	"homepage": "https://wordpress.studio/",
+	"repository": "https://github.com/Automattic/studio",
+	"license": "GPL-2.0-or-later",
+	"keywords": [
+		"wordpress",
+		"wordpress-studio",
+		"local-development",
+		"site-builder",
+		"block-theme"
+	]
+}

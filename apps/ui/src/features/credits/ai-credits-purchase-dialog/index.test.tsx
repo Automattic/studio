@@ -60,7 +60,7 @@ describe( 'AI credits purchase dialog', () => {
 		fireEvent.click( screen.getByRole( 'radio', { name: /500,000 credits/ } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Continue for £37.50' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-500000'
+			'https://wordpress.com/checkout/studio/studio-code-ai-credits:-q-500000'
 		);
 	} );
 

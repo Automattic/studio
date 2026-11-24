@@ -10,7 +10,6 @@
 		"./wpcom": "./wpcom.ts"
 	},
 	"scripts": {
-		"lint": "eslint .",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {

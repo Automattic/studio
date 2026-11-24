@@ -188,7 +188,13 @@ async function unpack( archive ) {
 			.createInterface( { input: tar.stderr } )
 			.on( 'line', ( line ) => process.stderr.write( `${ line }\n` ) );
 		const [ , [ code ] ] = await Promise.all( [
-			pipeline( createReadStream( archive ), createBrotliDecompress(), tar.stdin ),
+			// GNU tar exits at the end-of-archive marker, which can be before the
+			// padding after it is written: its exit code says whether it unpacked.
+			pipeline( createReadStream( archive ), createBrotliDecompress(), tar.stdin ).catch(
+				( error ) => {
+					if ( ! [ 'ERR_STREAM_PREMATURE_CLOSE', 'EPIPE' ].includes( error.code ) ) throw error;
+				}
+			),
 			once( tar, 'close' ),
 		] );
 		running.delete( tar );

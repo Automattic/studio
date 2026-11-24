@@ -187,7 +187,7 @@ test.describe( 'Memory Metrics', () => {
 	test( 'measure the memory of Studio at rest and at work', async ( {}, testInfo ) => {
 		test.setTimeout( BROWSER_INSTALL_TIMEOUT_MS + SITE_TIMEOUT_MS + TOOL_TIMEOUT_MS * SCREENSHOTS );
 
-		const buildPath = findLatestBuild( path.resolve( __dirname, '../../../apps/studio/out' ) );
+		const buildPath = findLatestBuild( path.resolve( import.meta.dirname, '../../../apps/studio/out' ) );
 		const app = parseElectronApp( buildPath );
 		const nodeBinary = path.join( app.resourcesDir, 'bin', 'node' );
 		const cli = path.join( app.resourcesDir, 'cli', 'main.mjs' );

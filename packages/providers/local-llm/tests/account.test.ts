@@ -91,7 +91,8 @@ describe( 'local-llm account', () => {
 
 	it( 'sends the key to a server that asks for one, and never shows it back', async () => {
 		fetchMock.mockImplementation( async ( url: string, init?: RequestInit ) =>
-			( init?.headers as Record< string, string > ).Authorization === 'Bearer secret-key'
+			( init?.headers as Record< string, string > | undefined )?.Authorization ===
+			'Bearer secret-key'
 				? json( 200, {
 						data: [ { id: 'qwen3', architecture: { input_modalities: [ 'text' ] } } ],
 				  } )

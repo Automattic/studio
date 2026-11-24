@@ -1,9 +1,9 @@
+import { Badge, Button } from '@studio/ds';
+import { PlugIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useAgentApps, useConnectAgentApp } from '@/data/queries/use-agent-apps';
 import { getAgentAppConnectionName, getAgentAppDescription } from '@/data/settings-sections';
 import { AppIcon } from '@/features/sites';
-import { PlugIcon } from '@/lib/icons';
-import { Badge, Button } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 import type { AgentApp } from '@/data/core';

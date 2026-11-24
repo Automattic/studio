@@ -123,13 +123,13 @@ describe( 'purchase dialog copy', () => {
 describe( 'getAddAiCreditsUrl', () => {
 	it( 'defaults to the single fixed top-up quantity', () => {
 		expect( getAddAiCreditsUrl( { returnsToDesktop: false } ) ).toBe(
-			'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000'
+			'https://wordpress.com/checkout/studio/studio-code-ai-credits:-q-100000'
 		);
 	} );
 
 	it( 'buys the requested quantity', () => {
 		expect( getAddAiCreditsUrl( { returnsToDesktop: false, credits: 500000 } ) ).toBe(
-			'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-500000'
+			'https://wordpress.com/checkout/studio/studio-code-ai-credits:-q-500000'
 		);
 	} );
 

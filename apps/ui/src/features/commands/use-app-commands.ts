@@ -1,4 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
+import { useHasOpenDialog } from '@studio/ds';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
@@ -18,7 +19,6 @@ import { useSettingCommands } from '@/features/commands/use-setting-commands';
 import { useOpenWhatsNew } from '@/features/onboarding';
 import { useCollapseAll } from '@/features/sidebar';
 import { useOpenAddSite } from '@/features/sites';
-import { useHasOpenDialog } from '@/lib/ui';
 import type { PaletteCommand } from '@/features/commands/studio-commands';
 
 // The commands available everywhere: sites, chats, settings and the app's own.

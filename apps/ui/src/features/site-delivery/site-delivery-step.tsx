@@ -1,6 +1,6 @@
+import { Button, Popover } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { ChevronLeftIcon } from 'lucide-react';
-import { Button, Popover } from '@/lib/ui';
 import styles from './site-delivery-step.module.css';
 import type { ReactNode, Ref } from 'react';
 

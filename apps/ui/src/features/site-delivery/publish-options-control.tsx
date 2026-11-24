@@ -1,13 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { useRef, type RefObject } from 'react';
-import {
-	checkNodes,
-	FilePicker,
-	PublishChecklist,
-	publishSelectionSummary,
-	useTransferSelection,
-} from '@/features/sync';
-import { ChevronDownIcon, ChevronRightIcon, SlidersVerticalIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -17,7 +7,17 @@ import {
 	DialogDescription,
 	DialogFooter,
 	Popover,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { ChevronDownIcon, ChevronRightIcon, SlidersVerticalIcon } from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { useRef, type RefObject } from 'react';
+import {
+	checkNodes,
+	FilePicker,
+	PublishChecklist,
+	publishSelectionSummary,
+	useTransferSelection,
+} from '@/features/sync';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { RemoteSite, SitesProviderId } from '@studio/providers';

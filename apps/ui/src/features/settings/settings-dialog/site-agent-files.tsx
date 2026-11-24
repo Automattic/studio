@@ -1,3 +1,4 @@
+import { Menu } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -11,7 +12,6 @@ import {
 	SettingsToggle,
 } from '@/features/settings/settings-view/rows';
 import { useOpenInDestinations } from '@/features/sites';
-import { Menu } from '@/lib/ui';
 import { SkillActions } from '../skill-actions';
 import styles from './style.module.css';
 import type { SiteAgentFileKind, SiteDetails } from '@/data/core';

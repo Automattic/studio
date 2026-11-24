@@ -6,21 +6,20 @@
 	"author": "Automattic",
 	"homepage": "https://github.com/Automattic/studio",
 	"license": "GPLv2",
+	"type": "module",
 	"repository": "Automattic/studio",
 	"scripts": {
-		"compare": "ts-node index.ts",
-		"log-to-codevitals": "ts-node log-to-codevitals.ts",
-		"post-to-github": "ts-node post-to-github.ts"
+		"compare": "node index.ts",
+		"log-to-codevitals": "node log-to-codevitals.ts",
+		"post-to-github": "node post-to-github.ts"
 	},
 	"dependencies": {
 		"chalk": "^4.1.2",
 		"commander": "^13.1.0",
 		"inquirer": "^12.5.0",
-		"simple-git": "^4.0.2",
-		"ts-node": "^10.9.2"
+		"simple-git": "^4.0.2"
 	},
 	"devDependencies": {
-		"@types/node": "^26.6.5",
-		"typescript": "^6.0.3"
+		"@types/node": "^26.6.5"
 	}
 }

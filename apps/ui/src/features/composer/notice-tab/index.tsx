@@ -1,6 +1,6 @@
-import { Button, MarqueeLabel } from '@/lib/ui';
+import { Button, MarqueeLabel } from '@studio/ds';
 import styles from './style.module.css';
-import type { SubmitFeedback } from '@/lib/hooks';
+import type { SubmitFeedback } from '@studio/ds/hooks';
 
 export interface ComposerNotice {
 	message: string;

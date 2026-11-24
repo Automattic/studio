@@ -1,5 +1,16 @@
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
 import { type ThinkingSetting } from '@studio/agent/protocol/thinking';
+import {
+	DropOverlay,
+	Button,
+	CommandSheet,
+	handleCommandKey,
+	InputGroup,
+	InputGroupTextarea,
+	Popover,
+} from '@studio/ds';
+import { useSubmitFeedback } from '@studio/ds/hooks';
+import { GlobeIcon, PlusIcon, PlayIcon } from '@studio/ds/icons';
 import { findAiModel, getAiModels, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -40,18 +51,7 @@ import { useDraftAttachments } from '@/features/composer/use-draft-attachments';
 import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
-import { useSubmitFeedback } from '@/lib/hooks';
-import { GlobeIcon, PlusIcon, PlayIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
-import {
-	DropOverlay,
-	Button,
-	CommandSheet,
-	handleCommandKey,
-	InputGroup,
-	InputGroupTextarea,
-	Popover,
-} from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
 import type { ComposerAttachment, ComposerSendAttachments } from '@/data/use-composer-attachments';
@@ -330,7 +330,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			? { message: attachmentError || currentValidationError! }
 			: undefined );
 
-	useEffect( () => {
+	// A layout effect, so the saved draft matches the screen as soon as it changes: the sidebar's
+	// New chat reads it, and a click can land before React runs plain effects.
+	useLayoutEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
 			saveComposerDraft( draftKey, { text: value, attachments } );
 		} else {

@@ -11,7 +11,10 @@ export default mergeConfig(
 			name: 'ui',
 			testTimeout: 20_000,
 			include: [ 'src/**/*.test.{ts,tsx}' ],
-			setupFiles: [ path.resolve( __dirname, './vitest.setup.ts' ) ],
+			setupFiles: [
+				path.resolve( __dirname, '../../packages/ds/vitest.setup.ts' ),
+				path.resolve( __dirname, './vitest.setup.ts' ),
+			],
 		},
 		resolve: {
 			alias: {

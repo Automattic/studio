@@ -1,3 +1,4 @@
+import { getMotionDuration } from '@studio/ds/theme';
 import { __, sprintf } from '@wordpress/i18n';
 import {
 	useEffect,
@@ -9,7 +10,6 @@ import {
 	type MouseEvent as ReactMouseEvent,
 	type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { getMotionDuration } from '@/lib/theme';
 
 type Slot = { id: string; left: number; top: number; width: number; height: number };
 type Drag = {

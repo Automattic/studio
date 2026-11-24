@@ -1,9 +1,9 @@
+import { GlobeIcon } from '@studio/ds/icons';
 import { clsx } from 'clsx';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { SiteMenu, SiteHeaderSpace, useSiteHeader } from '@/features/sites';
-import { GlobeIcon } from '@/lib/icons';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';

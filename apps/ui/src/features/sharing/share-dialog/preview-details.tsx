@@ -1,9 +1,9 @@
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
+import { Button, Field, FieldLabel, Input } from '@studio/ds';
 import { __, sprintf } from '@wordpress/i18n';
 import { useId, useState } from 'react';
 import { useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { getSnapshotHostname } from '@/data/snapshot-url';
-import { Button, Field, FieldLabel, Input } from '@/lib/ui';
 import styles from './style.module.css';
 import type { Snapshot } from '@/data/core';
 

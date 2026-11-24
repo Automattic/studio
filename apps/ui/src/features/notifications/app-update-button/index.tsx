@@ -1,11 +1,11 @@
+import { Button, IconButton, Menu } from '@studio/ds';
+import { UpdateIcon } from '@studio/ds/icons';
 import { useMutation } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus, useRetryAppUpdate } from '@/data/queries/use-app-update';
-import { UpdateIcon } from '@/lib/icons';
-import { Button, IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function AppUpdateButton( {

@@ -6,8 +6,8 @@
 }
 
 .editor {
-	composes: errorShake from '@/lib/theme/recipes.module.css';
-	composes: floating from '@/lib/ui/surface/style.module.css';
+	composes: errorShake from '@studio/ds/theme/recipes.module.css';
+	composes: floating from '@studio/ds/surface.module.css';
 	--error-shake-distance: var( --space-0_5 );
 
 	position: absolute;
@@ -38,7 +38,7 @@
 }
 
 .image {
-	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	composes: imageOutline from '@studio/ds/theme/recipes.module.css';
 	position: relative;
 	width: 48px;
 	height: 48px;
@@ -94,7 +94,7 @@
 }
 
 .submitSeparator {
-	composes: separator from '@/lib/ui/surface/style.module.css';
+	composes: separator from '@studio/ds/surface.module.css';
 	margin: 0;
 }
 

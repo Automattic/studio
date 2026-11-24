@@ -1,7 +1,7 @@
+import { Button, Menu } from '@studio/ds';
 import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AppUpdateButton, AppToasts } from '@/features/notifications';
-import { Button, Menu } from '@/lib/ui';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AppUpdateStatus } from '@/data/core';

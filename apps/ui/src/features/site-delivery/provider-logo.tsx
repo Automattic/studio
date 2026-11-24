@@ -1,6 +1,6 @@
+import { LogoTile } from '@studio/ds';
 import { clsx } from 'clsx';
 import { ProviderLogo as AccountProviderLogo } from '@/features/account';
-import { LogoTile } from '@/lib/ui';
 import pressableLogo from './pressable-logo.svg?raw';
 import styles from './style.module.css';
 import type { RemoteSiteConnection } from '@/data/core';

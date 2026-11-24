@@ -12,9 +12,9 @@ WordPress Studio is an [open source project](https://github.com/Automattic/studi
 
 ### How can I publish my WordPress Studio site so that it’s publicly available?
 
-You need a hosting plan. A [preview](https://wordpress.studio/docs/preview-sites/) is only for sharing work and gathering early feedback. It expires if it goes without an update for a while, and the **Share** panel shows when. See [Preview expiration](https://wordpress.studio/docs/preview-sites/#preview-expiration).
+You need a hosting plan. A [preview](https://wordpress.studio/docs/preview-sites/) is only for sharing work and gathering early feedback. It expires if it goes without an update for a while, and the preview’s details in the **Publish** panel show when. See [Preview expiration](https://wordpress.studio/docs/preview-sites/#preview-expiration).
 
-- **On WordPress.com or Pressable:** [publish your site](https://wordpress.studio/docs/sync/) from the **Publish** panel. You can also buy a plan for a preview on WordPress.com, which turns the preview into a WordPress.com site.
+- **On WordPress.com or Pressable:** [publish your site](https://wordpress.studio/docs/sync/) from the **Publish** panel. You can also [make a preview your live site](https://wordpress.studio/docs/preview-sites/#make-a-preview-your-live-site) by buying a plan for it on WordPress.com.
 - **On another WordPress host:** [export your site](https://wordpress.studio/docs/import-export/), then import the export on the destination site, for example with the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
 
 ### How can I export a theme I created in WordPress Studio?

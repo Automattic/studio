@@ -73,7 +73,7 @@ To have WordPress Studio start a stopped site when you send it a WordPress Studi
 
 ### [View sites](#4-view-sites)
 
-The selected site is shown in the panel on the right of the WordPress Studio window. The panel works like a small browser: it has tabs, and each tab has **Back**, **Forward**, and **Reload** buttons, an address bar, **Annotate**, and **Browser options** (**⋮**). Above the tabs you’ll find **Share**, **Publish**, **Expand panel**, and **Hide panel**.
+The selected site is shown in the panel on the right of the WordPress Studio window. The panel works like a small browser: it has tabs, and each tab has **Back**, **Forward**, and **Reload** buttons, an address bar, **Annotate**, and **Browser options** (**⋮**). Above the tabs you’ll find **Publish**, **Expand panel**, and **Hide panel**.
 
 To open something in a new tab, click **New tab** (**+**) next to the tabs and choose:
 
@@ -147,7 +147,7 @@ The site menu groups its items:
 -   **Rename**
 -   **Duplicate**: a notice shows the progress while WordPress Studio copies the site
 -   **Settings**: opens the site’s [settings](#site-settings)
--   **Share**: see [Preview sites](https://wordpress.studio/docs/preview-sites/)
+-   **Share**: **Create preview**, and **Copy links** and **Visit previews** once the site has previews. See [Preview sites](https://wordpress.studio/docs/preview-sites/)
 -   **Publish**: see [WordPress Studio Sync](https://wordpress.studio/docs/sync/)
 -   **Export** (**Export site** or **Export database**): see [Import & export](https://wordpress.studio/docs/import-export/)
 -   **Delete**

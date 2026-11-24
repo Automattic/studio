@@ -288,9 +288,11 @@ studio config get [<key>]
 
 | Command | What it does |
 | --- | --- |
-| `studio preview create` | Creates a preview of the site and prints its preview link |
+| `studio preview create` | Creates a preview of the site and prints its preview link. Add `--name` to name it, and `--live-site` with a connected site’s ID, or `none`, to choose which live site it shows changes to |
 | `studio preview list` | Lists the site’s previews. Add `--all` for the previews of every local site |
-| `studio preview update <host>` | Updates a preview with your local changes |
+| `studio preview update <host>` | Updates a preview with your local changes. Add `--overwrite` to update it from another site folder than the one it was made from |
+| `studio preview status <host>` | Shows whether the preview or its local site changed since the last update |
+| `studio preview launch <host>` | Opens the WordPress.com checkout that makes the preview your live site |
 | `studio preview set <host>` | Changes a preview’s settings, such as its name |
 | `studio preview delete <host>` | Deletes a preview, or every preview with `--all` |
 
@@ -315,6 +317,8 @@ The CLI validates the site, archives and uploads it, and prints the preview link
 ✔ Preview site available at: https://wrenandbarley.wpcomstaging.com/?share=…
 ✔ Preview site saved to Studio
 ```
+
+When WordPress.com offers a plan for the preview, the CLI also prints a **Make it your live site** link. See [Make a preview your live site](https://wordpress.studio/docs/preview-sites/#make-a-preview-your-live-site).
 
 ### Update or delete a preview
 

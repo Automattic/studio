@@ -1,9 +1,5 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
-import { __, sprintf } from '@wordpress/i18n';
-import { useRef, type RefObject } from 'react';
-import { useConnector } from '@/data/core';
-import { useDisconnectRemoteSite } from '@/data/queries/use-sync-site';
 import {
 	AlertDialog,
 	Button,
@@ -12,7 +8,11 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __, sprintf } from '@wordpress/i18n';
+import { useRef, type RefObject } from 'react';
+import { useConnector } from '@/data/core';
+import { useDisconnectRemoteSite } from '@/data/queries/use-sync-site';
 import type { RemoteSiteConnection } from '@/data/core';
 import type { SitesProviderId } from '@studio/providers';
 

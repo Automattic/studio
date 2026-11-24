@@ -11,12 +11,12 @@
 }
 
 .annotationElementTag {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	min-width: 0;
 }
 
 .annotationElementText {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --muted-foreground );
 }
 
@@ -94,7 +94,7 @@
 }
 
 .userImageAttachment {
-	composes: attachmentThumbnail from '@/lib/theme/recipes.module.css';
+	composes: attachmentThumbnail from '@studio/ds/theme/recipes.module.css';
 }
 
 @container ( max-width: 400px ) {
@@ -105,7 +105,7 @@
 }
 
 .userImageAttachmentContent {
-	composes: attachmentThumbnailImage from '@/lib/theme/recipes.module.css';
+	composes: attachmentThumbnailImage from '@studio/ds/theme/recipes.module.css';
 }
 
 .userAttachment {
@@ -141,5 +141,5 @@
 }
 
 .userAttachmentName {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 }

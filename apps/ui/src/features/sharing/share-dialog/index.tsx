@@ -1,6 +1,6 @@
+import { Spinner } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 

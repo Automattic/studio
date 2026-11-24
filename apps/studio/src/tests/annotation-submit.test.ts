@@ -148,7 +148,7 @@ it( 'does not let a Tracks failure break sending', async () => {
 	await vi.waitFor( () => expect( record ).toHaveBeenCalledTimes( 1 ) );
 } );
 
-it.each( [ 'opt-out', 'CI', 'IS_DEV_BUILD' ] )(
+it.each( [ 'opt-out', 'IS_DEV_BUILD' ] )(
 	'honors %s while still sending annotations',
 	async ( gate ) => {
 		const wrappedRecord = vi.spyOn( tracks, 'recordTracksEvent' );

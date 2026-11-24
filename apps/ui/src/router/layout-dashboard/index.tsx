@@ -1,4 +1,5 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
+import { useMediaQuery } from '@studio/ds/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRoute, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { __, isRTL } from '@wordpress/i18n';
@@ -43,15 +44,15 @@ import {
 	useWhatsNewReplay,
 } from '@/features/onboarding';
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
-import { PanelSplitFrame, type PanelSplitFramePanelProps } from '@/features/sites';
 import {
+	PanelSplitFrame,
+	type PanelSplitFramePanelProps,
 	SiteHeaderActions,
 	SiteHeaderActionsProvider,
 	SitePreview,
 	PanelLayoutControls,
 	PreviewTabs,
 } from '@/features/sites';
-import { useMediaQuery } from '@/lib/hooks';
 import { isDialogOpen } from '@/lib/keyboard';
 import { rootRoute } from '../layout-root';
 import styles from './style.module.css';

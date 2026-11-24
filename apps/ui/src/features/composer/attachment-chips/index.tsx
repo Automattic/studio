@@ -6,16 +6,16 @@ import {
 	hasComposerAttachmentVisualPreview,
 	watchComposerAttachmentTextScroll,
 } from '@studio/agent/protocol/composer-attachment-preview';
-import { __, sprintf } from '@wordpress/i18n';
-import { useLayoutEffect, useRef } from 'react';
-import { AnnotationReviewChip } from '@/features/annotations';
-import { StickerIcon } from '@/lib/icons';
 import {
 	AttachmentChip as AttachmentChipSurface,
 	AttachmentChipTrigger,
 	AttachmentRemoveButton,
 	Popover,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { StickerIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useLayoutEffect, useRef } from 'react';
+import { AnnotationReviewChip } from '@/features/annotations';
 import { getComposerFileIcon } from './file-icon';
 import styles from './style.module.css';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';

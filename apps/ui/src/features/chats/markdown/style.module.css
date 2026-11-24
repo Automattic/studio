@@ -9,7 +9,7 @@
 }
 
 .imageFrame {
-	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	composes: imageOutline from '@studio/ds/theme/recipes.module.css';
 	position: relative;
 	display: inline-block;
 	max-width: 100%;

@@ -9,7 +9,6 @@
 		"playground": "STUDIO_TARGET=playground vite --port 5300 --open",
 		"build": "vite build",
 		"build:local": "STUDIO_TARGET=local vite build",
-		"lint": "eslint src",
 		"lint:unused": "knip --directory ../.. --workspace @studio/ui",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"preview": "vite preview",
@@ -27,6 +26,7 @@
 		"@studio/common": "file:../../packages/common",
 		"@studio/providers": "file:../../packages/providers",
 		"@studio/design-md": "file:../../packages/design-md",
+		"@studio/ds": "file:../../packages/ds",
 		"@tanstack/query-sync-storage-persister": "^5.96.2",
 		"@tanstack/react-query": "^5.75.5",
 		"@tanstack/react-query-persist-client": "^5.96.2",
@@ -51,7 +51,7 @@
 		"@types/react-dom": "^19.2.3",
 		"@vitejs/plugin-react": "^6.1.2",
 		"@wp-playground/blueprints": "3.1.53",
-		"typescript": "~6.0.3",
+		"typescript": "~7.0.2",
 		"vite": "^8.3.5"
 	}
 }

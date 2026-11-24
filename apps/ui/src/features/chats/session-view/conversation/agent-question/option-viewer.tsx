@@ -1,8 +1,3 @@
-import { __, isRTL } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { ChevronLeftIcon } from 'lucide-react';
-import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
-import { ChevronRightIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -10,7 +5,12 @@ import {
 	DialogContent,
 	DialogDismissButton,
 	IconButton,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { ChevronRightIcon } from '@studio/ds/icons';
+import { __, isRTL } from '@wordpress/i18n';
+import { clsx } from 'clsx';
+import { ChevronLeftIcon } from 'lucide-react';
+import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
 import styles from './style.module.css';
 
 export function QuestionOptionViewer( {

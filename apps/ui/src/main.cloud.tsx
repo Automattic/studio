@@ -1,6 +1,7 @@
-import '@/lib/theme/tokens.css';
-import '@/lib/theme/base.css';
+import '@studio/ds/theme/tokens.css';
+import '@studio/ds/theme/base.css';
 import '@/index.css';
+import { applyTheme, resolveColorScheme } from '@studio/ds/theme';
 import { __ } from '@wordpress/i18n';
 import { StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -13,7 +14,6 @@ import { persistPromise, queryClient } from '@/data/core';
 import { createLocalConnector } from '@/data/core/connectors/local';
 import { UnsupportedServerError } from '@/data/core/connectors/local/server-version';
 import { CloudPlanPicker, CloudSignIn, type EndedPlan } from '@/features/cloud';
-import { applyTheme, resolveColorScheme } from '@/lib/theme';
 import type { Billing } from '@/data/core';
 
 // Studio Cloud entry point. The page and its control plane (`/cloud/*`) share an origin; the

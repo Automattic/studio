@@ -1,11 +1,11 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { PreviewFrame, PreviewImage, Button } from '@studio/ds';
+import { ExternalLinkIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { toSelectedBlueprint } from '@/features/sites/blueprint-selection';
-import { ExternalLinkIcon } from '@/lib/icons';
-import { PreviewFrame, PreviewImage, Button } from '@/lib/ui';
 import { getBlueprintPreviewUrl } from './blueprint-catalog';
 import styles from './blueprint-gallery.module.css';
 import { getBlueprintScreenshots } from './blueprint-screenshots';

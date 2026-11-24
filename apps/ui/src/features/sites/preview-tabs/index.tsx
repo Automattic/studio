@@ -1,3 +1,5 @@
+import { IconButton, Menu, Tabs, TabsList, TabsTrigger, VisuallyHidden } from '@studio/ds';
+import { PlusIcon, XIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
@@ -16,9 +18,7 @@ import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in
 import { getPreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
 import { getSiteTool, SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
-import { PlusIcon, XIcon } from '@/lib/icons';
 import { isDialogOpen, isShortcut } from '@/lib/keyboard';
-import { IconButton, Menu, Tabs, TabsList, TabsTrigger, VisuallyHidden } from '@/lib/ui';
 import styles from './style.module.css';
 import { useTabReorder } from './use-tab-reorder';
 import type { SiteDetails } from '@/data/core';

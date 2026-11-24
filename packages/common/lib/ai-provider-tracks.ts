@@ -112,14 +112,16 @@ export async function getAiTurnTracksProps(
 	} catch {
 		// The props still name the provider and model.
 	}
-	const { methods } = getProvider( provider ).account;
+	const methods = getProvider( provider ).account?.methods;
 	// The CLI's inline WordPress.com token isn't stored, but WordPress.com connects one way.
-	const fallback = methods.length === 1 ? methods[ 0 ].id : undefined;
+	const fallback = methods?.length === 1 ? methods[ 0 ].id : undefined;
 	return {
 		provider,
 		connection_method: account.connected ? account.method : fallback,
-		model,
-		model_family: getModelFamily( provider, model ),
+		// Analytics never name a local model: the user names it.
+		...( getProvider( provider ).ai?.local
+			? { model: 'local-model', model_family: provider }
+			: { model, model_family: getModelFamily( provider, model ) } ),
 	};
 }
 

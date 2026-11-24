@@ -1,3 +1,5 @@
+import { Button, CodeBlock, CollapsiblePanel, Spinner } from '@studio/ds';
+import { CircleStopIcon, ChevronDownIcon, CircleCheckIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CircleAlertIcon } from 'lucide-react';
@@ -11,8 +13,6 @@ import {
 	type ComponentProps,
 } from 'react';
 import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
-import { CircleStopIcon, ChevronDownIcon, CircleCheckIcon } from '@/lib/icons';
-import { Button, CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
 import type { NormalizedToolResult } from '@studio/agent/protocol/tools';

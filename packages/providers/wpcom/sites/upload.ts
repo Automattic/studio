@@ -19,7 +19,6 @@ function shouldRetryTusStatus( status: number ): boolean {
 export type TusUploadOptions = {
 	token: string;
 	remoteSiteId: number;
-	// A Blob in a browser; in Node, a stream of the archive with its size.
 	file: Extract< PushContent, { kind: 'archive' } >[ 'file' ];
 	filename: string;
 	size?: number;
@@ -60,8 +59,8 @@ export function createTusUpload( options: TusUploadOptions ): {
 				return;
 			}
 
-			// tus-js-client reads a Node stream in Node and a Blob in the page.
-			const upload = new Upload( file as Blob, {
+			// tus-js-client reads Node streams, which its types leave out.
+			const upload = new Upload( file as unknown as Blob, {
 				endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
 				chunkSize: TUS_CHUNK_SIZE,
 				retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],

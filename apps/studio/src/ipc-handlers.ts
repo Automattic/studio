@@ -33,6 +33,7 @@ import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/se
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { THINKING_SETTINGS, type ThinkingSetting } from '@studio/agent/protocol/thinking';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { type Blueprint } from '@studio/blueprints';
 import { openBlueprint } from '@studio/blueprints/node';
@@ -49,6 +50,7 @@ import {
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import { disconnectProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import {
 	getAuthTracksProps,
 	onboardingAnalyticsSchema,
@@ -80,7 +82,6 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { isSitePreviewPath, readSitePreview } from '@studio/common/lib/site-preview-cache';
 import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import {
@@ -97,6 +98,7 @@ import {
 import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser';
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
+import { readPreferredTerminal } from '@studio/common/lib/user-settings/user-preferences';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { getSiteEditOptions } from '@studio/common/sites/edit';
@@ -110,7 +112,6 @@ import {
 	setSiteFrontendAdminBar as writeSiteFrontendAdminBar,
 	updateSiteMetadata,
 } from '@studio/common/sites/metadata';
-import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import {
 	designFixesSchema,
 	fixSiteDesign,
@@ -136,7 +137,6 @@ import {
 import { getProviderServices } from '@studio/providers/services';
 import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
-import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext, takePendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -190,7 +190,6 @@ import { getDefaultSiteDirectory } from 'src/modules/user-settings/lib/ipc-handl
 import { linuxFindEditorPath } from 'src/modules/user-settings/lib/linux-editor-path';
 import { winFindEditorPath } from 'src/modules/user-settings/lib/win-editor-path';
 import { getSiteThumbnailPath } from 'src/storage/paths';
-import { loadUserData } from 'src/storage/user-data';
 import { captureSiteThumbnail } from './lib/capture-site-thumbnail';
 import type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
@@ -210,8 +209,14 @@ export {
 } from 'src/modules/cli/lib/ipc-handlers';
 
 export {
+	getSitePublishStatus,
 	cancelSyncOperation,
+	getSiteCreationVisibility,
+	getSiteVisibility,
+	setSiteVisibility,
 	connectRemoteSite,
+	resolveRemoteSite,
+	runSitesAction,
 	createRemoteSite,
 	disconnectRemoteSite,
 	getRemoteBackupId,
@@ -387,6 +392,24 @@ export async function setAiSessionProvider(
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
 		provider: toStoredProviderId( provider ),
 		model,
+	} );
+}
+
+export async function setAiSessionThinking(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	model: string,
+	thinking: ThinkingSetting
+): Promise< void > {
+	if ( ! findAiModel( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	if ( ! THINKING_SETTINGS.includes( thinking ) ) {
+		throw new Error( `Unknown thinking level: ${ thinking }` );
+	}
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
+		model,
+		thinking,
 	} );
 }
 
@@ -658,7 +681,7 @@ export async function startServer(
 	event: IpcMainInvokeEvent,
 	id: string
 ): Promise< SiteListItem | undefined > {
-	// Starting only needs the path, which `cli.json` has; the CLI's full details wait for a failure.
+	// Starting only needs the path, which the config file has; the CLI's full details wait for a failure.
 	const site = await readSite( id );
 	if ( ! site ) {
 		throw new Error( `Site not found: ${ id }` );
@@ -1027,7 +1050,7 @@ export async function getSiteDesign(
 ): Promise< SiteDesign | null > {
 	const sitePath = await readSitePath( id );
 	return sitePath
-		? readSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), () =>
+		? readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
 				readGlobalStyles( executeCliCommand, sitePath )
 		  )
 		: null;
@@ -1040,11 +1063,7 @@ export async function fixSiteDesignDrift(
 ): Promise< SiteDesign | null > {
 	const sitePath = await readSitePath( id );
 	return sitePath
-		? fixSiteDesign(
-				nodeSiteFiles( sitePath ),
-				activeThemeSlug( sitePath ),
-				designFixesSchema.parse( fixes )
-		  )
+		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
 		: null;
 }
 
@@ -1233,7 +1252,7 @@ function promiseExecFile(
 export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath: string ) {
 	const platform = process.platform;
 
-	const preferredTerminal = ( await loadUserData() ).preferredTerminal || DEFAULT_TERMINAL;
+	const preferredTerminal = await readPreferredTerminal();
 
 	// The single funnel for "open in terminal" across both the apps/studio buttons/context-menu and the
 	// apps/ui ipc connector — emitting here counts every path once. Fire-and-forget; the wrapper gates
@@ -1249,8 +1268,6 @@ export async function openTerminalAtPath( _event: IpcMainInvokeEvent, targetPath
 		};
 		return promiseExecFile( 'open', [ '-b', bundleIds[ preferredTerminal ], targetPath ] );
 	} else if ( platform === 'win32' ) {
-		const userData = await loadUserData();
-		const preferredTerminal = userData.preferredTerminal;
 		const defaultShell = process.env.ComSpec || 'cmd.exe';
 
 		if ( preferredTerminal === 'warp' ) {

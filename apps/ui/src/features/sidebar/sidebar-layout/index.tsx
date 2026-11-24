@@ -1,3 +1,6 @@
+import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@studio/ds';
+import { useScrollFade, useStoredFlag } from '@studio/ds/hooks';
+import { getMotionDuration } from '@studio/ds/theme';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -21,8 +24,6 @@ import { UserMenu } from '@/features/account';
 import { AppMessageCards, AppToasts } from '@/features/notifications';
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
-import { useScrollFade, useStoredFlag } from '@/lib/hooks';
-import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@/lib/ui';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode, RefCallback } from 'react';
@@ -32,7 +33,7 @@ const HOVER_CLOSE_DELAY_MS = 350;
 
 const findToggle = () =>
 	[ ...document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ].find(
-		( toggle ) => ! toggle.closest( '[inert]' )
+		( toggle ) => ! toggle.closest( '[inert], [aria-hidden="true"]' )
 	);
 
 function SidebarContents( {
@@ -45,7 +46,7 @@ function SidebarContents( {
 	scrollRef: RefCallback< HTMLDivElement >;
 } ) {
 	return (
-		<div ref={ scrollRef } className={ styles.sidebarScroll }>
+		<div ref={ scrollRef } className={ styles.sidebarScroll } inert={ ! active }>
 			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
 			<div className={ styles.sidebarFooter }>
 				<div className={ styles.sidebarFooterControls }>
@@ -66,41 +67,37 @@ export function SidebarLayout( {
 } ) {
 	const connector = useConnector();
 	const hasOpenDialog = useHasOpenDialog();
+	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
+		onCollapse: () => setCollapsed( true ),
 	} );
 	const sites = useSites();
 	const emptyWorkspace = sites.isSuccess && sites.data.length === 0;
-	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 
 	const [ sidebarFlyoutState, setSidebarFlyoutState ] = useState< 'closed' | 'hover' | 'open' >(
 		'closed'
 	);
 	const peek = sidebarFlyoutState === 'hover';
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
-	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
+	const focusDockedSidebar = useRef( false );
+	const focusHeaderToggle = useRef( false );
+	// Keep the sidebar in place while the dock makes room for it.
+	const [ dockingFromPeek, setDockingFromPeek ] = useState( false );
+	useEffect( () => {
+		if ( ! dockingFromPeek ) return;
+		const timer = window.setTimeout(
+			() => setDockingFromPeek( false ),
+			getMotionDuration( 'layout' )
+		);
+		return () => window.clearTimeout( timer );
+	}, [ dockingFromPeek ] );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
 	const setDockedFade = useScrollFade< HTMLDivElement >();
 	const setFlyoutFade = useScrollFade< HTMLElement >();
 	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	const dockScrollTop = useRef( 0 );
-	useLayoutEffect( () => {
-		if ( ! instantSidebarDock ) return;
-		if ( dockedSidebarRef.current ) {
-			dockedSidebarRef.current
-				.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
-				?.focus( { preventScroll: true } );
-		}
-		let secondFrame = 0;
-		const firstFrame = requestAnimationFrame( () => {
-			secondFrame = requestAnimationFrame( () => setInstantSidebarDock( false ) );
-		} );
-		return () => {
-			cancelAnimationFrame( firstFrame );
-			cancelAnimationFrame( secondFrame );
-		};
-	}, [ instantSidebarDock ] );
 	const hoverBlockedUntil = useRef( 0 );
 	const restoreSidebarFlyoutFocus = useRef( false );
 	const restoreSidebarDialogFocus = useRef( false );
@@ -115,6 +112,7 @@ export function SidebarLayout( {
 	}, [ clearHoverTimer ] );
 	useEffect( () => {
 		if ( hasOpenDialog ) {
+			setDockingFromPeek( false );
 			if ( sidebarFlyoutState !== 'closed' ) restoreSidebarDialogFocus.current = true;
 			restoreSidebarFlyoutFocus.current = false;
 			closeSidebarFlyout();
@@ -155,12 +153,27 @@ export function SidebarLayout( {
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
 	useLayoutEffect( () => {
+		if ( docked && focusDockedSidebar.current ) {
+			focusDockedSidebar.current = false;
+			dockedSidebarRef.current
+				?.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
+				?.focus( { preventScroll: true } );
+		}
 		if ( docked && dockedSidebarScrollRef.current ) {
 			dockedSidebarScrollRef.current.scrollTop = dockScrollTop.current;
 			dockScrollTop.current = 0;
 		}
 		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
 	}, [ docked, sidebarFlyoutVisible ] );
+	useLayoutEffect( () => {
+		if (
+			! docked &&
+			( focusHeaderToggle.current || dockedSidebarRef.current?.contains( document.activeElement ) )
+		) {
+			focusHeaderToggle.current = false;
+			findToggle()?.focus( { preventScroll: true } );
+		}
+	}, [ docked ] );
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
 		if ( ! hasOpenDialog && ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
@@ -181,7 +194,10 @@ export function SidebarLayout( {
 	const toggleSidebar = useCallback( () => {
 		if ( hasOpenDialog ) return;
 		if ( peek && ! overlay ) dockScrollTop.current = sidebarFlyoutRef.current?.scrollTop ?? 0;
-		setInstantSidebarDock( peek && ! overlay );
+		const focusedToggle = document.activeElement?.hasAttribute( 'data-sidebar-toggle' );
+		focusDockedSidebar.current = ! overlay && ( peek || ( collapsed && !! focusedToggle ) );
+		focusHeaderToggle.current = ! overlay && ! collapsed && !! focusedToggle;
+		setDockingFromPeek( peek && ! overlay && getMotionDuration( 'layout' ) > 0 );
 		hoverBlockedUntil.current = performance.now() + HOVER_CLOSE_DELAY_MS;
 		clearHoverTimer();
 		if ( overlay ) {
@@ -216,10 +232,7 @@ export function SidebarLayout( {
 						<SidebarHoverContext.Provider
 							value={ { peek, onEnter: hoverEnter, onLeave: hoverLeave } }
 						>
-							<div
-								className={ clsx( styles.root, instantSidebarDock && styles.instantSidebarDock ) }
-								style={ sidebarStyle }
-							>
+							<div className={ styles.root } style={ sidebarStyle }>
 								<div className={ styles.windowDragStrip } aria-hidden="true" />
 								<div
 									className={ clsx( styles.windowDragStrip, styles.windowDragStripBottom ) }
@@ -230,7 +243,7 @@ export function SidebarLayout( {
 									className={ styles.sidebarFlyoutAnchor }
 									aria-hidden
 								/>
-								{ ! instantSidebarDock && (
+								{ ( ! docked || hasOpenDialog ) && (
 									<Popover.Root
 										open={ peek || sidebarFlyoutOpen }
 										onOpenChange={ ( next, details ) => {
@@ -298,9 +311,10 @@ export function SidebarLayout( {
 									className={ clsx(
 										styles.sidebarFrame,
 										! docked && styles.sidebarCollapsed,
+										dockingFromPeek && styles.sidebarDocking,
 										sidebarResize.isResizing && styles.sidebarResizing
 									) }
-									inert={ ! docked }
+									aria-hidden={ ! docked || undefined }
 								>
 									<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
 										<SidebarHeader action={ docked ? headerAction : undefined } />

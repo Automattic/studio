@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	type CliEnv,
@@ -95,7 +95,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site start/stop'
 		}
 
 		// Hold a request open: its body never arrives, so the server can't finish it.
-		const port = readCliConfig( env ).sites.find( ( site ) => site.path === sitePath )?.port;
+		const port = readConfigFile( env ).sites.find( ( site ) => site.path === sitePath )?.port;
 		const socket = net.connect( Number( port ), 'localhost' );
 		socket.on( 'error', () => {} );
 		socket.write( 'POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\n' );

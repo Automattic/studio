@@ -1,3 +1,6 @@
+import { DirectionProvider, TooltipProvider } from '@studio/ds';
+import { ICON_SIZE } from '@studio/ds/icons';
+import { applyTheme } from '@studio/ds/theme';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { defaultI18n, isRTL } from '@wordpress/i18n';
 import { I18nProvider } from '@wordpress/react-i18n';
@@ -16,9 +19,6 @@ import { useSyncActivityEvents } from '@/data/queries/use-sync-site';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { OnboardingGuideProvider } from '@/features/onboarding';
 import { useSyncConnectSiteListener } from '@/features/sync';
-import { ICON_SIZE } from '@/lib/icons';
-import { applyTheme } from '@/lib/theme';
-import { DirectionProvider, TooltipProvider } from '@/lib/ui';
 import type { Connector } from '@/data/core';
 import type { QueryClient } from '@tanstack/react-query';
 import type { PropsWithChildren } from 'react';

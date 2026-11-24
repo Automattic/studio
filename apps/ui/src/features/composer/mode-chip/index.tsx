@@ -1,6 +1,6 @@
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
+import { XIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
-import { XIcon } from '@/lib/icons';
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 import type { ComponentType } from 'react';
 

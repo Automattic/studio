@@ -1,9 +1,12 @@
 {
 	"compilerOptions": {
-		"target": "ES2017",
-		"lib": [ "ES2017" ],
-		"module": "commonjs",
-		"moduleResolution": "node",
+		"target": "ES2022",
+		"lib": [ "ES2022" ],
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"allowImportingTsExtensions": true,
+		"erasableSyntaxOnly": true,
+		"noEmit": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"strict": true,

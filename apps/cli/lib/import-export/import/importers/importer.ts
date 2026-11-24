@@ -5,6 +5,7 @@ import { generateBackupFilename } from '@studio/common/lib/generate-backup-filen
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
+import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import {
 	RecommendedPHPVersion,
@@ -15,7 +16,6 @@ import { __, sprintf } from '@wordpress/i18n';
 import { move } from 'fs-extra';
 import semver from 'semver';
 import trash from 'trash';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -24,13 +24,14 @@ import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupContents, MetaFileData } from '../types';
 import { updateSiteUrl } from '../update-site-url';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 export interface ImporterResult extends Omit< BackupContents, 'metaFile' > {
 	meta?: MetaFileData;
 }
 
 export interface Importer extends ImportExportEventEmitter {
-	import( site: SiteData ): Promise< ImporterResult >;
+	import( site: ConfigSite ): Promise< ImporterResult >;
 }
 
 // Recovers from EEXIST/ENOTDIR by removing a non-directory blocker on the path.
@@ -68,11 +69,11 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 		super();
 	}
 
-	abstract import( site: SiteData ): Promise< ImporterResult >;
+	abstract import( site: ConfigSite ): Promise< ImporterResult >;
 
 	// Get a supported PHP version string based on a specific input string, the
-	// underlying meta.json file or the SiteData object.
-	protected resolvePhpVersion( site: SiteData, rawVersion?: string ): SupportedPHPVersion {
+	// underlying meta.json file or the ConfigSite object.
+	protected resolvePhpVersion( site: ConfigSite, rawVersion?: string ): SupportedPHPVersion {
 		const version = semver.coerce( rawVersion ?? this.meta?.phpVersion ?? site.phpVersion );
 		if ( ! version ) {
 			return RecommendedPHPVersion;
@@ -85,7 +86,7 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 			: RecommendedPHPVersion;
 	}
 
-	protected async importDatabase( site: SiteData, sqlFiles: string[] ): Promise< void > {
+	protected async importDatabase( site: ConfigSite, sqlFiles: string[] ): Promise< void > {
 		if ( ! sqlFiles.length ) {
 			return;
 		}
@@ -146,8 +147,49 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 			}
 		}
 
+		await this.useImportedTablePrefix( site );
 		await updateSiteUrl( site );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	// A database from another site may prefix its tables otherwise: wp-config.php names the prefix of
+	// its core options table, the shortest of those ending in `options`.
+	private async useImportedTablePrefix( site: ConfigSite ): Promise< void > {
+		const options = { requireSqliteCliCommand: true, phpVersion: this.resolvePhpVersion( site ) };
+		await using tables = await runWpCliCommand(
+			site,
+			[
+				'sqlite',
+				'tables',
+				'--format=json',
+				'--enable-ast-driver',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			options
+		);
+		let names: string[];
+		try {
+			names = parseJsonFromPhpOutput( await tables.response.stdoutText ) as string[];
+		} catch {
+			return;
+		}
+		const [ prefix ] = names
+			.filter( ( table ) => table.endsWith( 'options' ) && table !== 'options' )
+			.map( ( table ) => table.slice( 0, -'options'.length ) )
+			.sort( ( a, b ) => a.length - b.length );
+		if ( ! prefix ) {
+			return;
+		}
+		const config = await fs.promises.readFile( path.join( site.path, 'wp-config.php' ), 'utf8' );
+		if ( /\$table_prefix\s*=\s*['"]([^'"]*)['"]/.exec( config )?.[ 1 ] !== prefix ) {
+			await using update = await runWpCliCommand(
+				site,
+				[ 'config', 'set', 'table_prefix', prefix, '--type=variable' ],
+				options
+			);
+			await update.response.exitCode;
+		}
 	}
 
 	protected async prepareSqlFile( _tmpPath: string ): Promise< void > {
@@ -166,7 +208,7 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 abstract class BaseBackupImporter extends BaseImporter {
 	protected shouldCleanUpBeforeImport: boolean = true;
 
-	async import( site: SiteData ): Promise< ImporterResult > {
+	async import( site: ConfigSite ): Promise< ImporterResult > {
 		try {
 			if ( this.shouldCleanUpBeforeImport ) {
 				await this.moveExistingWpContentToTrash( site.path );
@@ -202,7 +244,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 	}
 
-	protected abstract parseMetaFile( site: SiteData ): Promise< MetaFileData | undefined >;
+	protected abstract parseMetaFile( site: ConfigSite ): Promise< MetaFileData | undefined >;
 
 	protected async createEmptyDatabase( dbPath: string ): Promise< void > {
 		await fs.promises.writeFile( dbPath, '' );
@@ -243,7 +285,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 	}
 
-	protected async importWpConfig( site: SiteData ): Promise< void > {
+	protected async importWpConfig( site: ConfigSite ): Promise< void > {
 		const wpConfigPath = path.join( site.path, 'wp-config.php' );
 		const wpConfigSamplePath = path.join( site.path, 'wp-config-sample.php' );
 
@@ -260,7 +302,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 	}
 
-	protected async importWpContent( site: SiteData ): Promise< void > {
+	protected async importWpContent( site: ConfigSite ): Promise< void > {
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_START );
 		const extractionDirectory = this.backup.extractionDirectory;
 		const wpContentSourceDir = this.backup.wpContentDirectory;
@@ -342,7 +384,7 @@ export class JetpackImporter extends BaseBackupImporter {
 	// Jetpack importer follows merge strategy to support selective sync
 	protected shouldCleanUpBeforeImport = false;
 
-	protected async parseMetaFile( site: SiteData ): Promise< MetaFileData | undefined > {
+	protected async parseMetaFile( site: ConfigSite ): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
 			return;
@@ -362,7 +404,7 @@ export class JetpackImporter extends BaseBackupImporter {
 		}
 	}
 
-	async import( site: SiteData ): Promise< ImporterResult > {
+	async import( site: ConfigSite ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START, 'jetpack' );
 		const result = await super.import( site );
 		this.emit( ImportEvents.IMPORT_COMPLETE, 'jetpack' );
@@ -371,7 +413,7 @@ export class JetpackImporter extends BaseBackupImporter {
 }
 
 export class LocalImporter extends BaseBackupImporter {
-	protected async parseMetaFile( site: SiteData ): Promise< MetaFileData | undefined > {
+	protected async parseMetaFile( site: ConfigSite ): Promise< MetaFileData | undefined > {
 		const metaFilePath = this.backup.metaFile;
 		if ( ! metaFilePath ) {
 			return;
@@ -391,7 +433,7 @@ export class LocalImporter extends BaseBackupImporter {
 		}
 	}
 
-	async import( site: SiteData ): Promise< ImporterResult > {
+	async import( site: ConfigSite ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START, 'local' );
 		const result = await super.import( site );
 		this.emit( ImportEvents.IMPORT_COMPLETE, 'local' );
@@ -400,7 +442,7 @@ export class LocalImporter extends BaseBackupImporter {
 }
 
 export class PlaygroundImporter extends BaseBackupImporter {
-	protected async importDatabase( site: SiteData, sqlFiles: string[] ): Promise< void > {
+	protected async importDatabase( site: ConfigSite, sqlFiles: string[] ): Promise< void > {
 		if ( ! sqlFiles.length ) {
 			return;
 		}
@@ -421,7 +463,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 		return undefined;
 	}
 
-	async import( site: SiteData ): Promise< ImporterResult > {
+	async import( site: ConfigSite ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START, 'playground' );
 		const result = await super.import( site );
 		this.emit( ImportEvents.IMPORT_COMPLETE, 'playground' );
@@ -430,7 +472,7 @@ export class PlaygroundImporter extends BaseBackupImporter {
 }
 
 export class SQLImporter extends BaseImporter {
-	async import( site: SiteData ): Promise< ImporterResult > {
+	async import( site: ConfigSite ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START, 'sql' );
 
 		try {
@@ -537,13 +579,13 @@ export class WpressImporter extends BaseBackupImporter {
 		sqlFiles.push( sqliteActivatePluginsPath );
 	}
 
-	protected async importDatabase( site: SiteData, sqlFiles: string[] ): Promise< void > {
+	protected async importDatabase( site: ConfigSite, sqlFiles: string[] ): Promise< void > {
 		await this.addSqlToSetTheme( sqlFiles );
 		await this.addSqlToActivatePlugins( sqlFiles );
 		await super.importDatabase( site, sqlFiles );
 	}
 
-	async import( site: SiteData ): Promise< ImporterResult > {
+	async import( site: ConfigSite ): Promise< ImporterResult > {
 		this.emit( ImportEvents.IMPORT_START, 'wpress' );
 		const result = await super.import( site );
 		this.emit( ImportEvents.IMPORT_COMPLETE, 'wpress' );

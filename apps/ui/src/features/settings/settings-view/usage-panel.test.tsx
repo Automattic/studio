@@ -261,4 +261,57 @@ describe( 'Usage settings', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in with WordPress.com' } ) );
 		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalled() );
 	} );
+
+	it( 'shows the plan’s site limits where the connector has them', async () => {
+		setup( {
+			overrides: {
+				getSiteLimits: async () => ( {
+					sites: { used: 3, limit: 10 },
+					runningSites: { used: 2, limit: 2 },
+					storage: { used: 1.25 * 1024 ** 3, limit: 6 * 1024 ** 3 },
+				} ),
+			},
+		} );
+		expect( await screen.findByText( '3 of 10 sites' ) ).toBeVisible();
+		expect( screen.getByText( '2 of 2 sites running at once' ) ).toBeVisible();
+		expect( screen.getByText( 'Stop a site to start another.' ) ).toBeVisible();
+		expect( screen.getByText( '1.3 GB of 6 GB of storage used' ) ).toBeVisible();
+	} );
+
+	it( 'shows no site limits where there are none', async () => {
+		setup();
+		await screen.findByText( '2 of 10 active preview sites' );
+		expect( screen.queryByText( /running at once/ ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Plan' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows the plan and its receipts where the connector has them', async () => {
+		const { connector } = setup( {
+			overrides: {
+				getBilling: async () => ( {
+					plan: {
+						name: 'Studio Cloud',
+						period: 'monthly',
+						expiresAt: '2026-12-19T12:00:00',
+						autoRenew: false,
+						manageUrl: 'https://manage.test',
+						renewUrl: 'https://renew.test',
+					},
+					receipts: [
+						{
+							id: 3,
+							date: '2026-11-19T12:00:00',
+							amount: '$20.00',
+							items: [ 'Studio Cloud' ],
+							url: 'https://receipt.test',
+						},
+					],
+				} ),
+			},
+		} );
+		expect( await screen.findByText( 'Ends on December 19, 2026' ) ).toBeVisible();
+		expect( screen.getByText( '$20.00 · Studio Cloud' ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Renew' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://renew.test' );
+	} );
 } );

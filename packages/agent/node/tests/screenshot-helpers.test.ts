@@ -2,14 +2,13 @@ import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { nodeHostServices } from '@studio/agent/node/node-host';
-import { saveScreenshotFile } from '@studio/agent/shared/tools/screenshot-helpers';
+import { saveScreenshotFile } from '@studio/agent/node/tools/screenshot-helpers';
 import { createFakeHost } from './fake-host';
 
 describe( 'screenshot helpers', () => {
 	it( 'falls back to a temporary directory when the host names none', async () => {
 		const buffer = Buffer.from( 'not-really-a-png' );
-		const host = { ...createFakeHost(), saveImage: nodeHostServices().saveImage };
+		const host = createFakeHost();
 		const result = await saveScreenshotFile( host, buffer, {
 			viewportType: 'desktop',
 		} );
@@ -30,7 +29,7 @@ describe( 'screenshot helpers', () => {
 		const screenshotsDirectory = path.join( sessionRoot, 'session.screenshots' );
 		const host = {
 			...createFakeHost(),
-			saveImage: nodeHostServices( { imagesDirectory: () => screenshotsDirectory } ).saveImage,
+			imagesDirectory: () => screenshotsDirectory,
 		};
 
 		try {
@@ -60,11 +59,9 @@ describe( 'screenshot helpers', () => {
 		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
 		const host = {
 			...createFakeHost(),
-			saveImage: nodeHostServices( {
-				imagesDirectory: () => {
-					throw new Error( 'no session' );
-				},
-			} ).saveImage,
+			imagesDirectory: () => {
+				throw new Error( 'no session' );
+			},
 		};
 
 		const result = await saveScreenshotFile( host, Buffer.from( 'fallback' ), {

@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { ConnectError, NotConnectedError } from '../errors';
 import { xaiConnectInput } from './descriptor';
 import type { XaiConfig } from './config';
-import type { ProviderServices } from '../types';
+import type { AccountServices } from '../types';
 
 // The Grok CLI's device sign-in, which pi-ai uses for "xAI (Grok/X subscription)".
 const AUTH_URL = 'https://auth.x.ai/oauth2';
@@ -13,7 +13,7 @@ const DEFAULT_INTERVAL_SECONDS = 5;
 const REFRESH_MARGIN_MS = 5 * 60_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 
-type XaiAccount = ProviderServices< XaiConfig >[ 'account' ];
+type XaiAccount = AccountServices< XaiConfig >;
 
 async function post(
 	path: string,

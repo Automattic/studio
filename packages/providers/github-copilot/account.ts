@@ -5,7 +5,7 @@ import { CLIENT_ID, enablePlanModel, fetchPlanModels, request, type PlanModel } 
 import { GITHUB_COPILOT_AI_MODELS } from './descriptor';
 import type { GithubCopilotConfig } from './config';
 import type { AiModelId } from '../models';
-import type { ProviderServices } from '../types';
+import type { AccountServices } from '../types';
 
 const REFRESH_MARGIN_MS = 5 * 60_000;
 
@@ -108,7 +108,7 @@ async function waitForGithubToken( deviceCode: string, interval: number, expires
 	throw new ConnectError( __( 'The GitHub sign-in expired. Try again.' ), 'denied' );
 }
 
-type GithubCopilotAccount = ProviderServices< GithubCopilotConfig >[ 'account' ];
+type GithubCopilotAccount = AccountServices< GithubCopilotConfig >;
 
 const start: NonNullable< GithubCopilotAccount[ 'start' ] > = async () => {
 	const device = await postForm( 'https://github.com/login/device/code', { scope: 'read:user' } );

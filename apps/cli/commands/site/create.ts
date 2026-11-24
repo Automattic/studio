@@ -10,6 +10,7 @@ import {
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
 	arePathsEqual,
@@ -37,8 +38,8 @@ import {
 	hasDefaultDbBlock,
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
@@ -51,13 +52,6 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { openBlueprintSource } from 'cli/lib/blueprint-library';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	SiteData,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
 import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
@@ -75,11 +69,10 @@ import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { confirm, input, password, select } from 'cli/lib/prompts';
-import { assertSiteCapacity } from 'cli/lib/site-capacity';
+import { assertSiteCapacity, assertSiteCountLimit } from 'cli/lib/site-capacity';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
-import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import {
@@ -105,6 +98,7 @@ import { classifySiteCreateFailure, untildify } from 'cli/lib/utils';
 import { setUpSite, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {} from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/site/create.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -159,7 +153,7 @@ async function validateSitePath( sitePath: string ) {
 	return { exists, isWordPressDir };
 }
 
-function validateCustomDomain( customDomain: string | undefined, sites: SiteData[] ) {
+function validateCustomDomain( customDomain: string | undefined, sites: ConfigSite[] ) {
 	if ( ! customDomain ) {
 		return;
 	}
@@ -190,7 +184,7 @@ async function validateBeforeSourceImport(
 	}
 	await validateSitePath( sitePath );
 
-	const { sites } = await readCliConfig();
+	const { sites } = await readConfig();
 	const isSiteInUse = sites.some( ( site ) => arePathsEqual( site.path, sitePath ) );
 	if ( isSiteInUse ) {
 		// A staged import resumes on the existing site, so its creation options aren't reapplied.
@@ -203,6 +197,7 @@ async function validateBeforeSourceImport(
 		throw new LoggerError( __( 'The selected directory is already in use.' ) );
 	}
 
+	assertSiteCountLimit( sites );
 	validateCustomDomain( options.customDomain, sites );
 
 	const adminEmail = options.adminEmail?.trim();
@@ -226,7 +221,7 @@ export async function runCommand(
 		: undefined;
 
 	try {
-		const updated = await updateServerFiles( options.wpVersion === DEFAULT_WORDPRESS_VERSION );
+		const updated = await updateServerFiles();
 		if ( updated ) {
 			logger.reportSuccess( __( 'Dependencies updated' ) );
 		}
@@ -282,7 +277,7 @@ export async function runCommand(
 			}
 		}
 
-		const cliConfig = await readCliConfig();
+		const cliConfig = await readConfig();
 		const existingSite = cliConfig.sites.find( ( site ) => arePathsEqual( site.path, sitePath ) );
 		if ( importRun?.canResumeOn( existingSite ) ) {
 			await importRun.resume( existingSite );
@@ -292,6 +287,7 @@ export async function runCommand(
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
+		assertSiteCountLimit( cliConfig.sites );
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );
@@ -347,8 +343,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
 		try {
-			const sharedConfig = await readSharedConfig();
-			const selectedSkills = sharedConfig.selectedSkills ?? [];
+			const selectedSkills = ( await readConfig() ).preferences.selectedSkills ?? [];
 			await installAiInstructionsToSite(
 				{ path: sitePath },
 				getAiInstructionsPath(),
@@ -394,11 +389,8 @@ export async function runCommand(
 			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
-		let siteDetails: SiteData;
-		await lockCliConfig();
-		try {
-			const userData = await readCliConfig();
-			// Claim the port in cli.json before another create can select it, even if this
+		const siteDetails = await updateConfig( async ( userData ) => {
+			// Claim the port in the config file before another create can select it, even if this
 			// site's server has not started listening yet.
 			for ( const site of userData.sites ) {
 				portFinder.addUnavailablePort( site.port );
@@ -408,7 +400,7 @@ export async function runCommand(
 			// translators: %d is the port number
 			logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
 
-			siteDetails = {
+			const site: ConfigSite = {
 				id: siteId,
 				name: siteName,
 				path: sitePath,
@@ -418,7 +410,6 @@ export async function runCommand(
 				port,
 				phpVersion,
 				fileAccess: options.fileAccess,
-				running: false,
 				status: 'ready',
 				isWpAutoUpdating: options.wpVersion === DEFAULT_WORDPRESS_VERSION,
 				customDomain: options.customDomain,
@@ -428,14 +419,11 @@ export async function runCommand(
 
 			logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
 
-			userData.sites.push( siteDetails );
+			userData.sites.push( site );
 			sortSites( userData.sites );
-
-			await saveCliConfig( userData );
-			logger.reportSuccess( __( 'Site created successfully' ) );
-		} finally {
-			await unlockCliConfig();
-		}
+			return site;
+		} );
+		logger.reportSuccess( __( 'Site created successfully' ) );
 
 		if ( ! options.noStart ) {
 			logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -535,7 +523,11 @@ export async function runCommand(
 			console.log( __( 'Run "studio start" to start the site.' ) );
 		}
 
-		logger.reportResult( { ...siteDetails, url: getSiteUrl( siteDetails ) } );
+		logger.reportResult( {
+			...siteDetails,
+			url: getSiteUrl( siteDetails ),
+			running: siteDetails.running === true,
+		} );
 
 		// Tracks: the CLI is the sole emitter of site-creation, so every path a site comes into
 		// existence (new/blueprint/import/sync/duplicate, app-spawned or standalone) is counted once.
@@ -550,7 +542,7 @@ export async function runCommand(
 				custom_domain: !! options.customDomain,
 				ssl_enabled: !! options.enableHttps,
 				time_ms: Date.now() - createStartedAt,
-				...( await getSiteTracksProps( sitePath ) ),
+				...( await getSiteTracksProps( { siteFolder: sitePath } ) ),
 				...getTracksOrigin(),
 			} );
 		} catch {
@@ -700,7 +692,7 @@ export async function commandHandler(
 			}
 
 			if ( ! customDomain ) {
-				const cliConfig = await readCliConfig();
+				const cliConfig = await readConfig();
 				const existingDomains = cliConfig.sites
 					.map( ( site ) => site.customDomain )
 					.filter( ( domain ): domain is string => Boolean( domain ) );

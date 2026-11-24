@@ -2,14 +2,20 @@ import { IpcMainInvokeEvent } from 'electron';
 import {
 	forgetRemoteSite,
 	getRemoteSites as readRemoteSites,
-	rememberRemoteSite,
+	connectPublishingSite,
 	type RemoteSiteConnection,
 } from '@studio/common/lib/remote-sites';
+import { getSitePublishStatus as getPublishStatus } from '@studio/common/sites/publish-status';
 import {
+	getSiteCreationVisibility as readCreationVisibility,
+	getSiteVisibility as readVisibility,
+	setSiteVisibility as writeVisibility,
 	createRemoteSite as createRemoteSiteOnProvider,
 	getRemoteBackupId as readRemoteBackupId,
 	listAccountSites as listProviderAccountSites,
 	listRemoteBackupFiles as readRemoteBackupFiles,
+	resolveRemoteSite as resolveRemoteSiteOnProvider,
+	runSitesAction as runProviderSitesAction,
 } from '@studio/common/sites/remote-sites';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
@@ -18,7 +24,9 @@ import {
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
 	type ProviderSites,
+	type SiteCreationVisibility,
 	type SitesProviderId,
+	SiteVisibility,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -62,7 +70,24 @@ export async function connectRemoteSite(
 	localSiteId: string,
 	site: ProviderSites[ SitesProviderId ]
 ): Promise< void > {
-	await rememberRemoteSite( parseProvider( provider ), localSiteId, site as never );
+	await connectPublishingSite( parseProvider( provider ), localSiteId, site as never );
+}
+
+export async function resolveRemoteSite(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	input: Record< string, string >
+): Promise< ProviderSites[ SitesProviderId ] > {
+	return resolveRemoteSiteOnProvider( getProviderServices( parseProvider( provider ) ), input );
+}
+
+export async function runSitesAction(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	action: string,
+	input: Record< string, string > = {}
+) {
+	return runProviderSitesAction( getProviderServices( parseProvider( provider ) ), action, input );
 }
 
 export async function disconnectRemoteSite(
@@ -74,16 +99,24 @@ export async function disconnectRemoteSite(
 	await forgetRemoteSite( parseProvider( provider ), localSiteId, remoteSiteId as never );
 }
 
+export function getSiteCreationVisibility( _event: IpcMainInvokeEvent, provider: string ) {
+	return readCreationVisibility( getProviderServices( parseProvider( provider ) ) );
+}
+
 export async function createRemoteSite(
 	_event: IpcMainInvokeEvent,
 	provider: string,
 	localSiteId: string,
-	name: string
+	name: string,
+	visibility?: SiteCreationVisibility,
+	connect = true
 ): Promise< ProviderSites[ SitesProviderId ] > {
 	return createRemoteSiteOnProvider(
 		getProviderServices( parseProvider( provider ) ),
 		localSiteId,
-		name
+		name,
+		visibility,
+		connect
 	);
 }
 
@@ -161,4 +194,29 @@ export async function listRemoteBackupFiles(
 		backupId,
 		path
 	);
+}
+
+export function getSitePublishStatus(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	remoteSiteId: string | number,
+	provider: SitesProviderId = 'wpcom'
+) {
+	return getPublishStatus( executeCliCommand, siteId, remoteSiteId, provider );
+}
+
+export function getSiteVisibility(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	id: string | number
+) {
+	return readVisibility( getProviderServices( parseProvider( provider ) ), id as never );
+}
+export function setSiteVisibility(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	id: string | number,
+	value: SiteVisibility
+) {
+	return writeVisibility( getProviderServices( parseProvider( provider ) ), id as never, value );
 }

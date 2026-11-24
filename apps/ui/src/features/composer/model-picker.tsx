@@ -1,13 +1,30 @@
+import {
+	DEFAULT_THINKING_LEVEL,
+	getThinkingOptions,
+	type ThinkingSetting,
+} from '@studio/agent/protocol/thinking';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
+import {
+	Badge,
+	Button,
+	CommandSheet,
+	Menu,
+	Popover,
+	type Command,
+	type CommandGroup,
+} from '@studio/ds';
+import { PlugIcon, PlusIcon, ChevronDownIcon, ExternalLinkIcon } from '@studio/ds/icons';
 import {
 	findAiModel,
 	getAiModels,
 	getProvider,
 	PROVIDER_IDS,
+	THINKING_LEVELS,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
-import { useRef, useState, type ComponentType, type RefObject } from 'react';
+import { BrainIcon } from 'lucide-react';
+import { useId, useRef, useState, type ComponentType, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -15,8 +32,7 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { ProviderLogo } from '@/features/account';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlugIcon, PlusIcon, ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
-import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
+import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 
 const PROVIDER_ICONS = Object.fromEntries(
@@ -39,6 +55,9 @@ interface ModelPickerProps {
 	disabled: boolean;
 	anchor: HTMLElement | null;
 	onChange: ( provider: ProviderId, model: AiModelId ) => void;
+	// How much the model thinks in this chat; without `onThinkingChange`, the menu doesn't offer it.
+	thinking?: ThinkingSetting;
+	onThinkingChange?: ( thinking: ThinkingSetting ) => void;
 	onAddCredits: ( returnFocus: RefObject< HTMLElement | null > ) => void;
 }
 
@@ -52,9 +71,13 @@ export function ModelPicker( {
 	disabled,
 	anchor,
 	onChange,
+	thinking = 'default',
+	onThinkingChange,
 	onAddCredits,
 }: ModelPickerProps ) {
 	const [ highlight, setHighlight ] = useState< string >();
+	const [ thinkingOpen, setThinkingOpen ] = useState( false );
+	const listId = useId();
 	const listRef = useRef< HTMLDivElement | null >( null );
 	const triggerRef = useRef< HTMLButtonElement | null >( null );
 	const openSettings = useOpenSettings();
@@ -87,7 +110,21 @@ export function ModelPicker( {
 			modelsOf( provider ).find( ( item ) => item.id === id ) ?? findAiModel( id )?.model
 		)?.label() ?? id;
 	const modelLabel = labelOf( sessionProvider, model );
+	const local = getProvider( sessionProvider ).ai?.local;
+	const thinkingOptions = getThinkingOptions( local );
+	// A model on the user's own server thinks as the server says until the chat picks a level.
+	const defaultThinking = local ? undefined : DEFAULT_THINKING_LEVEL;
+	const currentThinking = thinking === 'default' ? defaultThinking : thinking;
 	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
+	if ( thinking !== 'default' ) {
+		modelDetails.push(
+			sprintf(
+				/* translators: %s: a thinking level, such as Off */
+				__( 'Thinking: %s' ),
+				thinkingOptions[ thinking ].label
+			)
+		);
+	}
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
 	}
@@ -95,6 +132,10 @@ export function ModelPicker( {
 		modelDetails.push( note );
 	}
 	const pickCommand = ( value: string ) => {
+		if ( value === 'thinking' ) {
+			setThinkingOpen( true );
+			return;
+		}
 		onOpenChange( false );
 		if ( value === 'get-credits' ) {
 			onAddCredits( triggerRef );
@@ -139,6 +180,24 @@ export function ModelPicker( {
 			),
 		},
 		{
+			label: __( 'Thinking' ),
+			items:
+				onThinkingChange &&
+				modelsOf( sessionProvider ).find( ( { id } ) => id === model )?.thinking !== false
+					? [
+							{
+								value: 'thinking',
+								label: __( 'Thinking' ),
+								description: currentThinking
+									? thinkingOptions[ currentThinking ].label
+									: thinkingOptions.default.description,
+								icon: BrainIcon,
+								trailing: <ChevronDownIcon className={ styles.flyoutChevron } />,
+							},
+					  ]
+					: [],
+		},
+		{
 			label: __( 'Actions' ),
 			heading: __( 'Actions' ),
 			items: [
@@ -175,6 +234,7 @@ export function ModelPicker( {
 				onOpenChange( next );
 				if ( next ) {
 					setHighlight( model );
+					setThinkingOpen( false );
 					if ( isWpcom ) {
 						void refetchQuota();
 					}
@@ -201,13 +261,48 @@ export function ModelPicker( {
 				label={ __( 'Choose a model' ) }
 				groups={ groups }
 				highlighted={ highlight }
-				onHighlight={ setHighlight }
+				onHighlight={ ( value, source ) => {
+					setHighlight( value );
+					if ( source === 'pointer' ) {
+						setThinkingOpen( value === 'thinking' );
+					}
+				} }
 				onSelect={ pickCommand }
 				listRef={ listRef }
+				id={ listId }
 				anchor={ anchor }
 				initialFocus={ listRef }
 				finalFocus={ triggerRef }
-			/>
+			>
+				<Menu.Root open={ thinkingOpen } onOpenChange={ setThinkingOpen } modal={ false }>
+					<Menu.SubmenuPopup
+						anchor={ () => document.getElementById( `${ listId }-thinking` ) }
+						// Beside the row, or above it when the window leaves no room on either side.
+						collisionAvoidance={ { side: 'flip', align: 'shift', fallbackAxisSide: 'start' } }
+						finalFocus={ listRef }
+					>
+						<Menu.RadioGroup
+							aria-label={ __( 'Thinking' ) }
+							value={ currentThinking ?? '' }
+							onValueChange={ ( picked: ThinkingSetting ) => {
+								onOpenChange( false );
+								onThinkingChange?.( picked );
+							} }
+						>
+							{ THINKING_LEVELS.map( ( id ) => (
+								<Menu.RadioItem key={ id } value={ id }>
+									{ thinkingOptions[ id ].label }
+									{ id === defaultThinking ? (
+										<Badge size="xs" variant="muted">
+											{ __( 'Default' ) }
+										</Badge>
+									) : null }
+								</Menu.RadioItem>
+							) ) }
+						</Menu.RadioGroup>
+					</Menu.SubmenuPopup>
+				</Menu.Root>
+			</CommandSheet>
 		</Popover.Root>
 	);
 }

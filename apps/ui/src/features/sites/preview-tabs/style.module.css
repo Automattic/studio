@@ -1,7 +1,6 @@
 .root {
 	display: flex;
 	align-items: center;
-	gap: var( --band-gap );
 	min-width: 0;
 	pointer-events: auto;
 }
@@ -11,6 +10,8 @@
 
 	min-width: 0;
 	flex: 0 1 auto;
+	/* End padding also sets the gap before New tab. */
+	padding: var( --band-gap );
 	overflow-x: auto;
 	scrollbar-width: none;
 	scroll-padding-inline: var( --space-4 );
@@ -37,32 +38,35 @@
 	gap: var( --band-gap );
 	align-items: center;
 }
+
+.tab,
+.dragPreview {
+	border-radius: var( --radius-md );
+}
+
 .tab {
 	position: relative;
 	flex: 1 1 var( --band-tab-width );
 	width: var( --band-tab-width );
 	max-width: var( --band-tab-width );
 	min-width: 0;
-	height: 32px;
-	border-radius: var( --radius-md );
-	background: var( --chat );
-	transition:
-		transform var( --motion-duration-layout ) ease-in-out,
-		background-color var( --motion-duration-feedback ) ease;
+	height: var( --control-size-sm );
+	transition: transform var( --motion-duration-quick ) ease-in-out;
 }
-.tab[data-preview-selected] {
-	--muted: inherit;
-	--surface: var( --muted );
 
-	background: var( --muted );
-	transition: transform var( --motion-duration-layout ) ease-in-out;
+.tab:not( [data-preview-selected] ) {
+	background-color: var( --chat );
+}
+
+.selected {
+	composes: floating from '@studio/ds/surface.module.css';
 }
 .trigger {
 	width: 100%;
-	height: 32px;
+	height: 100%;
 	gap: var( --space-1_5 );
 	padding-inline: var( --space-2 );
-	padding-inline-end: 32px;
+	padding-inline-end: var( --control-size-sm );
 	border-radius: var( --radius-md );
 	font-size: var( --text-xs );
 	color: var( --muted-foreground );
@@ -71,14 +75,15 @@
 	touch-action: pan-x;
 	user-select: none;
 }
-.list:not( [data-tab-dragging] ) .tab:hover {
+.list:not( [data-tab-dragging] ) .tab:not( [data-preview-selected] ):hover {
 	--hover: inherit;
 	--surface: var( --hover );
 
 	background: var( --hover );
 }
-.tab[data-preview-selected] .trigger {
-	color: var( --foreground );
+.selected .trigger,
+.dragPreview.selected > :is( .icon, .title ) {
+	color: var( --popover-foreground );
 }
 .title {
 	min-width: 0;
@@ -92,10 +97,13 @@
 	height: 16px;
 }
 .close {
+	--radius-button: var( --radius-control-inset );
+
 	position: absolute;
-	inset-inline-end: 4px;
-	top: 4px;
-	border-radius: var( --radius-sm );
+	inset-inline-end: var( --space-control-inset );
+	inset-block-start: var( --space-control-inset );
+	width: var( --control-size-inset );
+	height: var( --control-size-inset );
 	transition:
 		opacity var( --motion-duration-feedback ) ease,
 		color var( --motion-duration-feedback ) ease,
@@ -103,10 +111,6 @@
 		border-color var( --motion-duration-feedback ) ease;
 	opacity: 0;
 	pointer-events: none;
-}
-.close svg {
-	width: 12px;
-	height: 12px;
 }
 .list:not( [data-tab-dragging] ) .tab:hover .close,
 .list:not( [data-tab-dragging] ) .close:focus-visible {
@@ -124,7 +128,7 @@
 	pointer-events: none;
 }
 .list[data-tab-drop-committed] .tab {
-	transition: background-color var( --motion-duration-feedback ) ease;
+	transition: none;
 }
 .list[data-tab-dragging] .trigger {
 	cursor: pointer;
@@ -138,18 +142,20 @@
 	align-items: center;
 	gap: var( --space-1_5 );
 	padding-inline: var( --space-2 );
-	padding-inline-end: 32px;
-	border-radius: var( --radius-md );
-	background-color: var( --hover );
-	box-shadow: var( --shadow-md );
-	color: var( --foreground );
+	padding-inline-end: var( --control-size-sm );
 	font-size: var( --text-xs );
 	opacity: 1;
 	pointer-events: none;
 	will-change: transform;
 }
+.dragPreview:not( [data-preview-selected] ) {
+	background-color: var( --hover );
+	box-shadow: var( --shadow-md );
+	color: var( --foreground );
+}
+
 .dragPreview[data-landing] {
-	transition: transform var( --motion-duration-layout ) ease-in-out;
+	transition: transform var( --motion-duration-quick ) ease-in-out;
 }
 @media ( prefers-reduced-motion: reduce ) {
 	.tab,

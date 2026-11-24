@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { ConnectError } from '../errors';
 import { anthropicConnectInput, anthropicSetupTokenInput } from './descriptor';
 import type { AnthropicConfig } from './config';
-import type { ProviderServices } from '../types';
+import type { AccountServices } from '../types';
 import type { z } from 'zod';
 
 const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models?limit=1';
@@ -77,7 +77,7 @@ function parseInput< Schema extends z.ZodType >(
 
 // A credential Anthropic rejects is refused; an unverifiable one (offline, an
 // Anthropic outage) is accepted.
-export const anthropicAccount: ProviderServices< AnthropicConfig >[ 'account' ] = {
+export const anthropicAccount: AccountServices< AnthropicConfig > = {
 	async connect( method, input ) {
 		const config: AnthropicConfig =
 			method === 'setup-token'

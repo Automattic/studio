@@ -1,7 +1,16 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
-import { __ } from '@wordpress/i18n';
-import { useEffect, useId, useRef, useState } from 'react';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+	Popover,
+	Button,
+	Input,
+	CommandList,
+	handleCommandKey,
+	type CommandGroup,
+} from '@studio/ds';
 import {
 	DatabaseIcon,
 	DesignSystemIcon,
@@ -9,29 +18,21 @@ import {
 	GlobeIcon,
 	PaperPlaneIcon,
 	WordPressIcon,
-} from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
-import { CommandList, handleCommandKey, type CommandGroup } from '@/lib/ui';
+} from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { useEffect, useId, useRef, useState } from 'react';
 import styles from './address-bar.module.css';
 import { PREVIEW_HISTORY_CLEARED_EVENT } from './preview-browser-settings';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType, FormEvent, ReactNode } from 'react';
 
-// Paths are relative to the site URL, which may itself sit below its origin's
-// root (Studio on the web serves each site under `/scope:<id>`).
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
 		const parsedUrl = new URL( url );
-		const parsedBaseUrl = new URL( baseUrl );
-		if ( parsedUrl.origin !== parsedBaseUrl.origin ) {
+		if ( parsedUrl.origin !== new URL( baseUrl ).origin ) {
 			return null;
 		}
-		const prefix = parsedBaseUrl.pathname.replace( /\/$/, '' );
-		const pathname =
-			prefix && ( parsedUrl.pathname === prefix || parsedUrl.pathname.startsWith( `${ prefix }/` ) )
-				? parsedUrl.pathname.slice( prefix.length ) || '/'
-				: parsedUrl.pathname;
-		return `${ pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
+		return `${ parsedUrl.pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
 	} catch {
 		return null;
 	}
@@ -258,7 +259,7 @@ function AddressAction( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant="muted-ghost"
+						variant="ghost"
 						size="icon-2xs"
 						className={ styles.action }
 						aria-label={ label }

@@ -1,11 +1,11 @@
-/* eslint-disable no-console */
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import chalk from 'chalk';
 import { simpleGit } from 'simple-git';
-import config from './config';
-import { runShellScript, readJSONFile, askForConfirmation, getFilesFromDir } from './utils';
+import { getMetricConfig } from '../metrics/metric-config.ts';
+import config from './config.ts';
+import { runShellScript, readJSONFile, askForConfirmation, getFilesFromDir } from './utils.ts';
 
 const formats = {
 	title: chalk.bold,
@@ -400,7 +400,7 @@ export async function runPerformanceTests(
 		for ( const [ branch, metrics ] of Object.entries( results[ testSuite ] ) ) {
 			for ( const [ metric, value ] of Object.entries( metrics ) ) {
 				invertedResult[ metric ] = invertedResult[ metric ] || {};
-				invertedResult[ metric ][ branch ] = `${ value } ms`;
+				invertedResult[ metric ][ branch ] = getMetricConfig( metric ).format( value );
 			}
 		}
 

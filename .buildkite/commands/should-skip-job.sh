@@ -34,6 +34,8 @@ COMMON_NON_CODE_PATTERNS=(
   "*.md"
   "*.txt"
   "docs/**"
+  "CODE-OF-CONDUCT.md"
+  "SECURITY.md"
   "LICENSE*"
 
   # Editor and IDE config
@@ -44,9 +46,8 @@ COMMON_NON_CODE_PATTERNS=(
   ".gitignore"
   ".gitattributes"
 
-  # GitHub and CI configuration (workflows, templates, dependabot, Buildkite)
+  # GitHub-specific (workflows, templates, dependabot)
   ".github/**"
-  ".buildkite/**"
 
   # Ruby/Fastlane - only affects CI distribution, not app code
   "fastlane/**"
@@ -55,12 +56,19 @@ COMMON_NON_CODE_PATTERNS=(
   ".ruby-version"
   ".bundle/**"
 
+  # Release pipelines don't run the test jobs. The PR pipeline, its shared
+  # variables and the scripts in .buildkite/commands do, so changes to them
+  # run every check.
+  ".buildkite/release-pipelines/**"
+  ".buildkite/release-build-and-distribute.yml"
+
   # Installer assets and configuration
   "installers/**"
   "apps/studio/assets/appx/**"
 
   # Claude AI configuration
   ".claude/**"
+  "CLAUDE.md"
 )
 
 # Localization files - changes here don't affect runtime behavior or performance

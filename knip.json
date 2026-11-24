@@ -9,7 +9,6 @@
 			"entry": [
 				"src/index.ts",
 				"src/preload.ts",
-				"src/migrations/index.ts",
 				"forge.config.ts",
 				"native/build.ts",
 				"e2e/global-setup.ts",
@@ -37,8 +36,7 @@
 		"apps/ui": {
 			"entry": [
 				"src/main.local.tsx",
-				"src/main.static.tsx",
-				"src/site-viewer.ts",
+				"src/main.cloud.tsx",
 				"src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview}.tsx"
 			],
 			"project": "src/**/*.{ts,tsx}"
@@ -52,6 +50,9 @@
 		},
 		"packages/blueprints": {
 			"project": "**/*.ts"
+		},
+		"packages/ds": {
+			"project": "**/*.{ts,tsx}"
 		},
 		"packages/common": {
 			"entry": ["globals.ts"],
@@ -68,5 +69,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["mdfind", "attrib", "apt-get", "Xvfb", "ditto", "dpkg-deb", "pgrep"]
+	"ignoreBinaries": ["attrib", "apt-get", "Xvfb", "ditto", "dpkg-deb", "pgrep"]
 }

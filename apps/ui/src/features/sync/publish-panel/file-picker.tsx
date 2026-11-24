@@ -1,6 +1,3 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { useId, useState, type ReactNode } from 'react';
-import { ChevronDownIcon, ChevronRightIcon, LinkIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,
@@ -10,7 +7,10 @@ import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { ChevronDownIcon, ChevronRightIcon, LinkIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useId, useState, type ReactNode } from 'react';
 import styles from './style.module.css';
 import type { SyncNode } from './selection';
 import type { TransferSelection } from './use-transfer-selection';
@@ -36,6 +36,7 @@ function SelectionRow( {
 			<div className={ styles.disclosure }>{ disclosure }</div>
 			<Field orientation="horizontal">
 				<Checkbox
+					className={ styles.selectionCheckbox }
 					id={ id }
 					checked={ checked }
 					indeterminate={ indeterminate }
@@ -125,7 +126,13 @@ function FileNode( { node, selection }: { node: SyncNode; selection: TransferSel
 	);
 }
 
-export function FilePicker( { selection }: { selection: TransferSelection } ) {
+export function FilePicker( {
+	selection,
+	includeDatabase = true,
+}: {
+	selection: TransferSelection;
+	includeDatabase?: boolean;
+} ) {
 	return (
 		<div className={ styles.stack }>
 			{ selection.loadingFiles ? (
@@ -137,16 +144,20 @@ export function FilePicker( { selection }: { selection: TransferSelection } ) {
 					) ) }
 					{ selection.nodes.length ? null : (
 						<p className={ styles.text }>
-							{ __(
-								'Individual files are unavailable here. Use Files only to include all files.'
-							) }
+							{ includeDatabase
+								? __(
+										'Individual files are unavailable here. Use Files only to include all files.'
+								  )
+								: __( 'No files are available to choose.' ) }
 						</p>
 					) }
-					<SelectionRow
-						label={ __( 'Content and settings' ) }
-						checked={ selection.content }
-						onChange={ selection.setContent }
-					/>
+					{ includeDatabase && (
+						<SelectionRow
+							label={ __( 'Content and settings' ) }
+							checked={ selection.content }
+							onChange={ selection.setContent }
+						/>
+					) }
 				</>
 			) }
 		</div>

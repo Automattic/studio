@@ -1,6 +1,6 @@
 # @studio/providers
 
-The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`), Google Gemini (`gemini`), GitHub Copilot (`github-copilot`), Meta (`meta`), xAI (`xai`), OpenRouter (`openrouter`), Spacefast (`spacefast`), and the Local LLM connector (`local-llm`), a model server the user runs. Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
+The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`), Google Gemini (`gemini`), GitHub Copilot (`github-copilot`), Meta (`meta`), xAI (`xai`), OpenRouter (`openrouter`), Spacefast (`spacefast`), the Local LLM connector (`local-llm`), a model server the user runs, and SSH (`ssh`), WordPress sites on servers the user reaches with their own `ssh`. Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
 
 ```
 index.ts         @studio/providers: what surfaces read
@@ -9,16 +9,17 @@ wpcom.ts         @studio/providers/wpcom: the Studio sign-in URL, and WordPress.
 registry.ts      the provider ids, getProvider( id ), the stored ids, remote-site names
 models.ts        findAiModel( id ), servesAiModel( provider, id ), getAiModels( provider, account ),
                  getDefaultAiModel( provider, options )
-connection.ts    getConnectMethod( provider, id ), getConnectFields( method )
+connection.ts    getConnectMethod( provider, id ), getConnectFields( method ), getFormFields( schema )
 types.ts         Provider, ProviderServices, ConnectMethod, AccountDetails, AiConnection, …
 errors.ts        NotConnectedError, ConnectError, RemoteSiteError
+ui.tsx           ConnectForm: a provider's own form for connecting a site, such as SSH's
 <provider>/      descriptor.ts (its Provider and connect forms), config.ts, services.ts (its
                  ProviderServices), account.ts, and api.ts, ai.ts and sites.ts or folders of them
 ```
 
 ## Two halves of each provider
 
-- **`getProvider( id )`** (`@studio/providers`) is the provider as data: its label, description and icon, its `account` (config schema, connect methods, what to show of a connected account), its `ai` models and its `sites` presentation. Calling it never reaches a service. `apps/ui` imports only this entry, and `@studio/providers/wpcom`.
+- **`getProvider( id )`** (`@studio/providers`) is the provider as data: its label, description and icon, its `account` (config schema, connect methods, what to show of a connected account), its `ai` models and its `sites` presentation. Calling it never reaches a service. `apps/ui` imports only this entry, `@studio/providers/wpcom`, and `@studio/providers/ui`, the React forms a provider shows for connecting a site.
 - **`getProviderServices( id )`** (`@studio/providers/services`) is what the provider does, in the same groups: `account` (start, connect, refresh, disconnect), `ai` (a model connection, image generation) and `sites` (list, create, push, pull, and previews). The CLI, the apps' backends and the agent import it, in Node.
 
 ```ts
@@ -59,6 +60,8 @@ A model connection whose `model.contextWindow` is exactly the context the server
 
 `sites` sends local sites to the provider's sites. `publish` in the descriptor says whether the user publishes to sites they keep there, and `previews` whether the provider builds temporary previews shared by a link; a provider offers either or both. A preview is updated with a push to it, with `preview` set, and created, listed and deleted through `previews`.
 
+A provider whose config is `undefined`, such as SSH, has no `account`: there is nothing to connect, and surfaces treat it as connected. The user connects each of its sites with the descriptor's `sites.connect` method, a form the services' `resolve` checks by reaching the site, and it pulls by writing the site's archive (`pullArchive`). Its method is `hostOnly`, so only the user's computer offers it.
+
 ## Providers own no storage
 
 A provider never reads or writes a file. It defines its config (`config.ts`, a zod schema), and every call takes that config, or `undefined` when there is none. Studio stores the configs in `config.json` through `@studio/common/lib/provider-config.ts`, and the selected chat provider through `@studio/common/lib/ai-settings.ts`. A call without a usable config throws `NotConnectedError`; the CLI turns it into a message that says how to connect.
@@ -75,10 +78,10 @@ Add a folder laid out like the others, then register it in three places: its con
 
 Enforced by lint (`eslint.config.mjs`):
 
-- The package imports no other workspace package: Studio passes in what a provider needs.
-- It uses no Node APIs, since `apps/ui` loads its surface entries in the browser.
+- The package imports no other workspace package but `@studio/ds`, which its forms (`.tsx`) build on alone: Studio passes in what a provider needs, such as the WP-CLI the SSH provider runs on servers, named in `STUDIO_WP_CLI_PHAR`.
+- Its surface entries use no Node APIs, since `apps/ui` loads them in the browser. The services may, as SSH runs `ssh`.
 - The files the surface entries are made of import only each other.
-- `apps/ui` imports only `@studio/providers` and `@studio/providers/wpcom`, and `@studio/common` never imports `@studio/providers/services`.
+- `apps/ui` imports only `@studio/providers`, `@studio/providers/wpcom` and `@studio/providers/ui`, and `@studio/common` never imports `@studio/providers/services`.
 
 ## Tests
 

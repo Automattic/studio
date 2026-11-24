@@ -6,6 +6,7 @@ import { metaProvider } from './meta/descriptor';
 import { openaiProvider } from './openai/descriptor';
 import { openrouterProvider } from './openrouter/descriptor';
 import { spacefastProvider } from './spacefast/descriptor';
+import { sshProvider } from './ssh/descriptor';
 import { wpcomProvider } from './wpcom/descriptor';
 import { xaiProvider } from './xai/descriptor';
 import type {
@@ -33,6 +34,7 @@ const PROVIDERS: {
 	openrouter: openrouterProvider,
 	'local-llm': localLlmProvider,
 	spacefast: spacefastProvider,
+	ssh: sshProvider,
 };
 
 type Ids< Id > = readonly [ Id, ...Id[] ];
@@ -46,6 +48,11 @@ export const AI_PROVIDER_IDS = PROVIDER_IDS.filter(
 export const SITES_PROVIDER_IDS = PROVIDER_IDS.filter(
 	( id ) => PROVIDERS[ id ].sites
 ) as unknown as Ids< SitesProviderId >;
+
+// The providers with an account to connect: all but those, like SSH, with nothing to connect.
+export const ACCOUNT_PROVIDER_IDS = PROVIDER_IDS.filter(
+	( id ) => PROVIDERS[ id ].account
+) as unknown as Ids< ProviderId >;
 
 export const DEFAULT_PROVIDER_ID: AiProviderId = 'wpcom';
 

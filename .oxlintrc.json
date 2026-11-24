@@ -314,7 +314,8 @@
 								"group": [
 									"@studio/providers/**",
 									"!@studio/providers/wpcom",
-									"!@studio/providers/wpcom/**"
+									"!@studio/providers/wpcom/**",
+									"!@studio/providers/ui"
 								],
 								"message": "Surfaces read @studio/providers; its services run in the backends and the agent."
 							},
@@ -420,7 +421,8 @@
 								"group": [
 									"@studio/providers/**",
 									"!@studio/providers/wpcom",
-									"!@studio/providers/wpcom/**"
+									"!@studio/providers/wpcom/**",
+									"!@studio/providers/ui"
 								],
 								"message": "Surfaces read @studio/providers; its services run in the backends and the agent."
 							},
@@ -547,7 +549,8 @@
 								"group": [
 									"@studio/providers/**",
 									"!@studio/providers/wpcom",
-									"!@studio/providers/wpcom/**"
+									"!@studio/providers/wpcom/**",
+									"!@studio/providers/ui"
 								],
 								"message": "Surfaces read @studio/providers; its services run in the backends and the agent."
 							}
@@ -570,23 +573,55 @@
 						"patterns": [
 							{
 								"group": [
-									"node:*",
-									"fs",
-									"fs/**",
-									"path",
-									"os",
-									"child_process",
-									"crypto"
-								],
-								"message": "@studio/providers is loaded in the browser too; keep Node APIs out."
-							},
-							{
-								"group": [
 									"@studio/**",
 									"cli/**",
 									"src/**"
 								],
 								"message": "@studio/providers imports no other workspace package."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/providers/**/*.tsx"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@wordpress/components",
+									"@wordpress/components/**",
+									"@wordpress/dataviews",
+									"@wordpress/dataviews/**",
+									"@wordpress/theme",
+									"@wordpress/theme/**",
+									"@wordpress/ui",
+									"@wordpress/ui/**"
+								],
+								"message": "Use the primitives in @studio/ds and the tokens in @studio/ds/theme."
+							},
+							{
+								"group": [
+									"@base-ui/react",
+									"@base-ui/react/**"
+								],
+								"message": "Use the primitives in @studio/ds, and add one there when none fits."
+							},
+							{
+								"group": [
+									"@studio/**",
+									"!@studio/ds",
+									"!@studio/ds/**",
+									"cli/**",
+									"src/**"
+								],
+								"message": "Provider forms build on @studio/ds and no other workspace package."
 							}
 						]
 					}
@@ -605,7 +640,8 @@
 				"packages/providers/api-key.ts",
 				"packages/providers/*/descriptor.ts",
 				"packages/providers/*/config.ts",
-				"packages/providers/wpcom/sites/site.ts"
+				"packages/providers/wpcom/sites/site.ts",
+				"packages/providers/ssh/address.ts"
 			],
 			"rules": {
 				"studio/import-boundaries": [
@@ -624,7 +660,8 @@
 									"packages/providers/api-key.ts",
 									"packages/providers/*/descriptor.ts",
 									"packages/providers/*/config.ts",
-									"packages/providers/wpcom/sites/site.ts"
+									"packages/providers/wpcom/sites/site.ts",
+									"packages/providers/ssh/address.ts"
 								],
 								"from": [
 									"packages/providers"
@@ -640,9 +677,37 @@
 									"packages/providers/api-key.ts",
 									"packages/providers/*/descriptor.ts",
 									"packages/providers/*/config.ts",
-									"packages/providers/wpcom/sites/site.ts"
+									"packages/providers/wpcom/sites/site.ts",
+									"packages/providers/ssh/address.ts"
 								],
 								"message": "The @studio/providers entry imports only the files it is made of."
+							}
+						]
+					}
+				],
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"node:*",
+									"fs",
+									"fs/**",
+									"path",
+									"os",
+									"child_process",
+									"crypto"
+								],
+								"message": "The @studio/providers entry is loaded in the browser; keep Node APIs out."
+							},
+							{
+								"group": [
+									"@studio/**",
+									"cli/**",
+									"src/**"
+								],
+								"message": "@studio/providers imports no other workspace package."
 							}
 						]
 					}
@@ -706,7 +771,8 @@
 								"group": [
 									"@studio/providers/**",
 									"!@studio/providers/wpcom",
-									"!@studio/providers/wpcom/**"
+									"!@studio/providers/wpcom/**",
+									"!@studio/providers/ui"
 								],
 								"message": "Surfaces read @studio/providers; its services run in the backends and the agent."
 							}

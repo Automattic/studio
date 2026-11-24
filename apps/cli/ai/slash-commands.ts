@@ -21,6 +21,7 @@ import {
 	formatTopUpOptionCreditsLabel,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import {
+	ACCOUNT_PROVIDER_IDS,
 	AI_PROVIDER_IDS,
 	findAiModel,
 	getAiModels,
@@ -276,7 +277,12 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		argument: '[provider]',
 		description: __( 'Connect a provider' ),
 		handler: async ( prompt, ctx ) => {
-			const provider = await pickProvider( ctx, prompt, PROVIDER_IDS, __( 'Connect a provider' ) );
+			const provider = await pickProvider(
+				ctx,
+				prompt,
+				ACCOUNT_PROVIDER_IDS,
+				__( 'Connect a provider' )
+			);
 			if ( ! provider ) {
 				return 'continue';
 			}
@@ -332,7 +338,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				return 'continue';
 			}
 			// Disconnecting WordPress.com is signing out of Studio.
-			if ( getProvider( provider ).account.methods[ 0 ].kind === 'redirect' ) {
+			if ( getProvider( provider ).account?.methods[ 0 ].kind === 'redirect' ) {
 				ctx.ui.stop();
 				await runLogoutCommand();
 				ctx.ui.start();

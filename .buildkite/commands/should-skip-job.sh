@@ -130,9 +130,9 @@ fi
 if [[ "${BUILDKITE_PULL_REQUEST-false}" =~ ^[0-9]+$ ]]; then
   changed_files=(pr_changed_files)
 elif [[ "${BUILDKITE_PULL_REQUEST-false}" == false && "${BUILDKITE_BRANCH:-}" == trunk ]]; then
-  # Runs on the upload agent: until its toolkit has `commit_changed_files`, trunk runs everything.
-  command -v commit_changed_files >/dev/null 2>&1 || run_job
-  changed_files=(commit_changed_files)
+  # Runs on the upload agent: until its toolkit has `check_changed_files`, trunk runs everything.
+  command -v check_changed_files >/dev/null 2>&1 || run_job
+  changed_files=(check_changed_files)
   if [[ -n "${CI_CHANGED_FILES_BASE:-}" ]]; then
     changed_files+=(--base "$CI_CHANGED_FILES_BASE")
   else

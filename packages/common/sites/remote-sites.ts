@@ -74,6 +74,31 @@ export async function createRemoteSite< Id extends SitesProviderId >(
 	return site;
 }
 
+// The site the values of the provider's `connect` form describe, once the provider reached it.
+export async function resolveRemoteSite< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	input: Record< string, string >
+): Promise< ProviderSites[ Id ] > {
+	const resolve = sites( provider ).resolve;
+	if ( ! resolve ) {
+		throw new Error( `Studio can't connect ${ getProvider( provider.id ).label } sites by form.` );
+	}
+	return resolve( await readProviderConfig( provider.id as Id ), input );
+}
+
+// Runs an action the provider's connect form asks for, such as listing the user's SSH hosts.
+export async function runSitesAction< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	action: string,
+	input: Record< string, string >
+): Promise< unknown > {
+	const run = sites( provider ).action;
+	if ( ! run ) {
+		throw new Error( `${ getProvider( provider.id ).label } has no actions.` );
+	}
+	return run( await readProviderConfig( provider.id as Id ), action, input );
+}
+
 // What a selective pull needs: the latest backup, and the files in it.
 export async function getRemoteBackupId< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >,

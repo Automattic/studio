@@ -563,13 +563,13 @@ export function AddSiteDialog() {
 						source.type === 'import' && source.backup ? (
 							<ImportPanel backup={ source.backup } />
 						) : (
-							<CreatePanel remote={ source.type === 'connect' ? source.remote : undefined } />
+							<CreatePanel />
 						)
 					) : null }
 					{ view.name === 'connect' ? (
 						<ConnectPanel
-							onConnect={ ( remote ) => {
-								setSource( { type: 'connect', remote } );
+							onConnect={ ( provider, remote ) => {
+								setSource( { type: 'connect', provider, remote } );
 								showSetup();
 							} }
 						/>

@@ -47,6 +47,7 @@ import {
 	publishTargetQueryKey,
 	remotePublishTargetKey,
 	remoteSitesQueryKey,
+	useConnectedHostingProviders,
 } from '@/data/queries/use-remote-sites';
 import { useSiteVisibility } from '@/data/queries/use-site-visibility';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
@@ -78,11 +79,7 @@ import { PlanIcon } from './plan-icon';
 import { PreviewExpiry } from './preview-expiry';
 import { PreviewOverwriteConfirmation } from './preview-overwrite-confirmation';
 import { PreviewTransferActions } from './preview-transfer-actions';
-import {
-	ProviderPicker,
-	rememberPublishProvider,
-	orderedPublishProviders,
-} from './provider-picker';
+import { ProviderPicker, rememberPublishProvider, defaultPublishProvider } from './provider-picker';
 import { PublishedTime } from './published-time';
 import { PullPreviewDialog } from './pull-preview-dialog';
 import { getShareViewTitle, shareEntryView } from './share-view';
@@ -149,11 +146,7 @@ export function PublishButton( {
 	const openSettings = useOpenSettings();
 	const accountsReady = user.data !== undefined && accounts.data !== undefined;
 	const accountsFailed = ! accountsReady && ( user.isError || accounts.isError );
-	const connectedProviders = targets.providers.filter( ( provider ) =>
-		getProvider( provider ).account.methods.some( ( method ) => method.kind === 'redirect' )
-			? !! user.data
-			: accounts.data?.accounts[ provider ].connected
-	);
+	const { connected: connectedProviders } = useConnectedHostingProviders( targets.providers );
 	const stagedSite = useRef< {
 		provider: SitesProviderId;
 		siteId: string;
@@ -273,7 +266,7 @@ export function PublishButton( {
 		( defaultProvider && connectedProviders.includes( defaultProvider )
 			? defaultProvider
 			: undefined ) ??
-		orderedPublishProviders( connectedProviders )[ 0 ] ??
+		defaultPublishProvider( connectedProviders ) ??
 		targets.providers[ 0 ];
 	const emptyDescriptor = getProviderSites( emptyDestination );
 	useEffect( () => {
@@ -395,11 +388,12 @@ export function PublishButton( {
 			  targetActionsTrigger.current ??
 			  trigger.current;
 	const publishMain = useRef< HTMLDivElement >( null );
-	const showExistingSite = () => {
+	const showExistingSite = ( provider?: SitesProviderId ) => {
 		if ( view.kind === 'setup' || view.kind === 'chooser' )
 			navigate(
 				{
 					kind: 'existing',
+					provider,
 					returnTo:
 						view.kind === 'chooser'
 							? { ...view, autoSelectPreview: undefined, focusKey: 'connect-existing' }
@@ -885,7 +879,7 @@ export function PublishButton( {
 			label={ __( 'Connect to an existing site' ) }
 			trailing={ <ChevronRightIcon data-navigation-chevron /> }
 			disabled={ disabled }
-			onClick={ showExistingSite }
+			onClick={ () => showExistingSite() }
 		/>
 	);
 	const destinationsFeedback = ( targetsUnavailable ||
@@ -972,6 +966,17 @@ export function PublishButton( {
 						: previewPublicSelected
 						? __( 'Connect to publish' )
 						: __( 'Connect to share previews' ) }
+				</Button>
+			);
+		}
+		if ( ! selected && ! emptyDescriptor.newSite ) {
+			return (
+				<Button
+					variant="accent"
+					disabled={ disabled }
+					onClick={ () => showExistingSite( emptyDestination ) }
+				>
+					{ __( 'Connect a site' ) }
 				</Button>
 			);
 		}
@@ -1068,7 +1073,7 @@ export function PublishButton( {
 						ref={ destinationTrigger }
 						selectedProvider={ emptyDestination }
 						providers={ targets.providers }
-						onConnectExistingSite={ showExistingSite }
+						onConnectExistingSite={ () => showExistingSite() }
 						onSelect={ chooseDestination }
 						disabled={ disabled }
 					/>
@@ -1528,12 +1533,17 @@ export function PublishButton( {
 								</div>
 							) : view.kind === 'existing' ? (
 								<ExistingSiteStep
-									providers={ connectedProviders }
-									availableProviders={ targets.providers }
+									providers={ view.provider ? [ view.provider ] : connectedProviders }
+									availableProviders={ view.provider ? [] : targets.providers }
 									siteId={ site.id }
 									replacing={ hasLiveSite }
 									disabled={ disabled || wpcomLogin.isPending }
 									onConnectProvider={ selectProvider }
+									onShowConnectForm={
+										view.provider
+											? undefined
+											: ( provider ) => navigate( { ...view, provider }, 'forward' )
+									}
 									onConnected={ ( provider, id ) => {
 										client.setQueryData(
 											publishTargetQueryKey( site.id ),

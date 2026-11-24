@@ -37,7 +37,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | OpenRouter (`openrouter`)                    | Sign-in or API key             | Models from many labs                | —          | —        |
 | Local LLM (`local-llm`)                      | Server address, optional key   | The models the server lists          | —          | —        |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
-| Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
+| SSH (`ssh`)                                  | None: the user's SSH setup     | —                                    | push, pull | —        |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
 
@@ -64,11 +64,11 @@ The package is split in two parts, and lint keeps them apart:
 - **What surfaces read**: the registry, and each provider's descriptor, config schema and connection form. `apps/ui` imports only this part.
 - **The services**: the implementations, for the CLI, the apps' backends and the agent.
 
-Neither part uses Node APIs.
+What surfaces read uses no Node APIs. The services may, where a provider runs a program on the user's computer, as SSH runs `ssh`.
 
 Dependencies point one way:
 
-- `@studio/providers` imports no other workspace package. WordPress Studio passes in what a provider needs, such as its config.
+- `@studio/providers` imports no other workspace package but `@studio/ds`, for the forms in `./ui`. WordPress Studio passes in what a provider needs, such as its config.
 - `@studio/common` holds WordPress Studio's side, next to the rest of the config store: storing provider configs, the selected chat provider and remote-site connections. It may import what surfaces read, for schemas and types, never the services; the apps pass in the provider a stored operation needs.
 
 It is a package of its own because sites and previews are not agent concerns, so the push command must not depend on `@studio/agent`. It isn't part of `@studio/common` because providers must stay free of WordPress Studio's storage, and the browser-safe boundary needs lint enforcement.
@@ -142,6 +142,7 @@ The Local LLM connector is `local-llm`, with no stored alias: builds that don't 
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
 - `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. The Share and Publish panel uses the same provider descriptors and remote-site connections.
 - A provider declares whether it supports selective sync.
+- A provider without an account, such as SSH, has nothing to connect and counts as connected. Its sites aren't listed from an account: the user connects one by describing it with the provider's site connect method (`sites.connect`, a form), which the provider checks by reaching the site. On pull, such a provider sends the site itself as an archive (`pullArchive`), which the CLI imports like a downloaded backup. A provider whose sites connect with a `hostOnly` method is left out where WordPress Studio runs elsewhere, as Studio Cloud does. See `ssh-sites.md`.
 
 ### Share and Publish panel
 

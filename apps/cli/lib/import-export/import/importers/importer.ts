@@ -5,6 +5,7 @@ import { generateBackupFilename } from '@studio/common/lib/generate-backup-filen
 import { ImportEvents } from '@studio/common/lib/import-export-events';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
+import { parseJsonFromPhpOutput } from '@studio/common/lib/php-output-parser';
 import { serializePlugins } from '@studio/common/lib/serialize-plugins';
 import {
 	RecommendedPHPVersion,
@@ -146,8 +147,49 @@ abstract class BaseImporter extends ImportExportEventEmitter implements Importer
 			}
 		}
 
+		await this.useImportedTablePrefix( site );
 		await updateSiteUrl( site );
 		this.emit( ImportEvents.IMPORT_DATABASE_COMPLETE );
+	}
+
+	// A database from another site may prefix its tables otherwise: wp-config.php names the prefix of
+	// its core options table, the shortest of those ending in `options`.
+	private async useImportedTablePrefix( site: ConfigSite ): Promise< void > {
+		const options = { requireSqliteCliCommand: true, phpVersion: this.resolvePhpVersion( site ) };
+		await using tables = await runWpCliCommand(
+			site,
+			[
+				'sqlite',
+				'tables',
+				'--format=json',
+				'--enable-ast-driver',
+				'--skip-plugins',
+				'--skip-themes',
+			],
+			options
+		);
+		let names: string[];
+		try {
+			names = parseJsonFromPhpOutput( await tables.response.stdoutText ) as string[];
+		} catch {
+			return;
+		}
+		const [ prefix ] = names
+			.filter( ( table ) => table.endsWith( 'options' ) && table !== 'options' )
+			.map( ( table ) => table.slice( 0, -'options'.length ) )
+			.sort( ( a, b ) => a.length - b.length );
+		if ( ! prefix ) {
+			return;
+		}
+		const config = await fs.promises.readFile( path.join( site.path, 'wp-config.php' ), 'utf8' );
+		if ( /\$table_prefix\s*=\s*['"]([^'"]*)['"]/.exec( config )?.[ 1 ] !== prefix ) {
+			await using update = await runWpCliCommand(
+				site,
+				[ 'config', 'set', 'table_prefix', prefix, '--type=variable' ],
+				options
+			);
+			await update.response.exitCode;
+		}
 	}
 
 	protected async prepareSqlFile( _tmpPath: string ): Promise< void > {

@@ -99,7 +99,11 @@ interface HostSync {
 		options: string,
 		remoteSite: string | undefined,
 		onProgress: ProgressCallback
-	): Promise< SyncSite | undefined >;
+	): Promise<
+		| ( Pick< SyncSite, 'name' | 'url' > &
+				Partial< Pick< SyncSite, 'isStaging' | 'environmentType' > > )
+		| undefined
+	>;
 }
 
 // WordPress.com, as the signed-in user.

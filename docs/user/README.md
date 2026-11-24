@@ -121,9 +121,9 @@ Shots live in `screenshots/shots/*.json`, one file per feature (a *suite*), with
 | --- | --- | --- |
 | `10-first-run.json` | An empty profile | The welcome dialog, Add site, creating a site, the orientation guide |
 | `20`–`50` | The scene's sites: "Moire", running and selected, then the blank "Bistro Lune" and "Ada Portfolio" | The workspace, site menu, site settings and app settings |
-| `60-signed-in.json` | Signed in (`"signedIn": true`) | The account menu, Annotate, Share and publish, the model menu, account settings |
-| `61-signed-in-previews.json` | Signed in, with made-up preview sites (`"previewSites": true`) | The Share panel |
-| `62-signed-in-connected.json` | Signed in, connected to made-up WordPress.com sites (`"connectedSites": true`) | The website switcher, and the Pull changes and Publish changes review steps with Choose files… |
+| `60-signed-in.json` | Signed in (`"signedIn": true`) | The account menu, Annotate, the Publish panel, the model menu, account settings and providers |
+| `61-signed-in-previews.json` | Signed in, with made-up preview sites (`"previewSites": true`) | The Publish panel’s previews, a preview’s details and actions |
+| `62-signed-in-connected.json` | Signed in, connected to made-up WordPress.com sites (`"connectedSites": true`) | The Publish panel’s connected sites, a site’s details, and the pull and publish dialogs with their file choices |
 | `63-signed-in-agent.json` | Signed in, on an empty profile | A story from a new blank site. The `stubAgentRuns` and `playAgentTurn` helpers stand in for WordPress Studio Code, so no model runs. `design-looks` is the design picker with a pending "Which look should I build?" |
 | `64-signed-in-chat.json` | Signed in, with a recorded conversation (`"chats"`) | The Moire home page's text being updated |
 | `70-signed-in-blog.json` | Signed in | One-off images for blog posts, captured as [extras](#docs-shots-and-extras) |

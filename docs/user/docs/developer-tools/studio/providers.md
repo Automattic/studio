@@ -206,9 +206,7 @@ To remove Spacefast, click **Disconnect**. See [Publish a static copy to Spacefa
 
 ### Choose where Publish goes
 
-**Default hosting provider**, at the top of the page, sets where **Publish** goes for a site you haven’t published yet.
-
-If you have set up one hosting provider, WordPress Studio opens that one. If you have set up more and chosen no default, it asks **Where do you want to publish?** To pick a different host while you’re publishing, click **Choose another host**.
+**Default hosting provider**, at the top of the page, sets which provider **Destination** starts on in the **Publish** panel, for a site you haven’t published or shared yet. To pick a different host while you’re publishing, choose it under **Destination**.
 
 The full steps are in [WordPress Studio Sync](https://wordpress.studio/docs/sync/).
 

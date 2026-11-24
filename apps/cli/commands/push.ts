@@ -154,6 +154,7 @@ type PushOutcome = {
 // Each remote step's label, and where it starts and how much it spans of the overall progress.
 const PUSH_PROGRESS: Record< PushStatus[ 'phase' ], [ () => string, number, number ] > = {
 	uploading: [ () => __( 'Uploading archive…' ), 20, 20 ],
+	waitingForRemote: [ () => __( 'Waiting for another update to the live site to finish…' ), 40, 0 ],
 	creatingRemoteBackup: [ () => __( 'Backing up remote site…' ), 40, 20 ],
 	applyingChanges: [ () => __( 'Applying changes…' ), 60, 35 ],
 	finishing: [ () => __( 'Almost there…' ), 99, 0 ],
@@ -166,6 +167,7 @@ const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
 	generatingStaticSite: 'local_export',
 	stoppingSite: 'local_export',
 	uploading: 'upload',
+	waitingForRemote: 'remote_import',
 	creatingRemoteBackup: 'remote_backup',
 	applyingChanges: 'remote_import',
 	finishing: 'remote_import',

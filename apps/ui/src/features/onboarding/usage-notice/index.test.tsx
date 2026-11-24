@@ -27,9 +27,7 @@ describe( 'Usage notice', () => {
 	it( 'tells people onboarded before the change, and Got it marks it seen for good', async () => {
 		const { connector, unmount } = launch();
 		const notice = await screen.findByRole( 'alertdialog', { name: TITLE } );
-		expect(
-			within( notice ).getByText( /usage statistics WordPress Studio shares are now linked/ )
-		).toBeVisible();
+		expect( within( notice ).getByText( /stats are now linked to your account/ ) ).toBeVisible();
 
 		fireEvent.click( within( notice ).getByRole( 'button', { name: 'Learn more…' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(

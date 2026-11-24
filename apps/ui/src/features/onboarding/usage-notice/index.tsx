@@ -57,7 +57,7 @@ export function UsageNotice() {
 					<DialogDescription>
 						{ createInterpolateElement(
 							__(
-								'When you are logged in to WordPress.com, the usage statistics WordPress Studio shares are now linked to your account. This helps us improve WordPress Studio. You can turn this off at any time in <settings_link>Settings</settings_link>.'
+								"When you're logged in to WordPress.com, stats are now linked to your account. This helps us improve WordPress Studio. You can turn this off at any time in <settings_link>Settings</settings_link>."
 							),
 							{
 								settings_link: (

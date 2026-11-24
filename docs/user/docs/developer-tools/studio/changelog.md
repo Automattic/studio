@@ -321,6 +321,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Updated multiple dependencies
 -   Misc and maintenance improvements
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.23.0)
+
+*October 5, 2026*
+
 ## [1.22.0](#1-1-22-0)
 
 -   WordPress Studio Code now lets you pick your site’s design before it builds: four looks, then four layouts previewed in the look you chose, each shown as a rendered sneak peek with real imagery. Your pick is saved as `DESIGN.md` at the site root, which later sessions and other coding agents follow
@@ -359,6 +363,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Updated multiple dependencies and resolved fixable Dependabot alerts
 -   Misc and maintenance improvements
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.22.0)
+
+*September 21, 2026*
+
 ## [1.21.0](#2-1-21-0)
 
 -   Made your AI credit balance visible wherever you work: a meter in both the Agentic and Classic composers, the remaining balance in the CLI’s end-of-turn stats line, and a new `/credits` command to check it and top up without leaving the terminal
@@ -378,6 +386,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Updated multiple dependencies, including Electron 44, the WordPress, Sentry and testing groups, and the release toolkit
 -   Misc and maintenance improvements
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.21.0)
+
+*September 7, 2026*
+
 ## [1.20.0](#3-1-20-0)
 
 -   Added AI image generation to WordPress Studio Code: the agent now creates real images while it builds a site, instead of leaving placeholders behind, guided by a new imagery skill
@@ -393,6 +405,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Updated multiple dependencies, including the ESLint and testing groups, RuboCop and claude-code-action
 -   Misc and maintenance improvements
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.20.0)
+
+*August 28, 2026*
+
 ## [1.19.0](#4-1-19-0)
 
 -   Introduced AI credits in WordPress Studio Code: you can now purchase AI credits for your sessions. Your remaining balance now shows in the composer, in Usage settings, and in WordPress Studio Classic settings. You get a clear message and a working top-up link when you run out, and the balance refreshes as soon as you return from topping up
@@ -402,6 +418,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Improved WordPress Studio analytics
 -   Updated multiple dependencies, including Electron and the ESLint, Vite, testing and Ruby groups
 -   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.19.0)
+
+*August 24, 2026*
 
 ## [1.18.0](#5-1-18-0)
 
@@ -423,6 +443,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Updated multiple dependencies, including WP Playground, Electron and the pi (agent) packages, resolving several security alerts
 -   Misc and maintenance improvements
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.18.0)
+
+*August 14, 2026*
+
 ## [1.17.0](#6-1-17-0)
 
 -   Added support for importing WordPress export (WXR/.xml) files
@@ -440,6 +464,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Hardened security: fixed path injection in path comparison, ReDoS in the mu-plugins loader, and HTML sanitization in AI tool result previews; restricted local imports to registered uploads and scoped CLI preview listings to the authenticated user
 -   Updated multiple dependencies, including Electron, Sentry, tar and shell-quote, resolving security alerts for esbuild and brace-expansion
 -   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.17.0)
+
+*July 27, 2026*
 
 ## [1.16.0](#7-1-16-0)
 
@@ -463,6 +491,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Added Linux to the bug report Platform field and split out Architecture
 -   Misc and maintenance improvements
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.16.0)
+
+*July 20, 2026*
+
 ## [1.15.0](#8-1-15-0)
 
 -   Fixed Xdebug not starting on a normal page load on the native PHP runtime
@@ -476,6 +508,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Improved an error message when a site is in maintenance mode
 -   Improved CLI slash-command autocomplete with alphabetical sorting and match highlighting
 -   Misc CLI and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.15.0)
+
+*July 13, 2026*
 
 ## [1.14.0](#9-1-14-0)
 
@@ -491,6 +527,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Fixed occasional failures when duplicating a site
 -   Fixed broken Central Kurdish (Sorani) text on macOS by bundling the Vazirmatn font
 -   Updated multiple dependencies, including WP Playground and PHP-WASM, the SQLite database integration, and the pi (agent) packages
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.14.0)
+
+*July 7, 2026*
 
 ## [1.13.0](#10-1-13-0)
 
@@ -508,6 +548,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Fixed WordPress Studio Code annotate closing message that always referenced the CLI
 -   Removed noop menu items from topbar context menu
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.13.0)
+
+*July 2, 2026*
+
 ## [1.12.0](#11-1-12-0)
 
 -   Introduced PHP runtime and File Access options, and improved the native PHP runtime: fixed WP-CLI tool calls, asset loading for sites with a remote site URL, and blueprint creation from read-only directories, and made pull-reprint work with native PHP
@@ -524,6 +568,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Clarified Sync and quit-sites messaging, and fixed What’s New modal copy
 -   Updated multiple dependencies, including WP Playground, PHP-WASM, bundled PHP binaries, the SQLite database integration, and Reprint
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.12.0)
+
+*June 30, 2026*
+
 ## [1.11.0](#12-1-11-0)
 
 -   Made WordPress Studio Code the default in the WordPress Studio app, replacing the previous WordPress Studio Assistant tab
@@ -536,6 +584,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Added one-time ToS/Privacy disclaimer in WordPress Studio CLI and WordPress Studio Code
 -   Updated multiple dependencies, including WordPress packages and React
 
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.11.0)
+
+*June 15, 2026*
+
 ## [1.10.0](#13-1-10-0)
 
 -   Released remote-session as beta-feature
@@ -544,6 +596,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Added Linux beta builds, in-app update support, and improved certificate trust handling
 -   Preserved custom db.php drop-ins when updating WordPress Studio’s SQLite integration
 -   Updated multiple dependencies, including WP Playground, PHP-Wasm, WordPress packages, and React
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.10.0)
+
+*June 2, 2026*
 
 ## [1.9.0](#14-1-9-0)
 
@@ -556,6 +612,10 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Always ask before stopping running sites when quitting WordPress Studio
 -   Improved Linux packaging and installer size
 -   Updated multiple dependencies, including WordPress packages, WP Playground, and PHP-WASM
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v1.9.0)
+
+*May 11, 2026*
 
 ## [1.8.1 – CLI only](#15-1-8-1-cli-only)
 
@@ -572,6 +632,8 @@ While you can always [view technical release notes on GitHub](https://github.com
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.8.1)
 
+*April 29, 2026*
+
 ## [1.7.11 – CLI only](#16-1-7-11-cli-only)
 
 -   Added PromptFoo evaluation framework for code agent
@@ -580,6 +642,8 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Fixed Jetpack backup import using stale .ht.sqlite instead of SQL dumps
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.7.11)
+
+*May 5, 2026*
 
 ## [1.7.10 – CLI only](#17-1-7-10-cli-only)
 
@@ -594,6 +658,8 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Updated multiple dependencies, including WP Playground and PHP-Wasm
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.7.10)
+
+*May 5, 2026*
 
 ## [1.7.9 – CLI only](#18-1-7-9-cli-only)
 
@@ -617,6 +683,8 @@ While you can always [view technical release notes on GitHub](https://github.com
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.7.9)
 
+*May 5, 2026*
+
 ## [1.8.0](#19-1-8-0)
 
 -   Added resizable sidebar
@@ -635,6 +703,8 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Updated multiple dependencies, including WP Playground and PHP-Wasm
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.8.0)
+
+*April 27, 2026*
 
 ## [1.7.8](#20-1-7-8)
 

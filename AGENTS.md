@@ -7,6 +7,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 **Dev/Build**: `npm start` | `npm run cli:build` | `node apps/cli/dist/cli/main.mjs` | `npm -w @studio/ui run playground` (real `apps/ui` components with sample data and no backend, light and dark: chat transcript, preview animation; see `apps/ui/src/dev/README.md`)
 **Test**: `npm test [-- path/to/test.test.ts]` | `npm run e2e`
 **Quality**: `npx oxlint --fix <files>` and `npx prettier --write <files>` (lint and format ONLY modified files; stylesheets: `npx eslint --fix <files>`) | `npm run knip` (unused files, exports and dependencies across the repo; runs in CI)
+**CI locally**: `npm run ci:local` (pipeline check, lint, unit tests) | `-- --full` adds CLI E2E, E2E and the metrics tests | `-- --linux` runs the Linux jobs in CI's Docker image
 **IMPORTANT - Post-Change Verification**: After applying code changes, always run the linter and format modified files (`npx oxlint --fix <files>`, `npx prettier --write <files>`), the type checker (`npm run typecheck`) and run relevant tests (`npm test [-- path/to/test]`) before considering the work complete. For any UI/CSS change, also verify the result in **both light and dark** color schemes.
 **Package**: `npm run make` (builds installers for current platform)
 

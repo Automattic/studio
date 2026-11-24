@@ -26,9 +26,9 @@ const vars = Object.fromEntries(
 // Buildkite replaces $VAR and ${VAR} at upload, and turns $$ into a literal $ for the job's shell.
 function interpolate( text ) {
 	return text
-		.replace( /\$\$/g, '\u0000' )
-		.replace( /\$\{(\w+)\}|\$(\w+)/g, ( _, a, b ) => vars[ a ?? b ] ?? '' )
-		.replace( /\u0000/g, '$' );
+		.split( '$$' )
+		.map( ( part ) => part.replace( /\$\{(\w+)\}|\$(\w+)/g, ( _, a, b ) => vars[ a ?? b ] ?? '' ) )
+		.join( '$' );
 }
 
 const pipeline = parse( interpolate( fs.readFileSync( path.join( root, '.buildkite/pipeline.yml' ), 'utf8' ) ) );

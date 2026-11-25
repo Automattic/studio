@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
@@ -83,6 +83,22 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 			fs.mkdirSync( path.dirname( path.join( root, file ) ), { recursive: true } );
 			fs.writeFileSync( path.join( root, file ), file );
 		}
+		const uploads = path.join( root, 'wp-content/uploads/2024/05' );
+		fs.mkdirSync( uploads, { recursive: true } );
+		for ( const [ file, width, height ] of [
+			[ path.join( uploads, 'photo.png' ), 40, 20 ],
+			[ path.join( uploads, 'photo.jpg' ), 40, 20 ],
+			[ path.join( uploads, 'large-scaled.png' ), 40, 20 ],
+			[ path.join( root, 'wp-content/outside.png' ), 40, 20 ],
+		] as const ) {
+			execFileSync( phpBinaryPath, [
+				'-r',
+				`$image = imagecreatetruecolor( ${ width }, ${ height } ); image${
+					file.endsWith( '.png' ) ? 'png' : 'jpeg'
+				}( $image, ${ JSON.stringify( file ) } );`,
+			] );
+		}
+
 		fs.mkdirSync( path.join( root, 'wp-content/plugins' ) );
 		fs.symlinkSync(
 			path.join( fixtureDirectory, 'plugin' ),
@@ -158,6 +174,56 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 		expect( await request( '/.well-known/security.txt' ) ).toEqual( {
 			status: 200,
 			body: '.well-known/security.txt',
+		} );
+	} );
+
+	describe( 'missing image sizes', () => {
+		const cache = () => path.join( root, 'wp-content/cache/studio-image-sizes/2024/05' );
+
+		async function fetchImage( requestPath: string ) {
+			const response = await fetch( `${ baseUrl }${ requestPath }` );
+			const body = Buffer.from( await response.arrayBuffer() );
+			return { status: response.status, type: response.headers.get( 'content-type' ), body };
+		}
+
+		it( 'makes a missing size from its original, in the cache rather than uploads', async () => {
+			const response = await fetchImage( '/wp-content/uploads/2024/05/photo-10x10.png' );
+
+			expect( response.status ).toBe( 200 );
+			expect( response.type ).toBe( 'image/png' );
+			// A PNG's width and height follow its signature and IHDR header.
+			expect( [ response.body.readUInt32BE( 16 ), response.body.readUInt32BE( 20 ) ] ).toEqual( [
+				10, 10,
+			] );
+			expect( fs.readFileSync( path.join( cache(), 'photo-10x10.png' ) ) ).toEqual( response.body );
+			expect(
+				fs.existsSync( path.join( root, 'wp-content/uploads/2024/05/photo-10x10.png' ) )
+			).toBe( false );
+		} );
+
+		it( 'serves a size it made again from the cache', async () => {
+			await fetchImage( '/wp-content/uploads/2024/05/photo-20x10.jpg' );
+			const made = fs.statSync( path.join( cache(), 'photo-20x10.jpg' ) ).mtimeMs;
+
+			const response = await fetchImage( '/wp-content/uploads/2024/05/photo-20x10.jpg' );
+
+			expect( response ).toMatchObject( { status: 200, type: 'image/jpeg' } );
+			expect( fs.statSync( path.join( cache(), 'photo-20x10.jpg' ) ).mtimeMs ).toBe( made );
+		} );
+
+		it( 'makes sizes of a large upload from its scaled copy', async () => {
+			expect( await fetchImage( '/wp-content/uploads/2024/05/large-20x10.png' ) ).toMatchObject( {
+				status: 200,
+				type: 'image/png',
+			} );
+		} );
+
+		it.each( [
+			[ 'larger than the original', '/wp-content/uploads/2024/05/photo-80x40.png' ],
+			[ 'without an original', '/wp-content/uploads/2024/05/missing-10x10.png' ],
+			[ 'outside uploads', '/wp-content/uploads/..%2Foutside-10x10.png' ],
+		] )( 'leaves a size %s to WordPress', async ( _, requestPath ) => {
+			expect( ( await fetchImage( requestPath ) ).status ).toBe( 404 );
 		} );
 	} );
 } );

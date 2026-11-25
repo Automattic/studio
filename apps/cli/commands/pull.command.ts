@@ -1,4 +1,4 @@
-import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+import { isReprintPullEnabled, usesReprintPull } from '@studio/common/lib/sync/reprint-pull';
 import { __ } from '@wordpress/i18n';
 import { parseSyncOptions } from 'cli/lib/sync-api';
 import { StudioArgv } from 'cli/types';
@@ -9,7 +9,9 @@ export const builder = ( builderYargs: StudioArgv ) => {
 	return builderYargs
 		.option( 'remote-site', {
 			type: 'string',
-			describe: __( 'URL or WordPress.com ID of the remote site to pull from' ),
+			describe: __(
+				'URL or WordPress.com ID of the remote site to pull from, or `ssh:<address>` for a site on a server you reach over SSH'
+			),
 		} )
 		.option( 'options', {
 			type: 'string',
@@ -62,8 +64,8 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 		describe: __( 'Pull a WordPress.com or Pressable site to your local site' ),
 		builder,
 		handler: async ( argv ) => {
-			if ( ! isReprintPullEnabled() ) {
-				const { commandHandler } = await import( 'cli/commands/pull-legacy' );
+			if ( ! usesReprintPull( argv.remoteSite ) ) {
+				const { commandHandler } = await import( 'cli/commands/pull-archive' );
 				return commandHandler( argv );
 			}
 			const { commandHandler } = await import( 'cli/commands/pull' );

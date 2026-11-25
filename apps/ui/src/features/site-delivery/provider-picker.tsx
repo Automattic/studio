@@ -1,5 +1,3 @@
-import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
-import { __ } from '@wordpress/i18n';
 import {
 	Select,
 	SelectContent,
@@ -7,7 +5,9 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
+import { __ } from '@wordpress/i18n';
 import { ConnectSiteIcon } from './connection-icons';
 import { DestinationIcon } from './destination-icon';
 import { ProviderLogo } from './provider-logo';
@@ -22,14 +22,19 @@ export function rememberPublishProvider( provider: SitesProviderId ) {
 		/* Storage can be unavailable. */
 	}
 }
-export function orderedPublishProviders( providers: SitesProviderId[] ) {
+// The provider Publish opens on: the last one used, when connected, or else the first connected one
+// that can start a site, rather than one that only connects sites the user already has.
+export function defaultPublishProvider( connected: SitesProviderId[] ) {
 	let last: string | null = null;
 	try {
 		last = localStorage.getItem( LAST_PROVIDER_KEY );
 	} catch {
 		/* Use descriptor order. */
 	}
-	return [ ...providers ].sort( ( a, b ) => Number( b === last ) - Number( a === last ) );
+	return (
+		connected.find( ( id ) => id === last ) ??
+		connected.find( ( id ) => getProviderSites( id ).newSite )
+	);
 }
 export function ProviderPicker( {
 	providers,

@@ -1,8 +1,3 @@
-import { findAiModel } from '@studio/providers';
-import { createInterpolateElement } from '@wordpress/element';
-import { __, sprintf } from '@wordpress/i18n';
-import { useRef } from 'react';
-import { useConfirmOnEnter } from '@/lib/keyboard';
 import {
 	Button,
 	Dialog,
@@ -12,7 +7,12 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { findAiModel } from '@studio/providers';
+import { createInterpolateElement } from '@wordpress/element';
+import { __, sprintf } from '@wordpress/i18n';
+import { useRef } from 'react';
+import { useConfirmOnEnter } from '@/lib/keyboard';
 import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 

@@ -5,6 +5,16 @@ import {
 } from '@studio/agent/protocol/thinking';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import {
+	Badge,
+	Button,
+	CommandSheet,
+	Menu,
+	Popover,
+	type Command,
+	type CommandGroup,
+} from '@studio/ds';
+import { PlugIcon, PlusIcon, ChevronDownIcon, ExternalLinkIcon } from '@studio/ds/icons';
+import {
 	findAiModel,
 	getAiModels,
 	getProvider,
@@ -22,16 +32,6 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { ProviderLogo } from '@/features/account';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlugIcon, PlusIcon, ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
-import {
-	Badge,
-	Button,
-	CommandSheet,
-	Menu,
-	Popover,
-	type Command,
-	type CommandGroup,
-} from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiModelId } from '@/data/core';
 

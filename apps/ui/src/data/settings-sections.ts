@@ -1,6 +1,4 @@
 import { AGENT_APP_IDS, AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
-import { AI_PROVIDER_IDS, getProvider, SITES_PROVIDER_IDS, needsHost } from '@studio/providers';
-import { __ } from '@wordpress/i18n';
 import {
 	BugIcon,
 	FileTextIcon,
@@ -17,7 +15,15 @@ import {
 	SkillsIcon,
 	TerminalIcon,
 	GaugeIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
+import {
+	AI_PROVIDER_IDS,
+	getProvider,
+	getProviderSites,
+	SITES_PROVIDER_IDS,
+	needsHost,
+} from '@studio/providers';
+import { __ } from '@wordpress/i18n';
 import type { AgentAppId } from '@studio/common/lib/agent-apps';
 import type { ComponentType } from 'react';
 
@@ -69,7 +75,7 @@ type Setting = {
 	description: string;
 	icon?: SectionIcon;
 	aliases?: string[];
-	// Shown only where a provider's sign-in can come back to this computer.
+	// Shown only where the app can reach the user's computer, as a sign-in coming back to it or SSH do.
 	loopbackOnly?: boolean;
 };
 
@@ -323,6 +329,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
 							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
 						),
+						loopbackOnly: getProviderSites( id ).connect?.hostOnly,
 					};
 				} ),
 			],

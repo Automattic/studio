@@ -1,7 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { useRef, useState } from 'react';
-import { LearnMoreLink } from '@/features/onboarding/learn-more';
 import {
 	Button,
 	Dialog,
@@ -12,7 +8,11 @@ import {
 	DialogFooter,
 	DialogTitle,
 	VisuallyHidden,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
+import { useRef, useState } from 'react';
+import { LearnMoreLink } from '@/features/onboarding/learn-more';
 import { GuideIllustration, isDarkGuideIllustration } from './illustrations';
 import styles from './style.module.css';
 import type { GuideDefinition } from './guide';

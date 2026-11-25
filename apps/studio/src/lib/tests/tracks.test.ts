@@ -13,11 +13,19 @@ import {
 import { vi } from 'vitest';
 import { recordTracksEvent } from '../tracks';
 
+const electronApp = vi.hoisted( () => ( { isPackaged: true } ) );
+
 vi.mock( import( 'electron' ), async ( importActual ) => {
 	const actual = await importActual();
 	return {
 		...actual,
-		app: { ...actual.app, getVersion: vi.fn( () => '9.9.9' ) },
+		app: {
+			...actual.app,
+			getVersion: vi.fn( () => '9.9.9' ),
+			get isPackaged() {
+				return electronApp.isPackaged;
+			},
+		},
 	};
 } );
 vi.mock( '@studio/common/lib/record-tracks-event', async ( importActual ) => {
@@ -42,10 +50,9 @@ beforeEach( () => {
 	mockInstallId.mockResolvedValue( 'install-uuid' );
 	mockIsA11n.mockResolvedValue( false );
 	vi.mocked( app.getVersion ).mockReturnValue( '9.9.9' );
-	// The dev/CI-build gate reads these; clear them so the "sends when opted in" assertions don't
-	// flake when the suite itself runs under CI (which sets CI=true) or a dev build (IS_DEV_BUILD).
+	electronApp.isPackaged = true;
+	// Cleared so the "sends when opted in" assertions don't depend on the suite running in a dev build.
 	delete process.env.IS_DEV_BUILD;
-	delete process.env.CI;
 } );
 
 afterEach( () => {
@@ -62,9 +69,9 @@ it( 'does not send from a dev build (IS_DEV_BUILD set)', async () => {
 	expect( mockOptedOut ).not.toHaveBeenCalled();
 } );
 
-it( 'does not send from a CI build (CI set)', async () => {
+it( 'does not send from an unpackaged app', async () => {
 	mockOptedOut.mockResolvedValue( false );
-	process.env.CI = 'true';
+	electronApp.isPackaged = false;
 
 	await recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH );
 

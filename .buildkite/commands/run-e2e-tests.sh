@@ -4,23 +4,28 @@ set -euo pipefail
 trap 'echo "Termination signal received — failing the job."; exit 1' TERM INT
 
 PLATFORM=${1:?Expected platform to be provided as first parameter}
-ARCH=${2:?Expected architecture to be provided as second parameter}
 
-if .buildkite/commands/should-skip-job.sh --job-type e2e; then
-  exit 0
+if [ "$PLATFORM" = "linux" ]; then
+  # This runs as root in a container, on a checkout the agent shares with later jobs. Hand
+  # what it creates (fixtures, the packaged app) back to the checkout's owner on exit, or the
+  # next job's `git clean` can't delete it and its checkout fails.
+  trap 'chown -R "$(stat -c %u:%g .)" . || true' EXIT
 fi
+
+ARCH=${2:?Expected architecture to be provided as second parameter}
 
 echo '--- :package: Install deps'
 if [ "$PLATFORM" = "linux" ]; then
-  # Linux runs inside a Debian Node container on the shared `default` queue.
-  # The a8c-ci-toolkit cache helpers (hash_file, restore_cache) only exist on
-  # the host, so install-node-dependencies.sh can't run here. Also install
-  # Electron's runtime libraries plus xvfb (CI agents are headless) and the
+  # Linux runs inside a Debian Node container on the shared `default` queue,
+  # with the a8c-ci-toolkit mounted; its cache helpers need the AWS CLI and jq.
+  # Also install Electron's runtime libraries plus xvfb (CI agents are headless) and the
   # browser dependencies Playwright would otherwise fetch via `npx playwright
   # install-deps` — same set, but apt is faster than letting Playwright shell
   # out to it again.
   apt-get -o Acquire::Retries=3 update
   apt-get install -y --no-install-recommends \
+    awscli \
+    jq \
     xvfb \
     xauth \
     libcap2-bin \
@@ -40,27 +45,18 @@ if [ "$PLATFORM" = "linux" ]; then
     libpango-1.0-0 \
     libcairo2 \
     libxss1
-  npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
-else
-  bash .buildkite/commands/install-node-dependencies.sh
 fi
+bash .buildkite/commands/install-node-dependencies.sh
 
 echo '--- :inbox_tray: Prepare e2e fixtures'
-if [ "$PLATFORM" = "linux" ]; then
-  # The a8c-ci-toolkit cache helpers aren't available inside the Linux
-  # container (see the npm install note above), so fixtures download fresh
-  # each run. The prep script re-verifies hashes, so this stays correct.
-  npm run e2e:fixtures -- --require
-else
-  # Cache the verified downloads keyed on the manifest, so editing
-  # test-fixtures/manifest.json invalidates the cache. The prep script
-  # re-verifies every SHA-256 even on a cache hit, so a stale or corrupt
-  # cache self-heals rather than failing the run.
-  FIXTURES_CACHE_KEY="$BUILDKITE_PIPELINE_SLUG-e2e-fixtures-$(hash_file test-fixtures/manifest.json)"
-  restore_cache "$FIXTURES_CACHE_KEY"
-  npm run e2e:fixtures -- --require
-  save_cache test-fixtures/downloads "$FIXTURES_CACHE_KEY"
-fi
+# Cache the verified downloads keyed on the manifest, so editing
+# test-fixtures/manifest.json invalidates the cache. The prep script
+# re-verifies every SHA-256 even on a cache hit, so a stale or corrupt
+# cache self-heals rather than failing the run.
+FIXTURES_CACHE_KEY="$BUILDKITE_PIPELINE_SLUG-e2e-fixtures-$(hash_file test-fixtures/manifest.json)"
+restore_cache "$FIXTURES_CACHE_KEY"
+npm run e2e:fixtures -- --require
+save_cache test-fixtures/downloads "$FIXTURES_CACHE_KEY"
 
 export IS_DEV_BUILD=true
 

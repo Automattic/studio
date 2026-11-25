@@ -1,3 +1,6 @@
+import { Button, Input, Menu } from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { ChevronDownIcon, ExternalLinkIcon } from '@studio/ds/icons';
 import {
 	getConnectFields,
 	getProvider,
@@ -19,17 +22,16 @@ import {
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { Markdown } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
-import { useOffline } from '@/lib/hooks';
-import { ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
-import { Button, Input, Menu } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
 import { ProviderModels } from './provider-models';
 import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 
 export function getProviderConnectMethods( id: ProviderId, loopbackSignIn: boolean ) {
-	return getProvider( id ).account.methods.filter(
-		( method ) => method.kind !== 'redirect' && ( loopbackSignIn || ! needsHost( method ) )
+	return (
+		getProvider( id ).account?.methods.filter(
+			( method ) => method.kind !== 'redirect' && ( loopbackSignIn || ! needsHost( method ) )
+		) ?? []
 	);
 }
 

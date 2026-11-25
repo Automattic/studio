@@ -1,13 +1,14 @@
-import { authTokenFrom } from './auth-token';
+import { getProvider } from '@studio/providers';
 import { readConfig, updateConfig } from './config/store';
+import { providerConfigFrom } from './provider-config';
 import { destinationConnection, recordTransfer } from './site-connections';
 import type { Config, ConfigSite, SiteConnection } from './config/schema';
 import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
 /**
  * The remote sites each local site syncs with, per provider, kept on the local site's record.
- * Connections are Studio's data, not the provider's. A WordPress.com connection belongs to the
- * account that made it, so only that account's are listed.
+ * Connections are Studio's data, not the provider's. A connection to a provider whose account has
+ * an `owner` belongs to the account that made it, so only that account's are listed.
  */
 
 export interface SyncTimes {
@@ -19,13 +20,16 @@ export interface SyncTimes {
 
 export type RemoteSiteConnection< Id extends SitesProviderId > = ProviderSites[ Id ] & SyncTimes;
 
-// The account a provider's connections belong to; null when it needs one and none is signed in.
+// The account a provider's connections belong to; null when it needs one and none is connected.
 function getAccount( config: Config, provider: SitesProviderId ): string | undefined | null {
-	if ( provider !== 'wpcom' ) {
+	const owner = getProvider( provider )?.account?.owner as
+		| ( ( providerConfig: unknown ) => string | undefined )
+		| undefined;
+	if ( ! owner ) {
 		return undefined;
 	}
-	const userId = authTokenFrom( config )?.id;
-	return userId ? String( userId ) : null;
+	const providerConfig = providerConfigFrom( config, provider );
+	return ( providerConfig && owner( providerConfig ) ) || null;
 }
 
 function isConnection(
@@ -135,16 +139,18 @@ export async function forgetRemoteSite< Id extends SitesProviderId >(
 	} );
 }
 
+// Another account's connections stay, for when it is connected again.
 function replacePublishingDestination(
+	config: Config,
 	local: ConfigSite,
-	destination: SiteConnection,
-	wpcomAccount: string | null | undefined
+	destination: SiteConnection
 ) {
 	local.connections = ( local.connections ?? [] ).filter(
 		( connection ) =>
 			connection === destination ||
 			connection.preview ||
-			( connection.provider === 'wpcom' && connection.account !== wpcomAccount )
+			( connection.account !== undefined &&
+				connection.account !== getAccount( config, connection.provider as SitesProviderId ) )
 	);
 }
 
@@ -156,7 +162,9 @@ async function savePublishingSite< Id extends SitesProviderId >(
 ): Promise< void > {
 	await updateConfig( ( config ) => {
 		const account = getAccount( config, provider );
-		if ( account === null ) throw new Error( 'Sign in to WordPress.com to connect this site.' );
+		if ( account === null ) {
+			throw new Error( `Sign in to ${ getProvider( provider ).label } to connect this site.` );
+		}
 		const local = config.sites.find( ( candidate ) => candidate.id === localSiteId );
 		if ( ! local ) return;
 		const connection = destinationConnection( local, provider, account, site.id );
@@ -166,8 +174,7 @@ async function savePublishingSite< Id extends SitesProviderId >(
 		if ( published ) {
 			recordTransfer( connection, 'push', localVersionId );
 		}
-		if ( replacing )
-			replacePublishingDestination( local, connection, getAccount( config, 'wpcom' ) );
+		if ( replacing ) replacePublishingDestination( config, local, connection );
 	} );
 }
 

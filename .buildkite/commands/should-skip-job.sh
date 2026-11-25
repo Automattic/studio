@@ -3,9 +3,14 @@
 set -eu
 
 # Determines if a CI job should be skipped based on the files changed in the PR.
+# `shared-pipeline-vars` runs it on the upload agent for each job type and exports the result as SKIP_<JOB TYPE>,
+# which `pipeline.yml` uses as the `skip:` of matching steps, so skipped jobs never start.
 #
 # Usage:
-#   should-skip-job.sh --job-type <type>
+#   should-skip-job.sh <job-type>
+#
+# Prints the reason to skip the job, or `false` to run it. Exits 0 either way, and 15 for invalid arguments.
+# Non-PR builds, and any error while getting the changed files, run the job.
 #
 # Job types:
 #   - validation: Skip if changes are limited to documentation, config, localization, and non-code files.
@@ -19,10 +24,6 @@ set -eu
 #            Does NOT skip on localization changes since builds should include translation updates.
 #   - fastlane: Inverse of the others — only runs when fastlane/ or Ruby setup files change.
 #               Used for the standalone tests in fastlane/test/. App-only PRs skip it.
-#
-# Exit codes:
-#   0 - Job should be skipped
-#   1 - Job should run
 
 # Files that don't affect code quality, tests, or builds
 # These are documentation, configuration, and metadata files
@@ -53,8 +54,11 @@ COMMON_NON_CODE_PATTERNS=(
   ".ruby-version"
   ".bundle/**"
 
-  # CI configuration changes don't need app tests
-  ".buildkite/**"
+  # Release pipelines don't run the test jobs. The PR pipeline, its shared
+  # variables and the scripts in .buildkite/commands do, so changes to them
+  # run every check.
+  ".buildkite/release-pipelines/**"
+  ".buildkite/release-build-and-distribute.yml"
 
   # Installer assets and configuration
   "installers/**"
@@ -108,69 +112,33 @@ FASTLANE_PATTERNS=(
   ".buildkite/commands/should-skip-job.sh"
 )
 
-show_skip_message() {
-  local job_type=$1
-  local job_label="${BUILDKITE_LABEL:-$job_type}"
-  local message="Skipping ${job_label} - no relevant files changed"
-  local context="skip-$(echo "${job_label}" | sed -E -e 's/[^[:alnum:]]+/-/g' | tr '[:upper:]' '[:lower:]')"
+run_job() { echo false; exit 0; }
+# Buildkite rejects the whole pipeline upload if a `skip:` reason is longer than 70 characters.
+skip_job() { echo "${1:0:70}"; exit 0; }
 
-  # Post annotation to Buildkite UI
-  if command -v buildkite-agent &> /dev/null; then
-    echo "$message" | buildkite-agent annotate --style "info" --context "$context"
-  fi
-
-  echo "~~~ :fast_forward: $message"
-}
-
-# Parse arguments
-job_type=""
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --job-type)
-      job_type="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown option: $1"
-      exit 1
-      ;;
-  esac
-done
-
-if [[ -z "$job_type" ]]; then
-  echo "Error: --job-type is required"
-  echo "Usage: should-skip-job.sh --job-type <validation|e2e|metrics|build|fastlane>"
-  exit 1
+if [[ $# -ne 1 || -z "${1:-}" ]]; then
+  echo "Usage: should-skip-job.sh <validation|e2e|metrics|build|fastlane>" >&2
+  exit 15
 fi
 
-# The containers have no GitHub host key, so the toolkit's `git fetch origin` would hang at the SSH prompt.
-# Scoped to this process so persistent host checkouts keep their SSH remote.
-export GIT_CONFIG_COUNT=1
-export GIT_CONFIG_KEY_0="url.https://github.com/.insteadOf"
-export GIT_CONFIG_VALUE_0="git@github.com:"
+# Outside a pull request, run the job without looking up changed files.
+[[ "${BUILDKITE_PULL_REQUEST:-false}" =~ ^[0-9]+$ ]] || run_job
 
-changed_files() {
-  [[ "${BUILDKITE_PULL_REQUEST:-false}" =~ ^[0-9]+$ ]] || return 1
-  pr_changed_files "$@"
-}
-
-case "$job_type" in
+case "$1" in
   "validation")
     # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in
     # non-code files OR localization-only changes
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}")
-    if changed_files --all-match "${PATTERNS[@]}"; then
-      show_skip_message "$job_type"
-      exit 0
+    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+      skip_job "Only docs, config or localization files changed"
     fi
     ;;
 
   "e2e")
     # Skip desktop e2e if ALL changes are in non-code files, localization, OR agent files.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if changed_files --all-match "${PATTERNS[@]}"; then
-      show_skip_message "$job_type"
-      exit 0
+    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+      skip_job "Only docs, config, localization or agent files changed"
     fi
     ;;
 
@@ -178,36 +146,35 @@ case "$job_type" in
     # Skip metrics if ALL changes are in non-code files, localization, test files, OR agent files.
     # Neither test nor agent file changes affect what the metrics suites measure.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${TEST_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if changed_files --all-match "${PATTERNS[@]}"; then
-      show_skip_message "$job_type"
-      exit 0
+    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+      skip_job "Only docs, config, localization, test or agent files changed"
     fi
     ;;
 
   "build")
     # Skip build if ALL changes are in non-code files.
     # Note: Does NOT skip on localization changes - builds should include translation updates.
-    if changed_files --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
-      show_skip_message "$job_type"
-      exit 0
+    if pr_changed_files --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
+      skip_job "Only docs or config files changed"
     fi
     ;;
 
   "fastlane")
     # Run only if at least one changed file is fastlane/ or Ruby-setup-related.
     # Other job types treat fastlane changes as non-code; this one is the inverse.
-    if ! changed_files --any-match "${FASTLANE_PATTERNS[@]}"; then
-      show_skip_message "$job_type"
-      exit 0
+    # An empty or failed diff must run the tests too, not look like "no fastlane files changed".
+    pr_changed_files || run_job
+    relevant=$(pr_changed_files --stdout --any-match "${FASTLANE_PATTERNS[@]}") || run_job
+    if [[ "$relevant" == false ]]; then
+      skip_job "No fastlane or Ruby setup files changed"
     fi
     ;;
 
   *)
-    echo "Unknown job type: $job_type"
-    echo "Valid types: validation, e2e, metrics, build, fastlane"
-    exit 1
+    echo "Unknown job type: $1" >&2
+    echo "Valid types: validation, e2e, metrics, build, fastlane" >&2
+    exit 15
     ;;
 esac
 
-# Job should run
-exit 1
+run_job

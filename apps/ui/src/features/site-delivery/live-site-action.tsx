@@ -1,12 +1,4 @@
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
-import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
-import { __, sprintf } from '@wordpress/i18n';
-import { useId, useRef, useState, type RefObject } from 'react';
-import { useAuthUser } from '@/data/queries/use-auth-user';
-import { usePreviewStatus } from '@/data/queries/use-preview-status';
-import { useSnapshots } from '@/data/queries/use-snapshots';
-import { usePushSite, usePullSite } from '@/data/queries/use-sync-site';
-import { useTransferSelection, FilePicker } from '@/features/sync';
 import {
 	AlertDialog,
 	Button,
@@ -20,7 +12,15 @@ import {
 	SelectValue,
 	SelectContent,
 	SelectItem,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
+import { __, sprintf } from '@wordpress/i18n';
+import { useId, useRef, useState, type RefObject } from 'react';
+import { useAuthUser } from '@/data/queries/use-auth-user';
+import { usePreviewStatus } from '@/data/queries/use-preview-status';
+import { useSnapshots } from '@/data/queries/use-snapshots';
+import { usePushSite, usePullSite } from '@/data/queries/use-sync-site';
+import { useTransferSelection, FilePicker } from '@/features/sync';
 import { PublishFilesDialog, PublishOptionsControl } from './publish-options-control';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -156,6 +156,10 @@ export function LiveSiteAction( {
 		{ value: 'content', label: __( 'Content and settings only' ) },
 		{ value: 'custom', label: __( 'Choose files…' ) },
 	] as const;
+	// Pulled files are picked from the website's backups.
+	const pullChoices = descriptor.hasBackups
+		? choices
+		: choices.filter( ( choice ) => choice.value !== 'custom' );
 	if ( confirmation && confirmationView === 'files' )
 		return (
 			<PublishFilesDialog
@@ -250,14 +254,14 @@ export function LiveSiteAction( {
 						<Select
 							value={ selection.scope }
 							onValueChange={ ( value ) => value && selection.setScope( value ) }
-							items={ choices }
+							items={ pullChoices }
 							disabled={ disabled || selection.loadingFiles }
 						>
 							<SelectTrigger aria-label={ __( 'What to replace' ) } fullWidth>
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								{ choices.map( ( choice ) => (
+								{ pullChoices.map( ( choice ) => (
 									<SelectItem
 										key={ choice.value }
 										value={ choice.value }
@@ -278,7 +282,7 @@ export function LiveSiteAction( {
 						{ message }
 					</p>
 				) }
-				{ selection.filesUnavailable && (
+				{ descriptor.hasBackups && selection.filesUnavailable && (
 					<p role="status">
 						{ selection.scope === 'custom'
 							? __(

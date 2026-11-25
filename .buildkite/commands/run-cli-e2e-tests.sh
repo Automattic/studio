@@ -3,18 +3,14 @@ set -euo pipefail
 
 PLATFORM=${1:-mac}
 
-if .buildkite/commands/should-skip-job.sh --job-type validation; then
-  exit 0
-fi
-
 echo '--- :package: Install deps'
 if [ "$PLATFORM" = "linux" ]; then
-  # The a8c-ci-toolkit cache helpers only exist on the host, so
-  # install-node-dependencies.sh cannot run inside the Linux container.
-  npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
-else
-  bash .buildkite/commands/install-node-dependencies.sh
+  # Linux runs inside a Docker container with the a8c-ci-toolkit mounted; its
+  # cache helpers need the AWS CLI, as in the Lint job.
+  apt-get -o Acquire::Retries=3 update
+  apt-get install -y --no-install-recommends awscli jq
 fi
+bash .buildkite/commands/install-node-dependencies.sh
 
 echo '--- :node: Build CLI'
 npm run cli:build

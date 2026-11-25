@@ -1,40 +1,6 @@
 import { getQualifyingLiveSites } from '@studio/common/lib/live-preview-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import {
-	getProvider,
-	getProviderSites,
-	type ProviderSites,
-	type SiteCreationVisibility,
-	type SitesProviderId,
-} from '@studio/providers';
-import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
-import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { dismissToast, toast } from '@/data/app-messages';
-import { useConnector, type SiteDetails, type Snapshot, SyncSite } from '@/data/core';
-import { useAiSettings, useSpacefastConnection } from '@/data/queries/use-ai-settings';
-import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import {
-	accountSitesQueryKey,
-	publishTargetQueryKey,
-	remotePublishTargetKey,
-	remoteSitesQueryKey,
-} from '@/data/queries/use-remote-sites';
-import { useSiteVisibility } from '@/data/queries/use-site-visibility';
-import { useIsSiteBusy } from '@/data/queries/use-sites';
-import { usePushSite, useSyncNoticeVisibility } from '@/data/queries/use-sync-site';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
-import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
-import { useSiteSyncActivity } from '@/data/sync-activity';
-import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
-import { useOpenSettings } from '@/data/use-open-settings';
-import { SpacefastConnectDialog } from '@/features/account';
-import { PreviewManagementDialog, type PreviewManagementAction } from '@/features/sharing';
-import { clearPublishSetupError, retryPublishSetup, usePublishSetupError } from '@/features/sync';
-import { useOffline, useSubmitFeedback } from '@/lib/hooks';
-import { GlobeIcon, PlusIcon, ExternalLinkIcon, ChevronRightIcon } from '@/lib/icons';
-import {
 	Alert,
 	AlertTitle,
 	AlertDescription,
@@ -59,7 +25,42 @@ import {
 	DialogTitle,
 	DialogDescription,
 	DialogFooter,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { useOffline, useSubmitFeedback } from '@studio/ds/hooks';
+import { GlobeIcon, PlusIcon, ExternalLinkIcon, ChevronRightIcon } from '@studio/ds/icons';
+import {
+	getProvider,
+	getProviderSites,
+	type ProviderSites,
+	type SiteCreationVisibility,
+	type SitesProviderId,
+} from '@studio/providers';
+import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
+import { __, sprintf } from '@wordpress/i18n';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { dismissToast, toast } from '@/data/app-messages';
+import { useConnector, type SiteDetails, type Snapshot, SyncSite } from '@/data/core';
+import { useAiSettings, useSpacefastConnection } from '@/data/queries/use-ai-settings';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import {
+	accountSitesQueryKey,
+	publishTargetQueryKey,
+	remotePublishTargetKey,
+	remoteSitesQueryKey,
+	useConnectedHostingProviders,
+} from '@/data/queries/use-remote-sites';
+import { useSiteVisibility } from '@/data/queries/use-site-visibility';
+import { useIsSiteBusy } from '@/data/queries/use-sites';
+import { usePushSite, useSyncNoticeVisibility } from '@/data/queries/use-sync-site';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
+import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { useSiteSyncActivity } from '@/data/sync-activity';
+import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
+import { useOpenSettings } from '@/data/use-open-settings';
+import { SpacefastConnectDialog } from '@/features/account';
+import { PreviewManagementDialog, type PreviewManagementAction } from '@/features/sharing';
+import { clearPublishSetupError, retryPublishSetup, usePublishSetupError } from '@/features/sync';
 import { ChangesIcon } from './changes-icon';
 import { ConnectSiteIcon } from './connection-icons';
 import { DestinationActionsMenu } from './destination-actions-menu';
@@ -78,11 +79,7 @@ import { PlanIcon } from './plan-icon';
 import { PreviewExpiry } from './preview-expiry';
 import { PreviewOverwriteConfirmation } from './preview-overwrite-confirmation';
 import { PreviewTransferActions } from './preview-transfer-actions';
-import {
-	ProviderPicker,
-	rememberPublishProvider,
-	orderedPublishProviders,
-} from './provider-picker';
+import { ProviderPicker, rememberPublishProvider, defaultPublishProvider } from './provider-picker';
 import { PublishedTime } from './published-time';
 import { PullPreviewDialog } from './pull-preview-dialog';
 import { getShareViewTitle, shareEntryView } from './share-view';
@@ -149,11 +146,7 @@ export function PublishButton( {
 	const openSettings = useOpenSettings();
 	const accountsReady = user.data !== undefined && accounts.data !== undefined;
 	const accountsFailed = ! accountsReady && ( user.isError || accounts.isError );
-	const connectedProviders = targets.providers.filter( ( provider ) =>
-		getProvider( provider ).account.methods.some( ( method ) => method.kind === 'redirect' )
-			? !! user.data
-			: accounts.data?.accounts[ provider ].connected
-	);
+	const { connected: connectedProviders } = useConnectedHostingProviders( targets.providers );
 	const stagedSite = useRef< {
 		provider: SitesProviderId;
 		siteId: string;
@@ -273,7 +266,7 @@ export function PublishButton( {
 		( defaultProvider && connectedProviders.includes( defaultProvider )
 			? defaultProvider
 			: undefined ) ??
-		orderedPublishProviders( connectedProviders )[ 0 ] ??
+		defaultPublishProvider( connectedProviders ) ??
 		targets.providers[ 0 ];
 	const emptyDescriptor = getProviderSites( emptyDestination );
 	useEffect( () => {
@@ -395,11 +388,12 @@ export function PublishButton( {
 			  targetActionsTrigger.current ??
 			  trigger.current;
 	const publishMain = useRef< HTMLDivElement >( null );
-	const showExistingSite = () => {
+	const showExistingSite = ( provider?: SitesProviderId ) => {
 		if ( view.kind === 'setup' || view.kind === 'chooser' )
 			navigate(
 				{
 					kind: 'existing',
+					provider,
 					returnTo:
 						view.kind === 'chooser'
 							? { ...view, autoSelectPreview: undefined, focusKey: 'connect-existing' }
@@ -760,10 +754,16 @@ export function PublishButton( {
 		storePendingSignIn();
 		chooseProvider( provider );
 	};
+	// The popover reopens when the Spacefast dialog closes. Its content mounts
+	// later than any fixed frame on a slow machine, so the popover focuses it.
+	const focusDestinationOnOpen = useRef( false );
 	const restoreDestinationFocus = () => {
-		requestAnimationFrame(
-			() => ( destinationTrigger.current ?? backButton.current ?? trigger.current )?.focus()
-		);
+		focusDestinationOnOpen.current = true;
+	};
+	const popoverInitialFocus = () => {
+		if ( ! focusDestinationOnOpen.current ) return false;
+		focusDestinationOnOpen.current = false;
+		return destinationTrigger.current ?? backButton.current ?? trigger.current;
 	};
 	const spacefast = useSpacefastConnection( () => {
 		if ( ! spacefastVisible.current ) return;
@@ -879,7 +879,7 @@ export function PublishButton( {
 			label={ __( 'Connect to an existing site' ) }
 			trailing={ <ChevronRightIcon data-navigation-chevron /> }
 			disabled={ disabled }
-			onClick={ showExistingSite }
+			onClick={ () => showExistingSite() }
 		/>
 	);
 	const destinationsFeedback = ( targetsUnavailable ||
@@ -966,6 +966,17 @@ export function PublishButton( {
 						: previewPublicSelected
 						? __( 'Connect to publish' )
 						: __( 'Connect to share previews' ) }
+				</Button>
+			);
+		}
+		if ( ! selected && ! emptyDescriptor.newSite ) {
+			return (
+				<Button
+					variant="accent"
+					disabled={ disabled }
+					onClick={ () => showExistingSite( emptyDestination ) }
+				>
+					{ __( 'Connect a site' ) }
 				</Button>
 			);
 		}
@@ -1062,7 +1073,7 @@ export function PublishButton( {
 						ref={ destinationTrigger }
 						selectedProvider={ emptyDestination }
 						providers={ targets.providers }
-						onConnectExistingSite={ showExistingSite }
+						onConnectExistingSite={ () => showExistingSite() }
 						onSelect={ chooseDestination }
 						disabled={ disabled }
 					/>
@@ -1460,7 +1471,7 @@ export function PublishButton( {
 					instant={ openingTargetDialog || !! previewOverwrite }
 					backdrop
 					className={ styles.publishPopover }
-					initialFocus={ false }
+					initialFocus={ popoverInitialFocus }
 					finalFocus={ openingTargetDialog || previewOverwrite ? false : undefined }
 				>
 					<div
@@ -1522,12 +1533,17 @@ export function PublishButton( {
 								</div>
 							) : view.kind === 'existing' ? (
 								<ExistingSiteStep
-									providers={ connectedProviders }
-									availableProviders={ targets.providers }
+									providers={ view.provider ? [ view.provider ] : connectedProviders }
+									availableProviders={ view.provider ? [] : targets.providers }
 									siteId={ site.id }
 									replacing={ hasLiveSite }
 									disabled={ disabled || wpcomLogin.isPending }
 									onConnectProvider={ selectProvider }
+									onShowConnectForm={
+										view.provider
+											? undefined
+											: ( provider ) => navigate( { ...view, provider }, 'forward' )
+									}
 									onConnected={ ( provider, id ) => {
 										client.setQueryData(
 											publishTargetQueryKey( site.id ),

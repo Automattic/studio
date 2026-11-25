@@ -16,7 +16,7 @@ import { createPreview, deletePreview, getEditedAt, listPreviews, updatePreview 
 import { enableReprintExporter, getReprintApiUrl, installReprintPublicKey } from './reprint';
 import { createTusUpload } from './upload';
 import { getWpcomSiteVisibility, setWpcomSiteVisibility } from './visibility';
-import type { SitesServices } from '../../types';
+import type { PushStatus, SitesServices } from '../../types';
 import type { WpcomConfig } from '../config';
 import type { ImportResponse } from './schemas';
 import type { SyncSite } from './site';
@@ -89,6 +89,50 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 	return __( 'Something went wrong while updating the live site.' );
 }
 
+// Polls the live site's import until it ends, reporting each step, and returns how it ended.
+async function followImport(
+	token: string,
+	site: Pick< SyncSite, 'id' | 'name' >,
+	onStatus: ( status: PushStatus ) => void,
+	signal?: AbortSignal
+): Promise< ImportResponse > {
+	let lastReport = '';
+	for ( let stalledPolls = 0; stalledPolls < MAX_STALLED_POLLS;  ) {
+		signal?.throwIfAborted();
+		const status = await step( __( 'Failed to check import status' ), 'remote_import', () =>
+			pollImportStatus( token, site.id )
+		);
+		if ( status.status === 'failed' || status.status === 'finished' || ! status.success ) {
+			return status;
+		}
+
+		const report: PushStatus =
+			status.status === 'archive_import_started'
+				? { phase: 'applyingChanges', progress: status.import_progress ?? undefined }
+				: status.status === 'archive_import_finished'
+				? { phase: 'finishing' }
+				: { phase: 'creatingRemoteBackup', progress: status.backup_progress ?? undefined };
+		// Reported on every poll, even unchanged, so a Studio app that restarts or reloads while
+		// the live site updates shows the push again.
+		onStatus( report );
+		const key = `${ report.phase }:${ Math.round( report.progress ?? 0 ) }`;
+		stalledPolls = key === lastReport ? stalledPolls + 1 : 0;
+		lastReport = key;
+
+		await sleep( POLL_INTERVAL_MS, signal );
+	}
+
+	throw new RemoteSiteError(
+		sprintf(
+			__(
+				'%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.'
+			),
+			site.name
+		),
+		'timeout'
+	);
+}
+
 export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 	visibility: {
 		get: ( config, id ) => getWpcomSiteVisibility( requireToken( config ), Number( id ) ),
@@ -127,94 +171,77 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 			upload.promise.finally( () => signal?.removeEventListener( 'abort', upload.abort ) )
 		);
 
-		onStatus( { phase: 'creatingRemoteBackup', progress: 0 } );
-		await step( __( 'Failed to initiate import on remote site' ), 'remote_import', async () => {
-			try {
-				await initiateImport( token, site.id, attachmentId, options );
-			} catch ( error ) {
-				if ( error instanceof Error && 'statusCode' in error && error.statusCode === 409 ) {
-					throw new RemoteSiteError(
-						__(
-							'A sync operation is already in progress on this site. Please wait for it to finish and try again.'
-						),
-						'remote_import'
-					);
-				}
-				throw error;
-			}
-		} );
-
-		let lastReport = '';
-		for ( let stalledPolls = 0; stalledPolls < MAX_STALLED_POLLS;  ) {
-			signal?.throwIfAborted();
-			const status = await step( __( 'Failed to check import status' ), 'remote_import', () =>
-				pollImportStatus( token, site.id )
-			);
-			if ( status.status === 'failed' ) {
-				throw new RemoteSiteError( getImportFailureMessage( status ), 'remote_import', {
-					cause: new Error( status.error_data?.vp_restore_message || status.error ),
-				} );
-			}
-			if ( ! status.success ) {
-				throw new RemoteSiteError(
-					__( 'Something went wrong while updating the live site.' ),
-					'remote_import'
-				);
-			}
-			if ( status.status === 'finished' ) {
-				if ( options.launchAfterPush ) {
-					onStatus( { phase: 'launching' } );
+		// The live site runs one import at a time and refuses another with a 409 while one runs: wait
+		// for it to end, then start this one from the archive already uploaded.
+		for (;;) {
+			onStatus( { phase: 'creatingRemoteBackup', progress: 0 } );
+			const conflict = await step(
+				__( 'Failed to initiate import on remote site' ),
+				'remote_import',
+				async () => {
 					try {
-						await launchSite( token, site.id );
+						await initiateImport( token, site.id, attachmentId, options );
+						return undefined;
 					} catch ( error ) {
-						const reason = error instanceof Error && 'error' in error ? String( error.error ) : '';
-						return {
-							launchError:
-								reason === 'email_unverified'
-									? __(
-											'Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.'
-									  )
-									: reason === 'unauthorized'
-									? __(
-											'Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.'
-									  )
-									: __(
-											'Changes pushed, but the site could not be launched. Publish again to retry launching.'
-									  ),
-						};
+						if ( error instanceof Error && 'statusCode' in error && error.statusCode === 409 ) {
+							return error;
+						}
+						throw error;
 					}
 				}
-				return;
+			);
+			if ( ! conflict ) {
+				break;
 			}
-
-			const report =
-				status.status === 'archive_import_started'
-					? { phase: 'applyingChanges' as const, progress: status.import_progress ?? undefined }
-					: status.status === 'archive_import_finished'
-					? { phase: 'finishing' as const }
-					: {
-							phase: 'creatingRemoteBackup' as const,
-							progress: status.backup_progress ?? undefined,
-					  };
-			// Reported on every poll, even unchanged, so a Studio app that restarts or reloads while
-			// the live site updates shows the push again.
-			onStatus( report );
-			const key = `${ report.phase }:${ Math.round( report.progress ?? 0 ) }`;
-			stalledPolls = key === lastReport ? stalledPolls + 1 : 0;
-			lastReport = key;
-
-			await sleep( POLL_INTERVAL_MS, signal );
+			const running = await pollImportStatus( token, site.id ).catch( () => undefined );
+			if ( ! running?.success || running.status === 'finished' || running.status === 'failed' ) {
+				// The other reason the live site refuses an import is a sync with its staging site.
+				throw new RemoteSiteError(
+					__(
+						'The live site is syncing with its staging site. Wait for that to finish and try again.'
+					),
+					'remote_import',
+					{ cause: withServerDetail( conflict ) }
+				);
+			}
+			await followImport( token, site, () => onStatus( { phase: 'waitingForRemote' } ), signal );
+			signal?.throwIfAborted();
 		}
 
-		throw new RemoteSiteError(
-			sprintf(
-				__(
-					'%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.'
-				),
-				site.name
-			),
-			'timeout'
-		);
+		const status = await followImport( token, site, onStatus, signal );
+		if ( status.status === 'failed' ) {
+			throw new RemoteSiteError( getImportFailureMessage( status ), 'remote_import', {
+				cause: new Error( status.error_data?.vp_restore_message || status.error ),
+			} );
+		}
+		if ( ! status.success ) {
+			throw new RemoteSiteError(
+				__( 'Something went wrong while updating the live site.' ),
+				'remote_import'
+			);
+		}
+		if ( options.launchAfterPush ) {
+			onStatus( { phase: 'launching' } );
+			try {
+				await launchSite( token, site.id );
+			} catch ( error ) {
+				const reason = error instanceof Error && 'error' in error ? String( error.error ) : '';
+				return {
+					launchError:
+						reason === 'email_unverified'
+							? __(
+									'Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.'
+							  )
+							: reason === 'unauthorized'
+							? __(
+									'Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.'
+							  )
+							: __(
+									'Changes pushed, but the site could not be launched. Publish again to retry launching.'
+							  ),
+				};
+			}
+		}
 	},
 
 	previews: {

@@ -1,9 +1,9 @@
+import { Button, Tooltip, TooltipContent, TooltipTrigger, VisuallyHidden } from '@studio/ds';
+import { DuplicateIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
 import { useState, type Ref } from 'react';
 import { useCopyText } from '@/data/host/use-copy-text';
-import { DuplicateIcon } from '@/lib/icons';
-import { Button, Tooltip, TooltipContent, TooltipTrigger, VisuallyHidden } from '@/lib/ui';
 
 /** An icon button that copies `text`; its tooltip stays open on "Copied" after a copy. */
 export function CopyButton( {

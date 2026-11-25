@@ -17,6 +17,7 @@ export const PUSH_PHASES = [
 	'generatingStaticSite',
 	'stoppingSite',
 	'uploading',
+	'waitingForRemote',
 	'creatingRemoteBackup',
 	'applyingChanges',
 	'finishing',

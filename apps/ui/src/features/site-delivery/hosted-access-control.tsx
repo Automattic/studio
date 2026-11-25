@@ -17,7 +17,7 @@ import type { SiteCreationVisibility, SiteVisibility, ProviderSitesInfo } from '
 import type { ComponentProps, ReactNode } from 'react';
 
 const manageVisibility = 'manage-visibility';
-type VisibilityOptions = NonNullable< ProviderSitesInfo[ 'visibilityOptions' ] >;
+type VisibilityOptions = NonNullable< ProviderSitesInfo[ 'visibility' ] >[ 'options' ];
 type AccessOption = Omit< ReturnType< VisibilityOptions >[ number ], 'value' > & {
 	value: AccessValue;
 };

@@ -1,11 +1,14 @@
 /**
- * The Jetpack Backup engine behind `studio pull`, used unless `STUDIO_ENABLE_PULL_REPRINT` selects
- * the Reprint pull in `./pull`. Deleted once Reprint becomes the only engine.
+ * The archive engine behind `studio pull`: it imports a WordPress.com site's Jetpack Backup, unless
+ * `STUDIO_ENABLE_PULL_REPRINT` selects the Reprint pull in `./pull`, and the archive a provider
+ * that sends the site writes (`pullArchive`), such as a site over SSH.
  */
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { Writable } from 'stream';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import {
 	buildSyncEventProps,
@@ -15,8 +18,15 @@ import {
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
 } from '@studio/common/lib/sync/constants';
-import { formatRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
+import { withRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import {
+	getProvider,
+	parseRemoteSite,
+	type ProviderSites,
+	type SitesProviderId,
+} from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
 import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -25,9 +35,18 @@ import { confirm } from 'cli/lib/prompts';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
-import { backupRemoteSite, downloadBackup, fetchSyncableSites } from 'cli/lib/sync-api';
+import {
+	backupRemoteSite,
+	downloadBackup,
+	fetchSyncableSites,
+	toLoggerError,
+} from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
-import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
+import {
+	findSyncSiteByIdentifier,
+	pickSyncSite,
+	resolveFormConnectedSite,
+} from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
 import {
@@ -43,11 +62,93 @@ import type {
 	SyncSelectionProps,
 } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
-import type { SyncOption, SyncSite } from '@studio/common/types/sync';
+import type { PullSyncOptions, SyncOption } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
 import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
+
+type PulledSite = ProviderSites[ SitesProviderId ];
+
+// Download (0-80%) → Import (80-100%)
+async function pullProviderArchive(
+	provider: SitesProviderId,
+	remoteSite: PulledSite,
+	options: PullSyncOptions,
+	folder: string,
+	logger: Logger< LoggerAction >
+): Promise< string > {
+	const destPath = path.join( folder, 'pull.tar' );
+	const label = __( 'Downloading site…' );
+	let reported = formatProgressLabel( label, 0 );
+	logger.reportStart( LoggerAction.DOWNLOAD, reported );
+	try {
+		await getProviderServices( provider ).sites!.pullArchive!(
+			await readProviderConfig( provider ),
+			remoteSite,
+			options,
+			Writable.toWeb( fs.createWriteStream( destPath ) ),
+			( percent ) => {
+				const progress = formatProgressLabel( label, percent * 0.8 );
+				if ( progress !== reported ) {
+					reported = progress;
+					logger.reportProgress( progress );
+				}
+			}
+		);
+	} catch ( error ) {
+		throw toLoggerError( error, __( 'Failed to download the site' ) );
+	}
+	return destPath;
+}
+
+// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%). Undefined when the user
+// backs out of a backup too large to push back.
+async function fetchWpcomBackup(
+	accessToken: string,
+	remoteSiteId: number,
+	options: PullSyncOptions,
+	folder: string,
+	logger: Logger< LoggerAction >,
+	confirmLargeBackup?: () => Promise< boolean >
+): Promise< string | undefined > {
+	logger.reportStart(
+		LoggerAction.INITIATE_BACKUP,
+		formatProgressLabel( __( 'Initializing remote backup…' ), 0 )
+	);
+	const { url: downloadUrl, size: backupFileSize } = await backupRemoteSite(
+		accessToken,
+		remoteSiteId,
+		options,
+		( percent ) => {
+			logger.reportProgress(
+				formatProgressLabel( __( 'Creating remote backup…' ), Math.round( percent * 0.5 ) )
+			);
+		}
+	);
+
+	if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
+		if ( confirmLargeBackup ) {
+			logger.spinner.stop();
+			if ( ! ( await confirmLargeBackup() ) ) {
+				return;
+			}
+		} else {
+			logger.reportWarning(
+				sprintf(
+					__(
+						"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back."
+					),
+					SYNC_PUSH_SIZE_LIMIT_GB
+				)
+			);
+		}
+	}
+	logger.reportProgress( formatProgressLabel( __( 'Downloading backup…' ), 50 ) );
+	const destPath = path.join( folder, `pull-${ remoteSiteId }-${ Date.now() }.tar.gz` );
+	await downloadBackup( downloadUrl, destPath );
+	return destPath;
+}
 
 export async function runCommand(
 	siteFolder: string,
@@ -57,13 +158,14 @@ export async function runCommand(
 	logger: Logger< LoggerAction > = defaultLogger,
 	confirmLargeBackup?: () => Promise< boolean >,
 	specificSelectionPaths?: string[]
-): Promise< SyncSite | undefined > {
+): Promise< PulledSite | undefined > {
+	const { provider, identifier } = parseRemoteSite( siteIdentifier );
 	let pullError: unknown;
 	let selectionProps: SyncSelectionProps | undefined = syncOptions
 		? classifySyncSelection( { optionsToSync: syncOptions, specificSelectionPaths } )
 		: undefined;
 	let restartSiteError: unknown;
-	let remoteSite: SyncSite | undefined;
+	let remoteSite: PulledSite | undefined;
 	let pullCompleted = false;
 	let siteId: string | undefined;
 	let failurePhase: SyncFailurePhase | undefined;
@@ -71,7 +173,7 @@ export async function runCommand(
 	const startedAt = Date.now();
 
 	try {
-		const token = await requireAuthToken( 'auth' );
+		const token = provider === 'wpcom' ? await requireAuthToken( 'auth' ) : undefined;
 
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
 		await connectToDaemon();
@@ -81,91 +183,87 @@ export async function runCommand(
 		const site = await getSiteByFolder( siteFolder );
 		logger.reportSuccess( __( 'Site loaded' ) );
 		siteId = site.id;
-		stopReportingProgress = reportPullProgress( site.id, logger, () => remoteSite?.id );
+		stopReportingProgress = reportPullProgress( site.id, provider, logger, () => remoteSite?.id );
 
-		logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
-		const remoteSites = await fetchSyncableSites( token.accessToken );
-		logger.spinner.stop();
-
-		if ( siteIdentifier ) {
-			remoteSite = findSyncSiteByIdentifier( remoteSites, siteIdentifier );
-		} else {
-			remoteSite = await pickSyncSite( remoteSites, __( 'Select a site to pull from' ) );
-			if ( ! remoteSite ) {
-				return;
+		let optionsToSync: SyncOption[] = syncOptions ?? [ 'all' ];
+		let includePathList = syncIncludePathList;
+		// Writes the remote site's archive into the folder; undefined when the user backs out.
+		let fetchArchive: ( folder: string ) => Promise< string | undefined >;
+		if ( provider !== 'wpcom' ) {
+			if ( ! getProviderServices( provider ).sites?.pullArchive ) {
+				throw new LoggerError(
+					sprintf( __( '%s sites can’t be pulled.' ), getProvider( provider ).label )
+				);
 			}
-		}
-
-		let optionsToSync: SyncOption[];
-		let includePathList: string[] | undefined;
-
-		if ( syncOptions ) {
-			optionsToSync = syncOptions;
-			includePathList = syncIncludePathList;
+			const connected = await resolveFormConnectedSite( provider, site.id, identifier, logger );
+			remoteSite = connected;
+			fetchArchive = ( folder ) =>
+				pullProviderArchive(
+					provider,
+					connected,
+					{ optionsToSync, onlyPaths: specificSelectionPaths },
+					folder,
+					logger
+				);
 		} else {
-			logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching file tree…' ) );
-			const { tree } = await fetchPullTree( token.accessToken, remoteSite.id );
+			const { accessToken } = token!;
+			logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
+			const remoteSites = await fetchSyncableSites( accessToken );
 			logger.spinner.stop();
 
-			const selection = await selectSyncItemsForPull( token.accessToken, remoteSite.id, tree );
-			if ( ! selection ) {
+			const wpcomSite = identifier
+				? findSyncSiteByIdentifier( remoteSites, identifier )
+				: await pickSyncSite( remoteSites, __( 'Select a site to pull from' ) );
+			if ( ! wpcomSite ) {
 				return;
 			}
-			optionsToSync = selection.optionsToSync;
-			includePathList = selection.includePathList;
-			specificSelectionPaths = selection.specificSelectionPaths;
+			remoteSite = wpcomSite;
+
+			if ( ! syncOptions ) {
+				logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching file tree…' ) );
+				const { tree } = await fetchPullTree( accessToken, wpcomSite.id );
+				logger.spinner.stop();
+
+				const selection = await selectSyncItemsForPull( accessToken, wpcomSite.id, tree );
+				if ( ! selection ) {
+					return;
+				}
+				optionsToSync = selection.optionsToSync;
+				includePathList = selection.includePathList;
+				specificSelectionPaths = selection.specificSelectionPaths;
+			}
+
+			fetchArchive = ( folder ) => {
+				failurePhase = 'remote_backup';
+				return fetchWpcomBackup(
+					accessToken,
+					wpcomSite.id,
+					{ optionsToSync, includePathList },
+					folder,
+					logger,
+					confirmLargeBackup
+				);
+			};
 		}
 
 		selectionProps ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
+		const fullPull =
+			optionsToSync.includes( 'all' ) &&
+			! includePathList?.length &&
+			! specificSelectionPaths?.length;
 
-		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
-		failurePhase = 'remote_backup';
-		logger.reportStart(
-			LoggerAction.INITIATE_BACKUP,
-			formatProgressLabel( __( 'Initializing remote backup…' ), 0 )
-		);
-		const { url: downloadUrl, size: backupFileSize } = await backupRemoteSite(
-			token.accessToken,
-			remoteSite.id,
-			{ optionsToSync, includePathList },
-			( percent ) => {
-				// Backup phase: 0-50%
-				logger.reportProgress(
-					formatProgressLabel( __( 'Creating remote backup…' ), Math.round( percent * 0.5 ) )
-				);
-			}
-		);
-
-		if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			if ( confirmLargeBackup ) {
-				logger.spinner.stop();
-				if ( ! ( await confirmLargeBackup() ) ) {
-					return;
-				}
-			} else {
-				logger.reportWarning(
-					sprintf(
-						__(
-							"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back."
-						),
-						SYNC_PUSH_SIZE_LIMIT_GB
-					)
-				);
-			}
-		}
-
-		// Download phase: 50-80%
-		logger.reportProgress( formatProgressLabel( __( 'Downloading backup…' ), 50 ) );
 		const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 
 		try {
-			fs.mkdirSync( tempDir, { recursive: true } );
-			const destPath = path.join( tempDir, `pull-${ remoteSite.id }-${ Date.now() }.tar.gz` );
-			await downloadBackup( downloadUrl, destPath );
+			const destPath = await fetchArchive( tempDir );
+			if ( ! destPath ) {
+				return;
+			}
 			failurePhase = 'local_import';
 
 			await withSiteOperation( site.path, 'import', async () => {
 				const wasServerRunning = !! ( await isServerRunning( site.id ) );
+				let imported = false;
 				try {
 					if ( wasServerRunning ) {
 						logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );
@@ -186,8 +284,11 @@ export async function runCommand(
 						// falling back to `unknown` — the remote steps tag themselves in `sync-api`.
 						throw new LoggerError( __( 'Failed to import the backup' ), error, 'local_import' );
 					}
+					imported = true;
 				} finally {
-					if ( wasServerRunning ) {
+					// A full pull starts the site before its version is read, so the version includes what
+					// the first start writes, such as the Studio admin user.
+					if ( wasServerRunning || ( imported && fullPull ) ) {
 						try {
 							logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 							await startWordPressServer( site, logger, 'pull' );
@@ -203,14 +304,14 @@ export async function runCommand(
 			// can surface it without re-selecting from the full site list.
 			try {
 				let localVersionId: string | null = null;
-				if ( optionsToSync.includes( 'all' ) && ! includePathList?.length ) {
+				if ( fullPull ) {
 					try {
 						localVersionId = await getSiteVersion( site.id, site.path );
 					} catch {
 						/* The transfer succeeded even if comparison is unavailable. */
 					}
 				}
-				await rememberRemoteSite( 'wpcom', site.id, remoteSite, {
+				await rememberRemoteSite( provider, site.id, remoteSite, {
 					synced: 'pull',
 					localVersionId,
 				} );
@@ -220,11 +321,10 @@ export async function runCommand(
 
 			pullCompleted = true;
 			logger.reportSuccess(
-				`${ sprintf(
-					__( 'Pulled from %1$s (%2$s)' ),
-					remoteSite.name,
-					remoteSite.url
-				) }\n${ formatRemoteEnvironment( remoteSite ) }`
+				withRemoteEnvironment(
+					sprintf( __( 'Pulled from %1$s (%2$s)' ), remoteSite.name, remoteSite.url ),
+					remoteSite
+				)
 			);
 		} finally {
 			fs.rmSync( tempDir, { recursive: true, force: true } );
@@ -244,10 +344,11 @@ export async function runCommand(
 				? {
 						kind: 'error',
 						direction: 'pull',
+						provider,
 						message: failure instanceof Error ? failure.message : String( failure ),
 						localChangesApplied: pullCompleted,
 				  }
-				: { kind: pullCompleted ? 'success' : 'cancelled', direction: 'pull' }
+				: { kind: pullCompleted ? 'success' : 'cancelled', direction: 'pull', provider }
 		);
 	}
 
@@ -290,10 +391,11 @@ export async function runCommand(
 
 function reportPullProgress(
 	siteId: string,
+	provider: SitesProviderId,
 	logger: Logger< LoggerAction >,
-	getRemoteSiteId: () => number | undefined
+	getRemoteSiteId: () => PulledSite[ 'id' ] | undefined
 ) {
-	void reportSyncActivity( siteId, { kind: 'pending', direction: 'pull' } );
+	void reportSyncActivity( siteId, { kind: 'pending', direction: 'pull', provider } );
 	let lastMessage = '';
 	return logger.observeProgress( ( message, action ) => {
 		// The importer reports once per stream chunk; only forward what changes.
@@ -301,10 +403,11 @@ function reportPullProgress(
 			return;
 		}
 		lastMessage = message;
-		const percent = /\((\d+)%\)/.exec( message )?.[ 1 ];
+		const percent = /^(\d+)%/.exec( message )?.[ 1 ];
 		void reportSyncActivity( siteId, {
 			kind: 'pending',
 			direction: 'pull',
+			provider,
 			remoteSiteId: getRemoteSiteId(),
 			message,
 			...( percent ? { progress: Math.min( 100, Number( percent ) ) } : {} ),

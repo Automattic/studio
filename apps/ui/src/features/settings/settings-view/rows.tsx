@@ -1,6 +1,8 @@
 import { buildSettingsLink } from '@studio/common/lib/settings-link';
-import { Badge, Button, type ButtonProps } from '@studio/ds';
 import {
+	Badge,
+	Button,
+	type ButtonProps,
 	Field,
 	FieldContent,
 	FieldDescription,

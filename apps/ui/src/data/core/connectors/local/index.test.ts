@@ -119,6 +119,20 @@ describe( 'createLocalConnector Connect contracts', () => {
 		);
 	} );
 
+	it( 'keeps a remote site id with slashes in one path segment', async () => {
+		fetchMock.mockImplementation( async () => Response.json( null ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		const id = 'deploy@acme.com:/srv/www';
+
+		await connector.getSitePublishStatus( 'site-1', id, 'ssh' );
+		await connector.getSiteVisibility( 'ssh', id );
+
+		expect( fetchMock.mock.calls.map( ( [ url ] ) => String( url ) ) ).toEqual( [
+			'http://localhost:8081/api/sites/site-1/publish-status/deploy%40acme.com%3A%2Fsrv%2Fwww?provider=ssh',
+			'http://localhost:8081/api/remote-sites/ssh/deploy%40acme.com%3A%2Fsrv%2Fwww/visibility',
+		] );
+	} );
+
 	it( 'preserves the dispatched turn ID in the message request', async () => {
 		fetchMock.mockResolvedValue( new Response( JSON.stringify( { runId: 'run-a' } ) ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );

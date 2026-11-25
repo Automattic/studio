@@ -248,7 +248,7 @@ describe( 'ai settings', () => {
 		writeProviders( { configs: { openai: stored } } );
 		const refresh = vi.fn().mockResolvedValueOnce( { ...stored, accessToken: 'new' } );
 		const services = getProviderServices( 'openai' );
-		const openai = { ...services, account: { ...services.account, refresh } };
+		const openai = { ...services, account: { ...services.account!, refresh } };
 
 		await expect( readFreshProviderConfig( openai ) ).resolves.toMatchObject( {
 			accessToken: 'new',

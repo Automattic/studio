@@ -1,4 +1,5 @@
 import {
+	getProvider,
 	getProviderSites,
 	SITES_PROVIDER_IDS,
 	type ProviderSites,
@@ -14,6 +15,7 @@ import {
 	REMOTE_SITES_QUERY_KEY,
 } from '@/data/queries/user-scoped-query-keys';
 import type { Connector, RemoteSiteConnection } from '@/data/core';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 
 export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: string ) =>
 	[ ...REMOTE_SITES_QUERY_KEY, provider, localSiteId ?? null ] as const;
@@ -50,30 +52,42 @@ function excludeConnectedSites< Site extends ProviderSites[ SitesProviderId ] >(
 	return sites.filter( ( site ) => ! connectedIds.has( site.id ) );
 }
 
-// The providers this app publishes to, leaving out those that only make previews.
-export function usePublishProviders(): SitesProviderId[] {
-	return SITES_PROVIDER_IDS.filter( ( id ) => getProviderSites( id ).publish );
+// The providers this app publishes to or pulls from, leaving out those whose sites only the user's
+// computer connects when this app runs elsewhere.
+export function useSitesProviders( use: 'publish' | 'pull' ): SitesProviderId[] {
+	const { localMachine } = useConnector().capabilities;
+	return SITES_PROVIDER_IDS.filter( ( id ) => {
+		const sites = getProviderSites( id );
+		return ( use === 'publish' || sites.pull ) && ( localMachine || ! sites.connect?.hostOnly );
+	} );
+}
+
+// Whether the provider's account is connected: WordPress.com's is the Studio sign-in, and a
+// provider without an account has nothing to connect. Undefined while that isn't known yet.
+function isConnected(
+	provider: SitesProviderId,
+	signedIn: boolean | undefined,
+	settings: AiSettings | undefined
+): boolean | undefined {
+	if ( ! getProvider( provider ).account ) {
+		return true;
+	}
+	return provider === 'wpcom' ? signedIn : settings?.accounts[ provider ].connected;
 }
 
 export function useConnectedHostingProviders( providers: SitesProviderId[] ) {
 	const auth = useAuthUser();
 	const settings = useAiSettings();
 	return {
-		connected: providers.filter( ( id ) =>
-			id === 'wpcom' ? !! auth.data : settings.data?.accounts[ id ].connected
-		),
+		connected: providers.filter( ( id ) => isConnected( id, !! auth.data, settings.data ) ),
 		isPending: providers.some( ( id ) => ( id === 'wpcom' ? auth.isPending : settings.isPending ) ),
 	};
 }
 
-// Whether the provider's account is connected. WordPress.com's is the Studio sign-in.
 function useProviderConnected( provider: SitesProviderId ): boolean | undefined {
 	const { data: authUser, isSuccess } = useAuthUser();
 	const settings = useAiSettings();
-	if ( provider === 'wpcom' ) {
-		return isSuccess ? !! authUser : undefined;
-	}
-	return settings.data?.accounts[ provider ].connected;
+	return isConnected( provider, isSuccess ? !! authUser : undefined, settings.data );
 }
 
 // The local site's connections to the provider's sites. The connector answers for any provider;

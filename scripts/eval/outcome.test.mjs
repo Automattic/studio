@@ -97,7 +97,8 @@ test( 'the config only names existing checks', () => {
 	const config = readFileSync( new URL( './promptfoo.config.yaml', import.meta.url ), 'utf8' );
 	const named = [ ...config.matchAll( /file:\/\/outcome\.mjs:(\w+)/g ) ].map( ( m ) => m[ 1 ] );
 	expect( named.length ).toBeGreaterThan( 0 );
-	expect( named.filter( ( name ) => typeof checks[ name ] !== 'function' ) ).toEqual( [] );
+	const exported = { ...checks };
+	expect( named.filter( ( name ) => typeof exported[ name ] !== 'function' ) ).toEqual( [] );
 } );
 
 test( 'a missing result file fails instead of throwing', () => {

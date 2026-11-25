@@ -78,7 +78,7 @@ export function LiveSiteAction( {
 	);
 	const push = usePushSite();
 	const pull = usePullSite();
-	const issue = descriptor.issue( remote, direction );
+	const issue = descriptor.issue?.( remote, direction );
 	const canAdjustSelection = !! onConfirmPublish && descriptor.selective;
 	const blocked =
 		!! issue ||
@@ -156,6 +156,10 @@ export function LiveSiteAction( {
 		{ value: 'content', label: __( 'Content and settings only' ) },
 		{ value: 'custom', label: __( 'Choose files…' ) },
 	] as const;
+	// Pulled files are picked from the website's backups.
+	const pullChoices = descriptor.hasBackups
+		? choices
+		: choices.filter( ( choice ) => choice.value !== 'custom' );
 	if ( confirmation && confirmationView === 'files' )
 		return (
 			<PublishFilesDialog
@@ -250,14 +254,14 @@ export function LiveSiteAction( {
 						<Select
 							value={ selection.scope }
 							onValueChange={ ( value ) => value && selection.setScope( value ) }
-							items={ choices }
+							items={ pullChoices }
 							disabled={ disabled || selection.loadingFiles }
 						>
 							<SelectTrigger aria-label={ __( 'What to replace' ) } fullWidth>
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								{ choices.map( ( choice ) => (
+								{ pullChoices.map( ( choice ) => (
 									<SelectItem
 										key={ choice.value }
 										value={ choice.value }
@@ -278,7 +282,7 @@ export function LiveSiteAction( {
 						{ message }
 					</p>
 				) }
-				{ selection.filesUnavailable && (
+				{ descriptor.hasBackups && selection.filesUnavailable && (
 					<p role="status">
 						{ selection.scope === 'custom'
 							? __(

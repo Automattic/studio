@@ -7,7 +7,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { recordAnalyticsEvent } from 'src/ipc-handlers';
 
 vi.unmock( 'atomically' );
-vi.unmock( 'lockfile' );
+vi.unmock( 'proper-lockfile' );
 
 const events = [ TRACKS_EVENTS.SITE_EXPORT, TRACKS_EVENTS.SYNC_CONNECT, TRACKS_EVENTS.SYNC_PUSH ];
 const operationalId = 'caller@example.test';

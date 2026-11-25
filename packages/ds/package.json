@@ -16,7 +16,6 @@
 		"./hooks": "./hooks/index.ts"
 	},
 	"scripts": {
-		"lint": "eslint .",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {
@@ -31,7 +30,7 @@
 	},
 	"devDependencies": {
 		"@types/react": "^19.2.15",
-		"typescript": "~6.0.3",
+		"typescript": "~7.0.2",
 		"vite": "^8.3.5"
 	}
 }

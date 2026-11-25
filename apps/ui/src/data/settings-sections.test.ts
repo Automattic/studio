@@ -30,4 +30,14 @@ describe( 'getSections', () => {
 		expect( settingIds( false ).filter( ( id ) => localApps.includes( id ?? '' ) ) ).toEqual( [] );
 		expect( settingIds( false ) ).toContain( 'usage-statistics' );
 	} );
+
+	it( 'leaves out hosting providers whose sites only the user’s computer connects', () => {
+		const settingIds = ( localMachine: boolean ) =>
+			getSections( 'studio', { localMachine, loopbackSignIn: localMachine } )
+				.flatMap( ( section ) => section.settings )
+				.map( ( setting ) => setting.id );
+		expect( settingIds( true ) ).toContain( 'ssh-provider' );
+		expect( settingIds( false ) ).not.toContain( 'ssh-provider' );
+		expect( settingIds( false ) ).toContain( 'spacefast-provider' );
+	} );
 } );

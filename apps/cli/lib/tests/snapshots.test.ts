@@ -23,8 +23,6 @@ const mocks = vi.hoisted( () => ( {
 		.fn()
 		.mockImplementation( ( p: string ) => p.split( '/' ).slice( 0, -1 ).join( '/' ) ),
 	pathBasename: vi.fn(),
-	lockfileLock: vi.fn().mockImplementation( ( path, options, callback ) => callback( null ) ),
-	lockfileUnlock: vi.fn().mockImplementation( ( path, callback ) => callback( null ) ),
 	arePathsEqual: vi.fn(),
 	isWordPressDirectory: vi.fn(),
 	homedir: vi.fn(),
@@ -47,11 +45,6 @@ vi.mock( 'path', () => ( {
 vi.mock( 'atomically', () => ( {
 	readFile: mocks.readFile,
 	writeFile: mocks.writeFile,
-} ) );
-vi.mock( 'lockfile', () => ( {
-	default: { lock: mocks.lockfileLock, unlock: mocks.lockfileUnlock },
-	lock: mocks.lockfileLock,
-	unlock: mocks.lockfileUnlock,
 } ) );
 vi.mock( '@studio/common/lib/fs-utils', () => ( {
 	arePathsEqual: mocks.arePathsEqual,

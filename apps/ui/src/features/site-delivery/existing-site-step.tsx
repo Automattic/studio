@@ -16,7 +16,7 @@ import {
 	remoteSitesQueryKey,
 	usePickableSitesByProvider,
 } from '@/data/queries/use-remote-sites';
-import { RemoteSitePicker, RemoteSiteCard } from '@/features/remote-site-picker';
+import { ConnectSiteForm, RemoteSitePicker, RemoteSiteCard } from '@/features/remote-site-picker';
 import styles from './existing-site-step.module.css';
 import { ProviderLogo } from './provider-logo';
 
@@ -31,6 +31,7 @@ export function ExistingSiteStep( {
 	replacing,
 	disabled,
 	onConnectProvider,
+	onShowConnectForm,
 	onConnected,
 }: {
 	providers: SitesProviderId[];
@@ -39,11 +40,17 @@ export function ExistingSiteStep( {
 	replacing: boolean;
 	disabled: boolean;
 	onConnectProvider: ( provider: SitesProviderId ) => void;
+	// Opens a provider's `sites.connect` form; without it, the forms show here.
+	onShowConnectForm?: ( provider: SitesProviderId ) => void;
 	onConnected: ( provider: SitesProviderId, id: string | number ) => void;
 } ) {
 	const connector = useConnector();
 	const client = useQueryClient();
-	const sitesByProvider = usePickableSitesByProvider( providers );
+	// A provider whose sites the user connects with a form has no list to pick from.
+	const listed = providers.filter( ( provider ) => ! getProviderSites( provider ).connect );
+	const described = providers.filter( ( provider ) => getProviderSites( provider ).connect );
+	const sitesByProvider = usePickableSitesByProvider( listed );
+	const connectable = availableProviders.filter( ( provider ) => ! providers.includes( provider ) );
 	const connect = useMutation( {
 		mutationKey: connectExistingSiteKey( siteId ),
 		mutationFn: ( { provider, site }: ExistingSite ) =>
@@ -83,7 +90,7 @@ export function ExistingSiteStep( {
 				key: remotePublishTargetKey( provider, site.id ),
 				label: getProvider( provider ).label,
 				details: descriptor.describe( site ).details,
-				issue: descriptor.issue( site, 'pull' ),
+				issue: descriptor.issue?.( site, 'pull' ) ?? null,
 				refreshing: isFetching,
 			};
 		} )
@@ -112,10 +119,10 @@ export function ExistingSiteStep( {
 					) }
 				</p>
 			) }
-			{ providers.length === 0 && (
+			{ listed.length === 0 && connectable.length > 0 && (
 				<>
 					<p>{ __( 'Connect a provider to see your existing sites.' ) }</p>
-					{ availableProviders.map( ( provider ) => (
+					{ connectable.map( ( provider ) => (
 						<Button
 							key={ provider }
 							variant="outline"
@@ -141,7 +148,9 @@ export function ExistingSiteStep( {
 					) }
 				</p>
 			) ) }
-			{ connect.error && <p role="alert">{ connect.error.message }</p> }
+			{ connect.error && ! getProviderSites( connect.variables.provider ).connect && (
+				<p role="alert">{ connect.error.message }</p>
+			) }
 			{ eligible.length > 0 && (
 				<RemoteSitePicker
 					compactControls
@@ -174,10 +183,10 @@ export function ExistingSiteStep( {
 					) }
 				/>
 			) }
-			{ providers.length > 0 && ! loading && eligible.length === 0 && failed.length === 0 && (
+			{ listed.length > 0 && ! loading && eligible.length === 0 && failed.length === 0 && (
 				<p>{ __( 'No existing sites.' ) }</p>
 			) }
-			{ ( retry || ( providers.length > 0 && ! loading && eligible.length === 0 ) ) && (
+			{ ( retry || ( listed.length > 0 && ! loading && eligible.length === 0 ) ) && (
 				<Button
 					variant="outline"
 					disabled={ connect.isPending || refreshing }
@@ -185,6 +194,30 @@ export function ExistingSiteStep( {
 				>
 					{ retry || failed.length ? __( 'Try again' ) : __( 'Refresh' ) }
 				</Button>
+			) }
+			{ described.map( ( provider ) =>
+				onShowConnectForm ? (
+					<Button
+						key={ provider }
+						variant="outline"
+						disabled={ disabled }
+						onClick={ () => onShowConnectForm( provider ) }
+					>
+						{ sprintf(
+							/* translators: %s: hosting provider name. */
+							__( 'Connect to %s' ),
+							getProvider( provider ).label
+						) }
+					</Button>
+				) : (
+					<ConnectSiteForm
+						key={ provider }
+						provider={ provider }
+						siteId={ siteId }
+						disabled={ disabled || connect.isPending }
+						onSite={ ( site ) => connect.mutateAsync( { provider, site } ) }
+					/>
+				)
 			) }
 		</div>
 	);

@@ -211,14 +211,51 @@ describe( 'push', () => {
 		} );
 	} );
 
-	it( 'says when another sync is already running on the site', async () => {
+	it( 'waits for an import already running on the site, then starts its own', async () => {
+		vi.mocked( initiateImport )
+			.mockRejectedValueOnce( Object.assign( new Error( 'Conflict' ), { statusCode: 409 } ) )
+			.mockResolvedValueOnce( undefined );
+		vi.mocked( pollImportStatus )
+			.mockResolvedValueOnce( {
+				success: true,
+				status: 'archive_import_started',
+				import_progress: 40,
+			} as never )
+			.mockResolvedValueOnce( {
+				success: true,
+				status: 'archive_import_started',
+				import_progress: 90,
+			} as never )
+			.mockResolvedValue( { success: true, status: 'finished' } as never );
+		const onStatus = vi.fn();
+
+		const pushed = push( onStatus );
+		await vi.runAllTimersAsync();
+		await pushed;
+
+		expect( createTusUpload ).toHaveBeenCalledTimes( 1 );
+		expect( initiateImport ).toHaveBeenCalledTimes( 2 );
+		expect( initiateImport ).toHaveBeenLastCalledWith( 'token', 42, 'attachment-1', {} );
+		expect( onStatus.mock.calls.map( ( [ status ] ) => status ).slice( 2 ) ).toEqual( [
+			{ phase: 'creatingRemoteBackup', progress: 0 },
+			{ phase: 'waitingForRemote' },
+			{ phase: 'creatingRemoteBackup', progress: 0 },
+		] );
+	} );
+
+	it( 'says when the site is syncing with its staging site', async () => {
 		vi.mocked( initiateImport ).mockRejectedValue(
 			Object.assign( new Error( 'Conflict' ), { statusCode: 409 } )
 		);
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'finished',
+		} as never );
 
 		await expect( push() ).rejects.toMatchObject( {
-			message: expect.stringContaining( 'already in progress' ),
+			message: expect.stringContaining( 'staging site' ),
 			code: 'remote_import',
 		} );
+		expect( initiateImport ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

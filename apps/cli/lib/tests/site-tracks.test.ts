@@ -18,7 +18,7 @@ import {
 } from 'cli/lib/cli-config/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
-vi.unmock( 'lockfile' );
+vi.unmock( 'proper-lockfile' );
 vi.mock( '@studio/common/lib/config/store', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/common/lib/config/store') >();
 	return { ...actual, updateConfig: vi.fn( actual.updateConfig ) };

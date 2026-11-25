@@ -150,6 +150,12 @@ describe( 'Studio AI MCP tools', () => {
 		}
 	} );
 
+	it( 'declares no tool parameters with patternProperties', () => {
+		for ( const tool of studioToolDefinitions( host ) ) {
+			expect( JSON.stringify( tool.parameters ), tool.name ).not.toContain( 'patternProperties' );
+		}
+	} );
+
 	it( 'offers send_feedback and the feedback skill only when the host sends feedback', () => {
 		const offered = () => {
 			const tools = resolveConversationTools( host, { tracks: {} as never } );

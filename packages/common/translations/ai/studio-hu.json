@@ -931,9 +931,6 @@
 	"Choose a provider": [
 		"Válassz szolgáltatót"
 	],
-	"Choose a site": [
-		"Válassz oldalt"
-	],
 	"Choose a site source": [
 		"Válassz oldalforrást"
 	],
@@ -1123,9 +1120,6 @@
 	"Connect provider": [
 		"Szolgáltató csatlakoztatása"
 	],
-	"Connect to %s": [
-		"Csatlakozás ehhez: %s"
-	],
 	"Connect to Spacefast": [
 		"Csatlakozás a Spacefasthoz"
 	],
@@ -1170,9 +1164,6 @@
 	],
 	"Continue on %s": [
 		"Folytatás itt: %s"
-	],
-	"Continue to checkout": [
-		"Tovább a fizetéshez"
 	],
 	"Continue with GitHub": [
 		"Folytatás GitHubbal"
@@ -1604,9 +1595,6 @@
 	"Delete plugin": [
 		"Bővítmény törlése"
 	],
-	"Delete preview…": [
-		"Előnézet törlése…"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"Hely felszabadításához töröld a már nem szükséges oldalakat."
 	],
@@ -1676,12 +1664,6 @@
 	],
 	"Disconnect a provider": [
 		"Szolgáltató leválasztása"
-	],
-	"Disconnect site": [
-		"Oldal leválasztása"
-	],
-	"Disconnect site?": [
-		"Leválasztod az oldalt?"
 	],
 	"Disconnect site…": [
 		"Oldal leválasztása…"
@@ -2649,9 +2631,6 @@
 	"Manage credits": [
 		"Kreditek kezelése"
 	],
-	"Manage domains": [
-		"Domainek kezelése"
-	],
 	"Manage instructions for all sites": [
 		"Utasítások kezelése az összes oldalhoz"
 	],
@@ -2759,9 +2738,6 @@
 	],
 	"Models that need purchased AI credits are hidden — add credits to unlock them.": [
 		"A vásárolt AI-krediteket igénylő modellek rejtve vannak — a feloldásukhoz adj hozzá krediteket."
-	],
-	"Monthly": [
-		"Havi"
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
@@ -3114,9 +3090,6 @@
 	"Pinned": [
 		"Rögzítve"
 	],
-	"Plan": [
-		"Csomag"
-	],
 	"Plan a menu page": [
 		"Tervezz egy étlap oldalt"
 	],
@@ -3212,9 +3185,6 @@
 	],
 	"Preview tabs": [
 		"Előnézeti lapok"
-	],
-	"Preview: %s": [
-		"Előnézet: %s"
 	],
 	"Previous option": [
 		"Előző lehetőség"
@@ -3821,9 +3791,6 @@
 	"Send or delete some annotations before adding more": [
 		"Újabbak hozzáadása előtt küldj el vagy törölj néhány megjegyzést"
 	],
-	"Server address": [
-		"Szervercím"
-	],
 	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
 		"Állítsd be a STUDIO_SERVE_SECRET változót, hogy más gépekről is elérhető legyen."
 	],
@@ -3973,9 +3940,6 @@
 	],
 	"Sign in with OpenRouter": [
 		"Bejelentkezés OpenRouterrel"
-	],
-	"Sign in with WordPress.com": [
-		"Bejelentkezés WordPress.com-fiókkal"
 	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Jelentkezz be egy Copilot-hozzáféréssel rendelkező GitHub-fiókkal."
@@ -4577,9 +4541,6 @@
 	"These sites cannot currently be connected to WordPress Studio.": [
 		"Ezek az oldalak jelenleg nem csatlakoztathatók a WordPress Studióhoz."
 	],
-	"Thinking": [
-		"Gondolkodás"
-	],
 	"Thinking: %s": [
 		"Gondolkodás: %s"
 	],
@@ -4906,9 +4867,6 @@
 	],
 	"Updated %s": [
 		"Frissítve: %s"
-	],
-	"Update…": [
-		"Frissítés…"
 	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"A(z) %s frissítése az előnézeten végzett összes szerkesztést lecseréli a helyi példányodra."
@@ -5563,9 +5521,6 @@
 	"buy more credits": [
 		"további krediteket vásárolhatsz"
 	],
-	"database": [
-		"adatbázis"
-	],
 	"hosting provider name\u0004Pressable": [
 		"Pressable"
 	],
@@ -5622,9 +5577,6 @@
 	],
 	"theme.json matches DESIGN.md": [
 		"A theme.json egyezik a DESIGN.md fájllal"
-	],
-	"themes": [
-		"sablonok"
 	],
 	"uploads": [
 		"feltöltések"

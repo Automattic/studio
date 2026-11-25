@@ -6,7 +6,7 @@ import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
-import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+import { usesReprintPull } from '@studio/common/lib/sync/reprint-pull';
 import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -24,7 +24,7 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPullCommand } from 'cli/commands/pull';
-import { runCommand as runLegacyPullCommand } from 'cli/commands/pull-legacy';
+import { runCommand as runArchivePullCommand } from 'cli/commands/pull-archive';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
@@ -62,9 +62,10 @@ export async function connectedRemoteSites(
 				fillIn && stored.length
 					? await listAccountSites( getProviderServices( provider ) ).catch( () => undefined )
 					: undefined;
-			return ( account ? getProviderSites( provider ).withDetails( stored, account ) : stored ).map(
-				( remote ) => ( { provider, site: remote } )
-			);
+			return (
+				( account && getProviderSites( provider ).withDetails?.( stored, account ) ) ||
+				stored
+			).map( ( remote ) => ( { provider, site: remote } ) );
 		} )
 	);
 	return connected.flat();
@@ -211,7 +212,7 @@ export const cliAgentHost: StudioAgentHost = {
 				new Logger( { onProgress } )
 			),
 		pull: async ( site, options, remoteSite, onProgress ) =>
-			isReprintPullEnabled()
+			usesReprintPull( remoteSite )
 				? runPullCommand(
 						site.path,
 						remoteSite,
@@ -219,7 +220,7 @@ export const cliAgentHost: StudioAgentHost = {
 						pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
 						onProgress
 				  )
-				: runLegacyPullCommand(
+				: runArchivePullCommand(
 						site.path,
 						parseSyncOptions( options ),
 						remoteSite,

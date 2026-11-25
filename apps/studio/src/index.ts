@@ -408,6 +408,11 @@ async function appBoot() {
 					return;
 				}
 
+				if ( isQuittingConfirmed ) {
+					relaunchAfterQuit( customProtocolParameter ? [ customProtocolParameter ] : [] );
+					return;
+				}
+
 				const mainWindow = await getMainWindow();
 				// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
 				const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
@@ -620,6 +625,14 @@ async function appBoot() {
 	let isQuittingConfirmed = false;
 	let restartSitesOnLaunch = true;
 
+	// Opening Studio while it quits would show a window the quit then closes, so the new launch waits
+	// for this instance to exit. Not with an update waiting: on Windows that would start the old version.
+	function relaunchAfterQuit( args: string[] ) {
+		if ( getAutoUpdaterState() !== 'waiting-for-restart' ) {
+			app.relaunch( { args } );
+		}
+	}
+
 	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
 		shouldStopSitesOnQuit = behavior !== 'leave-running';
 		restartSitesOnLaunch = behavior !== 'stop';
@@ -781,6 +794,11 @@ async function appBoot() {
 
 	app.on( 'activate', () => {
 		if ( ! finishedInitialization ) {
+			return;
+		}
+
+		if ( isQuittingConfirmed ) {
+			relaunchAfterQuit( [] );
 			return;
 		}
 

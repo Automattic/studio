@@ -7,6 +7,7 @@ import { useGlobalSkills, useUpdateGlobalSkills } from '@/data/queries/use-globa
 import { LearnMoreLink } from '@/features/onboarding';
 import {
 	DeleteSkillDialog,
+	LinkedSkillMark,
 	matchesSkillSearch,
 	SkillEditor,
 	SkillRow,
@@ -21,8 +22,8 @@ import { SettingsLoadState, SettingsSectionLink } from './rows';
 import type { GlobalSkill, GlobalSkillSource, SkillDraft } from '@/data/core';
 
 /**
- * The user's skills for all sites: Studio's own, and the ones the other agents on
- * this computer keep, which Studio uses once they are switched on.
+ * The user's skills for all sites: the ones in Studio's folder, and the ones the other
+ * agents on this computer keep, which Studio links into its folder once switched on.
  */
 export function SkillsPanel( {
 	onManageSite,
@@ -57,7 +58,6 @@ export function SkillsPanel( {
 	const actionsFor = ( skill: GlobalSkill, canEdit: boolean ) => (
 		<SkillActions
 			name={ skill.displayName }
-			disabled={ update.isPending }
 			removeLabel={ __( 'Delete' ) }
 			onEdit={
 				canEdit && skillEditing && skill.source === 'studio'
@@ -93,8 +93,13 @@ export function SkillsPanel( {
 		<DeleteSkillDialog
 			open={ deleteOpen }
 			question={ sprintf(
-				/* translators: %s: the skill's name. */
-				__( 'Delete “%s” from all sites?' ),
+				deleting?.linked
+					? /* translators: %s: the skill's name. */
+					  __(
+							'Delete “%s” from all sites, and from ~/.agents/skills, where your other agents use it?'
+					  )
+					: /* translators: %s: the skill's name. */
+					  __( 'Delete “%s” from all sites?' ),
 				deleting?.displayName ?? ''
 			) }
 			pending={ update.isPending }
@@ -142,7 +147,7 @@ export function SkillsPanel( {
 	return (
 		<SkillsLibrary
 			settingId="global-skills"
-			query={ fromStudio.length + fromAgents.length ? query : undefined }
+			query={ query }
 			onQueryChange={ setQuery }
 			filters={
 				localMachine ? (
@@ -151,30 +156,29 @@ export function SkillsPanel( {
 						value={ source }
 						onChange={ setSource }
 						options={ [
-							{ value: 'studio', label: __( 'In Studio' ), count: fromStudio.length },
-							{ value: 'agents', label: __( 'On this computer' ), count: fromAgents.length },
+							{ value: 'studio', label: __( 'Studio' ), count: fromStudio.length },
+							{ value: 'agents', label: __( 'Global' ), count: fromAgents.length },
 						] }
 					/>
 				) : null
 			}
-			scope={
-				listed === fromAgents ? (
-					__(
-						'Skills in ~/.agents/skills, the folder your other agents use. Switch one on to use it in Studio, on every site.'
-					)
-				) : (
-					<>
-						{ __( 'Skills that work on every site. Switches here change all sites.' ) }
-						{ onManageSite ? (
-							<>
-								{ ' ' }
-								<SettingsSectionLink onClick={ onManageSite }>
-									{ __( 'Skills for this site' ) }
-								</SettingsSectionLink>
-							</>
-						) : null }
-					</>
-				)
+			title={ __( 'Skills for all sites' ) }
+			description={ __(
+				'Skills that work on every site. Agents load one when a request matches its description, or when you type its command.'
+			) }
+			link={
+				onManageSite ? (
+					<SettingsSectionLink onClick={ onManageSite }>
+						{ __( 'Skills for this site' ) }
+					</SettingsSectionLink>
+				) : null
+			}
+			note={
+				listed === fromAgents
+					? __(
+							'Skills in ~/.agents/skills, the folder your other agents use. Switch one on to add it to Studio.'
+					  )
+					: undefined
 			}
 			error={ update.error && ! deleteOpen ? update.error.message : undefined }
 			onAdd={ skillEditing ? () => setEditing( {} ) : undefined }
@@ -185,8 +189,8 @@ export function SkillsPanel( {
 						<SkillRow
 							key={ `${ skill.source }/${ skill.id }` }
 							skill={ skill }
+							badge={ skill.linked ? <LinkedSkillMark /> : null }
 							enabled={ skill.enabled }
-							disabled={ update.isPending }
 							onToggle={ ( enabled ) =>
 								update.mutate( { source: skill.source, id: skill.id, enabled } )
 							}

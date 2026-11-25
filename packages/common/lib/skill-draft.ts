@@ -39,3 +39,14 @@ export function getSkillDisplayName( id: string ): string {
 	const words = id.replace( /-/g, ' ' );
 	return words.charAt( 0 ).toUpperCase() + words.slice( 1 );
 }
+
+// The WordPress skills earlier Studio versions copied into a site (`getBundledSkills`). They
+// guide agents; nobody runs them as a command, so the `/` menu leaves them out.
+export const SHIPPED_SKILL_IDS = [
+	'studio-cli',
+	'wp-plugin-development',
+	'wp-block-development',
+	'wp-block-themes',
+	'wp-rest-api',
+	'wp-wpcli-and-ops',
+];

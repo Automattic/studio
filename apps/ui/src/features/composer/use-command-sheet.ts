@@ -6,7 +6,6 @@ import {
 import { getActiveCommand } from '@studio/ds';
 import { useState } from 'react';
 import { getCommandGroups } from '@/features/composer/composer-commands';
-import type { UserSkillCommand } from '@/data/queries/use-site-agent-files';
 
 // The sheet of commands and skills: the add button opens suggestions, a
 // `/fragment` in the draft its matches, until Escape dismisses that text.
@@ -19,7 +18,7 @@ export function useCommandSheet( {
 	value: string;
 	commands: SkillSlashCommand[];
 	// The user's own skills, for the site and for all sites. They show ahead of Studio's.
-	userSkills?: UserSkillCommand[];
+	userSkills?: SkillSlashCommand[];
 	isDisabled: ( name: string ) => boolean;
 } ) {
 	const [ addOpen, setAddOpen ] = useState( false );

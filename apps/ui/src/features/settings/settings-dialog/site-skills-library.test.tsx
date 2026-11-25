@@ -63,7 +63,7 @@ describe( 'site skills library', () => {
 		expect( screen.getByRole( 'switch', { name: 'Lookbook post' } ) ).toBeChecked();
 		expect(
 			screen.getByText(
-				'What agents can use on Moiré Journal. Switches here change this site only.',
+				'Skills saved in the folder of Moiré Journal. They work on this site only.',
 				{
 					exact: false,
 				}
@@ -104,6 +104,37 @@ describe( 'site skills library', () => {
 		);
 	} );
 
+	it( 'moves a switch at once and leaves the rest of the list alone while it saves', async () => {
+		const saves: Array< () => void > = [];
+		const { connector } = setup( [ lookbook, { ...sizeGuide, description: 'Size tables.' } ] );
+		connector.setSiteAgentFileEnabled.mockImplementation(
+			() => new Promise< void >( ( resolve ) => saves.push( resolve ) )
+		);
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Lookbook post' } ) );
+
+		await waitFor( () =>
+			expect( screen.getByRole( 'switch', { name: 'Lookbook post' } ) ).not.toBeChecked()
+		);
+		expect( saves ).toHaveLength( 1 );
+		for ( const name of [ 'Lookbook post', 'Size guide' ] ) {
+			expect( screen.getByRole( 'switch', { name } ) ).not.toHaveAttribute( 'data-disabled' );
+		}
+		expect( screen.getByRole( 'button', { name: 'Actions for Size guide' } ) ).toBeEnabled();
+
+		// A second change waits for the first, and neither one snaps back meanwhile.
+		fireEvent.click( screen.getByRole( 'switch', { name: 'Size guide' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'switch', { name: 'Size guide' } ) ).not.toBeChecked()
+		);
+		expect( saves ).toHaveLength( 1 );
+		saves[ 0 ]();
+		await waitFor( () => expect( saves ).toHaveLength( 2 ) );
+		expect( screen.getByRole( 'switch', { name: 'Size guide' } ) ).not.toBeChecked();
+		expect( connector.getSiteAgentFiles ).toHaveBeenCalledTimes( 1 );
+		saves[ 1 ]();
+		await waitFor( () => expect( connector.getSiteAgentFiles ).toHaveBeenCalledTimes( 2 ) );
+	} );
+
 	it( 'says what a skill without a description needs, and keeps it off', async () => {
 		setup();
 		expect(
@@ -117,7 +148,7 @@ describe( 'site skills library', () => {
 
 	it( 'searches by name, command and description', async () => {
 		setup();
-		const search = await screen.findByRole( 'searchbox', { name: 'Search skills' } );
+		const search = await screen.findByRole( 'textbox', { name: 'Search skills' } );
 		fireEvent.change( search, { target: { value: 'seasonal' } } );
 		expect( screen.getByText( '/lookbook-post' ) ).toBeVisible();
 		expect( screen.queryByText( '/size-guide' ) ).not.toBeInTheDocument();
@@ -130,7 +161,7 @@ describe( 'site skills library', () => {
 	it( 'explains where skills go when the site has none', async () => {
 		const { onManageAll } = setup( [] );
 		expect( await screen.findByText( 'No skills on this site yet' ) ).toBeVisible();
-		expect( screen.queryByRole( 'searchbox' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'textbox', { name: 'Search skills' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Skills for all sites' } ) );
 		expect( onManageAll ).toHaveBeenCalled();
 	} );
@@ -193,7 +224,7 @@ describe( 'site skills library', () => {
 
 			const form = await screen.findByRole( 'form', { name: 'New skill' } );
 			expect( screen.queryByText( 'No skills on this site yet' ) ).not.toBeInTheDocument();
-			expect( within( form ).getByText( 'Moiré Journal' ) ).toBeVisible();
+			expect( within( form ).getByText( /Moiré Journal/ ) ).toBeVisible();
 			const create = within( form ).getByRole( 'button', { name: 'Create skill' } );
 			expect( create ).toBeDisabled();
 
@@ -253,7 +284,7 @@ describe( 'site skills library', () => {
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Add skill' } ) );
 			await screen.findByRole( 'form', { name: 'New skill' } );
 			type( 'Name', 'Lookbook post' );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Skills' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Back to skills' } ) );
 
 			const dialog = await screen.findByRole( 'alertdialog', { name: 'Discard changes?' } );
 			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) );
@@ -305,7 +336,7 @@ describe( 'site skills library', () => {
 					instructions: '1. Ask for the season.',
 				} )
 			);
-			expect( await screen.findByRole( 'searchbox', { name: 'Search skills' } ) ).toBeVisible();
+			expect( await screen.findByRole( 'textbox', { name: 'Search skills' } ) ).toBeVisible();
 		} );
 
 		it( 'offers neither where the server can only list skills', async () => {
@@ -317,63 +348,23 @@ describe( 'site skills library', () => {
 		} );
 	} );
 
-	describe( 'with skills for all sites', () => {
-		const brandVoice: SiteAgentFile = {
-			id: 'brand-voice',
-			displayName: 'Brand voice',
-			description: 'Write in the house voice.',
-			installed: true,
-			enabled: true,
-			globalSource: 'studio',
-		};
-
-		it( 'labels where each skill works and filters by it', async () => {
-			setup( [ lookbook, brandVoice ] );
-			await screen.findByText( '/brand-voice' );
-			expect( screen.getAllByText( 'This site' ) ).toHaveLength( 2 );
-			expect( screen.getByRole( 'button', { name: 'All 2' } ) ).toHaveAttribute(
-				'aria-pressed',
-				'true'
-			);
-			fireEvent.click( screen.getByRole( 'button', { name: 'All sites 1' } ) );
-			expect( screen.getByText( '/brand-voice' ) ).toBeVisible();
-			expect( screen.queryByText( '/lookbook-post' ) ).not.toBeInTheDocument();
-			fireEvent.click( screen.getByRole( 'button', { name: 'This site 1' } ) );
-			expect( screen.getByText( '/lookbook-post' ) ).toBeVisible();
-			expect( screen.queryByText( '/brand-voice' ) ).not.toBeInTheDocument();
-		} );
-
-		it( 'switches one off for this site, and shows its folder but never deletes it', async () => {
-			const { connector } = setup( [ lookbook, brandVoice ] );
-			fireEvent.click( await screen.findByRole( 'switch', { name: 'Brand voice' } ) );
-			await waitFor( () =>
-				expect( screen.getByRole( 'switch', { name: 'Brand voice' } ) ).not.toBeChecked()
-			);
-			expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith(
-				'one',
-				'skills',
-				'brand-voice',
-				false
-			);
-			await waitFor( () =>
-				expect( screen.getByRole( 'button', { name: 'Actions for Brand voice' } ) ).toBeEnabled()
-			);
-			fireEvent.click( screen.getByRole( 'button', { name: 'Actions for Brand voice' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
-			expect( screen.queryByRole( 'menuitem', { name: 'Delete' } ) ).not.toBeInTheDocument();
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Finder' } ) );
-			await waitFor( () =>
-				expect( connector.openGlobalSkill ).toHaveBeenCalledWith( 'studio', 'brand-voice' )
-			);
-			expect( connector.openSiteAgentFile ).not.toHaveBeenCalled();
-		} );
-
-		it( 'shows no labels or filters when the site has only its own skills', async () => {
-			setup( [ lookbook ] );
-			await screen.findByText( '/lookbook-post' );
-			expect( screen.queryByText( 'This site' ) ).not.toBeInTheDocument();
-			expect( screen.queryByRole( 'button', { name: /^All / } ) ).not.toBeInTheDocument();
-		} );
+	it( 'leaves out the skills for all sites, which the App tab lists', async () => {
+		setup( [
+			lookbook,
+			{
+				id: 'brand-voice',
+				displayName: 'Brand voice',
+				description: 'Write in the house voice.',
+				installed: true,
+				enabled: true,
+				globalSource: 'studio',
+			},
+		] );
+		expect( await screen.findByText( '/lookbook-post' ) ).toBeVisible();
+		expect( screen.queryByText( '/brand-voice' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'This site' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'All sites' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'group', { name: 'Filter skills' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'keeps the original state and shows an error when updating fails', async () => {

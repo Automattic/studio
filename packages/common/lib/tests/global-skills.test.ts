@@ -3,12 +3,14 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteAgentFiles, removeSiteAgentFile, setSiteAgentFileEnabled } from '../agent-skills';
-import { getConfigPath, readConfig } from '../config/store';
+import { getConfigPath } from '../config/store';
 import {
+	getGlobalSkillDetails,
 	getGlobalSkills,
 	readSkillsForAgent,
 	removeGlobalSkill,
 	setGlobalSkillEnabled,
+	updateGlobalSkill,
 } from '../global-skills';
 
 describe( 'global skills', () => {
@@ -72,13 +74,156 @@ describe( 'global skills', () => {
 			},
 		] );
 		expect( await names() ).toEqual( [ 'brand-voice' ] );
+	} );
 
-		await setGlobalSkillEnabled( 'agents', 'changelog', true );
-		expect( await names() ).toEqual( [ 'brand-voice', 'changelog' ] );
-		expect( fs.existsSync( path.join( agents(), 'changelog', 'SKILL.md' ) ) ).toBe( true );
+	describe( "a skill from the other agents' folder", () => {
+		const link = () => path.join( studio(), 'changelog' );
+		const original = () => path.join( agents(), 'changelog', 'SKILL.md' );
+		const find = async ( source: string ) =>
+			( await getGlobalSkills() ).find(
+				( skill ) => skill.source === source && skill.id === 'changelog'
+			);
 
-		await setGlobalSkillEnabled( 'agents', 'changelog', false );
-		expect( await names() ).toEqual( [ 'brand-voice' ] );
+		beforeEach( async () => {
+			addSkill( agents(), 'changelog' );
+			await setGlobalSkillEnabled( 'agents', 'changelog', true );
+		} );
+
+		it( "is added to Studio as a link, so it shows with Studio's skills and is always the latest", async () => {
+			expect( fs.lstatSync( link() ).isSymbolicLink() ).toBe( true );
+			expect( fs.realpathSync( link() ) ).toBe(
+				fs.realpathSync( path.join( agents(), 'changelog' ) )
+			);
+			expect( await find( 'studio' ) ).toEqual( {
+				id: 'changelog',
+				displayName: 'Changelog',
+				description: 'Use changelog.',
+				enabled: true,
+				source: 'studio',
+				directory: link(),
+				linked: true,
+			} );
+			expect( await find( 'agents' ) ).toMatchObject( { enabled: true } );
+			expect( await names() ).toEqual( [ 'changelog' ] );
+
+			addSkill( agents(), 'changelog', 'A newer description.' );
+			expect( ( await readSkillsForAgent() )[ 0 ].description ).toBe( 'A newer description.' );
+			// Adding it again changes nothing.
+			await setGlobalSkillEnabled( 'agents', 'changelog', true );
+			expect( await names() ).toEqual( [ 'changelog' ] );
+		} );
+
+		it( 'switches off and on in Studio like any skill, and stays added', async () => {
+			await setGlobalSkillEnabled( 'studio', 'changelog', false );
+			expect( await names() ).toEqual( [] );
+			expect( await find( 'studio' ) ).toMatchObject( { enabled: false, linked: true } );
+			expect( await find( 'agents' ) ).toMatchObject( { enabled: true } );
+
+			await setGlobalSkillEnabled( 'studio', 'changelog', true );
+			expect( await names() ).toEqual( [ 'changelog' ] );
+		} );
+
+		it.each( [
+			[ 'taken out of Studio', () => setGlobalSkillEnabled( 'agents', 'changelog', false ) ],
+			[
+				'taken out while it is off',
+				async () => {
+					await setGlobalSkillEnabled( 'studio', 'changelog', false );
+					await setGlobalSkillEnabled( 'agents', 'changelog', false );
+				},
+			],
+		] )( 'loses only its link when it is %s', async ( _how, remove ) => {
+			await remove();
+			expect( await find( 'studio' ) ).toBeUndefined();
+			expect( await find( 'agents' ) ).toMatchObject( { enabled: false } );
+			expect( fs.readFileSync( original(), 'utf8' ) ).toContain( 'Steps for changelog.' );
+		} );
+
+		it( 'is changed where it is kept when it is changed in Studio', async () => {
+			expect( ( await getGlobalSkillDetails( 'changelog' ) ).instructions ).toBe(
+				'Steps for changelog.'
+			);
+			expect(
+				await updateGlobalSkill(
+					'changelog',
+					{ name: 'Changelog', description: 'Changed.', instructions: 'New steps.' },
+					[]
+				)
+			).toBe( 'changelog' );
+			expect( fs.readFileSync( original(), 'utf8' ) ).toContain( 'New steps.' );
+			expect( fs.lstatSync( link() ).isSymbolicLink() ).toBe( true );
+		} );
+
+		it( 'moves its folder, and the link with it, when it gets a new name in Studio', async () => {
+			addSkill( agents(), 'pr-description' );
+			await expect(
+				updateGlobalSkill(
+					'changelog',
+					{ name: 'PR description', description: 'Changed.', instructions: 'Steps.' },
+					[]
+				)
+			).rejects.toThrow( 'already exists' );
+
+			await setGlobalSkillEnabled( 'studio', 'changelog', false );
+			expect(
+				await updateGlobalSkill(
+					'changelog',
+					{ name: 'Release notes', description: 'Changed.', instructions: 'Steps.' },
+					[]
+				)
+			).toBe( 'release-notes' );
+			expect( fs.existsSync( path.join( agents(), 'changelog' ) ) ).toBe( false );
+			expect(
+				fs.readFileSync( path.join( agents(), 'release-notes', 'SKILL.md' ), 'utf8' )
+			).toContain( 'name: release-notes' );
+			expect(
+				( await getGlobalSkills() ).filter( ( skill ) => skill.id === 'release-notes' )
+			).toEqual( [
+				expect.objectContaining( { source: 'studio', linked: true, enabled: false } ),
+				expect.objectContaining( { source: 'agents', enabled: true } ),
+			] );
+			expect( fs.existsSync( link() ) ).toBe( false );
+		} );
+
+		it( 'is deleted where it is kept when it is deleted in Studio', async () => {
+			await removeGlobalSkill( 'changelog' );
+			expect( await getGlobalSkills() ).toEqual( [] );
+			expect( fs.existsSync( path.join( agents(), 'changelog' ) ) ).toBe( false );
+			expect( fs.existsSync( agents() ) ).toBe( true );
+		} );
+
+		it( 'only loses its link on a delete when the link points outside ~/.agents/skills', async () => {
+			const elsewhere = path.join( root, 'elsewhere' );
+			addSkill( elsewhere, 'house-style' );
+			fs.symlinkSync( path.join( elsewhere, 'house-style' ), path.join( studio(), 'house-style' ) );
+			expect( await names() ).toEqual( [ 'changelog', 'house-style' ] );
+
+			await removeGlobalSkill( 'house-style' );
+			expect( await names() ).toEqual( [ 'changelog' ] );
+			expect(
+				fs.readFileSync( path.join( elsewhere, 'house-style', 'SKILL.md' ), 'utf8' )
+			).toContain( 'Steps for house-style.' );
+		} );
+
+		it( "never takes the place of one of Studio's own", async () => {
+			addSkill( agents(), 'brand-voice', 'Theirs.' );
+			addSkill( studio(), 'brand-voice', 'Ours.' );
+			await expect( setGlobalSkillEnabled( 'agents', 'brand-voice', true ) ).rejects.toThrow(
+				'Studio already has a skill named “brand-voice”.'
+			);
+			await setGlobalSkillEnabled( 'agents', 'brand-voice', false );
+			expect(
+				fs.readFileSync( path.join( studio(), 'brand-voice', 'SKILL.md' ), 'utf8' )
+			).toContain( 'Ours.' );
+		} );
+
+		it( 'can be added again after its folder was deleted and made again', async () => {
+			fs.rmSync( path.join( agents(), 'changelog' ), { recursive: true } );
+			expect( await getGlobalSkills() ).toEqual( [] );
+			addSkill( agents(), 'changelog' );
+			await setGlobalSkillEnabled( 'agents', 'changelog', true );
+			expect( await names() ).toEqual( [ 'changelog' ] );
+		} );
 	} );
 
 	it( "switches one of Studio's off by moving its folder, and deletes it", async () => {
@@ -137,21 +282,15 @@ describe( 'global skills', () => {
 			expect( await names( site ) ).toEqual( [ 'lookbook-post', 'brand-voice' ] );
 		} );
 
-		it( 'switches a global skill off for this site only, and keeps its files', async () => {
-			await setSiteAgentFileEnabled( site, root, 'skills', 'brand-voice', false );
-
-			expect( ( await readConfig() ).sites[ 0 ].disabledGlobalSkills ).toEqual( [ 'brand-voice' ] );
-			expect( await names( site ) ).toEqual( [ 'lookbook-post' ] );
-			expect( await names() ).toEqual( [ 'brand-voice' ] );
-			expect( fs.existsSync( path.join( studio(), 'brand-voice', 'SKILL.md' ) ) ).toBe( true );
-			expect(
-				( await getSiteAgentFiles( site, 'skills' ) ).find(
-					( skill ) => skill.id === 'brand-voice'
-				)
-			).toMatchObject( { enabled: false, globalSource: 'studio' } );
-
-			await setSiteAgentFileEnabled( site, root, 'skills', 'brand-voice', true );
+		it( 'never switches a global skill from a site: it is on or off for all sites', async () => {
+			await expect(
+				setSiteAgentFileEnabled( site, root, 'skills', 'brand-voice', false )
+			).rejects.toThrow( 'Unknown skills file' );
 			expect( await names( site ) ).toEqual( [ 'lookbook-post', 'brand-voice' ] );
+
+			await setGlobalSkillEnabled( 'studio', 'brand-voice', false );
+			expect( await names( site ) ).toEqual( [ 'lookbook-post' ] );
+			expect( await names() ).toEqual( [] );
 		} );
 
 		it( 'never deletes a global skill from a site', async () => {

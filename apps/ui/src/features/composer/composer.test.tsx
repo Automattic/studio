@@ -424,6 +424,13 @@ describe( 'Chat composer', () => {
 					installed: true,
 					enabled: true,
 				},
+				{
+					id: 'wp-rest-api',
+					displayName: 'REST API',
+					description: 'Routes, endpoints, schema, and authentication',
+					installed: true,
+					enabled: true,
+				},
 			] );
 			return connector;
 		};
@@ -439,11 +446,12 @@ describe( 'Chat composer', () => {
 			expect( screen.queryByRole( 'option', { name: /^Client handoff/ } ) ).not.toBeInTheDocument();
 			expect( screen.queryByRole( 'option', { name: /^Size guide/ } ) ).not.toBeInTheDocument();
 			expect( screen.getAllByRole( 'option', { name: /^Taxonomist / } ) ).toHaveLength( 1 );
-			// Only a skill for all sites says where it works.
-			expect( screen.getByRole( 'option', { name: /^Brand voice / } ) ).toHaveTextContent(
+			// The WordPress skills Studio copied into the site guide agents; nobody types them.
+			expect( screen.queryByRole( 'option', { name: /^REST API/ } ) ).not.toBeInTheDocument();
+			// The menu does not say where a skill is kept: here it makes no difference.
+			expect( screen.getByRole( 'option', { name: /^Brand voice / } ) ).not.toHaveTextContent(
 				'All sites'
 			);
-			expect( own ).not.toHaveTextContent( 'All sites' );
 
 			fireEvent.click( own );
 			expect( input ).toHaveValue( '/lookbook-post ' );

@@ -6,7 +6,6 @@ import {
 } from '@studio/common/lib/skill-draft';
 import {
 	AlertDialog,
-	Badge,
 	Button,
 	DialogContent,
 	DialogDescription,
@@ -16,19 +15,22 @@ import {
 	Field,
 	FieldDescription,
 	FieldLabel,
+	IconButton,
 	Input,
 	Textarea,
 } from '@studio/ds';
-import { ArrowLeftIcon, ChatIcon, FileTextIcon } from '@studio/ds/icons';
+import { ArrowLeftIcon, FileTextIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSaveSkill, useSkill } from '@/data/queries/use-skill';
 import { useSettingsDialog } from '@/features/settings/settings-dialog/context';
 import {
 	SettingsGroup,
 	SettingsLoadState,
 	SettingsRow,
+	SettingsSectionLink,
 } from '@/features/settings/settings-view/rows';
 import styles from './style.module.css';
 import type { SkillDetails, SkillDraft } from '@/data/core';
@@ -64,7 +66,11 @@ export function SkillEditor( {
 	if ( skillId && ! skill ) {
 		return (
 			<div className={ styles.editor }>
-				<EditorHeader scopeLabel={ scopeLabel } onBack={ onBack } />
+				<EditorHeader
+					title={ __( 'Skill' ) }
+					siteName={ siteId ? scopeLabel : undefined }
+					onBack={ onBack }
+				/>
 				<SettingsLoadState loadFailed={ isError } onRetry={ () => void refetch() } />
 			</div>
 		);
@@ -81,27 +87,48 @@ export function SkillEditor( {
 	);
 }
 
+// The card that says which skill the form holds and where it works, like the card that
+// opens every other settings screen. Its arrow leads back to the list.
 function EditorHeader( {
-	scopeLabel,
+	title,
+	siteName,
+	link,
 	actions,
 	onBack,
 }: {
-	scopeLabel: string;
+	title: string;
+	// The site the skill is saved in; a skill for all sites without it.
+	siteName?: string;
+	link?: ReactNode;
 	actions?: ReactNode;
 	onBack: () => void;
 } ) {
 	return (
-		<div className={ styles.editorHeader }>
-			<Button variant="ghost" size="sm" onClick={ onBack }>
-				<ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
-				{ __( 'Skills' ) }
-			</Button>
-			<span className={ styles.spacer } />
-			<Badge size="xs" variant="secondary">
-				{ scopeLabel }
-			</Badge>
-			{ actions }
-		</div>
+		<SettingsGroup>
+			<SettingsRow
+				icon={
+					<IconButton
+						size="icon-sm"
+						icon={ <ArrowLeftIcon /> }
+						label={ __( 'Back to skills' ) }
+						onClick={ onBack }
+					/>
+				}
+				title={ title }
+				description={
+					siteName
+						? sprintf(
+								/* translators: %s: the site's name. */
+								__( 'Saved in the folder of %s. It works on this site only.' ),
+								siteName
+						  )
+						: __( 'Works on every site.' )
+				}
+				additionalContent={ link }
+			>
+				{ actions }
+			</SettingsRow>
+		</SettingsGroup>
 	);
 }
 
@@ -146,8 +173,10 @@ function SkillForm( {
 		!! draft.description.trim() &&
 		!! draft.instructions.trim() &&
 		! tooLong;
+	const canSave = complete && ( ! skill || dirty );
 
-	const { setDirty } = useSettingsDialog();
+	const dialog = useSettingsDialog();
+	const { setDirty } = dialog;
 	useEffect( () => setDirty( dirty ), [ dirty, setDirty ] );
 	useEffect( () => () => setDirty( false ), [ setDirty ] );
 
@@ -156,9 +185,27 @@ function SkillForm( {
 		setDraft( ( current ) => ( { ...current, ...patch } ) );
 	};
 	const leave = () => ( dirty ? setConfirmingDiscard( true ) : onBack() );
+	const buttons = (
+		<>
+			<Button variant="outline" size="sm" disabled={ save.isPending } onClick={ leave }>
+				{ __( 'Cancel' ) }
+			</Button>
+			<Button
+				type="submit"
+				form={ formId }
+				variant={ canSave ? 'accent' : 'outline' }
+				size="sm"
+				disabled={ ! canSave }
+				loading={ save.isPending }
+			>
+				{ skill ? __( 'Save changes' ) : __( 'Create skill' ) }
+			</Button>
+		</>
+	);
 
 	return (
 		<form
+			id={ formId }
 			className={ styles.editor }
 			aria-label={ skill ? skill.displayName : __( 'New skill' ) }
 			onSubmit={ ( event ) => {
@@ -168,89 +215,92 @@ function SkillForm( {
 				}
 			} }
 		>
-			<EditorHeader scopeLabel={ scopeLabel } actions={ actions } onBack={ leave } />
-			<div className={ styles.form }>
-				<Field>
-					<FieldLabel htmlFor={ `${ formId }-name` }>{ __( 'Name' ) }</FieldLabel>
-					<Input
-						id={ `${ formId }-name` }
-						value={ draft.name }
-						placeholder={ __( 'Lookbook post' ) }
-						autoFocus={ ! skill }
-						aria-describedby={ id ? `${ formId }-command` : undefined }
-						onChange={ ( event ) => change( { name: event.target.value } ) }
-					/>
-					{ id ? (
-						<FieldDescription id={ `${ formId }-command` } width="full">
-							{ __( 'Command:' ) } <code className={ styles.command }>/{ id }</code>
-						</FieldDescription>
-					) : null }
-				</Field>
-				<Field>
-					<FieldLabel htmlFor={ `${ formId }-when` }>
-						{ __( 'When should agents use it?' ) }
-					</FieldLabel>
-					<Textarea
-						id={ `${ formId }-when` }
-						rows={ 2 }
-						maxLength={ SKILL_DESCRIPTION_MAX_LENGTH }
-						value={ draft.description }
-						placeholder={ __( 'Lay out a seasonal lookbook post with the gallery pattern.' ) }
-						onChange={ ( event ) => change( { description: event.target.value } ) }
-					/>
-				</Field>
-				<Field>
-					<div className={ styles.instructionsHeader }>
-						<FieldLabel htmlFor={ `${ formId }-instructions` }>{ __( 'Instructions' ) }</FieldLabel>
-						<FieldDescription
-							id={ `${ formId }-count` }
-							className={ clsx( tooLong && styles.overLimit ) }
-						>
-							{ sprintf(
-								/* translators: 1: the number of characters typed, 2: the most allowed. */
-								__( '%1$s / %2$s' ),
-								draft.instructions.trim().length.toLocaleString(),
-								SKILL_INSTRUCTIONS_MAX_LENGTH.toLocaleString()
-							) }
-						</FieldDescription>
-					</div>
-					<Textarea
-						id={ `${ formId }-instructions` }
-						sizing="fixed"
-						rows={ skill ? 11 : 7 }
-						className={ styles.instructions }
-						value={ draft.instructions }
-						placeholder={ __( 'Write the steps the agent must follow.' ) }
-						aria-describedby={ `${ formId }-count` }
-						aria-invalid={ tooLong || undefined }
-						onChange={ ( event ) => change( { instructions: event.target.value } ) }
-					/>
-				</Field>
-			</div>
-			{ save.error ? (
-				<p role="alert" className={ styles.error }>
-					{ save.error.message }
-				</p>
-			) : null }
-			<div className={ styles.editorFooter }>
-				{ onCreateInChat && ! skill ? (
-					<Button variant="ghost" onClick={ () => onCreateInChat( draft ) }>
-						<ChatIcon data-icon="inline-start" aria-hidden="true" />
-						{ __( 'Create in chat instead' ) }
-					</Button>
+			<EditorHeader
+				title={ skill ? skill.displayName : __( 'New skill' ) }
+				siteName={ siteId ? scopeLabel : undefined }
+				link={
+					onCreateInChat && ! skill ? (
+						<SettingsSectionLink onClick={ () => onCreateInChat( draft ) }>
+							{ __( 'Create in chat instead' ) }
+						</SettingsSectionLink>
+					) : null
+				}
+				actions={ actions }
+				onBack={ leave }
+			/>
+			<div className={ styles.fields }>
+				<SettingsGroup>
+					<Field>
+						<FieldLabel htmlFor={ `${ formId }-name` }>{ __( 'Name' ) }</FieldLabel>
+						<Input
+							id={ `${ formId }-name` }
+							className={ styles.name }
+							value={ draft.name }
+							placeholder={ __( 'Lookbook post' ) }
+							autoFocus={ ! skill }
+							aria-describedby={ id ? `${ formId }-command` : undefined }
+							onChange={ ( event ) => change( { name: event.target.value } ) }
+						/>
+						{ id ? (
+							<FieldDescription id={ `${ formId }-command` } width="full">
+								{ __( 'Command:' ) } <code className={ styles.command }>/{ id }</code>
+							</FieldDescription>
+						) : null }
+					</Field>
+					<Field>
+						<FieldLabel htmlFor={ `${ formId }-when` }>
+							{ __( 'When should agents use it?' ) }
+						</FieldLabel>
+						<Textarea
+							id={ `${ formId }-when` }
+							rows={ 2 }
+							maxLength={ SKILL_DESCRIPTION_MAX_LENGTH }
+							value={ draft.description }
+							placeholder={ __( 'Lay out a seasonal lookbook post with the gallery pattern.' ) }
+							onChange={ ( event ) => change( { description: event.target.value } ) }
+						/>
+					</Field>
+					<Field>
+						<div className={ styles.instructionsHeader }>
+							<FieldLabel htmlFor={ `${ formId }-instructions` }>
+								{ __( 'Instructions' ) }
+							</FieldLabel>
+							<FieldDescription
+								id={ `${ formId }-count` }
+								className={ clsx( tooLong && styles.overLimit ) }
+							>
+								{ sprintf(
+									/* translators: 1: the number of characters typed, 2: the most allowed. */
+									__( '%1$s / %2$s' ),
+									draft.instructions.trim().length.toLocaleString(),
+									SKILL_INSTRUCTIONS_MAX_LENGTH.toLocaleString()
+								) }
+							</FieldDescription>
+						</div>
+						<Textarea
+							id={ `${ formId }-instructions` }
+							sizing="fixed"
+							rows={ skill ? 11 : 7 }
+							className={ styles.instructions }
+							value={ draft.instructions }
+							placeholder={ __( 'Write the steps the agent must follow.' ) }
+							aria-describedby={ `${ formId }-count` }
+							aria-invalid={ tooLong || undefined }
+							onChange={ ( event ) => change( { instructions: event.target.value } ) }
+						/>
+					</Field>
+				</SettingsGroup>
+				{ save.error ? (
+					<p role="alert" className={ styles.error }>
+						{ save.error.message }
+					</p>
 				) : null }
-				<span className={ styles.spacer } />
-				<Button variant="outline" disabled={ save.isPending } onClick={ leave }>
-					{ __( 'Cancel' ) }
-				</Button>
-				<Button
-					type="submit"
-					variant="accent"
-					disabled={ ! complete || ( !! skill && ! dirty ) }
-					loading={ save.isPending }
-				>
-					{ skill ? __( 'Save changes' ) : __( 'Create skill' ) }
-				</Button>
+				{ /* Like the site's settings form, the buttons are in the dialog's header. */ }
+				{ dialog.actions ? (
+					createPortal( buttons, dialog.actions )
+				) : (
+					<div className={ styles.editorFooter }>{ buttons }</div>
+				) }
 			</div>
 			{ skill ? (
 				<SettingsGroup title={ __( 'Files' ) }>

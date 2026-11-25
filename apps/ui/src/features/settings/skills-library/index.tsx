@@ -10,9 +10,19 @@ import {
 	EmptyDescription,
 	EmptyHeader,
 	EmptyTitle,
-	Input,
+	IconButton,
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	Tabs,
+	TabsList,
+	TabsScopeIndicator,
+	TabsTrigger,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
 } from '@studio/ds';
-import { PlusIcon, SearchIcon } from '@studio/ds/icons';
+import { LinkIcon, PlusIcon, SearchIcon, XIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useRef } from 'react';
 import { SettingsGroup, SettingsRow, SettingsToggle } from '@/features/settings/settings-view/rows';
@@ -32,24 +42,34 @@ export function matchesSkillSearch( skill: LibrarySkill, query: string ): boolea
 		.includes( query.trim().toLowerCase() );
 }
 
-/** One list of skills with search: the Skills screen of the App and Site tabs. */
+/**
+ * The Skills screen of the App and Site tabs, laid out like the other settings: a card that
+ * says what the list holds, then the list under its search field.
+ */
 export function SkillsLibrary( {
 	settingId,
+	title,
+	description,
+	link,
 	query,
 	onQueryChange,
 	filters,
-	scope,
+	note,
 	error,
 	onAdd,
 	children,
 }: {
 	settingId: string;
-	// The search text; undefined when there is nothing to search yet.
-	query?: string;
+	title: string;
+	// What the list holds and what its switches change.
+	description: string;
+	// Leads to the other tab's skills.
+	link?: ReactNode;
+	query: string;
 	onQueryChange: ( query: string ) => void;
 	filters?: ReactNode;
-	// What the list holds and what its switches change.
-	scope: ReactNode;
+	// Says what the picked filter shows, when the card above does not.
+	note?: string;
 	error?: string;
 	// Opens the form for a new skill, where the host can save one.
 	onAdd?: () => void;
@@ -57,40 +77,58 @@ export function SkillsLibrary( {
 } ) {
 	return (
 		<div className={ styles.library } data-settings-target={ settingId }>
-			{ query !== undefined || onAdd ? (
-				<div className={ styles.toolbar }>
-					{ query !== undefined ? (
-						<Input
-							className={ styles.search }
-							type="search"
-							placeholder={ __( 'Search skills' ) }
-							aria-label={ __( 'Search skills' ) }
-							value={ query }
-							onChange={ ( event ) => onQueryChange( event.target.value ) }
-							endAdornment={ <SearchIcon aria-hidden="true" /> }
-						/>
-					) : (
-						<span className={ styles.spacer } />
-					) }
+			<SettingsGroup>
+				<SettingsRow title={ title } description={ description } additionalContent={ link }>
 					{ onAdd ? (
 						<Button variant="outline" size="sm" onClick={ onAdd }>
 							<PlusIcon data-icon="inline-start" aria-hidden="true" />
 							{ __( 'Add skill' ) }
 						</Button>
 					) : null }
+				</SettingsRow>
+			</SettingsGroup>
+			<div className={ styles.list }>
+				<div className={ styles.toolbar }>
+					<InputGroup className={ styles.search }>
+						<InputGroupInput
+							placeholder={ __( 'Search skills' ) }
+							aria-label={ __( 'Search skills' ) }
+							value={ query }
+							onChange={ ( event ) => onQueryChange( event.target.value ) }
+							onKeyDown={ ( event ) => {
+								if ( event.key === 'Escape' && query ) {
+									event.stopPropagation();
+									onQueryChange( '' );
+								}
+							} }
+						/>
+						<InputGroupAddon>
+							<SearchIcon />
+						</InputGroupAddon>
+						{ query ? (
+							<InputGroupAddon align="inline-end">
+								<IconButton
+									size="icon-xs"
+									icon={ <XIcon /> }
+									label={ __( 'Clear search' ) }
+									onClick={ () => onQueryChange( '' ) }
+								/>
+							</InputGroupAddon>
+						) : null }
+					</InputGroup>
+					{ filters }
 				</div>
-			) : null }
-			{ filters }
-			<p className={ styles.scopeLine }>{ scope }</p>
-			{ error ? <p className={ styles.error }>{ error }</p> : null }
-			{ children }
+				{ note ? <p className={ styles.note }>{ note }</p> : null }
+				{ error ? <p className={ styles.error }>{ error }</p> : null }
+				{ children }
+			</div>
 		</div>
 	);
 }
 
 export { SkillEditor } from './skill-editor';
 
-/** Chips that pick which skills the list shows, each with its count. */
+/** The app's segmented switch, to pick which skills the list shows; each side has its count. */
 export function SkillsFilter< TValue extends string >( {
 	label,
 	options,
@@ -103,21 +141,17 @@ export function SkillsFilter< TValue extends string >( {
 	onChange: ( value: TValue ) => void;
 } ) {
 	return (
-		<div className={ styles.filters } role="group" aria-label={ label }>
-			{ options.map( ( option ) => (
-				<Button
-					key={ option.value }
-					variant="outline"
-					size="sm"
-					className={ styles.filter }
-					aria-pressed={ option.value === value }
-					onClick={ () => onChange( option.value ) }
-				>
-					{ option.label }
-					<span className={ styles.count }>{ option.count }</span>
-				</Button>
-			) ) }
-		</div>
+		<Tabs value={ value } onValueChange={ ( next: TValue ) => onChange( next ) }>
+			<TabsList variant="scope" aria-label={ label }>
+				{ options.map( ( option ) => (
+					<TabsTrigger key={ option.value } value={ option.value }>
+						{ option.label }
+						<span className={ styles.count }>{ option.count }</span>
+					</TabsTrigger>
+				) ) }
+				<TabsScopeIndicator />
+			</TabsList>
+		</Tabs>
 	);
 }
 
@@ -126,26 +160,43 @@ export function SkillsList( { children }: { children: ReactNode } ) {
 	return <SettingsGroup>{ children }</SettingsGroup>;
 }
 
+/** Marks a skill Studio links to in `~/.agents/skills`, where the other agents use it too. */
+export function LinkedSkillMark() {
+	const label = __( 'Linked from ~/.agents/skills' );
+	return (
+		<Tooltip>
+			<TooltipTrigger
+				render={
+					<span role="img" aria-label={ label } className={ styles.linked }>
+						<LinkIcon aria-hidden="true" />
+					</span>
+				}
+			/>
+			<TooltipContent>{ label }</TooltipContent>
+		</Tooltip>
+	);
+}
+
 /** A skill: its name, command and description, its actions and its switch. */
 export function SkillRow( {
 	skill,
 	badge,
 	enabled,
-	disabled,
 	onToggle,
 	actions,
 }: {
 	skill: LibrarySkill;
-	// Where the skill works, when the list mixes skills of a site and of all sites.
+	// What sets the skill apart from the others in the list, such as the mark of a linked one.
 	badge?: ReactNode;
 	enabled: boolean;
-	disabled?: boolean;
 	onToggle: ( enabled: boolean ) => void;
 	actions?: ReactNode;
 } ) {
 	return (
 		<SettingsRow
 			title={ skill.displayName }
+			// The command drops under a name it does not fit beside.
+			wrapBadge
 			badge={
 				<>
 					<code className={ styles.command }>/{ skill.id }</code>
@@ -161,7 +212,7 @@ export function SkillRow( {
 			<SettingsToggle
 				label={ skill.displayName }
 				checked={ enabled && !! skill.description }
-				disabled={ disabled || ! skill.description }
+				disabled={ ! skill.description }
 				onChange={ onToggle }
 			/>
 		</SettingsRow>

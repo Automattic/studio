@@ -3,6 +3,7 @@ import { Type } from 'typebox';
 import { renderDesignCatalogIndex } from '@studio/agent/node/design-catalog';
 import { findSkill, loadSkills } from '@studio/agent/node/skills';
 import { defineTool, READ_ONLY, type StudioToolDefinition } from './define-tool';
+import type { ToolResultSkill } from '@studio/agent/protocol/tools';
 
 export function renderSkill( name: string ): string {
 	const skill = findSkill( name );
@@ -53,14 +54,12 @@ export function createSkillTool(
 		},
 		async ( args ) => {
 			const ownSkill = ownSkills.find( ( skill ) => skill.name === args.name );
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text: ownSkill ? await renderUserSkill( ownSkill ) : renderSkill( args.name ),
-					},
-				],
+			const text = ownSkill ? await renderUserSkill( ownSkill ) : renderSkill( args.name );
+			const skill: ToolResultSkill = {
+				name: args.name,
+				description: ( ownSkill ?? findSkill( args.name ) )?.description ?? '',
 			};
+			return { content: [ { type: 'text' as const, text } ], details: { skill } };
 		},
 		{ annotations: READ_ONLY }
 	);

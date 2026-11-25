@@ -4,11 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { readSitePaths } from '../sites/site-path';
 import { readConfig, updateConfig } from './config/store';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
-import {
-	getGlobalSkillsForSite,
-	setGlobalSkillEnabledOnSite,
-	type GlobalSkillSource,
-} from './global-skills';
+import { getEnabledGlobalSkills, type GlobalSkillSource } from './global-skills';
 import { isErrnoException } from './is-errno-exception';
 import {
 	createSkillInFolder,
@@ -261,8 +257,8 @@ export interface SiteAgentFile {
 	installed: boolean;
 	// Where agents find it.
 	enabled: boolean;
-	// Set for a skill that works on all sites, which this site can only switch off for itself:
-	// where the skill is kept.
+	// Set for a skill that works on all sites, which is changed for all sites, not here: where
+	// the skill is kept.
 	globalSource?: GlobalSkillSource;
 }
 
@@ -396,7 +392,7 @@ export async function updateSiteSkill(
 async function getSiteSkills( sitePath: string ): Promise< SiteAgentFile[] > {
 	const [ own, global ] = await Promise.all( [
 		getSiteFolderSkills( sitePath ),
-		getGlobalSkillsForSite( sitePath ),
+		getEnabledGlobalSkills(),
 	] );
 	return [
 		...own,
@@ -407,7 +403,7 @@ async function getSiteSkills( sitePath: string ): Promise< SiteAgentFile[] > {
 				displayName: skill.displayName,
 				description: skill.description,
 				installed: true,
-				enabled: skill.enabledOnSite,
+				enabled: true,
 				globalSource: skill.source,
 			} ) ),
 	];
@@ -467,16 +463,6 @@ export async function setSiteAgentFileEnabled(
 	requestedId: string,
 	enabled: boolean
 ): Promise< void > {
-	const globalSkill =
-		kind === 'skills'
-			? ( await getSiteSkills( sitePath ) ).find(
-					( skill ) => skill.globalSource && skill.id === requestedId
-			  )
-			: undefined;
-	if ( globalSkill ) {
-		await setGlobalSkillEnabledOnSite( sitePath, globalSkill.id, enabled );
-		return;
-	}
 	const id = await getKnownFileId( sitePath, kind, requestedId );
 	const moved = await moveSiteAgentFile( sitePath, kind, id, enabled );
 	// Switching on a file the site never had installs it.

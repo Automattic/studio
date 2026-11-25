@@ -60,6 +60,23 @@ describe( 'site skills in the Skill tool', () => {
 		expect( await loadSkill( tool, 'build-site' ) ).not.toContain( 'SITE-SKILL-BODY' );
 	} );
 
+	it( 'tells the app which skill it loaded, apart from the instructions', async () => {
+		await addSkill(
+			'lookbook-post',
+			'---\ndescription: Lay out a lookbook post.\n---\nAsk for the season.'
+		);
+		const tool = createSkillTool( [], await readSiteSkills( sitePath ) );
+		const details = async ( name: string ) =>
+			( await tool!.handler( { name } as never, {} as never ) ).details;
+
+		expect( await details( 'lookbook-post' ) ).toEqual( {
+			skill: { name: 'lookbook-post', description: 'Lay out a lookbook post.' },
+		} );
+		expect( await details( 'build-site' ) ).toEqual( {
+			skill: { name: 'build-site', description: expect.stringMatching( /\S/ ) },
+		} );
+	} );
+
 	it( 'says nothing about user skills when the site has none', () => {
 		expect( createSkillTool()?.description ).not.toContain( "user's own skills" );
 	} );

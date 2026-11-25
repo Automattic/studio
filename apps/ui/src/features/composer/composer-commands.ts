@@ -1,4 +1,3 @@
-import { Badge } from '@studio/ds';
 import {
 	GaugeIcon,
 	TagIcon,
@@ -15,8 +14,6 @@ import {
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
-import { createElement } from 'react';
-import type { UserSkillCommand } from '@/data/queries/use-site-agent-files';
 import type { SkillSlashCommand } from '@studio/agent/protocol/slash-commands';
 import type { Command, CommandGroup } from '@studio/ds';
 import type { ComponentType } from 'react';
@@ -133,7 +130,7 @@ export function getCommandGroups( {
 	commands: SkillSlashCommand[];
 	skills: SkillSlashCommand[];
 	// The ones among `skills` that are the user's own.
-	userSkills?: UserSkillCommand[];
+	userSkills?: SkillSlashCommand[];
 	matches: SkillSlashCommand[];
 	searching?: boolean;
 	isDisabled: ( name: string ) => boolean;
@@ -148,10 +145,6 @@ export function getCommandGroups( {
 			description: command.description,
 			icon: userSkill ? SkillsIcon : COMMAND_ICONS[ command.name ] ?? SparklesIcon,
 			disabled: isDisabled( command.name ),
-			// A site's own skill needs no label in its own chat.
-			trailing: userSkill?.global
-				? createElement( Badge, { size: 'xs', variant: 'secondary' }, __( 'All sites' ) )
-				: undefined,
 		};
 	};
 	return [

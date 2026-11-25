@@ -1,4 +1,4 @@
-import { Badge, Menu } from '@studio/ds';
+import { Menu } from '@studio/ds';
 import { __, sprintf } from '@wordpress/i18n';
 import { useState } from 'react';
 import { toast } from '@/data/app-messages';
@@ -12,22 +12,19 @@ import {
 	SkillEditor,
 	SkillRow,
 	SkillsEmpty,
-	SkillsFilter,
 	SkillsLibrary,
 	SkillsList,
 } from '@/features/settings/skills-library';
-import { getFileManager, useOpenInDestinations } from '@/features/sites';
+import { useOpenInDestinations } from '@/features/sites';
 import { SkillActions } from '../skill-actions';
 import type { SiteAgentFile, SiteDetails, SkillDraft } from '@/data/core';
 import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
 
 const OPEN_TARGETS: string[] = [ 'editor', 'files', 'terminal' ];
 
-type Filter = 'all' | 'site' | 'global';
-
 /**
- * What agents can use on a site: the skills in its folder, then the ones for all
- * sites. A switch changes this site only.
+ * A site's own skills: the ones in its folder. The skills for all sites are in the App tab,
+ * so they are not repeated here.
  */
 export function SiteSkillsLibrary( {
 	site,
@@ -40,15 +37,13 @@ export function SiteSkillsLibrary( {
 	onCreateInChat?: ( draft: SkillDraft ) => void;
 } ) {
 	const connector = useConnector();
-	const { localMachine, globalSkills, skillEditing } = connector.capabilities;
+	const { globalSkills, skillEditing } = connector.capabilities;
 	const { data: files, isError, refetch } = useSiteAgentFiles( site.id, 'skills' );
 	const update = useUpdateSiteAgentFiles( site.id, 'skills' );
 	const destinations = useOpenInDestinations( site ).filter( ( destination ) =>
 		OPEN_TARGETS.includes( destination.id )
 	);
-	const fileManager = getFileManager();
 	const [ query, setQuery ] = useState( '' );
-	const [ filter, setFilter ] = useState< Filter >( 'all' );
 	const [ deleting, setDeleting ] = useState< SiteAgentFile | null >( null );
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
 	// The form that takes the list's place: a new skill, or the one with this id.
@@ -56,13 +51,10 @@ export function SiteSkillsLibrary( {
 	if ( ! files ) {
 		return <SettingsLoadState loadFailed={ isError } onRetry={ () => void refetch() } />;
 	}
-	// An older server also lists the skills Studio ships that the site doesn't have.
-	const skills = files.filter( ( file ) => file.installed );
-	const own = skills.filter( ( skill ) => ! skill.globalSource );
-	const global = skills.filter( ( skill ) => skill.globalSource );
-	const mixed = own.length > 0 && global.length > 0;
-	const scoped = ! mixed || filter === 'all' ? skills : filter === 'site' ? own : global;
-	const shown = scoped.filter( ( skill ) => matchesSkillSearch( skill, query ) );
+	// The list also holds the skills for all sites, for the chat's `/` menu. An older server
+	// lists the skills Studio ships that the site doesn't have, too.
+	const skills = files.filter( ( file ) => file.installed && ! file.globalSource );
+	const shown = skills.filter( ( skill ) => matchesSkillSearch( skill, query ) );
 	const report = ( error: Error ) => {
 		toast.error( error.message );
 	};
@@ -71,7 +63,6 @@ export function SiteSkillsLibrary( {
 		<SkillActions
 			id={ skill.id }
 			name={ skill.displayName }
-			disabled={ update.isPending }
 			removeLabel={ __( 'Delete' ) }
 			onEdit={ canEdit && skillEditing ? () => setEditing( { id: skill.id } ) : undefined }
 			onRemove={ () => {
@@ -100,7 +91,7 @@ export function SiteSkillsLibrary( {
 			) ) }
 		</SkillActions>
 	);
-	const edited = own.find( ( skill ) => skill.id === editing?.id );
+	const edited = skills.find( ( skill ) => skill.id === editing?.id );
 	const deleteDialog = (
 		<DeleteSkillDialog
 			open={ deleteOpen }
@@ -152,82 +143,35 @@ export function SiteSkillsLibrary( {
 	return (
 		<SkillsLibrary
 			settingId="site-wordpress-skills"
-			query={ skills.length ? query : undefined }
+			query={ query }
 			onQueryChange={ setQuery }
-			filters={
-				mixed ? (
-					<SkillsFilter
-						label={ __( 'Filter skills' ) }
-						value={ filter }
-						onChange={ setFilter }
-						options={ [
-							{ value: 'all', label: __( 'All' ), count: skills.length },
-							{ value: 'site', label: __( 'This site' ), count: own.length },
-							{ value: 'global', label: __( 'All sites' ), count: global.length },
-						] }
-					/>
+			title={ __( 'Skills on this site' ) }
+			description={ sprintf(
+				/* translators: %s: the site's name. */
+				__( 'Skills saved in the folder of %s. They work on this site only.' ),
+				site.name
+			) }
+			link={
+				globalSkills ? (
+					<SettingsSectionLink onClick={ onManageAll }>
+						{ __( 'Skills for all sites' ) }
+					</SettingsSectionLink>
 				) : null
-			}
-			scope={
-				<>
-					{ sprintf(
-						/* translators: %s: the site's name. */
-						__( 'What agents can use on %s. Switches here change this site only.' ),
-						site.name
-					) }
-					{ globalSkills ? (
-						<>
-							{ ' ' }
-							<SettingsSectionLink onClick={ onManageAll }>
-								{ __( 'Skills for all sites' ) }
-							</SettingsSectionLink>
-						</>
-					) : null }
-				</>
 			}
 			error={ update.error && ! deleteOpen ? update.error.message : undefined }
 			onAdd={ skillEditing ? () => setEditing( {} ) : undefined }
 		>
 			{ shown.length ? (
 				<SkillsList>
-					{ shown.map( ( skill ) => {
-						const { globalSource } = skill;
-						return (
-							<SkillRow
-								key={ skill.id }
-								skill={ skill }
-								badge={
-									global.length ? (
-										<Badge size="xs" variant={ globalSource ? 'secondary' : 'accent' }>
-											{ globalSource ? __( 'All sites' ) : __( 'This site' ) }
-										</Badge>
-									) : null
-								}
-								enabled={ skill.enabled }
-								disabled={ update.isPending }
-								onToggle={ ( enabled ) => update.mutate( { ids: [ skill.id ], enabled } ) }
-								actions={
-									globalSource ? (
-										// A skill for all sites is changed and deleted in the App tab.
-										<SkillActions name={ skill.displayName } disabled={ update.isPending }>
-											{ localMachine ? (
-												<Menu.Item
-													onClick={ () =>
-														void connector.openGlobalSkill( globalSource, skill.id ).catch( report )
-													}
-												>
-													{ fileManager.logo }
-													{ fileManager.label }
-												</Menu.Item>
-											) : null }
-										</SkillActions>
-									) : (
-										actionsFor( skill, true )
-									)
-								}
-							/>
-						);
-					} ) }
+					{ shown.map( ( skill ) => (
+						<SkillRow
+							key={ skill.id }
+							skill={ skill }
+							enabled={ skill.enabled }
+							onToggle={ ( enabled ) => update.mutate( { ids: [ skill.id ], enabled } ) }
+							actions={ actionsFor( skill, true ) }
+						/>
+					) ) }
 				</SkillsList>
 			) : skills.length ? (
 				<SkillsEmpty title={ __( 'No skills found' ) }>{ __( 'Try another search.' ) }</SkillsEmpty>

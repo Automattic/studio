@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { readConfig, updateConfig } from './config/store';
-import { arePathsEqual } from './fs-utils';
+import { __, sprintf } from '@wordpress/i18n';
+import { isErrnoException } from './is-errno-exception';
 import {
 	createSkillInFolder,
 	getSkillDisplayName,
@@ -18,8 +18,8 @@ import {
 } from './well-known-paths';
 import type { SkillDetails, SkillDraft } from './skill-draft';
 
-// Where a skill for all sites is kept: Studio's own folder, or the folder the
-// other agents on this computer read (`~/.agents/skills`).
+// Where a skill is found: Studio's folder for all sites, or the folder the other agents on
+// this computer read (`~/.agents/skills`).
 export type GlobalSkillSource = 'studio' | 'agents';
 
 export interface GlobalSkill {
@@ -27,46 +27,65 @@ export interface GlobalSkill {
 	displayName: string;
 	// Empty for a skill whose SKILL.md states none: agents can't pick such a skill.
 	description: string;
+	// For one in Studio's folder: agents can load it. For one in `~/.agents/skills`: Studio's
+	// folder has a link to it.
 	enabled: boolean;
 	source: GlobalSkillSource;
 	directory: string;
+	// In Studio's folder as a link to a skill in `~/.agents/skills`: a change or a delete in
+	// Studio reaches the other agents too.
+	linked?: boolean;
 }
 
-const toGlobalSkill = (
-	skill: UserSkill,
-	source: GlobalSkillSource,
-	enabled: boolean
-): GlobalSkill => ( {
-	id: skill.name,
-	displayName: getSkillDisplayName( skill.name ),
-	description: skill.description,
-	enabled,
-	source,
-	directory: skill.directory,
-} );
+async function isLink( filePath: string ): Promise< boolean > {
+	try {
+		return ( await fs.promises.lstat( filePath ) ).isSymbolicLink();
+	} catch {
+		return false;
+	}
+}
+
+// The skills in one of Studio's two folders, each with whether it is a link.
+async function readStudioFolder( folder: string, enabled: boolean ): Promise< GlobalSkill[] > {
+	return Promise.all(
+		( await readSkillsFolder( folder ) ).map( async ( skill ) => ( {
+			id: skill.name,
+			displayName: getSkillDisplayName( skill.name ),
+			description: skill.description,
+			enabled,
+			source: 'studio' as const,
+			directory: skill.directory,
+			...( ( await isLink( skill.directory ) ) ? { linked: true } : {} ),
+		} ) )
+	);
+}
 
 /**
- * The user's skills for all sites. Studio's own are on or off by the folder they
- * are in. The ones in `~/.agents/skills` stay where the other agents read them,
- * so they are always the latest version, and are off until switched on.
+ * The user's skills for all sites: the ones in Studio's folder, on or off by the folder they
+ * are in. Then the ones found in `~/.agents/skills`: adding one puts a link to it in Studio's
+ * folder, so Studio always reads the latest version and the files stay where they are.
  */
 export async function getGlobalSkills(): Promise< GlobalSkill[] > {
-	const [ enabled, disabled, agents, config ] = await Promise.all( [
-		readSkillsFolder( getGlobalSkillsDirectory() ),
-		readSkillsFolder( getDisabledGlobalSkillsDirectory() ),
+	const [ enabled, disabled, agents ] = await Promise.all( [
+		readStudioFolder( getGlobalSkillsDirectory(), true ),
+		readStudioFolder( getDisabledGlobalSkillsDirectory(), false ),
 		readSkillsFolder( getAgentsSkillsDirectory() ),
-		readConfig(),
 	] );
-	const switchedOn = config.preferences.agentsSkills ?? [];
+	const studio = [
+		...enabled,
+		...disabled.filter( ( skill ) => ! enabled.some( ( { id } ) => id === skill.id ) ),
+	].sort( ( a, b ) => a.id.localeCompare( b.id ) );
 	return [
-		...[
-			...enabled.map( ( skill ) => toGlobalSkill( skill, 'studio', true ) ),
-			...disabled
-				.filter( ( skill ) => ! enabled.some( ( { name } ) => name === skill.name ) )
-				.map( ( skill ) => toGlobalSkill( skill, 'studio', false ) ),
-		].sort( ( a, b ) => a.id.localeCompare( b.id ) ),
-		...agents.map( ( skill ) =>
-			toGlobalSkill( skill, 'agents', switchedOn.includes( skill.name ) )
+		...studio,
+		...agents.map(
+			( skill ): GlobalSkill => ( {
+				id: skill.name,
+				displayName: getSkillDisplayName( skill.name ),
+				description: skill.description,
+				enabled: studio.some( ( { id, linked } ) => linked && id === skill.name ),
+				source: 'agents',
+				directory: skill.directory,
+			} )
 		),
 	];
 }
@@ -82,6 +101,43 @@ async function findGlobalSkill( source: GlobalSkillSource, id: string ): Promise
 	return skill;
 }
 
+// Where a skill of this name is, or would be, in Studio's two folders.
+const studioLocations = ( id: string ) =>
+	[ getGlobalSkillsDirectory(), getDisabledGlobalSkillsDirectory() ].map( ( folder ) =>
+		path.join( folder, id )
+	);
+
+// Adds a skill from `~/.agents/skills` to Studio as a link, or takes the link away. Only a
+// link is ever removed here: a folder of the same name is one of Studio's own.
+async function setAgentsSkillLinked( skill: GlobalSkill, linked: boolean ): Promise< void > {
+	const [ link, ...others ] = studioLocations( skill.id );
+	for ( const location of [ link, ...others ] ) {
+		if ( await isLink( location ) ) {
+			await fs.promises.rm( location, { force: true } );
+		}
+	}
+	if ( ! linked ) {
+		return;
+	}
+	try {
+		await linkSkill( skill.directory, link );
+	} catch ( error ) {
+		if ( isErrnoException( error ) && error.code === 'EEXIST' ) {
+			throw new Error(
+				/* translators: %s: a skill's command name, such as "lookbook-post". */
+				sprintf( __( 'Studio already has a skill named “%s”.' ), skill.id )
+			);
+		}
+		throw error;
+	}
+}
+
+async function linkSkill( target: string, link: string ): Promise< void > {
+	await fs.promises.mkdir( path.dirname( link ), { recursive: true } );
+	// A junction needs no administrator rights on Windows.
+	await fs.promises.symlink( target, link, process.platform === 'win32' ? 'junction' : 'dir' );
+}
+
 export async function setGlobalSkillEnabled(
 	source: GlobalSkillSource,
 	requestedId: string,
@@ -89,10 +145,7 @@ export async function setGlobalSkillEnabled(
 ): Promise< void > {
 	const skill = await findGlobalSkill( source, requestedId );
 	if ( source === 'agents' ) {
-		await updateConfig( ( { preferences } ) => {
-			const others = ( preferences.agentsSkills ?? [] ).filter( ( id ) => id !== skill.id );
-			preferences.agentsSkills = enabled ? [ ...others, skill.id ] : others;
-		} );
+		await setAgentsSkillLinked( skill, enabled );
 		return;
 	}
 	if ( skill.enabled === enabled ) {
@@ -107,10 +160,23 @@ export async function setGlobalSkillEnabled(
 	await fs.promises.rename( skill.directory, to );
 }
 
-// Deletes one of Studio's own. The ones in `~/.agents/skills` belong to the other agents too.
+// Deletes a skill of Studio's folder. A linked one goes from `~/.agents/skills` too, so from
+// the other agents; a link that points somewhere else only loses its link.
 export async function removeGlobalSkill( requestedId: string ): Promise< void > {
 	const skill = await findGlobalSkill( 'studio', requestedId );
-	await fs.promises.rm( skill.directory, { recursive: true, force: true } );
+	if ( ! skill.linked ) {
+		await fs.promises.rm( skill.directory, { recursive: true, force: true } );
+		return;
+	}
+	const [ target, agents ] = await Promise.all(
+		[ skill.directory, getAgentsSkillsDirectory() ].map( ( folder ) =>
+			fs.promises.realpath( folder )
+		)
+	);
+	await fs.promises.rm( skill.directory, { force: true } );
+	if ( path.dirname( target ) === agents ) {
+		await fs.promises.rm( target, { recursive: true, force: true } );
+	}
 }
 
 const toUserSkill = ( skill: GlobalSkill ): UserSkill => ( {
@@ -119,7 +185,7 @@ const toUserSkill = ( skill: GlobalSkill ): UserSkill => ( {
 	directory: skill.directory,
 } );
 
-// The names Studio's own global skills have, on or off.
+// The names the skills in Studio's folder have, on or off.
 async function readStudioSkillNames(): Promise< string[] > {
 	return ( await getGlobalSkills() )
 		.filter( ( skill ) => skill.source === 'studio' )
@@ -137,21 +203,47 @@ export async function createGlobalSkill(
 	} );
 }
 
-// One of Studio's own, opened to change it. The other agents' skills are changed in their folder.
 export async function getGlobalSkillDetails( requestedId: string ): Promise< SkillDetails > {
 	return readSkillDetails( toUserSkill( await findGlobalSkill( 'studio', requestedId ) ) );
 }
 
+/**
+ * Saves changes to a skill in Studio's folder and returns its name. A linked skill changes
+ * where it is kept, so for the other agents too: a new name moves that folder, and the link
+ * with it.
+ */
 export async function updateGlobalSkill(
 	requestedId: string,
 	draft: SkillDraft,
 	reserved: string[]
 ): Promise< string > {
 	const skill = await findGlobalSkill( 'studio', requestedId );
-	return updateSkillInFolder( toUserSkill( skill ), draft, {
-		taken: await readStudioSkillNames(),
-		reserved,
-	} );
+	const taken = await readStudioSkillNames();
+	if ( ! skill.linked ) {
+		return updateSkillInFolder( toUserSkill( skill ), draft, { taken, reserved } );
+	}
+	const target = await fs.promises.realpath( skill.directory );
+	const neighbors = await readSkillsFolder( path.dirname( target ) );
+	const id = await updateSkillInFolder(
+		{ ...toUserSkill( skill ), name: path.basename( target ), directory: target },
+		draft,
+		{
+			// The folder's own name is free to keep; Studio's name for the link is too.
+			taken: [
+				...taken.filter( ( name ) => name !== skill.id ),
+				...neighbors.map( ( neighbor ) => neighbor.name ),
+			],
+			reserved,
+		}
+	);
+	if ( id !== skill.id ) {
+		await fs.promises.rm( skill.directory, { force: true } );
+		await linkSkill(
+			path.join( path.dirname( target ), id ),
+			path.join( path.dirname( skill.directory ), id )
+		);
+	}
+	return id;
 }
 
 // The folder of a global skill, for a file manager.
@@ -162,70 +254,30 @@ export async function getGlobalSkillDirectory(
 	return ( await findGlobalSkill( source, requestedId ) ).directory;
 }
 
-async function readSiteRecord( sitePath: string ) {
-	return ( await readConfig() ).sites.find( ( candidate ) =>
-		arePathsEqual( candidate.path, sitePath )
+// The global skills agents can load: the ones in Studio's folder that are on.
+export async function getEnabledGlobalSkills(): Promise< GlobalSkill[] > {
+	return ( await getGlobalSkills() ).filter(
+		( skill ) => skill.source === 'studio' && skill.enabled
 	);
 }
 
 /**
- * The global skills a site can use: the ones that are on, with whether this site
- * switched each off. Studio's own come before another agent's of the same name.
- */
-export async function getGlobalSkillsForSite(
-	sitePath: string
-): Promise< Array< GlobalSkill & { enabledOnSite: boolean } > > {
-	const [ skills, disabled ] = await Promise.all( [
-		getGlobalSkills(),
-		readSiteRecord( sitePath ).then( ( site ) => site?.disabledGlobalSkills ?? [] ),
-	] );
-	return skills
-		.filter(
-			( skill, index ) =>
-				skill.enabled &&
-				skills.findIndex( ( { id, enabled } ) => enabled && id === skill.id ) === index
-		)
-		.map( ( skill ) => ( { ...skill, enabledOnSite: ! disabled.includes( skill.id ) } ) );
-}
-
-export async function setGlobalSkillEnabledOnSite(
-	sitePath: string,
-	id: string,
-	enabled: boolean
-): Promise< void > {
-	const siteId = ( await readSiteRecord( sitePath ) )?.id;
-	await updateConfig( ( { sites } ) => {
-		const site = sites.find( ( candidate ) => candidate.id === siteId );
-		if ( ! site ) {
-			throw new Error( 'Site not found.' );
-		}
-		const others = ( site.disabledGlobalSkills ?? [] ).filter( ( skill ) => skill !== id );
-		site.disabledGlobalSkills = enabled ? others : [ ...others, id ];
-	} );
-}
-
-/**
- * The user's skills an agent can load: the site's own, then the global ones the
- * site did not switch off. A skill in the site's folder, on or off, takes the
- * place of a global one with its name. Without a site, the global ones.
+ * The user's skills an agent can load: the site's own, then the global ones that are
+ * on. A skill in the site's folder, on or off, takes the place of a global one with
+ * its name. Without a site, the global ones.
  */
 export async function readSkillsForAgent( sitePath?: string ): Promise< UserSkill[] > {
 	if ( ! sitePath ) {
-		const skills = ( await getGlobalSkills() ).filter( ( skill ) => skill.enabled );
-		return skills
-			.filter( ( skill, index ) => skills.findIndex( ( { id } ) => id === skill.id ) === index )
-			.map( toUserSkill );
+		return ( await getEnabledGlobalSkills() ).map( toUserSkill );
 	}
 	const [ own, inFolder, global ] = await Promise.all( [
 		readSiteSkills( sitePath ),
 		readSiteSkillNames( sitePath ),
-		getGlobalSkillsForSite( sitePath ),
+		getEnabledGlobalSkills(),
 	] );
 	return [
 		...own,
-		...global
-			.filter( ( skill ) => skill.enabledOnSite && ! inFolder.includes( skill.id ) )
-			.map( toUserSkill ),
+		...global.filter( ( skill ) => ! inFolder.includes( skill.id ) ).map( toUserSkill ),
 	];
 }
 

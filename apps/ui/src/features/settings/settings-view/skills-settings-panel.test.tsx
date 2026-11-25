@@ -60,13 +60,10 @@ describe( 'skills for all sites', () => {
 		expect( toggle( 'Brand voice' ) ).toBeChecked();
 		expect( toggle( 'Client handoff' ) ).not.toBeChecked();
 		expect( screen.queryByText( '/changelog' ) ).not.toBeInTheDocument();
-		expect(
-			screen.getByText( 'Skills that work on every site. Switches here change all sites.', {
-				exact: false,
-			} )
-		).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'In Studio 2' } ) ).toHaveAttribute(
-			'aria-pressed',
+		expect( screen.getByText( 'Skills for all sites' ) ).toBeVisible();
+		expect( screen.getByText( 'Skills that work on every site.', { exact: false } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Studio 2' } ) ).toHaveAttribute(
+			'aria-selected',
 			'true'
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Skills for this site' } ) );
@@ -89,7 +86,7 @@ describe( 'skills for all sites', () => {
 	it( 'shows the skills found on this computer, off until switched on, and never deletes them', async () => {
 		const { connector } = setup();
 		await screen.findByText( '/brand-voice' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'On this computer 1' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Global 1' } ) );
 		expect( screen.getByText( '/changelog' ) ).toBeVisible();
 		expect( screen.queryByText( '/brand-voice' ) ).not.toBeInTheDocument();
 		expect( screen.getByText( /Skills in ~\/\.agents\/skills/ ) ).toBeVisible();
@@ -125,7 +122,7 @@ describe( 'skills for all sites', () => {
 		const { connector } = setup();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Add skill' } ) );
 		const form = await screen.findByRole( 'form', { name: 'New skill' } );
-		expect( within( form ).getByText( 'All sites' ) ).toBeVisible();
+		expect( within( form ).getByText( 'Works on every site.' ) ).toBeVisible();
 		for ( const [ name, value ] of [
 			[ 'Name', 'Launch checklist' ],
 			[ 'When should agents use it?', 'Check a site before it goes live.' ],
@@ -147,9 +144,38 @@ describe( 'skills for all sites', () => {
 		await waitFor( () => expect( connector.getSkill ).toHaveBeenCalledWith( null, 'brand-voice' ) );
 	} );
 
+	it( "lists a linked skill with Studio's, and says a delete reaches the other agents", async () => {
+		const { connector } = setup( {
+			initial: [
+				skill( 'brand-voice', 'studio', true ),
+				{ ...skill( 'changelog', 'studio', true ), linked: true },
+				skill( 'changelog', 'agents', true ),
+			],
+		} );
+		expect( await screen.findByText( '/changelog' ) ).toBeVisible();
+		expect( screen.queryByText( 'Linked' ) ).not.toBeInTheDocument();
+		expect( screen.getAllByRole( 'img', { name: 'Linked from ~/.agents/skills' } ) ).toHaveLength(
+			1
+		);
+		expect( screen.getByRole( 'tab', { name: 'Studio 2' } ) ).toBeVisible();
+
+		fireEvent.click( screen.getByRole( 'button', { name: 'Actions for Changelog' } ) );
+		expect( await screen.findByRole( 'menuitem', { name: 'Edit' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Delete' } ) );
+		const dialog = await screen.findByRole( 'alertdialog', { name: 'Delete skill' } );
+		expect( dialog ).toHaveTextContent(
+			'Delete “Changelog” from all sites, and from ~/.agents/skills, where your other agents use it?'
+		);
+		expect( connector.removeGlobalSkill ).not.toHaveBeenCalled();
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Delete skill' } ) );
+		await waitFor( () =>
+			expect( connector.removeGlobalSkill ).toHaveBeenCalledWith( 'changelog' )
+		);
+	} );
+
 	it( "never offers to change another agent's skill here", async () => {
 		setup();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'On this computer 1' } ) );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Global 1' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for Changelog' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Open in' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'menuitem', { name: 'Edit' } ) ).not.toBeInTheDocument();
@@ -157,7 +183,7 @@ describe( 'skills for all sites', () => {
 
 	it( 'searches the list', async () => {
 		setup();
-		fireEvent.change( await screen.findByRole( 'searchbox', { name: 'Search skills' } ), {
+		fireEvent.change( await screen.findByRole( 'textbox', { name: 'Search skills' } ), {
 			target: { value: 'handoff' },
 		} );
 		expect( screen.getByText( '/client-handoff' ) ).toBeVisible();
@@ -167,15 +193,15 @@ describe( 'skills for all sites', () => {
 	it( 'explains where skills go when there are none', async () => {
 		setup( { initial: [] } );
 		expect( await screen.findByText( 'No skills for all sites yet' ) ).toBeVisible();
-		expect( screen.queryByRole( 'searchbox' ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'On this computer 0' } ) );
+		expect( screen.getByRole( 'textbox', { name: 'Search skills' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Global 0' } ) );
 		expect( screen.getByText( 'No skills found on this computer' ) ).toBeVisible();
 	} );
 
 	it( "leaves out another computer's skills and folders", async () => {
 		setup( { capabilities: { localMachine: false } } );
 		await screen.findByText( '/brand-voice' );
-		expect( screen.queryByRole( 'button', { name: /On this computer/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'tab', { name: /Global/ } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Actions for Brand voice' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Delete' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'menuitem', { name: 'Open in' } ) ).not.toBeInTheDocument();

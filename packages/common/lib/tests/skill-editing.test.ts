@@ -4,6 +4,7 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	createSiteSkill,
+	getBundledSkills,
 	getSiteAgentFiles,
 	getSiteSkillDetails,
 	setSiteAgentFileEnabled,
@@ -18,7 +19,7 @@ import {
 	setGlobalSkillEnabled,
 	updateGlobalSkill,
 } from '../global-skills';
-import { getSkillId } from '../skill-draft';
+import { getSkillId, SHIPPED_SKILL_IDS } from '../skill-draft';
 
 const draft = {
 	name: 'Lookbook Post',
@@ -53,6 +54,10 @@ describe( 'making and changing skills', () => {
 		vi.restoreAllMocks();
 		delete process.env.DEV_CONFIG_DIR;
 		fs.rmSync( root, { recursive: true, force: true } );
+	} );
+
+	it( 'knows the skills Studio copied into sites, which the / menu leaves out', () => {
+		expect( SHIPPED_SKILL_IDS ).toEqual( getBundledSkills().map( ( skill ) => skill.id ) );
 	} );
 
 	it( 'makes the command from the name', () => {

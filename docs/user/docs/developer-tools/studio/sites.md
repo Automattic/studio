@@ -73,7 +73,7 @@ To have WordPress Studio start a stopped site when you send it a WordPress Studi
 
 ### [View sites](#4-view-sites)
 
-The selected site is shown in the panel on the right of the WordPress Studio window. The panel works like a small browser: it has tabs, and each tab has **Back**, **Forward**, and **Reload** buttons, an address bar, **Annotate**, and **Browser options** (**⋮**). Above the tabs you’ll find **Share**, **Publish**, **Expand panel**, and **Hide panel**.
+The selected site is shown in the panel on the right of the WordPress Studio window. The panel works like a small browser: it has tabs, and each tab has **Back**, **Forward**, and **Reload** buttons, an address bar, **Annotate**, and **Browser options** (**⋮**). Above the tabs you’ll find **Publish**, **Expand panel**, and **Hide panel**.
 
 To open something in a new tab, click **New tab** (**+**) next to the tabs and choose:
 
@@ -100,7 +100,7 @@ To view a running site in your browser:
 
 Links in the site preview that open a new window, such as **View post** and the editor’s **Preview**, open in the preview. Links to other websites open in your system browser.
 
-To give the preview more room, click **Expand panel** in the header, which hides the chat. Click **Show chat** to bring it back. To hide the panel instead, click **Hide panel** or press ⇧⌘B (Ctrl+Shift+B on Windows and Linux). In the desktop app, the **View** menu also switches between **Chat** (⌘1), **Split view** (⌘2), and **Panel** (⌘3). Each site remembers its layout and how wide the chat and panel are. To restore the defaults, click **Reset interface** in **Settings → General**.
+To give the preview more room, click **Expand panel** in the header, which hides the chat. Click **Show chat**, or choose **Show chat** from the [site menu](#site-menu), to bring it back. To hide the panel instead, click **Hide panel** or press ⇧⌘B (Ctrl+Shift+B on Windows and Linux). In the desktop app, the **View** menu also switches between **Chat** (⌘1), **Split view** (⌘2), and **Panel** (⌘3). You can also drag the divider beside the sidebar, the chat, or the panel past its narrowest width to close it. When you open it again, it comes back at the width it had before. Each site remembers its layout and how wide the chat and panel are. To restore the defaults, click **Reset interface** in **Settings → General**.
 
 ### [Browser options](#browser-options)
 
@@ -134,11 +134,12 @@ Each site keeps its device toolbar settings until you stop the site or quit Word
 
 Each site has a menu with quick access to everything you can do with it. To open it, click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar.
 
-![The site menu in WordPress Studio, open from the button with the site's name in the site's header, with New chat, Stop, Tools, and Open in, then Pin, Rename, Duplicate, and Settings, then Share, Publish, and Export, and Delete.](../../../screenshots/images/site-menu.webp)
+![The site menu in WordPress Studio, open from the button with the site's name in the site's header, with Stop, Tools, and Open in, then Pin, Rename, Duplicate, and Settings, then Share, Publish, and Export, and Delete.](../../../screenshots/images/site-menu.webp)
 
 The site menu groups its items:
 
 -   **New chat**: starts a new [WordPress Studio Code](https://wordpress.studio/docs/studio-code/) chat for the site, once you’ve logged in or connected an AI provider
+-   **Show chat**: brings back the chat when you’ve hidden it with **Expand panel**
 -   **Start** or **Stop**. When several sites are running, **Stop** is a submenu with **Stop site**, **Stop other sites**, and **Stop all sites**.
 -   **Tools**: opens the site’s **Browser**, **Admin**, **Design System** (when it has one), **Database**, or **Email log** in the site preview (see [View sites](#view-sites))
 -   **Open in**: opens the site in other apps (see below)
@@ -146,7 +147,7 @@ The site menu groups its items:
 -   **Rename**
 -   **Duplicate**: a notice shows the progress while WordPress Studio copies the site
 -   **Settings**: opens the site’s [settings](#site-settings)
--   **Share**: see [Preview sites](https://wordpress.studio/docs/preview-sites/)
+-   **Share**: **Create preview**, and **Copy links** and **Visit previews** once the site has previews. See [Preview sites](https://wordpress.studio/docs/preview-sites/)
 -   **Publish**: see [WordPress Studio Sync](https://wordpress.studio/docs/sync/)
 -   **Export** (**Export site** or **Export database**): see [Import & export](https://wordpress.studio/docs/import-export/)
 -   **Delete**
@@ -242,7 +243,7 @@ Each site in the sidebar can be expanded to show its WordPress Studio Code chats
 
 ### [Delete a site](#12-delete-a-site)
 
-To delete a local site, choose **Delete** from the [site menu](#site-menu). WordPress Studio asks you to confirm that you want to remove the site from WordPress Studio. To also delete its files from your computer, select **Also move files and database to Trash**, then click **Remove site**.
+To delete a local site, choose **Delete** from the [site menu](#site-menu). WordPress Studio asks you to confirm that you want to remove the site from WordPress Studio. To also delete its files from your computer, select **Also move files and database to Trash**, then click **Remove site**. If WordPress Studio can’t move the files to the Trash, it removes the site anyway and shows **Site files left on disk** with the folders to delete yourself.
 
 To delete several sites at once, select them in the sidebar, right-click the selection, and choose **Delete *N* sites**. To keep one of them, click **Exclude** (**×**) next to its name in the confirmation, then click **Remove sites**.
 

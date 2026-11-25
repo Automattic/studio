@@ -264,6 +264,17 @@ export const chatSamples: ChatSample[] = [
 		title: 'Tool calls: read, edit with a diff, commands, an error',
 		entries: transcript( ( t ) => {
 			t.prompt( 'Tidy the header and set the tagline.' );
+			t.assistant( {
+				name: 'Skill',
+				args: { name: 'lookbook-post' },
+				result: '# Lookbook post\n\n1. Ask for the season.\n2. Use the gallery pattern.',
+				details: {
+					skill: {
+						name: 'lookbook-post',
+						description: 'Lay out a seasonal lookbook post with the gallery pattern.',
+					},
+				},
+			} );
 			t.assistant( 'Let me read the header first.', {
 				name: 'Read',
 				args: { path: 'wp-content/themes/bistro-lune/parts/header.html' },

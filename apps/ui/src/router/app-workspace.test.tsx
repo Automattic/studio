@@ -205,6 +205,8 @@ describe( 'Studio workspace', () => {
 					studioLogs: true,
 					loopbackSignIn: true,
 					localMachine: true,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );
@@ -797,6 +799,28 @@ describe( 'Studio workspace', () => {
 		expect( connector.createSession ).toHaveBeenCalledTimes( createCalls );
 	} );
 
+	it( 'leaves the new skill form for a new chat that starts with the create-skill command', async () => {
+		const { history } = setup( {
+			signedIn: true,
+			sessions: [ chat( { id: 'skills-chat', title: 'Existing chat' } ) ],
+			path: '/sessions/skills-chat?settings=site-skills',
+		} );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( await within( settings ).findByRole( 'button', { name: 'Add skill' } ) );
+		fireEvent.change( await within( settings ).findByRole( 'textbox', { name: 'Name' } ), {
+			target: { value: 'Lookbook post' },
+		} );
+		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Create in chat instead' } ) );
+
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
+		);
+		await waitFor( async () =>
+			expect( await findComposer() ).toHaveValue( '/create-skill Lookbook post' )
+		);
+	} );
+
 	it.each( [ 'Settings', 'Rename' ] )(
 		'keeps chat hidden when opening and closing %s from site actions',
 		async ( action ) => {
@@ -1380,6 +1404,8 @@ describe( 'Studio workspace', () => {
 					studioLogs: true,
 					loopbackSignIn: true,
 					localMachine: true,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );

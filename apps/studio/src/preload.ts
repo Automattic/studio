@@ -172,11 +172,14 @@ const api: IpcApi = {
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
-	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
-	installWordPressSkillsToAllSites: ( options ) =>
-		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
-	removeWordPressSkillFromAllSites: ( skillId ) =>
-		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	getGlobalSkills: () => ipcRendererInvoke( 'getGlobalSkills' ),
+	setGlobalSkillEnabled: ( source, id, enabled ) =>
+		ipcRendererInvoke( 'setGlobalSkillEnabled', source, id, enabled ),
+	removeGlobalSkill: ( id ) => ipcRendererInvoke( 'removeGlobalSkill', id ),
+	openGlobalSkill: ( source, id ) => ipcRendererInvoke( 'openGlobalSkill', source, id ),
+	createSkill: ( siteId, draft ) => ipcRendererInvoke( 'createSkill', siteId, draft ),
+	getSkill: ( siteId, id ) => ipcRendererInvoke( 'getSkill', siteId, id ),
+	updateSkill: ( siteId, id, draft ) => ipcRendererInvoke( 'updateSkill', siteId, id, draft ),
 	getSiteAgentFiles: ( siteId, kind ) => ipcRendererInvoke( 'getSiteAgentFiles', siteId, kind ),
 	setSiteAgentFileEnabled: ( siteId, kind, id, enabled ) =>
 		ipcRendererInvoke( 'setSiteAgentFileEnabled', siteId, kind, id, enabled ),

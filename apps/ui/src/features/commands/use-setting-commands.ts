@@ -131,6 +131,7 @@ export function useSettingCommands(
 		signedIn: ! user.isSuccess || !! user.data,
 		localMachine: connector.capabilities.localMachine,
 		loopbackSignIn: connector.capabilities.loopbackSignIn,
+		globalSkills: connector.capabilities.globalSkills,
 		toggles,
 		actions: {
 			'reset-appearance': {

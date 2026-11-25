@@ -64,6 +64,80 @@ describe( 'site agent files', () => {
 		expect( ( await status( 'instructions', 'AGENTS.md' ) )?.installed ).toBe( false );
 	} );
 
+	describe( "the user's own skills", () => {
+		const addSkill = ( folder: string, name: string, contents: string ) => {
+			fs.mkdirSync( path.join( site, '.agents', folder, name ), { recursive: true } );
+			fs.writeFileSync( path.join( site, '.agents', folder, name, 'SKILL.md' ), contents );
+		};
+
+		it( 'lists the skills in the site folder, on or off, and not the ones never installed', async () => {
+			addSkill(
+				'skills',
+				'lookbook-post',
+				'---\ndescription: Lay out a lookbook post.\n---\nSteps.'
+			);
+			addSkill( 'disabled-skills', 'size-guide', '# Size guide' );
+
+			expect( await getSiteAgentFiles( site, 'skills' ) ).toEqual( [
+				{
+					id: 'lookbook-post',
+					displayName: 'Lookbook post',
+					description: 'Lay out a lookbook post.',
+					installed: true,
+					enabled: true,
+				},
+				{
+					id: 'size-guide',
+					displayName: 'Size guide',
+					description: '',
+					installed: true,
+					enabled: false,
+				},
+				{
+					id: 'studio-cli',
+					displayName: 'Studio CLI',
+					description: 'WordPress development workflows using Studio CLI',
+					installed: true,
+					enabled: true,
+				},
+			] );
+		} );
+
+		it( 'switches one off and on, keeping its files, and deletes it', async () => {
+			addSkill(
+				'skills',
+				'lookbook-post',
+				'---\ndescription: Lay out a lookbook post.\n---\nSteps.'
+			);
+
+			await setSiteAgentFileEnabled( site, bundled, 'skills', 'lookbook-post', false );
+			expect( read( '.agents', 'disabled-skills', 'lookbook-post', 'SKILL.md' ) ).toContain(
+				'Steps.'
+			);
+			expect( ( await status( 'skills', 'lookbook-post' ) )?.enabled ).toBe( false );
+
+			await setSiteAgentFileEnabled( site, bundled, 'skills', 'lookbook-post', true );
+			expect( read( '.agents', 'skills', 'lookbook-post', 'SKILL.md' ) ).toContain( 'Steps.' );
+
+			await removeSiteAgentFile( site, 'skills', 'lookbook-post' );
+			expect( await status( 'skills', 'lookbook-post' ) ).toBeUndefined();
+			expect( fs.existsSync( path.join( site, '.agents', 'skills', 'lookbook-post' ) ) ).toBe(
+				false
+			);
+		} );
+
+		it( 'refuses a skill the site does not have', async () => {
+			fs.mkdirSync( path.join( root, 'outside' ) );
+			await expect(
+				setSiteAgentFileEnabled( site, bundled, 'skills', '../../outside', false )
+			).rejects.toThrow( 'Unknown skills file' );
+			await expect( removeSiteAgentFile( site, 'skills', '../../outside' ) ).rejects.toThrow(
+				'Unknown skills file'
+			);
+			expect( fs.existsSync( path.join( root, 'outside' ) ) ).toBe( true );
+		} );
+	} );
+
 	it( 'keeps existing files unless asked to overwrite, and installs only selected skills', async () => {
 		fs.writeFileSync( path.join( site, 'AGENTS.md' ), 'edited agents' );
 		fs.writeFileSync( path.join( site, '.agents', 'skills', 'studio-cli', 'SKILL.md' ), 'edited' );

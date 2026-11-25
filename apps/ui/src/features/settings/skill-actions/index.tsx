@@ -1,5 +1,5 @@
 import { IconButton, Menu } from '@studio/ds';
-import { ExternalLinkIcon, TrashIcon } from '@studio/ds/icons';
+import { ExternalLinkIcon, PencilIcon, TrashIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
 import { Children } from 'react';
@@ -25,13 +25,19 @@ export function SkillActions( {
 	name,
 	disabled,
 	children,
+	onEdit,
 	onRemove,
+	removeLabel,
 }: {
 	id?: string;
 	name: string;
 	disabled?: boolean;
 	children?: ReactNode;
+	// Opens the skill in its form, for a skill the user can change here.
+	onEdit?: () => void;
 	onRemove?: () => void;
+	// What removing is called here; "Uninstall" for the files Studio ships.
+	removeLabel?: string;
 } ) {
 	const connector = useConnector();
 	const source =
@@ -39,7 +45,7 @@ export function SkillActions( {
 			? SKILL_SOURCES[ id ]
 			: undefined;
 	const hasLocalDestinations = Children.count( children ) > 0;
-	if ( ! source && ! hasLocalDestinations ) {
+	if ( ! source && ! hasLocalDestinations && ! onEdit && ! onRemove ) {
 		return null;
 	}
 	return (
@@ -56,6 +62,12 @@ export function SkillActions( {
 				}
 			/>
 			<Menu.Popup side="bottom" align="end">
+				{ onEdit ? (
+					<Menu.Item onClick={ onEdit }>
+						<PencilIcon />
+						{ __( 'Edit' ) }
+					</Menu.Item>
+				) : null }
 				{ hasLocalDestinations ? (
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger>
@@ -79,10 +91,10 @@ export function SkillActions( {
 				) : null }
 				{ onRemove ? (
 					<>
-						<Menu.Separator />
+						{ onEdit || hasLocalDestinations || source ? <Menu.Separator /> : null }
 						<Menu.Item destructive onClick={ onRemove }>
 							<TrashIcon />
-							{ __( 'Uninstall' ) }
+							{ removeLabel ?? __( 'Uninstall' ) }
 						</Menu.Item>
 					</>
 				) : null }

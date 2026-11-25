@@ -3,13 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteAgentFiles } from './site-agent-files';
-import type { SiteAgentFileKind } from '@/data/core';
 
-function setup( enabled = true, fail = false, kind: SiteAgentFileKind = 'skills' ) {
+function setup( enabled = true ) {
 	const file = {
-		id: kind === 'skills' ? 'studio-cli' : 'agents',
-		displayName: kind === 'skills' ? 'Studio CLI' : 'AGENTS.md',
-		description: 'CLI workflows',
+		id: 'AGENTS.md',
+		displayName: 'AGENTS.md',
+		description: 'Instructions for AI agents.',
 		installed: true,
 		enabled,
 	};
@@ -18,9 +17,6 @@ function setup( enabled = true, fail = false, kind: SiteAgentFileKind = 'skills'
 		{
 			getSiteAgentFiles: async () => [ { ...file } ],
 			setSiteAgentFileEnabled: async ( _siteId, _kind, _id, value ) => {
-				if ( fail ) {
-					throw new Error( 'Could not update skill' );
-				}
 				file.enabled = value;
 			},
 			removeSiteAgentFile: async () => {
@@ -30,146 +26,61 @@ function setup( enabled = true, fail = false, kind: SiteAgentFileKind = 'skills'
 		}
 	);
 	renderWithProviders(
-		<SiteAgentFiles site={ makeSite( { id: 'one' } ) } kind={ kind } onManageAll={ vi.fn() } />,
+		<SiteAgentFiles site={ makeSite( { id: 'one' } ) } onManageAll={ vi.fn() } />,
 		{ connector }
 	);
 	return connector;
 }
 
-describe( 'site skill rows', () => {
-	it( 'turns site skills off and back on without uninstalling their files', async () => {
+describe( 'site instruction rows', () => {
+	it( 'turns instructions off and back on without uninstalling their files', async () => {
 		const connector = setup();
-		fireEvent.click( await screen.findByRole( 'switch', { name: 'WordPress skills' } ) );
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Agent instructions' } ) );
 		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).not.toBeChecked()
+			expect( screen.getByRole( 'switch', { name: 'AGENTS.md' } ) ).not.toBeChecked()
 		);
 		expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith(
 			'one',
-			'skills',
-			'studio-cli',
+			'instructions',
+			'AGENTS.md',
 			false
 		);
 		expect( connector.removeSiteAgentFile ).not.toHaveBeenCalled();
-		expect( screen.getByRole( 'button', { name: 'Actions for Studio CLI' } ) ).toBeInTheDocument();
-		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).toBeEnabled()
-		);
-		fireEvent.click( screen.getByRole( 'switch', { name: 'WordPress skills' } ) );
-		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toBeChecked()
-		);
-		expect( connector.setSiteAgentFileEnabled ).toHaveBeenLastCalledWith(
-			'one',
-			'skills',
-			'studio-cli',
-			true
-		);
 	} );
 
-	it( 'disables and restores a skill without removing it', async () => {
-		const connector = setup();
-		fireEvent.click( await screen.findByRole( 'switch', { name: 'Studio CLI' } ) );
-		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).not.toBeChecked()
-		);
-		expect( connector.setSiteAgentFileEnabled ).toHaveBeenCalledWith(
-			'one',
-			'skills',
-			'studio-cli',
-			false
-		);
-		expect( connector.removeSiteAgentFile ).not.toHaveBeenCalled();
-		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toBeEnabled()
-		);
-		fireEvent.click( screen.getByRole( 'switch', { name: 'Studio CLI' } ) );
-		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toBeChecked()
-		);
-		expect( connector.setSiteAgentFileEnabled ).toHaveBeenLastCalledWith(
-			'one',
-			'skills',
-			'studio-cli',
-			true
-		);
-	} );
-
-	it.each( [
-		[ 'Visual Studio Code', 'editor' ],
-		[ 'Finder', 'files' ],
-		[ 'Terminal', 'terminal' ],
-	] )( 'opens the disabled skill in %s', async ( label, target ) => {
+	it( 'opens a switched-off file in Finder', async () => {
 		const connector = setup( false );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for Studio CLI' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for AGENTS.md' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Finder' } ) );
 		await waitFor( () =>
 			expect( connector.openSiteAgentFile ).toHaveBeenCalledWith(
 				'one',
-				'skills',
-				'studio-cli',
-				target
+				'instructions',
+				'AGENTS.md',
+				'files'
 			)
 		);
 	} );
 
-	it( 'omits phpMyAdmin and unavailable editors from the open menu', async () => {
-		const connector = setup();
-		connector.getInstalledApps.mockResolvedValue( {} as never );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for Studio CLI' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
-		await screen.findByRole( 'menuitem', { name: 'Finder' } );
-		expect(
-			screen.queryByRole( 'menuitem', { name: 'Visual Studio Code' } )
-		).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'phpMyAdmin' } ) ).not.toBeInTheDocument();
-	} );
-
 	it( 'only removes files through the explicit menu action', async () => {
 		const connector = setup( false );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for Studio CLI' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for AGENTS.md' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Uninstall' } ) );
-		await waitFor( () => expect( connector.removeSiteAgentFile ).toHaveBeenCalled() );
-		expect( connector.removeSiteAgentFile ).toHaveBeenCalledWith( 'one', 'skills', 'studio-cli' );
-		expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).not.toBeChecked();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Actions for Studio CLI' } ) ).toBeEnabled()
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Actions for Studio CLI' } ) );
-		expect( await screen.findByRole( 'menuitem', { name: 'Open on GitHub' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'menuitem', { name: 'Open in' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Finder' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Uninstall' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'opens the skill source on GitHub even when disabled', async () => {
-		const connector = setup( false );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for Studio CLI' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open on GitHub' } ) );
-		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://github.com/Automattic/studio/tree/trunk/skills/studio-cli'
-		);
-		expect( connector.openSiteAgentFile ).not.toHaveBeenCalled();
-	} );
-
-	it( 'keeps the original state and shows an error when updating fails', async () => {
-		setup( true, true );
-		fireEvent.click( await screen.findByRole( 'switch', { name: 'Studio CLI' } ) );
-		await screen.findByText( 'Could not update skill' );
-		expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toBeChecked();
-		await waitFor( () =>
-			expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).toBeEnabled()
+			expect( connector.removeSiteAgentFile ).toHaveBeenCalledWith(
+				'one',
+				'instructions',
+				'AGENTS.md'
+			)
 		);
 	} );
-} );
 
-describe( 'site instruction rows', () => {
 	it( 'links to the instructions documentation', async () => {
-		const connector = setup( true, false, 'instructions' );
+		const connector = setup();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Learn more…' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
 			'https://wordpress.studio/docs/cli/'
 		);
-		expect( screen.queryByRole( 'button', { name: 'Install all' } ) ).not.toBeInTheDocument();
 	} );
 } );

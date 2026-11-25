@@ -236,6 +236,7 @@ export function getSettingCommands( {
 	signedIn,
 	localMachine,
 	loopbackSignIn,
+	globalSkills,
 	toggles,
 	actions = {},
 	openSettings,
@@ -245,6 +246,7 @@ export function getSettingCommands( {
 	signedIn: boolean;
 	localMachine?: boolean;
 	loopbackSignIn?: boolean;
+	globalSkills?: boolean;
 	// The boolean preferences setting commands turn on or off in place, by the
 	// id of their row in Settings.
 	toggles: SettingToggles;
@@ -253,7 +255,12 @@ export function getSettingCommands( {
 } ): PaletteCommand[] {
 	const group = scope === 'site' ? 'site-settings' : 'settings';
 	if ( scope === 'site' && ! site ) return [];
-	return getSections( scope, { signedIn, localMachine, loopbackSignIn } ).flatMap( ( section ) => {
+	return getSections( scope, {
+		signedIn,
+		localMachine,
+		loopbackSignIn,
+		globalSkills,
+	} ).flatMap( ( section ) => {
 		const folded = section.settings.filter( ( entry ) => entry.palette === 'section' );
 		const navigation: PaletteCommand[] = ! section.command
 			? [

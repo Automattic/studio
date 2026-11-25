@@ -22,6 +22,14 @@ function compareVersions( a: string, b: string ): number {
 	return 0;
 }
 
+// The first Studio whose server keeps the user's skills for all sites (`/api/global-skills`),
+// and makes and changes a skill (`/api/sites/:id/skills`).
+const USER_SKILLS_SERVER_VERSION = '2.5.0';
+
+export function supportsUserSkills( version: string | null ): boolean {
+	return !! version && compareVersions( version, USER_SKILLS_SERVER_VERSION ) >= 0;
+}
+
 export function isSupportedServerVersion( version: string | null ): boolean {
 	return !! version && compareVersions( version, MIN_SERVER_VERSION ) >= 0;
 }

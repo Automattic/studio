@@ -67,25 +67,65 @@ describe( 'createLocalConnector server contracts', () => {
 		);
 	} );
 
-	it( 'forwards app-wide skill reads, installs and removals to the local server', async () => {
+	it( 'forwards reads, switches, opens and deletes of the skills for all sites to the local server', async () => {
 		fetchMock.mockImplementation( async ( input ) =>
-			String( input ).endsWith( '/api/skills' )
-				? new Response( JSON.stringify( [ { id: 'studio-cli', installed: true } ] ) )
+			String( input ).endsWith( '/api/global-skills' )
+				? new Response( JSON.stringify( [ { id: 'brand-voice', source: 'studio' } ] ) )
 				: new Response( null, { status: 204 } )
 		);
 		const local = connector();
-		await expect( local.getWordPressSkillsStatusAllSites() ).resolves.toEqual( [
-			{ id: 'studio-cli', installed: true },
+		expect( local.capabilities.globalSkills ).toBe( true );
+		await expect( local.getGlobalSkills() ).resolves.toEqual( [
+			{ id: 'brand-voice', source: 'studio' },
 		] );
-		await local.installWordPressSkillToAllSites( 'studio-cli' );
-		await local.removeWordPressSkillFromAllSites( 'studio-cli' );
+		await local.setGlobalSkillEnabled( 'agents', 'changelog', true );
+		await local.openGlobalSkill( 'agents', 'changelog' );
+		await local.removeGlobalSkill( 'brand-voice' );
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/skills/studio-cli',
+			'http://localhost:8081/api/global-skills/agents/changelog',
+			expect.objectContaining( { method: 'PUT', body: JSON.stringify( { enabled: true } ) } )
+		);
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/global-skills/agents/changelog/open',
 			expect.objectContaining( { method: 'POST' } )
 		);
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/skills/studio-cli',
+			'http://localhost:8081/api/global-skills/studio/brand-voice',
 			expect.objectContaining( { method: 'DELETE' } )
+		);
+	} );
+
+	it( 'makes, reads and changes a skill of a site, or of Studio for all sites', async () => {
+		fetchMock.mockImplementation(
+			async () => new Response( JSON.stringify( { id: 'lookbook-post', files: [ 'SKILL.md' ] } ) )
+		);
+		const local = connector();
+		const draft = { name: 'Lookbook post', description: 'Lay out a post.', instructions: 'Steps.' };
+		expect( local.capabilities.skillEditing ).toBe( true );
+		await expect( local.createSkill( 'site one', draft ) ).resolves.toBe( 'lookbook-post' );
+		await expect( local.getSkill( 'site one', 'lookbook-post' ) ).resolves.toMatchObject( {
+			files: [ 'SKILL.md' ],
+		} );
+		await expect( local.updateSkill( 'site one', 'lookbook-post', draft ) ).resolves.toBe(
+			'lookbook-post'
+		);
+		await local.createSkill( null, draft );
+		await local.getSkill( null, 'lookbook-post' );
+		await local.updateSkill( null, 'lookbook-post', draft );
+		const body = JSON.stringify( draft );
+		expect(
+			fetchMock.mock.calls.map( ( [ url, init ] ) => [ ( init?.method ?? 'GET' ) as string, url ] )
+		).toEqual( [
+			[ 'POST', 'http://localhost:8081/api/sites/site%20one/skills' ],
+			[ 'GET', 'http://localhost:8081/api/sites/site%20one/skills/lookbook-post' ],
+			[ 'PUT', 'http://localhost:8081/api/sites/site%20one/skills/lookbook-post' ],
+			[ 'POST', 'http://localhost:8081/api/global-skills/studio' ],
+			[ 'GET', 'http://localhost:8081/api/global-skills/studio/lookbook-post' ],
+			[ 'PUT', 'http://localhost:8081/api/global-skills/studio/lookbook-post/content' ],
+		] );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/global-skills/studio',
+			expect.objectContaining( { method: 'POST', body } )
 		);
 	} );
 

@@ -174,7 +174,7 @@ studio create --path /path/to/site
 studio create --wp auto-update
 ```
 
-The CLI creates the site, starts it, and opens its front page in your browser. If the site comes from a Blueprint that sets a `landingPage`, it opens that page instead. Add `--skip-browser` to leave the browser closed. Run `studio create --help` for every option.
+The CLI creates the site, starts it, and opens its front page in your browser. If the site comes from a Blueprint that sets a `landingPage`, it opens that page instead. Add `--skip-browser` to leave the browser closed. Add `--no-start` to create the site without starting it. WordPress is still installed, so commands such as `studio wp` and `studio export` work on the site right away. Run `studio create --help` for every option.
 
 ### Create a site from existing content
 
@@ -353,7 +353,7 @@ studio push --remote-site example.com --options plugins,themes
 studio push --remote-site spacefast
 ```
 
-`--options` takes a comma-separated list of `all`, `sqls` (the database), `uploads`, `plugins`, `themes`, and `contents`. For Spacefast, `--remote-site spacefast:<space>` takes a Space’s ID, URL, or slug. See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast).
+`--options` takes a comma-separated list of `all`, `sqls` (the database), `uploads`, `plugins`, `themes`, and `contents`. With `studio push`, `--include-only` limits the push to the paths you list, from what `--options` selected. For Spacefast, `--remote-site spacefast:<space>` takes a Space’s ID, URL, or slug. See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast).
 
 ## Import and export
 

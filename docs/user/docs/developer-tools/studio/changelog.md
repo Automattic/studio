@@ -18,6 +18,7 @@ While you can always [view technical release notes on GitHub](https://github.com
     -   Update a preview, with a warning before replacing changes made on it, or pull those changes into your local site
     -   Make a preview your live site with Launch on WordPress.com, or with `studio preview launch` in the CLI
     -   A failed publish shows the live site’s own reason
+    -   Publishing to a Jetpack site restores the content on the first try
     -   Publishing no longer leaves out plugin folders named Database, or plugin and theme files named db.php
 -   Workspace
     -   Show chat in the site menu brings the chat back when the preview is expanded
@@ -30,7 +31,7 @@ While you can always [view technical release notes on GitHub](https://github.com
 -   Settings
     -   Your sites and settings are saved in one file, `~/.studio/config.json`, which earlier versions of WordPress Studio can’t read
 -   Other Fixes
-    -   WordPress Studio tells you once when antivirus software removed one of its files, with a link to reinstall
+    -   WordPress Studio tells you when antivirus software removed one of its files, with a link to reinstall
     -   A message that fails to send keeps your draft and attachments
     -   Large chats no longer run WordPress Studio out of memory when it lists them
     -   Exported databases load into MySQL
@@ -39,7 +40,6 @@ While you can always [view technical release notes on GitHub](https://github.com
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v2.4.0)
 
-<!-- Release date from the release plan, not yet confirmed: check it before merging. -->
 *November 25, 2026*
 
 ## [2.3.0](#0-2-3-0)

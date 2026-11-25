@@ -202,6 +202,7 @@ export interface AuthUser {
 // "am I in Electron"). The desktop app has them all; `studio ui` and Studio Cloud
 // have fewer.
 interface ConnectorCapabilities {
+	blueprintExport: boolean;
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
@@ -304,6 +305,7 @@ export interface Connector {
 	// Exports only the site database as a .sql dump. Same dialog/cancel
 	// semantics as `exportFullSite`.
 	exportDatabase( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
+	exportBlueprint( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 
 	// Site-creation helpers: folder pickers and path validation.
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;

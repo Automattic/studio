@@ -26,6 +26,10 @@ export function isSupportedServerVersion( version: string | null ): boolean {
 	return !! version && compareVersions( version, MIN_SERVER_VERSION ) >= 0;
 }
 
+export function supportsBlueprintExport( version: string | null, advertised: boolean ): boolean {
+	return !! version && compareVersions( version, '2.4.0' ) >= 0 && advertised;
+}
+
 export class UnsupportedServerError extends Error {
 	constructor( readonly version: string | null ) {
 		super( `This Studio machine runs version ${ version ?? 'unknown' }, which is too old.` );

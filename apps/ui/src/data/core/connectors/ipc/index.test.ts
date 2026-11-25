@@ -56,6 +56,25 @@ describe( 'createIpcConnector exports', () => {
 		expect( result ).toBe( '/tmp/demo-backup.sql' );
 	} );
 
+	it( 'exports a Blueprint bundle through the CLI-backed handler', async () => {
+		showSaveAsDialog.mockResolvedValue( '/tmp/blueprint.zip' );
+		const onStarted = vi.fn();
+		const result = await createIpcConnector().exportBlueprint( 'site-1', { onStarted } );
+		expect( onStarted ).toHaveBeenCalledOnce();
+		expect( showSaveAsDialog ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				defaultPath: expect.stringMatching( /^studio-blueprint-demo-site-.*\.zip$/ ),
+			} )
+		);
+		expect( exportSite ).toHaveBeenCalledWith( 'site-1', '/tmp/blueprint.zip', {
+			mode: 'blueprint',
+			showErrorModal: false,
+			showItemInFolder: true,
+			showNotification: true,
+		} );
+		expect( result ).toBe( '/tmp/blueprint.zip' );
+	} );
+
 	it( 'skips the export when the save dialog is cancelled', async () => {
 		showSaveAsDialog.mockResolvedValue( undefined );
 

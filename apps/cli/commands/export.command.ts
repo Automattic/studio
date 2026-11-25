@@ -10,7 +10,7 @@ export const builder = ( yargs: StudioArgv ) => {
 			normalize: true,
 			demandOption: false,
 			description: __(
-				'Path to the export file. All exports can use .zip or .tar.gz. Database-only exports can also use .sql.'
+				'Path to the export file. Blueprint exports use .zip; other exports can use .zip or .tar.gz. Database-only exports can also use .sql.'
 			),
 			coerce: ( value ) => {
 				return path.resolve( untildify( value ) );
@@ -18,10 +18,10 @@ export const builder = ( yargs: StudioArgv ) => {
 		} )
 		.option( 'mode', {
 			type: 'string',
-			choices: [ 'full', 'content', 'db' ] as const,
+			choices: [ 'full', 'content', 'db', 'blueprint' ] as const,
 			default: 'full' as const,
 			description: __(
-				'Export the full site, just the content, or just the database. Default exports full site.'
+				'Export the full site, content, database, or a reusable Blueprint. Default exports full site.'
 			),
 		} )
 		.option( 'split-db-dump-by-table', {
@@ -57,7 +57,7 @@ export const builder = ( yargs: StudioArgv ) => {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'export [export-file]',
-		describe: __( 'Export site to a backup file' ),
+		describe: __( 'Export a site backup or reusable Blueprint' ),
 		builder,
 		handler: async ( argv ) => {
 			const { commandHandler } = await import( 'cli/commands/export' );

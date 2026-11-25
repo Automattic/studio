@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
-import { useExportFullSite } from '@/data/queries/use-sites';
+import { useExportBlueprint, useExportDatabase, useExportFullSite } from '@/data/queries/use-sites';
 import { applySyncActivity } from '@/data/sync-activity';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { useSiteManagementActions } from './use-site-management-actions';
@@ -31,7 +31,7 @@ function renderActions( target = site ) {
 
 const exportsDisabled = ( actions: ReturnType< typeof useSiteManagementActions > ) =>
 	actions
-		.filter( ( action ) => action.id === 'export' || action.id === 'export-db' )
+		.filter( ( action ) => [ 'export', 'export-db', 'export-blueprint' ].includes( action.id ) )
 		.map( ( action ) => action.disabled );
 
 beforeEach( () => {
@@ -41,6 +41,8 @@ beforeEach( () => {
 	connector = createFakeConnector();
 	// Never settles, so the export stays in flight for the whole test.
 	connector.exportFullSite.mockReturnValue( new Promise( () => {} ) );
+	connector.exportDatabase.mockReturnValue( new Promise( () => {} ) );
+	connector.exportBlueprint.mockReturnValue( new Promise( () => {} ) );
 } );
 
 describe( 'useSiteManagementActions', () => {
@@ -53,7 +55,14 @@ describe( 'useSiteManagementActions', () => {
 			false,
 			false,
 			false,
+			false,
 		] );
+	} );
+
+	it( 'hides Blueprint export when the server does not support it', () => {
+		connector.capabilities.blueprintExport = false;
+		const { result } = renderActions();
+		expect( result.current.some( ( action ) => action.id === 'export-blueprint' ) ).toBe( false );
 	} );
 
 	// Each of these reads or rewrites the site tree, so the CLI refuses them
@@ -73,6 +82,7 @@ describe( 'useSiteManagementActions', () => {
 			true,
 			true,
 			true,
+			true,
 		] );
 	} );
 
@@ -87,6 +97,7 @@ describe( 'useSiteManagementActions', () => {
 			true,
 			true,
 			true,
+			true,
 		] );
 
 		applySyncActivity( site.id, { kind: 'success', direction: 'import' } );
@@ -95,23 +106,30 @@ describe( 'useSiteManagementActions', () => {
 	// The screen that starts an export can be navigated away from while it runs.
 	// Its `useMutation` observer dies with it, so progress has to come from the
 	// mutation cache or the export actions come back enabled mid-export.
-	it( 'still reports an export that was started by a screen since unmounted', async () => {
-		const exporter = renderHook( () => useExportFullSite(), { wrapper } );
-		act( () => {
-			exporter.result.current.mutate( site.id );
-		} );
-		await waitFor( () =>
-			expect( connector.exportFullSite ).toHaveBeenCalledWith(
-				site.id,
-				expect.objectContaining( { onStarted: expect.any( Function ) } )
-			)
-		);
+	it.each( [
+		[ 'site', useExportFullSite, 'exportFullSite' ],
+		[ 'database', useExportDatabase, 'exportDatabase' ],
+		[ 'Blueprint', useExportBlueprint, 'exportBlueprint' ],
+	] as const )(
+		'still reports a %s export started by a screen since unmounted',
+		async ( _name, useExport, method ) => {
+			const exporter = renderHook( () => useExport(), { wrapper } );
+			act( () => {
+				exporter.result.current.mutate( site.id );
+			} );
+			await waitFor( () =>
+				expect( connector[ method ] ).toHaveBeenCalledWith(
+					site.id,
+					expect.objectContaining( { onStarted: expect.any( Function ) } )
+				)
+			);
 
-		exporter.unmount();
+			exporter.unmount();
 
-		const { result } = renderActions();
-		expect( exportsDisabled( result.current ) ).toEqual( [ true, true ] );
-	} );
+			const { result } = renderActions();
+			expect( exportsDisabled( result.current ) ).toEqual( [ true, true, true ] );
+		}
+	);
 
 	it( 'does not report an export belonging to a different site', async () => {
 		const exporter = renderHook( () => useExportFullSite(), { wrapper } );
@@ -126,6 +144,6 @@ describe( 'useSiteManagementActions', () => {
 		);
 
 		const { result } = renderActions();
-		expect( exportsDisabled( result.current ) ).toEqual( [ false, false ] );
+		expect( exportsDisabled( result.current ) ).toEqual( [ false, false, false ] );
 	} );
 } );

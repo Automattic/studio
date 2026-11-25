@@ -21,6 +21,7 @@ export enum StatsMetric {
 	// Export button types
 	FULL_SITE = 'full-site',
 	DATABASE_ONLY = 'database-only',
+	BLUEPRINT = 'blueprint',
 	// Platforms
 	DARWIN = 'darwin',
 	LINUX = 'linux',

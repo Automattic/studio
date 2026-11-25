@@ -200,6 +200,7 @@ describe( 'Studio workspace', () => {
 			path: '/sites/one/new',
 			overrides: {
 				capabilities: {
+					blueprintExport: true,
 					annotatePreview: true,
 					nativeFolderPicker: true,
 					studioLogs: true,
@@ -1375,6 +1376,7 @@ describe( 'Studio workspace', () => {
 			signedIn: true,
 			overrides: {
 				capabilities: {
+					blueprintExport: true,
 					nativeFolderPicker: true,
 					annotatePreview: true,
 					studioLogs: true,

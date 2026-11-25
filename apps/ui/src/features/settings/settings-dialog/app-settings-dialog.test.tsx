@@ -1125,6 +1125,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			section: 'ai',
 			overrides: {
 				capabilities: {
+					blueprintExport: false,
 					nativeFolderPicker: false,
 					annotatePreview: false,
 					studioLogs: false,

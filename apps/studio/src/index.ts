@@ -11,6 +11,7 @@ import {
 	shell,
 	type WebContents,
 } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { moveAiSessionsToStudioDir } from '@studio/agent/node/sessions/root-migration';
@@ -408,7 +409,7 @@ async function appBoot() {
 					return;
 				}
 
-				if ( isQuittingConfirmed ) {
+				if ( await isQuitting() ) {
 					relaunchAfterQuit( customProtocolParameter ? [ customProtocolParameter ] : [] );
 					return;
 				}
@@ -623,16 +624,34 @@ async function appBoot() {
 	 */
 	let shouldStopSitesOnQuit = true;
 	let isQuittingConfirmed = false;
+	// Set while Studio checks for running sites, and maybe asks about them, before quitting.
+	let quitConfirmation: Promise< boolean > | undefined;
 	let restartSitesOnLaunch = true;
 
+	async function isQuitting() {
+		return isQuittingConfirmed || ( ( await quitConfirmation ) ?? false );
+	}
+
 	// Opening Studio while it quits would show a window the quit then closes, so the new launch waits
-	// for this instance to exit. Not with an update waiting: on Windows that would start the old version.
+	// for this instance to exit. On Windows, Squirrel's launcher next to the version folders starts the
+	// newest one, which is the update when one was installed meanwhile.
 	function relaunchAfterQuit( links: string[] ) {
-		if ( getAutoUpdaterState() !== 'waiting-for-restart' ) {
-			// A run from source passes Electron the app's path first.
-			const appPath = process.argv.slice( 1, process.defaultApp ? 2 : 1 );
-			app.relaunch( { args: [ ...appPath, ...links ] } );
-		}
+		console.log( 'Studio was opened while quitting, it opens again once it has quit' );
+		const squirrelLauncher = path.resolve(
+			process.execPath,
+			'..',
+			'..',
+			path.basename( process.execPath )
+		);
+		const isSquirrelInstall =
+			process.platform === 'win32' &&
+			fs.existsSync( path.resolve( squirrelLauncher, '..', 'Update.exe' ) );
+		// A run from source passes Electron the app's path first.
+		const appPath = process.argv.slice( 1, process.defaultApp ? 2 : 1 );
+		app.relaunch( {
+			execPath: isSquirrelInstall ? squirrelLauncher : process.execPath,
+			args: [ ...appPath, ...links ],
+		} );
 	}
 
 	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
@@ -700,7 +719,7 @@ async function appBoot() {
 
 		event.preventDefault();
 
-		void ( async () => {
+		const confirmation = ( async () => {
 			const runningSiteCount = ( await getSites().catch( () => [] ) ).filter(
 				( site ) => site.running
 			).length;
@@ -732,7 +751,7 @@ async function appBoot() {
 				} );
 
 				if ( response === CANCEL_BUTTON_INDEX ) {
-					return;
+					return false;
 				}
 
 				const behavior: QuitSitesBehavior =
@@ -745,9 +764,18 @@ async function appBoot() {
 				applyQuitSitesBehavior( behavior );
 			}
 
-			isQuittingConfirmed = true;
-			app.quit();
+			return true;
 		} )();
+		quitConfirmation = confirmation;
+		void confirmation.then( ( confirmed ) => {
+			if ( quitConfirmation === confirmation ) {
+				quitConfirmation = undefined;
+			}
+			if ( confirmed ) {
+				isQuittingConfirmed = true;
+				app.quit();
+			}
+		} );
 	} );
 
 	let quitCleanup: 'pending' | 'running' | 'done' = 'pending';
@@ -794,12 +822,12 @@ async function appBoot() {
 		} )();
 	} );
 
-	app.on( 'activate', () => {
+	app.on( 'activate', async () => {
 		if ( ! finishedInitialization ) {
 			return;
 		}
 
-		if ( isQuittingConfirmed ) {
+		if ( await isQuitting() ) {
 			relaunchAfterQuit( [] );
 			return;
 		}

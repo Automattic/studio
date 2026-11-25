@@ -764,24 +764,52 @@ describe( 'App initialization', () => {
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
-	it( 'opens Studio again after the quit when it is launched while quitting', async () => {
+	async function startOnWindows() {
 		const { mockedEvents } = mockElectron();
 		const originalProcessPlatform = process.platform;
 		Object.defineProperty( process, 'platform', { value: 'win32' } );
 		vi.resetModules();
 		await import( '../index' );
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
-		const { app } = await import( 'electron' );
 		await mockedEvents.ready();
 		vi.mocked( createMainWindow ).mockClear();
+		return { mockedEvents, app: ( await import( 'electron' ) ).app };
+	}
+
+	it( 'opens Studio again after the quit when it is launched while quitting', async () => {
+		const { mockedEvents, app } = await startOnWindows();
 
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 		await mockedEvents[ 'second-instance' ]( {}, [ 'Studio.exe', 'wp-studio://auth#token' ] );
 		await mockedEvents.activate();
 
-		expect( app.relaunch ).toHaveBeenNthCalledWith( 1, { args: [ 'wp-studio://auth#token' ] } );
-		expect( app.relaunch ).toHaveBeenNthCalledWith( 2, { args: [] } );
+		expect( app.relaunch ).toHaveBeenNthCalledWith( 1, {
+			execPath: process.execPath,
+			args: [ 'wp-studio://auth#token' ],
+		} );
+		expect( app.relaunch ).toHaveBeenNthCalledWith( 2, { execPath: process.execPath, args: [] } );
 		expect( getMainWindow ).not.toHaveBeenCalled();
 		expect( createMainWindow ).not.toHaveBeenCalled();
+	} );
+
+	it( 'waits for the sites check before quitting to decide what a launch during it does', async () => {
+		let finishSitesCheck = () => {};
+		vi.doMock( 'src/lib/sites', () => ( {
+			getSites: vi.fn().mockResolvedValue( [] ),
+			stopAllServers: vi.fn().mockResolvedValue( undefined ),
+		} ) );
+		const { mockedEvents, app } = await startOnWindows();
+		const { getSites } = await import( 'src/lib/sites' );
+		vi.mocked( getSites ).mockReturnValueOnce(
+			new Promise( ( resolve ) => ( finishSitesCheck = () => resolve( [] ) ) )
+		);
+
+		void mockedEvents[ 'before-quit' ]( { preventDefault: vi.fn() } );
+		const launch = mockedEvents[ 'second-instance' ]( {}, [ 'Studio.exe' ] );
+		finishSitesCheck();
+		await launch;
+
+		expect( app.relaunch ).toHaveBeenCalledWith( { execPath: process.execPath, args: [] } );
+		expect( getMainWindow ).not.toHaveBeenCalled();
 	} );
 } );

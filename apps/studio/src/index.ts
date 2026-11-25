@@ -627,9 +627,11 @@ async function appBoot() {
 
 	// Opening Studio while it quits would show a window the quit then closes, so the new launch waits
 	// for this instance to exit. Not with an update waiting: on Windows that would start the old version.
-	function relaunchAfterQuit( args: string[] ) {
+	function relaunchAfterQuit( links: string[] ) {
 		if ( getAutoUpdaterState() !== 'waiting-for-restart' ) {
-			app.relaunch( { args } );
+			// A run from source passes Electron the app's path first.
+			const appPath = process.argv.slice( 1, process.defaultApp ? 2 : 1 );
+			app.relaunch( { args: [ ...appPath, ...links ] } );
 		}
 	}
 

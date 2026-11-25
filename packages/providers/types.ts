@@ -103,6 +103,28 @@ export interface ProviderUi< Site extends RemoteSite = RemoteSite > {
 	ConnectForm?: ComponentType< ConnectFormProps >;
 	// What the publish panel shows under a connected site, such as its plan.
 	SiteRows?: ComponentType< SiteRowsProps< Site > >;
+	// What the publish panel asks before creating a site, such as its Spacefast team.
+	NewSiteRows?: ComponentType< NewSiteRowsProps >;
+}
+
+export interface NewSiteRowsProps {
+	// The choices so far, which Studio passes to the services' `create` and `creationVisibility`.
+	input: Record< string, string >;
+	disabled: boolean;
+	onChange( input: Record< string, string > ): void;
+	// Runs one of the services' actions on the computer.
+	run( action: string, input?: Record< string, string > ): Promise< unknown >;
+	// The panel's own picker row, so a provider's rows look like the rest.
+	SelectRow: ComponentType< SelectRowProps >;
+}
+
+export interface SelectRowProps {
+	icon: ReactNode;
+	label: string;
+	value: string;
+	options: { value: string; label: string }[];
+	disabled?: boolean;
+	onChange( value: string ): void;
 }
 
 export interface SiteRowsProps< Site extends RemoteSite = RemoteSite > {
@@ -418,12 +440,16 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		name: string,
 		input: Record< string, string >
 	): Promise< unknown >;
-	// A new site to push to, for a provider that can create one.
+	// A new site to push to, for a provider that can create one. `input` is what the provider's
+	// `NewSiteRows` (`@studio/providers/ui`) chose.
 	create?(
 		config: Config | undefined,
-		options: { name: string; visibility?: SiteCreationVisibility }
+		options: { name: string; visibility?: SiteCreationVisibility; input?: Record< string, string > }
 	): Promise< Site >;
-	creationVisibility?( config: Config | undefined ): Promise< SiteCreationVisibility >;
+	creationVisibility?(
+		config: Config | undefined,
+		input?: Record< string, string >
+	): Promise< SiteCreationVisibility >;
 	// A launch error means the import succeeded; callers keep the publish intent
 	// for a retry and must not show the site as published yet. A push to one of
 	// `previews.list`'s sites passes `preview`, and rebuilds the preview from the content.

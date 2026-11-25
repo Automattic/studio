@@ -420,14 +420,21 @@ export interface Connector {
 		localSiteId: string,
 		remoteSiteId: string | number
 	): Promise< void >;
-	getSiteCreationVisibility( provider: SitesProviderId ): Promise< SiteCreationVisibility | null >;
+	// Who can view a new site, given what the provider's `NewSiteRows` chose.
+	getSiteCreationVisibility(
+		provider: SitesProviderId,
+		input?: Record< string, string >
+	): Promise< SiteCreationVisibility | null >;
 	// Creates a site on a provider whose `sites.newSite` is `create`, and connects the local
 	// site to it.
 	createRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,
-		name: string,
-		visibility?: SiteCreationVisibility,
+		site: {
+			name: string;
+			visibility?: SiteCreationVisibility;
+			input?: Record< string, string >;
+		},
 		connect?: boolean
 	): Promise< ProviderSites[ SitesProviderId ] >;
 	// Pushes the local site to a connected remote site: everything, or what `options` selects.

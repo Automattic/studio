@@ -37,7 +37,7 @@ import {
 } from '@studio/providers';
 import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dismissToast, toast } from '@/data/app-messages';
 import { getProviderUi } from '@studio/providers/ui';
 import { useConnector, type SiteDetails, type Snapshot, SyncSite } from '@/data/core';
@@ -85,6 +85,7 @@ import { PullPreviewDialog } from './pull-preview-dialog';
 import { getShareViewTitle, shareEntryView } from './share-view';
 import { SiteDeliveryStep } from './site-delivery-step';
 import styles from './style.module.css';
+import { SelectRow } from './select-row';
 import { usePublishNavigation } from './use-publish-navigation';
 import { usePublishPreview } from './use-publish-preview';
 import { usePublishTargets, type PublishTarget } from './use-publish-targets';
@@ -152,6 +153,7 @@ export function PublishButton( {
 		siteId: string;
 		remote: ProviderSites[ SitesProviderId ];
 		visibility?: SiteCreationVisibility;
+		input: Record< string, string >;
 	} >( undefined );
 	const [ preparing, setPreparing ] = useState< 'checkout' | 'create' | 'confirm' >();
 	const publishingNewSite = preparing === 'create' || preparing === 'confirm';
@@ -299,9 +301,21 @@ export function PublishButton( {
 	const connectionUnavailable = ! selected && connection.unavailable;
 	const canCreate = ! selected && emptyDescriptor.newSite === 'create';
 	const [ requestedVisibility, setRequestedVisibility ] = useState< SiteCreationVisibility >();
+	// What the provider's `NewSiteRows` chose for the new site, such as its Spacefast team.
+	const [ newSite, setNewSite ] = useState< {
+		provider: SitesProviderId;
+		input: Record< string, string >;
+	} >();
+	const newSiteInput = newSite?.provider === emptyDestination ? newSite.input : {};
+	const { NewSiteRows } = getProviderUi( emptyDestination );
+	const runNewSiteAction = useCallback(
+		( action: string, input?: Record< string, string > ) =>
+			connector.runSitesAction( emptyDestination, action, input ),
+		[ connector, emptyDestination ]
+	);
 	const creationPolicy = useQuery( {
-		queryKey: [ 'site-creation-visibility', emptyDestination ],
-		queryFn: () => connector.getSiteCreationVisibility( emptyDestination ),
+		queryKey: [ 'site-creation-visibility', emptyDestination, newSiteInput ],
+		queryFn: () => connector.getSiteCreationVisibility( emptyDestination, newSiteInput ),
 		enabled: open && canCreate && connectedProviders.includes( emptyDestination ),
 		retry: false,
 		meta: { persist: false },
@@ -654,9 +668,11 @@ export function PublishButton( {
 		provider: SitesProviderId,
 		{
 			visibility,
+			input = {},
 			entryPoint = 'publish',
 		}: {
 			visibility?: SiteCreationVisibility;
+			input?: Record< string, string >;
 			entryPoint?: 'publish' | 'launch';
 		} = {}
 	) => {
@@ -691,10 +707,16 @@ export function PublishButton( {
 				const remote =
 					staged?.siteId === site.id &&
 					staged.provider === provider &&
-					staged.visibility === visibility
+					staged.visibility === visibility &&
+					JSON.stringify( staged.input ) === JSON.stringify( input )
 						? staged.remote
-						: await connector.createRemoteSite( provider, site.id, site.name, visibility, false );
-				stagedSite.current = { provider, siteId: site.id, remote, visibility };
+						: await connector.createRemoteSite(
+								provider,
+								site.id,
+								{ name: site.name, visibility, input },
+								false
+						  );
+				stagedSite.current = { provider, siteId: site.id, remote, visibility, input };
 				dismissToast( creationErrorNotice );
 				try {
 					await push.mutateAsync( { provider, siteId: site.id, remoteSiteId: remote.id } );
@@ -979,7 +1001,10 @@ export function PublishButton( {
 					variant={ creationFeedback ? 'destructive' : 'accent' }
 					disabled={ disabled || connectionUnavailable || creationAccessUnavailable }
 					onClick={ () =>
-						void startProvider( emptyDestination, { visibility: creationVisibility } )
+						void startProvider( emptyDestination, {
+							visibility: creationVisibility,
+							input: newSiteInput,
+						} )
 					}
 				>
 					{ __( 'Publish' ) }
@@ -1154,6 +1179,15 @@ export function PublishButton( {
 						disabled={ disabled }
 						openUrl={ ( siteUrl ) => void connector.openExternalUrl( siteUrl ) }
 						Row={ DestinationRow }
+					/>
+				) }
+				{ canCreate && NewSiteRows && connectedProviders.includes( emptyDestination ) && (
+					<NewSiteRows
+						input={ newSiteInput }
+						disabled={ disabled }
+						onChange={ ( input ) => setNewSite( { provider: emptyDestination, input } ) }
+						run={ runNewSiteAction }
+						SelectRow={ SelectRow }
 					/>
 				) }
 				{ showCreationAccess && emptyDescriptor.visibility && (

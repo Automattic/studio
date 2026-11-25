@@ -710,13 +710,14 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				{ method: 'DELETE' }
 			);
 		},
-		async getSiteCreationVisibility( provider ) {
-			return api( `/remote-sites/${ provider }/creation-visibility` );
+		async getSiteCreationVisibility( provider, input = {} ) {
+			const query = new URLSearchParams( input ).toString();
+			return api( `/remote-sites/${ provider }/creation-visibility${ query && `?${ query }` }` );
 		},
-		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
+		async createRemoteSite( provider, localSiteId, site, connect ) {
 			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
 				method: 'POST',
-				body: JSON.stringify( { name, visibility, connect } ),
+				body: JSON.stringify( { ...site, connect } ),
 			} );
 		},
 		onSyncConnectSite( listener ) {

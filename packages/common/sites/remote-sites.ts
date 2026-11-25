@@ -38,7 +38,8 @@ export async function listAccountSites( provider: SitesProvider ): Promise< Site
 }
 
 export async function getSiteCreationVisibility(
-	provider: SitesProvider
+	provider: SitesProvider,
+	input?: Record< string, string >
 ): Promise< SiteCreationVisibility | null > {
 	const id = provider.id as SitesProviderId;
 	const creationVisibility = sites( provider ).creationVisibility;
@@ -46,16 +47,22 @@ export async function getSiteCreationVisibility(
 		return null;
 	}
 	return forgetRejectedConfig( id, async () =>
-		creationVisibility( await readProviderConfig( id ) )
+		creationVisibility( await readProviderConfig( id ), input )
 	);
+}
+
+export interface NewRemoteSite {
+	name: string;
+	visibility?: SiteCreationVisibility;
+	// What the provider's `NewSiteRows` chose.
+	input?: Record< string, string >;
 }
 
 // Creates a site on the provider and connects the local site to it.
 export async function createRemoteSite(
 	provider: SitesProvider,
 	localSiteId: string,
-	name: string,
-	visibility?: SiteCreationVisibility,
+	{ name, visibility, input }: NewRemoteSite,
 	connect = true
 ): Promise< Site > {
 	if ( visibility !== undefined && visibility !== 'public' && visibility !== 'private' ) {
@@ -67,7 +74,7 @@ export async function createRemoteSite(
 		throw new Error( `Studio can't create ${ getProvider( provider.id ).label } sites.` );
 	}
 	const site = await forgetRejectedConfig( id, async () =>
-		create( await readProviderConfig( id ), { name, visibility } )
+		create( await readProviderConfig( id ), { name, visibility, input } )
 	);
 	if ( connect ) await rememberRemoteSite( id, localSiteId, site );
 	return site;

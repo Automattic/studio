@@ -115,3 +115,37 @@ it.each( [
 		} );
 	}
 );
+
+it( 'creates a Space in the team the user picked', async () => {
+	const fetch = vi.fn( async ( url: URL, _options: RequestInit ) => {
+		if ( url.pathname === '/v1/teams' ) {
+			return Response.json( {
+				data: [
+					{ id: 'agency', name: 'Agency', slug: 'agency' },
+					{ id: 'mine', name: 'Mine', slug: 'mine' },
+				],
+			} );
+		}
+		if ( url.pathname.endsWith( '/access/defaults' ) ) {
+			return Response.json( { data: { privateSpacesOnly: false } } );
+		}
+		return Response.json( {
+			data: { space: { id: 'spc_1', title: 'Example', slug: 'example', teamId: 'mine' } },
+		} );
+	} );
+	vi.stubGlobal( 'fetch', fetch );
+	const config = { apiKey: 'test' };
+
+	await expect( spacefastServices.sites!.action!( config, 'teams', {} ) ).resolves.toEqual( [
+		{ id: 'agency', name: 'Agency' },
+		{ id: 'mine', name: 'Mine' },
+	] );
+	await expect(
+		spacefastServices.sites!.create!( config, { name: 'Example', input: { team: 'mine' } } )
+	).resolves.toMatchObject( { teamName: 'Mine', teamSlug: 'mine' } );
+	const post = fetch.mock.calls.find( ( [ , options ] ) => options.method === 'POST' );
+	expect( JSON.parse( post?.[ 1 ].body as string ) ).toMatchObject( { teamId: 'mine' } );
+	expect(
+		fetch.mock.calls.some( ( [ url ] ) => url.pathname === '/v1/teams/mine/access/defaults' )
+	).toBe( true );
+} );

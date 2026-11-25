@@ -2108,7 +2108,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				res.json( await getSiteCreationVisibility( getProviderServices( provider ) ) );
+				const input = z.record( z.string(), z.string() ).catch( {} ).parse( req.query );
+				res.json( await getSiteCreationVisibility( getProviderServices( provider ), input ) );
 			}
 		} )
 	);
@@ -2124,6 +2125,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				.object( {
 					name: z.string().min( 1 ),
 					visibility: z.enum( [ 'public', 'private' ] ).optional(),
+					input: z.record( z.string(), z.string() ).optional(),
 					connect: z.boolean().optional(),
 				} )
 				.safeParse( req.body );
@@ -2131,15 +2133,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid site creation request.' } );
 				return;
 			}
-			const { name, visibility, connect } = input.data;
+			const { connect, ...site } = input.data;
 			res.json(
-				await createRemoteSite(
-					getProviderServices( provider ),
-					req.params.id,
-					name,
-					visibility,
-					connect
-				)
+				await createRemoteSite( getProviderServices( provider ), req.params.id, site, connect )
 			);
 		} )
 	);

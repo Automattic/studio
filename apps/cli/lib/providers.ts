@@ -4,11 +4,11 @@ import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { startProviderConnect } from '@studio/common/lib/provider-connect';
 import {
 	ConnectError,
-	type ConnectField,
-	getConnectFields,
+	getFormFields,
 	getConnectMethod,
 	getProvider,
 	type ConnectMethod,
+	type FormField,
 	type ProviderConfigs,
 	type ProviderId,
 } from '@studio/providers';
@@ -57,7 +57,7 @@ async function connectWith(
 
 // Asks for one field, masked when it's a secret; `accept` can still refuse a valid answer.
 function askField(
-	field: ConnectField,
+	field: FormField,
 	message: string,
 	accept: ( value: string ) => Promise< string | true > = async () => true
 ): Promise< string > {
@@ -73,7 +73,7 @@ function askField(
 // rejection of a form of one field is that field's error, so it's asked again; a longer form is
 // asked again whole, so any of its fields can be corrected.
 async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise< void > {
-	const fields = getConnectFields( method );
+	const fields = method.kind === 'form' ? getFormFields( method.input() ) : [];
 	for (;;) {
 		const values: Record< string, string > = {};
 		for ( const field of fields ) {
@@ -197,7 +197,7 @@ export async function connectInTerminal(
 }
 
 // Asks for the fields of a form a provider describes, such as a site to add.
-export async function askFormFields( fields: ConnectField[] ): Promise< Record< string, string > > {
+export async function askFormFields( fields: FormField[] ): Promise< Record< string, string > > {
 	const values: Record< string, string > = {};
 	for ( const field of fields ) {
 		values[ field.name ] = await askField(

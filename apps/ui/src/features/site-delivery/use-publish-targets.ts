@@ -84,9 +84,8 @@ export function usePublishTargets(
 	const targets: PublishTarget[] = providers.flatMap( ( provider, index ) => {
 		const descriptor = getProviderSites( provider );
 		const stored = connections[ index ].data ?? [];
-		const remotes = accountSites[ index ].data
-			? descriptor.withDetails( stored, accountSites[ index ].data! )
-			: stored;
+		const account = accountSites[ index ].data;
+		const remotes = ( account && descriptor.withDetails?.( stored, account ) ) || stored;
 		return remotes
 			.filter(
 				( remote ) =>

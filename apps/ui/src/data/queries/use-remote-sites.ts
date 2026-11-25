@@ -58,7 +58,7 @@ export function useSitesProviders( use: 'publish' | 'pull' ): SitesProviderId[] 
 	const { localMachine } = useConnector().capabilities;
 	return SITES_PROVIDER_IDS.filter( ( id ) => {
 		const sites = getProviderSites( id );
-		return sites[ use ] && ( localMachine || ! sites.connect?.hostOnly );
+		return ( use === 'publish' || sites.pull ) && ( localMachine || ! sites.connect?.hostOnly );
 	} );
 }
 

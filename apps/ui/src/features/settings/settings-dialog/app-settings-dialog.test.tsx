@@ -1209,7 +1209,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			if ( connected ) {
 				current.accounts[ 'local-llm' ] = {
 					connected: true,
-					...getProvider( 'local-llm' ).account.describe( {
+					...getProvider( 'local-llm' ).account!.describe( {
 						method: 'server',
 						baseUrl: 'http://localhost:11434/v1',
 						models: [ { name: 'qwen3:0.6b', images: false } ],

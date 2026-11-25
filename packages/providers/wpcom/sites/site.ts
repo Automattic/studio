@@ -160,29 +160,32 @@ export function describeWpcomSite( site: SyncSite ) {
 	};
 }
 
+const GLOBE_ICON =
+	'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M128,24h0A104,104,0,1,0,232,128,104.12,104.12,0,0,0,128,24Zm87.62,96H175.79C174,83.49,159.94,57.67,148.41,42.4A88.19,88.19,0,0,1,215.63,120ZM96.23,136h63.54c-2.31,41.61-22.23,67.11-31.77,77C118.45,203.1,98.54,177.6,96.23,136Zm0-16C98.54,78.39,118.46,52.89,128,43c9.55,9.93,29.46,35.43,31.77,77Zm11.36-77.6C96.06,57.67,82,83.49,80.21,120H40.37A88.19,88.19,0,0,1,107.59,42.4ZM40.37,136H80.21c1.82,36.51,15.85,62.33,27.38,77.6A88.19,88.19,0,0,1,40.37,136Zm108,77.6c11.53-15.27,25.56-41.09,27.38-77.6h39.84A88.19,88.19,0,0,1,148.41,213.6Z"/></svg>';
+
 function wpcomSiteLinks( site: SyncSite ): SiteLink[] {
-	if ( ! URL.canParse( '/wp-admin/', site.url ) ) return [];
+	if ( site.isPressable || ! URL.canParse( site.url ) ) return [];
 	const hostname = new URL( site.url ).hostname;
-	const admin: SiteLink = {
-		role: 'admin',
-		title: __( 'WP admin' ),
-		url: new URL( '/wp-admin/', site.url ).href,
-	};
-	if ( site.isPressable ) return [ admin ];
 	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
 	return [
-		{ role: 'dashboard', title: __( 'Manage on WordPress.com' ), url: dashboard },
-		{ role: 'domains', title: __( 'Manage domains' ), url: `${ dashboard }/domains` },
-		{
-			role: 'more',
-			title: __( 'View backups' ),
-			url: `https://wordpress.com/backup/${ hostname }`,
-		},
-		{
-			role: 'visibility',
-			title: __( 'Manage on WordPress.com' ),
-			url: `https://wordpress.com/settings/general/${ site.id }`,
-		},
-		admin,
+		{ title: __( 'Manage on WordPress.com' ), url: dashboard },
+		{ title: __( 'Manage domains' ), url: `${ dashboard }/domains`, icon: GLOBE_ICON },
+		{ title: __( 'View backups' ), url: `https://wordpress.com/backup/${ hostname }` },
 	];
+}
+
+export function wpcomVisibilityLink( site: SyncSite ): SiteLink | undefined {
+	return site.isPressable || ! URL.canParse( site.url )
+		? undefined
+		: {
+				title: __( 'Manage on WordPress.com' ),
+				url: `https://wordpress.com/settings/general/${ site.id }`,
+		  };
+}
+
+// Where the site's paid plan is managed; undefined without one.
+export function wpcomPlanUrl( site: SyncSite ): string | undefined {
+	return site.hasPaidPlan === true && ! site.isPressable && URL.canParse( site.url )
+		? `https://wordpress.com/plans/my-plan/${ new URL( site.url ).hostname }`
+		: undefined;
 }

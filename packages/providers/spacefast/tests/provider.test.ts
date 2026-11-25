@@ -13,7 +13,7 @@ it( 'says when the user declined the sign-in', async () => {
 	);
 
 	await expect(
-		spacefastServices.account.connect( 'sign-in', {
+		spacefastServices.account!.connect( 'sign-in', {
 			deviceCode: 'dev_1',
 			interval: '1',
 			expiresAt: new Date( Date.now() + 60_000 ).toISOString(),
@@ -115,3 +115,32 @@ it.each( [
 		} );
 	}
 );
+
+it( 'creates a Space in the team the user picked', async () => {
+	const fetch = vi.fn( async ( url: URL, _options: RequestInit ) => {
+		if ( url.pathname === '/v1/teams' ) {
+			return Response.json( {
+				data: [
+					{ id: 'agency', name: 'Agency' },
+					{ id: 'mine', name: 'Mine' },
+				],
+			} );
+		}
+		if ( url.pathname.endsWith( '/access/defaults' ) ) {
+			return Response.json( { data: { privateSpacesOnly: false } } );
+		}
+		return Response.json( { data: { space: { id: 'spc_1', title: 'Example', teamId: 'mine' } } } );
+	} );
+	vi.stubGlobal( 'fetch', fetch );
+
+	await spacefastServices.sites!.create!(
+		{ apiKey: 'test' },
+		{ name: 'Example', input: { team: 'mine' } }
+	);
+	expect( fetch ).toHaveBeenCalledWith(
+		expect.objectContaining( { pathname: '/v1/teams/mine/access/defaults' } ),
+		expect.anything()
+	);
+	const post = fetch.mock.calls.find( ( [ , options ] ) => options.method === 'POST' );
+	expect( JSON.parse( post?.[ 1 ].body as string ) ).toMatchObject( { teamId: 'mine' } );
+} );

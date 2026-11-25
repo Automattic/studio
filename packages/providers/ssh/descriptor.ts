@@ -21,17 +21,11 @@ export const sshProvider: Provider< undefined, SshSite > = {
 		__( 'Push to and pull from a WordPress site on any server you reach over SSH.' ),
 	icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>',
 	sites: {
-		publish: true,
-		publishing: {
-			description: () => __( 'A WordPress site on your own server.' ),
-		},
+		summary: () => __( 'A WordPress site on your own server.' ),
 		pull: true,
 		selective: true,
 		content: 'archive',
 		connect: {
-			id: 'address',
-			label: () => __( 'Server address' ),
-			kind: 'form',
 			// The user's `ssh` reaches the server.
 			hostOnly: true,
 			input: () =>
@@ -72,7 +66,6 @@ export const sshProvider: Provider< undefined, SshSite > = {
 				__(
 					'Push to and pull from a WordPress site on any server you reach over SSH with a key and that runs PHP. Studio uses your SSH setup and never stores a password.'
 				),
-			learnMoreUrl: 'https://make.wordpress.org/cli/handbook/guides/installing/',
 		},
 		describe: ( site ) => {
 			const target = parseSshAddress( site.id );
@@ -83,16 +76,8 @@ export const sshProvider: Provider< undefined, SshSite > = {
 							{ title: __( 'Folder' ), value: target.path },
 					  ]
 					: [],
-				links: [
-					{
-						role: 'admin',
-						title: __( 'Open WP Admin' ),
-						url: new URL( 'wp-admin/', site.url.replace( /\/?$/, '/' ) ).href,
-					},
-				],
+				links: [],
 			};
 		},
-		issue: () => null,
-		withDetails: ( connections ) => connections,
 	},
 };

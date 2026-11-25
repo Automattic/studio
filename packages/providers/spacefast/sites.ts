@@ -40,10 +40,11 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 	}
 }
 
-// New Spaces use the first team, for both the access check and creation.
-async function getPublishingTeam( apiKey: string ) {
-	const [ team ] = await listTeams( apiKey );
-	if ( ! team ) throw new Error( 'The Spacefast account has no team.' );
+// A new Space goes in the team the user picked, or the first one.
+async function getPublishingTeam( apiKey: string, teamId?: string ) {
+	const teams = await listTeams( apiKey );
+	const team = teamId ? teams.find( ( { id } ) => id === teamId ) : teams[ 0 ];
+	if ( ! team ) throw new Error( 'The Spacefast account has no such team.' );
 	return team;
 }
 
@@ -57,17 +58,26 @@ export const spacefastSites: SitesServices< SpacefastConfig, Space > = {
 			listSpaces( requireApiKey( config ) )
 		),
 
-	creationVisibility: ( config ) =>
+	action: async ( config, name ) => {
+		if ( name === 'teams' ) {
+			return step( __( 'Failed to load your Spacefast teams' ), 'site_fetch', () =>
+				listTeams( requireApiKey( config ) )
+			);
+		}
+		throw new Error( `Spacefast has no ${ name } action.` );
+	},
+
+	creationVisibility: ( config, input ) =>
 		step( __( 'Could not check Spacefast team access' ), 'site_access', async () => {
 			const apiKey = requireApiKey( config );
-			const team = await getPublishingTeam( apiKey );
-			return getTeamCreationVisibility( apiKey, team.id );
+			const teamId = input?.team ?? ( await getPublishingTeam( apiKey ) ).id;
+			return getTeamCreationVisibility( apiKey, teamId );
 		} ),
 
-	create: ( config, { name, visibility } ) =>
+	create: ( config, { name, visibility, input } ) =>
 		step( __( 'Failed to create the Space' ), 'site_create', async () => {
 			const apiKey = requireApiKey( config );
-			const team = await getPublishingTeam( apiKey );
+			const team = await getPublishingTeam( apiKey, input?.team );
 			const defaultVisibility = await getTeamCreationVisibility( apiKey, team.id );
 			if ( defaultVisibility === 'private' && visibility === 'public' ) {
 				throw new SpacefastApiError(

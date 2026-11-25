@@ -46,8 +46,8 @@ The id is the address in one form (`formatSshAddress`): `user@host:/path`, or `s
 
 What SSH needs of the provider API, none of it specific to SSH:
 
-- **A provider without an account.** A provider whose config is `undefined` has no `account` (`WithAccount` in `types.ts`): there is nothing to connect, and surfaces treat it as connected. Settings and `/connect` leave it out. Publish opens on it only when it was the last provider used.
-- **`sites.connect`**: how the user connects a site that isn't listed from an account, as a `ConnectMethod` of kind `form`, like an account's. The CLI asks for its fields; the apps show the provider's own form, `ConnectForm` from `@studio/providers/ui`, which may run the services' `action( config, name, input )` on the computer, such as listing the user's SSH hosts. `SitesServices.resolve( config, input )` reaches the site and returns it (`resolveRemoteSite` in `@studio/common` and `Connector`), and connecting it is the same as connecting a listed site. SSH's method is `hostOnly`, so surfaces without `capabilities.localMachine` (Studio Cloud) leave SSH out. `newSite` is optional: a provider without it only connects existing sites.
+- **A provider without an account.** A provider whose config is `undefined` has no `account`: there is nothing to connect, and surfaces treat it as connected. Settings and `/connect` leave it out. Publish opens on it only when it was the last provider used.
+- **`sites.connect`**: how the user connects a site that isn't listed from an account, as a form schema like an account's form method. The CLI asks for its fields; the apps show the provider's own form, the `ConnectForm` of `getProviderUi( 'ssh' )`, which may run the services' `action( config, name, input )` on the computer, such as listing the user's SSH hosts. `SitesServices.resolve( config, { input } )` reaches the site and returns it (`resolveRemoteSite` in `@studio/common` and `Connector`), as `resolve( config, { id } )` does for `--remote-site ssh:<id>`, and connecting it is the same as connecting a listed site. SSH's form is `hostOnly`, so surfaces without `capabilities.localMachine` (Studio Cloud) leave SSH out. `newSite` is optional: a provider without it only connects existing sites.
 - **`SitesServices.pullArchive( config, site, options, archive, onProgress, signal )`**: writes the site, as a tar of the backup format, to a `WritableStream`. It is the pull of a provider that sends the site rather than a backup to download.
 - **`SitesServices.push`** gets the connected site as Studio stored it, not only its id and name.
 
@@ -59,7 +59,7 @@ The package's surface entries use no Node APIs; its services may, so `ssh/shell.
 |---|---|
 | `ssh/address.ts` | Parsing and formatting addresses and hosts, checking the PHP command, and the schema of a host to add. Browser-safe: the connect form validates with it. |
 | `ssh/descriptor.ts` | `SshSite`, and the provider: the connect form's fields (host, WordPress folder, PHP command), `pull`, `selective`, the intro, and the details and admin link shown for a connected site. |
-| `ssh/connect-form.tsx` | The form the apps show (`@studio/providers/ui`): a host from the user's SSH config, or one they add, then the folder and PHP command. |
+| `ssh/connect-form.tsx` | The form the apps show (`ssh/ui.tsx`, read through `getProviderUi`): a host from the user's SSH config, or one they add, then the folder and PHP command. |
 | `ssh/ssh-config.ts` | The hosts of the user's SSH config (`Host` lines, following `Include`), described with `ssh -G`, and adding one to `~/.ssh/studio_config`. |
 | `ssh/shell.ts` | `shellQuote`, the run folder on the server (`syncFolder`), `uploadWpCli` and `inSite`, which put Studio's WP-CLI on the server and run it, `runSsh`, which spawns `ssh`, streams stdin or stdout, and turns its failures into messages that say what to fix, and `withSsh`, which shares one connection between the steps of an operation. |
 | `ssh/fallbacks.ts` | The PHP that stands in for `mysqldump`, `mysql`, `tar` and `gzip` on a server without them. |
@@ -117,7 +117,7 @@ studio push --path ~/Studio/acme --remote-site ssh:acme.com --options plugins,th
 
 ## UI
 
-In Publish, SSH is a destination. Choosing it offers "Connect a site", which opens the provider's own form (`ConnectForm` in `@studio/providers/ui`, so `apps/ui` has no SSH code); "Choose an existing site" offers the same form as "Connect to SSH", next to the other providers. On success the site is the destination, with "Update…" (push, with the usual selection) and "Pull from live site…".
+In Publish, SSH is a destination. Choosing it offers "Connect a site", which opens the provider's own form (`getProviderUi( 'ssh' ).ConnectForm`, so `apps/ui` has no SSH code); "Choose an existing site" offers the same form as "Connect to SSH", next to the other providers. On success the site is the destination, with "Update…" (push, with the usual selection) and "Pull from live site…".
 
 In Add site, Connect lists every provider that pulls (`sites.pull`), WordPress.com and SSH, behind a switch. SSH shows the same form; once the server answers, setup proposes the site's name, and creating the site connects it and pulls it in the background, as for a WordPress.com site.
 

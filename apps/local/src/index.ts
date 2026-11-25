@@ -2004,9 +2004,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// All backed by the same @studio/common code the desktop uses. Reads the
 	// providers' configs from the config file (WordPress.com: `studio auth login`).
 	// WordPress.com site ids are numbers; other providers' are strings.
-	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): never {
+	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): string | number {
 		const { remoteSiteId } = req.params;
-		return ( provider === 'wpcom' ? Number( remoteSiteId ) : remoteSiteId ) as never;
+		return provider === 'wpcom' ? Number( remoteSiteId ) : remoteSiteId;
 	}
 
 	function readSitesProvider( req: Request, res: Response ): SitesProviderId | undefined {
@@ -2075,7 +2075,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				await connectPublishingSite( provider, req.params.id, req.body as never );
+				await connectPublishingSite( provider, req.params.id, req.body );
 				res.sendStatus( 204 );
 			}
 		} )
@@ -2098,7 +2098,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				res.json( await resolveRemoteSite( getProviderServices( provider ), req.body ) );
+				res.json( await resolveRemoteSite( getProviderServices( provider ), { input: req.body } ) );
 			}
 		} )
 	);
@@ -2108,7 +2108,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				res.json( await getSiteCreationVisibility( getProviderServices( provider ) ) );
+				const input = z.record( z.string(), z.string() ).catch( {} ).parse( req.query );
+				res.json( await getSiteCreationVisibility( getProviderServices( provider ), input ) );
 			}
 		} )
 	);
@@ -2124,6 +2125,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				.object( {
 					name: z.string().min( 1 ),
 					visibility: z.enum( [ 'public', 'private' ] ).optional(),
+					input: z.record( z.string(), z.string() ).optional(),
 					connect: z.boolean().optional(),
 				} )
 				.safeParse( req.body );
@@ -2131,15 +2133,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid site creation request.' } );
 				return;
 			}
-			const { name, visibility, connect } = input.data;
+			const { connect, ...site } = input.data;
 			res.json(
-				await createRemoteSite(
-					getProviderServices( provider ),
-					req.params.id,
-					name,
-					visibility,
-					connect
-				)
+				await createRemoteSite( getProviderServices( provider ), req.params.id, site, connect )
 			);
 		} )
 	);

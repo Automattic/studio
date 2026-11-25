@@ -1,17 +1,12 @@
 import { IconButton, Menu } from '@studio/ds';
-import {
-	EllipsisVerticalIcon,
-	DuplicateIcon,
-	ExternalLinkIcon,
-	GlobeIcon,
-	TrashIcon,
-} from '@studio/ds/icons';
+import { EllipsisVerticalIcon, DuplicateIcon, ExternalLinkIcon, TrashIcon } from '@studio/ds/icons';
 import { getProviderSites } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useConnector, type Snapshot } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { DisconnectSiteIcon } from './connection-icons';
 import { PullPreviewIcon } from './pull-preview-icon';
+import styles from './style.module.css';
 import type { PublishTarget } from './use-publish-targets';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
@@ -62,13 +57,7 @@ export function DestinationActionsMenu( {
 	const connector = useConnector();
 	const remote = selected.remote;
 	const descriptor = getProviderSites( selected.provider );
-	const hostingLinks = remote
-		? descriptor
-				.describe( remote )
-				.links.filter(
-					( link ) => link.role === 'dashboard' || link.role === 'domains' || link.role === 'more'
-				)
-		: [];
+	const hostingLinks = remote ? descriptor.describe( remote ).links : [];
 
 	const label = remote ? __( 'Site actions' ) : __( 'Preview actions' );
 	return (
@@ -96,7 +85,16 @@ export function DestinationActionsMenu( {
 						{ hostingLinks.map( ( link ) => (
 							<PublishMenuItem
 								key={ link.url }
-								icon={ link.role === 'domains' ? <GlobeIcon /> : <ExternalLinkIcon /> }
+								icon={
+									link.icon ? (
+										<span
+											className={ styles.linkIcon }
+											dangerouslySetInnerHTML={ { __html: link.icon } }
+										/>
+									) : (
+										<ExternalLinkIcon />
+									)
+								}
 								label={ link.title }
 								onClick={ () => void connector.openExternalUrl( link.url ) }
 							/>

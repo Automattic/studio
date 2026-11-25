@@ -7,7 +7,7 @@ import { pullOverSsh } from './pull';
 import { pushOverSsh } from './push';
 import { inSite, shellQuote, uploadWpCli, withSsh, type SshConnection } from './shell';
 import { addSshHost, listSshHosts } from './ssh-config';
-import type { SitesServices } from '../types';
+import type { ResolveFrom, SitesServices } from '../types';
 
 function connection( site: Pick< SshSite, 'id' > & Partial< SshSite > ): SshConnection {
 	const target = parseSshAddress( site.id );
@@ -38,14 +38,23 @@ function parseForm< Schema extends z.ZodType >(
 	return form.data;
 }
 
-async function resolve( input: Record< string, string > ): Promise< SshSite > {
-	const values = { host: '', path: '', php: '', ...input };
-	// A whole address as the host, as `--remote-site ssh:<address>` gives it.
-	const address = values.path ? undefined : parseSshAddress( values.host );
-	if ( address && ! /^\d+$/.test( address.path ) ) {
-		values.host = address.port ? `${ address.destination }:${ address.port }` : address.destination;
-		values.path = address.path;
+// The form's values for a site's address.
+function addressValues( id: string ): Record< string, string > {
+	const address = parseSshAddress( id );
+	if ( ! address ) {
+		return { host: id };
 	}
+	const { destination, port, path } = address;
+	return { host: port ? `${ destination }:${ port }` : destination, path };
+}
+
+async function resolve( from: ResolveFrom ): Promise< SshSite > {
+	const values = {
+		host: '',
+		path: '',
+		php: '',
+		...( 'id' in from ? addressValues( from.id ) : from.input ),
+	};
 	const form = parseForm( sshProvider.sites!.connect!.input(), values );
 	const server = { ...parseSshHost( form.host )!, path: sitePath( form.path ) };
 	const php = form.php.trim();
@@ -94,7 +103,7 @@ async function resolve( input: Record< string, string > ): Promise< SshSite > {
 export const sshSites: SitesServices< undefined, SshSite > = {
 	// The connections are the sites: the user connects each one.
 	list: async () => [],
-	resolve: ( _config, input ) => resolve( input ),
+	resolve: ( _config, from ) => resolve( from ),
 	action: async ( _config, name, input ) => {
 		if ( name === 'hosts' ) {
 			return listSshHosts();

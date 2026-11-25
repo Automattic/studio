@@ -314,13 +314,16 @@ export async function resolveFormConnectedSite(
 		return known;
 	}
 	const { label } = getProvider( provider );
-	const form = getFormFields( getProviderSites( provider ).connect!.input() );
-	const values = identifier
-		? { [ form[ 0 ].name ]: identifier }
+	const from = identifier
+		? { id: identifier }
 		: process.stdin.isTTY
-		? await askFormFields( form )
+		? {
+				input: await askFormFields(
+					getFormFields( getProviderSites( provider ).connect!.input() )
+				),
+		  }
 		: undefined;
-	if ( ! values ) {
+	if ( ! from ) {
 		throw new LoggerError(
 			sprintf( __( 'Choose a site with `--remote-site %s:<site>`.' ), provider )
 		);
@@ -330,7 +333,7 @@ export async function resolveFormConnectedSite(
 		sprintf( __( 'Connecting to the %s site…' ), label )
 	);
 	try {
-		const site = await resolveRemoteSite( getProviderServices( provider ), values );
+		const site = await resolveRemoteSite( getProviderServices( provider ), from );
 		await connectPublishingSite( provider, localSiteId, site );
 		logger.spinner.stop();
 		return site;

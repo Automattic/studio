@@ -6,6 +6,7 @@ import type {
 	ProviderConfigs,
 	ProviderServices,
 	ProviderSites,
+	ResolveFrom,
 	SiteCreationVisibility,
 	SiteVisibility,
 	SitesProviderId,
@@ -72,16 +73,17 @@ export async function createRemoteSite(
 	return site;
 }
 
-// The site the values of the provider's `connect` form describe, once the provider reached it.
+// The site with that id, or the one the provider's `connect` form describes, once the provider
+// reached it.
 export async function resolveRemoteSite(
 	provider: SitesProvider,
-	input: Record< string, string >
+	from: ResolveFrom
 ): Promise< Site > {
 	const resolve = sites( provider ).resolve;
 	if ( ! resolve ) {
 		throw new Error( `Studio can't connect ${ getProvider( provider.id ).label } sites by form.` );
 	}
-	return resolve( await config( provider ), input );
+	return resolve( await config( provider ), from );
 }
 
 // Runs an action the provider's connect form asks for, such as listing the user's SSH hosts.

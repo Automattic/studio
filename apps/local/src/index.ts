@@ -2098,7 +2098,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				res.json( await resolveRemoteSite( getProviderServices( provider ), req.body ) );
+				res.json( await resolveRemoteSite( getProviderServices( provider ), { input: req.body } ) );
 			}
 		} )
 	);

@@ -358,6 +358,9 @@ export interface PreviewOptions {
 	liveSiteId?: RemoteSite[ 'id' ];
 }
 
+// A site to connect: by its id, or by the values of the provider's `sites.connect` form.
+export type ResolveFrom = { id: string } | { input: Record< string, string > };
+
 // Sends local sites to a provider's sites and brings them back. The provider
 // owns the remote side; Studio builds the content and applies what it pulls.
 export interface SitesServices< Config, Site extends RemoteSite > {
@@ -375,8 +378,9 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		config: Config | undefined,
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
-	// The site the user described in the descriptor's `connect` form, once the provider reached it.
-	resolve?( config: Config | undefined, input: Record< string, string > ): Promise< Site >;
+	// The site with that id, as `--remote-site` names it, or the one the user described in the
+	// descriptor's `connect` form, once the provider reached it.
+	resolve?( config: Config | undefined, from: ResolveFrom ): Promise< Site >;
 	// What the provider's connect form (`@studio/providers/ui`) asks of the computer, by name, such
 	// as the hosts of the user's SSH config.
 	action?(

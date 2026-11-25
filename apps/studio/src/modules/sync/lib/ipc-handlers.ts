@@ -78,7 +78,7 @@ export async function resolveRemoteSite(
 	provider: string,
 	input: Record< string, string >
 ): Promise< ProviderSites[ SitesProviderId ] > {
-	return resolveRemoteSiteOnProvider( getProviderServices( parseProvider( provider ) ), input );
+	return resolveRemoteSiteOnProvider( getProviderServices( parseProvider( provider ) ), { input } );
 }
 
 export async function runSitesAction(

@@ -887,6 +887,23 @@ it( 'opens the connected WordPress.com site domains without creating another sit
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 
+it( 'offers information about Spacefast until a site exists', async () => {
+	const { user, connector } = setup( {
+		getSnapshots: async () => [],
+		getRemoteSites: async () => [],
+	} );
+	const panel = await openFirstDestination();
+	await user.click( within( panel ).getByRole( 'combobox', { name: 'Destination' } ) );
+	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	const learnMore = within( panel ).getByRole( 'button', { name: 'Learn about Spacefast' } );
+	expect(
+		within( panel ).queryByRole( 'button', { name: 'Launch on WordPress.com' } )
+	).not.toBeInTheDocument();
+	await user.click( learnMore );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith( 'https://spacefast.com' );
+	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+} );
+
 it.each( [
 	{ hostname: 'lente.blog', url: live.url },
 	{ hostname: 'lente.space.fast', url: space.url },

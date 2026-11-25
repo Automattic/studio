@@ -62,6 +62,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		newSite: 'create',
 		intro: {
 			title: () => __( 'Publish to Spacefast' ),
+			learnMoreUrl: 'https://spacefast.com',
 			description: () =>
 				__(
 					'Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.'

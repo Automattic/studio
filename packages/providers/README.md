@@ -62,7 +62,7 @@ A model connection whose `model.contextWindow` is exactly the context the server
 
 `sites` sends local sites to sites the user keeps on the provider, and `previews` says whether it also builds temporary previews shared by a link. A preview is updated with a push to it, with `preview` set, and created, listed and deleted through `previews`.
 
-`sites.describe( site )` gives the facts the panel lists about a connected site and the `links` its site menu shows, in order. `sites.visibility` lists who can see a site (`options`) and where its access is managed on the provider (`manage`), next to the services' `visibility`, which reads and sets it.
+`sites.intro` is what the panel says before a site is connected, with an optional `learnMoreUrl`. `sites.describe( site )` gives the facts the panel lists about a connected site and the `links` its site menu shows, in order, each with an optional `icon` (an SVG document in `currentColor`). `sites.visibility` lists who can see a site (`options`) and where its access is managed on the provider (`manage`), next to the services' `visibility`, which reads and sets it.
 
 A provider whose config is `undefined`, such as SSH, has no `account`: there is nothing to connect, and surfaces treat it as connected. The user connects each of its sites with the descriptor's `sites.connect` form, the same shape as an account's form method, and the services' `resolve` checks it by reaching the site: `resolve( config, { input } )` takes the form's values, and `resolve( config, { id } )` a site's id, as `--remote-site ssh:<id>` names it. It pulls by writing the site's archive (`pullArchive`). Its form is `hostOnly`, so only the user's computer offers it.
 

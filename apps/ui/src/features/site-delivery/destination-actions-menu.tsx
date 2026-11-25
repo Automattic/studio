@@ -6,6 +6,7 @@ import { useConnector, type Snapshot } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { DisconnectSiteIcon } from './connection-icons';
 import { PullPreviewIcon } from './pull-preview-icon';
+import styles from './style.module.css';
 import type { PublishTarget } from './use-publish-targets';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
@@ -84,7 +85,16 @@ export function DestinationActionsMenu( {
 						{ hostingLinks.map( ( link ) => (
 							<PublishMenuItem
 								key={ link.url }
-								icon={ <ExternalLinkIcon /> }
+								icon={
+									link.icon ? (
+										<span
+											className={ styles.linkIcon }
+											dangerouslySetInnerHTML={ { __html: link.icon } }
+										/>
+									) : (
+										<ExternalLinkIcon />
+									)
+								}
 								label={ link.title }
 								onClick={ () => void connector.openExternalUrl( link.url ) }
 							/>

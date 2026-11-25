@@ -189,6 +189,8 @@ export interface ConnectContext {
 export interface SiteLink {
 	title: string;
 	url: string;
+	// An SVG document drawn in `currentColor`; without it, an external-link icon.
+	icon?: string;
 }
 
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
@@ -223,8 +225,8 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// The form that describes a site the account doesn't list, which the services' `resolve` checks
 	// by reaching the site. `hostOnly` as for an account's connect method.
 	connect?: { input: () => FormSchema; hostOnly?: boolean };
-	// What the panel says before a site is connected.
-	intro: { title: () => string; description: () => string };
+	// What the panel says before a site is connected, and where to learn more about the provider.
+	intro: { title: () => string; description: () => string; learnMoreUrl?: string };
 	// Facts about a connected site, and links to manage it on the provider, in the order shown.
 	describe( site: Site ): {
 		details: { title: string; value: string }[];

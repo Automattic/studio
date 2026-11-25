@@ -295,6 +295,7 @@ export function PublishButton( {
 	const panelTitle = accountsReady ? getShareViewTitle( view, selected ) : __( 'Publish' );
 	const destinationProvider = selected?.provider ?? emptyDestination;
 	const connection = targets.connectionState( destinationProvider );
+	const { learnMoreUrl } = getProviderSites( destinationProvider ).intro;
 	const connectionUnavailable = ! selected && connection.unavailable;
 	const canCreate = ! selected && emptyDescriptor.newSite === 'create';
 	const [ requestedVisibility, setRequestedVisibility ] = useState< SiteCreationVisibility >();
@@ -1186,6 +1187,19 @@ export function PublishButton( {
 						} }
 					>
 						{ __( 'Pull from live site…' ) }
+					</Button>
+				) }
+				{ ! addingDestination && ! remote && learnMoreUrl && (
+					<Button
+						variant="outline"
+						onClick={ () => void connector.openExternalUrl( learnMoreUrl ) }
+					>
+						{ sprintf(
+							/* translators: %s: a hosting provider, such as Spacefast */
+							__( 'Learn about %s' ),
+							getProvider( destinationProvider ).label
+						) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				) }
 				<div className={ styles.footerActions }>{ renderPrimaryAction() }</div>

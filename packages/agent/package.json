@@ -17,7 +17,6 @@
 		"./node/sessions/store": "./node/sessions/store.ts"
 	},
 	"scripts": {
-		"lint": "eslint .",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {

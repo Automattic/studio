@@ -3,7 +3,6 @@ import os from 'os';
 import path from 'path';
 import { readAuthToken } from '@studio/common/lib/auth-token';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
-import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, recordRemoteSitePublish } from '@studio/common/lib/remote-sites';
@@ -42,7 +41,13 @@ import { exportStaticContent } from 'cli/lib/static-content';
 import { exitOnCancel, onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { fetchSyncableSites, toLoggerError } from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
-import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
+import {
+	connectedSites,
+	findRemoteSite,
+	findSyncSiteByIdentifier,
+	pickSyncSite,
+	resolveFormConnectedSite,
+} from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
@@ -154,6 +159,7 @@ type PushOutcome = {
 // Each remote step's label, and where it starts and how much it spans of the overall progress.
 const PUSH_PROGRESS: Record< PushStatus[ 'phase' ], [ () => string, number, number ] > = {
 	uploading: [ () => __( 'Uploading archive…' ), 20, 20 ],
+	waitingForRemote: [ () => __( 'Waiting for another update to the live site to finish…' ), 40, 0 ],
 	creatingRemoteBackup: [ () => __( 'Backing up remote site…' ), 40, 20 ],
 	applyingChanges: [ () => __( 'Applying changes…' ), 60, 35 ],
 	finishing: [ () => __( 'Almost there…' ), 99, 0 ],
@@ -166,6 +172,7 @@ const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
 	generatingStaticSite: 'local_export',
 	stoppingSite: 'local_export',
 	uploading: 'upload',
+	waitingForRemote: 'remote_import',
 	creatingRemoteBackup: 'remote_backup',
 	applyingChanges: 'remote_import',
 	finishing: 'remote_import',
@@ -429,11 +436,11 @@ async function requireConfig( provider: SitesProviderId ): Promise< Config > {
 	if ( provider === 'wpcom' ) {
 		return { token: ( await requireAuthToken( 'auth' ) ).accessToken } as Config;
 	}
+	const { label, account } = getProvider( provider );
 	const config = await readProviderConfig( provider );
-	if ( config ) {
-		return config;
+	if ( config || ! account ) {
+		return config as Config;
 	}
-	const { label } = getProvider( provider );
 	if (
 		! process.stdin.isTTY ||
 		! ( await confirm( { message: sprintf( __( 'Connect %s now?' ), label ) } ) )
@@ -483,18 +490,13 @@ async function resolveRemoteSite(
 	identifier: string | undefined,
 	logger: Logger< LoggerAction >
 ): Promise< RemoteSite | undefined > {
+	if ( getProviderSites( provider ).connect ) {
+		return resolveFormConnectedSite( provider, site.id, identifier, logger );
+	}
 	if ( ! identifier ) {
-		const [ last ] = ( await getRemoteSites( provider, site.id ) ).sort( ( a, b ) =>
-			( b.lastPushTimestamp ?? '' ).localeCompare( a.lastPushTimestamp ?? '' )
-		);
+		const [ last ] = await connectedSites( provider, site.id );
 		if ( last ) {
-			const {
-				localSiteId: _localSiteId,
-				lastPushTimestamp: _push,
-				lastPullTimestamp: _pull,
-				...remoteSite
-			} = last;
-			return remoteSite as RemoteSite;
+			return last;
 		}
 	}
 
@@ -513,13 +515,7 @@ async function resolveRemoteSite(
 	logger.spinner.stop();
 
 	if ( identifier ) {
-		const normalized = normalizeHostname( identifier );
-		const remoteSite = remoteSites.find(
-			( candidate ) =>
-				String( candidate.id ) === identifier ||
-				normalizeHostname( candidate.url ) === normalized ||
-				( 'slug' in candidate && candidate.slug === identifier )
-		);
+		const remoteSite = findRemoteSite( remoteSites, identifier );
 		if ( ! remoteSite ) {
 			throw new LoggerError( sprintf( __( 'No site found matching "%s"' ), identifier ) );
 		}

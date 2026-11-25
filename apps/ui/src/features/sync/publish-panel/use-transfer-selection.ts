@@ -77,10 +77,9 @@ export function useTransferSelection(
 				nodes = localNodes( await connector.listLocalFileTree( site.id, 'wp-content', 3 ) );
 			} else {
 				// Individual files can only be browsed when the website has a backup.
-				rewind =
-					sites.hasBackups?.( remote ) === false
-						? null
-						: await connector.getRemoteBackupId( provider, remote.id );
+				rewind = sites.hasBackups?.( remote )
+					? await connector.getRemoteBackupId( provider, remote.id )
+					: null;
 				if ( ! rewind ) {
 					return { rewind, filesUnavailable: true };
 				}

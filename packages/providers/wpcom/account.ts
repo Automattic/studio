@@ -1,6 +1,6 @@
 import { ConnectError } from '../errors';
 import type { WpcomConfig } from './config';
-import type { ProviderServices } from '../types';
+import type { AccountServices } from '../types';
 
 // The lifetime of a token whose redirect didn't say: a pasted one.
 const DEFAULT_TOKEN_LIFETIME_MS = 14 * 24 * 60 * 60 * 1000;
@@ -65,4 +65,4 @@ async function disconnect( { token }: WpcomConfig ): Promise< void > {
 	}
 }
 
-export const wpcomAccount: ProviderServices< WpcomConfig >[ 'account' ] = { connect, disconnect };
+export const wpcomAccount: AccountServices< WpcomConfig > = { connect, disconnect };

@@ -1,12 +1,20 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { Type } from 'typebox';
+import { Type, type Static, type TObjectOptions, type TSchema } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiResponse = any;
+
+// Not `Type.Record`: its `patternProperties` schema makes Gemini 4 Argon fail
+// unrelated tool calls with MALFORMED_FUNCTION_CALL.
+function record< T extends TSchema >( values: T, options: TObjectOptions ) {
+	return Type.Unsafe< Record< string, Static< T > > >(
+		Type.Object( {}, { ...options, additionalProperties: values } )
+	);
+}
 
 const BODY_FILE_FIELD_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_-]*$/;
 
@@ -175,13 +183,13 @@ export function createWpcomRequestTool( payloadsDirectory: string ) {
 					'Prefix with "!" to use an absolute path (e.g. "!/me").',
 			} ),
 			query: Type.Optional(
-				Type.Record( Type.String(), Type.Unknown(), {
+				record( Type.Unknown(), {
 					description:
 						'Query parameters as key-value pairs, e.g. { "per_page": 20, "status": "publish" }.',
 				} )
 			),
 			body: Type.Optional(
-				Type.Record( Type.String(), Type.Unknown(), {
+				record( Type.Unknown(), {
 					description: 'Request body for POST/PUT requests as key-value pairs.',
 				} )
 			),
@@ -191,7 +199,7 @@ export function createWpcomRequestTool( payloadsDirectory: string ) {
 				} )
 			),
 			bodyFiles: Type.Optional(
-				Type.Record( Type.String(), Type.String(), {
+				record( Type.String(), {
 					description:
 						`Optional file-backed string body fields for POST/PUT requests. Keys must be top-level REST body field names like "content"; do not use filenames, file extensions, nested fields, dots, slashes, or JSON paths as keys. Values must be absolute paths of files in ${ payloadsDirectory }. ` +
 						`Example: { "content": "${ payloadsDirectory }/home.html" }. Use this for large generated strings instead of inlining them in body.`,

@@ -581,7 +581,6 @@ it( 'renders the selected provider capabilities and retains another destinationâ
 		'Manage on WordPress.com',
 		'Manage domains',
 		'View backups',
-		'WP admin',
 		'Disconnect siteâ€¦',
 	] );
 	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Manage on WordPress.com' } ) );

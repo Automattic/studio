@@ -76,12 +76,7 @@ export const sshProvider: Provider< undefined, SshSite > = {
 							{ title: __( 'Folder' ), value: target.path },
 					  ]
 					: [],
-				links: [
-					{
-						title: __( 'Open WP Admin' ),
-						url: new URL( 'wp-admin/', site.url.replace( /\/?$/, '/' ) ).href,
-					},
-				],
+				links: [],
 			};
 		},
 	},

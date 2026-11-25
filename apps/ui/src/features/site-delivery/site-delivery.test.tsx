@@ -1929,7 +1929,6 @@ it.each( [ false, true, null ] )(
 			'Manage on WordPress.com',
 			'Manage domains',
 			'View backups',
-			'WP admin',
 			'Disconnect site…',
 		] );
 		await actions.keyboard( '{Escape}' );

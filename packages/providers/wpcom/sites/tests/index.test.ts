@@ -180,6 +180,31 @@ describe( 'push', () => {
 		}
 	);
 
+	it( 'follows an import whose progress stays flat for hours until the live site ends it', async () => {
+		const finishAt = Date.now() + 5 * 60 * 60 * 1000;
+		vi.mocked( pollImportStatus ).mockImplementation( async () =>
+			Date.now() < finishAt
+				? ( { success: true, status: 'archive_import_started', import_progress: 40 } as never )
+				: ( { success: true, status: 'finished' } as never )
+		);
+
+		const pushed = push();
+		await vi.advanceTimersByTimeAsync( 5 * 60 * 60 * 1000 + 3000 );
+		await expect( pushed ).resolves.toBeUndefined();
+	} );
+
+	it( 'gives up when the live site never ends the import', async () => {
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'archive_import_started',
+			import_progress: 40,
+		} as never );
+
+		const pushed = push().catch( ( e: unknown ) => e );
+		await vi.advanceTimersByTimeAsync( 7 * 60 * 60 * 1000 );
+		expect( await pushed ).toMatchObject( { code: 'timeout' } );
+	} );
+
 	it( 'explains a database the live site failed to import', async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {
 			success: false,

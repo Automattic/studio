@@ -1,3 +1,4 @@
+import os from 'os';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
@@ -35,6 +36,22 @@ function isProcessAlive( pid: number ): boolean {
 	}
 }
 
+// Leaves room for the clock moving between the processes that compare boot times.
+const BOOT_TIME_TOLERANCE_MS = 60_000;
+
+function getBootTime(): number {
+	return Math.round( Date.now() - os.uptime() * 1000 );
+}
+
+// Builds up to 2.4.0 recorded no boot time, so their entries can't be told
+// apart from a reused pid and count as stale.
+function isOwnerAlive( { pid, bootTime }: SiteOperation ): boolean {
+	if ( bootTime === undefined || getBootTime() - bootTime > BOOT_TIME_TOLERANCE_MS ) {
+		return false;
+	}
+	return isProcessAlive( pid );
+}
+
 /**
  * The site's operation, or undefined once its owning process has died. Every
  * path that reports a site to a client must go through this — an entry left
@@ -42,7 +59,7 @@ function isProcessAlive( pid: number ): boolean {
  * in the UI.
  */
 export function getLiveSiteOperation( site: ConfigSite ): SiteOperation | undefined {
-	return site.operation && isProcessAlive( site.operation.pid ) ? site.operation : undefined;
+	return site.operation && isOwnerAlive( site.operation ) ? site.operation : undefined;
 }
 
 const START_WAIT_POLL_INTERVAL_MS = 250;
@@ -58,7 +75,7 @@ const START_WAIT_POLL_INTERVAL_MS = 250;
  * just replaced an outdated daemon starts the same sites again.
  */
 async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< SiteOperation > {
-	const operation: SiteOperation = { pid: process.pid, kind };
+	const operation: SiteOperation = { pid: process.pid, kind, bootTime: getBootTime() };
 
 	for (;;) {
 		let isWaiting = false;
@@ -111,7 +128,23 @@ async function waitForOtherStarts( siteIds: string[] ): Promise< void > {
 	);
 }
 
+// A long-lived owner (`studio mcp`, the daemon) would otherwise keep a site whose
+// release lost the config lock busy until it exits.
+const RELEASE_ATTEMPTS = 3;
+
 async function release( siteIds: string[], operation: SiteOperation ): Promise< void > {
+	for ( let attempt = 1; ; attempt++ ) {
+		try {
+			return await clearOperation( siteIds, operation );
+		} catch ( error ) {
+			if ( attempt === RELEASE_ATTEMPTS ) {
+				throw error;
+			}
+		}
+	}
+}
+
+function clearOperation( siteIds: string[], operation: SiteOperation ): Promise< void > {
 	return updateConfig( ( config ) => {
 		for ( const siteId of siteIds ) {
 			const site = config.sites.find( ( candidate ) => candidate.id === siteId );

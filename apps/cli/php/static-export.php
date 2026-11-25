@@ -33,6 +33,9 @@ WP_CLI::add_wp_hook(
 WP_CLI::add_wp_hook(
 	'muplugins_loaded',
 	function () {
+		// Settings the site saved for its own Simply Static (origin URL, server cron, ...) would
+		// change the export. This clears them in the database copy only.
+		delete_option( 'simply-static' );
 		require_once __DIR__ . '/simply-static/simply-static.php';
 	}
 );

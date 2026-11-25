@@ -1,6 +1,7 @@
 /**
  * @vitest-environment node
  */
+import * as Sentry from '@sentry/electron/main';
 import { BrowserWindow, app, dialog } from 'electron';
 import path from 'path';
 import { readFile } from 'atomically';
@@ -17,9 +18,12 @@ import {
 
 vi.mock( 'fs' );
 vi.mock( 'src/ipc-utils' );
+vi.mock( '@sentry/electron/main', () => ( { captureException: vi.fn() } ) );
 vi.mock( 'atomically' );
 
+const { mockLoadURL } = vi.hoisted( () => ( { mockLoadURL: vi.fn() } ) );
 const mockWebContentsEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
+const mockWebContentsOnceHandlers = new Map< string, ( ...args: any[] ) => void >();
 
 vi.mock( 'electron', () => {
 	class MockBrowserWindow {
@@ -30,7 +34,7 @@ vi.mock( 'electron', () => {
 		isDestroyed = vi.fn().mockReturnValue( false );
 		isFullScreen = vi.fn().mockReturnValue( false );
 		loadFile = vi.fn().mockResolvedValue( undefined );
-		loadURL = vi.fn().mockResolvedValue( undefined );
+		loadURL = mockLoadURL;
 		setBackgroundColor = vi.fn();
 		setTitleBarOverlay = vi.fn();
 		getBounds = vi.fn().mockReturnValue( { x: 0, y: 0, width: 800, height: 600 } );
@@ -53,7 +57,10 @@ vi.mock( 'electron', () => {
 					setImmediate( handler );
 				}
 			} ),
-			once: vi.fn(),
+			once: vi.fn( ( event: string, handler: ( ...args: any[] ) => void ) =>
+				mockWebContentsOnceHandlers.set( event, handler )
+			),
+			getOSProcessId: vi.fn().mockReturnValue( 42 ),
 			setWindowOpenHandler: vi.fn(),
 		};
 	}
@@ -65,6 +72,7 @@ vi.mock( 'electron', () => {
 			getPath: vi.fn().mockReturnValue( '/mock/path' ),
 			isPackaged: false,
 			quit: vi.fn(),
+			getAppMetrics: vi.fn().mockReturnValue( [ { pid: 1, type: 'Browser' } ] ),
 		},
 		dialog: {
 			showMessageBox: vi.fn(),
@@ -106,6 +114,7 @@ beforeEach( () => {
 	delete process.env.ENABLE_AGENTIC_UI;
 	delete process.env.ELECTRON_UI_RENDERER_URL;
 	mockWebContentsEventHandlers.clear();
+	mockWebContentsOnceHandlers.clear();
 } );
 
 describe( 'getMainWindow', () => {
@@ -170,6 +179,68 @@ describe( 'renderer selection', () => {
 
 		expect( createdWindow.loadURL ).toHaveBeenCalledWith( 'http://localhost:5200' );
 		expect( createdWindow.loadFile ).not.toHaveBeenCalled();
+	} );
+
+	async function failLoad( {
+		destroyed = false,
+		beforeFailure = () => {},
+		afterFailure = () => {},
+	} ) {
+		vi.useFakeTimers( { toFake: [ 'setTimeout' ] } );
+		process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
+		const error = new Error( 'ERR_FAILED' );
+		let rejectLoad = () => {};
+		mockLoadURL.mockReturnValueOnce(
+			new Promise( ( _resolve, reject ) => ( rejectLoad = () => reject( error ) ) )
+		);
+		const window = await createMainWindow();
+		vi.mocked( window.webContents.isDestroyed ).mockReturnValue( destroyed );
+
+		beforeFailure();
+		rejectLoad();
+		await vi.advanceTimersByTimeAsync( 0 );
+		afterFailure();
+		await vi.advanceTimersByTimeAsync( 1000 );
+		vi.useRealTimers();
+		return error;
+	}
+
+	it( 'does not report a load cut short by closing the window', async () => {
+		await failLoad( { destroyed: true } );
+
+		expect( Sentry.captureException ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reports a failed load with how far it got and the renderer that died during it', async () => {
+		const error = await failLoad( {
+			beforeFailure: () => mockWebContentsOnceHandlers.get( 'did-start-navigation' )?.(),
+			afterFailure: () =>
+				mockWebContentsOnceHandlers.get( 'render-process-gone' )?.( {}, { reason: 'killed' } ),
+		} );
+
+		expect( Sentry.captureException ).toHaveBeenCalledWith( error, {
+			tags: { renderer_load: 'renderer-killed' },
+			contexts: {
+				rendererLoad: expect.objectContaining( {
+					events: [ 'did-start-navigation' ],
+					rendererGone: { reason: 'killed' },
+					rendererPid: 42,
+					rendererRunning: false,
+					processTypes: [ 'Browser' ],
+				} ),
+			},
+		} );
+	} );
+
+	it( 'reports a load that never committed', async () => {
+		await failLoad( {
+			beforeFailure: () => mockWebContentsOnceHandlers.get( 'did-start-navigation' )?.(),
+		} );
+
+		expect( Sentry.captureException ).toHaveBeenCalledWith(
+			expect.any( Error ),
+			expect.objectContaining( { tags: { renderer_load: 'not-committed' } } )
+		);
 	} );
 
 	it( 'shows an error and quits when the renderer was not built', async () => {

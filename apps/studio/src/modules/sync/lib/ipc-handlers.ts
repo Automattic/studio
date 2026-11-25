@@ -23,8 +23,8 @@ import { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import {
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
+	type NewSite,
 	type ProviderSites,
-	type SiteCreationVisibility,
 	type SitesProviderId,
 	SiteVisibility,
 } from '@studio/providers';
@@ -99,23 +99,25 @@ export async function disconnectRemoteSite(
 	await forgetRemoteSite( parseProvider( provider ), localSiteId, remoteSiteId );
 }
 
-export function getSiteCreationVisibility( _event: IpcMainInvokeEvent, provider: string ) {
-	return readCreationVisibility( getProviderServices( parseProvider( provider ) ) );
+export function getSiteCreationVisibility(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	input?: NewSite[ 'input' ]
+) {
+	return readCreationVisibility( getProviderServices( parseProvider( provider ) ), input );
 }
 
 export async function createRemoteSite(
 	_event: IpcMainInvokeEvent,
 	provider: string,
 	localSiteId: string,
-	name: string,
-	visibility?: SiteCreationVisibility,
+	site: NewSite,
 	connect = true
 ): Promise< ProviderSites[ SitesProviderId ] > {
 	return createRemoteSiteOnProvider(
 		getProviderServices( parseProvider( provider ) ),
 		localSiteId,
-		name,
-		visibility,
+		site,
 		connect
 	);
 }

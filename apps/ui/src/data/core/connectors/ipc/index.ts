@@ -507,13 +507,11 @@ export function createIpcConnector(): Connector {
 			await ipcApi.disconnectRemoteSite( provider, localSiteId, remoteSiteId );
 		},
 
-		async getSiteCreationVisibility( provider ) {
-			return unwrapIpcError( ipcApi.getSiteCreationVisibility( provider ) );
+		async getSiteCreationVisibility( provider, input ) {
+			return unwrapIpcError( ipcApi.getSiteCreationVisibility( provider, input ) );
 		},
-		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
-			return unwrapIpcError(
-				ipcApi.createRemoteSite( provider, localSiteId, name, visibility, connect )
-			);
+		async createRemoteSite( provider, localSiteId, site, connect ) {
+			return unwrapIpcError( ipcApi.createRemoteSite( provider, localSiteId, site, connect ) );
 		},
 
 		onSyncConnectSite( listener ) {

@@ -30,21 +30,6 @@ WP_CLI::add_wp_hook(
 	}
 );
 
-// A copy the site has installed itself would load too, and redeclare the bundled one's functions.
-WP_CLI::add_wp_hook(
-	'option_active_plugins',
-	function ( $plugins ) {
-		return array_values(
-			array_filter(
-				(array) $plugins,
-				function ( $plugin ) {
-					return 'simply-static.php' !== basename( $plugin );
-				}
-			)
-		);
-	}
-);
-
 WP_CLI::add_wp_hook(
 	'muplugins_loaded',
 	function () {

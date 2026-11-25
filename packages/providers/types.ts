@@ -103,6 +103,28 @@ export interface ProviderUi< Site extends RemoteSite = RemoteSite > {
 	ConnectForm?: ComponentType< ConnectFormProps >;
 	// What the publish panel shows under a connected site, such as its plan.
 	SiteRows?: ComponentType< SiteRowsProps< Site > >;
+	// What the publish panel asks before creating a site, such as its Spacefast team.
+	NewSiteRows?: ComponentType< NewSiteRowsProps >;
+}
+
+export interface NewSiteRowsProps {
+	// The choices so far, which Studio passes to the services' `create` and `creationVisibility`.
+	input: Record< string, string >;
+	disabled: boolean;
+	onChange( input: Record< string, string > ): void;
+	// Runs one of the services' actions on the computer.
+	run( action: string, input?: Record< string, string > ): Promise< unknown >;
+	// The panel's own picker row, so a provider's rows look like the rest.
+	SelectRow: ComponentType< SelectRowProps >;
+}
+
+export interface SelectRowProps {
+	icon: ReactNode;
+	label: string;
+	value: string;
+	options: { value: string; label: string }[];
+	disabled?: boolean;
+	onChange( value: string ): void;
 }
 
 export interface SiteRowsProps< Site extends RemoteSite = RemoteSite > {
@@ -348,6 +370,12 @@ export interface PushStatus {
 
 export type SiteVisibility = 'public' | 'coming-soon' | 'private';
 export type SiteCreationVisibility = Extract< SiteVisibility, 'public' | 'private' >;
+// A site to create on a provider. `input` is what the provider's `NewSiteRows` chose.
+export interface NewSite {
+	name: string;
+	visibility?: SiteCreationVisibility;
+	input?: Record< string, string >;
+}
 export interface SiteVisibilityDetails {
 	visibility: SiteVisibility | 'unknown';
 	availableValues?: SiteVisibility[];
@@ -419,11 +447,11 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		input: Record< string, string >
 	): Promise< unknown >;
 	// A new site to push to, for a provider that can create one.
-	create?(
+	create?( config: Config | undefined, site: NewSite ): Promise< Site >;
+	creationVisibility?(
 		config: Config | undefined,
-		options: { name: string; visibility?: SiteCreationVisibility }
-	): Promise< Site >;
-	creationVisibility?( config: Config | undefined ): Promise< SiteCreationVisibility >;
+		input?: NewSite[ 'input' ]
+	): Promise< SiteCreationVisibility >;
 	// A launch error means the import succeeded; callers keep the publish intent
 	// for a retry and must not show the site as published yet. A push to one of
 	// `previews.list`'s sites passes `preview`, and rebuilds the preview from the content.

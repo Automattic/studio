@@ -11,7 +11,7 @@ import { startAgentRun } from 'src/modules/ai-agent/run-manager';
 import type { IpcMainInvokeEvent } from 'electron';
 
 vi.unmock( 'atomically' );
-vi.unmock( 'lockfile' );
+vi.unmock( 'proper-lockfile' );
 vi.mock( 'src/modules/ai-agent/run-manager', () => ( { startAgentRun: vi.fn() } ) );
 vi.mock( '@studio/common/lib/record-tracks-event', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/record-tracks-event') >() ),

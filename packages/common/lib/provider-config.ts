@@ -114,7 +114,7 @@ export async function forgetRejectedConfig< T >(
 	}
 }
 
-// Longer than a renewal's requests take, so a waiting process never takes over a live lock.
+// Longer than a renewal's requests take, so a waiting process gets the renewed config.
 const REFRESH_LOCK_TIME = 30_000;
 
 // The selected chat provider's stored id, as `normalizeProviderId` reads it.
@@ -144,7 +144,7 @@ export async function readFreshProviderConfig< Config >(
 		return ( await readProviderConfig( id ) ) as Config | undefined;
 	}
 	const lockfilePath = path.join( getConfigDirectory(), `${ id }-refresh.lock` );
-	await lockFileAsync( lockfilePath, { wait: REFRESH_LOCK_TIME, stale: REFRESH_LOCK_TIME } );
+	await lockFileAsync( lockfilePath, { wait: REFRESH_LOCK_TIME } );
 	try {
 		const config = ( await readProviderConfig( id ) ) as Config | undefined;
 		const renewed = config && ( await forgetRejectedConfig( id, () => refresh( config ) ) );

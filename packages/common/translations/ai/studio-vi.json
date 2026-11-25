@@ -41,9 +41,6 @@
 	"%1$s — %2$s": [
 		"%1$s — %2$s"
 	],
-	"%1$s, %2$s, and %3$s": [
-		"%1$s, %2$s và %3$s"
-	],
 	"%d B": [
 		"%d B"
 	],
@@ -106,9 +103,6 @@
 	],
 	"Activate theme": [
 		"Kích hoạt giao diện"
-	],
-	"Add a domain": [
-		"Thêm tên miền"
 	],
 	"Address is required": [
 		"Cần nhập địa chỉ"
@@ -269,9 +263,6 @@
 	"Choose color": [
 		"Chọn màu"
 	],
-	"Choose files": [
-		"Chọn tệp"
-	],
 	"Choose specific files": [
 		"Chọn các tệp cụ thể"
 	],
@@ -337,9 +328,6 @@
 	],
 	"Continue on %s": [
 		"Tiếp tục trên %s"
-	],
-	"Continue to checkout": [
-		"Tiếp tục đến trang thanh toán"
 	],
 	"Continue with GitHub": [
 		"Tiếp tục với GitHub"
@@ -506,9 +494,6 @@
 	"Delete plugin": [
 		"Xóa plugin"
 	],
-	"Delete preview…": [
-		"Xóa bản xem trước…"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"Hãy xóa những trang web bạn không còn cần để giải phóng dung lượng."
 	],
@@ -524,9 +509,6 @@
 	"Design system could not load.": [
 		"Không thể tải hệ thống thiết kế."
 	],
-	"Destination": [
-		"Đích"
-	],
 	"Directory to write the static site to": [
 		"Thư mục để ghi trang web tĩnh"
 	],
@@ -541,9 +523,6 @@
 	],
 	"Disconnect site": [
 		"Ngắt kết nối trang web"
-	],
-	"Disconnect site?": [
-		"Ngắt kết nối trang web?"
 	],
 	"Disconnect site…": [
 		"Ngắt kết nối trang web…"
@@ -830,9 +809,6 @@
 	"Manage credits": [
 		"Quản lý credit"
 	],
-	"Manage domains": [
-		"Quản lý tên miền"
-	],
 	"Manage on Spacefast": [
 		"Quản lý trên Spacefast"
 	],
@@ -902,9 +878,6 @@
 	"Off": [
 		"Tắt"
 	],
-	"One more step": [
-		"Thêm một bước nữa"
-	],
 	"Only if your server asks for one.": [
 		"Chỉ khi máy chủ của bạn yêu cầu."
 	],
@@ -971,9 +944,6 @@
 	"PHP workers must be a whole number from 1 to 64.": [
 		"Số PHP worker phải là số nguyên từ 1 đến 64."
 	],
-	"Paid plan": [
-		"Gói trả phí"
-	],
 	"Parent folder": [
 		"Thư mục cha"
 	],
@@ -991,9 +961,6 @@
 	],
 	"Pick design": [
 		"Chọn thiết kế"
-	],
-	"Plan": [
-		"Gói"
 	],
 	"Plan ended": [
 		"Gói đã kết thúc"
@@ -1031,9 +998,6 @@
 	"Preview sites are temporary. Updating your preview resets the expiration date.": [
 		"Trang web xem trước chỉ là tạm thời. Cập nhật bản xem trước sẽ đặt lại ngày hết hạn."
 	],
-	"Preview: %s": [
-		"Bản xem trước: %s"
-	],
 	"Private sites and preview links": [
 		"Trang web riêng tư và liên kết xem trước"
 	],
@@ -1045,9 +1009,6 @@
 	],
 	"Publish again?": [
 		"Xuất bản lại?"
-	],
-	"Publish changes?": [
-		"Xuất bản các thay đổi?"
 	],
 	"Publish options could not be loaded.": [
 		"Không thể tải các tùy chọn xuất bản."
@@ -1115,20 +1076,11 @@
 	"Recent pages": [
 		"Trang gần đây"
 	],
-	"Recommended": [
-		"Được đề xuất"
-	],
 	"Remote environment: %s": [
 		"Môi trường từ xa: %s"
 	],
 	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
 		"Xóa %s khỏi WordPress Studio? Trang web đã xuất bản và WordPress cục bộ của bạn sẽ không thay đổi."
-	],
-	"Renew": [
-		"Gia hạn"
-	],
-	"Renew your plan": [
-		"Gia hạn gói của bạn"
 	],
 	"Replace local site": [
 		"Thay thế trang web cục bộ"
@@ -1168,9 +1120,6 @@
 	],
 	"Restarting site…": [
 		"Đang khởi động lại trang web…"
-	],
-	"Restricted": [
-		"Bị hạn chế"
 	],
 	"Review the advanced settings to finish creating your site.": [
 		"Xem lại cài đặt nâng cao để hoàn tất việc tạo trang web."
@@ -1219,9 +1168,6 @@
 	],
 	"Send %d annotation": [
 		"Gửi %d chú thích"
-	],
-	"Server address": [
-		"Địa chỉ máy chủ"
 	],
 	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
 		"Đặt STUDIO_SERVE_SECRET để phục vụ ra ngoài máy tính này."
@@ -1409,9 +1355,6 @@
 	"Then add this configuration to your app.": [
 		"Sau đó thêm cấu hình này vào ứng dụng của bạn."
 	],
-	"Thinking": [
-		"Suy nghĩ"
-	],
 	"Thinking: %s": [
 		"Suy nghĩ: %s"
 	],
@@ -1520,17 +1463,11 @@
 	"Update user": [
 		"Cập nhật người dùng"
 	],
-	"Update…": [
-		"Cập nhật…"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"Cập nhật %s sẽ thay thế mọi chỉnh sửa trên bản xem trước bằng bản sao cục bộ của bạn."
 	],
 	"Updating your workspace…": [
 		"Đang cập nhật không gian làm việc của bạn…"
-	],
-	"Uploads": [
-		"Tệp tải lên"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"Mức sử dụng được tính phí qua tài khoản Anthropic của bạn."
@@ -1574,9 +1511,6 @@
 	"Using Grok plan": [
 		"Đang dùng gói Grok"
 	],
-	"View backups": [
-		"Xem bản sao lưu"
-	],
 	"View versions": [
 		"Xem các phiên bản"
 	],
@@ -1591,9 +1525,6 @@
 	],
 	"Visual Annotations": [
 		"Chú thích trực quan"
-	],
-	"WP admin": [
-		"Trang quản trị WP"
 	],
 	"What to replace": [
 		"Nội dung cần thay thế"
@@ -1715,9 +1646,6 @@
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"Không gian làm việc của bạn chạy trên gói Studio Cloud. Trang thanh toán sẽ mở trên WordPress.com, và không gian làm việc của bạn sẽ sẵn sàng khoảng một phút sau khi bạn thanh toán."
 	],
-	"database": [
-		"cơ sở dữ liệu"
-	],
 	"other files": [
 		"các tệp khác"
 	],
@@ -1738,9 +1666,6 @@
 	],
 	"products": [
 		"sản phẩm"
-	],
-	"themes": [
-		"giao diện"
 	],
 	"uploads": [
 		"tệp tải lên"

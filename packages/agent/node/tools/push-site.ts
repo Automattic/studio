@@ -5,7 +5,7 @@ import { textResult } from './utils';
 
 export const pushSiteTool = defineTool(
 	'site_push',
-	'Pushes a local WordPress site to one of its remote sites: a WordPress.com or Pressable site, which requires the user to be signed in to WordPress.com, or a site on another provider such as Spacefast, which receives a static copy of the whole site. ' +
+	'Pushes a local WordPress site to one of its remote sites: a WordPress.com or Pressable site, which requires the user to be signed in to WordPress.com, a WordPress site on a server Studio reaches over SSH, or a site on another provider such as Spacefast, which receives a static copy of the whole site. ' +
 		'Exports the local site, uploads it, and applies it on the remote site. ' +
 		'This can take several minutes depending on site size. ' +
 		'Never call it without explicit user confirmation of the target remote site, even when only one site is attached. Resolve the target first with site_connected_remote_sites: ' +
@@ -16,7 +16,7 @@ export const pushSiteTool = defineTool(
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		remoteSite: Type.String( {
 			description:
-				'The remote site to push to: the `remoteSite` of an entry from site_connected_remote_sites, or a WordPress.com site URL or numeric site ID',
+				'The remote site to push to: the `remoteSite` of an entry from site_connected_remote_sites, a WordPress.com site URL or numeric site ID, or `ssh:<user@host:/path/to/wordpress>` for a site on a server the user named',
 		} ),
 		options: Type.Optional(
 			Type.String( {

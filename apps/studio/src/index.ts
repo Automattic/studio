@@ -75,7 +75,7 @@ import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import { getBundledNodeBinaryPath, getCliPath, getWpCliPharPath } from 'src/storage/paths';
 import { getAutoUpdaterState, setupUpdates } from 'src/updates';
 import type { QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 // eslint-disable-next-line import-x/order
@@ -234,6 +234,9 @@ async function appBoot() {
 	setupLogging();
 
 	setupUpdates();
+
+	// The WP-CLI the SSH sites provider runs on the servers it reaches, when it connects a site here.
+	process.env.STUDIO_WP_CLI_PHAR = getWpCliPharPath();
 
 	if ( process.defaultApp ) {
 		if ( process.argv.length >= 2 ) {

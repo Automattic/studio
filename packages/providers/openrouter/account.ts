@@ -3,11 +3,11 @@ import { ConnectError } from '../errors';
 import { OPENROUTER_API_URL } from './api';
 import { openrouterConnectInput } from './descriptor';
 import type { OpenrouterConfig } from './config';
-import type { ProviderServices } from '../types';
+import type { AccountServices } from '../types';
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
-type OpenrouterAccount = ProviderServices< OpenrouterConfig >[ 'account' ];
+type OpenrouterAccount = AccountServices< OpenrouterConfig >;
 
 function base64Url( bytes: Uint8Array ): string {
 	return btoa( String.fromCharCode( ...bytes ) )

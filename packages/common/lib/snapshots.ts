@@ -53,7 +53,7 @@ export async function buildPreview< Config, Site extends RemoteSite >(
 	}
 	await sites.push(
 		config,
-		{ id: target.siteId, name: '' } as Pick< Site, 'id' | 'name' >,
+		{ id: target.siteId, name: '' } as Pick< Site, 'id' | 'name' > & Partial< Site >,
 		content,
 		{ preview: options },
 		onStatus

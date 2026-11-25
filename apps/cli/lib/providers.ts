@@ -4,6 +4,7 @@ import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { startProviderConnect } from '@studio/common/lib/provider-connect';
 import {
 	ConnectError,
+	type ConnectField,
 	getConnectFields,
 	getConnectMethod,
 	getProvider,
@@ -54,6 +55,20 @@ async function connectWith(
 	}
 }
 
+// Asks for one field, masked when it's a secret; `accept` can still refuse a valid answer.
+function askField(
+	field: ConnectField,
+	message: string,
+	accept: ( value: string ) => Promise< string | true > = async () => true
+): Promise< string > {
+	const prompt = field.secret ? password : input;
+	return prompt( {
+		message,
+		...( field.secret ? { mask: '*' } : {} ),
+		validate: async ( value: string ) => field.validate( value ) ?? accept( value ),
+	} );
+}
+
 // Asks for a form's fields, of which an optional one takes an empty answer. The provider's
 // rejection of a form of one field is that field's error, so it's asked again; a longer form is
 // asked again whole, so any of its fields can be corrected.
@@ -62,9 +77,9 @@ async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise<
 	for (;;) {
 		const values: Record< string, string > = {};
 		for ( const field of fields ) {
-			const prompt = field.secret ? password : input;
-			values[ field.name ] = await prompt( {
-				message: sprintf(
+			values[ field.name ] = await askField(
+				field,
+				sprintf(
 					field.required
 						? /* translators: %s: what the provider asks for, such as an API key */
 						  __( '%s (saved for future use):' )
@@ -72,11 +87,9 @@ async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise<
 						  __( '%s (optional, saved for future use):' ),
 					field.title
 				),
-				...( field.secret ? { mask: '*' } : {} ),
-				validate: async ( value: string ) =>
-					field.validate( value ) ??
-					( fields.length > 1 || connectWith( provider, method, { [ field.name ]: value } ) ),
-			} );
+				async ( value ) =>
+					fields.length > 1 || connectWith( provider, method, { [ field.name ]: value } )
+			);
 		}
 		if ( fields.length === 1 ) {
 			return;
@@ -148,6 +161,9 @@ export async function connectInTerminal(
 		return;
 	}
 	const { label, account } = getProvider( provider );
+	if ( ! account ) {
+		return;
+	}
 	const methodId =
 		account.methods.length > 1
 			? await select( {
@@ -178,4 +194,19 @@ export async function connectInTerminal(
 	} catch ( error ) {
 		throw error instanceof ConnectError ? new LoggerError( error.message ) : error;
 	}
+}
+
+// Asks for the fields of a form a provider describes, such as a site to add.
+export async function askFormFields( fields: ConnectField[] ): Promise< Record< string, string > > {
+	const values: Record< string, string > = {};
+	for ( const field of fields ) {
+		values[ field.name ] = await askField(
+			field,
+			field.required
+				? `${ field.title }:`
+				: /* translators: %s: what the form asks for, such as a server address */
+				  sprintf( __( '%s (optional):' ), field.title )
+		);
+	}
+	return values;
 }

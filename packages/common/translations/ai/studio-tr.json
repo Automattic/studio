@@ -104,12 +104,6 @@
 	"Activate plugin": [
 		"Eklentiyi etkinleştir"
 	],
-	"Add a domain": [
-		"Alan adı ekle"
-	],
-	"Address is required": [
-		"Adres gereklidir"
-	],
 	"Address to listen on": [
 		"Dinlenecek adres"
 	],
@@ -179,9 +173,6 @@
 	"Balanced": [
 		"Dengeli"
 	],
-	"Billed monthly": [
-		"Aylık faturalandırılır"
-	],
 	"Billed monthly, renews on %s": [
 		"Aylık faturalandırılır, %s tarihinde yenilenir"
 	],
@@ -239,9 +230,6 @@
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"ChatGPT oturum açma işlemi tamamlanamadı. Tekrar deneyin."
 	],
-	"Check again": [
-		"Tekrar kontrol et"
-	],
 	"Check your internet connection and try again.": [
 		"İnternet bağlantınızı kontrol edip tekrar deneyin."
 	],
@@ -277,9 +265,6 @@
 	],
 	"Choose color": [
 		"Renk seç"
-	],
-	"Choose files": [
-		"Dosyaları seç"
 	],
 	"Choose specific files": [
 		"Belirli dosyaları seç"
@@ -326,9 +311,6 @@
 	"Connect a provider to see your existing sites.": [
 		"Mevcut sitelerinizi görmek için bir sağlayıcı bağlayın."
 	],
-	"Connect to %s": [
-		"%s hesabına bağlan"
-	],
 	"Connect to an existing site": [
 		"Mevcut bir siteye bağlan"
 	],
@@ -346,9 +328,6 @@
 	],
 	"Continue on %s": [
 		"%s üzerinde devam et"
-	],
-	"Continue to checkout": [
-		"Ödemeye devam et"
 	],
 	"Continue with GitHub": [
 		"GitHub ile devam et"
@@ -515,9 +494,6 @@
 	"Delete plugin": [
 		"Eklentiyi sil"
 	],
-	"Delete preview…": [
-		"Önizlemeyi sil…"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"Yer açmak için artık ihtiyaç duymadığınız siteleri silin."
 	],
@@ -541,9 +517,6 @@
 	],
 	"Disconnect site": [
 		"Sitenin bağlantısını kes"
-	],
-	"Disconnect site?": [
-		"Sitenin bağlantısı kesilsin mi?"
 	],
 	"Disconnect site…": [
 		"Sitenin bağlantısını kes…"
@@ -1076,9 +1049,6 @@
 	"Preview sites are temporary. Updating your preview resets the expiration date.": [
 		"Önizleme siteleri geçicidir. Önizlemenizi güncellemek sona erme tarihini sıfırlar."
 	],
-	"Preview: %s": [
-		"Önizleme: %s"
-	],
 	"Private sites and preview links": [
 		"Özel siteler ve önizleme bağlantıları"
 	],
@@ -1093,9 +1063,6 @@
 	],
 	"Publish again?": [
 		"Tekrar yayımlansın mı?"
-	],
-	"Publish changes?": [
-		"Değişiklikler yayımlansın mı?"
 	],
 	"Publish options could not be loaded.": [
 		"Yayımlama seçenekleri yüklenemedi."
@@ -1304,17 +1271,11 @@
 	"Sign in with OpenRouter": [
 		"OpenRouter ile oturum açın"
 	],
-	"Sign in with WordPress.com": [
-		"WordPress.com ile oturum açın"
-	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Copilot erişimi olan bir GitHub hesabıyla oturum açın."
 	],
 	"Sign in with an eligible Grok account or use an xAI API key.": [
 		"Uygun bir Grok hesabıyla oturum açın veya bir xAI API anahtarı kullanın."
-	],
-	"Sign out": [
-		"Oturumu kapat"
 	],
 	"Site exported": [
 		"Site dışa aktarıldı"
@@ -1466,9 +1427,6 @@
 	"Then add this configuration to your app.": [
 		"Ardından bu yapılandırmayı uygulamanıza ekleyin."
 	],
-	"Thinking": [
-		"Düşünme"
-	],
 	"Thinking: %s": [
 		"Düşünme: %s"
 	],
@@ -1586,9 +1544,6 @@
 	"Update user": [
 		"Kullanıcıyı güncelle"
 	],
-	"Update…": [
-		"Güncelle…"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"%s güncellenirse önizlemede yapılan tüm düzenlemelerin yerine yerel kopyanız geçer."
 	],
@@ -1672,9 +1627,6 @@
 	],
 	"Visual Annotations": [
 		"Görsel Ek Açıklamalar"
-	],
-	"WP admin": [
-		"WP Yöneticisi"
 	],
 	"Waiting for approval…": [
 		"Onay bekleniyor…"
@@ -1815,9 +1767,6 @@
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"Çalışma alanınız bir Studio Cloud paketiyle çalışır. Ödeme sayfası WordPress.com'da açılır ve çalışma alanınız ödemeden yaklaşık bir dakika sonra hazır olur."
 	],
-	"database": [
-		"veritabanı"
-	],
 	"inline content": [
 		"satır içi içerik"
 	],
@@ -1841,9 +1790,6 @@
 	],
 	"products": [
 		"ürünler"
-	],
-	"themes": [
-		"temalar"
 	],
 	"uploads": [
 		"yüklemeler"

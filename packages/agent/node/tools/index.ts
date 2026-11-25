@@ -173,6 +173,9 @@ export interface ExternalToolsOptions
 	> {
 	// The host shows present_design_options' options as a clickable picker (an MCP App).
 	picker?: boolean;
+	// The names of the user's skills the host offers and loads itself, such as the ones an MCP
+	// server serves to a host with the Skills extension: studio_instructions does not list them.
+	skillsLoadedByHost?: () => Promise< string[] >;
 }
 
 // The tools of an agent that runs them itself, such as one connected to `studio
@@ -181,7 +184,7 @@ export interface ExternalToolsOptions
 // runtime adds in a conversation.
 export function resolveExternalTools(
 	host: StudioAgentHost,
-	{ picker, ...options }: ExternalToolsOptions = {}
+	{ picker, skillsLoadedByHost, ...options }: ExternalToolsOptions = {}
 ): AnyStudioAgentTool[] {
 	const tools = [
 		...resolveStudioTools( host, options ),
@@ -195,7 +198,10 @@ export function resolveExternalTools(
 		),
 	] as AnyStudioAgentTool[];
 	const notes = createResultNotes();
-	return [ bindTool( createStudioInstructionsTool( tools ), host ), ...tools ].map( ( tool ) => ( {
+	return [
+		bindTool( createStudioInstructionsTool( tools, skillsLoadedByHost ), host ),
+		...tools,
+	].map( ( tool ) => ( {
 		...tool,
 		rawHandler: async ( args: never, context ) => {
 			const result = await tool.rawHandler( args, context );

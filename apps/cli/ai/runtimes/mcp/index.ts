@@ -1,15 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-	CallToolRequestSchema,
-	ListResourcesRequestSchema,
-	ListToolsRequestSchema,
-	ReadResourceRequestSchema,
-	// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
-} from '@modelcontextprotocol/sdk/types.js';
+import { McpServer, type Server, type Tool } from '@modelcontextprotocol/server';
+import { SKILLS_EXTENSION_ID, SkillsExtension } from '@modelcontextprotocol/server/ext/skills';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import {
 	bindTool,
 	createAgent,
@@ -28,6 +21,11 @@ import {
 } from 'cli/ai/runtimes/mcp/design-picker';
 import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
+import {
+	getServedSkill,
+	listServedSkills,
+	readServedSkillFile,
+} from 'cli/ai/runtimes/mcp/user-skills';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 interface ClientSupport {
@@ -39,6 +37,9 @@ interface ClientSupport {
 	// Makes images with a tool of its own, on the user's plan, which the
 	// runbooks use when generate_images is left out.
 	ownImageTool: boolean;
+	// Offers the skills this server serves and loads them itself. A host need not declare the
+	// Skills extension, so one that asks for the skills counts too.
+	skills: boolean;
 	// Gets wpcom_request, which reaches any WordPress.com endpoint. OpenAI's plugin
 	// review asks for a tool per operation instead, so Codex goes without it for now.
 	wpcomRequest: boolean;
@@ -46,14 +47,13 @@ interface ClientSupport {
 
 function describeClient( server: Server ): ClientSupport {
 	const codex = server.getClientVersion()?.name === 'codex-mcp-client';
-	const capabilities = server.getClientCapabilities() as
-		| { extensions?: Record< string, unknown > }
-		| undefined;
+	const extensions = server.getClientCapabilities()?.extensions;
 	return {
 		// Codex renders MCP Apps without declaring the extension.
-		apps: codex || Boolean( capabilities?.extensions?.[ 'io.modelcontextprotocol/ui' ] ),
+		apps: codex || Boolean( extensions?.[ 'io.modelcontextprotocol/ui' ] ),
 		fileImageLinks: codex,
 		ownImageTool: codex,
+		skills: Boolean( extensions?.[ SKILLS_EXTENSION_ID ] ),
 		wpcomRequest: ! codex,
 	};
 }
@@ -69,6 +69,7 @@ function createTools(
 	host: StudioAgentHost,
 	client: ClientSupport,
 	imageGeneration: boolean,
+	skillsLoadedByHost: () => Promise< string[] >,
 	tracks?: DesignTracksContext
 ): ServedTool[] {
 	const tools = agent.tools( {
@@ -76,6 +77,7 @@ function createTools(
 		canAskUser: true,
 		imageLink: ( file ) => ( client.fileImageLinks ? pathToFileURL( file ).href : file ),
 		picker: client.apps,
+		skillsLoadedByHost,
 		tracks,
 		wpcomRequest: client.wpcomRequest,
 	} );
@@ -106,8 +108,28 @@ function appPages(): AppPage[] {
 	];
 }
 
-// Uses the low-level Server API rather than McpServer.registerTool, which only
-// accepts zod-shaped inputs — our tools are typebox JSON Schema.
+// The user's skills for all sites, for hosts with the Skills extension. Studio's own skills
+// stay with studio_instructions: the wp-studio plugin already lists them, and they build on
+// the rules it returns.
+function serveUserSkills( mcp: McpServer, onRequest: () => void ) {
+	new SkillsExtension( {
+		source: {
+			list: async () => {
+				onRequest();
+				return { skills: await listServedSkills() };
+			},
+			get: async ( uri ) => {
+				onRequest();
+				return getServedSkill( uri );
+			},
+			read: readServedSkillFile,
+		},
+	} ).attach( mcp );
+}
+
+// The tools go through the low-level handlers rather than McpServer.registerTool: they
+// depend on the client, known only once it has connected, and they answer invalid
+// arguments with a tool error the model can read.
 export async function startMcpStdioServer(): Promise< void > {
 	// Tells this process's events, and those of the processes it starts, apart
 	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
@@ -116,21 +138,38 @@ export async function startMcpStdioServer(): Promise< void > {
 	const agent = createAgent( { host } );
 	const sessionId = randomUUID();
 	const imageGeneration = Boolean( await host.imageGenerator?.() );
-	const server = new Server(
+	const mcp = new McpServer(
 		{ name: 'studio', version: '1.0.0' },
 		{
-			capabilities: { tools: {}, resources: {} },
 			instructions:
 				'WordPress Studio builds and manages local WordPress sites. Before any WordPress site task, call studio_instructions and follow what it returns.',
 		}
 	);
+	const server = mcp.server;
+	server.registerCapabilities( { tools: {} } );
 	// The tools depend on what the client supports, known once it has connected.
 	let client = describeClient( server );
-	let tools = createTools( agent, host, client, imageGeneration );
+	const skillsLoadedByHost = async () =>
+		client.skills ? ( await listServedSkills() ).map( ( skill ) => skill.frontmatter.name ) : [];
+	let tools = createTools( agent, host, client, imageGeneration, skillsLoadedByHost );
+
+	// The MCP App pages. Only clients that render MCP Apps get them.
+	const pages = appPages().map( ( { uri, name, text, _meta } ) =>
+		mcp.registerResource( name, uri, { mimeType: MCP_APP_MIME_TYPE, _meta }, () => ( {
+			contents: [ { uri, mimeType: MCP_APP_MIME_TYPE, text, _meta } ],
+		} ) )
+	);
+	serveUserSkills( mcp, () => {
+		client.skills = true;
+	} );
+
 	server.oninitialized = () => {
 		client = describeClient( server );
+		if ( ! client.apps ) {
+			pages.forEach( ( page ) => page.disable() );
+		}
 		process.env.STUDIO_MCP_CLIENT = server.getClientVersion()?.name ?? '';
-		tools = createTools( agent, host, client, imageGeneration, {
+		tools = createTools( agent, host, client, imageGeneration, skillsLoadedByHost, {
 			ai_session_id: sessionId,
 			agent_name: process.env.STUDIO_MCP_CLIENT || 'unknown',
 			client: 'studio-mcp',
@@ -141,17 +180,17 @@ export async function startMcpStdioServer(): Promise< void > {
 		} ).catch( () => undefined );
 	};
 
-	server.setRequestHandler( ListToolsRequestSchema, async () => ( {
+	server.setRequestHandler( 'tools/list', async () => ( {
 		tools: tools.map( ( { tool, listing } ) => ( {
 			name: tool.name,
 			description: tool.description,
-			inputSchema: tool.parameters as unknown as Record< string, unknown >,
+			inputSchema: tool.parameters as unknown as Tool[ 'inputSchema' ],
 			annotations: tool.annotations,
 			...listing,
 		} ) ),
 	} ) );
 
-	server.setRequestHandler( CallToolRequestSchema, async ( request ) => {
+	server.setRequestHandler( 'tools/call', async ( request ) => {
 		const tool = tools.find( ( served ) => served.tool.name === request.params.name )?.tool;
 		if ( ! tool ) {
 			throw new Error( `Unknown tool: ${ request.params.name }` );
@@ -175,32 +214,13 @@ export async function startMcpStdioServer(): Promise< void > {
 		return runServedTool( tool, args );
 	} );
 
-	// Only clients that render MCP Apps get the pages listed.
-	server.setRequestHandler( ListResourcesRequestSchema, async () => ( {
-		resources: ( client.apps ? appPages() : [] ).map( ( { uri, name, _meta } ) => ( {
-			uri,
-			name,
-			mimeType: MCP_APP_MIME_TYPE,
-			_meta,
-		} ) ),
-	} ) );
-
-	server.setRequestHandler( ReadResourceRequestSchema, async ( request ) => {
-		const page = appPages().find( ( candidate ) => candidate.uri === request.params.uri );
-		if ( ! page ) {
-			throw new Error( `Unknown resource: ${ request.params.uri }` );
-		}
-		const { uri, text, _meta } = page;
-		return { contents: [ { uri, mimeType: MCP_APP_MIME_TYPE, text, _meta } ] };
-	} );
-
 	const transport = new StdioServerTransport();
 	const shutdown = async () => {
-		await server.close();
+		await mcp.close();
 		process.exit( 0 );
 	};
 	process.on( 'SIGINT', shutdown );
 	process.on( 'SIGTERM', shutdown );
 
-	await server.connect( transport );
+	await mcp.connect( transport );
 }

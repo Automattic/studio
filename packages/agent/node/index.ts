@@ -17,6 +17,7 @@ export {
 	type AnyStudioAgentTool,
 } from './tools/define-tool';
 export { textResult } from './tools/utils';
+export { selectUserSkills } from './tools/skill';
 
 // Turns as the host records them.
 export { resolveResumeSessionContext } from './sessions/context';

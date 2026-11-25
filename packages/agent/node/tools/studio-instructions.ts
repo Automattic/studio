@@ -8,8 +8,12 @@ import { textResult } from './utils';
 
 // The instructions of an agent that runs Studio's tools itself, fetched on
 // demand rather than sent as an MCP server's instructions, which hosts keep in
-// context for every conversation and may truncate.
-export function createStudioInstructionsTool( tools: AnyStudioAgentTool[] ) {
+// context for every conversation and may truncate. `skillsLoadedByHost` names the user's
+// skills the host offers itself, which the instructions then leave out.
+export function createStudioInstructionsTool(
+	tools: AnyStudioAgentTool[],
+	skillsLoadedByHost?: () => Promise< string[] >
+) {
 	// create-skill saves with save_skill, which only a conversation has.
 	const skills = loadSkills().filter( ( skill ) => skill.name !== 'create-skill' );
 	return defineTool(
@@ -52,7 +56,14 @@ export function createStudioInstructionsTool( tools: AnyStudioAgentTool[] ) {
 				}
 				return textResult( await renderUserSkill( userSkill ) );
 			}
-			return textResult( buildSystemPrompt( { external: true, tools, userSkills } ) );
+			const loadedByHost = ( await skillsLoadedByHost?.() ) ?? [];
+			return textResult(
+				buildSystemPrompt( {
+					external: true,
+					tools,
+					userSkills: userSkills.filter( ( skill ) => ! loadedByHost.includes( skill.name ) ),
+				} )
+			);
 		},
 		{ annotations: READ_ONLY }
 	);

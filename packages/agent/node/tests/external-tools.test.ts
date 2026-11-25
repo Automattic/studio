@@ -58,8 +58,11 @@ describe( "the user's skills over studio_instructions", () => {
 	};
 	const studio = () => path.join( root, 'config', 'skills' );
 	const agents = () => path.join( root, 'home', '.agents', 'skills' );
-	const instructions = async ( args: Record< string, string > = {} ) => {
-		const tool = resolveExternalTools( createFakeHost() ).find(
+	const instructions = async (
+		args: Record< string, string > = {},
+		skillsLoadedByHost?: () => Promise< string[] >
+	) => {
+		const tool = resolveExternalTools( createFakeHost(), { skillsLoadedByHost } ).find(
 			( candidate ) => candidate.name === 'studio_instructions'
 		)!;
 		const result = await tool.rawHandler( args as never );
@@ -128,6 +131,26 @@ describe( "the user's skills over studio_instructions", () => {
 			'---\ndescription: Write in the house voice.\n---\nBe plain.'
 		);
 		expect( await instructions( { user_skill: 'brand-voice' } ) ).toContain( 'Be plain.' );
+	} );
+
+	it( 'leaves out the skills the host loads itself, and still loads them on request', async () => {
+		addSkill(
+			studio(),
+			'brand-voice',
+			'---\ndescription: Write in the house voice.\n---\nBe warm.'
+		);
+		addSkill( studio(), 'client-handoff', '---\ndescription: Write handoff notes.\n---\nSteps.' );
+
+		const prompt = await instructions( {}, async () => [ 'brand-voice' ] );
+		expect( prompt ).toContain( '- client-handoff: Write handoff notes.' );
+		expect( prompt ).not.toContain( 'brand-voice' );
+		expect(
+			await instructions( { user_skill: 'brand-voice' }, async () => [ 'brand-voice' ] )
+		).toContain( 'Be warm.' );
+
+		expect(
+			await instructions( {}, async () => [ 'brand-voice', 'client-handoff' ] )
+		).not.toContain( "The user's own skills" );
 	} );
 
 	it( 'names the skills the user has when asked for one they do not have', async () => {

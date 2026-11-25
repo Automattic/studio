@@ -18,14 +18,12 @@ const mocks = vi.hoisted( () => ( {
 	close: vi.fn(),
 } ) );
 
-vi.mock( '@modelcontextprotocol/sdk/client/index.js', () => ( {
+vi.mock( '@modelcontextprotocol/client', () => ( {
 	Client: class {
 		connect = mocks.connect;
 		callTool = mocks.callTool;
 		close = mocks.close;
 	},
-} ) );
-vi.mock( '@modelcontextprotocol/sdk/client/streamableHttp.js', () => ( {
 	StreamableHTTPClientTransport: class {
 		constructor( url: URL, options: unknown ) {
 			mocks.transport( url.toString(), options );

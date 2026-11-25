@@ -150,7 +150,7 @@ To switch tiers, including mid-conversation:
 - **Desktop:** click the model button in the chat box, which shows the current tier, such as **Fast**. You can also type `/model` and choose **Choose model**.
 - **Terminal:** run `/model`.
 
-With another provider, the model menu lists that provider’s models by name instead, such as **Sonnet 5.5** and **Opus 5.5** for Anthropic.
+With another provider, the model menu lists that provider’s models by name instead, such as **Sonnet 5.5** and **Opus 5.5** for Anthropic. For those models, **Thinking** in the same menu sets how long the model thinks before it answers in this chat: **Off**, **Low**, **Medium** (the default), or **High**. In the terminal, run `/thinking`.
 
 ## AI providers
 
@@ -162,8 +162,11 @@ With another provider, the model menu lists that provider’s models by name ins
 - **Google Gemini**, with an API key
 - **GitHub Copilot**, with a Copilot plan
 - **Meta**, with an API key
+- **xAI**, with a SuperGrok or X Premium plan, or an API key
+- **OpenRouter**, with an OpenRouter sign-in or an API key
+- **Local LLM**, with a model server you run, such as Ollama or LM Studio
 
-![The Providers page of WordPress Studio's Settings: Default AI provider and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI, Anthropic, Google Gemini, GitHub Copilot, and Meta with Connect buttons.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
+![The Providers page of WordPress Studio's Settings: Default AI provider, Default image provider, and Default hosting provider at the top, then AI providers, with WordPress.com marked Connected and a Manage AI credits button, and OpenAI and Anthropic with Connect buttons.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
 Set them up in **Settings → Providers** in the desktop app, or with `/connect` in the terminal. [Providers in WordPress Studio](https://wordpress.studio/docs/providers/) has the steps for each one, including [your own Anthropic API key](https://wordpress.studio/docs/providers/#anthropic), the models each offers, and who bills you.
 
@@ -200,7 +203,7 @@ In the desktop app, type `/` in the chat box to list the commands and skills tha
 | `/auto-start` | Start stopped sites when you send a chat message (shown as **Auto-start** while it’s off) | Desktop |
 | `/browser` | Open the active site in your browser | Terminal |
 | `/clear` | Clear the conversation and start a new session | Terminal |
-| `/connect` | Connect a provider: choose one from the list, or name it, such as `/connect anthropic`, `/connect openai`, `/connect gemini`, `/connect github-copilot`, or `/connect meta` | Terminal |
+| `/connect` | Connect a provider: choose one from the list, or name it, such as `/connect anthropic`, `/connect openai`, `/connect gemini`, `/connect github-copilot`, `/connect meta`, `/connect xai`, `/connect openrouter`, or `/connect local-llm` | Terminal |
 | `/connect-provider` | Open **Settings → Providers** to choose what powers chat (shown as **Connect AI providers**) | Desktop |
 | `/credits` | Show your AI credit balance and buy more AI credits | Terminal |
 | `/disconnect` | Disconnect a provider | Terminal |
@@ -217,6 +220,7 @@ In the desktop app, type `/` in the chat box to list the commands and skills tha
 | `/publish` | Publish the active site to WordPress.com | Terminal |
 | `/rank-me-up` | Run an on-page SEO audit on your site | Terminal and desktop |
 | `/start`, `/stop` | Start or stop the active site (shown as **Start site** and **Stop site**) | Desktop |
+| `/thinking` | Set how long the model thinks in this chat: `default`, `off`, `low`, `medium`, or `high`. In the desktop app, use **Thinking** in the model menu | Terminal |
 | `/swag` | Treat yourself to some WordPress swag | Terminal |
 | `/taxonomist` | Optimize your category taxonomy | Terminal and desktop |
 

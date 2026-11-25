@@ -1,74 +1,73 @@
 {
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-previews",
-	"description": "Signed in, with made-up preview sites from preview-sites.json: the Share panel's previews list and a preview's actions",
+	"description": "Signed in, with made-up preview sites from preview-sites.json: the Publish panel's list of previews, a preview's details, and its actions",
 	"scene": "moire",
 	"look": "docs",
 	"signedIn": true,
 	"previewSites": true,
 	"shots": [
 		{
-			"name": "share-previews",
-			"description": "Share tab with previews: the previews list with expiry dates and Create another preview",
-			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-new-site-preview-link.png" ] },
+			"name": "publish-chooser",
+			"description": "Publish panel on a site with two previews: Choose a site, listing the previews, then Publish somewhere else and Connect to an existing site",
+			"meta": {
+				"pages": [ "preview-sites.md" ],
+				"replaces": [ "2025/01/studio-new-site-preview-link.png" ]
+			},
 			"steps": [
-				{
-					"click": {
-						"role": "button",
-						"name": "Share",
-						"exact": true
-					}
-				},
-				{
-					"waitFor": {
-						"role": "button",
-						"name": "Create another preview"
-					}
-				},
-				{
-					"waitForImages": {
-						"role": "list",
-						"name": "Previews"
-					}
-				}
+				{ "click": { "role": "button", "name": "Publish…", "exact": true } },
+				{ "waitFor": { "role": "dialog", "name": "Choose a site" } },
+				{ "wait": 800 }
 			],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Share and publish"
-				}
-			}
+			"capture": { "target": { "role": "dialog", "name": "Choose a site" } }
 		},
 		{
-			"name": "share-preview-actions",
-			"description": "Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview)",
-			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-preview-more-actions.png" ] },
+			"name": "preview-details",
+			"description": "Publish → a preview: Preview details, with its link, Who can view, Update and when it expires",
+			"meta": { "pages": [ "preview-sites.md" ] },
 			"steps": [
 				{
 					"click": {
+						"within": { "role": "dialog", "name": "Choose a site" },
 						"role": "button",
-						"name": "Preview actions",
-						"first": true
+						"name": "Autumn lookbook"
 					}
 				},
+				{ "waitFor": { "role": "dialog", "name": "Preview details" } },
+				{ "waitFor": { "role": "button", "pattern": "^Update" } },
+				{ "wait": 800 }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Preview details" } }
+		},
+		{
+			"name": "preview-actions",
+			"description": "Preview details → Preview actions: Copy link and Delete preview…",
+			"meta": {
+				"pages": [ "preview-sites.md" ],
+				"replaces": [ "2025/01/studio-preview-more-actions.png" ]
+			},
+			"steps": [
 				{
-					"waitFor": {
-						"role": "menuitem",
-						"name": "Delete preview"
+					"click": {
+						"within": { "role": "dialog", "name": "Preview details" },
+						"role": "button",
+						"name": "Preview actions"
 					}
-				}
+				},
+				{ "waitFor": { "role": "menuitem", "pattern": "^Delete preview" } }
 			],
 			"capture": {
-				"target": [
-					{
-						"role": "dialog",
-						"name": "Share and publish"
-					},
-					{
-						"role": "menu"
-					}
-				]
-			}
+				"target": [ { "role": "dialog", "name": "Preview details" }, { "role": "menu" } ]
+			},
+			"after": [
+				{ "press": "Escape" },
+				{ "press": "Escape" },
+				{ "press": "Escape" },
+				{
+					"waitFor": { "role": "dialog", "pattern": "^(Publish|Choose|Preview details)" },
+					"hidden": true
+				}
+			]
 		}
 	]
 }

@@ -289,6 +289,24 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	}, [ value ] );
 
+	// The sheet floats above dialogs, so it closes once focus moves elsewhere,
+	// as when a shortcut opens Settings.
+	const closeSheet = sheet.close;
+	useEffect( () => {
+		if ( ! sheet.open ) {
+			return;
+		}
+		const onFocusIn = ( event: FocusEvent ) => {
+			const target = event.target as Node;
+			const popup = commandListRef.current?.closest( '[data-slot="popover-content"]' );
+			if ( ! rootNode?.contains( target ) && ! popup?.contains( target ) ) {
+				closeSheet();
+			}
+		};
+		document.addEventListener( 'focusin', onFocusIn );
+		return () => document.removeEventListener( 'focusin', onFocusIn );
+	}, [ sheet.open, rootNode, closeSheet ] );
+
 	const fileDropTarget = dropTarget ?? shellNode;
 	const {
 		attachmentError,

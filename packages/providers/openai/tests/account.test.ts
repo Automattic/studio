@@ -117,7 +117,7 @@ describe( 'openai account', () => {
 	it( 'still loads a ChatGPT sign-in saved before API keys', () => {
 		const saved = config( 0 );
 		expect( openaiConfigSchema.parse( saved ) ).toEqual( saved );
-		expect( openaiProvider.account.describe( saved ) ).toMatchObject( {
+		expect( openaiProvider.account!.describe( saved ) ).toMatchObject( {
 			method: 'chatgpt',
 			note: 'Using ChatGPT plan',
 		} );
@@ -158,11 +158,11 @@ describe( 'openai account', () => {
 		it( 'never renews, and shows the key’s ends without a plan', async () => {
 			await expect( openaiAccount.refresh!( apiKey ) ).resolves.toBeUndefined();
 			expect( fetchMock ).not.toHaveBeenCalled();
-			expect( openaiProvider.account.describe( apiKey ) ).toEqual( {
+			expect( openaiProvider.account!.describe( apiKey ) ).toEqual( {
 				method: 'api-key',
 				summary: 'sk-proj-abcdefgh...1234',
 			} );
-			expect( openaiProvider.account.remember!( apiKey ) ).toBeUndefined();
+			expect( openaiProvider.account!.remember!( apiKey ) ).toBeUndefined();
 		} );
 
 		it( 'connects models with the key', async () => {

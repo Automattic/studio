@@ -1,110 +1,31 @@
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@studio/ds';
-import { ExternalLinkIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { PickerRow, type PickerOption } from './select-row';
 import styles from './style.module.css';
 import { VisibilityIcon, type AccessValue } from './visibility-icon';
 import type { useSiteVisibility } from '@/data/queries/use-site-visibility';
 import type { SiteCreationVisibility, SiteVisibility, ProviderSitesInfo } from '@studio/providers';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps } from 'react';
 
-const manageVisibility = 'manage-visibility';
-type VisibilityOptions = NonNullable< ProviderSitesInfo[ 'visibilityOptions' ] >;
-type AccessOption = Omit< ReturnType< VisibilityOptions >[ number ], 'value' > & {
-	value: AccessValue;
-};
+type VisibilityOptions = NonNullable< ProviderSitesInfo[ 'visibility' ] >[ 'options' ];
+type AccessOption = PickerOption< AccessValue >;
 
 function AccessPicker( {
 	value,
-	options,
-	disabled,
 	checking = false,
-	open,
-	onOpenChange,
-	onValueChange,
-	managementAction,
-	children,
-}: {
-	value: AccessValue | 'unknown' | undefined;
-	options: AccessOption[];
-	disabled: boolean;
-	checking?: boolean;
-	open?: boolean;
-	onOpenChange?: ComponentProps< typeof Select >[ 'onOpenChange' ];
-	onValueChange: ( value: AccessValue ) => void;
-	managementAction?: { label: string; onClick: () => void; disabled: boolean };
-	children?: ReactNode;
-} ) {
-	const selected = options.find( ( option ) => option.value === value );
-	const label = checking ? __( 'Checking access…' ) : selected?.label ?? __( 'Access unknown' );
+	...props
+}: Omit< ComponentProps< typeof PickerRow< AccessValue > >, 'label' | 'icon' | 'valueLabel' > ) {
+	const selected = props.options.find( ( option ) => option.value === value );
 	return (
-		<Select< AccessValue | typeof manageVisibility >
-			items={
-				managementAction
-					? [ ...options, { value: manageVisibility, label: managementAction.label } ]
-					: options
-			}
-			value={ selected?.value ?? null }
-			open={ open }
-			disabled={ disabled }
-			onOpenChange={ onOpenChange }
-			onValueChange={ ( next ) => {
-				if ( next === manageVisibility ) managementAction?.onClick();
-				else if ( next !== null ) onValueChange( next );
-			} }
-		>
-			<SelectTrigger
-				variant="ghost"
-				fullWidth
-				className={ styles.accessTrigger }
-				aria-label={ __( 'Who can view' ) }
-				aria-description={ label }
-			>
-				<span className={ styles.destinationRowIcon }>
-					<VisibilityIcon value={ checking ? undefined : selected?.value } />
-				</span>
-				<SelectValue className={ checking ? 'studio-shimmer' : undefined }>
-					<span className={ styles.previewHostname }>{ label }</span>
-				</SelectValue>
-			</SelectTrigger>
-			<SelectContent alignItemWithTrigger={ false }>
-				{ options.map( ( option ) => (
-					<SelectItem
-						key={ option.value }
-						value={ option.value }
-						label={ option.label }
-						icon={ <VisibilityIcon value={ option.value } /> }
-						disabled={ option.disabled }
-						aria-label={ option.label }
-						aria-description={ option.description }
-						description={ option.description }
-					>
-						{ option.label }
-					</SelectItem>
-				) ) }
-				{ children }
-				{ managementAction && (
-					<SelectGroup className={ styles.selectActions }>
-						<SelectItem
-							value={ manageVisibility }
-							label={ managementAction.label }
-							disabled={ managementAction.disabled }
-						>
-							{ managementAction.label }
-							<ExternalLinkIcon />
-						</SelectItem>
-					</SelectGroup>
-				) }
-			</SelectContent>
-		</Select>
+		<PickerRow
+			{ ...props }
+			value={ value }
+			checking={ checking }
+			label={ __( 'Who can view' ) }
+			icon={ ( option ) => <VisibilityIcon value={ option } /> }
+			valueLabel={ checking ? __( 'Checking access…' ) : selected?.label ?? __( 'Access unknown' ) }
+		/>
 	);
 }
 

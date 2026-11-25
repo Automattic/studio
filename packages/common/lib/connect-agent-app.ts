@@ -40,7 +40,7 @@ async function withAgentPluginsLock< T >( operation: () => Promise< T > ): Promi
 	const lock = `${ getMarketplacePath() }.lock`;
 	await fs.promises.mkdir( path.dirname( lock ), { recursive: true } );
 	// A refresh can run five commands, each with a five-minute timeout.
-	await lockFileAsync( lock, { stale: PLUGIN_LOCK_TIMEOUT_MS, wait: PLUGIN_LOCK_TIMEOUT_MS } );
+	await lockFileAsync( lock, { wait: PLUGIN_LOCK_TIMEOUT_MS } );
 	try {
 		return await operation();
 	} finally {

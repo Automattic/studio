@@ -450,3 +450,7 @@
 	text-decoration-style: dotted;
 	text-underline-offset: 3px;
 }
+
+.linkIcon {
+	display: contents;
+}

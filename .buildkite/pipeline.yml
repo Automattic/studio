@@ -46,6 +46,36 @@ linux_checkout_plugin: &linux_checkout_plugin { custom-checkout#v1.8.0: { skip_c
 # step (defined in `buildkite-ci`) runs on this file, report that status anyway, so Required checks don't wait forever.
 # Put skip: on the group so notify_skipped_steps reports its group-level check; skipping children alone won't.
 steps:
+  # Validation only, never merge: soaks xcode-27.2-v4-beta.1 for the SSH drops in AINFRA-3921.
+  - label: 🧪 v4-beta.1 soak %n
+    key: v4_beta_1_soak
+    parallelism: 20
+    agents:
+      queue: mac
+    command: |
+      export RBENV_VERSION=3.4.13
+      echo "--- :mag: VM uptime at job start"
+      uptime
+      .buildkite/commands/prepare-environment.sh
+      .buildkite/commands/install-node-dependencies.sh
+      node ./scripts/prepare-dev-build-version.mjs
+      export IS_DEV_BUILD=true
+
+      echo "--- :node: Building arm64 binary"
+      npm run make:macos-arm64
+      echo "--- :node: Packaging arm64 DMG"
+      npm run make:dmg-arm64
+
+      echo "--- :node: Building x64 binary"
+      npm run make:macos-x64
+      npm rebuild fs-xattr --cpu universal
+      echo "--- :node: Packaging x64 DMG"
+      npm run make:dmg-x64
+
+      echo "--- :mag: VM uptime at job end"
+      uptime
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+
   - label: Lint
     agents:
       queue: default

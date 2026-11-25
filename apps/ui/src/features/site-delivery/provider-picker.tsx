@@ -55,7 +55,7 @@ export function ProviderPicker( {
 	const items = providers.map( ( value ) => ( {
 		value,
 		label: getProvider( value ).label,
-		description: getProviderSites( value ).publishing.description(),
+		description: getProviderSites( value ).summary(),
 	} ) );
 	const existingSite = {
 		value: 'existing-site',

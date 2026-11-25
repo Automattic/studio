@@ -137,9 +137,7 @@ export async function readFreshProviderConfig< Config >(
 	services: ProviderServices< Config >
 ): Promise< Config | undefined > {
 	const { id } = services;
-	const refresh = services.account?.refresh as
-		| ( ( config: Config ) => Promise< Config | undefined > )
-		| undefined;
+	const refresh = services.account?.refresh;
 	if ( ! refresh ) {
 		return ( await readProviderConfig( id ) ) as Config | undefined;
 	}

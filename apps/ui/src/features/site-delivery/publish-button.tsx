@@ -39,6 +39,7 @@ import { useIsMutating, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { dismissToast, toast } from '@/data/app-messages';
+import { getProviderUi } from '@studio/providers/ui';
 import { useConnector, type SiteDetails, type Snapshot, SyncSite } from '@/data/core';
 import { useAiSettings, useSpacefastConnection } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
@@ -75,7 +76,6 @@ import {
 } from './hosted-access-control';
 import { LiveSiteAction } from './live-site-action';
 import { isNewDestination } from './new-destination';
-import { PlanIcon } from './plan-icon';
 import { PreviewExpiry } from './preview-expiry';
 import { PreviewOverwriteConfirmation } from './preview-overwrite-confirmation';
 import { PreviewTransferActions } from './preview-transfer-actions';
@@ -241,8 +241,7 @@ export function PublishButton( {
 		open && view.kind === 'details' && !! snapshot,
 		open || !! snapshot
 	);
-	const links = remote && descriptor?.describe( remote ).links;
-	const visibilityLink = links?.find( ( link ) => link.role === 'visibility' );
+	const visibilityLink = remote && descriptor?.visibility?.manage( remote );
 	const visibility = useSiteVisibility(
 		selected?.provider ?? targets.providers[ 0 ],
 		remote?.id,
@@ -296,6 +295,7 @@ export function PublishButton( {
 	const panelTitle = accountsReady ? getShareViewTitle( view, selected ) : __( 'Publish' );
 	const destinationProvider = selected?.provider ?? emptyDestination;
 	const connection = targets.connectionState( destinationProvider );
+	const { learnMoreUrl } = getProviderSites( destinationProvider ).intro;
 	const connectionUnavailable = ! selected && connection.unavailable;
 	const canCreate = ! selected && emptyDescriptor.newSite === 'create';
 	const [ requestedVisibility, setRequestedVisibility ] = useState< SiteCreationVisibility >();
@@ -326,7 +326,7 @@ export function PublishButton( {
 		)
 			return false;
 		const sites = getProviderSites( target.provider );
-		return !! sites.pull && ! sites.issue( target.remote, 'pull' );
+		return !! sites.pull && ! sites.issue?.( target.remote, 'pull' );
 	};
 	const pullTarget =
 		pullRequest &&
@@ -550,8 +550,6 @@ export function PublishButton( {
 	const upToDate = ! newDestination && targets.selectedStatus?.data?.localChanged === false;
 	const url = snapshot ? getSnapshotUrl( snapshot ) : remoteUrl;
 	const hostname = url ? new URL( url ).hostname : undefined;
-	const addDomain = links?.find( ( link ) => link.role === 'add-domain' );
-	const spacefastSecondaryUrl = addDomain?.url ?? getProvider( 'spacefast' ).learnMoreUrl;
 	const publicDestination = snapshot ? selected!.provider : emptyDestination;
 	const publicDescriptor = getProviderSites( publicDestination );
 	const publicProviderLabel = getProvider( publicDestination ).label;
@@ -563,12 +561,7 @@ export function PublishButton( {
 			: !! publicDescriptor.previews );
 	const previewAccessKey = selected?.key ?? emptyDestination;
 	const previewPublicSelected = showPreviewAccess && publicPreviewKey === previewAccessKey;
-	const wpcomSite = selected?.provider === 'wpcom' ? ( remote as SyncSite | undefined ) : undefined;
-	const paidSite =
-		wpcomSite?.hasPaidPlan === true && ! wpcomSite.isPressable ? wpcomSite : undefined;
-	const planUrl = paidSite
-		? `https://wordpress.com/plans/my-plan/${ new URL( paidSite.url ).hostname }`
-		: undefined;
+	const SiteRows = selected && getProviderUi( selected.provider ).SiteRows;
 	const linkedSite =
 		snapshot?.liveSiteId &&
 		targets.siteTargets.find(
@@ -835,7 +828,7 @@ export function PublishButton( {
 			  activity.provider === selected?.provider &&
 			  activity.remoteSiteId === remote.id );
 	const previewPullIssue =
-		targets.previewAccountSite && descriptor?.issue( targets.previewAccountSite, 'pull' );
+		targets.previewAccountSite && descriptor?.issue?.( targets.previewAccountSite, 'pull' );
 	const canPullPreview = !! (
 		snapshot &&
 		descriptor?.pull &&
@@ -847,7 +840,7 @@ export function PublishButton( {
 	const comparison = preview.status.isSuccess ? preview.status.data : undefined;
 	const previewMayHaveChanges = comparison?.previewChanged !== false;
 	const showPreviewPull = canPullPreview && previewMayHaveChanges && ! previewPublicSelected;
-	const pushIssue = remote && descriptor?.issue( remote, 'push' );
+	const pushIssue = remote && descriptor?.issue?.( remote, 'push' );
 	const showLivePullAction = canPullLiveTarget( selected );
 	const pullIsPrimary = showLivePullAction && !! pushIssue;
 	const openPreviewPull = ( fromMenu = false ) => {
@@ -1125,18 +1118,15 @@ export function PublishButton( {
 						) }
 					</div>
 				) }
-				{ remote &&
-					visibility.query.data !== null &&
-					visibilityLink &&
-					descriptor?.visibilityOptions && (
-						<HostedAccessControl
-							state={ visibility }
-							getOptions={ descriptor.visibilityOptions }
-							disabled={ disabled || selectedSignedOut }
-							fallback={ remote.visibility }
-							managementLink={ visibilityLink }
-						/>
-					) }
+				{ remote && visibility.query.data !== null && visibilityLink && descriptor?.visibility && (
+					<HostedAccessControl
+						state={ visibility }
+						getOptions={ descriptor.visibility.options }
+						disabled={ disabled || selectedSignedOut }
+						fallback={ remote.visibility }
+						managementLink={ visibilityLink }
+					/>
+				) }
 				{ ( showPreviewAccess || snapshot ) && (
 					<PreviewAccessControl
 						publicSelected={ previewPublicSelected }
@@ -1158,21 +1148,15 @@ export function PublishButton( {
 						onClick={ () => select( linkedSite ) }
 					/>
 				) }
-				{ paidSite && planUrl && (
-					<DestinationRow
-						icon={ <PlanIcon /> }
-						label={ __( 'Plan' ) }
-						trailing={
-							<>
-								{ paidSite.planName || __( 'Paid plan' ) }
-								<ExternalLinkIcon />
-							</>
-						}
+				{ remote && SiteRows && (
+					<SiteRows
+						site={ remote }
 						disabled={ disabled }
-						onClick={ () => void connector.openExternalUrl( planUrl ) }
+						openUrl={ ( siteUrl ) => void connector.openExternalUrl( siteUrl ) }
+						Row={ DestinationRow }
 					/>
 				) }
-				{ showCreationAccess && emptyDescriptor.visibilityOptions && (
+				{ showCreationAccess && emptyDescriptor.visibility && (
 					<SiteCreationAccessControl
 						value={
 							connectedProviders.includes( emptyDestination ) ? creationVisibility : 'private'
@@ -1180,7 +1164,7 @@ export function PublishButton( {
 						policy={ creationPolicy.data ?? undefined }
 						loading={ creationPolicy.isFetching }
 						disabled={ disabled || creationAccessUnavailable }
-						getOptions={ emptyDescriptor.visibilityOptions }
+						getOptions={ emptyDescriptor.visibility.options }
 						onChange={ setRequestedVisibility }
 					/>
 				) }
@@ -1205,13 +1189,16 @@ export function PublishButton( {
 						{ __( 'Pull from live site…' ) }
 					</Button>
 				) }
-				{ ! addingDestination && destinationProvider === 'spacefast' && spacefastSecondaryUrl && (
+				{ ! addingDestination && ! remote && learnMoreUrl && (
 					<Button
 						variant="outline"
-						onClick={ () => void connector.openExternalUrl( spacefastSecondaryUrl ) }
+						onClick={ () => void connector.openExternalUrl( learnMoreUrl ) }
 					>
-						{ addDomain && <GlobeIcon data-icon="inline-start" /> }
-						{ addDomain?.title ?? __( 'Learn about Spacefast' ) }
+						{ sprintf(
+							/* translators: %s: a hosting provider, such as Spacefast */
+							__( 'Learn about %s' ),
+							getProvider( destinationProvider ).label
+						) }
 						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				) }

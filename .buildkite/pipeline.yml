@@ -72,6 +72,10 @@ steps:
       echo "--- :node: Packaging x64 DMG"
       npm run make:dmg-x64
 
+      echo "--- :hourglass: Holding the session until 480 s after VM boot"
+      boot=$$(sysctl -n kern.boottime | sed -E 's/^\{ sec = ([0-9]+),.*/\1/')
+      while [ $$(( $$(date +%s) - boot )) -lt 480 ]; do echo "up $$(( $$(date +%s) - boot )) s"; sleep 1; done
+
       echo "--- :mag: VM uptime at job end"
       uptime
     plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]

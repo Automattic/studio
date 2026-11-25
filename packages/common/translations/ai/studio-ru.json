@@ -81,9 +81,6 @@
 	"%s · Local changes": [
 		"%s · Локальные изменения"
 	],
-	"/month": [
-		"/мес."
-	],
 	"30 GB of storage": [
 		"30 ГБ хранилища"
 	],
@@ -108,17 +105,11 @@
 	"Activate plugin": [
 		"Активировать плагин"
 	],
-	"Add a domain": [
-		"Добавить домен"
-	],
 	"Add annotation to batch": [
 		"Добавить аннотацию в пакет"
 	],
 	"Add or delete this annotation before starting another.": [
 		"Добавьте или удалите эту аннотацию, прежде чем начинать новую."
-	],
-	"Address is required": [
-		"Необходимо указать адрес"
 	],
 	"Address to listen on": [
 		"Адрес для прослушивания"
@@ -173,9 +164,6 @@
 	],
 	"Back to email list": [
 		"Назад к списку писем"
-	],
-	"Billed monthly": [
-		"Ежемесячная оплата"
 	],
 	"Billed monthly, renews on %s": [
 		"Ежемесячная оплата, продление %s"
@@ -249,9 +237,6 @@
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"Не удалось завершить вход через ChatGPT. Повторите попытку."
 	],
-	"Check again": [
-		"Проверить снова"
-	],
 	"Check your internet connection and try again.": [
 		"Проверьте подключение к Интернету и повторите попытку."
 	],
@@ -263,9 +248,6 @@
 	],
 	"Checking whether you can pull from this preview…": [
 		"Проверка возможности получить данные из этого предварительного просмотра…"
-	],
-	"Checking…": [
-		"Проверка…"
 	],
 	"Choose a Blueprint or backup": [
 		"Выберите Blueprint или резервную копию"
@@ -287,9 +269,6 @@
 	],
 	"Choose color": [
 		"Выбрать цвет"
-	],
-	"Choose files": [
-		"Выбрать файлы"
 	],
 	"Choose specific files": [
 		"Выбрать определённые файлы"
@@ -365,9 +344,6 @@
 	],
 	"Continue on %s": [
 		"Продолжить на %s"
-	],
-	"Continue to checkout": [
-		"Перейти к оформлению заказа"
 	],
 	"Continue with GitHub": [
 		"Продолжить через GitHub"
@@ -528,9 +504,6 @@
 	"Delete plugin": [
 		"Удалить плагин"
 	],
-	"Delete preview…": [
-		"Удалить предварительный просмотр…"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"Удалите ненужные сайты, чтобы освободить место."
 	],
@@ -552,9 +525,6 @@
 	"Design systems are available for block themes.": [
 		"Дизайн-системы доступны для блочных тем."
 	],
-	"Destination": [
-		"Место публикации"
-	],
 	"Disable automatic sidebar collapsing": [
 		"Отключить автоматическое сворачивание боковой панели"
 	],
@@ -566,9 +536,6 @@
 	],
 	"Disconnect site": [
 		"Отключить сайт"
-	],
-	"Disconnect site?": [
-		"Отключить сайт?"
 	],
 	"Disconnect site…": [
 		"Отключить сайт…"
@@ -921,9 +888,6 @@
 	"Manage visibility on Spacefast.": [
 		"Управляйте видимостью в Spacefast."
 	],
-	"Medium": [
-		"Средний"
-	],
 	"Meta API key": [
 		"API-ключ Meta"
 	],
@@ -968,9 +932,6 @@
 	],
 	"Off": [
 		"Выкл."
-	],
-	"One more step": [
-		"Ещё один шаг"
 	],
 	"Only if your server asks for one.": [
 		"Только если сервер его требует."
@@ -1104,9 +1065,6 @@
 	"Preview tabs": [
 		"Вкладки предварительного просмотра"
 	],
-	"Preview: %s": [
-		"Предварительный просмотр: %s"
-	],
 	"Private sites and preview links": [
 		"Закрытые сайты и ссылки для предварительного просмотра"
 	],
@@ -1121,9 +1079,6 @@
 	],
 	"Publish again?": [
 		"Опубликовать снова?"
-	],
-	"Publish changes?": [
-		"Опубликовать изменения?"
 	],
 	"Publish options could not be loaded.": [
 		"Не удалось загрузить параметры публикации."
@@ -1185,9 +1140,6 @@
 	"Receipts": [
 		"Квитанции"
 	],
-	"Recommended": [
-		"Рекомендуемые"
-	],
 	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
 		"Удалить %s из WordPress Studio? Опубликованный сайт и ваш локальный WordPress не изменятся."
 	],
@@ -1196,9 +1148,6 @@
 	],
 	"Renew": [
 		"Продлить"
-	],
-	"Renew your plan": [
-		"Продлить тарифный план"
 	],
 	"Replace local site": [
 		"Заменить локальный сайт"
@@ -1238,9 +1187,6 @@
 	],
 	"Restart WordPress Studio to finish updating.": [
 		"Перезапустите WordPress Studio, чтобы завершить обновление."
-	],
-	"Restricted": [
-		"Ограниченный доступ"
 	],
 	"Rotate to landscape": [
 		"Повернуть в альбомную ориентацию"
@@ -1331,9 +1277,6 @@
 	],
 	"Sign in with OpenRouter": [
 		"Войти через OpenRouter"
-	],
-	"Sign in with WordPress.com": [
-		"Войти через WordPress.com"
 	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Войдите с помощью учётной записи GitHub с доступом к Copilot."
@@ -1488,9 +1431,6 @@
 	"Themes": [
 		"Темы"
 	],
-	"Thinking": [
-		"Размышления"
-	],
 	"Thinking: %s": [
 		"Размышления: %s"
 	],
@@ -1602,9 +1542,6 @@
 	"Update todo list": [
 		"Обновить список задач"
 	],
-	"Update…": [
-		"Обновить…"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"При обновлении %s все правки, внесённые в предварительный просмотр, будут заменены вашей локальной копией."
 	],
@@ -1682,9 +1619,6 @@
 	],
 	"Visual Annotations": [
 		"Визуальные аннотации"
-	],
-	"WP admin": [
-		"WP Admin"
 	],
 	"What to replace": [
 		"Что заменить"
@@ -1823,9 +1757,6 @@
 	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
 		"base-url должен быть URL-адресом http(s) без пути, например https://example.com"
 	],
-	"database": [
-		"база данных"
-	],
 	"other files": [
 		"другие файлы"
 	],
@@ -1840,9 +1771,6 @@
 	],
 	"products": [
 		"товары"
-	],
-	"themes": [
-		"темы"
 	],
 	"uploads": [
 		"загрузки"

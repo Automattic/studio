@@ -29,9 +29,6 @@
 	"%1$s · %2$s context": [
 		"%1$s · contexte de %2$s"
 	],
-	"%1$s, %2$s, and %3$s": [
-		"%1$s, %2$s et %3$s"
-	],
 	"%d model": [
 		"%d modèle",
 		"%d modèles"
@@ -80,9 +77,6 @@
 	],
 	"Add a domain": [
 		"Ajouter un domaine"
-	],
-	"Address is required": [
-		"Adresse requise"
 	],
 	"Address to listen on": [
 		"Adresse d’écoute"
@@ -134,9 +128,6 @@
 	],
 	"Balanced": [
 		"Équilibré"
-	],
-	"Billed monthly": [
-		"Facturé mensuellement"
 	],
 	"Billed monthly, renews on %s": [
 		"Facturé mensuellement, renouvellement le %s"
@@ -195,9 +186,6 @@
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"La connexion à ChatGPT n’a pas pu aboutir. Réessayez."
 	],
-	"Check again": [
-		"Vérifier à nouveau"
-	],
 	"Checking access…": [
 		"Vérification de l’accès…"
 	],
@@ -224,9 +212,6 @@
 	],
 	"Choose color": [
 		"Choisir une couleur"
-	],
-	"Choose files": [
-		"Choisir les fichiers"
 	],
 	"Choose specific files": [
 		"Choisir des fichiers précis"
@@ -264,9 +249,6 @@
 	"Connect a provider to see your existing sites.": [
 		"Connectez un fournisseur pour voir vos sites existants."
 	],
-	"Connect to %s": [
-		"Se connecter à %s"
-	],
 	"Connect to Spacefast": [
 		"Se connecter à Spacefast"
 	],
@@ -287,9 +269,6 @@
 	],
 	"Continue on %s": [
 		"Continuer sur %s"
-	],
-	"Continue to checkout": [
-		"Passer à la commande"
 	],
 	"Continue with GitHub": [
 		"Continuer avec GitHub"
@@ -411,9 +390,6 @@
 	"Deactivate plugin": [
 		"Désactiver l’extension"
 	],
-	"Default": [
-		"Par défaut"
-	],
 	"Default AI provider": [
 		"Fournisseur d’IA par défaut"
 	],
@@ -435,17 +411,11 @@
 	"Delete plugin": [
 		"Supprimer l’extension"
 	],
-	"Delete preview…": [
-		"Supprimer la prévisualisation…"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"Supprimez les sites dont vous n’avez plus besoin pour libérer de l’espace."
 	],
 	"Describe what you’d like to build or change (optional)…": [
 		"Décrivez ce que vous souhaitez créer ou modifier (facultatif)…"
-	],
-	"Destination": [
-		"Destination"
 	],
 	"Directory to write the static site to": [
 		"Répertoire dans lequel écrire le site statique"
@@ -455,9 +425,6 @@
 	],
 	"Disconnect site": [
 		"Déconnecter le site"
-	],
-	"Disconnect site?": [
-		"Déconnecter le site ?"
 	],
 	"Disconnect site…": [
 		"Déconnecter le site…"
@@ -566,9 +533,6 @@
 	],
 	"For generating images. Auto uses the AI provider when it can.": [
 		"Pour générer des images. Auto utilise le fournisseur d’IA lorsque c’est possible."
-	],
-	"Free": [
-		"Gratuit"
 	],
 	"Gemini API key": [
 		"Clé d’API Gemini"
@@ -762,9 +726,6 @@
 	"Meta rejected this API key. Check the key and try again.": [
 		"Meta a refusé cette clé d’API. Vérifiez la clé et réessayez."
 	],
-	"Monthly": [
-		"Mensuel"
-	],
 	"Mood Indigo": [
 		"Mood Indigo"
 	],
@@ -785,9 +746,6 @@
 	],
 	"Off": [
 		"Désactivé"
-	],
-	"One more step": [
-		"Plus qu’une étape"
 	],
 	"Only if your server asks for one.": [
 		"Uniquement si votre serveur en demande une."
@@ -846,9 +804,6 @@
 	"Other files": [
 		"Autres fichiers"
 	],
-	"Paid plan": [
-		"Plan payant"
-	],
 	"Parent folder": [
 		"Dossier parent"
 	],
@@ -903,9 +858,6 @@
 	"Preview sites are temporary. Updating your preview resets the expiration date.": [
 		"Les sites de prévisualisation sont temporaires. Mettre à jour votre prévisualisation réinitialise la date d’expiration."
 	],
-	"Preview: %s": [
-		"Prévisualisation : %s"
-	],
 	"Private sites and preview links": [
 		"Sites privés et liens de prévisualisation"
 	],
@@ -917,9 +869,6 @@
 	],
 	"Publish again?": [
 		"Publier à nouveau ?"
-	],
-	"Publish changes?": [
-		"Publier les modifications ?"
 	],
 	"Publish options could not be loaded.": [
 		"Les options de publication n’ont pas pu être chargées."
@@ -975,17 +924,11 @@
 	"Receipts": [
 		"Reçus"
 	],
-	"Recommended": [
-		"Recommandés"
-	],
 	"Refresh preview": [
 		"Actualiser l’aperçu"
 	],
 	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
 		"Retirer %s de WordPress Studio ? Le site publié et votre WordPress local ne seront pas modifiés."
-	],
-	"Renew": [
-		"Renouveler"
 	],
 	"Renew your plan": [
 		"Renouveler votre plan"
@@ -1016,9 +959,6 @@
 	],
 	"Reset to recommended": [
 		"Rétablir les recommandations"
-	],
-	"Restricted": [
-		"Restreint"
 	],
 	"Review the advanced settings to finish creating your site.": [
 		"Vérifiez les réglages avancés pour terminer la création de votre site."
@@ -1100,9 +1040,6 @@
 	],
 	"Sign in with OpenRouter": [
 		"Se connecter avec OpenRouter"
-	],
-	"Sign in with WordPress.com": [
-		"Se connecter avec WordPress.com"
 	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Connectez-vous avec un compte GitHub ayant accès à Copilot."
@@ -1236,9 +1173,6 @@
 	"Then add this configuration to your app.": [
 		"Ajoutez ensuite cette configuration à votre application."
 	],
-	"Thinking": [
-		"Réflexion"
-	],
 	"Thinking: %s": [
 		"Réflexion : %s"
 	],
@@ -1353,9 +1287,6 @@
 	"Update the Studio CLI with `%s`.": [
 		"Mettez à jour la CLI Studio avec `%s`."
 	],
-	"Update…": [
-		"Mettre à jour…"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"La mise à jour de %s remplacera toutes les modifications apportées à la prévisualisation par votre copie locale."
 	],
@@ -1413,9 +1344,6 @@
 	"Validate blocks": [
 		"Valider les blocs"
 	],
-	"View backups": [
-		"Voir les sauvegardes"
-	],
 	"View versions": [
 		"Voir les versions"
 	],
@@ -1430,9 +1358,6 @@
 	],
 	"Visual Annotations": [
 		"Annotations visuelles"
-	],
-	"WP admin": [
-		"WP Admin"
 	],
 	"Waiting for approval…": [
 		"En attente d’approbation…"
@@ -1567,9 +1492,6 @@
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"Votre espace de travail fonctionne avec un plan Studio Cloud. La validation de commande s’ouvre sur WordPress.com, et votre espace de travail est prêt environ une minute après le paiement."
 	],
-	"database": [
-		"base de données"
-	],
 	"media item": [
 		"élément multimédia"
 	],
@@ -1593,9 +1515,6 @@
 	],
 	"products": [
 		"produits"
-	],
-	"themes": [
-		"thèmes"
 	],
 	"uploads": [
 		"téléversements"

@@ -370,6 +370,12 @@ export interface PushStatus {
 
 export type SiteVisibility = 'public' | 'coming-soon' | 'private';
 export type SiteCreationVisibility = Extract< SiteVisibility, 'public' | 'private' >;
+// A site to create on a provider. `input` is what the provider's `NewSiteRows` chose.
+export interface NewSite {
+	name: string;
+	visibility?: SiteCreationVisibility;
+	input?: Record< string, string >;
+}
 export interface SiteVisibilityDetails {
 	visibility: SiteVisibility | 'unknown';
 	availableValues?: SiteVisibility[];
@@ -440,15 +446,11 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		name: string,
 		input: Record< string, string >
 	): Promise< unknown >;
-	// A new site to push to, for a provider that can create one. `input` is what the provider's
-	// `NewSiteRows` (`@studio/providers/ui`) chose.
-	create?(
-		config: Config | undefined,
-		options: { name: string; visibility?: SiteCreationVisibility; input?: Record< string, string > }
-	): Promise< Site >;
+	// A new site to push to, for a provider that can create one.
+	create?( config: Config | undefined, site: NewSite ): Promise< Site >;
 	creationVisibility?(
 		config: Config | undefined,
-		input?: Record< string, string >
+		input?: NewSite[ 'input' ]
 	): Promise< SiteCreationVisibility >;
 	// A launch error means the import succeeded; callers keep the publish intent
 	// for a retry and must not show the site as published yet. A push to one of

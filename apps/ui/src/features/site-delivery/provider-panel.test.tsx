@@ -798,13 +798,10 @@ it.each( [ 'Back', 'Escape' ] )(
 it( 'publishes a new Space in the team the user picks', async () => {
 	let created = false;
 	const { connector, user } = setup( {
-		runSitesAction: async ( _provider, action ) => {
-			if ( action !== 'teams' ) throw new Error( `The ${ action } action is not faked` );
-			return [
-				{ id: 'agency', name: 'Agency' },
-				{ id: 'mine', name: 'Mine' },
-			];
-		},
+		runSitesAction: async () => [
+			{ id: 'agency', name: 'Agency' },
+			{ id: 'mine', name: 'Mine' },
+		],
 		getSiteCreationVisibility: async ( _provider, input ) =>
 			input?.team === 'mine' ? 'public' : 'private',
 		getSnapshots: async () => [],

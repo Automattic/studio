@@ -16,7 +16,6 @@ import {
 	listRemoteBackupFiles as readRemoteBackupFiles,
 	resolveRemoteSite as resolveRemoteSiteOnProvider,
 	runSitesAction as runProviderSitesAction,
-	type NewRemoteSite,
 } from '@studio/common/sites/remote-sites';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
@@ -24,6 +23,7 @@ import { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import {
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
+	type NewSite,
 	type ProviderSites,
 	type SitesProviderId,
 	SiteVisibility,
@@ -102,7 +102,7 @@ export async function disconnectRemoteSite(
 export function getSiteCreationVisibility(
 	_event: IpcMainInvokeEvent,
 	provider: string,
-	input?: Record< string, string >
+	input?: NewSite[ 'input' ]
 ) {
 	return readCreationVisibility( getProviderServices( parseProvider( provider ) ), input );
 }
@@ -111,7 +111,7 @@ export async function createRemoteSite(
 	_event: IpcMainInvokeEvent,
 	provider: string,
 	localSiteId: string,
-	site: NewRemoteSite,
+	site: NewSite,
 	connect = true
 ): Promise< ProviderSites[ SitesProviderId ] > {
 	return createRemoteSiteOnProvider(

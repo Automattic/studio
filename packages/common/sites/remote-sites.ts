@@ -3,6 +3,7 @@ import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/pro
 import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import type {
+	NewSite,
 	ProviderConfigs,
 	ProviderServices,
 	ProviderSites,
@@ -39,7 +40,7 @@ export async function listAccountSites( provider: SitesProvider ): Promise< Site
 
 export async function getSiteCreationVisibility(
 	provider: SitesProvider,
-	input?: Record< string, string >
+	input?: NewSite[ 'input' ]
 ): Promise< SiteCreationVisibility | null > {
 	const id = provider.id as SitesProviderId;
 	const creationVisibility = sites( provider ).creationVisibility;
@@ -51,18 +52,11 @@ export async function getSiteCreationVisibility(
 	);
 }
 
-export interface NewRemoteSite {
-	name: string;
-	visibility?: SiteCreationVisibility;
-	// What the provider's `NewSiteRows` chose.
-	input?: Record< string, string >;
-}
-
 // Creates a site on the provider and connects the local site to it.
 export async function createRemoteSite(
 	provider: SitesProvider,
 	localSiteId: string,
-	{ name, visibility, input }: NewRemoteSite,
+	{ name, visibility, input }: NewSite,
 	connect = true
 ): Promise< Site > {
 	if ( visibility !== undefined && visibility !== 'public' && visibility !== 'private' ) {

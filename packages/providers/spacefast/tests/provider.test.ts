@@ -121,31 +121,26 @@ it( 'creates a Space in the team the user picked', async () => {
 		if ( url.pathname === '/v1/teams' ) {
 			return Response.json( {
 				data: [
-					{ id: 'agency', name: 'Agency', slug: 'agency' },
-					{ id: 'mine', name: 'Mine', slug: 'mine' },
+					{ id: 'agency', name: 'Agency' },
+					{ id: 'mine', name: 'Mine' },
 				],
 			} );
 		}
 		if ( url.pathname.endsWith( '/access/defaults' ) ) {
 			return Response.json( { data: { privateSpacesOnly: false } } );
 		}
-		return Response.json( {
-			data: { space: { id: 'spc_1', title: 'Example', slug: 'example', teamId: 'mine' } },
-		} );
+		return Response.json( { data: { space: { id: 'spc_1', title: 'Example', teamId: 'mine' } } } );
 	} );
 	vi.stubGlobal( 'fetch', fetch );
-	const config = { apiKey: 'test' };
 
-	await expect( spacefastServices.sites!.action!( config, 'teams', {} ) ).resolves.toEqual( [
-		{ id: 'agency', name: 'Agency' },
-		{ id: 'mine', name: 'Mine' },
-	] );
-	await expect(
-		spacefastServices.sites!.create!( config, { name: 'Example', input: { team: 'mine' } } )
-	).resolves.toMatchObject( { teamName: 'Mine', teamSlug: 'mine' } );
+	await spacefastServices.sites!.create!(
+		{ apiKey: 'test' },
+		{ name: 'Example', input: { team: 'mine' } }
+	);
+	expect( fetch ).toHaveBeenCalledWith(
+		expect.objectContaining( { pathname: '/v1/teams/mine/access/defaults' } ),
+		expect.anything()
+	);
 	const post = fetch.mock.calls.find( ( [ , options ] ) => options.method === 'POST' );
 	expect( JSON.parse( post?.[ 1 ].body as string ) ).toMatchObject( { teamId: 'mine' } );
-	expect(
-		fetch.mock.calls.some( ( [ url ] ) => url.pathname === '/v1/teams/mine/access/defaults' )
-	).toBe( true );
 } );

@@ -44,11 +44,7 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 async function getPublishingTeam( apiKey: string, teamId?: string ) {
 	const teams = await listTeams( apiKey );
 	const team = teamId ? teams.find( ( { id } ) => id === teamId ) : teams[ 0 ];
-	if ( ! team ) {
-		throw new Error(
-			teamId ? 'The Spacefast account has no such team.' : 'The Spacefast account has no team.'
-		);
-	}
+	if ( ! team ) throw new Error( 'The Spacefast account has no such team.' );
 	return team;
 }
 
@@ -62,11 +58,10 @@ export const spacefastSites: SitesServices< SpacefastConfig, Space > = {
 			listSpaces( requireApiKey( config ) )
 		),
 
-	// The teams `NewSiteRows` offers.
 	action: async ( config, name ) => {
 		if ( name === 'teams' ) {
-			return step( __( 'Failed to load your Spacefast teams' ), 'site_fetch', async () =>
-				( await listTeams( requireApiKey( config ) ) ).map( ( { id, name } ) => ( { id, name } ) )
+			return step( __( 'Failed to load your Spacefast teams' ), 'site_fetch', () =>
+				listTeams( requireApiKey( config ) )
 			);
 		}
 		throw new Error( `Spacefast has no ${ name } action.` );
@@ -75,8 +70,8 @@ export const spacefastSites: SitesServices< SpacefastConfig, Space > = {
 	creationVisibility: ( config, input ) =>
 		step( __( 'Could not check Spacefast team access' ), 'site_access', async () => {
 			const apiKey = requireApiKey( config );
-			const team = await getPublishingTeam( apiKey, input?.team );
-			return getTeamCreationVisibility( apiKey, team.id );
+			const teamId = input?.team ?? ( await getPublishingTeam( apiKey ) ).id;
+			return getTeamCreationVisibility( apiKey, teamId );
 		} ),
 
 	create: ( config, { name, visibility, input } ) =>

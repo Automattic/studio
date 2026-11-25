@@ -95,6 +95,7 @@ type PullRequest = { provider?: SitesProviderId; remoteSiteId?: string | number 
 type PendingPublishSignIn = { siteId: string; view: ShareView; publicPreviewKey?: string };
 
 const PUBLISH_SIGN_IN_KEY = 'studio-publish-sign-in';
+const noNewSiteInput: Record< string, string > = {};
 
 function readPendingSignIn(): PendingPublishSignIn | undefined {
 	try {
@@ -301,12 +302,8 @@ export function PublishButton( {
 	const connectionUnavailable = ! selected && connection.unavailable;
 	const canCreate = ! selected && emptyDescriptor.newSite === 'create';
 	const [ requestedVisibility, setRequestedVisibility ] = useState< SiteCreationVisibility >();
-	// What the provider's `NewSiteRows` chose for the new site, such as its Spacefast team.
-	const [ newSite, setNewSite ] = useState< {
-		provider: SitesProviderId;
-		input: Record< string, string >;
-	} >();
-	const newSiteInput = newSite?.provider === emptyDestination ? newSite.input : {};
+	const [ newSiteInput, setNewSiteInput ] = useState( noNewSiteInput );
+	const canCreateHere = canCreate && connectedProviders.includes( emptyDestination );
 	const { NewSiteRows } = getProviderUi( emptyDestination );
 	const runNewSiteAction = useCallback(
 		( action: string, input?: Record< string, string > ) =>
@@ -316,7 +313,7 @@ export function PublishButton( {
 	const creationPolicy = useQuery( {
 		queryKey: [ 'site-creation-visibility', emptyDestination, newSiteInput ],
 		queryFn: () => connector.getSiteCreationVisibility( emptyDestination, newSiteInput ),
-		enabled: open && canCreate && connectedProviders.includes( emptyDestination ),
+		enabled: open && canCreateHere,
 		retry: false,
 		meta: { persist: false },
 	} );
@@ -451,6 +448,7 @@ export function PublishButton( {
 		);
 		setPublicPreviewKey( undefined );
 		setRequestedVisibility( undefined );
+		setNewSiteInput( noNewSiteInput );
 		setFailure( undefined );
 	};
 	const showDestinationSetup = () => {
@@ -458,6 +456,7 @@ export function PublishButton( {
 		publishMain.current?.focus();
 		setPublicPreviewKey( undefined );
 		setRequestedVisibility( undefined );
+		setNewSiteInput( noNewSiteInput );
 		setFailure( undefined );
 		navigate( { kind: 'setup', returnTo: contentView }, 'forward' );
 	};
@@ -493,6 +492,7 @@ export function PublishButton( {
 		setPublicPreviewKey( undefined );
 		if ( ! publishingNewSite ) {
 			setRequestedVisibility( undefined );
+			setNewSiteInput( noNewSiteInput );
 			if ( selected ) setPublishProvider( undefined );
 		}
 	};
@@ -668,7 +668,7 @@ export function PublishButton( {
 		provider: SitesProviderId,
 		{
 			visibility,
-			input = {},
+			input = noNewSiteInput,
 			entryPoint = 'publish',
 		}: {
 			visibility?: SiteCreationVisibility;
@@ -708,7 +708,7 @@ export function PublishButton( {
 					staged?.siteId === site.id &&
 					staged.provider === provider &&
 					staged.visibility === visibility &&
-					JSON.stringify( staged.input ) === JSON.stringify( input )
+					staged.input === input
 						? staged.remote
 						: await connector.createRemoteSite(
 								provider,
@@ -761,6 +761,7 @@ export function PublishButton( {
 	const chooseProvider = ( provider: SitesProviderId ) => {
 		setPublicPreviewKey( undefined );
 		setRequestedVisibility( undefined );
+		setNewSiteInput( noNewSiteInput );
 		setFailure( undefined );
 		setPublishProvider( provider );
 	};
@@ -1181,20 +1182,18 @@ export function PublishButton( {
 						Row={ DestinationRow }
 					/>
 				) }
-				{ canCreate && NewSiteRows && connectedProviders.includes( emptyDestination ) && (
+				{ canCreateHere && NewSiteRows && (
 					<NewSiteRows
 						input={ newSiteInput }
 						disabled={ disabled }
-						onChange={ ( input ) => setNewSite( { provider: emptyDestination, input } ) }
+						onChange={ setNewSiteInput }
 						run={ runNewSiteAction }
 						SelectRow={ SelectRow }
 					/>
 				) }
 				{ showCreationAccess && emptyDescriptor.visibility && (
 					<SiteCreationAccessControl
-						value={
-							connectedProviders.includes( emptyDestination ) ? creationVisibility : 'private'
-						}
+						value={ canCreateHere ? creationVisibility : 'private' }
 						policy={ creationPolicy.data ?? undefined }
 						loading={ creationPolicy.isFetching }
 						disabled={ disabled || creationAccessUnavailable }

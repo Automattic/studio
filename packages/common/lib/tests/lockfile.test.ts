@@ -27,10 +27,10 @@ describe( 'lockFileAsync', () => {
 		expect( events ).toEqual( [ 'first released', 'second' ] );
 	} );
 
-	it( 'gives up after the wait time', async () => {
+	it.each( [ 0, 300 ] )( 'gives up after a wait time of %i ms', async ( wait ) => {
 		await lockFileAsync( lockPath, { wait: 1000 } );
 
-		await expect( lockFileAsync( lockPath, { wait: 300 } ) ).rejects.toMatchObject( {
+		await expect( lockFileAsync( lockPath, { wait } ) ).rejects.toMatchObject( {
 			code: 'ELOCKED',
 		} );
 		await unlockFileAsync( lockPath );

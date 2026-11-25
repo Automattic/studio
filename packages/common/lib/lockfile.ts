@@ -19,7 +19,8 @@ export async function lockFileAsync( lockPath: string, { wait }: { wait: number 
 		realpath: false,
 		fs: lockFs,
 		stale: STALE_TIME,
-		retries: { forever: true, factor: 1, minTimeout: 100, maxRetryTime: wait },
+		// `retry` reads a `maxRetryTime` of 0 as no limit.
+		retries: wait > 0 ? { forever: true, factor: 1, minTimeout: 100, maxRetryTime: wait } : 0,
 		onCompromised: captureException,
 	} );
 }

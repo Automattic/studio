@@ -14,6 +14,7 @@ import {
 } from '..';
 import type { ConnectMethod } from '../types';
 import { getProviderServices } from '../services';
+import { getProviderUi } from '../ui';
 
 describe( 'registry', () => {
 	it( 'registers each provider with services for what it declares', () => {
@@ -24,11 +25,20 @@ describe( 'registry', () => {
 			expect( services.id ).toBe( id );
 			expect( Boolean( services.ai ) ).toBe( Boolean( ai ) );
 			expect( Boolean( services.sites ) ).toBe( Boolean( sites ) );
+			expect( Boolean( services.account ) ).toBe( Boolean( account ) );
 			expect( ! ai || servesAiModel( id, ai.defaultModel ) ).toBe( true );
 			// The Studio sign-in, which each app receives its own way.
 			expect(
 				id === 'wpcom' || ! account || account.methods.every( ( { kind } ) => kind !== 'redirect' )
 			).toBe( true );
+		}
+	} );
+
+	it( 'gives a provider whose sites connect with a form the component that renders it', () => {
+		for ( const id of SITES_PROVIDER_IDS ) {
+			expect( Boolean( getProviderUi( id ).ConnectForm ) ).toBe(
+				Boolean( getProvider( id ).sites!.connect )
+			);
 		}
 	} );
 } );

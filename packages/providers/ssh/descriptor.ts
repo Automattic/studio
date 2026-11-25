@@ -80,7 +80,6 @@ export const sshProvider: Provider< undefined, SshSite > = {
 					: [],
 				links: [
 					{
-						role: 'admin',
 						title: __( 'Open WP Admin' ),
 						url: new URL( 'wp-admin/', site.url.replace( /\/?$/, '/' ) ).href,
 					},

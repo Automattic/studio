@@ -163,26 +163,29 @@ export function describeWpcomSite( site: SyncSite ) {
 function wpcomSiteLinks( site: SyncSite ): SiteLink[] {
 	if ( ! URL.canParse( '/wp-admin/', site.url ) ) return [];
 	const hostname = new URL( site.url ).hostname;
-	const admin: SiteLink = {
-		role: 'admin',
-		title: __( 'WP admin' ),
-		url: new URL( '/wp-admin/', site.url ).href,
-	};
+	const admin = { title: __( 'WP admin' ), url: new URL( '/wp-admin/', site.url ).href };
 	if ( site.isPressable ) return [ admin ];
 	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
 	return [
-		{ role: 'dashboard', title: __( 'Manage on WordPress.com' ), url: dashboard },
-		{ role: 'domains', title: __( 'Manage domains' ), url: `${ dashboard }/domains` },
-		{
-			role: 'more',
-			title: __( 'View backups' ),
-			url: `https://wordpress.com/backup/${ hostname }`,
-		},
-		{
-			role: 'visibility',
-			title: __( 'Manage on WordPress.com' ),
-			url: `https://wordpress.com/settings/general/${ site.id }`,
-		},
+		{ title: __( 'Manage on WordPress.com' ), url: dashboard },
+		{ title: __( 'Manage domains' ), url: `${ dashboard }/domains` },
+		{ title: __( 'View backups' ), url: `https://wordpress.com/backup/${ hostname }` },
 		admin,
 	];
+}
+
+export function wpcomVisibilityLink( site: SyncSite ): SiteLink | undefined {
+	return site.isPressable || ! URL.canParse( site.url )
+		? undefined
+		: {
+				title: __( 'Manage on WordPress.com' ),
+				url: `https://wordpress.com/settings/general/${ site.id }`,
+		  };
+}
+
+// Where the site's paid plan is managed; undefined without one.
+export function wpcomPlanUrl( site: SyncSite ): string | undefined {
+	return site.hasPaidPlan === true && ! site.isPressable && URL.canParse( site.url )
+		? `https://wordpress.com/plans/my-plan/${ new URL( site.url ).hostname }`
+		: undefined;
 }

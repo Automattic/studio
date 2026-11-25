@@ -5,6 +5,7 @@ import {
 	withWpcomDetails,
 	wpcomPushWarning,
 	wpcomSiteIssue,
+	wpcomVisibilityLink,
 	type SyncSite,
 } from './sites/site';
 import type { AiModel, Provider } from '../types';
@@ -83,24 +84,27 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		publishing: {
 			description: () => __( 'The full WordPress, with a domain.' ),
 		},
-		visibilityOptions: ( current ) => [
-			{
-				value: 'coming-soon',
-				label: __( 'Only you' ),
-				description: __( 'Visitors see a coming soon page' ),
-			},
-			{ value: 'public', label: __( 'Everyone' ), description: __( 'Your WordPress is public' ) },
-			...( current === 'private'
-				? [
-						{
-							value: 'private' as const,
-							label: __( 'Invited people' ),
-							description: __( 'Only you and people you invite can view.' ),
-							disabled: true,
-						},
-				  ]
-				: [] ),
-		],
+		visibility: {
+			options: ( current ) => [
+				{
+					value: 'coming-soon',
+					label: __( 'Only you' ),
+					description: __( 'Visitors see a coming soon page' ),
+				},
+				{ value: 'public', label: __( 'Everyone' ), description: __( 'Your WordPress is public' ) },
+				...( current === 'private'
+					? [
+							{
+								value: 'private' as const,
+								label: __( 'Invited people' ),
+								description: __( 'Only you and people you invite can view.' ),
+								disabled: true,
+							},
+					  ]
+					: [] ),
+			],
+			manage: wpcomVisibilityLink,
+		},
 		previews: {
 			isUpgraded: ( site ) =>
 				site.hasPaidPlan === true ||

@@ -13,6 +13,7 @@ import type { WpcomConfig } from './wpcom/config';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/sites/site';
 import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
+import type { ComponentType, ReactNode } from 'react';
 import type { z } from 'zod';
 
 // What Studio stores for each provider.
@@ -95,7 +96,32 @@ export type ConnectMethod = {
 	| { kind: 'device' }
 );
 
-// What Studio gives a provider's own connect form, from `@studio/providers/ui`.
+// What a provider looks like in the apps, from `getProviderUi` in `@studio/providers/ui`. Each part
+// is optional: without it, the apps show their default.
+export interface ProviderUi< Site extends RemoteSite = RemoteSite > {
+	// The form describing a site of a provider with `sites.connect`.
+	ConnectForm?: ComponentType< ConnectFormProps >;
+	// What the publish panel shows under a connected site, such as its plan.
+	SiteRows?: ComponentType< SiteRowsProps< Site > >;
+}
+
+export interface SiteRowsProps< Site extends RemoteSite = RemoteSite > {
+	site: Site;
+	disabled: boolean;
+	openUrl( url: string ): void;
+	// The panel's own row, so a provider's rows look like the rest.
+	Row: ComponentType< SiteRowProps >;
+}
+
+export interface SiteRowProps {
+	icon: ReactNode;
+	label: string;
+	trailing?: ReactNode;
+	disabled?: boolean;
+	onClick(): void;
+}
+
+// What Studio gives a provider's own connect form.
 export interface ConnectFormProps {
 	disabled: boolean;
 	// Studio is reaching the site the form described.
@@ -161,7 +187,6 @@ export interface ConnectContext {
 }
 
 export interface SiteLink {
-	role: 'dashboard' | 'admin' | 'domains' | 'add-domain' | 'visibility' | 'more';
 	title: string;
 	url: string;
 }
@@ -172,9 +197,14 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	publishing: {
 		description: () => string;
 	};
-	visibilityOptions?(
-		current?: SiteVisibilityDetails[ 'visibility' ]
-	): { value: SiteVisibility; label: string; description: string; disabled?: boolean }[];
+	// Who can see the provider's sites, which the services' `visibility` reads and sets.
+	visibility?: {
+		options(
+			current?: SiteVisibilityDetails[ 'visibility' ]
+		): { value: SiteVisibility; label: string; description: string; disabled?: boolean }[];
+		// Where the site's access is managed on the provider, when Studio can't set all of it.
+		manage( site: Site ): SiteLink | undefined;
+	};
 
 	// The provider also builds previews; an upgraded one is a site the user keeps.
 	previews?: {
@@ -197,7 +227,7 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	connect?: { input: () => FormSchema; hostOnly?: boolean };
 	// What the panel says before a site is connected.
 	intro: { title: () => string; description: () => string };
-	// Facts about a connected site, and links to manage it on the provider.
+	// Facts about a connected site, and links to manage it on the provider, in the order shown.
 	describe( site: Site ): {
 		details: { title: string; value: string }[];
 		links: SiteLink[];

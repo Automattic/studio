@@ -11,7 +11,7 @@ export interface Space extends RemoteSite {
 	teamSlug?: string;
 }
 
-function spaceDashboardUrl( { teamSlug, slug, teamId, id }: Space ) {
+export function spaceDashboardUrl( { teamSlug, slug, teamId, id }: Space ) {
 	const [ teamRef, spaceRef ] = teamSlug && slug ? [ teamSlug, slug ] : [ teamId, id ];
 	return teamRef && spaceRef
 		? `https://my.spacefast.com/${ encodeURIComponent( teamRef ) }/${ encodeURIComponent(
@@ -37,14 +37,27 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		publishing: {
 			description: () => __( 'A static copy of your pages.' ),
 		},
-		visibilityOptions: () => [
-			{
-				value: 'private',
-				label: __( 'Restricted' ),
-				description: __( 'Your team and people you give access to' ),
+		visibility: {
+			options: () => [
+				{
+					value: 'private',
+					label: __( 'Restricted' ),
+					description: __( 'Your team and people you give access to' ),
+				},
+				{
+					value: 'public',
+					label: __( 'Everyone' ),
+					description: __( 'Anyone can view your site' ),
+				},
+			],
+			manage: ( space ) => {
+				const url = spaceDashboardUrl( space );
+				return {
+					title: __( 'Manage on Spacefast' ),
+					url: url ? `${ url }/access` : 'https://my.spacefast.com/',
+				};
 			},
-			{ value: 'public', label: __( 'Everyone' ), description: __( 'Anyone can view your site' ) },
-		],
+		},
 		pull: false,
 		selective: false,
 		content: 'static',
@@ -58,20 +71,10 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		},
 		describe: ( space ) => {
 			const url = spaceDashboardUrl( space );
-			const dashboard = url ?? 'https://my.spacefast.com/';
 			const links: SiteLink[] = [
-				{ role: 'dashboard', title: __( 'Manage on Spacefast' ), url: dashboard },
-				{
-					role: 'visibility',
-					title: __( 'Manage on Spacefast' ),
-					url: url ? `${ url }/access` : dashboard,
-				},
+				{ title: __( 'Manage on Spacefast' ), url: url ?? 'https://my.spacefast.com/' },
 			];
-			if ( url )
-				links.push(
-					{ role: 'add-domain', title: __( 'Add a domain' ), url: `${ url }/domains/add` },
-					{ role: 'more', title: __( 'View versions' ), url: `${ url }/versions` }
-				);
+			if ( url ) links.push( { title: __( 'View versions' ), url: `${ url }/versions` } );
 			return {
 				details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
 				links,

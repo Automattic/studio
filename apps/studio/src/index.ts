@@ -409,7 +409,7 @@ async function appBoot() {
 					return;
 				}
 
-				if ( await isQuitting() ) {
+				if ( isQuittingConfirmed ) {
 					relaunchAfterQuit( customProtocolParameter ? [ customProtocolParameter ] : [] );
 					return;
 				}
@@ -624,13 +624,7 @@ async function appBoot() {
 	 */
 	let shouldStopSitesOnQuit = true;
 	let isQuittingConfirmed = false;
-	// Set while Studio checks for running sites, and maybe asks about them, before quitting.
-	let quitConfirmation: Promise< boolean > | undefined;
 	let restartSitesOnLaunch = true;
-
-	async function isQuitting() {
-		return isQuittingConfirmed || ( ( await quitConfirmation ) ?? false );
-	}
 
 	// Opening Studio while it quits would show a window the quit then closes, so the new launch waits
 	// for this instance to exit. On Windows, Squirrel's launcher next to the version folders starts the
@@ -719,7 +713,7 @@ async function appBoot() {
 
 		event.preventDefault();
 
-		const confirmation = ( async () => {
+		void ( async () => {
 			const runningSiteCount = ( await getSites().catch( () => [] ) ).filter(
 				( site ) => site.running
 			).length;
@@ -751,7 +745,7 @@ async function appBoot() {
 				} );
 
 				if ( response === CANCEL_BUTTON_INDEX ) {
-					return false;
+					return;
 				}
 
 				const behavior: QuitSitesBehavior =
@@ -764,18 +758,9 @@ async function appBoot() {
 				applyQuitSitesBehavior( behavior );
 			}
 
-			return true;
+			isQuittingConfirmed = true;
+			app.quit();
 		} )();
-		quitConfirmation = confirmation;
-		void confirmation.then( ( confirmed ) => {
-			if ( quitConfirmation === confirmation ) {
-				quitConfirmation = undefined;
-			}
-			if ( confirmed ) {
-				isQuittingConfirmed = true;
-				app.quit();
-			}
-		} );
 	} );
 
 	let quitCleanup: 'pending' | 'running' | 'done' = 'pending';
@@ -822,12 +807,12 @@ async function appBoot() {
 		} )();
 	} );
 
-	app.on( 'activate', async () => {
+	app.on( 'activate', () => {
 		if ( ! finishedInitialization ) {
 			return;
 		}
 
-		if ( await isQuitting() ) {
+		if ( isQuittingConfirmed ) {
 			relaunchAfterQuit( [] );
 			return;
 		}

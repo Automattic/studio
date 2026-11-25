@@ -3,7 +3,7 @@
  */
 import { app } from 'electron';
 import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
-import { getOrCreateAnalyticsInstallId, isAnalyticsOptedOut } from '@studio/common/lib/install';
+import { identifyTracksEvent, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	TRACKS_EVENTS,
@@ -33,13 +33,13 @@ vi.mock( '@studio/common/lib/record-tracks-event', async ( importActual ) => {
 	return { ...actual, __recordTracksEvent: vi.fn() };
 } );
 vi.mock( '@studio/common/lib/install', () => ( {
-	getOrCreateAnalyticsInstallId: vi.fn(),
+	identifyTracksEvent: vi.fn(),
 	isAnalyticsOptedOut: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/auth-token', () => ( { isAutomatticianFromToken: vi.fn() } ) );
 
 const mockRecord = vi.mocked( __recordTracksEvent );
-const mockInstallId = vi.mocked( getOrCreateAnalyticsInstallId );
+const mockIdentify = vi.mocked( identifyTracksEvent );
 const mockOptedOut = vi.mocked( isAnalyticsOptedOut );
 const mockIsA11n = vi.mocked( isAutomatticianFromToken );
 
@@ -47,7 +47,10 @@ const originalEnv = { ...process.env };
 
 beforeEach( () => {
 	vi.clearAllMocks();
-	mockInstallId.mockResolvedValue( 'install-uuid' );
+	mockIdentify.mockImplementation( async ( props ) => ( {
+		identity: { type: 'anon', id: 'install-uuid' },
+		props,
+	} ) );
 	mockIsA11n.mockResolvedValue( false );
 	vi.mocked( app.getVersion ).mockReturnValue( '9.9.9' );
 	electronApp.isPackaged = true;
@@ -85,7 +88,7 @@ it( 'does not send when opted out', async () => {
 	await recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH );
 
 	expect( mockRecord ).not.toHaveBeenCalled();
-	expect( mockInstallId ).not.toHaveBeenCalled();
+	expect( mockIdentify ).not.toHaveBeenCalled();
 } );
 
 it( 'attaches channel and ui_version from commonProps without a call-site opt-in', async () => {
@@ -94,7 +97,7 @@ it( 'attaches channel and ui_version from commonProps without a call-site opt-in
 
 	await recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, { is_first_launch: true } );
 
-	expect( mockInstallId ).toHaveBeenCalledTimes( 1 );
+	expect( mockIdentify ).toHaveBeenCalledTimes( 1 );
 	expect( mockRecord ).toHaveBeenCalledWith(
 		TRACKS_EVENTS.APP_LAUNCH,
 		{ type: 'anon', id: 'install-uuid' },
@@ -125,7 +128,7 @@ it.each( [
 	mockOptedOut.mockResolvedValue( true );
 	await recordTracksEvent( name );
 	expect( mockRecord ).not.toHaveBeenCalled();
-	expect( mockInstallId ).not.toHaveBeenCalled();
+	expect( mockIdentify ).not.toHaveBeenCalled();
 } );
 
 describe.each( [
@@ -154,7 +157,7 @@ describe.each( [
 		mockOptedOut.mockResolvedValue( true );
 		await recordTracksEvent( event, props );
 		expect( mockRecord ).not.toHaveBeenCalled();
-		expect( mockInstallId ).not.toHaveBeenCalled();
+		expect( mockIdentify ).not.toHaveBeenCalled();
 	} );
 	it.each( [ 'IS_DEV_BUILD', 'CI' ] )(
 		'does not send when %s disables tracking',
@@ -162,7 +165,7 @@ describe.each( [
 			process.env[ gate ] = 'true';
 			await recordTracksEvent( event, props );
 			expect( mockRecord ).not.toHaveBeenCalled();
-			expect( mockInstallId ).not.toHaveBeenCalled();
+			expect( mockIdentify ).not.toHaveBeenCalled();
 		}
 	);
 	it( 'sends once with anonymous identity, common props and the original action props', async () => {
@@ -188,5 +191,25 @@ it( 'keeps workspace layout telemetry silent when opted out', async () => {
 	mockOptedOut.mockResolvedValue( true );
 	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'panel' } );
 	expect( mockRecord ).not.toHaveBeenCalled();
-	expect( mockInstallId ).not.toHaveBeenCalled();
+	expect( mockIdentify ).not.toHaveBeenCalled();
+} );
+
+it( 'links the account and sends the identity and props the identity resolver returns', async () => {
+	mockOptedOut.mockResolvedValue( false );
+	mockIdentify.mockResolvedValue( {
+		identity: { type: 'wpcom:user_id', id: '12345' },
+		props: { channel: 'studio-ui' },
+	} );
+
+	await recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH );
+
+	expect( mockIdentify ).toHaveBeenCalledWith(
+		expect.objectContaining( { channel: 'studio-ui', app_version: '9.9.9' } ),
+		{ linkAccount: true }
+	);
+	expect( mockRecord ).toHaveBeenCalledWith(
+		TRACKS_EVENTS.APP_LAUNCH,
+		{ type: 'wpcom:user_id', id: '12345' },
+		{ channel: 'studio-ui' }
+	);
 } );

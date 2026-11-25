@@ -44,6 +44,8 @@ const installSchema = z.looseObject( {
 	// Anonymous Tracks install id. See `docs/design-docs/analytics-tracks.md`.
 	analyticsId: optional( z.string() ),
 	sentryUserId: optional( z.string() ),
+	// Keys the ids logged-in Tracks events carry in place of the anonymous ones. Never sent.
+	accountTracksKey: optional( z.string() ),
 	// The stable id providers' sign-ins name this computer with.
 	signInHostId: optional( z.string() ),
 } );
@@ -68,6 +70,9 @@ const preferencesSchema = z.looseObject( {
 	// False when the user switched their global agent instructions off.
 	globalInstructionsEnabled: optional( z.boolean() ),
 	onboardingCompleted: optional( z.boolean() ),
+	// The person has seen that usage statistics are linked to their WordPress.com account, at
+	// onboarding or in the one-time notice. Until then, logged-in events stay anonymous.
+	usageNoticeSeen: optional( z.boolean() ),
 	onboardingHints: optional( z.record( z.string(), z.unknown() ) ),
 } );
 

@@ -39,6 +39,9 @@ const DOCS_LINKS = {
 	docsCustomDomains: {
 		en: 'https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl',
 	},
+	docsTelemetry: {
+		en: 'https://wordpress.studio/docs/telemetry/',
+	},
 	docsSiteSettings: {
 		en: 'https://wordpress.studio/docs/sites/#site-settings',
 	},

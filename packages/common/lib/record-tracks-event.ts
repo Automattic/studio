@@ -83,9 +83,10 @@ export function isTracksEventName( value: unknown ): value is TracksEventName {
 	return typeof value === 'string' && TRACKS_EVENT_NAMES.has( value );
 }
 
-// Phase 1 is anonymous-only: `_ut=anon` with an anonymous install UUID. No PII is ever attached.
+// `_ut=anon` with the anonymous install UUID, or `_ut=wpcom:user_id` with the WordPress.com user id.
+// Resolved by `identifyTracksEvent()` in `./install.ts`; nothing else about the account is attached.
 export interface TracksIdentity {
-	type: 'anon';
+	type: 'anon' | 'wpcom:user_id';
 	id: string;
 }
 

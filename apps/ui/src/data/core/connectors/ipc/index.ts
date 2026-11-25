@@ -183,6 +183,14 @@ export function createIpcConnector(): Connector {
 			await ipcApi.saveOnboarding( completed, analytics );
 		},
 
+		async getUsageNoticePending(): Promise< boolean > {
+			return ipcApi.getUsageNoticePending();
+		},
+
+		async setUsageNoticeSeen(): Promise< void > {
+			await ipcApi.saveUsageNoticeSeen();
+		},
+
 		// Sites
 		async getSites(): Promise< SiteDetails[] > {
 			return ( await ipcApi.getSiteDetails() ) as SiteDetails[];

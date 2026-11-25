@@ -61,7 +61,11 @@ function events() {
 	return send.mock.calls.map( ( [ url ] ) => Object.fromEntries( new URL( url ).searchParams ) );
 }
 
-it( 'joins visible prompt, explicit login and token outcome with existing anonymous Tracks props', async () => {
+it( 'joins visible prompt, explicit login and token outcome, keeping the logged-in outcome anonymous', async () => {
+	// Seen at onboarding or in the notice; `studio mcp` still never links the account.
+	await updateConfig( ( { preferences } ) => {
+		preferences.usageNoticeSeen = true;
+	} );
 	const journeyId = crypto.randomUUID();
 	await call( 'wpcom_login_event', { event: 'prompt_viewed', journeyId } );
 	const start = await call( 'wpcom_login', { journeyId } );

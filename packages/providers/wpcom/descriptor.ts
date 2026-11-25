@@ -81,9 +81,7 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		generatesImages: () => true,
 	},
 	sites: {
-		publishing: {
-			description: () => __( 'The full WordPress, with a domain.' ),
-		},
+		summary: () => __( 'The full WordPress, with a domain.' ),
 		visibility: {
 			options: ( current ) => [
 				{

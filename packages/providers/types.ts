@@ -193,10 +193,8 @@ export interface SiteLink {
 
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
 export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
-	// Short destination-picker copy.
-	publishing: {
-		description: () => string;
-	};
+	// What a site there is, in a few words, for the destination picker.
+	summary: () => string;
 	// Who can see the provider's sites, which the services' `visibility` reads and sets.
 	visibility?: {
 		options(

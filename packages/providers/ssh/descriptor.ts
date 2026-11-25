@@ -21,9 +21,7 @@ export const sshProvider: Provider< undefined, SshSite > = {
 		__( 'Push to and pull from a WordPress site on any server you reach over SSH.' ),
 	icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>',
 	sites: {
-		publishing: {
-			description: () => __( 'A WordPress site on your own server.' ),
-		},
+		summary: () => __( 'A WordPress site on your own server.' ),
 		pull: true,
 		selective: true,
 		content: 'archive',

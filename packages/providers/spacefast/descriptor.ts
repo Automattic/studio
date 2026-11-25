@@ -34,9 +34,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		expiresAt: ( config ) => ( config.expiresAt ? Date.parse( config.expiresAt ) : undefined ),
 	},
 	sites: {
-		publishing: {
-			description: () => __( 'A static copy of your pages.' ),
-		},
+		summary: () => __( 'A static copy of your pages.' ),
 		visibility: {
 			options: () => [
 				{

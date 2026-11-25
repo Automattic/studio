@@ -309,7 +309,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 							description?.() ?? __( 'Start building with free AI credits.' ),
 							`${ id }-provider`
 						),
-						loopbackOnly: account.methods.every( needsHost ),
+						loopbackOnly: account?.methods.every( needsHost ),
 					};
 				} ),
 				setting(

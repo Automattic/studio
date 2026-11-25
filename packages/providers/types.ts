@@ -64,13 +64,10 @@ export interface AiModel< Id extends string = string > {
 	thinking?: boolean;
 }
 
-// The values a connection form asks for: a flat object of strings. Each field's
-// metadata (`.meta()`) gives its `title`, `description` and `examples`, and
-// `writeOnly: true` marks a secret, which is never shown back.
-export type ConnectInputSchema = z.ZodObject< Record< string, z.ZodType< string > > >;
-
-// A form rendered from `input`.
-type FormConnectMethod = { kind: 'form'; input: () => ConnectInputSchema; hostOnly?: boolean };
+// The values a form asks for: a flat object of strings. Each field's metadata (`.meta()`) gives
+// its `title`, `description` and `examples`, and `writeOnly: true` marks a secret, which is never
+// shown back. Surfaces read it with `getFormFields`.
+export type FormSchema = z.ZodObject< Record< string, z.ZodType< string > > >;
 
 // One way a provider's account connects. Studio hands what the user gave, or
 // what came back from the provider's site, to the provider's `connect` with the
@@ -86,7 +83,8 @@ export type ConnectMethod = {
 	// server or the CLI: Studio running elsewhere (Studio Cloud) can't reach what it checks.
 	hostOnly?: boolean;
 } & (
-	| FormConnectMethod
+	| // A form rendered from `input`.
+	{ kind: 'form'; input: () => FormSchema }
 	// Approving access on the provider's site, which redirects back to the app:
 	// the Studio sign-in, which each app receives its own way.
 	| { kind: 'redirect' }
@@ -195,8 +193,8 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// user only connects sites they already have.
 	newSite?: 'checkout' | 'create';
 	// The form that describes a site the account doesn't list, which the services' `resolve` checks
-	// by reaching the site.
-	connect?: Pick< FormConnectMethod, 'input' | 'hostOnly' >;
+	// by reaching the site. `hostOnly` as for an account's connect method.
+	connect?: { input: () => FormSchema; hostOnly?: boolean };
 	// What the panel says before a site is connected.
 	intro: { title: () => string; description: () => string };
 	// Facts about a connected site, and links to manage it on the provider.
@@ -231,20 +229,8 @@ export interface ProviderAccount< Config > {
 	owner?( config: Config ): string | undefined;
 }
 
-// A provider whose config can be `undefined` has no account: nothing to connect, and it counts as
-// connected. Code that handles any provider checks for one.
-type WithAccount< Config, Account > = undefined extends Config
-	? { account?: Account }
-	: { account: Account };
-
 // A provider as surfaces show it: browser-safe data, from `getProvider`.
-export type Provider< Config = unknown, Site extends RemoteSite = RemoteSite > = ProviderInfo<
-	Config,
-	Site
-> &
-	WithAccount< Config, ProviderAccount< Exclude< Config, undefined > > >;
-
-interface ProviderInfo< Config, Site extends RemoteSite > {
+export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSite > {
 	id: ProviderId;
 	// Brand name, not translated.
 	label: string;
@@ -270,6 +256,8 @@ interface ProviderInfo< Config, Site extends RemoteSite > {
 		local?: boolean;
 	};
 	sites?: ProviderSitesInfo< Site >;
+	// Without one, such as SSH's, there is nothing to connect, and the provider counts as connected.
+	account?: ProviderAccount< Config >;
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -489,7 +477,7 @@ export interface AccountServices< Config > {
 }
 
 // What a provider does, for the hosts that run operations: from `getProviderServices`.
-export type ProviderServices< Config = unknown, Site extends RemoteSite = RemoteSite > = {
+export interface ProviderServices< Config = unknown, Site extends RemoteSite = RemoteSite > {
 	id: ProviderId;
 	ai?: {
 		model(
@@ -510,4 +498,5 @@ export type ProviderServices< Config = unknown, Site extends RemoteSite = Remote
 		): Promise< GenerateImageResult[] >;
 	};
 	sites?: SitesServices< Config, Site >;
-} & WithAccount< Config, AccountServices< Exclude< Config, undefined > > >;
+	account?: AccountServices< Config >;
+}

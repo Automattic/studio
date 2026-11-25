@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	AI_PROVIDER_IDS,
 	findAiModel,
-	getConnectFields,
 	getConnectMethod,
 	getDefaultAiModel,
+	getFormFields,
 	getProvider,
 	normalizeProviderId,
 	PROVIDER_IDS,
@@ -12,6 +12,7 @@ import {
 	SITES_PROVIDER_IDS,
 	toStoredProviderId,
 } from '..';
+import type { ConnectMethod } from '../types';
 import { getProviderServices } from '../services';
 
 describe( 'registry', () => {
@@ -71,8 +72,11 @@ describe( 'models', () => {
 } );
 
 describe( 'connecting', () => {
+	const formFields = ( method: ConnectMethod ) =>
+		method.kind === 'form' ? getFormFields( method.input() ) : [];
+
 	it( 'describes a form’s fields for any surface to render', () => {
-		const [ apiKey, ...others ] = getConnectFields( getConnectMethod( 'anthropic' ) );
+		const [ apiKey, ...others ] = formFields( getConnectMethod( 'anthropic' ) );
 
 		expect( others ).toEqual( [] );
 		expect( apiKey ).toMatchObject( {
@@ -84,24 +88,24 @@ describe( 'connecting', () => {
 		} );
 		expect( apiKey.validate( ' ' ) ).toBe( 'API key is required' );
 		expect( apiKey.validate( 'sk-ant-key' ) ).toBeUndefined();
-		expect( getConnectFields( getConnectMethod( 'wpcom' ) ) ).toEqual( [] );
+		expect( formFields( getConnectMethod( 'wpcom' ) ) ).toEqual( [] );
 	} );
 
 	it( 'marks a field whose schema takes an empty value as optional', () => {
-		expect( getConnectFields( getConnectMethod( 'local-llm' ) ) ).toMatchObject( [
+		expect( formFields( getConnectMethod( 'local-llm' ) ) ).toMatchObject( [
 			{ name: 'address', secret: false, required: true },
 			{ name: 'apiKey', secret: true, required: false },
 		] );
 	} );
 
 	it( 'finds a method by id, or the first', () => {
-		expect( getProvider( 'anthropic' ).account.methods.map( ( { id } ) => id ) ).toEqual( [
+		expect( getProvider( 'anthropic' ).account!.methods.map( ( { id } ) => id ) ).toEqual( [
 			'api-key',
 			'setup-token',
 		] );
 		expect( getConnectMethod( 'anthropic', 'setup-token' ).id ).toBe( 'setup-token' );
 		expect( getConnectMethod( 'anthropic', 'unknown' ).id ).toBe( 'api-key' );
-		expect( getConnectFields( getConnectMethod( 'anthropic', 'setup-token' ) ) ).toMatchObject( [
+		expect( formFields( getConnectMethod( 'anthropic', 'setup-token' ) ) ).toMatchObject( [
 			{ name: 'token', placeholder: 'sk-ant-oat01-…', secret: true },
 		] );
 	} );

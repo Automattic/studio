@@ -13,7 +13,7 @@ it( 'says when the user declined the sign-in', async () => {
 	);
 
 	await expect(
-		spacefastServices.account.connect( 'sign-in', {
+		spacefastServices.account!.connect( 'sign-in', {
 			deviceCode: 'dev_1',
 			interval: '1',
 			expiresAt: new Date( Date.now() + 60_000 ).toISOString(),

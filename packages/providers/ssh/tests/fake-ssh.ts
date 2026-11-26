@@ -15,6 +15,20 @@ for command; do :; done
 exec sh -c "$command"
 `;
 
+// A `php` that logs its arguments and runs the fake WP-CLI with what follows the phar's global
+// flags, which it accepts only before the command, as with `WP_CLI_STRICT_ARGS_MODE`.
+const FAKE_PHP = `#!/bin/sh
+shift
+printf '%s\\n' "$*" >> "$HOME/php.log"
+while [ "\${1#--}" != "$1" ]; do shift; done
+for arg; do
+	case "$arg" in --allow-root | --skip-plugins | --skip-themes)
+		echo "Error: Parameter errors: unknown $arg parameter" >&2; exit 1 ;;
+	esac
+done
+exec "$(dirname "$0")/wp" "$@"
+`;
+
 /**
  * Puts a fake `ssh` first on PATH for each test, and a `php` that runs the given fake WP-CLI in place of
  * Studio's; returns their folder.
@@ -27,7 +41,7 @@ export function useFakeServer( wp: string ): { dir: string } {
 		for ( const [ name, script ] of [
 			[ 'ssh', FAKE_SSH ],
 			[ 'wp', wp ],
-			[ 'php', '#!/bin/sh\nshift\nexec "$(dirname "$0")/wp" "$@"\n' ],
+			[ 'php', FAKE_PHP ],
 			[ 'mysql', '#!/bin/sh\n' ],
 			[ 'mysqldump', '#!/bin/sh\n' ],
 		] ) {

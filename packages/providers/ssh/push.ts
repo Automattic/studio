@@ -148,6 +148,8 @@ if [ -d "$dir/site/wp-content" ]; then
 		[ -e "$item" ] || continue
 		rel=\${item#"$dir/site/wp-content/"}
 		live=$content/$rel
+		# The host manages what it links in, and may not let the site's user move it.
+		if [ -L "$live" ]; then rm -rf "$item"; continue; fi
 		rm -rf "$live.studio-new" "$live.studio-old"
 		mkdir -p "$(dirname "$live")" "$(dirname "$dir/old/$rel")"
 		mv "$item" "$live.studio-new"

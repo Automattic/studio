@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
+import { describePrice } from '../catalog';
 import { OPENROUTER_API_URL } from './api';
 import { OPENROUTER_AI_MODELS, OPENROUTER_MODEL_PREFIX } from './descriptor';
 import type { OpenrouterConfig, OpenrouterPickedModel } from './config';
@@ -48,19 +49,11 @@ function formatTokens( count: number ): string {
 		: `${ Math.round( count / 1000 ) }K`;
 }
 
-const formatPrice = ( perToken: string | undefined ) =>
-	`$${ +( Number( perToken ?? 0 ) * 1_000_000 ).toFixed( 2 ) }`;
-
 function describeModel( { pricing, context_length }: ListedModel ): string {
-	const price =
-		! Number( pricing?.prompt ?? 0 ) && ! Number( pricing?.completion ?? 0 )
-			? __( 'Free' )
-			: sprintf(
-					/* translators: 1: price of a million input tokens, 2: of a million output tokens, both like $3 */
-					__( '%1$s / %2$s per million tokens' ),
-					formatPrice( pricing?.prompt ),
-					formatPrice( pricing?.completion )
-			  );
+	const price = describePrice(
+		Number( pricing?.prompt ?? 0 ) * 1_000_000,
+		Number( pricing?.completion ?? 0 ) * 1_000_000
+	);
 	return context_length
 		? sprintf(
 				/* translators: 1: a model's price, 2: its context size, like 200K */

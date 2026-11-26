@@ -70,5 +70,10 @@ export const localLlmProvider: Provider< LocalLlmConfig > = {
 	},
 	// The models are the server's: an account always offers the ones it picked, so the default,
 	// which no server lists, never starts a chat.
-	ai: { models: [], defaultModel: LOCAL_LLM_MODEL_PREFIX, catalog: true, local: true },
+	ai: {
+		models: [],
+		defaultModel: LOCAL_LLM_MODEL_PREFIX,
+		catalog: { prefixes: [ LOCAL_LLM_MODEL_PREFIX ] },
+		local: true,
+	},
 };

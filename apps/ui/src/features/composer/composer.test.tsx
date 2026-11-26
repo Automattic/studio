@@ -298,6 +298,17 @@ describe( 'Chat composer', () => {
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
 	} );
 
+	it( 'closes the add menu when focus moves outside the composer, as when Settings opens', async () => {
+		await setup();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		const list = await screen.findByRole( 'listbox', { name: 'Commands' } );
+		list.focus();
+		const outside = document.body.appendChild( document.createElement( 'button' ) );
+		act( () => outside.focus() );
+		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
+		outside.remove();
+	} );
+
 	it( 'emphasizes provider setup on submit without losing text, attachments, or focus', async () => {
 		const { input, onSend } = await setup( {
 			notice: { message: 'Connect a provider', action: { label: 'Connect', onClick: vi.fn() } },

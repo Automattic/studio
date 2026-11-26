@@ -73,6 +73,6 @@ export const openrouterProvider: Provider< OpenrouterConfig > = {
 	ai: {
 		models: OPENROUTER_AI_MODELS,
 		defaultModel: 'openrouter/anthropic/claude-sonnet-5.5',
-		catalog: true,
+		catalog: { prefixes: [ OPENROUTER_MODEL_PREFIX ] },
 	},
 };

@@ -4,7 +4,7 @@ import { metaConnectInput } from './descriptor';
 import type { MetaConfig } from './config';
 import type { AccountServices } from '../types';
 
-const MODELS_URL = 'https://api.meta.ai/v1/models';
+export const MODELS_URL = 'https://api.meta.ai/v1/models';
 const REQUEST_TIMEOUT_MS = 15_000;
 
 // Listing models costs nothing. Only a key Meta rejects is refused; one it can't check (offline,

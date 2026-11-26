@@ -26,6 +26,7 @@ function NoSitesHeader() {
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	return (
 		<header
+			data-sidebar-flyout-header
 			className={ clsx(
 				styles.header,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed

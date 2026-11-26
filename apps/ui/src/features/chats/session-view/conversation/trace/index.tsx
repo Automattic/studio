@@ -1,3 +1,7 @@
+import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { getSkillDisplayName } from '@studio/common/lib/skill-draft';
+import { Button, CodeBlock, CollapsiblePanel, Spinner } from '@studio/ds';
+import { CircleStopIcon, ChevronDownIcon, CircleCheckIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CircleAlertIcon } from 'lucide-react';
@@ -11,8 +15,6 @@ import {
 	type ComponentProps,
 } from 'react';
 import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
-import { CircleStopIcon, ChevronDownIcon, CircleCheckIcon } from '@/lib/icons';
-import { Button, CodeBlock, CollapsiblePanel, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
 import type { NormalizedToolResult } from '@studio/agent/protocol/tools';
@@ -25,6 +27,11 @@ function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
 		</Button>
 	);
 }
+
+// "Performance audit" for Studio's `need-for-speed`, "Lookbook post" for the user's `lookbook-post`.
+const getSkillTitle = ( name: string ) =>
+	getAiSkillCommands().find( ( command ) => command.name === name )?.displayName ??
+	getSkillDisplayName( name );
 
 export const ToolUseRow = memo( function ToolUseRow( {
 	name,
@@ -40,10 +47,13 @@ export const ToolUseRow = memo( function ToolUseRow( {
 	const display = getToolDisplay( name, input );
 	const detailsId = useId();
 	const resultText = result?.text?.trim() ?? '';
-	const hasOutput = resultText.length > 0;
+	// A skill's result is its instructions, which are for the agent: the row shows what the
+	// skill is. An error is still shown.
+	const hasOutput = resultText.length > 0 && ( name !== 'Skill' || result?.isError === true );
 	const hasInput = display.inputText.length > 0;
 	const hasDiff = Boolean( result?.diff );
-	const hasExpandableDetails = hasInput || hasOutput || hasDiff;
+	const skill = result?.skill;
+	const hasExpandableDetails = hasInput || hasOutput || hasDiff || !! skill;
 	const [ toggledOpen, setToggledOpen ] = useState< boolean | null >( null );
 	const expanded = toggledOpen ?? result?.isError === true;
 	const running = isRunning && ! result;
@@ -85,6 +95,12 @@ export const ToolUseRow = memo( function ToolUseRow( {
 							code={ display.inputText }
 							language={ name === 'wp_cli' || name === 'Bash' ? 'shell' : 'json' }
 						/>
+					) : null }
+					{ skill ? (
+						<p className={ styles.toolSkill }>
+							<span className={ styles.toolSkillName }>{ getSkillTitle( skill.name ) }</span>
+							{ skill.description }
+						</p>
 					) : null }
 					{ hasOutput ? <pre className={ styles.toolOutput }>{ resultText }</pre> : null }
 					{ hasDiff ? (

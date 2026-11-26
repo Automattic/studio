@@ -41,12 +41,12 @@
 }
 
 .accountName {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	font-weight: var( --font-weight-medium );
 }
 
 .accountEmail {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --muted-foreground );
 }
 

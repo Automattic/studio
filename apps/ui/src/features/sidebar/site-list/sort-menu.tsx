@@ -1,6 +1,6 @@
+import { IconButton, Menu } from '@studio/ds';
+import { SortIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { SortIcon } from '@/lib/icons';
-import { IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
 import type { ReactNode } from 'react';

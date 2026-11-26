@@ -1,12 +1,5 @@
 import { AGENT_APP_IDS, AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
 import {
-	AI_PROVIDER_IDS,
-	getProvider,
-	getProviderSites,
-	SITES_PROVIDER_IDS,
-} from '@studio/providers';
-import { __ } from '@wordpress/i18n';
-import {
 	BugIcon,
 	FileTextIcon,
 	SettingsIcon,
@@ -23,7 +16,15 @@ import {
 	SmartphoneIcon,
 	TerminalIcon,
 	GaugeIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
+import {
+	AI_PROVIDER_IDS,
+	getProvider,
+	getProviderSites,
+	SITES_PROVIDER_IDS,
+	needsHost,
+} from '@studio/providers';
+import { __ } from '@wordpress/i18n';
 import type { AgentAppId } from '@studio/common/lib/agent-apps';
 import type { ComponentType } from 'react';
 
@@ -76,7 +77,8 @@ type Setting = {
 	description: string;
 	icon?: SectionIcon;
 	aliases?: string[];
-	nativeOnly?: boolean;
+	// Shown only where the app can reach the user's computer, as a sign-in coming back to it or SSH do.
+	loopbackOnly?: boolean;
 };
 
 type SectionIcon = ComponentType< { className?: string } >;
@@ -309,9 +311,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 							description?.() ?? __( 'Start building with free AI credits.' ),
 							`${ id }-provider`
 						),
-						nativeOnly: account.methods.every(
-							( { kind } ) => kind === 'device' || kind === 'loopback'
-						),
+						loopbackOnly: account?.methods.every( needsHost ),
 					};
 				} ),
 				setting(
@@ -331,7 +331,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
 							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
 						),
-						nativeOnly: getProviderSites( id ).content === 'static',
+						loopbackOnly: getProviderSites( id ).connect?.hostOnly,
 					};
 				} ),
 			],
@@ -448,11 +448,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			settings: [
 				setting(
 					'section',
-					__( 'WordPress skills' ),
-					__(
-						'Turn on WordPress skills for existing and new sites. Manage individual skills below.'
-					),
-					'wordpress-skills'
+					__( 'Skills for all sites' ),
+					__( 'Skills that work on every site.' ),
+					'global-skills'
 				),
 			],
 		},
@@ -615,47 +613,54 @@ function getSiteSections(): Section[] {
 	];
 }
 
-// Sections and settings for local apps, folders, the CLI, PHP and analytics,
-// which only exist where sites run natively.
-const NATIVE_ONLY_IDS = new Set( [
+// Sections and settings for the apps, folders and network of the computer the app runs on, which
+// a Studio running elsewhere (Studio Cloud) doesn't have.
+const LOCAL_MACHINE_IDS = new Set( [
 	'code-editor',
 	'browser',
 	'terminal',
 	'default-directory',
-	'usage-statistics',
 	'quit-behavior',
 	'mcp',
-	'skills',
-	'wordpress-version',
-	'automatic-updates',
 	'custom-domain',
 	'https',
 	'xdebug',
-	'php',
-	'site-skills',
-	'site-instructions',
 ] );
+
+export interface SectionCapabilities {
+	signedIn?: boolean;
+	localMachine?: boolean;
+	loopbackSignIn?: boolean;
+	// The host keeps the user's skills for all sites.
+	globalSkills?: boolean;
+	// The host runs remote mode for the Studio phone app: Settings > Phone.
+	phoneAccess?: boolean;
+}
 
 export function getSections(
 	scope: SettingsScope,
 	{
 		signedIn = true,
-		nativeSites = true,
+		localMachine = true,
+		loopbackSignIn = true,
+		globalSkills = true,
 		phoneAccess = true,
-	}: { signedIn?: boolean; nativeSites?: boolean; phoneAccess?: boolean } = {}
+	}: SectionCapabilities = {}
 ): Section[] {
 	const sections = (
 		scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections()
 	).filter( ( section ) => phoneAccess || section.id !== 'phone' );
-	if ( nativeSites ) {
+	if ( localMachine && loopbackSignIn && globalSkills ) {
 		return sections;
 	}
+	const shown = ( id = '' ) =>
+		( localMachine || ! LOCAL_MACHINE_IDS.has( id ) ) && ( globalSkills || id !== 'skills' );
 	return sections
-		.filter( ( section ) => ! NATIVE_ONLY_IDS.has( section.id ) )
+		.filter( ( section ) => shown( section.id ) )
 		.map( ( section ) => ( {
 			...section,
 			settings: section.settings.filter(
-				( entry ) => ! entry.nativeOnly && ! NATIVE_ONLY_IDS.has( entry.id ?? '' )
+				( entry ) => shown( entry.id ) && ( loopbackSignIn || ! entry.loopbackOnly )
 			),
 		} ) );
 }
@@ -702,12 +707,7 @@ export type SearchResult = { scope: SettingsScope; section: Section; setting?: S
 export function searchSettings(
 	query: string,
 	scope: SettingsScope,
-	{
-		hasSite,
-		signedIn,
-		nativeSites,
-		phoneAccess,
-	}: { hasSite: boolean; signedIn: boolean; nativeSites: boolean; phoneAccess: boolean }
+	{ hasSite, ...capabilities }: SectionCapabilities & { hasSite: boolean }
 ): SearchResult[] {
 	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
 	if ( ! words.length ) {
@@ -725,7 +725,7 @@ export function searchSettings(
 	};
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
-			getSections( candidate, { signedIn, nativeSites, phoneAccess } ).flatMap( ( section ) =>
+			getSections( candidate, capabilities ).flatMap( ( section ) =>
 				[
 					{ ...setting( 'navigate', section.label ), aliases: section.aliases },
 					...section.settings,

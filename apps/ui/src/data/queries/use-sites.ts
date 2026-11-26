@@ -54,7 +54,10 @@ export function useSites() {
 			return sites;
 		},
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
-		refetchInterval: 2 * 60 * 1000,
+		// Only while the window has focus: a remote server that sleeps when idle counts each
+		// request as use, so a tab left open in the background would keep it awake. Focusing the
+		// window again refetches anyway.
+		refetchInterval: () => ( document.hasFocus() ? 5 * 60 * 1000 : false ),
 		// The sidebar mounts another reader once the list stops loading: a failed
 		// list refetched on each new mount would go back to loading, unmount that
 		// reader, fail again and repeat forever.
@@ -242,6 +245,21 @@ export function useStopSite() {
 			toast.error( title, { id: `stop-${ id }`, description } );
 		},
 	} );
+}
+
+export function getSiteStopState( queryClient: QueryClient, siteId: string ) {
+	const stops = queryClient.getMutationCache().findAll( {
+		mutationKey: STOP_SITE_MUTATION_KEY,
+		predicate: ( mutation ) => mutation.state.variables === siteId,
+	} );
+	const stop = stops[ stops.length - 1 ];
+	return stop
+		? {
+				id: stop.mutationId,
+				preservePanel: stop.state.status !== 'error',
+				pending: stop.state.status === 'pending',
+		  }
+		: undefined;
 }
 
 export function useRestartSite() {

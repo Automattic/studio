@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { selectLiveSite } from '@studio/common/lib/live-preview-site';
+import { getQualifyingLiveSites, selectLiveSite } from '@studio/common/lib/live-preview-site';
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { buildPreview, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { __ } from '@wordpress/i18n';
@@ -53,9 +53,16 @@ export async function buildPreviewSite(
 /** The local site's live site that a preview shows changes to; see `selectLiveSite`. */
 export async function getLivePreviewSite(
 	localSiteId: string,
-	selection?: string
+	selection?: string,
+	existingPreview?: Snapshot
 ): Promise< SyncSite | undefined > {
-	return selectLiveSite( await getRemoteSites( 'wpcom', localSiteId ), selection );
+	const sites = await getRemoteSites( 'wpcom', localSiteId );
+	if ( selection === undefined && existingPreview ) {
+		return getQualifyingLiveSites( sites ).find(
+			( site ) => site.id === existingPreview.liveSiteId
+		);
+	}
+	return selectLiveSite( sites, selection );
 }
 
 /**

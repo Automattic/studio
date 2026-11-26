@@ -19,7 +19,10 @@
 .header {
 	--layout-controls-space: calc( 32px + var( --band-gap ) );
 	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
-	--panel-tabs-start: calc( 100% + var( --band-inset ) );
+	--panel-tabs-inset: calc(
+		( var( --band-height ) - var( --control-size-sm ) ) / 2 - var( --band-gap )
+	);
+	--panel-tabs-start: calc( 100% + var( --panel-tabs-inset ) );
 	transition:
 		--layout-controls-space var( --panel-layout-duration ) var( --motion-ease-layout ),
 		--panel-chat-header-width var( --panel-layout-duration ) var( --motion-ease-layout ),
@@ -36,20 +39,14 @@
 	pointer-events: auto;
 }
 .header > [data-site-header-actions] {
-	container: site-actions / inline-size;
-	inset-inline-start: 0;
 	inset-inline-end: var( --layout-controls-space );
-}
-.header[data-panel-open] > [data-site-header-actions] {
-	/* The sliding boundary briefly leaves no room for the actions. Size them to the destination. */
-	inset-inline-start: var( --panel-frame-visible-content-width );
 }
 .header[data-full-view-control] {
 	--layout-controls-space: calc( 64px + 2 * var( --band-gap ) );
 }
 .header[data-panel-open] {
 	--panel-chat-header-width: var( --panel-frame-content-width );
-	--panel-tabs-start: calc( var( --panel-frame-content-width ) + var( --band-inset ) );
+	--panel-tabs-start: calc( var( --panel-frame-content-width ) + var( --panel-tabs-inset ) );
 }
 .header[data-panel-fullscreen] {
 	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );

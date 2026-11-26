@@ -2,6 +2,7 @@ import path from 'node:path';
 import { ConfigTooNewError, readConfig } from '@studio/common/lib/config/store';
 import { isRemoteModeEnabled } from '@studio/common/lib/remote-mode-flag';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { SITES_PROVIDER_IDS } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import yargs from 'yargs';
@@ -11,6 +12,7 @@ import { registerCommand as registerImportCommand } from 'cli/commands/import.co
 import { registerCommand as registerMcpCommand } from 'cli/commands/mcp.command';
 import { registerCommand as registerPullCommand } from 'cli/commands/pull.command';
 import { registerCommand as registerPushCommand } from 'cli/commands/push.command';
+import { registerCommand as registerServeCommand } from 'cli/commands/serve.command';
 import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create.command';
 import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete.command';
 import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list.command';
@@ -25,6 +27,7 @@ import {
 	getInstallTypeLaunchStatGroups,
 	getPlatformMetric,
 } from 'cli/lib/bump-stat';
+import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
 import { setupErrorReporting } from 'cli/lib/error-reporting';
 import { loadTranslations } from 'cli/lib/i18n';
@@ -37,6 +40,8 @@ import { StudioArgv } from 'cli/types';
 const version = __STUDIO_CLI_VERSION__;
 
 suppressPunycodeWarning();
+// The WP-CLI the SSH sites provider runs on the servers it reaches.
+process.env.STUDIO_WP_CLI_PHAR = getWpCliPharPath();
 
 async function main() {
 	setupErrorReporting();
@@ -228,6 +233,31 @@ async function main() {
 	registerSiteDeleteCommand( studioArgv );
 	registerSiteStatusCommand( studioArgv );
 
+	studioArgv.command( {
+		command: '_publish-status <remoteSiteId>',
+		describe: false,
+		builder: ( yargs ) =>
+			yargs
+				.positional( 'remoteSiteId', { type: 'string', demandOption: true } )
+				.option( 'preview', { type: 'boolean' } )
+				.option( 'provider', {
+					type: 'string',
+					choices: SITES_PROVIDER_IDS,
+					default: 'wpcom' as const,
+				} ),
+		handler: async ( argv ) => {
+			const { getDestinationStatus } = await import( 'cli/commands/publish-status' );
+			const { Logger } = await import( 'cli/logger' );
+			if ( ! argv.remoteSiteId ) throw new Error( 'Invalid remote site ID' );
+			const result = await getDestinationStatus(
+				argv.preview
+					? { host: argv.remoteSiteId }
+					: { siteFolder: argv.path, remoteSiteId: argv.remoteSiteId, provider: argv.provider }
+			);
+			new Logger< string >().reportResult( result );
+			console.log( JSON.stringify( result ) );
+		},
+	} );
 	registerPushCommand( studioArgv );
 	registerPullCommand( studioArgv );
 
@@ -236,6 +266,7 @@ async function main() {
 	registerExportStaticCommand( studioArgv );
 
 	registerUiCommand( studioArgv );
+	registerServeCommand( studioArgv );
 	registerUninstallCommand( studioArgv );
 
 	studioArgv.command( 'preview', __( 'Manage preview sites' ), async ( previewYargs ) => {

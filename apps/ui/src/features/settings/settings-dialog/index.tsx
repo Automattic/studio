@@ -1,39 +1,4 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
-import { getConnectMethod } from '@studio/providers';
-import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
-import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
-import { clsx } from 'clsx';
-import { ChevronLeftIcon, SearchIcon } from 'lucide-react';
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { setProviderIntent } from '@/data/account-analytics';
-import { toast } from '@/data/app-messages';
-import { useConnector } from '@/data/core';
-import { useConnectProvider } from '@/data/queries/use-ai-settings';
-import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useSessions } from '@/data/queries/use-sessions';
-import { useSites } from '@/data/queries/use-sites';
-import {
-	getSections,
-	isSiteSection,
-	resolveSettingsLink,
-	searchSettings,
-} from '@/data/settings-sections';
-import {
-	ProvidersPanel,
-	AppearanceSettings,
-	ExternalAppsPanel,
-	GeneralSettings,
-	InstructionsSettings,
-	KeyboardPanel,
-	PhonePanel,
-	SharingPanel,
-	SkillsPanel,
-	UsagePanel,
-} from '@/features/settings/settings-view';
-import { SiteSettingsForm } from '@/features/settings/site-settings-view';
-import { readLastVisited } from '@/features/sidebar';
-import { XIcon } from '@/lib/icons';
 import {
 	AlertDialog,
 	Button,
@@ -57,12 +22,50 @@ import {
 	TabsSidebar,
 	TabsTrigger,
 	VisuallyHidden,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { XIcon } from '@studio/ds/icons';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
+import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
+import { clsx } from 'clsx';
+import { ChevronLeftIcon, SearchIcon } from 'lucide-react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { setProviderIntent } from '@/data/account-analytics';
+import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
+import { useSpacefastConnection } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useSessions } from '@/data/queries/use-sessions';
+import { useSites } from '@/data/queries/use-sites';
+import {
+	getSections,
+	isSiteSection,
+	resolveSettingsLink,
+	searchSettings,
+} from '@/data/settings-sections';
+import { SpacefastConnectDialog } from '@/features/account';
+import { pendingComposerDraftSlot } from '@/features/composer';
+import {
+	ProvidersPanel,
+	AppearanceSettings,
+	ExternalAppsPanel,
+	GeneralSettings,
+	InstructionsSettings,
+	KeyboardPanel,
+	PhonePanel,
+	SharingPanel,
+	SkillsPanel,
+	UsagePanel,
+} from '@/features/settings/settings-view';
+import { ProviderLogo } from '@/features/settings/settings-view/provider-logo';
+import { SiteSettingsForm } from '@/features/settings/site-settings-view';
+import { readLastVisited } from '@/features/sidebar';
 import { SettingsDialogContext, SettingsLinkContext } from './context';
 import { SiteAgentFiles } from './site-agent-files';
-import { SpacefastConnectDialog } from './spacefast-connect-dialog';
+import { SiteSkillsLibrary } from './site-skills-library';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from './context';
+import type { SkillDraft } from '@/data/core';
 import type { SearchResult, SettingsScope, SettingsSectionId } from '@/data/settings-sections';
 import type { SpacefastConnectControl } from '@/features/settings/settings-view/spacefast-provider-row';
 
@@ -73,11 +76,13 @@ function StudioSection( {
 	onNavigate,
 	hasSite,
 	spacefast,
+	onCreateSkillInChat,
 }: {
 	id: SettingsSectionId;
 	onNavigate: ( section: SettingsSectionId ) => void;
 	hasSite: boolean;
 	spacefast: SpacefastConnectControl;
+	onCreateSkillInChat?: ( draft: SkillDraft ) => void;
 } ) {
 	switch ( id ) {
 		case 'appearance':
@@ -96,7 +101,10 @@ function StudioSection( {
 			return <UsagePanel />;
 		case 'skills':
 			return (
-				<SkillsPanel onManageSite={ hasSite ? () => onNavigate( 'site-skills' ) : undefined } />
+				<SkillsPanel
+					onManageSite={ hasSite ? () => onNavigate( 'site-skills' ) : undefined }
+					onCreateInChat={ onCreateSkillInChat }
+				/>
 			);
 		case 'instructions':
 			return (
@@ -157,7 +165,6 @@ function focusControl( row: HTMLElement ) {
  * than the current one, and `settingsFocus` a setting, by link id or title.
  */
 export function SettingsDialog() {
-	const router = useRouter();
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { settings, settingsSite, settingsFocus } = useSearch( { strict: false } ) as {
@@ -173,19 +180,19 @@ export function SettingsDialog() {
 		setShown( settings );
 	}
 	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
-	const { nativeSites, phoneAccess } = connector.capabilities;
+	const { localMachine, loopbackSignIn, globalSkills, phoneAccess } = connector.capabilities;
 	const linkedSection =
-		settings === 'ai' || ( settings === 'mcp' && ! nativeSites )
+		settings === 'ai' || ( settings === 'mcp' && ! localMachine )
 			? 'providers'
 			: settings === 'providers' &&
-			  nativeSites &&
+			  localMachine &&
 			  settingsFocus &&
 			  resolveSettingsLink( settingsFocus ) === 'mcp'
 			? 'mcp'
 			: undefined;
 	const requested =
 		linkedSection ??
-		( shown === 'ai' || ( shown === 'mcp' && ! nativeSites ) || ( shown === 'usage' && ! signedIn )
+		( shown === 'ai' || ( shown === 'mcp' && ! localMachine ) || ( shown === 'usage' && ! signedIn )
 			? 'providers'
 			: shown === 'phone' && ! phoneAccess
 			? 'general'
@@ -210,7 +217,7 @@ export function SettingsDialog() {
 	const [ confirmingDiscard, setConfirmingDiscard ] = useState( false );
 	const [ showingSpacefast, setShowingSpacefast ] = useState( false );
 	const restoreSpacefastFocus = useRef( false );
-	const spacefast = useConnectProvider( 'spacefast', { openBrowser: false } );
+	const spacefast = useSpacefastConnection( () => setShowingSpacefast( false ) );
 	const spacefastOpen = !! settings && section === 'providers' && showingSpacefast;
 	if ( showingSpacefast && ! spacefastOpen ) {
 		setShowingSpacefast( false );
@@ -220,14 +227,6 @@ export function SettingsDialog() {
 	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
 	const pendingExit = useRef< ( () => void ) | null >( null );
 	const panelId = useId();
-	const startSpacefast = () => {
-		if ( ! spacefast.isPending ) {
-			spacefast.mutate(
-				{ method: getConnectMethod( 'spacefast' ).id },
-				{ onSuccess: () => setShowingSpacefast( false ) }
-			);
-		}
-	};
 
 	// Each opening starts fresh.
 	useEffect( () => {
@@ -294,10 +293,6 @@ export function SettingsDialog() {
 	};
 
 	const closeNow = () => {
-		if ( router.history.canGoBack() ) {
-			router.history.back();
-			return;
-		}
 		void navigate( {
 			to: '.',
 			state: true,
@@ -389,10 +384,27 @@ export function SettingsDialog() {
 		};
 	}, [ target, section, content, spacefastOpen ] );
 
+	// Leaves Settings for a new chat on the site, with the command and what the user typed
+	// so far as the draft: the agent asks the rest and saves the skill.
+	const createSkillInChat = site
+		? ( draft: SkillDraft ) => {
+				const request = [ draft.name.trim(), draft.description.trim() ]
+					.filter( Boolean )
+					.join( ': ' );
+				pendingComposerDraftSlot.set( {
+					draftKey: `site:${ site.id }`,
+					text: `/create-skill ${ request }`,
+				} );
+				void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		  }
+		: undefined;
+
 	const results = searchSettings( query, scope, {
 		hasSite: !! site,
 		signedIn,
-		nativeSites,
+		localMachine,
+		loopbackSignIn,
+		globalSkills,
 		phoneAccess,
 	} );
 	const searching = !! query.trim();
@@ -402,7 +414,13 @@ export function SettingsDialog() {
 			setTarget( result.setting.id ?? result.setting.title );
 		}
 	};
-	const sections = getSections( scope, { signedIn, nativeSites, phoneAccess } );
+	const sections = getSections( scope, {
+		signedIn,
+		localMachine,
+		loopbackSignIn,
+		globalSkills,
+		phoneAccess,
+	} );
 	const current = sections.find( ( entry ) => entry.id === section ) ?? sections[ 0 ];
 
 	const settingsDialog = (
@@ -567,13 +585,14 @@ export function SettingsDialog() {
 									<StudioSection
 										id={ section }
 										onNavigate={ go }
-										hasSite={ !! site && nativeSites }
+										hasSite={ !! site }
+										onCreateSkillInChat={ createSkillInChat }
 										spacefast={ {
 											isPending: spacefast.isPending,
 											onConnect: () => {
 												restoreSpacefastFocus.current = true;
 												setShowingSpacefast( true );
-												startSpacefast();
+												spacefast.start();
 											},
 										} }
 									/>
@@ -581,15 +600,19 @@ export function SettingsDialog() {
 							) : null }
 							{ site ? (
 								<>
-									{ scope === 'site' &&
-									( section === 'site-skills' || section === 'site-instructions' ) ? (
-										<SiteAgentFiles
-											key={ `${ site.id }-${ section }` }
+									{ scope === 'site' && section === 'site-skills' ? (
+										<SiteSkillsLibrary
+											key={ site.id }
 											site={ site }
-											kind={ section === 'site-skills' ? 'skills' : 'instructions' }
-											onManageAll={ () =>
-												go( section === 'site-skills' ? 'skills' : 'instructions' )
-											}
+											onManageAll={ () => go( 'skills' ) }
+											onCreateInChat={ createSkillInChat }
+										/>
+									) : null }
+									{ scope === 'site' && section === 'site-instructions' ? (
+										<SiteAgentFiles
+											key={ site.id }
+											site={ site }
+											onManageAll={ () => go( 'instructions' ) }
 										/>
 									) : null }
 									<div
@@ -651,10 +674,11 @@ export function SettingsDialog() {
 			{ settingsDialog }
 			<SpacefastConnectDialog
 				open={ spacefastOpen }
+				icon={ <ProviderLogo provider="spacefast" /> }
 				pending={ spacefast.pending }
 				isPending={ spacefast.isPending }
 				error={ spacefast.error?.message }
-				onRetry={ startSpacefast }
+				onRetry={ spacefast.start }
 				onClose={ () => setShowingSpacefast( false ) }
 			/>
 		</>

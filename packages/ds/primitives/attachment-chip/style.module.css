@@ -1,0 +1,98 @@
+@layer ui {
+	.chip {
+		composes: raised from '../surface/style.module.css';
+		--muted: inherit;
+		--surface: var( --muted );
+
+		position: relative;
+		display: flex;
+		gap: var( --space-1_5 );
+		align-items: center;
+		min-width: 0;
+		max-width: 240px;
+		height: var( --control-size-sm );
+		padding-inline: var( --space-2 ) var( --space-2_5 );
+		border-radius: var( --radius-composer-attachment, var( --radius-md ) );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
+		user-select: none;
+	}
+
+	.chip > [data-slot='attachment-remove'] {
+		--attachment-remove-inset: var( --space-attachment-chip-remove-inset );
+	}
+
+	.chip:has( > [data-slot='attachment-remove'] )::before {
+		position: absolute;
+		z-index: 1;
+		inset-block: 0;
+		inset-inline-end: 0;
+		width: var( --space-12 );
+		border-radius: inherit;
+		background-color: inherit;
+		mask-image: linear-gradient( to right, transparent, currentColor 50% );
+		content: '';
+		pointer-events: none;
+	}
+
+	.chip:dir( rtl )::before {
+		mask-image: linear-gradient( to left, transparent, currentColor 50% );
+	}
+
+	@media ( hover: hover ) and ( pointer: fine ) and ( not ( any-pointer: coarse ) ) {
+		.chip:has( > [data-slot='attachment-remove'] )::before {
+			opacity: 0;
+			transition: opacity var( --motion-duration-feedback ) ease-out;
+		}
+
+		.chip:has( > [data-slot='attachment-remove'] ):is( :hover, :focus-within )::before {
+			opacity: 1;
+		}
+
+		.chip:has( > [data-slot='attachment-remove'] ):focus-within::before {
+			transition: none;
+		}
+	}
+
+	.chip:has( > .trigger ) {
+		padding: 0;
+	}
+
+	.chip > .trigger[data-slot] {
+		--button-hover-background: transparent;
+	}
+
+	.trigger[data-slot] {
+		flex: 1;
+		min-width: 0;
+		height: 100%;
+		gap: var( --space-1_5 );
+		justify-content: flex-start;
+		padding-block: 0;
+		padding-inline: var( --space-2 ) var( --space-2_5 );
+		border-radius: inherit;
+		font-weight: var( --font-weight-normal );
+		text-align: start;
+	}
+
+	.chip > .trigger[data-slot]:focus-visible {
+		outline: none;
+	}
+
+	.chip:has( > .trigger:focus-visible ) {
+		outline: var( --focus-width ) solid var( --ring );
+		outline-offset: var( --space-0_5 );
+	}
+
+	.chip[data-font='mono'] {
+		font-family: var( --font-mono );
+		font-size: var( --text-2xs );
+	}
+
+	.chip > svg:not( [data-size] ),
+	.trigger > svg:not( [data-size] ) {
+		flex: none;
+		width: 16px;
+		height: 16px;
+	}
+}

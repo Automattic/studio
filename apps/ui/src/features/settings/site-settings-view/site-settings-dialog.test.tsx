@@ -35,8 +35,8 @@ function setup( {
 								id: 'studio-cli',
 								displayName: 'WordPress Studio CLI',
 								description: 'CLI',
-								installed: false,
-								enabled: false,
+								installed: true,
+								enabled: true,
 							},
 					  ]
 					: [

@@ -2,9 +2,13 @@ import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
+	resolveSessionThinking,
 } from '@studio/agent/protocol/sessions/model';
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
+import { Button, IconButton, VisuallyHidden } from '@studio/ds';
+import { ArrowDownIcon } from '@studio/ds/icons';
+import { getMotionDuration } from '@studio/ds/theme';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -30,6 +34,7 @@ import {
 	useSessionLiveSite,
 	useSessions,
 	useSetSessionEnvironment,
+	useSetSessionThinking,
 } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
@@ -66,9 +71,6 @@ import {
 	type ComposerHandle,
 } from '@/features/composer';
 import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
-import { ArrowDownIcon } from '@/lib/icons';
-import { getMotionDuration } from '@/lib/theme';
-import { Button, IconButton, VisuallyHidden } from '@/lib/ui';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
 import { SessionFrame } from './session-frame';
@@ -322,6 +324,10 @@ function SessionViewContent( {
 	const { data: connectedSites } = useRemoteSites( 'wpcom', ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites ?? [] );
 	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId ?? '' );
+	const { mutate: setThinking } = useSetSessionThinking( sessionId ?? '' );
+	const thinking = sessionId
+		? resolveSessionThinking( data?.entries ?? [], currentModel )
+		: draft.thinking;
 	const sendWithAutoStart = useCallback(
 		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
 			if (
@@ -522,7 +528,15 @@ function SessionViewContent( {
 						draftKey={ draftKey }
 						provider={ sessionProvider }
 						onModelChange={
-							sessionId ? undefined : ( model, provider ) => updateDraft( { model, provider } )
+							sessionId
+								? undefined
+								: ( model, provider ) => updateDraft( { model, provider, thinking: undefined } )
+						}
+						thinking={ thinking }
+						onThinkingChange={ ( picked ) =>
+							sessionId
+								? setThinking( { model: currentModel, thinking: picked } )
+								: updateDraft( { thinking: picked } )
 						}
 						autoFocus={ isEmpty }
 						entries={ data?.entries }

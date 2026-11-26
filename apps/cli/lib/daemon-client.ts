@@ -3,11 +3,7 @@ import crypto from 'crypto';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
-import {
-	LOCKFILE_STALE_TIME,
-	LOCKFILE_WAIT_TIME,
-	PROXY_PROCESS_NAME,
-} from '@studio/common/constants';
+import { LOCKFILE_WAIT_TIME, PROXY_PROCESS_NAME } from '@studio/common/constants';
 import { readConfig } from '@studio/common/lib/config/store';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
@@ -414,10 +410,7 @@ export async function connectToDaemon(): Promise< void > {
 		return;
 	}
 	ensureProcessManagerHome();
-	await lockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH, {
-		wait: LOCKFILE_WAIT_TIME,
-		stale: LOCKFILE_STALE_TIME,
-	} );
+	await lockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME } );
 
 	let processesToRestart: string[];
 	try {

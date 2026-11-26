@@ -1,9 +1,30 @@
 {
+	"$10 of AI credits every month": [
+		"每月 $10 的 AI 积分"
+	],
+	"$30 of AI credits every month": [
+		"每月 $30 的 AI 积分"
+	],
+	"%1$d of %2$d site": [
+		"%1$d / %2$d 个站点"
+	],
+	"%1$d of %2$d site running at once": [
+		"同时运行 %1$d / %2$d 个站点"
+	],
 	"%1$dh %2$dm": [
 		"%1$d 小时 %2$d 分钟"
 	],
 	"%1$s +%2$d": [
 		"%1$s +%2$d"
+	],
+	"%1$s / %2$s per million tokens": [
+		"每百万令牌 %1$s / %2$s"
+	],
+	"%1$s GB of %2$s GB of storage used": [
+		"已使用 %1$s GB / %2$s GB 存储空间"
+	],
+	"%1$s and %2$d other": [
+		"%1$s 和其他 %2$d 个"
 	],
 	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
 		"%1$s 无法安装 WordPress Studio 插件：%2$s"
@@ -14,38 +35,56 @@
 	"%1$s screenshot %2$d": [
 		"%1$s 屏幕截图 %2$d"
 	],
+	"%1$s · %2$s context": [
+		"%1$s · %2$s 上下文"
+	],
 	"%d B": [
 		"%d B"
-	],
-	"%d annotation ready to send": [
-		"%d 条批注可以发送"
 	],
 	"%d image": [
 		"%d 张图片"
 	],
+	"%d model": [
+		"%d 个模型"
+	],
+	"%s (optional, saved for future use):": [
+		"%s（可选，将保存以供日后使用）："
+	],
 	"%s KB": [
 		"%s KB"
+	],
+	"%s billed yearly": [
+		"按年计费 %s"
 	],
 	"%s connection": [
 		"%s 连接"
 	],
-	"%s is no longer installed. Choose another browser in Settings.": [
-		"%s 已不再安装。请在“设置”中选择其他浏览器。"
+	"%s models": [
+		"%s 模型"
 	],
-	"%s isn’t installed on this computer.": [
-		"此计算机上未安装 %s。"
+	"%s only makes previews.": [
+		"%s 仅能创建预览。"
 	],
-	"%s preview is ready": [
-		"%s 的预览已准备就绪"
+	"%s · Live site": [
+		"%s · 实时站点"
+	],
+	"%s · Local changes": [
+		"%s · 本地更改"
 	],
 	"(No subject)": [
 		"（无主题）"
 	],
+	"30 GB of storage": [
+		"30 GB 存储空间"
+	],
+	"6 GB of storage": [
+		"6 GB 存储空间"
+	],
 	"A code editor with a built-in AI agent.": [
 		"内置 AI 智能体的代码编辑器。"
 	],
-	"AI apps": [
-		"AI 应用"
+	"A static copy of your pages.": [
+		"您页面的静态副本。"
 	],
 	"API key": [
 		"API 密钥"
@@ -53,41 +92,44 @@
 	"API key is required": [
 		"需要 API 密钥"
 	],
+	"Access unknown": [
+		"访问权限未知"
+	],
 	"Activate plugin": [
 		"激活插件"
 	],
-	"Add annotation to batch": [
-		"将批注添加到批次"
+	"Add a domain": [
+		"添加域名"
 	],
-	"Add or delete this annotation before starting another.": [
-		"请先添加或删除此批注，然后再开始新的批注。"
+	"Address is required": [
+		"地址为必填项"
 	],
-	"Admin bar hidden by default.": [
-		"已默认隐藏管理工具栏。"
-	],
-	"Admin bar shown by default.": [
-		"已默认显示管理工具栏。"
-	],
-	"Agent apps": [
-		"智能体应用"
+	"Address to listen on": [
+		"监听地址"
 	],
 	"Agents": [
 		"智能体"
 	],
+	"All but %s": [
+		"除%s外的全部内容"
+	],
+	"All models": [
+		"所有模型"
+	],
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"登录时，请允许 WordPress Studio 使用您的 ChatGPT 套餐。"
-	],
-	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
-		"更新 WordPress Studio CLI 时发生错误。请重试。"
-	],
-	"Annotation is available for design systems created by Studio Code.": [
-		"批注功能适用于由 Studio Code 创建的设计系统。"
 	],
 	"Annotation tools": [
 		"批注工具"
 	],
 	"Anonymous usage statistics enabled.": [
 		"匿名使用统计数据已启用。"
+	],
+	"Another operation is in progress.": [
+		"另一项操作正在进行中。"
+	],
+	"Answers right away, fastest": [
+		"立即回答，速度最快"
 	],
 	"Anthropic API key": [
 		"Anthropic API 密钥"
@@ -97,6 +139,15 @@
 	],
 	"Anthropic rejected this token. Run claude setup-token again.": [
 		"Anthropic 拒绝了此令牌。请重新运行 claude setup-token。"
+	],
+	"Anyone can view your site": [
+		"任何人都可以查看您的站点"
+	],
+	"Anyone with the link": [
+		"拥有链接的任何人"
+	],
+	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
+		"所有拥有该链接的人都将失去访问权限，且此操作无法撤消。您的本地 WordPress 不会更改。"
 	],
 	"Appearance reset.": [
 		"外观已重置。"
@@ -116,35 +167,23 @@
 	"Audit performance": [
 		"审计性能"
 	],
-	"Automatic sidebar collapsing disabled.": [
-		"边栏自动折叠已禁用。"
-	],
-	"Automatic sidebar collapsing enabled.": [
-		"边栏自动折叠已启用。"
-	],
-	"Automatic site start on prompt disabled.": [
-		"发送提示时自动启动站点已禁用。"
-	],
-	"Automatic site start on prompt enabled.": [
-		"发送提示时自动启动站点已启用。"
-	],
 	"Back to email list": [
 		"返回电子邮件列表"
 	],
 	"Backup timed out — no progress detected": [
 		"备份超时 — 未检测到进度"
 	],
-	"Backups": [
-		"备份"
+	"Billed monthly": [
+		"按月计费"
 	],
-	"Batch notes": [
-		"批量批注"
+	"Billed monthly, renews on %s": [
+		"按月计费，将于 %s 续订"
 	],
-	"Batch notes disabled.": [
-		"批量批注已禁用。"
+	"Billed yearly, renews on %s": [
+		"按年计费，将于 %s 续订"
 	],
-	"Batch notes enabled.": [
-		"批量批注已启用。"
+	"Billing period": [
+		"计费周期"
 	],
 	"Blueprint file…": [
 		"蓝图文件…"
@@ -170,8 +209,17 @@
 	"Browsing data cleared": [
 		"浏览数据已清除"
 	],
+	"Can’t see screenshots": [
+		"无法查看屏幕截图"
+	],
 	"Cc": [
 		"抄送"
+	],
+	"Changes on %s will be replaced with your local files and database.": [
+		"%s 上的更改将被替换为您的本地文件和数据库。"
+	],
+	"Changes published": [
+		"更改已发布"
 	],
 	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
 		"更改已推送，但站点无法上线。请检查您的套餐和权限，然后再次发布以重试上线。"
@@ -200,20 +248,38 @@
 	"Check your internet connection and try again.": [
 		"请检查您的互联网连接，然后重试。"
 	],
+	"Checking access…": [
+		"正在检查访问权限…"
+	],
 	"Checking for updates…": [
 		"正在检查更新…"
 	],
-	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
-		"选择 WordPress 站点文件夹、蓝图 JSON 文件或 ZIP 包。"
+	"Checking whether you can pull from this preview…": [
+		"正在检查您是否可以从此预览拉取…"
+	],
+	"Checking…": [
+		"正在检查…"
+	],
+	"Choose a plan to make it live: %s": [
+		"选择一个套餐以使其上线：%s"
+	],
+	"Choose a site": [
+		"选择站点"
 	],
 	"Choose a site source": [
 		"选择站点来源"
 	],
-	"Choose a topic": [
-		"选择主题"
-	],
 	"Choose color": [
 		"选择颜色"
+	],
+	"Choose specific files": [
+		"选择特定文件"
+	],
+	"Choose which live site this preview shows changes to.": [
+		"选择此预览所展示的更改对应哪个实时站点。"
+	],
+	"Choose your plan.": [
+		"选择您的套餐。"
 	],
 	"Claude subscription": [
 		"Claude 订阅"
@@ -229,21 +295,6 @@
 	],
 	"Close %s": [
 		"关闭 %s"
-	],
-	"Close all tabs": [
-		"关闭所有标签页"
-	],
-	"Close other tabs": [
-		"关闭其他标签页"
-	],
-	"Close tab": [
-		"关闭标签页"
-	],
-	"Close tabs to the right": [
-		"关闭右侧标签页"
-	],
-	"Collect annotations and send them together instead of one at a time.": [
-		"收集批注并一起发送，而不是逐条发送。"
 	],
 	"Color picker": [
 		"颜色选择器"
@@ -263,20 +314,35 @@
 	"Connect a provider": [
 		"连接提供程序"
 	],
+	"Connect a provider to see your existing sites.": [
+		"连接提供程序以查看您的现有站点。"
+	],
 	"Connect to Spacefast": [
 		"连接到 Spacefast"
 	],
-	"Connect to an existing WordPress": [
-		"连接到现有的 WordPress"
+	"Connect to an existing site": [
+		"连接到现有站点"
 	],
-	"Connect your WordPress": [
-		"连接您的 WordPress"
+	"Connect to publish": [
+		"连接以发布"
+	],
+	"Connect to share previews": [
+		"连接以共享预览"
 	],
 	"Connected %s.": [
 		"已连接 %s。"
 	],
+	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
+		"连接现有站点会使您当前的发布目标与 WordPress Studio 断开连接。其内容不会更改。"
+	],
 	"Connecting to WordPress.com": [
 		"正在连接到 WordPress.com"
+	],
+	"Continue on %s": [
+		"在 %s 上继续"
+	],
+	"Continue to checkout": [
+		"继续结账"
 	],
 	"Continue with GitHub": [
 		"使用 GitHub 继续"
@@ -284,14 +350,17 @@
 	"Copy links": [
 		"复制链接"
 	],
+	"Could not check Spacefast team access": [
+		"无法检查 Spacefast 团队访问权限"
+	],
 	"Could not clear browsing data": [
 		"无法清除浏览数据"
 	],
-	"Could not delete the old preview site. It will expire on its own.": [
-		"无法删除旧的预览站点。它将自动到期。"
+	"Could not connect to WordPress.com": [
+		"无法连接到 WordPress.com"
 	],
-	"Could not migrate your sites": [
-		"无法迁移您的站点"
+	"Could not load %s sites.": [
+		"无法加载 %s 站点。"
 	],
 	"Could not open DevTools": [
 		"无法打开开发者工具"
@@ -299,17 +368,20 @@
 	"Could not open Spacefast": [
 		"无法打开 Spacefast"
 	],
+	"Could not open the new preview. Please try again.": [
+		"无法打开新预览。请重试。"
+	],
+	"Could not open the setup page. Please try again.": [
+		"无法打开设置页面。请重试。"
+	],
+	"Could not publish. Please try again.": [
+		"无法发布。请重试。"
+	],
 	"Could not reach Anthropic to verify the credential.": [
 		"无法连接 Anthropic 以验证凭据。"
 	],
-	"Could not reset appearance. Please try again.": [
-		"无法重置外观。请重试。"
-	],
-	"Could not reset interface. Please try again.": [
-		"无法重置界面。请重试。"
-	],
-	"Could not reset tips. Please try again.": [
-		"无法重置提示。请重试。"
+	"Could not read your settings": [
+		"无法读取您的设置"
 	],
 	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
 		"无法在 wp-config.php 中将 $table_prefix 设置为“%s”。"
@@ -317,20 +389,44 @@
 	"Could not take screenshot": [
 		"无法截取屏幕截图"
 	],
-	"Could not update settings. Please try again.": [
-		"无法更新设置。请重试。"
-	],
-	"Could not update the admin bar setting. Please try again.": [
-		"无法更新管理工具栏设置。请重试。"
+	"Could not update your local site from this preview. Please try again.": [
+		"无法从此预览更新您的本地站点。请重试。"
 	],
 	"Could not verify the credential with Anthropic.": [
 		"无法通过 Anthropic 验证凭据。"
 	],
+	"Could not watch for your new site. Please try again.": [
+		"无法检测您的新站点。请重试。"
+	],
 	"Couldn't load providers.": [
 		"无法加载提供程序。"
 	],
-	"Couldn’t sign in to WordPress.com": [
-		"无法登录 WordPress.com"
+	"Couldn’t change how much the model thinks": [
+		"无法更改模型的思考程度"
+	],
+	"Couldn’t check for preview edits": [
+		"无法检查预览上的编辑"
+	],
+	"Couldn’t check previews.": [
+		"无法检查预览。"
+	],
+	"Couldn’t check whether you can pull from this preview.": [
+		"无法检查您是否可以从此预览拉取。"
+	],
+	"Couldn’t check who can view new sites for this team.": [
+		"无法检查此团队的新站点可供谁查看。"
+	],
+	"Couldn’t load publishing accounts": [
+		"无法加载发布账户"
+	],
+	"Couldn’t load your %s sites": [
+		"无法加载您的 %s 站点"
+	],
+	"Couldn’t load your %s sites.": [
+		"无法加载您的 %s 站点。"
+	],
+	"Couldn’t load your previews.": [
+		"无法加载您的预览。"
 	],
 	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
 		"在 [Google AI Studio](https://aistudio.google.com/apikey) 中创建密钥，然后粘贴到下方。"
@@ -344,17 +440,29 @@
 	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
 		"在 [OpenAI Platform](https://platform.openai.com/api-keys) 中创建密钥，然后粘贴到下方。"
 	],
-	"Create a new WordPress": [
-		"新建 WordPress"
+	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
+		"在 [xAI Console](https://console.x.ai) 中创建密钥，然后将其粘贴到下方。"
 	],
-	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
-		"请创建账户或登录，以连接您的 WordPress.com 或 Pressable 站点。"
-	],
-	"Create another preview": [
-		"创建另一个预览"
+	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
+		"在您的 [OpenRouter 设置](https://openrouter.ai/settings/keys)中创建密钥，然后将其粘贴到下方。"
 	],
 	"Create user": [
 		"创建用户"
+	],
+	"Creating preview": [
+		"正在创建预览"
+	],
+	"Creating preview link…": [
+		"正在创建预览链接…"
+	],
+	"Custom selection": [
+		"自定义选择"
+	],
+	"Database only": [
+		"仅数据库"
+	],
+	"Default": [
+		"默认"
 	],
 	"Default AI provider": [
 		"默认 AI 提供程序"
@@ -365,8 +473,17 @@
 	"Default code editor": [
 		"默认代码编辑器"
 	],
-	"Default terminal app": [
-		"默认终端应用"
+	"Default image provider": [
+		"默认图片提供程序"
+	],
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"自动"
+	],
+	"Delete a preview in Sharing settings to create another.": [
+		"请在“分享”设置中删除一个预览，以创建新的预览。"
+	],
+	"Delete a site to create a new one.": [
+		"删除一个站点即可创建新站点。"
 	],
 	"Delete annotation: %s": [
 		"删除批注：%s"
@@ -374,14 +491,14 @@
 	"Delete plugin": [
 		"删除插件"
 	],
+	"Delete sites you no longer need to free up space.": [
+		"删除不再需要的站点以释放空间。"
+	],
 	"Delete theme": [
 		"删除主题"
 	],
 	"Delete user": [
 		"删除用户"
-	],
-	"Describe the change": [
-		"描述更改内容"
 	],
 	"Describe what you’d like to build or change (optional)…": [
 		"描述您想要构建或更改的内容（可选）…"
@@ -389,38 +506,20 @@
 	"Design system could not load.": [
 		"无法加载设计系统。"
 	],
-	"Design systems are available for block themes.": [
-		"设计系统适用于区块主题。"
-	],
-	"Disable automatic sidebar collapsing": [
-		"禁用边栏自动折叠"
-	],
-	"Disable automatic site start on prompt": [
-		"禁用发送提示时自动启动站点"
-	],
-	"Disable batch notes": [
-		"禁用批量批注"
-	],
 	"Discard changes?": [
 		"放弃更改？"
 	],
-	"Dismiss tip": [
-		"关闭提示"
+	"Disconnect site": [
+		"断开站点连接"
 	],
-	"Do more with WordPress": [
-		"使用 WordPress 实现更多功能"
+	"Disconnect site…": [
+		"断开站点连接…"
 	],
-	"Domains": [
-		"域名"
+	"Download WordPress Studio": [
+		"下载 WordPress Studio"
 	],
 	"Download update": [
 		"下载更新"
-	],
-	"Drop to add site": [
-		"拖放到此处以添加站点"
-	],
-	"Drop your file here": [
-		"将文件拖放到此处"
 	],
 	"Edit annotation: %s": [
 		"编辑批注：%s"
@@ -434,14 +533,8 @@
 	"Enable anonymous usage statistics": [
 		"启用匿名使用统计数据"
 	],
-	"Enable automatic sidebar collapsing": [
-		"启用边栏自动折叠"
-	],
-	"Enable automatic site start on prompt": [
-		"启用发送提示时自动启动站点"
-	],
-	"Enable batch notes": [
-		"启用批量批注"
+	"Ends on %s": [
+		"将于 %s 结束"
 	],
 	"Enter a token from claude setup-token, not an API key.": [
 		"请输入 claude setup-token 生成的令牌，而不是 API 密钥。"
@@ -449,14 +542,20 @@
 	"Esc": [
 		"Esc"
 	],
+	"Everyone": [
+		"所有人"
+	],
+	"Everything": [
+		"全部内容"
+	],
+	"Everything you need to build WordPress sites with Studio Code.": [
+		"使用 Studio Code 构建 WordPress 站点所需的一切。"
+	],
 	"Expand panel": [
 		"展开面板"
 	],
 	"Export site as static HTML files": [
 		"将站点导出为静态 HTML 文件"
-	],
-	"Failed after %s": [
-		"%s 后失败"
 	],
 	"Failed to back up the remote site": [
 		"备份远程站点失败"
@@ -479,6 +578,9 @@
 	"Failed to find existing preview site in config": [
 		"未能在配置中找到现有的预览站点"
 	],
+	"Failed to find the preview site’s launch link": [
+		"找不到预览站点的上线链接"
+	],
 	"Failed to load your Spacefast Spaces": [
 		"无法加载您的 Spacefast 空间"
 	],
@@ -488,8 +590,8 @@
 	"Failed to save connected site": [
 		"保存已连接的站点失败"
 	],
-	"Feedback areas": [
-		"反馈领域"
+	"Failed to set up WordPress": [
+		"设置 WordPress 失败"
 	],
 	"Feedback sent": [
 		"反馈已发送"
@@ -497,8 +599,17 @@
 	"Feedback type": [
 		"反馈类型"
 	],
+	"Files could not be loaded.": [
+		"无法加载文件。"
+	],
 	"File…": [
 		"文件…"
+	],
+	"Finish activating hosting on WordPress.com before pulling.": [
+		"拉取前，请先在 WordPress.com 上完成托管功能的激活。"
+	],
+	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
+		"请在 WordPress.com 标签页中完成结账，然后返回此处。套餐激活后，您的工作空间会立即自动完成设置。"
 	],
 	"Finish signing in to %s in your browser.": [
 		"请在浏览器中完成 %s 的登录。"
@@ -506,8 +617,8 @@
 	"First use": [
 		"首次使用"
 	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"众人成一器，\n社区聚力量，\n共建好网络。"
+	"For generating images. Auto uses the AI provider when it can.": [
+		"用于生成图片。“自动”会在可行时使用 AI 提供程序。"
 	],
 	"Gemini API key": [
 		"Gemini API 密钥"
@@ -530,11 +641,14 @@
 	"Google rejected this API key. Check the key and try again.": [
 		"Google 拒绝了此 API 密钥。请检查密钥后重试。"
 	],
-	"Hide admin bar": [
-		"隐藏管理工具栏"
+	"Grok sent back an incomplete sign-in.": [
+		"Grok 返回的登录信息不完整。"
 	],
-	"Hide admin bar by default": [
-		"默认隐藏管理工具栏"
+	"Grok sign-in could not be started. Try again.": [
+		"无法开始 Grok 登录。请重试。"
+	],
+	"Grok sign-in was declined.": [
+		"Grok 登录被拒绝。"
 	],
 	"Hide device toolbar": [
 		"隐藏设备工具栏"
@@ -542,17 +656,14 @@
 	"Hide panel": [
 		"隐藏面板"
 	],
-	"Hide recent chats": [
-		"隐藏最近的聊天"
-	],
-	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
-		"默认在本地站点上隐藏 WordPress 管理工具栏。可在“浏览器选项”中为单个站点更改此设置。"
+	"High": [
+		"高"
 	],
 	"Hints": [
 		"提示"
 	],
-	"Hostname of the preview site": [
-		"预览站点的主机名"
+	"How much should the model think?": [
+		"希望模型思考到什么程度？"
 	],
 	"How to connect": [
 		"连接方式"
@@ -571,9 +682,6 @@
 	],
 	"Import site": [
 		"导入站点"
-	],
-	"Include this chat’s transcript": [
-		"附上此聊天的记录"
 	],
 	"Inspect design": [
 		"检查设计"
@@ -595,6 +703,30 @@
 	],
 	"Interface theme": [
 		"界面主题"
+	],
+	"Invited people": [
+		"受邀人员"
+	],
+	"I’ve paid, continue": [
+		"我已付款，继续"
+	],
+	"Last updated %s": [
+		"上次更新于 %s"
+	],
+	"Last updated just now": [
+		"刚刚更新"
+	],
+	"Last updated on %s": [
+		"上次更新于 %s"
+	],
+	"Launch a public site with a paid plan.": [
+		"通过付费套餐上线公开站点。"
+	],
+	"Launch on %s": [
+		"在 %s 上线"
+	],
+	"Learn about Spacefast": [
+		"了解 Spacefast"
 	],
 	"Liberate": [
 		"迁移站点"
@@ -626,14 +758,38 @@
 	"Loading WordPress Studio…": [
 		"正在加载 WordPress Studio…"
 	],
+	"Loading destinations": [
+		"正在加载发布目标"
+	],
 	"Loading file…": [
 		"正在加载文件…"
+	],
+	"Loading models…": [
+		"正在加载模型…"
+	],
+	"Local and preview changes": [
+		"本地和预览更改"
+	],
+	"Local changes": [
+		"本地更改"
 	],
 	"Log in or create account": [
 		"登录或创建账户"
 	],
 	"Log in to WordPress.com to sync sites.": [
 		"登录 WordPress.com 以同步站点。"
+	],
+	"Low": [
+		"低"
+	],
+	"Make a preview site your live site": [
+		"将预览站点设为您的实时站点"
+	],
+	"Make it your live site: %s": [
+		"将其设为您的实时站点：%s"
+	],
+	"Make sure the codes match in your browser, then approve the connection.": [
+		"请确认浏览器中显示的代码一致，然后批准连接。"
 	],
 	"Manage AI credits": [
 		"管理 AI 积分"
@@ -644,11 +800,17 @@
 	"Manage content": [
 		"管理内容"
 	],
+	"Manage credits": [
+		"管理积分"
+	],
 	"Manage media": [
 		"管理媒体"
 	],
 	"Manage menus": [
 		"管理菜单"
+	],
+	"Manage on Spacefast": [
+		"在 Spacefast 上管理"
 	],
 	"Manage permalinks": [
 		"管理固定链接"
@@ -656,20 +818,23 @@
 	"Manage plugins": [
 		"管理插件"
 	],
-	"Manage sharing": [
-		"管理共享"
-	],
 	"Manage site options": [
 		"管理站点选项"
 	],
 	"Manage themes": [
 		"管理主题"
 	],
+	"Manage these access rules on Spacefast.": [
+		"请在 Spacefast 上管理这些访问规则。"
+	],
 	"Manage usage": [
 		"管理用量"
 	],
 	"Manage users": [
 		"管理用户"
+	],
+	"Manage visibility on Spacefast.": [
+		"请在 Spacefast 上管理可见性。"
 	],
 	"Meta API key": [
 		"Meta API 密钥"
@@ -680,20 +845,20 @@
 	"Meta rejected this API key. Check the key and try again.": [
 		"Meta 拒绝了此 API 密钥。请检查密钥后重试。"
 	],
-	"New WordPress Studio Site": [
-		"新建 WordPress Studio 站点"
+	"More room and more AI, for building every day.": [
+		"更多空间、更多 AI，满足日常构建所需。"
 	],
 	"New site \"%s\"": [
 		"新站点“%s”"
 	],
-	"New tab": [
-		"新建标签页"
+	"No files are available to choose.": [
+		"没有可供选择的文件。"
 	],
-	"No design system is available for this theme.": [
-		"此主题没有可用的设计系统。"
+	"No local server answered at %s. Check the address, and that your server is running.": [
+		"%s 处没有本地服务器响应。请检查地址，并确认您的服务器正在运行。"
 	],
-	"No matching sites.": [
-		"没有匹配的站点。"
+	"No models found.": [
+		"未找到模型。"
 	],
 	"No provider is connected.": [
 		"未连接任何提供程序。"
@@ -704,20 +869,26 @@
 	"No recipient": [
 		"无收件人"
 	],
+	"Only if your server asks for one.": [
+		"仅在您的服务器要求时填写。"
+	],
+	"Only you": [
+		"仅限您"
+	],
+	"Only you and people you invite can view.": [
+		"仅您和您邀请的人员可以查看。"
+	],
 	"Open %s settings": [
 		"打开 %s 设置"
+	],
+	"Open Config File (dev only)": [
+		"打开配置文件（仅限开发）"
 	],
 	"Open Folder…": [
 		"打开文件夹…"
 	],
 	"Open Spacefast": [
 		"打开 Spacefast"
-	],
-	"Open a project page to annotate.": [
-		"打开项目页面以添加批注。"
-	],
-	"Open a site or Blueprint": [
-		"打开站点或蓝图"
 	],
 	"Open documentation": [
 		"打开文档"
@@ -728,11 +899,44 @@
 	"Open on GitHub": [
 		"在 GitHub 上打开"
 	],
+	"Open preview: %s": [
+		"打开预览：%s"
+	],
 	"OpenAI API key": [
 		"OpenAI API 密钥"
 	],
 	"OpenAI rejected this API key. Check the key and try again.": [
 		"OpenAI 拒绝了此 API 密钥。请检查密钥后重试。"
+	],
+	"OpenRouter API key": [
+		"OpenRouter API 密钥"
+	],
+	"OpenRouter is limiting requests on your key. Try again shortly.": [
+		"OpenRouter 正在限制您密钥的请求。请稍后重试。"
+	],
+	"OpenRouter is limiting requests right now. Wait a moment and try again.": [
+		"OpenRouter 目前正在限制请求。请稍后重试。"
+	],
+	"OpenRouter rejected the API key. Connect OpenRouter again in Settings.": [
+		"OpenRouter 拒绝了该 API 密钥。请在“设置”中重新连接 OpenRouter。"
+	],
+	"OpenRouter rejected this API key. Check the key and try again.": [
+		"OpenRouter 拒绝了此 API 密钥。请检查密钥并重试。"
+	],
+	"OpenRouter sign-in could not be completed. Try again.": [
+		"无法完成 OpenRouter 登录。请重试。"
+	],
+	"OpenRouter’s moderation refused this request.": [
+		"OpenRouter 的内容审核拒绝了此请求。"
+	],
+	"Opening %s": [
+		"正在打开 %s"
+	],
+	"Other files": [
+		"其他文件"
+	],
+	"Paid plan": [
+		"付费套餐"
 	],
 	"Parent folder": [
 		"父文件夹"
@@ -740,14 +944,26 @@
 	"Paste the token it prints. Usage counts against your Claude plan.": [
 		"粘贴它输出的令牌。用量将计入您的 Claude 套餐。"
 	],
-	"Pending annotation": [
-		"待处理的批注"
-	],
 	"Performance audit": [
 		"性能审计"
 	],
+	"Pick at least one model OpenRouter offers.": [
+		"请至少选择一个 OpenRouter 提供的模型。"
+	],
+	"Pick at least one model your server offers.": [
+		"请至少选择一个您的服务器提供的模型。"
+	],
 	"Pick design": [
 		"选择设计"
+	],
+	"Plan": [
+		"套餐"
+	],
+	"Plan ended": [
+		"套餐已结束"
+	],
+	"Posts, pages, and settings": [
+		"文章、页面和设置"
 	],
 	"Present design options": [
 		"展示设计选项"
@@ -758,11 +974,35 @@
 	"Preview creation cancelled": [
 		"预览创建已取消"
 	],
+	"Preview creation is temporarily unavailable for your account.": [
+		"您的账户暂时无法创建预览。"
+	],
+	"Preview details": [
+		"预览详情"
+	],
+	"Preview expiration": [
+		"预览到期时间"
+	],
+	"Preview has changes": [
+		"预览有更改"
+	],
+	"Preview limit reached": [
+		"已达到预览数量上限"
+	],
+	"Preview link is not available yet. Please try again.": [
+		"预览链接尚不可用。请重试。"
+	],
+	"Preview link ready": [
+		"预览链接已就绪"
+	],
 	"Preview site not found": [
 		"未找到预览站点"
 	],
-	"Preview tabs": [
-		"预览标签页"
+	"Preview sites are temporary. Updating your preview resets the expiration date.": [
+		"预览站点是临时的。更新预览会重置其到期日期。"
+	],
+	"Private sites and preview links": [
+		"私密站点和预览链接"
 	],
 	"Project tools": [
 		"项目工具"
@@ -773,20 +1013,29 @@
 	"Publish a static copy of your sites to a Spacefast Space.": [
 		"将您站点的静态副本发布到 Spacefast 空间。"
 	],
+	"Publish again?": [
+		"要再次发布吗？"
+	],
 	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
 		"在 WordPress.com 或 Pressable 上发布新站点或更新现有站点。"
+	],
+	"Publish options could not be loaded.": [
+		"无法加载发布选项。"
+	],
+	"Publish somewhere else": [
+		"发布到其他位置"
+	],
+	"Publish to %s.": [
+		"发布到 %s。"
 	],
 	"Publish to Spacefast": [
 		"发布到 Spacefast"
 	],
-	"Publish your changes.": [
-		"发布您的更改。"
+	"Publish to a site you already have.": [
+		"发布到您已有的站点。"
 	],
-	"Published sites": [
-		"已发布的站点"
-	],
-	"Published to": [
-		"已发布到"
+	"Published site actions": [
+		"已发布站点的操作"
 	],
 	"Publishing cancelled": [
 		"发布已取消"
@@ -794,8 +1043,20 @@
 	"Publishing changes…": [
 		"正在发布更改…"
 	],
+	"Publishing requires a supported plan.": [
+		"发布需要受支持的套餐。"
+	],
+	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
+		"发布数据库将替换在实时站点上所做的更改，包括新的评论或订单。"
+	],
 	"Pull a WordPress.com or Pressable site to your local site": [
 		"将 WordPress.com 或 Pressable 站点拉取到您的本地站点"
+	],
+	"Pull from live site…": [
+		"从实时站点拉取…"
+	],
+	"Pull from preview…": [
+		"从预览拉取…"
 	],
 	"Pull only the database (keeps the local files)": [
 		"仅拉取数据库（保留本地文件）"
@@ -803,8 +1064,14 @@
 	"Pull preview": [
 		"拉取预览"
 	],
+	"Pull replaces your local copy. Update replaces the preview.": [
+		"“拉取”会替换您的本地副本。“更新”会替换预览。"
+	],
 	"Pull site": [
 		"拉取站点"
+	],
+	"Pulling from this preview is unavailable for this account.": [
+		"此账户无法从此预览拉取。"
 	],
 	"Push site": [
 		"推送站点"
@@ -818,17 +1085,11 @@
 	"Read site title": [
 		"读取站点标题"
 	],
-	"Recent chats": [
-		"最近的聊天"
+	"Receipts": [
+		"收据"
 	],
-	"Recent chats hidden.": [
-		"已隐藏最近的聊天。"
-	],
-	"Recent chats shown.": [
-		"已显示最近的聊天。"
-	],
-	"Recent pages": [
-		"最近的页面"
+	"Recommended": [
+		"推荐"
 	],
 	"Refresh preview": [
 		"刷新预览"
@@ -839,6 +1100,30 @@
 	"Remote environment: %s": [
 		"远程环境：%s"
 	],
+	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
+		"要从 WordPress Studio 中移除 %s 吗？已发布的站点和您的本地 WordPress 都不会更改。"
+	],
+	"Renew": [
+		"续订"
+	],
+	"Renew your plan": [
+		"续订您的套餐"
+	],
+	"Replace local site": [
+		"替换本地站点"
+	],
+	"Replace preview": [
+		"替换预览"
+	],
+	"Replace preview changes?": [
+		"要替换预览中的更改吗？"
+	],
+	"Replace preview contents?": [
+		"要替换预览内容吗？"
+	],
+	"Replace selected content": [
+		"替换所选内容"
+	],
 	"Replace the contents of a non-empty output directory": [
 		"替换非空输出目录中的内容"
 	],
@@ -848,8 +1133,8 @@
 	"Request a feature or report a bug.": [
 		"请求新功能或报告错误。"
 	],
-	"Reset tips": [
-		"重置提示"
+	"Reset to recommended": [
+		"重置为推荐设置"
 	],
 	"Resize panel": [
 		"调整面板大小"
@@ -862,9 +1147,6 @@
 	],
 	"Restart WordPress Studio to finish updating.": [
 		"请重新启动 WordPress Studio 以完成更新。"
-	],
-	"Restore the default interface theme, accent color, intensity, and contrast.": [
-		"恢复默认的界面主题、强调色、强度和对比度。"
 	],
 	"Rotate to landscape": [
 		"旋转为横向"
@@ -899,86 +1181,98 @@
 	"Save annotation (Enter)": [
 		"保存批注（Enter）"
 	],
-	"Select an email to read it.": [
-		"选择一封电子邮件进行阅读。"
+	"Search models": [
+		"搜索模型"
 	],
-	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
-		"WordPress Studio 中的所选文件、内容和设置将被覆盖。您的网站将保持不变。"
+	"Select at least one file or folder.": [
+		"请至少选择一个文件或文件夹。"
 	],
-	"Selected files, content, and settings on your website will be overwritten.": [
-		"您网站上的所选文件、内容和设置将被覆盖。"
+	"Select something to publish.": [
+		"请选择要发布的内容。"
+	],
+	"Select the files and folders to publish.": [
+		"选择要发布的文件和文件夹。"
 	],
 	"Send %d annotation": [
 		"发送 %d 条批注"
 	],
-	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
-		"与任何人共享您本地站点的临时副本。预览站点如果约一周未更新，将会到期。"
+	"Server address": [
+		"服务器地址"
 	],
-	"Share details (required)": [
-		"详细说明（必填）"
+	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
+		"要在此计算机以外提供服务，请设置 STUDIO_SERVE_SECRET。"
 	],
-	"Show admin bar by default": [
-		"默认显示管理工具栏"
+	"Set how much the model thinks in this chat": [
+		"设置模型在此聊天中的思考程度"
 	],
-	"Show chat beside the panel when starting a site.": [
-		"启动站点时在面板旁显示聊天。"
+	"Setting up WordPress…": [
+		"正在设置 WordPress…"
+	],
+	"Setting up your workspace…": [
+		"正在设置您的工作空间…"
+	],
+	"Share a preview or publish your site": [
+		"共享预览或发布您的站点"
+	],
+	"Share a temporary preview link.": [
+		"共享临时预览链接。"
 	],
 	"Show device toolbar": [
 		"显示设备工具栏"
 	],
-	"Show or hide the panel beside your chat.": [
-		"显示或隐藏聊天旁边的面板。"
-	],
 	"Show panel": [
 		"显示面板"
-	],
-	"Show whether a preview site or its local site changed since they were synced": [
-		"显示预览站点或其本地站点自上次同步以来是否有更改"
 	],
 	"Sign in at %s": [
 		"请在 %s 登录"
 	],
+	"Sign in to create a preview link.": [
+		"登录以创建预览链接。"
+	],
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"使用 ChatGPT 登录，或使用 OpenAI API 密钥。"
+	],
+	"Sign in with Grok": [
+		"使用 Grok 登录"
+	],
+	"Sign in with OpenRouter": [
+		"使用 OpenRouter 登录"
 	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"请使用拥有 Copilot 访问权限的 GitHub 账户登录。"
 	],
-	"Site annotation is not available in the browser yet": [
-		"浏览器中暂不支持站点批注"
+	"Sign in with an eligible Grok account or use an xAI API key.": [
+		"使用符合条件的 Grok 账户登录，或使用 xAI API 密钥。"
 	],
 	"Site exported": [
 		"站点已导出"
 	],
+	"Site files left on disk": [
+		"站点文件仍保留在磁盘上"
+	],
 	"Site folder": [
 		"站点文件夹"
+	],
+	"Site imported, but the WordPress server failed to start: %s": [
+		"站点已导入，但 WordPress 服务器启动失败：%s"
 	],
 	"Site sources": [
 		"站点来源"
 	],
-	"Sites could not be loaded. Check your internet connection and try again.": [
-		"无法加载站点。请检查您的互联网连接，然后重试。"
-	],
-	"Sites will start with the panel expanded.": [
-		"站点启动时将展开面板。"
-	],
-	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
-		"技能为 AI 智能体提供 WordPress 开发方面的指导。此处所做的更改将应用于所有现有站点，并作为新站点的默认设置。"
+	"Some destinations could not be loaded": [
+		"部分发布目标无法加载"
 	],
 	"Source is a temporary preview site.": [
 		"来源是一个临时预览站点。"
 	],
+	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
+		"Spacefast 仍在应用可见性更改。请在 Spacefast 上检查访问权限。"
+	],
 	"Spacefast sign-in was declined.": [
 		"Spacefast 登录被拒绝。"
 	],
-	"Split view": [
-		"分屏视图"
-	],
 	"Start building with free AI credits.": [
 		"使用免费 AI 积分开始构建。"
-	],
-	"Start here": [
-		"从这里开始"
 	],
 	"Start signing in again.": [
 		"请重新开始登录。"
@@ -992,8 +1286,17 @@
 	"Start signing in with GitHub again.": [
 		"请重新开始使用 GitHub 登录。"
 	],
+	"Start signing in with Grok again.": [
+		"请重新开始使用 Grok 登录。"
+	],
+	"Start signing in with OpenRouter again.": [
+		"请重新开始使用 OpenRouter 登录。"
+	],
 	"Start this site.": [
 		"启动此站点。"
+	],
+	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
+		"启动至少包含一个模型的模型服务器，然后输入其监听地址。Studio 将提供该服务器所提供的模型。"
 	],
 	"Starting chat…": [
 		"正在开始聊天…"
@@ -1001,8 +1304,23 @@
 	"Static export failed: %s": [
 		"静态导出失败：%s"
 	],
+	"Stop a site to start another.": [
+		"停止一个站点即可启动另一个站点。"
+	],
 	"Stop annotating": [
 		"停止批注"
+	],
+	"Studio Cloud": [
+		"Studio Cloud"
+	],
+	"Studio Code sets how much %s thinks.": [
+		"由 Studio Code 设置 %s 的思考程度。"
+	],
+	"Studio can’t run your sites because one of its files was removed, often by antivirus software. Reinstall WordPress Studio to restore it. If it happens again, allow WordPress Studio in your antivirus settings.": [
+		"Studio 的某个文件已被删除（通常是被杀毒软件删除），因此无法运行您的站点。请重新安装 WordPress Studio 以恢复该文件。如果再次发生此问题，请在杀毒软件设置中允许 WordPress Studio。"
+	],
+	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
+		"Studio 无法确定是否有人编辑过 %s。更新预览将用您的本地站点替换它。"
 	],
 	"Sync is finishing": [
 		"同步即将完成"
@@ -1016,59 +1334,101 @@
 	"Team": [
 		"团队"
 	],
-	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
-		"感谢您帮助改进 WordPress Studio。您提交的反馈的参考 ID 为 <id>%s</id>。"
-	],
-	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
-		"不支持该文件类型。请选择蓝图、WordPress 备份或 XML 导出文件。"
-	],
 	"The GitHub sign-in expired. Try again.": [
 		"GitHub 登录已过期。请重试。"
+	],
+	"The Grok sign-in expired. Try again.": [
+		"Grok 登录已过期。请重试。"
 	],
 	"The Spacefast sign-in expired. Try again.": [
 		"Spacefast 登录已过期。请重试。"
 	],
-	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
-		"首次拉取站点时必须包含其文件。请先完整拉取一次站点，之后再仅拉取数据库。"
+	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
+		"%s 运行时使用的上下文对于 Studio Code 来说太小。请在服务器设置中提高其上下文长度。"
 	],
-	"The preview site could not be built from the archive.": [
-		"无法根据存档构建预览站点。"
+	"The full WordPress, with a domain.": [
+		"完整的 WordPress，带有域名。"
 	],
-	"The preview site did not become ready within the timeout.": [
-		"预览站点未能在超时时间内准备就绪。"
+	"The local server at %s isn’t answering. Start it, then send your message again.": [
+		"%s 处的本地服务器没有响应。请启动服务器，然后重新发送您的消息。"
+	],
+	"The local server has no chat model yet. Add one to your server, then connect again.": [
+		"本地服务器尚无聊天模型。请向服务器添加一个模型，然后重新连接。"
+	],
+	"The local server refused the API key. Check the key, and connect again.": [
+		"本地服务器拒绝了该 API 密钥。请检查密钥，然后重新连接。"
 	],
 	"The preview site has no preview link.": [
 		"该预览站点没有预览链接。"
 	],
-	"The site archive exceeds the %d GB size limit.": [
-		"站点存档超出了 %d GB 的大小限制。"
+	"The requested site is unavailable.": [
+		"请求的站点不可用。"
+	],
+	"The site files could not be moved to trash. Delete them yourself: %s": [
+		"无法将站点文件移至回收站。请手动删除：%s"
+	],
+	"The site requested for this pull is unavailable.": [
+		"此次拉取所请求的站点不可用。"
+	],
+	"The transfer could not be completed. Please try again.": [
+		"无法完成传输。请重试。"
+	],
+	"The visibility change could not be applied. Check access on Spacefast.": [
+		"无法应用可见性更改。请在 Spacefast 上检查访问权限。"
+	],
+	"Themes": [
+		"主题"
+	],
+	"Thinking: %s": [
+		"思考：%s"
+	],
+	"Thinks before answering": [
+		"先思考再回答"
+	],
+	"Thinks briefly": [
+		"简短思考"
+	],
+	"Thinks longest, slowest": [
+		"思考最久，速度最慢"
+	],
+	"This API key is blocked or disabled. Check it in the xAI Console.": [
+		"此 API 密钥已被封禁或禁用。请在 xAI Console 中检查。"
 	],
 	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
 		"此 GitHub 账户没有 Copilot 套餐。请在 github.com/features/copilot 上选择套餐。"
 	],
-	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
-		"无法使用此 ZIP 文件。请确保其顶层或某个外层文件夹中包含有效的 blueprint.json 文件，然后重试。"
+	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
+		"此 Grok 账户已无剩余积分。请在 grok.com 上添加积分或订阅 SuperGrok。"
 	],
-	"This email is gone.": [
-		"此电子邮件已不存在。"
-	],
-	"This file took too long to load. Please try again or choose another file.": [
-		"此文件加载时间过长。请重试或选择其他文件。"
+	"This destination cannot create a site from this panel yet.": [
+		"此发布目标暂时无法从此面板创建站点。"
 	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"这是 Anthropic 密钥。请将其添加到 Anthropic。"
 	],
+	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
+		"此操作需要约 %1$s GB 存储空间，而您的套餐仅剩 %2$s GB。请删除不再需要的站点，然后重试。"
+	],
+	"This preview site can’t be made live: it was bought, ended or deleted, or it shows changes to a live site.": [
+		"此预览站点无法上线：它已被购买、已结束或已删除，或者它显示的是对实时站点的更改。"
+	],
+	"This provider doesn’t make previews.": [
+		"此提供程序不支持创建预览。"
+	],
+	"This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.": [
+		"此操作会用 %s 上的内容替换您本地站点中的所选部分。这些部分中的所有本地更改都将丢失。"
+	],
+	"This replaces your local site with the preview. Any local changes will be lost.": [
+		"此操作将用预览替换您的本地站点。所有本地更改都将丢失。"
+	],
 	"This site is no longer available in WordPress Studio.": [
 		"此站点在 WordPress Studio 中已不可用。"
 	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"此站点尚未准备好启动。%s 请重新运行 `studio pull` 以完成拉取，或运行 `studio delete` 以移除该站点。"
+	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
+		"此网站需要支持拉取到 WordPress Studio 的托管套餐。"
 	],
-	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
-		"此站点超过 %d GB，因此将其发布回 WordPress.com 可能会失败。请改为发布较少的文件。"
-	],
-	"Tips reset.": [
-		"提示已重置。"
+	"This xAI account has no credits left. Add credits in the xAI Console.": [
+		"此 xAI 账户已无剩余积分。请在 xAI Console 中添加积分。"
 	],
 	"To %s": [
 		"收件人：%s"
@@ -1076,8 +1436,11 @@
 	"Token is required": [
 		"需要令牌"
 	],
-	"Try downloading the update again.": [
-		"请尝试重新下载更新。"
+	"Try again to see where this WordPress is already connected.": [
+		"请重试，以查看此 WordPress 已连接到何处。"
+	],
+	"Twice the CPU for faster builds": [
+		"双倍 CPU，构建更快"
 	],
 	"Unable to open this folder.": [
 		"无法打开此文件夹。"
@@ -1085,11 +1448,32 @@
 	"Unable to open this source.": [
 		"无法打开此来源。"
 	],
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"未知级别 %1$s。请从以下选项中选择：%2$s。"
+	],
+	"Unlimited sites, 5 running at once": [
+		"站点数量不限，可同时运行 5 个"
+	],
 	"Unsupported backup file": [
 		"不支持的备份文件"
 	],
+	"Unsupported visibility setting.": [
+		"不支持的可见性设置。"
+	],
+	"Up to 10 sites, 2 running at once": [
+		"最多 10 个站点，可同时运行 2 个"
+	],
+	"Update WordPress Studio": [
+		"更新 WordPress Studio"
+	],
+	"Update WordPress Studio.": [
+		"请更新 WordPress Studio。"
+	],
 	"Update all plugins": [
 		"更新所有插件"
+	],
+	"Update local site from %s?": [
+		"要从 %s 更新本地站点吗？"
 	],
 	"Update plugin": [
 		"更新插件"
@@ -1097,14 +1481,26 @@
 	"Update site title": [
 		"更新站点标题"
 	],
+	"Update the Studio CLI with `%s`.": [
+		"请使用 `%s` 更新 Studio CLI。"
+	],
 	"Update todo list": [
 		"更新待办事项列表"
 	],
 	"Update user": [
 		"更新用户"
 	],
+	"Updating %s will replace any edits made on the preview with your local copy.": [
+		"更新 %s 会用您的本地副本替换在预览上所做的所有编辑。"
+	],
+	"Updating your workspace…": [
+		"正在更新您的工作空间…"
+	],
 	"Uploading files…": [
 		"正在上传文件…"
+	],
+	"Uploads": [
+		"上传内容"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"用量通过您的 Anthropic 账户计费。"
@@ -1118,8 +1514,11 @@
 	"Usage is billed through your OpenAI account.": [
 		"用量通过您的 OpenAI 账户计费。"
 	],
-	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
-		"使用 Alt+Shift+左箭头或右箭头移动此标签页。"
+	"Usage is billed through your xAI account.": [
+		"用量通过您的 xAI 账户计费。"
+	],
+	"Usage is paid with your OpenRouter credits.": [
+		"用量使用您的 OpenRouter 积分支付。"
 	],
 	"Use Blueprint": [
 		"使用蓝图"
@@ -1133,6 +1532,12 @@
 	"Use an Anthropic API key or a Claude subscription token.": [
 		"使用 Anthropic API 密钥或 Claude 订阅令牌。"
 	],
+	"Use models from many labs with your OpenRouter credits.": [
+		"使用您的 OpenRouter 积分，调用众多实验室的模型。"
+	],
+	"Use the models a server you run serves, such as on this computer.": [
+		"使用您自己运行的服务器（例如在此计算机上）所提供的模型。"
+	],
 	"Using ChatGPT plan": [
 		"正在使用 ChatGPT 套餐"
 	],
@@ -1142,26 +1547,50 @@
 	"Using Copilot plan": [
 		"正在使用 Copilot 套餐"
 	],
+	"Using Grok plan": [
+		"正在使用 Grok 套餐"
+	],
 	"Validate blocks": [
 		"验证区块"
+	],
+	"View backups": [
+		"查看备份"
+	],
+	"View versions": [
+		"查看版本"
+	],
+	"Visibility could not be confirmed. Check access on Spacefast.": [
+		"无法确认可见性。请在 Spacefast 上检查访问权限。"
+	],
+	"Visibility settings are only available for WordPress.com sites.": [
+		"可见性设置仅适用于 WordPress.com 站点。"
 	],
 	"Visit previews": [
 		"访问预览"
 	],
+	"Visitors see a coming soon page": [
+		"访客将看到“即将推出”页面"
+	],
 	"Visual Annotations": [
 		"可视化批注"
 	],
-	"Waiting for %s": [
-		"已等待 %s"
+	"WP admin": [
+		"WP Admin"
 	],
 	"Waiting for approval…": [
 		"正在等待批准…"
 	],
+	"What to replace": [
+		"要替换的内容"
+	],
 	"What would you like to open?": [
 		"您想打开什么？"
 	],
-	"WordPress Studio CLI for terminal": [
-		"适用于终端的 WordPress Studio CLI"
+	"Where your server listens, as it prints it when it starts.": [
+		"服务器的监听地址，即服务器启动时输出的地址。"
+	],
+	"Who can view": [
+		"谁可以查看"
 	],
 	"WordPress Studio could not download this backup.": [
 		"WordPress Studio 无法下载此备份。"
@@ -1169,11 +1598,17 @@
 	"WordPress Studio could not open the email folder.": [
 		"WordPress Studio 无法打开电子邮件文件夹。"
 	],
-	"WordPress Studio could not open the folder. Please try again.": [
-		"WordPress Studio 无法打开该文件夹。请重试。"
-	],
 	"WordPress Studio could not open the site.": [
 		"WordPress Studio 无法打开该站点。"
+	],
+	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"WordPress Studio 无法读取 %s 中的设置。请重新启动 WordPress Studio 以重试。如果此问题反复出现，请联系支持人员并提供以下详细信息。"
+	],
+	"WordPress Studio is missing some of its files": [
+		"WordPress Studio 缺少部分文件"
+	],
+	"WordPress Studio is serving at:": [
+		"WordPress Studio 正在以下地址提供服务："
 	],
 	"WordPress Studio team": [
 		"WordPress Studio 团队"
@@ -1181,14 +1616,17 @@
 	"WordPress export": [
 		"WordPress 导出文件"
 	],
+	"WordPress set up": [
+		"WordPress 已设置完成"
+	],
 	"WordPress.com API": [
 		"WordPress.com API"
 	],
-	"Worked for %s": [
-		"共工作 %s"
+	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
+		"WordPress.com 尚未确认可见性更改。请重试。"
 	],
-	"Working for %s": [
-		"已工作 %s"
+	"Yearly, save 20%": [
+		"按年，节省 20%"
 	],
 	"You need administrator access to publish or pull changes.": [
 		"您需要管理员权限才能发布或拉取更改。"
@@ -1199,11 +1637,8 @@
 	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
 		"您已达到 Copilot 套餐的用量上限。请在 github.com/settings/copilot 上管理用量。"
 	],
-	"You stopped after %s": [
-		"您在 %s 后停止了"
-	],
-	"You're not logged in to WordPress.com. Log in now?": [
-		"您尚未登录 WordPress.com。立即登录？"
+	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
+		"您已达到 Grok 套餐的用量上限。请在 grok.com 上查看您的用量。"
 	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"您的 ChatGPT 套餐无法在 WordPress Studio 中使用。"
@@ -1214,17 +1649,74 @@
 	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
 		"您的 Copilot 套餐不包含此模型。请选择其他模型，或在 github.com/settings/copilot 上启用它。"
 	],
+	"Your Grok or X plan can’t be used in WordPress Studio.": [
+		"您的 Grok 或 X 套餐无法在 WordPress Studio 中使用。"
+	],
+	"Your Grok sign-in no longer works. Connect xAI again in Settings.": [
+		"您的 Grok 登录已失效。请在“设置”中重新连接 xAI。"
+	],
+	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
+		"您的 OpenRouter 积分已用完，或此密钥已达到其积分上限。请在 openrouter.ai 上添加积分。"
+	],
 	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
 		"您的 Spacefast 登录已失效。请重新连接 Spacefast。"
 	],
-	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
-		"您的预览已迁移到 WordPress.com，因此链接已更改。新链接：%s"
+	"Your Studio, in the cloud.": [
+		"您的 Studio，尽在云端。"
+	],
+	"Your WordPress exceeds the %s GB publishing limit.": [
+		"您的 WordPress 超出了 %s GB 的发布上限。"
+	],
+	"Your WordPress is public": [
+		"您的 WordPress 已公开"
+	],
+	"Your local server refused the request: %s.": [
+		"您的本地服务器拒绝了该请求：%s。"
+	],
+	"Your plan allows %d site. Delete a site to create a new one.": [
+		"您的套餐最多允许 %d 个站点。删除一个站点即可创建新站点。"
+	],
+	"Your plan has ended.": [
+		"您的套餐已结束。"
+	],
+	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
+		"您所选的文件不可用。请重试备份检查，或选择其他选项以继续。"
+	],
+	"Your server’s setting": [
+		"您服务器的设置"
+	],
+	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
+		"您的设置由更新版本的 Studio CLI 保存。请更新 WordPress Studio 以继续使用这些设置。"
+	],
+	"Your site is ready to publish": [
+		"您的站点已可发布"
 	],
 	"Your site was created, but the AI chat could not start.": [
 		"您的站点已创建，但 AI 聊天无法启动。"
 	],
+	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
+		"在您专属的机器上运行您的站点和 Studio Code，可通过任意浏览器访问。使用您的 WordPress.com 账户登录以打开您的工作空间。"
+	],
+	"Your sites are kept until %s. Renew to pick up where you left off, or choose a plan below.": [
+		"您的站点将保留至 %s。续订即可从上次中断的地方继续，或在下方选择一个套餐。"
+	],
+	"Your team and people you give access to": [
+		"您的团队和您授予访问权限的人员"
+	],
+	"Your team only allows restricted sites.": [
+		"您的团队仅允许受限站点。"
+	],
 	"Your unsaved changes will be lost.": [
 		"您未保存的更改将会丢失。"
+	],
+	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
+		"您的工作空间在 Studio Cloud 套餐上运行。结账页面将在 WordPress.com 上打开，付款后约一分钟您的工作空间即可就绪。"
+	],
+	"database": [
+		"数据库"
+	],
+	"other files": [
+		"其他文件"
 	],
 	"page": [
 		"页面"
@@ -1243,6 +1735,24 @@
 	],
 	"products": [
 		"产品"
+	],
+	"themes": [
+		"主题"
+	],
+	"uploads": [
+		"上传内容"
+	],
+	"xAI API key": [
+		"xAI API 密钥"
+	],
+	"xAI refused the API key. Check its permissions and credits in the xAI Console.": [
+		"xAI 拒绝了该 API 密钥。请在 xAI Console 中检查其权限和积分。"
+	],
+	"xAI rejected the API key. Connect xAI again in Settings.": [
+		"xAI 拒绝了该 API 密钥。请在“设置”中重新连接 xAI。"
+	],
+	"xAI rejected this API key. Check the key and try again.": [
+		"xAI 拒绝了此 API 密钥。请检查密钥并重试。"
 	],
 	"· %d%%": [
 		"· %d%%"

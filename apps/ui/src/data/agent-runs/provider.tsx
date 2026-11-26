@@ -10,6 +10,10 @@ import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
+import {
+	GLOBAL_SKILLS_QUERY_KEY,
+	SITE_AGENT_FILES_QUERY_KEY,
+} from '@/data/queries/use-site-agent-files';
 import { AgentRunContext, type AgentRunStore } from './context';
 import { QueueDispatchers } from './queue-dispatchers';
 import {
@@ -176,6 +180,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			// The finished run consumed AI credits; refresh the balance shown
 			// in the composer and in Settings → Usage.
 			void queryClient.invalidateQueries( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
+			// The run may have saved or changed a skill, which the `/` menu and Settings list.
+			void queryClient.invalidateQueries( { queryKey: GLOBAL_SKILLS_QUERY_KEY } );
+			void queryClient.invalidateQueries( { queryKey: SITE_AGENT_FILES_QUERY_KEY } );
 			if ( ! hasQueuedFollowUp ) {
 				// Refetch to replace optimistic entries with disk-backed ones.
 				// `cancelRefetch: false` so a run ending as its site is deleted
@@ -417,10 +424,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 	const startRun = useCallback(
 		async ( sessionId: string, prompt: string, options: SendMessageOptions = {} ) => {
-			const ownerSiteId = queryClient.getQueryData< LoadedAiSession >( [
+			const summary = queryClient.getQueryData< LoadedAiSession >( [
 				...SESSIONS_QUERY_KEY,
 				sessionId,
-			] )?.summary.ownerSiteId;
+			] )?.summary;
+			const ownerSiteId = summary?.ownerSiteId;
 			const turnId = crypto.randomUUID();
 			accountJourneysRef.current.set( sessionId, {
 				turnId,
@@ -437,7 +445,11 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const files = options.files ?? [];
 			const visualAnnotations = options.visualAnnotations;
 			// Synchronous, so a second send in the same tick queues behind this one.
-			dispatchSession( sessionId, { type: 'send_pending', startedAt: Date.now() } );
+			dispatchSession( sessionId, {
+				type: 'send_pending',
+				startedAt: Date.now(),
+				pendingFirstMessage: !! summary && ! summary.firstPrompt,
+			} );
 			const revision = sessionRevisionsRef.current.get( sessionId );
 			await queryClient.cancelQueries( { queryKey: [ ...SESSIONS_QUERY_KEY, sessionId ] } );
 

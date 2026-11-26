@@ -5,7 +5,7 @@
 
 # The ~> modifier is not currently used, but we check for it just in case
 XCODE_VERSION=$(sed -E -n 's/^(~> )?(.*)/xcode-\2/p' .xcode-version)
-CI_TOOLKIT_VERSION='6.3.0'
+CI_TOOLKIT_VERSION='8.0.1'
 NVM_PLUGIN_VERSION='0.6.0'
 DOCKER_PLUGIN_VERSION='v5.13.0'
 NODE_VERSION=$(sed 's/^v//' .nvmrc)
@@ -17,3 +17,16 @@ export NVM_PLUGIN="automattic/nvm#$NVM_PLUGIN_VERSION"
 export DOCKER_PLUGIN="docker#$DOCKER_PLUGIN_VERSION"
 export NODE_DOCKER_IMAGE="node:${NODE_VERSION}-bookworm"
 export RUBY_DOCKER_IMAGE="ruby:${RUBY_VERSION}-bookworm"
+
+# Decide skips on the upload agent so unrelated jobs never start or wait for their agents.
+# One variable per job type (see `commands/should-skip-job.sh`): `false` runs the step, anything else is the reason to skip it.
+# Each decision runs in its own shell so a script failure only leaves that job type's skip value empty (run).
+SKIP_VALIDATION=$(.buildkite/commands/should-skip-job.sh validation || true)
+SKIP_E2E=$(.buildkite/commands/should-skip-job.sh e2e || true)
+SKIP_METRICS=$(.buildkite/commands/should-skip-job.sh metrics || true)
+SKIP_FASTLANE=$(.buildkite/commands/should-skip-job.sh fastlane || true)
+export SKIP_VALIDATION SKIP_E2E SKIP_METRICS SKIP_FASTLANE
+echo "SKIP_VALIDATION=$SKIP_VALIDATION"
+echo "SKIP_E2E=$SKIP_E2E"
+echo "SKIP_METRICS=$SKIP_METRICS"
+echo "SKIP_FASTLANE=$SKIP_FASTLANE"

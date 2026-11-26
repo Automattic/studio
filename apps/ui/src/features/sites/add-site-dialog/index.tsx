@@ -3,6 +3,25 @@ import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { validateSelectedSitePath } from '@studio/common/lib/site-path-validation';
+import {
+	DropOverlay,
+	Button,
+	IconButton,
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogPanel,
+	DialogTitle,
+	PanelHeader,
+	Spinner,
+	SidebarGroupHeader,
+	Tabs,
+	TabsList,
+	TabsSidebar,
+	TabsTrigger,
+	VisuallyHidden,
+} from '@studio/ds';
+import { CloudDownloadIcon, DownloadIcon, PlusIcon } from '@studio/ds/icons';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ChevronLeftIcon } from 'lucide-react';
@@ -31,25 +50,6 @@ import { useBlueprintUpload } from '@/features/sites/blueprint-upload/use-bluepr
 import { pendingBackupSlot } from '@/features/sites/pending-backup';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
-import { CloudDownloadIcon, DownloadIcon, PlusIcon } from '@/lib/icons';
-import {
-	DropOverlay,
-	Button,
-	IconButton,
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogPanel,
-	DialogTitle,
-	PanelHeader,
-	Spinner,
-	SidebarGroupHeader,
-	Tabs,
-	TabsList,
-	TabsSidebar,
-	TabsTrigger,
-	VisuallyHidden,
-} from '@/lib/ui';
 import { BLUEPRINT_USE_CASES } from './blueprint-catalog';
 import { BlueprintDetails } from './blueprint-details';
 import { BlueprintGallery, getUseCaseLabel, getUseCases } from './blueprint-gallery';
@@ -563,13 +563,13 @@ export function AddSiteDialog() {
 						source.type === 'import' && source.backup ? (
 							<ImportPanel backup={ source.backup } />
 						) : (
-							<CreatePanel remote={ source.type === 'connect' ? source.remote : undefined } />
+							<CreatePanel />
 						)
 					) : null }
 					{ view.name === 'connect' ? (
 						<ConnectPanel
-							onConnect={ ( remote ) => {
-								setSource( { type: 'connect', remote } );
+							onConnect={ ( provider, remote ) => {
+								setSource( { type: 'connect', provider, remote } );
 								showSetup();
 							} }
 						/>

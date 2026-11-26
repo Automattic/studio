@@ -46,7 +46,7 @@ let server: LocalServer;
 beforeEach( async () => {
 	directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-web-annotation-submit-' ) );
 	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
-	vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', 'studio-web:v2' );
+	vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', 'studio-browser:v2' );
 	vi.stubEnv( 'STUDIO_FORCE_CLI_TELEMETRY', '' );
 	vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', true );
 	vi.stubGlobal( '__STUDIO_CLI_VERSION__', 'test-version' );
@@ -105,7 +105,7 @@ it.each( [ 1, 3, 100 ] )( 'records one safe browser event for %i annotations', a
 			arch: process.arch,
 			app_version: 'test-version',
 			is_a11n: false,
-			channel: 'studio-web',
+			channel: 'studio-browser',
 			ui_version: 'v2',
 			annotation_count: count,
 			site_id: config.sites[ 0 ].tracksId,

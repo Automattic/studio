@@ -51,7 +51,7 @@ WordPress Studio runs sites on native PHP, which uses the real file paths on dis
 3.  To stop breaking at the first line:
     -   Disable “Force break at first line when no path mapping specified”
     -   Disable “Force break at first line when a script is outside the project”
-4.  Enable “**Start listening for PHP Debug Connections**” from the toolbar.
+4.  Enable **Start listening for PHP Debug Connections** from the toolbar.
 5.  Set breakpoints in your code.
 6.  Navigate to your site in the browser to trigger the breakpoints.
 

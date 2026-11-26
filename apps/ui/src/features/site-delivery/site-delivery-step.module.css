@@ -1,0 +1,70 @@
+.step {
+	display: grid;
+	grid-template-rows: auto minmax( 0, 1fr );
+	max-block-size: min(
+		480px,
+		calc( 100dvh - var( --band-height ) - 2 * ( var( --space-2 ) + var( --publish-inset ) ) )
+	);
+	min-width: 0;
+}
+.header {
+	display: grid;
+	block-size: var( --space-8 );
+	margin-block-end: var( --space-2 );
+	grid-template-columns: var( --control-size ) minmax( 0, 1fr ) var( --control-size );
+	align-items: center;
+	text-align: center;
+	gap: var( --space-1_5 );
+}
+.body {
+	grid-row: 2;
+	min-inline-size: 0;
+	overflow: auto;
+	overscroll-behavior: contain;
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	:global( :root:active-view-transition-type( publish-forward, publish-back ) ) {
+		view-transition-name: none;
+		--publish-travel: 100%;
+	}
+	:global( :root:active-view-transition-type( publish-back ) ) {
+		--publish-travel: -100%;
+	}
+	:global( :root:active-view-transition-type( publish-forward, publish-back ) ) .step {
+		view-transition-name: studio-publish-section;
+	}
+	:global( :root:active-view-transition-type( publish-forward, publish-back )::view-transition ) {
+		pointer-events: none;
+	}
+	:global( ::view-transition-group( studio-publish-section ) ) {
+		overflow: clip;
+		animation-name: none;
+		animation-duration: var( --motion-duration-layout );
+		animation-timing-function: var( --motion-ease-drawer );
+	}
+	:global( ::view-transition-old( studio-publish-section ) ),
+	:global( ::view-transition-new( studio-publish-section ) ) {
+		block-size: 100%;
+		object-fit: none;
+		object-position: top;
+		animation-duration: inherit;
+		animation-timing-function: inherit;
+	}
+	:global( ::view-transition-old( studio-publish-section ) ) {
+		animation-name: leave;
+	}
+	:global( ::view-transition-new( studio-publish-section ) ) {
+		animation-name: enter;
+	}
+}
+@keyframes enter {
+	from {
+		transform: translateX( var( --publish-travel ) );
+	}
+}
+@keyframes leave {
+	to {
+		transform: translateX( calc( -1 * var( --publish-travel ) ) );
+	}
+}

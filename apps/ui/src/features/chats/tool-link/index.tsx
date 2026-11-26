@@ -1,9 +1,9 @@
+import { Button } from '@studio/ds';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useIsSiteBusy, useSites, useStartSite } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { usePreviewOpenTracks } from '@/features/sites';
-import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 

@@ -101,6 +101,7 @@ describe( 'exportStaticSite', () => {
 		expect( runWpCliCommand ).toHaveBeenCalledWith( site, [
 			'--no-color',
 			expect.stringMatching( /^--require=\.studio-static-export-\w+\/static-export\.php$/ ),
+			'--skip-plugins=simply-static',
 			'studio-static-export',
 		] );
 		expect( fs.readFileSync( path.join( outputDir, 'index.html' ), 'utf8' ) ).toBe(

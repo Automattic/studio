@@ -1,3 +1,4 @@
+import { replaceOpenDialogs } from '@studio/ds';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
@@ -22,7 +23,6 @@ import {
 	getSiteUrl,
 } from '@/features/sites';
 import { isShortcut } from '@/lib/keyboard';
-import { replaceOpenDialogs } from '@/lib/ui';
 import { PaletteDialog, type PaletteProps } from './palette-dialog';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -106,7 +106,7 @@ function SiteCommands( {
 			connector.onNewChat( () => {
 				replaceOpenDialogs( () => {
 					runLayoutTransition( () => {
-						preview.setChatHidden( false, site.id, { instant: true } );
+						preview.setChatHidden( false, site.id );
 						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 					} );
 				} );
@@ -118,7 +118,6 @@ function SiteCommands( {
 		site,
 		panelShown: panelShown ?? preview.open,
 		canAnnotate: connector.capabilities.annotatePreview,
-		nativeSites: connector.capabilities.nativeSites,
 		annotating: annotations.active,
 		actions,
 		destinations,
@@ -128,7 +127,7 @@ function SiteCommands( {
 		openHeaderPanel,
 		newChat: () =>
 			runLayoutTransition( () => {
-				preview.setChatHidden( false, site.id, { instant: true } );
+				preview.setChatHidden( false, site.id );
 				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 			} ),
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),

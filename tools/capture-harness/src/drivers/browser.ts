@@ -42,6 +42,11 @@ const BLOCKED_API: { method: RegExp; path: RegExp; name: string }[] = [
 		name: 'connecting sites',
 	},
 	{ method: /POST/, path: /^\/sites\/[^/]+\/watch-published-site$/, name: 'watching for a site' },
+	{
+		method: /POST/,
+		path: /^\/remote-sites\/[^/]+\/[^/]+\/visibility$/,
+		name: 'changing site visibility',
+	},
 	{ method: /POST/, path: /^\/sessions\/[^/]+\/messages$/, name: 'starting an agent run' },
 ];
 
@@ -296,6 +301,11 @@ export async function launchBrowser( {
 				const localSiteId = url.searchParams.get( 'localSiteId' );
 				return connected.filter( ( site ) => ! localSiteId || site.localSiteId === localSiteId );
 			} );
+			api.answer( 'GET', /^\/remote-sites\/wpcom\/([^/]+)\/visibility$/, ( match ) => ( {
+				url: connected.find( ( site ) => String( site.id ) === match[ 1 ] )?.url,
+				visibility: 'public',
+				launchStatus: 'launched',
+			} ) );
 			api.answer( 'GET', /^\/remote-sites\/wpcom\/[^/]+\/backup$/, () => backupId );
 			api.answer(
 				'GET',

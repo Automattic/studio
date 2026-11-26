@@ -9,7 +9,7 @@
 }
 
 .siteName {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	min-width: 0;
 }
 

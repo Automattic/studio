@@ -56,6 +56,13 @@ export function getSiteUrl( site: ConfigSite ): string {
 		return `${ protocol }://${ site.customDomain }`;
 	}
 
+	// Set by `studio serve` when the sites are reached at public addresses, such as on a cloud
+	// machine, where `{id}` names the site.
+	const template = process.env.STUDIO_SITE_URL_TEMPLATE;
+	if ( template ) {
+		return template.replace( '{id}', site.id );
+	}
+
 	return `http://localhost:${ site.port }`;
 }
 

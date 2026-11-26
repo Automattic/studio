@@ -3,12 +3,6 @@ import {
 	SKIPPED_QUESTION,
 	STOPPED_WITHOUT_ANSWER,
 } from '@studio/agent/protocol/tools';
-import { __, sprintf } from '@wordpress/i18n';
-import { SearchIcon } from 'lucide-react';
-import { useState, type ReactNode, type Ref } from 'react';
-import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
-import { QuestionOptionViewer } from '@/features/chats/session-view/conversation/agent-question/option-viewer';
-import { joinedAttributes, type Joined } from '@/features/chats/session-view/conversation/joined';
 import {
 	Button,
 	IconButton,
@@ -18,7 +12,13 @@ import {
 	QuestionnaireChoices,
 	QuestionnaireDescription,
 	QuestionnaireTitle,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __, sprintf } from '@wordpress/i18n';
+import { SearchIcon } from 'lucide-react';
+import { useState, type ReactNode, type Ref } from 'react';
+import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { QuestionOptionViewer } from '@/features/chats/session-view/conversation/agent-question/option-viewer';
+import { joinedAttributes, type Joined } from '@/features/chats/session-view/conversation/joined';
 import styles from './style.module.css';
 import type { AgentQuestionRenderItem } from '@/features/chats/session-view/conversation/transcript-items';
 

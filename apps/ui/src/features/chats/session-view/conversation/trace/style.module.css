@@ -19,7 +19,7 @@
 }
 
 .activityProgress {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );
@@ -47,7 +47,7 @@
 }
 
 .traceTitle {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	min-width: 0;
 }
 
@@ -105,6 +105,18 @@
 .toolOutput {
 	font: inherit;
 	white-space: pre-wrap;
+}
+
+.toolSkill {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-0_5 );
+	margin: 0;
+}
+
+.toolSkillName {
+	color: var( --foreground );
+	font-weight: var( --font-weight-medium );
 }
 
 .activityContent {

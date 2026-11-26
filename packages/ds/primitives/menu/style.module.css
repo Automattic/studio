@@ -1,0 +1,51 @@
+@layer ui {
+	.item:not( :has( > [data-icon='inline-end'] ) ) {
+		padding-inline-end: var( --space-3 );
+	}
+
+	.positioner {
+		z-index: var( --z-popover );
+		outline: none;
+	}
+
+	.popup {
+		composes: menuMotion from '../surface/style.module.css';
+		display: flex;
+		flex-direction: column;
+		min-width: 160px;
+	}
+
+	.destructive {
+		--item-hover-foreground: var( --destructive );
+
+		color: var( --destructive );
+	}
+
+	.submenuChevron {
+		flex-shrink: 0;
+		margin-inline-start: auto;
+		color: var( --muted-foreground );
+		rotate: -90deg;
+	}
+
+	.submenuChevron:dir( rtl ) {
+		rotate: 90deg;
+	}
+
+	.radioIndicator {
+		display: flex;
+		margin-inline-start: auto;
+	}
+
+	.shortcut {
+		margin-inline-start: auto;
+		padding-inline-start: var( --space-3 );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		letter-spacing: 0.1em;
+	}
+
+	.destructive :is( svg, .shortcut ) {
+		color: inherit;
+	}
+}

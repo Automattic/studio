@@ -1,8 +1,8 @@
 import { getColorTint, type ColorTint } from '@studio/common/lib/user-settings/preferences';
+import { ColorPicker, Slider } from '@studio/ds';
+import { applyColorTint } from '@studio/ds/theme';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
-import { applyColorTint } from '@/lib/theme';
-import { ColorPicker, Slider } from '@/lib/ui';
 import { SettingsRow } from './rows';
 import styles from './style.module.css';
 

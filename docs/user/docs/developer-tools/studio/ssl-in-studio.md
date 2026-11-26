@@ -1,6 +1,8 @@
 # SSL in WordPress Studio
 
-WordPress Studio includes support for HTTPS, allowing you to create sites with secure connections that more closely resemble production environments. This feature makes your local development experience more realistic and helps identify potential issues that might only occur with HTTPS.
+WordPress Studio includes support for HTTPS, allowing you to create sites with secure connections that more closely resemble production environments.
+
+HTTPS support makes your local development experience more realistic and helps identify potential issues that might only occur with HTTPS.
 
 ## [Overview](#0-overview)
 

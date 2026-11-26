@@ -111,9 +111,12 @@ export async function liberateWebsite(
 	const outputDir = captureRootFor( parsed.href, outputBase );
 	fs.mkdirSync( outputDir, { recursive: true } );
 	options.onProgress?.( `Data Liberation ${ engine.version }` );
+	// The compare reference is only needed when the user runs compare, which freezes it then;
+	// deferring it keeps it off the import path.
 	const result = await engine.captureWebsite( {
 		url: parsed.href,
 		outputDir,
+		deferReference: true,
 		onProgress: ( progress ) => {
 			options.onProgress?.(
 				progress.phase === 'capturing' && progress.total

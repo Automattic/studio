@@ -1,11 +1,11 @@
+import { ResizeHandle, ResizeOverlay } from '@studio/ds';
+import { getMotionDuration } from '@studio/ds/theme';
 import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
 import { PANEL_SPLIT_MIN_WIDTH } from '@/data/resizable-panels';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
-import { getMotionDuration } from '@/lib/theme';
-import { ResizeHandle, ResizeOverlay } from '@/lib/ui';
 import styles from './style.module.css';
 import { usePanelSplit } from './use-panel-split';
 
@@ -179,13 +179,23 @@ export function PanelSplitFrame( {
 				{ panel && resizable ? (
 					<div
 						className={ styles.panelResizeHandle }
-						aria-hidden={ ! showPanel || contentCollapsed || animatingPanelToggle || undefined }
-						inert={ ! showPanel || contentCollapsed || animatingPanelToggle }
+						aria-hidden={ ! showPanel || contentCollapsed || undefined }
+						inert={ ! showPanel || contentCollapsed }
 					>
 						<ResizeHandle
 							className={ styles.panelResizeGrip }
 							label={ __( 'Resize panel' ) }
 							{ ...handleProps }
+							onResizeStart={ ( event ) => {
+								if ( event.button === 0 ) setAnimatingPanelToggle( false );
+								handleProps.onResizeStart( event );
+							} }
+							onKeyDown={ ( event ) => {
+								if ( [ 'ArrowLeft', 'ArrowRight', 'Home', 'End' ].includes( event.key ) ) {
+									setAnimatingPanelToggle( false );
+								}
+								handleProps.onKeyDown( event );
+							} }
 							onDoublePress={ onPanelClose }
 						/>
 					</div>

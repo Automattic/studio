@@ -1,7 +1,7 @@
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { bindTool } from '@studio/agent/shared/tools/define-tool';
-import { sendFeedbackTool } from '@studio/agent/shared/tools/send-feedback';
+import { bindTool } from '@studio/agent/node/tools/define-tool';
+import { sendFeedbackTool } from '@studio/agent/node/tools/send-feedback';
 import { createFakeHost } from './fake-host';
 
 const host = {
@@ -18,14 +18,12 @@ const mocks = vi.hoisted( () => ( {
 	close: vi.fn(),
 } ) );
 
-vi.mock( '@modelcontextprotocol/sdk/client/index.js', () => ( {
+vi.mock( '@modelcontextprotocol/client', () => ( {
 	Client: class {
 		connect = mocks.connect;
 		callTool = mocks.callTool;
 		close = mocks.close;
 	},
-} ) );
-vi.mock( '@modelcontextprotocol/sdk/client/streamableHttp.js', () => ( {
 	StreamableHTTPClientTransport: class {
 		constructor( url: URL, options: unknown ) {
 			mocks.transport( url.toString(), options );

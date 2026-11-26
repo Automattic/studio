@@ -1,6 +1,46 @@
 # WordPress Studio Changelog
 
-WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release. While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
+WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release.
+
+While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
+
+## [2.4.0](#0-2-4-0)
+
+-   AI providers
+    -   Chat with a SuperGrok or X Premium plan or an xAI API key, with OpenRouter through a sign-in or an API key, or with the models of a local server such as Ollama or LM Studio
+    -   Pick which OpenRouter or local models the model menu offers, in Settings → Providers
+    -   Generate site images with xAI, and choose which provider makes images with Default image provider
+    -   Turn a chat’s thinking down or off with Thinking in the model menu, or `/thinking` in the terminal
+-   Publishing and previews
+    -   One Publish button for previews and hosted sites: choose a Destination and Who can view, and find every website and preview of a site in one place
+    -   Choose what to publish from a checklist of Database, Plugins, Themes and Uploads, or pick specific files
+    -   Change who can view a connected WordPress.com site from the Publish panel
+    -   Update a preview, with a warning before replacing changes made on it, or pull those changes into your local site
+    -   Make a preview your live site with Launch on WordPress.com, or with `studio preview launch` in the CLI
+    -   A failed publish shows the live site’s own reason
+    -   Publishing to a Jetpack site restores the content on the first try
+    -   Publishing no longer leaves out plugin folders named Database, or plugin and theme files named db.php
+-   Workspace
+    -   Show chat in the site menu brings the chat back when the preview is expanded
+    -   Drag the sidebar, chat or panel past its edge to close it, and it reopens at the width it had
+    -   Smoother motion when the layout changes
+-   Sites
+    -   WordPress Studio tells you when a deleted site’s files couldn’t be moved to the Trash, and which folders to delete
+    -   An imported site is kept when its server fails to start, and sites start as soon as PHP is ready
+    -   `studio create --no-start` installs WordPress, so the site is ready to start later
+-   Settings
+    -   Your sites and settings are saved in one file, `~/.studio/config.json`, which earlier versions of WordPress Studio can’t read
+-   Other Fixes
+    -   WordPress Studio tells you when antivirus software removed one of its files, with a link to reinstall
+    -   A message that fails to send keeps your draft and attachments
+    -   Large chats no longer run WordPress Studio out of memory when it lists them
+    -   Exported databases load into MySQL
+-   Updated multiple dependencies
+-   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.4.0)
+
+*November 25, 2026*
 
 ## [2.3.0](#0-2-3-0)
 

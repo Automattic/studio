@@ -1,122 +1,31 @@
+// ESLint checks only the stylesheets; oxlint (`.oxlintrc.json`) checks the code.
 import fs from 'node:fs';
 import path from 'node:path';
 import css from '@eslint/css';
-import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
-import pluginImport from 'eslint-plugin-import-x';
-import pluginJestDom from 'eslint-plugin-jest-dom';
 import pluginPrettier from 'eslint-plugin-prettier/recommended';
-import pluginReactHooks from 'eslint-plugin-react-hooks';
-import globals from 'globals';
-import tsEslint from 'typescript-eslint';
 import pluginStudio from 'eslint-plugin-studio';
 
-const WP_UI_PACKAGES = {
-	group: [ 'components', 'dataviews', 'theme', 'ui' ].flatMap( ( name ) => [
-		`@wordpress/${ name }`,
-		`@wordpress/${ name }/*`,
-	] ),
-	message: 'Use the primitives in @/lib/ui and the tokens in @/lib/theme.',
-};
-
-const AGENT_NODE = {
-	group: [ '@studio/agent/node/*', '@studio/agent/shared/*', '@studio/agent/browser' ],
-	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
-};
-
-const PROVIDERS_SERVICES = {
-	group: [ '@studio/providers/*', '!@studio/providers/wpcom' ],
-	message: 'Surfaces read @studio/providers; its services run in the backends and the agent.',
-};
-
-// The entries surfaces read, and the files they are made of.
-const PROVIDERS_DESCRIPTORS = [
-	'index.ts',
-	'wpcom.ts',
-	'types.ts',
-	'models.ts',
-	'registry.ts',
-	'errors.ts',
-	'connection.ts',
-	'api-key.ts',
-	'*/descriptor.ts',
-	'*/config.ts',
-	'wpcom/sites/site.ts',
-];
-
-const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];
-
-// Studio on the web's backend (`apps/static`) is reached through its connector.
-const STATIC_BACKEND = {
-	group: [ '@studio/static', '@studio/static/*' ],
-	message: 'Only the static connector imports @studio/static; features use useConnector().',
-};
-const BASE_UI = {
-	group: [ '@base-ui/react', '@base-ui/react/*' ],
-	message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
-};
-
-// `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
-// then `data/`, `router/` and `app/`. See apps/ui/README.md.
-const UI_SRC = path.join( import.meta.dirname, 'apps/ui/src' );
-const uiDirs = ( dir ) =>
-	fs
-		.readdirSync( path.join( UI_SRC, dir ), { withFileTypes: true } )
-		.filter( ( entry ) => entry.isDirectory() )
-		.map( ( entry ) => `${ dir }/${ entry.name }` );
-const UI_LIB = uiDirs( 'lib' );
-const UI_FEATURES = uiDirs( 'features' );
-const uiPath = ( p ) => path.join( UI_SRC, p );
-const UI_LAYERS = {
-	zones: [
-		...UI_LIB.map( ( pkg ) => ( {
-			target: [
-				...fs.readdirSync( UI_SRC ).filter( ( name ) => name !== 'lib' ),
-				...UI_LIB.filter( ( other ) => other !== pkg ),
-			].map( uiPath ),
-			from: uiPath( pkg ),
-			except: [ './index.ts', ...( pkg === 'lib/theme' ? [ './tokens.css', './base.css' ] : [] ) ],
-			message: `Import from @/${ pkg }, its public entry.`,
-		} ) ),
-		{
-			target: uiPath( 'lib' ),
-			from: [ 'features', 'data', 'router', 'app' ].map( uiPath ),
-			message: 'lib/ packages stay independent of the app.',
-		},
-		{
-			target: [ 'lib', 'data', 'main.tsx', 'main.local.tsx' ].map( uiPath ),
-			from: uiPath( 'features' ),
-			message: 'Only router/, app/ and other features import features.',
-		},
-		...UI_FEATURES.map( ( feature ) => ( {
-			target: [ 'router', 'app', ...UI_FEATURES.filter( ( other ) => other !== feature ) ].map(
-				uiPath
-			),
-			from: uiPath( feature ),
-			except: [ './index.ts' ],
-			message: `Import from @/${ feature }, its public entry.`,
-		} ) ),
-	],
-};
+const DS = path.join( import.meta.dirname, 'packages/ds' );
 
 // Custom properties the primitives use, beyond the theme tokens. Feature CSS may
-// set only the documented hooks (see apps/ui/src/lib/ui/README.md).
+// set only the documented hooks (see packages/ds/primitives/README.md).
 const cssCustomProperties = ( dir ) =>
 	fs
-		.readdirSync( uiPath( dir ), { recursive: true } )
+		.readdirSync( path.join( DS, dir ), { recursive: true } )
 		.filter( ( file ) => file.endsWith( '.css' ) )
 		.flatMap(
-			( file ) =>
-				fs.readFileSync( path.join( uiPath( dir ), file ), 'utf8' ).match( /--[\w-]+/g ) ?? []
+			( file ) => fs.readFileSync( path.join( DS, dir, file ), 'utf8' ).match( /--[\w-]+/g ) ?? []
 		);
-const THEME_TOKENS = cssCustomProperties( 'lib/theme' );
+const THEME_TOKENS = cssCustomProperties( 'theme' );
 const PRIMITIVE_HOOKS = [
 	'--app-icon-size',
 	'--button-background',
 	'--button-hover-background',
 	'--button-hover-color',
+	'--radius-button',
 ];
-const PRIMITIVE_PROPERTIES = [ ...new Set( cssCustomProperties( 'lib/ui' ) ) ].filter(
+const PRIMITIVE_PROPERTIES = [ ...new Set( cssCustomProperties( 'primitives' ) ) ].filter(
 	( property ) => ! THEME_TOKENS.includes( property ) && ! PRIMITIVE_HOOKS.includes( property )
 );
 
@@ -131,405 +40,7 @@ export default defineConfig(
 		'wp-files/',
 	] ),
 	{
-		files: [ '**/*.{js,mjs,cjs,jsx,ts,mts,cts,tsx}' ],
-		extends: [
-			js.configs.recommended,
-			tsEslint.configs.recommended,
-			pluginImport.flatConfigs.recommended,
-			pluginImport.flatConfigs.electron,
-			pluginImport.flatConfigs.typescript,
-			pluginPrettier,
-			pluginReactHooks.configs.flat.recommended,
-			pluginJestDom.configs[ 'flat/recommended' ],
-		],
-		plugins: {
-			studio: pluginStudio,
-		},
-		languageOptions: {
-			globals: {
-				...globals.browser,
-				...globals.node,
-			},
-			sourceType: 'commonjs',
-			parserOptions: {
-				projectService: {
-					allowDefaultProject: [
-						'apps/mcp-ui/vite.config.ts',
-						'apps/mcp-ui/vitest.config.ts',
-						'plugins/wp-studio/scripts/*.mjs',
-						'apps/ui/vite.config.ts',
-						'apps/ui/vitest.setup.ts',
-						'eslint.config.mjs',
-						'vitest.config.ts',
-						'tools/eslint-plugin-studio/vitest.config.ts',
-						'tools/eslint-plugin-studio/src/index.js',
-						'tools/eslint-plugin-studio/src/rules/*.js',
-						'tools/eslint-plugin-studio/tests/*.ts',
-					],
-				},
-			},
-		},
-		settings: {
-			'import-x/resolver': {
-				typescript: {
-					alwaysTryTypes: true,
-					project: [
-						path.join( import.meta.dirname, 'tsconfig.json' ),
-						path.join( import.meta.dirname, 'apps/cli/tsconfig.json' ),
-						path.join( import.meta.dirname, 'apps/studio/tsconfig.json' ),
-						path.join( import.meta.dirname, 'apps/mcp-ui/tsconfig.json' ),
-						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
-						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
-						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
-						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
-						path.join( import.meta.dirname, 'packages/providers/tsconfig.json' ),
-						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
-						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
-					],
-				},
-			},
-		},
-		rules: {
-			// Temporarily disabled after the ESLint 10 upgrade, which promoted these to `recommended`.
-			// Enabling them and fixing the existing violations is tracked in STU-2175.
-			'no-useless-assignment': 'off',
-			'preserve-caught-error': 'off',
-			'@typescript-eslint/no-floating-promises': 'error',
-			'@typescript-eslint/no-explicit-any': [ 'error', { ignoreRestArgs: true } ],
-			'@typescript-eslint/no-unused-vars': [
-				'warn',
-				{
-					args: 'after-used',
-					argsIgnorePattern: '^_',
-					caughtErrors: 'none',
-					ignoreRestSiblings: true,
-					vars: 'all',
-					varsIgnorePattern: '^_',
-				},
-			],
-			'import-x/no-named-as-default-member': 'off',
-			// @wp-playground/blueprints ships blueprint-schema-validator outside its package.json exports map.
-			// @modelcontextprotocol/sdk 1.29+ only exposes server/stdio.js via a wildcard export which the
-			// eslint-import-x typescript resolver can't follow (runtime resolution is fine).
-			'import-x/no-unresolved': [
-				'error',
-				{
-					ignore: [
-						'@wp-playground/blueprints/blueprint-schema-validator',
-						'@modelcontextprotocol/sdk/server/stdio\\.js$',
-						'@modelcontextprotocol/sdk/client/index\\.js$',
-						'@modelcontextprotocol/sdk/client/stdio\\.js$',
-						'@modelcontextprotocol/sdk/client/streamableHttp\\.js$',
-					],
-				},
-			],
-			'import-x/order': [
-				'error',
-				{
-					'newlines-between': 'never',
-					alphabetize: { order: 'asc' },
-					groups: [ 'builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type' ],
-				},
-			],
-			'react-hooks/set-state-in-effect': 'off',
-			'studio/no-module-level-translations': 'error',
-		},
-	},
-	{
-		files: [ '**/*.ts', 'src/tests/**/*.{ts,tsx}' ],
-		rules: {
-			'@typescript-eslint/no-require-imports': 'off',
-		},
-	},
-	{
-		files: [ 'scripts/**/*.js', 'scripts/**/*.cjs' ],
-		rules: {
-			'@typescript-eslint/no-require-imports': 'off',
-		},
-	},
-	{
-		files: [ 'apps/cli/**/*.{ts,tsx}' ],
-		ignores: [ 'apps/cli/vite.config*.ts', 'apps/cli/vitest.config.ts' ],
-		rules: {
-			'no-restricted-globals': [
-				'error',
-				{
-					name: '__dirname',
-					message: 'Use import.meta.dirname in ESM modules.',
-				},
-				{
-					name: '__filename',
-					message: 'Use import.meta.filename in ESM modules.',
-				},
-			],
-		},
-	},
-	{
-		files: [ 'scripts/**/*.mjs' ],
-		rules: {
-			'no-restricted-globals': [
-				'error',
-				{
-					name: '__dirname',
-					message: 'Use import.meta.dirname in ESM modules.',
-				},
-				{
-					name: '__filename',
-					message: 'Use import.meta.filename in ESM modules.',
-				},
-			],
-		},
-	},
-	{
-		// Module-level translations can't go stale in the CLI: it is a one-shot
-		// process that loads the locale before importing modules.
-		files: [ 'apps/cli/**' ],
-		rules: {
-			'studio/no-module-level-translations': 'off',
-		},
-	},
-	{
-		// Apps run the agent through `@studio/agent/node` (`createAgent`); its runtime,
-		// tools and host type are internal. Tests may still mock them.
-		files: [ 'apps/**/*.{ts,tsx}' ],
-		ignores: [ 'apps/**/tests/**', 'apps/**/*.test.{ts,tsx}' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: [
-								'@studio/agent/node/runtime',
-								'@studio/agent/node/runtime/*',
-								'@studio/agent/shared/tools',
-								'@studio/agent/shared/tools/*',
-								'@studio/agent/shared/host',
-							],
-							message: 'Import the agent from @studio/agent/node.',
-						},
-					],
-				},
-			],
-		},
-	},
-	{
-		// The agentic UI owns its design system: theme tokens in `src/lib/theme/` and
-		// primitives in `src/lib/ui/`, which stay independent of app code.
-		files: [ 'apps/ui/src/**/*.{ts,tsx}' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [ WP_UI_PACKAGES, AGENT_NODE, PROVIDERS_SERVICES, STATIC_BACKEND, BASE_UI ],
-				},
-			],
-			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
-			'import-x/no-cycle': 'error',
-		},
-	},
-	{
-		files: [ 'apps/ui/src/data/core/connectors/static/**/*.{ts,tsx}' ],
-		rules: {
-			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES, AGENT_NODE, BASE_UI ] } ],
-		},
-	},
-	{
-		files: [ 'apps/ui/src/lib/**/*.{ts,tsx}' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						WP_UI_PACKAGES,
-						AGENT_NODE,
-						PROVIDERS_SERVICES,
-						{ group: [ '@tanstack/*' ], message: 'lib/ packages stay independent of app code.' },
-					],
-				},
-			],
-		},
-	},
-	{
-		files: [ 'packages/common/**/*.ts' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: [ '@studio/agent/*' ],
-							message: '@studio/agent builds on common, not the reverse.',
-						},
-					],
-				},
-			],
-		},
-	},
-	{
-		// Common stores provider config; the apps pass in the implementations it needs.
-		files: [ 'packages/common/**/*.ts' ],
-		ignores: [ 'packages/common/**/tests/**' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: [ '@studio/agent/*' ],
-							message: '@studio/agent builds on common, not the reverse.',
-						},
-						PROVIDERS_SERVICES,
-					],
-				},
-			],
-		},
-	},
-	{
-		// Studio passes providers their config, so they never depend on Studio's
-		// packages, and the agent runs them in Node and in the page.
-		files: [ 'packages/providers/**/*.ts' ],
-		ignores: [ 'packages/providers/**/tests/**' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: NODE_APIS,
-							message: '@studio/providers runs in the browser too; keep Node APIs out.',
-						},
-						{
-							group: [ '@studio/*', 'cli/*', 'src/*' ],
-							message: '@studio/providers imports no other workspace package.',
-						},
-					],
-				},
-			],
-		},
-	},
-	{
-		files: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
-		rules: {
-			'import-x/no-restricted-paths': [
-				'error',
-				{
-					zones: [
-						{
-							target: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
-							from: 'packages/providers',
-							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
-								file.startsWith( '*/' )
-									? [
-											'wpcom',
-											'anthropic',
-											'openai',
-											'gemini',
-											'github-copilot',
-											'meta',
-											'xai',
-											'openrouter',
-											'spacefast',
-									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
-									: [ `./${ file }` ]
-							),
-							message: 'The @studio/providers entry imports only the files it is made of.',
-						},
-					],
-				},
-			],
-		},
-	},
-	{
-		files: [ 'packages/agent/**/*.ts' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: [ 'cli/*', 'src/*' ],
-							message:
-								'The agent never imports an app. Reach site operations through the host (shared/host.ts).',
-						},
-					],
-				},
-			],
-		},
-	},
-	{
-		// The tools, prompt and skills both agents share, and the browser agent.
-		files: [ 'packages/agent/shared/**/*.ts', 'packages/agent/browser/**/*.ts' ],
-		ignores: [
-			'packages/agent/{shared,browser}/**/tests/**',
-			'packages/agent/{shared,browser}/**/*.test.ts',
-		],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: [
-								'node:*',
-								'fs',
-								'fs/*',
-								'path',
-								'os',
-								'child_process',
-								'crypto',
-								'url',
-								'playwright',
-								'playwright-core',
-								'@earendil-works/pi-coding-agent',
-							],
-							message:
-								'shared/ and browser/ run in a browser; reach files and pages through the host.',
-						},
-						{
-							group: [ '@studio/agent/node', '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'shared/ and browser/ depend on protocol and common, not on the Node agent.',
-						},
-					],
-				},
-			],
-		},
-	},
-	{
-		// The contract the UI imports, in the browser as well as the Desktop app.
-		files: [ 'packages/agent/protocol/**/*.ts' ],
-		ignores: [ 'packages/agent/protocol/**/*.test.ts' ],
-		rules: {
-			'no-restricted-imports': [
-				'error',
-				{
-					patterns: [
-						{
-							group: NODE_APIS,
-							message: 'protocol/ runs in the browser too; keep Node APIs in node/.',
-						},
-						{
-							group: [ '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'protocol/ depends on nothing but common and @studio/providers.',
-						},
-						PROVIDERS_SERVICES,
-					],
-				},
-			],
-		},
-	},
-	{
-		// These tests assert on the `aria-valuenow` attribute of ARIA range widgets
-		// (slider/separator/progressbar elements). eslint-plugin-jest-dom 5.10 flags
-		// those `toHaveAttribute` calls and autofixes them to `toHaveValue()`, which only
-		// reads the form `value` property and returns undefined for these non-form elements.
-		files: [ 'apps/ui/**/*.test.{ts,tsx}' ],
-		rules: {
-			'jest-dom/prefer-to-have-value': 'off',
-		},
-	},
-	{
-		files: [ 'apps/ui/src/**/*.css' ],
+		files: [ 'apps/ui/src/**/*.css', 'packages/ds/**/*.css', 'packages/providers/**/*.css' ],
 		plugins: { css, prettier: pluginPrettier.plugins.prettier, studio: pluginStudio },
 		language: 'css/css',
 		languageOptions: { tolerant: true },
@@ -541,7 +52,6 @@ export default defineConfig(
 	},
 	{
 		files: [ 'apps/ui/src/**/*.css' ],
-		ignores: [ 'apps/ui/src/lib/**' ],
 		rules: {
 			'studio/no-primitive-overrides': [ 'error', { properties: PRIMITIVE_PROPERTIES } ],
 		},
@@ -549,7 +59,7 @@ export default defineConfig(
 	{
 		// The reduced-transparency reset has to beat class-scoped rules, and Shiki
 		// colors code tokens with inline styles.
-		files: [ 'apps/ui/src/lib/theme/base.css', 'apps/ui/src/lib/ui/code-block/style.module.css' ],
+		files: [ 'packages/ds/theme/base.css', 'packages/ds/primitives/code-block/style.module.css' ],
 		rules: {
 			'css/no-important': 'off',
 		},
@@ -559,7 +69,7 @@ export default defineConfig(
 		// are artwork drawn with their own values, and the design system view renders
 		// a site's own type, colors and radii.
 		files: [
-			'apps/ui/src/lib/theme/**',
+			'packages/ds/theme/**',
 			'apps/ui/src/features/onboarding/onboarding-guide/illustrations/**',
 			'apps/ui/src/features/settings/wapuu-world/**',
 			'apps/ui/src/features/sites/design-system-view/**',

@@ -57,9 +57,14 @@ export function getPreviewStatus(
 	executeCliCommand: ExecuteCliCommand,
 	hostname: string
 ): Promise< PreviewStatus > {
-	return runCliCommand( executeCliCommand, [ 'preview', 'status', hostname ], previewStatusSchema, {
-		logPrefix: 'preview',
-	} );
+	return runCliCommand(
+		executeCliCommand,
+		[ '_publish-status', hostname, '--preview' ],
+		previewStatusSchema,
+		{
+			logPrefix: 'preview',
+		}
+	);
 }
 
 // `preview delete --all` reports no result, so only its exit status matters.
@@ -91,14 +96,9 @@ export async function renamePreviewSite(
 export async function fetchSnapshots(
 	executeCliCommand: ExecuteCliCommand
 ): Promise< Snapshot[] > {
-	try {
-		return await runCliCommand(
-			executeCliCommand,
-			[ 'preview', 'list', '--format', 'json' ],
-			z.array( snapshotSchema )
-		);
-	} catch ( error ) {
-		console.error( 'Failed to fetch snapshots from CLI:', error );
-		return [];
-	}
+	return runCliCommand(
+		executeCliCommand,
+		[ 'preview', 'list', '--format', 'json' ],
+		z.array( snapshotSchema )
+	);
 }

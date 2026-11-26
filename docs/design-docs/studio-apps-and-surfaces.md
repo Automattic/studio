@@ -56,7 +56,7 @@ Reading the stack bottom-up:
 
 `apps/ui` is a single React app (React 19, TanStack Query/Router, its own Base UI primitives and CSS theme tokens). It is rendered by **two** surfaces — desktop and local — without forking.
 
-Its source is split into app-agnostic internal packages (`lib/`: the primitives, theme, icons, generic hooks, keyboard handling) and product areas (`features/`), above `data/`, `router/` and `app/`. `lib/ui` and `lib/theme` are shaped so they can move to `packages/` and be shared with `apps/mcp-ui`. `apps/ui/README.md` has the layout and the lint-enforced boundaries.
+It builds on `@studio/ds` (`packages/ds`: the primitives, theme, icons and generic hooks), which other apps and packages can import too. Its source is split into app-agnostic internal packages (`lib/`: keyboard handling, pending slots) and product areas (`features/`), above `data/`, `router/` and `app/`. `apps/ui/README.md` has the layout and the lint-enforced boundaries.
 
 It reaches its backend exclusively through the **`Connector`** interface (`apps/ui/src/data/core/types.ts`). The UI never imports IPC, `fetch`, or SSE directly; it calls `connector.getSites()`, `connector.createSite()`, `connector.authenticate()`, etc. Each surface provides one implementation:
 
@@ -94,7 +94,7 @@ The `studio` command (see [cli.md](./cli.md)). A Node app bundled with Vite, run
 
 ### External agents — `studio mcp` (`apps/cli` + `apps/mcp-ui`)
 
-`studio mcp` is an MCP server that agent apps (Codex and ChatGPT, Claude, and others) start over stdio. The agent's own model drives Studio's tools, and loads Studio's instructions and runbooks on demand (`studio_instructions`); the tools run in the CLI process, as they do for Studio Code. What the server offers depends on the client, known once it connects (`apps/cli/ai/runtimes/mcp`).
+`studio mcp` is an MCP server that agent apps (Codex and ChatGPT, Claude, and others) start over stdio. The agent's own model drives Studio's tools, and loads Studio's instructions and runbooks on demand (`studio_instructions`); the tools run in the CLI process, as they do for Studio Code. What the server offers depends on the client (`apps/cli/ai/runtimes/mcp`). The server speaks both the 2025 protocol revisions, where a client names itself once when it connects, and 2026-07-28, where it does so in every request; the client picks. It serves skills through the [MCP Skills extension](https://github.com/modelcontextprotocol/ext-skills): the user's skills for all sites, and Studio's skills that users ask for directly (`user-invokable`). A host with the extension lists and loads them itself; for any other host, `studio_instructions` lists them and loads one on request. A host need not declare the extension, so the server takes a request for the skills as the sign that the host has it. The runbooks that other skills load stay with `studio_instructions` in every host, since they build on the rules it returns. A server the `wp-studio` plugin starts serves none of Studio's skills: the plugin lists them itself (`plugins/wp-studio/skills`), and a host would show each twice.
 
 Agent apps that render [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) also show Studio pages: the design picker under `present_design_options`, and the WordPress library (`apps/mcp-ui`), which OpenAI's apps open from their sidebar once the Studio plugin is installed. Each page:
 

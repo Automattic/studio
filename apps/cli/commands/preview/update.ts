@@ -76,6 +76,7 @@ export async function runCommand(
 		preview = snapshotToUpdate;
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
+
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
 			step = action;
 			logger.reportStart( action, message );
@@ -102,6 +103,7 @@ export async function runCommand(
 			warning,
 		} = await buildWpcomPreview( {
 			siteId: site.id,
+			existingPreview: isWpcomPreview( snapshotToUpdate ) ? snapshotToUpdate : undefined,
 			liveSiteSelection,
 			siteFolder,
 			archivePath,

@@ -12,6 +12,7 @@ import {
 	type AiProviderId,
 	type ProviderConfigs,
 	type ProviderId,
+	type ThinkingLevel,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
@@ -82,10 +83,12 @@ export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 	return ( await getPreferredReadyProvider() ) ?? DEFAULT_PROVIDER_ID;
 }
 
+type ConnectOptions = { sessionId?: string; thinking?: ThinkingLevel };
+
 async function connect< Id extends AiProviderId >(
 	provider: Id,
 	model: AiModelId,
-	options: { sessionId?: string }
+	options: ConnectOptions
 ): Promise< AiConnection > {
 	const ai = getProviderServices( provider ).ai;
 	if ( ! ai ) {
@@ -97,7 +100,7 @@ async function connect< Id extends AiProviderId >(
 export async function resolveAiConnection(
 	provider: AiProviderId,
 	model: AiModelId,
-	options: { sessionId?: string } = {}
+	options: ConnectOptions = {}
 ): Promise< AiConnection > {
 	try {
 		return await connect( provider, model, options );

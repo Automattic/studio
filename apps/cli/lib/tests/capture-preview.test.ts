@@ -35,6 +35,7 @@ it( 'captures the home page without the admin bar, even when given an inner page
 	expect( newPage ).toHaveBeenCalledWith( {
 		viewport: { width: 800, height: 600 },
 		deviceScaleFactor: 1,
+		ignoreHTTPSErrors: false,
 	} );
 	expect( page.goto ).toHaveBeenCalledWith(
 		'http://localhost:8888/?studio-hide-adminbar',
@@ -60,6 +61,7 @@ it( 'takes a sharper JPEG when asked', async () => {
 	expect( newPage ).toHaveBeenCalledWith( {
 		viewport: { width: 393, height: 852 },
 		deviceScaleFactor: 3,
+		ignoreHTTPSErrors: false,
 	} );
 	expect( page.screenshot ).toHaveBeenCalledWith( { type: 'jpeg', quality: 80 } );
 } );

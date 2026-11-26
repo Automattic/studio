@@ -1,9 +1,9 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
-import type { SyncActivity } from '@studio/common/lib/sync/activity';
+import type { SyncActivity as CliSyncActivity } from '@studio/common/lib/sync/activity';
 import type { PushPhase } from '@studio/common/types/sync';
 
-export type { SyncActivity } from '@studio/common/lib/sync/activity';
+export type SyncActivity = CliSyncActivity;
 
 // In-flight and recently finished syncs and imports per site, fed by the
 // activity the CLI publishes. Module-level so it survives remounts during
@@ -54,7 +54,11 @@ function scheduleExpiry( siteId: string ) {
 function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 	const message = {
 		creatingBackup: __( 'Creating backup…' ),
+		startingSite: __( 'Starting site…' ),
+		generatingStaticSite: __( 'Generating static site…' ),
+		stoppingSite: __( 'Stopping site…' ),
 		uploading: __( 'Uploading site…' ),
+		waitingForRemote: __( 'Waiting for another update to the live site to finish…' ),
 		creatingRemoteBackup: __( 'Backing up remote site…' ),
 		applyingChanges: __( 'Applying changes…' ),
 		finishing: __( 'Almost there…' ),
@@ -72,9 +76,26 @@ function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 export function applySyncActivity( siteId: string, activity: SyncActivity ): boolean {
 	const previous = entries.get( siteId );
 	const wasPending = previous?.kind === 'pending';
+	if (
+		wasPending &&
+		( ( activity.kind !== 'pending' && activity.direction !== previous.direction ) ||
+			( activity.direction === previous.direction &&
+				( ( activity.provider && previous.provider && activity.provider !== previous.provider ) ||
+					( activity.remoteSiteId !== undefined &&
+						previous.remoteSiteId !== undefined &&
+						String( activity.remoteSiteId ) !== String( previous.remoteSiteId ) ) ) ) )
+	)
+		return false;
 	if ( activity.kind === 'pending' ) {
-		if ( ! wasPending || entries.get( siteId )?.direction !== activity.direction ) {
+		if ( ! wasPending || previous.direction !== activity.direction ) {
 			runIds.set( siteId, nextRunId++ );
+		} else if ( ! activity.provider || activity.provider === previous.provider ) {
+			// The UI can know the destination before the CLI reports it.
+			activity = {
+				...activity,
+				provider: activity.provider ?? previous.provider,
+				remoteSiteId: activity.remoteSiteId ?? previous.remoteSiteId,
+			};
 		}
 		clearExpiryTimer( siteId );
 		entries.set(

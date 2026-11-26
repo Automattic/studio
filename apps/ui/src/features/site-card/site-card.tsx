@@ -1,6 +1,6 @@
+import { FieldGroup, PreviewFrame, PreviewImage } from '@studio/ds';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { FieldGroup, PreviewFrame, PreviewImage } from '@/lib/ui';
 import { RelativeTime } from './relative-time';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';

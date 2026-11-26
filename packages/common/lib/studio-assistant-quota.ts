@@ -20,10 +20,10 @@ export const AI_CREDITS_PURCHASED_RETURN_TO = 'ai-credits-purchased';
 // without pointing anywhere.
 const CHECKOUT_PLACEHOLDER_SITE_ID = 'b4b08783-91cd-4aa1-b2ee-28575c26a762';
 
-// WordPress.com checkout for a Studio Code AI credits top-up (STU-2299). The
-// `:-q-<n>` suffix is checkout's quantity syntax, in the same 1/10000 USD units
-// the quota reports — 100000 is the $10 top-up.
-const ADD_AI_CREDITS_CHECKOUT_URL = 'https://wordpress.com/checkout/wpcom/studio-code-ai-credits';
+// WordPress.com's Studio-branded checkout for a Studio Code AI credits top-up
+// (STU-2299). The `:-q-<n>` suffix is checkout's quantity syntax, in the same
+// 1/10000 USD units the quota reports — 100000 is the $10 top-up.
+const ADD_AI_CREDITS_CHECKOUT_URL = 'https://wordpress.com/checkout/studio/studio-code-ai-credits';
 
 // Quantity used wherever a surface offers a single top-up rather than the
 // priced options from `/top-up-pricing` (STU-2326).

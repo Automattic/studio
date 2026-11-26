@@ -98,6 +98,7 @@ export function useDeleteSnapshot() {
 	return useMutation( {
 		mutationFn: ( { hostname }: { hostname: string } ) => connector.deleteSnapshot( hostname ),
 		onSuccess: async ( _result, { hostname } ) => {
+			await queryClient.invalidateQueries( { queryKey: [ 'remote-sites' ] } );
 			await queryClient.cancelQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 			queryClient.setQueryData< Snapshot[] >(
 				SNAPSHOTS_QUERY_KEY,

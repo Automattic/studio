@@ -20,6 +20,12 @@
 	"\"%s\" is not a Blueprint file, URL or Library slug.": [
 		"A(z) „%s” nem Blueprint fájl, URL vagy könyvtárbeli slug."
 	],
+	"$10 of AI credits every month": [
+		"Havonta 10 $ értékű AI-kredit"
+	],
+	"$30 of AI credits every month": [
+		"Havonta 30 $ értékű AI-kredit"
+	],
 	"%1$d of %2$d active preview site": [
 		"%1$d / %2$d aktív előnézeti oldal",
 		"%1$d / %2$d aktív előnézeti oldal"
@@ -29,6 +35,14 @@
 	],
 	"%1$d of %2$d points": [
 		"%1$d / %2$d pont"
+	],
+	"%1$d of %2$d site": [
+		"%1$d / %2$d oldal",
+		"%1$d / %2$d oldal"
+	],
+	"%1$d of %2$d site running at once": [
+		"%1$d / %2$d oldal fut egyszerre",
+		"%1$d / %2$d oldal fut egyszerre"
 	],
 	"%1$d of %2$d sites deleted. %3$d failed: %4$s": [
 		"%2$d oldalból %1$d törölve. %3$d sikertelen: %4$s"
@@ -46,8 +60,18 @@
 	"%1$s +%2$d": [
 		"%1$s +%2$d"
 	],
+	"%1$s / %2$s per million tokens": [
+		"%1$s / %2$s millió tokenenként"
+	],
+	"%1$s GB of %2$s GB of storage used": [
+		"%1$s GB / %2$s GB tárhely felhasználva"
+	],
 	"%1$s Use /connect %2$s to connect it.": [
 		"%1$s A csatlakoztatáshoz használd a /connect %2$s parancsot."
+	],
+	"%1$s and %2$d other": [
+		"%1$s és további %2$d",
+		"%1$s és további %2$d"
 	],
 	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
 		"A(z) %1$s nem tudta telepíteni a WordPress Studio bővítményt: %2$s"
@@ -73,11 +97,17 @@
 	"%1$s · %2$s": [
 		"%1$s · %2$s"
 	],
+	"%1$s · %2$s context": [
+		"%1$s · %2$s kontextus"
+	],
 	"%1$s — %2$s": [
 		"%1$s — %2$s"
 	],
 	"%1$s%% · %2$s": [
 		"%1$s%% · %2$s"
+	],
+	"%1$s, %2$s, and %3$s": [
+		"%1$s, %2$s és %3$s"
 	],
 	"%1$s: returned %2$s": [
 		"%1$s: visszaadva: %2$s"
@@ -120,6 +150,10 @@
 		"%d elem frissítve",
 		"%d elem frissítve"
 	],
+	"%d model": [
+		"%d modell",
+		"%d modell"
+	],
 	"%d site selected": [
 		"%d oldal kijelölve",
 		"%d oldal kijelölve"
@@ -130,6 +164,9 @@
 	],
 	"%ds": [
 		"%d mp"
+	],
+	"%s (optional, saved for future use):": [
+		"%s (nem kötelező, későbbi használatra mentve):"
 	],
 	"%s (saved for future use):": [
 		"%s (elmentve későbbi használatra):"
@@ -142,6 +179,9 @@
 	],
 	"%s KB": [
 		"%s KB"
+	],
+	"%s billed yearly": [
+		"%s évente számlázva"
 	],
 	"%s chats": [
 		"%s csevegései"
@@ -164,8 +204,14 @@
 	"%s isn’t installed on this computer.": [
 		"A(z) %s nincs telepítve ezen a számítógépen."
 	],
+	"%s models": [
+		"%s modelljei"
+	],
 	"%s of monthly limit used": [
 		"A havi keret %s-a felhasználva"
+	],
+	"%s only makes previews.": [
+		"A(z) %s csak előnézeteket készít."
 	],
 	"%s preview is ready": [
 		"Elkészült a(z) %s előnézete"
@@ -178,6 +224,12 @@
 	],
 	"%s used": [
 		"%s felhasználva"
+	],
+	"%s · Live site": [
+		"%s · Élő oldal"
+	],
+	"%s · Local changes": [
+		"%s · Helyi változtatások"
 	],
 	"(No subject)": [
 		"(Nincs tárgy)"
@@ -202,6 +254,15 @@
 	],
 	"... output truncated": [
 		"... kimenet csonkolva"
+	],
+	"/month": [
+		"/hó"
+	],
+	"30 GB of storage": [
+		"30 GB tárhely"
+	],
+	"6 GB of storage": [
+		"6 GB tárhely"
 	],
 	"<b>Build</b> block themes with striking, memorable designs": [
 		"Blokksablonok <b>építése</b> feltűnő, emlékezetes dizájnnal"
@@ -235,6 +296,9 @@
 	],
 	"A pull is in progress or was interrupted before it finished.": [
 		"Egy lekérés folyamatban van, vagy befejezés előtt megszakadt."
+	],
+	"A static copy of your pages.": [
+		"Az oldalaid statikus másolata."
 	],
 	"AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.": [
 		"Az AI-kreditekkel fizetsz az AI használatáért a WordPress Studióban — például kódgenerálásért, egy oldal felépítéséért vagy más AI-alapú funkciók futtatásáért. A kreditek nem pénzt jelentenek: nem veheted fel, nem válthatod készpénzre, és nem használhatod őket a WordPress Studión kívül."
@@ -278,6 +342,9 @@
 	"Accent tag": [
 		"Kiemelő címke"
 	],
+	"Access unknown": [
+		"Ismeretlen hozzáférés"
+	],
 	"Actions for %s": [
 		"Műveletek ehhez: %s"
 	],
@@ -301,6 +368,9 @@
 	],
 	"Add a contact form to the homepage": [
 		"Adj kapcsolatfelvételi űrlapot a kezdőlaphoz"
+	],
+	"Add a domain": [
+		"Domain hozzáadása"
 	],
 	"Add a payment method to use WordPress.com AI.": [
 		"A WordPress.com AI használatához adj meg egy fizetési módot."
@@ -335,6 +405,12 @@
 	"Adding site": [
 		"Oldal hozzáadása"
 	],
+	"Address is required": [
+		"A cím megadása kötelező"
+	],
+	"Address to listen on": [
+		"A cím, amelyen a szerver figyel"
+	],
 	"Adjust the strength of the color tint.": [
 		"A színárnyalat erősségének beállítása."
 	],
@@ -359,8 +435,14 @@
 	"Agents": [
 		"Ügynökök"
 	],
+	"All but %s": [
+		"Minden, kivéve: %s"
+	],
 	"All files": [
 		"Összes fájl"
+	],
+	"All models": [
+		"Összes modell"
 	],
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"Bejelentkezéskor engedélyezd, hogy a WordPress Studio használja a ChatGPT-csomagodat."
@@ -407,11 +489,17 @@
 	"Another app is using port %s, which Studio needs for custom domains. Quit that app and try again, or turn off the custom domain to use localhost": [
 		"Egy másik alkalmazás használja a(z) %s portot, amelyre a Studiónak az egyedi domainekhez szüksége van. Lépj ki abból az alkalmazásból, és próbáld újra, vagy kapcsold ki az egyedi domaint a localhost használatához"
 	],
+	"Another operation is in progress.": [
+		"Egy másik művelet van folyamatban."
+	],
 	"Answer WordPress Studio": [
 		"Válasz a WordPress Studiónak"
 	],
 	"Answer with an option": [
 		"Válasz egy lehetőséggel"
+	],
+	"Answers right away, fastest": [
+		"Azonnal válaszol, a leggyorsabb"
 	],
 	"Anthropic API key": [
 		"Anthropic API-kulcs"
@@ -427,6 +515,15 @@
 	],
 	"Antigravity IDE": [
 		"Antigravity IDE"
+	],
+	"Anyone can view your site": [
+		"Bárki megtekintheti az oldaladat"
+	],
+	"Anyone with the link": [
+		"Bárki, akinél a link van"
+	],
+	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
+		"Mindenki, akinél a link van, elveszíti a hozzáférést, és ez nem vonható vissza. A helyi WordPress nem változik."
 	],
 	"Anyone you’ve shared this preview with will no longer be able to view it. Your site will not be deleted.": [
 		"Akikkel megosztottad ezt az előnézetet, többé nem fogják látni. Az oldalad nem törlődik."
@@ -555,9 +652,6 @@
 	"Back to Blueprints": [
 		"Vissza a Blueprintekhez"
 	],
-	"Back to Publish": [
-		"Vissza a Közzétételhez"
-	],
 	"Back to email list": [
 		"Vissza az e-mailek listájához"
 	],
@@ -566,9 +660,6 @@
 	],
 	"Backup node ids to pull when using the \"paths\" option": [
 		"A lekérendő biztonsági mentési csomópontok azonosítói a „paths” opció használatakor"
-	],
-	"Backups": [
-		"Biztonsági mentések"
 	],
 	"Balanced": [
 		"Kiegyensúlyozott"
@@ -581,6 +672,18 @@
 	],
 	"Batch notes enabled.": [
 		"Megjegyzések kötegelése bekapcsolva."
+	],
+	"Billed monthly": [
+		"Havi számlázás"
+	],
+	"Billed monthly, renews on %s": [
+		"Havi számlázás, megújul: %s"
+	],
+	"Billed yearly, renews on %s": [
+		"Éves számlázás, megújul: %s"
+	],
+	"Billing period": [
+		"Számlázási időszak"
 	],
 	"Birdland": [
 		"Birdland"
@@ -681,20 +784,17 @@
 	"By continuing, you agree to our Terms of Service and have read our Privacy Policy.": [
 		"A folytatással elfogadod a Felhasználási feltételeinket, és kijelented, hogy elolvastad az Adatvédelmi irányelveinket."
 	],
-	"Cancel publishing": [
-		"Közzététel megszakítása"
-	],
 	"Canceled.": [
 		"Megszakítva."
-	],
-	"Cancelling…": [
-		"Megszakítás…"
 	],
 	"Cannot run %1$s: %2$s is already in progress for this site. Wait for it to finish and try again.": [
 		"Nem futtatható: %1$s. Ennél az oldalnál már folyamatban van: %2$s. Várd meg, amíg befejeződik, majd próbáld újra."
 	],
 	"Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.": [
 		"Nem sikerült beállítani a WordPresst. A csomagolt SQLite-integrációs fájlok nem találhatók. Kérlek, telepítsd újra a Studiót."
+	],
+	"Can’t see screenshots": [
+		"Nem látja a képernyőképeket"
 	],
 	"Card": [
 		"Kártya"
@@ -711,11 +811,14 @@
 	"Changelog: %s": [
 		"Változásnapló: %s"
 	],
+	"Changes on %s will be replaced with your local files and database.": [
+		"A(z) %s oldalon végzett változtatásokat felülírják a helyi fájljaid és az adatbázisod."
+	],
+	"Changes published": [
+		"Változtatások közzétéve"
+	],
 	"Changes pulled into %s": [
 		"Változtatások lekérve ide: %s"
-	],
-	"Changes pulled into WordPress Studio": [
-		"Változtatások lekérve a WordPress Studióba"
 	],
 	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
 		"A változtatások feltöltve, de az oldalt nem sikerült elindítani. Ellenőrizd a csomagodat és a jogosultságaidat, majd tedd közzé újra az indítás megismétléséhez."
@@ -756,6 +859,9 @@
 	"Check WordPress Studio Logs for more details.": [
 		"További részletekért nézd meg a WordPress Studio naplóit."
 	],
+	"Check again": [
+		"Ellenőrzés újra"
+	],
 	"Check that the file is still available and readable, then try again or choose another backup.": [
 		"Ellenőrizd, hogy a fájl továbbra is elérhető és olvasható-e, majd próbáld újra, vagy válassz másik biztonsági mentést."
 	],
@@ -768,11 +874,20 @@
 	"Checking WordPress version…": [
 		"WordPress verzió ellenőrzése…"
 	],
+	"Checking access…": [
+		"Hozzáférés ellenőrzése…"
+	],
 	"Checking for updates…": [
 		"Frissítések keresése…"
 	],
+	"Checking whether you can pull from this preview…": [
+		"Annak ellenőrzése, hogy lekérhetsz-e ebből az előnézetből…"
+	],
 	"Checking your account…": [
 		"Fiók ellenőrzése…"
+	],
+	"Checking…": [
+		"Ellenőrzés…"
 	],
 	"Choose a <strong>one-time</strong> AI credit amount to check out securely on WordPress.com. AI credits do not expire.": [
 		"Válassz egy <strong>egyszeri</strong> AI-kreditmennyiséget, és fizess biztonságosan a WordPress.com-on. Az AI-kreditek nem járnak le."
@@ -810,6 +925,9 @@
 	"Choose a one-time AI credit amount to check out securely on WordPress.com. AI credits do not expire.": [
 		"Válassz egy egyszeri AI-kreditmennyiséget, és fizess biztonságosan a WordPress.com-on. Az AI-kreditek nem járnak le."
 	],
+	"Choose a plan to make it live: %s": [
+		"Válassz csomagot az élesítéshez: %s"
+	],
 	"Choose a provider": [
 		"Válassz szolgáltatót"
 	],
@@ -840,11 +958,11 @@
 	"Choose an existing site": [
 		"Válassz egy meglévő oldalt"
 	],
-	"Choose another host": [
-		"Másik tárhely választása"
-	],
 	"Choose color": [
 		"Szín kiválasztása"
+	],
+	"Choose files": [
+		"Fájlok kiválasztása"
 	],
 	"Choose files…": [
 		"Fájlok kiválasztása…"
@@ -854,6 +972,9 @@
 	],
 	"Choose model": [
 		"Modell kiválasztása"
+	],
+	"Choose specific files": [
+		"Adott fájlok kiválasztása"
 	],
 	"Choose the WordPress release for this site.": [
 		"Válaszd ki az oldalhoz használt WordPress kiadást."
@@ -866,6 +987,12 @@
 	],
 	"Choose whether this site can access only its own folder or other files on your computer.": [
 		"Válaszd ki, hogy az oldal csak a saját mappájához vagy a számítógéped más fájljaihoz is hozzáférhet-e."
+	],
+	"Choose which live site this preview shows changes to.": [
+		"Válaszd ki, melyik élő oldal változtatásait mutatja ez az előnézet."
+	],
+	"Choose your plan.": [
+		"Válaszd ki a csomagodat."
 	],
 	"Choose…": [
 		"Kiválasztás…"
@@ -957,9 +1084,6 @@
 	"Composer": [
 		"Üzenetszerkesztő"
 	],
-	"Connect %s": [
-		"%s csatlakoztatása"
-	],
 	"Connect %s first.": [
 		"Előbb csatlakoztasd ezt: %s."
 	],
@@ -987,6 +1111,9 @@
 	"Connect a provider to build and edit your site.": [
 		"Az oldalad építéséhez és szerkesztéséhez csatlakoztass egy szolgáltatót."
 	],
+	"Connect a provider to see your existing sites.": [
+		"A meglévő oldalaid megtekintéséhez csatlakoztass egy szolgáltatót."
+	],
 	"Connect an AI provider to turn your notes and ideas into changes to your site.": [
 		"Csatlakoztass egy AI-szolgáltatót, hogy a megjegyzéseidből és ötleteidből változtatások legyenek az oldaladon."
 	],
@@ -999,17 +1126,17 @@
 	"Connect to an existing WordPress": [
 		"Csatlakozás egy meglévő WordPresshez"
 	],
+	"Connect to an existing site": [
+		"Csatlakozás egy meglévő oldalhoz"
+	],
+	"Connect to publish": [
+		"Csatlakozz a közzétételhez"
+	],
+	"Connect to share previews": [
+		"Csatlakozz az előnézetek megosztásához"
+	],
 	"Connect to the internet to create an account or log in.": [
 		"Fiók létrehozásához vagy bejelentkezéshez csatlakozz az internethez."
-	],
-	"Connect to the internet to create or update a preview.": [
-		"Előnézet létrehozásához vagy frissítéséhez csatlakozz az internethez."
-	],
-	"Connect to the internet to publish or pull changes.": [
-		"A változtatások közzétételéhez vagy lekéréséhez csatlakozz az internethez."
-	],
-	"Connect to the internet to publish your site.": [
-		"Az oldalad közzétételéhez csatlakozz az internethez."
 	],
 	"Connect your WordPress": [
 		"Csatlakoztasd a WordPressedet"
@@ -1019,6 +1146,9 @@
 	],
 	"Connected live site ID, or none": [
 		"A csatlakoztatott élő oldal azonosítója, vagy none"
+	],
+	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
+		"Egy meglévő oldal csatlakoztatása leválasztja a jelenlegi célhelyet a WordPress Studióról. Annak tartalma nem változik."
 	],
 	"Connecting to WordPress.com": [
 		"Csatlakozás a WordPress.com-hoz"
@@ -1031,6 +1161,9 @@
 	],
 	"Continue for %s": [
 		"Tovább: %s"
+	],
+	"Continue on %s": [
+		"Folytatás itt: %s"
 	],
 	"Continue with GitHub": [
 		"Folytatás GitHubbal"
@@ -1092,17 +1225,20 @@
 	"Could not capture the area. Your selection is kept. Try again.": [
 		"Nem sikerült rögzíteni a területet. A kijelölésed megmaradt. Próbáld újra."
 	],
+	"Could not check Spacefast team access": [
+		"Nem sikerült ellenőrizni a Spacefast-csapat hozzáférését"
+	],
 	"Could not clear browsing data": [
 		"Nem sikerült törölni a böngészési adatokat"
+	],
+	"Could not connect to WordPress.com": [
+		"Nem sikerült csatlakozni a WordPress.com-hoz"
 	],
 	"Could not connect to the remote site.": [
 		"Nem sikerült csatlakozni a távoli oldalhoz."
 	],
 	"Could not copy": [
 		"Nem sikerült másolni"
-	],
-	"Could not delete the old preview site. It will expire on its own.": [
-		"Nem sikerült törölni a régi előnézeti oldalt. Magától le fog járni."
 	],
 	"Could not determine the remote wp-content path from preflight state, so --only cannot be used for this site. Run a full pull, or try again.": [
 		"Az előzetes ellenőrzés alapján nem sikerült meghatározni a távoli wp-content elérési útját, ezért a --only nem használható ennél az oldalnál. Futtass teljes lekérést, vagy próbáld újra."
@@ -1119,17 +1255,23 @@
 	"Could not get list of database tables. The WP CLI output: %s": [
 		"Nem sikerült lekérni az adatbázistáblák listáját. A WP CLI kimenete: %s"
 	],
+	"Could not load %s sites.": [
+		"Nem sikerült betölteni az oldalakat innen: %s."
+	],
 	"Could not log out": [
 		"Nem sikerült kijelentkezni"
-	],
-	"Could not migrate your sites": [
-		"Nem sikerült átköltöztetni az oldalaidat"
 	],
 	"Could not open DevTools": [
 		"Nem sikerült megnyitni a fejlesztői eszközöket"
 	],
 	"Could not open Spacefast": [
 		"Nem sikerült megnyitni a Spacefastot"
+	],
+	"Could not open the new preview. Please try again.": [
+		"Nem sikerült megnyitni az új előnézetet. Próbáld újra."
+	],
+	"Could not open the setup page. Please try again.": [
+		"Nem sikerült megnyitni a beállítási oldalt. Próbáld újra."
 	],
 	"Could not parse information about installed plugins to create meta.json file.": [
 		"Nem sikerült feldolgozni a telepített bővítmények adatait a meta.json fájl létrehozásához."
@@ -1143,11 +1285,17 @@
 	"Could not parse themes list. The WP CLI output: %s": [
 		"Nem sikerült feldolgozni a sablonlistát. A WP CLI kimenete: %s"
 	],
+	"Could not publish. Please try again.": [
+		"Nem sikerült a közzététel. Próbáld újra."
+	],
 	"Could not reach Anthropic to verify the credential.": [
 		"Nem sikerült elérni az Anthropicot a hitelesítő adat ellenőrzéséhez."
 	],
 	"Could not read the table prefix from wp-config.php": [
 		"Nem sikerült beolvasni a táblaelőtagot a wp-config.php fájlból"
+	],
+	"Could not read your settings": [
+		"Nem sikerült beolvasni a beállításaidat"
 	],
 	"Could not reset appearance. Please try again.": [
 		"Nem sikerült visszaállítani a megjelenést. Kérlek, próbáld újra."
@@ -1170,8 +1318,14 @@
 	"Could not update the admin bar setting. Please try again.": [
 		"Nem sikerült frissíteni az adminsáv beállítását. Kérlek, próbáld újra."
 	],
+	"Could not update your local site from this preview. Please try again.": [
+		"Nem sikerült frissíteni a helyi oldaladat ebből az előnézetből. Próbáld újra."
+	],
 	"Could not verify the credential with Anthropic.": [
 		"Nem sikerült ellenőrizni a hitelesítő adatot az Anthropicnál."
+	],
+	"Could not watch for your new site. Please try again.": [
+		"Nem sikerült követni az új oldalad létrejöttét. Próbáld újra."
 	],
 	"Couldn't copy the live site. Try again.": [
 		"Nem sikerült lemásolni az élő oldalt. Próbáld újra."
@@ -1200,14 +1354,41 @@
 	"Couldn’t archive the chat": [
 		"Nem sikerült archiválni a csevegést"
 	],
+	"Couldn’t change how much the model thinks": [
+		"Nem sikerült módosítani a modell gondolkodási szintjét"
+	],
+	"Couldn’t check for preview edits": [
+		"Nem sikerült ellenőrizni az előnézet szerkesztéseit"
+	],
+	"Couldn’t check previews.": [
+		"Nem sikerült ellenőrizni az előnézeteket."
+	],
+	"Couldn’t check whether you can pull from this preview.": [
+		"Nem sikerült ellenőrizni, hogy lekérhetsz-e ebből az előnézetből."
+	],
+	"Couldn’t check who can view new sites for this team.": [
+		"Nem sikerült ellenőrizni, ki láthatja a csapat új oldalait."
+	],
 	"Couldn’t create site: %s": [
 		"Nem sikerült létrehozni az oldalt: %s"
 	],
 	"Couldn’t load apps.": [
 		"Nem sikerült betölteni az alkalmazásokat."
 	],
+	"Couldn’t load publishing accounts": [
+		"Nem sikerült betölteni a közzétételi fiókokat"
+	],
+	"Couldn’t load your %s sites": [
+		"Nem sikerült betölteni az oldalaidat innen: %s"
+	],
+	"Couldn’t load your %s sites.": [
+		"Nem sikerült betölteni az oldalaidat innen: %s."
+	],
 	"Couldn’t load your AI provider.": [
 		"Nem sikerült betölteni az AI-szolgáltatódat."
+	],
+	"Couldn’t load your previews.": [
+		"Nem sikerült betölteni az előnézeteidet."
 	],
 	"Couldn’t open %s": [
 		"Nem sikerült megnyitni: %s"
@@ -1232,9 +1413,6 @@
 	],
 	"Couldn’t save the site order": [
 		"Nem sikerült menteni az oldalak sorrendjét"
-	],
-	"Couldn’t sign in to WordPress.com": [
-		"Nem sikerült bejelentkezni a WordPress.com-ra"
 	],
 	"Couldn’t switch the site this chat works on": [
 		"Nem sikerült átváltani az oldalt, amelyen ez a csevegés dolgozik"
@@ -1269,6 +1447,12 @@
 	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
 		"Hozz létre egy kulcsot az [OpenAI Platform](https://platform.openai.com/api-keys) felületén, majd illeszd be alább."
 	],
+	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
+		"Hozz létre egy kulcsot az [xAI Console](https://console.x.ai) felületén, majd illeszd be alább."
+	],
+	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
+		"Hozz létre egy kulcsot az [OpenRouter-beállításaidban](https://openrouter.ai/settings/keys), majd illeszd be alább."
+	],
 	"Create a new WordPress": [
 		"Új WordPress létrehozása"
 	],
@@ -1278,14 +1462,8 @@
 	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
 		"Hozz létre fiókot, vagy jelentkezz be, hogy csatlakoztathasd a WordPress.com vagy Pressable oldalaidat."
 	],
-	"Create an account or log in to publish a website and keep your sites in sync.": [
-		"Hozz létre fiókot, vagy jelentkezz be, hogy weboldalt tehess közzé, és szinkronban tarthasd az oldalaidat."
-	],
 	"Create an account or log in to share previews and keep your sites in sync.": [
 		"Hozz létre fiókot, vagy jelentkezz be, hogy előnézeteket oszthass meg, és szinkronban tarthasd az oldalaidat."
-	],
-	"Create another preview": [
-		"Újabb előnézet létrehozása"
 	],
 	"Create chat": [
 		"Csevegés létrehozása"
@@ -1301,6 +1479,12 @@
 	],
 	"Created site %s": [
 		"Oldal létrehozva: %s"
+	],
+	"Creating preview": [
+		"Előnézet létrehozása"
+	],
+	"Creating preview link…": [
+		"Előnézeti link létrehozása…"
 	],
 	"Creating preview…": [
 		"Előnézet létrehozása…"
@@ -1319,6 +1503,9 @@
 	],
 	"Custom instructions": [
 		"Egyéni utasítások"
+	],
+	"Custom selection": [
+		"Egyéni kijelölés"
 	],
 	"DESIGN.md %1$s, theme.json %2$s": [
 		"DESIGN.md: %1$s, theme.json: %2$s"
@@ -1344,11 +1531,17 @@
 	"Database import failed: %s": [
 		"Az adatbázis importálása sikertelen: %s"
 	],
+	"Database only": [
+		"Csak adatbázis"
+	],
 	"Deactivate all plugins": [
 		"Összes bővítmény deaktiválása"
 	],
 	"Deactivate plugin": [
 		"Bővítmény deaktiválása"
+	],
+	"Default": [
+		"Alapértelmezett"
 	],
 	"Default AI provider": [
 		"Alapértelmezett AI-szolgáltató"
@@ -1368,6 +1561,12 @@
 	"Default hosting provider": [
 		"Alapértelmezett tárhelyszolgáltató"
 	],
+	"Default image provider": [
+		"Alapértelmezett képszolgáltató"
+	],
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"Automatikus"
+	],
 	"Default language for WordPress Studio.": [
 		"A WordPress Studio alapértelmezett nyelve."
 	],
@@ -1381,6 +1580,12 @@
 		"%d oldal törlése",
 		"%d oldal törlése"
 	],
+	"Delete a preview in Sharing settings to create another.": [
+		"Újabb létrehozásához törölj egy előnézetet a Megosztás beállításaiban."
+	],
+	"Delete a site to create a new one.": [
+		"Új oldal létrehozásához törölj egy oldalt."
+	],
 	"Delete annotation": [
 		"Megjegyzés törlése"
 	],
@@ -1389,6 +1594,9 @@
 	],
 	"Delete plugin": [
 		"Bővítmény törlése"
+	],
+	"Delete sites you no longer need to free up space.": [
+		"Hely felszabadításához töröld a már nem szükséges oldalakat."
 	],
 	"Delete theme": [
 		"Sablon törlése"
@@ -1424,6 +1632,9 @@
 	"Design systems are available for block themes.": [
 		"Dizájnrendszerek a blokksablonokhoz érhetők el."
 	],
+	"Destination": [
+		"Célhely"
+	],
 	"Developer tools": [
 		"Fejlesztői eszközök"
 	],
@@ -1454,8 +1665,8 @@
 	"Disconnect a provider": [
 		"Szolgáltató leválasztása"
 	],
-	"Disconnect website?": [
-		"Leválasztod a weboldalt?"
+	"Disconnect site…": [
+		"Oldal leválasztása…"
 	],
 	"Disconnected %s.": [
 		"Leválasztva: %s."
@@ -1480,6 +1691,9 @@
 	],
 	"Download & copy command": [
 		"Letöltés és parancs másolása"
+	],
+	"Download WordPress Studio": [
+		"WordPress Studio letöltése"
 	],
 	"Download update": [
 		"Frissítés letöltése"
@@ -1559,6 +1773,9 @@
 	"Enable hosting features on WordPress.com before connecting this site.": [
 		"Az oldal csatlakoztatása előtt engedélyezd a tárhelyfunkciókat a WordPress.com-on."
 	],
+	"Ends on %s": [
+		"Lejár: %s"
+	],
 	"Enter a folder name other than “.” or “..”.": [
 		"Adj meg a „.” és „..” nevektől eltérő mappanevet."
 	],
@@ -1592,20 +1809,23 @@
 	"Every site you build lives in the sidebar on the left. Switch between them anytime. The sidebar is where you’ll find site settings and a quick way to start and stop your site.": [
 		"Minden oldalad a bal oldali oldalsávban található. Bármikor válthatsz közöttük. Az oldalsávban éred el az oldalbeállításokat, és gyorsan el is indíthatod vagy leállíthatod az oldaladat."
 	],
+	"Everyone": [
+		"Mindenki"
+	],
+	"Everything": [
+		"Minden"
+	],
 	"Everything you built in WordPress Studio is right here in the sidebar. Same sites, same files with a new workbench around them.": [
 		"Minden, amit a WordPress Studióban építettél, itt van az oldalsávban. Ugyanazok az oldalak, ugyanazok a fájlok, csak új munkakörnyezettel."
+	],
+	"Everything you need to build WordPress sites with Studio Code.": [
+		"Minden, ami a WordPress-oldalak Studio Code-dal való építéséhez kell."
 	],
 	"Exclude “%s” from removal": [
 		"„%s” kihagyása az eltávolításból"
 	],
 	"Existing WordPress site": [
 		"Meglévő WordPress oldal"
-	],
-	"Existing sites": [
-		"Meglévő oldalak"
-	],
-	"Existing site…": [
-		"Meglévő oldal…"
 	],
 	"Exit annotations": [
 		"Kilépés a megjegyzésekből"
@@ -1688,6 +1908,9 @@
 	"Failed to find existing preview site in config": [
 		"Nem található meglévő előnézeti oldal a konfigurációban"
 	],
+	"Failed to find the preview site’s launch link": [
+		"Nem található az előnézeti oldal élesítési linkje"
+	],
 	"Failed to get site plugins: %s": [
 		"Nem sikerült lekérni az oldal bővítményeit: %s"
 	],
@@ -1727,9 +1950,6 @@
 	"Failed to load your Spacefast Spaces": [
 		"Nem sikerült betölteni a Spacefast Space-eidet"
 	],
-	"Failed to move site files to trash. Proceeding anyway…": [
-		"Nem sikerült a kukába helyezni az oldal fájljait. Folytatás ennek ellenére…"
-	],
 	"Failed to open WordPress.com checkout.": [
 		"Nem sikerült megnyitni a WordPress.com pénztárat."
 	],
@@ -1754,11 +1974,11 @@
 	"Failed to read the attached image": [
 		"Nem sikerült beolvasni a csatolt képet"
 	],
-	"Failed to remove WordPress.com connections. Proceeding anyway…": [
-		"Nem sikerült eltávolítani a WordPress.com kapcsolatokat. Folytatás ennek ellenére…"
-	],
 	"Failed to save connected site": [
 		"Nem sikerült menteni a csatlakoztatott oldalt"
+	],
+	"Failed to set up WordPress": [
+		"Nem sikerült beállítani a WordPresst"
 	],
 	"Failed to start HTTP proxy server": [
 		"Nem sikerült elindítani a HTTP proxyszervert"
@@ -1808,11 +2028,11 @@
 	"File manager": [
 		"Fájlkezelő"
 	],
+	"Files could not be loaded.": [
+		"Nem sikerült betölteni a fájlokat."
+	],
 	"Files only": [
 		"Csak fájlok"
-	],
-	"Files, content, and settings": [
-		"Fájlok, tartalom és beállítások"
 	],
 	"Files…": [
 		"Fájlok…"
@@ -1825,6 +2045,12 @@
 	],
 	"Finish activating hosting on WordPress.com before publishing.": [
 		"A közzététel előtt fejezd be a tárhely aktiválását a WordPress.com-on."
+	],
+	"Finish activating hosting on WordPress.com before pulling.": [
+		"A lekérés előtt fejezd be a tárhely aktiválását a WordPress.com-on."
+	],
+	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
+		"Fejezd be a fizetést a WordPress.com lapon, majd gyere vissza ide. A munkaterületed automatikusan beállítja magát, amint a csomagod aktív."
 	],
 	"Finish signing in to %s in your browser.": [
 		"Fejezd be a bejelentkezést a böngésződben ide: %s."
@@ -1843,6 +2069,9 @@
 	],
 	"Folder…": [
 		"Mappa…"
+	],
+	"For generating images. Auto uses the AI provider when it can.": [
+		"Képek generálásához. Az Automatikus beállítás az AI-szolgáltatót használja, ha lehetséges."
 	],
 	"For publishing sites.": [
 		"Az oldalak közzétételéhez."
@@ -1865,6 +2094,9 @@
 	"Found %d blueprint": [
 		"%d Blueprint található",
 		"%d Blueprint található"
+	],
+	"Free": [
+		"Ingyenes"
 	],
 	"Free credits remaining: %s": [
 		"Hátralévő ingyenes kreditek: %s"
@@ -1935,6 +2167,15 @@
 	"Green Dolphin Street": [
 		"Green Dolphin Street"
 	],
+	"Grok sent back an incomplete sign-in.": [
+		"A Grok hiányos bejelentkezési adatokat küldött vissza."
+	],
+	"Grok sign-in could not be started. Try again.": [
+		"A Grok-bejelentkezést nem sikerült elindítani. Próbáld újra."
+	],
+	"Grok sign-in was declined.": [
+		"A Grok-bejelentkezést elutasították."
+	],
 	"Guideline: %s": [
 		"Irányelv: %s"
 	],
@@ -1977,6 +2218,9 @@
 	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
 		"A WordPress adminsáv alapértelmezett elrejtése a helyi oldalakon. Az egyes oldalaknál ezt a Böngésző beállításaiban módosíthatod."
 	],
+	"High": [
+		"Magas"
+	],
 	"Hints": [
 		"Tippek"
 	],
@@ -1991,6 +2235,9 @@
 	],
 	"How do you want to connect %s?": [
 		"Hogyan szeretnéd csatlakoztatni ezt: %s?"
+	],
+	"How much should the model think?": [
+		"Mennyit gondolkodjon a modell?"
 	],
 	"How to connect": [
 		"Csatlakozás módja"
@@ -2130,14 +2377,17 @@
 	"Invalid AI session input payload.": [
 		"Érvénytelen AI-munkamenet bemeneti adat."
 	],
+	"Invited people": [
+		"Meghívott személyek"
+	],
 	"It resets on %s.": [
 		"Visszaállás ekkor: %s."
 	],
 	"Its last pull failed and the site is incomplete.": [
 		"A legutóbbi lekérés sikertelen volt, és az oldal hiányos."
 	],
-	"Its shared link will stop working.": [
-		"A megosztott linkje megszűnik működni."
+	"I’ve paid, continue": [
+		"Fizettem, tovább"
 	],
 	"JSON-encoded permission response for a paused session": [
 		"JSON-kódolt engedélyválasz egy szüneteltetett munkamenethez"
@@ -2177,11 +2427,26 @@
 	"Kind of Blue": [
 		"Kind of Blue"
 	],
-	"Last pulled": [
-		"Utolsó lekérés"
+	"Last updated %s": [
+		"Utoljára frissítve: %s"
+	],
+	"Last updated just now": [
+		"Utoljára frissítve: az imént"
+	],
+	"Last updated on %s": [
+		"Utoljára frissítve: %s"
+	],
+	"Launch a public site with a paid plan.": [
+		"Indíts nyilvános oldalt fizetős csomaggal."
+	],
+	"Launch on %s": [
+		"Élesítés itt: %s"
 	],
 	"Launching site…": [
 		"Oldal elindítása…"
+	],
+	"Learn about Spacefast": [
+		"Tudj meg többet a Spacefastról"
 	],
 	"Learn more about AI credits": [
 		"További információ az AI-kreditekről"
@@ -2285,11 +2550,17 @@
 	"Loading apps…": [
 		"Alkalmazások betöltése…"
 	],
+	"Loading destinations": [
+		"Célhelyek betöltése"
+	],
 	"Loading file…": [
 		"Fájl betöltése…"
 	],
 	"Loading image…": [
 		"Kép betöltése…"
+	],
+	"Loading models…": [
+		"Modellek betöltése…"
 	],
 	"Loading site preview": [
 		"Oldalelőnézet betöltése"
@@ -2302,6 +2573,12 @@
 	],
 	"Local Static Site Importer plugin zip for --from imports, including a paired build from the importer’s build:dev-package": [
 		"Helyi Static Site Importer bővítmény zip --from importokhoz, beleértve az importáló build:dev-package parancsával készült párosított buildet"
+	],
+	"Local and preview changes": [
+		"Helyi és előnézeti változtatások"
+	],
+	"Local changes": [
+		"Helyi változtatások"
 	],
 	"Local domain": [
 		"Helyi domain"
@@ -2321,14 +2598,26 @@
 	"Look Up “%s”": [
 		"„%s” keresése"
 	],
+	"Low": [
+		"Alacsony"
+	],
 	"Maiden Voyage": [
 		"Maiden Voyage"
 	],
 	"Mail": [
 		"Levelek"
 	],
+	"Make a preview site your live site": [
+		"Előnézeti oldal élő oldallá tétele"
+	],
+	"Make it your live site: %s": [
+		"Tedd élő oldallá: %s"
+	],
 	"Make it yours": [
 		"Szabd magadra"
+	],
+	"Make sure the codes match in your browser, then approve the connection.": [
+		"Ellenőrizd, hogy a kódok egyeznek-e a böngésződben, majd hagyd jóvá a kapcsolatot."
 	],
 	"Manage AI credits": [
 		"AI-kreditek kezelése"
@@ -2338,6 +2627,9 @@
 	],
 	"Manage content": [
 		"Tartalom kezelése"
+	],
+	"Manage credits": [
+		"Kreditek kezelése"
 	],
 	"Manage instructions for all sites": [
 		"Utasítások kezelése az összes oldalhoz"
@@ -2351,6 +2643,9 @@
 	"Manage menus": [
 		"Menük kezelése"
 	],
+	"Manage on Spacefast": [
+		"Kezelés a Spacefaston"
+	],
 	"Manage on WordPress.com": [
 		"Kezelés a WordPress.com-on"
 	],
@@ -2359,9 +2654,6 @@
 	],
 	"Manage plugins": [
 		"Bővítmények kezelése"
-	],
-	"Manage sharing": [
-		"Megosztás kezelése"
 	],
 	"Manage site configuration": [
 		"Oldalkonfiguráció kezelése"
@@ -2381,11 +2673,17 @@
 	"Manage themes": [
 		"Sablonok kezelése"
 	],
+	"Manage these access rules on Spacefast.": [
+		"Ezeket a hozzáférési szabályokat a Spacefaston kezelheted."
+	],
 	"Manage usage": [
 		"Használat kezelése"
 	],
 	"Manage users": [
 		"Felhasználók kezelése"
+	],
+	"Manage visibility on Spacefast.": [
+		"A láthatóságot a Spacefaston kezelheted."
 	],
 	"Manual MCP setup": [
 		"Kézi MCP-beállítás"
@@ -2398,6 +2696,9 @@
 	],
 	"Media uploads…": [
 		"Feltöltött médiafájlok…"
+	],
+	"Medium": [
+		"Közepes"
 	],
 	"Meet the new WordPress Studio": [
 		"Ismerd meg az új WordPress Studiót"
@@ -2440,6 +2741,9 @@
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
+	],
+	"More room and more AI, for building every day.": [
+		"Több hely és több AI a mindennapi építéshez."
 	],
 	"Move site files to trash (use --no-files to keep files)": [
 		"Az oldal fájljainak kukába helyezése (a fájlok megtartásához használd a --no-files kapcsolót)"
@@ -2486,9 +2790,6 @@
 	"New site \"%s\"": [
 		"Új oldal: „%s”"
 	],
-	"New site…": [
-		"Új oldal…"
-	],
 	"New tab": [
 		"Új lap"
 	],
@@ -2525,11 +2826,20 @@
 	"No existing sites.": [
 		"Nincsenek meglévő oldalak."
 	],
+	"No files are available to choose.": [
+		"Nincsenek választható fájlok."
+	],
 	"No forward history": [
 		"Nincs következő oldal az előzményekben"
 	],
+	"No local server answered at %s. Check the address, and that your server is running.": [
+		"Egyetlen helyi szerver sem válaszolt ezen a címen: %s. Ellenőrizd a címet, és hogy fut-e a szervered."
+	],
 	"No matching sites.": [
 		"Nincs egyező oldal."
+	],
+	"No models found.": [
+		"Nem található modell."
 	],
 	"No provider is connected.": [
 		"Nincs csatlakoztatott szolgáltató."
@@ -2573,20 +2883,38 @@
 	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
 		"A PHP workerek száma, amely korlátozza, hány kérést szolgálhat ki egyszerre az oldal (alapértelmezett: %d)"
 	],
+	"Off": [
+		"Ki"
+	],
 	"Once the download finishes, quit WordPress Studio, open a terminal, and paste the command to install:": [
 		"Ha a letöltés befejeződött, lépj ki a WordPress Studióból, nyiss meg egy terminált, és a telepítéshez illeszd be a parancsot:"
+	],
+	"One more step": [
+		"Még egy lépés"
 	],
 	"Only PNG, JPEG, GIF, and WebP images can be attached": [
 		"Csak PNG, JPEG, GIF és WebP képek csatolhatók"
 	],
+	"Only if your server asks for one.": [
+		"Csak ha a szervered kéri."
+	],
 	"Only push these paths from the selection made with --options": [
 		"Csak ezen útvonalak feltöltése a --options kapcsolóval kiválasztottak közül"
+	],
+	"Only you": [
+		"Csak te"
+	],
+	"Only you and people you invite can view.": [
+		"Csak te és az általad meghívott személyek láthatják."
 	],
 	"Open %s": [
 		"%s megnyitása"
 	],
 	"Open %s settings": [
 		"%s beállítások megnyitása"
+	],
+	"Open Config File (dev only)": [
+		"Konfigurációs fájl megnyitása (csak fejlesztéshez)"
 	],
 	"Open Design System": [
 		"Dizájnrendszer megnyitása"
@@ -2630,6 +2958,9 @@
 	"Open on GitHub": [
 		"Megnyitás a GitHubon"
 	],
+	"Open preview: %s": [
+		"Előnézet megnyitása: %s"
+	],
 	"Open the UI in your default browser": [
 		"A felület megnyitása az alapértelmezett böngésződben"
 	],
@@ -2648,6 +2979,30 @@
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"Az OpenAI kódoló ügynöke a ChatGPT alkalmazásban."
 	],
+	"OpenRouter API key": [
+		"OpenRouter API-kulcs"
+	],
+	"OpenRouter is limiting requests on your key. Try again shortly.": [
+		"Az OpenRouter korlátozza a kulcsod kéréseit. Próbáld újra hamarosan."
+	],
+	"OpenRouter is limiting requests right now. Wait a moment and try again.": [
+		"Az OpenRouter jelenleg korlátozza a kéréseket. Várj egy kicsit, és próbáld újra."
+	],
+	"OpenRouter rejected the API key. Connect OpenRouter again in Settings.": [
+		"Az OpenRouter elutasította az API-kulcsot. Csatlakoztasd újra az OpenRoutert a Beállításokban."
+	],
+	"OpenRouter rejected this API key. Check the key and try again.": [
+		"Az OpenRouter elutasította ezt az API-kulcsot. Ellenőrizd a kulcsot, és próbáld újra."
+	],
+	"OpenRouter sign-in could not be completed. Try again.": [
+		"Az OpenRouter-bejelentkezést nem sikerült befejezni. Próbáld újra."
+	],
+	"OpenRouter’s moderation refused this request.": [
+		"Az OpenRouter moderálása elutasította ezt a kérést."
+	],
+	"Opening %s": [
+		"%s megnyitása"
+	],
 	"Opening WordPress.com checkout. If your browser didn’t open, use the link below:": [
 		"A WordPress.com pénztár megnyitása. Ha a böngésző nem nyílt meg, használd az alábbi linket:"
 	],
@@ -2659,6 +3014,9 @@
 	],
 	"Opening the local site…": [
 		"Helyi oldal megnyitása…"
+	],
+	"Other files": [
+		"Egyéb fájlok"
 	],
 	"Other files…": [
 		"Egyéb fájlok…"
@@ -2680,6 +3038,9 @@
 	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"A PHP workerek száma 1 és 64 közötti egész szám lehet."
+	],
+	"Paid plan": [
+		"Fizetős csomag"
 	],
 	"Panel": [
 		"Panel"
@@ -2705,6 +3066,12 @@
 	"Performance audit": [
 		"Teljesítményelemzés"
 	],
+	"Pick at least one model OpenRouter offers.": [
+		"Válassz legalább egy modellt az OpenRouter kínálatából."
+	],
+	"Pick at least one model your server offers.": [
+		"Válassz legalább egy modellt a szervered kínálatából."
+	],
 	"Pick design": [
 		"Dizájn kiválasztása"
 	],
@@ -2729,6 +3096,9 @@
 	"Plan complex builds and solve harder problems": [
 		"Összetett projektek tervezése és nehezebb problémák megoldása"
 	],
+	"Plan ended": [
+		"A csomag lejárt"
+	],
 	"Please review the attached files.": [
 		"Kérlek, nézd át a csatolt fájlokat."
 	],
@@ -2746,6 +3116,9 @@
 	],
 	"Port to listen on": [
 		"A figyelt port"
+	],
+	"Posts, pages, and settings": [
+		"Bejegyzések, oldalak és beállítások"
 	],
 	"Preparing backup…": [
 		"Biztonsági mentés előkészítése…"
@@ -2774,8 +3147,29 @@
 	"Preview creation cancelled": [
 		"Előnézet létrehozása megszakítva"
 	],
+	"Preview creation is temporarily unavailable for your account.": [
+		"Az előnézetek létrehozása átmenetileg nem érhető el a fiókodban."
+	],
+	"Preview details": [
+		"Előnézet részletei"
+	],
+	"Preview expiration": [
+		"Előnézet lejárata"
+	],
+	"Preview has changes": [
+		"Az előnézeten változtatások vannak"
+	],
 	"Preview in browser": [
 		"Előnézet böngészőben"
+	],
+	"Preview limit reached": [
+		"Elérted az előnézetek korlátját"
+	],
+	"Preview link is not available yet. Please try again.": [
+		"Az előnézeti link még nem érhető el. Próbáld újra."
+	],
+	"Preview link ready": [
+		"Az előnézeti link elkészült"
 	],
 	"Preview name": [
 		"Előnézet neve"
@@ -2785,6 +3179,9 @@
 	],
 	"Preview site not found": [
 		"Az előnézeti oldal nem található"
+	],
+	"Preview sites are temporary. Updating your preview resets the expiration date.": [
+		"Az előnézeti oldalak ideiglenesek. Az előnézet frissítése újraindítja a lejárati időt."
 	],
 	"Preview tabs": [
 		"Előnézeti lapok"
@@ -2801,6 +3198,9 @@
 	"Privacy Policy: %s": [
 		"Adatvédelmi irányelvek: %s"
 	],
+	"Private sites and preview links": [
+		"Privát oldalak és előnézeti linkek"
+	],
 	"Project tools": [
 		"Projekteszközök"
 	],
@@ -2816,6 +3216,9 @@
 	"Publish a static copy of your sites to a Spacefast Space.": [
 		"Tedd közzé az oldalaid statikus másolatát egy Spacefast Space-ben."
 	],
+	"Publish again?": [
+		"Újra közzéteszed?"
+	],
 	"Publish and share": [
 		"Közzététel és megosztás"
 	],
@@ -2825,14 +3228,17 @@
 	"Publish changes": [
 		"Változtatások közzététele"
 	],
-	"Publish changes or get the latest updates.": [
-		"Tedd közzé a változtatásaidat, vagy kérd le a legfrissebb módosításokat."
-	],
-	"Publish details": [
-		"Közzététel részletei"
+	"Publish changes?": [
+		"Közzéteszed a változtatásokat?"
 	],
 	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
 		"Új oldalak közzététele vagy meglévők frissítése a WordPress.com-on vagy a Pressable-ön."
+	],
+	"Publish options could not be loaded.": [
+		"Nem sikerült betölteni a közzétételi beállításokat."
+	],
+	"Publish somewhere else": [
+		"Közzététel máshol"
 	],
 	"Publish the active site to WordPress.com": [
 		"Az aktív oldal közzététele a WordPress.com-on"
@@ -2843,6 +3249,9 @@
 	"Publish to %s to apply these changes.": [
 		"A változtatások érvényesítéséhez tedd közzé itt: %s."
 	],
+	"Publish to %s.": [
+		"Közzététel ide: %s."
+	],
 	"Publish to Spacefast": [
 		"Közzététel a Spacefaston"
 	],
@@ -2852,14 +3261,11 @@
 	"Publish to a real WordPress.com site when you're ready": [
 		"Ha készen állsz, tedd közzé egy valódi WordPress.com oldalon"
 	],
-	"Publish to another site…": [
-		"Közzététel egy másik oldalon…"
+	"Publish to a site you already have.": [
+		"Közzététel egy már meglévő oldaladon."
 	],
 	"Publish your WordPress": [
 		"Tedd közzé a WordPressedet"
-	],
-	"Publish your changes.": [
-		"Tedd közzé a változtatásaidat."
 	],
 	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
 		"Tedd közzé az oldaladat, ha elkészült, vagy ossz meg egy előnézetet a WordPress.com-on keresztül."
@@ -2867,14 +3273,8 @@
 	"Publish, at the top of the preview, replaces Sync: push your site to WordPress.com or pull changes back. Share sends anyone a preview link.": [
 		"Az előnézet tetején lévő Közzététel váltja a Szinkronizálást: töltsd fel az oldaladat a WordPress.com-ra, vagy kérd le a változtatásokat. A Megosztással bárkinek küldhetsz előnézeti linket."
 	],
-	"Published %s": [
-		"Közzétéve: %s"
-	],
-	"Published sites": [
-		"Közzétett oldalak"
-	],
-	"Published to": [
-		"Közzétéve itt"
+	"Published site actions": [
+		"Közzétett oldal műveletei"
 	],
 	"Published to %s": [
 		"Közzétéve itt: %s"
@@ -2891,8 +3291,11 @@
 	"Publishing didn’t finish": [
 		"A közzététel nem fejeződött be"
 	],
-	"Publishing progress": [
-		"Közzététel állapota"
+	"Publishing requires a supported plan.": [
+		"A közzétételhez támogatott csomag szükséges."
+	],
+	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
+		"Az adatbázis közzététele felülírja az élő oldalon végzett változtatásokat, köztük az új hozzászólásokat és rendeléseket is."
 	],
 	"Publishing to %s… this may take several minutes.": [
 		"Közzététel ide: %s… ez több percig is eltarthat."
@@ -2903,8 +3306,11 @@
 	"Pull a WordPress.com or Pressable site to your local site": [
 		"WordPress.com vagy Pressable oldal lekérése a helyi oldaladra"
 	],
-	"Pull changes": [
-		"Változtatások lekérése"
+	"Pull from live site…": [
+		"Lekérés az élő oldalról…"
+	],
+	"Pull from preview…": [
+		"Lekérés az előnézetből…"
 	],
 	"Pull only the database (keeps the local files)": [
 		"Csak az adatbázis lekérése (a helyi fájlok megmaradnak)"
@@ -2912,8 +3318,8 @@
 	"Pull preview": [
 		"Előnézet lekérése"
 	],
-	"Pull progress": [
-		"Lekérés állapota"
+	"Pull replaces your local copy. Update replaces the preview.": [
+		"A lekérés lecseréli a helyi példányt. A frissítés lecseréli az előnézetet."
 	],
 	"Pull site": [
 		"Oldal lekérése"
@@ -2932,6 +3338,9 @@
 	],
 	"Pulling files": [
 		"Fájlok lekérése"
+	],
+	"Pulling from this preview is unavailable for this account.": [
+		"Ennél a fióknál nem érhető el a lekérés ebből az előnézetből."
 	],
 	"Pulling site…": [
 		"Oldal lekérése…"
@@ -2956,9 +3365,6 @@
 	],
 	"Put your feedback to work": [
 		"Váltsd tettekre a visszajelzéseidet"
-	],
-	"Quality validation failed.": [
-		"A minőségellenőrzés sikertelen."
 	],
 	"Question %1$d of %2$d": [
 		"%1$d. kérdés / %2$d"
@@ -2993,6 +3399,9 @@
 	"Read site title": [
 		"Oldalcím olvasása"
 	],
+	"Receipts": [
+		"Nyugták"
+	],
 	"Recent chats": [
 		"Legutóbbi csevegések"
 	],
@@ -3004,6 +3413,9 @@
 	],
 	"Recent pages": [
 		"Legutóbbi lapok"
+	],
+	"Recommended": [
+		"Ajánlott"
 	],
 	"Reconnect to load your WordPress.com and Pressable sites.": [
 		"Csatlakozz újra a WordPress.com és Pressable oldalaid betöltéséhez."
@@ -3019,9 +3431,6 @@
 	],
 	"Reload App": [
 		"Alkalmazás újratöltése"
-	],
-	"Reload availability": [
-		"Elérhetőség újratöltése"
 	],
 	"Remember my choice": [
 		"Választásom megjegyzése"
@@ -3041,6 +3450,9 @@
 	"Remove %d site from WordPress Studio?": [
 		"Eltávolítasz %d oldalt a WordPress Studióból?",
 		"Eltávolítasz %d oldalt a WordPress Studióból?"
+	],
+	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
+		"Eltávolítod a(z) %s oldalt a WordPress Studióból? A közzétett oldal és a helyi WordPress nem változik."
 	],
 	"Remove Blueprint": [
 		"Blueprint eltávolítása"
@@ -3078,6 +3490,27 @@
 	],
 	"Rename the focused site or chat": [
 		"A kijelölt oldal vagy csevegés átnevezése"
+	],
+	"Renew": [
+		"Megújítás"
+	],
+	"Renew your plan": [
+		"Csomag megújítása"
+	],
+	"Replace local site": [
+		"Helyi oldal cseréje"
+	],
+	"Replace preview": [
+		"Előnézet cseréje"
+	],
+	"Replace preview changes?": [
+		"Felülírod az előnézet változtatásait?"
+	],
+	"Replace preview contents?": [
+		"Lecseréled az előnézet tartalmát?"
+	],
+	"Replace selected content": [
+		"Kijelölt tartalom cseréje"
 	],
 	"Replace the contents of a non-empty output directory": [
 		"Nem üres kimeneti könyvtár tartalmának felülírása"
@@ -3124,6 +3557,9 @@
 	"Reset tips": [
 		"Tippek visszaállítása"
 	],
+	"Reset to recommended": [
+		"Visszaállítás az ajánlottra"
+	],
 	"Resize panel": [
 		"Panel átméretezése"
 	],
@@ -3160,6 +3596,9 @@
 	],
 	"Restrict the pull to specific wp-content files or folders (e.g. plugins/akismet, themes, uploads/index.php); repeatable.": [
 		"A lekérés korlátozása adott wp-content fájlokra vagy mappákra (pl. plugins/akismet, themes, uploads/index.php); többször is megadható."
+	],
+	"Restricted": [
+		"Korlátozott"
 	],
 	"Restricts the site's file access to the site directory.": [
 		"Az oldal fájlhozzáférését az oldal könyvtárára korlátozza."
@@ -3279,6 +3718,9 @@
 	"Search commands": [
 		"Parancsok keresése"
 	],
+	"Search models": [
+		"Modellek keresése"
+	],
 	"Search settings": [
 		"Beállítások keresése"
 	],
@@ -3318,23 +3760,23 @@
 	"Select an email to read it.": [
 		"Válassz egy e-mailt az elolvasásához."
 	],
+	"Select at least one file or folder.": [
+		"Válassz ki legalább egy fájlt vagy mappát."
+	],
 	"Select default site directory": [
 		"Alapértelmezett oldalkönyvtár kiválasztása"
+	],
+	"Select something to publish.": [
+		"Válaszd ki, mit szeretnél közzétenni."
+	],
+	"Select the files and folders to publish.": [
+		"Válaszd ki a közzéteendő fájlokat és mappákat."
 	],
 	"Select what to pull from the remote site": [
 		"Válaszd ki, mit szeretnél lekérni a távoli oldalról"
 	],
 	"Selected area": [
 		"Kijelölt terület"
-	],
-	"Selected files and content": [
-		"Kiválasztott fájlok és tartalom"
-	],
-	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
-		"A WordPress Studióban a kiválasztott fájlok, tartalmak és beállítások felülíródnak. A weboldalad változatlan marad."
-	],
-	"Selected files, content, and settings on your website will be overwritten.": [
-		"A weboldaladon a kiválasztott fájlok, tartalmak és beállítások felülíródnak."
 	],
 	"Send %d annotation": [
 		"%d megjegyzés küldése",
@@ -3349,14 +3791,26 @@
 	"Send or delete some annotations before adding more": [
 		"Újabbak hozzáadása előtt küldj el vagy törölj néhány megjegyzést"
 	],
+	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
+		"Állítsd be a STUDIO_SERVE_SECRET változót, hogy más gépekről is elérhető legyen."
+	],
 	"Set WP_ENVIRONMENT_TYPE": [
 		"WP_ENVIRONMENT_TYPE beállítása"
 	],
 	"Set coding standards, preferred tools, and response style for new chats across all sites.": [
 		"Kódolási szabványok, előnyben részesített eszközök és válaszstílus beállítása az összes oldal új csevegéseihez."
 	],
+	"Set how much the model thinks in this chat": [
+		"A modell gondolkodási szintjének beállítása ebben a csevegésben"
+	],
 	"Sets the value returned by wp_get_environment_type().": [
 		"A wp_get_environment_type() által visszaadott értéket állítja be."
+	],
+	"Setting up WordPress…": [
+		"WordPress beállítása…"
+	],
+	"Setting up your workspace…": [
+		"A munkaterületed beállítása…"
 	],
 	"Settings scope": [
 		"Beállítások hatóköre"
@@ -3370,11 +3824,11 @@
 	"Setup did not finish. The local site and WordPress.com connection were kept": [
 		"A beállítás nem fejeződött be. A helyi oldal és a WordPress.com kapcsolat megmaradt"
 	],
-	"Share a preview": [
-		"Előnézet megosztása"
-	],
 	"Share a preview of your site": [
 		"Oszd meg az oldalad előnézetét"
+	],
+	"Share a preview or publish your site": [
+		"Ossz meg egy előnézetet, vagy tedd közzé az oldaladat"
 	],
 	"Share a temporary copy of your local site with anyone.": [
 		"Oszd meg a helyi oldalad ideiglenes másolatát bárkivel."
@@ -3382,11 +3836,8 @@
 	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
 		"Oszd meg a helyi oldalad ideiglenes másolatát bárkivel. Az előnézeti oldal lejár, ha körülbelül egy hétig nem frissül."
 	],
-	"Share a temporary preview of your site. Update it when you want to share your latest changes.": [
-		"Oszd meg az oldalad ideiglenes előnézetét. Frissítsd, amikor meg szeretnéd osztani a legújabb változtatásaidat."
-	],
-	"Share and publish": [
-		"Megosztás és közzététel"
+	"Share a temporary preview link.": [
+		"Ideiglenes előnézeti link megosztása."
 	],
 	"Share anonymous usage statistics": [
 		"Névtelen használati statisztikák megosztása"
@@ -3472,6 +3923,9 @@
 	"Sign in to WordPress Studio": [
 		"Bejelentkezés a WordPress Studióba"
 	],
+	"Sign in to create a preview link.": [
+		"Előnézeti link létrehozásához jelentkezz be."
+	],
 	"Sign in to do more with WordPress Studio": [
 		"Jelentkezz be, hogy többet hozhass ki a WordPress Studióból"
 	],
@@ -3481,8 +3935,20 @@
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"Jelentkezz be a ChatGPT-vel, vagy használj OpenAI API-kulcsot."
 	],
+	"Sign in with Grok": [
+		"Bejelentkezés Grokkal"
+	],
+	"Sign in with OpenRouter": [
+		"Bejelentkezés OpenRouterrel"
+	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Jelentkezz be egy Copilot-hozzáféréssel rendelkező GitHub-fiókkal."
+	],
+	"Sign in with an eligible Grok account or use an xAI API key.": [
+		"Jelentkezz be egy jogosult Grok-fiókkal, vagy használj xAI API-kulcsot."
+	],
+	"Sign out": [
+		"Kijelentkezés"
 	],
 	"Sign-in details for this site and its previews.": [
 		"Bejelentkezési adatok ehhez az oldalhoz és előnézeteihez."
@@ -3541,11 +4007,17 @@
 	"Site exported": [
 		"Oldal exportálva"
 	],
+	"Site files left on disk": [
+		"A lemezen maradt oldalfájlok"
+	],
 	"Site folder": [
 		"Oldal mappája"
 	],
 	"Site folder is required.": [
 		"Az oldal mappájának megadása kötelező."
+	],
+	"Site imported, but the WordPress server failed to start: %s": [
+		"Az oldal importálva, de a WordPress szervert nem sikerült elindítani: %s"
 	],
 	"Site is busy": [
 		"Az oldal foglalt"
@@ -3604,6 +4076,9 @@
 	"Snapshots": [
 		"Pillanatképek"
 	],
+	"Some destinations could not be loaded": [
+		"Néhány célhelyet nem sikerült betölteni"
+	],
 	"Something went wrong and this turn was stopped. Please try again.": [
 		"Hiba történt, és ez a lépés leállt. Kérlek, próbáld újra."
 	],
@@ -3624,6 +4099,9 @@
 	],
 	"Source website prepared": [
 		"Forrásweboldal előkészítve"
+	],
+	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
+		"A Spacefast még alkalmazza a láthatóság módosítását. Ellenőrizd a hozzáférést a Spacefaston."
 	],
 	"Spacefast sign-in was declined.": [
 		"A Spacefast-bejelentkezést elutasították."
@@ -3685,6 +4163,12 @@
 	"Start signing in with GitHub again.": [
 		"Kezdd újra a bejelentkezést a GitHubbal."
 	],
+	"Start signing in with Grok again.": [
+		"Kezdd újra a bejelentkezést a Grokkal."
+	],
+	"Start signing in with OpenRouter again.": [
+		"Kezdd újra a bejelentkezést az OpenRouterrel."
+	],
 	"Start site when sending a prompt": [
 		"Oldal indítása üzenet küldésekor"
 	],
@@ -3706,6 +4190,9 @@
 	"Start with Blank site": [
 		"Kezdés üres oldallal"
 	],
+	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
+		"Indítsd el a modellszerveredet legalább egy modellel, majd add meg a címet, amelyen figyel. A Studio felkínálja a szerver által elérhetővé tett modelleket."
+	],
 	"Starting %s": [
 		"%s indítása"
 	],
@@ -3723,9 +4210,6 @@
 	],
 	"Static Site Importer cleanup failed. The imported site and staged request were preserved.": [
 		"A Static Site Importer takarítása sikertelen. Az importált oldal és az előkészített kérés megmaradt."
-	],
-	"Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s": [
-		"A Static Site Importer elkészített egy előnézetet, de nem fogadta el. Az oldal és az előkészített kérés megmaradt: %s"
 	],
 	"Static Site Importer plugin zip URL for --from imports": [
 		"A Static Site Importer bővítmény zip URL-je --from importokhoz"
@@ -3753,6 +4237,9 @@
 	],
 	"Stop %s": [
 		"%s leállítása"
+	],
+	"Stop a site to start another.": [
+		"Egy másik oldal indításához állíts le egyet."
 	],
 	"Stop annotating": [
 		"Megjegyzések befejezése"
@@ -3784,6 +4271,9 @@
 	"Studio CLI uninstalled. Removed:": [
 		"A Studio CLI eltávolítva. Eltávolított elemek:"
 	],
+	"Studio Cloud": [
+		"Studio Cloud"
+	],
 	"Studio Code AI is blocked for this WordPress.com account. If you believe this is a mistake, <supportLink>contact WordPress.com support</supportLink>.": [
 		"A Studio Code AI le van tiltva ennél a WordPress.com fióknál. Ha úgy gondolod, hogy ez tévedés, <supportLink>fordulj a WordPress.com támogatásához</supportLink>."
 	],
@@ -3799,8 +4289,17 @@
 	"Studio Code limits are temporarily unavailable.": [
 		"A Studio Code korlátai átmenetileg nem érhetők el."
 	],
+	"Studio Code sets how much %s thinks.": [
+		"A Studio Code állítja be, mennyit gondolkodjon a(z) %s."
+	],
 	"Studio Code, right beside your site": [
 		"Studio Code, közvetlenül az oldalad mellett"
+	],
+	"Studio can’t run your sites because one of its files was removed, often by antivirus software. Reinstall WordPress Studio to restore it. If it happens again, allow WordPress Studio in your antivirus settings.": [
+		"A Studio nem tudja futtatni az oldalaidat, mert eltávolították az egyik fájlját, gyakran egy vírusirtó. A visszaállításához telepítsd újra a WordPress Studiót. Ha újra előfordul, engedélyezd a WordPress Studiót a vírusirtód beállításaiban."
+	],
+	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
+		"A Studio nem tudja megállapítani, hogy szerkesztette-e valaki ezt: %s. Az előnézet frissítése lecseréli a helyi oldaladra."
 	],
 	"Studio was updated, and the site \"%s\" could not be started again.": [
 		"A Studio frissült, és a(z) „%s” oldalt nem sikerült újraindítani."
@@ -3880,6 +4379,9 @@
 	"The GitHub sign-in expired. Try again.": [
 		"A GitHub-bejelentkezés lejárt. Próbáld újra."
 	],
+	"The Grok sign-in expired. Try again.": [
+		"A Grok-bejelentkezés lejárt. Próbáld újra."
+	],
 	"The PHP version used to run WordPress on this site.": [
 		"Az oldalon a WordPress futtatásához használt PHP-verzió."
 	],
@@ -3906,6 +4408,9 @@
 	],
 	"The configuration couldn't be changed to speed up site creation.\n\nTo initiate this process again, please go to \"Help > How can I make WordPress Studio faster?\" in the application menu.": [
 		"Nem sikerült módosítani a konfigurációt az oldalak gyorsabb létrehozásához.\n\nA folyamat újraindításához válaszd az alkalmazásmenüben a „Segítség > Hogyan tehetem gyorsabbá a WordPress Studio-t?” lehetőséget."
+	],
+	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
+		"A(z) %s modell kontextusa túl kicsi a Studio Code-hoz. Növeld a kontextushosszt a szervered beállításaiban."
 	],
 	"The database failed to import on the live site. Review your database and try again.": [
 		"Az adatbázis importálása nem sikerült az élő oldalon. Ellenőrizd az adatbázist, és próbáld újra."
@@ -3934,6 +4439,9 @@
 	"The footer now lists the hours for every day.": [
 		"A lábléc most már minden nap nyitvatartását felsorolja."
 	],
+	"The full WordPress, with a domain.": [
+		"A teljes WordPress, saját domainnel."
+	],
 	"The import failed, and WordPress Studio could not remove “%s”. Remove the incomplete site before trying this location again.": [
 		"Az importálás sikertelen volt, és a WordPress Studio nem tudta eltávolítani ezt: „%s”. Mielőtt újra megpróbálod ezt a helyet, távolítsd el a hiányos oldalt."
 	],
@@ -3948,6 +4456,15 @@
 	],
 	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
 		"Az élő oldalon időtúllépés történt az importálás közben, valószínűleg azért, mert az oldal túl nagy. Próbáld csökkenteni a tartalmát vagy a fájljait."
+	],
+	"The local server at %s isn’t answering. Start it, then send your message again.": [
+		"A helyi szerver nem válaszol ezen a címen: %s. Indítsd el, majd küldd el újra az üzenetedet."
+	],
+	"The local server has no chat model yet. Add one to your server, then connect again.": [
+		"A helyi szerveren még nincs csevegőmodell. Adj hozzá egyet a szerveredhez, majd csatlakozz újra."
+	],
+	"The local server refused the API key. Check the key, and connect again.": [
+		"A helyi szerver elutasította az API-kulcsot. Ellenőrizd a kulcsot, és csatlakozz újra."
 	],
 	"The local site has no database yet (it is created the first time the site starts), so the database cannot be excluded from this pull. Include the database, or start the site once and pull again.": [
 		"A helyi oldalnak még nincs adatbázisa (az oldal első indításakor jön létre), ezért az adatbázis nem hagyható ki ebből a lekérésből. Vedd fel az adatbázist, vagy indítsd el egyszer az oldalt, és kérd le újra."
@@ -3979,14 +4496,20 @@
 	"The remote site responded with HTML instead of the expected export API.": [
 		"A távoli oldal a várt export API helyett HTML-lel válaszolt."
 	],
+	"The requested site is unavailable.": [
+		"A kért oldal nem érhető el."
+	],
 	"The same site was specified more than once.": [
 		"Ugyanaz az oldal többször is meg lett adva."
 	],
-	"The site archive exceeds the %d GB size limit.": [
-		"Az oldal archívuma meghaladja a(z) %d GB-os méretkorlátot."
+	"The site files could not be moved to trash. Delete them yourself: %s": [
+		"Az oldal fájljait nem sikerült a kukába helyezni. Töröld őket kézzel: %s"
 	],
 	"The site is running and can be inspected.": [
 		"Az oldal fut, és megvizsgálható."
+	],
+	"The site requested for this pull is unavailable.": [
+		"A lekéréshez kért oldal nem érhető el."
 	],
 	"The specified directory is not added to Studio. Use `studio create` to add it.": [
 		"A megadott könyvtár nincs hozzáadva a Studióhoz. A hozzáadáshoz használd a `studio create` parancsot."
@@ -3994,11 +4517,20 @@
 	"The sync will keep running after you quit WordPress Studio.": [
 		"A szinkronizálás a WordPress Studio bezárása után is folytatódik."
 	],
+	"The transfer could not be completed. Please try again.": [
+		"Az átvitelt nem sikerült befejezni. Próbáld újra."
+	],
 	"The username used to log in to WordPress Admin.": [
 		"A WordPress adminfelületére való bejelentkezéshez használt felhasználónév."
 	],
+	"The visibility change could not be applied. Check access on Spacefast.": [
+		"A láthatóság módosítását nem sikerült alkalmazni. Ellenőrizd a hozzáférést a Spacefaston."
+	],
 	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
 		"A sablonfájlok módosításai nem jelennek meg. A(z) %s fájljain végzett változtatásaid kimaradnak: ez az előnézet a sablon eredeti WordPress.com-os példányát használja. Ahhoz, hogy az előnézetekben is lásd őket, a Webhelyszerkesztőben vagy egy gyermeksablonban végezd el a módosításokat."
+	],
+	"Themes": [
+		"Sablonok"
 	],
 	"Themes…": [
 		"Sablonok…"
@@ -4008,6 +4540,21 @@
 	],
 	"These sites cannot currently be connected to WordPress Studio.": [
 		"Ezek az oldalak jelenleg nem csatlakoztathatók a WordPress Studióhoz."
+	],
+	"Thinking: %s": [
+		"Gondolkodás: %s"
+	],
+	"Thinks before answering": [
+		"Válasz előtt gondolkodik"
+	],
+	"Thinks briefly": [
+		"Röviden gondolkodik"
+	],
+	"Thinks longest, slowest": [
+		"A leghosszabban gondolkodik, a leglassabb"
+	],
+	"This API key is blocked or disabled. Check it in the xAI Console.": [
+		"Ez az API-kulcs le van tiltva vagy ki van kapcsolva. Ellenőrizd az xAI Console-ban."
 	],
 	"This Blueprint JSON file could not be read. Check that it contains valid JSON and try again.": [
 		"Ez a Blueprint JSON fájl nem olvasható. Ellenőrizd, hogy érvényes JSON-t tartalmaz-e, és próbáld újra."
@@ -4020,6 +4567,9 @@
 	],
 	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
 		"Ehhez a GitHub-fiókhoz nem tartozik Copilot-csomag. Válassz csomagot itt: github.com/features/copilot."
+	],
+	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
+		"Ennek a Grok-fióknak elfogyott a kreditje. Adj hozzá krediteket, vagy fizess elő a SuperGrokra a grok.com oldalon."
 	],
 	"This Studio CLI is bundled with the Studio desktop app. Uninstall the app to remove it.": [
 		"Ez a Studio CLI a Studio asztali alkalmazással együtt érkezik. Az eltávolításához távolítsd el az alkalmazást."
@@ -4048,6 +4598,9 @@
 	"This chat could not load.": [
 		"Ezt a csevegést nem sikerült betölteni."
 	],
+	"This destination cannot create a site from this panel yet.": [
+		"Ez a célhely még nem tud oldalt létrehozni ebből a panelből."
+	],
 	"This email is gone.": [
 		"Ez az e-mail már nem létezik."
 	],
@@ -4068,6 +4621,21 @@
 	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"Ez egy Anthropic-kulcs. Inkább az Anthropichoz add hozzá."
+	],
+	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
+		"Ehhez körülbelül %1$s GB tárhely kell, a csomagodban pedig %2$s GB maradt. Töröld a már nem szükséges oldalakat, majd próbáld újra."
+	],
+	"This preview site can’t be made live: it was bought, ended or deleted, or it shows changes to a live site.": [
+		"Ez az előnézeti oldal nem tehető élővé: már megvásárolták, lejárt vagy törölték, vagy egy élő oldal változtatásait mutatja."
+	],
+	"This provider doesn’t make previews.": [
+		"Ez a szolgáltató nem készít előnézeteket."
+	],
+	"This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.": [
+		"Ez a helyi oldalad kijelölt részeit lecseréli arra, ami itt található: %s. Az ezekben a részekben végzett helyi változtatások elvesznek."
+	],
+	"This replaces your local site with the preview. Any local changes will be lost.": [
+		"Ez lecseréli a helyi oldaladat az előnézetre. Minden helyi változtatás elvész."
 	],
 	"This selection exceeds the %s GB publishing limit. Choose fewer files to continue.": [
 		"Ez a kijelölés meghaladja a(z) %s GB-os közzétételi korlátot. A folytatáshoz válassz kevesebb fájlt."
@@ -4117,11 +4685,11 @@
 	"This website has been deleted. Choose another website.": [
 		"Ezt az oldalt törölték. Válassz másik oldalt."
 	],
-	"This website is no longer available to this account. Choose another website.": [
-		"Ez a weboldal már nem érhető el ehhez a fiókhoz. Válassz másik weboldalt."
+	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
+		"Ehhez a weboldalhoz olyan tárhelycsomag szükséges, amely támogatja a WordPress Studióba való lekérést."
 	],
-	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
-		"Ehhez az oldalhoz olyan tárhelycsomag kell, amely támogatja a WordPress Studióból történő közzétételt."
+	"This xAI account has no credits left. Add credits in the xAI Console.": [
+		"Ennek az xAI-fióknak elfogyott a kreditje. Adj hozzá krediteket az xAI Console-ban."
 	],
 	"Tips reset.": [
 		"Tippek visszaállítva."
@@ -4153,11 +4721,11 @@
 	"Track your preview site usage.": [
 		"Kövesd nyomon az előnézeti oldalaid használatát."
 	],
-	"Transfer cancelled. You can try again.": [
-		"Az átvitel megszakítva. Újra megpróbálhatod."
-	],
 	"Treat yourself to some WordPress swag": [
 		"Lepd meg magad néhány WordPress-ajándéktárggyal"
+	],
+	"Try again to see where this WordPress is already connected.": [
+		"Próbáld újra, hogy lásd, hová csatlakozik már ez a WordPress."
 	],
 	"Try downloading the update again.": [
 		"Próbáld újra letölteni a frissítést."
@@ -4167,12 +4735,6 @@
 	],
 	"Try nightly builds?": [
 		"Kipróbálod a nightly buildeket?"
-	],
-	"Try publishing again": [
-		"Közzététel újrapróbálása"
-	],
-	"Try pulling again": [
-		"Lekérés újrapróbálása"
 	],
 	"Try starting the chat again, or open your site.": [
 		"Próbáld újra elindítani a csevegést, vagy nyisd meg az oldaladat."
@@ -4192,6 +4754,9 @@
 	"Turn on “%s”": [
 		"„%s” bekapcsolása"
 	],
+	"Twice the CPU for faster builds": [
+		"Kétszeres CPU a gyorsabb építésért"
+	],
 	"Type scale": [
 		"Betűméret-skála"
 	],
@@ -4203,9 +4768,6 @@
 	],
 	"Unable to access the selected backup. Please try again.": [
 		"Nem sikerült hozzáférni a kiválasztott biztonsági mentéshez. Kérlek, próbáld újra."
-	],
-	"Unable to check preview availability.": [
-		"Nem sikerült ellenőrizni az előnézetek elérhetőségét."
 	],
 	"Unable to delete the site. Please try again.": [
 		"Nem sikerült törölni az oldalt. Kérlek, próbáld újra."
@@ -4240,6 +4802,9 @@
 	"Unknown deletion error.": [
 		"Ismeretlen törlési hiba."
 	],
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"Ismeretlen szint: %1$s. Válassz ezek közül: %2$s."
+	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"Ismeretlen szolgáltató: %1$s. Válassz ezek közül: %2$s."
 	],
@@ -4248,6 +4813,9 @@
 	],
 	"Unknown version": [
 		"Ismeretlen verzió"
+	],
+	"Unlimited sites, 5 running at once": [
+		"Korlátlan számú oldal, egyszerre 5 futhat"
 	],
 	"Unpin": [
 		"Rögzítés feloldása"
@@ -4258,11 +4826,26 @@
 	"Unsupported backup file": [
 		"Nem támogatott biztonsági mentési fájl"
 	],
+	"Unsupported visibility setting.": [
+		"Nem támogatott láthatósági beállítás."
+	],
+	"Up to 10 sites, 2 running at once": [
+		"Legfeljebb 10 oldal, egyszerre 2 futhat"
+	],
+	"Update WordPress Studio": [
+		"WordPress Studio frissítése"
+	],
+	"Update WordPress Studio.": [
+		"Frissítsd a WordPress Studiót."
+	],
 	"Update all plugins": [
 		"Összes bővítmény frissítése"
 	],
 	"Update available: %1$s → %2$s": [
 		"Frissítés érhető el: %1$s → %2$s"
+	],
+	"Update local site from %s?": [
+		"Frissíted a helyi oldalt innen: %s?"
 	],
 	"Update plugin": [
 		"Bővítmény frissítése"
@@ -4276,11 +4859,17 @@
 	"Update site title": [
 		"Oldalcím frissítése"
 	],
+	"Update the Studio CLI with `%s`.": [
+		"Frissítsd a Studio CLI-t ezzel: `%s`."
+	],
 	"Update user": [
 		"Felhasználó frissítése"
 	],
 	"Updated %s": [
 		"Frissítve: %s"
+	],
+	"Updating %s will replace any edits made on the preview with your local copy.": [
+		"A(z) %s frissítése az előnézeten végzett összes szerkesztést lecseréli a helyi példányodra."
 	],
 	"Updating WordPress version…": [
 		"WordPress verzió frissítése…"
@@ -4294,6 +4883,9 @@
 	"Updating preview…": [
 		"Előnézet frissítése…"
 	],
+	"Updating your workspace…": [
+		"A munkaterületed frissítése…"
+	],
 	"Upgrade this site to a supported plan before connecting it.": [
 		"Csatlakoztatás előtt válts támogatott csomagra ennél az oldalnál."
 	],
@@ -4302,6 +4894,9 @@
 	],
 	"Uploading files…": [
 		"Fájlok feltöltése…"
+	],
+	"Uploads": [
+		"Feltöltések"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"A használatot az Anthropic-fiókodon keresztül számolják el."
@@ -4314,6 +4909,12 @@
 	],
 	"Usage is billed through your OpenAI account.": [
 		"A használatot az OpenAI-fiókodon keresztül számolják el."
+	],
+	"Usage is billed through your xAI account.": [
+		"A használat számlázása az xAI-fiókodon keresztül történik."
+	],
+	"Usage is paid with your OpenRouter credits.": [
+		"A használatot az OpenRouter-kreditjeidből fizeted."
 	],
 	"Use /connect %1$s to connect %2$s again.": [
 		"A(z) %2$s újbóli csatlakoztatásához használd a /connect %1$s parancsot."
@@ -4360,6 +4961,12 @@
 	"Use light mode": [
 		"Világos mód használata"
 	],
+	"Use models from many labs with your OpenRouter credits.": [
+		"Számos AI-labor modelljei az OpenRouter-kreditjeiddel."
+	],
+	"Use the models a server you run serves, such as on this computer.": [
+		"Egy általad futtatott szerver modelljeit használja, például ezen a számítógépen."
+	],
 	"Use the studio command in any terminal to manage sites and run WP-CLI.": [
 		"Használd a studio parancsot bármelyik terminálban az oldalak kezeléséhez és a WP-CLI futtatásához."
 	],
@@ -4378,6 +4985,9 @@
 	"Using Copilot plan": [
 		"A Copilot-csomagodat használja"
 	],
+	"Using Grok plan": [
+		"A Grok-csomagodat használja"
+	],
 	"Using your only connected WordPress.com site:": [
 		"Az egyetlen csatlakoztatott WordPress.com oldalad használata:"
 	],
@@ -4389,6 +4999,9 @@
 	],
 	"View Blueprint": [
 		"Blueprint megtekintése"
+	],
+	"View backups": [
+		"Biztonsági mentések megtekintése"
 	],
 	"View notification: %s": [
 		"Értesítés megtekintése: %s"
@@ -4402,8 +5015,14 @@
 	"View usage": [
 		"Használat megtekintése"
 	],
-	"Visit preview": [
-		"Előnézet megtekintése"
+	"View versions": [
+		"Verziók megtekintése"
+	],
+	"Visibility could not be confirmed. Check access on Spacefast.": [
+		"Nem sikerült megerősíteni a láthatóságot. Ellenőrizd a hozzáférést a Spacefaston."
+	],
+	"Visibility settings are only available for WordPress.com sites.": [
+		"A láthatósági beállítások csak WordPress.com-oldalaknál érhetők el."
 	],
 	"Visit previews": [
 		"Előnézetek megtekintése"
@@ -4411,11 +5030,17 @@
 	"Visit wapuu.studio": [
 		"A wapuu.studio meglátogatása"
 	],
+	"Visitors see a coming soon page": [
+		"A látogatók egy „Hamarosan” oldalt látnak"
+	],
 	"Visual Annotations": [
 		"Vizuális megjegyzések"
 	],
 	"WP Admin: ": [
 		"WP Admin: "
+	],
+	"WP admin": [
+		"WP admin"
 	],
 	"WP-CLI exited with code %d.": [
 		"A WP-CLI %d kóddal lépett ki."
@@ -4431,9 +5056,6 @@
 	],
 	"Wait for the current site operation to finish before changing settings.": [
 		"A beállítások módosítása előtt várd meg, amíg az oldal aktuális művelete befejeződik."
-	],
-	"Wait for the current site operation to finish before creating or updating a preview.": [
-		"Előnézet létrehozása vagy frissítése előtt várd meg, amíg az oldal aktuális művelete befejeződik."
 	],
 	"Waiting for %s": [
 		"Várakozás: %s"
@@ -4456,9 +5078,6 @@
 	"We couldn't load your sites": [
 		"Nem sikerült betölteni az oldalaidat"
 	],
-	"Website actions": [
-		"Weboldal műveletei"
-	],
 	"Welcome to WordPress Studio 2.0": [
 		"Üdvözöl a WordPress Studio 2.0"
 	],
@@ -4468,8 +5087,8 @@
 	"What to publish": [
 		"Mit szeretnél közzétenni"
 	],
-	"What to pull": [
-		"Mit szeretnél lekérni"
+	"What to replace": [
+		"Mit cseréljen le"
 	],
 	"What would you like to open?": [
 		"Mit szeretnél megnyitni?"
@@ -4480,14 +5099,17 @@
 	"When WordPress Studio quits": [
 		"A WordPress Studio bezárásakor"
 	],
-	"Where do you want to publish?": [
-		"Hol szeretnéd közzétenni?"
-	],
 	"Where this site’s files are stored.": [
 		"Az oldal fájljainak tárolási helye."
 	],
+	"Where your server listens, as it prints it when it starts.": [
+		"A cím, amelyen a szervered figyel, ahogy induláskor kiírja."
+	],
 	"Which files PHP can access: the site directory only, or all files": [
 		"Mely fájlokhoz férhet hozzá a PHP: csak az oldal könyvtárához vagy az összes fájlhoz"
+	],
+	"Who can view": [
+		"Ki láthatja"
 	],
 	"WordPress Studio %s is available": [
 		"Elérhető a WordPress Studio %s"
@@ -4525,11 +5147,17 @@
 	"WordPress Studio could not open the site.": [
 		"A WordPress Studio nem tudta megnyitni az oldalt."
 	],
+	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"A WordPress Studio nem tudta beolvasni a beállításait innen: %s. Indítsd újra a WordPress Studiót, és próbáld újra. Ha ez továbbra is előfordul, fordulj az ügyfélszolgálathoz az alábbi részletekkel."
+	],
 	"WordPress Studio instructions": [
 		"WordPress Studio utasítások"
 	],
 	"WordPress Studio is finishing an update": [
 		"A WordPress Studio egy frissítést fejez be"
+	],
+	"WordPress Studio is missing some of its files": [
+		"A WordPress Studio néhány fájlja hiányzik"
 	],
 	"WordPress Studio is running at:": [
 		"A WordPress Studio itt fut:"
@@ -4539,6 +5167,9 @@
 	],
 	"WordPress Studio is running from: %s": [
 		"A WordPress Studio innen fut: %s"
+	],
+	"WordPress Studio is serving at:": [
+		"A WordPress Studio itt érhető el:"
 	],
 	"WordPress Studio is unable to open PHPStorm. Please ensure it is functioning correctly.": [
 		"A WordPress Studio nem tudja megnyitni a PHPStormot. Ellenőrizd, hogy megfelelően működik-e."
@@ -4603,6 +5234,9 @@
 	"WordPress server restarted": [
 		"WordPress szerver újraindítva"
 	],
+	"WordPress set up": [
+		"WordPress beállítva"
+	],
 	"WordPress site": [
 		"WordPress oldal"
 	],
@@ -4626,6 +5260,9 @@
 	],
 	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
 		"A WordPress.com nem támogatja a multisite-ot. Ennek a hálózatnak a közzététele problémákat okozhat."
+	],
+	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
+		"A WordPress.com még nem erősítette meg a láthatóság módosítását. Próbáld újra."
 	],
 	"WordPress.com hosting": [
 		"WordPress.com tárhely"
@@ -4672,6 +5309,9 @@
 	"Xdebug is enabled on another site: %s": [
 		"Az Xdebug egy másik oldalon van engedélyezve: %s"
 	],
+	"Yearly, save 20%": [
+		"Éves, 20% megtakarítás"
+	],
 	"Yes, new chat": [
 		"Igen, új csevegés"
 	],
@@ -4711,6 +5351,9 @@
 	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
 		"Elérted a Copilot-csomagod használati korlátját. A használatot itt kezelheted: github.com/settings/copilot."
 	],
+	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
+		"Elérted a Grok-csomagod használati korlátját. A használatodat a grok.com oldalon ellenőrizheted."
+	],
 	"You stopped": [
 		"Leállítottad"
 	],
@@ -4726,9 +5369,6 @@
 	"You're on the latest version (%s)": [
 		"A legújabb verziót használod (%s)"
 	],
-	"You've used all %d preview sites available on your account.": [
-		"Felhasználtad a fiókodhoz elérhető mind a(z) %d előnézeti oldalt."
-	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"A ChatGPT-csomagod nem használható a WordPress Studióban."
 	],
@@ -4738,8 +5378,26 @@
 	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
 		"A Copilot-csomagod nem tartalmazza ezt a modellt. Válassz másikat, vagy kapcsold be itt: github.com/settings/copilot."
 	],
+	"Your Grok or X plan can’t be used in WordPress Studio.": [
+		"A Grok- vagy X-csomagod nem használható a WordPress Studióban."
+	],
+	"Your Grok sign-in no longer works. Connect xAI again in Settings.": [
+		"A Grok-bejelentkezésed már nem működik. Csatlakoztasd újra az xAI-t a Beállításokban."
+	],
+	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
+		"Elfogytak az OpenRouter-kreditjeid, vagy ez a kulcs elérte a kreditkorlátját. Adj hozzá krediteket az openrouter.ai oldalon."
+	],
 	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
 		"A Spacefast-bejelentkezésed már nem működik. Csatlakoztasd újra a Spacefastot."
+	],
+	"Your Studio, in the cloud.": [
+		"A Studiód a felhőben."
+	],
+	"Your WordPress exceeds the %s GB publishing limit.": [
+		"A WordPressed meghaladja a(z) %s GB-os közzétételi korlátot."
+	],
+	"Your WordPress is public": [
+		"A WordPressed nyilvános"
 	],
 	"Your account doesn't have permission to manage this site.": [
 		"A fiókodnak nincs jogosultsága az oldal kezeléséhez."
@@ -4750,8 +5408,8 @@
 	"Your first %s AI credits are on us.": [
 		"Az első %s AI-kreditet mi álljuk."
 	],
-	"Your local site is saved. Retry to finish bringing in its content.": [
-		"A helyi oldalad mentve van. A tartalom behozatalának befejezéséhez próbáld újra."
+	"Your local server refused the request: %s.": [
+		"A helyi szervered elutasította a kérést: %s."
 	],
 	"Your new website isn’t available yet. Refresh the website list to try again.": [
 		"Az új weboldalad még nem érhető el. Az újrapróbálkozáshoz frissítsd a weboldalak listáját."
@@ -4759,11 +5417,27 @@
 	"Your next idea is ready when you are. Top up to bring it to life.": [
 		"A következő ötleted készen áll, amikor te is. Vásárolj krediteket, és keltsd életre."
 	],
+	"Your plan allows %d site. Delete a site to create a new one.": [
+		"A csomagod %d oldalt engedélyez. Új oldal létrehozásához törölj egyet.",
+		"A csomagod %d oldalt engedélyez. Új oldal létrehozásához törölj egyet."
+	],
+	"Your plan has ended.": [
+		"A csomagod lejárt."
+	],
 	"Your preference could not be saved. Please try again.": [
 		"Nem sikerült menteni a beállításodat. Kérlek, próbáld újra."
 	],
 	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
 		"Az előnézeted átkerült a WordPress.com-ra, ezért megváltozott a linkje. Új link: %s"
+	],
+	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
+		"A kijelölt fájlok nem érhetők el. A folytatáshoz ismételd meg a biztonsági mentés ellenőrzését, vagy válassz másik lehetőséget."
+	],
+	"Your server’s setting": [
+		"A szervered beállítása"
+	],
+	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
+		"A beállításaidat a Studio CLI egy újabb verziója mentette. Frissítsd a WordPress Studiót, hogy továbbra is használhasd őket."
 	],
 	"Your site can stay available in the background after WordPress Studio quits.": [
 		"Az oldalad a WordPress Studio bezárása után is elérhető maradhat a háttérben.",
@@ -4771,6 +5445,9 @@
 	],
 	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
 		"Az oldalad megváltozott a(z) „%s” előnézet legutóbbi frissítése óta. A közzététel a jelenlegi helyi oldaladat küldi el, beleértve azokat a változtatásokat is, amelyek abban az előnézetben nem látszanak."
+	],
+	"Your site is ready to publish": [
+		"Az oldalad készen áll a közzétételre"
 	],
 	"Your site is shown on the right, automatically refreshing as you make changes with Studio Code. Switch between the front-end, wp-admin, and the database from the toolbar.": [
 		"Az oldalad jobb oldalon látható, és automatikusan frissül, ahogy a Studio Code-dal módosítod. Az eszköztárról válthatsz a front-end, a wp-admin és az adatbázis között."
@@ -4781,23 +5458,26 @@
 	"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back.": [
 		"Az oldalad biztonsági mentése meghaladja a(z) %d GB-ot. A lekérés után nem fogod tudni visszaküldeni az oldalt."
 	],
+	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
+		"Az oldalaid és a Studio Code egy saját gépen, bármilyen böngészőből. A munkaterületed megnyitásához jelentkezz be a WordPress.com-fiókoddal."
+	],
 	"Your sites and their chats now share one sidebar. Hide the chat when you want the preview to fill the window.": [
 		"Az oldalaid és csevegéseik most egy közös oldalsávban vannak. Rejtsd el a csevegést, ha azt szeretnéd, hogy az előnézet kitöltse az ablakot."
 	],
-	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
-		"Az oldalaid továbbra is szerepelnek itt: %s. Az újrapróbálkozáshoz indítsd újra a WordPress Studiót. Ha a probléma ismétlődik, fordulj a támogatáshoz az alábbi részletekkel."
+	"Your sites are kept until %s. Renew to pick up where you left off, or choose a plan below.": [
+		"Az oldalaidat eddig őrizzük meg: %s. Újítsd meg a csomagot, hogy ott folytathasd, ahol abbahagytad, vagy válassz alább egy csomagot."
+	],
+	"Your team and people you give access to": [
+		"A csapatod és azok, akiknek hozzáférést adsz"
+	],
+	"Your team only allows restricted sites.": [
+		"A csapatod csak korlátozott hozzáférésű oldalakat engedélyez."
 	],
 	"Your unsaved changes will be lost.": [
 		"A mentetlen változtatásaid elvesznek."
 	],
-	"Your website wasn’t changed.": [
-		"A weboldalad nem változott."
-	],
-	"Your website will be replaced with this site as it is now.": [
-		"A weboldaladat felváltja ennek az oldalnak a jelenlegi állapota."
-	],
-	"You’ll need to connect a website again to publish or pull changes. Your local site and live website will stay unchanged.": [
-		"A változtatások közzétételéhez vagy lekéréséhez újra csatlakoztatnod kell egy weboldalt. A helyi oldalad és az élő weboldalad változatlan marad."
+	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
+		"A munkaterületed Studio Cloud-csomagon fut. A fizetés a WordPress.com-on nyílik meg, és a munkaterületed körülbelül egy perccel a fizetés után elkészül."
 	],
 	"You’re on a roll. Top up now and keep building.": [
 		"Jól haladsz. Vásárolj most krediteket, és építs tovább."
@@ -4862,6 +5542,9 @@
 	"no files": [
 		"nincsenek fájlok"
 	],
+	"other files": [
+		"egyéb fájlok"
+	],
 	"page": [
 		"oldal"
 	],
@@ -4894,6 +5577,21 @@
 	],
 	"theme.json matches DESIGN.md": [
 		"A theme.json egyezik a DESIGN.md fájllal"
+	],
+	"uploads": [
+		"feltöltések"
+	],
+	"xAI API key": [
+		"xAI API-kulcs"
+	],
+	"xAI refused the API key. Check its permissions and credits in the xAI Console.": [
+		"Az xAI elutasította az API-kulcsot. Ellenőrizd a jogosultságait és a krediteket az xAI Console-ban."
+	],
+	"xAI rejected the API key. Connect xAI again in Settings.": [
+		"Az xAI elutasította az API-kulcsot. Csatlakoztasd újra az xAI-t a Beállításokban."
+	],
+	"xAI rejected this API key. Check the key and try again.": [
+		"Az xAI elutasította ezt az API-kulcsot. Ellenőrizd a kulcsot, és próbáld újra."
 	],
 	"· %d%%": [
 		"· %d%%"

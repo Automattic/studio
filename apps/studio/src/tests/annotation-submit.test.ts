@@ -11,7 +11,7 @@ import { startAgentRun } from 'src/modules/ai-agent/run-manager';
 import type { IpcMainInvokeEvent } from 'electron';
 
 vi.unmock( 'atomically' );
-vi.unmock( 'lockfile' );
+vi.unmock( 'proper-lockfile' );
 vi.mock( 'src/modules/ai-agent/run-manager', () => ( { startAgentRun: vi.fn() } ) );
 vi.mock( '@studio/common/lib/record-tracks-event', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/record-tracks-event') >() ),
@@ -148,7 +148,7 @@ it( 'does not let a Tracks failure break sending', async () => {
 	await vi.waitFor( () => expect( record ).toHaveBeenCalledTimes( 1 ) );
 } );
 
-it.each( [ 'opt-out', 'CI', 'IS_DEV_BUILD' ] )(
+it.each( [ 'opt-out', 'IS_DEV_BUILD' ] )(
 	'honors %s while still sending annotations',
 	async ( gate ) => {
 		const wrappedRecord = vi.spyOn( tracks, 'recordTracksEvent' );

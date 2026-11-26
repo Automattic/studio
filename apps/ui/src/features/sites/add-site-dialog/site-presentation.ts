@@ -36,11 +36,7 @@ export function searchRemoteSites(
 	);
 }
 
-export function getRemoteSiteScreenshot( site: SyncSite ): string {
-	return `https://s0.wp.com/mshots/v1/${ encodeURIComponent( site.url ) }?w=600&h=400`;
-}
-
-export function getRemoteSiteName( site: SyncSite ): string {
+export function getRemoteSiteName( site: { name: string; url: string } ): string {
 	if ( site.name.trim() ) return site.name.trim();
 	try {
 		return new URL( site.url ).hostname;

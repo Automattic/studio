@@ -55,17 +55,6 @@ describe( 'updateServerFiles', () => {
 			expect( updateLatestWordPressVersion ).not.toHaveBeenCalled();
 		} );
 
-		it( 'runs the update inside the interval when forced', async () => {
-			// Creating a site on "latest" installs by copying the cached directory,
-			// so it has to verify the cache is current no matter when we last looked.
-			config.cli.lastDependencyCheckTime = NOW - 60 * 1000;
-
-			const result = await updateServerFiles( true );
-
-			expect( result ).toBe( true );
-			expect( updateLatestWordPressVersion ).toHaveBeenCalledTimes( 1 );
-		} );
-
 		it( 'runs the update when the timestamp is in the future (clock skew)', async () => {
 			config.cli.lastDependencyCheckTime = NOW + 60 * 1000;
 

@@ -1,9 +1,9 @@
+import { Button, type ButtonProps } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
 import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
 import { AiCreditsPurchaseDialog } from '@/features/credits/ai-credits-purchase-dialog';
 import { useOpenAiCreditsCheckout } from '@/features/credits/use-open-ai-credits-checkout';
-import { Button, type ButtonProps } from '@/lib/ui';
 
 /**
  * The one way to buy AI credits, wherever the offer appears. With priced

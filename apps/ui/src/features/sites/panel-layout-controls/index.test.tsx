@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it } from 'vitest';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 
 beforeEach( () => localStorage.clear() );
@@ -131,9 +131,10 @@ it( 'remembers each site’s layout and preserves the draft across layout change
 	);
 } );
 
-it( 'returns to chat using the panel and full-view controls while preserving the page and draft', async () => {
+it( 'returns to chat using the panel controls and site menu while preserving the page and draft', async () => {
 	const connector = createFakeConnector( {
 		sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
+		user: TEST_USER,
 	} );
 	const { user } = renderApp( { connector, path: '/sites/one/new' } );
 	const input = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
@@ -159,13 +160,22 @@ it( 'returns to chat using the panel and full-view controls while preserving the
 	await user.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
 	expect( screen.getByRole( 'button', { name: 'Show chat' } ) ).toBeVisible();
 	expect( screen.getByRole( 'tab', { name: 'First' } ) ).toHaveAttribute( 'aria-selected', 'true' );
-	await user.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+	const showChat = await screen.findByRole( 'menuitem', { name: 'Show chat' } );
+	expect( showChat.previousElementSibling ).toBe(
+		screen.getByRole( 'menuitem', { name: 'New chat' } )
+	);
+	expect( showChat.nextElementSibling ).toHaveRole( 'separator' );
+	await user.click( showChat );
 	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 		'Keep this draft'
 	);
 	expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
 	expect( document.querySelector( 'iframe' ) ).toBe( page );
 	expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'First' );
+	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+	expect( await screen.findByRole( 'menuitem', { name: 'New chat' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'menuitem', { name: 'Show chat' } ) ).not.toBeInTheDocument();
 	expect( connector.startSite ).not.toHaveBeenCalled();
 	expect( connector.stopSite ).not.toHaveBeenCalled();
 } );
@@ -185,24 +195,24 @@ it( 'switches full view immediately in both directions', async () => {
 	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBeVisible();
 } );
 
-it( 'keeps the full-view and publish controls mounted through panel toggles', async () => {
+it( 'keeps the full-view and share controls mounted through panel toggles', async () => {
 	const connector = createFakeConnector( {
 		sites: [ makeSite( { id: 'one', running: true } ) ],
 	} );
 	const { user } = renderApp( { connector, path: '/sites/one/new' } );
 	const fullView = await screen.findByRole( 'button', { name: 'Expand panel' } );
-	const publish = screen.getByRole( 'button', { name: 'Publish…' } );
+	const share = screen.getByRole( 'button', { name: 'Publish…' } );
 
 	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 	expect( fullView ).toBeInTheDocument();
 	expect( fullView.closest( '[inert]' ) ).not.toBeNull();
 	expect( screen.queryByRole( 'button', { name: 'Expand panel' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( share );
 
 	await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 	expect( screen.getByRole( 'button', { name: 'Expand panel' } ) ).toBe( fullView );
 	expect( fullView.closest( '[inert]' ) ).toBeNull();
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( share );
 } );
 
 it( 'opens chat from a standalone Browser page by hiding the panel', async () => {

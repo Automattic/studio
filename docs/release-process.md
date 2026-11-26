@@ -13,7 +13,6 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 - Creates `release/<version>` branch from `trunk`
 - Extracts translatable strings and commits them to the release branch (a wpcom cron imports them to GlotPress via a backmerge PR)
 - Generates draft release notes from merged PRs and commits them to the release branch
-- Copies `trunk`'s branch protection onto the release branch — same required CI checks and reviews, and no deletions or force-pushes — so the branch survives until the release ships. `wpmobilebot` keeps pushing to it directly (`trunk`'s protection does not enforce admins), while everyone else goes through PRs.
 - Creates a backmerge PR from the release branch into `trunk`
 
 Then the release author has an agent translate the strings GlotPress is missing (`scripts/ai-translations/SKILL.md`), and merges its PR into the release branch before the first beta. See [Localization](localization.md#ai-translations-for-missing-strings-release-author).
@@ -47,9 +46,9 @@ Then the release author has an agent translate the strings GlotPress is missing 
 
 **Fastlane lane**: `publish_release`
 
-- Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which builds the plugins with the Studio CLI inside (`npm run cli:bundle:plugin`) and publishes them to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from, as that repository's single commit. It also attaches `wp-studio-openai-<version>.zip`, the package for OpenAI's plugin directory, to the release. The same event triggers `deploy-static.yml`, which publishes Studio on the web to Spacefast (`app.wordpress.studio`) and checks the live site
+- Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which builds the plugins with the Studio CLI inside (`npm run cli:bundle:plugin`) and publishes them to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from, as that repository's single commit. It also attaches `wp-studio-openai-<version>.zip`, the package for OpenAI's plugin directory, to the release.
 - Creates a backmerge PR from `release/<version>` into `trunk`
-- Removes the branch protection from `release/<version>` and deletes the branch
+- Deletes `release/<version>`
 
 ### 6. Post-Release (manual)
 

@@ -1,4 +1,4 @@
-/* The rows themselves come from the sidebar kit in @/lib/ui. */
+/* The rows themselves come from the sidebar kit in @studio/ds. */
 .root {
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;
@@ -37,8 +37,6 @@
 .groupPanel,
 .chatsPanel {
 	overflow: clip;
-	transition-duration: calc( var( --motion-duration-layout ) * 2 / 3 );
-	transition-timing-function: var( --motion-ease-layout );
 }
 
 .groupPanel:has( [data-drag-source] ),
@@ -59,11 +57,7 @@
 	align-items: center;
 }
 
-.rowAction {
-	--button-hover-background: transparent;
-}
-
-.rowAction[aria-busy='true'] {
+.statusButton[aria-busy='true'] {
 	visibility: visible;
 }
 

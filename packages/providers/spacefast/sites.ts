@@ -1,6 +1,14 @@
 import { __ } from '@wordpress/i18n';
 import { NotConnectedError, RemoteSiteError } from '../errors';
-import { createSpace, listSpaces, listTeams, publishFiles, SpacefastApiError } from './api';
+import {
+	createSpace,
+	getTeamCreationVisibility,
+	listSpaces,
+	listTeams,
+	publishFiles,
+	SpacefastApiError,
+} from './api';
+import { getVisibility, setVisibility } from './visibility';
 import type { SpacefastConfig } from './config';
 import type { Space } from './descriptor';
 import type { SitesServices } from '../types';
@@ -32,23 +40,60 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 	}
 }
 
+// A new Space goes in the team the user picked, or the first one.
+async function getPublishingTeam( apiKey: string, teamId?: string ) {
+	const teams = await listTeams( apiKey );
+	const team = teamId ? teams.find( ( { id } ) => id === teamId ) : teams[ 0 ];
+	if ( ! team ) throw new Error( 'The Spacefast account has no such team.' );
+	return team;
+}
+
 export const spacefastSites: SitesServices< SpacefastConfig, Space > = {
+	visibility: {
+		get: ( config, id ) => getVisibility( requireApiKey( config ), id ),
+		set: ( config, id, value ) => setVisibility( requireApiKey( config ), id, value ),
+	},
 	list: ( config ) =>
 		step( __( 'Failed to load your Spacefast Spaces' ), 'site_fetch', () =>
 			listSpaces( requireApiKey( config ) )
 		),
 
-	// In the account's first team: the one Spacefast creates with the account.
-	create: ( config, { name } ) =>
+	action: async ( config, name ) => {
+		if ( name === 'teams' ) {
+			return step( __( 'Failed to load your Spacefast teams' ), 'site_fetch', () =>
+				listTeams( requireApiKey( config ) )
+			);
+		}
+		throw new Error( `Spacefast has no ${ name } action.` );
+	},
+
+	creationVisibility: ( config, input ) =>
+		step( __( 'Could not check Spacefast team access' ), 'site_access', async () => {
+			const apiKey = requireApiKey( config );
+			const teamId = input?.team ?? ( await getPublishingTeam( apiKey ) ).id;
+			return getTeamCreationVisibility( apiKey, teamId );
+		} ),
+
+	create: ( config, { name, visibility, input } ) =>
 		step( __( 'Failed to create the Space' ), 'site_create', async () => {
 			const apiKey = requireApiKey( config );
-			const [ team ] = await listTeams( apiKey );
-			if ( ! team ) {
-				throw new Error( 'The Spacefast account has no team.' );
+			const team = await getPublishingTeam( apiKey, input?.team );
+			const defaultVisibility = await getTeamCreationVisibility( apiKey, team.id );
+			if ( defaultVisibility === 'private' && visibility === 'public' ) {
+				throw new SpacefastApiError(
+					__( 'Your team only allows restricted sites.' ),
+					400,
+					'team_private_spaces_only'
+				);
 			}
 			return {
-				...( await createSpace( apiKey, { teamId: team.id, title: name } ) ),
+				...( await createSpace( apiKey, {
+					teamId: team.id,
+					title: name,
+					access: visibility ?? defaultVisibility,
+				} ) ),
 				teamName: team.name,
+				teamSlug: team.slug,
 			};
 		} ),
 

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	dismissToast,
+	finishToastExit,
 	getQueuedToastCount,
 	getVisibleToasts,
 	notifyRendererMounted,
@@ -11,11 +12,13 @@ import {
 	runNoticeAction,
 	showToast,
 	toast,
-	TOAST_EXIT_MS,
 } from './app-messages';
 
 const titles = () => getVisibleToasts().map( ( item ) => item.title );
-const settleExit = () => vi.advanceTimersByTime( TOAST_EXIT_MS );
+const settleExit = () =>
+	getVisibleToasts()
+		.filter( ( item ) => item.leaving )
+		.forEach( ( item ) => finishToastExit( item.id ) );
 
 describe( 'app-messages', () => {
 	beforeEach( () => {
@@ -96,6 +99,17 @@ describe( 'app-messages', () => {
 		expect( titles() ).toEqual( [] );
 	} );
 
+	it( 'waits for the outgoing notification to finish before promoting the queue', () => {
+		for ( let i = 0; i < 3; i++ ) toast.info( `Notice ${ i }` );
+		toast.info( 'Last' );
+		const id = getVisibleToasts()[ 0 ].id;
+		dismissToast( id );
+		vi.advanceTimersByTime( 500 );
+		expect( getQueuedToastCount() ).toBe( 1 );
+		finishToastExit( id );
+		expect( titles() ).toEqual( [ 'Notice 1', 'Notice 2', 'Last' ] );
+	} );
+
 	it( 'promotes a queued confirmation immediately if replaced by a failure', () => {
 		for ( let i = 0; i < 3; i++ ) toast.info( `Notice ${ i }` );
 		toast.info( 'Checking', { id: 'check' } );
@@ -108,7 +122,7 @@ describe( 'app-messages', () => {
 		toast.error( 'Failed', { id: 'operation' } );
 		dismissToast( 'operation' );
 		toast.error( 'Failed again', { id: 'operation' } );
-		settleExit();
+		finishToastExit( 'operation' );
 		expect( titles() ).toEqual( [ 'Failed again' ] );
 	} );
 

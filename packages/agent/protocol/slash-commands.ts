@@ -33,6 +33,11 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 		description: __( 'Migrate & rebuild a site from a closed platform.' ),
 	},
 	{
+		name: 'create-skill',
+		displayName: __( 'Create skill' ),
+		description: __( 'Teach agents a task to do the same way each time.' ),
+	},
+	{
 		name: 'feedback',
 		displayName: __( 'Send feedback' ),
 		description: __( 'Request a feature or report a bug.' ),

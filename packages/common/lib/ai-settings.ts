@@ -17,6 +17,7 @@ import {
 } from '@studio/providers';
 import { readConfig, updateConfig } from './config/store';
 import {
+	readFreshProviderConfig,
 	readProviderConfig,
 	readSelectedProvider,
 	writeProviderConfig,
@@ -44,10 +45,12 @@ export async function readSelectedAiProvider(): Promise< AiProviderId | undefine
 
 // What surfaces show of the provider's account, from its config.
 export function describeAccount( id: ProviderId, config: unknown ): ProviderAccount {
-	const { describe } = getProvider( id ).account as {
-		describe: ( config: unknown ) => AccountDetails;
-	};
-	return config === undefined ? { connected: false } : { connected: true, ...describe( config ) };
+	const account = getProvider( id ).account as
+		| { describe: ( config: unknown ) => AccountDetails }
+		| undefined;
+	return config === undefined || ! account
+		? { connected: false }
+		: { connected: true, ...account.describe( config ) };
 }
 
 /** The provider picked for image generation, or undefined to pick it automatically. */
@@ -96,8 +99,11 @@ export async function connectProvider< Config >(
 	input: Record< string, string >,
 	options: { pasteUrl?: () => Promise< string > } = {}
 ): Promise< AiSettings > {
-	const { id } = services;
-	const config = await services.account.connect(
+	const { id, account } = services;
+	if ( ! account ) {
+		throw new Error( `${ id } has no account to connect` );
+	}
+	const config = await account.connect(
 		method,
 		getConnectMethod( id, method ).kind === 'loopback'
 			? await receiveRedirect( id, input, options.pasteUrl )
@@ -125,7 +131,7 @@ export async function disconnectProvider< Config >(
 	const config = await readProviderConfig( id );
 	if ( config ) {
 		// Best-effort: disconnecting offline still forgets the account here.
-		await services.account.disconnect?.( config as Config ).catch( () => undefined );
+		await services.account?.disconnect?.( config as never ).catch( () => undefined );
 	}
 	await writeProviderConfig( id, undefined );
 	if ( ( await readSelectedAiProvider() ) === id ) {
@@ -142,7 +148,7 @@ export async function listProviderModels< Config >(
 	if ( ! listModels ) {
 		throw new Error( `${ getProvider( services.id ).label } has no models to pick from.` );
 	}
-	return listModels( ( await readProviderConfig( services.id ) ) as Config | undefined );
+	return listModels( await readFreshProviderConfig( services ) );
 }
 
 // Offers these models of the provider's catalog, as `listProviderModels` returned them.
@@ -151,12 +157,15 @@ export async function selectProviderModels< Config >(
 	models: CatalogModel[]
 ): Promise< AiSettings > {
 	const { id } = services;
-	const config = ( await readProviderConfig( id ) ) as Config | undefined;
+	const config = await readFreshProviderConfig( services );
 	const selectModels = services.ai?.selectModels;
 	if ( ! config || ! selectModels ) {
 		throw new ConnectError( `Connect ${ getProvider( id ).label } first.` );
 	}
-	await writeProviderConfig( id, selectModels( config, models ) as ProviderConfigs[ ProviderId ] );
+	await writeProviderConfig(
+		id,
+		( await selectModels( config, models ) ) as ProviderConfigs[ ProviderId ]
+	);
 	return readAiSettings();
 }
 

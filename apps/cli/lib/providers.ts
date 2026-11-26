@@ -4,10 +4,11 @@ import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { startProviderConnect } from '@studio/common/lib/provider-connect';
 import {
 	ConnectError,
-	getConnectFields,
+	getFormFields,
 	getConnectMethod,
 	getProvider,
 	type ConnectMethod,
+	type FormField,
 	type ProviderConfigs,
 	type ProviderId,
 } from '@studio/providers';
@@ -33,44 +34,71 @@ export async function isProviderConnected( provider: ProviderId ): Promise< bool
 	return ( readInlineConfig( provider ) ?? ( await readProviderConfig( provider ) ) ) !== undefined;
 }
 
-// Asks for a form's fields. The provider checks the values once the last one is entered, and a
-// rejection asks again.
+// What the provider says when it rejects the form's values, or `true` when it connects with them.
+async function connectWith(
+	provider: ProviderId,
+	method: ConnectMethod,
+	values: Record< string, string >
+): Promise< string | true > {
+	try {
+		await changeAiSettings(
+			{ action: 'connect', provider, method: method.id, surface: 'terminal' },
+			() => connectProvider( getProviderServices( provider ), method.id, values ),
+			recordTracksEvent
+		);
+		return true;
+	} catch ( rejection ) {
+		if ( rejection instanceof ConnectError ) {
+			return rejection.message;
+		}
+		throw rejection;
+	}
+}
+
+// Asks for one field, masked when it's a secret; `accept` can still refuse a valid answer.
+function askField(
+	field: FormField,
+	message: string,
+	accept: ( value: string ) => Promise< string | true > = async () => true
+): Promise< string > {
+	const prompt = field.secret ? password : input;
+	return prompt( {
+		message,
+		...( field.secret ? { mask: '*' } : {} ),
+		validate: async ( value: string ) => field.validate( value ) ?? accept( value ),
+	} );
+}
+
+// Asks for a form's fields, of which an optional one takes an empty answer. The provider's
+// rejection of a form of one field is that field's error, so it's asked again; a longer form is
+// asked again whole, so any of its fields can be corrected.
 async function fillForm( provider: ProviderId, method: ConnectMethod ): Promise< void > {
-	const fields = getConnectFields( method );
-	const values: Record< string, string > = {};
-	for ( const [ index, field ] of fields.entries() ) {
-		const prompt = field.secret ? password : input;
-		values[ field.name ] = await prompt( {
-			message: sprintf(
-				/* translators: %s: what the provider asks for, such as an API key */
-				__( '%s (saved for future use):' ),
-				field.title
-			),
-			...( field.secret ? { mask: '*' } : {} ),
-			validate: async ( value: string ) => {
-				const error = field.validate( value );
-				if ( error || index < fields.length - 1 ) {
-					return error ?? true;
-				}
-				try {
-					await changeAiSettings(
-						{ action: 'connect', provider, method: method.id, surface: 'terminal' },
-						() =>
-							connectProvider( getProviderServices( provider ), method.id, {
-								...values,
-								[ field.name ]: value,
-							} ),
-						recordTracksEvent
-					);
-					return true;
-				} catch ( rejection ) {
-					if ( rejection instanceof ConnectError ) {
-						return rejection.message;
-					}
-					throw rejection;
-				}
-			},
-		} );
+	const fields = method.kind === 'form' ? getFormFields( method.input() ) : [];
+	for (;;) {
+		const values: Record< string, string > = {};
+		for ( const field of fields ) {
+			values[ field.name ] = await askField(
+				field,
+				sprintf(
+					field.required
+						? /* translators: %s: what the provider asks for, such as an API key */
+						  __( '%s (saved for future use):' )
+						: /* translators: %s: what the provider asks for, such as an API key */
+						  __( '%s (optional, saved for future use):' ),
+					field.title
+				),
+				async ( value ) =>
+					fields.length > 1 || connectWith( provider, method, { [ field.name ]: value } )
+			);
+		}
+		if ( fields.length === 1 ) {
+			return;
+		}
+		const rejection = await connectWith( provider, method, values );
+		if ( rejection === true ) {
+			return;
+		}
+		console.error( rejection );
 	}
 }
 
@@ -133,6 +161,9 @@ export async function connectInTerminal(
 		return;
 	}
 	const { label, account } = getProvider( provider );
+	if ( ! account ) {
+		return;
+	}
 	const methodId =
 		account.methods.length > 1
 			? await select( {
@@ -163,4 +194,19 @@ export async function connectInTerminal(
 	} catch ( error ) {
 		throw error instanceof ConnectError ? new LoggerError( error.message ) : error;
 	}
+}
+
+// Asks for the fields of a form a provider describes, such as a site to add.
+export async function askFormFields( fields: FormField[] ): Promise< Record< string, string > > {
+	const values: Record< string, string > = {};
+	for ( const field of fields ) {
+		values[ field.name ] = await askField(
+			field,
+			field.required
+				? `${ field.title }:`
+				: /* translators: %s: what the form asks for, such as a server address */
+				  sprintf( __( '%s (optional):' ), field.title )
+		);
+	}
+	return values;
 }

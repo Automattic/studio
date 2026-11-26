@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
-import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, REMOTE_ACCESS_LOCKFILE_NAME } from '../constants';
+import { LOCKFILE_WAIT_TIME, REMOTE_ACCESS_LOCKFILE_NAME } from '../constants';
 import { hideDirectoryOnWindows } from './hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
 import { REMOTE_CONNECTION_KINDS, type RemoteConnectionKind } from './remote-connection';
@@ -122,7 +122,8 @@ export async function readRemoteAccess(): Promise< RemoteAccessState > {
 
 // `mutate` must be synchronous: the state is written as soon as it returns.
 export async function updateRemoteAccess< T >(
-	mutate: ( state: RemoteAccessState ) => T
+	mutate: ( state: RemoteAccessState ) => T,
+	{ wait = LOCKFILE_WAIT_TIME }: { wait?: number } = {}
 ): Promise< T > {
 	const configDir = getConfigDirectory();
 	if ( ! fs.existsSync( configDir ) ) {
@@ -130,7 +131,7 @@ export async function updateRemoteAccess< T >(
 		await hideDirectoryOnWindows( configDir );
 	}
 	const lockPath = path.join( configDir, REMOTE_ACCESS_LOCKFILE_NAME );
-	await lockFileAsync( lockPath, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
+	await lockFileAsync( lockPath, { wait } );
 	try {
 		const state = await readRemoteAccess();
 		const result = mutate( state );
@@ -271,6 +272,7 @@ export interface RemoteDevice {
 
 // Writing on every request would rewrite the file constantly.
 const LAST_SEEN_WRITE_INTERVAL_MS = 60 * 1000;
+const LAST_SEEN_LOCK_WAIT_MS = 2_000;
 
 // When this process last started a last-seen write, per device. Concurrent requests that read the
 // same stale value would otherwise each queue a write behind the lock.
@@ -308,13 +310,19 @@ export async function authenticateDeviceToken(
 	) {
 		lastSeenWrites.set( stored.id, now );
 		try {
-			const found = await updateRemoteAccess( ( current ) => {
-				const entry = current.devices.find( ( candidate ) => candidate.id === stored.id );
-				if ( entry ) {
-					entry.lastSeenAt = Math.max( entry.lastSeenAt, now );
-				}
-				return !! entry;
-			} );
+			const found = await updateRemoteAccess(
+				( current ) => {
+					const entry = current.devices.find( ( candidate ) => candidate.id === stored.id );
+					if ( entry ) {
+						entry.lastSeenAt = Math.max( entry.lastSeenAt, now );
+					}
+					return !! entry;
+				},
+				// The lock keeps trying when it cannot be taken at all, as in a
+				// read-only config folder: a request waits this long, then the
+				// token still works.
+				{ wait: LAST_SEEN_LOCK_WAIT_MS }
+			);
 			if ( ! found ) {
 				// Revoked while this request waited for the lock.
 				return null;

@@ -280,6 +280,8 @@ describe( 'WordPress Server Manager', () => {
 				channel: 'studio-cli',
 				command: 'start',
 				success: false,
+				cpu_count: expect.any( Number ),
+				memory_gb: expect.any( Number ),
 				file_access: 'site-directory',
 				failure_reason: 'php_error',
 				time_ms: expect.any( Number ),

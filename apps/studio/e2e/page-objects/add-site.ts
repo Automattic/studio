@@ -32,7 +32,7 @@ export default class AddSite {
 	async open() {
 		const sidebar = new Sidebar( this.page );
 		const addSiteButton = sidebar.addSiteButton;
-		await expect( this.dialog.or( addSiteButton ).first() ).toBeVisible( { timeout: 60_000 } );
+		await expect( this.dialog.or( sidebar.toggle ).first() ).toBeVisible( { timeout: 60_000 } );
 		if ( ! ( await this.dialog.isVisible() ) ) {
 			await sidebar.ensureOpen();
 			await addSiteButton.and( this.page.locator( ':not([inert] *)' ) ).click();

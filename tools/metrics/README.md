@@ -28,6 +28,11 @@ The performance tests simulate key user workflows and measure the time they take
 - **siteStartup**: How long it takes to restart an existing site
 - **siteEditorLoad**: How long it takes to load the site editor (from navigation until the first block appears)
 
+Two suites measure something other than time:
+
+- **appSizeMac**: The size of the packaged app, in bytes
+- **memoryIdle** and **memoryPeak**: The memory of everything Studio runs, in bytes.
+
 ## Comparing Performance Between Commits
 
 You can compare performance metrics between different commits or branches:
@@ -44,7 +49,7 @@ This tool is useful for:
 
 ## CodeVitals Integration
 
-Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://www.codevitals.run/project/studio/) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
+Performance metrics from the `trunk` branch are automatically sent to [CodeVitals](https://codevitals.run/public/Automattic/studio/metrics) for tracking and visualization. This helps in tracking performance trends over time and detecting regressions.
 
 The metrics are sent when:
 
@@ -64,4 +69,4 @@ The `performance-metrics.json` output file contains a summary of the results, ex
 }
 ```
 
-All measurements are in milliseconds (ms), and lower values indicate better performance.
+Times are in milliseconds (ms), sizes and memory are in bytes, and lower values indicate better performance.

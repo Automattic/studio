@@ -15,14 +15,20 @@ vi.mock( 'cli/lib/sqlite-integration', () => ( {
 	isSqliteIntegrationInstalled,
 } ) );
 
-// The constants are passed to PHP as the third positional arg, JSON-encoded.
+// The script's arguments after `-r <script>`: the transformer path, the wp-config.php path, the
+// constants to write and the constants to write only when undefined, both JSON-encoded.
+async function getScriptArgs(
+	config?: Parameters< typeof ensureWpConfig >[ 3 ]
+): Promise< string[] > {
+	runPhpCommand.mockClear();
+	await ensureWpConfig( '/nonexistent-site', '8.4', new AbortController().signal, config );
+	return ( runPhpCommand.mock.calls[ 0 ][ 0 ] as string[] ).slice( 2 );
+}
+
 async function getWrittenConstants(
 	config?: Parameters< typeof ensureWpConfig >[ 3 ]
 ): Promise< Record< string, unknown > > {
-	runPhpCommand.mockClear();
-	await ensureWpConfig( '/nonexistent-site', '8.4', new AbortController().signal, config );
-	const args = runPhpCommand.mock.calls[ 0 ][ 0 ] as string[];
-	return JSON.parse( args[ args.length - 1 ] );
+	return JSON.parse( ( await getScriptArgs( config ) )[ 2 ] );
 }
 
 describe( 'ensureWpConfig', () => {
@@ -36,6 +42,15 @@ describe( 'ensureWpConfig', () => {
 
 		expect( constants.SCRIPT_DEBUG ).toBe( false );
 		expect( constants.WP_ENVIRONMENT_TYPE ).toBe( 'local' );
+	} );
+
+	// WordPress caches theme patterns and theme.json outside theme development mode, so a pattern
+	// added to a theme wouldn't show up.
+	it( 'enables theme development mode unless wp-config.php already sets a mode', async () => {
+		const [ , , constants, constantsIfUndefined ] = await getScriptArgs();
+
+		expect( JSON.parse( constants ) ).not.toHaveProperty( 'WP_DEVELOPMENT_MODE' );
+		expect( JSON.parse( constantsIfUndefined ) ).toEqual( { WP_DEVELOPMENT_MODE: 'theme' } );
 	} );
 
 	it( 'omits DB_NAME when the SQLite integration is not installed', async () => {

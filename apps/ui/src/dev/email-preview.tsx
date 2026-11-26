@@ -1,9 +1,9 @@
-import '@/lib/theme/tokens.css';
-import '@/lib/theme/base.css';
+import '@studio/ds/theme/tokens.css';
+import '@studio/ds/theme/base.css';
 import '@/index.css';
+import { Tabs, TabsList, TabsScopeIndicator, TabsTrigger } from '@studio/ds';
 import { useState } from 'react';
 import { EmailView } from '@/features/sites/email-view';
-import { Tabs, TabsList, TabsScopeIndicator, TabsTrigger } from '@/lib/ui';
 import styles from './email-preview.module.css';
 import { renderPlayground } from './playground';
 import type { SiteEmail } from '@/data/core';

@@ -69,7 +69,7 @@ import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { confirm, input, password, select } from 'cli/lib/prompts';
-import { assertSiteCapacity } from 'cli/lib/site-capacity';
+import { assertSiteCapacity, assertSiteCountLimit } from 'cli/lib/site-capacity';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
 import { generateSiteName } from 'cli/lib/site-name';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
@@ -197,6 +197,7 @@ async function validateBeforeSourceImport(
 		throw new LoggerError( __( 'The selected directory is already in use.' ) );
 	}
 
+	assertSiteCountLimit( sites );
 	validateCustomDomain( options.customDomain, sites );
 
 	const adminEmail = options.adminEmail?.trim();
@@ -220,7 +221,7 @@ export async function runCommand(
 		: undefined;
 
 	try {
-		const updated = await updateServerFiles( options.wpVersion === DEFAULT_WORDPRESS_VERSION );
+		const updated = await updateServerFiles();
 		if ( updated ) {
 			logger.reportSuccess( __( 'Dependencies updated' ) );
 		}
@@ -286,6 +287,7 @@ export async function runCommand(
 			throw new LoggerError( __( 'The selected directory is already in use.' ) );
 		}
 
+		assertSiteCountLimit( cliConfig.sites );
 		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );
@@ -341,12 +343,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
 		try {
-			const selectedSkills = ( await readConfig() ).preferences.selectedSkills ?? [];
-			await installAiInstructionsToSite(
-				{ path: sitePath },
-				getAiInstructionsPath(),
-				selectedSkills
-			);
+			await installAiInstructionsToSite( { path: sitePath }, getAiInstructionsPath() );
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),

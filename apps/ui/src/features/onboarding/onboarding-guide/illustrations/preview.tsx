@@ -1,6 +1,6 @@
+import { PencilIcon, DatabaseIcon, GlobeIcon, WordPressIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { PencilIcon, DatabaseIcon, GlobeIcon, WordPressIcon } from '@/lib/icons';
 import { easings, sample, span, useTimeline, type Keyframe } from './choreography';
 import { Cursor } from './primitives';
 import styles from './style.module.css';

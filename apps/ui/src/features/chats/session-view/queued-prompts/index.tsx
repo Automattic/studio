@@ -1,6 +1,6 @@
+import { Button } from '@studio/ds';
+import { PencilIcon, XIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { PencilIcon, XIcon } from '@/lib/icons';
-import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { QueuedPrompt } from '@/data/agent-runs/use-agent-run';
 

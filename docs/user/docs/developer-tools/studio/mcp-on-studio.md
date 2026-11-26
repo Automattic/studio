@@ -1,6 +1,8 @@
 # MCP on WordPress Studio
 
-Agent instruction files tell agents how to work with a WordPress Studio site, but they do not give agents direct access to it. For that, WordPress Studio also exposes an MCP (Model Context Protocol) server that agents connect to in order to create, start, stop, and interact with your local WordPress sites.
+WordPress Studio exposes an MCP (Model Context Protocol) server. Agents connect to it to create, start, stop, and interact with your local WordPress sites.
+
+Agent instruction files tell agents how to work with a WordPress Studio site, but they do not give agents direct access to it. The MCP server does.
 
 ## [Install the WordPress Studio plugin](#install-the-wordpress-studio-plugin)
 
@@ -73,7 +75,7 @@ Common configuration file locations are:
 
 See the full setup guides for [Claude Code](https://code.claude.com/docs/en/mcp), [Claude Desktop,](https://modelcontextprotocol.io/docs/develop/connect-local-servers) [Codex](https://developers.openai.com/codex/mcp), [Cursor](https://cursor.com/docs/mcp#installing-mcp-servers), [Windsurf](https://docs.windsurf.com/windsurf/cascade/mcp), [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers).
 
-Once connected, the agent can use WordPress Studio tools such as creating sites, running WP-CLI commands, and taking screenshots, in addition to reading the instruction files and skills already present in the site directory.
+Once connected, the agent can use WordPress Studio tools such as creating sites, running WP-CLI commands, and taking screenshots of a page or of a local site by its name or folder, in addition to reading the instruction files and skills already present in the site directory.
 
 ## [What the agent gets](#0-what-the-agent-gets)
 

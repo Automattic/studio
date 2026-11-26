@@ -47,18 +47,22 @@ export const xaiProvider: Provider< XaiConfig > = {
 					__( 'Create a key in the [xAI Console](https://console.x.ai), then paste it below.' ),
 			},
 		],
-		describe: ( config ) =>
-			config.method === 'api-key'
-				? { method: config.method, summary: previewApiKey( config.apiKey ) }
+		describe: ( config ) => {
+			const { models } = config;
+			return config.method === 'api-key'
+				? { method: config.method, summary: previewApiKey( config.apiKey ), models }
 				: {
 						method: config.method,
 						note: __( 'Using Grok plan' ),
 						links: [ { label: __( 'Manage usage' ), url: 'https://grok.com' } ],
-				  },
+						models,
+				  };
+		},
 	},
 	ai: {
 		models: XAI_AI_MODELS,
 		defaultModel: 'grok-4.7',
+		catalog: { prefixes: [ 'grok-' ] },
 		generatesImages: () => true,
 	},
 };

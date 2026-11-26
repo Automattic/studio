@@ -1,8 +1,10 @@
 # PHP runtimes
 
+WordPress Studio runs every site on native PHP binaries and supports PHP 8.2, 8.3, 8.4, and 8.5.
+
 The backbone of every WordPress site is the PHP code that runs on the server. PHP is an interpreted language, meaning every WordPress site ships with actual source code rather than a compiled binary. To run this source code, a “PHP runtime” is needed.
 
-WordPress Studio runs every site on native PHP binaries. Native PHP runs the code with few abstractions around the system, so sites are fast and behave like they would on a typical PHP server. WordPress Studio supports PHP 8.2, 8.3, 8.4, and 8.5.
+Native PHP runs the code with few abstractions around the system, so sites are fast and behave like they would on a typical PHP server.
 
 ## PHP extensions
 

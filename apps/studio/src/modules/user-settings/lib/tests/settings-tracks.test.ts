@@ -9,7 +9,7 @@ import {
 	readAiSettings,
 	type AiSettings,
 } from '@studio/common/lib/ai-settings';
-import { ConnectError } from '@studio/providers';
+import { ConnectError, PROVIDER_IDS } from '@studio/providers';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import {
@@ -118,16 +118,11 @@ describe( 'AI provider settings', () => {
 	const settings = ( provider: 'wpcom' | 'anthropic', summary: string | null ): AiSettings => ( {
 		provider,
 		accounts: {
-			wpcom: { connected: false },
+			...( Object.fromEntries(
+				PROVIDER_IDS.map( ( id ) => [ id, { connected: false } ] )
+			) as AiSettings[ 'accounts' ] ),
 			anthropic:
 				summary === null ? { connected: false } : { connected: true, method: 'api-key', summary },
-			openai: { connected: false },
-			gemini: { connected: false },
-			'github-copilot': { connected: false },
-			meta: { connected: false },
-			xai: { connected: false },
-			openrouter: { connected: false },
-			spacefast: { connected: false },
 		},
 		imageProviders: [],
 		imageProvider: null,

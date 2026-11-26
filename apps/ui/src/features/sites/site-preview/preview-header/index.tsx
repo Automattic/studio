@@ -1,9 +1,9 @@
+import { IconButton, VisuallyHidden } from '@studio/ds';
+import { RotateCwIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
-import { RotateCwIcon } from '@/lib/icons';
-import { IconButton, VisuallyHidden } from '@/lib/ui';
 import { BrowserHistoryButton } from './browser-history-button';
 import {
 	BrowserMenu,
@@ -137,6 +137,7 @@ export function PreviewHeader( {
 						shortcut={ shortcuts.reload }
 						tooltipSide="bottom"
 						disabled={ disabled }
+						variant="ghost"
 						onClick={ () => onBrowserCommand( 'reload' ) }
 					/>
 				</div>

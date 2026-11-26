@@ -1,3 +1,13 @@
+import {
+	Badge,
+	IconButton,
+	NotificationDot,
+	SidebarMenuActions,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarMenuLabel,
+} from '@studio/ds';
+import { GlobeIcon, TriangleAlertIcon, SquarePenIcon } from '@studio/ds/icons';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -12,16 +22,6 @@ import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tr
 import { getStagedAnnotations } from '@/features/annotations';
 import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
-import { GlobeIcon, TriangleAlertIcon, SquarePenIcon } from '@/lib/icons';
-import {
-	Badge,
-	IconButton,
-	NotificationDot,
-	SidebarMenuActions,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	SidebarMenuLabel,
-} from '@/lib/ui';
 import { useRowPressed, useSelectableRow } from './selection';
 import { SiteChats } from './site-chats';
 import { SiteRowMenu } from './site-row-menu';
@@ -164,7 +164,6 @@ export function SiteSection( {
 					</Badge>
 				) : null }
 				<IconButton
-					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
 					icon={ <SquarePenIcon /> }
@@ -183,7 +182,7 @@ export function SiteSection( {
 							draft.attachments.length === 0 &&
 							getStagedAnnotations( site.id ).length === 0;
 						runLayoutTransition( () => {
-							preview?.setChatHidden( hideChat, site.id, { instant: true } );
+							preview?.setChatHidden( hideChat, site.id );
 							if ( ! hideChat ) {
 								return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 							}

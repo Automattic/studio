@@ -102,6 +102,24 @@ describe( 'tool display helpers', () => {
 		expect( getToolDisplayName( 'open_annotation_browser' ) ).toBe( 'Open annotation browser' );
 	} );
 
+	it( 'shows a screenshot target from a url or a local site', () => {
+		expect( getToolDetail( 'take_screenshot', { url: 'http://localhost:8888/pricing' } ) ).toBe(
+			'http://localhost:8888/pricing'
+		);
+		expect( getToolDetail( 'take_screenshot', { nameOrPath: 'My Site' } ) ).toBe( 'My Site' );
+		expect( getToolDetail( 'take_screenshot', { nameOrPath: 'My Site', path: '/about' } ) ).toBe(
+			'My Site /about'
+		);
+		expect( getToolDetail( 'take_screenshot', {} ) ).toBe( '' );
+		expect(
+			getToolDetail( 'take_screenshot', {
+				url: 'http://localhost:8888/exact',
+				nameOrPath: 'My Site',
+				path: '/about',
+			} )
+		).toBe( 'http://localhost:8888/exact' );
+	} );
+
 	it( 'does not reveal which design options the agent chose', () => {
 		expect(
 			getToolDetail( 'pick_design', {

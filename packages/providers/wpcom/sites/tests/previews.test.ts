@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RemoteSiteError } from '../../../errors';
 import { wpcomClient } from '../../api';
@@ -13,7 +14,12 @@ const siteId = 12345;
 const shareUrl = 'https://preview-site.wpcomstaging.com/?share=abc123';
 const launchUrl =
 	'https://wordpress.com/setup/launch-site?siteSlug=preview-site.wpcomstaging.com&hide_free_plan=1';
-const content: PushContent = { kind: 'archive', file: new Blob(), name: 'site.zip', size: 1 };
+const content: PushContent = {
+	kind: 'archive',
+	file: Readable.from( [] ),
+	name: 'site.zip',
+	size: 1,
+};
 const preview = {
 	id: siteId,
 	name: 'preview-site.wpcomstaging.com',

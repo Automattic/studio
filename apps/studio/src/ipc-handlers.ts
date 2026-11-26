@@ -32,21 +32,22 @@ import {
 import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
+import { RESERVED_SKILL_NAMES } from '@studio/agent/protocol/reserved-skill-names';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { THINKING_SETTINGS, type ThinkingSetting } from '@studio/agent/protocol/thinking';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { type Blueprint } from '@studio/blueprints';
 import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH, PROTOCOL_PREFIX } from '@studio/common/constants';
 import {
+	createSiteSkill,
+	getSiteSkillDetails,
+	updateSiteSkill,
 	getSiteAgentFiles as readSiteAgentFiles,
-	getSkillsStatusForAllSites,
-	installSkillToAllSites,
 	removeSiteAgentFile as deleteSiteAgentFile,
-	removeSkillFromAllSites,
 	setSiteAgentFileEnabled as writeSiteAgentFileEnabled,
 	type SiteAgentFile,
 	type SiteAgentFileKind,
-	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
 import { disconnectProvider } from '@studio/common/lib/ai-settings';
 import { readAuthToken } from '@studio/common/lib/auth-token';
@@ -71,6 +72,17 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import {
+	createGlobalSkill,
+	getGlobalSkillDetails,
+	updateGlobalSkill,
+	getGlobalSkillDirectory,
+	getGlobalSkills as readGlobalSkills,
+	removeGlobalSkill as deleteGlobalSkill,
+	setGlobalSkillEnabled as writeGlobalSkillEnabled,
+	type GlobalSkill,
+	type GlobalSkillSource,
+} from '@studio/common/lib/global-skills';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -83,6 +95,7 @@ import {
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { isSitePreviewPath, readSitePreview } from '@studio/common/lib/site-preview-cache';
 import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
+import { type SkillDetails, type SkillDraft } from '@studio/common/lib/skill-draft';
 import {
 	getLocalFileSize,
 	listLocalFileTree as listSiteFileTree,
@@ -111,7 +124,6 @@ import {
 	setSiteFrontendAdminBar as writeSiteFrontendAdminBar,
 	updateSiteMetadata,
 } from '@studio/common/sites/metadata';
-import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import {
 	designFixesSchema,
 	fixSiteDesign,
@@ -219,8 +231,14 @@ export {
 } from 'src/modules/phone-access/lib/ipc-handlers';
 
 export {
+	getSitePublishStatus,
 	cancelSyncOperation,
+	getSiteCreationVisibility,
+	getSiteVisibility,
+	setSiteVisibility,
 	connectRemoteSite,
+	resolveRemoteSite,
+	runSitesAction,
 	createRemoteSite,
 	disconnectRemoteSite,
 	getRemoteBackupId,
@@ -399,6 +417,24 @@ export async function setAiSessionProvider(
 	} );
 }
 
+export async function setAiSessionThinking(
+	_event: IpcMainInvokeEvent,
+	sessionId: string,
+	model: string,
+	thinking: ThinkingSetting
+): Promise< void > {
+	if ( ! findAiModel( model ) ) {
+		throw new Error( `Unknown AI model: ${ model }` );
+	}
+	if ( ! THINKING_SETTINGS.includes( thinking ) ) {
+		throw new Error( `Unknown thinking level: ${ thinking }` );
+	}
+	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
+		model,
+		thinking,
+	} );
+}
+
 export async function setAiSessionEnvironment(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
@@ -422,24 +458,62 @@ export async function answerAiAgentQuestion(
 	answerAgentRun( runId, answers );
 }
 
-export async function getWordPressSkillsStatusAllSites(
-	_event: IpcMainInvokeEvent
-): Promise< SkillStatus[] > {
-	return getSkillsStatusForAllSites();
+export async function getGlobalSkills( _event: IpcMainInvokeEvent ): Promise< GlobalSkill[] > {
+	return readGlobalSkills();
 }
 
-export async function installWordPressSkillsToAllSites(
+export async function setGlobalSkillEnabled(
 	_event: IpcMainInvokeEvent,
-	options: { skillId: string; overwrite?: boolean }
+	source: GlobalSkillSource,
+	id: string,
+	enabled: boolean
 ): Promise< void > {
-	await installSkillToAllSites( getAiInstructionsPath(), options.skillId, options.overwrite );
+	await writeGlobalSkillEnabled( source, id, enabled );
 }
 
-export async function removeWordPressSkillFromAllSites(
+export async function removeGlobalSkill( _event: IpcMainInvokeEvent, id: string ): Promise< void > {
+	await deleteGlobalSkill( id );
+}
+
+export async function openGlobalSkill(
 	_event: IpcMainInvokeEvent,
-	skillId: string
+	source: GlobalSkillSource,
+	id: string
 ): Promise< void > {
-	await removeSkillFromAllSites( skillId );
+	await shell.openPath( await getGlobalSkillDirectory( source, id ) );
+}
+
+// A skill of the user's, made and changed in the app: one site's when `siteId` is set,
+// otherwise one of Studio's for all sites.
+export async function createSkill(
+	_event: IpcMainInvokeEvent,
+	siteId: string | null,
+	draft: SkillDraft
+): Promise< string > {
+	return siteId
+		? createSiteSkill( await requireSitePath( siteId ), draft, RESERVED_SKILL_NAMES )
+		: createGlobalSkill( draft, RESERVED_SKILL_NAMES );
+}
+
+export async function getSkill(
+	_event: IpcMainInvokeEvent,
+	siteId: string | null,
+	id: string
+): Promise< SkillDetails > {
+	return siteId
+		? getSiteSkillDetails( await requireSitePath( siteId ), id )
+		: getGlobalSkillDetails( id );
+}
+
+export async function updateSkill(
+	_event: IpcMainInvokeEvent,
+	siteId: string | null,
+	id: string,
+	draft: SkillDraft
+): Promise< string > {
+	return siteId
+		? updateSiteSkill( await requireSitePath( siteId ), id, draft, RESERVED_SKILL_NAMES )
+		: updateGlobalSkill( id, draft, RESERVED_SKILL_NAMES );
 }
 
 export async function getSiteAgentFiles(
@@ -1036,7 +1110,7 @@ export async function getSiteDesign(
 ): Promise< SiteDesign | null > {
 	const sitePath = await readSitePath( id );
 	return sitePath
-		? readSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), () =>
+		? readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
 				readGlobalStyles( executeCliCommand, sitePath )
 		  )
 		: null;
@@ -1049,11 +1123,7 @@ export async function fixSiteDesignDrift(
 ): Promise< SiteDesign | null > {
 	const sitePath = await readSitePath( id );
 	return sitePath
-		? fixSiteDesign(
-				nodeSiteFiles( sitePath ),
-				activeThemeSlug( sitePath ),
-				designFixesSchema.parse( fixes )
-		  )
+		? fixSiteDesign( sitePath, activeThemeSlug( sitePath ), designFixesSchema.parse( fixes ) )
 		: null;
 }
 

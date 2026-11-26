@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getPreviewStatus } from 'cli/commands/preview/status';
+import { getDestinationStatus } from 'cli/commands/publish-status';
 import { findSiteById } from 'cli/lib/cli-config/sites';
 import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
@@ -55,18 +55,74 @@ describe( 'getPreviewStatus', () => {
 			fs.writeFileSync( path.join( sitePath, 'wp-content', 'style.css' ), 'body {}' );
 		}
 
-		expect( await getPreviewStatus( 'preview.wpcomstaging.com' ) ).toEqual( {
+		expect( await getDestinationStatus( { host: 'preview.wpcomstaging.com' } ) ).toEqual( {
 			localSiteId: 'one',
 			...expected,
 		} );
 	} );
+
+	it.each( [ false, true ] )(
+		'preserves local change status when the remote check fails (%s)',
+		async ( editLocal ) => {
+			const versionId = await getSiteVersion( 'one', sitePath );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
+				{
+					url: 'preview.wpcomstaging.com',
+					atomicSiteId: 7,
+					localSiteId: 'one',
+					date: 2000,
+					versionId,
+					syncedAt: 2000,
+				},
+			] );
+			vi.mocked( wpcomSites.editedAt! ).mockRejectedValue(
+				new Error( 'Sorry, you are not allowed to access the templates on this site.' )
+			);
+			if ( editLocal )
+				fs.writeFileSync( path.join( sitePath, 'wp-content', 'style.css' ), 'body {}' );
+			expect( await getDestinationStatus( { host: 'preview.wpcomstaging.com' } ) ).toEqual( {
+				localSiteId: 'one',
+				localChanged: editLocal,
+				previewChanged: null,
+			} );
+		}
+	);
+
+	it.each( [
+		[ 1000, false ],
+		[ 3000, true ],
+	] )(
+		'preserves remote change status when the local comparison fails (%s)',
+		async ( previewEditedAt, previewChanged ) => {
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
+				{
+					url: 'preview.wpcomstaging.com',
+					atomicSiteId: 7,
+					localSiteId: 'one',
+					date: 2000,
+					versionId: 'previous-version',
+					syncedAt: 2000,
+				},
+			] );
+			vi.mocked( wpcomSites.editedAt! ).mockResolvedValue( previewEditedAt );
+			const databaseDir = path.join( sitePath, 'wp-content', 'database' );
+			fs.mkdirSync( databaseDir );
+			fs.writeFileSync( path.join( databaseDir, '.ht.sqlite' ), 'not a database' );
+
+			expect( await getDestinationStatus( { host: 'preview.wpcomstaging.com' } ) ).toEqual( {
+				localSiteId: 'one',
+				localChanged: null,
+				previewChanged,
+			} );
+		}
+	);
 
 	it( "can't tell for a preview synced before Studio recorded versions", async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
 			{ url: 'preview.wpcomstaging.com', atomicSiteId: 7, localSiteId: 'one', date: 2000 },
 		] );
 
-		expect( await getPreviewStatus( 'preview.wpcomstaging.com' ) ).toEqual( {
+		expect( await getDestinationStatus( { host: 'preview.wpcomstaging.com' } ) ).toEqual( {
 			localSiteId: 'one',
 			localChanged: null,
 			previewChanged: null,

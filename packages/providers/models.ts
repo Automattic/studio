@@ -1,45 +1,42 @@
 import { AI_PROVIDER_IDS, getProvider } from './registry';
-import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
-import type { GEMINI_AI_MODELS } from './gemini/descriptor';
-import type { GITHUB_COPILOT_AI_MODELS } from './github-copilot/descriptor';
-import type { META_AI_MODELS } from './meta/descriptor';
-import type { OPENAI_AI_MODELS } from './openai/descriptor';
-import type { OPENROUTER_AI_MODELS } from './openrouter/descriptor';
+import type { GITHUB_COPILOT_MODEL_PREFIXES } from './github-copilot/descriptor';
 import type { AccountModel, AiModel, AiProviderId, ProviderId } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
-import type { XAI_AI_MODELS } from './xai/descriptor';
 
 export type AiModelId =
-	| (
-			| typeof WPCOM_AI_MODELS
-			| typeof ANTHROPIC_AI_MODELS
-			| typeof OPENAI_AI_MODELS
-			| typeof GEMINI_AI_MODELS
-			| typeof GITHUB_COPILOT_AI_MODELS
-			| typeof META_AI_MODELS
-			| typeof XAI_AI_MODELS
-			| typeof OPENROUTER_AI_MODELS
-	  )[ number ][ 'id' ]
-	// From a provider's catalog.
-	| `openrouter/${ string }`;
+	| ( typeof WPCOM_AI_MODELS )[ number ][ 'id' ]
+	// From a provider's catalog, which the models every other provider lists belong to.
+	| `${ ( typeof GITHUB_COPILOT_MODEL_PREFIXES )[ number ] }${ string }`
+	| `muse-${ string }`
+	| `openrouter/${ string }`
+	| `local-llm/${ string }`;
 
-// The catalog model's provider, which names it with its own id and a slash.
-function catalogProvider( id: string ): AiProviderId | undefined {
-	return AI_PROVIDER_IDS.find(
-		( provider ) => getProvider( provider ).ai?.catalog && id.startsWith( `${ provider }/` )
-	);
+// How much a model thinks before answering, from a chat's pick; pi runs a model that lacks the
+// level at the nearest one it has.
+export const THINKING_LEVELS = [ 'off', 'low', 'medium', 'high' ] as const;
+export type ThinkingLevel = ( typeof THINKING_LEVELS )[ number ];
+
+// Whether the model's id is one the provider's catalog names its models with.
+function inCatalog( provider: ProviderId, id: string ): boolean {
+	const prefixes = getProvider( provider ).ai?.catalog?.prefixes ?? [];
+	return prefixes.some( ( prefix ) => id.startsWith( prefix ) );
 }
 
 // Whether the provider can run the model: one it lists, or one from its catalog.
 export function servesAiModel( provider: ProviderId, id: string ): boolean {
 	return (
 		Boolean( getProvider( provider ).ai?.models.some( ( model ) => model.id === id ) ) ||
-		catalogProvider( id ) === provider
+		inCatalog( provider, id )
 	);
 }
 
-function catalogModel( { id, label, supportsImages }: AccountModel ): AiModel< AiModelId > {
-	return { id, label: () => label ?? id.slice( id.indexOf( '/' ) + 1 ), supportsImages };
+function catalogModel( {
+	id,
+	label,
+	supportsImages,
+	thinking,
+}: AccountModel ): AiModel< AiModelId > {
+	return { id, label: () => label ?? id.slice( id.indexOf( '/' ) + 1 ), supportsImages, thinking };
 }
 
 /**
@@ -57,7 +54,7 @@ export function getAiModels(
 			if ( listed ) {
 				return [ listed ];
 			}
-			return catalogProvider( offered.id ) === provider ? [ catalogModel( offered ) ] : [];
+			return inCatalog( provider, offered.id ) ? [ catalogModel( offered ) ] : [];
 		} ) ?? models
 	);
 }
@@ -72,7 +69,7 @@ export function findAiModel(
 			return { provider, model };
 		}
 	}
-	const provider = catalogProvider( id );
+	const provider = AI_PROVIDER_IDS.find( ( candidate ) => inCatalog( candidate, id ) );
 	return provider && { provider, model: catalogModel( { id: id as AiModelId } ) };
 }
 

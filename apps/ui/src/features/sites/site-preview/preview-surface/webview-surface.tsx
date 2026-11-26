@@ -4,6 +4,7 @@ import {
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
+import { getEmbeddedFontData } from '@studio/ds/theme';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import {
@@ -13,7 +14,6 @@ import {
 	type BrowserCommand,
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
-import { getEmbeddedFontData } from '@/lib/theme';
 import { buildClearSelectionScript, buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import {

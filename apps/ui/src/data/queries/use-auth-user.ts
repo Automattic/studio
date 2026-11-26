@@ -64,7 +64,8 @@ export function useAuthChangeToasts() {
 			clearAccountJourneys( connector );
 		if ( previousUserId.current !== undefined && previousUserId.current !== userId ) {
 			toast.success(
-				userId === null ? __( 'Logged out of WordPress.com' ) : __( 'Logged in to WordPress.com' )
+				userId === null ? __( 'Logged out of WordPress.com' ) : __( 'Logged in to WordPress.com' ),
+				{ id: 'auth-user-change', durationMs: userId === null ? undefined : 0 }
 			);
 		}
 		previousUserId.current = userId;

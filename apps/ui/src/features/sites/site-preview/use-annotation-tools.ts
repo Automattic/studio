@@ -121,11 +121,10 @@ export function useAnnotationTools( {
 			setFailed( false );
 			setAnnotationsPreparing( siteId, true );
 			try {
-				const image = await connector.captureAnnotationRegion(
-					surface instanceof HTMLIFrameElement
-						? { frame: surface, selection }
-						: { guestId: getWebviewContentsId( surface as WebviewTag ), selection }
-				);
+				const image = await connector.captureAnnotationRegion( {
+					guestId: getWebviewContentsId( surface as WebviewTag ),
+					selection,
+				} );
 				if ( generation.current !== attempt || draftRef.current?.id !== selection.id ) return;
 				validateStudioChatImages( [ ...otherImages, image ] );
 				const box = surface.getBoundingClientRect();

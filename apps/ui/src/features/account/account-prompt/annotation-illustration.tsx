@@ -1,4 +1,4 @@
-import { DrawIcon, SelectIcon } from '@/lib/icons';
+import { DrawIcon, SelectIcon } from '@studio/ds/icons';
 import styles from './annotation-illustration.module.css';
 import site from './assets/site-2.png';
 

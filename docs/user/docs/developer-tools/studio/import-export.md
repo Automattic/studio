@@ -1,82 +1,141 @@
-# Import & export
+# Import and export sites
 
-A WordPress Studio site can be added from a backup file that contains a site’s full content.
+Add a site to WordPress Studio from a backup file, or save a local site as a backup file. You can also update an existing site from a backup.
 
-An existing WordPress Studio site can be updated from the backup file in a similar fashion, or from a single `.sql` file, from the command palette.
+To import, choose **Import** in the **Add site** dialog and select the file. To export, choose **Export** from the site menu.
 
-Your backup files can be downloaded from your WordPress.com site or from Jetpack’s Activity Log page. It will have the following files and directories inside:
+**Applies to:** the WordPress Studio app. The same imports and exports are available in the terminal with [WordPress Studio CLI](https://wordpress.studio/docs/cli/#import-and-export). You don’t need a WordPress.com account to import or export.
 
--   `wp-config.php`: The WordPress configuration file.
--   `wp-content/plugins`: The folder containing your site’s plugins.
--   `wp-content/themes`**:** The folder containing your site’s themes.
--   `wp-content/uploads`**:** The folder containing your site’s uploads.
--   `sql/`**:** A directory with `.sql` files that contain your site’s database data.
+If your site is on a paid WordPress.com plan or on [Pressable](https://pressable.com/), you can [pull it into WordPress Studio and publish it back](https://wordpress.studio/docs/sync/) instead, with no backup file.
 
-Exports from WordPress Studio will also have a `meta.json` file, which records the site’s PHP and WordPress versions, its URL, and its plugins and themes.
+## Before you start
 
-Other supported formats are:
+- A backup file in a [supported format](https://wordpress.studio/docs/import-export/#supported-backup-formats). You can download a backup of a WordPress.com site from the site or from Jetpack’s Activity Log page.
 
--   The `.wpress` file from the [All-in-One WP Migration and Backup plugin](https://wordpress.com/plugins/all-in-one-wp-migration)
--   The `.zip` file from the [Local app](https://localwp.com/help-docs/getting-started/how-to-import-a-wordpress-site-into-local/#export-a-site)
--   The `.zip` file from [WordPress Playground](https://wordpress.github.io/wordpress-playground/quick-start-guide/#save-your-site)
--   `.tar` and `.tar.gz` archives
--   WordPress export files (`.xml`), created with **Tools → Export** in WP Admin
+## Add a new site from a backup
 
-If your site is hosted on a paid WordPress.com plan or on [Pressable](https://pressable.com/), you can use [WordPress Studio Sync](https://wordpress.studio/docs/sync/) as an alternative. It lets you pull down your production or staging site into WordPress Studio, and publish local changes back to the live site when you’re ready.
+1.  <span id="how-to-add-a-new-site-to-wordpress-studio-from-a-backup"></span>Click **Add site** (**+**) next to **Sites** at the top of the sidebar.
+2.  Choose **Import**.
+3.  Click **Choose file** and select your backup file. The **Add site** form opens with your backup under **Start from**.
+4.  Enter a name for the site.
+5.  Check the **Site folder**. It must be empty.
+6.  Click **Add site**.
 
-## [How to add a new site to WordPress Studio from a backup](#0-how-to-add-a-new-site-to-wordpress-studio-from-a-backup)
+The new site starts and appears in the sidebar.
 
-To add a new site to WordPress Studio from backup, you’ll need a `.tar.gz`, `.tar`, `.zip`, `.wpress`, or `.xml` file:
+Instead of clicking **Choose file**, you can drag your backup file onto the **Drop your file here** area, or anywhere on the **Add site** dialog.
 
-1.  Click the **Add site** (**+**) button next to **Sites** at the top of the WordPress Studio sidebar, and choose **Import**.
-2.  Click **Choose file** and select your backup file. Alternatively, drag and drop your backup file onto the **Drop your file here** area, or anywhere on the **Add site** dialog.
-3.  The **Add site** form opens with your backup under **Start from**. Name your site and check its **Site folder**, which must be empty.
-4.  Click **Add site**.
+Some websites that turn a site into a WordPress backup, such as [liberate.sh](https://liberate.sh), offer a link that opens the backup in the desktop app. WordPress Studio downloads the backup and opens the **Add site** form with it under **Start from**. WordPress Studio creates the site only when you click **Add site**.
 
-Any imported site is started by default and visible in the sidebar. If the import fails, WordPress Studio explains what went wrong in plain language and lets you try again.
+## Update an existing site from a backup
 
-Some websites that turn a site into a WordPress backup, such as [liberate.sh](https://liberate.sh), offer a link that opens the backup in the desktop app. WordPress Studio downloads the backup (a `.zip` or `.tar.gz` file smaller than 1 GB) and opens the **Add site** form with it under **Start from**. The site is only created when you click **Add site**.
+> **Warning:** Importing a `.tar.gz`, `.tar`, `.zip`, or `.wpress` backup replaces the WordPress Studio site with the backup.
 
-## [How to update an existing WordPress Studio site from a backup](#1-how-to-update-an-existing-wordpress-studio-site-from-a-backup)
+1.  <span id="how-to-update-an-existing-wordpress-studio-site-from-a-backup"></span>In the sidebar, select the site.
+2.  Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette.
+3.  Search for **Import backup…** and choose it.
+4.  Select your backup file.
+5.  When WordPress Studio asks **Overwrite** followed by the site’s name, click **Import**.
 
-To update an existing WordPress Studio site from a backup, you’ll need a `.tar.gz`, `.tar`, `.zip`, `.wpress`, `.sql`, or `.xml` file:
+What happens depends on the file:
 
-1.  Select the site, then press ⌘K (Ctrl+K on Windows and Linux) to open the command palette.
-2.  Search for **Import backup…**, choose it, and select your backup file.
-3.  When WordPress Studio asks **Overwrite** followed by the site’s name, click **Import** to overwrite your WordPress Studio site with your backup file.
+| File | What the import does |
+| --- | --- |
+| `.tar.gz`, `.tar`, `.zip`, `.wpress` | Replaces the site with the backup |
+| `.sql` | Imports the database dump on top of the existing site |
+| `.xml` (WordPress export) | Adds its posts, pages, terms, authors, and media to the existing site |
 
-The WordPress Studio site will be replaced from the provided `.tar.gz`, `.tar`, `.zip`, or `.wpress` backup. However, when you import a `.sql` file to an existing site, the database dump will be imported on top of the existing site, and when you import a WordPress export (`.xml`) file, its posts, pages, terms, authors, and media are added to the existing site.
+## Export a site
 
-## [How to export a site from WordPress Studio](#2-how-to-export-a-site-from-wordpress-studio)
+<span id="how-to-export-a-site-from-wordpress-studio"></span>You can export the whole site as a `.zip` file that works with Jetpack Backup, or only the database as a `.sql` file that works with MySQL.
 
-WordPress Studio allows you to export your entire local site into a `.zip` format, which is compatible with Jetpack Backup. You may also export only the database into a `.sql` file, which is compatible with MySQL.
+1.  Click the **Site menu** button, which shows the site’s name, at the top left of the site’s header.
+2.  Choose **Export**.
+3.  Choose **Export site** for a full-site `.zip` file, or **Export database** for a `.sql` file.
+4.  Choose where to save the file.
+5.  Click **Save**.
 
-To export a site from WordPress Studio:
+When the export is finished, WordPress Studio opens the folder that contains the backup file. You can also open the site menu by right-clicking the site in the sidebar.
 
-1.  Open the site menu: click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar.
-2.  Choose **Export**, then **Export site** to generate a full-site `.zip` file, or **Export database** to generate a `.sql` file.
-3.  Choose the destination and click **Save.**
+## Move an export to a hosted WordPress site
 
-Other site actions, such as starting and stopping the site, are unavailable while an import or export is running.
+<span id="how-to-upload-a-wordpress-studio-export-to-a-hosted-wordpress-site"></span>You can restore a WordPress Studio export on any WordPress site. For a site on a paid WordPress.com plan, follow [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/).
 
-When the export is finished, WordPress Studio will open the directory containing the backup file automatically.
+If the site is on a paid WordPress.com plan or on Pressable, you can [publish to it from the Publish panel](https://wordpress.studio/docs/sync/) instead, with no file to upload.
 
-Note that `node_modules` and `.git` paths are excluded from the exported file.
+## Create a backup without Jetpack Backup
 
-## [How to upload a WordPress Studio export to a hosted WordPress site](#3-how-to-upload-a-wordpress-studio-export-to-a-hosted-wordpress-site)
+<span id="how-to-import-a-site-without-a-jetpack-backup"></span>If you don’t use Jetpack Backup, build a backup file by hand, then import it.
 
-Once you have the backup file, you can deploy it to **any** WordPress site. For example, if your site is on a paid WordPress.com plan, you can follow the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
+1.  Create a temporary import directory, for example `import-to-studio/`.
+2.  Inside it, create a `sql/` directory and a `wp-content/` directory.
+3.  From your site’s `wp-content/` directory, copy `plugins/`, `themes/`, and `uploads/` into the new `wp-content/` directory.
+4.  Copy your site’s `wp-config.php` into the temporary import directory.
+5.  Export your site’s database with a MySQL tool of your choice.
+6.  Put the dump file in the `sql/` directory.
+7.  Select all the files in the temporary import directory.
+8.  Compress them into a `.zip` file.
 
-Alternatively, if your site is hosted on a paid WordPress.com plan or Pressable, you also have the option to use [WordPress Studio Sync](https://wordpress.studio/docs/sync/). Its **Publish** button lets you connect WordPress Studio to your live production or staging sites and publish local changes with a single click—no manual file upload required.
+The directory looks like this:
 
-## [How to import a site without a Jetpack backup](#4-how-to-import-a-site-without-a-jetpack-backup)
+```text
+import-to-studio/
+├── sql/
+│   └── <your-database-dump>.sql
+├── wp-content/
+│   ├── plugins/
+│   ├── themes/
+│   └── uploads/
+└── wp-config.php
+```
 
-If you are not using Jetpack Backup, you can still import the site to WordPress Studio from a backup file created manually:
+To import it, [add a new site from the backup](https://wordpress.studio/docs/import-export/#add-a-new-site-from-a-backup).
 
-1.  Create a temporary import directory e.g., `import-to-studio/`.
-2.  Create `sql/` and `wp-content/` directories inside the created directory.
-3.  Open `wp-content/` directory of your site and copy `plugins/`, `themes/`, and `uploads/` to the `wp-content/` in the temporary import directory.
-4.  Copy your site’s `wp-config.php` to the temporary import directory.
-5.  Export your site’s database using your favorite MySQL tool and place the dump file in `sql/` directory.
-6.  Select all files in temporary import directory and compress them as `.zip` file.
-7.  Follow the steps shown above to add a new site from the backup file.
+## Supported backup formats
+
+| Format | Add a new site | Update an existing site |
+| --- | --- | --- |
+| Jetpack or WordPress.com backup (`.zip`) | Yes | Yes |
+| `.tar` and `.tar.gz` archives | Yes | Yes |
+| All-in-One WP Migration and Backup (`.wpress`), from the [plugin](https://wordpress.com/plugins/all-in-one-wp-migration) | Yes | Yes |
+| [Local](https://localwp.com/help-docs/getting-started/how-to-import-a-wordpress-site-into-local/#export-a-site) export (`.zip`) | Yes | Yes |
+| [WordPress Playground](https://wordpress.github.io/wordpress-playground/quick-start-guide/#save-your-site) export (`.zip`) | Yes | Yes |
+| WordPress export (`.xml`), created with **Tools → Export** in WordPress admin | Yes | Yes |
+| Database dump (`.sql`) | No | Yes |
+
+A Jetpack or WordPress.com backup contains:
+
+- `wp-config.php`, the WordPress configuration file.
+- `wp-content/plugins`, your site’s plugins.
+- `wp-content/themes`, your site’s themes.
+- `wp-content/uploads`, your site’s uploads.
+- `sql/`, the `.sql` files with your site’s database.
+
+Exports from WordPress Studio also have a `meta.json` file, which records the site’s PHP and WordPress versions, its URL, and its plugins and themes.
+
+## Limits
+
+- While an import or export is running, other actions on that site, such as starting and stopping it, are unavailable.
+- Exports leave out `node_modules` and `.git` paths.
+- A backup opened from a website link must be a `.zip` or `.tar.gz` file smaller than 1 GB.
+
+## Troubleshooting
+
+### What do I do when an import fails?
+
+WordPress Studio explains what went wrong and lets you try again. To see more detail, [open the logs](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-access-wordpress-studio-logs).
+
+### Why can’t I add the site to this folder?
+
+The **Site folder** for an imported site must be empty. Choose an empty folder, or type a new folder name.
+
+### Why are thumbnails missing after an import?
+
+Regenerate them with WordPress Studio CLI. See [How can I regenerate my thumbnails?](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-regenerate-my-thumbnails)
+
+## Related
+
+- [Publish and pull your site](https://wordpress.studio/docs/sync/)
+- [WordPress Studio sites](https://wordpress.studio/docs/sites/)
+- [WordPress Studio CLI](https://wordpress.studio/docs/cli/#import-and-export)
+- [Share a preview of your site](https://wordpress.studio/docs/preview-sites/)

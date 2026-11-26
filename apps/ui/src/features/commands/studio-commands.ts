@@ -1,7 +1,4 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
-import { __, sprintf } from '@wordpress/i18n';
-import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
-import { getSessionTitle } from '@/features/chats';
 import {
 	SettingsIcon,
 	PlusIcon,
@@ -16,7 +13,10 @@ import {
 	SidebarIcon,
 	UnpinIcon,
 	SparkleIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
+import { getSessionTitle } from '@/features/chats';
 import type { AiSessionSummary, SiteDetails, WritableUserPreferences } from '@/data/core';
 import type { useOpenSettings } from '@/data/use-open-settings';
 import type { useChatActions } from '@/features/chats';
@@ -120,7 +120,7 @@ export function getAppCommands( {
 	savePreferences: ( preferences: Partial< WritableUserPreferences > ) => void;
 	toggleSidebar: () => void;
 	openWhatsNew: () => void;
-	openFeedback?: () => void;
+	openFeedback: () => void;
 	// Set while the sidebar has more than one site unfolded.
 	collapseAll?: () => void;
 } ): PaletteCommand[] {
@@ -188,23 +188,15 @@ export function getAppCommands( {
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
 		},
-		...( openFeedback
-			? [
-					{
-						id: 'send-feedback',
-						group: 'commands' as const,
-						label: __( 'Send feedback' ),
-						icon: MessageSquareTextIcon,
-						aliases: [ __( 'Feedback' ) ],
-						keywords: [
-							__( 'Report a bug' ),
-							__( 'Feature request' ),
-							__( 'WordPress Studio team' ),
-						],
-						run: openFeedback,
-					},
-			  ]
-			: [] ),
+		{
+			id: 'send-feedback',
+			group: 'commands' as const,
+			label: __( 'Send feedback' ),
+			icon: MessageSquareTextIcon,
+			aliases: [ __( 'Feedback' ) ],
+			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'WordPress Studio team' ) ],
+			run: openFeedback,
+		},
 		...( collapseAll
 			? [
 					{
@@ -242,7 +234,9 @@ export function getSettingCommands( {
 	scope,
 	site,
 	signedIn,
-	nativeSites,
+	localMachine,
+	loopbackSignIn,
+	globalSkills,
 	phoneAccess,
 	toggles,
 	actions = {},
@@ -251,7 +245,9 @@ export function getSettingCommands( {
 	scope: 'studio' | 'site';
 	site?: SiteDetails;
 	signedIn: boolean;
-	nativeSites?: boolean;
+	localMachine?: boolean;
+	loopbackSignIn?: boolean;
+	globalSkills?: boolean;
 	// Whether the host runs remote mode for the phone: Settings > Phone.
 	phoneAccess: boolean;
 	// The boolean preferences setting commands turn on or off in place, by the
@@ -262,7 +258,13 @@ export function getSettingCommands( {
 } ): PaletteCommand[] {
 	const group = scope === 'site' ? 'site-settings' : 'settings';
 	if ( scope === 'site' && ! site ) return [];
-	return getSections( scope, { signedIn, nativeSites, phoneAccess } ).flatMap( ( section ) => {
+	return getSections( scope, {
+		signedIn,
+		localMachine,
+		loopbackSignIn,
+		globalSkills,
+		phoneAccess,
+	} ).flatMap( ( section ) => {
 		const folded = section.settings.filter( ( entry ) => entry.palette === 'section' );
 		const navigation: PaletteCommand[] = ! section.command
 			? [

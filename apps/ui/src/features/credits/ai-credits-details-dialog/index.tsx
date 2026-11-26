@@ -1,7 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { useConnector } from '@/data/core';
-import { useAddAiCreditsUrl } from '@/features/credits/use-add-ai-credits-url';
-import { useOpenAiCreditsCheckout } from '@/features/credits/use-open-ai-credits-checkout';
 import {
 	Dialog,
 	DialogClose,
@@ -11,7 +7,11 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Button,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __ } from '@wordpress/i18n';
+import { useConnector } from '@/data/core';
+import { useAddAiCreditsUrl } from '@/features/credits/use-add-ai-credits-url';
+import { useOpenAiCreditsCheckout } from '@/features/credits/use-open-ai-credits-checkout';
 import styles from './style.module.css';
 import type { MouseEvent } from 'react';
 

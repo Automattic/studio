@@ -590,3 +590,50 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		expect( persistSelectedAiProvider ).not.toHaveBeenCalled();
 	} );
 } );
+
+describe( 'AI runCommand — a chat on a local server', () => {
+	let stdoutSpy: ReturnType< typeof vi.spyOn >;
+	const appendCustomEntry = vi.fn( ( _type: string, _data: unknown ) => 'entry-id' );
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		( readAuthToken as Mock ).mockResolvedValue( null );
+		( readSelectedAiProvider as Mock ).mockResolvedValue( 'local-llm' );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'local-llm' );
+		( isProviderConnected as Mock ).mockResolvedValue( true );
+		( resolveResumeSessionContext as Mock ).mockReturnValue( {} );
+		( readProviderConfig as Mock ).mockResolvedValue( {
+			method: 'server',
+			baseUrl: 'http://localhost:11434/v1',
+			models: [ { name: 'gemma3:4b', images: true } ],
+		} );
+		( createStudioSession as Mock ).mockResolvedValue( {
+			appendCustomEntry,
+			getSessionId: () => 'session-id',
+			getEntries: () => [],
+		} );
+		stdoutSpy = vi.spyOn( process.stdout, 'write' ).mockImplementation( () => true );
+	} );
+
+	afterEach( () => {
+		stdoutSpy.mockRestore();
+	} );
+
+	it( 'names neither the model nor the server in the chat events', async () => {
+		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );
+
+		const calls = ( recordTracksEvent as Mock ).mock.calls;
+		expect( calls.map( ( [ name ] ) => name ) ).toEqual( [
+			TRACKS_EVENTS.CODE_MESSAGE_SENT,
+			TRACKS_EVENTS.CODE_TURN_COMPLETED,
+		] );
+		for ( const [ , props ] of calls ) {
+			expect( props ).toMatchObject( {
+				provider: 'local-llm',
+				model: 'local-model',
+				model_family: 'local-llm',
+			} );
+		}
+		expect( JSON.stringify( calls ) ).not.toMatch( /gemma3|localhost/ );
+	} );
+} );

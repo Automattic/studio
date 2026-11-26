@@ -1,4 +1,6 @@
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
+import { VisuallyHidden, Menu } from '@studio/ds';
+import { ArchiveIcon, PinIcon, EyeIcon, TrashIcon, UnpinIcon, EyeOffIcon } from '@studio/ds/icons';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { displayShortcut, isAppleOS } from '@wordpress/keycodes';
@@ -10,9 +12,7 @@ import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useLeaveArchivedChat } from '@/features/chats';
 import { useDeleteBlockedReason, DeleteSiteDialog } from '@/features/sites';
-import { ArchiveIcon, PinIcon, EyeIcon, TrashIcon, UnpinIcon, EyeOffIcon } from '@/lib/icons';
 import { isShortcut } from '@/lib/keyboard';
-import { VisuallyHidden, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type {
 	KeyboardEvent,

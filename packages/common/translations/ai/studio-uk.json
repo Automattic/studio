@@ -20,6 +20,12 @@
 	"\"%s\" is not a Blueprint file, URL or Library slug.": [
 		"\"%s\" не є файлом Blueprint, URL-адресою або slug з бібліотеки."
 	],
+	"$10 of AI credits every month": [
+		"Кредити ШІ на $10 щомісяця"
+	],
+	"$30 of AI credits every month": [
+		"Кредити ШІ на $30 щомісяця"
+	],
 	"%1$d of %2$d active preview site": [
 		"Активних сайтів попереднього перегляду: %1$d з %2$d",
 		"Активних сайтів попереднього перегляду: %1$d з %2$d",
@@ -30,6 +36,16 @@
 	],
 	"%1$d of %2$d points": [
 		"%1$d з %2$d балів"
+	],
+	"%1$d of %2$d site": [
+		"Сайти: %1$d з %2$d",
+		"Сайти: %1$d з %2$d",
+		"Сайти: %1$d з %2$d"
+	],
+	"%1$d of %2$d site running at once": [
+		"Одночасно запущено сайтів: %1$d з %2$d",
+		"Одночасно запущено сайтів: %1$d з %2$d",
+		"Одночасно запущено сайтів: %1$d з %2$d"
 	],
 	"%1$d of %2$d sites deleted. %3$d failed: %4$s": [
 		"Видалено сайтів: %1$d з %2$d. Не вдалося: %3$d: %4$s"
@@ -48,8 +64,19 @@
 	"%1$s +%2$d": [
 		"%1$s +%2$d"
 	],
+	"%1$s / %2$s per million tokens": [
+		"%1$s / %2$s за мільйон токенів"
+	],
+	"%1$s GB of %2$s GB of storage used": [
+		"Використано %1$s ГБ із %2$s ГБ сховища"
+	],
 	"%1$s Use /connect %2$s to connect it.": [
 		"%1$s Скористайтеся /connect %2$s, щоб підключити його."
+	],
+	"%1$s and %2$d other": [
+		"%1$s і ще %2$d",
+		"%1$s і ще %2$d",
+		"%1$s і ще %2$d"
 	],
 	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
 		"%1$s не вдалося встановити плагін WordPress Studio: %2$s"
@@ -75,11 +102,17 @@
 	"%1$s · %2$s": [
 		"%1$s · %2$s"
 	],
+	"%1$s · %2$s context": [
+		"%1$s · контекст %2$s"
+	],
 	"%1$s — %2$s": [
 		"%1$s — %2$s"
 	],
 	"%1$s%% · %2$s": [
 		"%1$s%% · %2$s"
+	],
+	"%1$s, %2$s, and %3$s": [
+		"%1$s, %2$s і %3$s"
 	],
 	"%1$s: returned %2$s": [
 		"%1$s: повернуто %2$s"
@@ -130,6 +163,11 @@
 		"Оновлено %d елементи",
 		"Оновлено %d елементів"
 	],
+	"%d model": [
+		"%d модель",
+		"%d моделі",
+		"%d моделей"
+	],
 	"%d site selected": [
 		"Вибрано %d сайт",
 		"Вибрано %d сайти",
@@ -143,6 +181,9 @@
 	"%ds": [
 		"%d с"
 	],
+	"%s (optional, saved for future use):": [
+		"%s (необов’язково, зберігається для подальшого використання):"
+	],
 	"%s (saved for future use):": [
 		"%s (буде збережено для подальшого використання):"
 	],
@@ -154,6 +195,9 @@
 	],
 	"%s KB": [
 		"%s КБ"
+	],
+	"%s billed yearly": [
+		"%s за оплати щороку"
 	],
 	"%s chats": [
 		"Чати %s"
@@ -176,8 +220,14 @@
 	"%s isn’t installed on this computer.": [
 		"%s не встановлено на цьому комп’ютері."
 	],
+	"%s models": [
+		"Моделі %s"
+	],
 	"%s of monthly limit used": [
 		"Використано %s місячного ліміту"
+	],
+	"%s only makes previews.": [
+		"%s створює лише попередні перегляди."
 	],
 	"%s preview is ready": [
 		"Попередній перегляд %s готовий"
@@ -190,6 +240,12 @@
 	],
 	"%s used": [
 		"Використано %s"
+	],
+	"%s · Live site": [
+		"%s · Робочий сайт"
+	],
+	"%s · Local changes": [
+		"%s · Локальні зміни"
 	],
 	"--json requires a message argument": [
 		"--json потребує аргументу з повідомленням"
@@ -208,6 +264,15 @@
 	],
 	"... output truncated": [
 		"... вивід обрізано"
+	],
+	"/month": [
+		"/міс."
+	],
+	"30 GB of storage": [
+		"30 ГБ сховища"
+	],
+	"6 GB of storage": [
+		"6 ГБ сховища"
 	],
 	"<b>Build</b> block themes with striking, memorable designs": [
 		"<b>Створюйте</b> блокові теми з яскравим, незабутнім дизайном"
@@ -235,6 +300,9 @@
 	],
 	"A pull is in progress or was interrupted before it finished.": [
 		"Отримання змін триває або його було перервано до завершення."
+	],
+	"A static copy of your pages.": [
+		"Статична копія ваших сторінок."
 	],
 	"AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.": [
 		"Кредити ШІ — це спосіб оплати використання ШІ у WordPress Studio: генерування коду, створення сайту чи інших функцій на основі ШІ. Це не гроші. Їх не можна вивести, обміняти на готівку або використати поза WordPress Studio."
@@ -278,6 +346,9 @@
 	"Accent tag": [
 		"Акцентна мітка"
 	],
+	"Access unknown": [
+		"Доступ невідомий"
+	],
 	"Actions for %s": [
 		"Дії для %s"
 	],
@@ -301,6 +372,9 @@
 	],
 	"Add a contact form to the homepage": [
 		"Додай контактну форму на головну сторінку"
+	],
+	"Add a domain": [
+		"Додати домен"
 	],
 	"Add a payment method to use WordPress.com AI.": [
 		"Додайте спосіб оплати, щоб користуватися ШІ WordPress.com."
@@ -335,6 +409,12 @@
 	"Adding site": [
 		"Додавання сайту"
 	],
+	"Address is required": [
+		"Адреса обов’язкова"
+	],
+	"Address to listen on": [
+		"Адреса для прослуховування"
+	],
 	"Adjust the strength of the color tint.": [
 		"Налаштуйте силу кольорового відтінку."
 	],
@@ -362,8 +442,14 @@
 	"Agents": [
 		"Агенти"
 	],
+	"All but %s": [
+		"Усе, крім: %s"
+	],
 	"All files": [
 		"Усі файли"
+	],
+	"All models": [
+		"Усі моделі"
 	],
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"Під час входу дозвольте WordPress Studio використовувати ваш тарифний план ChatGPT."
@@ -410,11 +496,17 @@
 	"Another app is using port %s, which Studio needs for custom domains. Quit that app and try again, or turn off the custom domain to use localhost": [
 		"Інший додаток використовує порт %s, потрібний Studio для власних доменів. Закрийте цей додаток і спробуйте ще раз або вимкніть власний домен, щоб використовувати localhost"
 	],
+	"Another operation is in progress.": [
+		"Виконується інша операція."
+	],
 	"Answer WordPress Studio": [
 		"Відповісти WordPress Studio"
 	],
 	"Answer with an option": [
 		"Відповісти варіантом"
+	],
+	"Answers right away, fastest": [
+		"Відповідає одразу, найшвидше"
 	],
 	"Anthropic API key": [
 		"Ключ API Anthropic"
@@ -430,6 +522,15 @@
 	],
 	"Antigravity IDE": [
 		"Antigravity IDE"
+	],
+	"Anyone can view your site": [
+		"Будь-хто може переглядати ваш сайт"
+	],
+	"Anyone with the link": [
+		"Усі, хто має посилання"
+	],
+	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
+		"Усі, хто має посилання, втратять доступ, і цю дію не можна скасувати. Ваш локальний WordPress не зміниться."
 	],
 	"Anyone you’ve shared this preview with will no longer be able to view it. Your site will not be deleted.": [
 		"Ті, з ким ви поділилися цим попереднім переглядом, більше не зможуть його переглянути. Ваш сайт не буде видалено."
@@ -556,9 +657,6 @@
 	"Back to Blueprints": [
 		"Назад до Blueprint"
 	],
-	"Back to Publish": [
-		"Назад до публікації"
-	],
 	"Back to email list": [
 		"Назад до списку листів"
 	],
@@ -567,9 +665,6 @@
 	],
 	"Backup node ids to pull when using the \"paths\" option": [
 		"ID вузлів резервної копії для отримання, якщо використовується параметр \"paths\""
-	],
-	"Backups": [
-		"Резервні копії"
 	],
 	"Balanced": [
 		"Збалансована"
@@ -582,6 +677,18 @@
 	],
 	"Batch notes enabled.": [
 		"Групування нотаток увімкнено."
+	],
+	"Billed monthly": [
+		"Щомісячна оплата"
+	],
+	"Billed monthly, renews on %s": [
+		"Щомісячна оплата, поновлення %s"
+	],
+	"Billed yearly, renews on %s": [
+		"Щорічна оплата, поновлення %s"
+	],
+	"Billing period": [
+		"Період оплати"
 	],
 	"Birdland": [
 		"Birdland"
@@ -682,9 +789,6 @@
 	"By continuing, you agree to our Terms of Service and have read our Privacy Policy.": [
 		"Продовжуючи, ви погоджуєтеся з нашими Умовами надання послуг і підтверджуєте, що ознайомилися з нашою Політикою конфіденційності."
 	],
-	"Cancel publishing": [
-		"Скасувати публікацію"
-	],
 	"Canceled.": [
 		"Скасовано."
 	],
@@ -693,6 +797,9 @@
 	],
 	"Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.": [
 		"Не вдалося налаштувати WordPress. Не знайдено вбудовані файли інтеграції SQLite. Перевстановіть Studio."
+	],
+	"Can’t see screenshots": [
+		"Не бачить знімків екрана"
 	],
 	"Card": [
 		"Картка"
@@ -709,11 +816,14 @@
 	"Changelog: %s": [
 		"Список змін: %s"
 	],
+	"Changes on %s will be replaced with your local files and database.": [
+		"Зміни на %s буде замінено вашими локальними файлами й базою даних."
+	],
+	"Changes published": [
+		"Зміни опубліковано"
+	],
 	"Changes pulled into %s": [
 		"Зміни отримано в %s"
-	],
-	"Changes pulled into WordPress Studio": [
-		"Зміни отримано у WordPress Studio"
 	],
 	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
 		"Зміни надіслано, але не вдалося запустити сайт. Перевірте свій тарифний план і дозволи, а потім опублікуйте знову, щоб повторити запуск."
@@ -757,6 +867,9 @@
 	"Check WordPress Studio Logs for more details.": [
 		"Докладніше дивіться в журналах WordPress Studio."
 	],
+	"Check again": [
+		"Перевірити знову"
+	],
 	"Check that the file is still available and readable, then try again or choose another backup.": [
 		"Перевірте, чи файл досі доступний і його можна прочитати, а потім спробуйте ще раз або виберіть іншу резервну копію."
 	],
@@ -769,11 +882,20 @@
 	"Checking WordPress version…": [
 		"Перевірка версії WordPress…"
 	],
+	"Checking access…": [
+		"Перевірка доступу…"
+	],
 	"Checking for updates…": [
 		"Перевірка оновлень…"
 	],
+	"Checking whether you can pull from this preview…": [
+		"Перевірка можливості отримати дані з цього попереднього перегляду…"
+	],
 	"Checking your account…": [
 		"Перевірка облікового запису…"
+	],
+	"Checking…": [
+		"Перевірка…"
 	],
 	"Choose a <strong>one-time</strong> AI credit amount to check out securely on WordPress.com. AI credits do not expire.": [
 		"Виберіть кількість кредитів ШІ для <strong>одноразової</strong> безпечної оплати на WordPress.com. Кредити ШІ не мають терміну дії."
@@ -811,6 +933,9 @@
 	"Choose a one-time AI credit amount to check out securely on WordPress.com. AI credits do not expire.": [
 		"Виберіть кількість кредитів ШІ для одноразової безпечної оплати на WordPress.com. Кредити ШІ не мають терміну дії."
 	],
+	"Choose a plan to make it live: %s": [
+		"Виберіть тарифний план, щоб зробити сайт робочим: %s"
+	],
 	"Choose a provider": [
 		"Виберіть постачальника"
 	],
@@ -841,9 +966,6 @@
 	"Choose an existing site": [
 		"Виберіть наявний сайт"
 	],
-	"Choose another host": [
-		"Вибрати інший хостинг"
-	],
 	"Choose color": [
 		"Вибрати колір"
 	],
@@ -856,6 +978,9 @@
 	"Choose model": [
 		"Вибрати модель"
 	],
+	"Choose specific files": [
+		"Вибрати певні файли"
+	],
 	"Choose the WordPress release for this site.": [
 		"Виберіть випуск WordPress для цього сайту."
 	],
@@ -867,6 +992,12 @@
 	],
 	"Choose whether this site can access only its own folder or other files on your computer.": [
 		"Виберіть, чи може цей сайт отримувати доступ лише до власної папки чи й до інших файлів на вашому комп’ютері."
+	],
+	"Choose which live site this preview shows changes to.": [
+		"Виберіть робочий сайт, зміни якого показує цей попередній перегляд."
+	],
+	"Choose your plan.": [
+		"Виберіть тарифний план."
 	],
 	"Choose…": [
 		"Вибрати…"
@@ -955,9 +1086,6 @@
 	"Composer": [
 		"Поле повідомлення"
 	],
-	"Connect %s": [
-		"Підключити %s"
-	],
 	"Connect %s first.": [
 		"Спершу підключіть %s."
 	],
@@ -985,6 +1113,9 @@
 	"Connect a provider to build and edit your site.": [
 		"Підключіть постачальника, щоб створювати й редагувати свій сайт."
 	],
+	"Connect a provider to see your existing sites.": [
+		"Підключіть постачальника, щоб побачити свої наявні сайти."
+	],
 	"Connect an AI provider to turn your notes and ideas into changes to your site.": [
 		"Підключіть постачальника ШІ, щоб перетворювати свої нотатки та ідеї на зміни на сайті."
 	],
@@ -997,17 +1128,17 @@
 	"Connect to an existing WordPress": [
 		"Підключитися до наявного WordPress"
 	],
+	"Connect to an existing site": [
+		"Підключитися до наявного сайту"
+	],
+	"Connect to publish": [
+		"Підключіться, щоб публікувати"
+	],
+	"Connect to share previews": [
+		"Підключіться, щоб ділитися попередніми переглядами"
+	],
 	"Connect to the internet to create an account or log in.": [
 		"Підключіться до Інтернету, щоб створити обліковий запис або ввійти."
-	],
-	"Connect to the internet to create or update a preview.": [
-		"Підключіться до Інтернету, щоб створити або оновити попередній перегляд."
-	],
-	"Connect to the internet to publish or pull changes.": [
-		"Підключіться до Інтернету, щоб опублікувати або отримати зміни."
-	],
-	"Connect to the internet to publish your site.": [
-		"Підключіться до Інтернету, щоб опублікувати свій сайт."
 	],
 	"Connect your WordPress": [
 		"Підключіть свій WordPress"
@@ -1017,6 +1148,9 @@
 	],
 	"Connected live site ID, or none": [
 		"ID підключеного робочого сайту або none"
+	],
+	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
+		"Після підключення наявного сайту поточне місце публікації буде відключено від WordPress Studio. Його вміст не зміниться."
 	],
 	"Connecting to WordPress.com": [
 		"Підключення до WordPress.com"
@@ -1029,6 +1163,12 @@
 	],
 	"Continue for %s": [
 		"Продовжити за %s"
+	],
+	"Continue on %s": [
+		"Продовжити на %s"
+	],
+	"Continue to checkout": [
+		"Перейти до оформлення замовлення"
 	],
 	"Continue with GitHub": [
 		"Продовжити з GitHub"
@@ -1087,17 +1227,20 @@
 	"Could not capture the area. Your selection is kept. Try again.": [
 		"Не вдалося захопити область. Ваш вибір збережено. Спробуйте ще раз."
 	],
+	"Could not check Spacefast team access": [
+		"Не вдалося перевірити доступ команди Spacefast"
+	],
 	"Could not clear browsing data": [
 		"Не вдалося очистити дані перегляду"
+	],
+	"Could not connect to WordPress.com": [
+		"Не вдалося підключитися до WordPress.com"
 	],
 	"Could not connect to the remote site.": [
 		"Не вдалося підключитися до віддаленого сайту."
 	],
 	"Could not copy": [
 		"Не вдалося скопіювати"
-	],
-	"Could not delete the old preview site. It will expire on its own.": [
-		"Не вдалося видалити старий сайт попереднього перегляду. Термін його дії закінчиться автоматично."
 	],
 	"Could not determine the remote wp-content path from preflight state, so --only cannot be used for this site. Run a full pull, or try again.": [
 		"Не вдалося визначити віддалений шлях wp-content за результатами попередньої перевірки, тому --only не можна використати для цього сайту. Виконайте повне отримання або спробуйте ще раз."
@@ -1114,17 +1257,23 @@
 	"Could not get list of database tables. The WP CLI output: %s": [
 		"Не вдалося отримати список таблиць бази даних. Вивід WP CLI: %s"
 	],
+	"Could not load %s sites.": [
+		"Не вдалося завантажити сайти %s."
+	],
 	"Could not log out": [
 		"Не вдалося вийти"
-	],
-	"Could not migrate your sites": [
-		"Не вдалося перенести ваші сайти"
 	],
 	"Could not open DevTools": [
 		"Не вдалося відкрити DevTools"
 	],
 	"Could not open Spacefast": [
 		"Не вдалося відкрити Spacefast"
+	],
+	"Could not open the new preview. Please try again.": [
+		"Не вдалося відкрити новий попередній перегляд. Спробуйте ще раз."
+	],
+	"Could not open the setup page. Please try again.": [
+		"Не вдалося відкрити сторінку налаштування. Спробуйте ще раз."
 	],
 	"Could not parse information about installed plugins to create meta.json file.": [
 		"Не вдалося розібрати відомості про встановлені плагіни для створення файлу meta.json."
@@ -1138,11 +1287,17 @@
 	"Could not parse themes list. The WP CLI output: %s": [
 		"Не вдалося розібрати список тем. Вивід WP CLI: %s"
 	],
+	"Could not publish. Please try again.": [
+		"Не вдалося опублікувати. Спробуйте ще раз."
+	],
 	"Could not reach Anthropic to verify the credential.": [
 		"Не вдалося зв’язатися з Anthropic для перевірки облікових даних."
 	],
 	"Could not read the table prefix from wp-config.php": [
 		"Не вдалося прочитати префікс таблиць із wp-config.php"
+	],
+	"Could not read your settings": [
+		"Не вдалося прочитати налаштування"
 	],
 	"Could not reset appearance. Please try again.": [
 		"Не вдалося скинути зовнішній вигляд. Спробуйте ще раз."
@@ -1165,8 +1320,14 @@
 	"Could not update the admin bar setting. Please try again.": [
 		"Не вдалося оновити налаштування панелі адміністратора. Спробуйте ще раз."
 	],
+	"Could not update your local site from this preview. Please try again.": [
+		"Не вдалося оновити локальний сайт із цього попереднього перегляду. Спробуйте ще раз."
+	],
 	"Could not verify the credential with Anthropic.": [
 		"Не вдалося перевірити облікові дані в Anthropic."
+	],
+	"Could not watch for your new site. Please try again.": [
+		"Не вдалося відстежити появу нового сайту. Спробуйте ще раз."
 	],
 	"Couldn't copy the live site. Try again.": [
 		"Не вдалося скопіювати робочий сайт. Спробуйте ще раз."
@@ -1195,14 +1356,41 @@
 	"Couldn’t archive the chat": [
 		"Не вдалося архівувати чат"
 	],
+	"Couldn’t change how much the model thinks": [
+		"Не вдалося змінити рівень міркувань моделі"
+	],
+	"Couldn’t check for preview edits": [
+		"Не вдалося перевірити редагування в попередньому перегляді"
+	],
+	"Couldn’t check previews.": [
+		"Не вдалося перевірити попередні перегляди."
+	],
+	"Couldn’t check whether you can pull from this preview.": [
+		"Не вдалося перевірити, чи можна отримати дані з цього попереднього перегляду."
+	],
+	"Couldn’t check who can view new sites for this team.": [
+		"Не вдалося перевірити, хто може переглядати нові сайти цієї команди."
+	],
 	"Couldn’t create site: %s": [
 		"Не вдалося створити сайт: %s"
 	],
 	"Couldn’t load apps.": [
 		"Не вдалося завантажити додатки."
 	],
+	"Couldn’t load publishing accounts": [
+		"Не вдалося завантажити облікові записи для публікації"
+	],
+	"Couldn’t load your %s sites": [
+		"Не вдалося завантажити ваші сайти %s"
+	],
+	"Couldn’t load your %s sites.": [
+		"Не вдалося завантажити ваші сайти %s."
+	],
 	"Couldn’t load your AI provider.": [
 		"Не вдалося завантажити вашого постачальника ШІ."
+	],
+	"Couldn’t load your previews.": [
+		"Не вдалося завантажити ваші попередні перегляди."
 	],
 	"Couldn’t open %s": [
 		"Не вдалося відкрити %s"
@@ -1227,9 +1415,6 @@
 	],
 	"Couldn’t save the site order": [
 		"Не вдалося зберегти порядок сайтів"
-	],
-	"Couldn’t sign in to WordPress.com": [
-		"Не вдалося ввійти до WordPress.com"
 	],
 	"Couldn’t switch the site this chat works on": [
 		"Не вдалося змінити сайт, з яким працює цей чат"
@@ -1264,6 +1449,12 @@
 	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
 		"Створіть ключ на [OpenAI Platform](https://platform.openai.com/api-keys), а потім вставте його нижче."
 	],
+	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
+		"Створіть ключ у [xAI Console](https://console.x.ai), а потім вставте його нижче."
+	],
+	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
+		"Створіть ключ у [налаштуваннях OpenRouter](https://openrouter.ai/settings/keys), а потім вставте його нижче."
+	],
 	"Create a new WordPress": [
 		"Створити новий WordPress"
 	],
@@ -1273,14 +1464,8 @@
 	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
 		"Створіть обліковий запис або увійдіть, щоб підключити свої сайти WordPress.com або Pressable."
 	],
-	"Create an account or log in to publish a website and keep your sites in sync.": [
-		"Створіть обліковий запис або увійдіть, щоб опублікувати сайт і синхронізувати свої сайти."
-	],
 	"Create an account or log in to share previews and keep your sites in sync.": [
 		"Створіть обліковий запис або увійдіть, щоб ділитися попередніми переглядами та синхронізувати свої сайти."
-	],
-	"Create another preview": [
-		"Створити ще один попередній перегляд"
 	],
 	"Create chat": [
 		"Створити чат"
@@ -1293,6 +1478,12 @@
 	],
 	"Created site": [
 		"Сайт створено"
+	],
+	"Creating preview": [
+		"Створення попереднього перегляду"
+	],
+	"Creating preview link…": [
+		"Створення посилання на попередній перегляд…"
 	],
 	"Creating preview…": [
 		"Створення попереднього перегляду…"
@@ -1311,6 +1502,9 @@
 	],
 	"Custom instructions": [
 		"Власні інструкції"
+	],
+	"Custom selection": [
+		"Вибірково"
 	],
 	"DESIGN.md %1$s, theme.json %2$s": [
 		"DESIGN.md: %1$s, theme.json: %2$s"
@@ -1336,6 +1530,9 @@
 	"Database import failed: %s": [
 		"Не вдалося імпортувати базу даних: %s"
 	],
+	"Database only": [
+		"Лише база даних"
+	],
 	"Deactivate all plugins": [
 		"Деактивувати всі плагіни"
 	],
@@ -1360,6 +1557,12 @@
 	"Default hosting provider": [
 		"Типовий хостинг-провайдер"
 	],
+	"Default image provider": [
+		"Типовий постачальник зображень"
+	],
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"Авто"
+	],
 	"Default language for WordPress Studio.": [
 		"Типова мова WordPress Studio."
 	],
@@ -1377,6 +1580,12 @@
 	"Delete %s": [
 		"Видалити %s"
 	],
+	"Delete a preview in Sharing settings to create another.": [
+		"Видаліть попередній перегляд у налаштуваннях розділу «Поділитись», щоб створити новий."
+	],
+	"Delete a site to create a new one.": [
+		"Видаліть сайт, щоб створити новий."
+	],
 	"Delete annotation": [
 		"Видалити примітку"
 	],
@@ -1385,6 +1594,9 @@
 	],
 	"Delete plugin": [
 		"Видалити плагін"
+	],
+	"Delete sites you no longer need to free up space.": [
+		"Видаліть непотрібні сайти, щоб звільнити місце."
 	],
 	"Delete theme": [
 		"Видалити тему"
@@ -1421,6 +1633,9 @@
 	"Design systems are available for block themes.": [
 		"Дизайн-системи доступні для блокових тем."
 	],
+	"Destination": [
+		"Місце публікації"
+	],
 	"Developer tools": [
 		"Інструменти розробника"
 	],
@@ -1451,8 +1666,8 @@
 	"Disconnect a provider": [
 		"Відключити постачальника"
 	],
-	"Disconnect website?": [
-		"Відключити вебсайт?"
+	"Disconnect site…": [
+		"Відключити сайт…"
 	],
 	"Disconnected %s.": [
 		"%s відключено."
@@ -1474,6 +1689,9 @@
 	],
 	"Download & copy command": [
 		"Завантажити й скопіювати команду"
+	],
+	"Download WordPress Studio": [
+		"Завантажити WordPress Studio"
 	],
 	"Download update": [
 		"Завантажити оновлення"
@@ -1559,6 +1777,9 @@
 	"Enable hosting features on WordPress.com before connecting this site.": [
 		"Перш ніж підключати цей сайт, увімкніть функції хостингу на WordPress.com."
 	],
+	"Ends on %s": [
+		"Діє до %s"
+	],
 	"Enter a folder name other than “.” or “..”.": [
 		"Введіть назву папки, відмінну від «.» або «..»."
 	],
@@ -1595,20 +1816,23 @@
 	"Every site you build lives in the sidebar on the left. Switch between them anytime. The sidebar is where you’ll find site settings and a quick way to start and stop your site.": [
 		"Кожен створений вами сайт розміщено на бічній панелі ліворуч. Перемикайтеся між ними будь-коли. На бічній панелі ви знайдете налаштування сайту та зможете швидко запускати й зупиняти його."
 	],
+	"Everyone": [
+		"Усі"
+	],
+	"Everything": [
+		"Усе"
+	],
 	"Everything you built in WordPress Studio is right here in the sidebar. Same sites, same files with a new workbench around them.": [
 		"Усе, що ви створили у WordPress Studio, — тут, на бічній панелі. Ті самі сайти, ті самі файли, але з новим робочим простором навколо них."
+	],
+	"Everything you need to build WordPress sites with Studio Code.": [
+		"Усе необхідне для створення сайтів WordPress за допомогою Studio Code."
 	],
 	"Exclude “%s” from removal": [
 		"Не вилучати «%s»"
 	],
 	"Existing WordPress site": [
 		"Наявний сайт WordPress"
-	],
-	"Existing sites": [
-		"Наявні сайти"
-	],
-	"Existing site…": [
-		"Наявний сайт…"
 	],
 	"Exit annotations": [
 		"Вийти з режиму приміток"
@@ -1691,6 +1915,9 @@
 	"Failed to find existing preview site in config": [
 		"Не вдалося знайти наявний сайт попереднього перегляду в конфігурації"
 	],
+	"Failed to find the preview site’s launch link": [
+		"Не вдалося знайти посилання для запуску сайту попереднього перегляду"
+	],
 	"Failed to get site plugins: %s": [
 		"Не вдалося отримати плагіни сайту: %s"
 	],
@@ -1724,9 +1951,6 @@
 	"Failed to load your Spacefast Spaces": [
 		"Не вдалося завантажити ваші простори Spacefast"
 	],
-	"Failed to move site files to trash. Proceeding anyway…": [
-		"Не вдалося перемістити файли сайту в кошик. Продовжуємо все одно…"
-	],
 	"Failed to open WordPress.com checkout.": [
 		"Не вдалося відкрити оформлення замовлення на WordPress.com."
 	],
@@ -1751,11 +1975,11 @@
 	"Failed to read the attached image": [
 		"Не вдалося прочитати вкладене зображення"
 	],
-	"Failed to remove WordPress.com connections. Proceeding anyway…": [
-		"Не вдалося видалити підключення до WordPress.com. Продовжуємо все одно…"
-	],
 	"Failed to save connected site": [
 		"Не вдалося зберегти підключений сайт"
+	],
+	"Failed to set up WordPress": [
+		"Не вдалося налаштувати WordPress"
 	],
 	"Failed to start HTTP proxy server": [
 		"Не вдалося запустити HTTP-проксі-сервер"
@@ -1805,11 +2029,11 @@
 	"File manager": [
 		"Файловий менеджер"
 	],
+	"Files could not be loaded.": [
+		"Не вдалося завантажити файли."
+	],
 	"Files only": [
 		"Лише файли"
-	],
-	"Files, content, and settings": [
-		"Файли, вміст і налаштування"
 	],
 	"Files…": [
 		"Файли…"
@@ -1822,6 +2046,12 @@
 	],
 	"Finish activating hosting on WordPress.com before publishing.": [
 		"Перед публікацією завершіть активацію хостингу на WordPress.com."
+	],
+	"Finish activating hosting on WordPress.com before pulling.": [
+		"Завершіть активацію хостингу на WordPress.com, перш ніж отримувати дані."
+	],
+	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
+		"Завершіть оформлення замовлення на вкладці WordPress.com, а потім поверніться сюди. Робочий простір налаштується сам, щойно тарифний план стане активним."
 	],
 	"Finish signing in to %s in your browser.": [
 		"Завершіть вхід до %s у браузері."
@@ -1840,6 +2070,9 @@
 	],
 	"Folder…": [
 		"Папку…"
+	],
+	"For generating images. Auto uses the AI provider when it can.": [
+		"Для генерування зображень. У режимі «Авто» використовується постачальник ШІ, якщо він це підтримує."
 	],
 	"For publishing sites.": [
 		"Для публікації сайтів."
@@ -1939,6 +2172,15 @@
 	"Green Dolphin Street": [
 		"Green Dolphin Street"
 	],
+	"Grok sent back an incomplete sign-in.": [
+		"Grok повернув неповні дані для входу."
+	],
+	"Grok sign-in could not be started. Try again.": [
+		"Не вдалося почати вхід через Grok. Спробуйте ще раз."
+	],
+	"Grok sign-in was declined.": [
+		"Вхід через Grok відхилено."
+	],
 	"Guideline: %s": [
 		"Настанова: %s"
 	],
@@ -1981,6 +2223,9 @@
 	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
 		"Типово приховувати панель адміністратора WordPress на локальних сайтах. Для окремих сайтів це можна змінити в параметрах браузера."
 	],
+	"High": [
+		"Високий"
+	],
 	"Hints": [
 		"Підказки"
 	],
@@ -1995,6 +2240,9 @@
 	],
 	"How do you want to connect %s?": [
 		"Як ви хочете підключити %s?"
+	],
+	"How much should the model think?": [
+		"Наскільки глибоко має міркувати модель?"
 	],
 	"How to connect": [
 		"Як підключитися"
@@ -2134,14 +2382,17 @@
 	"Invalid AI session input payload.": [
 		"Недійсні вхідні дані сесії ШІ."
 	],
+	"Invited people": [
+		"Запрошені користувачі"
+	],
 	"It resets on %s.": [
 		"Його буде скинуто %s."
 	],
 	"Its last pull failed and the site is incomplete.": [
 		"Останнє отримання змін не вдалося, і сайт неповний."
 	],
-	"Its shared link will stop working.": [
-		"Його спільне посилання перестане працювати."
+	"I’ve paid, continue": [
+		"Оплату здійснено, продовжити"
 	],
 	"JSON-encoded permission response for a paused session": [
 		"Відповідь на запит дозволу у форматі JSON для призупиненої сесії"
@@ -2183,11 +2434,26 @@
 	"Kind of Blue": [
 		"Kind of Blue"
 	],
-	"Last pulled": [
-		"Останнє отримання"
+	"Last updated %s": [
+		"Останнє оновлення: %s"
+	],
+	"Last updated just now": [
+		"Останнє оновлення: щойно"
+	],
+	"Last updated on %s": [
+		"Останнє оновлення: %s"
+	],
+	"Launch a public site with a paid plan.": [
+		"Запустіть загальнодоступний сайт із платним тарифним планом."
+	],
+	"Launch on %s": [
+		"Запустити на %s"
 	],
 	"Launching site…": [
 		"Запуск сайту…"
+	],
+	"Learn about Spacefast": [
+		"Докладніше про Spacefast"
 	],
 	"Learn more about AI credits": [
 		"Докладніше про кредити ШІ"
@@ -2291,11 +2557,17 @@
 	"Loading apps…": [
 		"Завантаження додатків…"
 	],
+	"Loading destinations": [
+		"Завантаження місць публікації"
+	],
 	"Loading file…": [
 		"Завантаження файлу…"
 	],
 	"Loading image…": [
 		"Завантаження зображення…"
+	],
+	"Loading models…": [
+		"Завантаження моделей…"
 	],
 	"Loading site preview": [
 		"Завантаження попереднього перегляду сайту"
@@ -2308,6 +2580,12 @@
 	],
 	"Local Static Site Importer plugin zip for --from imports, including a paired build from the importer’s build:dev-package": [
 		"Локальний zip-архів плагіна Static Site Importer для імпорту через --from, зокрема парна збірка з build:dev-package імпортера"
+	],
+	"Local and preview changes": [
+		"Зміни локально й у попередньому перегляді"
+	],
+	"Local changes": [
+		"Локальні зміни"
 	],
 	"Local domain": [
 		"Локальний домен"
@@ -2330,14 +2608,26 @@
 	"Look Up “%s”": [
 		"Шукати «%s»"
 	],
+	"Low": [
+		"Низький"
+	],
 	"Maiden Voyage": [
 		"Maiden Voyage"
 	],
 	"Mail": [
 		"Пошта"
 	],
+	"Make a preview site your live site": [
+		"Зробити сайт попереднього перегляду робочим сайтом"
+	],
+	"Make it your live site: %s": [
+		"Зробіть його робочим сайтом: %s"
+	],
 	"Make it yours": [
 		"Налаштуйте під себе"
+	],
+	"Make sure the codes match in your browser, then approve the connection.": [
+		"Переконайтеся, що коди у браузері збігаються, а потім підтвердьте підключення."
 	],
 	"Manage AI credits": [
 		"Керувати кредитами ШІ"
@@ -2347,6 +2637,12 @@
 	],
 	"Manage content": [
 		"Керувати вмістом"
+	],
+	"Manage credits": [
+		"Керувати кредитами"
+	],
+	"Manage domains": [
+		"Керувати доменами"
 	],
 	"Manage instructions for all sites": [
 		"Керувати інструкціями для всіх сайтів"
@@ -2360,6 +2656,9 @@
 	"Manage menus": [
 		"Керувати меню"
 	],
+	"Manage on Spacefast": [
+		"Керувати в Spacefast"
+	],
 	"Manage on WordPress.com": [
 		"Керувати на WordPress.com"
 	],
@@ -2368,9 +2667,6 @@
 	],
 	"Manage plugins": [
 		"Керувати плагінами"
-	],
-	"Manage sharing": [
-		"Керувати поширенням"
 	],
 	"Manage site configuration": [
 		"Керувати конфігурацією сайту"
@@ -2390,11 +2686,17 @@
 	"Manage themes": [
 		"Керувати темами"
 	],
+	"Manage these access rules on Spacefast.": [
+		"Керуйте цими правилами доступу в Spacefast."
+	],
 	"Manage usage": [
 		"Керувати використанням"
 	],
 	"Manage users": [
 		"Керувати користувачами"
+	],
+	"Manage visibility on Spacefast.": [
+		"Керуйте видимістю в Spacefast."
 	],
 	"Manual MCP setup": [
 		"Ручне налаштування MCP"
@@ -2413,6 +2715,9 @@
 	],
 	"Media uploads…": [
 		"Медіафайли…"
+	],
+	"Medium": [
+		"Середній"
 	],
 	"Meet the new WordPress Studio": [
 		"Знайомтеся з новим WordPress Studio"
@@ -2455,6 +2760,9 @@
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
+	],
+	"More room and more AI, for building every day.": [
+		"Більше місця й більше ШІ для щоденної роботи над сайтами."
 	],
 	"Move site files to trash (use --no-files to keep files)": [
 		"Перемістити файли сайту в кошик (використайте --no-files, щоб зберегти файли)"
@@ -2501,9 +2809,6 @@
 	"New site \"%s\"": [
 		"Новий сайт \"%s\""
 	],
-	"New site…": [
-		"Новий сайт…"
-	],
 	"New tab": [
 		"Нова вкладка"
 	],
@@ -2540,11 +2845,20 @@
 	"No existing sites.": [
 		"Немає наявних сайтів."
 	],
+	"No files are available to choose.": [
+		"Немає файлів для вибору."
+	],
 	"No forward history": [
 		"Немає наступних сторінок"
 	],
+	"No local server answered at %s. Check the address, and that your server is running.": [
+		"Локальний сервер за адресою %s не відповів. Перевірте адресу й переконайтеся, що сервер запущено."
+	],
 	"No matching sites.": [
 		"Немає відповідних сайтів."
+	],
+	"No models found.": [
+		"Моделей не знайдено."
 	],
 	"No provider is connected.": [
 		"Жодного постачальника не підключено."
@@ -2591,17 +2905,32 @@
 	"Once the download finishes, quit WordPress Studio, open a terminal, and paste the command to install:": [
 		"Після завершення завантаження закрийте WordPress Studio, відкрийте термінал і вставте команду для встановлення:"
 	],
+	"One more step": [
+		"Ще один крок"
+	],
 	"Only PNG, JPEG, GIF, and WebP images can be attached": [
 		"Можна вкладати лише зображення PNG, JPEG, GIF і WebP"
 	],
+	"Only if your server asks for one.": [
+		"Лише якщо сервер його вимагає."
+	],
 	"Only push these paths from the selection made with --options": [
 		"Надіслати лише ці шляхи з вибірки, зробленої за допомогою --options"
+	],
+	"Only you": [
+		"Лише ви"
+	],
+	"Only you and people you invite can view.": [
+		"Переглядати можуть лише ви та запрошені вами користувачі."
 	],
 	"Open %s": [
 		"Відкрити %s"
 	],
 	"Open %s settings": [
 		"Відкрити налаштування: %s"
+	],
+	"Open Config File (dev only)": [
+		"Відкрити файл конфігурації (лише для розробки)"
 	],
 	"Open Design System": [
 		"Відкрити дизайн-систему"
@@ -2645,6 +2974,9 @@
 	"Open on GitHub": [
 		"Відкрити на GitHub"
 	],
+	"Open preview: %s": [
+		"Відкрити попередній перегляд: %s"
+	],
 	"Open the UI in your default browser": [
 		"Відкрити інтерфейс у типовому браузері"
 	],
@@ -2663,6 +2995,30 @@
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"Агент для програмування від OpenAI у додатку ChatGPT."
 	],
+	"OpenRouter API key": [
+		"Ключ API OpenRouter"
+	],
+	"OpenRouter is limiting requests on your key. Try again shortly.": [
+		"OpenRouter обмежує запити з вашим ключем. Спробуйте ще раз трохи згодом."
+	],
+	"OpenRouter is limiting requests right now. Wait a moment and try again.": [
+		"OpenRouter зараз обмежує запити. Зачекайте трохи й спробуйте ще раз."
+	],
+	"OpenRouter rejected the API key. Connect OpenRouter again in Settings.": [
+		"OpenRouter відхилив ключ API. Знову підключіть OpenRouter у налаштуваннях."
+	],
+	"OpenRouter rejected this API key. Check the key and try again.": [
+		"OpenRouter відхилив цей ключ API. Перевірте ключ і спробуйте ще раз."
+	],
+	"OpenRouter sign-in could not be completed. Try again.": [
+		"Не вдалося завершити вхід через OpenRouter. Спробуйте ще раз."
+	],
+	"OpenRouter’s moderation refused this request.": [
+		"Система модерації OpenRouter відхилила цей запит."
+	],
+	"Opening %s": [
+		"Відкриття %s"
+	],
 	"Opening WordPress.com checkout. If your browser didn’t open, use the link below:": [
 		"Відкриття оформлення замовлення на WordPress.com. Якщо браузер не відкрився, скористайтеся посиланням нижче:"
 	],
@@ -2674,6 +3030,9 @@
 	],
 	"Opening the local site…": [
 		"Відкриття локального сайту…"
+	],
+	"Other files": [
+		"Інші файли"
 	],
 	"Other files…": [
 		"Інші файли…"
@@ -2692,6 +3051,9 @@
 	],
 	"PHP workers must be a whole number from 1 to 64.": [
 		"Кількість PHP-воркерів має бути цілим числом від 1 до 64."
+	],
+	"Paid plan": [
+		"Платний тарифний план"
 	],
 	"Panel": [
 		"Панель"
@@ -2717,6 +3079,12 @@
 	"Performance audit": [
 		"Аудит продуктивності"
 	],
+	"Pick at least one model OpenRouter offers.": [
+		"Виберіть принаймні одну модель, яку пропонує OpenRouter."
+	],
+	"Pick at least one model your server offers.": [
+		"Виберіть принаймні одну модель, яку пропонує ваш сервер."
+	],
 	"Pick design": [
 		"Вибрати дизайн"
 	],
@@ -2741,6 +3109,9 @@
 	"Plan complex builds and solve harder problems": [
 		"Планування складних проєктів і розв’язання складніших завдань"
 	],
+	"Plan ended": [
+		"Термін дії тарифного плану завершився"
+	],
 	"Please review the attached files.": [
 		"Перегляньте вкладені файли."
 	],
@@ -2758,6 +3129,9 @@
 	],
 	"Port to listen on": [
 		"Порт для прослуховування"
+	],
+	"Posts, pages, and settings": [
+		"Записи, сторінки й налаштування"
 	],
 	"Preparing backup…": [
 		"Підготовка резервної копії…"
@@ -2786,8 +3160,29 @@
 	"Preview creation cancelled": [
 		"Створення попереднього перегляду скасовано"
 	],
+	"Preview creation is temporarily unavailable for your account.": [
+		"Створення попередніх переглядів тимчасово недоступне для вашого облікового запису."
+	],
+	"Preview details": [
+		"Відомості про попередній перегляд"
+	],
+	"Preview expiration": [
+		"Термін дії попереднього перегляду"
+	],
+	"Preview has changes": [
+		"У попередньому перегляді є зміни"
+	],
 	"Preview in browser": [
 		"Переглянути в браузері"
+	],
+	"Preview limit reached": [
+		"Досягнуто ліміту попередніх переглядів"
+	],
+	"Preview link is not available yet. Please try again.": [
+		"Посилання на попередній перегляд ще недоступне. Спробуйте ще раз."
+	],
+	"Preview link ready": [
+		"Посилання на попередній перегляд готове"
 	],
 	"Preview name": [
 		"Назва попереднього перегляду"
@@ -2797,6 +3192,9 @@
 	],
 	"Preview site not found": [
 		"Сайт попереднього перегляду не знайдено"
+	],
+	"Preview sites are temporary. Updating your preview resets the expiration date.": [
+		"Сайти попереднього перегляду тимчасові. Після оновлення попереднього перегляду термін його дії відраховується заново."
 	],
 	"Preview tabs": [
 		"Вкладки попереднього перегляду"
@@ -2813,6 +3211,9 @@
 	"Privacy Policy: %s": [
 		"Політика конфіденційності: %s"
 	],
+	"Private sites and preview links": [
+		"Приватні сайти й посилання на попередній перегляд"
+	],
 	"Project tools": [
 		"Інструменти проєкту"
 	],
@@ -2828,6 +3229,9 @@
 	"Publish a static copy of your sites to a Spacefast Space.": [
 		"Публікуйте статичні копії своїх сайтів у просторі Spacefast."
 	],
+	"Publish again?": [
+		"Опублікувати знову?"
+	],
 	"Publish and share": [
 		"Публікуйте й діліться"
 	],
@@ -2837,14 +3241,17 @@
 	"Publish changes": [
 		"Опублікувати зміни"
 	],
-	"Publish changes or get the latest updates.": [
-		"Опублікуйте зміни або отримайте останні оновлення."
-	],
-	"Publish details": [
-		"Деталі публікації"
+	"Publish changes?": [
+		"Опублікувати зміни?"
 	],
 	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
 		"Публікуйте нові сайти або оновлюйте наявні на WordPress.com чи Pressable."
+	],
+	"Publish options could not be loaded.": [
+		"Не вдалося завантажити параметри публікації."
+	],
+	"Publish somewhere else": [
+		"Опублікувати деінде"
 	],
 	"Publish the active site to WordPress.com": [
 		"Опублікувати активний сайт на WordPress.com"
@@ -2855,6 +3262,9 @@
 	"Publish to %s to apply these changes.": [
 		"Опублікуйте на %s, щоб застосувати ці зміни."
 	],
+	"Publish to %s.": [
+		"Публікація на %s."
+	],
 	"Publish to Spacefast": [
 		"Опублікувати на Spacefast"
 	],
@@ -2864,14 +3274,11 @@
 	"Publish to a real WordPress.com site when you're ready": [
 		"Публікуйте на справжньому сайті WordPress.com, коли будете готові"
 	],
-	"Publish to another site…": [
-		"Опублікувати на іншому сайті…"
+	"Publish to a site you already have.": [
+		"Публікуйте на сайт, який у вас уже є."
 	],
 	"Publish your WordPress": [
 		"Опублікуйте свій WordPress"
-	],
-	"Publish your changes.": [
-		"Опублікуйте свої зміни."
 	],
 	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
 		"Опублікуйте сайт, коли він буде готовий, або поділіться попереднім переглядом через WordPress.com."
@@ -2879,14 +3286,8 @@
 	"Publish, at the top of the preview, replaces Sync: push your site to WordPress.com or pull changes back. Share sends anyone a preview link.": [
 		"Кнопка «Опублікувати» вгорі попереднього перегляду замінює «Синхронізацію»: надсилайте сайт на WordPress.com або отримуйте зміни назад. «Поділитися» надсилає будь-кому посилання на попередній перегляд."
 	],
-	"Published %s": [
-		"%s опубліковано"
-	],
-	"Published sites": [
-		"Опубліковані сайти"
-	],
-	"Published to": [
-		"Опубліковано на"
+	"Published site actions": [
+		"Дії з опублікованим сайтом"
 	],
 	"Published to %s": [
 		"Опубліковано на %s"
@@ -2903,8 +3304,11 @@
 	"Publishing didn’t finish": [
 		"Публікацію не завершено"
 	],
-	"Publishing progress": [
-		"Хід публікації"
+	"Publishing requires a supported plan.": [
+		"Для публікації потрібен підтримуваний тарифний план."
+	],
+	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
+		"Публікація бази даних замінить зміни, внесені на робочому сайті, зокрема нові коментарі та замовлення."
 	],
 	"Publishing to %s… this may take several minutes.": [
 		"Публікація на %s… це може зайняти кілька хвилин."
@@ -2915,8 +3319,11 @@
 	"Pull a WordPress.com or Pressable site to your local site": [
 		"Отримати сайт WordPress.com або Pressable на ваш локальний сайт"
 	],
-	"Pull changes": [
-		"Отримати зміни"
+	"Pull from live site…": [
+		"Отримати з робочого сайту…"
+	],
+	"Pull from preview…": [
+		"Отримати з попереднього перегляду…"
 	],
 	"Pull only the database (keeps the local files)": [
 		"Отримати лише базу даних (зберігаються локальні файли)"
@@ -2924,8 +3331,8 @@
 	"Pull preview": [
 		"Отримати попередній перегляд"
 	],
-	"Pull progress": [
-		"Хід отримання"
+	"Pull replaces your local copy. Update replaces the preview.": [
+		"«Отримати» замінює вашу локальну копію. «Оновити» замінює попередній перегляд."
 	],
 	"Pulled from %1$s (%2$s)": [
 		"Отримано з %1$s (%2$s)"
@@ -2941,6 +3348,9 @@
 	],
 	"Pulling files": [
 		"Отримання файлів"
+	],
+	"Pulling from this preview is unavailable for this account.": [
+		"Отримання даних із цього попереднього перегляду недоступне для цього облікового запису."
 	],
 	"Pulling site…": [
 		"Отримання сайту…"
@@ -2965,9 +3375,6 @@
 	],
 	"Put your feedback to work": [
 		"Перетворіть свої відгуки на зміни"
-	],
-	"Quality validation failed.": [
-		"Перевірка якості не пройдена."
 	],
 	"Question %1$d of %2$d": [
 		"Питання %1$d з %2$d"
@@ -2999,6 +3406,9 @@
 	"Read site title": [
 		"Прочитати назву сайту"
 	],
+	"Receipts": [
+		"Квитанції"
+	],
 	"Recent chats": [
 		"Недавні чати"
 	],
@@ -3026,9 +3436,6 @@
 	"Reload App": [
 		"Перезавантажити додаток"
 	],
-	"Reload availability": [
-		"Перевірити доступність знову"
-	],
 	"Remember my choice": [
 		"Запам’ятати мій вибір"
 	],
@@ -3048,6 +3455,9 @@
 		"Вилучити %d сайт з WordPress Studio?",
 		"Вилучити %d сайти з WordPress Studio?",
 		"Вилучити %d сайтів з WordPress Studio?"
+	],
+	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
+		"Видалити %s з WordPress Studio? Опублікований сайт і ваш локальний WordPress не зміняться."
 	],
 	"Remove Blueprint": [
 		"Вилучити Blueprint"
@@ -3086,6 +3496,24 @@
 	],
 	"Rename the focused site or chat": [
 		"Перейменувати вибраний сайт або чат"
+	],
+	"Renew your plan": [
+		"Поновити тарифний план"
+	],
+	"Replace local site": [
+		"Замінити локальний сайт"
+	],
+	"Replace preview": [
+		"Замінити попередній перегляд"
+	],
+	"Replace preview changes?": [
+		"Замінити зміни в попередньому перегляді?"
+	],
+	"Replace preview contents?": [
+		"Замінити вміст попереднього перегляду?"
+	],
+	"Replace selected content": [
+		"Замінити вибраний вміст"
 	],
 	"Replace the contents of a non-empty output directory": [
 		"Замінити вміст непорожнього вихідного каталогу"
@@ -3129,6 +3557,9 @@
 	"Reset tips": [
 		"Скинути підказки"
 	],
+	"Reset to recommended": [
+		"Скинути до рекомендованих"
+	],
 	"Resize panel": [
 		"Змінити розмір панелі"
 	],
@@ -3163,6 +3594,9 @@
 	],
 	"Restrict the pull to specific wp-content files or folders (e.g. plugins/akismet, themes, uploads/index.php); repeatable.": [
 		"Обмежити отримання певними файлами чи папками wp-content (наприклад, plugins/akismet, themes, uploads/index.php); можна вказати кілька разів."
+	],
+	"Restricted": [
+		"Обмежений доступ"
 	],
 	"Restricts the site's file access to the site directory.": [
 		"Обмежує доступ сайту до файлів його каталогом."
@@ -3283,6 +3717,9 @@
 	"Search commands": [
 		"Пошук команд"
 	],
+	"Search models": [
+		"Пошук моделей"
+	],
 	"Search settings": [
 		"Пошук налаштувань"
 	],
@@ -3322,23 +3759,23 @@
 	"Select an email to read it.": [
 		"Виберіть лист, щоб прочитати його."
 	],
+	"Select at least one file or folder.": [
+		"Виберіть принаймні один файл або папку."
+	],
 	"Select default site directory": [
 		"Виберіть типовий каталог для сайтів"
+	],
+	"Select something to publish.": [
+		"Виберіть, що опублікувати."
+	],
+	"Select the files and folders to publish.": [
+		"Виберіть файли й папки для публікації."
 	],
 	"Select what to pull from the remote site": [
 		"Виберіть, що отримати з віддаленого сайту"
 	],
 	"Selected area": [
 		"Вибрана область"
-	],
-	"Selected files and content": [
-		"Вибрані файли та вміст"
-	],
-	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
-		"Вибрані файли, вміст і налаштування у WordPress Studio буде перезаписано. Ваш вебсайт залишиться без змін."
-	],
-	"Selected files, content, and settings on your website will be overwritten.": [
-		"Вибрані файли, вміст і налаштування на вашому вебсайті буде перезаписано."
 	],
 	"Send %d annotation": [
 		"Надіслати %d примітку",
@@ -3357,14 +3794,29 @@
 	"Send or delete some annotations before adding more": [
 		"Надішліть або видаліть деякі примітки, перш ніж додавати нові"
 	],
+	"Server address": [
+		"Адреса сервера"
+	],
+	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
+		"Задайте STUDIO_SERVE_SECRET, щоб сервер був доступний не лише з цього комп’ютера."
+	],
 	"Set WP_ENVIRONMENT_TYPE": [
 		"Задати WP_ENVIRONMENT_TYPE"
 	],
 	"Set coding standards, preferred tools, and response style for new chats across all sites.": [
 		"Задайте стандарти коду, бажані інструменти та стиль відповідей для нових чатів на всіх сайтах."
 	],
+	"Set how much the model thinks in this chat": [
+		"Налаштувати рівень міркувань моделі в цьому чаті"
+	],
 	"Sets the value returned by wp_get_environment_type().": [
 		"Задає значення, яке повертає wp_get_environment_type()."
+	],
+	"Setting up WordPress…": [
+		"Налаштування WordPress…"
+	],
+	"Setting up your workspace…": [
+		"Налаштування робочого простору…"
 	],
 	"Settings scope": [
 		"Область налаштувань"
@@ -3378,11 +3830,11 @@
 	"Setup did not finish. The local site and WordPress.com connection were kept": [
 		"Налаштування не завершено. Локальний сайт і підключення до WordPress.com збережено"
 	],
-	"Share a preview": [
-		"Поділитися попереднім переглядом"
-	],
 	"Share a preview of your site": [
 		"Поділіться попереднім переглядом свого сайту"
+	],
+	"Share a preview or publish your site": [
+		"Поділіться попереднім переглядом або опублікуйте сайт"
 	],
 	"Share a temporary copy of your local site with anyone.": [
 		"Діліться тимчасовою копією свого локального сайту з будь-ким."
@@ -3390,11 +3842,8 @@
 	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
 		"Діліться тимчасовою копією свого локального сайту з будь-ким. Термін дії сайту попереднього перегляду закінчується, якщо його не оновлювати близько тижня."
 	],
-	"Share a temporary preview of your site. Update it when you want to share your latest changes.": [
-		"Поділіться тимчасовим попереднім переглядом свого сайту. Оновлюйте його, коли захочете показати останні зміни."
-	],
-	"Share and publish": [
-		"Поділитися й опублікувати"
+	"Share a temporary preview link.": [
+		"Поділіться тимчасовим посиланням на попередній перегляд."
 	],
 	"Share anonymous usage statistics": [
 		"Надсилати анонімну статистику використання"
@@ -3480,6 +3929,9 @@
 	"Sign in to WordPress Studio": [
 		"Увійдіть до WordPress Studio"
 	],
+	"Sign in to create a preview link.": [
+		"Увійдіть, щоб створити посилання на попередній перегляд."
+	],
 	"Sign in to do more with WordPress Studio": [
 		"Увійдіть, щоб робити більше з WordPress Studio"
 	],
@@ -3489,8 +3941,23 @@
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"Увійдіть через ChatGPT або використовуйте ключ API OpenAI."
 	],
+	"Sign in with Grok": [
+		"Увійти через Grok"
+	],
+	"Sign in with OpenRouter": [
+		"Увійти через OpenRouter"
+	],
+	"Sign in with WordPress.com": [
+		"Увійти через WordPress.com"
+	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Увійдіть через обліковий запис GitHub із доступом до Copilot."
+	],
+	"Sign in with an eligible Grok account or use an xAI API key.": [
+		"Увійдіть через відповідний обліковий запис Grok або використовуйте ключ API xAI."
+	],
+	"Sign out": [
+		"Вийти"
 	],
 	"Sign-in details for this site and its previews.": [
 		"Дані для входу на цей сайт і його попередні перегляди."
@@ -3546,11 +4013,17 @@
 	"Site exported": [
 		"Сайт експортовано"
 	],
+	"Site files left on disk": [
+		"Файли сайту залишилися на диску"
+	],
 	"Site folder": [
 		"Папка сайту"
 	],
 	"Site folder is required.": [
 		"Потрібно вказати папку сайту."
+	],
+	"Site imported, but the WordPress server failed to start: %s": [
+		"Сайт імпортовано, але не вдалося запустити сервер WordPress: %s"
 	],
 	"Site is busy": [
 		"Сайт зайнятий"
@@ -3609,6 +4082,9 @@
 	"Snapshots": [
 		"Знімки"
 	],
+	"Some destinations could not be loaded": [
+		"Не вдалося завантажити деякі місця публікації"
+	],
 	"Something went wrong and this turn was stopped. Please try again.": [
 		"Щось пішло не так, і цей крок було зупинено. Спробуйте ще раз."
 	],
@@ -3629,6 +4105,9 @@
 	],
 	"Source website prepared": [
 		"Сайт-джерело підготовлено"
+	],
+	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
+		"Spacefast ще застосовує зміну видимості. Перевірте доступ у Spacefast."
 	],
 	"Spacefast sign-in was declined.": [
 		"Вхід у Spacefast відхилено."
@@ -3690,6 +4169,12 @@
 	"Start signing in with GitHub again.": [
 		"Почніть вхід через GitHub знову."
 	],
+	"Start signing in with Grok again.": [
+		"Почніть вхід через Grok знову."
+	],
+	"Start signing in with OpenRouter again.": [
+		"Почніть вхід через OpenRouter знову."
+	],
 	"Start site when sending a prompt": [
 		"Запускати сайт під час надсилання запиту"
 	],
@@ -3711,6 +4196,9 @@
 	"Start with Blank site": [
 		"Почати з порожнього сайту"
 	],
+	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
+		"Запустіть сервер моделей принаймні з однією моделлю, а потім введіть адресу, на якій він працює. Studio запропонує моделі, які він надає."
+	],
 	"Starting %s": [
 		"Запуск %s"
 	],
@@ -3728,9 +4216,6 @@
 	],
 	"Static Site Importer cleanup failed. The imported site and staged request were preserved.": [
 		"Не вдалося виконати очищення Static Site Importer. Імпортований сайт і підготовлений запит збережено."
-	],
-	"Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s": [
-		"Static Site Importer створив попередній перегляд, але не прийняв його. Сайт і підготовлений запит збережено: %s"
 	],
 	"Static Site Importer plugin zip URL for --from imports": [
 		"URL-адреса zip-архіву плагіна Static Site Importer для імпорту через --from"
@@ -3759,6 +4244,9 @@
 	"Stop %s": [
 		"Зупинити %s"
 	],
+	"Stop a site to start another.": [
+		"Зупиніть сайт, щоб запустити інший."
+	],
 	"Stop annotating": [
 		"Припинити додавання приміток"
 	],
@@ -3786,6 +4274,9 @@
 	"Studio CLI uninstalled. Removed:": [
 		"Studio CLI видалено. Видалено:"
 	],
+	"Studio Cloud": [
+		"Studio Cloud"
+	],
 	"Studio Code AI is blocked for this WordPress.com account. If you believe this is a mistake, <supportLink>contact WordPress.com support</supportLink>.": [
 		"ШІ Studio Code заблоковано для цього облікового запису WordPress.com. Якщо ви вважаєте, що це помилка, <supportLink>зверніться до служби підтримки WordPress.com</supportLink>."
 	],
@@ -3801,8 +4292,17 @@
 	"Studio Code limits are temporarily unavailable.": [
 		"Ліміти Studio Code тимчасово недоступні."
 	],
+	"Studio Code sets how much %s thinks.": [
+		"Studio Code задає рівень міркувань моделі %s."
+	],
 	"Studio Code, right beside your site": [
 		"Studio Code — поруч із вашим сайтом"
+	],
+	"Studio can’t run your sites because one of its files was removed, often by antivirus software. Reinstall WordPress Studio to restore it. If it happens again, allow WordPress Studio in your antivirus settings.": [
+		"Studio не може запустити ваші сайти, оскільки один із файлів програми було видалено — часто це робить антивірус. Перевстановіть WordPress Studio, щоб відновити його. Якщо це повториться, додайте WordPress Studio до дозволених програм у налаштуваннях антивіруса."
+	],
+	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
+		"Studio не може визначити, чи хтось редагував %s. Під час оновлення попереднього перегляду його буде замінено вашим локальним сайтом."
 	],
 	"Studio was updated, and the site \"%s\" could not be started again.": [
 		"Studio оновлено, і сайт \"%s\" не вдалося запустити знову."
@@ -3882,6 +4382,9 @@
 	"The GitHub sign-in expired. Try again.": [
 		"Термін дії входу через GitHub минув. Спробуйте ще раз."
 	],
+	"The Grok sign-in expired. Try again.": [
+		"Термін дії входу через Grok минув. Спробуйте ще раз."
+	],
 	"The PHP version used to run WordPress on this site.": [
 		"Версія PHP, яка використовується для роботи WordPress на цьому сайті."
 	],
@@ -3909,6 +4412,9 @@
 	"The configuration couldn't be changed to speed up site creation.\n\nTo initiate this process again, please go to \"Help > How can I make WordPress Studio faster?\" in the application menu.": [
 		"Не вдалося змінити конфігурацію для пришвидшення створення сайтів.\n\nЩоб запустити цей процес знову, перейдіть у меню додатка до \"Допомога > Як зробити WordPress Studio швидшим?\"."
 	],
+	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
+		"Контекст, із яким працює %s, замалий для Studio Code. Збільште довжину контексту в налаштуваннях сервера."
+	],
 	"The database failed to import on the live site. Review your database and try again.": [
 		"Не вдалося імпортувати базу даних на робочий сайт. Перевірте базу даних і спробуйте ще раз."
 	],
@@ -3933,6 +4439,9 @@
 	"The footer now lists the hours for every day.": [
 		"Тепер у підвалі вказано години роботи на кожен день."
 	],
+	"The full WordPress, with a domain.": [
+		"Повноцінний WordPress із доменом."
+	],
 	"The import failed, and WordPress Studio could not remove “%s”. Remove the incomplete site before trying this location again.": [
 		"Імпорт не вдався, і WordPress Studio не зміг вилучити «%s». Вилучіть неповний сайт, перш ніж знову використовувати це розташування."
 	],
@@ -3947,6 +4456,15 @@
 	],
 	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
 		"Час очікування імпорту на робочому сайті минув, імовірно, через завеликий розмір сайту. Спробуйте зменшити його вміст або файли."
+	],
+	"The local server at %s isn’t answering. Start it, then send your message again.": [
+		"Локальний сервер за адресою %s не відповідає. Запустіть його, а потім надішліть повідомлення ще раз."
+	],
+	"The local server has no chat model yet. Add one to your server, then connect again.": [
+		"На локальному сервері ще немає моделі для чату. Додайте її на сервер, а потім підключіться знову."
+	],
+	"The local server refused the API key. Check the key, and connect again.": [
+		"Локальний сервер відхилив ключ API. Перевірте ключ і підключіться знову."
 	],
 	"The local site has no database yet (it is created the first time the site starts), so the database cannot be excluded from this pull. Include the database, or start the site once and pull again.": [
 		"Локальний сайт ще не має бази даних (її буде створено під час першого запуску сайту), тому базу даних не можна виключити з цього отримання. Включіть базу даних або один раз запустіть сайт і отримайте зміни знову."
@@ -3978,14 +4496,20 @@
 	"The remote site responded with HTML instead of the expected export API.": [
 		"Віддалений сайт повернув HTML замість очікуваного API експорту."
 	],
+	"The requested site is unavailable.": [
+		"Запитаний сайт недоступний."
+	],
 	"The same site was specified more than once.": [
 		"Той самий сайт вказано більше одного разу."
 	],
-	"The site archive exceeds the %d GB size limit.": [
-		"Архів сайту перевищує обмеження розміру в %d ГБ."
+	"The site files could not be moved to trash. Delete them yourself: %s": [
+		"Не вдалося перемістити файли сайту до кошика. Видаліть їх самостійно: %s"
 	],
 	"The site is running and can be inspected.": [
 		"Сайт працює, і його можна перевірити."
+	],
+	"The site requested for this pull is unavailable.": [
+		"Сайт, запитаний для отримання даних, недоступний."
 	],
 	"The specified directory is not added to Studio. Use `studio create` to add it.": [
 		"Вказаний каталог не додано до Studio. Скористайтеся `studio create`, щоб додати його."
@@ -3993,11 +4517,20 @@
 	"The sync will keep running after you quit WordPress Studio.": [
 		"Синхронізація продовжиться після виходу з WordPress Studio."
 	],
+	"The transfer could not be completed. Please try again.": [
+		"Не вдалося завершити перенесення. Спробуйте ще раз."
+	],
 	"The username used to log in to WordPress Admin.": [
 		"Ім’я користувача для входу в адмінпанель WordPress."
 	],
+	"The visibility change could not be applied. Check access on Spacefast.": [
+		"Не вдалося застосувати зміну видимості. Перевірте доступ у Spacefast."
+	],
 	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
 		"Зміни у файлах теми не відображатимуться. Ваші зміни у файлах %s не враховано: цей попередній перегляд використовує оригінальну копію теми з WordPress.com. Вносьте їх у редакторі сайту або в дочірній темі, щоб бачити їх у попередніх переглядах."
+	],
+	"Themes": [
+		"Теми"
 	],
 	"Themes…": [
 		"Теми…"
@@ -4007,6 +4540,21 @@
 	],
 	"These sites cannot currently be connected to WordPress Studio.": [
 		"Ці сайти зараз не можна підключити до WordPress Studio."
+	],
+	"Thinking: %s": [
+		"Міркування: %s"
+	],
+	"Thinks before answering": [
+		"Міркує перед відповіддю"
+	],
+	"Thinks briefly": [
+		"Міркує недовго"
+	],
+	"Thinks longest, slowest": [
+		"Міркує найдовше, найповільніше"
+	],
+	"This API key is blocked or disabled. Check it in the xAI Console.": [
+		"Цей ключ API заблоковано або вимкнено. Перевірте його в xAI Console."
 	],
 	"This Blueprint JSON file could not be read. Check that it contains valid JSON and try again.": [
 		"Не вдалося прочитати цей файл JSON Blueprint. Перевірте, чи він містить дійсний JSON, і спробуйте ще раз."
@@ -4019,6 +4567,9 @@
 	],
 	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
 		"Цей обліковий запис GitHub не має тарифного плану Copilot. Виберіть план на github.com/features/copilot."
+	],
+	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
+		"На цьому обліковому записі Grok не залишилося кредитів. Поповніть кредити або оформіть SuperGrok на grok.com."
 	],
 	"This Studio CLI is bundled with the Studio desktop app. Uninstall the app to remove it.": [
 		"Цей Studio CLI входить до складу настільного додатка Studio. Щоб видалити його, видаліть додаток."
@@ -4047,6 +4598,9 @@
 	"This chat could not load.": [
 		"Не вдалося завантажити цей чат."
 	],
+	"This destination cannot create a site from this panel yet.": [
+		"У цьому місці публікації поки що не можна створити сайт із цієї панелі."
+	],
 	"This email is gone.": [
 		"Цього листа більше немає."
 	],
@@ -4067,6 +4621,21 @@
 	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"Це ключ Anthropic. Додайте його до Anthropic."
+	],
+	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
+		"Для цього потрібно приблизно %1$s ГБ вільного місця, а у вашому тарифному плані залишилося %2$s ГБ. Видаліть непотрібні сайти та спробуйте ще раз."
+	],
+	"This preview site can’t be made live: it was bought, ended or deleted, or it shows changes to a live site.": [
+		"Цей сайт попереднього перегляду не можна зробити робочим: його придбано, термін його дії завершився або його видалено, або він показує зміни робочого сайту."
+	],
+	"This provider doesn’t make previews.": [
+		"Цей постачальник не створює попередніх переглядів."
+	],
+	"This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.": [
+		"Вибрані частини вашого локального сайту буде замінено вмістом із %s. Усі локальні зміни в цих частинах буде втрачено."
+	],
+	"This replaces your local site with the preview. Any local changes will be lost.": [
+		"Ваш локальний сайт буде замінено попереднім переглядом. Усі локальні зміни буде втрачено."
 	],
 	"This selection exceeds the %s GB publishing limit. Choose fewer files to continue.": [
 		"Ця вибірка перевищує обмеження на публікацію в %s ГБ. Щоб продовжити, виберіть менше файлів."
@@ -4116,11 +4685,11 @@
 	"This website has been deleted. Choose another website.": [
 		"Цей сайт видалено. Виберіть інший сайт."
 	],
-	"This website is no longer available to this account. Choose another website.": [
-		"Цей вебсайт більше не доступний для цього облікового запису. Виберіть інший вебсайт."
+	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
+		"Цьому сайту потрібен тарифний план хостингу, що підтримує отримання даних у WordPress Studio."
 	],
-	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
-		"Для цього сайту потрібен тарифний план хостингу, що підтримує публікацію з WordPress Studio."
+	"This xAI account has no credits left. Add credits in the xAI Console.": [
+		"На цьому обліковому записі xAI не залишилося кредитів. Поповніть кредити в xAI Console."
 	],
 	"Tips reset.": [
 		"Підказки скинуто."
@@ -4149,11 +4718,11 @@
 	"Track your preview site usage.": [
 		"Відстежуйте використання сайтів попереднього перегляду."
 	],
-	"Transfer cancelled. You can try again.": [
-		"Передавання скасовано. Можна спробувати ще раз."
-	],
 	"Treat yourself to some WordPress swag": [
 		"Потіштеся фірмовим мерчем WordPress"
+	],
+	"Try again to see where this WordPress is already connected.": [
+		"Спробуйте ще раз, щоб дізнатися, де вже підключено цей WordPress."
 	],
 	"Try downloading the update again.": [
 		"Спробуйте завантажити оновлення ще раз."
@@ -4163,12 +4732,6 @@
 	],
 	"Try nightly builds?": [
 		"Спробувати нічні збірки?"
-	],
-	"Try publishing again": [
-		"Спробувати опублікувати ще раз"
-	],
-	"Try pulling again": [
-		"Спробувати отримати ще раз"
 	],
 	"Try starting the chat again, or open your site.": [
 		"Спробуйте запустити чат ще раз або відкрийте свій сайт."
@@ -4188,6 +4751,9 @@
 	"Turn on “%s”": [
 		"Увімкнути «%s»"
 	],
+	"Twice the CPU for faster builds": [
+		"Удвічі більше потужності ЦП для швидшого створення сайтів"
+	],
 	"Type scale": [
 		"Шкала шрифтів"
 	],
@@ -4199,9 +4765,6 @@
 	],
 	"Unable to access the selected backup. Please try again.": [
 		"Не вдалося отримати доступ до вибраної резервної копії. Спробуйте ще раз."
-	],
-	"Unable to check preview availability.": [
-		"Не вдалося перевірити доступність попереднього перегляду."
 	],
 	"Unable to delete the site. Please try again.": [
 		"Не вдалося видалити сайт. Спробуйте ще раз."
@@ -4236,6 +4799,9 @@
 	"Unknown deletion error.": [
 		"Невідома помилка видалення."
 	],
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"Невідомий рівень %1$s. Виберіть один із варіантів: %2$s."
+	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"Невідомий постачальник %1$s. Виберіть один із: %2$s."
 	],
@@ -4244,6 +4810,9 @@
 	],
 	"Unknown version": [
 		"Невідома версія"
+	],
+	"Unlimited sites, 5 running at once": [
+		"Необмежена кількість сайтів, одночасно працюють 5"
 	],
 	"Unpin": [
 		"Відкріпити"
@@ -4254,11 +4823,26 @@
 	"Unsupported backup file": [
 		"Непідтримуваний файл резервної копії"
 	],
+	"Unsupported visibility setting.": [
+		"Непідтримуваний параметр видимості."
+	],
+	"Up to 10 sites, 2 running at once": [
+		"До 10 сайтів, одночасно працюють 2"
+	],
+	"Update WordPress Studio": [
+		"Оновити WordPress Studio"
+	],
+	"Update WordPress Studio.": [
+		"Оновіть WordPress Studio."
+	],
 	"Update all plugins": [
 		"Оновити всі плагіни"
 	],
 	"Update available: %1$s → %2$s": [
 		"Доступне оновлення: %1$s → %2$s"
+	],
+	"Update local site from %s?": [
+		"Оновити локальний сайт із %s?"
 	],
 	"Update plugin": [
 		"Оновити плагін"
@@ -4272,11 +4856,17 @@
 	"Update site title": [
 		"Оновити назву сайту"
 	],
+	"Update the Studio CLI with `%s`.": [
+		"Оновіть Studio CLI командою `%s`."
+	],
 	"Update user": [
 		"Оновити користувача"
 	],
 	"Updated %s": [
 		"Оновлено %s"
+	],
+	"Updating %s will replace any edits made on the preview with your local copy.": [
+		"Під час оновлення %s усі редагування, внесені в попередній перегляд, буде замінено вашою локальною копією."
 	],
 	"Updating WordPress version…": [
 		"Оновлення версії WordPress…"
@@ -4289,6 +4879,9 @@
 	],
 	"Updating preview…": [
 		"Оновлення попереднього перегляду…"
+	],
+	"Updating your workspace…": [
+		"Оновлення робочого простору…"
 	],
 	"Upgrade this site to a supported plan before connecting it.": [
 		"Перш ніж підключати цей сайт, перейдіть на підтримуваний тарифний план."
@@ -4310,6 +4903,12 @@
 	],
 	"Usage is billed through your OpenAI account.": [
 		"Використання оплачується через ваш обліковий запис OpenAI."
+	],
+	"Usage is billed through your xAI account.": [
+		"Використання оплачується через ваш обліковий запис xAI."
+	],
+	"Usage is paid with your OpenRouter credits.": [
+		"Використання оплачується вашими кредитами OpenRouter."
 	],
 	"Use /connect %1$s to connect %2$s again.": [
 		"Скористайтеся /connect %1$s, щоб знову підключити %2$s."
@@ -4356,6 +4955,12 @@
 	"Use light mode": [
 		"Використовувати світлий режим"
 	],
+	"Use models from many labs with your OpenRouter credits.": [
+		"Використовуйте моделі різних розробників за кредити OpenRouter."
+	],
+	"Use the models a server you run serves, such as on this computer.": [
+		"Використовуйте моделі, які надає ваш власний сервер, наприклад на цьому комп’ютері."
+	],
 	"Use the studio command in any terminal to manage sites and run WP-CLI.": [
 		"Використовуйте команду studio в будь-якому терміналі, щоб керувати сайтами та запускати WP-CLI."
 	],
@@ -4371,6 +4976,9 @@
 	"Using Copilot plan": [
 		"Використовується тарифний план Copilot"
 	],
+	"Using Grok plan": [
+		"Використовується тарифний план Grok"
+	],
 	"Using your only connected WordPress.com site:": [
 		"Використовується ваш єдиний підключений сайт WordPress.com:"
 	],
@@ -4382,6 +4990,9 @@
 	],
 	"View Blueprint": [
 		"Переглянути Blueprint"
+	],
+	"View backups": [
+		"Переглянути резервні копії"
 	],
 	"View notification: %s": [
 		"Переглянути сповіщення: %s"
@@ -4395,14 +5006,23 @@
 	"View usage": [
 		"Переглянути використання"
 	],
-	"Visit preview": [
-		"Відкрити попередній перегляд"
+	"View versions": [
+		"Переглянути версії"
+	],
+	"Visibility could not be confirmed. Check access on Spacefast.": [
+		"Не вдалося підтвердити видимість. Перевірте доступ у Spacefast."
+	],
+	"Visibility settings are only available for WordPress.com sites.": [
+		"Налаштування видимості доступні лише для сайтів WordPress.com."
 	],
 	"Visit previews": [
 		"Відкрити попередні перегляди"
 	],
 	"Visit wapuu.studio": [
 		"Відвідати wapuu.studio"
+	],
+	"Visitors see a coming soon page": [
+		"Відвідувачі бачать сторінку «Незабаром відкриття»"
 	],
 	"Visual Annotations": [
 		"Візуальні примітки"
@@ -4425,9 +5045,6 @@
 	"Wait for the current site operation to finish before changing settings.": [
 		"Дочекайтеся завершення поточної операції із сайтом, перш ніж змінювати налаштування."
 	],
-	"Wait for the current site operation to finish before creating or updating a preview.": [
-		"Дочекайтеся завершення поточної операції із сайтом, перш ніж створювати або оновлювати попередній перегляд."
-	],
 	"Waiting for %s": [
 		"Очікування: %s"
 	],
@@ -4449,9 +5066,6 @@
 	"We couldn't load your sites": [
 		"Не вдалося завантажити ваші сайти"
 	],
-	"Website actions": [
-		"Дії з вебсайтом"
-	],
 	"Welcome to WordPress Studio 2.0": [
 		"Ласкаво просимо до WordPress Studio 2.0"
 	],
@@ -4461,8 +5075,8 @@
 	"What to publish": [
 		"Що опублікувати"
 	],
-	"What to pull": [
-		"Що отримати"
+	"What to replace": [
+		"Що замінити"
 	],
 	"What would you like to open?": [
 		"Що ви хочете відкрити?"
@@ -4473,14 +5087,17 @@
 	"When WordPress Studio quits": [
 		"Під час виходу з WordPress Studio"
 	],
-	"Where do you want to publish?": [
-		"Де ви хочете опублікувати?"
-	],
 	"Where this site’s files are stored.": [
 		"Де зберігаються файли цього сайту."
 	],
+	"Where your server listens, as it prints it when it starts.": [
+		"Адреса, на якій працює ваш сервер, — у тому вигляді, у якому сервер виводить її під час запуску."
+	],
 	"Which files PHP can access: the site directory only, or all files": [
 		"До яких файлів PHP має доступ: лише до каталогу сайту чи до всіх файлів"
+	],
+	"Who can view": [
+		"Хто може переглядати"
 	],
 	"WordPress Studio %s is available": [
 		"Доступна версія WordPress Studio %s"
@@ -4518,11 +5135,17 @@
 	"WordPress Studio could not open the site.": [
 		"WordPress Studio не вдалося відкрити сайт."
 	],
+	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"WordPress Studio не вдалося прочитати свої налаштування в %s. Перезапустіть WordPress Studio, щоб спробувати ще раз. Якщо це повторюється, зверніться до служби підтримки й надайте наведені нижче відомості."
+	],
 	"WordPress Studio instructions": [
 		"Інструкції WordPress Studio"
 	],
 	"WordPress Studio is finishing an update": [
 		"WordPress Studio завершує оновлення"
+	],
+	"WordPress Studio is missing some of its files": [
+		"Бракує деяких файлів WordPress Studio"
 	],
 	"WordPress Studio is running at:": [
 		"WordPress Studio працює за адресою:"
@@ -4532,6 +5155,9 @@
 	],
 	"WordPress Studio is running from: %s": [
 		"WordPress Studio запущено з: %s"
+	],
+	"WordPress Studio is serving at:": [
+		"WordPress Studio доступний за адресою:"
 	],
 	"WordPress Studio is unable to open PHPStorm. Please ensure it is functioning correctly.": [
 		"WordPress Studio не може відкрити PHPStorm. Переконайтеся, що він працює правильно."
@@ -4596,6 +5222,9 @@
 	"WordPress server restarted": [
 		"Сервер WordPress перезапущено"
 	],
+	"WordPress set up": [
+		"WordPress налаштовано"
+	],
 	"WordPress site": [
 		"Сайт WordPress"
 	],
@@ -4622,6 +5251,9 @@
 	],
 	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
 		"WordPress.com не підтримує мультисайт. Публікація цієї мережі може спричинити проблеми."
+	],
+	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
+		"WordPress.com ще не підтвердив зміну видимості. Спробуйте ще раз."
 	],
 	"WordPress.com hosting": [
 		"Хостинг WordPress.com"
@@ -4671,6 +5303,9 @@
 	"Xdebug is enabled on another site: %s": [
 		"Xdebug увімкнено на іншому сайті: %s"
 	],
+	"Yearly, save 20%": [
+		"Щороку, економія 20%"
+	],
 	"Yes, new chat": [
 		"Так, новий чат"
 	],
@@ -4710,6 +5345,9 @@
 	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
 		"Ви досягли ліміту використання тарифного плану Copilot. Керуйте використанням на github.com/settings/copilot."
 	],
+	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
+		"Ви досягли ліміту використання тарифного плану Grok. Перевірте використання на grok.com."
+	],
 	"You stopped": [
 		"Ви зупинили"
 	],
@@ -4725,9 +5363,6 @@
 	"You're on the latest version (%s)": [
 		"У вас найновіша версія (%s)"
 	],
-	"You've used all %d preview sites available on your account.": [
-		"Ви використали всі доступні для вашого облікового запису сайти попереднього перегляду (%d)."
-	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"Ваш тарифний план ChatGPT не можна використовувати у WordPress Studio."
 	],
@@ -4737,8 +5372,26 @@
 	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
 		"Ваш тарифний план Copilot не включає цю модель. Виберіть іншу або увімкніть її на github.com/settings/copilot."
 	],
+	"Your Grok or X plan can’t be used in WordPress Studio.": [
+		"Ваш тарифний план Grok або X не можна використовувати у WordPress Studio."
+	],
+	"Your Grok sign-in no longer works. Connect xAI again in Settings.": [
+		"Вхід через Grok більше не діє. Знову підключіть xAI у налаштуваннях."
+	],
+	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
+		"Ваші кредити OpenRouter закінчилися або цей ключ досяг свого ліміту кредитів. Поповніть кредити на openrouter.ai."
+	],
 	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
 		"Ваш вхід у Spacefast більше не діє. Підключіть Spacefast знову."
+	],
+	"Your Studio, in the cloud.": [
+		"Ваш Studio — у хмарі."
+	],
+	"Your WordPress exceeds the %s GB publishing limit.": [
+		"Ваш WordPress перевищує ліміт публікації в %s ГБ."
+	],
+	"Your WordPress is public": [
+		"Ваш WordPress загальнодоступний"
 	],
 	"Your account doesn't have permission to manage this site.": [
 		"Ваш обліковий запис не має дозволу на керування цим сайтом."
@@ -4752,8 +5405,8 @@
 	"Your first %s AI credits are on us.": [
 		"Перші %s кредитів ШІ — за наш рахунок."
 	],
-	"Your local site is saved. Retry to finish bringing in its content.": [
-		"Ваш локальний сайт збережено. Повторіть спробу, щоб завершити перенесення його вмісту."
+	"Your local server refused the request: %s.": [
+		"Ваш локальний сервер відхилив запит: %s."
 	],
 	"Your new website isn’t available yet. Refresh the website list to try again.": [
 		"Ваш новий вебсайт ще недоступний. Оновіть список вебсайтів, щоб спробувати ще раз."
@@ -4761,11 +5414,28 @@
 	"Your next idea is ready when you are. Top up to bring it to life.": [
 		"Ваша наступна ідея чекає на вас. Поповніть баланс, щоб утілити її."
 	],
+	"Your plan allows %d site. Delete a site to create a new one.": [
+		"Ваш тарифний план дозволяє створити %d сайт. Видаліть сайт, щоб створити новий.",
+		"Ваш тарифний план дозволяє створити %d сайти. Видаліть сайт, щоб створити новий.",
+		"Ваш тарифний план дозволяє створити %d сайтів. Видаліть сайт, щоб створити новий."
+	],
+	"Your plan has ended.": [
+		"Термін дії вашого тарифного плану завершився."
+	],
 	"Your preference could not be saved. Please try again.": [
 		"Не вдалося зберегти ваш вибір. Спробуйте ще раз."
 	],
 	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
 		"Ваш попередній перегляд перенесено на WordPress.com, тому його посилання змінилося. Нове посилання: %s"
+	],
+	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
+		"Вибрані файли недоступні. Повторіть перевірку резервної копії або виберіть інший варіант, щоб продовжити."
+	],
+	"Your server’s setting": [
+		"Налаштування вашого сервера"
+	],
+	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
+		"Ваші налаштування збережено новішою версією Studio CLI. Оновіть WordPress Studio, щоб і далі ними користуватися."
 	],
 	"Your site can stay available in the background after WordPress Studio quits.": [
 		"Ваш сайт може залишатися доступним у фоновому режимі після виходу з WordPress Studio.",
@@ -4774,6 +5444,9 @@
 	],
 	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
 		"Ваш сайт змінився після останнього оновлення попереднього перегляду «%s». Під час публікації буде надіслано поточну версію локального сайту, зокрема зміни, яких немає в цьому попередньому перегляді."
+	],
+	"Your site is ready to publish": [
+		"Ваш сайт готовий до публікації"
 	],
 	"Your site is shown on the right, automatically refreshing as you make changes with Studio Code. Switch between the front-end, wp-admin, and the database from the toolbar.": [
 		"Ваш сайт показано праворуч, і він автоматично оновлюється, коли ви вносите зміни за допомогою Studio Code. Перемикайтеся між фронтендом, wp-admin і базою даних на панелі інструментів."
@@ -4784,23 +5457,26 @@
 	"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back.": [
 		"Резервна копія вашого сайту перевищує %d ГБ. Якщо отримати її, ви не зможете надіслати сайт назад."
 	],
+	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
+		"Ваші сайти та Studio Code на вашій власній машині, доступній з будь-якого браузера. Увійдіть за допомогою облікового запису WordPress.com, щоб відкрити робочий простір."
+	],
 	"Your sites and their chats now share one sidebar. Hide the chat when you want the preview to fill the window.": [
 		"Тепер ваші сайти та їхні чати розміщено на одній бічній панелі. Сховайте чат, коли хочете, щоб попередній перегляд заповнив усе вікно."
 	],
-	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
-		"Ваші сайти й далі перелічено в %s. Перезапустіть WordPress Studio, щоб спробувати ще раз. Якщо проблема повторюється, зверніться до служби підтримки з наведеними нижче відомостями."
+	"Your sites are kept until %s. Renew to pick up where you left off, or choose a plan below.": [
+		"Ваші сайти зберігатимуться до %s. Поновіть тарифний план, щоб продовжити з того місця, де ви зупинилися, або виберіть тарифний план нижче."
+	],
+	"Your team and people you give access to": [
+		"Ваша команда й люди, яким ви надали доступ"
+	],
+	"Your team only allows restricted sites.": [
+		"Ваша команда дозволяє лише сайти з обмеженим доступом."
 	],
 	"Your unsaved changes will be lost.": [
 		"Незбережені зміни буде втрачено."
 	],
-	"Your website wasn’t changed.": [
-		"Ваш вебсайт не змінено."
-	],
-	"Your website will be replaced with this site as it is now.": [
-		"Ваш вебсайт буде замінено поточною версією цього сайту."
-	],
-	"You’ll need to connect a website again to publish or pull changes. Your local site and live website will stay unchanged.": [
-		"Щоб публікувати або отримувати зміни, потрібно буде знову підключити вебсайт. Ваш локальний сайт і робочий вебсайт залишаться без змін."
+	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
+		"Ваш робочий простір працює на тарифному плані Studio Cloud. Оформлення замовлення відкриється на WordPress.com, а робочий простір буде готовий приблизно за хвилину після оплати."
 	],
 	"You’re on a roll. Top up now and keep building.": [
 		"У вас усе чудово виходить. Поповніть баланс і продовжуйте створювати."
@@ -4865,6 +5541,9 @@
 	"no files": [
 		"немає файлів"
 	],
+	"other files": [
+		"інші файли"
+	],
 	"pages": [
 		"сторінки"
 	],
@@ -4894,6 +5573,21 @@
 	],
 	"theme.json matches DESIGN.md": [
 		"theme.json відповідає DESIGN.md"
+	],
+	"uploads": [
+		"завантажені файли"
+	],
+	"xAI API key": [
+		"Ключ API xAI"
+	],
+	"xAI refused the API key. Check its permissions and credits in the xAI Console.": [
+		"xAI відхилив ключ API. Перевірте його дозволи й кредити в xAI Console."
+	],
+	"xAI rejected the API key. Connect xAI again in Settings.": [
+		"xAI відхилив ключ API. Знову підключіть xAI у налаштуваннях."
+	],
+	"xAI rejected this API key. Check the key and try again.": [
+		"xAI відхилив цей ключ API. Перевірте ключ і спробуйте ще раз."
 	],
 	"· %d%%": [
 		"· %d%%"

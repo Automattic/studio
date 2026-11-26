@@ -2,7 +2,7 @@ import fs from 'fs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
-import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import { LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { importLegacyConfig } from '@studio/common/lib/config/legacy-import';
 import { migrateConfig } from '@studio/common/lib/config/migrations';
 import {
@@ -96,7 +96,7 @@ async function ensureConfigDirectory(): Promise< void > {
 async function withLock< T >( run: () => Promise< T > ): Promise< T > {
 	await ensureConfigDirectory();
 	const lockPath = `${ getConfigPath() }.lock`;
-	await lockFileAsync( lockPath, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
+	await lockFileAsync( lockPath, { wait: LOCKFILE_WAIT_TIME } );
 	try {
 		return await run();
 	} finally {
@@ -159,8 +159,7 @@ export async function readConfig(): Promise< Config > {
 	return parseSections( await withLock( prepareRaw ) );
 }
 
-// For the few reads that must be synchronous, like Sentry's user at boot. Never migrates: an
-// unreadable or outdated file reads as empty.
+// Synchronous startup consumers get the updated shape in memory. Only a locked read persists it.
 export function readConfigSync(): Config {
 	let raw: RawConfig | null = null;
 	try {
@@ -168,7 +167,17 @@ export function readConfigSync(): Config {
 	} catch {
 		// Missing.
 	}
-	return parseSections( raw?.version === CONFIG_VERSION ? raw : {} );
+	if ( raw?.version === CONFIG_VERSION ) return parseSections( raw );
+	if (
+		raw &&
+		typeof raw.version === 'number' &&
+		Number.isInteger( raw.version ) &&
+		raw.version >= 1 &&
+		raw.version < CONFIG_VERSION
+	) {
+		return parseSections( migrateConfig( raw ) );
+	}
+	return parseSections( {} );
 }
 
 /**

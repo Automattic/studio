@@ -1,10 +1,4 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useRef } from 'react';
-import { useConnector } from '@/data/core';
-import { useBlueprints } from '@/data/queries/use-blueprints';
-import { useOffline } from '@/lib/hooks';
-import { PlusIcon } from '@/lib/icons';
 import {
 	Button,
 	Empty,
@@ -14,7 +8,13 @@ import {
 	PreviewFrame,
 	PreviewImage,
 	Spinner,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { PlusIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useEffect, useRef } from 'react';
+import { useConnector } from '@/data/core';
+import { useBlueprints } from '@/data/queries/use-blueprints';
 import { getBlueprintUseCases } from './blueprint-catalog';
 import styles from './blueprint-gallery.module.css';
 import { getBlueprintThumbnail } from './blueprint-screenshots';

@@ -1,11 +1,3 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { useId, useLayoutEffect, useRef, useState } from 'react';
-import { showToast } from '@/data/app-messages';
-import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import { useDeleteSite } from '@/data/queries/use-sites';
-import { SiteCard } from '@/features/site-card';
-import { getSiteUrl } from '@/features/sites/get-site-url';
-import { XIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,
@@ -18,7 +10,15 @@ import {
 	Field,
 	FieldLabel,
 	IconButton,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { XIcon } from '@studio/ds/icons';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { showToast } from '@/data/app-messages';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
+import { useDeleteSite } from '@/data/queries/use-sites';
+import { SiteCard } from '@/features/site-card';
+import { getSiteUrl } from '@/features/sites/get-site-url';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';

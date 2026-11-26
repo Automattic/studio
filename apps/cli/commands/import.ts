@@ -23,6 +23,7 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { getBackupFileType } from 'cli/lib/import-export/utils';
+import { assertStorageAvailable } from 'cli/lib/site-capacity';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
@@ -319,6 +320,8 @@ async function importBackup(
 				'file_not_found'
 			);
 		}
+		// A backup unpacks to about twice its archive.
+		await assertStorageAvailable( () => fs.statSync( importFile ).size * 2, siteFolder );
 
 		wasServerRunning = !! ( await isServerRunning( site.id ) );
 

@@ -1,12 +1,3 @@
-import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { useEffect, useRef } from 'react';
-import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
-import { useSites } from '@/data/queries/use-sites';
-import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
-import { HeaderSidebarToggle } from '@/features/sidebar';
-import { PreviewParticles, useOpenAddSite } from '@/features/sites';
 import {
 	Empty,
 	EmptyContent,
@@ -15,7 +6,17 @@ import {
 	EmptyTitle,
 	Button,
 	StudioIcon,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
+import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
+import { useEffect, useRef } from 'react';
+import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
+import { useWelcomeOpen } from '@/data/queries/use-onboarding-completed';
+import { useSites } from '@/data/queries/use-sites';
+import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
+import { HeaderSidebarToggle } from '@/features/sidebar';
+import { PreviewParticles, useOpenAddSite } from '@/features/sites';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import styles from './style.module.css';
 
@@ -26,6 +27,7 @@ function NoSitesHeader() {
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	return (
 		<header
+			data-sidebar-flyout-header
 			className={ clsx(
 				styles.header,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
@@ -53,8 +55,8 @@ function NoSitesContent() {
 	const sites = useSites();
 	const navigate = useNavigate();
 	const openAddSite = useOpenAddSite();
-	const { welcome, addSite, settings } = useSearch( { strict: false } ) as {
-		welcome?: true;
+	const welcome = useWelcomeOpen();
+	const { addSite, settings } = useSearch( { strict: false } ) as {
 		addSite?: string;
 		settings?: string;
 	};
@@ -62,7 +64,8 @@ function NoSitesContent() {
 	const empty = sites.isSuccess && ! hasSites;
 	const offered = useRef( false );
 	useEffect( () => {
-		if ( empty && ! welcome && ! offered.current ) {
+		if ( welcome ) offered.current = true;
+		if ( empty && welcome === false && ! offered.current ) {
 			offered.current = true;
 			if ( ! addSite && ! settings ) {
 				openAddSite();

@@ -1,0 +1,33 @@
+@layer ui {
+	.positioner {
+		isolation: isolate;
+		z-index: var( --z-tooltip );
+	}
+
+	.content {
+		composes: floating from '../surface/style.module.css';
+		display: inline-flex;
+		gap: var( --space-1_5 );
+		align-items: center;
+		width: fit-content;
+		max-width: 320px;
+		padding: var( --space-1_5 ) var( --space-2_5 );
+		border-radius: var( --radius-lg );
+		font-size: var( --text-xs );
+		line-height: var( --leading-tight );
+		transform-origin: var( --transform-origin );
+		transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
+	}
+
+	.content:has( [data-slot='kbd'] ) {
+		padding-inline-end: var( --space-1_5 );
+	}
+
+	.content:is( [data-starting-style], [data-ending-style] ) {
+		opacity: 0;
+	}
+
+	.content[data-instant] {
+		transition: none;
+	}
+}

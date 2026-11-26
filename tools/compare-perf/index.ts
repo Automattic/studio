@@ -2,7 +2,7 @@
 /* eslint-disable no-console */
 
 import { Command } from 'commander';
-import { runPerformanceTests } from './performance';
+import { runPerformanceTests } from './performance.ts';
 
 const program = new Command();
 

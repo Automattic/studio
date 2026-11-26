@@ -1,9 +1,9 @@
-import '@/lib/theme/tokens.css';
-import '@/lib/theme/base.css';
+import '@studio/ds/theme/tokens.css';
+import '@studio/ds/theme/base.css';
 import '@/index.css';
+import { Button, FeaturePopover } from '@studio/ds';
+import { AnnotateIcon } from '@studio/ds/icons';
 import { useId, useState } from 'react';
-import { AnnotateIcon } from '@/lib/icons';
-import { Button, FeaturePopover } from '@/lib/ui';
 import { renderPlayground } from './playground';
 
 function Tip() {

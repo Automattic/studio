@@ -4,6 +4,16 @@ import {
 	type RemoteConnectionKind,
 	type RemoteConnectionRequest,
 } from '@studio/common/lib/remote-connection';
+import {
+	Alert,
+	AlertActions,
+	AlertDescription,
+	Badge,
+	Button,
+	Spinner,
+	VisuallyHidden,
+} from '@studio/ds';
+import { TriangleAlertIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -17,16 +27,6 @@ import {
 	useSetPhoneConnection,
 } from '@/data/queries/use-phone-access';
 import { RelativeTime } from '@/features/site-card';
-import { TriangleAlertIcon } from '@/lib/icons';
-import {
-	Alert,
-	AlertActions,
-	AlertDescription,
-	Badge,
-	Button,
-	Spinner,
-	VisuallyHidden,
-} from '@/lib/ui';
 import { SettingsGroup, SettingsRow, SettingsToggle } from './rows';
 import styles from './style.module.css';
 import type { PairedPhone, PhoneAccessState, PhoneConnections } from '@/data/core';

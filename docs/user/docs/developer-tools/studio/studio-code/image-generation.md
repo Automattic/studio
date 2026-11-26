@@ -1,6 +1,8 @@
 # Image generation
 
-WordPress Studio Code can generate original images as it builds and edits your site. When a design calls for imagery — a cover background, feature or gallery images, team photos, product shots — the agent can create and use those images, so pages arrive with real pictures instead of grey placeholder boxes or broken image references.
+WordPress Studio Code can generate original images as it builds and edits your site.
+
+When a design calls for imagery — a cover background, feature or gallery images, team photos, product shots — the agent can create and use those images, so pages arrive with real pictures instead of grey placeholder boxes or broken image references.
 
 Image generation is available in WordPress Studio 1.20.0 and later.
 
@@ -9,11 +11,11 @@ Image generation is available in WordPress Studio 1.20.0 and later.
 -   **WordPress Studio 1.20.0 or later**, whether using the desktop or terminal version.
 -   **A provider that generates images.** Connect one of these in **Settings → Providers** or with `/connect` (see [AI providers](https://wordpress.studio/docs/studio-code/#ai-providers)):
     -   **WordPress.com**, which draws on the same AI credit balance as the rest of WordPress Studio Code. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
-    -   **OpenAI** with an API key (not a ChatGPT plan), **Google Gemini**, or **Meta**, each billed to that account.
+    -   **OpenAI** with an API key (not a ChatGPT plan), **Google Gemini**, **Meta**, or **xAI** with a Grok sign-in or an API key, each billed to that account.
 
-WordPress Studio Code generates images with the chat’s provider when it can, and otherwise with the first connected provider that can, in the order above. If none is connected — for example, when you use only Anthropic or GitHub Copilot — image generation is disabled.
+**Default image provider**, in **Settings → Providers**, chooses which provider makes images. On **Auto**, the default, WordPress Studio Code generates images with the chat’s provider when it can, and otherwise with the first connected provider that can, in the order above. If none is connected — for example, when you use only Anthropic, GitHub Copilot, OpenRouter, or a local model — image generation is disabled.
 
-When you use WordPress Studio through another agent over [MCP](https://wordpress.studio/docs/mcp-on-studio/), the agent gets the same image generation, from the first connected provider that can. Codex is the exception: it makes site images with its own `image_gen` tool, on your plan with Codex.
+When you use WordPress Studio through another agent over [MCP](https://wordpress.studio/docs/mcp-on-studio/), the agent gets the same image generation, from **Default image provider**, or otherwise the first connected provider that can. Codex is the exception: it makes site images with its own `image_gen` tool, on your plan with Codex.
 
 ## [Using it](#1-using-it)
 
@@ -41,7 +43,7 @@ A single request can cover up to 20 images, so a whole page — or a small site 
 
 All generated images are **PNGs**. They come in three canvas sizes: 1024×1024 (square), 1536×1024 (landscape), and 1024×1536 (portrait).
 
-The agent asks for a shape to match the layout slot, and WordPress Studio renders it on the nearest canvas (Google Gemini renders the shape’s own ratio instead). The page’s CSS then crops the image to its slot:
+The agent asks for a shape to match the layout slot, and WordPress Studio renders it on the nearest canvas (Google Gemini and xAI render the shape’s own ratio instead). The page’s CSS then crops the image to its slot:
 
 | Shape | Ratio | Typical use | Canvas |
 | --- | --- | --- | --- |

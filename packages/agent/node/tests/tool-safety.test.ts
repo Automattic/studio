@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	getPayloadLimitViolation,
 	STUDIO_FILE_TOOL_MAX_BYTES,
-} from '@studio/agent/shared/tool-safety';
+} from '@studio/agent/node/tool-safety';
 
 const big = 'x'.repeat( STUDIO_FILE_TOOL_MAX_BYTES + 1 );
 const half = 'x'.repeat( Math.ceil( STUDIO_FILE_TOOL_MAX_BYTES / 2 ) );

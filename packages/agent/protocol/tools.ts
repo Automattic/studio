@@ -464,7 +464,18 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
 			return __( 'inline content' );
-		case 'take_screenshot':
+		case 'take_screenshot': {
+			const url = getInputString( input, 'url' );
+			if ( url ) {
+				return url;
+			}
+			const nameOrPath = getInputString( input, 'nameOrPath' );
+			if ( ! nameOrPath ) {
+				return '';
+			}
+			const sitePath = getInputString( input, 'path' );
+			return sitePath && sitePath !== '/' ? `${ nameOrPath } ${ sitePath }` : nameOrPath;
+		}
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'generate_images': {
@@ -502,10 +513,27 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 	}
 }
 
+// The skill a `Skill` call loaded. The chat shows it in place of the skill's instructions.
+export interface ToolResultSkill {
+	name: string;
+	description: string;
+}
+
 export interface NormalizedToolResult {
 	text: string;
 	isError: boolean;
 	diff?: string;
+	skill?: ToolResultSkill;
+}
+
+export function getToolResultSkill( details: unknown ): ToolResultSkill | undefined {
+	if ( ! details || typeof details !== 'object' ) {
+		return undefined;
+	}
+	const skill = ( details as { skill?: Partial< ToolResultSkill > } ).skill;
+	return typeof skill?.name === 'string' && typeof skill.description === 'string'
+		? { name: skill.name, description: skill.description }
+		: undefined;
 }
 
 export function getToolResultDiff( details: unknown ): string | undefined {

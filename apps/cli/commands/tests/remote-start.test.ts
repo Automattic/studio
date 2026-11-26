@@ -318,8 +318,10 @@ it( 'is ready to stop before it starts anything, and a crash still ends tailscal
 	await runCommand( { connection: 'https', port: 8084 } );
 
 	expect( signalsAtStart ).toEqual( [ 'SIGINT', 'SIGTERM' ] );
-	const exitHook = vi.mocked( process.once ).mock.calls.find( ( [ event ] ) => event === 'exit' );
-	( exitHook?.[ 1 ] as () => void )();
+	const exitHook = vi
+		.mocked( process.once )
+		.mock.calls.find( ( [ event ] ) => event === 'exit' )?.[ 1 ] as ( () => void ) | undefined;
+	exitHook?.();
 	expect( serve.stop ).toHaveBeenCalled();
 } );
 
@@ -336,8 +338,10 @@ it( 'ends tailscale serve and the server on Ctrl+C while it waits for HTTPS', as
 
 	const running = runCommand( { connection: 'https', port: 8084 } );
 	await vi.waitFor( () => expect( waitForTailscaleHttps ).toHaveBeenCalled() );
-	const sigint = vi.mocked( process.on ).mock.calls.find( ( [ event ] ) => event === 'SIGINT' );
-	( sigint?.[ 1 ] as () => void )();
+	const sigint = vi
+		.mocked( process.on )
+		.mock.calls.find( ( [ event ] ) => event === 'SIGINT' )?.[ 1 ] as ( () => void ) | undefined;
+	sigint?.();
 	await running;
 
 	expect( serve.stop ).toHaveBeenCalled();
@@ -456,8 +460,10 @@ it( 'writes no record when it is stopped while its server starts', async () => {
 	startedBy( 'terminal' );
 	const exit = vi.spyOn( process, 'exit' ).mockImplementation( () => undefined as never );
 	vi.mocked( startLocalServer ).mockImplementationOnce( async ( options ) => {
-		const sigint = vi.mocked( process.on ).mock.calls.find( ( [ event ] ) => event === 'SIGINT' );
-		( sigint?.[ 1 ] as () => void )();
+		const sigint = vi
+			.mocked( process.on )
+			.mock.calls.find( ( [ event ] ) => event === 'SIGINT' )?.[ 1 ] as ( () => void ) | undefined;
+		sigint?.();
 		return {
 			url: `http://${ options.host }:${ options.port }`,
 			port: options.port,

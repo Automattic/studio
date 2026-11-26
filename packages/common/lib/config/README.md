@@ -20,7 +20,7 @@ Each top-level key is a section with its own schema (`schema.ts`), parsed on its
 | `providers` | The selected AI provider, each provider's config (the WordPress.com one is the Studio sign-in) |
 | `preferences` | The user's settings, onboarding state, selected skills |
 | `sites` | Each local site, with Studio's settings for it and the remote sites it syncs with (`connections`) |
-| `snapshots` | Preview sites |
+| `snapshots` | Preview metadata and local site associations. Transfer versions and times live on the corresponding site connection. |
 | `sessions` | Studio Code sessions' titles, archived and unread state, and site |
 | `stats` | When each aggregated stat was last bumped |
 | `desktop`, `cli` | State only that app reads |

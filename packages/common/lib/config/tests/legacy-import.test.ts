@@ -93,7 +93,7 @@ it( 'folds the split files into one, by entity', () => {
 	} );
 
 	expect( config ).toEqual( {
-		version: 1,
+		version: 2,
 		install: { analyticsId: 'install', sentryUserId: 'sentry' },
 		providers: {
 			selected: 'anthropic',

@@ -72,10 +72,13 @@ export function createAuthAttempt(
 }
 
 export function getAuthTracksProps( attempt?: AuthAttempt ): TracksProps {
+	// Publish offers signup and login from one action, so the account choice is unknown.
 	return attempt
 		? {
 				source: attempt.source,
-				account_type: attempt.account_type,
+				...( attempt.analytics?.placement === 'share'
+					? {}
+					: { account_type: attempt.account_type } ),
 				auth_flow: attempt.auth_flow,
 				auth_attempt_id: attempt.auth_attempt_id,
 				...attempt.analytics,

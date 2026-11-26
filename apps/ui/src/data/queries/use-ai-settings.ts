@@ -125,3 +125,13 @@ export function useConnectProvider( provider: ProviderId, { openBrowser = true }
 	} );
 	return { ...mutation, pending };
 }
+
+export function useSpacefastConnection( onSuccess: () => void ) {
+	const connection = useConnectProvider( 'spacefast', { openBrowser: false } );
+	const start = () => {
+		if ( ! connection.isPending ) {
+			connection.mutate( { method: getConnectMethod( 'spacefast' ).id }, { onSuccess } );
+		}
+	};
+	return { ...connection, start };
+}

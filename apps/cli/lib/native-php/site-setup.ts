@@ -24,6 +24,8 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
+const WP_CONFIG_CONSTANTS_IF_UNDEFINED = { WP_DEVELOPMENT_MODE: 'theme' } as const;
+
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
 type EnsureWpConfigOptions = Pick<
@@ -45,11 +47,17 @@ export async function ensureWpConfig(
 $transformer_path = $argv[1] ?? '';
 $wp_config_path = $argv[2] ?? '';
 $constants = json_decode( $argv[3] ?? '', true );
+$constants_if_undefined = json_decode( $argv[4] ?? '{}', true );
 
 require_once $transformer_path;
 
 $transformer = WP_Config_Transformer::from_file( $wp_config_path );
 $transformer->define_constants( $constants );
+foreach ( $constants_if_undefined as $name => $value ) {
+	if ( ! $transformer->constant_exists( $name ) ) {
+		$transformer->define_constant( $name, $value );
+	}
+}
 $transformer->to_file( $wp_config_path );
 `;
 
@@ -73,6 +81,7 @@ $transformer->to_file( $wp_config_path );
 				WP_CONFIG_TRANSFORMER_PATH,
 				wpConfigPath,
 				JSON.stringify( constants ),
+				JSON.stringify( WP_CONFIG_CONSTANTS_IF_UNDEFINED ),
 			],
 			{ phpVersion, signal }
 		);

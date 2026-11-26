@@ -1,4 +1,5 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { Button } from '@studio/ds';
 import { DEFAULT_PROVIDER_ID, getDefaultAiModel } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createRef, useState, type ComponentProps } from 'react';
@@ -14,10 +15,10 @@ import {
 	subscribeAnnotationReview,
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
-import { Button } from '@/lib/ui';
 import { aiSettings, createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
+import { pendingComposerDraftSlot } from './pending-draft';
 import { pendingComposerFilesSlot } from './pending-files';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
@@ -128,6 +129,8 @@ beforeEach( () => {
 	clearComposerDrafts();
 	const pendingFiles = pendingComposerFilesSlot.getSnapshot();
 	if ( pendingFiles ) pendingComposerFilesSlot.clear( pendingFiles );
+	const pendingDraft = pendingComposerDraftSlot.getSnapshot();
+	if ( pendingDraft ) pendingComposerDraftSlot.clear( pendingDraft );
 	removeAnnotations(
 		SITE,
 		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
@@ -194,7 +197,7 @@ describe( 'Chat composer', () => {
 		expect( getComposerDraft( 'test' ).text ).toBe( '' );
 	} );
 
-	it( 'preserves a new draft and attachments when an earlier send fails', async () => {
+	it( 'briefly shows error feedback and preserves draft edits when a send fails', async () => {
 		let rejectSend!: ( error: Error ) => void;
 		const onSend = vi.fn(
 			() =>
@@ -213,9 +216,30 @@ describe( 'Chat composer', () => {
 		upload( 'second.txt' );
 		await screen.findByText( 'second.txt' );
 		await act( async () => rejectSend( new Error( 'Connection lost' ) ) );
+		const send = screen.getByRole( 'button', { name: 'Send message' } );
+		expect( send ).toHaveAttribute( 'data-variant', 'destructive' );
 		expect( input ).toHaveValue( 'New draft written while waiting' );
 		expect( screen.getByText( 'first.txt' ) ).toBeVisible();
 		expect( screen.getByText( 'second.txt' ) ).toBeVisible();
+		await waitFor( () => expect( send ).toHaveAttribute( 'data-variant', 'accent' ), {
+			timeout: 2000,
+		} );
+	} );
+
+	it( 'takes a draft another screen hands it, on screen or shown next', async () => {
+		const { input, unmount } = await setup();
+		act( () => pendingComposerDraftSlot.set( { draftKey: 'other', text: '/create-skill ' } ) );
+		expect( input ).toHaveValue( '' );
+
+		act( () => pendingComposerDraftSlot.set( { draftKey: 'test', text: '/create-skill ' } ) );
+		expect( input ).toHaveValue( '/create-skill ' );
+		expect( input ).toHaveFocus();
+		expect( pendingComposerDraftSlot.getSnapshot() ).toBeNull();
+
+		unmount();
+		pendingComposerDraftSlot.set( { draftKey: 'site:one', text: '/create-skill Lookbook post' } );
+		const next = await setup( { draftKey: 'site:one' } );
+		expect( next.input ).toHaveValue( '/create-skill Lookbook post' );
 	} );
 
 	it( 'pastes files into the composer above the text without replacing the draft', async () => {
@@ -272,6 +296,17 @@ describe( 'Chat composer', () => {
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
+	} );
+
+	it( 'closes the add menu when focus moves outside the composer, as when Settings opens', async () => {
+		await setup();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		const list = await screen.findByRole( 'listbox', { name: 'Commands' } );
+		list.focus();
+		const outside = document.body.appendChild( document.createElement( 'button' ) );
+		act( () => outside.focus() );
+		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
+		outside.remove();
 	} );
 
 	it( 'emphasizes provider setup on submit without losing text, attachments, or focus', async () => {
@@ -359,6 +394,108 @@ describe( 'Chat composer', () => {
 		expect( input.selectionStart ).toBe( 'Please /annotate '.length );
 		expect( onSend ).not.toHaveBeenCalled();
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
+	} );
+
+	describe( "the site's own skills", () => {
+		const siteSkills = ( connector = createFakeConnector() ) => {
+			connector.getSiteAgentFiles.mockResolvedValue( [
+				{
+					id: 'lookbook-post',
+					displayName: 'Lookbook post',
+					description: 'Lay out a seasonal lookbook post.',
+					installed: true,
+					enabled: true,
+				},
+				{
+					id: 'client-handoff',
+					displayName: 'Client handoff',
+					description: 'Write the handoff notes.',
+					installed: true,
+					enabled: false,
+				},
+				{
+					id: 'size-guide',
+					displayName: 'Size guide',
+					description: '',
+					installed: true,
+					enabled: true,
+				},
+				{
+					id: 'brand-voice',
+					displayName: 'Brand voice',
+					description: 'Write in the house voice.',
+					installed: true,
+					enabled: true,
+					globalSource: 'studio',
+				},
+				{
+					id: 'taxonomist',
+					displayName: 'Taxonomist',
+					description: 'A site skill with a reserved name.',
+					installed: true,
+					enabled: true,
+				},
+				{
+					id: 'wp-rest-api',
+					displayName: 'REST API',
+					description: 'Routes, endpoints, schema, and authentication',
+					installed: true,
+					enabled: true,
+				},
+			] );
+			return connector;
+		};
+
+		it( 'lists the ones agents can load ahead of the built-in skills, and inserts one', async () => {
+			const { input, onSend } = await setup( { ownerSiteId: SITE }, siteSkills() );
+			fireEvent.change( input, { target: { value: '/' } } );
+			const own = await screen.findByRole( 'option', { name: /^Lookbook post / } );
+			const options = screen.getAllByRole( 'option' );
+			expect( options.indexOf( own ) ).toBeLessThan(
+				options.indexOf( screen.getByRole( 'option', { name: /^Taxonomist / } ) )
+			);
+			expect( screen.queryByRole( 'option', { name: /^Client handoff/ } ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'option', { name: /^Size guide/ } ) ).not.toBeInTheDocument();
+			expect( screen.getAllByRole( 'option', { name: /^Taxonomist / } ) ).toHaveLength( 1 );
+			// The WordPress skills Studio copied into the site guide agents; nobody types them.
+			expect( screen.queryByRole( 'option', { name: /^REST API/ } ) ).not.toBeInTheDocument();
+			// The menu does not say where a skill is kept: here it makes no difference.
+			expect( screen.getByRole( 'option', { name: /^Brand voice / } ) ).not.toHaveTextContent(
+				'All sites'
+			);
+
+			fireEvent.click( own );
+			expect( input ).toHaveValue( '/lookbook-post ' );
+			expect( onSend ).not.toHaveBeenCalled();
+		} );
+
+		it( 'lists only the skills for all sites in a chat on the live site', async () => {
+			const connector = siteSkills();
+			connector.getGlobalSkills.mockResolvedValue( [
+				{
+					id: 'brand-voice',
+					displayName: 'Brand voice',
+					description: 'Write in the house voice.',
+					enabled: true,
+					source: 'studio',
+					directory: '/skills/brand-voice',
+				},
+				{
+					id: 'changelog',
+					displayName: 'Changelog',
+					description: 'Write a changelog entry.',
+					enabled: false,
+					source: 'agents',
+					directory: '/agents/changelog',
+				},
+			] );
+			const { input } = await setup( { ownerSiteId: SITE, environment: 'live' }, connector );
+			fireEvent.change( input, { target: { value: '/' } } );
+			expect( await screen.findByRole( 'option', { name: /^Brand voice / } ) ).toBeVisible();
+			expect( screen.queryByRole( 'option', { name: /^Changelog/ } ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'option', { name: /^Lookbook post/ } ) ).not.toBeInTheDocument();
+			expect( connector.getSiteAgentFiles ).not.toHaveBeenCalled();
+		} );
 	} );
 
 	it.each( [
@@ -1159,6 +1296,27 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
+	it( 'holds images back for a model its account says reads only text', async () => {
+		const settings = aiSettings( 'local-llm', [ 'local-llm' ] );
+		settings.accounts[ 'local-llm' ] = {
+			connected: true,
+			method: 'server',
+			models: [ { id: 'local-llm/qwen3:0.6b', label: 'qwen3:0.6b', supportsImages: false } ],
+		};
+		const connector = createFakeConnector( {}, { getAiSettings: async () => settings } );
+		saveComposerDraft( 'test', { text: 'What is this?', attachments: [ image( 'photo' ) ] } );
+		const { input, onSend } = await setup( { model: 'local-llm/qwen3:0.6b' }, connector );
+		await waitFor( () => expect( connector.getAiSettings ).toHaveBeenCalled() );
+
+		await waitFor( () => {
+			fireEvent.keyDown( input, { key: 'Enter' } );
+			expect(
+				screen.getByText( 'Choose a model that supports images before sending these attachments' )
+			).toBeVisible();
+		} );
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
 	it( 'adds a preview screenshot to the draft and sends it as an ordinary image', async () => {
 		saveComposerDraft( 'test', {
 			text: 'Please update this page',

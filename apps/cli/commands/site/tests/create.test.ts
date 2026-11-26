@@ -120,14 +120,14 @@ describe( 'CLI: studio create', () => {
 	const mockPort = 8881;
 	const completedSsiReceipt =
 		'{"schema":"static-site-importer/import-cli-receipt/v1","status":"completed","steps":1,"response":{"success":true}}';
-	const qualityFailedReceipt = JSON.stringify( {
+	const failedImportReceipt = JSON.stringify( {
 		schema: 'static-site-importer/import-cli-receipt/v1',
 		status: 'failed',
 		response: {
 			success: false,
 			error: {
-				code: 'static_site_importer_quality_failed',
-				message: 'SSI reported 10 core_html_block failures.',
+				code: 'static_site_importer_materialization_failed',
+				message: 'Theme files could not be written.',
 			},
 		},
 	} );
@@ -1798,57 +1798,6 @@ describe( 'CLI: studio create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
-		it( 'retains a quality-failed SSI preview without reporting import success', async () => {
-			const blueprint = buildCapturedSiteBlueprint();
-			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-			const rmSpy = vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
-			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
-			vi.mocked( runWpCliCommand )
-				.mockReset()
-				.mockResolvedValue(
-					mockWpCli( {
-						exitCode: 1,
-						stdout: JSON.stringify( {
-							schema: 'static-site-importer/import-cli-receipt/v1',
-							status: 'failed',
-							steps: 1,
-							response: {
-								success: false,
-								error: {
-									code: 'static_site_importer_quality_failed',
-									message: 'quality gate failed',
-								},
-							},
-						} ),
-					} )
-				);
-
-			await expect(
-				runCommand( mockSitePath, {
-					...defaultTestOptions,
-					blueprint,
-					noStart: true,
-				} )
-			).rejects.toThrow(
-				/preview but did not accept it.*site and staged request were preserved.*quality gate failed/
-			);
-			expectRetainedImportedSiteReported();
-
-			expect( runWpCliCommand ).toHaveBeenCalledTimes( 1 );
-			expect( Logger.prototype.reportSuccess ).not.toHaveBeenCalledWith(
-				'Static site imported successfully'
-			);
-			expect( removeSiteFromConfig ).not.toHaveBeenCalled();
-			expect( fsRmSpy ).not.toHaveBeenCalledWith( mockSitePath, {
-				recursive: true,
-				force: true,
-			} );
-			expect( rmSpy ).not.toHaveBeenCalledWith( path.join( mockSitePath, '.studio-import' ), {
-				recursive: true,
-				force: true,
-			} );
-		} );
-
 		it( 'accepts a completed SSI receipt with zero fallback blocks', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
@@ -1881,19 +1830,19 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		it( 'reports a surviving started site when quality validation fails', async () => {
+		it( 'reports a surviving started site when the import fails after starting', async () => {
 			const blueprint = buildCapturedSiteBlueprint();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			const fsRmSpy = vi.spyOn( fs.promises, 'rm' ).mockResolvedValue( undefined );
 			vi.mocked( runWpCliCommand ).mockResolvedValue(
-				mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
+				mockWpCli( { exitCode: 1, stdout: failedImportReceipt } )
 			);
 
 			await expect(
 				runCommand( mockSitePath, { ...defaultTestOptions, blueprint } )
 			).rejects.toThrow(
-				/preview but did not accept it.*site and staged request were preserved.*core_html_block/
+				/static_site_importer_materialization_failed: Theme files could not be written/
 			);
 
 			expectRetainedImportedSiteReported( { running: true } );
@@ -1907,12 +1856,12 @@ describe( 'CLI: studio create', () => {
 			expect( process.exitCode ).toBeUndefined();
 		} );
 
-		it( 'exits non-zero through the CLI handler after a quality-failed import', async () => {
+		it( 'exits non-zero through the CLI handler after a failed import', async () => {
 			const artifactPath = createCapturedSiteArtifact();
 			vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
 			vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
 			vi.mocked( runWpCliCommand ).mockResolvedValue(
-				mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
+				mockWpCli( { exitCode: 1, stdout: failedImportReceipt } )
 			);
 			const parser = registerCommand(
 				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
@@ -2340,7 +2289,6 @@ $table_prefix = 'wp_';
 
 		it.each( [
 			{ failure: 'capture', source: 'url', reason: 'capture' },
-			{ failure: 'quality', source: 'directory', reason: 'ssi_quality_failed' },
 			{ failure: 'import', source: 'directory', reason: 'ssi_import' },
 			{ failure: 'server', source: 'directory', reason: 'create' },
 		] as const )(
@@ -2355,11 +2303,6 @@ $table_prefix = 'wp_';
 					await fs.promises.writeFile( path.join( from, 'index.html' ), '<main>Hello</main>' );
 				}
 				const liberate = vi.fn().mockRejectedValue( new Error( 'Browser crashed' ) );
-				if ( failure === 'quality' ) {
-					vi.mocked( runWpCliCommand ).mockResolvedValue(
-						mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
-					);
-				}
 				if ( failure === 'import' ) {
 					vi.mocked( runWpCliCommand ).mockResolvedValue(
 						mockWpCli( { exitCode: 1, stdout: '', stderr: 'Fatal error' } )

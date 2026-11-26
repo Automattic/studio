@@ -1,7 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { displayShortcut } from '@wordpress/keycodes';
-import { clsx } from 'clsx';
-import { SearchIcon } from 'lucide-react';
 import {
 	ArrowUpIcon,
 	ChevronDownIcon,
@@ -10,7 +6,11 @@ import {
 	GlobeIcon,
 	UploadIcon,
 	CloudUploadIcon,
-} from '@/lib/icons';
+} from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { displayShortcut } from '@wordpress/keycodes';
+import { clsx } from 'clsx';
+import { SearchIcon } from 'lucide-react';
 import styles from './whats-new.module.css';
 import type { CSSProperties } from 'react';
 

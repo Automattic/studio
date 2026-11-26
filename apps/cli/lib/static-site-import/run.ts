@@ -84,10 +84,6 @@ function receiptResponseError(
 	return error as Record< string, unknown >;
 }
 
-function receiptErrorCode( receipt: Record< string, unknown > | undefined ): unknown {
-	return receiptResponseError( receipt )?.code;
-}
-
 export function staticSiteImportReceiptError(
 	receipt: Record< string, unknown > | undefined
 ): string {
@@ -100,15 +96,6 @@ export function staticSiteImportReceiptError(
 	const detail = [ code, message ]
 		.filter( ( value ) => typeof value === 'string' && value )
 		.join( ': ' );
-	if ( code === 'static_site_importer_quality_failed' ) {
-		return sprintf(
-			/* translators: %s: Static Site Importer quality validation detail */
-			__(
-				'Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s'
-			),
-			detail || __( 'Quality validation failed.' )
-		);
-	}
 	return detail;
 }
 
@@ -297,15 +284,11 @@ export class StaticSiteImportRun {
 		const { exitCode, stdout } = result;
 		const receipt = decodeStaticSiteImportReceipt( stdout );
 		const receiptError = staticSiteImportReceiptError( receipt );
-		const failureCode =
-			receiptErrorCode( receipt ) === 'static_site_importer_quality_failed'
-				? 'ssi_quality_failed'
-				: 'ssi_import';
 		if ( exitCode !== 0 ) {
 			throw new LoggerError(
 				__( 'Static site import failed.' ),
 				new Error( receiptError || wpCliFailureDetail( result ) ),
-				failureCode
+				'ssi_import'
 			);
 		}
 		if ( receipt?.schema !== STATIC_SITE_IMPORT_RECEIPT_SCHEMA || receipt.status !== 'completed' ) {
@@ -314,7 +297,7 @@ export class StaticSiteImportRun {
 				new Error(
 					receiptError || stdout.trim() || __( 'The importer did not return a receipt.' )
 				),
-				failureCode
+				'ssi_import'
 			);
 		}
 		const finalizationStartedAt = Date.now();

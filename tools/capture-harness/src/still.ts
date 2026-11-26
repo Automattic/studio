@@ -119,7 +119,10 @@ async function hideCarets( ctx: Ctx ) {
 
 /** Dismisses toasts, parks the pointer and waits for the UI to settle. */
 async function prepareFrame( ctx: Ctx, capture: Capture ) {
-	for ( const dismiss of await ctx.w.getByRole( 'button', { name: 'Dismiss' } ).all() ) {
+	for ( const dismiss of await ctx.w
+		.locator( '[data-slot="toast-viewport"]' )
+		.getByRole( 'button', { name: 'Dismiss' } )
+		.all() ) {
 		await dismiss.click().catch( () => {} );
 	}
 	if ( ! capture.keepMouse ) {

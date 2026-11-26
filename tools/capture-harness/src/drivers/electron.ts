@@ -162,6 +162,11 @@ function electronStubs( app: ElectronApplication, window: Page ): Stubs {
 							: []
 					);
 					handle( 'getRemoteBackupId', () => backup );
+					handle( 'getSiteVisibility', ( _event, _provider: string, id: number ) => ( {
+						url: list.find( ( site ) => site.id === id )?.url,
+						visibility: 'public',
+						launchStatus: 'launched',
+					} ) );
 					handle(
 						'listRemoteBackupFiles',
 						( _event, _provider: unknown, _remoteId: unknown, _backupId: unknown, dir: string ) =>

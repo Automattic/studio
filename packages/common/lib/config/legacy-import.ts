@@ -1,15 +1,12 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import {
-	CONFIG_SECTIONS,
-	configSiteSchema,
-	CONFIG_VERSION,
-} from '@studio/common/lib/config/schema';
+import { CONFIG_SECTIONS, configSiteSchema } from '@studio/common/lib/config/schema';
 import { isRecord, parseRaw, type RawConfig } from '@studio/common/lib/config/store';
 import { captureException, redactHomePaths } from '@studio/common/lib/error-reporting';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { getClosestSupportedPhpVersion } from '@studio/common/types/php-versions';
+import { migrateConfig } from './migrations';
 
 /**
  * Builds `config.json` from the files earlier builds kept: `shared.json`, `cli.json` and
@@ -257,25 +254,27 @@ export function buildConfigFromLegacy( { shared = {}, cli = {}, app = {} }: Lega
 		};
 	}
 
-	return JSON.parse(
-		JSON.stringify( {
-			...sharedRest,
-			version: CONFIG_VERSION,
-			install: { analyticsId: analyticsInstallId, sentryUserId, signInHostId },
-			providers: {
-				selected: aiProvider ?? cli.aiProvider,
-				selectedImage: aiImageProvider,
-				configs,
-				remembered: rememberedSignIns,
-			},
-			preferences,
-			sites,
-			snapshots: records( cli.snapshots ),
-			sessions: configSessions,
-			stats: { lastBump: mergeLastBump( appLastBump, cli.lastBumpStats ) },
-			desktop,
-			cli: pick( cli, CLI_KEYS ),
-		} )
+	return migrateConfig(
+		JSON.parse(
+			JSON.stringify( {
+				...sharedRest,
+				version: 1,
+				install: { analyticsId: analyticsInstallId, sentryUserId, signInHostId },
+				providers: {
+					selected: aiProvider ?? cli.aiProvider,
+					selectedImage: aiImageProvider,
+					configs,
+					remembered: rememberedSignIns,
+				},
+				preferences,
+				sites,
+				snapshots: records( cli.snapshots ),
+				sessions: configSessions,
+				stats: { lastBump: mergeLastBump( appLastBump, cli.lastBumpStats ) },
+				desktop,
+				cli: pick( cli, CLI_KEYS ),
+			} )
+		)
 	);
 }
 

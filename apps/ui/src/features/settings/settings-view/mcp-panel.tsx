@@ -1,8 +1,8 @@
 import { getMcpServerConfigJson } from '@studio/common/lib/mcp-config';
+import { CodeBlock, Field, FieldDescription } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { CopyButton } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
-import { CodeBlock, Field, FieldDescription } from '@/lib/ui';
 import { AgentAppsSection } from './agent-apps-section';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';

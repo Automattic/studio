@@ -5,7 +5,7 @@ import {
 	buildChromiumLaunchAttempts,
 	ensurePlaywrightChromiumInstalled,
 } from '@studio/agent/node/browser-utils';
-import { withTimeout } from '@studio/agent/shared/tools/utils';
+import { withTimeout } from '@studio/agent/node/tools/utils';
 
 vi.mock( 'playwright', () => ( {
 	chromium: { launch: vi.fn(), executablePath: vi.fn() },
@@ -25,29 +25,49 @@ describe( 'browser-utils', () => {
 		vi.unstubAllEnvs();
 	} );
 
-	it( 'prefers the resolved Chromium executable when it exists', () => {
+	it( 'launches a headless browser on the headless shell before the full Chromium build', () => {
 		const executablePath = process.execPath;
 
-		const options = buildChromiumLaunchAttempts( {
+		const attempts = buildChromiumLaunchAttempts( {
 			executablePath: () => executablePath,
-		} )[ 0 ];
-
-		expect( options ).toEqual( {
-			args: [ '--ignore-certificate-errors' ],
-			executablePath,
-			timeout: 30_000,
 		} );
+
+		// With no executable or channel, Playwright picks its headless shell.
+		expect( attempts ).toEqual( [
+			{ args: [ '--ignore-certificate-errors' ], timeout: 30_000 },
+			{ args: [ '--ignore-certificate-errors' ], executablePath, timeout: 30_000 },
+		] );
 	} );
 
-	it( 'always includes a default Playwright launch fallback', () => {
-		const candidates = buildChromiumLaunchAttempts( {
+	it( 'launches a window on the full Chromium build first', () => {
+		const executablePath = process.execPath;
+
+		const attempts = buildChromiumLaunchAttempts(
+			{ executablePath: () => executablePath },
+			{ headless: false }
+		);
+
+		expect( attempts ).toEqual( [
+			{
+				args: [ '--ignore-certificate-errors' ],
+				headless: false,
+				executablePath,
+				timeout: 30_000,
+			},
+			{ args: [ '--ignore-certificate-errors' ], headless: false, timeout: 30_000 },
+		] );
+	} );
+
+	it( 'falls back to installed Chrome and Edge when the Chromium build is missing', () => {
+		const attempts = buildChromiumLaunchAttempts( {
 			executablePath: () => '/missing/chromium',
 		} );
 
-		expect( candidates.at( -1 ) ).toEqual( {
-			args: [ '--ignore-certificate-errors' ],
-			timeout: 30_000,
-		} );
+		expect( attempts ).toEqual( [
+			{ args: [ '--ignore-certificate-errors' ], timeout: 30_000 },
+			{ args: [ '--ignore-certificate-errors' ], channel: 'chrome', timeout: 30_000 },
+			{ args: [ '--ignore-certificate-errors' ], channel: 'msedge', timeout: 30_000 },
+		] );
 	} );
 
 	it( 'tries to install Playwright Chromium when the managed browser is missing', async () => {

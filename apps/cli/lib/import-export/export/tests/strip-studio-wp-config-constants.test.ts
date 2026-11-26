@@ -10,6 +10,7 @@ describe( 'stripStudioWpConfigConstants', () => {
 			"define( 'WP_DEBUG_DISPLAY', false );",
 			"define( 'SCRIPT_DEBUG', true );",
 			"define( 'WP_ENVIRONMENT_TYPE', 'local' );",
+			"define( 'WP_DEVELOPMENT_MODE', 'theme' );",
 			"$table_prefix = 'wp_';",
 			"require_once ABSPATH . 'wp-settings.php';",
 			'',
@@ -46,6 +47,12 @@ describe( 'stripStudioWpConfigConstants', () => {
 		expect( stripStudioWpConfigConstants( content ) ).toBe(
 			[ '<?php', "if ( getenv( 'DEBUG' ) ) {", '}', '' ].join( '\n' )
 		);
+	} );
+
+	it( 'keeps a development mode the user chose', () => {
+		const content = "<?php\ndefine( 'WP_DEVELOPMENT_MODE', 'all' );\n";
+
+		expect( stripStudioWpConfigConstants( content ) ).toBe( content );
 	} );
 
 	it( 'keeps defines with computed values', () => {

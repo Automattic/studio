@@ -1,6 +1,88 @@
 Unreleased
 ==========
 
+2.4.0
+=====
+<!-- Release notes generated using configuration in .github/release.yml at HEAD -->
+* Providers: Connect a local LLM server, such as Ollama or LM Studio, to chat on its models #6027
+* Providers: Add OpenRouter with a sign-in or an API key #6029
+* Providers: Add xAI with a SuperGrok or X Premium sign-in and an API key #5949
+* Studio Code: Let a chat turn model thinking down or off #6094
+* Studio Code: Let take_screenshot accept a local site name or path #6038
+* Settings: Add a setting to pick the default image generation provider #6061
+* Settings: Rename the image provider's Automatic option to Auto #6136
+* Publish: Bring previews and hosted sites into one Publish flow #6091
+* Previews: Put a preview back with its local site, and name it, from what WordPress.com reports #6084
+* Previews: Point the expiration help at the current docs, without promising a one-week lifetime #6124
+* CLI: Offer to make a preview site live #6022
+* Sites start faster: start sites once the first PHP worker is ready #6088
+* Sites start faster: skip two site start steps that render WordPress with every plugin #6092
+* Sites create faster: stop checking wordpress.org on every site create #6102
+* Serve static files PHP has already served from the site proxy, so a site can't hang waiting on its own files #6023
+* Use less memory: stream session files when listing chats, so large chats can't run Studio out of memory #6097
+* Use less memory: run headless browser tools on Chromium's headless shell #6130
+* Use less memory: close the idle block editor page #6133
+* Merge shared.json, cli.json and app.json into one versioned config.json, so a site's settings go with it when it is deleted #6062
+* Improve sidebar and pane dragging and docking #6078
+* Refine workspace motion and preserve UI state #6109
+* Make Studio controls and surfaces consistent #6110
+* Add Show chat to the site menu #6112
+* Remove the hover background from sidebar row actions #6115
+* Restore the Design System diamonds and subtle Settings button #6046
+* Use keyboard-only focus rings for toast notifications #6079
+* Show temporary composer feedback when a send fails #6108
+* Keep the WordPress.com sign-in confirmation visible #6111
+* Warn when deleting a site leaves its files on disk #6041
+* Tell users once when antivirus removed Studio's bundled Node binary #6069
+* Keep an imported site when its server fails to start, and stop the server after a failed start #6056
+* Import from URL: Defer the Data Liberation compare reference, so a capture takes about half as long #6114
+* Import from URL: Accept materialized static site imports, and report their quality instead of rejecting them #6090
+* Push: Stop dropping plugin folders named Database and files named db.php #6123
+* Push: Show the live site's reason when a push fails #6095
+* Push: Ship wp-cli-sqlite-command v1.1.12 so pushes restore on Jetpack's first try #6185
+* Export: Ship wp-cli-sqlite-command v1.1.11 so exported dumps load into MySQL #6103
+* Pull: Update reprint.phar to v0.11.9, so pulls work on native Windows #6053
+* Pull: Update reprint.phar to v0.11.10 #6075
+* Updates: Retry Windows update checks when Update.exe prints nothing #6070
+* CLI: Install WordPress during site create --no-start #6052
+* CLI: Assign site ports while holding the config lock, so parallel creates don't pick the same port #6044
+* CLI: Check site capacity before capturing import sources #6018
+* PHP: Keep php.ini's CA bundle path valid when php-bin is reached through a link #6039
+* CLI: Add studio serve and the limits a host can set #6099
+* CLI: Keep a remote studio serve awake while its page has focus or an agent runs #6118
+* Remove Studio on the web #6100
+* Providers: Make previews part of the sites capability, and update a preview with a push #6031
+* Providers: Derive every provider list from the registry #6106
+* Sentry: Stop reporting offline failures, closed prompts, interrupted window loads and local browser builds #6071
+* Sentry: Stop e2e runs from reporting, so test launches stay out of release health #6082
+* Tracks: Record what PHP was doing when a site start times out #6021
+* CodeVitals: Add metrics for Studio's memory use #6131
+* Fail the CLI build when bundled code loads a file the build left out #6066
+* Add a skill to fill missing translations with AI at code freeze #6048
+* Require screenshots in PRs that change Studio's UI #6101
+* Docs: Update the user docs and screenshots for WordPress Studio 2.3.0 #6020
+* Docs: Rewrite the Sync, CLI, Studio Code, FAQ and Import/Export pages for Studio 2.3.1 #6122
+* Docs: Restructure Preview sites and add a .deployignore page #6121
+* Docs: Refresh Studio help and release notes #5983
+* Docs: Fix code block, label formatting and CLI setup line #6120
+* Docs: Give pages short ledes so the subtext doesn't repeat the opening paragraph #6125
+* Docs: Fix the macOS certificate trust step in the SSL guide #6037
+* Docs: Use the WordPress Studio product name in the providers design doc #6036
+* Tests: Run the previous release offline in the upgrade e2e tests #6057
+* Tests: Expect the previous release's daemon version in the upgrade e2e test #6077
+* Tests: Find sites in cli.json too, so the trunk perf baseline passes #6074
+* Tests: Fix a flaky unit test crash from the copy-link timer firing after unmount #6081
+* Tests: Fix the preview copy notice dismissal test #6116
+* Tests: Make the preview copy notice dismissal test independent of real time #6135
+* Tests: Make the PHP error recovery port test stable #6132
+* CI: Use the CI toolkit's pr_changed_files in the skip checks #6002
+* CI: Wait for npm before publishing Studio to the MCP Registry #6104
+* CI: Auto-approve PRs from trusted authors so auto-merge can land them #6134
+* Release: Find the hotfix base tag without relying on trunk's history #6064
+* Release: Stop copying trunk's branch protection in the release lanes #6148
+* @luisherranz made their first contribution in https://github.com/Automattic/studio/pull/6027
+**Full Changelog**: https://github.com/Automattic/studio/compare/v2.3.1...v2.4.0
+
 2.3.0
 =====
 <!-- Release notes generated using configuration in .github/release.yml at HEAD -->

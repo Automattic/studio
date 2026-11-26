@@ -44,8 +44,10 @@
 	flex-direction: column;
 	overflow: hidden;
 	-webkit-app-region: drag;
-	/* Eases with the frame when the width resets, so its rows don't snap ahead. */
-	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+	/* Match width resets to the frame and settle the native surface after docking. */
+	transition:
+		width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		background-color var( --motion-duration-surface ) var( --motion-ease-enter );
 }
 
 .sidebarScroll {
@@ -263,12 +265,24 @@
 	}
 }
 
-.instantSidebarDock {
-	--motion-duration-layout: 0ms;
+.sidebarDocking {
+	overflow: visible;
+	z-index: var( --z-sidebar );
 }
 
-.instantSidebarDock .sidebarFrame,
-.instantSidebarDock .sidebar,
-.instantSidebarDock [data-sidebar-header-slot] {
-	transition: none;
+.sidebarDocking .sidebar {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: 0;
+	/* The native sidebar is translucent; cover the workspace while it moves aside. */
+	background-color: var( --chrome );
+}
+
+.sidebarDocking:not( .sidebarResizing ) .sidebar {
+	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.sidebarDocking::after {
+	inset-inline-start: calc( var( --sidebar-width ) - 1px );
+	inset-inline-end: auto;
 }

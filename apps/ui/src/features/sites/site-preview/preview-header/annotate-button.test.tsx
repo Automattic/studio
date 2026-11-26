@@ -97,5 +97,8 @@ describe( 'annotation count', () => {
 		).not.toBeInTheDocument();
 		await user.click( button );
 		expect( onClick ).toHaveBeenCalledOnce();
+		expect( button ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( button.querySelector( '[data-slot="notification-dot"]' ) ).toBeVisible();
+		expect( button ).toHaveAccessibleDescription( '2 annotations ready to send' );
 	} );
 } );

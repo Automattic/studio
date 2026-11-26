@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { ConnectError, NotConnectedError } from '../errors';
 import { openaiConnectInput } from './descriptor';
 import type { ChatgptConfig, OpenaiConfig } from './config';
-import type { ProviderServices } from '../types';
+import type { AccountServices } from '../types';
 
 // OpenAI's sign-in for agents: each sign-in registers an OAuth client for
 // Studio, and the user agrees to share their ChatGPT plan with it through the
@@ -12,7 +12,7 @@ const RESOURCE = 'https://api.openai.com/v1';
 const SHARING_SCOPE = 'chatgpt.tokens.use.direct';
 const REFRESH_MARGIN_MS = 5 * 60_000;
 const REQUEST_TIMEOUT_MS = 15_000;
-const MODELS_URL = `${ RESOURCE }/models`;
+export const MODELS_URL = `${ RESOURCE }/models`;
 
 function requestTokens( body: Record< string, string > ): Promise< Response > {
 	return fetch( `${ AUTH_URL }/oauth/token`, {
@@ -68,7 +68,7 @@ async function readTokens( response: Response, clientId: string ): Promise< Chat
 	};
 }
 
-type OpenaiAccount = ProviderServices< OpenaiConfig >[ 'account' ];
+type OpenaiAccount = AccountServices< OpenaiConfig >;
 
 const start: NonNullable< OpenaiAccount[ 'start' ] > = async (
 	_method,

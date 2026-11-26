@@ -2,33 +2,43 @@ import { describe, expect, it } from 'vitest';
 import { getSections } from './settings-sections';
 
 describe( 'getSections', () => {
-	it.each( [
-		[ 'studio', 'mcp' ],
-		[ 'studio', 'skills' ],
-		[ 'site', 'php' ],
-		[ 'site', 'site-skills' ],
-		[ 'site', 'site-instructions' ],
-	] as const )( 'leaves out the %s section %s where sites are not native', ( scope, id ) => {
-		const ids = ( nativeSites: boolean ) =>
-			getSections( scope, { nativeSites } ).map( ( section ) => section.id );
-		expect( ids( true ) ).toContain( id );
-		expect( ids( false ) ).not.toContain( id );
+	it( 'leaves out the MCP section away from the computer the sites run on', () => {
+		const ids = ( localMachine: boolean ) =>
+			getSections( 'studio', { localMachine } ).map( ( section ) => section.id );
+		expect( ids( true ) ).toContain( 'mcp' );
+		expect( ids( false ) ).not.toContain( 'mcp' );
+		expect( ids( false ) ).toContain( 'skills' );
 	} );
 
-	it( 'leaves out the local app and analytics settings where sites are not native', () => {
-		const localApps = [
-			'code-editor',
-			'browser',
-			'terminal',
-			'default-directory',
-			'usage-statistics',
-		];
-		const settingIds = ( nativeSites: boolean ) =>
-			getSections( 'studio', { nativeSites } )
+	it( 'leaves out Skills where the host keeps no skills for all sites', () => {
+		const ids = ( globalSkills: boolean ) =>
+			getSections( 'studio', { globalSkills } ).map( ( section ) => section.id );
+		expect( ids( true ) ).toContain( 'skills' );
+		expect( ids( false ) ).not.toContain( 'skills' );
+		expect(
+			getSections( 'site', { globalSkills: false } ).map( ( section ) => section.id )
+		).toContain( 'site-skills' );
+	} );
+
+	it( 'leaves out the local app settings away from the computer the sites run on', () => {
+		const localApps = [ 'code-editor', 'browser', 'terminal', 'default-directory' ];
+		const settingIds = ( localMachine: boolean ) =>
+			getSections( 'studio', { localMachine } )
 				.flatMap( ( section ) => section.settings )
 				.map( ( setting ) => setting.id );
 		expect( settingIds( true ) ).toEqual( expect.arrayContaining( localApps ) );
 		expect( settingIds( false ).filter( ( id ) => localApps.includes( id ?? '' ) ) ).toEqual( [] );
+		expect( settingIds( false ) ).toContain( 'usage-statistics' );
+	} );
+
+	it( 'leaves out hosting providers whose sites only the user’s computer connects', () => {
+		const settingIds = ( localMachine: boolean ) =>
+			getSections( 'studio', { localMachine, loopbackSignIn: localMachine } )
+				.flatMap( ( section ) => section.settings )
+				.map( ( setting ) => setting.id );
+		expect( settingIds( true ) ).toContain( 'ssh-provider' );
+		expect( settingIds( false ) ).not.toContain( 'ssh-provider' );
+		expect( settingIds( false ) ).toContain( 'spacefast-provider' );
 	} );
 
 	it( 'leaves out Phone where the app cannot run remote mode', () => {

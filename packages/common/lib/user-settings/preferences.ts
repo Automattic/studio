@@ -42,6 +42,20 @@ export function getColorTint( config: {
 	};
 }
 
+export const DEFAULT_COLOR_TINT: ColorTint = {
+	accentColor: DEFAULT_ACCENT_COLOR,
+	tintIntensity: DEFAULT_TINT_INTENSITY,
+	contrast: DEFAULT_CONTRAST,
+};
+
+export function isDefaultColorTint( tint: ColorTint ): boolean {
+	return (
+		tint.accentColor === DEFAULT_ACCENT_COLOR &&
+		tint.tintIntensity === DEFAULT_TINT_INTENSITY &&
+		tint.contrast === DEFAULT_CONTRAST
+	);
+}
+
 /**
  * The interface preferences and their defaults: what Settings ▸ Reset interface
  * restores. `null` is a preference left unset ("Ask every time" on quit).

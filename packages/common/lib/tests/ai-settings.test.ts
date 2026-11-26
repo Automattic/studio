@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { ConnectError, NotConnectedError } from '@studio/providers';
+import { ConnectError, NotConnectedError, PROVIDER_IDS } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -23,6 +23,7 @@ import {
 const anthropic = getProviderServices( 'anthropic' );
 const wpcom = getProviderServices( 'wpcom' );
 const disconnected = { connected: false };
+const allDisconnected = Object.fromEntries( PROVIDER_IDS.map( ( id ) => [ id, disconnected ] ) );
 
 describe( 'ai settings', () => {
 	let configDir: string;
@@ -58,17 +59,7 @@ describe( 'ai settings', () => {
 	it( 'defaults to WordPress.com with nothing connected', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: {
-				wpcom: disconnected,
-				anthropic: disconnected,
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				meta: disconnected,
-				xai: disconnected,
-				openrouter: disconnected,
-				spacefast: disconnected,
-			},
+			accounts: allDisconnected,
 			imageProviders: [],
 			imageProvider: null,
 		} );
@@ -82,15 +73,8 @@ describe( 'ai settings', () => {
 		expect( settings ).toEqual( {
 			provider: 'anthropic',
 			accounts: {
-				wpcom: disconnected,
+				...allDisconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234', method: 'api-key' },
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				meta: disconnected,
-				xai: disconnected,
-				openrouter: disconnected,
-				spacefast: disconnected,
 			},
 			imageProviders: [],
 			imageProvider: null,
@@ -193,17 +177,7 @@ describe( 'ai settings', () => {
 
 		await expect( disconnectProvider( anthropic ) ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: {
-				wpcom: disconnected,
-				anthropic: disconnected,
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				meta: disconnected,
-				xai: disconnected,
-				openrouter: disconnected,
-				spacefast: disconnected,
-			},
+			accounts: allDisconnected,
 			imageProviders: [],
 			imageProvider: null,
 		} );
@@ -274,7 +248,7 @@ describe( 'ai settings', () => {
 		writeProviders( { configs: { openai: stored } } );
 		const refresh = vi.fn().mockResolvedValueOnce( { ...stored, accessToken: 'new' } );
 		const services = getProviderServices( 'openai' );
-		const openai = { ...services, account: { ...services.account, refresh } };
+		const openai = { ...services, account: { ...services.account!, refresh } };
 
 		await expect( readFreshProviderConfig( openai ) ).resolves.toMatchObject( {
 			accessToken: 'new',

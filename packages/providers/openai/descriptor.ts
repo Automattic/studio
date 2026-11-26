@@ -53,21 +53,25 @@ export const openaiProvider: Provider< OpenaiConfig > = {
 					),
 			},
 		],
-		describe: ( config ) =>
-			config.method === 'api-key'
-				? { method: config.method, summary: previewApiKey( config.apiKey ) }
+		describe: ( config ) => {
+			const { models } = config;
+			return config.method === 'api-key'
+				? { method: config.method, summary: previewApiKey( config.apiKey ), models }
 				: {
 						method: config.method,
 						summary: config.email,
+						models,
 						note: __( 'Using ChatGPT plan' ),
 						links: [ { label: __( 'Manage usage' ), url: 'https://chatgpt.com/settings/usage' } ],
-				  },
+				  };
+		},
 		remember: ( config ) =>
 			config.method === 'chatgpt' ? { clientId: config.clientId } : undefined,
 	},
 	ai: {
 		models: OPENAI_AI_MODELS,
 		defaultModel: 'gpt-6.1-terra',
+		catalog: { prefixes: [ 'gpt-' ] },
 		// A ChatGPT plan doesn't cover image generation.
 		generatesImages: ( config ) => config.method === 'api-key',
 	},

@@ -2,8 +2,9 @@ const LITERAL_VALUE = `(?:true|false|TRUE|FALSE|'[^'\\\\]*'|"[^"\\\\]*")`;
 
 // The constants `ensureWpConfig()` writes on every site start. Their values
 // describe the local site, so they must not reach a remote host's wp-config.php.
-// DB_NAME is only Studio's when it still holds Studio's default.
+// DB_NAME and WP_DEVELOPMENT_MODE are only Studio's when they still hold Studio's default.
 const STUDIO_MANAGED_CONSTANTS: Array< [ name: string, valuePattern: string ] > = [
+	[ 'WP_DEVELOPMENT_MODE', `(['"])theme\\2` ],
 	[ 'WP_ENVIRONMENT_TYPE', LITERAL_VALUE ],
 	[ 'WP_DEBUG', LITERAL_VALUE ],
 	[ 'WP_DEBUG_LOG', LITERAL_VALUE ],

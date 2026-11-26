@@ -1,16 +1,10 @@
-import { GITHUB_COPILOT_MODELS } from '@earendil-works/pi-ai/providers/github-copilot.models';
 import { __ } from '@wordpress/i18n';
+import { withinStudioLimits } from '../catalog';
 import { NotConnectedError } from '../errors';
 import { COPILOT_HEADERS, copilotApiUrl } from './api';
-import { GITHUB_COPILOT_AI_MODELS } from './descriptor';
+import { findPiModel, listCopilotModels, selectCopilotModels, toCopilotModelId } from './catalog';
 import type { GithubCopilotConfig } from './config';
 import type { AiConnection, ProviderServices } from '../types';
-import type { Api, Model } from '@earendil-works/pi-ai';
-
-// Copilot names Claude models with dots where Studio's ids, shared with Anthropic, use dashes.
-export function toCopilotModelId( id: string ): string {
-	return id.startsWith( 'claude-' ) ? id.replace( /(\d)-(\d)/g, '$1.$2' ) : id;
-}
 
 // Copilot's refusals carry their reason in the message text, said for the user.
 function rewritePlanError( message: string ): string | undefined {
@@ -33,9 +27,7 @@ export const githubCopilotAi: NonNullable< ProviderServices< GithubCopilotConfig
 			throw new NotConnectedError( 'Sign in with GitHub to use your Copilot plan.' );
 		}
 		const requestModelId = toCopilotModelId( modelId );
-		const model = GITHUB_COPILOT_AI_MODELS.some( ( { id } ) => id === modelId )
-			? ( GITHUB_COPILOT_MODELS as Partial< Record< string, Model< Api > > > )[ requestModelId ]
-			: undefined;
+		const model = findPiModel( modelId );
 		if ( ! model ) {
 			throw new Error( `GitHub Copilot does not serve ${ modelId }` );
 		}
@@ -45,14 +37,13 @@ export const githubCopilotAi: NonNullable< ProviderServices< GithubCopilotConfig
 			headers: COPILOT_HEADERS,
 			requestModelId: requestModelId === modelId ? undefined : requestModelId,
 			rewriteError: rewritePlanError,
-			model: {
+			model: withinStudioLimits( {
 				...model,
 				id: modelId,
 				baseUrl: copilotApiUrl( config.copilotToken ),
-				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-				contextWindow: 200_000,
-				maxTokens: 32_000,
-			},
+			} ),
 		};
 	},
+	listModels: listCopilotModels,
+	selectModels: selectCopilotModels,
 };

@@ -7,6 +7,8 @@ import type { AiModel, Provider } from '../types';
 export const ANTHROPIC_AI_MODELS = [
 	{ id: 'claude-sonnet-5-5', label: () => 'Sonnet 5.5' },
 	{ id: 'claude-opus-5-5', label: () => 'Opus 5.5' },
+	{ id: 'claude-fable-5-1', label: () => 'Fable 5.1' },
+	{ id: 'claude-haiku-5-5', label: () => 'Haiku 5.5' },
 ] as const satisfies readonly AiModel[];
 
 export const anthropicConnectInput = () =>
@@ -85,18 +87,22 @@ export const anthropicProvider: Provider< AnthropicConfig > = {
 					].join( '\n' ),
 			},
 		],
-		describe: ( config ) =>
-			config.method === 'api-key'
-				? { method: config.method, summary: previewApiKey( config.apiKey ) }
+		describe: ( config ) => {
+			const { models } = config;
+			return config.method === 'api-key'
+				? { method: config.method, summary: previewApiKey( config.apiKey ), models }
 				: {
 						method: config.method,
 						summary: previewApiKey( config.token ),
 						note: __( 'Using Claude plan' ),
+						models,
 						links: [ { label: __( 'Manage usage' ), url: 'https://claude.ai/settings/usage' } ],
-				  },
+				  };
+		},
 	},
 	ai: {
 		models: ANTHROPIC_AI_MODELS,
 		defaultModel: 'claude-sonnet-5-5',
+		catalog: { prefixes: [ 'claude-' ] },
 	},
 };

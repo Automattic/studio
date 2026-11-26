@@ -42,7 +42,8 @@ dir="$base/.studio-sync/${ run }"`;
 /**
  * Shell lines that move into the site's folder and define `studio_wp`, which runs Studio's WP-CLI
  * there, the phar `uploadWpCli` named. Its global flags come before the command, where a server that
- * sets `WP_CLI_STRICT_ARGS_MODE` accepts them.
+ * sets `WP_CLI_STRICT_ARGS_MODE` accepts them. Hosts such as WordPress.com and Pressable keep
+ * WordPress itself in a folder of its own, which the site's `wp-load.php` links into.
  */
 export function inSite(
 	{ path, php }: Pick< SshConnection, 'path' | 'php' >,
@@ -50,7 +51,12 @@ export function inSite(
 ): string {
 	return `${ studioBase( path ) }
 cd ${ shellQuote( path ) }
-studio_wp() { ${ php } "$base/.studio-sync/${ wpCli }" $( [ "$(id -u)" != 0 ] || echo --allow-root ) --skip-plugins --skip-themes "$@"; }`;
+studio_core=
+if [ ! -e wp-includes/version.php ] && [ -L wp-load.php ]; then
+	studio_core=$(dirname "$(readlink wp-load.php)")
+	case "$studio_core" in /*) ;; *) studio_core=${ shellQuote( path ) }/$studio_core ;; esac
+fi
+studio_wp() { ${ php } "$base/.studio-sync/${ wpCli }" \${studio_core:+"--path=$studio_core"} $( [ "$(id -u)" != 0 ] || echo --allow-root ) --skip-plugins --skip-themes "$@"; }`;
 }
 
 // Windows ships the OpenSSH client, which an app's PATH doesn't always include.

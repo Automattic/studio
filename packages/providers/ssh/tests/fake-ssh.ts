@@ -15,10 +15,11 @@ for command; do :; done
 exec sh -c "$command"
 `;
 
-// A `php` that runs the fake WP-CLI with what follows the phar's global flags, which it accepts only
-// before the command, as with `WP_CLI_STRICT_ARGS_MODE`.
+// A `php` that logs its arguments and runs the fake WP-CLI with what follows the phar's global
+// flags, which it accepts only before the command, as with `WP_CLI_STRICT_ARGS_MODE`.
 const FAKE_PHP = `#!/bin/sh
 shift
+printf '%s\\n' "$*" >> "$HOME/php.log"
 while [ "\${1#--}" != "$1" ]; do shift; done
 for arg; do
 	case "$arg" in --allow-root | --skip-plugins | --skip-themes)

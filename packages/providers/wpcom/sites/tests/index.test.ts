@@ -220,7 +220,9 @@ describe( 'push', () => {
 	} );
 
 	it( 'says the update may still be running when status checks keep failing', async () => {
-		vi.mocked( pollImportStatus ).mockRejectedValue( new Error( 'socket hang up' ) );
+		vi.mocked( pollImportStatus ).mockRejectedValue(
+			Object.assign( new Error( 'socket hang up' ), { code: 'ECONNRESET' } )
+		);
 
 		const pushed = push().catch( ( e: unknown ) => e );
 		await vi.advanceTimersByTimeAsync( 10 * 60 * 1000 );
@@ -230,10 +232,11 @@ describe( 'push', () => {
 		} );
 	} );
 
-	it( 'stops at once when WordPress.com refuses the status check', async () => {
-		vi.mocked( pollImportStatus ).mockRejectedValue(
-			Object.assign( new Error( 'Forbidden' ), { statusCode: 403 } )
-		);
+	it.each( [
+		Object.assign( new Error( 'Forbidden' ), { statusCode: 403 } ),
+		new TypeError( "Cannot read properties of undefined (reading 'status')" ),
+	] )( 'stops at once when the status check fails for good: %s', async ( error ) => {
+		vi.mocked( pollImportStatus ).mockRejectedValue( error );
 
 		await expect( push() ).rejects.toMatchObject( { code: 'remote_import' } );
 		expect( pollImportStatus ).toHaveBeenCalledTimes( 1 );

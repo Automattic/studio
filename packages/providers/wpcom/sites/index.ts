@@ -81,13 +81,17 @@ function sleep( ms: number, signal?: AbortSignal ): Promise< void > {
 	} );
 }
 
-// A request that got no HTTP status never reached WordPress.com.
+// A request that never reached WordPress.com has no HTTP status, only the network error's code,
+// such as ENOTFOUND.
 function isTransient( error: unknown ): boolean {
-	if ( ! ( error instanceof Error ) || error instanceof z.ZodError ) {
+	if ( ! ( error instanceof Error ) ) {
 		return false;
 	}
-	const status = 'statusCode' in error ? Number( error.statusCode ) : undefined;
-	return status === undefined || status === 429 || status >= 500;
+	if ( 'statusCode' in error ) {
+		const status = Number( error.statusCode );
+		return status === 429 || status >= 500;
+	}
+	return 'code' in error && typeof error.code === 'string';
 }
 
 // Like `step`, for a status check: tries a temporary failure again.

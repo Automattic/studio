@@ -1,8 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { McpServer, type Server, type Tool } from '@modelcontextprotocol/server';
+import {
+	CLIENT_CAPABILITIES_META_KEY,
+	CLIENT_INFO_META_KEY,
+	McpServer,
+	type ClientCapabilities,
+	type Implementation,
+	type ServerContext,
+	type Tool,
+	type Transport,
+} from '@modelcontextprotocol/server';
 import { SKILLS_EXTENSION_ID, SkillsExtension } from '@modelcontextprotocol/server/ext/skills';
-import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import {
 	bindTool,
 	createAgent,
@@ -48,9 +57,9 @@ interface ClientSupport {
 	wpcomRequest: boolean;
 }
 
-function describeClient( server: Server ): ClientSupport {
-	const codex = server.getClientVersion()?.name === 'codex-mcp-client';
-	const extensions = server.getClientCapabilities()?.extensions;
+function describeClient( info?: Implementation, capabilities?: ClientCapabilities ): ClientSupport {
+	const codex = info?.name === 'codex-mcp-client';
+	const extensions = capabilities?.extensions;
 	return {
 		// Codex renders MCP Apps without declaring the extension.
 		apps: codex || Boolean( extensions?.[ 'io.modelcontextprotocol/ui' ] ),
@@ -113,15 +122,15 @@ function appPages(): AppPage[] {
 
 // The skills for hosts with the Skills extension: the ones users ask Studio for directly, and
 // the user's own for all sites.
-function serveSkills( mcp: McpServer, onRequest: () => void ) {
+function serveSkills( mcp: McpServer, onRequest: ( context: ServerContext ) => void ) {
 	new SkillsExtension( {
 		source: {
-			list: async () => {
-				onRequest();
+			list: async ( _params, context ) => {
+				onRequest( context );
 				return { skills: await listServedSkills() };
 			},
-			get: async ( uri ) => {
-				onRequest();
+			get: async ( uri, context ) => {
+				onRequest( context );
 				return getServedSkill( uri );
 			},
 			read: readServedSkillFile,
@@ -129,17 +138,25 @@ function serveSkills( mcp: McpServer, onRequest: () => void ) {
 	} ).attach( mcp );
 }
 
-// The tools go through the low-level handlers rather than McpServer.registerTool: they
-// depend on the client, known only once it has connected, and they answer invalid
-// arguments with a tool error the model can read.
-export async function startMcpStdioServer(): Promise< void > {
-	// Tells this process's events, and those of the processes it starts, apart
-	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
-	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
-	const host = cliAgentHost;
-	const agent = createAgent( { host } );
-	const sessionId = randomUUID();
-	const imageGeneration = Boolean( await host.imageGenerator?.() );
+// What a request on the 2026-07-28 revision says about its client. The SDK types the envelope
+// without its keys.
+interface ClientEnvelope {
+	[ CLIENT_INFO_META_KEY ]?: Implementation;
+	[ CLIENT_CAPABILITIES_META_KEY ]?: ClientCapabilities;
+}
+
+interface Session {
+	agent: StudioAgent;
+	host: StudioAgentHost;
+	id: string;
+	imageGeneration: boolean;
+}
+
+// One server for one connection. The tools go through the low-level handlers rather than
+// McpServer.registerTool: they depend on the client, and they answer invalid arguments with a
+// tool error the model can read. A client on the 2025 revisions names itself once, when it
+// connects; one on 2026-07-28 does so in every request.
+function createServer( { agent, host, id, imageGeneration }: Session ): McpServer {
 	const mcp = new McpServer(
 		{ name: 'studio', version: '1.0.0' },
 		{
@@ -149,8 +166,8 @@ export async function startMcpStdioServer(): Promise< void > {
 	);
 	const server = mcp.server;
 	server.registerCapabilities( { tools: { listChanged: true } } );
-	// The tools depend on what the client supports, known once it has connected.
-	let client = describeClient( server );
+	let client = describeClient();
+	let known = false;
 	let tracks: DesignTracksContext | undefined;
 	const hostSkills = (): HostSkills | undefined =>
 		client.skills
@@ -164,13 +181,44 @@ export async function startMcpStdioServer(): Promise< void > {
 		createTools( agent, host, client, imageGeneration, hostSkills(), tracks );
 	let tools = createClientTools();
 
-	// The MCP App pages. Only clients that render MCP Apps get them.
+	// The MCP App pages, hidden until a client that renders MCP Apps is known.
 	const pages = appPages().map( ( { uri, name, text, _meta } ) =>
 		mcp.registerResource( name, uri, { mimeType: MCP_APP_MIME_TYPE, _meta }, () => ( {
 			contents: [ { uri, mimeType: MCP_APP_MIME_TYPE, text, _meta } ],
 		} ) )
 	);
-	serveSkills( mcp, () => {
+	pages.forEach( ( page ) => page.disable() );
+
+	const meetClient = ( context?: ServerContext ) => {
+		const envelope: ClientEnvelope | undefined = context?.mcpReq.envelope;
+		const info = envelope?.[ CLIENT_INFO_META_KEY ] ?? server.getClientVersion();
+		if ( known || ! info ) {
+			return;
+		}
+		known = true;
+		client = describeClient(
+			info,
+			envelope?.[ CLIENT_CAPABILITIES_META_KEY ] ?? server.getClientCapabilities()
+		);
+		if ( client.apps ) {
+			pages.forEach( ( page ) => page.enable() );
+		}
+		process.env.STUDIO_MCP_CLIENT = info.name;
+		tracks = {
+			ai_session_id: id,
+			agent_name: info.name || 'unknown',
+			client: 'studio-mcp',
+		};
+		tools = createClientTools();
+		void recordTracksEvent( TRACKS_EVENTS.MCP_SESSION_START, {
+			...getTracksOrigin(),
+			mcp_apps: client.apps,
+		} ).catch( () => undefined );
+	};
+	server.oninitialized = () => meetClient();
+
+	serveSkills( mcp, ( context ) => {
+		meetClient( context );
 		if ( client.skills ) {
 			return;
 		}
@@ -182,35 +230,21 @@ export async function startMcpStdioServer(): Promise< void > {
 		}
 	} );
 
-	server.oninitialized = () => {
-		client = describeClient( server );
-		if ( ! client.apps ) {
-			pages.forEach( ( page ) => page.disable() );
-		}
-		process.env.STUDIO_MCP_CLIENT = server.getClientVersion()?.name ?? '';
-		tracks = {
-			ai_session_id: sessionId,
-			agent_name: process.env.STUDIO_MCP_CLIENT || 'unknown',
-			client: 'studio-mcp',
+	server.setRequestHandler( 'tools/list', async ( _request, context ) => {
+		meetClient( context );
+		return {
+			tools: tools.map( ( { tool, listing } ) => ( {
+				name: tool.name,
+				description: tool.description,
+				inputSchema: tool.parameters as unknown as Tool[ 'inputSchema' ],
+				annotations: tool.annotations,
+				...listing,
+			} ) ),
 		};
-		tools = createClientTools();
-		void recordTracksEvent( TRACKS_EVENTS.MCP_SESSION_START, {
-			...getTracksOrigin(),
-			mcp_apps: client.apps,
-		} ).catch( () => undefined );
-	};
+	} );
 
-	server.setRequestHandler( 'tools/list', async () => ( {
-		tools: tools.map( ( { tool, listing } ) => ( {
-			name: tool.name,
-			description: tool.description,
-			inputSchema: tool.parameters as unknown as Tool[ 'inputSchema' ],
-			annotations: tool.annotations,
-			...listing,
-		} ) ),
-	} ) );
-
-	server.setRequestHandler( 'tools/call', async ( request ) => {
+	server.setRequestHandler( 'tools/call', async ( request, context ) => {
+		meetClient( context );
 		const tool = tools.find( ( served ) => served.tool.name === request.params.name )?.tool;
 		if ( ! tool ) {
 			throw new Error( `Unknown tool: ${ request.params.name }` );
@@ -234,13 +268,32 @@ export async function startMcpStdioServer(): Promise< void > {
 		return runServedTool( tool, args );
 	} );
 
-	const transport = new StdioServerTransport();
+	return mcp;
+}
+
+// Serves one client, over the process's stdio unless given another transport.
+export async function serveMcp( transport?: Transport ) {
+	const host = cliAgentHost;
+	const session: Session = {
+		agent: createAgent( { host } ),
+		host,
+		id: randomUUID(),
+		imageGeneration: Boolean( await host.imageGenerator?.() ),
+	};
+	// The client picks the protocol revision when it connects. One that asks which revisions
+	// the server has gets a server of its own for the answer, hence a server per call.
+	return serveStdio( () => createServer( session ), { transport } );
+}
+
+export async function startMcpStdioServer(): Promise< void > {
+	// Tells this process's events, and those of the processes it starts, apart
+	// from terminal use. The plugin's MCP config sets STUDIO_PLUGIN_ID.
+	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
+	const connection = await serveMcp();
 	const shutdown = async () => {
-		await mcp.close();
+		await connection.close();
 		process.exit( 0 );
 	};
 	process.on( 'SIGINT', shutdown );
 	process.on( 'SIGTERM', shutdown );
-
-	await mcp.connect( transport );
 }

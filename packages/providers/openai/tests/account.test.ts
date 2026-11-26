@@ -174,8 +174,8 @@ describe( 'openai account', () => {
 		} );
 
 		it( 'generates images with the key, and not with a ChatGPT plan', async () => {
-			const png = btoa( String.fromCharCode( 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ) );
-			fetchMock.mockResolvedValueOnce( json( 200, { data: [ { b64_json: png } ] } ) );
+			const webp = btoa( 'RIFF\0\0\0\0WEBP' );
+			fetchMock.mockResolvedValueOnce( json( 200, { data: [ { b64_json: webp } ] } ) );
 
 			const [ result ] = await openaiAi.generateImages!( apiKey, [
 				{ prompt: 'A lake', aspectRatio: 'portrait' },
@@ -188,6 +188,7 @@ describe( 'openai account', () => {
 			expect( JSON.parse( init.body ) ).toMatchObject( {
 				model: 'gpt-image-2',
 				size: '1024x1536',
+				output_format: 'webp',
 			} );
 			expect( openaiProvider.ai!.generatesImages!( apiKey ) ).toBe( true );
 			expect( openaiProvider.ai!.generatesImages!( config( 0 ) ) ).toBe( false );

@@ -46,6 +46,7 @@ export interface FakeConnectorState {
 	sites: SiteDetails[];
 	sessions: LoadedAiSession[];
 	user: AuthUser | null;
+	onboardingCompleted: boolean;
 	preferences: UserPreferences;
 	// Each site's email, newest first.
 	emails: Record< string, SiteEmail[] >;
@@ -148,6 +149,7 @@ export function createInMemoryConnector(
 		sites: [],
 		sessions: [],
 		user: TEST_USER,
+		onboardingCompleted: true,
 		emails: {},
 		...initial,
 		preferences: { ...defaultPreferences(), ...initial.preferences },
@@ -199,8 +201,10 @@ export function createInMemoryConnector(
 			state.user = null;
 		},
 		onAuthStateChanged: subscribe( 'onAuthStateChanged' ),
-		getOnboardingCompleted: async () => true,
-		setOnboardingCompleted: async () => {},
+		getOnboardingCompleted: async () => state.onboardingCompleted,
+		setOnboardingCompleted: async ( completed ) => {
+			state.onboardingCompleted = completed;
+		},
 		getSites: async () => state.sites,
 		createSite: async ( params ) => {
 			const site = makeSite( {

@@ -24,7 +24,7 @@ import {
 	VisuallyHidden,
 } from '@studio/ds';
 import { XIcon } from '@studio/ds/icons';
-import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
@@ -154,7 +154,6 @@ function focusControl( row: HTMLElement ) {
  * than the current one, and `settingsFocus` a setting, by link id or title.
  */
 export function SettingsDialog() {
-	const router = useRouter();
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { settings, settingsSite, settingsFocus } = useSearch( { strict: false } ) as {
@@ -281,10 +280,6 @@ export function SettingsDialog() {
 	};
 
 	const closeNow = () => {
-		if ( router.history.canGoBack() ) {
-			router.history.back();
-			return;
-		}
 		void navigate( {
 			to: '.',
 			state: true,

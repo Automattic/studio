@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { createWriteStream, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { createWriteStream, mkdirSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { Writable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
@@ -21,6 +21,7 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 		const content = path.join( root, 'app' );
 		for ( const file of [
 			'plugins/akismet/akismet.php',
+			'plugins/.htaccess',
 			'uploads/a.jpg',
 			'cache/page.html',
 			'object-cache.php',
@@ -28,6 +29,13 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 			mkdirSync( path.dirname( path.join( content, file ) ), { recursive: true } );
 			writeFileSync( path.join( content, file ), file );
 		}
+		// A plugin the host manages, linked from a folder of its own.
+		mkdirSync( path.join( server.dir, 'managed/jetpack' ), { recursive: true } );
+		writeFileSync( path.join( server.dir, 'managed/jetpack/jetpack.php' ), 'jetpack' );
+		symlinkSync(
+			path.join( server.dir, 'managed/jetpack' ),
+			path.join( content, 'plugins/jetpack' )
+		);
 		const archive = path.join( server.dir, 'pull.tar' );
 		const percents: number[] = [];
 		await sshSites.pullArchive!(
@@ -51,11 +59,13 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 		};
 	}
 
-	it( 'sends the database and content in Studio’s layout, without caches or drop-ins', async () => {
+	it( 'sends the database and content in Studio’s layout, with linked plugins and without caches or drop-ins', async () => {
 		const { entries, percents } = await pull( [ 'all' ] );
 		expect( entries ).toEqual( [
 			'sql/database.sql',
+			'wp-content/plugins/.htaccess',
 			'wp-content/plugins/akismet/akismet.php',
+			'wp-content/plugins/jetpack/jetpack.php',
 			'wp-content/uploads/a.jpg',
 		] );
 		expect( percents.at( -1 ) ).toBeGreaterThan( 0 );
@@ -68,6 +78,10 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 
 	it( 'sends only what was picked', async () => {
 		const { entries } = await pull( [ 'plugins' ] );
-		expect( entries ).toEqual( [ 'wp-content/plugins/akismet/akismet.php' ] );
+		expect( entries ).toEqual( [
+			'wp-content/plugins/.htaccess',
+			'wp-content/plugins/akismet/akismet.php',
+			'wp-content/plugins/jetpack/jetpack.php',
+		] );
 	} );
 } );

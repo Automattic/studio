@@ -26,11 +26,13 @@ export function copilotApiUrl( copilotToken: string ): string {
 }
 
 // A model as the plan lists it: `offered` is the model picker Copilot's own clients show, and
-// `policy` says whether the account may use it, an `unconfigured` one having to be turned on first.
+// `category` where it sorts the model, such as `lightweight`. `policy` says whether the account
+// may use it, an `unconfigured` one having to be turned on first.
 export interface PlanModel {
 	id: string;
 	offered: boolean;
 	policy?: string;
+	category?: string;
 }
 
 // Every model the plan lists, or undefined when Copilot doesn't say.
@@ -42,13 +44,19 @@ export async function fetchPlanModels( copilotToken: string ): Promise< PlanMode
 		return undefined;
 	}
 	const { data } = ( await response.json().catch( () => ( {} ) ) ) as {
-		data?: { id: string; model_picker_enabled?: boolean; policy?: { state?: string } }[];
+		data?: {
+			id: string;
+			model_picker_enabled?: boolean;
+			policy?: { state?: string };
+			model_picker_category?: string;
+		}[];
 	};
 	return Array.isArray( data )
 		? data.map( ( model ) => ( {
 				id: model.id,
 				offered: model.model_picker_enabled === true,
 				policy: model.policy?.state,
+				category: model.model_picker_category,
 		  } ) )
 		: undefined;
 }

@@ -627,6 +627,23 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 
+	test( 'blockSettingsUsePresets', () => {
+		const passes = ( content ) =>
+			run(
+				checks.blockSettingsUsePresets,
+				outcome( { ...workingSite, content: [ front( content, {} ) ] } )
+			).pass;
+		expect(
+			passes(
+				'<!-- wp:group {"style":{"spacing":{"padding":{"top":"var:preset|spacing|40"}}}} -->'
+			)
+		).toBe( true );
+		expect( passes( '<!-- wp:group {"style":{"spacing":{"padding":{"top":"80px"}}}} -->' ) ).toBe(
+			false
+		);
+		expect( passes( '<!-- wp:group {"className":"hero"} -->' ) ).toBe( false );
+	} );
+
 	test( 'repeatedTreatmentIsBlockStyle', () => {
 		const site = ( content ) => ( {
 			...workingSite,

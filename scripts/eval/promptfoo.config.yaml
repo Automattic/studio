@@ -447,6 +447,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:repeatedTreatmentIsBlockStyle
       - type: javascript
+        value: file://outcome.mjs:blockSettingsUsePresets
+      - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
   # Site pick: with an active site and a prompt that names no other site, the

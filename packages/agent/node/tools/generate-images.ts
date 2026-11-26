@@ -14,7 +14,7 @@ import type { GenerateImageResult } from '@studio/providers';
 const MAX_IMAGES_PER_CALL = 20;
 
 // Exported for tests. Generated files are jailed to the sites root like the
-// pi Write tool, and must be PNGs — the only format the pipeline delivers.
+// pi Write tool, and must be WebPs — the only format the pipeline delivers.
 export function resolveImageFilePath( sitesRoot: string, filePath: string ): string {
 	const resolved = path.resolve( filePath );
 	if ( resolved !== sitesRoot && ! resolved.startsWith( sitesRoot + path.sep ) ) {
@@ -22,8 +22,8 @@ export function resolveImageFilePath( sitesRoot: string, filePath: string ): str
 			`Image path must be inside the Studio sites directory (${ sitesRoot }): ${ filePath }`
 		);
 	}
-	if ( ! /\.png$/i.test( resolved ) ) {
-		throw new Error( `Image path must end in .png: ${ filePath }` );
+	if ( ! /\.webp$/i.test( resolved ) ) {
+		throw new Error( `Image path must end in .webp: ${ filePath }` );
 	}
 	return resolved;
 }
@@ -70,7 +70,7 @@ const RESERVE_ATTACHMENTS = `$upload = wp_upload_dir();
 $reserved = array();
 foreach ( $data as $name ) {
 	$filename = wp_unique_filename( $upload['path'], $name );
-	$id = wp_insert_attachment( array( 'guid' => $upload['url'] . '/' . $filename, 'post_mime_type' => 'image/png', 'post_title' => pathinfo( $filename, PATHINFO_FILENAME ), 'post_content' => '', 'post_status' => 'inherit' ), $upload['path'] . '/' . $filename );
+	$id = wp_insert_attachment( array( 'guid' => $upload['url'] . '/' . $filename, 'post_mime_type' => 'image/webp', 'post_title' => pathinfo( $filename, PATHINFO_FILENAME ), 'post_content' => '', 'post_status' => 'inherit' ), $upload['path'] . '/' . $filename );
 	$reserved[] = array( 'id' => $id, 'file' => substr( $upload['path'], strlen( ABSPATH ) ) . '/' . $filename, 'url' => wp_get_attachment_url( $id ) );
 }
 echo wp_json_encode( $reserved );`;
@@ -85,7 +85,7 @@ foreach ( $data['failed'] as $id ) {
 
 export const generateImagesTool = defineTool(
 	'generate_images',
-	"Generate AI images (PNG) from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
+	"Generate AI images (WebP) from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
 		'Load the `imagery` skill FIRST — it defines how to write subjects and page context, which aspect ratio fits which layout slot, and where generated images go (theme assets or the media library). ' +
 		'Batch every image a page or site needs into as few calls as possible; each call accepts up to ' +
 		`${ MAX_IMAGES_PER_CALL } images and generates them concurrently. ` +
@@ -96,7 +96,7 @@ export const generateImagesTool = defineTool(
 			Type.Object( {
 				path: Type.String( {
 					description:
-						"Absolute file path to write the generated PNG to. Must be inside the Studio sites directory and end in .png. Under a site's wp-content/uploads/, the image is imported into the media library: the file moves to the uploads folder WordPress picks, and the result gives that path, its attachment ID and its URL. Anywhere else, such as a theme's assets/images, the file stays at this path.",
+						"Absolute file path to write the generated WebP to. Must be inside the Studio sites directory and end in .webp. Under a site's wp-content/uploads/, the image is imported into the media library: the file moves to the uploads folder WordPress picks, and the result gives that path, its attachment ID and its URL. Anywhere else, such as a theme's assets/images, the file stays at this path.",
 				} ),
 				subject: Type.String( {
 					description:
@@ -242,7 +242,7 @@ export const generateImagesTool = defineTool(
 	},
 	{
 		promptSnippet:
-			'Generate AI images (PNG) from text specs into a site: images under its wp-content/uploads/ are added to the media library, others (theme imagery) stay files. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
+			'Generate AI images (WebP) from text specs into a site: images under its wp-content/uploads/ are added to the media library, others (theme imagery) stay files. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
 		annotations: REMOTE_CHANGE,
 	}
 );

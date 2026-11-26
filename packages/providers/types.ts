@@ -335,6 +335,7 @@ export interface GenerateImageRequest {
 
 export interface GenerateImageResult {
 	ok: boolean;
+	// A WebP.
 	bytes?: Uint8Array;
 	error?: string;
 	// Rejected by a safety filter; rewriting the prompt may get it through.

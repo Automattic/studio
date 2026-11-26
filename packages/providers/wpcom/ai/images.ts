@@ -1,9 +1,9 @@
+import { imageFormat, toWebp, WEBP_QUALITY } from '../../webp';
 import { getAiGatewayBaseUrl } from './gateway';
 import type { GenerateImageRequest, GenerateImageResult, ProviderServices } from '../../types';
 import type { WpcomConfig } from '../config';
 
-// Image generation through the proxy's OpenAI-compatible images route, which
-// only delivers PNG.
+// Image generation through the proxy's OpenAI-compatible images route.
 
 // The proxy picks the actual model behind the `image` alias; a real model id
 // is rejected.
@@ -44,6 +44,8 @@ export function buildImageRequestBody(
 		prompt,
 		quality: IMAGE_QUALITY,
 		size: resolveImageSize( aspectRatioKeyword ),
+		output_format: 'webp',
+		output_compression: WEBP_QUALITY,
 	};
 }
 
@@ -63,11 +65,9 @@ function parseJson( raw: string ): ImagesResponse | null {
 	}
 }
 
-const PNG_SIGNATURE = new Uint8Array( [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ] );
-
 /**
  * Interpret a completed transfer: HTTP-status classification plus images
- * response parsing. Returns decoded PNG bytes or throws TransientImageError
+ * response parsing. Returns decoded image bytes or throws TransientImageError
  * (429/5xx — retryable), ImageFilteredError (moderation — retryable, and
  * repairable by rewriting the subject), or Error (permanent).
  */
@@ -94,17 +94,17 @@ export function interpretImageResponse( raw: string, status: number ): Uint8Arra
 		throw new Error( `Image proxy response had no image data: ${ raw.slice( 0, 300 ) }` );
 	}
 
-	return decodePng( base64, 'Image proxy' );
+	return decodeImage( base64, 'Image proxy' );
 }
 
 /**
- * Decodes base64 image data, refusing anything but a PNG: byte magic is the
- * source of truth, and Studio writes these bytes under a .png filename.
+ * Decodes base64 image data, refusing anything but a WebP, or a PNG or JPEG
+ * that is converted to WebP: byte magic is the source of truth.
  */
-export function decodePng( base64: string, source: string ): Uint8Array {
+export function decodeImage( base64: string, source: string ): Uint8Array {
 	const bytes = Uint8Array.from( atob( base64 ), ( char ) => char.charCodeAt( 0 ) );
-	if ( ! PNG_SIGNATURE.every( ( byte, index ) => bytes[ index ] === byte ) ) {
-		throw new Error( `${ source } returned bytes that are not a PNG` );
+	if ( ! imageFormat( bytes ) ) {
+		throw new Error( `${ source } returned bytes that are neither a WebP, a PNG nor a JPEG` );
 	}
 	return bytes;
 }
@@ -149,7 +149,7 @@ async function generateOne(
 				body,
 			} );
 			const raw = await response.text();
-			return { ok: true, bytes: dialect.read( raw, response.status ) };
+			return { ok: true, bytes: await toWebp( dialect.read( raw, response.status ) ) };
 		} catch ( error ) {
 			const transient =
 				error instanceof TransientImageError ||

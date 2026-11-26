@@ -6,7 +6,7 @@ import { generateXaiImages, xaiImageDialect } from '../images';
 const { body, read } = xaiImageDialect;
 
 const pngBase64 = 'iVBORw0KGgoAAAANSUhEUg==';
-const jpegBase64 = '/9j/4AAQSkZJRg==';
+const gifBase64 = 'R0lGODlhAQABAA==';
 
 describe( 'the xAI image request', () => {
 	it( 'asks for the canvas the slot wants, as a ratio', () => {
@@ -64,7 +64,7 @@ describe( 'the xAI image response', () => {
 		const raw = JSON.stringify( { error: { message: 'out of credits' } } );
 		expect( () => read( raw, 402 ) ).toThrow( /out of credits/ );
 		expect( () => read( '{"data":[]}', 200 ) ).toThrow( /no image/ );
-		const jpeg = JSON.stringify( { data: [ { b64_json: jpegBase64, mime_type: 'image/jpeg' } ] } );
-		expect( () => read( jpeg, 200 ) ).toThrow( /image\/jpeg.*not a PNG/ );
+		const gif = JSON.stringify( { data: [ { b64_json: gifBase64, mime_type: 'image/gif' } ] } );
+		expect( () => read( gif, 200 ) ).toThrow( /image\/gif.*neither a WebP, a PNG nor a JPEG/ );
 	} );
 } );

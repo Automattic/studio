@@ -5,7 +5,7 @@ import { geminiImageDialect } from '../images';
 const { body, read } = geminiImageDialect;
 
 const pngBase64 = 'iVBORw0KGgoAAAANSUhEUg==';
-const jpegBase64 = '/9j/4AAQSkZJRg==';
+const gifBase64 = 'R0lGODlhAQABAA==';
 
 const withImage = ( data: string, mimeType = 'image/png' ) =>
 	JSON.stringify( {
@@ -64,7 +64,7 @@ describe( 'the Gemini image response', () => {
 		expect( () => read( raw, 200 ) ).toThrow( /I can’t draw that/ );
 	} );
 
-	it( 'refuses bytes that are not a PNG, which Studio writes under a .png name', () => {
-		expect( () => read( withImage( jpegBase64, 'image/jpeg' ), 200 ) ).toThrow( /image\/jpeg/ );
+	it( 'refuses bytes that are neither a WebP, a PNG nor a JPEG', () => {
+		expect( () => read( withImage( gifBase64, 'image/gif' ), 200 ) ).toThrow( /image\/gif/ );
 	} );
 } );

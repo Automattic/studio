@@ -12,12 +12,14 @@ const PNG_BASE64 = Buffer.from( [
 ] ).toString( 'base64' );
 
 describe( 'buildImageRequestBody', () => {
-	it( 'always sends the image alias at medium quality, one image, no streaming', () => {
+	it( 'always sends the image alias at medium quality as a WebP, one image, no streaming', () => {
 		expect( buildImageRequestBody( 'A lake', 'portrait' ) ).toEqual( {
 			model: 'image',
 			prompt: 'A lake',
 			quality: 'medium',
 			size: '1024x1536',
+			output_format: 'webp',
+			output_compression: 82,
 		} );
 	} );
 } );
@@ -67,10 +69,10 @@ describe( 'interpretImageResponse', () => {
 		);
 	} );
 
-	it( 'rejects non-PNG bytes so they are never written under a .png name', () => {
-		const jpegBase64 = Buffer.from( [ 0xff, 0xd8, 0xff, 0xe0 ] ).toString( 'base64' );
+	it( 'rejects bytes that are neither a WebP, a PNG nor a JPEG', () => {
+		const gifBase64 = Buffer.from( 'GIF89a' ).toString( 'base64' );
 		expect( () =>
-			interpretImageResponse( JSON.stringify( { data: [ { b64_json: jpegBase64 } ] } ), 200 )
-		).toThrow( /not a PNG/ );
+			interpretImageResponse( JSON.stringify( { data: [ { b64_json: gifBase64 } ] } ), 200 )
+		).toThrow( /neither a WebP, a PNG nor a JPEG/ );
 	} );
 } );

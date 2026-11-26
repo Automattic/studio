@@ -1,6 +1,6 @@
 import { NotConnectedError } from '../errors';
 import {
-	decodePng,
+	decodeImage,
 	generateImagesOn,
 	TransientImageError,
 	type ImageDialect,
@@ -40,8 +40,7 @@ export const xaiImageDialect: ImageDialect = {
 		model,
 		prompt: request.prompt,
 		aspect_ratio: ASPECT_RATIOS[ request.aspectRatio ?? '' ] ?? DEFAULT_ASPECT_RATIO,
-		// Grok Imagine renders 2k as a PNG and 1k as a JPEG, and Studio writes
-		// these bytes under a .png filename.
+		// Grok Imagine renders 2k as a PNG and 1k as a JPEG.
 		resolution: '2k',
 		response_format: 'b64_json',
 	} ),
@@ -58,7 +57,7 @@ export const xaiImageDialect: ImageDialect = {
 		if ( ! image?.b64_json ) {
 			throw new Error( `xAI returned no image: ${ raw.slice( 0, 300 ) }` );
 		}
-		return decodePng( image.b64_json, `xAI (${ image.mime_type ?? 'unknown type' })` );
+		return decodeImage( image.b64_json, `xAI (${ image.mime_type ?? 'unknown type' })` );
 	},
 };
 

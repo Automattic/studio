@@ -961,20 +961,20 @@ describe( 'Studio AI MCP tools', () => {
 		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
 		const site = { ...mockSite, path: sitePath };
 		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
-		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
+		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.webp' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( host.sites.all ).mockResolvedValue( [ mockSite, site ] );
 		const generateImages = vi.fn().mockResolvedValue( [
-			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+			{ ok: true, bytes: Buffer.from( 'webp' ) },
 			{ ok: false, error: 'Timed out' },
-			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+			{ ok: true, bytes: Buffer.from( 'webp' ) },
 		] );
 		vi.mocked( host.sites.wpCli )
 			.mockResolvedValueOnce( {
 				exitCode: 0,
 				stdout: JSON.stringify( [
-					{ id: 7, file: 'wp-content/uploads/2026/09/hero.png', url: urlOf( 'hero.png' ) },
-					{ id: 8, file: 'wp-content/uploads/2026/09/buns.png', url: urlOf( 'buns.png' ) },
+					{ id: 7, file: 'wp-content/uploads/2026/09/hero.webp', url: urlOf( 'hero.webp' ) },
+					{ id: 8, file: 'wp-content/uploads/2026/09/buns.webp', url: urlOf( 'buns.webp' ) },
 				] ),
 				stderr: '',
 			} )
@@ -984,24 +984,24 @@ describe( 'Studio AI MCP tools', () => {
 			host.imageGenerator = async () => generateImages;
 			const result = await getTool( 'generate_images' ).rawHandler( {
 				images: [
-					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },
-					{ path: path.join( uploads, 'buns.png' ), subject: 'Cardamom buns on a tray' },
+					{ path: path.join( uploads, 'hero.webp' ), subject: 'A café counter at dawn' },
+					{ path: path.join( uploads, 'buns.webp' ), subject: 'Cardamom buns on a tray' },
 					{ path: themeImage, subject: 'Pebbles on a beach' },
 				],
 			} as never );
 
 			expect( getTextContent( result ) ).toContain(
-				`- ${ path.join( uploads, '2026', '09', 'hero.png' ) }, attachment ID 7, URL ${ urlOf(
-					'hero.png'
+				`- ${ path.join( uploads, '2026', '09', 'hero.webp' ) }, attachment ID 7, URL ${ urlOf(
+					'hero.webp'
 				) }`
 			);
 			expect( await result.pending ).toContain(
-				`FAILED ${ path.join( uploads, 'buns.png' ) }: Timed out`
+				`FAILED ${ path.join( uploads, 'buns.webp' ) }: Timed out`
 			);
 			await expect(
-				readFile( path.join( uploads, '2026', '09', 'hero.png' ), 'utf8' )
-			).resolves.toBe( 'jpeg' );
-			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
+				readFile( path.join( uploads, '2026', '09', 'hero.webp' ), 'utf8' )
+			).resolves.toBe( 'webp' );
+			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'webp' );
 			const finalize = vi.mocked( host.sites.wpCli ).mock.calls[ 1 ][ 1 ][ 1 ];
 			expect(
 				JSON.parse(

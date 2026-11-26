@@ -11,14 +11,14 @@ import type { ProviderServices } from '../types';
 const IMAGE_MODEL = 'muse-image-1.0';
 
 // Meta's images route follows OpenAI's but rejects unknown fields such as
-// `quality`, and answers in WebP unless asked for PNG. Its web and image search
-// would ground site images in real brands and places, and slows every render.
+// `quality`. Its web and image search would ground site images in real brands
+// and places, and slows every render.
 export const metaImageDialect: ImageDialect = {
 	body: ( request, model ) => ( {
 		model,
 		prompt: request.prompt,
 		size: resolveImageSize( request.aspectRatio ),
-		output_format: 'png',
+		output_format: 'webp',
 		reasoning_strength: 'low',
 		tool_enablement: {
 			enable_image_search: false,

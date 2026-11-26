@@ -205,6 +205,40 @@ describe( 'push', () => {
 		expect( await pushed ).toMatchObject( { code: 'timeout' } );
 	} );
 
+	it( 'keeps waiting through a network failure while the live site imports', async () => {
+		vi.mocked( pollImportStatus )
+			.mockRejectedValueOnce(
+				Object.assign( new Error( 'getaddrinfo ENOTFOUND public-api.wordpress.com' ), {
+					code: 'ENOTFOUND',
+				} )
+			)
+			.mockResolvedValueOnce( { success: true, status: 'finished' } as never );
+
+		const pushed = push();
+		await vi.runAllTimersAsync();
+		await expect( pushed ).resolves.toBeUndefined();
+	} );
+
+	it( 'says the update may still be running when status checks keep failing', async () => {
+		vi.mocked( pollImportStatus ).mockRejectedValue( new Error( 'socket hang up' ) );
+
+		const pushed = push().catch( ( e: unknown ) => e );
+		await vi.advanceTimersByTimeAsync( 10 * 60 * 1000 );
+		expect( await pushed ).toMatchObject( {
+			message: expect.stringContaining( 'the update may still be running' ),
+			code: 'remote_import',
+		} );
+	} );
+
+	it( 'stops at once when WordPress.com refuses the status check', async () => {
+		vi.mocked( pollImportStatus ).mockRejectedValue(
+			Object.assign( new Error( 'Forbidden' ), { statusCode: 403 } )
+		);
+
+		await expect( push() ).rejects.toMatchObject( { code: 'remote_import' } );
+		expect( pollImportStatus ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'explains a database the live site failed to import', async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {
 			success: false,

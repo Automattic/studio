@@ -110,6 +110,7 @@ function mockElectron() {
 				requestSingleInstanceLock: vi.fn().mockReturnValue( true ),
 				quit: vi.fn(),
 				exit: vi.fn(),
+				relaunch: vi.fn(),
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),
@@ -761,5 +762,29 @@ describe( 'App initialization', () => {
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+	} );
+
+	it( 'opens Studio again after the quit when it is launched while quitting', async () => {
+		const { mockedEvents } = mockElectron();
+		const originalProcessPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'win32' } );
+		vi.resetModules();
+		await import( '../index' );
+		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+		const { app } = await import( 'electron' );
+		await mockedEvents.ready();
+		vi.mocked( createMainWindow ).mockClear();
+
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+		await mockedEvents[ 'second-instance' ]( {}, [ 'Studio.exe', 'wp-studio://auth#token' ] );
+		await mockedEvents.activate();
+
+		expect( app.relaunch ).toHaveBeenNthCalledWith( 1, {
+			execPath: process.execPath,
+			args: [ 'wp-studio://auth#token' ],
+		} );
+		expect( app.relaunch ).toHaveBeenNthCalledWith( 2, { execPath: process.execPath, args: [] } );
+		expect( getMainWindow ).not.toHaveBeenCalled();
+		expect( createMainWindow ).not.toHaveBeenCalled();
 	} );
 } );

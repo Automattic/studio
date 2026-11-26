@@ -46,9 +46,7 @@ const histories = new WeakMap< RouterHistory, ReturnType< typeof createWorkspace
 
 function hasDialog( location: Location ) {
 	const search = new URLSearchParams( location.search );
-	return [ 'settings', 'addSite', 'welcome', 'feedback', 'pin' ].some( ( key ) =>
-		search.has( key )
-	);
+	return [ 'settings', 'addSite', 'feedback', 'pin' ].some( ( key ) => search.has( key ) );
 }
 
 export function useWorkspaceHistory() {

@@ -36,8 +36,8 @@
  *                                           a Linux container (see "Electron e2e tests" below), and
  *                                           copy the results to `test-results/` in the worktree.
  *   eval [<promptfoo args>] --agent <name>  Run the Studio Code evals as `npm run eval` does, as the
- *                                           agent and with the CLI built in its turn; it fails when
- *                                           the agent's Studio has no WordPress.com login.
+ *                                           agent, with the CLI built in its turn, and logged in to
+ *                                           WordPress.com as the owner (see "The evals' login").
  *   run --agent <name> -- <command>         Run any command as the agent from the worktree root, once
  *                                           the CLI build is current.
  *   install                                 Install the worktree's dependencies with `npm ci`, its
@@ -107,8 +107,21 @@
  * again when a `package.json` or the lockfile changed, and packages the app again when anything but
  * the specs (`apps/studio/e2e/`, `playwright.config.ts`, `test-fixtures/`) changed. The setup takes
  * about 2.5 minutes the first time, a package about half a minute, and the suite about 4 minutes.
- * The runs in a worktree take turns, and at most 2 run on the machine at once, served in arrival
- * order once Docker has the memory for one (5 GB).
+ * The runs in a worktree take turns, and those of the machine start in arrival order, as many at
+ * once as Docker has room for: 4 of its CPUs (`docker info`'s NCPU) each, with room for one at
+ * least, and 5 GB of its memory each, beyond what its other containers use.
+ *
+ * The evals' login: `eval` runs logged in to WordPress.com as the owner, and nothing else does, so
+ * no other command can publish, pull, or create preview sites on the owner's account. It reads the
+ * owner's login without writing it, from the `authToken` of `shared.json` in their Studio config
+ * (DEV_CONFIG_DIR, or `~/.studio`), or of `~/Library/Application Support/Studio/appdata-v1.json`
+ * for a Studio from before the split config, and copies only that, mode 0600, into a folder of the
+ * run's own, `<home>/e<pid>` (0700): the run's config and its temp folder, where the evals copy the
+ * config for each case. The run removes the folder when it ends; `prune`, `down all --remove`, the
+ * reaper, and the agent's next eval remove what a killed run left. Before it spends anything, it
+ * says which account the evals run as and what AI quota that account has left, and stops when the
+ * owner's Studio is logged out or the login expired, the account has no Studio Code AI access or
+ * credits left, or a case would run on a model tier Studio does not unlock for the account.
  *
  * Settings, from the environment:
  *
@@ -1012,6 +1025,7 @@ async function reap() {
 			}
 		}
 		harvestAll();
+		sweepLogins( ownHomes() );
 		if ( ! busy ) {
 			return;
 		}
@@ -1718,6 +1732,7 @@ async function prune() {
 	const main = mainCheckout() || ROOT;
 	const worktrees = path.join( main, '.worktrees' );
 	const roots = await removeWhere( ( root ) => !! root && ! isWorktree( root ) );
+	sweepLogins( homes() );
 	unregisterApps( ( bundle ) => {
 		if ( [ ...roots ].some( ( root ) => inside( bundle, root ) ) ) {
 			return true;
@@ -1769,11 +1784,12 @@ async function pruneAll() {
 const E2E_DIR = path.join( TOOLS, 'e2e' );
 const E2E_LABEL = 'rp-studio-e2e';
 const E2E_CACHE_VOLUME = 'rp-studio-e2e-cache';
-const E2E_SLOTS = 2;
 const E2E_MEMORY_GB = 5;
 // Docker memory an e2e container needs free, beyond what other containers and the e2e runs already
 // started may take.
 const E2E_NEED = ( E2E_MEMORY_GB + 0.5 ) * 1024 ** 3;
+// Docker CPUs each started e2e run takes: a run averages about 3.4 cores and peaks near 8.
+const E2E_CPUS = 4;
 const E2E_QUEUE = path.join( CACHE, 'e2e-queue' );
 const E2E_RESULTS = path.join( ROOT, 'test-results' );
 const STARTED = Date.now() - process.uptime() * 1000;
@@ -1963,10 +1979,23 @@ function describeRun( ticket ) {
 	return `${ path.basename( ticket.root ) } for ${ ticket.agent } since ${ since }`;
 }
 
+// Docker's CPUs and memory.
+function dockerSize() {
+	const [ cpus, memory ] = ( capture( 'docker', [ 'info', '--format', '{{.NCPU}} {{.MemTotal}}' ] ) || '' )
+		.trim()
+		.split( /\s+/ )
+		.map( ( value ) => Number( value ) || 0 );
+	return { cpus: cpus || 0, memory: memory || 0 };
+}
+
+// The e2e runs Docker's CPUs allow at once: E2E_CPUS each, and at least one.
+function e2eCpuRuns( cpus ) {
+	return Math.max( 1, Math.floor( cpus / E2E_CPUS ) );
+}
+
 // Docker memory left for another e2e container: what its other containers use and what the e2e
 // runs already started may take are spoken for.
-function e2eMemory( started ) {
-	const total = Number( capture( 'docker', [ 'info', '--format', '{{.MemTotal}}' ] ) || 0 );
+function e2eMemory( started, total ) {
 	const output = capture( 'docker', [ 'stats', '--no-stream', '--format', '{{.Name}}\t{{.MemUsage}}' ] ) || '';
 	let others = 0;
 	for ( const line of output.split( '\n' ).filter( Boolean ) ) {
@@ -1989,8 +2018,8 @@ function parseSize( text ) {
 	return Number( match[ 1 ] ) * ( unit.includes( 'I' ) || unit === 'B' ? binary : decimal )[ unit[ 0 ] ];
 }
 
-// Waits for one of the machine's E2E_SLOTS e2e slots, in arrival order, and for Docker memory for
-// its container; the slot lasts while this process runs.
+// Waits for the e2e runs that arrived before this one to start, and for Docker to have the CPUs and
+// the memory for its container; what it takes stays taken while this process runs.
 async function e2eSlot( agent, specs ) {
 	const id = `${ Date.now() }-${ process.pid }`;
 	const file = path.join( E2E_QUEUE, `${ id }.json` );
@@ -2007,23 +2036,28 @@ async function e2eSlot( agent, specs ) {
 		const started = tickets.filter( ( item ) => item.granted );
 		const waiting = tickets.filter( ( item ) => ! item.granted );
 		const ahead = waiting.findIndex( ( item ) => item.id === id );
+		const size = dockerSize();
+		const cpuRuns = e2eCpuRuns( size.cpus );
+		const queued = ahead ? `, and ${ ahead } run${ ahead === 1 ? ' waits' : 's wait' } ahead of this one` : '';
 		let message;
-		if ( started.length >= E2E_SLOTS ) {
-			message = `the machine's ${ E2E_SLOTS } e2e slots are taken (${ started
+		if ( started.length >= cpuRuns ) {
+			message = `for CPUs: Docker's ${ size.cpus } CPU${ size.cpus === 1 ? ' takes' : 's take' } ${ cpuRuns } e2e run${
+				cpuRuns === 1 ? '' : 's'
+			} at once, ${ E2E_CPUS } each, and ${ started.length } ${ started.length === 1 ? 'is' : 'are' } running (${ started
 				.map( describeRun )
-				.join( '; ' ) })${ ahead ? `, and ${ ahead } run${ ahead === 1 ? ' waits' : 's wait' } ahead of this one` : '' }`;
+				.join( '; ' ) })${ queued }`;
 		} else if ( ahead > 0 ) {
-			message = `${ ahead } e2e run${ ahead === 1 ? ' waits' : 's wait' } ahead of this one (${ waiting
+			message = `for the runs ahead: ${ ahead } e2e run${ ahead === 1 ? ' waits' : 's wait' } ahead of this one (${ waiting
 				.slice( 0, ahead )
 				.map( describeRun )
 				.join( '; ' ) })`;
 		} else {
-			const memory = e2eMemory( started.length );
+			const memory = e2eMemory( started.length, size.memory );
 			if ( memory.free >= E2E_NEED ) {
 				const granted = await withLock( path.join( CACHE, 'e2e-queue.lock' ), () => {
 					tickets = liveTickets( processes() );
 					const first = tickets.find( ( item ) => ! item.granted );
-					if ( first?.id !== id || tickets.filter( ( item ) => item.granted ).length >= E2E_SLOTS ) {
+					if ( first?.id !== id || tickets.filter( ( item ) => item.granted ).length >= cpuRuns ) {
 						return false;
 					}
 					writeJson( file, { ...ticket, granted: Date.now() } );
@@ -2034,16 +2068,18 @@ async function e2eSlot( agent, specs ) {
 				}
 				continue;
 			}
-			message = `Docker has ${ gb( Math.max( 0, memory.free ) ) } free of ${ gb( memory.total ) } (other containers use ${ gb(
+			message = `for memory: Docker has ${ gb( Math.max( 0, memory.free ) ) } free of ${ gb( memory.total ) } (other containers use ${ gb(
 				memory.others
 			) }, e2e runs in progress may take ${ started.length * E2E_MEMORY_GB } GB), and an e2e run needs ${ gb( E2E_NEED ) }`;
 		}
-		if ( message !== shown ) {
-			log( `Waiting: ${ message }.` );
-			shown = message;
+		// What other containers use changes at every look: only a change of limit is news.
+		const key = message.startsWith( 'for memory:' ) ? `memory ${ started.length }` : message;
+		if ( key !== shown ) {
+			log( `Waiting ${ message }.` );
+			shown = key;
 			reminded = Date.now();
 		} else if ( Date.now() - reminded > 5 * 60 * 1000 ) {
-			log( `Still waiting: ${ message }.` );
+			log( `Still waiting ${ message }.` );
 			reminded = Date.now();
 		}
 		await sleep( 3000 );
@@ -2201,7 +2237,7 @@ function e2eLines( all, root ) {
 	}
 	const waiting = liveTickets( all ).filter( ( ticket ) => ! ticket.granted && ( ! root || ticket.root === root ) );
 	for ( const ticket of waiting ) {
-		lines.push( `e2e: ${ describeRun( ticket ) } waits for a slot` );
+		lines.push( `e2e: ${ describeRun( ticket ) } waits to start` );
 	}
 	const volumes = (
 		capture( 'docker', [
@@ -2458,14 +2494,208 @@ async function testUnit( agent, args ) {
 	process.exit( status );
 }
 
-// The evals, as `npm run eval` runs them, but with the CLI built in its turn: the promptfoo command
-// of the `eval` script, with the agent's environment and the arguments given. The eval runner
-// claims a port range for each case itself, so the agent's base port stays out.
+/* The evals' WordPress.com login */
+
+// The owner's Studio config folder, as their Studio finds it: DEV_CONFIG_DIR, unless it is an
+// agent's from this script, else `~/.studio`.
+function ownerConfig() {
+	const dev = process.env.DEV_CONFIG_DIR;
+	return dev && ! inside( path.resolve( dev ), CACHE ) ? path.resolve( dev ) : path.join( REAL_HOME, '.studio' );
+}
+
+const LOGIN_FIELDS = [ 'accessToken', 'expiresIn', 'expirationTime', 'id', 'email', 'displayName' ];
+
+// The owner's WordPress.com login, read and never written: the `authToken` of `shared.json` in
+// their Studio config, which the Studio app and the CLI of every version since the split config
+// write alike, or, from a Studio of before it, the `authToken` of its `appdata-v1.json`. No version
+// keeps it in the keychain. Only the login's own fields are kept.
+function ownerLogin() {
+	const config = ownerConfig();
+	const shared = path.join( config, 'shared.json' );
+	const files = [ shared ];
+	if ( process.platform === 'darwin' && config === path.join( REAL_HOME, '.studio' ) ) {
+		files.push( path.join( REAL_HOME, 'Library', 'Application Support', 'Studio', 'appdata-v1.json' ) );
+	}
+	for ( const file of files ) {
+		const token = readJson( file )?.authToken;
+		if ( typeof token?.accessToken === 'string' && token.accessToken && Number.isFinite( token.expirationTime ) ) {
+			return {
+				file,
+				version: readJson( shared )?.version ?? 1,
+				token: Object.fromEntries( LOGIN_FIELDS.filter( ( name ) => name in token ).map( ( name ) => [ name, token[ name ] ] ) ),
+			};
+		}
+	}
+	return { file: shared, token: null };
+}
+
+const LOG_IN =
+	'Owner: run `studio auth login` in your own Studio (or log in from the Studio app), then run the evals again. Agents cannot log in themselves: `open` is shimmed for them.';
+
+// An eval run's own folder, `<home>/e<pid>`: its config, with the owner's login, and its temp
+// folder, where the evals copy that config for each case. Short, for the sockets the cases' process
+// managers open in it.
+function loginFolders( home ) {
+	let names = [];
+	try {
+		names = fs.readdirSync( home.home );
+	} catch {
+		return [];
+	}
+	return names.filter( ( name ) => /^e\d+$/.test( name ) ).map( ( name ) => path.join( home.home, name ) );
+}
+
+// Removes the eval folders, with their copies of the owner's login, of runs that ended without
+// removing them.
+function sweepLogins( list, all = processes() ) {
+	for ( const home of list ) {
+		for ( const folder of loginFolders( home ) ) {
+			const record = readJson( path.join( folder, 'run.json' ) );
+			let age = 0;
+			try {
+				age = Date.now() - fs.statSync( folder ).mtimeMs;
+			} catch {
+				continue;
+			}
+			// A folder of a minute or less may belong to a run that started after `all` was read.
+			if ( age > 60000 && ! ( record && runAlive( record, all ) ) ) {
+				fs.rmSync( folder, { recursive: true, force: true, maxRetries: 3 } );
+				log( `Removed ${ folder }, with the WordPress.com login of an eval run that ended.` );
+			}
+		}
+	}
+}
+
+// What the WordPress.com AI proxy reports of the account's Studio Code AI quota, as Studio reads
+// it (`packages/common/lib/studio-assistant-quota.ts`), or null when it cannot tell.
+async function aiQuota( token ) {
+	try {
+		const response = await fetch( 'https://public-api.wordpress.com/wpcom/v2/studio-app/ai-assistant/quota', {
+			headers: { Authorization: `Bearer ${ token }` },
+			signal: AbortSignal.timeout( 15000 ),
+		} );
+		const quota = response.ok ? await response.json() : null;
+		return quota && typeof quota === 'object' ? quota : null;
+	} catch {
+		return null;
+	}
+}
+
+// The WordPress.com model tiers Studio unlocks only for `@a8c.com` and `@automattic.com` emails and
+// for accounts that bought AI credits (`requiresPaidAiCredits` in
+// `packages/providers/wpcom/descriptor.ts`, `canUsePaidAiModels` in `studio-assistant-quota.ts`).
+const PAID_TIERS = [ 'balanced', 'strong' ];
+
+// The eval cases that would run on a paid tier, with it: of those the arguments select, as far as
+// `--filter-pattern` tells, the ones whose `model` var, or else STUDIO_EVAL_MODEL, names one.
+function paidCases( promptfoo, args, envModel ) {
+	const config = path.resolve(
+		ROOT,
+		promptfoo.match( /(?:^|\s)(?:-c|--config)\s+(\S+)/ )?.[ 1 ] || 'scripts/eval/promptfoo.config.yaml'
+	);
+	const cases = [];
+	let text = '';
+	try {
+		text = fs.readFileSync( config, 'utf8' );
+	} catch {}
+	for ( const line of text.split( '\n' ) ) {
+		const description = line.match( /^\s*- description:\s*(.+?)\s*$/ );
+		const model = line.match( /^\s+model:\s*["']?([\w.:-]+)["']?\s*(#.*)?$/ );
+		if ( description ) {
+			cases.push( { description: description[ 1 ].replace( /^(["'])(.*)\1$/, '$2' ), model: null } );
+		} else if ( model && cases.length ) {
+			cases.at( -1 ).model = model[ 1 ];
+		}
+	}
+	const index = args.findIndex( ( arg ) => arg === '--filter-pattern' || arg.startsWith( '--filter-pattern=' ) );
+	const pattern = index === -1 ? null : args[ index ].split( '=' ).slice( 1 ).join( '=' ) || args[ index + 1 ];
+	let selects = () => true;
+	try {
+		if ( pattern ) {
+			const regex = new RegExp( pattern );
+			selects = ( item ) => regex.test( item.description );
+		}
+	} catch {}
+	return cases
+		.filter( selects )
+		.map( ( item ) => ( { ...item, model: item.model || envModel || 'fast' } ) )
+		.filter( ( item ) => PAID_TIERS.includes( item.model ) );
+}
+
+function credits( value ) {
+	return new Intl.NumberFormat( 'en-US' ).format( value );
+}
+
+// Says what the account's AI quota is, and stops when the evals could not run on it.
+function checkQuota( quota, user ) {
+	if ( ! quota ) {
+		log( `Could not read the AI quota of ${ user } from WordPress.com; the evals run without knowing it.` );
+		return;
+	}
+	if ( quota.studio_code_ai_has_access === false ) {
+		fail(
+			`Studio Code AI is ${ quota.studio_code_ai_access === 'blocked' ? 'blocked' : 'not enabled' } for ${ user } on WordPress.com: the evals would fail.`
+		);
+	}
+	const reset = quota.cost_reset_date ? `, resetting ${ quota.cost_reset_date }` : '';
+	const hasPools = quota.allowance_remaining != null || quota.purchased_remaining != null;
+	if ( hasPools ) {
+		const free = quota.allowance_remaining ?? 0;
+		const bought = quota.purchased_remaining;
+		log(
+			`AI credits of ${ user }: ${ credits( free ) } of the ${ credits( quota.cost_cap ?? 0 ) } of its quota left${ reset }, and ${
+				bought == null ? 'an unknown number of' : credits( bought )
+			} purchased credits left.`
+		);
+		if ( free + ( bought ?? 0 ) <= 0 && bought != null ) {
+			fail( `${ user } has no AI credits left: the evals would fail.` );
+		}
+	} else if ( quota.cost_cap > 0 ) {
+		log(
+			`AI usage of ${ user }: ${ credits( quota.cost_usage ?? 0 ) } of its quota of ${ credits( quota.cost_cap ) } used (${ Math.round(
+				( ( quota.cost_usage ?? 0 ) / quota.cost_cap ) * 100
+			) }%)${ reset }.`
+		);
+		if ( ( quota.cost_usage ?? 0 ) >= quota.cost_cap ) {
+			fail( `${ user } has used all of its AI quota: the evals would fail.` );
+		}
+	} else {
+		log( `WordPress.com reports no AI quota figures for ${ user }.` );
+	}
+	log(
+		`What the evals spend beyond the quota comes from the AI credits ${ user } purchased, paid by that person.`
+	);
+}
+
+// Stops when cases would run on a model tier Studio does not unlock for the account, and warns
+// when it cannot tell.
+function checkTiers( paid, quota, email, user ) {
+	if ( ! paid.length ) {
+		return;
+	}
+	const list = paid.map( ( item ) => `"${ item.description }" (${ item.model })` ).join( '; ' );
+	const bought = ( quota?.purchased_at_top_up ?? 0 ) > 0 || ( quota?.purchased_remaining ?? 0 ) > 0;
+	if ( /@(a8c|automattic)\.com$/i.test( email || '' ) || bought ) {
+		return;
+	}
+	const what = `${ paid.length } eval case${ paid.length === 1 ? ' runs' : 's run' } on a paid model tier: ${ list }. Studio unlocks the paid tiers only for @a8c.com and @automattic.com emails and for accounts that bought AI credits`;
+	if ( ! quota ) {
+		log( `${ what }; ${ user } has neither such an email nor, as far as WordPress.com said, credits bought: the proxy may refuse them.` );
+		return;
+	}
+	fail(
+		`${ what }, and ${ user } is neither. Leave them out with --filter-pattern, or have the owner log in with an account that qualifies.`
+	);
+}
+
+// The evals, as `npm run eval` runs them, but with the CLI built in its turn and logged in to
+// WordPress.com as the owner: the promptfoo command of the `eval` script, with the agent's
+// environment and the arguments given, and a config of the run's own with the owner's login. The
+// eval runner claims a port range for each case itself, so the agent's base port stays out.
 async function evalAs( agent, args ) {
 	const setup = await agentEnv( agent );
 	await markUsed( setup.dirs );
 	checkShim( setup );
-	await ensureBuilt( 'cli' );
 	const script = readJson( path.join( ROOT, 'package.json' ) )?.scripts?.eval || '';
 	const promptfoo = script
 		.split( '&&' )
@@ -2474,28 +2704,106 @@ async function evalAs( agent, args ) {
 	if ( ! promptfoo ) {
 		fail( `The \`eval\` script of package.json has no promptfoo command: ${ script }` );
 	}
-	const env = { ...setup.env };
+	const login = ownerLogin();
+	if ( ! login.token ) {
+		fail( `The evals run logged in to WordPress.com as the owner, and the owner's Studio is logged out: ${ login.file } has no login. ${ LOG_IN }` );
+	}
+	const left = login.token.expirationTime - Date.now();
+	if ( left <= 0 ) {
+		fail(
+			`The evals run logged in to WordPress.com as the owner, and the owner's login in ${ login.file } expired on ${ new Date(
+				login.token.expirationTime
+			).toISOString() }. ${ LOG_IN }`
+		);
+	}
+	if ( left < 60 * 60 * 1000 ) {
+		log( `The owner's WordPress.com login expires in ${ Math.ceil( left / 60000 ) } minutes: cases that run past it fail.` );
+	}
+	await ensureBuilt( 'cli' );
+	const all = processes();
+	sweepLogins( [ setup.dirs ], all );
+	const folder = path.join( setup.dirs.home, `e${ process.pid }` );
+	if ( path.join( folder, 'studio-eval-pm-XXXXXX', 'daemon-events.sock' ).length > SOCKET_LIMIT ) {
+		fail( `The evals' daemon socket paths would pass the ${ SOCKET_LIMIT }-byte limit of Unix sockets. Set RP_STUDIO_CACHE to a shorter folder.` );
+	}
+	// The run's folder goes with it, however it ends: a signal waits for the evals to stop first.
+	let child = null;
+	process.on( 'exit', () => fs.rmSync( folder, { recursive: true, force: true, maxRetries: 3 } ) );
+	for ( const name of [ 'SIGINT', 'SIGTERM', 'SIGHUP' ] ) {
+		process.on( name, () => ( child ? child.kill( name ) : process.exit( 128 + os.constants.signals[ name ] ) ) );
+	}
+	const config = path.join( folder, '.studio' );
+	fs.rmSync( folder, { recursive: true, force: true } );
+	fs.mkdirSync( config, { recursive: true, mode: 0o700 } );
+	fs.chmodSync( folder, 0o700 );
+	writeJson( path.join( folder, 'run.json' ), { pid: process.pid, started: STARTED, agent } );
+	const shared = path.join( config, 'shared.json' );
+	fs.writeFileSync( shared, `${ JSON.stringify( { version: login.version, authToken: login.token }, null, '\t' ) }\n`, {
+		mode: 0o600,
+		flag: 'wx',
+	} );
+	fs.chmodSync( shared, 0o600 );
+	// What Studio downloads, which the evals link into each case's config, stays the agent's.
+	for ( const name of [ 'server-files', 'php-bin', 'import-runtime', 'mu-plugins' ] ) {
+		if ( fs.existsSync( path.join( setup.dirs.config, name ) ) ) {
+			fs.symlinkSync( path.join( setup.dirs.config, name ), path.join( config, name ) );
+		}
+	}
+	const env = {
+		...setup.env,
+		TMPDIR: `${ folder }/`,
+		E2E_SHARED_CONFIG_PATH: config,
+		// The transcripts outlive the run, as they do in `npm run eval`.
+		STUDIO_EVAL_SESSION_DIR:
+			process.env.STUDIO_EVAL_SESSION_DIR || path.join( setup.dirs.tmp, 'studio-eval-sessions' ),
+	};
+	// The evals read the run's config, and give each case a copy of it, through E2E_SHARED_CONFIG_PATH,
+	// which DEV_CONFIG_DIR would override.
+	delete env.DEV_CONFIG_DIR;
 	delete env.STUDIO_BASE_PORT;
+	const redact = ( text ) => String( text || '' ).split( login.token.accessToken ).join( '[token]' );
 	const auth = spawnSync( process.execPath, [ CLI_MAIN, 'auth', 'status', '--format', 'json' ], {
 		cwd: setup.dirs.sites,
 		env,
 		encoding: 'utf8',
 		timeout: 60000,
 	} );
-	let authenticated = null;
+	let account = null;
 	try {
-		authenticated = JSON.parse( auth.stdout.slice( auth.stdout.indexOf( '{' ) ) ).authenticated === true;
+		account = JSON.parse( auth.stdout.slice( auth.stdout.indexOf( '{' ) ) );
 	} catch {}
-	if ( ! authenticated ) {
+	if ( account?.authenticated !== true ) {
 		fail(
-			`The evals need a WordPress.com login in the Studio of ${ agent }, and ${
-				authenticated === false
-					? 'it has none'
-					: `\`studio auth status\` could not confirm one: ${ tail( auth.stderr || auth.stdout || '', 3 ).trim() }`
-			}. Agents are not logged in to WordPress.com; ask the owner.`
+			account?.authenticated === false
+				? `\`studio auth status\` finds the owner's login from ${ login.file } invalid or expired. ${ LOG_IN }`
+				: `WordPress.com did not confirm the owner's login from ${ login.file }: ${ redact(
+						tail( auth.stderr || auth.stdout, 3 )
+				  )
+						.trim()
+						.replace( /\.$/, '' ) }. ${ LOG_IN }`
 		);
 	}
-	const status = await runChild( 'sh', [ '-c', `${ promptfoo } "$@"`, 'eval', ...args ], { cwd: ROOT, env } );
+	const user = account.username || account.email || `user ${ account.id }`;
+	log(
+		`The evals run logged in to WordPress.com as ${ user }${ account.email && account.email !== user ? ` (${ account.email })` : '' }.`
+	);
+	const quota = await aiQuota( login.token.accessToken );
+	checkQuota( quota, user );
+	checkTiers(
+		paidCases( promptfoo, args, process.env.STUDIO_EVAL_MODEL?.trim() ),
+		quota,
+		account.email || login.token.email,
+		user
+	);
+	// Every copy of the login the evals write is the owner's alone to read.
+	const umask = process.umask( 0o077 );
+	const status = await new Promise( ( resolve ) => {
+		child = spawn( 'sh', [ '-c', `${ promptfoo } "$@"`, 'eval', ...args ], { cwd: ROOT, env, stdio: 'inherit' } );
+		child.on( 'error', () => resolve( 1 ) );
+		child.on( 'exit', ( code, killed ) => resolve( code ?? ( killed ? 128 + os.constants.signals[ killed ] : 1 ) ) );
+	} );
+	child = null;
+	process.umask( umask );
 	harvest( setup.dirs.config );
 	touchUse( setup.dirs );
 	process.exit( status );

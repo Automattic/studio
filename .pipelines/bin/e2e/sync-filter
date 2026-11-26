@@ -1,0 +1,27 @@
+# rsync rules for /src (worktree, read-only) -> /work (volume). Mirrors .gitignore: everything
+# excluded here is neither copied from the host nor deleted from /work, so Linux build outputs
+# (node_modules, out/, dist/, downloads) survive a sync and host build outputs never leak in.
+# The pipelines' own files stay out, and so does the runner's state in /work/.rp-e2e.
+- /.git
+- /.pipelines/
+- /.rp-e2e/
+- /.worktrees/
+- node_modules/
+- out/
++ /packages/data-liberation-agent/dist/***
+- dist/
+- dist-local/
+- dist-static/
++ /wp-files/blueprints/***
+- /wp-files/*
+- test-results/
+- /test-fixtures/downloads/
+- /apps/studio/bin/node
+- /apps/studio/bin/studio-cli.exe
+- /apps/studio/php-bin/
+- /standalone-bundles/
+- .DS_Store
+- .vite/
+- .cache/
+- *.tsbuildinfo
+- *.log

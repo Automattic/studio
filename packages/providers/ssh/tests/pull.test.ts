@@ -21,6 +21,7 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 		const content = path.join( root, 'app' );
 		for ( const file of [
 			'plugins/akismet/akismet.php',
+			'plugins/.htaccess',
 			'uploads/a.jpg',
 			'cache/page.html',
 			'object-cache.php',
@@ -62,6 +63,7 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 		const { entries, percents } = await pull( [ 'all' ] );
 		expect( entries ).toEqual( [
 			'sql/database.sql',
+			'wp-content/plugins/.htaccess',
 			'wp-content/plugins/akismet/akismet.php',
 			'wp-content/plugins/jetpack/jetpack.php',
 			'wp-content/uploads/a.jpg',
@@ -77,6 +79,7 @@ describe.skipIf( process.platform === 'win32' )( 'pulling over SSH', () => {
 	it( 'sends only what was picked', async () => {
 		const { entries } = await pull( [ 'plugins' ] );
 		expect( entries ).toEqual( [
+			'wp-content/plugins/.htaccess',
 			'wp-content/plugins/akismet/akismet.php',
 			'wp-content/plugins/jetpack/jetpack.php',
 		] );

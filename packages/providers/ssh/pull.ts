@@ -34,13 +34,13 @@ studio_export "$dir/sql/database.sql" "$(studio_wp db tables --all-tables-with-p
 echo sql >> "$dir/items"`;
 	// A folder the host links in, such as a plugin it manages, is sent as what it links to, which
 	// \`/.\` follows.
-	const list = `list() { if [ -L "$1" ] && [ -d "$1" ]; then printf '%s/.\\n' "$1"; else printf '%s\\n' "$1"; fi >> items; }`;
+	const studioList = `studio_list() { if [ -L "$1" ] && [ -d "$1" ]; then printf '%s/.\\n' "$1"; else printf '%s\\n' "$1"; fi >> items; }`;
 	const content = onlyPaths.length
-		? `${ list }
+		? `${ studioList }
 for only in ${ onlyPaths.map( shellQuote ).join( ' ' ) }; do
-	[ ! -e "wp-content/$only" ] || list "wp-content/$only"
+	[ ! -e "wp-content/$only" ] || studio_list "wp-content/$only"
 done`
-		: `${ list }
+		: `${ studioList }
 for item in wp-content/*; do
 	case "\${item#wp-content/}" in
 		plugins) want=${ wants( 'plugins' ) } ;;
@@ -50,8 +50,10 @@ for item in wp-content/*; do
 	esac
 	[ -n "$want" ] && [ -e "$item" ] || continue
 	case "\${item#wp-content/}" in
-		plugins | themes) for entry in "$item"/*; do [ ! -e "$entry" ] || list "$entry"; done ;;
-		*) list "$item" ;;
+		plugins | themes) for entry in "$item"/* "$item"/.[!.]* "$item"/..?*; do
+			[ ! -e "$entry" ] || studio_list "$entry"
+		done ;;
+		*) studio_list "$item" ;;
 	esac
 done`;
 	return `set -e

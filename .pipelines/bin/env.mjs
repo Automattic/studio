@@ -1728,21 +1728,34 @@ async function removeWhere( match ) {
 	return roots;
 }
 
+// Whether an `.app` registered in LaunchServices belongs to a worktree that is gone: one of the
+// `roots` being removed, or a folder under the worktree folder root `worktrees` with no worktree
+// between them. A worktree's folder nests as deep as its branch name, such as `rp/<slug>`.
+function bundleGone( bundle, roots, worktrees ) {
+	if ( [ ...roots ].some( ( root ) => inside( bundle, root ) ) ) {
+		return true;
+	}
+	if ( ! inside( bundle, worktrees ) ) {
+		return false;
+	}
+	for (
+		let dir = path.dirname( bundle );
+		dir !== worktrees && inside( dir, worktrees );
+		dir = path.dirname( dir )
+	) {
+		if ( isWorktree( dir ) ) {
+			return false;
+		}
+	}
+	return true;
+}
+
 async function prune() {
 	const main = mainCheckout() || ROOT;
 	const worktrees = path.join( main, '.worktrees' );
 	const roots = await removeWhere( ( root ) => !! root && ! isWorktree( root ) );
 	sweepLogins( homes() );
-	unregisterApps( ( bundle ) => {
-		if ( [ ...roots ].some( ( root ) => inside( bundle, root ) ) ) {
-			return true;
-		}
-		const relative = path.relative( worktrees, bundle );
-		if ( relative.startsWith( '..' ) || path.isAbsolute( relative ) ) {
-			return false;
-		}
-		return ! isWorktree( path.join( worktrees, relative.split( path.sep )[ 0 ] ) );
-	} );
+	unregisterApps( ( bundle ) => bundleGone( bundle, roots, worktrees ) );
 	cleanCache();
 	await removeE2e( ( root ) => ! isWorktree( root ) );
 }

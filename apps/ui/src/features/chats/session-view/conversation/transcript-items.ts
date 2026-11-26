@@ -11,7 +11,11 @@ import {
 	type StudioChatAttachmentSummary,
 	type StudioCustomEntry,
 } from '@studio/agent/protocol/sessions/entry-types';
-import { getToolResultDiff, type NormalizedToolResult } from '@studio/agent/protocol/tools';
+import {
+	getToolResultDiff,
+	getToolResultSkill,
+	type NormalizedToolResult,
+} from '@studio/agent/protocol/tools';
 import { isStreamingReply } from '@/data/agent-runs/streaming-reply';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
@@ -172,6 +176,7 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			text: stripMediaWidgetPayloadLines( text ).replace( ANSI_STYLE_SEQUENCE, '' ),
 			isError: message.isError === true,
 			diff: message.isError === true ? undefined : getToolResultDiff( message.details ),
+			skill: message.isError === true ? undefined : getToolResultSkill( message.details ),
 		} );
 	}
 

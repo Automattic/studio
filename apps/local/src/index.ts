@@ -28,6 +28,7 @@ import {
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
+import { RESERVED_SKILL_NAMES } from '@studio/agent/protocol/reserved-skill-names';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { THINKING_SETTINGS } from '@studio/agent/protocol/thinking';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
@@ -35,12 +36,15 @@ import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
+	createSiteSkill,
 	getSiteAgentFiles,
+	getSiteSkillDetails,
 	getSkillsStatusForAllSites,
 	installSkillToAllSites,
 	removeSiteAgentFile,
 	removeSkillFromAllSites,
 	setSiteAgentFileEnabled,
+	updateSiteSkill,
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
 import {
@@ -91,6 +95,16 @@ import {
 } from '@studio/common/lib/fs-utils';
 import { generateNumberedName, generateSiteName } from '@studio/common/lib/generate-site-name';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import {
+	createGlobalSkill,
+	getGlobalSkillDetails,
+	getGlobalSkillDirectory,
+	getGlobalSkills,
+	updateGlobalSkill,
+	removeGlobalSkill,
+	setGlobalSkillEnabled,
+	type GlobalSkillSource,
+} from '@studio/common/lib/global-skills';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { isSupportedLocale } from '@studio/common/lib/locale';
@@ -159,6 +173,8 @@ import {
 	getSiteCreationVisibility,
 	getSiteVisibility,
 	setSiteVisibility,
+	resolveRemoteSite,
+	runSitesAction,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -220,6 +236,7 @@ import type {
 	TracksSiteCreateFlowType,
 } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { SkillDraft } from '@studio/common/lib/skill-draft';
 import type { UserPreferencesContext } from '@studio/common/lib/user-settings/user-preferences';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import type { Request, RequestHandler, Response } from 'express';
@@ -867,7 +884,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			if ( ! provider ) {
 				return;
 			}
-			if ( typeof method !== 'string' || ! getProviderServices( provider ).account.start ) {
+			if ( typeof method !== 'string' || ! getProviderServices( provider ).account?.start ) {
 				res.status( 400 ).json( { error: `${ provider } does not sign in on its site` } );
 				return;
 			}
@@ -2008,9 +2025,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// All backed by the same @studio/common code the desktop uses. Reads the
 	// providers' configs from the config file (WordPress.com: `studio auth login`).
 	// WordPress.com site ids are numbers; other providers' are strings.
-	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): never {
+	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): string | number {
 		const { remoteSiteId } = req.params;
-		return ( provider === 'wpcom' ? Number( remoteSiteId ) : remoteSiteId ) as never;
+		return provider === 'wpcom' ? Number( remoteSiteId ) : remoteSiteId;
 	}
 
 	function readSitesProvider( req: Request, res: Response ): SitesProviderId | undefined {
@@ -2079,8 +2096,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				await connectPublishingSite( provider, req.params.id, req.body as never );
+				await connectPublishingSite( provider, req.params.id, req.body );
 				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	api.post(
+		'/remote-sites/:provider/actions/:action',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json(
+					await runSitesAction( getProviderServices( provider ), req.params.action, req.body )
+				);
+			}
+		} )
+	);
+
+	api.post(
+		'/remote-sites/:provider/resolve',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json( await resolveRemoteSite( getProviderServices( provider ), { input: req.body } ) );
 			}
 		} )
 	);
@@ -2090,7 +2129,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				res.json( await getSiteCreationVisibility( getProviderServices( provider ) ) );
+				const input = z.record( z.string(), z.string() ).catch( {} ).parse( req.query );
+				res.json( await getSiteCreationVisibility( getProviderServices( provider ), input ) );
 			}
 		} )
 	);
@@ -2106,6 +2146,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				.object( {
 					name: z.string().min( 1 ),
 					visibility: z.enum( [ 'public', 'private' ] ).optional(),
+					input: z.record( z.string(), z.string() ).optional(),
 					connect: z.boolean().optional(),
 				} )
 				.safeParse( req.body );
@@ -2113,15 +2154,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid site creation request.' } );
 				return;
 			}
-			const { name, visibility, connect } = input.data;
+			const { connect, ...site } = input.data;
 			res.json(
-				await createRemoteSite(
-					getProviderServices( provider ),
-					req.params.id,
-					name,
-					visibility,
-					connect
-				)
+				await createRemoteSite( getProviderServices( provider ), req.params.id, site, connect )
 			);
 		} )
 	);
@@ -2615,10 +2650,151 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// A site's own skills, made and changed in the app.
+	const readSkillDraft = ( req: Request, res: Response ): SkillDraft | null => {
+		const { name, description, instructions } = req.body ?? {};
+		if (
+			typeof name !== 'string' ||
+			typeof description !== 'string' ||
+			typeof instructions !== 'string'
+		) {
+			res.status( 400 ).json( { error: 'name, description and instructions required' } );
+			return null;
+		}
+		return { name, description, instructions };
+	};
+
+	api.post(
+		'/sites/:id/skills',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: 'Not found' } );
+				return;
+			}
+			const draft = readSkillDraft( req, res );
+			if ( draft ) {
+				res.json( { id: await createSiteSkill( sitePath, draft, RESERVED_SKILL_NAMES ) } );
+			}
+		} )
+	);
+
+	api.get(
+		'/sites/:id/skills/:skillId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: 'Not found' } );
+				return;
+			}
+			res.json( await getSiteSkillDetails( sitePath, req.params.skillId ) );
+		} )
+	);
+
+	api.put(
+		'/sites/:id/skills/:skillId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const sitePath = await readSitePath( req.params.id );
+			if ( ! sitePath ) {
+				res.status( 404 ).json( { error: 'Not found' } );
+				return;
+			}
+			const draft = readSkillDraft( req, res );
+			if ( draft ) {
+				res.json( {
+					id: await updateSiteSkill( sitePath, req.params.skillId, draft, RESERVED_SKILL_NAMES ),
+				} );
+			}
+		} )
+	);
+
 	api.delete(
 		'/skills/:id',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			await removeSkillFromAllSites( req.params.id );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	// --- The user's skills for all sites ---------------------------------------
+	api.get(
+		'/global-skills',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await getGlobalSkills() );
+		} )
+	);
+
+	const readGlobalSkillSource = ( req: Request, res: Response ): GlobalSkillSource | null => {
+		const { source } = req.params;
+		if ( source !== 'studio' && source !== 'agents' ) {
+			res.status( 404 ).json( { error: 'Not found' } );
+			return null;
+		}
+		return source;
+	};
+
+	api.put(
+		'/global-skills/:source/:skillId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const source = readGlobalSkillSource( req, res );
+			if ( ! source ) {
+				return;
+			}
+			if ( typeof req.body?.enabled !== 'boolean' ) {
+				res.status( 400 ).json( { error: 'enabled required' } );
+				return;
+			}
+			await setGlobalSkillEnabled( source, req.params.skillId, req.body.enabled );
+			res.sendStatus( 204 );
+		} )
+	);
+
+	api.post(
+		'/global-skills/:source/:skillId/open',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const source = readGlobalSkillSource( req, res );
+			if ( source ) {
+				await openPath( await getGlobalSkillDirectory( source, req.params.skillId ) );
+				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	// Studio's own are made and changed in the app; the other agents' skills in their folder.
+	api.post(
+		'/global-skills/studio',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const draft = readSkillDraft( req, res );
+			if ( draft ) {
+				res.json( { id: await createGlobalSkill( draft, RESERVED_SKILL_NAMES ) } );
+			}
+		} )
+	);
+
+	api.get(
+		'/global-skills/studio/:skillId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( await getGlobalSkillDetails( req.params.skillId ) );
+		} )
+	);
+
+	api.put(
+		'/global-skills/studio/:skillId/content',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const draft = readSkillDraft( req, res );
+			if ( draft ) {
+				res.json( {
+					id: await updateGlobalSkill( req.params.skillId, draft, RESERVED_SKILL_NAMES ),
+				} );
+			}
+		} )
+	);
+
+	// Only Studio's own can be deleted: the other agents' skills are theirs too.
+	api.delete(
+		'/global-skills/studio/:skillId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			await removeGlobalSkill( req.params.skillId );
 			res.sendStatus( 204 );
 		} )
 	);

@@ -2,9 +2,9 @@ import { __ } from '@wordpress/i18n';
 import { ConnectError } from '../errors';
 import { SpacefastApiError, startDeviceLogin, waitForDeviceLogin } from './api';
 import type { SpacefastConfig } from './config';
-import type { ProviderServices } from '../types';
+import type { AccountServices } from '../types';
 
-export const spacefastAccount: ProviderServices< SpacefastConfig >[ 'account' ] = {
+export const spacefastAccount: AccountServices< SpacefastConfig > = {
 	async start() {
 		const login = await startDeviceLogin();
 		return {

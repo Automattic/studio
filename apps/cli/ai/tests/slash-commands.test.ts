@@ -278,7 +278,7 @@ describe( '/credits slash command', () => {
 			{ label: '500,000 credits', description: '£37.50' },
 		] );
 		expect( m.browser.openBrowser ).toHaveBeenCalledWith(
-			'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-500000'
+			'https://wordpress.com/checkout/studio/studio-code-ai-credits:-q-500000'
 		);
 	} );
 
@@ -317,7 +317,7 @@ describe( '/credits slash command', () => {
 		expect( options ).toHaveLength( 1 );
 		expect( options[ 0 ].label ).toBe( 'Add AI credits' );
 		expect( m.browser.openBrowser ).toHaveBeenCalledWith(
-			'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000'
+			'https://wordpress.com/checkout/studio/studio-code-ai-credits:-q-100000'
 		);
 	} );
 

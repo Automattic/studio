@@ -1,6 +1,8 @@
 import { buildSettingsLink } from '@studio/common/lib/settings-link';
-import { Badge, Button, type ButtonProps } from '@studio/ds';
 import {
+	Badge,
+	Button,
+	type ButtonProps,
 	Field,
 	FieldContent,
 	FieldDescription,
@@ -78,6 +80,7 @@ export function SettingsRow( {
 	settingId,
 	icon,
 	badge,
+	wrapBadge = false,
 	description,
 	additionalContent,
 	error,
@@ -90,6 +93,9 @@ export function SettingsRow( {
 	icon?: ReactNode;
 	// Shown next to the title, like a "Connected" status.
 	badge?: ReactNode;
+	// Lets the badge drop to its own line when it does not fit beside the title, so a long
+	// title keeps the full width.
+	wrapBadge?: boolean;
 	description?: ReactNode;
 	// Shown under the description, like a link to a related section.
 	additionalContent?: ReactNode;
@@ -115,7 +121,7 @@ export function SettingsRow( {
 	const fieldContent = (
 		<FieldContent>
 			{ linkId || badge ? (
-				<div className={ styles.rowTitle }>
+				<div className={ styles.rowTitle } data-wrap={ wrapBadge || undefined }>
 					{ fieldTitle }
 					{ badge }
 					{ linkId ? <SettingLinkButton id={ linkId } title={ title } /> : null }

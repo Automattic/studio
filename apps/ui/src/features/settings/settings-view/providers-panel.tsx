@@ -1,7 +1,7 @@
 import { Button } from '@studio/ds';
 import { useOffline } from '@studio/ds/hooks';
 import { ExternalLinkIcon } from '@studio/ds/icons';
-import { getProvider } from '@studio/providers';
+import { getProvider, getProviderSites } from '@studio/providers';
 import { __, _x } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import {
@@ -10,7 +10,7 @@ import {
 	useSetImageProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { useConnectedHostingProviders, usePublishProviders } from '@/data/queries/use-remote-sites';
+import { useConnectedHostingProviders, useSitesProviders } from '@/data/queries/use-remote-sites';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SETTINGS_AI_PROVIDER_IDS } from '@/data/settings-sections';
 import { LearnMoreLink } from '@/features/onboarding';
@@ -33,6 +33,7 @@ function DefaultProviderRow< Id extends ProviderId >( {
 	disabled,
 	error,
 	automatic,
+	implied,
 	onChange,
 }: {
 	title: string;
@@ -45,9 +46,15 @@ function DefaultProviderRow< Id extends ProviderId >( {
 	error?: string;
 	// Offers to pick automatically, as a null value.
 	automatic?: boolean;
+	// What's used while none is chosen, when not the only connected provider.
+	implied?: Id | null;
 	onChange: ( value: Id | null ) => void;
 } ) {
 	const onlyProvider = connected.length === 1 && ! automatic ? connected[ 0 ] : undefined;
+	const shown =
+		implied === undefined
+			? onlyProvider ?? value
+			: ( value && connected.includes( value ) ? value : null ) ?? implied;
 	const hasProviders = connected.length > 0;
 	const placeholder = hasProviders
 		? __( 'Choose a provider' )
@@ -64,7 +71,7 @@ function DefaultProviderRow< Id extends ProviderId >( {
 		>
 			<SettingsSelect< Id | typeof AUTOMATIC >
 				label={ title }
-				value={ onlyProvider ?? value ?? ( automatic && hasProviders ? AUTOMATIC : null ) }
+				value={ shown ?? ( automatic && hasProviders ? AUTOMATIC : null ) }
 				placeholder={ placeholder }
 				disabled={ disabled || ! hasProviders }
 				options={ [
@@ -139,6 +146,8 @@ function ProviderDefaults( {
 				description={ __( 'For publishing sites.' ) }
 				settingId="default-hosting-provider"
 				connected={ hosting.connected }
+				// As Publish: a provider that only connects sites the user has isn't the default.
+				implied={ hosting.connected.find( ( id ) => getProviderSites( id ).newSite ) ?? null }
 				value={ preferences.data?.defaultHostingProvider ?? null }
 				loading={ hosting.isPending }
 				disabled={ ! preferences.data || save.isPending }
@@ -202,6 +211,14 @@ function HostingProviders( {
 					</SettingsRow>
 				) : id === 'spacefast' ? (
 					<SpacefastProviderRow key={ id } { ...spacefast } />
+				) : ! getProvider( id ).account ? (
+					<SettingsRow
+						key={ id }
+						title={ getProvider( id ).label }
+						settingId={ `${ id }-provider` }
+						icon={ <ProviderLogo provider={ id } /> }
+						description={ getProviderSites( id ).intro.description() }
+					/>
 				) : (
 					<ProviderRow
 						key={ id }
@@ -225,8 +242,12 @@ export function ProvidersPanel( {
 	const aiProviders = SETTINGS_AI_PROVIDER_IDS.filter(
 		( id ) => id === 'wpcom' || getProviderConnectMethods( id, loopbackSignIn ).length > 0
 	);
-	const hostingProviders = usePublishProviders().filter(
-		( id ) => id === 'wpcom' || getProviderConnectMethods( id, loopbackSignIn ).length > 0
+	// A provider without an account has nothing to connect here, and is always ready.
+	const hostingProviders = useSitesProviders( 'publish' ).filter(
+		( id ) =>
+			id === 'wpcom' ||
+			! getProvider( id ).account ||
+			getProviderConnectMethods( id, loopbackSignIn ).length > 0
 	);
 
 	return (

@@ -79,6 +79,45 @@ tests:
       - type: javascript
         value: file://outcome.mjs:replyIncludes
 
+  # A skill the user keeps in the site's folder: the agent finds it in the
+  # Skill tool and loads it when the request matches its description.
+  - description: agent follows a skill saved in the active site
+    vars:
+      caseId: site-skill
+      expectedText: STUDIO-EVAL-SKILL-4682
+      timeoutMs: 120000
+      seed:
+        activeSite:
+          name: Eval Site Skill
+          files:
+            .agents/skills/house-sign-off/SKILL.md: |
+              ---
+              name: house-sign-off
+              description: How this site signs off a message. Use it when the user asks for the house sign-off.
+              ---
+
+              The house sign-off is the exact token STUDIO-EVAL-SKILL-4682. Reply with it.
+      prompt: Give me the house sign-off for this site.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:replyIncludes
+
+  # /create-skill writes the skill from what the user described and saves it with
+  # save_skill, in the place they named, without a file written by hand.
+  - description: /create-skill saves a skill in the active site
+    vars:
+      caseId: create-skill
+      scope: site
+      timeoutMs: 120000
+      seed:
+        activeSite:
+          name: Eval Create Skill
+      prompt: |
+        /create-skill Only for this site: when I ask for a lookbook post, create a post in the "Lookbook" category titled "<Season> lookbook", open with one full-width cover image, and keep the copy under 120 words.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillSaved
+
   - description: asking for a site leaves a working new site
     vars:
       caseId: site-creation
@@ -891,6 +930,70 @@ tests:
             if (asked && kept) return { pass: true, score: 1, reason: `agent stopped to ask about the Site Editor customization; ${state}` };
             if (!kept) return { pass: false, score: 0, reason: `the user's Site Editor customization was discarded${asked ? '' : ' without asking'}; ${state}` };
             return { pass: false, score: 0, reason: `change never reached the rendered header and the agent did not ask; ${state}; final reply: ${finalText.slice(0, 300)}` };
+          });
+
+  # Issue 6206: menu items typed as URLs aren't connected to their pages. The
+  # inspection renders the site's real header on each page, then again after
+  # renaming every page's slug. Passes when each page's item is marked current
+  # on that page and still links to it under its new slug.
+  - description: menu items link to the pages themselves
+    vars:
+      caseId: page-linked-menu
+      timeoutMs: 420000
+      seed:
+        activeSite:
+          name: Eval Page Menu
+          files: *stu2155_theme_files
+          wpCli:
+            - [theme, activate, bakery]
+            - [rewrite, structure, "/%postname%/"]
+            - [post, create, --post_type=page, --post_status=publish, --post_title=About]
+            - [post, create, --post_type=page, --post_status=publish, --post_title=Breads]
+            - [post, create, --post_type=page, --post_status=publish, --post_title=Contact]
+          inspect:
+            - - eval
+              - |
+                $render = function ( $id ) {
+                	global $wp_query, $wp_the_query;
+                	$wp_query = $wp_the_query = new WP_Query( array( 'page_id' => $id ) );
+                	$wp_query->get_queried_object();
+                	$part = get_block_template( get_stylesheet() . '//header', 'wp_template_part' );
+                	preg_match_all( '/<li\b[^>]*class="([^"]*)"[^>]*>\s*<a\b[^>]*href="([^"]*)"/', do_blocks( $part ? $part->content : '' ), $m, PREG_SET_ORDER );
+                	return array_map( fn ( $x ) => array( 'href' => untrailingslashit( wp_make_link_relative( $x[2] ) ), 'current' => str_contains( $x[1], 'current-menu-item' ) ), $m );
+                };
+                $check = function () use ( $render ) {
+                	$out = array();
+                	foreach ( array( 'About', 'Breads', 'Contact' ) as $title ) {
+                		$page = get_posts( array( 'post_type' => 'page', 'title' => $title, 'numberposts' => 1 ) )[0] ?? null;
+                		if ( ! $page ) { $out[ $title ] = 'missing'; continue; }
+                		$own = array_values( array_filter( $render( $page->ID ), fn ( $i ) => untrailingslashit( wp_make_link_relative( get_permalink( $page ) ) ) === $i['href'] ) );
+                		$out[ $title ] = $own ? ( $own[0]['current'] ? 'current' : 'linked' ) : 'unlinked';
+                	}
+                	return $out;
+                };
+                $before = $check();
+                foreach ( array( 'About', 'Breads', 'Contact' ) as $title ) {
+                	$page = get_posts( array( 'post_type' => 'page', 'title' => $title, 'numberposts' => 1 ) )[0] ?? null;
+                	if ( $page ) { wp_update_post( array( 'ID' => $page->ID, 'post_name' => $page->post_name . '-renamed' ) ); }
+                }
+                echo 'INSPECT_JSON=' . wp_json_encode( array( 'before' => $before, 'renamed' => $check() ) ) . "\n";
+      prompt: |
+        Add a menu to the header with links to the About, Breads and Contact pages.
+    assert:
+      - type: javascript
+        value: |
+          return import('node:fs').then(({ readFileSync }) => {
+            const marker = output.split(/\r?\n/).map(l => l.trim()).find(l => l.startsWith('EVAL_RUNNER_RESULT_FILE='));
+            if (!marker) return { pass: false, score: 0, reason: `no result-file marker on stdout; got: ${output.slice(0, 200)}` };
+            const d = JSON.parse(readFileSync(marker.slice('EVAL_RUNNER_RESULT_FILE='.length), 'utf8'));
+            const raw = (d.inspections || []).map(i => i.stdout).join('\n').match(/INSPECT_JSON=(.*)/);
+            if (!raw) return { pass: false, score: 0, reason: `no menu inspection: ${JSON.stringify(d.inspections || d.error).slice(0, 300)}` };
+            const { before, renamed } = JSON.parse(raw[1]);
+            const state = `before: ${JSON.stringify(before)}; after renaming the slugs: ${JSON.stringify(renamed)}`;
+            const ok = (s) => Object.values(s).every(v => v === 'current');
+            if (ok(before) && ok(renamed)) return { pass: true, score: 1, reason: `each item follows its page; ${state}` };
+            if (!ok(before)) return { pass: false, score: 0, reason: `items aren't connected to their pages; ${state}` };
+            return { pass: false, score: 0, reason: `items lose their page when its slug changes; ${state}` };
           });
 
   # STU-2155: colors saved in the Site Editor's Styles panel live in the

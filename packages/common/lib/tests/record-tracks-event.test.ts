@@ -92,6 +92,11 @@ describe( '__recordTracksEvent', () => {
 			'fetch',
 			vi.fn( () => Promise.resolve( new Response() ) )
 		);
+		// The suite itself runs under Vitest, and under CI on CI.
+		for ( const name of [ 'E2E', 'CI', 'VITEST' ] ) {
+			delete process.env[ name ];
+		}
+		process.env.NODE_ENV = 'production';
 	} );
 
 	afterEach( () => {
@@ -100,9 +105,6 @@ describe( '__recordTracksEvent', () => {
 	} );
 
 	it( 'sends a fire-and-forget GET to the pixel endpoint', () => {
-		delete process.env.E2E;
-		process.env.NODE_ENV = 'production';
-
 		const result = __recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, IDENTITY, {
 			channel: 'studio-ui',
 		} );
@@ -115,25 +117,14 @@ describe( '__recordTracksEvent', () => {
 		expect( options ).toMatchObject( { method: 'GET', signal: expect.any( AbortSignal ) } );
 	} );
 
-	it( 'no-ops in E2E', () => {
-		process.env.E2E = 'true';
-		process.env.NODE_ENV = 'production';
-
-		expect( __recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, IDENTITY, {} ) ).toBe( false );
-		expect( fetch ).not.toHaveBeenCalled();
-	} );
-
-	it( 'no-ops in development', () => {
-		delete process.env.E2E;
-		process.env.NODE_ENV = 'development';
-
-		expect( __recordTracksEvent( TRACKS_EVENTS.SITE_START, IDENTITY, {} ) ).toBe( false );
-		expect( fetch ).not.toHaveBeenCalled();
-	} );
-
-	it( 'no-ops in tests', () => {
-		delete process.env.E2E;
-		process.env.NODE_ENV = 'test';
+	it.each( [
+		[ 'E2E', 'true' ],
+		[ 'CI', 'true' ],
+		[ 'VITEST', 'true' ],
+		[ 'NODE_ENV', 'test' ],
+		[ 'NODE_ENV', 'development' ],
+	] )( 'no-ops when %s is %s', ( name, value ) => {
+		process.env[ name ] = value;
 
 		expect( __recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH, IDENTITY, {} ) ).toBe( false );
 		expect( fetch ).not.toHaveBeenCalled();
@@ -142,7 +133,6 @@ describe( '__recordTracksEvent', () => {
 	// The dev log stands in for the request, so an optional prop that was never sent must not appear
 	// in it as `undefined`.
 	it( 'logs only the props that would be sent', () => {
-		delete process.env.E2E;
 		process.env.NODE_ENV = 'development';
 		const info = vi.spyOn( console, 'info' ).mockImplementation( () => {} );
 

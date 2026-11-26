@@ -9,7 +9,7 @@ type PlanTier = 'cloud' | 'pro';
 
 const planSlug = ( tier: PlanTier, period: BillingPeriod ) => `studio-${ tier }-${ period }`;
 
-export const checkoutUrl = ( slug: string ) => `https://wordpress.com/checkout/wpcom/${ slug }`;
+export const checkoutUrl = ( slug: string ) => `https://wordpress.com/checkout/studio/${ slug }`;
 
 /** The tier and period a plan slug names, or null for anything else. */
 export function parsePlanSlug(

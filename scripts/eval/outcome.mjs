@@ -737,6 +737,27 @@ export const designTokenReachedTheme = check( ( d, vars ) => {
 		: fail( `DESIGN.md ${ vars.token } is ${ value }, but the theme palette does not have it` );
 } );
 
+// The agent saved one skill with save_skill, for `vars.scope` (`site` or `all_sites`), with a
+// description agents can pick it by, and told the user its command.
+export const skillSaved = check( ( d, vars ) => {
+	const saves = ( d.toolCalls || [] ).filter( ( c ) => c.name === 'save_skill' );
+	if ( saves.length !== 1 ) return fail( `save_skill was called ${ saves.length } times` );
+	const { scope, name, description, instructions } = saves[ 0 ].input || {};
+	if ( scope !== vars.scope ) return fail( `saved for "${ scope }", not "${ vars.scope }"` );
+	if ( ! name || ! description || ! instructions )
+		return fail( `the skill is incomplete: ${ JSON.stringify( saves[ 0 ].input ) }` );
+	// The same steps as `getSkillId` (`packages/common/lib/skill-draft.ts`).
+	const command = `/${ String( name )
+		.normalize( 'NFKD' )
+		.replace( /[\u0300-\u036f]/g, '' )
+		.toLowerCase()
+		.replace( /[^a-z0-9]+/g, '-' )
+		.replace( /^-+|-+$/g, '' ) }`;
+	return finalReply( d ).includes( command )
+		? pass( `saved "${ name }" and told the user to type ${ command }` )
+		: fail( `the reply never gives ${ command }: ${ finalReply( d ).slice( 0, 300 ) }` );
+} );
+
 // Routing: every skill in `vars.skills` was loaded before the run's stop call
 // (`vars.stopAt`), that is, before the agent started the work. A run that never
 // reached a stop call is judged on all of its calls.

@@ -18,6 +18,11 @@ const originalEnv = { ...process.env };
 beforeEach( () => {
 	vi.clearAllMocks();
 	lastBump = {};
+	// The suite itself runs under Vitest, and under CI on CI.
+	for ( const name of [ 'E2E', 'CI', 'VITEST' ] ) {
+		delete process.env[ name ];
+	}
+	process.env.NODE_ENV = 'production';
 } );
 
 afterEach( () => {

@@ -6,7 +6,7 @@ import { textResult } from './utils';
 
 export const pullSiteTool = defineTool(
 	'site_pull',
-	'Pulls a WordPress.com site to a local WordPress site. Requires the user to be signed in to WordPress.com. ' +
+	'Pulls a remote site to a local WordPress site: a WordPress.com site, which requires the user to be signed in to WordPress.com, or a WordPress site on a server Studio reaches over SSH. ' +
 		'Copies the remote site into the local one, which can take several minutes ' +
 		'depending on site size. ' +
 		'Make sure a local site exists first (create one with site_create if needed); a running local site is stopped during the pull and restarted afterward. ' +
@@ -15,7 +15,7 @@ export const pullSiteTool = defineTool(
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		remoteSite: Type.String( {
 			description:
-				'The remote site to pull from: the `remoteSite` of an entry from site_connected_remote_sites, or a WordPress.com site URL or numeric site ID',
+				'The remote site to pull from: the `remoteSite` of an entry from site_connected_remote_sites, a WordPress.com site URL or numeric site ID, or `ssh:<user@host:/path/to/wordpress>` for a site on a server the user named',
 		} ),
 		options: Type.Optional(
 			Type.String( {

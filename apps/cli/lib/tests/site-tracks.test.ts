@@ -18,7 +18,7 @@ import {
 } from 'cli/lib/cli-config/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
-vi.unmock( 'lockfile' );
+vi.unmock( 'proper-lockfile' );
 vi.mock( '@studio/common/lib/config/store', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/common/lib/config/store') >();
 	return { ...actual, updateConfig: vi.fn( actual.updateConfig ) };
@@ -215,6 +215,8 @@ it.each( [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE 
 	'sends opaque props through the existing anonymous wrapper for %s and honors every gate',
 	async ( event ) => {
 		vi.stubEnv( 'NODE_ENV', 'production' );
+		vi.stubEnv( 'VITEST', '' );
+		vi.stubEnv( 'CI', '' );
 		const send = vi.fn().mockResolvedValue( {} );
 		vi.stubGlobal( 'fetch', send );
 		const props = await getHostSiteTracksProps( { siteFolder: site.path }, preview );
@@ -285,6 +287,8 @@ it( 'preserves event props when storing the site ID fails', async () => {
 
 it( 'sends preview and site events with the same stored UUID', async () => {
 	vi.stubEnv( 'NODE_ENV', 'production' );
+	vi.stubEnv( 'VITEST', '' );
+	vi.stubEnv( 'CI', '' );
 	const send = vi.fn().mockResolvedValue( {} );
 	vi.stubGlobal( 'fetch', send );
 	for ( const event of [ TRACKS_EVENTS.PREVIEW_SITE_CREATE, TRACKS_EVENTS.PREVIEW_SITE_UPDATE ] ) {
@@ -313,6 +317,8 @@ it( 'sends preview and site events with the same stored UUID', async () => {
 
 it( 'sends the creation UUID through the real Tracks wrapper without preview props', async () => {
 	vi.stubEnv( 'NODE_ENV', 'production' );
+	vi.stubEnv( 'VITEST', '' );
+	vi.stubEnv( 'CI', '' );
 	const send = vi.fn().mockResolvedValue( {} );
 	vi.stubGlobal( 'fetch', send );
 	const props = await getHostSiteTracksProps( { siteFolder: site.path } );

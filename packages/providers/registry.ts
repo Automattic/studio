@@ -6,6 +6,7 @@ import { metaProvider } from './meta/descriptor';
 import { openaiProvider } from './openai/descriptor';
 import { openrouterProvider } from './openrouter/descriptor';
 import { spacefastProvider } from './spacefast/descriptor';
+import { sshProvider } from './ssh/descriptor';
 import { wpcomProvider } from './wpcom/descriptor';
 import { xaiProvider } from './xai/descriptor';
 import type {
@@ -33,6 +34,7 @@ const PROVIDERS: {
 	openrouter: openrouterProvider,
 	'local-llm': localLlmProvider,
 	spacefast: spacefastProvider,
+	ssh: sshProvider,
 };
 
 type Ids< Id > = readonly [ Id, ...Id[] ];

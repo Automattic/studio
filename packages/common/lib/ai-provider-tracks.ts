@@ -112,9 +112,9 @@ export async function getAiTurnTracksProps(
 	} catch {
 		// The props still name the provider and model.
 	}
-	const { methods } = getProvider( provider ).account;
+	const methods = getProvider( provider ).account?.methods;
 	// The CLI's inline WordPress.com token isn't stored, but WordPress.com connects one way.
-	const fallback = methods.length === 1 ? methods[ 0 ].id : undefined;
+	const fallback = methods?.length === 1 ? methods[ 0 ].id : undefined;
 	return {
 		provider,
 		connection_method: account.connected ? account.method : fallback,

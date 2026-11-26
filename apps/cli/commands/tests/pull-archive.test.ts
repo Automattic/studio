@@ -16,7 +16,7 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { runCommand } from '../pull-legacy';
+import { runCommand } from '../pull-archive';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -116,6 +116,30 @@ describe( 'CLI: studio pull', () => {
 				site.id,
 				expect.objectContaining( { kind: result, direction: 'pull' } ),
 			] );
+		}
+	);
+
+	it.each( [
+		[ 'a full pull', [ 'all' ], false, [ 'hold import', 'import', 'start', 'release', 'version' ] ],
+		[ 'a failed full pull', [ 'all' ], true, [ 'hold import', 'release' ] ],
+		[ 'a partial pull', [ 'themes' ], false, [ 'hold import', 'import', 'release' ] ],
+	] as const )(
+		'starts a stopped site before reading its version only after %s',
+		async ( _case, options, fails, expected ) => {
+			vi.mocked( isServerRunning ).mockResolvedValue( undefined as never );
+			vi.mocked( getSiteVersion ).mockImplementation( async () => {
+				steps.push( 'version' );
+				return 'local-version';
+			} );
+			if ( fails ) {
+				importBackup.mockRejectedValue( new Error( 'boom' ) );
+			}
+
+			await runCommand( site.path, [ ...options ], String( remoteSite.id ) ).catch(
+				() => undefined
+			);
+
+			expect( steps ).toEqual( expected );
 		}
 	);
 

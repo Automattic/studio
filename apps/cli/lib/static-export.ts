@@ -74,6 +74,8 @@ export async function exportStaticSite( {
 		await using command = await runWpCliCommand( site, [
 			'--no-color',
 			`--require=${ path.basename( stagingDir ) }/static-export.php`,
+			// A copy the site has installed itself would redeclare the bundled one's functions.
+			'--skip-plugins=simply-static',
 			'studio-static-export',
 		] );
 

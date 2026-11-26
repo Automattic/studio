@@ -70,7 +70,7 @@ export async function startProviderConnect(
 	method: string
 ): Promise< PendingConnect > {
 	const { id, account } = services;
-	if ( ! account.start ) {
+	if ( ! account?.start ) {
 		throw new Error( `${ id } connects without signing in on its site` );
 	}
 	const loopback = getConnectMethod( id, method ).kind === 'loopback';

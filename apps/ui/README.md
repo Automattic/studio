@@ -78,7 +78,7 @@ src/
 - Something used by one feature lives in that feature. Something product-aware used by several lives in the feature that owns the concept and is exported from its entry. Only app-agnostic pieces go in `lib/`. Such shared pieces include `CopyButton` (chats), `SiteIcon` (sites), `Gravatar` (account) and `LearnMoreLink` (onboarding). Toasts go through `showToast` in `data/app-messages`.
 - Features depend on each other in one direction: if `sidebar` imports `chats`, `chats` doesn't import `sidebar`, not even through another feature. Type-only imports don't count. When two features need each other, move the shared piece down into `data/` (state and hooks) or into the lower feature, or let `router/` pass the higher feature's component in as a prop.
 
-These boundaries are lint-enforced (`import-x/no-restricted-paths` and `import-x/no-cycle` in the root `eslint.config.mjs`).
+These boundaries are lint-enforced (`studio/import-boundaries` and `import/no-cycle` in the root `.oxlintrc.json`).
 
 UI is built on Base UI with its own primitives and theme. Icons come from `lucide-react`, plus custom icons in `@studio/ds/icons` (`packages/ds/icons/`), one file each, drawn the same way (24px grid, stroke 2).
 

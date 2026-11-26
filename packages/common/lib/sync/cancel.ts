@@ -33,6 +33,7 @@ const CANCELLABLE_PUSH_PHASES: PushPhase[] = [
 	'generatingStaticSite',
 	'stoppingSite',
 	'uploading',
+	'waitingForRemote',
 ];
 
 /**

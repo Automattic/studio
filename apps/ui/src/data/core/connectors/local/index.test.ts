@@ -119,6 +119,20 @@ describe( 'createLocalConnector Connect contracts', () => {
 		);
 	} );
 
+	it( 'keeps a remote site id with slashes in one path segment', async () => {
+		fetchMock.mockImplementation( async () => Response.json( null ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		const id = 'deploy@acme.com:/srv/www';
+
+		await connector.getSitePublishStatus( 'site-1', id, 'ssh' );
+		await connector.getSiteVisibility( 'ssh', id );
+
+		expect( fetchMock.mock.calls.map( ( [ url ] ) => String( url ) ) ).toEqual( [
+			'http://localhost:8081/api/sites/site-1/publish-status/deploy%40acme.com%3A%2Fsrv%2Fwww?provider=ssh',
+			'http://localhost:8081/api/remote-sites/ssh/deploy%40acme.com%3A%2Fsrv%2Fwww/visibility',
+		] );
+	} );
+
 	it( 'preserves the dispatched turn ID in the message request', async () => {
 		fetchMock.mockResolvedValue( new Response( JSON.stringify( { runId: 'run-a' } ) ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
@@ -465,6 +479,18 @@ describe( 'createLocalConnector for a remote server', () => {
 		streams.filter( ( { url } ) => url === `${ origin }/api/events` );
 	const checkIns = ( origin: string ) =>
 		fetchMock.mock.calls.filter( ( [ url ] ) => url === `${ origin }/api/health` ).length;
+
+	it( 'offers the skills for all sites, and to make or change a skill, only on a server that can', async () => {
+		expect( ( await start( 'https://new.cloud.test' ) ).capabilities ).toMatchObject( {
+			globalSkills: true,
+			skillEditing: true,
+		} );
+		fetchMock.mockImplementation( async () => Response.json( { version: '2.4.0' } ) );
+		expect( ( await start( 'https://old.cloud.test' ) ).capabilities ).toMatchObject( {
+			globalSkills: false,
+			skillEditing: false,
+		} );
+	} );
 
 	it( 'keeps the event stream open only while the page has focus', async () => {
 		await start( 'https://m1.cloud.test' );

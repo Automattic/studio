@@ -37,7 +37,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | OpenRouter (`openrouter`)                    | Sign-in or API key             | Models from many labs                | —          | —        |
 | Local LLM (`local-llm`)                      | Server address, optional key   | The models the server lists          | —          | —        |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —        |
-| Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —        |
+| SSH (`ssh`)                                  | None: the user's SSH setup     | —                                    | push, pull | —        |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
 
@@ -64,11 +64,11 @@ The package is split in two parts, and lint keeps them apart:
 - **What surfaces read**: the registry, and each provider's descriptor, config schema and connection form. `apps/ui` imports only this part.
 - **The services**: the implementations, for the CLI, the apps' backends and the agent.
 
-Neither part uses Node APIs.
+What surfaces read uses no Node APIs. The services may, where a provider runs a program on the user's computer, as SSH runs `ssh`.
 
 Dependencies point one way:
 
-- `@studio/providers` imports no other workspace package. WordPress Studio passes in what a provider needs, such as its config.
+- `@studio/providers` imports no other workspace package but `@studio/ds`, for the forms in `./ui`. WordPress Studio passes in what a provider needs, such as its config.
 - `@studio/common` holds WordPress Studio's side, next to the rest of the config store: storing provider configs, the selected chat provider and remote-site connections. It may import what surfaces read, for schemas and types, never the services; the apps pass in the provider a stored operation needs.
 
 It is a package of its own because sites and previews are not agent concerns, so the push command must not depend on `@studio/agent`. It isn't part of `@studio/common` because providers must stay free of WordPress Studio's storage, and the browser-safe boundary needs lint enforcement.
@@ -96,7 +96,17 @@ It is a package of its own because sites and previews are not agent concerns, so
 
 Each provider lists the models it serves. Several providers can serve the same model (for example, a Claude model listed by WordPress.com and by Anthropic), and the same id means the same model. Each listing carries its own access rules, such as paid credits. Model ids are what sessions record, so they never change.
 
-Where the account decides which of those models it runs, rather than the provider, the connected account says so and the pickers offer only those; a provider that doesn't narrow them offers all it lists. The provider reads that set when it connects and keeps it current when it renews its credential, so the pickers never reach the service to build their list. A GitHub Copilot plan works this way: it includes its own set of models, and leaves some of them off until they are turned on.
+Where the account decides which of those models it runs, rather than the provider, the connected account says so and the pickers offer only those; a provider that doesn't narrow them offers all it lists. The provider reads that set when it connects and keeps it current when it renews its credential, so the pickers never reach the service to build their list. A GitHub Copilot plan works this way: it includes its own set of models, and leaves some of them off until they are turned on. Its catalog is the plan's models that pi knows how to run, described the way Copilot's own picker sorts them (lightweight, versatile, powerful). The account offers Studio's three until the user picks others, and picking one the plan leaves off turns it on, as Copilot Chat does.
+
+The catalogs of the providers pi runs (Anthropic, OpenAI, Google Gemini, Meta, xAI, GitHub Copilot) hold only the models pi knows, since pi says how each one is called and how it thinks: a new model comes with a pi upgrade. The account's own list narrows them, as a plan runs only some, and where the provider doesn't list them for the account, its catalog is all of pi's. All but Copilot's share one (`piCatalog`): it keeps the models that reason, a preview or a dated snapshot only when its release isn't listed, recommends the newest of the families Studio lists, and runs each model within Studio Code's limits (a 32K-token reply, a 200K-token context).
+
+Anthropic's catalog is the Claude models Anthropic lists for the account, with prices only for an API key. The newest of each family is recommended, and the account offers those until the user picks others in the settings. Its ids are Anthropic's own (`claude-opus-5-5`), the ids other providers serving the model use, so a catalog says which ids are its own by their prefixes (`ai.catalog.prefixes`).
+
+OpenAI's catalog is the GPT models OpenAI lists for the API key, or the ChatGPT plan's own list, which says what each model is for and hides some. Keeping the models that reason leaves out GPT-4o and GPT-4.1. The newest of Studio's families (Terra, Sol) are recommended, and only an API key's models show their price.
+
+Google Gemini's catalog is the chat models Google lists for the key (Pro, Flash, Flash Lite, Argon), with their prices, leaving out aliases such as `gemini-flash-latest` and models made for one task such as Computer Use. The newest of Studio's families (Flash, Argon) are recommended.
+
+Meta's catalog is the Muse models Meta lists for the key, with their prices; a `-contributor` model is a family of its own. xAI's is the Grok models xAI lists for the API key or the Grok plan, with prices only for a key.
 
 The Local LLM connector's catalog is the chat models the user's server lists, less those it says only make embeddings. Connecting offers them all, those the server says call tools first, and the settings narrow them like OpenRouter's. Its model ids are `local-llm/` and the server's name for the model (`local-llm/qwen3:0.6b`). Chats on these models need no internet, and analytics never name them.
 
@@ -142,12 +152,13 @@ The Local LLM connector is `local-llm`, with no stored alias: builds that don't 
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
 - `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. The Share and Publish panel uses the same provider descriptors and remote-site connections.
 - A provider declares whether it supports selective sync.
+- A provider without an account, such as SSH, has nothing to connect and counts as connected. Its sites aren't listed from an account: the user connects one by describing it in the provider's site form (`sites.connect`), which the provider checks by reaching the site. On pull, such a provider sends the site itself as an archive (`pullArchive`), which the CLI imports like a downloaded backup. A provider whose site form is `hostOnly` is left out where WordPress Studio runs elsewhere, as Studio Cloud does. See `ssh-sites.md`.
 
 ### Share and Publish panel
 
 The selected destination owns the panel state. Studio stores selection by local site, provider and remote id (or preview hostname), and compares each destination with its own last successful full-transfer baseline. A partial transfer leaves that comparison unknown; it does not mark other destinations up to date.
 
-The sites descriptor supplies a publishing description and links with roles such as dashboard, admin, and visibility. The remote site carries its launch state and last known visibility. Providers with a visibility service can read or change access. The panel uses the provider's shared logo, alongside `selective`, `content`, `pull`, and `newSite`; it never chooses a provider-specific layout by id. The destination picker offers connected providers; connecting another provider opens provider settings. Selecting a destination does not create or publish anything.
+The sites descriptor supplies a summary, the facts and links of a connected site, which the site menu shows in order, and the visibility options with where access is managed. The remote site carries its launch state and last known visibility. Providers with a visibility service can read or change access. The panel uses the provider's shared logo, alongside `selective`, `content`, `pull`, and `newSite`, and renders the provider's own `SiteRows` (`getProviderUi`) under a connected site, such as WordPress.com's plan or Spacefast's "Add a domain", and its `NewSiteRows` before a new site is created, such as Spacefast's team; it never chooses a provider-specific layout by id. The destination picker offers connected providers; connecting another provider opens provider settings. Selecting a destination does not create or publish anything.
 
 In Publish, each local site has one publishing destination for the current account. Choosing another replaces it across hosting providers. A checkout replaces it after the first successful publish. Temporary previews and connections belonging to other accounts stay available. A routine CLI transfer updates its own connection.
 
@@ -155,9 +166,9 @@ The destination picker groups connected sites and previews by provider. Removing
 
 ## Previews
 
-- A preview is a remote site that expires: the provider builds it from a local site and shares it by a link until it is taken down or bought. It is part of the provider's sites, not a capability of its own, so a provider publishes to sites the user keeps (`sites.publish`), makes previews (`sites.previews`), or both.
+- A preview is a remote site that expires: the provider builds it from a local site and shares it by a link until it is taken down or bought. It is part of the provider's sites, not a capability of its own, so a provider with `sites.previews` makes previews as well as publishing to sites the user keeps.
 - Updating a preview is a push to it, with `preview` set. Creating one is `previews.create`, since the provider builds the site from the first upload. `previews.list` gives the account's previews still up, and `previews.delete` takes one down. A bought preview keeps its site ID, and WordPress Studio then connects it to its local site like any remote site.
-- The descriptor says what a preview is built from (`previews.content`), as `content` does for a push. WordPress.com builds previews through its site importer, from the zip of the site's folder with its SQLite database, while a push to a site the user keeps goes through its sync import, which takes the export archive and needs a plan; an unpaid preview refuses it.
+- WordPress.com builds previews through its site importer, from the zip of the site's folder with its SQLite database, while a push to a site the user keeps goes through its sync import, which takes the export archive and needs a plan; an unpaid preview refuses it.
 - WordPress Studio owns which local site each preview was made from and which connected site it shows changes to. Previews made on Jurassic Ninja by older builds are left to expire: updating one makes a new WordPress.com preview, and deleting one only drops it from the list.
 - Each transfer records its comparison version on the local site’s connection to that remote ID. A bought preview keeps the same connection. A partial transfer clears the comparison version.
 - `studio preview` stays the command family. WordPress.com is the only provider that offers previews, and the commands use it; naming the provider comes with a second one _(planned)_.

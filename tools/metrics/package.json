@@ -4,6 +4,5 @@
 	"version": "0.0.1",
 	"description": "Performance and app-size metrics tests for Studio.",
 	"author": "Automattic",
-	"license": "GPLv2",
-	"type": "commonjs"
+	"license": "GPLv2"
 }

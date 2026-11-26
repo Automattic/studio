@@ -82,7 +82,7 @@ describe( 'Chat model picker', () => {
 			const settings = aiSettings( 'anthropic', [ 'anthropic' ] );
 			settings.accounts.anthropic = {
 				connected: true,
-				...getProvider( 'anthropic' ).account.describe(
+				...getProvider( 'anthropic' ).account!.describe(
 					method === 'api-key'
 						? { method, apiKey: 'sk-ant-api03-test' }
 						: { method, token: 'sk-ant-oat01-test' }
@@ -107,7 +107,7 @@ describe( 'Chat model picker', () => {
 		const settings = aiSettings( 'github-copilot', [ 'github-copilot' ] );
 		settings.accounts[ 'github-copilot' ] = {
 			connected: true,
-			...getProvider( 'github-copilot' ).account.describe( {
+			...getProvider( 'github-copilot' ).account!.describe( {
 				method: 'github',
 				githubToken: 'gho_1',
 				copilotToken: 'copilot',

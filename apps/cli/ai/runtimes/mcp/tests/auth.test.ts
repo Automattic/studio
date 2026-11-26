@@ -27,6 +27,8 @@ beforeEach( async () => {
 	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
 	vi.stubEnv( 'NODE_ENV', 'production' );
 	vi.stubEnv( 'E2E', '' );
+	vi.stubEnv( 'VITEST', '' );
+	vi.stubEnv( 'CI', '' );
 	vi.stubEnv( 'STUDIO_FORCE_CLI_TELEMETRY', '' );
 	vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', 'studio-mcp' );
 	vi.stubEnv( 'STUDIO_MCP_CLIENT', 'audit-client' );

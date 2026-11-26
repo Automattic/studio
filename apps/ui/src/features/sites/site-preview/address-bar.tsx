@@ -1,7 +1,16 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
-import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@studio/ds';
-import { CommandList, handleCommandKey, type CommandGroup } from '@studio/ds';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+	Popover,
+	Button,
+	Input,
+	CommandList,
+	handleCommandKey,
+	type CommandGroup,
+} from '@studio/ds';
 import {
 	DatabaseIcon,
 	DesignSystemIcon,

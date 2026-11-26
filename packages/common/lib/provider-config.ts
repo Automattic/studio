@@ -22,6 +22,9 @@ export function providerConfigFrom< Id extends ProviderId >(
 	provider: Id
 ): ProviderConfigs[ Id ] | undefined {
 	const { account } = getProvider( provider );
+	if ( ! account ) {
+		return undefined;
+	}
 	const parsed = account.configSchema.safeParse( config.providers.configs[ provider ] );
 	if ( ! parsed.success ) {
 		return undefined;
@@ -41,7 +44,7 @@ export async function writeProviderConfig< Id extends ProviderId >(
 	provider: Id,
 	config: ProviderConfigs[ Id ] | undefined
 ): Promise< void > {
-	const valid = config && getProvider( provider ).account.configSchema.parse( config );
+	const valid = config && getProvider( provider ).account?.configSchema.parse( config );
 	if ( provider === 'wpcom' && valid && ! ( valid as ProviderConfigs[ 'wpcom' ] ).user ) {
 		throw new Error( 'Signing in to Studio needs the WordPress.com account.' );
 	}
@@ -57,10 +60,10 @@ export async function writeProviderConfig< Id extends ProviderId >(
 
 // What the provider keeps from `config` once it rejects it.
 function rememberFrom( provider: ProviderId, config: unknown ) {
-	const { remember } = getProvider( provider ).account as {
-		remember?: ( config: unknown ) => Record< string, string >;
-	};
-	return config ? remember?.( config ) : undefined;
+	const account = getProvider( provider ).account as
+		| { remember?: ( config: unknown ) => Record< string, string > }
+		| undefined;
+	return config ? account?.remember?.( config ) : undefined;
 }
 
 async function rememberSignIn( provider: ProviderId, values: Record< string, string > ) {
@@ -111,7 +114,7 @@ export async function forgetRejectedConfig< T >(
 	}
 }
 
-// Longer than a renewal's requests take, so a waiting process never takes over a live lock.
+// Longer than a renewal's requests take, so a waiting process gets the renewed config.
 const REFRESH_LOCK_TIME = 30_000;
 
 // The selected chat provider's stored id, as `normalizeProviderId` reads it.
@@ -134,12 +137,12 @@ export async function readFreshProviderConfig< Config >(
 	services: ProviderServices< Config >
 ): Promise< Config | undefined > {
 	const { id } = services;
-	const { refresh } = services.account;
+	const refresh = services.account?.refresh;
 	if ( ! refresh ) {
 		return ( await readProviderConfig( id ) ) as Config | undefined;
 	}
 	const lockfilePath = path.join( getConfigDirectory(), `${ id }-refresh.lock` );
-	await lockFileAsync( lockfilePath, { wait: REFRESH_LOCK_TIME, stale: REFRESH_LOCK_TIME } );
+	await lockFileAsync( lockfilePath, { wait: REFRESH_LOCK_TIME } );
 	try {
 		const config = ( await readProviderConfig( id ) ) as Config | undefined;
 		const renewed = config && ( await forgetRejectedConfig( id, () => refresh( config ) ) );

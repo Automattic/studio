@@ -1,0 +1,804 @@
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"plugins": [
+		"eslint",
+		"typescript",
+		"import",
+		"react"
+	],
+	"categories": {
+		"correctness": "off"
+	},
+	"env": {
+		"browser": true,
+		"node": true,
+		"es2024": true
+	},
+	"options": {
+		"typeAware": true
+	},
+	"ignorePatterns": [
+		"**/__mocks__",
+		"apps/cli/dist/",
+		"dist/",
+		"out/",
+		"vendor/",
+		"wp-files/"
+	],
+	"rules": {
+		"constructor-super": "error",
+		"for-direction": "error",
+		"getter-return": "error",
+		"no-async-promise-executor": "error",
+		"no-case-declarations": "error",
+		"no-class-assign": "error",
+		"no-compare-neg-zero": "error",
+		"no-cond-assign": "error",
+		"no-const-assign": "error",
+		"no-constant-binary-expression": "error",
+		"no-constant-condition": "error",
+		"no-control-regex": "error",
+		"no-debugger": "error",
+		"no-delete-var": "error",
+		"no-dupe-class-members": "error",
+		"no-dupe-else-if": "error",
+		"no-dupe-keys": "error",
+		"no-duplicate-case": "error",
+		"no-empty": "error",
+		"no-empty-character-class": "error",
+		"no-empty-pattern": "error",
+		"no-empty-static-block": "error",
+		"no-ex-assign": "error",
+		"no-extra-boolean-cast": "error",
+		"no-fallthrough": "error",
+		"no-func-assign": "error",
+		"no-global-assign": "error",
+		"no-import-assign": "error",
+		"no-invalid-regexp": "error",
+		"no-irregular-whitespace": "error",
+		"no-loss-of-precision": "error",
+		"no-misleading-character-class": "error",
+		"no-new-native-nonconstructor": "error",
+		"no-nonoctal-decimal-escape": "error",
+		"no-obj-calls": "error",
+		"no-prototype-builtins": "error",
+		"no-redeclare": "error",
+		"no-regex-spaces": "error",
+		"no-self-assign": "error",
+		"no-setter-return": "error",
+		"no-shadow-restricted-names": "error",
+		"no-sparse-arrays": "error",
+		"no-this-before-super": "error",
+		"no-unassigned-vars": "error",
+		"no-unexpected-multiline": "error",
+		"no-unreachable": "error",
+		"no-unsafe-finally": "error",
+		"no-unsafe-negation": "error",
+		"no-unsafe-optional-chaining": "error",
+		"no-unused-labels": "error",
+		"no-unused-private-class-members": "error",
+		"no-useless-backreference": "error",
+		"no-useless-catch": "error",
+		"no-useless-escape": "error",
+		"no-with": "error",
+		"require-yield": "error",
+		"use-isnan": "error",
+		"valid-typeof": "error",
+		"no-array-constructor": "error",
+		"no-unused-expressions": "error",
+		"no-unused-vars": [
+			"warn",
+			{
+				"args": "after-used",
+				"argsIgnorePattern": "^_",
+				"caughtErrors": "none",
+				"ignoreRestSiblings": true,
+				"vars": "all",
+				"varsIgnorePattern": "^_"
+			}
+		],
+		"typescript/ban-ts-comment": "error",
+		"typescript/no-duplicate-enum-values": "error",
+		"typescript/no-empty-object-type": "error",
+		"typescript/no-explicit-any": [
+			"error",
+			{
+				"ignoreRestArgs": true
+			}
+		],
+		"typescript/no-extra-non-null-assertion": "error",
+		"typescript/no-misused-new": "error",
+		"typescript/no-namespace": "error",
+		"typescript/no-non-null-asserted-optional-chain": "error",
+		"typescript/no-require-imports": "error",
+		"typescript/no-this-alias": "error",
+		"typescript/no-unnecessary-type-constraint": "error",
+		"typescript/no-unsafe-declaration-merging": "error",
+		"typescript/no-unsafe-function-type": "error",
+		"typescript/no-wrapper-object-types": "error",
+		"typescript/prefer-as-const": "error",
+		"typescript/prefer-namespace-keyword": "error",
+		"typescript/triple-slash-reference": "error",
+		"typescript/no-floating-promises": "error",
+		"import/default": "error",
+		"import/export": "error",
+		"import/namespace": "error",
+		"import/no-duplicates": "warn",
+		"import/no-named-as-default": "warn",
+		"react/rules-of-hooks": "error",
+		"react/exhaustive-deps": "warn",
+		"react/static-components": "error",
+		"react/use-memo": "error",
+		"react/preserve-manual-memoization": "error",
+		"react/incompatible-library": "warn",
+		"react/immutability": "error",
+		"react/globals": "error",
+		"react/refs": "error",
+		"react/error-boundaries": "error",
+		"react/purity": "error",
+		"react/set-state-in-render": "error",
+		"react/unsupported-syntax": "warn",
+		"studio/no-module-level-translations": "error",
+		"jest-dom/prefer-checked": "error",
+		"jest-dom/prefer-empty": "error",
+		"jest-dom/prefer-enabled-disabled": "error",
+		"jest-dom/prefer-focus": "error",
+		"jest-dom/prefer-in-document": "error",
+		"jest-dom/prefer-required": "error",
+		"jest-dom/prefer-to-have-attribute": "error",
+		"jest-dom/prefer-to-have-class": "error",
+		"jest-dom/prefer-to-have-style": "error",
+		"jest-dom/prefer-to-have-text-content": "error",
+		"jest-dom/prefer-to-have-value": "error"
+	},
+	"overrides": [
+		{
+			"files": [
+				"**/*.{ts,tsx,mts,cts}"
+			],
+			"rules": {
+				"constructor-super": "off",
+				"getter-return": "off",
+				"no-class-assign": "off",
+				"no-const-assign": "off",
+				"no-dupe-class-members": "off",
+				"no-dupe-keys": "off",
+				"no-func-assign": "off",
+				"no-import-assign": "off",
+				"no-new-native-nonconstructor": "off",
+				"no-obj-calls": "off",
+				"no-redeclare": "off",
+				"no-setter-return": "off",
+				"no-this-before-super": "off",
+				"no-unreachable": "off",
+				"no-unsafe-negation": "off",
+				"no-with": "off",
+				"no-var": "error",
+				"prefer-const": "error",
+				"prefer-rest-params": "error",
+				"prefer-spread": "error"
+			}
+		},
+		{
+			"files": [
+				"**/*.ts",
+				"src/tests/**/*.{ts,tsx}",
+				"scripts/**/*.js",
+				"scripts/**/*.cjs"
+			],
+			"rules": {
+				"typescript/no-require-imports": "off"
+			}
+		},
+		{
+			"files": [
+				"apps/cli/**/*.{ts,tsx}"
+			],
+			"excludeFiles": [
+				"apps/cli/vite.config*.ts",
+				"apps/cli/vitest.config.ts"
+			],
+			"rules": {
+				"no-restricted-globals": [
+					"error",
+					{
+						"name": "__dirname",
+						"message": "Use import.meta.dirname in ESM modules."
+					},
+					{
+						"name": "__filename",
+						"message": "Use import.meta.filename in ESM modules."
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"scripts/**/*.mjs"
+			],
+			"rules": {
+				"no-restricted-globals": [
+					"error",
+					{
+						"name": "__dirname",
+						"message": "Use import.meta.dirname in ESM modules."
+					},
+					{
+						"name": "__filename",
+						"message": "Use import.meta.filename in ESM modules."
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"apps/cli/**"
+			],
+			"rules": {
+				"studio/no-module-level-translations": "off"
+			}
+		},
+		{
+			"files": [
+				"apps/**/*.{ts,tsx}"
+			],
+			"excludeFiles": [
+				"apps/**/tests/**",
+				"apps/**/*.test.{ts,tsx}"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@studio/agent/node/**",
+									"!@studio/agent/node/annotation-tracks",
+									"!@studio/agent/node/annotation-tracks/**",
+									"!@studio/agent/node/global-instructions",
+									"!@studio/agent/node/global-instructions/**",
+									"!@studio/agent/node/local-media",
+									"!@studio/agent/node/local-media/**",
+									"!@studio/agent/node/run-manager",
+									"!@studio/agent/node/run-manager/**",
+									"!@studio/agent/node/sessions",
+									"!@studio/agent/node/sessions/**",
+									"@studio/agent/node/sessions/**",
+									"!@studio/agent/node/sessions/manage",
+									"!@studio/agent/node/sessions/manage/**",
+									"!@studio/agent/node/sessions/placement",
+									"!@studio/agent/node/sessions/placement/**",
+									"!@studio/agent/node/sessions/root-migration",
+									"!@studio/agent/node/sessions/root-migration/**",
+									"!@studio/agent/node/sessions/store",
+									"!@studio/agent/node/sessions/store/**"
+								],
+								"message": "Import the agent from @studio/agent/node."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"apps/ui/src/**/*.{ts,tsx}"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@wordpress/components",
+									"@wordpress/components/**",
+									"@wordpress/dataviews",
+									"@wordpress/dataviews/**",
+									"@wordpress/theme",
+									"@wordpress/theme/**",
+									"@wordpress/ui",
+									"@wordpress/ui/**"
+								],
+								"message": "Use the primitives in @studio/ds and the tokens in @studio/ds/theme."
+							},
+							{
+								"group": [
+									"@studio/agent/node",
+									"@studio/agent/node/**"
+								],
+								"message": "Apps that show the agent import its contract, @studio/agent/protocol, not the agent."
+							},
+							{
+								"group": [
+									"@studio/providers/**",
+									"!@studio/providers/wpcom",
+									"!@studio/providers/wpcom/**",
+									"!@studio/providers/ui"
+								],
+								"message": "Surfaces read @studio/providers; its services run in the backends and the agent."
+							},
+							{
+								"group": [
+									"@base-ui/react",
+									"@base-ui/react/**"
+								],
+								"message": "Use the primitives in @studio/ds, and add one there when none fits."
+							}
+						]
+					}
+				],
+				"import/no-cycle": "error",
+				"studio/import-boundaries": [
+					"error",
+					{
+						"aliases": {
+							"@/": "apps/ui/src/"
+						},
+						"entries": [
+							{
+								"folders": [
+									"apps/ui/src/lib/*"
+								],
+								"importers": [
+									"apps/ui/src/*"
+								],
+								"message": "Import from @/{folder}, its public entry."
+							},
+							{
+								"folders": [
+									"apps/ui/src/features/*"
+								],
+								"importers": [
+									"apps/ui/src/router",
+									"apps/ui/src/app",
+									"apps/ui/src/features/*"
+								],
+								"message": "Import from @/{folder}, its public entry."
+							}
+						],
+						"zones": [
+							{
+								"target": [
+									"apps/ui/src/lib"
+								],
+								"from": [
+									"apps/ui/src/features",
+									"apps/ui/src/data",
+									"apps/ui/src/router",
+									"apps/ui/src/app"
+								],
+								"message": "lib/ packages stay independent of the app."
+							},
+							{
+								"target": [
+									"apps/ui/src/lib",
+									"apps/ui/src/data",
+									"apps/ui/src/main.tsx",
+									"apps/ui/src/main.local.tsx"
+								],
+								"from": [
+									"apps/ui/src/features"
+								],
+								"message": "Only router/, app/ and other features import features."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"apps/ui/src/lib/**/*.{ts,tsx}"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@wordpress/components",
+									"@wordpress/components/**",
+									"@wordpress/dataviews",
+									"@wordpress/dataviews/**",
+									"@wordpress/theme",
+									"@wordpress/theme/**",
+									"@wordpress/ui",
+									"@wordpress/ui/**"
+								],
+								"message": "Use the primitives in @studio/ds and the tokens in @studio/ds/theme."
+							},
+							{
+								"group": [
+									"@studio/agent/node",
+									"@studio/agent/node/**"
+								],
+								"message": "Apps that show the agent import its contract, @studio/agent/protocol, not the agent."
+							},
+							{
+								"group": [
+									"@studio/providers/**",
+									"!@studio/providers/wpcom",
+									"!@studio/providers/wpcom/**",
+									"!@studio/providers/ui"
+								],
+								"message": "Surfaces read @studio/providers; its services run in the backends and the agent."
+							},
+							{
+								"group": [
+									"@tanstack/**"
+								],
+								"message": "lib/ packages stay independent of app code."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/ds/**/*.{ts,tsx}"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@wordpress/components",
+									"@wordpress/components/**",
+									"@wordpress/dataviews",
+									"@wordpress/dataviews/**",
+									"@wordpress/theme",
+									"@wordpress/theme/**",
+									"@wordpress/ui",
+									"@wordpress/ui/**"
+								],
+								"message": "Use the primitives in @studio/ds and the tokens in @studio/ds/theme."
+							},
+							{
+								"group": [
+									"@tanstack/**"
+								],
+								"message": "@studio/ds stays independent of app code."
+							},
+							{
+								"group": [
+									"@studio/**"
+								],
+								"message": "@studio/ds builds on no other workspace package."
+							}
+						]
+					}
+				],
+				"import/no-cycle": "error",
+				"studio/import-boundaries": [
+					"error",
+					{
+						"entries": [
+							{
+								"folders": [
+									"packages/ds/{primitives,theme,icons,hooks}"
+								],
+								"importers": [
+									"packages/ds/primitives",
+									"packages/ds/theme",
+									"packages/ds/icons",
+									"packages/ds/hooks"
+								],
+								"message": "Import {folder}/ from its entry, {folder}/index.ts."
+							}
+						],
+						"zones": [
+							{
+								"target": [
+									"packages/ds"
+								],
+								"from": [
+									"apps"
+								],
+								"message": "@studio/ds knows nothing about the apps."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/common/**/*.ts"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@studio/agent/**"
+								],
+								"message": "@studio/agent builds on common, not the reverse."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/common/**/*.ts"
+			],
+			"excludeFiles": [
+				"packages/common/**/tests/**"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@studio/agent/**"
+								],
+								"message": "@studio/agent builds on common, not the reverse."
+							},
+							{
+								"group": [
+									"@studio/providers/**",
+									"!@studio/providers/wpcom",
+									"!@studio/providers/wpcom/**",
+									"!@studio/providers/ui"
+								],
+								"message": "Surfaces read @studio/providers; its services run in the backends and the agent."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/providers/**/*.ts"
+			],
+			"excludeFiles": [
+				"packages/providers/**/tests/**"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@studio/**",
+									"cli/**",
+									"src/**"
+								],
+								"message": "@studio/providers imports no other workspace package."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/providers/**/*.tsx"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"@wordpress/components",
+									"@wordpress/components/**",
+									"@wordpress/dataviews",
+									"@wordpress/dataviews/**",
+									"@wordpress/theme",
+									"@wordpress/theme/**",
+									"@wordpress/ui",
+									"@wordpress/ui/**"
+								],
+								"message": "Use the primitives in @studio/ds and the tokens in @studio/ds/theme."
+							},
+							{
+								"group": [
+									"@base-ui/react",
+									"@base-ui/react/**"
+								],
+								"message": "Use the primitives in @studio/ds, and add one there when none fits."
+							},
+							{
+								"group": [
+									"@studio/**",
+									"!@studio/ds",
+									"!@studio/ds/**",
+									"cli/**",
+									"src/**"
+								],
+								"message": "Provider forms build on @studio/ds and no other workspace package."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/providers/index.ts",
+				"packages/providers/wpcom.ts",
+				"packages/providers/types.ts",
+				"packages/providers/models.ts",
+				"packages/providers/registry.ts",
+				"packages/providers/errors.ts",
+				"packages/providers/connection.ts",
+				"packages/providers/api-key.ts",
+				"packages/providers/picked-models.ts",
+				"packages/providers/*/descriptor.ts",
+				"packages/providers/*/config.ts",
+				"packages/providers/wpcom/sites/site.ts",
+				"packages/providers/ssh/address.ts"
+			],
+			"rules": {
+				"studio/import-boundaries": [
+					"error",
+					{
+						"zones": [
+							{
+								"target": [
+									"packages/providers/index.ts",
+									"packages/providers/wpcom.ts",
+									"packages/providers/types.ts",
+									"packages/providers/models.ts",
+									"packages/providers/registry.ts",
+									"packages/providers/errors.ts",
+									"packages/providers/connection.ts",
+									"packages/providers/api-key.ts",
+									"packages/providers/picked-models.ts",
+									"packages/providers/*/descriptor.ts",
+									"packages/providers/*/config.ts",
+									"packages/providers/wpcom/sites/site.ts",
+									"packages/providers/ssh/address.ts"
+								],
+								"from": [
+									"packages/providers"
+								],
+								"except": [
+									"packages/providers/index.ts",
+									"packages/providers/wpcom.ts",
+									"packages/providers/types.ts",
+									"packages/providers/models.ts",
+									"packages/providers/registry.ts",
+									"packages/providers/errors.ts",
+									"packages/providers/connection.ts",
+									"packages/providers/api-key.ts",
+									"packages/providers/picked-models.ts",
+									"packages/providers/*/descriptor.ts",
+									"packages/providers/*/config.ts",
+									"packages/providers/wpcom/sites/site.ts",
+									"packages/providers/ssh/address.ts"
+								],
+								"message": "The @studio/providers entry imports only the files it is made of."
+							}
+						]
+					}
+				],
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"node:*",
+									"fs",
+									"fs/**",
+									"path",
+									"os",
+									"child_process",
+									"crypto"
+								],
+								"message": "The @studio/providers entry is loaded in the browser; keep Node APIs out."
+							},
+							{
+								"group": [
+									"@studio/**",
+									"cli/**",
+									"src/**"
+								],
+								"message": "@studio/providers imports no other workspace package."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/agent/**/*.ts"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"cli/**",
+									"src/**"
+								],
+								"message": "The agent never imports an app. Reach site operations through the host (node/host.ts)."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"packages/agent/protocol/**/*.ts"
+			],
+			"excludeFiles": [
+				"packages/agent/protocol/**/*.test.ts"
+			],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"node:*",
+									"fs",
+									"fs/**",
+									"path",
+									"os",
+									"child_process",
+									"crypto"
+								],
+								"message": "protocol/ runs in the browser too; keep Node APIs in node/."
+							},
+							{
+								"group": [
+									"@studio/agent/node/**",
+									"cli/**",
+									"src/**"
+								],
+								"message": "protocol/ depends on nothing but common, @studio/providers and @studio/ds."
+							},
+							{
+								"group": [
+									"@studio/providers/**",
+									"!@studio/providers/wpcom",
+									"!@studio/providers/wpcom/**",
+									"!@studio/providers/ui"
+								],
+								"message": "Surfaces read @studio/providers; its services run in the backends and the agent."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": [
+				"apps/ui/**/*.test.{ts,tsx}",
+				"packages/ds/**/*.test.{ts,tsx}"
+			],
+			"rules": {
+				"jest-dom/prefer-to-have-value": "off"
+			}
+		}
+	],
+	"jsPlugins": [
+		{
+			"name": "studio",
+			"specifier": "./tools/eslint-plugin-studio/src/index.js"
+		},
+		"eslint-plugin-jest-dom"
+	]
+}

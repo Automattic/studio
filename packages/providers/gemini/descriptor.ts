@@ -47,11 +47,16 @@ export const geminiProvider: Provider< GeminiConfig > = {
 					),
 			},
 		],
-		describe: ( { apiKey } ) => ( { method: 'api-key', summary: `...${ apiKey.slice( -4 ) }` } ),
+		describe: ( { apiKey, models } ) => ( {
+			method: 'api-key',
+			summary: `...${ apiKey.slice( -4 ) }`,
+			models,
+		} ),
 	},
 	ai: {
 		models: GEMINI_AI_MODELS,
 		defaultModel: 'gemini-3.8-flash',
+		catalog: { prefixes: [ 'gemini-' ] },
 		generatesImages: () => true,
 	},
 };

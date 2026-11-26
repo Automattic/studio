@@ -22,14 +22,19 @@ export function rememberPublishProvider( provider: SitesProviderId ) {
 		/* Storage can be unavailable. */
 	}
 }
-export function orderedPublishProviders( providers: SitesProviderId[] ) {
+// The provider Publish opens on: the last one used, when connected, or else the first connected one
+// that can start a site, rather than one that only connects sites the user already has.
+export function defaultPublishProvider( connected: SitesProviderId[] ) {
 	let last: string | null = null;
 	try {
 		last = localStorage.getItem( LAST_PROVIDER_KEY );
 	} catch {
 		/* Use descriptor order. */
 	}
-	return [ ...providers ].sort( ( a, b ) => Number( b === last ) - Number( a === last ) );
+	return (
+		connected.find( ( id ) => id === last ) ??
+		connected.find( ( id ) => getProviderSites( id ).newSite )
+	);
 }
 export function ProviderPicker( {
 	providers,
@@ -50,7 +55,7 @@ export function ProviderPicker( {
 	const items = providers.map( ( value ) => ( {
 		value,
 		label: getProvider( value ).label,
-		description: getProviderSites( value ).publishing.description(),
+		description: getProviderSites( value ).summary(),
 	} ) );
 	const existingSite = {
 		value: 'existing-site',

@@ -180,6 +180,68 @@ describe( 'push', () => {
 		}
 	);
 
+	it( 'follows an import whose progress stays flat for hours until the live site ends it', async () => {
+		const finishAt = Date.now() + 5 * 60 * 60 * 1000;
+		vi.mocked( pollImportStatus ).mockImplementation( async () =>
+			Date.now() < finishAt
+				? ( { success: true, status: 'archive_import_started', import_progress: 40 } as never )
+				: ( { success: true, status: 'finished' } as never )
+		);
+
+		const pushed = push();
+		await vi.advanceTimersByTimeAsync( 5 * 60 * 60 * 1000 + 3000 );
+		await expect( pushed ).resolves.toBeUndefined();
+	} );
+
+	it( 'gives up when the live site never ends the import', async () => {
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'archive_import_started',
+			import_progress: 40,
+		} as never );
+
+		const pushed = push().catch( ( e: unknown ) => e );
+		await vi.advanceTimersByTimeAsync( 7 * 60 * 60 * 1000 );
+		expect( await pushed ).toMatchObject( { code: 'timeout' } );
+	} );
+
+	it( 'keeps waiting through a network failure while the live site imports', async () => {
+		vi.mocked( pollImportStatus )
+			.mockRejectedValueOnce(
+				Object.assign( new Error( 'getaddrinfo ENOTFOUND public-api.wordpress.com' ), {
+					code: 'ENOTFOUND',
+				} )
+			)
+			.mockResolvedValueOnce( { success: true, status: 'finished' } as never );
+
+		const pushed = push();
+		await vi.runAllTimersAsync();
+		await expect( pushed ).resolves.toBeUndefined();
+	} );
+
+	it( 'says the update may still be running when status checks keep failing', async () => {
+		vi.mocked( pollImportStatus ).mockRejectedValue(
+			Object.assign( new Error( 'socket hang up' ), { code: 'ECONNRESET' } )
+		);
+
+		const pushed = push().catch( ( e: unknown ) => e );
+		await vi.advanceTimersByTimeAsync( 60 * 1000 );
+		expect( await pushed ).toMatchObject( {
+			message: expect.stringContaining( 'the update may still be running' ),
+			code: 'remote_import',
+		} );
+	} );
+
+	it.each( [
+		Object.assign( new Error( 'Forbidden' ), { statusCode: 403 } ),
+		new TypeError( "Cannot read properties of undefined (reading 'status')" ),
+	] )( 'stops at once when the status check fails for good: %s', async ( error ) => {
+		vi.mocked( pollImportStatus ).mockRejectedValue( error );
+
+		await expect( push() ).rejects.toMatchObject( { code: 'remote_import' } );
+		expect( pollImportStatus ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'explains a database the live site failed to import', async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {
 			success: false,
@@ -211,14 +273,51 @@ describe( 'push', () => {
 		} );
 	} );
 
-	it( 'says when another sync is already running on the site', async () => {
+	it( 'waits for an import already running on the site, then starts its own', async () => {
+		vi.mocked( initiateImport )
+			.mockRejectedValueOnce( Object.assign( new Error( 'Conflict' ), { statusCode: 409 } ) )
+			.mockResolvedValueOnce( undefined );
+		vi.mocked( pollImportStatus )
+			.mockResolvedValueOnce( {
+				success: true,
+				status: 'archive_import_started',
+				import_progress: 40,
+			} as never )
+			.mockResolvedValueOnce( {
+				success: true,
+				status: 'archive_import_started',
+				import_progress: 90,
+			} as never )
+			.mockResolvedValue( { success: true, status: 'finished' } as never );
+		const onStatus = vi.fn();
+
+		const pushed = push( onStatus );
+		await vi.runAllTimersAsync();
+		await pushed;
+
+		expect( createTusUpload ).toHaveBeenCalledTimes( 1 );
+		expect( initiateImport ).toHaveBeenCalledTimes( 2 );
+		expect( initiateImport ).toHaveBeenLastCalledWith( 'token', 42, 'attachment-1', {} );
+		expect( onStatus.mock.calls.map( ( [ status ] ) => status ).slice( 2 ) ).toEqual( [
+			{ phase: 'creatingRemoteBackup', progress: 0 },
+			{ phase: 'waitingForRemote' },
+			{ phase: 'creatingRemoteBackup', progress: 0 },
+		] );
+	} );
+
+	it( 'says when the site is syncing with its staging site', async () => {
 		vi.mocked( initiateImport ).mockRejectedValue(
 			Object.assign( new Error( 'Conflict' ), { statusCode: 409 } )
 		);
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'finished',
+		} as never );
 
 		await expect( push() ).rejects.toMatchObject( {
-			message: expect.stringContaining( 'already in progress' ),
+			message: expect.stringContaining( 'staging site' ),
 			code: 'remote_import',
 		} );
+		expect( initiateImport ).toHaveBeenCalledTimes( 1 );
 	} );
 } );

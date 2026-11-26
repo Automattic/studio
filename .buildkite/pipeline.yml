@@ -26,15 +26,38 @@ e2e_config: &e2e_config
       - with: { platform: mac, arch: arm64 }
       - with: { platform: windows, arch: x64 }
 
+# Linux steps run in Docker on the shared `default` agents and check out the code themselves.
+linux_checkout: &linux_checkout |
+  # The agent's own checkout is skipped (custom-checkout plugin below): it runs as the agent
+  # user, and can't clean files that earlier root containers left behind, which left agents
+  # unable to check out at all. Empty the folder and fetch the commit here, as root.
+  git config --global --add safe.directory "$$PWD"
+  find . -mindepth 1 -delete
+  git init -q .
+  git remote add origin https://github.com/Automattic/studio.git
+  git fetch -q --depth 1 origin "$$BUILDKITE_COMMIT"
+  git checkout -q FETCH_HEAD
+linux_checkout_plugin: &linux_checkout_plugin { custom-checkout#v1.8.0: { skip_checkout: true } }
+
+# Steps and groups that can be skipped have `skip: "$SKIP_…"`, decided at upload time by `commands/should-skip-job.sh`
+# via `shared-pipeline-vars` (`false` runs the step), so skipped jobs never start or wait for an agent.
+# Buildkite doesn't send the `notify:` of a skipped step. The custom `even-if-skipped: true` attribute next to a
+# `github_commit_status` makes the `notify_skipped_steps` script of the `a8c-ci-toolkit` plugin, which the pipeline upload
+# step (defined in `buildkite-ci`) runs on this file, report that status anyway, so Required checks don't wait forever.
+# Put skip: on the group so notify_skipped_steps reports its group-level check; skipping children alone won't.
 steps:
   - label: Lint
     agents:
       queue: default
     key: lint
-    command: |
-      export PATH="$$PATH:/a8c-ci-toolkit/bin"
-      bash .buildkite/commands/run-lint.sh
+    skip: "$SKIP_VALIDATION"
+    commands:
+      - *linux_checkout
+      - |
+        export PATH="$$PATH:/a8c-ci-toolkit/bin"
+        bash .buildkite/commands/run-lint.sh
     plugins:
+      - *linux_checkout_plugin
       - $CI_TOOLKIT_PLUGIN
       - $DOCKER_PLUGIN:
           image: "$NODE_DOCKER_IMAGE"
@@ -49,32 +72,35 @@ steps:
     notify:
       - github_commit_status:
           context: Lint
+        even-if-skipped: true
 
   - label: ":fastlane: fastlane Helper Tests"
     agents:
       queue: default
     key: fastlane_tests
-    command: |
-      export PATH="$$PATH:/a8c-ci-toolkit/bin"
-      bash .buildkite/commands/run-fastlane-tests.sh
+    skip: "$SKIP_FASTLANE"
+    commands:
+      - *linux_checkout
+      - |-
+        bash .buildkite/commands/run-fastlane-tests.sh
     plugins:
-      - $CI_TOOLKIT_PLUGIN
+      - *linux_checkout_plugin
       - $DOCKER_PLUGIN:
           image: "$RUBY_DOCKER_IMAGE"
           propagate-environment: true
           mount-buildkite-agent: true
-          expand-volume-vars: true
-          volumes:
-            - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
     notify:
       - github_commit_status:
           context: fastlane Helper Tests
+        even-if-skipped: true
 
   - group: Unit Tests
     key: unit-tests
+    skip: "$SKIP_VALIDATION"
     notify:
       - github_commit_status:
           context: Unit Tests
+        even-if-skipped: true
     steps:
       - label: Unit Tests on {{matrix}}
         key: unit_tests
@@ -90,28 +116,40 @@ steps:
       # container — the same pattern the Linux build group uses. Kept as a
       # separate step (rather than another matrix entry above) because Mac and
       # Windows share queue/plugin defaults that Linux doesn't.
+      # The `default` agents are small: one Linux run took 7 min, against 2 min
+      # on Mac. Each parallel job runs its shard of the test files.
       - label: Unit Tests on linux
         key: unit_tests_linux
-        command: |
-          export PATH="$$PATH:/a8c-ci-toolkit/bin"
-          bash .buildkite/commands/run-unit-tests.sh "linux"
+        parallelism: 4
         agents:
           queue: default
+        commands:
+          - *linux_checkout
+          - |
+            export PATH="$$PATH:/a8c-ci-toolkit/bin"
+            bash .buildkite/commands/run-unit-tests.sh "linux"
         plugins:
+          - *linux_checkout_plugin
           - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
+              propagate-aws-auth-tokens: true
+              environment:
+                - CACHE_BUCKET_NAME
               mount-buildkite-agent: true
+              # The cache helpers (hash_file, restore_cache…) come from the CI toolkit.
               expand-volume-vars: true
               volumes:
                 - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
 
   - group: E2E Tests
     key: e2e-tests
+    skip: "$SKIP_E2E"
     notify:
       - github_commit_status:
           context: E2E Tests
+        even-if-skipped: true
     steps:
       # E2E tests run on supported platform/architecture combinations.
       # - mac-arm64: Native on Apple Silicon agents
@@ -127,17 +165,24 @@ steps:
       # Mac and Windows share queue/plugin defaults that Linux doesn't.
       - label: E2E Tests on linux-x64
         key: e2e_tests_linux
-        command: |
-          export PATH="$$PATH:/a8c-ci-toolkit/bin"
-          bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
         agents:
           queue: default
+        commands:
+          - *linux_checkout
+          - |
+            export PATH="$$PATH:/a8c-ci-toolkit/bin"
+            bash .buildkite/commands/run-e2e-tests.sh "linux" "x64"
         plugins:
+          - *linux_checkout_plugin
           - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
+              propagate-aws-auth-tokens: true
+              environment:
+                - CACHE_BUCKET_NAME
               mount-buildkite-agent: true
+              # The cache helpers (hash_file, restore_cache…) come from the CI toolkit.
               expand-volume-vars: true
               volumes:
                 - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
@@ -151,12 +196,14 @@ steps:
         if: (build.branch == 'trunk' || build.tag =~ /^v[0-9]+/ || !build.pull_request.draft)
 
   # No `if:` guard: a required status check must report on every build, or PRs
-  # that skip it hang waiting for it. Doc-only PRs exit early but still report.
+  # that skip it hang waiting for it. Doc-only PRs skip it but still report, thanks to `even-if-skipped`.
   - group: CLI E2E Tests
     key: cli-e2e-tests
+    skip: "$SKIP_VALIDATION"
     notify:
       - github_commit_status:
           context: CLI E2E Tests
+        even-if-skipped: true
     steps:
       - label: CLI E2E Tests on {{matrix}}
         key: cli_e2e_tests_mac_windows
@@ -175,20 +222,27 @@ steps:
       # defaults that Linux doesn't. Same pattern as the unit-test group.
       - label: CLI E2E Tests on linux
         key: cli_e2e_tests_linux
-        command: |
-          export PATH="$$PATH:/a8c-ci-toolkit/bin"
-          bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
         artifact_paths:
           - test-results/daemon-logs/**/*.log
         agents:
           queue: default
         timeout_in_minutes: 30
+        commands:
+          - *linux_checkout
+          - |
+            export PATH="$$PATH:/a8c-ci-toolkit/bin"
+            bash .buildkite/commands/run-cli-e2e-tests.sh "linux"
         plugins:
+          - *linux_checkout_plugin
           - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
+              propagate-aws-auth-tokens: true
+              environment:
+                - CACHE_BUCKET_NAME
               mount-buildkite-agent: true
+              # The cache helpers (hash_file, restore_cache…) come from the CI toolkit.
               expand-volume-vars: true
               volumes:
                 - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
@@ -291,36 +345,39 @@ steps:
         depends_on: input-dev-linux
         agents:
           queue: default
-        command: |
-          set -eu
-
-          # The container has no SSH keys / known_hosts, use anonymous HTTPS
-          git remote set-url origin https://github.com/Automattic/studio.git
-
-          apt-get -o Acquire::Retries=3 update
-          apt-get install -y --no-install-recommends fakeroot
-
-          # `--maxsockets 1` works around npm/cli#4652 (ECONNRESETs on Linux);
-          # see install-node-dependencies.sh for the original rationale.
-          # TODO: restore the Buildkite npm cache used on Mac/Windows. The
-          # toolkit's cache helpers live on the host, so wiring them around a
-          # Docker step needs extra plumbing or a persistent agent volume.
-          npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
-
-          node ./scripts/prepare-dev-build-version.mjs
-
-          export IS_DEV_BUILD=true
-
-          echo "--- :node: Building DEB"
-          npm run make:linux-{{matrix}}
-
-          echo "--- :package: Building standalone CLI bundle"
-          npm run cli:bundle -- linux {{matrix}}
         artifact_paths:
           - apps/studio/out/make/deb/**/*.deb
           - standalone-bundles/studio-cli-*.tgz
           - standalone-bundles/studio-cli-*.tgz.sha256
+        commands:
+          - *linux_checkout
+          - |
+            set -eu
+
+            # The container has no SSH keys / known_hosts, use anonymous HTTPS
+            git remote set-url origin https://github.com/Automattic/studio.git
+
+            apt-get -o Acquire::Retries=3 update
+            apt-get install -y --no-install-recommends fakeroot
+
+            # `--maxsockets 1` works around npm/cli#4652 (ECONNRESETs on Linux);
+            # see install-node-dependencies.sh for the original rationale.
+            # TODO: restore the Buildkite npm cache used on Mac/Windows. The
+            # toolkit's cache helpers live on the host, so wiring them around a
+            # Docker step needs extra plumbing or a persistent agent volume.
+            npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
+
+            node ./scripts/prepare-dev-build-version.mjs
+
+            export IS_DEV_BUILD=true
+
+            echo "--- :node: Building DEB"
+            npm run make:linux-{{matrix}}
+
+            echo "--- :package: Building standalone CLI bundle"
+            npm run cli:bundle -- linux {{matrix}}
         plugins:
+          - *linux_checkout_plugin
           # Amazon Linux on the `default` queue lacks `dpkg`/`fakeroot`
           # required by electron-forge's MakerDeb, so we build inside a
           # Debian container that has them. Image tag is derived from
@@ -371,6 +428,8 @@ steps:
 
   - group: ":chart_with_upwards_trend: Performance Metrics"
     if: build.branch == 'trunk' || build.pull_request.base_branch == 'trunk'
+    # No `even-if-skipped` on its status: it only reports on trunk, which never skips it.
+    skip: "$SKIP_METRICS"
     steps:
       - input: "🚦 Run Performance Metrics?"
         prompt: "Do you want to compare this PR's performance with trunk?"

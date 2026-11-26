@@ -12,9 +12,9 @@ WordPress Studio is an [open source project](https://github.com/Automattic/studi
 
 ### How can I publish my WordPress Studio site so that it’s publicly available?
 
-You need a hosting plan. A [preview](https://wordpress.studio/docs/preview-sites/) is only for sharing work and gathering early feedback. It expires if it goes without an update for a while, and the **Share** panel shows when. See [Preview expiration](https://wordpress.studio/docs/preview-sites/#preview-expiration).
+You need a hosting plan. A [preview](https://wordpress.studio/docs/preview-sites/) is only for sharing work and gathering early feedback. It expires if it goes without an update for a while, and the preview’s details in the **Publish** panel show when. See [Preview expiration](https://wordpress.studio/docs/preview-sites/#preview-expiration).
 
-- **On WordPress.com or Pressable:** [publish your site](https://wordpress.studio/docs/sync/) from the **Publish** panel. You can also buy a plan for a preview on WordPress.com, which turns the preview into a WordPress.com site.
+- **On WordPress.com or Pressable:** [publish your site](https://wordpress.studio/docs/sync/) from the **Publish** panel. You can also [make a preview your live site](https://wordpress.studio/docs/preview-sites/#make-a-preview-your-live-site) by buying a plan for it on WordPress.com.
 - **On another WordPress host:** [export your site](https://wordpress.studio/docs/import-export/), then import the export on the destination site, for example with the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
 
 ### How can I export a theme I created in WordPress Studio?
@@ -85,6 +85,20 @@ If you haven’t chosen a **Default code editor** in **Settings → General**, t
 Add an exclusion for WordPress Studio to the Real-Time Protection Service of Windows Defender. When that service is on, it can slow down creating and starting sites, especially when WordPress runs its PHP files.
 
 WordPress Studio offers to “speed up site creation” the first time you open it on Windows, which adds the exclusion. To add it later, choose **Help → How can I make WordPress Studio faster?** This menu item is only available on Windows.
+
+### Why does WordPress Studio say it’s missing some of its files?
+
+Antivirus software sometimes removes a file that WordPress Studio needs to run your sites, most often on Windows. WordPress Studio then shows “WordPress Studio is missing some of its files”, once each time you open it, and can’t run your sites until you reinstall it.
+
+1.  Click **Download WordPress Studio** to open the download page.
+2.  Download and install WordPress Studio again.
+3.  If it happens again, allow WordPress Studio in your antivirus settings.
+
+### Where does WordPress Studio keep its settings?
+
+In `~/.studio/config.json`, in your home folder. The desktop app, the WordPress Studio CLI, `studio ui`, and `studio mcp` share this one file, which holds your sites, settings, and logins. Don’t edit it by hand.
+
+Before 2.4.0, WordPress Studio kept them in `shared.json`, `cli.json`, and `app.json`. The first time a newer version runs, it moves them to `config.json` and keeps a copy of the old files in `~/.studio/legacy-config/`. After that, an older version of the app or the CLI on the same computer can’t read your settings until you update it.
 
 ### How can I regenerate my thumbnails?
 

@@ -205,6 +205,8 @@ describe( 'Studio workspace', () => {
 					studioLogs: true,
 					loopbackSignIn: true,
 					localMachine: true,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );
@@ -797,6 +799,28 @@ describe( 'Studio workspace', () => {
 		expect( connector.createSession ).toHaveBeenCalledTimes( createCalls );
 	} );
 
+	it( 'leaves the new skill form for a new chat that starts with the create-skill command', async () => {
+		const { history } = setup( {
+			signedIn: true,
+			sessions: [ chat( { id: 'skills-chat', title: 'Existing chat' } ) ],
+			path: '/sessions/skills-chat?settings=site-skills',
+		} );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( await within( settings ).findByRole( 'button', { name: 'Add skill' } ) );
+		fireEvent.change( await within( settings ).findByRole( 'textbox', { name: 'Name' } ), {
+			target: { value: 'Lookbook post' },
+		} );
+		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Create in chat instead' } ) );
+
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
+		);
+		await waitFor( async () =>
+			expect( await findComposer() ).toHaveValue( '/create-skill Lookbook post' )
+		);
+	} );
+
 	it.each( [ 'Settings', 'Rename' ] )(
 		'keeps chat hidden when opening and closing %s from site actions',
 		async ( action ) => {
@@ -1177,8 +1201,12 @@ describe( 'Studio workspace', () => {
 		fireEvent.change( document.querySelector( 'input[type="file"][multiple]' )!, {
 			target: { files: [ new File( [ 'notes' ], 'draft.txt', { type: 'text/plain' } ) ] },
 		} );
-		await screen.findByText( 'draft.txt' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+		// Clicks as soon as the attachment shows, before React runs any deferred effects.
+		const newChat = screen.getByRole( 'button', { name: 'New chat for My site' } );
+		await waitFor( () => {
+			screen.getByText( 'draft.txt' );
+			fireEvent.click( newChat );
+		} );
 		expect( await findLayoutControl( 'split' ) ).toBeVisible();
 		expect( composer() ).toHaveValue( '' );
 		expect( screen.getByText( 'draft.txt' ) ).toBeVisible();
@@ -1376,6 +1404,8 @@ describe( 'Studio workspace', () => {
 					studioLogs: true,
 					loopbackSignIn: true,
 					localMachine: true,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );

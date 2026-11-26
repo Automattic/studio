@@ -132,6 +132,7 @@ describe( 'Add site flow', () => {
 					site.id
 				)
 			);
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Pull from live site…' } ) );
 			const confirmation = await screen.findByRole( 'alertdialog', {
 				name: 'Update local site from remote.example?',
 			} );
@@ -154,6 +155,44 @@ describe( 'Add site flow', () => {
 			expect( connector.pullSite ).toHaveBeenCalledTimes( 2 );
 		}
 	);
+
+	it( 'creates the local copy of a site it reaches over SSH', async () => {
+		const { connector, site } = setup();
+		const sshSite = {
+			id: 'deploy@acme.test:/srv/www',
+			name: 'Acme',
+			url: 'https://acme.test',
+			contentDir: '/srv/www/wp-content',
+		};
+		connector.runSitesAction.mockResolvedValue( [ { name: 'acme' } ] );
+		connector.resolveRemoteSite.mockResolvedValue( sshSite );
+		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'SSH' } ) );
+		fireEvent.click( screen.getByRole( 'combobox', { name: 'Host' } ) );
+		const host = await screen.findByRole( 'option', { name: 'acme' } );
+		fireEvent.pointerDown( host, { pointerType: 'mouse' } );
+		fireEvent.click( host );
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'WordPress folder' } ), {
+			target: { value: '/srv/www' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
+		const name = await screen.findByLabelText( 'Site name' );
+		await waitFor( () => expect( name ).toHaveValue( 'Acme' ) );
+		expect( connector.resolveRemoteSite ).toHaveBeenCalledWith( 'ssh', {
+			host: 'acme',
+			path: '/srv/www',
+		} );
+
+		await submit();
+		await waitFor( () => expect( connector.pullSite ).toHaveBeenCalled() );
+		expect( connector.connectRemoteSite ).toHaveBeenCalledWith( 'ssh', site.id, sshSite );
+		expect( connector.pullSite.mock.calls[ 0 ].slice( 0, 3 ) ).toEqual( [
+			'ssh',
+			site.id,
+			sshSite.id,
+		] );
+	} );
 
 	it( 'retraces tab changes and closes from the initial screen', async () => {
 		setup();

@@ -456,7 +456,7 @@ describe( 'replacing an outdated daemon', () => {
 
 	it( 'replaces the daemon once when clients connect at the same time', async () => {
 		// The real lockfile is what serializes clients.
-		vi.doUnmock( 'lockfile' );
+		vi.doUnmock( 'proper-lockfile' );
 		const clients = [];
 		for ( let i = 0; i < 3; i++ ) {
 			vi.resetModules();

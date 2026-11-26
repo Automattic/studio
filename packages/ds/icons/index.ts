@@ -78,6 +78,7 @@ export * from './triangle-alert-icon';
 export * from './unlock-icon';
 export * from './unpin-icon';
 export * from './upload-icon';
+export * from './users-icon';
 export * from './wordpress-icon';
 export * from './x-icon';
 

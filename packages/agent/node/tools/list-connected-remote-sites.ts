@@ -5,7 +5,7 @@ import { textResult } from './utils';
 
 export const listConnectedRemoteSitesTool = defineTool(
 	'site_connected_remote_sites',
-	'Lists the durable remote sites a local Studio site is connected to for publishing: WordPress.com and Pressable sites (production or staging), which it can push to and pull from, and sites on other providers such as Spacefast, which receive a static copy of the site and can only be pushed to. ' +
+	'Lists the durable remote sites a local Studio site is connected to for publishing: WordPress.com and Pressable sites (production or staging) and WordPress sites on servers Studio reaches over SSH, which it can push to and pull from, and sites on other providers such as Spacefast, which receive a static copy of the site and can only be pushed to. ' +
 		'These are NOT temporary preview sites. Preview sites are listed by preview_list and must never be described as connected remote sites. ' +
 		'Use this before calling site_push to determine how to ask the user which remote site to push to. ' +
 		'Each entry names its `provider`, and `remoteSite`, which site_push and site_pull take as is. When `canPush` or `canPull` is false, `issue` says why: explain it to the user and do not attempt that sync. ' +
@@ -19,8 +19,8 @@ export const listConnectedRemoteSitesTool = defineTool(
 			const connected = await context.host.sync.connectedSites( site );
 			const summary = connected.map( ( { provider, site: remote } ) => {
 				const sites = getProviderSites( provider );
-				const pushIssue = sites.issue( remote, 'push' );
-				const pullIssue = sites.pull ? sites.issue( remote, 'pull' ) : null;
+				const pushIssue = sites.issue?.( remote, 'push' ) ?? null;
+				const pullIssue = sites.pull ? sites.issue?.( remote, 'pull' ) ?? null : null;
 				return {
 					type: 'remote-site' as const,
 					provider,

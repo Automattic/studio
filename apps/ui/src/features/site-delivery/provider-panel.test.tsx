@@ -2,7 +2,7 @@ import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, onTestFinished, vi } from 'vitest';
 import { getVisibleToasts, runNoticeAction } from '@/data/app-messages';
 import { buildPublishCheckoutUrl } from '@/data/core/connectors/publish-checkout-url';
 import { publishTargetQueryKey, remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
@@ -44,6 +44,8 @@ const space = {
 	lastPushTimestamp: new Date().toISOString(),
 	lastPullTimestamp: null,
 };
+const sitesOf = ( provider: string ) =>
+	( { wpcom: [ live ], spacefast: [ space ] } )[ provider ] ?? [];
 const preview: Snapshot = {
 	atomicSiteId: 123,
 	localSiteId: site.id,
@@ -71,8 +73,8 @@ function setup( overrides: ConnectorOverrides = {}, notifications = false ) {
 			getPublishCheckoutUrl: buildPublishCheckoutUrl,
 			getSnapshots: async () => [ preview ],
 			getSnapshotUsage: async () => ( { siteCount: 1, siteLimit: 5, siteCreationBlocked: false } ),
-			getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [ space ] ),
-			listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [ space ] ),
+			getRemoteSites: async ( provider ) => sitesOf( provider ),
+			listAccountSites: async ( provider ) => sitesOf( provider ),
 			getSiteVisibility: async ( provider, id ) => ( {
 				url:
 					provider === 'spacefast'
@@ -793,6 +795,44 @@ it.each( [ 'Back', 'Escape' ] )(
 	}
 );
 
+it( 'publishes a new Space in the team the user picks', async () => {
+	let created = false;
+	const { connector, user } = setup( {
+		runSitesAction: async () => [
+			{ id: 'agency', name: 'Agency' },
+			{ id: 'mine', name: 'Mine' },
+		],
+		getSiteCreationVisibility: async ( _provider, input ) =>
+			input?.team === 'mine' ? 'public' : 'private',
+		getSnapshots: async () => [],
+		getRemoteSites: async ( provider ) => ( provider === 'spacefast' && created ? [ space ] : [] ),
+		createRemoteSite: async () => {
+			created = true;
+			return space;
+		},
+	} );
+	await openFirstDestination();
+	await user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
+	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	const team = await screen.findByRole( 'combobox', { name: 'Team' } );
+	expect( team ).toHaveAccessibleDescription( 'Agency' );
+	await user.click( team );
+	await user.click( await screen.findByRole( 'option', { name: 'Mine' } ) );
+	expect( team ).toHaveAccessibleDescription( 'Mine' );
+	const access = screen.getByRole( 'combobox', { name: 'Who can view' } );
+	await user.click( access );
+	await user.click( await screen.findByRole( 'option', { name: 'Everyone' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Publish' } ) );
+	await waitFor( () =>
+		expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+			'spacefast',
+			site.id,
+			{ name: site.name, visibility: 'public', input: { team: 'mine' } },
+			false
+		)
+	);
+} );
+
 it( 'uses the destination and visibility chosen in new preview setup', async () => {
 	let created = false;
 	const { user, connector } = setup( {
@@ -823,8 +863,7 @@ it( 'uses the destination and visibility chosen in new preview setup', async () 
 		expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
 			'spacefast',
 			site.id,
-			site.name,
-			'public',
+			{ name: site.name, visibility: 'public', input: {} },
 			false
 		)
 	);
@@ -914,9 +953,9 @@ it.each( [
 	const spacefastSite = { ...space, lastPushTimestamp: null };
 	const { user, connector } = setup( {
 		getRemoteSites: async ( provider ) =>
-			provider === 'wpcom' ? [ wpcomSite ] : [ spacefastSite ],
+			provider === 'wpcom' ? [ wpcomSite ] : provider === 'spacefast' ? [ spacefastSite ] : [],
 		listAccountSites: async ( provider ) =>
-			provider === 'wpcom' ? [ wpcomSite ] : [ spacefastSite ],
+			provider === 'wpcom' ? [ wpcomSite ] : provider === 'spacefast' ? [ spacefastSite ] : [],
 		getSiteVisibility: async ( provider ) => ( {
 			url: provider === 'wpcom' ? wpcomSite.url : spacefastSite.url,
 			visibility: 'private',
@@ -1142,8 +1181,10 @@ it.each( [
 	const remote = { ...live, isPressable };
 	setup( {
 		getSnapshots: async () => [],
-		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ remote ] : [ space ] ),
-		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ remote ] : [ space ] ),
+		getRemoteSites: async ( provider ) =>
+			provider === 'wpcom' ? [ remote ] : sitesOf( provider ),
+		listAccountSites: async ( provider ) =>
+			provider === 'wpcom' ? [ remote ] : sitesOf( provider ),
 	} );
 	const hostname = new URL( remote.url ).hostname;
 	const panel = await openFirstDestination();
@@ -1157,7 +1198,11 @@ it.each( [
 it( 'lists connected destinations above previews and marks only published sites Live', async () => {
 	const { connector, user } = setup( {
 		getRemoteSites: async ( provider ) =>
-			provider === 'wpcom' ? [ live ] : [ { ...space, lastPushTimestamp: null } ],
+			provider === 'wpcom'
+				? [ live ]
+				: provider === 'spacefast'
+				? [ { ...space, lastPushTimestamp: null } ]
+				: [],
 		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
 	} );
 	const panel = await openShare();
@@ -1331,8 +1376,7 @@ it.each( [
 			expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
 				'spacefast',
 				site.id,
-				site.name,
-				expected,
+				{ name: site.name, visibility: expected, input: {} },
 				false
 			)
 		);
@@ -1370,7 +1414,13 @@ it.each( [ 'selected', 'only', 'with preview' ] )(
 		let removed = false;
 		const { connector, user } = setup( {
 			getRemoteSites: async ( provider ) =>
-				provider === 'wpcom' ? ( state === 'selected' ? [ live ] : [] ) : removed ? [] : [ space ],
+				provider === 'wpcom'
+					? state === 'selected'
+						? [ live ]
+						: []
+					: removed
+					? []
+					: sitesOf( provider ),
 			getSnapshots: async () => ( state === 'with preview' ? [ preview ] : [] ),
 			disconnectRemoteSite: async () => {
 				removed = true;
@@ -1754,6 +1804,12 @@ it( 'connects Spacefast from the destination picker and returns to publishing', 
 } );
 
 it( 'returns to existing sites after connecting Spacefast', async () => {
+	// On a slow machine the next frame can come before the popover content mounts.
+	const frame = vi.spyOn( window, 'requestAnimationFrame' ).mockImplementation( ( callback ) => {
+		queueMicrotask( () => callback( performance.now() ) );
+		return 0;
+	} );
+	onTestFinished( () => frame.mockRestore() );
 	const { connector, user } = setup( {
 		getAuthUser: async () => null,
 		getAiSettings: async () => aiSettings( 'wpcom', [] ),
@@ -1790,6 +1846,77 @@ it( 'returns to existing sites after connecting Spacefast', async () => {
 	);
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it( 'connects a site over SSH from its address, then publishes to it', async () => {
+	const sshSite = {
+		id: 'deploy@acme.test:/srv/www',
+		name: 'Acme',
+		url: 'https://acme.test',
+		contentDir: '/srv/www/wp-content',
+		localSiteId: site.id,
+		lastPushTimestamp: null,
+		lastPullTimestamp: null,
+	};
+	let added = false;
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'ssh' && added ? [ sshSite ] : [] ),
+		getSiteVisibility: async () => null,
+		getSnapshots: async () => [],
+	} );
+	connector.runSitesAction.mockResolvedValue( [
+		{ name: 'acme', description: 'deploy@acme.test' },
+	] );
+	connector.resolveRemoteSite.mockResolvedValue( sshSite );
+	connector.connectRemoteSite.mockImplementation( async () => {
+		added = true;
+	} );
+	await openShare();
+	await openExistingSitePicker( user );
+	const picker = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+	expect( within( picker ).queryByRole( 'textbox' ) ).not.toBeInTheDocument();
+	await user.click( within( picker ).getByRole( 'button', { name: 'Connect to SSH' } ) );
+	const step = await screen.findByRole( 'dialog', { name: 'Publish over SSH' } );
+	await user.click( within( step ).getByRole( 'combobox', { name: 'Host' } ) );
+	await user.click( await screen.findByRole( 'option', { name: /^acme/ } ) );
+	await user.type(
+		within( step ).getByRole( 'textbox', { name: 'WordPress folder' } ),
+		'/srv/www'
+	);
+	await user.click( within( step ).getByRole( 'button', { name: 'Connect' } ) );
+	expect( connector.resolveRemoteSite ).toHaveBeenCalledWith( 'ssh', {
+		host: 'acme',
+		path: '/srv/www',
+	} );
+	expect( connector.connectRemoteSite ).toHaveBeenCalledWith( 'ssh', site.id, sshSite );
+	expect( await screen.findByRole( 'link', { name: 'Open acme.test' } ) ).toBeVisible();
+
+	await user.click( await screen.findByRole( 'button', { name: 'Update…' } ) );
+	const confirmation = await screen.findByRole( 'alertdialog', {
+		name: /Publish (again|changes)\?/,
+	} );
+	await user.click( within( confirmation ).getByRole( 'button', { name: /^Publish/ } ) );
+	await screen.findByRole( 'button', { name: 'Updating…' } );
+	act( () =>
+		connector.emit( 'onSyncActivity', {
+			siteId: site.id,
+			activity: { kind: 'success', direction: 'push', provider: 'ssh', remoteSiteId: sshSite.id },
+		} )
+	);
+	expect( await screen.findByRole( 'button', { name: 'Update…' } ) ).toBeEnabled();
+	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith( 'ssh', site.id, sshSite.id, {
+		optionsToSync: [ 'all' ],
+	} );
+
+	await user.click( screen.getByRole( 'button', { name: 'Pull from live site…' } ) );
+	const pull = await screen.findByRole( 'alertdialog', {
+		name: 'Update local site from acme.test?',
+	} );
+	await user.click( within( pull ).getByRole( 'combobox', { name: 'What to replace' } ) );
+	expect(
+		( await screen.findAllByRole( 'option' ) ).map( ( option ) => option.textContent )
+	).toEqual( [ 'Entire site', 'Files only', 'Content and settings only' ] );
+	expect( pull ).not.toHaveTextContent( 'backup' );
 } );
 
 it( 'does not open Spacefast if its connection dialog is closed before the link is ready', async () => {
@@ -1862,8 +1989,7 @@ it( 'keeps first publish steady through creation and upload', async () => {
 		expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
 			'spacefast',
 			site.id,
-			site.name,
-			'private',
+			{ name: site.name, visibility: 'private', input: {} },
 			false
 		)
 	);
@@ -2353,11 +2479,11 @@ it( 'offers existing sites in Destination and returns keyboard focus there', asy
 	expect( wordpress ).toHaveAccessibleDescription( 'The full WordPress, with a domain.' );
 	expect( spacefast ).toHaveAccessibleName( 'Spacefast' );
 	expect( spacefast ).toHaveAccessibleDescription( 'A static copy of your pages.' );
-	expect( choices.getAllByRole( 'option' ) ).toHaveLength( 3 );
-	expect( choices.getAllByRole( 'option' )[ 2 ] ).toHaveAccessibleName(
+	expect( choices.getAllByRole( 'option' ) ).toHaveLength( 4 );
+	expect( choices.getAllByRole( 'option' )[ 3 ] ).toHaveAccessibleName(
 		'Connect to an existing site'
 	);
-	expect( choices.getAllByRole( 'option' )[ 2 ] ).toHaveAccessibleDescription(
+	expect( choices.getAllByRole( 'option' )[ 3 ] ).toHaveAccessibleDescription(
 		'Publish to a site you already have.'
 	);
 	expect( choices.queryByRole( 'option', { name: 'Add more providers' } ) ).not.toBeInTheDocument();
@@ -2482,9 +2608,10 @@ it( 'waits for the exact pull destination requested before connections load', as
 		resolveConnections = resolve;
 	} );
 	const { connector, user } = setup( {
-		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? connections : [ space ] ),
+		getRemoteSites: async ( provider ) =>
+			provider === 'wpcom' ? connections : sitesOf( provider ),
 		listAccountSites: async ( provider ) =>
-			provider === 'wpcom' ? [ live, destination ] : [ space ],
+			provider === 'wpcom' ? [ live, destination ] : sitesOf( provider ),
 	} );
 	act( () =>
 		requestHeaderPanel( {
@@ -2932,7 +3059,7 @@ it( 'finds and connects a Space from a WordPress.com preview', async () => {
 		getRemoteSites: async ( provider, localSiteId ) =>
 			provider === 'spacefast' && ! localSiteId ? [ linkedSpace ] : [],
 		listAccountSites: async ( provider ) =>
-			provider === 'wpcom' ? [ live ] : [ space, linkedSpace ],
+			provider === 'wpcom' ? [ live ] : provider === 'spacefast' ? [ space, linkedSpace ] : [],
 		connectRemoteSite: async () => {
 			connector.getRemoteSites.mockImplementation( async ( provider, localSiteId ) =>
 				provider === 'spacefast' ? ( localSiteId ? [ space ] : [ space, linkedSpace ] ) : []

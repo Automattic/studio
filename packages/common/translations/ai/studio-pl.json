@@ -14,6 +14,12 @@
 	"\"%s\" is not a Blueprint file, URL or Library slug.": [
 		"\"%s\" nie jest plikiem Blueprinta, adresem URL ani slugiem z biblioteki."
 	],
+	"$10 of AI credits every month": [
+		"Kredyty AI o wartości 10 USD co miesiąc"
+	],
+	"$30 of AI credits every month": [
+		"Kredyty AI o wartości 30 USD co miesiąc"
+	],
 	"%1$d of %2$d active preview site": [
 		"Aktywne podglądy witryn: %1$d z %2$d",
 		"Aktywne podglądy witryn: %1$d z %2$d",
@@ -21,6 +27,16 @@
 	],
 	"%1$d of %2$d items updated. %3$d failed": [
 		"Zaktualizowane elementy: %1$d z %2$d. Niepowodzenia: %3$d"
+	],
+	"%1$d of %2$d site": [
+		"Witryny: %1$d z %2$d",
+		"Witryny: %1$d z %2$d",
+		"Witryny: %1$d z %2$d"
+	],
+	"%1$d of %2$d site running at once": [
+		"Witryny uruchomione jednocześnie: %1$d z %2$d",
+		"Witryny uruchomione jednocześnie: %1$d z %2$d",
+		"Witryny uruchomione jednocześnie: %1$d z %2$d"
 	],
 	"%1$d of %2$d sites deleted. %3$d failed: %4$s": [
 		"Usunięto %1$d z %2$d witryn. Niepowodzenia: %3$d: %4$s"
@@ -31,8 +47,19 @@
 	"%1$s +%2$d": [
 		"%1$s +%2$d"
 	],
+	"%1$s / %2$s per million tokens": [
+		"%1$s / %2$s za milion tokenów"
+	],
+	"%1$s GB of %2$s GB of storage used": [
+		"Wykorzystano %1$s GB z %2$s GB miejsca na dane"
+	],
 	"%1$s Use /connect %2$s to connect it.": [
 		"%1$s Użyj /connect %2$s, aby go połączyć."
+	],
+	"%1$s and %2$d other": [
+		"%1$s i jeszcze %2$d",
+		"%1$s i jeszcze %2$d",
+		"%1$s i jeszcze %2$d"
 	],
 	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
 		"%1$s nie może zainstalować wtyczki WordPress Studio: %2$s"
@@ -54,6 +81,9 @@
 	],
 	"%1$s screenshot %2$d": [
 		"%1$s – zrzut ekranu %2$d"
+	],
+	"%1$s · %2$s context": [
+		"%1$s · kontekst %2$s"
 	],
 	"%1$s — %2$s": [
 		"%1$s — %2$s"
@@ -105,6 +135,11 @@
 		"Zaktualizowano %d elementy",
 		"Zaktualizowano %d elementów"
 	],
+	"%d model": [
+		"%d model",
+		"%d modele",
+		"%d modeli"
+	],
 	"%d site selected": [
 		"Zaznaczono %d witrynę",
 		"Zaznaczono %d witryny",
@@ -114,6 +149,9 @@
 		"%d token w theme.json różni się od DESIGN.md",
 		"%d tokeny w theme.json różnią się od DESIGN.md",
 		"%d tokenów w theme.json różni się od DESIGN.md"
+	],
+	"%s (optional, saved for future use):": [
+		"%s (opcjonalnie, zapisywane do późniejszego użycia):"
 	],
 	"%s (saved for future use):": [
 		"%s (zostanie zapisany do przyszłego użycia):"
@@ -126,6 +164,9 @@
 	],
 	"%s KB": [
 		"%s KB"
+	],
+	"%s billed yearly": [
+		"%s rozliczane rocznie"
 	],
 	"%s chats": [
 		"Czaty witryny %s"
@@ -148,8 +189,14 @@
 	"%s isn’t installed on this computer.": [
 		"%s nie jest zainstalowany na tym komputerze."
 	],
+	"%s models": [
+		"Modele %s"
+	],
 	"%s of monthly limit used": [
 		"Wykorzystano %s miesięcznego limitu"
+	],
+	"%s only makes previews.": [
+		"%s tworzy tylko podglądy."
 	],
 	"%s preview is ready": [
 		"Podgląd %s jest gotowy"
@@ -159,6 +206,12 @@
 	],
 	"%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.": [
 		"Witryna %s przestała raportować postęp importu, ale aktualizacja może nadal trwać. Sprawdź witrynę produkcyjną przed ponownym przesłaniem."
+	],
+	"%s · Live site": [
+		"%s · Witryna produkcyjna"
+	],
+	"%s · Local changes": [
+		"%s · Zmiany lokalne"
 	],
 	"--keep-source requires --from with an HTTP(S) URL": [
 		"--keep-source wymaga --from z adresem URL HTTP(S)"
@@ -171,6 +224,12 @@
 	],
 	"... output truncated": [
 		"... dane wyjściowe skrócone"
+	],
+	"30 GB of storage": [
+		"30 GB miejsca na dane"
+	],
+	"6 GB of storage": [
+		"6 GB miejsca na dane"
 	],
 	"<b>Build</b> block themes with striking, memorable designs": [
 		"<b>Buduj</b> motywy blokowe o efektownym, zapadającym w pamięć wyglądzie"
@@ -201,6 +260,9 @@
 	],
 	"A pull is in progress or was interrupted before it finished.": [
 		"Pobieranie jest w toku lub zostało przerwane przed zakończeniem."
+	],
+	"A static copy of your pages.": [
+		"Statyczna kopia Twoich stron."
 	],
 	"AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.": [
 		"Kredytami AI płacisz za korzystanie z AI w WordPress Studio — na przykład za generowanie kodu, budowanie witryny czy używanie innych funkcji opartych na AI. Kredyty nie są pieniędzmi. Nie można ich wypłacić, wymienić na gotówkę ani używać poza WordPress Studio."
@@ -247,6 +309,9 @@
 	"Accent tag": [
 		"Etykieta akcentu"
 	],
+	"Access unknown": [
+		"Dostęp nieznany"
+	],
 	"Activate all plugins": [
 		"Włącz wszystkie wtyczki"
 	],
@@ -261,6 +326,9 @@
 	],
 	"Add a contact form to the homepage": [
 		"Dodaj formularz kontaktowy na stronie głównej"
+	],
+	"Add a domain": [
+		"Dodaj domenę"
 	],
 	"Add a payment method to use WordPress.com AI.": [
 		"Dodaj metodę płatności, aby korzystać z WordPress.com AI."
@@ -292,6 +360,12 @@
 	"Add your own guidance for WordPress Studio.": [
 		"Dodaj własne wskazówki dla WordPress Studio."
 	],
+	"Address is required": [
+		"Adres jest wymagany"
+	],
+	"Address to listen on": [
+		"Adres, na którym nasłuchiwać"
+	],
 	"Adjust the strength of the color tint.": [
 		"Dostosuj siłę zabarwienia kolorem."
 	],
@@ -316,8 +390,14 @@
 	"Agents": [
 		"Agenci"
 	],
+	"All but %s": [
+		"Wszystko oprócz: %s"
+	],
 	"All files": [
 		"Wszystkie pliki"
+	],
+	"All models": [
+		"Wszystkie modele"
 	],
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"Podczas logowania zezwól WordPress Studio na korzystanie z Twojego planu ChatGPT."
@@ -352,11 +432,17 @@
 	"Another app is using port %s, which Studio needs for custom domains. Quit that app and try again, or turn off the custom domain to use localhost": [
 		"Port %s, którego Studio potrzebuje dla własnych domen, jest używany przez inną aplikację. Zamknij tę aplikację i spróbuj ponownie lub wyłącz własną domenę, aby używać localhost"
 	],
+	"Another operation is in progress.": [
+		"Trwa inna operacja."
+	],
 	"Answer WordPress Studio": [
 		"Odpowiedz WordPress Studio"
 	],
 	"Answer with an option": [
 		"Odpowiedz, wybierając opcję"
+	],
+	"Answers right away, fastest": [
+		"Odpowiada od razu, najszybciej"
 	],
 	"Anthropic API key": [
 		"Klucz API Anthropic"
@@ -372,6 +458,15 @@
 	],
 	"Antigravity IDE": [
 		"Antigravity IDE"
+	],
+	"Anyone can view your site": [
+		"Każdy może wyświetlić Twoją witrynę"
+	],
+	"Anyone with the link": [
+		"Każdy, kto ma odnośnik"
+	],
+	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
+		"Każdy, kto ma odnośnik, straci dostęp i nie można tego cofnąć. Twój lokalny WordPress się nie zmieni."
 	],
 	"Anyone you’ve shared this preview with will no longer be able to view it. Your site will not be deleted.": [
 		"Osoby, którym udostępniono ten podgląd, nie będą już mogły go wyświetlić. Twoja witryna nie zostanie usunięta."
@@ -486,17 +581,11 @@
 	"Back to Blueprints": [
 		"Wróć do Blueprintów"
 	],
-	"Back to Publish": [
-		"Wróć do publikowania"
-	],
 	"Back to email list": [
 		"Wróć do listy e-maili"
 	],
 	"Backup node ids to pull when using the \"paths\" option": [
 		"ID węzłów kopii zapasowej do pobrania przy użyciu opcji \"paths\""
-	],
-	"Backups": [
-		"Kopie zapasowe"
 	],
 	"Balanced": [
 		"Zrównoważony"
@@ -509,6 +598,15 @@
 	],
 	"Batch notes enabled.": [
 		"Grupowanie uwag włączone."
+	],
+	"Billed monthly, renews on %s": [
+		"Rozliczany miesięcznie, odnawia się %s"
+	],
+	"Billed yearly, renews on %s": [
+		"Rozliczany rocznie, odnawia się %s"
+	],
+	"Billing period": [
+		"Okres rozliczeniowy"
 	],
 	"Birdland": [
 		"Birdland"
@@ -591,9 +689,6 @@
 	"By continuing, you agree to our Terms of Service and have read our Privacy Policy.": [
 		"Kontynuując, zgadzasz się z naszymi Warunkami korzystania z usługi i potwierdzasz zapoznanie się z naszą Polityką prywatności."
 	],
-	"Cancel publishing": [
-		"Anuluj publikowanie"
-	],
 	"Canceled.": [
 		"Anulowano."
 	],
@@ -602,6 +697,9 @@
 	],
 	"Cannot set up WordPress. Bundled SQLite integration files not found. Please reinstall Studio.": [
 		"Nie można skonfigurować WordPressa. Nie znaleziono dołączonych plików integracji SQLite. Zainstaluj ponownie Studio."
+	],
+	"Can’t see screenshots": [
+		"Nie widzi zrzutów ekranu"
 	],
 	"Card title": [
 		"Tytuł karty"
@@ -612,11 +710,14 @@
 	"Change color": [
 		"Zmień kolor"
 	],
+	"Changes on %s will be replaced with your local files and database.": [
+		"Zmiany w %s zostaną zastąpione Twoimi lokalnymi plikami i bazą danych."
+	],
+	"Changes published": [
+		"Zmiany opublikowane"
+	],
 	"Changes pulled into %s": [
 		"Pobrano zmiany do %s"
-	],
-	"Changes pulled into WordPress Studio": [
-		"Zmiany pobrane do WordPress Studio"
 	],
 	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
 		"Zmiany zostały przesłane, ale nie udało się uruchomić witryny. Sprawdź swój plan i uprawnienia, a następnie opublikuj ponownie, aby ponowić próbę uruchomienia."
@@ -657,6 +758,9 @@
 	"Check WordPress Studio Logs for more details.": [
 		"Sprawdź dzienniki WordPress Studio, aby uzyskać więcej szczegółów."
 	],
+	"Check again": [
+		"Sprawdź ponownie"
+	],
 	"Check that the file is still available and readable, then try again or choose another backup.": [
 		"Sprawdź, czy plik jest nadal dostępny i czytelny, a następnie spróbuj ponownie lub wybierz inną kopię zapasową."
 	],
@@ -666,11 +770,20 @@
 	"Check your internet connection and try again.": [
 		"Sprawdź połączenie internetowe i spróbuj ponownie."
 	],
+	"Checking access…": [
+		"Sprawdzanie dostępu…"
+	],
 	"Checking for updates…": [
 		"Sprawdzanie aktualizacji…"
 	],
+	"Checking whether you can pull from this preview…": [
+		"Sprawdzanie, czy możesz pobrać z tego podglądu…"
+	],
 	"Checking your account…": [
 		"Sprawdzanie konta…"
+	],
+	"Checking…": [
+		"Sprawdzanie…"
 	],
 	"Choose a <strong>one-time</strong> AI credit amount to check out securely on WordPress.com. AI credits do not expire.": [
 		"Wybierz <strong>jednorazową</strong> liczbę kredytów AI, aby bezpiecznie zapłacić w WordPress.com. Kredyty AI nie wygasają."
@@ -708,8 +821,14 @@
 	"Choose a one-time AI credit amount to check out securely on WordPress.com. AI credits do not expire.": [
 		"Wybierz jednorazową liczbę kredytów AI, aby bezpiecznie zapłacić w WordPress.com. Kredyty AI nie wygasają."
 	],
+	"Choose a plan to make it live: %s": [
+		"Wybierz plan, aby uruchomić witrynę produkcyjnie: %s"
+	],
 	"Choose a provider": [
 		"Wybierz dostawcę"
+	],
+	"Choose a site": [
+		"Wybierz witrynę"
 	],
 	"Choose a site source": [
 		"Wybierz źródło witryny"
@@ -738,11 +857,11 @@
 	"Choose an existing site": [
 		"Wybierz istniejącą witrynę"
 	],
-	"Choose another host": [
-		"Wybierz inny hosting"
-	],
 	"Choose color": [
 		"Wybierz kolor"
+	],
+	"Choose files": [
+		"Wybierz pliki"
 	],
 	"Choose files…": [
 		"Wybierz pliki…"
@@ -752,6 +871,9 @@
 	],
 	"Choose model": [
 		"Wybierz model"
+	],
+	"Choose specific files": [
+		"Wybierz konkretne pliki"
 	],
 	"Choose the WordPress release for this site.": [
 		"Wybierz wydanie WordPress dla tej witryny."
@@ -764,6 +886,12 @@
 	],
 	"Choose whether this site can access only its own folder or other files on your computer.": [
 		"Wybierz, czy ta witryna ma dostęp tylko do własnego folderu, czy też do innych plików na Twoim komputerze."
+	],
+	"Choose which live site this preview shows changes to.": [
+		"Wybierz witrynę produkcyjną, której zmiany pokazuje ten podgląd."
+	],
+	"Choose your plan.": [
+		"Wybierz plan."
 	],
 	"Choose…": [
 		"Wybierz…"
@@ -873,11 +1001,17 @@
 	"Connect a provider to build and edit your site.": [
 		"Połącz dostawcę, aby budować i edytować witrynę."
 	],
+	"Connect a provider to see your existing sites.": [
+		"Połącz dostawcę, aby zobaczyć swoje istniejące witryny."
+	],
 	"Connect an AI provider to turn your notes and ideas into changes to your site.": [
 		"Połącz dostawcę AI, aby zamieniać swoje uwagi i pomysły w zmiany na witrynie."
 	],
 	"Connect provider": [
 		"Połącz dostawcę"
+	],
+	"Connect to %s": [
+		"Połącz z %s"
 	],
 	"Connect to Spacefast": [
 		"Połącz ze Spacefast"
@@ -885,17 +1019,17 @@
 	"Connect to an existing WordPress": [
 		"Połącz z istniejącym WordPressem"
 	],
+	"Connect to an existing site": [
+		"Połącz z istniejącą witryną"
+	],
+	"Connect to publish": [
+		"Połącz, aby publikować"
+	],
+	"Connect to share previews": [
+		"Połącz, aby udostępniać podglądy"
+	],
 	"Connect to the internet to create an account or log in.": [
 		"Połącz się z internetem, aby utworzyć konto lub się zalogować."
-	],
-	"Connect to the internet to create or update a preview.": [
-		"Połącz się z internetem, aby utworzyć lub zaktualizować podgląd."
-	],
-	"Connect to the internet to publish or pull changes.": [
-		"Połącz się z internetem, aby publikować lub pobierać zmiany."
-	],
-	"Connect to the internet to publish your site.": [
-		"Połącz się z internetem, aby opublikować witrynę."
 	],
 	"Connect your WordPress": [
 		"Połącz swój WordPress"
@@ -905,6 +1039,9 @@
 	],
 	"Connected live site ID, or none": [
 		"ID połączonej witryny produkcyjnej lub none"
+	],
+	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
+		"Połączenie istniejącej witryny odłączy bieżące miejsce docelowe od WordPress Studio. Jego zawartość się nie zmieni."
 	],
 	"Connecting to WordPress.com": [
 		"Łączenie z WordPress.com"
@@ -917,6 +1054,9 @@
 	],
 	"Continue for %s": [
 		"Kontynuuj za %s"
+	],
+	"Continue on %s": [
+		"Kontynuuj w %s"
 	],
 	"Continue with GitHub": [
 		"Kontynuuj z GitHub"
@@ -966,14 +1106,17 @@
 	"Could not capture the area. Your selection is kept. Try again.": [
 		"Nie udało się przechwycić obszaru. Zaznaczenie zostało zachowane. Spróbuj ponownie."
 	],
+	"Could not check Spacefast team access": [
+		"Nie udało się sprawdzić dostępu zespołu Spacefast"
+	],
 	"Could not clear browsing data": [
 		"Nie udało się wyczyścić danych przeglądania"
 	],
+	"Could not connect to WordPress.com": [
+		"Nie udało się połączyć z WordPress.com"
+	],
 	"Could not copy": [
 		"Nie udało się skopiować"
-	],
-	"Could not delete the old preview site. It will expire on its own.": [
-		"Nie udało się usunąć starego podglądu witryny. Wygaśnie on samoczynnie."
 	],
 	"Could not determine the remote wp-content path from preflight state, so --only cannot be used for this site. Run a full pull, or try again.": [
 		"Nie udało się ustalić zdalnej ścieżki wp-content na podstawie wstępnego sprawdzenia, więc nie można użyć --only dla tej witryny. Wykonaj pełne pobieranie lub spróbuj ponownie."
@@ -990,17 +1133,23 @@
 	"Could not get list of database tables. The WP CLI output: %s": [
 		"Nie udało się pobrać listy tabel bazy danych. Wynik WP CLI: %s"
 	],
+	"Could not load %s sites.": [
+		"Nie udało się wczytać witryn %s."
+	],
 	"Could not log out": [
 		"Nie udało się wylogować"
-	],
-	"Could not migrate your sites": [
-		"Nie udało się przenieść Twoich witryn"
 	],
 	"Could not open DevTools": [
 		"Nie udało się otworzyć DevTools"
 	],
 	"Could not open Spacefast": [
 		"Nie udało się otworzyć Spacefast"
+	],
+	"Could not open the new preview. Please try again.": [
+		"Nie udało się otworzyć nowego podglądu. Spróbuj ponownie."
+	],
+	"Could not open the setup page. Please try again.": [
+		"Nie udało się otworzyć strony konfiguracji. Spróbuj ponownie."
 	],
 	"Could not parse information about installed plugins to create meta.json file.": [
 		"Nie udało się przetworzyć informacji o zainstalowanych wtyczkach, aby utworzyć plik meta.json."
@@ -1014,11 +1163,17 @@
 	"Could not parse themes list. The WP CLI output: %s": [
 		"Nie udało się przetworzyć listy motywów. Wynik WP CLI: %s"
 	],
+	"Could not publish. Please try again.": [
+		"Nie udało się opublikować. Spróbuj ponownie."
+	],
 	"Could not reach Anthropic to verify the credential.": [
 		"Nie udało się połączyć z Anthropic, aby zweryfikować dane uwierzytelniające."
 	],
 	"Could not read the table prefix from wp-config.php": [
 		"Nie udało się odczytać prefiksu tabel z wp-config.php"
+	],
+	"Could not read your settings": [
+		"Nie udało się odczytać ustawień"
 	],
 	"Could not reset appearance. Please try again.": [
 		"Nie udało się zresetować wyglądu. Spróbuj ponownie."
@@ -1041,8 +1196,14 @@
 	"Could not update the admin bar setting. Please try again.": [
 		"Nie udało się zaktualizować ustawienia paska administracyjnego. Spróbuj ponownie."
 	],
+	"Could not update your local site from this preview. Please try again.": [
+		"Nie udało się zaktualizować lokalnej witryny z tego podglądu. Spróbuj ponownie."
+	],
 	"Could not verify the credential with Anthropic.": [
 		"Nie udało się zweryfikować danych uwierzytelniających w Anthropic."
+	],
+	"Could not watch for your new site. Please try again.": [
+		"Nie udało się śledzić tworzenia nowej witryny. Spróbuj ponownie."
 	],
 	"Couldn't copy the live site. Try again.": [
 		"Nie udało się skopiować witryny produkcyjnej. Spróbuj ponownie."
@@ -1071,14 +1232,41 @@
 	"Couldn’t archive the chat": [
 		"Nie udało się zarchiwizować czatu"
 	],
+	"Couldn’t change how much the model thinks": [
+		"Nie udało się zmienić, jak długo myśli model"
+	],
+	"Couldn’t check for preview edits": [
+		"Nie udało się sprawdzić zmian w podglądzie"
+	],
+	"Couldn’t check previews.": [
+		"Nie udało się sprawdzić podglądów."
+	],
+	"Couldn’t check whether you can pull from this preview.": [
+		"Nie udało się sprawdzić, czy możesz pobrać z tego podglądu."
+	],
+	"Couldn’t check who can view new sites for this team.": [
+		"Nie udało się sprawdzić, kto może wyświetlać nowe witryny tego zespołu."
+	],
 	"Couldn’t create site: %s": [
 		"Nie udało się utworzyć witryny: %s"
 	],
 	"Couldn’t load apps.": [
 		"Nie udało się wczytać aplikacji."
 	],
+	"Couldn’t load publishing accounts": [
+		"Nie udało się wczytać kont do publikowania"
+	],
+	"Couldn’t load your %s sites": [
+		"Nie udało się wczytać Twoich witryn %s"
+	],
+	"Couldn’t load your %s sites.": [
+		"Nie udało się wczytać Twoich witryn %s."
+	],
 	"Couldn’t load your AI provider.": [
 		"Nie udało się wczytać Twojego dostawcy AI."
+	],
+	"Couldn’t load your previews.": [
+		"Nie udało się wczytać Twoich podglądów."
 	],
 	"Couldn’t open %s": [
 		"Nie udało się otworzyć: %s"
@@ -1103,9 +1291,6 @@
 	],
 	"Couldn’t save the site order": [
 		"Nie udało się zapisać kolejności witryn"
-	],
-	"Couldn’t sign in to WordPress.com": [
-		"Nie udało się zalogować do WordPress.com"
 	],
 	"Couldn’t switch the site this chat works on": [
 		"Nie udało się zmienić witryny, na której działa ten czat"
@@ -1137,20 +1322,20 @@
 	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
 		"Utwórz klucz na [OpenAI Platform](https://platform.openai.com/api-keys), a następnie wklej go poniżej."
 	],
+	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
+		"Utwórz klucz w [xAI Console](https://console.x.ai), a następnie wklej go poniżej."
+	],
+	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
+		"Utwórz klucz w [ustawieniach OpenRouter](https://openrouter.ai/settings/keys), a następnie wklej go poniżej."
+	],
 	"Create a new WordPress": [
 		"Utwórz nowy WordPress"
 	],
 	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
 		"Utwórz konto lub zaloguj się, aby połączyć swoje witryny WordPress.com lub Pressable."
 	],
-	"Create an account or log in to publish a website and keep your sites in sync.": [
-		"Utwórz konto lub zaloguj się, aby opublikować witrynę i synchronizować swoje witryny."
-	],
 	"Create an account or log in to share previews and keep your sites in sync.": [
 		"Utwórz konto lub zaloguj się, aby udostępniać podglądy i synchronizować witryny."
-	],
-	"Create another preview": [
-		"Utwórz kolejny podgląd"
 	],
 	"Create chat": [
 		"Utwórz czat"
@@ -1166,6 +1351,12 @@
 	],
 	"Created site %s": [
 		"Utworzono witrynę %s"
+	],
+	"Creating preview": [
+		"Tworzenie podglądu"
+	],
+	"Creating preview link…": [
+		"Tworzenie odnośnika do podglądu…"
 	],
 	"Creating preview…": [
 		"Tworzenie podglądu…"
@@ -1184,6 +1375,9 @@
 	],
 	"Custom instructions": [
 		"Własne instrukcje"
+	],
+	"Custom selection": [
+		"Wybór niestandardowy"
 	],
 	"DESIGN.md %1$s, theme.json %2$s": [
 		"DESIGN.md: %1$s, theme.json: %2$s"
@@ -1209,11 +1403,17 @@
 	"Database import failed: %s": [
 		"Import bazy danych nie powiódł się: %s"
 	],
+	"Database only": [
+		"Tylko baza danych"
+	],
 	"Deactivate all plugins": [
 		"Wyłącz wszystkie wtyczki"
 	],
 	"Deactivate plugin": [
 		"Wyłącz wtyczkę"
+	],
+	"Default": [
+		"Domyślne"
 	],
 	"Default AI provider": [
 		"Domyślny dostawca AI"
@@ -1233,6 +1433,12 @@
 	"Default hosting provider": [
 		"Domyślny dostawca hostingu"
 	],
+	"Default image provider": [
+		"Domyślny dostawca obrazów"
+	],
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"Auto"
+	],
 	"Default language for WordPress Studio.": [
 		"Domyślny język WordPress Studio."
 	],
@@ -1250,11 +1456,20 @@
 	"Delete %s": [
 		"Usuń %s"
 	],
+	"Delete a preview in Sharing settings to create another.": [
+		"Usuń podgląd w ustawieniach udostępniania, aby utworzyć kolejny."
+	],
+	"Delete a site to create a new one.": [
+		"Usuń witrynę, aby utworzyć nową."
+	],
 	"Delete annotation: %s": [
 		"Usuń adnotację: %s"
 	],
 	"Delete plugin": [
 		"Usuń wtyczkę"
+	],
+	"Delete sites you no longer need to free up space.": [
+		"Usuń niepotrzebne witryny, aby zwolnić miejsce."
 	],
 	"Delete theme": [
 		"Usuń motyw"
@@ -1312,8 +1527,11 @@
 	"Disconnect a provider": [
 		"Odłącz dostawcę"
 	],
-	"Disconnect website?": [
-		"Odłączyć witrynę?"
+	"Disconnect site": [
+		"Odłącz witrynę"
+	],
+	"Disconnect site…": [
+		"Odłącz witrynę…"
 	],
 	"Disconnected %s.": [
 		"Odłączono %s."
@@ -1335,6 +1553,9 @@
 	],
 	"Download & copy command": [
 		"Pobierz i skopiuj polecenie"
+	],
+	"Download WordPress Studio": [
+		"Pobierz WordPress Studio"
 	],
 	"Download update": [
 		"Pobierz aktualizację"
@@ -1411,6 +1632,9 @@
 	"Enable hosting features on WordPress.com before connecting this site.": [
 		"Przed połączeniem tej witryny włącz funkcje hostingu w WordPress.com."
 	],
+	"Ends on %s": [
+		"Kończy się %s"
+	],
 	"Enter a folder name other than “.” or “..”.": [
 		"Wpisz nazwę folderu inną niż „.” lub „..”."
 	],
@@ -1441,20 +1665,23 @@
 	"Every site you build lives in the sidebar on the left. Switch between them anytime. The sidebar is where you’ll find site settings and a quick way to start and stop your site.": [
 		"Każda budowana przez Ciebie witryna znajduje się w panelu bocznym po lewej. Przełączaj się między nimi w dowolnej chwili. W panelu bocznym znajdziesz ustawienia witryny i szybki sposób na jej uruchamianie i zatrzymywanie."
 	],
+	"Everyone": [
+		"Wszyscy"
+	],
+	"Everything": [
+		"Wszystko"
+	],
 	"Everything you built in WordPress Studio is right here in the sidebar. Same sites, same files with a new workbench around them.": [
 		"Wszystko, co zbudowano w WordPress Studio, znajdziesz tutaj, w panelu bocznym. Te same witryny, te same pliki, a wokół nich nowy warsztat."
+	],
+	"Everything you need to build WordPress sites with Studio Code.": [
+		"Wszystko, czego potrzebujesz do tworzenia witryn WordPress za pomocą Studio Code."
 	],
 	"Exclude “%s” from removal": [
 		"Nie usuwaj „%s”"
 	],
 	"Existing WordPress site": [
 		"Istniejąca witryna WordPress"
-	],
-	"Existing sites": [
-		"Istniejące witryny"
-	],
-	"Existing site…": [
-		"Istniejąca witryna…"
 	],
 	"Exit annotations": [
 		"Zakończ adnotacje"
@@ -1525,6 +1752,9 @@
 	"Failed to find existing preview site in config": [
 		"Nie znaleziono istniejącego podglądu witryny w konfiguracji"
 	],
+	"Failed to find the preview site’s launch link": [
+		"Nie udało się znaleźć odnośnika do uruchomienia podglądu witryny"
+	],
 	"Failed to get site plugins: %s": [
 		"Nie udało się pobrać wtyczek witryny: %s"
 	],
@@ -1552,9 +1782,6 @@
 	"Failed to load your Spacefast Spaces": [
 		"Nie udało się wczytać Twoich przestrzeni Spacefast"
 	],
-	"Failed to move site files to trash. Proceeding anyway…": [
-		"Nie udało się przenieść plików witryny do kosza. Kontynuowanie…"
-	],
 	"Failed to open WordPress.com checkout.": [
 		"Nie udało się otworzyć kasy WordPress.com."
 	],
@@ -1576,11 +1803,11 @@
 	"Failed to read the attached image": [
 		"Nie udało się odczytać załączonego obrazu"
 	],
-	"Failed to remove WordPress.com connections. Proceeding anyway…": [
-		"Nie udało się usunąć połączeń z WordPress.com. Kontynuowanie…"
-	],
 	"Failed to save connected site": [
 		"Nie udało się zapisać połączonej witryny"
+	],
+	"Failed to set up WordPress": [
+		"Nie udało się skonfigurować WordPressa"
 	],
 	"Failed to start HTTP proxy server": [
 		"Nie udało się uruchomić serwera proxy HTTP"
@@ -1624,11 +1851,11 @@
 	"File manager": [
 		"Menedżer plików"
 	],
+	"Files could not be loaded.": [
+		"Nie udało się wczytać plików."
+	],
 	"Files only": [
 		"Tylko pliki"
-	],
-	"Files, content, and settings": [
-		"Pliki, zawartość i ustawienia"
 	],
 	"Files…": [
 		"Pliki…"
@@ -1641,6 +1868,12 @@
 	],
 	"Finish activating hosting on WordPress.com before publishing.": [
 		"Przed publikacją dokończ aktywację hostingu w WordPress.com."
+	],
+	"Finish activating hosting on WordPress.com before pulling.": [
+		"Przed pobieraniem dokończ aktywację hostingu w WordPress.com."
+	],
+	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
+		"Dokończ zakup na karcie WordPress.com, a następnie wróć tutaj. Obszar roboczy skonfiguruje się sam, gdy tylko plan stanie się aktywny."
 	],
 	"Finish signing in to %s in your browser.": [
 		"Dokończ logowanie do %s w przeglądarce."
@@ -1656,6 +1889,9 @@
 	],
 	"Folder…": [
 		"Folder…"
+	],
+	"For generating images. Auto uses the AI provider when it can.": [
+		"Do generowania obrazów. Tryb Auto używa dostawcy AI, gdy to możliwe."
 	],
 	"For publishing sites.": [
 		"Do publikowania witryn."
@@ -1741,6 +1977,15 @@
 	"Green Dolphin Street": [
 		"Green Dolphin Street"
 	],
+	"Grok sent back an incomplete sign-in.": [
+		"Grok zwrócił niekompletne dane logowania."
+	],
+	"Grok sign-in could not be started. Try again.": [
+		"Nie udało się rozpocząć logowania przez Grok. Spróbuj ponownie."
+	],
+	"Grok sign-in was declined.": [
+		"Logowanie przez Grok zostało odrzucone."
+	],
 	"Guideline: %s": [
 		"Wytyczna: %s"
 	],
@@ -1791,6 +2036,9 @@
 	],
 	"How do you want to connect %s?": [
 		"Jak chcesz połączyć %s?"
+	],
+	"How much should the model think?": [
+		"Jak długo model ma myśleć?"
 	],
 	"How to connect": [
 		"Jak się połączyć"
@@ -1915,14 +2163,17 @@
 	"Invalid AI session input payload.": [
 		"Nieprawidłowe dane wejściowe sesji AI."
 	],
+	"Invited people": [
+		"Zaproszone osoby"
+	],
 	"It resets on %s.": [
 		"Zostanie zresetowany %s."
 	],
 	"Its last pull failed and the site is incomplete.": [
 		"Ostatnie pobieranie nie powiodło się i witryna jest niekompletna."
 	],
-	"Its shared link will stop working.": [
-		"Jego udostępniony odnośnik przestanie działać."
+	"I’ve paid, continue": [
+		"Zapłacono, kontynuuj"
 	],
 	"Jump to any site or chat, run a site action or change a setting from the keyboard.": [
 		"Przejdź do dowolnej witryny lub czatu, wykonaj działanie na witrynie lub zmień ustawienie z klawiatury."
@@ -1961,8 +2212,23 @@
 	"Kind of Blue": [
 		"Kind of Blue"
 	],
-	"Last pulled": [
-		"Ostatnio pobrano"
+	"Last updated %s": [
+		"Ostatnia aktualizacja: %s"
+	],
+	"Last updated just now": [
+		"Ostatnia aktualizacja: przed chwilą"
+	],
+	"Last updated on %s": [
+		"Ostatnia aktualizacja: %s"
+	],
+	"Launch a public site with a paid plan.": [
+		"Uruchom publiczną witrynę z płatnym planem."
+	],
+	"Launch on %s": [
+		"Uruchom w %s"
+	],
+	"Learn about Spacefast": [
+		"Dowiedz się więcej o Spacefast"
 	],
 	"Learn more about AI credits": [
 		"Dowiedz się więcej o kredytach AI"
@@ -2042,11 +2308,17 @@
 	"Loading apps…": [
 		"Wczytywanie aplikacji…"
 	],
+	"Loading destinations": [
+		"Wczytywanie miejsc docelowych"
+	],
 	"Loading file…": [
 		"Wczytywanie pliku…"
 	],
 	"Loading image…": [
 		"Wczytywanie obrazu…"
+	],
+	"Loading models…": [
+		"Wczytywanie modeli…"
 	],
 	"Loading site preview": [
 		"Wczytywanie podglądu witryny"
@@ -2056,6 +2328,12 @@
 	],
 	"Local Static Site Importer plugin zip for --from imports, including a paired build from the importer’s build:dev-package": [
 		"Lokalny plik zip wtyczki Static Site Importer dla importów --from, w tym sparowana kompilacja z build:dev-package importera"
+	],
+	"Local and preview changes": [
+		"Zmiany lokalne i w podglądzie"
+	],
+	"Local changes": [
+		"Zmiany lokalne"
 	],
 	"Log in or create account": [
 		"Zaloguj się lub utwórz konto"
@@ -2075,6 +2353,15 @@
 	"Maiden Voyage": [
 		"Maiden Voyage"
 	],
+	"Make a preview site your live site": [
+		"Ustaw podgląd witryny jako witrynę produkcyjną"
+	],
+	"Make it your live site: %s": [
+		"Ustaw ją jako swoją witrynę produkcyjną: %s"
+	],
+	"Make sure the codes match in your browser, then approve the connection.": [
+		"Upewnij się, że kody w przeglądarce są zgodne, a następnie zatwierdź połączenie."
+	],
 	"Manage AI credits": [
 		"Zarządzaj kredytami AI"
 	],
@@ -2083,6 +2370,12 @@
 	],
 	"Manage content": [
 		"Zarządzaj treścią"
+	],
+	"Manage credits": [
+		"Zarządzaj kredytami"
+	],
+	"Manage domains": [
+		"Zarządzaj domenami"
 	],
 	"Manage instructions for all sites": [
 		"Zarządzaj instrukcjami dla wszystkich witryn"
@@ -2096,6 +2389,9 @@
 	"Manage menus": [
 		"Zarządzaj menu"
 	],
+	"Manage on Spacefast": [
+		"Zarządzaj w Spacefast"
+	],
 	"Manage on WordPress.com": [
 		"Zarządzaj w WordPress.com"
 	],
@@ -2104,9 +2400,6 @@
 	],
 	"Manage plugins": [
 		"Zarządzaj wtyczkami"
-	],
-	"Manage sharing": [
-		"Zarządzaj udostępnianiem"
 	],
 	"Manage site configuration": [
 		"Zarządzaj konfiguracją witryny"
@@ -2126,11 +2419,17 @@
 	"Manage themes": [
 		"Zarządzaj motywami"
 	],
+	"Manage these access rules on Spacefast.": [
+		"Zarządzaj tymi regułami dostępu w Spacefast."
+	],
 	"Manage usage": [
 		"Zarządzaj użyciem"
 	],
 	"Manage users": [
 		"Zarządzaj użytkownikami"
+	],
+	"Manage visibility on Spacefast.": [
+		"Zarządzaj widocznością w Spacefast."
 	],
 	"Manual MCP setup": [
 		"Ręczna konfiguracja MCP"
@@ -2174,8 +2473,14 @@
 	"Models that need purchased AI credits are hidden — add credits to unlock them.": [
 		"Modele wymagające zakupionych kredytów AI są ukryte — dodaj kredyty, aby je odblokować."
 	],
+	"Monthly": [
+		"Miesięcznie"
+	],
 	"Mood Indigo": [
 		"Mood Indigo"
+	],
+	"More room and more AI, for building every day.": [
+		"Więcej miejsca i więcej AI do codziennej pracy."
 	],
 	"Multiple WordPress.com sites are available. Re-run with `--remote-site <site-url-or-id>`.": [
 		"Dostępnych jest kilka witryn WordPress.com. Uruchom ponownie z `--remote-site <site-url-or-id>`."
@@ -2207,9 +2512,6 @@
 	"New site \"%s\"": [
 		"Nowa witryna \"%s\""
 	],
-	"New site…": [
-		"Nowa witryna…"
-	],
 	"New tab": [
 		"Nowa karta"
 	],
@@ -2240,11 +2542,20 @@
 	"No existing sites.": [
 		"Brak istniejących witryn."
 	],
+	"No files are available to choose.": [
+		"Brak plików do wyboru."
+	],
 	"No forward history": [
 		"Brak historii dalej"
 	],
+	"No local server answered at %s. Check the address, and that your server is running.": [
+		"Żaden lokalny serwer nie odpowiedział pod adresem %s. Sprawdź adres i upewnij się, że serwer jest uruchomiony."
+	],
 	"No matching sites.": [
 		"Brak pasujących witryn."
+	],
+	"No models found.": [
+		"Nie znaleziono modeli."
 	],
 	"No provider is connected.": [
 		"Żaden dostawca nie jest połączony."
@@ -2288,17 +2599,32 @@
 	"Once the download finishes, quit WordPress Studio, open a terminal, and paste the command to install:": [
 		"Po zakończeniu pobierania zamknij WordPress Studio, otwórz terminal i wklej polecenie, aby zainstalować:"
 	],
+	"One more step": [
+		"Jeszcze jeden krok"
+	],
 	"Only PNG, JPEG, GIF, and WebP images can be attached": [
 		"Można załączać tylko obrazy PNG, JPEG, GIF i WebP"
 	],
+	"Only if your server asks for one.": [
+		"Tylko jeśli Twój serwer go wymaga."
+	],
 	"Only push these paths from the selection made with --options": [
 		"Prześlij tylko te ścieżki z wyboru dokonanego za pomocą --options"
+	],
+	"Only you": [
+		"Tylko Ty"
+	],
+	"Only you and people you invite can view.": [
+		"Wyświetlać mogą tylko Ty i osoby, które zaprosisz."
 	],
 	"Open %s": [
 		"Otwórz %s"
 	],
 	"Open %s settings": [
 		"Otwórz ustawienia: %s"
+	],
+	"Open Config File (dev only)": [
+		"Otwórz plik konfiguracyjny (tylko dla deweloperów)"
 	],
 	"Open Design System": [
 		"Otwórz system projektowy"
@@ -2342,6 +2668,9 @@
 	"Open on GitHub": [
 		"Otwórz w serwisie GitHub"
 	],
+	"Open preview: %s": [
+		"Otwórz podgląd: %s"
+	],
 	"Open the UI in your default browser": [
 		"Otwórz interfejs w domyślnej przeglądarce"
 	],
@@ -2360,6 +2689,30 @@
 	"OpenAI’s coding agent in the ChatGPT app.": [
 		"Agent do programowania od OpenAI w aplikacji ChatGPT."
 	],
+	"OpenRouter API key": [
+		"Klucz API OpenRouter"
+	],
+	"OpenRouter is limiting requests on your key. Try again shortly.": [
+		"OpenRouter ogranicza liczbę żądań z Twojego klucza. Spróbuj ponownie za chwilę."
+	],
+	"OpenRouter is limiting requests right now. Wait a moment and try again.": [
+		"OpenRouter ogranicza teraz liczbę żądań. Poczekaj chwilę i spróbuj ponownie."
+	],
+	"OpenRouter rejected the API key. Connect OpenRouter again in Settings.": [
+		"OpenRouter odrzucił klucz API. Połącz ponownie OpenRouter w Ustawieniach."
+	],
+	"OpenRouter rejected this API key. Check the key and try again.": [
+		"OpenRouter odrzucił ten klucz API. Sprawdź klucz i spróbuj ponownie."
+	],
+	"OpenRouter sign-in could not be completed. Try again.": [
+		"Nie udało się ukończyć logowania przez OpenRouter. Spróbuj ponownie."
+	],
+	"OpenRouter’s moderation refused this request.": [
+		"Moderacja OpenRouter odrzuciła to żądanie."
+	],
+	"Opening %s": [
+		"Otwieranie %s"
+	],
 	"Opening WordPress.com checkout. If your browser didn’t open, use the link below:": [
 		"Otwieranie kasy WordPress.com. Jeśli przeglądarka się nie otworzyła, użyj poniższego odnośnika:"
 	],
@@ -2371,6 +2724,9 @@
 	],
 	"Opening the local site…": [
 		"Otwieranie lokalnej witryny…"
+	],
+	"Other files": [
+		"Inne pliki"
 	],
 	"Other files…": [
 		"Inne pliki…"
@@ -2408,6 +2764,12 @@
 	"Performance audit": [
 		"Audyt wydajności"
 	],
+	"Pick at least one model OpenRouter offers.": [
+		"Wybierz co najmniej jeden model oferowany przez OpenRouter."
+	],
+	"Pick at least one model your server offers.": [
+		"Wybierz co najmniej jeden model oferowany przez Twój serwer."
+	],
 	"Pick design": [
 		"Wybierz projekt"
 	],
@@ -2423,11 +2785,17 @@
 	"Pin or unpin site": [
 		"Przypnij lub odepnij witrynę"
 	],
+	"Plan": [
+		"Plan"
+	],
 	"Plan a menu page": [
 		"Zaplanuj stronę z menu"
 	],
 	"Plan complex builds and solve harder problems": [
 		"Planowanie złożonych projektów i rozwiązywanie trudniejszych problemów"
+	],
+	"Plan ended": [
+		"Plan wygasł"
 	],
 	"Please review the attached files.": [
 		"Przejrzyj załączone pliki."
@@ -2446,6 +2814,9 @@
 	],
 	"Port to listen on": [
 		"Port, na którym nasłuchiwać"
+	],
+	"Posts, pages, and settings": [
+		"Wpisy, strony i ustawienia"
 	],
 	"Preparing backup…": [
 		"Przygotowywanie kopii zapasowej…"
@@ -2474,8 +2845,29 @@
 	"Preview creation cancelled": [
 		"Anulowano tworzenie podglądu"
 	],
+	"Preview creation is temporarily unavailable for your account.": [
+		"Tworzenie podglądów jest chwilowo niedostępne dla Twojego konta."
+	],
+	"Preview details": [
+		"Szczegóły podglądu"
+	],
+	"Preview expiration": [
+		"Wygaśnięcie podglądu"
+	],
+	"Preview has changes": [
+		"Podgląd ma zmiany"
+	],
 	"Preview in browser": [
 		"Podgląd w przeglądarce"
+	],
+	"Preview limit reached": [
+		"Osiągnięto limit podglądów"
+	],
+	"Preview link is not available yet. Please try again.": [
+		"Odnośnik do podglądu nie jest jeszcze dostępny. Spróbuj ponownie."
+	],
+	"Preview link ready": [
+		"Odnośnik do podglądu gotowy"
 	],
 	"Preview name": [
 		"Nazwa podglądu"
@@ -2485,6 +2877,9 @@
 	],
 	"Preview site not found": [
 		"Nie znaleziono podglądu witryny"
+	],
+	"Preview sites are temporary. Updating your preview resets the expiration date.": [
+		"Podglądy witryn są tymczasowe. Zaktualizowanie podglądu odnawia jego datę wygaśnięcia."
 	],
 	"Preview tabs": [
 		"Karty podglądu"
@@ -2501,6 +2896,9 @@
 	"Privacy Policy: %s": [
 		"Polityka prywatności: %s"
 	],
+	"Private sites and preview links": [
+		"Prywatne witryny i odnośniki do podglądu"
+	],
 	"Project tools": [
 		"Narzędzia projektu"
 	],
@@ -2516,6 +2914,9 @@
 	"Publish a static copy of your sites to a Spacefast Space.": [
 		"Publikuj statyczne kopie swoich witryn w przestrzeni Spacefast."
 	],
+	"Publish again?": [
+		"Opublikować ponownie?"
+	],
 	"Publish and share": [
 		"Publikuj i udostępniaj"
 	],
@@ -2525,14 +2926,17 @@
 	"Publish changes": [
 		"Opublikuj zmiany"
 	],
-	"Publish changes or get the latest updates.": [
-		"Opublikuj zmiany lub pobierz najnowsze aktualizacje."
-	],
-	"Publish details": [
-		"Szczegóły publikowania"
+	"Publish changes?": [
+		"Opublikować zmiany?"
 	],
 	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
 		"Publikuj nowe witryny lub aktualizuj istniejące w WordPress.com lub Pressable."
+	],
+	"Publish options could not be loaded.": [
+		"Nie udało się wczytać opcji publikowania."
+	],
+	"Publish somewhere else": [
+		"Opublikuj gdzie indziej"
 	],
 	"Publish the active site to WordPress.com": [
 		"Opublikuj aktywną witrynę w WordPress.com"
@@ -2543,6 +2947,9 @@
 	"Publish to %s to apply these changes.": [
 		"Opublikuj w %s, aby zastosować te zmiany."
 	],
+	"Publish to %s.": [
+		"Publikowanie w %s."
+	],
 	"Publish to Spacefast": [
 		"Opublikuj w Spacefast"
 	],
@@ -2552,14 +2959,11 @@
 	"Publish to a real WordPress.com site when you're ready": [
 		"Opublikuj w prawdziwej witrynie WordPress.com, gdy będziesz gotowy"
 	],
-	"Publish to another site…": [
-		"Opublikuj w innej witrynie…"
+	"Publish to a site you already have.": [
+		"Publikuj w witrynie, którą już masz."
 	],
 	"Publish your WordPress": [
 		"Opublikuj swój WordPress"
-	],
-	"Publish your changes.": [
-		"Opublikuj swoje zmiany."
 	],
 	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
 		"Opublikuj witrynę, gdy będzie gotowa, lub udostępnij podgląd przez WordPress.com."
@@ -2567,14 +2971,8 @@
 	"Publish, at the top of the preview, replaces Sync: push your site to WordPress.com or pull changes back. Share sends anyone a preview link.": [
 		"Przycisk Opublikuj u góry podglądu zastępuje Synchronizację: prześlij witrynę do WordPress.com lub pobierz z powrotem zmiany. Udostępnij wysyła każdemu odnośnik do podglądu."
 	],
-	"Published %s": [
-		"Opublikowano %s"
-	],
-	"Published sites": [
-		"Opublikowane witryny"
-	],
-	"Published to": [
-		"Opublikowano w"
+	"Published site actions": [
+		"Działania opublikowanej witryny"
 	],
 	"Published to %s": [
 		"Opublikowano w %s"
@@ -2591,8 +2989,11 @@
 	"Publishing didn’t finish": [
 		"Publikowanie nie zostało ukończone"
 	],
-	"Publishing progress": [
-		"Postęp publikowania"
+	"Publishing requires a supported plan.": [
+		"Publikowanie wymaga obsługiwanego planu."
+	],
+	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
+		"Opublikowanie bazy danych zastąpi zmiany wprowadzone w witrynie produkcyjnej, w tym nowe komentarze i zamówienia."
 	],
 	"Publishing to %s… this may take several minutes.": [
 		"Publikowanie w %s… może to potrwać kilka minut."
@@ -2600,8 +3001,11 @@
 	"Pull a WordPress.com or Pressable site to your local site": [
 		"Pobierz witrynę WordPress.com lub Pressable do swojej lokalnej witryny"
 	],
-	"Pull changes": [
-		"Pobierz zmiany"
+	"Pull from live site…": [
+		"Pobierz z witryny produkcyjnej…"
+	],
+	"Pull from preview…": [
+		"Pobierz z podglądu…"
 	],
 	"Pull only the database (keeps the local files)": [
 		"Pobierz tylko bazę danych (zachowuje lokalne pliki)"
@@ -2609,8 +3013,8 @@
 	"Pull preview": [
 		"Pobierz podgląd"
 	],
-	"Pull progress": [
-		"Postęp pobierania"
+	"Pull replaces your local copy. Update replaces the preview.": [
+		"Pobieranie zastępuje Twoją lokalną kopię. Aktualizacja zastępuje podgląd."
 	],
 	"Pull site": [
 		"Pobierz witrynę"
@@ -2629,6 +3033,9 @@
 	],
 	"Pulling files": [
 		"Pobieranie plików"
+	],
+	"Pulling from this preview is unavailable for this account.": [
+		"Pobieranie z tego podglądu jest niedostępne dla tego konta."
 	],
 	"Pulling site…": [
 		"Pobieranie witryny…"
@@ -2653,9 +3060,6 @@
 	],
 	"Put your feedback to work": [
 		"Wykorzystaj swoje uwagi"
-	],
-	"Quality validation failed.": [
-		"Weryfikacja jakości nie powiodła się."
 	],
 	"Question %1$d of %2$d": [
 		"Pytanie %1$d z %2$d"
@@ -2684,6 +3088,9 @@
 	"Read site title": [
 		"Odczytaj tytuł witryny"
 	],
+	"Receipts": [
+		"Paragony"
+	],
 	"Recent chats": [
 		"Ostatnie czaty"
 	],
@@ -2696,6 +3103,9 @@
 	"Recent pages": [
 		"Ostatnie strony"
 	],
+	"Recommended": [
+		"Polecane"
+	],
 	"Reconnect to load your WordPress.com and Pressable sites.": [
 		"Połącz się ponownie, aby wczytać swoje witryny WordPress.com i Pressable."
 	],
@@ -2707,9 +3117,6 @@
 	],
 	"Reload App": [
 		"Przeładuj aplikację"
-	],
-	"Reload availability": [
-		"Ponownie sprawdź dostępność"
 	],
 	"Remote URLs must be rendered by Data Liberation before SSI materialization.": [
 		"Zdalne adresy URL muszą zostać wyrenderowane przez Data Liberation przed utworzeniem witryny przez SSI."
@@ -2727,6 +3134,9 @@
 		"Usunąć %d witrynę z WordPress Studio?",
 		"Usunąć %d witryny z WordPress Studio?",
 		"Usunąć %d witryn z WordPress Studio?"
+	],
+	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
+		"Usunąć %s z WordPress Studio? Opublikowana witryna i Twój lokalny WordPress się nie zmienią."
 	],
 	"Remove Blueprint": [
 		"Usuń Blueprint"
@@ -2766,6 +3176,21 @@
 	"Rename the focused site or chat": [
 		"Zmień nazwę zaznaczonej witryny lub czatu"
 	],
+	"Replace local site": [
+		"Zastąp lokalną witrynę"
+	],
+	"Replace preview": [
+		"Zastąp podgląd"
+	],
+	"Replace preview changes?": [
+		"Zastąpić zmiany w podglądzie?"
+	],
+	"Replace preview contents?": [
+		"Zastąpić zawartość podglądu?"
+	],
+	"Replace selected content": [
+		"Zastąp wybraną zawartość"
+	],
 	"Replace the contents of a non-empty output directory": [
 		"Zastąp zawartość niepustego katalogu wyjściowego"
 	],
@@ -2804,6 +3229,9 @@
 	],
 	"Reset tips": [
 		"Zresetuj wskazówki"
+	],
+	"Reset to recommended": [
+		"Przywróć polecane"
 	],
 	"Resize panel": [
 		"Zmień rozmiar panelu"
@@ -2944,6 +3372,9 @@
 	"Search commands": [
 		"Szukaj poleceń"
 	],
+	"Search models": [
+		"Szukaj modeli"
+	],
 	"Search settings": [
 		"Szukaj ustawień"
 	],
@@ -2977,20 +3408,20 @@
 	"Select an email to read it.": [
 		"Wybierz e-mail, aby go przeczytać."
 	],
+	"Select at least one file or folder.": [
+		"Wybierz co najmniej jeden plik lub folder."
+	],
+	"Select something to publish.": [
+		"Wybierz, co opublikować."
+	],
+	"Select the files and folders to publish.": [
+		"Wybierz pliki i foldery do opublikowania."
+	],
 	"Select what to pull from the remote site": [
 		"Wybierz, co pobrać ze zdalnej witryny"
 	],
 	"Selected area": [
 		"Zaznaczony obszar"
-	],
-	"Selected files and content": [
-		"Wybrane pliki i zawartość"
-	],
-	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
-		"Wybrane pliki, zawartość i ustawienia w WordPress Studio zostaną nadpisane. Twoja witryna pozostanie bez zmian."
-	],
-	"Selected files, content, and settings on your website will be overwritten.": [
-		"Wybrane pliki, zawartość i ustawienia w Twojej witrynie zostaną nadpisane."
 	],
 	"Send %d annotation": [
 		"Wyślij %d adnotację",
@@ -3006,14 +3437,29 @@
 	"Send or delete some annotations before adding more": [
 		"Wyślij lub usuń część adnotacji, zanim dodasz kolejne"
 	],
+	"Server address": [
+		"Adres serwera"
+	],
+	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
+		"Ustaw STUDIO_SERVE_SECRET, aby serwer był dostępny nie tylko z tego komputera."
+	],
 	"Set WP_ENVIRONMENT_TYPE": [
 		"Ustaw WP_ENVIRONMENT_TYPE"
 	],
 	"Set coding standards, preferred tools, and response style for new chats across all sites.": [
 		"Ustaw standardy kodowania, preferowane narzędzia i styl odpowiedzi dla nowych czatów we wszystkich witrynach."
 	],
+	"Set how much the model thinks in this chat": [
+		"Ustaw, jak długo model myśli w tym czacie"
+	],
 	"Sets the value returned by wp_get_environment_type().": [
 		"Ustawia wartość zwracaną przez wp_get_environment_type()."
+	],
+	"Setting up WordPress…": [
+		"Konfigurowanie WordPressa…"
+	],
+	"Setting up your workspace…": [
+		"Konfigurowanie obszaru roboczego…"
 	],
 	"Settings scope": [
 		"Zakres ustawień"
@@ -3027,8 +3473,8 @@
 	"Setup did not finish. The local site and WordPress.com connection were kept": [
 		"Konfiguracja nie została ukończona. Lokalna witryna i połączenie z WordPress.com zostały zachowane"
 	],
-	"Share a preview": [
-		"Udostępnij podgląd"
+	"Share a preview or publish your site": [
+		"Udostępnij podgląd lub opublikuj witrynę"
 	],
 	"Share a temporary copy of your local site with anyone.": [
 		"Udostępnij każdemu tymczasową kopię swojej lokalnej witryny."
@@ -3036,11 +3482,8 @@
 	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
 		"Udostępnij każdemu tymczasową kopię swojej lokalnej witryny. Podgląd witryny wygasa, jeśli przez mniej więcej tydzień nie zostanie zaktualizowany."
 	],
-	"Share a temporary preview of your site. Update it when you want to share your latest changes.": [
-		"Udostępnij tymczasowy podgląd swojej witryny. Zaktualizuj go, gdy zechcesz udostępnić najnowsze zmiany."
-	],
-	"Share and publish": [
-		"Udostępnij i opublikuj"
+	"Share a temporary preview link.": [
+		"Udostępnij tymczasowy odnośnik do podglądu."
 	],
 	"Share anonymous usage statistics": [
 		"Udostępniaj anonimowe statystyki użycia"
@@ -3123,6 +3566,9 @@
 	"Sign in to WordPress Studio": [
 		"Zaloguj się do WordPress Studio"
 	],
+	"Sign in to create a preview link.": [
+		"Zaloguj się, aby utworzyć odnośnik do podglądu."
+	],
 	"Sign in to do more with WordPress Studio": [
 		"Zaloguj się, aby robić więcej z WordPress Studio"
 	],
@@ -3132,8 +3578,20 @@
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"Zaloguj się przez ChatGPT lub użyj klucza API OpenAI."
 	],
+	"Sign in with Grok": [
+		"Zaloguj się przez Grok"
+	],
+	"Sign in with OpenRouter": [
+		"Zaloguj się przez OpenRouter"
+	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Zaloguj się kontem GitHub z dostępem do Copilot."
+	],
+	"Sign in with an eligible Grok account or use an xAI API key.": [
+		"Zaloguj się kwalifikującym się kontem Grok lub użyj klucza API xAI."
+	],
+	"Sign out": [
+		"Wyloguj się"
 	],
 	"Sign-in details for this site and its previews.": [
 		"Dane logowania do tej witryny i jej podglądów."
@@ -3183,11 +3641,17 @@
 	"Site exported": [
 		"Witryna wyeksportowana"
 	],
+	"Site files left on disk": [
+		"Pliki witryny pozostały na dysku"
+	],
 	"Site folder": [
 		"Folder witryny"
 	],
 	"Site folder is required.": [
 		"Folder witryny jest wymagany."
+	],
+	"Site imported, but the WordPress server failed to start: %s": [
+		"Witryna została zaimportowana, ale nie udało się uruchomić serwera WordPress: %s"
 	],
 	"Site is busy": [
 		"Witryna jest zajęta"
@@ -3240,6 +3704,9 @@
 	"Skipped because the requested set failed validation.": [
 		"Pominięto, ponieważ żądany zestaw nie przeszedł weryfikacji."
 	],
+	"Some destinations could not be loaded": [
+		"Nie udało się wczytać niektórych miejsc docelowych"
+	],
 	"Something went wrong and this turn was stopped. Please try again.": [
 		"Coś poszło nie tak i ta tura została zatrzymana. Spróbuj ponownie."
 	],
@@ -3260,6 +3727,9 @@
 	],
 	"Source website prepared": [
 		"Witryna źródłowa przygotowana"
+	],
+	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
+		"Spacefast wciąż wprowadza zmianę widoczności. Sprawdź dostęp w Spacefast."
 	],
 	"Spacefast sign-in was declined.": [
 		"Logowanie do Spacefast zostało odrzucone."
@@ -3315,6 +3785,12 @@
 	"Start signing in with GitHub again.": [
 		"Rozpocznij ponownie logowanie przez GitHub."
 	],
+	"Start signing in with Grok again.": [
+		"Rozpocznij logowanie przez Grok ponownie."
+	],
+	"Start signing in with OpenRouter again.": [
+		"Rozpocznij logowanie przez OpenRouter ponownie."
+	],
 	"Start site when sending a prompt": [
 		"Uruchamiaj witrynę po wysłaniu polecenia"
 	],
@@ -3336,6 +3812,9 @@
 	"Start with Blank site": [
 		"Zacznij od pustej witryny"
 	],
+	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
+		"Uruchom serwer modeli z co najmniej jednym modelem, a następnie wpisz adres, na którym nasłuchuje. Studio zaoferuje udostępniane przez niego modele."
+	],
 	"Starting %s": [
 		"Uruchamianie %s"
 	],
@@ -3353,9 +3832,6 @@
 	],
 	"Static Site Importer cleanup failed. The imported site and staged request were preserved.": [
 		"Porządkowanie przez Static Site Importer nie powiodło się. Zaimportowana witryna i przygotowane żądanie zostały zachowane."
-	],
-	"Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s": [
-		"Static Site Importer utworzył podgląd, ale go nie zaakceptował. Witryna i przygotowane żądanie zostały zachowane: %s"
 	],
 	"Static Site Importer plugin zip URL for --from imports": [
 		"Adres URL pliku zip wtyczki Static Site Importer dla importów --from"
@@ -3384,6 +3860,9 @@
 	"Stop %s": [
 		"Zatrzymaj %s"
 	],
+	"Stop a site to start another.": [
+		"Zatrzymaj witrynę, aby uruchomić inną."
+	],
 	"Stop annotating": [
 		"Zakończ dodawanie adnotacji"
 	],
@@ -3408,6 +3887,9 @@
 	"Studio CLI uninstalled. Removed:": [
 		"Studio CLI odinstalowane. Usunięto:"
 	],
+	"Studio Cloud": [
+		"Studio Cloud"
+	],
 	"Studio Code AI is blocked for this WordPress.com account. If you believe this is a mistake, <supportLink>contact WordPress.com support</supportLink>.": [
 		"Studio Code AI jest zablokowane dla tego konta WordPress.com. Jeśli uważasz, że to pomyłka, <supportLink>skontaktuj się z pomocą techniczną WordPress.com</supportLink>."
 	],
@@ -3423,8 +3905,17 @@
 	"Studio Code limits are temporarily unavailable.": [
 		"Limity Studio Code są chwilowo niedostępne."
 	],
+	"Studio Code sets how much %s thinks.": [
+		"Studio Code ustawia, jak długo myśli model %s."
+	],
 	"Studio Code, right beside your site": [
 		"Studio Code tuż obok Twojej witryny"
+	],
+	"Studio can’t run your sites because one of its files was removed, often by antivirus software. Reinstall WordPress Studio to restore it. If it happens again, allow WordPress Studio in your antivirus settings.": [
+		"Studio nie może uruchomić Twoich witryn, ponieważ jeden z plików aplikacji został usunięty, często przez program antywirusowy. Zainstaluj ponownie WordPress Studio, aby go przywrócić. Jeśli sytuacja się powtórzy, zezwól na WordPress Studio w ustawieniach programu antywirusowego."
+	],
+	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
+		"Studio nie może ustalić, czy ktoś edytował %s. Zaktualizowanie podglądu zastąpi go Twoją lokalną witryną."
 	],
 	"Studio was updated, and the site \"%s\" could not be started again.": [
 		"Studio zostało zaktualizowane i nie udało się ponownie uruchomić witryny \"%s\"."
@@ -3498,6 +3989,9 @@
 	"The GitHub sign-in expired. Try again.": [
 		"Logowanie przez GitHub wygasło. Spróbuj ponownie."
 	],
+	"The Grok sign-in expired. Try again.": [
+		"Logowanie przez Grok wygasło. Spróbuj ponownie."
+	],
 	"The PHP version used to run WordPress on this site.": [
 		"Wersja PHP używana do uruchamiania WordPress w tej witrynie."
 	],
@@ -3525,6 +4019,9 @@
 	"The configuration couldn't be changed to speed up site creation.\n\nTo initiate this process again, please go to \"Help > How can I make WordPress Studio faster?\" in the application menu.": [
 		"Nie udało się zmienić konfiguracji, aby przyspieszyć tworzenie witryn.\n\nAby ponownie rozpocząć ten proces, przejdź do \"Pomoc > Jak mogę przyspieszyć WordPress Studio?\" w menu aplikacji."
 	],
+	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
+		"Kontekst, z jakim działa %s, jest za mały dla Studio Code. Zwiększ długość kontekstu w ustawieniach serwera."
+	],
 	"The database failed to import on the live site. Review your database and try again.": [
 		"Nie udało się zaimportować bazy danych w witrynie produkcyjnej. Sprawdź bazę danych i spróbuj ponownie."
 	],
@@ -3549,6 +4046,9 @@
 	"The footer now lists the hours for every day.": [
 		"Stopka zawiera teraz godziny otwarcia na każdy dzień."
 	],
+	"The full WordPress, with a domain.": [
+		"Pełny WordPress z domeną."
+	],
 	"The import failed, and WordPress Studio could not remove “%s”. Remove the incomplete site before trying this location again.": [
 		"Import nie powiódł się, a WordPress Studio nie mogło usunąć „%s”. Usuń niekompletną witrynę, zanim ponownie spróbujesz użyć tej lokalizacji."
 	],
@@ -3563,6 +4063,15 @@
 	],
 	"The live site timed out while importing, likely because the site is too large. Try reducing its content or files.": [
 		"Upłynął limit czasu importu w witrynie produkcyjnej, prawdopodobnie dlatego, że witryna jest za duża. Spróbuj ograniczyć jej treść lub pliki."
+	],
+	"The local server at %s isn’t answering. Start it, then send your message again.": [
+		"Lokalny serwer pod adresem %s nie odpowiada. Uruchom go, a następnie wyślij wiadomość ponownie."
+	],
+	"The local server has no chat model yet. Add one to your server, then connect again.": [
+		"Lokalny serwer nie ma jeszcze modelu czatu. Dodaj go do serwera, a następnie połącz się ponownie."
+	],
+	"The local server refused the API key. Check the key, and connect again.": [
+		"Lokalny serwer odrzucił klucz API. Sprawdź klucz i połącz się ponownie."
 	],
 	"The local site has no database yet (it is created the first time the site starts), so the database cannot be excluded from this pull. Include the database, or start the site once and pull again.": [
 		"Lokalna witryna nie ma jeszcze bazy danych (zostanie utworzona przy pierwszym uruchomieniu witryny), więc nie można wykluczyć bazy danych z tego pobierania. Uwzględnij bazę danych albo uruchom witrynę raz i pobierz ponownie."
@@ -3588,14 +4097,20 @@
 	"The preview site has no preview link.": [
 		"Podgląd witryny nie ma odnośnika do podglądu."
 	],
+	"The requested site is unavailable.": [
+		"Żądana witryna jest niedostępna."
+	],
 	"The same site was specified more than once.": [
 		"Ta sama witryna została podana więcej niż raz."
 	],
-	"The site archive exceeds the %d GB size limit.": [
-		"Archiwum witryny przekracza limit rozmiaru %d GB."
+	"The site files could not be moved to trash. Delete them yourself: %s": [
+		"Nie udało się przenieść plików witryny do kosza. Usuń je samodzielnie: %s"
 	],
 	"The site is running and can be inspected.": [
 		"Witryna działa i można ją sprawdzić."
+	],
+	"The site requested for this pull is unavailable.": [
+		"Witryna, z której ma nastąpić pobieranie, jest niedostępna."
 	],
 	"The specified directory is not added to Studio. Use `studio create` to add it.": [
 		"Podany katalog nie został dodany do Studio. Użyj `studio create`, aby go dodać."
@@ -3603,11 +4118,20 @@
 	"The sync will keep running after you quit WordPress Studio.": [
 		"Synchronizacja będzie kontynuowana po zamknięciu WordPress Studio."
 	],
+	"The transfer could not be completed. Please try again.": [
+		"Nie udało się ukończyć przenoszenia. Spróbuj ponownie."
+	],
 	"The username used to log in to WordPress Admin.": [
 		"Nazwa użytkownika używana do logowania do panelu administracyjnego WordPress."
 	],
+	"The visibility change could not be applied. Check access on Spacefast.": [
+		"Nie udało się zastosować zmiany widoczności. Sprawdź dostęp w Spacefast."
+	],
 	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
 		"Zmiany w plikach motywu nie będą widoczne. Twoje zmiany w plikach motywu %s są pomijane: ten podgląd używa oryginalnej kopii motywu z WordPress.com. Wprowadź je w edytorze witryny lub w motywie potomnym, aby zobaczyć je w podglądach."
+	],
+	"Themes": [
+		"Motywy"
 	],
 	"Themes…": [
 		"Motywy…"
@@ -3617,6 +4141,21 @@
 	],
 	"These sites cannot currently be connected to WordPress Studio.": [
 		"Tych witryn nie można obecnie połączyć z WordPress Studio."
+	],
+	"Thinking: %s": [
+		"Myślenie: %s"
+	],
+	"Thinks before answering": [
+		"Myśli przed odpowiedzią"
+	],
+	"Thinks briefly": [
+		"Myśli krótko"
+	],
+	"Thinks longest, slowest": [
+		"Myśli najdłużej, najwolniej"
+	],
+	"This API key is blocked or disabled. Check it in the xAI Console.": [
+		"Ten klucz API jest zablokowany lub wyłączony. Sprawdź go w xAI Console."
 	],
 	"This Blueprint JSON file could not be read. Check that it contains valid JSON and try again.": [
 		"Nie udało się odczytać tego pliku JSON Blueprinta. Sprawdź, czy zawiera prawidłowy JSON, i spróbuj ponownie."
@@ -3629,6 +4168,9 @@
 	],
 	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
 		"To konto GitHub nie ma planu Copilot. Wybierz plan na github.com/features/copilot."
+	],
+	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
+		"Na tym koncie Grok nie ma już kredytów. Dodaj kredyty lub wykup SuperGrok na grok.com."
 	],
 	"This Studio CLI is bundled with the Studio desktop app. Uninstall the app to remove it.": [
 		"To Studio CLI jest dołączone do aplikacji desktopowej Studio. Odinstaluj aplikację, aby je usunąć."
@@ -3657,6 +4199,9 @@
 	"This chat could not load.": [
 		"Nie udało się wczytać tego czatu."
 	],
+	"This destination cannot create a site from this panel yet.": [
+		"To miejsce docelowe nie pozwala jeszcze utworzyć witryny z tego panelu."
+	],
 	"This email is gone.": [
 		"Ten e-mail już nie istnieje."
 	],
@@ -3677,6 +4222,21 @@
 	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"To jest klucz Anthropic. Dodaj go do Anthropic."
+	],
+	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
+		"Potrzeba około %1$s GB miejsca, a w Twoim planie zostało %2$s GB. Usuń niepotrzebne witryny i spróbuj ponownie."
+	],
+	"This preview site can’t be made live: it was bought, ended or deleted, or it shows changes to a live site.": [
+		"Tego podglądu witryny nie można ustawić jako witryny produkcyjnej: został kupiony, wygasł lub został usunięty albo pokazuje zmiany w witrynie produkcyjnej."
+	],
+	"This provider doesn’t make previews.": [
+		"Ten dostawca nie tworzy podglądów."
+	],
+	"This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.": [
+		"Wybrane części Twojej lokalnej witryny zostaną zastąpione zawartością z %s. Wszystkie lokalne zmiany w tych częściach zostaną utracone."
+	],
+	"This replaces your local site with the preview. Any local changes will be lost.": [
+		"Twoja lokalna witryna zostanie zastąpiona podglądem. Wszystkie lokalne zmiany zostaną utracone."
 	],
 	"This selection exceeds the %s GB publishing limit. Choose fewer files to continue.": [
 		"Ten wybór przekracza limit publikowania wynoszący %s GB. Wybierz mniej plików, aby kontynuować."
@@ -3726,11 +4286,11 @@
 	"This website has been deleted. Choose another website.": [
 		"Ta witryna została usunięta. Wybierz inną witrynę."
 	],
-	"This website is no longer available to this account. Choose another website.": [
-		"Ta witryna nie jest już dostępna dla tego konta. Wybierz inną witrynę."
+	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
+		"Ta witryna wymaga planu hostingowego, który obsługuje pobieranie do WordPress Studio."
 	],
-	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
-		"Ta witryna wymaga planu hostingowego, który obsługuje publikowanie z WordPress Studio."
+	"This xAI account has no credits left. Add credits in the xAI Console.": [
+		"Na tym koncie xAI nie ma już kredytów. Dodaj kredyty w xAI Console."
 	],
 	"Tips reset.": [
 		"Zresetowano wskazówki."
@@ -3753,8 +4313,8 @@
 	"Track your preview site usage.": [
 		"Śledź wykorzystanie podglądów witryn."
 	],
-	"Transfer cancelled. You can try again.": [
-		"Transfer anulowany. Możesz spróbować ponownie."
+	"Try again to see where this WordPress is already connected.": [
+		"Spróbuj ponownie, aby zobaczyć, gdzie ten WordPress jest już połączony."
 	],
 	"Try downloading the update again.": [
 		"Spróbuj ponownie pobrać aktualizację."
@@ -3764,12 +4324,6 @@
 	],
 	"Try nightly builds?": [
 		"Wypróbować wersje nightly?"
-	],
-	"Try publishing again": [
-		"Spróbuj ponownie opublikować"
-	],
-	"Try pulling again": [
-		"Spróbuj ponownie pobrać"
 	],
 	"Try starting the chat again, or open your site.": [
 		"Spróbuj ponownie rozpocząć czat lub otwórz witrynę."
@@ -3789,6 +4343,9 @@
 	"Turn on “%s”": [
 		"Włącz „%s”"
 	],
+	"Twice the CPU for faster builds": [
+		"Dwa razy więcej mocy procesora do szybszego tworzenia witryn"
+	],
 	"Type scale": [
 		"Skala typograficzna"
 	],
@@ -3800,9 +4357,6 @@
 	],
 	"Unable to access the selected backup. Please try again.": [
 		"Brak dostępu do wybranej kopii zapasowej. Spróbuj ponownie."
-	],
-	"Unable to check preview availability.": [
-		"Nie można sprawdzić dostępności podglądu."
 	],
 	"Unable to delete the site. Please try again.": [
 		"Nie można usunąć witryny. Spróbuj ponownie."
@@ -3837,11 +4391,17 @@
 	"Unknown deletion error.": [
 		"Nieznany błąd usuwania."
 	],
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"Nieznany poziom %1$s. Wybierz jeden z: %2$s."
+	],
 	"Unknown provider %1$s. Choose one of: %2$s.": [
 		"Nieznany dostawca %1$s. Wybierz jednego z: %2$s."
 	],
 	"Unknown version": [
 		"Nieznana wersja"
+	],
+	"Unlimited sites, 5 running at once": [
+		"Nieograniczona liczba witryn, 5 uruchomionych jednocześnie"
 	],
 	"Unpin": [
 		"Odepnij"
@@ -3852,8 +4412,23 @@
 	"Unsupported backup file": [
 		"Nieobsługiwany plik kopii zapasowej"
 	],
+	"Unsupported visibility setting.": [
+		"Nieobsługiwane ustawienie widoczności."
+	],
+	"Up to 10 sites, 2 running at once": [
+		"Do 10 witryn, 2 uruchomione jednocześnie"
+	],
+	"Update WordPress Studio": [
+		"Zaktualizuj WordPress Studio"
+	],
+	"Update WordPress Studio.": [
+		"Zaktualizuj WordPress Studio."
+	],
 	"Update all plugins": [
 		"Zaktualizuj wszystkie wtyczki"
+	],
+	"Update local site from %s?": [
+		"Zaktualizować lokalną witrynę z %s?"
 	],
 	"Update plugin": [
 		"Zaktualizuj wtyczkę"
@@ -3867,6 +4442,9 @@
 	"Update site title": [
 		"Zaktualizuj tytuł witryny"
 	],
+	"Update the Studio CLI with `%s`.": [
+		"Zaktualizuj Studio CLI poleceniem `%s`."
+	],
 	"Update todo list": [
 		"Zaktualizuj listę zadań"
 	],
@@ -3875,6 +4453,9 @@
 	],
 	"Updated %s": [
 		"Zaktualizowano %s"
+	],
+	"Updating %s will replace any edits made on the preview with your local copy.": [
+		"Zaktualizowanie %s zastąpi wszystkie zmiany wprowadzone w podglądzie Twoją lokalną kopią."
 	],
 	"Updating WordPress version…": [
 		"Aktualizowanie wersji WordPress…"
@@ -3887,6 +4468,9 @@
 	],
 	"Updating preview…": [
 		"Aktualizowanie podglądu…"
+	],
+	"Updating your workspace…": [
+		"Aktualizowanie obszaru roboczego…"
 	],
 	"Upgrade this site to a supported plan before connecting it.": [
 		"Przed połączeniem tej witryny zmień jej plan na obsługiwany."
@@ -3908,6 +4492,12 @@
 	],
 	"Usage is billed through your OpenAI account.": [
 		"Opłaty za użycie są naliczane na Twoim koncie OpenAI."
+	],
+	"Usage is billed through your xAI account.": [
+		"Opłaty za użycie są naliczane na Twoim koncie xAI."
+	],
+	"Usage is paid with your OpenRouter credits.": [
+		"Za użycie płacisz kredytami OpenRouter."
 	],
 	"Use /connect %1$s to connect %2$s again.": [
 		"Użyj /connect %1$s, aby ponownie połączyć %2$s."
@@ -3954,6 +4544,12 @@
 	"Use light mode": [
 		"Użyj trybu jasnego"
 	],
+	"Use models from many labs with your OpenRouter credits.": [
+		"Korzystaj z modeli wielu firm za pomocą kredytów OpenRouter."
+	],
+	"Use the models a server you run serves, such as on this computer.": [
+		"Korzystaj z modeli udostępnianych przez Twój własny serwer, na przykład na tym komputerze."
+	],
 	"Use the studio command in any terminal to manage sites and run WP-CLI.": [
 		"Używaj polecenia studio w dowolnym terminalu, aby zarządzać witrynami i uruchamiać WP-CLI."
 	],
@@ -3972,11 +4568,17 @@
 	"Using Copilot plan": [
 		"Korzysta z planu Copilot"
 	],
+	"Using Grok plan": [
+		"Korzysta z planu Grok"
+	],
 	"View %s larger": [
 		"Powiększ %s"
 	],
 	"View Blueprint": [
 		"Zobacz Blueprint"
+	],
+	"View backups": [
+		"Zobacz kopie zapasowe"
 	],
 	"View notification: %s": [
 		"Zobacz powiadomienie: %s"
@@ -3987,11 +4589,20 @@
 	"View usage": [
 		"Zobacz wykorzystanie"
 	],
-	"Visit preview": [
-		"Otwórz podgląd"
+	"View versions": [
+		"Zobacz wersje"
+	],
+	"Visibility could not be confirmed. Check access on Spacefast.": [
+		"Nie udało się potwierdzić widoczności. Sprawdź dostęp w Spacefast."
+	],
+	"Visibility settings are only available for WordPress.com sites.": [
+		"Ustawienia widoczności są dostępne tylko dla witryn WordPress.com."
 	],
 	"Visit previews": [
 		"Otwórz podglądy"
+	],
+	"Visitors see a coming soon page": [
+		"Odwiedzający widzą stronę „Wkrótce”"
 	],
 	"Visual Annotations": [
 		"Adnotacje wizualne"
@@ -4011,9 +4622,6 @@
 	"Wait for the current site operation to finish before changing settings.": [
 		"Zaczekaj na zakończenie bieżącej operacji na witrynie, zanim zmienisz ustawienia."
 	],
-	"Wait for the current site operation to finish before creating or updating a preview.": [
-		"Zaczekaj na zakończenie bieżącej operacji na witrynie, zanim utworzysz lub zaktualizujesz podgląd."
-	],
 	"Waiting for %s": [
 		"Oczekiwanie: %s"
 	],
@@ -4029,9 +4637,6 @@
 	"We couldn't load your sites": [
 		"Nie udało się wczytać Twoich witryn"
 	],
-	"Website actions": [
-		"Działania witryny"
-	],
 	"Welcome to WordPress Studio 2.0": [
 		"Witamy w WordPress Studio 2.0"
 	],
@@ -4041,8 +4646,8 @@
 	"What to publish": [
 		"Co opublikować"
 	],
-	"What to pull": [
-		"Co pobrać"
+	"What to replace": [
+		"Co zastąpić"
 	],
 	"What would you like to open?": [
 		"Co chcesz otworzyć?"
@@ -4053,14 +4658,17 @@
 	"When WordPress Studio quits": [
 		"Po zamknięciu WordPress Studio"
 	],
-	"Where do you want to publish?": [
-		"Gdzie chcesz opublikować?"
-	],
 	"Where this site’s files are stored.": [
 		"Miejsce przechowywania plików tej witryny."
 	],
+	"Where your server listens, as it prints it when it starts.": [
+		"Adres, na którym nasłuchuje Twój serwer, w postaci wyświetlanej przez niego przy uruchomieniu."
+	],
 	"Which files PHP can access: the site directory only, or all files": [
 		"Do których plików PHP ma dostęp: tylko do katalogu witryny lub do wszystkich plików"
+	],
+	"Who can view": [
+		"Kto może wyświetlać"
 	],
 	"WordPress Studio %s is available": [
 		"Dostępne jest WordPress Studio %s"
@@ -4098,11 +4706,17 @@
 	"WordPress Studio could not open the site.": [
 		"WordPress Studio nie mogło otworzyć witryny."
 	],
+	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"WordPress Studio nie może odczytać swoich ustawień w %s. Uruchom ponownie WordPress Studio, aby spróbować jeszcze raz. Jeśli problem się powtarza, skontaktuj się z pomocą techniczną, podając poniższe szczegóły."
+	],
 	"WordPress Studio instructions": [
 		"Instrukcje WordPress Studio"
 	],
 	"WordPress Studio is finishing an update": [
 		"WordPress Studio kończy aktualizację"
+	],
+	"WordPress Studio is missing some of its files": [
+		"Brakuje niektórych plików WordPress Studio"
 	],
 	"WordPress Studio is running at:": [
 		"WordPress Studio działa pod adresem:"
@@ -4112,6 +4726,9 @@
 	],
 	"WordPress Studio is running from: %s": [
 		"WordPress Studio jest uruchomione z lokalizacji: %s"
+	],
+	"WordPress Studio is serving at:": [
+		"WordPress Studio jest dostępne pod adresem:"
 	],
 	"WordPress Studio is unable to open PHPStorm. Please ensure it is functioning correctly.": [
 		"WordPress Studio nie może otworzyć PHPStorm. Upewnij się, że działa poprawnie."
@@ -4176,6 +4793,9 @@
 	"WordPress server restarted": [
 		"Serwer WordPress uruchomiony ponownie"
 	],
+	"WordPress set up": [
+		"WordPress skonfigurowany"
+	],
 	"WordPress site": [
 		"Witryna WordPress"
 	],
@@ -4193,6 +4813,9 @@
 	],
 	"WordPress.com does not support multisite. Publishing this network may cause problems.": [
 		"WordPress.com nie obsługuje multisite. Publikowanie tej sieci może powodować problemy."
+	],
+	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
+		"WordPress.com nie potwierdził jeszcze zmiany widoczności. Spróbuj ponownie."
 	],
 	"WordPress.com hosting": [
 		"Hosting WordPress.com"
@@ -4236,6 +4859,9 @@
 	"Xdebug is enabled on another site: %s": [
 		"Xdebug jest włączony w innej witrynie: %s"
 	],
+	"Yearly, save 20%": [
+		"Rocznie, oszczędzasz 20%"
+	],
 	"Yes, new chat": [
 		"Tak, nowy czat"
 	],
@@ -4272,6 +4898,9 @@
 	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
 		"Osiągnięto limit użycia planu Copilot. Zarządzaj użyciem na github.com/settings/copilot."
 	],
+	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
+		"Osiągnięto limit użycia planu Grok. Sprawdź użycie na grok.com."
+	],
 	"You stopped": [
 		"Zatrzymano"
 	],
@@ -4287,9 +4916,6 @@
 	"You're on the latest version (%s)": [
 		"Masz najnowszą wersję (%s)"
 	],
-	"You've used all %d preview sites available on your account.": [
-		"Wykorzystano wszystkie podglądy witryn dostępne na Twoim koncie (%d)."
-	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"Twojego planu ChatGPT nie można używać w WordPress Studio."
 	],
@@ -4299,8 +4925,26 @@
 	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
 		"Twój plan Copilot nie obejmuje tego modelu. Wybierz inny lub włącz go na github.com/settings/copilot."
 	],
+	"Your Grok or X plan can’t be used in WordPress Studio.": [
+		"Twojego planu Grok lub X nie można używać w WordPress Studio."
+	],
+	"Your Grok sign-in no longer works. Connect xAI again in Settings.": [
+		"Twoje logowanie przez Grok już nie działa. Połącz ponownie xAI w Ustawieniach."
+	],
+	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
+		"Twoje kredyty OpenRouter się skończyły lub ten klucz osiągnął limit kredytów. Dodaj kredyty na openrouter.ai."
+	],
 	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
 		"Twoje logowanie do Spacefast już nie działa. Połącz ponownie Spacefast."
+	],
+	"Your Studio, in the cloud.": [
+		"Twoje Studio w chmurze."
+	],
+	"Your WordPress exceeds the %s GB publishing limit.": [
+		"Twój WordPress przekracza limit publikowania wynoszący %s GB."
+	],
+	"Your WordPress is public": [
+		"Twój WordPress jest publiczny"
 	],
 	"Your account doesn't have permission to manage this site.": [
 		"Twoje konto nie ma uprawnień do zarządzania tą witryną."
@@ -4311,8 +4955,8 @@
 	"Your first %s AI credits are on us.": [
 		"Pierwsze %s kredytów AI masz od nas."
 	],
-	"Your local site is saved. Retry to finish bringing in its content.": [
-		"Twoja lokalna witryna została zapisana. Spróbuj ponownie, aby dokończyć przenoszenie jej zawartości."
+	"Your local server refused the request: %s.": [
+		"Twój lokalny serwer odrzucił żądanie: %s."
 	],
 	"Your new website isn’t available yet. Refresh the website list to try again.": [
 		"Twoja nowa witryna nie jest jeszcze dostępna. Odśwież listę witryn, aby spróbować ponownie."
@@ -4320,11 +4964,28 @@
 	"Your next idea is ready when you are. Top up to bring it to life.": [
 		"Twój kolejny pomysł czeka, aż będziesz gotowy. Doładuj konto, aby go zrealizować."
 	],
+	"Your plan allows %d site. Delete a site to create a new one.": [
+		"Twój plan pozwala na %d witrynę. Usuń witrynę, aby utworzyć nową.",
+		"Twój plan pozwala na %d witryny. Usuń witrynę, aby utworzyć nową.",
+		"Twój plan pozwala na %d witryn. Usuń witrynę, aby utworzyć nową."
+	],
+	"Your plan has ended.": [
+		"Twój plan wygasł."
+	],
 	"Your preference could not be saved. Please try again.": [
 		"Nie udało się zapisać preferencji. Spróbuj ponownie."
 	],
 	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
 		"Twój podgląd został przeniesiony do WordPress.com, więc jego odnośnik się zmienił. Nowy odnośnik: %s"
+	],
+	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
+		"Wybrane pliki są niedostępne. Ponów sprawdzanie kopii zapasowej lub wybierz inną opcję, aby kontynuować."
+	],
+	"Your server’s setting": [
+		"Ustawienie Twojego serwera"
+	],
+	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
+		"Twoje ustawienia zostały zapisane przez nowszą wersję Studio CLI. Zaktualizuj WordPress Studio, aby nadal z nich korzystać."
 	],
 	"Your site can stay available in the background after WordPress Studio quits.": [
 		"Twoja witryna może pozostać dostępna w tle po zamknięciu WordPress Studio.",
@@ -4333,6 +4994,9 @@
 	],
 	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
 		"Twoja witryna zmieniła się od ostatniej aktualizacji podglądu „%s”. Publikowanie wyśle obecną lokalną witrynę, w tym zmiany niewidoczne w tym podglądzie."
+	],
+	"Your site is ready to publish": [
+		"Twoja witryna jest gotowa do opublikowania"
 	],
 	"Your site is shown on the right, automatically refreshing as you make changes with Studio Code. Switch between the front-end, wp-admin, and the database from the toolbar.": [
 		"Twoja witryna jest wyświetlana po prawej i odświeża się automatycznie, gdy wprowadzasz zmiany za pomocą Studio Code. Na pasku narzędzi przełączaj się między front-endem, wp-admin i bazą danych."
@@ -4343,23 +5007,26 @@
 	"Your site's backup exceeds %d GB. Pulling it will prevent you from pushing the site back.": [
 		"Kopia zapasowa Twojej witryny przekracza %d GB. Pobranie jej uniemożliwi Ci ponowne przesłanie witryny."
 	],
+	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
+		"Twoje witryny i Studio Code na Twojej własnej maszynie, dostępne z dowolnej przeglądarki. Zaloguj się kontem WordPress.com, aby otworzyć swój obszar roboczy."
+	],
 	"Your sites and their chats now share one sidebar. Hide the chat when you want the preview to fill the window.": [
 		"Twoje witryny i ich czaty dzielą teraz jeden panel boczny. Ukryj czat, gdy chcesz, aby podgląd wypełnił okno."
 	],
-	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
-		"Twoje witryny są nadal wymienione w %s. Uruchom ponownie WordPress Studio, aby spróbować jeszcze raz. Jeśli problem się powtarza, skontaktuj się z pomocą techniczną, podając poniższe szczegóły."
+	"Your sites are kept until %s. Renew to pick up where you left off, or choose a plan below.": [
+		"Twoje witryny będą przechowywane do %s. Odnów plan, aby kontynuować tam, gdzie skończono, lub wybierz plan poniżej."
+	],
+	"Your team and people you give access to": [
+		"Twój zespół i osoby, którym przyznasz dostęp"
+	],
+	"Your team only allows restricted sites.": [
+		"Twój zespół zezwala tylko na witryny z ograniczonym dostępem."
 	],
 	"Your unsaved changes will be lost.": [
 		"Niezapisane zmiany zostaną utracone."
 	],
-	"Your website wasn’t changed.": [
-		"Twoja witryna nie została zmieniona."
-	],
-	"Your website will be replaced with this site as it is now.": [
-		"Twoja witryna zostanie zastąpiona tą witryną w jej obecnym stanie."
-	],
-	"You’ll need to connect a website again to publish or pull changes. Your local site and live website will stay unchanged.": [
-		"Aby publikować lub pobierać zmiany, trzeba będzie ponownie połączyć witrynę. Twoja lokalna witryna i witryna produkcyjna pozostaną bez zmian."
+	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
+		"Twój obszar roboczy działa w planie Studio Cloud. Kasa otworzy się w WordPress.com, a obszar roboczy będzie gotowy mniej więcej minutę po zapłacie."
 	],
 	"You’re on a roll. Top up now and keep building.": [
 		"Idzie Ci świetnie. Doładuj konto teraz i buduj dalej."
@@ -4418,6 +5085,9 @@
 	"no files": [
 		"brak plików"
 	],
+	"other files": [
+		"inne pliki"
+	],
 	"pages": [
 		"strony"
 	],
@@ -4450,6 +5120,21 @@
 	],
 	"theme.json matches DESIGN.md": [
 		"theme.json jest zgodny z DESIGN.md"
+	],
+	"uploads": [
+		"przesłane pliki"
+	],
+	"xAI API key": [
+		"Klucz API xAI"
+	],
+	"xAI refused the API key. Check its permissions and credits in the xAI Console.": [
+		"xAI odrzuciło klucz API. Sprawdź jego uprawnienia i kredyty w xAI Console."
+	],
+	"xAI rejected the API key. Connect xAI again in Settings.": [
+		"xAI odrzuciło klucz API. Połącz ponownie xAI w Ustawieniach."
+	],
+	"xAI rejected this API key. Check the key and try again.": [
+		"xAI odrzuciło ten klucz API. Sprawdź klucz i spróbuj ponownie."
 	],
 	"· %d%%": [
 		"· %d%%"

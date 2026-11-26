@@ -11,7 +11,6 @@
 		"capture": "node --experimental-strip-types cli.ts",
 		"schemas": "node --experimental-strip-types cli.ts schemas",
 		"moire:looks": "node --experimental-strip-types src/build-design-looks.ts scenes/moire",
-		"lint": "eslint .",
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"dependencies": {

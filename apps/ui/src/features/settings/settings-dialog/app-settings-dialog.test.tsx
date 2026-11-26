@@ -40,20 +40,6 @@ async function setup( {
 	nativeFolderPicker?: boolean;
 } = {} ) {
 	let connection = aiSettings( 'wpcom', signedIn ? [ 'wpcom', 'anthropic' ] : [ 'anthropic' ] );
-	let skills = [
-		{
-			id: 'studio-cli',
-			displayName: 'WordPress Studio CLI',
-			description: 'CLI workflows',
-			installed: false,
-		},
-		{
-			id: 'wordpress',
-			displayName: 'WordPress',
-			description: 'WordPress workflows',
-			installed: false,
-		},
-	];
 	const connector = createFakeConnector(
 		{
 			sites: [ makeSite( { id: 'one' } ) ],
@@ -77,17 +63,6 @@ async function setup( {
 			setAiProvider: async ( provider ) => {
 				connection = { ...connection, provider };
 				return connection;
-			},
-			getWordPressSkillsStatusAllSites: async () => skills,
-			installWordPressSkillToAllSites: async ( id ) => {
-				skills = skills.map( ( skill ) =>
-					skill.id === id ? { ...skill, installed: true } : skill
-				);
-			},
-			removeWordPressSkillFromAllSites: async ( id ) => {
-				skills = skills.map( ( skill ) =>
-					skill.id === id ? { ...skill, installed: false } : skill
-				);
 			},
 			getStudioAssistantQuota: async () => null,
 			getSnapshotUsage: async () => ( { siteCount: 2, siteLimit: 10 } ) as never,
@@ -976,7 +951,20 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).toHaveBeenCalledOnce();
 	} );
 
-	it( 'shows empty defaults and selects the only connected host over a stale choice', async () => {
+	it( 'lists SSH with nothing to connect, and offers it as the default hosting provider', async () => {
+		const { connector } = await setup( { section: 'providers' } );
+		const ssh = await findProviderRow( 'ssh-provider' );
+		expect( within( ssh ).queryByRole( 'button', { name: /connect/i } ) ).not.toBeInTheDocument();
+		await choose( 'Default hosting provider', 'SSH' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ defaultHostingProvider: 'ssh' },
+				undefined
+			)
+		);
+	} );
+
+	it( 'shows empty defaults and selects the connected host that creates sites over a stale choice', async () => {
 		const { connector } = await setup( {
 			section: 'providers',
 			signedIn: false,
@@ -985,12 +973,13 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		} );
 		const ai = screen.getByRole( 'combobox', { name: 'Default AI provider' } );
 		const hosting = screen.getByRole( 'combobox', { name: 'Default hosting provider' } );
+		// SSH needs no account, but only connects sites the user already has: it isn't implied.
 		await waitFor( () => {
 			expect( ai ).toHaveTextContent( 'No providers' );
-			expect( hosting ).toHaveTextContent( 'No providers' );
+			expect( hosting ).toHaveTextContent( 'Choose a provider' );
 		} );
 		expect( ai ).toBeDisabled();
-		expect( hosting ).toBeDisabled();
+		expect( hosting ).toBeEnabled();
 		expect( ai ).toHaveAccessibleDescription( 'For working on sites.' );
 		expect( hosting ).toHaveAccessibleDescription( 'For publishing sites.' );
 
@@ -1116,6 +1105,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					studioLogs: false,
 					loopbackSignIn: false,
 					localMachine: false,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );
@@ -1131,8 +1122,9 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		// GitHub Copilot only signs in on its site, so the web offers nothing for it at all.
 		expect( row( 'github-copilot-provider' ) ).toBeNull();
 		expect( row( 'spacefast-provider' ) ).toBeNull();
-		// Nor can a page reach a model server on the user's computer.
+		// Nor can a page reach a model server on the user's computer, or use its SSH setup.
 		expect( row( 'local-llm-provider' ) ).toBeNull();
+		expect( row( 'ssh-provider' ) ).toBeNull();
 		fireEvent.change( searchBox(), { target: { value: 'Local LLM' } } );
 		expect( screen.queryByRole( 'tab', { name: 'Local LLM' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
@@ -1194,7 +1186,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			if ( connected ) {
 				current.accounts[ 'local-llm' ] = {
 					connected: true,
-					...getProvider( 'local-llm' ).account.describe( {
+					...getProvider( 'local-llm' ).account!.describe( {
 						method: 'server',
 						baseUrl: 'http://localhost:11434/v1',
 						models: [ { name: 'qwen3:0.6b', images: false } ],

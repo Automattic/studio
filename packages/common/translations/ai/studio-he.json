@@ -1,52 +1,15 @@
 {
-	"\"%s\" is not a Blueprint file, URL or Library slug.": [
-		"\"%s\" אינו קובץ מודל, כתובת URL או מזהה כתובת בספרייה."
-	],
-	"%1$dh %2$dm": [
-		"%1$d ש' %2$d ד'"
-	],
 	"%1$s +%2$d": [
 		"%1$s +%2$d"
-	],
-	"%1$s Use /connect %2$s to connect it.": [
-		"%1$s יש להשתמש ב-‎/connect %2$s כדי לחבר אותו."
-	],
-	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
-		"ל-%1$s לא הייתה אפשרות להתקין את התוסף של WordPress Studio: %2$s"
-	],
-	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
-		"ל-%1$s לא הייתה אפשרות לעדכן את התוסף של WordPress Studio: %2$s"
-	],
-	"%1$s isn’t connected. Use /connect %2$s to connect it.": [
-		"%1$s לא מחובר. יש להשתמש ב-‎/connect %2$s כדי לחבר אותו."
-	],
-	"%1$s screenshot %2$d": [
-		"%1$s צילום מסך %2$d"
-	],
-	"%d B": [
-		"‎%d B"
-	],
-	"%d annotation ready to send": [
-		"ביאור אחד מוכן לשליחה",
-		"%d ביאורים מוכנים לשליחה"
-	],
-	"%s (saved for future use):": [
-		"%s (יישמר לשימוש עתידי):"
-	],
-	"%s KB": [
-		"‎%s KB"
 	],
 	"%s connection": [
 		"חיבור %s"
 	],
-	"%s is no longer installed. Choose another browser in Settings.": [
-		"%s כבר לא מותקן. יש לבחור דפדפן אחר בהגדרות."
+	"%s · Live site": [
+		"%s · אתר פעיל"
 	],
-	"%s isn’t installed on this computer.": [
-		"%s לא מותקן במחשב הזה."
-	],
-	"%s preview is ready": [
-		"התצוגה המקדימה של %s מוכנה"
+	"%s · Local changes": [
+		"%s · שינויים מקומיים"
 	],
 	"(No subject)": [
 		"(ללא נושא)"
@@ -54,8 +17,8 @@
 	"A code editor with a built-in AI agent.": [
 		"עורך קוד עם סוכן בינה מלאכותית מובנה."
 	],
-	"A coding agent that runs in your terminal.": [
-		"סוכן תכנות שפועל במסוף."
+	"A static copy of your pages.": [
+		"עותק סטטי של העמודים שלך."
 	],
 	"AI apps": [
 		"אפליקציות בינה מלאכותית"
@@ -69,38 +32,26 @@
 	"Activate all plugins": [
 		"הפעלת כל התוספים"
 	],
-	"Add annotation to batch": [
-		"הוספת הביאור לקבוצה"
-	],
-	"Add or delete this annotation before starting another.": [
-		"יש להוסיף או למחוק את הביאור הזה לפני שמתחילים ביאור נוסף."
-	],
 	"Admin bar hidden by default.": [
 		"סרגל הניהול מוסתר כברירת מחדל."
 	],
 	"Admin bar shown by default.": [
 		"סרגל הניהול מוצג כברירת מחדל."
 	],
-	"Agent apps": [
-		"אפליקציות סוכנים"
-	],
 	"Agents": [
 		"סוכנים"
+	],
+	"All models": [
+		"כל המודלים"
 	],
 	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
 		"במהלך ההתחברות יש לאשר ל-WordPress Studio להשתמש בתוכנית ChatGPT שלך."
 	],
-	"An error occurred while updating the WordPress Studio CLI. Please try again.": [
-		"אירעה שגיאה בעדכון ממשק שורת הפקודה של WordPress Studio. יש לנסות שוב."
-	],
-	"Annotation is available for design systems created by Studio Code.": [
-		"ביאורים זמינים עבור מערכות עיצוב שנוצרו על ידי Studio Code."
-	],
 	"Annotation tools": [
 		"כלי ביאור"
 	],
-	"Anonymous usage statistics enabled.": [
-		"סטטיסטיקות השימוש האנונימיות הופעלו."
+	"Another operation is in progress.": [
+		"פעולה אחרת מתבצעת כעת."
 	],
 	"Anthropic API key": [
 		"מפתח API של Anthropic"
@@ -111,80 +62,20 @@
 	"Anthropic rejected this token. Run claude setup-token again.": [
 		"חברת Anthropic דחתה את האסימון הזה. יש להריץ שוב את claude setup-token."
 	],
-	"Anthropic’s AI coding agent.": [
-		"סוכן התכנות מבוסס הבינה המלאכותית של Anthropic."
-	],
-	"Appearance reset.": [
-		"העיצוב אופס."
-	],
-	"Approve the code %1$s at %2$s": [
-		"יש לאשר את הקוד %1$s בכתובת %2$s"
-	],
-	"Approve the code %1$s on %2$s to connect.": [
-		"יש לאשר את הקוד %1$s ב-%2$s כדי להתחבר."
-	],
-	"Approve the connection in your browser.": [
-		"יש לאשר את החיבור בדפדפן."
-	],
-	"At least one option (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type) is required.": [
-		"נדרשת לפחות אפשרות אחת (--name, --domain, --https, --php, --wp, --file-access, --xdebug, --php-workers, --admin-username, --admin-password, --admin-email, --debug-log, --debug-display, --script-debug, --environment-type)."
-	],
-	"Automatic sidebar collapsing disabled.": [
-		"המזעור האוטומטי של הסרגל הצדדי הושבת."
-	],
-	"Automatic sidebar collapsing enabled.": [
-		"המזעור האוטומטי של הסרגל הצדדי הופעל."
-	],
-	"Automatic site start on prompt disabled.": [
-		"ההפעלה האוטומטית של האתר בשליחת בקשה בוטלה."
-	],
-	"Automatic site start on prompt enabled.": [
-		"ההפעלה האוטומטית של האתר בשליחת בקשה הופעלה."
+	"Anyone with the link": [
+		"כל מי שיש לו את הקישור"
 	],
 	"Back to email list": [
 		"חזרה לרשימת האימיילים"
 	],
-	"Backups": [
-		"גיבויים"
-	],
 	"Balanced": [
 		"מאוזן"
 	],
-	"Batch notes": [
-		"קיבוץ הערות"
-	],
-	"Batch notes disabled.": [
-		"קיבוץ ההערות הושבת."
-	],
-	"Batch notes enabled.": [
-		"קיבוץ ההערות הופעל."
-	],
-	"Birdland": [
-		"בירדלנד"
-	],
-	"Blue Note": [
-		"בלו נוט"
-	],
-	"Blue Train": [
-		"בלו טריין"
-	],
-	"Blue in Green": [
-		"בלו אין גרין"
-	],
-	"Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see \"studio blueprint list\")": [
-		"כתובת URL של מודל, קובץ JSON, תיקייה, חבילת zip או מזהה כתובת בספריית המודלים (ראו \"studio blueprint list\")"
-	],
-	"Blueprint file…": [
-		"קובץ מודל…"
+	"Billing period": [
+		"תקופת חיוב"
 	],
 	"Blueprint loaded": [
 		"המודל נטען"
-	],
-	"Blueprint preview": [
-		"תצוגה מקדימה של המודל"
-	],
-	"Blueprints, backups, and WordPress exports": [
-		"מודלים, גיבויים וקובצי ייצוא של WordPress"
 	],
 	"Browse Blueprints": [
 		"עיון במודלים"
@@ -192,17 +83,14 @@
 	"Browser could not load.": [
 		"לא ניתן היה לטעון את הדפדפן."
 	],
-	"Browser options": [
-		"אפשרויות הדפדפן"
-	],
-	"Browsing data cleared": [
-		"נתוני הגלישה נוקו"
-	],
-	"Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.": [
-		"בנייה ועריכה של אתרים דרך הצ'אט. אפשר להשתמש בקרדיטים של בינה מלאכותית של WordPress.com, או במינוי או במפתח API משלך."
-	],
 	"Cc": [
 		"עותק"
+	],
+	"Changes on %s will be replaced with your local files and database.": [
+		"השינויים ב-%s יוחלפו בקבצים ובמסד הנתונים המקומיים שלך."
+	],
+	"Changes published": [
+		"השינויים פורסמו"
 	],
 	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
 		"השינויים נדחפו, אך לא ניתן היה להשיק את האתר. יש לבדוק את התוכנית וההרשאות ולפרסם שוב כדי לנסות להשיק מחדש."
@@ -231,20 +119,11 @@
 	"Check your internet connection and try again.": [
 		"יש לבדוק את החיבור לאינטרנט ולנסות שוב."
 	],
-	"Checking for updates…": [
-		"בודק אם יש עדכונים…"
-	],
 	"Choose a Blueprint or backup": [
 		"בחירת מודל או גיבוי"
 	],
 	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
 		"יש לבחור תיקיית אתר WordPress, קובץ JSON של מודל או חבילת ZIP."
-	],
-	"Choose a blueprint, backup, export, or existing WordPress folder.": [
-		"יש לבחור מודל, גיבוי, קובץ ייצוא או תיקיית WordPress קיימת."
-	],
-	"Choose a folder containing an existing WordPress site.": [
-		"יש לבחור תיקייה שמכילה אתר WordPress קיים."
 	],
 	"Choose a provider": [
 		"בחירת ספק"
@@ -252,29 +131,17 @@
 	"Choose a site source": [
 		"בחירת מקור לאתר"
 	],
-	"Choose a site with `--remote-site %s:<site>` (its ID or URL).": [
-		"יש לבחור אתר באמצעות `--remote-site %s:<site>` (המזהה או כתובת ה-URL שלו)."
-	],
 	"Choose a topic": [
 		"בחירת נושא"
-	],
-	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
-		"כדי להשתמש במקור, יש לבחור תיקייה ריקה. התיקייה שנבחרה כבר מכילה אתר WordPress."
-	],
-	"Choose an existing WordPress folder, blueprint, backup, or export.": [
-		"יש לבחור תיקיית WordPress קיימת, מודל, גיבוי או קובץ ייצוא."
-	],
-	"Choose another host": [
-		"בחירת מארח אחר"
 	],
 	"Choose color": [
 		"בחירת צבע"
 	],
-	"Choose what powers chat in WordPress Studio.": [
-		"בחירת המנוע שמפעיל את הצ'אט ב-WordPress Studio."
+	"Choose specific files": [
+		"בחירת קבצים מסוימים"
 	],
-	"Choosing individual files requires a backup of this website.": [
-		"כדי לבחור קבצים בודדים נדרש גיבוי של אתר האינטרנט הזה."
+	"Choose your plan.": [
+		"יש לבחור תוכנית."
 	],
 	"Claude subscription": [
 		"מינוי Claude"
@@ -282,41 +149,14 @@
 	"Claude subscription token": [
 		"אסימון מינוי של Claude"
 	],
-	"Clear browsing data": [
-		"ניקוי נתוני הגלישה"
-	],
 	"Click anything on the page to leave a note": [
 		"אפשר ללחוץ על כל רכיב בעמוד כדי להוסיף הערה"
 	],
 	"Close %s": [
 		"סגירת %s"
 	],
-	"Close all tabs": [
-		"סגירת כל הכרטיסיות"
-	],
-	"Close other tabs": [
-		"סגירת הכרטיסיות האחרות"
-	],
-	"Close tab": [
-		"סגירת הכרטיסייה"
-	],
-	"Close tabs to the right": [
-		"סגירת הכרטיסיות שאחרי כרטיסייה זו"
-	],
-	"Collect annotations and send them together instead of one at a time.": [
-		"איסוף ביאורים ושליחתם יחד במקום אחד-אחד."
-	],
-	"Color may be adapted for your theme.": [
-		"ייתכן שהצבע יותאם לערכת העיצוב."
-	],
 	"Color picker": [
 		"בורר צבעים"
-	],
-	"Connect %s first.": [
-		"יש לחבר קודם את %s."
-	],
-	"Connect %s now?": [
-		"לחבר את %s עכשיו?"
 	],
 	"Connect AI providers": [
 		"חיבור ספקי בינה מלאכותית"
@@ -327,23 +167,17 @@
 	"Connect a provider": [
 		"חיבור ספק"
 	],
-	"Connect to Spacefast": [
-		"התחברות ל-Spacefast"
-	],
-	"Connect to an existing WordPress": [
-		"חיבור לאתר WordPress קיים"
-	],
-	"Connect your WordPress": [
-		"חיבור אתר WordPress שלך"
+	"Connect a provider to see your existing sites.": [
+		"יש לחבר ספק כדי לראות את האתרים הקיימים שלך."
 	],
 	"Connected %s.": [
 		"%s חובר."
 	],
-	"Connected live site ID, or none": [
-		"מזהה האתר הפעיל המחובר, או none"
-	],
 	"Connecting to WordPress.com": [
 		"מתחבר ל-WordPress.com"
+	],
+	"Continue on %s": [
+		"המשך ב-%s"
 	],
 	"Continue with GitHub": [
 		"המשך עם GitHub"
@@ -351,35 +185,23 @@
 	"Copy links": [
 		"העתקת קישורים"
 	],
-	"Cotton Tail": [
-		"קוטון טייל"
-	],
-	"Could not capture the area. Your selection is kept. Try again.": [
-		"לא ניתן היה לצלם את האזור. הבחירה שלך נשמרה. יש לנסות שוב."
-	],
 	"Could not clear browsing data": [
 		"לא ניתן היה לנקות את נתוני הגלישה"
 	],
-	"Could not delete the old preview site. It will expire on its own.": [
-		"לא ניתן היה למחוק את אתר התצוגה המקדימה הישן. התוקף שלו יפוג מעצמו."
+	"Could not connect to WordPress.com": [
+		"לא ניתן היה להתחבר ל-WordPress.com"
 	],
-	"Could not migrate your sites": [
-		"לא ניתן היה להעביר את האתרים שלך"
+	"Could not open the new preview. Please try again.": [
+		"לא ניתן היה לפתוח את התצוגה המקדימה החדשה. יש לנסות שוב."
 	],
-	"Could not open DevTools": [
-		"לא ניתן היה לפתוח את DevTools"
-	],
-	"Could not open Spacefast": [
-		"לא ניתן היה לפתוח את Spacefast"
+	"Could not publish. Please try again.": [
+		"לא ניתן היה לפרסם. יש לנסות שוב."
 	],
 	"Could not reach Anthropic to verify the credential.": [
 		"לא ניתן היה להתחבר ל-Anthropic כדי לאמת את פרטי הגישה."
 	],
-	"Could not read the table prefix from wp-config.php": [
-		"לא ניתן היה לקרוא את קידומת הטבלאות מהקובץ wp-config.php"
-	],
-	"Could not reset appearance. Please try again.": [
-		"לא ניתן היה לאפס את העיצוב. יש לנסות שוב."
+	"Could not read your settings": [
+		"לא ניתן היה לקרוא את ההגדרות שלך"
 	],
 	"Could not reset interface. Please try again.": [
 		"לא ניתן היה לאפס את הממשק. יש לנסות שוב."
@@ -387,17 +209,8 @@
 	"Could not reset tips. Please try again.": [
 		"לא ניתן היה לאפס את הטיפים. יש לנסות שוב."
 	],
-	"Could not set $table_prefix to \"%s\" in wp-config.php.": [
-		"לא ניתן היה להגדיר את $table_prefix לערך \"%s\" בקובץ wp-config.php."
-	],
-	"Could not take screenshot": [
-		"לא ניתן היה לצלם את המסך"
-	],
 	"Could not update settings. Please try again.": [
 		"לא ניתן היה לעדכן את ההגדרות. יש לנסות שוב."
-	],
-	"Could not update the admin bar setting. Please try again.": [
-		"לא ניתן היה לעדכן את ההגדרה של סרגל הניהול. יש לנסות שוב."
 	],
 	"Could not verify the credential with Anthropic.": [
 		"לא ניתן היה לאמת את פרטי הגישה מול Anthropic."
@@ -408,8 +221,8 @@
 	"Couldn’t load apps.": [
 		"לא ניתן היה לטעון את האפליקציות."
 	],
-	"Couldn’t sign in to WordPress.com": [
-		"לא ניתן היה להתחבר ל-WordPress.com"
+	"Couldn’t load publishing accounts": [
+		"לא ניתן היה לטעון את חשבונות הפרסום"
 	],
 	"Create %s": [
 		"יצירת %s"
@@ -429,35 +242,29 @@
 	"Create a new WordPress": [
 		"יצירת אתר WordPress חדש"
 	],
-	"Create an account or log in to connect your WordPress.com or Pressable sites.": [
-		"יש ליצור חשבון או להתחבר כדי לחבר את האתרים שלך ב-WordPress.com או ב-Pressable."
-	],
-	"Create another preview": [
-		"יצירת תצוגה מקדימה נוספת"
-	],
 	"Create user": [
 		"יצירת משתמש"
 	],
-	"Data Liberation could not capture the source website": [
-		"לשירות של Data Liberation לא הייתה אפשרות ללכוד את אתר המקור"
+	"Creating preview": [
+		"מתבצעת יצירה של תצוגה מקדימה"
 	],
-	"Default AI provider": [
-		"ספק הבינה המלאכותית שבברירת המחדל"
+	"Creating preview link…": [
+		"מתבצעת יצירה של קישור לתצוגה מקדימה…"
 	],
-	"Default browser": [
-		"דפדפן ברירת המחדל"
+	"Database only": [
+		"מסד נתונים בלבד"
 	],
-	"Default code editor": [
-		"עורך הקוד שבברירת המחדל"
+	"Default": [
+		"ברירת מחדל"
 	],
-	"Default hosting provider": [
-		"ספק האחסון שבברירת המחדל"
-	],
-	"Default terminal app": [
-		"אפליקציית המסוף שבברירת המחדל"
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"אוטומטי"
 	],
 	"Delete %s": [
 		"מחיקת %s"
+	],
+	"Delete a site to create a new one.": [
+		"יש למחוק אתר כדי ליצור אתר חדש."
 	],
 	"Delete annotation: %s": [
 		"מחיקת ביאור: %s"
@@ -474,80 +281,41 @@
 	"Describe the change": [
 		"תיאור השינוי"
 	],
-	"Describe what you’d like to build or change (optional)…": [
-		"מה ברצונך לבנות או לשנות? (אופציונלי)…"
-	],
 	"Design system could not load.": [
 		"לא ניתן היה לטעון את מערכת העיצוב."
 	],
 	"Design systems are available for block themes.": [
 		"מערכות עיצוב זמינות עבור ערכות עיצוב מבוססות בלוקים."
 	],
-	"Directory to write the static site to": [
-		"התיקייה שאליה ייכתב האתר הסטטי"
-	],
-	"Disable automatic sidebar collapsing": [
-		"השבתת המזעור האוטומטי של הסרגל הצדדי"
-	],
-	"Disable automatic site start on prompt": [
-		"ביטול ההפעלה האוטומטית של האתר בשליחת בקשה"
-	],
-	"Disable batch notes": [
-		"השבתת קיבוץ ההערות"
-	],
-	"Discard changes?": [
-		"לבטל את השינויים?"
+	"Destination": [
+		"יעד"
 	],
 	"Disconnect a provider": [
 		"ניתוק ספק"
 	],
+	"Disconnect site…": [
+		"ניתוק האתר…"
+	],
 	"Disconnected %s.": [
 		"%s נותק."
-	],
-	"Dismiss tip": [
-		"סגירת הטיפ"
 	],
 	"Do more with WordPress": [
 		"לעשות יותר עם WordPress"
 	],
-	"Domains": [
-		"דומיינים"
-	],
-	"Download update": [
-		"הורדת העדכון"
+	"Download WordPress Studio": [
+		"הורדת WordPress Studio"
 	],
 	"Drop to add site": [
 		"יש לשחרר כדי להוסיף אתר"
 	],
-	"Drop your file here": [
-		"יש לשחרר את הקובץ כאן"
-	],
 	"Edit annotation: %s": [
 		"עריכת ביאור: %s"
-	],
-	"Email log": [
-		"יומן אימייל"
 	],
 	"Email log could not load.": [
 		"לא ניתן היה לטעון את יומן האימייל."
 	],
-	"Emails sent by your site appear here.": [
-		"אימיילים שהאתר שלך שולח מופיעים כאן."
-	],
 	"Enable anonymous usage statistics": [
 		"הפעלת סטטיסטיקות שימוש אנונימיות"
-	],
-	"Enable automatic sidebar collapsing": [
-		"הפעלת המזעור האוטומטי של הסרגל הצדדי"
-	],
-	"Enable automatic site start on prompt": [
-		"הפעלה אוטומטית של האתר בשליחת בקשה"
-	],
-	"Enable batch notes": [
-		"הפעלת קיבוץ ההערות"
-	],
-	"Enter a folder name other than “.” or “..”.": [
-		"יש להזין שם תיקייה שאינו “.” או “..”."
 	],
 	"Enter a token from claude setup-token, not an API key.": [
 		"יש להזין אסימון מ-claude setup-token, ולא מפתח API."
@@ -558,11 +326,17 @@
 	"Esc": [
 		"Esc"
 	],
+	"Everyone": [
+		"כולם"
+	],
+	"Everything": [
+		"הכול"
+	],
+	"Everything you need to build WordPress sites with Studio Code.": [
+		"כל מה שצריך כדי לבנות אתרי WordPress עם Studio Code."
+	],
 	"Existing WordPress site": [
 		"אתר WordPress קיים"
-	],
-	"Expand panel": [
-		"הרחבת החלונית"
 	],
 	"Export site as static HTML files": [
 		"ייצוא האתר כקובצי HTML סטטיים"
@@ -570,32 +344,11 @@
 	"External AI apps": [
 		"אפליקציות בינה מלאכותית חיצוניות"
 	],
-	"Failed after %s": [
-		"נכשל אחרי %s"
-	],
-	"Failed to back up the remote site": [
-		"הגיבוי של האתר המרוחק נכשל"
-	],
-	"Failed to check the preview site": [
-		"הבדיקה של אתר התצוגה המקדימה נכשלה"
-	],
-	"Failed to create the %s site": [
-		"יצירת האתר ב-%s נכשלה"
-	],
 	"Failed to create the Space": [
 		"יצירת ה-Space נכשלה"
 	],
-	"Failed to export static site": [
-		"ייצוא האתר הסטטי נכשל"
-	],
-	"Failed to fetch Blueprint: HTTP %d": [
-		"הבאת המודל נכשלה: HTTP %d"
-	],
 	"Failed to find existing preview site in config": [
 		"לא נמצא אתר תצוגה מקדימה קיים בהגדרות"
-	],
-	"Failed to load your %s sites": [
-		"טעינת האתרים שלך ב-%s נכשלה"
 	],
 	"Failed to load your Spacefast Spaces": [
 		"טעינת ה-Spaces שלך ב-Spacefast נכשלה"
@@ -606,23 +359,17 @@
 	"Failed to save connected site": [
 		"שמירת האתר המחובר נכשלה"
 	],
-	"Feedback areas": [
-		"תחומי משוב"
-	],
 	"Feedback sent": [
 		"המשוב נשלח"
 	],
-	"Feedback type": [
-		"סוג המשוב"
-	],
-	"Fetching %s sites…": [
-		"מביא אתרים מ-%s…"
+	"Files could not be loaded.": [
+		"לא ניתן היה לטעון את הקבצים."
 	],
 	"File…": [
 		"קובץ…"
 	],
-	"Finish signing in to %s in your browser.": [
-		"יש להשלים את ההתחברות ל-%s בדפדפן."
+	"Finish activating hosting on WordPress.com before pulling.": [
+		"יש להשלים את הפעלת האחסון ב-WordPress.com לפני המשיכה."
 	],
 	"First use": [
 		"שימוש ראשון"
@@ -633,9 +380,6 @@
 	"For working on sites.": [
 		"לעבודה על אתרים."
 	],
-	"From many, one tool.\nFind strength in community\nfor a better web.": [
-		"מרבים, כלי אחד.\nבקהילה נמצא כוח\nלרשת טובה יותר."
-	],
 	"Gemini API key": [
 		"מפתח API של Gemini"
 	],
@@ -645,20 +389,11 @@
 	"Generating static site…": [
 		"יוצר אתר סטטי…"
 	],
-	"Getting your sign-in code…": [
-		"מקבל את קוד ההתחברות שלך…"
-	],
-	"Giant Steps": [
-		"ג'איינט סטפס"
-	],
 	"GitHub sign-in was declined.": [
 		"ההתחברות ל-GitHub נדחתה."
 	],
 	"Google rejected this API key. Check the key and try again.": [
 		"חברת Google דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
-	],
-	"Green Dolphin Street": [
-		"גרין דולפין סטריט"
 	],
 	"Hide admin bar": [
 		"הסתרת סרגל הניהול"
@@ -672,29 +407,17 @@
 	"Hide device toolbar": [
 		"הסתרת סרגל הכלים של המכשיר"
 	],
-	"Hide panel": [
-		"הסתרת החלונית"
-	],
 	"Hide recent chats": [
 		"הסתרת הצ'אטים האחרונים"
-	],
-	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
-		"הסתרת סרגל הניהול של WordPress כברירת מחדל באתרים מקומיים. אפשר לשנות זאת לכל אתר בנפרד באפשרויות הדפדפן."
 	],
 	"Hints": [
 		"רמזים"
 	],
-	"Hosting providers": [
-		"ספקי אחסון"
-	],
 	"Hostname of the preview site": [
 		"שם המארח של אתר התצוגה המקדימה"
 	],
-	"How do you want to connect %s?": [
-		"איך לחבר את %s?"
-	],
-	"How to connect": [
-		"אופן החיבור"
+	"How much should the model think?": [
+		"כמה המודל צריך לחשוב?"
 	],
 	"Hue": [
 		"גוון"
@@ -702,17 +425,11 @@
 	"Image annotation": [
 		"ביאור תמונה"
 	],
-	"Import a blueprint or backup": [
-		"ייבוא מודל או גיבוי"
-	],
 	"Import cancelled": [
 		"הייבוא בוטל"
 	],
 	"Import media": [
 		"ייבוא מדיה"
-	],
-	"Include this chat’s transcript": [
-		"צירוף התמליל של הצ'אט הזה"
 	],
 	"Inspect design": [
 		"בדיקת העיצוב"
@@ -723,23 +440,11 @@
 	"Install plugin": [
 		"התקנת תוסף"
 	],
-	"Install the WordPress Studio CLI and configure MCP for another app.": [
-		"התקנת ממשק שורת הפקודה של WordPress Studio והגדרת MCP לאפליקציה אחרת."
-	],
-	"Install the WordPress Studio CLI.": [
-		"יש להתקין את ממשק שורת הפקודה של WordPress Studio."
-	],
 	"Interface reset.": [
 		"הממשק אופס."
 	],
 	"Interface theme": [
 		"ערכת העיצוב של הממשק"
-	],
-	"Kind of Blue": [
-		"קיינד אוף בלו"
-	],
-	"Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.": [
-		"מידע נוסף זמין בכתובת <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>."
 	],
 	"Liberate": [
 		"שחרור"
@@ -753,9 +458,6 @@
 	"Load skill": [
 		"טעינת מיומנות"
 	],
-	"Loading Blueprint…": [
-		"טוען מודל…"
-	],
 	"Loading WordPress Studio…": [
 		"טוען את WordPress Studio…"
 	],
@@ -765,14 +467,14 @@
 	"Loading file…": [
 		"טוען קובץ…"
 	],
-	"Log in or create account": [
-		"התחברות או יצירת חשבון"
+	"Local changes": [
+		"שינויים מקומיים"
 	],
 	"Log in to WordPress.com to sync sites.": [
 		"יש להתחבר ל-WordPress.com כדי לסנכרן אתרים."
 	],
-	"Maiden Voyage": [
-		"מיידן וויאג'"
+	"Make a preview site your live site": [
+		"הפיכת אתר תצוגה מקדימה לאתר הפעיל שלך"
 	],
 	"Manage AI credits": [
 		"ניהול קרדיטים לבינה מלאכותית"
@@ -780,11 +482,17 @@
 	"Manage content": [
 		"ניהול תוכן"
 	],
+	"Manage credits": [
+		"ניהול קרדיטים"
+	],
 	"Manage media": [
 		"ניהול מדיה"
 	],
 	"Manage menus": [
 		"ניהול תפריטים"
+	],
+	"Manage on Spacefast": [
+		"ניהול ב-Spacefast"
 	],
 	"Manage on WordPress.com": [
 		"ניהול ב-WordPress.com"
@@ -794,9 +502,6 @@
 	],
 	"Manage plugins": [
 		"ניהול תוספים"
-	],
-	"Manage sharing": [
-		"ניהול השיתוף"
 	],
 	"Manage terms": [
 		"ניהול מונחים"
@@ -822,23 +527,14 @@
 	"Meta rejected this API key. Check the key and try again.": [
 		"חברת Meta דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
 	],
-	"Mood Indigo": [
-		"מוד אינדיגו"
-	],
 	"New WordPress Studio Site": [
 		"אתר WordPress Studio חדש"
 	],
-	"New site \"%s\"": [
-		"אתר חדש \"%s\""
+	"No files are available to choose.": [
+		"אין קבצים זמינים לבחירה."
 	],
-	"New tab": [
-		"כרטיסייה חדשה"
-	],
-	"No design system is available for this theme.": [
-		"אין מערכת עיצוב זמינה עבור ערכת העיצוב הזו."
-	],
-	"No matching sites.": [
-		"אין אתרים תואמים."
+	"No models found.": [
+		"לא נמצאו מודלים."
 	],
 	"No provider is connected.": [
 		"אין ספק מחובר."
@@ -846,38 +542,26 @@
 	"No providers": [
 		"אין ספקים"
 	],
-	"No recipient": [
-		"אין נמען"
+	"Only you": [
+		"רק לך"
 	],
-	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
-		"מספר תהליכי ה-PHP, שקובע כמה בקשות האתר יכול לשרת בו-זמנית (ברירת מחדל: %d)"
-	],
-	"Open %s settings": [
-		"פתיחת ההגדרות של %s"
+	"Open Config File (dev only)": [
+		"פתיחת קובץ התצורה (לפיתוח בלבד)"
 	],
 	"Open Folder…": [
 		"פתיחת תיקייה…"
 	],
-	"Open Spacefast": [
-		"פתיחת Spacefast"
-	],
-	"Open Spacefast in your browser. Make sure the codes match, then approve the connection.": [
-		"יש לפתוח את Spacefast בדפדפן, לוודא שהקודים תואמים ולאשר את החיבור."
-	],
-	"Open a project page to annotate.": [
-		"יש לפתוח עמוד של פרויקט כדי להוסיף ביאורים."
-	],
 	"Open a site or Blueprint": [
 		"פתיחת אתר או מודל"
-	],
-	"Open documentation": [
-		"פתיחת התיעוד"
 	],
 	"Open email log": [
 		"פתיחת יומן האימייל"
 	],
 	"Open on GitHub": [
 		"פתיחה ב-GitHub"
+	],
+	"Open preview: %s": [
+		"פתיחת תצוגה מקדימה: %s"
 	],
 	"Open the WordPress Studio app to add an existing WordPress folder.": [
 		"יש לפתוח את האפליקציה WordPress Studio כדי להוסיף תיקיית WordPress קיימת."
@@ -888,50 +572,56 @@
 	"OpenAI rejected this API key. Check the key and try again.": [
 		"חברת OpenAI דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
 	],
-	"OpenAI’s coding agent in the ChatGPT app.": [
-		"סוכן התכנות של OpenAI באפליקציית ChatGPT."
+	"OpenRouter API key": [
+		"מפתח API של OpenRouter"
 	],
-	"PHP workers must be a whole number from 1 to 64.": [
-		"מספר תהליכי ה-PHP חייב להיות מספר שלם בין 1 ל-64."
+	"Opening %s": [
+		"מתבצעת פתיחה של %s"
 	],
-	"Parent folder": [
-		"תיקיית אב"
+	"Other files": [
+		"קבצים אחרים"
 	],
 	"Paste the token it prints. Usage counts against your Claude plan.": [
 		"יש להדביק את האסימון שהפקודה מדפיסה. השימוש נספר במסגרת התוכנית שלך ב-Claude."
 	],
-	"Pending annotation": [
-		"ביאור ממתין"
-	],
 	"Performance audit": [
 		"בדיקת ביצועים"
+	],
+	"Pick at least one model your server offers.": [
+		"יש לבחור לפחות מודל אחד שהשרת שלך מציע."
 	],
 	"Pick design": [
 		"בחירת עיצוב"
 	],
-	"Point or draw to suggest a change.": [
-		"אפשר להצביע או לצייר כדי להציע שינוי."
+	"Plan": [
+		"תוכנית"
 	],
-	"Point to something you’d like to change.": [
-		"אפשר להצביע על משהו שברצונך לשנות."
+	"Plan ended": [
+		"התוכנית הסתיימה"
+	],
+	"Posts, pages, and settings": [
+		"פוסטים, עמודים והגדרות"
 	],
 	"Present design options": [
 		"הצגת אפשרויות עיצוב"
 	],
-	"Preview browser controls": [
-		"פקדי הדפדפן של התצוגה המקדימה"
-	],
 	"Preview creation cancelled": [
 		"יצירת התצוגה המקדימה בוטלה"
 	],
-	"Preview site not found": [
-		"אתר התצוגה המקדימה לא נמצא"
+	"Preview expiration": [
+		"תפוגת התצוגה המקדימה"
 	],
-	"Preview tabs": [
-		"כרטיסיות התצוגה המקדימה"
+	"Preview has changes": [
+		"יש שינויים בתצוגה המקדימה"
 	],
-	"Project tools": [
-		"כלי הפרויקט"
+	"Preview limit reached": [
+		"הגעת למגבלת התצוגות המקדימות"
+	],
+	"Preview link ready": [
+		"הקישור לתצוגה מקדימה מוכן"
+	],
+	"Private sites and preview links": [
+		"אתרים פרטיים וקישורים לתצוגה מקדימה"
 	],
 	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
 		"פרסום עותק סטטי של האתר שלך ב-Space של Spacefast. טפסים, תגובות ותכונות אחרות שדורשות ש-WordPress יפעל לא יעבדו בעותק."
@@ -939,29 +629,17 @@
 	"Publish a static copy of your sites to a Spacefast Space.": [
 		"פרסום עותק סטטי של האתרים שלך ב-Space של Spacefast."
 	],
-	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
-		"פרסום אתרים חדשים או עדכון אתרים קיימים ב-WordPress.com או ב-Pressable."
+	"Publish options could not be loaded.": [
+		"לא ניתן היה לטעון את אפשרויות הפרסום."
 	],
-	"Publish to %s to apply these changes.": [
-		"יש לפרסם ב-%s כדי להחיל את השינויים האלה."
+	"Publish somewhere else": [
+		"פרסום במקום אחר"
+	],
+	"Publish to %s.": [
+		"פרסום ב-%s."
 	],
 	"Publish to Spacefast": [
 		"פרסום ב-Spacefast"
-	],
-	"Publish to another site…": [
-		"פרסום באתר אחר…"
-	],
-	"Publish your changes.": [
-		"פרסום השינויים שלך."
-	],
-	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
-		"אפשר לפרסם את האתר כשהוא מוכן, או לשתף תצוגה מקדימה דרך WordPress.com."
-	],
-	"Published sites": [
-		"אתרים שפורסמו"
-	],
-	"Published to": [
-		"פורסם ב"
 	],
 	"Publishing cancelled": [
 		"הפרסום בוטל"
@@ -969,20 +647,14 @@
 	"Publishing changes…": [
 		"מפרסם שינויים…"
 	],
-	"Pull a WordPress.com or Pressable site to your local site": [
-		"משיכה של אתר מ-WordPress.com או מ-Pressable אל האתר המקומי שלך"
+	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
+		"פרסום מסד הנתונים מחליף שינויים שבוצעו באתר הפעיל, כולל תגובות או הזמנות חדשות."
 	],
-	"Pull only the database (keeps the local files)": [
-		"משיכה של מסד הנתונים בלבד (הקבצים המקומיים נשמרים)"
-	],
-	"Pull preview": [
-		"משיכת התצוגה המקדימה"
+	"Pull from live site…": [
+		"משיכה מהאתר הפעיל…"
 	],
 	"Pulling the preview replaces the changes made here.": [
 		"משיכת התצוגה המקדימה תחליף את השינויים שבוצעו כאן."
-	],
-	"Push your local site to a WordPress.com site, or publish it to Spacefast": [
-		"דחיפת האתר המקומי שלך לאתר ב-WordPress.com, או פרסום שלו ב-Spacefast"
 	],
 	"Read site option": [
 		"קריאת אפשרות אתר"
@@ -990,11 +662,8 @@
 	"Read site title": [
 		"קריאת כותרת האתר"
 	],
-	"Recent chats": [
-		"צ'אטים אחרונים"
-	],
-	"Recent chats hidden.": [
-		"הצ'אטים האחרונים הוסתרו."
+	"Receipts": [
+		"קבלות"
 	],
 	"Recent chats shown.": [
 		"הצ'אטים האחרונים מוצגים."
@@ -1002,20 +671,26 @@
 	"Recent pages": [
 		"עמודים אחרונים"
 	],
+	"Recommended": [
+		"מומלץ"
+	],
 	"Remote backup failed": [
 		"הגיבוי המרוחק נכשל"
 	],
 	"Remote environment: %s": [
 		"סביבה מרוחקת: %s"
 	],
-	"Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast": [
-		"כתובת URL או מזהה של האתר המרוחק, או `<provider>[:<site>]` לאתר אצל ספק אחר, למשל `spacefast` כדי לפרסם עותק סטטי ב-Spacefast"
+	"Renew": [
+		"חידוש"
 	],
-	"Remove Blueprint": [
-		"הסרת המודל"
+	"Replace local site": [
+		"החלפת האתר המקומי"
 	],
-	"Replace the contents of a non-empty output directory": [
-		"החלפת התוכן של תיקיית פלט שאינה ריקה"
+	"Replace preview": [
+		"החלפת התצוגה המקדימה"
+	],
+	"Replace selected content": [
+		"החלפת התוכן שנבחר"
 	],
 	"Reply in your own words instead of picking an option.": [
 		"אפשר להשיב במילים שלך במקום לבחור אפשרות."
@@ -1026,44 +701,11 @@
 	"Request a feature or report a bug.": [
 		"בקשת תכונה או דיווח על באג."
 	],
-	"Reset folder name to match site name": [
-		"איפוס שם התיקייה כך שיתאים לשם האתר"
-	],
-	"Reset tips": [
-		"איפוס הטיפים"
-	],
-	"Resize panel": [
-		"שינוי גודל החלונית"
-	],
 	"Resize viewport: %s": [
 		"שינוי גודל אזור התצוגה: %s"
 	],
-	"Responsive preview": [
-		"תצוגה מקדימה רספונסיבית"
-	],
 	"Restart WordPress Studio to finish updating.": [
 		"יש להפעיל מחדש את WordPress Studio כדי לסיים את העדכון."
-	],
-	"Restore the default interface theme, accent color, intensity, and contrast.": [
-		"שחזור ערכת העיצוב של הממשק, צבע ההדגשה, העוצמה והניגודיות לברירת המחדל."
-	],
-	"Review the advanced settings to finish creating your site.": [
-		"יש לעבור על ההגדרות המתקדמות כדי לסיים את יצירת האתר."
-	],
-	"Rotate to landscape": [
-		"סיבוב לתצוגה לרוחב"
-	],
-	"Rotate to portrait": [
-		"סיבוב לתצוגה לאורך"
-	],
-	"Rotate viewport": [
-		"סיבוב אזור התצוגה"
-	],
-	"Round Midnight": [
-		"ראונד מידנייט"
-	],
-	"Run \"studio blueprint list\" to see available slugs.": [
-		"יש להריץ את \"studio blueprint list\" כדי לראות את מזהי הכתובת הזמינים."
 	],
 	"Run WordPress code": [
 		"הרצת קוד WordPress"
@@ -1083,29 +725,20 @@
 	"Save annotation (Enter)": [
 		"שמירת הביאור (Enter)"
 	],
-	"Screenshots are available in the desktop app.": [
-		"צילומי מסך זמינים באפליקציה למחשב."
+	"Search models": [
+		"חיפוש מודלים"
 	],
 	"Select an email to read it.": [
 		"יש לבחור אימייל כדי לקרוא אותו."
 	],
-	"Selected area": [
-		"האזור שנבחר"
+	"Select something to publish.": [
+		"יש לבחור משהו לפרסום."
 	],
-	"Selected files, content, and settings in WordPress Studio will be overwritten. Your website stays unchanged.": [
-		"הקבצים, התוכן וההגדרות שנבחרו ב-WordPress Studio יידרסו. אתר האינטרנט שלך יישאר ללא שינוי."
+	"Select the files and folders to publish.": [
+		"יש לבחור את הקבצים והתיקיות לפרסום."
 	],
-	"Selected files, content, and settings on your website will be overwritten.": [
-		"הקבצים, התוכן וההגדרות שנבחרו באתר האינטרנט שלך יידרסו."
-	],
-	"Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.": [
-		"אפשר לשתף עותק זמני של האתר המקומי עם כל אחד. התוקף של אתר תצוגה מקדימה פג אם הוא לא מתעדכן במשך כשבוע."
-	],
-	"Share details (required)": [
-		"פרטים (שדה חובה)"
-	],
-	"Share ideas and report problems directly to the Studio team.": [
-		"אפשר לשתף רעיונות ולדווח על בעיות ישירות לצוות של Studio."
+	"Set how much the model thinks in this chat": [
+		"הגדרת מידת החשיבה של המודל בשיחה הזו"
 	],
 	"Show admin bar": [
 		"הצגת סרגל הניהול"
@@ -1113,29 +746,14 @@
 	"Show admin bar by default": [
 		"הצגת סרגל הניהול כברירת מחדל"
 	],
-	"Show chat beside the panel when starting a site.": [
-		"הצגת הצ'אט לצד החלונית בעת הפעלת אתר."
-	],
 	"Show chat when starting sites": [
 		"הצגת הצ'אט בעת הפעלת אתרים"
 	],
 	"Show device toolbar": [
 		"הצגת סרגל הכלים של המכשיר"
 	],
-	"Show or hide the panel beside your chat.": [
-		"הצגה או הסתרה של החלונית שלצד הצ'אט."
-	],
-	"Show panel": [
-		"הצגת החלונית"
-	],
-	"Show whether a preview site or its local site changed since they were synced": [
-		"הצגה אם אתר התצוגה המקדימה או האתר המקומי שלו השתנו מאז הסנכרון"
-	],
-	"Sign in at %s": [
-		"יש להתחבר בכתובת %s"
-	],
-	"Sign in to get a one-time grant of free AI credits.": [
-		"אפשר להתחבר כדי לקבל מענק חד-פעמי של קרדיטים חינמיים לבינה מלאכותית."
+	"Sign in to create a preview link.": [
+		"יש להתחבר כדי ליצור קישור לתצוגה מקדימה."
 	],
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"התחברות עם ChatGPT או שימוש במפתח API של OpenAI."
@@ -1143,41 +761,20 @@
 	"Sign in with a GitHub account that has Copilot access.": [
 		"יש להתחבר עם חשבון GitHub שיש לו גישה ל-Copilot."
 	],
-	"Signing in took too long. Try again.": [
-		"ההתחברות ארכה זמן רב מדי. יש לנסות שוב."
-	],
-	"Signing in was declined.": [
-		"ההתחברות נדחתה."
-	],
-	"Signing in was started again.": [
-		"ההתחברות התחילה מחדש."
-	],
-	"Site annotation is not available in the browser yet": [
-		"ביאורים באתר עדיין לא זמינים בדפדפן"
-	],
 	"Site exported": [
 		"ייצוא האתר הושלם"
 	],
 	"Site folder": [
 		"תיקיית האתר"
 	],
-	"Site folder is required.": [
-		"נדרשת תיקיית אתר."
-	],
-	"Site sources": [
-		"מקורות לאתר"
+	"Site imported, but the WordPress server failed to start: %s": [
+		"האתר יובא, אבל הפעלת שרת WordPress נכשלה: %s"
 	],
 	"Sites could not be loaded. Check your internet connection and try again.": [
 		"לא ניתן היה לטעון את האתרים. יש לבדוק את החיבור לאינטרנט ולנסות שוב."
 	],
-	"Sites will start with chat.": [
-		"אתרים יופעלו עם הצ'אט."
-	],
-	"Sites will start with the panel expanded.": [
-		"אתרים יופעלו כשהחלונית מורחבת."
-	],
-	"Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.": [
-		"מיומנויות מספקות לסוכני בינה מלאכותית הנחיות לפיתוח ב-WordPress. השינויים כאן חלים על כל האתרים הקיימים וקובעים את ברירות המחדל לאתרים חדשים."
+	"Some destinations could not be loaded": [
+		"לא ניתן היה לטעון חלק מהיעדים"
 	],
 	"Something went wrong while updating the live site.": [
 		"משהו השתבש במהלך עדכון האתר הפעיל."
@@ -1191,15 +788,6 @@
 	"Split view": [
 		"תצוגה מפוצלת"
 	],
-	"Start building with free AI credits.": [
-		"אפשר להתחיל לבנות עם קרדיטים חינמיים לבינה מלאכותית."
-	],
-	"Start from": [
-		"התחלה מ"
-	],
-	"Start signing in again.": [
-		"יש להתחיל את ההתחברות מחדש."
-	],
 	"Start signing in to Spacefast again.": [
 		"יש להתחיל מחדש את ההתחברות ל-Spacefast."
 	],
@@ -1208,12 +796,6 @@
 	],
 	"Start signing in with GitHub again.": [
 		"יש להתחיל מחדש את ההתחברות עם GitHub."
-	],
-	"Start sites with chat": [
-		"הפעלת אתרים עם צ'אט"
-	],
-	"Start this site.": [
-		"הפעלת האתר הזה."
 	],
 	"Starting chat…": [
 		"מתחיל צ'אט…"
@@ -1224,47 +806,17 @@
 	"Static site exported to %s": [
 		"האתר הסטטי יוצא אל %s"
 	],
-	"Stop annotating": [
-		"הפסקת הביאור"
-	],
-	"Stop annotating. Your notes will be kept.": [
-		"הפסקת הביאור. ההערות שלך יישמרו."
-	],
-	"Studio was updated, and the site \"%s\" could not be started again.": [
-		"Studio עודכן, ולא ניתן היה להפעיל שוב את האתר \"%s\"."
-	],
-	"Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.": [
-		"phpMyAdmin של Studio תומך ב-SQLite בלבד. למסדי נתונים חיצוניים של MySQL יש להשתמש בלקוח מסדי נתונים נפרד."
+	"Studio Cloud": [
+		"Studio Cloud"
 	],
 	"Supported files: %s.": [
 		"קבצים נתמכים: %s."
-	],
-	"Swing Time": [
-		"סווינג טיים"
-	],
-	"Sync is finishing": [
-		"הסנכרון מסתיים"
-	],
-	"Take Five": [
-		"טייק פייב"
-	],
-	"Taking screenshot…": [
-		"מצלם את המסך…"
 	],
 	"Taxonomist": [
 		"מארגן הטקסונומיה"
 	],
 	"Team": [
 		"צוות"
-	],
-	"Thanks for helping improve WordPress Studio. The reference ID for your feedback submission is <id>%s</id>.": [
-		"תודה על העזרה בשיפור WordPress Studio. מזהה ההפניה של המשוב ששלחת הוא <id>%s</id>."
-	],
-	"That file type is not supported. Choose a Blueprint, WordPress backup, or XML export file.": [
-		"סוג הקובץ הזה אינו נתמך. יש לבחור מודל, גיבוי של WordPress או קובץ ייצוא XML."
-	],
-	"That sign-in was for another attempt. Try again.": [
-		"ההתחברות הזו הייתה עבור ניסיון אחר. יש לנסות שוב."
 	],
 	"The GitHub sign-in expired. Try again.": [
 		"תוקף ההתחברות ל-GitHub פג. יש לנסות שוב."
@@ -1275,86 +827,29 @@
 	"The default browser for your sites.": [
 		"דפדפן ברירת המחדל עבור האתרים שלך."
 	],
-	"The first pull of a site has to include its files. Pull the whole site once, then pull only the database.": [
-		"המשיכה הראשונה של אתר חייבת לכלול את הקבצים שלו. יש למשוך את האתר כולו פעם אחת, ואז למשוך רק את מסד הנתונים."
-	],
-	"The live site must be a qualifying connected site of this local site.": [
-		"האתר הפעיל חייב להיות אתר מחובר מתאים של האתר המקומי הזה."
-	],
-	"The output directory %s is not empty.": [
-		"תיקיית הפלט %s אינה ריקה."
-	],
-	"The output directory cannot be inside the site folder or contain it.": [
-		"תיקיית הפלט לא יכולה להיות בתוך תיקיית האתר או להכיל אותה."
-	],
-	"The preview site could not be built from the archive.": [
-		"לא ניתן היה לבנות את אתר התצוגה המקדימה מהארכיון."
-	],
-	"The preview site did not become ready within the timeout.": [
-		"אתר התצוגה המקדימה לא היה מוכן בזמן המוקצב."
+	"The local server refused the API key. Check the key, and connect again.": [
+		"השרת המקומי דחה את מפתח ה-API. יש לבדוק את המפתח ולהתחבר שוב."
 	],
 	"The preview site has no preview link.": [
 		"לאתר התצוגה המקדימה אין קישור לתצוגה מקדימה."
 	],
-	"The site archive exceeds the %d GB size limit.": [
-		"ארכיון האתר חורג ממגבלת הגודל של ‎%d GB."
+	"The requested site is unavailable.": [
+		"האתר המבוקש אינו זמין."
 	],
-	"Theme file edits won’t show. Your changes to %s’s files are left out: this preview uses WordPress.com’s original copy of the theme. Make them in the Site Editor or a child theme to see them in previews.": [
-		"עריכות בקובצי ערכת העיצוב לא יוצגו. השינויים שלך בקבצים של %s לא נכללו: התצוגה המקדימה הזו משתמשת בעותק המקורי של ערכת העיצוב ב-WordPress.com. כדי לראות אותם בתצוגות מקדימות, יש לבצע אותם בעורך האתר או בערכת עיצוב בת."
+	"The transfer could not be completed. Please try again.": [
+		"לא ניתן היה להשלים את ההעברה. יש לנסות שוב."
 	],
-	"Then add this configuration to your app.": [
-		"לאחר מכן יש להוסיף את התצורה הזו לאפליקציה."
+	"Thinks briefly": [
+		"חושב לזמן קצר"
 	],
 	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
 		"לחשבון GitHub הזה אין תוכנית Copilot. אפשר לבחור תוכנית בכתובת github.com/features/copilot."
 	],
-	"This ZIP could not be read. Check that it is a valid zip file.": [
-		"לא ניתן היה לקרוא את קובץ ה-ZIP הזה. יש לוודא שזה קובץ zip תקין."
-	],
-	"This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.": [
-		"לא ניתן היה להשתמש בקובץ ה-ZIP הזה. יש לוודא שהוא מכיל קובץ blueprint.json תקין ברמה העליונה או בתוך תיקייה עוטפת אחת, ולנסות שוב."
-	],
-	"This backup contains SQL files whose names differ only by letter case: \"%1$s\" and \"%2$s\". Resolve the conflicting names on the source site, then create a new backup and try again.": [
-		"הגיבוי הזה מכיל קובצי SQL ששמותיהם שונים רק באותיות רישיות וקטנות: \"%1$s\" ו-\"%2$s\". יש לתקן את השמות המתנגשים באתר המקור, ואז ליצור גיבוי חדש ולנסות שוב."
-	],
-	"This can take a few minutes. WordPress Studio will open again on its own when the update is installed.": [
-		"הפעולה עשויה להימשך כמה דקות. WordPress Studio ייפתח שוב מעצמו לאחר התקנת העדכון."
-	],
-	"This email is gone.": [
-		"האימייל הזה כבר לא קיים."
-	],
-	"This file took too long to load. Please try again or choose another file.": [
-		"טעינת הקובץ הזה ארכה זמן רב מדי. יש לנסות שוב או לבחור קובץ אחר."
-	],
-	"This folder is already associated with another Studio site. Choose a different local folder.": [
-		"התיקייה הזו כבר משויכת לאתר אחר ב-Studio. יש לבחור תיקייה מקומית אחרת."
-	],
-	"This folder is already associated with another Studio site. Choose a different site name or local folder.": [
-		"התיקייה הזו כבר משויכת לאתר אחר ב-Studio. יש לבחור שם אתר או תיקייה מקומית אחרים."
-	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"זהו מפתח של Anthropic. יש להוסיף אותו ל-Anthropic במקום זאת."
 	],
-	"This site and its preview both changed": [
-		"גם האתר הזה וגם התצוגה המקדימה שלו השתנו"
-	],
-	"This site has changes its preview doesn't": [
-		"באתר הזה יש שינויים שאינם בתצוגה המקדימה שלו"
-	],
-	"This site is no longer available in WordPress Studio.": [
-		"האתר הזה כבר לא זמין ב-WordPress Studio."
-	],
-	"This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.": [
-		"האתר הזה לא מוכן להפעלה. %s יש להריץ שוב את `studio pull` כדי לסיים את המשיכה, או את `studio delete` כדי להסיר את האתר."
-	],
-	"This site is over %d GB, so publishing it back to WordPress.com may fail. Publish a smaller selection of files instead.": [
-		"גודל האתר הזה עולה על ‎%d GB, ולכן פרסום שלו בחזרה ל-WordPress.com עלול להיכשל. במקום זאת, יש לפרסם מבחר קטן יותר של קבצים."
-	],
-	"This site isn't one of your WordPress.com or Pressable sites.": [
-		"האתר הזה אינו אחד מהאתרים שלך ב-WordPress.com או ב-Pressable."
-	],
-	"This website needs a hosting plan that supports publishing from WordPress Studio.": [
-		"לאתר הזה נדרשת תוכנית אחסון שתומכת בפרסום מ-WordPress Studio."
+	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
+		"האתר הזה צריך תוכנית אחסון שתומכת במשיכה ל-WordPress Studio."
 	],
 	"Tips reset.": [
 		"הטיפים אופסו."
@@ -1368,23 +863,11 @@
 	"Try downloading the update again.": [
 		"יש לנסות להוריד את העדכון שוב."
 	],
-	"Try starting the chat again, or open your site.": [
-		"אפשר לנסות להתחיל את הצ'אט שוב, או לפתוח את האתר."
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"רמה לא מוכרת %1$s. יש לבחור אחת מהאפשרויות: %2$s."
 	],
-	"URL the static site will be hosted at. Links are root-relative when omitted.": [
-		"כתובת ה-URL שבה האתר הסטטי יאוחסן. אם לא צוינה, הקישורים יהיו יחסיים לשורש."
-	],
-	"Unable to open this folder.": [
-		"לא ניתן לפתוח את התיקייה הזו."
-	],
-	"Unable to open this source.": [
-		"לא ניתן לפתוח את המקור הזה."
-	],
-	"Unknown provider %1$s. Choose one of: %2$s.": [
-		"ספק לא מוכר: %1$s. יש לבחור אחד מהבאים: %2$s."
-	],
-	"Unsupported backup file": [
-		"קובץ גיבוי לא נתמך"
+	"Update WordPress Studio": [
+		"עדכון WordPress Studio"
 	],
 	"Update all plugins": [
 		"עדכון כל התוספים"
@@ -1394,6 +877,9 @@
 	],
 	"Update site title": [
 		"עדכון כותרת האתר"
+	],
+	"Update the Studio CLI with `%s`.": [
+		"יש לעדכן את Studio CLI באמצעות `%s`."
 	],
 	"Update user": [
 		"עדכון משתמש"
@@ -1413,12 +899,6 @@
 	"Usage is billed through your OpenAI account.": [
 		"החיוב על השימוש מתבצע דרך החשבון שלך ב-OpenAI."
 	],
-	"Use /connect %1$s to connect %2$s again.": [
-		"יש להשתמש ב-‎/connect %1$s כדי לחבר שוב את %2$s."
-	],
-	"Use Alt+Shift+Left or Right Arrow to move this tab.": [
-		"אפשר להשתמש ב-Alt+Shift+חץ שמאלה או ימינה כדי להזיז את הכרטיסייה הזו."
-	],
 	"Use Blueprint": [
 		"שימוש במודל"
 	],
@@ -1434,12 +914,6 @@
 	"Use an Anthropic API key or a Claude subscription token.": [
 		"שימוש במפתח API של Anthropic או באסימון מינוי של Claude."
 	],
-	"Use an HTTPS backup link from a supported site, with a zip or tar.gz file smaller than 1 GB. Check your connection and try again.": [
-		"יש להשתמש בקישור HTTPS לגיבוי מאתר נתמך, עם קובץ zip או tar.gz שגודלו קטן מ-‎1 GB. יש לבדוק את החיבור ולנסות שוב."
-	],
-	"Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.": [
-		"אפשר להשתמש בסוכן הבינה המלאכותית המועדף עליך כדי ליצור אתרים, לבצע שינויים ולבדוק את העבודה. יש להתקין את התוסף של WordPress Studio כדי לתת לו גישה לאתרים המקומיים שלך."
-	],
 	"Using ChatGPT plan": [
 		"בשימוש: תוכנית ChatGPT"
 	],
@@ -1452,32 +926,20 @@
 	"Validate blocks": [
 		"אימות בלוקים"
 	],
-	"Visit previews": [
-		"מעבר לתצוגות המקדימות"
+	"View versions": [
+		"הצגת גרסאות"
 	],
 	"Visual Annotations": [
 		"ביאורים חזותיים"
 	],
-	"Waiting for %s": [
-		"ממתין כבר %s"
+	"WP admin": [
+		"ניהול WP"
 	],
 	"Waiting for approval…": [
 		"ממתין לאישור…"
 	],
-	"Waiting for the browser. If it can’t reach this computer, paste the address it ends on:": [
-		"ממתין לדפדפן. אם הוא לא מצליח להגיע למחשב הזה, יש להדביק את הכתובת שבה הוא מסתיים:"
-	],
-	"What would you like to open?": [
-		"מה לפתוח?"
-	],
-	"Where do you want to publish?": [
-		"איפה לפרסם?"
-	],
-	"WordPress Studio CLI for terminal": [
-		"ממשק שורת הפקודה של WordPress Studio למסוף"
-	],
-	"WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.": [
-		"אפשר לצאת מ-WordPress Studio לאחר שהסנכרון יסתיים. יציאה עכשיו תקטע אותו ועלולה להשאיר את האתר שלך לא שלם."
+	"What to replace": [
+		"מה להחליף"
 	],
 	"WordPress Studio could not download this backup.": [
 		"ל-WordPress Studio לא הייתה אפשרות להוריד את הגיבוי הזה."
@@ -1491,53 +953,23 @@
 	"WordPress Studio could not open the site.": [
 		"ל-WordPress Studio לא הייתה אפשרות לפתוח את האתר."
 	],
-	"WordPress Studio is finishing an update": [
-		"WordPress Studio מסיים עדכון"
+	"WordPress Studio is missing some of its files": [
+		"חלק מהקבצים של WordPress Studio חסרים"
 	],
-	"WordPress Studio team": [
-		"הצוות של WordPress Studio"
-	],
-	"WordPress Studio will create a local copy of this site in an empty folder.": [
-		"WordPress Studio ייצור עותק מקומי של האתר הזה בתיקייה ריקה."
-	],
-	"WordPress Studio will create a site from this blueprint in an empty folder.": [
-		"WordPress Studio ייצור אתר מהמודל הזה בתיקייה ריקה."
-	],
-	"WordPress Studio will create a site in an empty folder and import this WordPress export.": [
-		"WordPress Studio ייצור אתר בתיקייה ריקה וייבא אליו את קובץ הייצוא הזה של WordPress."
-	],
-	"WordPress Studio will restore this backup into an empty folder.": [
-		"WordPress Studio ישחזר את הגיבוי הזה לתיקייה ריקה."
-	],
-	"WordPress Studio will use this WordPress site in place. No files will be moved.": [
-		"WordPress Studio ישתמש באתר WordPress הזה במיקומו הנוכחי. אף קובץ לא יועבר."
-	],
-	"WordPress export": [
-		"קובץ ייצוא של WordPress"
+	"WordPress Studio is serving at:": [
+		"WordPress Studio זמין בכתובת:"
 	],
 	"WordPress.com API": [
 		"ה-API של WordPress.com"
 	],
-	"WordPress.com hosting": [
-		"אחסון ב-WordPress.com"
-	],
 	"Worked for %s": [
 		"עבד במשך %s"
-	],
-	"Working for %s": [
-		"עובד כבר %s"
-	],
-	"Workspace navigation": [
-		"ניווט בסביבת העבודה"
 	],
 	"Write": [
 		"כתיבה"
 	],
-	"You can attach up to %d images. Send or delete an annotation before capturing another area.": [
-		"אפשר לצרף עד %d תמונות. יש לשלוח או למחוק ביאור לפני צילום אזור נוסף."
-	],
-	"You can close this tab and return to WordPress Studio.": [
-		"אפשר לסגור את הכרטיסייה הזו ולחזור ל-WordPress Studio."
+	"Yearly, save 20%": [
+		"שנתי, חיסכון של 20%"
 	],
 	"You need administrator access to publish or pull changes.": [
 		"נדרשת גישת מנהל מערכת כדי לפרסם שינויים או למשוך אותם."
@@ -1547,12 +979,6 @@
 	],
 	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
 		"הגעת למגבלת השימוש של תוכנית Copilot שלך. אפשר לנהל את השימוש בכתובת github.com/settings/copilot."
-	],
-	"You stopped after %s": [
-		"עצרת אחרי %s"
-	],
-	"You're not logged in to WordPress.com. Log in now?": [
-		"לא בוצעה התחברות ל-WordPress.com. להתחבר עכשיו?"
 	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"לא ניתן להשתמש בתוכנית ChatGPT שלך ב-WordPress Studio."
@@ -1566,26 +992,20 @@
 	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
 		"ההתחברות שלך ל-Spacefast כבר לא פעילה. יש לחבר מחדש את Spacefast."
 	],
-	"Your preview moved to WordPress.com, so its link changed. New link: %s": [
-		"התצוגה המקדימה שלך עברה ל-WordPress.com, ולכן הקישור שלה השתנה. הקישור החדש: %s"
+	"Your local server refused the request: %s.": [
+		"השרת המקומי שלך דחה את הבקשה: %s."
 	],
-	"Your site has changed since the preview “%s” was last updated. Publishing will send your current local site, including changes not shown in that preview.": [
-		"האתר שלך השתנה מאז העדכון האחרון של התצוגה המקדימה “%s”. הפרסום ישלח את האתר המקומי במצבו הנוכחי, כולל שינויים שאינם מוצגים בתצוגה המקדימה הזו."
+	"Your plan has ended.": [
+		"התוכנית שלך הסתיימה."
 	],
-	"Your site was created, but the AI chat could not start.": [
-		"האתר שלך נוצר, אך לא ניתן היה להתחיל את הצ'אט עם הבינה המלאכותית."
+	"Your site is ready to publish": [
+		"האתר שלך מוכן לפרסום"
 	],
-	"Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
-		"האתרים שלך עדיין רשומים בקובץ %s. יש להפעיל מחדש את WordPress Studio כדי לנסות שוב. אם הבעיה חוזרת, יש לפנות לתמיכה עם הפרטים שלהלן."
+	"database": [
+		"מסד נתונים"
 	],
-	"Your unsaved changes will be lost.": [
-		"השינויים שלא נשמרו יאבדו."
-	],
-	"Your website will be replaced with this site as it is now.": [
-		"אתר האינטרנט שלך יוחלף באתר הזה במצבו הנוכחי."
-	],
-	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
-		"base-url חייב להיות כתובת http(s)‎ ללא נתיב, לדוגמה https://example.com"
+	"other files": [
+		"קבצים אחרים"
 	],
 	"page": [
 		"עמוד"
@@ -1604,6 +1024,9 @@
 	],
 	"products": [
 		"מוצרים"
+	],
+	"xAI API key": [
+		"מפתח API של xAI"
 	],
 	"· %d%%": [
 		"· %d%%"

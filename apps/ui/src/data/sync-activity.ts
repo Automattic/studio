@@ -58,6 +58,7 @@ function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 		generatingStaticSite: __( 'Generating static site…' ),
 		stoppingSite: __( 'Stopping site…' ),
 		uploading: __( 'Uploading site…' ),
+		waitingForRemote: __( 'Waiting for another update to the live site to finish…' ),
 		creatingRemoteBackup: __( 'Backing up remote site…' ),
 		applyingChanges: __( 'Applying changes…' ),
 		finishing: __( 'Almost there…' ),

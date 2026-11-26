@@ -23,14 +23,9 @@ export const indexRoute = createRoute( {
 				queryFn: () => context.connector.getSites(),
 			} )
 			.catch( () => null );
-		// The empty workspace offers to load them again.
-		if ( ! sites ) {
+		// The empty workspace welcomes a first launch, or offers to load the sites again.
+		if ( ! sites?.length ) {
 			throw redirect( { to: '/sites', search } );
-		}
-		const firstSite = sites[ 0 ];
-		if ( ! firstSite ) {
-			const welcome = ! ( await context.connector.getOnboardingCompleted() );
-			throw redirect( { to: '/sites', search: welcome ? { ...search, welcome } : search } );
 		}
 
 		// Return the user to their last visited site (recorded by the dashboard

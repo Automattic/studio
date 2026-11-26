@@ -102,6 +102,22 @@ A site's home page is the usual case for this: with a static front page and no `
 
 **Do not add a `front-page.html` to solve it.** That template overrides *every* other template for the front page — the hierarchy is `front-page → home → index` — and it applies whether the front page shows a static page or the latest posts. One containing `core/post-content` therefore breaks a blog-first site, whose front page belongs to `home.html`/`index.html`. Assigning `page-no-title` to the home page achieves the same result with no hierarchy side effects. Add a `front-page.html` only when the front page needs a structure that genuinely differs from a page's, and the site's front page is definitely static.
 
+## Menus
+
+Build a site's menu once its pages exist, as a `wp_navigation` post whose items link to the pages themselves. A typed URL is not connected to its page: WordPress can't mark it as the current item, and it breaks when the page's slug changes.
+
+- Leave the header's `<!-- wp:navigation /-->` without a `ref` and without inner links. A navigation block with neither renders the most recently published `wp_navigation` post, so the theme files hold no database IDs.
+- Link each page by its ID, with the binding that keeps its URL current:
+
+```html
+<!-- wp:navigation-link {"label":"About","type":"page","id":12,"url":"/about/","kind":"post-type","metadata":{"bindings":{"url":{"source":"core/post-data","args":{"key":"link"}}}}} /-->
+```
+
+- Write the links to a scratch file in the site directory and create the post with `wp_cli post create <file> --post_type=wp_navigation --post_status=publish --post_title=Header`. To change the menu later, update that post (`wp_cli post list --post_type=wp_navigation`).
+- Keep plain `url` links for section anchors and external sites.
+- A second menu, such as one in the footer, needs its own `wp_navigation` post and `{"ref":<id>}` on its navigation block.
+- A header whose navigation holds typed page URLs: when you change that menu, move its items into a `wp_navigation` post as above and empty the header's navigation block.
+
 ## Anchor Links in Shared Parts
 
 Header and footer template parts render on **every** template — blog posts, archives, search results, the 404 page — not just the front page, even on a one-page site. A bare-hash link such as `"url":"#contact"` resolves against whatever URL the visitor is on, so it works on the front page and silently does nothing everywhere else.

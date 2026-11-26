@@ -3,7 +3,7 @@ import { ConnectError } from '../errors';
 import { toConfigModels, type LocalLlmConfig } from './config';
 import { localLlmConnectInput } from './descriptor';
 import { fetchChatModels, RefusedKeyError, toApiBase } from './server';
-import type { ProviderServices } from '../types';
+import type { AccountServices } from '../types';
 
 const getUnreachableMessage = ( address: string ) =>
 	sprintf(
@@ -15,7 +15,7 @@ const getUnreachableMessage = ( address: string ) =>
 export const getRefusedKeyMessage = () =>
 	__( 'The local server refused the API key. Check the key, and connect again.' );
 
-type LocalLlmAccount = ProviderServices< LocalLlmConfig >[ 'account' ];
+type LocalLlmAccount = AccountServices< LocalLlmConfig >;
 
 // Connects when the server at the address offers a model to chat on, sending the key only when
 // there is one, and offers all its chat models.

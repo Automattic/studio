@@ -3,7 +3,7 @@
 import fs from 'fs';
 import https from 'https';
 import path from 'path';
-import { getMetricConfig } from '../metrics/metric-config';
+import { getMetricConfig } from '../metrics/metric-config.ts';
 
 interface PerformanceResults {
 	[ branch: string ]: {

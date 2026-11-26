@@ -105,12 +105,16 @@ const api: IpcApi = {
 	listAccountSites: ( provider ) => ipcRendererInvoke( 'listAccountSites', provider ),
 	connectRemoteSite: ( provider, localSiteId, site ) =>
 		ipcRendererInvoke( 'connectRemoteSite', provider, localSiteId, site ),
+	resolveRemoteSite: ( provider, input ) =>
+		ipcRendererInvoke( 'resolveRemoteSite', provider, input ),
+	runSitesAction: ( provider, action, input ) =>
+		ipcRendererInvoke( 'runSitesAction', provider, action, input ),
 	disconnectRemoteSite: ( provider, localSiteId, remoteSiteId ) =>
 		ipcRendererInvoke( 'disconnectRemoteSite', provider, localSiteId, remoteSiteId ),
-	getSiteCreationVisibility: ( provider ) =>
-		ipcRendererInvoke( 'getSiteCreationVisibility', provider ),
-	createRemoteSite: ( provider, localSiteId, name, visibility, connect ) =>
-		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, name, visibility, connect ),
+	getSiteCreationVisibility: ( provider, input ) =>
+		ipcRendererInvoke( 'getSiteCreationVisibility', provider, input ),
+	createRemoteSite: ( provider, localSiteId, site, connect ) =>
+		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, site, connect ),
 	pushSite: ( provider, siteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pushSite', provider, siteId, remoteSiteId, options ),
 	pullSite: ( provider, siteId, remoteSiteId, options ) =>
@@ -168,11 +172,14 @@ const api: IpcApi = {
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
-	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
-	installWordPressSkillsToAllSites: ( options ) =>
-		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
-	removeWordPressSkillFromAllSites: ( skillId ) =>
-		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	getGlobalSkills: () => ipcRendererInvoke( 'getGlobalSkills' ),
+	setGlobalSkillEnabled: ( source, id, enabled ) =>
+		ipcRendererInvoke( 'setGlobalSkillEnabled', source, id, enabled ),
+	removeGlobalSkill: ( id ) => ipcRendererInvoke( 'removeGlobalSkill', id ),
+	openGlobalSkill: ( source, id ) => ipcRendererInvoke( 'openGlobalSkill', source, id ),
+	createSkill: ( siteId, draft ) => ipcRendererInvoke( 'createSkill', siteId, draft ),
+	getSkill: ( siteId, id ) => ipcRendererInvoke( 'getSkill', siteId, id ),
+	updateSkill: ( siteId, id, draft ) => ipcRendererInvoke( 'updateSkill', siteId, id, draft ),
 	getSiteAgentFiles: ( siteId, kind ) => ipcRendererInvoke( 'getSiteAgentFiles', siteId, kind ),
 	setSiteAgentFileEnabled: ( siteId, kind, id, enabled ) =>
 		ipcRendererInvoke( 'setSiteAgentFileEnabled', siteId, kind, id, enabled ),

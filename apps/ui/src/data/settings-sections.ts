@@ -16,7 +16,13 @@ import {
 	TerminalIcon,
 	GaugeIcon,
 } from '@studio/ds/icons';
-import { AI_PROVIDER_IDS, getProvider, SITES_PROVIDER_IDS, needsHost } from '@studio/providers';
+import {
+	AI_PROVIDER_IDS,
+	getProvider,
+	getProviderSites,
+	SITES_PROVIDER_IDS,
+	needsHost,
+} from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import type { AgentAppId } from '@studio/common/lib/agent-apps';
 import type { ComponentType } from 'react';
@@ -69,7 +75,7 @@ type Setting = {
 	description: string;
 	icon?: SectionIcon;
 	aliases?: string[];
-	// Shown only where a provider's sign-in can come back to this computer.
+	// Shown only where the app can reach the user's computer, as a sign-in coming back to it or SSH do.
 	loopbackOnly?: boolean;
 };
 
@@ -303,7 +309,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 							description?.() ?? __( 'Start building with free AI credits.' ),
 							`${ id }-provider`
 						),
-						loopbackOnly: account.methods.every( needsHost ),
+						loopbackOnly: account?.methods.every( needsHost ),
 					};
 				} ),
 				setting(
@@ -323,6 +329,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
 							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
 						),
+						loopbackOnly: getProviderSites( id ).connect?.hostOnly,
 					};
 				} ),
 			],
@@ -417,11 +424,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			settings: [
 				setting(
 					'section',
-					__( 'WordPress skills' ),
-					__(
-						'Turn on WordPress skills for existing and new sites. Manage individual skills below.'
-					),
-					'wordpress-skills'
+					__( 'Skills for all sites' ),
+					__( 'Skills that work on every site.' ),
+					'global-skills'
 				),
 			],
 		},
@@ -602,17 +607,25 @@ export interface SectionCapabilities {
 	signedIn?: boolean;
 	localMachine?: boolean;
 	loopbackSignIn?: boolean;
+	// The host keeps the user's skills for all sites.
+	globalSkills?: boolean;
 }
 
 export function getSections(
 	scope: SettingsScope,
-	{ signedIn = true, localMachine = true, loopbackSignIn = true }: SectionCapabilities = {}
+	{
+		signedIn = true,
+		localMachine = true,
+		loopbackSignIn = true,
+		globalSkills = true,
+	}: SectionCapabilities = {}
 ): Section[] {
 	const sections = scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
-	if ( localMachine && loopbackSignIn ) {
+	if ( localMachine && loopbackSignIn && globalSkills ) {
 		return sections;
 	}
-	const shown = ( id = '' ) => localMachine || ! LOCAL_MACHINE_IDS.has( id );
+	const shown = ( id = '' ) =>
+		( localMachine || ! LOCAL_MACHINE_IDS.has( id ) ) && ( globalSkills || id !== 'skills' );
 	return sections
 		.filter( ( section ) => shown( section.id ) )
 		.map( ( section ) => ( {

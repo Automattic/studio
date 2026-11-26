@@ -7,7 +7,11 @@ import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
-import { isSupportedServerVersion, UnsupportedServerError } from './server-version';
+import {
+	isSupportedServerVersion,
+	supportsUserSkills,
+	UnsupportedServerError,
+} from './server-version';
 import type {
 	AgentApp,
 	ActiveAgentRun,
@@ -26,7 +30,8 @@ import type {
 	SiteLimits,
 	Billing,
 	SiteAgentFile,
-	SkillStatus,
+	GlobalSkill,
+	SkillDetails,
 	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
@@ -219,6 +224,24 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		};
 	}
 
+	// Where a site's own skills are made and changed, or Studio's for all sites.
+	const skillsPath = ( siteId: string | null ) =>
+		siteId ? `/sites/${ encodeURIComponent( siteId ) }/skills` : '/global-skills/studio';
+
+	// Browser served by the local CLI: no native file dialogs, but the server
+	// runs on the user's machine so it can still open paths in OS apps. The
+	// preview is a cross-origin iframe, so the annotation inspector can't run.
+	const capabilities = {
+		nativeFolderPicker: false,
+		annotatePreview: false,
+		studioLogs: false,
+		localMachine: ! remote,
+		loopbackSignIn: ! remote,
+		// `studio ui` serves this UI itself; a remote server says in `init()`.
+		globalSkills: ! remote,
+		skillEditing: ! remote,
+	};
+
 	return {
 		async init() {
 			if ( remote ) {
@@ -226,6 +249,8 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				if ( ! isSupportedServerVersion( version ) ) {
 					throw new UnsupportedServerError( version );
 				}
+				capabilities.globalSkills = supportsUserSkills( version );
+				capabilities.skillEditing = supportsUserSkills( version );
 				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
 				// wake it, right after. So the stream runs only while the page has focus (the site
 				// preview's frame counts), and reopening it refetches what changed meanwhile. The
@@ -252,16 +277,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 			openEvents( false );
 		},
 
-		// Browser served by the local CLI: no native file dialogs, but the server
-		// runs on the user's machine so it can still open paths in OS apps. The
-		// preview is a cross-origin iframe, so the annotation inspector can't run.
-		capabilities: {
-			nativeFolderPicker: false,
-			annotatePreview: false,
-			studioLogs: false,
-			localMachine: ! remote,
-			loopbackSignIn: ! remote,
-		},
+		capabilities,
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
 		// (read from the shared auth token by the server). The app isn't gated on
@@ -657,9 +673,9 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		},
 		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
 			return api(
-				`/sites/${ encodeURIComponent( siteId ) }/publish-status/${ remoteSiteId }?provider=${
-					provider ?? 'wpcom'
-				}`
+				`/sites/${ encodeURIComponent( siteId ) }/publish-status/${ encodeURIComponent(
+					remoteSiteId
+				) }?provider=${ provider ?? 'wpcom' }`
 			);
 		},
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
@@ -673,10 +689,10 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 			);
 		},
 		async getSiteVisibility( provider, id ) {
-			return api( `/remote-sites/${ provider }/${ id }/visibility` );
+			return api( `/remote-sites/${ provider }/${ encodeURIComponent( id ) }/visibility` );
 		},
 		async setSiteVisibility( provider, id, visibility ) {
-			return api( `/remote-sites/${ provider }/${ id }/visibility`, {
+			return api( `/remote-sites/${ provider }/${ encodeURIComponent( id ) }/visibility`, {
 				method: 'POST',
 				body: JSON.stringify( { visibility } ),
 			} );
@@ -690,6 +706,18 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( site ),
 			} );
 		},
+		async runSitesAction( provider, action, input = {} ) {
+			return api( `/remote-sites/${ provider }/actions/${ action }`, {
+				method: 'POST',
+				body: JSON.stringify( input ),
+			} );
+		},
+		async resolveRemoteSite( provider, input ) {
+			return api( `/remote-sites/${ provider }/resolve`, {
+				method: 'POST',
+				body: JSON.stringify( input ),
+			} );
+		},
 		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {
 			await api(
 				`/sites/${ encodeURIComponent(
@@ -698,13 +726,14 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				{ method: 'DELETE' }
 			);
 		},
-		async getSiteCreationVisibility( provider ) {
-			return api( `/remote-sites/${ provider }/creation-visibility` );
+		async getSiteCreationVisibility( provider, input = {} ) {
+			const query = new URLSearchParams( input ).toString();
+			return api( `/remote-sites/${ provider }/creation-visibility${ query && `?${ query }` }` );
 		},
-		async createRemoteSite( provider, localSiteId, name, visibility, connect ) {
+		async createRemoteSite( provider, localSiteId, site, connect ) {
 			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
 				method: 'POST',
-				body: JSON.stringify( { name, visibility, connect } ),
+				body: JSON.stringify( { ...site, connect } ),
 			} );
 		},
 		onSyncConnectSite( listener ) {
@@ -1068,14 +1097,39 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( { relativeUrl, autoLogin, user } ),
 			} );
 		},
-		async getWordPressSkillsStatusAllSites() {
-			return api< SkillStatus[] >( '/skills' );
+		async getGlobalSkills() {
+			return api< GlobalSkill[] >( '/global-skills' );
 		},
-		async installWordPressSkillToAllSites( skillId ) {
-			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'POST' } );
+		async setGlobalSkillEnabled( source, id, enabled ) {
+			await api( `/global-skills/${ source }/${ encodeURIComponent( id ) }`, {
+				method: 'PUT',
+				body: JSON.stringify( { enabled } ),
+			} );
 		},
-		async removeWordPressSkillFromAllSites( skillId ) {
-			await api( `/skills/${ encodeURIComponent( skillId ) }`, { method: 'DELETE' } );
+		async removeGlobalSkill( id ) {
+			await api( `/global-skills/studio/${ encodeURIComponent( id ) }`, { method: 'DELETE' } );
+		},
+		async openGlobalSkill( source, id ) {
+			await api( `/global-skills/${ source }/${ encodeURIComponent( id ) }/open`, {
+				method: 'POST',
+			} );
+		},
+		async createSkill( siteId, draft ) {
+			const { id } = await api< { id: string } >( skillsPath( siteId ), {
+				method: 'POST',
+				body: JSON.stringify( draft ),
+			} );
+			return id;
+		},
+		async getSkill( siteId, id ) {
+			return api< SkillDetails >( `${ skillsPath( siteId ) }/${ encodeURIComponent( id ) }` );
+		},
+		async updateSkill( siteId, id, draft ) {
+			const saved = await api< { id: string } >(
+				`${ skillsPath( siteId ) }/${ encodeURIComponent( id ) }${ siteId ? '' : '/content' }`,
+				{ method: 'PUT', body: JSON.stringify( draft ) }
+			);
+			return saved.id;
 		},
 		async getSiteAgentFiles( siteId, kind ) {
 			return api< SiteAgentFile[] >(

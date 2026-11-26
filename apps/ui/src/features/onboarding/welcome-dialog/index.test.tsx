@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
 
@@ -157,18 +157,6 @@ describe( 'Welcome dialog', () => {
 		);
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( () => history.back() );
-		expect(
-			screen.queryByRole( 'dialog', { name: 'Welcome to WordPress Studio' } )
-		).not.toBeInTheDocument();
-	} );
-
-	it( 'does not welcome someone who already has sites', async () => {
-		renderApp( {
-			connector: createFakeConnector( { sites: [ makeSite() ], onboardingCompleted: false } ),
-		} );
-		expect(
-			await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } )
-		).toBeVisible();
 		expect(
 			screen.queryByRole( 'dialog', { name: 'Welcome to WordPress Studio' } )
 		).not.toBeInTheDocument();

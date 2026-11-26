@@ -29,7 +29,7 @@ import { getSiteInfoTool } from './site-info';
 import { createSkillTool } from './skill';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
-import { createStudioInstructionsTool } from './studio-instructions';
+import { createStudioInstructionsTool, type HostSkills } from './studio-instructions';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
@@ -173,6 +173,8 @@ export interface ExternalToolsOptions
 	> {
 	// The host shows present_design_options' options as a clickable picker (an MCP App).
 	picker?: boolean;
+	// The skills the host offers and loads itself: studio_instructions leaves them to it.
+	hostSkills?: HostSkills;
 }
 
 // The tools of an agent that runs them itself, such as one connected to `studio
@@ -181,7 +183,7 @@ export interface ExternalToolsOptions
 // runtime adds in a conversation.
 export function resolveExternalTools(
 	host: StudioAgentHost,
-	{ picker, ...options }: ExternalToolsOptions = {}
+	{ picker, hostSkills, ...options }: ExternalToolsOptions = {}
 ): AnyStudioAgentTool[] {
 	const tools = [
 		...resolveStudioTools( host, options ),
@@ -195,25 +197,27 @@ export function resolveExternalTools(
 		),
 	] as AnyStudioAgentTool[];
 	const notes = createResultNotes();
-	return [ bindTool( createStudioInstructionsTool( tools ), host ), ...tools ].map( ( tool ) => ( {
-		...tool,
-		rawHandler: async ( args: never, context ) => {
-			const result = await tool.rawHandler( args, context );
-			const text = result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
-			const site = await siteNamed( host, args );
-			const added = [
-				site && ( await notes( site.path, text.join( '\n' ) ) ),
-				await result.pending,
-			]
-				.filter( Boolean )
-				.join( '\n' );
-			return {
-				...result,
-				content: added ? [ ...result.content, { type: 'text', text: added } ] : result.content,
-				pending: undefined,
-			};
-		},
-	} ) ) as AnyStudioAgentTool[];
+	return [ bindTool( createStudioInstructionsTool( tools, hostSkills ), host ), ...tools ].map(
+		( tool ) => ( {
+			...tool,
+			rawHandler: async ( args: never, context ) => {
+				const result = await tool.rawHandler( args, context );
+				const text = result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
+				const site = await siteNamed( host, args );
+				const added = [
+					site && ( await notes( site.path, text.join( '\n' ) ) ),
+					await result.pending,
+				]
+					.filter( Boolean )
+					.join( '\n' );
+				return {
+					...result,
+					content: added ? [ ...result.content, { type: 'text', text: added } ] : result.content,
+					pending: undefined,
+				};
+			},
+		} )
+	) as AnyStudioAgentTool[];
 }
 
 // The site a call names, if any.

@@ -6,13 +6,13 @@ import {
 	type Skill,
 	type SkillReadResult,
 } from '@modelcontextprotocol/server/ext/skills';
-import { selectUserSkills } from '@studio/agent/node';
+import { loadSkills, renderHostSkill, selectUserSkills } from '@studio/agent/node';
 import { readSkillsForAgent } from '@studio/common/lib/global-skills';
 import { type UserSkill } from '@studio/common/lib/user-skills';
 
-// The user's skills an outside agent can pick. Such an agent has no active site, so these are
-// the skills for all sites. Read on every request: the user adds, changes and switches skills
-// while the server runs.
+// The user's skills an outside agent can pick, none under a name of Studio's. Such an agent
+// has no active site, so these are the skills for all sites. Read on every request: the user
+// adds, changes and switches skills while the server runs.
 const readUserSkills = async () => selectUserSkills( await readSkillsForAgent() );
 
 // A skill's files by their path from its folder, or `null` for a skill past the limits a host
@@ -50,20 +50,56 @@ interface ServedSkill {
 
 // A skill a host would refuse is not served, such as one whose SKILL.md states another name
 // than its folder's: studio_instructions still offers it.
-async function serve( skill: UserSkill ): Promise< ServedSkill | undefined > {
+async function serve(
+	name: string,
+	files: Map< string, Uint8Array > | null
+): Promise< ServedSkill | undefined > {
 	try {
-		const files = await readSkillFiles( skill.directory );
 		return files
-			? { entry: await skillEntry( skill.name, Object.fromEntries( files ) ), files }
+			? { entry: await skillEntry( name, Object.fromEntries( files ) ), files }
 			: undefined;
 	} catch {
 		return undefined;
 	}
 }
 
+const serveUserSkill = async ( skill: UserSkill ) =>
+	serve( skill.name, await readSkillFiles( skill.directory ).catch( () => null ) );
+
+// The names of Studio's own skills this server serves: the ones users ask for directly. The
+// runbooks they load stay with studio_instructions, which gives the rules they build on. The
+// wp-studio plugin lists these skills itself, so a server it starts leaves them to it.
+export const servedStudioSkills = (): string[] =>
+	process.env.STUDIO_PLUGIN_ID
+		? []
+		: loadSkills()
+				.filter( ( skill ) => skill.userInvokable )
+				.map( ( skill ) => skill.name );
+
+// One of Studio's skills: its runbook as its only file, since the runbooks name no other files.
+async function serveStudioSkill( name: string ): Promise< ServedSkill | undefined > {
+	const skill = loadSkills().find( ( candidate ) => candidate.name === name );
+	if ( ! skill || ! servedStudioSkills().includes( name ) ) {
+		return undefined;
+	}
+	const text = `---\nname: ${ name }\ndescription: ${ JSON.stringify(
+		skill.description
+	) }\n---\n\n${ renderHostSkill( name ) }\n`;
+	return serve( name, new Map( [ [ 'SKILL.md', new TextEncoder().encode( text ) ] ] ) );
+}
+
+const entries = ( served: ( ServedSkill | undefined )[] ) =>
+	served.flatMap( ( skill ) => ( skill ? [ skill.entry ] : [] ) );
+
+export async function listServedUserSkills(): Promise< Skill[] > {
+	return entries( await Promise.all( ( await readUserSkills() ).map( serveUserSkill ) ) );
+}
+
 export async function listServedSkills(): Promise< Skill[] > {
-	const served = await Promise.all( ( await readUserSkills() ).map( serve ) );
-	return served.flatMap( ( skill ) => ( skill ? [ skill.entry ] : [] ) );
+	return [
+		...entries( await Promise.all( servedStudioSkills().map( serveStudioSkill ) ) ),
+		...( await listServedUserSkills() ),
+	];
 }
 
 // `skill://<name>/<file>`, as the entries name a skill's files.
@@ -85,9 +121,11 @@ function parseSkillUri( uri: string ): { name: string; file: string } | undefine
 // The served skill a URI is in, and the file it names there.
 async function findServedSkill( uri: string ) {
 	const parsed = parseSkillUri( uri );
-	const skill =
-		parsed && ( await readUserSkills() ).find( ( candidate ) => candidate.name === parsed.name );
-	const served = skill && ( await serve( skill ) );
+	if ( ! parsed ) {
+		return undefined;
+	}
+	const skill = ( await readUserSkills() ).find( ( candidate ) => candidate.name === parsed.name );
+	const served = skill ? await serveUserSkill( skill ) : await serveStudioSkill( parsed.name );
 	return served ? { ...served, file: parsed.file } : undefined;
 }
 

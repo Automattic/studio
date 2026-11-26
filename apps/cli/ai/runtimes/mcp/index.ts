@@ -8,6 +8,7 @@ import {
 	createAgent,
 	type AnyStudioAgentTool,
 	type DesignTracksContext,
+	type HostSkills,
 	type StudioAgent,
 	type StudioAgentHost,
 } from '@studio/agent/node';
@@ -24,8 +25,10 @@ import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
 import {
 	getServedSkill,
 	listServedSkills,
+	listServedUserSkills,
 	readServedSkillFile,
-} from 'cli/ai/runtimes/mcp/user-skills';
+	servedStudioSkills,
+} from 'cli/ai/runtimes/mcp/skills';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 interface ClientSupport {
@@ -69,7 +72,7 @@ function createTools(
 	host: StudioAgentHost,
 	client: ClientSupport,
 	imageGeneration: boolean,
-	skillsLoadedByHost: () => Promise< string[] >,
+	hostSkills?: HostSkills,
 	tracks?: DesignTracksContext
 ): ServedTool[] {
 	const tools = agent.tools( {
@@ -77,7 +80,7 @@ function createTools(
 		canAskUser: true,
 		imageLink: ( file ) => ( client.fileImageLinks ? pathToFileURL( file ).href : file ),
 		picker: client.apps,
-		skillsLoadedByHost,
+		hostSkills,
 		tracks,
 		wpcomRequest: client.wpcomRequest,
 	} );
@@ -108,10 +111,9 @@ function appPages(): AppPage[] {
 	];
 }
 
-// The user's skills for all sites, for hosts with the Skills extension. Studio's own skills
-// stay with studio_instructions: the wp-studio plugin already lists them, and they build on
-// the rules it returns.
-function serveUserSkills( mcp: McpServer, onRequest: () => void ) {
+// The skills for hosts with the Skills extension: the ones users ask Studio for directly, and
+// the user's own for all sites.
+function serveSkills( mcp: McpServer, onRequest: () => void ) {
 	new SkillsExtension( {
 		source: {
 			list: async () => {
@@ -146,12 +148,21 @@ export async function startMcpStdioServer(): Promise< void > {
 		}
 	);
 	const server = mcp.server;
-	server.registerCapabilities( { tools: {} } );
+	server.registerCapabilities( { tools: { listChanged: true } } );
 	// The tools depend on what the client supports, known once it has connected.
 	let client = describeClient( server );
-	const skillsLoadedByHost = async () =>
-		client.skills ? ( await listServedSkills() ).map( ( skill ) => skill.frontmatter.name ) : [];
-	let tools = createTools( agent, host, client, imageGeneration, skillsLoadedByHost );
+	let tracks: DesignTracksContext | undefined;
+	const hostSkills = (): HostSkills | undefined =>
+		client.skills
+			? {
+					studio: servedStudioSkills(),
+					user: async () =>
+						( await listServedUserSkills() ).map( ( skill ) => skill.frontmatter.name ),
+			  }
+			: undefined;
+	const createClientTools = () =>
+		createTools( agent, host, client, imageGeneration, hostSkills(), tracks );
+	let tools = createClientTools();
 
 	// The MCP App pages. Only clients that render MCP Apps get them.
 	const pages = appPages().map( ( { uri, name, text, _meta } ) =>
@@ -159,8 +170,16 @@ export async function startMcpStdioServer(): Promise< void > {
 			contents: [ { uri, mimeType: MCP_APP_MIME_TYPE, text, _meta } ],
 		} ) )
 	);
-	serveUserSkills( mcp, () => {
+	serveSkills( mcp, () => {
+		if ( client.skills ) {
+			return;
+		}
 		client.skills = true;
+		tools = createClientTools();
+		// studio_instructions no longer lists Studio's skills, which the host now shows itself.
+		if ( servedStudioSkills().length ) {
+			void server.sendToolListChanged().catch( () => undefined );
+		}
 	} );
 
 	server.oninitialized = () => {
@@ -169,11 +188,12 @@ export async function startMcpStdioServer(): Promise< void > {
 			pages.forEach( ( page ) => page.disable() );
 		}
 		process.env.STUDIO_MCP_CLIENT = server.getClientVersion()?.name ?? '';
-		tools = createTools( agent, host, client, imageGeneration, skillsLoadedByHost, {
+		tracks = {
 			ai_session_id: sessionId,
 			agent_name: process.env.STUDIO_MCP_CLIENT || 'unknown',
 			client: 'studio-mcp',
-		} );
+		};
+		tools = createClientTools();
 		void recordTracksEvent( TRACKS_EVENTS.MCP_SESSION_START, {
 			...getTracksOrigin(),
 			mcp_apps: client.apps,

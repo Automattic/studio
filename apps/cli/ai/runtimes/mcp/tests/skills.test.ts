@@ -3,11 +3,78 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import os, { tmpdir } from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { loadSkills } from '@studio/agent/node';
 import {
 	getServedSkill,
 	listServedSkills,
 	readServedSkillFile,
-} from 'cli/ai/runtimes/mcp/user-skills';
+	servedStudioSkills,
+} from 'cli/ai/runtimes/mcp/skills';
+
+describe( "Studio's skills over the MCP Skills extension", () => {
+	let root: string;
+
+	beforeEach( () => {
+		root = mkdtempSync( path.join( tmpdir(), 'studio-mcp-served-skills-' ) );
+		process.env.DEV_CONFIG_DIR = path.join( root, 'config' );
+		vi.spyOn( os, 'homedir' ).mockReturnValue( path.join( root, 'home' ) );
+	} );
+
+	afterEach( () => {
+		vi.restoreAllMocks();
+		vi.unstubAllEnvs();
+		delete process.env.DEV_CONFIG_DIR;
+		rmSync( root, { recursive: true, force: true } );
+	} );
+
+	it( 'serves the skills users ask for directly, each with its runbook as its one file', async () => {
+		const direct = loadSkills().filter( ( skill ) => skill.userInvokable );
+		expect( servedStudioSkills() ).toEqual( direct.map( ( skill ) => skill.name ) );
+		expect( servedStudioSkills() ).toContain( 'build-site' );
+		expect( servedStudioSkills() ).not.toContain( 'block-content' );
+
+		const served = await listServedSkills();
+		expect( served.map( ( skill ) => skill.frontmatter ) ).toEqual(
+			direct.map( ( { name, description } ) => ( { name, description } ) )
+		);
+		for ( const skill of served ) {
+			expect( skill.resources ).toEqual( [
+				expect.objectContaining( { uri: `skill://${ skill.frontmatter.name }/SKILL.md` } ),
+			] );
+		}
+	} );
+
+	it( 'opens a runbook with the call for the rules it builds on', async () => {
+		const file = await readServedSkillFile( 'skill://build-site/SKILL.md' );
+		const text = file && 'text' in file ? file.text : '';
+		expect( text ).toMatch(
+			/^---\nname: build-site\ndescription: ".+"\n---\n\nIf you have not called/
+		);
+		expect( text ).toContain( 'call it first and follow what it returns' );
+		expect( text ).toContain(
+			loadSkills()
+				.find( ( skill ) => skill.name === 'build-site' )!
+				.body.slice( 0, 200 )
+		);
+		expect( await getServedSkill( 'skill://build-site/SKILL.md' ) ).toMatchObject( {
+			uri: 'skill://build-site/SKILL.md',
+		} );
+	} );
+
+	it( 'leaves the runbooks other skills load to studio_instructions', async () => {
+		for ( const name of [ 'block-content', 'visual-design', 'create-skill' ] ) {
+			expect( await getServedSkill( `skill://${ name }/SKILL.md` ) ).toBeUndefined();
+			expect( await readServedSkillFile( `skill://${ name }/SKILL.md` ) ).toBeUndefined();
+		}
+	} );
+
+	it( 'serves none of them from the plugin, which lists them itself', async () => {
+		vi.stubEnv( 'STUDIO_PLUGIN_ID', 'wp-studio@studio' );
+		expect( servedStudioSkills() ).toEqual( [] );
+		expect( await listServedSkills() ).toEqual( [] );
+		expect( await readServedSkillFile( 'skill://build-site/SKILL.md' ) ).toBeUndefined();
+	} );
+} );
 
 describe( "the user's skills over the MCP Skills extension", () => {
 	let root: string;
@@ -25,10 +92,13 @@ describe( "the user's skills over the MCP Skills extension", () => {
 		root = mkdtempSync( path.join( tmpdir(), 'studio-mcp-served-skills-' ) );
 		process.env.DEV_CONFIG_DIR = path.join( root, 'config' );
 		vi.spyOn( os, 'homedir' ).mockReturnValue( path.join( root, 'home' ) );
+		// As the plugin starts the server: without Studio's own skills.
+		vi.stubEnv( 'STUDIO_PLUGIN_ID', 'wp-studio@studio' );
 	} );
 
 	afterEach( () => {
 		vi.restoreAllMocks();
+		vi.unstubAllEnvs();
 		delete process.env.DEV_CONFIG_DIR;
 		rmSync( root, { recursive: true, force: true } );
 	} );

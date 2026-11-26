@@ -30,7 +30,7 @@ const MAX_STALLED_POLLS = ( 60 * 60 * 1000 ) / POLL_INTERVAL_MS;
 const IMPORT_DEADLINE_MS = 7 * 60 * 60 * 1000;
 // The live site keeps importing or backing up while this computer is offline or WordPress.com has
 // a short outage, so a status check that fails that way is tried again for this long.
-const MAX_FAILED_POLLS = ( 10 * 60 * 1000 ) / POLL_INTERVAL_MS;
+const MAX_FAILED_POLLS = ( 60 * 1000 ) / POLL_INTERVAL_MS;
 
 function requireToken( config: WpcomConfig | undefined ): string {
 	if ( ! config?.token ) {

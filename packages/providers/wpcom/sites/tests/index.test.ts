@@ -225,7 +225,7 @@ describe( 'push', () => {
 		);
 
 		const pushed = push().catch( ( e: unknown ) => e );
-		await vi.advanceTimersByTimeAsync( 10 * 60 * 1000 );
+		await vi.advanceTimersByTimeAsync( 60 * 1000 );
 		expect( await pushed ).toMatchObject( {
 			message: expect.stringContaining( 'the update may still be running' ),
 			code: 'remote_import',

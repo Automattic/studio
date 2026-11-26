@@ -14,7 +14,7 @@ import {
 	updateSkillInFolder,
 	type UserSkill,
 } from './user-skills';
-import type { SkillDetails, SkillDraft } from './skill-draft';
+import { SHIPPED_SKILL_IDS, type SkillDetails, type SkillDraft } from './skill-draft';
 
 /**
  * Managed instruction files that are always kept up-to-date on server start.
@@ -342,7 +342,10 @@ async function findSiteFolderSkill( sitePath: string, requestedId: string ): Pro
 	return skill;
 }
 
-/** Saves a new skill in the site's folder, and returns its name. */
+/**
+ * Saves a new skill in the site's folder, and returns its name. It can't take the name of a
+ * WordPress skill Studio ships: the site would show it as that skill.
+ */
 export async function createSiteSkill(
 	sitePath: string,
 	draft: SkillDraft,
@@ -350,7 +353,7 @@ export async function createSiteSkill(
 ): Promise< string > {
 	return createSkillInFolder( path.join( sitePath, '.agents', 'skills' ), draft, {
 		taken: ( await readSiteFolderSkills( sitePath ) ).map( ( skill ) => skill.name ),
-		reserved,
+		reserved: [ ...reserved, ...SHIPPED_SKILL_IDS ],
 	} );
 }
 
@@ -371,7 +374,8 @@ export async function updateSiteSkill(
 	const skill = await findSiteFolderSkill( sitePath, requestedId );
 	const id = await updateSkillInFolder( skill, draft, {
 		taken: ( await readSiteFolderSkills( sitePath ) ).map( ( candidate ) => candidate.name ),
-		reserved,
+		// A shipped skill the site has keeps its name.
+		reserved: [ ...reserved, ...SHIPPED_SKILL_IDS.filter( ( shipped ) => shipped !== skill.name ) ],
 	} );
 	if ( id !== skill.name ) {
 		// The `.claude` link points at the old folder: Claude Code gets one for the new name.

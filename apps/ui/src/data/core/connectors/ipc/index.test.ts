@@ -294,6 +294,24 @@ describe( 'createIpcConnector errors', () => {
 		);
 		await expect( createIpcConnector().startSite( 'site-1' ) ).rejects.toThrow( /^$/ );
 	} );
+
+	it( 'shows why a skill was not saved without the IPC envelope', async () => {
+		const createSkill = vi
+			.fn()
+			.mockRejectedValue(
+				new Error(
+					"Error invoking remote method 'createSkill': Error: A skill named “lookbook-post” already exists."
+				)
+			);
+		vi.stubGlobal( 'ipcApi', { createSkill } );
+		await expect(
+			createIpcConnector().createSkill( null, {
+				name: 'Lookbook post',
+				description: 'Lay out a post.',
+				instructions: 'Steps.',
+			} )
+		).rejects.toThrow( /^A skill named “lookbook-post” already exists\.$/ );
+	} );
 } );
 
 it( 'passes the telemetry site lookup separately and tolerates recorder failures', async () => {

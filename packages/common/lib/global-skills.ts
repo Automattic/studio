@@ -168,11 +168,11 @@ export async function removeGlobalSkill( requestedId: string ): Promise< void > 
 		await fs.promises.rm( skill.directory, { recursive: true, force: true } );
 		return;
 	}
-	const [ target, agents ] = await Promise.all(
-		[ skill.directory, getAgentsSkillsDirectory() ].map( ( folder ) =>
-			fs.promises.realpath( folder )
-		)
-	);
+	const [ target, agents ] = await Promise.all( [
+		fs.promises.realpath( skill.directory ),
+		// Without that folder, the link points somewhere else.
+		fs.promises.realpath( getAgentsSkillsDirectory() ).catch( () => null ),
+	] );
 	await fs.promises.rm( skill.directory, { force: true } );
 	if ( path.dirname( target ) === agents ) {
 		await fs.promises.rm( target, { recursive: true, force: true } );
@@ -236,7 +236,9 @@ export async function updateGlobalSkill(
 			reserved,
 		}
 	);
-	if ( id !== skill.id ) {
+	// The link is made again when its own name changed, or its folder's: a link Studio did not
+	// make can have another name than the folder it points at.
+	if ( id !== skill.id || id !== path.basename( target ) ) {
 		await fs.promises.rm( skill.directory, { force: true } );
 		await linkSkill(
 			path.join( path.dirname( target ), id ),

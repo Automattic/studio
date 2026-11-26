@@ -45,4 +45,4 @@ If the name is taken, do not replace the other skill: pick another name that sti
 
 ## 5. Tell the user
 
-In two sentences: the skill's name and where it is saved (the site's name, or all sites), then that they can type its command to use it and change it in Settings → Skills. Give the command in backticks. The skill is ready from their next message.
+In two sentences: the skill's name and where it is saved (the site's name, or all sites), then that they can type its command to use it, and where they change it, as the result of `save_skill` says. Give the command in backticks. The skill is ready from their next message.

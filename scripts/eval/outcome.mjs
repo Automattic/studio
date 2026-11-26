@@ -649,10 +649,13 @@ export const skillSaved = check( ( d, vars ) => {
 	if ( scope !== vars.scope ) return fail( `saved for "${ scope }", not "${ vars.scope }"` );
 	if ( ! name || ! description || ! instructions )
 		return fail( `the skill is incomplete: ${ JSON.stringify( saves[ 0 ].input ) }` );
+	// The same steps as `getSkillId` (`packages/common/lib/skill-draft.ts`).
 	const command = `/${ String( name )
-		.trim()
+		.normalize( 'NFKD' )
+		.replace( /[\u0300-\u036f]/g, '' )
 		.toLowerCase()
-		.replace( /[^a-z0-9]+/g, '-' ) }`;
+		.replace( /[^a-z0-9]+/g, '-' )
+		.replace( /^-+|-+$/g, '' ) }`;
 	return finalReply( d ).includes( command )
 		? pass( `saved "${ name }" and told the user to type ${ command }` )
 		: fail( `the reply never gives ${ command }: ${ finalReply( d ).slice( 0, 300 ) }` );

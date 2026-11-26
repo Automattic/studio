@@ -895,22 +895,22 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getGlobalSkills() ) as GlobalSkill[];
 		},
 		async setGlobalSkillEnabled( source, id, enabled ) {
-			await ipcApi.setGlobalSkillEnabled( source, id, enabled );
+			await unwrapIpcError( ipcApi.setGlobalSkillEnabled( source, id, enabled ) );
 		},
 		async removeGlobalSkill( id ) {
-			await ipcApi.removeGlobalSkill( id );
+			await unwrapIpcError( ipcApi.removeGlobalSkill( id ) );
 		},
 		async openGlobalSkill( source, id ) {
-			await ipcApi.openGlobalSkill( source, id );
+			await unwrapIpcError( ipcApi.openGlobalSkill( source, id ) );
 		},
 		async createSkill( siteId, draft ) {
-			return ipcApi.createSkill( siteId, draft );
+			return unwrapIpcError( ipcApi.createSkill( siteId, draft ) );
 		},
 		async getSkill( siteId, id ) {
-			return ipcApi.getSkill( siteId, id );
+			return unwrapIpcError( ipcApi.getSkill( siteId, id ) );
 		},
 		async updateSkill( siteId, id, draft ) {
-			return ipcApi.updateSkill( siteId, id, draft );
+			return unwrapIpcError( ipcApi.updateSkill( siteId, id, draft ) );
 		},
 		async getSiteAgentFiles( siteId, kind ) {
 			return ( await ipcApi.getSiteAgentFiles( siteId, kind ) ) as SiteAgentFile[];

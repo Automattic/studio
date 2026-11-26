@@ -58,7 +58,9 @@ describe( 'models', () => {
 	it( 'finds the provider serving a model', () => {
 		expect( findAiModel( 'balanced' )?.provider ).toBe( 'wpcom' );
 		expect( findAiModel( 'claude-opus-5-5' )?.provider ).toBe( 'anthropic' );
-		expect( findAiModel( 'gpt-4' ) ).toBeUndefined();
+		// A catalog provider's, by the prefix its ids start with.
+		expect( findAiModel( 'kimi-k3' )?.provider ).toBe( 'github-copilot' );
+		expect( findAiModel( 'mistral-large' ) ).toBeUndefined();
 	} );
 
 	it( 'names a model a local server lists without reaching the server', () => {

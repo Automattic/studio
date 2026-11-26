@@ -41,7 +41,8 @@ dir="$base/.studio-sync/${ run }"`;
 
 /**
  * Shell lines that move into the site's folder and define `studio_wp`, which runs Studio's WP-CLI
- * there, the phar `uploadWpCli` named.
+ * there, the phar `uploadWpCli` named. Its global flags come before the command, where a server that
+ * sets `WP_CLI_STRICT_ARGS_MODE` accepts them.
  */
 export function inSite(
 	{ path, php }: Pick< SshConnection, 'path' | 'php' >,
@@ -49,7 +50,7 @@ export function inSite(
 ): string {
 	return `${ studioBase( path ) }
 cd ${ shellQuote( path ) }
-studio_wp() { ${ php } "$base/.studio-sync/${ wpCli }" "$@" $( [ "$(id -u)" != 0 ] || echo --allow-root ) --skip-plugins --skip-themes; }`;
+studio_wp() { ${ php } "$base/.studio-sync/${ wpCli }" $( [ "$(id -u)" != 0 ] || echo --allow-root ) --skip-plugins --skip-themes "$@"; }`;
 }
 
 // Windows ships the OpenSSH client, which an app's PATH doesn't always include.

@@ -205,6 +205,43 @@ describe( 'push', () => {
 		expect( await pushed ).toMatchObject( { code: 'timeout' } );
 	} );
 
+	it( 'keeps waiting through a network failure while the live site imports', async () => {
+		vi.mocked( pollImportStatus )
+			.mockRejectedValueOnce(
+				Object.assign( new Error( 'getaddrinfo ENOTFOUND public-api.wordpress.com' ), {
+					code: 'ENOTFOUND',
+				} )
+			)
+			.mockResolvedValueOnce( { success: true, status: 'finished' } as never );
+
+		const pushed = push();
+		await vi.runAllTimersAsync();
+		await expect( pushed ).resolves.toBeUndefined();
+	} );
+
+	it( 'says the update may still be running when status checks keep failing', async () => {
+		vi.mocked( pollImportStatus ).mockRejectedValue(
+			Object.assign( new Error( 'socket hang up' ), { code: 'ECONNRESET' } )
+		);
+
+		const pushed = push().catch( ( e: unknown ) => e );
+		await vi.advanceTimersByTimeAsync( 60 * 1000 );
+		expect( await pushed ).toMatchObject( {
+			message: expect.stringContaining( 'the update may still be running' ),
+			code: 'remote_import',
+		} );
+	} );
+
+	it.each( [
+		Object.assign( new Error( 'Forbidden' ), { statusCode: 403 } ),
+		new TypeError( "Cannot read properties of undefined (reading 'status')" ),
+	] )( 'stops at once when the status check fails for good: %s', async ( error ) => {
+		vi.mocked( pollImportStatus ).mockRejectedValue( error );
+
+		await expect( push() ).rejects.toMatchObject( { code: 'remote_import' } );
+		expect( pollImportStatus ).toHaveBeenCalledTimes( 1 );
+	} );
+
 	it( 'explains a database the live site failed to import', async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {
 			success: false,

@@ -1,10 +1,8 @@
 import { __ } from '@wordpress/i18n';
 import { ConnectError, NotConnectedError } from '../errors';
-import { toCopilotModelId } from './ai';
-import { CLIENT_ID, enablePlanModel, fetchPlanModels, request, type PlanModel } from './api';
-import { GITHUB_COPILOT_AI_MODELS } from './descriptor';
+import { CLIENT_ID, request } from './api';
+import { DEFAULT_MODEL_IDS, labelOf, readPlanModels } from './catalog';
 import type { GithubCopilotConfig } from './config';
-import type { AiModelId } from '../models';
 import type { AccountServices } from '../types';
 
 const REFRESH_MARGIN_MS = 5 * 60_000;
@@ -55,34 +53,6 @@ async function readLogin( githubToken: string ): Promise< string | undefined > {
 	} ).catch( () => undefined );
 	const user = response?.ok ? ( ( await response.json() ) as { login?: string } ) : undefined;
 	return user?.login;
-}
-
-/**
- * The models Studio offers that this plan can run: a plan includes its own set, and leaves some
- * of them off until they are turned on. Undefined when Copilot doesn't say, so that a reply
- * Studio can't read never hides a model the plan does include.
- */
-async function readPlanModels( copilotToken: string ): Promise< AiModelId[] | undefined > {
-	const plan = await fetchPlanModels( copilotToken );
-	if ( ! plan ) {
-		return undefined;
-	}
-	// Copilot marks what a plan offers with the picker its own clients show. Some accounts leave
-	// that off on every model, and there the policy alone says what the plan runs.
-	const usesPicker = plan.some( ( model ) => model.offered );
-	const runs = ( model: PlanModel ) =>
-		model.policy !== 'disabled' && ( ! usesPicker || model.offered );
-	const models: AiModelId[] = [];
-	for ( const { id } of GITHUB_COPILOT_AI_MODELS ) {
-		const model = plan.find( ( candidate ) => candidate.id === toCopilotModelId( id ) );
-		if ( ! model || ! runs( model ) ) {
-			continue;
-		}
-		if ( model.policy !== 'unconfigured' || ( await enablePlanModel( copilotToken, model.id ) ) ) {
-			models.push( id );
-		}
-	}
-	return models;
 }
 
 // Polls until the user approves the code, as GitHub's device flow asks.
@@ -136,17 +106,23 @@ const connect: GithubCopilotAccount[ 'connect' ] = async ( _method, input ) => {
 	} );
 	const [ login, models ] = await Promise.all( [
 		readLogin( githubToken ),
-		readPlanModels( copilot.copilotToken ),
+		readPlanModels( copilot.copilotToken, DEFAULT_MODEL_IDS ),
 	] );
 	if ( models?.length === 0 ) {
 		throw new ConnectError( getNoCopilotMessage(), 'ineligible' );
 	}
+	// A plan that runs none of Studio's models offers its own until the user picks.
+	const picked =
+		models && ! models.some( ( id ) => DEFAULT_MODEL_IDS.includes( id ) )
+			? models.map( ( id ) => ( { id, label: labelOf( id ) } ) )
+			: undefined;
 	return {
 		method: 'github',
 		githubToken,
 		...copilot,
 		...( login ? { login } : {} ),
 		...( models ? { models } : {} ),
+		...( picked ? { picked } : {} ),
 	};
 };
 
@@ -157,7 +133,10 @@ const refresh: NonNullable< GithubCopilotAccount[ 'refresh' ] > = async ( config
 		return undefined;
 	}
 	const copilot = await requestCopilotToken( config.githubToken );
-	const models = await readPlanModels( copilot.copilotToken );
+	const models = await readPlanModels(
+		copilot.copilotToken,
+		config.picked?.map( ( { id } ) => id ) ?? DEFAULT_MODEL_IDS
+	);
 	return { ...config, ...copilot, ...( models ? { models } : {} ) };
 };
 

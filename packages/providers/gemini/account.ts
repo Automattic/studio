@@ -4,7 +4,7 @@ import { geminiConnectInput } from './descriptor';
 import type { GeminiConfig } from './config';
 import type { AccountServices } from '../types';
 
-const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1';
+export const GEMINI_MODELS_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const VALIDATION_TIMEOUT_MS = 10_000;
 
 // Listing models costs no tokens. Google answers a bad key with a 400
@@ -17,7 +17,7 @@ export const geminiAccount: AccountServices< GeminiConfig > = {
 			throw new ConnectError( parsed.error.issues[ 0 ].message );
 		}
 		const { apiKey } = parsed.data;
-		const response = await fetch( GEMINI_MODELS_URL, {
+		const response = await fetch( `${ GEMINI_MODELS_URL }?pageSize=1`, {
 			headers: { 'x-goog-api-key': apiKey },
 			signal: AbortSignal.timeout( VALIDATION_TIMEOUT_MS ),
 		} ).catch( () => undefined );

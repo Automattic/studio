@@ -135,7 +135,7 @@ studio push --path ~/Studio/my-site
 
 ## Preview sites
 
-The WordPress Studio CLI lets you share your work through preview sites. These are powered by WordPress.com on a temporary domain (wp.build), and they allow you to share snapshots of your local sites with clients or team members.
+The WordPress Studio CLI lets you share your work through preview sites. These are private WordPress.com sites shared through a preview link, and they allow you to share snapshots of your local sites with clients or team members.
 
 To publish preview sites, you need to first authenticate with WordPress.com:
 

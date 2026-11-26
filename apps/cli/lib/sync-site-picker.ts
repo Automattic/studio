@@ -1,8 +1,23 @@
 import chalk from '@studio/common/lib/chalk';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
+import { connectPublishingSite, getRemoteSites } from '@studio/common/lib/remote-sites';
+import { lastTransferTime } from '@studio/common/lib/site-connections';
+import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { resolveRemoteSite } from '@studio/common/sites/remote-sites';
+import {
+	getFormFields,
+	getProvider,
+	getProviderSites,
+	type ProviderSites,
+	type RemoteSite,
+	type SitesProviderId,
+} from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
 import { search } from 'cli/lib/prompts';
-import { LoggerError } from 'cli/logger';
+import { askFormFields } from 'cli/lib/providers';
+import { toLoggerError } from 'cli/lib/sync-api';
+import { Logger, LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
 
 /**
@@ -247,5 +262,82 @@ export async function pickSyncSite(
 		if ( process.stdin.isTTY ) {
 			process.stdin.off( 'data', handleEscKey );
 		}
+	}
+}
+
+// The site `identifier` names: its ID, its URL's host, or its slug.
+export function findRemoteSite< Site extends RemoteSite >(
+	sites: Site[],
+	identifier: string
+): Site | undefined {
+	const normalized = normalizeHostname( identifier );
+	return sites.find(
+		( candidate ) =>
+			String( candidate.id ) === identifier ||
+			normalizeHostname( candidate.url ) === normalized ||
+			( 'slug' in candidate && candidate.slug === identifier )
+	);
+}
+
+// The local site's connections to the provider's sites, the one last pushed to or pulled from first.
+export async function connectedSites< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string
+): Promise< ProviderSites[ Id ][] > {
+	return ( await getRemoteSites( provider, localSiteId ) )
+		.sort( ( a, b ) => ( lastTransferTime( b ) ?? 0 ) - ( lastTransferTime( a ) ?? 0 ) )
+		.map(
+			( {
+				localSiteId: _localSiteId,
+				lastPushTimestamp: _push,
+				lastPullTimestamp: _pull,
+				localVersionId: _version,
+				...site
+			} ) => site as unknown as ProviderSites[ Id ]
+		);
+}
+
+/**
+ * A site of a provider whose sites the user connects with a form (`sites.connect`): the connected
+ * site `identifier` names, or the one last synced without it, or else one connected now, from
+ * `identifier` or, in a terminal, the provider's form.
+ */
+export async function resolveFormConnectedSite(
+	provider: SitesProviderId,
+	localSiteId: string,
+	identifier: string | undefined,
+	logger: Logger< LoggerAction >
+): Promise< ProviderSites[ SitesProviderId ] > {
+	const connected = await connectedSites( provider, localSiteId );
+	const known = identifier ? findRemoteSite( connected, identifier ) : connected[ 0 ];
+	if ( known ) {
+		return known;
+	}
+	const { label } = getProvider( provider );
+	const from = identifier
+		? { id: identifier }
+		: process.stdin.isTTY
+		? {
+				input: await askFormFields(
+					getFormFields( getProviderSites( provider ).connect!.input() )
+				),
+		  }
+		: undefined;
+	if ( ! from ) {
+		throw new LoggerError(
+			sprintf( __( 'Choose a site with `--remote-site %s:<site>`.' ), provider )
+		);
+	}
+	logger.reportStart(
+		LoggerAction.FETCH_REMOTE_SITES,
+		sprintf( __( 'Connecting to the %s site…' ), label )
+	);
+	try {
+		const site = await resolveRemoteSite( getProviderServices( provider ), from );
+		await connectPublishingSite( provider, localSiteId, site );
+		logger.spinner.stop();
+		return site;
+	} catch ( error ) {
+		throw toLoggerError( error, sprintf( __( 'Could not connect to the %s site' ), label ) );
 	}
 }

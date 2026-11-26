@@ -1,15 +1,23 @@
 import { __ } from '@wordpress/i18n';
 import { spacefastConfigSchema, type SpacefastConfig } from './config';
-import type { Provider } from '../types';
+import type { Provider, SiteLink, RemoteSite } from '../types';
 
 // A Space: a static site on Spacefast, served at `url`, in one of the account's teams.
-export interface Space {
+export interface Space extends RemoteSite {
 	id: string;
-	name: string;
-	url: string;
 	slug: string;
 	teamId: string;
 	teamName?: string;
+	teamSlug?: string;
+}
+
+export function spaceDashboardUrl( { teamSlug, slug, teamId, id }: Space ) {
+	const [ teamRef, spaceRef ] = teamSlug && slug ? [ teamSlug, slug ] : [ teamId, id ];
+	return teamRef && spaceRef
+		? `https://my.spacefast.com/${ encodeURIComponent( teamRef ) }/${ encodeURIComponent(
+				spaceRef
+		  ) }`
+		: undefined;
 }
 
 export const spacefastProvider: Provider< SpacefastConfig, Space > = {
@@ -26,23 +34,51 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		expiresAt: ( config ) => ( config.expiresAt ? Date.parse( config.expiresAt ) : undefined ),
 	},
 	sites: {
+		summary: () => __( 'A static copy of your pages.' ),
+		visibility: {
+			options: () => [
+				{
+					value: 'private',
+					label: __( 'Restricted' ),
+					description: __( 'Your team and people you give access to' ),
+				},
+				{
+					value: 'public',
+					label: __( 'Everyone' ),
+					description: __( 'Anyone can view your site' ),
+				},
+			],
+			manage: ( space ) => {
+				const url = spaceDashboardUrl( space );
+				return {
+					title: __( 'Manage on Spacefast' ),
+					url: url ? `${ url }/access` : 'https://my.spacefast.com/',
+				};
+			},
+		},
 		pull: false,
 		selective: false,
 		content: 'static',
 		newSite: 'create',
 		intro: {
 			title: () => __( 'Publish to Spacefast' ),
+			learnMoreUrl: 'https://spacefast.com',
 			description: () =>
 				__(
 					'Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.'
 				),
-			learnMoreUrl: 'https://spacefast.com',
 		},
-		describe: ( space ) => ( {
-			details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
-			links: [],
-		} ),
-		issue: () => null,
+		describe: ( space ) => {
+			const url = spaceDashboardUrl( space );
+			const links: SiteLink[] = [
+				{ title: __( 'Manage on Spacefast' ), url: url ?? 'https://my.spacefast.com/' },
+			];
+			if ( url ) links.push( { title: __( 'View versions' ), url: `${ url }/versions` } );
+			return {
+				details: space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [],
+				links,
+			};
+		},
 		// A Space renamed on Spacefast shows its new name; one gone from the account keeps the
 		// stored one.
 		withDetails: ( connections, spaces ) =>

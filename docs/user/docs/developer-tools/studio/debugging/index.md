@@ -17,7 +17,9 @@ When the debug log is enabled, your site will capture PHP errors, notices, and w
 
 You can also write your own messages to the log using PHP’s `error_log()` function:
 
-error\_log( 'My value: ' . print\_r( $my\_variable, true ) );
+```php
+error_log( 'My value: ' . print_r( $my_variable, true ) );
+```
 
 ### [Show errors in browser](#2-show-errors-in-browser)
 
@@ -47,6 +49,8 @@ To open phpMyAdmin for a running site, select the site and use either of these:
 
 -   Click **New tab** (**+**) above the site preview and choose **Database**, or choose **Tools → Database** from the site menu. phpMyAdmin opens in a tab of the preview.
 -   Choose **Open in → phpMyAdmin** from the site menu to open it in your browser.
+
+WordPress Studio’s phpMyAdmin supports SQLite only. If a site uses an external MySQL server (see [How can I use WordPress Studio with the MySQL server of my choice?](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-use-wordpress-studio-with-the-mysql-server-of-my-choice)), **Database** and **phpMyAdmin** are unavailable for it, and WordPress Studio suggests a separate database client instead.
 
 ![The New tab menu in WordPress Studio's site preview, open next to the preview tab, with Browser, Admin, Design System, Database, and Email log.](../../../../screenshots/images/preview-destinations.webp)
 

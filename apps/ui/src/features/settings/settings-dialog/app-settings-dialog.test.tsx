@@ -1,6 +1,11 @@
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
-import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
+import {
+	DEFAULT_COLOR_TINT,
+	INTERFACE_PREFERENCE_DEFAULTS,
+} from '@studio/common/lib/user-settings/preferences';
+import { applyColorTint } from '@studio/ds/theme';
+import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
@@ -10,7 +15,6 @@ import {
 	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/data/resizable-panels';
-import { applyColorTint, DEFAULT_COLOR_TINT } from '@/lib/theme';
 import { aiSettings, createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, UserPreferences } from '@/data/core';
@@ -36,20 +40,6 @@ async function setup( {
 	nativeFolderPicker?: boolean;
 } = {} ) {
 	let connection = aiSettings( 'wpcom', signedIn ? [ 'wpcom', 'anthropic' ] : [ 'anthropic' ] );
-	let skills = [
-		{
-			id: 'studio-cli',
-			displayName: 'WordPress Studio CLI',
-			description: 'CLI workflows',
-			installed: false,
-		},
-		{
-			id: 'wordpress',
-			displayName: 'WordPress',
-			description: 'WordPress workflows',
-			installed: false,
-		},
-	];
 	const connector = createFakeConnector(
 		{
 			sites: [ makeSite( { id: 'one' } ) ],
@@ -73,17 +63,6 @@ async function setup( {
 			setAiProvider: async ( provider ) => {
 				connection = { ...connection, provider };
 				return connection;
-			},
-			getWordPressSkillsStatusAllSites: async () => skills,
-			installWordPressSkillToAllSites: async ( id ) => {
-				skills = skills.map( ( skill ) =>
-					skill.id === id ? { ...skill, installed: true } : skill
-				);
-			},
-			removeWordPressSkillFromAllSites: async ( id ) => {
-				skills = skills.map( ( skill ) =>
-					skill.id === id ? { ...skill, installed: false } : skill
-				);
 			},
 			getStudioAssistantQuota: async () => null,
 			getSnapshotUsage: async () => ( { siteCount: 2, siteLimit: 10 } ) as never,
@@ -705,6 +684,75 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
+	it( 'picks the models a provider with a catalog offers', async () => {
+		const sonnet = {
+			id: 'openrouter/anthropic/claude-sonnet-5.5' as const,
+			label: 'Anthropic: Claude Sonnet 5.5',
+			supportsImages: true,
+			recommended: true,
+		};
+		const acme = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+			details: 'Free',
+		};
+		const settings = aiSettings( 'wpcom', [ 'wpcom', 'openrouter' ] );
+		settings.accounts.openrouter = {
+			connected: true,
+			method: 'api-key',
+			models: [ { id: sonnet.id }, { id: acme.id, label: acme.label } ],
+		};
+		const { connector } = await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings,
+				listProviderModels: async () => [ sonnet, acme ],
+				selectProviderModels: vi.fn( async () => settings ),
+			},
+		} );
+
+		const models = await findProviderRow( 'openrouter-models' );
+		fireEvent.click(
+			await within( models ).findByRole( 'combobox', { name: 'OpenRouter models' } )
+		);
+		fireEvent.click( await screen.findByRole( 'option', { name: /Acme: Model/ } ) );
+		await waitFor( () =>
+			expect( connector.selectProviderModels ).toHaveBeenCalledWith( 'openrouter', [ sonnet ] )
+		);
+	} );
+
+	it( 'offers no reset when the catalog recommends no model', async () => {
+		const acme = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+		};
+		const settings = aiSettings( 'wpcom', [ 'wpcom', 'openrouter' ] );
+		settings.accounts.openrouter = {
+			connected: true,
+			method: 'api-key',
+			models: [ { id: acme.id, label: acme.label } ],
+		};
+		await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings,
+				listProviderModels: async () => [ acme ],
+			},
+		} );
+
+		fireEvent.click(
+			await within( await findProviderRow( 'openrouter-models' ) ).findByRole( 'combobox', {
+				name: 'OpenRouter models',
+			} )
+		);
+		await screen.findByRole( 'option', { name: /Acme: Model/ } );
+		expect(
+			screen.queryByRole( 'button', { name: 'Reset to recommended' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'toggles custom instructions without changing saved text', async () => {
 		let enabled = true;
 		const { connector } = await setup( {
@@ -873,12 +921,12 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 	} );
 
 	it( 'switches between connected hosting defaults independently of the AI provider', async () => {
-		const accounts = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'spacefast' ] ).accounts;
+		const settings = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'spacefast' ] );
 		const { connector } = await setup( {
 			section: 'providers',
 			overrides: {
-				getAiSettings: async () => ( { provider: 'wpcom', accounts } ),
-				setAiProvider: async ( provider ) => ( { provider, accounts } ),
+				getAiSettings: async () => settings,
+				setAiProvider: async ( provider ) => ( { ...settings, provider } ),
 			},
 		} );
 		await choose( 'Default hosting provider', 'Spacefast' );
@@ -903,7 +951,20 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).toHaveBeenCalledOnce();
 	} );
 
-	it( 'shows empty defaults and selects the only connected host over a stale choice', async () => {
+	it( 'lists SSH with nothing to connect, and offers it as the default hosting provider', async () => {
+		const { connector } = await setup( { section: 'providers' } );
+		const ssh = await findProviderRow( 'ssh-provider' );
+		expect( within( ssh ).queryByRole( 'button', { name: /connect/i } ) ).not.toBeInTheDocument();
+		await choose( 'Default hosting provider', 'SSH' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ defaultHostingProvider: 'ssh' },
+				undefined
+			)
+		);
+	} );
+
+	it( 'shows empty defaults and selects the connected host that creates sites over a stale choice', async () => {
 		const { connector } = await setup( {
 			section: 'providers',
 			signedIn: false,
@@ -912,12 +973,13 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		} );
 		const ai = screen.getByRole( 'combobox', { name: 'Default AI provider' } );
 		const hosting = screen.getByRole( 'combobox', { name: 'Default hosting provider' } );
+		// SSH needs no account, but only connects sites the user already has: it isn't implied.
 		await waitFor( () => {
 			expect( ai ).toHaveTextContent( 'No providers' );
-			expect( hosting ).toHaveTextContent( 'No providers' );
+			expect( hosting ).toHaveTextContent( 'Choose a provider' );
 		} );
 		expect( ai ).toBeDisabled();
-		expect( hosting ).toBeDisabled();
+		expect( hosting ).toBeEnabled();
 		expect( ai ).toHaveAccessibleDescription( 'For working on sites.' );
 		expect( hosting ).toHaveAccessibleDescription( 'For publishing sites.' );
 
@@ -925,6 +987,29 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		act( () => connector.emit( 'onAuthStateChanged' ) );
 		await waitFor( () => expect( hosting ).toHaveTextContent( 'WordPress.com' ) );
 		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	} );
+
+	it( 'picks the image provider among those that generate images, or Auto', async () => {
+		let settings = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'gemini' ] );
+		const { connector } = await setup( {
+			section: 'providers',
+			overrides: {
+				getAiSettings: async () => settings,
+				setImageProvider: async ( imageProvider ) => ( settings = { ...settings, imageProvider } ),
+			},
+		} );
+		const images = await screen.findByRole( 'combobox', { name: 'Default image provider' } );
+		await waitFor( () => expect( images ).toHaveTextContent( 'Auto' ) );
+
+		await choose( 'Default image provider', 'Google Gemini' );
+		await waitFor( () => expect( images ).toHaveTextContent( 'Google Gemini' ) );
+		expect( screen.queryByRole( 'option', { name: 'Anthropic' } ) ).not.toBeInTheDocument();
+		await choose( 'Default image provider', 'Auto' );
+		await waitFor( () => expect( images ).toHaveTextContent( 'Auto' ) );
+		expect( vi.mocked( connector.setImageProvider ).mock.calls ).toEqual( [
+			[ 'gemini' ],
+			[ null ],
+		] );
 	} );
 
 	it( 'uses the only connected AI provider as the default', async () => {
@@ -1010,7 +1095,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 	} );
 
-	it( 'offers only an OpenAI API key on the web, which cannot reach a ChatGPT sign-in', async () => {
+	it( 'offers only an OpenAI API key where a ChatGPT sign-in can’t come back', async () => {
 		const { connector } = await setup( {
 			section: 'ai',
 			overrides: {
@@ -1018,8 +1103,10 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					nativeFolderPicker: false,
 					annotatePreview: false,
 					studioLogs: false,
-					nativeSites: false,
 					loopbackSignIn: false,
+					localMachine: false,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );
@@ -1035,6 +1122,12 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		// GitHub Copilot only signs in on its site, so the web offers nothing for it at all.
 		expect( row( 'github-copilot-provider' ) ).toBeNull();
 		expect( row( 'spacefast-provider' ) ).toBeNull();
+		// Nor can a page reach a model server on the user's computer, or use its SSH setup.
+		expect( row( 'local-llm-provider' ) ).toBeNull();
+		expect( row( 'ssh-provider' ) ).toBeNull();
+		fireEvent.change( searchBox(), { target: { value: 'Local LLM' } } );
+		expect( screen.queryByRole( 'tab', { name: 'Local LLM' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
 		expect( screen.queryByRole( 'tab', { name: 'Agents' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Use WordPress Studio with your agents' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Manual MCP setup' ) ).not.toBeInTheDocument();
@@ -1084,6 +1177,63 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			} )
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'connects a local model server by its address alone, and shows the address on its row', async () => {
+		let connected = false;
+		const settings = () => {
+			const current = aiSettings( 'wpcom', [ 'wpcom' ] );
+			if ( connected ) {
+				current.accounts[ 'local-llm' ] = {
+					connected: true,
+					...getProvider( 'local-llm' ).account!.describe( {
+						method: 'server',
+						baseUrl: 'http://localhost:11434/v1',
+						models: [ { name: 'qwen3:0.6b', images: false } ],
+					} ),
+				};
+			}
+			return current;
+		};
+		const { connector } = await setup( {
+			section: 'ai',
+			overrides: {
+				getAiSettings: async () => settings(),
+				connectProvider: async () => {
+					connected = true;
+					return settings();
+				},
+			},
+		} );
+		fireEvent.change( searchBox(), { target: { value: 'Local LLM' } } );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Local LLM' } ) );
+		fireEvent.click(
+			await within( await findProviderRow( 'local-llm-provider' ) ).findByRole( 'button', {
+				name: 'Connect',
+			} )
+		);
+		const form = await screen.findByRole( 'form', { name: 'Local LLM connection' } );
+		const save = within( form ).getByRole( 'button', { name: 'Save' } );
+		expect( within( form ).getByLabelText( 'API key', { selector: 'input' } ) ).toHaveAttribute(
+			'type',
+			'password'
+		);
+		expect( save ).toBeDisabled();
+		fireEvent.change( within( form ).getByLabelText( 'Server address', { selector: 'input' } ), {
+			target: { value: 'localhost:11434' },
+		} );
+		fireEvent.click( save );
+
+		await waitFor( () =>
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'local-llm', 'server', {
+				address: 'localhost:11434',
+			} )
+		);
+		expect(
+			await within( await findProviderRow( 'local-llm-provider' ) ).findByText(
+				'http://localhost:11434'
+			)
+		).toBeVisible();
 	} );
 
 	it( 'connects with the method the user picks', async () => {

@@ -1,3 +1,5 @@
+import { Button, IconButton, Menu } from '@studio/ds';
+import { SettingsIcon, LoginIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
@@ -8,8 +10,6 @@ import { useOpenSettings } from '@/data/use-open-settings';
 import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
 import { AppUpdateButton } from '@/features/notifications';
-import { SettingsIcon, LoginIcon } from '@/lib/icons';
-import { Button, IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import { SupportMenu } from './support-menu';
 
@@ -100,7 +100,7 @@ export function UserMenu() {
 					<AppUpdateButton />
 				</div>
 				<IconButton
-					variant="muted"
+					variant="muted-ghost"
 					icon={ <SettingsIcon /> }
 					label={ __( 'Settings' ) }
 					onClick={ openSettings }

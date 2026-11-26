@@ -2,12 +2,9 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHydratedAiSession } from '@studio/agent/node/sessions/manage';
+import { getConfigPath, readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { __recordTracksEvent, TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import {
-	getCliConfigPath,
-	getSessionsDirectory,
-	getSharedConfigPath,
-} from '@studio/common/lib/well-known-paths';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { startLocalServer, type LocalServer } from '@studio/local';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 
@@ -27,7 +24,13 @@ const wrappedRecord = vi.fn(
 		props?: Parameters< typeof recordTracksEvent >[ 1 ]
 	) => recordTracksEvent( event, { ...getTracksOrigin(), ...props } )
 );
-const site = { id: 'private@example.test', name: 'Private title', path: '/private/site' };
+const site = {
+	id: 'private@example.test',
+	name: 'Private title',
+	path: '/private/site',
+	port: 8881,
+	phpVersion: '8.3',
+};
 const privateText = 'Secret comment #selector https://private.test/path person@example.test';
 const image = {
 	id: 'private-image',
@@ -43,15 +46,12 @@ let server: LocalServer;
 beforeEach( async () => {
 	directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-web-annotation-submit-' ) );
 	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
-	vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', 'studio-web:v2' );
+	vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', 'studio-browser:v2' );
 	vi.stubEnv( 'STUDIO_FORCE_CLI_TELEMETRY', '' );
 	vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', true );
 	vi.stubGlobal( '__STUDIO_CLI_VERSION__', 'test-version' );
 	startAgentRun.mockReturnValue( { runId: 'run-id' } );
-	await fs.writeFile(
-		getCliConfigPath(),
-		JSON.stringify( { version: 1, sites: [ site ], snapshots: [] } )
-	);
+	await fs.writeFile( getConfigPath(), JSON.stringify( { version: 1, sites: [ site ] } ) );
 	sessionId = ( await createHydratedAiSession( getSessionsDirectory(), { site } ) ).id;
 	server = await startLocalServer( {
 		cliBinary: '/unused',
@@ -95,7 +95,7 @@ it.each( [ 1, 3, 100 ] )( 'records one safe browser event for %i annotations', a
 	expect( response.status ).toBe( 200 );
 	expect( await response.json() ).toEqual( { runId: 'run-id' } );
 	await vi.waitFor( () => expect( record ).toHaveBeenCalledTimes( 1 ) );
-	const config = JSON.parse( await fs.readFile( getCliConfigPath(), 'utf8' ) );
+	const config = await readConfig();
 	expect( config.sites[ 0 ].tracksId ).toMatch( /^[0-9a-f-]{36}$/ );
 	expect( record ).toHaveBeenCalledWith(
 		TRACKS_EVENTS.ANNOTATION_SUBMITTED,
@@ -105,7 +105,7 @@ it.each( [ 1, 3, 100 ] )( 'records one safe browser event for %i annotations', a
 			arch: process.arch,
 			app_version: 'test-version',
 			is_a11n: false,
-			channel: 'studio-web',
+			channel: 'studio-browser',
 			ui_version: 'v2',
 			annotation_count: count,
 			site_id: config.sites[ 0 ].tracksId,
@@ -158,7 +158,9 @@ it.each( [ 'opt-out', 'disabled' ] )(
 	'honors browser Tracks %s while sending annotations',
 	async ( gate ) => {
 		if ( gate === 'opt-out' ) {
-			await fs.writeFile( getSharedConfigPath(), '{"version":1,"analyticsOptOut":true}' );
+			await updateConfig( ( { preferences } ) => {
+				preferences.analyticsOptOut = true;
+			} );
 		} else {
 			vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
 			vi.stubEnv( 'NODE_ENV', 'production' );

@@ -1,4 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { CodeBlock } from '@studio/ds';
+import { DesignSystemIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { isValidElement, memo, useMemo } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
@@ -7,8 +9,6 @@ import { useConnector } from '@/data/core';
 import { CopyButton } from '@/features/chats/copy-button';
 import { ToolLink } from '@/features/chats/tool-link';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
-import { DesignSystemIcon } from '@/lib/icons';
-import { CodeBlock } from '@/lib/ui';
 import { closeOpenMarkdown, splitMarkdownBlocks } from './blocks';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';

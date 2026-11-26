@@ -2,8 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createBlockSettingsNotes } from '@studio/agent/shared/block-settings';
-import { createFakeHost } from './fake-host';
+import { createBlockSettingsNotes } from '@studio/agent/node/block-settings';
 
 const HEADER = `<!-- wp:group {"layout":{"type":"constrained"}} -->
 <div class="wp-block-group">
@@ -12,8 +11,6 @@ const HEADER = `<!-- wp:group {"layout":{"type":"constrained"}} -->
 	<!-- wp:acme/badge /-->
 </div>
 <!-- /wp:group -->`;
-
-const host = createFakeHost();
 
 describe( 'createBlockSettingsNotes', () => {
 	let blocksDir: string;
@@ -44,7 +41,7 @@ describe( 'createBlockSettingsNotes', () => {
 	} );
 
 	it( 'describes each core block type in the markup from its block.json', async () => {
-		const notes = ( await createBlockSettingsNotes( host, blocksDir )( HEADER ) ).split( '\n' );
+		const notes = ( await createBlockSettingsNotes( blocksDir )( HEADER ) ).split( '\n' );
 
 		const where = blocksDir.split( path.sep ).join( '/' );
 		expect( notes ).toEqual( [
@@ -55,14 +52,14 @@ describe( 'createBlockSettingsNotes', () => {
 	} );
 
 	it( 'describes a block type once', async () => {
-		const notes = createBlockSettingsNotes( host, blocksDir );
+		const notes = createBlockSettingsNotes( blocksDir );
 
 		expect( await notes( HEADER ) ).toContain( 'core/navigation' );
 		expect( await notes( '<!-- wp:core/navigation {"ref":4} /-->' ) ).toBe( '' );
 	} );
 
 	it( 'leaves out content attributes, closing comments and undeclared blocks', async () => {
-		const notes = createBlockSettingsNotes( host, blocksDir );
+		const notes = createBlockSettingsNotes( blocksDir );
 
 		expect( await notes( '<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->' ) ).toBe( '' );
 		expect( await notes( '<!-- /wp:group --><!-- wp:quote /-->' ) ).toBe( '' );

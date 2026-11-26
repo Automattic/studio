@@ -40,7 +40,7 @@ const LEGACY_EXTRACTED_PATHS = [ 'phpmyadmin', 'wordpress-importer', 'simply-sta
 const WORDPRESS_IMPORTER_VERSION = '0.9.5';
 const SIMPLY_STATIC_VERSION = '3.8.14';
 // Used only when the latest release cannot be looked up (no GitHub API access).
-const SQLITE_COMMAND_FALLBACK_VERSION = 'v1.1.10';
+const SQLITE_COMMAND_FALLBACK_VERSION = 'v1.1.12';
 const PHPMYADMIN_PATCH_FILES_PATH = path.join( import.meta.dirname, '..', 'apps', 'cli', 'php' );
 const PHPMYADMIN_LOCAL_PATCH_FILES = new Map< string, string >( [
 	[ 'config.inc.php', path.join( PHPMYADMIN_PATCH_FILES_PATH, 'config.inc.php' ) ],
@@ -160,7 +160,7 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 	{
 		name: 'reprint',
 		description: `reprint.phar`,
-		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.8/reprint.phar',
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.10/reprint.phar',
 		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
 	},
 ];

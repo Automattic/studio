@@ -6,12 +6,8 @@ import {
 	shell,
 	type WebContents,
 } from 'electron';
+import { getConfigPath } from '@studio/common/lib/config/store';
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
-import {
-	getAppConfigPath,
-	getCliConfigPath,
-	getSharedConfigPath,
-} from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { openAboutWindow } from 'src/about-menu/open-about-menu';
 import { BUG_REPORT_URL, FEATURE_REQUEST_URL } from 'src/constants';
@@ -228,39 +224,14 @@ async function getAppMenu( mainWindow: BrowserWindow | null ) {
 				...( process.env.NODE_ENV === 'development'
 					? [
 							{
-								label: __( 'Open Config Files (dev only)' ),
-								submenu: [
-									{
-										label: __( 'App Config (app.json)' ),
-										click: async () => {
-											const configPath = getAppConfigPath();
-											const err = await shell.openPath( configPath );
-											if ( err ) {
-												console.error( `Error opening config file: ${ configPath } ${ err }` );
-											}
-										},
-									},
-									{
-										label: __( 'Shared Config (shared.json)' ),
-										click: async () => {
-											const configPath = getSharedConfigPath();
-											const err = await shell.openPath( configPath );
-											if ( err ) {
-												console.error( `Error opening config file: ${ configPath } ${ err }` );
-											}
-										},
-									},
-									{
-										label: __( 'CLI Config (cli.json)' ),
-										click: async () => {
-											const configPath = getCliConfigPath();
-											const err = await shell.openPath( configPath );
-											if ( err ) {
-												console.error( `Error opening config file: ${ configPath } ${ err }` );
-											}
-										},
-									},
-								],
+								label: __( 'Open Config File (dev only)' ),
+								click: async () => {
+									const configPath = getConfigPath();
+									const err = await shell.openPath( configPath );
+									if ( err ) {
+										console.error( `Error opening config file: ${ configPath } ${ err }` );
+									}
+								},
 							},
 					  ]
 					: [] ),

@@ -1,19 +1,14 @@
+import { readConfig } from '@studio/common/lib/config/store';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { vi } from 'vitest';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { connectToDaemon, disconnectFromDaemon, listProcesses } from 'cli/lib/daemon-client';
 import { SITE_LIST_PUBLIC_FIELDS } from 'cli/lib/site-public-fields';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { mockReportResult } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
+import type { Config, ConfigSite } from '@studio/common/lib/config/schema';
 
-vi.mock( 'cli/lib/cli-config/core', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
-	return {
-		...actual,
-		readCliConfig: vi.fn(),
-	};
-} );
+vi.mock( '@studio/common/lib/config/store' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 vi.mock( 'cli/logger', () => ( {
@@ -31,38 +26,31 @@ vi.mock( 'cli/logger', () => ( {
 } ) );
 
 describe( 'CLI: studio site list', () => {
-	const testCliConfig = {
-		version: 1 as const,
-		sites: [
-			{
-				id: 'site-1',
-				name: 'Test Site 1',
-				path: '/path/to/site1',
-				port: 8080,
-				phpVersion: '8.0',
-			},
-			{
-				id: 'site-2',
-				name: 'Test Site 2',
-				path: '/path/to/site2',
-				port: 8081,
-				phpVersion: '8.0',
-				customDomain: 'my-site.wp.local',
-			},
-		],
-		snapshots: [],
-	};
+	const testSites: ConfigSite[] = [
+		{
+			id: 'site-1',
+			name: 'Test Site 1',
+			path: '/path/to/site1',
+			port: 8080,
+			phpVersion: '8.0',
+		},
+		{
+			id: 'site-2',
+			name: 'Test Site 2',
+			path: '/path/to/site2',
+			port: 8081,
+			phpVersion: '8.0',
+			customDomain: 'my-site.wp.local',
+		},
+	];
 
-	const emptyCliConfig = {
-		version: 1 as const,
-		sites: [],
-		snapshots: [],
-	};
+	const mockSites = ( sites: ConfigSite[] ) =>
+		vi.mocked( readConfig ).mockResolvedValue( { sites } as Config );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
 
-		vi.mocked( readCliConfig ).mockResolvedValue( testCliConfig );
+		mockSites( testSites );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
@@ -114,20 +102,17 @@ describe( 'CLI: studio site list', () => {
 		it( 'prints only public fields in list JSON', async () => {
 			const plaintextPassword = 'super-secret-admin-password';
 			const encodedPassword = btoa( plaintextPassword );
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				...testCliConfig,
-				sites: [
-					{
-						...testCliConfig.sites[ 0 ],
-						adminPassword: encodedPassword,
-						// Legacy field from configs written before the runtime switch was removed.
-						runtime: 'native-php',
-						latestCliPid: 4242,
-						// Unknown fields pass through the loose config schema; they must stay hidden.
-						futureApiToken: 'FUTURE_TOKEN_VALUE',
-					},
-				],
-			} as Awaited< ReturnType< typeof readCliConfig > > );
+			mockSites( [
+				{
+					...testSites[ 0 ],
+					adminPassword: encodedPassword,
+					// Legacy field from configs written before the runtime switch was removed.
+					runtime: 'native-php',
+					latestCliPid: 4242,
+					// Unknown fields pass through the loose config schema; they must stay hidden.
+					futureApiToken: 'FUTURE_TOKEN_VALUE',
+				},
+			] );
 
 			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 
@@ -167,15 +152,12 @@ describe( 'CLI: studio site list', () => {
 		// Both front ends disable a site's actions on what this reports, so an
 		// entry left behind by a crashed process must not survive into the payload.
 		it( 'should omit an operation whose owning process is gone', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				...testCliConfig,
-				sites: [
-					{
-						...testCliConfig.sites[ 0 ],
-						operation: { pid: 0x7ffffffe, kind: 'delete' as const },
-					},
-				],
-			} );
+			mockSites( [
+				{
+					...testSites[ 0 ],
+					operation: { pid: 0x7ffffffe, kind: 'delete' as const },
+				},
+			] );
 
 			await runCommand( 'json' );
 
@@ -183,7 +165,7 @@ describe( 'CLI: studio site list', () => {
 		} );
 
 		it( 'should output empty json array when no sites found', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( emptyCliConfig );
+			mockSites( [] );
 
 			await runCommand( 'json' );
 

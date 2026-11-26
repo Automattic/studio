@@ -18,7 +18,6 @@ data/core/
   connectors/
     ipc/index.ts          # Electron IPC implementation
     local/index.ts        # `studio ui` HTTP/SSE implementation
-    static/index.ts       # Studio on the web, over apps/static's in-page backend
 ```
 
 Components access data through the `useConnector()` hook, which pulls the active connector from React Context. This keeps all UI code environment-agnostic.
@@ -51,7 +50,7 @@ The router context carries both the `QueryClient` and `Connector`, enabling rout
 
 ```
 src/
-  lib/        internal packages: ui, theme, icons, hooks, keyboard, pending-slot
+  lib/        internal packages: keyboard, pending-slot
   features/   product areas: chats, composer, sidebar, sites, settings, sync,
               sharing, credits, account, commands, notifications, annotations,
               onboarding
@@ -61,7 +60,8 @@ src/
   app/        providers
 ```
 
-- `lib/` packages know nothing about Studio, so they can move to `packages/` later (for example to share `lib/ui` and `lib/theme` with `apps/mcp-ui`). Each has a README and one entry: import `@/lib/ui`, never `@/lib/ui/button`. They import nothing from `features/`, `data/`, `router/` or `app/`.
+- The primitives, theme, icons and generic hooks are the `@studio/ds` package (`packages/ds`), so code outside `apps/ui` can use them too.
+- `lib/` packages know nothing about Studio. Each has a README and one entry: import `@/lib/keyboard`, never `@/lib/keyboard/shortcuts`. They import nothing from `features/`, `data/`, `router/` or `app/`.
 - A feature owns its components, hooks and helpers, in a folder per component with a CSS Module:
 
   ```
@@ -78,13 +78,13 @@ src/
 - Something used by one feature lives in that feature. Something product-aware used by several lives in the feature that owns the concept and is exported from its entry. Only app-agnostic pieces go in `lib/`. Such shared pieces include `CopyButton` (chats), `SiteIcon` (sites), `Gravatar` (account) and `LearnMoreLink` (onboarding). Toasts go through `showToast` in `data/app-messages`.
 - Features depend on each other in one direction: if `sidebar` imports `chats`, `chats` doesn't import `sidebar`, not even through another feature. Type-only imports don't count. When two features need each other, move the shared piece down into `data/` (state and hooks) or into the lower feature, or let `router/` pass the higher feature's component in as a prop.
 
-These boundaries are lint-enforced (`import-x/no-restricted-paths` and `import-x/no-cycle` in the root `eslint.config.mjs`).
+These boundaries are lint-enforced (`studio/import-boundaries` and `import/no-cycle` in the root `.oxlintrc.json`).
 
-UI is built on Base UI with its own primitives and theme. Icons come from `lucide-react`, plus custom icons in `src/lib/icons/`, one file each, drawn the same way (24px grid, stroke 2).
+UI is built on Base UI with its own primitives and theme. Icons come from `lucide-react`, plus custom icons in `@studio/ds/icons` (`packages/ds/icons/`), one file each, drawn the same way (24px grid, stroke 2).
 
 ## Design system
 
-The theme lives in `src/lib/theme/`:
+The theme lives in `@studio/ds/theme` (`packages/ds/theme/`):
 
 - `tokens.css`: every design token, below.
 - `base.css`: the page and element defaults (fonts, body, headings, shared keyframes, reduced transparency).
@@ -100,9 +100,9 @@ The theme lives in `src/lib/theme/`:
 - **Space and shape**: `--space-*` on a 4px grid, numbered like Tailwind's spacing (`--space-1_5` is 6px), `--radius-*` up to `--radius-3xl` and `--radius-full`, `--shadow-*`, `--focus-width`, `--band-height` and `--control-size`.
 - **Layers and motion**: `--z-*` layers inside the workspace and above it, `--motion-duration-*` and `--motion-ease-*`. Media queries can't read tokens, so the one breakpoint, `( width < 640px )`, is written where it's used.
 
-Primitives live in `src/lib/ui/`. They import nothing from app code. [Their README](src/lib/ui/README.md) says which one fits a need, and when to change a primitive rather than override it.
+Primitives are exported from `@studio/ds` (`packages/ds/primitives/`). They import nothing from app code. [Their README](../../packages/ds/primitives/README.md) says which one fits a need, and when to change a primitive rather than override it.
 
-Outside `src/lib/theme/`, ESLint (`studio/use-theme-tokens`) flags literal colors, font sizes, radii, elevation shadows and stacking layers, and formats CSS with Prettier, so `npx eslint --fix` covers stylesheets too. A literal that has to stay carries an `eslint-disable-next-line` comment saying why.
+Outside the theme, ESLint (`studio/use-theme-tokens`) flags literal colors, font sizes, radii, elevation shadows and stacking layers, and formats CSS with Prettier, so `npx eslint --fix` covers stylesheets too. A literal that has to stay carries an `eslint-disable-next-line` comment saying why.
 
 Colors derive in CSS from a few inputs on the root element (`--tint-hue`, `--tint-intensity`, `--tint-saturation`, `--contrast`, `--accent-fill`), so light, dark and the Appearance settings change them without any palette code. Dark values apply under `[data-color-scheme='dark']`, on the root or on any element that should render in the other scheme. Components follow the nearest scheme with `light-dark()` for a color, or a `[data-color-scheme='dark'] .x` selector for anything else; never `:root[...]` or `html[...]`, which ignore a scene's own scheme. A surface sets `--surface` to its fill, and `--muted` inside it steps up a shade on its own.
 
@@ -124,12 +124,6 @@ For hot reload in the browser, keep that server running and start the Vite dev s
 
 ```bash
 npm -w @studio/ui run dev:local
-```
-
-Or run Studio on the web, which needs no Studio server: its backend (`apps/static`) runs in the page, with sites in WordPress Playground. Open http://localhost:3456, or build the static site into `dist-static/` with `build:static`:
-
-```bash
-npm -w @studio/ui run dev:static
 ```
 
 ## Testing

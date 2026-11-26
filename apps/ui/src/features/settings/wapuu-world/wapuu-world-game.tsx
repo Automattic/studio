@@ -1,3 +1,4 @@
+import { DialogDismissButton } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
@@ -62,13 +63,12 @@ export function WapuuWorldGame( { onClose }: WapuuWorldGameProps ) {
 					</span>
 					<div className={ styles.titleActions }>
 						<span>{ __( 'ESC to close' ) }</span>
-						<button
+						<DialogDismissButton
 							onClick={ onClose }
 							className={ styles.closeButton }
-							aria-label={ __( 'Close game' ) }
-						>
-							✕
-						</button>
+							label={ __( 'Close game' ) }
+							size="icon-2xs"
+						/>
 					</div>
 				</div>
 

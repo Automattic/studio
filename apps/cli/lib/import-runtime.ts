@@ -30,6 +30,8 @@ export type CaptureEngine = {
 	captureWebsite: ( options: {
 		url: string;
 		outputDir: string;
+		/** Export without freezing compare reference cells; compare freezes them on first run. */
+		deferReference?: boolean;
 		onProgress?: ( progress: {
 			phase: string;
 			current?: number;

@@ -6,7 +6,7 @@
 	width: 100%;
 	flex: 1 1 auto;
 	min-width: 0;
-	height: var( --preview-control-size, 32px );
+	height: var( --control-size-sm );
 	align-items: center;
 	border-radius: var( --radius-md );
 	transition: background-color var( --motion-duration-feedback ) ease;
@@ -26,13 +26,15 @@
 	z-index: -1;
 	border-radius: var( --radius-popup ) var( --radius-popup ) 0 0;
 	background: var( --popover );
-	box-shadow: 0 0 0 1px var( --popover-border );
+	box-shadow: 0 0 0 var( --hairline-width ) var( --popover-border );
 	clip-path: inset( -4px -4px 0 );
 	opacity: 0;
 	transform: scale( 0.985, 0.9 );
 	transform-origin: bottom;
 	pointer-events: none;
-	transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
+	transition:
+		opacity var( --motion-duration-surface ) var( --motion-ease-enter ),
+		transform var( --motion-duration-quick ) var( --motion-ease-enter );
 }
 
 .addressBar[data-recent-open] {
@@ -51,7 +53,7 @@
 	position: absolute;
 	z-index: 1;
 	inset-block: 0;
-	inset-inline-end: var( --space-1 );
+	inset-inline-end: var( --space-control-inset );
 	display: flex;
 	align-items: center;
 	border-radius: inherit;
@@ -61,7 +63,11 @@
 }
 
 .action {
-	border-radius: var( --radius-sm );
+	--radius-button: var( --radius-control-inset );
+
+	width: var( --control-size-inset );
+	height: var( --control-size-inset );
+	color: var( --foreground );
 }
 
 .action svg {
@@ -87,7 +93,7 @@
 	height: 100%;
 	min-width: 0;
 	padding-inline: var( --space-3 );
-	padding-inline-end: var( --preview-control-size, 32px );
+	padding-inline-end: var( --control-size-sm );
 	color: var( --foreground );
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );
@@ -99,13 +105,13 @@
 
 	isolation: isolate;
 	transform-origin: top;
-	transition: opacity var( --motion-duration-feedback ) var( --motion-ease-enter );
+	transition: opacity var( --motion-duration-surface ) var( --motion-ease-enter );
 	clip-path: inset( 0 -24px -24px );
 	opacity: 1;
 	scale: 1;
 	width: calc( var( --anchor-width ) + var( --space-2 ) );
 	max-width: calc( 100vw - 16px );
-	padding: var( --space-1_5 );
+	padding: var( --popup-inset );
 	border: 0;
 	border-radius: 0;
 	background: transparent;
@@ -115,7 +121,7 @@
 .displayUrl {
 	position: absolute;
 	inset-inline: var( --space-3 );
-	inset-inline-end: var( --preview-control-size, 32px );
+	inset-inline-end: var( --control-size-sm );
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -149,12 +155,12 @@
 	border-radius: 0 0 var( --radius-popup ) var( --radius-popup );
 	background: var( --popover );
 	box-shadow:
-		0 0 0 1px var( --popover-border ),
+		0 0 0 var( --hairline-width ) var( --popover-border ),
 		var( --shadow-sm );
 	transform: scale( 1 );
 	transform-origin: top;
 	pointer-events: none;
-	transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
+	transition: transform var( --motion-duration-quick ) var( --motion-ease-enter );
 }
 
 .recentPopup:is( [data-starting-style], [data-ending-style] ) {

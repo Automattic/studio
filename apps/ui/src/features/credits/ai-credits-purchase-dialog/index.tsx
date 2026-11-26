@@ -2,12 +2,6 @@ import {
 	formatContinueForPriceLabel,
 	formatTopUpOptionCreditsLabel,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
-import { createInterpolateElement } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
-import { useRef, useState, type ComponentProps, type KeyboardEvent } from 'react';
-import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
-import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useOpenAiCreditsCheckout } from '@/features/credits/use-open-ai-credits-checkout';
 import {
 	Dialog,
 	DialogClose,
@@ -17,7 +11,13 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Button,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { createInterpolateElement } from '@wordpress/element';
+import { __ } from '@wordpress/i18n';
+import { useRef, useState, type ComponentProps, type KeyboardEvent } from 'react';
+import { useStudioAssistantTopUpPricing } from '@/data/queries/use-top-up-pricing';
+import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useOpenAiCreditsCheckout } from '@/features/credits/use-open-ai-credits-checkout';
 import styles from './style.module.css';
 
 /**

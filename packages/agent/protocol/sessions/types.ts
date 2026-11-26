@@ -16,7 +16,7 @@ export interface AiSessionSummary extends AiSessionMetadata {
 	updatedAt: string;
 	firstPrompt?: string;
 	assistantReplyPreview?: string;
-	// Desktop-only placement, hydrated by the app from app.json. CLI session
+	// Placement, hydrated from the config file by the apps. CLI session
 	// summaries do not infer ownership from active-site history. Matching is by
 	// ownerSiteId; ownerSitePath/ownerSiteName are kept for display and as a
 	// fallback for placements written before siteId existed.

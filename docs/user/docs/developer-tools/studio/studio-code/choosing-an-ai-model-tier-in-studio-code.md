@@ -2,33 +2,35 @@
 
 ## [The short version](#0-the-short-version)
 
-Instead of picking an AI model by name, you pick how much depth the job needs:
+When you use WordPress.com as your AI provider, pick the tier that fits the job.
 
 | Tier | What it’s for | Can use free allowance? |
 | --- | --- | --- |
 | Fast | Everyday changes: small edits, quick fixes, straightforward requests | Yes |
-| Balanced | Work that benefits from more careful reasoning, without the cost of the top tier | No, requires purchased credits |
-| Strong | Complex, high-stakes, or architecture-level work | No, requires purchased credits |
+| Balanced | Work that benefits from more careful reasoning, without the cost of the top tier | Yes, after your first purchase |
+| Strong | Complex, high-stakes, or architecture-level work | Yes, after your first purchase |
 
 You can switch tiers at any point in a conversation, including mid-task. WordPress Studio uses whichever tier is selected for each new message.
 
 Fast reads text only: it can’t look at images you attach or at screenshots of your site. Use Balanced or Strong when the task needs the agent to see the page.
 
-![The WordPress Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect provider… listed under Actions.](../../../../screenshots/images/model-menu.webp)
+![The WordPress Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect AI providers listed under Actions.](../../../../screenshots/images/model-menu.webp)
 
 The models behind each tier are updated as newer models become available. For example, WordPress Studio 1.23 moved Balanced and Strong to newer models. You don’t need to change anything when this happens: you keep choosing by tier.
+
+Tiers apply only to WordPress.com. When you connect another AI provider, the model menu also lists that provider’s models by name, and they don’t use AI credits. See [AI providers](https://wordpress.studio/docs/studio-code/#ai-providers).
 
 ## [All tiers use AI credits](#1-all-tiers-use-ai-credits)
 
 Every message in WordPress Studio Code spends AI credits, whichever tier you choose. Balanced and Strong use credits at a higher rate than Fast.
 
-Every account starts with a one-time allowance of free [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). The free allowance can only be spent on the Fast tier. When they run out, you’ll need to purchase AI credits to keep using WordPress Studio Code, including Fast.
+Every WordPress.com account starts with a one-time free allowance of [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). Fast is available from the start.
 
 ## [Balanced and Strong require purchased credits](#2-balanced-and-strong-require-purchased-credits)
 
-Balanced and Strong are only available to accounts that have purchased AI credits. This applies even if you still have free allowance left, because those can’t be spent on the stronger tiers. Until you’ve purchased credits, the desktop model menu shows Balanced and Strong as **Purchased credits required** and doesn’t let you pick them, and the terminal’s `/model` command hides them with a note to add credits. To buy credits in the desktop app, choose **Get more credits** from the model menu.
+Your first AI credit purchase unlocks Balanced and Strong. Until then, the desktop model menu shows them as **Purchased credits required**, and the terminal’s `/model` command lists Fast with a note to add credits. To buy credits in the desktop app, choose **Get more credits** from the model menu.
 
-Once you’ve purchased AI credits, the model picker keeps Balanced and Strong unlocked, even after your purchased balance is spent. When you use Fast, any remaining free allowance is spent first, before your purchased balance. You don’t need to top up between sessions, only when you run out.
+Once unlocked, Balanced and Strong stay available even after you spend your purchased balance. All three tiers draw from any remaining free allowance first, then from purchased credits.
 
 ## [How credit consumption actually works](#3-how-credit-consumption-actually-works)
 
@@ -44,7 +46,7 @@ WordPress Studio Code doesn’t show you exactly how many credits any given repl
 
 WordPress Studio Code shows a running AI credits meter as you work, combining whatever’s left of your free allowance with anything you’ve purchased. When you’re getting close to empty, WordPress Studio Code will tell you before you run out entirely.
 
-When your purchased balance runs out, Balanced and Strong stay unlocked in the model picker, but because the free allowance only funds Fast, you need to add more AI credits to keep using them. Fast keeps working as long as the free allowance remains. When both are empty, WordPress Studio Code stops until you add more AI credits. Add credits from inside WordPress Studio Code, or see [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) for how purchases, refunds, and account rules work.
+When both balances are empty, prompts through WordPress.com pause until you add more AI credits. You can buy credits from inside WordPress Studio Code. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) for purchase and account details.
 
 ## [FAQ](#5-faq)
 
@@ -52,4 +54,4 @@ When your purchased balance runs out, Balanced and Strong stay unlocked in the m
 
 **Can I use different tiers in the same project, or even the same conversation?** Yes. Tier is a per-message choice. A common pattern is starting a task on Fast and switching to Balanced or Strong only for the parts that need it.
 
-**Why can’t I switch to Balanced or Strong even though I still have free allowance left?** The free allowance only funds Fast. Balanced and Strong unlock only once your account has purchased AI credits, however much free allowance remains.
+**Why can’t I switch to Balanced or Strong even though I still have free allowance left?** Your first purchase unlocks those tiers. After that, you can use any remaining free allowance with either tier.

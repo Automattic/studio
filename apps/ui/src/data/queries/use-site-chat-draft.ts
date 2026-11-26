@@ -1,11 +1,13 @@
 import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import type { AiModelId } from '@/data/core';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 import type { ProviderId } from '@studio/providers';
 
 interface SiteChatDraft {
 	model?: AiModelId;
 	provider?: ProviderId;
+	thinking?: ThinkingSetting;
 	activeEnvironment: 'local' | 'live';
 	lastSelectedWpcomSiteId?: number;
 	sessionId?: string;

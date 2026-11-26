@@ -1,4 +1,4 @@
-import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
+import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/auth-token';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
@@ -14,7 +14,7 @@ vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/create', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
-vi.mock( '@studio/common/lib/shared-config', () => ( {
+vi.mock( '@studio/common/lib/auth-token', () => ( {
 	readAuthToken: vi.fn(),
 	isAutomatticianFromToken: vi.fn().mockResolvedValue( true ),
 } ) );
@@ -47,6 +47,8 @@ function buildModelCtx(
 		connect: vi.fn().mockResolvedValue( undefined ),
 		maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
 		persistSessionContext: persistMock,
+		readThinking: vi.fn().mockResolvedValue( undefined ),
+		persistThinking: vi.fn(),
 		clearSession: vi.fn().mockResolvedValue( undefined ),
 	};
 	return { ctx, persistMock };
@@ -203,6 +205,8 @@ describe( '/credits slash command', () => {
 			connect: vi.fn().mockResolvedValue( undefined ),
 			maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
 			persistSessionContext: vi.fn().mockResolvedValue( undefined ),
+			readThinking: vi.fn().mockResolvedValue( undefined ),
+			persistThinking: vi.fn(),
 			clearSession: vi.fn().mockResolvedValue( undefined ),
 		};
 	}
@@ -216,7 +220,7 @@ describe( '/credits slash command', () => {
 
 	async function mocks() {
 		return {
-			auth: await import( '@studio/common/lib/shared-config' ),
+			auth: await import( '@studio/common/lib/auth-token' ),
 			quota: await import( '@studio/common/lib/studio-assistant-quota' ),
 			pricing: await import( '@studio/common/lib/studio-assistant-top-up-pricing' ),
 			browser: await import( 'cli/lib/browser' ),
@@ -274,7 +278,7 @@ describe( '/credits slash command', () => {
 			{ label: '500,000 credits', description: '£37.50' },
 		] );
 		expect( m.browser.openBrowser ).toHaveBeenCalledWith(
-			'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-500000'
+			'https://wordpress.com/checkout/studio/studio-code-ai-credits:-q-500000'
 		);
 	} );
 
@@ -313,7 +317,7 @@ describe( '/credits slash command', () => {
 		expect( options ).toHaveLength( 1 );
 		expect( options[ 0 ].label ).toBe( 'Add AI credits' );
 		expect( m.browser.openBrowser ).toHaveBeenCalledWith(
-			'https://wordpress.com/checkout/wpcom/studio-code-ai-credits:-q-100000'
+			'https://wordpress.com/checkout/studio/studio-code-ai-credits:-q-100000'
 		);
 	} );
 
@@ -367,6 +371,8 @@ describe( '/connect and /disconnect', () => {
 			connect: vi.fn(),
 			maybeAutoSwitchProvider: vi.fn(),
 			persistSessionContext: vi.fn(),
+			readThinking: vi.fn().mockResolvedValue( undefined ),
+			persistThinking: vi.fn(),
 			clearSession: vi.fn(),
 		} satisfies SlashCommandContext;
 	}
@@ -384,6 +390,21 @@ describe( '/connect and /disconnect', () => {
 
 		await command( 'connect' ).handler!( '/connect', ctx );
 		expect( ctx.connect ).toHaveBeenLastCalledWith( 'anthropic', { force: true } );
+	} );
+
+	it( 'sets the chat’s thinking level, except on models Studio Code tunes', async () => {
+		const ctx = {
+			...makeCtx(),
+			currentProvider: 'anthropic' as const,
+			currentModel: 'claude-opus-5-5' as const,
+		};
+
+		await command( 'thinking' ).handler!( '/thinking off', ctx );
+		expect( ctx.persistThinking ).toHaveBeenCalledWith( 'off' );
+
+		const wpcom = makeCtx();
+		await command( 'thinking' ).handler!( '/thinking off', wpcom );
+		expect( wpcom.persistThinking ).not.toHaveBeenCalled();
 	} );
 
 	it( 'disconnects a provider, and signs out of Studio for WordPress.com', async () => {

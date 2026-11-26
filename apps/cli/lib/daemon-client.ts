@@ -3,17 +3,13 @@ import crypto from 'crypto';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import path from 'path';
-import {
-	LOCKFILE_STALE_TIME,
-	LOCKFILE_WAIT_TIME,
-	PROXY_PROCESS_NAME,
-} from '@studio/common/constants';
+import { LOCKFILE_WAIT_TIME, PROXY_PROCESS_NAME } from '@studio/common/constants';
+import { readConfig } from '@studio/common/lib/config/store';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import { z } from 'zod';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import {
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
@@ -350,7 +346,7 @@ function runSiteStart( sitePath: string ): Promise< boolean > {
  * stopped: starting it would recreate part of the folder.
  */
 async function restartSites( processNames: string[] ) {
-	const { sites } = await readCliConfig();
+	const { sites } = await readConfig();
 	const sitesToStart = sites.filter(
 		( site ) =>
 			processNames.includes( `${ SITE_PROCESS_PREFIX }${ site.id }` ) &&
@@ -360,7 +356,7 @@ async function restartSites( processNames: string[] ) {
 	// A start can fail because another process, like the Desktop app starting its sites at launch,
 	// holds an operation on the site. That site is left to that process.
 	const isHandledElsewhere = async ( siteId: string ) => {
-		const site = ( await readCliConfig() ).sites.find( ( { id } ) => id === siteId );
+		const site = ( await readConfig() ).sites.find( ( { id } ) => id === siteId );
 		return (
 			( site?.operation !== undefined && isProcessAlive( site.operation.pid ) ) ||
 			( await isProcessRunning( `${ SITE_PROCESS_PREFIX }${ siteId }` ) ) !== undefined
@@ -413,10 +409,7 @@ export async function connectToDaemon(): Promise< void > {
 		return;
 	}
 	ensureProcessManagerHome();
-	await lockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH, {
-		wait: LOCKFILE_WAIT_TIME,
-		stale: LOCKFILE_STALE_TIME,
-	} );
+	await lockFileAsync( PROCESS_MANAGER_LOCKFILE_PATH, { wait: LOCKFILE_WAIT_TIME } );
 
 	let processesToRestart: string[];
 	try {

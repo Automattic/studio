@@ -1,13 +1,8 @@
 import os from 'os';
 import path from 'path';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	type SiteData,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
+import { updateConfig } from '@studio/common/lib/config/store';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 /** Holds each pulled site's Reprint state and runtime files. `studio delete` removes them. */
 const PULLS_ROOT = path.join( os.homedir(), '.studio', 'pulls' );
@@ -38,7 +33,7 @@ function getPullTechnicalDirectory( siteId: string ): string {
 	return path.join( PULLS_ROOT, siteId );
 }
 
-export function getPullSession( site: SiteData ): PullSession {
+export function getPullSession( site: ConfigSite ): PullSession {
 	const technicalSiteDirectory = getPullTechnicalDirectory( site.id );
 	return {
 		sitePath: site.path,
@@ -51,20 +46,15 @@ export function getPullSession( site: SiteData ): PullSession {
 	};
 }
 
-/** Updates a site's record in `cli.json` under the config lock, if the site still exists. */
+/** Updates a site's record in the config file, if the site still exists. */
 export async function updateSiteRecord(
 	siteId: string,
-	apply: ( record: SiteData ) => void
+	apply: ( record: ConfigSite ) => void
 ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const cliConfig = await readCliConfig();
+	return updateConfig( ( cliConfig ) => {
 		const record = cliConfig.sites.find( ( s ) => s.id === siteId );
 		if ( record ) {
 			apply( record );
-			await saveCliConfig( cliConfig );
 		}
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }

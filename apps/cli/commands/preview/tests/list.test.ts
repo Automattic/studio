@@ -1,6 +1,6 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import { vi } from 'vitest';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	getSnapshotsFromConfig,
@@ -18,17 +18,8 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../list';
 
-vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
-	...( await importOriginal() ),
-	readAuthToken: vi.fn(),
-} ) );
-vi.mock( 'cli/lib/cli-config/core', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
-	return {
-		...actual,
-		readCliConfig: vi.fn(),
-	};
-} );
+vi.mock( '@studio/common/lib/auth-token', () => ( { readAuthToken: vi.fn() } ) );
+vi.mock( '@studio/common/lib/config/store', () => ( { readConfig: vi.fn() } ) );
 vi.mock( 'cli/lib/cli-config/sites', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
@@ -167,12 +158,10 @@ describe( 'Preview List Command', () => {
 		let consoleLogSpy: ReturnType< typeof vi.spyOn >;
 
 		beforeEach( () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
+			vi.mocked( readConfig ).mockResolvedValue( {
 				sites: mockSites,
 				snapshots: mockSnapshots,
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			} as any );
+			} as never );
 			consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		} );
 
@@ -197,15 +186,13 @@ describe( 'Preview List Command', () => {
 
 		it( 'should not merge two local sites that happen to share the same name', async () => {
 			// Studio doesn't enforce site-name uniqueness, so grouping must be by id.
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
+			vi.mocked( readConfig ).mockResolvedValue( {
 				sites: [
 					{ ...mockSites[ 0 ], id: 'dup-1', name: 'Duplicate', path: '/dup/one' },
 					{ ...mockSites[ 1 ], id: 'dup-2', name: 'Duplicate', path: '/dup/two' },
 				],
 				snapshots: [],
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			} as any );
+			} as never );
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
 				{
 					url: 'dup-1.example.com',

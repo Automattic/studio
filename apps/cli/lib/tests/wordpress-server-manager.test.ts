@@ -4,7 +4,6 @@ import os from 'os';
 import path from 'path';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { vi } from 'vitest';
-import { SiteData } from 'cli/lib/cli-config/core';
 import * as daemonClient from 'cli/lib/daemon-client';
 import { DaemonBus } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
@@ -13,6 +12,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { startWordPressServer, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
@@ -45,7 +45,7 @@ describe( 'WordPress Server Manager', () => {
 		reportWarning: vi.fn(),
 	} as unknown as Logger< string >;
 
-	const mockSiteData: SiteData = {
+	const mockSiteData: ConfigSite = {
 		id: 'test-site-id',
 		name: 'Test Site',
 		path: '/test/site/path',
@@ -280,6 +280,8 @@ describe( 'WordPress Server Manager', () => {
 				channel: 'studio-cli',
 				command: 'start',
 				success: false,
+				cpu_count: expect.any( Number ),
+				memory_gb: expect.any( Number ),
 				file_access: 'site-directory',
 				failure_reason: 'php_error',
 				time_ms: expect.any( Number ),
@@ -305,6 +307,52 @@ describe( 'WordPress Server Manager', () => {
 
 			const [ , props ] = vi.mocked( recordTracksEvent ).mock.calls[ 0 ];
 			expect( props ).toMatchObject( { command, time_ms: timeMs } );
+		} );
+
+		it( 'stops the process it started when the start fails, so the site is not left running', async () => {
+			const readyInterval = setInterval( () => {
+				mockBus.emit( 'process-message', {
+					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+					raw: { topic: 'ready' },
+				} );
+			}, 1 );
+			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation( ( pmId, message ) => {
+				clearInterval( readyInterval );
+				if ( message.topic === 'start-server' ) {
+					setImmediate( () => {
+						vi.mocked( daemonClient.isProcessRunning ).mockResolvedValueOnce(
+							mockProcessDescription
+						);
+						mockBus.emit( 'process-message', {
+							process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+							raw: {
+								topic: 'error',
+								originalMessageId: message.messageId,
+								errorMessage: 'start timed out',
+							},
+						} );
+					} );
+					return Promise.resolve();
+				}
+				return Promise.reject( new Error( 'stop-server not answered' ) );
+			} );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow(
+				'start timed out'
+			);
+
+			expect( vi.mocked( daemonClient.stopProcess ) ).toHaveBeenCalledWith(
+				mockProcessDescription.name
+			);
+		} );
+
+		it( 'does not stop anything when the process never started', async () => {
+			vi.mocked( daemonClient.startProcess ).mockRejectedValue( new Error( 'Failed' ) );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow();
+
+			expect( vi.mocked( daemonClient.isProcessRunning ) ).not.toHaveBeenCalled();
+			expect( vi.mocked( daemonClient.stopProcess ) ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should handle start process failure', async () => {

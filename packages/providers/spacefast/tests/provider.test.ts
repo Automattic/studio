@@ -13,7 +13,7 @@ it( 'says when the user declined the sign-in', async () => {
 	);
 
 	await expect(
-		spacefastServices.account.connect( 'sign-in', {
+		spacefastServices.account!.connect( 'sign-in', {
 			deviceCode: 'dev_1',
 			interval: '1',
 			expiresAt: new Date( Date.now() + 60_000 ).toISOString(),
@@ -32,4 +32,115 @@ it( 'asks to connect again when the key no longer works', async () => {
 	await expect( spacefastServices.sites!.list( { apiKey: 'sfa_old' } ) ).rejects.toBeInstanceOf(
 		NotConnectedError
 	);
+} );
+
+it( 'keeps the team slug for site-specific dashboard links', async () => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(
+			async ( url: URL ) =>
+				new Response(
+					JSON.stringify( {
+						data:
+							url.pathname === '/v1/teams'
+								? [ { id: 'team', name: 'Studio', slug: 'studio' } ]
+								: [
+										{
+											id: 'space',
+											title: 'Example',
+											slug: 'example',
+											liveUrl: 'https://example.space.fast',
+											teamId: 'team',
+										},
+								  ],
+					} )
+				)
+		)
+	);
+	const [ site ] = await spacefastServices.sites!.list( { apiKey: 'test' } );
+	expect( site ).toMatchObject( { teamSlug: 'studio', slug: 'example' } );
+} );
+
+it.each( [
+	{ privateOnly: false, requested: 'public', access: 'public' },
+	{ privateOnly: false, requested: 'private', access: 'private' },
+	{ privateOnly: true, requested: undefined, access: 'private' },
+	{ privateOnly: true, requested: 'public', access: undefined },
+] as const )(
+	'enforces team access when creating a Space ($privateOnly, $requested)',
+	async ( { privateOnly, requested, access } ) => {
+		const fetch = vi.fn( async ( url: URL, _options: RequestInit ) => {
+			if ( url.pathname === '/v1/teams' ) {
+				return Response.json( { data: [ { id: 'team', name: 'Studio', slug: 'studio' } ] } );
+			}
+			if ( url.pathname === '/v1/teams/team/access/defaults' ) {
+				return Response.json( { data: { privateSpacesOnly: privateOnly } } );
+			}
+			return Response.json( {
+				data: {
+					space: {
+						id: 'spc_1',
+						title: 'Example',
+						slug: 'example',
+						liveUrl: 'https://example.space.fast',
+						teamId: 'team',
+					},
+				},
+			} );
+		} );
+		vi.stubGlobal( 'fetch', fetch );
+		const config = { apiKey: 'test' };
+		await expect( spacefastServices.sites!.creationVisibility!( config ) ).resolves.toBe(
+			privateOnly ? 'private' : 'public'
+		);
+		const creation = spacefastServices.sites!.create!( config, {
+			name: 'Example',
+			visibility: requested,
+		} );
+		if ( ! access ) {
+			await expect( creation ).rejects.toThrow( 'Your team only allows restricted sites.' );
+			expect( fetch.mock.calls.some( ( [ , options ] ) => options.method === 'POST' ) ).toBe(
+				false
+			);
+			return;
+		}
+		await expect( creation ).resolves.toMatchObject( { id: 'spc_1' } );
+		const post = fetch.mock.calls.find( ( [ , options ] ) => options.method === 'POST' );
+		expect( post?.[ 0 ].pathname ).toBe( '/v1/spaces' );
+		expect( JSON.parse( post?.[ 1 ].body as string ) ).toEqual( {
+			teamId: 'team',
+			title: 'Example',
+			access,
+			capabilities: [ 'optional_access' ],
+		} );
+	}
+);
+
+it( 'creates a Space in the team the user picked', async () => {
+	const fetch = vi.fn( async ( url: URL, _options: RequestInit ) => {
+		if ( url.pathname === '/v1/teams' ) {
+			return Response.json( {
+				data: [
+					{ id: 'agency', name: 'Agency' },
+					{ id: 'mine', name: 'Mine' },
+				],
+			} );
+		}
+		if ( url.pathname.endsWith( '/access/defaults' ) ) {
+			return Response.json( { data: { privateSpacesOnly: false } } );
+		}
+		return Response.json( { data: { space: { id: 'spc_1', title: 'Example', teamId: 'mine' } } } );
+	} );
+	vi.stubGlobal( 'fetch', fetch );
+
+	await spacefastServices.sites!.create!(
+		{ apiKey: 'test' },
+		{ name: 'Example', input: { team: 'mine' } }
+	);
+	expect( fetch ).toHaveBeenCalledWith(
+		expect.objectContaining( { pathname: '/v1/teams/mine/access/defaults' } ),
+		expect.anything()
+	);
+	const post = fetch.mock.calls.find( ( [ , options ] ) => options.method === 'POST' );
+	expect( JSON.parse( post?.[ 1 ].body as string ) ).toMatchObject( { teamId: 'mine' } );
 } );

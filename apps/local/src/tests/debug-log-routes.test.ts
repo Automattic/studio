@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { getConfigPath } from '@studio/common/lib/config/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 import * as openInOs from '../open-in-os';
@@ -25,9 +26,11 @@ beforeEach( async () => {
 	sitePath = mkdtempSync( path.join( os.tmpdir(), 'studio-debug-log-site-' ) );
 	process.env.DEV_CONFIG_DIR = configDir;
 	writeFileSync(
-		path.join( configDir, 'cli.json' ),
-		JSON.stringify( { sites: [ { id: SITE_ID, path: sitePath } ] } ),
-		'utf-8'
+		getConfigPath(),
+		JSON.stringify( {
+			version: 1,
+			sites: [ { id: SITE_ID, name: 'Site', path: sitePath, port: 8881, phpVersion: '8.3' } ],
+		} )
 	);
 	server = await startLocalServer( {
 		cliBinary: path.join( os.tmpdir(), 'studio-test-cli.mjs' ),

@@ -1,6 +1,6 @@
-import * as configFile from '@studio/common/lib/cli-config-file';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { RemoteSiteError } from '@studio/providers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -10,15 +10,25 @@ import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { runCommand as runPull } from '../pull';
-import { runCommand as runBackupPull } from '../pull-legacy';
+import { runCommand as runBackupPull } from '../pull-archive';
 import { runCommand as runPush } from '../push';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteData } from 'cli/lib/cli-config/core';
 
-vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
-	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
+vi.mock( '@studio/common/lib/auth-token', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/auth-token') >() ),
 	readAuthToken: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/config/store', () => {
+	const config = () => ( {
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
+	return {
+		readConfig: vi.fn( async () => config() ),
+		updateConfig: vi.fn( async ( update: ( config: object ) => unknown ) => update( config() ) ),
+	};
+} );
 vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
 	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
@@ -44,14 +54,14 @@ vi.mock( 'cli/lib/sync-site-picker', async ( importActual ) => ( {
 	pickSyncSite: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/preview-sites', () => ( {
-	getStandingPreviews: vi.fn().mockResolvedValue( new Map() ),
+	wpcomPreviews: { list: vi.fn().mockResolvedValue( [] ) },
 } ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
 	return { ...actual, recordTracksEvent: vi.fn() };
 } );
 
-const testSite: SiteData = {
+const testSite: ConfigSite = {
 	id: 'site-1',
 	name: 'Test Site',
 	path: '/test/site',
@@ -84,13 +94,6 @@ beforeEach( () => {
 } );
 
 const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
-beforeEach( () => {
-	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
-		version: 1,
-		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
-		snapshots: [],
-	} );
-} );
 afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio pull Tracks events', () => {
@@ -241,9 +244,7 @@ describe( 'CLI: studio push Tracks events', () => {
 } );
 
 it( 'keeps a failed push and its event when the site ID cannot be read', async () => {
-	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
-		new Error( 'Storage unavailable' )
-	);
+	vi.mocked( readConfig ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
 	await expect( runPush( testSite.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
 	expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
 		TRACKS_EVENTS.SYNC_PUSH,

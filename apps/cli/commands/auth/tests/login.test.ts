@@ -1,5 +1,10 @@
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { confirm, input } from '@inquirer/prompts';
-import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { updateConfig } from '@studio/common/lib/config/store';
+import { writeProviderConfig } from '@studio/common/lib/provider-config';
 import { vi } from 'vitest';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
@@ -17,11 +22,7 @@ import {
 import { runCommand } from '../login';
 
 vi.mock( '@inquirer/prompts' );
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
-	readAuthToken: vi.fn(),
-	updateSharedConfig: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/provider-config', { spy: true } );
 vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	emitCliEvent: vi.fn(),
@@ -72,43 +73,39 @@ describe( 'Auth Login Command', () => {
 	};
 	// WordPress.com's `/me`, which checks the pasted token.
 	const me = vi.fn();
-	// The shared config the mocks write and read back.
-	let storedToken: unknown;
-	const storeToken = async ( update: { authToken?: unknown } ) => {
-		if ( 'authToken' in update ) {
-			storedToken = update.authToken ?? null;
-		}
-	};
+	let directory: string;
 	const authUrl = () => vi.mocked( openBrowser ).mock.calls[ 0 ][ 0 ];
-	const mockExistingToken = {
-		accessToken: 'existing-token',
-		id: 999,
-		email: 'existing@example.com',
-		displayName: 'Existing User',
-		expiresIn: 1209600,
-		expirationTime: Date.now() + 1209600000,
-	};
+	const signIn = () =>
+		updateConfig( ( { providers } ) => {
+			providers.configs.wpcom = {
+				token: 'existing-token',
+				expiresAt: Date.now() + 1209600000,
+				user: { id: 999, email: 'existing@example.com', displayName: 'Existing User' },
+			};
+		} );
 
-	beforeEach( () => {
+	beforeEach( async () => {
 		vi.clearAllMocks();
+		vi.mocked( writeProviderConfig ).mockReset();
+		directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-login-' ) );
+		vi.stubEnv( 'DEV_CONFIG_DIR', directory );
 
 		vi.mocked( getAppLocale ).mockResolvedValue( 'en' );
 		me.mockResolvedValue( { ok: true, json: async () => mockUserData } );
 		vi.stubGlobal( 'fetch', me );
 		vi.mocked( openBrowser ).mockResolvedValue( undefined );
 		vi.mocked( input ).mockResolvedValue( mockAccessToken );
-		storedToken = null;
-		vi.mocked( readAuthToken ).mockImplementation( async () => storedToken as never );
-		vi.mocked( updateSharedConfig ).mockImplementation( storeToken );
 	} );
 
-	afterEach( () => {
+	afterEach( async () => {
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
+		vi.unstubAllEnvs();
+		await fs.rm( directory, { force: true, recursive: true } );
 	} );
 
 	it( 'should skip login if already authenticated', async () => {
-		vi.mocked( readAuthToken ).mockResolvedValue( mockExistingToken );
+		await signIn();
 
 		await runCommand();
 
@@ -130,15 +127,13 @@ describe( 'Auth Login Command', () => {
 		expect( me ).toHaveBeenCalledWith( expect.stringContaining( '/rest/v1.1/me' ), {
 			headers: { Authorization: `Bearer ${ mockAccessToken }` },
 		} );
-		expect( updateSharedConfig ).toHaveBeenCalledWith( {
-			authToken: {
-				accessToken: mockAccessToken,
-				id: mockUserData.ID,
-				email: mockUserData.email,
-				displayName: mockUserData.display_name,
-				expiresIn: expect.any( Number ),
-				expirationTime: expect.any( Number ),
-			},
+		expect( await readAuthToken() ).toEqual( {
+			accessToken: mockAccessToken,
+			id: mockUserData.ID,
+			email: mockUserData.email,
+			displayName: mockUserData.display_name,
+			expiresIn: expect.any( Number ),
+			expirationTime: expect.any( Number ),
 		} );
 	} );
 
@@ -161,9 +156,8 @@ describe( 'Auth Login Command', () => {
 		expect( me ).toHaveBeenCalled();
 	} );
 
-	it( 'should report error if updateSharedConfig fails', async () => {
-		const saveError = new Error( 'Failed to save' );
-		vi.mocked( updateSharedConfig ).mockRejectedValue( saveError );
+	it( 'should report error if storing the token fails', async () => {
+		vi.mocked( writeProviderConfig ).mockRejectedValue( new Error( 'Failed to save' ) );
 
 		await runCommand();
 
@@ -307,8 +301,11 @@ describe( 'Auth Login Command', () => {
 		// `is_a11n` is derived from the stored token, so the event must follow the write.
 		it( 'records the success only after the token is stored', async () => {
 			const order: string[] = [];
-			vi.mocked( updateSharedConfig ).mockImplementation( async ( update ) => {
-				await storeToken( update );
+			const { writeProviderConfig: write } = await vi.importActual<
+				typeof import('@studio/common/lib/provider-config')
+			>( '@studio/common/lib/provider-config' );
+			vi.mocked( writeProviderConfig ).mockImplementation( async ( ...args ) => {
+				await write( ...args );
 				order.push( 'write' );
 			} );
 			vi.mocked( recordTracksEvent ).mockImplementation( async () => {
@@ -339,7 +336,7 @@ describe( 'Auth Login Command', () => {
 		} );
 
 		it( 'records a failure when the token cannot be stored', async () => {
-			vi.mocked( updateSharedConfig ).mockRejectedValue( new LoggerError( 'disk full' ) );
+			vi.mocked( writeProviderConfig ).mockRejectedValue( new LoggerError( 'disk full' ) );
 
 			await runCommand();
 
@@ -353,7 +350,7 @@ describe( 'Auth Login Command', () => {
 
 		// Nothing was authenticated, so there is no outcome to record.
 		it( 'records nothing when already authenticated', async () => {
-			vi.mocked( readAuthToken ).mockResolvedValue( mockExistingToken );
+			await signIn();
 
 			await runCommand();
 

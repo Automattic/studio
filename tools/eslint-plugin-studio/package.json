@@ -3,7 +3,7 @@
 	"private": true,
 	"version": "1.0.0",
 	"type": "module",
-	"description": "ESLint rules for Studio",
+	"description": "Lint rules for Studio: oxlint runs them on the code, ESLint on the stylesheets",
 	"main": "src/index.js",
 	"dependencies": {
 		"eslint": "^10.13.0"

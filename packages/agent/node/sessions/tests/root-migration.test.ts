@@ -144,31 +144,22 @@ describe( 'migrateLegacyAiSessionsRoot', () => {
 		expect( fs.readFileSync( resolved, 'utf8' ) ).toBe( 'image' );
 	} );
 
-	it( 'keeps the migration lock fresh while async work is running', async () => {
+	it( 'runs one migration at a time', async () => {
 		const lockPath = path.join( tmpDir, 'migration.lock' );
 		const events: string[] = [];
 		let markStarted: () => void = () => {};
 		const started = new Promise< void >( ( resolve ) => {
 			markStarted = resolve;
 		} );
-		const options = { stale: 80, update: 20, wait: 1000 };
-		const first = withSessionsMigrationLock(
-			lockPath,
-			async () => {
-				markStarted();
-				await new Promise( ( resolve ) => setTimeout( resolve, 250 ) );
-				events.push( 'first-finished' );
-			},
-			options
-		);
+		const first = withSessionsMigrationLock( lockPath, async () => {
+			markStarted();
+			await new Promise( ( resolve ) => setTimeout( resolve, 250 ) );
+			events.push( 'first-finished' );
+		} );
 		await started;
-		const second = withSessionsMigrationLock(
-			lockPath,
-			async () => {
-				events.push( 'second-started' );
-			},
-			options
-		);
+		const second = withSessionsMigrationLock( lockPath, async () => {
+			events.push( 'second-started' );
+		} );
 
 		await Promise.all( [ first, second ] );
 

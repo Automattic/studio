@@ -5,6 +5,7 @@
  * process that serves it with native PHP.
  */
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import {
 	SITE_SERVER_ACTIVITY_CHECK_INTERVAL,
@@ -20,8 +21,7 @@ import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { SiteData } from 'cli/lib/cli-config/core';
-import { updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import {
 	isProcessRunning,
 	listProcesses,
@@ -36,6 +36,7 @@ import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
+import { diagnoseStalledPhp } from 'cli/lib/stalled-php';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription, SITE_PROCESS_PREFIX } from 'cli/lib/types/process-manager-ipc';
 import {
@@ -45,6 +46,7 @@ import {
 	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { Logger } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 export { SITE_PROCESS_PREFIX };
 
@@ -93,8 +95,8 @@ const startServerOptionsSchema = serverConfigSchema
 export type StartServerOptions = z.infer< typeof startServerOptionsSchema >;
 
 function buildServerConfig(
-	site: SiteData,
-	options?: Partial< StartServerOptions & RunBlueprintOptions >
+	site: ConfigSite,
+	options?: Partial< StartServerOptions & SetUpSiteOptions >
 ): ServerConfig {
 	const serverConfig: ServerConfig = {
 		siteId: site.id,
@@ -108,6 +110,8 @@ function buildServerConfig(
 	if ( site.customDomain ) {
 		const protocol = site.enableHttps ? 'https' : 'http';
 		serverConfig.absoluteUrl = `${ protocol }://${ site.customDomain }`;
+	} else if ( process.env.STUDIO_SITE_URL_TEMPLATE ) {
+		serverConfig.absoluteUrl = getSiteUrl( site );
 	}
 
 	if ( site.adminUsername ) {
@@ -179,7 +183,7 @@ function buildServerConfig(
 }
 
 async function ensureSitePhpBinaryAvailable(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >
 ): Promise< void > {
 	const phpVersion = resolveSupportedPhpVersion( site.phpVersion );
@@ -206,7 +210,7 @@ async function ensureSitePhpBinaryAvailable(
 export type SiteStartCommand = 'start' | 'create' | 'import' | 'pull' | 'config';
 
 export async function startWordPressServer(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >,
 	command: SiteStartCommand,
 	options?: StartServerOptions
@@ -255,6 +259,8 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
+	let serverPid: number | undefined;
+	let processStarted = false;
 	const now = Date.now();
 	// Phases time from here; a `site start` an app asked for times from the request, so it includes
 	// spawning and loading this CLI and the preparation above.
@@ -263,6 +269,8 @@ export async function startWordPressServer(
 	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
+		processStarted = true;
+		serverPid = processDesc.status === 'online' ? processDesc.pid : undefined;
 		await readyOrExit.waitFor( processDesc.pmId );
 		phaseTimings.daemon_ms = Date.now() - now;
 		await sendMessage(
@@ -295,6 +303,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: true,
+				...getMachineProps(),
 				file_access: getSiteFileAccess( site ),
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
@@ -309,23 +318,46 @@ export async function startWordPressServer(
 		}
 		return processDesc;
 	} catch ( error ) {
+		const timeMs = Date.now() - startedAt;
+		const failureReason = classifyStartFailure( error );
 		try {
+			// Windows starts hang far more often than others; record whether the stuck PHP was working
+			// or waiting so a fix can target the cause.
+			const diagnosis =
+				failureReason === 'timeout' && serverPid && process.platform === 'win32'
+					? await diagnoseStalledPhp( serverPid, site.path )
+					: undefined;
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
 				command,
 				success: false,
+				...getMachineProps(),
 				file_access: getSiteFileAccess( site ),
-				failure_reason: classifyStartFailure( error ),
-				time_ms: Date.now() - startedAt,
+				failure_reason: failureReason,
+				...diagnosis,
+				time_ms: timeMs,
 				...phaseTimings,
 			} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
 		}
+		// A start that timed out leaves its process behind, so the site would look running while
+		// nothing serves it, and the next start would report it as already running.
+		if ( processStarted ) {
+			await stopWordPressServer( site.id ).catch( () => {} );
+		}
 		throw await withCapturedPhpErrors( error, phpErrorLogPath, phpErrorLogSizeAtStart );
 	} finally {
 		readyOrExit.dispose();
 	}
+}
+
+// Lets start times and hangs be compared across machine sizes.
+function getMachineProps() {
+	return {
+		cpu_count: os.availableParallelism(),
+		memory_gb: Math.round( os.totalmem() / 1024 ** 3 ),
+	};
 }
 
 // Coarse, low-cardinality classification of a start failure for the `failure_reason` Tracks prop.
@@ -349,7 +381,7 @@ function classifyStartFailure( error: unknown ): string {
 	return 'unknown';
 }
 
-async function clearStudioErrorLog( site: SiteData ): Promise< void > {
+async function clearStudioErrorLog( site: ConfigSite ): Promise< void > {
 	const logPath = path.join( site.path, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
 	await fs.promises.rm( logPath, { force: true } ).catch( () => undefined );
 }
@@ -580,6 +612,8 @@ async function sendMessage(
 				packet.raw.topic === 'start-phase' &&
 				packet.raw.originalMessageId === messageId
 			) {
+				// A finished step is progress, so a slow start that keeps finishing steps isn't cut off.
+				lastActivityTimestamp = Date.now();
 				options.onStartPhase?.( packet.raw.data );
 			} else if ( packet.raw.topic === 'error' && packet.raw.originalMessageId === messageId ) {
 				if ( exitRejectTimeoutId ) {
@@ -707,28 +741,27 @@ async function waitForProcessToExit( processName: string ): Promise< void > {
 	}
 }
 
-export interface RunBlueprintOptions {
+export interface SetUpSiteOptions {
 	wpVersion?: string;
-	blueprint: unknown;
-	blueprintUri: string;
+	blueprint?: unknown;
+	blueprintUri?: string;
 	siteLanguage?: string;
 }
 
 /**
- * Run a blueprint on a site without starting a server
- * 1. Start the process (via the process manager daemon)
- * 2. Wait for 'ready' message
- * 3. Send 'run-blueprint' message with config
- * 4. Wait for completion
- * 5. Stop the process
+ * Set a site up without starting a server: write wp-config.php, install WordPress, and apply the
+ * Blueprint when one is given. Runs in a server child process that stops once it is done.
  */
-export async function runBlueprint(
-	site: SiteData,
+export async function setUpSite(
+	site: ConfigSite,
 	logger: Logger< string >,
-	options: RunBlueprintOptions
+	options: SetUpSiteOptions
 ): Promise< void > {
 	await ensureSitePhpBinaryAvailable( site, logger );
-	logger.reportStart( SiteCommandLoggerAction.APPLY_BLUEPRINT, __( 'Applying Blueprint…' ) );
+	logger.reportStart(
+		SiteCommandLoggerAction.APPLY_BLUEPRINT,
+		options.blueprint ? __( 'Applying Blueprint…' ) : __( 'Setting up WordPress…' )
+	);
 
 	const processName = getProcessName( site.id );
 	const serverConfig = buildServerConfig( site, options );
@@ -742,7 +775,7 @@ export async function runBlueprint(
 				processDesc.pmId,
 				processName,
 				{
-					topic: 'run-blueprint',
+					topic: 'set-up-site',
 					data: { config: serverConfig },
 				},
 				{ logger }

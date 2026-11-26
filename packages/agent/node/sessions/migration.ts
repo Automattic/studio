@@ -3,6 +3,7 @@
 
 import crypto from 'crypto';
 import fs from 'fs/promises';
+import { readNonEmptyLines } from '@studio/agent/node/sessions/read-lines';
 
 // Must match pi-coding-agent's `CURRENT_SESSION_VERSION`. If pi bumps it,
 // pi's `migrateSessionEntries` will bring our v3 output forward on open.
@@ -152,9 +153,9 @@ function isPiHeader( value: unknown ): value is { type: 'session' } {
 	);
 }
 
-export type SessionFormat = 'pi' | 'legacy' | 'unknown' | 'empty';
+type SessionFormat = 'pi' | 'legacy' | 'unknown' | 'empty';
 
-export function detectSessionFormat( firstLine: string | undefined ): SessionFormat {
+function detectSessionFormat( firstLine: string | undefined ): SessionFormat {
 	if ( ! firstLine ) return 'empty';
 	let parsed: unknown;
 	try {
@@ -417,12 +418,19 @@ export function migrateLegacyEvents( events: LegacyEvent[], cwd: string ): PiFil
 	return out;
 }
 
+async function readFirstLine( filePath: string ): Promise< string | undefined > {
+	for await ( const line of readNonEmptyLines( filePath ) ) {
+		return line;
+	}
+	return undefined;
+}
+
 // Migrate the on-disk file in place. Reads the legacy JSONL, transforms,
 // and rewrites atomically (`.tmp` + rename). No-ops for already-pi files.
 export async function migrateLegacyFileInPlace( filePath: string, cwd: string ): Promise< void > {
+	if ( detectSessionFormat( await readFirstLine( filePath ) ) !== 'legacy' ) return;
+
 	const content = await fs.readFile( filePath, 'utf8' );
-	const firstLine = content.split( '\n' ).find( ( line ) => line.trim().length > 0 );
-	if ( detectSessionFormat( firstLine ) !== 'legacy' ) return;
 
 	const events = parseLegacyLines( content );
 	const fileEntries = migrateLegacyEvents( events, cwd );

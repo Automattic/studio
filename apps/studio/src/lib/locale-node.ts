@@ -1,5 +1,6 @@
 import { app, systemPreferences } from 'electron';
 import { match } from '@formatjs/intl-localematcher';
+import { readConfig } from '@studio/common/lib/config/store';
 import {
 	DEFAULT_LOCALE,
 	getLocaleData,
@@ -7,7 +8,6 @@ import {
 	SupportedLocale,
 	supportedLocales,
 } from '@studio/common/lib/locale';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { defaultI18n } from '@wordpress/i18n';
 
 export function getSupportedLocale() {
@@ -22,7 +22,7 @@ export function getSupportedLocale() {
 
 export async function getSavedLocale(): Promise< SupportedLocale | undefined > {
 	try {
-		const { locale } = await readSharedConfig();
+		const { locale } = ( await readConfig() ).preferences;
 		return isSupportedLocale( locale ) ? locale : undefined;
 	} catch ( error ) {
 		return undefined;

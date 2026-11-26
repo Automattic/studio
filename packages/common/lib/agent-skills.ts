@@ -2,9 +2,19 @@ import fs from 'fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { readSitePaths } from '../sites/site-path';
+import { readConfig, updateConfig } from './config/store';
 import { pathExists, recursiveCopyDirectory } from './fs-utils';
+import { getEnabledGlobalSkills, type GlobalSkillSource } from './global-skills';
 import { isErrnoException } from './is-errno-exception';
-import { readSharedConfig, updateSharedConfig } from './shared-config';
+import {
+	createSkillInFolder,
+	getSkillDisplayName,
+	readSkillDetails,
+	readSkillsFolder,
+	updateSkillInFolder,
+	type UserSkill,
+} from './user-skills';
+import { SHIPPED_SKILL_IDS, type SkillDetails, type SkillDraft } from './skill-draft';
 
 /**
  * Managed instruction files that are always kept up-to-date on server start.
@@ -197,7 +207,7 @@ export const getBundledSkills = () => [
 
 // "Installed" means selected for every site: new sites get it too, on creation.
 export async function getSkillsStatusForAllSites(): Promise< SkillStatus[] > {
-	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
+	const selectedSkills = ( await readConfig() ).preferences.selectedSkills ?? [];
 	return getBundledSkills().map( ( skill ) => ( {
 		...skill,
 		installed: selectedSkills.includes( skill.id ),
@@ -212,16 +222,18 @@ export async function installSkillToAllSites(
 	await forEachSite( ( sitePath ) =>
 		installSkillToSite( { path: sitePath }, bundledPath, skillId, overwrite )
 	);
-	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
-	await updateSharedConfig( {
-		selectedSkills: Array.from( new Set( [ ...selectedSkills, skillId ] ) ),
+	await updateConfig( ( { preferences } ) => {
+		preferences.selectedSkills = Array.from(
+			new Set( [ ...( preferences.selectedSkills ?? [] ), skillId ] )
+		);
 	} );
 }
 
 export async function removeSkillFromAllSites( skillId: string ): Promise< void > {
 	await forEachSite( ( sitePath ) => removeSkillFromSite( sitePath, skillId ) );
-	const selectedSkills = ( await readSharedConfig() ).selectedSkills ?? [];
-	await updateSharedConfig( { selectedSkills: selectedSkills.filter( ( id ) => id !== skillId ) } );
+	await updateConfig( ( { preferences } ) => {
+		preferences.selectedSkills = preferences.selectedSkills?.filter( ( id ) => id !== skillId );
+	} );
 }
 
 // One site failing (moved, unreadable) shouldn't stop the others.
@@ -239,11 +251,15 @@ export type SiteAgentFileKind = 'skills' | 'instructions';
 export interface SiteAgentFile {
 	id: string;
 	displayName: string;
+	// Empty for a skill whose SKILL.md states none: agents can't pick such a skill.
 	description: string;
 	// Present on the site, switched on or off.
 	installed: boolean;
 	// Where agents find it.
 	enabled: boolean;
+	// Set for a skill that works on all sites, which is changed for all sites, not here: where
+	// the skill is kept.
+	globalSource?: GlobalSkillSource;
 }
 
 const getInstructionFiles = () => [
@@ -280,17 +296,132 @@ function getLocations( sitePath: string, kind: SiteAgentFileKind, id: string ) {
 	} ) );
 }
 
-function getCatalog( kind: SiteAgentFileKind ) {
-	return kind === 'skills' ? getBundledSkills() : getInstructionFiles();
+// The skills in the site's folder, switched on or off: the ones Studio installed
+// and the ones the user or an agent saved there.
+async function getSiteFolderSkills( sitePath: string ): Promise< SiteAgentFile[] > {
+	// Skills live in `.agents`; `.claude` only links to them.
+	const [ enabled, disabled ] = await Promise.all(
+		[ 'skills', 'disabled-skills' ].map( ( folder ) =>
+			readSkillsFolder( path.join( sitePath, '.agents', folder ) )
+		)
+	);
+	const bundled = getBundledSkills();
+	const toFile = ( skill: UserSkill, isEnabled: boolean ): SiteAgentFile => ( {
+		id: skill.name,
+		displayName: getSkillDisplayName( skill.name ),
+		description: skill.description,
+		...bundled.find( ( candidate ) => candidate.id === skill.name ),
+		installed: true,
+		enabled: isEnabled,
+	} );
+	return [
+		...enabled.map( ( skill ) => toFile( skill, true ) ),
+		...disabled
+			.filter( ( skill ) => ! enabled.some( ( { name } ) => name === skill.name ) )
+			.map( ( skill ) => toFile( skill, false ) ),
+	].sort( ( a, b ) => a.id.localeCompare( b.id ) );
+}
+
+// The skills in a site's folder, as they are on disk: the ones that are on come first.
+async function readSiteFolderSkills( sitePath: string ): Promise< UserSkill[] > {
+	const folders = await Promise.all(
+		[ 'skills', 'disabled-skills' ].map( ( folder ) =>
+			readSkillsFolder( path.join( sitePath, '.agents', folder ) )
+		)
+	);
+	return folders.flat();
+}
+
+async function findSiteFolderSkill( sitePath: string, requestedId: string ): Promise< UserSkill > {
+	const skill = ( await readSiteFolderSkills( sitePath ) ).find(
+		( candidate ) => candidate.name === requestedId
+	);
+	if ( ! skill ) {
+		throw new Error( `Unknown skill: ${ requestedId }` );
+	}
+	return skill;
+}
+
+/**
+ * Saves a new skill in the site's folder, and returns its name. It can't take the name of a
+ * WordPress skill Studio ships: the site would show it as that skill.
+ */
+export async function createSiteSkill(
+	sitePath: string,
+	draft: SkillDraft,
+	reserved: string[]
+): Promise< string > {
+	return createSkillInFolder( path.join( sitePath, '.agents', 'skills' ), draft, {
+		taken: ( await readSiteFolderSkills( sitePath ) ).map( ( skill ) => skill.name ),
+		reserved: [ ...reserved, ...SHIPPED_SKILL_IDS ],
+	} );
+}
+
+// One of the site's own skills, opened to change it.
+export async function getSiteSkillDetails(
+	sitePath: string,
+	requestedId: string
+): Promise< SkillDetails > {
+	return readSkillDetails( await findSiteFolderSkill( sitePath, requestedId ) );
+}
+
+export async function updateSiteSkill(
+	sitePath: string,
+	requestedId: string,
+	draft: SkillDraft,
+	reserved: string[]
+): Promise< string > {
+	const skill = await findSiteFolderSkill( sitePath, requestedId );
+	const id = await updateSkillInFolder( skill, draft, {
+		taken: ( await readSiteFolderSkills( sitePath ) ).map( ( candidate ) => candidate.name ),
+		// A shipped skill the site has keeps its name.
+		reserved: [ ...reserved, ...SHIPPED_SKILL_IDS.filter( ( shipped ) => shipped !== skill.name ) ],
+	} );
+	if ( id !== skill.name ) {
+		// The `.claude` link points at the old folder: Claude Code gets one for the new name.
+		const [ , claude ] = getLocations( sitePath, 'skills', skill.name );
+		const wasLinked = await exists( claude.enabled );
+		await fs.promises.rm( claude.enabled, { recursive: true, force: true } );
+		await fs.promises.rm( claude.disabled, { recursive: true, force: true } );
+		if ( wasLinked ) {
+			const [ agents, renamed ] = getLocations( sitePath, 'skills', id );
+			await ensureSkillSymlink( sitePath, agents.enabled, renamed.enabled, true );
+		}
+	}
+	return id;
+}
+
+// What agents can use on a site: its own skills, then the global ones that are on. A skill
+// in the site's folder takes the place of a global one with its name.
+async function getSiteSkills( sitePath: string ): Promise< SiteAgentFile[] > {
+	const [ own, global ] = await Promise.all( [
+		getSiteFolderSkills( sitePath ),
+		getEnabledGlobalSkills(),
+	] );
+	return [
+		...own,
+		...global
+			.filter( ( skill ) => ! own.some( ( { id } ) => id === skill.id ) )
+			.map( ( skill ) => ( {
+				id: skill.id,
+				displayName: skill.displayName,
+				description: skill.description,
+				installed: true,
+				enabled: true,
+				globalSource: skill.source,
+			} ) ),
+	];
 }
 
 export async function getSiteAgentFiles(
 	sitePath: string,
 	kind: SiteAgentFileKind
 ): Promise< SiteAgentFile[] > {
+	if ( kind === 'skills' ) {
+		return getSiteSkills( sitePath );
+	}
 	return Promise.all(
-		getCatalog( kind ).map( async ( file ) => {
-			// Skills live in `.agents`; `.claude` only links to them.
+		getInstructionFiles().map( async ( file ) => {
 			const [ location ] = getLocations( sitePath, kind, file.id );
 			const enabled = await pathExists( location.enabled );
 			return {
@@ -336,7 +467,7 @@ export async function setSiteAgentFileEnabled(
 	requestedId: string,
 	enabled: boolean
 ): Promise< void > {
-	const id = getKnownFileId( kind, requestedId );
+	const id = await getKnownFileId( sitePath, kind, requestedId );
 	const moved = await moveSiteAgentFile( sitePath, kind, id, enabled );
 	// Switching on a file the site never had installs it.
 	if ( enabled && ! moved ) {
@@ -353,16 +484,24 @@ export async function removeSiteAgentFile(
 	kind: SiteAgentFileKind,
 	requestedId: string
 ): Promise< void > {
-	const id = getKnownFileId( kind, requestedId );
+	const id = await getKnownFileId( sitePath, kind, requestedId );
 	for ( const location of getLocations( sitePath, kind, id ) ) {
 		await fs.promises.rm( location.enabled, { recursive: true, force: true } );
 		await fs.promises.rm( location.disabled, { recursive: true, force: true } );
 	}
 }
 
-// Paths are built from the catalog's own id, never the requested one.
-function getKnownFileId( kind: SiteAgentFileKind, requestedId: string ): string {
-	const file = getCatalog( kind ).find( ( candidate ) => candidate.id === requestedId );
+// Paths are built from an id Studio found or ships, never the requested one.
+async function getKnownFileId(
+	sitePath: string,
+	kind: SiteAgentFileKind,
+	requestedId: string
+): Promise< string > {
+	const known =
+		kind === 'skills'
+			? [ ...( await getSiteFolderSkills( sitePath ) ), ...getBundledSkills() ]
+			: getInstructionFiles();
+	const file = known.find( ( candidate ) => candidate.id === requestedId );
 	if ( ! file ) {
 		throw new Error( `Unknown ${ kind } file: ${ requestedId }` );
 	}

@@ -38,6 +38,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name, liveSite ),
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
+	getSitePublishStatus: ( siteId, remoteSiteId, provider ) =>
+		ipcRendererInvoke( 'getSitePublishStatus', siteId, remoteSiteId, provider ),
 	getPreviewStatus: ( hostname ) => ipcRendererInvoke( 'getPreviewStatus', hostname ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
@@ -95,15 +97,24 @@ const api: IpcApi = {
 	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
+	getSiteVisibility: ( provider, id ) => ipcRendererInvoke( 'getSiteVisibility', provider, id ),
+	setSiteVisibility: ( provider, id, value ) =>
+		ipcRendererInvoke( 'setSiteVisibility', provider, id, value ),
 	getRemoteSites: ( provider, localSiteId ) =>
 		ipcRendererInvoke( 'getRemoteSites', provider, localSiteId ),
 	listAccountSites: ( provider ) => ipcRendererInvoke( 'listAccountSites', provider ),
 	connectRemoteSite: ( provider, localSiteId, site ) =>
 		ipcRendererInvoke( 'connectRemoteSite', provider, localSiteId, site ),
+	resolveRemoteSite: ( provider, input ) =>
+		ipcRendererInvoke( 'resolveRemoteSite', provider, input ),
+	runSitesAction: ( provider, action, input ) =>
+		ipcRendererInvoke( 'runSitesAction', provider, action, input ),
 	disconnectRemoteSite: ( provider, localSiteId, remoteSiteId ) =>
 		ipcRendererInvoke( 'disconnectRemoteSite', provider, localSiteId, remoteSiteId ),
-	createRemoteSite: ( provider, localSiteId, name ) =>
-		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, name ),
+	getSiteCreationVisibility: ( provider, input ) =>
+		ipcRendererInvoke( 'getSiteCreationVisibility', provider, input ),
+	createRemoteSite: ( provider, localSiteId, site, connect ) =>
+		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, site, connect ),
 	pushSite: ( provider, siteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pushSite', provider, siteId, remoteSiteId, options ),
 	pullSite: ( provider, siteId, remoteSiteId, options ) =>
@@ -137,9 +148,13 @@ const api: IpcApi = {
 	connectAiProvider: ( provider, method, input ) =>
 		ipcRendererInvoke( 'connectAiProvider', provider, method, input ),
 	disconnectAiProvider: ( provider ) => ipcRendererInvoke( 'disconnectAiProvider', provider ),
+	listAiProviderModels: ( provider ) => ipcRendererInvoke( 'listAiProviderModels', provider ),
+	selectAiProviderModels: ( provider, models ) =>
+		ipcRendererInvoke( 'selectAiProviderModels', provider, models ),
 	startProviderConnect: ( provider, method ) =>
 		ipcRendererInvoke( 'startProviderConnect', provider, method ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
+	setImageProvider: ( provider ) => ipcRendererInvoke( 'setImageProvider', provider ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
@@ -157,11 +172,14 @@ const api: IpcApi = {
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
-	getWordPressSkillsStatusAllSites: () => ipcRendererInvoke( 'getWordPressSkillsStatusAllSites' ),
-	installWordPressSkillsToAllSites: ( options ) =>
-		ipcRendererInvoke( 'installWordPressSkillsToAllSites', options ),
-	removeWordPressSkillFromAllSites: ( skillId ) =>
-		ipcRendererInvoke( 'removeWordPressSkillFromAllSites', skillId ),
+	getGlobalSkills: () => ipcRendererInvoke( 'getGlobalSkills' ),
+	setGlobalSkillEnabled: ( source, id, enabled ) =>
+		ipcRendererInvoke( 'setGlobalSkillEnabled', source, id, enabled ),
+	removeGlobalSkill: ( id ) => ipcRendererInvoke( 'removeGlobalSkill', id ),
+	openGlobalSkill: ( source, id ) => ipcRendererInvoke( 'openGlobalSkill', source, id ),
+	createSkill: ( siteId, draft ) => ipcRendererInvoke( 'createSkill', siteId, draft ),
+	getSkill: ( siteId, id ) => ipcRendererInvoke( 'getSkill', siteId, id ),
+	updateSkill: ( siteId, id, draft ) => ipcRendererInvoke( 'updateSkill', siteId, id, draft ),
 	getSiteAgentFiles: ( siteId, kind ) => ipcRendererInvoke( 'getSiteAgentFiles', siteId, kind ),
 	setSiteAgentFileEnabled: ( siteId, kind, id, enabled ) =>
 		ipcRendererInvoke( 'setSiteAgentFileEnabled', siteId, kind, id, enabled ),
@@ -184,6 +202,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
 	setAiSessionProvider: ( sessionId, provider, model ) =>
 		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
+	setAiSessionThinking: ( sessionId, model, thinking ) =>
+		ipcRendererInvoke( 'setAiSessionThinking', sessionId, model, thinking ),
 	setAiSessionEnvironment: ( sessionId, environment ) =>
 		ipcRendererInvoke( 'setAiSessionEnvironment', sessionId, environment ),
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),

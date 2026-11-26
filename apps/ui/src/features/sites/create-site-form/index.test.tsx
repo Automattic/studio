@@ -814,13 +814,13 @@ describe( 'CreateSiteForm fields', () => {
 		advanced();
 		expect( screen.queryByRole( 'combobox', { name: /runtime/i } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'combobox', { name: 'File access' } ) ).toHaveTextContent(
-			'Site directory'
+			'All files'
 		);
-		await chooseOption( 'File access', /^All files/ );
+		await chooseOption( 'File access', /^Site directory/ );
 		await waitFor( () => expect( submitButton() ).toBeEnabled() );
 		fireEvent.click( submitButton() );
 		expect( onSubmit ).toHaveBeenCalledWith(
-			expect.objectContaining( { fileAccess: 'all-files' } )
+			expect.objectContaining( { fileAccess: 'site-directory' } )
 		);
 		expect( onSubmit.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'runtime' );
 	} );

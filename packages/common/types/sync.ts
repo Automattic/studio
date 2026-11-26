@@ -9,11 +9,15 @@ export {
 	type SyncSupport,
 } from '@studio/providers/wpcom';
 
-// Phases a push moves through: Studio builds the archive, then the provider
-// takes over (`PushStatus`).
+// Phases a push moves through: Studio builds the archive, or renders a static copy from the
+// running site, then the provider takes over (`PushStatus`).
 export const PUSH_PHASES = [
 	'creatingBackup',
+	'startingSite',
+	'generatingStaticSite',
+	'stoppingSite',
 	'uploading',
+	'waitingForRemote',
 	'creatingRemoteBackup',
 	'applyingChanges',
 	'finishing',

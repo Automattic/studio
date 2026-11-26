@@ -1,7 +1,3 @@
-import { __ } from '@wordpress/i18n';
-import { useRef, useState } from 'react';
-import { useRenameSnapshot } from '@/data/queries/use-snapshots';
-import { getSnapshotHostname } from '@/data/snapshot-url';
 import {
 	Button,
 	Dialog,
@@ -12,7 +8,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 	Input,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { __ } from '@wordpress/i18n';
+import { useRef, useState } from 'react';
+import { useRenameSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
+import { getSnapshotName } from '@/data/snapshot-name';
+import { getSnapshotHostname } from '@/data/snapshot-url';
 import styles from './style.module.css';
 import type { Snapshot } from '@/data/core';
 
@@ -24,8 +25,10 @@ export function RenamePreviewDialog( {
 	onClose: () => void;
 } ) {
 	const rename = useRenameSnapshot();
+	const snapshots = useSnapshots( snapshot.userId );
+	const currentName = getSnapshotName( snapshot, snapshots.data );
 	const inputRef = useRef< HTMLInputElement >( null );
-	const [ name, setName ] = useState( snapshot.name ?? '' );
+	const [ name, setName ] = useState( currentName );
 	return (
 		<Dialog open onOpenChange={ ( next ) => ! next && ! rename.isPending && onClose() }>
 			<DialogContent
@@ -39,7 +42,7 @@ export function RenamePreviewDialog( {
 					onSubmit={ ( event ) => {
 						event.preventDefault();
 						if ( ! name.trim() || rename.isPending ) return;
-						if ( name.trim() === snapshot.name ) {
+						if ( name.trim() === currentName ) {
 							onClose();
 							return;
 						}

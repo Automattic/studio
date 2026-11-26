@@ -7,8 +7,8 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { __, sprintf } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
 import { StudioCliInstallationManager } from 'src/modules/cli/lib/ipc-handlers';
+import { readDesktopState, updateDesktopState } from 'src/storage/desktop-state';
 import { getResourcesPath } from 'src/storage/paths';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
 
 export async function showCliErrorDialog( title: string, message: string ): Promise< void > {
 	const mainWindow = await getMainWindow();
@@ -100,7 +100,7 @@ export class UnixCliInstallationManager implements StudioCliInstallationManager 
 	async installCliWithConfirmation(): Promise< void > {
 		try {
 			await this.installCli();
-			await updateAppdata( { cliUserUninstalled: false } );
+			await updateDesktopState( { cliUserUninstalled: false } );
 		} catch ( error ) {
 			console.error( 'Failed to install CLI', error );
 
@@ -133,7 +133,7 @@ export class UnixCliInstallationManager implements StudioCliInstallationManager 
 		try {
 			await this.uninstallCli();
 			await this.config.onUninstalled?.();
-			await updateAppdata( { cliUserUninstalled: true } );
+			await updateDesktopState( { cliUserUninstalled: true } );
 			await showCliInfoDialog(
 				__( 'CLI uninstalled' ),
 				__( 'The CLI has been uninstalled successfully.' )
@@ -155,7 +155,7 @@ export class UnixCliInstallationManager implements StudioCliInstallationManager 
 	}
 
 	async autoInstallIfNeeded(): Promise< void > {
-		const userData = await loadUserData();
+		const userData = await readDesktopState();
 		if ( userData.cliUserUninstalled ) {
 			return;
 		}

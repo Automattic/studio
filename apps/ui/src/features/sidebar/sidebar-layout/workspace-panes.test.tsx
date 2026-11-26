@@ -65,6 +65,25 @@ afterEach( () => {
 } );
 
 describe( 'workspace sidebar layout', () => {
+	it.each( [
+		{ end: 193, closed: false },
+		{ end: 192, closed: true },
+	] )( 'closes on release past the sidebar threshold ($end)', async ( { end, closed } ) => {
+		await setup();
+		const handle = screen.getByRole( 'separator', { name: 'Resize sidebar' } );
+		fireEvent.keyDown( handle, { key: 'ArrowRight', shiftKey: true } );
+		fireEvent.mouseDown( handle, { button: 0, clientX: 296 } );
+		fireEvent.mouseUp( document, { clientX: end } );
+		expect( docked() ).toBe( ! closed );
+		if ( closed ) {
+			fireEvent.click( toggle() );
+			expect( screen.getByRole( 'separator', { name: 'Resize sidebar' } ) ).toHaveAttribute(
+				'aria-valuenow',
+				'296'
+			);
+		}
+	} );
+
 	it( 'preserves a manual close through narrow and wide windows', async () => {
 		await setup();
 		fireEvent.click( toggle() );

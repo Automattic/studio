@@ -106,7 +106,7 @@ test.describe( 'Chat', () => {
 		await composer().press( 'Enter' );
 		await expect( chip ).toBeVisible();
 		await expect
-			.poll( async () => ( await session.getAppConfig() ).autoStartSiteOnChat )
+			.poll( async () => ( await session.getPreferences() ).autoStartSiteOnChat )
 			.toBe( true );
 
 		await composer().fill( 'Build a home page' );

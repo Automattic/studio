@@ -1,6 +1,6 @@
+import { FolderIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { AppIcon } from '@/features/sites/app-icon';
-import { FolderIcon } from '@/lib/icons';
 import type { ReactElement } from 'react';
 
 export function getFileManager(): { label: string; logo: ReactElement } {

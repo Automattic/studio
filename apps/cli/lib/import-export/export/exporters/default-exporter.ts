@@ -34,7 +34,7 @@ import {
 	StudioJson,
 	StudioJsonPluginOrTheme,
 } from '../types';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 	( name ) => `wp-content/mu-plugins/${ name }`
@@ -365,7 +365,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		return studioJsonPath;
 	}
 
-	private async getSitePlugins( site: SiteData ) {
+	private async getSitePlugins( site: ConfigSite ) {
 		await using command = await runWpCliCommand(
 			site,
 			[
@@ -411,7 +411,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private async getSiteThemes( site: SiteData ) {
+	private async getSiteThemes( site: ConfigSite ) {
 		await using command = await runWpCliCommand(
 			site,
 			[

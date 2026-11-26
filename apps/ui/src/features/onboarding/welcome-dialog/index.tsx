@@ -1,31 +1,34 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Button, Checkbox, Field, FieldLabel } from '@studio/ds';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useAnalyticsExposure } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useSites } from '@/data/queries/use-sites';
+import {
+	ONBOARDING_COMPLETED_QUERY_KEY,
+	useWelcomeOpen,
+} from '@/data/queries/use-onboarding-completed';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AccountPromptDialog } from '@/features/account';
-import { Button, Checkbox, Field, FieldLabel } from '@/lib/ui';
 import styles from './style.module.css';
 import type { OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 
 export function WelcomeDialog() {
-	const { welcome } = useSearch( { strict: false } ) as { welcome?: true };
-	return welcome ? <WelcomeFlow /> : null;
+	return useWelcomeOpen() ? <WelcomeFlow /> : null;
 }
 
 function WelcomeFlow() {
 	const navigate = useNavigate();
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const locale = useUserLocale();
 	const { data: authUser, isPending: authLoading } = useAuthUser();
-	const { data: sites } = useSites();
 	const { data: preferences } = useUserPreferences();
 	const savePreferences = useSaveUserPreferences();
 	const [ authenticationStarted, setAuthenticationStarted ] = useState( false );
@@ -58,13 +61,10 @@ function WelcomeFlow() {
 					completion_path: completionPath,
 					journey_id: journeyId,
 				} );
+				queryClient.setQueryData( ONBOARDING_COMPLETED_QUERY_KEY, true );
 				await navigate( {
 					to: '.',
-					search: ( previous: Record< string, unknown > ) => ( {
-						...previous,
-						welcome: undefined,
-						addSite: sites?.length ? undefined : 'create',
-					} ),
+					search: ( previous: Record< string, unknown > ) => ( { ...previous, addSite: 'create' } ),
 				} );
 			} catch {
 				finishingRef.current = false;
@@ -72,7 +72,7 @@ function WelcomeFlow() {
 				setFinishError( true );
 			}
 		},
-		[ connector, navigate, sites, journeyId ]
+		[ connector, queryClient, navigate, journeyId ]
 	);
 
 	useEffect( () => {

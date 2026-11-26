@@ -10,7 +10,7 @@ import {
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { onCancel } from 'cli/lib/sync-activity';
 import { LoggerError } from 'cli/logger';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 // Staged inside the site folder, next to the site WP-CLI loads: the driver, the plugin, the
 // database copy and the output. One per export, removed afterwards.
@@ -18,7 +18,7 @@ const STAGING_PREFIX = '.studio-static-export-';
 const DATABASE_FILE = '.ht.sqlite';
 
 export type StaticExportOptions = {
-	site: SiteData;
+	site: ConfigSite;
 	// URL the running site is served on. Pages are crawled from it.
 	sourceUrl: string;
 	outputDir: string;
@@ -74,6 +74,8 @@ export async function exportStaticSite( {
 		await using command = await runWpCliCommand( site, [
 			'--no-color',
 			`--require=${ path.basename( stagingDir ) }/static-export.php`,
+			// A copy the site has installed itself would redeclare the bundled one's functions.
+			'--skip-plugins=simply-static',
 			'studio-static-export',
 		] );
 

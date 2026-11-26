@@ -1,11 +1,11 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { LOCKFILE_STALE_TIME, SESSIONS_MIGRATION_LOCKFILE_NAME } from '@studio/common/constants';
+import { SESSIONS_MIGRATION_LOCKFILE_NAME } from '@studio/common/constants';
 import { redactHomePaths } from '@studio/common/lib/error-reporting';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getConfigDirectory, getSessionsDirectory } from '@studio/common/lib/well-known-paths';
-import type { Migration } from '@studio/common/lib/migration';
+import type { StartupTask } from '@studio/common/lib/startup-tasks';
 
 const SESSIONS_MIGRATION_LOCK_WAIT_TIME = 10 * 60 * 1000;
 
@@ -188,37 +188,19 @@ export function resolveMigratedAiSessionsPath(
 	return target;
 }
 
-interface SessionsMigrationLockOptions {
-	wait?: number;
-	stale?: number;
-	update?: number;
-}
-
 export async function withSessionsMigrationLock(
 	lockPath: string,
-	task: () => Promise< void >,
-	options: SessionsMigrationLockOptions = {}
+	task: () => Promise< void >
 ): Promise< void > {
-	const stale = options.stale ?? LOCKFILE_STALE_TIME;
-	const update = options.update ?? Math.max( 1, Math.floor( stale / 2 ) );
-	await lockFileAsync( lockPath, {
-		wait: options.wait ?? SESSIONS_MIGRATION_LOCK_WAIT_TIME,
-		stale,
-	} );
-	const heartbeat = setInterval( () => {
-		const now = new Date();
-		void fs.promises.utimes( lockPath, now, now ).catch( () => {} );
-	}, update );
-	heartbeat.unref();
+	await lockFileAsync( lockPath, { wait: SESSIONS_MIGRATION_LOCK_WAIT_TIME } );
 	try {
 		await task();
 	} finally {
-		clearInterval( heartbeat );
 		await unlockFileAsync( lockPath );
 	}
 }
 
-export const moveAiSessionsToStudioDir: Migration = {
+export const moveAiSessionsToStudioDir: StartupTask = {
 	async needsToRun() {
 		if ( process.env.E2E || process.env.DEV_CONFIG_DIR ) {
 			return false;

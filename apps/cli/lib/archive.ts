@@ -16,8 +16,7 @@ const STUDIO_LOADER_ARCHIVE_PATH = `wp-content/mu-plugins/${ STUDIO_LOADER_MU_PL
 // Plugins WordPress.com provides on every Atomic site. Their folders are left out of WordPress.com
 // preview archives: WordPress.com's importer keeps its own managed copy and ignores uploaded ones
 // (wpcomsh skips any uploaded plugin directory that `/wordpress/plugins/<slug>/latest` covers),
-// and activation lives in the database, so the plugin stays active on the preview. A Jurassic
-// Ninja preview replaces its whole `wp-content` with the archive, so its archive keeps them.
+// and activation lives in the database, so the plugin stays active on the preview.
 const WORDPRESS_COM_PROVIDED_PLUGINS = new Set( [
 	'jetpack',
 	'akismet',
@@ -39,7 +38,7 @@ export type ArchiveEntry = {
 
 export type PreviewArchiveOptions = {
 	// Whether the archive goes to a WordPress.com preview, which already has WordPress.com's
-	// managed plugins and themes. A Jurassic Ninja preview needs every file the site runs.
+	// managed plugins and themes. Without it, every file the site runs is listed.
 	onWpcom: boolean;
 };
 

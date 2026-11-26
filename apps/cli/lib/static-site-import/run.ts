@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { runWpCliCommand, type RunWpCliCommandOptions } from 'cli/lib/run-wp-cli-command';
 import {
@@ -11,6 +10,7 @@ import {
 	type StaticSiteImportPlan,
 } from 'cli/lib/static-site-import/source';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 export const STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS = 30_000;
 const STATIC_SITE_IMPORT_DIR = '.studio-import';
@@ -84,10 +84,6 @@ function receiptResponseError(
 	return error as Record< string, unknown >;
 }
 
-function receiptErrorCode( receipt: Record< string, unknown > | undefined ): unknown {
-	return receiptResponseError( receipt )?.code;
-}
-
 export function staticSiteImportReceiptError(
 	receipt: Record< string, unknown > | undefined
 ): string {
@@ -100,15 +96,6 @@ export function staticSiteImportReceiptError(
 	const detail = [ code, message ]
 		.filter( ( value ) => typeof value === 'string' && value )
 		.join( ': ' );
-	if ( code === 'static_site_importer_quality_failed' ) {
-		return sprintf(
-			/* translators: %s: Static Site Importer quality validation detail */
-			__(
-				'Static Site Importer materialized a preview but did not accept it. The site and staged request were preserved: %s'
-			),
-			detail || __( 'Quality validation failed.' )
-		);
-	}
 	return detail;
 }
 
@@ -148,7 +135,7 @@ function staticSiteImportProgressMessage( phase: 'import' | 'finalization', elap
 }
 
 async function runWpCli(
-	site: SiteData,
+	site: ConfigSite,
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< WpCliResult > {
@@ -166,7 +153,7 @@ function wpCliFailureDetail( { exitCode, stdout, stderr }: WpCliResult ): string
 }
 
 async function cleanupStaticSiteImporterPlugin(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< LoggerAction >
 ): Promise< boolean > {
 	try {
@@ -201,7 +188,7 @@ async function cleanupStaticSiteImporterPlugin(
 	}
 }
 
-function reportRetainedImportedSite( site: SiteData ): void {
+function reportRetainedImportedSite( site: ConfigSite ): void {
 	console.log( '' );
 	console.log(
 		site.running
@@ -232,7 +219,7 @@ export class StaticSiteImportRun {
 	) {}
 
 	/** Records the site already registered at the path, and whether its staged import is this one. */
-	canResumeOn( existingSite: SiteData | undefined ): existingSite is SiteData {
+	canResumeOn( existingSite: ConfigSite | undefined ): existingSite is ConfigSite {
 		this.siteAlreadyExisted = Boolean( existingSite );
 		const requestPath = staticSiteImportRequestPath( this.sitePath );
 		return Boolean(
@@ -244,7 +231,7 @@ export class StaticSiteImportRun {
 		);
 	}
 
-	async resume( site: SiteData ): Promise< void > {
+	async resume( site: ConfigSite ): Promise< void > {
 		try {
 			await this.run( site, true );
 		} catch ( error ) {
@@ -253,7 +240,7 @@ export class StaticSiteImportRun {
 		}
 	}
 
-	async run( site: SiteData, resume = false ): Promise< void > {
+	async run( site: ConfigSite, resume = false ): Promise< void > {
 		this.outcome = 'attempted';
 		const { logger } = this;
 		const { request, sourcePath } = this.plan;
@@ -297,15 +284,11 @@ export class StaticSiteImportRun {
 		const { exitCode, stdout } = result;
 		const receipt = decodeStaticSiteImportReceipt( stdout );
 		const receiptError = staticSiteImportReceiptError( receipt );
-		const failureCode =
-			receiptErrorCode( receipt ) === 'static_site_importer_quality_failed'
-				? 'ssi_quality_failed'
-				: 'ssi_import';
 		if ( exitCode !== 0 ) {
 			throw new LoggerError(
 				__( 'Static site import failed.' ),
 				new Error( receiptError || wpCliFailureDetail( result ) ),
-				failureCode
+				'ssi_import'
 			);
 		}
 		if ( receipt?.schema !== STATIC_SITE_IMPORT_RECEIPT_SCHEMA || receipt.status !== 'completed' ) {
@@ -314,7 +297,7 @@ export class StaticSiteImportRun {
 				new Error(
 					receiptError || stdout.trim() || __( 'The importer did not return a receipt.' )
 				),
-				failureCode
+				'ssi_import'
 			);
 		}
 		const finalizationStartedAt = Date.now();
@@ -328,7 +311,7 @@ export class StaticSiteImportRun {
 	}
 
 	/** After a failure, reports the site as kept for a rerun when the import already touched it. */
-	retainSiteAfterFailure( site: SiteData ): boolean {
+	retainSiteAfterFailure( site: ConfigSite ): boolean {
 		if ( this.outcome === 'not-attempted' ) {
 			return false;
 		}

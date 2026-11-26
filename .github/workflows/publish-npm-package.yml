@@ -72,6 +72,20 @@ jobs:
           jq --arg version "$VERSION" '.version = $version | .packages[0].version = $version' server.json > server.tmp
           mv server.tmp server.json
 
+      # The registry rejects a version npm doesn't serve yet, which takes a moment after publishing.
+      - name: Wait for npm to serve the published version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          for attempt in $(seq 1 30); do
+            if curl -fsS -o /dev/null "https://registry.npmjs.org/wp-studio/${VERSION}"; then
+              exit 0
+            fi
+            echo "wp-studio@${VERSION} is not on npm yet (attempt ${attempt} of 30)"
+            sleep 10
+          done
+          echo "::error::npm did not serve wp-studio@${VERSION} within 5 minutes"
+          exit 1
+
       - name: Publish to the MCP Registry
         run: |
           ./mcp-publisher login github-oidc

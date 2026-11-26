@@ -3,11 +3,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { __, sprintf } from '@wordpress/i18n';
-import { readAppConfig } from '@studio/common/lib/app-config';
+import { readConfig } from '@studio/common/lib/config/store';
 import { browserConfig, SUPPORTED_BROWSERS, type SupportedBrowser } from './browser';
 
 export async function readPreferredBrowser(): Promise< SupportedBrowser | null > {
-	const { preferredBrowser } = await readAppConfig();
+	const { preferredBrowser } = ( await readConfig() ).preferences;
 	return SUPPORTED_BROWSERS.includes( preferredBrowser as SupportedBrowser )
 		? ( preferredBrowser as SupportedBrowser )
 		: null;

@@ -22,28 +22,22 @@ import path from 'node:path';
 import { type SiteInfo } from '@studio/agent/node';
 import { writeGlobalInstructions } from '@studio/agent/node/global-instructions';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { addConnectedWpcomSite } from '@studio/common/lib/connected-sites';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { CONFIG_VERSION } from '@studio/common/lib/config/schema';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { portFinder } from '@studio/common/lib/port-finder';
-import { readProviderConfig, writeProviderConfig } from '@studio/common/lib/provider-config';
 import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
-import { getConfigDirectory, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
+import { SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
+import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema } from '@studio/common/types/sync';
-import { PROVIDER_IDS, SITES_PROVIDER_IDS } from '@studio/providers';
+import { SITES_PROVIDER_IDS } from '@studio/providers';
 import { z } from 'zod';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
 import { summarizeTiming } from 'cli/ai/eval-timing';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { killDaemonAndChildren } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
@@ -143,8 +137,8 @@ interface SeededFixtures {
 }
 
 /**
- * Writes the requested fixtures into cli.json (local site + snapshots) and
- * shared.json (connected WordPress.com sites). Returns a cleanup function that
+ * Writes the requested fixtures into the config file (local site, snapshots,
+ * connected sites). Returns a cleanup function that
  * removes exactly what was added, so reruns start from a clean slate.
  * `globalInstructions` is the exception: it overwrites the user's real
  * instructions file, so cleanup restores the prior content instead.
@@ -157,62 +151,47 @@ function siteSlug( name: string ): string {
 		.replace( /^-|-$/g, '' );
 }
 
-const REGISTRY_PREFIX = 'studio-eval-registry-';
-
-// Each eval runs against its own Studio site registry (cli.json), so sites that
-// other Studio sessions on this machine create never enter the turn, and
-// concurrent cases do not see each other's sites. Ports already given to the
-// user's sites and to other eval registries stay reserved.
-async function isolateSiteRegistry() {
-	const ports = ( await readCliConfig() ).sites.map( ( site ) => site.port );
-	for ( const entry of readdirSync( os.tmpdir() ) ) {
-		if ( ! entry.startsWith( REGISTRY_PREFIX ) ) continue;
-		try {
-			const registry = JSON.parse(
-				readFileSync( path.join( os.tmpdir(), entry, 'cli.json' ), 'utf8' )
-			) as { sites?: Array< { port: number } > };
-			ports.push( ...( registry.sites ?? [] ).map( ( site ) => site.port ) );
-		} catch {
-			// A registry with no sites yet.
-		}
-	}
-	for ( const port of ports ) {
-		portFinder.addUnavailablePort( port );
-	}
-	process.env.E2E = '1';
-	process.env.E2E_CLI_CONFIG_PATH = mkdtempSync( path.join( os.tmpdir(), REGISTRY_PREFIX ) );
-}
+const CONFIG_PREFIX = 'studio-eval-config-';
 
 // What Studio downloads once per machine, which every eval reads as the user's
 // Studio does.
 const STUDIO_DOWNLOADS = [ 'server-files', 'php-bin', 'import-runtime', 'mu-plugins' ];
 
 // Each eval runs against its own Studio config directory, connected to the
-// user's providers, so what a case seeds (global instructions, WordPress.com
-// connections) and what its turn changes stay in the case: concurrent cases
-// and the user's own Studio never see them. Each provider's config moves
-// through Studio's provider storage, so a provider added later carries over.
+// user's providers, so sites that other Studio sessions on this machine create
+// never enter the turn, and what a case seeds (sites, global instructions,
+// connections) and what its turn changes stay in the case. Ports already given
+// to the user's sites and to other evals' sites stay reserved.
 async function isolateStudioConfig() {
 	const userDir = getConfigDirectory();
-	const { version, aiProvider } = JSON.parse(
-		readFileSync( getSharedConfigPath(), 'utf8' )
-	) as Record< string, unknown >;
-	const configs = await Promise.all(
-		PROVIDER_IDS.map( async ( id ) => [ id, await readProviderConfig( id ) ] as const )
-	);
-	const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-eval-config-' ) );
+	const { sites, providers, install } = await readConfig();
+	const ports = sites.map( ( site ) => site.port );
+	for ( const entry of readdirSync( os.tmpdir() ) ) {
+		if ( ! entry.startsWith( CONFIG_PREFIX ) ) continue;
+		try {
+			const config = JSON.parse(
+				readFileSync( path.join( os.tmpdir(), entry, 'config.json' ), 'utf8' )
+			) as { sites?: Array< { port: number } > };
+			ports.push( ...( config.sites ?? [] ).map( ( site ) => site.port ) );
+		} catch {
+			// A config with no sites yet.
+		}
+	}
+	for ( const port of ports ) {
+		portFinder.addUnavailablePort( port );
+	}
+	const dir = mkdtempSync( path.join( os.tmpdir(), CONFIG_PREFIX ) );
 	for ( const name of STUDIO_DOWNLOADS ) {
 		if ( existsSync( path.join( userDir, name ) ) ) {
 			symlinkSync( path.join( userDir, name ), path.join( dir, name ) );
 		}
 	}
-	writeFileSync( path.join( dir, 'shared.json' ), JSON.stringify( { version, aiProvider } ) );
-	process.env.E2E_SHARED_CONFIG_PATH = dir;
-	for ( const [ id, config ] of configs ) {
-		if ( config ) {
-			await writeProviderConfig( id, config );
-		}
-	}
+	writeFileSync(
+		path.join( dir, 'config.json' ),
+		JSON.stringify( { version: CONFIG_VERSION, providers, install } )
+	);
+	process.env.E2E = '1';
+	process.env.DEV_CONFIG_DIR = dir;
 }
 
 // Stopped sites the request is not about, as a user with a few sites has, so
@@ -230,7 +209,7 @@ async function createBystanderSites(): Promise< string[] > {
 					name,
 					wpVersion: 'latest',
 					phpVersion: DEFAULT_PHP_VERSION,
-					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					fileAccess: SITE_FILE_ACCESS_ALL_FILES,
 					enableHttps: false,
 					noStart: true,
 					skipBrowser: true,
@@ -275,9 +254,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	const authUserId = ( await readAuthToken() )?.id;
 
 	if ( localSite || snapshots.length > 0 ) {
-		try {
-			await lockCliConfig();
-			const config = await readCliConfig();
+		await updateConfig( ( config ) => {
 			if ( localSite && ! config.sites.some( ( s ) => s.id === localSite.id ) ) {
 				config.sites.push( {
 					id: localSite.id,
@@ -295,14 +272,11 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 						: snapshot
 				);
 			}
-			await saveCliConfig( config );
-		} finally {
-			await unlockCliConfig();
-		}
+		} );
 	}
 
 	for ( const site of connectedWpcomSites ) {
-		await addConnectedWpcomSite( site.localSiteId, site );
+		await rememberRemoteSite( 'wpcom', site.localSiteId, site );
 	}
 	for ( const { provider, localSiteId, site } of remoteSites ) {
 		await rememberRemoteSite( provider, localSiteId, site as never );
@@ -320,7 +294,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 				name: activeSite.name,
 				wpVersion: 'latest',
 				phpVersion: DEFAULT_PHP_VERSION,
-				fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+				fileAccess: SITE_FILE_ACCESS_ALL_FILES,
 				enableHttps: false,
 				noStart: false,
 				skipBrowser: true,
@@ -358,7 +332,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 		};
 		const { id: localSiteId } = await getSiteByFolder( activeSitePath );
 		for ( const connection of activeSite.connectedWpcomSites ?? [] ) {
-			await addConnectedWpcomSite( localSiteId, { ...connection, localSiteId } );
+			await rememberRemoteSite( 'wpcom', localSiteId, { ...connection, localSiteId } );
 		}
 	}
 
@@ -453,7 +427,6 @@ function readInput(): EvalRunnerInput {
 async function runEval( input: EvalRunnerInput ) {
 	const harness = selectHarness( input.harness );
 	const startedAt = Date.now();
-	await isolateSiteRegistry();
 	await isolateStudioConfig();
 	const bystanderPaths = await createBystanderSites();
 	let seeded: SeededFixtures | null = null;

@@ -1,32 +1,33 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { type TSchema } from 'typebox';
+import { Value } from 'typebox/value';
 import { vi } from 'vitest';
+import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { nodeHostServices } from '@studio/agent/node/node-host';
-import { validateBlocks } from '@studio/agent/shared/block-validator';
 import {
 	resolveConversationTools,
 	resolveStudioTools,
 	studioToolDefinitions,
 	withChatArtifactEmission,
 	type StudioToolsOptions,
-} from '@studio/agent/shared/tools';
-import { createSiteTool } from '@studio/agent/shared/tools/create-site';
+} from '@studio/agent/node/tools';
+import { createSiteTool } from '@studio/agent/node/tools/create-site';
 import {
 	bindTool,
 	LOCAL_CHANGE,
 	READ_ONLY,
 	REMOTE_READ,
 	type AnyStudioAgentTool,
-} from '@studio/agent/shared/tools/define-tool';
-import { enrichPreviewListOutput } from '@studio/agent/shared/tools/list-previews';
-import { createTakeScreenshotTool } from '@studio/agent/shared/tools/take-screenshot';
-import { splitCommandArgs } from '@studio/agent/shared/tools/wp-cli';
+} from '@studio/agent/node/tools/define-tool';
+import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
+import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
+import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
 import { createFakeHost, fakeRemoteSite, fakeSite } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
-vi.mock( '@studio/agent/shared/block-validator', () => ( {
+vi.mock( '@studio/agent/node/block-validator', () => ( {
 	validateBlocks: vi.fn(),
 } ) );
 
@@ -115,8 +116,7 @@ describe( 'Studio AI MCP tools', () => {
 
 	beforeEach( () => {
 		vi.resetAllMocks();
-		// The Node pages over a faked Playwright browser.
-		host = { ...createFakeHost( os.tmpdir() ), pages: nodeHostServices().pages };
+		host = createFakeHost( os.tmpdir() );
 	} );
 
 	it( 'offers refresh_browser only when a Studio UI shows the preview', async () => {
@@ -147,6 +147,12 @@ describe( 'Studio AI MCP tools', () => {
 		] ) {
 			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
 			expect( readOnlyHint || ( ! destructiveHint && ! openWorldHint ) ).toBe( false );
+		}
+	} );
+
+	it( 'declares no tool parameters with patternProperties', () => {
+		for ( const tool of studioToolDefinitions( host ) ) {
+			expect( JSON.stringify( tool.parameters ), tool.name ).not.toContain( 'patternProperties' );
 		}
 	} );
 
@@ -197,7 +203,6 @@ describe( 'Studio AI MCP tools', () => {
 		} as never );
 
 		expect( validateBlocks ).toHaveBeenCalledWith(
-			host.pages,
 			originalContent,
 			expect.stringContaining( 'localhost:8888' )
 		);
@@ -272,9 +277,7 @@ describe( 'Studio AI MCP tools', () => {
 
 		beforeEach( async () => {
 			screenshotDirectory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshots-' ) );
-			host.saveImage = nodeHostServices( {
-				imagesDirectory: () => screenshotDirectory,
-			} ).saveImage;
+			host.imagesDirectory = () => screenshotDirectory;
 		} );
 
 		afterEach( async () => {
@@ -324,6 +327,63 @@ describe( 'Studio AI MCP tools', () => {
 
 			expect( result.content.map( ( block ) => block.type ) ).toEqual( [ 'text' ] );
 			expect( result.studioArtifacts ).toBeUndefined();
+		} );
+
+		const openedUrl = async ( args: Record< string, unknown > ) => {
+			const page = createMockPage( {
+				buffer: Buffer.from( 'jpeg' ),
+				documentHeight: 900,
+			} );
+			mockScreenshotBrowser( page );
+			await getTool( 'take_screenshot' ).rawHandler( args as never );
+			return page.goto.mock.calls[ 0 ]?.[ 0 ];
+		};
+
+		it( 'screenshots the home page of a site resolved from nameOrPath', async () => {
+			const tool = getTool( 'take_screenshot' );
+			expect( Value.Check( tool.parameters as TSchema, { nameOrPath: 'My Site' } ) ).toBe( true );
+
+			await expect( openedUrl( { nameOrPath: 'My Site' } ) ).resolves.toBe(
+				'http://localhost:8888/'
+			);
+			expect( host.sites.resolve ).toHaveBeenCalledWith( 'My Site' );
+		} );
+
+		it( 'appends a normalized path to the resolved site url', async () => {
+			vi.mocked( host.sites.resolve ).mockResolvedValue( {
+				...mockSite,
+				url: 'http://localhost:8888/',
+			} );
+
+			await expect( openedUrl( { nameOrPath: '/sites/my-site', path: 'about' } ) ).resolves.toBe(
+				'http://localhost:8888/about'
+			);
+			await expect( openedUrl( { nameOrPath: 'My Site', path: '//blog/' } ) ).resolves.toBe(
+				'http://localhost:8888/blog/'
+			);
+			expect( host.sites.resolve ).toHaveBeenCalledWith( '/sites/my-site' );
+			expect( host.sites.resolve ).toHaveBeenCalledWith( 'My Site' );
+		} );
+
+		it( 'errors when neither url nor nameOrPath is provided', async () => {
+			const tool = getTool( 'take_screenshot' );
+			expect( Value.Check( tool.parameters as TSchema, {} ) ).toBe( true );
+
+			await expect( tool.rawHandler( {} as never ) ).rejects.toThrow(
+				'Screenshot failed: Provide either `url` or `nameOrPath`.'
+			);
+			expect( host.sites.resolve ).not.toHaveBeenCalled();
+		} );
+
+		it( 'uses url and ignores nameOrPath when both are given', async () => {
+			await expect(
+				openedUrl( {
+					url: 'http://example.test/exact',
+					nameOrPath: 'My Site',
+					path: '/about',
+				} )
+			).resolves.toBe( 'http://example.test/exact' );
+			expect( host.sites.resolve ).not.toHaveBeenCalled();
 		} );
 
 		it( 'says when the user sees only the saved file path', async () => {
@@ -569,6 +629,17 @@ describe( 'Studio AI MCP tools', () => {
 			path: '/sites/my-site',
 			running: true,
 		} );
+	} );
+
+	it( 'tells the agent when a deleted site left its files on disk', async () => {
+		vi.mocked( host.sites.delete ).mockResolvedValueOnce( {
+			warnings: [ 'The site files could not be moved to trash.' ],
+		} );
+
+		const result = await getTool( 'site_delete' ).rawHandler( { nameOrPath: 'My Site' } as never );
+
+		expect( host.sites.delete ).toHaveBeenCalledWith( mockSite, true, expect.any( Function ) );
+		expect( getTextContent( result ) ).toContain( 'The site files could not be moved to trash.' );
 	} );
 
 	it( 'lists previews as JSON for a resolved local site', async () => {
@@ -890,20 +961,20 @@ describe( 'Studio AI MCP tools', () => {
 		const sitePath = await mkdtemp( path.join( os.tmpdir(), 'studio-generate-images-' ) );
 		const site = { ...mockSite, path: sitePath };
 		const uploads = path.join( sitePath, 'wp-content', 'uploads' );
-		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
+		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.webp' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( host.sites.all ).mockResolvedValue( [ mockSite, site ] );
 		const generateImages = vi.fn().mockResolvedValue( [
-			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+			{ ok: true, bytes: Buffer.from( 'webp' ) },
 			{ ok: false, error: 'Timed out' },
-			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
+			{ ok: true, bytes: Buffer.from( 'webp' ) },
 		] );
 		vi.mocked( host.sites.wpCli )
 			.mockResolvedValueOnce( {
 				exitCode: 0,
 				stdout: JSON.stringify( [
-					{ id: 7, file: 'wp-content/uploads/2026/09/hero.png', url: urlOf( 'hero.png' ) },
-					{ id: 8, file: 'wp-content/uploads/2026/09/buns.png', url: urlOf( 'buns.png' ) },
+					{ id: 7, file: 'wp-content/uploads/2026/09/hero.webp', url: urlOf( 'hero.webp' ) },
+					{ id: 8, file: 'wp-content/uploads/2026/09/buns.webp', url: urlOf( 'buns.webp' ) },
 				] ),
 				stderr: '',
 			} )
@@ -913,24 +984,24 @@ describe( 'Studio AI MCP tools', () => {
 			host.imageGenerator = async () => generateImages;
 			const result = await getTool( 'generate_images' ).rawHandler( {
 				images: [
-					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },
-					{ path: path.join( uploads, 'buns.png' ), subject: 'Cardamom buns on a tray' },
+					{ path: path.join( uploads, 'hero.webp' ), subject: 'A café counter at dawn' },
+					{ path: path.join( uploads, 'buns.webp' ), subject: 'Cardamom buns on a tray' },
 					{ path: themeImage, subject: 'Pebbles on a beach' },
 				],
 			} as never );
 
 			expect( getTextContent( result ) ).toContain(
-				`- ${ path.join( uploads, '2026', '09', 'hero.png' ) }, attachment ID 7, URL ${ urlOf(
-					'hero.png'
+				`- ${ path.join( uploads, '2026', '09', 'hero.webp' ) }, attachment ID 7, URL ${ urlOf(
+					'hero.webp'
 				) }`
 			);
 			expect( await result.pending ).toContain(
-				`FAILED ${ path.join( uploads, 'buns.png' ) }: Timed out`
+				`FAILED ${ path.join( uploads, 'buns.webp' ) }: Timed out`
 			);
 			await expect(
-				readFile( path.join( uploads, '2026', '09', 'hero.png' ), 'utf8' )
-			).resolves.toBe( 'jpeg' );
-			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'jpeg' );
+				readFile( path.join( uploads, '2026', '09', 'hero.webp' ), 'utf8' )
+			).resolves.toBe( 'webp' );
+			await expect( readFile( themeImage, 'utf8' ) ).resolves.toBe( 'webp' );
 			const finalize = vi.mocked( host.sites.wpCli ).mock.calls[ 1 ][ 1 ][ 1 ];
 			expect(
 				JSON.parse(

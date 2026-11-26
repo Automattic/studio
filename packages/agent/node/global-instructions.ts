@@ -1,17 +1,19 @@
 import fs from 'fs';
 import path from 'path';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
-import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { getGlobalInstructionsPath } from '@studio/common/lib/well-known-paths';
 
 export { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/agent/protocol/global-instructions-length';
 
 export async function getGlobalInstructionsEnabled(): Promise< boolean > {
-	return ( await readSharedConfig() ).globalInstructionsEnabled !== false;
+	return ( await readConfig() ).preferences.globalInstructionsEnabled !== false;
 }
 
 export async function setGlobalInstructionsEnabled( enabled: boolean ): Promise< void > {
-	await updateSharedConfig( { globalInstructionsEnabled: enabled } );
+	await updateConfig( ( { preferences } ) => {
+		preferences.globalInstructionsEnabled = enabled;
+	} );
 }
 
 /**

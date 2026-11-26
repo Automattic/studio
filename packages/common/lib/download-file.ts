@@ -20,14 +20,20 @@ export async function downloadFile(
 		}
 	}
 
+	// Node 24's own fetch (undici 7) kills the process with `assert(!this.paused)` when a server
+	// closes the connection while the file is still being written, as wordpress.org does
+	// (nodejs/undici#5360). undici 8 has the fix, and its own Agent keeps the download off Node's
+	// client. Imported here so that only downloads load it.
+	const { Agent, fetch } = await import( 'undici' );
+
 	const controller = new AbortController();
 	const timer = setTimeout(
 		() => controller.abort( new DOMException( 'No response from server', 'TimeoutError' ) ),
 		RESPONSE_TIMEOUT_MS
 	);
-	let response: Response;
+	let response;
 	try {
-		response = await fetch( url, { signal: controller.signal } );
+		response = await fetch( url, { signal: controller.signal, dispatcher: new Agent() } );
 	} finally {
 		clearTimeout( timer );
 	}

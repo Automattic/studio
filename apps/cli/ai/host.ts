@@ -1,17 +1,12 @@
 import path from 'path';
-import {
-	nodeHostServices,
-	type HostRemoteSite,
-	type HostSite,
-	type StudioAgentHost,
-} from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
-import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+import { SITE_FILE_ACCESS_ALL_FILES } from '@studio/common/lib/site-file-access';
+import { usesReprintPull } from '@studio/common/lib/sync/reprint-pull';
 import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -29,7 +24,7 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runPullCommand } from 'cli/commands/pull';
-import { runCommand as runLegacyPullCommand } from 'cli/commands/pull-legacy';
+import { runCommand as runArchivePullCommand } from 'cli/commands/pull-archive';
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
@@ -38,7 +33,6 @@ import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { getSiteStatus } from 'cli/commands/site/status';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { getWpComSites } from 'cli/lib/api';
-import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
@@ -49,6 +43,8 @@ import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { HostRemoteSite, HostSite, StudioAgentHost } from '@studio/agent/node';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 /**
  * The remote sites a local site is connected to, on every provider. With `fillIn`, each is filled
@@ -66,15 +62,16 @@ export async function connectedRemoteSites(
 				fillIn && stored.length
 					? await listAccountSites( getProviderServices( provider ) ).catch( () => undefined )
 					: undefined;
-			return ( account ? getProviderSites( provider ).withDetails( stored, account ) : stored ).map(
-				( remote ) => ( { provider, site: remote } )
-			);
+			return (
+				( account && getProviderSites( provider ).withDetails?.( stored, account ) ) ||
+				stored
+			).map( ( remote ) => ( { provider, site: remote } ) );
 		} )
 	);
 	return connected.flat();
 }
 
-function toHostSite( site: SiteData ): HostSite {
+function toHostSite( site: ConfigSite ): HostSite {
 	return {
 		id: site.id,
 		name: site.name,
@@ -85,8 +82,8 @@ function toHostSite( site: SiteData ): HostSite {
 	};
 }
 
-async function findSiteByName( name: string ): Promise< SiteData | undefined > {
-	const config = await readCliConfig();
+async function findSiteByName( name: string ): Promise< ConfigSite | undefined > {
+	const config = await readConfig();
 	const sites = config.sites.filter( ( site ) => site.name.toLowerCase() === name.toLowerCase() );
 	if ( sites.length > 1 ) {
 		const paths = sites.map( ( site ) => site.path ).join( ', ' );
@@ -97,7 +94,7 @@ async function findSiteByName( name: string ): Promise< SiteData | undefined > {
 	return sites[ 0 ];
 }
 
-async function resolveSite( nameOrPath: string ): Promise< SiteData > {
+async function resolveSite( nameOrPath: string ): Promise< ConfigSite > {
 	const siteByName = await findSiteByName( nameOrPath );
 	if ( siteByName ) {
 		return siteByName;
@@ -106,7 +103,7 @@ async function resolveSite( nameOrPath: string ): Promise< SiteData > {
 	// Also try matching by the last folder segment of the site path,
 	// since the agent may pass just the folder name instead of the full path.
 	if ( ! path.isAbsolute( nameOrPath ) ) {
-		const config = await readCliConfig();
+		const config = await readConfig();
 		const siteByFolder = config.sites.find( ( site ) => path.basename( site.path ) === nameOrPath );
 		if ( siteByFolder ) {
 			return siteByFolder;
@@ -134,7 +131,7 @@ export const cliAgentHost: StudioAgentHost = {
 			const site = await findSiteByFolder( folder );
 			return site && toHostSite( site );
 		},
-		all: async () => ( await readCliConfig() ).sites.map( toHostSite ),
+		all: async () => ( await readConfig() ).sites.map( toHostSite ),
 		list: () => listSites(),
 		status: ( site ) =>
 			withDaemon( async () => getSiteStatus( await getSiteByFolder( site.path ) ) ),
@@ -145,7 +142,7 @@ export const cliAgentHost: StudioAgentHost = {
 					name,
 					wpVersion: 'latest',
 					phpVersion: DEFAULT_PHP_VERSION,
-					fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+					fileAccess: SITE_FILE_ACCESS_ALL_FILES,
 					enableHttps: false,
 					noStart: false,
 					skipBrowser: true,
@@ -215,7 +212,7 @@ export const cliAgentHost: StudioAgentHost = {
 				new Logger( { onProgress } )
 			),
 		pull: async ( site, options, remoteSite, onProgress ) =>
-			isReprintPullEnabled()
+			usesReprintPull( remoteSite )
 				? runPullCommand(
 						site.path,
 						remoteSite,
@@ -223,7 +220,7 @@ export const cliAgentHost: StudioAgentHost = {
 						pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
 						onProgress
 				  )
-				: runLegacyPullCommand(
+				: runArchivePullCommand(
 						site.path,
 						parseSyncOptions( options ),
 						remoteSite,
@@ -277,5 +274,4 @@ export const cliAgentHost: StudioAgentHost = {
 			userAgent: getStudioUserAgent(),
 		} );
 	},
-	...nodeHostServices(),
 };

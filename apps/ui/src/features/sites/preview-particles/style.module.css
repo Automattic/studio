@@ -1,5 +1,5 @@
 .canvas {
-	composes: headerFade from '@/lib/theme/recipes.module.css';
+	composes: headerFade from '@studio/ds/theme/recipes.module.css';
 	--header-fade-opacity: 0.35;
 
 	position: absolute;

@@ -102,7 +102,8 @@ describe( 'AppToasts', () => {
 		expect( button ).toBeDisabled();
 
 		await act( async () => settle() );
-		expect( getVisibleToasts()[ 0 ] ).toMatchObject( { title: 'Chat archived', leaving: true } );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
+		expect( screen.queryByRole( 'button', { name: 'Undo' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'holds a toast open while it has keyboard focus', async () => {
@@ -124,7 +125,8 @@ describe( 'AppToasts', () => {
 			act( () => {
 				vi.advanceTimersByTime( 4_500 );
 			} );
-			expect( getVisibleToasts()[ 0 ].leaving ).toBe( true );
+			expect( getVisibleToasts() ).toHaveLength( 0 );
+			expect( screen.queryByRole( 'button', { name: 'Undo' } ) ).not.toBeInTheDocument();
 		} finally {
 			vi.useRealTimers();
 		}

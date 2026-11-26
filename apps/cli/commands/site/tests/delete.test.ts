@@ -1,50 +1,36 @@
 import fs from 'fs';
 import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
-import { forgetRemoteSites } from '@studio/common/lib/remote-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import trash from 'trash';
 import { vi } from 'vitest';
-import { deleteSnapshot } from 'cli/lib/api';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
-import {
-	SiteData,
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
+import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { runCommand, runDeleteCommand } from '../delete';
+import type { Config, ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'fs' );
-vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/preview-sites' );
 vi.mock( '@studio/agent/node/sessions/manage' );
-vi.mock( '@studio/common/lib/remote-sites', () => ( {
-	forgetRemoteSites: vi.fn(),
-} ) );
-vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
+vi.mock( import( '@studio/common/lib/auth-token' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/cli-config/core', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
-	return {
-		...actual,
-		lockCliConfig: vi.fn(),
-		readCliConfig: vi.fn(),
-		saveCliConfig: vi.fn(),
-		unlockCliConfig: vi.fn(),
-	};
-} );
+let config: Pick< Config, 'sites' | 'preferences' >;
+vi.mock( '@studio/common/lib/config/store', () => ( {
+	readConfig: vi.fn( async () => config ),
+	updateConfig: vi.fn( async ( update: ( value: typeof config ) => void ) => update( config ) ),
+} ) );
 vi.mock( 'cli/lib/cli-config/sites', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
@@ -76,7 +62,7 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 describe( 'CLI: studio site delete', () => {
 	const testSiteFolder = '/test/site/path';
 
-	const createTestSite = ( overrides?: Partial< SiteData > ): SiteData => ( {
+	const createTestSite = ( overrides?: Partial< ConfigSite > ): ConfigSite => ( {
 		id: 'test-site-id',
 		name: 'Test Site',
 		path: testSiteFolder,
@@ -121,7 +107,7 @@ describe( 'CLI: studio site delete', () => {
 		userId: 12345,
 	};
 
-	let testSite: SiteData;
+	let testSite: ConfigSite;
 	const originalExitCode = process.exitCode;
 
 	beforeEach( () => {
@@ -134,25 +120,17 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
 		vi.mocked( disconnectFromDaemon ).mockResolvedValue( undefined );
 		vi.mocked( readAuthToken ).mockResolvedValue( testAuthToken );
-		vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
-		vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-			version: 1,
-			sites: [ testSite ],
-			snapshots: [],
-		} );
-		vi.mocked( saveCliConfig ).mockResolvedValue( undefined );
-		vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
+		config = { sites: [ testSite ], preferences: {} };
 		vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 		vi.mocked( stopWordPressServer ).mockResolvedValue( undefined );
 		vi.mocked( removeDomainFromHosts ).mockResolvedValue( undefined );
 		vi.mocked( deleteSiteCertificate ).mockReturnValue( true );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
-		vi.mocked( deleteSnapshot ).mockResolvedValue( undefined );
+		vi.mocked( deleteSnapshotSite ).mockResolvedValue( undefined );
 		vi.mocked( deleteSnapshotFromConfig ).mockResolvedValue( undefined );
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a: string, b: string ) => a === b );
 		vi.mocked( deleteAiSessionsForSite ).mockResolvedValue( [] );
-		vi.mocked( forgetRemoteSites ).mockResolvedValue( undefined );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 	} );
 
@@ -163,7 +141,7 @@ describe( 'CLI: studio site delete', () => {
 
 	describe( 'Error Cases', () => {
 		it( 'should throw when appdata read fails', async () => {
-			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Read failed' ) );
+			vi.mocked( readConfig ).mockRejectedValueOnce( new Error( 'Read failed' ) );
 
 			await expect( runCommand( testSiteFolder ) ).rejects.toThrow();
 			expect( connectToDaemon ).not.toHaveBeenCalled();
@@ -171,11 +149,7 @@ describe( 'CLI: studio site delete', () => {
 		} );
 
 		it( 'should throw when site not found in appdata', async () => {
-			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-				version: 1,
-				sites: [],
-				snapshots: [],
-			} );
+			config.sites = [];
 
 			await expect( runCommand( testSiteFolder ) ).rejects.toThrow(
 				'The specified directory is not added to Studio.'
@@ -189,7 +163,7 @@ describe( 'CLI: studio site delete', () => {
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await expect( runCommand( testSiteFolder, false ) ).resolves.not.toThrow();
-			expect( saveCliConfig ).toHaveBeenCalled();
+			expect( config.sites ).toHaveLength( 0 );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
@@ -203,9 +177,7 @@ describe( 'CLI: studio site delete', () => {
 
 			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
 			expect( stopWordPressServer ).toHaveBeenCalledWith( testSite.id );
-			expect( saveCliConfig ).toHaveBeenCalled();
-			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
-			expect( savedCliConfig.sites ).toHaveLength( 0 );
+			expect( config.sites ).toHaveLength( 0 );
 			expect( stopProxyIfNoSitesNeedIt ).toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -213,11 +185,7 @@ describe( 'CLI: studio site delete', () => {
 		it( 'should delete both the visible site and the technical import directory', async () => {
 			testSite = createTestSite( { technicalSiteDirectory: '/test/.studio/imports/site' } );
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-				version: 1,
-				sites: [ testSite ],
-				snapshots: [],
-			} );
+			config.sites = [ testSite ];
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 			vi.spyOn( fs, 'existsSync' ).mockImplementation(
 				( filePath ) => filePath === testSiteFolder || filePath === '/test/.studio/imports/site'
@@ -234,14 +202,8 @@ describe( 'CLI: studio site delete', () => {
 			await runCommand( testSiteFolder );
 
 			expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( testAuthToken.id, testSiteFolder );
-			expect( deleteSnapshot ).toHaveBeenCalledWith(
-				testSnapshot1.atomicSiteId,
-				testAuthToken.accessToken
-			);
-			expect( deleteSnapshot ).toHaveBeenCalledWith(
-				testSnapshot2.atomicSiteId,
-				testAuthToken.accessToken
-			);
+			expect( deleteSnapshotSite ).toHaveBeenCalledWith( testSnapshot1, testAuthToken.accessToken );
+			expect( deleteSnapshotSite ).toHaveBeenCalledWith( testSnapshot2, testAuthToken.accessToken );
 			expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( testSnapshot1.url );
 			expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( testSnapshot2.url );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
@@ -250,26 +212,20 @@ describe( 'CLI: studio site delete', () => {
 		it( 'should remove custom domain from hosts file if present', async () => {
 			testSite = createTestSite( { customDomain: 'example.local' } );
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-				version: 1,
-				sites: [ testSite ],
-			} );
+			config.sites = [ testSite ];
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, false );
 
 			expect( removeDomainFromHosts ).toHaveBeenCalledWith( 'example.local' );
-			expect( deleteSnapshot ).not.toHaveBeenCalled();
+			expect( deleteSnapshotSite ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
 		it( 'should delete SSL certificate if custom domain and HTTPS are enabled', async () => {
 			testSite = createTestSite( { customDomain: 'example.local', enableHttps: true } );
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-				version: 1,
-				sites: [ testSite ],
-			} );
+			config.sites = [ testSite ];
 			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
 			await runCommand( testSiteFolder, false );
@@ -285,9 +241,7 @@ describe( 'CLI: studio site delete', () => {
 
 			await runCommand( testSiteFolder, true );
 
-			expect( saveCliConfig ).toHaveBeenCalled();
-			const savedCliConfig = vi.mocked( saveCliConfig ).mock.calls[ 0 ][ 0 ];
-			expect( savedCliConfig.sites ).toHaveLength( 0 );
+			expect( config.sites ).toHaveLength( 0 );
 			expect( trash ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -321,21 +275,19 @@ describe( 'CLI: studio site delete', () => {
 			);
 		} );
 
-		it( 'should proceed when deleting WordPress.com connections fails', async () => {
-			vi.mocked( forgetRemoteSites ).mockRejectedValue( new Error( 'shared config failed' ) );
+		it( 'should unpin the site from the sidebar', async () => {
+			config.preferences.sidebarPins = [ `site:${ testSite.id }`, 'site:other' ];
 
-			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
-			expect( forgetRemoteSites ).toHaveBeenCalledWith( testSite.id );
-			expect( saveCliConfig ).toHaveBeenCalled();
-			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
+			await runCommand( testSiteFolder, false );
+
+			expect( config.preferences.sidebarPins ).toEqual( [ 'site:other' ] );
 		} );
 
 		it( 'should proceed and still emit the deleted event when moving files to trash fails', async () => {
 			vi.mocked( trash ).mockRejectedValueOnce( new Error( 'File deletion failed' ) );
 
 			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
-			expect( saveCliConfig ).toHaveBeenCalled();
+			expect( config.sites ).toHaveLength( 0 );
 			expect( emitCliEvent ).toHaveBeenCalledWith(
 				expect.objectContaining( { event: SITE_EVENTS.DELETED } )
 			);
@@ -351,10 +303,20 @@ describe( 'CLI: studio site delete', () => {
 			} );
 
 			expect( result.sites[ 0 ]?.status ).toBe( 'deleted' );
-			expect( result.sites[ 0 ]?.warnings?.[ 0 ] ).toContain( 'File deletion failed' );
+			expect( result.sites[ 0 ]?.warnings?.[ 0 ] ).toContain( testSiteFolder );
+		} );
+
+		it( 'should report a warning when the files are still on disk after trashing', async () => {
+			const { warnings } = await runCommand( testSiteFolder, true );
+
+			expect( warnings ).toEqual( [ expect.stringContaining( testSiteFolder ) ] );
 		} );
 
 		it( 'should not report warnings on a clean delete', async () => {
+			vi.mocked( trash ).mockImplementationOnce( async () => {
+				vi.spyOn( fs, 'existsSync' ).mockReturnValue( false );
+			} );
+
 			const result = await runDeleteCommand( {
 				identities: [ testSiteFolder ],
 				deleteFiles: true,
@@ -384,7 +346,7 @@ describe( 'CLI: studio site delete', () => {
 	} );
 
 	describe( 'Batch deletion', () => {
-		const createSites = ( count: number ): SiteData[] =>
+		const createSites = ( count: number ): ConfigSite[] =>
 			Array.from( { length: count }, ( _, index ) =>
 				createTestSite( {
 					id: `site-${ index + 1 }`,
@@ -394,12 +356,8 @@ describe( 'CLI: studio site delete', () => {
 				} )
 			);
 
-		const mockSites = ( sites: SiteData[] ) => {
-			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-				version: 1,
-				sites,
-				snapshots: [],
-			} );
+		const mockSites = ( sites: ConfigSite[] ) => {
+			config.sites = [ ...sites ];
 		};
 
 		it( 'deletes nine sites with a single daemon session', async () => {
@@ -412,7 +370,7 @@ describe( 'CLI: studio site delete', () => {
 
 			expect( connectToDaemon ).toHaveBeenCalledTimes( 1 );
 			expect( disconnectFromDaemon ).toHaveBeenCalledTimes( 1 );
-			expect( saveCliConfig ).toHaveBeenCalledTimes( 9 );
+			expect( config.sites ).toHaveLength( 0 );
 			expect( trash ).toHaveBeenCalledTimes( 9 );
 			expect( result.sites ).toHaveLength( 9 );
 			expect( result.sites.every( ( site ) => site.status === 'deleted' ) ).toBe( true );
@@ -441,7 +399,7 @@ describe( 'CLI: studio site delete', () => {
 			} );
 
 			expect( connectToDaemon ).not.toHaveBeenCalled();
-			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( updateConfig ).not.toHaveBeenCalled();
 			expect( trash ).not.toHaveBeenCalled();
 			expect( result.sites ).toEqual( [
 				expect.objectContaining( {
@@ -491,7 +449,7 @@ describe( 'CLI: studio site delete', () => {
 
 			expect( connectToDaemon ).toHaveBeenCalledTimes( 1 );
 			expect( disconnectFromDaemon ).toHaveBeenCalledTimes( 1 );
-			expect( saveCliConfig ).toHaveBeenCalledTimes( 3 );
+			expect( config.sites ).toHaveLength( 0 );
 			expect( result.sites.map( ( site ) => site.status ) ).toEqual( [
 				'deleted',
 				'failed',
@@ -530,7 +488,7 @@ describe( 'CLI: studio site delete', () => {
 			} );
 
 			expect( connectToDaemon ).not.toHaveBeenCalled();
-			expect( saveCliConfig ).not.toHaveBeenCalled();
+			expect( updateConfig ).not.toHaveBeenCalled();
 			expect( trash ).not.toHaveBeenCalled();
 			expect( result ).toEqual( {
 				dryRun: true,

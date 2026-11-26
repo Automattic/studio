@@ -105,7 +105,7 @@
 }
 
 .rowSubject {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	flex: 1;
 	font-size: var( --text-xs );
 	font-weight: var( --font-weight-normal );
@@ -121,7 +121,7 @@
 }
 
 .rowRecipients {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --muted-foreground );
 	font-size: var( --text-xxs );
 	line-height: var( --text-xxs--line-height );
@@ -223,7 +223,7 @@
 }
 
 .attachmentName {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 }
 
 .attachmentSize {

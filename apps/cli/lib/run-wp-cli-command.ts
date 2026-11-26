@@ -21,8 +21,8 @@ import {
 } from './native-php/php-process';
 import { getPulledSiteStartOptions } from './pull/pulled-site-start-options';
 import { getWpCliPhpIniArgs } from './wp-cli-php-ini';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { SiteData } from 'cli/lib/cli-config/core';
 
 const OUTPUT_TAIL_BYTES = 1024 * 1024;
 
@@ -197,17 +197,17 @@ type DisposableExitCode = Disposable & {
 // piped/interactive stdin, live streaming output and TTY detection (colors), and
 // returns only the exit code.
 export async function runWpCliCommand(
-	site: SiteData,
+	site: ConfigSite,
 	args: string[],
 	options: RunWpCliCommandOptions & { stdio: 'inherit' }
 ): Promise< DisposableExitCode >;
 export async function runWpCliCommand(
-	site: SiteData,
+	site: ConfigSite,
 	args: string[],
 	options?: RunWpCliCommandOptions
 ): Promise< DisposableWpCliResponse >;
 export async function runWpCliCommand(
-	site: SiteData,
+	site: ConfigSite,
 	args: string[],
 	options: RunWpCliCommandOptions = {}
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {

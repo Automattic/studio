@@ -1,9 +1,9 @@
 import { execSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { builtinModules, createRequire } from 'module';
-import { resolve } from 'path';
+import { dirname, relative, resolve } from 'path';
 import semver from 'semver';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 const __dirname = import.meta.dirname;
 const packageJson = createRequire( import.meta.url )( './package.json' ) as {
@@ -115,11 +115,83 @@ export function buildMcpUiPlugin() {
 	};
 }
 
+// Files that bundled code loads from next to its chunk at runtime, such as pi's image resize worker,
+// are invisible to the bundler, so the build fails when one is missing from the output. This matches
+// the first argument of each call, which may hold one level of parentheses.
+const RUNTIME_FILE_REFERENCE =
+	/new URL\(((?:[^()]|\([^()]*\))*?),\s*import\.meta\.url\s*\)|new Worker\(((?:[^(),]|\([^()]*\))*)[,)]|import\.meta\.resolve\(([^(),]*)\)/g;
+const RELATIVE_STRING_LITERAL = /(['"`])(\.\.?\/[^'"`$]+)\1/g;
+const UNREACHABLE_RUNTIME_FILE_REFERENCES = [
+	// pi's codemode extension, which Studio never creates.
+	'@earendil-works/pi-codemode/dist/runtime/host.js',
+];
+
+function checkRuntimeFilesPlugin(): Plugin {
+	let references: { chunk: string; module: string; candidates: string[] }[] = [];
+	let outDir = '';
+	return {
+		name: 'check-runtime-files',
+		apply: 'build',
+		writeBundle( options, bundle ) {
+			outDir = options.dir ?? resolve( __dirname, 'dist/cli' );
+			references = [];
+			for ( const chunk of Object.values( bundle ) ) {
+				if ( chunk.type !== 'chunk' ) {
+					continue;
+				}
+				for ( const [ module, { code } ] of Object.entries( chunk.modules ) ) {
+					if (
+						! code ||
+						UNREACHABLE_RUNTIME_FILE_REFERENCES.some( ( allowed ) => module.endsWith( allowed ) )
+					) {
+						continue;
+					}
+					for ( const match of code.matchAll( RUNTIME_FILE_REFERENCE ) ) {
+						const argument = match[ 1 ] ?? match[ 2 ] ?? match[ 3 ];
+						const candidates = [ ...argument.matchAll( RELATIVE_STRING_LITERAL ) ].map(
+							( literal ) => literal[ 2 ]
+						);
+						if ( candidates.length > 0 ) {
+							references.push( { chunk: chunk.fileName, module, candidates } );
+						}
+					}
+				}
+			}
+		},
+		// After every plugin's `writeBundle`, which is where copies like `viteStaticCopy` happen.
+		closeBundle() {
+			const missing = references.filter(
+				// A reference may pick between paths at runtime (`isTs ? './a.ts' : './a.js'`), so one
+				// of them existing is enough.
+				( { chunk, candidates } ) =>
+					! candidates.some( ( candidate ) =>
+						existsSync( resolve( outDir, dirname( chunk ), candidate ) )
+					)
+			);
+			if ( missing.length > 0 ) {
+				throw new Error(
+					'The CLI build output lacks files its code loads at runtime. Add them as a build entry or copy them into the output:\n' +
+						missing
+							.map(
+								( { chunk, module, candidates } ) =>
+									`  ${ candidates.join( ' or ' ) }, referenced by ${ chunk } (from ${ relative(
+										resolve( __dirname, '../..' ),
+										module
+									) })`
+							)
+							.join( '\n' )
+				);
+			}
+		},
+	};
+}
+
 export const baseConfig = defineConfig( {
 	oxc: {
 		target: `node${ semver.major( minimumNodeVersion ) }`,
 	},
 	plugins: [
+		checkRuntimeFilesPlugin(),
 		{
 			name: 'write-dist-extras',
 			apply: 'build',
@@ -179,6 +251,12 @@ export const baseConfig = defineConfig( {
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'php-server-child': resolve( __dirname, 'php-server-child.ts' ),
+				// pi starts its image resizing worker from `image-resize-worker.js` next to its own code,
+				// which is bundled here.
+				'image-resize-worker': resolve(
+					__dirname,
+					'../../node_modules/@earendil-works/pi-coding-agent/dist/utils/image-resize-worker.js'
+				),
 			},
 			name: 'StudioCLI',
 			formats: [ 'es' ],
@@ -188,7 +266,8 @@ export const baseConfig = defineConfig( {
 		rolldownOptions: {
 			output: {
 				format: 'es',
-				entryFileNames: '[name].mjs',
+				entryFileNames: ( chunk ) =>
+					chunk.name === 'image-resize-worker' ? '[name].js' : '[name].mjs',
 				chunkFileNames: '[name]-[hash].mjs',
 				// Some bundled CommonJS dependencies (e.g. `lockfile`, `debug`) call
 				// `require( ... )` for Node built-ins at module init. Rolldown (the

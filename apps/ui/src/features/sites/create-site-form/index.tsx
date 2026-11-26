@@ -2,23 +2,6 @@ import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
-import { __, sprintf } from '@wordpress/i18n';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useConnector } from '@/data/core';
-import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
-import {
-	CertificateTrustNotice,
-	getFileAccessOptions,
-	getPhpVersionOptions,
-	getWpVersionOptions,
-	SelectField,
-	TextField,
-	validateAdminPassword,
-	validateSiteName,
-} from '@/features/sites/site-fields';
-import { useOffline } from '@/lib/hooks';
-import { ChevronDownIcon } from '@/lib/icons';
 import {
 	Alert,
 	AlertDescription,
@@ -34,7 +17,24 @@ import {
 	FieldTitle,
 	Popover,
 	Switch,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
+import { ChevronDownIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useConnector } from '@/data/core';
+import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
+import {
+	CertificateTrustNotice,
+	getFileAccessOptions,
+	getPhpVersionOptions,
+	getWpVersionOptions,
+	SelectField,
+	TextField,
+	validateAdminPassword,
+	validateSiteName,
+} from '@/features/sites/site-fields';
 import { getFolderNameError, splitFolderPath } from './folder-path';
 import {
 	applyFormChange,
@@ -112,7 +112,7 @@ export function CreateSiteForm( {
 	draft,
 	onDraftChange,
 }: CreateSiteFormProps ) {
-	const { nativeSites } = useConnector().capabilities;
+	const { localMachine } = useConnector().capabilities;
 	const formId = useId();
 	const advancedId = useId();
 	const advancedPanelRef = useRef< HTMLDivElement >( null );
@@ -381,46 +381,42 @@ export function CreateSiteForm( {
 			aria-labelledby={ `${ advancedId }-trigger` }
 		>
 			<FieldGroup className={ styles.advancedFields } inert={ isSubmitting || undefined }>
-				{ nativeSites && (
-					<>
-						{ existing ? null : wpVersionOptions ? (
-							<SelectField
-								label={ __( 'WordPress version' ) }
-								description={ wpVersionDescription }
-								value={ data.wpVersion }
-								options={ wpVersionOptions }
-								disabled={ isOffline }
-								disabledReason={ offlineMessage }
-								onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
-							/>
-						) : (
-							<TextField
-								label={ __( 'WordPress version' ) }
-								orientation="horizontal"
-								controlClassName={ styles.advancedControl }
-								placeholder={ DEFAULT_WORDPRESS_VERSION }
-								value={ data.wpVersion }
-								onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
-							/>
-						) }
-						<SelectField
-							label={ __( 'PHP version' ) }
-							value={ data.phpVersion }
-							options={ getPhpVersionOptions() }
-							onChange={ ( phpVersion ) =>
-								handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
-							}
-						/>
-						<SelectField
-							label={ __( 'File access' ) }
-							value={ data.fileAccess }
-							options={ getFileAccessOptions() }
-							onChange={ ( fileAccess ) =>
-								handleChange( { fileAccess: fileAccess as SiteFileAccess } )
-							}
-						/>
-					</>
+				{ existing ? null : wpVersionOptions ? (
+					<SelectField
+						label={ __( 'WordPress version' ) }
+						description={ wpVersionDescription }
+						value={ data.wpVersion }
+						options={ wpVersionOptions }
+						disabled={ isOffline }
+						disabledReason={ offlineMessage }
+						onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
+					/>
+				) : (
+					<TextField
+						label={ __( 'WordPress version' ) }
+						orientation="horizontal"
+						controlClassName={ styles.advancedControl }
+						placeholder={ DEFAULT_WORDPRESS_VERSION }
+						value={ data.wpVersion }
+						onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
+					/>
 				) }
+				<SelectField
+					label={ __( 'PHP version' ) }
+					value={ data.phpVersion }
+					options={ getPhpVersionOptions() }
+					onChange={ ( phpVersion ) =>
+						handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
+					}
+				/>
+				<SelectField
+					label={ __( 'File access' ) }
+					value={ data.fileAccess }
+					options={ getFileAccessOptions() }
+					onChange={ ( fileAccess ) =>
+						handleChange( { fileAccess: fileAccess as SiteFileAccess } )
+					}
+				/>
 				{ ! existing && (
 					<>
 						<Field orientation="horizontal" aria-labelledby={ credentialsId }>
@@ -495,7 +491,7 @@ export function CreateSiteForm( {
 								</Popover.Popup>
 							</Popover.Root>
 						</Field>
-						{ nativeSites && (
+						{ localMachine && (
 							<TextField
 								label={ __( 'Domain name' ) }
 								controlClassName={ styles.domainControls }
@@ -522,7 +518,7 @@ export function CreateSiteForm( {
 								}
 							/>
 						) }
-						{ nativeSites && enableHttps && (
+						{ localMachine && enableHttps && (
 							<FieldDescription className={ styles.certificateNotice }>
 								<CertificateTrustNotice />
 							</FieldDescription>
@@ -566,7 +562,7 @@ export function CreateSiteForm( {
 
 				{ children }
 
-				{ nativeSites && (
+				{ localMachine && (
 					<PathField
 						data={ { ...data, name } }
 						error={ pathError }

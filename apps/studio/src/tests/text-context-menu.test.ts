@@ -103,7 +103,7 @@ describe( 'buildTextContextMenuTemplate', () => {
 		);
 		const copyAll = template.find( ( item ) => item.label === 'Copy All' );
 
-		( copyAll?.click as () => void )();
+		( copyAll!.click as () => void )();
 
 		expect( copyMessage ).toHaveBeenCalledWith( 'Dark mode and core coexist.' );
 	} );
@@ -120,7 +120,7 @@ describe( 'buildTextContextMenuTemplate', () => {
 		);
 		const copyCodeItem = template.find( ( item ) => item.label === 'Copy code' );
 
-		( copyCodeItem?.click as () => void )();
+		( copyCodeItem!.click as () => void )();
 
 		expect( labelsOf( template ) ).toEqual( [ 'Copy code', 'Copy All' ] );
 		expect( copyCode ).toHaveBeenCalledWith( 'const answer = 42;' );
@@ -146,7 +146,7 @@ describe( 'buildTextContextMenuTemplate', () => {
 		);
 		const quote = template.find( ( item ) => item.label === 'Quote in composer' );
 
-		( quote?.click as () => void )();
+		( quote!.click as () => void )();
 
 		expect( quoteSelection ).toHaveBeenCalledOnce();
 	} );
@@ -267,7 +267,7 @@ describe( 'showTextContextMenu', () => {
 		await vi.waitFor( () => expect( Menu.buildFromTemplate ).toHaveBeenCalled() );
 		const template = vi.mocked( Menu.buildFromTemplate ).mock.calls[ 0 ][ 0 ];
 		const quote = template.find( ( item ) => item.label === 'Quote in composer' );
-		( quote?.click as () => void )();
+		( quote!.click as () => void )();
 		const popupOptions = popup.mock.calls[ 0 ][ 0 ];
 		popupOptions.callback();
 

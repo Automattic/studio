@@ -58,6 +58,7 @@ describe( 'liberateWebsite', () => {
 			expect.objectContaining( {
 				url: 'https://example.com/',
 				outputDir: path.join( outputBase, 'example.com' ),
+				deferReference: true,
 			} )
 		);
 		expect( progress[ 0 ] ).toBe( 'Data Liberation 9.9.9' );

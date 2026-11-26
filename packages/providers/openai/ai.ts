@@ -1,7 +1,6 @@
-import { OPENAI_MODELS } from '@earendil-works/pi-ai/providers/openai.models';
 import { __ } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
-import { OPENAI_AI_MODELS } from './descriptor';
+import { openaiCatalog } from './catalog';
 import { generateOpenaiImages } from './images';
 import type { OpenaiConfig } from './config';
 import type { AiConnection, ProviderServices } from '../types';
@@ -27,9 +26,7 @@ export const openaiAi: NonNullable< ProviderServices< OpenaiConfig >[ 'ai' ] > =
 		if ( ! config ) {
 			throw new NotConnectedError( 'Connect OpenAI with a ChatGPT plan or an API key.' );
 		}
-		const model =
-			OPENAI_AI_MODELS.some( ( { id } ) => id === modelId ) &&
-			OPENAI_MODELS[ modelId as keyof typeof OPENAI_MODELS ];
+		const model = openaiCatalog.run( modelId );
 		if ( ! model ) {
 			throw new Error( `OpenAI does not serve ${ modelId }` );
 		}
@@ -38,15 +35,10 @@ export const openaiAi: NonNullable< ProviderServices< OpenaiConfig >[ 'ai' ] > =
 			apiKey: config.method === 'api-key' ? config.apiKey : config.accessToken,
 			rewriteError: ( message ) =>
 				Object.entries( getPlanErrors() ).find( ( [ code ] ) => message.includes( code ) )?.[ 1 ],
-			model: {
-				...model,
-				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-				contextWindow: 200_000,
-				maxTokens: 32_000,
-			},
+			model,
 		};
 	},
-	// A ChatGPT plan doesn't cover image generation.
-	canGenerateImages: ( config ) => config.method === 'api-key',
+	listModels: openaiCatalog.listModels,
+	selectModels: openaiCatalog.selectModels,
 	generateImages: generateOpenaiImages,
 };

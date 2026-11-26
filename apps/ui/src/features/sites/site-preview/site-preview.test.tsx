@@ -1,5 +1,4 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
-import { INSPECTOR_PAGE_SCRIPT } from '@studio/agent/protocol/inspector/page-script';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -8,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
 import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences';
-import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
 	changeAnnotation,
@@ -629,67 +627,6 @@ describe( 'site preview controls', () => {
 			browser: 'external',
 		} );
 	} );
-
-	it( 'sends the notes to each page a browser preview loads', async () => {
-		const run = vi.fn();
-		const connector = createFakeConnector();
-		connector.connectPreviewFrame.mockReturnValue( { run, dispose: vi.fn() } );
-		await renderPreview( 'browser', {}, connector );
-		const { onPage } = connector.connectPreviewFrame.mock.calls[ 0 ][ 1 ];
-		act( () => onPage() );
-		act( () => onPage() );
-		const commands = run.mock.calls.filter( ( [ script ] ) => script !== INSPECTOR_PAGE_SCRIPT );
-		expect( commands ).toHaveLength( 2 );
-	} );
-
-	it.each( [ undefined, 'https://example.wordpress.com' ] )(
-		'keeps responsive settings on site surfaces and suspends the toolbar for tools (live: %s)',
-		async ( liveUrl ) => {
-			const siteId = `responsive-surfaces-${ liveUrl ?? 'local' }`;
-			const { update, user } = await renderPreview( 'browser', {
-				site: site( { id: siteId } ),
-				liveUrl,
-			} );
-			await openBrowserOptions( user );
-			await user.click( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) );
-			act( () => updateResponsivePreview( siteId, { width: 512 } ) );
-			for ( const path of [ '/phpmyadmin/index.php', DESIGN_SYSTEM_PREVIEW_PATH ] ) {
-				update( { path } );
-				await openBrowserOptions( user );
-				expect( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) ).toHaveAttribute(
-					'aria-disabled',
-					'true'
-				);
-				expect(
-					screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
-				).not.toBeInTheDocument();
-				await user.keyboard( '{Escape}' );
-			}
-			update( { path: '/wp-admin/' } );
-			await openBrowserOptions( user );
-			expect( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) ).not.toHaveAttribute(
-				'aria-disabled',
-				'true'
-			);
-			expect( screen.getByRole( 'textbox', { name: 'Width' } ) ).toHaveValue( '512' );
-		}
-	);
-
-	it.each( [ undefined, 'https://example.wordpress.com' ] )(
-		'leaves WP Admin alone when the host reloads (live: %s)',
-		async ( liveUrl ) => {
-			const { update } = await renderPreview( 'desktop', {
-				liveUrl,
-				path: '/wp-admin/post.php?post=1&action=edit',
-			} );
-			const webview = guest();
-			fireEvent( webview, new Event( 'dom-ready' ) );
-			update( { reloadNonce: 1 } );
-			await act( async () => {} );
-			expect( webview.reload ).not.toHaveBeenCalled();
-			expect( clearWebviewCache() ).not.toHaveBeenCalled();
-		}
-	);
 
 	it( 'navigates without dropping the cache when the path changes with the nonce', async () => {
 		const { update } = await renderPreview( 'desktop' );

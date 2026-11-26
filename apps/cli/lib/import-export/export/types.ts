@@ -1,9 +1,9 @@
-import { SiteData } from 'cli/lib/cli-config/core';
 import type { ImportExportEventEmitter } from '../events';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { Ignore } from 'ignore';
 
 export interface ExportOptions {
-	site: SiteData;
+	site: ConfigSite;
 	backupFile: string;
 	includes: { [ index in ExportOptionsIncludes ]: boolean };
 	phpVersion: string;

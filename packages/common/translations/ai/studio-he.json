@@ -1,0 +1,1034 @@
+{
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%s connection": [
+		"חיבור %s"
+	],
+	"%s · Live site": [
+		"%s · אתר פעיל"
+	],
+	"%s · Local changes": [
+		"%s · שינויים מקומיים"
+	],
+	"(No subject)": [
+		"(ללא נושא)"
+	],
+	"A code editor with a built-in AI agent.": [
+		"עורך קוד עם סוכן בינה מלאכותית מובנה."
+	],
+	"A static copy of your pages.": [
+		"עותק סטטי של העמודים שלך."
+	],
+	"AI apps": [
+		"אפליקציות בינה מלאכותית"
+	],
+	"API key": [
+		"מפתח API"
+	],
+	"API key is required": [
+		"נדרש מפתח API"
+	],
+	"Activate all plugins": [
+		"הפעלת כל התוספים"
+	],
+	"Admin bar hidden by default.": [
+		"סרגל הניהול מוסתר כברירת מחדל."
+	],
+	"Admin bar shown by default.": [
+		"סרגל הניהול מוצג כברירת מחדל."
+	],
+	"Agents": [
+		"סוכנים"
+	],
+	"All models": [
+		"כל המודלים"
+	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"במהלך ההתחברות יש לאשר ל-WordPress Studio להשתמש בתוכנית ChatGPT שלך."
+	],
+	"Annotation tools": [
+		"כלי ביאור"
+	],
+	"Another operation is in progress.": [
+		"פעולה אחרת מתבצעת כעת."
+	],
+	"Anthropic API key": [
+		"מפתח API של Anthropic"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"חברת Anthropic דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"חברת Anthropic דחתה את האסימון הזה. יש להריץ שוב את claude setup-token."
+	],
+	"Anyone with the link": [
+		"כל מי שיש לו את הקישור"
+	],
+	"Back to email list": [
+		"חזרה לרשימת האימיילים"
+	],
+	"Balanced": [
+		"מאוזן"
+	],
+	"Billing period": [
+		"תקופת חיוב"
+	],
+	"Blueprint loaded": [
+		"המודל נטען"
+	],
+	"Browse Blueprints": [
+		"עיון במודלים"
+	],
+	"Browser could not load.": [
+		"לא ניתן היה לטעון את הדפדפן."
+	],
+	"Cc": [
+		"עותק"
+	],
+	"Changes on %s will be replaced with your local files and database.": [
+		"השינויים ב-%s יוחלפו בקבצים ובמסד הנתונים המקומיים שלך."
+	],
+	"Changes published": [
+		"השינויים פורסמו"
+	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"השינויים נדחפו, אך לא ניתן היה להשיק את האתר. יש לבדוק את התוכנית וההרשאות ולפרסם שוב כדי לנסות להשיק מחדש."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"השינויים נדחפו, אך לא ניתן היה להשיק את האתר. יש לפרסם שוב כדי לנסות להשיק מחדש."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"השינויים נדחפו, אך לא ניתן היה להשיק את האתר. יש לאמת את כתובת האימייל ולפרסם שוב כדי לנסות להשיק מחדש."
+	],
+	"Changes to %s": [
+		"שינויים ב-%s"
+	],
+	"ChatGPT plan": [
+		"תוכנית ChatGPT"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"השימוש בתוכנית ChatGPT אינו זמין כרגע. יש לנסות שוב בעוד זמן קצר."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ההתחברות שהתקבלה מ-ChatGPT לא הושלמה."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"לא ניתן היה להשלים את ההתחברות ל-ChatGPT. יש לנסות שוב."
+	],
+	"Check your internet connection and try again.": [
+		"יש לבדוק את החיבור לאינטרנט ולנסות שוב."
+	],
+	"Choose a Blueprint or backup": [
+		"בחירת מודל או גיבוי"
+	],
+	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
+		"יש לבחור תיקיית אתר WordPress, קובץ JSON של מודל או חבילת ZIP."
+	],
+	"Choose a provider": [
+		"בחירת ספק"
+	],
+	"Choose a site source": [
+		"בחירת מקור לאתר"
+	],
+	"Choose a topic": [
+		"בחירת נושא"
+	],
+	"Choose color": [
+		"בחירת צבע"
+	],
+	"Choose specific files": [
+		"בחירת קבצים מסוימים"
+	],
+	"Choose your plan.": [
+		"יש לבחור תוכנית."
+	],
+	"Claude subscription": [
+		"מינוי Claude"
+	],
+	"Claude subscription token": [
+		"אסימון מינוי של Claude"
+	],
+	"Click anything on the page to leave a note": [
+		"אפשר ללחוץ על כל רכיב בעמוד כדי להוסיף הערה"
+	],
+	"Close %s": [
+		"סגירת %s"
+	],
+	"Color picker": [
+		"בורר צבעים"
+	],
+	"Connect AI providers": [
+		"חיבור ספקי בינה מלאכותית"
+	],
+	"Connect Spacefast to publish sites.": [
+		"יש לחבר את Spacefast כדי לפרסם אתרים."
+	],
+	"Connect a provider": [
+		"חיבור ספק"
+	],
+	"Connect a provider to see your existing sites.": [
+		"יש לחבר ספק כדי לראות את האתרים הקיימים שלך."
+	],
+	"Connected %s.": [
+		"%s חובר."
+	],
+	"Connecting to WordPress.com": [
+		"מתחבר ל-WordPress.com"
+	],
+	"Continue on %s": [
+		"המשך ב-%s"
+	],
+	"Continue with GitHub": [
+		"המשך עם GitHub"
+	],
+	"Copy links": [
+		"העתקת קישורים"
+	],
+	"Could not clear browsing data": [
+		"לא ניתן היה לנקות את נתוני הגלישה"
+	],
+	"Could not connect to WordPress.com": [
+		"לא ניתן היה להתחבר ל-WordPress.com"
+	],
+	"Could not open the new preview. Please try again.": [
+		"לא ניתן היה לפתוח את התצוגה המקדימה החדשה. יש לנסות שוב."
+	],
+	"Could not publish. Please try again.": [
+		"לא ניתן היה לפרסם. יש לנסות שוב."
+	],
+	"Could not reach Anthropic to verify the credential.": [
+		"לא ניתן היה להתחבר ל-Anthropic כדי לאמת את פרטי הגישה."
+	],
+	"Could not read your settings": [
+		"לא ניתן היה לקרוא את ההגדרות שלך"
+	],
+	"Could not reset interface. Please try again.": [
+		"לא ניתן היה לאפס את הממשק. יש לנסות שוב."
+	],
+	"Could not reset tips. Please try again.": [
+		"לא ניתן היה לאפס את הטיפים. יש לנסות שוב."
+	],
+	"Could not update settings. Please try again.": [
+		"לא ניתן היה לעדכן את ההגדרות. יש לנסות שוב."
+	],
+	"Could not verify the credential with Anthropic.": [
+		"לא ניתן היה לאמת את פרטי הגישה מול Anthropic."
+	],
+	"Couldn't load providers.": [
+		"לא ניתן היה לטעון את הספקים."
+	],
+	"Couldn’t load apps.": [
+		"לא ניתן היה לטעון את האפליקציות."
+	],
+	"Couldn’t load publishing accounts": [
+		"לא ניתן היה לטעון את חשבונות הפרסום"
+	],
+	"Create %s": [
+		"יצירת %s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"יש ליצור מפתח ב-[Google AI Studio](https://aistudio.google.com/apikey) ולהדביק אותו למטה."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"יש ליצור מפתח בכרטיסייה 'מפתחות API' ב[לוח הבקרה של Meta Model API](https://dev.meta.ai) ולהדביק אותו למטה."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"יש ליצור מפתח ב-[Claude Console](https://platform.claude.com/settings/keys) ולהדביק אותו למטה."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"יש ליצור מפתח ב-[OpenAI Platform](https://platform.openai.com/api-keys) ולהדביק אותו למטה."
+	],
+	"Create a new WordPress": [
+		"יצירת אתר WordPress חדש"
+	],
+	"Create user": [
+		"יצירת משתמש"
+	],
+	"Creating preview": [
+		"מתבצעת יצירה של תצוגה מקדימה"
+	],
+	"Creating preview link…": [
+		"מתבצעת יצירה של קישור לתצוגה מקדימה…"
+	],
+	"Database only": [
+		"מסד נתונים בלבד"
+	],
+	"Default": [
+		"ברירת מחדל"
+	],
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"אוטומטי"
+	],
+	"Delete %s": [
+		"מחיקת %s"
+	],
+	"Delete a site to create a new one.": [
+		"יש למחוק אתר כדי ליצור אתר חדש."
+	],
+	"Delete annotation: %s": [
+		"מחיקת ביאור: %s"
+	],
+	"Delete plugin": [
+		"מחיקת תוסף"
+	],
+	"Delete theme": [
+		"מחיקת ערכת עיצוב"
+	],
+	"Delete user": [
+		"מחיקת משתמש"
+	],
+	"Describe the change": [
+		"תיאור השינוי"
+	],
+	"Design system could not load.": [
+		"לא ניתן היה לטעון את מערכת העיצוב."
+	],
+	"Design systems are available for block themes.": [
+		"מערכות עיצוב זמינות עבור ערכות עיצוב מבוססות בלוקים."
+	],
+	"Destination": [
+		"יעד"
+	],
+	"Disconnect a provider": [
+		"ניתוק ספק"
+	],
+	"Disconnect site…": [
+		"ניתוק האתר…"
+	],
+	"Disconnected %s.": [
+		"%s נותק."
+	],
+	"Do more with WordPress": [
+		"לעשות יותר עם WordPress"
+	],
+	"Download WordPress Studio": [
+		"הורדת WordPress Studio"
+	],
+	"Drop to add site": [
+		"יש לשחרר כדי להוסיף אתר"
+	],
+	"Edit annotation: %s": [
+		"עריכת ביאור: %s"
+	],
+	"Email log could not load.": [
+		"לא ניתן היה לטעון את יומן האימייל."
+	],
+	"Enable anonymous usage statistics": [
+		"הפעלת סטטיסטיקות שימוש אנונימיות"
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"יש להזין אסימון מ-claude setup-token, ולא מפתח API."
+	],
+	"Enter the folder’s full path.": [
+		"יש להזין את הנתיב המלא של התיקייה."
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Everyone": [
+		"כולם"
+	],
+	"Everything": [
+		"הכול"
+	],
+	"Everything you need to build WordPress sites with Studio Code.": [
+		"כל מה שצריך כדי לבנות אתרי WordPress עם Studio Code."
+	],
+	"Existing WordPress site": [
+		"אתר WordPress קיים"
+	],
+	"Export site as static HTML files": [
+		"ייצוא האתר כקובצי HTML סטטיים"
+	],
+	"External AI apps": [
+		"אפליקציות בינה מלאכותית חיצוניות"
+	],
+	"Failed to create the Space": [
+		"יצירת ה-Space נכשלה"
+	],
+	"Failed to find existing preview site in config": [
+		"לא נמצא אתר תצוגה מקדימה קיים בהגדרות"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"טעינת ה-Spaces שלך ב-Spacefast נכשלה"
+	],
+	"Failed to publish to Spacefast": [
+		"הפרסום ב-Spacefast נכשל"
+	],
+	"Failed to save connected site": [
+		"שמירת האתר המחובר נכשלה"
+	],
+	"Feedback sent": [
+		"המשוב נשלח"
+	],
+	"Files could not be loaded.": [
+		"לא ניתן היה לטעון את הקבצים."
+	],
+	"File…": [
+		"קובץ…"
+	],
+	"Finish activating hosting on WordPress.com before pulling.": [
+		"יש להשלים את הפעלת האחסון ב-WordPress.com לפני המשיכה."
+	],
+	"First use": [
+		"שימוש ראשון"
+	],
+	"For publishing sites.": [
+		"לפרסום אתרים."
+	],
+	"For working on sites.": [
+		"לעבודה על אתרים."
+	],
+	"Gemini API key": [
+		"מפתח API של Gemini"
+	],
+	"Generate images": [
+		"יצירת תמונות"
+	],
+	"Generating static site…": [
+		"יוצר אתר סטטי…"
+	],
+	"GitHub sign-in was declined.": [
+		"ההתחברות ל-GitHub נדחתה."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"חברת Google דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
+	],
+	"Hide admin bar": [
+		"הסתרת סרגל הניהול"
+	],
+	"Hide admin bar by default": [
+		"הסתרת סרגל הניהול כברירת מחדל"
+	],
+	"Hide chat when starting sites": [
+		"הסתרת הצ'אט בעת הפעלת אתרים"
+	],
+	"Hide device toolbar": [
+		"הסתרת סרגל הכלים של המכשיר"
+	],
+	"Hide recent chats": [
+		"הסתרת הצ'אטים האחרונים"
+	],
+	"Hints": [
+		"רמזים"
+	],
+	"Hostname of the preview site": [
+		"שם המארח של אתר התצוגה המקדימה"
+	],
+	"How much should the model think?": [
+		"כמה המודל צריך לחשוב?"
+	],
+	"Hue": [
+		"גוון"
+	],
+	"Image annotation": [
+		"ביאור תמונה"
+	],
+	"Import cancelled": [
+		"הייבוא בוטל"
+	],
+	"Import media": [
+		"ייבוא מדיה"
+	],
+	"Inspect design": [
+		"בדיקת העיצוב"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"יש להתקין את [Claude Code](https://code.claude.com/docs/en/setup), אם הוא עדיין לא מותקן אצלך."
+	],
+	"Install plugin": [
+		"התקנת תוסף"
+	],
+	"Interface reset.": [
+		"הממשק אופס."
+	],
+	"Interface theme": [
+		"ערכת העיצוב של הממשק"
+	],
+	"Liberate": [
+		"שחרור"
+	],
+	"List": [
+		"רשימה"
+	],
+	"List previews": [
+		"רשימת תצוגות מקדימות"
+	],
+	"Load skill": [
+		"טעינת מיומנות"
+	],
+	"Loading WordPress Studio…": [
+		"טוען את WordPress Studio…"
+	],
+	"Loading apps…": [
+		"טוען אפליקציות…"
+	],
+	"Loading file…": [
+		"טוען קובץ…"
+	],
+	"Local changes": [
+		"שינויים מקומיים"
+	],
+	"Log in to WordPress.com to sync sites.": [
+		"יש להתחבר ל-WordPress.com כדי לסנכרן אתרים."
+	],
+	"Make a preview site your live site": [
+		"הפיכת אתר תצוגה מקדימה לאתר הפעיל שלך"
+	],
+	"Manage AI credits": [
+		"ניהול קרדיטים לבינה מלאכותית"
+	],
+	"Manage content": [
+		"ניהול תוכן"
+	],
+	"Manage credits": [
+		"ניהול קרדיטים"
+	],
+	"Manage media": [
+		"ניהול מדיה"
+	],
+	"Manage menus": [
+		"ניהול תפריטים"
+	],
+	"Manage on Spacefast": [
+		"ניהול ב-Spacefast"
+	],
+	"Manage on WordPress.com": [
+		"ניהול ב-WordPress.com"
+	],
+	"Manage permalinks": [
+		"ניהול קישורים קבועים"
+	],
+	"Manage plugins": [
+		"ניהול תוספים"
+	],
+	"Manage terms": [
+		"ניהול מונחים"
+	],
+	"Manage themes": [
+		"ניהול ערכות עיצוב"
+	],
+	"Manage usage": [
+		"ניהול השימוש"
+	],
+	"Manage users": [
+		"ניהול משתמשים"
+	],
+	"Manual MCP setup": [
+		"הגדרת MCP ידנית"
+	],
+	"Meta API key": [
+		"מפתח API של Meta"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"חברת Meta מגבילה את הבקשות במפתח ה-API שלך. יש לנסות שוב בעוד זמן קצר, או לבדוק את המגבלות שלך בכתובת dev.meta.ai."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"חברת Meta דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
+	],
+	"New WordPress Studio Site": [
+		"אתר WordPress Studio חדש"
+	],
+	"No files are available to choose.": [
+		"אין קבצים זמינים לבחירה."
+	],
+	"No models found.": [
+		"לא נמצאו מודלים."
+	],
+	"No provider is connected.": [
+		"אין ספק מחובר."
+	],
+	"No providers": [
+		"אין ספקים"
+	],
+	"Only you": [
+		"רק לך"
+	],
+	"Open Config File (dev only)": [
+		"פתיחת קובץ התצורה (לפיתוח בלבד)"
+	],
+	"Open Folder…": [
+		"פתיחת תיקייה…"
+	],
+	"Open a site or Blueprint": [
+		"פתיחת אתר או מודל"
+	],
+	"Open email log": [
+		"פתיחת יומן האימייל"
+	],
+	"Open on GitHub": [
+		"פתיחה ב-GitHub"
+	],
+	"Open preview: %s": [
+		"פתיחת תצוגה מקדימה: %s"
+	],
+	"Open the WordPress Studio app to add an existing WordPress folder.": [
+		"יש לפתוח את האפליקציה WordPress Studio כדי להוסיף תיקיית WordPress קיימת."
+	],
+	"OpenAI API key": [
+		"מפתח API של OpenAI"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"חברת OpenAI דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
+	],
+	"OpenRouter API key": [
+		"מפתח API של OpenRouter"
+	],
+	"Opening %s": [
+		"מתבצעת פתיחה של %s"
+	],
+	"Other files": [
+		"קבצים אחרים"
+	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"יש להדביק את האסימון שהפקודה מדפיסה. השימוש נספר במסגרת התוכנית שלך ב-Claude."
+	],
+	"Performance audit": [
+		"בדיקת ביצועים"
+	],
+	"Pick at least one model your server offers.": [
+		"יש לבחור לפחות מודל אחד שהשרת שלך מציע."
+	],
+	"Pick design": [
+		"בחירת עיצוב"
+	],
+	"Plan": [
+		"תוכנית"
+	],
+	"Plan ended": [
+		"התוכנית הסתיימה"
+	],
+	"Posts, pages, and settings": [
+		"פוסטים, עמודים והגדרות"
+	],
+	"Present design options": [
+		"הצגת אפשרויות עיצוב"
+	],
+	"Preview creation cancelled": [
+		"יצירת התצוגה המקדימה בוטלה"
+	],
+	"Preview expiration": [
+		"תפוגת התצוגה המקדימה"
+	],
+	"Preview has changes": [
+		"יש שינויים בתצוגה המקדימה"
+	],
+	"Preview limit reached": [
+		"הגעת למגבלת התצוגות המקדימות"
+	],
+	"Preview link ready": [
+		"הקישור לתצוגה מקדימה מוכן"
+	],
+	"Private sites and preview links": [
+		"אתרים פרטיים וקישורים לתצוגה מקדימה"
+	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"פרסום עותק סטטי של האתר שלך ב-Space של Spacefast. טפסים, תגובות ותכונות אחרות שדורשות ש-WordPress יפעל לא יעבדו בעותק."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"פרסום עותק סטטי של האתרים שלך ב-Space של Spacefast."
+	],
+	"Publish options could not be loaded.": [
+		"לא ניתן היה לטעון את אפשרויות הפרסום."
+	],
+	"Publish somewhere else": [
+		"פרסום במקום אחר"
+	],
+	"Publish to %s.": [
+		"פרסום ב-%s."
+	],
+	"Publish to Spacefast": [
+		"פרסום ב-Spacefast"
+	],
+	"Publishing cancelled": [
+		"הפרסום בוטל"
+	],
+	"Publishing changes…": [
+		"מפרסם שינויים…"
+	],
+	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
+		"פרסום מסד הנתונים מחליף שינויים שבוצעו באתר הפעיל, כולל תגובות או הזמנות חדשות."
+	],
+	"Pull from live site…": [
+		"משיכה מהאתר הפעיל…"
+	],
+	"Pulling the preview replaces the changes made here.": [
+		"משיכת התצוגה המקדימה תחליף את השינויים שבוצעו כאן."
+	],
+	"Read site option": [
+		"קריאת אפשרות אתר"
+	],
+	"Read site title": [
+		"קריאת כותרת האתר"
+	],
+	"Receipts": [
+		"קבלות"
+	],
+	"Recent chats shown.": [
+		"הצ'אטים האחרונים מוצגים."
+	],
+	"Recent pages": [
+		"עמודים אחרונים"
+	],
+	"Recommended": [
+		"מומלץ"
+	],
+	"Remote backup failed": [
+		"הגיבוי המרוחק נכשל"
+	],
+	"Remote environment: %s": [
+		"סביבה מרוחקת: %s"
+	],
+	"Renew": [
+		"חידוש"
+	],
+	"Replace local site": [
+		"החלפת האתר המקומי"
+	],
+	"Replace preview": [
+		"החלפת התצוגה המקדימה"
+	],
+	"Replace selected content": [
+		"החלפת התוכן שנבחר"
+	],
+	"Reply in your own words instead of picking an option.": [
+		"אפשר להשיב במילים שלך במקום לבחור אפשרות."
+	],
+	"Report an issue on GitHub": [
+		"דיווח על בעיה ב-GitHub"
+	],
+	"Request a feature or report a bug.": [
+		"בקשת תכונה או דיווח על באג."
+	],
+	"Resize viewport: %s": [
+		"שינוי גודל אזור התצוגה: %s"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"יש להפעיל מחדש את WordPress Studio כדי לסיים את העדכון."
+	],
+	"Run WordPress code": [
+		"הרצת קוד WordPress"
+	],
+	"Run WordPress command": [
+		"הרצת פקודת WordPress"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"יש להריץ את הפקודה הזו במסוף ולאחר מכן להתחבר עם חשבון Claude שלך:"
+	],
+	"SEO audit": [
+		"בדיקת SEO"
+	],
+	"Saturation and brightness": [
+		"רוויה ובהירות"
+	],
+	"Save annotation (Enter)": [
+		"שמירת הביאור (Enter)"
+	],
+	"Search models": [
+		"חיפוש מודלים"
+	],
+	"Select an email to read it.": [
+		"יש לבחור אימייל כדי לקרוא אותו."
+	],
+	"Select something to publish.": [
+		"יש לבחור משהו לפרסום."
+	],
+	"Select the files and folders to publish.": [
+		"יש לבחור את הקבצים והתיקיות לפרסום."
+	],
+	"Set how much the model thinks in this chat": [
+		"הגדרת מידת החשיבה של המודל בשיחה הזו"
+	],
+	"Show admin bar": [
+		"הצגת סרגל הניהול"
+	],
+	"Show admin bar by default": [
+		"הצגת סרגל הניהול כברירת מחדל"
+	],
+	"Show chat when starting sites": [
+		"הצגת הצ'אט בעת הפעלת אתרים"
+	],
+	"Show device toolbar": [
+		"הצגת סרגל הכלים של המכשיר"
+	],
+	"Sign in to create a preview link.": [
+		"יש להתחבר כדי ליצור קישור לתצוגה מקדימה."
+	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"התחברות עם ChatGPT או שימוש במפתח API של OpenAI."
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"יש להתחבר עם חשבון GitHub שיש לו גישה ל-Copilot."
+	],
+	"Site exported": [
+		"ייצוא האתר הושלם"
+	],
+	"Site folder": [
+		"תיקיית האתר"
+	],
+	"Site imported, but the WordPress server failed to start: %s": [
+		"האתר יובא, אבל הפעלת שרת WordPress נכשלה: %s"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"לא ניתן היה לטעון את האתרים. יש לבדוק את החיבור לאינטרנט ולנסות שוב."
+	],
+	"Some destinations could not be loaded": [
+		"לא ניתן היה לטעון חלק מהיעדים"
+	],
+	"Something went wrong while updating the live site.": [
+		"משהו השתבש במהלך עדכון האתר הפעיל."
+	],
+	"Source is a temporary preview site.": [
+		"המקור הוא אתר תצוגה מקדימה זמני."
+	],
+	"Spacefast sign-in was declined.": [
+		"ההתחברות ל-Spacefast נדחתה."
+	],
+	"Split view": [
+		"תצוגה מפוצלת"
+	],
+	"Start signing in to Spacefast again.": [
+		"יש להתחיל מחדש את ההתחברות ל-Spacefast."
+	],
+	"Start signing in with ChatGPT again.": [
+		"יש להתחיל מחדש את ההתחברות עם ChatGPT."
+	],
+	"Start signing in with GitHub again.": [
+		"יש להתחיל מחדש את ההתחברות עם GitHub."
+	],
+	"Starting chat…": [
+		"מתחיל צ'אט…"
+	],
+	"Static export failed: %s": [
+		"הייצוא הסטטי נכשל: %s"
+	],
+	"Static site exported to %s": [
+		"האתר הסטטי יוצא אל %s"
+	],
+	"Studio Cloud": [
+		"Studio Cloud"
+	],
+	"Supported files: %s.": [
+		"קבצים נתמכים: %s."
+	],
+	"Taxonomist": [
+		"מארגן הטקסונומיה"
+	],
+	"Team": [
+		"צוות"
+	],
+	"The GitHub sign-in expired. Try again.": [
+		"תוקף ההתחברות ל-GitHub פג. יש לנסות שוב."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"תוקף ההתחברות ל-Spacefast פג. יש לנסות שוב."
+	],
+	"The default browser for your sites.": [
+		"דפדפן ברירת המחדל עבור האתרים שלך."
+	],
+	"The local server refused the API key. Check the key, and connect again.": [
+		"השרת המקומי דחה את מפתח ה-API. יש לבדוק את המפתח ולהתחבר שוב."
+	],
+	"The preview site has no preview link.": [
+		"לאתר התצוגה המקדימה אין קישור לתצוגה מקדימה."
+	],
+	"The requested site is unavailable.": [
+		"האתר המבוקש אינו זמין."
+	],
+	"The transfer could not be completed. Please try again.": [
+		"לא ניתן היה להשלים את ההעברה. יש לנסות שוב."
+	],
+	"Thinks briefly": [
+		"חושב לזמן קצר"
+	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"לחשבון GitHub הזה אין תוכנית Copilot. אפשר לבחור תוכנית בכתובת github.com/features/copilot."
+	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"זהו מפתח של Anthropic. יש להוסיף אותו ל-Anthropic במקום זאת."
+	],
+	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
+		"האתר הזה צריך תוכנית אחסון שתומכת במשיכה ל-WordPress Studio."
+	],
+	"Tips reset.": [
+		"הטיפים אופסו."
+	],
+	"To %s": [
+		"אל %s"
+	],
+	"Token is required": [
+		"נדרש אסימון"
+	],
+	"Try downloading the update again.": [
+		"יש לנסות להוריד את העדכון שוב."
+	],
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"רמה לא מוכרת %1$s. יש לבחור אחת מהאפשרויות: %2$s."
+	],
+	"Update WordPress Studio": [
+		"עדכון WordPress Studio"
+	],
+	"Update all plugins": [
+		"עדכון כל התוספים"
+	],
+	"Update site option": [
+		"עדכון אפשרות אתר"
+	],
+	"Update site title": [
+		"עדכון כותרת האתר"
+	],
+	"Update the Studio CLI with `%s`.": [
+		"יש לעדכן את Studio CLI באמצעות `%s`."
+	],
+	"Update user": [
+		"עדכון משתמש"
+	],
+	"Uploading files…": [
+		"מעלה קבצים…"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"החיוב על השימוש מתבצע דרך החשבון שלך ב-Anthropic."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"החיוב על השימוש מתבצע דרך הפרויקט שלך ב-Google AI Studio."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"החיוב על השימוש מתבצע דרך החשבון שלך ב-Meta Model API."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"החיוב על השימוש מתבצע דרך החשבון שלך ב-OpenAI."
+	],
+	"Use Blueprint": [
+		"שימוש במודל"
+	],
+	"Use Gemini with a Gemini API key.": [
+		"שימוש ב-Gemini עם מפתח API של Gemini."
+	],
+	"Use Muse models with your Meta API key.": [
+		"שימוש במודלים של Muse עם מפתח ה-API שלך ב-Meta."
+	],
+	"Use WordPress Studio with your agents": [
+		"שימוש ב-WordPress Studio עם הסוכנים שלך"
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"שימוש במפתח API של Anthropic או באסימון מינוי של Claude."
+	],
+	"Using ChatGPT plan": [
+		"בשימוש: תוכנית ChatGPT"
+	],
+	"Using Claude plan": [
+		"בשימוש: תוכנית Claude"
+	],
+	"Using Copilot plan": [
+		"בשימוש: תוכנית Copilot"
+	],
+	"Validate blocks": [
+		"אימות בלוקים"
+	],
+	"View versions": [
+		"הצגת גרסאות"
+	],
+	"Visual Annotations": [
+		"ביאורים חזותיים"
+	],
+	"WP admin": [
+		"ניהול WP"
+	],
+	"Waiting for approval…": [
+		"ממתין לאישור…"
+	],
+	"What to replace": [
+		"מה להחליף"
+	],
+	"WordPress Studio could not download this backup.": [
+		"ל-WordPress Studio לא הייתה אפשרות להוריד את הגיבוי הזה."
+	],
+	"WordPress Studio could not open the email folder.": [
+		"ל-WordPress Studio לא הייתה אפשרות לפתוח את תיקיית האימייל."
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"ל-WordPress Studio לא הייתה אפשרות לפתוח את התיקייה. יש לנסות שוב."
+	],
+	"WordPress Studio could not open the site.": [
+		"ל-WordPress Studio לא הייתה אפשרות לפתוח את האתר."
+	],
+	"WordPress Studio is missing some of its files": [
+		"חלק מהקבצים של WordPress Studio חסרים"
+	],
+	"WordPress Studio is serving at:": [
+		"WordPress Studio זמין בכתובת:"
+	],
+	"WordPress.com API": [
+		"ה-API של WordPress.com"
+	],
+	"Worked for %s": [
+		"עבד במשך %s"
+	],
+	"Write": [
+		"כתיבה"
+	],
+	"Yearly, save 20%": [
+		"שנתי, חיסכון של 20%"
+	],
+	"You need administrator access to publish or pull changes.": [
+		"נדרשת גישת מנהל מערכת כדי לפרסם שינויים או למשוך אותם."
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"הגעת למגבלת השימוש של תוכנית ChatGPT שלך. אפשר לנהל את השימוש בכתובת chatgpt.com/settings/usage."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"הגעת למגבלת השימוש של תוכנית Copilot שלך. אפשר לנהל את השימוש בכתובת github.com/settings/copilot."
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"לא ניתן להשתמש בתוכנית ChatGPT שלך ב-WordPress Studio."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"ההתחברות שלך ל-ChatGPT כבר לא פעילה. יש לחבר מחדש את ChatGPT בהגדרות."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"תוכנית Copilot שלך לא כוללת את המודל הזה. אפשר לבחור מודל אחר או להפעיל אותו בכתובת github.com/settings/copilot."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"ההתחברות שלך ל-Spacefast כבר לא פעילה. יש לחבר מחדש את Spacefast."
+	],
+	"Your local server refused the request: %s.": [
+		"השרת המקומי שלך דחה את הבקשה: %s."
+	],
+	"Your plan has ended.": [
+		"התוכנית שלך הסתיימה."
+	],
+	"Your site is ready to publish": [
+		"האתר שלך מוכן לפרסום"
+	],
+	"database": [
+		"מסד נתונים"
+	],
+	"other files": [
+		"קבצים אחרים"
+	],
+	"page": [
+		"עמוד"
+	],
+	"pages": [
+		"עמודים"
+	],
+	"post": [
+		"פוסט"
+	],
+	"posts": [
+		"פוסטים"
+	],
+	"product": [
+		"מוצר"
+	],
+	"products": [
+		"מוצרים"
+	],
+	"xAI API key": [
+		"מפתח API של xAI"
+	],
+	"· %d%%": [
+		"· %d%%"
+	]
+}

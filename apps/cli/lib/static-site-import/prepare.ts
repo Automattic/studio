@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { readConfig } from '@studio/common/lib/config/store';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import {
 	captureCompareCommand,
@@ -172,9 +172,7 @@ export async function completeSourceImport(
 			.rm( prepared.liberationOutputDir, { recursive: true, force: true } )
 			.catch( () => {} );
 	} else if ( prepared.compareCommand ) {
-		const site = ( await readCliConfig() ).sites.find(
-			( candidate ) => candidate.path === sitePath
-		);
+		const site = ( await readConfig() ).sites.find( ( candidate ) => candidate.path === sitePath );
 		if ( site ) {
 			console.log(
 				sprintf(

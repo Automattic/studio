@@ -7,6 +7,7 @@ import type {
 	AiSessionSummary,
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { Blueprint } from '@studio/blueprints';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
@@ -15,6 +16,7 @@ import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
+import type { GlobalSkill, GlobalSkillSource } from '@studio/common/lib/global-skills';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
 	TracksAuthSource,
@@ -26,6 +28,7 @@ import type { RemoteSiteConnection } from '@studio/common/lib/remote-sites';
 import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
+import type { SkillDetails, SkillDraft } from '@studio/common/lib/skill-draft';
 import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -52,8 +55,13 @@ import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
 import type {
+	NewSite,
+	SiteCreationVisibility,
+	SiteVisibilityDetails,
+	SiteVisibility,
 	AiModelId,
 	AiProviderId,
+	CatalogModel,
 	PendingConnect,
 	ProviderId,
 	ProviderSites,
@@ -108,6 +116,42 @@ export interface AiSessionPlacementUpdatedEvent {
 	placement: AiSessionSitePlacement;
 }
 
+export interface SiteLimit {
+	used: number;
+	limit: number;
+}
+
+export interface SiteLimits {
+	sites?: SiteLimit;
+	runningSites?: SiteLimit;
+	// In bytes.
+	storage?: SiteLimit;
+}
+
+export interface PlanPurchase {
+	name: string;
+	period: 'monthly' | 'yearly';
+	// When it renews, or ends without auto-renew. Null for a plan given without a purchase.
+	expiresAt: string | null;
+	autoRenew: boolean;
+	manageUrl: string;
+	// Set while the plan can still be renewed by hand.
+	renewUrl: string | null;
+}
+
+interface BillingReceipt {
+	id: number;
+	date: string;
+	amount: string;
+	items: string[];
+	url: string;
+}
+
+export interface Billing {
+	plan: PlanPurchase | null;
+	receipts: BillingReceipt[];
+}
+
 export interface SiteDetails {
 	id: string;
 	name: string;
@@ -157,8 +201,8 @@ export interface AuthUser {
 
 // What native affordances the host environment offers, so the UI can choose
 // between a native flow and a browser-friendly fallback (instead of branching on
-// "am I in Electron"). The desktop app has them all; `studio ui` and Studio on
-// the web have fewer.
+// "am I in Electron"). The desktop app has them all; `studio ui` and Studio Cloud
+// have fewer.
 interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
@@ -174,14 +218,19 @@ interface ConnectorCapabilities {
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
 	// it, so there is no single log to point a browser user at.
 	studioLogs: boolean;
-	// Sites run on native PHP from a folder on this machine, with what that
-	// brings: opening the folder in an app, site email, phpMyAdmin, custom
-	// domains, Xdebug, a site's agent files, file access, and a choice of PHP and
-	// WordPress versions. Studio on the web runs them in Playground instead.
-	nativeSites: boolean;
 	// A sign-in on a provider's site runs in the host: a `loopback` one comes back to a local port,
 	// which the page can't listen on, and a `device` one waits on endpoints the page can't reach.
 	loopbackSignIn: boolean;
+	// The sites' files are on the computer the app runs on, so they can open in its apps (folder,
+	// editor, terminal) and use what needs it (custom domains, Xdebug). Studio Cloud's sites run
+	// natively on a machine somewhere else.
+	localMachine: boolean;
+	// The host keeps the user's skills for all sites (`getGlobalSkills`). A Studio Cloud
+	// machine on an older Studio doesn't.
+	globalSkills: boolean;
+	// The host makes and changes the user's skills (`createSkill`, `getSkill`, `updateSkill`).
+	// A Studio Cloud machine on an older Studio only lists them.
+	skillEditing: boolean;
 }
 
 export interface Connector {
@@ -216,8 +265,9 @@ export interface Connector {
 	createSite( params: CreateSiteParams ): Promise< SiteDetails >;
 	// Deletes a site from Studio. When `deleteFiles` is true the site folder is
 	// also removed from disk; otherwise the files stay and only the Studio entry
-	// is dropped.
-	deleteSite( id: string, deleteFiles?: boolean ): Promise< void >;
+	// is dropped. `warnings` names what the delete left behind, such as files it
+	// could not move to trash.
+	deleteSite( id: string, deleteFiles?: boolean ): Promise< { warnings: string[] } >;
 	// Duplicates an existing site (copies its files and admin credentials, then
 	// registers it as a new site). The connector picks a numbered name and a new
 	// site id internally so callers stay simple.
@@ -236,14 +286,11 @@ export interface Connector {
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// Captures the selected area of the visible preview: the Desktop's webview,
-	// named by `guestId`, or Studio on the web's frame.
-	captureAnnotationRegion(
-		request: { selection: InspectorSelection } & (
-			| { guestId: number }
-			| { frame: HTMLIFrameElement }
-		)
-	): Promise< StudioChatImage >;
+	// Captures the selected area of the visible preview: the Desktop's webview, named by `guestId`.
+	captureAnnotationRegion( request: {
+		selection: InspectorSelection;
+		guestId: number;
+	} ): Promise< StudioChatImage >;
 	// Captures the preview's page as the site's thumbnail and returns it, or null
 	// when that page isn't kept (sign-in and admin screens). The Desktop app
 	// captures the preview webview, named by `guestId`.
@@ -333,8 +380,22 @@ export interface Connector {
 	deleteSnapshot( hostname: string ): Promise< void >;
 	renameSnapshot( hostname: string, name: string ): Promise< void >;
 	// What changed on each side since the site was last pushed to the preview or pulled from it.
+	getSitePublishStatus(
+		siteId: string,
+		remoteSiteId: string | number,
+		provider?: SitesProviderId
+	): Promise< { localChanged: boolean | null } >;
 	getPreviewStatus( hostname: string ): Promise< PreviewStatus >;
 
+	getSiteVisibility(
+		provider: SitesProviderId,
+		id: string | number
+	): Promise< SiteVisibilityDetails | null >;
+	setSiteVisibility(
+		provider: SitesProviderId,
+		id: string | number,
+		value: SiteVisibility
+	): Promise< SiteVisibilityDetails >;
 	// Remote sites: a local site's connections to sites on a provider, and pushing to and
 	// pulling from them. Every method names the provider (`SITES_PROVIDER_IDS`); what each
 	// one offers is in its descriptor's `sites`.
@@ -352,17 +413,33 @@ export interface Connector {
 		localSiteId: string,
 		site: ProviderSites[ SitesProviderId ]
 	): Promise< void >;
+	// The site the values of the provider's `sites.connect` form describe, once the provider reached it.
+	resolveRemoteSite(
+		provider: SitesProviderId,
+		input: Record< string, string >
+	): Promise< ProviderSites[ SitesProviderId ] >;
+	// Runs one of the provider's actions on the computer, for its connect form.
+	runSitesAction(
+		provider: SitesProviderId,
+		action: string,
+		input?: Record< string, string >
+	): Promise< unknown >;
 	disconnectRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,
 		remoteSiteId: string | number
 	): Promise< void >;
+	getSiteCreationVisibility(
+		provider: SitesProviderId,
+		input?: NewSite[ 'input' ]
+	): Promise< SiteCreationVisibility | null >;
 	// Creates a site on a provider whose `sites.newSite` is `create`, and connects the local
 	// site to it.
 	createRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,
-		name: string
+		site: NewSite,
+		connect?: boolean
 	): Promise< ProviderSites[ SitesProviderId ] >;
 	// Pushes the local site to a connected remote site: everything, or what `options` selects.
 	// Its progress and result arrive as sync activity (`onSyncActivity`).
@@ -456,6 +533,12 @@ export interface Connector {
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.
 	setSessionProvider( sessionId: string, provider: ProviderId, model: AiModelId ): Promise< void >;
+	// Set how much `model` thinks in the session, until it switches models.
+	setSessionThinking(
+		sessionId: string,
+		model: AiModelId,
+		thinking: ThinkingSetting
+	): Promise< void >;
 	// Point the session's next turn at its local site or its connected live site.
 	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
@@ -520,8 +603,14 @@ export interface Connector {
 	// Starts connecting with a method that signs in on the provider's site (`loopback` or `device`).
 	startProviderConnect( provider: ProviderId, method: string ): Promise< PendingConnect >;
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
+	// The catalog of a provider whose account picks its models (`Provider.ai.catalog`), and
+	// offering these models of it, as `listProviderModels` returned them.
+	listProviderModels( provider: ProviderId ): Promise< CatalogModel[] >;
+	selectProviderModels( provider: ProviderId, models: CatalogModel[] ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
+	// The provider that generates images, or null to pick it automatically.
+	setImageProvider( provider: AiProviderId | null ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -552,15 +641,6 @@ export interface Connector {
 	getSiteEmails( siteId: string ): Promise< SiteEmailSummary[] >;
 	getSiteEmail( siteId: string, emailId: string ): Promise< SiteEmail | null >;
 
-	// Connects a preview <iframe> whose pages can run Studio's scripts (Studio
-	// on the web, through each site's bridge), for the annotation inspector:
-	// `onPage` after each page load, `onLog` with the page's inspector messages,
-	// and `run` to run a script in the page. Absent where frames can't be reached.
-	connectPreviewFrame?(
-		iframe: HTMLIFrameElement,
-		listeners: { onPage(): void; onLog( message: string ): void }
-	): { run( script: string ): void; dispose(): void };
-
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
 	// while the UI is open.
@@ -578,9 +658,22 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	// Sends feedback about WordPress Studio to the WordPress Studio team and returns the ID the
-	// service assigned it. Needs the WordPress.com login. Absent where the feedback service
-	// can't be reached, which hides Send feedback.
-	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
+	// service assigned it. Needs the WordPress.com login.
+	sendFeedback( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
+
+	// The plan's limits on sites with the current counts, on a host that sets them (Studio Cloud).
+	// Absent elsewhere; null when the host sets none.
+	getSiteLimits?(): Promise< SiteLimits | null >;
+
+	// The plan and its receipts, on a host sold as a plan (Studio Cloud). Absent elsewhere.
+	getBilling?(): Promise< Billing >;
+
+	// The plan's limits on sites with the current counts, on a host that sets them (Studio Cloud).
+	// Absent elsewhere; null when the host sets none.
+	getSiteLimits?(): Promise< SiteLimits | null >;
+
+	// The plan and its receipts, on a host sold as a plan (Studio Cloud). Absent elsewhere.
+	getBilling?(): Promise< Billing >;
 
 	// Wapuu World easter-egg high score. Returns undefined when no score has
 	// been recorded yet; saving keeps only the highest score seen.
@@ -589,10 +682,21 @@ export interface Connector {
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
 
-	// WordPress agent skills applied to all existing and future sites.
-	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
-	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
-	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
+	// The user's skills for all sites: Studio's own, and the ones other agents on this
+	// computer keep in `~/.agents/skills`. Switching one off keeps its files; only
+	// Studio's own can be deleted.
+	getGlobalSkills(): Promise< GlobalSkill[] >;
+	setGlobalSkillEnabled( source: GlobalSkillSource, id: string, enabled: boolean ): Promise< void >;
+	removeGlobalSkill( id: string ): Promise< void >;
+	// Shows the skill's folder in the file manager.
+	openGlobalSkill( source: GlobalSkillSource, id: string ): Promise< void >;
+
+	// A skill of the user's, made and changed in the app: one site's when `siteId` is set,
+	// otherwise one of Studio's for all sites. Both writes return the skill's id, which a new
+	// name changes.
+	createSkill( siteId: string | null, draft: SkillDraft ): Promise< string >;
+	getSkill( siteId: string | null, id: string ): Promise< SkillDetails >;
+	updateSkill( siteId: string | null, id: string, draft: SkillDraft ): Promise< string >;
 
 	// One site's skills and instruction files. Switching one off keeps its
 	// edits, out of the folders agents read.
@@ -701,7 +805,7 @@ export interface Connector {
 
 	// Agentic UI onboarding state. Distinct from getOnboardingCompleted (the
 	// first-run welcome flag). setOnboardingHints shallow-merges
-	// its partial. Persisted to app.json.
+	// its partial. Persisted to the config file.
 	getOnboardingHints(): Promise< OnboardingHintsState >;
 	setOnboardingHints( partial: Partial< OnboardingHintsState > ): Promise< void >;
 
@@ -756,14 +860,14 @@ export interface OnboardingHintsState {
 	annotateHintDismissed?: boolean;
 }
 
-export type { SiteAgentFile, SiteAgentFileKind };
-
-export interface SkillStatus {
-	id: string;
-	displayName: string;
-	description: string;
-	installed: boolean;
-}
+export type {
+	GlobalSkill,
+	GlobalSkillSource,
+	SiteAgentFile,
+	SiteAgentFileKind,
+	SkillDetails,
+	SkillDraft,
+};
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;

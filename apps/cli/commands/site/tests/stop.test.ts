@@ -1,5 +1,4 @@
 import { vi } from 'vitest';
-import { SiteData, readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
 import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
@@ -15,15 +14,14 @@ import {
 	stopWordPressServer,
 } from 'cli/lib/wordpress-server-manager';
 import { Mode, runCommand } from '../stop';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
-vi.mock( 'cli/lib/cli-config/core', async () => {
-	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
-	return {
-		...actual,
-		readCliConfig: vi.fn(),
-		saveCliConfig: vi.fn().mockResolvedValue( undefined ),
-	};
-} );
+let config: { sites: ConfigSite[] };
+
+vi.mock( '@studio/common/lib/config/store', () => ( {
+	readConfig: vi.fn( async () => config ),
+	updateConfig: vi.fn( async ( update: ( value: typeof config ) => void ) => update( config ) ),
+} ) );
 vi.mock( 'cli/lib/cli-config/sites', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/sites' );
 	return {
@@ -49,7 +47,7 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 
 describe( 'CLI: studio site stop', () => {
 	// Simple test data
-	const testSite: SiteData = {
+	const testSite: ConfigSite = {
 		id: 'site-1',
 		name: 'Test Site',
 		path: '/test/site',
@@ -141,7 +139,7 @@ describe( 'CLI: studio site stop', () => {
 } );
 
 describe( 'CLI: studio site stop --all', () => {
-	const testSites: SiteData[] = [
+	const testSites: ConfigSite[] = [
 		{
 			id: 'site-1',
 			name: 'Test Site 1',
@@ -150,6 +148,7 @@ describe( 'CLI: studio site stop --all', () => {
 			phpVersion: '8.0',
 			adminUsername: 'admin',
 			adminPassword: 'password123',
+			latestCliPid: 100,
 		},
 		{
 			id: 'site-2',
@@ -159,6 +158,7 @@ describe( 'CLI: studio site stop --all', () => {
 			phpVersion: '8.1',
 			adminUsername: 'admin',
 			adminPassword: 'password456',
+			latestCliPid: 100,
 		},
 		{
 			id: 'site-3',
@@ -168,6 +168,7 @@ describe( 'CLI: studio site stop --all', () => {
 			phpVersion: '8.2',
 			adminUsername: 'admin',
 			adminPassword: 'password789',
+			latestCliPid: 100,
 		},
 	];
 
@@ -187,20 +188,17 @@ describe( 'CLI: studio site stop --all', () => {
 		vi.mocked( killDaemonAndChildren ).mockResolvedValue( undefined );
 		vi.mocked( clearSiteLatestCliPid ).mockResolvedValue( undefined );
 		vi.mocked( getRunningSiteCount ).mockResolvedValue( 0 );
+		config = { sites: structuredClone( testSites ) };
 	} );
 
 	afterEach( () => {
 		vi.restoreAllMocks();
 	} );
 
+	const latestCliPids = () => config.sites.map( ( site ) => site.latestCliPid );
+
 	describe( 'Success Cases', () => {
 		it( 'should kill daemon even if no sites are running', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: testSites,
-				snapshots: [],
-			} );
-
 			vi.mocked( isServerRunning ).mockResolvedValue( undefined );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined );
@@ -212,16 +210,10 @@ describe( 'CLI: studio site stop --all', () => {
 		} );
 
 		it( 'should stop all running sites', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: testSites,
-				snapshots: [],
-			} );
 			vi.mocked( isServerRunning ).mockResolvedValue( testProcessDescription );
 
 			await runCommand( Mode.STOP_ALL_SITES, undefined );
 
-			expect( readCliConfig ).toHaveBeenCalled();
 			expect( connectToDaemon ).toHaveBeenCalled();
 			expect( isServerRunning ).toHaveBeenCalledTimes( 3 );
 			expect( isServerRunning ).toHaveBeenCalledWith( 'site-1' );
@@ -248,31 +240,10 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 
-			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [
-						expect.objectContaining( {
-							id: 'site-1',
-						} ),
-						expect.objectContaining( {
-							id: 'site-2',
-						} ),
-						expect.objectContaining( {
-							id: 'site-3',
-						} ),
-					] ),
-				} )
-			);
+			expect( latestCliPids() ).toEqual( [ undefined, undefined, undefined ] );
 		} );
 
 		it( 'should stop only running sites (mixed state)', async () => {
-			vi.mocked( readCliConfig ).mockResolvedValue( {
-				version: 1,
-				sites: testSites,
-				snapshots: [],
-			} );
-
 			vi.mocked( isServerRunning )
 				.mockResolvedValueOnce( testProcessDescription ) // site-1 running
 				.mockResolvedValueOnce( undefined ) // site-2 not running
@@ -284,19 +255,7 @@ describe( 'CLI: studio site stop --all', () => {
 
 			expect( killDaemonAndChildren ).toHaveBeenCalledTimes( 1 );
 
-			expect( saveCliConfig ).toHaveBeenCalledTimes( 1 );
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [
-						expect.objectContaining( {
-							id: 'site-1',
-						} ),
-						expect.objectContaining( {
-							id: 'site-3',
-						} ),
-					] ),
-				} )
-			);
+			expect( latestCliPids() ).toEqual( [ undefined, 100, undefined ] );
 		} );
 	} );
 } );

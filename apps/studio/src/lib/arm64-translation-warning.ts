@@ -2,7 +2,7 @@ import { app, dialog } from 'electron';
 import { __ } from '@wordpress/i18n';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { getMainWindow } from 'src/main-window';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import { readDesktopState, updateDesktopState } from 'src/storage/desktop-state';
 
 // An x64 build running under Rosetta or Windows on ARM emulation: sites and the agent run much
 // slower than in the native build, and updates keep the same architecture.
@@ -10,7 +10,7 @@ export async function warnIfRunningUnderArm64Translation() {
 	if ( ! app.runningUnderARM64Translation || process.env.E2E ) {
 		return;
 	}
-	if ( ( await loadUserData() ).dontShowArm64Warning ) {
+	if ( ( await readDesktopState() ).dontShowArm64Warning ) {
 		return;
 	}
 
@@ -30,7 +30,7 @@ export async function warnIfRunningUnderArm64Translation() {
 	} );
 
 	if ( checkboxChecked ) {
-		await updateAppdata( { dontShowArm64Warning: true } );
+		await updateDesktopState( { dontShowArm64Warning: true } );
 	}
 	if ( response === 0 ) {
 		void shellOpenExternalWrapper( 'https://wordpress.studio/' );

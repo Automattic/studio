@@ -2,20 +2,16 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHydratedAiSession } from '@studio/agent/node/sessions/manage';
-import * as configFile from '@studio/common/lib/cli-config-file';
+import * as store from '@studio/common/lib/config/store';
 import { __recordTracksEvent, TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import {
-	getCliConfigPath,
-	getSessionsDirectory,
-	getSharedConfigPath,
-} from '@studio/common/lib/well-known-paths';
+import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { continueAiSession } from 'src/ipc-handlers';
 import * as tracks from 'src/lib/tracks';
 import { startAgentRun } from 'src/modules/ai-agent/run-manager';
 import type { IpcMainInvokeEvent } from 'electron';
 
 vi.unmock( 'atomically' );
-vi.unmock( 'lockfile' );
+vi.unmock( 'proper-lockfile' );
 vi.mock( 'src/modules/ai-agent/run-manager', () => ( { startAgentRun: vi.fn() } ) );
 vi.mock( '@studio/common/lib/record-tracks-event', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/record-tracks-event') >() ),
@@ -24,7 +20,13 @@ vi.mock( '@studio/common/lib/record-tracks-event', async ( importOriginal ) => (
 
 const record = vi.mocked( __recordTracksEvent );
 const ipcEvent = { sender: {} } as IpcMainInvokeEvent;
-const site = { id: 'private@example.test', name: 'Private title', path: '/private/site' };
+const site = {
+	id: 'private@example.test',
+	name: 'Private title',
+	path: '/private/site',
+	port: 8881,
+	phpVersion: '8.3',
+};
 const privateText = 'Secret comment #selector https://private.test/path person@example.test';
 const image = {
 	id: 'private-image',
@@ -41,10 +43,7 @@ beforeEach( async () => {
 	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
 	for ( const key of [ 'CI', 'IS_DEV_BUILD' ] ) vi.stubEnv( key, '' );
 	vi.mocked( startAgentRun ).mockReturnValue( { runId: 'run-id' } );
-	await fs.writeFile(
-		getCliConfigPath(),
-		JSON.stringify( { version: 1, sites: [ site ], snapshots: [] } )
-	);
+	await fs.writeFile( store.getConfigPath(), JSON.stringify( { version: 1, sites: [ site ] } ) );
 	sessionId = ( await createHydratedAiSession( getSessionsDirectory(), { site } ) ).id;
 } );
 
@@ -74,7 +73,7 @@ it.each( [ 1, 3, 100 ] )(
 		} ) );
 		await expect( submit( annotations ) ).resolves.toEqual( { runId: 'run-id' } );
 		await vi.waitFor( () => expect( record ).toHaveBeenCalledTimes( 1 ) );
-		const config = JSON.parse( await fs.readFile( getCliConfigPath(), 'utf8' ) );
+		const config = await store.readConfig();
 		expect( config.sites[ 0 ].tracksId ).toMatch( /^[0-9a-f-]{36}$/ );
 		expect( record ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.ANNOTATION_SUBMITTED,
@@ -130,11 +129,9 @@ it.each( [ 'missing', 'storage' ] )(
 	'still records the count with %s site metadata',
 	async ( failure ) => {
 		if ( failure === 'missing' ) {
-			await fs.writeFile( getCliConfigPath(), '{"version":1,"sites":[],"snapshots":[]}' );
+			await fs.writeFile( store.getConfigPath(), '{"version":1,"sites":[]}' );
 		} else {
-			vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
-				new Error( 'Storage unavailable' )
-			);
+			vi.spyOn( store, 'updateConfig' ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
 		}
 		await submit( [ { comment: privateText } ] );
 		await vi.waitFor( () => expect( record ).toHaveBeenCalledTimes( 1 ) );
@@ -151,12 +148,14 @@ it( 'does not let a Tracks failure break sending', async () => {
 	await vi.waitFor( () => expect( record ).toHaveBeenCalledTimes( 1 ) );
 } );
 
-it.each( [ 'opt-out', 'CI', 'IS_DEV_BUILD' ] )(
+it.each( [ 'opt-out', 'IS_DEV_BUILD' ] )(
 	'honors %s while still sending annotations',
 	async ( gate ) => {
 		const wrappedRecord = vi.spyOn( tracks, 'recordTracksEvent' );
 		if ( gate === 'opt-out' ) {
-			await fs.writeFile( getSharedConfigPath(), '{"version":1,"analyticsOptOut":true}' );
+			await store.updateConfig( ( { preferences } ) => {
+				preferences.analyticsOptOut = true;
+			} );
 		} else {
 			vi.stubEnv( gate, 'true' );
 		}

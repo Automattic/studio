@@ -40,18 +40,18 @@ describe( 'account and session events', () => {
 		await settle();
 		connector.state.user = TEST_USER;
 		authChanged();
-		await waitFor( () => expect( toastTitles() ).toEqual( [ 'Logged in to WordPress.com' ] ) );
+		await waitFor( () =>
+			expect( getVisibleToasts() ).toEqual( [
+				expect.objectContaining( { title: 'Logged in to WordPress.com', durationMs: 0 } ),
+			] )
+		);
 		authChanged();
 		await settle();
 		expect( getVisibleToasts() ).toHaveLength( 1 );
 		connector.state.user = null;
 		authChanged();
-		await waitFor( () =>
-			expect( toastTitles() ).toEqual( [
-				'Logged in to WordPress.com',
-				'Logged out of WordPress.com',
-			] )
-		);
+		await waitFor( () => expect( toastTitles() ).toEqual( [ 'Logged out of WordPress.com' ] ) );
+		expect( getVisibleToasts()[ 0 ].durationMs ).toBeGreaterThan( 0 );
 	} );
 
 	it( 'does not announce logout when refreshing the account fails', async () => {

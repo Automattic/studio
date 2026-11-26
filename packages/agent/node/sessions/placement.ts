@@ -1,60 +1,27 @@
-import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
+import { updateSessionMetadata } from '@studio/common/lib/session-metadata';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { AiSessionSummary } from '@studio/agent/protocol/sessions/types';
+import type { SessionPlacement } from '@studio/common/lib/config/schema';
 
 /**
- * AI session "placement" — which local site a session created/owns. Stored in
- * `app.json` under `aiSessionPlacements` via the shared {@link updateAppConfig}
- * accessor; reads/writes touch only that key and preserve every other field.
+ * AI session "placement": the local site a session created or owns, kept with the session's
+ * metadata in the config file.
  */
 
-export interface AiSessionSitePlacement {
-	kind: 'site';
-	siteId: string;
-	sitePath: string;
-	siteName: string;
-}
+export type AiSessionSitePlacement = SessionPlacement;
 
 export interface AiSessionPlacementUpdatedEvent {
 	sessionId: string;
 	placement: AiSessionSitePlacement;
 }
 
-type SessionPlacements = Record< string, AiSessionSitePlacement >;
-
-export async function readAiSessionPlacements(): Promise< SessionPlacements > {
-	const config = await readAppConfig();
-	return ( config.aiSessionPlacements as SessionPlacements | undefined ) ?? {};
-}
-
-export async function readAiSessionPlacement(
-	sessionId: string
-): Promise< AiSessionSitePlacement | undefined > {
-	const placements = await readAiSessionPlacements();
-	return placements[ sessionId ];
-}
-
 export async function setAiSessionSitePlacement(
 	sessionId: string,
 	placement: Omit< AiSessionSitePlacement, 'kind' >
 ): Promise< AiSessionSitePlacement > {
-	return updateAppConfig( ( config ) => {
-		const placements = ( config.aiSessionPlacements as SessionPlacements | undefined ) ?? {};
-		const nextPlacement: AiSessionSitePlacement = { kind: 'site', ...placement };
-		config.aiSessionPlacements = { ...placements, [ sessionId ]: nextPlacement };
-		return nextPlacement;
-	} );
-}
-
-export async function deleteAiSessionPlacement( sessionId: string ): Promise< void > {
-	await updateAppConfig( ( config ) => {
-		const placements = config.aiSessionPlacements as SessionPlacements | undefined;
-		if ( ! placements?.[ sessionId ] ) {
-			return;
-		}
-		const { [ sessionId ]: _deleted, ...remaining } = placements;
-		config.aiSessionPlacements = Object.keys( remaining ).length > 0 ? remaining : undefined;
-	} );
+	const nextPlacement: AiSessionSitePlacement = { kind: 'site', ...placement };
+	await updateSessionMetadata( sessionId, { placement: nextPlacement } );
+	return nextPlacement;
 }
 
 export function hydrateAiSessionSummaryWithPlacement(

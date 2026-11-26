@@ -1,19 +1,16 @@
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import {
-	deleteSharedSession,
-	readSharedSession,
-	readSharedSessions,
-	updateSharedSession,
-} from '@studio/common/lib/shared-config';
+	deleteSessionMetadata,
+	readSessionMetadata,
+	readSessionsMetadata,
+	updateSessionMetadata,
+	type SessionMetadata,
+} from '@studio/common/lib/session-metadata';
 import { readSites } from '@studio/common/sites/site-path';
 import {
-	deleteAiSessionPlacement,
 	hydrateAiSessionSummaryWithPlacement,
-	readAiSessionPlacement,
-	readAiSessionPlacements,
 	setAiSessionSitePlacement,
-	type AiSessionSitePlacement,
 } from '@studio/agent/node/sessions/placement';
 import {
 	appendStudioEntry,
@@ -35,8 +32,8 @@ import type {
 
 /**
  * Session listing + creation, hydrated with the metadata that lives outside the
- * session JSONL: the archived, title and unread fields (shared config) and site
- * placement (app.json).
+ * session JSONL in the config file: the archived, title and unread fields, and
+ * the site placement.
  */
 
 // A local site a session can be bound to.
@@ -48,8 +45,7 @@ export interface SessionSite {
 
 export function hydrateAiSessionSummary(
 	summary: AiSessionSummary,
-	metadata?: AiSessionMetadata,
-	placement?: AiSessionSitePlacement
+	metadata?: SessionMetadata
 ): AiSessionSummary {
 	return hydrateAiSessionSummaryWithPlacement(
 		{
@@ -58,7 +54,7 @@ export function hydrateAiSessionSummary(
 			title: metadata?.title,
 			unread: metadata?.unread,
 		},
-		placement
+		metadata?.placement
 	);
 }
 
@@ -73,24 +69,17 @@ export async function updateHydratedAiSessionMetadata(
 	const patch = Object.fromEntries(
 		Object.entries( { archived, title, unread } ).filter( ( [ , value ] ) => value !== undefined )
 	);
-	const [ metadata, placement ] = await Promise.all( [
-		updateSharedSession( summary.id, patch ),
-		readAiSessionPlacement( summary.id ),
-	] );
-	return hydrateAiSessionSummary( summary, metadata, placement );
+	return hydrateAiSessionSummary( summary, await updateSessionMetadata( summary.id, patch ) );
 }
 
 export async function listHydratedAiSessions(
 	rootDirectory: string
 ): Promise< AiSessionSummary[] > {
-	const [ sessions, metadata, placements ] = await Promise.all( [
+	const [ sessions, metadata ] = await Promise.all( [
 		listAiSessions( rootDirectory ),
-		readSharedSessions(),
-		readAiSessionPlacements(),
+		readSessionsMetadata(),
 	] );
-	return sessions.map( ( session ) =>
-		hydrateAiSessionSummary( session, metadata[ session.id ], placements[ session.id ] )
-	);
+	return sessions.map( ( session ) => hydrateAiSessionSummary( session, metadata[ session.id ] ) );
 }
 
 export async function loadHydratedAiSession(
@@ -98,14 +87,18 @@ export async function loadHydratedAiSession(
 	sessionIdOrPrefix: string
 ): Promise< LoadedAiSession > {
 	const session = await loadAiSession( rootDirectory, sessionIdOrPrefix );
-	const [ metadata, placement ] = await Promise.all( [
-		readSharedSession( session.summary.id ),
-		readAiSessionPlacement( session.summary.id ),
-	] );
-	return {
-		...session,
-		summary: hydrateAiSessionSummary( session.summary, metadata, placement ),
-	};
+	const metadata = await readSessionMetadata( session.summary.id );
+	return { ...session, summary: hydrateAiSessionSummary( session.summary, metadata ) };
+}
+
+// Deletes the session's transcript and the metadata kept about it.
+export async function deleteHydratedAiSession(
+	rootDirectory: string,
+	sessionIdOrPrefix: string
+): Promise< AiSessionSummary > {
+	const deleted = await deleteAiSession( rootDirectory, sessionIdOrPrefix );
+	await deleteSessionMetadata( deleted.id );
+	return deleted;
 }
 
 // Match by id OR path: placements may hold either a stale path (site moved) or
@@ -115,11 +108,11 @@ export async function deleteAiSessionsForSite(
 	rootDirectory: string,
 	site: Pick< SessionSite, 'id' | 'path' >
 ): Promise< string[] > {
-	const placements = await readAiSessionPlacements();
-	const sessionIds = Object.entries( placements )
+	const sessionIds = Object.entries( await readSessionsMetadata() )
 		.filter(
-			( [ , placement ] ) =>
-				placement.siteId === site.id || arePathsEqual( placement.sitePath, site.path )
+			( [ , { placement } ] ) =>
+				placement &&
+				( placement.siteId === site.id || arePathsEqual( placement.sitePath, site.path ) )
 		)
 		.map( ( [ sessionId ] ) => sessionId );
 
@@ -129,14 +122,8 @@ export async function deleteAiSessionsForSite(
 		} catch {
 			// A placement can outlive its session file; still drop the metadata.
 		}
-		try {
-			await deleteSharedSession( sessionId );
-			await deleteAiSessionPlacement( sessionId );
-		} catch {
-			// Per-session best effort: one failed config write shouldn't
-			// abandon cleanup of the remaining sessions.
-		}
 	}
+	await deleteSessionMetadata( ...sessionIds );
 	return sessionIds;
 }
 
@@ -162,7 +149,7 @@ export async function createHydratedAiSession(
 		siteName: site.name,
 		sitePath: site.path,
 	} );
-	return hydrateAiSessionSummary( created, undefined, placement );
+	return hydrateAiSessionSummary( created, { placement } );
 }
 
 /**
@@ -183,7 +170,7 @@ export async function reconcileSessionEnvironment(
 		return;
 	}
 	const connectedIds = new Set(
-		( await getConnectedWpcomSitesForLocalSite( ownerSite.id ) ).map( ( site ) => site.id )
+		( await getRemoteSites( 'wpcom', ownerSite.id ) ).map( ( site ) => site.id )
 	);
 	if (
 		deriveEffectiveEnvironment( summary, ( blogId ) => connectedIds.has( blogId ) ) === 'live'
@@ -220,7 +207,7 @@ export async function setSessionEnvironment(
 		} );
 		return;
 	}
-	const liveSite = pickLiveSite( await getConnectedWpcomSitesForLocalSite( ownerSite.id ) );
+	const liveSite = pickLiveSite( await getRemoteSites( 'wpcom', ownerSite.id ) );
 	if ( ! liveSite ) {
 		throw new Error( 'This site is not connected to a WordPress.com site.' );
 	}

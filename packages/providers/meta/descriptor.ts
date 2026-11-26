@@ -48,10 +48,16 @@ export const metaProvider: Provider< MetaConfig > = {
 					),
 			},
 		],
-		describe: ( config ) => ( { method: 'api-key', summary: previewApiKey( config.apiKey ) } ),
+		describe: ( config ) => ( {
+			method: 'api-key',
+			summary: previewApiKey( config.apiKey ),
+			models: config.models,
+		} ),
 	},
 	ai: {
 		models: META_AI_MODELS,
 		defaultModel: 'muse-spark-1.3',
+		catalog: { prefixes: [ 'muse-' ] },
+		generatesImages: () => true,
 	},
 };

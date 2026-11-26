@@ -43,7 +43,6 @@ const siteCommands = (
 		site,
 		panelShown: false,
 		canAnnotate: false,
-		nativeSites: false,
 		annotating: false,
 		actions: {
 			busy: false,
@@ -127,6 +126,24 @@ it( 'derives labels and availability from active context', () => {
 	expect( byId( 'export' ) ).toBeUndefined();
 	expect( byId( 'open-files' ) ).toBeUndefined();
 	expect( app.filter( ( command ) => command.id === 'color-scheme' ) ).toHaveLength( 1 );
+} );
+
+it( 'finds the Publish command for sharing and previews', () => {
+	const current = makeSite( { id: 'one', name: 'Test' } );
+	const openHeaderPanel = vi.fn();
+	const commands = siteCommands( current, [ current ], { openHeaderPanel } );
+	expect( commands.find( ( command ) => command.id === 'share' ) ).toBeUndefined();
+	for ( const query of [ 'publish', 'share', 'preview' ] ) {
+		expect(
+			matchCommands( commands, query ).filter( ( command ) => command.id === 'publish' )
+		).toHaveLength( 1 );
+	}
+	commands.find( ( command ) => command.id === 'publish' )!.run();
+	expect( openHeaderPanel ).toHaveBeenCalledExactlyOnceWith( {
+		panel: 'publish',
+		siteId: 'one',
+		view: 'publish',
+	} );
 } );
 
 it.each( [
@@ -289,11 +306,5 @@ describe( 'command search', () => {
 				'Collapse all sites'
 			).map( ( { label } ) => label )
 		).toEqual( [ 'Collapse all' ] );
-	} );
-
-	it( 'offers Send feedback only where the connector can send it', () => {
-		const ids = ( commands: PaletteCommand[] ) => commands.map( ( { id } ) => id );
-		expect( ids( appCommands() ) ).toContain( 'send-feedback' );
-		expect( ids( appCommands( { openFeedback: undefined } ) ) ).not.toContain( 'send-feedback' );
 	} );
 } );

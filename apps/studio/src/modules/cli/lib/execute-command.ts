@@ -1,10 +1,10 @@
-import * as Sentry from '@sentry/electron/main';
 import {
 	createCliRunner,
 	type CliRunner,
 	type ExecuteCliCommand,
 } from '@studio/common/lib/cli-process';
 import { HOST_REPORTS_CLI_ERRORS_ENV } from '@studio/common/lib/error-reporting';
+import { reportCliSpawnError } from 'src/lib/missing-node-binary';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 // Origin tag passed to every app-spawned CLI process so its Tracks events are attributed to the
@@ -18,12 +18,13 @@ let runner: CliRunner | undefined;
 
 function getRunner(): CliRunner {
 	if ( ! runner ) {
+		const nodeBinary = getBundledNodeBinaryPath();
 		runner = createCliRunner( {
 			cliBinary: getCliPath(),
-			nodeBinary: getBundledNodeBinaryPath(),
+			nodeBinary,
 			env: { STUDIO_TRACKS_ORIGIN: getTracksOriginEnv(), [ HOST_REPORTS_CLI_ERRORS_ENV ]: '1' },
 			echoStderr: true,
-			onError: ( error ) => Sentry.captureException( error ),
+			onError: ( error ) => reportCliSpawnError( error, nodeBinary ),
 		} );
 	}
 	return runner;

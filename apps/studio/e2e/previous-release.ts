@@ -24,6 +24,18 @@ const CDN_PLATFORMS: Record< string, string > = {
 const RELEASES_DIR = path.join( os.tmpdir(), 'studio-e2e-previous-release' );
 
 /**
+ * Runs the previous release's CLI as if offline, so it keeps the WordPress it bundles. Online,
+ * creating a site downloads a newer one from wordpress.org, which closes the connection after the
+ * zip, and Node 24.22.1's fetch can crash on that (`assert(!this.paused)`). The sites stay reachable.
+ */
+export const PREVIOUS_RELEASE_ENV = {
+	NODE_USE_ENV_PROXY: '1',
+	HTTP_PROXY: 'http://127.0.0.1:9',
+	HTTPS_PROXY: 'http://127.0.0.1:9',
+	NO_PROXY: 'localhost,127.0.0.1,[::1]',
+};
+
+/**
  * The newest Studio release older than this build. Releases before 2.1.0 are skipped: on Windows
  * they listen on the same named pipes whatever STUDIO_PROCESS_MANAGER_HOME says, so their daemon
  * can't be isolated. Every release is also published to npm as `wp-studio`.

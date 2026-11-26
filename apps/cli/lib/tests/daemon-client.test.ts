@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createConnectionMock = vi.fn();
 const spawnMock = vi.fn();
-const readCliConfigMock = vi.fn();
+const readConfigMock = vi.fn();
 const CLI_VERSION = '2.3.0';
 
 function frameMessage( message: unknown ) {
@@ -42,7 +42,7 @@ vi.mock( 'net', () => {
 	};
 } );
 
-vi.mock( 'cli/lib/cli-config/core', () => ( { readCliConfig: readCliConfigMock } ) );
+vi.mock( '@studio/common/lib/config/store', () => ( { readConfig: readConfigMock } ) );
 
 vi.mock( 'child_process', () => {
 	const mockedModule = {
@@ -352,7 +352,7 @@ describe( 'replacing an outdated daemon', () => {
 				{ name: 'studio-site-b', pmId: 2, status: 'online', pid: 102 },
 			],
 		};
-		readCliConfigMock.mockResolvedValue( {
+		readConfigMock.mockResolvedValue( {
 			sites: [ 'a', 'b', 'c' ].map( ( id ) => {
 				fs.mkdirSync( path.join( home, id ) );
 				return { id, name: id, path: path.join( home, id ) };
@@ -426,7 +426,7 @@ describe( 'replacing an outdated daemon', () => {
 	} );
 
 	it( 'reports only the sites no other process is starting when a start fails', async () => {
-		const { sites } = await readCliConfigMock();
+		const { sites } = await readConfigMock();
 		sites[ 0 ].operation = { pid: process.ppid, kind: 'start' };
 		spawnMock.mockImplementation( ( _execPath: string, args: string[] ) => {
 			if ( args[ 0 ].endsWith( 'process-manager-daemon.mjs' ) ) {
@@ -456,7 +456,7 @@ describe( 'replacing an outdated daemon', () => {
 
 	it( 'replaces the daemon once when clients connect at the same time', async () => {
 		// The real lockfile is what serializes clients.
-		vi.doUnmock( 'lockfile' );
+		vi.doUnmock( 'proper-lockfile' );
 		const clients = [];
 		for ( let i = 0; i < 3; i++ ) {
 			vi.resetModules();

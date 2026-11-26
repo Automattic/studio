@@ -20,6 +20,12 @@ describe( 'browser driver', () => {
 		expect( blockedOperation( 'PATCH', '/snapshots/x.wp.build' ) ).toBeDefined();
 		expect( blockedOperation( 'POST', '/sites/abc/remote-sites/wpcom' ) ).toBeDefined();
 		expect( blockedOperation( 'POST', '/sites/abc/remote-sites/spacefast/new' ) ).toBeDefined();
+		expect( blockedOperation( 'POST', '/remote-sites/wpcom/42/visibility' ) ).toBe(
+			'changing site visibility'
+		);
+		expect( blockedOperation( 'POST', '/remote-sites/spacefast/spc_1/visibility' ) ).toBe(
+			'changing site visibility'
+		);
 		expect( blockedOperation( 'DELETE', '/sites/abc/remote-sites/wpcom/123' ) ).toBeDefined();
 		expect( blockedOperation( 'POST', '/sessions/s1/messages' ) ).toBeDefined();
 	} );

@@ -1,4 +1,3 @@
-import { appBumpStatsProvider } from '@studio/common/lib/app-bump-stats';
 import { __bumpAggregatedUniqueStat, __bumpStat } from '@studio/common/lib/bump-stat';
 import { captureException } from '@studio/common/lib/error-reporting';
 
@@ -6,8 +5,7 @@ import { captureException } from '@studio/common/lib/error-reporting';
  * Studio Code agent usage stats. The `surface` selects which stat group is
  * bumped so surfaces never conflate in dashboards — desktop uses
  * `studio-code-ui-*`, the CLI-served UI uses `studio-code-cliui-*` (kept ≤27
- * chars, the backend's group limit). Weekly/monthly unique-user dedup state
- * lives in app.json via {@link appBumpStatsProvider}.
+ * chars, the backend's group limit).
  */
 
 export type AgentSurface = 'desktop' | 'cliui';
@@ -53,18 +51,12 @@ export function recordAgentSend( surface: AgentSurface ): void {
 	const groups = STAT_GROUPS[ surface ];
 	const platform = getPlatformMetric();
 	__bumpStat( groups.send, platform );
-	void __bumpAggregatedUniqueStat(
-		groups.weeklyUnique,
-		platform,
-		'weekly',
-		appBumpStatsProvider
-	).catch( ( error ) => captureException( error ) );
-	void __bumpAggregatedUniqueStat(
-		groups.monthlyUnique,
-		platform,
-		'monthly',
-		appBumpStatsProvider
-	).catch( ( error ) => captureException( error ) );
+	void __bumpAggregatedUniqueStat( groups.weeklyUnique, platform, 'weekly' ).catch( ( error ) =>
+		captureException( error )
+	);
+	void __bumpAggregatedUniqueStat( groups.monthlyUnique, platform, 'monthly' ).catch( ( error ) =>
+		captureException( error )
+	);
 }
 
 // A run finished: record its outcome.

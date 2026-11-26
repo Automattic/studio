@@ -15,7 +15,7 @@ export const builder = ( yargs: StudioArgv ) => {
 		.option( 'remote-site', {
 			type: 'string',
 			description: __(
-				'Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast'
+				'Remote site URL or ID, or `<provider>[:<site>]` for a site on another provider, such as `spacefast` to publish a static copy to Spacefast, or `ssh:<user@host:/path>` for a WordPress site on a server you reach over SSH'
 			),
 		} )
 		.option( 'include-only', {

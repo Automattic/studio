@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { updateProfileConfig } from './config.ts';
 import { readJson } from './paths.ts';
 import { createSite, runCli, stopSite } from './studio-cli.ts';
 import type { Profile } from './profile.ts';
@@ -44,15 +45,13 @@ export async function seedSites( profile: Profile, scene: LoadedScene ) {
 }
 
 /**
- * The `app.json` fields for the seeded sites: the sidebar keeps the scene's
- * order, and Studio starts the sites with content on launch.
+ * The seeded sites' settings: the sidebar keeps the scene's order, and Studio
+ * starts the sites with content on launch.
  */
-export function siteMetadata( sites: ResolvedSite[] ) {
-	return {
-		siteMetadata: Object.fromEntries(
-			sites.map( ( site, index ) => [ site.id, { sortOrder: index, autoStart: site.content } ] )
-		),
-	};
+export function siteSettings( sites: ResolvedSite[] ) {
+	return Object.fromEntries(
+		sites.map( ( site, index ) => [ site.id, { sortOrder: index, autoStart: site.content } ] )
+	);
 }
 
 interface ToolCall {
@@ -78,17 +77,16 @@ interface Chat {
  * `prompt` and the agent's `replies`, one message each, made of text and tool
  * calls (`{ name, args, result, isError?, details? }`, as the chat shows
  * them). A `title` names it in the sidebar, as renaming a chat does (in the
- * profile's `shared.json`); without one Studio shows the first prompt.
- * Resolves with the `app.json` placements that put each chat under its site,
- * and a `remove()` that deletes the files and titles again, since the profile
- * is shared.
+ * profile's config file); without one Studio shows the first prompt.
+ * Resolves with the placements that put each chat under its site, and a
+ * `remove()` that deletes the files and the chats' metadata again, since the
+ * profile is shared.
  */
 export async function seedChats( profile: Profile, scene: LoadedScene, names: string[] ) {
 	if ( ! scene.chats ) {
 		throw new Error( `Scene ${ scene.name } has no chats folder` );
 	}
 	const sessionsDir = path.join( profile.dirs.appData, 'sessions' );
-	const sharedPath = path.join( profile.dirs.sharedConfig, 'shared.json' );
 	const placements: Record< string, unknown > = {};
 	const titles: Record< string, { title: string } > = {};
 	const files: string[] = [];
@@ -187,25 +185,18 @@ export async function seedChats( profile: Profile, scene: LoadedScene, names: st
 			titles[ sessionId ] = { title: chat.title };
 		}
 	}
-	const shared = await readJson< { sessions?: Record< string, unknown > } >( sharedPath );
-	await writeFile(
-		sharedPath,
-		JSON.stringify( { ...shared, sessions: { ...shared.sessions, ...titles } }, null, 2 )
-	);
+	await updateProfileConfig( profile, ( config ) => {
+		config.sessions = { ...config.sessions, ...titles };
+	} );
 	return {
 		placements,
 		remove: async () => {
 			await Promise.all( files.map( ( file ) => rm( file, { force: true } ) ) );
-			const { sessions, ...rest } = await readJson< { sessions?: Record< string, unknown > } >(
-				sharedPath
-			);
-			const kept = Object.fromEntries(
-				Object.entries( sessions ?? {} ).filter( ( [ id ] ) => ! titles[ id ] )
-			);
-			await writeFile(
-				sharedPath,
-				JSON.stringify( Object.keys( kept ).length ? { ...rest, sessions: kept } : rest, null, 2 )
-			);
+			await updateProfileConfig( profile, ( config ) => {
+				for ( const id of Object.keys( placements ) ) {
+					delete config.sessions?.[ id ];
+				}
+			} );
 		},
 	};
 }

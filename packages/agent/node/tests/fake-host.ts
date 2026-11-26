@@ -1,6 +1,5 @@
 import { vi } from 'vitest';
-import { nodeHostServices } from '@studio/agent/node/node-host';
-import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -13,7 +12,7 @@ export const fakeSite: HostSite = {
 	adminPassword: 'password',
 };
 
-export const fakePreview: Snapshot = {
+const fakePreview: Snapshot = {
 	url: 'demo.wp.build',
 	atomicSiteId: 12345,
 	localSiteId: 'site-123',
@@ -56,7 +55,7 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 			create: vi.fn( async () => {} ),
 			start: vi.fn( async () => {} ),
 			stop: vi.fn( async () => {} ),
-			delete: vi.fn( async () => {} ),
+			delete: vi.fn( async () => ( { warnings: [] } ) ),
 			isRunning: vi.fn( async () => true ),
 			import: vi.fn( async () => {} ),
 			export: vi.fn( async () => {} ),
@@ -82,18 +81,5 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 		tracks: {
 			record: vi.fn( async () => {} ),
 		},
-		// The real file system and paths, so tests work in temporary folders.
-		path: nodeHostServices().path,
-		files: nodeHostServices().files,
-		pages: {
-			open: vi.fn( async () => {
-				throw new Error( 'No browser in tests' );
-			} ),
-			fetchText: vi.fn( async () => ( { status: 404, body: '' } ) ),
-		},
-		saveImage: vi.fn( async ( _bytes: Uint8Array, name: string ) => ( {
-			path: `/images/${ name }`,
-			url: `file:///images/${ name }`,
-		} ) ),
 	};
 }

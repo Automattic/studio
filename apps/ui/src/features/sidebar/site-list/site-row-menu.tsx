@@ -1,7 +1,7 @@
+import { Menu } from '@studio/ds';
 import { useState, type MouseEvent, type PointerEvent, type ReactElement } from 'react';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { SiteMenuItems, useSiteActions } from '@/features/sites';
-import { Menu } from '@/lib/ui';
 import { BulkMenu, useIsBulkTarget } from './selection';
 import type { SiteDetails } from '@/data/core';
 

@@ -9,7 +9,7 @@
  * 80 and 443.
  *
  * The proxy:
- * - Reads site configurations from appdata-v1.json
+ * - Reads site configurations from the config file
  * - Generates SSL certificates for custom domains on-the-fly
  * - Routes HTTP/HTTPS requests to the appropriate local WordPress sites
  */

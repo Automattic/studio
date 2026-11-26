@@ -48,3 +48,20 @@ opts a locale into the automated download.
 
 No manual steps are needed for translation export. The standalone `fetch_glotpress_translations`
 lane can be used to manually download translations if needed.
+
+### AI translations for missing strings (release author)
+
+Strings GlotPress has no translation for yet would ship in English, so at **code freeze** the
+release author has an agent translate them, following
+[`scripts/ai-translations/SKILL.md`](../scripts/ai-translations/SKILL.md): ask it to translate
+the missing strings on the new `release/<version>` branch, and merge the PR it opens into that
+branch before the first beta.
+
+- The agent works from the frozen `i18n/bundle-strings.pot`, so the translations match the code
+  that ships. It reuses each locale's existing translations and the Studio GlotPress glossary for
+  terminology, and `scripts/ai-translations/index.mjs add` rejects any translation that changes the
+  English string's placeholders or markup or has the wrong number of plural forms.
+- The AI translations are committed to `packages/common/translations/ai/studio-<locale>.json` and
+  merged into the shipped `studio-<locale>.jed.json` files. GlotPress translations always win.
+- Every later download (each beta and the final release) merges them again on top of the fresh
+  GlotPress files, and drops the ones GlotPress now translates or whose string left the code.

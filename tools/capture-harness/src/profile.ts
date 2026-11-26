@@ -15,8 +15,7 @@ export interface Profile {
 		appData: string;
 		home: string;
 		sites: string;
-		cliConfig: string;
-		sharedConfig: string;
+		config: string;
 		userData: string;
 		daemon: string;
 	};
@@ -27,9 +26,9 @@ export interface Profile {
 }
 
 /**
- * A throwaway Studio profile. Studio's E2E mode (the `E2E_*` env vars,
- * honoured by release builds) points its app data, home, and CLI config at
- * these directories, and `--user-data-dir` gives Electron its own
+ * A throwaway Studio profile. `DEV_CONFIG_DIR` and Studio's E2E mode (the
+ * `E2E_*` env vars, honoured by release builds) point its config, app data
+ * and home at these directories, and `--user-data-dir` gives Electron its own
  * single-instance lock, so this runs alongside a Studio the user already has
  * open. Nothing in the user's real profile is read or written, except the
  * WordPress and PHP caches, which are linked in: the CLI reads them, and would
@@ -47,8 +46,7 @@ export async function createProfile(): Promise< Profile > {
 		appData: path.join( root, 'appData', 'Studio' ),
 		home: path.join( root, 'home' ),
 		sites: path.join( root, 'home', 'Studio' ),
-		cliConfig: path.join( root, 'cliConfig' ),
-		sharedConfig: path.join( root, 'sharedConfig' ),
+		config: path.join( root, 'config' ),
 		userData: path.join( root, 'userData' ),
 		// Kept short and directly under tmpdir: the daemon's sockets are Unix
 		// domain sockets, limited to ~104 characters on macOS.
@@ -60,19 +58,23 @@ export async function createProfile(): Promise< Profile > {
 	for ( const cache of SHARED_CACHES ) {
 		const real = path.join( REAL_STUDIO_DIR, cache );
 		if ( existsSync( real ) ) {
-			await symlink( real, path.join( dirs.sharedConfig, cache ), 'junction' );
+			await symlink( real, path.join( dirs.config, cache ), 'junction' );
 		}
 	}
-	// A recent dependency check keeps the CLI from looking for WordPress updates.
+	// Scripts match English accessible names; without a saved locale Studio falls
+	// back to the OS language. A recent dependency check keeps the CLI from looking
+	// for WordPress updates.
 	await writeFile(
-		path.join( dirs.cliConfig, 'cli.json' ),
-		JSON.stringify( { version: 1, sites: [], snapshots: [], lastDependencyCheckTime: Date.now() } )
-	);
-	// Scripts match English accessible names; without a saved locale Studio
-	// falls back to the OS language.
-	await writeFile(
-		path.join( dirs.sharedConfig, 'shared.json' ),
-		JSON.stringify( { version: 1, locale: 'en' }, null, 2 )
+		path.join( dirs.config, 'config.json' ),
+		JSON.stringify(
+			{
+				version: 1,
+				preferences: { locale: 'en' },
+				cli: { lastDependencyCheckTime: Date.now() },
+			},
+			null,
+			2
+		)
 	);
 
 	// Set when this runs from a terminal inside an Electron app; Studio would
@@ -89,9 +91,7 @@ export async function createProfile(): Promise< Profile > {
 			E2E_HOME_PATH: dirs.home,
 			// The CLI's default site folder (`studio ui` creates sites through it).
 			E2E_SITES_ROOT: dirs.sites,
-			E2E_CLI_CONFIG_PATH: dirs.cliConfig,
-			E2E_SHARED_CONFIG_PATH: dirs.sharedConfig,
-			DEV_CONFIG_DIR: dirs.sharedConfig,
+			DEV_CONFIG_DIR: dirs.config,
 			STUDIO_PROCESS_MANAGER_HOME: dirs.daemon,
 		},
 		async remove() {

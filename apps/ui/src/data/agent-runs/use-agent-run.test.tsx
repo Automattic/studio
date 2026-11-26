@@ -8,6 +8,10 @@ import { createLocalConnector } from '@/data/core/connectors/local';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import {
+	GLOBAL_SKILLS_QUERY_KEY,
+	SITE_AGENT_FILES_QUERY_KEY,
+} from '@/data/queries/use-site-agent-files';
+import {
 	aiSettings,
 	createFakeConnector,
 	makeSession,
@@ -474,6 +478,9 @@ describe( 'useAgentRun queued handoff', () => {
 			{ cancelRefetch: false }
 		);
 		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
+		// The run may have saved a skill: the `/` menu and Settings read them again.
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: GLOBAL_SKILLS_QUERY_KEY } );
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: SITE_AGENT_FILES_QUERY_KEY } );
 	} );
 
 	it( 'preserves the optimistic start time when the backend acknowledges the run', async () => {
@@ -527,6 +534,37 @@ describe( 'useAgentRun queued handoff', () => {
 		expect( new Set( entries.map( ( entry ) => entry.id ) ).size ).toBe( 2 );
 		expect( JSON.stringify( entries ) ).toContain( 'Inspecting your theme' );
 		expect( JSON.stringify( entries ) ).toContain( 'Updated the header' );
+	} );
+
+	it( 'keeps only the latest progress of a running tool in the transcript', async () => {
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, 'session-1' ], session() );
+		const { connector } = await setup( { queryClient } );
+		const progress = ( message: string ) =>
+			connector.emit(
+				'onAgentEvent',
+				event( 'push-run', {
+					type: 'message',
+					timestamp: new Date().toISOString(),
+					message: {
+						type: 'tool_execution_update',
+						toolCallId: 'push-1',
+						partialResult: { content: [], details: { studioProgress: { message } } },
+					},
+				} as AgentRunEvent[ 'event' ] )
+			);
+		act( () => {
+			for ( let i = 0; i < 50; i++ ) {
+				progress( 'Uploading archive… (21%)' );
+			}
+			progress( 'Uploading archive… (22%)' );
+		} );
+		const entries = queryClient.getQueryData< LoadedAiSession >( [
+			...SESSIONS_QUERY_KEY,
+			'session-1',
+		] )!.entries;
+		expect( entries ).toHaveLength( 1 );
+		expect( JSON.stringify( entries ) ).toContain( 'Uploading archive… (22%)' );
 	} );
 
 	it( 'dispatches queued prompts after the chat panel unmounts', async () => {

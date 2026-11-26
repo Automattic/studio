@@ -1,34 +1,11 @@
 import os from 'os';
 import path from 'path';
-import { APP_CONFIG_LOCKFILE_NAME } from '../constants.ts';
 
 export function getConfigDirectory(): string {
 	if ( process.env.DEV_CONFIG_DIR ) {
 		return process.env.DEV_CONFIG_DIR;
 	}
-	if ( process.env.E2E && process.env.E2E_SHARED_CONFIG_PATH ) {
-		return process.env.E2E_SHARED_CONFIG_PATH;
-	}
 	return path.join( os.homedir(), '.studio' );
-}
-
-export function getSharedConfigPath(): string {
-	return path.join( getConfigDirectory(), 'shared.json' );
-}
-
-export function getAppConfigPath(): string {
-	return path.join( getConfigDirectory(), 'app.json' );
-}
-
-export function getAppConfigLockFilePath(): string {
-	return path.join( getConfigDirectory(), APP_CONFIG_LOCKFILE_NAME );
-}
-
-export function getCliConfigPath(): string {
-	if ( process.env.E2E && process.env.E2E_CLI_CONFIG_PATH ) {
-		return path.join( process.env.E2E_CLI_CONFIG_PATH, 'cli.json' );
-	}
-	return path.join( getConfigDirectory(), 'cli.json' );
 }
 
 export function getSessionsDirectory(): string {
@@ -44,6 +21,21 @@ export function getKnowledgeDirectory(): string {
 
 export function getGlobalInstructionsPath(): string {
 	return path.join( getKnowledgeDirectory(), 'instructions.md' );
+}
+
+// The user's skills for all sites: `<name>/SKILL.md` folders.
+export function getGlobalSkillsDirectory(): string {
+	return path.join( getConfigDirectory(), 'skills' );
+}
+
+// Where a global skill waits while it is switched off.
+export function getDisabledGlobalSkillsDirectory(): string {
+	return path.join( getConfigDirectory(), 'disabled-skills' );
+}
+
+// The skills other agents on this computer keep for every project.
+export function getAgentsSkillsDirectory(): string {
+	return path.join( os.homedir(), '.agents', 'skills' );
 }
 
 export function getCertificatesPath(): string {

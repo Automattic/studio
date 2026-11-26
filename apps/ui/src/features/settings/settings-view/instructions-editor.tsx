@@ -1,4 +1,12 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/agent/protocol/global-instructions-length';
+import {
+	Field,
+	FieldContent,
+	FieldDescription,
+	FieldError,
+	FieldLabel,
+	Textarea,
+} from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
@@ -6,7 +14,6 @@ import {
 	useSaveAgentInstructions,
 } from '@/data/queries/use-agent-instructions';
 import { LearnMoreLink } from '@/features/onboarding';
-import { Field, FieldContent, FieldDescription, FieldError, FieldLabel, Textarea } from '@/lib/ui';
 import styles from './style.module.css';
 
 // Long enough that a typing burst lands as one write, short enough that the

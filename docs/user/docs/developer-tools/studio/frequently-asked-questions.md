@@ -1,178 +1,217 @@
-# WordPress Studio: Frequently asked questions
+# WordPress Studio: Frequently asked questions
 
-On this page you’ll find answers to common questions about the [WordPress Studio](https://wordpress.studio/) app and certain features like the [WordPress Studio Code](#studio-code) and [WordPress Studio Sync.](#sync)
+This page answers common questions about the WordPress Studio app, WordPress Studio Code, and publishing and pulling.
 
-As a reminder, WordPress Studio is an [open source project](https://github.com/Automattic/studio) that welcomes all contributions. If you spot a bug or the WordPress Studio feature you need is missing, we have some options:
+Jump to [WordPress Studio Code FAQs](https://wordpress.studio/docs/frequently-asked-questions/#wordpress-studio-code-faqs) or [WordPress Studio Sync FAQs](https://wordpress.studio/docs/frequently-asked-questions/#wordpress-studio-sync-faqs). Each answer links to the page with the full steps.
 
--   [Reach out to our Happiness Engineers](https://developer.wordpress.com/contact/) for specific questions about using WordPress Studio.
--   [Open an issue in the repository](https://github.com/Automattic/studio/issues) to report bugs, suggest ideas, or request new features.
+**Applies to:** the WordPress Studio app on macOS, Windows, and Linux. Answers that need a WordPress.com account or the CLI say so.
 
-## [General FAQs](#0-general-faqs)
+WordPress Studio is an [open source project](https://github.com/Automattic/studio). If your question isn’t here, [reach out to our Happiness Engineers](https://developer.wordpress.com/contact/), or [open an issue in the repository](https://github.com/Automattic/studio/issues) to report a bug or request a feature.
 
-Here are some answers to common questions about WordPress Studio:
+## General FAQs
 
-### [How can I export a theme I created in WordPress Studio?](#export-theme)
+### How can I publish my WordPress Studio site so that it’s publicly available?
 
-Themes created in WordPress Studio are the same as themes created on traditional WordPress sites. You can export your theme by following these steps:
+You need a hosting plan. A [preview](https://wordpress.studio/docs/preview-sites/) is only for sharing work and gathering early feedback. It expires if it goes without an update for a while, and the preview’s details in the **Publish** panel show when. See [Preview expiration](https://wordpress.studio/docs/preview-sites/#preview-expiration).
 
-1.  Select the local site within WordPress Studio.
-2.  Ensure that your site is already running.
-3.  Click **New tab** (**+**) above the site preview and choose **Admin**.
-4.  In WP Admin, go to **Appearance → Editor**.
-5.  Once the site editor loads, expand the editor by clicking anywhere on the site preview.
-6.  Click the **Options** menu button in the top right of the screen, represented by the ellipsis icon (⋮). 
-7.  Click **Export**, and your browser should begin downloading a `.zip` file of your theme.
+- **On WordPress.com or Pressable:** [publish your site](https://wordpress.studio/docs/sync/) from the **Publish** panel. You can also [make a preview your live site](https://wordpress.studio/docs/preview-sites/#make-a-preview-your-live-site) by buying a plan for it on WordPress.com.
+- **On another WordPress host:** [export your site](https://wordpress.studio/docs/import-export/), then import the export on the destination site, for example with the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
 
-You can then upload your theme to any live or staging WordPress site [by following these instructions](https://wordpress.com/support/themes/uploading-setting-up-custom-themes/#upload-a-theme-file).
+### How can I export a theme I created in WordPress Studio?
 
-### [How can I publish my WordPress Studio site so that it’s publicly available?](#12-how-can-i-publish-my-studio-site-so-that-it-s-publicly-available-)
+Themes created in WordPress Studio are the same as themes on any WordPress site, so you export them from the WordPress Site Editor, where you change your site’s design.
 
-While [preview sites](https://wordpress.studio/docs/preview-sites/) are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible.
+1.  In WordPress Studio, select the local site.
+2.  If the site is stopped, start it.
+3.  Click **New tab** (**+**) above the site preview.
+4.  Choose **Admin**.
+5.  In WordPress admin, go to **Appearance → Editor**.
+6.  When the WordPress Site Editor loads, click anywhere on the site preview to expand the editor.
+7.  Click the **Options** menu (**⋮**) at the top right.
+8.  Click **Export**.
 
-**To publish your local site on WordPress.com**, follow the steps outlined in the [WordPress Studio Sync](https://wordpress.studio/docs/sync/) doc.
+Your browser downloads a `.zip` file of your theme. You can then [upload the theme](https://wordpress.com/support/themes/uploading-setting-up-custom-themes/#upload-a-theme-file) to any live or staging WordPress site.
 
-**To publish your local site on another WordPress host**, follow the [Import and Export](https://wordpress.studio/docs/import-export/) guide to create an export of your source site. When the export is ready, you can import that content to the destination site, for example, following the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
+### How can I manage the WordPress Studio site’s SQLite database?
 
-### [How can I manage the WordPress Studio site’s SQLite database?](#13-how-can-i-manage-the-studio-site-s-sqlite-database-)
+Use WordPress Studio’s built-in phpMyAdmin, which is adapted to work safely with SQLite. In the [site menu](https://wordpress.studio/docs/sites/#site-menu), choose **Open in → phpMyAdmin** to open it in your browser, or **Tools → Database** to open it in the site preview. There you can browse tables, run queries, and edit data.
 
-WordPress Studio uses SQLite instead of a MySQL server. Each site’s database is a single file, `wp-content/database/.ht.sqlite`. Avoid editing that file with other tools, such as a terminal client or a SQLite app: it’s easy to corrupt it, break the schema WordPress expects, or end up with a database that won’t move to MySQL later.
+WordPress Studio uses SQLite instead of a MySQL server. Each site’s database is a single file, `wp-content/database/.ht.sqlite`. Don’t edit that file with other tools, such as a terminal client or a SQLite app. Doing so can corrupt the file, break the schema WordPress expects, or leave you with a database that won’t move to MySQL later.
 
-Use WordPress Studio’s built-in phpMyAdmin instead, adapted to work safely with SQLite. In the [site menu](https://wordpress.studio/docs/sites/#site-menu), choose **Open in → phpMyAdmin** to open it in your browser, or **Tools → Database** to open it in the site preview. There you can browse tables, run queries and edit data.
+### How can I use WordPress Studio with the MySQL server of my choice?
 
-### [How can I use WordPress Studio with the MySQL server of my choice?](#use-studio-with-mysql-server)
+Add a site whose `wp-config.php` already points to your MySQL server, or switch an existing WordPress Studio site from SQLite to MySQL. You can use any MySQL server, for example one from Homebrew or Docker.
 
-WordPress Studio has built-in support for a SQLite database, but you can use the MySQL server of your choice, e.g., Homebrew or Docker, to test your site with different database engines.
+If the site files include a `wp-config.php` file, WordPress Studio skips the SQLite setup and uses the database that file configures. See [Add a new site using an existing WordPress directory](https://wordpress.studio/docs/sites/#add-a-new-site-using-an-existing-wordpress-directory).
 
-If you have a local site already configured to work with a custom MySQL server of your choice, you can add it to WordPress Studio. If the site files include a `wp-config.php` file, WordPress Studio will skip the SQLite database setup and use the already configured database.
+To switch an existing WordPress Studio site from SQLite to MySQL:
 
-If you have already created a site in WordPress Studio, and want to switch SQLite to the MySQL server of your choice, follow the steps below:
+1.  Stop the site, so nothing changes after you export the database.
+2.  Export the site’s database: in the site menu, choose **Export → Export database** to save a `.sql` file. Export works while the site is stopped. See [Export a site](https://wordpress.studio/docs/import-export/#export-a-site).
+3.  Start your MySQL server, create a database, and import the `.sql` file into it with a MySQL tool of your choice.
+4.  Open the site’s directory.
+5.  In `wp-content`, delete the `db.php` file, and move the `database` directory out of the site’s directory as a backup. Don’t delete it until the site works with MySQL.
+6.  In `wp-content/mu-plugins`, delete the `sqlite-database-integration` directory.
+7.  In `wp-config.php`, set `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DB_HOST` to your MySQL database’s details. If a constant is already defined, for example `define( 'DB_NAME', 'wordpress' );`, which WordPress Studio adds for SQLite, change its value. Add only the ones that are missing. A second `define()` for the same constant has no effect.
+8.  Start the site in WordPress Studio.
+9.  Open the site.
 
-1.  Stop the site.
-2.  Open your WordPress Studio’s site directory.
-3.  Navigate to the `wp-content` directory and delete the `db.php` file and the `database` directory.
-4.  Navigate to the `wp-content/mu-plugins` directory and delete the `sqlite-database-integration` directory.
-5.  Update `wp-config.php` file and fill in your MySQL server’s credentials.
-6.  Start your MySQL server.
-7.  Start the WordPress Studio’s site.
-8.  Open the site.
+WordPress Studio sets up SQLite again if `db.php`, `database/.ht.sqlite`, or the `sqlite-database-integration` directory is still in the site, so remove all three.
 
-### [How do I select the PHP and WordPress versions for my site?](#15-how-do-i-change-the-php-version-used-for-my-site-) 
+WordPress Studio’s phpMyAdmin supports SQLite only, so **Tools → Database** and **Open in → phpMyAdmin** are unavailable for a site that uses your own MySQL server. Use a separate database client, such as the one that comes with your MySQL server.
 
-Choose them when you create the site, on the form where you name it. To change them later, choose **Settings** from the site menu: the **WordPress version** is on the **Settings** page, and the **PHP version** on the **PHP** page. Click **Save** at the top of the dialog to apply the change. See [Edit a site](https://wordpress.studio/docs/sites/#edit-a-site).
+### How do I select the PHP and WordPress versions for my site?
 
-### [Why isn’t the “Open In” button available for my preferred app?](#16-why-isn-t-the-open-in-button-available-for-my-preferred-app-)
+Choose them when you create the site, under **Advanced** on the form where you name it. To change them later:
 
-The **Open in** menu only lists apps WordPress Studio supports and finds on your computer. [“Open in” menu](https://wordpress.studio/docs/sites/#open-in-menu) lists the supported code editors and terminal applications.
+1.  Choose **Settings** from the site menu.
+2.  Change the **WordPress version** on the **Settings** page, or the **PHP version** on the **PHP** page.
+3.  Click **Save** at the top of the dialog.
 
--   On macOS, an editor or terminal must be in your Applications folder (`/Applications` or `~/Applications`).
--   On Windows, WordPress Studio looks in each app’s usual install folder.
--   On Linux, the app must be on your `PATH`.
+See [Edit a site](https://wordpress.studio/docs/sites/#edit-a-site).
 
-If you haven’t chosen a **Default code editor** in **Settings → General**, the menu shows the first supported editor it finds, and no editor if none is installed. Without a **Default terminal app**, it uses Terminal on macOS, Command Prompt on Windows, and your system terminal, such as GNOME Terminal or Konsole, on Linux.
+### Why isn’t the Open in menu showing my preferred app?
 
-### [How can I make WordPress Studio faster on Windows?](#17-how-can-i-make-studio-faster-on-windows-)
+<span id="why-isnt-the-open-in-button-available-for-my-preferred-app"></span>The **Open in** menu only lists apps that WordPress Studio supports and finds on your computer. The [Open in menu](https://wordpress.studio/docs/sites/#open-in-menu) section lists the supported code editors and terminal apps.
 
-If the Real-Time Protection Service of Windows Defender is enabled on your machine, it may slow down the process of creating and starting a site, particularly when running PHP files of WordPress.
+- On macOS, the app must be in your Applications folder (`/Applications` or `~/Applications`).
+- On Windows, WordPress Studio looks in each app’s usual install folder.
+- On Linux, the app must be on your `PATH`.
 
-This is why WordPress Studio prompts you to “speed up site creation” when you first open it on Windows, so an exclusion policy can be added to the Real-Time Protection Service.
+If you haven’t chosen a **Default code editor** in **Settings → General**, the menu shows the first supported editor it finds, or no editor if none is installed. Without a **Default terminal app**, it uses Terminal on macOS, Command Prompt on Windows, and your system terminal, such as GNOME Terminal or Konsole, on Linux.
 
-You can add this exclusion policy manually by choosing **Help → How can I make WordPress Studio faster?** in WordPress Studio. This menu item is only available on Windows.
+### How can I make WordPress Studio faster on Windows?
 
-### [How can I regenerate my thumbnails?](#18-how-can-i-regenerate-my-thumbnails-)
+Add an exclusion for WordPress Studio to the Real-Time Protection Service of Windows Defender. When that service is on, it can slow down creating and starting sites, especially when WordPress runs its PHP files.
 
-If some thumbnails are missing after importing your site, you can regenerate them by first [installing the WordPress Studio CLI](https://wordpress.studio/docs/cli/#installation), and then running the following CLI command:
+WordPress Studio offers to “speed up site creation” the first time you open it on Windows, which adds the exclusion. To add it later, choose **Help → How can I make WordPress Studio faster?** This menu item is only available on Windows.
 
-```shell
+### Why does WordPress Studio say it’s missing some of its files?
+
+Antivirus software sometimes removes a file that WordPress Studio needs to run your sites, most often on Windows. WordPress Studio then shows “WordPress Studio is missing some of its files”, once each time you open it, and can’t run your sites until you reinstall it.
+
+1.  Click **Download WordPress Studio** to open the download page.
+2.  Download and install WordPress Studio again.
+3.  If it happens again, allow WordPress Studio in your antivirus settings.
+
+### Where does WordPress Studio keep its settings?
+
+In `~/.studio/config.json`, in your home folder. The desktop app, the WordPress Studio CLI, `studio ui`, and `studio mcp` share this one file, which holds your sites, settings, and logins. Don’t edit it by hand.
+
+Before 2.4.0, WordPress Studio kept them in `shared.json`, `cli.json`, and `app.json`. The first time a newer version runs, it moves them to `config.json` and keeps a copy of the old files in `~/.studio/legacy-config/`. After that, an older version of the app or the CLI on the same computer can’t read your settings until you update it.
+
+### How can I regenerate my thumbnails?
+
+Run this [WordPress Studio CLI](https://wordpress.studio/docs/cli/#installation) command from the site’s directory:
+
+```bash
 studio wp media regenerate --yes --only-missing
 ```
 
-### [How can I access WordPress Studio logs?](#access-logs)
+This regenerates thumbnails that are missing, for example after you import a site.
 
-When publishing, pulling, importing or exporting fails, WordPress Studio offers to open its logs, and may ask you to [contact support](https://developer.wordpress.com/contact/). You can also open the current log file at any time by choosing **Help → Open Application Logs**. The logs folder is:
+### How can I access WordPress Studio logs?
 
--   macOS: `~/Library/Logs/Studio`
--   Windows: `%APPDATA%\Studio\logs`
--   Linux: `~/.config/Studio/logs`
+Choose **Help → Open Application Logs** to open the current log file. When publishing, pulling, importing, or exporting fails, WordPress Studio also offers to open its logs, and may ask you to [contact support](https://developer.wordpress.com/contact/).
 
-### [Where do emails sent by my site go?](#site-email)
+| Platform | Logs folder |
+| --- | --- |
+| macOS | `~/Library/Logs/Studio` |
+| Windows | `%APPDATA%\Studio\logs` |
+| Linux | `~/.config/Studio/logs` |
 
-WordPress Studio saves them instead of sending them. To read them, choose **Tools → Email log** from the site menu, which lists the site’s emails in the preview. See [Site email](https://wordpress.studio/docs/sites/#site-email).
+### Where do emails sent by my site go?
 
-### [Is it possible to change the port or URL of my WordPress Studio site?](#10-is-it-possible-to-change-the-port-or-url-of-my-studio-site-)
+WordPress Studio saves them instead of sending them. To read them, choose **Tools → Email log** from the site menu. See [Site email](https://wordpress.studio/docs/sites/#site-email).
 
-By default, WordPress Studio sites are assigned a unique port starting from 8881. For example, your first WordPress Studio site uses the URL `http://localhost:8881`, and your second site uses `http://localhost:8882`. While the port of `localhost` URLs cannot be modified from WordPress Studio, you can always [use a custom domain instead of `localhost`](https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl).
+### Is it possible to change the port or URL of my WordPress Studio site?
 
-### [How can I use a tunneling tool (ngrok) with WordPress Studio?](#11-how-can-i-use-a-tunneling-tool-ngrok-with-studio-)
+You can’t change the port of a `localhost` address, but you can [use a custom domain instead](https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl). WordPress Studio gives each site a unique port, starting from 8881. For example, your first site uses `http://localhost:8881`, and your second uses `http://localhost:8882`.
 
-You can use WordPress Studio for local WordPress development that requires incoming connections by setting up a tunneling tool like [ngrok](https://ngrok.com/). ngrok, which is free to use, redirects external requests to your localhost, making your site accessible from the internet. This is especially useful for plugins like Jetpack, which default to offline mode when running locally. By using a tunneling tool, your local site can reconnect to WordPress.com, which unlocks the full capabilities of Jetpack and creates a more realistic development environment.
+### How can I use a tunneling tool (ngrok) with WordPress Studio?
 
-Follow the steps below to set up your site for this workflow. Begin by starting your local WordPress Studio site and setting up the tunneling tool.
+Run [ngrok](https://ngrok.com/) to make your local site reachable from the internet, then set the tunnel address as the site’s URL in `wp-config.php`. This helps with plugins that need incoming connections, such as Jetpack, which runs in offline mode on a local site. With a tunnel, Jetpack can connect to WordPress.com.
 
-If your site uses a local domain in the form of localhost:port:
+To start the tunnel:
 
-1.  **Start your WordPress Studio site** and note its port (e.g., `8883`). The port is shown in the site preview’s address bar.
-2.  **Open a terminal** and set up [ngrok](https://dashboard.ngrok.com/get-started/setup) if you haven’t already.
-3.  **Set up a tunnel** to expose your local site using the following command:  
-    `ngrok http 8883`
+1.  Start your WordPress Studio site.
+2.  Note the site’s address. A `localhost` site’s port, such as `8883`, is shown in the site preview’s address bar. A custom domain, such as `my-wordpress-website.wp.local`, is under **Local domain** on the **Settings** page of the site’s settings.
+3.  In a terminal, [set up ngrok](https://dashboard.ngrok.com/get-started/setup) if you haven’t already.
+4.  Start the tunnel with the command for your site’s address.
 
- If your site uses a custom local domain:
+For a `localhost` site, use its port:
 
-1.  **Start your WordPress Studio site** and note the domain (e.g., `my-wordpress-website.wp.local`). The domain can also be found under **Local domain** on the **Settings** page of the site’s settings.
-2.  **Open a terminal** and set up [ngrok](https://dashboard.ngrok.com/get-started/setup) if you haven’t already.
-3.  **Set up a tunnel** to expose your local site using the following command:  
-    `ngrok http --host-header=my-wordpress-website.wp.local http://my-wordpress-website.wp.local`
+```bash
+ngrok http 8883
+```
 
-When your tunnel is active, make sure to note the tunnel URL and update it in your WordPress Studio site’s WordPress configuration file.
+For a site with a custom domain:
 
-1.  **Copy the generated tunnel URL**. It will look something like this:  
-    `https://6xb2-12-13-14-15.ngrok-free.app`
-2.  **Update your WordPress configuration** (`wp-config.php`) by adding:  
-    `define( 'WP_SITEURL', 'https://6xb2-12-13-14-15.ngrok-free.app' );`  
-    `define( 'WP_HOME', 'https://6xb2-12-13-14-15.ngrok-free.app' );`
-3.  **Refresh your site** in the browser.
+```bash
+ngrok http --host-header=my-wordpress-website.wp.local http://my-wordpress-website.wp.local
+```
 
-Your local WordPress Studio site should now be accessible through the tunnel URL. If it doesn’t redirect automatically, clearing your browser cache may help. You can also access the site directly by using the generated tunnel URL. 
+To point the site at the tunnel:
 
-The local URL shown in WordPress Studio will not update to reflect the new tunnel URL, and since the ngrok URL changes each time you restart the tunnel, you will need to update the `wp-config.php` file accordingly.
+1.  Copy the tunnel URL ngrok shows. It looks like `https://6xb2-12-13-14-15.ngrok-free.app`.
+2.  Add these lines to the site’s `wp-config.php`, with your tunnel URL:
 
-To reset your local site, stop the tunnel in the terminal and shut down the WordPress Studio site. Then, remove the changes made to `wp-config.php` and restart your WordPress Studio site. It will now revert to the localhost or custom domain shown under **Local domain** on the **Settings** page of the site’s settings.
+    ```php
+    define( 'WP_SITEURL', 'https://6xb2-12-13-14-15.ngrok-free.app' );
+    define( 'WP_HOME', 'https://6xb2-12-13-14-15.ngrok-free.app' );
+    ```
 
-### [How can I export my site for use on the WordPress playground website?](#12-how-can-i-export-my-site-for-use-on-the-wordpress-playground-website-)
+3.  Refresh the site in your browser.
 
-To import your local site to [playground.wordpress.net](https://playground.wordpress.net/), create a ZIP file from the contents of your site folder and use the [Site Explorer](https://wordpress.github.io/wordpress-playground/web-instance#1-site-explorer) to import the ZIP in your browser.
+The site now opens at the tunnel URL. If it doesn’t redirect, clear your browser cache, or open the tunnel URL directly.
 
-**Please note** that top-level entries like `wp-config.php` should live at the root of the archive. To accomplish this, select all files and directories inside the site folder when creating the ZIP file instead of the site folder itself.
+The local URL shown in WordPress Studio doesn’t change to the tunnel URL. The ngrok URL changes each time you restart the tunnel, so update `wp-config.php` each time.
 
-## [WordPress Studio Code FAQs](#studio-code)
+To go back to the local address:
 
-Here are some answers to common questions about WordPress Studio Code. Please review [the WordPress Studio Code doc](https://wordpress.studio/docs/studio-code/) for step-by step instructions and helpful tips for using this feature.
+1.  Stop the tunnel in the terminal.
+2.  Stop the site in WordPress Studio.
+3.  Remove the two lines from `wp-config.php`.
+4.  Start the site.
 
-### [What languages does WordPress Studio Code support?](#3-where-do-the-assistant-s-answers-come-from-)
+The site uses its `localhost` address or the custom domain under **Local domain** again.
+
+### How can I export my site for use on the WordPress Playground website?
+
+Create a ZIP file from the contents of your site folder, then import it in your browser with the [Site Explorer](https://wordpress.github.io/wordpress-playground/web-instance#1-site-explorer) on [playground.wordpress.net](https://playground.wordpress.net/).
+
+Top-level files such as `wp-config.php` must be at the root of the archive. To do that, select all the files and folders inside the site folder when you create the ZIP file, not the site folder itself.
+
+## WordPress Studio Code FAQs
+
+For the full steps, see [WordPress Studio Code](https://wordpress.studio/docs/studio-code/).
+
+### What languages does WordPress Studio Code support?
 
 You can talk with WordPress Studio Code in any language you prefer.
 
-### [Can I use WordPress Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
+### Can I use WordPress Studio Code without a WordPress.com account?
 
-Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → Providers** in the desktop app, or use `/connect anthropic` in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
+Yes, with another AI provider, such as your own Anthropic API key. Connect **Anthropic**, **OpenAI**, **Google Gemini**, **GitHub Copilot**, or **Meta** in **Settings → Providers** in the desktop app, or use `/connect` in the terminal. That provider or plan bills you. See [Providers in WordPress Studio](https://wordpress.studio/docs/providers/).
 
-To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://wordpress.studio/docs/#connect-to-wordpresscom). Some features, such as [image generation](https://wordpress.studio/docs/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
+Some features still need a WordPress.com login. These are WordPress.com AI credits, [image generation](https://wordpress.studio/docs/studio-code/image-generation/) with WordPress.com, previews, and publishing to WordPress.com. See [Connect to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom).
 
-### [Is there any cost to use WordPress Studio Code?](#6-is-there-any-cost-to-use-the-studio-assistant-)
+### Is there any cost to use WordPress Studio Code?
 
-WordPress Studio Code runs on AI Credits. Every account starts with a free allowance for the Fast tier; after that, or to use Balanced and Strong, you buy more. With your own Anthropic API key, Anthropic bills you instead. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
+With WordPress.com as your AI provider, you start with a one-time free allowance of AI credits for Fast. Your first purchase unlocks Balanced and Strong, and any remaining free allowance works with all three tiers. If you connect another provider, such as your own Anthropic API key, that provider bills you. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
 
-### [How many prompts can I use per month?](#7-how-many-prompts-can-i-use-per-month-)
+### How many prompts can I use per month?
 
-There’s no monthly limit. Each prompt uses AI Credits, and when you run out, AI responses pause until you add more. Your local sites keep running normally.
+WordPress.com AI credits have no monthly prompt limit. Prompts through WordPress.com pause when your credit balance runs out and resume when you add more. Your local sites keep running.
 
-### [Where can I give feedback about WordPress Studio Code responses?](#8-where-can-i-give-feedback-about-the-studio-assistant-s-responses-)
+### Where can I give feedback about WordPress Studio Code responses?
 
-You can [write into support](https://developer.wordpress.com/contact/) to share specific feedback about WordPress Studio Code responses. 
+Type `/feedback` in the chat to [send feedback from a chat](https://wordpress.studio/docs/studio-code/#send-feedback-from-a-chat), or [write to support](https://developer.wordpress.com/contact/).
 
-## [WordPress Studio Sync FAQs](#sync)
+## WordPress Studio Sync FAQs
 
-Here are some answers to common questions about the WordPress Studio Sync feature. Please review [the WordPress Studio Sync doc](https://wordpress.studio/docs/sync/) for step-by step instructions and helpful tips for using this feature.
+For the full steps, see [Publish and pull your site](https://wordpress.studio/docs/sync/).
 
-### [Why don’t my local users appear on the WordPress.com site after publishing?](#local-users)
+### Why don’t my local users appear on the WordPress.com site after publishing?
 
-When publishing, WordPress Studio exports all your content and your entire database except for the `wp_users` and `wp_usermeta` tables. This ensures that the Jetpack-powered features on your WordPress.com website (like single sign-on or image optimization) continue working after you publish.
+Publishing sends all your content and your whole database except the `wp_users` and `wp_usermeta` tables. This keeps the Jetpack features on your WordPress.com site, such as single sign-on and image optimization, working after you publish.

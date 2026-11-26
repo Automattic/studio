@@ -3,14 +3,14 @@ import path from 'path';
 import sudo from '@vscode/sudo-prompt';
 import { __ } from '@wordpress/i18n';
 import { getMainWindow } from 'src/main-window';
-import { loadUserData, updateAppdata } from 'src/storage/user-data';
+import { readDesktopState, updateDesktopState } from 'src/storage/desktop-state';
 
 export async function promptWindowsSpeedUpSites( {
 	skipIfAlreadyPrompted,
 }: {
 	skipIfAlreadyPrompted: boolean;
 } ) {
-	const userData = await loadUserData();
+	const userData = await readDesktopState();
 	const currentAppVersion = app.getVersion();
 	const previousResponse = userData.promptWindowsSpeedUpResult?.response;
 	const previousAppVersion = userData.promptWindowsSpeedUpResult?.appVersion;
@@ -18,13 +18,6 @@ export async function promptWindowsSpeedUpSites( {
 
 	if ( process.platform !== 'win32' ) {
 		return;
-	}
-
-	// Handle legacy promptWindowsSpeedUpResult format
-	if ( skipIfAlreadyPrompted && typeof userData.promptWindowsSpeedUpResult === 'string' ) {
-		if ( userData.promptWindowsSpeedUpResult === 'yes' ) {
-			return;
-		}
 	}
 
 	if (
@@ -56,7 +49,7 @@ export async function promptWindowsSpeedUpSites( {
 
 	switch ( response ) {
 		case buttons.indexOf( AUTOMATIC_UPDATE ):
-			await updateAppdata( {
+			await updateDesktopState( {
 				promptWindowsSpeedUpResult: {
 					response: 'yes',
 					appVersion: currentAppVersion,
@@ -77,7 +70,7 @@ export async function promptWindowsSpeedUpSites( {
 			}
 			break;
 		case buttons.indexOf( NOT_INTERESTED ):
-			await updateAppdata( {
+			await updateDesktopState( {
 				promptWindowsSpeedUpResult: {
 					response: 'no',
 					appVersion: currentAppVersion,

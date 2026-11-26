@@ -19,7 +19,6 @@ import { useOpenSite } from '@/data/use-open-site';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteEvent, SiteListItem } from '@studio/common/lib/cli-events';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
-import type { SiteMetadata } from '@studio/common/sites/metadata';
 import type { QueryClient } from '@tanstack/react-query';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -55,7 +54,10 @@ export function useSites() {
 			return sites;
 		},
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
-		refetchInterval: 2 * 60 * 1000,
+		// Only while the window has focus: a remote server that sleeps when idle counts each
+		// request as use, so a tab left open in the background would keep it awake. Focusing the
+		// window again refetches anyway.
+		refetchInterval: () => ( document.hasFocus() ? 5 * 60 * 1000 : false ),
 		// The sidebar mounts another reader once the list stops loading: a failed
 		// list refetched on each new mount would go back to loading, unmount that
 		// reader, fail again and repeat forever.
@@ -245,6 +247,21 @@ export function useStopSite() {
 	} );
 }
 
+export function getSiteStopState( queryClient: QueryClient, siteId: string ) {
+	const stops = queryClient.getMutationCache().findAll( {
+		mutationKey: STOP_SITE_MUTATION_KEY,
+		predicate: ( mutation ) => mutation.state.variables === siteId,
+	} );
+	const stop = stops[ stops.length - 1 ];
+	return stop
+		? {
+				id: stop.mutationId,
+				preservePanel: stop.state.status !== 'error',
+				pending: stop.state.status === 'pending',
+		  }
+		: undefined;
+}
+
 export function useRestartSite() {
 	const stop = useStopSite();
 	const start = useStartSite();
@@ -264,7 +281,7 @@ interface UpdateSiteInput {
 	wpVersion?: string;
 }
 
-// Spaced values (1000, 2000, …), the convention of this app.json field.
+// Spaced values (1000, 2000, …), the convention of this stored field.
 const toSortOrderUpdates = ( orderedSiteIds: string[] ) =>
 	orderedSiteIds.map( ( siteId, index ) => ( { siteId, sortOrder: ( index + 1 ) * 1000 } ) );
 
@@ -448,18 +465,10 @@ function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
 	if ( ! site || ! sites || ! cached || ! applies ) {
 		return false;
 	}
-	// Studio's own metadata, which events don't carry. `satisfies` stops a new
-	// field from compiling until it's carried over too.
-	const metadata = {
-		sortOrder: cached.sortOrder,
-		autoStart: cached.autoStart,
-		hideFrontendAdminBar: cached.hideFrontendAdminBar,
-	} satisfies Record< keyof SiteMetadata, unknown >;
 	const updated: SiteDetails = {
 		...site,
 		// An operation change says nothing about whether the site is running.
 		running: event.event === SITE_EVENTS.UPDATED ? event.running : cached.running,
-		...metadata,
 	};
 	queryClient.setQueryData< SiteDetails[] >(
 		SITES_QUERY_KEY,

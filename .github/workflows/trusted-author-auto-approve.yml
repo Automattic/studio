@@ -1,0 +1,59 @@
+name: Trusted Author Auto-Approve
+
+# Approves PRs from the people in TRUSTED_AUTHORS, so auto-merge can land them
+# once the required checks pass. A push from anyone else withdraws the approval.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
+    branches: [trunk]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: trusted-author-auto-approve-${{ github.event.pull_request.number }}
+
+env:
+  # GitHub logins, one per line.
+  TRUSTED_AUTHORS: |
+    youknowriad
+    wojtekn
+    mokagio
+    richtabor
+    ndiego
+    senadir
+    chubes4
+
+jobs:
+  approve:
+    # Never approve PRs from forks.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve, or withdraw the approval
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          is_trusted() { [ -n "$1" ] && grep -qxF "$1" <<< "$TRUSTED_AUTHORS"; }
+
+          bot_approvals=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and .state == "APPROVED") | .id')
+
+          if is_trusted "$AUTHOR" && is_trusted "$ACTOR"; then
+            if [ -z "$bot_approvals" ]; then
+              gh pr review "$PR" --repo "$REPO" --approve \
+                --body "Auto-approved: $AUTHOR is a trusted author."
+            fi
+            exit 0
+          fi
+
+          for id in $bot_approvals; do
+            gh api -X PUT "repos/$REPO/pulls/$PR/reviews/$id/dismissals" \
+              -f event=DISMISS \
+              -f message="$ACTOR is not a trusted author, so this PR needs a human review."
+          done

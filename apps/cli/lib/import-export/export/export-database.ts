@@ -8,7 +8,7 @@ import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
 import { LoggerError } from 'cli/logger';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 async function createDatabaseExportError(
 	message: string,
@@ -23,7 +23,7 @@ async function createDatabaseExportError(
 }
 
 export async function exportDatabaseToFile(
-	site: SiteData,
+	site: ConfigSite,
 	finalDestination: string
 ): Promise< void > {
 	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
@@ -54,7 +54,7 @@ export async function exportDatabaseToFile(
 }
 
 export async function exportDatabaseToMultipleFiles(
-	site: SiteData,
+	site: ConfigSite,
 	finalDestinationDir: string
 ): Promise< string[] > {
 	await replaceMysql8OnlyCollations( site.path );

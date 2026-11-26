@@ -1,10 +1,3 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { useId, useLayoutEffect, useRef, useState } from 'react';
-import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import { useDeleteSite } from '@/data/queries/use-sites';
-import { SiteCard } from '@/features/site-card';
-import { getSiteUrl } from '@/features/sites/get-site-url';
-import { XIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,
@@ -17,7 +10,15 @@ import {
 	Field,
 	FieldLabel,
 	IconButton,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { XIcon } from '@studio/ds/icons';
+import { __, _n, sprintf } from '@wordpress/i18n';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { showToast } from '@/data/app-messages';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
+import { useDeleteSite } from '@/data/queries/use-sites';
+import { SiteCard } from '@/features/site-card';
+import { getSiteUrl } from '@/features/sites/get-site-url';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ReactNode } from 'react';
@@ -79,8 +80,16 @@ export function DeleteSiteDialog( {
 		const deletedIds: string[] = [];
 		for ( const site of includedSites ) {
 			try {
-				await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
+				const { warnings } = await deleteSite.mutateAsync( { id: site.id, deleteFiles } );
 				deletedIds.push( site.id );
+				for ( const warning of warnings ) {
+					showToast( {
+						intent: 'warning',
+						title: __( 'Site files left on disk' ),
+						description: warning,
+						durationMs: 0,
+					} );
+				}
 			} catch ( err ) {
 				errors.push( ( err as Error )?.message );
 			}

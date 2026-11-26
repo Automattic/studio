@@ -1,4 +1,14 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import {
+	StudioIcon,
+	Button,
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	VisuallyHidden,
+} from '@studio/ds';
+import { useOffline } from '@studio/ds/hooks';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import {
@@ -11,16 +21,6 @@ import {
 } from 'react';
 import { useAnalyticsExposure } from '@/data/account-analytics';
 import { useLogin } from '@/data/queries/use-auth-user';
-import { useOffline } from '@/lib/hooks';
-import {
-	StudioIcon,
-	Button,
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	VisuallyHidden,
-} from '@/lib/ui';
 import { AnnotationIllustration } from './annotation-illustration';
 import site1 from './assets/site-1.png';
 import site2 from './assets/site-2.png';

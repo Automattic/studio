@@ -110,6 +110,7 @@ function mockElectron() {
 				requestSingleInstanceLock: vi.fn().mockReturnValue( true ),
 				quit: vi.fn(),
 				exit: vi.fn(),
+				relaunch: vi.fn(),
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),
@@ -187,48 +188,46 @@ function stubUid( uid: number ) {
 }
 
 describe( 'App initialization', () => {
-	it.each( [ true, false ] )(
-		'quits after a failed legacy migration only while app config is missing (app config exists: %s)',
-		async ( completed ) => {
-			const { mockedEvents } = mockElectron();
-			vi.resetModules();
-			const { app, dialog } = await import( 'electron' );
-			const migration = await import( '@studio/common/lib/migration' );
-			const { getAppConfigPath } = await import( '@studio/common/lib/well-known-paths' );
-			const { getOldAppdataFilePath } = await import( 'src/storage/paths' );
-			const { default: appFs } = await import( 'fs' );
-			const existsMock = vi
-				.mocked( appFs.existsSync )
-				.mockImplementation(
-					( file ) =>
-						file === getOldAppdataFilePath() || ( completed && file === getAppConfigPath() )
-				);
-			const error = new Error( 'EACCES: permission denied' );
-			const migrationSpy = vi.spyOn( migration, 'runMigrations' ).mockRejectedValueOnce( error );
-			try {
-				await import( '../index' );
-				await mockedEvents.ready();
-				if ( completed ) {
-					expect( createMainWindow ).toHaveBeenCalledOnce();
-					expect( app.exit ).not.toHaveBeenCalled();
-					expect( dialog.showMessageBox ).not.toHaveBeenCalled();
-				} else {
-					expect( createMainWindow ).not.toHaveBeenCalled();
-					expect( app.exit ).toHaveBeenCalledWith( 1 );
-					expect( dialog.showMessageBox ).toHaveBeenCalledWith(
-						expect.objectContaining( {
-							type: 'error',
-							message: 'Could not migrate your sites',
-							detail: expect.stringContaining( error.message ),
-						} )
-					);
-				}
-			} finally {
-				migrationSpy.mockRestore();
-				existsMock.mockReset();
-			}
+	it( 'keeps starting when a startup task fails', async () => {
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		const startupTasks = await import( '@studio/common/lib/startup-tasks' );
+		vi.spyOn( startupTasks, 'runStartupTasks' ).mockRejectedValueOnce( new Error( 'EACCES' ) );
+
+		await import( '../index' );
+		await mockedEvents.ready();
+
+		expect( createMainWindow ).toHaveBeenCalledOnce();
+		expect( app.exit ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [
+		[ 'saved by a newer Studio CLI', 'too-new', 'Update WordPress Studio' ],
+		[ 'unreadable', 'unreadable', 'Could not read your settings' ],
+	] )( 'quits when the config file is %s', async ( _label, failure, message ) => {
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		const { app, dialog } = await import( 'electron' );
+		const store = await import( '@studio/common/lib/config/store' );
+		const error =
+			failure === 'too-new'
+				? new store.ConfigTooNewError( 2 )
+				: new Error( 'EACCES: permission denied' );
+		const readSpy = vi.spyOn( store, 'readConfig' ).mockRejectedValue( error );
+		try {
+			await import( '../index' );
+			await mockedEvents.ready();
+
+			expect( createMainWindow ).not.toHaveBeenCalled();
+			expect( app.exit ).toHaveBeenCalledWith( 1 );
+			expect( dialog.showMessageBox ).toHaveBeenCalledWith(
+				expect.objectContaining( { type: 'error', message } )
+			);
+		} finally {
+			readSpy.mockRestore();
 		}
-	);
+	} );
 	it( 'sandboxes every renderer', async () => {
 		mockElectron();
 		vi.resetModules();
@@ -763,5 +762,29 @@ describe( 'App initialization', () => {
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+	} );
+
+	it( 'opens Studio again after the quit when it is launched while quitting', async () => {
+		const { mockedEvents } = mockElectron();
+		const originalProcessPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'win32' } );
+		vi.resetModules();
+		await import( '../index' );
+		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+		const { app } = await import( 'electron' );
+		await mockedEvents.ready();
+		vi.mocked( createMainWindow ).mockClear();
+
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+		await mockedEvents[ 'second-instance' ]( {}, [ 'Studio.exe', 'wp-studio://auth#token' ] );
+		await mockedEvents.activate();
+
+		expect( app.relaunch ).toHaveBeenNthCalledWith( 1, {
+			execPath: process.execPath,
+			args: [ 'wp-studio://auth#token' ],
+		} );
+		expect( app.relaunch ).toHaveBeenNthCalledWith( 2, { execPath: process.execPath, args: [] } );
+		expect( getMainWindow ).not.toHaveBeenCalled();
+		expect( createMainWindow ).not.toHaveBeenCalled();
 	} );
 } );

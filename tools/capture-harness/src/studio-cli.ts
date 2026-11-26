@@ -8,7 +8,7 @@ const execFile = promisify( execFileCallback );
 
 /**
  * Runs the built Studio CLI inside a profile, so it reads and writes the
- * profile's `cli.json`, sites and daemon rather than the user's. Resolves with
+ * profile's config file, sites and daemon rather than the user's. Resolves with
  * the command's stdout.
  */
 export async function runCli( profile: Profile, args: string[] ): Promise< string > {

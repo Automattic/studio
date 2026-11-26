@@ -255,9 +255,8 @@ describe( 'useSyncSitesWithEvents', () => {
 	] as const )(
 		'shows the site a %s reports, before its release event, without refetching the list',
 		async ( action, running ) => {
-			// What the CLI reports, and the sort order only Studio keeps.
-			const details = { ...makeSite(), url: 'http://localhost:9010' };
-			const site = { ...details, running: ! running, sortOrder: 1000 };
+			const details = { ...makeSite(), url: 'http://localhost:9010', sortOrder: 1000 };
+			const site = { ...details, running: ! running };
 			const connector = createFakeConnector( { sites: [ site ] } );
 			connector[ action === 'start' ? 'startSite' : 'stopSite' ].mockImplementation( async () => {
 				// The event while the operation still holds the site. Its release

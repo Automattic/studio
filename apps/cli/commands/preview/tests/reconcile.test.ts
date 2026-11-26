@@ -1,31 +1,15 @@
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import {
-	readAuthToken,
-	readSharedConfig,
-	saveSharedConfig,
-} from '@studio/common/lib/shared-config';
+import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import os from 'os';
+import path from 'path';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { vi } from 'vitest';
-import { readCliConfig, saveCliConfig } from 'cli/lib/cli-config/core';
-import { getStandingPreviews } from 'cli/lib/preview-sites';
+import { wpcomPreviews } from 'cli/lib/preview-sites';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { runCommand } from '../list';
 import type { SyncSite } from '@studio/common/types/sync';
 
-vi.mock( 'cli/lib/cli-config/core' );
-vi.mock( 'cli/lib/preview-sites', async ( original ) => ( {
-	...( await original< typeof import('cli/lib/preview-sites') >() ),
-	getStandingPreviews: vi.fn(),
-} ) );
+vi.mock( 'cli/lib/preview-sites', () => ( { wpcomPreviews: { list: vi.fn() } } ) );
 vi.mock( 'cli/lib/sync-api' );
-vi.mock( '@studio/common/lib/shared-config', async ( original ) => ( {
-	...( await original< typeof import('@studio/common/lib/shared-config') >() ),
-	readAuthToken: vi.fn(),
-	getCurrentUserId: vi.fn().mockResolvedValue( 123 ),
-	readSharedConfig: vi.fn(),
-	saveSharedConfig: vi.fn(),
-	lockSharedConfig: vi.fn(),
-	unlockSharedConfig: vi.fn(),
-} ) );
 
 const boughtSite: SyncSite = {
 	id: 456,
@@ -39,34 +23,21 @@ const boughtSite: SyncSite = {
 	lastPushTimestamp: null,
 };
 
-// A preview that leaves WordPress.com's standing list was bought when it is still one of the
-// user's sites, and ended (expired or deleted) when it is not.
-it.each( [
-	{ label: 'bought', standing: false, stillASite: true, connects: true },
-	{ label: 'expired or deleted', standing: false, stillASite: false, connects: false },
-	{ label: 'still standing', standing: true, stillASite: true, connects: false },
-] )(
-	'listing previews connects a preview to its local site once it is $label',
-	async ( scenario ) => {
-		vi.mocked( readAuthToken ).mockResolvedValue( {
-			id: 123,
-			accessToken: 'token',
-			email: '',
-			displayName: '',
-			expiresIn: 3600,
-			expirationTime: Date.now() + 3600000,
-		} );
-		let shared: Awaited< ReturnType< typeof readSharedConfig > > = {
+let directory: string;
+
+beforeEach( () => {
+	directory = mkdtempSync( path.join( os.tmpdir(), 'studio-reconcile-' ) );
+	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
+	writeFileSync(
+		path.join( directory, 'config.json' ),
+		JSON.stringify( {
 			version: 1,
-			connectedWpcomSites: {},
-		};
-		vi.mocked( readSharedConfig ).mockImplementation( async () => structuredClone( shared ) );
-		vi.mocked( saveSharedConfig ).mockImplementation( async ( config ) => {
-			shared = config;
-		} );
-		let config = {
-			version: 1 as const,
-			sites: [],
+			providers: {
+				configs: {
+					wpcom: { token: 'token', user: { id: 123, email: '', displayName: '' } },
+				},
+			},
+			sites: [ { id: 'local', name: 'Local', path: '/site', port: 8881, phpVersion: '8.3' } ],
 			snapshots: [
 				{
 					url: 'preview.example.com',
@@ -76,13 +47,35 @@ it.each( [
 					date: 1,
 				},
 			],
-		};
-		vi.mocked( readCliConfig ).mockImplementation( async () => structuredClone( config ) );
-		vi.mocked( saveCliConfig ).mockImplementation( async ( saved ) => {
-			config = saved as typeof config;
-		} );
-		vi.mocked( getStandingPreviews ).mockResolvedValue(
-			new Map( scenario.standing ? [ [ 456, { expiresAt: Date.now() + 3600000 } ] ] : [] )
+		} )
+	);
+} );
+
+afterEach( () => {
+	vi.unstubAllEnvs();
+	rmSync( directory, { recursive: true, force: true } );
+} );
+
+// A preview that leaves WordPress.com's standing list was bought when it is still one of the
+// user's sites, and ended (expired or deleted) when it is not.
+it.each( [
+	{ label: 'bought', standing: false, stillASite: true, connects: true },
+	{ label: 'expired or deleted', standing: false, stillASite: false, connects: false },
+	{ label: 'still standing', standing: true, stillASite: true, connects: false },
+] )(
+	'listing previews connects a preview to its local site once it is $label',
+	async ( scenario ) => {
+		vi.mocked( wpcomPreviews.list ).mockResolvedValue(
+			scenario.standing
+				? [
+						{
+							id: 456,
+							name: '',
+							url: 'https://preview.example.com',
+							expiresAt: Date.now() + 3600000,
+						},
+				  ]
+				: []
 		);
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( scenario.stillASite ? [ boughtSite ] : [] );
 		const output = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
@@ -93,7 +86,7 @@ it.each( [
 			output.mockRestore();
 		}
 
-		expect( await getConnectedWpcomSitesForLocalSite( 'local' ) ).toEqual(
+		expect( await getRemoteSites( 'wpcom', 'local' ) ).toEqual(
 			scenario.connects
 				? [ { ...boughtSite, localSiteId: 'local', syncSupport: 'already-connected' } ]
 				: []

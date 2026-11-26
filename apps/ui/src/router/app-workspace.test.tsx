@@ -188,6 +188,7 @@ beforeEach( () => {
 
 afterEach( () => {
 	vi.restoreAllMocks();
+	document.documentElement.style.removeProperty( '--motion-duration-layout' );
 	act( () => setCommandPaletteOpen( false ) );
 } );
 
@@ -202,8 +203,10 @@ describe( 'Studio workspace', () => {
 					annotatePreview: true,
 					nativeFolderPicker: true,
 					studioLogs: true,
-					nativeSites: true,
 					loopbackSignIn: true,
+					localMachine: true,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );
@@ -418,36 +421,71 @@ describe( 'Studio workspace', () => {
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'keeps Share and Publish available while authentication is loading', async () => {
+	it( 'keeps the Share control available while authentication is loading', async () => {
 		const { connector } = setup( { sites: [ site( { running: true } ) ] } );
 		connector.getAuthUser.mockImplementation( () => new Promise( () => {} ) );
-		expect( await screen.findByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	} );
 
-	it( 'keeps Share and Publish available through account changes and opens contextual account copy', async () => {
+	it( 'keeps Publish available through account changes and lets signed-out users choose a destination', async () => {
 		const { connector, queryClient } = setup( { sites: [ site( { running: true } ) ] } );
-		expect( await screen.findByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		await paletteCommand( 'Publish' );
-		// Signing in is only needed to publish to WordPress.com.
-		fireEvent.click( await screen.findByRole( 'button', { name: /^WordPress\.com/ } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
+		const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+		expect( await within( panel ).findByRole( 'combobox', { name: 'Destination' } ) ).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Publish…' } ) );
+		await waitFor( () => expect( panel ).not.toBeInTheDocument() );
 		connector.state.user = TEST_USER;
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		connector.state.user = null;
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'auth-user' ] } ) );
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
+	} );
+
+	it.each( [ 'Chat', 'Split view' ] as const )(
+		'opens Publish from the site menu without changing the %s layout',
+		async ( layout ) => {
+			const { connector } = setup( {
+				path: '/sites/one/new',
+				sites: [ site( { running: true } ) ],
+			} );
+			await chooseWorkspaceLayout( layout );
+			await findLayoutControl( layout === 'Chat' ? 'chat' : 'split' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+			expect( await screen.findByRole( 'dialog', { name: 'Publish' } ) ).toBeVisible();
+			expect( getLayoutControl( layout === 'Chat' ? 'chat' : 'split' ) ).toBeVisible();
+			expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'opens Publish for another site without reopening its hidden preview', async () => {
+		const { history } = setup( {
+			path: '/sites/one/new',
+			sites: [
+				site( { running: true } ),
+				site( { id: 'two', name: 'Other site', running: true } ),
+			],
+		} );
+		await findComposer();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		await chooseWorkspaceLayout( 'Chat' );
+		await findLayoutControl( 'chat' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'Other site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Publish' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		expect( await screen.findByRole( 'dialog', { name: 'Publish' } ) ).toBeVisible();
+		expect( getLayoutControl( 'chat' ) ).toBeVisible();
 	} );
 
 	it( 'keeps an established header during a background site refresh', async () => {
 		const { connector, queryClient } = setup( { sites: [ site( { running: true } ) ] } );
-		const publish = await screen.findByRole( 'button', { name: 'Publish…' } );
+		const share = await screen.findByRole( 'button', { name: 'Publish…' } );
 		const address = await screen.findByRole( 'textbox', { name: 'Address' } );
 		let finish!: ( sites: SiteDetails[] ) => void;
 		connector.getSites.mockImplementationOnce(
@@ -459,10 +497,10 @@ describe( 'Studio workspace', () => {
 		act( () => {
 			void queryClient.invalidateQueries( { queryKey: [ 'sites' ] } );
 		} );
-		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( share );
 		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBe( address );
 		await act( async () => finish( [ site( { running: true } ) ] ) );
-		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( share );
 	} );
 
 	it( 'allows manual startup while offline', async () => {
@@ -761,6 +799,28 @@ describe( 'Studio workspace', () => {
 		expect( connector.createSession ).toHaveBeenCalledTimes( createCalls );
 	} );
 
+	it( 'leaves the new skill form for a new chat that starts with the create-skill command', async () => {
+		const { history } = setup( {
+			signedIn: true,
+			sessions: [ chat( { id: 'skills-chat', title: 'Existing chat' } ) ],
+			path: '/sessions/skills-chat?settings=site-skills',
+		} );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( await within( settings ).findByRole( 'button', { name: 'Add skill' } ) );
+		fireEvent.change( await within( settings ).findByRole( 'textbox', { name: 'Name' } ), {
+			target: { value: 'Lookbook post' },
+		} );
+		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Create in chat instead' } ) );
+
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Settings' } ) ).not.toBeInTheDocument()
+		);
+		await waitFor( async () =>
+			expect( await findComposer() ).toHaveValue( '/create-skill Lookbook post' )
+		);
+	} );
+
 	it.each( [ 'Settings', 'Rename' ] )(
 		'keeps chat hidden when opening and closing %s from site actions',
 		async ( action ) => {
@@ -1052,6 +1112,7 @@ describe( 'Studio workspace', () => {
 		await findComposer();
 		await setChatFullscreen( true );
 		await waitForFullscreen( true );
+		document.documentElement.style.setProperty( '--motion-duration-layout', '320ms' );
 		if ( entry === 'site menu' ) {
 			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'New chat' } ) );
@@ -1071,6 +1132,9 @@ describe( 'Studio workspace', () => {
 		} else {
 			fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
 		}
+		await waitFor( () =>
+			expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeNull()
+		);
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		await waitFor( () => expect( composer() ).toHaveFocus() );
 		expect( await findLayoutControl( 'split' ) ).toBeVisible();
@@ -1137,8 +1201,12 @@ describe( 'Studio workspace', () => {
 		fireEvent.change( document.querySelector( 'input[type="file"][multiple]' )!, {
 			target: { files: [ new File( [ 'notes' ], 'draft.txt', { type: 'text/plain' } ) ] },
 		} );
-		await screen.findByText( 'draft.txt' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+		// Clicks as soon as the attachment shows, before React runs any deferred effects.
+		const newChat = screen.getByRole( 'button', { name: 'New chat for My site' } );
+		await waitFor( () => {
+			screen.getByText( 'draft.txt' );
+			fireEvent.click( newChat );
+		} );
 		expect( await findLayoutControl( 'split' ) ).toBeVisible();
 		expect( composer() ).toHaveValue( '' );
 		expect( screen.getByText( 'draft.txt' ) ).toBeVisible();
@@ -1243,7 +1311,9 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 2 ) );
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );
 		expect( connector.createSession ).toHaveBeenCalledWith( 'one' );
-		expect( await screen.findByText( 'Help me plan this site' ) ).toBeVisible();
+		expect(
+			await within( screen.getByRole( 'main' ) ).findByText( 'Help me plan this site' )
+		).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
 		expect( document.querySelector( 'iframe' ) ).toBeNull();
 		expect( connector.startSite ).not.toHaveBeenCalled();
@@ -1332,8 +1402,10 @@ describe( 'Studio workspace', () => {
 					nativeFolderPicker: true,
 					annotatePreview: true,
 					studioLogs: true,
-					nativeSites: true,
 					loopbackSignIn: true,
+					localMachine: true,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );
@@ -1364,7 +1436,7 @@ describe( 'Studio workspace', () => {
 		expect(
 			within( screen.getByRole( 'complementary' ) ).queryByRole( 'button', { name: 'Start site' } )
 		).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		await refreshSessions( [ chat( { id: 'toolbar-chat', title: 'Plan my site' } ) ] );
 		fireEvent.click(
 			await within( screen.getByRole( 'group', { name: 'Sites' } ) ).findByRole( 'button', {
@@ -1392,37 +1464,33 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( getLayoutControl( 'split' ) ).toBeVisible() );
 		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
+		await waitFor( () => expect( composerStartButton() ).toBeVisible() );
 	} );
 
-	it.each( [ 'split', 'fullscreen', 'site' ] )(
-		'returns to chat after stopping from the %s layout',
-		async ( layout ) => {
-			const { connector, history } = setup( {
-				signedIn: true,
-				path: layout === 'site' ? '/sites/one' : '/sites/one/new',
-				sites: [ site( { running: true } ) ],
-			} );
-			if ( layout === 'fullscreen' ) await chooseWorkspaceLayout( 'Panel' );
-			await findLayoutControl( layout === 'split' ? 'split' : 'panel' );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
-			await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
-			await screen.findByRole( 'button', { name: 'Start My site' } );
-			expect( await findComposer() ).toBeVisible();
-			expect( await findLayoutControl( 'chat' ) ).toBeVisible();
-			expect( localStorage.getItem( LEGACY_PANEL_LAYOUT_STORAGE_KEY ) ).toBeNull();
-			expect( history.location.pathname ).toBe( '/sites/one/new' );
-			await waitFor( () =>
-				expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument()
-			);
-			expect( connector.createSession ).not.toHaveBeenCalled();
-		}
-	);
+	it.each( [
+		{ path: '/sites/one/new', layout: 'split' },
+		{ path: '/sites/one', layout: 'panel' },
+	] as const )( 'stays on $path when stopping from the sidebar', async ( { path, layout } ) => {
+		const { connector, history } = setup( {
+			signedIn: true,
+			path,
+			sites: [ site( { running: true } ) ],
+		} );
+		await findLayoutControl( layout );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
+		await screen.findByRole( 'button', { name: 'Start My site' } );
+		expect( connector.stopSite ).toHaveBeenCalledWith( 'one' );
+		if ( layout === 'split' ) expect( await findComposer() ).toBeVisible();
+		expect( await findLayoutControl( layout ) ).toBeVisible();
+		expect( localStorage.getItem( LEGACY_PANEL_LAYOUT_STORAGE_KEY ) ).toBeNull();
+		expect( history.location.pathname ).toBe( path );
+		expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
 
 	it( 'preserves draft and attachments through external start and stop events', async () => {
 		const { connector } = setup( { signedIn: true } );
@@ -1493,7 +1561,6 @@ describe( 'Studio workspace', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible()
 		);
-		expect( screen.getByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		await chooseWorkspaceLayout( 'Split view' );
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( composer() ).toBe( input );

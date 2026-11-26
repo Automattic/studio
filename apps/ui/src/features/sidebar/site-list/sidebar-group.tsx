@@ -1,6 +1,6 @@
+import { CollapsiblePanel, SidebarGroup, SidebarGroupHeader, SidebarGroupLabel } from '@studio/ds';
+import { useStoredFlag } from '@studio/ds/hooks';
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
-import { useStoredFlag } from '@/lib/hooks';
-import { CollapsiblePanel, SidebarGroup, SidebarGroupHeader, SidebarGroupLabel } from '@/lib/ui';
 import styles from './style.module.css';
 
 // Opens a collapsed group when something is added to it, e.g. a new site.

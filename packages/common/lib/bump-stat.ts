@@ -1,6 +1,8 @@
 import { isSameDay } from 'date-fns/isSameDay';
 import { isSameMonth } from 'date-fns/isSameMonth';
 import { isSameWeek } from 'date-fns/isSameWeek';
+import { isAutomatedRun } from './analytics-environment';
+import { readConfig, updateConfig } from './config/store';
 
 // Database columns are varchar(32). Group limit is 27 to account for the '-a11n' suffix
 // added by the backend for Automattic requests (27 + 5 = 32).
@@ -25,7 +27,7 @@ export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
 		return false;
 	}
 
-	if ( process.env.E2E || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
+	if ( isAutomatedRun() || ( process.env.NODE_ENV === 'development' && ! bumpInDev ) ) {
 		console.info( `Would have bumped stat: ${ group }=${ stat }` );
 		return false;
 	}
@@ -45,17 +47,6 @@ export function __bumpStat( group: string, stat: string, bumpInDev = false ) {
 	return true;
 }
 
-// Base type for user data that can track bump stats
-export type LastBumpStats = Record< string, Record< string, number > >;
-
-// Appdata provider interface for abstracting storage operations
-export interface LastBumpStatsProvider {
-	load: () => Promise< LastBumpStats >;
-	lock: () => Promise< void >;
-	unlock: () => Promise< void >;
-	save: ( lastBumpStats: LastBumpStats ) => Promise< void >;
-}
-
 // Bumps a stat if it hasn't been bumped within the current aggregate interval. This allows us to
 // approximate a 1-count-per-user stat without recording which user the event came from (bump stats
 // are anonymous).
@@ -66,14 +57,13 @@ export async function __bumpAggregatedUniqueStat(
 	group: string,
 	stat: string,
 	aggregateBy: AggregateInterval,
-	provider: LastBumpStatsProvider,
 	bumpInDev = false
 ) {
-	const lastBump = await getLastBump( group, stat, provider );
+	const lastBump = ( await readConfig() ).stats.lastBump[ group ]?.[ stat ] ?? null;
 
 	if ( lastBump === null ) {
 		__bumpStat( group, stat, bumpInDev );
-		await updateLastBump( group, stat, provider );
+		await updateLastBump( group, stat );
 		return;
 	}
 
@@ -96,29 +86,13 @@ export async function __bumpAggregatedUniqueStat(
 
 	const didBump = __bumpStat( group, stat, bumpInDev );
 	if ( didBump ) {
-		await updateLastBump( group, stat, provider );
+		await updateLastBump( group, stat );
 	}
 }
 
-// Returns UTC timestamp of the last time the stat was bumped, or null if it has never been bumped.
-async function getLastBump(
-	group: string,
-	stat: string,
-	provider: LastBumpStatsProvider
-): Promise< number | null > {
-	const lastBumpStats = await provider.load();
-	return lastBumpStats?.[ group ]?.[ stat ] ?? null;
-}
-
-// Store this moment as the last time we bumped the state, in UTC time.
-async function updateLastBump( group: string, stat: string, provider: LastBumpStatsProvider ) {
-	try {
-		await provider.lock();
-		const lastBumpStats = await provider.load();
-		lastBumpStats[ group ] ??= {};
-		lastBumpStats[ group ][ stat ] = Date.now();
-		await provider.save( lastBumpStats );
-	} finally {
-		await provider.unlock();
-	}
+// Store this moment as the last time we bumped the stat, in UTC time.
+async function updateLastBump( group: string, stat: string ) {
+	await updateConfig( ( { stats } ) => {
+		stats.lastBump[ group ] = { ...stats.lastBump[ group ], [ stat ]: Date.now() };
+	} );
 }

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as reprintClient from 'cli/lib/pull/reprint-client';
 import { emptyReprintMetadata } from 'cli/lib/pull/reprint-metadata';
@@ -14,8 +14,8 @@ import type { SyncSite } from '@studio/common/types/sync';
 // timeout on CI.
 vi.setConfig( { testTimeout: 15_000 } );
 
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
+vi.mock( '@studio/common/lib/auth-token', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/auth-token') >() ),
 	readAuthToken: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/pull/reprint-key', () => ( {
@@ -40,7 +40,7 @@ vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => {
 } );
 
 /**
- * A minimal valid `SiteData` record (as produced by `studio create`):
+ * A minimal valid site record (as produced by `studio create`):
  * has identity + port + php version but no pull-specific fields.
  */
 function makeSiteRecord( over: Record< string, unknown > = {} ): Record< string, unknown > {
@@ -50,7 +50,7 @@ function makeSiteRecord( over: Record< string, unknown > = {} ): Record< string,
 		path: '/tmp/test-site',
 		port: 8901,
 		phpVersion: '8.2',
-		running: false,
+		status: 'ready',
 		isWpAutoUpdating: true,
 		enableHttps: false,
 		...over,
@@ -84,20 +84,21 @@ function mockWpComPullSource( url = 'https://example.com' ): SyncSite {
 	return site;
 }
 
-/** Seeds `~/.studio/cli.json` (under the fake home) with the given sites. */
-function seedCliConfigSite( homeDir: string, sites: Record< string, unknown >[] ): void {
+/** Seeds `~/.studio/config.json` (under the fake home) with the given sites. */
+function seedConfigSites( homeDir: string, sites: Record< string, unknown >[] ): void {
 	const configDir = path.join( homeDir, '.studio' );
 	fs.mkdirSync( configDir, { recursive: true } );
+	vi.stubEnv( 'DEV_CONFIG_DIR', configDir );
 	fs.writeFileSync(
-		path.join( configDir, 'cli.json' ),
-		JSON.stringify( { version: 1, sites, snapshots: [] } )
+		path.join( configDir, 'config.json' ),
+		JSON.stringify( { version: 1, sites } )
 	);
 }
 
-function readSeededCliConfig( homeDir: string ): {
+function readSeededConfig( homeDir: string ): {
 	sites: ( Record< string, unknown > & { id: string } )[];
 } {
-	return JSON.parse( fs.readFileSync( path.join( homeDir, '.studio', 'cli.json' ), 'utf-8' ) );
+	return JSON.parse( fs.readFileSync( path.join( homeDir, '.studio', 'config.json' ), 'utf-8' ) );
 }
 
 describe( 'CLI: studio pull single pull phase', () => {
@@ -878,7 +879,7 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		const { runCommand } = await loadRunCommandWithFakeHome();
 		mockWpComPullSource();
 		const sitePath = path.join( fakeHome, 'Studio', 'Existing-Site' );
-		seedCliConfigSite( fakeHome, [
+		seedConfigSites( fakeHome, [
 			makeSiteRecord( { id: 'existing-id', name: 'Existing Site', path: sitePath } ),
 		] );
 
@@ -927,7 +928,7 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		// `pulling`/`pull-failed` once preflight succeeds and the pull starts
 		// writing into the site directory, so a preflight-stage failure leaves
 		// the record as it was (`ready`).
-		const config = readSeededCliConfig( fakeHome );
+		const config = readSeededConfig( fakeHome );
 		expect( config.sites ).toHaveLength( 1 );
 		expect( config.sites[ 0 ].id ).toBe( 'existing-id' );
 		expect( config.sites[ 0 ].status ).toBe( 'ready' );
@@ -941,7 +942,7 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		const source = mockWpComPullSource( 'https://example.wpcomstaging.com' );
 		source.environmentType = 'production';
 		const sitePath = path.join( fakeHome, 'Studio', 'Existing-Site' );
-		seedCliConfigSite( fakeHome, [ makeSiteRecord( { path: sitePath } ) ] );
+		seedConfigSites( fakeHome, [ makeSiteRecord( { path: sitePath } ) ] );
 		const reprint = await import( 'cli/lib/pull/reprint-client' );
 		vi.spyOn( reprint, 'runReprintCommandUntilComplete' ).mockRejectedValue(
 			new Error( 'stop at preflight' )
@@ -958,7 +959,7 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		const { commandHandler } = await loadRunCommandWithFakeHome();
 		mockWpComPullSource();
 		const sitePath = path.join( fakeHome, 'Studio', 'Existing-Site' );
-		seedCliConfigSite( fakeHome, [
+		seedConfigSites( fakeHome, [
 			makeSiteRecord( { id: 'existing-id', name: 'Existing Site', path: sitePath } ),
 		] );
 		const reprintClientMod = await import( 'cli/lib/pull/reprint-client' );
@@ -1029,7 +1030,7 @@ describe( 'CLI: studio pull delta re-pull of a completed pull', () => {
 		// The local site is resolved by --path against the CLI config record.
 		// `importComplete: true` is the durable marker that a full pull already
 		// happened — it (not a pull.json stage) is what makes this a delta.
-		seedCliConfigSite( fakeHome, [
+		seedConfigSites( fakeHome, [
 			makeSiteRecord( {
 				id: 'completed-id',
 				name: 'My Completed Site',
@@ -1066,7 +1067,7 @@ describe( 'CLI: studio pull delta re-pull of a completed pull', () => {
 		expect( reprintSpy ).toHaveBeenCalled();
 		expect( reprintSpy.mock.calls[ 0 ][ 0 ][ 0 ] ).toBe( 'preflight' );
 
-		const config = readSeededCliConfig( fakeHome );
+		const config = readSeededConfig( fakeHome );
 		// The durable importComplete marker is preserved across the re-pull…
 		expect( config.sites[ 0 ].importComplete ).toBe( true );
 		// …and a preflight-stage failure leaves the site's status untouched: it
@@ -1090,7 +1091,7 @@ describe( 'CLI: studio pull delta re-pull of a completed pull', () => {
 
 		const sitePath = path.join( fakeHome, 'Studio', 'Stale-Filter-Site' );
 
-		seedCliConfigSite( fakeHome, [
+		seedConfigSites( fakeHome, [
 			makeSiteRecord( {
 				id: 'stale-filter-id',
 				name: 'Stale Filter Site',
@@ -1166,7 +1167,7 @@ describe( 'CLI: studio pull delta re-pull of a completed pull', () => {
 			const { runCommand } = await loadRunCommandWithFakeHome();
 			mockWpComPullSource();
 			const sitePath = path.join( fakeHome, 'Studio', 'Failing-Site' );
-			seedCliConfigSite( fakeHome, [
+			seedConfigSites( fakeHome, [
 				makeSiteRecord( {
 					id: 'failing-id',
 					name: 'Failing Site',
@@ -1246,7 +1247,7 @@ describe( 'CLI: studio pull first-pull selective sync', () => {
 		const stateDirectory = path.join( technicalSiteDirectory, 'state' );
 		const sitePath = path.join( fakeHome, 'Studio', 'My-Fresh-Site' );
 
-		seedCliConfigSite( fakeHome, [
+		seedConfigSites( fakeHome, [
 			makeSiteRecord( {
 				id: 'fresh-id',
 				name: 'My Fresh Site',
@@ -1301,7 +1302,7 @@ describe( 'CLI: studio pull first-pull selective sync', () => {
 					};
 				}
 				if ( args[ 0 ] === 'pull-files' ) {
-					operationDuringPull = readSeededCliConfig( fakeHome ).sites[ 0 ].operation;
+					operationDuringPull = readSeededConfig( fakeHome ).sites[ 0 ].operation;
 					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
 				}
 				if ( args[ 0 ] === 'merge-wp-content' ) {
@@ -1327,7 +1328,7 @@ describe( 'CLI: studio pull first-pull selective sync', () => {
 		).rejects.toThrow( /stop after flat-docroot/ );
 
 		expect( operationDuringPull ).toMatchObject( { kind: 'import' } );
-		const config = readSeededCliConfig( fakeHome );
+		const config = readSeededConfig( fakeHome );
 		expect( config.sites[ 0 ].operation ).toBeUndefined();
 		expect( config.sites[ 0 ].status ).toBe( 'pull-failed' );
 

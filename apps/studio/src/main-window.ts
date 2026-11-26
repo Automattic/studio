@@ -6,9 +6,12 @@ import {
 	dialog,
 	nativeTheme,
 } from 'electron';
+import * as Sentry from '@sentry/electron/main';
 import fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
+import { readConfig } from '@studio/common/lib/config/store';
+import { SUPPORTED_COLOR_SCHEMES } from '@studio/common/lib/user-settings/preferences';
 import {
 	DEFAULT_HEIGHT,
 	AGENTIC_TITLEBAR_HEIGHT,
@@ -24,13 +27,8 @@ import { warnIfRunningUnderArm64Translation } from 'src/lib/arm64-translation-wa
 import { promptWindowsSpeedUpSites } from 'src/lib/windows-helpers';
 import { writeLogToFile, type LogLevel } from 'src/logging';
 import { removeMenu } from 'src/menu';
-import {
-	loadUserData,
-	updateAppdata,
-	loadWindowBounds,
-	saveWindowBounds,
-} from 'src/storage/user-data';
-import type { WindowBounds } from 'src/storage/storage-types';
+import { updateDesktopState } from 'src/storage/desktop-state';
+import type { WindowBounds } from '@studio/common/lib/config/schema';
 
 const RENDERER_LOG_LEVELS: Record< 'info' | 'warning' | 'error', LogLevel > = {
 	info: 'info',
@@ -78,6 +76,62 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 		return;
 	}
 	await window.loadFile( location.filePath );
+}
+
+/**
+ * Returns the handler that reports a failed renderer load. Electron fails the load with the same
+ * `ERR_FAILED (-2)` whether the navigation was aborted, the renderer died or it never started, so
+ * the report says how far the load got and what became of the renderer process.
+ */
+function watchRendererLoadFailure( window: BrowserWindow ) {
+	const contents = window.webContents;
+	const startedAt = Date.now();
+	const events: string[] = [];
+	let rendererGone: Electron.RenderProcessGoneDetails | undefined;
+	contents.once( 'did-start-navigation', () => events.push( 'did-start-navigation' ) );
+	contents.once( 'did-redirect-navigation', () => events.push( 'did-redirect-navigation' ) );
+	contents.once( 'did-navigate', () => events.push( 'did-navigate' ) );
+	contents.once( 'dom-ready', () => events.push( 'dom-ready' ) );
+	contents.once( 'render-process-gone', ( _event, details ) => {
+		rendererGone = details;
+	} );
+
+	const getStage = () => {
+		if ( rendererGone ) {
+			return `renderer-${ rendererGone.reason }`;
+		}
+		if ( events.includes( 'did-navigate' ) ) {
+			return 'committed';
+		}
+		return events.includes( 'did-start-navigation' ) ? 'not-committed' : 'not-started';
+	};
+
+	return ( error: unknown ) => {
+		// Closing the window, or quitting, while it loads cuts the load short: not a bug. The load
+		// fails as the web contents go, before the window does.
+		if ( window.isDestroyed() || contents.isDestroyed() ) {
+			return;
+		}
+		const failedAfterMs = Date.now() - startedAt;
+		const rendererPid = contents.getOSProcessId();
+		// A renderer that dies mid-load fails the load before `render-process-gone` arrives.
+		setTimeout( () => {
+			const processes = app.getAppMetrics();
+			Sentry.captureException( error, {
+				tags: { renderer_load: getStage() },
+				contexts: {
+					rendererLoad: {
+						failedAfterMs,
+						events,
+						rendererGone,
+						rendererPid,
+						rendererRunning: processes.some( ( { pid } ) => pid === rendererPid ),
+						processTypes: processes.map( ( { type } ) => type ),
+					},
+				},
+			} );
+		}, 1000 );
+	};
 }
 
 export function getCurrentRendererUrl(): string {
@@ -134,10 +188,13 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		return mainWindow;
 	}
 
-	const userData = await loadUserData();
-	nativeTheme.themeSource = userData.colorScheme ?? 'light';
+	const { preferences, desktop } = await readConfig();
+	const colorScheme = SUPPORTED_COLOR_SCHEMES.find(
+		( scheme ) => scheme === preferences.colorScheme
+	);
+	nativeTheme.themeSource = colorScheme ?? 'light';
 
-	const savedBounds = await loadWindowBounds();
+	const savedBounds = desktop.windowBounds;
 	let windowOptions: BrowserWindowConstructorOptions = {
 		height: DEFAULT_HEIGHT,
 		width: DEFAULT_WIDTH,
@@ -203,14 +260,16 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	void loadRendererLocation( mainWindow, getRendererLocation() );
+	loadRendererLocation( mainWindow, getRendererLocation() ).catch(
+		watchRendererLoadFailure( mainWindow )
+	);
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {
-		await updateAppdata( { devToolsOpen: true } );
+		await updateDesktopState( { devToolsOpen: true } );
 	} );
 
 	mainWindow.webContents.on( 'devtools-closed', async () => {
-		await updateAppdata( { devToolsOpen: false } );
+		await updateDesktopState( { devToolsOpen: false } );
 	} );
 
 	mainWindow.webContents.once( 'did-finish-load', () => {
@@ -218,7 +277,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		// preload script, so the UI boots to a blank screen with no `window.ipcApi`.
 		// Open the DevTools if the user had it open last time they used the app.
 		// During development the dev tools default to open.
-		setupDevTools( mainWindow, userData.devToolsOpen );
+		setupDevTools( mainWindow, desktop.devToolsOpen );
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 		void warnIfRunningUnderArm64Translation();
 	} );
@@ -242,7 +301,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', true );
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
-			void saveWindowBounds( { ...bounds, isFullScreen: true } );
+			void updateDesktopState( { windowBounds: { ...bounds, isFullScreen: true } } );
 		}
 	} );
 
@@ -250,7 +309,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		sendIpcEventToRendererWithWindow( mainWindow, 'window-fullscreen-change', false );
 		if ( mainWindow && ! mainWindow.isDestroyed() ) {
 			const bounds = mainWindow.getBounds();
-			void saveWindowBounds( { ...bounds, isFullScreen: false } );
+			void updateDesktopState( { windowBounds: { ...bounds, isFullScreen: false } } );
 		}
 	} );
 
@@ -262,7 +321,7 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		saveTimeout = setTimeout( () => {
 			if ( mainWindow && ! mainWindow.isDestroyed() && ! mainWindow.isFullScreen() ) {
 				const bounds = mainWindow.getBounds();
-				void saveWindowBounds( { ...bounds, isFullScreen: false } );
+				void updateDesktopState( { windowBounds: { ...bounds, isFullScreen: false } } );
 			}
 		}, 100 );
 	};

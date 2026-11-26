@@ -1,3 +1,5 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import {
 	applyDesignToThemeJson,
 	applyThemeToDesign,
@@ -25,45 +27,41 @@ export const designFixesSchema = z.array(
 	} )
 );
 
-// A site's files, by their path from the site root: on disk for a native site,
-// in Playground for Studio on the web.
-export interface SiteFiles {
-	// Null when the file is missing.
-	read( path: string ): Promise< string | null >;
-	// Creates missing folders.
-	write( path: string, data: string | Uint8Array ): Promise< void >;
-}
-
 interface SiteDesignFiles {
 	designPath: string;
 	themeDir: string;
 	themeJsonPath: string;
 }
 
+async function readOptionalFile( filePath: string ): Promise< string | null > {
+	try {
+		return await readFile( filePath, 'utf8' );
+	} catch {
+		return null;
+	}
+}
+
 // The theme is only resolved (usually a WP-CLI call) once DESIGN.md is known to exist.
 async function locateSiteDesign(
-	site: SiteFiles,
+	sitePath: string,
 	resolveThemeSlug: () => Promise< string | undefined >
 ): Promise< SiteDesignFiles | null > {
-	const designPath = 'DESIGN.md';
-	if ( ( await site.read( designPath ) ) === null ) {
+	const designPath = path.join( sitePath, 'DESIGN.md' );
+	if ( ( await readOptionalFile( designPath ) ) === null ) {
 		return null;
 	}
 	const slug = await resolveThemeSlug();
 	if ( ! slug || ! /^[\w.-]+$/.test( slug ) || slug.startsWith( '.' ) ) {
 		return null;
 	}
-	const themeDir = `wp-content/themes/${ slug }`;
-	return { designPath, themeDir, themeJsonPath: `${ themeDir }/theme.json` };
+	const themeDir = path.join( sitePath, 'wp-content', 'themes', slug );
+	return { designPath, themeDir, themeJsonPath: path.join( themeDir, 'theme.json' ) };
 }
 
-async function readSiteDesignFiles(
-	site: SiteFiles,
-	files: SiteDesignFiles
-): Promise< SiteDesign | null > {
+async function readSiteDesignFiles( files: SiteDesignFiles ): Promise< SiteDesign | null > {
 	const [ design, themeJson ] = await Promise.all( [
-		site.read( files.designPath ),
-		site.read( files.themeJsonPath ),
+		readOptionalFile( files.designPath ),
+		readOptionalFile( files.themeJsonPath ),
 	] );
 	if ( design === null || themeJson === null ) {
 		return null;
@@ -81,12 +79,12 @@ async function readSiteDesignFiles(
  * global styles when the board is unavailable.
  */
 export async function readSiteDesign(
-	site: SiteFiles,
+	sitePath: string,
 	resolveThemeSlug: () => Promise< string | undefined >,
 	resolveGlobalStyles: () => Promise< Record< string, unknown > | null >
 ): Promise< SiteDesign | null > {
-	const files = await locateSiteDesign( site, resolveThemeSlug );
-	const design = files && ( await readSiteDesignFiles( site, files ) );
+	const files = await locateSiteDesign( sitePath, resolveThemeSlug );
+	const design = files && ( await readSiteDesignFiles( files ) );
 	if ( design ) {
 		return design;
 	}
@@ -99,12 +97,12 @@ export async function readSiteDesign(
  * the font files of families written to theme.json. Stale fixes are ignored.
  */
 export async function fixSiteDesign(
-	site: SiteFiles,
+	sitePath: string,
 	resolveThemeSlug: () => Promise< string | undefined >,
 	fixes: DesignFix[]
 ): Promise< SiteDesign | null > {
-	const files = await locateSiteDesign( site, resolveThemeSlug );
-	const current = files && ( await readSiteDesignFiles( site, files ) );
+	const files = await locateSiteDesign( sitePath, resolveThemeSlug );
+	const current = files && ( await readSiteDesignFiles( files ) );
 	if ( ! files || ! current?.design ) {
 		return null;
 	}
@@ -133,19 +131,15 @@ export async function fixSiteDesign(
 				.map( ( [ , style ] ) => style )
 				.filter( ( style ) => families.includes( fontFamilyName( style.fontFamily ) ) )
 		);
-		const fontFaces = fontsUrl
-			? await downloadThemeFonts( fontsUrl, ( themePath, data ) =>
-					site.write( `${ files.themeDir }/${ themePath }`, data )
-			  )
-			: {};
+		const fontFaces = fontsUrl ? await downloadThemeFonts( fontsUrl, files.themeDir ) : {};
 		const themeJson = applyDesignToThemeJson( tokens, current.themeJson, toTheme, fontFaces );
-		await site.write( files.themeJsonPath, JSON.stringify( themeJson, null, '\t' ) + '\n' );
+		await writeFile( files.themeJsonPath, JSON.stringify( themeJson, null, '\t' ) + '\n' );
 	}
 
 	const toDesign = fixed( 'design' );
 	if ( toDesign.length ) {
-		await site.write( files.designPath, applyThemeToDesign( current.design, toDesign ) );
+		await writeFile( files.designPath, applyThemeToDesign( current.design, toDesign ) );
 	}
 
-	return readSiteDesignFiles( site, files );
+	return readSiteDesignFiles( files );
 }

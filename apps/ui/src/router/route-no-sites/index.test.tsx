@@ -5,7 +5,10 @@ import { renderApp } from '@/test/render';
 
 describe( 'the empty workspace', () => {
 	it( 'leaves Add site to the welcome, which opens it itself', async () => {
-		renderApp( { path: '/sites?welcome=true' } );
+		renderApp( {
+			connector: createFakeConnector( { onboardingCompleted: false } ),
+			path: '/sites',
+		} );
 		expect(
 			await screen.findByRole( 'dialog', { name: 'Welcome to WordPress Studio' } )
 		).toBeVisible();

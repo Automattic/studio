@@ -1,4 +1,5 @@
-import { deleteAiSession, listAiSessions } from '@studio/agent/node/sessions/store';
+import { deleteHydratedAiSession } from '@studio/agent/node/sessions/manage';
+import { listAiSessions } from '@studio/agent/node/sessions/store';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';
@@ -31,7 +32,10 @@ export async function runCommand( sessionIdOrPrefix?: string ): Promise< void > 
 		resolvedSessionIdOrPrefix = sessions[ 0 ].id;
 	}
 
-	const deletedSession = await deleteAiSession( getSessionsDirectory(), resolvedSessionIdOrPrefix );
+	const deletedSession = await deleteHydratedAiSession(
+		getSessionsDirectory(),
+		resolvedSessionIdOrPrefix
+	);
 	console.log( `${ __( 'Deleted code session' ) }: ${ deletedSession.id }` );
 }
 

@@ -1,7 +1,6 @@
 /* Compact browser controls with a fluid address field. */
 .header {
 	composes: toolbar from '../responsive-preview/style.module.css';
-	--preview-control-size: 32px;
 	--preview-toolbar-overflow: visible;
 
 	padding-top: var( --band-inset );
@@ -35,12 +34,12 @@
 }
 
 .historyTitle {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --foreground );
 }
 
 .historyPath {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	color: var( --muted-foreground );
 	font-size: var( --text-2xs );
 }

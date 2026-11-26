@@ -1,5 +1,5 @@
 import { disconnectProvider } from '@studio/common/lib/ai-settings';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
 import { vi } from 'vitest';
 import { LoggerError } from 'cli/logger';
 import {
@@ -12,10 +12,7 @@ import {
 } from 'cli/tests/test-utils';
 import { runCommand } from '../logout';
 
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
-	readAuthToken: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/auth-token', () => ( { readAuthToken: vi.fn() } ) );
 vi.mock( '@studio/common/lib/ai-settings', () => ( { disconnectProvider: vi.fn() } ) );
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	emitCliEvent: vi.fn(),

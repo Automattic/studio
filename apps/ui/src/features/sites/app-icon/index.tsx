@@ -27,6 +27,7 @@ import vivaldi from './assets/vivaldi.png';
 import vscode from './assets/vscode.png';
 import warp from './assets/warp.png';
 import wordpressCom from './assets/wordpress-com.png';
+import xai from './assets/xai.svg';
 import zen from './assets/zen.png';
 import styles from './style.module.css';
 
@@ -61,10 +62,11 @@ const icons: Record< string, string > = {
 	vscode,
 	warp,
 	wpcom: wordpressCom,
+	xai,
 	zen,
 };
 
-const tileIcons = new Set( [ gemini, spacefast, wordpressCom ] );
+const tileIcons = new Set( [ gemini, spacefast, wordpressCom, xai ] );
 
 /** An app's bundled logo, or `fallback` when there is none or it fails to load. */
 export function AppIcon( { app, fallback }: { app?: string; fallback: ReactNode } ) {

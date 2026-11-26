@@ -119,6 +119,20 @@ describe( 'createLocalConnector Connect contracts', () => {
 		);
 	} );
 
+	it( 'keeps a remote site id with slashes in one path segment', async () => {
+		fetchMock.mockImplementation( async () => Response.json( null ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		const id = 'deploy@acme.com:/srv/www';
+
+		await connector.getSitePublishStatus( 'site-1', id, 'ssh' );
+		await connector.getSiteVisibility( 'ssh', id );
+
+		expect( fetchMock.mock.calls.map( ( [ url ] ) => String( url ) ) ).toEqual( [
+			'http://localhost:8081/api/sites/site-1/publish-status/deploy%40acme.com%3A%2Fsrv%2Fwww?provider=ssh',
+			'http://localhost:8081/api/remote-sites/ssh/deploy%40acme.com%3A%2Fsrv%2Fwww/visibility',
+		] );
+	} );
+
 	it( 'preserves the dispatched turn ID in the message request', async () => {
 		fetchMock.mockResolvedValue( new Response( JSON.stringify( { runId: 'run-a' } ) ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
@@ -414,4 +428,129 @@ it.each( [
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 	}
+} );
+
+describe( 'createLocalConnector for a remote server', () => {
+	const FIVE_MINUTES = 5 * 60_000;
+	let fetchMock: ReturnType< typeof vi.fn >;
+	let streams: { url: string; closed: boolean }[];
+	let focused: ReturnType< typeof vi.spyOn >;
+	let visibility: ReturnType< typeof vi.spyOn >;
+
+	beforeEach( () => {
+		vi.useFakeTimers( { toFake: [ 'setInterval', 'setTimeout', 'Date' ] } );
+		streams = [];
+		class MockEventSource {
+			static CLOSED = 2;
+			closed = false;
+			get readyState() {
+				return this.closed ? 2 : 1;
+			}
+			constructor( readonly url: string ) {
+				streams.push( this );
+			}
+			close() {
+				this.closed = true;
+			}
+		}
+		vi.stubGlobal( 'EventSource', MockEventSource );
+		fetchMock = vi.fn( async () => Response.json( { version: '9.0.0' } ) );
+		vi.stubGlobal( 'fetch', fetchMock );
+		focused = vi.spyOn( document, 'hasFocus' ).mockReturnValue( true );
+		visibility = vi.spyOn( document, 'visibilityState', 'get' ).mockReturnValue( 'visible' );
+	} );
+
+	afterEach( () => {
+		vi.useRealTimers();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	} );
+
+	// Each test uses its own origin: connectors from earlier tests keep listening to the page.
+	async function start( origin: string ) {
+		const connector = createLocalConnector( {
+			apiBaseUrl: origin,
+			remote: { signIn: vi.fn(), signOut: vi.fn(), getBilling: vi.fn() },
+		} );
+		await connector.init?.();
+		return connector;
+	}
+	const streamsOf = ( origin: string ) =>
+		streams.filter( ( { url } ) => url === `${ origin }/api/events` );
+	const checkIns = ( origin: string ) =>
+		fetchMock.mock.calls.filter( ( [ url ] ) => url === `${ origin }/api/health` ).length;
+
+	it( 'offers the skills for all sites, and to make or change a skill, only on a server that can', async () => {
+		expect( ( await start( 'https://new.cloud.test' ) ).capabilities ).toMatchObject( {
+			globalSkills: true,
+			skillEditing: true,
+		} );
+		fetchMock.mockImplementation( async () => Response.json( { version: '2.4.0' } ) );
+		expect( ( await start( 'https://old.cloud.test' ) ).capabilities ).toMatchObject( {
+			globalSkills: false,
+			skillEditing: false,
+		} );
+	} );
+
+	it( 'keeps the event stream open only while the page has focus', async () => {
+		await start( 'https://m1.cloud.test' );
+		const opened = streamsOf( 'https://m1.cloud.test' );
+		expect( opened ).toHaveLength( 1 );
+
+		focused.mockReturnValue( false );
+		window.dispatchEvent( new Event( 'blur' ) );
+		vi.advanceTimersByTime( 0 );
+		expect( opened[ 0 ].closed ).toBe( true );
+
+		focused.mockReturnValue( true );
+		window.dispatchEvent( new Event( 'focus' ) );
+		expect( streamsOf( 'https://m1.cloud.test' ) ).toHaveLength( 2 );
+		expect( streamsOf( 'https://m1.cloud.test' )[ 1 ].closed ).toBe( false );
+	} );
+
+	it( 'checks in after five minutes without a request while the page has focus, and on focus', async () => {
+		const connector = await start( 'https://m2.cloud.test' );
+		vi.advanceTimersByTime( FIVE_MINUTES - 60_000 );
+		void connector.getSites().catch( () => undefined );
+		vi.advanceTimersByTime( FIVE_MINUTES - 30_000 );
+		expect( checkIns( 'https://m2.cloud.test' ) ).toBe( 0 );
+		vi.advanceTimersByTime( 30_000 );
+		expect( checkIns( 'https://m2.cloud.test' ) ).toBe( 1 );
+
+		focused.mockReturnValue( false );
+		window.dispatchEvent( new Event( 'blur' ) );
+		vi.advanceTimersByTime( FIVE_MINUTES * 2 );
+		expect( checkIns( 'https://m2.cloud.test' ) ).toBe( 1 );
+
+		focused.mockReturnValue( true );
+		window.dispatchEvent( new Event( 'focus' ) );
+		expect( checkIns( 'https://m2.cloud.test' ) ).toBe( 2 );
+	} );
+
+	it( 'closes the event stream and stops checking in while the page is hidden', async () => {
+		await start( 'https://m3.cloud.test' );
+
+		visibility.mockReturnValue( 'hidden' );
+		document.dispatchEvent( new Event( 'visibilitychange' ) );
+		expect( streamsOf( 'https://m3.cloud.test' )[ 0 ].closed ).toBe( true );
+		vi.advanceTimersByTime( FIVE_MINUTES * 2 );
+		expect( checkIns( 'https://m3.cloud.test' ) ).toBe( 0 );
+
+		visibility.mockReturnValue( 'visible' );
+		document.dispatchEvent( new Event( 'visibilitychange' ) );
+		expect( streamsOf( 'https://m3.cloud.test' ) ).toHaveLength( 2 );
+		expect( checkIns( 'https://m3.cloud.test' ) ).toBe( 1 );
+	} );
+
+	it( 'never checks in with a local server', async () => {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await connector.init?.();
+		focused.mockReturnValue( false );
+		window.dispatchEvent( new Event( 'blur' ) );
+		vi.advanceTimersByTime( FIVE_MINUTES * 2 );
+		focused.mockReturnValue( true );
+		window.dispatchEvent( new Event( 'focus' ) );
+
+		expect( checkIns( 'http://localhost:8081' ) ).toBe( 0 );
+	} );
 } );

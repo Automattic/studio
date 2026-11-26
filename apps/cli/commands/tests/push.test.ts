@@ -1,9 +1,9 @@
 import { once } from 'events';
 import fs from 'fs';
-import * as configFile from '@studio/common/lib/cli-config-file';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getRemoteSites, recordRemoteSitePublish } from '@studio/common/lib/remote-sites';
 import { RemoteSiteError, type PushContent, type PushStatus } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,15 +17,25 @@ import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../push';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
-import type { SiteData } from 'cli/lib/cli-config/core';
 import type { Readable } from 'stream';
 
-vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
-	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
+vi.mock( '@studio/common/lib/auth-token', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/auth-token') >() ),
 	readAuthToken: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/config/store', () => {
+	const config = () => ( {
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
+	return {
+		readConfig: vi.fn( async () => config() ),
+		updateConfig: vi.fn( async ( update: ( config: object ) => unknown ) => update( config() ) ),
+	};
+} );
 vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( '@studio/common/lib/provider-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/provider-config') >() ),
@@ -42,6 +52,9 @@ vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
 } ) );
 vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/site-versions', () => ( {
+	getSiteVersion: vi.fn().mockResolvedValue( 'before-upload' ),
+} ) );
 vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
@@ -62,11 +75,12 @@ vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	};
 } );
 vi.mock( 'cli/lib/tracks' );
-vi.mock( 'cli/lib/site-versions' );
-vi.mock( 'cli/lib/snapshots', () => ( { getSnapshotsFromConfig: vi.fn() } ) );
+vi.mock( 'cli/lib/snapshots', () => ( {
+	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
+} ) );
 
 const wpcomSites = getProviderServices( 'wpcom' ).sites!;
-const site = { id: 'site-1', path: '/test/site', phpVersion: '8.3' } as SiteData;
+const site = { id: 'site-1', path: '/test/site', phpVersion: '8.3' } as ConfigSite;
 const remoteSite = { id: 42, name: 'Live', syncSupport: 'syncable' } as SyncSite;
 
 const readArchive = ( content: PushContent ) =>
@@ -94,13 +108,6 @@ function reported() {
 }
 
 const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
-beforeEach( () => {
-	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
-		version: 1,
-		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
-		snapshots: [],
-	} );
-} );
 afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio push', () => {
@@ -154,12 +161,16 @@ describe( 'CLI: studio push', () => {
 			await expect(
 				runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
 			).resolves.toBeDefined();
-			expect( rememberRemoteSite ).toHaveBeenCalledWith(
-				'wpcom',
-				site.id,
-				expect.objectContaining( { launchAfterPush: failed } ),
-				'push'
-			);
+			if ( failed ) {
+				expect( recordRemoteSitePublish ).not.toHaveBeenCalled();
+			} else {
+				expect( recordRemoteSitePublish ).toHaveBeenCalledWith(
+					'wpcom',
+					site.id,
+					expect.objectContaining( { launchAfterPush: false } ),
+					expect.anything()
+				);
+			}
 			expect( reported().at( -1 ) ).toMatchObject( { kind: failed ? 'error' : 'success' } );
 			expect( recordTracksEvent ).toHaveBeenCalledWith(
 				TRACKS_EVENTS.SYNC_PUSH,
@@ -264,10 +275,25 @@ describe( 'CLI: studio push', () => {
 		);
 	} );
 
+	it( 'reports upload progress only when it changes', async () => {
+		pushes( [
+			{ phase: 'uploading', progress: 10 },
+			{ phase: 'uploading', progress: 10.2 },
+			{ phase: 'uploading', progress: 10.4 },
+			{ phase: 'uploading', progress: 50 },
+		] );
+		const progress = vi.spyOn( Logger.prototype, 'reportProgress' );
+
+		await runCommand( site.path, [ 'all' ], String( remoteSite.id ), new Logger() );
+
+		expect( progress.mock.calls.map( ( [ message ] ) => message ) ).toEqual( [
+			expect.stringContaining( '22%' ),
+			expect.stringContaining( '30%' ),
+		] );
+	} );
+
 	it( 'keeps a successful push and its event when the site ID cannot be read', async () => {
-		vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
-			new Error( 'Storage unavailable' )
-		);
+		vi.mocked( readConfig ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
 		await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).resolves.toBe(
 			remoteSite
 		);
@@ -364,10 +390,21 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getSiteVersion ).mockResolvedValue( 'before-upload' );
 		vi.mocked( onCancel ).mockReturnValue( () => true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( { ...site, name: 'My Site' } );
 		vi.mocked( readProviderConfig ).mockResolvedValue( { apiKey: 'sfa_key' } as never );
-		vi.mocked( exportStaticContent ).mockResolvedValue( files );
+		vi.mocked( exportStaticContent ).mockImplementation(
+			async ( _path, _url, _output, beforeExport, onStep ) => {
+				expect( getSiteVersion ).not.toHaveBeenCalled();
+				onStep?.( 'startingSite' );
+				await beforeExport?.();
+				expect( getSiteVersion ).toHaveBeenCalledExactlyOnceWith( site.id, site.path );
+				onStep?.( 'generatingStaticSite' );
+				onStep?.( 'stoppingSite' );
+				return files;
+			}
+		);
 	} );
 
 	it( 'publishes the export to the site last published to, and reports and records it as that provider’s', async () => {
@@ -389,7 +426,9 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 		expect( exportStaticContent ).toHaveBeenCalledWith(
 			site.path,
 			space.url,
-			expect.any( String )
+			expect.any( String ),
+			expect.any( Function ),
+			expect.any( Function )
 		);
 		expect( spacefastSites.push ).toHaveBeenCalledWith(
 			{ apiKey: 'sfa_key' },
@@ -399,12 +438,17 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 			expect.any( Function ),
 			expect.any( AbortSignal )
 		);
-		expect( rememberRemoteSite ).toHaveBeenCalledWith(
+		expect( recordRemoteSitePublish ).toHaveBeenCalledWith(
 			'spacefast',
 			site.id,
 			expect.objectContaining( { id: 'spc_2' } ),
-			'push'
+			'before-upload'
 		);
+		expect(
+			reported().flatMap( ( activity ) =>
+				'phase' in activity && activity.phase ? [ activity.phase ] : []
+			)
+		).toEqual( [ 'startingSite', 'generatingStaticSite', 'stoppingSite' ] );
 		expect( reported().at( -1 ) ).toEqual( {
 			kind: 'success',
 			direction: 'push',

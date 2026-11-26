@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { runWpCliCommand, WpCliResponse } from 'cli/lib/run-wp-cli-command';
 import { writeZip } from 'cli/tests/zip-fixture';
 import { exportStaticSite } from '../static-export';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 const bundle = vi.hoisted( () => ( { dir: '' } ) );
 
@@ -39,7 +39,7 @@ beforeAll( async () => {
 
 afterAll( () => fs.rmSync( bundle.dir, { recursive: true, force: true } ) );
 
-function createSite(): SiteData {
+function createSite(): ConfigSite {
 	const sitePath = tempDir();
 	fs.mkdirSync( path.join( sitePath, 'wp-content', 'database' ), { recursive: true } );
 	const database = new DatabaseSync(
@@ -48,10 +48,10 @@ function createSite(): SiteData {
 	database.exec( 'CREATE TABLE wp_options (option_name TEXT)' );
 	database.close();
 
-	return { id: 'site-id', name: 'Site', path: sitePath, port: 8881 } as SiteData;
+	return { id: 'site-id', name: 'Site', path: sitePath, port: 8881 } as ConfigSite;
 }
 
-const stagingDirs = ( site: SiteData ) =>
+const stagingDirs = ( site: ConfigSite ) =>
 	fs.readdirSync( site.path ).filter( ( name ) => name.startsWith( '.studio-static-export' ) );
 
 // Stands in for the PHP driver: writes the export where Simply Static would.
@@ -101,6 +101,7 @@ describe( 'exportStaticSite', () => {
 		expect( runWpCliCommand ).toHaveBeenCalledWith( site, [
 			'--no-color',
 			expect.stringMatching( /^--require=\.studio-static-export-\w+\/static-export\.php$/ ),
+			'--skip-plugins=simply-static',
 			'studio-static-export',
 		] );
 		expect( fs.readFileSync( path.join( outputDir, 'index.html' ), 'utf8' ) ).toBe(

@@ -5,6 +5,7 @@ import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import {
 	AI_PROVIDER_IDS,
 	getConnectMethod,
+	getProvider,
 	normalizeProviderId,
 	PROVIDER_IDS,
 	type AiProviderId,
@@ -45,6 +46,7 @@ export interface FakeConnectorState {
 	sites: SiteDetails[];
 	sessions: LoadedAiSession[];
 	user: AuthUser | null;
+	onboardingCompleted: boolean;
 	preferences: UserPreferences;
 	// Each site's email, newest first.
 	emails: Record< string, SiteEmail[] >;
@@ -96,6 +98,10 @@ export function aiSettings(
 ): AiSettings {
 	return {
 		provider,
+		imageProviders: AI_PROVIDER_IDS.filter(
+			( id ) => connected.includes( id ) && getProvider( id ).ai?.generatesImages
+		),
+		imageProvider: null,
 		accounts: Object.fromEntries(
 			PROVIDER_IDS.map( ( id ) => [
 				id,
@@ -143,6 +149,7 @@ export function createInMemoryConnector(
 		sites: [],
 		sessions: [],
 		user: TEST_USER,
+		onboardingCompleted: true,
 		emails: {},
 		...initial,
 		preferences: { ...defaultPreferences(), ...initial.preferences },
@@ -194,8 +201,10 @@ export function createInMemoryConnector(
 			state.user = null;
 		},
 		onAuthStateChanged: subscribe( 'onAuthStateChanged' ),
-		getOnboardingCompleted: async () => true,
-		setOnboardingCompleted: async () => {},
+		getOnboardingCompleted: async () => state.onboardingCompleted,
+		setOnboardingCompleted: async ( completed ) => {
+			state.onboardingCompleted = completed;
+		},
 		getSites: async () => state.sites,
 		createSite: async ( params ) => {
 			const site = makeSite( {
@@ -214,6 +223,7 @@ export function createInMemoryConnector(
 			if ( site ) {
 				emitSiteEvent( SITE_EVENTS.DELETED, { ...site, running: false } );
 			}
+			return { warnings: [] };
 		},
 		copySite: async ( id ) => {
 			const source = state.sites.find( ( site ) => site.id === id )!;
@@ -271,15 +281,29 @@ export function createInMemoryConnector(
 		publishPreviewSite: async () => ( { url: 'preview.example.com' } ),
 		deleteSnapshot: async () => {},
 		renameSnapshot: async () => {},
+		getSitePublishStatus: async () => ( { localChanged: null } ),
 		getPreviewStatus: async () => ( {
 			localSiteId: null,
 			localChanged: null,
 			previewChanged: null,
 		} ),
+		getSiteVisibility: async () => {
+			throw new Error( 'Visibility unavailable' );
+		},
+		setSiteVisibility: async () => {
+			throw new Error( 'Visibility unavailable' );
+		},
 		getRemoteSites: async () => [],
 		listAccountSites: async () => [],
 		connectRemoteSite: async () => {},
+		runSitesAction: async ( _provider, action ) => {
+			throw new Error( `The ${ action } action is not faked` );
+		},
+		resolveRemoteSite: async () => {
+			throw new Error( 'resolveRemoteSite is not faked' );
+		},
 		disconnectRemoteSite: async () => {},
+		getSiteCreationVisibility: async () => 'public',
 		createRemoteSite: async () => {
 			throw new Error( 'createRemoteSite is not faked' );
 		},
@@ -296,7 +320,6 @@ export function createInMemoryConnector(
 		getPublishCheckoutUrl: () => undefined,
 		onSyncConnectSite: subscribe( 'onSyncConnectSite' ),
 		watchForPublishedSite: async () => {},
-		connectPreviewFrame: () => ( { run: () => {}, dispose: () => {} } ),
 		getSessions: async () => state.sessions.map( ( session ) => session.summary ),
 		getSession: async ( id ) => findSession( id ),
 		updateSessionMetadata: async ( id, patch ) => {
@@ -319,6 +342,7 @@ export function createInMemoryConnector(
 		getActiveAgentRuns: async () => [],
 		setSessionModel: async () => {},
 		setSessionProvider: async () => {},
+		setSessionThinking: async () => {},
 		setSessionEnvironment: async ( id, environment ) => {
 			const session = findSession( id );
 			session.summary = { ...session.summary, activeEnvironment: environment };
@@ -351,12 +375,18 @@ export function createInMemoryConnector(
 				? aiSettings( 'wpcom', [ 'wpcom', provider ] )
 				: aiSettings( normalizeProviderId( provider, AI_PROVIDER_IDS ) ?? 'wpcom', [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		listProviderModels: async () => [],
+		selectProviderModels: async ( provider ) => aiSettings( 'wpcom', [ 'wpcom', provider ] ),
 		startProviderConnect: async () => ( {
 			url: 'https://auth.example.test/sign-in',
 			handoff: { state: 'state-1' },
 		} ),
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
+		setImageProvider: async ( imageProvider ) => ( {
+			...aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+			imageProvider,
+		} ),
 		getInstalledApps: async () => installedApps(),
 		getAgentApps: async () =>
 			AGENT_APP_IDS.map( ( id ) => ( {
@@ -388,12 +418,24 @@ export function createInMemoryConnector(
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
 		sendFeedback: async () => ( { feedbackId: 1 } ),
+		getSiteLimits: async () => null,
+		getBilling: async () => ( { plan: null, receipts: [] } ),
 		getWapuuScore: async () => undefined,
 		saveWapuuScore: async () => {},
 		popupAppMenu: async () => {},
-		getWordPressSkillsStatusAllSites: async () => [],
-		installWordPressSkillToAllSites: async () => {},
-		removeWordPressSkillFromAllSites: async () => {},
+		getGlobalSkills: async () => [],
+		setGlobalSkillEnabled: async () => {},
+		removeGlobalSkill: async () => {},
+		openGlobalSkill: async () => {},
+		createSkill: async ( _siteId, draft ) => draft.name,
+		getSkill: async ( _siteId, id ) => ( {
+			id,
+			displayName: id,
+			description: '',
+			instructions: '',
+			files: [ 'SKILL.md' ],
+		} ),
+		updateSkill: async ( _siteId, id ) => id,
 		getSiteAgentFiles: async () => [],
 		setSiteAgentFileEnabled: async () => {},
 		removeSiteAgentFile: async () => {},
@@ -442,8 +484,10 @@ export function createInMemoryConnector(
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
-			nativeSites: true,
 			loopbackSignIn: true,
+			localMachine: true,
+			globalSkills: true,
+			skillEditing: true,
 			...overrides.capabilities,
 		},
 		state,

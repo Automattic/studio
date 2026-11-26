@@ -1,3 +1,4 @@
+import { updateConfig } from '@studio/common/lib/config/store';
 import {
 	getSiteFileAccess,
 	SITE_FILE_ACCESS_ALL_FILES,
@@ -5,14 +6,8 @@ import {
 } from '@studio/common/lib/site-file-access';
 import { isSameDay } from 'date-fns/isSameDay';
 import { bumpStat } from 'cli/lib/bump-stat';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	SiteData,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 // File-access metric for the daily active-sites stat.
 export function getSiteRuntimeStat( site: { fileAccess?: SiteFileAccess } ): StatsMetric {
@@ -32,7 +27,7 @@ export function getSiteRuntimeStat( site: { fileAccess?: SiteFileAccess } ): Sta
  * `--avoid-telemetry`): that flag only distinguishes app-backed runs from direct
  * terminal use, not a user telemetry opt-out. `bumpStat` still no-ops in dev/E2E.
  */
-export async function recordSiteRuntimeUsage( site: SiteData ): Promise< void > {
+export async function recordSiteRuntimeUsage( site: ConfigSite ): Promise< void > {
 	if ( ! __ENABLE_CLI_TELEMETRY__ ) {
 		return;
 	}
@@ -42,23 +37,16 @@ export async function recordSiteRuntimeUsage( site: SiteData ): Promise< void > 
 
 	try {
 		let shouldBump = false;
-		try {
-			await lockCliConfig();
-			const config = await readCliConfig();
-			const marker = config.siteRuntimeStats?.[ site.id ];
+		await updateConfig( ( { sites } ) => {
+			const stored = sites.find( ( candidate ) => candidate.id === site.id );
+			const marker = stored?.runtimeStat;
 			const countedTodayForSameRuntime =
 				marker !== undefined && isSameDay( marker.bumpedAt, now ) && marker.stat === stat;
-			if ( ! countedTodayForSameRuntime ) {
-				config.siteRuntimeStats = {
-					...config.siteRuntimeStats,
-					[ site.id ]: { bumpedAt: now, stat },
-				};
-				await saveCliConfig( config );
+			if ( stored && ! countedTodayForSameRuntime ) {
+				stored.runtimeStat = { bumpedAt: now, stat };
 				shouldBump = true;
 			}
-		} finally {
-			await unlockCliConfig();
-		}
+		} );
 
 		if ( shouldBump ) {
 			bumpStat( StatsGroup.STUDIO_CLI_RUNTIME_DAILY, stat );

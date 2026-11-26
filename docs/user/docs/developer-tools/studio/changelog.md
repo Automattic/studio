@@ -1,6 +1,92 @@
 # WordPress Studio Changelog
 
-WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release. While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
+WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release.
+
+While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
+
+## [2.4.0](#0-2-4-0)
+
+-   AI providers
+    -   Chat with a SuperGrok or X Premium plan or an xAI API key, with OpenRouter through a sign-in or an API key, or with the models of a local server such as Ollama or LM Studio
+    -   Pick which OpenRouter or local models the model menu offers, in Settings → Providers
+    -   Generate site images with xAI, and choose which provider makes images with Default image provider
+    -   Turn a chat’s thinking down or off with Thinking in the model menu, or `/thinking` in the terminal
+-   Publishing and previews
+    -   One Publish button for previews and hosted sites: choose a Destination and Who can view, and find every website and preview of a site in one place
+    -   Choose what to publish from a checklist of Database, Plugins, Themes and Uploads, or pick specific files
+    -   Change who can view a connected WordPress.com site from the Publish panel
+    -   Update a preview, with a warning before replacing changes made on it, or pull those changes into your local site
+    -   Make a preview your live site with Launch on WordPress.com, or with `studio preview launch` in the CLI
+    -   A failed publish shows the live site’s own reason
+    -   Publishing to a Jetpack site restores the content on the first try
+    -   Publishing no longer leaves out plugin folders named Database, or plugin and theme files named db.php
+-   Workspace
+    -   Show chat in the site menu brings the chat back when the preview is expanded
+    -   Drag the sidebar, chat or panel past its edge to close it, and it reopens at the width it had
+    -   Smoother motion when the layout changes
+-   Sites
+    -   WordPress Studio tells you when a deleted site’s files couldn’t be moved to the Trash, and which folders to delete
+    -   An imported site is kept when its server fails to start, and sites start as soon as PHP is ready
+    -   `studio create --no-start` installs WordPress, so the site is ready to start later
+-   Settings
+    -   Your sites and settings are saved in one file, `~/.studio/config.json`, which earlier versions of WordPress Studio can’t read
+-   Other Fixes
+    -   WordPress Studio tells you when antivirus software removed one of its files, with a link to reinstall
+    -   A message that fails to send keeps your draft and attachments
+    -   Large chats no longer run WordPress Studio out of memory when it lists them
+    -   Exported databases load into MySQL
+-   Updated multiple dependencies
+-   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.4.0)
+
+*November 25, 2026*
+
+## [2.3.0](#0-2-3-0)
+
+-   AI providers
+    -   Chat in WordPress Studio Code with your ChatGPT plan, a Claude subscription or GitHub Copilot, or with your own OpenAI, Google Gemini or Meta API key
+    -   Choose the provider new chats use with Default AI provider, and pick any connected provider’s model from the model menu
+    -   Connect a provider from the terminal with `/connect`
+    -   Generate site images with OpenAI, Google Gemini or Meta, as well as WordPress.com
+-   Settings
+    -   Settings has separate Providers and Agents pages: AI and hosting providers on one, the WordPress Studio plugin for Claude Code, Codex, Cursor and Grok Build on the other
+-   Publishing
+    -   Publish a static copy of a site to Spacefast from the Publish panel or with `studio push --remote-site spacefast`, after connecting Spacefast in Settings → Providers
+    -   Publish opens your default hosting provider directly, with Choose another host to switch
+    -   WordPress Studio Code can publish to any connected site, after confirming which one
+    -   Publishing to a new WordPress.com site launches it, so it isn’t left in Coming Soon
+-   Preview sites
+    -   Previews show which live site they preview changes to, with a Live site picker, and Publish warns when you’re about to send changes the preview didn’t show
+    -   Open a preview as visitors see it, or sign in to it with the new WordPress admin action, and get a warning when edits to a default theme’s files won’t show
+-   Pulling
+    -   Sites without a backup can pull files only or content only, and pulls can be cancelled from their progress notification
+-   Annotations and chat
+    -   Draw on the preview to sketch what you mean, and selected areas and drawings come with a screenshot
+    -   Attach a screenshot of the preview to your chat from Browser options
+-   Adding sites and navigation
+    -   Create a site straight from a Blueprint’s details with Add site
+    -   Connecting a site shows its screenshot on the setup screen
+    -   Go back and forward between the sites and chats you’ve visited, from the top of the sidebar
+    -   A simpler, grouped site menu, with WordPress admin back in Open in
+-   Sites and PHP
+    -   New sites default to All files access, and sites start faster and reuse the editor’s scripts and styles between page loads
+    -   PHP accepts up to 10,000 input variables, so large menus and option forms save completely
+    -   The Imagick extension ships with WordPress Studio’s PHP, and `studio config set --php-workers` sets how many requests a site serves at once
+    -   phpMyAdmin’s SQLite-only tools are turned off for sites that use an external MySQL server
+-   CLI
+    -   `studio create --blueprint` accepts Blueprint Library slugs, and `studio export-static` exports a site as static HTML
+-   Other Fixes
+    -   Sending feedback while logged out offers Continue with WordPress.com and keeps the form open
+    -   LibreWolf joins the Open in browsers
+    -   The app no longer runs out of memory and shows a white screen while WordPress Studio Code publishes a site
+    -   App updates on macOS and Windows recover from network errors instead of reporting them, and the macOS updater no longer breaks its own install
+-   Updated multiple dependencies
+-   Misc and maintenance improvements
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.3.0)
+
+*November 18, 2026*
 
 ## [2.2.0](#0-2-2-0)
 
@@ -54,6 +140,15 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 *November 11, 2026*
 
+## [2.1.1](#0-2-1-1)
+
+-   Fixed a crash when starting a site from the CLI.
+-   WordPress Studio keeps its SQLite database at the expected path when a site contains a custom `db-path.php` file, so imports and exports use the correct database.
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.1.1)
+
+*November 2, 2026*
+
 ## [2.1.0](#0-2-1-0)
 
 -   A redesigned WordPress Studio
@@ -64,7 +159,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
     -   A welcome dialog for new users, and a What’s New dialog introducing the redesign
 -   Sidebar
     -   Pin sites and chats, and add a site straight into Pinned
-    -   A Needs input group brings chats waiting on your answer to the top
+    -   A badge marks chats waiting for your answer without moving them in the sidebar
     -   Rename chats, mark them read or unread, and archive them with undo
     -   Select several sites and chats to act on them at once, and leave some sites out of a bulk removal
     -   Drag sites to reorder them, and sort groups from their menus
@@ -131,6 +226,14 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 [View release notes](https://github.com/Automattic/studio/releases/tag/v2.1.0)
 
 *October 29, 2026*
+
+## [2.0.4](#0-2-0-4)
+
+-   Updated the bundled PHP runtimes to 8.2.35, 8.3.36, 8.4.27, and 8.5.12 for local sites.
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.0.4)
+
+*October 21, 2026*
 
 ## [2.0.0](#0-2-0-0)
 

@@ -1,8 +1,8 @@
+import { useWindowControlsOverlay } from '@studio/ds/hooks';
 import { isRTL } from '@wordpress/i18n';
 import { createContext, useContext } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsSurface } from '@/data/host/use-window-controls-surface';
-import { useWindowControlsOverlay } from '@/lib/hooks';
 
 /**
  * Whether the surrounding panel reaches the window's physical top-right corner,

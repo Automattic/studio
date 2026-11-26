@@ -1,0 +1,143 @@
+@layer ui {
+	/* A sheet grows with its commands, up to the room above its anchor. */
+	.sheet .list {
+		max-height: calc( var( --available-height ) - 2 * var( --command-inset ) );
+	}
+
+	.list {
+		--radius-command-row: var( --radius-command-inset, var( --radius-control ) );
+
+		max-height: 288px;
+		overflow-x: hidden;
+		overflow-y: auto;
+		scroll-padding-block: var( --space-1 );
+		outline: none;
+	}
+
+	.list[data-radius='control'] {
+		--radius-command-row: var( --radius-control );
+	}
+
+	.list[data-radius='menu'] {
+		--radius-command-row: var( --radius-menu-row );
+	}
+
+	.empty {
+		padding: var( --space-6 ) 0;
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		text-align: center;
+	}
+
+	.heading {
+		padding: var( --space-3 ) var( --space-2 ) var( --space-1 );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-medium );
+	}
+
+	.item {
+		display: flex;
+		gap: var( --space-1_5 );
+		align-items: center;
+		height: 32px;
+		padding: var( --space-1_5 ) var( --space-2 );
+		border-radius: var( --radius-command-row );
+		font-size: var( --text-xs );
+		font-weight: var( --font-weight-medium );
+		cursor: default;
+		user-select: none;
+	}
+
+	.item[data-highlighted],
+	.menuItem[data-highlighted] {
+		--hover: inherit;
+		--surface: var( --hover );
+		background-color: var( --hover );
+		color: var( --foreground );
+	}
+
+	.item[data-disabled] {
+		opacity: 0.5;
+		pointer-events: none;
+	}
+
+	.menuItem {
+		composes: item from '../surface/style.module.css';
+		min-height: var( --control-size );
+		padding-inline: var( --space-2_5 );
+	}
+
+	.list .menuItem {
+		height: var( --control-size );
+		border-radius: var( --radius-command-row );
+	}
+
+	.icon {
+		flex: none;
+		width: 14px;
+		height: 14px;
+		color: inherit;
+		pointer-events: none;
+	}
+
+	.text {
+		display: flex;
+		flex: 1;
+		gap: var( --space-1_5 );
+		align-items: baseline;
+		min-width: 0;
+	}
+
+	.label {
+		flex-shrink: 0;
+	}
+
+	/* A label on its own, like an address, truncates instead. */
+	:is( .item, .menuItem ) > .label {
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.description {
+		composes: truncate from '../../theme/recipes.module.css';
+		color: var( --muted-foreground );
+		font-size: var( --text-xxs );
+	}
+
+	/* The palette's long list scrolls without a bar. */
+	.list[data-size='default'] {
+		scrollbar-width: none;
+	}
+
+	.list[data-size='default'] .menuItem {
+		padding-inline-end: var( --space-4 );
+	}
+
+	.list[data-size='default'] .icon {
+		width: 16px;
+		height: 16px;
+	}
+
+	.list[data-size='default'] .text {
+		gap: var( --space-3 );
+	}
+
+	.list[data-size='default'] .label {
+		flex: 1;
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.list[data-size='default'] .description {
+		max-width: 45%;
+		margin-inline-start: auto;
+		font-size: var( --text-xs );
+		text-align: end;
+	}
+}

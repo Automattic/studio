@@ -16,8 +16,7 @@
  * forwarded too, so the host can handle them.
  */
 
-import { PLUS_ICON } from '@studio/common/lib/plus-icon';
-import { RENAME_ICON } from '@studio/common/lib/rename-icon';
+import { PLUS_ICON, RENAME_ICON } from '@studio/ds/icons/paths';
 import { createDrawingGeometry } from './drawing';
 import {
 	ANNOTATION_PEN_WIDTH,

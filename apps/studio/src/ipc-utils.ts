@@ -4,7 +4,7 @@ import { getExistingMainWindow } from 'src/main-window';
 import type { AiSessionPlacementUpdatedEvent } from '@studio/agent/node/sessions/placement';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { Blueprint } from '@studio/blueprints';
-import type { StoredAuthToken } from '@studio/common/lib/shared-config';
+import type { StoredAuthToken } from '@studio/common/lib/auth-token';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 

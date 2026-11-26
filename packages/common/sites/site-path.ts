@@ -1,22 +1,11 @@
-import { z } from 'zod';
-import { readCliConfigFileRaw } from '../lib/cli-config-file';
+import { readConfig } from '../lib/config/store';
 
-// Resolves sites straight from `cli.json` — use instead of `listSites` when a
+// Resolves sites straight from the config file: use instead of `listSites` when a
 // caller only needs a site's id, name or path, to avoid a CLI fork.
-
-const sitePathsSchema = z.object( {
-	sites: z
-		.array(
-			z.object( { id: z.string(), name: z.string().catch( '' ), path: z.string() } ).passthrough()
-		)
-		.optional()
-		.default( [] ),
-} );
 
 export async function readSites(): Promise< Array< { id: string; name: string; path: string } > > {
 	try {
-		const config = sitePathsSchema.safeParse( await readCliConfigFileRaw() );
-		return config.success ? config.data.sites : [];
+		return ( await readConfig() ).sites.map( ( { id, name, path } ) => ( { id, name, path } ) );
 	} catch {
 		return [];
 	}

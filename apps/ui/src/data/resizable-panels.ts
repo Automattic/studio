@@ -24,6 +24,7 @@ export function getDefaultPanelLayout( running = true ): PanelLayout {
 
 export const PANEL_CONTENT_DEFAULT_WIDTH = 360;
 export const PANEL_MIN_WIDTH = 360;
+export const PANEL_COLLAPSE_OVERSHOOT = 64;
 const PANEL_MIN_CONTENT_WIDTH = 360;
 export const PANEL_SPLIT_MIN_WIDTH = PANEL_MIN_WIDTH + PANEL_MIN_CONTENT_WIDTH;
 

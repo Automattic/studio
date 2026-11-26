@@ -2,8 +2,8 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { bindTool, createResultNotes } from '@studio/agent/node';
-import { getSharedConfigPath } from '@studio/common/lib/well-known-paths';
+import { bindTool, type AnyStudioAgentTool } from '@studio/agent/node';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
 import { createLibraryTools } from 'cli/ai/runtimes/mcp/library';
@@ -27,6 +27,8 @@ beforeEach( async () => {
 	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
 	vi.stubEnv( 'NODE_ENV', 'production' );
 	vi.stubEnv( 'E2E', '' );
+	vi.stubEnv( 'VITEST', '' );
+	vi.stubEnv( 'CI', '' );
 	vi.stubEnv( 'STUDIO_FORCE_CLI_TELEMETRY', '' );
 	vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', 'studio-mcp' );
 	vi.stubEnv( 'STUDIO_MCP_CLIENT', 'audit-client' );
@@ -52,12 +54,7 @@ afterEach( async () => {
 
 async function call( name: string, args: Record< string, unknown > = {}, served = tools ) {
 	const definition = served.find( ( entry ) => entry.tool.name === name )!;
-	return runServedTool(
-		cliAgentHost,
-		bindTool( definition.tool, cliAgentHost ),
-		args,
-		createResultNotes( cliAgentHost )
-	);
+	return runServedTool( bindTool( definition.tool, cliAgentHost ) as AnyStudioAgentTool, args );
 }
 
 function events() {
@@ -79,12 +76,12 @@ it( 'joins visible prompt, explicit login and token outcome with existing anonym
 		'studio_wpcom_auth_started',
 		'studio_wpcom_auth',
 	] );
-	const shared = JSON.parse( await fs.readFile( getSharedConfigPath(), 'utf8' ) );
-	expect( shared.authToken.accessToken ).toBe( 'private-token' );
+	const config = await readConfig();
+	expect( config.providers.configs.wpcom ).toMatchObject( { token: 'private-token' } );
 	for ( const event of events() ) {
 		expect( event ).toMatchObject( {
 			_ut: 'anon',
-			_ui: shared.analyticsInstallId,
+			_ui: config.install.analyticsId,
 			channel: 'studio-mcp',
 			source: 'mcp',
 			placement: 'mcp_library',
@@ -218,10 +215,9 @@ it.each( [ 'opt-out', 'build-disabled' ] )(
 	'honors %s for prompt, starts, outcomes and handoff failures',
 	async ( gate ) => {
 		if ( gate === 'opt-out' )
-			await fs.writeFile(
-				getSharedConfigPath(),
-				JSON.stringify( { version: 1, analyticsOptOut: true } )
-			);
+			await updateConfig( ( { preferences } ) => {
+				preferences.analyticsOptOut = true;
+			} );
 		if ( gate === 'build-disabled' ) vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
 		await call( 'wpcom_login_event', { event: 'prompt_viewed', journeyId: crypto.randomUUID() } );
 		const first = await call( 'wpcom_login' );

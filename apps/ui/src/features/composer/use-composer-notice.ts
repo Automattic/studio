@@ -5,6 +5,8 @@ import {
 	STUDIO_ASSISTANT_QUOTA_OFFLINE,
 	STUDIO_CODE_DOCS_URL,
 } from '@studio/common/lib/studio-assistant-quota';
+import { useOffline } from '@studio/ds/hooks';
+import { getProvider, type ProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -12,15 +14,13 @@ import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOpenSettings } from '@/data/use-open-settings';
-import { useOffline } from '@/lib/hooks';
 import type { ComposerNotice } from './notice-tab';
-import type { ProviderId } from '@studio/providers';
 
 /**
  * Why this chat can't send right now, shown above the composer while the
  * transcript stays readable. WordPress.com requirements only apply to chats
  * on WordPress.com; the proxy stays the enforcement point, so an unknown
- * quota fails open.
+ * quota fails open. A chat on a local model sends offline.
  */
 export function useComposerNotice(
 	provider: ProviderId,
@@ -59,10 +59,11 @@ export function useComposerNotice(
 			void quota.refetch();
 		},
 	};
-	if ( isOffline ) {
+	const needsInternet = ! getProvider( provider ).ai?.local;
+	if ( isOffline && needsInternet ) {
 		return { message: __( 'You are offline. Reconnect to send a message.' ) };
 	}
-	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE ) {
+	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE && needsInternet ) {
 		return { message: __( 'You are offline. Reconnect to send a message.' ), action: refresh };
 	}
 	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {

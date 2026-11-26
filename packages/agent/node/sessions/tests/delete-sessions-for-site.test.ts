@@ -1,18 +1,15 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import * as sharedConfig from '@studio/common/lib/shared-config';
-import { readSharedSessions, updateSharedSession } from '@studio/common/lib/shared-config';
+import * as sessionMetadata from '@studio/common/lib/session-metadata';
+import { readSessionsMetadata, updateSessionMetadata } from '@studio/common/lib/session-metadata';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
-import {
-	readAiSessionPlacements,
-	setAiSessionSitePlacement,
-} from '@studio/agent/node/sessions/placement';
+import { setAiSessionSitePlacement } from '@studio/agent/node/sessions/placement';
 import { createAiSession, listAiSessions } from '@studio/agent/node/sessions/store';
 
-// Runs against a real temp directory: DEV_CONFIG_DIR points app.json,
-// shared.json and their lockfiles at it, and session JSONLs live next to them.
+// Runs against a real temp directory: DEV_CONFIG_DIR points config.json and its lockfile at
+// it, and session JSONLs live next to them.
 describe( 'deleteAiSessionsForSite', () => {
 	let tempDirectory: string;
 	let sessionsRoot: string;
@@ -36,13 +33,13 @@ describe( 'deleteAiSessionsForSite', () => {
 		return summary;
 	};
 
-	it( 'deletes matching sessions with their placements and shared flags', async () => {
+	it( 'deletes matching sessions with their metadata', async () => {
 		const byBoth = await createPlacedSession( 'site-1', '/sites/one' );
 		const byPath = await createPlacedSession( 'other-id', '/sites/one' );
 		const byId = await createPlacedSession( 'site-1', '/sites/moved' );
 		const unrelated = await createPlacedSession( 'other-id', '/sites/other' );
-		await updateSharedSession( byBoth.id, { starred: true } );
-		await updateSharedSession( unrelated.id, { starred: true } );
+		await updateSessionMetadata( byBoth.id, { archived: true } );
+		await updateSessionMetadata( unrelated.id, { archived: true } );
 
 		const deleted = await deleteAiSessionsForSite( sessionsRoot, {
 			id: 'site-1',
@@ -52,21 +49,21 @@ describe( 'deleteAiSessionsForSite', () => {
 		expect( deleted.sort() ).toEqual( [ byBoth.id, byPath.id, byId.id ].sort() );
 		const remaining = await listAiSessions( sessionsRoot );
 		expect( remaining.map( ( session ) => session.id ) ).toEqual( [ unrelated.id ] );
-		await expect( readAiSessionPlacements() ).resolves.toEqual( {
-			[ unrelated.id ]: expect.objectContaining( { siteId: 'other-id' } ),
-		} );
-		await expect( readSharedSessions() ).resolves.toEqual( {
-			[ unrelated.id ]: { starred: true },
+		await expect( readSessionsMetadata() ).resolves.toEqual( {
+			[ unrelated.id ]: {
+				archived: true,
+				placement: expect.objectContaining( { siteId: 'other-id' } ),
+			},
 		} );
 	} );
 
-	it( 'drops placement and shared flags even when the session file is already gone', async () => {
+	it( 'drops the metadata even when the session file is already gone', async () => {
 		await setAiSessionSitePlacement( 'ghost-session', {
 			siteId: 'site-1',
 			sitePath: '/sites/one',
 			siteName: 'Site',
 		} );
-		await updateSharedSession( 'ghost-session', { archived: true } );
+		await updateSessionMetadata( 'ghost-session', { archived: true } );
 
 		const deleted = await deleteAiSessionsForSite( sessionsRoot, {
 			id: 'site-1',
@@ -74,35 +71,23 @@ describe( 'deleteAiSessionsForSite', () => {
 		} );
 
 		expect( deleted ).toEqual( [ 'ghost-session' ] );
-		await expect( readAiSessionPlacements() ).resolves.toEqual( {} );
-		await expect( readSharedSessions() ).resolves.toEqual( {} );
+		await expect( readSessionsMetadata() ).resolves.toEqual( {} );
 	} );
 
-	it( 'continues cleaning sessions when one shared config update fails', async () => {
-		const first = await createPlacedSession( 'site-1', '/sites/one' );
-		const second = await createPlacedSession( 'site-1', '/sites/one' );
-		await updateSharedSession( first.id, { archived: true } );
-		await updateSharedSession( second.id, { archived: true } );
-
-		const deleteSharedSession = vi
-			.spyOn( sharedConfig, 'deleteSharedSession' )
-			.mockRejectedValueOnce( new Error( 'Failed to write shared config.' ) );
+	it( 'deletes the transcripts and reports a failed config update', async () => {
+		await createPlacedSession( 'site-1', '/sites/one' );
+		const deleteSessionMetadata = vi
+			.spyOn( sessionMetadata, 'deleteSessionMetadata' )
+			.mockRejectedValueOnce( new Error( 'Failed to write the config.' ) );
 
 		try {
-			await deleteAiSessionsForSite( sessionsRoot, {
-				id: 'site-1',
-				path: '/sites/one',
-			} );
+			await expect(
+				deleteAiSessionsForSite( sessionsRoot, { id: 'site-1', path: '/sites/one' } )
+			).rejects.toThrow( 'Failed to write the config.' );
 		} finally {
-			deleteSharedSession.mockRestore();
+			deleteSessionMetadata.mockRestore();
 		}
 
 		await expect( listAiSessions( sessionsRoot ) ).resolves.toEqual( [] );
-		await expect( readAiSessionPlacements() ).resolves.toEqual( {
-			[ first.id ]: expect.objectContaining( { siteId: 'site-1' } ),
-		} );
-		await expect( readSharedSessions() ).resolves.toEqual( {
-			[ first.id ]: { archived: true },
-		} );
 	} );
 } );

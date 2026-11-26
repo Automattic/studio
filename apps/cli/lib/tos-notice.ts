@@ -1,9 +1,7 @@
-import fs from 'fs';
 import chalk from '@studio/common/lib/chalk';
-import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
+import { readConfigSync, updateConfig } from '@studio/common/lib/config/store';
 import { __, sprintf } from '@wordpress/i18n';
 import { renderBannerBox } from 'cli/lib/banner-box';
-import { updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 
 export const TOS_URL = 'https://automattic.com/tos/';
 export const PRIVACY_POLICY_URL = 'https://automattic.com/privacy/';
@@ -11,25 +9,16 @@ export const PRIVACY_POLICY_URL = 'https://automattic.com/privacy/';
 // Commands whose UI renders the notice natively (Studio Code TUI / JSON adapter).
 const TUI_COMMANDS = new Set( [ 'code', 'ai' ] );
 
-/**
- * Reads tosNoticeShownAt from cli.json synchronously (same pattern as
- * update-notifier's readUpdateCheck) so the banner can print before any
- * command output.
- */
+// Read synchronously so the banner can print before any command output.
 function readTosNoticeShownAt(): number | null {
-	try {
-		const content = fs.readFileSync( getCliConfigPath(), 'utf8' );
-		const data = JSON.parse( content );
-		return typeof data?.tosNoticeShownAt === 'number' ? data.tosNoticeShownAt : null;
-	} catch {
-		// File doesn't exist or is invalid — treat as never shown
-	}
-	return null;
+	return readConfigSync().cli.tosNoticeShownAt ?? null;
 }
 
 async function markTosNoticeShown(): Promise< void > {
 	try {
-		await updateCliConfigWithPartial( { tosNoticeShownAt: Date.now() } );
+		await updateConfig( ( { cli } ) => {
+			cli.tosNoticeShownAt = Date.now();
+		} );
 	} catch {
 		// Non-critical; the notice will simply show again next run
 	}
@@ -83,7 +72,7 @@ export async function maybeShowTosNotice( render: () => void ): Promise< void > 
  * - running the `code`/`ai` commands — the Studio Code UI renders it natively
  * - stderr is not a TTY (headless spawn, log redirect) — nobody would see the
  *   notice, so it defers to the next visible run
- * - the notice was already shown (tosNoticeShownAt set in cli.json)
+ * - the notice was already shown (`tosNoticeShownAt` set in the config file)
  *
  * Unlike the update banner, this is NOT suppressed for --json: it writes to
  * stderr, which never corrupts machine-readable stdout.

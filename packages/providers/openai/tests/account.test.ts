@@ -117,7 +117,7 @@ describe( 'openai account', () => {
 	it( 'still loads a ChatGPT sign-in saved before API keys', () => {
 		const saved = config( 0 );
 		expect( openaiConfigSchema.parse( saved ) ).toEqual( saved );
-		expect( openaiProvider.account.describe( saved ) ).toMatchObject( {
+		expect( openaiProvider.account!.describe( saved ) ).toMatchObject( {
 			method: 'chatgpt',
 			note: 'Using ChatGPT plan',
 		} );
@@ -158,11 +158,11 @@ describe( 'openai account', () => {
 		it( 'never renews, and shows the key’s ends without a plan', async () => {
 			await expect( openaiAccount.refresh!( apiKey ) ).resolves.toBeUndefined();
 			expect( fetchMock ).not.toHaveBeenCalled();
-			expect( openaiProvider.account.describe( apiKey ) ).toEqual( {
+			expect( openaiProvider.account!.describe( apiKey ) ).toEqual( {
 				method: 'api-key',
 				summary: 'sk-proj-abcdefgh...1234',
 			} );
-			expect( openaiProvider.account.remember!( apiKey ) ).toBeUndefined();
+			expect( openaiProvider.account!.remember!( apiKey ) ).toBeUndefined();
 		} );
 
 		it( 'connects models with the key', async () => {
@@ -174,8 +174,8 @@ describe( 'openai account', () => {
 		} );
 
 		it( 'generates images with the key, and not with a ChatGPT plan', async () => {
-			const png = btoa( String.fromCharCode( 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ) );
-			fetchMock.mockResolvedValueOnce( json( 200, { data: [ { b64_json: png } ] } ) );
+			const webp = btoa( 'RIFF\0\0\0\0WEBP' );
+			fetchMock.mockResolvedValueOnce( json( 200, { data: [ { b64_json: webp } ] } ) );
 
 			const [ result ] = await openaiAi.generateImages!( apiKey, [
 				{ prompt: 'A lake', aspectRatio: 'portrait' },
@@ -188,9 +188,10 @@ describe( 'openai account', () => {
 			expect( JSON.parse( init.body ) ).toMatchObject( {
 				model: 'gpt-image-2',
 				size: '1024x1536',
+				output_format: 'webp',
 			} );
-			expect( openaiAi.canGenerateImages!( apiKey ) ).toBe( true );
-			expect( openaiAi.canGenerateImages!( config( 0 ) ) ).toBe( false );
+			expect( openaiProvider.ai!.generatesImages!( apiKey ) ).toBe( true );
+			expect( openaiProvider.ai!.generatesImages!( config( 0 ) ) ).toBe( false );
 		} );
 	} );
 } );

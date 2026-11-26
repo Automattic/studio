@@ -1,4 +1,5 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/auth-token';
+import { readConfig } from '@studio/common/lib/config/store';
 import { vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -8,17 +9,14 @@ import {
 } from 'cli/commands/preview/delete';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { Logger } from 'cli/logger';
 
-vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
-	readAuthToken: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/auth-token', () => ( { readAuthToken: vi.fn() } ) );
+vi.mock( '@studio/common/lib/config/store', () => ( { readConfig: vi.fn() } ) );
 vi.mock( 'cli/lib/snapshots', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/snapshots') >() ),
 	getSnapshotsFromConfig: vi.fn(),
@@ -30,10 +28,6 @@ vi.mock( import( 'cli/commands/preview/delete' ), async ( importActual ) => ( {
 } ) );
 vi.mock( 'cli/commands/preview/update', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/site/create', () => ( { runCommand: vi.fn() } ) );
-vi.mock( 'cli/lib/cli-config/core', async () => ( {
-	...( await vi.importActual( 'cli/lib/cli-config/core' ) ),
-	readCliConfig: vi.fn(),
-} ) );
 vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
 	getSiteByFolder: vi.fn(),
@@ -72,9 +66,7 @@ const preview = {
 
 beforeEach( () => {
 	vi.resetAllMocks();
-	vi.mocked( readCliConfig ).mockResolvedValue( {
-		sites: [ site ],
-	} as Awaited< ReturnType< typeof readCliConfig > > );
+	vi.mocked( readConfig ).mockResolvedValue( { sites: [ site ] } as never );
 	vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 } );
 
@@ -84,9 +76,9 @@ describe( 'cliAgentHost', () => {
 	} );
 
 	it( 'refuses to guess between sites that share a name', async () => {
-		vi.mocked( readCliConfig ).mockResolvedValue( {
+		vi.mocked( readConfig ).mockResolvedValue( {
 			sites: [ site, { ...site, id: 'site-456', path: '/other/my-site' } ],
-		} as Awaited< ReturnType< typeof readCliConfig > > );
+		} as never );
 
 		await expect( cliAgentHost.sites.resolve( 'My Site' ) ).rejects.toThrow(
 			'/sites/my-site, /other/my-site'

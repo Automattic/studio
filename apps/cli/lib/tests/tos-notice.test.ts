@@ -1,7 +1,8 @@
 import fs from 'fs';
-import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
+import os from 'os';
+import path from 'path';
+import { getConfigPath, readConfigSync, updateConfig } from '@studio/common/lib/config/store';
 import { type MockInstance, vi } from 'vitest';
-import { updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 import {
 	formatTosNoticeLines,
 	maybeShowTosNotice,
@@ -10,10 +11,29 @@ import {
 	TOS_URL,
 } from 'cli/lib/tos-notice';
 
-vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
-	...( await importOriginal< object >() ),
-	updateCliConfigWithPartial: vi.fn().mockResolvedValue( undefined ),
-} ) );
+vi.mock( '@studio/common/lib/config/store', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/config/store') >();
+	return { ...actual, updateConfig: vi.fn( actual.updateConfig ) };
+} );
+
+const shownAt = () => readConfigSync().cli.tosNoticeShownAt;
+
+function markShown() {
+	fs.writeFileSync(
+		getConfigPath(),
+		JSON.stringify( { version: 1, cli: { tosNoticeShownAt: 123 } } )
+	);
+}
+
+beforeEach( () => {
+	process.env.DEV_CONFIG_DIR = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-tos-' ) );
+	vi.mocked( updateConfig ).mockClear();
+} );
+
+afterEach( () => {
+	fs.rmSync( process.env.DEV_CONFIG_DIR!, { recursive: true, force: true } );
+	delete process.env.DEV_CONFIG_DIR;
+} );
 
 // eslint-disable-next-line no-control-regex
 const strip = ( s: string ) => s.replace( /\u001B\[[0-9;]*m/g, '' );
@@ -46,17 +66,9 @@ describe( 'setupTosNotice', () => {
 	const originalSend = process.send;
 	const originalArgv = process.argv;
 	let stderrWriteSpy: MockInstance;
-	let readFileSyncSpy: MockInstance;
 
 	beforeEach( () => {
 		stderrWriteSpy = vi.spyOn( process.stderr, 'write' ).mockImplementation( () => true );
-		// Simulate "flag not set" without touching the real ~/.studio/cli.json
-		readFileSyncSpy = vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( file ) => {
-			if ( file === getCliConfigPath() ) {
-				return JSON.stringify( { version: 1, sites: [], snapshots: [] } );
-			}
-			throw new Error( `Unexpected readFileSync: ${ String( file ) }` );
-		} );
 		process.argv = [ 'node', 'studio', 'auth', 'status' ];
 		// In vitest fork pool, process.send is defined (IPC with the runner).
 		// Clear it so the IPC-mode guard doesn't suppress the banner in non-IPC tests.
@@ -64,7 +76,6 @@ describe( 'setupTosNotice', () => {
 		// stderr is piped in the test runner, so isTTY is falsy; the banner only
 		// renders on a visible terminal.
 		setStderrIsTTY( true );
-		vi.mocked( updateCliConfigWithPartial ).mockClear();
 	} );
 
 	afterEach( () => {
@@ -72,53 +83,37 @@ describe( 'setupTosNotice', () => {
 		process.argv = originalArgv;
 		restoreStderrIsTTY();
 		stderrWriteSpy.mockRestore();
-		readFileSyncSpy.mockRestore();
 	} );
 
 	it( 'shows the banner and persists the flag on first run', async () => {
 		await setupTosNotice();
 		expect( stderrWriteSpy ).toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith(
-			expect.objectContaining( { tosNoticeShownAt: expect.any( Number ) } )
-		);
-	} );
-
-	it( 'shows the banner and persists the flag when the config file does not exist', async () => {
-		readFileSyncSpy.mockImplementation( () => {
-			throw Object.assign( new Error( 'ENOENT' ), { code: 'ENOENT' } );
-		} );
-		await setupTosNotice();
-		expect( stderrWriteSpy ).toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith(
-			expect.objectContaining( { tosNoticeShownAt: expect.any( Number ) } )
-		);
+		expect( shownAt() ).toEqual( expect.any( Number ) );
 	} );
 
 	it( 'does nothing when the notice was already shown', async () => {
-		readFileSyncSpy.mockReturnValue(
-			JSON.stringify( { version: 1, sites: [], snapshots: [], tosNoticeShownAt: 123 } )
-		);
+		markShown();
 		await setupTosNotice();
 		expect( stderrWriteSpy ).not.toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does nothing in IPC mode', async () => {
 		process.send = vi.fn();
 		await setupTosNotice();
 		expect( stderrWriteSpy ).not.toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'skips the stderr banner for the code/ai commands (TUI renders it)', async () => {
 		process.argv = [ 'node', 'studio', 'code' ];
 		await setupTosNotice();
 		expect( stderrWriteSpy ).not.toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not throw when persisting the flag fails', async () => {
-		vi.mocked( updateCliConfigWithPartial ).mockRejectedValueOnce( new Error( 'locked' ) );
+		vi.mocked( updateConfig ).mockRejectedValueOnce( new Error( 'locked' ) );
 		await expect( setupTosNotice() ).resolves.toBeUndefined();
 		expect( stderrWriteSpy ).toHaveBeenCalled();
 	} );
@@ -127,7 +122,7 @@ describe( 'setupTosNotice', () => {
 		setStderrIsTTY( undefined );
 		await setupTosNotice();
 		expect( stderrWriteSpy ).not.toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not persist the flag when writing the banner throws (e.g. EPIPE)', async () => {
@@ -135,54 +130,40 @@ describe( 'setupTosNotice', () => {
 			throw Object.assign( new Error( 'broken pipe' ), { code: 'EPIPE' } );
 		} );
 		await expect( setupTosNotice() ).resolves.toBeUndefined();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 } );
 
 describe( 'maybeShowTosNotice', () => {
 	const originalSend = process.send;
-	let readFileSyncSpy: MockInstance;
 
 	beforeEach( () => {
-		// Simulate "flag not set" without touching the real ~/.studio/cli.json
-		readFileSyncSpy = vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( file ) => {
-			if ( file === getCliConfigPath() ) {
-				return JSON.stringify( { version: 1, sites: [], snapshots: [] } );
-			}
-			throw new Error( `Unexpected readFileSync: ${ String( file ) }` );
-		} );
 		// In vitest fork pool, process.send is defined (IPC with the runner).
 		// Clear it so the IPC-mode guard doesn't suppress the notice in non-IPC tests.
 		process.send = undefined;
 		// stderr is piped in the test runner, so isTTY is falsy; the notice only
 		// renders on a visible terminal.
 		setStderrIsTTY( true );
-		vi.mocked( updateCliConfigWithPartial ).mockClear();
 	} );
 
 	afterEach( () => {
 		process.send = originalSend;
 		restoreStderrIsTTY();
-		readFileSyncSpy.mockRestore();
 	} );
 
 	it( 'renders the notice and persists the flag on first run', async () => {
 		const render = vi.fn();
 		await maybeShowTosNotice( render );
 		expect( render ).toHaveBeenCalledTimes( 1 );
-		expect( updateCliConfigWithPartial ).toHaveBeenCalledWith(
-			expect.objectContaining( { tosNoticeShownAt: expect.any( Number ) } )
-		);
+		expect( shownAt() ).toEqual( expect.any( Number ) );
 	} );
 
 	it( 'does nothing when the notice was already shown', async () => {
-		readFileSyncSpy.mockReturnValue(
-			JSON.stringify( { version: 1, sites: [], snapshots: [], tosNoticeShownAt: 123 } )
-		);
+		markShown();
 		const render = vi.fn();
 		await maybeShowTosNotice( render );
 		expect( render ).not.toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does nothing in IPC mode (spawned by the desktop app)', async () => {
@@ -190,7 +171,7 @@ describe( 'maybeShowTosNotice', () => {
 		const render = vi.fn();
 		await maybeShowTosNotice( render );
 		expect( render ).not.toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does nothing when stderr is not a TTY', async () => {
@@ -198,6 +179,6 @@ describe( 'maybeShowTosNotice', () => {
 		const render = vi.fn();
 		await maybeShowTosNotice( render );
 		expect( render ).not.toHaveBeenCalled();
-		expect( updateCliConfigWithPartial ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 	} );
 } );

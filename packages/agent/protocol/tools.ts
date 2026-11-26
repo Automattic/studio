@@ -47,18 +47,43 @@ function getWpCliOptionValue( args: string[], option: string ): string | undefin
 	return undefined;
 }
 
-function getPostTypeName( postType: string | undefined, plural: boolean ): string {
+function getPostTypeName( postType: string | undefined ): string {
 	switch ( postType ) {
 		case 'page':
-			return plural ? __( 'pages' ) : __( 'page' );
+			/* translators: Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s". */
+			return __( 'page' );
 		case 'attachment':
-			return plural ? __( 'media items' ) : __( 'media item' );
+			/* translators: Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s". */
+			return __( 'media item' );
 		case 'product':
-			return plural ? __( 'products' ) : __( 'product' );
+			/* translators: Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s". */
+			return __( 'product' );
 		case 'post':
 		case undefined:
 		case '':
-			return plural ? __( 'posts' ) : __( 'post' );
+			/* translators: Fills the %s of "Read %s", "Create %s", "Update %s" and "Delete %s". */
+			return __( 'post' );
+		default:
+			return postType.replace( /[-_]+/g, ' ' );
+	}
+}
+
+function getPluralPostTypeName( postType: string | undefined ): string {
+	switch ( postType ) {
+		case 'page':
+			/* translators: Fills the %s of "List %s" and "List published %s". */
+			return __( 'pages' );
+		case 'attachment':
+			/* translators: Fills the %s of "List %s" and "List published %s". */
+			return __( 'media items' );
+		case 'product':
+			/* translators: Fills the %s of "List %s" and "List published %s". */
+			return __( 'products' );
+		case 'post':
+		case undefined:
+		case '':
+			/* translators: Fills the %s of "List %s" and "List published %s". */
+			return __( 'posts' );
 		default:
 			return postType.replace( /[-_]+/g, ' ' );
 	}
@@ -150,8 +175,8 @@ function getWpCliPostLabel( args: string[] ): string {
 	const action = args[ 1 ];
 	const postType = getWpCliOptionValue( args, '--post_type' );
 	const postStatus = getWpCliOptionValue( args, '--post_status' );
-	const singularPostType = getPostTypeName( postType, false );
-	const pluralPostType = getPostTypeName( postType, true );
+	const singularPostType = getPostTypeName( postType );
+	const pluralPostType = getPluralPostTypeName( postType );
 
 	switch ( action ) {
 		case 'list':
@@ -439,7 +464,18 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 				return input.filePath.split( '/' ).slice( -2 ).join( '/' );
 			}
 			return __( 'inline content' );
-		case 'take_screenshot':
+		case 'take_screenshot': {
+			const url = getInputString( input, 'url' );
+			if ( url ) {
+				return url;
+			}
+			const nameOrPath = getInputString( input, 'nameOrPath' );
+			if ( ! nameOrPath ) {
+				return '';
+			}
+			const sitePath = getInputString( input, 'path' );
+			return sitePath && sitePath !== '/' ? `${ nameOrPath } ${ sitePath }` : nameOrPath;
+		}
 		case 'open_annotation_browser':
 			return typeof input.url === 'string' ? input.url : '';
 		case 'generate_images': {
@@ -477,10 +513,27 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 	}
 }
 
+// The skill a `Skill` call loaded. The chat shows it in place of the skill's instructions.
+export interface ToolResultSkill {
+	name: string;
+	description: string;
+}
+
 export interface NormalizedToolResult {
 	text: string;
 	isError: boolean;
 	diff?: string;
+	skill?: ToolResultSkill;
+}
+
+export function getToolResultSkill( details: unknown ): ToolResultSkill | undefined {
+	if ( ! details || typeof details !== 'object' ) {
+		return undefined;
+	}
+	const skill = ( details as { skill?: Partial< ToolResultSkill > } ).skill;
+	return typeof skill?.name === 'string' && typeof skill.description === 'string'
+		? { name: skill.name, description: skill.description }
+		: undefined;
 }
 
 export function getToolResultDiff( details: unknown ): string | undefined {

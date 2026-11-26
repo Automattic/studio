@@ -1,8 +1,9 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
+import { getProvider, type ProviderSites, type SitesProviderId } from '@studio/providers';
 import { useNavigate } from '@tanstack/react-router';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { getAccountJourney, scopeAccountJourney } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -10,7 +11,7 @@ import { useCreateSite, useDeleteSite, useStartSite } from '@/data/queries/use-s
 import { usePullSite } from '@/data/queries/use-sync-site';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useAddSite } from './context';
-import type { CreateSiteParams, SiteDetails, SyncSite } from '@/data/core';
+import type { CreateSiteParams, SiteDetails } from '@/data/core';
 
 type ConnectSiteStage = 'create' | 'connect' | 'pull' | 'open';
 
@@ -90,7 +91,12 @@ export function useConnectSite() {
 	const startSite = useStartSite();
 	const { setProgress, pinNewSite } = useAddSite();
 
-	return async ( remote: SyncSite, params: CreateSiteParams ) => {
+	return async (
+		provider: SitesProviderId,
+		remote: ProviderSites[ SitesProviderId ],
+		params: CreateSiteParams
+	) => {
+		const { label } = getProvider( provider );
 		const journey = getAccountJourney( connector, 'connect_site' );
 		try {
 			await runConnectSiteLifecycle( {
@@ -105,11 +111,7 @@ export function useConnectSite() {
 				},
 				persistConnection: async ( localSiteId ) => {
 					try {
-						await connector.connectRemoteSite( 'wpcom', localSiteId, {
-							...remote,
-							localSiteId,
-							syncSupport: 'already-connected',
-						} );
+						await connector.connectRemoteSite( provider, localSiteId, remote );
 					} catch ( error ) {
 						await connector
 							.trackEvent(
@@ -132,14 +134,14 @@ export function useConnectSite() {
 						{
 							success: true,
 							num_of_sites: 1,
-							sync_type: getSyncType( remote ),
+							sync_type: getSyncType( remote, provider ),
 						},
 						localSiteId
 					);
 				},
 				pullRemoteSite: async ( localSiteId ) => {
 					await pullSite.mutateAsync( {
-						provider: 'wpcom',
+						provider,
 						siteId: localSiteId,
 						remoteSiteId: remote.id,
 					} );
@@ -151,17 +153,23 @@ export function useConnectSite() {
 					requestHeaderPanel( {
 						panel: 'publish',
 						siteId: localSiteId,
-						view: 'pull',
-						provider: 'wpcom',
+						view: 'publish',
+						provider,
+						remoteSiteId: remote.id,
 					} );
 					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
 				},
-				deleteLocalSite: ( localSiteId ) =>
-					deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } ),
+				deleteLocalSite: async ( localSiteId ) => {
+					await deleteSite.mutateAsync( { id: localSiteId, deleteFiles: true } );
+				},
 				onStage: ( stage ) => {
 					const messages = {
 						create: __( 'Creating the local site…' ),
-						connect: __( 'Saving the WordPress.com connection…' ),
+						connect: sprintf(
+							/* translators: %s: hosting provider name. */
+							__( 'Saving the %s connection…' ),
+							label
+						),
 						pull: __( 'Pulling the live site into WordPress Studio…' ),
 						open: __( 'Opening the local site…' ),
 					};
@@ -173,7 +181,11 @@ export function useConnectSite() {
 				throw error;
 			}
 			toast.error(
-				__( 'Setup did not finish. The local site and WordPress.com connection were kept' )
+				sprintf(
+					/* translators: %s: hosting provider name. */
+					__( 'Setup did not finish. The local site and %s connection were kept' ),
+					label
+				)
 			);
 			if ( error.localSiteId ) {
 				await navigate( { to: '/sites/$siteId', params: { siteId: error.localSiteId } } );

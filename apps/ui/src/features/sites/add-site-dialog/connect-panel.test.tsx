@@ -20,10 +20,17 @@ function site( id: number, overrides: Partial< SyncSite > = {} ): SyncSite {
 	};
 }
 
-function setup( remoteSites: SyncSite[] = [], { signedIn = true } = {} ) {
+function setup( remoteSites: SyncSite[] = [], { signedIn = true, localMachine = true } = {} ) {
 	const onConnect = vi.fn();
 	const connector = createFakeConnector( signedIn ? {} : { user: null }, {
 		listAccountSites: async () => remoteSites,
+		capabilities: {
+			nativeFolderPicker: true,
+			annotatePreview: true,
+			studioLogs: true,
+			loopbackSignIn: true,
+			localMachine,
+		},
 	} );
 	const view = renderWithProviders( <ConnectPanel onConnect={ onConnect } />, { connector } );
 	return { ...view, onConnect };
@@ -69,7 +76,7 @@ describe( 'ConnectPanel', () => {
 			site( 3, { name: 'Free site', syncSupport: 'needs-upgrade', planName: 'Free' } ),
 		] );
 		fireEvent.click( await screen.findByText( 'Pressable store' ) );
-		expect( onConnect ).toHaveBeenCalledWith( pressable );
+		expect( onConnect ).toHaveBeenCalledWith( 'wpcom', pressable );
 		expect( screen.getByText( 'Pressable' ) ).toBeVisible();
 		expect( screen.getByText( 'Staging' ) ).toBeVisible();
 		expect( screen.queryByText( 'Already local' ) ).not.toBeInTheDocument();
@@ -88,6 +95,48 @@ describe( 'ConnectPanel', () => {
 		} );
 		expect( screen.getByText( 'Pressable store' ) ).toBeVisible();
 		expect( screen.queryByText( 'Free site' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'offers the providers that pull, leaving out SSH off the local machine', async () => {
+		setup( [ site( 1 ) ] );
+		expect( await screen.findByRole( 'tab', { name: 'WordPress.com' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		expect( screen.queryByRole( 'tab', { name: 'Spacefast' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'SSH' } ) );
+		expect( await screen.findByRole( 'combobox', { name: 'Host' } ) ).toBeVisible();
+	} );
+
+	it( 'adds an SSH host from the host menu and picks it', async () => {
+		const { connector } = setup();
+		connector.runSitesAction.mockImplementation( async ( _provider, action ) =>
+			action === 'hosts' ? [] : { name: 'acme' }
+		);
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'SSH' } ) );
+		fireEvent.click( screen.getByRole( 'combobox', { name: 'Host' } ) );
+		const add = await screen.findByRole( 'option', { name: 'Add SSH host…' } );
+		fireEvent.pointerDown( add, { pointerType: 'mouse' } );
+		fireEvent.click( add );
+		const form = await screen.findByRole( 'form', { name: 'Add SSH host' } );
+		fireEvent.change( within( form ).getByRole( 'textbox', { name: 'Name' } ), {
+			target: { value: 'acme' },
+		} );
+		fireEvent.change( within( form ).getByRole( 'textbox', { name: 'Server' } ), {
+			target: { value: 'deploy@acme.com' },
+		} );
+		fireEvent.click( within( form ).getByRole( 'button', { name: 'Add SSH host' } ) );
+		expect( await screen.findByRole( 'combobox', { name: 'Host' } ) ).toHaveTextContent( 'acme' );
+		expect( connector.runSitesAction ).toHaveBeenCalledWith( 'ssh', 'addHost', {
+			name: 'acme',
+			server: 'deploy@acme.com',
+		} );
+	} );
+
+	it( 'shows only WordPress.com sites off the local machine', async () => {
+		setup( [ site( 1 ) ], { localMachine: false } );
+		expect( await screen.findByText( 'Site 1' ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows an offline state instead of fetching remote sites', async () => {
@@ -110,7 +159,7 @@ describe( 'ConnectPanel', () => {
 		const only = site( 1, { name: 'Only site' } );
 		const { container, onConnect } = setup( [ only ] );
 		fireEvent.click( await screen.findByText( 'Only site' ) );
-		expect( onConnect ).toHaveBeenCalledWith( only );
+		expect( onConnect ).toHaveBeenCalledWith( 'wpcom', only );
 		expect( screen.queryByRole( 'searchbox' ) ).not.toBeInTheDocument();
 		fireEvent.error( container.querySelector( 'img' )! );
 		expect( container.querySelector( 'img' ) ).not.toBeInTheDocument();

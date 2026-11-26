@@ -1,7 +1,13 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import {
+	getThinkingOptions,
+	THINKING_SETTINGS,
+	type ThinkingSetting,
+} from '@studio/agent/protocol/thinking';
+import { changeAiSettings } from '@studio/common/lib/ai-provider-tracks';
 import { describeAccount, disconnectProvider } from '@studio/common/lib/ai-settings';
+import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/auth-token';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,
 	fetchStudioAssistantQuota,
@@ -24,6 +30,7 @@ import {
 	type AiModelId,
 	type AiProviderId,
 	type ProviderId,
+	type ThinkingLevel,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
@@ -37,6 +44,7 @@ import { getAppLocale } from 'cli/lib/i18n';
 import { isProviderConnected } from 'cli/lib/providers';
 import { getSnapshotLink, getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
+import { recordTracksEvent } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
 import type { AiChatUI } from 'cli/ai/ui';
 
@@ -50,6 +58,9 @@ export interface SlashCommandContext {
 	connect( provider: ProviderId, options?: { force?: boolean } ): Promise< void >;
 	maybeAutoSwitchProvider(): Promise< void >;
 	persistSessionContext(): Promise< void >;
+	// The thinking level this chat picked for the current model; undefined for the default.
+	readThinking(): Promise< ThinkingLevel | undefined >;
+	persistThinking( thinking: ThinkingSetting ): Promise< void >;
 	clearSession(): Promise< void >;
 }
 
@@ -265,7 +276,12 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		argument: '[provider]',
 		description: __( 'Connect a provider' ),
 		handler: async ( prompt, ctx ) => {
-			const provider = await pickProvider( ctx, prompt, PROVIDER_IDS, __( 'Connect a provider' ) );
+			const provider = await pickProvider(
+				ctx,
+				prompt,
+				PROVIDER_IDS.filter( ( id ) => getProvider( id ).account ),
+				__( 'Connect a provider' )
+			);
 			if ( ! provider ) {
 				return 'continue';
 			}
@@ -321,12 +337,16 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				return 'continue';
 			}
 			// Disconnecting WordPress.com is signing out of Studio.
-			if ( getProvider( provider ).account.methods[ 0 ].kind === 'redirect' ) {
+			if ( getProvider( provider ).account?.methods[ 0 ].kind === 'redirect' ) {
 				ctx.ui.stop();
 				await runLogoutCommand();
 				ctx.ui.start();
 			} else {
-				await disconnectProvider( getProviderServices( provider ) );
+				await changeAiSettings(
+					{ action: 'disconnect', provider, surface: 'terminal' },
+					() => disconnectProvider( getProviderServices( provider ) ),
+					recordTracksEvent
+				);
 			}
 			ctx.ui.showInfo(
 				sprintf(
@@ -455,6 +475,78 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					)
 				);
 				await ctx.persistSessionContext();
+			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'thinking',
+		description: __( 'Set how much the model thinks in this chat' ),
+		argument: '[level]',
+		handler: async ( prompt, ctx ) => {
+			const account = describeAccount(
+				ctx.currentProvider,
+				await readProviderConfig( ctx.currentProvider )
+			);
+			const model = getAiModels(
+				ctx.currentProvider,
+				account.connected ? account : undefined
+			).find( ( { id } ) => id === ctx.currentModel );
+			if ( model?.thinking === false ) {
+				ctx.ui.showInfo(
+					sprintf(
+						/* translators: %s: model name */
+						__( 'Studio Code sets how much %s thinks.' ),
+						getModelLabel( ctx.currentModel )
+					)
+				);
+				return 'continue';
+			}
+			const options = getThinkingOptions( getProvider( ctx.currentProvider ).ai?.local );
+			const current = ( await ctx.readThinking() ) ?? 'default';
+			const named = prompt.trim().split( /\s+/ )[ 1 ]?.toLowerCase();
+			let level = named ? THINKING_SETTINGS.find( ( id ) => id === named ) : undefined;
+			if ( named && ! level ) {
+				ctx.ui.showError(
+					sprintf(
+						/* translators: 1: what the user typed, 2: a list of thinking levels */
+						__( 'Unknown level %1$s. Choose one of: %2$s.' ),
+						named,
+						THINKING_SETTINGS.join( ', ' )
+					)
+				);
+				return 'continue';
+			}
+			if ( ! level ) {
+				const labelToLevel = new Map< string, ThinkingSetting >();
+				const answer = await ctx.ui.askUser( [
+					{
+						question: __( 'How much should the model think?' ),
+						options: THINKING_SETTINGS.map( ( id ) => {
+							const label =
+								id === current
+									? sprintf(
+											/* translators: %s: a thinking level, such as Medium */
+											__( '%s (current)' ),
+											options[ id ].label
+									  )
+									: options[ id ].label;
+							labelToLevel.set( label, id );
+							return { label, description: options[ id ].description };
+						} ),
+					},
+				] );
+				level = labelToLevel.get( Object.values( answer )[ 0 ] as string );
+			}
+			if ( level && level !== current ) {
+				await ctx.persistThinking( level );
+				ctx.ui.showInfo(
+					sprintf(
+						/* translators: %s: a thinking level, such as Medium */
+						__( 'Thinking: %s' ),
+						options[ level ].label
+					)
+				);
 			}
 			return 'continue';
 		},

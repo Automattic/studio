@@ -1,14 +1,8 @@
 import { buildSettingsLink } from '@studio/common/lib/settings-link';
-import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { CheckIcon } from 'lucide-react';
-import { createContext, useContext, useId } from 'react';
-import { useCopyText } from '@/data/host/use-copy-text';
-import { findSettingId } from '@/data/settings-sections';
-import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
-import { ChevronRightIcon, LinkIcon } from '@/lib/icons';
-import { Badge, Button, type ButtonProps } from '@/lib/ui';
 import {
+	Badge,
+	Button,
+	type ButtonProps,
 	Field,
 	FieldContent,
 	FieldDescription,
@@ -23,7 +17,15 @@ import {
 	SelectValue,
 	Switch,
 	VisuallyHidden,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { ChevronRightIcon, LinkIcon } from '@studio/ds/icons';
+import { __, sprintf } from '@wordpress/i18n';
+import { clsx } from 'clsx';
+import { CheckIcon } from 'lucide-react';
+import { createContext, useContext, useId } from 'react';
+import { useCopyText } from '@/data/host/use-copy-text';
+import { findSettingId } from '@/data/settings-sections';
+import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
 
@@ -78,6 +80,7 @@ export function SettingsRow( {
 	settingId,
 	icon,
 	badge,
+	wrapBadge = false,
 	description,
 	additionalContent,
 	error,
@@ -90,6 +93,9 @@ export function SettingsRow( {
 	icon?: ReactNode;
 	// Shown next to the title, like a "Connected" status.
 	badge?: ReactNode;
+	// Lets the badge drop to its own line when it does not fit beside the title, so a long
+	// title keeps the full width.
+	wrapBadge?: boolean;
 	description?: ReactNode;
 	// Shown under the description, like a link to a related section.
 	additionalContent?: ReactNode;
@@ -115,7 +121,7 @@ export function SettingsRow( {
 	const fieldContent = (
 		<FieldContent>
 			{ linkId || badge ? (
-				<div className={ styles.rowTitle }>
+				<div className={ styles.rowTitle } data-wrap={ wrapBadge || undefined }>
 					{ fieldTitle }
 					{ badge }
 					{ linkId ? <SettingLinkButton id={ linkId } title={ title } /> : null }

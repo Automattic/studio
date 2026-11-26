@@ -4,6 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { useEffect, useRef, useState, type FocusEvent } from 'react';
 import {
 	dismissToast,
+	finishToastExit,
 	getVisibleToasts,
 	notifyRendererMounted,
 	notifyRendererUnmounted,
@@ -25,6 +26,7 @@ function ToastDeck() {
 	return (
 		<Toast.Viewport
 			className={ styles.viewport }
+			data-slot="toast-viewport"
 			data-overflow={ overflow || undefined }
 			aria-label={ __( 'Notifications' ) }
 			onMouseEnter={ pauseAll }
@@ -100,6 +102,24 @@ export function AppToasts() {
 	}, [] );
 
 	useEffect( () => {
+		const addToast = ( item: ToastMessage ) => {
+			manager.add( {
+				id: item.id,
+				data: item,
+				timeout: 0,
+				onClose: () => dismissToast( item.id ),
+				onRemove: () => {
+					finishToastExit( item.id );
+					// Base UI removes the old entry after this callback returns.
+					queueMicrotask( () => {
+						const replacement = getVisibleToasts().find(
+							( candidate ) => candidate.id === item.id && ! candidate.leaving
+						);
+						if ( replacement ) addToast( replacement );
+					} );
+				},
+			} );
+		};
 		for ( const item of toasts ) {
 			if ( synced.current.includes( item ) ) {
 				continue;
@@ -107,12 +127,7 @@ export function AppToasts() {
 			if ( item.leaving ) {
 				manager.close( item.id );
 			} else {
-				manager.add( {
-					id: item.id,
-					data: item,
-					timeout: 0,
-					onClose: () => dismissToast( item.id ),
-				} );
+				addToast( item );
 			}
 		}
 		synced.current = toasts;

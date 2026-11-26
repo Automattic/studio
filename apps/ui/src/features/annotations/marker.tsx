@@ -1,6 +1,6 @@
+import { useReducedMotion } from '@studio/ds/hooks';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
-import { useReducedMotion } from '@/lib/hooks';
 import styles from './style.module.css';
 import { useAnnotationFeedback } from './use-annotation-feedback';
 import type { CSSProperties } from 'react';

@@ -150,6 +150,14 @@ if ( is_dir( $file ) && is_file( rtrim( $file, '/' ) . '/index.php' ) ) {
 	return true;
 }
 
+// A missing image size, such as one in content from WordPress.com, which makes sizes on request.
+if ( str_starts_with( $path, '/wp-content/uploads/' ) ) {
+	require_once __DIR__ . '/missing-image-size.php';
+	if ( studio_serve_missing_image_size( $root, $path ) ) {
+		return true;
+	}
+}
+
 // Fall through to WordPress's front controller.
 $_SERVER['SCRIPT_NAME']     = '/index.php';
 $_SERVER['PHP_SELF']        = '/index.php';

@@ -3,6 +3,7 @@
 // and sender: it does NOT read config or opt-out state. Callers must go through the per-app wrappers
 // (`apps/studio/src/lib/tracks.ts`, `apps/cli/lib/tracks.ts`), which enforce the opt-out.
 
+import { isAutomatedRun } from './analytics-environment';
 import type { SitesProviderId } from '@studio/providers';
 
 const TRACKS_PIXEL_URL = 'https://pixel.wp.com/t.gif';
@@ -90,10 +91,17 @@ export interface TracksIdentity {
 
 export type TracksProps = Record< string, string | number | boolean | undefined >;
 
-// Which application an event came from: the Electron app, the browser UI served by `studio ui`, a
-// bare terminal invocation, or an agent app running `studio mcp`. Orthogonal to `ui_version`, which
+// Which application an event came from: the Electron app, the browser UI served by `studio ui` on
+// the user's own computer, the UI served by `studio serve` on a Studio Cloud machine, a bare
+// terminal invocation, or an agent app running `studio mcp`. Orthogonal to `ui_version`, which
 // is the renderer chrome. See `docs/design-docs/analytics-tracks.md`.
-export const TRACKS_CHANNELS = [ 'studio-ui', 'studio-cli', 'studio-web', 'studio-mcp' ] as const;
+export const TRACKS_CHANNELS = [
+	'studio-ui',
+	'studio-cli',
+	'studio-browser',
+	'studio-cloud',
+	'studio-mcp',
+] as const;
 export type TracksChannel = ( typeof TRACKS_CHANNELS )[ number ];
 export type TracksUiVersion = 'v1' | 'v2';
 
@@ -282,10 +290,9 @@ function omitUndefined( props: TracksProps ): TracksProps {
 	);
 }
 
-// Returns true if we attempted to record the event. Fire-and-forget, no-ops in E2E/dev like
-// `__bumpStat`, and in tests, whose mocked boots would otherwise count as real launches. The timeout
-// prevents an unreachable endpoint from keeping short-lived CLI processes alive after their command
-// has completed.
+// Returns true if we attempted to record the event. Fire-and-forget, no-ops in dev and in test, CI
+// and E2E runs (`isAutomatedRun`), like `__bumpStat`. The timeout prevents an unreachable endpoint
+// from keeping short-lived CLI processes alive after their command has completed.
 export function __recordTracksEvent(
 	eventName: TracksEventName,
 	identity: TracksIdentity,
@@ -297,11 +304,7 @@ export function __recordTracksEvent(
 		console.info( `Tracks event URL: ${ url }` );
 	}
 
-	if (
-		process.env.E2E ||
-		process.env.NODE_ENV === 'development' ||
-		process.env.NODE_ENV === 'test'
-	) {
+	if ( isAutomatedRun() || process.env.NODE_ENV === 'development' ) {
 		// Log what would actually be sent: the builder drops `undefined` props, so printing the raw
 		// object would show optional props as `undefined` and imply they were part of the request.
 		console.info( `Would have recorded Tracks event: ${ eventName }`, omitUndefined( props ) );

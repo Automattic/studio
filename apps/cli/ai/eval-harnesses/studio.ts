@@ -14,7 +14,7 @@ import {
 	DEFAULT_PROVIDER_ID,
 	findAiModel,
 	getDefaultAiModel,
-	getProvider,
+	servesAiModel,
 	type AiModelId,
 	type AiProviderId,
 } from '@studio/providers';
@@ -155,7 +155,7 @@ export async function runStudioConversation(
 	phaseStartedAt = Date.now();
 	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
 	// The model runs on a provider that serves it.
-	if ( ! getProvider( aiProvider ).ai?.models.some( ( { id } ) => id === resolvedModel ) ) {
+	if ( ! servesAiModel( aiProvider, resolvedModel ) ) {
 		aiProvider = findAiModel( resolvedModel )!.provider;
 	}
 	phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;

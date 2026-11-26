@@ -3,10 +3,10 @@ import os from 'os';
 import path from 'path';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
 import { createFakeHost, fakeSite } from '@studio/agent/node/tests/fake-host';
-import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
-import { getFileWriteRefusal } from '@studio/agent/shared/tool-safety';
-import type { StudioAgentHost } from '@studio/agent/shared/host';
+import { getFileWriteRefusal } from '@studio/agent/node/tool-safety';
+import type { StudioAgentHost } from '@studio/agent/node/host';
 
 let root: string;
 let host: StudioAgentHost;

@@ -1,8 +1,8 @@
+import { Button } from '@studio/ds';
 import { clsx } from 'clsx';
 import { useActivePersistentMessages } from '@/data/queries/use-app-messages';
 import { AddAiCreditsButton } from '@/features/credits';
 import { NoticeCard } from '@/features/notifications/notice-card';
-import { Button } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function AppMessageCards( { className }: { className?: string } ) {

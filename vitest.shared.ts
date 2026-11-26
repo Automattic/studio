@@ -27,6 +27,7 @@ export default defineConfig( {
 			'**/vendor/**',
 		],
 		globalSetup: path.resolve( __dirname, './vitest.global-setup.ts' ),
+		setupFiles: [ path.resolve( __dirname, './vitest.setup-config-dir.ts' ) ],
 		server: {
 			deps: {
 				inline: [ '@wp-playground' ],

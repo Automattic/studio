@@ -315,6 +315,28 @@ describe( 'sidebar selection', () => {
 		expect( history.location.pathname ).toBe( '/sites/one' );
 	} );
 
+	it( 'warns when a removed site leaves its files on disk', async () => {
+		const { connector } = await setup();
+		connector.deleteSite.mockResolvedValueOnce( {
+			warnings: [ 'The site files could not be moved to trash.' ],
+		} );
+		select( 'one', 'two' );
+		deleteShortcut( await bulkMenu( 'one' ) );
+		const dialog = await screen.findByRole( 'alertdialog' );
+		fireEvent.click(
+			within( dialog ).getByRole( 'button', { name: 'Exclude “Site one” from removal' } )
+		);
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );
+		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
+		expect( getVisibleToasts() ).toEqual( [
+			expect.objectContaining( {
+				intent: 'warning',
+				title: 'Site files left on disk',
+				description: 'The site files could not be moved to trash.',
+			} ),
+		] );
+	} );
+
 	it( 'keeps the current site open when its removal fails and another succeeds', async () => {
 		const { connector, history } = await setup();
 		connector.deleteSite.mockRejectedValueOnce( new Error( 'Removal failed' ) );
@@ -391,7 +413,7 @@ describe( 'sidebar selection', () => {
 			connector.deleteSite.mockImplementationOnce(
 				() =>
 					new Promise( ( resolve ) => {
-						finish = resolve;
+						finish = () => resolve( { warnings: [] } );
 					} )
 			);
 			select( 'one', 'two' );

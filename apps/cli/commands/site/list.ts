@@ -1,8 +1,8 @@
 import { type SiteDetails } from '@studio/common/lib/cli-events';
+import { readConfig } from '@studio/common/lib/config/store';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
-import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getSiteDetails } from 'cli/lib/site-details';
@@ -10,6 +10,7 @@ import { pickPublicSiteFields } from 'cli/lib/site-public-fields';
 import { getSitesRunningStatus } from 'cli/lib/site-utils';
 import { getColumnWidths, getPrettyPath } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { builder } from 'cli/commands/site/list.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -25,7 +26,7 @@ interface SiteListJsonEntry extends SiteDetails {
 	running: boolean;
 }
 
-async function getSiteListData( sites: SiteData[] ): Promise< {
+async function getSiteListData( sites: ConfigSite[] ): Promise< {
 	tableEntries: SiteListTableEntry[];
 	jsonEntries: SiteListJsonEntry[];
 } > {
@@ -92,7 +93,7 @@ const logger = new Logger< LoggerAction >();
 
 // The local sites as `--format json` prints them: public fields only.
 export async function listSites() {
-	const { sites } = await readCliConfig();
+	const { sites } = await readConfig();
 	if ( sites.length === 0 ) {
 		return [];
 	}
@@ -108,7 +109,7 @@ export async function listSites() {
 export async function runCommand( format: 'table' | 'json' ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading sites…' ) );
-		const cliConfig = await readCliConfig();
+		const cliConfig = await readConfig();
 
 		if ( cliConfig.sites.length === 0 ) {
 			logger.reportSuccess( __( 'No sites found' ) );

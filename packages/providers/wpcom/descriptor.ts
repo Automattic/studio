@@ -5,6 +5,7 @@ import {
 	withWpcomDetails,
 	wpcomPushWarning,
 	wpcomSiteIssue,
+	wpcomVisibilityLink,
 	type SyncSite,
 } from './sites/site';
 import type { AiModel, Provider } from '../types';
@@ -13,9 +14,9 @@ import type { AiModel, Provider } from '../types';
 // resolves each alias to an upstream model server-side, so the mapping can
 // change without a release.
 export const WPCOM_AI_MODELS = [
-	{ id: 'fast', label: () => __( 'Fast' ), supportsImages: false },
-	{ id: 'balanced', label: () => __( 'Balanced' ), requiresPaidAiCredits: true },
-	{ id: 'strong', label: () => __( 'Strong' ), requiresPaidAiCredits: true },
+	{ id: 'fast', label: () => __( 'Fast' ), supportsImages: false, thinking: false },
+	{ id: 'balanced', label: () => __( 'Balanced' ), requiresPaidAiCredits: true, thinking: false },
+	{ id: 'strong', label: () => __( 'Strong' ), requiresPaidAiCredits: true, thinking: false },
 ] as const satisfies readonly AiModel[];
 
 // Studio's OAuth app on WordPress.com.
@@ -71,13 +72,43 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		methods: [ { id: 'sign-in', label: () => __( 'Log in' ), kind: 'redirect' } ],
 		describe: ( config ) => ( { method: 'sign-in', summary: config.user?.email } ),
 		expiresAt: ( config ) => config.expiresAt,
+		owner: ( config ) => config.user && String( config.user.id ),
 	},
 	ai: {
 		models: WPCOM_AI_MODELS,
 		defaultModel: 'fast',
 		paidDefaultModel: 'balanced',
+		generatesImages: () => true,
 	},
 	sites: {
+		summary: () => __( 'The full WordPress, with a domain.' ),
+		visibility: {
+			options: ( current ) => [
+				{
+					value: 'coming-soon',
+					label: __( 'Only you' ),
+					description: __( 'Visitors see a coming soon page' ),
+				},
+				{ value: 'public', label: __( 'Everyone' ), description: __( 'Your WordPress is public' ) },
+				...( current === 'private'
+					? [
+							{
+								value: 'private' as const,
+								label: __( 'Invited people' ),
+								description: __( 'Only you and people you invite can view.' ),
+								disabled: true,
+							},
+					  ]
+					: [] ),
+			],
+			manage: wpcomVisibilityLink,
+		},
+		previews: {
+			isUpgraded: ( site ) =>
+				site.hasPaidPlan === true ||
+				site.launchStatus === 'launched' ||
+				site.pushNeedsUpgrade === false,
+		},
 		maxPushSize: 5 * 1024 * 1024 * 1024,
 		pull: true,
 		selective: true,
@@ -89,7 +120,6 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 				__(
 					'Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.'
 				),
-			learnMoreUrl: 'https://wordpress.studio/docs/sync/',
 		},
 		describe: describeWpcomSite,
 		issue: wpcomSiteIssue,

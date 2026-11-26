@@ -3,11 +3,11 @@ import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readAppConfig } from '@studio/common/lib/app-config';
+import { readConfig } from '@studio/common/lib/config/store';
 import { getBrowserPath, openSiteInBrowser } from './open-browser';
 
 vi.mock( 'node:child_process', () => ( { spawn: vi.fn() } ) );
-vi.mock( '@studio/common/lib/app-config', () => ( { readAppConfig: vi.fn() } ) );
+vi.mock( '@studio/common/lib/config/store', () => ( { readConfig: vi.fn() } ) );
 vi.mock( 'node:fs', () => ( {
 	default: {
 		existsSync: vi.fn( () => true ),
@@ -16,6 +16,9 @@ vi.mock( 'node:fs', () => ( {
 		constants: { X_OK: 1 },
 	},
 } ) );
+
+const preferBrowser = ( preferredBrowser: string | undefined ) =>
+	vi.mocked( readConfig ).mockResolvedValue( { preferences: { preferredBrowser } } as never );
 
 afterEach( () => {
 	vi.restoreAllMocks();
@@ -27,14 +30,14 @@ describe( 'site browser selection', () => {
 	it( 'uses the system browser when unset or unknown', async () => {
 		const fallback = vi.fn();
 		for ( const preferredBrowser of [ undefined, 'unknown' ] ) {
-			vi.mocked( readAppConfig ).mockResolvedValue( { preferredBrowser } );
+			preferBrowser( preferredBrowser );
 			await openSiteInBrowser( 'https://example.test/wp-admin/', fallback );
 		}
 		expect( fallback ).toHaveBeenCalledTimes( 2 );
 	} );
 	it( 'opens the selected macOS browser without shell interpolation', async () => {
 		vi.spyOn( process, 'platform', 'get' ).mockReturnValue( 'darwin' );
-		vi.mocked( readAppConfig ).mockResolvedValue( { preferredBrowser: 'librewolf' } );
+		preferBrowser( 'librewolf' );
 		const child = Object.assign( new EventEmitter(), { unref: vi.fn() } );
 		vi.mocked( spawn ).mockImplementation( () => {
 			queueMicrotask( () => {
@@ -63,7 +66,7 @@ describe( 'site browser selection', () => {
 			vi.spyOn( process, 'platform', 'get' ).mockReturnValue( platform );
 			vi.stubEnv( 'ProgramFiles', 'C:\\Program Files' );
 			vi.stubEnv( 'PATH', '/usr/bin' );
-			vi.mocked( readAppConfig ).mockResolvedValue( { preferredBrowser: 'librewolf' } );
+			preferBrowser( 'librewolf' );
 			const child = Object.assign( new EventEmitter(), { unref: vi.fn() } );
 			vi.mocked( spawn ).mockImplementation( () => {
 				queueMicrotask( () => child.emit( 'spawn' ) );
@@ -83,7 +86,7 @@ describe( 'site browser selection', () => {
 	it( 'reports a selected browser that is no longer installed', async () => {
 		vi.spyOn( process, 'platform', 'get' ).mockReturnValue( 'darwin' );
 		vi.mocked( fs.existsSync ).mockReturnValue( false );
-		vi.mocked( readAppConfig ).mockResolvedValue( { preferredBrowser: 'chrome' } );
+		preferBrowser( 'chrome' );
 		const fallback = vi.fn();
 		await expect( openSiteInBrowser( 'https://example.test/', fallback ) ).rejects.toThrow(
 			'Google Chrome is no longer installed'

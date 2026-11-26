@@ -16,7 +16,7 @@ It has its own `package.json`, with no dependencies of its own, and isn't part o
   - [Suites](#suites)
   - [Signed-in suites](#signed-in-suites)
   - [Write a shot](#write-a-shot)
-  - [Blog images](#blog-images)
+  - [Docs shots and extras](#docs-shots-and-extras)
 
 ## What's in this folder
 
@@ -24,6 +24,7 @@ It has its own `package.json`, with no dependencies of its own, and isn't part o
 | --- | --- |
 | `docs/` | The Markdown pages |
 | `screenshots/images/` | The images the pages use, and `index.md`, which lists them |
+| `screenshots/extras/` | Shots no page uses, captured on demand (not committed) |
 | `screenshots/shots/` | The script for each group of screenshots |
 | `scripts/` | The script behind `npm run screenshots` |
 | `plans/` | Working notes from past docs projects |
@@ -63,16 +64,17 @@ node --experimental-strip-types tools/capture-harness/cli.ts setup   # at the re
 
 | Command | Purpose |
 | --- | --- |
-| `npm run screenshots` | Capture screenshots of the app into `screenshots/images/` |
-| `npm run screenshots -- --check` | Report which screenshots changed, without writing them |
+| `npm run screenshots` | Capture the screenshots the docs pages show into `screenshots/images/` |
+| `npm run screenshots -- --check` | Report which of them changed, without writing them |
+| `npm run screenshots -- --extras` | Capture the shots no page shows into `screenshots/extras/`, which git ignores |
 
 ## Screenshots
 
-`npm run screenshots` runs the scripts in `screenshots/shots/*.json` through the capture harness, on its Moire scene (Rich's Moire Blueprint, baked the first time you run it on a machine), in the `docs` look.
+`npm run screenshots` runs the scripts in `screenshots/shots/*.json` through the capture harness, on its Moire scene (Rich's Moire Blueprint, baked the first time you run it on a machine), in the `docs` look. It saves only the shots a page in `docs/` shows; see [Docs shots and extras](#docs-shots-and-extras).
 
 The harness drives a built WordPress Studio in a throwaway profile, so your own sites and settings are never touched.
 
-It gives the same images on any machine. The window size, color scheme, locale and site content are fixed, and a shot is rewritten only when its pixels change beyond anti-aliasing noise, so unchanged shots leave git clean.
+It gives the same images on any machine. The window size, color scheme, locale and site content are fixed, and a shot is rewritten only when at least 1% of its pixels change, so unchanged shots leave git clean and a restyled icon or border doesn't rewrite every image. The run reports those smaller changes as `minor` and keeps the committed image.
 
 Whole-window shots are framed on the app's light dot field. Cropped shots keep the app around them, with no frame.
 
@@ -80,14 +82,16 @@ Whole-window shots are framed on the app's light dot field. Cropped shots keep t
 
 | Option | What it does |
 | --- | --- |
+| `--extras` | Captures the shots no page shows, into `screenshots/extras/` |
 | `--suite <name,…>` | Runs only some suites |
-| `--only <name,…>` | Saves only some shots (the steps before them still run) |
+| `--only <name,…>` | Saves only these shots, whether or not a page shows them yet (the steps before them still run) |
 | `--check` | Reports which shots changed without writing them |
 | `--keep-profile` | Keeps the throwaway profiles for inspection |
+| `--min-change <percent>` | Rewrites an image only when at least this share of its pixels changed (default `1`; `0` writes every change). Shots named with `--only` are written whatever changed |
 
 Other options are passed to the harness's `capture` command. A failed shot stops its suite, and the window at that moment is saved under `screenshots/images/failures/`.
 
-After a full run, [`screenshots/images/index.md`](screenshots/images/index.md) lists every shot and the upload it replaces. It has two groups of images you handle by hand:
+After a full run, [`screenshots/images/index.md`](screenshots/images/index.md) lists every docs shot and the upload it replaces, and the extras. It has two groups of images you handle by hand:
 
 - **Capture manually:** shots listed in `90-manual.json`.
 - **Kept by hand:** images no suite can capture, such as a browser or Keychain dialog, a terminal, or an old release in the changelog. A full run keeps this section as it is.
@@ -117,12 +121,12 @@ Shots live in `screenshots/shots/*.json`, one file per feature (a *suite*), with
 | --- | --- | --- |
 | `10-first-run.json` | An empty profile | The welcome dialog, Add site, creating a site, the orientation guide |
 | `20`–`50` | The scene's sites: "Moire", running and selected, then the blank "Bistro Lune" and "Ada Portfolio" | The workspace, site menu, site settings and app settings |
-| `60-signed-in.json` | Signed in (`"signedIn": true`) | The account menu, Annotate, Share and publish, the model menu, account settings |
-| `61-signed-in-previews.json` | Signed in, with made-up preview sites (`"previewSites": true`) | The Share panel |
-| `62-signed-in-connected.json` | Signed in, connected to made-up WordPress.com sites (`"connectedSites": true`) | The website switcher, and the Pull changes and Publish changes review steps with Choose files… |
+| `60-signed-in.json` | Signed in (`"signedIn": true`) | The account menu, Annotate, the Publish panel, the model menu, account settings and providers |
+| `61-signed-in-previews.json` | Signed in, with made-up preview sites (`"previewSites": true`) | The Publish panel’s previews, a preview’s details and actions |
+| `62-signed-in-connected.json` | Signed in, connected to made-up WordPress.com sites (`"connectedSites": true`) | The Publish panel’s connected sites, a site’s details, and the pull and publish dialogs with their file choices |
 | `63-signed-in-agent.json` | Signed in, on an empty profile | A story from a new blank site. The `stubAgentRuns` and `playAgentTurn` helpers stand in for WordPress Studio Code, so no model runs. `design-looks` is the design picker with a pending "Which look should I build?" |
 | `64-signed-in-chat.json` | Signed in, with a recorded conversation (`"chats"`) | The Moire home page's text being updated |
-| `70-signed-in-blog.json` | Signed in | One-off images for blog posts, which no docs page uses |
+| `70-signed-in-blog.json` | Signed in | One-off images for blog posts, captured as [extras](#docs-shots-and-extras) |
 | `90-manual.json` | Not automated | Shots you capture by hand |
 
 ### Signed-in suites
@@ -151,7 +155,14 @@ The shot scripts follow the UI of the WordPress Studio in the same checkout, so 
 - **Open things the way both drivers can.** A keyboard shortcut that Studio Desktop handles from its application menu (such as ⌘, for Settings) does nothing when a script presses it there; click through the UI instead (the account menu, then **Settings**).
 - **Leave the app as the next shot expects it.** Use `after` to close what a shot opened and to remove what it left behind, such as notes staged in the chat box, so a failure in one shot doesn't cascade.
 - **Run the Desktop-only shots too.** The browser driver skips shots marked `desktopOnly`, so they go stale unnoticed. Capture them with `--driver electron`, which also runs on Linux under a virtual display.
+- **Recapture only what a reader would notice.** A change smaller than 1% of an image's pixels is reported as `minor` and keeps the committed image, since most are restyled icons, borders or spacing and each rewritten image grows the repo. A label the page quotes or a new control can be that small too, so read the `minor` list (`--check --diff-dir <dir>` draws each difference) and recapture those shots with `--only <names>`.
+- **Repair as you go.** When a run fails, or a shot shows something that's broken or no longer matches its page, fix the script in the same change rather than leaving it for the next release: a failed shot stops the rest of its suite, so one stale step hides every shot after it. Check the whole set (`npm run screenshots -- --check`, then the Desktop-only shots with `--driver electron`) until nothing fails or is "not run", and update the shot's `description` when its screen changes.
 
-### Blog images
+### Docs shots and extras
 
-Keep one-off blog images in `70-signed-in-blog.json` rather than a throwaway suite, so the next post can recapture them. To frame them for a white page, use the harness's `frame --look blog <image…>`.
+The shot scripts hold two kinds of shots, and only one kind is committed:
+
+- **Docs shots** are the ones a page shows: its Markdown links `screenshots/images/<name>.webp` (or `<name>-annotated.webp`). Every release refreshes them with `npm run screenshots`, and only their images live in `screenshots/images/`. A plain or annotated copy that no page shows is deleted after a full run.
+- **Extras** are every other shot: blog posts, marketing, social, or a screen a page may show later. They keep their scripts, since later shots often build on their steps and the next post can reuse them, but a docs run only plays their steps and saves no image. Capture them when you need them with `npm run screenshots -- --extras` (all of them) or `--extras --only <name,…>`, into `screenshots/extras/`, which git ignores. Keep one-off blog images in `70-signed-in-blog.json` rather than a throwaway suite. To frame one for a white page, use the harness's `frame --look blog <image…>`.
+
+**Adding a docs shot for a new feature:** add the shot to the suite it belongs to, link its image from the page, then run `npm run screenshots -- --only <name>`. A shot becomes a docs shot when a page links it and an extra when no page does any more, so delete its image from `screenshots/images/` when you take it out of the last page that shows it.

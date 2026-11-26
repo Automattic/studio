@@ -1,3 +1,5 @@
+import { IconButton, Menu } from '@studio/ds';
+import { ArrowLeftIcon, ArrowRightIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
 import {
@@ -5,8 +7,6 @@ import {
 	getHistoryEntryPath,
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
-import { ArrowLeftIcon, ArrowRightIcon } from '@/lib/icons';
-import { IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { NavigationShortcut } from '@/features/sites/site-preview/browser-shortcuts';
 
@@ -41,6 +41,7 @@ export function BrowserHistoryButton( {
 			icon={ back ? <ArrowLeftIcon /> : <ArrowRightIcon /> }
 			label={ label }
 			shortcut={ shortcut }
+			variant="ghost"
 			tooltip={ ! disabled }
 			tooltipSide="bottom"
 			disabled={ disabled }

@@ -1,0 +1,564 @@
+{
+	"%1$s, %2$s, and %3$s": [
+		"%1$s، %2$s و %3$s"
+	],
+	"%d image": [
+		"%d وێنە",
+		"%d وێنە"
+	],
+	"%s (optional, saved for future use):": [
+		"%s (ئارەزوومەندانە، بۆ بەکارهێنانی داهاتوو پاشەکەوت دەکرێت):"
+	],
+	"%s models": [
+		"مۆدێلەکانی %s"
+	],
+	"%s only makes previews.": [
+		"%s تەنیا پێشبینین دروست دەکات."
+	],
+	"%s · Local changes": [
+		"%s · گۆڕانکارییە خۆماڵییەکان"
+	],
+	"API key": [
+		"کلیلی (API)"
+	],
+	"API key is required": [
+		"کلیلی (API) پێویستە"
+	],
+	"Activate all plugins": [
+		"چالاککردنی هەموو پێوەکراوەکان"
+	],
+	"Activate plugin": [
+		"چالاککردنی پێوەکراو"
+	],
+	"Activate theme": [
+		"چالاککردنی ڕووکار"
+	],
+	"Address is required": [
+		"ناونیشان پێویستە"
+	],
+	"Address to listen on": [
+		"ناونیشان بۆ گوێگرتن"
+	],
+	"All models": [
+		"هەموو مۆدێلەکان"
+	],
+	"Anyone can view your site": [
+		"هەر کەسێک دەتوانێت ماڵپەڕەکەت ببینێت"
+	],
+	"Anyone with the link": [
+		"هەر کەسێک بەستەرەکەی هەبێت"
+	],
+	"Balanced": [
+		"هاوسەنگ"
+	],
+	"Billing period": [
+		"ماوەی پارەدان"
+	],
+	"ChatGPT plan": [
+		"پلانی (ChatGPT)"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"بەکارهێنانی پلانی (ChatGPT) لە ئێستادا بەردەست نییە. کەمێکی تر دووبارە هەوڵ بدەرەوە."
+	],
+	"Choose a site": [
+		"ماڵپەڕێک هەڵبژێرە"
+	],
+	"Choose your plan.": [
+		"پلانەکەت هەڵبژێرە."
+	],
+	"Claude subscription": [
+		"بەشداریکردنی (Claude)"
+	],
+	"Claude subscription token": [
+		"تۆکنی بەشداریکردنی (Claude)"
+	],
+	"Connect Spacefast to publish sites.": [
+		"(Spacefast) پەیوەست بکە بۆ بڵاوکردنەوەی ماڵپەڕەکان."
+	],
+	"Continue on %s": [
+		"بەردەوامبوون لەسەر %s"
+	],
+	"Continue to checkout": [
+		"بەردەوامبوون بۆ پارەدان"
+	],
+	"Could not load %s sites.": [
+		"نەتوانرا ماڵپەڕەکانی %s بار بکرێن."
+	],
+	"Could not open the new preview. Please try again.": [
+		"نەتوانرا پێشبینینە نوێیەکە بکرێتەوە. تکایە دووبارە هەوڵ بدەرەوە."
+	],
+	"Could not publish. Please try again.": [
+		"نەتوانرا بڵاو بکرێتەوە. تکایە دووبارە هەوڵ بدەرەوە."
+	],
+	"Could not update your local site from this preview. Please try again.": [
+		"نەتوانرا ماڵپەڕە خۆماڵییەکەت لەم پێشبینینەوە بەڕۆژ بکرێتەوە. تکایە دووبارە هەوڵ بدەرەوە."
+	],
+	"Couldn’t check previews.": [
+		"نەتوانرا پێشبینینەکان بپشکنرێن."
+	],
+	"Couldn’t check whether you can pull from this preview.": [
+		"نەتوانرا بپشکنرێت ئایا دەتوانیت لەم پێشبینینەوە ڕابکێشیت."
+	],
+	"Couldn’t load publishing accounts": [
+		"نەتوانرا هەژمارەکانی بڵاوکردنەوە بار بکرێن"
+	],
+	"Couldn’t load your previews.": [
+		"نەتوانرا پێشبینینەکانت بار بکرێن."
+	],
+	"Create %s": [
+		"دروستکردنی %s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"کلیلێک لە [Google AI Studio](https://aistudio.google.com/apikey) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"کلیلێک لە [Claude Console](https://platform.claude.com/settings/keys) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"کلیلێک لە [OpenAI Platform](https://platform.openai.com/api-keys) دروست بکە، پاشان لە خوارەوە بیلکێنە."
+	],
+	"Create user": [
+		"دروستکردنی بەکارهێنەر"
+	],
+	"Creating preview": [
+		"دروستکردنی پێشبینین"
+	],
+	"Creating preview link…": [
+		"دروستکردنی بەستەری پێشبینین…"
+	],
+	"Database only": [
+		"تەنیا بنکەدراوە"
+	],
+	"Deactivate all plugins": [
+		"ناچالاککردنی هەموو پێوەکراوەکان"
+	],
+	"Deactivate plugin": [
+		"ناچالاککردنی پێوەکراو"
+	],
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"خۆکار"
+	],
+	"Delete %s": [
+		"سڕینەوەی %s"
+	],
+	"Delete plugin": [
+		"سڕینەوەی پێوەکراو"
+	],
+	"Delete theme": [
+		"سڕینەوەی ڕووکار"
+	],
+	"Delete user": [
+		"سڕینەوەی بەکارهێنەر"
+	],
+	"Destination": [
+		"مەبەست"
+	],
+	"Disconnect site": [
+		"پچڕاندنی ماڵپەڕ"
+	],
+	"Download WordPress Studio": [
+		"داگرتنی وۆردپرێس ستۆدیۆ"
+	],
+	"Ends on %s": [
+		"لە %s کۆتایی دێت"
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"تۆکنێک لە claude setup-token بنووسە، نەک کلیلی (API)."
+	],
+	"Everyone": [
+		"هەمووان"
+	],
+	"Everything": [
+		"هەموو شتێک"
+	],
+	"Failed to check backup size": [
+		"پشکنینی قەبارەی پاڵپشت شکستی هێنا"
+	],
+	"Failed to check backup status": [
+		"پشکنینی دۆخی پاڵپشت شکستی هێنا"
+	],
+	"Failed to check import status": [
+		"پشکنینی دۆخی هاوردن شکستی هێنا"
+	],
+	"Failed to find existing preview site in config": [
+		"دۆزینەوەی ماڵپەڕی پێشبینینی بەردەست لە شێوەپێدانەکەدا شکستی هێنا"
+	],
+	"Failed to initiate backup": [
+		"دەستپێکردنی پاڵپشت شکستی هێنا"
+	],
+	"Files could not be loaded.": [
+		"نەتوانرا پەڕگەکان بار بکرێن."
+	],
+	"Flush cache": [
+		"پاککردنەوەی کاش"
+	],
+	"Gemini API key": [
+		"کلیلی (API)ـی (Gemini)"
+	],
+	"Generate images": [
+		"بەدیهێنانی وێنەکان"
+	],
+	"How much should the model think?": [
+		"مۆدێلەکە چەند بیر بکاتەوە؟"
+	],
+	"Import media": [
+		"هاوردنی ڕەنگاڵە"
+	],
+	"Import site": [
+		"هاوردنی ماڵپەڕ"
+	],
+	"Inspect design": [
+		"پشکنینی دیزاین"
+	],
+	"Install plugin": [
+		"دامەزراندنی پێوەکراو"
+	],
+	"Install theme": [
+		"دامەزراندنی ڕووکار"
+	],
+	"Invited people": [
+		"کەسانی بانگهێشتکراو"
+	],
+	"Last updated %s": [
+		"دوایین بەڕۆژکردنەوە %s"
+	],
+	"Last updated on %s": [
+		"دوایین بەڕۆژکردنەوە لە %s"
+	],
+	"Liberate": [
+		"ئازادکردن"
+	],
+	"List %s": [
+		"لیستکردنی %s"
+	],
+	"List menus": [
+		"لیستکردنی لیستەکان"
+	],
+	"List plugins": [
+		"لیستکردنی پێوەکراوەکان"
+	],
+	"List previews": [
+		"لیستکردنی پێشبینینەکان"
+	],
+	"List published %s": [
+		"لیستکردنی %sی بڵاوکراوە"
+	],
+	"List terms": [
+		"لیستکردنی زاراوەکان"
+	],
+	"List themes": [
+		"لیستکردنی ڕووکارەکان"
+	],
+	"List users": [
+		"لیستکردنی بەکارهێنەران"
+	],
+	"Loading destinations": [
+		"بارکردنی مەبەستەکان"
+	],
+	"Loading models…": [
+		"بارکردنی مۆدێلەکان…"
+	],
+	"Local and preview changes": [
+		"گۆڕانکارییە خۆماڵی و پێشبینینەکان"
+	],
+	"Local changes": [
+		"گۆڕانکارییە خۆماڵییەکان"
+	],
+	"Manage cache": [
+		"بەڕێوەبردنی کاش"
+	],
+	"Manage content": [
+		"بەڕێوەبردنی ناوەڕۆک"
+	],
+	"Manage credits": [
+		"بەڕێوەبردنی یەکەکان"
+	],
+	"Manage media": [
+		"بەڕێوەبردنی ڕەنگاڵە"
+	],
+	"Manage menus": [
+		"بەڕێوەبردنی لیستەکان"
+	],
+	"Manage on Spacefast": [
+		"بەڕێوەبردن لەسەر (Spacefast)"
+	],
+	"Manage permalinks": [
+		"بەڕێوەبردنی بەستەرە هەمیشەییەکان"
+	],
+	"Manage plugins": [
+		"بەڕێوەبردنی پێوەکراوەکان"
+	],
+	"Manage terms": [
+		"بەڕێوەبردنی زاراوەکان"
+	],
+	"Manage themes": [
+		"بەڕێوەبردنی ڕووکارەکان"
+	],
+	"Manage usage": [
+		"بەڕێوەبردنی بەکارهێنان"
+	],
+	"Manage users": [
+		"بەڕێوەبردنی بەکارهێنەران"
+	],
+	"Meta API key": [
+		"کلیلی (API)ـی (Meta)"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"(Meta) داواکارییەکانی سەر کلیلی (API)ـەکەت سنووردار دەکات. کەمێکی تر دووبارە هەوڵ بدەرەوە، یان سنوورەکانت لە dev.meta.ai بپشکنە."
+	],
+	"No files are available to choose.": [
+		"هیچ پەڕگەیەک بۆ هەڵبژاردن بەردەست نییە."
+	],
+	"No models found.": [
+		"هیچ مۆدێلێک نەدۆزرایەوە."
+	],
+	"Off": [
+		"کوژاوە"
+	],
+	"Only if your server asks for one.": [
+		"تەنیا ئەگەر ڕاژەکارەکەت داوای بکات."
+	],
+	"Only you": [
+		"تەنیا تۆ"
+	],
+	"Open preview: %s": [
+		"کردنەوەی پێشبینین: %s"
+	],
+	"OpenAI API key": [
+		"کلیلی (API)ـی (OpenAI)"
+	],
+	"Opening %s": [
+		"کردنەوەی %s"
+	],
+	"Other files": [
+		"پەڕگەکانی تر"
+	],
+	"Pick at least one model OpenRouter offers.": [
+		"بەلایەنی کەمەوە یەک مۆدێل هەڵبژێرە کە (OpenRouter) پێشکەشی دەکات."
+	],
+	"Pick at least one model your server offers.": [
+		"بەلایەنی کەمەوە یەک مۆدێل هەڵبژێرە کە ڕاژەکارەکەت پێشکەشی دەکات."
+	],
+	"Plan": [
+		"پلان"
+	],
+	"Plan ended": [
+		"پلان کۆتایی هات"
+	],
+	"Preview details": [
+		"وردەکارییەکانی پێشبینین"
+	],
+	"Preview expiration": [
+		"بەسەرچوونی پێشبینین"
+	],
+	"Preview link is not available yet. Please try again.": [
+		"بەستەری پێشبینین هێشتا بەردەست نییە. تکایە دووبارە هەوڵ بدەرەوە."
+	],
+	"Preview link ready": [
+		"بەستەری پێشبینین ئامادەیە"
+	],
+	"Publish again?": [
+		"دووبارە بڵاو بکرێتەوە؟"
+	],
+	"Publish options could not be loaded.": [
+		"نەتوانرا هەڵبژاردنەکانی بڵاوکردنەوە بار بکرێن."
+	],
+	"Publish to %s.": [
+		"بڵاوکردنەوە بۆ %s."
+	],
+	"Published site actions": [
+		"کردارەکانی ماڵپەڕی بڵاوکراوە"
+	],
+	"Pull from preview…": [
+		"ڕاکێشان لە پێشبینینەوە…"
+	],
+	"Pull site": [
+		"ڕاکێشانی ماڵپەڕ"
+	],
+	"Pulling from this preview is unavailable for this account.": [
+		"ڕاکێشان لەم پێشبینینەوە بۆ ئەم هەژمارە بەردەست نییە."
+	],
+	"Push site": [
+		"پەستاوتنی ماڵپەڕ"
+	],
+	"Read": [
+		"خوێندنەوە"
+	],
+	"Read %s": [
+		"خوێندنەوەی %s"
+	],
+	"Read site title": [
+		"خوێندنەوەی ناونیشانی ماڵپەڕ"
+	],
+	"Refresh preview": [
+		"نوێکردنەوەی پێشبینین"
+	],
+	"Remote backup failed": [
+		"پاڵپشتی دوور شکستی هێنا"
+	],
+	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
+		"%s لە وۆردپرێس ستۆدیۆ لاببرێت؟ ماڵپەڕە بڵاوکراوەکە و وۆردپرێسە خۆماڵییەکەت ناگۆڕێن."
+	],
+	"Renew": [
+		"نوێکردنەوە"
+	],
+	"Run WordPress code": [
+		"جێبەجێکردنی کۆدی وۆردپرێس"
+	],
+	"Run WordPress command": [
+		"جێبەجێکردنی فەرمانی وۆردپرێس"
+	],
+	"Select the files and folders to publish.": [
+		"ئەو پەڕگە و بوخچانە هەڵبژێرە کە بڵاو دەکرێنەوە."
+	],
+	"Share a preview or publish your site": [
+		"پێشبینینێک هاوبەش بکە یان ماڵپەڕەکەت بڵاو بکەرەوە"
+	],
+	"Sign in with Grok": [
+		"چوونەژوورەوە بە (Grok)"
+	],
+	"Sign in with OpenRouter": [
+		"چوونەژوورەوە بە (OpenRouter)"
+	],
+	"Sign in with WordPress.com": [
+		"چوونەژوورەوە بە (WordPress.com)"
+	],
+	"Site imported, but the WordPress server failed to start: %s": [
+		"ماڵپەڕەکە هاوردە کرا، بەڵام دەستپێکردنی ڕاژەکاری وۆردپرێس شکستی هێنا: %s"
+	],
+	"Taxonomist": [
+		"پۆلێنکار"
+	],
+	"Team": [
+		"تیم"
+	],
+	"The requested site is unavailable.": [
+		"ماڵپەڕی داواکراو بەردەست نییە."
+	],
+	"The transfer could not be completed. Please try again.": [
+		"نەتوانرا گواستنەوەکە تەواو بکرێت. تکایە دووبارە هەوڵ بدەرەوە."
+	],
+	"Themes": [
+		"ڕووکارەکان"
+	],
+	"Thinking: %s": [
+		"بیرکردنەوە: %s"
+	],
+	"Thinks before answering": [
+		"پێش وەڵامدانەوە بیر دەکاتەوە"
+	],
+	"Thinks briefly": [
+		"بە کورتی بیر دەکاتەوە"
+	],
+	"This provider doesn’t make previews.": [
+		"ئەم دابینکەرە پێشبینین دروست ناکات."
+	],
+	"This website has been deleted. Choose another website.": [
+		"ئەم ماڵپەڕە سڕاوەتەوە. ماڵپەڕێکی تر هەڵبژێرە."
+	],
+	"Token is required": [
+		"تۆکن پێویستە"
+	],
+	"Unexpected response from server while checking backup status": [
+		"وەڵامێکی چاوەڕواننەکراو لە ڕاژەکارەوە لە کاتی پشکنینی دۆخی پاڵپشت"
+	],
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"ئاستی نەناسراو %1$s. یەکێک لەمانە هەڵبژێرە: %2$s."
+	],
+	"Update %s": [
+		"بەڕۆژکردنەوەی %s"
+	],
+	"Update WordPress Studio": [
+		"بەڕۆژکردنەوەی وۆردپرێس ستۆدیۆ"
+	],
+	"Update WordPress Studio.": [
+		"وۆردپرێس ستۆدیۆ بەڕۆژ بکەرەوە."
+	],
+	"Update all plugins": [
+		"بەڕۆژکردنەوەی هەموو پێوەکراوەکان"
+	],
+	"Update plugin": [
+		"بەڕۆژکردنەوەی پێوەکراو"
+	],
+	"Update site title": [
+		"بەڕۆژکردنەوەی ناونیشانی ماڵپەڕ"
+	],
+	"Update user": [
+		"بەڕۆژکردنەوەی بەکارهێنەر"
+	],
+	"Updating your workspace…": [
+		"بەڕۆژکردنەوەی شوێنی کارەکەت…"
+	],
+	"Usage is paid with your OpenRouter credits.": [
+		"پارەی بەکارهێنان بە یەکەکانی (OpenRouter)ـەکەت دەدرێت."
+	],
+	"Using Grok plan": [
+		"بەکارهێنانی پلانی (Grok)"
+	],
+	"View backups": [
+		"بینینی پاڵپشتەکان"
+	],
+	"View versions": [
+		"بینینی وەشانەکان"
+	],
+	"Visual Annotations": [
+		"یاداشتە بینراوەکان"
+	],
+	"Yearly, save 20%": [
+		"ساڵانە، 20% پاشەکەوت بکە"
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"پلانی (ChatGPT)ـەکەت ناتوانرێت لە وۆردپرێس ستۆدیۆدا بەکاربهێنرێت."
+	],
+	"Your Studio, in the cloud.": [
+		"ستۆدیۆکەت، لە هەوردا."
+	],
+	"Your WordPress is public": [
+		"وۆردپرێسەکەت گشتییە"
+	],
+	"Your local server refused the request: %s.": [
+		"ڕاژەکارە خۆماڵییەکەت داواکارییەکەی ڕەت کردەوە: %s."
+	],
+	"Your plan has ended.": [
+		"پلانەکەت کۆتایی هاتووە."
+	],
+	"Your server’s setting": [
+		"ڕێکخستنی ڕاژەکارەکەت"
+	],
+	"Your site is ready to publish": [
+		"ماڵپەڕەکەت ئامادەیە بۆ بڵاوکردنەوە"
+	],
+	"database": [
+		"بنکەدراوە"
+	],
+	"media item": [
+		"بڕگەی ڕەنگاڵە"
+	],
+	"media items": [
+		"بڕگەکانی ڕەنگاڵە"
+	],
+	"other files": [
+		"پەڕگەکانی تر"
+	],
+	"page": [
+		"پەڕە"
+	],
+	"post": [
+		"بابەت"
+	],
+	"posts": [
+		"بابەتەکان"
+	],
+	"product": [
+		"بەرهەم"
+	],
+	"products": [
+		"بەرهەمەکان"
+	],
+	"themes": [
+		"ڕووکارەکان"
+	],
+	"uploads": [
+		"بارکراوەکان"
+	]
+}

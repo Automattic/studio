@@ -1,9 +1,10 @@
-import { readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { readSelectedAiProvider, readSelectedImageProvider } from '@studio/common/lib/ai-settings';
 import { readFreshProviderConfig } from '@studio/common/lib/provider-config';
 import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import {
 	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
+	generatesImages,
 	getProvider,
 	NotConnectedError,
 	type AiConnection,
@@ -11,6 +12,7 @@ import {
 	type AiProviderId,
 	type ProviderConfigs,
 	type ProviderId,
+	type ThinkingLevel,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
@@ -81,10 +83,12 @@ export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 	return ( await getPreferredReadyProvider() ) ?? DEFAULT_PROVIDER_ID;
 }
 
+type ConnectOptions = { sessionId?: string; thinking?: ThinkingLevel };
+
 async function connect< Id extends AiProviderId >(
 	provider: Id,
 	model: AiModelId,
-	options: { sessionId?: string }
+	options: ConnectOptions
 ): Promise< AiConnection > {
 	const ai = getProviderServices( provider ).ai;
 	if ( ! ai ) {
@@ -96,7 +100,7 @@ async function connect< Id extends AiProviderId >(
 export async function resolveAiConnection(
 	provider: AiProviderId,
 	model: AiModelId,
-	options: { sessionId?: string } = {}
+	options: ConnectOptions = {}
 ): Promise< AiConnection > {
 	try {
 		return await connect( provider, model, options );
@@ -118,25 +122,26 @@ export async function resolveAiConnection(
 async function bindImageGenerator< Id extends AiProviderId >(
 	provider: Id
 ): Promise< ImageGenerator | undefined > {
-	const ai = getProviderServices( provider ).ai;
-	const generateImages = ai?.generateImages;
+	const generateImages = getProviderServices( provider ).ai?.generateImages;
 	const config = generateImages && ( await readUsableProviderConfig( provider ) );
-	if ( ! generateImages || ! config || ai.canGenerateImages?.( config ) === false ) {
+	if ( ! generateImages || ! config || ! generatesImages( provider, config ) ) {
 		return undefined;
 	}
 	return ( requests, onResult ) => generateImages( config, requests, onResult );
 }
 
-// Image generation from the chat's provider when it offers it, otherwise from the
-// first connected provider that does.
+// Image generation from the provider picked for it, otherwise from the chat's provider when it
+// offers it, otherwise from the first connected provider that does.
 export async function resolveImageGenerator(
 	chatProvider?: AiProviderId
 ): Promise< ImageGenerator | undefined > {
-	const providers = chatProvider
-		? [ chatProvider, ...AI_PROVIDER_IDS.filter( ( id ) => id !== chatProvider ) ]
-		: AI_PROVIDER_IDS;
+	const providers = new Set( [
+		await readSelectedImageProvider(),
+		chatProvider,
+		...AI_PROVIDER_IDS,
+	] );
 	for ( const provider of providers ) {
-		const generator = await bindImageGenerator( provider );
+		const generator = provider && ( await bindImageGenerator( provider ) );
 		if ( generator ) {
 			return generator;
 		}

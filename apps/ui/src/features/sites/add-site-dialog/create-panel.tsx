@@ -15,7 +15,6 @@ import { useAddSite } from './context';
 import { SetupSourceField } from './setup-source-field';
 import { getRemoteSiteName } from './site-presentation';
 import { useSetupPrompt } from './use-setup-prompt';
-import type { SyncSite } from '@/data/core';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
 
@@ -46,7 +45,7 @@ export function mapBlueprintToFormValues(
 	};
 }
 
-export function CreatePanel( { remote }: { remote?: SyncSite } ) {
+export function CreatePanel() {
 	const {
 		setProgress,
 		pinNewSite,
@@ -62,10 +61,11 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 	const { data: sites } = useSites();
 	const existingDomainNames = useExistingCustomDomains();
 	const selectedBlueprint = source.type === 'blueprint' ? source.blueprint : undefined;
+	const remote = source.type === 'connect' ? source : undefined;
 	const { data: proposedName } = useProposedSiteName(
 		sites,
 		remote
-			? getRemoteSiteName( remote )
+			? getRemoteSiteName( remote.remote )
 			: selectedBlueprint
 			? inspectBlueprint( selectedBlueprint.blueprint ).siteTitle || selectedBlueprint.title
 			: undefined
@@ -104,7 +104,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 				adminEmail: values.adminEmail || undefined,
 			};
 			if ( remote ) {
-				await connectSite( remote, params );
+				await connectSite( remote.provider, remote.remote, params );
 				return;
 			}
 			const site = await createSite.mutateAsync( {

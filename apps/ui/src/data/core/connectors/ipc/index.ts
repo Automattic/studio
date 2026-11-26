@@ -18,7 +18,6 @@ import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
-import { UnsupportedError } from '../unsupported-error';
 import type {
 	AgentApp,
 	ActiveAgentRun,
@@ -35,7 +34,7 @@ import type {
 	SelectedSiteFolder,
 	SiteDetails,
 	SiteAgentFile,
-	SkillStatus,
+	GlobalSkill,
 	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
@@ -139,8 +138,10 @@ export function createIpcConnector(): Connector {
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
-			nativeSites: true,
 			loopbackSignIn: true,
+			localMachine: true,
+			globalSkills: true,
+			skillEditing: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -228,8 +229,8 @@ export function createIpcConnector(): Connector {
 			return ( await unwrapIpcError( created ) ) as SiteDetails;
 		},
 
-		async deleteSite( id, deleteFiles = true ) {
-			await ipcApi.deleteSite( id, deleteFiles );
+		deleteSite( id, deleteFiles = true ) {
+			return ipcApi.deleteSite( id, deleteFiles );
 		},
 
 		async copySite( sourceSiteId ): Promise< SiteDetails > {
@@ -345,9 +346,6 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 		async captureAnnotationRegion( request ) {
-			if ( ! ( 'guestId' in request ) ) {
-				throw new UnsupportedError( 'captureAnnotationRegion' );
-			}
 			return ipcApi.captureAnnotationRegion( request );
 		},
 		async captureSitePreview( siteId, { path, guestId } ) {
@@ -471,6 +469,9 @@ export function createIpcConnector(): Connector {
 			await ipcApi.renamePreviewSite( hostname, name );
 		},
 
+		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
+			return ipcApi.getSitePublishStatus( siteId, remoteSiteId, provider );
+		},
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
 			return ( await ipcApi.getPreviewStatus( hostname ) ) as PreviewStatus;
 		},
@@ -480,6 +481,12 @@ export function createIpcConnector(): Connector {
 			return await ipcApi.getRemoteSites( provider, localSiteId );
 		},
 
+		async getSiteVisibility( provider, id ) {
+			return ipcApi.getSiteVisibility( provider, id );
+		},
+		async setSiteVisibility( provider, id, value ) {
+			return ipcApi.setSiteVisibility( provider, id, value );
+		},
 		async listAccountSites( provider ) {
 			return await ipcApi.listAccountSites( provider );
 		},
@@ -488,12 +495,23 @@ export function createIpcConnector(): Connector {
 			await ipcApi.connectRemoteSite( provider, localSiteId, site );
 		},
 
+		async runSitesAction( provider, action, input ) {
+			return unwrapIpcError( ipcApi.runSitesAction( provider, action, input ) );
+		},
+
+		async resolveRemoteSite( provider, input ) {
+			return unwrapIpcError( ipcApi.resolveRemoteSite( provider, input ) );
+		},
+
 		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ): Promise< void > {
 			await ipcApi.disconnectRemoteSite( provider, localSiteId, remoteSiteId );
 		},
 
-		async createRemoteSite( provider, localSiteId, name ) {
-			return unwrapIpcError( ipcApi.createRemoteSite( provider, localSiteId, name ) );
+		async getSiteCreationVisibility( provider, input ) {
+			return unwrapIpcError( ipcApi.getSiteCreationVisibility( provider, input ) );
+		},
+		async createRemoteSite( provider, localSiteId, site, connect ) {
+			return unwrapIpcError( ipcApi.createRemoteSite( provider, localSiteId, site, connect ) );
 		},
 
 		onSyncConnectSite( listener ) {
@@ -605,6 +623,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setAiSessionProvider( sessionId, provider, model );
 		},
 
+		async setSessionThinking( sessionId, model, thinking ) {
+			await ipcApi.setAiSessionThinking( sessionId, model, thinking );
+		},
+
 		async setSessionEnvironment( sessionId, environment ) {
 			await ipcApi.setAiSessionEnvironment( sessionId, environment );
 		},
@@ -714,8 +736,17 @@ export function createIpcConnector(): Connector {
 		async startProviderConnect( provider, method ) {
 			return unwrapIpcError( ipcApi.startProviderConnect( provider, method ) );
 		},
+		async listProviderModels( provider ) {
+			return unwrapIpcError( ipcApi.listAiProviderModels( provider ) );
+		},
+		async selectProviderModels( provider, models ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.selectAiProviderModels( provider, models ) );
+		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
+		},
+		async setImageProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.setImageProvider( provider ) );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {
@@ -860,16 +891,26 @@ export function createIpcConnector(): Connector {
 			await ipcApi.openSiteURL( siteId, relativeUrl, options );
 		},
 
-		async getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] > {
-			return ( await ipcApi.getWordPressSkillsStatusAllSites() ) as SkillStatus[];
+		async getGlobalSkills() {
+			return ( await ipcApi.getGlobalSkills() ) as GlobalSkill[];
 		},
-
-		async installWordPressSkillToAllSites( skillId: string ): Promise< void > {
-			await ipcApi.installWordPressSkillsToAllSites( { skillId } );
+		async setGlobalSkillEnabled( source, id, enabled ) {
+			await unwrapIpcError( ipcApi.setGlobalSkillEnabled( source, id, enabled ) );
 		},
-
-		async removeWordPressSkillFromAllSites( skillId: string ): Promise< void > {
-			await ipcApi.removeWordPressSkillFromAllSites( skillId );
+		async removeGlobalSkill( id ) {
+			await unwrapIpcError( ipcApi.removeGlobalSkill( id ) );
+		},
+		async openGlobalSkill( source, id ) {
+			await unwrapIpcError( ipcApi.openGlobalSkill( source, id ) );
+		},
+		async createSkill( siteId, draft ) {
+			return unwrapIpcError( ipcApi.createSkill( siteId, draft ) );
+		},
+		async getSkill( siteId, id ) {
+			return unwrapIpcError( ipcApi.getSkill( siteId, id ) );
+		},
+		async updateSkill( siteId, id, draft ) {
+			return unwrapIpcError( ipcApi.updateSkill( siteId, id, draft ) );
 		},
 		async getSiteAgentFiles( siteId, kind ) {
 			return ( await ipcApi.getSiteAgentFiles( siteId, kind ) ) as SiteAgentFile[];

@@ -1,25 +1,19 @@
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { updateConfig } from '@studio/common/lib/config/store';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { bumpStat } from 'cli/lib/bump-stat';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	SiteData,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
 import { getSiteRuntimeStat, recordSiteRuntimeUsage } from '../site-runtime-stats';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
+
+let config: { sites: ConfigSite[] };
 
 vi.mock( 'cli/lib/bump-stat', () => ( { bumpStat: vi.fn() } ) );
-vi.mock( 'cli/lib/cli-config/core', () => ( {
-	lockCliConfig: vi.fn(),
-	unlockCliConfig: vi.fn(),
-	readCliConfig: vi.fn(),
-	saveCliConfig: vi.fn(),
+vi.mock( '@studio/common/lib/config/store', () => ( {
+	updateConfig: vi.fn( async ( update: ( value: typeof config ) => void ) => update( config ) ),
 } ) );
 
-const nativeAllFilesSite: SiteData = {
+const nativeAllFilesSite: ConfigSite = {
 	id: 'site-1',
 	name: 'My WordPress Site',
 	path: '/home/user/Studio/my-wordpress-site',
@@ -28,17 +22,11 @@ const nativeAllFilesSite: SiteData = {
 	phpVersion: DEFAULT_PHP_VERSION,
 } as const;
 
-let mockConfig: Awaited< ReturnType< typeof readCliConfig > >;
+const runtimeStat = () => config.sites[ 0 ].runtimeStat;
 
 beforeEach( () => {
 	vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', true );
-	mockConfig = { version: 1, sites: [], snapshots: [] };
-	vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
-	vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
-	vi.mocked( readCliConfig ).mockImplementation( async () => structuredClone( mockConfig ) );
-	vi.mocked( saveCliConfig ).mockImplementation( async ( config ) => {
-		mockConfig = structuredClone( config );
-	} );
+	config = { sites: [ { ...nativeAllFilesSite } ] };
 } );
 
 afterEach( () => {
@@ -72,34 +60,36 @@ describe( 'recordSiteRuntimeUsage', () => {
 			StatsGroup.STUDIO_CLI_RUNTIME_DAILY,
 			StatsMetric.RUNTIME_NATIVE_ALL_FILES
 		);
-		expect( mockConfig.siteRuntimeStats?.[ 'site-1' ]?.bumpedAt ).toBeTypeOf( 'number' );
-		expect( mockConfig.siteRuntimeStats?.[ 'site-1' ]?.stat ).toBe(
-			StatsMetric.RUNTIME_NATIVE_ALL_FILES
-		);
+		expect( runtimeStat() ).toEqual( {
+			bumpedAt: expect.any( Number ),
+			stat: StatsMetric.RUNTIME_NATIVE_ALL_FILES,
+		} );
 	} );
 
 	it( 'does not bump again the same day for the same runtime', async () => {
 		const today = Date.UTC( 2024, 1, 6 );
 		vi.spyOn( Date, 'now' ).mockReturnValue( today );
-		mockConfig.siteRuntimeStats = {
-			'site-1': { bumpedAt: today, stat: StatsMetric.RUNTIME_NATIVE_ALL_FILES },
+		config.sites[ 0 ].runtimeStat = {
+			bumpedAt: today + 1000,
+			stat: StatsMetric.RUNTIME_NATIVE_ALL_FILES,
 		};
 
 		await recordSiteRuntimeUsage( nativeAllFilesSite );
 
-		expect( saveCliConfig ).not.toHaveBeenCalled();
+		expect( runtimeStat()?.bumpedAt ).toBe( today + 1000 );
 		expect( bumpStat ).not.toHaveBeenCalled();
 	} );
 
 	it( 'bumps again once a new day has started', async () => {
 		vi.spyOn( Date, 'now' ).mockReturnValue( Date.UTC( 2024, 1, 7 ) );
-		mockConfig.siteRuntimeStats = {
-			'site-1': { bumpedAt: Date.UTC( 2024, 1, 6 ), stat: StatsMetric.RUNTIME_NATIVE_ALL_FILES },
+		config.sites[ 0 ].runtimeStat = {
+			bumpedAt: Date.UTC( 2024, 1, 6 ),
+			stat: StatsMetric.RUNTIME_NATIVE_ALL_FILES,
 		};
 
 		await recordSiteRuntimeUsage( nativeAllFilesSite );
 
-		expect( saveCliConfig ).toHaveBeenCalled();
+		expect( runtimeStat()?.bumpedAt ).toBe( Date.UTC( 2024, 1, 7 ) );
 		expect( bumpStat ).toHaveBeenCalledWith(
 			StatsGroup.STUDIO_CLI_RUNTIME_DAILY,
 			StatsMetric.RUNTIME_NATIVE_ALL_FILES
@@ -110,9 +100,7 @@ describe( 'recordSiteRuntimeUsage', () => {
 		const today = Date.UTC( 2024, 1, 6 );
 		vi.spyOn( Date, 'now' ).mockReturnValue( today );
 		// Counted earlier today as site directory; the site now has all-files access.
-		mockConfig.siteRuntimeStats = {
-			'site-1': { bumpedAt: today, stat: StatsMetric.RUNTIME_NATIVE_SITE_DIR },
-		};
+		config.sites[ 0 ].runtimeStat = { bumpedAt: today, stat: StatsMetric.RUNTIME_NATIVE_SITE_DIR };
 
 		await recordSiteRuntimeUsage( nativeAllFilesSite );
 
@@ -120,9 +108,7 @@ describe( 'recordSiteRuntimeUsage', () => {
 			StatsGroup.STUDIO_CLI_RUNTIME_DAILY,
 			StatsMetric.RUNTIME_NATIVE_ALL_FILES
 		);
-		expect( mockConfig.siteRuntimeStats?.[ 'site-1' ]?.stat ).toBe(
-			StatsMetric.RUNTIME_NATIVE_ALL_FILES
-		);
+		expect( runtimeStat()?.stat ).toBe( StatsMetric.RUNTIME_NATIVE_ALL_FILES );
 	} );
 
 	it( 'does nothing when CLI telemetry is disabled', async () => {
@@ -130,7 +116,7 @@ describe( 'recordSiteRuntimeUsage', () => {
 
 		await recordSiteRuntimeUsage( nativeAllFilesSite );
 
-		expect( lockCliConfig ).not.toHaveBeenCalled();
+		expect( updateConfig ).not.toHaveBeenCalled();
 		expect( bumpStat ).not.toHaveBeenCalled();
 	} );
 } );

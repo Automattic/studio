@@ -251,13 +251,23 @@ describe( 'local web server Connect contracts', () => {
 		expect( response.status ).toBe( 400 );
 	} );
 
-	it( 'delegates deletion to the CLI cascade', async () => {
+	it( 'delegates deletion to the CLI cascade and returns its warnings', async () => {
+		const warnings = [ 'The site files could not be moved to trash.' ];
+		mocks.execute.mockImplementationOnce( () => {
+			const emitter = new EventEmitter();
+			queueMicrotask( () => {
+				emitter.emit( 'data', { data: { action: 'result', value: { warnings } } } );
+				emitter.emit( 'success' );
+			} );
+			return [ emitter, {} ];
+		} );
+
 		const response = await fetch(
 			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/sites/local-a`,
 			{ method: 'DELETE' }
 		);
 
-		expect( response.status ).toBe( 204 );
+		await expect( response.json() ).resolves.toEqual( { warnings } );
 		expect( mocks.execute ).toHaveBeenCalledWith(
 			[ 'site', 'delete', '--path', '/sites/local-a', '--files' ],
 			{ output: 'capture' }

@@ -3,7 +3,8 @@
 	"compilerOptions": {
 		"module": "es2022",
 		"moduleResolution": "bundler",
-		"noEmit": true
+		"noEmit": true,
+		"types": [ "vitest/globals", "node", "vite/client" ]
 	},
 	"include": [ "**/*" ],
 	"exclude": [ "**/node_modules/**/*", "**/dist/**/*", "vitest.config.ts" ]

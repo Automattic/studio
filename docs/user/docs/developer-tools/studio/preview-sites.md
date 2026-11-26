@@ -1,120 +1,198 @@
-# Preview sites in WordPress Studio
+# Share a preview of your site
 
-With WordPress Studio, you can share your work with preview sites. Each preview is a temporary site on [WordPress.com](https://wordpress.com/?ref=dev-doc), shared through a preview link, and lets you share snapshots of your local sites with clients or team members. 
+To share your local site, create a preview. A preview is a temporary copy of your site on WordPress.com that anyone with its link can open until it expires.
 
-You can create up to ten preview sites at a time per WordPress.com account, and you can see how many you’re using in **Settings → Sharing** and **Settings → Usage** within the WordPress Studio app.
+**Applies to:** the WordPress Studio app and WordPress Studio CLI, with a WordPress.com account. Previews are hosted on WordPress.com.
 
-While preview sites are intended for sharing with clients and gathering early feedback for about a week, a hosting plan is required to make your site permanently accessible. Use [Publish](https://wordpress.studio/docs/sync/) or [Import/Export](https://wordpress.studio/docs/import-export/) to move your WordPress Studio site to a hosting plan.
+Use previews to share work with clients or team members and gather early feedback. You can have up to ten previews at a time per WordPress.com account. To make your site permanently accessible, you need a hosting plan: [make a preview your live site](https://wordpress.studio/docs/preview-sites/#make-a-preview-your-live-site), or use [Publish](https://wordpress.studio/docs/sync/) or [Import/Export](https://wordpress.studio/docs/import-export/) to move your WordPress Studio site to one.
 
-## [Create a preview site](#0-create-a-preview-site)
+## Before you start
 
-To create a preview site: 
+- A local site in WordPress Studio.
+- A WordPress.com account. Previews are hosted on WordPress.com, so you need a WordPress.com account even if your live site is somewhere else.
 
-1.  Select the local site within WordPress Studio.
-2.  Click **Share** above the site preview, next to **Publish**. You can also open the site menu and choose **Share → Create preview**, or **Share → Manage sharing** to open the panel. Once the site has previews, the **Share** submenu also has **Copy link** and **Visit preview** (**Copy links** and **Visit previews** when there are several).
-3.  [Log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom) if you haven’t already.
-4.  Under **Share a preview**, click **Create preview**. The button shows **Creating preview…** while WordPress Studio builds the preview.
+## Create a preview
 
-Your preview site should be ready to view in about a minute, and anyone with its preview link can open it for about a week. You can close the panel while you wait. A notice shows the progress while the preview is being created or updated, and changes to a confirmation with a **Copy link** button when the preview is ready.
+1.  In WordPress Studio, select the local site.
+2.  Click **Publish** at the top right of the site preview.
+3.  If the site already has a website or a preview, click **Publish somewhere else**.
+4.  Under **Destination**, choose **WordPress.com**, and leave **Who can view** on **Anyone with the link**.
+5.  Click **Create preview**. If you aren’t logged in, the button says **Connect to share previews**: click it and [log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom) first.
 
-The **Share** panel lists the site’s previews, newest first. Each one shows its name and when it expires. Click a preview’s name to open it in your browser. When you open your own preview this way, WordPress Studio signs you in to it with your WordPress.com account; the link you copy for other people doesn’t. Open its **Preview actions** (**⋯**) menu to:
+![The Publish panel in WordPress Studio for a site with nothing published yet: Destination set to WordPress.com, Who can view set to Anyone with the link, and the Launch on WordPress.com and Create preview buttons.](../../../screenshots/images/publish-setup.webp)
 
--   **Update** the preview with your latest local changes.
--   **Copy link** to the preview.
--   **Visit preview** in your browser.
--   **Rename** the preview.
--   **Delete preview**.
+The button shows **Creating preview** while WordPress Studio builds the preview. Your preview should be ready in about a minute. You can close the panel while you wait: a **Creating preview link…** notification shows the progress, and when the preview is ready, it changes to **Preview link ready** with a **Copy link** button. Anyone with the preview link can open the preview until it expires.
 
-To create another preview of the same site, click **Create another preview** below the list.
+You can also start from the site menu: choose **Share → Create preview**. Once the site has previews, the **Share** submenu also has **Copy links** and **Visit previews**, which list the site’s previews by name.
 
-Previews created with an earlier version of WordPress Studio, on a `wp.build` address, keep working until they expire. The first time you update one, WordPress Studio moves it to WordPress.com and its link changes, so share the new link. Previews of your sites that you created elsewhere with the same account, for example on another computer, are listed too.
+### Find a preview
 
-WordPress Studio can’t create or update a preview when:
+When a site has more than one preview or website, the **Publish** panel opens on **Choose a site**, which lists the site’s websites and then its previews by name. When it has just one, the panel opens on its details.
 
--   You’ve used all the preview sites available on your account. Delete a preview to make room. You can still copy and update your existing previews.
--   Preview sites aren’t available for your account.
--   You’re offline. Connect to the internet to create or update a preview.
--   The files WordPress Studio would upload are larger than 2 GB. Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](#4-exclude-files-with-deployignore).
--   Another operation is running on the site. Wait for it to finish before creating or updating a preview.
+![The Choose a site list of the WordPress Studio Publish panel, with two previews, Autumn lookbook and Preview 1, and their addresses, then Publish somewhere else and Connect to an existing site.](../../../screenshots/images/publish-chooser.webp)
 
-![The Share tab of the Share and publish panel in WordPress Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](../../../screenshots/images/share-previews.webp)
+Click a preview to open **Preview details**:
 
-## [Rename a preview site](#1-rename-a-preview-site)
+-   Click the preview’s address to open it in your browser, the way visitors see it.
+-   **Update…** brings the preview up to date with your local site. See [Update a preview](https://wordpress.studio/docs/preview-sites/#update-a-preview).
+-   **Expires** shows when the preview expires.
+-   The **Preview actions** (**⋯**) menu has **Copy link** and **Delete preview…**, and **Pull from preview…** when you can [pull from the preview](https://wordpress.studio/docs/preview-sites/#pull-changes-from-a-preview).
 
-You can create multiple preview sites per WordPress Studio site. To differentiate between them you can rename them inside WordPress Studio. To do so follow these steps:
+![Preview details in the WordPress Studio Publish panel for the Autumn lookbook preview: its address with a Preview actions menu, Anyone with the link, the Update… button, and Expires Nov 30.](../../../screenshots/images/preview-details.webp)
 
-1.  Select the local site within WordPress Studio, and click **Share**.
-2.  Open the **Preview actions** (**⋯**) menu next to the preview you want to rename, and choose **Rename**.
+Previews of your sites that you created elsewhere with the same WordPress.com account, for example on another computer, are listed in **Settings → Sharing**.
+
+## Update a preview
+
+A preview is a one-time snapshot of your local site. To bring a preview up to date with your local changes, update it. Updating also resets the preview’s expiration date.
+
+1.  In WordPress Studio, select the local site.
+2.  Click **Publish**, and click the preview if the panel lists several.
+3.  Click **Update…**.
+
+If someone edited the preview, for example in its WordPress admin, or WordPress Studio can’t tell, it asks **Replace preview changes?** or **Replace preview contents?** first. Click **Replace preview** to replace them with your local site. To keep those edits, [pull them](https://wordpress.studio/docs/preview-sites/#pull-changes-from-a-preview) first. **Preview details** shows **Preview has changes** when the preview was edited, and **Local and preview changes** when both changed.
+
+The preview is updated with your local changes in about a minute. While it updates, a notification shows the progress.
+
+Previews created with an earlier version of WordPress Studio, on a `wp.build` address, keep working until they expire. When you update one, WordPress Studio makes a new preview on WordPress.com with a new preview link. Share the new preview link, because the old preview expires on its own.
+
+## Pull changes from a preview
+
+When people edit a preview, for example to add content, you can bring their changes into your local site.
+
+1.  Open the preview’s **Preview details**.
+2.  Click **Pull from preview…**, or choose it from the **Preview actions** (**⋯**) menu.
+3.  In **Update local site from** the preview, click **Replace local site**.
+
+This replaces your local site with the preview, and any local changes are lost. **Pull from preview…** appears only when your account can pull from that preview.
+
+## Preview expiration
+
+Previews are temporary, for short-term feedback and review. A preview expires if it goes without an update for a while. WordPress.com sets the expiry date, and **Preview details** shows it under the buttons. When WordPress Studio has no expiry date from WordPress.com, for example for a preview on a `wp.build` address made by an earlier version of WordPress Studio, it shows an expiry one week after the preview’s last update.
+
+Expired previews no longer appear in the **Publish** panel. To see them:
+
+1.  Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**.
+2.  Select the **Sharing** page.
+3.  Click **Show expired previews (N)**, where N is the number of expired previews.
+
+Expired previews are listed under **Expired previews**. To remove one from the list, click **Remove expired preview** next to it. To share the site again, [create a new preview](https://wordpress.studio/docs/preview-sites/#create-a-preview).
+
+## Rename a preview
+
+You can create more than one preview of a WordPress Studio site. Rename previews to tell them apart.
+
+1.  Open **Settings** and select the **Sharing** page.
+2.  Next to the preview, click **Rename preview**.
 3.  In the **Rename preview** dialog, enter a new name.
 4.  Click **Save**.
 
-![The Preview actions menu open next to a preview in WordPress Studio's Share panel, with Update, Copy link, Visit preview, Rename, and Delete preview.](../../../screenshots/images/share-preview-actions.webp)
+The preview shows the new name in WordPress Studio. Its name on WordPress.com stays the same.
 
-Your preview site will display that name in WordPress Studio, while your remote preview site name will remain unchanged.
+## Delete a preview
 
-You can also rename any of your previews in **Settings → Sharing**.
+Deleting a preview deletes its copy of your site, and its preview link stops working.
 
-## [Delete a preview site](#2-delete-a-preview-site)
+1.  In WordPress Studio, select the local site.
+2.  Click **Publish**, and click the preview if the panel lists several.
+3.  Open the **Preview actions** (**⋯**) menu.
+4.  Choose **Delete preview…**.
+5.  In the **Delete preview?** dialog, click **Delete preview**.
 
-To delete a preview site: 
+![The Preview actions menu open in Preview details in the WordPress Studio Publish panel, with Copy link and Delete preview….](../../../screenshots/images/preview-actions.webp)
 
-1.  Select the local site within WordPress Studio, and click **Share**.
-2.  Open the **Preview actions** (**⋯**) menu next to the preview you want to delete, and choose **Delete preview**.
-3.  In the **Delete preview?** dialog, click **Delete preview** to confirm.
+You can also delete any of your previews in **Settings → Sharing**.
 
-Your preview site will be deleted, and its shared link will stop working. You can also delete any of your previews in **Settings → Sharing**.
+## Manage all your previews
 
-## [Update your preview site](#3-update-your-preview-site)
+**Settings → Sharing** lists the live previews of all your sites under **Live previews**, and how many of your previews you’ve used. For each preview, you can click its address to open it and see when it expires. You can also **Copy link**, **Rename preview**, or **Delete preview**. If you don’t have any live previews, the page shows **Share a preview of your site** instead.
 
-By design, preview sites are generated as one-time “snapshots” of your work. That said, you may synchronize local site changes with your preview site: 
-
-1.  Select the local site within WordPress Studio, and click **Share**.
-2.  Open the **Preview actions** (**⋯**) menu next to the preview you want to update, and choose **Update**.
-
-Your preview site will be updated with the local changes in about a minute. While it updates, a notice shows the progress. This will also reset the preview site’s expiration date.
-
-## [Exclude files with .deployignore](#4-exclude-files-with-deployignore)
-
-When creating or updating a preview site, WordPress Studio uploads the contents of your site’s `wp-content` directory. If your site contains files you don’t want included — such as build artifacts, vendor dependencies, or large media folders — you can create a `.deployignore` file at the root of your site directory to exclude them.
-
-The `.deployignore` file uses the same pattern syntax as `.gitignore`. For example:
-
-\# Exclude vendor dependencies
-wp-content/plugins/my-plugin/vendor
-
-# Exclude all log files
-\*.log
-
-# Exclude old uploads
-wp-content/uploads/2024
-
-# Exclude a specific plugin
-wp-content/plugins/wordpress-seo
-
-You can also use negation patterns to re-include specific items:
-
-\# Exclude vendor, but keep important-lib
-wp-content/plugins/my-plugin/vendor/\*
-!wp-content/plugins/my-plugin/vendor/important-lib
-
-Note: Patterns are relative to the site root directory, not to `wp-content`. The following directories are excluded by default, even without a `.deployignore` file: `.git`, `node_modules`, `.DS_Store`, and `Thumbs.db`. WordPress Studio also leaves out themes that aren’t active (except the parent of the active theme), since they don’t change what the preview shows, and the plugins that WordPress.com provides on every site.
-
-## [Preview site expiration](#5-preview-site-expiration)
-
-Preview sites are temporary, and each preview site will be **automatically deleted about a week after its last update**. The **Share** panel shows the date each preview expires. This feature ensures that preview environments are used for short-term feedback and review purposes.
-
-Expired previews no longer appear in the **Share** panel. To see them, open **Settings → Sharing** and click **Show expired previews (N)**, where N is the number of expired previews. They’re listed under **Expired previews**. Click **Remove expired preview** next to one to remove it from the list. To share the site again, create a new preview from the **Share** panel.
-
-## [Manage all your preview sites](#manage-all-preview-sites)
-
-**Settings → Sharing** lists the live previews of all your sites under **Live previews**, and how many of your preview sites you’ve used. For each preview, you can click its address to open it, see when it expires, and **Copy link**, **Rename preview**, or **Delete preview**. If you don’t have any live previews, the page shows **Share a preview of your site** instead.
+To check how many previews you’re using, open **Settings → Sharing** or **Settings → Usage**.
 
 ![The Sharing page of WordPress Studio's Settings, showing Sharing previews on WordPress.com, the number of active preview sites under Usage, and the Share a preview of your site prompt.](../../../screenshots/images/settings-sharing.webp)
 
-## [Delete all preview sites](#7-delete-all-preview-sites)
+## Delete all previews
 
-To quickly delete all of your preview sites within WordPress Studio:
+To delete all of your previews at once, use the **Usage** page in **Settings**.
 
-1.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux).
-2.  Select the **Usage** page. You can also open it by choosing **Usage** from the account menu. Under **Usage**, WordPress Studio shows how many active preview sites you have, for example “3 of 10 active preview sites”.
-3.  Open the **Preview site actions** (**⋯**) menu, click **Delete all preview sites**, and confirm.
+1.  Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**.
+2.  Select the **Usage** page.
+3.  Open the **Preview site actions** (**⋯**) menu.
+4.  Click **Delete all preview sites**.
+5.  Confirm.
+
+You can also open **Settings** from the account menu at the bottom of the sidebar, or go straight to the **Usage** page by choosing **Usage** from the account menu. Under **Usage**, WordPress Studio shows how many active previews you have, for example “3 of 10 active preview sites”.
+
+## Preview changes to a live site
+
+When your local site is connected to a production WordPress.com site on a paid plan, its previews can show the changes you plan to publish to that live site. Share the preview so others can review the changes before you publish them.
+
+This needs a local site that’s [connected](https://wordpress.studio/docs/sync/) to a production WordPress.com site on a paid plan. Staging sites and Pressable sites can’t be used for previews of changes.
+
+1.  In WordPress Studio, select the local site.
+2.  [Create a preview](https://wordpress.studio/docs/preview-sites/#create-a-preview).
+3.  If the local site is connected to more than one production WordPress.com site on a paid plan, the **Live site** dialog asks which one the preview shows changes to. Choose one, and click **Create preview**.
+
+When the local site is connected to only one production WordPress.com site on a paid plan, new previews show changes to that site, so there’s nothing to choose. To create a preview that isn’t tied to a live site, choose **None** under **Live site**.
+
+In **Preview details**, a preview of changes to a live site shows **Changes to** and the live site’s name. Click it to open that site’s details. Updating the preview keeps the live site it already shows.
+
+To put the changes on the live site, [publish the local site to it](https://wordpress.studio/docs/sync/#publish-a-wordpress-studio-site-to-a-wordpresscom-site). If the local site has changed since the preview was last updated, WordPress Studio warns you that publishing will also send changes the preview didn’t show.
+
+From the command-line interface (CLI), `studio preview create` and `studio preview update` take `--live-site` with a connected site’s ID, or `none`.
+
+## Make a preview your live site
+
+To keep a preview, buy a WordPress.com plan for it. The preview becomes a WordPress.com site, and WordPress Studio connects it to the local site it was made from.
+
+1.  Open the preview’s **Preview details**.
+2.  Click **Launch on WordPress.com**, or set **Who can view** to **Everyone** and click **Continue on WordPress.com**.
+3.  Choose a plan and complete the checkout in your browser.
+
+The new WordPress.com site then appears in the local site’s **Publish** panel, and the local site’s next previews show changes to it. A preview of changes to a live site can’t be made live, and these choices only appear when WordPress.com offers a plan for the preview.
+
+In the CLI, `studio preview launch <host>` opens the checkout for a preview, and `studio preview create` and `studio preview update` print a **Make it your live site** link.
+
+## Troubleshooting
+
+### Why can’t I create or update a preview?
+
+WordPress Studio can’t create or update a preview when one of these is true:
+
+- **You’ve used all the previews available on your account.** WordPress Studio shows **Preview limit reached**. Click **Open settings** and delete a preview in **Settings → Sharing** to make room. You can still copy and update your existing previews.
+- **Previews aren’t available for your account.**
+- **You’re offline.** Connect to the internet to create or update a preview.
+- **The files WordPress Studio would upload are larger than 2 GB (gigabytes).** Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](https://wordpress.studio/docs/deployignore/).
+- **Another operation is running on the site.** Wait for it to finish, then create or update the preview.
+
+### Why don’t my theme file edits show in the preview?
+
+WordPress.com uses its own copy of the default WordPress themes, such as Twenty Twenty-Five. Changes you make to a default theme’s files, for example `parts/footer.html`, don’t show in a preview.
+
+When the active theme is a default theme with edited files, the notice that the preview is ready warns “Theme file edits won’t show.” The preview is still created or updated. To see the changes in previews, make them in the Site Editor or in a child theme. The Site Editor is where you change your site’s design in WordPress. A child theme is a theme that builds on another theme.
+
+### Why did my preview link change after I updated a preview?
+
+The preview was created with an earlier version of WordPress Studio, on a `wp.build` address. Updating it makes a new preview on WordPress.com with a new preview link. Share the new preview link. The old preview keeps working until it expires.
+
+### Why is a preview missing from the Publish panel?
+
+The preview has probably expired, or it was made on another computer: the **Publish** panel lists only the previews of the selected local site. A preview expires if it goes without an update for a while. See [Preview expiration](https://wordpress.studio/docs/preview-sites/#preview-expiration). To see expired previews, open **Settings → Sharing** and click **Show expired previews (N)**.
+
+### Why doesn’t my preview show changes to my live site?
+
+Check these:
+
+- **The live site isn’t a production WordPress.com site on a paid plan.** Staging sites and Pressable sites can’t be used for previews of changes.
+- **The local site isn’t connected to the live site.** [Connect it](https://wordpress.studio/docs/sync/) first.
+- **The preview was created with Live site set to None, or for another live site.** Updating a preview keeps the live site it already shows. Create a new preview and choose the live site under **Live site**.
+
+### Why does WordPress Studio warn me before I publish a previewed site?
+
+The local site has changed since the preview was last updated, so publishing would also send changes the preview didn’t show. Update the preview and review it again before you publish.
+
+## Related
+
+- [Exclude files from a preview with .deployignore](https://wordpress.studio/docs/deployignore/)
+- [Publish](https://wordpress.studio/docs/sync/)
+- [Import/Export](https://wordpress.studio/docs/import-export/)

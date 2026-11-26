@@ -1,7 +1,7 @@
 import { fork } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
-import { updateSharedSession } from '@studio/common/lib/shared-config';
+import { updateSessionMetadata } from '@studio/common/lib/session-metadata';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgentRunManager } from '@studio/agent/node/run-manager';
 
@@ -18,8 +18,8 @@ vi.mock( '@studio/agent/node/sessions/placement', () => ( {
 	setAiSessionSitePlacement: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/error-reporting', () => ( { captureException: vi.fn() } ) );
-vi.mock( '@studio/common/lib/shared-config', () => ( {
-	updateSharedSession: vi.fn().mockResolvedValue( undefined ),
+vi.mock( '@studio/common/lib/session-metadata', () => ( {
+	updateSessionMetadata: vi.fn().mockResolvedValue( undefined ),
 } ) );
 
 const mockFork = vi.mocked( fork );
@@ -130,7 +130,7 @@ describe( 'createAgentRunManager active runs', () => {
 				} )
 			)
 		);
-		expect( updateSharedSession ).toHaveBeenCalledWith( 'session-1', { unread: true } );
+		expect( updateSessionMetadata ).toHaveBeenCalledWith( 'session-1', { unread: true } );
 	} );
 } );
 

@@ -113,8 +113,8 @@ lane :generate_pot_file do |commit_message: nil, skip_confirm: false|
   output = sh(
     { 'BROWSERSLIST' => 'current node' },
     'npx', 'wp-babel-makepot',
-    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common,packages/blueprints}/**/*.{js,jsx,ts,tsx}",
-    '--ignore', "#{PROJECT_ROOT_FOLDER}/apps/cli/node_modules/**/*,**/*.d.ts",
+    "#{PROJECT_ROOT_FOLDER}/{apps/studio/src,apps/cli,apps/ui/src,packages/common,packages/blueprints,packages/providers,packages/agent,packages/ds}/**/*.{js,jsx,ts,tsx}",
+    '--ignore', '**/node_modules/**/*,**/*.d.ts',
     '--base', PROJECT_ROOT_FOLDER,
     '--dir', pot_dir,
     '--output', POT_FILE_PATH
@@ -331,7 +331,6 @@ end
 # - Creates a `release/<version>` branch from trunk
 # - Extracts translatable strings and commits them to the release branch (for GlotPress import)
 # - Generates draft release notes from merged PRs and commits them to the release branch
-# - Copies trunk's branch protection settings onto the release branch
 # - Creates a backmerge PR from the release branch to trunk (so wpcom cron can import strings to GlotPress)
 #
 # The first beta is triggered separately via {new_beta_release}.
@@ -348,7 +347,6 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
     - Create a new `#{branch_name}` branch from `#{MAIN_BRANCH}`
     - Extract translatable strings and commit to `#{branch_name}`
     - Generate draft release notes from merged PRs
-    - Protect `#{branch_name}` with the same settings as `#{MAIN_BRANCH}`
     - Create a backmerge PR from `#{branch_name}` to `#{MAIN_BRANCH}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
@@ -373,13 +371,6 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   )
 
   push_to_git_remote(set_upstream: true)
-
-  # Copy GitHub branch protection settings (CI required checks etc) from `trunk` on the new `release/*` branch.
-  copy_branch_protection(
-    repository: GITHUB_REPO,
-    from_branch: MAIN_BRANCH,
-    to_branch: branch_name
-  )
 
   # Create backmerge PR so that the .pot strings file reaches trunk for GlotPress import
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
@@ -485,7 +476,7 @@ end
 #
 # - Publishes the draft GitHub release created by {distribute_release_build}
 # - Creates a backmerge PR from the release branch to trunk (with intermediate branch for conflicts)
-# - Unprotects and deletes the release branch
+# - Deletes the release branch
 #
 # @param version [String] The version to publish (e.g., '1.7.4')
 # @param skip_confirm [Boolean] Skip interactive confirmation prompts (default: false)
@@ -501,7 +492,7 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
     - Make CDN builds public (change visibility from Internal to External)
     - Publish the draft GitHub release for v#{version}
     - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
-    - Remove the branch protection from `#{release_branch}` and delete it
+    - Delete `#{release_branch}`
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -519,9 +510,6 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
 
   create_backmerge_pr(source_branch: release_branch, github_username: github_username)
 
-  # The release is out, so the release branch is no longer necessary. Remove the branch protection
-  # to delete the release branch.
-  remove_branch_protection(repository: GITHUB_REPO, branch: release_branch)
   Fastlane::Helper::GitHelper.delete_remote_branch_if_exists!(release_branch)
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
   Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(release_branch)
@@ -545,18 +533,15 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   match_data = version.match(/^(\d+\.\d+)/)
   UI.user_error!("Invalid version '#{version}'. Expected format like '1.7.5' so that a 'major.minor' (e.g., '1.7') can be extracted.") if match_data.nil?
   short_version = match_data[1]
-  previous_tag = find_previous_tag(pattern: "v#{short_version}.*")
 
-  # Determine the base for the hotfix branch: either a tag or a release branch
-  previous_release_branch = "release/#{short_version}"
-  base_ref = if previous_tag && !StudioReleaseVersion.prerelease?(previous_tag)
-               previous_tag
-             elsif Fastlane::Helper::GitHelper.branch_exists_on_remote?(branch_name: previous_release_branch)
-               UI.message("Tag for version '#{short_version}' not found. Using release branch '#{previous_release_branch}' as the base for the hotfix.")
-               previous_release_branch
-             else
-               UI.user_error!("Neither a tag for version '#{short_version}' nor branch '#{previous_release_branch}' exists on the remote. A hotfix branch cannot be created.")
-             end
+  # Release tags sit on release branches, which are squash-merged into trunk and deleted, so
+  # list the tags rather than describing them from trunk's history.
+  sh('git', 'fetch', '--tags', '--force')
+  base_ref = sh('git', 'tag', '--list', "v#{short_version}.*", '--sort=-v:refname', log: false)
+             .split("\n")
+             .reject { |tag| StudioReleaseVersion.prerelease?(tag) }
+             .first
+  UI.user_error!("No release tag matching 'v#{short_version}.*' exists. A hotfix branch cannot be created.") if base_ref.nil?
 
   UI.important <<~PROMPT
     Creating hotfix release #{version}. This will:
@@ -572,7 +557,8 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
 
-# Download Studio UI translations from GlotPress (Jed 1.x JSON) into packages/common/translations/.
+# Download Studio UI translations from GlotPress (Jed 1.x JSON) into packages/common/translations/,
+# then merge in the AI translations of the strings GlotPress doesn't translate (GlotPress wins).
 # Discovers locales from existing files in TRANSLATIONS_DIR (e.g. studio-es.jed.json → "es").
 #
 lane :fetch_glotpress_translations do
@@ -593,6 +579,8 @@ lane :fetch_glotpress_translations do
   end
 
   UI.success("Downloaded translations for #{locales.length} locales")
+
+  sh('node', File.join(PROJECT_ROOT_FOLDER, 'scripts', 'ai-translations', 'index.mjs'), 'merge')
 end
 
 ########################################################################
@@ -1264,7 +1252,9 @@ def bump_version_commit_and_push(version:, set_upstream: false)
   git_add(path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'])
   git_commit(
     path: ['apps/studio/package.json', 'apps/cli/package.json', 'package-lock.json'],
-    message: "[skip ci] Bump version to #{version}"
+    message: "[skip ci] Bump version to #{version}",
+    # A hotfix branch already has its final version when finalize_release runs
+    allow_nothing_to_commit: true
   )
   if DRY_RUN
     UI.message("[DRY RUN] Would push current branch to origin (set_upstream: #{set_upstream})")
@@ -1280,8 +1270,8 @@ end
 
 # Set the version in apps/studio/package.json and apps/cli/package.json (and update root package-lock.json via npm workspaces)
 def set_package_json_version(version:)
-  sh('npm', 'version', version, '--no-git-tag-version', '-w', 'studio-app', '--prefix', PROJECT_ROOT_FOLDER)
-  sh('npm', 'version', version, '--no-git-tag-version', '-w', 'wp-studio', '--prefix', PROJECT_ROOT_FOLDER)
+  sh('npm', 'version', version, '--no-git-tag-version', '--allow-same-version', '-w', 'studio-app', '--prefix', PROJECT_ROOT_FOLDER)
+  sh('npm', 'version', version, '--no-git-tag-version', '--allow-same-version', '-w', 'wp-studio', '--prefix', PROJECT_ROOT_FOLDER)
 end
 
 # Extract release notes for a specific version from RELEASE-NOTES.txt

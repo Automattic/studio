@@ -17,7 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	type CliEnv,
@@ -71,7 +71,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site email', () => {
 		env = setupCliEnv();
 		sitePath = path.join( env.sitesDir, 'email-e2e-site' );
 		await createSite( 'Email E2E Site', sitePath );
-		const site = readCliConfig( env ).sites.find( ( s ) => s.path === sitePath );
+		const site = readConfigFile( env ).sites.find( ( s ) => s.path === sitePath );
 		siteUrl = `http://localhost:${ String( site?.port ) }`;
 	}, 300_000 );
 

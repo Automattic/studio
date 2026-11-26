@@ -84,6 +84,11 @@
 	gap: var( --space-1 );
 }
 
+.rowTitle[data-wrap] {
+	flex-wrap: wrap;
+	row-gap: var( --space-0_5 );
+}
+
 .linkButton {
 	opacity: 0;
 }
@@ -153,7 +158,7 @@
 }
 
 .pathPickerValue {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	min-width: 0;
 }
 
@@ -272,7 +277,7 @@
 }
 
 .previewLink {
-	composes: truncate from '@/lib/theme/recipes.module.css';
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
 	max-width: 100%;
 	color: var( --accent-text );
 	text-align: start;
@@ -328,15 +333,18 @@
 	gap: var( --space-1 );
 }
 
-/* A provider's connect form, under its row and lined up with the row's text rather than its logo. */
-.connectForm {
+/* A provider's connect form or models, under its row and lined up with the row's text rather
+   than its logo. */
+.connectForm,
+.providerModels {
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-4 );
 	padding-inline-start: calc( var( --settings-row-icon-size ) + var( --settings-row-icon-gap ) );
 }
 
-.connectForm + [data-settings-row] {
+.connectForm + [data-settings-row],
+.providerModels + [data-settings-row] {
 	margin-block-start: var( --space-4 );
 	border-top: 1px solid var( --border );
 }

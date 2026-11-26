@@ -4,6 +4,23 @@ import {
 } from '@studio/agent/protocol/sessions/model';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+	AttachmentChip,
+	AttachmentRemoveButton,
+	Button,
+	DropOverlay,
+	Field,
+	FieldDescription,
+	FieldError,
+	FieldLabel,
+	IconButton,
+	InputGroup,
+	InputGroupTextarea,
+} from '@studio/ds';
+import { PaperclipIcon } from '@studio/ds/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
@@ -25,23 +42,6 @@ import {
 	saveComposerDraft,
 	useComposerNotice,
 } from '@/features/composer';
-import { PaperclipIcon } from '@/lib/icons';
-import {
-	Alert,
-	AlertDescription,
-	AlertTitle,
-	AttachmentChip,
-	AttachmentRemoveButton,
-	Button,
-	DropOverlay,
-	Field,
-	FieldDescription,
-	FieldError,
-	FieldLabel,
-	IconButton,
-	InputGroup,
-	InputGroupTextarea,
-} from '@/lib/ui';
 import { useAddSite } from './context';
 import styles from './style.module.css';
 import type { SetupBrief } from './context';
@@ -78,6 +78,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const providerConnected = !! settings?.accounts[ provider ].connected;
 	const model = resolveSessionModelForProvider( [], provider, {
 		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
+		account: settings?.accounts[ provider ],
 	} );
 	const openSite = ( siteId: string ) =>
 		navigate( { to: '/sites/$siteId/new', params: { siteId } } );

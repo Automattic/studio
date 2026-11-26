@@ -34,7 +34,7 @@ export function orderChats< T extends { id: string } >( chats: T[], order: strin
 export const sitePinKey = ( siteId: string ) => `site:${ siteId }`;
 export const chatPinKey = ( sessionId: string ) => `chat:${ sessionId }`;
 
-// The sidebar's preferences, kept in app.json so both Studio apps share them.
+// The sidebar's preferences, kept in the config file so both Studio apps share them.
 export function useSidebarPreferences() {
 	const { mutate } = useSaveUserPreferences();
 	const preferences = useUserPreferences().data;

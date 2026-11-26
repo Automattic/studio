@@ -1,6 +1,8 @@
 # SSL in WordPress Studio
 
-WordPress Studio includes support for HTTPS, allowing you to create sites with secure connections that more closely resemble production environments. This feature makes your local development experience more realistic and helps identify potential issues that might only occur with HTTPS.
+WordPress Studio includes support for HTTPS, allowing you to create sites with secure connections that more closely resemble production environments.
+
+HTTPS support makes your local development experience more realistic and helps identify potential issues that might only occur with HTTPS.
 
 ## [Overview](#0-overview)
 
@@ -55,7 +57,7 @@ On macOS, you need to manually trust the CA. To do this, find the certificate fi
 ![A screenshot depicting the Keychain Access application on a Mac and the WordPress Studio CA certificate.](../../../screenshots/images/ssl-keychain.webp)
 
 4.  Double-click the certificate and expand the **Trust** section.
-5.  Set “**Secure Sockets Layer(SSL)**” to *“***Always Trust**.” You can leave all other settings the same.
+5.  Set **Secure Sockets Layer (SSL)** to **Always Trust**. You can leave all other settings the same.
 
 ![A screenshot depicting the Keychain Access application on a Mac and how to set the SSL setting to "Always Trust" on the WordPress Studio CA certificate.](../../../screenshots/images/ssl-certificate-always-trust.webp)
 

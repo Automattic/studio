@@ -1,0 +1,1793 @@
+{
+	"$10 of AI credits every month": [
+		"ИИ-кредиты на $10 каждый месяц"
+	],
+	"$30 of AI credits every month": [
+		"ИИ-кредиты на $30 каждый месяц"
+	],
+	"%1$d of %2$d site": [
+		"Сайты: %1$d из %2$d",
+		"Сайты: %1$d из %2$d",
+		"Сайты: %1$d из %2$d"
+	],
+	"%1$d of %2$d site running at once": [
+		"Одновременно запущено сайтов: %1$d из %2$d",
+		"Одновременно запущено сайтов: %1$d из %2$d",
+		"Одновременно запущено сайтов: %1$d из %2$d"
+	],
+	"%1$s +%2$d": [
+		"%1$s +%2$d"
+	],
+	"%1$s / %2$s per million tokens": [
+		"%1$s / %2$s за миллион токенов"
+	],
+	"%1$s GB of %2$s GB of storage used": [
+		"Использовано %1$s ГБ из %2$s ГБ хранилища"
+	],
+	"%1$s and %2$d other": [
+		"%1$s и ещё %2$d",
+		"%1$s и ещё %2$d",
+		"%1$s и ещё %2$d"
+	],
+	"%1$s couldn’t install the WordPress Studio plugin: %2$s": [
+		"%1$s не удалось установить плагин WordPress Studio: %2$s"
+	],
+	"%1$s couldn’t update the WordPress Studio plugin: %2$s": [
+		"%1$s не удалось обновить плагин WordPress Studio: %2$s"
+	],
+	"%1$s · %2$s context": [
+		"%1$s · контекст %2$s"
+	],
+	"%1$s, %2$s, and %3$s": [
+		"%1$s, %2$s и %3$s"
+	],
+	"%d image": [
+		"%d изображение",
+		"%d изображения",
+		"%d изображений"
+	],
+	"%d model": [
+		"%d модель",
+		"%d модели",
+		"%d моделей"
+	],
+	"%s (optional, saved for future use):": [
+		"%s (необязательно, сохраняется для дальнейшего использования):"
+	],
+	"%s billed yearly": [
+		"%s при оплате за год"
+	],
+	"%s connection": [
+		"Подключение %s"
+	],
+	"%s is no longer installed. Choose another browser in Settings.": [
+		"%s больше не установлен. Выберите другой браузер в настройках."
+	],
+	"%s isn’t installed on this computer.": [
+		"%s не установлен на этом компьютере."
+	],
+	"%s models": [
+		"Модели %s"
+	],
+	"%s only makes previews.": [
+		"%s создаёт только предварительные просмотры."
+	],
+	"%s preview is ready": [
+		"Предварительный просмотр %s готов"
+	],
+	"%s · Live site": [
+		"%s · Рабочий сайт"
+	],
+	"%s · Local changes": [
+		"%s · Локальные изменения"
+	],
+	"30 GB of storage": [
+		"30 ГБ хранилища"
+	],
+	"6 GB of storage": [
+		"6 ГБ хранилища"
+	],
+	"A code editor with a built-in AI agent.": [
+		"Редактор кода со встроенным ИИ-агентом."
+	],
+	"A static copy of your pages.": [
+		"Статическая копия ваших страниц."
+	],
+	"AI apps": [
+		"ИИ-приложения"
+	],
+	"Access unknown": [
+		"Доступ неизвестен"
+	],
+	"Activate all plugins": [
+		"Активировать все плагины"
+	],
+	"Activate plugin": [
+		"Активировать плагин"
+	],
+	"Add annotation to batch": [
+		"Добавить аннотацию в пакет"
+	],
+	"Add or delete this annotation before starting another.": [
+		"Добавьте или удалите эту аннотацию, прежде чем начинать новую."
+	],
+	"Address to listen on": [
+		"Адрес для прослушивания"
+	],
+	"Agents": [
+		"Агенты"
+	],
+	"All but %s": [
+		"Всё, кроме: %s"
+	],
+	"All models": [
+		"Все модели"
+	],
+	"Allow WordPress Studio to use your ChatGPT plan when signing in.": [
+		"При входе разрешите WordPress Studio использовать ваш тарифный план ChatGPT."
+	],
+	"Alt": [
+		"Alt"
+	],
+	"Another operation is in progress.": [
+		"Выполняется другая операция."
+	],
+	"Answers right away, fastest": [
+		"Отвечает сразу, быстрее всего"
+	],
+	"Anthropic API key": [
+		"API-ключ Anthropic"
+	],
+	"Anthropic rejected this API key. Check the key and try again.": [
+		"Anthropic отклонил этот API-ключ. Проверьте ключ и повторите попытку."
+	],
+	"Anthropic rejected this token. Run claude setup-token again.": [
+		"Anthropic отклонил этот токен. Выполните claude setup-token ещё раз."
+	],
+	"Anyone can view your site": [
+		"Ваш сайт может просматривать кто угодно"
+	],
+	"Anyone with the link": [
+		"Все, у кого есть ссылка"
+	],
+	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
+		"Все, у кого есть ссылка, потеряют доступ, и это действие нельзя отменить. Ваш локальный WordPress не изменится."
+	],
+	"Ask user": [
+		"Спросить пользователя"
+	],
+	"Automatic sidebar collapsing disabled.": [
+		"Автоматическое сворачивание боковой панели отключено."
+	],
+	"Automatic sidebar collapsing enabled.": [
+		"Автоматическое сворачивание боковой панели включено."
+	],
+	"Back to email list": [
+		"Назад к списку писем"
+	],
+	"Billed monthly, renews on %s": [
+		"Ежемесячная оплата, продление %s"
+	],
+	"Billed yearly, renews on %s": [
+		"Ежегодная оплата, продление %s"
+	],
+	"Billing period": [
+		"Период оплаты"
+	],
+	"Birdland": [
+		"Birdland"
+	],
+	"Blue Note": [
+		"Blue Note"
+	],
+	"Blue Train": [
+		"Blue Train"
+	],
+	"Blue in Green": [
+		"Blue in Green"
+	],
+	"Blueprint file…": [
+		"Файл Blueprint…"
+	],
+	"Blueprint loaded": [
+		"Blueprint загружен"
+	],
+	"Blueprint preview": [
+		"Предварительный просмотр Blueprint"
+	],
+	"Browser could not load.": [
+		"Не удалось загрузить браузер."
+	],
+	"Browser options": [
+		"Параметры браузера"
+	],
+	"Browsing data cleared": [
+		"Данные браузера очищены"
+	],
+	"Can’t see screenshots": [
+		"Не видит снимки экрана"
+	],
+	"Cc": [
+		"Копия"
+	],
+	"Changes on %s will be replaced with your local files and database.": [
+		"Изменения на %s будут заменены вашими локальными файлами и базой данных."
+	],
+	"Changes published": [
+		"Изменения опубликованы"
+	],
+	"Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.": [
+		"Изменения отправлены, но сайт не удалось запустить. Проверьте тарифный план и права доступа, а затем опубликуйте сайт ещё раз, чтобы повторить запуск."
+	],
+	"Changes pushed, but the site could not be launched. Publish again to retry launching.": [
+		"Изменения отправлены, но сайт не удалось запустить. Опубликуйте сайт ещё раз, чтобы повторить запуск."
+	],
+	"Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.": [
+		"Изменения отправлены, но сайт не удалось запустить. Подтвердите адрес электронной почты, а затем опубликуйте сайт ещё раз, чтобы повторить запуск."
+	],
+	"ChatGPT plan": [
+		"Тарифный план ChatGPT"
+	],
+	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
+		"Использование тарифного плана ChatGPT сейчас недоступно. Повторите попытку чуть позже."
+	],
+	"ChatGPT sent back an incomplete sign-in.": [
+		"ChatGPT вернул неполные данные для входа."
+	],
+	"ChatGPT sign-in could not be completed. Try again.": [
+		"Не удалось завершить вход через ChatGPT. Повторите попытку."
+	],
+	"Check your internet connection and try again.": [
+		"Проверьте подключение к Интернету и повторите попытку."
+	],
+	"Checking access…": [
+		"Проверка доступа…"
+	],
+	"Checking for updates…": [
+		"Проверка обновлений…"
+	],
+	"Checking whether you can pull from this preview…": [
+		"Проверка возможности получить данные из этого предварительного просмотра…"
+	],
+	"Choose a Blueprint or backup": [
+		"Выберите Blueprint или резервную копию"
+	],
+	"Choose a plan to make it live: %s": [
+		"Выберите тарифный план, чтобы сделать сайт рабочим: %s"
+	],
+	"Choose a provider": [
+		"Выберите провайдера"
+	],
+	"Choose a site": [
+		"Выберите сайт"
+	],
+	"Choose a site source": [
+		"Выберите источник сайта"
+	],
+	"Choose a topic": [
+		"Выберите тему"
+	],
+	"Choose color": [
+		"Выбрать цвет"
+	],
+	"Choose specific files": [
+		"Выбрать определённые файлы"
+	],
+	"Choose which live site this preview shows changes to.": [
+		"Выберите рабочий сайт, изменения которого показывает этот предварительный просмотр."
+	],
+	"Choose your plan.": [
+		"Выберите тарифный план."
+	],
+	"Claude subscription": [
+		"Подписка Claude"
+	],
+	"Claude subscription token": [
+		"Токен подписки Claude"
+	],
+	"Clear browsing data": [
+		"Очистить данные браузера"
+	],
+	"Click anything on the page to leave a note": [
+		"Нажмите на любой элемент страницы, чтобы оставить заметку"
+	],
+	"Close %s": [
+		"Закрыть %s"
+	],
+	"Close all tabs": [
+		"Закрыть все вкладки"
+	],
+	"Close other tabs": [
+		"Закрыть другие вкладки"
+	],
+	"Close tab": [
+		"Закрыть вкладку"
+	],
+	"Close tabs to the right": [
+		"Закрыть вкладки справа"
+	],
+	"Color picker": [
+		"Выбор цвета"
+	],
+	"Connect %s first.": [
+		"Сначала подключите %s."
+	],
+	"Connect %s now?": [
+		"Подключить %s сейчас?"
+	],
+	"Connect Spacefast to publish sites.": [
+		"Подключите Spacefast, чтобы публиковать сайты."
+	],
+	"Connect a provider": [
+		"Подключить провайдера"
+	],
+	"Connect a provider to see your existing sites.": [
+		"Подключите провайдера, чтобы увидеть свои существующие сайты."
+	],
+	"Connect to %s": [
+		"Подключиться к %s"
+	],
+	"Connect to Spacefast": [
+		"Подключиться к Spacefast"
+	],
+	"Connect to an existing site": [
+		"Подключиться к существующему сайту"
+	],
+	"Connect to publish": [
+		"Подключитесь, чтобы публиковать"
+	],
+	"Connect to share previews": [
+		"Подключитесь, чтобы делиться предварительными просмотрами"
+	],
+	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
+		"При подключении существующего сайта текущее место публикации будет отключено от WordPress Studio. Его содержимое не изменится."
+	],
+	"Continue on %s": [
+		"Продолжить на %s"
+	],
+	"Continue with GitHub": [
+		"Продолжить через GitHub"
+	],
+	"Copy links": [
+		"Копировать ссылки"
+	],
+	"Cotton Tail": [
+		"Cotton Tail"
+	],
+	"Could not check Spacefast team access": [
+		"Не удалось проверить доступ команды Spacefast"
+	],
+	"Could not clear browsing data": [
+		"Не удалось очистить данные браузера"
+	],
+	"Could not connect to WordPress.com": [
+		"Не удалось подключиться к WordPress.com"
+	],
+	"Could not load %s sites.": [
+		"Не удалось загрузить сайты %s."
+	],
+	"Could not open Spacefast": [
+		"Не удалось открыть Spacefast"
+	],
+	"Could not open the new preview. Please try again.": [
+		"Не удалось открыть новый предварительный просмотр. Повторите попытку."
+	],
+	"Could not open the setup page. Please try again.": [
+		"Не удалось открыть страницу настройки. Повторите попытку."
+	],
+	"Could not publish. Please try again.": [
+		"Не удалось опубликовать. Повторите попытку."
+	],
+	"Could not reach Anthropic to verify the credential.": [
+		"Не удалось связаться с Anthropic для проверки учётных данных."
+	],
+	"Could not read your settings": [
+		"Не удалось прочитать настройки"
+	],
+	"Could not reset interface. Please try again.": [
+		"Не удалось сбросить настройки интерфейса. Повторите попытку."
+	],
+	"Could not reset tips. Please try again.": [
+		"Не удалось сбросить подсказки. Повторите попытку."
+	],
+	"Could not update your local site from this preview. Please try again.": [
+		"Не удалось обновить локальный сайт из этого предварительного просмотра. Повторите попытку."
+	],
+	"Could not verify the credential with Anthropic.": [
+		"Не удалось проверить учётные данные в Anthropic."
+	],
+	"Could not watch for your new site. Please try again.": [
+		"Не удалось отследить появление нового сайта. Повторите попытку."
+	],
+	"Couldn't load providers.": [
+		"Не удалось загрузить провайдеров."
+	],
+	"Couldn’t change how much the model thinks": [
+		"Не удалось изменить уровень размышлений модели"
+	],
+	"Couldn’t check for preview edits": [
+		"Не удалось проверить правки в предварительном просмотре"
+	],
+	"Couldn’t check previews.": [
+		"Не удалось проверить предварительные просмотры."
+	],
+	"Couldn’t check whether you can pull from this preview.": [
+		"Не удалось проверить, можно ли получить данные из этого предварительного просмотра."
+	],
+	"Couldn’t check who can view new sites for this team.": [
+		"Не удалось проверить, кто может просматривать новые сайты этой команды."
+	],
+	"Couldn’t load apps.": [
+		"Не удалось загрузить приложения."
+	],
+	"Couldn’t load publishing accounts": [
+		"Не удалось загрузить учётные записи для публикации"
+	],
+	"Couldn’t load your %s sites": [
+		"Не удалось загрузить ваши сайты %s"
+	],
+	"Couldn’t load your %s sites.": [
+		"Не удалось загрузить ваши сайты %s."
+	],
+	"Couldn’t load your previews.": [
+		"Не удалось загрузить ваши предварительные просмотры."
+	],
+	"Create %s": [
+		"Создать %s"
+	],
+	"Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.": [
+		"Создайте ключ в [Google AI Studio](https://aistudio.google.com/apikey), а затем вставьте его ниже."
+	],
+	"Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.": [
+		"Создайте ключ на вкладке API keys в [панели управления Meta Model API](https://dev.meta.ai), а затем вставьте его ниже."
+	],
+	"Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.": [
+		"Создайте ключ в [Claude Console](https://platform.claude.com/settings/keys), а затем вставьте его ниже."
+	],
+	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
+		"Создайте ключ на [OpenAI Platform](https://platform.openai.com/api-keys), а затем вставьте его ниже."
+	],
+	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
+		"Создайте ключ в [xAI Console](https://console.x.ai), а затем вставьте его ниже."
+	],
+	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
+		"Создайте ключ в [настройках OpenRouter](https://openrouter.ai/settings/keys), а затем вставьте его ниже."
+	],
+	"Create a new WordPress": [
+		"Создать новый сайт WordPress"
+	],
+	"Create user": [
+		"Создать пользователя"
+	],
+	"Creating preview": [
+		"Создание предварительного просмотра"
+	],
+	"Creating preview link…": [
+		"Создание ссылки для предварительного просмотра…"
+	],
+	"Custom selection": [
+		"Выборочно"
+	],
+	"Database only": [
+		"Только база данных"
+	],
+	"Deactivate all plugins": [
+		"Деактивировать все плагины"
+	],
+	"Deactivate plugin": [
+		"Деактивировать плагин"
+	],
+	"Default": [
+		"По умолчанию"
+	],
+	"Default browser": [
+		"Браузер по умолчанию"
+	],
+	"Default code editor": [
+		"Редактор кода по умолчанию"
+	],
+	"Default image provider": [
+		"Провайдер изображений по умолчанию"
+	],
+	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
+		"Авто"
+	],
+	"Delete %s": [
+		"Удалить %s"
+	],
+	"Delete a preview in Sharing settings to create another.": [
+		"Удалите предварительный просмотр в настройках раздела «Поделиться», чтобы создать новый."
+	],
+	"Delete a site to create a new one.": [
+		"Удалите сайт, чтобы создать новый."
+	],
+	"Delete plugin": [
+		"Удалить плагин"
+	],
+	"Delete sites you no longer need to free up space.": [
+		"Удалите ненужные сайты, чтобы освободить место."
+	],
+	"Delete theme": [
+		"Удалить тему"
+	],
+	"Delete user": [
+		"Удалить пользователя"
+	],
+	"Describe the change": [
+		"Опишите изменение"
+	],
+	"Describe what you’d like to build or change (optional)…": [
+		"Опишите, что вы хотите создать или изменить (необязательно)…"
+	],
+	"Design system could not load.": [
+		"Не удалось загрузить дизайн-систему."
+	],
+	"Design systems are available for block themes.": [
+		"Дизайн-системы доступны для блочных тем."
+	],
+	"Disable automatic sidebar collapsing": [
+		"Отключить автоматическое сворачивание боковой панели"
+	],
+	"Discard changes?": [
+		"Отменить изменения?"
+	],
+	"Disconnect a provider": [
+		"Отключить провайдера"
+	],
+	"Disconnect site": [
+		"Отключить сайт"
+	],
+	"Disconnect site…": [
+		"Отключить сайт…"
+	],
+	"Dismiss tip": [
+		"Скрыть подсказку"
+	],
+	"Download WordPress Studio": [
+		"Скачать WordPress Studio"
+	],
+	"Download update": [
+		"Скачать обновление"
+	],
+	"Drop your file here": [
+		"Перетащите файл сюда"
+	],
+	"Email log could not load.": [
+		"Не удалось загрузить журнал электронной почты."
+	],
+	"Emails sent by your site appear here.": [
+		"Здесь отображаются письма, отправленные вашим сайтом."
+	],
+	"Enable automatic sidebar collapsing": [
+		"Включить автоматическое сворачивание боковой панели"
+	],
+	"Ends on %s": [
+		"Действует до %s"
+	],
+	"Enter a token from claude setup-token, not an API key.": [
+		"Введите токен из claude setup-token, а не API-ключ."
+	],
+	"Enter the folder’s full path.": [
+		"Введите полный путь к папке."
+	],
+	"Esc": [
+		"Esc"
+	],
+	"Everyone": [
+		"Все"
+	],
+	"Everything": [
+		"Всё"
+	],
+	"Everything you need to build WordPress sites with Studio Code.": [
+		"Всё необходимое для создания сайтов WordPress с помощью Studio Code."
+	],
+	"Expand panel": [
+		"Развернуть панель"
+	],
+	"Failed after %s": [
+		"Сбой через %s"
+	],
+	"Failed to back up the remote site": [
+		"Не удалось создать резервную копию удалённого сайта"
+	],
+	"Failed to check backup size": [
+		"Не удалось проверить размер резервной копии"
+	],
+	"Failed to check the preview site": [
+		"Не удалось проверить сайт предварительного просмотра"
+	],
+	"Failed to create the %s site": [
+		"Не удалось создать сайт %s"
+	],
+	"Failed to create the Space": [
+		"Не удалось создать пространство"
+	],
+	"Failed to export static site": [
+		"Не удалось экспортировать статический сайт"
+	],
+	"Failed to find existing preview site in config": [
+		"Не удалось найти существующий сайт предварительного просмотра в конфигурации"
+	],
+	"Failed to find the preview site’s launch link": [
+		"Не удалось найти ссылку для запуска сайта предварительного просмотра"
+	],
+	"Failed to initiate backup": [
+		"Не удалось запустить резервное копирование"
+	],
+	"Failed to load your Spacefast Spaces": [
+		"Не удалось загрузить ваши пространства Spacefast"
+	],
+	"Failed to publish to Spacefast": [
+		"Не удалось опубликовать на Spacefast"
+	],
+	"Failed to save connected site": [
+		"Не удалось сохранить подключённый сайт"
+	],
+	"Failed to set up WordPress": [
+		"Не удалось настроить WordPress"
+	],
+	"Feedback sent": [
+		"Отзыв отправлен"
+	],
+	"Feedback type": [
+		"Тип отзыва"
+	],
+	"Fetching %s sites…": [
+		"Получение сайтов %s…"
+	],
+	"Files could not be loaded.": [
+		"Не удалось загрузить файлы."
+	],
+	"File…": [
+		"Файл…"
+	],
+	"Finish activating hosting on WordPress.com before publishing.": [
+		"Перед публикацией завершите активацию хостинга на WordPress.com."
+	],
+	"Finish activating hosting on WordPress.com before pulling.": [
+		"Завершите активацию хостинга на WordPress.com, прежде чем получать данные."
+	],
+	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
+		"Завершите оформление заказа на вкладке WordPress.com, а затем вернитесь сюда. Рабочая область настроится сама, как только тарифный план станет активным."
+	],
+	"Finish signing in to %s in your browser.": [
+		"Завершите вход в %s в браузере."
+	],
+	"First use": [
+		"Первое использование"
+	],
+	"Flush cache": [
+		"Очистить кеш"
+	],
+	"Flush permalinks": [
+		"Сбросить постоянные ссылки"
+	],
+	"For generating images. Auto uses the AI provider when it can.": [
+		"Для генерации изображений. В режиме «Авто» используется ИИ-провайдер, если он это поддерживает."
+	],
+	"For publishing sites.": [
+		"Для публикации сайтов."
+	],
+	"For working on sites.": [
+		"Для работы над сайтами."
+	],
+	"Free": [
+		"Бесплатно"
+	],
+	"Gemini API key": [
+		"API-ключ Gemini"
+	],
+	"Generating static site…": [
+		"Создание статического сайта…"
+	],
+	"Getting your sign-in code…": [
+		"Получение кода для входа…"
+	],
+	"Giant Steps": [
+		"Giant Steps"
+	],
+	"GitHub sign-in was declined.": [
+		"Вход через GitHub отклонён."
+	],
+	"Google rejected this API key. Check the key and try again.": [
+		"Google отклонил этот API-ключ. Проверьте ключ и повторите попытку."
+	],
+	"Green Dolphin Street": [
+		"Green Dolphin Street"
+	],
+	"Grok sent back an incomplete sign-in.": [
+		"Grok вернул неполные данные для входа."
+	],
+	"Grok sign-in could not be started. Try again.": [
+		"Не удалось начать вход через Grok. Повторите попытку."
+	],
+	"Grok sign-in was declined.": [
+		"Вход через Grok отклонён."
+	],
+	"Hide chat when starting sites": [
+		"Скрывать чат при запуске сайтов"
+	],
+	"Hide panel": [
+		"Скрыть панель"
+	],
+	"High": [
+		"Высокий"
+	],
+	"Hints": [
+		"Подсказки"
+	],
+	"Hostname of the preview site": [
+		"Имя хоста сайта предварительного просмотра"
+	],
+	"How do you want to connect %s?": [
+		"Как вы хотите подключить %s?"
+	],
+	"How much should the model think?": [
+		"Насколько глубоко должна размышлять модель?"
+	],
+	"Hue": [
+		"Оттенок"
+	],
+	"Import a blueprint or backup": [
+		"Импортировать Blueprint или резервную копию"
+	],
+	"Import cancelled": [
+		"Импорт отменён"
+	],
+	"Install [Claude Code](https://code.claude.com/docs/en/setup), if you don’t have it yet.": [
+		"Установите [Claude Code](https://code.claude.com/docs/en/setup), если он у вас ещё не установлен."
+	],
+	"Install plugin": [
+		"Установить плагин"
+	],
+	"Install taxonomy scripts": [
+		"Установить скрипты таксономии"
+	],
+	"Install the WordPress Studio CLI and configure MCP for another app.": [
+		"Установите WordPress Studio CLI и настройте MCP для другого приложения."
+	],
+	"Install the WordPress Studio CLI.": [
+		"Установите WordPress Studio CLI."
+	],
+	"Install theme": [
+		"Установить тему"
+	],
+	"Interface reset.": [
+		"Настройки интерфейса сброшены."
+	],
+	"Interface theme": [
+		"Тема интерфейса"
+	],
+	"Invited people": [
+		"Приглашённые пользователи"
+	],
+	"I’ve paid, continue": [
+		"Оплата выполнена, продолжить"
+	],
+	"Kind of Blue": [
+		"Kind of Blue"
+	],
+	"Last updated %s": [
+		"Последнее обновление: %s"
+	],
+	"Last updated just now": [
+		"Последнее обновление: только что"
+	],
+	"Last updated on %s": [
+		"Последнее обновление: %s"
+	],
+	"Launch a public site with a paid plan.": [
+		"Запустите общедоступный сайт с платным тарифным планом."
+	],
+	"Launch on %s": [
+		"Запустить на %s"
+	],
+	"Learn about Spacefast": [
+		"Подробнее о Spacefast"
+	],
+	"Leave a note…": [
+		"Оставьте заметку…"
+	],
+	"Liberate": [
+		"Освободить сайт"
+	],
+	"List previews": [
+		"Показать предварительные просмотры"
+	],
+	"Load skill": [
+		"Загрузить навык"
+	],
+	"Loading Blueprint…": [
+		"Загрузка Blueprint…"
+	],
+	"Loading WordPress Studio…": [
+		"Загрузка WordPress Studio…"
+	],
+	"Loading apps…": [
+		"Загрузка приложений…"
+	],
+	"Loading destinations": [
+		"Загрузка мест публикации"
+	],
+	"Loading file…": [
+		"Загрузка файла…"
+	],
+	"Loading models…": [
+		"Загрузка моделей…"
+	],
+	"Local and preview changes": [
+		"Изменения локально и в предварительном просмотре"
+	],
+	"Local changes": [
+		"Локальные изменения"
+	],
+	"Log in to WordPress.com to sync sites.": [
+		"Войдите в WordPress.com, чтобы синхронизировать сайты."
+	],
+	"Low": [
+		"Низкий"
+	],
+	"Maiden Voyage": [
+		"Maiden Voyage"
+	],
+	"Make a preview site your live site": [
+		"Сделать сайт предварительного просмотра рабочим сайтом"
+	],
+	"Make it your live site: %s": [
+		"Сделайте его рабочим сайтом: %s"
+	],
+	"Make sure the codes match in your browser, then approve the connection.": [
+		"Убедитесь, что коды в браузере совпадают, а затем подтвердите подключение."
+	],
+	"Manage AI credits": [
+		"Управление ИИ-кредитами"
+	],
+	"Manage cache": [
+		"Управление кешем"
+	],
+	"Manage content": [
+		"Управление содержимым"
+	],
+	"Manage credits": [
+		"Управление кредитами"
+	],
+	"Manage domains": [
+		"Управление доменами"
+	],
+	"Manage media": [
+		"Управление медиафайлами"
+	],
+	"Manage menus": [
+		"Управление меню"
+	],
+	"Manage on Spacefast": [
+		"Управлять в Spacefast"
+	],
+	"Manage permalinks": [
+		"Управление постоянными ссылками"
+	],
+	"Manage plugins": [
+		"Управление плагинами"
+	],
+	"Manage terms": [
+		"Управление терминами"
+	],
+	"Manage themes": [
+		"Управление темами"
+	],
+	"Manage these access rules on Spacefast.": [
+		"Управляйте этими правилами доступа в Spacefast."
+	],
+	"Manage usage": [
+		"Управление использованием"
+	],
+	"Manage users": [
+		"Управление пользователями"
+	],
+	"Manage visibility on Spacefast.": [
+		"Управляйте видимостью в Spacefast."
+	],
+	"Meta API key": [
+		"API-ключ Meta"
+	],
+	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
+		"Meta ограничивает запросы с вашим API-ключом. Повторите попытку чуть позже или проверьте лимиты на dev.meta.ai."
+	],
+	"Meta rejected this API key. Check the key and try again.": [
+		"Meta отклонила этот API-ключ. Проверьте ключ и повторите попытку."
+	],
+	"Monthly": [
+		"Ежемесячно"
+	],
+	"Mood Indigo": [
+		"Mood Indigo"
+	],
+	"More room and more AI, for building every day.": [
+		"Больше места и больше ИИ для ежедневной работы над сайтами."
+	],
+	"New WordPress Studio Site": [
+		"Новый сайт WordPress Studio"
+	],
+	"New site \"%s\"": [
+		"Новый сайт «%s»"
+	],
+	"New tab": [
+		"Новая вкладка"
+	],
+	"No files are available to choose.": [
+		"Нет файлов для выбора."
+	],
+	"No local server answered at %s. Check the address, and that your server is running.": [
+		"Локальный сервер по адресу %s не ответил. Проверьте адрес и убедитесь, что сервер запущен."
+	],
+	"No models found.": [
+		"Модели не найдены."
+	],
+	"No providers": [
+		"Нет провайдеров"
+	],
+	"No recipient": [
+		"Нет получателя"
+	],
+	"Off": [
+		"Выкл."
+	],
+	"Only if your server asks for one.": [
+		"Только если сервер его требует."
+	],
+	"Only you": [
+		"Только вы"
+	],
+	"Only you and people you invite can view.": [
+		"Просматривать могут только вы и приглашённые вами пользователи."
+	],
+	"Open Config File (dev only)": [
+		"Открыть файл конфигурации (только для разработки)"
+	],
+	"Open Folder…": [
+		"Открыть папку…"
+	],
+	"Open Spacefast": [
+		"Открыть Spacefast"
+	],
+	"Open a site or Blueprint": [
+		"Открыть сайт или Blueprint"
+	],
+	"Open documentation": [
+		"Открыть документацию"
+	],
+	"Open on GitHub": [
+		"Открыть на GitHub"
+	],
+	"Open preview: %s": [
+		"Открыть предварительный просмотр: %s"
+	],
+	"OpenAI API key": [
+		"API-ключ OpenAI"
+	],
+	"OpenAI rejected this API key. Check the key and try again.": [
+		"OpenAI отклонил этот API-ключ. Проверьте ключ и повторите попытку."
+	],
+	"OpenRouter API key": [
+		"API-ключ OpenRouter"
+	],
+	"OpenRouter is limiting requests on your key. Try again shortly.": [
+		"OpenRouter ограничивает запросы с вашим ключом. Повторите попытку чуть позже."
+	],
+	"OpenRouter is limiting requests right now. Wait a moment and try again.": [
+		"OpenRouter сейчас ограничивает запросы. Подождите немного и повторите попытку."
+	],
+	"OpenRouter rejected the API key. Connect OpenRouter again in Settings.": [
+		"OpenRouter отклонил API-ключ. Снова подключите OpenRouter в настройках."
+	],
+	"OpenRouter rejected this API key. Check the key and try again.": [
+		"OpenRouter отклонил этот API-ключ. Проверьте ключ и повторите попытку."
+	],
+	"OpenRouter sign-in could not be completed. Try again.": [
+		"Не удалось завершить вход через OpenRouter. Повторите попытку."
+	],
+	"OpenRouter’s moderation refused this request.": [
+		"Система модерации OpenRouter отклонила этот запрос."
+	],
+	"Opening %s": [
+		"Открытие %s"
+	],
+	"Other files": [
+		"Другие файлы"
+	],
+	"Paid plan": [
+		"Платный тарифный план"
+	],
+	"Parent folder": [
+		"Родительская папка"
+	],
+	"Paste the token it prints. Usage counts against your Claude plan.": [
+		"Вставьте выведенный токен. Использование учитывается в рамках вашего тарифного плана Claude."
+	],
+	"Performance audit": [
+		"Аудит производительности"
+	],
+	"Pick at least one model OpenRouter offers.": [
+		"Выберите хотя бы одну модель, которую предлагает OpenRouter."
+	],
+	"Pick at least one model your server offers.": [
+		"Выберите хотя бы одну модель, которую предлагает ваш сервер."
+	],
+	"Pick design": [
+		"Выбрать дизайн"
+	],
+	"Plan": [
+		"Тарифный план"
+	],
+	"Plan ended": [
+		"Срок действия тарифного плана истёк"
+	],
+	"Point or draw to suggest a change.": [
+		"Укажите или нарисуйте, чтобы предложить изменение."
+	],
+	"Posts, pages, and settings": [
+		"Записи, страницы и настройки"
+	],
+	"Preview browser controls": [
+		"Элементы управления браузером предварительного просмотра"
+	],
+	"Preview creation cancelled": [
+		"Создание предварительного просмотра отменено"
+	],
+	"Preview creation is temporarily unavailable for your account.": [
+		"Создание предварительных просмотров временно недоступно для вашей учётной записи."
+	],
+	"Preview details": [
+		"Сведения о предварительном просмотре"
+	],
+	"Preview expiration": [
+		"Срок действия предварительного просмотра"
+	],
+	"Preview has changes": [
+		"В предварительном просмотре есть изменения"
+	],
+	"Preview limit reached": [
+		"Достигнут лимит предварительных просмотров"
+	],
+	"Preview link is not available yet. Please try again.": [
+		"Ссылка для предварительного просмотра пока недоступна. Повторите попытку."
+	],
+	"Preview link ready": [
+		"Ссылка для предварительного просмотра готова"
+	],
+	"Preview site not found": [
+		"Сайт предварительного просмотра не найден"
+	],
+	"Preview sites are temporary. Updating your preview resets the expiration date.": [
+		"Сайты предварительного просмотра временные. При обновлении предварительного просмотра срок его действия отсчитывается заново."
+	],
+	"Preview tabs": [
+		"Вкладки предварительного просмотра"
+	],
+	"Private sites and preview links": [
+		"Закрытые сайты и ссылки для предварительного просмотра"
+	],
+	"Project tools": [
+		"Инструменты проекта"
+	],
+	"Publish a static copy of your site to a Spacefast Space. Forms, comments and other features that need WordPress running won’t work in the copy.": [
+		"Опубликуйте статическую копию сайта в пространстве Spacefast. Формы, комментарии и другие функции, которым нужен работающий WordPress, в копии работать не будут."
+	],
+	"Publish a static copy of your sites to a Spacefast Space.": [
+		"Публикуйте статические копии своих сайтов в пространстве Spacefast."
+	],
+	"Publish again?": [
+		"Опубликовать снова?"
+	],
+	"Publish options could not be loaded.": [
+		"Не удалось загрузить параметры публикации."
+	],
+	"Publish somewhere else": [
+		"Опубликовать в другом месте"
+	],
+	"Publish to %s to apply these changes.": [
+		"Опубликуйте на %s, чтобы применить эти изменения."
+	],
+	"Publish to %s.": [
+		"Публикация на %s."
+	],
+	"Publish to Spacefast": [
+		"Опубликовать на Spacefast"
+	],
+	"Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.": [
+		"Опубликуйте на новом сайте и выберите домен или используйте существующий сайт на WordPress.com или Pressable."
+	],
+	"Publish to a site you already have.": [
+		"Публикуйте на сайт, который у вас уже есть."
+	],
+	"Publish your site when it’s ready, or share a preview through WordPress.com.": [
+		"Опубликуйте сайт, когда он будет готов, или поделитесь предварительным просмотром через WordPress.com."
+	],
+	"Published site actions": [
+		"Действия с опубликованным сайтом"
+	],
+	"Publishing cancelled": [
+		"Публикация отменена"
+	],
+	"Publishing changes…": [
+		"Публикация изменений…"
+	],
+	"Publishing requires a supported plan.": [
+		"Для публикации нужен поддерживаемый тарифный план."
+	],
+	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
+		"Публикация базы данных заменит изменения, внесённые на рабочем сайте, включая новые комментарии и заказы."
+	],
+	"Pull from live site…": [
+		"Получить с рабочего сайта…"
+	],
+	"Pull from preview…": [
+		"Получить из предварительного просмотра…"
+	],
+	"Pull replaces your local copy. Update replaces the preview.": [
+		"«Получить» заменяет вашу локальную копию. «Обновить» заменяет предварительный просмотр."
+	],
+	"Pulling from this preview is unavailable for this account.": [
+		"Получение данных из этого предварительного просмотра недоступно для этой учётной записи."
+	],
+	"Read": [
+		"Прочитать"
+	],
+	"Read %s": [
+		"Прочитать %s"
+	],
+	"Receipts": [
+		"Квитанции"
+	],
+	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
+		"Удалить %s из WordPress Studio? Опубликованный сайт и ваш локальный WordPress не изменятся."
+	],
+	"Remove Blueprint": [
+		"Удалить Blueprint"
+	],
+	"Renew": [
+		"Продлить"
+	],
+	"Replace local site": [
+		"Заменить локальный сайт"
+	],
+	"Replace preview": [
+		"Заменить предварительный просмотр"
+	],
+	"Replace preview changes?": [
+		"Заменить изменения в предварительном просмотре?"
+	],
+	"Replace preview contents?": [
+		"Заменить содержимое предварительного просмотра?"
+	],
+	"Replace selected content": [
+		"Заменить выбранное содержимое"
+	],
+	"Report an issue on GitHub": [
+		"Сообщить о проблеме на GitHub"
+	],
+	"Request a feature or report a bug.": [
+		"Предложите функцию или сообщите об ошибке."
+	],
+	"Reset tips": [
+		"Сбросить подсказки"
+	],
+	"Reset to recommended": [
+		"Сбросить до рекомендуемых"
+	],
+	"Resize panel": [
+		"Изменить размер панели"
+	],
+	"Resize viewport: %s": [
+		"Изменить размер области просмотра: %s"
+	],
+	"Responsive preview": [
+		"Адаптивный предварительный просмотр"
+	],
+	"Restart WordPress Studio to finish updating.": [
+		"Перезапустите WordPress Studio, чтобы завершить обновление."
+	],
+	"Rotate to landscape": [
+		"Повернуть в альбомную ориентацию"
+	],
+	"Rotate to portrait": [
+		"Повернуть в книжную ориентацию"
+	],
+	"Rotate viewport": [
+		"Повернуть область просмотра"
+	],
+	"Round Midnight": [
+		"Round Midnight"
+	],
+	"Run": [
+		"Выполнить"
+	],
+	"Run this in a terminal, then sign in with your Claude account:": [
+		"Выполните эту команду в терминале, а затем войдите с помощью учётной записи Claude:"
+	],
+	"SEO audit": [
+		"SEO-аудит"
+	],
+	"Saturation and brightness": [
+		"Насыщенность и яркость"
+	],
+	"Save annotation (Enter)": [
+		"Сохранить аннотацию (Enter)"
+	],
+	"Search models": [
+		"Поиск моделей"
+	],
+	"Select an email to read it.": [
+		"Выберите письмо, чтобы прочитать его."
+	],
+	"Select at least one file or folder.": [
+		"Выберите хотя бы один файл или папку."
+	],
+	"Select something to publish.": [
+		"Выберите, что опубликовать."
+	],
+	"Select the files and folders to publish.": [
+		"Выберите файлы и папки для публикации."
+	],
+	"Server address": [
+		"Адрес сервера"
+	],
+	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
+		"Задайте STUDIO_SERVE_SECRET, чтобы сервер был доступен не только с этого компьютера."
+	],
+	"Set how much the model thinks in this chat": [
+		"Настроить уровень размышлений модели в этом чате"
+	],
+	"Setting up WordPress…": [
+		"Настройка WordPress…"
+	],
+	"Setting up your workspace…": [
+		"Настройка рабочей области…"
+	],
+	"Share a preview or publish your site": [
+		"Поделитесь предварительным просмотром или опубликуйте сайт"
+	],
+	"Share a temporary preview link.": [
+		"Поделитесь временной ссылкой для предварительного просмотра."
+	],
+	"Share ideas and report problems directly to the Studio team.": [
+		"Делитесь идеями и сообщайте о проблемах напрямую команде Studio."
+	],
+	"Show chat beside the panel when starting a site.": [
+		"Показывать чат рядом с панелью при запуске сайта."
+	],
+	"Show chat when starting sites": [
+		"Показывать чат при запуске сайтов"
+	],
+	"Show or hide the panel beside your chat.": [
+		"Показать или скрыть панель рядом с чатом."
+	],
+	"Show panel": [
+		"Показать панель"
+	],
+	"Sign in to create a preview link.": [
+		"Войдите, чтобы создать ссылку для предварительного просмотра."
+	],
+	"Sign in with ChatGPT or use an OpenAI API key.": [
+		"Войдите через ChatGPT или используйте API-ключ OpenAI."
+	],
+	"Sign in with Grok": [
+		"Войти через Grok"
+	],
+	"Sign in with OpenRouter": [
+		"Войти через OpenRouter"
+	],
+	"Sign in with a GitHub account that has Copilot access.": [
+		"Войдите с помощью учётной записи GitHub с доступом к Copilot."
+	],
+	"Sign in with an eligible Grok account or use an xAI API key.": [
+		"Войдите с подходящей учётной записью Grok или используйте API-ключ xAI."
+	],
+	"Sign out": [
+		"Выйти"
+	],
+	"Signing in was declined.": [
+		"Вход отклонён."
+	],
+	"Site annotation is not available in the browser yet": [
+		"Аннотирование сайта пока недоступно в браузере"
+	],
+	"Site exported": [
+		"Сайт экспортирован"
+	],
+	"Site files left on disk": [
+		"Файлы сайта остались на диске"
+	],
+	"Site folder": [
+		"Папка сайта"
+	],
+	"Site imported, but the WordPress server failed to start: %s": [
+		"Сайт импортирован, но не удалось запустить сервер WordPress: %s"
+	],
+	"Site sources": [
+		"Источники сайта"
+	],
+	"Sites could not be loaded. Check your internet connection and try again.": [
+		"Не удалось загрузить сайты. Проверьте подключение к Интернету и повторите попытку."
+	],
+	"Some destinations could not be loaded": [
+		"Не удалось загрузить некоторые места публикации"
+	],
+	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
+		"Spacefast ещё применяет изменение видимости. Проверьте доступ в Spacefast."
+	],
+	"Spacefast sign-in was declined.": [
+		"Вход в Spacefast отклонён."
+	],
+	"Start from": [
+		"Начать с"
+	],
+	"Start signing in to Spacefast again.": [
+		"Начните вход в Spacefast заново."
+	],
+	"Start signing in with ChatGPT again.": [
+		"Начните вход через ChatGPT заново."
+	],
+	"Start signing in with GitHub again.": [
+		"Начните вход через GitHub заново."
+	],
+	"Start signing in with Grok again.": [
+		"Начните вход через Grok заново."
+	],
+	"Start signing in with OpenRouter again.": [
+		"Начните вход через OpenRouter заново."
+	],
+	"Start this site.": [
+		"Запустите этот сайт."
+	],
+	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
+		"Запустите сервер моделей хотя бы с одной моделью, а затем введите адрес, на котором он работает. Studio предложит модели, которые он предоставляет."
+	],
+	"Static export failed: %s": [
+		"Не удалось выполнить статический экспорт: %s"
+	],
+	"Static site exported to %s": [
+		"Статический сайт экспортирован в %s"
+	],
+	"Stop a site to start another.": [
+		"Остановите сайт, чтобы запустить другой."
+	],
+	"Studio Cloud": [
+		"Studio Cloud"
+	],
+	"Studio Code sets how much %s thinks.": [
+		"Studio Code задаёт уровень размышлений модели %s."
+	],
+	"Studio can’t run your sites because one of its files was removed, often by antivirus software. Reinstall WordPress Studio to restore it. If it happens again, allow WordPress Studio in your antivirus settings.": [
+		"Studio не может запустить ваши сайты, так как один из файлов приложения был удалён — часто это делает антивирус. Переустановите WordPress Studio, чтобы восстановить его. Если это повторится, добавьте WordPress Studio в разрешённые приложения в настройках антивируса."
+	],
+	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
+		"Studio не может определить, редактировал ли кто-нибудь %s. При обновлении предварительного просмотра он будет заменён вашим локальным сайтом."
+	],
+	"Swing Time": [
+		"Swing Time"
+	],
+	"Sync is finishing": [
+		"Синхронизация завершается"
+	],
+	"Take Five": [
+		"Take Five"
+	],
+	"Taxonomist": [
+		"Таксономист"
+	],
+	"Team": [
+		"Команда"
+	],
+	"The GitHub sign-in expired. Try again.": [
+		"Срок действия входа через GitHub истёк. Повторите попытку."
+	],
+	"The Grok sign-in expired. Try again.": [
+		"Срок действия входа через Grok истёк. Повторите попытку."
+	],
+	"The Spacefast sign-in expired. Try again.": [
+		"Срок действия входа в Spacefast истёк. Повторите попытку."
+	],
+	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
+		"Контекст, с которым работает %s, слишком мал для Studio Code. Увеличьте длину контекста в настройках сервера."
+	],
+	"The database failed to import on the live site. Review your database and try again.": [
+		"Не удалось импортировать базу данных на рабочий сайт. Проверьте базу данных и повторите попытку."
+	],
+	"The default browser for your sites.": [
+		"Браузер по умолчанию для ваших сайтов."
+	],
+	"The full WordPress, with a domain.": [
+		"Полноценный WordPress с доменом."
+	],
+	"The local server at %s isn’t answering. Start it, then send your message again.": [
+		"Локальный сервер по адресу %s не отвечает. Запустите его, а затем отправьте сообщение ещё раз."
+	],
+	"The local server has no chat model yet. Add one to your server, then connect again.": [
+		"На локальном сервере пока нет модели для чата. Добавьте её на сервер, а затем подключитесь снова."
+	],
+	"The local server refused the API key. Check the key, and connect again.": [
+		"Локальный сервер отклонил API-ключ. Проверьте ключ и подключитесь снова."
+	],
+	"The preview site could not be built from the archive.": [
+		"Не удалось собрать сайт предварительного просмотра из архива."
+	],
+	"The requested site is unavailable.": [
+		"Запрошенный сайт недоступен."
+	],
+	"The site files could not be moved to trash. Delete them yourself: %s": [
+		"Не удалось переместить файлы сайта в корзину. Удалите их вручную: %s"
+	],
+	"The site requested for this pull is unavailable.": [
+		"Сайт, запрошенный для получения данных, недоступен."
+	],
+	"The transfer could not be completed. Please try again.": [
+		"Не удалось завершить перенос. Повторите попытку."
+	],
+	"The visibility change could not be applied. Check access on Spacefast.": [
+		"Не удалось применить изменение видимости. Проверьте доступ в Spacefast."
+	],
+	"Themes": [
+		"Темы"
+	],
+	"Thinking: %s": [
+		"Размышления: %s"
+	],
+	"Thinks before answering": [
+		"Размышляет перед ответом"
+	],
+	"Thinks briefly": [
+		"Размышляет недолго"
+	],
+	"Thinks longest, slowest": [
+		"Размышляет дольше всего, медленнее всего"
+	],
+	"This API key is blocked or disabled. Check it in the xAI Console.": [
+		"Этот API-ключ заблокирован или отключён. Проверьте его в xAI Console."
+	],
+	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
+		"У этой учётной записи GitHub нет тарифного плана Copilot. Выберите план на github.com/features/copilot."
+	],
+	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
+		"В этой учётной записи Grok не осталось кредитов. Пополните кредиты или оформите SuperGrok на grok.com."
+	],
+	"This destination cannot create a site from this panel yet.": [
+		"В этом месте публикации пока нельзя создать сайт из этой панели."
+	],
+	"This file took too long to load. Please try again or choose another file.": [
+		"Загрузка этого файла заняла слишком много времени. Повторите попытку или выберите другой файл."
+	],
+	"This folder is already associated with another Studio site. Choose a different local folder.": [
+		"Эта папка уже связана с другим сайтом Studio. Выберите другую локальную папку."
+	],
+	"This is an Anthropic key. Add it to Anthropic instead.": [
+		"Это ключ Anthropic. Добавьте его в Anthropic."
+	],
+	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
+		"Для этого нужно около %1$s ГБ свободного места, а в вашем тарифном плане осталось %2$s ГБ. Удалите ненужные сайты и повторите попытку."
+	],
+	"This preview site can’t be made live: it was bought, ended or deleted, or it shows changes to a live site.": [
+		"Этот сайт предварительного просмотра нельзя сделать рабочим: он был куплен, срок его действия истёк или он был удалён, либо он показывает изменения рабочего сайта."
+	],
+	"This provider doesn’t make previews.": [
+		"Этот провайдер не создаёт предварительные просмотры."
+	],
+	"This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.": [
+		"Выбранные части вашего локального сайта будут заменены содержимым с %s. Все локальные изменения в этих частях будут потеряны."
+	],
+	"This replaces your local site with the preview. Any local changes will be lost.": [
+		"Ваш локальный сайт будет заменён предварительным просмотром. Все локальные изменения будут потеряны."
+	],
+	"This site is no longer available in WordPress Studio.": [
+		"Этот сайт больше не доступен в WordPress Studio."
+	],
+	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
+		"Этому сайту нужен тарифный план хостинга, поддерживающий получение данных в WordPress Studio."
+	],
+	"This xAI account has no credits left. Add credits in the xAI Console.": [
+		"В этой учётной записи xAI не осталось кредитов. Пополните кредиты в xAI Console."
+	],
+	"Tips reset.": [
+		"Подсказки сброшены."
+	],
+	"To %s": [
+		"Кому: %s"
+	],
+	"Token is required": [
+		"Требуется токен"
+	],
+	"Try again to see where this WordPress is already connected.": [
+		"Повторите попытку, чтобы узнать, где уже подключён этот WordPress."
+	],
+	"Try downloading the update again.": [
+		"Попробуйте скачать обновление ещё раз."
+	],
+	"Twice the CPU for faster builds": [
+		"Вдвое больше мощности ЦП для более быстрого создания сайтов"
+	],
+	"Unknown level %1$s. Choose one of: %2$s.": [
+		"Неизвестный уровень %1$s. Выберите один из вариантов: %2$s."
+	],
+	"Unlimited sites, 5 running at once": [
+		"Неограниченное число сайтов, одновременно работают 5"
+	],
+	"Unsupported backup file": [
+		"Неподдерживаемый файл резервной копии"
+	],
+	"Unsupported visibility setting.": [
+		"Неподдерживаемый параметр видимости."
+	],
+	"Up to 10 sites, 2 running at once": [
+		"До 10 сайтов, одновременно работают 2"
+	],
+	"Update WordPress Studio": [
+		"Обновить WordPress Studio"
+	],
+	"Update WordPress Studio.": [
+		"Обновите WordPress Studio."
+	],
+	"Update all plugins": [
+		"Обновить все плагины"
+	],
+	"Update local site from %s?": [
+		"Обновить локальный сайт из %s?"
+	],
+	"Update plugin": [
+		"Обновить плагин"
+	],
+	"Update the Studio CLI with `%s`.": [
+		"Обновите Studio CLI командой `%s`."
+	],
+	"Update todo list": [
+		"Обновить список задач"
+	],
+	"Updating %s will replace any edits made on the preview with your local copy.": [
+		"При обновлении %s все правки, внесённые в предварительный просмотр, будут заменены вашей локальной копией."
+	],
+	"Updating your workspace…": [
+		"Обновление рабочей области…"
+	],
+	"Uploading files…": [
+		"Загрузка файлов…"
+	],
+	"Uploads": [
+		"Загрузки"
+	],
+	"Usage is billed through your Anthropic account.": [
+		"Использование оплачивается через вашу учётную запись Anthropic."
+	],
+	"Usage is billed through your Google AI Studio project.": [
+		"Использование оплачивается через ваш проект Google AI Studio."
+	],
+	"Usage is billed through your Meta Model API account.": [
+		"Использование оплачивается через вашу учётную запись Meta Model API."
+	],
+	"Usage is billed through your OpenAI account.": [
+		"Использование оплачивается через вашу учётную запись OpenAI."
+	],
+	"Usage is billed through your xAI account.": [
+		"Использование оплачивается через вашу учётную запись xAI."
+	],
+	"Usage is paid with your OpenRouter credits.": [
+		"Использование оплачивается вашими кредитами OpenRouter."
+	],
+	"Use Blueprint": [
+		"Использовать Blueprint"
+	],
+	"Use Gemini with a Gemini API key.": [
+		"Используйте Gemini с API-ключом Gemini."
+	],
+	"Use Muse models with your Meta API key.": [
+		"Используйте модели Muse с вашим API-ключом Meta."
+	],
+	"Use an Anthropic API key or a Claude subscription token.": [
+		"Используйте API-ключ Anthropic или токен подписки Claude."
+	],
+	"Use models from many labs with your OpenRouter credits.": [
+		"Используйте модели разных разработчиков за кредиты OpenRouter."
+	],
+	"Use the models a server you run serves, such as on this computer.": [
+		"Используйте модели, которые предоставляет ваш собственный сервер, например на этом компьютере."
+	],
+	"Using ChatGPT plan": [
+		"Используется тарифный план ChatGPT"
+	],
+	"Using Claude plan": [
+		"Используется тарифный план Claude"
+	],
+	"Using Copilot plan": [
+		"Используется тарифный план Copilot"
+	],
+	"Using Grok plan": [
+		"Используется тарифный план Grok"
+	],
+	"View backups": [
+		"Просмотреть резервные копии"
+	],
+	"View versions": [
+		"Просмотреть версии"
+	],
+	"Visibility could not be confirmed. Check access on Spacefast.": [
+		"Не удалось подтвердить видимость. Проверьте доступ в Spacefast."
+	],
+	"Visibility settings are only available for WordPress.com sites.": [
+		"Настройки видимости доступны только для сайтов WordPress.com."
+	],
+	"Visitors see a coming soon page": [
+		"Посетители видят страницу «Скоро открытие»"
+	],
+	"Visual Annotations": [
+		"Визуальные аннотации"
+	],
+	"What to replace": [
+		"Что заменить"
+	],
+	"Where your server listens, as it prints it when it starts.": [
+		"Адрес, на котором работает ваш сервер, — в том виде, в каком сервер выводит его при запуске."
+	],
+	"Who can view": [
+		"Кто может просматривать"
+	],
+	"WordPress Studio CLI for terminal": [
+		"WordPress Studio CLI для терминала"
+	],
+	"WordPress Studio could not open the folder. Please try again.": [
+		"WordPress Studio не удалось открыть папку. Повторите попытку."
+	],
+	"WordPress Studio could not open the site.": [
+		"WordPress Studio не удалось открыть сайт."
+	],
+	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
+		"WordPress Studio не удалось прочитать свои настройки в %s. Перезапустите WordPress Studio, чтобы повторить попытку. Если это повторяется, обратитесь в службу поддержки и укажите приведённые ниже сведения."
+	],
+	"WordPress Studio is finishing an update": [
+		"WordPress Studio завершает обновление"
+	],
+	"WordPress Studio is missing some of its files": [
+		"Отсутствуют некоторые файлы WordPress Studio"
+	],
+	"WordPress Studio is serving at:": [
+		"WordPress Studio доступен по адресу:"
+	],
+	"WordPress Studio team": [
+		"Команда WordPress Studio"
+	],
+	"WordPress Studio will create a local copy of this site in an empty folder.": [
+		"WordPress Studio создаст локальную копию этого сайта в пустой папке."
+	],
+	"WordPress Studio will restore this backup into an empty folder.": [
+		"WordPress Studio восстановит эту резервную копию в пустую папку."
+	],
+	"WordPress set up": [
+		"WordPress настроен"
+	],
+	"WordPress.com API": [
+		"API WordPress.com"
+	],
+	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
+		"WordPress.com ещё не подтвердил изменение видимости. Повторите попытку."
+	],
+	"WordPress.com hosting": [
+		"Хостинг WordPress.com"
+	],
+	"Yearly, save 20%": [
+		"Ежегодно, экономия 20%"
+	],
+	"You can close this tab and return to WordPress Studio.": [
+		"Вы можете закрыть эту вкладку и вернуться в WordPress Studio."
+	],
+	"You reached your ChatGPT plan’s usage limit. Manage usage at chatgpt.com/settings/usage.": [
+		"Вы достигли лимита использования тарифного плана ChatGPT. Управляйте использованием на chatgpt.com/settings/usage."
+	],
+	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
+		"Вы достигли лимита использования тарифного плана Copilot. Управляйте использованием на github.com/settings/copilot."
+	],
+	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
+		"Вы достигли лимита использования тарифного плана Grok. Проверьте использование на grok.com."
+	],
+	"Your ChatGPT plan can’t be used in WordPress Studio.": [
+		"Ваш тарифный план ChatGPT нельзя использовать в WordPress Studio."
+	],
+	"Your ChatGPT sign-in no longer works. Connect ChatGPT again in Settings.": [
+		"Вход через ChatGPT больше не действует. Снова подключите ChatGPT в настройках."
+	],
+	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
+		"Ваш тарифный план Copilot не включает эту модель. Выберите другую или включите её на github.com/settings/copilot."
+	],
+	"Your Grok or X plan can’t be used in WordPress Studio.": [
+		"Ваш тарифный план Grok или X нельзя использовать в WordPress Studio."
+	],
+	"Your Grok sign-in no longer works. Connect xAI again in Settings.": [
+		"Вход через Grok больше не действует. Снова подключите xAI в настройках."
+	],
+	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
+		"Кредиты OpenRouter закончились или этот ключ достиг своего лимита кредитов. Пополните кредиты на openrouter.ai."
+	],
+	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
+		"Вход в Spacefast больше не действует. Подключите Spacefast снова."
+	],
+	"Your Studio, in the cloud.": [
+		"Ваш Studio — в облаке."
+	],
+	"Your WordPress exceeds the %s GB publishing limit.": [
+		"Ваш WordPress превышает лимит публикации в %s ГБ."
+	],
+	"Your WordPress is public": [
+		"Ваш WordPress общедоступен"
+	],
+	"Your local server refused the request: %s.": [
+		"Ваш локальный сервер отклонил запрос: %s."
+	],
+	"Your plan allows %d site. Delete a site to create a new one.": [
+		"Ваш тарифный план позволяет создать %d сайт. Удалите сайт, чтобы создать новый.",
+		"Ваш тарифный план позволяет создать %d сайта. Удалите сайт, чтобы создать новый.",
+		"Ваш тарифный план позволяет создать %d сайтов. Удалите сайт, чтобы создать новый."
+	],
+	"Your plan has ended.": [
+		"Срок действия вашего тарифного плана истёк."
+	],
+	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
+		"Выбранные файлы недоступны. Повторите проверку резервной копии или выберите другой вариант, чтобы продолжить."
+	],
+	"Your server’s setting": [
+		"Настройка вашего сервера"
+	],
+	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
+		"Ваши настройки были сохранены более новой версией Studio CLI. Обновите WordPress Studio, чтобы и дальше их использовать."
+	],
+	"Your site is ready to publish": [
+		"Ваш сайт готов к публикации"
+	],
+	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
+		"Ваши сайты и Studio Code на вашей собственной машине, доступной из любого браузера. Войдите с помощью учётной записи WordPress.com, чтобы открыть рабочую область."
+	],
+	"Your sites are kept until %s. Renew to pick up where you left off, or choose a plan below.": [
+		"Ваши сайты хранятся до %s. Продлите тарифный план, чтобы продолжить с того места, где вы остановились, или выберите тарифный план ниже."
+	],
+	"Your team and people you give access to": [
+		"Ваша команда и люди, которым вы предоставили доступ"
+	],
+	"Your team only allows restricted sites.": [
+		"Ваша команда разрешает только сайты с ограниченным доступом."
+	],
+	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
+		"Ваша рабочая область работает на тарифном плане Studio Cloud. Оформление заказа откроется на WordPress.com, а рабочая область будет готова примерно через минуту после оплаты."
+	],
+	"base-url must be an http(s) URL without a path, e.g. https://example.com": [
+		"base-url должен быть URL-адресом http(s) без пути, например https://example.com"
+	],
+	"other files": [
+		"другие файлы"
+	],
+	"post": [
+		"запись"
+	],
+	"posts": [
+		"записи"
+	],
+	"product": [
+		"товар"
+	],
+	"products": [
+		"товары"
+	],
+	"uploads": [
+		"загрузки"
+	],
+	"xAI API key": [
+		"API-ключ xAI"
+	],
+	"xAI refused the API key. Check its permissions and credits in the xAI Console.": [
+		"xAI отклонил API-ключ. Проверьте его разрешения и кредиты в xAI Console."
+	],
+	"xAI rejected the API key. Connect xAI again in Settings.": [
+		"xAI отклонил API-ключ. Снова подключите xAI в настройках."
+	],
+	"xAI rejected this API key. Check the key and try again.": [
+		"xAI отклонил этот API-ключ. Проверьте ключ и повторите попытку."
+	],
+	"· %d%%": [
+		"· %d%%"
+	]
+}

@@ -1,12 +1,5 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { __ } from '@wordpress/i18n';
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
-import { usePathValidator } from '@/data/queries/use-create-site-helpers';
-import { useSites } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
-import { RotateCcwIcon } from '@/lib/icons';
 import {
 	Button,
 	Field,
@@ -18,7 +11,14 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 	VisuallyHidden,
-} from '@/lib/ui';
+} from '@studio/ds';
+import { RotateCcwIcon } from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useConnector } from '@/data/core';
+import { usePathValidator } from '@/data/queries/use-create-site-helpers';
+import { useSites } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { getFolderNameError, splitFolderPath } from './folder-path';
 import styles from './style.module.css';
 import type { FormData } from './form-data';

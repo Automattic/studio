@@ -1,8 +1,9 @@
 import { createContext, useContext } from 'react';
-import type { SelectedSiteFolder, SyncSite } from '@/data/core';
+import type { SelectedSiteFolder } from '@/data/core';
 import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { CreateSiteFormDraft, CreateSiteFormError } from '@/features/sites/create-site-form';
+import type { ProviderSites, SitesProviderId } from '@studio/providers';
 import type { Dispatch, SetStateAction } from 'react';
 
 export type SiteBackup = File | { path: string; name: string };
@@ -24,7 +25,7 @@ export type SetupSource =
 	| { type: 'blueprint'; blueprint?: SelectedBlueprint }
 	| { type: 'import'; backup?: SiteBackup }
 	| { type: 'folder'; folder: SelectedSiteFolder }
-	| { type: 'connect'; remote: SyncSite };
+	| { type: 'connect'; provider: SitesProviderId; remote: ProviderSites[ SitesProviderId ] };
 
 interface AddSiteContextValue {
 	// Announces long work and locks the dialog until it's cleared.

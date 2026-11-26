@@ -34,6 +34,33 @@ async function setup() {
 }
 
 describe( 'notification details', () => {
+	it( 'restores the one-line description when reduced motion skips the transition', async () => {
+		const matchMedia = window.matchMedia.bind( window );
+		vi.spyOn( window, 'matchMedia' ).mockImplementation( ( query ) => ( {
+			...matchMedia( query ),
+			matches: query === '(prefers-reduced-motion: reduce)',
+		} ) );
+		showToast( { title: 'Import failed', description: 'Full error details' } );
+		await setup();
+		const disclosure = await screen.findByRole( 'button', {
+			name: 'View notification: Import failed',
+		} );
+		const description = screen.getByText( 'Full error details' );
+		fireEvent.click( disclosure );
+		expect( description ).not.toHaveAttribute( 'data-clamped' );
+		fireEvent.click( disclosure );
+		expect( description ).toHaveAttribute( 'data-clamped' );
+	} );
+
+	it( 'promotes a queued toast after the outgoing toast is removed', async () => {
+		for ( let i = 1; i <= 4; i++ ) showToast( { id: `notice-${ i }`, title: `Notice ${ i }` } );
+		await setup();
+		await screen.findByRole( 'dialog', { name: 'Notice 3' } );
+		expect( screen.queryByRole( 'dialog', { name: 'Notice 4' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Dismiss Notice 3' } ) );
+		expect( await screen.findByRole( 'dialog', { name: 'Notice 4' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'dialog', { name: 'Notice 3' } ) ).not.toBeInTheDocument();
+	} );
 	it( 'toggles notification details with pointer and keyboard input', async () => {
 		const onAction = vi.fn( () => new Promise< void >( () => {} ) );
 		const title = 'Import needs attention';

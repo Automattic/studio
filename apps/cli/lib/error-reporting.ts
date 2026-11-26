@@ -1,12 +1,12 @@
 import * as Sentry from '@sentry/node';
 import { SENTRY_DSN } from '@studio/common/constants';
-import { readSentryUserId } from '@studio/common/lib/app-config';
 import {
 	captureException,
 	HOST_REPORTS_CLI_ERRORS_ENV,
 	prepareErrorEvent,
 	setErrorReporter,
 } from '@studio/common/lib/error-reporting';
+import { readSentryUserId } from '@studio/common/lib/install';
 import { getSentryReleaseInfo } from '@studio/common/lib/sentry-release';
 import type { ErrorEvent } from '@sentry/node';
 
@@ -35,6 +35,9 @@ export function setupErrorReporting(): void {
 		},
 		// Its module-load hooks only serve tracing, which the CLI doesn't use.
 		enableRuntimeChannelInjection: false,
+		// A session per process would count every command the apps run as a session of the release.
+		integrations: ( defaults ) =>
+			defaults.filter( ( integration ) => integration.name !== 'ProcessSession' ),
 		beforeSend: ( event, hint ) =>
 			hostReportsFailures && isCrash( event ) ? null : prepareErrorEvent( event, hint ),
 	} );

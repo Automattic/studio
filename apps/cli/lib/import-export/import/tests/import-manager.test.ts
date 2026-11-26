@@ -4,14 +4,14 @@ import { LoggerError } from 'cli/logger';
 import { ImportExportEventEmitter } from '../../events';
 import { BackupHandlerFactory } from '../handlers/backup-handler-factory';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from '../import-manager';
-import type { SiteData } from 'cli/lib/cli-config/core';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( '../handlers/backup-handler-factory', () => ( {
 	BackupHandlerFactory: { create: vi.fn() },
 } ) );
 
 describe( 'BackupImporter', () => {
-	const site = { id: 'site-1', path: '/test/site' } as SiteData;
+	const site = { id: 'site-1', path: '/test/site' } as ConfigSite;
 
 	class MockBackupHandler extends ImportExportEventEmitter {
 		constructor( private extractError: Error ) {

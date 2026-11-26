@@ -1,4 +1,5 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
+import { RotateCcwIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -10,7 +11,6 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getSettingCommands } from '@/features/commands/studio-commands';
-import { RotateCcwIcon } from '@/lib/icons';
 import type { SiteDetails, UserPreferences } from '@/data/core';
 import type { PaletteCommand, SettingToggles } from '@/features/commands/studio-commands';
 
@@ -129,7 +129,9 @@ export function useSettingCommands(
 		scope,
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
-		nativeSites: connector.capabilities.nativeSites,
+		localMachine: connector.capabilities.localMachine,
+		loopbackSignIn: connector.capabilities.loopbackSignIn,
+		globalSkills: connector.capabilities.globalSkills,
 		toggles,
 		actions: {
 			'reset-appearance': {

@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
@@ -69,6 +71,25 @@ describe( 'getNativePhpIniContents', () => {
 			'-c',
 			path.join( '/Users/JOS~1/.studio/php-bin/8.4', 'php.ini' ),
 		] );
+	} );
+
+	it( 'points the CA bundle at the real php-bin when it is reached through a link', () => {
+		const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-php-ini-' ) );
+		const realDir = path.join( root, 'real' );
+		const linkedDir = path.join( root, 'linked' );
+		fs.mkdirSync( realDir );
+		fs.symlinkSync( realDir, linkedDir, 'junction' );
+		phpBinary.path = path.join( linkedDir, 'php' );
+
+		try {
+			const caBundlePath = path
+				.join( fs.realpathSync( realDir ), 'ca-bundle.crt' )
+				.replace( /\\/g, '/' );
+
+			expect( getNativePhpIniContents( '8.4' ) ).toContain( `curl.cainfo="${ caBundlePath }"` );
+		} finally {
+			fs.rmSync( root, { recursive: true, force: true } );
+		}
 	} );
 
 	it( 'keeps an ASCII Windows extension_dir as is', () => {

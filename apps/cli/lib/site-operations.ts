@@ -1,17 +1,13 @@
+import os from 'os';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	unlockCliConfig,
-	type SiteData,
-} from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 import type { SiteOperation, SiteOperationKind } from '@studio/common/lib/site-operation';
 
 function siteBusyError( requested: SiteOperationKind, blockedBy: SiteOperationKind ): LoggerError {
@@ -40,14 +36,30 @@ function isProcessAlive( pid: number ): boolean {
 	}
 }
 
+// Leaves room for the clock moving between the processes that compare boot times.
+const BOOT_TIME_TOLERANCE_MS = 60_000;
+
+function getBootTime(): number {
+	return Math.round( Date.now() - os.uptime() * 1000 );
+}
+
+// Builds up to 2.4.0 recorded no boot time, so their entries can't be told
+// apart from a reused pid and count as stale.
+function isOwnerAlive( { pid, bootTime }: SiteOperation ): boolean {
+	if ( bootTime === undefined || getBootTime() - bootTime > BOOT_TIME_TOLERANCE_MS ) {
+		return false;
+	}
+	return isProcessAlive( pid );
+}
+
 /**
  * The site's operation, or undefined once its owning process has died. Every
  * path that reports a site to a client must go through this — an entry left
  * behind by a crashed process would otherwise keep the site's actions disabled
  * in the UI.
  */
-export function getLiveSiteOperation( site: SiteData ): SiteOperation | undefined {
-	return site.operation && isProcessAlive( site.operation.pid ) ? site.operation : undefined;
+export function getLiveSiteOperation( site: ConfigSite ): SiteOperation | undefined {
+	return site.operation && isOwnerAlive( site.operation ) ? site.operation : undefined;
 }
 
 const START_WAIT_POLL_INTERVAL_MS = 250;
@@ -63,14 +75,12 @@ const START_WAIT_POLL_INTERVAL_MS = 250;
  * just replaced an outdated daemon starts the same sites again.
  */
 async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< SiteOperation > {
-	const operation: SiteOperation = { pid: process.pid, kind };
+	const operation: SiteOperation = { pid: process.pid, kind, bootTime: getBootTime() };
 
 	for (;;) {
 		let isWaiting = false;
-		try {
-			await lockCliConfig();
-			const config = await readCliConfig();
-			const sites: SiteData[] = [];
+		await updateConfig( ( config ) => {
+			const sites: ConfigSite[] = [];
 
 			for ( const siteId of siteIds ) {
 				const site = config.sites.find( ( candidate ) => candidate.id === siteId );
@@ -92,24 +102,50 @@ async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< S
 				for ( const site of sites ) {
 					site.operation = operation;
 				}
-				await saveCliConfig( config );
 			}
-		} finally {
-			await unlockCliConfig();
-		}
+		} );
 
 		if ( ! isWaiting ) {
 			return operation;
 		}
-		await new Promise( ( resolve ) => setTimeout( resolve, START_WAIT_POLL_INTERVAL_MS ) );
+		await waitForOtherStarts( siteIds );
 	}
 }
 
-async function release( siteIds: string[], operation: SiteOperation ): Promise< void > {
-	try {
-		await lockCliConfig();
-		const config = await readCliConfig();
+// Polls without the config lock, which every Studio process shares, until no other process's
+// start holds one of the sites.
+async function waitForOtherStarts( siteIds: string[] ): Promise< void > {
+	const isStartedElsewhere = ( site: ConfigSite ) => {
+		const blocking = getLiveSiteOperation( site );
+		return blocking?.kind === 'start' && blocking.pid !== process.pid;
+	};
+	do {
+		await new Promise( ( resolve ) => setTimeout( resolve, START_WAIT_POLL_INTERVAL_MS ) );
+	} while (
+		( await readConfig() ).sites.some(
+			( site ) => siteIds.includes( site.id ) && isStartedElsewhere( site )
+		)
+	);
+}
 
+// A long-lived owner (`studio mcp`, the daemon) would otherwise keep a site whose
+// release lost the config lock busy until it exits.
+const RELEASE_ATTEMPTS = 3;
+
+async function release( siteIds: string[], operation: SiteOperation ): Promise< void > {
+	for ( let attempt = 1; ; attempt++ ) {
+		try {
+			return await clearOperation( siteIds, operation );
+		} catch ( error ) {
+			if ( attempt === RELEASE_ATTEMPTS ) {
+				throw error;
+			}
+		}
+	}
+}
+
+function clearOperation( siteIds: string[], operation: SiteOperation ): Promise< void > {
+	return updateConfig( ( config ) => {
 		for ( const siteId of siteIds ) {
 			const site = config.sites.find( ( candidate ) => candidate.id === siteId );
 
@@ -120,10 +156,7 @@ async function release( siteIds: string[], operation: SiteOperation ): Promise< 
 				delete site.operation;
 			}
 		}
-		await saveCliConfig( config );
-	} finally {
-		await unlockCliConfig();
-	}
+	} );
 }
 
 // Both edges matter: without the release, an indicator raised by the daemon's

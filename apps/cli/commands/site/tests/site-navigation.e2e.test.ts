@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -51,7 +51,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: site navigation', () =>
 		);
 		expect( result.code, result.stderr ).toBe( 0 );
 
-		const [ site ] = readCliConfig( env ).sites;
+		const [ site ] = readConfigFile( env ).sites;
 		siteUrl = `http://localhost:${ String( site.port ) }`;
 	}, 240_000 );
 

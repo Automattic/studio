@@ -1,9 +1,9 @@
 import { fetchLibraryBlueprints } from '@studio/blueprints';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
+import { readConfig } from '@studio/common/lib/config/store';
 import { vi } from 'vitest';
 import { runCommand } from '../list';
 
-vi.mock( '@studio/common/lib/shared-config' );
+vi.mock( '@studio/common/lib/config/store' );
 vi.mock( '@studio/blueprints' );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
@@ -47,7 +47,7 @@ const testBlueprints = [
 describe( 'CLI: studio blueprint list', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
+		vi.mocked( readConfig ).mockResolvedValue( { preferences: {} } as never );
 		vi.mocked( fetchLibraryBlueprints ).mockResolvedValue( testBlueprints );
 		vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 	} );
@@ -95,7 +95,7 @@ describe( 'CLI: studio blueprint list', () => {
 	} );
 
 	it( 'should pass locale from shared config', async () => {
-		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1, locale: 'fr_FR' } );
+		vi.mocked( readConfig ).mockResolvedValue( { preferences: { locale: 'fr_FR' } } as never );
 
 		await runCommand( 'table' );
 

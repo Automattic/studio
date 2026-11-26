@@ -2,15 +2,13 @@ import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync }
 import { DatabaseSync } from 'node:sqlite';
 import os from 'os';
 import path from 'path';
+import { type Config } from '@studio/common/lib/config/schema';
+import { readConfig } from '@studio/common/lib/config/store';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { expect, it, vi } from 'vitest';
 import { captureTurnOutcome, fingerprintSites } from 'cli/ai/eval-outcome';
-import { readCliConfig } from 'cli/lib/cli-config/core';
 
-vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/cli-config/core') >() ),
-	readCliConfig: vi.fn(),
-} ) );
+vi.mock( '@studio/common/lib/config/store', () => ( { readConfig: vi.fn() } ) );
 
 // A Studio site's folder: its SQLite database, in WAL mode as WordPress's
 // SQLite integration runs it, and a theme. It is the one site Studio has.
@@ -26,9 +24,9 @@ function createSite(): string {
 	db.exec( 'PRAGMA journal_mode=WAL' );
 	db.exec( 'CREATE TABLE wp_options ( option_name TEXT, option_value TEXT )' );
 	db.close();
-	vi.mocked( readCliConfig ).mockResolvedValue( {
+	vi.mocked( readConfig ).mockResolvedValue( {
 		sites: [ { id: 'site', name: 'Site', path: root, port: 8881 } ],
-	} as Awaited< ReturnType< typeof readCliConfig > > );
+	} as Config );
 	return root;
 }
 

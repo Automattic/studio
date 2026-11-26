@@ -1,14 +1,11 @@
 import { app } from 'electron';
+import { isAutomatticianFromToken } from '@studio/common/lib/auth-token';
+import { getOrCreateAnalyticsInstallId, isAnalyticsOptedOut } from '@studio/common/lib/install';
 import {
 	__recordTracksEvent,
 	type TracksEventName,
 	type TracksProps,
 } from '@studio/common/lib/record-tracks-event';
-import {
-	getOrCreateAnalyticsInstallId,
-	isAnalyticsOptedOut,
-	isAutomatticianFromToken,
-} from '@studio/common/lib/shared-config';
 
 export {
 	TRACKS_EVENTS,
@@ -37,12 +34,11 @@ export async function recordTracksEvent(
 	event: TracksEventName,
 	props: TracksProps = {}
 ): Promise< void > {
-	// Never emit from dev or CI builds. `IS_DEV_BUILD` (also gates Sentry init) covers a developer's
-	// local dev build; `CI` is set by every CI environment and is inherited by the packaged app that
-	// the e2e step launches, keeping those runs out of real Tracks data. A real shipped app has
-	// neither set, so this can't suppress genuine telemetry.
-	// The shared core's E2E/NODE_ENV guard only covers launch paths that set those.
-	if ( process.env.IS_DEV_BUILD || process.env.CI ) {
+	// Never emit from dev builds or an unpackaged app. `IS_DEV_BUILD` (also gates Sentry init) covers a
+	// developer's local dev build. Every build people install, nightly and dev builds included, is
+	// packaged; an unpackaged app is `npm start` or a unit test booting the app with a mocked
+	// version. The shared core also refuses test, CI and E2E runs.
+	if ( process.env.IS_DEV_BUILD || ! app.isPackaged ) {
 		return;
 	}
 

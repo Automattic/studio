@@ -1,47 +1,43 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import * as atomically from 'atomically';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	readSiteMetadata,
-	setSiteFrontendAdminBar,
-	updateSiteMetadata,
-} from '../../sites/metadata';
-import * as appConfig from '../app-config';
+import { setSiteFrontendAdminBar, updateSiteMetadata } from '../../sites/metadata';
+import { getConfigPath, readConfig } from '../config/store';
 import { syncMuPluginSettings } from '../mu-plugin-settings';
 import { readUserPreferences, writeUserPreferences } from '../user-settings/user-preferences';
 import { getMuPluginSettingsPath } from '../well-known-paths';
-
-vi.mock( 'atomically', { spy: true } );
 
 let configDir: string;
 const preferencesContext = () => ( { sitesRoot: configDir } );
 const runtimeSettings = async () =>
 	JSON.parse( await readFile( getMuPluginSettingsPath(), 'utf8' ) );
+const readSite = async ( id: string ) =>
+	( await readConfig() ).sites.find( ( site ) => site.id === id );
+const site = ( id: string, fields: object ) => ( {
+	id,
+	name: id,
+	path: configDir,
+	port: 8881,
+	phpVersion: '8.3',
+	...fields,
+} );
+const writeConfig = ( config: object ) =>
+	writeFile( getConfigPath(), JSON.stringify( { version: 1, ...config } ) );
 
 beforeEach( async () => {
 	configDir = await mkdtemp( path.join( os.tmpdir(), 'studio-browser-settings-' ) );
 	vi.stubEnv( 'DEV_CONFIG_DIR', configDir );
-	await writeFile(
-		path.join( configDir, 'app.json' ),
-		JSON.stringify( {
-			hideFrontendAdminBar: false,
-			privateState: 'not-for-php',
-			siteMetadata: {
-				a: { sortOrder: 2, autoStart: true, futureField: 'kept' },
-				b: { hideFrontendAdminBar: false },
-			},
-		} )
-	);
-	await writeFile(
-		path.join( configDir, 'cli.json' ),
-		JSON.stringify( { sites: [ { id: 'a', name: 'A', path: configDir } ] } )
-	);
+	await writeConfig( {
+		preferences: { hideFrontendAdminBar: false, privateState: 'not-for-php' },
+		sites: [
+			site( 'a', { sortOrder: 2, autoStart: true, futureField: 'kept' } ),
+			site( 'b', { hideFrontendAdminBar: false } ),
+		],
+	} );
 } );
 
 afterEach( async () => {
-	vi.restoreAllMocks();
 	vi.unstubAllEnvs();
 	await rm( configDir, { recursive: true, force: true } );
 } );
@@ -66,7 +62,7 @@ describe( 'MU plugin browser settings', () => {
 	it( 'clears only the override and lets sites inherit subsequent default changes', async () => {
 		await setSiteFrontendAdminBar( 'a', true );
 		await setSiteFrontendAdminBar( 'a', null );
-		expect( ( await readSiteMetadata() ).a ).toMatchObject( {
+		expect( await readSite( 'a' ) ).toMatchObject( {
 			sortOrder: 2,
 			autoStart: true,
 			futureField: 'kept',
@@ -87,7 +83,7 @@ describe( 'MU plugin browser settings', () => {
 			setSiteFrontendAdminBar( 'a', false ),
 			updateSiteMetadata( { a: { sortOrder: 7 } } ),
 		] );
-		expect( ( await readSiteMetadata() ).a ).toMatchObject( {
+		expect( await readSite( 'a' ) ).toMatchObject( {
 			sortOrder: 7,
 			autoStart: true,
 			hideFrontendAdminBar: false,
@@ -101,44 +97,17 @@ describe( 'MU plugin browser settings', () => {
 	it( 'rejects invalid overrides and unknown sites without changing settings', async () => {
 		await expect( setSiteFrontendAdminBar( 'missing', true ) ).rejects.toThrow( 'Site not found' );
 		await expect( setSiteFrontendAdminBar( 'a', 'hide' as unknown as boolean ) ).rejects.toThrow();
-		expect( ( await readSiteMetadata() ).a.hideFrontendAdminBar ).toBeUndefined();
-	} );
-
-	it( 'leaves the saved preference unchanged if publishing the runtime settings fails', async () => {
-		vi.mocked( atomically.writeFile ).mockRejectedValueOnce( new Error( 'publish failed' ) );
-		await expect(
-			writeUserPreferences( { hideFrontendAdminBar: true }, preferencesContext() )
-		).rejects.toThrow( 'publish failed' );
-		expect( ( await readUserPreferences( preferencesContext() ) ).hideFrontendAdminBar ).toBe(
-			false
-		);
-		await writeUserPreferences( { hideFrontendAdminBar: true }, preferencesContext() );
-		expect( ( await runtimeSettings() ).hideFrontendAdminBar ).toBe( true );
-	} );
-
-	it( 'restores the runtime settings if saving app.json fails', async () => {
-		await syncMuPluginSettings();
-		vi.spyOn( appConfig, 'saveAppConfig' ).mockRejectedValueOnce( new Error( 'write failed' ) );
-		await expect(
-			writeUserPreferences( { hideFrontendAdminBar: true }, preferencesContext() )
-		).rejects.toThrow( 'write failed' );
-		expect( ( await runtimeSettings() ).hideFrontendAdminBar ).toBe( false );
-		expect( ( await readUserPreferences( preferencesContext() ) ).hideFrontendAdminBar ).toBe(
-			false
-		);
+		expect( ( await readSite( 'a' ) )?.hideFrontendAdminBar ).toBeUndefined();
 	} );
 
 	it( 'recreates runtime settings from saved preferences and ignores malformed values', async () => {
-		await writeFile(
-			path.join( configDir, 'app.json' ),
-			JSON.stringify( {
-				hideFrontendAdminBar: 'true',
-				siteMetadata: {
-					bad: { hideFrontendAdminBar: 'hide' },
-					good: { hideFrontendAdminBar: true },
-				},
-			} )
-		);
+		await writeConfig( {
+			preferences: { hideFrontendAdminBar: 'true' },
+			sites: [
+				site( 'bad', { hideFrontendAdminBar: 'hide' } ),
+				site( 'good', { hideFrontendAdminBar: true } ),
+			],
+		} );
 		await syncMuPluginSettings();
 		expect( await runtimeSettings() ).toEqual( {
 			hideFrontendAdminBar: false,

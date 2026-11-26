@@ -5,6 +5,7 @@
 import type { CustomEntry, SessionEntry } from '@earendil-works/pi-coding-agent';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { StudioChatImageAttachment } from '@studio/agent/protocol/chat-images';
+import type { ThinkingSetting } from '@studio/agent/protocol/thinking';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
 export type StudioCustomEntryType =
@@ -50,10 +51,12 @@ export interface StudioTurnClosedData {
 }
 
 // `provider` marks an explicit user pin; the CLI's per-turn records carry
-// only the model so a fallback run never rewrites the pin.
+// only the model so a fallback run never rewrites the pin. `thinking` is the
+// level the user picked for `model`.
 export interface StudioSessionContextData {
 	provider?: string;
 	model: string;
+	thinking?: ThinkingSetting;
 }
 
 // Lightweight attachment summaries persisted on a user-prompt entry so the

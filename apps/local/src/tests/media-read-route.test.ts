@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { getConfigPath } from '@studio/common/lib/config/store';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
@@ -17,8 +18,11 @@ beforeEach( async () => {
 	outsideDir = mkdtempSync( path.join( os.tmpdir(), 'studio-media-outside-' ) );
 	process.env.DEV_CONFIG_DIR = configDir;
 	writeFileSync(
-		path.join( configDir, 'cli.json' ),
-		JSON.stringify( { sites: [ { id: 'site', path: siteRoot } ] } )
+		getConfigPath(),
+		JSON.stringify( {
+			version: 1,
+			sites: [ { id: 'site', name: 'Site', path: siteRoot, port: 8881, phpVersion: '8.3' } ],
+		} )
 	);
 	server = await startLocalServer( {
 		cliBinary: path.join( os.tmpdir(), 'studio-test-cli.mjs' ),

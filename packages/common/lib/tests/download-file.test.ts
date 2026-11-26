@@ -11,12 +11,16 @@ import { downloadFile } from '../download-file';
 import { isNetworkError } from '../network-utils';
 
 describe( 'downloadFile', () => {
+	const largeBody = Buffer.alloc( 8 * 1024 * 1024, 1 );
 	const server = http.createServer( ( req, res ) => {
 		if ( req.url === '/missing' ) {
 			res.writeHead( 404 ).end();
 		} else if ( req.url === '/slow-body' ) {
 			res.writeHead( 200 ).write( 'part1-' );
 			setTimeout( () => res.end( 'part2' ), 6_000 );
+		} else if ( req.url === '/closing' ) {
+			res.writeHead( 200, { 'Content-Length': largeBody.length, Connection: 'close' } );
+			res.end( largeBody );
 		} // '/silent' never responds
 	} );
 	let base = '';
@@ -54,4 +58,9 @@ describe( 'downloadFile', () => {
 		await downloadFile( `${ base }/slow-body`, destination );
 		expect( fs.readFileSync( destination, 'utf8' ) ).toBe( 'part1-part2' );
 	}, 15_000 );
+
+	it( 'downloads a large file from a server that closes the connection after it', async () => {
+		await downloadFile( `${ base }/closing`, destination );
+		expect( fs.statSync( destination ).size ).toBe( largeBody.length );
+	} );
 } );

@@ -163,7 +163,7 @@
 }
 
 .scrollToLatestButton {
-	composes: floatingReveal from '@/lib/theme/recipes.module.css';
+	composes: floatingReveal from '@studio/ds/theme/recipes.module.css';
 	transition: var( --floating-reveal-transition );
 }
 

@@ -1,3 +1,10 @@
+import {
+	DatabaseIcon,
+	DuplicateIcon,
+	FileArchiveIcon,
+	DownloadIcon,
+	TrashIcon,
+} from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import {
 	EXPORT_DATABASE_MUTATION_KEY,
@@ -9,7 +16,6 @@ import {
 	useIsSiteMutating,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { DatabaseIcon, DuplicateIcon, FileArchiveIcon, DownloadIcon, TrashIcon } from '@/lib/icons';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType } from 'react';
 

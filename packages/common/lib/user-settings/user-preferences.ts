@@ -1,15 +1,10 @@
 import fs from 'node:fs/promises';
 import { SITES_PROVIDER_IDS, type SitesProviderId } from '@studio/providers';
 import { z } from 'zod';
-import { readAppConfig, updateAppConfig, type AppConfig } from '@studio/common/lib/app-config';
+import { readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { isSupportedLocale } from '@studio/common/lib/locale';
-import { updateMuPluginSettings } from '@studio/common/lib/mu-plugin-settings';
+import { updateConfigAndMuPluginSettings } from '@studio/common/lib/mu-plugin-settings';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import {
-	isAnalyticsOptedOutInConfig,
-	readSharedConfig,
-	updateSharedConfig,
-} from '@studio/common/lib/shared-config';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
 	DEFAULT_COLOR_SCHEME,
@@ -38,8 +33,8 @@ import type {
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
 /**
- * The user's preferences, read and written by both Studio apps: `app.json` for
- * the UI preferences, `shared.json` for locale and the analytics opt-out.
+ * The user's preferences, read and written by both Studio apps, in the config file's
+ * `preferences` section. Each is parsed on its own, falling back to its default.
  */
 
 export interface UserPreferences extends ColorTint {
@@ -128,8 +123,8 @@ export const userPreferencesPatchSchema = z.object( {
 
 export type UserPreferencesPatch = z.infer< typeof userPreferencesPatchSchema >;
 
-// Patch key -> `app.json` field. Also answers whether the lock is needed.
-const APP_CONFIG_KEYS = [
+// Patch key -> stored field.
+const STORED_KEYS = [
 	[ 'editor', 'preferredEditor' ],
 	[ 'browser', 'preferredBrowser' ],
 	[ 'terminal', 'preferredTerminal' ],
@@ -151,21 +146,24 @@ const APP_CONFIG_KEYS = [
 	[ 'accentColor', 'accentColor' ],
 	[ 'tintIntensity', 'tintIntensity' ],
 	[ 'contrast', 'contrast' ],
+	[ 'locale', 'locale' ],
 ] as const satisfies readonly ( readonly [ keyof UserPreferencesPatch, string ] )[];
 
-function getDefaultSiteDirectory( config: AppConfig, sitesRoot: string ): string {
+type Preferences = Record< string, unknown >;
+
+function getDefaultSiteDirectory( config: Preferences, sitesRoot: string ): string {
 	return nonEmptyString.safeParse( config.defaultSiteDirectory ).data ?? sitesRoot;
 }
 
-// Where new and duplicated sites go: the desktop's preference, else the sites root.
+// Where new and duplicated sites go: the user's preference, else the sites root.
 export async function readDefaultSiteDirectory( sitesRoot: string ): Promise< string > {
-	return getDefaultSiteDirectory( await readAppConfig(), sitesRoot );
+	return getDefaultSiteDirectory( ( await readConfig() ).preferences, sitesRoot );
 }
 
 export async function readUserPreferences( {
 	sitesRoot,
 }: UserPreferencesContext ): Promise< UserPreferences > {
-	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
+	const config: Preferences = ( await readConfig() ).preferences;
 	const {
 		autoStartSiteOnChat,
 		openChatOnSiteStart,
@@ -185,8 +183,8 @@ export async function readUserPreferences( {
 		terminal: optionalTerminal.parse( config.preferredTerminal ?? null ),
 		colorScheme: colorSchemeWithDefault.parse( config.colorScheme ),
 		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),
-		locale: shared.locale,
-		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
+		locale: typeof config.locale === 'string' ? config.locale : undefined,
+		analyticsEnabled: config.analyticsOptOut !== true,
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
 		defaultHostingProvider: z
 			.enum( SITES_PROVIDER_IDS )
@@ -223,6 +221,33 @@ export async function readUserPreferences( {
 	};
 }
 
+// Drops a deleted site from the sidebar's pins and chat order.
+export function forgetSiteInSidebar( preferences: Preferences, siteId: string ): void {
+	const pins = sidebarPinsSchema.catch( [] ).parse( preferences.sidebarPins );
+	if ( pins.includes( `site:${ siteId }` ) ) {
+		preferences.sidebarPins = pins.filter( ( pin ) => pin !== `site:${ siteId }` );
+	}
+	const chatOrder = sidebarChatOrderSchema.catch( {} ).parse( preferences.sidebarChatOrder );
+	if ( siteId in chatOrder ) {
+		delete chatOrder[ siteId ];
+		preferences.sidebarChatOrder = chatOrder;
+	}
+}
+
+export async function readPreferredTerminal(): Promise< SupportedTerminal > {
+	return terminalWithDefault.parse( ( await readConfig() ).preferences.preferredTerminal );
+}
+
+export async function readQuitSitesBehavior(): Promise< QuitSitesBehavior | undefined > {
+	return optionalQuitSitesBehavior.parse( ( await readConfig() ).preferences.quitSitesBehavior );
+}
+
+export async function writeQuitSitesBehavior( behavior: QuitSitesBehavior ): Promise< void > {
+	await updateConfig( ( { preferences } ) => {
+		preferences.quitSitesBehavior = behavior;
+	} );
+}
+
 async function ensureWritableDirectory( directory: string ): Promise< void > {
 	if ( ! ( await fs.stat( directory ) ).isDirectory() ) {
 		throw new Error( 'Selected path is not a directory.' );
@@ -236,14 +261,14 @@ async function getChangeEvents(
 	sitesRoot: string
 ): Promise< Array< [ TracksEventName, TracksProps ] > > {
 	const surface = patch.surface ?? 'settings';
-	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
+	const config: Preferences = ( await readConfig() ).preferences;
 	const events: Array< [ TracksEventName, TracksProps ] > = [];
 	const { colorScheme, locale, editor, terminal, defaultSiteDirectory, quitSitesBehavior } = patch;
 
 	if ( colorScheme && colorScheme !== colorSchemeWithDefault.parse( config.colorScheme ) ) {
 		events.push( [ TRACKS_EVENTS.SETTING_APPEARANCE_CHANGE, { mode: colorScheme, surface } ] );
 	}
-	if ( locale && locale !== shared.locale ) {
+	if ( locale && locale !== config.locale ) {
 		events.push( [ TRACKS_EVENTS.SETTING_LANGUAGE_CHANGE, { locale, surface } ] );
 	}
 	if ( editor && editor !== config.preferredEditor ) {
@@ -292,42 +317,30 @@ export async function writeUserPreferences(
 		await record();
 	}
 
-	const appEntries = APP_CONFIG_KEYS.filter( ( [ key ] ) => key in patch );
-
-	if ( appEntries.length > 0 ) {
-		const update = 'hideFrontendAdminBar' in patch ? updateMuPluginSettings : updateAppConfig;
-		await update( ( config ) => {
-			for ( const [ patchKey, configKey ] of appEntries ) {
-				const value = patch[ patchKey ];
-				if ( value === null || value === undefined ) {
-					delete config[ configKey ];
-				} else {
-					config[ configKey ] = value;
-				}
+	const entries = STORED_KEYS.filter( ( [ key ] ) => key in patch );
+	const update = 'hideFrontendAdminBar' in patch ? updateConfigAndMuPluginSettings : updateConfig;
+	await update( ( { preferences } ) => {
+		const stored: Preferences = preferences;
+		for ( const [ patchKey, storedKey ] of entries ) {
+			const value = patch[ patchKey ];
+			if ( value === null || value === undefined ) {
+				delete stored[ storedKey ];
+			} else {
+				stored[ storedKey ] = value;
 			}
-		} );
-	}
-
-	// Accumulated so a patch touching both fields takes the lockfile once.
-	const sharedPatch: Partial< Parameters< typeof updateSharedConfig >[ 0 ] > = {};
-	if ( patch.locale ) {
-		sharedPatch.locale = patch.locale;
-	}
-	if ( typeof patch.analyticsEnabled === 'boolean' ) {
-		sharedPatch.analyticsOptOut = ! patch.analyticsEnabled;
-	}
-	if ( Object.keys( sharedPatch ).length > 0 ) {
-		await updateSharedConfig( sharedPatch );
-	}
+		}
+		if ( typeof patch.analyticsEnabled === 'boolean' ) {
+			preferences.analyticsOptOut = ! patch.analyticsEnabled;
+		}
+	} );
 
 	if ( patch.analyticsEnabled !== false ) {
 		await record();
 	}
 }
 
-// The orientation guide's progress, kept in `app.json` like the desktop does so
-// finishing the tour in either front end settles both. `.loose()` keeps any
-// field a newer desktop adds.
+// The orientation guide's progress, shared so finishing the tour in either front
+// end settles both. `.loose()` keeps any field a newer build adds.
 export const onboardingHintsSchema = z
 	.object( {
 		tourCompletedVersion: z.number().optional(),
@@ -338,16 +351,18 @@ export const onboardingHintsSchema = z
 	} )
 	.loose();
 
-type OnboardingHints = z.infer< typeof onboardingHintsSchema >;
+export type OnboardingHints = z.infer< typeof onboardingHintsSchema >;
 
 export async function readOnboardingHints(): Promise< OnboardingHints > {
-	return onboardingHintsSchema.catch( {} ).parse( ( await readAppConfig() ).onboardingHints );
+	return onboardingHintsSchema
+		.catch( {} )
+		.parse( ( await readConfig() ).preferences.onboardingHints );
 }
 
 export async function writeOnboardingHints( patch: OnboardingHints ): Promise< void > {
-	await updateAppConfig( ( config ) => {
-		config.onboardingHints = {
-			...onboardingHintsSchema.catch( {} ).parse( config.onboardingHints ),
+	await updateConfig( ( { preferences } ) => {
+		preferences.onboardingHints = {
+			...onboardingHintsSchema.catch( {} ).parse( preferences.onboardingHints ),
 			...patch,
 		};
 	} );

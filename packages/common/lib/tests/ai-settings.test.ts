@@ -1,15 +1,18 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { ConnectError, NotConnectedError } from '@studio/providers';
+import { ConnectError, NotConnectedError, PROVIDER_IDS } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	connectProvider,
 	disconnectProvider,
 	readAiSettings,
+	selectProviderModels,
 	setAiProvider,
+	setImageProvider,
 } from '@studio/common/lib/ai-settings';
+import { getConfigPath } from '@studio/common/lib/config/store';
 import {
 	forgetRejectedConfig,
 	readFreshProviderConfig,
@@ -20,16 +23,20 @@ import {
 const anthropic = getProviderServices( 'anthropic' );
 const wpcom = getProviderServices( 'wpcom' );
 const disconnected = { connected: false };
+const allDisconnected = Object.fromEntries( PROVIDER_IDS.map( ( id ) => [ id, disconnected ] ) );
 
 describe( 'ai settings', () => {
 	let configDir: string;
 	let previousDevConfigDir: string | undefined;
 
-	const sharedConfigPath = () => path.join( configDir, 'shared.json' );
-	const cliConfigPath = () => path.join( configDir, 'cli.json' );
-	const readShared = () => JSON.parse( fs.readFileSync( sharedConfigPath(), 'utf8' ) );
-	const writeShared = ( config: object ) =>
-		fs.writeFileSync( sharedConfigPath(), JSON.stringify( { version: 1, ...config } ) );
+	const readProviders = () => JSON.parse( fs.readFileSync( getConfigPath(), 'utf8' ) ).providers;
+	const writeProviders = ( providers: object ) =>
+		fs.writeFileSync( getConfigPath(), JSON.stringify( { version: 1, providers } ) );
+	const signedIn = {
+		token: 'token',
+		expiresAt: Date.now() + 3600_000,
+		user: { id: 1, email: 'a@b.c', displayName: 'A' },
+	};
 
 	beforeEach( () => {
 		configDir = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-ai-settings-' ) );
@@ -52,15 +59,9 @@ describe( 'ai settings', () => {
 	it( 'defaults to WordPress.com with nothing connected', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: {
-				wpcom: disconnected,
-				anthropic: disconnected,
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				meta: disconnected,
-				spacefast: disconnected,
-			},
+			accounts: allDisconnected,
+			imageProviders: [],
+			imageProvider: null,
 		} );
 	} );
 
@@ -72,39 +73,31 @@ describe( 'ai settings', () => {
 		expect( settings ).toEqual( {
 			provider: 'anthropic',
 			accounts: {
-				wpcom: disconnected,
+				...allDisconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234', method: 'api-key' },
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				meta: disconnected,
-				spacefast: disconnected,
 			},
+			imageProviders: [],
+			imageProvider: null,
 		} );
-		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
-		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
+		expect( readProviders() ).toMatchObject( {
+			selected: 'anthropic-api-key',
+			configs: { anthropic: { method: 'api-key', apiKey: 'sk-ant-api03-testkey-abcd1234' } },
+		} );
 	} );
 
 	it( 'keeps a connected WordPress.com the default when another provider connects', async () => {
-		writeShared( {
-			authToken: {
-				accessToken: 'token',
-				expirationTime: Date.now() + 3600_000,
-				expiresIn: 3600,
-				id: 1,
-				email: 'a@b.c',
-				displayName: 'A',
-			},
-		} );
+		writeProviders( { configs: { wpcom: signedIn } } );
 
 		await expect(
 			connectProvider( anthropic, 'api-key', { apiKey: 'sk-ant-api03-testkey-abcd1234' } )
 		).resolves.toMatchObject( { provider: 'wpcom', accounts: { anthropic: { connected: true } } } );
-		expect( readShared().aiProvider ).toBeUndefined();
+		expect( readProviders().selected ).toBeUndefined();
 	} );
 
-	it( 'keeps a subscription token in its own section, and clears the other method on write', async () => {
-		writeShared( { anthropicApiKey: 'sk-ant-api03-testkey-abcd1234' } );
+	it( 'replaces an Anthropic API key with a subscription token, and back', async () => {
+		writeProviders( {
+			configs: { anthropic: { method: 'api-key', apiKey: 'sk-ant-api03-testkey-abcd1234' } },
+		} );
 
 		const settings = await connectProvider( anthropic, 'setup-token', {
 			token: 'sk-ant-oat01-token-abcd1234',
@@ -114,16 +107,12 @@ describe( 'ai settings', () => {
 			connected: true,
 			method: 'setup-token',
 		} );
-		expect( readShared() ).toMatchObject( {
-			providerConfigs: {
-				anthropic: { method: 'setup-token', token: 'sk-ant-oat01-token-abcd1234' },
-			},
+		expect( readProviders().configs ).toEqual( {
+			anthropic: { method: 'setup-token', token: 'sk-ant-oat01-token-abcd1234' },
 		} );
-		expect( readShared().anthropicApiKey ).toBeUndefined();
 
 		await connectProvider( anthropic, 'api-key', { apiKey: 'sk-ant-api03-testkey-abcd1234' } );
 
-		expect( readShared().providerConfigs ).toBeUndefined();
 		await expect( readProviderConfig( 'anthropic' ) ).resolves.toEqual( {
 			method: 'api-key',
 			apiKey: 'sk-ant-api03-testkey-abcd1234',
@@ -131,8 +120,8 @@ describe( 'ai settings', () => {
 	} );
 
 	it( 'replaces a ChatGPT sign-in with an OpenAI API key', async () => {
-		writeShared( {
-			providerConfigs: {
+		writeProviders( {
+			configs: {
 				openai: {
 					method: 'chatgpt',
 					clientId: 'oaiapp_1',
@@ -148,7 +137,7 @@ describe( 'ai settings', () => {
 		} );
 
 		expect( settings.accounts.openai ).toMatchObject( { connected: true, method: 'api-key' } );
-		expect( readShared().providerConfigs.openai ).toEqual( {
+		expect( readProviders().configs.openai ).toEqual( {
 			method: 'api-key',
 			apiKey: 'sk-proj-key',
 		} );
@@ -160,30 +149,7 @@ describe( 'ai settings', () => {
 		await expect(
 			connectProvider( anthropic, 'api-key', { apiKey: 'sk-ant-api03-rejected' } )
 		).rejects.toBeInstanceOf( ConnectError );
-		expect( fs.existsSync( sharedConfigPath() ) ).toBe( false );
-	} );
-
-	it( 'reads legacy values from cli.json and migrates them on write', async () => {
-		fs.writeFileSync(
-			cliConfigPath(),
-			JSON.stringify( {
-				version: 1,
-				aiProvider: 'anthropic-api-key',
-				anthropicApiKey: 'sk-ant-api03-legacykey-9999',
-			} )
-		);
-
-		await expect( readAiSettings() ).resolves.toMatchObject( {
-			provider: 'anthropic',
-			accounts: { anthropic: { connected: true } },
-		} );
-
-		await setAiProvider( 'anthropic' );
-
-		expect( readShared() ).toMatchObject( {
-			aiProvider: 'anthropic-api-key',
-			anthropicApiKey: 'sk-ant-api03-legacykey-9999',
-		} );
+		expect( fs.existsSync( getConfigPath() ) ).toBe( false );
 	} );
 
 	it( 'selects only a connected provider, storing the id older builds read', async () => {
@@ -193,31 +159,33 @@ describe( 'ai settings', () => {
 		await expect( setAiProvider( 'anthropic' ) ).resolves.toMatchObject( {
 			provider: 'anthropic',
 		} );
-		expect( readShared().aiProvider ).toBe( 'anthropic-api-key' );
+		expect( readProviders().selected ).toBe( 'anthropic-api-key' );
 	} );
 
 	it( 'disconnects, falls back to WordPress.com, and keeps unrelated fields', async () => {
-		writeShared( {
-			anthropicApiKey: 'sk-ant-api03-testkey-abcd1234',
-			aiProvider: 'anthropic-api-key',
-			locale: 'es',
-		} );
+		fs.writeFileSync(
+			getConfigPath(),
+			JSON.stringify( {
+				version: 1,
+				providers: {
+					selected: 'anthropic-api-key',
+					configs: { anthropic: { method: 'api-key', apiKey: 'sk-ant-api03-testkey-abcd1234' } },
+				},
+				preferences: { locale: 'es' },
+			} )
+		);
 
 		await expect( disconnectProvider( anthropic ) ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: {
-				wpcom: disconnected,
-				anthropic: disconnected,
-				openai: disconnected,
-				gemini: disconnected,
-				'github-copilot': disconnected,
-				meta: disconnected,
-				spacefast: disconnected,
-			},
+			accounts: allDisconnected,
+			imageProviders: [],
+			imageProvider: null,
 		} );
-		const written = readShared();
-		expect( written.anthropicApiKey ).toBeUndefined();
-		expect( written ).toMatchObject( { aiProvider: 'wpcom', locale: 'es' } );
+		const written = JSON.parse( fs.readFileSync( getConfigPath(), 'utf8' ) );
+		expect( written ).toMatchObject( {
+			providers: { selected: 'wpcom', configs: {} },
+			preferences: { locale: 'es' },
+		} );
 	} );
 
 	it( 'keeps the WordPress.com config in the Studio sign-in, and revokes it on disconnect', async () => {
@@ -239,16 +207,10 @@ describe( 'ai settings', () => {
 			method: 'sign-in',
 			summary: 'me@example.com',
 		} );
-		expect( readShared().authToken ).toMatchObject( {
-			accessToken: 'tok',
-			expiresIn: 3600,
-			id: 7,
-			email: 'me@example.com',
-			displayName: 'Me',
-		} );
-		await expect( readProviderConfig( 'wpcom' ) ).resolves.toMatchObject( {
+		expect( readProviders().configs.wpcom ).toEqual( {
 			token: 'tok',
-			user: { id: 7 },
+			expiresAt: expect.any( Number ),
+			user: { id: 7, email: 'me@example.com', displayName: 'Me' },
 		} );
 
 		await disconnectProvider( wpcom );
@@ -257,31 +219,22 @@ describe( 'ai settings', () => {
 			'https://public-api.wordpress.com/wpcom/v2/studio-app/token',
 			expect.objectContaining( { method: 'DELETE' } )
 		);
-		expect( readShared().authToken ).toBeUndefined();
+		expect( readProviders().configs.wpcom ).toBeUndefined();
 	} );
 
 	it( 'disconnects a provider whose config expired or that the provider rejects', async () => {
 		const rejected = () => Promise.reject( new NotConnectedError( 'Reconnect' ) );
-		writeShared( {
-			providerConfigs: { spacefast: { apiKey: 'sfa_old', expiresAt: '2020-01-01T00:00:00Z' } },
+		writeProviders( {
+			configs: { spacefast: { apiKey: 'sfa_old', expiresAt: '2020-01-01T00:00:00Z' } },
 		} );
 		expect( ( await readAiSettings() ).accounts.spacefast.connected ).toBe( false );
 
-		writeShared( {
-			authToken: {
-				accessToken: 'token',
-				expirationTime: Date.now() + 3600_000,
-				expiresIn: 3600,
-				id: 1,
-				email: 'a@b.c',
-				displayName: 'A',
-			},
-			providerConfigs: { spacefast: { apiKey: 'sfa_key', expiresAt: null } },
+		writeProviders( {
+			configs: { wpcom: signedIn, spacefast: { apiKey: 'sfa_key', expiresAt: null } },
 		} );
 		await expect( forgetRejectedConfig( 'wpcom', rejected ) ).rejects.toThrow( 'Reconnect' );
 		await expect( forgetRejectedConfig( 'spacefast', rejected ) ).rejects.toThrow( 'Reconnect' );
-		expect( readShared().providerConfigs ).toBeUndefined();
-		expect( readShared().authToken ).toMatchObject( { accessToken: 'token' } );
+		expect( readProviders().configs ).toEqual( { wpcom: signedIn } );
 	} );
 
 	it( 'stores a renewed config, and forgets one the provider no longer accepts but its client', async () => {
@@ -292,30 +245,76 @@ describe( 'ai settings', () => {
 			accessTokenExpiresAt: 0,
 			clientId: 'oaiapp_1',
 		} as const;
-		writeShared( { providerConfigs: { openai: stored } } );
+		writeProviders( { configs: { openai: stored } } );
 		const refresh = vi.fn().mockResolvedValueOnce( { ...stored, accessToken: 'new' } );
 		const services = getProviderServices( 'openai' );
-		const openai = { ...services, account: { ...services.account, refresh } };
+		const openai = { ...services, account: { ...services.account!, refresh } };
 
 		await expect( readFreshProviderConfig( openai ) ).resolves.toMatchObject( {
 			accessToken: 'new',
 		} );
-		expect( readShared().providerConfigs.openai.accessToken ).toBe( 'new' );
+		expect( readProviders().configs.openai.accessToken ).toBe( 'new' );
 
 		refresh.mockRejectedValueOnce( new NotConnectedError( 'Sign in again' ) );
 		await expect( readFreshProviderConfig( openai ) ).rejects.toThrow( 'Sign in again' );
-		expect( readShared().providerConfigs ).toBeUndefined();
+		expect( readProviders().configs ).toEqual( {} );
 		const context = await readSignInContext( 'openai' );
 		expect( context.remembered ).toEqual( { clientId: 'oaiapp_1' } );
 		expect( ( await readSignInContext( 'openai' ) ).hostId ).toBe( context.hostId );
 	} );
 
-	it( 'treats an unknown stored provider as the default', async () => {
-		fs.writeFileSync(
-			cliConfigPath(),
-			JSON.stringify( { version: 1, aiProvider: 'claude-code' } )
+	it( 'offers the models picked from a provider’s catalog', async () => {
+		const openrouter = getProviderServices( 'openrouter' );
+		const model = {
+			id: 'openrouter/acme/model' as const,
+			label: 'Acme: Model',
+			supportsImages: false,
+		};
+		await expect( selectProviderModels( openrouter, [ model ] ) ).rejects.toBeInstanceOf(
+			ConnectError
 		);
 
+		writeProviders( { configs: { openrouter: { method: 'api-key', apiKey: 'sk-or-v1' } } } );
+		const settings = await selectProviderModels( openrouter, [ model ] );
+
+		expect( settings.accounts.openrouter ).toMatchObject( {
+			connected: true,
+			models: [ { id: 'openrouter/acme/model', label: 'Acme: Model' } ],
+		} );
+	} );
+
+	it( 'treats an unknown stored provider as the default', async () => {
+		writeProviders( { selected: 'claude-code' } );
+
 		await expect( readAiSettings() ).resolves.toMatchObject( { provider: 'wpcom' } );
+	} );
+
+	it( 'picks only a provider that generates images, and falls back to automatic without it', async () => {
+		const chatgpt = {
+			method: 'chatgpt',
+			clientId: 'oaiapp_1',
+			accessToken: 'access',
+			refreshToken: 'refresh',
+			accessTokenExpiresAt: 0,
+		};
+		writeProviders( {
+			configs: { gemini: { method: 'api-key', apiKey: 'gemini-key' }, openai: chatgpt },
+		} );
+		await expect( setImageProvider( 'openai' ) ).rejects.toBeInstanceOf( ConnectError );
+
+		await expect( setImageProvider( 'gemini' ) ).resolves.toMatchObject( {
+			imageProviders: [ 'gemini' ],
+			imageProvider: 'gemini',
+		} );
+		expect( readProviders().selectedImage ).toBe( 'gemini' );
+
+		writeProviders( { selectedImage: 'gemini', configs: { openai: chatgpt } } );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			imageProviders: [],
+			imageProvider: null,
+		} );
+
+		await setImageProvider( null );
+		expect( readProviders().selectedImage ).toBeUndefined();
 	} );
 } );

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { getConfigPath } from '@studio/common/lib/config/store';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
@@ -19,9 +20,19 @@ beforeEach( async () => {
 	configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-site-email-' ) );
 	process.env.DEV_CONFIG_DIR = configDir;
 	writeFileSync(
-		path.join( configDir, 'cli.json' ),
-		JSON.stringify( { sites: [ { id: SITE_ID, path: path.join( configDir, 'site' ) } ] } ),
-		'utf-8'
+		getConfigPath(),
+		JSON.stringify( {
+			version: 1,
+			sites: [
+				{
+					id: SITE_ID,
+					name: 'Site',
+					path: path.join( configDir, 'site' ),
+					port: 8881,
+					phpVersion: '8.3',
+				},
+			],
+		} )
 	);
 	mkdirSync( getSiteEmailDirectory( SITE_ID ), { recursive: true } );
 	writeFileSync(

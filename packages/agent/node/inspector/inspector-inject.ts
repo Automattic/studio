@@ -24,7 +24,12 @@ import {
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
 import { NOTE_EDITOR_BINDING, NOTE_EDITOR_EVENT, NOTE_EDITOR_SCRIPT } from './note-editor';
-import type { BrowserAnnotation } from '@studio/agent/shared/host';
+import type { VisualAnnotation } from '@studio/agent/protocol/visual-annotations';
+
+// A note the user left on a page, with the images they attached to it.
+interface BrowserAnnotation extends VisualAnnotation {
+	images: StudioChatImage[];
+}
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;

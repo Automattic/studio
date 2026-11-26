@@ -28,6 +28,7 @@ export interface CommandArgs {
 	only?: string;
 	out?: string;
 	'diff-dir'?: string;
+	'min-change'?: string;
 	json?: boolean;
 	'keep-profile'?: boolean;
 	script?: string;
@@ -66,6 +67,17 @@ export async function runCommand( command: string, refs: string[], args: Command
 		return args.driver as DriverName | undefined;
 	}
 
+	function minChangeOption(): number | undefined {
+		if ( args[ 'min-change' ] === undefined ) {
+			return undefined;
+		}
+		const value = Number( args[ 'min-change' ] );
+		if ( ! Number.isFinite( value ) || value < 0 || value > 100 ) {
+			throw new Error( '--min-change must be a percentage from 0 to 100.' );
+		}
+		return value;
+	}
+
 	function needRefs( what: string ) {
 		if ( ! refs.length ) {
 			throw new Error( `${ command } needs ${ what }. See \`studio-capture help\`.` );
@@ -100,6 +112,7 @@ export async function runCommand( command: string, refs: string[], args: Command
 			suites: names( args.suite ),
 			only: names( args.only ),
 			diffDir: args[ 'diff-dir' ] && path.resolve( args[ 'diff-dir' ] ),
+			minChange: minChangeOption(),
 			keepProfile: args[ 'keep-profile' ],
 			log,
 		} );
@@ -112,9 +125,14 @@ export async function runCommand( command: string, refs: string[], args: Command
 					? [
 							`${ summary.changed } changed`,
 							`${ summary.new } new`,
+							`${ summary.minor } minor (kept)`,
 							`${ summary.unchanged } unchanged`,
 					  ]
-					: [ `${ summary.new + summary.changed } written`, `${ summary.unchanged } unchanged` ];
+					: [
+							`${ summary.new + summary.changed } written`,
+							`${ summary.minor } minor (kept)`,
+							`${ summary.unchanged } unchanged`,
+					  ];
 			if ( summary.skipped ) {
 				parts.push( `${ summary.skipped } skipped (Studio Desktop only)` );
 			}

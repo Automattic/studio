@@ -1,6 +1,8 @@
 # Open in WordPress Studio button
 
-The Open in WordPress Studio button lets users spin up a new WordPress Studio site from a [Blueprint](https://wordpress.studio/docs/blueprints/) with a single click. When someone clicks the button or link, WordPress Studio launches on their machine (if installed) and opens the **Add site** dialog with the Blueprint you provide, ready to create a new site from it. If they don’t have WordPress Studio installed, they’re sent to [the WordPress Studio landing page](https://wordpress.studio/) to download the app. Once installed, click the button again to launch the site.
+The Open in WordPress Studio button lets users spin up a new WordPress Studio site from a Blueprint with a single click.
+
+When someone clicks the button or link, WordPress Studio launches on their machine (if installed) and opens the **Add site** dialog with the [Blueprint](https://wordpress.studio/docs/blueprints/) you provide, ready to create a new site from it. If they don’t have WordPress Studio installed, they’re sent to [the WordPress Studio landing page](https://wordpress.studio/) to download the app. Once installed, click the button again to launch the site.
 
 You can embed Open in WordPress Studio buttons and links anywhere you share your work: GitHub repositories, plugin or theme listings, documentation, YouTube descriptions, and more. It’s a quick way to help users start working in WordPress Studio with your recommended setup.
 
@@ -10,10 +12,12 @@ Here’s an example that creates a new site in WordPress Studio with a Blueprint
 
 ## [Generate your own](#0-generate-your-own)
 
-Use this tool to build your own Open in WordPress Studio button or link. Paste any publicly accessible Blueprint URL, Base64 encoded JSON, or raw JSON, and an embed code will be generated. If you haven’t created a Blueprint before, see the [Blueprint guide](https://wordpress.studio/docs/blueprints/how-to-create-custom-blueprints/) for how to create one.
+Use the [Open in WordPress Studio button generator](https://wordpress.studio/blueprint-button/) to build your own button or link. Paste any publicly accessible Blueprint URL, Base64 encoded JSON, or raw JSON, then copy the link as Markdown, HTML, or a URL. If you haven’t created a Blueprint before, see the [Blueprint guide](https://wordpress.studio/docs/blueprints/how-to-create-custom-blueprints/) for how to create one.
 
-Blueprint
+To build the link yourself, put a Blueprint URL in the `blueprint_url` parameter, or the Blueprint JSON encoded as Base64 in the `blueprint` parameter, of an `add-site` deep link. Then URL-encode that deep link into a `wp.com/open` link:
 
-Markdown HTML URL
+```
+https://wp.com/open?deep_link=add-site%3Fblueprint_url%3D<URL-encoded Blueprint URL>
+```
 
-Copy
+Use a Blueprint URL for a setup you keep updating, such as a file in your GitHub repository: the link always opens its latest version. Use Base64 JSON for a fixed setup with no file to host.

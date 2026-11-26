@@ -1,13 +1,15 @@
 # WordPress Studio feedback
 
-WordPress Studio is an open source local development app, with community input driving what we build. While we don’t commit to specific release dates, we aim to ship **two releases per month**: one focused on bug fixes and performance, and one introducing new features or capabilities. Occasionally, a release may take longer than two weeks if it includes a significant feature.
+WordPress Studio is an open source local development app, with community input driving what we build.
+
+While we don’t commit to specific release dates, we aim to ship **two releases per month**: one focused on bug fixes and performance, and one introducing new features or capabilities. Occasionally, a release may take longer than two weeks if it includes a significant feature.
 
 ## [Help shape what we build](#0-help-shape-what-we-build)
 
 We want WordPress Studio to reflect the needs of the WordPress dev community. To help, you can:
 
 -   [Download WordPress Studio](https://wordpress.studio/download/)
--   [Send feedback from inside WordPress Studio](#send-feedback), straight to the WordPress Studio team
+-   [Send feedback from inside WordPress Studio](#send-feedback-from-wordpress-studio), straight to the WordPress Studio team
 -   [Report a bug or request a feature on GitHub](https://github.com/Automattic/studio/issues), or choose **Help → Report an Issue** or **Help → Propose a Feature** in WordPress Studio. **Settings → General** has a **Report an issue on GitHub** button too
 -   [Subscribe to our developer newsletter](https://developer.wordpress.com/newsletter/) to stay in the loop with all things WordPress development
 
@@ -28,6 +30,6 @@ To send feedback:
 
 WordPress Studio shows **Feedback sent** with a reference ID for your submission. Click **Done** to close the dialog.
 
-If you’re logged out, the dialog offers **Log in**, or **Open GitHub** to report the issue there instead.
+If you’re logged out, the dialog offers **Continue with WordPress.com**, where you log in or create an account, and the feedback form then opens in the same dialog, or **Report an issue on GitHub** to report it there instead.
 
 You can also send feedback from a WordPress Studio Code chat, in the desktop app or the terminal, with the `/feedback` command. WordPress Studio Code writes the report from what happened in the chat and shows it to you before anything is sent. See [Send feedback from a chat](https://wordpress.studio/docs/studio-code/#send-feedback-from-a-chat).

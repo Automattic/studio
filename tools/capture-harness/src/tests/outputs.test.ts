@@ -91,6 +91,35 @@ describe( 'writeIfChanged', () => {
 		expect( await writeIfChanged( file, black ) ).toMatchObject( { status: 'changed' } );
 		expect( ( await readFile( file ) ).equals( black ) ).toBe( true );
 	} );
+
+	it( 'keeps the file when less than minChange percent of its pixels changed', async () => {
+		temp = await mkdtemp( path.join( tmpdir(), 'capture-test-' ) );
+		const file = path.join( temp, 'shot.png' );
+		const still = { format: 'png' as const, quality: 90 };
+		const white = await encodeStill( await solid( 100, 100, '#ffffff' ), still );
+		// 10 × 10 black pixels in a white 100 × 100 image: 1% of its pixels.
+		const spotted = await encodeStill(
+			await sharp( await solid( 100, 100, '#ffffff' ) )
+				.composite( [ { input: await solid( 10, 10, '#000000' ), left: 0, top: 0 } ] )
+				.png()
+				.toBuffer(),
+			still
+		);
+		await writeIfChanged( file, white );
+
+		expect( await writeIfChanged( file, spotted, { minChange: 2 } ) ).toMatchObject( {
+			status: 'minor',
+			diffPixels: 100,
+			diffPercent: 1,
+		} );
+		expect( ( await readFile( file ) ).equals( white ) ).toBe( true );
+
+		expect( await writeIfChanged( file, spotted, { minChange: 0.5 } ) ).toMatchObject( {
+			status: 'changed',
+			diffPercent: 1,
+		} );
+		expect( ( await readFile( file ) ).equals( spotted ) ).toBe( true );
+	} );
 } );
 
 describe( 'renderLook', () => {

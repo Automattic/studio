@@ -14,11 +14,15 @@ import type { CommandArgs } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
 
+export type StaticExportStep = 'startingSite' | 'generatingStaticSite' | 'stoppingSite';
+
 export async function runCommand(
 	sitePath: string,
 	outputDir: string,
 	destinationUrl: string | undefined,
-	overwrite: boolean
+	overwrite: boolean,
+	beforeExport?: () => Promise< void >,
+	onStep?: ( step: StaticExportStep ) => void
 ): Promise< void > {
 	const site = await getSiteByFolder( sitePath );
 
@@ -33,11 +37,14 @@ export async function runCommand(
 		}
 	};
 	if ( ! wasRunning ) {
+		onStep?.( 'startingSite' );
 		await startSite( sitePath, true, true, logger );
 	}
 	const forgetStop = onCancel( stop );
 
 	try {
+		await beforeExport?.();
+		onStep?.( 'generatingStaticSite' );
 		logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Generating static site…' ) );
 		await exportStaticSite( {
 			site,
@@ -50,6 +57,9 @@ export async function runCommand(
 		logger.reportSuccess( sprintf( __( 'Static site exported to %s' ), outputDir ) );
 	} finally {
 		forgetStop();
+		if ( ! wasRunning ) {
+			onStep?.( 'stoppingSite' );
+		}
 		await stop();
 	}
 }

@@ -1,7 +1,7 @@
 {
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-connected",
-	"description": "Signed in, with the demo site connected to two made-up WordPress.com sites from wpcom-sites.json: the Publish tab's list of connected websites and the Choose files… review steps",
+	"description": "Signed in, with the demo site connected to two made-up WordPress.com sites from wpcom-sites.json: the Publish panel's list of sites, a site's details, and the pull and publish dialogs with their file choices",
 	"scene": "moire",
 	"look": "docs",
 	"signedIn": true,
@@ -9,195 +9,80 @@
 	"shots": [
 		{
 			"name": "publish-sites",
-			"description": "Publish → Published to: the two connected websites, and Publish to another site…",
+			"description": "Publish panel → Choose a site: the two connected websites, then Publish somewhere else and Connect to an existing site",
+			"meta": { "pages": [ "sync.md" ] },
+			"steps": [
+				{ "click": { "role": "button", "name": "Publish…", "exact": true } },
+				{ "waitFor": { "role": "dialog", "name": "Choose a site" } },
+				{ "wait": 800 }
+			],
+			"capture": { "target": { "role": "dialog", "name": "Choose a site" } }
+		},
+		{
+			"name": "publish-site-details",
+			"description": "Publish → a connected WordPress.com site: its address and Site actions, Who can view, Pull from live site… and Update…",
 			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
 					"click": {
+						"within": { "role": "dialog", "name": "Choose a site" },
 						"role": "button",
-						"name": "Share",
-						"exact": true
+						"name": "Moire",
+						"exact": true,
+						"first": true
 					}
 				},
-				{
-					"click": {
-						"within": {
-							"role": "tablist",
-							"name": "Share and publish"
-						},
-						"role": "tab",
-						"name": "Publish",
-						"exact": true
-					}
-				},
-				{
-					"waitFor": {
-						"role": "heading",
-						"name": "Published to"
-					}
-				}
+				{ "waitFor": { "role": "dialog", "name": "Publish", "exact": true } },
+				{ "waitFor": { "role": "button", "pattern": "^Update" } },
+				{ "wait": 800 }
 			],
-			"after": [
-				{
-					"press": "Escape"
-				},
-				{
-					"waitFor": {
-						"role": "dialog",
-						"name": "Share and publish"
-					},
-					"hidden": true
-				}
-			],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Share and publish"
-				}
-			}
+			"capture": { "target": { "role": "dialog", "name": "Publish", "exact": true } }
 		},
 		{
 			"name": "pull-choose-files",
-			"description": "Publish details → Pull changes → What to pull, with Choose files… and a few items selected",
+			"description": "Pull from live site… → What to replace: Choose files…, with a few items selected",
 			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-pull-selective.png" ] },
 			"steps": [
-				{
-					"click": {
-						"role": "button",
-						"name": "Share",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"within": {
-							"role": "tablist",
-							"name": "Share and publish"
-						},
-						"role": "tab",
-						"name": "Publish",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"role": "button",
-						"name": "moirejournal.wpcomstaging.com",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"role": "button",
-						"name": "Pull changes",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"within": {
-							"role": "radiogroup",
-							"name": "What to pull"
-						},
-						"role": "radio",
-						"name": "Choose files…"
-					}
-				},
-				{
-					"waitFor": {
-						"role": "checkbox",
-						"name": "themes",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"role": "checkbox",
-						"name": "Content and settings",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"role": "checkbox",
-						"name": "themes",
-						"exact": true
-					}
-				}
+				{ "click": { "role": "button", "name": "Pull from live site…" } },
+				{ "waitFor": { "role": "alertdialog" } },
+				{ "click": { "role": "combobox", "name": "What to replace" } },
+				{ "click": { "role": "option", "name": "Choose files…" } },
+				{ "waitFor": { "role": "checkbox", "name": "themes", "exact": true } },
+				{ "click": { "role": "checkbox", "name": "Content and settings", "exact": true } },
+				{ "click": { "role": "checkbox", "name": "themes", "exact": true } }
 			],
+			"capture": { "target": { "role": "alertdialog" } },
 			"after": [
-				{
-					"click": {
-						"role": "button",
-						"name": "Back to Publish"
-					}
-				},
-				{
-					"waitFor": {
-						"role": "button",
-						"name": "Pull changes",
-						"exact": true
-					}
-				}
+				{ "click": { "within": { "role": "alertdialog" }, "role": "button", "name": "Cancel" } },
+				{ "waitFor": { "role": "alertdialog" }, "hidden": true }
+			]
+		},
+		{
+			"name": "publish-changes",
+			"description": "Update… → Publish changes? with What to publish open: Everything, Database, Plugins, Themes, Uploads and Choose specific files",
+			"meta": { "pages": [ "sync.md" ] },
+			"steps": [
+				{ "click": { "role": "button", "pattern": "^Update" } },
+				{ "waitFor": { "role": "alertdialog" } },
+				{ "click": { "role": "button", "name": "What to publish" } },
+				{ "waitFor": { "role": "checkbox", "name": "Database" } }
 			],
 			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Share and publish"
-				}
+				"target": [ { "role": "alertdialog" }, { "role": "dialog", "name": "What to publish" } ],
+				"pad": 24
 			}
 		},
 		{
 			"name": "publish-choose-files",
-			"description": "Publish details → Publish changes → What to publish, with Choose files… and a few items selected",
+			"description": "Publish changes? → Choose specific files: the Choose files dialog with a few items selected",
 			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-selective-push.png" ] },
 			"steps": [
-				{
-					"click": {
-						"role": "button",
-						"name": "Publish changes",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"within": {
-							"role": "radiogroup",
-							"name": "What to publish"
-						},
-						"role": "radio",
-						"name": "Choose files…"
-					}
-				},
-				{
-					"waitFor": {
-						"role": "checkbox",
-						"name": "themes",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"role": "checkbox",
-						"name": "Content and settings",
-						"exact": true
-					}
-				},
-				{
-					"click": {
-						"role": "checkbox",
-						"name": "themes",
-						"exact": true
-					}
-				}
+				{ "click": { "role": "button", "name": "Choose specific files" } },
+				{ "waitFor": { "role": "dialog", "name": "Choose files" } },
+				{ "waitFor": { "role": "checkbox", "name": "themes", "exact": true } },
+				{ "click": { "role": "checkbox", "name": "themes", "exact": true } }
 			],
-			"after": [],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Share and publish"
-				}
-			}
+			"capture": { "target": { "role": "dialog", "name": "Choose files" } }
 		}
 	]
 }

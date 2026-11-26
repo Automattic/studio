@@ -6,7 +6,6 @@ import {
 	shouldSetAdminCredentials,
 	toUrlSearchParams,
 } from 'cli/lib/admin-credentials';
-import { type SiteData } from 'cli/lib/cli-config/core';
 import { getSiteUrl, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, isProcessRunning } from 'cli/lib/daemon-client';
 import { type PullSession } from 'cli/lib/pull/pull-session';
@@ -18,6 +17,7 @@ import {
 	type StartServerOptions,
 } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 /**
  * Saves the pulled site's start options to `start-options.json`, where
@@ -43,7 +43,7 @@ export function savePulledSiteStartOptions( session: PullSession ): StartServerO
  * reads the pulled files on every request.
  */
 export async function startPulledSite(
-	site: SiteData,
+	site: ConfigSite,
 	logger: Logger< string >,
 	runtimeStartOptions: StartServerOptions,
 	{ restart }: { restart: boolean }
@@ -93,7 +93,7 @@ export async function startPulledSite(
  * no stored credentials, and 'unreachable' when the server doesn't answer.
  */
 async function reapplyAdminCredentials(
-	site: SiteData
+	site: ConfigSite
 ): Promise< 'applied' | 'skipped' | 'unreachable' > {
 	const credentials = {
 		adminUsername: site.adminUsername,

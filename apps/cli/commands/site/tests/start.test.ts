@@ -1,5 +1,4 @@
 import { vi } from 'vitest';
-import { SiteData } from 'cli/lib/cli-config/core';
 import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
@@ -8,6 +7,7 @@ import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 import { runCommand } from '../start';
+import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
@@ -28,7 +28,7 @@ vi.mock( 'cli/lib/sqlite-integration' );
 
 describe( 'CLI: studio site start', () => {
 	// Simple test data
-	const testSite: SiteData = {
+	const testSite: ConfigSite = {
 		id: 'site-1',
 		name: 'Test Site',
 		path: '/test/site',

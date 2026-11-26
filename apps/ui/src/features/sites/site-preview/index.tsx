@@ -1,5 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
+import { VisuallyHidden } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -34,7 +35,6 @@ import { PreviewParticles } from '@/features/sites/preview-particles';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { SiteToolLauncher, useSiteToolActions } from '@/features/sites/site-tools';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
-import { VisuallyHidden } from '@/lib/ui';
 import {
 	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
@@ -630,9 +630,6 @@ function SitePreviewContent( {
 											key={ frameKey }
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
-											{ ...inspectorProps }
-											annotationTool={ annotationTools.tool }
-											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={
@@ -823,9 +820,11 @@ export function SitePreview( props: SitePreviewProps ) {
 		reviewStarting,
 		startReviewSite,
 	] );
+	// Moving an iframe or webview can reload or disconnect it, so keep panes in a stable order.
+	const previewPanes = [ ...workspace.tabs ].sort( ( a, b ) => a.id.localeCompare( b.id ) );
 	return (
 		<div ref={ root } className={ styles.tabWorkspace }>
-			{ workspace.tabs.map( ( tab ) => {
+			{ previewPanes.map( ( tab ) => {
 				const active = tab.id === workspace.selectedId;
 				return (
 					<div

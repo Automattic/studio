@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
 	cleanupCliEnv,
 	cliE2ePrerequisitesMet,
-	readCliConfig,
+	readConfigFile,
 	runCli,
 	setupCliEnv,
 	waitForSiteResponse,
@@ -64,7 +64,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 
 			expect( result.code, result.stderr ).toBe( 0 );
 
-			const config = readCliConfig( env );
+			const config = readConfigFile( env );
 			expect( config.sites ).toHaveLength( 1 );
 			const [ site ] = config.sites;
 			expect( site.name ).toBe( siteName );
@@ -72,7 +72,6 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 			expect( site.phpVersion ).toBeTruthy();
 			expect( site.port ).toBeTruthy();
 
-			// wp-config.php only exists if the server started (create alone doesn't generate it).
 			expect( fs.existsSync( path.join( sitePath, 'wp-load.php' ) ) ).toBe( true );
 			expect( fs.existsSync( path.join( sitePath, 'wp-includes', 'version.php' ) ) ).toBe( true );
 			expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
@@ -99,7 +98,7 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 	);
 
 	it(
-		'creates a site with a custom domain and HTTPS',
+		'creates an installed site with a custom domain and HTTPS without starting it',
 		{ tags: [ 'e2e' ], timeout: 120_000 },
 		async () => {
 			env = setupCliEnv();
@@ -131,15 +130,17 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site create', ()
 
 			// --no-start skips the hosts-file / certificate setup that running would do,
 			// so this only checks the custom domain and HTTPS preference are persisted.
-			const config = readCliConfig( env );
+			const config = readConfigFile( env );
 			expect( config.sites ).toHaveLength( 1 );
 			const [ site ] = config.sites;
 			expect( site.name ).toBe( siteName );
 			expect( site.customDomain ).toBe( customDomain );
 			expect( site.enableHttps ).toBe( true );
-			expect( site.running ).toBe( false );
 
-			expect( fs.existsSync( path.join( sitePath, 'wp-load.php' ) ) ).toBe( true );
+			expect( fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ).toBe( true );
+			const siteUrl = await runCli( [ 'wp', '--path', sitePath, 'option', 'get', 'siteurl' ], env );
+			expect( siteUrl.code, siteUrl.stderr ).toBe( 0 );
+			expect( siteUrl.stdout.trim() ).toBe( `https://${ customDomain }` );
 		}
 	);
 } );

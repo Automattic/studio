@@ -1,6 +1,6 @@
+import { Button, Empty } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { Button, Empty } from '@/lib/ui';
 import styles from './style.module.css';
 
 export function PanelLoadError( {

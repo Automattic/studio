@@ -1,5 +1,5 @@
+import { useSubmitFeedback } from '@studio/ds/hooks';
 import { useEffect, useRef } from 'react';
-import { useSubmitFeedback } from '@/lib/hooks';
 
 export const ANNOTATION_SHAKE_MS = 360;
 

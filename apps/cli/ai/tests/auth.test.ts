@@ -1,5 +1,9 @@
 import { password, select } from '@inquirer/prompts';
-import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import {
+	connectProvider,
+	readSelectedAiProvider,
+	readSelectedImageProvider,
+} from '@studio/common/lib/ai-settings';
 import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { ConnectError, type ProviderId } from '@studio/providers';
 import { vi } from 'vitest';
@@ -22,6 +26,7 @@ vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
 	connectProvider: vi.fn(),
 	readSelectedAiProvider: vi.fn(),
+	readSelectedImageProvider: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/provider-config', () => ( {
@@ -227,5 +232,21 @@ describe( 'AI auth helpers', () => {
 			openai: { method: 'chatgpt', accessToken: 'access' },
 		} );
 		await expect( generated() ).resolves.toContain( 'public-api.wordpress.com' );
+	} );
+
+	it( 'generates images through the provider picked for them, whatever serves the chat', async () => {
+		vi.mocked( fetch ).mockImplementation( async () => new Response( '{}', { status: 400 } ) );
+		storeConfigs( {
+			wpcom: { token: 'wpcom-token' },
+			openai: { method: 'api-key', apiKey: 'sk-key' },
+		} );
+		vi.mocked( readSelectedImageProvider ).mockResolvedValue( 'openai' );
+
+		const generate = await resolveImageGenerator( 'wpcom' );
+		await generate!( [ { prompt: 'A lake' } ] );
+
+		expect( String( vi.mocked( fetch ).mock.lastCall![ 0 ] ) ).toBe(
+			'https://api.openai.com/v1/images/generations'
+		);
 	} );
 } );

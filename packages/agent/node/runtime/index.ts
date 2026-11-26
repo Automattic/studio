@@ -1,7 +1,15 @@
 import fs from 'fs';
 import os from 'os';
+import path from 'path';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import { type Credential, type CredentialInfo, type CredentialStore } from '@earendil-works/pi-ai';
+import {
+	isContextOverflow,
+	type Credential,
+	type CredentialInfo,
+	type CredentialStore,
+} from '@earendil-works/pi-ai';
+import { MIN_ANSWER_TOKENS } from '@earendil-works/pi-ai/api/simple-options';
+import { estimateTextTokens } from '@earendil-works/pi-ai/utils/estimate';
 import {
 	createAgentSession,
 	createBashTool,
@@ -19,30 +27,36 @@ import {
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { readSkillsForAgent } from '@studio/common/lib/global-skills';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { type UserSkill } from '@studio/common/lib/user-skills';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { type TSchema } from 'typebox';
+import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
+import { getFileToolPrompt } from '@studio/agent/node/file-tool-prompts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
+import { createConnectionStream } from '@studio/agent/node/models';
+import {
+	getPendingWork,
+	runWithPendingWork,
+	type PendingWork,
+} from '@studio/agent/node/pending-work';
+import { createResultNotes } from '@studio/agent/node/result-notes';
+import { findActiveSiteDesign } from '@studio/agent/node/site-selection';
+import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
+import { assertToolCallAllowed } from '@studio/agent/node/tool-safety';
+import { resolveConversationTools } from '@studio/agent/node/tools';
 import {
 	findLastAssistant,
 	getEmptyStopContinuation,
 	isEmptyStop,
 	MAX_EMPTY_STOP_CONTINUES,
 } from '@studio/agent/protocol/session-events';
-import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
-import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
-import { createConnectionStream } from '@studio/agent/shared/models';
-import { runWithPendingWork, type PendingWork } from '@studio/agent/shared/pending-work';
-import { createResultNotes } from '@studio/agent/shared/result-notes';
-import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
-import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/shared/system-prompt';
-import { assertToolCallAllowed } from '@studio/agent/shared/tool-safety';
-import { resolveConversationTools } from '@studio/agent/shared/tools';
-import { getPendingWork } from './pending-work';
+import { DEFAULT_THINKING_LEVEL } from '@studio/agent/protocol/thinking';
+import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
-import type { StudioAgentHost } from '@studio/agent/shared/host';
-import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
-import type { AiConnection } from '@studio/providers';
+import type { AiConnection, ThinkingLevel } from '@studio/providers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
@@ -55,12 +69,115 @@ const STUDIO_COMPACTION_SETTINGS = {
 	keepRecentTokens: 20_000,
 };
 
+// What pi leaves out of the window for the reply: its safety margin, which it doesn't export, and
+// the smallest reply.
+const REPLY_TOKENS = 4096 + MIN_ANSWER_TOKENS;
+
+/**
+ * The compaction settings for an exact window, given the tokens the system prompt and tools take:
+ * the conversation's share of what a request holds sets them where today's sizes don't fit, so
+ * compaction starts once the conversation fills half its share, and keeps a quarter of it, so a
+ * request after compacting still fits.
+ */
+function getCompactionSettings( contextWindow: number, baseTokens: number ) {
+	const share = Math.max( 0, contextWindow - baseTokens - REPLY_TOKENS );
+	return {
+		...STUDIO_COMPACTION_SETTINGS,
+		reserveTokens: Math.min(
+			STUDIO_COMPACTION_SETTINGS.reserveTokens,
+			Math.floor( share / 2 ) + REPLY_TOKENS
+		),
+		keepRecentTokens: Math.min(
+			STUDIO_COMPACTION_SETTINGS.keepRecentTokens,
+			Math.max( 1, Math.floor( share / 4 ) )
+		),
+	};
+}
+
+type AgentEndEvent = Extract< AgentSessionEvent, { type: 'agent_end' } >;
+
+/**
+ * On a connection whose window is exact, a turn that ends on a context overflow ends with the
+ * connection's words, in place of pi's or the server's. pi ends a run on an overflow before it
+ * compacts the conversation to retry it, so that end isn't final until the compaction is: a retry
+ * ends the turn itself, a compaction that fails for another reason, such as a server that stopped
+ * answering, ends the turn with that failure, and one the user stopped ends it as interrupted.
+ */
+function createOverflowEnding( ai: AiConnection ) {
+	const words = ai.exactContextWindow?.overflowMessage;
+	let pending: AgentEndEvent | undefined;
+	let compacting = false;
+
+	// The overflowed run's end, final: with `errorMessage`, or as interrupted without one.
+	const end = ( event: AgentEndEvent, errorMessage?: string ): AgentEndEvent => {
+		const last = findLastAssistant( event.messages );
+		const ending =
+			errorMessage === undefined
+				? { stopReason: 'aborted' as const, errorMessage: undefined }
+				: { errorMessage };
+		return {
+			...event,
+			willRetry: false,
+			messages: event.messages.map( ( message ) =>
+				message === last ? { ...last, ...ending } : message
+			),
+		};
+	};
+
+	return {
+		handle( event: AgentSessionEvent ): AgentSessionEvent[] {
+			if ( ! words ) {
+				return [ event ];
+			}
+			if ( event.type === 'agent_end' && ! event.willRetry ) {
+				const last = findLastAssistant( event.messages );
+				if ( last && isContextOverflow( last ) ) {
+					pending = event;
+					return [ { ...event, willRetry: true } ];
+				}
+			}
+			if ( event.type === 'compaction_start' && event.reason === 'overflow' ) {
+				compacting = true;
+			}
+			if ( event.type !== 'compaction_end' || event.reason !== 'overflow' || ! pending ) {
+				return [ event ];
+			}
+			const overflowed = pending;
+			const summaryFailed = compacting;
+			compacting = false;
+			pending = undefined;
+			if ( event.willRetry ) {
+				return [ event ];
+			}
+			if ( event.aborted ) {
+				return [ event, end( overflowed ) ];
+			}
+			const last = findLastAssistant( overflowed.messages )!;
+			const failure =
+				summaryFailed &&
+				event.errorMessage &&
+				! isContextOverflow( { ...last, errorMessage: event.errorMessage } )
+					? event.errorMessage
+					: words;
+			return [ { ...event, errorMessage: undefined }, end( overflowed, failure ) ];
+		},
+		/** The end of a turn pi left on an overflow without compacting it, or that was interrupted. */
+		flush( interrupted: boolean ): AgentSessionEvent[] {
+			const overflowed = pending;
+			pending = undefined;
+			return overflowed ? [ end( overflowed, interrupted ? undefined : words ) ] : [];
+		},
+	};
+}
+
 export interface StudioAgentTurnConfig {
 	prompt: string;
 	images?: StudioChatImage[];
 	session: SessionManager;
 	// The model to run on, as the provider serving it connects to it.
 	ai: AiConnection;
+	// How much the model thinks; without it, Studio's default.
+	thinking?: ThinkingLevel;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
@@ -152,6 +269,7 @@ async function runAgentSessionTurn(
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
 		let continuation = '';
+		const overflowEnding = createOverflowEnding( config.ai );
 		unsubscribe = session.subscribe( ( event ) => {
 			if (
 				event.type === 'agent_end' &&
@@ -167,7 +285,7 @@ async function runAgentSessionTurn(
 					return;
 				}
 			}
-			config.onEvent( event );
+			overflowEnding.handle( event ).forEach( ( item ) => config.onEvent( item ) );
 		} );
 
 		if ( controller.signal.aborted ) {
@@ -201,6 +319,7 @@ async function runAgentSessionTurn(
 				{ triggerTurn: true }
 			);
 		}
+		overflowEnding.flush( controller.signal.aborted ).forEach( ( item ) => config.onEvent( item ) );
 		await getPendingWork( config.session ).settle();
 	} catch ( error ) {
 		const aborted = controller.signal.aborted;
@@ -218,13 +337,17 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const { model } = config.ai;
 	const visionEnabled = model.input.includes( 'image' );
-	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled, designPath, userSkills ] = await Promise.all( [
 		readGlobalInstructions(),
 		config.host.imageGenerator?.().then( Boolean ) ?? false,
-		findActiveSiteDesign( config.host, config.activeSite ),
+		findActiveSiteDesign( config.activeSite ),
+		// A WordPress.com site has no folder of its own skills, only the global ones.
+		readSkillsForAgent(
+			config.activeSite && ! config.activeSite.remote ? config.activeSite.path : undefined
+		),
 	] );
 
-	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
+	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled, userSkills );
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
@@ -237,14 +360,30 @@ async function createStudioAgentSession(
 
 	const pendingWork = getPendingWork( config.session );
 	const site = config.activeSite;
-	const notes = createResultNotes( config.host );
+	const notes = createResultNotes();
 	const resultNotes =
 		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
 		toToolDefinition( config.host, tool, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( config.ai );
-	const settingsManager = createSettingsManager();
+	const settingsManager = createSettingsManager(
+		config.ai.exactContextWindow
+			? getCompactionSettings(
+					config.ai.model.contextWindow,
+					estimateTextTokens(
+						systemPrompt +
+							JSON.stringify(
+								toolDefinitions.map( ( { name, description, parameters } ) => ( {
+									name,
+									description,
+									parameters,
+								} ) )
+							)
+					)
+			  )
+			: STUDIO_COMPACTION_SETTINGS
+	);
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: sitesRoot,
@@ -265,7 +404,7 @@ async function createStudioAgentSession(
 		agentDir: sitesRoot,
 		modelRuntime,
 		model,
-		thinkingLevel: 'medium',
+		thinkingLevel: config.thinking ?? DEFAULT_THINKING_LEVEL,
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,
@@ -359,11 +498,11 @@ function createProviderConfig( ai: AiConnection ): ProviderConfigInput {
 	};
 }
 
-function createSettingsManager(): SettingsManager {
+function createSettingsManager( compaction: typeof STUDIO_COMPACTION_SETTINGS ): SettingsManager {
 	return SettingsManager.inMemory(
 		{
 			defaultThinkingLevel: 'high',
-			compaction: STUDIO_COMPACTION_SETTINGS,
+			compaction,
 		},
 		{ projectTrusted: false }
 	);
@@ -378,7 +517,7 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 }
 
 // Where pi's file tools put a path: without a leading `@`, with `~` expanded.
-function resolveToolPath( { path, sitesRoot }: StudioAgentHost, file: string ): string {
+function resolveToolPath( { sitesRoot }: StudioAgentHost, file: string ): string {
 	const withoutAt = file.replace( /^@/, '' );
 	const expanded =
 		withoutAt === '~' || withoutAt.startsWith( '~/' )
@@ -420,7 +559,8 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	imageGenerationEnabled: boolean,
-	visionEnabled: boolean
+	visionEnabled: boolean,
+	userSkills: UserSkill[]
 ): AgentToolAny[] {
 	const { host } = config;
 
@@ -444,6 +584,7 @@ function buildAgentTools(
 		visionEnabled,
 		onAskUser: config.onAskUser,
 		tracks: getAiTracksIdentity( config.session.getSessionId() ),
+		userSkills,
 	} ) as unknown as AgentToolAny[];
 	return [ ...conversationTools, ...piTools ];
 }

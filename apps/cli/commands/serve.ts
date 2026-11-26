@@ -64,7 +64,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 		await syncHosts().catch( ( error ) => console.error( 'Couldn’t update /etc/hosts:', error ) );
 		setInterval( () => void syncHosts().catch( () => undefined ), HOSTS_SYNC_MS ).unref();
 	}
-	process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+	process.env.STUDIO_TRACKS_ORIGIN = 'studio-cloud:v2';
 
 	const allowedOrigins = ( process.env.STUDIO_SERVE_ALLOWED_ORIGINS ?? '' )
 		.split( ',' )

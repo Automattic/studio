@@ -21,7 +21,7 @@ export interface TracksOrigin {
 }
 
 // Resolves the origin from `STUDIO_TRACKS_ORIGIN`, a `<channel>:<ui_version>` string set by the host
-// that spawned the CLI (e.g. `studio-ui:v2`, `studio-web:v2`), or `studio-mcp`, which `studio mcp`
+// that spawned the CLI (e.g. `studio-ui:v2`, `studio-browser:v2`), or `studio-mcp`, which `studio mcp`
 // sets for itself. Absent or unrecognized means a standalone invocation. See
 // `docs/design-docs/analytics-tracks.md`.
 export function getTracksOrigin(): TracksOrigin {

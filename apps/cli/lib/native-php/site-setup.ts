@@ -24,10 +24,6 @@ const WP_CONFIG_TRANSFORMER_PATH = path.resolve(
 
 const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
-// Written only when wp-config.php doesn't define them, so a value the user set stays. Theme
-// development mode makes WordPress read a theme's patterns and theme.json from disk on every
-// request rather than from a cache, so a pattern added to a theme shows up at once. It must be in
-// wp-config.php: WordPress defines it as '' before mu-plugins load.
 const WP_CONFIG_CONSTANTS_IF_UNDEFINED = { WP_DEVELOPMENT_MODE: 'theme' } as const;
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;

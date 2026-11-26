@@ -192,21 +192,21 @@ function createServer( { agent, host, id, imageGeneration }: Session ): McpServe
 	const meetClient = ( context?: ServerContext ) => {
 		const envelope: ClientEnvelope | undefined = context?.mcpReq.envelope;
 		const info = envelope?.[ CLIENT_INFO_META_KEY ] ?? server.getClientVersion();
-		if ( known || ! info ) {
+		const capabilities =
+			envelope?.[ CLIENT_CAPABILITIES_META_KEY ] ?? server.getClientCapabilities();
+		// A request on 2026-07-28 always states the capabilities, but need not name the client.
+		if ( known || ! ( info || capabilities ) ) {
 			return;
 		}
 		known = true;
-		client = describeClient(
-			info,
-			envelope?.[ CLIENT_CAPABILITIES_META_KEY ] ?? server.getClientCapabilities()
-		);
+		client = describeClient( info, capabilities );
 		if ( client.apps ) {
 			pages.forEach( ( page ) => page.enable() );
 		}
-		process.env.STUDIO_MCP_CLIENT = info.name;
+		process.env.STUDIO_MCP_CLIENT = info?.name ?? '';
 		tracks = {
 			ai_session_id: id,
-			agent_name: info.name || 'unknown',
+			agent_name: info?.name || 'unknown',
 			client: 'studio-mcp',
 		};
 		tools = createClientTools();

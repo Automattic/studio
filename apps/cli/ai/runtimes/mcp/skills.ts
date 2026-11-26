@@ -143,8 +143,10 @@ export async function readServedSkillFile( uri: string ): Promise< SkillReadResu
 		return undefined;
 	}
 	const mimeType = found.file.endsWith( '.md' ) ? { mimeType: 'text/markdown' } : {};
+	// A byte order mark stays in the text: the host checks what it gets against the entry's digest.
+	const decoder = new TextDecoder( 'utf-8', { fatal: true, ignoreBOM: true } );
 	try {
-		return { text: new TextDecoder( 'utf-8', { fatal: true } ).decode( bytes ), ...mimeType };
+		return { text: decoder.decode( bytes ), ...mimeType };
 	} catch {
 		return { bytes };
 	}

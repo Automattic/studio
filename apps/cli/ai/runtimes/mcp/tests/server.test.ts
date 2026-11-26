@@ -26,8 +26,8 @@ interface Listing {
 }
 
 // A client as the wire sees it: on the 2025 revisions it names itself once, in `initialize`;
-// on 2026-07-28 it does so in every request.
-async function connect( revision: 'old' | 'new', name: string, capabilities: object = {} ) {
+// on 2026-07-28 it does so in every request, unless it leaves its name out.
+async function connect( revision: 'old' | 'new', name?: string, capabilities: object = {} ) {
 	const [ wire, serverSide ] = InMemoryTransport.createLinkedPair();
 	const connection = await serveMcp( serverSide );
 	const answers = new Map< number, ( message: { result?: unknown; error?: unknown } ) => void >();
@@ -43,7 +43,7 @@ async function connect( revision: 'old' | 'new', name: string, capabilities: obj
 	let lastId = 0;
 	const envelope = {
 		[ PROTOCOL_VERSION_META_KEY ]: '2026-07-28',
-		[ CLIENT_INFO_META_KEY ]: { name, version: '1.0.0' },
+		...( name ? { [ CLIENT_INFO_META_KEY ]: { name, version: '1.0.0' } } : {} ),
 		[ CLIENT_CAPABILITIES_META_KEY ]: capabilities,
 	};
 	const request = async < T >( method: string, params: Record< string, unknown > = {} ) => {
@@ -84,27 +84,27 @@ async function connect( revision: 'old' | 'new', name: string, capabilities: obj
 	};
 }
 
+let directory: string;
+let sessionStart: ReturnType< typeof vi.spyOn >;
+
+beforeEach( async () => {
+	directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-mcp-server-' ) );
+	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
+	vi.stubEnv( 'STUDIO_PLUGIN_ID', '' );
+	vi.stubEnv( 'STUDIO_MCP_CLIENT', '' );
+	vi.spyOn( os, 'homedir' ).mockReturnValue( directory );
+	sessionStart = vi.spyOn( tracks, 'recordTracksEvent' ).mockResolvedValue( undefined );
+} );
+
+afterEach( async () => {
+	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
+	await fs.rm( directory, { recursive: true, force: true } );
+} );
+
 describe.each( [ 'old', 'new' ] as const )(
 	'studio mcp on the %s protocol revisions',
 	( revision ) => {
-		let directory: string;
-		let sessionStart: ReturnType< typeof vi.spyOn >;
-
-		beforeEach( async () => {
-			directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-mcp-server-' ) );
-			vi.stubEnv( 'DEV_CONFIG_DIR', directory );
-			vi.stubEnv( 'STUDIO_PLUGIN_ID', '' );
-			vi.stubEnv( 'STUDIO_MCP_CLIENT', '' );
-			vi.spyOn( os, 'homedir' ).mockReturnValue( directory );
-			sessionStart = vi.spyOn( tracks, 'recordTracksEvent' ).mockResolvedValue( undefined );
-		} );
-
-		afterEach( async () => {
-			vi.restoreAllMocks();
-			vi.unstubAllEnvs();
-			await fs.rm( directory, { recursive: true, force: true } );
-		} );
-
 		it( 'serves the tools and pages that fit the client', async () => {
 			const plain = await connect( revision, 'some-agent' );
 			const plainTools = await plain.tools();
@@ -159,13 +159,17 @@ describe.each( [ 'old', 'new' ] as const )(
 	}
 );
 
-it( 'tells a client on the 2025 revisions that its tools changed once it asks for the skills', async () => {
-	const directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-mcp-server-' ) );
-	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
-	vi.stubEnv( 'STUDIO_PLUGIN_ID', '' );
-	vi.spyOn( os, 'homedir' ).mockReturnValue( directory );
-	vi.spyOn( tracks, 'recordTracksEvent' ).mockResolvedValue( undefined );
+it( 'serves what fits a client on 2026-07-28 that does not name itself', async () => {
+	const client = await connect( 'new', undefined, APPS );
+	expect(
+		( await client.tools() ).find( ( tool ) => tool.name === 'present_design_options' )?._meta
+	).toEqual( { ui: { resourceUri: DESIGN_PICKER_URI } } );
+	expect( await client.resources() ).toContain( DESIGN_PICKER_URI );
+	expect( sessionStart ).toHaveBeenCalledTimes( 1 );
+	await client.close();
+} );
 
+it( 'tells a client on the 2025 revisions that its tools changed once it asks for the skills', async () => {
 	const client = await connect( 'old', 'some-agent' );
 	await client.skills();
 	await client.skills();
@@ -181,8 +185,4 @@ it( 'tells a client on the 2025 revisions that its tools changed once it asks fo
 	await plugin.tools();
 	expect( plugin.notices ).toEqual( [] );
 	await plugin.close();
-
-	vi.restoreAllMocks();
-	vi.unstubAllEnvs();
-	await fs.rm( directory, { recursive: true, force: true } );
 } );

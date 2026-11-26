@@ -206,6 +206,26 @@ describe( "the user's skills over the MCP Skills extension", () => {
 		} );
 	} );
 
+	it( 'reads a file with a byte order mark as the bytes its digest covers', async () => {
+		addFile(
+			studio(),
+			'brand-voice/SKILL.md',
+			skillFile( 'brand-voice', 'House voice.', 'Warm.' )
+		);
+		const contents = '\uFEFFterm,use\n';
+		addFile( studio(), 'brand-voice/terms.csv', contents );
+
+		const [ skill ] = await listServedSkills();
+		const file = await readServedSkillFile( 'skill://brand-voice/terms.csv' );
+		const text = file && 'text' in file ? file.text : '';
+		expect( text ).toBe( contents );
+		expect( skill.resources ).toContainEqual( {
+			uri: 'skill://brand-voice/terms.csv',
+			digest: `sha256:${ createHash( 'sha256' ).update( text ).digest( 'hex' ) }`,
+			size: Buffer.byteLength( text ),
+		} );
+	} );
+
 	it( 'reads only the files a skill lists', async () => {
 		addFile(
 			studio(),

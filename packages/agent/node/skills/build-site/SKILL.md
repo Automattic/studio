@@ -65,7 +65,7 @@ Use wp_cli to activate the theme, install and activate the plugins the Site Spec
 
 ## 5. Validate and publish the content
 
-Validate each template and part with validate_blocks right after writing it, and validate page and post content before it reaches the site. Then create or update the pages and posts with the validated content. A build that skips validate_blocks is incomplete.
+Validate each template and part with validate_blocks right after writing it, and validate page and post content before it reaches the site. Then create or update the pages and posts with the validated content, and build the menu from them as the `block-content` skill's Menus section describes. A build that skips validate_blocks is incomplete.
 
 ## 6. Check and polish the result
 

@@ -226,6 +226,38 @@ describe( 'global skills', () => {
 		} );
 	} );
 
+	describe( 'a link Studio did not make', () => {
+		const elsewhere = () => path.join( root, 'elsewhere' );
+
+		beforeEach( () => {
+			addSkill( elsewhere(), 'house-style' );
+			fs.mkdirSync( studio(), { recursive: true } );
+			fs.symlinkSync( path.join( elsewhere(), 'house-style' ), path.join( studio(), 'brand' ) );
+		} );
+
+		it( 'is deleted when there is no ~/.agents/skills, and its folder stays', async () => {
+			expect( fs.existsSync( agents() ) ).toBe( false );
+			await removeGlobalSkill( 'brand' );
+			expect( await getGlobalSkills() ).toEqual( [] );
+			expect( fs.existsSync( path.join( elsewhere(), 'house-style', 'SKILL.md' ) ) ).toBe( true );
+		} );
+
+		it( 'still points at its folder after a save, when the two have different names', async () => {
+			expect(
+				await updateGlobalSkill(
+					'brand',
+					{ name: 'Brand', description: 'Write in the brand voice.', instructions: 'Steps.' },
+					[]
+				)
+			).toBe( 'brand' );
+			expect( await names() ).toEqual( [ 'brand' ] );
+			// The native call, as Windows gives the temporary folder a short name that only it expands.
+			expect( fs.realpathSync.native( path.join( studio(), 'brand' ) ) ).toBe(
+				fs.realpathSync.native( path.join( elsewhere(), 'brand' ) )
+			);
+		} );
+	} );
+
 	it( "switches one of Studio's off by moving its folder, and deletes it", async () => {
 		addSkill( studio(), 'brand-voice' );
 

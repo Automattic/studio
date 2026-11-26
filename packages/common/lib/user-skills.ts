@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { __, sprintf } from '@wordpress/i18n';
 import { Document, isMap, parse, parseDocument } from 'yaml';
+import { isErrnoException } from './is-errno-exception';
 import {
 	getSkillDisplayName,
 	getSkillId,
@@ -115,6 +116,10 @@ export async function readSkillDetails( skill: UserSkill ): Promise< SkillDetail
 	};
 }
 
+const alreadyExists = ( id: string ) =>
+	/* translators: %s: a skill's command name, such as "lookbook-post". */
+	new Error( sprintf( __( 'A skill named “%s” already exists.' ), id ) );
+
 // The draft as it is saved, or an error that says what to fix. `taken` are the names
 // another skill in the folder has, and `reserved` the names of Studio's own skills.
 function checkSkillDraft(
@@ -137,8 +142,7 @@ function checkSkillDraft(
 		);
 	}
 	if ( taken.includes( id ) ) {
-		/* translators: %s: a skill's command name, such as "lookbook-post". */
-		throw new Error( sprintf( __( 'A skill named “%s” already exists.' ), id ) );
+		throw alreadyExists( id );
 	}
 	if ( ! description ) {
 		throw new Error( __( 'Say when agents should use the skill.' ) );
@@ -155,14 +159,34 @@ function checkSkillDraft(
 	return { id, description, instructions };
 }
 
+// The frontmatter without its `name` and `description` keys, and the lines that continue them.
+function withoutNameAndDescription( frontmatter: string ): string {
+	let dropping = false;
+	return frontmatter
+		.split( /\r?\n/ )
+		.filter( ( line ) => {
+			if ( /^\S/.test( line ) ) {
+				dropping = /^(?:name|description)\s*:/.test( line );
+			}
+			return ! dropping;
+		} )
+		.join( '\n' );
+}
+
 // SKILL.md with the name and description set. Other keys of an existing file stay.
 function renderSkillFile(
 	skill: { id: string; description: string; instructions: string },
 	existing = ''
 ): string {
-	const parsed = parseDocument( splitSkillFile( existing ).frontmatter );
-	const document: Document =
-		parsed.errors.length || ! isMap( parsed.contents ) ? new Document( {} ) : parsed;
+	const { frontmatter } = splitSkillFile( existing );
+	let document: Document = parseDocument( frontmatter );
+	if ( document.errors.length ) {
+		// YAML often can't read a description with a colon in it: the other keys stay without it.
+		document = parseDocument( withoutNameAndDescription( frontmatter ) );
+	}
+	if ( document.errors.length || ! isMap( document.contents ) ) {
+		document = new Document( {} );
+	}
 	document.set( 'name', skill.id );
 	document.set( 'description', skill.description );
 	return `---\n${ document.toString( { lineWidth: 0 } ).trim() }\n---\n\n${ skill.instructions }\n`;
@@ -179,9 +203,8 @@ export async function createSkillInFolder(
 	await fs.promises.mkdir( folder, { recursive: true } );
 	try {
 		await fs.promises.mkdir( directory );
-	} catch {
-		/* translators: %s: a skill's command name, such as "lookbook-post". */
-		throw new Error( sprintf( __( 'A skill named “%s” already exists.' ), skill.id ) );
+	} catch ( error ) {
+		throw isErrnoException( error ) && error.code === 'EEXIST' ? alreadyExists( skill.id ) : error;
 	}
 	await fs.promises.writeFile( path.join( directory, 'SKILL.md' ), renderSkillFile( skill ) );
 	return skill.id;
@@ -200,14 +223,20 @@ export async function updateSkillInFolder(
 		reserved: names.reserved,
 		taken: names.taken.filter( ( name ) => name !== current.name ),
 	} );
-	const file = path.join( current.directory, 'SKILL.md' );
-	const existing = await fs.promises.readFile( file, 'utf8' );
-	await fs.promises.writeFile( file, renderSkillFile( skill, existing ) );
+	const existing = await fs.promises.readFile( path.join( current.directory, 'SKILL.md' ), 'utf8' );
+	let directory = current.directory;
 	if ( skill.id !== current.name ) {
-		await fs.promises.rename(
-			current.directory,
-			path.join( path.dirname( current.directory ), skill.id )
-		);
+		// The folder moves before the file is written: a move that fails changes nothing.
+		directory = path.join( path.dirname( current.directory ), skill.id );
+		// `taken` has only the folders with a SKILL.md.
+		if ( await fs.promises.lstat( directory ).catch( () => null ) ) {
+			throw alreadyExists( skill.id );
+		}
+		await fs.promises.rename( current.directory, directory );
 	}
+	await fs.promises.writeFile(
+		path.join( directory, 'SKILL.md' ),
+		renderSkillFile( skill, existing )
+	);
 	return skill.id;
 }

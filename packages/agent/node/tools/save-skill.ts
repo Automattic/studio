@@ -39,28 +39,25 @@ export const saveSkillTool = defineTool(
 			description: args.description,
 			instructions: args.instructions,
 		};
+		// Settings is part of the Studio app: a chat in a terminal has only the file.
+		const saved = ( where: string, id: string, directory: string ) =>
+			textResult(
+				`Saved the skill ${ where } in ${ directory }. The user runs it with /${ id } from their next message, and changes it ${
+					context.host.ui
+						? 'in Settings → Skills'
+						: `by editing ${ path.join( directory, 'SKILL.md' ) }`
+				}.`
+			);
 		if ( args.scope === 'all_sites' ) {
 			const id = await createGlobalSkill( draft, RESERVED_SKILL_NAMES );
-			return textResult(
-				`Saved the skill for all sites in ${ path.join(
-					getGlobalSkillsDirectory(),
-					id
-				) }. The user runs it with /${ id } from their next message, and changes it in Settings → Skills.`
-			);
+			return saved( 'for all sites', id, path.join( getGlobalSkillsDirectory(), id ) );
 		}
 		if ( ! args.nameOrPath ) {
 			throw new Error( 'Name the site to save the skill in, or use the `all_sites` scope.' );
 		}
 		const site = await context.host.sites.resolve( args.nameOrPath );
 		const id = await createSiteSkill( site.path, draft, RESERVED_SKILL_NAMES );
-		return textResult(
-			`Saved the skill on ${ site.name } in ${ path.join(
-				site.path,
-				'.agents',
-				'skills',
-				id
-			) }. The user runs it with /${ id } from their next message, and changes it in Settings → Skills.`
-		);
+		return saved( `on ${ site.name }`, id, path.join( site.path, '.agents', 'skills', id ) );
 	},
 	{ annotations: LOCAL_CHANGE }
 );

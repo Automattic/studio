@@ -19,8 +19,8 @@ const skill = {
 describe( 'save_skill', () => {
 	let root: string;
 	let site: string;
-	const save = async ( args: Record< string, unknown > ) => {
-		const host = createFakeHost();
+	const save = async ( args: Record< string, unknown >, ui = false ) => {
+		const host = { ...createFakeHost(), ...( ui ? { ui: {} } : {} ) };
 		host.sites.resolve = async () => ( { ...fakeSite, name: 'Moiré Journal', path: site } );
 		const result = await saveSkillTool.handler( args as never, { host } as never );
 		return result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) ).join( '' );
@@ -57,6 +57,23 @@ describe( 'save_skill', () => {
 		expect( await readSkillsForAgent() ).toEqual( [
 			expect.objectContaining( { name: 'lookbook-post', description: skill.description } ),
 		] );
+	} );
+
+	it( 'points to Settings only where a Studio UI is attached, otherwise to the file', async () => {
+		expect( await save( { scope: 'all_sites', ...skill }, true ) ).toContain(
+			'changes it in Settings → Skills'
+		);
+		const text = await save( { scope: 'site', nameOrPath: 'Moiré Journal', ...skill } );
+		expect( text ).not.toContain( 'Settings' );
+		expect( text ).toContain(
+			`changes it by editing ${ path.join(
+				site,
+				'.agents',
+				'skills',
+				'lookbook-post',
+				'SKILL.md'
+			) }`
+		);
 	} );
 
 	it( 'never replaces a skill, takes none of Studio’s names, and needs a site for a site skill', async () => {

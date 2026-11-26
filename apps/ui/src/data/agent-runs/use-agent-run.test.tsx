@@ -8,6 +8,10 @@ import { createLocalConnector } from '@/data/core/connectors/local';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import {
+	GLOBAL_SKILLS_QUERY_KEY,
+	SITE_AGENT_FILES_QUERY_KEY,
+} from '@/data/queries/use-site-agent-files';
+import {
 	aiSettings,
 	createFakeConnector,
 	makeSession,
@@ -474,6 +478,9 @@ describe( 'useAgentRun queued handoff', () => {
 			{ cancelRefetch: false }
 		);
 		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: ASSISTANT_QUOTA_QUERY_KEY } );
+		// The run may have saved a skill: the `/` menu and Settings read them again.
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: GLOBAL_SKILLS_QUERY_KEY } );
+		expect( invalidateSpy ).toHaveBeenCalledWith( { queryKey: SITE_AGENT_FILES_QUERY_KEY } );
 	} );
 
 	it( 'preserves the optimistic start time when the backend acknowledges the run', async () => {

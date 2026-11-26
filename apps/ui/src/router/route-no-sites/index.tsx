@@ -12,6 +12,7 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
+import { useWelcomeOpen } from '@/data/queries/use-onboarding-completed';
 import { useSites } from '@/data/queries/use-sites';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { HeaderSidebarToggle } from '@/features/sidebar';
@@ -53,8 +54,8 @@ function NoSitesContent() {
 	const sites = useSites();
 	const navigate = useNavigate();
 	const openAddSite = useOpenAddSite();
-	const { welcome, addSite, settings } = useSearch( { strict: false } ) as {
-		welcome?: true;
+	const welcome = useWelcomeOpen();
+	const { addSite, settings } = useSearch( { strict: false } ) as {
 		addSite?: string;
 		settings?: string;
 	};
@@ -62,7 +63,8 @@ function NoSitesContent() {
 	const empty = sites.isSuccess && ! hasSites;
 	const offered = useRef( false );
 	useEffect( () => {
-		if ( empty && ! welcome && ! offered.current ) {
+		if ( welcome ) offered.current = true;
+		if ( empty && welcome === false && ! offered.current ) {
 			offered.current = true;
 			if ( ! addSite && ! settings ) {
 				openAddSite();

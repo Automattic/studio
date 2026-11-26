@@ -38,6 +38,11 @@ function getToolInputText( name: string, input: Record< string, unknown > | unde
 		return getInputString( input, 'command' );
 	}
 
+	// The row's title already names the skill.
+	if ( name === 'Skill' ) {
+		return '';
+	}
+
 	return stringifyToolInput( input );
 }
 

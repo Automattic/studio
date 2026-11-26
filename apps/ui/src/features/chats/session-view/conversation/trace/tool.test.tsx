@@ -34,4 +34,33 @@ describe( 'tool trace', () => {
 		await user.keyboard( ' ' );
 		expect( trigger ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
+
+	it( 'shows what a loaded skill is, and not its instructions', async () => {
+		const user = userEvent.setup();
+		const skillRow = ( result: NormalizedToolResult ) => (
+			<ToolUseRow
+				name="Skill"
+				input={ { name: 'lookbook-post' } }
+				result={ result }
+				isRunning={ false }
+			/>
+		);
+		const { rerender } = render(
+			skillRow( {
+				text: 'Ask for the season.',
+				isError: false,
+				skill: { name: 'lookbook-post', description: 'Lay out a lookbook post.' },
+			} )
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Load skill lookbook-post' } ) );
+		expect( screen.getByText( 'Lookbook post' ) ).toBeVisible();
+		expect( screen.getByText( 'Lay out a lookbook post.' ) ).toBeVisible();
+		expect( screen.queryByText( 'Ask for the season.' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( /"name"/ ) ).not.toBeInTheDocument();
+
+		// A transcript from before the app was told which skill it is has nothing to open.
+		rerender( skillRow( { text: 'Ask for the season.', isError: false } ) );
+		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Load skill lookbook-post' ) ).toBeVisible();
+	} );
 } );

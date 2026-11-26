@@ -718,6 +718,25 @@ describe( 'routing checks', () => {
 		).toBe( true );
 		expect( run( checks.skillsLoadedFirst, { toolCalls: calls }, vars ).pass ).toBe( true );
 	} );
+
+	test( 'skillSaved', () => {
+		const save = ( scope ) => ( {
+			name: 'save_skill',
+			input: { scope, name: 'Lookbook post', description: 'Use it.', instructions: 'Steps.' },
+		} );
+		const told = reply( 'Saved. Type `/lookbook-post` to use it.' );
+		const check = ( result ) => run( checks.skillSaved, result, { scope: 'site' } ).pass;
+		expect( check( { toolCalls: [ save( 'site' ) ], ...told } ) ).toBe( true );
+		expect( check( { toolCalls: [ save( 'all_sites' ) ], ...told } ) ).toBe( false );
+		expect( check( { toolCalls: [ save( 'site' ) ], ...reply( 'Saved.' ) } ) ).toBe( false );
+		expect( check( { toolCalls: [ { name: 'Write', input: {} } ], ...told } ) ).toBe( false );
+		// The command is made from the name as Studio makes it.
+		const punctuated = {
+			...save( 'site' ),
+			input: { ...save( 'site' ).input, name: 'Lookbook post!' },
+		};
+		expect( check( { toolCalls: [ punctuated ], ...told } ) ).toBe( true );
+	} );
 } );
 
 // promptfoo expands a var that is an array of plain values into one test per

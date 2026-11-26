@@ -22,6 +22,7 @@ import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { refreshBrowserTool } from './refresh-browser';
+import { saveSkillTool } from './save-skill';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { sendFeedbackTool } from './send-feedback';
 import { getSiteInfoTool } from './site-info';
@@ -42,6 +43,7 @@ import type {
 import type { DesignTracksContext } from '@studio/agent/node/design-tracks';
 import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/node/host';
 import type { AskUserHandler } from '@studio/agent/node/types';
+import type { UserSkill } from '@studio/common/lib/user-skills';
 
 // The tools as defined for `host`.
 export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefinition[] {
@@ -137,27 +139,30 @@ export function resolveStudioTools(
 }
 
 // The tools of a conversation with the model: Studio's, the questions when the
-// user can answer them, and the skills.
+// user can answer them, and the skills, with save_skill for the create-skill skill.
 export function resolveConversationTools(
 	host: StudioAgentHost,
 	{
 		onAskUser,
 		tracks,
+		userSkills,
 		...options
 	}: Pick< StudioToolsOptions, 'imageGeneration' | 'visionEnabled' > & {
 		onAskUser?: AskUserHandler;
 		tracks: DesignTracksContext;
+		// The user's own skills, for the active site and for all sites, offered next to Studio's.
+		userSkills?: UserSkill[];
 	}
 ): AnyStudioAgentTool[] {
 	// The feedback skill only works through send_feedback.
-	const skillTool = createSkillTool( host.sendFeedback ? [] : [ 'feedback' ] );
+	const skillTool = createSkillTool( host.sendFeedback ? [] : [ 'feedback' ], userSkills );
 	return [
 		...resolveStudioTools( host, { ...options, canAskUser: Boolean( onAskUser ), tracks } ),
 		...( onAskUser ? [ bindTool( createAskUserQuestionTool( onAskUser ), host ) ] : [] ),
 		...( onAskUser && host.ui
 			? [ bindTool( createPresentDesignOptionsTool( { onAskUser, tracks } ), host ) ]
 			: [] ),
-		...( skillTool ? [ bindTool( skillTool, host ) ] : [] ),
+		...( skillTool ? [ bindTool( skillTool, host ), bindTool( saveSkillTool, host ) ] : [] ),
 	] as AnyStudioAgentTool[];
 }
 

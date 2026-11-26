@@ -23,6 +23,21 @@ export function getGlobalInstructionsPath(): string {
 	return path.join( getKnowledgeDirectory(), 'instructions.md' );
 }
 
+// The user's skills for all sites: `<name>/SKILL.md` folders.
+export function getGlobalSkillsDirectory(): string {
+	return path.join( getConfigDirectory(), 'skills' );
+}
+
+// Where a global skill waits while it is switched off.
+export function getDisabledGlobalSkillsDirectory(): string {
+	return path.join( getConfigDirectory(), 'disabled-skills' );
+}
+
+// The skills other agents on this computer keep for every project.
+export function getAgentsSkillsDirectory(): string {
+	return path.join( os.homedir(), '.agents', 'skills' );
+}
+
 export function getCertificatesPath(): string {
 	return path.join( getConfigDirectory(), 'certificates' );
 }

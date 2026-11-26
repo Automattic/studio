@@ -1,6 +1,6 @@
 import { NotConnectedError } from '../errors';
 import {
-	decodePng,
+	decodeImage,
 	generateImagesOn,
 	ImageFilteredError,
 	TransientImageError,
@@ -86,7 +86,7 @@ export const geminiImageDialect: ImageDialect = {
 			const text = candidate?.content?.parts?.find( ( part ) => part.text )?.text;
 			throw new Error( `Gemini returned no image: ${ text ?? raw.slice( 0, 300 ) }` );
 		}
-		return decodePng( image.data, `Gemini (${ image.mimeType ?? 'unknown type' })` );
+		return decodeImage( image.data, `Gemini (${ image.mimeType ?? 'unknown type' })` );
 	},
 };
 

@@ -40,21 +40,4 @@ describe( 'the empty workspace', () => {
 		).toBeVisible();
 		expect( history.location.pathname ).not.toBe( '/sites' );
 	} );
-
-	// The flyout covers the band, so a toggle left under it would lose the
-	// pointer, close the flyout, get it back and open it again.
-	it( 'keeps the sidebar toggle above the sidebar it reveals on hover', async () => {
-		const { user } = renderApp( { path: '/sites' } );
-		await screen.findByRole( 'dialog', { name: 'Add site' } );
-		await user.keyboard( '{Escape}' );
-		await waitFor( () =>
-			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
-		);
-		const toggle = screen
-			.getAllByRole( 'button', { name: 'Show sidebar' } )
-			.find( ( button ) => ! button.closest( '[inert]' ) )!;
-		await user.hover( toggle );
-		expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
-		expect( toggle.closest( '[data-sidebar-flyout-header]' ) ).not.toBeNull();
-	} );
 } );

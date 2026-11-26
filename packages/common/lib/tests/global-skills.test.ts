@@ -251,8 +251,9 @@ describe( 'global skills', () => {
 				)
 			).toBe( 'brand' );
 			expect( await names() ).toEqual( [ 'brand' ] );
-			expect( fs.realpathSync( path.join( studio(), 'brand' ) ) ).toBe(
-				fs.realpathSync( path.join( elsewhere(), 'brand' ) )
+			// The native call, as Windows gives the temporary folder a short name that only it expands.
+			expect( fs.realpathSync.native( path.join( studio(), 'brand' ) ) ).toBe(
+				fs.realpathSync.native( path.join( elsewhere(), 'brand' ) )
 			);
 		} );
 	} );

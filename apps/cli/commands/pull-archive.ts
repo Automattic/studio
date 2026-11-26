@@ -84,8 +84,8 @@ async function pullProviderArchive(
 	logger.reportStart( LoggerAction.DOWNLOAD, reported );
 	try {
 		await getProviderServices( provider ).sites!.pullArchive!(
-			( await readProviderConfig( provider ) ) as never,
-			remoteSite as never,
+			await readProviderConfig( provider ),
+			remoteSite,
 			options,
 			Writable.toWeb( fs.createWriteStream( destPath ) ),
 			( percent ) => {

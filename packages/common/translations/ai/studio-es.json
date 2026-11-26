@@ -73,9 +73,6 @@
 	"%s · Local changes": [
 		"%s · Cambios locales"
 	],
-	"/month": [
-		"/mes"
-	],
 	"30 GB of storage": [
 		"30 GB de almacenamiento"
 	],
@@ -111,9 +108,6 @@
 	],
 	"Add or delete this annotation before starting another.": [
 		"Añade o elimina esta anotación antes de empezar otra."
-	],
-	"Address is required": [
-		"La dirección es obligatoria"
 	],
 	"Address to listen on": [
 		"Dirección en la que escuchar"
@@ -259,9 +253,6 @@
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"No se ha podido completar el inicio de sesión en ChatGPT. Inténtalo de nuevo."
 	],
-	"Check again": [
-		"Volver a comprobar"
-	],
 	"Check your internet connection and try again.": [
 		"Comprueba tu conexión a Internet e inténtalo de nuevo."
 	],
@@ -286,17 +277,11 @@
 	"Choose a plan to make it live: %s": [
 		"Elige un plan para activarlo: %s"
 	],
-	"Choose a site": [
-		"Elegir un sitio"
-	],
 	"Choose an existing WordPress folder, blueprint, backup, or export.": [
 		"Elige una carpeta de WordPress existente, un modelo, una copia de seguridad o una exportación."
 	],
 	"Choose color": [
 		"Elegir color"
-	],
-	"Choose files": [
-		"Elegir archivos"
 	],
 	"Choose specific files": [
 		"Elegir archivos concretos"
@@ -340,9 +325,6 @@
 	"Connect a provider to see your existing sites.": [
 		"Conecta un proveedor para ver tus sitios existentes."
 	],
-	"Connect to %s": [
-		"Conectar con %s"
-	],
 	"Connect to an existing WordPress": [
 		"Conectar con un WordPress existente"
 	],
@@ -360,9 +342,6 @@
 	],
 	"Continue on %s": [
 		"Continuar en %s"
-	],
-	"Continue to checkout": [
-		"Continuar con la compra"
 	],
 	"Continue with GitHub": [
 		"Continuar con GitHub"
@@ -517,9 +496,6 @@
 	"Deactivate plugin": [
 		"Desactivar plugin"
 	],
-	"Default": [
-		"Por defecto"
-	],
 	"Default AI provider": [
 		"Proveedor de IA por defecto"
 	],
@@ -550,9 +526,6 @@
 	"Delete plugin": [
 		"Eliminar plugin"
 	],
-	"Delete preview…": [
-		"Eliminar vista previa…"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"Elimina los sitios que ya no necesites para liberar espacio."
 	],
@@ -568,17 +541,11 @@
 	"Design systems are available for block themes.": [
 		"Los sistemas de diseño están disponibles para los temas de bloques."
 	],
-	"Destination": [
-		"Destino"
-	],
 	"Disconnect a provider": [
 		"Desconectar un proveedor"
 	],
 	"Disconnect site": [
 		"Desconectar sitio"
-	],
-	"Disconnect site?": [
-		"¿Desconectar el sitio?"
 	],
 	"Disconnect site…": [
 		"Desconectar sitio…"
@@ -606,9 +573,6 @@
 	],
 	"Esc": [
 		"Esc"
-	],
-	"Everyone": [
-		"Todo el mundo"
 	],
 	"Everything": [
 		"Todo"
@@ -724,9 +688,6 @@
 	"Hide chat when starting sites": [
 		"Ocultar el chat al iniciar sitios"
 	],
-	"High": [
-		"Alto"
-	],
 	"Hints": [
 		"Sugerencias"
 	],
@@ -787,9 +748,6 @@
 	"Kind of Blue": [
 		"Kind of Blue"
 	],
-	"Last updated %s": [
-		"Última actualización: %s"
-	],
 	"Last updated just now": [
 		"Actualizado hace un momento"
 	],
@@ -840,9 +798,6 @@
 	],
 	"Log in to WordPress.com to sync sites.": [
 		"Inicia sesión en WordPress.com para sincronizar sitios."
-	],
-	"Low": [
-		"Bajo"
 	],
 	"Maiden Voyage": [
 		"Maiden Voyage"
@@ -913,9 +868,6 @@
 	"Manual MCP setup": [
 		"Configuración manual de MCP"
 	],
-	"Medium": [
-		"Medio"
-	],
 	"Meta API key": [
 		"Clave de API de Meta"
 	],
@@ -924,9 +876,6 @@
 	],
 	"Meta rejected this API key. Check the key and try again.": [
 		"Meta ha rechazado esta clave de API. Comprueba la clave e inténtalo de nuevo."
-	],
-	"Monthly": [
-		"Mensual"
 	],
 	"Mood Indigo": [
 		"Mood Indigo"
@@ -957,9 +906,6 @@
 	],
 	"No recipient": [
 		"Sin destinatario"
-	],
-	"Off": [
-		"Desactivado"
 	],
 	"One more step": [
 		"Un paso más"
@@ -1096,9 +1042,6 @@
 	"Preview sites are temporary. Updating your preview resets the expiration date.": [
 		"Los sitios de vista previa son temporales. Al actualizar tu vista previa, se restablece la fecha de caducidad."
 	],
-	"Preview: %s": [
-		"Vista previa: %s"
-	],
 	"Private sites and preview links": [
 		"Sitios privados y enlaces de vista previa"
 	],
@@ -1113,9 +1056,6 @@
 	],
 	"Publish again?": [
 		"¿Volver a publicar?"
-	],
-	"Publish changes?": [
-		"¿Publicar los cambios?"
 	],
 	"Publish new sites or update existing ones on WordPress.com or Pressable.": [
 		"Publica sitios nuevos o actualiza los existentes en WordPress.com o Pressable."
@@ -1180,9 +1120,6 @@
 	"Recent pages": [
 		"Páginas recientes"
 	],
-	"Recommended": [
-		"Recomendados"
-	],
 	"Refresh preview": [
 		"Actualizar vista previa"
 	],
@@ -1194,9 +1131,6 @@
 	],
 	"Renew": [
 		"Renovar"
-	],
-	"Renew your plan": [
-		"Renovar tu plan"
 	],
 	"Replace local site": [
 		"Reemplazar sitio local"
@@ -1338,9 +1272,6 @@
 	],
 	"Sign in with OpenRouter": [
 		"Iniciar sesión con OpenRouter"
-	],
-	"Sign in with WordPress.com": [
-		"Iniciar sesión con WordPress.com"
 	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Inicia sesión con una cuenta de GitHub que tenga acceso a Copilot."
@@ -1489,9 +1420,6 @@
 	"Themes": [
 		"Temas"
 	],
-	"Thinking": [
-		"Razonamiento"
-	],
 	"Thinking: %s": [
 		"Razonamiento: %s"
 	],
@@ -1606,17 +1534,11 @@
 	"Update user": [
 		"Actualizar usuario"
 	],
-	"Update…": [
-		"Actualizar…"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"Al actualizar %s, los cambios hechos en la vista previa se reemplazarán con tu copia local."
 	],
 	"Updating your workspace…": [
 		"Actualizando tu espacio de trabajo…"
-	],
-	"Uploads": [
-		"Subidas"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"El uso se factura a través de tu cuenta de Anthropic."
@@ -1844,9 +1766,6 @@
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"Tu espacio de trabajo funciona con un plan de Studio Cloud. El proceso de compra se abre en WordPress.com y tu espacio de trabajo estará listo un minuto después del pago, aproximadamente."
 	],
-	"database": [
-		"base de datos"
-	],
 	"other files": [
 		"otros archivos"
 	],
@@ -1867,9 +1786,6 @@
 	],
 	"products": [
 		"productos"
-	],
-	"themes": [
-		"temas"
 	],
 	"uploads": [
 		"subidas"

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { pickedModelsSchema } from '../picked-models';
 
 export const openaiConfigSchema = z.discriminatedUnion( 'method', [
 	z.object( {
@@ -11,8 +12,13 @@ export const openaiConfigSchema = z.discriminatedUnion( 'method', [
 		// config itself doesn't expire.
 		accessTokenExpiresAt: z.number(),
 		email: z.string().optional(),
+		models: pickedModelsSchema,
 	} ),
-	z.object( { method: z.literal( 'api-key' ), apiKey: z.string().min( 1 ) } ),
+	z.object( {
+		method: z.literal( 'api-key' ),
+		apiKey: z.string().min( 1 ),
+		models: pickedModelsSchema,
+	} ),
 ] );
 
 export type OpenaiConfig = z.infer< typeof openaiConfigSchema >;

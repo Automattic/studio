@@ -11,6 +11,7 @@ import {
 	shell,
 	type WebContents,
 } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { moveAiSessionsToStudioDir } from '@studio/agent/node/sessions/root-migration';
@@ -412,6 +413,11 @@ async function appBoot() {
 					return;
 				}
 
+				if ( isQuittingConfirmed ) {
+					relaunchAfterQuit( customProtocolParameter ? [ customProtocolParameter ] : [] );
+					return;
+				}
+
 				const mainWindow = await getMainWindow();
 				// CLI commands are likely invoked from other apps, so we need to avoid changing app focus.
 				const isCLI = argv?.find( ( arg ) => arg.startsWith( '--cli=' ) );
@@ -624,6 +630,28 @@ async function appBoot() {
 	let isQuittingConfirmed = false;
 	let restartSitesOnLaunch = true;
 
+	// Opening Studio while it quits would show a window the quit then closes, so the new launch waits
+	// for this instance to exit. On Windows, Squirrel's launcher next to the version folders starts the
+	// newest one, which is the update when one was installed meanwhile.
+	function relaunchAfterQuit( links: string[] ) {
+		console.log( 'Studio was opened while quitting, it opens again once it has quit' );
+		const squirrelLauncher = path.resolve(
+			process.execPath,
+			'..',
+			'..',
+			path.basename( process.execPath )
+		);
+		const isSquirrelInstall =
+			process.platform === 'win32' &&
+			fs.existsSync( path.resolve( squirrelLauncher, '..', 'Update.exe' ) );
+		// A run from source passes Electron the app's path first.
+		const appPath = process.argv.slice( 1, process.defaultApp ? 2 : 1 );
+		app.relaunch( {
+			execPath: isSquirrelInstall ? squirrelLauncher : process.execPath,
+			args: [ ...appPath, ...links ],
+		} );
+	}
+
 	const applyQuitSitesBehavior = ( behavior: QuitSitesBehavior ) => {
 		shouldStopSitesOnQuit = behavior !== 'leave-running';
 		restartSitesOnLaunch = behavior !== 'stop';
@@ -785,6 +813,11 @@ async function appBoot() {
 
 	app.on( 'activate', () => {
 		if ( ! finishedInitialization ) {
+			return;
+		}
+
+		if ( isQuittingConfirmed ) {
+			relaunchAfterQuit( [] );
 			return;
 		}
 

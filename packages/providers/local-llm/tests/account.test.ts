@@ -107,7 +107,7 @@ describe( 'local-llm account', () => {
 			apiKey: 'secret-key',
 			models: [ { name: 'qwen3', images: false } ],
 		} );
-		expect( getProvider( 'local-llm' ).account.describe( config ) ).toEqual( {
+		expect( getProvider( 'local-llm' ).account!.describe( config ) ).toEqual( {
 			method: 'server',
 			summary: 'http://localhost:8080',
 			models: [ { id: 'local-llm/qwen3', label: 'qwen3', supportsImages: false } ],

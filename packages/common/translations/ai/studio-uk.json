@@ -939,9 +939,6 @@
 	"Choose a provider": [
 		"Виберіть постачальника"
 	],
-	"Choose a site": [
-		"Виберіть сайт"
-	],
 	"Choose a site source": [
 		"Виберіть джерело сайту"
 	],
@@ -971,9 +968,6 @@
 	],
 	"Choose color": [
 		"Вибрати колір"
-	],
-	"Choose files": [
-		"Вибрати файли"
 	],
 	"Choose files…": [
 		"Вибрати файли…"
@@ -1127,9 +1121,6 @@
 	],
 	"Connect provider": [
 		"Підключити постачальника"
-	],
-	"Connect to %s": [
-		"Підключитися до %s"
 	],
 	"Connect to Spacefast": [
 		"Підключитися до Spacefast"
@@ -1548,9 +1539,6 @@
 	"Deactivate plugin": [
 		"Деактивувати плагін"
 	],
-	"Default": [
-		"Типово"
-	],
 	"Default AI provider": [
 		"Типовий постачальник ШІ"
 	],
@@ -1606,9 +1594,6 @@
 	],
 	"Delete plugin": [
 		"Видалити плагін"
-	],
-	"Delete preview…": [
-		"Видалити попередній перегляд…"
 	],
 	"Delete sites you no longer need to free up space.": [
 		"Видаліть непотрібні сайти, щоб звільнити місце."
@@ -1680,12 +1665,6 @@
 	],
 	"Disconnect a provider": [
 		"Відключити постачальника"
-	],
-	"Disconnect site": [
-		"Відключити сайт"
-	],
-	"Disconnect site?": [
-		"Відключити сайт?"
 	],
 	"Disconnect site…": [
 		"Відключити сайт…"
@@ -2117,9 +2096,6 @@
 		"Знайдено %d Blueprint",
 		"Знайдено %d Blueprint",
 		"Знайдено %d Blueprint"
-	],
-	"Free": [
-		"Безкоштовно"
 	],
 	"Free credits remaining: %s": [
 		"Залишок безкоштовних кредитів: %s"
@@ -2782,9 +2758,6 @@
 	"Models that need purchased AI credits are hidden — add credits to unlock them.": [
 		"Моделі, для яких потрібні придбані кредити ШІ, приховано — додайте кредити, щоб розблокувати їх."
 	],
-	"Monthly": [
-		"Щомісяця"
-	],
 	"Mood Indigo": [
 		"Mood Indigo"
 	],
@@ -2928,9 +2901,6 @@
 	],
 	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
 		"Кількість PHP-воркерів, що обмежує, скільки запитів сайт обслуговує одночасно (типово %d)"
-	],
-	"Off": [
-		"Вимкнено"
 	],
 	"Once the download finishes, quit WordPress Studio, open a terminal, and paste the command to install:": [
 		"Після завершення завантаження закрийте WordPress Studio, відкрийте термінал і вставте команду для встановлення:"
@@ -3133,9 +3103,6 @@
 	"Pinned": [
 		"Закріплені"
 	],
-	"Plan": [
-		"Тарифний план"
-	],
 	"Plan a menu page": [
 		"Сплануй сторінку меню"
 	],
@@ -3231,9 +3198,6 @@
 	],
 	"Preview tabs": [
 		"Вкладки попереднього перегляду"
-	],
-	"Preview: %s": [
-		"Попередній перегляд: %s"
 	],
 	"Previous option": [
 		"Попередній варіант"
@@ -3457,9 +3421,6 @@
 	"Recent pages": [
 		"Недавні сторінки"
 	],
-	"Recommended": [
-		"Рекомендовані"
-	],
 	"Reconnect to load your WordPress.com and Pressable sites.": [
 		"Підключіться знову, щоб завантажити свої сайти WordPress.com і Pressable."
 	],
@@ -3535,9 +3496,6 @@
 	],
 	"Rename the focused site or chat": [
 		"Перейменувати вибраний сайт або чат"
-	],
-	"Renew": [
-		"Поновити"
 	],
 	"Renew your plan": [
 		"Поновити тарифний план"
@@ -4583,9 +4541,6 @@
 	"These sites cannot currently be connected to WordPress Studio.": [
 		"Ці сайти зараз не можна підключити до WordPress Studio."
 	],
-	"Thinking": [
-		"Міркування"
-	],
 	"Thinking: %s": [
 		"Міркування: %s"
 	],
@@ -4910,9 +4865,6 @@
 	"Updated %s": [
 		"Оновлено %s"
 	],
-	"Update…": [
-		"Оновити…"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"Під час оновлення %s усі редагування, внесені в попередній перегляд, буде замінено вашою локальною копією."
 	],
@@ -4939,9 +4891,6 @@
 	],
 	"Uploading files…": [
 		"Вивантаження файлів…"
-	],
-	"Uploads": [
-		"Завантажені файли"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"Використання оплачується через ваш обліковий запис Anthropic."
@@ -5080,9 +5029,6 @@
 	],
 	"WP Admin: ": [
 		"Адмінпанель WP: "
-	],
-	"WP admin": [
-		"Адмінпанель WP"
 	],
 	"WP-CLI exited with code %d.": [
 		"WP-CLI завершився з кодом %d."
@@ -5574,9 +5520,6 @@
 	"buy more credits": [
 		"докупити кредити"
 	],
-	"database": [
-		"база даних"
-	],
 	"hosting provider name\u0004Pressable": [
 		"Pressable"
 	],
@@ -5630,9 +5573,6 @@
 	],
 	"theme.json matches DESIGN.md": [
 		"theme.json відповідає DESIGN.md"
-	],
-	"themes": [
-		"теми"
 	],
 	"uploads": [
 		"завантажені файли"

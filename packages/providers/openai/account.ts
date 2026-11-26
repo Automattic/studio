@@ -12,7 +12,7 @@ const RESOURCE = 'https://api.openai.com/v1';
 const SHARING_SCOPE = 'chatgpt.tokens.use.direct';
 const REFRESH_MARGIN_MS = 5 * 60_000;
 const REQUEST_TIMEOUT_MS = 15_000;
-const MODELS_URL = `${ RESOURCE }/models`;
+export const MODELS_URL = `${ RESOURCE }/models`;
 
 function requestTokens( body: Record< string, string > ): Promise< Response > {
 	return fetch( `${ AUTH_URL }/oauth/token`, {

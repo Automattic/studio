@@ -91,10 +91,17 @@ export interface TracksIdentity {
 
 export type TracksProps = Record< string, string | number | boolean | undefined >;
 
-// Which application an event came from: the Electron app, the browser UI served by `studio ui`, a
-// bare terminal invocation, or an agent app running `studio mcp`. Orthogonal to `ui_version`, which
+// Which application an event came from: the Electron app, the browser UI served by `studio ui` on
+// the user's own computer, the UI served by `studio serve` on a Studio Cloud machine, a bare
+// terminal invocation, or an agent app running `studio mcp`. Orthogonal to `ui_version`, which
 // is the renderer chrome. See `docs/design-docs/analytics-tracks.md`.
-export const TRACKS_CHANNELS = [ 'studio-ui', 'studio-cli', 'studio-web', 'studio-mcp' ] as const;
+export const TRACKS_CHANNELS = [
+	'studio-ui',
+	'studio-cli',
+	'studio-browser',
+	'studio-cloud',
+	'studio-mcp',
+] as const;
 export type TracksChannel = ( typeof TRACKS_CHANNELS )[ number ];
 export type TracksUiVersion = 'v1' | 'v2';
 

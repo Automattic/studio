@@ -68,9 +68,10 @@ export async function connectedRemoteSites(
 				fillIn && stored.length
 					? await listAccountSites( getProviderServices( provider ) ).catch( () => undefined )
 					: undefined;
-			return ( account ? getProviderSites( provider ).withDetails( stored, account ) : stored ).map(
-				( remote ) => ( { provider, site: remote } )
-			);
+			return (
+				( account && getProviderSites( provider ).withDetails?.( stored, account ) ) ||
+				stored
+			).map( ( remote ) => ( { provider, site: remote } ) );
 		} )
 	);
 	return connected.flat();

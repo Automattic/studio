@@ -516,10 +516,27 @@ export function getToolDetail( name: string, input?: Record< string, unknown > )
 	}
 }
 
+// The skill a `Skill` call loaded. The chat shows it in place of the skill's instructions.
+export interface ToolResultSkill {
+	name: string;
+	description: string;
+}
+
 export interface NormalizedToolResult {
 	text: string;
 	isError: boolean;
 	diff?: string;
+	skill?: ToolResultSkill;
+}
+
+export function getToolResultSkill( details: unknown ): ToolResultSkill | undefined {
+	if ( ! details || typeof details !== 'object' ) {
+		return undefined;
+	}
+	const skill = ( details as { skill?: Partial< ToolResultSkill > } ).skill;
+	return typeof skill?.name === 'string' && typeof skill.description === 'string'
+		? { name: skill.name, description: skill.description }
+		: undefined;
 }
 
 export function getToolResultDiff( details: unknown ): string | undefined {

@@ -148,7 +148,7 @@ where the sender actually runs — see Testing below for what fires in which bui
   `channel`/`ui_version` identify it. The agentic UI runs the CLI commands for both operations
   (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and lets the CLI emit, so the event
   carries the CLI's precise `failure_reason`; the host's `STUDIO_TRACKS_ORIGIN` attributes it to
-  `studio-ui:v2` (desktop) or `studio-web:v2` (`studio ui`). **Cancels emit nothing**
+  `studio-ui:v2` (desktop), `studio-browser:v2` (`studio ui`) or `studio-cloud:v2` (`studio serve`). **Cancels emit nothing**
   at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
@@ -212,9 +212,11 @@ where the sender actually runs — see Testing below for what fires in which bui
   site; a general Settings setup can complete on its first eligible task. Journeys are in memory,
   expire after 24h, and are invalidated on observed logout/account switch. They do not survive reload
   or prove satisfaction. Onboarding uses its completion event; account/usage intents end at auth.
-- **`studio ui`** (the browser UI served by `apps/local`) sets `STUDIO_TRACKS_ORIGIN=studio-web:v2` on
-  its own process, so everything it forks — site operations and agent runs alike — inherits it and
-  lands in `channel=studio-web` rather than being mistaken for standalone-CLI usage. The server has no
+- **`studio ui`** (the browser UI served by `apps/local`) sets `STUDIO_TRACKS_ORIGIN=studio-browser:v2`
+  on its own process, so everything it forks — site operations and agent runs alike — inherits it and
+  lands in `channel=studio-browser` rather than being mistaken for standalone-CLI usage. `studio serve`,
+  which serves the same UI from a Studio Cloud machine, does the same with `studio-cloud:v2`. Earlier
+  builds reported `studio-web` for both. The server has no
   Tracks wrapper of its own: `studio ui` injects the CLI's `recordTracksEvent` as the
   `recordTracksEvent` option of `startLocalServer`, which is what the events it records in-process
   (settings changes, session creation) and the ones the browser posts to it go through.
@@ -234,12 +236,12 @@ none fits, and flag it for registration.
 
 | Property                   | Meaning                                                               | Studio values                                                                                                                                                                                                                                                                                                                                     |
 | -------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `channel`                  | Entry platform / application                                          | `studio-ui` (Electron app), `studio-web` (browser UI served by `studio ui`), `studio-cli` (bare terminal invocation), `studio-mcp` (an agent app running `studio mcp`)                                                                                                                                                                            |
+| `channel`                  | Entry platform / application                                          | `studio-ui` (Electron app), `studio-browser` (browser UI served by `studio ui`), `studio-cloud` (UI served by `studio serve` on a Studio Cloud machine), `studio-cli` (bare terminal invocation), `studio-mcp` (an agent app running `studio mcp`)                                                                                                                                                                            |
 | `is_a11n`                  | Automattician flag (shared across products)                           | `true` / `false` (derived from the auth token email domain)                                                                                                                                                                                                                                                                                       |
 | `platform`                 | OS                                                                    | `darwin`, `win32`, `linux`                                                                                                                                                                                                                                                                                                                        |
 | `arch`                     | CPU architecture                                                      | `arm64`, `x64`, …                                                                                                                                                                                                                                                                                                                                 |
 | `app_version`              | Product version                                                       | e.g. `1.15.0`. Exclude `1.0.0` from queries: no release has it, so those events came from the desktop boot unit test (`apps/studio/src/tests/index.test.ts`), which mocks `app.getVersion()` to `1.0.0` and sends a first launch from a fresh install on every boot. Until November 2026 the senders stopped it only on `CI` or `NODE_ENV=test`, and Vitest sets `NODE_ENV` only when it is unset; they now also refuse any Vitest run and any unpackaged desktop app.                                                                                                                                                                  |
-| `ui_version`               | **Custom (Studio-only):** which renderer chrome is running            | `v1` (Classic, until October 2026), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-web` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli` and `studio-mcp`. No standard slot — must be registered as a Studio-custom property. |
+| `ui_version`               | **Custom (Studio-only):** which renderer chrome is running            | `v1` (Classic, until October 2026), `v2` (agentic). Orthogonal to `channel`: it does **not** encode Electron-vs-browser, so the browser UI is `studio-browser` + `v2` — it serves the same `apps/ui` bundle the desktop reports as `v2`. Absent for `studio-cli` and `studio-mcp`. No standard slot — must be registered as a Studio-custom property. |
 | `mcp_client`               | **Custom (Studio-only):** the agent app, on `channel=studio-mcp`      | The MCP client name from the handshake: `codex-mcp-client` (Codex, in the ChatGPT app or terminal), `claude-code`, …                                                                                                                                                                                                                              |
 | `plugin`, `plugin_version` | **Custom (Studio-only):** the Studio plugin that started `studio mcp` | `wp-studio@studio` and the plugin's version; absent when `studio mcp` was configured by hand, which is how plugin and hand-configured use are told apart                                                                                                                                                                                          |
 
@@ -324,7 +326,7 @@ start / creation is counted once whether it originated in a UI or the standalone
 #### Add-site Blueprint dialog events
 
 The shared agentic add-site dialog emits these through `Connector.trackEvent` in Desktop
-(`channel=studio-ui`, `ui_version=v2`) and `studio ui` (`channel=studio-web`, `ui_version=v2`).
+(`channel=studio-ui`, `ui_version=v2`) and `studio ui` (`channel=studio-browser`, `ui_version=v2`).
 Each event records one visible user action. Opening the dialog, rendering cards/screenshots, and Back
 navigation emit none of these events.
 
@@ -594,7 +596,7 @@ Studio Code (AI assistant) usage. The chat events are emitted by the **CLI** (th
 surface forks it to run a turn), `session_created` from whichever host created the session in-process
 — **desktop Main**, or the **`studio ui` server** via its own `/sessions` route. All carry the shared
 AI identity props described under "Property vocabulary" above. Filter by `channel` to tell desktop
-(`studio-ui`) and browser (`studio-web`) chat apart.
+(`studio-ui`) and browser (`studio-browser`) chat apart.
 
 | Event                                | Emitted from                                                                          | Event-specific props                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------------------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -756,7 +758,7 @@ What fires depends on the build, so pick the right method:
     `~/Library/Logs/Studio/`.
   - **`channel`** is `studio-cli` standalone, or the value in `STUDIO_TRACKS_ORIGIN` (with
     `ui_version`) when the host sets one — `studio-ui:v2` as the desktop injects when it spawns the
-    CLI, `studio-web:v2` under `studio ui`.
+    CLI, `studio-browser:v2` under `studio ui`.
 
 - **The browser UI (`studio ui`).** Build the UI first (plain `cli:build` does not rebuild `apps/ui`):
 
@@ -767,7 +769,7 @@ What fires depends on the build, so pick the right method:
   ```
 
   `studio_app_launch` logs as the server comes up; drive the UI at `http://localhost:8081` for the
-  rest. Everything prints in the terminal that ran `studio ui`, with `channel: studio-web`,
+  rest. Everything prints in the terminal that ran `studio ui`, with `channel: studio-browser`,
   `ui_version: v2`:
 
   - Events the server records itself (the launch event, renderer events posted to

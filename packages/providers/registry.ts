@@ -49,11 +49,6 @@ export const SITES_PROVIDER_IDS = PROVIDER_IDS.filter(
 	( id ) => PROVIDERS[ id ].sites
 ) as unknown as Ids< SitesProviderId >;
 
-// The providers with an account to connect: all but those, like SSH, with nothing to connect.
-export const ACCOUNT_PROVIDER_IDS = PROVIDER_IDS.filter(
-	( id ) => PROVIDERS[ id ].account
-) as unknown as Ids< ProviderId >;
-
 export const DEFAULT_PROVIDER_ID: AiProviderId = 'wpcom';
 
 export function getProvider< Id extends ProviderId >(

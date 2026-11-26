@@ -20,8 +20,7 @@ export const DEFAULT_TOKEN_LIFETIME_MS = DAY_MS * 14;
 
 // Lockfile constants
 export const SESSIONS_MIGRATION_LOCKFILE_NAME = 'sessions-migration.lock';
-export const LOCKFILE_STALE_TIME = 5000;
-export const LOCKFILE_WAIT_TIME = 5000;
+export const LOCKFILE_WAIT_TIME = 30_000;
 
 // Site server timeouts
 export const SITE_SERVER_INACTIVITY_TIMEOUT = 2 * 60 * 1000; // 2 minutes of no output = timeout

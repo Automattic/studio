@@ -90,7 +90,7 @@ export function ExistingSiteStep( {
 				key: remotePublishTargetKey( provider, site.id ),
 				label: getProvider( provider ).label,
 				details: descriptor.describe( site ).details,
-				issue: descriptor.issue( site, 'pull' ),
+				issue: descriptor.issue?.( site, 'pull' ) ?? null,
 				refreshing: isFetching,
 			};
 		} )

@@ -1,55 +1,9 @@
 {
-	"$10 of AI credits every month": [
-		"קרדיטים לבינה מלאכותית בשווי $10 בכל חודש"
-	],
-	"$30 of AI credits every month": [
-		"קרדיטים לבינה מלאכותית בשווי $30 בכל חודש"
-	],
-	"%1$d of %2$d site": [
-		"אתרים: %1$d מתוך %2$d",
-		"אתרים: %1$d מתוך %2$d"
-	],
-	"%1$d of %2$d site running at once": [
-		"אתרים פועלים במקביל: %1$d מתוך %2$d",
-		"אתרים פועלים במקביל: %1$d מתוך %2$d"
-	],
 	"%1$s +%2$d": [
 		"%1$s +%2$d"
 	],
-	"%1$s / %2$s per million tokens": [
-		"%1$s / %2$s למיליון אסימונים"
-	],
-	"%1$s GB of %2$s GB of storage used": [
-		"נעשה שימוש ב-%1$s GB מתוך %2$s GB של אחסון"
-	],
-	"%1$s and %2$d other": [
-		"%1$s ומודל נוסף",
-		"%1$s ועוד %2$d מודלים"
-	],
-	"%1$s · %2$s context": [
-		"%1$s · הקשר של %2$s"
-	],
-	"%1$s, %2$s, and %3$s": [
-		"%1$s, %2$s ו%3$s"
-	],
-	"%d model": [
-		"מודל אחד",
-		"%d מודלים"
-	],
-	"%s (optional, saved for future use):": [
-		"%s (אופציונלי, יישמר לשימוש עתידי):"
-	],
-	"%s billed yearly": [
-		"%s בחיוב שנתי"
-	],
 	"%s connection": [
 		"חיבור %s"
-	],
-	"%s models": [
-		"מודלים של %s"
-	],
-	"%s only makes previews.": [
-		"%s יוצר תצוגות מקדימות בלבד."
 	],
 	"%s · Live site": [
 		"%s · אתר פעיל"
@@ -59,15 +13,6 @@
 	],
 	"(No subject)": [
 		"(ללא נושא)"
-	],
-	"/month": [
-		"/חודש"
-	],
-	"30 GB of storage": [
-		"30 GB אחסון"
-	],
-	"6 GB of storage": [
-		"6 GB אחסון"
 	],
 	"A code editor with a built-in AI agent.": [
 		"עורך קוד עם סוכן בינה מלאכותית מובנה."
@@ -84,20 +29,8 @@
 	"API key is required": [
 		"נדרש מפתח API"
 	],
-	"Access unknown": [
-		"הגישה לא ידועה"
-	],
 	"Activate all plugins": [
 		"הפעלת כל התוספים"
-	],
-	"Add a domain": [
-		"הוספת דומיין"
-	],
-	"Address is required": [
-		"חובה להזין כתובת"
-	],
-	"Address to listen on": [
-		"הכתובת להאזנה"
 	],
 	"Admin bar hidden by default.": [
 		"סרגל הניהול מוסתר כברירת מחדל."
@@ -107,9 +40,6 @@
 	],
 	"Agents": [
 		"סוכנים"
-	],
-	"All but %s": [
-		"הכול מלבד %s"
 	],
 	"All models": [
 		"כל המודלים"
@@ -123,9 +53,6 @@
 	"Another operation is in progress.": [
 		"פעולה אחרת מתבצעת כעת."
 	],
-	"Answers right away, fastest": [
-		"עונה מיד, הכי מהיר"
-	],
 	"Anthropic API key": [
 		"מפתח API של Anthropic"
 	],
@@ -135,29 +62,14 @@
 	"Anthropic rejected this token. Run claude setup-token again.": [
 		"חברת Anthropic דחתה את האסימון הזה. יש להריץ שוב את claude setup-token."
 	],
-	"Anyone can view your site": [
-		"כל אחד יכול לצפות באתר שלך"
-	],
 	"Anyone with the link": [
 		"כל מי שיש לו את הקישור"
-	],
-	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
-		"כל מי שיש לו את הקישור יאבד את הגישה, ואי אפשר לבטל את הפעולה. אתר ה-WordPress המקומי שלך לא ישתנה."
 	],
 	"Back to email list": [
 		"חזרה לרשימת האימיילים"
 	],
 	"Balanced": [
 		"מאוזן"
-	],
-	"Billed monthly": [
-		"בחיוב חודשי"
-	],
-	"Billed monthly, renews on %s": [
-		"בחיוב חודשי, מתחדשת ב-%s"
-	],
-	"Billed yearly, renews on %s": [
-		"בחיוב שנתי, מתחדשת ב-%s"
 	],
 	"Billing period": [
 		"תקופת חיוב"
@@ -170,9 +82,6 @@
 	],
 	"Browser could not load.": [
 		"לא ניתן היה לטעון את הדפדפן."
-	],
-	"Can’t see screenshots": [
-		"לא רואה צילומי מסך"
 	],
 	"Cc": [
 		"עותק"
@@ -207,20 +116,8 @@
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"לא ניתן היה להשלים את ההתחברות ל-ChatGPT. יש לנסות שוב."
 	],
-	"Check again": [
-		"בדיקה חוזרת"
-	],
 	"Check your internet connection and try again.": [
 		"יש לבדוק את החיבור לאינטרנט ולנסות שוב."
-	],
-	"Checking access…": [
-		"מתבצעת בדיקת גישה…"
-	],
-	"Checking whether you can pull from this preview…": [
-		"מתבצעת בדיקה אם אפשר למשוך מהתצוגה המקדימה הזו…"
-	],
-	"Checking…": [
-		"מתבצעת בדיקה…"
 	],
 	"Choose a Blueprint or backup": [
 		"בחירת מודל או גיבוי"
@@ -228,14 +125,8 @@
 	"Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.": [
 		"יש לבחור תיקיית אתר WordPress, קובץ JSON של מודל או חבילת ZIP."
 	],
-	"Choose a plan to make it live: %s": [
-		"יש לבחור תוכנית כדי להפוך אותו לאתר פעיל: %s"
-	],
 	"Choose a provider": [
 		"בחירת ספק"
-	],
-	"Choose a site": [
-		"בחירת אתר"
 	],
 	"Choose a site source": [
 		"בחירת מקור לאתר"
@@ -246,14 +137,8 @@
 	"Choose color": [
 		"בחירת צבע"
 	],
-	"Choose files": [
-		"בחירת קבצים"
-	],
 	"Choose specific files": [
 		"בחירת קבצים מסוימים"
-	],
-	"Choose which live site this preview shows changes to.": [
-		"יש לבחור לאיזה אתר פעיל התצוגה המקדימה הזו מציגה שינויים."
 	],
 	"Choose your plan.": [
 		"יש לבחור תוכנית."
@@ -285,23 +170,8 @@
 	"Connect a provider to see your existing sites.": [
 		"יש לחבר ספק כדי לראות את האתרים הקיימים שלך."
 	],
-	"Connect to %s": [
-		"התחברות ל-%s"
-	],
-	"Connect to an existing site": [
-		"התחברות לאתר קיים"
-	],
-	"Connect to publish": [
-		"יש להתחבר כדי לפרסם"
-	],
-	"Connect to share previews": [
-		"יש להתחבר כדי לשתף תצוגות מקדימות"
-	],
 	"Connected %s.": [
 		"%s חובר."
-	],
-	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
-		"חיבור אתר קיים ינתק את היעד הנוכחי שלך מ-WordPress Studio. התוכן שלו לא ישתנה."
 	],
 	"Connecting to WordPress.com": [
 		"מתחבר ל-WordPress.com"
@@ -309,17 +179,11 @@
 	"Continue on %s": [
 		"המשך ב-%s"
 	],
-	"Continue to checkout": [
-		"המשך לתשלום"
-	],
 	"Continue with GitHub": [
 		"המשך עם GitHub"
 	],
 	"Copy links": [
 		"העתקת קישורים"
-	],
-	"Could not check Spacefast team access": [
-		"לא ניתן היה לבדוק את הגישה של הצוות ב-Spacefast"
 	],
 	"Could not clear browsing data": [
 		"לא ניתן היה לנקות את נתוני הגלישה"
@@ -327,14 +191,8 @@
 	"Could not connect to WordPress.com": [
 		"לא ניתן היה להתחבר ל-WordPress.com"
 	],
-	"Could not load %s sites.": [
-		"לא ניתן היה לטעון את האתרים של %s."
-	],
 	"Could not open the new preview. Please try again.": [
 		"לא ניתן היה לפתוח את התצוגה המקדימה החדשה. יש לנסות שוב."
-	],
-	"Could not open the setup page. Please try again.": [
-		"לא ניתן היה לפתוח את דף ההגדרה. יש לנסות שוב."
 	],
 	"Could not publish. Please try again.": [
 		"לא ניתן היה לפרסם. יש לנסות שוב."
@@ -354,47 +212,17 @@
 	"Could not update settings. Please try again.": [
 		"לא ניתן היה לעדכן את ההגדרות. יש לנסות שוב."
 	],
-	"Could not update your local site from this preview. Please try again.": [
-		"לא ניתן היה לעדכן את האתר המקומי שלך מהתצוגה המקדימה הזו. יש לנסות שוב."
-	],
 	"Could not verify the credential with Anthropic.": [
 		"לא ניתן היה לאמת את פרטי הגישה מול Anthropic."
 	],
-	"Could not watch for your new site. Please try again.": [
-		"לא ניתן היה לעקוב אחר האתר החדש שלך. יש לנסות שוב."
-	],
 	"Couldn't load providers.": [
 		"לא ניתן היה לטעון את הספקים."
-	],
-	"Couldn’t change how much the model thinks": [
-		"לא ניתן היה לשנות את מידת החשיבה של המודל"
-	],
-	"Couldn’t check for preview edits": [
-		"לא ניתן היה לבדוק אם התצוגה המקדימה נערכה"
-	],
-	"Couldn’t check previews.": [
-		"לא ניתן היה לבדוק את התצוגות המקדימות."
-	],
-	"Couldn’t check whether you can pull from this preview.": [
-		"לא ניתן היה לבדוק אם אפשר למשוך מהתצוגה המקדימה הזו."
-	],
-	"Couldn’t check who can view new sites for this team.": [
-		"לא ניתן היה לבדוק מי יכול לצפות באתרים חדשים של הצוות הזה."
 	],
 	"Couldn’t load apps.": [
 		"לא ניתן היה לטעון את האפליקציות."
 	],
 	"Couldn’t load publishing accounts": [
 		"לא ניתן היה לטעון את חשבונות הפרסום"
-	],
-	"Couldn’t load your %s sites": [
-		"לא ניתן היה לטעון את האתרים שלך ב-%s"
-	],
-	"Couldn’t load your %s sites.": [
-		"לא ניתן היה לטעון את האתרים שלך ב-%s."
-	],
-	"Couldn’t load your previews.": [
-		"לא ניתן היה לטעון את התצוגות המקדימות שלך."
 	],
 	"Create %s": [
 		"יצירת %s"
@@ -411,12 +239,6 @@
 	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
 		"יש ליצור מפתח ב-[OpenAI Platform](https://platform.openai.com/api-keys) ולהדביק אותו למטה."
 	],
-	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
-		"יש ליצור מפתח ב-[xAI Console](https://console.x.ai) ולהדביק אותו למטה."
-	],
-	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
-		"יש ליצור מפתח ב[הגדרות של OpenRouter](https://openrouter.ai/settings/keys) ולהדביק אותו למטה."
-	],
 	"Create a new WordPress": [
 		"יצירת אתר WordPress חדש"
 	],
@@ -429,26 +251,17 @@
 	"Creating preview link…": [
 		"מתבצעת יצירה של קישור לתצוגה מקדימה…"
 	],
-	"Custom selection": [
-		"בחירה מותאמת אישית"
-	],
 	"Database only": [
 		"מסד נתונים בלבד"
 	],
 	"Default": [
 		"ברירת מחדל"
 	],
-	"Default image provider": [
-		"ספק תמונות ברירת המחדל"
-	],
 	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
 		"אוטומטי"
 	],
 	"Delete %s": [
 		"מחיקת %s"
-	],
-	"Delete a preview in Sharing settings to create another.": [
-		"יש למחוק תצוגה מקדימה בהגדרות השיתוף כדי ליצור תצוגה חדשה."
 	],
 	"Delete a site to create a new one.": [
 		"יש למחוק אתר כדי ליצור אתר חדש."
@@ -458,12 +271,6 @@
 	],
 	"Delete plugin": [
 		"מחיקת תוסף"
-	],
-	"Delete preview…": [
-		"מחיקת התצוגה המקדימה…"
-	],
-	"Delete sites you no longer need to free up space.": [
-		"אפשר למחוק אתרים שכבר אין בהם צורך כדי לפנות מקום."
 	],
 	"Delete theme": [
 		"מחיקת ערכת עיצוב"
@@ -485,12 +292,6 @@
 	],
 	"Disconnect a provider": [
 		"ניתוק ספק"
-	],
-	"Disconnect site": [
-		"ניתוק האתר"
-	],
-	"Disconnect site?": [
-		"לנתק את האתר?"
 	],
 	"Disconnect site…": [
 		"ניתוק האתר…"
@@ -515,9 +316,6 @@
 	],
 	"Enable anonymous usage statistics": [
 		"הפעלת סטטיסטיקות שימוש אנונימיות"
-	],
-	"Ends on %s": [
-		"מסתיימת ב-%s"
 	],
 	"Enter a token from claude setup-token, not an API key.": [
 		"יש להזין אסימון מ-claude setup-token, ולא מפתח API."
@@ -552,9 +350,6 @@
 	"Failed to find existing preview site in config": [
 		"לא נמצא אתר תצוגה מקדימה קיים בהגדרות"
 	],
-	"Failed to find the preview site’s launch link": [
-		"לא נמצא קישור ההשקה של אתר התצוגה המקדימה"
-	],
 	"Failed to load your Spacefast Spaces": [
 		"טעינת ה-Spaces שלך ב-Spacefast נכשלה"
 	],
@@ -563,9 +358,6 @@
 	],
 	"Failed to save connected site": [
 		"שמירת האתר המחובר נכשלה"
-	],
-	"Failed to set up WordPress": [
-		"הגדרת WordPress נכשלה"
 	],
 	"Feedback sent": [
 		"המשוב נשלח"
@@ -579,23 +371,14 @@
 	"Finish activating hosting on WordPress.com before pulling.": [
 		"יש להשלים את הפעלת האחסון ב-WordPress.com לפני המשיכה."
 	],
-	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
-		"יש להשלים את התשלום בכרטיסייה של WordPress.com ולחזור לכאן. סביבת העבודה שלך תוגדר מעצמה ברגע שהתוכנית תהיה פעילה."
-	],
 	"First use": [
 		"שימוש ראשון"
-	],
-	"For generating images. Auto uses the AI provider when it can.": [
-		"ליצירת תמונות. האפשרות 'אוטומטי' משתמשת בספק הבינה המלאכותית כשהדבר אפשרי."
 	],
 	"For publishing sites.": [
 		"לפרסום אתרים."
 	],
 	"For working on sites.": [
 		"לעבודה על אתרים."
-	],
-	"Free": [
-		"חינם"
 	],
 	"Gemini API key": [
 		"מפתח API של Gemini"
@@ -612,15 +395,6 @@
 	"Google rejected this API key. Check the key and try again.": [
 		"חברת Google דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
 	],
-	"Grok sent back an incomplete sign-in.": [
-		"ההתחברות שהתקבלה מ-Grok לא הושלמה."
-	],
-	"Grok sign-in could not be started. Try again.": [
-		"לא ניתן היה להתחיל את ההתחברות ל-Grok. יש לנסות שוב."
-	],
-	"Grok sign-in was declined.": [
-		"ההתחברות ל-Grok נדחתה."
-	],
 	"Hide admin bar": [
 		"הסתרת סרגל הניהול"
 	],
@@ -635,9 +409,6 @@
 	],
 	"Hide recent chats": [
 		"הסתרת הצ'אטים האחרונים"
-	],
-	"High": [
-		"גבוהה"
 	],
 	"Hints": [
 		"רמזים"
@@ -675,30 +446,6 @@
 	"Interface theme": [
 		"ערכת העיצוב של הממשק"
 	],
-	"Invited people": [
-		"אנשים שהוזמנו"
-	],
-	"I’ve paid, continue": [
-		"שילמתי, אפשר להמשיך"
-	],
-	"Last updated %s": [
-		"עודכן לאחרונה %s"
-	],
-	"Last updated just now": [
-		"עודכן לאחרונה ממש עכשיו"
-	],
-	"Last updated on %s": [
-		"עודכן לאחרונה ב-%s"
-	],
-	"Launch a public site with a paid plan.": [
-		"השקת אתר ציבורי עם תוכנית בתשלום."
-	],
-	"Launch on %s": [
-		"השקה ב-%s"
-	],
-	"Learn about Spacefast": [
-		"מידע על Spacefast"
-	],
 	"Liberate": [
 		"שחרור"
 	],
@@ -717,17 +464,8 @@
 	"Loading apps…": [
 		"טוען אפליקציות…"
 	],
-	"Loading destinations": [
-		"מתבצעת טעינה של יעדים"
-	],
 	"Loading file…": [
 		"טוען קובץ…"
-	],
-	"Loading models…": [
-		"מתבצעת טעינה של מודלים…"
-	],
-	"Local and preview changes": [
-		"שינויים מקומיים ובתצוגה המקדימה"
 	],
 	"Local changes": [
 		"שינויים מקומיים"
@@ -735,17 +473,8 @@
 	"Log in to WordPress.com to sync sites.": [
 		"יש להתחבר ל-WordPress.com כדי לסנכרן אתרים."
 	],
-	"Low": [
-		"נמוכה"
-	],
 	"Make a preview site your live site": [
 		"הפיכת אתר תצוגה מקדימה לאתר הפעיל שלך"
-	],
-	"Make it your live site: %s": [
-		"אפשר להפוך אותו לאתר הפעיל שלך: %s"
-	],
-	"Make sure the codes match in your browser, then approve the connection.": [
-		"יש לוודא שהקודים בדפדפן תואמים ולאשר את החיבור."
 	],
 	"Manage AI credits": [
 		"ניהול קרדיטים לבינה מלאכותית"
@@ -755,9 +484,6 @@
 	],
 	"Manage credits": [
 		"ניהול קרדיטים"
-	],
-	"Manage domains": [
-		"ניהול דומיינים"
 	],
 	"Manage media": [
 		"ניהול מדיה"
@@ -783,23 +509,14 @@
 	"Manage themes": [
 		"ניהול ערכות עיצוב"
 	],
-	"Manage these access rules on Spacefast.": [
-		"אפשר לנהל את כללי הגישה האלה ב-Spacefast."
-	],
 	"Manage usage": [
 		"ניהול השימוש"
 	],
 	"Manage users": [
 		"ניהול משתמשים"
 	],
-	"Manage visibility on Spacefast.": [
-		"אפשר לנהל את הנראות ב-Spacefast."
-	],
 	"Manual MCP setup": [
 		"הגדרת MCP ידנית"
-	],
-	"Medium": [
-		"בינונית"
 	],
 	"Meta API key": [
 		"מפתח API של Meta"
@@ -810,20 +527,11 @@
 	"Meta rejected this API key. Check the key and try again.": [
 		"חברת Meta דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
 	],
-	"Monthly": [
-		"חודשי"
-	],
-	"More room and more AI, for building every day.": [
-		"יותר מקום ויותר בינה מלאכותית, לבנייה בכל יום."
-	],
 	"New WordPress Studio Site": [
 		"אתר WordPress Studio חדש"
 	],
 	"No files are available to choose.": [
 		"אין קבצים זמינים לבחירה."
-	],
-	"No local server answered at %s. Check the address, and that your server is running.": [
-		"אף שרת מקומי לא ענה בכתובת %s. יש לבדוק את הכתובת ולוודא שהשרת שלך פועל."
 	],
 	"No models found.": [
 		"לא נמצאו מודלים."
@@ -834,20 +542,8 @@
 	"No providers": [
 		"אין ספקים"
 	],
-	"Off": [
-		"כבויה"
-	],
-	"One more step": [
-		"עוד צעד אחד"
-	],
-	"Only if your server asks for one.": [
-		"רק אם השרת שלך דורש מפתח."
-	],
 	"Only you": [
 		"רק לך"
-	],
-	"Only you and people you invite can view.": [
-		"רק לך ולאנשים שהזמנת יש הרשאת צפייה."
 	],
 	"Open Config File (dev only)": [
 		"פתיחת קובץ התצורה (לפיתוח בלבד)"
@@ -879,41 +575,17 @@
 	"OpenRouter API key": [
 		"מפתח API של OpenRouter"
 	],
-	"OpenRouter is limiting requests on your key. Try again shortly.": [
-		"OpenRouter מגביל את הבקשות במפתח שלך. יש לנסות שוב בעוד זמן קצר."
-	],
-	"OpenRouter is limiting requests right now. Wait a moment and try again.": [
-		"OpenRouter מגביל כרגע את הבקשות. יש להמתין רגע ולנסות שוב."
-	],
-	"OpenRouter rejected the API key. Connect OpenRouter again in Settings.": [
-		"OpenRouter דחה את מפתח ה-API. יש לחבר שוב את OpenRouter בהגדרות."
-	],
-	"OpenRouter rejected this API key. Check the key and try again.": [
-		"OpenRouter דחה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
-	],
-	"OpenRouter sign-in could not be completed. Try again.": [
-		"לא ניתן היה להשלים את ההתחברות ל-OpenRouter. יש לנסות שוב."
-	],
-	"OpenRouter’s moderation refused this request.": [
-		"מערכת הניטור של OpenRouter דחתה את הבקשה הזו."
-	],
 	"Opening %s": [
 		"מתבצעת פתיחה של %s"
 	],
 	"Other files": [
 		"קבצים אחרים"
 	],
-	"Paid plan": [
-		"תוכנית בתשלום"
-	],
 	"Paste the token it prints. Usage counts against your Claude plan.": [
 		"יש להדביק את האסימון שהפקודה מדפיסה. השימוש נספר במסגרת התוכנית שלך ב-Claude."
 	],
 	"Performance audit": [
 		"בדיקת ביצועים"
-	],
-	"Pick at least one model OpenRouter offers.": [
-		"יש לבחור לפחות מודל אחד ש-OpenRouter מציע."
 	],
 	"Pick at least one model your server offers.": [
 		"יש לבחור לפחות מודל אחד שהשרת שלך מציע."
@@ -936,12 +608,6 @@
 	"Preview creation cancelled": [
 		"יצירת התצוגה המקדימה בוטלה"
 	],
-	"Preview creation is temporarily unavailable for your account.": [
-		"יצירת תצוגות מקדימות אינה זמינה זמנית בחשבון שלך."
-	],
-	"Preview details": [
-		"פרטי התצוגה המקדימה"
-	],
 	"Preview expiration": [
 		"תפוגת התצוגה המקדימה"
 	],
@@ -951,17 +617,8 @@
 	"Preview limit reached": [
 		"הגעת למגבלת התצוגות המקדימות"
 	],
-	"Preview link is not available yet. Please try again.": [
-		"הקישור לתצוגה מקדימה עדיין לא זמין. יש לנסות שוב."
-	],
 	"Preview link ready": [
 		"הקישור לתצוגה מקדימה מוכן"
-	],
-	"Preview sites are temporary. Updating your preview resets the expiration date.": [
-		"אתרי תצוגה מקדימה הם זמניים. עדכון התצוגה המקדימה מאפס את תאריך התפוגה."
-	],
-	"Preview: %s": [
-		"תצוגה מקדימה: %s"
 	],
 	"Private sites and preview links": [
 		"אתרים פרטיים וקישורים לתצוגה מקדימה"
@@ -971,12 +628,6 @@
 	],
 	"Publish a static copy of your sites to a Spacefast Space.": [
 		"פרסום עותק סטטי של האתרים שלך ב-Space של Spacefast."
-	],
-	"Publish again?": [
-		"לפרסם שוב?"
-	],
-	"Publish changes?": [
-		"לפרסם את השינויים?"
 	],
 	"Publish options could not be loaded.": [
 		"לא ניתן היה לטעון את אפשרויות הפרסום."
@@ -990,35 +641,17 @@
 	"Publish to Spacefast": [
 		"פרסום ב-Spacefast"
 	],
-	"Publish to a site you already have.": [
-		"פרסום באתר שכבר יש לך."
-	],
-	"Published site actions": [
-		"פעולות לאתר שפורסם"
-	],
 	"Publishing cancelled": [
 		"הפרסום בוטל"
 	],
 	"Publishing changes…": [
 		"מפרסם שינויים…"
 	],
-	"Publishing requires a supported plan.": [
-		"פרסום דורש תוכנית נתמכת."
-	],
 	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
 		"פרסום מסד הנתונים מחליף שינויים שבוצעו באתר הפעיל, כולל תגובות או הזמנות חדשות."
 	],
 	"Pull from live site…": [
 		"משיכה מהאתר הפעיל…"
-	],
-	"Pull from preview…": [
-		"משיכה מהתצוגה המקדימה…"
-	],
-	"Pull replaces your local copy. Update replaces the preview.": [
-		"משיכה מחליפה את העותק המקומי שלך. עדכון מחליף את התצוגה המקדימה."
-	],
-	"Pulling from this preview is unavailable for this account.": [
-		"משיכה מהתצוגה המקדימה הזו אינה זמינה בחשבון הזה."
 	],
 	"Pulling the preview replaces the changes made here.": [
 		"משיכת התצוגה המקדימה תחליף את השינויים שבוצעו כאן."
@@ -1047,26 +680,14 @@
 	"Remote environment: %s": [
 		"סביבה מרוחקת: %s"
 	],
-	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
-		"להסיר את %s מ-WordPress Studio? האתר שפורסם ואתר ה-WordPress המקומי שלך לא ישתנו."
-	],
 	"Renew": [
 		"חידוש"
-	],
-	"Renew your plan": [
-		"חידוש התוכנית"
 	],
 	"Replace local site": [
 		"החלפת האתר המקומי"
 	],
 	"Replace preview": [
 		"החלפת התצוגה המקדימה"
-	],
-	"Replace preview changes?": [
-		"להחליף את השינויים בתצוגה המקדימה?"
-	],
-	"Replace preview contents?": [
-		"להחליף את תוכן התצוגה המקדימה?"
 	],
 	"Replace selected content": [
 		"החלפת התוכן שנבחר"
@@ -1080,17 +701,11 @@
 	"Request a feature or report a bug.": [
 		"בקשת תכונה או דיווח על באג."
 	],
-	"Reset to recommended": [
-		"איפוס למודלים המומלצים"
-	],
 	"Resize viewport: %s": [
 		"שינוי גודל אזור התצוגה: %s"
 	],
 	"Restart WordPress Studio to finish updating.": [
 		"יש להפעיל מחדש את WordPress Studio כדי לסיים את העדכון."
-	],
-	"Restricted": [
-		"מוגבל"
 	],
 	"Run WordPress code": [
 		"הרצת קוד WordPress"
@@ -1116,35 +731,14 @@
 	"Select an email to read it.": [
 		"יש לבחור אימייל כדי לקרוא אותו."
 	],
-	"Select at least one file or folder.": [
-		"יש לבחור לפחות קובץ או תיקייה אחת."
-	],
 	"Select something to publish.": [
 		"יש לבחור משהו לפרסום."
 	],
 	"Select the files and folders to publish.": [
 		"יש לבחור את הקבצים והתיקיות לפרסום."
 	],
-	"Server address": [
-		"כתובת השרת"
-	],
-	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
-		"יש להגדיר את STUDIO_SERVE_SECRET כדי להגיש מעבר למחשב הזה."
-	],
 	"Set how much the model thinks in this chat": [
 		"הגדרת מידת החשיבה של המודל בשיחה הזו"
-	],
-	"Setting up WordPress…": [
-		"מתבצעת הגדרה של WordPress…"
-	],
-	"Setting up your workspace…": [
-		"מתבצעת הגדרה של סביבת העבודה שלך…"
-	],
-	"Share a preview or publish your site": [
-		"שיתוף תצוגה מקדימה או פרסום האתר"
-	],
-	"Share a temporary preview link.": [
-		"שיתוף קישור זמני לתצוגה מקדימה."
 	],
 	"Show admin bar": [
 		"הצגת סרגל הניהול"
@@ -1164,29 +758,11 @@
 	"Sign in with ChatGPT or use an OpenAI API key.": [
 		"התחברות עם ChatGPT או שימוש במפתח API של OpenAI."
 	],
-	"Sign in with Grok": [
-		"התחברות עם Grok"
-	],
-	"Sign in with OpenRouter": [
-		"התחברות עם OpenRouter"
-	],
-	"Sign in with WordPress.com": [
-		"התחברות עם WordPress.com"
-	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"יש להתחבר עם חשבון GitHub שיש לו גישה ל-Copilot."
 	],
-	"Sign in with an eligible Grok account or use an xAI API key.": [
-		"התחברות עם חשבון Grok מתאים או שימוש במפתח API של xAI."
-	],
-	"Sign out": [
-		"התנתקות"
-	],
 	"Site exported": [
 		"ייצוא האתר הושלם"
-	],
-	"Site files left on disk": [
-		"קובצי אתר שנשארו בדיסק"
 	],
 	"Site folder": [
 		"תיקיית האתר"
@@ -1206,9 +782,6 @@
 	"Source is a temporary preview site.": [
 		"המקור הוא אתר תצוגה מקדימה זמני."
 	],
-	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
-		"Spacefast עדיין מחיל את שינוי הנראות. יש לבדוק את הגישה ב-Spacefast."
-	],
 	"Spacefast sign-in was declined.": [
 		"ההתחברות ל-Spacefast נדחתה."
 	],
@@ -1224,15 +797,6 @@
 	"Start signing in with GitHub again.": [
 		"יש להתחיל מחדש את ההתחברות עם GitHub."
 	],
-	"Start signing in with Grok again.": [
-		"יש להתחיל מחדש את ההתחברות עם Grok."
-	],
-	"Start signing in with OpenRouter again.": [
-		"יש להתחיל מחדש את ההתחברות עם OpenRouter."
-	],
-	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
-		"יש להפעיל את שרת המודלים עם מודל אחד לפחות ולהזין את הכתובת שבה הוא מאזין. Studio מציע את המודלים שהשרת מגיש."
-	],
 	"Starting chat…": [
 		"מתחיל צ'אט…"
 	],
@@ -1242,20 +806,8 @@
 	"Static site exported to %s": [
 		"האתר הסטטי יוצא אל %s"
 	],
-	"Stop a site to start another.": [
-		"יש לעצור אתר כדי להפעיל אתר אחר."
-	],
 	"Studio Cloud": [
 		"Studio Cloud"
-	],
-	"Studio Code sets how much %s thinks.": [
-		"Studio Code מגדיר את מידת החשיבה של %s."
-	],
-	"Studio can’t run your sites because one of its files was removed, often by antivirus software. Reinstall WordPress Studio to restore it. If it happens again, allow WordPress Studio in your antivirus settings.": [
-		"Studio לא יכול להפעיל את האתרים שלך כי אחד הקבצים שלו הוסר, לרוב על ידי תוכנת אנטי-וירוס. יש להתקין מחדש את WordPress Studio כדי לשחזר אותו. אם זה קורה שוב, יש לאשר את WordPress Studio בהגדרות האנטי-וירוס."
-	],
-	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
-		"Studio לא יכול לדעת אם מישהו ערך את %s. עדכון התצוגה המקדימה יחליף אותה באתר המקומי שלך."
 	],
 	"Supported files: %s.": [
 		"קבצים נתמכים: %s."
@@ -1269,26 +821,11 @@
 	"The GitHub sign-in expired. Try again.": [
 		"תוקף ההתחברות ל-GitHub פג. יש לנסות שוב."
 	],
-	"The Grok sign-in expired. Try again.": [
-		"תוקף ההתחברות ל-Grok פג. יש לנסות שוב."
-	],
 	"The Spacefast sign-in expired. Try again.": [
 		"תוקף ההתחברות ל-Spacefast פג. יש לנסות שוב."
 	],
-	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
-		"ההקשר שבו %s פועל קטן מדי עבור Studio Code. יש להגדיל את אורך ההקשר בהגדרות השרת שלך."
-	],
 	"The default browser for your sites.": [
 		"דפדפן ברירת המחדל עבור האתרים שלך."
-	],
-	"The full WordPress, with a domain.": [
-		"WordPress המלא, עם דומיין."
-	],
-	"The local server at %s isn’t answering. Start it, then send your message again.": [
-		"השרת המקומי בכתובת %s לא עונה. יש להפעיל אותו ולשלוח שוב את ההודעה."
-	],
-	"The local server has no chat model yet. Add one to your server, then connect again.": [
-		"לשרת המקומי עדיין אין מודל צ'אט. יש להוסיף מודל לשרת ולהתחבר שוב."
 	],
 	"The local server refused the API key. Check the key, and connect again.": [
 		"השרת המקומי דחה את מפתח ה-API. יש לבדוק את המפתח ולהתחבר שוב."
@@ -1299,71 +836,20 @@
 	"The requested site is unavailable.": [
 		"האתר המבוקש אינו זמין."
 	],
-	"The site files could not be moved to trash. Delete them yourself: %s": [
-		"לא ניתן היה להעביר את קובצי האתר לפח. יש למחוק אותם ידנית: %s"
-	],
-	"The site requested for this pull is unavailable.": [
-		"האתר שהתבקש עבור המשיכה הזו אינו זמין."
-	],
 	"The transfer could not be completed. Please try again.": [
 		"לא ניתן היה להשלים את ההעברה. יש לנסות שוב."
-	],
-	"The visibility change could not be applied. Check access on Spacefast.": [
-		"לא ניתן היה להחיל את שינוי הנראות. יש לבדוק את הגישה ב-Spacefast."
-	],
-	"Themes": [
-		"ערכות עיצוב"
-	],
-	"Thinking": [
-		"חשיבה"
-	],
-	"Thinking: %s": [
-		"חשיבה: %s"
-	],
-	"Thinks before answering": [
-		"חושב לפני שעונה"
 	],
 	"Thinks briefly": [
 		"חושב לזמן קצר"
 	],
-	"Thinks longest, slowest": [
-		"חושב הכי הרבה זמן, הכי איטי"
-	],
-	"This API key is blocked or disabled. Check it in the xAI Console.": [
-		"מפתח ה-API הזה חסום או מושבת. יש לבדוק אותו ב-xAI Console."
-	],
 	"This GitHub account has no Copilot plan. Pick a plan on github.com/features/copilot.": [
 		"לחשבון GitHub הזה אין תוכנית Copilot. אפשר לבחור תוכנית בכתובת github.com/features/copilot."
-	],
-	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
-		"לחשבון Grok הזה לא נותרו קרדיטים. אפשר להוסיף קרדיטים או להשיג SuperGrok בכתובת grok.com."
-	],
-	"This destination cannot create a site from this panel yet.": [
-		"היעד הזה עדיין לא יכול ליצור אתר מהחלונית הזו."
 	],
 	"This is an Anthropic key. Add it to Anthropic instead.": [
 		"זהו מפתח של Anthropic. יש להוסיף אותו ל-Anthropic במקום זאת."
 	],
-	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
-		"נדרשים כ-%1$s GB של אחסון, ובתוכנית שלך נותרו %2$s GB. יש למחוק אתרים שכבר אין בהם צורך ולנסות שוב."
-	],
-	"This preview site can’t be made live: it was bought, ended or deleted, or it shows changes to a live site.": [
-		"אי אפשר להפוך את אתר התצוגה המקדימה הזה לאתר פעיל: הוא נרכש, הסתיים או נמחק, או שהוא מציג שינויים באתר פעיל."
-	],
-	"This provider doesn’t make previews.": [
-		"הספק הזה לא יוצר תצוגות מקדימות."
-	],
-	"This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.": [
-		"הפעולה תחליף את החלקים שנבחרו באתר המקומי שלך במה שנמצא ב-%s. שינויים מקומיים בחלקים האלה יאבדו."
-	],
-	"This replaces your local site with the preview. Any local changes will be lost.": [
-		"הפעולה תחליף את האתר המקומי שלך בתצוגה המקדימה. שינויים מקומיים יאבדו."
-	],
 	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
 		"האתר הזה צריך תוכנית אחסון שתומכת במשיכה ל-WordPress Studio."
-	],
-	"This xAI account has no credits left. Add credits in the xAI Console.": [
-		"לחשבון xAI הזה לא נותרו קרדיטים. אפשר להוסיף קרדיטים ב-xAI Console."
 	],
 	"Tips reset.": [
 		"הטיפים אופסו."
@@ -1374,38 +860,17 @@
 	"Token is required": [
 		"נדרש אסימון"
 	],
-	"Try again to see where this WordPress is already connected.": [
-		"יש לנסות שוב כדי לראות לאן אתר ה-WordPress הזה כבר מחובר."
-	],
 	"Try downloading the update again.": [
 		"יש לנסות להוריד את העדכון שוב."
-	],
-	"Twice the CPU for faster builds": [
-		"פי שניים כוח מעבד לבנייה מהירה יותר"
 	],
 	"Unknown level %1$s. Choose one of: %2$s.": [
 		"רמה לא מוכרת %1$s. יש לבחור אחת מהאפשרויות: %2$s."
 	],
-	"Unlimited sites, 5 running at once": [
-		"אתרים ללא הגבלה, 5 פועלים במקביל"
-	],
-	"Unsupported visibility setting.": [
-		"הגדרת נראות לא נתמכת."
-	],
-	"Up to 10 sites, 2 running at once": [
-		"עד 10 אתרים, 2 פועלים במקביל"
-	],
 	"Update WordPress Studio": [
 		"עדכון WordPress Studio"
 	],
-	"Update WordPress Studio.": [
-		"יש לעדכן את WordPress Studio."
-	],
 	"Update all plugins": [
 		"עדכון כל התוספים"
-	],
-	"Update local site from %s?": [
-		"לעדכן את האתר המקומי מ-%s?"
 	],
 	"Update site option": [
 		"עדכון אפשרות אתר"
@@ -1419,20 +884,8 @@
 	"Update user": [
 		"עדכון משתמש"
 	],
-	"Update…": [
-		"עדכון…"
-	],
-	"Updating %s will replace any edits made on the preview with your local copy.": [
-		"עדכון %s יחליף את כל העריכות שבוצעו בתצוגה המקדימה בעותק המקומי שלך."
-	],
-	"Updating your workspace…": [
-		"מתבצע עדכון של סביבת העבודה שלך…"
-	],
 	"Uploading files…": [
 		"מעלה קבצים…"
-	],
-	"Uploads": [
-		"קבצים שהועלו"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"החיוב על השימוש מתבצע דרך החשבון שלך ב-Anthropic."
@@ -1445,12 +898,6 @@
 	],
 	"Usage is billed through your OpenAI account.": [
 		"החיוב על השימוש מתבצע דרך החשבון שלך ב-OpenAI."
-	],
-	"Usage is billed through your xAI account.": [
-		"החיוב על השימוש מתבצע דרך החשבון שלך ב-xAI."
-	],
-	"Usage is paid with your OpenRouter credits.": [
-		"התשלום על השימוש מתבצע מהקרדיטים שלך ב-OpenRouter."
 	],
 	"Use Blueprint": [
 		"שימוש במודל"
@@ -1467,12 +914,6 @@
 	"Use an Anthropic API key or a Claude subscription token.": [
 		"שימוש במפתח API של Anthropic או באסימון מינוי של Claude."
 	],
-	"Use models from many labs with your OpenRouter credits.": [
-		"שימוש במודלים ממעבדות רבות עם הקרדיטים שלך ב-OpenRouter."
-	],
-	"Use the models a server you run serves, such as on this computer.": [
-		"שימוש במודלים שמגיש שרת שמופעל על ידך, למשל במחשב הזה."
-	],
 	"Using ChatGPT plan": [
 		"בשימוש: תוכנית ChatGPT"
 	],
@@ -1482,26 +923,11 @@
 	"Using Copilot plan": [
 		"בשימוש: תוכנית Copilot"
 	],
-	"Using Grok plan": [
-		"בשימוש: תוכנית Grok"
-	],
 	"Validate blocks": [
 		"אימות בלוקים"
 	],
-	"View backups": [
-		"הצגת גיבויים"
-	],
 	"View versions": [
 		"הצגת גרסאות"
-	],
-	"Visibility could not be confirmed. Check access on Spacefast.": [
-		"לא ניתן היה לאשר את הנראות. יש לבדוק את הגישה ב-Spacefast."
-	],
-	"Visibility settings are only available for WordPress.com sites.": [
-		"הגדרות נראות זמינות רק לאתרי WordPress.com."
-	],
-	"Visitors see a coming soon page": [
-		"המבקרים רואים עמוד 'בקרוב'"
 	],
 	"Visual Annotations": [
 		"ביאורים חזותיים"
@@ -1515,12 +941,6 @@
 	"What to replace": [
 		"מה להחליף"
 	],
-	"Where your server listens, as it prints it when it starts.": [
-		"הכתובת שבה השרת מאזין, כפי שהוא מציג אותה כשהוא מופעל."
-	],
-	"Who can view": [
-		"מי יכול לצפות"
-	],
 	"WordPress Studio could not download this backup.": [
 		"ל-WordPress Studio לא הייתה אפשרות להוריד את הגיבוי הזה."
 	],
@@ -1533,23 +953,14 @@
 	"WordPress Studio could not open the site.": [
 		"ל-WordPress Studio לא הייתה אפשרות לפתוח את האתר."
 	],
-	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
-		"WordPress Studio לא הצליח לקרוא את ההגדרות שלו ב-%s. יש להפעיל מחדש את WordPress Studio כדי לנסות שוב. אם הבעיה חוזרת, יש לפנות לתמיכה עם הפרטים שלמטה."
-	],
 	"WordPress Studio is missing some of its files": [
 		"חלק מהקבצים של WordPress Studio חסרים"
 	],
 	"WordPress Studio is serving at:": [
 		"WordPress Studio זמין בכתובת:"
 	],
-	"WordPress set up": [
-		"WordPress הוגדר"
-	],
 	"WordPress.com API": [
 		"ה-API של WordPress.com"
-	],
-	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
-		"WordPress.com עדיין לא אישר את שינוי הנראות. יש לנסות שוב."
 	],
 	"Worked for %s": [
 		"עבד במשך %s"
@@ -1569,9 +980,6 @@
 	"You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.": [
 		"הגעת למגבלת השימוש של תוכנית Copilot שלך. אפשר לנהל את השימוש בכתובת github.com/settings/copilot."
 	],
-	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
-		"הגעת למגבלת השימוש של תוכנית Grok שלך. אפשר לבדוק את השימוש בכתובת grok.com."
-	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"לא ניתן להשתמש בתוכנית ChatGPT שלך ב-WordPress Studio."
 	],
@@ -1581,63 +989,17 @@
 	"Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.": [
 		"תוכנית Copilot שלך לא כוללת את המודל הזה. אפשר לבחור מודל אחר או להפעיל אותו בכתובת github.com/settings/copilot."
 	],
-	"Your Grok or X plan can’t be used in WordPress Studio.": [
-		"לא ניתן להשתמש בתוכנית Grok או X שלך ב-WordPress Studio."
-	],
-	"Your Grok sign-in no longer works. Connect xAI again in Settings.": [
-		"ההתחברות שלך ל-Grok כבר לא פעילה. יש לחבר שוב את xAI בהגדרות."
-	],
-	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
-		"הקרדיטים שלך ב-OpenRouter נגמרו, או שהמפתח הזה הגיע למגבלת הקרדיטים שלו. אפשר להוסיף קרדיטים ב-openrouter.ai."
-	],
 	"Your Spacefast sign-in no longer works. Connect Spacefast again.": [
 		"ההתחברות שלך ל-Spacefast כבר לא פעילה. יש לחבר מחדש את Spacefast."
-	],
-	"Your Studio, in the cloud.": [
-		"ה-Studio שלך, בענן."
-	],
-	"Your WordPress exceeds the %s GB publishing limit.": [
-		"אתר ה-WordPress שלך חורג ממגבלת הפרסום של %s GB."
-	],
-	"Your WordPress is public": [
-		"אתר ה-WordPress שלך ציבורי"
 	],
 	"Your local server refused the request: %s.": [
 		"השרת המקומי שלך דחה את הבקשה: %s."
 	],
-	"Your plan allows %d site. Delete a site to create a new one.": [
-		"התוכנית שלך מאפשרת אתר אחד. יש למחוק אתר כדי ליצור אתר חדש.",
-		"התוכנית שלך מאפשרת %d אתרים. יש למחוק אתר כדי ליצור אתר חדש."
-	],
 	"Your plan has ended.": [
 		"התוכנית שלך הסתיימה."
 	],
-	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
-		"הקבצים שבחרת אינם זמינים. יש לנסות שוב את בדיקת הגיבוי או לבחור אפשרות אחרת כדי להמשיך."
-	],
-	"Your server’s setting": [
-		"ההגדרה של השרת שלך"
-	],
-	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
-		"ההגדרות שלך נשמרו על ידי גרסה חדשה יותר של Studio CLI. יש לעדכן את WordPress Studio כדי להמשיך להשתמש בהן."
-	],
 	"Your site is ready to publish": [
 		"האתר שלך מוכן לפרסום"
-	],
-	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
-		"האתרים שלך ו-Studio Code על מחשב משלך, מכל דפדפן. יש להתחבר עם חשבון WordPress.com שלך כדי לפתוח את סביבת העבודה."
-	],
-	"Your sites are kept until %s. Renew to pick up where you left off, or choose a plan below.": [
-		"האתרים שלך יישמרו עד %s. אפשר לחדש כדי להמשיך מאיפה שהפסקת, או לבחור תוכנית למטה."
-	],
-	"Your team and people you give access to": [
-		"הצוות שלך ואנשים שקיבלו ממך גישה"
-	],
-	"Your team only allows restricted sites.": [
-		"הצוות שלך מאפשר רק אתרים מוגבלים."
-	],
-	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
-		"סביבת העבודה שלך פועלת בתוכנית Studio Cloud. התשלום נפתח ב-WordPress.com, וסביבת העבודה שלך מוכנה כדקה לאחר התשלום."
 	],
 	"database": [
 		"מסד נתונים"
@@ -1663,23 +1025,8 @@
 	"products": [
 		"מוצרים"
 	],
-	"themes": [
-		"ערכות עיצוב"
-	],
-	"uploads": [
-		"קבצים שהועלו"
-	],
 	"xAI API key": [
 		"מפתח API של xAI"
-	],
-	"xAI refused the API key. Check its permissions and credits in the xAI Console.": [
-		"חברת xAI סירבה למפתח ה-API. יש לבדוק את ההרשאות והקרדיטים שלו ב-xAI Console."
-	],
-	"xAI rejected the API key. Connect xAI again in Settings.": [
-		"חברת xAI דחתה את מפתח ה-API. יש לחבר שוב את xAI בהגדרות."
-	],
-	"xAI rejected this API key. Check the key and try again.": [
-		"חברת xAI דחתה את מפתח ה-API הזה. יש לבדוק את המפתח ולנסות שוב."
 	],
 	"· %d%%": [
 		"· %d%%"

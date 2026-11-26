@@ -22,11 +22,14 @@ import {
 	useLayoutEffect,
 	useRef,
 	useState,
+	useSyncExternalStore,
+	type FocusEvent,
 	type MouseEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
+import { useUserSkillCommands } from '@/data/queries/use-site-agent-files';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { usePanelCommand } from '@/data/use-panel-command';
@@ -43,6 +46,7 @@ import { FamilySwitchConfirmDialog } from '@/features/composer/family-switch-con
 import { ModeChip } from '@/features/composer/mode-chip';
 import { ModelPicker } from '@/features/composer/model-picker';
 import { NoticeTab, type ComposerNotice } from '@/features/composer/notice-tab';
+import { pendingComposerDraftSlot } from '@/features/composer/pending-draft';
 import { SendButton, StartButton, StopButton } from '@/features/composer/submit-button';
 import { useAddCredits } from '@/features/composer/use-add-credits';
 import { useCommandSheet } from '@/features/composer/use-command-sheet';
@@ -226,8 +230,13 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	const setAutoStart = ( autoStartSiteOnChat: boolean ) =>
 		savePreferences.mutate( { autoStartSiteOnChat } );
 
+	// A chat on the live site doesn't work in the local site's folder.
+	const userSkills = useUserSkillCommands(
+		isField || environment === 'live' ? undefined : ownerSiteId
+	);
 	const sheet = useCommandSheet( {
 		value,
+		userSkills,
 		commands: getComposerCommands( {
 			canAutoStart,
 			panelCommand,
@@ -281,6 +290,21 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 	};
 
+	// A draft another screen handed over, such as "Create in chat instead" in Settings.
+	const pendingDraft = useSyncExternalStore(
+		pendingComposerDraftSlot.subscribe,
+		pendingComposerDraftSlot.getSnapshot
+	);
+	useEffect( () => {
+		if ( ! pendingDraft || pendingDraft.draftKey !== draftKey ) {
+			return;
+		}
+		pendingComposerDraftSlot.clear( pendingDraft );
+		insertedCursorRef.current = pendingDraft.text.length;
+		setValue( pendingDraft.text );
+		textareaRef.current?.focus();
+	}, [ draftKey, pendingDraft ] );
+
 	useLayoutEffect( () => {
 		const cursor = insertedCursorRef.current;
 		if ( cursor !== null ) {
@@ -288,6 +312,21 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			insertedCursorRef.current = null;
 		}
 	}, [ value ] );
+
+	// The sheet floats above dialogs, so it closes once focus moves elsewhere, as
+	// when a shortcut opens Settings. Its blur reaches the root through the portal.
+	const closeSheetOnFocusOut = ( event: FocusEvent< HTMLDivElement > ) => {
+		const next = event.relatedTarget;
+		const popup = commandListRef.current?.parentElement;
+		if (
+			sheet.open &&
+			next &&
+			! event.currentTarget.contains( next ) &&
+			! popup?.contains( next )
+		) {
+			sheet.close();
+		}
+	};
 
 	const fileDropTarget = dropTarget ?? shellNode;
 	const {
@@ -505,7 +544,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				}
 			} }
 		>
-			<div className={ styles.root } ref={ setRootNode }>
+			<div className={ styles.root } ref={ setRootNode } onBlur={ closeSheetOnFocusOut }>
 				{ notice ? <NoticeTab notice={ notice } feedback={ submitFeedback } /> : null }
 				<InputGroup
 					ref={ setShellNode }
@@ -656,19 +695,19 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 						</div>
 					</div>
 				</InputGroup>
+				<CommandSheet
+					label={ __( 'Commands' ) }
+					groups={ sheet.groups }
+					highlighted={ sheet.highlight }
+					onHighlight={ sheet.setHighlight }
+					onSelect={ runCommand }
+					listRef={ commandListRef }
+					id={ slashListId }
+					anchor={ rootNode }
+					initialFocus={ () => ( sheet.addOpen ? commandListRef.current : false ) }
+					finalFocus={ () => ( pendingCommandRef.current ? false : textareaRef.current ) }
+				/>
 			</div>
-			<CommandSheet
-				label={ __( 'Commands' ) }
-				groups={ sheet.groups }
-				highlighted={ sheet.highlight }
-				onHighlight={ sheet.setHighlight }
-				onSelect={ runCommand }
-				listRef={ commandListRef }
-				id={ slashListId }
-				anchor={ rootNode }
-				initialFocus={ () => ( sheet.addOpen ? commandListRef.current : false ) }
-				finalFocus={ () => ( pendingCommandRef.current ? false : textareaRef.current ) }
-			/>
 			<FamilySwitchConfirmDialog
 				currentModel={ model }
 				pendingModel={ pendingModel }

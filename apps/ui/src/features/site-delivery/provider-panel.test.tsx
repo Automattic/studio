@@ -795,6 +795,44 @@ it.each( [ 'Back', 'Escape' ] )(
 	}
 );
 
+it( 'publishes a new Space in the team the user picks', async () => {
+	let created = false;
+	const { connector, user } = setup( {
+		runSitesAction: async () => [
+			{ id: 'agency', name: 'Agency' },
+			{ id: 'mine', name: 'Mine' },
+		],
+		getSiteCreationVisibility: async ( _provider, input ) =>
+			input?.team === 'mine' ? 'public' : 'private',
+		getSnapshots: async () => [],
+		getRemoteSites: async ( provider ) => ( provider === 'spacefast' && created ? [ space ] : [] ),
+		createRemoteSite: async () => {
+			created = true;
+			return space;
+		},
+	} );
+	await openFirstDestination();
+	await user.click( screen.getByRole( 'combobox', { name: 'Destination' } ) );
+	await user.click( await screen.findByRole( 'option', { name: 'Spacefast' } ) );
+	const team = await screen.findByRole( 'combobox', { name: 'Team' } );
+	expect( team ).toHaveAccessibleDescription( 'Agency' );
+	await user.click( team );
+	await user.click( await screen.findByRole( 'option', { name: 'Mine' } ) );
+	expect( team ).toHaveAccessibleDescription( 'Mine' );
+	const access = screen.getByRole( 'combobox', { name: 'Who can view' } );
+	await user.click( access );
+	await user.click( await screen.findByRole( 'option', { name: 'Everyone' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Publish' } ) );
+	await waitFor( () =>
+		expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+			'spacefast',
+			site.id,
+			{ name: site.name, visibility: 'public', input: { team: 'mine' } },
+			false
+		)
+	);
+} );
+
 it( 'uses the destination and visibility chosen in new preview setup', async () => {
 	let created = false;
 	const { user, connector } = setup( {
@@ -825,8 +863,7 @@ it( 'uses the destination and visibility chosen in new preview setup', async () 
 		expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
 			'spacefast',
 			site.id,
-			site.name,
-			'public',
+			{ name: site.name, visibility: 'public', input: {} },
 			false
 		)
 	);
@@ -1339,8 +1376,7 @@ it.each( [
 			expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
 				'spacefast',
 				site.id,
-				site.name,
-				expected,
+				{ name: site.name, visibility: expected, input: {} },
 				false
 			)
 		);
@@ -1953,8 +1989,7 @@ it( 'keeps first publish steady through creation and upload', async () => {
 		expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
 			'spacefast',
 			site.id,
-			site.name,
-			'private',
+			{ name: site.name, visibility: 'private', input: {} },
 			false
 		)
 	);

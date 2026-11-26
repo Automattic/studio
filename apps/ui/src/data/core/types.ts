@@ -16,6 +16,7 @@ import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
+import type { GlobalSkill, GlobalSkillSource } from '@studio/common/lib/global-skills';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
 	TracksAuthSource,
@@ -28,6 +29,7 @@ import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { FrontendCreateChoice, SiteFrontend } from '@studio/common/lib/site-frontend';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
+import type { SkillDetails, SkillDraft } from '@studio/common/lib/skill-draft';
 import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
@@ -55,6 +57,7 @@ import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
 import type {
+	NewSite,
 	SiteCreationVisibility,
 	SiteVisibilityDetails,
 	SiteVisibility,
@@ -226,6 +229,12 @@ interface ConnectorCapabilities {
 	// editor, terminal) and use what needs it (custom domains, Xdebug). Studio Cloud's sites run
 	// natively on a machine somewhere else.
 	localMachine: boolean;
+	// The host keeps the user's skills for all sites (`getGlobalSkills`). A Studio Cloud
+	// machine on an older Studio doesn't.
+	globalSkills: boolean;
+	// The host makes and changes the user's skills (`createSkill`, `getSkill`, `updateSkill`).
+	// A Studio Cloud machine on an older Studio only lists them.
+	skillEditing: boolean;
 }
 
 export interface Connector {
@@ -424,14 +433,16 @@ export interface Connector {
 		localSiteId: string,
 		remoteSiteId: string | number
 	): Promise< void >;
-	getSiteCreationVisibility( provider: SitesProviderId ): Promise< SiteCreationVisibility | null >;
+	getSiteCreationVisibility(
+		provider: SitesProviderId,
+		input?: NewSite[ 'input' ]
+	): Promise< SiteCreationVisibility | null >;
 	// Creates a site on a provider whose `sites.newSite` is `create`, and connects the local
 	// site to it.
 	createRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,
-		name: string,
-		visibility?: SiteCreationVisibility,
+		site: NewSite,
 		connect?: boolean
 	): Promise< ProviderSites[ SitesProviderId ] >;
 	// Pushes the local site to a connected remote site: everything, or what `options` selects.
@@ -677,10 +688,21 @@ export interface Connector {
 
 	popupAppMenu( position: { x: number; y: number } ): Promise< void >;
 
-	// WordPress agent skills applied to all existing and future sites.
-	getWordPressSkillsStatusAllSites(): Promise< SkillStatus[] >;
-	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
-	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
+	// The user's skills for all sites: Studio's own, and the ones other agents on this
+	// computer keep in `~/.agents/skills`. Switching one off keeps its files; only
+	// Studio's own can be deleted.
+	getGlobalSkills(): Promise< GlobalSkill[] >;
+	setGlobalSkillEnabled( source: GlobalSkillSource, id: string, enabled: boolean ): Promise< void >;
+	removeGlobalSkill( id: string ): Promise< void >;
+	// Shows the skill's folder in the file manager.
+	openGlobalSkill( source: GlobalSkillSource, id: string ): Promise< void >;
+
+	// A skill of the user's, made and changed in the app: one site's when `siteId` is set,
+	// otherwise one of Studio's for all sites. Both writes return the skill's id, which a new
+	// name changes.
+	createSkill( siteId: string | null, draft: SkillDraft ): Promise< string >;
+	getSkill( siteId: string | null, id: string ): Promise< SkillDetails >;
+	updateSkill( siteId: string | null, id: string, draft: SkillDraft ): Promise< string >;
 
 	// One site's skills and instruction files. Switching one off keeps its
 	// edits, out of the folders agents read.
@@ -846,14 +868,14 @@ export interface OnboardingHintsState {
 	annotateHintDismissed?: boolean;
 }
 
-export type { SiteAgentFile, SiteAgentFileKind };
-
-export interface SkillStatus {
-	id: string;
-	displayName: string;
-	description: string;
-	installed: boolean;
-}
+export type {
+	GlobalSkill,
+	GlobalSkillSource,
+	SiteAgentFile,
+	SiteAgentFileKind,
+	SkillDetails,
+	SkillDraft,
+};
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;

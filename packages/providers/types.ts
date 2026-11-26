@@ -13,6 +13,7 @@ import type { WpcomConfig } from './wpcom/config';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/sites/site';
 import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
+import type { ComponentType, ReactNode } from 'react';
 import type { z } from 'zod';
 
 // What Studio stores for each provider.
@@ -64,10 +65,10 @@ export interface AiModel< Id extends string = string > {
 	thinking?: boolean;
 }
 
-// The values a connection form asks for: a flat object of strings. Each field's
-// metadata (`.meta()`) gives its `title`, `description` and `examples`, and
-// `writeOnly: true` marks a secret, which is never shown back.
-export type ConnectInputSchema = z.ZodObject< Record< string, z.ZodType< string > > >;
+// The values a form asks for: a flat object of strings. Each field's metadata (`.meta()`) gives
+// its `title`, `description` and `examples`, and `writeOnly: true` marks a secret, which is never
+// shown back. Surfaces read it with `getFormFields`.
+export type FormSchema = z.ZodObject< Record< string, z.ZodType< string > > >;
 
 // One way a provider's account connects. Studio hands what the user gave, or
 // what came back from the provider's site, to the provider's `connect` with the
@@ -84,7 +85,7 @@ export type ConnectMethod = {
 	hostOnly?: boolean;
 } & (
 	| // A form rendered from `input`.
-	{ kind: 'form'; input: () => ConnectInputSchema }
+	{ kind: 'form'; input: () => FormSchema }
 	// Approving access on the provider's site, which redirects back to the app:
 	// the Studio sign-in, which each app receives its own way.
 	| { kind: 'redirect' }
@@ -95,7 +96,54 @@ export type ConnectMethod = {
 	| { kind: 'device' }
 );
 
-// What Studio gives a provider's own connect form, from `@studio/providers/ui`.
+// What a provider looks like in the apps, from `getProviderUi` in `@studio/providers/ui`. Each part
+// is optional: without it, the apps show their default.
+export interface ProviderUi< Site extends RemoteSite = RemoteSite > {
+	// The form describing a site of a provider with `sites.connect`.
+	ConnectForm?: ComponentType< ConnectFormProps >;
+	// What the publish panel shows under a connected site, such as its plan.
+	SiteRows?: ComponentType< SiteRowsProps< Site > >;
+	// What the publish panel asks before creating a site, such as its Spacefast team.
+	NewSiteRows?: ComponentType< NewSiteRowsProps >;
+}
+
+export interface NewSiteRowsProps {
+	// The choices so far, which Studio passes to the services' `create` and `creationVisibility`.
+	input: Record< string, string >;
+	disabled: boolean;
+	onChange( input: Record< string, string > ): void;
+	// Runs one of the services' actions on the computer.
+	run( action: string, input?: Record< string, string > ): Promise< unknown >;
+	// The panel's own picker row, so a provider's rows look like the rest.
+	SelectRow: ComponentType< SelectRowProps >;
+}
+
+export interface SelectRowProps {
+	icon: ReactNode;
+	label: string;
+	value: string;
+	options: { value: string; label: string }[];
+	disabled?: boolean;
+	onChange( value: string ): void;
+}
+
+export interface SiteRowsProps< Site extends RemoteSite = RemoteSite > {
+	site: Site;
+	disabled: boolean;
+	openUrl( url: string ): void;
+	// The panel's own row, so a provider's rows look like the rest.
+	Row: ComponentType< SiteRowProps >;
+}
+
+export interface SiteRowProps {
+	icon: ReactNode;
+	label: string;
+	trailing?: ReactNode;
+	disabled?: boolean;
+	onClick(): void;
+}
+
+// What Studio gives a provider's own connect form.
 export interface ConnectFormProps {
 	disabled: boolean;
 	// Studio is reaching the site the form described.
@@ -161,26 +209,27 @@ export interface ConnectContext {
 }
 
 export interface SiteLink {
-	role: 'dashboard' | 'admin' | 'domains' | 'add-domain' | 'visibility' | 'more';
 	title: string;
 	url: string;
+	// An SVG document drawn in `currentColor`; without it, an external-link icon.
+	icon?: string;
 }
 
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
 export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
-	// Whether the user publishes to sites they keep on the provider: lists, creates and pushes to
-	// them. The rest of this describes those sites.
-	publish: boolean;
-	// Short destination-picker copy and presentation hints.
-	publishing: {
-		description: () => string;
+	// What a site there is, in a few words, for the destination picker.
+	summary: () => string;
+	// Who can see the provider's sites, which the services' `visibility` reads and sets.
+	visibility?: {
+		options(
+			current?: SiteVisibilityDetails[ 'visibility' ]
+		): { value: SiteVisibility; label: string; description: string; disabled?: boolean }[];
+		// Where the site's access is managed on the provider, when Studio can't set all of it.
+		manage( site: Site ): SiteLink | undefined;
 	};
-	visibilityOptions?(
-		current?: SiteVisibilityDetails[ 'visibility' ]
-	): { value: SiteVisibility; label: string; description: string; disabled?: boolean }[];
 
+	// The provider also builds previews; an upgraded one is a site the user keeps.
 	previews?: {
-		content: 'archive' | 'static' | 'site';
 		isUpgraded?( site: Site ): boolean;
 	};
 	// The largest archive a push sends, in bytes.
@@ -195,24 +244,24 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// connects the site to the local one, or created right away from Studio. Without it, the
 	// user only connects sites they already have.
 	newSite?: 'checkout' | 'create';
-	// How the user connects a site that isn't listed from an account: a form describing it, which
-	// the services' `connect` checks by reaching the site.
-	connect?: ConnectMethod & { kind: 'form' };
-	// What the panel says before a site is connected.
-	intro: { title: () => string; description: () => string; learnMoreUrl: string };
-	// Facts about a connected site, and links to manage it on the provider.
+	// The form that describes a site the account doesn't list, which the services' `resolve` checks
+	// by reaching the site. `hostOnly` as for an account's connect method.
+	connect?: { input: () => FormSchema; hostOnly?: boolean };
+	// What the panel says before a site is connected, and where to learn more about the provider.
+	intro: { title: () => string; description: () => string; learnMoreUrl?: string };
+	// Facts about a connected site, and links to manage it on the provider, in the order shown.
 	describe( site: Site ): {
 		details: { title: string; value: string }[];
 		links: SiteLink[];
 	};
 	// Why the site can't be published to or pulled from now, or null.
-	issue( site: Site, direction: 'push' | 'pull' ): string | null;
+	issue?( site: Site, direction: 'push' | 'pull' ): string | null;
 	// Something to know before pushing the local site, which doesn't block it.
 	pushWarning?( site: Site, local: { multisite?: boolean } ): string | null;
 	// Whether the site keeps backups a selective pull can browse.
 	hasBackups?( site: Site ): boolean;
 	// Fills stored connections in from the account's current sites.
-	withDetails< Connection extends Site >( connections: Connection[], sites: Site[] ): Connection[];
+	withDetails?< Connection extends Site >( connections: Connection[], sites: Site[] ): Connection[];
 }
 
 // How a provider's account connects, and what surfaces show of it.
@@ -232,20 +281,8 @@ export interface ProviderAccount< Config > {
 	owner?( config: Config ): string | undefined;
 }
 
-// A provider whose config can be `undefined` has no account: nothing to connect, and it counts as
-// connected. Code that handles any provider checks for one.
-type WithAccount< Config, Account > = undefined extends Config
-	? { account?: Account }
-	: { account: Account };
-
 // A provider as surfaces show it: browser-safe data, from `getProvider`.
-export type Provider< Config = unknown, Site extends RemoteSite = RemoteSite > = ProviderInfo<
-	Config,
-	Site
-> &
-	WithAccount< Config, ProviderAccount< Exclude< Config, undefined > > >;
-
-interface ProviderInfo< Config, Site extends RemoteSite > {
+export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSite > {
 	id: ProviderId;
 	// Brand name, not translated.
 	label: string;
@@ -263,14 +300,16 @@ interface ProviderInfo< Config, Site extends RemoteSite > {
 		paidDefaultModel?: AiModelId;
 		// Whether the account generates images; without it, the provider doesn't.
 		generatesImages?( config: Config ): boolean;
-		// The provider routes to more models than it lists: the account's owner picks which to
-		// offer from its catalog, under ids made of the provider's id, a slash and its own name.
-		catalog?: boolean;
+		// The provider runs more models than it lists: the account's owner picks which to offer
+		// from its catalog, whose ids start with one of `prefixes`, such as `openrouter/`.
+		catalog?: { prefixes: readonly string[] };
 		// The models run on a server the user runs: chats on them need no internet, and analytics
 		// never name them, since the user does.
 		local?: boolean;
 	};
 	sites?: ProviderSitesInfo< Site >;
+	// Without one, such as SSH's, there is nothing to connect, and the provider counts as connected.
+	account?: ProviderAccount< Config >;
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -296,6 +335,7 @@ export interface GenerateImageRequest {
 
 export interface GenerateImageResult {
 	ok: boolean;
+	// A WebP.
 	bytes?: Uint8Array;
 	error?: string;
 	// Rejected by a safety filter; rewriting the prompt may get it through.
@@ -331,6 +371,12 @@ export interface PushStatus {
 
 export type SiteVisibility = 'public' | 'coming-soon' | 'private';
 export type SiteCreationVisibility = Extract< SiteVisibility, 'public' | 'private' >;
+// A site to create on a provider. `input` is what the provider's `NewSiteRows` chose.
+export interface NewSite {
+	name: string;
+	visibility?: SiteCreationVisibility;
+	input?: Record< string, string >;
+}
 export interface SiteVisibilityDetails {
 	visibility: SiteVisibility | 'unknown';
 	availableValues?: SiteVisibility[];
@@ -371,6 +417,9 @@ export interface PreviewOptions {
 	liveSiteId?: RemoteSite[ 'id' ];
 }
 
+// A site to connect: by its id, or by the values of the provider's `sites.connect` form.
+export type ResolveFrom = { id: string } | { input: Record< string, string > };
+
 // Sends local sites to a provider's sites and brings them back. The provider
 // owns the remote side; Studio builds the content and applies what it pulls.
 export interface SitesServices< Config, Site extends RemoteSite > {
@@ -388,8 +437,9 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		config: Config | undefined,
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
-	// The site the user described in the descriptor's `connect` form, once the provider reached it.
-	resolve?( config: Config | undefined, input: Record< string, string > ): Promise< Site >;
+	// The site with that id, as `--remote-site` names it, or the one the user described in the
+	// descriptor's `connect` form, once the provider reached it.
+	resolve?( config: Config | undefined, from: ResolveFrom ): Promise< Site >;
 	// What the provider's connect form (`@studio/providers/ui`) asks of the computer, by name, such
 	// as the hosts of the user's SSH config.
 	action?(
@@ -398,11 +448,11 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		input: Record< string, string >
 	): Promise< unknown >;
 	// A new site to push to, for a provider that can create one.
-	create?(
+	create?( config: Config | undefined, site: NewSite ): Promise< Site >;
+	creationVisibility?(
 		config: Config | undefined,
-		options: { name: string; visibility?: SiteCreationVisibility }
-	): Promise< Site >;
-	creationVisibility?( config: Config | undefined ): Promise< SiteCreationVisibility >;
+		input?: NewSite[ 'input' ]
+	): Promise< SiteCreationVisibility >;
 	// A launch error means the import succeeded; callers keep the publish intent
 	// for a retry and must not show the site as published yet. A push to one of
 	// `previews.list`'s sites passes `preview`, and rebuilds the preview from the content.
@@ -490,7 +540,7 @@ export interface AccountServices< Config > {
 }
 
 // What a provider does, for the hosts that run operations: from `getProviderServices`.
-export type ProviderServices< Config = unknown, Site extends RemoteSite = RemoteSite > = {
+export interface ProviderServices< Config = unknown, Site extends RemoteSite = RemoteSite > {
 	id: ProviderId;
 	ai?: {
 		model(
@@ -502,7 +552,7 @@ export type ProviderServices< Config = unknown, Site extends RemoteSite = Remote
 		// The catalog of a provider that has one (`Provider.ai.catalog`).
 		listModels?( config: Config | undefined ): Promise< CatalogModel[] >;
 		// The config that offers these models of the catalog, as `listModels` returned them.
-		selectModels?( config: Config, models: CatalogModel[] ): Config;
+		selectModels?( config: Config, models: CatalogModel[] ): Config | Promise< Config >;
 		// Results keep the requests' order; a failure never aborts the rest.
 		generateImages?(
 			config: Config | undefined,
@@ -511,4 +561,5 @@ export type ProviderServices< Config = unknown, Site extends RemoteSite = Remote
 		): Promise< GenerateImageResult[] >;
 	};
 	sites?: SitesServices< Config, Site >;
-} & WithAccount< Config, AccountServices< Exclude< Config, undefined > > >;
+	account?: AccountServices< Config >;
+}

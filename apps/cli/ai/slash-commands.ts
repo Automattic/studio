@@ -21,7 +21,6 @@ import {
 	formatTopUpOptionCreditsLabel,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import {
-	ACCOUNT_PROVIDER_IDS,
 	AI_PROVIDER_IDS,
 	findAiModel,
 	getAiModels,
@@ -280,7 +279,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			const provider = await pickProvider(
 				ctx,
 				prompt,
-				ACCOUNT_PROVIDER_IDS,
+				PROVIDER_IDS.filter( ( id ) => getProvider( id ).account ),
 				__( 'Connect a provider' )
 			);
 			if ( ! provider ) {

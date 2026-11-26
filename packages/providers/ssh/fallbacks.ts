@@ -199,13 +199,14 @@ $entry = function ( $name, $type, $size = 0, $link = '', $mode = 0644, $mtime = 
 	}
 	$header( $name, $type, $size, $link, $mode, $mtime );
 };
-$add = function ( $path ) use ( &$add, $out, $excluded, $entry, $pad ) {
+// An item that ends in \`/.\` is the folder a link points to, sent under the link's name.
+$add = function ( $path, $follow = false ) use ( &$add, $out, $excluded, $entry, $pad ) {
 	foreach ( $excluded as $pattern ) {
 		if ( fnmatch( $pattern, $path ) || fnmatch( $pattern, basename( $path ) ) ) {
 			return;
 		}
 	}
-	if ( is_link( $path ) ) {
+	if ( ! $follow && is_link( $path ) ) {
 		$entry( $path, '2', 0, readlink( $path ), 0777 );
 		return;
 	}
@@ -231,7 +232,8 @@ $add = function ( $path ) use ( &$add, $out, $excluded, $entry, $pad ) {
 };
 while ( false !== ( $item = fgets( STDIN ) ) ) {
 	if ( '' !== ( $item = rtrim( $item, "\\n" ) ) ) {
-		$add( $item );
+		$follow = '/.' === substr( $item, -2 );
+		$add( $follow ? substr( $item, 0, -2 ) : $item, $follow );
 	}
 }
 fwrite( $out, str_repeat( "\\0", 1024 ) );`;

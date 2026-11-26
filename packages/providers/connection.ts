@@ -1,8 +1,8 @@
 import { getProvider } from './registry';
-import type { ConnectInputSchema, ConnectMethod, ProviderId } from './types';
+import type { ConnectMethod, FormSchema, ProviderId } from './types';
 
-// One field of a connection form, as a surface renders it.
-export interface ConnectField {
+// One field of a form, as a surface renders it.
+export interface FormField {
 	name: string;
 	title: string;
 	description?: string;
@@ -26,17 +26,18 @@ export function getConnectMethod( provider: ProviderId, id?: string ): ConnectMe
 
 // Whether only a process on the user's computer can connect with the method: a sign-in that comes
 // back to it or polls endpoints a browser can't call, or a method that says so.
-export function needsHost( { kind, hostOnly }: ConnectMethod ): boolean {
+export function needsHost( {
+	kind,
+	hostOnly,
+}: {
+	kind?: ConnectMethod[ 'kind' ];
+	hostOnly?: boolean;
+} ): boolean {
 	return kind === 'loopback' || kind === 'device' || hostOnly === true;
 }
 
-// The fields a method's form asks for; empty when it doesn't connect with a form.
-export function getConnectFields( method: ConnectMethod ): ConnectField[] {
-	return method.kind === 'form' ? getFormFields( method.input() ) : [];
-}
-
 // The fields of a form's schema, with their titles, descriptions and examples from its `meta`.
-export function getFormFields( input: ConnectInputSchema ): ConnectField[] {
+export function getFormFields( input: FormSchema ): FormField[] {
 	return Object.entries( input.shape ).map( ( [ name, schema ] ) => {
 		const meta = schema.meta() ?? {};
 		const examples = Array.isArray( meta.examples ) ? meta.examples : [];

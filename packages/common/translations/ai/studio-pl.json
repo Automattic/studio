@@ -91,9 +91,6 @@
 	"%1$s%% · %2$s": [
 		"%1$s%% · %2$s"
 	],
-	"%1$s, %2$s, and %3$s": [
-		"%1$s, %2$s i %3$s"
-	],
 	"%1$s: returned %2$s": [
 		"%1$s: zwrócono %2$s"
 	],
@@ -227,9 +224,6 @@
 	],
 	"... output truncated": [
 		"... dane wyjściowe skrócone"
-	],
-	"/month": [
-		"/mies."
 	],
 	"30 GB of storage": [
 		"30 GB miejsca na dane"
@@ -604,9 +598,6 @@
 	],
 	"Batch notes enabled.": [
 		"Grupowanie uwag włączone."
-	],
-	"Billed monthly": [
-		"Rozliczane miesięcznie"
 	],
 	"Billed monthly, renews on %s": [
 		"Rozliczany miesięcznie, odnawia się %s"
@@ -1067,9 +1058,6 @@
 	"Continue on %s": [
 		"Kontynuuj w %s"
 	],
-	"Continue to checkout": [
-		"Przejdź do kasy"
-	],
 	"Continue with GitHub": [
 		"Kontynuuj z GitHub"
 	],
@@ -1480,9 +1468,6 @@
 	"Delete plugin": [
 		"Usuń wtyczkę"
 	],
-	"Delete preview…": [
-		"Usuń podgląd…"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"Usuń niepotrzebne witryny, aby zwolnić miejsce."
 	],
@@ -1518,9 +1503,6 @@
 	"Design systems are available for block themes.": [
 		"Systemy projektowe są dostępne dla motywów blokowych."
 	],
-	"Destination": [
-		"Miejsce docelowe"
-	],
 	"Different AI models use credits at different rates.": [
 		"Różne modele AI zużywają kredyty w różnym tempie."
 	],
@@ -1547,9 +1529,6 @@
 	],
 	"Disconnect site": [
 		"Odłącz witrynę"
-	],
-	"Disconnect site?": [
-		"Odłączyć witrynę?"
 	],
 	"Disconnect site…": [
 		"Odłącz witrynę…"
@@ -1932,9 +1911,6 @@
 	"Forward in settings or preview": [
 		"Dalej w ustawieniach lub podglądzie"
 	],
-	"Free": [
-		"Darmowy"
-	],
 	"Free credits remaining: %s": [
 		"Pozostałe darmowe kredyty: %s"
 	],
@@ -2045,9 +2021,6 @@
 	],
 	"Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.": [
 		"Domyślnie ukrywaj pasek administracyjny WordPress w lokalnych witrynach. Możesz to zmienić dla poszczególnych witryn w opcjach przeglądarki."
-	],
-	"High": [
-		"Wysokie"
 	],
 	"Hints": [
 		"Podpowiedzi"
@@ -2377,9 +2350,6 @@
 	"Look Up “%s”": [
 		"Wyszukaj „%s”"
 	],
-	"Low": [
-		"Niskie"
-	],
 	"Maiden Voyage": [
 		"Maiden Voyage"
 	],
@@ -2472,9 +2442,6 @@
 	],
 	"Media uploads…": [
 		"Przesłane media…"
-	],
-	"Medium": [
-		"Średnie"
 	],
 	"Meet the new WordPress Studio": [
 		"Poznaj nowe WordPress Studio"
@@ -2629,9 +2596,6 @@
 	"Number of PHP workers, which caps how many requests the site serves at once (default %d)": [
 		"Liczba procesów PHP, która ogranicza, ile żądań witryna obsługuje jednocześnie (domyślnie %d)"
 	],
-	"Off": [
-		"Wyłączone"
-	],
 	"Once the download finishes, quit WordPress Studio, open a terminal, and paste the command to install:": [
 		"Po zakończeniu pobierania zamknij WordPress Studio, otwórz terminal i wklej polecenie, aby zainstalować:"
 	],
@@ -2779,9 +2743,6 @@
 	"PHP workers must be a whole number from 1 to 64.": [
 		"Liczba procesów PHP musi być liczbą całkowitą od 1 do 64."
 	],
-	"Paid plan": [
-		"Płatny plan"
-	],
 	"Panel": [
 		"Panel"
 	],
@@ -2922,9 +2883,6 @@
 	],
 	"Preview tabs": [
 		"Karty podglądu"
-	],
-	"Preview: %s": [
-		"Podgląd: %s"
 	],
 	"Previous option": [
 		"Poprzednia opcja"
@@ -3218,12 +3176,6 @@
 	"Rename the focused site or chat": [
 		"Zmień nazwę zaznaczonej witryny lub czatu"
 	],
-	"Renew": [
-		"Odnów"
-	],
-	"Renew your plan": [
-		"Odnów plan"
-	],
 	"Replace local site": [
 		"Zastąp lokalną witrynę"
 	],
@@ -3315,9 +3267,6 @@
 	],
 	"Restrict the pull to specific wp-content files or folders (e.g. plugins/akismet, themes, uploads/index.php); repeatable.": [
 		"Ogranicz pobieranie do wybranych plików lub folderów wp-content (np. plugins/akismet, themes, uploads/index.php); można powtarzać."
-	],
-	"Restricted": [
-		"Ograniczony dostęp"
 	],
 	"Restricts the site's file access to the site directory.": [
 		"Ogranicza dostęp witryny do plików do katalogu witryny."
@@ -3634,9 +3583,6 @@
 	],
 	"Sign in with OpenRouter": [
 		"Zaloguj się przez OpenRouter"
-	],
-	"Sign in with WordPress.com": [
-		"Zaloguj się przez WordPress.com"
 	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Zaloguj się kontem GitHub z dostępem do Copilot."
@@ -4196,9 +4142,6 @@
 	"These sites cannot currently be connected to WordPress Studio.": [
 		"Tych witryn nie można obecnie połączyć z WordPress Studio."
 	],
-	"Thinking": [
-		"Myślenie"
-	],
 	"Thinking: %s": [
 		"Myślenie: %s"
 	],
@@ -4511,9 +4454,6 @@
 	"Updated %s": [
 		"Zaktualizowano %s"
 	],
-	"Update…": [
-		"Aktualizuj…"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"Zaktualizowanie %s zastąpi wszystkie zmiany wprowadzone w podglądzie Twoją lokalną kopią."
 	],
@@ -4540,9 +4480,6 @@
 	],
 	"Uploading files…": [
 		"Przesyłanie plików…"
-	],
-	"Uploads": [
-		"Przesłane pliki"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"Opłaty za użycie są naliczane na Twoim koncie Anthropic."
@@ -4669,9 +4606,6 @@
 	],
 	"Visual Annotations": [
 		"Adnotacje wizualne"
-	],
-	"WP admin": [
-		"WP Admin"
 	],
 	"WP-CLI exited with code %d.": [
 		"WP-CLI zakończył działanie z kodem %d."
@@ -5133,9 +5067,6 @@
 	"buy more credits": [
 		"dokupić kredyty"
 	],
-	"database": [
-		"baza danych"
-	],
 	"hosting provider name\u0004Pressable": [
 		"Pressable"
 	],
@@ -5189,9 +5120,6 @@
 	],
 	"theme.json matches DESIGN.md": [
 		"theme.json jest zgodny z DESIGN.md"
-	],
-	"themes": [
-		"motywy"
 	],
 	"uploads": [
 		"przesłane pliki"

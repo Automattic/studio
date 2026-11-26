@@ -1,7 +1,7 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
-import { ConnectForm } from '@studio/providers/ui';
+import { getProviderUi } from '@studio/providers/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useConnector } from '@/data/core';
@@ -44,14 +44,16 @@ export function ConnectSiteForm( {
 		},
 	} );
 
+	const { ConnectForm } = getProviderUi( provider );
 	return (
-		<ConnectForm
-			provider={ provider }
-			disabled={ disabled }
-			pending={ connect.isPending }
-			error={ connect.error?.message }
-			onSubmit={ ( input ) => connect.mutate( input ) }
-			run={ run }
-		/>
+		ConnectForm && (
+			<ConnectForm
+				disabled={ disabled }
+				pending={ connect.isPending }
+				error={ connect.error?.message }
+				onSubmit={ ( input ) => connect.mutate( input ) }
+				run={ run }
+			/>
+		)
 	);
 }

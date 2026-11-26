@@ -2,7 +2,7 @@ import { Button, Input, Menu } from '@studio/ds';
 import { useOffline } from '@studio/ds/hooks';
 import { ChevronDownIcon, ExternalLinkIcon } from '@studio/ds/icons';
 import {
-	getConnectFields,
+	getFormFields,
 	getProvider,
 	type AiProviderId,
 	type ConnectMethod,
@@ -53,7 +53,7 @@ export function ProviderRow( {
 	const connectedMethod = account?.connected ? account.method : undefined;
 	const [ formMethod, setFormMethod ] = useState< ConnectMethod >();
 	const [ values, setValues ] = useState< Record< string, string > >( {} );
-	const fields = formMethod ? getConnectFields( formMethod ) : [];
+	const fields = formMethod?.kind === 'form' ? getFormFields( formMethod.input() ) : [];
 	const instructions = formMethod?.instructions?.();
 	const signingIn = connect.isPending && connect.pending !== null;
 	// A sign-in waiting on the browser doesn't block connecting another way.

@@ -1,6 +1,6 @@
 # Studio screenshots
 
-Captured from Studio 2.2.0 by `npm run screenshots`, signed out except the signed-in suites (`signedIn` in their JSON), which sign in as a made-up demo person.
+Captured from Studio 2.4.0-beta1 by `npm run screenshots`, signed out except the signed-in suites (`signedIn` in their JSON), which sign in as a made-up demo person.
 Upload to WordPress.com; a file named `<name>.webp` becomes `https://developer.wordpress.com/wp-content/uploads/YYYY/MM/<name>.webp`.
 Shots with annotations also have a `<name>-annotated.webp`.
 
@@ -33,19 +33,26 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `composer-add-menu.webp` | signed-in | Chat box + menu, signed in: Add files, the commands, and Skills | `studio-code/index.md` | — |
 | `annotate-note.webp` | signed-in | Annotate: two saved notes on the page, and a third open on the hero photo, being typed | `studio-code/index.md` | — |
 | `annotate-staged.webp` | signed-in | Annotate: two saved notes marked on the page and waiting in the chat box as "2 annotations" | `studio-code/index.md` | — |
-| `publish-choose-site.webp` | signed-in | Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites | `sync.md` | `2025/01/studio-connect-live-site.png` |
+| `publish-setup.webp` | signed-in | Publish panel on a site with nothing published yet: Destination (WordPress.com), Who can view (Anyone with the link), Launch on WordPress.com and Create preview | `sync.md`<br>`preview-sites.md` | — |
+| `publish-destination.webp` | signed-in | Publish panel → Destination open: WordPress.com, Spacefast, and Connect to an existing site | `sync.md` | — |
+| `publish-choose-site.webp` | signed-in | Publish → Destination → Connect to an existing site: Choose an existing site, listing the account’s WordPress.com and Pressable sites | `sync.md` | `2025/01/studio-connect-live-site.png` |
 | `model-menu.webp` | signed-in | Chat box model menu: Fast, Balanced and Strong, with the AI credits remaining | `studio-code/choosing-an-ai-model-tier-in-studio-code.md` | — |
 | `add-ai-credits.webp` | signed-in | Add AI credits: the four one-time credit amounts | `studio-code/ai-credits-guidelines.md` | — |
 | `settings-usage.webp` | signed-in | Settings → Usage: AI credits remaining, Add credits, and Preview sites | `studio-code/index.md` | — |
 | `settings-sharing.webp` | signed-in | Settings → Sharing, signed in | `preview-sites.md` | `2025/01/studio-delete-all-preview-sites.png` |
 | `settings-ai-providers-signed-in.webp` | signed-in | Settings → Providers, signed in: WordPress.com connected | `studio-code/index.md` | — |
+| `settings-provider-xai.webp` | signed-in | Settings → Providers → xAI → Connect: Sign in with Grok and API key | `providers.md` | — |
+| `settings-provider-local-llm.webp` | signed-in | Settings → Providers → Local LLM → Connect: Server address, API key, Save and Cancel | `providers.md` | — |
 | `add-site-connect-signed-in.webp` | signed-in | Add site → Connect, signed in, listing the account’s WordPress.com and Pressable sites | `sync.md` | — |
 | `send-feedback.webp` | signed-in | Send feedback dialog, opened from the account menu → Support: Topic, Area, Message, Cancel and Send | `feedback/index.md` | — |
-| `share-previews.webp` | signed-in-previews | Share tab with previews: the previews list with expiry dates and Create another preview | `preview-sites.md` | `2025/01/studio-new-site-preview-link.png` |
-| `share-preview-actions.webp` | signed-in-previews | Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview) | `preview-sites.md` | `2025/01/studio-preview-more-actions.png` |
-| `publish-sites.webp` | signed-in-connected | Archived screenshot of the connected websites list | — | — |
-| `pull-choose-files.webp` | signed-in-connected | Publish details → Pull changes → What to pull, with Choose files… and a few items selected | — | `2025/01/studio-pull-selective.png` |
-| `publish-choose-files.webp` | signed-in-connected | Publish details → Publish changes → What to publish, with Choose files… and a few items selected | `sync.md` | `2025/01/studio-selective-push.png` |
+| `publish-chooser.webp` | signed-in-previews | Publish panel on a site with two previews: Choose a site, listing the previews, then Publish somewhere else and Connect to an existing site | `preview-sites.md` | `2025/01/studio-new-site-preview-link.png` |
+| `preview-details.webp` | signed-in-previews | Publish → a preview: Preview details, with its link, Who can view, Update and when it expires | `preview-sites.md` | — |
+| `preview-actions.webp` | signed-in-previews | Preview details → Preview actions: Copy link and Delete preview… | `preview-sites.md` | `2025/01/studio-preview-more-actions.png` |
+| `publish-sites.webp` | signed-in-connected | Publish panel → Choose a site: the two connected websites, then Publish somewhere else and Connect to an existing site | `sync.md` | — |
+| `publish-site-details.webp` | signed-in-connected | Publish → a connected WordPress.com site: its address and Site actions, Who can view, Pull from live site… and Update… | `sync.md` | — |
+| `pull-choose-files.webp` | signed-in-connected | Pull from live site… → What to replace: Choose files…, with a few items selected | `sync.md` | `2025/01/studio-pull-selective.png` |
+| `publish-changes.webp` | signed-in-connected | Update… → Publish changes? with What to publish open: Everything, Database, Plugins, Themes, Uploads and Choose specific files | `sync.md` | — |
+| `publish-choose-files.webp` | signed-in-connected | Publish changes? → Choose specific files: the Choose files dialog with a few items selected | `sync.md` | `2025/01/studio-selective-push.png` |
 | `design-looks.webp` | signed-in-agent | A new blank site's first chat asking for a slow-fashion journal called Moire, and Studio Code's pick of four looks (design-looks/), Moire's own among them | `studio-code/index.md` | — |
 | `workspace-chat.webp` | signed-in-chat | The main window with Moire pinned and a conversation updating its home page text | `studio-code/index.md` | `2026/04/studio-code.png` |
 
@@ -76,9 +83,6 @@ No docs page shows these, so their images are not kept here. Capture them into `
 | `settings-ai-providers` | studio-settings | Settings → Providers (WordPress.com and Anthropic) |
 | `settings-keyboard` | studio-settings | Settings → Keyboard (shortcuts) |
 | `annotate-toolbar` | signed-in | Annotate turned on above the site preview, before any note |
-| `share-create-preview` | signed-in | Share and publish → Share, with Create preview |
-| `publish-panel` | signed-in | Share and publish → Publish → Choose another host: where to publish, WordPress.com or Spacefast |
-| `pull-choose-files` | signed-in-connected | Publish details → Pull changes → What to pull, with Choose files… and a few items selected |
 | `blog-settings-appearance` | signed-in-blog | Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the demo site (the 2026 workspace announcement) |
 
 ## Kept by hand

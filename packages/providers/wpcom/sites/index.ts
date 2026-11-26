@@ -22,9 +22,15 @@ import type { ImportResponse } from './schemas';
 import type { SyncSite } from './site';
 
 const POLL_INTERVAL_MS = 3000;
-// Remote imports and backups can sit on one progress value for a long time on
-// large sites, and the remote reports its own timeouts as a `failed` status.
+// Remote backups can sit on one progress value for a long time on large sites.
 const MAX_STALLED_POLLS = ( 60 * 60 * 1000 ) / POLL_INTERVAL_MS;
+// The live site's import keeps one progress value for hours while it restores a large site's
+// files, and it fails the import itself after about 6 hours ("Import timed out"). This only
+// covers a status that never resolves.
+const IMPORT_DEADLINE_MS = 7 * 60 * 60 * 1000;
+// The live site keeps importing or backing up while this computer is offline or WordPress.com has
+// a short outage, so a status check that fails that way is tried again for this long.
+const MAX_FAILED_POLLS = ( 60 * 1000 ) / POLL_INTERVAL_MS;
 
 function requireToken( config: WpcomConfig | undefined ): string {
 	if ( ! config?.token ) {
@@ -75,6 +81,38 @@ function sleep( ms: number, signal?: AbortSignal ): Promise< void > {
 	} );
 }
 
+// A request that never reached WordPress.com has no HTTP status, only the network error's code,
+// such as ENOTFOUND.
+function isTransient( error: unknown ): boolean {
+	if ( ! ( error instanceof Error ) ) {
+		return false;
+	}
+	if ( 'statusCode' in error ) {
+		const status = Number( error.statusCode );
+		return status === 429 || status >= 500;
+	}
+	return 'code' in error && typeof error.code === 'string';
+}
+
+// Like `step`, for a status check: tries a temporary failure again.
+async function pollStep< T >(
+	message: string,
+	code: string,
+	run: () => Promise< T >,
+	signal?: AbortSignal
+): Promise< T > {
+	for ( let failed = 1; ; failed++ ) {
+		try {
+			return await run();
+		} catch ( error ) {
+			if ( failed >= MAX_FAILED_POLLS || ! isTransient( error ) ) {
+				return step( message, code, () => Promise.reject( error ) );
+			}
+		}
+		await sleep( POLL_INTERVAL_MS, signal );
+	}
+}
+
 function getImportFailureMessage( response: Extract< ImportResponse, { status: 'failed' } > ) {
 	if ( /importing sql dump/i.test( response.error_data?.vp_restore_message ?? '' ) ) {
 		return __(
@@ -96,11 +134,21 @@ async function followImport(
 	onStatus: ( status: PushStatus ) => void,
 	signal?: AbortSignal
 ): Promise< ImportResponse > {
-	let lastReport = '';
-	for ( let stalledPolls = 0; stalledPolls < MAX_STALLED_POLLS;  ) {
+	const lostTrack = sprintf(
+		// translators: %s: the name of a WordPress.com site
+		__(
+			'Studio lost track of the update to %s, but the update may still be running. Check the live site before pushing again.'
+		),
+		site.name
+	);
+	const deadline = Date.now() + IMPORT_DEADLINE_MS;
+	while ( Date.now() < deadline ) {
 		signal?.throwIfAborted();
-		const status = await step( __( 'Failed to check import status' ), 'remote_import', () =>
-			pollImportStatus( token, site.id )
+		const status = await pollStep(
+			lostTrack,
+			'remote_import',
+			() => pollImportStatus( token, site.id ),
+			signal
 		);
 		if ( status.status === 'failed' || status.status === 'finished' || ! status.success ) {
 			return status;
@@ -115,9 +163,6 @@ async function followImport(
 		// Reported on every poll, even unchanged, so a Studio app that restarts or reloads while
 		// the live site updates shows the push again.
 		onStatus( report );
-		const key = `${ report.phase }:${ Math.round( report.progress ?? 0 ) }`;
-		stalledPolls = key === lastReport ? stalledPolls + 1 : 0;
-		lastReport = key;
 
 		await sleep( POLL_INTERVAL_MS, signal );
 	}
@@ -125,7 +170,7 @@ async function followImport(
 	throw new RemoteSiteError(
 		sprintf(
 			__(
-				'%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.'
+				'%s is taking longer than expected to update, but the update may still be running. Check the live site before pushing again.'
 			),
 			site.name
 		),
@@ -266,8 +311,11 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 			let lastPercent = -1;
 			for ( let stalledPolls = 0; stalledPolls < MAX_STALLED_POLLS;  ) {
 				signal?.throwIfAborted();
-				const status = await step( __( 'Failed to check backup status' ), 'remote_backup', () =>
-					pollBackupStatus( token, site.id, backupId )
+				const status = await pollStep(
+					__( 'Failed to check backup status' ),
+					'remote_backup',
+					() => pollBackupStatus( token, site.id, backupId ),
+					signal
 				);
 				if ( status.status === 'failed' ) {
 					throw new RemoteSiteError( __( 'Remote backup failed' ), 'remote_backup' );

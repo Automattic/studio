@@ -830,6 +830,8 @@ describe( 'Add site › frontend', () => {
 					studioLogs: false,
 					loopbackSignIn: false,
 					localMachine: false,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			}
 		);

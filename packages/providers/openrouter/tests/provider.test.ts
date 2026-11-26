@@ -120,7 +120,7 @@ describe( 'openrouter ai', () => {
 	} );
 
 	it( 'offers the models the account picked, by OpenRouter’s name', () => {
-		const account = openrouterProvider.account.describe( {
+		const account = openrouterProvider.account!.describe( {
 			method: 'api-key',
 			apiKey: 'sk-or-v1-key',
 			models: [ kimi ],
@@ -227,7 +227,7 @@ describe( 'the OpenRouter catalog', () => {
 	} );
 
 	it( 'defaults to a picked model', () => {
-		const account = openrouterProvider.account.describe( { ...config, models: [ kimi ] } );
+		const account = openrouterProvider.account!.describe( { ...config, models: [ kimi ] } );
 
 		expect( getDefaultAiModel( 'openrouter' ) ).toBe( 'openrouter/anthropic/claude-sonnet-5.5' );
 		expect( getDefaultAiModel( 'openrouter', { account: { connected: true, ...account } } ) ).toBe(

@@ -33,18 +33,10 @@ afterAll( () => {
 	nock.restore();
 } );
 
-vi.mock( 'lockfile', () => {
-	const lock = vi.fn( ( file, options, callback ) => callback( null ) );
-	const unlock = vi.fn( ( file, callback ) => callback( null ) );
-	return {
-		default: {
-			lock,
-			unlock,
-		},
-		lock,
-		unlock,
-	};
-} );
+vi.mock( 'proper-lockfile', () => ( {
+	lock: vi.fn( async () => async () => {} ),
+	unlock: vi.fn( async () => {} ),
+} ) );
 
 vi.mock( 'picospinner', () => {
 	class MockSpinner {

@@ -42,6 +42,10 @@ export const siteOperationSchema = z.object( {
 	// reclaimed, so a crashed client can never wedge a site.
 	pid: z.number(),
 	kind: z.enum( SITE_OPERATIONS ),
+	// When the machine booted, in ms since the epoch. After a reboot the pid can
+	// belong to an unrelated process, so an entry from an earlier boot is stale too.
+	// Optional only so entries from older builds still parse; those count as stale.
+	bootTime: z.number().optional(),
 } );
 
 export type SiteOperation = z.infer< typeof siteOperationSchema >;

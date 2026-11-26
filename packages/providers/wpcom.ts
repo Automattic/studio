@@ -4,7 +4,6 @@ export {
 	syncOptionSchema,
 	syncSiteSchema,
 	syncSupportValues,
-	withWpcomDetails,
 	type PullSyncOptions,
 	type PushSyncOptions,
 	type SyncOption,

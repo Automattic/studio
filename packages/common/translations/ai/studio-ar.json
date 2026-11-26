@@ -79,9 +79,6 @@
 	"%s · Local changes": [
 		"%s · التغييرات المحلية"
 	],
-	"/month": [
-		"/شهر"
-	],
 	"30 GB of storage": [
 		"مساحة تخزين 30 غيغابايت"
 	],
@@ -166,9 +163,6 @@
 	"Balanced": [
 		"متوازن"
 	],
-	"Billed monthly": [
-		"تُدفع شهريًا"
-	],
 	"Billed monthly, renews on %s": [
 		"تُدفع شهريًا، وتتجدد في %s"
 	],
@@ -226,9 +220,6 @@
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"تعذَّر إكمال تسجيل الدخول إلى ChatGPT. حاول مرة أخرى."
 	],
-	"Check again": [
-		"التحقق مرة أخرى"
-	],
 	"Checking access…": [
 		"جارٍ التحقق من صلاحية الوصول…"
 	],
@@ -246,9 +237,6 @@
 	],
 	"Choose an empty folder to use a source. The selected folder already contains a WordPress site.": [
 		"اختر مجلدًا فارغًا لاستخدام مصدر. يحتوي المجلد المحدد بالفعل على موقع ووردبريس."
-	],
-	"Choose files": [
-		"اختيار الملفات"
 	],
 	"Choose specific files": [
 		"اختيار ملفات محددة"
@@ -292,9 +280,6 @@
 	"Connect a provider to see your existing sites.": [
 		"اربط مزوِّدًا لرؤية مواقعك الموجودة."
 	],
-	"Connect to %s": [
-		"الربط بـ %s"
-	],
 	"Connect to an existing site": [
 		"الربط بموقع موجود"
 	],
@@ -309,9 +294,6 @@
 	],
 	"Continue on %s": [
 		"المتابعة على %s"
-	],
-	"Continue to checkout": [
-		"المتابعة إلى إتمام الشراء"
 	],
 	"Continue with GitHub": [
 		"المتابعة باستخدام GitHub"
@@ -430,9 +412,6 @@
 	"Deactivate all plugins": [
 		"تعطيل كل الإضافات"
 	],
-	"Default": [
-		"افتراضي"
-	],
 	"Default browser": [
 		"المتصفح الافتراضي"
 	],
@@ -460,9 +439,6 @@
 	"Delete plugin": [
 		"حذف الإضافة"
 	],
-	"Delete preview…": [
-		"حذف المعاينة…"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"احذف المواقع التي لم تعد بحاجة إليها لتحرير مساحة."
 	],
@@ -474,12 +450,6 @@
 	],
 	"Destination": [
 		"الوجهة"
-	],
-	"Disconnect site": [
-		"قطع اتصال الموقع"
-	],
-	"Disconnect site?": [
-		"هل تريد قطع اتصال الموقع؟"
 	],
 	"Disconnect site…": [
 		"قطع اتصال الموقع…"
@@ -582,9 +552,6 @@
 	],
 	"For working on sites.": [
 		"للعمل على المواقع."
-	],
-	"Free": [
-		"مجاني"
 	],
 	"Gemini API key": [
 		"مفتاح Gemini API"
@@ -817,12 +784,6 @@
 	"No recipient": [
 		"لا يوجد مستلم"
 	],
-	"Off": [
-		"إيقاف"
-	],
-	"One more step": [
-		"خطوة أخيرة"
-	],
 	"Only if your server asks for one.": [
 		"فقط إذا طلبه الخادم لديك."
 	],
@@ -889,9 +850,6 @@
 	"Other files": [
 		"ملفات أخرى"
 	],
-	"Paid plan": [
-		"خطة مدفوعة"
-	],
 	"Paste the token it prints. Usage counts against your Claude plan.": [
 		"الصق الرمز المميز الذي يعرضه. يُحتسب الاستخدام من خطة Claude الخاصة بك."
 	],
@@ -949,9 +907,6 @@
 	"Preview tabs": [
 		"علامات تبويب المعاينة"
 	],
-	"Preview: %s": [
-		"المعاينة: %s"
-	],
 	"Private sites and preview links": [
 		"مواقع خاصة وروابط معاينة"
 	],
@@ -966,9 +921,6 @@
 	],
 	"Publish again?": [
 		"هل تريد النشر مرة أخرى؟"
-	],
-	"Publish changes?": [
-		"هل تريد نشر التغييرات؟"
 	],
 	"Publish options could not be loaded.": [
 		"تعذَّر تحميل خيارات النشر."
@@ -1033,9 +985,6 @@
 	"Recent pages": [
 		"الصفحات الحديثة"
 	],
-	"Recommended": [
-		"مُوصى به"
-	],
 	"Refresh preview": [
 		"تحديث المعاينة"
 	],
@@ -1050,9 +999,6 @@
 	],
 	"Renew": [
 		"تجديد"
-	],
-	"Renew your plan": [
-		"تجديد خطتك"
 	],
 	"Replace local site": [
 		"استبدال الموقع المحلي"
@@ -1077,9 +1023,6 @@
 	],
 	"Resize panel": [
 		"تغيير حجم اللوحة"
-	],
-	"Restricted": [
-		"مقيَّد"
 	],
 	"Review the advanced settings to finish creating your site.": [
 		"راجع الإعدادات المتقدمة لإنهاء إنشاء موقعك."
@@ -1158,9 +1101,6 @@
 	],
 	"Sign in with OpenRouter": [
 		"تسجيل الدخول باستخدام OpenRouter"
-	],
-	"Sign in with WordPress.com": [
-		"تسجيل الدخول باستخدام WordPress.com"
 	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"سجِّل الدخول بحساب GitHub يملك صلاحية الوصول إلى Copilot."
@@ -1300,9 +1240,6 @@
 	"Themes": [
 		"القوالب"
 	],
-	"Thinking": [
-		"التفكير"
-	],
 	"Thinking: %s": [
 		"التفكير: %s"
 	],
@@ -1408,9 +1345,6 @@
 	"Update user": [
 		"تحديث المستخدم"
 	],
-	"Update…": [
-		"تحديث…"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"سيؤدي تحديث %s إلى استبدال أي تعديلات أُجريت على المعاينة بنسختك المحلية."
 	],
@@ -1419,9 +1353,6 @@
 	],
 	"Uploading files…": [
 		"جارٍ رفع الملفات…"
-	],
-	"Uploads": [
-		"الملفات المرفوعة"
 	],
 	"Usage is billed through your Anthropic account.": [
 		"تتم محاسبة الاستخدام عبر حسابك على Anthropic."
@@ -1494,9 +1425,6 @@
 	],
 	"Visual Annotations": [
 		"التعليقات التوضيحية المرئية"
-	],
-	"WP admin": [
-		"مشرف ووردبريس"
 	],
 	"What to replace": [
 		"ما الذي تريد استبداله"

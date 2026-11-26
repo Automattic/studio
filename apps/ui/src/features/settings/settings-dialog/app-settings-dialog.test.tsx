@@ -40,20 +40,6 @@ async function setup( {
 	nativeFolderPicker?: boolean;
 } = {} ) {
 	let connection = aiSettings( 'wpcom', signedIn ? [ 'wpcom', 'anthropic' ] : [ 'anthropic' ] );
-	let skills = [
-		{
-			id: 'studio-cli',
-			displayName: 'WordPress Studio CLI',
-			description: 'CLI workflows',
-			installed: false,
-		},
-		{
-			id: 'wordpress',
-			displayName: 'WordPress',
-			description: 'WordPress workflows',
-			installed: false,
-		},
-	];
 	const connector = createFakeConnector(
 		{
 			sites: [ makeSite( { id: 'one' } ) ],
@@ -77,17 +63,6 @@ async function setup( {
 			setAiProvider: async ( provider ) => {
 				connection = { ...connection, provider };
 				return connection;
-			},
-			getWordPressSkillsStatusAllSites: async () => skills,
-			installWordPressSkillToAllSites: async ( id ) => {
-				skills = skills.map( ( skill ) =>
-					skill.id === id ? { ...skill, installed: true } : skill
-				);
-			},
-			removeWordPressSkillFromAllSites: async ( id ) => {
-				skills = skills.map( ( skill ) =>
-					skill.id === id ? { ...skill, installed: false } : skill
-				);
 			},
 			getStudioAssistantQuota: async () => null,
 			getSnapshotUsage: async () => ( { siteCount: 2, siteLimit: 10 } ) as never,
@@ -1130,6 +1105,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					studioLogs: false,
 					loopbackSignIn: false,
 					localMachine: false,
+					globalSkills: true,
+					skillEditing: true,
 				},
 			},
 		} );
@@ -1209,7 +1186,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			if ( connected ) {
 				current.accounts[ 'local-llm' ] = {
 					connected: true,
-					...getProvider( 'local-llm' ).account.describe( {
+					...getProvider( 'local-llm' ).account!.describe( {
 						method: 'server',
 						baseUrl: 'http://localhost:11434/v1',
 						models: [ { name: 'qwen3:0.6b', images: false } ],

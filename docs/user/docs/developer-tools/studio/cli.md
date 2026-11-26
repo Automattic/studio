@@ -67,7 +67,7 @@ npm install -g wp-studio
 studio uninstall
 ```
 
-This stops your running sites and removes the CLI and its `PATH` entry. Your sites and your WordPress Studio configuration in `~/.studio` stay. Add `--purge` to also delete `~/.studio`.
+This stops your running sites and removes the CLI and its `PATH` entry. Your sites and your WordPress Studio configuration, which lives in `~/.studio/config.json`, stay. Add `--purge` to also delete `~/.studio`.
 
 | Installed with | How to remove it |
 | --- | --- |
@@ -174,7 +174,7 @@ studio create --path /path/to/site
 studio create --wp auto-update
 ```
 
-The CLI creates the site, starts it, and opens its front page in your browser. If the site comes from a Blueprint that sets a `landingPage`, it opens that page instead. Add `--skip-browser` to leave the browser closed. Run `studio create --help` for every option.
+The CLI creates the site, starts it, and opens its front page in your browser. If the site comes from a Blueprint that sets a `landingPage`, it opens that page instead. Add `--skip-browser` to leave the browser closed. Add `--no-start` to create the site without starting it. WordPress is still installed, so commands such as `studio wp` and `studio export` work on the site right away. Run `studio create --help` for every option.
 
 ### Create a site from existing content
 
@@ -263,6 +263,8 @@ studio delete /path/to/site-one /path/to/site-two
 studio delete /path/to/site-one --dry-run
 ```
 
+If the CLI can’t move a site’s files to the trash, it still removes the site and warns “The site files could not be moved to trash. Delete them yourself:”, followed by the folders to delete.
+
 ### Change site settings
 
 ```bash
@@ -286,9 +288,11 @@ studio config get [<key>]
 
 | Command | What it does |
 | --- | --- |
-| `studio preview create` | Creates a preview of the site and prints its preview link |
+| `studio preview create` | Creates a preview of the site and prints its preview link. Add `--name` to name it, and `--live-site` with a connected site’s ID, or `none`, to choose which live site it shows changes to |
 | `studio preview list` | Lists the site’s previews. Add `--all` for the previews of every local site |
-| `studio preview update <host>` | Updates a preview with your local changes |
+| `studio preview update <host>` | Updates a preview with your local changes. Add `--overwrite` to update it from another site folder than the one it was made from |
+| `studio preview status <host>` | Shows whether the preview or its local site changed since the last update |
+| `studio preview launch <host>` | Opens the WordPress.com checkout that makes the preview your live site |
 | `studio preview set <host>` | Changes a preview’s settings, such as its name |
 | `studio preview delete <host>` | Deletes a preview, or every preview with `--all` |
 
@@ -313,6 +317,8 @@ The CLI validates the site, archives and uploads it, and prints the preview link
 ✔ Preview site available at: https://wrenandbarley.wpcomstaging.com/?share=…
 ✔ Preview site saved to Studio
 ```
+
+When WordPress.com offers a plan for the preview, the CLI also prints a **Make it your live site** link. See [Make a preview your live site](https://wordpress.studio/docs/preview-sites/#make-a-preview-your-live-site).
 
 ### Update or delete a preview
 
@@ -347,7 +353,7 @@ studio push --remote-site example.com --options plugins,themes
 studio push --remote-site spacefast
 ```
 
-`--options` takes a comma-separated list of `all`, `sqls` (the database), `uploads`, `plugins`, `themes`, and `contents`. For Spacefast, `--remote-site spacefast:<space>` takes a Space’s ID, URL, or slug. See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast).
+`--options` takes a comma-separated list of `all`, `sqls` (the database), `uploads`, `plugins`, `themes`, and `contents`. With `studio push`, `--include-only` limits the push to the paths you list, from what `--options` selected. For Spacefast, `--remote-site spacefast:<space>` takes a Space’s ID, URL, or slug. See [Publish a static copy to Spacefast](https://wordpress.studio/docs/sync/#publish-a-static-copy-to-spacefast).
 
 ## Import and export
 

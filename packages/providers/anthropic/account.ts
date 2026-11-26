@@ -1,12 +1,11 @@
 import { __ } from '@wordpress/i18n';
 import { ConnectError } from '../errors';
+import { ANTHROPIC_MODELS_URL, anthropicHeaders } from './api';
 import { anthropicConnectInput, anthropicSetupTokenInput } from './descriptor';
 import type { AnthropicConfig } from './config';
 import type { AccountServices } from '../types';
 import type { z } from 'zod';
 
-const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models?limit=1';
-const ANTHROPIC_API_VERSION = '2023-06-01';
 const VALIDATION_TIMEOUT_MS = 10_000;
 
 type AnthropicValidation =
@@ -30,13 +29,8 @@ export async function validateAnthropicConfig(
 ): Promise< AnthropicValidation > {
 	let response: Response;
 	try {
-		response = await fetch( ANTHROPIC_MODELS_URL, {
-			headers: {
-				'anthropic-version': ANTHROPIC_API_VERSION,
-				...( config.method === 'api-key'
-					? { 'x-api-key': config.apiKey }
-					: { Authorization: `Bearer ${ config.token }`, 'anthropic-beta': 'oauth-2025-04-20' } ),
-			},
+		response = await fetch( `${ ANTHROPIC_MODELS_URL }?limit=1`, {
+			headers: anthropicHeaders( config ),
 			signal: AbortSignal.timeout( VALIDATION_TIMEOUT_MS ),
 		} );
 	} catch {

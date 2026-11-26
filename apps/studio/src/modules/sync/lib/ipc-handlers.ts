@@ -23,8 +23,8 @@ import { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import {
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
+	type NewSite,
 	type ProviderSites,
-	type SiteCreationVisibility,
 	type SitesProviderId,
 	SiteVisibility,
 } from '@studio/providers';
@@ -70,7 +70,7 @@ export async function connectRemoteSite(
 	localSiteId: string,
 	site: ProviderSites[ SitesProviderId ]
 ): Promise< void > {
-	await connectPublishingSite( parseProvider( provider ), localSiteId, site as never );
+	await connectPublishingSite( parseProvider( provider ), localSiteId, site );
 }
 
 export async function resolveRemoteSite(
@@ -78,7 +78,7 @@ export async function resolveRemoteSite(
 	provider: string,
 	input: Record< string, string >
 ): Promise< ProviderSites[ SitesProviderId ] > {
-	return resolveRemoteSiteOnProvider( getProviderServices( parseProvider( provider ) ), input );
+	return resolveRemoteSiteOnProvider( getProviderServices( parseProvider( provider ) ), { input } );
 }
 
 export async function runSitesAction(
@@ -96,26 +96,28 @@ export async function disconnectRemoteSite(
 	localSiteId: string,
 	remoteSiteId: string | number
 ): Promise< void > {
-	await forgetRemoteSite( parseProvider( provider ), localSiteId, remoteSiteId as never );
+	await forgetRemoteSite( parseProvider( provider ), localSiteId, remoteSiteId );
 }
 
-export function getSiteCreationVisibility( _event: IpcMainInvokeEvent, provider: string ) {
-	return readCreationVisibility( getProviderServices( parseProvider( provider ) ) );
+export function getSiteCreationVisibility(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	input?: NewSite[ 'input' ]
+) {
+	return readCreationVisibility( getProviderServices( parseProvider( provider ) ), input );
 }
 
 export async function createRemoteSite(
 	_event: IpcMainInvokeEvent,
 	provider: string,
 	localSiteId: string,
-	name: string,
-	visibility?: SiteCreationVisibility,
+	site: NewSite,
 	connect = true
 ): Promise< ProviderSites[ SitesProviderId ] > {
 	return createRemoteSiteOnProvider(
 		getProviderServices( parseProvider( provider ) ),
 		localSiteId,
-		name,
-		visibility,
+		site,
 		connect
 	);
 }
@@ -170,10 +172,7 @@ export async function getRemoteBackupId(
 	provider: string,
 	remoteSiteId: string | number
 ): Promise< string | null > {
-	return readRemoteBackupId(
-		getProviderServices( parseProvider( provider ) ),
-		remoteSiteId as never
-	);
+	return readRemoteBackupId( getProviderServices( parseProvider( provider ) ), remoteSiteId );
 }
 
 /**
@@ -190,7 +189,7 @@ export async function listRemoteBackupFiles(
 ): Promise< Record< string, unknown > > {
 	return readRemoteBackupFiles(
 		getProviderServices( parseProvider( provider ) ),
-		remoteSiteId as never,
+		remoteSiteId,
 		backupId,
 		path
 	);
@@ -210,7 +209,7 @@ export function getSiteVisibility(
 	provider: string,
 	id: string | number
 ) {
-	return readVisibility( getProviderServices( parseProvider( provider ) ), id as never );
+	return readVisibility( getProviderServices( parseProvider( provider ) ), id );
 }
 export function setSiteVisibility(
 	_event: IpcMainInvokeEvent,
@@ -218,5 +217,5 @@ export function setSiteVisibility(
 	id: string | number,
 	value: SiteVisibility
 ) {
-	return writeVisibility( getProviderServices( parseProvider( provider ) ), id as never, value );
+	return writeVisibility( getProviderServices( parseProvider( provider ) ), id, value );
 }

@@ -112,9 +112,6 @@
 	"Add a domain": [
 		"Een domein toevoegen"
 	],
-	"Address is required": [
-		"Adres is vereist"
-	],
 	"Address to listen on": [
 		"Adres om op te luisteren"
 	],
@@ -238,9 +235,6 @@
 	"ChatGPT sign-in could not be completed. Try again.": [
 		"Het inloggen via ChatGPT kon niet worden voltooid. Probeer het opnieuw."
 	],
-	"Check again": [
-		"Opnieuw controleren"
-	],
 	"Checking access…": [
 		"Toegang controleren …"
 	],
@@ -249,9 +243,6 @@
 	],
 	"Checking whether you can pull from this preview…": [
 		"Controleren of je uit dit voorbeeld kunt ophalen …"
-	],
-	"Checking…": [
-		"Controleren …"
 	],
 	"Choose a folder containing an existing WordPress site.": [
 		"Kies een map met een bestaande WordPress-site."
@@ -279,9 +270,6 @@
 	],
 	"Choose color": [
 		"Kleur kiezen"
-	],
-	"Choose files": [
-		"Bestanden kiezen"
 	],
 	"Choose specific files": [
 		"Specifieke bestanden kiezen"
@@ -337,9 +325,6 @@
 	"Connect a provider to see your existing sites.": [
 		"Koppel een provider om je bestaande sites te zien."
 	],
-	"Connect to %s": [
-		"Koppelen met %s"
-	],
 	"Connect to an existing site": [
 		"Koppelen met een bestaande site"
 	],
@@ -357,9 +342,6 @@
 	],
 	"Continue on %s": [
 		"Doorgaan op %s"
-	],
-	"Continue to checkout": [
-		"Doorgaan naar afrekenen"
 	],
 	"Continue with GitHub": [
 		"Doorgaan met GitHub"
@@ -511,9 +493,6 @@
 	"Delete a site to create a new one.": [
 		"Verwijder een site om een nieuwe te maken."
 	],
-	"Delete preview…": [
-		"Voorbeeld verwijderen …"
-	],
 	"Delete sites you no longer need to free up space.": [
 		"Verwijder sites die je niet meer nodig hebt om ruimte vrij te maken."
 	],
@@ -534,12 +513,6 @@
 	],
 	"Disconnect a provider": [
 		"Een provider loskoppelen"
-	],
-	"Disconnect site": [
-		"Site loskoppelen"
-	],
-	"Disconnect site?": [
-		"Site loskoppelen?"
 	],
 	"Disconnect site…": [
 		"Site loskoppelen …"
@@ -883,9 +856,6 @@
 	"No recipient": [
 		"Geen ontvanger"
 	],
-	"Off": [
-		"Uit"
-	],
 	"One more step": [
 		"Nog één stap"
 	],
@@ -1009,9 +979,6 @@
 	"Preview tabs": [
 		"Voorbeeldtabbladen"
 	],
-	"Preview: %s": [
-		"Voorbeeld: %s"
-	],
 	"Private sites and preview links": [
 		"Privésites en voorbeeldlinks"
 	],
@@ -1023,9 +990,6 @@
 	],
 	"Publish again?": [
 		"Opnieuw publiceren?"
-	],
-	"Publish changes?": [
-		"Wijzigingen publiceren?"
 	],
 	"Publish options could not be loaded.": [
 		"Kon de publicatieopties niet laden."
@@ -1102,9 +1066,6 @@
 	"Recent pages": [
 		"Recente pagina's"
 	],
-	"Recommended": [
-		"Aanbevolen"
-	],
 	"Refresh preview": [
 		"Voorbeeld vernieuwen"
 	],
@@ -1113,9 +1074,6 @@
 	],
 	"Remove %s from WordPress Studio? The published site and your local WordPress won’t change.": [
 		"%s verwijderen uit WordPress Studio? De gepubliceerde site en je lokale WordPress veranderen niet."
-	],
-	"Renew": [
-		"Verlengen"
 	],
 	"Renew your plan": [
 		"Verleng je abonnement"
@@ -1234,17 +1192,11 @@
 	"Sign in with OpenRouter": [
 		"Inloggen met OpenRouter"
 	],
-	"Sign in with WordPress.com": [
-		"Inloggen met WordPress.com"
-	],
 	"Sign in with a GitHub account that has Copilot access.": [
 		"Log in met een GitHub-account dat toegang heeft tot Copilot."
 	],
 	"Sign in with an eligible Grok account or use an xAI API key.": [
 		"Log in met een geschikt Grok-account of gebruik een xAI API-sleutel."
-	],
-	"Sign out": [
-		"Uitloggen"
 	],
 	"Site exported": [
 		"Site geëxporteerd"
@@ -1384,9 +1336,6 @@
 	"Themes": [
 		"Thema's"
 	],
-	"Thinking": [
-		"Nadenken"
-	],
 	"Thinking: %s": [
 		"Nadenken: %s"
 	],
@@ -1498,9 +1447,6 @@
 	"Update user": [
 		"Gebruiker bijwerken"
 	],
-	"Update…": [
-		"Bijwerken …"
-	],
 	"Updating %s will replace any edits made on the preview with your local copy.": [
 		"Als je %s bijwerkt, worden alle bewerkingen in het voorbeeld vervangen door je lokale kopie."
 	],
@@ -1557,9 +1503,6 @@
 	],
 	"Validate blocks": [
 		"Blokken valideren"
-	],
-	"View backups": [
-		"Back-ups bekijken"
 	],
 	"View versions": [
 		"Versies bekijken"
@@ -1712,9 +1655,6 @@
 	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
 		"Je werkruimte draait op een Studio Cloud-abonnement. Afrekenen gebeurt op WordPress.com en je werkruimte is ongeveer een minuut na betaling klaar."
 	],
-	"database": [
-		"database"
-	],
 	"other files": [
 		"andere bestanden"
 	],
@@ -1732,9 +1672,6 @@
 	],
 	"products": [
 		"producten"
-	],
-	"themes": [
-		"thema's"
 	],
 	"uploads": [
 		"uploads"

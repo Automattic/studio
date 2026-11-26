@@ -78,7 +78,7 @@ export function LiveSiteAction( {
 	);
 	const push = usePushSite();
 	const pull = usePullSite();
-	const issue = descriptor.issue( remote, direction );
+	const issue = descriptor.issue?.( remote, direction );
 	const canAdjustSelection = !! onConfirmPublish && descriptor.selective;
 	const blocked =
 		!! issue ||

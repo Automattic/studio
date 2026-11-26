@@ -1,0 +1,128 @@
+.library {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-8 );
+}
+
+.list {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-3 );
+}
+
+.toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --space-2 );
+}
+
+.search {
+	flex: 1 1 160px;
+	width: auto;
+}
+
+.count {
+	margin-inline-start: var( --space-1 );
+	opacity: 0.6;
+	font-variant-numeric: tabular-nums;
+}
+
+.note {
+	margin: 0;
+	padding-inline: var( --space-5 );
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+	line-height: var( --text-xxs--line-height );
+	text-wrap: pretty;
+}
+
+.command {
+	padding: 0 var( --space-1 );
+	border-radius: var( --radius-sm );
+	background: var( --muted );
+	color: var( --muted-foreground );
+	font-family: var( --font-mono );
+	font-size: var( --text-xxs );
+	font-weight: var( --font-weight-regular );
+	line-height: 18px;
+	white-space: nowrap;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.linked {
+	display: inline-flex;
+	color: var( --muted-foreground );
+}
+
+.linked svg {
+	width: 14px;
+	height: 14px;
+}
+
+.description {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+}
+
+.error,
+.dialogError {
+	color: var( --destructive );
+	font-size: var( --text-xs );
+}
+
+.error {
+	margin: 0;
+	padding-inline: var( --space-5 );
+}
+
+.editor {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-8 );
+}
+
+.fields {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-3 );
+}
+
+.editorFooter {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var( --space-2 );
+}
+
+/* A settings group keeps its inputs narrow; the name is as wide as the fields under it. */
+.name {
+	max-width: none;
+}
+
+.instructionsHeader {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var( --space-2 );
+}
+
+.instructions {
+	font-family: var( --font-mono );
+	font-size: var( --text-xxs );
+	line-height: 1.6;
+}
+
+.overLimit {
+	color: var( --destructive );
+}
+
+.fileIcon {
+	width: 18px;
+	height: 18px;
+	color: var( --muted-foreground );
+}

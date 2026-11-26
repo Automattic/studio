@@ -49,20 +49,20 @@ describe( 'fitToTokens', () => {
 } );
 
 describe( 'resolveImageFilePath', () => {
-	it( 'accepts .png paths inside the sites root', () => {
-		const target = path.join( SITES_ROOT, 'my-site', 'wp-content', 'a.png' );
+	it( 'accepts .webp paths inside the sites root', () => {
+		const target = path.join( SITES_ROOT, 'my-site', 'wp-content', 'a.webp' );
 		expect( resolveImageFilePath( SITES_ROOT, target ) ).toBe( target );
 	} );
 
 	it( 'rejects paths escaping the sites root', () => {
 		expect( () =>
-			resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, '..', 'escape.png' ) )
+			resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, '..', 'escape.webp' ) )
 		).toThrow( /inside the Studio sites directory/ );
 	} );
 
-	it( 'rejects non-PNG extensions', () => {
+	it( 'rejects other extensions', () => {
 		expect( () => resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, 'a.jpg' ) ) ).toThrow(
-			/end in .png/
+			/end in .webp/
 		);
 	} );
 } );

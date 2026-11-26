@@ -2,7 +2,7 @@ import fs from 'fs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import path from 'path';
 import { readFile, writeFile } from 'atomically';
-import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import { LOCKFILE_WAIT_TIME } from '@studio/common/constants';
 import { importLegacyConfig } from '@studio/common/lib/config/legacy-import';
 import { migrateConfig } from '@studio/common/lib/config/migrations';
 import {
@@ -96,7 +96,7 @@ async function ensureConfigDirectory(): Promise< void > {
 async function withLock< T >( run: () => Promise< T > ): Promise< T > {
 	await ensureConfigDirectory();
 	const lockPath = `${ getConfigPath() }.lock`;
-	await lockFileAsync( lockPath, { wait: LOCKFILE_WAIT_TIME, stale: LOCKFILE_STALE_TIME } );
+	await lockFileAsync( lockPath, { wait: LOCKFILE_WAIT_TIME } );
 	try {
 		return await run();
 	} finally {

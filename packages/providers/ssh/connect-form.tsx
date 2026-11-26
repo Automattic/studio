@@ -15,7 +15,7 @@ import {
 import { PlusIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useState, type ReactNode } from 'react';
-import { getFormFields, type ConnectField } from '../connection';
+import { getFormFields, type FormField } from '../connection';
 import { sshHostInput, type SshHost } from './address';
 import styles from './connect-form.module.css';
 import { sshProvider } from './descriptor';
@@ -25,7 +25,7 @@ type Values = Record< string, string >;
 
 const ADD_HOST = '\0add';
 
-const isReady = ( fields: ConnectField[], values: Values ) =>
+const isReady = ( fields: FormField[], values: Values ) =>
 	fields.every( ( field ) =>
 		values[ field.name ]?.trim() ? ! field.validate( values[ field.name ] ) : ! field.required
 	);
@@ -36,7 +36,7 @@ function TextFields( {
 	disabled,
 	onChange,
 }: {
-	fields: ConnectField[];
+	fields: FormField[];
 	values: Values;
 	disabled: boolean;
 	onChange: ( values: Values ) => void;

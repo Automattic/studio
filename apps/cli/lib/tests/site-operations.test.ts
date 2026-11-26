@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { getConfigPath, readConfig } from '@studio/common/lib/config/store';
+import { getConfigPath, readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { emitCliEvent } from 'cli/lib/daemon-client';
@@ -11,6 +11,10 @@ import { getLiveSiteOperation, withSiteOperation, withSiteOperations } from '../
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'cli/lib/daemon-client', () => ( { emitCliEvent: vi.fn() } ) );
+vi.mock( '@studio/common/lib/config/store', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/common/lib/config/store') >();
+	return { ...actual, updateConfig: vi.fn( actual.updateConfig ) };
+} );
 
 const site: ConfigSite = {
 	id: 'site-1',
@@ -43,6 +47,8 @@ async function storedOperation() {
 // crashed mid-operation.
 const DEAD_PID = 0x7ffffffe;
 
+const bootTime = Math.round( Date.now() - os.uptime() * 1000 );
+
 let configDirectory: string;
 
 beforeEach( () => {
@@ -59,14 +65,28 @@ afterEach( () => {
 describe( 'getLiveSiteOperation', () => {
 	it( 'drops an operation whose owning process has died', () => {
 		expect(
-			getLiveSiteOperation( { ...site, operation: { pid: DEAD_PID, kind: 'delete' } } )
+			getLiveSiteOperation( { ...site, operation: { pid: DEAD_PID, kind: 'delete', bootTime } } )
 		).toBeUndefined();
 	} );
 
 	it( 'keeps an operation whose owning process is alive', () => {
+		const operation = { pid: process.pid, kind: 'settings', bootTime } as const;
+		expect( getLiveSiteOperation( { ...site, operation } ) ).toEqual( operation );
+	} );
+
+	it( 'drops an operation recorded before the machine last booted', () => {
 		expect(
-			getLiveSiteOperation( { ...site, operation: { pid: process.pid, kind: 'settings' } } )
-		).toEqual( { pid: process.pid, kind: 'settings' } );
+			getLiveSiteOperation( {
+				...site,
+				operation: { pid: process.pid, kind: 'export', bootTime: bootTime - 86_400_000 },
+			} )
+		).toBeUndefined();
+	} );
+
+	it( 'drops an operation from a build that recorded no boot time', () => {
+		expect(
+			getLiveSiteOperation( { ...site, operation: { pid: process.pid, kind: 'export' } } )
+		).toBeUndefined();
 	} );
 
 	it( 'returns undefined for an idle site', () => {
@@ -77,7 +97,17 @@ describe( 'getLiveSiteOperation', () => {
 describe( 'withSiteOperation', () => {
 	it( 'records the operation while it runs and clears it afterwards', async () => {
 		await withSiteOperation( site.path, 'settings', async () => {
-			expect( await storedOperation() ).toEqual( { pid: process.pid, kind: 'settings' } );
+			const operation = await storedOperation();
+			expect( operation ).toMatchObject( { pid: process.pid, kind: 'settings' } );
+			expect( getLiveSiteOperation( { ...site, operation } ) ).toEqual( operation );
+		} );
+
+		expect( await storedOperation() ).toBeUndefined();
+	} );
+
+	it( 'retries a release that fails to take the config lock', async () => {
+		await withSiteOperation( site.path, 'export', async () => {
+			vi.mocked( updateConfig ).mockRejectedValueOnce( new Error( 'Lock timed out' ) );
 		} );
 
 		expect( await storedOperation() ).toBeUndefined();
@@ -110,7 +140,7 @@ describe( 'withSiteOperation', () => {
 	} );
 
 	it( "waits for another process's start instead of refusing a start", async () => {
-		writeSites( [ { ...site, operation: { pid: process.ppid, kind: 'start' } } ] );
+		writeSites( [ { ...site, operation: { pid: process.ppid, kind: 'start', bootTime } } ] );
 		setTimeout( () => writeSites( [ site ] ), 300 );
 
 		const result = await withSiteOperation( site.path, 'start', async () => 'started' );
@@ -128,7 +158,7 @@ describe( 'withSiteOperation', () => {
 	} );
 
 	it( 'reclaims an operation whose owning process is gone', async () => {
-		writeSites( [ { ...site, operation: { pid: DEAD_PID, kind: 'delete' } } ] );
+		writeSites( [ { ...site, operation: { pid: DEAD_PID, kind: 'delete', bootTime } } ] );
 
 		const result = await withSiteOperation( site.path, 'start', async () => 'started' );
 
@@ -161,8 +191,8 @@ describe( 'withSiteOperations', () => {
 	it( 'acquires and releases every site', async () => {
 		await withSiteOperations( [ site.id, secondSite.id ], 'delete', async () => {
 			expect( ( await storedSites() ).map( ( item ) => item.operation ) ).toEqual( [
-				{ pid: process.pid, kind: 'delete' },
-				{ pid: process.pid, kind: 'delete' },
+				expect.objectContaining( { pid: process.pid, kind: 'delete' } ),
+				expect.objectContaining( { pid: process.pid, kind: 'delete' } ),
 			] );
 		} );
 
@@ -172,7 +202,7 @@ describe( 'withSiteOperations', () => {
 	} );
 
 	it( 'does not acquire any site when one is busy', async () => {
-		const busy = { pid: process.pid, kind: 'settings' } as const;
+		const busy = { pid: process.pid, kind: 'settings', bootTime } as const;
 		writeSites( [ site, { ...secondSite, operation: busy } ] );
 		const work = vi.fn();
 

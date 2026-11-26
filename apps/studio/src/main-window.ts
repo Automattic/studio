@@ -6,11 +6,11 @@ import {
 	dialog,
 	nativeTheme,
 } from 'electron';
+import * as Sentry from '@sentry/electron/main';
 import fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { readConfig } from '@studio/common/lib/config/store';
-import { captureException } from '@studio/common/lib/error-reporting';
 import { SUPPORTED_COLOR_SCHEMES } from '@studio/common/lib/user-settings/preferences';
 import {
 	DEFAULT_HEIGHT,
@@ -76,6 +76,62 @@ async function loadRendererLocation( window: BrowserWindow, location: RendererLo
 		return;
 	}
 	await window.loadFile( location.filePath );
+}
+
+/**
+ * Returns the handler that reports a failed renderer load. Electron fails the load with the same
+ * `ERR_FAILED (-2)` whether the navigation was aborted, the renderer died or it never started, so
+ * the report says how far the load got and what became of the renderer process.
+ */
+function watchRendererLoadFailure( window: BrowserWindow ) {
+	const contents = window.webContents;
+	const startedAt = Date.now();
+	const events: string[] = [];
+	let rendererGone: Electron.RenderProcessGoneDetails | undefined;
+	contents.once( 'did-start-navigation', () => events.push( 'did-start-navigation' ) );
+	contents.once( 'did-redirect-navigation', () => events.push( 'did-redirect-navigation' ) );
+	contents.once( 'did-navigate', () => events.push( 'did-navigate' ) );
+	contents.once( 'dom-ready', () => events.push( 'dom-ready' ) );
+	contents.once( 'render-process-gone', ( _event, details ) => {
+		rendererGone = details;
+	} );
+
+	const getStage = () => {
+		if ( rendererGone ) {
+			return `renderer-${ rendererGone.reason }`;
+		}
+		if ( events.includes( 'did-navigate' ) ) {
+			return 'committed';
+		}
+		return events.includes( 'did-start-navigation' ) ? 'not-committed' : 'not-started';
+	};
+
+	return ( error: unknown ) => {
+		// Closing the window, or quitting, while it loads cuts the load short: not a bug. The load
+		// fails as the web contents go, before the window does.
+		if ( window.isDestroyed() || contents.isDestroyed() ) {
+			return;
+		}
+		const failedAfterMs = Date.now() - startedAt;
+		const rendererPid = contents.getOSProcessId();
+		// A renderer that dies mid-load fails the load before `render-process-gone` arrives.
+		setTimeout( () => {
+			const processes = app.getAppMetrics();
+			Sentry.captureException( error, {
+				tags: { renderer_load: getStage() },
+				contexts: {
+					rendererLoad: {
+						failedAfterMs,
+						events,
+						rendererGone,
+						rendererPid,
+						rendererRunning: processes.some( ( { pid } ) => pid === rendererPid ),
+						processTypes: processes.map( ( { type } ) => type ),
+					},
+				},
+			} );
+		}, 1000 );
+	};
 }
 
 export function getCurrentRendererUrl(): string {
@@ -204,13 +260,9 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
-	const loadingWindow = mainWindow;
-	loadRendererLocation( loadingWindow, getRendererLocation() ).catch( ( error ) => {
-		// Closing the window, or quitting, while it loads cuts the load short: not a bug.
-		if ( ! loadingWindow.isDestroyed() ) {
-			captureException( error );
-		}
-	} );
+	loadRendererLocation( mainWindow, getRendererLocation() ).catch(
+		watchRendererLoadFailure( mainWindow )
+	);
 
 	mainWindow.webContents.on( 'devtools-opened', async () => {
 		await updateDesktopState( { devToolsOpen: true } );

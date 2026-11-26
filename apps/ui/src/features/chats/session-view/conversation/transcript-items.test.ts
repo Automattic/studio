@@ -125,6 +125,18 @@ describe( 'entriesToRenderItems', () => {
 		expect( edit( true ) ).toMatchObject( [ { result: { isError: true, diff: undefined } } ] );
 	} );
 
+	it( 'reads the skill a Skill call loaded', () => {
+		const skill = { name: 'lookbook-post', description: 'Lay out a lookbook post.' };
+		const result = toolResultEntry( 'Ask for the season.' ) as { message: object };
+
+		expect(
+			entriesToRenderItems( [
+				assistantToolCallEntry( 'Skill', { name: skill.name } ),
+				{ ...result, message: { ...result.message, details: { skill } } } as SessionEntry,
+			] )
+		).toMatchObject( [ { kind: 'tool-use', name: 'Skill', result: { skill } } ] );
+	} );
+
 	it( 'hangs one copy of the whole message off its last text block', () => {
 		expect( entriesToRenderItems( [ assistantTextEntry( 'One', ' ', 'Two' ) ] ) ).toMatchObject( [
 			{ text: 'One', messageText: 'One\n\nTwo', copyText: undefined },

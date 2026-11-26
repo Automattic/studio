@@ -30,9 +30,10 @@
 				"vite.config.*.ts"
 			],
 			"project": "**/*.ts",
-			// Only the bundled pi imports it, to resize images in its Read tool. It stays installed
-			// because it reads its .wasm file from its own folder.
-			"ignoreDependencies": ["@silvia-odwyer/photon-node"]
+			// Only bundled packages import these: pi, to resize images in its Read tool, and
+			// @studio/providers, to turn generated images into WebP. They stay installed because
+			// they read their .wasm files from their own folders.
+			"ignoreDependencies": ["@silvia-odwyer/photon-node", "@jsquash/jpeg", "@jsquash/png", "@jsquash/webp"]
 		},
 		"apps/ui": {
 			"entry": [

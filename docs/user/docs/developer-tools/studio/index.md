@@ -10,7 +10,7 @@ WordPress Studio sites support [SSL](https://wordpress.studio/docs/ssl-in-studio
 
 Manage your site from the terminal with [WordPress Studio CLI](https://wordpress.studio/docs/cli/) or use the [built-in debugging tools](https://wordpress.studio/docs/debugging/), including a debug log, phpMyAdmin, and [Xdebug](https://wordpress.studio/docs/xdebug/), to help you diagnose issues.
 
-[Publish to WordPress.com and Pressable](https://wordpress.studio/docs/sync/) and pull changes back: bring an existing online site down to work on it locally, or publish any local site to production or staging when it’s ready. You can also [import from a backup](https://wordpress.studio/docs/import-export/) or export your local work as a ready-to-deploy archive. Use **Share** to send anyone a temporary [preview site](https://wordpress.studio/docs/preview-sites/) with a public URL.
+[Publish to WordPress.com and Pressable](https://wordpress.studio/docs/sync/) and pull changes back: bring an existing online site down to work on it locally, or publish any local site to production or staging when it’s ready. You can also [import from a backup](https://wordpress.studio/docs/import-export/) or export your local work as a ready-to-deploy archive. Use **Publish** to send anyone a temporary [preview site](https://wordpress.studio/docs/preview-sites/) with a public URL.
 
 ## [Quick start](#0-quick-start)
 
@@ -84,9 +84,9 @@ The WordPress Studio window has three areas:
 
 When WordPress Studio Code asks a question, a triangle with an exclamation mark appears beside the chat in the sidebar. The chat stays where it is. If the site is collapsed, the badge appears beside the site name. Open the chat and answer the question to continue. The badge clears when the question is resolved.
 
-![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle under the Site menu button, and the panel on the right with a preview tab, New tab, Share, Publish, Expand panel and Hide panel, and below them Back, Forward, Reload, the address bar, Annotate, and Browser options](../../../screenshots/images/main-window-signed-in.webp)
+![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle under the Site menu button, and the panel on the right with a preview tab, New tab, Publish, Expand panel and Hide panel, and below them Back, Forward, Reload, the address bar, Annotate, and Browser options](../../../screenshots/images/main-window-signed-in.webp)
 
-The header above the chat has the **Site menu** button, which shows the site’s name and opens the site’s actions menu. Above the panel are the preview’s tabs and **New tab** (**+**), followed by **Share**, **Publish**, **Expand panel**, and **Hide panel**. Each tab has its own **Back**, **Forward**, and **Reload** buttons and address bar, with **Annotate** and **Browser options** (**⋮**) at the end.
+The header above the chat has the **Site menu** button, which shows the site’s name and opens the site’s actions menu. Above the panel are the preview’s tabs and **New tab** (**+**), followed by **Publish**, **Expand panel**, and **Hide panel**. Each tab has its own **Back**, **Forward**, and **Reload** buttons and address bar, with **Annotate** and **Browser options** (**⋮**) at the end.
 
 When WordPress Studio finds a new version, an update button appears at the bottom of the sidebar, next to the account menu. It shows **Downloading update…** while the update downloads, and **Update** when it’s ready to install: hover over it to see the new version, and click it to update WordPress Studio. The account menu shows **Update available** too. If the download fails, the button changes to **Download update**, which tries again. If the update can’t be installed, WordPress Studio shows “Couldn’t update Studio” with the reason. If you installed WordPress Studio from the Microsoft Store, the Store updates it instead.
 
@@ -149,12 +149,12 @@ If you don’t already have a WordPress.com account, you can [create one for fre
 
 To connect WordPress Studio to WordPress.com:
 
-1.  Click the account button at the bottom of the sidebar, choose **Log in or create account**, and click **Log in** (or **Create account** if you don’t have one yet). You can also log in from the welcome dialog when you first open WordPress Studio, from **Connect** under **Do more with WordPress** in **Settings → General**, or from the prompt that appears when you click **Publish** or **Share** while logged out.
+1.  Click the account button at the bottom of the sidebar, choose **Log in or create account**, and click **Log in** (or **Create account** if you don’t have one yet). You can also log in from the welcome dialog when you first open WordPress Studio, from **Connect** under **Do more with WordPress** in **Settings → General**, or from **Connect to publish** or **Connect to share previews** in the **Publish** panel while logged out.
 2.  A new browser window will open. Log into WordPress.com.
 3.  On the authorization screen, click **Approve** to connect WordPress Studio to your account.
 4.  Once approved, a popup will appear prompting you to open the WordPress Studio app. Click on the **Open Studio** button to finalize the process.
 
-Once you’ve logged into WordPress.com, the account button at the bottom of the sidebar shows your profile picture, WordPress Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
+Once you’ve logged into WordPress.com, the account button at the bottom of the sidebar shows your profile picture, WordPress Studio Code can use your WordPress.com AI credits, and the **Publish** button above the site preview lets you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
 
 ![The account menu open at the bottom of the WordPress Studio sidebar, showing the account name and email with Providers, Usage, Support, Settings, and Log out](../../../screenshots/images/account-menu.webp)
 

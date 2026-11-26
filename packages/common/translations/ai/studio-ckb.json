@@ -1,31 +1,4 @@
 {
-	"$10 of AI credits every month": [
-		"$10 یەکەی ژیریی دەستکرد هەموو مانگێک"
-	],
-	"$30 of AI credits every month": [
-		"$30 یەکەی ژیریی دەستکرد هەموو مانگێک"
-	],
-	"%1$d of %2$d site": [
-		"ماڵپەڕەکان: %1$d لە %2$d",
-		"ماڵپەڕەکان: %1$d لە %2$d"
-	],
-	"%1$d of %2$d site running at once": [
-		"ماڵپەڕە کارپێکراوەکان لە یەک کاتدا: %1$d لە %2$d",
-		"ماڵپەڕە کارپێکراوەکان لە یەک کاتدا: %1$d لە %2$d"
-	],
-	"%1$s / %2$s per million tokens": [
-		"%1$s / %2$s بۆ هەر ملیۆنێک تۆکن"
-	],
-	"%1$s GB of %2$s GB of storage used": [
-		"%1$s گێگابایت لە %2$s گێگابایت شوێنی هەڵگرتن بەکارهاتووە"
-	],
-	"%1$s and %2$d other": [
-		"%1$s و مۆدێلێکی تر",
-		"%1$s و %2$d مۆدێلی تر"
-	],
-	"%1$s · %2$s context": [
-		"%1$s · کۆنتێکستی %2$s"
-	],
 	"%1$s, %2$s, and %3$s": [
 		"%1$s، %2$s و %3$s"
 	],
@@ -33,15 +6,8 @@
 		"%d وێنە",
 		"%d وێنە"
 	],
-	"%d model": [
-		"یەک مۆدێل",
-		"%d مۆدێل"
-	],
 	"%s (optional, saved for future use):": [
 		"%s (ئارەزوومەندانە، بۆ بەکارهێنانی داهاتوو پاشەکەوت دەکرێت):"
-	],
-	"%s billed yearly": [
-		"%s ساڵانە دەدرێت"
 	],
 	"%s models": [
 		"مۆدێلەکانی %s"
@@ -49,32 +15,14 @@
 	"%s only makes previews.": [
 		"%s تەنیا پێشبینین دروست دەکات."
 	],
-	"%s · Live site": [
-		"%s · ماڵپەڕی ڕاستەوخۆ"
-	],
 	"%s · Local changes": [
 		"%s · گۆڕانکارییە خۆماڵییەکان"
-	],
-	"/month": [
-		"/مانگ"
-	],
-	"30 GB of storage": [
-		"30 گێگابایت شوێنی هەڵگرتن"
-	],
-	"6 GB of storage": [
-		"6 گێگابایت شوێنی هەڵگرتن"
-	],
-	"A static copy of your pages.": [
-		"ڕوونووسێکی وەستاوی پەڕەکانت."
 	],
 	"API key": [
 		"کلیلی (API)"
 	],
 	"API key is required": [
 		"کلیلی (API) پێویستە"
-	],
-	"Access unknown": [
-		"دەستگەیشتن نەزانراوە"
 	],
 	"Activate all plugins": [
 		"چالاککردنی هەموو پێوەکراوەکان"
@@ -85,26 +33,14 @@
 	"Activate theme": [
 		"چالاککردنی ڕووکار"
 	],
-	"Add a domain": [
-		"زیادکردنی دۆمەین"
-	],
 	"Address is required": [
 		"ناونیشان پێویستە"
 	],
 	"Address to listen on": [
 		"ناونیشان بۆ گوێگرتن"
 	],
-	"All but %s": [
-		"هەموو جگە لە %s"
-	],
 	"All models": [
 		"هەموو مۆدێلەکان"
-	],
-	"Another operation is in progress.": [
-		"کارێکی تر لە ئەنجامداندایە."
-	],
-	"Answers right away, fastest": [
-		"دەستبەجێ وەڵام دەداتەوە، خێراترین"
 	],
 	"Anyone can view your site": [
 		"هەر کەسێک دەتوانێت ماڵپەڕەکەت ببینێت"
@@ -112,32 +48,11 @@
 	"Anyone with the link": [
 		"هەر کەسێک بەستەرەکەی هەبێت"
 	],
-	"Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.": [
-		"هەر کەسێک بەستەرەکەی هەبێت دەستگەیشتنی لەدەست دەدات، و ئەمە ناگەڕێتەوە. وۆردپرێسە خۆماڵییەکەت ناگۆڕێت."
-	],
 	"Balanced": [
 		"هاوسەنگ"
 	],
-	"Billed monthly": [
-		"مانگانە دەدرێت"
-	],
-	"Billed monthly, renews on %s": [
-		"مانگانە دەدرێت، لە %s نوێ دەبێتەوە"
-	],
-	"Billed yearly, renews on %s": [
-		"ساڵانە دەدرێت، لە %s نوێ دەبێتەوە"
-	],
 	"Billing period": [
 		"ماوەی پارەدان"
-	],
-	"Can’t see screenshots": [
-		"ناتوانێت وێنەی شاشە ببینێت"
-	],
-	"Changes on %s will be replaced with your local files and database.": [
-		"گۆڕانکارییەکانی سەر %s بە پەڕگە و بنکەدراوە خۆماڵییەکانت دەگۆڕدرێن."
-	],
-	"Changes published": [
-		"گۆڕانکارییەکان بڵاوکرانەوە"
 	],
 	"ChatGPT plan": [
 		"پلانی (ChatGPT)"
@@ -145,32 +60,8 @@
 	"ChatGPT plan usage is unavailable right now. Try again shortly.": [
 		"بەکارهێنانی پلانی (ChatGPT) لە ئێستادا بەردەست نییە. کەمێکی تر دووبارە هەوڵ بدەرەوە."
 	],
-	"Check again": [
-		"دووبارە بپشکنەوە"
-	],
-	"Checking access…": [
-		"پشکنینی دەستگەیشتن…"
-	],
-	"Checking whether you can pull from this preview…": [
-		"پشکنینی ئەوەی ئایا دەتوانیت لەم پێشبینینەوە ڕابکێشیت…"
-	],
-	"Checking…": [
-		"پشکنین…"
-	],
-	"Choose a plan to make it live: %s": [
-		"پلانێک هەڵبژێرە بۆ ئەوەی بیکەیت بە ڕاستەوخۆ: %s"
-	],
 	"Choose a site": [
 		"ماڵپەڕێک هەڵبژێرە"
-	],
-	"Choose files": [
-		"هەڵبژاردنی پەڕگەکان"
-	],
-	"Choose specific files": [
-		"هەڵبژاردنی پەڕگەی دیاریکراو"
-	],
-	"Choose which live site this preview shows changes to.": [
-		"هەڵبژێرە ئەم پێشبینینە گۆڕانکاریی کام ماڵپەڕی ڕاستەوخۆ پیشان دەدات."
 	],
 	"Choose your plan.": [
 		"پلانەکەت هەڵبژێرە."
@@ -184,35 +75,11 @@
 	"Connect Spacefast to publish sites.": [
 		"(Spacefast) پەیوەست بکە بۆ بڵاوکردنەوەی ماڵپەڕەکان."
 	],
-	"Connect a provider to see your existing sites.": [
-		"دابینکەرێک پەیوەست بکە بۆ بینینی ماڵپەڕە هەبووەکانت."
-	],
-	"Connect to %s": [
-		"پەیوەستبوون بە %s"
-	],
-	"Connect to an existing site": [
-		"پەیوەستبوون بە ماڵپەڕێکی هەبوو"
-	],
-	"Connect to publish": [
-		"پەیوەست بکە بۆ بڵاوکردنەوە"
-	],
-	"Connect to share previews": [
-		"پەیوەست بکە بۆ هاوبەشکردنی پێشبینینەکان"
-	],
-	"Connecting an existing site will disconnect your current destination from WordPress Studio. Its content won’t change.": [
-		"پەیوەستکردنی ماڵپەڕێکی هەبوو مەبەستە ئێستاییەکەت لە وۆردپرێس ستۆدیۆ دەپچڕێنێت. ناوەڕۆکەکەی ناگۆڕێت."
-	],
 	"Continue on %s": [
 		"بەردەوامبوون لەسەر %s"
 	],
 	"Continue to checkout": [
 		"بەردەوامبوون بۆ پارەدان"
-	],
-	"Could not check Spacefast team access": [
-		"نەتوانرا دەستگەیشتنی تیمی (Spacefast) بپشکنرێت"
-	],
-	"Could not connect to WordPress.com": [
-		"نەتوانرا پەیوەست بێت بە (WordPress.com)"
 	],
 	"Could not load %s sites.": [
 		"نەتوانرا ماڵپەڕەکانی %s بار بکرێن."
@@ -220,26 +87,11 @@
 	"Could not open the new preview. Please try again.": [
 		"نەتوانرا پێشبینینە نوێیەکە بکرێتەوە. تکایە دووبارە هەوڵ بدەرەوە."
 	],
-	"Could not open the setup page. Please try again.": [
-		"نەتوانرا پەڕەی ئامادەکردن بکرێتەوە. تکایە دووبارە هەوڵ بدەرەوە."
-	],
 	"Could not publish. Please try again.": [
 		"نەتوانرا بڵاو بکرێتەوە. تکایە دووبارە هەوڵ بدەرەوە."
 	],
-	"Could not read your settings": [
-		"نەتوانرا ڕێکخستنەکانت بخوێندرێنەوە"
-	],
 	"Could not update your local site from this preview. Please try again.": [
 		"نەتوانرا ماڵپەڕە خۆماڵییەکەت لەم پێشبینینەوە بەڕۆژ بکرێتەوە. تکایە دووبارە هەوڵ بدەرەوە."
-	],
-	"Could not watch for your new site. Please try again.": [
-		"نەتوانرا چاودێری ماڵپەڕە نوێیەکەت بکرێت. تکایە دووبارە هەوڵ بدەرەوە."
-	],
-	"Couldn’t change how much the model thinks": [
-		"نەتوانرا ئاستی بیرکردنەوەی مۆدێلەکە بگۆڕدرێت"
-	],
-	"Couldn’t check for preview edits": [
-		"نەتوانرا دەستکارییەکانی پێشبینین بپشکنرێن"
 	],
 	"Couldn’t check previews.": [
 		"نەتوانرا پێشبینینەکان بپشکنرێن."
@@ -247,17 +99,8 @@
 	"Couldn’t check whether you can pull from this preview.": [
 		"نەتوانرا بپشکنرێت ئایا دەتوانیت لەم پێشبینینەوە ڕابکێشیت."
 	],
-	"Couldn’t check who can view new sites for this team.": [
-		"نەتوانرا بپشکنرێت کێ دەتوانێت ماڵپەڕە نوێیەکانی ئەم تیمە ببینێت."
-	],
 	"Couldn’t load publishing accounts": [
 		"نەتوانرا هەژمارەکانی بڵاوکردنەوە بار بکرێن"
-	],
-	"Couldn’t load your %s sites": [
-		"نەتوانرا ماڵپەڕەکانت لەسەر %s بار بکرێن"
-	],
-	"Couldn’t load your %s sites.": [
-		"نەتوانرا ماڵپەڕەکانت لەسەر %s بار بکرێن."
 	],
 	"Couldn’t load your previews.": [
 		"نەتوانرا پێشبینینەکانت بار بکرێن."
@@ -274,12 +117,6 @@
 	"Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.": [
 		"کلیلێک لە [OpenAI Platform](https://platform.openai.com/api-keys) دروست بکە، پاشان لە خوارەوە بیلکێنە."
 	],
-	"Create a key in the [xAI Console](https://console.x.ai), then paste it below.": [
-		"کلیلێک لە [xAI Console](https://console.x.ai) دروست بکە، پاشان لە خوارەوە بیلکێنە."
-	],
-	"Create a key in your [OpenRouter settings](https://openrouter.ai/settings/keys), then paste it below.": [
-		"کلیلێک لە [ڕێکخستنەکانی OpenRouter](https://openrouter.ai/settings/keys) دروست بکە، پاشان لە خوارەوە بیلکێنە."
-	],
 	"Create user": [
 		"دروستکردنی بەکارهێنەر"
 	],
@@ -288,9 +125,6 @@
 	],
 	"Creating preview link…": [
 		"دروستکردنی بەستەری پێشبینین…"
-	],
-	"Custom selection": [
-		"هەڵبژاردنی تایبەت"
 	],
 	"Database only": [
 		"تەنیا بنکەدراوە"
@@ -301,32 +135,14 @@
 	"Deactivate plugin": [
 		"ناچالاککردنی پێوەکراو"
 	],
-	"Default": [
-		"بنەڕەت"
-	],
-	"Default image provider": [
-		"دابینکەری وێنەی بنەڕەت"
-	],
 	"Default image provider option, short for automatic: use the AI provider when it can generate images, otherwise WordPress.com\u0004Auto": [
 		"خۆکار"
 	],
 	"Delete %s": [
 		"سڕینەوەی %s"
 	],
-	"Delete a preview in Sharing settings to create another.": [
-		"پێشبینینێک لە ڕێکخستنەکانی هاوبەشکردن بسڕەوە بۆ دروستکردنی یەکێکی تر."
-	],
-	"Delete a site to create a new one.": [
-		"ماڵپەڕێک بسڕەوە بۆ دروستکردنی ماڵپەڕێکی نوێ."
-	],
 	"Delete plugin": [
 		"سڕینەوەی پێوەکراو"
-	],
-	"Delete preview…": [
-		"سڕینەوەی پێشبینین…"
-	],
-	"Delete sites you no longer need to free up space.": [
-		"ئەو ماڵپەڕانە بسڕەوە کە چیتر پێویستت پێیان نییە بۆ ئەوەی شوێن چۆڵ بکەیت."
 	],
 	"Delete theme": [
 		"سڕینەوەی ڕووکار"
@@ -339,12 +155,6 @@
 	],
 	"Disconnect site": [
 		"پچڕاندنی ماڵپەڕ"
-	],
-	"Disconnect site?": [
-		"ماڵپەڕەکە بپچڕێنرێت؟"
-	],
-	"Disconnect site…": [
-		"پچڕاندنی ماڵپەڕ…"
 	],
 	"Download WordPress Studio": [
 		"داگرتنی وۆردپرێس ستۆدیۆ"
@@ -361,9 +171,6 @@
 	"Everything": [
 		"هەموو شتێک"
 	],
-	"Everything you need to build WordPress sites with Studio Code.": [
-		"هەموو ئەوەی پێویستتە بۆ دروستکردنی ماڵپەڕی وۆردپرێس بە ستۆدیۆ کۆد."
-	],
 	"Failed to check backup size": [
 		"پشکنینی قەبارەی پاڵپشت شکستی هێنا"
 	],
@@ -376,50 +183,20 @@
 	"Failed to find existing preview site in config": [
 		"دۆزینەوەی ماڵپەڕی پێشبینینی بەردەست لە شێوەپێدانەکەدا شکستی هێنا"
 	],
-	"Failed to find the preview site’s launch link": [
-		"نەتوانرا بەستەری دەستپێکردنی ماڵپەڕی پێشبینین بدۆزرێتەوە"
-	],
 	"Failed to initiate backup": [
 		"دەستپێکردنی پاڵپشت شکستی هێنا"
-	],
-	"Failed to set up WordPress": [
-		"ئامادەکردنی وۆردپرێس شکستی هێنا"
 	],
 	"Files could not be loaded.": [
 		"نەتوانرا پەڕگەکان بار بکرێن."
 	],
-	"Finish activating hosting on WordPress.com before pulling.": [
-		"پێش ڕاکێشان، چالاککردنی خانەخوێ لەسەر (WordPress.com) تەواو بکە."
-	],
-	"Finish checkout in the WordPress.com tab, then come back here. Your workspace sets itself up as soon as your plan is active.": [
-		"پارەدان لە تابی (WordPress.com) تەواو بکە، پاشان بگەڕێوە ئێرە. شوێنی کارەکەت هەر کە پلانەکەت چالاک بوو خۆی ئامادە دەکات."
-	],
 	"Flush cache": [
 		"پاککردنەوەی کاش"
-	],
-	"For generating images. Auto uses the AI provider when it can.": [
-		"بۆ دروستکردنی وێنە. «خۆکار» دابینکەری ژیریی دەستکرد بەکاردەهێنێت کاتێک بتوانێت."
-	],
-	"Free": [
-		"بەخۆڕایی"
 	],
 	"Gemini API key": [
 		"کلیلی (API)ـی (Gemini)"
 	],
 	"Generate images": [
 		"بەدیهێنانی وێنەکان"
-	],
-	"Grok sent back an incomplete sign-in.": [
-		"(Grok) چوونەژوورەوەیەکی ناتەواوی گەڕاندەوە."
-	],
-	"Grok sign-in could not be started. Try again.": [
-		"نەتوانرا چوونەژوورەوە بە (Grok) دەستپێبکرێت. دووبارە هەوڵ بدەرەوە."
-	],
-	"Grok sign-in was declined.": [
-		"چوونەژوورەوە بە (Grok) ڕەت کرایەوە."
-	],
-	"High": [
-		"زۆر"
 	],
 	"How much should the model think?": [
 		"مۆدێلەکە چەند بیر بکاتەوە؟"
@@ -442,26 +219,11 @@
 	"Invited people": [
 		"کەسانی بانگهێشتکراو"
 	],
-	"I’ve paid, continue": [
-		"پارەم دا، بەردەوام بە"
-	],
 	"Last updated %s": [
 		"دوایین بەڕۆژکردنەوە %s"
 	],
-	"Last updated just now": [
-		"ئێستا بەڕۆژ کرایەوە"
-	],
 	"Last updated on %s": [
 		"دوایین بەڕۆژکردنەوە لە %s"
-	],
-	"Launch a public site with a paid plan.": [
-		"ماڵپەڕێکی گشتی بە پلانێکی پارەدار دەستپێبکە."
-	],
-	"Launch on %s": [
-		"دەستپێکردن لەسەر %s"
-	],
-	"Learn about Spacefast": [
-		"دەربارەی (Spacefast) بزانە"
 	],
 	"Liberate": [
 		"ئازادکردن"
@@ -502,18 +264,6 @@
 	"Local changes": [
 		"گۆڕانکارییە خۆماڵییەکان"
 	],
-	"Low": [
-		"کەم"
-	],
-	"Make a preview site your live site": [
-		"کردنی ماڵپەڕێکی پێشبینین بە ماڵپەڕە ڕاستەوخۆکەت"
-	],
-	"Make it your live site: %s": [
-		"بیکە بە ماڵپەڕە ڕاستەوخۆکەت: %s"
-	],
-	"Make sure the codes match in your browser, then approve the connection.": [
-		"دڵنیابە کە کۆدەکان لە وێبگەڕەکەتدا وەک یەکن، پاشان پەیوەندییەکە پەسەند بکە."
-	],
 	"Manage cache": [
 		"بەڕێوەبردنی کاش"
 	],
@@ -522,9 +272,6 @@
 	],
 	"Manage credits": [
 		"بەڕێوەبردنی یەکەکان"
-	],
-	"Manage domains": [
-		"بەڕێوەبردنی دۆمەینەکان"
 	],
 	"Manage media": [
 		"بەڕێوەبردنی ڕەنگاڵە"
@@ -547,20 +294,11 @@
 	"Manage themes": [
 		"بەڕێوەبردنی ڕووکارەکان"
 	],
-	"Manage these access rules on Spacefast.": [
-		"ئەم یاساکانی دەستگەیشتنە لەسەر (Spacefast) بەڕێوە ببە."
-	],
 	"Manage usage": [
 		"بەڕێوەبردنی بەکارهێنان"
 	],
 	"Manage users": [
 		"بەڕێوەبردنی بەکارهێنەران"
-	],
-	"Manage visibility on Spacefast.": [
-		"دەرکەوتن لەسەر (Spacefast) بەڕێوە ببە."
-	],
-	"Medium": [
-		"مامناوەند"
 	],
 	"Meta API key": [
 		"کلیلی (API)ـی (Meta)"
@@ -568,17 +306,8 @@
 	"Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.": [
 		"(Meta) داواکارییەکانی سەر کلیلی (API)ـەکەت سنووردار دەکات. کەمێکی تر دووبارە هەوڵ بدەرەوە، یان سنوورەکانت لە dev.meta.ai بپشکنە."
 	],
-	"Monthly": [
-		"مانگانە"
-	],
-	"More room and more AI, for building every day.": [
-		"شوێنی زیاتر و ژیریی دەستکردی زیاتر، بۆ دروستکردن هەموو ڕۆژێک."
-	],
 	"No files are available to choose.": [
 		"هیچ پەڕگەیەک بۆ هەڵبژاردن بەردەست نییە."
-	],
-	"No local server answered at %s. Check the address, and that your server is running.": [
-		"هیچ ڕاژەکارێکی خۆماڵی لە %s وەڵامی نەدایەوە. ناونیشانەکە بپشکنە، و دڵنیابە کە ڕاژەکارەکەت کاردەکات."
 	],
 	"No models found.": [
 		"هیچ مۆدێلێک نەدۆزرایەوە."
@@ -586,20 +315,11 @@
 	"Off": [
 		"کوژاوە"
 	],
-	"One more step": [
-		"هەنگاوێکی تر"
-	],
 	"Only if your server asks for one.": [
 		"تەنیا ئەگەر ڕاژەکارەکەت داوای بکات."
 	],
 	"Only you": [
 		"تەنیا تۆ"
-	],
-	"Only you and people you invite can view.": [
-		"تەنیا تۆ و ئەو کەسانەی بانگهێشتیان دەکەیت دەتوانن ببینن."
-	],
-	"Open Config File (dev only)": [
-		"کردنەوەی پەڕگەی ڕێکخستن (تەنیا بۆ گەشەپێدان)"
 	],
 	"Open preview: %s": [
 		"کردنەوەی پێشبینین: %s"
@@ -607,35 +327,11 @@
 	"OpenAI API key": [
 		"کلیلی (API)ـی (OpenAI)"
 	],
-	"OpenRouter API key": [
-		"کلیلی (API)ـی (OpenRouter)"
-	],
-	"OpenRouter is limiting requests on your key. Try again shortly.": [
-		"(OpenRouter) داواکارییەکان لەسەر کلیلەکەت سنووردار دەکات. کەمێکی تر دووبارە هەوڵ بدەرەوە."
-	],
-	"OpenRouter is limiting requests right now. Wait a moment and try again.": [
-		"(OpenRouter) لە ئێستادا داواکارییەکان سنووردار دەکات. کەمێک چاوەڕێ بکە و دووبارە هەوڵ بدەرەوە."
-	],
-	"OpenRouter rejected the API key. Connect OpenRouter again in Settings.": [
-		"(OpenRouter) کلیلی (API)ـی ڕەتکردەوە. لە ڕێکخستنەکان دووبارە (OpenRouter) پەیوەست بکەرەوە."
-	],
-	"OpenRouter rejected this API key. Check the key and try again.": [
-		"(OpenRouter) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
-	],
-	"OpenRouter sign-in could not be completed. Try again.": [
-		"چوونەژوورەوە بە (OpenRouter) تەواو نەکرا. دووبارە هەوڵ بدەرەوە."
-	],
-	"OpenRouter’s moderation refused this request.": [
-		"چاودێریی ناوەڕۆکی (OpenRouter) ئەم داواکارییەی ڕەت کردەوە."
-	],
 	"Opening %s": [
 		"کردنەوەی %s"
 	],
 	"Other files": [
 		"پەڕگەکانی تر"
-	],
-	"Paid plan": [
-		"پلانی پارەدار"
 	],
 	"Pick at least one model OpenRouter offers.": [
 		"بەلایەنی کەمەوە یەک مۆدێل هەڵبژێرە کە (OpenRouter) پێشکەشی دەکات."
@@ -649,23 +345,11 @@
 	"Plan ended": [
 		"پلان کۆتایی هات"
 	],
-	"Posts, pages, and settings": [
-		"بابەتەکان، پەڕەکان و ڕێکخستنەکان"
-	],
-	"Preview creation is temporarily unavailable for your account.": [
-		"دروستکردنی پێشبینین بە شێوەیەکی کاتی بۆ هەژمارەکەت بەردەست نییە."
-	],
 	"Preview details": [
 		"وردەکارییەکانی پێشبینین"
 	],
 	"Preview expiration": [
 		"بەسەرچوونی پێشبینین"
-	],
-	"Preview has changes": [
-		"پێشبینین گۆڕانکاریی تێدایە"
-	],
-	"Preview limit reached": [
-		"گەیشتیتە سنووری پێشبینین"
 	],
 	"Preview link is not available yet. Please try again.": [
 		"بەستەری پێشبینین هێشتا بەردەست نییە. تکایە دووبارە هەوڵ بدەرەوە."
@@ -673,50 +357,20 @@
 	"Preview link ready": [
 		"بەستەری پێشبینین ئامادەیە"
 	],
-	"Preview sites are temporary. Updating your preview resets the expiration date.": [
-		"ماڵپەڕەکانی پێشبینین کاتین. بەڕۆژکردنەوەی پێشبینینەکەت ڕێکەوتی بەسەرچوون ڕێکدەخاتەوە."
-	],
-	"Preview: %s": [
-		"پێشبینین: %s"
-	],
-	"Private sites and preview links": [
-		"ماڵپەڕی تایبەت و بەستەری پێشبینین"
-	],
 	"Publish again?": [
 		"دووبارە بڵاو بکرێتەوە؟"
-	],
-	"Publish changes?": [
-		"گۆڕانکارییەکان بڵاو بکرێنەوە؟"
 	],
 	"Publish options could not be loaded.": [
 		"نەتوانرا هەڵبژاردنەکانی بڵاوکردنەوە بار بکرێن."
 	],
-	"Publish somewhere else": [
-		"بڵاوکردنەوە لە شوێنێکی تر"
-	],
 	"Publish to %s.": [
 		"بڵاوکردنەوە بۆ %s."
-	],
-	"Publish to a site you already have.": [
-		"بڵاوکردنەوە بۆ ماڵپەڕێک کە پێشتر هەتە."
 	],
 	"Published site actions": [
 		"کردارەکانی ماڵپەڕی بڵاوکراوە"
 	],
-	"Publishing requires a supported plan.": [
-		"بڵاوکردنەوە پلانێکی پاڵپشتیکراوی پێویستە."
-	],
-	"Publishing the database replaces changes made on the live site, including new comments or orders.": [
-		"بڵاوکردنەوەی بنکەدراوە ئەو گۆڕانکارییانە دەگۆڕێت کە لەسەر ماڵپەڕی ڕاستەوخۆ کراون، لەوانە لێدوان یان داواکاریی نوێ."
-	],
-	"Pull from live site…": [
-		"ڕاکێشان لە ماڵپەڕی ڕاستەوخۆوە…"
-	],
 	"Pull from preview…": [
 		"ڕاکێشان لە پێشبینینەوە…"
-	],
-	"Pull replaces your local copy. Update replaces the preview.": [
-		"ڕاکێشان ڕوونووسە خۆماڵییەکەت دەگۆڕێت. بەڕۆژکردنەوە پێشبینینەکە دەگۆڕێت."
 	],
 	"Pull site": [
 		"ڕاکێشانی ماڵپەڕ"
@@ -736,12 +390,6 @@
 	"Read site title": [
 		"خوێندنەوەی ناونیشانی ماڵپەڕ"
 	],
-	"Receipts": [
-		"پسوولەکان"
-	],
-	"Recommended": [
-		"پێشنیارکراو"
-	],
 	"Refresh preview": [
 		"نوێکردنەوەی پێشبینین"
 	],
@@ -754,71 +402,17 @@
 	"Renew": [
 		"نوێکردنەوە"
 	],
-	"Renew your plan": [
-		"نوێکردنەوەی پلانەکەت"
-	],
-	"Replace local site": [
-		"گۆڕینی ماڵپەڕی خۆماڵی"
-	],
-	"Replace preview": [
-		"گۆڕینی پێشبینین"
-	],
-	"Replace preview changes?": [
-		"گۆڕانکارییەکانی پێشبینین بگۆڕدرێن؟"
-	],
-	"Replace preview contents?": [
-		"ناوەڕۆکی پێشبینین بگۆڕدرێت؟"
-	],
-	"Replace selected content": [
-		"گۆڕینی ناوەڕۆکی هەڵبژێردراو"
-	],
-	"Reset to recommended": [
-		"گەڕاندنەوە بۆ پێشنیارکراوەکان"
-	],
-	"Restricted": [
-		"سنووردار"
-	],
 	"Run WordPress code": [
 		"جێبەجێکردنی کۆدی وۆردپرێس"
 	],
 	"Run WordPress command": [
 		"جێبەجێکردنی فەرمانی وۆردپرێس"
 	],
-	"Search models": [
-		"گەڕان بۆ مۆدێلەکان"
-	],
-	"Select at least one file or folder.": [
-		"بەلایەنی کەمەوە یەک پەڕگە یان بوخچە هەڵبژێرە."
-	],
-	"Select something to publish.": [
-		"شتێک هەڵبژێرە بۆ بڵاوکردنەوە."
-	],
 	"Select the files and folders to publish.": [
 		"ئەو پەڕگە و بوخچانە هەڵبژێرە کە بڵاو دەکرێنەوە."
 	],
-	"Server address": [
-		"ناونیشانی ڕاژەکار"
-	],
-	"Set STUDIO_SERVE_SECRET to serve beyond this computer.": [
-		"STUDIO_SERVE_SECRET ڕێکبخە بۆ پێشکەشکردن لە دەرەوەی ئەم کۆمپیوتەرە."
-	],
-	"Set how much the model thinks in this chat": [
-		"ڕێکخستنی ئاستی بیرکردنەوەی مۆدێلەکە لەم چاتەدا"
-	],
-	"Setting up WordPress…": [
-		"ئامادەکردنی وۆردپرێس…"
-	],
-	"Setting up your workspace…": [
-		"ئامادەکردنی شوێنی کارەکەت…"
-	],
 	"Share a preview or publish your site": [
 		"پێشبینینێک هاوبەش بکە یان ماڵپەڕەکەت بڵاو بکەرەوە"
-	],
-	"Share a temporary preview link.": [
-		"بەستەرێکی پێشبینینی کاتی هاوبەش بکە."
-	],
-	"Sign in to create a preview link.": [
-		"بچۆ ژوورەوە بۆ دروستکردنی بەستەری پێشبینین."
 	],
 	"Sign in with Grok": [
 		"چوونەژوورەوە بە (Grok)"
@@ -829,47 +423,8 @@
 	"Sign in with WordPress.com": [
 		"چوونەژوورەوە بە (WordPress.com)"
 	],
-	"Sign in with an eligible Grok account or use an xAI API key.": [
-		"بە هەژمارێکی گونجاوی (Grok) بچۆ ژوورەوە یان کلیلی (API)ـی (xAI) بەکاربهێنە."
-	],
-	"Sign out": [
-		"چوونەدەرەوە"
-	],
-	"Site files left on disk": [
-		"پەڕگەکانی ماڵپەڕ کە لەسەر دیسک ماونەتەوە"
-	],
 	"Site imported, but the WordPress server failed to start: %s": [
 		"ماڵپەڕەکە هاوردە کرا، بەڵام دەستپێکردنی ڕاژەکاری وۆردپرێس شکستی هێنا: %s"
-	],
-	"Some destinations could not be loaded": [
-		"هەندێک مەبەست نەتوانران بار بکرێن"
-	],
-	"Spacefast is still applying the visibility change. Check access on Spacefast.": [
-		"(Spacefast) هێشتا گۆڕانکاریی دەرکەوتن جێبەجێ دەکات. دەستگەیشتن لەسەر (Spacefast) بپشکنە."
-	],
-	"Start signing in with Grok again.": [
-		"دووبارە دەست بە چوونەژوورەوە بە (Grok) بکەرەوە."
-	],
-	"Start signing in with OpenRouter again.": [
-		"دووبارە دەست بە چوونەژوورەوە بە (OpenRouter) بکەرەوە."
-	],
-	"Start your model server with at least one model, then enter the address it listens on. Studio offers the models it serves.": [
-		"ڕاژەکاری مۆدێلەکەت بە لایەنی کەمەوە یەک مۆدێلەوە دەستپێبکە، پاشان ئەو ناونیشانە بنووسە کە گوێی لێدەگرێت. ستۆدیۆ ئەو مۆدێلانەی ڕاژەکارەکە پێشکەشیان دەکات دەخاتە بەردەستت."
-	],
-	"Stop a site to start another.": [
-		"ماڵپەڕێک ڕابگرە بۆ دەستپێکردنی یەکێکی تر."
-	],
-	"Studio Cloud": [
-		"ستۆدیۆ کلاود"
-	],
-	"Studio Code sets how much %s thinks.": [
-		"ستۆدیۆ کۆد ئاستی بیرکردنەوەی %s ڕێکدەخات."
-	],
-	"Studio can’t run your sites because one of its files was removed, often by antivirus software. Reinstall WordPress Studio to restore it. If it happens again, allow WordPress Studio in your antivirus settings.": [
-		"ستۆدیۆ ناتوانێت ماڵپەڕەکانت کارپێبکات چونکە یەکێک لە پەڕگەکانی لابراوە، زۆرجار لەلایەن نەرمەکاڵای دژە ڤایرۆسەوە. وۆردپرێس ستۆدیۆ دووبارە دابمەزرێنەوە بۆ گەڕاندنەوەی. ئەگەر دووبارە ڕوویدایەوە، لە ڕێکخستنەکانی دژە ڤایرۆسەکەتدا ڕێگە بە وۆردپرێس ستۆدیۆ بدە."
-	],
-	"Studio can’t tell whether anyone edited %s. Updating the preview will replace it with your local site.": [
-		"ستۆدیۆ ناتوانێت بزانێت ئایا کەسێک دەستکاریی %s کردووە. بەڕۆژکردنەوەی پێشبینینەکە بە ماڵپەڕە خۆماڵییەکەت دەیگۆڕێت."
 	],
 	"Taxonomist": [
 		"پۆلێنکار"
@@ -877,44 +432,14 @@
 	"Team": [
 		"تیم"
 	],
-	"The Grok sign-in expired. Try again.": [
-		"چوونەژوورەوە بە (Grok) بەسەرچوو. دووبارە هەوڵ بدەرەوە."
-	],
-	"The context %s runs with is too small for Studio Code. Raise its context length in your server’s settings.": [
-		"ئەو کۆنتێکستەی %s پێی کاردەکات بۆ ستۆدیۆ کۆد زۆر بچووکە. درێژیی کۆنتێکستەکەی لە ڕێکخستنەکانی ڕاژەکارەکەتدا زیاد بکە."
-	],
-	"The full WordPress, with a domain.": [
-		"وۆردپرێسی تەواو، لەگەڵ دۆمەینێک."
-	],
-	"The local server at %s isn’t answering. Start it, then send your message again.": [
-		"ڕاژەکارە خۆماڵییەکەی %s وەڵام ناداتەوە. دەستی پێبکە، پاشان پەیامەکەت دووبارە بنێرەوە."
-	],
-	"The local server has no chat model yet. Add one to your server, then connect again.": [
-		"ڕاژەکارە خۆماڵییەکە هێشتا هیچ مۆدێلێکی چاتی نییە. یەکێک بۆ ڕاژەکارەکەت زیاد بکە، پاشان دووبارە پەیوەست بکەرەوە."
-	],
-	"The local server refused the API key. Check the key, and connect again.": [
-		"ڕاژەکارە خۆماڵییەکە کلیلی (API)ـی ڕەت کردەوە. کلیلەکە بپشکنە، و دووبارە پەیوەست بکەرەوە."
-	],
 	"The requested site is unavailable.": [
 		"ماڵپەڕی داواکراو بەردەست نییە."
-	],
-	"The site files could not be moved to trash. Delete them yourself: %s": [
-		"نەتوانرا پەڕگەکانی ماڵپەڕ بگوازرێنەوە بۆ تەنەکەی خۆڵ. خۆت بیانسڕەوە: %s"
-	],
-	"The site requested for this pull is unavailable.": [
-		"ئەو ماڵپەڕەی بۆ ئەم ڕاکێشانە داواکراوە بەردەست نییە."
 	],
 	"The transfer could not be completed. Please try again.": [
 		"نەتوانرا گواستنەوەکە تەواو بکرێت. تکایە دووبارە هەوڵ بدەرەوە."
 	],
-	"The visibility change could not be applied. Check access on Spacefast.": [
-		"نەتوانرا گۆڕانکاریی دەرکەوتن جێبەجێ بکرێت. دەستگەیشتن لەسەر (Spacefast) بپشکنە."
-	],
 	"Themes": [
 		"ڕووکارەکان"
-	],
-	"Thinking": [
-		"بیرکردنەوە"
 	],
 	"Thinking: %s": [
 		"بیرکردنەوە: %s"
@@ -925,65 +450,20 @@
 	"Thinks briefly": [
 		"بە کورتی بیر دەکاتەوە"
 	],
-	"Thinks longest, slowest": [
-		"زۆرترین کات بیر دەکاتەوە، هێواشترین"
-	],
-	"This API key is blocked or disabled. Check it in the xAI Console.": [
-		"ئەم کلیلی (API)ـیە بلۆک کراوە یان ناچالاکە. لە (xAI Console) بیپشکنە."
-	],
-	"This Grok account has no credits left. Add credits or get SuperGrok on grok.com.": [
-		"ئەم هەژمارەی (Grok) هیچ یەکەیەکی نەماوە. یەکە زیاد بکە یان (SuperGrok) لە grok.com وەربگرە."
-	],
-	"This destination cannot create a site from this panel yet.": [
-		"ئەم مەبەستە هێشتا ناتوانێت لەم پانێڵەوە ماڵپەڕ دروست بکات."
-	],
-	"This needs about %1$s GB of storage and your plan has %2$s GB left. Delete sites you no longer need, then try again.": [
-		"ئەمە نزیکەی %1$s گێگابایت شوێنی هەڵگرتنی پێویستە و پلانەکەت %2$s گێگابایتی ماوە. ئەو ماڵپەڕانە بسڕەوە کە چیتر پێویستت پێیان نییە، پاشان دووبارە هەوڵ بدەرەوە."
-	],
-	"This preview site can’t be made live: it was bought, ended or deleted, or it shows changes to a live site.": [
-		"ئەم ماڵپەڕی پێشبینینە ناتوانرێت بکرێت بە ڕاستەوخۆ: کڕدراوە، کۆتایی هاتووە یان سڕاوەتەوە، یان گۆڕانکارییەکانی ماڵپەڕێکی ڕاستەوخۆ پیشان دەدات."
-	],
 	"This provider doesn’t make previews.": [
 		"ئەم دابینکەرە پێشبینین دروست ناکات."
-	],
-	"This replaces the selected parts of your local site with what’s on %s. Any local changes in those parts will be lost.": [
-		"ئەمە بەشە هەڵبژێردراوەکانی ماڵپەڕە خۆماڵییەکەت بەوەی لەسەر %s هەیە دەگۆڕێت. هەر گۆڕانکارییەکی خۆماڵی لەو بەشانەدا لەدەست دەچێت."
-	],
-	"This replaces your local site with the preview. Any local changes will be lost.": [
-		"ئەمە ماڵپەڕە خۆماڵییەکەت بە پێشبینینەکە دەگۆڕێت. هەر گۆڕانکارییەکی خۆماڵی لەدەست دەچێت."
 	],
 	"This website has been deleted. Choose another website.": [
 		"ئەم ماڵپەڕە سڕاوەتەوە. ماڵپەڕێکی تر هەڵبژێرە."
 	],
-	"This website needs a hosting plan that supports pulling into WordPress Studio.": [
-		"ئەم ماڵپەڕە پێویستی بە پلانێکی خانەخوێیە کە پاڵپشتیی ڕاکێشان بۆ ناو وۆردپرێس ستۆدیۆ بکات."
-	],
-	"This xAI account has no credits left. Add credits in the xAI Console.": [
-		"ئەم هەژمارەی (xAI) هیچ یەکەیەکی نەماوە. لە (xAI Console) یەکە زیاد بکە."
-	],
 	"Token is required": [
 		"تۆکن پێویستە"
-	],
-	"Try again to see where this WordPress is already connected.": [
-		"دووبارە هەوڵ بدەرەوە بۆ بینینی ئەوەی ئەم وۆردپرێسە پێشتر بە کوێ پەیوەست کراوە."
-	],
-	"Twice the CPU for faster builds": [
-		"دوو هێندەی پرۆسێسەر بۆ دروستکردنی خێراتر"
 	],
 	"Unexpected response from server while checking backup status": [
 		"وەڵامێکی چاوەڕواننەکراو لە ڕاژەکارەوە لە کاتی پشکنینی دۆخی پاڵپشت"
 	],
 	"Unknown level %1$s. Choose one of: %2$s.": [
 		"ئاستی نەناسراو %1$s. یەکێک لەمانە هەڵبژێرە: %2$s."
-	],
-	"Unlimited sites, 5 running at once": [
-		"ماڵپەڕی بێسنوور، 5 لە یەک کاتدا کاردەکەن"
-	],
-	"Unsupported visibility setting.": [
-		"ڕێکخستنی دەرکەوتنی پاڵپشتینەکراو."
-	],
-	"Up to 10 sites, 2 running at once": [
-		"تا 10 ماڵپەڕ، 2 لە یەک کاتدا کاردەکەن"
 	],
 	"Update %s": [
 		"بەڕۆژکردنەوەی %s"
@@ -997,44 +477,20 @@
 	"Update all plugins": [
 		"بەڕۆژکردنەوەی هەموو پێوەکراوەکان"
 	],
-	"Update local site from %s?": [
-		"ماڵپەڕی خۆماڵی لە %s بەڕۆژ بکرێتەوە؟"
-	],
 	"Update plugin": [
 		"بەڕۆژکردنەوەی پێوەکراو"
 	],
 	"Update site title": [
 		"بەڕۆژکردنەوەی ناونیشانی ماڵپەڕ"
 	],
-	"Update the Studio CLI with `%s`.": [
-		"(Studio CLI) بە `%s` بەڕۆژ بکەرەوە."
-	],
 	"Update user": [
 		"بەڕۆژکردنەوەی بەکارهێنەر"
-	],
-	"Update…": [
-		"بەڕۆژکردنەوە…"
-	],
-	"Updating %s will replace any edits made on the preview with your local copy.": [
-		"بەڕۆژکردنەوەی %s هەر دەستکارییەک کە لەسەر پێشبینینەکە کراوە بە ڕوونووسە خۆماڵییەکەت دەگۆڕێت."
 	],
 	"Updating your workspace…": [
 		"بەڕۆژکردنەوەی شوێنی کارەکەت…"
 	],
-	"Uploads": [
-		"بارکراوەکان"
-	],
-	"Usage is billed through your xAI account.": [
-		"پارەی بەکارهێنان لە ڕێگەی هەژماری (xAI)ـەکەتەوە دەدرێت."
-	],
 	"Usage is paid with your OpenRouter credits.": [
 		"پارەی بەکارهێنان بە یەکەکانی (OpenRouter)ـەکەت دەدرێت."
-	],
-	"Use models from many labs with your OpenRouter credits.": [
-		"مۆدێلی چەندین تاقیگە بە یەکەکانی (OpenRouter)ـەکەت بەکاربهێنە."
-	],
-	"Use the models a server you run serves, such as on this computer.": [
-		"ئەو مۆدێلانە بەکاربهێنە کە ڕاژەکارێکی خۆت پێشکەشیان دەکات، بۆ نموونە لەسەر ئەم کۆمپیوتەرە."
 	],
 	"Using Grok plan": [
 		"بەکارهێنانی پلانی (Grok)"
@@ -1045,68 +501,17 @@
 	"View versions": [
 		"بینینی وەشانەکان"
 	],
-	"Visibility could not be confirmed. Check access on Spacefast.": [
-		"نەتوانرا دەرکەوتن پشتڕاست بکرێتەوە. دەستگەیشتن لەسەر (Spacefast) بپشکنە."
-	],
-	"Visibility settings are only available for WordPress.com sites.": [
-		"ڕێکخستنەکانی دەرکەوتن تەنیا بۆ ماڵپەڕەکانی (WordPress.com) بەردەستن."
-	],
-	"Visitors see a coming soon page": [
-		"سەردانکەران پەڕەی «بەم زووانە» دەبینن"
-	],
 	"Visual Annotations": [
 		"یاداشتە بینراوەکان"
-	],
-	"WP admin": [
-		"بەڕێوەبەری وۆردپرێس"
-	],
-	"What to replace": [
-		"چی بگۆڕدرێت"
-	],
-	"Where your server listens, as it prints it when it starts.": [
-		"ئەو ناونیشانەی ڕاژەکارەکەت گوێی لێدەگرێت، وەک لە کاتی دەستپێکردندا پیشانی دەدات."
-	],
-	"Who can view": [
-		"کێ دەتوانێت ببینێت"
-	],
-	"WordPress Studio could not read its settings in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.": [
-		"وۆردپرێس ستۆدیۆ نەیتوانی ڕێکخستنەکانی لە %s بخوێنێتەوە. وۆردپرێس ستۆدیۆ دووبارە دەستپێبکەرەوە بۆ ئەوەی دووبارە هەوڵ بدەیتەوە. ئەگەر ئەمە بەردەوام ڕوویدا، بە وردەکارییەکانی خوارەوە پەیوەندی بە تیمی پاڵپشتییەوە بکە."
-	],
-	"WordPress Studio is missing some of its files": [
-		"هەندێک لە پەڕگەکانی وۆردپرێس ستۆدیۆ ونن"
-	],
-	"WordPress Studio is serving at:": [
-		"وۆردپرێس ستۆدیۆ لێرە پێشکەش دەکرێت:"
-	],
-	"WordPress set up": [
-		"وۆردپرێس ئامادە کرا"
-	],
-	"WordPress.com hasn’t confirmed the visibility change yet. Please try again.": [
-		"(WordPress.com) هێشتا گۆڕانکاریی دەرکەوتنی پشتڕاست نەکردووەتەوە. تکایە دووبارە هەوڵ بدەرەوە."
 	],
 	"Yearly, save 20%": [
 		"ساڵانە، 20% پاشەکەوت بکە"
 	],
-	"You reached your Grok plan’s usage limit. Check your usage on grok.com.": [
-		"گەیشتیتە سنووری بەکارهێنانی پلانی (Grok)ـەکەت. بەکارهێنانەکەت لە grok.com بپشکنە."
-	],
 	"Your ChatGPT plan can’t be used in WordPress Studio.": [
 		"پلانی (ChatGPT)ـەکەت ناتوانرێت لە وۆردپرێس ستۆدیۆدا بەکاربهێنرێت."
 	],
-	"Your Grok or X plan can’t be used in WordPress Studio.": [
-		"پلانی (Grok) یان (X)ـەکەت ناتوانرێت لە وۆردپرێس ستۆدیۆدا بەکاربهێنرێت."
-	],
-	"Your Grok sign-in no longer works. Connect xAI again in Settings.": [
-		"چوونەژوورەوەی (Grok)ـەکەت چیتر کار ناکات. لە ڕێکخستنەکان دووبارە (xAI) پەیوەست بکەرەوە."
-	],
-	"Your OpenRouter credits ran out, or this key reached its credit limit. Add credits on openrouter.ai.": [
-		"یەکەکانی (OpenRouter)ـەکەت تەواو بوون، یان ئەم کلیلە گەیشتووەتە سنووری یەکەکانی. لە openrouter.ai یەکە زیاد بکە."
-	],
 	"Your Studio, in the cloud.": [
 		"ستۆدیۆکەت، لە هەوردا."
-	],
-	"Your WordPress exceeds the %s GB publishing limit.": [
-		"وۆردپرێسەکەت لە سنووری بڵاوکردنەوەی %s گێگابایت تێدەپەڕێت."
 	],
 	"Your WordPress is public": [
 		"وۆردپرێسەکەت گشتییە"
@@ -1114,39 +519,14 @@
 	"Your local server refused the request: %s.": [
 		"ڕاژەکارە خۆماڵییەکەت داواکارییەکەی ڕەت کردەوە: %s."
 	],
-	"Your plan allows %d site. Delete a site to create a new one.": [
-		"پلانەکەت ڕێگە بە یەک ماڵپەڕ دەدات. ماڵپەڕێک بسڕەوە بۆ دروستکردنی ماڵپەڕێکی نوێ.",
-		"پلانەکەت ڕێگە بە %d ماڵپەڕ دەدات. ماڵپەڕێک بسڕەوە بۆ دروستکردنی ماڵپەڕێکی نوێ."
-	],
 	"Your plan has ended.": [
 		"پلانەکەت کۆتایی هاتووە."
-	],
-	"Your selected files are unavailable. Retry the backup check or choose another option to continue.": [
-		"پەڕگە هەڵبژێردراوەکانت بەردەست نین. پشکنینی پاڵپشت دووبارە بکەرەوە یان هەڵبژاردنێکی تر هەڵبژێرە بۆ بەردەوامبوون."
 	],
 	"Your server’s setting": [
 		"ڕێکخستنی ڕاژەکارەکەت"
 	],
-	"Your settings were saved by a newer version of the Studio CLI. Update WordPress Studio to keep using them.": [
-		"ڕێکخستنەکانت لەلایەن وەشانێکی نوێتری (Studio CLI)ـەوە پاشەکەوت کراون. وۆردپرێس ستۆدیۆ بەڕۆژ بکەرەوە بۆ ئەوەی بەردەوام بیت لە بەکارهێنانیان."
-	],
 	"Your site is ready to publish": [
 		"ماڵپەڕەکەت ئامادەیە بۆ بڵاوکردنەوە"
-	],
-	"Your sites and Studio Code on a machine of your own, from any browser. Sign in with your WordPress.com account to open your workspace.": [
-		"ماڵپەڕەکانت و ستۆدیۆ کۆد لەسەر ئامێرێکی تایبەت بە خۆت، لە هەر وێبگەڕێکەوە. بە هەژماری (WordPress.com)ـەکەت بچۆ ژوورەوە بۆ کردنەوەی شوێنی کارەکەت."
-	],
-	"Your sites are kept until %s. Renew to pick up where you left off, or choose a plan below.": [
-		"ماڵپەڕەکانت تا %s دەپارێزرێن. نوێی بکەرەوە بۆ ئەوەی لەو شوێنەوە بەردەوام بیت کە وەستایت، یان پلانێک لە خوارەوە هەڵبژێرە."
-	],
-	"Your team and people you give access to": [
-		"تیمەکەت و ئەو کەسانەی دەستگەیشتنیان پێدەدەیت"
-	],
-	"Your team only allows restricted sites.": [
-		"تیمەکەت تەنیا ڕێگە بە ماڵپەڕی سنووردار دەدات."
-	],
-	"Your workspace runs on a Studio Cloud plan. Checkout opens on WordPress.com, and your workspace is ready about a minute after you pay.": [
-		"شوێنی کارەکەت لەسەر پلانێکی ستۆدیۆ کلاود کاردەکات. پارەدان لەسەر (WordPress.com) دەکرێتەوە، و شوێنی کارەکەت نزیکەی خولەکێک دوای پارەدان ئامادە دەبێت."
 	],
 	"database": [
 		"بنکەدراوە"
@@ -1180,17 +560,5 @@
 	],
 	"uploads": [
 		"بارکراوەکان"
-	],
-	"xAI API key": [
-		"کلیلی (API)ـی (xAI)"
-	],
-	"xAI refused the API key. Check its permissions and credits in the xAI Console.": [
-		"(xAI) کلیلی (API)ـی ڕەت کردەوە. مۆڵەت و یەکەکانی لە (xAI Console) بپشکنە."
-	],
-	"xAI rejected the API key. Connect xAI again in Settings.": [
-		"(xAI) کلیلی (API)ـی ڕەتکردەوە. لە ڕێکخستنەکان دووبارە (xAI) پەیوەست بکەرەوە."
-	],
-	"xAI rejected this API key. Check the key and try again.": [
-		"(xAI) ئەم کلیلی (API)ـیەی ڕەتکردەوە. کلیلەکە بپشکنە و دووبارە هەوڵ بدەرەوە."
 	]
 }

@@ -160,14 +160,14 @@ describe( 'local-llm ai', () => {
 		}
 	);
 
-	it( 'offers the picked models that call tools first, and at least one', () => {
+	it( 'offers the picked models that call tools first, and at least one', async () => {
 		const picked = [
 			{ id: 'local-llm/gemma3:4b', label: 'gemma3:4b', supportsImages: true },
 			{ id: 'local-llm/qwen3:0.6b', label: 'qwen3:0.6b', supportsImages: false, recommended: true },
 		] as const;
 		const current = config( 'http://localhost:1234/v1' );
 
-		expect( localLlmAi.selectModels!( current, [ ...picked ] ).models ).toEqual( [
+		expect( ( await localLlmAi.selectModels!( current, [ ...picked ] ) ).models ).toEqual( [
 			{ name: 'qwen3:0.6b', images: false },
 			{ name: 'gemma3:4b', images: true },
 		] );

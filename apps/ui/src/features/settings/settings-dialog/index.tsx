@@ -24,7 +24,7 @@ import {
 	VisuallyHidden,
 } from '@studio/ds';
 import { XIcon } from '@studio/ds/icons';
-import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
@@ -44,6 +44,7 @@ import {
 	searchSettings,
 } from '@/data/settings-sections';
 import { SpacefastConnectDialog } from '@/features/account';
+import { pendingComposerDraftSlot } from '@/features/composer';
 import {
 	ProvidersPanel,
 	AppearanceSettings,
@@ -60,8 +61,10 @@ import { SiteSettingsForm } from '@/features/settings/site-settings-view';
 import { readLastVisited } from '@/features/sidebar';
 import { SettingsDialogContext, SettingsLinkContext } from './context';
 import { SiteAgentFiles } from './site-agent-files';
+import { SiteSkillsLibrary } from './site-skills-library';
 import styles from './style.module.css';
 import type { SiteSettingsSectionId } from './context';
+import type { SkillDraft } from '@/data/core';
 import type { SearchResult, SettingsScope, SettingsSectionId } from '@/data/settings-sections';
 import type { SpacefastConnectControl } from '@/features/settings/settings-view/spacefast-provider-row';
 
@@ -72,11 +75,13 @@ function StudioSection( {
 	onNavigate,
 	hasSite,
 	spacefast,
+	onCreateSkillInChat,
 }: {
 	id: SettingsSectionId;
 	onNavigate: ( section: SettingsSectionId ) => void;
 	hasSite: boolean;
 	spacefast: SpacefastConnectControl;
+	onCreateSkillInChat?: ( draft: SkillDraft ) => void;
 } ) {
 	switch ( id ) {
 		case 'appearance':
@@ -93,7 +98,10 @@ function StudioSection( {
 			return <UsagePanel />;
 		case 'skills':
 			return (
-				<SkillsPanel onManageSite={ hasSite ? () => onNavigate( 'site-skills' ) : undefined } />
+				<SkillsPanel
+					onManageSite={ hasSite ? () => onNavigate( 'site-skills' ) : undefined }
+					onCreateInChat={ onCreateSkillInChat }
+				/>
 			);
 		case 'instructions':
 			return (
@@ -154,7 +162,6 @@ function focusControl( row: HTMLElement ) {
  * than the current one, and `settingsFocus` a setting, by link id or title.
  */
 export function SettingsDialog() {
-	const router = useRouter();
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { settings, settingsSite, settingsFocus } = useSearch( { strict: false } ) as {
@@ -170,7 +177,7 @@ export function SettingsDialog() {
 		setShown( settings );
 	}
 	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
-	const { localMachine, loopbackSignIn } = connector.capabilities;
+	const { localMachine, loopbackSignIn, globalSkills } = connector.capabilities;
 	const linkedSection =
 		settings === 'ai' || ( settings === 'mcp' && ! localMachine )
 			? 'providers'
@@ -281,10 +288,6 @@ export function SettingsDialog() {
 	};
 
 	const closeNow = () => {
-		if ( router.history.canGoBack() ) {
-			router.history.back();
-			return;
-		}
 		void navigate( {
 			to: '.',
 			state: true,
@@ -376,11 +379,27 @@ export function SettingsDialog() {
 		};
 	}, [ target, section, content, spacefastOpen ] );
 
+	// Leaves Settings for a new chat on the site, with the command and what the user typed
+	// so far as the draft: the agent asks the rest and saves the skill.
+	const createSkillInChat = site
+		? ( draft: SkillDraft ) => {
+				const request = [ draft.name.trim(), draft.description.trim() ]
+					.filter( Boolean )
+					.join( ': ' );
+				pendingComposerDraftSlot.set( {
+					draftKey: `site:${ site.id }`,
+					text: `/create-skill ${ request }`,
+				} );
+				void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+		  }
+		: undefined;
+
 	const results = searchSettings( query, scope, {
 		hasSite: !! site,
 		signedIn,
 		localMachine,
 		loopbackSignIn,
+		globalSkills,
 	} );
 	const searching = !! query.trim();
 	const open = ( result: SearchResult ) => {
@@ -389,7 +408,7 @@ export function SettingsDialog() {
 			setTarget( result.setting.id ?? result.setting.title );
 		}
 	};
-	const sections = getSections( scope, { signedIn, localMachine, loopbackSignIn } );
+	const sections = getSections( scope, { signedIn, localMachine, loopbackSignIn, globalSkills } );
 	const current = sections.find( ( entry ) => entry.id === section ) ?? sections[ 0 ];
 
 	const settingsDialog = (
@@ -555,6 +574,7 @@ export function SettingsDialog() {
 										id={ section }
 										onNavigate={ go }
 										hasSite={ !! site }
+										onCreateSkillInChat={ createSkillInChat }
 										spacefast={ {
 											isPending: spacefast.isPending,
 											onConnect: () => {
@@ -568,15 +588,19 @@ export function SettingsDialog() {
 							) : null }
 							{ site ? (
 								<>
-									{ scope === 'site' &&
-									( section === 'site-skills' || section === 'site-instructions' ) ? (
-										<SiteAgentFiles
-											key={ `${ site.id }-${ section }` }
+									{ scope === 'site' && section === 'site-skills' ? (
+										<SiteSkillsLibrary
+											key={ site.id }
 											site={ site }
-											kind={ section === 'site-skills' ? 'skills' : 'instructions' }
-											onManageAll={ () =>
-												go( section === 'site-skills' ? 'skills' : 'instructions' )
-											}
+											onManageAll={ () => go( 'skills' ) }
+											onCreateInChat={ createSkillInChat }
+										/>
+									) : null }
+									{ scope === 'site' && section === 'site-instructions' ? (
+										<SiteAgentFiles
+											key={ site.id }
+											site={ site }
+											onManageAll={ () => go( 'instructions' ) }
 										/>
 									) : null }
 									<div

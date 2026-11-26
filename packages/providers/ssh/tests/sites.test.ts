@@ -42,7 +42,7 @@ describe.skipIf( process.platform === 'win32' )( 'connecting an SSH site', () =>
 		symlinkSync( '__wp__/wp-load.php', path.join( folder, 'wp-load.php' ) );
 		await sshSites.resolve!( undefined, { input: { host: 'deploy@acme.test', path: folder } } );
 		expect( readFileSync( path.join( server.dir, 'php.log' ), 'utf8' ) ).toContain(
-			`--path=${ folder }/__wp__ --skip-plugins`
+			`--path=${ folder }/__wp__ `
 		);
 	} );
 

@@ -23,7 +23,7 @@ Use this skill before writing or editing page content, post content, templates, 
 - No custom class names on inner DOM elements. Put custom classes only on the outermost block wrapper via the block `className` attribute.
 - A visual treatment repeated across instances of one block type (cards, outline buttons, framed images) is a registered block style variation, not a shared bare class. Register it in the theme's functions.php — `register_block_style( 'core/group', array( 'name' => 'card', 'label' => 'Card' ) )` — apply it with `"className":"is-style-card"`, and style it in `style.css` via `.is-style-card`. Registered variations appear in the editor's Styles switcher, so users can apply or remove the treatment without touching CSS. Keep bare custom classNames for one-off sections.
 - Style buttons via `.wp-element-button` — the inner element WordPress applies the button's padding, background, and border to (shared by the button block and buttons from other blocks). A custom class on a button block sits on the `.wp-block-button` wrapper, so descend to `.your-class .wp-element-button`; never style the wrapper directly, or its padding stacks on top of the default and the button doubles in size.
-- No inline `style` attributes or block `style` attributes for styling. Use `className` plus the theme's `style.css`.
+- Style a block through its own settings first: preset slugs (`"backgroundColor"`, `"fontSize"`, below) and a block `style` attribute whose values are presets, such as `"style":{"spacing":{"padding":{"top":"var:preset|spacing|40"}}}`, serialized on the wrapper as above. These stay editable in the block's sidebar. A `className` plus a rule in the theme's `style.css` is for a treatment those settings can't express; remove any class that has no rule behind it.
 - Prefer theme palette colors over hardcoded hex. Apply block colors with palette **slug** attributes — `{"backgroundColor":"accent-1","textColor":"base"}` — and in `style.css` reference palette colors as `var(--wp--preset--color--<slug>)`. Discover the available slugs from the active theme's `theme.json` `settings.color.palette` (for a theme you are building, the palette you defined there); when you want a color the palette lacks, prefer adding it to the palette and referencing its slug. Keeping colors on the palette keeps sections in sync with Global Styles, theme switching, and light/dark variations. A raw hex value is fine for a deliberate one-off, but it should be the exception, not the default.
 - Prefer theme font-size presets over raw values, the same way as palette colors. Apply text sizes with slug attributes — `{"fontSize":"large"}` — and in `style.css` reference them as `var(--wp--preset--font-size--<slug>)`. Discover the slugs from the active theme's `theme.json` `settings.typography.fontSizes`; when a size the scale lacks recurs, add it to the scale (e.g. an `x-small` preset) and reference its slug. A raw size is fine for a deliberate one-off, but a value repeated across blocks belongs in the scale.
 - Use `core/spacer` for empty spacing elements, not empty `core/group` blocks.
@@ -48,8 +48,8 @@ The common failures are a hero or banner that was intended to be full-width but 
 
 WordPress supplies horizontal padding in exactly one place: the root gutter (`styles.spacing.padding`) lands on full-width constrained groups via `.has-global-padding`, and core zeroes it again on constrained groups nested inside them. Every other box gets none — a full-width section with a `default`, `flex`, or `grid` layout, and any group, column, or cover that paints its own background, border, or shadow (a card, a callout, a tinted panel). Block themes do not load core's default `.has-background` padding either. Text sitting flush against its own background, border, or the viewport edge is the most common tell of an unfinished section, so:
 
-- Whenever a block paints its own box, give its class horizontal padding in `style.css` — `.is-style-card { padding: 1.5rem; }`.
-- Give a non-constrained full-width section the same gutter as the rest of the page — `padding-inline: var(--wp--style--root--padding-left);` — or place its text inside a constrained inner group, which keeps the gutter when it sits directly in a full-width `default` group.
+- Whenever a block paints its own box, give it horizontal padding through its spacing setting — `"style":{"spacing":{"padding":{"left":"var:preset|spacing|40","right":"var:preset|spacing|40"}}}` — or, for a registered block style variation, in its rule in `style.css` — `.is-style-card { padding: 1.5rem; }`.
+- Give a non-constrained full-width section the same gutter as the rest of the page: place its text inside a constrained inner group, which keeps the gutter when it sits directly in a full-width `default` group, or set its left and right padding to `var(--wp--style--root--padding-left)` in its spacing setting.
 
 ### Shrink-Wrapped Labels (Eyebrows, Badges, Pills)
 
@@ -128,14 +128,12 @@ For `style.css`, start with custom properties and anchor comments only:
 
 /* === reset === */
 /* === typography === */
-/* === hero === */
-/* === sections === */
-/* === cta === */
-/* === footer === */
+/* === block styles === */
+/* === effects === */
 /* === responsive === */
 ```
 
-Keep the skeleton under 2KB. Fill the anchors with as few `Edit` calls as the payload limit allows: one entry in `edits[]` per anchor, its `oldText` the anchor line and its `newText` the anchor plus the new styles, several entries per call and under ~8KB of new text per call. A typical `style.css` takes two or three such calls, never one call per anchor. When filling section styles, never set `display` or width on a class used as a block `className` — alignment and shrink-wrapping belong in block markup (see Shrink-Wrapped Labels).
+Keep the skeleton under 2KB. Fill the anchors with as few `Edit` calls as the payload limit allows: one entry in `edits[]` per anchor, its `oldText` the anchor line and its `newText` the anchor plus the new styles, several entries per call and under ~8KB of new text per call. A typical `style.css` takes two or three such calls, never one call per anchor. A section's padding and colors are block settings, not rules here; `style.css` holds block style variations, effects block settings can't express such as animations, and responsive overrides. Never set `display` or width on a class used as a block `className` — alignment and shrink-wrapping belong in block markup (see Shrink-Wrapped Labels).
 
 When `scaffold_theme` was used, do not `Write` over the scaffolded `style.css`; it already contains the required theme header. Use `Edit` to append the `:root` block and anchor comments below the existing content.
 

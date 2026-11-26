@@ -22,9 +22,12 @@ import type { ImportResponse } from './schemas';
 import type { SyncSite } from './site';
 
 const POLL_INTERVAL_MS = 3000;
-// Remote imports and backups can sit on one progress value for a long time on
-// large sites, and the remote reports its own timeouts as a `failed` status.
+// Remote backups can sit on one progress value for a long time on large sites.
 const MAX_STALLED_POLLS = ( 60 * 60 * 1000 ) / POLL_INTERVAL_MS;
+// The live site's import keeps one progress value for hours while it restores a large site's
+// files, and it fails the import itself after about 6 hours ("Import timed out"). This only
+// covers a status that never resolves.
+const IMPORT_DEADLINE_MS = 7 * 60 * 60 * 1000;
 
 function requireToken( config: WpcomConfig | undefined ): string {
 	if ( ! config?.token ) {
@@ -96,8 +99,8 @@ async function followImport(
 	onStatus: ( status: PushStatus ) => void,
 	signal?: AbortSignal
 ): Promise< ImportResponse > {
-	let lastReport = '';
-	for ( let stalledPolls = 0; stalledPolls < MAX_STALLED_POLLS;  ) {
+	const deadline = Date.now() + IMPORT_DEADLINE_MS;
+	while ( Date.now() < deadline ) {
 		signal?.throwIfAborted();
 		const status = await step( __( 'Failed to check import status' ), 'remote_import', () =>
 			pollImportStatus( token, site.id )
@@ -115,9 +118,6 @@ async function followImport(
 		// Reported on every poll, even unchanged, so a Studio app that restarts or reloads while
 		// the live site updates shows the push again.
 		onStatus( report );
-		const key = `${ report.phase }:${ Math.round( report.progress ?? 0 ) }`;
-		stalledPolls = key === lastReport ? stalledPolls + 1 : 0;
-		lastReport = key;
 
 		await sleep( POLL_INTERVAL_MS, signal );
 	}
@@ -125,7 +125,7 @@ async function followImport(
 	throw new RemoteSiteError(
 		sprintf(
 			__(
-				'%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.'
+				'%s is taking longer than expected to update, but the update may still be running. Check the live site before pushing again.'
 			),
 			site.name
 		),

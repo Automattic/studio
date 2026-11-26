@@ -300,9 +300,9 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 		paidDefaultModel?: AiModelId;
 		// Whether the account generates images; without it, the provider doesn't.
 		generatesImages?( config: Config ): boolean;
-		// The provider routes to more models than it lists: the account's owner picks which to
-		// offer from its catalog, under ids made of the provider's id, a slash and its own name.
-		catalog?: boolean;
+		// The provider runs more models than it lists: the account's owner picks which to offer
+		// from its catalog, whose ids start with one of `prefixes`, such as `openrouter/`.
+		catalog?: { prefixes: readonly string[] };
 		// The models run on a server the user runs: chats on them need no internet, and analytics
 		// never name them, since the user does.
 		local?: boolean;
@@ -335,6 +335,7 @@ export interface GenerateImageRequest {
 
 export interface GenerateImageResult {
 	ok: boolean;
+	// A WebP.
 	bytes?: Uint8Array;
 	error?: string;
 	// Rejected by a safety filter; rewriting the prompt may get it through.
@@ -551,7 +552,7 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 		// The catalog of a provider that has one (`Provider.ai.catalog`).
 		listModels?( config: Config | undefined ): Promise< CatalogModel[] >;
 		// The config that offers these models of the catalog, as `listModels` returned them.
-		selectModels?( config: Config, models: CatalogModel[] ): Config;
+		selectModels?( config: Config, models: CatalogModel[] ): Config | Promise< Config >;
 		// Results keep the requests' order; a failure never aborts the rest.
 		generateImages?(
 			config: Config | undefined,

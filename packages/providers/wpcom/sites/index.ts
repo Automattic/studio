@@ -28,6 +28,9 @@ const MAX_STALLED_POLLS = ( 60 * 60 * 1000 ) / POLL_INTERVAL_MS;
 // files, and it fails the import itself after about 6 hours ("Import timed out"). This only
 // covers a status that never resolves.
 const IMPORT_DEADLINE_MS = 7 * 60 * 60 * 1000;
+// The live site keeps importing or backing up while this computer is offline or WordPress.com has
+// a short outage, so a status check that fails that way is tried again for this long.
+const MAX_FAILED_POLLS = ( 60 * 1000 ) / POLL_INTERVAL_MS;
 
 function requireToken( config: WpcomConfig | undefined ): string {
 	if ( ! config?.token ) {
@@ -78,6 +81,38 @@ function sleep( ms: number, signal?: AbortSignal ): Promise< void > {
 	} );
 }
 
+// A request that never reached WordPress.com has no HTTP status, only the network error's code,
+// such as ENOTFOUND.
+function isTransient( error: unknown ): boolean {
+	if ( ! ( error instanceof Error ) ) {
+		return false;
+	}
+	if ( 'statusCode' in error ) {
+		const status = Number( error.statusCode );
+		return status === 429 || status >= 500;
+	}
+	return 'code' in error && typeof error.code === 'string';
+}
+
+// Like `step`, for a status check: tries a temporary failure again.
+async function pollStep< T >(
+	message: string,
+	code: string,
+	run: () => Promise< T >,
+	signal?: AbortSignal
+): Promise< T > {
+	for ( let failed = 1; ; failed++ ) {
+		try {
+			return await run();
+		} catch ( error ) {
+			if ( failed >= MAX_FAILED_POLLS || ! isTransient( error ) ) {
+				return step( message, code, () => Promise.reject( error ) );
+			}
+		}
+		await sleep( POLL_INTERVAL_MS, signal );
+	}
+}
+
 function getImportFailureMessage( response: Extract< ImportResponse, { status: 'failed' } > ) {
 	if ( /importing sql dump/i.test( response.error_data?.vp_restore_message ?? '' ) ) {
 		return __(
@@ -99,11 +134,21 @@ async function followImport(
 	onStatus: ( status: PushStatus ) => void,
 	signal?: AbortSignal
 ): Promise< ImportResponse > {
+	const lostTrack = sprintf(
+		// translators: %s: the name of a WordPress.com site
+		__(
+			'Studio lost track of the update to %s, but the update may still be running. Check the live site before pushing again.'
+		),
+		site.name
+	);
 	const deadline = Date.now() + IMPORT_DEADLINE_MS;
 	while ( Date.now() < deadline ) {
 		signal?.throwIfAborted();
-		const status = await step( __( 'Failed to check import status' ), 'remote_import', () =>
-			pollImportStatus( token, site.id )
+		const status = await pollStep(
+			lostTrack,
+			'remote_import',
+			() => pollImportStatus( token, site.id ),
+			signal
 		);
 		if ( status.status === 'failed' || status.status === 'finished' || ! status.success ) {
 			return status;
@@ -266,8 +311,11 @@ export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 			let lastPercent = -1;
 			for ( let stalledPolls = 0; stalledPolls < MAX_STALLED_POLLS;  ) {
 				signal?.throwIfAborted();
-				const status = await step( __( 'Failed to check backup status' ), 'remote_backup', () =>
-					pollBackupStatus( token, site.id, backupId )
+				const status = await pollStep(
+					__( 'Failed to check backup status' ),
+					'remote_backup',
+					() => pollBackupStatus( token, site.id, backupId ),
+					signal
 				);
 				if ( status.status === 'failed' ) {
 					throw new RemoteSiteError( __( 'Remote backup failed' ), 'remote_backup' );

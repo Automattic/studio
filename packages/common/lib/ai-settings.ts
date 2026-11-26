@@ -17,6 +17,7 @@ import {
 } from '@studio/providers';
 import { readConfig, updateConfig } from './config/store';
 import {
+	readFreshProviderConfig,
 	readProviderConfig,
 	readSelectedProvider,
 	writeProviderConfig,
@@ -147,7 +148,7 @@ export async function listProviderModels< Config >(
 	if ( ! listModels ) {
 		throw new Error( `${ getProvider( services.id ).label } has no models to pick from.` );
 	}
-	return listModels( ( await readProviderConfig( services.id ) ) as Config | undefined );
+	return listModels( await readFreshProviderConfig( services ) );
 }
 
 // Offers these models of the provider's catalog, as `listProviderModels` returned them.
@@ -156,12 +157,15 @@ export async function selectProviderModels< Config >(
 	models: CatalogModel[]
 ): Promise< AiSettings > {
 	const { id } = services;
-	const config = ( await readProviderConfig( id ) ) as Config | undefined;
+	const config = await readFreshProviderConfig( services );
 	const selectModels = services.ai?.selectModels;
 	if ( ! config || ! selectModels ) {
 		throw new ConnectError( `Connect ${ getProvider( id ).label } first.` );
 	}
-	await writeProviderConfig( id, selectModels( config, models ) as ProviderConfigs[ ProviderId ] );
+	await writeProviderConfig(
+		id,
+		( await selectModels( config, models ) ) as ProviderConfigs[ ProviderId ]
+	);
 	return readAiSettings();
 }
 

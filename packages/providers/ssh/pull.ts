@@ -32,18 +32,29 @@ function prepareScript(
 	const database = `mkdir "$dir/sql"
 studio_export "$dir/sql/database.sql" "$(studio_wp db tables --all-tables-with-prefix --format=csv)"
 echo sql >> "$dir/items"`;
+	// A folder the host links in, such as a plugin it manages, is sent as what it links to, which
+	// \`/.\` follows.
+	const studioList = `studio_list() { if [ -L "$1" ] && [ -d "$1" ]; then printf '%s/.\\n' "$1"; else printf '%s\\n' "$1"; fi >> items; }`;
 	const content = onlyPaths.length
-		? `for only in ${ onlyPaths.map( shellQuote ).join( ' ' ) }; do
-	[ ! -e "wp-content/$only" ] || printf '%s\\n' "wp-content/$only" >> items
+		? `${ studioList }
+for only in ${ onlyPaths.map( shellQuote ).join( ' ' ) }; do
+	[ ! -e "wp-content/$only" ] || studio_list "wp-content/$only"
 done`
-		: `for item in wp-content/*; do
+		: `${ studioList }
+for item in wp-content/*; do
 	case "\${item#wp-content/}" in
 		plugins) want=${ wants( 'plugins' ) } ;;
 		themes) want=${ wants( 'themes' ) } ;;
 		uploads) want=${ wants( 'uploads' ) } ;;
 		*) want=${ wants( 'contents' ) } ;;
 	esac
-	[ -z "$want" ] || [ ! -e "$item" ] || printf '%s\\n' "$item" >> items
+	[ -n "$want" ] && [ -e "$item" ] || continue
+	case "\${item#wp-content/}" in
+		plugins | themes) for entry in "$item"/* "$item"/.[!.]* "$item"/..?*; do
+			[ ! -e "$entry" ] || studio_list "$entry"
+		done ;;
+		*) studio_list "$item" ;;
+	esac
 done`;
 	return `set -e
 umask 077
@@ -71,7 +82,12 @@ trap 'exit 1' HUP INT TERM PIPE
 cd "$dir"
 [ -s items ] || { echo 'Error: There is nothing to pull.' >&2; exit 1; }
 if command -v tar >/dev/null 2>&1; then
-	set --
+	# Stores what a link was followed to under the link's name, with GNU tar's option or bsdtar's.
+	if tar --version 2>/dev/null | grep -q GNU; then
+		set -- --transform 's,/\\./,/,' --transform 's,/\\.$,,'
+	else
+		set -- -s ',/\\./,/,' -s ',/\\.$,,'
+	fi
 	while IFS= read -r item; do set -- "$@" "$item"; done < items
 	tar -cf - ${ EXCLUDED.map( ( pattern ) => `--exclude=${ shellQuote( pattern ) }` ).join(
 		' '

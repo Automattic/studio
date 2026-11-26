@@ -4,8 +4,10 @@ import {
 	existsSync,
 	mkdirSync,
 	readdirSync,
+	lstatSync,
 	readFileSync,
 	statSync,
+	symlinkSync,
 	writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
@@ -39,7 +41,7 @@ function write( file: string, content: string ) {
 describe.skipIf( process.platform === 'win32' )( 'pushing over SSH', () => {
 	const server = useFakeServer( FAKE_WP );
 
-	it( 'backs up, then replaces plugins whole, merges uploads, leaves caching drop-ins, and swaps staged tables in', async () => {
+	it( 'backs up, then replaces plugins whole, merges uploads, leaves caching drop-ins and host-linked plugins, and swaps staged tables in', async () => {
 		const local = path.join( server.dir, 'local' );
 		write( path.join( local, 'wp-config.php' ), 'local config' );
 		write( path.join( local, 'sql/wp_options.sql' ), 'INSERT INTO `wp_options` VALUES (1);\n' );
@@ -52,6 +54,7 @@ describe.skipIf( process.platform === 'win32' )( 'pushing over SSH', () => {
 			"INSERT INTO `wp_posts` VALUES ('INSERT INTO `wp_x`');\n"
 		);
 		write( path.join( local, 'wp-content/plugins/akismet/new.php' ), 'new' );
+		write( path.join( local, 'wp-content/plugins/jetpack/local.php' ), 'local' );
 		write( path.join( local, 'wp-content/uploads/a.jpg' ), 'new a' );
 		write( path.join( local, 'wp-content/object-cache.php' ), 'local cache' );
 		const archive = path.join( server.dir, 'site.tar.gz' );
@@ -61,6 +64,9 @@ describe.skipIf( process.platform === 'win32' )( 'pushing over SSH', () => {
 		const content = path.join( root, 'wp-content' );
 		write( path.join( content, 'plugins/akismet/old.php' ), 'old' );
 		write( path.join( content, 'plugins/hello.php' ), 'remote only' );
+		const managed = path.join( server.dir, 'managed/jetpack' );
+		write( path.join( managed, 'host.php' ), 'host' );
+		symlinkSync( managed, path.join( content, 'plugins/jetpack' ) );
 		write( path.join( content, 'uploads/a.jpg' ), 'old a' );
 		write( path.join( content, 'uploads/b.jpg' ), 'remote b' );
 
@@ -86,6 +92,8 @@ describe.skipIf( process.platform === 'win32' )( 'pushing over SSH', () => {
 		] );
 		expect( readdirSync( path.join( content, 'plugins/akismet' ) ) ).toEqual( [ 'new.php' ] );
 		expect( existsSync( path.join( content, 'plugins/hello.php' ) ) ).toBe( true );
+		expect( lstatSync( path.join( content, 'plugins/jetpack' ) ).isSymbolicLink() ).toBe( true );
+		expect( readdirSync( managed ) ).toEqual( [ 'host.php' ] );
 		expect( readFileSync( path.join( content, 'uploads/a.jpg' ), 'utf8' ) ).toBe( 'new a' );
 		expect( existsSync( path.join( content, 'uploads/b.jpg' ) ) ).toBe( true );
 		expect( existsSync( path.join( root, 'wp-config.php' ) ) ).toBe( false );

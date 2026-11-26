@@ -106,7 +106,6 @@ interface RootSearch {
 	settingsFocus?: string;
 	addSite?: AddSiteSection;
 	pin?: true;
-	welcome?: true;
 	feedback?: true;
 }
 
@@ -117,7 +116,6 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 		...( typeof search.settingsFocus === 'string' ? { settingsFocus: search.settingsFocus } : {} ),
 		...( isAddSiteSection( search.addSite ) ? { addSite: search.addSite } : {} ),
 		...( search.pin === true || search.pin === 'true' ? { pin: true } : {} ),
-		...( search.welcome === true || search.welcome === 'true' ? { welcome: true } : {} ),
 		...( search.feedback === true || search.feedback === 'true' ? { feedback: true } : {} ),
 	} ),
 	component: () => (

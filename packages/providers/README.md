@@ -54,7 +54,9 @@ A method with `hostOnly: true` checks something only the user's computer can rea
 
 ## Models a server lists
 
-The Local LLM connector is a catalog provider (`ai.catalog`) whose catalog is the chat models the user's server lists, less those it says only make embeddings: connecting offers them all, those the server says call tools first, since new chats start on the first, and the settings narrow them. `ai.local` says its models run on the user's server: chats on them need no internet, and analytics never name them.
+A catalog provider (`ai.catalog`) runs more models than it lists: its `listModels` gives the catalog, the settings pick from it with `selectModels`, and `ai.catalog.prefixes` name its ids, such as `openrouter/`, Anthropic's `claude-`, or the makers GitHub Copilot runs models of (`claude-`, `gpt-`, …). A provider pi runs builds its catalog from the models pi knows, narrowed by the account's own list, with `piCatalog` (`catalog.ts`).
+
+The Local LLM connector is a catalog provider whose catalog is the chat models the user's server lists, less those it says only make embeddings: connecting offers them all, those the server says call tools first, since new chats start on the first, and the settings narrow them. `ai.local` says its models run on the user's server: chats on them need no internet, and analytics never name them.
 
 A model connection whose `model.contextWindow` is exactly the context the server runs the model with says so with `exactContextWindow`, and the words a turn that still can't fit ends with: the runtime then never sends a request that window can't hold.
 

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -7,11 +7,8 @@ import type { Connector } from '@/data/core';
 async function firstLaunch( { signedIn = false, overrides = {} as Partial< Connector > } = {} ) {
 	const view = renderApp( {
 		connector: createFakeConnector(
-			{ user: signedIn ? TEST_USER : null },
-			{
-				getOnboardingCompleted: async () => false,
-				...overrides,
-			}
+			{ user: signedIn ? TEST_USER : null, onboardingCompleted: false },
+			overrides
 		),
 	} );
 	await screen.findByRole( 'dialog', { name: 'Welcome to WordPress Studio' } );
@@ -145,5 +142,23 @@ describe( 'Welcome dialog', () => {
 		} );
 		expect( screen.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
 		expect( connector.setOnboardingCompleted ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'stays closed when Settings opened over it closes', async () => {
+		const { history } = await firstLaunch();
+		await act( () => history.push( '/sites?settings=general' ) );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close', hidden: true } ) );
+		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Close settings' } ) );
+		fireEvent.click(
+			within( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
+				name: 'Close Add site',
+			} )
+		);
+		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
+		await act( () => history.back() );
+		expect(
+			screen.queryByRole( 'dialog', { name: 'Welcome to WordPress Studio' } )
+		).not.toBeInTheDocument();
 	} );
 } );

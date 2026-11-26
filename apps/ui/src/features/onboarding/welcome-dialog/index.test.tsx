@@ -148,11 +148,7 @@ describe( 'Welcome dialog', () => {
 		const { history } = await firstLaunch();
 		await act( () => history.push( '/sites?settings=general' ) );
 		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
-		const welcome = screen.getByRole( 'dialog', {
-			name: 'Welcome to WordPress Studio',
-			hidden: true,
-		} );
-		fireEvent.click( within( welcome ).getByRole( 'button', { name: 'Close', hidden: true } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close', hidden: true } ) );
 		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Close settings' } ) );
 		fireEvent.click(
 			within( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {

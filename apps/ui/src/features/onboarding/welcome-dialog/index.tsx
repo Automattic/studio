@@ -1,6 +1,7 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { Button, Checkbox, Field, FieldLabel } from '@studio/ds';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { createInterpolateElement } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -8,7 +9,10 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useAnalyticsExposure } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useCompleteOnboarding, useWelcomeOpen } from '@/data/queries/use-onboarding-completed';
+import {
+	ONBOARDING_COMPLETED_QUERY_KEY,
+	useWelcomeOpen,
+} from '@/data/queries/use-onboarding-completed';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { AccountPromptDialog } from '@/features/account';
@@ -22,7 +26,7 @@ export function WelcomeDialog() {
 function WelcomeFlow() {
 	const navigate = useNavigate();
 	const connector = useConnector();
-	const completeOnboarding = useCompleteOnboarding();
+	const queryClient = useQueryClient();
 	const locale = useUserLocale();
 	const { data: authUser, isPending: authLoading } = useAuthUser();
 	const { data: preferences } = useUserPreferences();
@@ -53,10 +57,11 @@ function WelcomeFlow() {
 			setFinishing( true );
 			setFinishError( false );
 			try {
-				await completeOnboarding( {
+				await connector.setOnboardingCompleted( true, {
 					completion_path: completionPath,
 					journey_id: journeyId,
 				} );
+				queryClient.setQueryData( ONBOARDING_COMPLETED_QUERY_KEY, true );
 				await navigate( {
 					to: '.',
 					search: ( previous: Record< string, unknown > ) => ( { ...previous, addSite: 'create' } ),
@@ -67,7 +72,7 @@ function WelcomeFlow() {
 				setFinishError( true );
 			}
 		},
-		[ completeOnboarding, navigate, journeyId ]
+		[ connector, queryClient, navigate, journeyId ]
 	);
 
 	useEffect( () => {

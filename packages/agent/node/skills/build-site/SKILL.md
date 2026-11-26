@@ -65,7 +65,7 @@ Use wp_cli to activate the theme, install and activate the plugins the Site Spec
 
 ## 5. Validate and publish the content
 
-Validate each template and part with validate_blocks right after writing it, and validate page and post content before it reaches the site. Then create or update the pages and posts with the validated content, and build the menu from them as the `block-content` skill's Menus section describes. A build that skips validate_blocks is incomplete.
+Validate each template and part with validate_blocks right after writing it, and validate page and post content before it reaches the site. Then create or update the pages and posts with the validated content. A build that skips validate_blocks is incomplete.
 
 ## 6. Check and polish the result
 
@@ -74,10 +74,3 @@ You MUST load the `visual-polish` skill and follow its instructions. The design 
 ## 7. Set the theme screenshot
 
 When the active theme was scaffolded by Studio Code, pass its directory as `themeScreenshot` on every desktop take_screenshot of the home page: the last capture becomes the theme's thumbnail in Appearance → Themes.
-
-## 8. Close with next steps
-
-End your closing message with a short **Next steps** list. Put first whatever the site still needs from the user, such as content to confirm or pages left to build, then offer what they can ask for now:
-
-- A performance audit (`/need-for-speed`): Core Web Vitals, page weight, and what to fix first.
-- An SEO audit (`/rank-me-up`): titles, meta tags, headings, structured data, and what to fix first.

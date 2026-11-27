@@ -295,3 +295,9 @@
 	z-index: var( --z-sidebar );
 	-webkit-app-region: no-drag;
 }
+
+@media ( any-pointer: coarse ) {
+	.sidebarEdge {
+		pointer-events: none;
+	}
+}

@@ -47,6 +47,7 @@ beforeEach( () => {
 	localStorage.clear();
 } );
 afterEach( () => {
+	vi.restoreAllMocks();
 	document.documentElement.style.removeProperty( '--motion-duration-layout' );
 	Object.defineProperty( window, 'innerWidth', { configurable: true, value: originalWidth } );
 } );
@@ -128,7 +129,7 @@ it( 'keeps focus and the saved preference while peeking, then closes on leave', 
 } );
 
 it( 'reveals the sidebar only when the mouse crosses its window edge below the header', async () => {
-	const { trigger, edge } = await setup();
+	const { trigger, edge, user } = await setup();
 	vi.spyOn( edge(), 'getBoundingClientRect' ).mockReturnValue( new DOMRect( 0, 44, 6, 600 ) );
 	const leave = ( clientX: number, clientY: number ) =>
 		fireEvent(
@@ -145,6 +146,52 @@ it( 'reveals the sidebar only when the mouse crosses its window edge below the h
 	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
 	expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
 	fireEvent.pointerMove( screen.getByRole( 'main' ), { clientX: 600, clientY: 180 } );
+	await switcherClosed();
+	leave( -25, 44 );
+	expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+	await switcherClosed();
+	leave( -25, 44 );
+	const sidebar = within( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).getByRole(
+		'complementary'
+	);
+	await user.hover( sidebar );
+	await act( async () => {
+		await new Promise( ( resolve ) => setTimeout( resolve, 400 ) );
+	} );
+	expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+	await user.unhover( sidebar );
+	await switcherClosed();
+} );
+
+it( 'peeks when the pointer reaches the edge immediately after hiding the sidebar', async () => {
+	const { trigger, edge, user } = await setup();
+	fireEvent.click( trigger );
+	const hide = screen
+		.getAllByRole( 'button', { name: 'Hide sidebar' } )
+		.find( ( button ) => ! button.closest( '[inert]' ) )!;
+	fireEvent.click( hide );
+	await user.hover( edge() );
+	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+} );
+
+it( 'supports mouse hover on a device with touch', async () => {
+	const matchMedia = window.matchMedia;
+	vi.spyOn( window, 'matchMedia' ).mockImplementation( ( query ) => ( {
+		...matchMedia( query ),
+		matches: query === '(any-pointer: coarse)',
+	} ) );
+	const { edge } = await setup();
+	vi.spyOn( edge(), 'getBoundingClientRect' ).mockReturnValue( new DOMRect( 0, 44, 6, 600 ) );
+	const move = ( clientX: number ) =>
+		fireEvent(
+			screen.getByRole( 'main' ),
+			Object.assign( new MouseEvent( 'pointermove', { bubbles: true, clientX, clientY: 180 } ), {
+				pointerType: 'mouse',
+			} )
+		);
+	move( 3 );
+	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+	move( 300 );
 	await switcherClosed();
 } );
 

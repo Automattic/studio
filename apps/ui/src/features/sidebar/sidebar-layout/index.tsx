@@ -1,5 +1,5 @@
 import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@studio/ds';
-import { useScrollFade, useStoredFlag } from '@studio/ds/hooks';
+import { useMediaQuery, useScrollFade, useStoredFlag } from '@studio/ds/hooks';
 import { getMotionDuration } from '@studio/ds/theme';
 import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -67,6 +67,7 @@ export function SidebarLayout( {
 } ) {
 	const connector = useConnector();
 	const hasOpenDialog = useHasOpenDialog();
+	const hasCoarsePointer = useMediaQuery( '(any-pointer: coarse)' );
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
@@ -100,7 +101,7 @@ export function SidebarLayout( {
 	const dockScrollTop = useRef( 0 );
 	const hoverBlockedUntil = useRef( 0 );
 	const sidebarEdge = useRef< HTMLDivElement >( null );
-	const crossedSidebarEdge = useRef( false );
+	const pointerOnSidebarEdge = useRef( false );
 	const restoreSidebarFlyoutFocus = useRef( false );
 	const restoreSidebarDialogFocus = useRef( false );
 	const sidebarFlyoutRef = useRef< HTMLElement >( null );
@@ -114,6 +115,7 @@ export function SidebarLayout( {
 	}, [ clearHoverTimer ] );
 	useEffect( () => {
 		if ( hasOpenDialog ) {
+			pointerOnSidebarEdge.current = false;
 			setDockingFromPeek( false );
 			if ( sidebarFlyoutState !== 'closed' ) restoreSidebarDialogFocus.current = true;
 			restoreSidebarFlyoutFocus.current = false;
@@ -178,10 +180,13 @@ export function SidebarLayout( {
 	}, [ docked ] );
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
-		if ( ! hasOpenDialog && ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
-			hoverTimer.current = setTimeout( () => {
-				setSidebarFlyoutState( 'hover' );
-			}, HOVER_OPEN_DELAY_MS );
+		if ( ! hasOpenDialog && ! open && ! peek ) {
+			hoverTimer.current = setTimeout(
+				() => {
+					setSidebarFlyoutState( 'hover' );
+				},
+				Math.max( HOVER_OPEN_DELAY_MS, hoverBlockedUntil.current - performance.now() )
+			);
 		}
 	}, [ clearHoverTimer, hasOpenDialog, open, peek ] );
 	const hoverLeave = useCallback( () => {
@@ -194,6 +199,7 @@ export function SidebarLayout( {
 		}
 	}, [ clearHoverTimer, peek ] );
 	const handleWindowLeave = ( event: PointerEvent ) => {
+		pointerOnSidebarEdge.current = false;
 		if (
 			open ||
 			hasOpenDialog ||
@@ -209,23 +215,35 @@ export function SidebarLayout( {
 			event.clientY < edge.bottom &&
 			( isRTL() ? event.clientX >= edge.left : event.clientX <= edge.right )
 		) {
-			crossedSidebarEdge.current = true;
 			clearHoverTimer();
 			setSidebarFlyoutState( 'hover' );
+			hoverTimer.current = setTimeout(
+				() => setSidebarFlyoutState( 'closed' ),
+				HOVER_CLOSE_DELAY_MS
+			);
 		}
 	};
-	const handleWindowReturn = ( event: PointerEvent ) => {
-		if ( ! crossedSidebarEdge.current ) return;
-		crossedSidebarEdge.current = false;
-		if (
-			event.target instanceof Element &&
-			! event.target.closest( `.${ styles.sidebarFlyout }, .${ styles.sidebarEdge }` )
-		) {
+	// The edge is transparent to touch, so track the mouse on the workspace instead.
+	const handleMouseMoveOnTouchDevice = ( event: PointerEvent ) => {
+		if ( event.pointerType !== 'mouse' || event.buttons !== 0 ) return;
+		const edge = sidebarEdge.current?.getBoundingClientRect();
+		const overEdge =
+			!! edge &&
+			event.clientX >= edge.left &&
+			event.clientX < edge.right &&
+			event.clientY >= edge.top &&
+			event.clientY < edge.bottom;
+		if ( overEdge === pointerOnSidebarEdge.current ) return;
+		pointerOnSidebarEdge.current = overEdge;
+		if ( overEdge ) hoverEnter();
+		else if (
+			! ( event.target instanceof Element && event.target.closest( `.${ styles.sidebarFlyout }` ) )
+		)
 			hoverLeave();
-		}
 	};
 	const toggleSidebar = useCallback( () => {
 		if ( hasOpenDialog ) return;
+		pointerOnSidebarEdge.current = false;
 		if ( peek && ! overlay ) dockScrollTop.current = sidebarFlyoutRef.current?.scrollTop ?? 0;
 		const focusedToggle = document.activeElement?.hasAttribute( 'data-sidebar-toggle' );
 		focusDockedSidebar.current = ! overlay && ( peek || ( collapsed && !! focusedToggle ) );
@@ -267,7 +285,7 @@ export function SidebarLayout( {
 								className={ styles.root }
 								style={ sidebarStyle }
 								onPointerLeave={ handleWindowLeave }
-								onPointerMove={ peek ? handleWindowReturn : undefined }
+								onPointerMove={ hasCoarsePointer ? handleMouseMoveOnTouchDevice : undefined }
 							>
 								{ ! docked && ! hasOpenDialog && (
 									<div

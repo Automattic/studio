@@ -25,6 +25,7 @@ export const SidebarHoverContext = createContext( {
 	peek: false,
 	onEnter: () => {},
 	onLeave: () => {},
+	suppressUntilLeave: () => {},
 } );
 
 export function useSidebarHover() {

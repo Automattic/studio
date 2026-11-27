@@ -26,7 +26,11 @@ export function SidebarToggle( { tabIndex }: { tabIndex?: number } = {} ) {
 			aria-expanded={ ! collapsed || hover.peek }
 			data-sidebar-toggle
 			tabIndex={ tabIndex }
-			onClick={ toggleSidebar }
+			onClick={ ( event ) => {
+				// detail is 0 for keyboard activation, which leaves the pointer elsewhere.
+				if ( event.detail > 0 ) hover.suppressUntilLeave();
+				toggleSidebar();
+			} }
 			onPointerEnter={ ( event ) => {
 				if ( event.pointerType === 'mouse' ) hover.onEnter();
 			} }

@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
@@ -40,6 +40,19 @@ it( 'creates an empty config on a fresh install', async () => {
 	expect( config.providers.configs ).toEqual( {} );
 	expect( readFile() ).toMatchObject( { version: CONFIG_VERSION } );
 } );
+
+it.skipIf( process.platform === 'win32' )(
+	'keeps the config readable by the user alone',
+	async () => {
+		writeConfig( {} );
+
+		await updateConfig( ( config ) => {
+			config.sites.push( site );
+		} );
+
+		expect( statSync( getConfigPath() ).mode & 0o777 ).toBe( 0o600 );
+	}
+);
 
 it( 'writes back only the sections an update changed', async () => {
 	writeConfig( { sites: [ site ], preferences: { colorScheme: 42 }, future: { kept: true } } );

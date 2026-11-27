@@ -5,6 +5,10 @@
 	border-radius: var( --radius-popup );
 }
 
+.siteThumbnail:empty {
+	display: none;
+}
+
 .thumbnailFrame {
 	--preview-frame-shadow: none;
 	border-radius: var( --radius-menu-row );

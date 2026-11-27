@@ -1,5 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { rememberVisit } from '@/features/sidebar/last-visited';
 import {
 	createFakeConnector,
@@ -35,14 +37,15 @@ function chat( id: string, updatedAt: string, archived?: boolean ) {
 
 async function setup( {
 	path = '/sites/two',
+	queryClient,
 	...state
-}: FakeConnectorInitialState & { path?: string } = {} ) {
+}: FakeConnectorInitialState & { path?: string; queryClient?: QueryClient } = {} ) {
 	const connector = createFakeConnector( {
 		sites: [ mySite, runningSite ],
 		...state,
 		preferences: { autoCollapseSites: false, ...state.preferences },
 	} );
-	return settled( renderApp( { connector, path } ), path );
+	return settled( renderApp( { connector, path, queryClient } ), path );
 }
 
 async function settled< T extends ReturnType< typeof renderApp > >( view: T, path: string ) {
@@ -85,16 +88,23 @@ beforeEach( () => localStorage.clear() );
 
 describe( 'sidebar site list', () => {
 	it( 'loads a site preview on hover and dismisses it when its menu opens', async () => {
-		const { user, connector } = await setup();
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false, gcTime: 50, networkMode: 'always' } },
+		} );
+		const { user, connector } = await setup( { queryClient } );
 		connector.getSiteThumbnail.mockResolvedValue( 'data:image/png;base64,preview' );
 		const row = await siteButton( 'My site' );
 		expect( connector.getSiteThumbnail ).not.toHaveBeenCalledWith( 'one' );
 		await user.hover( row );
-		expect( await screen.findByRole( 'img', { name: 'Saved site preview' } ) ).toBeVisible();
+		const preview = await screen.findByRole( 'img', { name: 'Saved site preview' } );
+		expect( preview ).toBeVisible();
 		expect( connector.getSiteThumbnail ).toHaveBeenCalledWith( 'one' );
 		fireEvent.contextMenu( row );
 		await screen.findByRole( 'menu' );
-		await waitFor( () => expect( screen.queryByRole( 'tooltip' ) ).not.toBeInTheDocument() );
+		await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		await waitFor( () =>
+			expect( queryClient.getQueryData( siteThumbnailQueryKey( 'one' ) ) ).toBeUndefined()
+		);
 	} );
 
 	it( 'records external Open in destinations and internal project tools separately', async () => {

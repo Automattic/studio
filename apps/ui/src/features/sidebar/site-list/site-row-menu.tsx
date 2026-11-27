@@ -1,4 +1,4 @@
-import { Menu, ThumbnailTooltip } from '@studio/ds';
+import { Menu, ThumbnailTooltip, ThumbnailTooltipImage } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { useState, type MouseEvent, type PointerEvent, type ReactElement } from 'react';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
@@ -6,6 +6,11 @@ import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { SiteMenuItems, useSiteActions } from '@/features/sites';
 import { BulkMenu, useIsBulkTarget } from './selection';
 import type { SiteDetails } from '@/data/core';
+
+function SiteRowThumbnail( { siteId }: { siteId: string } ) {
+	const { data: thumbnail } = useSiteThumbnail( siteId );
+	return <ThumbnailTooltipImage thumbnail={ thumbnail } label={ __( 'Saved site preview' ) } />;
+}
 
 // Right-click quick actions for a sidebar site row. The row element itself is
 // passed as `trigger` and rendered via the context-menu trigger's render prop,
@@ -26,9 +31,6 @@ export function SiteRowMenu( {
 	const bulk = useIsBulkTarget( sitePinKey( site.id ) );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 
-	const [ previewOpen, setPreviewOpen ] = useState( false );
-	const { data: thumbnail } = useSiteThumbnail( site.id, { enabled: previewOpen && ! menuOpen } );
-
 	const stopMenuEventPropagation = (
 		event: MouseEvent< HTMLElement > | PointerEvent< HTMLElement >
 	) => {
@@ -40,12 +42,11 @@ export function SiteRowMenu( {
 			<Menu.ContextMenuRoot open={ menuOpen } onOpenChange={ setMenuOpen }>
 				<ThumbnailTooltip
 					side="inline-end"
-					thumbnail={ thumbnail }
-					label={ __( 'Saved site preview' ) }
 					disabled={ menuOpen }
-					onOpenChange={ setPreviewOpen }
 					trigger={ <Menu.ContextMenuTrigger render={ trigger } { ...actions.shortcuts } /> }
-				/>
+				>
+					<SiteRowThumbnail siteId={ site.id } />
+				</ThumbnailTooltip>
 				{ bulk ? (
 					<BulkMenu
 						onClose={ () => setMenuOpen( false ) }

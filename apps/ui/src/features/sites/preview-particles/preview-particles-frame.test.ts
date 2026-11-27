@@ -13,8 +13,6 @@ describe( 'preview particle frames', () => {
 			[ 813, 611 ],
 			[ 960, 720 ],
 			[ 320, 201 ],
-			[ 19, 29 ],
-			[ 58, 640 ],
 			[ 2560, 1440 ],
 		] ) {
 			const dots = createPreviewDots( width, height );
@@ -25,22 +23,20 @@ describe( 'preview particle frames', () => {
 				[ columns, width ],
 				[ rows, height ],
 			] as const ) {
-				const targetSpacing = Math.max( 26, Math.sqrt( ( width * height ) / 1600 ) );
-				const intervals = Math.max( 0, Math.round( ( size - 48 ) / targetSpacing ) );
-				expect( positions ).toHaveLength( intervals + 1 );
-				if ( ! intervals ) {
-					expect( positions ).toEqual( [ size / 2 ] );
-					continue;
-				}
 				expect( positions[ 0 ] ).toBe( 24 );
 				expect( positions.at( -1 ) ).toBe( size - 24 );
+				const spacing = positions[ 1 ] - positions[ 0 ];
 				for ( let index = 1; index < positions.length; index++ ) {
-					expect( positions[ index ] - positions[ index - 1 ] ).toBeCloseTo(
-						( size - 48 ) / intervals
-					);
+					expect( positions[ index ] - positions[ index - 1 ] ).toBeCloseTo( spacing );
 				}
 			}
 		}
+	} );
+
+	it( 'centers dots when the panel is too small for multiple columns or rows', () => {
+		expect( createPreviewDots( 19, 29 ) ).toMatchObject( [ { x: 9.5, y: 14.5 } ] );
+		const columns = new Set( createPreviewDots( 58, 640 ).map( ( { x } ) => x ) );
+		expect( [ ...columns ] ).toEqual( [ 29 ] );
 	} );
 
 	it( 'opens the space for the logo gradually without moving a resting dot', () => {

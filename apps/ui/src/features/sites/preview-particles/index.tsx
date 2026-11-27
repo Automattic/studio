@@ -158,7 +158,6 @@ export function PreviewParticles( {
 		const sizeObserver = new ResizeObserver( resize );
 		const themeObserver = new MutationObserver( resize );
 		sizeObserver.observe( host );
-		sizeObserver.observe( canvas );
 		themeObserver.observe( document.documentElement, { attributes: true } );
 		motion.addEventListener( 'change', sync );
 		document.addEventListener( 'visibilitychange', sync );

@@ -692,7 +692,7 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 
 	try {
 		const bus = await getDaemonBus();
-		let busExitEventListener: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
+		let busExitEventListener!: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
 
 		const exitPromise = new Promise< void >( ( resolve ) => {
 			busExitEventListener = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
@@ -702,22 +702,20 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 			};
 
 			bus.on( 'process-event', busExitEventListener );
-		} ).finally( () => {
-			bus.off( 'process-event', busExitEventListener );
 		} );
-
-		await sendMessage(
-			runningProcess.pmId,
-			processName,
-			{ topic: 'stop-server', data: {} },
-			{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
-		);
 
 		// Allow 5 seconds (arbitrary number) of cleanup time for the child process before throwing an
 		// exception and telling the process manager to send a SIGKILL signal. Clear the timer once the
 		// race settles, or it keeps the CLI process alive for the full 5 seconds.
 		let exitTimeout: NodeJS.Timeout | undefined;
 		try {
+			await sendMessage(
+				runningProcess.pmId,
+				processName,
+				{ topic: 'stop-server', data: {} },
+				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
+			);
+
 			await Promise.race( [
 				exitPromise,
 				new Promise( ( resolve, reject ) => {
@@ -729,6 +727,7 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 			] );
 		} finally {
 			clearTimeout( exitTimeout );
+			bus.off( 'process-event', busExitEventListener );
 		}
 	} catch {
 		await stopProcess( processName );

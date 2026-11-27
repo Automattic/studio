@@ -549,6 +549,7 @@ describe( 'site lifecycle and preview', () => {
 		'allows concurrent %s actions on different sites',
 		async ( action ) => {
 			const running = action === 'stop';
+			const pendingAttribute = running ? 'aria-disabled' : 'aria-busy';
 			const { connector } = setup( [
 				site( { running } ),
 				site( { id: 'two', name: 'Second', path: '/sites/two', running } ),
@@ -564,15 +565,9 @@ describe( 'site lifecycle and preview', () => {
 			const label = running ? 'Stop' : 'Start';
 			fireEvent.click( await screen.findByRole( 'button', { name: `${ label } My site` } ) );
 			await waitFor( () =>
-				expect( lifecycle( 'My site' ) ).toHaveAttribute(
-					running ? 'aria-disabled' : 'aria-busy',
-					'true'
-				)
+				expect( lifecycle( 'My site' ) ).toHaveAttribute( pendingAttribute, 'true' )
 			);
-			expect( lifecycle( 'Second' ) ).not.toHaveAttribute(
-				running ? 'aria-disabled' : 'aria-busy',
-				'true'
-			);
+			expect( lifecycle( 'Second' ) ).not.toHaveAttribute( pendingAttribute, 'true' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
 			await waitFor( () =>
 				expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'Second' )
@@ -588,25 +583,13 @@ describe( 'site lifecycle and preview', () => {
 			);
 			fireEvent.click( screen.getByRole( 'menuitem', { name: menuLabel } ) );
 			await waitFor( () => expect( method ).toHaveBeenCalledTimes( 2 ) );
-			expect( lifecycle( 'My site' ) ).toHaveAttribute(
-				running ? 'aria-disabled' : 'aria-busy',
-				'true'
-			);
-			expect( lifecycle( 'Second' ) ).toHaveAttribute(
-				running ? 'aria-disabled' : 'aria-busy',
-				'true'
-			);
+			expect( lifecycle( 'My site' ) ).toHaveAttribute( pendingAttribute, 'true' );
+			expect( lifecycle( 'Second' ) ).toHaveAttribute( pendingAttribute, 'true' );
 			await act( async () => finish.get( 'one' )!() );
 			await waitFor( () =>
-				expect( lifecycle( 'My site' ) ).not.toHaveAttribute(
-					running ? 'aria-disabled' : 'aria-busy',
-					'true'
-				)
+				expect( lifecycle( 'My site' ) ).not.toHaveAttribute( pendingAttribute, 'true' )
 			);
-			expect( lifecycle( 'Second' ) ).toHaveAttribute(
-				running ? 'aria-disabled' : 'aria-busy',
-				'true'
-			);
+			expect( lifecycle( 'Second' ) ).toHaveAttribute( pendingAttribute, 'true' );
 			await act( async () => finish.get( 'two' )!() );
 		}
 	);

@@ -10,7 +10,7 @@ set -eu
 #   should-skip-job.sh <job-type>
 #
 # Prints the reason to skip the job, or `false` to run it. Exits 0 either way, and 15 for invalid arguments.
-# Webhook PRs use their PR diff. On trunk, a webhook squash commit compares to its first parent.
+# Webhook PRs use their PR diff. On trunk, an eligible squash push compares to its previous tip.
 # Webhook, API and trigger builds on trunk can use an ancestor in CI_CHANGED_FILES_BASE instead.
 # STUDIO_CI_FULL_BUILD=1 forces a full run. Manual UI, scheduled and tag builds always run.
 # Any error while getting the changed files runs the job.
@@ -111,6 +111,7 @@ FASTLANE_PATTERNS=(
   ".buildkite/shared-pipeline-vars"
   ".buildkite/commands/run-fastlane-tests.sh"
   ".buildkite/commands/should-skip-job.sh"
+  ".buildkite/commands/trunk-push-base.sh"
 )
 
 run_job() { echo false; exit 0; }
@@ -134,17 +135,14 @@ elif [[ "${BUILDKITE_PULL_REQUEST:-}" == false && "${BUILDKITE_BRANCH:-}" == tru
     api|trigger_job) [[ -n "${CI_CHANGED_FILES_BASE:-}" ]] || run_job ;;
     *) run_job ;;
   esac
-  changed_files_command=(check_changed_files)
   if [[ -n "${CI_CHANGED_FILES_BASE:-}" ]]; then
     base_commit=$(git rev-parse --verify --quiet --end-of-options "${CI_CHANGED_FILES_BASE}^{commit}") || run_job
     git merge-base --is-ancestor "$base_commit" HEAD || run_job
-    changed_files_command+=(--base "$base_commit")
   else
-    # Studio only allows squash merges. The PR suffix is a heuristic; an explicit base can cover earlier builds.
-    squash_subject='\(#[0-9]+\)$'
-    parents=$(git log -1 --format=%P HEAD) || run_job
-    [[ -n "$parents" && "$parents" != *' '* && "$(git log -1 --format=%s HEAD)" =~ $squash_subject ]] || run_job
+    base_commit=${CI_TRUNK_PUSH_BASE:-}
+    [[ -n "$base_commit" ]] || run_job
   fi
+  changed_files_command=(check_changed_files --base "$base_commit")
 else
   run_job
 fi

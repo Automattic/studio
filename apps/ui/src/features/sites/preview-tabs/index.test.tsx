@@ -113,6 +113,35 @@ it.each( [ true, false ] )(
 	}
 );
 
+it( 'shows the captured page only while its browser tab is inactive', async () => {
+	const userAgent = window.navigator.userAgent;
+	vi.spyOn( window.navigator, 'userAgent', 'get' ).mockReturnValue(
+		userAgent + ' Electron/38.0.0'
+	);
+	const { user } = await setup();
+	const first = selectedTab();
+	const capturePage = vi.fn().mockResolvedValue( {
+		isEmpty: () => false,
+		resize: () => ( { toDataURL: () => 'data:image/png;base64,first' } ),
+	} );
+	Object.assign( activePreview( 'webview' )!, { capturePage, getWebContentsId: () => 42 } );
+	fireEvent( activePreview( 'webview' )!, new Event( 'did-finish-load' ) );
+	await waitFor( () => expect( capturePage ).toHaveBeenCalled() );
+	await user.hover( first );
+	expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument();
+	await newBrowserTab();
+	await user.unhover( first );
+	await user.hover( first );
+	expect( await screen.findByRole( 'img', { name: 'Preview of First' } ) ).toHaveAttribute(
+		'src',
+		'data:image/png;base64,first'
+	);
+	await user.click( first );
+	await waitFor( () =>
+		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument()
+	);
+} );
+
 it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {
 	const userAgent = window.navigator.userAgent;
 	Object.defineProperty( window.navigator, 'userAgent', {

@@ -1,4 +1,12 @@
-import { IconButton, Menu, Tabs, TabsList, TabsTrigger, VisuallyHidden } from '@studio/ds';
+import {
+	IconButton,
+	Menu,
+	ThumbnailTooltip,
+	Tabs,
+	TabsList,
+	TabsTrigger,
+	VisuallyHidden,
+} from '@studio/ds';
 import { PlusIcon, XIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
@@ -233,23 +241,35 @@ export function PreviewTabs( {
 											/>
 										}
 									>
-										<TabsTrigger
-											value={ tab.id }
-											className={ styles.trigger }
-											aria-description={ __(
-												'Use Alt+Shift+Left or Right Arrow to move this tab.'
-											) }
-											onKeyDown={ ( event ) => {
-												reorder.onKeyDown( event, tab.id );
-												if ( event.key === 'Delete' ) {
-													event.preventDefault();
-													closeTabs( [ tab.id ] );
-												}
-											} }
-										>
-											<Icon className={ styles.icon } />
-											<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
-										</TabsTrigger>
+										<ThumbnailTooltip
+											side="bottom"
+											label={ sprintf( __( 'Preview of %s' ), getTabTitle( tab, siteName ) ) }
+											thumbnail={
+												tab.thumbnail && tab.thumbnail.path === tab.path
+													? tab.thumbnail.image
+													: null
+											}
+											disabled={ selected || !! reorder.drag || ! tab.thumbnail }
+											trigger={
+												<TabsTrigger
+													value={ tab.id }
+													className={ styles.trigger }
+													aria-description={ __(
+														'Use Alt+Shift+Left or Right Arrow to move this tab.'
+													) }
+													onKeyDown={ ( event ) => {
+														reorder.onKeyDown( event, tab.id );
+														if ( event.key === 'Delete' ) {
+															event.preventDefault();
+															closeTabs( [ tab.id ] );
+														}
+													} }
+												>
+													<Icon className={ styles.icon } />
+													<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
+												</TabsTrigger>
+											}
+										/>
 										<IconButton
 											variant="ghost"
 											size="icon-2xs"

@@ -13,7 +13,11 @@ export interface WebviewTag extends HTMLElement {
 	reload?(): void;
 	stop?(): void;
 	isLoading?(): boolean;
-	capturePage(): Promise< { isEmpty(): boolean; toDataURL(): string } >;
+	capturePage(): Promise< {
+		isEmpty(): boolean;
+		resize( options: { width: number } ): { toDataURL(): string };
+		toDataURL(): string;
+	} >;
 }
 
 export interface WebviewConsoleEvent extends Event {

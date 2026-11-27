@@ -39,6 +39,7 @@ export function SurfaceLayer( {
 	return (
 		<div
 			className={ clsx( styles.realmLayer, ! active && styles.realmLayerHidden ) }
+			data-tab-surface
 			data-loading={ loading || undefined }
 			inert={ active ? undefined : true }
 		>

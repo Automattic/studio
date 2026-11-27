@@ -1,7 +1,7 @@
 import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@studio/ds';
 import { useScrollFade, useStoredFlag } from '@studio/ds/hooks';
 import { getMotionDuration } from '@studio/ds/theme';
-import { __ } from '@wordpress/i18n';
+import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -26,7 +26,7 @@ import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
-import type { CSSProperties, ReactNode, RefCallback } from 'react';
+import type { CSSProperties, PointerEvent, ReactNode, RefCallback } from 'react';
 
 const HOVER_OPEN_DELAY_MS = 180;
 const HOVER_CLOSE_DELAY_MS = 350;
@@ -99,11 +99,8 @@ export function SidebarLayout( {
 	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	const dockScrollTop = useRef( 0 );
 	const hoverBlockedUntil = useRef( 0 );
-	// Set when a pointer click hides the docked sidebar: the header toggle appears
-	// under the still-hovering pointer, which shouldn't immediately peek the
-	// sidebar back open. Cleared once the pointer moves off the toggle.
-	const hoverSuppressed = useRef( false );
-	const hoverSuppressedGraceUntil = useRef( 0 );
+	const sidebarEdge = useRef< HTMLDivElement >( null );
+	const crossedSidebarEdge = useRef( false );
 	const restoreSidebarFlyoutFocus = useRef( false );
 	const restoreSidebarDialogFocus = useRef( false );
 	const sidebarFlyoutRef = useRef< HTMLElement >( null );
@@ -179,28 +176,8 @@ export function SidebarLayout( {
 			findToggle()?.focus( { preventScroll: true } );
 		}
 	}, [ docked ] );
-	useEffect( () => {
-		const onPointerMove = ( event: PointerEvent ) => {
-			if (
-				hoverSuppressed.current &&
-				performance.now() >= hoverSuppressedGraceUntil.current &&
-				! ( event.target instanceof Element && event.target.closest( '[data-sidebar-toggle]' ) )
-			) {
-				hoverSuppressed.current = false;
-			}
-		};
-		document.addEventListener( 'pointermove', onPointerMove, { passive: true } );
-		return () => document.removeEventListener( 'pointermove', onPointerMove );
-	}, [] );
-	const suppressHoverUntilLeave = useCallback( () => {
-		if ( ! docked ) return;
-		hoverSuppressed.current = true;
-		hoverSuppressedGraceUntil.current =
-			performance.now() + Math.max( HOVER_CLOSE_DELAY_MS, getMotionDuration( 'layout' ) );
-	}, [ docked ] );
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
-		if ( hoverSuppressed.current ) return;
 		if ( ! hasOpenDialog && ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
 			hoverTimer.current = setTimeout( () => {
 				setSidebarFlyoutState( 'hover' );
@@ -216,6 +193,37 @@ export function SidebarLayout( {
 			);
 		}
 	}, [ clearHoverTimer, peek ] );
+	const handleWindowLeave = ( event: PointerEvent ) => {
+		if (
+			open ||
+			hasOpenDialog ||
+			event.pointerType !== 'mouse' ||
+			event.buttons !== 0 ||
+			event.nativeEvent.relatedTarget
+		)
+			return;
+		const edge = sidebarEdge.current?.getBoundingClientRect();
+		if (
+			edge &&
+			event.clientY >= edge.top &&
+			event.clientY < edge.bottom &&
+			( isRTL() ? event.clientX >= edge.left : event.clientX <= edge.right )
+		) {
+			crossedSidebarEdge.current = true;
+			clearHoverTimer();
+			setSidebarFlyoutState( 'hover' );
+		}
+	};
+	const handleWindowReturn = ( event: PointerEvent ) => {
+		if ( ! crossedSidebarEdge.current ) return;
+		crossedSidebarEdge.current = false;
+		if (
+			event.target instanceof Element &&
+			! event.target.closest( `.${ styles.sidebarFlyout }, .${ styles.sidebarEdge }` )
+		) {
+			hoverLeave();
+		}
+	};
 	const toggleSidebar = useCallback( () => {
 		if ( hasOpenDialog ) return;
 		if ( peek && ! overlay ) dockScrollTop.current = sidebarFlyoutRef.current?.scrollTop ?? 0;
@@ -254,15 +262,24 @@ export function SidebarLayout( {
 			<SidebarCollapsedContext.Provider value={ ! docked }>
 				<SidebarOpenContext.Provider value={ open }>
 					<SidebarToggleContext.Provider value={ toggleSidebar }>
-						<SidebarHoverContext.Provider
-							value={ {
-								peek,
-								onEnter: hoverEnter,
-								onLeave: hoverLeave,
-								suppressUntilLeave: suppressHoverUntilLeave,
-							} }
-						>
-							<div className={ styles.root } style={ sidebarStyle }>
+						<SidebarHoverContext.Provider value={ { peek } }>
+							<div
+								className={ styles.root }
+								style={ sidebarStyle }
+								onPointerLeave={ handleWindowLeave }
+								onPointerMove={ peek ? handleWindowReturn : undefined }
+							>
+								{ ! docked && ! hasOpenDialog && (
+									<div
+										ref={ sidebarEdge }
+										className={ styles.sidebarEdge }
+										aria-hidden="true"
+										onPointerEnter={ ( event ) => {
+											if ( event.pointerType === 'mouse' && event.buttons === 0 ) hoverEnter();
+										} }
+										onPointerLeave={ hoverLeave }
+									/>
+								) }
 								<div className={ styles.windowDragStrip } aria-hidden="true" />
 								<div
 									className={ clsx( styles.windowDragStrip, styles.windowDragStripBottom ) }

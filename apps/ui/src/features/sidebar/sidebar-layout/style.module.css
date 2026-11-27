@@ -286,3 +286,12 @@
 	inset-inline-start: calc( var( --sidebar-width ) - 1px );
 	inset-inline-end: auto;
 }
+
+.sidebarEdge {
+	position: absolute;
+	inset-block: var( --band-height ) 0;
+	inset-inline-start: 0;
+	width: 6px;
+	z-index: var( --z-sidebar );
+	-webkit-app-region: no-drag;
+}

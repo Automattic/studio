@@ -899,17 +899,23 @@ it( 'lets the only browser tab be picked up without changing its page or selecti
 it( 'leaves normal clicks uncaptured until a drag starts', async () => {
 	const tabs = await sortableTabs();
 	const list = screen.getByRole( 'tablist', { name: 'Preview tabs' } );
+	const bounds = vi.mocked(
+		tabs[ 0 ].closest< HTMLElement >( '[data-tab-reorder-id]' )!.getBoundingClientRect
+	);
+	bounds.mockClear();
 	const capture = vi.fn();
 	Object.defineProperty( list, 'setPointerCapture', { value: capture, configurable: true } );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 42 ) );
 	expect( capture ).not.toHaveBeenCalled();
+	expect( bounds ).not.toHaveBeenCalled();
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerup', 42 ) );
 	fireEvent.click( tabs[ 0 ] );
 	expect( selectedTab() ).toBe( tabs[ 0 ] );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	expect( capture ).toHaveBeenCalledWith( 1 );
+	expect( bounds ).toHaveBeenCalledTimes( 1 );
 	fireEvent( window, tabPointer( 'pointercancel', 440 ) );
 } );
 it( 'leaves touch swipes available for scrolling rather than reordering', async () => {

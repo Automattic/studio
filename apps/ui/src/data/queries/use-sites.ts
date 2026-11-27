@@ -209,11 +209,11 @@ export function useStartSite() {
 			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
 				return false;
 			}
-			const previousStop = getSiteStopState( queryClient, id )?.id;
+			const previousStop = latestSiteStop( queryClient, id )?.mutationId;
 			const site = await connector.startSite( id );
 			// The stop's reply can arrive first. Let it own the final running state.
-			const stop = getSiteStopState( queryClient, id );
-			if ( stop && stop.id !== previousStop && stop.preservePanel ) return false;
+			const stop = latestSiteStop( queryClient, id );
+			if ( stop && stop.mutationId !== previousStop && stop.state.status !== 'error' ) return false;
 			await showSite( queryClient, site );
 			dismissToast( `start-${ id }` );
 			return site?.running !== false;
@@ -274,12 +274,16 @@ export function useStopSite() {
 	} );
 }
 
-export function getSiteStopState( queryClient: QueryClient, siteId: string ) {
+function latestSiteStop( queryClient: QueryClient, siteId: string ) {
 	const stops = queryClient.getMutationCache().findAll( {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		predicate: ( mutation ) => mutation.state.variables === siteId,
 	} );
-	const stop = stops.at( -1 );
+	return stops.at( -1 );
+}
+
+export function getSiteStopState( queryClient: QueryClient, siteId: string ) {
+	const stop = latestSiteStop( queryClient, siteId );
 	return stop
 		? {
 				id: stop.mutationId,

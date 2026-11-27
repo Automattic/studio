@@ -127,8 +127,14 @@ it( 'shows the captured page only while its browser tab is inactive', async () =
 	Object.assign( activePreview( 'webview' )!, { capturePage, getWebContentsId: () => 42 } );
 	fireEvent( activePreview( 'webview' )!, new Event( 'did-finish-load' ) );
 	await waitFor( () => expect( capturePage ).toHaveBeenCalled() );
-	await user.hover( first );
-	expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument();
+	const expectNoPreviewOnHover = async () => {
+		await user.unhover( first );
+		await user.hover( first );
+		// A negative assertion must outlast the tooltip's hover delay.
+		await act( () => new Promise< void >( ( resolve ) => setTimeout( resolve, 300 ) ) );
+		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument();
+	};
+	await expectNoPreviewOnHover();
 	await newBrowserTab();
 	await user.unhover( first );
 	await user.hover( first );
@@ -140,6 +146,7 @@ it( 'shows the captured page only while its browser tab is inactive', async () =
 	await waitFor( () =>
 		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument()
 	);
+	await expectNoPreviewOnHover();
 } );
 
 it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {

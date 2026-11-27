@@ -152,55 +152,50 @@ describe( 'command palette', () => {
 		await waitFor( () => expect( searchParams( history ).settings ).toBe( tab ) );
 	} );
 
-	it.each( [
-		[ 'Skills on this site', 'Skills', 'site-skills', 'WordPress skills', 'site-wordpress-skills' ],
-	] )(
-		'opens the canonical destination for %s without changing settings',
-		async ( query, label, section, setting, id ) => {
-			const { history, user, connector } = await renderPalette();
-			await openPalette();
-			search( query );
-			expect( screen.getAllByRole( 'option' ) ).toHaveLength( 1 );
-			await user.click( option( new RegExp( `^${ label }` ) ) );
-			await waitFor( () => expect( searchParams( history ).settings ).toBe( section ) );
-			await revealed( setting );
-			expect( document.querySelector( '[data-settings-match]' ) ).toHaveAttribute(
-				'data-setting-id',
-				id
-			);
-			expect( connector.setUserPreferences ).not.toHaveBeenCalled();
-			expect( connector.installWordPressSkillToAllSites ).not.toHaveBeenCalled();
-			expect( connector.removeWordPressSkillFromAllSites ).not.toHaveBeenCalled();
-		}
-	);
+	it( "opens the site's skills library for Skills on this site without changing settings", async () => {
+		const { history, user, connector } = await renderPalette();
+		await openPalette();
+		search( 'Skills on this site' );
+		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 1 );
+		await user.click( option( /^Skills/ ) );
+		await waitFor( () => expect( searchParams( history ).settings ).toBe( 'site-skills' ) );
+		await waitFor( () =>
+			expect(
+				document.querySelector( '[data-settings-target="site-wordpress-skills"]' )
+			).toBeInTheDocument()
+		);
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+		expect( connector.setSiteAgentFileEnabled ).not.toHaveBeenCalled();
+		expect( connector.removeSiteAgentFile ).not.toHaveBeenCalled();
+	} );
 
-	it( 'highlights the app Skills control through its consolidated destination', async () => {
+	it( 'opens the skills for all sites through the app Skills destination', async () => {
 		const connector = createFakeConnector( { sites: [ testSite ] } );
-		connector.getWordPressSkillsStatusAllSites.mockResolvedValue( [
+		connector.getGlobalSkills.mockResolvedValue( [
 			{
-				id: 'wp-test',
-				displayName: 'Test skill',
-				description: 'Test',
-				installed: true,
+				id: 'brand-voice',
+				displayName: 'Brand voice',
+				description: 'Write in the house voice.',
+				enabled: true,
+				source: 'studio',
+				directory: '/skills/brand-voice',
 			},
 		] );
 		const { user } = await renderPalette( { connector } );
 		await openPalette();
 		search( 'skills' );
 		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 2 );
-		expect(
-			screen.queryByRole( 'option', { name: /^(Enable|Disable) WordPress skills/ } )
-		).not.toBeInTheDocument();
 		await user.click(
 			within( screen.getByRole( 'group', { name: 'App settings' } ) ).getByRole( 'option', {
 				name: 'Skills',
 			} )
 		);
-		await revealed( 'WordPress skills' );
-		expect( document.querySelector( '[data-settings-match]' ) ).toHaveAttribute(
-			'data-setting-id',
-			'wordpress-skills'
+		await waitFor( () =>
+			expect( document.querySelector( '[data-settings-target="global-skills"]' ) ).toContainElement(
+				screen.getByText( '/brand-voice' )
+			)
 		);
+		expect( connector.setGlobalSkillEnabled ).not.toHaveBeenCalled();
 	} );
 
 	it( 'uses Rename site as the only Site name destination and focuses its stable target', async () => {

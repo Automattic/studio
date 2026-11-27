@@ -52,14 +52,19 @@ describe( 'getTracksOrigin', () => {
 		expect( getTracksOrigin() ).toEqual( { channel: 'studio-ui', ui_version: 'v1' } );
 	} );
 
-	it( 'resolves studio-web:v2, the value `studio ui` sets', () => {
-		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
-		expect( getTracksOrigin() ).toEqual( { channel: 'studio-web', ui_version: 'v2' } );
+	it( 'resolves studio-browser:v2, the value `studio ui` sets', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-browser:v2';
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-browser', ui_version: 'v2' } );
+	} );
+
+	it( 'resolves studio-cloud:v2, the value `studio serve` sets', () => {
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-cloud:v2';
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-cloud', ui_version: 'v2' } );
 	} );
 
 	it( 'defaults the ui_version to v1 when the origin carries no version', () => {
-		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web';
-		expect( getTracksOrigin() ).toEqual( { channel: 'studio-web', ui_version: 'v1' } );
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-browser';
+		expect( getTracksOrigin() ).toEqual( { channel: 'studio-browser', ui_version: 'v1' } );
 	} );
 
 	it( 'resolves studio-mcp with the agent app and the plugin that started it', () => {
@@ -177,7 +182,7 @@ it.each( [
 	TRACKS_EVENTS.CODE_TURN_COMPLETED,
 ] )( 'opt-out suppresses account/turn event %s', async ( name ) => {
 	mockOptedOut.mockResolvedValue( true );
-	for ( const channel of [ 'studio-cli', 'studio-web', 'studio-mcp' ] ) {
+	for ( const channel of [ 'studio-cli', 'studio-browser', 'studio-mcp' ] ) {
 		await recordTracksEvent( name, { channel } );
 	}
 	expect( mockRecord ).not.toHaveBeenCalled();
@@ -208,7 +213,7 @@ describe.each( [
 ] satisfies [ TracksEventName, TracksProps ][] )( 'UI event %s', ( event, props ) => {
 	it( 'does not send or create an install identity when opted out', async () => {
 		mockOptedOut.mockResolvedValue( true );
-		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-browser:v2';
 		await recordTracksEvent( event, { ...getTracksOrigin(), ...props } );
 		expect( mockRecord ).not.toHaveBeenCalled();
 		expect( mockInstallId ).not.toHaveBeenCalled();
@@ -217,14 +222,14 @@ describe.each( [
 		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
 		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
 		process.env.NODE_ENV = 'production';
-		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-browser:v2';
 		await recordTracksEvent( event, { ...getTracksOrigin(), ...props } );
 		expect( mockRecord ).not.toHaveBeenCalled();
 		expect( mockInstallId ).not.toHaveBeenCalled();
 	} );
 	it( 'sends once with anonymous identity, common props and the original action props', async () => {
 		mockOptedOut.mockResolvedValue( false );
-		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-browser:v2';
 		await recordTracksEvent( event, { ...getTracksOrigin(), ...props } );
 		expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
 			event,
@@ -235,7 +240,7 @@ describe.each( [
 				arch: process.arch,
 				is_a11n: false,
 				app_version: '2.3.4',
-				channel: 'studio-web',
+				channel: 'studio-browser',
 				ui_version: 'v2',
 			}
 		);
@@ -246,14 +251,14 @@ it( 'keeps workspace layout telemetry silent when opted out', async () => {
 	mockOptedOut.mockResolvedValue( true );
 	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
 		layout: 'panel',
-		channel: 'studio-web',
+		channel: 'studio-browser',
 	} );
 	expect( mockRecord ).not.toHaveBeenCalled();
 	expect( mockInstallId ).not.toHaveBeenCalled();
 } );
 
-it( 'records workspace layouts from studio-web with the browser origin', async () => {
-	process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+it( 'records workspace layouts from studio-browser with the browser origin', async () => {
+	process.env.STUDIO_TRACKS_ORIGIN = 'studio-browser:v2';
 	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
 		...getTracksOrigin(),
 		layout: 'split',
@@ -261,7 +266,7 @@ it( 'records workspace layouts from studio-web with the browser origin', async (
 	expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
 		TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
 		{ type: 'anon', id: 'install-uuid' },
-		expect.objectContaining( { layout: 'split', channel: 'studio-web', ui_version: 'v2' } )
+		expect.objectContaining( { layout: 'split', channel: 'studio-browser', ui_version: 'v2' } )
 	);
 } );
 
@@ -271,7 +276,7 @@ it( 'disables browser workspace telemetry when the telemetry build flag is off',
 	process.env.NODE_ENV = 'production';
 	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
 		layout: 'split',
-		channel: 'studio-web',
+		channel: 'studio-browser',
 	} );
 	expect( mockRecord ).not.toHaveBeenCalled();
 } );

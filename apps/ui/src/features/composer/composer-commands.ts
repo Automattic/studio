@@ -10,6 +10,7 @@ import {
 	PlugIcon,
 	PanelRightIcon,
 	SquareIcon,
+	SkillsIcon,
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
@@ -26,6 +27,7 @@ const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: strin
 	'need-for-speed': GaugeIcon,
 	'rank-me-up': TrendingUpIcon,
 	liberate: UnlockIcon,
+	'create-skill': SkillsIcon,
 	feedback: MessageSquareTextIcon,
 	'auto-start': PlayIcon,
 	panel: PanelRightIcon,
@@ -119,6 +121,7 @@ export function getCommandGroups( {
 	addOpen,
 	commands,
 	skills,
+	userSkills = [],
 	matches,
 	searching = false,
 	isDisabled,
@@ -126,19 +129,24 @@ export function getCommandGroups( {
 	addOpen: boolean;
 	commands: SkillSlashCommand[];
 	skills: SkillSlashCommand[];
+	// The ones among `skills` that are the user's own.
+	userSkills?: SkillSlashCommand[];
 	matches: SkillSlashCommand[];
 	searching?: boolean;
 	isDisabled: ( name: string ) => boolean;
 } ): CommandGroup[] {
 	const isSkill = ( command: SkillSlashCommand ) =>
 		skills.some( ( skill ) => skill.name === command.name );
-	const toCommand = ( command: SkillSlashCommand ): Command => ( {
-		value: command.name,
-		label: command.displayName ?? command.name,
-		description: command.description,
-		icon: COMMAND_ICONS[ command.name ] ?? SparklesIcon,
-		disabled: isDisabled( command.name ),
-	} );
+	const toCommand = ( command: SkillSlashCommand ): Command => {
+		const userSkill = userSkills.find( ( skill ) => skill === command );
+		return {
+			value: command.name,
+			label: command.displayName ?? command.name,
+			description: command.description,
+			icon: userSkill ? SkillsIcon : COMMAND_ICONS[ command.name ] ?? SparklesIcon,
+			disabled: isDisabled( command.name ),
+		};
+	};
 	return [
 		{
 			label: __( 'Commands' ),

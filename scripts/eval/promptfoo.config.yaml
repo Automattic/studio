@@ -79,6 +79,45 @@ tests:
       - type: javascript
         value: file://outcome.mjs:replyIncludes
 
+  # A skill the user keeps in the site's folder: the agent finds it in the
+  # Skill tool and loads it when the request matches its description.
+  - description: agent follows a skill saved in the active site
+    vars:
+      caseId: site-skill
+      expectedText: STUDIO-EVAL-SKILL-4682
+      timeoutMs: 120000
+      seed:
+        activeSite:
+          name: Eval Site Skill
+          files:
+            .agents/skills/house-sign-off/SKILL.md: |
+              ---
+              name: house-sign-off
+              description: How this site signs off a message. Use it when the user asks for the house sign-off.
+              ---
+
+              The house sign-off is the exact token STUDIO-EVAL-SKILL-4682. Reply with it.
+      prompt: Give me the house sign-off for this site.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:replyIncludes
+
+  # /create-skill writes the skill from what the user described and saves it with
+  # save_skill, in the place they named, without a file written by hand.
+  - description: /create-skill saves a skill in the active site
+    vars:
+      caseId: create-skill
+      scope: site
+      timeoutMs: 120000
+      seed:
+        activeSite:
+          name: Eval Create Skill
+      prompt: |
+        /create-skill Only for this site: when I ask for a lookbook post, create a post in the "Lookbook" category titled "<Season> lookbook", open with one full-width cover image, and keep the copy under 120 words.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:skillSaved
+
   - description: asking for a site leaves a working new site
     vars:
       caseId: site-creation
@@ -446,6 +485,8 @@ tests:
         value: file://outcome.mjs:siteWorks
       - type: javascript
         value: file://outcome.mjs:repeatedTreatmentIsBlockStyle
+      - type: javascript
+        value: file://outcome.mjs:blockSettingsUsePresets
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 

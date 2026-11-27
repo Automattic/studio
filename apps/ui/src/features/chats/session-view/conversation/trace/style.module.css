@@ -107,6 +107,18 @@
 	white-space: pre-wrap;
 }
 
+.toolSkill {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-0_5 );
+	margin: 0;
+}
+
+.toolSkillName {
+	color: var( --foreground );
+	font-weight: var( --font-weight-medium );
+}
+
 .activityContent {
 	display: flex;
 	flex-direction: column;

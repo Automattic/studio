@@ -343,12 +343,7 @@ export async function runCommand(
 		logger.reportSuccess( __( 'SQLite integration configured' ) );
 
 		try {
-			const selectedSkills = ( await readConfig() ).preferences.selectedSkills ?? [];
-			await installAiInstructionsToSite(
-				{ path: sitePath },
-				getAiInstructionsPath(),
-				selectedSkills
-			);
+			await installAiInstructionsToSite( { path: sitePath }, getAiInstructionsPath() );
 		} catch ( error ) {
 			logger.reportError(
 				new LoggerError( __( 'Failed to install AI instructions. Proceeding anyway…' ), error ),

@@ -18,6 +18,7 @@ import { Composer, type ComposerHandle } from '@/features/composer';
 import { aiSettings, createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
+import { pendingComposerDraftSlot } from './pending-draft';
 import { pendingComposerFilesSlot } from './pending-files';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
@@ -128,6 +129,8 @@ beforeEach( () => {
 	clearComposerDrafts();
 	const pendingFiles = pendingComposerFilesSlot.getSnapshot();
 	if ( pendingFiles ) pendingComposerFilesSlot.clear( pendingFiles );
+	const pendingDraft = pendingComposerDraftSlot.getSnapshot();
+	if ( pendingDraft ) pendingComposerDraftSlot.clear( pendingDraft );
 	removeAnnotations(
 		SITE,
 		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
@@ -221,6 +224,22 @@ describe( 'Chat composer', () => {
 		await waitFor( () => expect( send ).toHaveAttribute( 'data-variant', 'accent' ), {
 			timeout: 2000,
 		} );
+	} );
+
+	it( 'takes a draft another screen hands it, on screen or shown next', async () => {
+		const { input, unmount } = await setup();
+		act( () => pendingComposerDraftSlot.set( { draftKey: 'other', text: '/create-skill ' } ) );
+		expect( input ).toHaveValue( '' );
+
+		act( () => pendingComposerDraftSlot.set( { draftKey: 'test', text: '/create-skill ' } ) );
+		expect( input ).toHaveValue( '/create-skill ' );
+		expect( input ).toHaveFocus();
+		expect( pendingComposerDraftSlot.getSnapshot() ).toBeNull();
+
+		unmount();
+		pendingComposerDraftSlot.set( { draftKey: 'site:one', text: '/create-skill Lookbook post' } );
+		const next = await setup( { draftKey: 'site:one' } );
+		expect( next.input ).toHaveValue( '/create-skill Lookbook post' );
 	} );
 
 	it( 'pastes files into the composer above the text without replacing the draft', async () => {
@@ -375,6 +394,108 @@ describe( 'Chat composer', () => {
 		expect( input.selectionStart ).toBe( 'Please /annotate '.length );
 		expect( onSend ).not.toHaveBeenCalled();
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
+	} );
+
+	describe( "the site's own skills", () => {
+		const siteSkills = ( connector = createFakeConnector() ) => {
+			connector.getSiteAgentFiles.mockResolvedValue( [
+				{
+					id: 'lookbook-post',
+					displayName: 'Lookbook post',
+					description: 'Lay out a seasonal lookbook post.',
+					installed: true,
+					enabled: true,
+				},
+				{
+					id: 'client-handoff',
+					displayName: 'Client handoff',
+					description: 'Write the handoff notes.',
+					installed: true,
+					enabled: false,
+				},
+				{
+					id: 'size-guide',
+					displayName: 'Size guide',
+					description: '',
+					installed: true,
+					enabled: true,
+				},
+				{
+					id: 'brand-voice',
+					displayName: 'Brand voice',
+					description: 'Write in the house voice.',
+					installed: true,
+					enabled: true,
+					globalSource: 'studio',
+				},
+				{
+					id: 'taxonomist',
+					displayName: 'Taxonomist',
+					description: 'A site skill with a reserved name.',
+					installed: true,
+					enabled: true,
+				},
+				{
+					id: 'wp-rest-api',
+					displayName: 'REST API',
+					description: 'Routes, endpoints, schema, and authentication',
+					installed: true,
+					enabled: true,
+				},
+			] );
+			return connector;
+		};
+
+		it( 'lists the ones agents can load ahead of the built-in skills, and inserts one', async () => {
+			const { input, onSend } = await setup( { ownerSiteId: SITE }, siteSkills() );
+			fireEvent.change( input, { target: { value: '/' } } );
+			const own = await screen.findByRole( 'option', { name: /^Lookbook post / } );
+			const options = screen.getAllByRole( 'option' );
+			expect( options.indexOf( own ) ).toBeLessThan(
+				options.indexOf( screen.getByRole( 'option', { name: /^Taxonomist / } ) )
+			);
+			expect( screen.queryByRole( 'option', { name: /^Client handoff/ } ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'option', { name: /^Size guide/ } ) ).not.toBeInTheDocument();
+			expect( screen.getAllByRole( 'option', { name: /^Taxonomist / } ) ).toHaveLength( 1 );
+			// The WordPress skills Studio copied into the site guide agents; nobody types them.
+			expect( screen.queryByRole( 'option', { name: /^REST API/ } ) ).not.toBeInTheDocument();
+			// The menu does not say where a skill is kept: here it makes no difference.
+			expect( screen.getByRole( 'option', { name: /^Brand voice / } ) ).not.toHaveTextContent(
+				'All sites'
+			);
+
+			fireEvent.click( own );
+			expect( input ).toHaveValue( '/lookbook-post ' );
+			expect( onSend ).not.toHaveBeenCalled();
+		} );
+
+		it( 'lists only the skills for all sites in a chat on the live site', async () => {
+			const connector = siteSkills();
+			connector.getGlobalSkills.mockResolvedValue( [
+				{
+					id: 'brand-voice',
+					displayName: 'Brand voice',
+					description: 'Write in the house voice.',
+					enabled: true,
+					source: 'studio',
+					directory: '/skills/brand-voice',
+				},
+				{
+					id: 'changelog',
+					displayName: 'Changelog',
+					description: 'Write a changelog entry.',
+					enabled: false,
+					source: 'agents',
+					directory: '/agents/changelog',
+				},
+			] );
+			const { input } = await setup( { ownerSiteId: SITE, environment: 'live' }, connector );
+			fireEvent.change( input, { target: { value: '/' } } );
+			expect( await screen.findByRole( 'option', { name: /^Brand voice / } ) ).toBeVisible();
+			expect( screen.queryByRole( 'option', { name: /^Changelog/ } ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'option', { name: /^Lookbook post/ } ) ).not.toBeInTheDocument();
+			expect( connector.getSiteAgentFiles ).not.toHaveBeenCalled();
+		} );
 	} );
 
 	it.each( [

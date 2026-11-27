@@ -2,7 +2,7 @@
 
 set -eu
 
-# Determines if a CI job should be skipped based on the files changed in the PR.
+# Determines if a CI job should be skipped based on the changed files.
 # `shared-pipeline-vars` runs it on the upload agent for each job type and exports the result as SKIP_<JOB TYPE>,
 # which `pipeline.yml` uses as the `skip:` of matching steps, so skipped jobs never start.
 #
@@ -10,7 +10,10 @@ set -eu
 #   should-skip-job.sh <job-type>
 #
 # Prints the reason to skip the job, or `false` to run it. Exits 0 either way, and 15 for invalid arguments.
-# Non-PR builds, and any error while getting the changed files, run the job.
+# Webhook PRs use their PR diff. On trunk, an eligible squash push compares to its previous tip.
+# Webhook, API and trigger builds on trunk can use an ancestor in CI_CHANGED_FILES_BASE instead.
+# STUDIO_CI_FULL_BUILD=1 forces a full run. Manual UI, scheduled and tag builds always run.
+# Any error while getting the changed files runs the job.
 #
 # Job types:
 #   - validation: Skip if changes are limited to documentation, config, localization, and non-code files.
@@ -20,8 +23,6 @@ set -eu
 #   - metrics: Same as validation, but also skips on test-only and agent-only changes.
 #              Since metrics measure app performance, test file changes don't affect them,
 #              and the metrics suites never run agent code.
-#   - build: Skip if changes are limited to documentation and config files.
-#            Does NOT skip on localization changes since builds should include translation updates.
 #   - fastlane: Inverse of the others — only runs when fastlane/ or Ruby setup files change.
 #               Used for the standalone tests in fastlane/test/. App-only PRs skip it.
 
@@ -110,26 +111,48 @@ FASTLANE_PATTERNS=(
   ".buildkite/shared-pipeline-vars"
   ".buildkite/commands/run-fastlane-tests.sh"
   ".buildkite/commands/should-skip-job.sh"
+  ".buildkite/commands/trunk-push-base.sh"
 )
 
 run_job() { echo false; exit 0; }
 # Buildkite rejects the whole pipeline upload if a `skip:` reason is longer than 70 characters.
 skip_job() { echo "${1:0:70}"; exit 0; }
 
-if [[ $# -ne 1 || -z "${1:-}" ]]; then
-  echo "Usage: should-skip-job.sh <validation|e2e|metrics|build|fastlane>" >&2
+if [[ $# -ne 1 || ! "${1:-}" =~ ^(validation|e2e|metrics|fastlane)$ ]]; then
+  echo "Usage: should-skip-job.sh <validation|e2e|metrics|fastlane>" >&2
   exit 15
 fi
 
-# Outside a pull request, run the job without looking up changed files.
-[[ "${BUILDKITE_PULL_REQUEST:-false}" =~ ^[0-9]+$ ]] || run_job
+if [[ "${STUDIO_CI_FULL_BUILD:-}" == 1 || -n "${BUILDKITE_TAG:-}" ]]; then
+  run_job
+fi
+
+if [[ "${BUILDKITE_PULL_REQUEST:-}" =~ ^[0-9]+$ && "${BUILDKITE_SOURCE:-}" == webhook ]]; then
+  changed_files_command=(pr_changed_files)
+elif [[ "${BUILDKITE_PULL_REQUEST:-}" == false && "${BUILDKITE_BRANCH:-}" == trunk ]]; then
+  case "${BUILDKITE_SOURCE:-}" in
+    webhook) ;;
+    api|trigger_job) [[ -n "${CI_CHANGED_FILES_BASE:-}" ]] || run_job ;;
+    *) run_job ;;
+  esac
+  if [[ -n "${CI_CHANGED_FILES_BASE:-}" ]]; then
+    base_commit=$(git rev-parse --verify --quiet --end-of-options "${CI_CHANGED_FILES_BASE}^{commit}") || run_job
+    git merge-base --is-ancestor "$base_commit" HEAD || run_job
+  else
+    base_commit=${CI_TRUNK_PUSH_BASE:-}
+    [[ -n "$base_commit" ]] || run_job
+  fi
+  changed_files_command=(check_changed_files --base "$base_commit")
+else
+  run_job
+fi
 
 case "$1" in
   "validation")
     # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in
     # non-code files OR localization-only changes
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files_command[@]}" --all-match "${PATTERNS[@]}"; then
       skip_job "Only docs, config or localization files changed"
     fi
     ;;
@@ -137,7 +160,7 @@ case "$1" in
   "e2e")
     # Skip desktop e2e if ALL changes are in non-code files, localization, OR agent files.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files_command[@]}" --all-match "${PATTERNS[@]}"; then
       skip_job "Only docs, config, localization or agent files changed"
     fi
     ;;
@@ -146,16 +169,8 @@ case "$1" in
     # Skip metrics if ALL changes are in non-code files, localization, test files, OR agent files.
     # Neither test nor agent file changes affect what the metrics suites measure.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${TEST_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files_command[@]}" --all-match "${PATTERNS[@]}"; then
       skip_job "Only docs, config, localization, test or agent files changed"
-    fi
-    ;;
-
-  "build")
-    # Skip build if ALL changes are in non-code files.
-    # Note: Does NOT skip on localization changes - builds should include translation updates.
-    if pr_changed_files --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
-      skip_job "Only docs or config files changed"
     fi
     ;;
 
@@ -163,18 +178,13 @@ case "$1" in
     # Run only if at least one changed file is fastlane/ or Ruby-setup-related.
     # Other job types treat fastlane changes as non-code; this one is the inverse.
     # An empty or failed diff must run the tests too, not look like "no fastlane files changed".
-    pr_changed_files || run_job
-    relevant=$(pr_changed_files --stdout --any-match "${FASTLANE_PATTERNS[@]}") || run_job
+    "${changed_files_command[@]}" || run_job
+    relevant=$("${changed_files_command[@]}" --stdout --any-match "${FASTLANE_PATTERNS[@]}") || run_job
     if [[ "$relevant" == false ]]; then
       skip_job "No fastlane or Ruby setup files changed"
     fi
     ;;
 
-  *)
-    echo "Unknown job type: $1" >&2
-    echo "Valid types: validation, e2e, metrics, build, fastlane" >&2
-    exit 15
-    ;;
 esac
 
 run_job

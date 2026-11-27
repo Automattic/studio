@@ -428,7 +428,8 @@ steps:
 
   - group: ":chart_with_upwards_trend: Performance Metrics"
     if: build.branch == 'trunk' || build.pull_request.base_branch == 'trunk'
-    # No `even-if-skipped` on its status: it only reports on trunk, which never skips it.
+    # No `even-if-skipped` on its status, which only reports on trunk: `notify_skipped_steps` ignores the notify's `if:`,
+    # so it would also report it on PRs.
     skip: "$SKIP_METRICS"
     steps:
       - input: "🚦 Run Performance Metrics?"

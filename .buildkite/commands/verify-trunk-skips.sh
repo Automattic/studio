@@ -52,6 +52,12 @@ check_values() {
     [[ "$actual" == "${expected[i]}" ]] || { echo "Unexpected ${variables[i]}=$value" >&2; exit 1; }
   done
 }
+check_context() (
+  # shellcheck disable=SC2163 # Each argument is a KEY=value assignment for this check.
+  export "$@"
+  read_vars
+  check_values
+)
 read_vars
 check_values
 selected_expected=("${expected[@]}")
@@ -88,6 +94,39 @@ expected=("${selected_expected[@]}")
 read_vars
 check_values
 unset CI_CHANGED_FILES_BASE
+
+# The last commit changes only docs. An explicit base also includes the previous fixture change.
+echo 'Follow-up' > probe-summary.md
+git add probe-summary.md
+git commit -qm 'Fixture docs follow-up (#1000000)'
+expected=(1 1 1 1)
+read_vars
+check_values
+
+other_base=$(git commit-tree "${base}^{tree}" -m 'Unrelated root')
+for source in api trigger_job; do
+  expected=("${selected_expected[@]}")
+  check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE="$base"
+  expected=(0 0 0 0)
+  check_context BUILDKITE_SOURCE="$source"
+  check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE=missing-ci-probe-base
+  check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE="$other_base"
+  check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE="$base" BUILDKITE_BRANCH=feature
+  check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE="$base" BUILDKITE_PULL_REQUEST=123
+  check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE="$base" BUILDKITE_TAG=v1.0
+  check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE="$base" STUDIO_CI_FULL_BUILD=1
+done
+for source in ui schedule; do
+  check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE="$base"
+done
+check_context CI_CHANGED_FILES_BASE="$base" BUILDKITE_BRANCH=feature
+check_context CI_CHANGED_FILES_BASE="$base" BUILDKITE_TAG=v1.0
+
+# Even a PR-looking subject on a merge commit should run fully without an explicit base.
+merge=$(git commit-tree 'HEAD^{tree}' -p "$base" -p "$other_base" -m 'Fixture merge (#1000001)')
+git checkout --detach -q "$merge"
+read_vars
+check_values
 
 # Use the same notifier/upload flow as the central uploader, with a harmless probe job and its own status.
 cat > smoke.yml <<'YAML'

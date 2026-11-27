@@ -46,6 +46,7 @@ export function SurfaceLayer( {
 			<ResponsiveViewport { ...responsive } active={ active && ( responsive?.active ?? true ) }>
 				<div
 					className={ clsx( styles.surfaceFrame, design && styles.designSurface ) }
+					data-design-surface={ design || undefined }
 					data-failed={ failed || undefined }
 				>
 					{ children }

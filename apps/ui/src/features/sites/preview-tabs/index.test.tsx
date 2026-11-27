@@ -120,9 +120,13 @@ it( 'shows the captured page only while its browser tab is inactive', async () =
 	);
 	const { user } = await setup();
 	const first = selectedTab();
-	const capturePage = vi.fn().mockResolvedValue( {
-		isEmpty: () => false,
-		resize: () => ( { toDataURL: () => 'data:image/png;base64,first' } ),
+	let view = 'first';
+	const capturePage = vi.fn( async () => {
+		const captured = view;
+		return {
+			isEmpty: () => false,
+			resize: () => ( { toDataURL: () => `data:image/png;base64,${ captured }` } ),
+		};
 	} );
 	const page = activePreview( 'webview' )!;
 	Object.defineProperties( page, { clientWidth: { value: 800 }, clientHeight: { value: 700 } } );
@@ -139,18 +143,58 @@ it( 'shows the captured page only while its browser tab is inactive', async () =
 		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument();
 	};
 	await expectNoPreviewOnHover();
+	view = 'scrolled';
 	await newBrowserTab();
 	await user.unhover( first );
 	await user.hover( first );
 	expect( await screen.findByRole( 'img', { name: 'Preview of First' } ) ).toHaveAttribute(
 		'src',
-		'data:image/png;base64,first'
+		'data:image/png;base64,scrolled'
 	);
+	const close = first
+		.closest( '[data-tab-reorder-id]' )!
+		.querySelector< HTMLElement >( '[data-tab-close]' )!;
+	await user.hover( close );
+	expect( screen.getByRole( 'img', { name: 'Preview of First' } ) ).toBeInTheDocument();
 	await user.click( first );
 	await waitFor( () =>
 		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument()
 	);
 	await expectNoPreviewOnHover();
+} );
+
+it( 'finishes capturing the outgoing tab after a quick switch', async () => {
+	vi.spyOn( window.navigator, 'userAgent', 'get' ).mockReturnValue(
+		window.navigator.userAgent + ' Electron/38.0.0'
+	);
+	const { user } = await setup();
+	const first = selectedTab();
+	const page = activePreview( 'webview' )!;
+	const pane = page.closest( '[data-active-tab]' )!;
+	let finishCapture!: () => void;
+	const capturePage = vi.fn(
+		() =>
+			new Promise( ( resolve ) => {
+				finishCapture = () =>
+					resolve( {
+						isEmpty: () => false,
+						resize: () => ( { toDataURL: () => 'data:image/png;base64,last-view' } ),
+					} );
+			} )
+	);
+	Object.defineProperties( page, { clientWidth: { value: 800 }, clientHeight: { value: 700 } } );
+	Object.assign( page, { capturePage, getWebContentsId: () => 42 } );
+	fireEvent( page, new Event( 'did-finish-load' ) );
+	await newBrowserTab();
+	expect( capturePage ).toHaveBeenCalled();
+	expect( pane ).toHaveAttribute( 'data-capturing-thumbnail' );
+	finishCapture();
+	await user.hover( first );
+	expect( await screen.findByRole( 'img', { name: 'Preview of First' } ) ).toHaveAttribute(
+		'src',
+		'data:image/png;base64,last-view'
+	);
+	expect( pane ).not.toHaveAttribute( 'data-capturing-thumbnail' );
 } );
 
 it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {

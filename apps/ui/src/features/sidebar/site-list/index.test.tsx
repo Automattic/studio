@@ -84,6 +84,19 @@ function drag( row: HTMLElement, toY: number ) {
 beforeEach( () => localStorage.clear() );
 
 describe( 'sidebar site list', () => {
+	it( 'loads a site preview on hover and dismisses it when its menu opens', async () => {
+		const { user, connector } = await setup();
+		connector.getSiteThumbnail.mockResolvedValue( 'data:image/png;base64,preview' );
+		const row = await siteButton( 'My site' );
+		expect( connector.getSiteThumbnail ).not.toHaveBeenCalledWith( 'one' );
+		await user.hover( row );
+		expect( await screen.findByRole( 'img', { name: 'Saved site preview' } ) ).toBeVisible();
+		expect( connector.getSiteThumbnail ).toHaveBeenCalledWith( 'one' );
+		fireEvent.contextMenu( row );
+		await screen.findByRole( 'menu' );
+		await waitFor( () => expect( screen.queryByRole( 'tooltip' ) ).not.toBeInTheDocument() );
+	} );
+
 	it( 'records external Open in destinations and internal project tools separately', async () => {
 		const { connector } = await setup();
 		await openIn( 'My site' );

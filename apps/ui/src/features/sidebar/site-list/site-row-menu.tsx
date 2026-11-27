@@ -1,5 +1,7 @@
-import { Menu } from '@studio/ds';
+import { Menu, ThumbnailTooltip } from '@studio/ds';
+import { __ } from '@wordpress/i18n';
 import { useState, type MouseEvent, type PointerEvent, type ReactElement } from 'react';
+import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { SiteMenuItems, useSiteActions } from '@/features/sites';
 import { BulkMenu, useIsBulkTarget } from './selection';
@@ -24,6 +26,9 @@ export function SiteRowMenu( {
 	const bulk = useIsBulkTarget( sitePinKey( site.id ) );
 	const [ menuOpen, setMenuOpen ] = useState( false );
 
+	const [ previewOpen, setPreviewOpen ] = useState( false );
+	const { data: thumbnail } = useSiteThumbnail( site.id, { enabled: previewOpen && ! menuOpen } );
+
 	const stopMenuEventPropagation = (
 		event: MouseEvent< HTMLElement > | PointerEvent< HTMLElement >
 	) => {
@@ -33,7 +38,14 @@ export function SiteRowMenu( {
 	return (
 		<>
 			<Menu.ContextMenuRoot open={ menuOpen } onOpenChange={ setMenuOpen }>
-				<Menu.ContextMenuTrigger render={ trigger } { ...actions.shortcuts } />
+				<ThumbnailTooltip
+					side="inline-end"
+					thumbnail={ thumbnail }
+					label={ __( 'Saved site preview' ) }
+					disabled={ menuOpen }
+					onOpenChange={ setPreviewOpen }
+					trigger={ <Menu.ContextMenuTrigger render={ trigger } { ...actions.shortcuts } /> }
+				/>
 				{ bulk ? (
 					<BulkMenu
 						onClose={ () => setMenuOpen( false ) }

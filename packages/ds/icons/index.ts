@@ -1,3 +1,4 @@
+export { AttachmentIcon } from './attachment-icon';
 export * from './annotate-icon';
 export * from './archive-icon';
 export * from './arrow-down-icon';

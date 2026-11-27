@@ -7,13 +7,15 @@ import {
 } from './frame';
 
 describe( 'preview particle frames', () => {
-	it( 'keeps the grid centered with fixed spacing as the viewport resizes', () => {
+	it( 'fits evenly spaced rows and columns inside equal margins as the viewport resizes', () => {
 		for ( const [ width, height ] of [
 			[ 800, 600 ],
 			[ 813, 611 ],
 			[ 960, 720 ],
 			[ 320, 201 ],
 			[ 19, 29 ],
+			[ 58, 640 ],
+			[ 2560, 1440 ],
 		] ) {
 			const dots = createPreviewDots( width, height );
 			const columns = [ ...new Set( dots.map( ( { x } ) => x ) ) ];
@@ -23,10 +25,19 @@ describe( 'preview particle frames', () => {
 				[ columns, width ],
 				[ rows, height ],
 			] as const ) {
-				expect( positions ).toContain( size / 2 );
-				expect( positions[ 0 ] ).toBe( size - positions[ positions.length - 1 ] );
+				const targetSpacing = Math.max( 26, Math.sqrt( ( width * height ) / 1600 ) );
+				const intervals = Math.max( 0, Math.round( ( size - 48 ) / targetSpacing ) );
+				expect( positions ).toHaveLength( intervals + 1 );
+				if ( ! intervals ) {
+					expect( positions ).toEqual( [ size / 2 ] );
+					continue;
+				}
+				expect( positions[ 0 ] ).toBe( 24 );
+				expect( positions.at( -1 ) ).toBe( size - 24 );
 				for ( let index = 1; index < positions.length; index++ ) {
-					expect( positions[ index ] - positions[ index - 1 ] ).toBe( 26 );
+					expect( positions[ index ] - positions[ index - 1 ] ).toBeCloseTo(
+						( size - 48 ) / intervals
+					);
 				}
 			}
 		}

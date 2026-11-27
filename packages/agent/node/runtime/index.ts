@@ -27,7 +27,9 @@ import {
 	type SessionManager,
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { readSkillsForAgent } from '@studio/common/lib/global-skills';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { type UserSkill } from '@studio/common/lib/user-skills';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
@@ -335,13 +337,17 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const { model } = config.ai;
 	const visionEnabled = model.input.includes( 'image' );
-	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled, designPath, userSkills ] = await Promise.all( [
 		readGlobalInstructions(),
 		config.host.imageGenerator?.().then( Boolean ) ?? false,
 		findActiveSiteDesign( config.activeSite ),
+		// A WordPress.com site has no folder of its own skills, only the global ones.
+		readSkillsForAgent(
+			config.activeSite && ! config.activeSite.remote ? config.activeSite.path : undefined
+		),
 	] );
 
-	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
+	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled, userSkills );
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
@@ -553,7 +559,8 @@ function toToolDefinition(
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
 	imageGenerationEnabled: boolean,
-	visionEnabled: boolean
+	visionEnabled: boolean,
+	userSkills: UserSkill[]
 ): AgentToolAny[] {
 	const { host } = config;
 
@@ -577,6 +584,7 @@ function buildAgentTools(
 		visionEnabled,
 		onAskUser: config.onAskUser,
 		tracks: getAiTracksIdentity( config.session.getSessionId() ),
+		userSkills,
 	} ) as unknown as AgentToolAny[];
 	return [ ...conversationTools, ...piTools ];
 }

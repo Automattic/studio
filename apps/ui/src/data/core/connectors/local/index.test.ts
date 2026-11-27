@@ -480,6 +480,18 @@ describe( 'createLocalConnector for a remote server', () => {
 	const checkIns = ( origin: string ) =>
 		fetchMock.mock.calls.filter( ( [ url ] ) => url === `${ origin }/api/health` ).length;
 
+	it( 'offers the skills for all sites, and to make or change a skill, only on a server that can', async () => {
+		expect( ( await start( 'https://new.cloud.test' ) ).capabilities ).toMatchObject( {
+			globalSkills: true,
+			skillEditing: true,
+		} );
+		fetchMock.mockImplementation( async () => Response.json( { version: '2.4.0' } ) );
+		expect( ( await start( 'https://old.cloud.test' ) ).capabilities ).toMatchObject( {
+			globalSkills: false,
+			skillEditing: false,
+		} );
+	} );
+
 	it( 'keeps the event stream open only while the page has focus', async () => {
 		await start( 'https://m1.cloud.test' );
 		const opened = streamsOf( 'https://m1.cloud.test' );

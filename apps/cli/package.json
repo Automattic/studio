@@ -57,7 +57,7 @@
 		"@earendil-works/pi-ai": "1.5.0",
 		"@earendil-works/pi-coding-agent": "1.5.0",
 		"@formatjs/intl-localematcher": "^0.5.4",
-		"@modelcontextprotocol/sdk": "^1.27.1",
+		"@modelcontextprotocol/server": "^2.4.0",
 		"@sentry/node": "^11.7.0",
 		"@studio/agent": "file:../../packages/agent",
 		"@studio/blueprints": "file:../../packages/blueprints",

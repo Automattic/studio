@@ -22,13 +22,14 @@ import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { refreshBrowserTool } from './refresh-browser';
+import { saveSkillTool } from './save-skill';
 import { scaffoldThemeTool } from './scaffold-theme';
 import { sendFeedbackTool } from './send-feedback';
 import { getSiteInfoTool } from './site-info';
 import { createSkillTool } from './skill';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
-import { createStudioInstructionsTool } from './studio-instructions';
+import { createStudioInstructionsTool, type HostSkills } from './studio-instructions';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
@@ -42,6 +43,7 @@ import type {
 import type { DesignTracksContext } from '@studio/agent/node/design-tracks';
 import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/node/host';
 import type { AskUserHandler } from '@studio/agent/node/types';
+import type { UserSkill } from '@studio/common/lib/user-skills';
 
 // The tools as defined for `host`.
 export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefinition[] {
@@ -137,27 +139,30 @@ export function resolveStudioTools(
 }
 
 // The tools of a conversation with the model: Studio's, the questions when the
-// user can answer them, and the skills.
+// user can answer them, and the skills, with save_skill for the create-skill skill.
 export function resolveConversationTools(
 	host: StudioAgentHost,
 	{
 		onAskUser,
 		tracks,
+		userSkills,
 		...options
 	}: Pick< StudioToolsOptions, 'imageGeneration' | 'visionEnabled' > & {
 		onAskUser?: AskUserHandler;
 		tracks: DesignTracksContext;
+		// The user's own skills, for the active site and for all sites, offered next to Studio's.
+		userSkills?: UserSkill[];
 	}
 ): AnyStudioAgentTool[] {
 	// The feedback skill only works through send_feedback.
-	const skillTool = createSkillTool( host.sendFeedback ? [] : [ 'feedback' ] );
+	const skillTool = createSkillTool( host.sendFeedback ? [] : [ 'feedback' ], userSkills );
 	return [
 		...resolveStudioTools( host, { ...options, canAskUser: Boolean( onAskUser ), tracks } ),
 		...( onAskUser ? [ bindTool( createAskUserQuestionTool( onAskUser ), host ) ] : [] ),
 		...( onAskUser && host.ui
 			? [ bindTool( createPresentDesignOptionsTool( { onAskUser, tracks } ), host ) ]
 			: [] ),
-		...( skillTool ? [ bindTool( skillTool, host ) ] : [] ),
+		...( skillTool ? [ bindTool( skillTool, host ), bindTool( saveSkillTool, host ) ] : [] ),
 	] as AnyStudioAgentTool[];
 }
 
@@ -168,6 +173,8 @@ export interface ExternalToolsOptions
 	> {
 	// The host shows present_design_options' options as a clickable picker (an MCP App).
 	picker?: boolean;
+	// The skills the host offers and loads itself: studio_instructions leaves them to it.
+	hostSkills?: HostSkills;
 }
 
 // The tools of an agent that runs them itself, such as one connected to `studio
@@ -176,7 +183,7 @@ export interface ExternalToolsOptions
 // runtime adds in a conversation.
 export function resolveExternalTools(
 	host: StudioAgentHost,
-	{ picker, ...options }: ExternalToolsOptions = {}
+	{ picker, hostSkills, ...options }: ExternalToolsOptions = {}
 ): AnyStudioAgentTool[] {
 	const tools = [
 		...resolveStudioTools( host, options ),
@@ -190,25 +197,27 @@ export function resolveExternalTools(
 		),
 	] as AnyStudioAgentTool[];
 	const notes = createResultNotes();
-	return [ bindTool( createStudioInstructionsTool( tools ), host ), ...tools ].map( ( tool ) => ( {
-		...tool,
-		rawHandler: async ( args: never, context ) => {
-			const result = await tool.rawHandler( args, context );
-			const text = result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
-			const site = await siteNamed( host, args );
-			const added = [
-				site && ( await notes( site.path, text.join( '\n' ) ) ),
-				await result.pending,
-			]
-				.filter( Boolean )
-				.join( '\n' );
-			return {
-				...result,
-				content: added ? [ ...result.content, { type: 'text', text: added } ] : result.content,
-				pending: undefined,
-			};
-		},
-	} ) ) as AnyStudioAgentTool[];
+	return [ bindTool( createStudioInstructionsTool( tools, hostSkills ), host ), ...tools ].map(
+		( tool ) => ( {
+			...tool,
+			rawHandler: async ( args: never, context ) => {
+				const result = await tool.rawHandler( args, context );
+				const text = result.content.map( ( part ) => ( part.type === 'text' ? part.text : '' ) );
+				const site = await siteNamed( host, args );
+				const added = [
+					site && ( await notes( site.path, text.join( '\n' ) ) ),
+					await result.pending,
+				]
+					.filter( Boolean )
+					.join( '\n' );
+				return {
+					...result,
+					content: added ? [ ...result.content, { type: 'text', text: added } ] : result.content,
+					pending: undefined,
+				};
+			},
+		} )
+	) as AnyStudioAgentTool[];
 }
 
 // The site a call names, if any.

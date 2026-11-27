@@ -84,6 +84,11 @@
 	gap: var( --space-1 );
 }
 
+.rowTitle[data-wrap] {
+	flex-wrap: wrap;
+	row-gap: var( --space-0_5 );
+}
+
 .linkButton {
 	opacity: 0;
 }

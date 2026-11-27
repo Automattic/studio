@@ -627,6 +627,23 @@ describe( 'site checks', () => {
 		).toBe( false );
 	} );
 
+	test( 'blockSettingsUsePresets', () => {
+		const passes = ( content ) =>
+			run(
+				checks.blockSettingsUsePresets,
+				outcome( { ...workingSite, content: [ front( content, {} ) ] } )
+			).pass;
+		expect(
+			passes(
+				'<!-- wp:group {"style":{"spacing":{"padding":{"top":"var:preset|spacing|40"}}}} -->'
+			)
+		).toBe( true );
+		expect( passes( '<!-- wp:group {"style":{"spacing":{"padding":{"top":"80px"}}}} -->' ) ).toBe(
+			false
+		);
+		expect( passes( '<!-- wp:group {"className":"hero"} -->' ) ).toBe( false );
+	} );
+
 	test( 'repeatedTreatmentIsBlockStyle', () => {
 		const site = ( content ) => ( {
 			...workingSite,
@@ -717,6 +734,25 @@ describe( 'routing checks', () => {
 			).pass
 		).toBe( true );
 		expect( run( checks.skillsLoadedFirst, { toolCalls: calls }, vars ).pass ).toBe( true );
+	} );
+
+	test( 'skillSaved', () => {
+		const save = ( scope ) => ( {
+			name: 'save_skill',
+			input: { scope, name: 'Lookbook post', description: 'Use it.', instructions: 'Steps.' },
+		} );
+		const told = reply( 'Saved. Type `/lookbook-post` to use it.' );
+		const check = ( result ) => run( checks.skillSaved, result, { scope: 'site' } ).pass;
+		expect( check( { toolCalls: [ save( 'site' ) ], ...told } ) ).toBe( true );
+		expect( check( { toolCalls: [ save( 'all_sites' ) ], ...told } ) ).toBe( false );
+		expect( check( { toolCalls: [ save( 'site' ) ], ...reply( 'Saved.' ) } ) ).toBe( false );
+		expect( check( { toolCalls: [ { name: 'Write', input: {} } ], ...told } ) ).toBe( false );
+		// The command is made from the name as Studio makes it.
+		const punctuated = {
+			...save( 'site' ),
+			input: { ...save( 'site' ).input, name: 'Lookbook post!' },
+		};
+		expect( check( { toolCalls: [ punctuated ], ...told } ) ).toBe( true );
 	} );
 } );
 

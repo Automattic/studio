@@ -25,7 +25,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 
 	// Everything forked from here inherits this, so browser usage isn't counted as
 	// bare CLI. `v2` because the browser serves `apps/ui`.
-	process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+	process.env.STUDIO_TRACKS_ORIGIN = 'studio-browser:v2';
 
 	// The built browser UI (apps/ui `dist-local`) is copied next to the CLI
 	// bundle at build time. In dev it may be absent — the server then

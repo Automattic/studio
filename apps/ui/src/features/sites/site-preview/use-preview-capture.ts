@@ -1,3 +1,4 @@
+import { SITE_THUMBNAIL_VIEWPORT } from '@studio/common/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
@@ -33,8 +34,7 @@ export function usePreviewCapture(
 			void connector
 				.captureSitePreview( siteId, {
 					path: pagePath,
-					width: Math.min( viewport.clientWidth, 2400 ),
-					height: Math.min( viewport.clientHeight, 2400 ),
+					...SITE_THUMBNAIL_VIEWPORT,
 					guestId: loadedPage.guestId,
 				} )
 				.then( ( thumbnail ) => {

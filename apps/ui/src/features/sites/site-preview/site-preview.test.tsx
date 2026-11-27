@@ -284,7 +284,7 @@ describe( 'site preview', () => {
 			} );
 			expect( connector.captureSitePreview ).toHaveBeenCalledExactlyOnceWith(
 				'one',
-				expect.objectContaining( { width: 400, height: 800 } )
+				expect.objectContaining( { width: 1040, height: 650 } )
 			);
 		}
 	);

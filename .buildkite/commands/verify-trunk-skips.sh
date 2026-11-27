@@ -32,9 +32,32 @@ mkdir -p "$(dirname "$path")"
 echo changed > "$path"
 git add "$path"
 git commit -qm 'Fixture merge (#999999)'
-export BUILDKITE_SOURCE=webhook BUILDKITE_PULL_REQUEST=false BUILDKITE_BRANCH=trunk
+export BUILDKITE_SOURCE=webhook BUILDKITE_GITHUB_EVENT=push BUILDKITE_PULL_REQUEST=false BUILDKITE_BRANCH=trunk
 export PIPELINE=pipeline.yml
 unset BUILDKITE_TAG CI_CHANGED_FILES_BASE STUDIO_CI_FULL_BUILD
+
+# Only substitute the push that triggered this synthetic Git history. Forward normal agent operations.
+PROBE_AGENT=$(command -v buildkite-agent)
+export PROBE_AGENT PROBE_WEBHOOK_READS="$fixture/.git/webhook-reads"
+mkdir "$fixture/.git/bin"
+cat > "$fixture/.git/bin/buildkite-agent" <<'AGENT'
+#!/bin/sh
+if [ "$*" = 'meta-data get buildkite:webhook' ]; then
+  echo read >> "$PROBE_WEBHOOK_READS"
+  printf '%s\n' "$PROBE_WEBHOOK"
+else
+  exec "$PROBE_AGENT" "$@"
+fi
+AGENT
+chmod +x "$fixture/.git/bin/buildkite-agent"
+export PATH="$fixture/.git/bin:$PATH"
+set_push() {
+  PROBE_WEBHOOK=$(jq -nc --arg before "$1" --arg after "$(git rev-parse HEAD)" \
+    '{ref: "refs/heads/trunk", before: $before, after: $after, forced: false}')
+  export PROBE_WEBHOOK
+  : > "$PROBE_WEBHOOK_READS"
+}
+set_push "$base"
 variables=(SKIP_VALIDATION SKIP_E2E SKIP_METRICS SKIP_FASTLANE)
 read_vars() {
   # Start with the central uploader's bash -e options and no previous decision.
@@ -60,6 +83,7 @@ check_context() (
 )
 read_vars
 check_values
+[[ $(wc -l < "$PROBE_WEBHOOK_READS") -eq 1 ]]
 selected_expected=("${expected[@]}")
 export PROBE_SKIP=${!variables[0]} PROBE_SCENARIO=$scenario
 export CI_CHANGED_FILES_BASE=$base
@@ -87,6 +111,7 @@ unset CI_CHANGED_FILES_BASE
 
 # A direct push without a PR-merge subject runs fully unless an explicit base is supplied.
 git commit --amend -qm 'Fixture direct push'
+set_push "$base"
 read_vars
 check_values
 export CI_CHANGED_FILES_BASE=$base
@@ -99,11 +124,26 @@ unset CI_CHANGED_FILES_BASE
 echo 'Follow-up' > probe-summary.md
 git add probe-summary.md
 git commit -qm 'Fixture docs follow-up (#1000000)'
+set_push "$(git rev-parse HEAD^1)"
 expected=(1 1 1 1)
 read_vars
 check_values
 
 other_base=$(git commit-tree "${base}^{tree}" -m 'Unrelated root')
+set_push "$base"
+expected=("${selected_expected[@]}")
+read_vars
+check_values
+[[ $(wc -l < "$PROBE_WEBHOOK_READS") -eq 1 ]]
+expected=(0 0 0 0)
+check_context BUILDKITE_GITHUB_EVENT=pull_request
+check_context PROBE_WEBHOOK=''
+check_context PROBE_WEBHOOK='{}'
+check_context PROBE_WEBHOOK="$(jq '.forced = true' <<< "$PROBE_WEBHOOK")"
+check_context PROBE_WEBHOOK="$(jq '.ref = "refs/heads/feature"' <<< "$PROBE_WEBHOOK")"
+check_context PROBE_WEBHOOK="$(jq --arg sha "$base" '.after = $sha' <<< "$PROBE_WEBHOOK")"
+check_context PROBE_WEBHOOK="$(jq --arg sha "$other_base" '.before = $sha' <<< "$PROBE_WEBHOOK")"
+
 for source in api trigger_job; do
   expected=("${selected_expected[@]}")
   check_context BUILDKITE_SOURCE="$source" CI_CHANGED_FILES_BASE="$base"
@@ -125,8 +165,24 @@ check_context CI_CHANGED_FILES_BASE="$base" BUILDKITE_TAG=v1.0
 # Even a PR-looking subject on a merge commit should run fully without an explicit base.
 merge=$(git commit-tree 'HEAD^{tree}' -p "$base" -p "$other_base" -m 'Fixture merge (#1000001)')
 git checkout --detach -q "$merge"
+set_push "$base"
 read_vars
 check_values
+
+# Each skipped predecessor should force a full build, even on a docs-only follow-up push.
+echo 'Just docs' > marker-follow-up.md
+git add marker-follow-up.md
+git commit -qm 'Prepare docs-only comparison'
+previous_tree=$(git rev-parse 'HEAD^1^{tree}')
+followup_tree=$(git rev-parse 'HEAD^{tree}')
+for marker in '[ci skip]' '[skip ci]' '[ci-skip]' '[skip-ci]'; do
+  previous=$(git commit-tree "$previous_tree" -p "$base" -m 'Previous squash (#1000002)' -m "$marker")
+  followup=$(git commit-tree "$followup_tree" -p "$previous" -m 'Follow-up (#1000003)')
+  git checkout --detach -q "$followup"
+  set_push "$previous"
+  read_vars
+  check_values
+done
 
 # Use the same notifier/upload flow as the central uploader, with a harmless probe job and its own status.
 cat > smoke.yml <<'YAML'

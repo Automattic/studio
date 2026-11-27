@@ -99,6 +99,11 @@ export function SidebarLayout( {
 	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	const dockScrollTop = useRef( 0 );
 	const hoverBlockedUntil = useRef( 0 );
+	// Set when a pointer click hides the docked sidebar: the header toggle appears
+	// under the still-hovering pointer, which shouldn't immediately peek the
+	// sidebar back open. Cleared once the pointer moves off the toggle.
+	const hoverSuppressed = useRef( false );
+	const hoverSuppressedGraceUntil = useRef( 0 );
 	const restoreSidebarFlyoutFocus = useRef( false );
 	const restoreSidebarDialogFocus = useRef( false );
 	const sidebarFlyoutRef = useRef< HTMLElement >( null );
@@ -174,8 +179,28 @@ export function SidebarLayout( {
 			findToggle()?.focus( { preventScroll: true } );
 		}
 	}, [ docked ] );
+	useEffect( () => {
+		const onPointerMove = ( event: PointerEvent ) => {
+			if (
+				hoverSuppressed.current &&
+				performance.now() >= hoverSuppressedGraceUntil.current &&
+				! ( event.target instanceof Element && event.target.closest( '[data-sidebar-toggle]' ) )
+			) {
+				hoverSuppressed.current = false;
+			}
+		};
+		document.addEventListener( 'pointermove', onPointerMove, { passive: true } );
+		return () => document.removeEventListener( 'pointermove', onPointerMove );
+	}, [] );
+	const suppressHoverUntilLeave = useCallback( () => {
+		if ( ! docked ) return;
+		hoverSuppressed.current = true;
+		hoverSuppressedGraceUntil.current =
+			performance.now() + Math.max( HOVER_CLOSE_DELAY_MS, getMotionDuration( 'layout' ) );
+	}, [ docked ] );
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
+		if ( hoverSuppressed.current ) return;
 		if ( ! hasOpenDialog && ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
 			hoverTimer.current = setTimeout( () => {
 				setSidebarFlyoutState( 'hover' );
@@ -230,7 +255,12 @@ export function SidebarLayout( {
 				<SidebarOpenContext.Provider value={ open }>
 					<SidebarToggleContext.Provider value={ toggleSidebar }>
 						<SidebarHoverContext.Provider
-							value={ { peek, onEnter: hoverEnter, onLeave: hoverLeave } }
+							value={ {
+								peek,
+								onEnter: hoverEnter,
+								onLeave: hoverLeave,
+								suppressUntilLeave: suppressHoverUntilLeave,
+							} }
 						>
 							<div className={ styles.root } style={ sidebarStyle }>
 								<div className={ styles.windowDragStrip } aria-hidden="true" />

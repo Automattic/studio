@@ -18,6 +18,15 @@ export DOCKER_PLUGIN="docker#$DOCKER_PLUGIN_VERSION"
 export NODE_DOCKER_IMAGE="node:${NODE_VERSION}-bookworm"
 export RUBY_DOCKER_IMAGE="ruby:${RUBY_VERSION}-bookworm"
 
+# Resolve the push once for all four jobs. The last commit alone can omit earlier changes in the same push.
+CI_TRUNK_PUSH_BASE=''
+if [ "${BUILDKITE_SOURCE:-}" = webhook ] && [ "${BUILDKITE_GITHUB_EVENT:-}" = push ] &&
+   [ "${BUILDKITE_PULL_REQUEST:-}" = false ] && [ "${BUILDKITE_BRANCH:-}" = trunk ] &&
+   [ -z "${BUILDKITE_TAG:-}" ] && [ -z "${CI_CHANGED_FILES_BASE:-}" ] && [ "${STUDIO_CI_FULL_BUILD:-}" != 1 ]; then
+  CI_TRUNK_PUSH_BASE=$(.buildkite/commands/trunk-push-base.sh) || CI_TRUNK_PUSH_BASE=''
+fi
+export CI_TRUNK_PUSH_BASE
+
 # Decide skips on the upload agent so unrelated jobs never start or wait for their agents.
 # One variable per job type (see `commands/should-skip-job.sh`): `false` runs the step, anything else is the reason to skip it.
 # Each decision runs in its own shell so a script failure only leaves that job type's skip value empty (run).

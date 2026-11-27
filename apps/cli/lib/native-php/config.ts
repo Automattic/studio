@@ -208,6 +208,10 @@ export function getNativePhpIniContents( phpVersion: SupportedPHPVersion ): stri
 		'max_input_vars=10000',
 		'display_errors=1',
 		'display_startup_errors=1',
+		// Imagick sleeps 1 ms ten times as each PHP process exits, to let OpenMP threads
+		// finish. Our ImageMagick builds have no OpenMP, so the sleep only delays the
+		// exit: about 60 ms per process on macOS.
+		'imagick.shutdown_sleep_count=0',
 		`opcache.cache_id="studio-php${ phpVersion }"`,
 		`openssl.cafile="${ caBundlePath }"`,
 		`curl.cainfo="${ caBundlePath }"`,

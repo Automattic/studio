@@ -4,7 +4,10 @@ import type { WebviewTag } from './preview-surface/webview';
 async function readThumbnail( surface: HTMLElement ) {
 	const guest = surface.querySelector< WebviewTag >( 'webview' );
 	if ( guest ) {
-		const image = await guest.capturePage();
+		const width = guest.clientWidth;
+		const height = Math.min( guest.clientHeight, Math.round( ( width * 10 ) / 16 ) );
+		if ( ! width || ! height ) return null;
+		const image = await guest.capturePage( { x: 0, y: 0, width, height } );
 		if ( image.isEmpty() ) return null;
 		return image.resize( { width: 480 } ).toDataURL();
 	}

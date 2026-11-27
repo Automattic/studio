@@ -124,9 +124,13 @@ it( 'shows the captured page only while its browser tab is inactive', async () =
 		isEmpty: () => false,
 		resize: () => ( { toDataURL: () => 'data:image/png;base64,first' } ),
 	} );
-	Object.assign( activePreview( 'webview' )!, { capturePage, getWebContentsId: () => 42 } );
-	fireEvent( activePreview( 'webview' )!, new Event( 'did-finish-load' ) );
-	await waitFor( () => expect( capturePage ).toHaveBeenCalled() );
+	const page = activePreview( 'webview' )!;
+	Object.defineProperties( page, { clientWidth: { value: 800 }, clientHeight: { value: 700 } } );
+	Object.assign( page, { capturePage, getWebContentsId: () => 42 } );
+	fireEvent( page, new Event( 'did-finish-load' ) );
+	await waitFor( () =>
+		expect( capturePage ).toHaveBeenCalledWith( { x: 0, y: 0, width: 800, height: 500 } )
+	);
 	const expectNoPreviewOnHover = async () => {
 		await user.unhover( first );
 		await user.hover( first );

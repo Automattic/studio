@@ -13,7 +13,7 @@ export interface WebviewTag extends HTMLElement {
 	reload?(): void;
 	stop?(): void;
 	isLoading?(): boolean;
-	capturePage(): Promise< {
+	capturePage( rect?: { x: number; y: number; width: number; height: number } ): Promise< {
 		isEmpty(): boolean;
 		resize( options: { width: number } ): { toDataURL(): string };
 		toDataURL(): string;

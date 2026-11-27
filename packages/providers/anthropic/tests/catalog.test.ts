@@ -28,7 +28,7 @@ describe( 'anthropic catalog', () => {
 				'claude-haiku-4-5',
 				'claude-opus-5-5',
 				// Ones pi doesn't know, newer or older, wait for a pi upgrade or stay out.
-				'claude-fable-5-2',
+				'claude-fable-6',
 				'claude-opus-4-1-20250805',
 				'claude-3-7-sonnet-20250219'
 			)
@@ -54,8 +54,8 @@ describe( 'anthropic catalog', () => {
 				recommended: true,
 			},
 		] );
-		await expect( anthropicAi.model( apiKey, 'claude-fable-5-2', {} ) ).rejects.toThrow(
-			'Anthropic does not serve claude-fable-5-2'
+		await expect( anthropicAi.model( apiKey, 'claude-fable-6', {} ) ).rejects.toThrow(
+			'Anthropic does not serve claude-fable-6'
 		);
 	} );
 
@@ -70,7 +70,7 @@ describe( 'anthropic catalog', () => {
 	} );
 
 	it( 'offers a Claude plan its models without prices', async () => {
-		fetchMock.mockResolvedValueOnce( listed( 'claude-fable-5-1' ) );
+		fetchMock.mockResolvedValueOnce( listed( 'claude-fable-5-2' ) );
 
 		const models = await anthropicAi.listModels!( {
 			method: 'setup-token',
@@ -78,7 +78,7 @@ describe( 'anthropic catalog', () => {
 		} );
 
 		expect( models ).toEqual( [
-			expect.objectContaining( { id: 'claude-fable-5-1', details: undefined, recommended: true } ),
+			expect.objectContaining( { id: 'claude-fable-5-2', details: undefined, recommended: true } ),
 		] );
 	} );
 

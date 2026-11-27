@@ -1,6 +1,7 @@
 import os from 'os';
+import { watchFile, unwatchFile } from 'node:fs';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { readConfig, updateConfig } from '@studio/common/lib/config/store';
+import { getConfigPath, readConfig, updateConfig } from '@studio/common/lib/config/store';
 import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { __, sprintf } from '@wordpress/i18n';
@@ -76,6 +77,7 @@ const START_WAIT_POLL_INTERVAL_MS = 250;
  */
 async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< SiteOperation > {
 	const operation: SiteOperation = { pid: process.pid, kind, bootTime: getBootTime() };
+	if ( kind === 'start' ) operation.cancelRequested = false;
 
 	for (;;) {
 		let isWaiting = false;
@@ -89,7 +91,19 @@ async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< S
 				}
 
 				const blocking = getLiveSiteOperation( site );
-				if ( kind === 'start' && blocking?.kind === 'start' && blocking.pid !== process.pid ) {
+				if (
+					kind === 'stop' &&
+					blocking?.kind === 'start' &&
+					blocking.cancelRequested !== undefined
+				) {
+					blocking.cancelRequested = true;
+					isWaiting = true;
+				} else if (
+					kind === 'start' &&
+					blocking?.kind === 'start' &&
+					blocking.pid !== process.pid
+				) {
+					if ( blocking.cancelRequested ) throw new SiteStartCancelled();
 					isWaiting = true;
 				} else if ( blocking ) {
 					throw siteBusyError( kind, blocking.kind );
@@ -108,16 +122,17 @@ async function acquire( siteIds: string[], kind: SiteOperationKind ): Promise< S
 		if ( ! isWaiting ) {
 			return operation;
 		}
-		await waitForOtherStarts( siteIds );
+		await waitForOtherStarts( siteIds, kind );
 	}
 }
 
 // Polls without the config lock, which every Studio process shares, until no other process's
 // start holds one of the sites.
-async function waitForOtherStarts( siteIds: string[] ): Promise< void > {
+async function waitForOtherStarts( siteIds: string[], kind: SiteOperationKind ): Promise< void > {
 	const isStartedElsewhere = ( site: ConfigSite ) => {
 		const blocking = getLiveSiteOperation( site );
-		return blocking?.kind === 'start' && blocking.pid !== process.pid;
+		if ( kind === 'start' && blocking?.cancelRequested ) throw new SiteStartCancelled();
+		return blocking?.kind === 'start' && ( kind === 'stop' || blocking.pid !== process.pid );
 	};
 	do {
 		await new Promise( ( resolve ) => setTimeout( resolve, START_WAIT_POLL_INTERVAL_MS ) );
@@ -179,6 +194,36 @@ export async function withSiteOperation< T >(
 ): Promise< T > {
 	const { id: siteId } = await getSiteByFolder( siteFolder );
 	return withSiteOperations( [ siteId ], kind, fn );
+}
+
+export class SiteStartCancelled extends Error {
+	constructor() {
+		super( __( 'Site start cancelled' ) );
+	}
+}
+
+export async function withSiteStart< T >(
+	siteFolder: string,
+	fn: ( signal: AbortSignal ) => Promise< T >
+): Promise< T > {
+	const { id } = await getSiteByFolder( siteFolder );
+	return withSiteOperations( [ id ], 'start', async () => {
+		const controller = new AbortController();
+		const configPath = getConfigPath();
+		const check = async () => {
+			const site = ( await readConfig() ).sites.find( ( entry ) => entry.id === id );
+			if ( site?.operation?.cancelRequested ) controller.abort( new SiteStartCancelled() );
+		};
+		const onChange = () => void check().catch( ( error ) => controller.abort( error ) );
+		watchFile( configPath, { interval: START_WAIT_POLL_INTERVAL_MS }, onChange );
+		try {
+			await check();
+			controller.signal.throwIfAborted();
+			return await fn( controller.signal );
+		} finally {
+			unwatchFile( configPath, onChange );
+		}
+	} );
 }
 
 /**

@@ -159,3 +159,11 @@
 	gap: var( --space-1 );
 	padding-block-start: var( --space-3 );
 }
+
+.cancelStartIcon,
+.statusButton:is( :hover, :focus-visible ) .startSpinner {
+	display: none;
+}
+.statusButton:is( :hover, :focus-visible ) .cancelStartIcon {
+	display: block;
+}

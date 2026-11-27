@@ -564,9 +564,15 @@ describe( 'site lifecycle and preview', () => {
 			const label = running ? 'Stop' : 'Start';
 			fireEvent.click( await screen.findByRole( 'button', { name: `${ label } My site` } ) );
 			await waitFor( () =>
-				expect( lifecycle( 'My site' ) ).toHaveAttribute( 'aria-disabled', 'true' )
+				expect( lifecycle( 'My site' ) ).toHaveAttribute(
+					running ? 'aria-disabled' : 'aria-busy',
+					'true'
+				)
 			);
-			expect( lifecycle( 'Second' ) ).not.toHaveAttribute( 'aria-disabled', 'true' );
+			expect( lifecycle( 'Second' ) ).not.toHaveAttribute(
+				running ? 'aria-disabled' : 'aria-busy',
+				'true'
+			);
 			fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
 			await waitFor( () =>
 				expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'Second' )
@@ -582,13 +588,25 @@ describe( 'site lifecycle and preview', () => {
 			);
 			fireEvent.click( screen.getByRole( 'menuitem', { name: menuLabel } ) );
 			await waitFor( () => expect( method ).toHaveBeenCalledTimes( 2 ) );
-			expect( lifecycle( 'My site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
-			expect( lifecycle( 'Second' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( lifecycle( 'My site' ) ).toHaveAttribute(
+				running ? 'aria-disabled' : 'aria-busy',
+				'true'
+			);
+			expect( lifecycle( 'Second' ) ).toHaveAttribute(
+				running ? 'aria-disabled' : 'aria-busy',
+				'true'
+			);
 			await act( async () => finish.get( 'one' )!() );
 			await waitFor( () =>
-				expect( lifecycle( 'My site' ) ).not.toHaveAttribute( 'aria-disabled', 'true' )
+				expect( lifecycle( 'My site' ) ).not.toHaveAttribute(
+					running ? 'aria-disabled' : 'aria-busy',
+					'true'
+				)
 			);
-			expect( lifecycle( 'Second' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( lifecycle( 'Second' ) ).toHaveAttribute(
+				running ? 'aria-disabled' : 'aria-busy',
+				'true'
+			);
 			await act( async () => finish.get( 'two' )!() );
 		}
 	);
@@ -833,12 +851,10 @@ describe( 'site lifecycle and preview', () => {
 		const start = deferred();
 		connector.startSite.mockImplementationOnce( () => start.promise );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
-		await waitFor( () =>
-			expect( lifecycle( 'My site' ) ).toHaveAttribute( 'aria-disabled', 'true' )
-		);
+		await waitFor( () => expect( lifecycle( 'My site' ) ).toHaveAccessibleName( 'Stop My site' ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Another site' } ) );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
-		expect( lifecycle( 'My site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( lifecycle( 'My site' ) ).toHaveAccessibleName( 'Stop My site' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'My site' } ) );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
 		connector.state.sites = [ site( { running: true } ), connector.state.sites[ 1 ] ];
@@ -872,7 +888,7 @@ describe( 'site lifecycle and preview', () => {
 		connector.startSite.mockImplementationOnce( () => start.promise );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start Another site' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'two' ) );
-		expect( lifecycle( 'Another site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( lifecycle( 'Another site' ) ).toHaveAccessibleName( 'Stop Another site' );
 		expect( lifecycle( 'Another site' ) ).toHaveAttribute( 'aria-busy', 'true' );
 		expect( screen.getByRole( 'button', { name: 'Start My site' } ) ).toBeEnabled();
 		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();

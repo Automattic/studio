@@ -1,9 +1,14 @@
 // This function is serialized into preview pages, so it must stay self-contained.
 export function observePreviewThemeColor( report: ( color: string | null ) => void ): () => void {
+	if ( document.contentType !== 'text/html' ) {
+		report( null );
+		return () => {};
+	}
+
 	const canvas = document.createElement( 'canvas' );
 	canvas.width = canvas.height = 1;
 	const context = canvas.getContext( '2d', { willReadFrequently: true } );
-	if ( document.contentType !== 'text/html' || ! context ) {
+	if ( ! context ) {
 		report( null );
 		return () => {};
 	}

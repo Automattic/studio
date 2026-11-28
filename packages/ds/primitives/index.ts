@@ -44,3 +44,5 @@ export * from './tooltip';
 export * from './visually-hidden';
 
 export { StudioIcon } from './studio-icon';
+
+export * from './trace';

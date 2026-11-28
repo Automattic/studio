@@ -1,21 +1,34 @@
-.block {
-	position: relative;
-	overflow: hidden;
-	border-radius: var( --radius-md );
-	background-color: var( --background );
-	color: var( --foreground );
-}
+@layer ui {
+	.block {
+		position: relative;
+		overflow: hidden;
+		border-radius: var( --radius-md );
+		background-color: var( --background );
+		color: var( --foreground );
+	}
 
-.pre {
-	padding: var( --space-3 );
-	font-family: var( --font-mono );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-	overflow-x: auto;
-	-webkit-user-select: text;
-	user-select: text;
-}
+	.pre {
+		padding: var( --space-3 );
+		font-family: var( --font-mono );
+		font-size: var( --code-font-size, var( --text-xs ) );
+		line-height: var( --text-xs--line-height );
+		overflow-x: auto;
+		-webkit-user-select: text;
+		user-select: text;
+	}
 
-.pre > code {
-	white-space: pre;
+	.pre > code {
+		white-space: pre;
+	}
+
+	.block[data-variant='plain'] {
+		background-color: transparent;
+		color: inherit;
+	}
+
+	.block[data-variant='plain'] .pre {
+		padding: var( --space-1_5 ) 0;
+		font-size: var( --code-font-size, inherit );
+		line-height: inherit;
+	}
 }

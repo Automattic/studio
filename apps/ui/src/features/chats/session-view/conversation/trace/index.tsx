@@ -1,32 +1,29 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { getSkillDisplayName } from '@studio/common/lib/skill-draft';
-import { Button, CodeBlock, CollapsiblePanel, Spinner } from '@studio/ds';
-import { CircleStopIcon, ChevronDownIcon, CircleCheckIcon } from '@studio/ds/icons';
+import {
+	CodeBlock,
+	CollapsiblePanel,
+	Spinner,
+	Trace,
+	TraceButton as TraceTrigger,
+	TraceCollapsible,
+	TraceCollapsibleTrigger,
+	TraceCollapsibleContent,
+	TraceDetails,
+	TraceLine,
+	TraceTitle,
+	TraceIcon,
+} from '@studio/ds';
+import { CircleStopIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { CircleAlertIcon } from 'lucide-react';
-import {
-	Fragment,
-	memo,
-	useEffect,
-	useId,
-	useState,
-	type ReactNode,
-	type ComponentProps,
-} from 'react';
+import { memo, useEffect, useId, useState, type ReactNode } from 'react';
+import { canJoinBubbles } from '@/features/chats/session-view/conversation/joined';
 import { getToolDisplay } from '@/features/chats/session-view/conversation/trace/tool-display';
 import styles from './style.module.css';
 import type { TurnActivity } from '@/features/chats/session-view/conversation/transcript-items';
 import type { NormalizedToolResult } from '@studio/agent/protocol/tools';
-
-function TraceTrigger( { children, ...props }: ComponentProps< 'button' > ) {
-	return (
-		<Button variant="inline-text" size="inline" className={ styles.traceTrigger } { ...props }>
-			{ children }
-			<ChevronDownIcon className={ styles.traceChevron } />
-		</Button>
-	);
-}
 
 // "Performance audit" for Studio's `need-for-speed`, "Lookbook post" for the user's `lookbook-post`.
 const getSkillTitle = ( name: string ) =>
@@ -45,7 +42,7 @@ export const ToolUseRow = memo( function ToolUseRow( {
 	isRunning: boolean;
 } ) {
 	const display = getToolDisplay( name, input );
-	const detailsId = useId();
+	const { Icon } = display;
 	const resultText = result?.text?.trim() ?? '';
 	// A skill's result is its instructions, which are for the agent: the row shows what the
 	// skill is. An error is still shown.
@@ -58,61 +55,56 @@ export const ToolUseRow = memo( function ToolUseRow( {
 	const expanded = toggledOpen ?? result?.isError === true;
 	const running = isRunning && ! result;
 	const line = (
-		<span className={ styles.traceLine } data-status={ result?.isError ? 'error' : undefined }>
-			{ result?.isError ? (
-				<CircleAlertIcon />
-			) : result ? (
-				<CircleCheckIcon />
-			) : running ? (
-				<Spinner aria-hidden="true" />
-			) : (
-				<CircleStopIcon />
-			) }
-			<span className={ clsx( styles.traceTitle, running && 'studio-shimmer' ) }>
+		<TraceLine status={ result?.isError ? 'error' : running ? 'running' : undefined }>
+			<TraceIcon className={ styles.toolIcon }>
+				{ result?.isError ? (
+					<CircleAlertIcon />
+				) : result ? (
+					<Icon />
+				) : running ? (
+					<Spinner aria-hidden="true" />
+				) : (
+					<CircleStopIcon />
+				) }
+			</TraceIcon>
+			<TraceTitle className={ clsx( running && 'studio-shimmer' ) }>
 				{ display.detail ? `${ display.label } ${ display.detail }` : display.label }
-			</span>
-		</span>
+			</TraceTitle>
+		</TraceLine>
 	);
 
 	return (
-		<div data-trace-row>
+		<TraceCollapsible
+			className={ styles.tool }
+			data-trace-row
+			open={ hasExpandableDetails && expanded }
+			onOpenChange={ setToggledOpen }
+		>
 			{ hasExpandableDetails ? (
-				<TraceTrigger
-					aria-expanded={ expanded }
-					aria-controls={ detailsId }
-					onClick={ () => setToggledOpen( ! expanded ) }
-				>
-					{ line }
-				</TraceTrigger>
+				<TraceCollapsibleTrigger className={ styles.toolTrigger }>{ line }</TraceCollapsibleTrigger>
 			) : (
 				line
 			) }
-			<CollapsiblePanel open={ hasExpandableDetails && expanded } id={ detailsId }>
-				<div className={ styles.toolDetails }>
-					{ hasInput ? (
-						<CodeBlock
-							className={ styles.toolCode }
-							code={ display.inputText }
-							language={ name === 'wp_cli' || name === 'Bash' ? 'shell' : 'json' }
-						/>
-					) : null }
-					{ skill ? (
-						<p className={ styles.toolSkill }>
-							<span className={ styles.toolSkillName }>{ getSkillTitle( skill.name ) }</span>
-							{ skill.description }
-						</p>
-					) : null }
-					{ hasOutput ? <pre className={ styles.toolOutput }>{ resultText }</pre> : null }
-					{ hasDiff ? (
-						<CodeBlock
-							className={ styles.toolCode }
-							code={ result!.diff!.replace( /\n$/, '' ) }
-							language="diff"
-						/>
-					) : null }
-				</div>
-			</CollapsiblePanel>
-		</div>
+			<TraceCollapsibleContent className={ styles.toolDetails }>
+				{ hasInput ? (
+					<CodeBlock
+						variant="plain"
+						code={ display.inputText }
+						language={ name === 'wp_cli' || name === 'Bash' ? 'shell' : 'json' }
+					/>
+				) : null }
+				{ skill ? (
+					<p className={ styles.toolSkill }>
+						<span className={ styles.toolSkillName }>{ getSkillTitle( skill.name ) }</span>
+						{ skill.description }
+					</p>
+				) : null }
+				{ hasOutput ? <pre className={ styles.toolOutput }>{ resultText }</pre> : null }
+				{ hasDiff ? (
+					<CodeBlock variant="plain" code={ result!.diff!.replace( /\n$/, '' ) } language="diff" />
+				) : null }
+			</TraceCollapsibleContent>
+		</TraceCollapsible>
 	);
 } );
 
@@ -120,7 +112,7 @@ function isPersistentItem( item: TurnActivity[ 'items' ][ number ] ) {
 	return (
 		item.kind === 'agent-question-batch' ||
 		item.kind === 'chat-artifact' ||
-		( item.kind === 'assistant-text' && item.persistent )
+		item.kind === 'assistant-text'
 	);
 }
 
@@ -179,9 +171,9 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 		...( hasProgress ? [ `${ panelId }-progress` ] : [] ),
 	].join( ' ' );
 	const working = running && ! waiting;
-	const [ disclosure, setDisclosure ] = useState( { running, waiting, open: working } );
+	const [ disclosure, setDisclosure ] = useState( { running, waiting, open: false } );
 	if ( disclosure.running !== running || disclosure.waiting !== waiting ) {
-		setDisclosure( { running, waiting, open: working } );
+		setDisclosure( { running, waiting, open: false } );
 	}
 	const [ now, setNow ] = useState( Date.now );
 	useEffect( () => {
@@ -206,9 +198,7 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 		! items.some( ( item ) => item.kind === 'tool-use' );
 	const expanded =
 		isQuickReply ||
-		( disclosure.running === running && disclosure.waiting === waiting
-			? disclosure.open
-			: working );
+		( disclosure.running === running && disclosure.waiting === waiting ? disclosure.open : false );
 	const visibleItems = expanded ? items : items.filter( isPersistentItem );
 	const label = waiting
 		? showCount
@@ -240,17 +230,14 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 				duration
 		  );
 	const heading = (
-		<span
-			className={ clsx( styles.traceLine, styles.activityHeading ) }
-			data-status={ status === 'error' ? 'error' : undefined }
-		>
-			<span className={ clsx( styles.traceTitle, running && ! waitingOnUser && 'studio-shimmer' ) }>
-				{ label }
-			</span>
-		</span>
+		<TraceLine status={ status === 'error' ? 'error' : undefined }>
+			<TraceTitle className={ clsx( running && ! waitingOnUser && 'studio-shimmer' ) }>
+				{ working && progressMessage ? progressMessage : label }
+			</TraceTitle>
+		</TraceLine>
 	);
 	return (
-		<div className={ styles.activity } data-turn-activity>
+		<Trace className={ styles.activity } data-turn-activity>
 			{ isQuickReply ? null : hasContent ? (
 				<TraceTrigger
 					aria-expanded={ expanded }
@@ -262,42 +249,39 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 			) : (
 				heading
 			) }
-			{ sections.map( ( section ) => {
-				const first = section.items[ 0 ];
-				const previous = visibleItems[ visibleItems.indexOf( first ) - 1 ];
-				const separated =
-					! previous || ( first.kind === 'tool-use' ) !== ( previous.kind === 'tool-use' );
-				const content = (
-					<div
-						className={ styles.activityContent }
-						data-separated={ separated || undefined }
-						data-first={ ! previous || undefined }
-					>
-						{ renderItems?.( section.items, visibleItems ) }
-					</div>
-				);
+			{ sections.map( ( section, index ) => {
+				const first = isQuickReply && index === 0;
+				const item = section.items[ 0 ];
+				const previous = visibleItems[ visibleItems.indexOf( item ) - 1 ];
+				const content = renderItems?.( section.items, visibleItems );
 				return section.persistent ? (
-					<Fragment key={ section.key }>{ content }</Fragment>
+					<div
+						key={ section.key }
+						className={ styles.activityContent }
+						data-first={ first || undefined }
+						data-joined-above={ canJoinBubbles( item, previous ) || undefined }
+					>
+						{ content }
+					</div>
 				) : (
 					<CollapsiblePanel
 						key={ section.key }
 						open={ expanded }
 						id={ `${ panelId }-${ section.key }` }
 					>
-						{ content }
+						<TraceDetails className={ styles.activityDetails } data-first={ first || undefined }>
+							{ content }
+						</TraceDetails>
 					</CollapsiblePanel>
 				);
 			} ) }
 			{ hasProgress ? (
 				<CollapsiblePanel open={ expanded } id={ `${ panelId }-progress` }>
-					<div
-						className={ styles.activityContent }
-						data-separated={ visibleItems.at( -1 )?.kind !== 'tool-use' || undefined }
-					>
+					<TraceDetails className={ styles.activityDetails }>
 						<span className={ styles.activityProgress }>{ progressMessage }</span>
-					</div>
+					</TraceDetails>
 				</CollapsiblePanel>
 			) : null }
-		</div>
+		</Trace>
 	);
 } );

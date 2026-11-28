@@ -230,7 +230,7 @@ describe( 'Turn-closed markers', () => {
 } );
 
 describe( 'entriesToTranscriptItems', () => {
-	it( 'preserves question positions and keeps the final reply persistent within the turn', () => {
+	it( 'preserves question positions and keeps replies in order within the turn', () => {
 		const items = entriesToTranscriptItems( [
 			promptEntry( 'Go' ),
 			assistantToolCallEntry( 'Read', { file_path: '/tmp/a.txt' }, 'Let me look.' ),
@@ -249,7 +249,7 @@ describe( 'entriesToTranscriptItems', () => {
 					{ kind: 'assistant-text', text: 'Let me look.' },
 					{ kind: 'tool-use' },
 					{ kind: 'agent-question-batch' },
-					{ kind: 'assistant-text', text: 'Done.', persistent: true },
+					{ kind: 'assistant-text', text: 'Done.' },
 				],
 				startedAt: Date.parse( '2026-06-05T12:00:00.000Z' ),
 				endedAt: Date.parse( '2026-06-05T12:00:03.000Z' ),

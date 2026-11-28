@@ -168,6 +168,39 @@ That's everything. Shall I start with the hero?`;
 
 export const chatSamples: ChatSample[] = [
 	{
+		title: 'Interrupted work with an AI update',
+		entries: transcript( ( t ) => {
+			t.prompt( 'Change the header name to Rich Tabor on mobile and desktop.' );
+			t.assistant(
+				{
+					name: 'Read',
+					args: { path: 'wp-content/themes/bistro-lune/DESIGN.md' },
+					result: 'Keep the header simple and use the existing type styles.',
+				},
+				{
+					name: 'wp_cli',
+					args: { command: 'post list --post_type=wp_template_part --fields=ID,post_title' },
+					result: 'ID\tpost_title\n42\tHeader',
+				}
+			);
+			t.assistant(
+				'I’ll update the header name to “Rich Tabor” on both mobile and desktop.',
+				{
+					name: 'Bash',
+					args: { command: 'cat wp-content/themes/bistro-lune/parts/header.html' },
+					result: '<!-- wp:site-title /-->',
+				},
+				{
+					name: 'wp_cli',
+					args: { command: 'option update blogname "Rich Tabor"' },
+					result: "Success: Updated 'blogname' option.",
+				},
+				{ name: 'take_screenshot', result: 'Screenshot saved.' }
+			);
+			t.closed( 'interrupted' );
+		} ),
+	},
+	{
 		title: 'Code blocks',
 		entries: transcript( ( t ) => {
 			t.prompt( 'Can you show me the menu price helper?' );

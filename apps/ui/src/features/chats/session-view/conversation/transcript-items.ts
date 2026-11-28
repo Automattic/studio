@@ -42,7 +42,6 @@ type RenderItem =
 			messageText: string;
 			copyText?: string;
 			streaming?: boolean;
-			persistent?: boolean;
 	  }
 	| {
 			kind: 'tool-use';
@@ -350,9 +349,8 @@ function getTimestamp( entry: SessionEntry | undefined ): number | null {
 }
 
 /**
- * Groups each turn’s commentary and tools beneath its elapsed-time header.
- * Questions and chat artifacts retain their position; the renderer keeps them outside
- * collapsible panels.
+ * Groups each turn beneath its elapsed-time header. Assistant messages, questions and
+ * chat artifacts stay visible; only tool details collapse.
  */
 export function entriesToTranscriptItems(
 	entries: SessionEntry[],
@@ -412,35 +410,13 @@ export function entriesToTranscriptItems(
 			return visible;
 		}
 		const status = closed?.data?.status;
-		const lastAssistant = [ ...visible ]
-			.reverse()
-			.find( ( item ) => item.kind === 'assistant-text' );
-		const finalEntry =
-			! running && ( ! status || status === 'success' ) && lastAssistant
-				? entryIndexOf( lastAssistant )
-				: null;
-		const lastActionEntry = Math.max(
-			-1,
-			...visible
-				.filter( ( item ) => item.kind === 'tool-use' || item.kind === 'agent-question-batch' )
-				.map( entryIndexOf )
+		const activityItems = visible.filter(
+			( item ) =>
+				item.kind === 'tool-use' ||
+				item.kind === 'agent-question-batch' ||
+				item.kind === 'assistant-text' ||
+				item.kind === 'chat-artifact'
 		);
-		const activityItems = visible
-			.filter(
-				( item ) =>
-					item.kind === 'tool-use' ||
-					item.kind === 'agent-question-batch' ||
-					item.kind === 'assistant-text' ||
-					item.kind === 'chat-artifact'
-			)
-			.map( ( item ) =>
-				item.kind === 'assistant-text' &&
-				finalEntry !== null &&
-				finalEntry > lastActionEntry &&
-				entryIndexOf( item ) === finalEntry
-					? { ...item, persistent: true }
-					: item
-			);
 		const activityKeys = new Set( activityItems.map( ( item ) => item.key ) );
 		const outside = visible.filter( ( item ) => ! activityKeys.has( item.key ) );
 		const activity: TurnActivity = {

@@ -1258,7 +1258,7 @@ it( 'opens a WordPress style board without DESIGN.md and reloads saved style cha
 	expect( await screen.findByRole( 'heading', { name: 'Color' } ) ).toBeVisible();
 	expect( screen.getByText( '#123456' ) ).toBeVisible();
 	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled();
 	connector.getSiteDesign.mockResolvedValue( board( '#654321' ) );
 	await user.click( screen.getByRole( 'button', { name: 'Reload' } ) );
 	expect( await screen.findByText( '#654321' ) ).toBeVisible();

@@ -8,6 +8,7 @@ export * from './arrow-up-icon';
 export * from './book-open-icon';
 export * from './bug-icon';
 export * from './chat-icon';
+export * from './chat-off-icon';
 export * from './chevron-down-icon';
 export * from './chevron-right-icon';
 export * from './circle-check-icon';

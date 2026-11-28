@@ -21,6 +21,7 @@ import { renderWithProviders } from '@/test/render';
 import { SiteHeaderActionsProvider } from '../site-header-actions';
 import { setPreviewColorScheme } from './preview-browser-settings';
 import { SitePreview } from './index';
+import type { subscribePreviewOpenLink } from './preview-surface/webview';
 
 type Runtime = 'browser' | 'desktop';
 type Props = ComponentProps< typeof SitePreview >;
@@ -1416,3 +1417,27 @@ it.each( [ 'browser', 'desktop' ] as const )(
 		expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledTimes( 1 );
 	}
 );
+
+it( 'opens native links only from the active same-site guest in a background tab', async () => {
+	const subscribe = vi.fn(
+		( _channel: string, _listener: Parameters< typeof subscribePreviewOpenLink >[ 0 ] ) => () => {}
+	);
+	vi.stubGlobal( 'ipcListener', { subscribe } );
+	const { update } = await renderPreview( 'desktop' );
+	const source = guest();
+	const request = ( url: string, guestId = 42 ) => {
+		const listener = subscribe.mock.lastCall?.[ 1 ];
+		expect( listener ).toBeDefined();
+		act( () => listener?.( undefined, { guestId, url } ) );
+	};
+	request( `${ SITE_URL }/wrong-guest/`, 43 );
+	request( 'https://example.org/other-site/' );
+	expect( document.querySelectorAll( 'webview' ) ).toHaveLength( 1 );
+	request( `${ SITE_URL }/about/?from=preview#team` );
+	expect( document.querySelectorAll( 'webview' ) ).toHaveLength( 2 );
+	expect( document.querySelector( '[data-active-tab] webview' ) ).toBe( source );
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( SITE_URL );
+	update( { collapsed: true } );
+	request( `${ SITE_URL }/collapsed/` );
+	expect( document.querySelectorAll( 'webview' ) ).toHaveLength( 2 );
+} );

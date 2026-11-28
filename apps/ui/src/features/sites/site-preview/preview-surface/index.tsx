@@ -76,6 +76,7 @@ export function FrameSurface( {
 	browserCommand,
 	onCommandHandled,
 	onAdminBarVisibilityChange,
+	onOpenLinkInTab,
 }: {
 	src: string;
 	title: string;
@@ -87,6 +88,7 @@ export function FrameSurface( {
 	browserCommand?: BrowserCommand | null;
 	onCommandHandled?: () => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
+	onOpenLinkInTab?: ( url: string ) => void;
 } ) {
 	const ref = useRef< HTMLIFrameElement | null >( null );
 	const callbacks = useRef( {
@@ -94,6 +96,7 @@ export function FrameSurface( {
 		onNavigate,
 		onLoadingChange,
 		onSettle,
+		onOpenLinkInTab,
 	} );
 	const navigationId = useRef( 0 );
 	const pendingProbe = useRef( 0 );
@@ -108,8 +111,9 @@ export function FrameSurface( {
 			onNavigate,
 			onLoadingChange,
 			onSettle,
+			onOpenLinkInTab,
 		};
-	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
+	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle, onOpenLinkInTab ] );
 	useEffect( () => {
 		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
 		ref.current?.contentWindow?.postMessage(
@@ -139,6 +143,14 @@ export function FrameSurface( {
 				pendingProbe.current += 1;
 				callbacks.current.onAdminBarVisibilityChange?.( null );
 				callbacks.current.onLoadingChange?.( true );
+				return;
+			}
+			if ( event.data?.type === 'studio:preview:open-link' ) {
+				if (
+					event.data.navigationId === navigationId.current &&
+					typeof event.data.url === 'string'
+				)
+					callbacks.current.onOpenLinkInTab?.( event.data.url );
 				return;
 			}
 			if ( event.data?.type === 'studio:preview:admin-bar-state' ) {

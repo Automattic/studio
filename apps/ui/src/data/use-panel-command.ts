@@ -5,7 +5,8 @@ import { createContext, useContext } from 'react';
 export const PanelCommandContext = createContext< {
 	siteId?: string;
 	toggle: () => void;
-	showChat?: () => void;
+	chatHidden: boolean;
+	toggleChat?: () => void;
 } | null >( null );
 
 export function usePanelCommand( siteId?: string ) {

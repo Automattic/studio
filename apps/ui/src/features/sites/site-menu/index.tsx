@@ -5,7 +5,8 @@ import {
 	ChevronDownIcon,
 	ExportIcon,
 	ExternalLinkIcon,
-	FullscreenIcon,
+	ChatIcon,
+	ChatOffIcon,
 	GlobeIcon,
 	SquarePenIcon,
 	PinIcon,
@@ -182,7 +183,7 @@ export function SiteMenuItems( {
 	const { data: aiSettings } = useAiSettings();
 	const providerConnected = hasConnectedProvider( aiSettings );
 	const panel = useContext( PanelCommandContext );
-	const showChat = panel?.siteId === site.id ? panel.showChat : undefined;
+	const chatPanel = panel?.siteId === site.id ? panel : undefined;
 	const destinations = useOpenInDestinations( site );
 	const databaseReason = getPhpMyAdminUnavailableReason( site );
 	const databaseReasonId = useId();
@@ -216,10 +217,10 @@ export function SiteMenuItems( {
 						<SquarePenIcon />
 						{ __( 'New chat' ) }
 					</Menu.Item>
-					{ showChat && (
-						<Menu.Item onClick={ showChat }>
-							<FullscreenIcon inward />
-							{ __( 'Show chat' ) }
+					{ chatPanel?.toggleChat && (
+						<Menu.Item onClick={ chatPanel.toggleChat }>
+							{ chatPanel.chatHidden ? <ChatIcon /> : <ChatOffIcon /> }
+							{ chatPanel.chatHidden ? __( 'Show chat' ) : __( 'Hide chat' ) }
 						</Menu.Item>
 					) }
 					<Menu.Separator />

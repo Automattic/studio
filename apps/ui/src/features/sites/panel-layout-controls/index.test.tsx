@@ -176,7 +176,12 @@ it( 'returns to chat using the panel controls and site menu while preserving the
 	expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'First' );
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	expect( await screen.findByRole( 'menuitem', { name: 'New chat' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'menuitem', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+	await user.click( screen.getByRole( 'menuitem', { name: 'Hide chat' } ) );
+	expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toHaveAttribute(
+		'data-workspace-layout',
+		'panel'
+	);
+	expect( document.querySelector( 'iframe' ) ).toBe( page );
 	expect( connector.startSite ).not.toHaveBeenCalled();
 	expect( connector.stopSite ).not.toHaveBeenCalled();
 } );

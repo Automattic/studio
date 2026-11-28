@@ -399,6 +399,13 @@ function DashboardLayout() {
 	);
 	const changePanelFullscreen = ( fullscreen: boolean ) =>
 		setPanelFullscreen( fullscreen, { instant: true, userInitiated: true } );
+	const toggleChat = () => {
+		if ( narrow ) {
+			setPanelOpen( ! panelVisible, { instant: true, userInitiated: true } );
+		} else {
+			changePanelFullscreen( ! chatHidden );
+		}
+	};
 	useEffect(
 		() =>
 			connector.onTogglePanel( () => {
@@ -578,7 +585,8 @@ function DashboardLayout() {
 		<PanelCommandContext.Provider
 			value={ {
 				siteId: routeSite?.id,
-				showChat: chatHidden ? () => changePanelFullscreen( false ) : undefined,
+				chatHidden,
+				toggleChat: supportsPreview ? toggleChat : undefined,
 				toggle: () => {
 					if ( panelVisible ) setPanelOpen( false, { instant: true, userInitiated: true } );
 					else setPanelFullscreen( false, { instant: true, userInitiated: true } );

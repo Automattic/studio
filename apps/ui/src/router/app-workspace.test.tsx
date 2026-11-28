@@ -1449,7 +1449,7 @@ describe( 'Studio workspace', () => {
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 		fireEvent.click(
-			within( screen.getByRole( 'complementary' ) ).getByRole( 'button', { name: 'Hide sidebar' } )
+			within( screen.getByRole( 'main' ) ).getByRole( 'button', { name: 'Hide sidebar' } )
 		);
 		expect(
 			within( document.querySelector< HTMLElement >( '[data-site-header-actions]' )! ).queryByRole(

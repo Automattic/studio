@@ -33,7 +33,9 @@ async function setup( width = 1280, sessions: ReturnType< typeof makeSession >[]
 	const open = async () => {
 		await view.user.hover( edge() );
 		await screen.findByRole( 'button', { name: 'Close sidebar' } );
-		return within( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).getByRole( 'complementary' );
+		return within( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).getByRole( 'complementary', {
+			name: '',
+		} );
 	};
 	return { ...view, trigger, edge, open };
 }
@@ -104,8 +106,9 @@ describe( 'sidebar hover overlay', () => {
 		expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
 		expect( document.activeElement ).toHaveAccessibleName( 'Hide sidebar' );
 		expect(
-			document.activeElement?.closest( 'aside' )?.querySelector( `.${ styles.sidebarScroll }` )
-				?.scrollTop
+			screen
+				.getByRole( 'complementary', { name: '' } )
+				.querySelector( `.${ styles.sidebarScroll }` )?.scrollTop
 		).toBe( 120 );
 	} );
 } );

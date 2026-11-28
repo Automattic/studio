@@ -17,12 +17,10 @@
 }
 
 .header {
-	--layout-controls-space: calc( 32px + var( --band-gap ) );
+	--band-group-gap: var( --band-gap );
+	--layout-controls-space: calc( var( --control-size-sm ) + var( --band-gap ) );
 	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
-	--panel-tabs-inset: calc(
-		( var( --band-height ) - var( --control-size-sm ) ) / 2 - var( --band-gap )
-	);
-	--panel-tabs-start: calc( 100% + var( --panel-tabs-inset ) );
+	--panel-tabs-start: 100%;
 	transition:
 		--layout-controls-space var( --panel-layout-duration ) var( --motion-ease-layout ),
 		--panel-chat-header-width var( --panel-layout-duration ) var( --motion-ease-layout ),
@@ -42,11 +40,11 @@
 	inset-inline-end: var( --layout-controls-space );
 }
 .header[data-full-view-control] {
-	--layout-controls-space: calc( 64px + 2 * var( --band-gap ) );
+	--layout-controls-space: calc( 2 * ( var( --control-size-sm ) + var( --band-gap ) ) );
 }
 .header[data-panel-open] {
 	--panel-chat-header-width: var( --panel-frame-content-width );
-	--panel-tabs-start: calc( var( --panel-frame-content-width ) + var( --panel-tabs-inset ) );
+	--panel-tabs-start: var( --panel-frame-content-width );
 }
 .header[data-panel-fullscreen] {
 	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );

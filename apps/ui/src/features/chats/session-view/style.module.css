@@ -16,6 +16,7 @@
 }
 
 .header {
+	--band-group-gap: var( --band-gap );
 	container: site-header / inline-size;
 	display: flex;
 	align-items: center;

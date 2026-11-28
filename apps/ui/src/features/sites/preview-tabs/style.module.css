@@ -1,8 +1,12 @@
 .root {
+	--tabs-start-inset: var( --band-inset );
 	display: flex;
 	align-items: center;
 	min-width: 0;
 	pointer-events: auto;
+}
+[data-panel-fullscreen] .root {
+	--tabs-start-inset: var( --band-gap );
 }
 .tabs {
 	--tabs-fade-left: 0px;
@@ -11,7 +15,8 @@
 	min-width: 0;
 	flex: 0 1 auto;
 	/* End padding also sets the gap before New tab. */
-	padding: var( --band-gap );
+	padding-block: var( --band-inset );
+	padding-inline: var( --tabs-start-inset ) var( --band-gap );
 	overflow-x: auto;
 	scrollbar-width: none;
 	scroll-padding-inline: var( --space-4 );

@@ -31,12 +31,8 @@ async function setup( connector = createFakeConnector( { sites: [ makeSite() ] }
 	return view;
 }
 
-// The toggle outside the inert half: in the sidebar while it's docked, in the
-// header otherwise.
 const toggle = () =>
-	screen
-		.getAllByRole( 'button', { name: /^(Show|Hide) sidebar$/ } )
-		.find( ( button ) => ! button.closest( '[inert]' ) )!;
+	within( screen.getByRole( 'main' ) ).getByRole( 'button', { name: /^(Show|Hide) sidebar$/ } );
 const handle = () => screen.getByRole( 'separator', { name: 'Resize sidebar' } );
 
 beforeEach( () => {
@@ -76,22 +72,16 @@ describe( 'resizable sidebar', () => {
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '272' );
 	} );
 
-	it( 'keeps the closing toggle clickable while moving focus to the header', async () => {
+	it( 'keeps the workspace toggle focused when collapsing and reopening the sidebar', async () => {
 		await setup();
-		const closingToggle = toggle();
-		const sidebar = closingToggle.closest( 'aside' )!;
-		closingToggle.focus();
-		fireEvent.click( closingToggle );
-		const visualToggle = sidebar.querySelector< HTMLElement >( '[data-sidebar-toggle]' )!;
-
-		expect( visualToggle.closest( '[aria-hidden="true"]' ) ).not.toBeNull();
-		expect( visualToggle ).toHaveAttribute( 'tabindex', '-1' );
-		expect( visualToggle.closest( '[inert]' ) ).toBeNull();
-		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
-		expect( toggle() ).toHaveFocus();
-
-		fireEvent.click( visualToggle );
-		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
+		const button = toggle();
+		button.focus();
+		fireEvent.click( button );
+		expect( button ).toHaveAccessibleName( 'Show sidebar' );
+		expect( button ).toHaveFocus();
+		fireEvent.click( button );
+		expect( button ).toHaveAccessibleName( 'Hide sidebar' );
+		expect( button ).toHaveFocus();
 		expect( handle() ).toBeInTheDocument();
 	} );
 
@@ -110,7 +100,9 @@ describe( 'resizable sidebar', () => {
 		fireEvent.mouseDown( handle(), { button: 0, clientX: 256 } );
 		fireEvent.mouseUp( document, { clientX: 320 } );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
-		const sidebar = toggle().closest( 'aside' )!.querySelector( `.${ styles.sidebarScroll }` )!;
+		const sidebar = screen
+			.getByRole( 'complementary', { name: '' } )
+			.querySelector( `.${ styles.sidebarScroll }` )!;
 		sidebar.scrollTop = 120;
 		fireEvent.click( toggle() );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();

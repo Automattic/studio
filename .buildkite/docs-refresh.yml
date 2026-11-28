@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/buildkite/pipeline-schema/main/schema.json
+---
+
+# Refreshes the user docs and their screenshots against the branch the build runs on.
+# Start it as a build of that branch with PIPELINE=docs-refresh.yml; see "Docs refresh" in docs/release-process.md.
+
+env:
+  IMAGE_ID: $IMAGE_ID
+
+steps:
+  # In a Linux container, as the docs images are captured: the browser app in headless Chromium.
+  - label: ":books: Docs refresh"
+    key: docs_refresh
+    command: bash .buildkite/commands/run-docs-refresh.sh
+    plugins:
+      - $DOCKER_PLUGIN:
+          image: "$NODE_DOCKER_IMAGE"
+          propagate-environment: true
+          mount-buildkite-agent: true
+    artifact_paths:
+      - docs-refresh-output/**/*
+      - docs/user/screenshots/images/failures/**/*
+    timeout_in_minutes: 120
+    agents:
+      queue: default
+
+  # On a Mac agent only because that is where the bot's Git access is set up.
+  - label: ":github: Open the docs pull request"
+    depends_on: docs_refresh
+    plugins: [$CI_TOOLKIT_PLUGIN, $NVM_PLUGIN]
+    command: |
+      echo "--- :robot_face: Use bot for Git operations"
+      source use-bot-for-git
+
+      bash .buildkite/commands/publish-docs-refresh.sh
+    # Two refreshes of one target would push to the same branch.
+    concurrency: 1
+    concurrency_group: studio/docs-refresh
+    agents:
+      queue: mac

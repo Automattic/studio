@@ -1,6 +1,9 @@
 # Standalone CLI bundles
 standalone-bundles/
 
+# Docs refresh run output (.buildkite/commands/run-docs-refresh.sh)
+docs-refresh-output/
+
 # Logs
 logs
 *.log

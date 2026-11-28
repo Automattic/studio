@@ -23,9 +23,6 @@ export function useToggleSidebar(): () => void {
 
 export const SidebarHoverContext = createContext( {
 	peek: false,
-	onEnter: () => {},
-	onLeave: () => {},
-	suppressUntilLeave: () => {},
 } );
 
 export function useSidebarHover() {

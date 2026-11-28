@@ -50,20 +50,6 @@
 	gap: var( --band-gap );
 }
 
-.previewActions[hidden] {
-	display: none;
-}
-
 .headerSide:last-child {
 	margin-inline-start: auto;
-}
-
-.previewActions {
-	display: flex;
-	align-items: center;
-	gap: var( --band-gap );
-}
-
-.previewActions:empty {
-	display: none;
 }

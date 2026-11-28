@@ -487,7 +487,7 @@ it( 'opens the right-clicked tab in the preferred browser without selecting it',
 	fireEvent.contextMenu( tabs[ 0 ] );
 	const open = await screen.findByRole( 'menuitem', { name: 'Open in Firefox' } );
 	expect( open ).toBeEnabled();
-	expect( screen.getByRole( 'separator' ) ).toBeInTheDocument();
+	expect( screen.getAllByRole( 'separator' ) ).toHaveLength( 2 );
 	fireEvent.click( open );
 	expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/?source=preview#team', {
 		autoLogin: false,
@@ -533,25 +533,35 @@ it( 'opens the email folder from an unselected tab without changing tabs', async
 it( 'closes tabs from the context menu without selecting the right-clicked tab', async () => {
 	await setup();
 	for ( let i = 0; i < 3; i++ ) await newBrowserTab();
-	let tabs = screen.getAllByRole( 'tab' );
-	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
+	const tabs = screen.getAllByRole( 'tab' );
+	await waitFor( () => expect( tabs[ 3 ] ).toHaveFocus() );
 	fireEvent.contextMenu( tabs[ 1 ] );
 	expect( tabs[ 3 ] ).toHaveAttribute( 'aria-selected', 'true' );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close tabs to the right' } ) );
-	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
-	tabs = screen.getAllByRole( 'tab' );
-	expect( tabs[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
-	await waitFor( () => expect( tabs[ 1 ] ).toHaveFocus() );
-	fireEvent.contextMenu( tabs[ 0 ] );
-	await screen.findByRole( 'menuitem', { name: 'Close other tabs' } );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 		'New tab',
-		'Open in Browser',
+		'Open as split',
 		'Close tab',
 		'Close other tabs',
 		'Close all tabs',
+		'Open in Browser',
 	] );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close other tabs' } ) );
+	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 3 ) );
+	fireEvent.contextMenu( tabs[ 2 ] );
+	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+	expect( tabs[ 3 ] ).toHaveAttribute( 'aria-selected', 'true' );
+	await waitFor( () => expect( tabs[ 3 ] ).toHaveFocus() );
+	fireEvent.contextMenu( tabs[ 0 ] );
+	await screen.findByRole( 'menuitem', { name: /^Close other tab$/ } );
+	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'New tab',
+		'Open as split',
+		'Close tab',
+		'Close other tab',
+		'Open in Browser',
+	] );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Close other tab$/ } ) );
 	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 ) );
 	const remaining = screen.getByRole( 'tab', { name: 'First' } );
 	expect( remaining ).toHaveAttribute( 'aria-selected', 'true' );
@@ -559,9 +569,10 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 	fireEvent.contextMenu( remaining );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 		'New tab',
-		'Open in Browser',
 		'Close tab',
+		'Open in Browser',
 	] );
+	expect( screen.getAllByRole( 'separator' ) ).toHaveLength( 1 );
 	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
 	await screen.findByRole( 'button', { name: 'Show panel' } );
 } );
@@ -569,7 +580,8 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 it( 'opens the tab menu from the keyboard and stops the site when closing all tabs', async () => {
 	const { connector } = await setup();
 	await newBrowserTab();
-	const tab = screen.getAllByRole( 'tab' )[ 1 ];
+	await newBrowserTab();
+	const tab = screen.getAllByRole( 'tab' )[ 2 ];
 	fireEvent.focus( tab );
 	fireEvent.keyDown( tab, { key: 'F10', shiftKey: true } );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close all tabs' } ) );
@@ -1077,17 +1089,13 @@ it.each( [ 'escape', 'cancel' ] )( 'cancels tab sorting on %s', async ( reason )
 		'Database',
 	] );
 } );
-it( 'keeps the reordered position when released below the tab row', async () => {
+it( 'cancels a reorder when dropped outside the strip and split target', async () => {
 	const tabs = await sortableTabs();
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440, 200 ) );
-	expect( tabs[ 1 ].parentElement ).toHaveStyle( { transform: 'translateX(-162px)' } );
+	expect( tabs[ 1 ].parentElement ).toHaveStyle( { transform: 'translateX(0px)' } );
 	fireEvent( window, tabPointer( 'pointerup', 440, 200 ) );
-	expect( screen.getAllByRole( 'tab' ).map( ( tab ) => tab.textContent ) ).toEqual( [
-		'Admin',
-		'Database',
-		'First',
-	] );
+	expect( screen.getAllByRole( 'tab' ) ).toEqual( tabs );
 	await waitFor( () => expect( document.querySelector( '[data-tab-drag-preview]' ) ).toBeNull() );
 } );
 it( 'keeps close controls separate from drag and preserves pages when reordering by keyboard', async () => {

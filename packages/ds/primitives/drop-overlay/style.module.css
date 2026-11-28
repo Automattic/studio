@@ -13,4 +13,52 @@
 		);
 		pointer-events: none;
 	}
+
+	.panel {
+		composes: floating from '../surface/style.module.css';
+		--drop-overlay-tint: light-dark(
+			color-mix( in srgb, var( --accent-text ) 22%, transparent ),
+			color-mix( in srgb, var( --accent-text ) 18%, transparent )
+		);
+	}
+
+	.dropOverlay[data-variant='panel'] {
+		background-color: color-mix( in srgb, var( --popover ) 84%, transparent );
+		backdrop-filter: blur( 18px );
+		border: 2px solid transparent;
+		transition: border-color var( --motion-duration-quick ) var( --motion-ease-enter );
+	}
+
+	.panel::after {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background-color: var( --drop-overlay-tint );
+		content: '';
+		opacity: 0;
+		transition: opacity var( --motion-duration-quick ) var( --motion-ease-enter );
+		pointer-events: none;
+	}
+
+	.panel[data-active] {
+		border-color: var( --accent );
+	}
+
+	.panel[data-active]::after {
+		opacity: 1;
+	}
+
+	.panel .panelLabel {
+		position: relative;
+		z-index: 1;
+		transition-duration: var( --motion-duration-quick );
+		transition-timing-function: var( --motion-ease-enter );
+	}
+
+	.panel[data-active] .panelLabel {
+		--button-background: var( --accent );
+		--button-hover-background: var( --accent );
+
+		color: var( --accent-foreground );
+	}
 }

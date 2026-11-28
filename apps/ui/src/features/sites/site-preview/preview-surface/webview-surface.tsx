@@ -35,6 +35,7 @@ import type { SiteAnnotations } from '@/features/annotations';
 
 interface WebviewSurfaceProps {
 	url: string;
+	onActivate?: () => void;
 	colorScheme?: PreviewColorScheme;
 	reloadNonce: number;
 	// The site's annotations, mirrored into the page as markers.
@@ -62,6 +63,7 @@ interface WebviewSurfaceProps {
  */
 export function WebviewSurface( {
 	url,
+	onActivate,
 	colorScheme = 'system',
 	reloadNonce,
 	annotations,
@@ -87,6 +89,17 @@ export function WebviewSurface( {
 	const onAdminBarVisibilityRef = useRef( onAdminBarVisibilityChange );
 	const visibilityRequestRef = useRef( 0 );
 	const onLoadRef = useRef( onLoad );
+	const onActivateRef = useRef( onActivate );
+	useEffect( () => {
+		onActivateRef.current = onActivate;
+	}, [ onActivate ] );
+	useEffect( () => {
+		const webview = ref.current;
+		if ( ! webview ) return;
+		const activate = () => onActivateRef.current?.();
+		webview.addEventListener( 'focus', activate );
+		return () => webview.removeEventListener( 'focus', activate );
+	}, [] );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const inspectorEnabledRef = useRef( inspector );
@@ -408,8 +421,15 @@ export function WebviewSurface( {
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! documentVersion || ! webview ) return;
+		let guestId: number;
+		try {
+			guestId = getWebviewContentsId( webview );
+		} catch {
+			// A webview moved between panes may be attaching its new guest.
+			return;
+		}
 		void getPreviewIpc()
-			?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme )
+			?.setWebviewColorScheme?.( guestId, colorScheme )
 			.catch( ( error ) => console.error( 'Failed to set preview appearance:', error ) );
 	}, [ colorScheme, documentVersion ] );
 
@@ -418,12 +438,16 @@ export function WebviewSurface( {
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! inspectorReady || ! webview || ! annotations ) return;
-		webview
-			.executeJavaScript(
-				buildInspectorCommandScript( annotations, webview, annotationTool ),
-				false
-			)
-			.catch( () => undefined );
+		try {
+			void webview
+				.executeJavaScript(
+					buildInspectorCommandScript( annotations, webview, annotationTool ),
+					false
+				)
+				.catch( () => undefined );
+		} catch {
+			// The guest may detach while its tab moves into a split.
+		}
 	}, [ annotations, annotationTool, appColorScheme, inspectorReady ] );
 
 	useEffect( () => {

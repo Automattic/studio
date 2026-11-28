@@ -1,9 +1,9 @@
 import { IconButton, VisuallyHidden } from '@studio/ds';
 import { RotateCwIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useOpenSettings } from '@/data/use-open-settings';
-import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
 import { BrowserHistoryButton } from './browser-history-button';
 import {
@@ -18,10 +18,10 @@ import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar'
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
 import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
+import type { ReactNode } from 'react';
 
 interface PreviewHeaderProps {
 	site: SiteDetails;
-	inactive?: boolean;
 	siteUrl: string;
 	path: string;
 	live: boolean;
@@ -40,7 +40,8 @@ interface PreviewHeaderProps {
 	onExternalNavigate?: ( url: string ) => void;
 	responsive?: PreviewResponsiveActions;
 	screenshot?: PreviewScreenshotActions;
-	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
+	annotation?: ReactNode;
+	closeTab?: ReactNode;
 }
 
 export function PreviewHeader( {
@@ -64,9 +65,25 @@ export function PreviewHeader( {
 	responsive,
 	screenshot,
 	annotation,
-	inactive = false,
+	closeTab,
 }: PreviewHeaderProps ) {
-	const { layout: headerLayout, attachAnnotationSpace, attachBrowserHeader } = useSiteHeader();
+	const headerRef = useRef< HTMLDivElement >( null );
+	const [ compact, setCompact ] = useState( false );
+	useLayoutEffect( () => {
+		const header = headerRef.current;
+		if ( ! header ) return;
+		const measure = () => {
+			if ( header.clientWidth > 0 ) setCompact( header.clientWidth <= 540 );
+		};
+		const observer = new ResizeObserver( measure );
+		observer.observe( header );
+		window.addEventListener( 'resize', measure );
+		measure();
+		return () => {
+			observer.disconnect();
+			window.removeEventListener( 'resize', measure );
+		};
+	}, [] );
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const openSettings = useOpenSettings();
 	const disabled = ! canPreview || isStarting || isStopping;
@@ -80,7 +97,7 @@ export function PreviewHeader( {
 			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 			pageTitle={ browserState.title }
 			loading={ browserState.loading }
-			compact={ headerLayout === 'mobile-overflow' }
+			compact={ compact }
 			onOpenExternal={ onOpenExternal }
 			onOpenSiteSettings={ live ? undefined : () => openSettings( 'site', site.id ) }
 			onExternalNavigate={ onExternalNavigate }
@@ -90,9 +107,9 @@ export function PreviewHeader( {
 
 	return (
 		<div
-			ref={ inactive ? undefined : attachBrowserHeader }
+			ref={ headerRef }
 			data-preview-browser-controls
-			data-site-header-layout={ headerLayout }
+			data-site-header-layout={ compact ? 'mobile-overflow' : 'inline' }
 			className={ styles.header }
 			style={
 				windowControlsInset
@@ -123,7 +140,7 @@ export function PreviewHeader( {
 						onStep={ () => onBrowserCommand( 'back' ) }
 						onJump={ onJump }
 					/>
-					<span hidden={ headerLayout === 'mobile-overflow' && ! browserState.canGoForward }>
+					<span hidden={ compact && ! browserState.canGoForward }>
 						<BrowserHistoryButton
 							direction="forward"
 							browserState={ browserState }
@@ -149,22 +166,17 @@ export function PreviewHeader( {
 				{ addressBar }
 			</div>
 			<div className={ styles.headerSide }>
-				<span
-					ref={ inactive ? undefined : attachAnnotationSpace }
-					className={ styles.previewActions }
-					data-site-header-annotation
-					hidden={ headerLayout === 'mobile-overflow' }
-				/>
+				{ annotation }
 				{ canPreview && ( browserActions || adminBarActions || responsive || screenshot ) ? (
 					<BrowserMenu
 						actions={ browserActions }
 						adminBar={ adminBarActions }
 						responsive={ responsive }
 						screenshot={ screenshot }
-						annotation={ headerLayout === 'mobile-overflow' ? annotation : undefined }
 						disabled={ disabled }
 					/>
 				) : null }
+				{ closeTab }
 			</div>
 		</div>
 	);

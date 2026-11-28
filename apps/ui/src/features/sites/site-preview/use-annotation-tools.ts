@@ -29,18 +29,22 @@ import type { InspectorSelection } from '@studio/agent/protocol/inspector/select
 export function useAnnotationTools( {
 	siteId,
 	enabled,
+	shortcuts,
+	tool,
+	onToolChange,
 	viewportRef,
 	onPick,
 }: {
 	siteId: string;
 	enabled: boolean;
+	shortcuts: boolean;
+	tool: AnnotationTool;
+	onToolChange: ( tool: AnnotationTool ) => void;
 	viewportRef: RefObject< HTMLDivElement | null >;
 	onPick: ReturnType< typeof usePreviewAnnotations >[ 'handleAnnotationPick' ];
 } ) {
 	const connector = useConnector();
 	const annotations = useSiteAnnotations( siteId );
-	const [ tool, setTool ] = useState< AnnotationTool >( 'select' );
-	const drawing = tool === 'draw';
 	const [ draft, setDraft ] = useState< InspectorSelection | null >( null );
 	const [ failed, setFailed ] = useState( false );
 	const [ capturePending, setCapturePending ] = useState( false );
@@ -63,13 +67,13 @@ export function useAnnotationTools( {
 	useEffect( () => {
 		const currentGeneration = ++generation.current;
 		if ( ! enabled || ! annotations.active ) {
-			if ( ! annotations.active ) setTool( 'select' );
+			if ( ! annotations.active ) onToolChange( 'select' );
 			if ( draftRef.current ) clear();
 		}
 		return () => {
 			generation.current = currentGeneration + 1;
 		};
-	}, [ enabled, annotations.active, siteId, clear ] );
+	}, [ enabled, annotations.active, siteId, clear, onToolChange ] );
 
 	const capture = useCallback(
 		async ( selection: InspectorSelection, nextTool?: AnnotationTool ) => {
@@ -158,7 +162,7 @@ export function useAnnotationTools( {
 					);
 				if ( id ) {
 					clear( selection.id );
-					if ( nextTool ) setTool( nextTool );
+					if ( nextTool ) onToolChange( nextTool );
 				}
 			} catch {
 				if ( generation.current !== attempt || draftRef.current?.id !== selection.id ) return;
@@ -170,7 +174,7 @@ export function useAnnotationTools( {
 				setAnnotationsPreparing( siteId, false );
 			}
 		},
-		[ clear, connector, enabled, onPick, siteId, viewportRef ]
+		[ clear, connector, enabled, onPick, onToolChange, siteId, viewportRef ]
 	);
 	useEffect( () => {
 		if ( enabled && annotations.active && draft && ! capturePending && ! failed )
@@ -193,12 +197,12 @@ export function useAnnotationTools( {
 			}
 			if ( ! canPickAnnotation( siteId ) ) return;
 			closeAnnotationEditor( siteId );
-			setTool( next );
+			onToolChange( next );
 		},
-		[ capture, enabled, siteId, tool ]
+		[ capture, enabled, onToolChange, siteId, tool ]
 	);
 	useEffect( () => {
-		if ( ! enabled || ! annotations.active ) return;
+		if ( ! enabled || ! shortcuts || ! annotations.active ) return;
 		const handleKeyDown = ( event: KeyboardEvent ) => {
 			const next = getAnnotationToolShortcut( event );
 			const target = event.composedPath()[ 0 ] ?? event.target;
@@ -216,7 +220,7 @@ export function useAnnotationTools( {
 		};
 		document.addEventListener( 'keydown', handleKeyDown );
 		return () => document.removeEventListener( 'keydown', handleKeyDown );
-	}, [ annotations.active, enabled, selectTool ] );
+	}, [ annotations.active, enabled, selectTool, shortcuts ] );
 	const handleEvent = useCallback(
 		( event: Extract< InspectorEvent, { type: 'selection' | 'annotation-tool' } > ) => {
 			if ( ! enabled ) return;
@@ -225,19 +229,15 @@ export function useAnnotationTools( {
 		},
 		[ enabled, selectTool, updateDraft ]
 	);
-	const escapeDraft = () => {
+	const escapeDraft = useCallback( () => {
 		if ( ! draftRef.current ) return false;
 		if ( ! capturing.current ) clear();
 		return true;
-	};
+	}, [ clear ] );
 	return {
-		tool,
 		clearSelection,
 		handleEvent,
 		escapeDraft,
-		controls: {
-			drawing,
-			onToggle: () => selectTool( drawing ? 'select' : 'draw' ),
-		},
+		selectTool,
 	};
 }

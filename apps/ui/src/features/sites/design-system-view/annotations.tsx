@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { AnnotationMarker, useSiteAnnotations } from '@/features/annotations';
 import styles from './style.module.css';
-import type { AnnotationAnchor } from '@/features/annotations';
+import type { AnnotationAnchor, SiteAnnotations } from '@/features/annotations';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 import type { MouseEvent } from 'react';
 
 export interface DesignAnnotationProps {
+	annotations?: SiteAnnotations;
 	// A token was picked; the anchor is in client coordinates.
 	onAnnotationPick?: ( target: VisualAnnotationTarget, anchor: AnnotationAnchor ) => void;
 	// The open note's token moved on screen.
@@ -30,15 +31,17 @@ export function useDesignAnnotations( {
 	siteId,
 	root,
 	enabled = true,
+	annotations,
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: DesignAnnotationProps & { siteId: string; root: HTMLElement | null; enabled?: boolean } ) {
+	const siteAnnotations = useSiteAnnotations( siteId );
 	const {
 		active: annotationActive,
 		notes,
 		editingId,
 		blockedNavigation,
-	} = useSiteAnnotations( siteId );
+	} = annotations ?? siteAnnotations;
 	const active = enabled && annotationActive;
 	const targets = useRef( new Map< string, VisualAnnotationTarget >() );
 	const editing = notes.find( ( note ) => note.id === editingId && note.targetKey );

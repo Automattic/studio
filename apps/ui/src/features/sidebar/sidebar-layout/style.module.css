@@ -5,6 +5,7 @@
 }
 
 .root {
+	composes: resizeDivider from '@studio/ds/theme/recipes.module.css';
 	--motion-ease-layout: var( --motion-ease-drawer );
 	--sidebar-flyout-inset: var( --space-1_5 );
 	--sidebar-flyout-top: var( --sidebar-flyout-inset );
@@ -163,20 +164,7 @@
 
 .root:where( :has( > .main > .resizeHandle ) )::after {
 	content: '';
-	position: absolute;
-	inset-block: 1px 0;
 	inset-inline-start: var( --sidebar-width );
-	width: var( --focus-width );
-	/* A whole CSS-pixel offset keeps the 1.5px Retina line on physical pixels. */
-	translate: -1px;
-	z-index: var( --z-overlay );
-	pointer-events: none;
-	background-color: var( --ring );
-	opacity: 0;
-}
-
-.root:dir( rtl )::after {
-	translate: 1px;
 }
 
 .root:has( > .sidebarResizing )::after,
@@ -185,10 +173,6 @@
 }
 
 @media ( prefers-reduced-motion: no-preference ) {
-	.root::after {
-		transition: opacity var( --motion-duration-surface ) ease-out;
-	}
-
 	.root:not( :has( > .sidebarResizing ) ):has(
 			> .main > .resizeHandle:is( :hover, :focus-visible )
 		)::after {

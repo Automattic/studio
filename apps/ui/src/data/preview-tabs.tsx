@@ -10,19 +10,19 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
+import {
+	closePreviewTabs,
+	addPreviewTabToSplit,
+	selectPreviewTab,
+	separatePreviewTabs,
+	splitPreviewTabGroups,
+	type PreviewTab,
+	type PreviewTabWorkspace,
+} from '@/data/preview-tab-state';
+import { removeResponsivePreview } from '@/data/responsive-preview';
 import { isSiteRestarting } from '@/data/site-restarts';
 
-export interface PreviewTab {
-	thumbnail?: { path: string; image: string };
-	id: string;
-	path: string | null;
-	title: string | null;
-}
-export interface PreviewTabWorkspace {
-	tabs: PreviewTab[];
-	selectedId: string;
-	focusRequest: number;
-}
+export type { PreviewTab, PreviewTabWorkspace } from './preview-tab-state';
 type Workspaces = Record< string, PreviewTabWorkspace >;
 const Context = createContext< {
 	workspaces: Workspaces;
@@ -42,6 +42,7 @@ export function PreviewTabsProvider( { children }: { children: ReactNode } ) {
 		() =>
 			connector.onSiteEvent( ( event ) => {
 				if ( event.event === SITE_EVENTS.DELETED ) {
+					removeResponsivePreview( event.siteId );
 					setWorkspaces( ( current ) =>
 						Object.fromEntries(
 							Object.entries( current ).filter(
@@ -89,7 +90,11 @@ export function PreviewTabsProvider( { children }: { children: ReactNode } ) {
 	const value = useMemo( () => ( { workspaces, update } ), [ workspaces, update ] );
 	return <Context.Provider value={ value }>{ children }</Context.Provider>;
 }
-export function usePreviewTabs( key: string, initialPath = '/' ) {
+export function usePreviewTabs(
+	key: string,
+	initialPath = '/',
+	siteId = key.slice( 0, key.indexOf( ':' ) )
+) {
 	const context = useContext( Context );
 	if ( ! context ) throw new Error( 'PreviewTabsProvider is required' );
 	const initial = useMemo< PreviewTabWorkspace >(
@@ -97,6 +102,8 @@ export function usePreviewTabs( key: string, initialPath = '/' ) {
 			tabs: [ { id: `${ key }:initial`, path: initialPath, title: null } ],
 			selectedId: `${ key }:initial`,
 			focusRequest: 0,
+			splits: [],
+			recentIds: [ `${ key }:initial` ],
 		} ),
 		[ key, initialPath ]
 	);
@@ -125,46 +132,42 @@ export function usePreviewTabs( key: string, initialPath = '/' ) {
 			} ),
 		[ update ]
 	);
-	const add = ( path: string | null = null ) => {
-		const id = crypto.randomUUID();
-		update( ( current ) => ( {
-			...current,
-			tabs: [ ...current.tabs, { id, path, title: null } ],
-			selectedId: id,
-			focusRequest: current.focusRequest + 1,
-		} ) );
-	};
-	const select = ( id: string ) =>
-		update( ( current ) =>
-			current.selectedId === id || ! current.tabs.some( ( tab ) => tab.id === id )
-				? current
-				: { ...current, selectedId: id }
-		);
-	const closeMany = ( ids: readonly string[] ) => {
+	const add = useCallback(
+		(
+			path: string | null = null,
+			{ background = false, splitBeside }: { background?: boolean; splitBeside?: string } = {}
+		) => {
+			const id = crypto.randomUUID();
+			update( ( current ) => {
+				const next = { ...current, tabs: [ ...current.tabs, { id, path, title: null } ] };
+				if ( splitBeside !== undefined ) {
+					const split = addPreviewTabToSplit( next, id, splitBeside );
+					return split === next ? current : split;
+				}
+				return background
+					? next
+					: { ...selectPreviewTab( next, id ), focusRequest: next.focusRequest + 1 };
+			} );
+		},
+		[ update ]
+	);
+	const select = useCallback(
+		( id: string ) => update( ( current ) => selectPreviewTab( current, id ) ),
+		[ update ]
+	);
+	const closeMany = ( ids: readonly string[], { focus = false } = {} ) => {
 		const replacementId = crypto.randomUUID();
+		ids.forEach( ( id ) => removeResponsivePreview( siteId, id ) );
 		update( ( current ) => {
-			const index = current.tabs.findIndex( ( tab ) => tab.id === current.selectedId );
-			const tabs = current.tabs.filter( ( tab ) => ! ids.includes( tab.id ) );
-			if ( tabs.length === current.tabs.length ) return current;
-			if ( ! tabs.length ) {
-				return {
-					...current,
-					tabs: [ { id: replacementId, path: null, title: null } ],
-					selectedId: replacementId,
-				};
-			}
-			return {
-				...current,
-				tabs,
-				selectedId: ids.includes( current.selectedId )
-					? (
-							current.tabs.slice( index + 1 ).find( ( tab ) => ! ids.includes( tab.id ) ) ??
-							tabs.at( -1 )!
-					  ).id
-					: current.selectedId,
-			};
+			const next = closePreviewTabs( current, ids, replacementId );
+			return focus && next !== current ? { ...next, focusRequest: next.focusRequest + 1 } : next;
 		} );
 	};
+	const addToSplit = ( id: string, position: 'start' | 'end' = 'end' ) =>
+		update( ( current ) => addPreviewTabToSplit( current, id, undefined, position ) );
+	const splitGroups = ( ids: readonly string[] ) =>
+		update( ( current ) => splitPreviewTabGroups( current, ids ) );
+	const separate = ( id: string ) => update( ( current ) => separatePreviewTabs( current, id ) );
 	return {
 		workspace,
 		selected: workspace.tabs.find( ( tab ) => tab.id === workspace.selectedId )!,
@@ -172,6 +175,9 @@ export function usePreviewTabs( key: string, initialPath = '/' ) {
 		add,
 		select,
 		closeMany,
+		addToSplit,
+		splitGroups,
+		separate,
 		update,
 	};
 }

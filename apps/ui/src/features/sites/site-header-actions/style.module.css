@@ -48,3 +48,12 @@
 .lifecycle:is( :hover, :focus-visible ) .cancelStartIcon {
 	display: block;
 }
+
+.annotation {
+	display: flex;
+	align-items: center;
+}
+
+.annotation:empty {
+	display: none;
+}

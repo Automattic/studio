@@ -9,7 +9,7 @@ import { dismissToast, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
-import { updateResponsivePreview } from '@/data/responsive-preview';
+import { resetResponsivePreview } from '@/data/responsive-preview';
 import {
 	isSiteRestarting,
 	RESTART_SITE_MUTATION_KEY,
@@ -49,7 +49,7 @@ export function useSites() {
 			const sites = await connector.getSites();
 			for ( const site of sites ) {
 				if ( ! site.running && ! isSiteRestarting( queryClient, site.id ) )
-					updateResponsivePreview( site.id, { enabled: false } );
+					resetResponsivePreview( site.id );
 			}
 			return sites;
 		},
@@ -264,8 +264,7 @@ export function useStopSite() {
 			await waitForStartToAcceptStop( queryClient, id );
 			await showSite( queryClient, await connector.stopSite( id ) );
 			dismissToast( `stop-${ id }` );
-			if ( ! isSiteRestarting( queryClient, id ) )
-				updateResponsivePreview( id, { enabled: false } );
+			if ( ! isSiteRestarting( queryClient, id ) ) resetResponsivePreview( id );
 		},
 		onError: ( _error, id ) => {
 			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
@@ -486,7 +485,7 @@ function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
 		! event.running &&
 		! isSiteRestarting( queryClient, event.siteId )
 	) {
-		updateResponsivePreview( event.siteId, { enabled: false } );
+		resetResponsivePreview( event.siteId );
 	}
 	const { site } = event;
 	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );

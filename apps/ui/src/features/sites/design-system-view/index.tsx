@@ -62,6 +62,7 @@ export function DesignSystemView( {
 	error,
 	onRetry,
 	retrying,
+	annotations,
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: {
@@ -94,6 +95,7 @@ export function DesignSystemView( {
 		siteId,
 		root,
 		enabled: !! siteDesign?.design,
+		annotations,
 		onAnnotationPick,
 		onAnnotationAnchor,
 	} );

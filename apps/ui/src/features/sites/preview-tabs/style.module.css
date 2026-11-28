@@ -42,6 +42,7 @@
 .list {
 	gap: var( --band-gap );
 	align-items: center;
+	-webkit-app-region: no-drag;
 }
 
 .tab,
@@ -80,15 +81,52 @@
 	touch-action: pan-x;
 	user-select: none;
 }
-.list:not( [data-tab-dragging] ) .tab:not( [data-preview-selected] ):hover {
+.list:not( [data-tab-dragging] ) .tab:not( [data-preview-selected] ):hover,
+.tab[data-preview-multi-selected]:not( [data-preview-selected] ) {
 	--hover: inherit;
 	--surface: var( --hover );
 
 	background: var( --hover );
 }
 .selected .trigger,
-.dragPreview.selected > :is( .icon, .title ) {
+.dragPreview.selected > :is( .icon, .title, .pairLabel ) {
 	color: var( --popover-foreground );
+}
+.tab[data-preview-tab-pair] .trigger,
+.dragPreview[data-preview-tab-pair] {
+	gap: var( --space-3 );
+	padding-inline-end: var( --space-2 );
+}
+.tab[data-preview-tab-pair] {
+	--pair-columns: repeat( var( --split-tab-count ), minmax( 0, 1fr ) );
+
+	min-width: calc( var( --band-tab-width ) * var( --split-tab-count ) / 2 );
+}
+.tab[data-preview-tab-pair] .trigger,
+.pairCloses {
+	display: grid;
+	grid-template-columns: var( --pair-columns );
+}
+.pairLabel {
+	display: flex;
+	flex: 1 1 0;
+	align-items: center;
+	gap: var( --space-1_5 );
+	min-width: 0;
+}
+.tab[data-preview-tab-pair] .pairLabel {
+	padding-inline-end: var( --space-5 );
+}
+.pairCloses {
+	position: absolute;
+	inset: var( --space-control-inset ) var( --space-2 );
+	gap: var( --space-3 );
+	pointer-events: none;
+}
+.pairCloses .close {
+	position: static;
+	justify-self: end;
+	margin-inline-end: calc( -1 * var( --space-1 ) );
 }
 .title {
 	min-width: 0;
@@ -117,8 +155,11 @@
 	opacity: 0;
 	pointer-events: none;
 }
-.list:not( [data-tab-dragging] ) .tab:hover .close,
-.list:not( [data-tab-dragging] ) .close:focus-visible {
+.close svg {
+	width: 12px;
+	height: 12px;
+}
+.list:not( [data-tab-dragging] ) .tab:is( :hover, :has( .close:focus-visible ) ) .close {
 	opacity: 1;
 	pointer-events: auto;
 }
@@ -162,9 +203,93 @@
 .dragPreview[data-landing] {
 	transition: transform var( --motion-duration-quick ) ease-in-out;
 }
+
+.dragShield {
+	position: fixed;
+	inset: 0;
+	z-index: calc( var( --z-drag ) - 1 );
+	user-select: none;
+	cursor: grabbing;
+	-webkit-app-region: no-drag;
+}
+
+.splitDropArea {
+	position: fixed;
+	z-index: var( --z-drag );
+	pointer-events: none;
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		var( --foreground ) var( --space-3 ),
+		var( --foreground ) calc( 100% - var( --space-3 ) ),
+		transparent
+	);
+	mask-mode: alpha;
+}
+
+.splitDropReveal {
+	composes: floatingReveal from '@studio/ds/theme/recipes.module.css';
+	--floating-reveal-opacity: opacity 0s linear var( --motion-duration-layout );
+	--floating-reveal-duration: var( --motion-duration-layout );
+	--floating-reveal-easing: var( --motion-ease-layout );
+	--split-reveal-offset: calc( -50% - var( --space-4 ) - var( --space-2 ) );
+
+	position: absolute;
+	pointer-events: none;
+	transform: translateX( var( --split-reveal-offset ) ) scale( 0 );
+	transition: var( --floating-reveal-transition );
+}
+
+.splitDropReveal[data-side='right'] {
+	--split-reveal-offset: calc( 50% + var( --space-4 ) + var( --space-2 ) );
+}
+
+.splitDropReveal[data-visible] {
+	--floating-reveal-opacity: opacity 0s;
+	--floating-reveal-duration: var( --motion-duration-reveal );
+	--floating-reveal-easing: var( --motion-ease-spring-gentle );
+	transform: translateX( 0 ) scale( 1 );
+}
+
+.splitDropTarget {
+	box-sizing: border-box;
+	border-radius: var( --radius-3xl );
+	transform-origin: left center;
+	transition:
+		transform var( --motion-duration-quick ) var( --motion-ease-enter ),
+		border-color var( --motion-duration-quick ) var( --motion-ease-enter );
+}
+
+.splitDropReveal[data-side='right'] .splitDropTarget {
+	transform-origin: right center;
+}
+
+.splitDropTarget[data-active] {
+	transform: scale( 1.03 );
+}
+
+@starting-style {
+	.splitDropReveal[data-visible] {
+		opacity: 0;
+		transform: translateX( var( --split-reveal-offset ) ) scale( 0 );
+	}
+}
+
 @media ( prefers-reduced-motion: reduce ) {
 	.tab,
 	.dragPreview[data-landing] {
 		transition: none;
+	}
+
+	.splitDropReveal,
+	.splitDropReveal[data-visible],
+	.splitDropTarget[data-active] {
+		transform: none;
+	}
+
+	@starting-style {
+		.splitDropReveal[data-visible] {
+			transform: none;
+		}
 	}
 }

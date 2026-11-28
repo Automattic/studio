@@ -102,13 +102,45 @@ function openSitePreviewPopupUrl( contents: WebContents, url: string ) {
 	}
 }
 
-// The site preview is a single pane, so it has nowhere to open new windows.
 // Scripts like the block editor's Preview open a blank window and point it at
 // the real URL later, so those get a hidden window that is followed instead.
 function handleSitePreviewPopups( contents: WebContents ) {
+	const openLinkInTab = ( url: string, split?: true ) => {
+		if ( contents.isDestroyed() ) return false;
+		const host = contents.hostWebContents;
+		if ( host && ! host.isDestroyed() ) {
+			host.send( 'preview-open-link', { guestId: contents.id, url, ...( split && { split } ) } );
+			return true;
+		}
+		return false;
+	};
+	contents.on( 'context-menu', ( _event, { linkURL } ) => {
+		const url = parseWebUrl( linkURL );
+		if ( ! url ) return;
+		Menu.buildFromTemplate(
+			isOtherSiteThanPreview( contents, url )
+				? [
+						{
+							label: __( 'Open link in browser' ),
+							click: () => void shell.openExternal( url ).catch( () => undefined ),
+						},
+				  ]
+				: [
+						{ label: __( 'Open link in new tab' ), click: () => openLinkInTab( url ) },
+						{ label: __( 'Open link as split tab' ), click: () => openLinkInTab( url, true ) },
+				  ]
+		).popup();
+	} );
 	contents.setWindowOpenHandler( ( details ) => {
 		const url = parseWebUrl( details.url );
 		if ( url ) {
+			if (
+				details.disposition === 'background-tab' &&
+				! details.postBody &&
+				! isOtherSiteThanPreview( contents, url ) &&
+				openLinkInTab( url )
+			)
+				return { action: 'deny' };
 			openSitePreviewPopupUrl( contents, url );
 			return { action: 'deny' };
 		}

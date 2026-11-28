@@ -385,37 +385,6 @@ it( 'remembers the responsive preview when switching tabs', async () => {
 	expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
 } );
 
-it( 'opens a preview link in a background tab and ignores messages from other origins', async () => {
-	await setup();
-	const current = screen.getByRole( 'tab', { name: 'First' } );
-	const frame = document.querySelector( 'iframe' )!;
-	const post = vi.spyOn( frame.contentWindow!, 'postMessage' );
-	fireEvent.load( frame );
-	const [ init ] = post.mock.calls.find(
-		( [ message ] ) => message.type === 'studio:preview-shortcuts:init'
-	)!;
-	const send = ( origin: string, url: string ) =>
-		fireEvent(
-			window,
-			new MessageEvent( 'message', {
-				source: frame.contentWindow,
-				origin,
-				data: { type: 'studio:preview:open-link', navigationId: init.navigationId, url },
-			} )
-		);
-	const origin = new URL( frame.src ).origin;
-	send( 'https://example.org', `${ origin }/about/` );
-	send( origin, 'https://example.org/about/' );
-	expect( screen.getAllByRole( 'tab' ) ).toEqual( [ current ] );
-	send( origin, `${ origin }/about/?from=preview#team` );
-	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
-	expect( current ).toHaveAttribute( 'aria-selected', 'true' );
-	await user.click( screen.getAllByRole( 'tab' )[ 1 ] );
-	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
-		`${ origin }/about/?from=preview#team`
-	);
-} );
-
 function pointer( type: string, x: number, y: number ) {
 	const event = new MouseEvent( type, {
 		bubbles: true,

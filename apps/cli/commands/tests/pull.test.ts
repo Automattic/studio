@@ -20,6 +20,7 @@ vi.mock( '@studio/common/lib/auth-token', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/pull/reprint-key', () => ( {
 	ensureReprintKey: vi.fn(),
+	reprintKeyArgs: () => [ '--private-key-path=/machine/reprint-key.pem' ],
 } ) );
 vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('cli/lib/sync-api') >();
@@ -174,6 +175,7 @@ describe( 'CLI: studio pull single pull phase', () => {
 			'--include=:wp-core:',
 			'--mode=mirror',
 			'--no-adaptive',
+			'--private-key-path=/machine/reprint-key.pem',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
@@ -191,6 +193,7 @@ describe( 'CLI: studio pull single pull phase', () => {
 			) }`,
 			'--new-site-url=http://localhost:8881',
 			'--no-adaptive',
+			'--private-key-path=/machine/reprint-key.pem',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
@@ -899,17 +902,17 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		expect( reprintSpy ).toHaveBeenCalled();
 		expect( reprintSpy.mock.calls[ 0 ][ 0 ][ 0 ] ).toBe( 'preflight' );
 
-		// The key lives in the site's own state directory, keyed by the API URL.
+		// The machine's key is installed on the remote, and preflight signs with it.
 		const { ensureReprintKey } = await import( 'cli/lib/pull/reprint-key' );
-		expect( ensureReprintKey ).toHaveBeenCalledWith( {
-			source: expect.objectContaining( {
+		expect( ensureReprintKey ).toHaveBeenCalledWith(
+			expect.objectContaining( {
 				wpComSite: expect.objectContaining( { id: 22 } ),
 				wpComToken: expect.objectContaining( { accessToken: 'access-token' } ),
-			} ),
-			apiUrl: 'https://example.com/?reprint-api-jetpack',
-			stateDirectory: path.join( pullsRoot(), 'existing-id', 'state' ),
-			verbose: false,
-		} );
+			} )
+		);
+		expect( reprintSpy.mock.calls[ 0 ][ 0 ] ).toContain(
+			'--private-key-path=/machine/reprint-key.pem'
+		);
 
 		// Messaging is driven off the existing record's name and path.
 		const logged = logSpy.mock.calls.flat().join( '\n' );

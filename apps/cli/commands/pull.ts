@@ -41,7 +41,7 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/reprint-client';
-import { ensureReprintKey } from 'cli/lib/pull/reprint-key';
+import { ensureReprintKey, reprintKeyArgs } from 'cli/lib/pull/reprint-key';
 import {
 	getReprintMetadata,
 	emptyReprintMetadata,
@@ -319,12 +319,7 @@ async function pullSite(
 	} );
 
 	try {
-		await ensureReprintKey( {
-			source: sourceSite,
-			apiUrl,
-			stateDirectory: studioMetadata.stateDirectory,
-			verbose,
-		} );
+		await ensureReprintKey( sourceSite );
 		await runPreflight( studioMetadata, apiUrl, verbose );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
@@ -530,6 +525,7 @@ async function runPreflight(
 				'preflight',
 				sourceSiteApiUrl,
 				'--no-adaptive',
+				...reprintKeyArgs(),
 				`--state-dir=${ sessionMetadata.stateDirectory }`,
 				`--fs-root=${ sessionMetadata.rawDirectory }`,
 			],
@@ -648,6 +644,7 @@ export async function runFullPull(
 				...filesArgs,
 				'--mode=mirror',
 				'--no-adaptive',
+				...reprintKeyArgs(),
 				`--state-dir=${ metadata.stateDirectory }`,
 				`--fs-root=${ metadata.rawDirectory }`,
 			] );
@@ -665,6 +662,7 @@ export async function runFullPull(
 			`--target-sqlite-path=${ sqlitePath }`,
 			`--new-site-url=${ metadata.localUrl! }`,
 			'--no-adaptive',
+			...reprintKeyArgs(),
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );

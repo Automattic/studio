@@ -926,6 +926,7 @@ export function createIpcConnector(): Connector {
 		// macOS overlays the traffic lights on the content (so we reserve
 		// space for them); Windows and Linux don't.
 		reservesTrafficLightSpace: isMacOS,
+		setTrafficLightVisibility: isMacOS ? ipcApi.setTrafficLightVisibility : undefined,
 
 		async setWindowControlsSurface( surface ) {
 			await ipcApi.setWindowControlsSurface( surface );

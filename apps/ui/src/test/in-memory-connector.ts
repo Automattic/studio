@@ -444,6 +444,7 @@ export function createInMemoryConnector(
 		showTextContextMenu: async () => undefined,
 		openSiteUrl: async () => {},
 		setWindowControlsSurface: async () => {},
+		setTrafficLightVisibility: async () => {},
 		isFullscreen: async () => false,
 		onFullscreenChange: subscribe( 'onFullscreenChange' ),
 		onSiteEvent: subscribe( 'onSiteEvent' ),

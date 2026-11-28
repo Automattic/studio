@@ -26,6 +26,7 @@ import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
+import { useSidebarWindowButtons } from './use-sidebar-window-buttons';
 import type { CSSProperties, PointerEvent, ReactNode, RefCallback } from 'react';
 
 const HOVER_OPEN_DELAY_MS = 180;
@@ -156,6 +157,7 @@ export function SidebarLayout( {
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
+	const flyoutContentsRef = useSidebarWindowButtons( docked, sidebarFlyoutVisible );
 	useLayoutEffect( () => {
 		if ( docked && focusDockedSidebar.current ) {
 			focusDockedSidebar.current = false;
@@ -356,6 +358,7 @@ export function SidebarLayout( {
 											style={ sidebarStyle }
 										>
 											<aside
+												ref={ flyoutContentsRef }
 												className={ styles.sidebarFlyoutContents }
 												onPointerEnter={ clearHoverTimer }
 												onPointerLeave={ hoverLeave }

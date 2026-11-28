@@ -37,6 +37,7 @@ vi.mock( 'electron', () => {
 		loadURL = mockLoadURL;
 		setBackgroundColor = vi.fn();
 		setTitleBarOverlay = vi.fn();
+		setWindowButtonVisibility = vi.fn();
 		getBounds = vi.fn().mockReturnValue( { x: 0, y: 0, width: 800, height: 600 } );
 
 		on = vi.fn();
@@ -242,6 +243,20 @@ describe( 'renderer selection', () => {
 			expect.objectContaining( { tags: { renderer_load: 'not-committed' } } )
 		);
 	} );
+
+	it.runIf( process.platform === 'darwin' )(
+		'hides the window buttons during a renderer reload',
+		async () => {
+			process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
+			const win = await createMainWindow();
+			const [ navigate ] = mockWebContentsEventHandlers.get( 'did-start-navigation' )!;
+			navigate( { isMainFrame: false, isSameDocument: false } );
+			navigate( { isMainFrame: true, isSameDocument: true } );
+			expect( win.setWindowButtonVisibility ).not.toHaveBeenCalled();
+			navigate( { isMainFrame: true, isSameDocument: false } );
+			expect( win.setWindowButtonVisibility ).toHaveBeenCalledExactlyOnceWith( false );
+		}
+	);
 
 	it( 'shows an error and quits when the renderer was not built', async () => {
 		const createdWindow = await createMainWindow();

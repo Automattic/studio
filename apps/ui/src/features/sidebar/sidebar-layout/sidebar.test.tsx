@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { resetLocaleData, setLocaleData } from '@wordpress/i18n';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetPanelLayout, SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { HeaderSidebarToggle } from '@/features/sidebar/sidebar-toggle';
@@ -49,6 +49,46 @@ afterEach( () => {
 } );
 
 describe( 'resizable sidebar', () => {
+	it( 'shows the native window buttons only with the dock or flyout', async () => {
+		const connector = createFakeConnector(
+			{ sites: [ makeSite() ] },
+			{ reservesTrafficLightSpace: true }
+		);
+		const { unmount } = await setup( connector );
+		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( true );
+		fireEvent.click( toggle() );
+		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+		resize( 800 );
+		fireEvent.click( toggle() );
+		const flyout = screen.getByRole( 'dialog', { name: 'Sidebar' } );
+		vi.spyOn( flyout, 'getBoundingClientRect' ).mockReturnValue( new DOMRect( -64, 6, 256, 600 ) );
+		fireEvent( flyout, new Event( 'transitionrun' ) );
+		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( true, {
+			x: -64,
+			y: 6,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close sidebar' } ) );
+		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+		unmount();
+		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+	} );
+
+	it( 'restores the current sidebar state after leaving fullscreen', async () => {
+		const connector = createFakeConnector(
+			{ sites: [ makeSite() ] },
+			{ reservesTrafficLightSpace: true }
+		);
+		await setup( connector );
+		act( () => connector.emit( 'onFullscreenChange', true ) );
+		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+		act( () => connector.emit( 'onFullscreenChange', false ) );
+		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( true );
+		act( () => connector.emit( 'onFullscreenChange', true ) );
+		fireEvent.click( toggle() );
+		act( () => connector.emit( 'onFullscreenChange', false ) );
+		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+	} );
+
 	it( 'resizes with the keyboard, clamps bounds, and persists its width', async () => {
 		const { unmount } = await setup();
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '256' );

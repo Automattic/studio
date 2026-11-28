@@ -260,6 +260,16 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		mainWindow.setFullScreen( true );
 	}
 
+	if ( process.platform === 'darwin' ) {
+		const win = mainWindow;
+		// Wait for the new document to restore its sidebar before showing the buttons.
+		mainWebContents.on( 'did-start-navigation', ( details ) => {
+			if ( details.isMainFrame && ! details.isSameDocument ) {
+				win.setWindowButtonVisibility( false );
+			}
+		} );
+	}
+
 	loadRendererLocation( mainWindow, getRendererLocation() ).catch(
 		watchRendererLoadFailure( mainWindow )
 	);
@@ -281,16 +291,6 @@ export async function createMainWindow(): Promise< BrowserWindow > {
 		void promptWindowsSpeedUpSites( { skipIfAlreadyPrompted: true } );
 		void warnIfRunningUnderArm64Translation();
 	} );
-
-	if ( process.platform === 'darwin' ) {
-		// The renderer moves the traffic lights for full preview; a reload drops
-		// that state without running its cleanup, so put them back here.
-		mainWindow.webContents.on( 'did-start-navigation', ( details ) => {
-			if ( details.isMainFrame && ! details.isSameDocument ) {
-				mainWindow?.setWindowButtonPosition( MACOS_TRAFFIC_LIGHT_POSITION );
-			}
-		} );
-	}
 
 	mainWindow.on( 'closed', () => {
 		removeMenu();

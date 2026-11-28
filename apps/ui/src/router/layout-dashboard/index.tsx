@@ -32,6 +32,7 @@ import { AccountPromptDialog } from '@/features/account';
 import {
 	getSiteAnnotations,
 	requestAnnotationSend,
+	setAnnotating,
 	useSiteAnnotations,
 } from '@/features/annotations';
 import { SiteWorkspace, SessionHeader } from '@/features/chats';
@@ -301,6 +302,13 @@ function DashboardLayout() {
 			)
 				continue;
 			if (
+				site.operation?.kind === 'stop' ||
+				( site.id === previewSiteId && stopPending ) ||
+				( previous?.running && ! site.running )
+			) {
+				setAnnotating( site.id, false );
+			}
+			if (
 				( starting && ! previous?.starting ) ||
 				( previous?.running === false && site.running && ! previous.starting )
 			) {
@@ -326,6 +334,7 @@ function DashboardLayout() {
 		previewSiteId,
 		liveUrl,
 		startPending,
+		stopPending,
 		restartStates,
 		queryClient,
 		preferences?.openChatOnSiteStart,

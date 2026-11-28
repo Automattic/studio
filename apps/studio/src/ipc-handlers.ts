@@ -149,6 +149,7 @@ import {
 import { getProviderServices } from '@studio/providers/services';
 import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
+import { TITLEBAR_HEIGHT, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext, takePendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -1536,6 +1537,30 @@ export async function listLocalFileTree(
 export async function readBlueprint( _event: IpcMainInvokeEvent, source: string ) {
 	await using opened = await openBlueprint( source );
 	return opened.blueprint;
+}
+
+export function setTrafficLightState(
+	event: IpcMainInvokeEvent,
+	visible: boolean,
+	flyoutOrigin?: { x: number; y: number }
+) {
+	if ( process.platform !== 'darwin' || typeof visible !== 'boolean' ) return;
+	const win = BrowserWindow.fromWebContents( event.sender );
+	if ( ! win ) return;
+	if ( ! visible || win.isFullScreen() ) {
+		win.setWindowButtonVisibility( false );
+		return;
+	}
+
+	const zoom = event.sender.getZoomFactor();
+	// AppKit keeps the buttons 14 points tall even when the renderer is zoomed.
+	const y = Math.round( ( TITLEBAR_HEIGHT * zoom - 14 ) / 2 );
+	const x =
+		flyoutOrigin && Number.isFinite( flyoutOrigin.x ) && Number.isFinite( flyoutOrigin.y )
+			? Math.round( ( flyoutOrigin.x - flyoutOrigin.y ) * zoom + y )
+			: MACOS_TRAFFIC_LIGHT_POSITION.x;
+	win.setWindowButtonPosition( { x, y } );
+	win.setWindowButtonVisibility( true );
 }
 
 // Repaints the window-controls overlay for whichever surface it is sitting on;

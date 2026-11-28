@@ -113,6 +113,90 @@ it.each( [ true, false ] )(
 	}
 );
 
+it( 'shows the captured page only while its browser tab is inactive', async () => {
+	const userAgent = window.navigator.userAgent;
+	vi.spyOn( window.navigator, 'userAgent', 'get' ).mockReturnValue(
+		userAgent + ' Electron/38.0.0'
+	);
+	const { user } = await setup();
+	const first = selectedTab();
+	let view = 'first';
+	const capturePage = vi.fn( async () => {
+		const captured = view;
+		return {
+			isEmpty: () => false,
+			resize: () => ( { toDataURL: () => `data:image/png;base64,${ captured }` } ),
+		};
+	} );
+	const page = activePreview( 'webview' )!;
+	Object.defineProperties( page, { clientWidth: { value: 800 }, clientHeight: { value: 700 } } );
+	Object.assign( page, { capturePage, getWebContentsId: () => 42 } );
+	fireEvent( page, new Event( 'did-finish-load' ) );
+	await waitFor( () =>
+		expect( capturePage ).toHaveBeenCalledWith( { x: 0, y: 0, width: 800, height: 500 } )
+	);
+	const expectNoPreviewOnHover = async () => {
+		await user.unhover( first );
+		await user.hover( first );
+		// A negative assertion must outlast the tooltip's hover delay.
+		await act( () => new Promise< void >( ( resolve ) => setTimeout( resolve, 300 ) ) );
+		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument();
+	};
+	await expectNoPreviewOnHover();
+	view = 'scrolled';
+	await newBrowserTab();
+	await user.unhover( first );
+	await user.hover( first );
+	expect( await screen.findByRole( 'img', { name: 'Preview of First' } ) ).toHaveAttribute(
+		'src',
+		'data:image/png;base64,scrolled'
+	);
+	const close = first
+		.closest( '[data-tab-reorder-id]' )!
+		.querySelector< HTMLElement >( '[data-tab-close]' )!;
+	await user.hover( close );
+	expect( screen.getByRole( 'img', { name: 'Preview of First' } ) ).toBeInTheDocument();
+	await user.click( first );
+	await waitFor( () =>
+		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument()
+	);
+	await expectNoPreviewOnHover();
+} );
+
+it( 'finishes capturing the outgoing tab after a quick switch', async () => {
+	vi.spyOn( window.navigator, 'userAgent', 'get' ).mockReturnValue(
+		window.navigator.userAgent + ' Electron/38.0.0'
+	);
+	const { user } = await setup();
+	const first = selectedTab();
+	const page = activePreview( 'webview' )!;
+	const pane = page.closest( '[data-active-tab]' )!;
+	let finishCapture!: () => void;
+	const capturePage = vi.fn(
+		() =>
+			new Promise( ( resolve ) => {
+				finishCapture = () =>
+					resolve( {
+						isEmpty: () => false,
+						resize: () => ( { toDataURL: () => 'data:image/png;base64,last-view' } ),
+					} );
+			} )
+	);
+	Object.defineProperties( page, { clientWidth: { value: 800 }, clientHeight: { value: 700 } } );
+	Object.assign( page, { capturePage, getWebContentsId: () => 42 } );
+	fireEvent( page, new Event( 'did-finish-load' ) );
+	await newBrowserTab();
+	expect( capturePage ).toHaveBeenCalled();
+	expect( pane ).toHaveAttribute( 'data-capturing-thumbnail' );
+	finishCapture();
+	await user.hover( first );
+	expect( await screen.findByRole( 'img', { name: 'Preview of First' } ) ).toHaveAttribute(
+		'src',
+		'data:image/png;base64,last-view'
+	);
+	expect( pane ).not.toHaveAttribute( 'data-capturing-thumbnail' );
+} );
+
 it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {
 	const userAgent = window.navigator.userAgent;
 	Object.defineProperty( window.navigator, 'userAgent', {
@@ -293,16 +377,12 @@ it( 'restarts at home after stopping a project while another project is open', a
 	);
 } );
 it( 'keeps stopped and blank tabs empty without a browser bar', async () => {
-	const { connector, user } = await setup( false );
+	const { connector } = await setup( false );
 	expect( screen.queryByRole( 'tablist', { name: 'Preview tabs' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'New tab' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'New tab' } ) ).not.toBeInTheDocument();
 	expect(
 		screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
 	).not.toBeInTheDocument();
-	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	expect( screen.queryByRole( 'tab' ) ).not.toBeInTheDocument();
-	expect( await screen.findByRole( 'menuitem', { name: 'Browser' } ) ).toBeVisible();
-	await user.keyboard( '{Escape}' );
 	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 	const pane = screen.getByRole( 'complementary', { name: 'Panel' } );
 	expect( within( pane ).getByRole( 'group', { name: 'Project tools' } ) ).toBeVisible();
@@ -544,13 +624,13 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 
 it( 'starts a stopped project from Browser and uses its first preview tab', async () => {
 	const { connector, user } = await setup( false );
-	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
+	expect( await screen.findByRole( 'button', { name: 'New tab' } ) ).toBeVisible();
 	await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 	await waitFor( () => expect( document.querySelector( 'iframe' ) ).not.toBeNull() );
 	fireEvent.load( document.querySelector( 'iframe' )! );
 	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 ) );
-	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+	expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
 		'http://localhost:9010'
 	);
 } );
@@ -654,8 +734,7 @@ it.each( [ false, true ] )(
 			await ready;
 			return start( id );
 		} );
-		await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-		await user.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		const preview = screen.getByRole( 'complementary', { name: 'Panel' } );
 		expect( within( preview ).getByText( 'Loading site preview' ) ).toBeInTheDocument();
@@ -754,6 +833,16 @@ it( 'opens the new-tab menu with the primary T shortcut, including from closed p
 		shiftKey: true,
 	} );
 	expect( screen.queryByRole( 'menuitem', { name: 'Browser' } ) ).not.toBeInTheDocument();
+} );
+
+it( 'focuses the centered tools with the primary T shortcut on a stopped site', async () => {
+	const { user } = await setup( false );
+	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, { key: 't', code: 'KeyT', metaKey: isApple, ctrlKey: ! isApple } );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Browser B' } ) ).toHaveFocus()
+	);
 } );
 
 it( 'opens a new tab with the primary T shortcut when the plus button is hidden', async () => {
@@ -899,17 +988,23 @@ it( 'lets the only browser tab be picked up without changing its page or selecti
 it( 'leaves normal clicks uncaptured until a drag starts', async () => {
 	const tabs = await sortableTabs();
 	const list = screen.getByRole( 'tablist', { name: 'Preview tabs' } );
+	const bounds = vi.mocked(
+		tabs[ 0 ].closest< HTMLElement >( '[data-tab-reorder-id]' )!.getBoundingClientRect
+	);
+	bounds.mockClear();
 	const capture = vi.fn();
 	Object.defineProperty( list, 'setPointerCapture', { value: capture, configurable: true } );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 42 ) );
 	expect( capture ).not.toHaveBeenCalled();
+	expect( bounds ).not.toHaveBeenCalled();
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerup', 42 ) );
 	fireEvent.click( tabs[ 0 ] );
 	expect( selectedTab() ).toBe( tabs[ 0 ] );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	expect( capture ).toHaveBeenCalledWith( 1 );
+	expect( bounds ).toHaveBeenCalledTimes( 1 );
 	fireEvent( window, tabPointer( 'pointercancel', 440 ) );
 } );
 it( 'leaves touch swipes available for scrolling rather than reordering', async () => {

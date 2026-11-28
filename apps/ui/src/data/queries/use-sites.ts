@@ -209,9 +209,14 @@ export function useStartSite() {
 			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
 				return false;
 			}
-			await showSite( queryClient, await connector.startSite( id ) );
+			const previousStop = latestSiteStop( queryClient, id )?.mutationId;
+			const site = await connector.startSite( id );
+			// The stop's reply can arrive first. Let it own the final running state.
+			const stop = latestSiteStop( queryClient, id );
+			if ( stop && stop.mutationId !== previousStop && stop.state.status !== 'error' ) return false;
+			await showSite( queryClient, site );
 			dismissToast( `start-${ id }` );
-			return true;
+			return site?.running !== false;
 		},
 		onError: ( error, id ) => {
 			const { title, description } = getBusyNotice(
@@ -229,12 +234,34 @@ export function useStartSite() {
 	} );
 }
 
+// A click can arrive before the start command has claimed the site. Wait for
+// its acknowledgement, or for the start to settle on an older server.
+function waitForStartToAcceptStop( client: QueryClient, id: string ): Promise< void > {
+	const ready = () =>
+		! isSiteMutating( client, START_SITE_MUTATION_KEY, id ) ||
+		client.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )?.find( ( site ) => site.id === id )
+			?.operation?.cancelRequested !== undefined;
+	if ( ready() ) return Promise.resolve();
+	return new Promise( ( resolve ) => {
+		const check = () => {
+			if ( ready() ) {
+				unsubscribeSites();
+				unsubscribeMutations();
+				resolve();
+			}
+		};
+		const unsubscribeSites = client.getQueryCache().subscribe( check );
+		const unsubscribeMutations = client.getMutationCache().subscribe( check );
+	} );
+}
+
 export function useStopSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
+			await waitForStartToAcceptStop( queryClient, id );
 			await showSite( queryClient, await connector.stopSite( id ) );
 			dismissToast( `stop-${ id }` );
 			if ( ! isSiteRestarting( queryClient, id ) )
@@ -247,12 +274,16 @@ export function useStopSite() {
 	} );
 }
 
-export function getSiteStopState( queryClient: QueryClient, siteId: string ) {
+function latestSiteStop( queryClient: QueryClient, siteId: string ) {
 	const stops = queryClient.getMutationCache().findAll( {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		predicate: ( mutation ) => mutation.state.variables === siteId,
 	} );
-	const stop = stops[ stops.length - 1 ];
+	return stops.at( -1 );
+}
+
+export function getSiteStopState( queryClient: QueryClient, siteId: string ) {
+	const stop = latestSiteStop( queryClient, siteId );
 	return stop
 		? {
 				id: stop.mutationId,

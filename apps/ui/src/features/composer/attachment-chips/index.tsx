@@ -12,11 +12,10 @@ import {
 	AttachmentRemoveButton,
 	Popover,
 } from '@studio/ds';
-import { StickerIcon } from '@studio/ds/icons';
+import { AttachmentIcon, StickerIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useLayoutEffect, useRef } from 'react';
 import { AnnotationReviewChip } from '@/features/annotations';
-import { getComposerFileIcon } from './file-icon';
 import styles from './style.module.css';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
 
@@ -81,7 +80,11 @@ function AttachmentChip( {
 						<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
 					) : (
 						<>
-							{ isAnnotations ? <StickerIcon /> : getComposerFileIcon( attachment ) }
+							{ isAnnotations ? (
+								<StickerIcon />
+							) : (
+								<AttachmentIcon kind={ attachment.kind } mimeType={ attachment.mimeType } />
+							) }
 							<span className={ styles.attachmentName }>{ attachment.name }</span>
 						</>
 					) }

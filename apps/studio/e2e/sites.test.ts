@@ -90,6 +90,18 @@ test.describe( 'Sites', () => {
 		).toBe( true );
 		expect( await pathExists( path.join( site.path, 'wp-config.php' ) ) ).toBe( true );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
+		await expect
+			.poll( () =>
+				session.mainWindow.evaluate( async ( siteId ) => {
+					const thumbnail = await window.ipcApi.getThumbnailData( siteId );
+					if ( ! thumbnail ) return 0;
+					const image = new Image();
+					image.src = thumbnail;
+					await image.decode().catch( () => undefined );
+					return image.naturalHeight ? image.naturalWidth / image.naturalHeight : 0;
+				}, site.id )
+			)
+			.toBeCloseTo( 16 / 10 );
 
 		const siteUrl = await session.getSiteUrl( siteName );
 		await page.goto( getUrlWithAutoLogin( `${ siteUrl }/wp-admin` ) );

@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it } from 'vitest';
 import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -54,14 +55,15 @@ it( 'reopens a queued message for editing and queues only the revision', async (
 	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	expect( screen.getByRole( 'combobox', COMPOSER ) ).toBe( input );
 	expect( screen.getByText( 'Original follow-up' ) ).toBeVisible();
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for My site' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 	await screen.findByRole( 'button', { name: 'Start My site' } );
 	expect( screen.getByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();
 	expect( screen.getByRole( 'combobox', COMPOSER ) ).toBe( input );
 	expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeVisible();
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Edit queued message' } ) );
+	await userEvent.click( await screen.findByRole( 'button', { name: 'Edit queued message' } ) );
 	expect( input ).toHaveValue( 'Original follow-up' );
-	expect( input ).toHaveFocus();
+	await waitFor( () => expect( input ).toHaveFocus() );
 	expect( screen.getByText( 'notes.txt' ) ).toBeVisible();
 	expect(
 		screen.queryByRole( 'button', { name: 'Remove queued message' } )

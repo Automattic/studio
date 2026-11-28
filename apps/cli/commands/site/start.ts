@@ -6,7 +6,7 @@ import { getSiteByFolder, updateSiteLatestCliPid } from 'cli/lib/cli-config/site
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { getSiteDetails } from 'cli/lib/site-details';
-import { withSiteOperation } from 'cli/lib/site-operations';
+import { SiteStartCancelled, withSiteStart } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -22,8 +22,8 @@ export async function runCommand(
 	skipLogDetails = false,
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
-	return withSiteOperation( sitePath, 'start', () =>
-		startSite( sitePath, skipBrowser, skipLogDetails, logger )
+	return withSiteStart( sitePath, ( signal ) =>
+		startSite( sitePath, skipBrowser, skipLogDetails, logger, signal )
 	);
 }
 
@@ -31,7 +31,8 @@ async function startSite(
 	sitePath: string,
 	skipBrowser: boolean,
 	skipLogDetails: boolean,
-	logger: Logger< LoggerAction >
+	logger: Logger< LoggerAction >,
+	signal: AbortSignal
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -63,6 +64,7 @@ async function startSite(
 		}
 
 		const runningProcess = await isServerRunning( site.id );
+		signal.throwIfAborted();
 		if ( runningProcess ) {
 			logger.reportSuccess( __( 'WordPress server is already running' ) );
 			if ( runningProcess.status === 'online' ) {
@@ -83,6 +85,7 @@ async function startSite(
 			LoggerAction.INSTALL_SQLITE,
 			__( 'Setting up SQLite integration, if needed…' )
 		);
+		signal.throwIfAborted();
 		await keepSqliteIntegrationUpdated( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
@@ -106,7 +109,8 @@ async function startSite(
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
-			await startWordPressServer( site, logger, 'start' );
+			await startWordPressServer( site, logger, 'start', undefined, signal );
+			signal.throwIfAborted();
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
 
@@ -118,6 +122,7 @@ async function startSite(
 				await openSiteInBrowser( site );
 			}
 		} catch ( error ) {
+			signal.throwIfAborted();
 			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 		}
 	} finally {
@@ -133,7 +138,13 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			running: true,
 		} );
 	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
+		if ( error instanceof SiteStartCancelled ) {
+			defaultLogger.reportSuccess( error.message );
+			defaultLogger.reportResult( {
+				...getSiteDetails( await getSiteByFolder( argv.path ) ),
+				running: false,
+			} );
+		} else if ( error instanceof LoggerError ) {
 			defaultLogger.reportError( error );
 		} else {
 			const loggerError = new LoggerError( __( 'Failed to start site' ), error );

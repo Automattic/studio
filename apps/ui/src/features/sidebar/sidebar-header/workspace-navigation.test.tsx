@@ -108,7 +108,9 @@ describe( 'workspace navigation', () => {
 		const { history } = await setup();
 		await visit( history, '/sites/two' );
 		const sidebar = back().closest( 'aside' )!;
-		fireEvent.click( within( sidebar ).getByRole( 'button', { name: 'Hide sidebar' } ) );
+		fireEvent.click(
+			within( screen.getByRole( 'main' ) ).getByRole( 'button', { name: 'Hide sidebar' } )
+		);
 		expect(
 			screen.queryByRole( 'group', { name: 'Workspace navigation' } )
 		).not.toBeInTheDocument();

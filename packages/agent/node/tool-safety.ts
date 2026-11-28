@@ -1,5 +1,6 @@
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import path from 'node:path';
+import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import type { StudioAgentHost } from './host';
 
 // Keep individual model-generated tool payloads below the range where long
@@ -151,6 +152,84 @@ export async function getFileWriteRefusal(
 	return `Not run: ${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
 }
 
+// The folders of Studio's settings directory the agent works in: payload files,
+// the user's skills and their global instructions. The rest holds sign-ins and API keys.
+const AGENT_SETTINGS_FOLDERS = new Set( [ 'tmp', 'skills', 'knowledge' ] );
+
+const SETTINGS_REFUSAL =
+	"Studio's settings folder holds the user's sign-ins and API keys, so Studio Code doesn't read or change it. Use Studio's tools for sites, previews and WordPress.com instead.";
+
+// macOS and Windows file systems ignore case by default.
+function foldCase( value: string ): string {
+	return process.platform === 'linux' ? value : value.toLowerCase();
+}
+
+function isWithin( parent: string, child: string ): boolean {
+	const relative = path.relative( foldCase( parent ), foldCase( child ) );
+	return ! relative.startsWith( '..' ) && ! path.isAbsolute( relative );
+}
+
+// Where a path really points, through symlinks and Windows short names. A file
+// not written yet resolves through the nearest folder that exists.
+function realPath( file: string ): string {
+	try {
+		return realpathSync.native( file );
+	} catch {
+		const parent = path.dirname( file );
+		return parent === file ? file : path.join( realPath( parent ), path.basename( file ) );
+	}
+}
+
+function isSettingsPath( segments: string[] ): boolean {
+	return (
+		! AGENT_SETTINGS_FOLDERS.has( foldCase( segments[ 0 ] ?? '' ) ) || segments.includes( '..' )
+	);
+}
+
+// `.studio` as a path segment: `~/.studio`, `$HOME/.studio/config.json`, `.studio/shared.json`.
+const SETTINGS_IN_COMMAND = /(?:^|[\s'"`=:/\\])\.studio(?![\w.-])([^\s'"`;|&()<>]*)/gi;
+
+/**
+ * Keeps the agent's file tools out of Studio's settings folder, where the
+ * WordPress.com token and provider API keys are stored. The Bash check only
+ * catches commands that name the folder: a guardrail, not a sandbox.
+ */
+export function getSettingsAccessRefusal(
+	toolName: string,
+	params: unknown,
+	resolvePath: ( file: string ) => string
+): string | undefined {
+	if ( toolName === 'Bash' ) {
+		const command = getStringParam( params, 'command' ) ?? '';
+		for ( const [ , rest ] of command.matchAll( SETTINGS_IN_COMMAND ) ) {
+			if ( isSettingsPath( rest.split( /[\\/]+/ ).filter( Boolean ) ) ) {
+				return `Not run: ${ SETTINGS_REFUSAL }`;
+			}
+		}
+		return undefined;
+	}
+	if ( ! [ 'Read', 'Write', 'Edit', 'Grep' ].includes( toolName ) ) {
+		return undefined;
+	}
+	const filePath = getStringParam( params, 'path' );
+	if ( ! filePath ) {
+		return undefined;
+	}
+	const absolutePath = realPath( resolvePath( filePath ) );
+	const settings = realPath( getConfigDirectory() );
+	if ( isWithin( settings, absolutePath ) ) {
+		const relative = path.relative( foldCase( settings ), foldCase( absolutePath ) );
+		return isSettingsPath( relative.split( path.sep ).filter( Boolean ) )
+			? `Not run: ${ SETTINGS_REFUSAL }`
+			: undefined;
+	}
+	// Grep searches hidden folders, so searching the home folder would read the settings too.
+	if ( toolName === 'Grep' && isWithin( absolutePath, settings ) ) {
+		return `Not run: searching ${ filePath } would read Studio's settings folder. ${ SETTINGS_REFUSAL } Search a site's folder instead.`;
+	}
+	return undefined;
+}
+
 // Every runtime runs this before a tool call: a refused call fails without
 // running. Calls cut off at the model's output limit never get here; pi's loop
 // fails them itself.
@@ -162,6 +241,7 @@ export async function assertToolCallAllowed(
 ): Promise< void > {
 	const refusal =
 		getPayloadLimitViolation( toolName, params ) ??
+		getSettingsAccessRefusal( toolName, params, resolvePath ) ??
 		( await getFileWriteRefusal( toolName, params, host, resolvePath ) );
 	if ( refusal ) {
 		throw new Error( refusal );

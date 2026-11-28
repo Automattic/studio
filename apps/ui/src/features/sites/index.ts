@@ -14,7 +14,13 @@ export { pendingRemoteSiteSlot } from './pending-remote-site';
 export { pendingSiteFolderSlot } from './pending-site-folder';
 export { PreviewParticles } from './preview-particles';
 export { PanelSplitFrame, type PanelSplitFramePanelProps } from './panel-split-frame';
-export { SiteMenu, SiteMenuItems, useDeleteBlockedReason, useSiteActions } from './site-menu';
+export {
+	SiteMenu,
+	SiteMenuItems,
+	type SiteActions,
+	useDeleteBlockedReason,
+	useSiteActions,
+} from './site-menu';
 export {
 	CertificateTrustNotice,
 	getEnvironmentTypeOptions,

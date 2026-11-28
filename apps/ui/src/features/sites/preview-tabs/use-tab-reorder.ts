@@ -123,27 +123,35 @@ export function useTabReorder( {
 		cleanup.current?.();
 		setCurrent( null );
 		const list = event.currentTarget;
-		const slots = Array.from(
-			list.querySelectorAll< HTMLElement >( '[data-tab-reorder-id]' ),
-			( element ) => {
-				const { left, top, width, height } = element.getBoundingClientRect();
-				return { id: element.dataset.tabReorderId!, left, top, width, height };
-			}
-		);
-		const source = slots.find( ( slot ) => slot.id === row.dataset.tabReorderId )!;
-		const sourceIndex = slots.indexOf( source );
-		const startX = event.clientX,
-			startY = event.clientY;
-		const offsetX = startX - source.left,
-			offsetY = startY - source.top;
+		const startX = event.clientX;
+		const startY = event.clientY;
 		const pointerId = event.pointerId;
-		const direction = getComputedStyle( list ).direction === 'rtl' ? -1 : 1;
-		const gap = Number.parseFloat( getComputedStyle( list ).columnGap ) || 2;
+		const measureDrag = () => {
+			const slots = Array.from(
+				list.querySelectorAll< HTMLElement >( '[data-tab-reorder-id]' ),
+				( element ) => {
+					const { left, top, width, height } = element.getBoundingClientRect();
+					return { id: element.dataset.tabReorderId!, left, top, width, height };
+				}
+			);
+			const source = slots.find( ( slot ) => slot.id === row.dataset.tabReorderId );
+			if ( ! source ) return;
+			const style = getComputedStyle( list );
+			return {
+				slots,
+				source,
+				direction: style.direction === 'rtl' ? -1 : 1,
+				gap: Number.parseFloat( style.columnGap ) || 2,
+			};
+		};
+		let geometry: ReturnType< typeof measureDrag >;
 		const matches = ( input: PointerEvent ) => input.pointerId === pointerId;
 		const finish = ( commit: boolean ) => {
 			cleanup.current?.();
 			const active = dragRef.current;
-			if ( ! active ) return;
+			if ( ! active || ! geometry ) return;
+			const { slots, source } = geometry;
+			const sourceIndex = slots.indexOf( source );
 			const index = commit && active.target >= 0 ? active.target : sourceIndex;
 			const slot = slots[ index ];
 			const committed = commit && index !== sourceIndex;
@@ -186,13 +194,17 @@ export function useTabReorder( {
 		};
 		const onMove = ( input: PointerEvent ) => {
 			if ( ! matches( input ) ) return;
-			if ( ! dragRef.current && Math.hypot( input.clientX - startX, input.clientY - startY ) < 4 )
-				return;
-			if ( ! dragRef.current ) list.setPointerCapture?.( pointerId );
+			if ( ! geometry ) {
+				if ( Math.hypot( input.clientX - startX, input.clientY - startY ) < 4 ) return;
+				geometry = measureDrag();
+				if ( ! geometry ) return;
+				list.setPointerCapture?.( pointerId );
+			}
 			input.preventDefault();
 			suppressClick.current = true;
-			const x = input.clientX - offsetX;
-			const y = input.clientY - offsetY;
+			const { slots, source, direction, gap } = geometry;
+			const x = source.left + input.clientX - startX;
+			const y = source.top + input.clientY - startY;
 			const center = x + source.width / 2;
 			const index = slots.filter(
 				( slot ) => slot.id !== source.id && ( center - slot.left - slot.width / 2 ) * direction > 0

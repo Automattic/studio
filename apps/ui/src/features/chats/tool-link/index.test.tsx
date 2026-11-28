@@ -71,7 +71,7 @@ it.each( [ 'browser', 'desktop' ] )(
 			)
 		);
 		expect( history.location.pathname ).toBe( '/sessions/chat' );
-		expect( screen.getByRole( 'button', { name: 'Stop First' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'button', { name: 'Actions for First' } ) ).toBeEnabled();
 		expect( link ).toBeEnabled();
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	}

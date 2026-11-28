@@ -1,7 +1,6 @@
 import { AttachmentChip } from '@studio/ds';
-import { FileTextIcon, CodeIcon } from '@studio/ds/icons';
+import { AttachmentIcon, CodeIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { ImageIcon } from 'lucide-react';
 import { memo } from 'react';
 import { CopyButton } from '@/features/chats/copy-button';
 import { Markdown } from '@/features/chats/markdown';
@@ -66,7 +65,7 @@ export const UserTurn = memo( function UserTurn( {
 											className={ styles.userAttachment }
 										>
 											<span className={ styles.userAttachmentPreview }>
-												{ attachment.kind === 'image' ? <ImageIcon /> : <FileTextIcon /> }
+												<AttachmentIcon kind={ attachment.kind } mimeType={ attachment.mimeType } />
 											</span>
 											<span className={ styles.userAttachmentName } title={ attachment.name }>
 												{ attachment.name }

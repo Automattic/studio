@@ -129,6 +129,44 @@ describe( 'WordPress Server Manager', () => {
 	}
 
 	describe( 'startWordPressServer', () => {
+		it.each( [ 'ready', 'start-server' ] as const )(
+			'cleans up a cancelled start while waiting for %s without recording a failure',
+			async ( phase ) => {
+				const controller = new AbortController();
+				vi.mocked( daemonClient.startProcess ).mockImplementationOnce( async () => {
+					vi.mocked( daemonClient.isProcessRunning ).mockResolvedValueOnce(
+						mockProcessDescription
+					);
+					if ( phase === 'ready' ) {
+						controller.abort();
+					} else {
+						mockBus.emit( 'process-message', {
+							process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+							raw: { topic: 'ready' },
+						} );
+					}
+					return mockProcessDescription;
+				} );
+				vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation(
+					async ( _pmId, message ) => {
+						if ( message.topic === 'start-server' ) controller.abort();
+						if ( message.topic === 'stop-server' ) throw new Error( 'Child is not responding' );
+					}
+				);
+
+				await expect(
+					startWordPressServer( mockSiteData, mockLogger, 'start', undefined, controller.signal )
+				).rejects.toThrow();
+
+				expect( daemonClient.stopProcess ).toHaveBeenCalledExactlyOnceWith(
+					mockProcessDescription.name
+				);
+				expect( recordTracksEvent ).not.toHaveBeenCalled();
+				expect( mockBus.listenerCount( 'process-message' ) ).toBe( 0 );
+				expect( mockBus.listenerCount( 'process-event' ) ).toBe( 0 );
+			}
+		);
+
 		it( 'should replace MySQL 8-only collations only before starting an installed site', async () => {
 			setupIpcMocks();
 			const existsSync = fs.existsSync;

@@ -487,7 +487,7 @@ it( 'opens the right-clicked tab in the preferred browser without selecting it',
 	fireEvent.contextMenu( tabs[ 0 ] );
 	const open = await screen.findByRole( 'menuitem', { name: 'Open in Firefox' } );
 	expect( open ).toBeEnabled();
-	expect( screen.getByRole( 'separator' ) ).toBeInTheDocument();
+	expect( screen.getAllByRole( 'separator' ) ).toHaveLength( 2 );
 	fireEvent.click( open );
 	expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/?source=preview#team', {
 		autoLogin: false,
@@ -533,25 +533,33 @@ it( 'opens the email folder from an unselected tab without changing tabs', async
 it( 'closes tabs from the context menu without selecting the right-clicked tab', async () => {
 	await setup();
 	for ( let i = 0; i < 3; i++ ) await newBrowserTab();
-	let tabs = screen.getAllByRole( 'tab' );
-	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
+	const tabs = screen.getAllByRole( 'tab' );
+	await waitFor( () => expect( tabs[ 3 ] ).toHaveFocus() );
 	fireEvent.contextMenu( tabs[ 1 ] );
 	expect( tabs[ 3 ] ).toHaveAttribute( 'aria-selected', 'true' );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close tabs to the right' } ) );
-	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
-	tabs = screen.getAllByRole( 'tab' );
-	expect( tabs[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
-	await waitFor( () => expect( tabs[ 1 ] ).toHaveFocus() );
-	fireEvent.contextMenu( tabs[ 0 ] );
-	await screen.findByRole( 'menuitem', { name: 'Close other tabs' } );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 		'New tab',
-		'Open in Browser',
 		'Close tab',
 		'Close other tabs',
 		'Close all tabs',
+		'Open in Browser',
 	] );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close other tabs' } ) );
+	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 3 ) );
+	fireEvent.contextMenu( tabs[ 2 ] );
+	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+	expect( tabs[ 3 ] ).toHaveAttribute( 'aria-selected', 'true' );
+	await waitFor( () => expect( tabs[ 3 ] ).toHaveFocus() );
+	fireEvent.contextMenu( tabs[ 0 ] );
+	await screen.findByRole( 'menuitem', { name: /^Close other tab$/ } );
+	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'New tab',
+		'Close tab',
+		'Close other tab',
+		'Open in Browser',
+	] );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Close other tab$/ } ) );
 	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 ) );
 	const remaining = screen.getByRole( 'tab', { name: 'First' } );
 	expect( remaining ).toHaveAttribute( 'aria-selected', 'true' );
@@ -559,9 +567,10 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 	fireEvent.contextMenu( remaining );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 		'New tab',
-		'Open in Browser',
 		'Close tab',
+		'Open in Browser',
 	] );
+	expect( screen.getAllByRole( 'separator' ) ).toHaveLength( 1 );
 	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
 	await screen.findByRole( 'button', { name: 'Show panel' } );
 } );
@@ -569,7 +578,8 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 it( 'opens the tab menu from the keyboard and stops the site when closing all tabs', async () => {
 	const { connector } = await setup();
 	await newBrowserTab();
-	const tab = screen.getAllByRole( 'tab' )[ 1 ];
+	await newBrowserTab();
+	const tab = screen.getAllByRole( 'tab' )[ 2 ];
 	fireEvent.focus( tab );
 	fireEvent.keyDown( tab, { key: 'F10', shiftKey: true } );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close all tabs' } ) );
@@ -581,7 +591,7 @@ it( 'opens the tab menu from the keyboard and stops the site when closing all ta
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 } );
 
-it( 'shares the same tool items with the site menu and opens each preview tool in a new tab', async () => {
+it( 'keeps Admin in the preview picker while the site menu offers it externally', async () => {
 	const { user } = await setup();
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	const labels = ( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent );
@@ -589,13 +599,13 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 	await user.keyboard( '{Escape}' );
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-	const admin = await screen.findByRole( 'menuitem', { name: 'Admin' } );
-	const tools = admin.closest( '[role="menu"]' ) as HTMLElement;
+	const database = await screen.findByRole( 'menuitem', { name: 'Database' } );
+	const tools = database.closest( '[role="menu"]' ) as HTMLElement;
 	expect(
 		within( tools )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent )
-	).toEqual( labels );
+	).toEqual( labels.filter( ( label ) => label !== 'AdminA' ) );
 	await user.keyboard( '{Escape}{Escape}' );
 	for ( const name of [ 'Admin', 'Database' ] ) {
 		await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
@@ -1255,7 +1265,7 @@ it( 'opens a WordPress style board without DESIGN.md and reloads saved style cha
 	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
 } );
 
-it.each( [ 'Admin', 'Database', 'Email log' ] )(
+it.each( [ 'Database', 'Email log' ] )(
 	'keeps the current tab when opening %s from the site menu',
 	async ( name ) => {
 		const { user } = await setup();
@@ -1269,3 +1279,34 @@ it.each( [ 'Admin', 'Database', 'Email log' ] )(
 		expect( screen.getByRole( 'tab', { name } ) ).toHaveAttribute( 'aria-selected', 'true' );
 	}
 );
+
+it( 'opens a preview link in a background tab and ignores messages from other origins', async () => {
+	const { user } = await setup();
+	const current = screen.getByRole( 'tab', { name: 'First' } );
+	const frame = document.querySelector( 'iframe' )!;
+	const post = vi.spyOn( frame.contentWindow!, 'postMessage' );
+	fireEvent.load( frame );
+	const [ init ] = post.mock.calls.find(
+		( [ message ] ) => message.type === 'studio:preview-shortcuts:init'
+	)!;
+	const send = ( origin: string, url: string ) =>
+		fireEvent(
+			window,
+			new MessageEvent( 'message', {
+				source: frame.contentWindow,
+				origin,
+				data: { type: 'studio:preview:open-link', navigationId: init.navigationId, url },
+			} )
+		);
+	const origin = new URL( frame.src ).origin;
+	send( 'https://example.org', `${ origin }/about/` );
+	send( origin, 'https://example.org/about/' );
+	expect( screen.getAllByRole( 'tab' ) ).toEqual( [ current ] );
+	send( origin, `${ origin }/about/?from=preview#team` );
+	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+	expect( current ).toHaveAttribute( 'aria-selected', 'true' );
+	await user.click( screen.getAllByRole( 'tab' )[ 1 ] );
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+		`${ origin }/about/?from=preview#team`
+	);
+} );

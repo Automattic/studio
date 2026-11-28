@@ -80,6 +80,7 @@ export function FrameSurface( {
 	onAdminBarVisibilityChange,
 	themeColorActive = false,
 	onThemeColorChange,
+	onOpenLinkInTab,
 }: {
 	src: string;
 	title: string;
@@ -93,6 +94,7 @@ export function FrameSurface( {
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
 	themeColorActive?: boolean;
 	onThemeColorChange?: ( color: string | null ) => void;
+	onOpenLinkInTab?: ( url: string ) => void;
 } ) {
 	const ref = useRef< HTMLIFrameElement | null >( null );
 	const callbacks = useRef( {
@@ -101,6 +103,7 @@ export function FrameSurface( {
 		onNavigate,
 		onLoadingChange,
 		onSettle,
+		onOpenLinkInTab,
 	} );
 	const navigationId = useRef( 0 );
 	const themeColorActiveRef = useRef( themeColorActive );
@@ -149,8 +152,16 @@ export function FrameSurface( {
 			onNavigate,
 			onLoadingChange,
 			onSettle,
+			onOpenLinkInTab,
 		};
-	}, [ onAdminBarVisibilityChange, onThemeColorChange, onNavigate, onLoadingChange, onSettle ] );
+	}, [
+		onAdminBarVisibilityChange,
+		onThemeColorChange,
+		onNavigate,
+		onLoadingChange,
+		onSettle,
+		onOpenLinkInTab,
+	] );
 	useEffect( () => {
 		themeColorActiveRef.current = themeColorActive;
 		if ( ! navigationId.current ) return;
@@ -200,6 +211,14 @@ export function FrameSurface( {
 					clearThemeColorTimeout();
 					callbacks.current.onThemeColorChange?.( color );
 				}
+				return;
+			}
+			if ( event.data?.type === 'studio:preview:open-link' ) {
+				if (
+					event.data.navigationId === navigationId.current &&
+					typeof event.data.url === 'string'
+				)
+					callbacks.current.onOpenLinkInTab?.( event.data.url );
 				return;
 			}
 			if ( event.data?.type === 'studio:preview:admin-bar-state' ) {

@@ -56,7 +56,15 @@ export const isElectron = (): boolean => {
 
 export type PreviewColorScheme = 'system' | 'light' | 'dark';
 
+type PreviewOpenLink = { guestId: number; url: string };
+
 interface PreviewWindow extends Window {
+	ipcListener?: {
+		subscribe: (
+			channel: 'preview-open-link',
+			listener: ( event: unknown, request: PreviewOpenLink ) => void
+		) => () => void;
+	};
 	ipcApi?: {
 		openWebviewDevTools?: ( webContentsId: number ) => Promise< void >;
 		setWebviewColorScheme?: (
@@ -75,6 +83,12 @@ interface PreviewWindow extends Window {
 
 export function getPreviewIpc() {
 	return ( window as PreviewWindow ).ipcApi;
+}
+
+export function subscribePreviewOpenLink(
+	listener: ( event: unknown, request: PreviewOpenLink ) => void
+) {
+	return ( window as PreviewWindow ).ipcListener?.subscribe( 'preview-open-link', listener );
 }
 
 export function getWebviewContentsId( webview: WebviewTag ): number {

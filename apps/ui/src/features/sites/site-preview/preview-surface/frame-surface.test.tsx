@@ -46,6 +46,7 @@ async function renderFrame( src = origin ) {
 describe( 'preview iframe shortcuts', () => {
 	it( 'accepts colors only from the current document of its own active frame', async () => {
 		const onThemeColorChange = vi.fn();
+		const onOpenLinkInTab = vi.fn();
 		const view = renderWithProviders(
 			<FrameSurface
 				src={ origin }
@@ -54,6 +55,7 @@ describe( 'preview iframe shortcuts', () => {
 				onSettle={ vi.fn() }
 				themeColorActive
 				onThemeColorChange={ onThemeColorChange }
+				onOpenLinkInTab={ onOpenLinkInTab }
 			/>
 		);
 		vi.stubGlobal(
@@ -81,6 +83,16 @@ describe( 'preview iframe shortcuts', () => {
 		expect( onThemeColorChange ).not.toHaveBeenCalled();
 		send( message );
 		expect( onThemeColorChange ).toHaveBeenLastCalledWith( '#123456' );
+		const openLink = {
+			type: 'studio:preview:open-link',
+			url: `${ origin }/sample-page/`,
+			navigationId,
+		};
+		send( { ...openLink, navigationId: navigationId - 1 } );
+		expect( onOpenLinkInTab ).not.toHaveBeenCalled();
+		send( openLink );
+		expect( onOpenLinkInTab ).toHaveBeenCalledExactlyOnceWith( openLink.url );
+		expect( onThemeColorChange ).toHaveBeenCalledTimes( 1 );
 		send( { type: 'studio:preview:navigating', navigationId } );
 		expect( onThemeColorChange ).toHaveBeenCalledTimes( 1 );
 		send( message );

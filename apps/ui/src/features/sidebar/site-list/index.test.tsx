@@ -118,7 +118,7 @@ describe( 'sidebar site list', () => {
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
 		fireEvent.contextMenu( await siteButton( 'Running site' ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Admin' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Database' } ) );
 		expect( connector.openSiteUrl ).toHaveBeenCalledWith(
 			'two',
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
@@ -128,7 +128,7 @@ describe( 'sidebar site list', () => {
 			browser: 'external',
 		} );
 		expect( connector.openSiteUrl ).not.toHaveBeenCalledWith( 'two', '/wp-admin/' );
-		expect( await screen.findByRole( 'tab', { name: 'Admin' } ) ).toHaveAttribute(
+		expect( await screen.findByRole( 'tab', { name: 'Database' } ) ).toHaveAttribute(
 			'aria-selected',
 			'true'
 		);

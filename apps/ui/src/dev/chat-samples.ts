@@ -168,6 +168,82 @@ That's everything. Shall I start with the hero?`;
 
 export const chatSamples: ChatSample[] = [
 	{
+		title: 'Code blocks',
+		entries: transcript( ( t ) => {
+			t.prompt( 'Can you show me the menu price helper?' );
+			t.assistant(
+				`Here’s the helper, keeping the prices in cents:
+
+\`\`\`php
+<?php
+function menu_price( $cents ) {
+    return sprintf( '€%.2f', $cents / 100 );
+}
+\`\`\``
+			);
+			t.closed();
+			t.prompt( 'And the menu layout?' );
+			t.assistant(
+				`Use a simple grid that adjusts to the available space:
+
+\`\`\`css
+.menu {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1.5rem;
+}
+\`\`\`
+
+The columns stack naturally on smaller screens.`
+			);
+			t.closed();
+		} ),
+	},
+	{
+		title: 'Media with and without captions',
+		entries: transcript( ( t ) => {
+			const image = ( id: string, name: string ) => ( {
+				kind: 'image',
+				id,
+				name,
+				mimeType: 'image/svg+xml',
+				size: 1200,
+				previewDataUrl: ATTACHMENT_PREVIEW,
+			} );
+			t.prompt( '', { attachments: [ image( 'reference', 'Reference.png' ) ] } );
+			t.assistant( 'What would you like to change?' );
+			t.closed();
+			t.prompt( '1 annotation submitted', {
+				attachments: [ image( 'annotation', 'Heading.png' ) ],
+				visualAnnotations: [
+					{
+						comment: 'Change this heading.',
+						tag: 'h1',
+						elementLabel: 'Heading',
+						imageIds: [ 'annotation' ],
+					},
+				],
+			} );
+			t.assistant( 'I can make the heading clearer.' );
+			t.closed();
+			t.prompt( 'Keep the layout simple.', {
+				attachments: [
+					image( 'layout', 'Layout.png' ),
+					{ kind: 'file', name: 'brief.pdf', mimeType: 'application/pdf', size: 20480 },
+				],
+			} );
+			t.assistant( 'I’ll use the layout and brief together.' );
+			t.closed();
+			t.prompt( '', {
+				attachments: [
+					{ kind: 'file', name: 'brief.md', mimeType: 'text/markdown', size: 1024 },
+					{ kind: 'file', name: 'notes.md', mimeType: 'text/markdown', size: 512 },
+				],
+			} );
+			t.closed();
+		} ),
+	},
+	{
 		title: 'Back-and-forth conversation',
 		entries: transcript( ( t ) => {
 			t.prompt( 'Can you help me make the bistro homepage feel a little more welcoming?' );

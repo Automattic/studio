@@ -3,17 +3,18 @@
 	--button-hover-background: transparent;
 
 	display: inline;
-	color: var( --accent-text );
+	color: inherit;
 	font: inherit;
 	font-weight: var( --font-weight-medium );
+	text-decoration: underline;
+	text-decoration-color: color-mix( in oklab, currentColor 30%, transparent );
 	text-underline-offset: 2px;
 	vertical-align: baseline;
 }
 
 .toolLink:hover,
 .toolLink:focus-visible {
-	color: var( --accent-text-hover );
-	text-decoration: underline;
+	text-decoration-color: currentColor;
 }
 
 .toolLink svg {

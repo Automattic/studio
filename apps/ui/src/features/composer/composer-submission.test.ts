@@ -30,6 +30,14 @@ describe( 'composerSubmission', () => {
 		expect( options.files?.map( ( item ) => item.id ) ).toEqual( [ 'doc' ] );
 	} );
 
+	it( 'keeps attachment-only messages captionless while preserving the agent prompt', () => {
+		const { prompt, options } = composerSubmission( '', [ image, file ], [] );
+		expect( prompt ).toBe( 'Please review the attached files.' );
+		expect( options.displayMessage ).toBe( '' );
+		expect( options.images?.map( ( item ) => item.id ) ).toEqual( [ 'img' ] );
+		expect( options.files?.map( ( item ) => item.id ) ).toEqual( [ 'doc' ] );
+	} );
+
 	it( 'adds staged annotations after the text', () => {
 		const { prompt, options } = composerSubmission(
 			'Also this',

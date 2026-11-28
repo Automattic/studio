@@ -19,7 +19,10 @@ export function composerSubmission(
 		? annotationSubmission( text, attachments, notes )
 		: {
 				prompt: text || __( 'Please review the attached files.' ),
-				options: toComposerSendAttachments( attachments ),
+				options: {
+					...toComposerSendAttachments( attachments ),
+					...( text ? {} : { displayMessage: '' } ),
+				},
 		  };
 }
 

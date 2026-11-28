@@ -1,4 +1,4 @@
-import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@studio/ds';
+import { Menu, Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@studio/ds';
 import { useMediaQuery, useScrollFade, useStoredFlag } from '@studio/ds/hooks';
 import { getMotionDuration } from '@studio/ds/theme';
 import { __, isRTL } from '@wordpress/i18n';
@@ -30,6 +30,7 @@ import { useResizablePanel } from './use-resizable-panel';
 import { useSidebarWindowButtons } from './use-sidebar-window-buttons';
 import type { CSSProperties, PointerEvent, ReactNode, RefCallback } from 'react';
 
+const MAC_MENU_PADDING = { top: 48, right: 5, bottom: 5, left: 5 };
 const HOVER_OPEN_DELAY_MS = 180;
 const HOVER_CLOSE_DELAY_MS = 350;
 
@@ -40,16 +41,22 @@ const findToggle = () =>
 
 function SidebarContents( {
 	active,
+	hasMacTitleBar,
 	onSiteOpen,
 	scrollRef,
 }: {
 	active: boolean;
+	hasMacTitleBar: boolean;
 	onSiteOpen?: () => void;
 	scrollRef: RefCallback< HTMLDivElement >;
 } ) {
 	return (
 		<div ref={ scrollRef } className={ styles.sidebarScroll } inert={ ! active }>
-			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
+			<Menu.CollisionPaddingContext.Provider
+				value={ hasMacTitleBar ? MAC_MENU_PADDING : undefined }
+			>
+				<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
+			</Menu.CollisionPaddingContext.Provider>
 			<div className={ styles.sidebarFooter }>
 				<div className={ styles.sidebarFooterControls }>
 					{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
@@ -368,6 +375,7 @@ export function SidebarLayout( {
 											>
 												<SidebarContents
 													active={ peek || sidebarFlyoutOpen }
+													hasMacTitleBar={ hasMacTitleBar }
 													onSiteOpen={ closeSidebarFlyout }
 													scrollRef={ ( node ) => {
 														sidebarFlyoutRef.current = node;
@@ -391,6 +399,7 @@ export function SidebarLayout( {
 										<SidebarHeader action={ docked ? headerAction : undefined } />
 										<SidebarContents
 											active={ docked }
+											hasMacTitleBar={ hasMacTitleBar }
 											scrollRef={ ( node ) => {
 												dockedSidebarScrollRef.current = node;
 												setDockedFade( node );

@@ -10,7 +10,7 @@ import {
 	SidebarMenuLabel,
 	VisuallyHidden,
 } from '@studio/ds';
-import { TriangleAlertIcon, EllipsisVerticalIcon } from '@studio/ds/icons';
+import { ChatIcon, EllipsisVerticalIcon, TriangleAlertIcon } from '@studio/ds/icons';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { useId, useState } from 'react';
@@ -107,7 +107,7 @@ export function ChatRow( {
 									} );
 								} }
 							>
-								{ nested ? null : <SidebarRowIcon glyph="chat" /> }
+								{ nested ? null : <ChatIcon /> }
 								{ actions.working ? <VisuallyHidden>{ __( 'Working…' ) }</VisuallyHidden> : null }
 								<SidebarMenuLabel
 									id={ titleId }

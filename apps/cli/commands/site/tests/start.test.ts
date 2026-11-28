@@ -20,7 +20,8 @@ vi.mock( 'cli/lib/daemon-client' );
 // any other export real rather than silently stubbing it.
 vi.mock( 'cli/lib/site-operations', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/site-operations') >() ),
-	withSiteOperation: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
+	withSiteStart: ( _folder: string, fn: ( signal: AbortSignal ) => unknown ) =>
+		fn( new AbortController().signal ),
 } ) );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
@@ -105,7 +106,9 @@ describe( 'CLI: studio site start', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				testSite,
 				expect.any( Logger ),
-				'start'
+				'start',
+				undefined,
+				expect.any( AbortSignal )
 			);
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
@@ -134,7 +137,9 @@ describe( 'CLI: studio site start', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				testSite,
 				expect.any( Logger ),
-				'start'
+				'start',
+				undefined,
+				expect.any( AbortSignal )
 			);
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );

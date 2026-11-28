@@ -76,8 +76,8 @@ describe( 'getCommandGroups', () => {
 		expect( skillGroup.heading ).toBeUndefined();
 	} );
 
-	it( 'keeps stop and panel out of default suggestions but includes their search matches', () => {
-		const utilities = [ command( 'stop' ), command( 'panel' ) ];
+	it( 'keeps utilities out of default suggestions but includes their search matches', () => {
+		const utilities = [ command( 'stop' ), command( 'panel' ), command( 'new' ) ];
 		const options = {
 			commands: [ ...commands, ...utilities ],
 			skills,
@@ -94,7 +94,7 @@ describe( 'getCommandGroups', () => {
 			searching: true,
 			matches: utilities,
 		} );
-		expect( values( actions ) ).toEqual( [ 'stop', 'panel' ] );
+		expect( values( actions ) ).toEqual( [ 'stop', 'panel', 'new' ] );
 	} );
 } );
 

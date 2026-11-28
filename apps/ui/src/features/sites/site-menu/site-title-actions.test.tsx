@@ -49,7 +49,9 @@ describe( 'sidebar site menu', () => {
 		fireEvent.keyDown( screen.getByRole( 'menu' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
 		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'My site' } ) );
-		expect( await menuItems() ).toEqual( titleItems );
+		expect( await menuItems() ).toEqual(
+			titleItems.filter( ( item ) => item !== 'New chat' && item !== 'Show chat' )
+		);
 	} );
 
 	it( 'uses the same submenus and delete confirmation for a sidebar site', async () => {

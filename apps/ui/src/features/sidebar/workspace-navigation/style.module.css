@@ -1,5 +1,6 @@
 .root {
 	display: flex;
+	gap: var( --sidebar-action-gap );
 	flex-shrink: 0;
 	-webkit-app-region: no-drag;
 }

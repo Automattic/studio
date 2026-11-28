@@ -98,6 +98,7 @@ interface ComposerProps {
 	// the fresh session under it.
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
+	onNewChat?: () => void;
 	autoFocus?: boolean;
 	// 'field': embedded in a form that submits the draft itself via
 	// `getSubmission()` — no Send/Stop control, Enter inserts a newline.
@@ -151,6 +152,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		entries,
 		ownerSiteId,
 		onSwitchSession,
+		onNewChat,
 		autoFocus = false,
 		variant = 'chat',
 		placeholder: placeholderOverride,
@@ -242,6 +244,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			panelCommand,
 			siteCommand,
 			canAnnotate: ! isField && !! onAnnotate,
+			canStartNewChat: ! isField && !! onNewChat,
 			autoStartOn,
 			canChooseModel: ! busy && providers.length > 0,
 			environment,
@@ -281,6 +284,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				panelCommand?.run();
 			} else if ( name === 'auto-start' ) {
 				setAutoStart( true );
+			} else if ( name === 'new' ) {
+				pendingCommandRef.current = onNewChat;
 			}
 		}
 		if ( draft ) {

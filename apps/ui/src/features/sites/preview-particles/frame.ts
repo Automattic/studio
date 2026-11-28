@@ -26,37 +26,40 @@ export function getSelectionWave(
 	return phase > 0 && phase < 1 ? Math.sin( phase * Math.PI ) ** 2 : 0;
 }
 
+function gridAxis( size: number, spacing: number ) {
+	const inset = Math.min( 24, size / 2 );
+	const span = size - inset * 2;
+	const intervals = Math.round( span / spacing );
+	if ( intervals === 0 ) {
+		return [ size / 2 ];
+	}
+	return Array.from( { length: intervals + 1 }, ( _, i ) => inset + ( i * span ) / intervals );
+}
+
 export function createPreviewDots(
 	width: number,
 	height: number,
 	centerY = height / 2
 ): PreviewDot[] {
 	const centerX = width / 2;
-	const spacing = 26;
-	const insetX = Math.min( 24, centerX );
-	const insetY = Math.min( 24, height / 2 );
-	const columnPairs = Math.floor( ( centerX - insetX ) / spacing );
-	const rowPairs = Math.floor( ( height / 2 - insetY ) / spacing );
+	const spacing = Math.max( 26, Math.sqrt( ( width * height ) / 1600 ) );
+	const columns = gridAxis( width, spacing );
+	const rows = gridAxis( height, spacing );
 	const dots: PreviewDot[] = [];
-	for ( let row = -rowPairs; row <= rowPairs; row++ ) {
-		for ( let column = -columnPairs; column <= columnPairs; column++ ) {
-			const x = centerX + column * spacing;
-			const y = height / 2 + row * spacing;
+	for ( const y of rows ) {
+		for ( const x of columns ) {
 			const distance = Math.hypot( x - centerX, y - centerY );
+			const edgeDistance = Math.min(
+				Math.min( x, width - x ) - columns[ 0 ],
+				Math.min( y, height - y ) - rows[ 0 ]
+			);
 			dots.push( {
 				x,
 				y,
 				distance,
 				dx: ( x - centerX ) / ( distance || 1 ),
 				dy: ( y - centerY ) / ( distance || 1 ),
-				edge: Math.min(
-					1,
-					Math.max(
-						0,
-						( Math.min( columnPairs - Math.abs( column ), rowPairs - Math.abs( row ) ) * spacing ) /
-							80
-					)
-				),
+				edge: Math.min( 1, edgeDistance / 80 ),
 			} );
 		}
 	}

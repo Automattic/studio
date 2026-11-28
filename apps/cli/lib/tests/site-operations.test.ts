@@ -7,7 +7,12 @@ import { getConfigPath, readConfig, updateConfig } from '@studio/common/lib/conf
 import { SITE_BUSY_ERROR_CODE } from '@studio/common/lib/site-operation';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { getLiveSiteOperation, withSiteOperation, withSiteOperations } from '../site-operations';
+import {
+	getLiveSiteOperation,
+	withSiteStart,
+	withSiteOperation,
+	withSiteOperations,
+} from '../site-operations';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 vi.mock( 'cli/lib/daemon-client', () => ( { emitCliEvent: vi.fn() } ) );
@@ -146,6 +151,26 @@ describe( 'withSiteOperation', () => {
 		const result = await withSiteOperation( site.path, 'start', async () => 'started' );
 
 		expect( result ).toBe( 'started' );
+		expect( await storedOperation() ).toBeUndefined();
+	} );
+
+	it( 'interrupts a start and waits for it to release the site before stopping', async () => {
+		let enter!: () => void;
+		const entered = new Promise< void >( ( resolve ) => {
+			enter = resolve;
+		} );
+		const start = withSiteStart( site.path, async ( signal ) => {
+			enter();
+			await new Promise( ( _, reject ) =>
+				signal.addEventListener( 'abort', () => reject( signal.reason ), { once: true } )
+			);
+		} );
+		const cancelled = expect( start ).rejects.toThrow( 'Site start cancelled' );
+		await entered;
+		await withSiteOperation( site.path, 'stop', async () => {
+			expect( ( await storedOperation() )?.kind ).toBe( 'stop' );
+		} );
+		await cancelled;
 		expect( await storedOperation() ).toBeUndefined();
 	} );
 

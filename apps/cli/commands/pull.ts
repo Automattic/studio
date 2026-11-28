@@ -64,24 +64,30 @@ import type { builder } from 'cli/commands/pull.command';
 import type { CommandArgs } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
+
+/** The selection given on the command line, or undefined for a bare `studio pull`. */
+function cliSelectionFromArgs(
+	argv: CommandArgs< typeof builder >
+): CliSelectionOptions | undefined {
+	const only = argv.only as string[] | undefined;
+	// The app and the agent describe what to pull with `--options`.
+	if ( argv.options ) {
+		return pullSelectionFromSyncOptions( argv.options, only );
+	}
+	const skipDatabase = argv[ 'skip-database' ] as boolean;
+	const skipFiles = argv[ 'skip-files' ] as boolean;
+	if ( ! only?.length && ! skipDatabase && ! skipFiles ) {
+		return undefined;
+	}
+	return { only, skipDatabase, skipFiles };
+}
+
 export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	const verbose = argv.verbose;
 	exitOnCancel();
 
 	try {
-		await runCommand(
-			argv.path,
-			argv.remoteSite,
-			verbose,
-			// The app and the agent describe what to pull with `--options`.
-			argv.options
-				? pullSelectionFromSyncOptions( argv.options, argv.only as string[] | undefined )
-				: {
-						only: argv.only as string[] | undefined,
-						skipDatabase: argv[ 'skip-database' ] as boolean,
-						skipFiles: argv[ 'skip-files' ] as boolean,
-				  }
-		);
+		await runCommand( argv.path, argv.remoteSite, verbose, cliSelectionFromArgs( argv ) );
 		// The pulled site's server keeps handles open.
 		process.exit( 0 );
 	} catch ( error ) {
@@ -167,7 +173,7 @@ export async function runCommand(
 	localPath: string,
 	remoteSite?: string,
 	verbose = false,
-	cliSelection: CliSelectionOptions = {},
+	cliSelection?: CliSelectionOptions,
 	onProgress?: ( message: string ) => void
 ): Promise< SyncSite | undefined > {
 	const startedAt = Date.now();
@@ -253,7 +259,7 @@ async function pullSite(
 	localPath: string,
 	remoteSite: string | undefined,
 	verbose: boolean,
-	cliSelection: CliSelectionOptions,
+	cliSelection: CliSelectionOptions | undefined,
 	run: PullRun,
 	onSiteLoaded: ( siteId: string ) => void
 ): Promise< void > {
@@ -340,6 +346,19 @@ async function pullSite(
 			wpComAccessToken: sourceSite.wpComToken.accessToken,
 			wpComSiteId: sourceSite.wpComSite.id,
 			filesUnavailable: sourceSite.wpComSite.pushNeedsUpgrade,
+			abortInterruptedPull: async () => {
+				await runReprintCommandUntilComplete(
+					[
+						'pull-files',
+						apiUrl,
+						'--abort',
+						`--state-dir=${ studioMetadata.stateDirectory }`,
+						`--fs-root=${ studioMetadata.rawDirectory }`,
+					],
+					undefined,
+					{ verboseCommands: verbose }
+				);
+			},
 		} );
 		if ( ! selection ) {
 			console.log( __( 'Cancelled.' ) );

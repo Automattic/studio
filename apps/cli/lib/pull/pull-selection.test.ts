@@ -166,3 +166,61 @@ describe( 'applySelection with the picker', () => {
 		} );
 	} );
 } );
+
+describe( 'applySelection after an interrupted pull', () => {
+	let root: string;
+
+	beforeEach( () => {
+		root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-selection-' ) );
+		fs.mkdirSync( path.join( root, 'state' ) );
+		// A pull of a path the remote doesn't have, which fails on every resume.
+		fs.writeFileSync(
+			path.join( root, 'state', 'selection.json' ),
+			JSON.stringify( { skipDatabase: false, fileOnlyPaths: [ ':wp-content:/missing' ] } )
+		);
+	} );
+
+	afterEach( () => {
+		fs.rmSync( root, { recursive: true, force: true } );
+	} );
+
+	it.each( [
+		[ 'resumes it when no selection is given', undefined, [ ':wp-content:/missing' ], 0 ],
+		[
+			'resumes it when the same one is given',
+			{ only: [ 'missing' ] },
+			[ ':wp-content:/missing' ],
+			0,
+		],
+		[
+			'replaces it with another given selection',
+			{ only: [ 'themes' ] },
+			[ ':wp-content:/themes' ],
+			1,
+		],
+	] )( '%s', async ( _, cli, fileOnlyPaths, aborts ) => {
+		const abortInterruptedPull = vi.fn().mockResolvedValue( undefined );
+		const selection = await applySelection( {
+			session: {
+				sitePath: path.join( root, 'site' ),
+				stateDirectory: path.join( root, 'state' ),
+				rawDirectory: path.join( root, 'raw' ),
+			} as never,
+			isFirstPull: true,
+			reprintMetadata: {
+				...emptyReprintMetadata,
+				sourceSite: {
+					...emptyReprintMetadata.sourceSite,
+					contentDirectory: '/srv/htdocs/wp-content',
+				},
+			},
+			cli,
+			wpComAccessToken: 'token',
+			wpComSiteId: 1,
+			abortInterruptedPull,
+		} );
+
+		expect( selection ).toEqual( { skipDatabase: false, fileOnlyPaths } );
+		expect( abortInterruptedPull ).toHaveBeenCalledTimes( aborts );
+	} );
+} );

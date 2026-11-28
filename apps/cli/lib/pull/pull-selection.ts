@@ -91,12 +91,50 @@ export function clearPullSelection( session: PullSession ): void {
 }
 
 /**
- * Decides what this pull includes: the selection of an interrupted pull,
- * the CLI flags, or the user's choice in the interactive picker, in that
- * order. Without a terminal or flags, everything is pulled. Returns null
- * when the user cancels.
+ * Decides what this pull includes: the selection of an interrupted pull when
+ * no selection is given, else the given one (`cli`) or the user's choice in the
+ * interactive picker. Without a terminal or flags, everything is pulled. A
+ * given selection that differs from an interrupted pull's replaces it, after
+ * `abortInterruptedPull` clears the progress Reprint would otherwise refuse to
+ * resume with other paths. Returns null when the user cancels.
  */
 export async function applySelection( params: {
+	session: PullSession;
+	isFirstPull: boolean;
+	reprintMetadata: ReprintMetadata;
+	/** The selection given on the command line, or undefined when none is. */
+	cli: CliSelectionOptions | undefined;
+	wpComAccessToken: string;
+	wpComSiteId: number;
+	filesUnavailable?: boolean;
+	abortInterruptedPull?: () => Promise< void >;
+} ): Promise< PullSelection | null > {
+	const persisted = readPullSelection( params.session );
+	if ( persisted && ! params.cli ) {
+		return persisted;
+	}
+
+	const selection = await chooseSelection( { ...params, cli: params.cli ?? {} } );
+	if ( ! selection ) {
+		return null;
+	}
+	if ( persisted && ! isSameSelection( persisted, selection ) ) {
+		await params.abortInterruptedPull?.();
+	}
+	savePullSelection( params.session, selection );
+	return selection;
+}
+
+function isSameSelection( a: PullSelection, b: PullSelection ): boolean {
+	return (
+		!! a.skipDatabase === !! b.skipDatabase &&
+		!! a.skipFiles === !! b.skipFiles &&
+		!! a.databaseOnly === !! b.databaseOnly &&
+		JSON.stringify( a.fileOnlyPaths ?? [] ) === JSON.stringify( b.fileOnlyPaths ?? [] )
+	);
+}
+
+async function chooseSelection( params: {
 	session: PullSession;
 	isFirstPull: boolean;
 	reprintMetadata: ReprintMetadata;
@@ -106,11 +144,6 @@ export async function applySelection( params: {
 	filesUnavailable?: boolean;
 } ): Promise< PullSelection | null > {
 	const { session, isFirstPull, reprintMetadata, cli, wpComAccessToken, wpComSiteId } = params;
-
-	const persisted = readPullSelection( session );
-	if ( persisted ) {
-		return persisted;
-	}
 
 	// A site that has never started has no database to keep.
 	const assertLocalDatabaseAvailable = ( selection: PullSelection ): void => {
@@ -143,9 +176,7 @@ export async function applySelection( params: {
 				)
 			);
 		}
-		const selection: PullSelection = { skipFiles: true };
-		savePullSelection( session, selection );
-		return selection;
+		return { skipFiles: true };
 	}
 
 	const cliOnly = cli.only?.filter( ( value ) => value.trim().length > 0 ) ?? [];
@@ -170,22 +201,12 @@ export async function applySelection( params: {
 			}
 		}
 		assertLocalDatabaseAvailable( selection );
-		savePullSelection( session, selection );
-		return selection;
-	}
-
-	if ( ! process.stdin.isTTY ) {
-		// Saved too, so a resume in a terminal doesn't prompt.
-		const selection: PullSelection = {};
-		savePullSelection( session, selection );
 		return selection;
 	}
 
 	const contentDir = reprintMetadata.sourceSite.contentDirectory;
-	if ( ! contentDir ) {
-		const selection: PullSelection = {};
-		savePullSelection( session, selection );
-		return selection;
+	if ( ! process.stdin.isTTY || ! contentDir ) {
+		return {};
 	}
 	let filesUnavailable = params.filesUnavailable ?? false;
 	let tree;
@@ -201,9 +222,7 @@ export async function applySelection( params: {
 		tree = buildCategoryPullTree();
 	}
 	if ( tree.length === 0 ) {
-		const selection: PullSelection = {};
-		savePullSelection( session, selection );
-		return selection;
+		return {};
 	}
 	const picked = await selectPullItems( tree, {
 		allowDatabaseOnly: isFirstPull,
@@ -223,6 +242,5 @@ export async function applySelection( params: {
 		selection.fileOnlyPaths = picked.fileOnlyPaths;
 	}
 	assertLocalDatabaseAvailable( selection );
-	savePullSelection( session, selection );
 	return selection;
 }

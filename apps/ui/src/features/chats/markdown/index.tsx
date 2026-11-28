@@ -38,11 +38,15 @@ function MarkdownCodeBlock( { children }: { children?: ReactNode } ) {
 		: undefined;
 	const language = /language-([\w-]+)/.exec( className ?? '' )?.[ 1 ];
 	return (
-		<CodeBlock code={ text } language={ language } { ...{ [ CODE_TEXT_ATTRIBUTE ]: text } }>
-			<div className={ styles.codeHeader }>
-				<span>{ language ?? 'text' }</span>
-				{ text ? <CopyButton text={ text } label={ __( 'Copy' ) } /> : null }
-			</div>
+		<CodeBlock
+			className={ styles.codeBlock }
+			code={ text }
+			language={ language }
+			{ ...{ [ CODE_TEXT_ATTRIBUTE ]: text } }
+		>
+			{ text ? (
+				<CopyButton className={ styles.codeCopy } text={ text } label={ __( 'Copy' ) } />
+			) : null }
 		</CodeBlock>
 	);
 }
@@ -67,9 +71,7 @@ const baseComponents: Components = {
 	hr: () => <hr className={ styles.hr } />,
 	table: ( { children } ) => (
 		<div className={ styles.tableWrap }>
-			<div className={ styles.tableScroll }>
-				<table className={ styles.table }>{ children }</table>
-			</div>
+			<table className={ styles.table }>{ children }</table>
 		</div>
 	),
 	th: ( { children } ) => <th className={ styles.th }>{ children }</th>,

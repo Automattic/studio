@@ -23,7 +23,12 @@ export function QueuedPrompts( { prompts, onRemove, onEdit }: QueuedPromptsProps
 				return (
 					<li key={ item.id } className={ styles.item }>
 						<div className={ styles.row }>
-							<span className={ styles.text }>{ item.displayMessage ?? item.prompt }</span>
+							<span className={ styles.text }>
+								{ ( item.displayMessage ?? item.prompt ) ||
+									[ ...( item.images ?? [] ), ...( item.files ?? [] ) ]
+										.map( ( file ) => file.name )
+										.join( ', ' ) }
+							</span>
 							<span className={ styles.actions }>
 								<Button
 									variant="muted-ghost"

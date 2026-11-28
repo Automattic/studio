@@ -176,7 +176,12 @@ export function SiteToolLauncher( {
 		return () => document.removeEventListener( 'keydown', onKeyDown, true );
 	}, [ active, busy, tools, actions ] );
 	return (
-		<div className={ styles.launcher } role="group" aria-label={ __( 'Project tools' ) }>
+		<div
+			data-site-tool-launcher
+			className={ styles.launcher }
+			role="group"
+			aria-label={ __( 'Project tools' ) }
+		>
 			{ tools.map( ( { id, label, Icon, shortcut, action, disabled } ) => (
 				<Button
 					key={ id }
@@ -205,12 +210,16 @@ export function SiteToolMenuItems( {
 	site,
 	actions,
 	live = false,
+	includeAdmin = true,
 }: {
 	site: SiteDetails;
 	actions: ReturnType< typeof useSiteToolActions >;
 	live?: boolean;
+	includeAdmin?: boolean;
 } ) {
-	const tools = useAvailableSiteTools( site, live );
+	const tools = useAvailableSiteTools( site, live ).filter(
+		( tool ) => includeAdmin || tool.id !== 'admin'
+	);
 	const group = useRef< HTMLDivElement >( null );
 	const databaseReason = live ? undefined : getPhpMyAdminUnavailableReason( site );
 	const databaseReasonId = useId();

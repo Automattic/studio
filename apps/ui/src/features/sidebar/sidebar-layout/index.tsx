@@ -1,10 +1,11 @@
-import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@studio/ds';
-import { useScrollFade, useStoredFlag } from '@studio/ds/hooks';
+import { Menu, Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@studio/ds';
+import { useMediaQuery, useScrollFade, useStoredFlag } from '@studio/ds/hooks';
 import { getMotionDuration } from '@studio/ds/theme';
-import { __ } from '@wordpress/i18n';
+import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useFullscreen } from '@/data/host/use-fullscreen';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
@@ -26,8 +27,10 @@ import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
-import type { CSSProperties, ReactNode, RefCallback } from 'react';
+import { useSidebarWindowButtons } from './use-sidebar-window-buttons';
+import type { CSSProperties, PointerEvent, ReactNode, RefCallback } from 'react';
 
+const MAC_MENU_PADDING = { top: 48, right: 5, bottom: 5, left: 5 };
 const HOVER_OPEN_DELAY_MS = 180;
 const HOVER_CLOSE_DELAY_MS = 350;
 
@@ -38,16 +41,22 @@ const findToggle = () =>
 
 function SidebarContents( {
 	active,
+	hasMacTitleBar,
 	onSiteOpen,
 	scrollRef,
 }: {
 	active: boolean;
+	hasMacTitleBar: boolean;
 	onSiteOpen?: () => void;
 	scrollRef: RefCallback< HTMLDivElement >;
 } ) {
 	return (
 		<div ref={ scrollRef } className={ styles.sidebarScroll } inert={ ! active }>
-			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
+			<Menu.CollisionPaddingContext.Provider
+				value={ hasMacTitleBar ? MAC_MENU_PADDING : undefined }
+			>
+				<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
+			</Menu.CollisionPaddingContext.Provider>
 			<div className={ styles.sidebarFooter }>
 				<div className={ styles.sidebarFooterControls }>
 					{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
@@ -66,7 +75,10 @@ export function SidebarLayout( {
 	headerAction?: ReactNode;
 } ) {
 	const connector = useConnector();
+	const fullscreen = useFullscreen();
+	const hasMacTitleBar = connector.reservesTrafficLightSpace && ! fullscreen;
 	const hasOpenDialog = useHasOpenDialog();
+	const hasCoarsePointer = useMediaQuery( '(any-pointer: coarse)' );
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
@@ -99,6 +111,8 @@ export function SidebarLayout( {
 	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	const dockScrollTop = useRef( 0 );
 	const hoverBlockedUntil = useRef( 0 );
+	const sidebarEdge = useRef< HTMLDivElement >( null );
+	const pointerOnSidebarEdge = useRef( false );
 	const restoreSidebarFlyoutFocus = useRef( false );
 	const restoreSidebarDialogFocus = useRef( false );
 	const sidebarFlyoutRef = useRef< HTMLElement >( null );
@@ -112,6 +126,7 @@ export function SidebarLayout( {
 	}, [ clearHoverTimer ] );
 	useEffect( () => {
 		if ( hasOpenDialog ) {
+			pointerOnSidebarEdge.current = false;
 			setDockingFromPeek( false );
 			if ( sidebarFlyoutState !== 'closed' ) restoreSidebarDialogFocus.current = true;
 			restoreSidebarFlyoutFocus.current = false;
@@ -152,12 +167,11 @@ export function SidebarLayout( {
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
+	const flyoutContentsRef = useSidebarWindowButtons( docked, sidebarFlyoutVisible );
 	useLayoutEffect( () => {
 		if ( docked && focusDockedSidebar.current ) {
 			focusDockedSidebar.current = false;
-			dockedSidebarRef.current
-				?.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
-				?.focus( { preventScroll: true } );
+			findToggle()?.focus( { preventScroll: true } );
 		}
 		if ( docked && dockedSidebarScrollRef.current ) {
 			dockedSidebarScrollRef.current.scrollTop = dockScrollTop.current;
@@ -176,10 +190,13 @@ export function SidebarLayout( {
 	}, [ docked ] );
 	const hoverEnter = useCallback( () => {
 		clearHoverTimer();
-		if ( ! hasOpenDialog && ! open && ! peek && performance.now() >= hoverBlockedUntil.current ) {
-			hoverTimer.current = setTimeout( () => {
-				setSidebarFlyoutState( 'hover' );
-			}, HOVER_OPEN_DELAY_MS );
+		if ( ! hasOpenDialog && ! open && ! peek ) {
+			hoverTimer.current = setTimeout(
+				() => {
+					setSidebarFlyoutState( 'hover' );
+				},
+				Math.max( HOVER_OPEN_DELAY_MS, hoverBlockedUntil.current - performance.now() )
+			);
 		}
 	}, [ clearHoverTimer, hasOpenDialog, open, peek ] );
 	const hoverLeave = useCallback( () => {
@@ -191,8 +208,52 @@ export function SidebarLayout( {
 			);
 		}
 	}, [ clearHoverTimer, peek ] );
+	const handleWindowLeave = ( event: PointerEvent ) => {
+		pointerOnSidebarEdge.current = false;
+		if (
+			open ||
+			hasOpenDialog ||
+			event.pointerType !== 'mouse' ||
+			event.buttons !== 0 ||
+			event.nativeEvent.relatedTarget
+		)
+			return;
+		const edge = sidebarEdge.current?.getBoundingClientRect();
+		if (
+			edge &&
+			event.clientY >= edge.top &&
+			event.clientY < edge.bottom &&
+			( isRTL() ? event.clientX >= edge.left : event.clientX <= edge.right )
+		) {
+			clearHoverTimer();
+			setSidebarFlyoutState( 'hover' );
+			hoverTimer.current = setTimeout(
+				() => setSidebarFlyoutState( 'closed' ),
+				HOVER_CLOSE_DELAY_MS
+			);
+		}
+	};
+	// The edge is transparent to touch, so track the mouse on the workspace instead.
+	const handleMouseMoveOnTouchDevice = ( event: PointerEvent ) => {
+		if ( event.pointerType !== 'mouse' || event.buttons !== 0 ) return;
+		const edge = sidebarEdge.current?.getBoundingClientRect();
+		const overEdge =
+			!! edge &&
+			event.clientX >= edge.left &&
+			event.clientX < edge.right &&
+			event.clientY >= edge.top &&
+			event.clientY < edge.bottom;
+		if ( overEdge === pointerOnSidebarEdge.current ) return;
+		pointerOnSidebarEdge.current = overEdge;
+		if ( overEdge ) hoverEnter();
+		else if (
+			! ( event.target instanceof Element && event.target.closest( `.${ styles.sidebarFlyout }` ) )
+		)
+			hoverLeave();
+	};
 	const toggleSidebar = useCallback( () => {
 		if ( hasOpenDialog ) return;
+		pointerOnSidebarEdge.current = false;
 		if ( peek && ! overlay ) dockScrollTop.current = sidebarFlyoutRef.current?.scrollTop ?? 0;
 		const focusedToggle = document.activeElement?.hasAttribute( 'data-sidebar-toggle' );
 		focusDockedSidebar.current = ! overlay && ( peek || ( collapsed && !! focusedToggle ) );
@@ -229,10 +290,26 @@ export function SidebarLayout( {
 			<SidebarCollapsedContext.Provider value={ ! docked }>
 				<SidebarOpenContext.Provider value={ open }>
 					<SidebarToggleContext.Provider value={ toggleSidebar }>
-						<SidebarHoverContext.Provider
-							value={ { peek, onEnter: hoverEnter, onLeave: hoverLeave } }
-						>
-							<div className={ styles.root } style={ sidebarStyle }>
+						<SidebarHoverContext.Provider value={ { peek } }>
+							<div
+								className={ styles.root }
+								data-mac-title-bar={ hasMacTitleBar || undefined }
+								data-sidebar-below-header={ ( overlay && ! hasMacTitleBar ) || undefined }
+								style={ sidebarStyle }
+								onPointerLeave={ handleWindowLeave }
+								onPointerMove={ hasCoarsePointer ? handleMouseMoveOnTouchDevice : undefined }
+							>
+								{ ! docked && ! hasOpenDialog && (
+									<div
+										ref={ sidebarEdge }
+										className={ styles.sidebarEdge }
+										aria-hidden="true"
+										onPointerEnter={ ( event ) => {
+											if ( event.pointerType === 'mouse' && event.buttons === 0 ) hoverEnter();
+										} }
+										onPointerLeave={ hoverLeave }
+									/>
+								) }
 								<div className={ styles.windowDragStrip } aria-hidden="true" />
 								<div
 									className={ clsx( styles.windowDragStrip, styles.windowDragStripBottom ) }
@@ -291,12 +368,14 @@ export function SidebarLayout( {
 											style={ sidebarStyle }
 										>
 											<aside
+												ref={ flyoutContentsRef }
 												className={ styles.sidebarFlyoutContents }
 												onPointerEnter={ clearHoverTimer }
 												onPointerLeave={ hoverLeave }
 											>
 												<SidebarContents
 													active={ peek || sidebarFlyoutOpen }
+													hasMacTitleBar={ hasMacTitleBar }
 													onSiteOpen={ closeSidebarFlyout }
 													scrollRef={ ( node ) => {
 														sidebarFlyoutRef.current = node;
@@ -320,6 +399,7 @@ export function SidebarLayout( {
 										<SidebarHeader action={ docked ? headerAction : undefined } />
 										<SidebarContents
 											active={ docked }
+											hasMacTitleBar={ hasMacTitleBar }
 											scrollRef={ ( node ) => {
 												dockedSidebarScrollRef.current = node;
 												setDockedFade( node );

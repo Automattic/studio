@@ -11,6 +11,7 @@ import {
 	PanelRightIcon,
 	SquareIcon,
 	SkillsIcon,
+	SquarePenIcon,
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { LayoutDashboardIcon, PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
@@ -35,6 +36,7 @@ const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: strin
 	'connect-provider': PlugIcon,
 	model: SlidersHorizontalIcon,
 	local: PlayIcon,
+	new: SquarePenIcon,
 };
 
 // The composer's own actions, offered next to the skills.
@@ -47,6 +49,7 @@ export function getComposerCommands( {
 	panelCommand,
 	siteCommand,
 	canAnnotate,
+	canStartNewChat,
 }: {
 	canAutoStart: boolean;
 	autoStartOn: boolean;
@@ -56,6 +59,7 @@ export function getComposerCommands( {
 	panelCommand?: SkillSlashCommand;
 	siteCommand?: 'start' | 'stop';
 	canAnnotate?: boolean;
+	canStartNewChat?: boolean;
 } ): SkillSlashCommand[] {
 	return [
 		{
@@ -63,6 +67,15 @@ export function getComposerCommands( {
 			displayName: __( 'Add files' ),
 			description: '',
 		},
+		...( canStartNewChat
+			? [
+					{
+						name: 'new',
+						displayName: __( 'New chat' ),
+						description: '',
+					},
+			  ]
+			: [] ),
 		...( canAnnotate
 			? [
 					{
@@ -153,7 +166,7 @@ export function getCommandGroups( {
 			label: __( 'Commands' ),
 			items: ( addOpen ? commands : matches.filter( ( command ) => ! isSkill( command ) ) )
 				.filter(
-					( command ) => searching || ! [ 'stop', 'panel', 'model' ].includes( command.name )
+					( command ) => searching || ! [ 'stop', 'panel', 'model', 'new' ].includes( command.name )
 				)
 				.map( toCommand ),
 		},

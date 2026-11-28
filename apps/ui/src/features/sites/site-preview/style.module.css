@@ -16,6 +16,73 @@
 	padding-block-start: var( --workspace-header-height, 0px );
 }
 
+.chrome {
+	flex: 0 0 auto;
+}
+
+@media ( forced-colors: none ) {
+	.chrome[data-preview-theme] :where( [data-preview-browser-controls] ) {
+		--surface: var( --preview-theme-background );
+		--interaction-chroma: var( --preview-theme-interaction-chroma );
+		--preview-theme-toggle: var( --hover );
+		--preview-theme-toggle-hover: var( --selected );
+
+		background: var( --preview-theme-background );
+		color: var( --foreground );
+		border-top: 0;
+	}
+
+	.chrome[data-preview-theme]
+		:where( [data-preview-browser-controls], [data-preview-browser-controls] * ) {
+		--foreground: var( --preview-theme-foreground );
+		--muted-foreground: var( --preview-theme-controls-foreground );
+		--ring: var( --preview-theme-foreground );
+		--accent-subtle: var( --preview-theme-toggle );
+		--accent-subtle-hover: var( --preview-theme-toggle-hover );
+		--accent-subtle-foreground: var( --preview-theme-foreground );
+		--accent-subtle-hover-foreground: var( --preview-theme-foreground );
+	}
+
+	.chrome[data-preview-theme] :where( [data-site-header-annotation] ) {
+		--surface: var( --preview-theme-popup );
+		--preview-theme-toggle: var( --hover );
+		/* Reverse at the contrast boundary so hover stays visible and legible. */
+		--preview-theme-toggle-hover: light-dark(
+			oklch(
+				from var( --preview-theme-toggle ) calc( l + 0.04 * ( 2 * max( 0, sign( 0.64 - l ) ) - 1 ) )
+					c h
+			),
+			oklch(
+				from var( --preview-theme-toggle ) calc( l + 0.04 * ( 2 * max( 0, sign( 0.5 - l ) ) - 1 ) )
+					c h
+			)
+		);
+	}
+
+	.chrome[data-preview-theme] :where( [data-site-header-annotation] [aria-pressed='false'] ) {
+		--surface: var( --preview-theme-background );
+	}
+
+	.chrome[data-preview-theme]
+		:where( [data-disabled-appearance='icon']:is( :disabled, [data-disabled] ) )
+		svg {
+		opacity: 0.5;
+	}
+
+	.chrome[data-preview-theme] :where( [data-preview-browser-controls] input )::selection {
+		background: var( --selected );
+		color: var( --preview-theme-foreground );
+	}
+
+	.root[data-browser-bar] .chrome[data-preview-theme] + .body {
+		border-block-start-color: var( --preview-theme-divider );
+	}
+
+	.chrome[data-preview-theme] [data-recent-open] {
+		--popover: var( --preview-theme-popup );
+	}
+}
+
 .body {
 	flex: 1;
 	min-height: 0;
@@ -78,4 +145,9 @@
 .tabPane:not( [data-active-tab] ) {
 	visibility: hidden;
 	pointer-events: none;
+}
+
+.tabPane:not( [data-active-tab] )[data-capturing-thumbnail] {
+	visibility: visible;
+	opacity: 0;
 }

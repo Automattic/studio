@@ -1,6 +1,14 @@
-import { IconButton, Menu, Tabs, TabsList, TabsTrigger, VisuallyHidden } from '@studio/ds';
+import {
+	IconButton,
+	Menu,
+	ThumbnailTooltip,
+	Tabs,
+	TabsList,
+	TabsTrigger,
+	VisuallyHidden,
+} from '@studio/ds';
 import { PlusIcon, XIcon } from '@studio/ds/icons';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { X } from 'lucide-react';
@@ -49,17 +57,13 @@ export function PreviewTabs( {
 	const preview = useSessionPreviewUI();
 	const runLayoutTransition = useUserWorkspaceLayoutTransition( siteId );
 	const trackOpen = usePreviewOpenTracks();
-	const { workspace, add, patch, select, closeMany, update } = usePreviewTabs(
+	const { workspace, add, select, closeMany, update } = usePreviewTabs(
 		previewTabsKey( siteId, liveUrl ),
 		path
 	);
 	const tools = useSiteToolActions( site, {
 		liveUrl,
-		onNavigate: ( location ) => {
-			if ( ! running && workspace.tabs.length === 1 ) {
-				patch( workspace.selectedId, { path: location, title: null } );
-			} else add( location );
-		},
+		onNavigate: add,
 	} );
 	const reorder = useTabReorder( {
 		ids: workspace.tabs.map( ( tab ) => tab.id ),
@@ -136,7 +140,13 @@ export function PreviewTabs( {
 			event.preventDefault();
 			runLayoutTransition( () => setOpen( true, { siteId } ) );
 			requestAnimationFrame( () => {
-				if ( newTabButton.current && getComputedStyle( newTabButton.current ).display === 'none' ) {
+				if ( ! newTabButton.current ) {
+					document
+						.querySelector< HTMLElement >( '[data-active-tab] [data-site-tool-launcher] button' )
+						?.focus();
+					return;
+				}
+				if ( getComputedStyle( newTabButton.current ).display === 'none' ) {
 					add( '/' );
 					requestAnimationFrame( () => {
 						list.current?.querySelector< HTMLElement >( '[data-active]' )?.focus();
@@ -188,144 +198,142 @@ export function PreviewTabs( {
 			}
 		} );
 	};
+	if ( ! running ) return null;
 	return (
 		<div className={ styles.root } data-preview-tabs>
-			{ running ? (
-				<Tabs
-					value={ workspace.selectedId }
-					onValueChange={ ( value ) => {
-						const id = String( value );
-						if ( id === workspace.selectedId ) return;
-						const tab = workspace.tabs.find( ( tab ) => tab.id === id );
-						if ( tab?.path !== null && tab?.path !== undefined ) trackOpen( tab.path );
-						select( id );
-					} }
-					className={ styles.tabs }
+			<Tabs
+				value={ workspace.selectedId }
+				onValueChange={ ( value ) => {
+					const id = String( value );
+					if ( id === workspace.selectedId ) return;
+					const tab = workspace.tabs.find( ( tab ) => tab.id === id );
+					if ( tab?.path !== null && tab?.path !== undefined ) trackOpen( tab.path );
+					select( id );
+				} }
+				className={ styles.tabs }
+			>
+				<TabsList
+					ref={ list }
+					variant="browser"
+					aria-label={ __( 'Preview tabs' ) }
+					className={ styles.list }
+					data-tab-dragging={ !! reorder.drag || undefined }
+					data-tab-drop-committed={ reorder.drag?.committed || undefined }
+					onPointerDown={ reorder.onPointerDown }
+					onClickCapture={ reorder.onClickCapture }
+					onDragStart={ ( event ) => event.preventDefault() }
 				>
-					<TabsList
-						ref={ list }
-						variant="browser"
-						aria-label={ __( 'Preview tabs' ) }
-						className={ styles.list }
-						data-tab-dragging={ !! reorder.drag || undefined }
-						data-tab-drop-committed={ reorder.drag?.committed || undefined }
-						onPointerDown={ reorder.onPointerDown }
-						onClickCapture={ reorder.onClickCapture }
-						onDragStart={ ( event ) => event.preventDefault() }
-					>
-						{ workspace.tabs.map( ( tab, index ) => {
-							const realm = tab.path === null ? 'frontend' : getPreviewRealm( tab.path );
-							const { Icon } = getSiteTool( realm );
-							const destination = realm === 'email' ? fileManager : browser;
-							const selected = tab.id === workspace.selectedId;
-							return (
-								<Menu.ContextMenuRoot key={ tab.id }>
-									<Menu.ContextMenuTrigger
-										render={
-											<div
-												className={ clsx( styles.tab, selected && styles.selected ) }
-												data-tab-reorder-id={ tab.id }
-												data-drag-source={ reorder.drag?.id === tab.id || undefined }
-												style={ {
-													transform: `translateX(${ reorder.getOffset( tab.id ) }px)`,
+					{ workspace.tabs.map( ( tab ) => {
+						const realm = tab.path === null ? 'frontend' : getPreviewRealm( tab.path );
+						const { Icon } = getSiteTool( realm );
+						const destination = realm === 'email' ? fileManager : browser;
+						const selected = tab.id === workspace.selectedId;
+						return (
+							<Menu.ContextMenuRoot key={ tab.id }>
+								<ThumbnailTooltip
+									side="bottom"
+									label={ sprintf( __( 'Preview of %s' ), getTabTitle( tab, siteName ) ) }
+									thumbnail={
+										tab.thumbnail && tab.thumbnail.path === tab.path ? tab.thumbnail.image : null
+									}
+									disabled={ selected || !! reorder.drag || ! tab.thumbnail }
+									trigger={
+										<Menu.ContextMenuTrigger
+											render={
+												<div
+													className={ clsx( styles.tab, selected && styles.selected ) }
+													data-tab-reorder-id={ tab.id }
+													data-drag-source={ reorder.drag?.id === tab.id || undefined }
+													style={ {
+														transform: `translateX(${ reorder.getOffset( tab.id ) }px)`,
+													} }
+													data-preview-selected={ selected || undefined }
+												/>
+											}
+										>
+											<TabsTrigger
+												value={ tab.id }
+												className={ styles.trigger }
+												aria-description={ __(
+													'Use Alt+Shift+Left or Right Arrow to move this tab.'
+												) }
+												onKeyDown={ ( event ) => {
+													reorder.onKeyDown( event, tab.id );
+													if ( event.key === 'Delete' ) {
+														event.preventDefault();
+														closeTabs( [ tab.id ] );
+													}
 												} }
-												data-preview-selected={ selected || undefined }
+											>
+												<Icon className={ styles.icon } />
+												<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
+											</TabsTrigger>
+											<IconButton
+												variant="ghost"
+												size="icon-2xs"
+												className={ styles.close }
+												data-tab-close
+												icon={ <XIcon width={ 14 } height={ 14 } /> }
+												label={ sprintf( __( 'Close %s' ), getTabTitle( tab, siteName ) ) }
+												onClick={ () => closeTabs( [ tab.id ] ) }
+												tooltip={ false }
 											/>
-										}
-									>
-										<TabsTrigger
-											value={ tab.id }
-											className={ styles.trigger }
-											aria-description={ __(
-												'Use Alt+Shift+Left or Right Arrow to move this tab.'
-											) }
-											onKeyDown={ ( event ) => {
-												reorder.onKeyDown( event, tab.id );
-												if ( event.key === 'Delete' ) {
-													event.preventDefault();
-													closeTabs( [ tab.id ] );
-												}
-											} }
-										>
-											<Icon className={ styles.icon } />
-											<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
-										</TabsTrigger>
-										<IconButton
-											variant="ghost"
-											size="icon-2xs"
-											className={ styles.close }
-											data-tab-close
-											icon={ <XIcon width={ 14 } height={ 14 } /> }
-											label={ sprintf( __( 'Close %s' ), getTabTitle( tab, siteName ) ) }
-											onClick={ () => closeTabs( [ tab.id ] ) }
-											tooltipSide="bottom"
-										/>
-									</Menu.ContextMenuTrigger>
-									<Menu.ContextPopup>
-										<Menu.Item disabled={ busy } onClick={ () => add( '/' ) }>
-											<PlusIcon />
-											{ __( 'New tab' ) }
-										</Menu.Item>
+										</Menu.ContextMenuTrigger>
+									}
+								/>
+								<Menu.ContextPopup>
+									<Menu.Item disabled={ busy } onClick={ () => add( '/' ) }>
+										<PlusIcon />
+										{ __( 'New tab' ) }
+									</Menu.Item>
+									{ workspace.tabs.length > 1 && <Menu.Separator /> }
+									<Menu.Item onClick={ () => closeTabs( [ tab.id ] ) }>
+										<X />
+										{ __( 'Close tab' ) }
+									</Menu.Item>
+									{ workspace.tabs.length > 1 && (
 										<Menu.Item
-											disabled={ busy || tab.path === null || realm === 'design' }
-											onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
+											onClick={ () =>
+												closeTabs(
+													workspace.tabs
+														.filter( ( other ) => other.id !== tab.id )
+														.map( ( other ) => other.id )
+												)
+											}
 										>
-											{ destination.logo }
-											{ /* translators: %s: the browser or system file manager name. */ }
-											{ sprintf( __( 'Open in %s' ), destination.label ) }
-										</Menu.Item>
-										<Menu.Separator />
-										<Menu.Item onClick={ () => closeTabs( [ tab.id ] ) }>
 											<X />
-											{ __( 'Close tab' ) }
+											{ _n( 'Close other tab', 'Close other tabs', workspace.tabs.length - 1 ) }
 										</Menu.Item>
-										{ workspace.tabs.length > 1 && (
-											<Menu.Item
-												onClick={ () =>
-													closeTabs(
-														workspace.tabs
-															.filter( ( other ) => other.id !== tab.id )
-															.map( ( other ) => other.id )
-													)
-												}
-											>
-												<X />
-												{ __( 'Close other tabs' ) }
-											</Menu.Item>
-										) }
-										{ index > 0 && index < workspace.tabs.length - 1 && (
-											<Menu.Item
-												onClick={ () =>
-													closeTabs(
-														workspace.tabs.slice( index + 1 ).map( ( other ) => other.id )
-													)
-												}
-											>
-												<X />
-												{ __( 'Close tabs to the right' ) }
-											</Menu.Item>
-										) }
-										{ workspace.tabs.length > 1 && (
-											<Menu.Item
-												onClick={ () => closeTabs( workspace.tabs.map( ( other ) => other.id ) ) }
-											>
-												<X />
-												{ __( 'Close all tabs' ) }
-											</Menu.Item>
-										) }
-									</Menu.ContextPopup>
-								</Menu.ContextMenuRoot>
-							);
-						} ) }
-					</TabsList>
-				</Tabs>
-			) : null }
+									) }
+									{ workspace.tabs.length > 2 && (
+										<Menu.Item
+											onClick={ () => closeTabs( workspace.tabs.map( ( other ) => other.id ) ) }
+										>
+											<X />
+											{ __( 'Close all tabs' ) }
+										</Menu.Item>
+									) }
+									<Menu.Separator />
+									<Menu.Item
+										disabled={ busy || tab.path === null || realm === 'design' }
+										onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
+									>
+										{ destination.logo }
+										{ /* translators: %s: the browser or system file manager name. */ }
+										{ sprintf( __( 'Open in %s' ), destination.label ) }
+									</Menu.Item>
+								</Menu.ContextPopup>
+							</Menu.ContextMenuRoot>
+						);
+					} ) }
+				</TabsList>
+			</Tabs>
 			<Menu.Root>
 				<Menu.Trigger
 					render={
 						<IconButton
 							ref={ newTabButton }
-							className={ running ? styles.newTab : undefined }
+							className={ styles.newTab }
 							size="icon-sm"
 							variant="ghost"
 							icon={ <PlusIcon /> }

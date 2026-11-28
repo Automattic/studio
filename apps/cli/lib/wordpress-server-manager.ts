@@ -213,7 +213,8 @@ export async function startWordPressServer(
 	site: ConfigSite,
 	logger: Logger< string >,
 	command: SiteStartCommand,
-	options?: StartServerOptions
+	options?: StartServerOptions,
+	startSignal?: AbortSignal
 ): Promise< ProcessDescription > {
 	// For sites imported via `studio pull`, the pull command persists
 	// the computed start options to start-options.json next to its runtime files.
@@ -229,7 +230,12 @@ export async function startWordPressServer(
 		}
 	}
 
+	const signal = startSignal
+		? AbortSignal.any( [ startSignal, abortController.signal ] )
+		: abortController.signal;
+	signal.throwIfAborted();
 	await ensureSitePhpBinaryAvailable( site, logger );
+	signal.throwIfAborted();
 
 	const startMessage = options?.blueprint
 		? __( 'Starting WordPress server and applying Blueprint…' )
@@ -257,7 +263,7 @@ export async function startWordPressServer(
 	);
 	const phpErrorLogSizeAtStart = await fileSize( phpErrorLogPath );
 
-	const readyOrExit = await subscribeForReadyOrExit( processName );
+	const readyOrExit = await subscribeForReadyOrExit( processName, signal );
 	const phaseTimings: Record< string, number > = {};
 	let serverPid: number | undefined;
 	let processStarted = false;
@@ -268,6 +274,7 @@ export async function startWordPressServer(
 		command === 'start' ? Number( process.env[ SITE_START_REQUESTED_AT_ENV ] ) : NaN;
 	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
+		signal.throwIfAborted();
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		processStarted = true;
 		serverPid = processDesc.status === 'online' ? processDesc.pid : undefined;
@@ -282,6 +289,7 @@ export async function startWordPressServer(
 			},
 			{
 				logger,
+				signal,
 				onStartPhase: ( { phase, ms } ) => {
 					phaseTimings[ `${ phase }_ms` ] = ms;
 				},
@@ -327,17 +335,18 @@ export async function startWordPressServer(
 				failureReason === 'timeout' && serverPid && process.platform === 'win32'
 					? await diagnoseStalledPhp( serverPid, site.path )
 					: undefined;
-			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
-				...getTracksOrigin(),
-				command,
-				success: false,
-				...getMachineProps(),
-				file_access: getSiteFileAccess( site ),
-				failure_reason: failureReason,
-				...diagnosis,
-				time_ms: timeMs,
-				...phaseTimings,
-			} );
+			if ( ! startSignal?.aborted )
+				await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
+					...getTracksOrigin(),
+					command,
+					success: false,
+					...getMachineProps(),
+					file_access: getSiteFileAccess( site ),
+					failure_reason: failureReason,
+					...diagnosis,
+					time_ms: timeMs,
+					...phaseTimings,
+				} );
 		} catch {
 			// Best-effort telemetry — never block or fail a site start.
 		}
@@ -438,7 +447,10 @@ function buildChildExitedError( processName: string, stderrTail?: string ): Erro
  * buffered (filtered by processName) and replayed once `waitFor(pmId)` is called.
  * Must be disposed via `dispose()` when done.
  */
-export async function subscribeForReadyOrExit( processName: string ): Promise< {
+export async function subscribeForReadyOrExit(
+	processName: string,
+	signal = abortController.signal
+): Promise< {
 	waitFor: ( pmId: number ) => Promise< void >;
 	dispose: () => void;
 } > {
@@ -491,7 +503,9 @@ export async function subscribeForReadyOrExit( processName: string ): Promise< {
 			onReady = () => resolve();
 			onExit = ( stderrTail ) => reject( buildChildExitedError( processName, stderrTail ) );
 
-			abortController.signal.addEventListener( 'abort', abortListener );
+			signal.addEventListener( 'abort', abortListener );
+
+			signal.throwIfAborted();
 
 			// Replay any events we buffered before pmId was known.
 			const bufferedExit = pendingExits.find( ( event ) => event.process.pm_id === pmId );
@@ -505,7 +519,7 @@ export async function subscribeForReadyOrExit( processName: string ): Promise< {
 			}
 		} ).finally( () => {
 			clearTimeout( timeoutId );
-			abortController.signal.removeEventListener( 'abort', abortListener );
+			signal.removeEventListener( 'abort', abortListener );
 			// Release per-call handlers; the bus listeners stay until dispose().
 			onReady = () => {};
 			onExit = () => {};
@@ -530,6 +544,7 @@ const messageActivityTrackers = new Map<
 const CHILD_EXIT_ERROR_GRACE_MS = 100;
 
 interface SendMessageOptions {
+	signal?: AbortSignal;
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
 	// Receives the start steps the child finishes for this message.
@@ -549,7 +564,11 @@ async function sendMessage(
 	message: ManagerMessagePayload,
 	options: SendMessageOptions = {}
 ): Promise< unknown > {
-	const { maxTotalElapsedTime = SITE_SERVER_MAX_TIMEOUT, logger } = options;
+	const {
+		maxTotalElapsedTime = SITE_SERVER_MAX_TIMEOUT,
+		logger,
+		signal = abortController.signal,
+	} = options;
 	const bus = await getDaemonBus();
 	const messageId = crypto.randomUUID();
 	let responseHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
@@ -638,14 +657,15 @@ async function sendMessage(
 			void sendMessageToProcess( pmId, { messageId, topic: 'abort', data: {} } );
 			reject( new Error( 'Operation aborted' ) );
 		};
-		abortController.signal.addEventListener( 'abort', abortListener );
+		signal.addEventListener( 'abort', abortListener );
 
 		bus.on( 'process-event', processEventHandler );
 		bus.on( 'process-message', responseHandler );
 
+		signal.throwIfAborted();
 		sendMessageToProcess( pmId, { ...message, messageId } ).catch( reject );
 	} ).finally( () => {
-		abortController.signal.removeEventListener( 'abort', abortListener );
+		signal.removeEventListener( 'abort', abortListener );
 		bus.off( 'process-event', processEventHandler );
 		bus.off( 'process-message', responseHandler );
 
@@ -672,7 +692,7 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 
 	try {
 		const bus = await getDaemonBus();
-		let busExitEventListener: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
+		let busExitEventListener!: ( event: DaemonBusEventMap[ 'process-event' ] ) => void;
 
 		const exitPromise = new Promise< void >( ( resolve ) => {
 			busExitEventListener = ( event: DaemonBusEventMap[ 'process-event' ] ) => {
@@ -682,22 +702,20 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 			};
 
 			bus.on( 'process-event', busExitEventListener );
-		} ).finally( () => {
-			bus.off( 'process-event', busExitEventListener );
 		} );
-
-		await sendMessage(
-			runningProcess.pmId,
-			processName,
-			{ topic: 'stop-server', data: {} },
-			{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
-		);
 
 		// Allow 5 seconds (arbitrary number) of cleanup time for the child process before throwing an
 		// exception and telling the process manager to send a SIGKILL signal. Clear the timer once the
 		// race settles, or it keeps the CLI process alive for the full 5 seconds.
 		let exitTimeout: NodeJS.Timeout | undefined;
 		try {
+			await sendMessage(
+				runningProcess.pmId,
+				processName,
+				{ topic: 'stop-server', data: {} },
+				{ maxTotalElapsedTime: GRACEFUL_STOP_TIMEOUT }
+			);
+
 			await Promise.race( [
 				exitPromise,
 				new Promise( ( resolve, reject ) => {
@@ -709,6 +727,7 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 			] );
 		} finally {
 			clearTimeout( exitTimeout );
+			bus.off( 'process-event', busExitEventListener );
 		}
 	} catch {
 		await stopProcess( processName );

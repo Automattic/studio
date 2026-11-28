@@ -49,7 +49,11 @@ describe( 'sidebar site menu', () => {
 		fireEvent.keyDown( screen.getByRole( 'menu' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
 		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'My site' } ) );
-		expect( await menuItems() ).toEqual( titleItems );
+		expect( await menuItems() ).toEqual(
+			titleItems.filter(
+				( item ) => item !== 'New chat' && item !== 'Show chat' && item !== 'Hide chat'
+			)
+		);
 	} );
 
 	it( 'uses the same submenus and delete confirmation for a sidebar site', async () => {
@@ -103,7 +107,7 @@ describe( 'site title actions', () => {
 
 	it.each( [
 		[ 'Browser', '/', { autoLogin: false } ],
-		[ 'WordPress admin', '/wp-admin/', undefined ],
+		[ 'Admin', '/wp-admin/', undefined ],
 		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],
 	] )( 'starts a stopped site before opening %s', async ( label, path, options ) => {
 		let finishStart!: () => void;
@@ -114,7 +118,9 @@ describe( 'site title actions', () => {
 				} ),
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		if ( label !== 'Admin' ) {
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		}
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
@@ -134,9 +140,9 @@ describe( 'site title actions', () => {
 			const { connector } = setup();
 			connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-			fireEvent.click(
-				await screen.findByRole( 'menuitem', { name: label === 'Admin' ? 'Tools' : 'Open in' } )
-			);
+			if ( label !== 'Admin' ) {
+				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			}
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			await screen.findAllByText( 'Start failed' );
 			expect( connector.openSiteUrl ).not.toHaveBeenCalled();

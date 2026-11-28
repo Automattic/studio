@@ -13,7 +13,11 @@ export interface WebviewTag extends HTMLElement {
 	reload?(): void;
 	stop?(): void;
 	isLoading?(): boolean;
-	capturePage(): Promise< { isEmpty(): boolean; toDataURL(): string } >;
+	capturePage( rect?: { x: number; y: number; width: number; height: number } ): Promise< {
+		isEmpty(): boolean;
+		resize( options: { width: number } ): { toDataURL(): string };
+		toDataURL(): string;
+	} >;
 }
 
 export interface WebviewConsoleEvent extends Event {
@@ -23,6 +27,10 @@ export interface WebviewConsoleEvent extends Event {
 
 export interface WebviewPageTitleUpdatedEvent extends Event {
 	title?: string;
+}
+
+export interface WebviewThemeColorEvent extends Event {
+	themeColor: string | null;
 }
 
 export interface WebviewFailLoadEvent extends Event {
@@ -48,7 +56,15 @@ export const isElectron = (): boolean => {
 
 export type PreviewColorScheme = 'system' | 'light' | 'dark';
 
+type PreviewOpenLink = { guestId: number; url: string };
+
 interface PreviewWindow extends Window {
+	ipcListener?: {
+		subscribe: (
+			channel: 'preview-open-link',
+			listener: ( event: unknown, request: PreviewOpenLink ) => void
+		) => () => void;
+	};
 	ipcApi?: {
 		openWebviewDevTools?: ( webContentsId: number ) => Promise< void >;
 		setWebviewColorScheme?: (
@@ -67,6 +83,12 @@ interface PreviewWindow extends Window {
 
 export function getPreviewIpc() {
 	return ( window as PreviewWindow ).ipcApi;
+}
+
+export function subscribePreviewOpenLink(
+	listener: ( event: unknown, request: PreviewOpenLink ) => void
+) {
+	return ( window as PreviewWindow ).ipcListener?.subscribe( 'preview-open-link', listener );
 }
 
 export function getWebviewContentsId( webview: WebviewTag ): number {

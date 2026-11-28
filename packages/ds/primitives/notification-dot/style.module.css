@@ -36,8 +36,9 @@
 		mask-image: radial-gradient( circle at calc( 100% - 2px ) 2px, transparent 5.5px, #000 6px );
 	}
 
-	/* Centred on the trailing 32px action of a row inset 2px from its edge. */
+	/* Center the dot in the trailing action slot. */
 	.dot[data-position='end'] {
-		inset-inline-end: calc( var( --space-0_5 ) + ( 32px - 7px ) / 2 );
+		inset-inline: calc( 100% - var( --control-size-sm ) ) 0;
+		margin-inline: auto;
 	}
 }

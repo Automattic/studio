@@ -13,6 +13,14 @@ export function renderSkill( name: string ): string {
 	return renderDesignCatalogIndex( skill.body );
 }
 
+// A skill as the agent's app serves it itself, where it arrives without the rules
+// studio_instructions returns.
+export function renderHostSkill( name: string ): string {
+	return `If you have not called the \`studio_instructions\` tool in this conversation yet, call it first and follow what it returns for the rest of the session. Then follow this runbook.\n\n${ renderSkill(
+		name
+	) }`;
+}
+
 export async function renderUserSkill( skill: UserSkill ): Promise< string > {
 	const instructions = await readUserSkillInstructions( skill );
 	return `This skill is the user's own, in ${ skill.directory }. The files its instructions name are in that folder.\n\n${ instructions }`;

@@ -1,7 +1,6 @@
 import { AttachmentChip } from '@studio/ds';
-import { FileTextIcon, CodeIcon } from '@studio/ds/icons';
+import { AttachmentIcon, CodeIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { ImageIcon } from 'lucide-react';
 import { memo } from 'react';
 import { CopyButton } from '@/features/chats/copy-button';
 import { Markdown } from '@/features/chats/markdown';
@@ -28,57 +27,60 @@ export const UserTurn = memo( function UserTurn( {
 	const hasElementReference = Boolean(
 		annotation?.tag || ( annotation?.elementLabel && ! annotation.imageIds?.length )
 	);
+	const hasPhoto = attachments?.some(
+		( attachment ) => attachment.kind === 'image' && attachment.previewDataUrl
+	);
 	return (
 		<div
 			className={ styles.userTurn }
 			{ ...joinedAttributes( joined ) }
 			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text, [ SCROLL_ANCHOR_ATTRIBUTE ]: '' } }
 		>
-			{ text || attachments?.length ? (
-				<div className={ styles.userTextRow }>
-					{ text ? (
-						<CopyButton
-							className={ styles.messageActions }
-							size="icon-sm"
-							text={ text }
-							label={ __( 'Copy message' ) }
-						/>
-					) : null }
-					<div className={ styles.userText } data-side="user" { ...joinedAttributes( joined ) }>
-						{ attachments?.length ? (
-							<ul className={ styles.userAttachments }>
-								{ attachments.map( ( attachment, index ) =>
-									attachment.kind === 'image' && attachment.previewDataUrl ? (
-										<li
-											key={ `${ attachment.name }:${ index }` }
-											className={ styles.userImageAttachment }
-											title={ attachment.name }
-										>
-											<img
-												className={ styles.userImageAttachmentContent }
-												src={ attachment.previewDataUrl }
-												alt={ attachment.name }
-											/>
-										</li>
-									) : (
-										<li
-											key={ `${ attachment.name }:${ index }` }
-											className={ styles.userAttachment }
-										>
-											<span className={ styles.userAttachmentPreview }>
-												{ attachment.kind === 'image' ? <ImageIcon /> : <FileTextIcon /> }
-											</span>
-											<span className={ styles.userAttachmentName } title={ attachment.name }>
-												{ attachment.name }
-											</span>
-										</li>
-									)
-								) }
-							</ul>
-						) : null }
-						{ text ? <div className={ styles.userTextBody }>{ text }</div> : null }
+			{ attachments?.length ? (
+				<ul className={ styles.userAttachments }>
+					{ attachments.map( ( attachment, index ) =>
+						attachment.kind === 'image' && attachment.previewDataUrl ? (
+							<li
+								key={ `${ attachment.name }:${ index }` }
+								className={ styles.userImageAttachment }
+								title={ attachment.name }
+							>
+								<img
+									className={ styles.userImageAttachmentContent }
+									src={ attachment.previewDataUrl }
+									alt={ attachment.name }
+								/>
+							</li>
+						) : (
+							<AttachmentChip
+								key={ `${ attachment.name }:${ index }` }
+								render={ <li /> }
+								className={ styles.userAttachment }
+								title={ attachment.name }
+							>
+								<AttachmentIcon kind={ attachment.kind } mimeType={ attachment.mimeType } />
+								<span className={ styles.userAttachmentName }>{ attachment.name }</span>
+							</AttachmentChip>
+						)
+					) }
+				</ul>
+			) : null }
+			{ text ? (
+				<>
+					<CopyButton
+						className={ styles.messageActions }
+						size="icon-2xs"
+						text={ text }
+						label={ __( 'Copy message' ) }
+					/>
+					<div
+						className={ styles.userText }
+						data-side="user"
+						{ ...joinedAttributes( { ...joined, joinedAbove: joined.joinedAbove || hasPhoto } ) }
+					>
+						<div className={ styles.userTextBody }>{ text }</div>
 					</div>
-				</div>
+				</>
 			) : null }
 			{ hasElementReference && annotation ? (
 				<AttachmentChip
@@ -128,7 +130,7 @@ export const AssistantText = memo( function AssistantText( {
 			{ copyText ? (
 				<CopyButton
 					className={ styles.messageActions }
-					size="icon-sm"
+					size="icon-2xs"
 					text={ copyText }
 					label={ __( 'Copy message' ) }
 				/>

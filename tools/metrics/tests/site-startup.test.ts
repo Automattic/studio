@@ -56,7 +56,7 @@ test.describe( 'Startup Metrics', () => {
 		// Measure server stop/start 5 times
 		for ( let i = 0; i < 5; i++ ) {
 			await test.step( `Run ${ i + 1 }/5: Stopping and starting site`, async () => {
-				await runButton.click();
+				await sidebar.toggleSite( siteName );
 				await expect( statusButton ).toHaveAttribute( 'data-state', 'stopped', {
 					timeout: 120_000,
 				} );

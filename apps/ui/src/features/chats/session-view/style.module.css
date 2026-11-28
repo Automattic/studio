@@ -16,6 +16,7 @@
 }
 
 .header {
+	--band-group-gap: var( --band-gap );
 	container: site-header / inline-size;
 	display: flex;
 	align-items: center;
@@ -164,6 +165,8 @@
 
 .scrollToLatestButton {
 	composes: floatingReveal from '@studio/ds/theme/recipes.module.css';
+	--button-background: var( --chat );
+
 	transition: var( --floating-reveal-transition );
 }
 

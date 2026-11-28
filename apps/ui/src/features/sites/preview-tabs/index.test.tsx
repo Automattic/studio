@@ -113,6 +113,90 @@ it.each( [ true, false ] )(
 	}
 );
 
+it( 'shows the captured page only while its browser tab is inactive', async () => {
+	const userAgent = window.navigator.userAgent;
+	vi.spyOn( window.navigator, 'userAgent', 'get' ).mockReturnValue(
+		userAgent + ' Electron/38.0.0'
+	);
+	const { user } = await setup();
+	const first = selectedTab();
+	let view = 'first';
+	const capturePage = vi.fn( async () => {
+		const captured = view;
+		return {
+			isEmpty: () => false,
+			resize: () => ( { toDataURL: () => `data:image/png;base64,${ captured }` } ),
+		};
+	} );
+	const page = activePreview( 'webview' )!;
+	Object.defineProperties( page, { clientWidth: { value: 800 }, clientHeight: { value: 700 } } );
+	Object.assign( page, { capturePage, getWebContentsId: () => 42 } );
+	fireEvent( page, new Event( 'did-finish-load' ) );
+	await waitFor( () =>
+		expect( capturePage ).toHaveBeenCalledWith( { x: 0, y: 0, width: 800, height: 500 } )
+	);
+	const expectNoPreviewOnHover = async () => {
+		await user.unhover( first );
+		await user.hover( first );
+		// A negative assertion must outlast the tooltip's hover delay.
+		await act( () => new Promise< void >( ( resolve ) => setTimeout( resolve, 300 ) ) );
+		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument();
+	};
+	await expectNoPreviewOnHover();
+	view = 'scrolled';
+	await newBrowserTab();
+	await user.unhover( first );
+	await user.hover( first );
+	expect( await screen.findByRole( 'img', { name: 'Preview of First' } ) ).toHaveAttribute(
+		'src',
+		'data:image/png;base64,scrolled'
+	);
+	const close = first
+		.closest( '[data-tab-reorder-id]' )!
+		.querySelector< HTMLElement >( '[data-tab-close]' )!;
+	await user.hover( close );
+	expect( screen.getByRole( 'img', { name: 'Preview of First' } ) ).toBeInTheDocument();
+	await user.click( first );
+	await waitFor( () =>
+		expect( screen.queryByRole( 'img', { name: 'Preview of First' } ) ).not.toBeInTheDocument()
+	);
+	await expectNoPreviewOnHover();
+} );
+
+it( 'finishes capturing the outgoing tab after a quick switch', async () => {
+	vi.spyOn( window.navigator, 'userAgent', 'get' ).mockReturnValue(
+		window.navigator.userAgent + ' Electron/38.0.0'
+	);
+	const { user } = await setup();
+	const first = selectedTab();
+	const page = activePreview( 'webview' )!;
+	const pane = page.closest( '[data-active-tab]' )!;
+	let finishCapture!: () => void;
+	const capturePage = vi.fn(
+		() =>
+			new Promise( ( resolve ) => {
+				finishCapture = () =>
+					resolve( {
+						isEmpty: () => false,
+						resize: () => ( { toDataURL: () => 'data:image/png;base64,last-view' } ),
+					} );
+			} )
+	);
+	Object.defineProperties( page, { clientWidth: { value: 800 }, clientHeight: { value: 700 } } );
+	Object.assign( page, { capturePage, getWebContentsId: () => 42 } );
+	fireEvent( page, new Event( 'did-finish-load' ) );
+	await newBrowserTab();
+	expect( capturePage ).toHaveBeenCalled();
+	expect( pane ).toHaveAttribute( 'data-capturing-thumbnail' );
+	finishCapture();
+	await user.hover( first );
+	expect( await screen.findByRole( 'img', { name: 'Preview of First' } ) ).toHaveAttribute(
+		'src',
+		'data:image/png;base64,last-view'
+	);
+	expect( pane ).not.toHaveAttribute( 'data-capturing-thumbnail' );
+} );
+
 it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {
 	const userAgent = window.navigator.userAgent;
 	Object.defineProperty( window.navigator, 'userAgent', {
@@ -293,16 +377,12 @@ it( 'restarts at home after stopping a project while another project is open', a
 	);
 } );
 it( 'keeps stopped and blank tabs empty without a browser bar', async () => {
-	const { connector, user } = await setup( false );
+	const { connector } = await setup( false );
 	expect( screen.queryByRole( 'tablist', { name: 'Preview tabs' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'New tab' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'New tab' } ) ).not.toBeInTheDocument();
 	expect(
 		screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
 	).not.toBeInTheDocument();
-	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	expect( screen.queryByRole( 'tab' ) ).not.toBeInTheDocument();
-	expect( await screen.findByRole( 'menuitem', { name: 'Browser' } ) ).toBeVisible();
-	await user.keyboard( '{Escape}' );
 	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 	const pane = screen.getByRole( 'complementary', { name: 'Panel' } );
 	expect( within( pane ).getByRole( 'group', { name: 'Project tools' } ) ).toBeVisible();
@@ -407,7 +487,7 @@ it( 'opens the right-clicked tab in the preferred browser without selecting it',
 	fireEvent.contextMenu( tabs[ 0 ] );
 	const open = await screen.findByRole( 'menuitem', { name: 'Open in Firefox' } );
 	expect( open ).toBeEnabled();
-	expect( screen.getByRole( 'separator' ) ).toBeInTheDocument();
+	expect( screen.getAllByRole( 'separator' ) ).toHaveLength( 2 );
 	fireEvent.click( open );
 	expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/?source=preview#team', {
 		autoLogin: false,
@@ -453,25 +533,33 @@ it( 'opens the email folder from an unselected tab without changing tabs', async
 it( 'closes tabs from the context menu without selecting the right-clicked tab', async () => {
 	await setup();
 	for ( let i = 0; i < 3; i++ ) await newBrowserTab();
-	let tabs = screen.getAllByRole( 'tab' );
-	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
+	const tabs = screen.getAllByRole( 'tab' );
+	await waitFor( () => expect( tabs[ 3 ] ).toHaveFocus() );
 	fireEvent.contextMenu( tabs[ 1 ] );
 	expect( tabs[ 3 ] ).toHaveAttribute( 'aria-selected', 'true' );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close tabs to the right' } ) );
-	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
-	tabs = screen.getAllByRole( 'tab' );
-	expect( tabs[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
-	await waitFor( () => expect( tabs[ 1 ] ).toHaveFocus() );
-	fireEvent.contextMenu( tabs[ 0 ] );
-	await screen.findByRole( 'menuitem', { name: 'Close other tabs' } );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 		'New tab',
-		'Open in Browser',
 		'Close tab',
 		'Close other tabs',
 		'Close all tabs',
+		'Open in Browser',
 	] );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close other tabs' } ) );
+	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 3 ) );
+	fireEvent.contextMenu( tabs[ 2 ] );
+	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+	expect( tabs[ 3 ] ).toHaveAttribute( 'aria-selected', 'true' );
+	await waitFor( () => expect( tabs[ 3 ] ).toHaveFocus() );
+	fireEvent.contextMenu( tabs[ 0 ] );
+	await screen.findByRole( 'menuitem', { name: /^Close other tab$/ } );
+	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'New tab',
+		'Close tab',
+		'Close other tab',
+		'Open in Browser',
+	] );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Close other tab$/ } ) );
 	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 ) );
 	const remaining = screen.getByRole( 'tab', { name: 'First' } );
 	expect( remaining ).toHaveAttribute( 'aria-selected', 'true' );
@@ -479,9 +567,10 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 	fireEvent.contextMenu( remaining );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 		'New tab',
-		'Open in Browser',
 		'Close tab',
+		'Open in Browser',
 	] );
+	expect( screen.getAllByRole( 'separator' ) ).toHaveLength( 1 );
 	fireEvent.click( screen.getByRole( 'menuitem', { name: /^Close tab$/ } ) );
 	await screen.findByRole( 'button', { name: 'Show panel' } );
 } );
@@ -489,7 +578,8 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 it( 'opens the tab menu from the keyboard and stops the site when closing all tabs', async () => {
 	const { connector } = await setup();
 	await newBrowserTab();
-	const tab = screen.getAllByRole( 'tab' )[ 1 ];
+	await newBrowserTab();
+	const tab = screen.getAllByRole( 'tab' )[ 2 ];
 	fireEvent.focus( tab );
 	fireEvent.keyDown( tab, { key: 'F10', shiftKey: true } );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Close all tabs' } ) );
@@ -501,7 +591,7 @@ it( 'opens the tab menu from the keyboard and stops the site when closing all ta
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 } );
 
-it( 'shares the same tool items with the site menu and opens each preview tool in a new tab', async () => {
+it( 'keeps Admin in the preview picker while the site menu offers it externally', async () => {
 	const { user } = await setup();
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	const labels = ( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent );
@@ -509,13 +599,13 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 	await user.keyboard( '{Escape}' );
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-	const admin = await screen.findByRole( 'menuitem', { name: 'Admin' } );
-	const tools = admin.closest( '[role="menu"]' ) as HTMLElement;
+	const database = await screen.findByRole( 'menuitem', { name: 'Database' } );
+	const tools = database.closest( '[role="menu"]' ) as HTMLElement;
 	expect(
 		within( tools )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent )
-	).toEqual( labels );
+	).toEqual( labels.filter( ( label ) => label !== 'AdminA' ) );
 	await user.keyboard( '{Escape}{Escape}' );
 	for ( const name of [ 'Admin', 'Database' ] ) {
 		await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
@@ -544,13 +634,13 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 
 it( 'starts a stopped project from Browser and uses its first preview tab', async () => {
 	const { connector, user } = await setup( false );
-	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
+	expect( await screen.findByRole( 'button', { name: 'New tab' } ) ).toBeVisible();
 	await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 	await waitFor( () => expect( document.querySelector( 'iframe' ) ).not.toBeNull() );
 	fireEvent.load( document.querySelector( 'iframe' )! );
 	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 ) );
-	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+	expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
 		'http://localhost:9010'
 	);
 } );
@@ -654,8 +744,7 @@ it.each( [ false, true ] )(
 			await ready;
 			return start( id );
 		} );
-		await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-		await user.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		const preview = screen.getByRole( 'complementary', { name: 'Panel' } );
 		expect( within( preview ).getByText( 'Loading site preview' ) ).toBeInTheDocument();
@@ -756,6 +845,16 @@ it( 'opens the new-tab menu with the primary T shortcut, including from closed p
 	expect( screen.queryByRole( 'menuitem', { name: 'Browser' } ) ).not.toBeInTheDocument();
 } );
 
+it( 'focuses the centered tools with the primary T shortcut on a stopped site', async () => {
+	const { user } = await setup( false );
+	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, { key: 't', code: 'KeyT', metaKey: isApple, ctrlKey: ! isApple } );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Browser B' } ) ).toHaveFocus()
+	);
+} );
+
 it( 'opens a new tab with the primary T shortcut when the plus button is hidden', async () => {
 	await setup();
 	screen.getByRole( 'button', { name: 'New tab' } ).style.display = 'none';
@@ -796,7 +895,12 @@ it.each( [ 'composer', 'sidebar', 'palette' ] )(
 			fireEvent.change( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ), {
 				target: { value: '' },
 			} );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Start site' } ) );
+			const composer = screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } );
+			fireEvent.click(
+				within( composer.closest( '[role="group"]' )! ).getByRole( 'button', {
+					name: 'Start site',
+				} )
+			);
 		} else {
 			const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
 			fireEvent.keyDown( document, {
@@ -899,17 +1003,23 @@ it( 'lets the only browser tab be picked up without changing its page or selecti
 it( 'leaves normal clicks uncaptured until a drag starts', async () => {
 	const tabs = await sortableTabs();
 	const list = screen.getByRole( 'tablist', { name: 'Preview tabs' } );
+	const bounds = vi.mocked(
+		tabs[ 0 ].closest< HTMLElement >( '[data-tab-reorder-id]' )!.getBoundingClientRect
+	);
+	bounds.mockClear();
 	const capture = vi.fn();
 	Object.defineProperty( list, 'setPointerCapture', { value: capture, configurable: true } );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 42 ) );
 	expect( capture ).not.toHaveBeenCalled();
+	expect( bounds ).not.toHaveBeenCalled();
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerup', 42 ) );
 	fireEvent.click( tabs[ 0 ] );
 	expect( selectedTab() ).toBe( tabs[ 0 ] );
 	fireEvent( tabs[ 0 ], tabPointer( 'pointerdown', 40 ) );
 	fireEvent( window, tabPointer( 'pointermove', 440 ) );
 	expect( capture ).toHaveBeenCalledWith( 1 );
+	expect( bounds ).toHaveBeenCalledTimes( 1 );
 	fireEvent( window, tabPointer( 'pointercancel', 440 ) );
 } );
 it( 'leaves touch swipes available for scrolling rather than reordering', async () => {
@@ -1155,7 +1265,7 @@ it( 'opens a WordPress style board without DESIGN.md and reloads saved style cha
 	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
 } );
 
-it.each( [ 'Admin', 'Database', 'Email log' ] )(
+it.each( [ 'Database', 'Email log' ] )(
 	'keeps the current tab when opening %s from the site menu',
 	async ( name ) => {
 		const { user } = await setup();
@@ -1169,3 +1279,34 @@ it.each( [ 'Admin', 'Database', 'Email log' ] )(
 		expect( screen.getByRole( 'tab', { name } ) ).toHaveAttribute( 'aria-selected', 'true' );
 	}
 );
+
+it( 'opens a preview link in a background tab and ignores messages from other origins', async () => {
+	const { user } = await setup();
+	const current = screen.getByRole( 'tab', { name: 'First' } );
+	const frame = document.querySelector( 'iframe' )!;
+	const post = vi.spyOn( frame.contentWindow!, 'postMessage' );
+	fireEvent.load( frame );
+	const [ init ] = post.mock.calls.find(
+		( [ message ] ) => message.type === 'studio:preview-shortcuts:init'
+	)!;
+	const send = ( origin: string, url: string ) =>
+		fireEvent(
+			window,
+			new MessageEvent( 'message', {
+				source: frame.contentWindow,
+				origin,
+				data: { type: 'studio:preview:open-link', navigationId: init.navigationId, url },
+			} )
+		);
+	const origin = new URL( frame.src ).origin;
+	send( 'https://example.org', `${ origin }/about/` );
+	send( origin, 'https://example.org/about/' );
+	expect( screen.getAllByRole( 'tab' ) ).toEqual( [ current ] );
+	send( origin, `${ origin }/about/?from=preview#team` );
+	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+	expect( current ).toHaveAttribute( 'aria-selected', 'true' );
+	await user.click( screen.getAllByRole( 'tab' )[ 1 ] );
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+		`${ origin }/about/?from=preview#team`
+	);
+} );

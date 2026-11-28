@@ -10,10 +10,10 @@ import {
 	SidebarMenuLabel,
 	VisuallyHidden,
 } from '@studio/ds';
-import { ArchiveIcon, ChatIcon, TriangleAlertIcon, PinIcon, UnpinIcon } from '@studio/ds/icons';
+import { ArchiveIcon, ChatIcon, EllipsisVerticalIcon, TriangleAlertIcon } from '@studio/ds/icons';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { useSessions } from '@/data/queries/use-sessions';
 import { chatPinKey } from '@/data/queries/use-sidebar-pins';
@@ -69,6 +69,7 @@ export function ChatRow( {
 	const bulk = useIsBulkTarget( chatPinKey( session.id ) );
 	const pressed = useRowPressed( chatPinKey( session.id ) );
 	const [ menuOpen, setMenuOpen ] = useState( false );
+	const titleId = useId();
 	const title = getSessionTitle( session );
 	const needsInput = activity === 'pending-question';
 
@@ -107,7 +108,10 @@ export function ChatRow( {
 							>
 								{ nested ? null : <ChatIcon /> }
 								{ actions.working ? <VisuallyHidden>{ __( 'Working…' ) }</VisuallyHidden> : null }
-								<SidebarMenuLabel className={ actions.working ? 'studio-shimmer' : undefined }>
+								<SidebarMenuLabel
+									id={ titleId }
+									className={ actions.working ? 'studio-shimmer' : undefined }
+								>
 									{ title }
 								</SidebarMenuLabel>
 								{ needsInput ? (
@@ -128,19 +132,28 @@ export function ChatRow( {
 								<SidebarMenuActions showOnHover={ ! active || nested } data-reorder-exclude>
 									<IconButton
 										variant="muted-ghost"
-										size="icon-sm"
-										icon={ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
-										label={ actions.pinned ? __( 'Unpin chat' ) : __( 'Pin chat' ) }
-										onClick={ actions.togglePin }
-									/>
-									<IconButton
-										variant="muted-ghost"
-										size="icon-sm"
+										size="icon-inset"
 										icon={ <ArchiveIcon /> }
 										label={ __( 'Archive chat' ) }
 										disabled={ actions.archiveBlocked }
 										onClick={ () => void actions.archive() }
 									/>
+									<Menu.Root modal={ false }>
+										<Menu.Trigger
+											render={
+												<IconButton
+													variant="muted-ghost"
+													size="icon-inset"
+													icon={ <EllipsisVerticalIcon /> }
+													label={ __( 'More chat actions' ) }
+													aria-describedby={ titleId }
+												/>
+											}
+										/>
+										<Menu.Popup side="bottom" align="start" { ...actions.shortcuts }>
+											<ChatActionsMenuItems actions={ actions } />
+										</Menu.Popup>
+									</Menu.Root>
 								</SidebarMenuActions>
 							) }
 						</SidebarMenuItem>

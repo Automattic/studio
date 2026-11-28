@@ -85,7 +85,8 @@ it.each( [ 'Split view', 'Panel' ] as const )(
 				layout === 'Panel' ? 'panel' : 'split'
 			)
 		);
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
 				'data-workspace-layout',
@@ -175,7 +176,12 @@ it( 'returns to chat using the panel controls and site menu while preserving the
 	expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'First' );
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	expect( await screen.findByRole( 'menuitem', { name: 'New chat' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'menuitem', { name: 'Show chat' } ) ).not.toBeInTheDocument();
+	await user.click( screen.getByRole( 'menuitem', { name: 'Hide chat' } ) );
+	expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toHaveAttribute(
+		'data-workspace-layout',
+		'panel'
+	);
+	expect( document.querySelector( 'iframe' ) ).toBe( page );
 	expect( connector.startSite ).not.toHaveBeenCalled();
 	expect( connector.stopSite ).not.toHaveBeenCalled();
 } );
@@ -239,7 +245,8 @@ it( 'keeps the layout unchanged when stopping after a manual layout choice', asy
 	renderApp( { connector, path: '/sites/one/new' } );
 	await chooseLayout( 'Chat' );
 	await chooseLayout( 'Split view' );
-	fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for My site' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 	await waitFor( () =>
 		expect( screen.getByRole( 'button', { name: 'Start My site' } ) ).toBeVisible()
 	);

@@ -1,5 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { rememberVisit } from '@/features/sidebar/last-visited';
 import {
 	createFakeConnector,
@@ -35,14 +37,15 @@ function chat( id: string, updatedAt: string, archived?: boolean ) {
 
 async function setup( {
 	path = '/sites/two',
+	queryClient,
 	...state
-}: FakeConnectorInitialState & { path?: string } = {} ) {
+}: FakeConnectorInitialState & { path?: string; queryClient?: QueryClient } = {} ) {
 	const connector = createFakeConnector( {
 		sites: [ mySite, runningSite ],
 		...state,
 		preferences: { autoCollapseSites: false, ...state.preferences },
 	} );
-	return settled( renderApp( { connector, path } ), path );
+	return settled( renderApp( { connector, path, queryClient } ), path );
 }
 
 async function settled< T extends ReturnType< typeof renderApp > >( view: T, path: string ) {
@@ -84,6 +87,26 @@ function drag( row: HTMLElement, toY: number ) {
 beforeEach( () => localStorage.clear() );
 
 describe( 'sidebar site list', () => {
+	it( 'loads a site preview on hover and dismisses it when its menu opens', async () => {
+		const queryClient = new QueryClient( {
+			defaultOptions: { queries: { retry: false, gcTime: 50, networkMode: 'always' } },
+		} );
+		const { user, connector } = await setup( { queryClient } );
+		connector.getSiteThumbnail.mockResolvedValue( 'data:image/png;base64,preview' );
+		const row = await siteButton( 'My site' );
+		expect( connector.getSiteThumbnail ).not.toHaveBeenCalledWith( 'one' );
+		await user.hover( row );
+		const preview = await screen.findByRole( 'img', { name: 'Saved site preview' } );
+		expect( preview ).toBeVisible();
+		expect( connector.getSiteThumbnail ).toHaveBeenCalledWith( 'one' );
+		fireEvent.contextMenu( row );
+		await screen.findByRole( 'menu' );
+		await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		await waitFor( () =>
+			expect( queryClient.getQueryData( siteThumbnailQueryKey( 'one' ) ) ).toBeUndefined()
+		);
+	} );
+
 	it( 'records external Open in destinations and internal project tools separately', async () => {
 		const { connector } = await setup();
 		await openIn( 'My site' );
@@ -95,7 +118,7 @@ describe( 'sidebar site list', () => {
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
 		fireEvent.contextMenu( await siteButton( 'Running site' ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Admin' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Database' } ) );
 		expect( connector.openSiteUrl ).toHaveBeenCalledWith(
 			'two',
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
@@ -105,7 +128,7 @@ describe( 'sidebar site list', () => {
 			browser: 'external',
 		} );
 		expect( connector.openSiteUrl ).not.toHaveBeenCalledWith( 'two', '/wp-admin/' );
-		expect( await screen.findByRole( 'tab', { name: 'Admin' } ) ).toHaveAttribute(
+		expect( await screen.findByRole( 'tab', { name: 'Database' } ) ).toHaveAttribute(
 			'aria-selected',
 			'true'
 		);

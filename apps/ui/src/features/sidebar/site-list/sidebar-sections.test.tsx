@@ -520,6 +520,15 @@ describe( 'sidebar site sections', () => {
 		await waitFor( () => expect( badge() ).not.toBeInTheDocument() );
 	} );
 
+	it( 'stops a startup reported by the CLI without starting the site again', async () => {
+		const { connector } = setup( {
+			sites: [ { ...site, operation: { kind: 'start', pid: 123, cancelRequested: false } } ],
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
+		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( site.id ) );
+		expect( connector.startSite ).not.toHaveBeenCalled();
+	} );
+
 	it( 'shows pending question badges on site chats while retaining site startup progress', async () => {
 		const { connector } = setup( {
 			sites: [ site ],
@@ -547,7 +556,7 @@ describe( 'sidebar site sections', () => {
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
 		const action = await within( siteSection as HTMLElement ).findByRole( 'button', {
-			name: 'Starting',
+			name: 'Stop My site',
 		} );
 		expect( action ).toHaveAttribute( 'aria-busy', 'true' );
 		expect( within( chatButton ).getByText( 'Working…' ) ).toBeInTheDocument();

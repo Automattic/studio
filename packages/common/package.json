@@ -18,7 +18,7 @@
 	},
 	"dependencies": {
 		"@automattic/generate-password": "^0.2.0",
-		"@modelcontextprotocol/sdk": "^1.27.1",
+		"@modelcontextprotocol/client": "^2.4.0",
 		"@studio/blueprints": "file:../blueprints",
 		"@studio/design-md": "file:../design-md",
 		"@studio/providers": "file:../providers",

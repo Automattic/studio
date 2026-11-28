@@ -1,6 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
-import { VisuallyHidden } from '@studio/ds';
+import { TooltipAppearanceProvider, VisuallyHidden } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -53,6 +53,13 @@ import {
 	SurfaceLayer,
 	WebviewSurface,
 } from './preview-surface';
+import {
+	getWebviewContentsId,
+	subscribePreviewOpenLink,
+	type WebviewTag,
+} from './preview-surface/webview';
+import { getPreviewThemeStyle } from './preview-theme';
+import themeStyles from './preview-theme.module.css';
 import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
@@ -65,6 +72,7 @@ import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewOpenTracks } from './use-preview-open-tracks';
 import { usePreviewScreenshot } from './use-preview-screenshot';
+import { useTabThumbnail } from './use-tab-thumbnail';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
@@ -93,7 +101,9 @@ interface SitePreviewProps {
 	collapsed?: boolean;
 	inactive?: boolean;
 	blank?: boolean;
+	onThumbnail?: ( path: string, image: string ) => void;
 	onTitleChange?: ( title: string | null ) => void;
+	onOpenLinkInTab?: ( url: string ) => void;
 }
 
 function SitePreviewContent( {
@@ -108,7 +118,9 @@ function SitePreviewContent( {
 	collapsed = false,
 	inactive = false,
 	blank = false,
+	onThumbnail,
 	onTitleChange,
+	onOpenLinkInTab,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const trackOpen = usePreviewOpenTracks();
@@ -195,6 +207,20 @@ function SitePreviewContent( {
 			? !! siteDesign.data?.design
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
+	useTabThumbnail(
+		viewportRef,
+		safePath,
+		!! onThumbnail &&
+			canPreview &&
+			! blank &&
+			! inactive &&
+			! collapsed &&
+			! loadingStage &&
+			! navigating &&
+			! browserState.failed,
+		onThumbnail,
+		rendered
+	);
 	const previewBrowser = usePreviewBrowser( viewportRef );
 	const screenshot = usePreviewScreenshot(
 		viewportRef,
@@ -466,9 +492,21 @@ function SitePreviewContent( {
 		  }
 		: undefined;
 
+	const themeStyle =
+		! responsiveEnabled && ! blank && canPreview && ! rendered && ! browserState.failed
+			? getPreviewThemeStyle( activeSurface?.themeColor ?? null )
+			: undefined;
+	const tooltipAppearance = themeStyle
+		? {
+				className: themeStyles.popup,
+				style: themeStyle,
+				colorScheme: themeStyle[ '--preview-theme-color-scheme' ],
+		  }
+		: undefined;
 	const header = (
 		<PreviewHeader
 			inactive={ inactive }
+			themeStyle={ themeStyle }
 			site={ site }
 			siteUrl={ siteUrl }
 			path={ safePath }
@@ -507,27 +545,34 @@ function SitePreviewContent( {
 		<aside
 			className={ styles.root }
 			data-browser-bar={ showBrowserBar || undefined }
+			style={ themeStyle }
 			aria-label={ __( 'Panel' ) }
 		>
 			{ ! inactive && annotate && annotationSpace
 				? createPortal(
-						<AnnotateButton
-							{ ...annotate }
-							annotationCount={ batchNotes.length }
-							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
-						/>,
+						<TooltipAppearanceProvider value={ tooltipAppearance }>
+							<AnnotateButton
+								{ ...annotate }
+								annotationCount={ batchNotes.length }
+								pageTools={ activeSurfaceKey === 'site' && canAnnotate }
+							/>
+						</TooltipAppearanceProvider>,
 						annotationSpace
 				  )
 				: null }
-			{ showBrowserBar && activeSurfaceKey !== 'email' ? header : null }
-			{ showBrowserBar && responsiveEnabled ? (
-				<ResponsiveToolbar
-					siteId={ site.id }
-					settings={ responsiveSettings }
-					fitScale={ fitScale }
-					active={ responsiveActive }
-				/>
-			) : null }
+			<div className={ styles.chrome } data-preview-theme={ !! themeStyle || undefined }>
+				<TooltipAppearanceProvider value={ tooltipAppearance }>
+					{ showBrowserBar && activeSurfaceKey !== 'email' ? header : null }
+				</TooltipAppearanceProvider>
+				{ showBrowserBar && responsiveEnabled ? (
+					<ResponsiveToolbar
+						siteId={ site.id }
+						settings={ responsiveSettings }
+						fitScale={ fitScale }
+						active={ responsiveActive }
+					/>
+				) : null }
+			</div>
 			<div className={ styles.body }>
 				<div
 					ref={ viewportRef }
@@ -619,6 +664,7 @@ function SitePreviewContent( {
 											annotationTool={ annotationTools.tool }
 											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
+											onThemeColorChange={ ( themeColor ) => patchSurface( key, { themeColor } ) }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
 											onAdminBarVisibilityChange={
@@ -630,10 +676,15 @@ function SitePreviewContent( {
 										/>
 									) : (
 										<FrameSurface
+											onOpenLinkInTab={
+												! inactive && ! collapsed && active ? onOpenLinkInTab : undefined
+											}
 											key={ frameKey }
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
 											browserCommand={ surface.browserCommand }
+											themeColorActive={ active && ! inactive && ! collapsed }
+											onThemeColorChange={ ( themeColor ) => patchSurface( key, { themeColor } ) }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={
 												key === 'site' && ! live
@@ -722,7 +773,7 @@ export function SitePreview( props: SitePreviewProps ) {
 		liveUrl: reviewLiveUrl,
 		onStartAnnotating: onReviewStart,
 	} = props;
-	const { workspace, selected, patch, select, update } = usePreviewTabs(
+	const { workspace, selected, patch, select, update, add } = usePreviewTabs(
 		previewTabsKey( props.site.id, props.liveUrl ),
 		hostPath
 	);
@@ -741,6 +792,32 @@ export function SitePreview( props: SitePreviewProps ) {
 		forwarded: string | null;
 	} >( { host: hostPath, selectedId: workspace.selectedId, forwarded: null } );
 	const root = useRef< HTMLDivElement >( null );
+	const siteUrl = props.liveUrl ?? getSiteUrl( props.site );
+	const openLinkInTab = useCallback(
+		( url: string ) => {
+			const path = getPathFromPreviewUrl( url, siteUrl );
+			if ( path ) add( path, { background: true } );
+		},
+		[ add, siteUrl ]
+	);
+	useEffect(
+		() =>
+			subscribePreviewOpenLink( ( _event, { guestId, url } ) => {
+				if ( props.collapsed ) return;
+				const views = root.current?.querySelectorAll< WebviewTag >(
+					'[data-active-tab]:not([inert]) webview'
+				);
+				const guest = Array.from( views ?? [] ).find( ( view ) => {
+					try {
+						return getWebviewContentsId( view ) === guestId;
+					} catch {
+						return false;
+					}
+				} );
+				if ( guest ) openLinkInTab( url );
+			} ),
+		[ openLinkInTab, props.collapsed ]
+	);
 	const lastFocusRequest = useRef( workspace.focusRequest );
 	const externalNavigation =
 		observed.host !== hostPath &&
@@ -844,7 +921,24 @@ export function SitePreview( props: SitePreviewProps ) {
 							blank={ tab.path === null }
 							collapsed={ props.collapsed || ! active }
 							onPathChange={ ( path ) => navigate( tab.id, path ) }
+							onThumbnail={ ( path, image ) =>
+								update( ( current ) => {
+									const target = current.tabs.find( ( t ) => t.id === tab.id );
+									if (
+										target?.path !== path ||
+										( target.thumbnail?.path === path && target.thumbnail.image === image )
+									)
+										return current;
+									return {
+										...current,
+										tabs: current.tabs.map( ( t ) =>
+											t.id === tab.id ? { ...t, thumbnail: { path, image } } : t
+										),
+									};
+								} )
+							}
 							onTitleChange={ ( title ) => patch( tab.id, { title } ) }
+							onOpenLinkInTab={ openLinkInTab }
 						/>
 					</div>
 				);

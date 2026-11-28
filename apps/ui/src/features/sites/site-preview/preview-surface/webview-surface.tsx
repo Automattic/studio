@@ -4,7 +4,6 @@ import {
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
-import { getEmbeddedFontData } from '@studio/ds/theme';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import {
@@ -14,6 +13,7 @@ import {
 	type BrowserCommand,
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
+import { getEmbeddedFontData } from '@studio/ds/theme';
 import { buildClearSelectionScript, buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import {
@@ -28,6 +28,7 @@ import {
 	type WebviewFailLoadEvent,
 	type WebviewPageTitleUpdatedEvent,
 	type WebviewStartNavigationEvent,
+	type WebviewThemeColorEvent,
 	type WebviewTag,
 	type PreviewColorScheme,
 } from './webview';
@@ -47,6 +48,7 @@ interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onNavigate?: ( url: string ) => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
+	onThemeColorChange?: ( color: string | null ) => void;
 	// A page finished loading, with the webview's guest id for capturing it.
 	onLoad?: ( url: string, guestId: number ) => void;
 	// Whether to inject the annotation inspector into the guest page. Off for
@@ -73,6 +75,7 @@ export function WebviewSurface( {
 	onBrowserStateChange,
 	onNavigate,
 	onAdminBarVisibilityChange,
+	onThemeColorChange,
 	onLoad,
 	inspector = true,
 }: WebviewSurfaceProps ) {
@@ -85,6 +88,7 @@ export function WebviewSurface( {
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onNavigateRef = useRef( onNavigate );
 	const onAdminBarVisibilityRef = useRef( onAdminBarVisibilityChange );
+	const onThemeColorRef = useRef( onThemeColorChange );
 	const visibilityRequestRef = useRef( 0 );
 	const onLoadRef = useRef( onLoad );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
@@ -107,6 +111,9 @@ export function WebviewSurface( {
 	useEffect( () => {
 		onAdminBarVisibilityRef.current = onAdminBarVisibilityChange;
 	}, [ onAdminBarVisibilityChange ] );
+	useEffect( () => {
+		onThemeColorRef.current = onThemeColorChange;
+	}, [ onThemeColorChange ] );
 	useEffect( () => {
 		onLoadRef.current = onLoad;
 	}, [ onLoad ] );
@@ -250,7 +257,8 @@ export function WebviewSurface( {
 		};
 
 		const handleConsoleMessage = ( event: Event ) => {
-			const parsed = parseInspectorMessage( ( event as WebviewConsoleEvent ).message );
+			const message = ( event as WebviewConsoleEvent ).message;
+			const parsed = parseInspectorMessage( message );
 			if ( ! parsed ) return;
 			if ( 'anchor' in parsed && parsed.anchor ) {
 				const box = webview.getBoundingClientRect();
@@ -315,6 +323,11 @@ export function WebviewSurface( {
 			}
 		};
 
+		const handleThemeColor = ( event: Event ) => {
+			onThemeColorRef.current?.( ( event as WebviewThemeColorEvent ).themeColor || null );
+		};
+
+		webview.addEventListener( 'did-change-theme-color', handleThemeColor );
 		webview.addEventListener( 'dom-ready', handleDomReady );
 		webview.addEventListener( 'console-message', handleConsoleMessage );
 		webview.addEventListener( 'page-title-updated', handlePageTitleUpdated );
@@ -342,6 +355,7 @@ export function WebviewSurface( {
 		return () => {
 			domReadyRef.current = false;
 			visibilityRequestRef.current += 1;
+			webview.removeEventListener( 'did-change-theme-color', handleThemeColor );
 			webview.removeEventListener( 'dom-ready', handleDomReady );
 			webview.removeEventListener( 'console-message', handleConsoleMessage );
 			webview.removeEventListener( 'page-title-updated', handlePageTitleUpdated );

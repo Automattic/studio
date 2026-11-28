@@ -1,24 +1,35 @@
-.root,
-.activityItems {
+.root {
+	--chat-turn-gap: var( --space-6 );
+	--chat-section-gap: var( --space-3 );
+	--chat-item-gap: var( --space-1 );
+
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-6 );
+	gap: var( --chat-turn-gap );
 }
 
 .speakerGroup,
 .activityItems {
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-1 );
+	gap: var( --chat-item-gap );
+}
+
+.speakerGroup[data-speaker='assistant'] {
+	gap: 0;
+}
+
+.speakerGroup[data-speaker='assistant'] > * + * {
+	margin-block-start: var( --chat-section-gap );
+}
+
+.speakerGroup[data-speaker='assistant'] > * + [data-joined-above] {
+	margin-block-start: var( --chat-item-gap );
 }
 
 .activityItems > [data-trace-row] + :not( [data-trace-row] ),
 .activityItems > :not( [data-trace-row] ) + [data-trace-row] {
 	margin-block-start: var( --space-2 );
-}
-
-.speakerGroup + .speakerGroup:has( > [data-turn-activity]:first-child ) {
-	margin-block-start: calc( var( --space-4_5 ) - var( --space-6 ) );
 }
 
 /* Only speaker groups skip layout and paint: collapsible contents need their real
@@ -35,6 +46,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-1 );
+	max-width: min( 85%, 32rem );
 }
 
 .adminLinkArtifact {
@@ -51,7 +63,7 @@
 	composes: imageOutline from '@studio/ds/theme/recipes.module.css';
 	position: relative;
 	max-width: 100%;
-	border-radius: var( --radius-lg );
+	border-radius: var( --radius-md );
 }
 
 .mediaArtifactImage img {
@@ -61,9 +73,6 @@
 }
 
 .marker {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2 );
 	min-height: 16px;
 	color: var( --muted-foreground );
 	font-size: var( --text-sm );

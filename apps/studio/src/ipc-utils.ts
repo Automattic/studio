@@ -13,6 +13,7 @@ export interface IpcEvents {
 	'new-chat': [ void ];
 	'open-folder': [ void ];
 	'open-site': [ { siteId: string } ];
+	'preview-open-link': [ { guestId: number; url: string } ];
 	'pull-site': [ { remoteSiteId: number } ];
 	// `source` is what the site is created from, when it isn't the Blueprint itself.
 	'add-site-with-blueprint': [ { blueprint: Blueprint; source?: string } ];

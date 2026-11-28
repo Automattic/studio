@@ -671,6 +671,17 @@ export const noInlineDisplayOnBlockWrappers = check( ( d, vars ) => {
 		: pass( `${ blockClasses.size } block classes, none displayed inline` );
 } );
 
+// Some of the front page is styled through block settings with preset values,
+// which stay editable in the block's sidebar, rather than only through classes.
+export const blockSettingsUsePresets = check( ( d, vars ) => {
+	const blocks =
+		( frontPage( site( d, vars ) )?.content || '' ).match( /<!-- wp:\S+ \{.*?\} \/?-->/g ) || [];
+	const styled = blocks.filter( ( b ) => /"style":\{/.test( b ) && /var:preset\|/.test( b ) );
+	return styled.length
+		? pass( `${ styled.length } block(s) styled through preset settings` )
+		: fail( 'no front-page block has a style setting with a preset value' );
+} );
+
 // A registered block style variation is applied to the repeated cards, and
 // repeated font sizes come from presets.
 export const repeatedTreatmentIsBlockStyle = check( ( d, vars ) => {

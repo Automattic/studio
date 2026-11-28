@@ -17,13 +17,17 @@ import {
 	ExternalLinkIcon,
 	GlobeIcon,
 	PaperPlaneIcon,
+	SlidersVerticalIcon,
 	WordPressIcon,
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { UserRoundIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import styles from './address-bar.module.css';
 import { PREVIEW_HISTORY_CLEARED_EVENT } from './preview-browser-settings';
+import themeStyles from './preview-theme.module.css';
+import type { PreviewThemeStyle } from './preview-theme';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType, FormEvent, ReactNode } from 'react';
 
@@ -146,9 +150,11 @@ interface PreviewAddressBarProps {
 	pageTitle?: string | null;
 	loading?: boolean;
 	onOpenExternal?: () => void;
+	onOpenSiteSettings?: () => void;
 	onExternalNavigate?: ( url: string ) => void;
 	disabled?: boolean;
 	compact?: boolean;
+	themeStyle?: PreviewThemeStyle;
 }
 
 interface RecentPreviewLocation {
@@ -249,12 +255,14 @@ function AddressAction( {
 	icon,
 	label,
 	tooltip = label,
+	hasPopup,
 	onClick,
 	disabled,
 }: {
 	icon: ReactNode;
 	label: string;
 	tooltip?: string;
+	hasPopup?: 'dialog';
 	onClick: () => void;
 	disabled?: boolean;
 } ) {
@@ -265,7 +273,9 @@ function AddressAction( {
 					<Button
 						variant="ghost"
 						size="icon-2xs"
+						type="button"
 						className={ styles.action }
+						aria-haspopup={ hasPopup }
 						aria-label={ label }
 						disabled={ disabled }
 						onClick={ onClick }
@@ -288,9 +298,11 @@ export function PreviewAddressBar( {
 	pageTitle,
 	loading = false,
 	onOpenExternal,
+	onOpenSiteSettings,
 	onExternalNavigate,
 	disabled = false,
 	compact = false,
+	themeStyle,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
@@ -433,6 +445,7 @@ export function PreviewAddressBar( {
 				className={ styles.addressBar }
 				data-recent-open={ isRecentOpen || undefined }
 				data-compact={ compact || undefined }
+				data-site-settings={ onOpenExternal && onOpenSiteSettings ? true : undefined }
 				onSubmit={ handleSubmit }
 			>
 				<Popover.Trigger
@@ -502,6 +515,15 @@ export function PreviewAddressBar( {
 				</span>
 				{ onOpenExternal ? (
 					<span className={ styles.actions } data-address-action>
+						{ onOpenSiteSettings && (
+							<AddressAction
+								icon={ <SlidersVerticalIcon className={ styles.settingsIcon } /> }
+								label={ __( 'Site settings' ) }
+								hasPopup="dialog"
+								onClick={ onOpenSiteSettings }
+								disabled={ disabled }
+							/>
+						) }
 						<AddressAction
 							icon={ <ExternalLinkIcon /> }
 							label={ __( 'Open this page in your browser' ) }
@@ -521,7 +543,9 @@ export function PreviewAddressBar( {
 				initialFocus={ false }
 				finalFocus={ false }
 				aria-label={ __( 'Recent pages' ) }
-				className={ styles.recentPopup }
+				className={ clsx( styles.recentPopup, themeStyle && themeStyles.popup ) }
+				style={ themeStyle }
+				data-color-scheme={ themeStyle?.[ '--preview-theme-color-scheme' ] }
 			>
 				<CommandList
 					id={ recentId }

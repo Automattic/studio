@@ -44,6 +44,93 @@ async function renderFrame( src = origin ) {
 }
 
 describe( 'preview iframe shortcuts', () => {
+	it( 'accepts colors only from the current document of its own active frame', async () => {
+		const onThemeColorChange = vi.fn();
+		const onOpenLinkInTab = vi.fn();
+		const view = renderWithProviders(
+			<FrameSurface
+				src={ origin }
+				title="Color preview"
+				onLoad={ vi.fn() }
+				onSettle={ vi.fn() }
+				themeColorActive
+				onThemeColorChange={ onThemeColorChange }
+				onOpenLinkInTab={ onOpenLinkInTab }
+			/>
+		);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => new Response() )
+		);
+		const frame = ( await screen.findByTitle( 'Color preview' ) ) as HTMLIFrameElement;
+		const postMessage = vi.spyOn( frame.contentWindow!, 'postMessage' );
+		fireEvent.load( frame );
+		const init = postMessage.mock.calls.find(
+			( [ message ] ) => message.type === 'studio:preview-shortcuts:init'
+		)!;
+		const navigationId = init[ 0 ].navigationId;
+		onThemeColorChange.mockClear();
+		const send = (
+			data: object,
+			source: MessageEventSource | null = frame.contentWindow,
+			from = origin
+		) => fireEvent( window, new MessageEvent( 'message', { source, origin: from, data } ) );
+		const message = { type: 'studio:preview:theme-color', color: '#123456', navigationId };
+		send( message, window );
+		send( message, frame.contentWindow, 'https://other.test' );
+		send( { ...message, navigationId: navigationId - 1 } );
+		send( { ...message, color: 'red' } );
+		expect( onThemeColorChange ).not.toHaveBeenCalled();
+		send( message );
+		expect( onThemeColorChange ).toHaveBeenLastCalledWith( '#123456' );
+		const openLink = {
+			type: 'studio:preview:open-link',
+			url: `${ origin }/sample-page/`,
+			navigationId,
+		};
+		send( { ...openLink, navigationId: navigationId - 1 } );
+		expect( onOpenLinkInTab ).not.toHaveBeenCalled();
+		send( openLink );
+		expect( onOpenLinkInTab ).toHaveBeenCalledExactlyOnceWith( openLink.url );
+		expect( onThemeColorChange ).toHaveBeenCalledTimes( 1 );
+		send( { type: 'studio:preview:navigating', navigationId } );
+		expect( onThemeColorChange ).toHaveBeenCalledTimes( 1 );
+		send( message );
+		expect( onThemeColorChange ).toHaveBeenCalledTimes( 1 );
+		fireEvent.load( frame );
+		expect( onThemeColorChange ).toHaveBeenCalledTimes( 1 );
+		send( { ...message, color: null, navigationId: navigationId + 1 } );
+		expect( onThemeColorChange ).toHaveBeenLastCalledWith( null );
+		view.unmount();
+	} );
+
+	it( 'falls back when a loaded frame does not report a color', async () => {
+		const onThemeColorChange = vi.fn();
+		const view = renderWithProviders(
+			<FrameSurface
+				src={ origin }
+				title="Unreachable color"
+				onLoad={ vi.fn() }
+				onSettle={ vi.fn() }
+				themeColorActive
+				onThemeColorChange={ onThemeColorChange }
+			/>
+		);
+		const frame = ( await screen.findByTitle( 'Unreachable color' ) ) as HTMLIFrameElement;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => new Response() )
+		);
+		vi.useFakeTimers();
+		fireEvent.load( frame );
+		expect( onThemeColorChange ).not.toHaveBeenCalled();
+		await act( async () => {
+			vi.advanceTimersByTime( 4000 );
+		} );
+		expect( onThemeColorChange ).toHaveBeenCalledExactlyOnceWith( null );
+		view.unmount();
+		vi.useRealTimers();
+	} );
 	it( 'probes the site root instead of replaying a logout or other action URL', async () => {
 		await renderFrame( `${ origin }/wp-login.php?action=logout&_wpnonce=example` );
 		expect( fetch ).toHaveBeenCalledExactlyOnceWith(

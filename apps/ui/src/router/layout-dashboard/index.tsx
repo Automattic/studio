@@ -245,7 +245,7 @@ function DashboardLayout() {
 				Number.parseFloat( getComputedStyle( tabHeader ).getPropertyValue( '--band-gap' ) ) || 0;
 			tabHeader.style.setProperty(
 				'--tabs-lead-width',
-				`${ ( isRTL() ? box.right - title.left : title.right - box.left ) + gap }px`
+				`${ isRTL() ? box.right - title.left : title.right - box.left }px`
 			);
 			const inset = Number.parseFloat( getComputedStyle( actionsContainer ).paddingInlineEnd ) || 0;
 			tabHeader.style.setProperty( '--tabs-actions-width', `${ buttons.width + inset + gap }px` );
@@ -399,6 +399,13 @@ function DashboardLayout() {
 	);
 	const changePanelFullscreen = ( fullscreen: boolean ) =>
 		setPanelFullscreen( fullscreen, { instant: true, userInitiated: true } );
+	const toggleChat = () => {
+		if ( narrow ) {
+			setPanelOpen( ! panelVisible, { instant: true, userInitiated: true } );
+		} else {
+			changePanelFullscreen( ! chatHidden );
+		}
+	};
 	useEffect(
 		() =>
 			connector.onTogglePanel( () => {
@@ -578,7 +585,8 @@ function DashboardLayout() {
 		<PanelCommandContext.Provider
 			value={ {
 				siteId: routeSite?.id,
-				showChat: chatHidden ? () => changePanelFullscreen( false ) : undefined,
+				chatHidden,
+				toggleChat: supportsPreview ? toggleChat : undefined,
 				toggle: () => {
 					if ( panelVisible ) setPanelOpen( false, { instant: true, userInitiated: true } );
 					else setPanelFullscreen( false, { instant: true, userInitiated: true } );

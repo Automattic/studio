@@ -1,54 +1,80 @@
-import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
-import { PlayIcon, SquareIcon } from '@studio/ds/icons';
+import {
+	Button,
+	IconButton,
+	Menu,
+	Spinner,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@studio/ds';
+import { EllipsisVerticalIcon, PlayIcon, SquareIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
-import { useIsSiteBusy, useSiteOperation, useStopSite } from '@/data/queries/use-sites';
-import { useSiteSyncActivity } from '@/data/sync-activity';
-import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { useSiteLifecycleState } from '@/data/use-site-lifecycle-state';
+import { SiteMenuItems, type SiteActions } from '@/features/sites';
 import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
-import type { SiteDetails } from '@/data/core';
 
 export function SiteStatusButton( {
-	site,
+	actions,
 	isStarting,
 	isStopping,
-	onStart,
 }: {
-	site: SiteDetails;
+	actions: SiteActions;
 	isStarting: boolean;
 	isStopping: boolean;
-	onStart?: () => void;
 } ) {
-	const startSite = useStartSiteWithChat();
-	const stopSite = useStopSite();
-	const siteBusy = useIsSiteBusy( site );
-	const activity = useSiteSyncActivity( site.id );
-	const isSyncPending = activity?.kind === 'pending' && activity.direction !== 'preview';
-	const busy = siteBusy || isSyncPending;
-	const operation = useSiteOperation( site );
-	const visuallyStopped = isStopping || operation === 'stop';
-	const visualBusy = isSyncPending || ( siteBusy && ! visuallyStopped );
-	const visualRunning = !! site.running && ! visuallyStopped;
+	const { site } = actions;
+	const {
+		activity,
+		isSyncPending,
+		operation,
+		stoppingStart,
+		canStopStart,
+		visuallyStopped,
+		visualBusy,
+		visualRunning,
+		disabled,
+	} = useSiteLifecycleState( site, isStarting, isStopping );
 	const status = getSiteStatus( site, isStarting, isStopping, operation );
 	const statusName = isSyncPending
-		? activity.direction === 'import'
+		? activity?.direction === 'import'
 			? __( 'Importing backup' )
 			: __( 'Syncing live site' )
+		: stoppingStart
+		? __( 'Stopping' )
 		: getSiteStatusName( {
 				running: site.running,
 				starting: isStarting,
 				stopping: isStopping,
 				operation,
 		  } );
-	const label = sprintf( visualRunning ? __( 'Stop %s' ) : __( 'Start %s' ), site.name );
-	const handleClick = () => {
-		if ( site.running ) {
-			stopSite.mutate( site.id );
-		} else {
-			startSite.mutate( site.id );
-			onStart?.();
-		}
-	};
+	const label = sprintf(
+		visualRunning || canStopStart ? __( 'Stop %s' ) : __( 'Start %s' ),
+		site.name
+	);
+
+	if ( site.running && ! actions.busy && ! isSyncPending ) {
+		return (
+			<Menu.Root modal={ false }>
+				<Menu.Trigger
+					render={
+						<IconButton
+							variant="muted-ghost"
+							size="icon-inset"
+							icon={ <EllipsisVerticalIcon /> }
+							label={ sprintf( __( 'Actions for %s' ), site.name ) }
+							tooltipLabel={ __( 'Site menu' ) }
+							data-state="running"
+							{ ...actions.shortcuts }
+						/>
+					}
+				/>
+				<Menu.Popup side="bottom" align="start" { ...actions.shortcuts }>
+					<SiteMenuItems actions={ actions } showChatActions={ false } />
+				</Menu.Popup>
+			</Menu.Root>
+		);
+	}
 
 	return (
 		<Tooltip>
@@ -57,16 +83,22 @@ export function SiteStatusButton( {
 					<Button
 						className={ styles.statusButton }
 						variant="muted-ghost"
-						size="icon-sm"
-						aria-label={ visualBusy ? statusName : label }
+						size="icon-inset"
+						aria-label={ visualBusy && ! canStopStart ? statusName : label }
 						aria-busy={ visualBusy || undefined }
-						disabled={ busy }
+						disabled={ disabled }
 						focusableWhenDisabled
 						data-state={ visuallyStopped ? 'stopped' : status }
-						onClick={ handleClick }
+						onClick={ canStopStart ? () => actions.stop( [ site ] ) : actions.toggleRunning }
 					>
 						{ visualBusy ? (
-							<Spinner aria-hidden="true" />
+							<>
+								<Spinner
+									aria-hidden="true"
+									className={ canStopStart ? styles.startSpinner : undefined }
+								/>
+								{ canStopStart && <SquareIcon className={ styles.cancelStartIcon } /> }
+							</>
 						) : visualRunning ? (
 							<SquareIcon />
 						) : (
@@ -76,7 +108,11 @@ export function SiteStatusButton( {
 				}
 			/>
 			<TooltipContent>
-				{ visualBusy ? statusName : visualRunning ? __( 'Stop site' ) : __( 'Start site' ) }
+				{ visualBusy && ! canStopStart
+					? statusName
+					: visualRunning || canStopStart
+					? __( 'Stop site' )
+					: __( 'Start site' ) }
 			</TooltipContent>
 		</Tooltip>
 	);

@@ -45,6 +45,36 @@ it( 'reads actual toolbar visibility after load and ignores an older document re
 	expect( onAdminBarVisibilityChange ).toHaveBeenLastCalledWith( false );
 } );
 
+it( 'follows native theme-color changes and keeps the current color during navigation', async () => {
+	const onThemeColorChange = vi.fn();
+	const view = renderWithProviders(
+		<WebviewSurface
+			url="http://localhost:9010"
+			reloadNonce={ 0 }
+			inspector={ false }
+			onThemeColorChange={ onThemeColorChange }
+		/>
+	);
+	await waitFor( () => expect( view.container.querySelector( 'webview' ) ).not.toBeNull() );
+	const guest = view.container.querySelector( 'webview' )!;
+	const report = ( themeColor: string | null ) =>
+		fireEvent( guest, Object.assign( new Event( 'did-change-theme-color' ), { themeColor } ) );
+	report( '#123456' );
+	expect( onThemeColorChange ).toHaveBeenLastCalledWith( '#123456' );
+	fireEvent(
+		guest,
+		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
+	);
+	expect( onThemeColorChange ).toHaveBeenCalledTimes( 1 );
+	report( '#abcdef' );
+	expect( onThemeColorChange ).toHaveBeenLastCalledWith( '#abcdef' );
+	report( null );
+	expect( onThemeColorChange ).toHaveBeenLastCalledWith( null );
+	view.unmount();
+	report( '#123456' );
+	expect( onThemeColorChange ).toHaveBeenCalledTimes( 3 );
+} );
+
 it( 'maps scaled guest annotation anchors into host coordinates', async () => {
 	const onInspectorEvent = vi.fn();
 	const view = renderWithProviders(

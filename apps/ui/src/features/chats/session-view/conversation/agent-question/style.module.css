@@ -10,8 +10,7 @@
 }
 
 .questionCard {
-	composes: surface from '../bubble.module.css';
-	--bubble-border-width: 0;
+	composes: shape from '../bubble.module.css';
 	--surface: light-dark( var( --surface-1 ), var( --surface-2 ) );
 	display: flex;
 	flex-direction: column;

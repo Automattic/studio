@@ -103,7 +103,7 @@ describe( 'Stop other sites', () => {
 		async ( contextMenu ) => {
 			const { open, connector } = setup( { contextMenu } );
 			await open();
-			const admin = await screen.findByRole( 'menuitem', { name: 'WordPress admin' } );
+			const admin = await screen.findByRole( 'menuitem', { name: 'Admin' } );
 			expect( admin.previousElementSibling ).toHaveTextContent( 'Open in' );
 			expect( admin.nextElementSibling ).toHaveRole( 'separator' );
 			expect( admin.lastElementChild ).toHaveAttribute( 'data-icon', 'inline-end' );
@@ -117,14 +117,19 @@ describe( 'Stop other sites', () => {
 			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toBeEmptyDOMElement();
 			await open();
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-			expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeVisible();
-			expect( screen.queryByRole( 'menuitem', { name: 'Admin' } ) ).not.toBeInTheDocument();
+			const database = await screen.findByRole( 'menuitem', { name: 'Database' } );
+			expect( database ).toBeVisible();
+			expect(
+				within( database.closest( '[role="menu"]' ) as HTMLElement ).queryByRole( 'menuitem', {
+					name: 'Admin',
+				} )
+			).not.toBeInTheDocument();
 			fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 			const browser = await screen.findByRole( 'menuitem', { name: 'Browser' } );
 			expect(
 				within( browser.closest( '[role="menu"]' ) as HTMLElement ).queryByRole( 'menuitem', {
-					name: 'WordPress admin',
+					name: 'Admin',
 				} )
 			).not.toBeInTheDocument();
 		}

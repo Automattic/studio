@@ -149,11 +149,11 @@ export function useOpenInDestinations(
 		},
 		{
 			id: 'wp-admin',
-			label: __( 'WordPress admin' ),
+			label: __( 'Admin' ),
 			logo: <WordPressMark />,
 			disabled: false,
 			open: () =>
-				open( 'wp-admin', __( 'WordPress admin' ), () => {
+				open( 'wp-admin', __( 'Admin' ), () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
 					return openSiteUrl( '/wp-admin/' );
 				} ),

@@ -105,7 +105,7 @@ describe( 'site title actions', () => {
 
 	it.each( [
 		[ 'Browser', '/', { autoLogin: false } ],
-		[ 'WordPress admin', '/wp-admin/', undefined ],
+		[ 'Admin', '/wp-admin/', undefined ],
 		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],
 	] )( 'starts a stopped site before opening %s', async ( label, path, options ) => {
 		let finishStart!: () => void;
@@ -116,7 +116,7 @@ describe( 'site title actions', () => {
 				} ),
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		if ( label !== 'WordPress admin' ) {
+		if ( label !== 'Admin' ) {
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 		}
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
@@ -132,13 +132,13 @@ describe( 'site title actions', () => {
 		);
 	} );
 
-	it.each( [ 'Browser', 'WordPress admin', 'phpMyAdmin' ] )(
+	it.each( [ 'Browser', 'Admin', 'phpMyAdmin' ] )(
 		'does not open %s when starting fails',
 		async ( label ) => {
 			const { connector } = setup();
 			connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-			if ( label !== 'WordPress admin' ) {
+			if ( label !== 'Admin' ) {
 				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
 			}
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );

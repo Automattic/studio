@@ -585,6 +585,19 @@ describe( 'site preview controls', () => {
 		expect( screen.queryByRole( 'option', { name: 'WordPress Admin' } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'opens settings for the local site from its preview address bar', async () => {
+		const { user, history, update } = await renderPreview( 'browser' );
+		await user.click( screen.getByRole( 'button', { name: 'Site settings' } ) );
+		await waitFor( () => {
+			const search = new URLSearchParams( history.location.search );
+			expect( search.get( 'settings' ) ).toBe( 'site' );
+			expect( search.get( 'settingsSite' ) ).toBe( 'one' );
+		} );
+
+		update( { liveUrl: 'https://example.wordpress.com' } );
+		expect( screen.queryByRole( 'button', { name: 'Site settings' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'opens the front end externally logged out and WP Admin with auto-login', async () => {
 		const connector = createFakeConnector();
 		const { update, user } = await renderPreview(

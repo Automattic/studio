@@ -1,5 +1,11 @@
+import { IconButton, Spinner } from '@studio/ds';
+import { PlayIcon, SquareIcon } from '@studio/ds/icons';
+import { __ } from '@wordpress/i18n';
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { useInlineEndControlsInset } from '@/data/host/use-window-controls-inset';
+import { useIsSiteStarting, useIsSiteStopping, useStopSite } from '@/data/queries/use-sites';
+import { useSiteLifecycleState } from '@/data/use-site-lifecycle-state';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { PublishButton } from '@/features/site-delivery';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
@@ -70,6 +76,12 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	const { attachActions } = useSiteHeader();
 	const root = useRef< HTMLDivElement >( null );
 	const inset = useInlineEndControlsInset();
+	const start = useStartSiteWithChat();
+	const stop = useStopSite();
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
+	const { starting, stoppingStart, canStopStart, visualRunning, visualBusy, disabled } =
+		useSiteLifecycleState( site, isStarting, isStopping );
 	const publishButton = (
 		<span data-site-header-publish className={ styles.publish }>
 			<PublishButton key={ site.id } site={ site } />
@@ -85,6 +97,39 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 			<div ref={ attachActions } className={ styles.actions }>
 				<div data-site-header-delivery className={ styles.delivery }>
 					{ publishButton }
+					<IconButton
+						variant="ghost"
+						size="icon-sm"
+						className={ styles.lifecycle }
+						icon={
+							visualBusy ? (
+								<>
+									<Spinner
+										aria-hidden="true"
+										className={ canStopStart ? styles.startSpinner : undefined }
+									/>
+									{ canStopStart && <SquareIcon className={ styles.cancelStartIcon } /> }
+								</>
+							) : visualRunning ? (
+								<SquareIcon />
+							) : (
+								<PlayIcon />
+							)
+						}
+						label={
+							stoppingStart
+								? __( 'Stopping' )
+								: starting && ! canStopStart
+								? __( 'Starting site' )
+								: visualRunning || canStopStart
+								? __( 'Stop site' )
+								: __( 'Start site' )
+						}
+						aria-busy={ visualBusy || undefined }
+						tooltipSide="bottom"
+						disabled={ disabled }
+						onClick={ () => ( site.running || canStopStart ? stop : start ).mutate( site.id ) }
+					/>
 				</div>
 			</div>
 		</div>

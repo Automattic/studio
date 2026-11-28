@@ -50,7 +50,9 @@ describe( 'sidebar site menu', () => {
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
 		fireEvent.contextMenu( screen.getByRole( 'button', { name: 'My site' } ) );
 		expect( await menuItems() ).toEqual(
-			titleItems.filter( ( item ) => item !== 'New chat' && item !== 'Show chat' )
+			titleItems.filter(
+				( item ) => item !== 'New chat' && item !== 'Show chat' && item !== 'Hide chat'
+			)
 		);
 	} );
 

@@ -8,7 +8,7 @@ import {
 	VisuallyHidden,
 } from '@studio/ds';
 import { PlusIcon, XIcon } from '@studio/ds/icons';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { X } from 'lucide-react';
@@ -229,7 +229,7 @@ export function PreviewTabs( {
 					onClickCapture={ reorder.onClickCapture }
 					onDragStart={ ( event ) => event.preventDefault() }
 				>
-					{ workspace.tabs.map( ( tab, index ) => {
+					{ workspace.tabs.map( ( tab ) => {
 						const realm =
 							tab.path === null ? 'frontend' : getPreviewRealm( tab.path, frontendOrigin );
 						const { Icon } = getSiteTool( realm );
@@ -301,15 +301,7 @@ export function PreviewTabs( {
 										<PlusIcon />
 										{ __( 'New tab' ) }
 									</Menu.Item>
-									<Menu.Item
-										disabled={ busy || tab.path === null || realm === 'design' }
-										onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
-									>
-										{ destination.logo }
-										{ /* translators: %s: the browser or system file manager name. */ }
-										{ sprintf( __( 'Open in %s' ), destination.label ) }
-									</Menu.Item>
-									<Menu.Separator />
+									{ workspace.tabs.length > 1 && <Menu.Separator /> }
 									<Menu.Item onClick={ () => closeTabs( [ tab.id ] ) }>
 										<X />
 										{ __( 'Close tab' ) }
@@ -325,20 +317,10 @@ export function PreviewTabs( {
 											}
 										>
 											<X />
-											{ __( 'Close other tabs' ) }
+											{ _n( 'Close other tab', 'Close other tabs', workspace.tabs.length - 1 ) }
 										</Menu.Item>
 									) }
-									{ index > 0 && index < workspace.tabs.length - 1 && (
-										<Menu.Item
-											onClick={ () =>
-												closeTabs( workspace.tabs.slice( index + 1 ).map( ( other ) => other.id ) )
-											}
-										>
-											<X />
-											{ __( 'Close tabs to the right' ) }
-										</Menu.Item>
-									) }
-									{ workspace.tabs.length > 1 && (
+									{ workspace.tabs.length > 2 && (
 										<Menu.Item
 											onClick={ () => closeTabs( workspace.tabs.map( ( other ) => other.id ) ) }
 										>
@@ -346,6 +328,15 @@ export function PreviewTabs( {
 											{ __( 'Close all tabs' ) }
 										</Menu.Item>
 									) }
+									<Menu.Separator />
+									<Menu.Item
+										disabled={ busy || tab.path === null || realm === 'design' }
+										onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
+									>
+										{ destination.logo }
+										{ /* translators: %s: the browser or system file manager name. */ }
+										{ sprintf( __( 'Open in %s' ), destination.label ) }
+									</Menu.Item>
 								</Menu.ContextPopup>
 							</Menu.ContextMenuRoot>
 						);

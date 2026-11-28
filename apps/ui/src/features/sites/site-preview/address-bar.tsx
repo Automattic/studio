@@ -18,6 +18,7 @@ import {
 	ExternalLinkIcon,
 	GlobeIcon,
 	PaperPlaneIcon,
+	SlidersVerticalIcon,
 	WordPressIcon,
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
@@ -243,6 +244,7 @@ interface PreviewAddressBarProps {
 	pageTitle?: string | null;
 	loading?: boolean;
 	onOpenExternal?: () => void;
+	onOpenSiteSettings?: () => void;
 	onExternalNavigate?: ( url: string ) => void;
 	disabled?: boolean;
 	compact?: boolean;
@@ -347,12 +349,14 @@ function AddressAction( {
 	icon,
 	label,
 	tooltip = label,
+	hasPopup,
 	onClick,
 	disabled,
 }: {
 	icon: ReactNode;
 	label: string;
 	tooltip?: string;
+	hasPopup?: 'dialog';
 	onClick: () => void;
 	disabled?: boolean;
 } ) {
@@ -363,7 +367,9 @@ function AddressAction( {
 					<Button
 						variant="ghost"
 						size="icon-2xs"
+						type="button"
 						className={ styles.action }
+						aria-haspopup={ hasPopup }
 						aria-label={ label }
 						disabled={ disabled }
 						onClick={ onClick }
@@ -386,6 +392,7 @@ export function PreviewAddressBar( {
 	pageTitle,
 	loading = false,
 	onOpenExternal,
+	onOpenSiteSettings,
 	onExternalNavigate,
 	disabled = false,
 	compact = false,
@@ -539,6 +546,7 @@ export function PreviewAddressBar( {
 				className={ styles.addressBar }
 				data-recent-open={ isRecentOpen || undefined }
 				data-compact={ compact || undefined }
+				data-site-settings={ onOpenExternal && onOpenSiteSettings ? true : undefined }
 				onSubmit={ handleSubmit }
 			>
 				<Popover.Trigger
@@ -608,6 +616,15 @@ export function PreviewAddressBar( {
 				</span>
 				{ onOpenExternal ? (
 					<span className={ styles.actions } data-address-action>
+						{ onOpenSiteSettings && (
+							<AddressAction
+								icon={ <SlidersVerticalIcon className={ styles.settingsIcon } /> }
+								label={ __( 'Site settings' ) }
+								hasPopup="dialog"
+								onClick={ onOpenSiteSettings }
+								disabled={ disabled }
+							/>
+						) }
 						<AddressAction
 							icon={ <ExternalLinkIcon /> }
 							label={ __( 'Open this page in your browser' ) }

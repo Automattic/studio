@@ -33,6 +33,11 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 		description: __( 'Migrate & rebuild a site from a closed platform.' ),
 	},
 	{
+		name: 'curate-admin',
+		displayName: __( 'Curate Admin' ),
+		description: __( 'Curate wp-admin: menu, post types, settings, dashboard.' ),
+	},
+	{
 		name: 'create-skill',
 		displayName: __( 'Create skill' ),
 		description: __( 'Teach agents a task to do the same way each time.' ),

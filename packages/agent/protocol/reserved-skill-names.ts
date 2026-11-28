@@ -6,6 +6,7 @@ export const RESERVED_SKILL_NAMES = [
 	'block-content',
 	'build-site',
 	'create-skill',
+	'curate-admin',
 	'edit-manage-remote-site',
 	'edit-manage-site',
 	'feedback',

@@ -2,6 +2,7 @@ import {
 	getLocalMediaPath,
 	getMediaAltText,
 	getSafeMediaUrl,
+	isAdminLinkWidget,
 	isDesignSystemPreviewWidget,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/agent/protocol/chat-artifacts';
@@ -13,11 +14,15 @@ import {
 	isUsageCapError,
 } from '@studio/agent/protocol/errors';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
+import { Button } from '@studio/ds';
+import { WordPressIcon } from '@studio/ds/icons';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
+import { UserRoundIcon } from 'lucide-react';
 import { memo, useMemo, useState, type ReactNode } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { AgentQuestionBatch } from '@/features/chats/session-view/conversation/agent-question';
 import { canJoinBubbles } from '@/features/chats/session-view/conversation/joined';
 import { AssistantText, UserTurn } from '@/features/chats/session-view/conversation/message';
@@ -43,12 +48,32 @@ const ChatArtifact = memo( function ChatArtifact( {
 	}
 	return (
 		<div className={ styles.mediaArtifacts }>
-			{ mediaWidgets.map( ( widget, index ) => (
-				<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
-			) ) }
+			{ mediaWidgets.map( ( widget, index ) =>
+				isAdminLinkWidget( widget ) ? (
+					<AdminLinkArtifact key={ `${ widget.type }:${ index }` } widget={ widget } />
+				) : (
+					<MediaArtifactImage key={ `${ widget.type }:${ index }` } widget={ widget } />
+				)
+			) }
 		</div>
 	);
 } );
+
+// The agent curated wp-admin and checked it. Opens as the Staff account when
+// there is one, and as wp-admin itself when it's curated for everyone.
+function AdminLinkArtifact( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
+	const preview = useOptionalSessionPreviewUI();
+	const isStaff = Boolean( widget.widgetProps.user );
+	return (
+		<div className={ styles.adminLinkArtifact }>
+			<span>{ isStaff ? __( 'The staff admin is ready.' ) : __( 'wp-admin is ready.' ) }</span>
+			<Button size="sm" onClick={ () => preview?.navigate( String( widget.widgetProps.path ) ) }>
+				{ isStaff ? <UserRoundIcon /> : <WordPressIcon /> }
+				{ isStaff ? __( 'Open staff admin' ) : __( 'Open wp-admin' ) }
+			</Button>
+		</div>
+	);
+}
 
 function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft } ) {
 	const localPath = getLocalMediaPath( widget );

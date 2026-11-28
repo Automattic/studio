@@ -14,7 +14,7 @@ import {
 	SquarePenIcon,
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { LayoutDashboardIcon, PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
 import type { SkillSlashCommand } from '@studio/agent/protocol/slash-commands';
 import type { Command, CommandGroup } from '@studio/ds';
 import type { ComponentType } from 'react';
@@ -28,6 +28,7 @@ const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: strin
 	'need-for-speed': GaugeIcon,
 	'rank-me-up': TrendingUpIcon,
 	liberate: UnlockIcon,
+	'curate-admin': LayoutDashboardIcon,
 	'create-skill': SkillsIcon,
 	feedback: MessageSquareTextIcon,
 	'auto-start': PlayIcon,

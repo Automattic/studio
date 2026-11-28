@@ -356,6 +356,7 @@ function toSiteDetails( site: SiteListItem ) {
 		environmentType: site.environmentType,
 		operation: site.operation,
 		emailPath: site.emailPath,
+		staffAdmin: site.staffAdmin,
 		phpMyAdminSupported: site.phpMyAdminSupported,
 		sortOrder: site.sortOrder,
 		autoStart: site.autoStart,
@@ -1934,7 +1935,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const relativeUrl = typeof req.body?.relativeUrl === 'string' ? req.body.relativeUrl : '';
 			await openSiteInBrowser(
-				getSiteBrowserUrl( site, relativeUrl, req.body?.autoLogin !== false ),
+				getSiteBrowserUrl(
+					site,
+					relativeUrl,
+					req.body?.autoLogin !== false,
+					typeof req.body?.user === 'string' ? req.body.user : undefined
+				),
 				openUrl
 			);
 			res.status( 204 ).end();

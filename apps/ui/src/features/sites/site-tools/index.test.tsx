@@ -4,15 +4,16 @@ import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient, renderWithProviders } from '@/test/render';
 import { SiteToolLauncher } from './index';
 
-async function setup( active = true, phpMyAdminSupported = true ) {
+async function setup( active = true, phpMyAdminSupported = true, staffAdmin?: string ) {
 	const actions = {
 		openBrowser: vi.fn(),
 		openAdmin: vi.fn(),
+		openStaffAdmin: vi.fn(),
 		openDatabase: vi.fn(),
 		openEmail: vi.fn(),
 		openDesignSystem: vi.fn(),
 	};
-	const site = makeSite( { running: false, phpMyAdminSupported } );
+	const site = makeSite( { running: false, phpMyAdminSupported, staffAdmin } );
 	const view = renderWithProviders(
 		<>
 			<input aria-label="Chat" />
@@ -49,6 +50,17 @@ it( 'opens tools without focusing the launcher and uses A for Admin', async () =
 	expect( actions.openAdmin ).toHaveBeenCalledOnce();
 	fireEvent.keyDown( document.body, { key: 'B' } );
 	expect( actions.openBrowser ).toHaveBeenCalledOnce();
+} );
+
+it( 'offers Staff admin only on sites with a staff account', async () => {
+	const { actions, unmount } = await setup();
+	expect( screen.queryByRole( 'button', { name: 'Staff admin T' } ) ).not.toBeInTheDocument();
+	fireEvent.keyDown( document.body, { key: 't' } );
+	expect( actions.openStaffAdmin ).not.toHaveBeenCalled();
+	unmount();
+	const staff = await setup( true, true, 'staff' );
+	fireEvent.keyDown( document.body, { key: 't' } );
+	expect( staff.actions.openStaffAdmin ).toHaveBeenCalledOnce();
 } );
 
 it( 'leaves typing, modified keys, repeats, and composition alone', async () => {
@@ -116,6 +128,7 @@ it( 'hides an unreadable design system and its shortcut in the launcher', async 
 			actions={ {
 				openBrowser: vi.fn(),
 				openAdmin: vi.fn(),
+				openStaffAdmin: vi.fn(),
 				openDatabase: vi.fn(),
 				openEmail: vi.fn(),
 				openDesignSystem,

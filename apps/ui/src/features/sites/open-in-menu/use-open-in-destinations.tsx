@@ -9,6 +9,7 @@ import {
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
 import { CodeIcon, DatabaseIcon, ExternalLinkIcon, TerminalIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
+import { UserRoundIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
@@ -24,6 +25,7 @@ import type { ReactElement } from 'react';
 export type OpenInDestination =
 	| 'browser'
 	| 'wp-admin'
+	| 'staff-admin'
 	| 'files'
 	| 'editor'
 	| 'terminal'
@@ -86,7 +88,7 @@ export function useOpenInDestinations(
 		} );
 	};
 
-	const openSiteUrl = async ( path: string, options?: { autoLogin: boolean } ) => {
+	const openSiteUrl = async ( path: string, options?: { autoLogin: boolean; user?: string } ) => {
 		// A failed start reports itself.
 		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
 			return;
@@ -156,6 +158,17 @@ export function useOpenInDestinations(
 				open( 'wp-admin', __( 'Admin' ), () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
 					return openSiteUrl( '/wp-admin/' );
+				} ),
+		},
+		!! site.staffAdmin && {
+			id: 'staff-admin',
+			label: __( 'Staff admin' ),
+			logo: <UserRoundIcon />,
+			disabled: false,
+			open: () =>
+				open( 'staff-admin', __( 'Staff admin' ), () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
+					return openSiteUrl( '/wp-admin/', { autoLogin: true, user: site.staffAdmin } );
 				} ),
 		},
 		{

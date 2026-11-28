@@ -22,6 +22,7 @@ import {
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
+import { UserRoundIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import styles from './address-bar.module.css';
 import { PREVIEW_HISTORY_CLEARED_EVENT } from './preview-browser-settings';
@@ -48,7 +49,7 @@ function resolveSitePath( path: string, siteUrl: string ): URL {
 	);
 }
 
-export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
+export type PreviewRealm = 'frontend' | 'admin' | 'staff' | 'database' | 'email' | 'design';
 
 export function isWordPressAuthPath( path: string ): boolean {
 	if ( path.startsWith( '/studio-auto-login' ) ) {
@@ -74,13 +75,14 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 		return 'email';
 	}
 	let target = path;
+	let user: string | null = null;
 	if ( path.startsWith( '/studio-auto-login' ) ) {
-		const query = path.split( '?' )[ 1 ] ?? '';
-		const redirectTo = new URLSearchParams( query ).get( 'redirect_to' ) ?? '';
-		target = redirectTo.replace( /^https?:\/\/[^/?#]*/i, '' );
+		const query = new URLSearchParams( path.split( '?' )[ 1 ] ?? '' );
+		target = ( query.get( 'redirect_to' ) ?? '' ).replace( /^https?:\/\/[^/?#]*/i, '' );
+		user = query.get( 'user' );
 	}
 	if ( isAdminPath( target ) ) {
-		return 'admin';
+		return user ? 'staff' : 'admin';
 	}
 	if ( /^\/phpmyadmin(?:[/?#]|$)/.test( target ) ) {
 		return 'database';
@@ -91,6 +93,7 @@ export function getPreviewRealm( path: string ): PreviewRealm {
 const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
 	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
+	staff: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
 	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
 	email: TRACKS_EVENTS.SITE_OPEN_EMAIL,
 	design: TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM,
@@ -100,13 +103,14 @@ export function getRealmOpenEvent( realm: PreviewRealm ): TracksEventName {
 	return REALM_OPEN_EVENTS[ realm ];
 }
 
-export function getRealmNavigationPath( path: string, siteUrl: string ): string {
+export function getRealmNavigationPath( path: string, siteUrl: string, user?: string ): string {
 	if ( ! isAdminPath( path ) ) {
 		return path;
 	}
 	try {
 		const redirectTo = resolveSitePath( path, siteUrl ).toString();
-		return `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }`;
+		const login = `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }`;
+		return user ? `${ login }&user=${ encodeURIComponent( user ) }` : login;
 	} catch {
 		return path;
 	}
@@ -394,6 +398,7 @@ export function PreviewAddressBar( {
 	const realmIcons: Record< PreviewRealm, ComponentType< { className?: string } > > = {
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
+		staff: UserRoundIcon,
 		database: DatabaseIcon,
 		email: PaperPlaneIcon,
 		design: DesignSystemIcon,

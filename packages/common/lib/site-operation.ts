@@ -46,6 +46,8 @@ export const siteOperationSchema = z.object( {
 	// belong to an unrelated process, so an entry from an earlier boot is stale too.
 	// Optional only so entries from older builds still parse; those count as stale.
 	bootTime: z.number().optional(),
+	// Present on starts that accept a stop while they are in flight.
+	cancelRequested: z.boolean().optional(),
 } );
 
 export type SiteOperation = z.infer< typeof siteOperationSchema >;

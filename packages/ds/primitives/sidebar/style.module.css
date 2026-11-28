@@ -67,7 +67,6 @@
 		--sidebar-row-action-inset: var( --space-control-inset );
 		--sidebar-row-action-gap: var( --space-0_5 );
 		--sidebar-row-action-size: var( --control-size-inset );
-		--radius-sidebar-row: var( --radius-md );
 
 		position: relative;
 		display: flex;
@@ -82,7 +81,7 @@
 		min-width: 0;
 		height: var( --control-size-sm );
 		padding-inline: var( --space-2 );
-		border-radius: var( --radius-sidebar-row, var( --radius-control ) );
+		border-radius: var( --radius-md );
 		color: var( --foreground );
 		text-align: start;
 		outline: none;
@@ -166,12 +165,7 @@
 	}
 
 	.item > .actions > button {
-		--button-control-size: var( --sidebar-row-action-size );
 		--button-hover-background: transparent;
-		--radius-button: max(
-			0px,
-			calc( var( --radius-sidebar-row ) - var( --sidebar-row-action-inset ) )
-		);
 	}
 
 	/* While the row is idle, hover-only actions hide, apart from a busy one. */

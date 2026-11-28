@@ -133,7 +133,7 @@ export function ChatRow( {
 								<SidebarMenuActions showOnHover={ ! active || nested } data-reorder-exclude>
 									<IconButton
 										variant="muted-ghost"
-										size="icon-sm"
+										size="icon-inset"
 										icon={ <SidebarRowIcon glyph="archive" /> }
 										label={ __( 'Archive chat' ) }
 										disabled={ actions.archiveBlocked }
@@ -144,7 +144,7 @@ export function ChatRow( {
 											render={
 												<IconButton
 													variant="muted-ghost"
-													size="icon-sm"
+													size="icon-inset"
 													icon={ <EllipsisVerticalIcon /> }
 													label={ __( 'More chat actions' ) }
 													aria-describedby={ titleId }

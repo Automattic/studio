@@ -61,7 +61,7 @@ export function SiteStatusButton( {
 					render={
 						<IconButton
 							variant="muted-ghost"
-							size="icon-sm"
+							size="icon-inset"
 							icon={ <EllipsisVerticalIcon /> }
 							label={ sprintf( __( 'Actions for %s' ), site.name ) }
 							tooltipLabel={ __( 'Site menu' ) }
@@ -84,7 +84,7 @@ export function SiteStatusButton( {
 					<Button
 						className={ styles.statusButton }
 						variant="muted-ghost"
-						size="icon-sm"
+						size="icon-inset"
 						aria-label={ visualBusy && ! canStopStart ? statusName : label }
 						aria-busy={ visualBusy || undefined }
 						disabled={ disabled }

@@ -426,6 +426,7 @@
 
 	.button:is(
 			[data-size='icon'],
+			[data-size='icon-inset'],
 			[data-size='icon-inline'],
 			[data-size='icon-2xs'],
 			[data-size='icon-xs'],
@@ -456,6 +457,11 @@
 		--button-size: var( --button-control-size, var( --control-size-2xs ) );
 
 		--radius-button: var( --radius-md );
+	}
+
+	.button[data-size='icon-inset'] {
+		--button-size: var( --control-size-inset );
+		--radius-button: var( --radius-control-inset );
 	}
 
 	.button[data-size='icon-inline'] {

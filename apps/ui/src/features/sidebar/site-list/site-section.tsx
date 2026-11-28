@@ -167,7 +167,7 @@ export function SiteSection( {
 				) : null }
 				<IconButton
 					variant="muted-ghost"
-					size="icon-sm"
+					size="icon-inset"
 					icon={ <SidebarRowIcon glyph="compose" /> }
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {

@@ -10,14 +10,15 @@ import type { SiteDetails } from '@/data/core';
 
 let siteCount = 0;
 
-async function renderActions( multipleTargets = false, running = false ) {
+async function renderActions( multipleTargets = false, overrides: Partial< SiteDetails > = {} ) {
 	const site: SiteDetails = {
 		id: `header-site-${ ++siteCount }`,
 		name: 'Ada Portfolio',
 		path: '/tmp/ada',
 		port: 8881,
-		running,
+		running: false,
 		phpVersion: '8.3',
+		...overrides,
 	};
 	const connector = createFakeConnector(
 		{ sites: [ site ] },
@@ -72,7 +73,7 @@ describe( 'SiteHeaderActions', () => {
 	it.each( [ false, true ] )(
 		'operates the current site from its header (running: %s)',
 		async ( running ) => {
-			const { site, connector } = await renderActions( false, running );
+			const { site, connector } = await renderActions( false, { running } );
 			await userEvent.click(
 				screen.getByRole( 'button', { name: running ? 'Stop site' : 'Start site' } )
 			);
@@ -81,6 +82,28 @@ describe( 'SiteHeaderActions', () => {
 			);
 		}
 	);
+
+	it( 'cancels a startup from the header and disables repeated stops', async () => {
+		const { site, connector } = await renderActions( false, {
+			operation: { kind: 'start', pid: 123, cancelRequested: false },
+		} );
+		let finishStop!: ( site: SiteDetails ) => void;
+		connector.stopSite.mockImplementationOnce(
+			() =>
+				new Promise< SiteDetails >( ( resolve ) => {
+					finishStop = resolve;
+				} )
+		);
+		const button = screen.getByRole( 'button', { name: 'Stop site' } );
+		expect( button ).toHaveAttribute( 'aria-busy', 'true' );
+		await userEvent.click( button );
+		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( site.id ) );
+		expect( button ).toHaveAttribute( 'aria-disabled', 'true' );
+		await userEvent.click( button );
+		expect( connector.stopSite ).toHaveBeenCalledTimes( 1 );
+		expect( connector.startSite ).not.toHaveBeenCalled();
+		await act( async () => finishStop( { ...site, operation: undefined } ) );
+	} );
 
 	it( 'keeps Publish visible for a stopped site and opens it from the site menu', async () => {
 		const { site } = await renderActions();

@@ -1,8 +1,8 @@
 import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
 import { PlayIcon, SquareIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
-import { useIsSiteBusy, useSiteOperation, useStopSite } from '@/data/queries/use-sites';
-import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useStopSite } from '@/data/queries/use-sites';
+import { useSiteLifecycleState } from '@/data/use-site-lifecycle-state';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
@@ -21,24 +21,20 @@ export function SiteStatusButton( {
 } ) {
 	const startSite = useStartSiteWithChat();
 	const stopSite = useStopSite();
-	const siteBusy = useIsSiteBusy( site );
-	const activity = useSiteSyncActivity( site.id );
-	const isSyncPending = activity?.kind === 'pending' && activity.direction !== 'preview';
-	const busy = siteBusy || isSyncPending;
-	const operation = useSiteOperation( site );
-	const starting = operation === 'start' || ( isStarting && ! operation );
-	const stoppingStart = starting && ( isStopping || site.operation?.cancelRequested === true );
-	const canStopStart =
-		starting &&
-		! stoppingStart &&
-		! isSyncPending &&
-		( isStarting || site.operation?.cancelRequested === false );
-	const visuallyStopped = ( ! stoppingStart && isStopping ) || operation === 'stop';
-	const visualBusy = isSyncPending || ( siteBusy && ! visuallyStopped );
-	const visualRunning = !! site.running && ! visuallyStopped;
+	const {
+		activity,
+		isSyncPending,
+		operation,
+		stoppingStart,
+		canStopStart,
+		visuallyStopped,
+		visualBusy,
+		visualRunning,
+		disabled,
+	} = useSiteLifecycleState( site, isStarting, isStopping );
 	const status = getSiteStatus( site, isStarting, isStopping, operation );
 	const statusName = isSyncPending
-		? activity.direction === 'import'
+		? activity?.direction === 'import'
 			? __( 'Importing backup' )
 			: __( 'Syncing live site' )
 		: stoppingStart
@@ -72,7 +68,7 @@ export function SiteStatusButton( {
 						size="icon-sm"
 						aria-label={ visualBusy && ! canStopStart ? statusName : label }
 						aria-busy={ visualBusy || undefined }
-						disabled={ busy && ! canStopStart }
+						disabled={ disabled }
 						focusableWhenDisabled
 						data-state={ visuallyStopped ? 'stopped' : status }
 						onClick={ handleClick }

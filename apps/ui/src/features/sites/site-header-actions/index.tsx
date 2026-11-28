@@ -1,10 +1,10 @@
-import { IconButton } from '@studio/ds';
+import { IconButton, Spinner } from '@studio/ds';
 import { PlayIcon, SquareIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { useInlineEndControlsInset } from '@/data/host/use-window-controls-inset';
-import { useIsSiteBusy, useIsSiteStarting, useStopSite } from '@/data/queries/use-sites';
-import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useIsSiteStarting, useIsSiteStopping, useStopSite } from '@/data/queries/use-sites';
+import { useSiteLifecycleState } from '@/data/use-site-lifecycle-state';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { PublishButton } from '@/features/site-delivery';
 import styles from './style.module.css';
@@ -78,10 +78,10 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	const inset = useInlineEndControlsInset();
 	const start = useStartSiteWithChat();
 	const stop = useStopSite();
-	const siteBusy = useIsSiteBusy( site );
-	const isStarting = useIsSiteStarting( site.id ) || site.operation?.kind === 'start';
-	const sync = useSiteSyncActivity( site.id );
-	const busy = siteBusy || ( sync?.kind === 'pending' && sync.direction !== 'preview' );
+	const isStarting = useIsSiteStarting( site.id );
+	const isStopping = useIsSiteStopping( site.id );
+	const { starting, stoppingStart, canStopStart, visualRunning, visualBusy, disabled } =
+		useSiteLifecycleState( site, isStarting, isStopping );
 	const publishButton = (
 		<span data-site-header-publish className={ styles.publish }>
 			<PublishButton key={ site.id } site={ site } />
@@ -100,19 +100,35 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 					<IconButton
 						variant="ghost"
 						size="icon-sm"
-						icon={ site.running ? <SquareIcon /> : <PlayIcon /> }
+						className={ styles.lifecycle }
+						icon={
+							visualBusy ? (
+								<>
+									<Spinner
+										aria-hidden="true"
+										className={ canStopStart ? styles.startSpinner : undefined }
+									/>
+									{ canStopStart && <SquareIcon className={ styles.cancelStartIcon } /> }
+								</>
+							) : visualRunning ? (
+								<SquareIcon />
+							) : (
+								<PlayIcon />
+							)
+						}
 						label={
-							isStarting
+							stoppingStart
+								? __( 'Stopping' )
+								: starting && ! canStopStart
 								? __( 'Starting site' )
-								: site.running
+								: visualRunning || canStopStart
 								? __( 'Stop site' )
 								: __( 'Start site' )
 						}
-						loading={ isStarting }
-						loadingMode="replace"
+						aria-busy={ visualBusy || undefined }
 						tooltipSide="bottom"
-						disabled={ busy }
-						onClick={ () => ( site.running ? stop : start ).mutate( site.id ) }
+						disabled={ disabled }
+						onClick={ () => ( site.running || canStopStart ? stop : start ).mutate( site.id ) }
 					/>
 				</div>
 			</div>

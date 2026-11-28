@@ -8,9 +8,6 @@ export function PlusIcon( props: ComponentProps< 'svg' > ) {
 			height={ PLUS_ICON.size }
 			viewBox={ PLUS_ICON.viewBox }
 			fill="currentColor"
-			stroke="currentColor"
-			strokeWidth="4"
-			strokeLinejoin="round"
 			aria-hidden="true"
 			{ ...props }
 		>

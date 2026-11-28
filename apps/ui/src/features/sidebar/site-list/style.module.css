@@ -62,7 +62,10 @@
 }
 
 .siteRow[data-needs-input] {
-	padding-inline-end: calc( 3 * var( --space-8 ) + var( --space-2 ) );
+	padding-inline-end: calc(
+		var( --sidebar-row-action-inset ) + 3 * var( --sidebar-row-action-size ) + 2 *
+			var( --sidebar-row-action-gap ) + var( --space-2 )
+	);
 }
 
 .siteActions {

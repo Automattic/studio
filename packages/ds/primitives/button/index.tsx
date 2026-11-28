@@ -33,6 +33,7 @@ export type ButtonSize =
 	| 'lg'
 	| 'inline'
 	| 'icon'
+	| 'icon-inset'
 	| 'icon-inline'
 	| 'icon-2xs'
 	| 'icon-xs'

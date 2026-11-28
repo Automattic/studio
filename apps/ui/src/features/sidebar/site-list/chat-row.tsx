@@ -10,7 +10,7 @@ import {
 	SidebarMenuLabel,
 	VisuallyHidden,
 } from '@studio/ds';
-import { ArchiveIcon, ChatIcon, TriangleAlertIcon, EllipsisVerticalIcon } from '@studio/ds/icons';
+import { ArchiveIcon, ChatIcon, EllipsisVerticalIcon, TriangleAlertIcon } from '@studio/ds/icons';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { useId, useState } from 'react';
@@ -132,7 +132,7 @@ export function ChatRow( {
 								<SidebarMenuActions showOnHover={ ! active || nested } data-reorder-exclude>
 									<IconButton
 										variant="muted-ghost"
-										size="icon-sm"
+										size="icon-inset"
 										icon={ <ArchiveIcon /> }
 										label={ __( 'Archive chat' ) }
 										disabled={ actions.archiveBlocked }
@@ -143,7 +143,7 @@ export function ChatRow( {
 											render={
 												<IconButton
 													variant="muted-ghost"
-													size="icon-sm"
+													size="icon-inset"
 													icon={ <EllipsisVerticalIcon /> }
 													label={ __( 'More chat actions' ) }
 													aria-describedby={ titleId }

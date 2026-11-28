@@ -2,11 +2,16 @@ import { ContextMenu as BaseContextMenu } from '@base-ui/react/context-menu';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 import { clsx } from 'clsx';
 import { CheckIcon } from 'lucide-react';
-import { forwardRef } from 'react';
+import { createContext, forwardRef, useContext } from 'react';
 import { ChevronDownIcon } from '../../icons';
 import surface from '../surface/style.module.css';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
+
+export const CollisionPaddingContext =
+	createContext< ComponentPropsWithoutRef< typeof BaseMenu.Positioner >[ 'collisionPadding' ] >(
+		undefined
+	);
 
 export const Root = BaseMenu.Root;
 export const Trigger = BaseMenu.Trigger;
@@ -82,9 +87,11 @@ export function Popup( {
 	className,
 	...props
 }: PopupProps ) {
+	const collisionPadding = useContext( CollisionPaddingContext );
 	return (
 		<BaseMenu.Portal>
 			<BaseMenu.Positioner
+				collisionPadding={ collisionPadding }
 				side={ side }
 				anchor={ anchor }
 				align={ align }
@@ -101,6 +108,7 @@ export function Popup( {
 								surface.popup,
 								surface.padded,
 								styles.popup,
+								collisionPadding !== undefined && styles.boundedPopup,
 								className
 							) }
 						/>
@@ -123,9 +131,11 @@ export function SubmenuPopup( props: Omit< PopupProps, 'side' | 'align' > ) {
 
 /** Popup for context menus, anchored at the pointer and opening to its right. */
 export function ContextPopup( { children, className, ...props }: ContextPopupProps ) {
+	const collisionPadding = useContext( CollisionPaddingContext );
 	return (
 		<BaseMenu.Portal>
 			<BaseMenu.Positioner
+				collisionPadding={ collisionPadding }
 				side="right"
 				align="start"
 				alignOffset={ 4 }
@@ -139,6 +149,7 @@ export function ContextPopup( { children, className, ...props }: ContextPopupPro
 								surface.popup,
 								surface.padded,
 								styles.popup,
+								collisionPadding !== undefined && styles.boundedPopup,
 								className
 							) }
 						/>

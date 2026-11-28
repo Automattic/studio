@@ -7,7 +7,7 @@ import {
 	SidebarMenuItem,
 	SidebarMenuLabel,
 } from '@studio/ds';
-import { GlobeIcon, TriangleAlertIcon, SquarePenIcon } from '@studio/ds/icons';
+import { GlobeIcon, SquarePenIcon, TriangleAlertIcon } from '@studio/ds/icons';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -171,7 +171,7 @@ export function SiteSection( {
 				) : null }
 				<IconButton
 					variant="muted-ghost"
-					size="icon-sm"
+					size="icon-inset"
 					icon={ <SquarePenIcon /> }
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {

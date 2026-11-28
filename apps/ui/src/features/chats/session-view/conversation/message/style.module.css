@@ -1,13 +1,30 @@
-.userTurn {
+.userTurn,
+.assistantTurn {
+	--message-actions-width: var( --control-size-2xs );
+	--message-body-width: min(
+		85cqw,
+		32rem,
+		calc( 100cqw - var( --message-actions-width ) - var( --space-2 ) )
+	);
+
 	container-type: inline-size;
-	display: flex;
-	flex-direction: column;
+}
+
+.userTurn {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) auto;
+	column-gap: var( --space-2 );
+	row-gap: var( --chat-item-gap, var( --space-1 ) );
 }
 
 .annotationAttachment {
-	align-self: flex-end;
+	grid-column: 1 / -1;
+	justify-self: end;
 	max-width: min( 80%, 240px );
-	margin-top: var( --space-1 );
+}
+
+.userTurn:not( :has( .userText, .userAttachments ) ) > .annotationAttachment {
+	grid-column: 2;
 }
 
 .annotationElementTag {
@@ -20,27 +37,18 @@
 	color: var( --muted-foreground );
 }
 
-.userTextRow,
-.assistantTurn {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2 );
-}
-
-.userTextRow {
-	justify-content: flex-end;
-}
-
 .messageActions {
 	flex: none;
 	opacity: 0;
 }
 
-.userTextRow .messageActions {
-	order: -1;
+.userTurn > .messageActions {
+	grid-column: 1;
+	justify-self: end;
+	align-self: center;
 }
 
-:is( .userTextRow, .assistantTurn ):is( :hover, :focus-within ) .messageActions {
+:is( .userTurn, .assistantTurn ):is( :hover, :focus-within ) > .messageActions {
 	opacity: 1;
 }
 
@@ -58,22 +66,20 @@
 	flex-direction: column;
 	gap: var( --space-2 );
 	min-width: 0;
-	max-width: min( 85%, 32rem );
-	padding: var( --space-2_5 ) var( --space-3_5 );
-	border: none;
+	max-width: 100%;
+	padding: var( --space-3 );
 	line-height: var( --text-sm--line-height );
-	overflow: hidden;
 	overflow-wrap: break-word;
 }
 
 .userText {
-	composes: surface from '../bubble.module.css';
-	background-color: var( --primary );
-	color: var( --primary-foreground );
-}
-
-.userText:has( .userImageAttachment ) {
-	padding-inline: var( --space-2_5 );
+	composes: shape from '../bubble.module.css';
+	grid-column: 2;
+	justify-self: end;
+	max-width: var( --message-body-width );
+	border: none;
+	background-color: var( --accent );
+	color: var( --accent-foreground );
 }
 
 .userTextBody {
@@ -81,20 +87,33 @@
 }
 
 .assistantBubble {
-	composes: surface from '../bubble.module.css';
+	composes: shape from '../bubble.module.css';
+	--muted: inherit;
+	--surface: var( --muted );
+
 	width: fit-content;
-	background-color: var( --surface-2 );
+	max-width: var( --message-body-width );
+	background-color: var( --surface );
+	color: var( --foreground );
 }
 
 .userAttachments {
+	grid-column: 2;
+	justify-self: end;
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
 	align-items: flex-end;
-	gap: var( --space-2 );
+	gap: var( --chat-item-gap, var( --space-1 ) );
+	max-width: var( --message-body-width );
+}
+
+.userTurn:has( .userText ) > .userAttachments {
+	grid-column: 1 / -1;
 }
 
 .userImageAttachment {
 	composes: attachmentThumbnail from '@studio/ds/theme/recipes.module.css';
+	border-radius: var( --radius-md );
 }
 
 @container ( max-width: 400px ) {
@@ -109,37 +128,17 @@
 }
 
 .userAttachment {
-	display: inline-flex;
-	align-items: center;
-	gap: var( --space-1_5 );
-	min-width: 0;
-	max-width: 256px;
-	padding: 0 var( --space-1_5 );
-	border: 1px solid var( --border );
-	border-radius: var( --radius-md );
-	font-weight: var( --font-weight-medium );
-}
-
-.userAttachmentPreview {
-	position: relative;
-	display: flex;
-	flex: none;
-	align-items: center;
-	justify-content: center;
-	width: 20px;
-	height: 20px;
-	overflow: hidden;
-	/* eslint-disable-next-line studio/use-theme-tokens -- the preview's fixed 4px corner, which doesn't scale with --radius. */
-	border-radius: 4px;
-	background-color: var( --background );
-	color: var( --muted-foreground );
-}
-
-.userAttachmentPreview svg {
-	width: 12px;
-	height: 12px;
+	max-width: min( 80cqw, 240px );
 }
 
 .userAttachmentName {
 	composes: truncate from '@studio/ds/theme/recipes.module.css';
+}
+
+.assistantTurn {
+	position: relative;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: var( --space-2 );
 }

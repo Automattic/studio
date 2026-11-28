@@ -153,7 +153,8 @@ it.each( [ true, false ] )(
 		await waitFor( () =>
 			expect( toggle() ).toHaveAttribute( 'data-workspace-layout', split ? 'split' : 'panel' )
 		);
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		await screen.findByRole( 'button', { name: 'Start My site' } );
 		expect( layoutEvents( connector ) ).toEqual( [] );
 	}
@@ -236,7 +237,7 @@ it( 'does not attribute a site-start layout change during pending layout navigat
 		} );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 		fireEvent.load( document.querySelector( 'iframe' )! );
-		await screen.findByRole( 'button', { name: 'Stop My site' } );
+		await screen.findByRole( 'button', { name: 'Actions for My site' } );
 		await act( async () => {
 			finish();
 			await navigation;

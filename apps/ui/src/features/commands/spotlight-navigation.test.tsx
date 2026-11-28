@@ -14,7 +14,7 @@ it( 'opens and starts a stopped Spotlight site', async () => {
 	await screen.findByRole( 'button', { name: 'First site' } );
 	act( () => connector.emit( 'onOpenSite', { siteId: 'two' } ) );
 	await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
-	await screen.findByRole( 'button', { name: 'Stop My Portfolio' } );
+	await screen.findByRole( 'button', { name: 'Actions for My Portfolio' } );
 	await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 	fireEvent.load( document.querySelector( 'iframe' )! );
 	expect( await screen.findByRole( 'complementary', { name: 'Panel' } ) ).toBeVisible();

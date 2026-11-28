@@ -21,6 +21,17 @@ export async function runCommand(): Promise< void > {
 		return;
 	}
 
+	if ( ! process.stdin.isTTY || ! process.stdout.isTTY ) {
+		logger.reportError(
+			new LoggerError(
+				__(
+					'Login requires an interactive terminal. Run `studio auth login` in your own terminal and complete sign-in there. Do not share authentication tokens in chat.'
+				)
+			)
+		);
+		return;
+	}
+
 	logger.reportStart( LoggerAction.LOGIN, __( 'Opening browser for authentication…' ) );
 	try {
 		await signInInteractively();

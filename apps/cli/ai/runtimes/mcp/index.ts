@@ -161,7 +161,7 @@ function createServer( { agent, host, id, imageGeneration }: Session ): McpServe
 		{ name: 'studio', version: '1.0.0' },
 		{
 			instructions:
-				'WordPress Studio builds and manages local WordPress sites. Before any WordPress site task, call studio_instructions and follow what it returns.',
+				'WordPress Studio builds and manages local WordPress sites. If WordPress.com authentication is required, ask the user to sign in themselves in WordPress Studio, in the WordPress library if available, or by running `studio auth login` in their own terminal. Do not run login for them or ask for tokens in chat. Retry after the user confirms they are signed in. Local sites do not require login. Before any WordPress site task, call studio_instructions and follow what it returns.',
 		}
 	);
 	const server = mcp.server;

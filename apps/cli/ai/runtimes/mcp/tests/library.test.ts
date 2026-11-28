@@ -12,6 +12,13 @@ vi.mock( 'cli/lib/site-utils', async ( importOriginal ) => ( {
 } ) );
 
 describe( 'WordPress library', () => {
+	it( 'exposes the token entry tool only to the library app', () => {
+		const login = createLibraryTools( 'ui://studio/library.html' ).find(
+			( { tool } ) => tool.name === 'wpcom_login'
+		);
+		expect( login?.listing._meta ).toMatchObject( { ui: { visibility: [ 'app' ] } } );
+	} );
+
 	it( 'opens from the sidebar with the local sites, for the page only', async () => {
 		const [ open ] = createLibraryTools( 'ui://studio/library.html' );
 

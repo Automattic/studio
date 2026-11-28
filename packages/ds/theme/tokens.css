@@ -329,10 +329,10 @@
 /* prettier-ignore */
 @layer base {
 	* {
-		--muted: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) ) ) c h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) ) ) c h ) );
+		--muted: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) ) ) calc( c * var( --interaction-chroma, 1 ) ) h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) ) ) calc( c * var( --interaction-chroma, 1 ) ) h ) );
 		--hover: var( --muted );
-		--hover-subtle: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) * 0.5 ) ) c h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) * 0.5 ) ) c h ) );
-		--selected: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) * 1.5 ) ) c h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) * 1.5 ) ) c h ) );
+		--hover-subtle: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) * 0.5 ) ) calc( c * var( --interaction-chroma, 1 ) ) h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) * 0.5 ) ) calc( c * var( --interaction-chroma, 1 ) ) h ) );
+		--selected: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) * 1.5 ) ) calc( c * var( --interaction-chroma, 1 ) ) h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) * 1.5 ) ) calc( c * var( --interaction-chroma, 1 ) ) h ) );
 		--text-surface: var( --selected );
 		--text-lightness: light-dark( oklch( from var( --text-surface ) pow( max( 0, ( pow( l, 3 ) + 0.05 ) / 5.2 - 0.05 ), 0.333333 ) 0 h ), oklch( from var( --text-surface ) pow( max( 0, ( pow( l, 3 ) + 0.05 ) * 5.2 - 0.05 ), 0.333333 ) 0 h ) );
 		--foreground: light-dark( oklch( from var( --text-lightness ) min( l, 0.35 - var( --contrast, 0 ) * 0.001 ) 0 h ), oklch( from var( --text-lightness ) max( l, 0.78 + var( --contrast, 0 ) * 0.001 ) 0 h ) );

@@ -1,0 +1,14 @@
+@media ( forced-colors: none ) {
+	.popup {
+		--popover: var( --preview-theme-popup );
+		--surface: var( --popover );
+		--interaction-chroma: var( --preview-theme-interaction-chroma );
+		--popover-foreground: var( --preview-theme-foreground );
+	}
+
+	.popup,
+	.popup :where( * ) {
+		--foreground: var( --preview-theme-foreground );
+		--muted-foreground: var( --preview-theme-muted-foreground );
+	}
+}

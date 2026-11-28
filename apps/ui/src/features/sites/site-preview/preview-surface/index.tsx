@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { normalizeDocumentTitle } from '@/features/sites/site-preview/browser-state';
 import { ResponsiveViewport } from '../responsive-preview/viewport';
@@ -12,6 +12,8 @@ import type { ReactNode } from 'react';
 
 export { WebviewSurface } from './webview-surface';
 export { isElectron } from './webview';
+
+const THEME_COLOR_RESPONSE_TIMEOUT_MS = 4000;
 
 // One stacked layer per mounted surface. Only the active layer is visible; the
 // other stays mounted and laid out at its own size, so coming back to it is a
@@ -76,6 +78,8 @@ export function FrameSurface( {
 	browserCommand,
 	onCommandHandled,
 	onAdminBarVisibilityChange,
+	themeColorActive = false,
+	onThemeColorChange,
 }: {
 	src: string;
 	title: string;
@@ -87,29 +91,71 @@ export function FrameSurface( {
 	browserCommand?: BrowserCommand | null;
 	onCommandHandled?: () => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
+	themeColorActive?: boolean;
+	onThemeColorChange?: ( color: string | null ) => void;
 } ) {
 	const ref = useRef< HTMLIFrameElement | null >( null );
 	const callbacks = useRef( {
 		onAdminBarVisibilityChange,
+		onThemeColorChange,
 		onNavigate,
 		onLoadingChange,
 		onSettle,
 	} );
 	const navigationId = useRef( 0 );
+	const themeColorActiveRef = useRef( themeColorActive );
+	const themeDocumentReady = useRef( false );
+	const themeColorTimeout = useRef< ReturnType< typeof setTimeout > | null >( null );
 	const pendingProbe = useRef( 0 );
 	const reportedPage = useRef< {
 		navigationId: number;
 		url: string;
 		title: string | null;
 	} | null >( null );
+	const clearThemeColorTimeout = useCallback( () => {
+		if ( themeColorTimeout.current !== null ) clearTimeout( themeColorTimeout.current );
+		themeColorTimeout.current = null;
+	}, [] );
+	const requestThemeColor = useCallback(
+		( enabled: boolean ) => {
+			clearThemeColorTimeout();
+			const iframe = ref.current;
+			if ( ! iframe || ! themeDocumentReady.current ) return;
+			iframe.contentWindow?.postMessage(
+				{ type: 'studio:preview:theme-color', enabled },
+				new URL( iframe.src ).origin
+			);
+			if ( enabled ) {
+				const requestedNavigation = navigationId.current;
+				themeColorTimeout.current = setTimeout( () => {
+					themeColorTimeout.current = null;
+					if (
+						themeColorActiveRef.current &&
+						themeDocumentReady.current &&
+						navigationId.current === requestedNavigation
+					) {
+						callbacks.current.onThemeColorChange?.( null );
+					}
+				}, THEME_COLOR_RESPONSE_TIMEOUT_MS );
+			}
+		},
+		[ clearThemeColorTimeout ]
+	);
+	useEffect( () => clearThemeColorTimeout, [ clearThemeColorTimeout ] );
 	useEffect( () => {
 		callbacks.current = {
 			onAdminBarVisibilityChange,
+			onThemeColorChange,
 			onNavigate,
 			onLoadingChange,
 			onSettle,
 		};
-	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
+	}, [ onAdminBarVisibilityChange, onThemeColorChange, onNavigate, onLoadingChange, onSettle ] );
+	useEffect( () => {
+		themeColorActiveRef.current = themeColorActive;
+		if ( ! navigationId.current ) return;
+		requestThemeColor( themeColorActive );
+	}, [ requestThemeColor, src, themeColorActive ] );
 	useEffect( () => {
 		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
 		ref.current?.contentWindow?.postMessage(
@@ -136,9 +182,24 @@ export function FrameSurface( {
 			}
 			if ( event.data?.type === 'studio:preview:navigating' ) {
 				if ( event.data.navigationId !== navigationId.current ) return;
+				themeDocumentReady.current = false;
+				clearThemeColorTimeout();
 				pendingProbe.current += 1;
 				callbacks.current.onAdminBarVisibilityChange?.( null );
 				callbacks.current.onLoadingChange?.( true );
+				return;
+			}
+			if ( event.data?.type === 'studio:preview:theme-color' ) {
+				const { color, navigationId: reportedNavigationId } = event.data;
+				if (
+					themeColorActiveRef.current &&
+					themeDocumentReady.current &&
+					reportedNavigationId === navigationId.current &&
+					( color === null || ( typeof color === 'string' && /^#[\da-f]{6}$/i.test( color ) ) )
+				) {
+					clearThemeColorTimeout();
+					callbacks.current.onThemeColorChange?.( color );
+				}
 				return;
 			}
 			if ( event.data?.type === 'studio:preview:admin-bar-state' ) {
@@ -188,7 +249,7 @@ export function FrameSurface( {
 			pendingProbe.current += 1;
 			window.removeEventListener( 'message', onMessage );
 		};
-	}, [] );
+	}, [ clearThemeColorTimeout ] );
 
 	return (
 		<iframe
@@ -199,6 +260,7 @@ export function FrameSurface( {
 			onLoad={ ( event ) => {
 				callbacks.current.onAdminBarVisibilityChange?.( null );
 				navigationId.current += 1;
+				themeDocumentReady.current = true;
 				const probe = ++pendingProbe.current;
 				const { src: loadedSrc } = event.currentTarget;
 				event.currentTarget.contentWindow?.postMessage(
@@ -209,6 +271,9 @@ export function FrameSurface( {
 					},
 					new URL( loadedSrc ).origin
 				);
+				if ( themeColorActiveRef.current ) {
+					requestThemeColor( true );
+				}
 				const pageTitle = getIframeTitle( event.currentTarget );
 				onLoad( loadedSrc );
 				// A frame fires `load` for the browser's own error page too, and

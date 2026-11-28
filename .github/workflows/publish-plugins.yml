@@ -1,10 +1,12 @@
 name: Publish Plugins
 
 # Builds the Studio plugins with the Studio CLI inside and publishes them as Automattic/studio-plugins,
-# the marketplace agent apps install them from. The package for OpenAI's plugin directory is kept as
-# a workflow artifact, and attached to releases: OpenAI's dashboard has no API, so someone uploads it
-# there. On releases, the plugin for Anthropic's directory, which downloads its CLI from the release,
-# goes to the claude-directory branch of the same repository.
+# the marketplace agent apps install them from, and the repository Antigravity installs the plugin
+# from (wp-studio, with its .antigravity-plugin manifest and mcp_config.json). The package for
+# OpenAI's plugin directory is kept as a workflow artifact, and attached to releases: OpenAI's
+# dashboard has no API, so someone uploads it there. On releases, the plugin for Anthropic's
+# directory and Antigravity's marketplace, which downloads its CLI from the release, goes to the
+# claude-directory branch of the same repository.
 on:
   release:
     types: [published]

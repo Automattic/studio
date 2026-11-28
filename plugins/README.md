@@ -3,7 +3,7 @@
 Plugins that bring [WordPress Studio](https://wordpress.studio/) to agent apps.
 
 - [wp-studio](wp-studio): build, design, and manage WordPress sites from Codex in the ChatGPT app,
-  from Claude Code, from Cursor, and from Grok Build.
+  from Claude Code, from Cursor, from Grok Build, and from Google Antigravity.
 
 With the Studio app, open **Settings** → **MCP** and select **Connect** next to your agent app. It
 installs the plugin for you.
@@ -56,19 +56,31 @@ downloads the CLI the first time it starts. Grok Build runs the plugin with the 
 `PATH`, version 22 or later. Start a new session afterwards. To update, run
 `grok plugin update wp-studio`.
 
+## Install in Antigravity
+
+```bash
+agy plugin install https://github.com/Automattic/studio-plugins/tree/trunk/wp-studio
+```
+
+Antigravity keeps an installed plugin in a read-only folder, so the plugin unpacks the Studio CLI
+in the data folder Antigravity gives it instead, and replaces it there when the plugin updates.
+Start a new conversation afterwards. To update, install it again.
+
 ## Development
 
 The plugins are developed in [Automattic/studio](https://github.com/Automattic/studio/tree/trunk/plugins)
 and published to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins) with each
 Studio release, versioned as that release and with the Studio CLI inside (`cli.tar.br`). Each release
 replaces that repository's single commit, so cloning it never fetches older copies of the CLI. The
-`claude-directory` branch holds the plugin for Anthropic's directory and Grok Build, which downloads
-the CLI from the Studio release instead of carrying it. Open issues and pull requests in
+`claude-directory` branch holds the plugin for Anthropic's directory, Grok Build and Antigravity's
+marketplace (which takes plugins up to 64 MiB), which downloads the CLI from the Studio release
+instead of carrying it. Open issues and pull requests in
 Automattic/studio.
 
 To try your changes, add the marketplace from your checkout (`codex plugin marketplace add ./plugins`,
 `claude --plugin-dir ./plugins/wp-studio` for one Claude Code session, a copy of `plugins/wp-studio`
-in `~/.cursor/plugins/local/WordPress-Studio`, as Cursor skips symlinks to folders outside it, or
-`grok plugin install ./plugins/wp-studio --trust`) and point the plugin at a Studio CLI build with
+in `~/.cursor/plugins/local/WordPress-Studio`, as Cursor skips symlinks to folders outside it,
+`grok plugin install ./plugins/wp-studio --trust`, or `agy plugin install ./plugins/wp-studio`, after
+`agy plugin validate ./plugins/wp-studio`, whose one warning is about Codex's `.mcp.json`) and point the plugin at a Studio CLI build with
 `STUDIO_CLI_BIN`. `npm run cli:bundle:plugin` builds the plugin with the CLI inside, the plugin for
 Anthropic's directory, and the CLI download to attach to the release.

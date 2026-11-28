@@ -1,7 +1,8 @@
 // The plugin's MCP server: `studio mcp`, from the Studio CLI the plugin carries
-// or downloads (`cli.tar.br`, unpacked inside the plugin on first start, so the
-// agent app removes it with this plugin version), or from an installed Studio
-// CLI at least as recent, such as the desktop app's.
+// or downloads (`cli.tar.br`, unpacked on first start inside the plugin, so the
+// agent app removes it with this plugin version, or in the data folder of an
+// app that installs plugins read-only), or from an installed Studio CLI at
+// least as recent, such as the desktop app's.
 //
 // stdout carries the MCP messages: anything else must go to stderr.
 import { execFile, spawn } from 'node:child_process';
@@ -14,6 +15,7 @@ import {
 	createWriteStream,
 	existsSync,
 	mkdirSync,
+	readdirSync,
 	readFileSync,
 	realpathSync,
 	renameSync,
@@ -36,12 +38,6 @@ const CLI_BUNDLE = path.join( PLUGIN_ROOT, 'cli.tar.br' );
 // A plugin that can't carry the CLI, as in Anthropic's directory, downloads the
 // same archive instead: its URL and SHA-256, written by the plugin build.
 const CLI_DOWNLOAD = path.join( PLUGIN_ROOT, 'cli-download.json' );
-const BUNDLED_CLI = path.join( PLUGIN_ROOT, 'cli' );
-const BUNDLED_MAIN = path.join( BUNDLED_CLI, 'main.mjs' );
-const UNPACK_LOCK = `${ BUNDLED_CLI }.lock`;
-// Only the holder of UNPACK_LOCK unpacks, so it can reuse one staging folder:
-// whatever a stopped holder left there is cleared by the next.
-const UNPACK_STAGING = `${ BUNDLED_CLI }.unpacking`;
 // What `studio mcp` answers the handshake and tool list with, for the app the
 // plugin targets, recorded by the plugin build.
 const SNAPSHOT = path.join( PLUGIN_ROOT, 'mcp-snapshot.json' );
@@ -54,6 +50,18 @@ const { version: PLUGIN_VERSION } = JSON.parse(
 	)
 );
 
+// Antigravity installs a plugin in a read-only folder that each update replaces,
+// and gives it a writable one that outlives them (PLUGIN_DATA), so the CLI goes
+// there, in a folder per version.
+const DATA_DIR = process.env.PLUGIN_DATA;
+const BUNDLED_CLI = DATA_DIR
+	? path.join( DATA_DIR, `cli-${ PLUGIN_VERSION }` )
+	: path.join( PLUGIN_ROOT, 'cli' );
+const BUNDLED_MAIN = path.join( BUNDLED_CLI, 'main.mjs' );
+const UNPACK_LOCK = `${ BUNDLED_CLI }.lock`;
+// Only the holder of UNPACK_LOCK unpacks, so it can reuse one staging folder:
+// whatever a stopped holder left there is cleared by the next.
+const UNPACK_STAGING = `${ BUNDLED_CLI }.unpacking`;
 // Processes to stop with this one: tar while unpacking, then `studio mcp`.
 const running = new Set();
 for ( const signal of [ 'SIGINT', 'SIGTERM' ] ) {
@@ -180,7 +188,13 @@ async function unpack( archive ) {
 			.createInterface( { input: tar.stderr } )
 			.on( 'line', ( line ) => process.stderr.write( `${ line }\n` ) );
 		const [ , [ code ] ] = await Promise.all( [
-			pipeline( createReadStream( archive ), createBrotliDecompress(), tar.stdin ),
+			// GNU tar exits at the end-of-archive marker, which can be before the
+			// padding after it is written: its exit code says whether it unpacked.
+			pipeline( createReadStream( archive ), createBrotliDecompress(), tar.stdin ).catch(
+				( error ) => {
+					if ( ! [ 'ERR_STREAM_PREMATURE_CLOSE', 'EPIPE' ].includes( error.code ) ) throw error;
+				}
+			),
 			once( tar, 'close' ),
 		] );
 		running.delete( tar );
@@ -200,9 +214,26 @@ const isAlive = ( pid ) => {
 	}
 };
 
+// The data folder outlives plugin updates, so the CLIs of other versions would
+// pile up there: the holder of UNPACK_LOCK removes them once it has its own.
+function removeOtherVersions() {
+	if ( ! DATA_DIR ) return;
+	const current = path.basename( BUNDLED_CLI );
+	for ( const name of readdirSync( DATA_DIR ) ) {
+		if ( /^cli-\d/.test( name ) && ! name.startsWith( current ) ) {
+			try {
+				rmSync( path.join( DATA_DIR, name ), { recursive: true, force: true } );
+			} catch {
+				// In use on Windows: the next version's unpack tries again.
+			}
+		}
+	}
+}
+
 // Codex starts several servers at once: the first to take the lock unpacks,
 // the others wait for it. A lock left by a process that died is taken over.
 async function unpackOnce() {
+	mkdirSync( path.dirname( BUNDLED_CLI ), { recursive: true } );
 	while ( ! existsSync( BUNDLED_MAIN ) ) {
 		try {
 			writeFileSync( UNPACK_LOCK, String( process.pid ), { flag: 'wx' } );
@@ -224,6 +255,7 @@ async function unpackOnce() {
 		try {
 			if ( archive !== CLI_BUNDLE ) await download( archive );
 			await unpack( archive );
+			removeOtherVersions();
 		} finally {
 			if ( archive !== CLI_BUNDLE ) rmSync( archive, { force: true } );
 			rmSync( UNPACK_LOCK, { force: true } );

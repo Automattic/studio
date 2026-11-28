@@ -1,7 +1,7 @@
 # WordPress Studio plugin
 
-Build, design, and manage WordPress sites from Codex in the ChatGPT app, Claude Code, Cursor, or Grok
-Build, with [WordPress Studio](https://wordpress.studio/). Ask for a site and Studio creates it on
+Build, design, and manage WordPress sites from Codex in the ChatGPT app, Claude Code, Cursor, Grok
+Build, or Google Antigravity, with [WordPress Studio](https://wordpress.studio/). Ask for a site and Studio creates it on
 your computer, asks about the look and the layout with rendered previews, builds a block theme, and
 checks the result visually. Publish it to WordPress.com when you are ready.
 
@@ -48,6 +48,12 @@ grok plugin install Automattic/studio-plugins@claude-directory --trust
 
 Grok Build runs the plugin with the Node.js on your `PATH`, version 22 or later.
 
+In Antigravity:
+
+```bash
+agy plugin install https://github.com/Automattic/studio-plugins/tree/trunk/wp-studio
+```
+
 Any other MCP client can run the server directly: add a stdio server named `wordpress-studio` that
 runs `studio mcp`.
 
@@ -61,11 +67,12 @@ into Studio, or log in to WordPress.com.
 
 ## The Studio CLI
 
-The plugin carries the Studio CLI of its own version. The copy in Anthropic's directory is too small
-to carry it: the first time it starts, it downloads it from that version's
+The plugin carries the Studio CLI of its own version. The copies in Anthropic's directory and
+Antigravity's marketplace are too small to carry it: the first time one starts, it downloads it from that version's
 [Studio release](https://github.com/Automattic/studio/releases) on GitHub and checks it against the
 SHA-256 it carries. The plugin unpacks the CLI on its first start, which takes a few seconds, or a
-minute or two on Windows, and it updates with the plugin. A Studio CLI from the desktop app or from
+minute or two on Windows, and it updates with the plugin. In Antigravity, the CLI is unpacked in the
+plugin's data folder. A Studio CLI from the desktop app or from
 npm is used instead when it is at least as recent. Like any Studio CLI outside the desktop app, it
 downloads PHP from Automattic's CDN (`appscdn.wordpress.com`) when it first starts a site. It
 connects to WordPress.com only for your WordPress.com sites, once you log in.

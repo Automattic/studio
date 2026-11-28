@@ -7,7 +7,9 @@ import {
 	getHistoryEntryPath,
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
+import themeStyles from '../preview-theme.module.css';
 import styles from './style.module.css';
+import type { PreviewThemeStyle } from '../preview-theme';
 import type { NavigationShortcut } from '@/features/sites/site-preview/browser-shortcuts';
 
 export function BrowserHistoryButton( {
@@ -17,6 +19,7 @@ export function BrowserHistoryButton( {
 	disabled: disabledByHost,
 	onStep,
 	onJump,
+	themeStyle,
 }: {
 	direction: 'back' | 'forward';
 	browserState: BrowserNavigationState;
@@ -24,6 +27,7 @@ export function BrowserHistoryButton( {
 	shortcut: NavigationShortcut;
 	onStep: () => void;
 	onJump: ( index: number ) => void;
+	themeStyle?: PreviewThemeStyle;
 } ) {
 	const entries = getDirectionalHistoryEntries(
 		browserState.historyEntries,
@@ -66,7 +70,13 @@ export function BrowserHistoryButton( {
 			} }
 		>
 			<Menu.Trigger render={ trigger } />
-			<Menu.Popup side="bottom" align="start">
+			<Menu.Popup
+				side="bottom"
+				align="start"
+				className={ themeStyle ? themeStyles.popup : undefined }
+				style={ themeStyle }
+				data-color-scheme={ themeStyle?.[ '--preview-theme-color-scheme' ] }
+			>
 				{ entries.length ? (
 					entries.map( ( entry ) => (
 						<Menu.Item

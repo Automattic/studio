@@ -1,7 +1,9 @@
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
 import { EllipsisVerticalIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
+import themeStyles from '../preview-theme.module.css';
 import type { PreviewColorScheme } from '../preview-surface/webview';
+import type { PreviewThemeStyle } from '../preview-theme';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 
 export interface PreviewBrowserActions {
@@ -32,6 +34,7 @@ interface BrowserMenuItemsProps {
 	screenshot?: PreviewScreenshotActions;
 	disabled?: boolean;
 	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
+	themeStyle?: PreviewThemeStyle;
 }
 
 function BrowserMenuItems( {
@@ -41,6 +44,7 @@ function BrowserMenuItems( {
 	screenshot,
 	disabled,
 	annotation,
+	themeStyle,
 }: BrowserMenuItemsProps ) {
 	return (
 		<>
@@ -83,7 +87,11 @@ function BrowserMenuItems( {
 				<>
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
-						<Menu.SubmenuPopup>
+						<Menu.SubmenuPopup
+							className={ themeStyle ? themeStyles.popup : undefined }
+							style={ themeStyle }
+							data-color-scheme={ themeStyle?.[ '--preview-theme-color-scheme' ] }
+						>
 							<Menu.RadioGroup
 								value={ actions.colorScheme }
 								onValueChange={ ( value ) =>
@@ -114,6 +122,7 @@ function BrowserMenuItems( {
 
 export function BrowserMenu( {
 	className,
+	themeStyle,
 	...props
 }: BrowserMenuItemsProps & { className?: string } ) {
 	return (
@@ -142,8 +151,14 @@ export function BrowserMenu( {
 				</Menu.Trigger>
 				<TooltipContent side="bottom">{ __( 'Browser options' ) }</TooltipContent>
 			</Tooltip>
-			<Menu.Popup side="bottom" align="end">
-				<BrowserMenuItems { ...props } />
+			<Menu.Popup
+				side="bottom"
+				align="end"
+				className={ themeStyle ? themeStyles.popup : undefined }
+				style={ themeStyle }
+				data-color-scheme={ themeStyle?.[ '--preview-theme-color-scheme' ] }
+			>
+				<BrowserMenuItems { ...props } themeStyle={ themeStyle } />
 			</Menu.Popup>
 		</Menu.Root>
 	);

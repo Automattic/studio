@@ -1,6 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
-import { VisuallyHidden } from '@studio/ds';
+import { TooltipAppearanceProvider, VisuallyHidden } from '@studio/ds';
 import { __ } from '@wordpress/i18n';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -58,6 +58,8 @@ import {
 	subscribePreviewOpenLink,
 	type WebviewTag,
 } from './preview-surface/webview';
+import { getPreviewThemeStyle } from './preview-theme';
+import themeStyles from './preview-theme.module.css';
 import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
@@ -487,9 +489,21 @@ function SitePreviewContent( {
 		  }
 		: undefined;
 
+	const themeStyle =
+		! responsiveEnabled && ! blank && canPreview && ! rendered && ! browserState.failed
+			? getPreviewThemeStyle( activeSurface?.themeColor ?? null )
+			: undefined;
+	const tooltipAppearance = themeStyle
+		? {
+				className: themeStyles.popup,
+				style: themeStyle,
+				colorScheme: themeStyle[ '--preview-theme-color-scheme' ],
+		  }
+		: undefined;
 	const header = (
 		<PreviewHeader
 			inactive={ inactive }
+			themeStyle={ themeStyle }
 			site={ site }
 			siteUrl={ siteUrl }
 			path={ safePath }
@@ -528,27 +542,34 @@ function SitePreviewContent( {
 		<aside
 			className={ styles.root }
 			data-browser-bar={ showBrowserBar || undefined }
+			style={ themeStyle }
 			aria-label={ __( 'Panel' ) }
 		>
 			{ ! inactive && annotate && annotationSpace
 				? createPortal(
-						<AnnotateButton
-							{ ...annotate }
-							annotationCount={ batchNotes.length }
-							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
-						/>,
+						<TooltipAppearanceProvider value={ tooltipAppearance }>
+							<AnnotateButton
+								{ ...annotate }
+								annotationCount={ batchNotes.length }
+								pageTools={ activeSurfaceKey === 'site' && canAnnotate }
+							/>
+						</TooltipAppearanceProvider>,
 						annotationSpace
 				  )
 				: null }
-			{ showBrowserBar && activeSurfaceKey !== 'email' ? header : null }
-			{ showBrowserBar && responsiveEnabled ? (
-				<ResponsiveToolbar
-					siteId={ site.id }
-					settings={ responsiveSettings }
-					fitScale={ fitScale }
-					active={ responsiveActive }
-				/>
-			) : null }
+			<div className={ styles.chrome } data-preview-theme={ !! themeStyle || undefined }>
+				<TooltipAppearanceProvider value={ tooltipAppearance }>
+					{ showBrowserBar && activeSurfaceKey !== 'email' ? header : null }
+				</TooltipAppearanceProvider>
+				{ showBrowserBar && responsiveEnabled ? (
+					<ResponsiveToolbar
+						siteId={ site.id }
+						settings={ responsiveSettings }
+						fitScale={ fitScale }
+						active={ responsiveActive }
+					/>
+				) : null }
+			</div>
 			<div className={ styles.body }>
 				<div
 					ref={ viewportRef }
@@ -640,6 +661,7 @@ function SitePreviewContent( {
 											annotationTool={ annotationTools.tool }
 											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
+											onThemeColorChange={ ( themeColor ) => patchSurface( key, { themeColor } ) }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
 											onAdminBarVisibilityChange={
@@ -658,6 +680,8 @@ function SitePreviewContent( {
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
 											browserCommand={ surface.browserCommand }
+											themeColorActive={ active && ! inactive && ! collapsed }
+											onThemeColorChange={ ( themeColor ) => patchSurface( key, { themeColor } ) }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={
 												key === 'site' && ! live

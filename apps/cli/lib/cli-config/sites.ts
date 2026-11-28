@@ -46,6 +46,14 @@ export async function findSiteById( siteId: string ): Promise< ConfigSite | unde
 	return config.sites.find( ( site ) => site.id === siteId );
 }
 
+/**
+ * Whether a site is served over HTTPS on its custom domain. The proxy needs port 443 only then.
+ */
+export async function isHttpsUsedByAnySite(): Promise< boolean > {
+	const { sites } = await readConfig();
+	return sites.some( ( site ) => site.customDomain && site.enableHttps );
+}
+
 export function getSiteUrl( site: ConfigSite ): string {
 	if ( site.url ) {
 		return site.url;

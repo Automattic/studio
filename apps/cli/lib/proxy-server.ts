@@ -6,6 +6,7 @@ import { domainToASCII } from 'node:url';
 import { getConfigPath, readConfig } from '@studio/common/lib/config/store';
 import httpProxy from 'http-proxy';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
+import { isHttpsUsedByAnySite } from 'cli/lib/cli-config/sites';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 
 let httpProxyServer: http.Server | null = null;
@@ -257,7 +258,9 @@ export async function startProxyServers(): Promise< void > {
 
 	try {
 		await startHttpProxy();
-		await startHttpsProxy();
+		if ( await isHttpsUsedByAnySite() ) {
+			await startHttpsProxy();
+		}
 
 		console.log( '[Proxy] Proxy servers started successfully' );
 		console.log( '[Proxy] Ready to handle custom domain requests' );

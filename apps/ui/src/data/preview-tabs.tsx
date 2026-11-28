@@ -128,15 +128,18 @@ export function usePreviewTabs( key: string, initialPath = '/' ) {
 			} ),
 		[ update ]
 	);
-	const add = ( path: string | null = null ) => {
-		const id = crypto.randomUUID();
-		update( ( current ) => ( {
-			...current,
-			tabs: [ ...current.tabs, { id, path, title: null } ],
-			selectedId: id,
-			focusRequest: current.focusRequest + 1,
-		} ) );
-	};
+	const add = useCallback(
+		( path: string | null = null, { background = false }: { background?: boolean } = {} ) => {
+			const id = crypto.randomUUID();
+			update( ( current ) => ( {
+				...current,
+				tabs: [ ...current.tabs, { id, path, title: null } ],
+				selectedId: background ? current.selectedId : id,
+				focusRequest: current.focusRequest + ( background ? 0 : 1 ),
+			} ) );
+		},
+		[ update ]
+	);
 	const select = ( id: string ) =>
 		update( ( current ) =>
 			current.selectedId === id || ! current.tabs.some( ( tab ) => tab.id === id )

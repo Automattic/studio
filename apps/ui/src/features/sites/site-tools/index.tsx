@@ -215,12 +215,16 @@ export function SiteToolMenuItems( {
 	site,
 	actions,
 	live = false,
+	includeAdmin = true,
 }: {
 	site: SiteDetails;
 	actions: ReturnType< typeof useSiteToolActions >;
 	live?: boolean;
+	includeAdmin?: boolean;
 } ) {
-	const tools = useAvailableSiteTools( site, live );
+	const tools = useAvailableSiteTools( site, live ).filter(
+		( tool ) => includeAdmin || tool.id !== 'admin'
+	);
 	const group = useRef< HTMLDivElement >( null );
 	const databaseReason = live ? undefined : getPhpMyAdminUnavailableReason( site );
 	const databaseReasonId = useId();

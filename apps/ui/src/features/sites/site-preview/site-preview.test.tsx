@@ -136,6 +136,167 @@ function finishLoading( runtime: Runtime ) {
 	}
 }
 
+it( 'keeps the page color until the next document reports its color', async () => {
+	await renderPreview( 'browser' );
+	finishLoading( 'browser' );
+	const frame = page() as HTMLIFrameElement;
+	const navigationId = frameNavigationIds.get( frame );
+	const report = ( data: object ) =>
+		fireEvent(
+			window,
+			new MessageEvent( 'message', { source: frame.contentWindow, origin: SITE_URL, data } )
+		);
+	report( { type: 'studio:preview:theme-color', color: '#3455c2', navigationId } );
+	const toolbar = await screen.findByRole( 'toolbar', { name: 'Preview browser controls' } );
+	expect( toolbar.parentElement ).toHaveAttribute( 'data-preview-theme' );
+	expect( toolbar.closest( 'aside' )?.style.getPropertyValue( '--preview-theme-background' ) ).toBe(
+		'#3455c2'
+	);
+	report( { type: 'studio:preview:navigating', navigationId } );
+	expect( toolbar.parentElement ).toHaveAttribute( 'data-preview-theme' );
+	report( { type: 'studio:preview:theme-color', color: '#abcdef', navigationId } );
+	expect( toolbar.parentElement ).toHaveAttribute( 'data-preview-theme' );
+	finishLoading( 'browser' );
+	report( { type: 'studio:preview:theme-color', color: null, navigationId: navigationId! + 1 } );
+	expect( toolbar.parentElement ).not.toHaveAttribute( 'data-preview-theme' );
+} );
+
+it( 'updates the recent-pages panel with the site color and restores its fallback', async () => {
+	localStorage.setItem(
+		'studio-preview-recent-locations:one',
+		JSON.stringify( {
+			version: 1,
+			locations: [ { path: '/', label: SITE_URL, title: 'Home' } ],
+		} )
+	);
+	const { user } = await renderPreview( 'browser' );
+	finishLoading( 'browser' );
+	const frame = page() as HTMLIFrameElement;
+	const report = ( color: string | null ) =>
+		fireEvent(
+			window,
+			new MessageEvent( 'message', {
+				source: frame.contentWindow,
+				origin: SITE_URL,
+				data: {
+					type: 'studio:preview:theme-color',
+					color,
+					navigationId: frameNavigationIds.get( frame ),
+				},
+			} )
+		);
+	report( '#480d1b' );
+	expect( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toHaveAttribute(
+		'data-color-scheme',
+		'dark'
+	);
+	await user.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+	const popup = await screen.findByRole( 'dialog', { name: 'Recent pages' } );
+	expect( popup.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '#480d1b' );
+	expect( popup.parentElement ).toHaveAttribute( 'data-color-scheme', 'dark' );
+	report( '#f4e5d4' );
+	expect( popup.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '#f4e5d4' );
+	expect( popup.parentElement ).toHaveAttribute( 'data-color-scheme', 'light' );
+	report( '#ffffff' );
+	expect( popup.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '' );
+	expect( popup.parentElement ).not.toHaveAttribute( 'data-color-scheme' );
+	report( '#480d1b' );
+	expect( popup.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '#480d1b' );
+	report( null );
+	expect( popup.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '' );
+	localStorage.removeItem( 'studio-preview-recent-locations:one' );
+} );
+
+it( 'themes browser tooltips and keeps device toolbar tooltips in the app theme', async () => {
+	const { user } = await renderPreview( 'browser', {
+		site: makeSite( { id: 'themed-tooltip', port: 9010, running: true } ),
+	} );
+	finishLoading( 'browser' );
+	const frame = page() as HTMLIFrameElement;
+	const report = ( color: string | null ) =>
+		fireEvent(
+			window,
+			new MessageEvent( 'message', {
+				source: frame.contentWindow,
+				origin: SITE_URL,
+				data: {
+					type: 'studio:preview:theme-color',
+					color,
+					navigationId: frameNavigationIds.get( frame ),
+				},
+			} )
+		);
+	report( '#480d1b' );
+	const reload = screen.getByRole( 'button', { name: 'Reload' } );
+	await user.hover( reload );
+	const tooltip = ( await screen.findByText( 'Reload' ) ).closest< HTMLElement >(
+		'[data-slot="tooltip-content"]'
+	)!;
+	expect( tooltip.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '#480d1b' );
+	expect( tooltip ).toHaveAttribute( 'data-color-scheme', 'dark' );
+	expect( tooltip.querySelector( 'kbd' ) ).toBeInTheDocument();
+	report( '#f4e5d4' );
+	expect( tooltip.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '#f4e5d4' );
+	expect( tooltip ).toHaveAttribute( 'data-color-scheme', 'light' );
+	report( '#ffffff' );
+	expect( tooltip.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '' );
+	expect( tooltip ).not.toHaveAttribute( 'data-color-scheme' );
+	await user.unhover( reload );
+	report( '#480d1b' );
+	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+	await user.hover( annotate );
+	const annotationTooltip = (
+		await screen.findByText( 'Point to something you’d like to change.' )
+	).closest< HTMLElement >( '[data-slot="tooltip-content"]' )!;
+	expect( annotationTooltip.style.getPropertyValue( '--preview-theme-background' ) ).toBe(
+		'#480d1b'
+	);
+	await user.unhover( annotate );
+	await openBrowserOptions( user );
+	await user.click( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) );
+	await user.hover( screen.getByRole( 'button', { name: 'Rotate to landscape' } ) );
+	const deviceTooltip = ( await screen.findByText( 'Rotate to landscape' ) ).closest< HTMLElement >(
+		'[data-slot="tooltip-content"]'
+	)!;
+	expect( deviceTooltip.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '' );
+	expect( deviceTooltip ).not.toHaveAttribute( 'data-color-scheme' );
+} );
+
+it.each( [ 'toolbar', 'host' ] )(
+	'keeps the browser bar colored through a %s refresh',
+	async ( source ) => {
+		const { user, update } = await renderPreview( 'browser' );
+		finishLoading( 'browser' );
+		const original = page() as HTMLIFrameElement;
+		const report = ( frame: HTMLIFrameElement, color: string | null ) =>
+			fireEvent(
+				window,
+				new MessageEvent( 'message', {
+					source: frame.contentWindow,
+					origin: SITE_URL,
+					data: {
+						type: 'studio:preview:theme-color',
+						color,
+						navigationId: frameNavigationIds.get( frame ),
+					},
+				} )
+			);
+		report( original, '#3455c2' );
+		const toolbar = await screen.findByRole( 'toolbar', { name: 'Preview browser controls' } );
+		if ( source === 'toolbar' )
+			await user.click( screen.getByRole( 'button', { name: 'Reload' } ) );
+		else update( { reloadNonce: 1 } );
+		await waitFor( () => expect( page() ).not.toBe( original ) );
+		expect( toolbar.parentElement ).toHaveAttribute( 'data-preview-theme' );
+		finishLoading( 'browser' );
+		expect( toolbar.parentElement ).toHaveAttribute( 'data-preview-theme' );
+		report( page() as HTMLIFrameElement, '#cc7744' );
+		expect(
+			toolbar.closest( 'aside' )?.style.getPropertyValue( '--preview-theme-background' )
+		).toBe( '#cc7744' );
+	}
+);
+
 function reportAdminBarVisibility( runtime: Runtime, visible: boolean, url?: string ) {
 	const element = page()!;
 	if ( runtime === 'desktop' ) {
@@ -871,6 +1032,83 @@ describe( 'preview browser menu', () => {
 		localStorage.removeItem( 'studio-preview-recent-locations:one' );
 		localStorage.removeItem( 'studio-preview-recent-locations:other' );
 		localStorage.removeItem( 'studio-test-keep' );
+	} );
+
+	it( 'follows the active site color and restores the default menu when it is unavailable', async () => {
+		const { user } = await renderPreview( 'browser' );
+		finishLoading( 'browser' );
+		const frame = page() as HTMLIFrameElement;
+		const report = ( color: string | null ) =>
+			fireEvent(
+				window,
+				new MessageEvent( 'message', {
+					source: frame.contentWindow,
+					origin: SITE_URL,
+					data: {
+						type: 'studio:preview:theme-color',
+						color,
+						navigationId: frameNavigationIds.get( frame ),
+					},
+				} )
+			);
+		report( '#4a1018' );
+		await openBrowserOptions( user );
+		const trigger = screen.getByRole( 'button', { name: 'Browser options' } );
+		expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( trigger ).not.toHaveAttribute( 'data-toggle-highlight' );
+		const menu = screen.getByRole( 'menu' );
+		expect( menu.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '#4a1018' );
+		report( null );
+		expect( trigger ).not.toHaveAttribute( 'data-toggle-highlight' );
+		expect( menu.style.getPropertyValue( '--preview-theme-background' ) ).toBe( '' );
+	} );
+
+	it( 'uses the app theme while the device toolbar is open and restores the site color afterward', async () => {
+		const { user } = await renderPreview( 'browser', {
+			site: makeSite( { id: 'themed-device', port: 9010, running: true } ),
+		} );
+		finishLoading( 'browser' );
+		const frame = page() as HTMLIFrameElement;
+		const report = ( color: string ) =>
+			fireEvent(
+				window,
+				new MessageEvent( 'message', {
+					source: frame.contentWindow,
+					origin: SITE_URL,
+					data: {
+						type: 'studio:preview:theme-color',
+						color,
+						navigationId: frameNavigationIds.get( frame ),
+					},
+				} )
+			);
+		report( '#4a1018' );
+		const toolbar = screen.getByRole( 'toolbar', { name: 'Preview browser controls' } );
+		expect( toolbar.parentElement ).toHaveAttribute( 'data-preview-theme' );
+		await openBrowserOptions( user );
+		await user.click( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) );
+		expect( toolbar.parentElement ).not.toHaveAttribute( 'data-preview-theme' );
+		expect( toolbar ).not.toHaveAttribute( 'data-color-scheme' );
+		expect(
+			toolbar.closest( 'aside' )?.style.getPropertyValue( '--preview-theme-background' )
+		).toBe( '' );
+		await user.click( await screen.findByRole( 'button', { name: /^Responsive$/ } ) );
+		expect(
+			( await screen.findByRole( 'menu' ) ).style.getPropertyValue( '--preview-theme-background' )
+		).toBe( '' );
+		await user.keyboard( '{Escape}' );
+		await openBrowserOptions( user );
+		expect(
+			screen.getByRole( 'menu' ).style.getPropertyValue( '--preview-theme-background' )
+		).toBe( '' );
+		await user.keyboard( '{Escape}' );
+		report( '#3455c2' );
+		expect( toolbar.parentElement ).not.toHaveAttribute( 'data-preview-theme' );
+		await user.click( screen.getByRole( 'button', { name: 'Hide device toolbar' } ) );
+		expect( toolbar.parentElement ).toHaveAttribute( 'data-preview-theme' );
+		expect(
+			toolbar.closest( 'aside' )?.style.getPropertyValue( '--preview-theme-background' )
+		).toBe( '#3455c2' );
 	} );
 
 	it( 'offers the compact menu actions and opens DevTools for the active preview', async () => {

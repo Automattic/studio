@@ -21,9 +21,12 @@ import {
 	WordPressIcon,
 } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import styles from './address-bar.module.css';
 import { PREVIEW_HISTORY_CLEARED_EVENT } from './preview-browser-settings';
+import themeStyles from './preview-theme.module.css';
+import type { PreviewThemeStyle } from './preview-theme';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType, FormEvent, ReactNode } from 'react';
 
@@ -147,6 +150,7 @@ interface PreviewAddressBarProps {
 	onExternalNavigate?: ( url: string ) => void;
 	disabled?: boolean;
 	compact?: boolean;
+	themeStyle?: PreviewThemeStyle;
 }
 
 interface RecentPreviewLocation {
@@ -294,6 +298,7 @@ export function PreviewAddressBar( {
 	onExternalNavigate,
 	disabled = false,
 	compact = false,
+	themeStyle,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
@@ -533,7 +538,9 @@ export function PreviewAddressBar( {
 				initialFocus={ false }
 				finalFocus={ false }
 				aria-label={ __( 'Recent pages' ) }
-				className={ styles.recentPopup }
+				className={ clsx( styles.recentPopup, themeStyle && themeStyles.popup ) }
+				style={ themeStyle }
+				data-color-scheme={ themeStyle?.[ '--preview-theme-color-scheme' ] }
 			>
 				<CommandList
 					id={ recentId }

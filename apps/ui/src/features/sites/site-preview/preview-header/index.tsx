@@ -16,6 +16,7 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
+import type { PreviewThemeStyle } from '@/features/sites/site-preview/preview-theme';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
 import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
 
@@ -41,6 +42,7 @@ interface PreviewHeaderProps {
 	responsive?: PreviewResponsiveActions;
 	screenshot?: PreviewScreenshotActions;
 	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
+	themeStyle?: PreviewThemeStyle;
 }
 
 export function PreviewHeader( {
@@ -65,6 +67,7 @@ export function PreviewHeader( {
 	screenshot,
 	annotation,
 	inactive = false,
+	themeStyle,
 }: PreviewHeaderProps ) {
 	const { layout: headerLayout, attachAnnotationSpace, attachBrowserHeader } = useSiteHeader();
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
@@ -85,6 +88,7 @@ export function PreviewHeader( {
 			onOpenSiteSettings={ live ? undefined : () => openSettings( 'site', site.id ) }
 			onExternalNavigate={ onExternalNavigate }
 			disabled={ ! canPreview || isStarting || isStopping }
+			themeStyle={ themeStyle }
 		/>
 	);
 
@@ -92,6 +96,7 @@ export function PreviewHeader( {
 		<div
 			ref={ inactive ? undefined : attachBrowserHeader }
 			data-preview-browser-controls
+			data-color-scheme={ themeStyle?.[ '--preview-theme-color-scheme' ] }
 			data-site-header-layout={ headerLayout }
 			className={ styles.header }
 			style={
@@ -119,6 +124,7 @@ export function PreviewHeader( {
 						direction="back"
 						browserState={ browserState }
 						shortcut={ shortcuts.back }
+						themeStyle={ themeStyle }
 						disabled={ disabled }
 						onStep={ () => onBrowserCommand( 'back' ) }
 						onJump={ onJump }
@@ -128,6 +134,7 @@ export function PreviewHeader( {
 							direction="forward"
 							browserState={ browserState }
 							shortcut={ shortcuts.forward }
+							themeStyle={ themeStyle }
 							disabled={ disabled }
 							onStep={ () => onBrowserCommand( 'forward' ) }
 							onJump={ onJump }
@@ -157,6 +164,7 @@ export function PreviewHeader( {
 				/>
 				{ canPreview && ( browserActions || adminBarActions || responsive || screenshot ) ? (
 					<BrowserMenu
+						themeStyle={ themeStyle }
 						actions={ browserActions }
 						adminBar={ adminBarActions }
 						responsive={ responsive }

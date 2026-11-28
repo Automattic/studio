@@ -29,6 +29,10 @@ export interface WebviewPageTitleUpdatedEvent extends Event {
 	title?: string;
 }
 
+export interface WebviewThemeColorEvent extends Event {
+	themeColor: string | null;
+}
+
 export interface WebviewFailLoadEvent extends Event {
 	errorCode: number;
 	isMainFrame: boolean;

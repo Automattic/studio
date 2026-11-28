@@ -748,6 +748,10 @@ export interface Connector {
 	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
 	// when to actually leave the gap (see `useTrafficLightSpace`).
 	reservesTrafficLightSpace: boolean;
+	setTrafficLightState?(
+		visible: boolean,
+		flyoutOrigin?: { x: number; y: number }
+	): Promise< void >;
 
 	// Tells the host which surface the Windows/Linux window-controls overlay is
 	// sitting on, so it can repaint them to match (see

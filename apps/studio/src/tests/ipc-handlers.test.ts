@@ -1,13 +1,19 @@
 /**
  * @vitest-environment node
  */
-import { IpcMainInvokeEvent, dialog, shell } from 'electron';
+import { BrowserWindow, IpcMainInvokeEvent, dialog, shell } from 'electron';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { getProviderServices } from '@studio/providers/services';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { listAccountSites, getFileSize, openURL, showOpenFolderDialog } from 'src/ipc-handlers';
+import {
+	listAccountSites,
+	getFileSize,
+	openURL,
+	setTrafficLightState,
+	showOpenFolderDialog,
+} from 'src/ipc-handlers';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
@@ -54,6 +60,38 @@ describe( 'listAccountSites', () => {
 			expect( list ).toHaveBeenCalledWith( { token: 'test-token' }, { planRequired } );
 		}
 	);
+} );
+
+describe.runIf( process.platform === 'darwin' )( 'setTrafficLightState', () => {
+	it( 'follows the flyout at the current zoom and restores the docked position', () => {
+		const win = {
+			isFullScreen: () => false,
+			setWindowButtonPosition: vi.fn(),
+			setWindowButtonVisibility: vi.fn(),
+		};
+		const event = { sender: { getZoomFactor: () => 1.5 } } as IpcMainInvokeEvent;
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce(
+			win as unknown as BrowserWindow
+		);
+		setTrafficLightState( event, true, { x: -24, y: 6 } );
+		expect( win.setWindowButtonPosition ).toHaveBeenLastCalledWith( { x: -16, y: 29 } );
+		expect( win.setWindowButtonVisibility ).toHaveBeenLastCalledWith( true );
+
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce(
+			win as unknown as BrowserWindow
+		);
+		setTrafficLightState( event, true );
+		expect( win.setWindowButtonPosition ).toHaveBeenLastCalledWith( { x: 20, y: 29 } );
+	} );
+
+	it( 'keeps the buttons hidden if fullscreen changes before the renderer responds', () => {
+		const win = { isFullScreen: () => true, setWindowButtonVisibility: vi.fn() };
+		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce(
+			win as unknown as BrowserWindow
+		);
+		setTrafficLightState( mockIpcMainInvokeEvent, true );
+		expect( win.setWindowButtonVisibility ).toHaveBeenCalledExactlyOnceWith( false );
+	} );
 } );
 
 describe( 'getFileSize', () => {

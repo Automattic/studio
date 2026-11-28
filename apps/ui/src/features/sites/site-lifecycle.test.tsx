@@ -3,6 +3,13 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { updateResponsivePreview } from '@/data/responsive-preview';
+import {
+	changeAnnotation,
+	discardAnnotations,
+	getSiteAnnotations,
+	pickAnnotation,
+	setAnnotating,
+} from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -363,6 +370,46 @@ describe( 'site lifecycle and preview', () => {
 		await screen.findByRole( 'button', { name: 'Start My site' } );
 		expect( panelShown() ).toBe( false );
 	} );
+
+	it.each( [ 'Stop site', 'Restart site' ] as const )(
+		'keeps draft notes through %s and exits annotation mode only on stop',
+		async ( command ) => {
+			const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );
+			await screen.findByRole( 'textbox', { name: 'Address' } );
+			const stop = deferred();
+			const stopSite = connector.stopSite.getMockImplementation()!;
+			connector.stopSite.mockImplementationOnce( async ( id ) => {
+				await stop.promise;
+				return stopSite( id );
+			} );
+			act( () => {
+				setAnnotating( 'one', true );
+				const id = pickAnnotation( 'one', { selector: 'h1', path: '/' } )!;
+				changeAnnotation( 'one', id, { comment: 'Use a shorter heading' } );
+			} );
+
+			try {
+				await runSitePaletteCommand( command );
+				await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
+				await waitFor( () =>
+					expect( getSiteAnnotations( 'one' ).active ).toBe( command === 'Restart site' )
+				);
+				expect( getSiteAnnotations( 'one' ).notes ).toEqual( [
+					expect.objectContaining( { comment: 'Use a shorter heading' } ),
+				] );
+				await act( async () => stop.resolve() );
+				if ( command === 'Restart site' ) {
+					await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
+					expect( getSiteAnnotations( 'one' ).active ).toBe( true );
+				} else {
+					expect( getSiteAnnotations( 'one' ).editingId ).toBeNull();
+				}
+			} finally {
+				await act( async () => stop.resolve() );
+				act( () => discardAnnotations( 'one' ) );
+			}
+		}
+	);
 
 	it( 'keeps the panel open when the stopped event arrives before the command finishes', async () => {
 		const { connector } = setup( [ site( { running: true } ) ], '/sessions/one-chat' );

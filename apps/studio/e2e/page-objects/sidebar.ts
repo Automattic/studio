@@ -51,10 +51,18 @@ export default class Sidebar {
 
 	async toggleSite( siteName: string ) {
 		await this.ensureOpen();
-		await this.getSiteRow( siteName )
+		const control = this.getSiteRow( siteName )
 			.and( this.page.locator( INTERACTIVE_SELECTOR ) )
-			.locator( 'button[data-state]' )
-			.click();
+			.locator( 'button[data-state]' );
+		const opensMenu = ( await control.getAttribute( 'aria-haspopup' ) ) === 'menu';
+		await control.click();
+		if ( opensMenu ) {
+			const stop = this.page.getByRole( 'menuitem', { name: 'Stop', exact: true } );
+			const hasSubmenu = ( await stop.getAttribute( 'aria-haspopup' ) ) === 'menu';
+			await stop.click();
+			if ( hasSubmenu )
+				await this.page.getByRole( 'menuitem', { name: 'Stop site', exact: true } ).click();
+		}
 	}
 
 	async expectRunning( siteName: string, timeout = 120_000 ) {

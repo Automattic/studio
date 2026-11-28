@@ -85,7 +85,8 @@ it.each( [ 'Split view', 'Panel' ] as const )(
 				layout === 'Panel' ? 'panel' : 'split'
 			)
 		);
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for My site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } ) ).toHaveAttribute(
 				'data-workspace-layout',
@@ -239,7 +240,8 @@ it( 'keeps the layout unchanged when stopping after a manual layout choice', asy
 	renderApp( { connector, path: '/sites/one/new' } );
 	await chooseLayout( 'Chat' );
 	await chooseLayout( 'Split view' );
-	fireEvent.click( screen.getByRole( 'button', { name: 'Stop My site' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for My site' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 	await waitFor( () =>
 		expect( screen.getByRole( 'button', { name: 'Start My site' } ) ).toBeVisible()
 	);

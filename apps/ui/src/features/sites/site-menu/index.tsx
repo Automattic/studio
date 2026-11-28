@@ -166,15 +166,17 @@ export function useSiteActions(
 	};
 }
 
-type SiteActions = ReturnType< typeof useSiteActions >;
+export type SiteActions = ReturnType< typeof useSiteActions >;
 
 export function SiteMenuItems( {
 	actions,
 	current = false,
+	showChatActions = true,
 }: {
 	actions: SiteActions;
 	// The menu of the current site, which ⌥⌘S starts or stops.
 	current?: boolean;
+	showChatActions?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
 	const { data: aiSettings } = useAiSettings();
@@ -208,7 +210,7 @@ export function SiteMenuItems( {
 
 	return (
 		<div className={ styles.items }>
-			{ providerConnected ? (
+			{ showChatActions && providerConnected ? (
 				<>
 					<Menu.Item onClick={ actions.newChat }>
 						<SquarePenIcon />

@@ -541,6 +541,15 @@ function SessionViewContent( {
 						autoFocus={ isEmpty }
 						entries={ data?.entries }
 						ownerSiteId={ ownerSite?.id }
+						onNewChat={
+							ownerSite
+								? () =>
+										void navigate( {
+											to: '/sites/$siteId/new',
+											params: { siteId: ownerSite.id },
+										} )
+								: undefined
+						}
 						onSwitchSession={ switchSession }
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }

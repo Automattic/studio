@@ -144,6 +144,36 @@ describe( 'Composer site controls', () => {
 	beforeEach( () => clearComposerDrafts() );
 	afterEach( () => setAnnotating( SITE_ID, false ) );
 
+	it.each( [ 'keyboard', 'pointer' ] )(
+		'opens a fresh chat through /new using %s without sending or losing the previous draft',
+		async ( source ) => {
+			const { connector, input, history } = await setupChat( { running: true } );
+			if ( source === 'keyboard' ) {
+				act( () =>
+					connector.emit( 'onAgentEvent', {
+						sessionId: 'chat',
+						runId: 'active-run',
+						event: { type: 'run.started', timestamp: new Date().toISOString() },
+					} )
+				);
+			}
+			fireEvent.change( input, { target: { value: 'Keep this draft /new' } } );
+			const command = await screen.findByRole( 'option', { name: 'New chat' } );
+			if ( source === 'keyboard' ) fireEvent.keyDown( input, { key: 'Enter' } );
+			else fireEvent.click( command );
+			await waitFor( () => expect( history.location.pathname ).toBe( `/sites/${ SITE_ID }/new` ) );
+			await waitFor( () => expect( screen.getByRole( 'combobox', COMPOSER ) ).toHaveFocus() );
+			expect( screen.getByRole( 'combobox', COMPOSER ) ).toHaveValue( '' );
+			expect( connector.createSession ).not.toHaveBeenCalled();
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+			expect( connector.interruptAgentRun ).not.toHaveBeenCalled();
+			await act( async () => history.back() );
+			await waitFor( () =>
+				expect( screen.getByRole( 'combobox', COMPOSER ) ).toHaveValue( 'Keep this draft ' )
+			);
+		}
+	);
+
 	it( 'disables preview annotation when the connector cannot annotate the site', async () => {
 		const { connector, input } = await setupChat( { running: true, annotatePreview: false } );
 		fireEvent.change( input, { target: { value: '/annotate' } } );

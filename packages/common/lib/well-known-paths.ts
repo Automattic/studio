@@ -8,6 +8,10 @@ export function getConfigDirectory(): string {
 	return path.join( os.homedir(), '.studio' );
 }
 
+export function getRemoteAccessConfigPath(): string {
+	return path.join( getConfigDirectory(), 'remote.json' );
+}
+
 export function getSessionsDirectory(): string {
 	if ( process.env.E2E && process.env.E2E_APP_DATA_PATH ) {
 		return path.join( process.env.E2E_APP_DATA_PATH, 'Studio', 'sessions' );

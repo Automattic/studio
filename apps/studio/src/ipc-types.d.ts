@@ -90,6 +90,9 @@ type IpcApi = {
 	// function is exception and need to be defined here manually. See
 	// https://www.electronjs.org/docs/latest/breaking-changes#planned-breaking-api-changes-320
 	getPathForFile: ( file: File ) => string;
+	// Whether the app runs with `STUDIO_ENABLE_REMOTE_MODE`, read by the preload script from the
+	// environment, so the UI knows before it asks the main process anything.
+	remoteModeEnabled: boolean;
 };
 
 interface AppGlobals {

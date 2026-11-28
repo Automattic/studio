@@ -52,6 +52,7 @@ import {
 	GeneralSettings,
 	InstructionsSettings,
 	KeyboardPanel,
+	PhonePanel,
 	SharingPanel,
 	SkillsPanel,
 	UsagePanel,
@@ -88,6 +89,8 @@ function StudioSection( {
 			return <AppearanceSettings />;
 		case 'sharing':
 			return <SharingPanel />;
+		case 'phone':
+			return <PhonePanel />;
 		case 'providers':
 			return (
 				<ProvidersPanel onManageCredits={ () => onNavigate( 'usage' ) } spacefast={ spacefast } />
@@ -177,7 +180,7 @@ export function SettingsDialog() {
 		setShown( settings );
 	}
 	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
-	const { localMachine, loopbackSignIn, globalSkills } = connector.capabilities;
+	const { localMachine, loopbackSignIn, globalSkills, phoneAccess } = connector.capabilities;
 	const linkedSection =
 		settings === 'ai' || ( settings === 'mcp' && ! localMachine )
 			? 'providers'
@@ -191,6 +194,8 @@ export function SettingsDialog() {
 		linkedSection ??
 		( shown === 'ai' || ( shown === 'mcp' && ! localMachine ) || ( shown === 'usage' && ! signedIn )
 			? 'providers'
+			: shown === 'phone' && ! phoneAccess
+			? 'general'
 			: shown );
 	const scope: SettingsScope =
 		isSiteSection( requested ) && ( site || sitePending ) ? 'site' : 'studio';
@@ -400,6 +405,7 @@ export function SettingsDialog() {
 		localMachine,
 		loopbackSignIn,
 		globalSkills,
+		phoneAccess,
 	} );
 	const searching = !! query.trim();
 	const open = ( result: SearchResult ) => {
@@ -408,7 +414,13 @@ export function SettingsDialog() {
 			setTarget( result.setting.id ?? result.setting.title );
 		}
 	};
-	const sections = getSections( scope, { signedIn, localMachine, loopbackSignIn, globalSkills } );
+	const sections = getSections( scope, {
+		signedIn,
+		localMachine,
+		loopbackSignIn,
+		globalSkills,
+		phoneAccess,
+	} );
 	const current = sections.find( ( entry ) => entry.id === section ) ?? sections[ 0 ];
 
 	const settingsDialog = (

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import { captureException } from '@studio/common/lib/error-reporting';
+import { REMOTE_CONNECTION_REQUESTS } from '@studio/common/lib/remote-connection';
 import { siteOperationSchema } from '@studio/common/lib/site-operation';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 
@@ -173,6 +174,14 @@ const desktopSchema = z.looseObject( {
 	dontShowArm64Warning: optional( z.boolean() ),
 	// The user removed the `studio` command, so Studio doesn't install it again.
 	cliUserUninstalled: optional( z.boolean() ),
+	// Settings > Phone: whether the app runs remote mode for the Studio phone app.
+	phoneAccess: optional( z.boolean() ),
+	// The port remote mode last used, so phones paired before keep reaching it.
+	phoneAccessPort: optional( z.number() ),
+	// How phones connect: Automatic, or one connection the person picked.
+	phoneConnection: optional( z.enum( REMOTE_CONNECTION_REQUESTS ) ),
+	// The address phones used the last time remote mode ran, to tell when they must pair again.
+	phoneAccessUrl: optional( z.string() ),
 } );
 
 // State only the CLI reads.

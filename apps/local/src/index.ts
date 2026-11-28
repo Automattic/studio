@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
 import { statfs } from 'node:fs/promises';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -115,6 +116,7 @@ import {
 	isTracksEventName,
 	TRACKS_EVENTS,
 } from '@studio/common/lib/record-tracks-event';
+import { listRemoteDevices } from '@studio/common/lib/remote-access';
 import {
 	forgetRemoteSite,
 	getRemoteSites,
@@ -224,6 +226,16 @@ import {
 	openPath,
 	openUrl,
 } from './open-in-os';
+import {
+	closeStreamsWhere,
+	closeUnpairedStreams,
+	createRemoteApiGuard,
+	registerRemoteRoutes,
+	REMOTE_EVENT_CHANNELS,
+	toRemoteSite,
+	type RemoteModeInfo,
+} from './remote-mode';
+import { createScreenshotTaker, type CapturePreview } from './site-screenshot';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { AiSessionMetadata } from '@studio/agent/protocol/sessions/types';
@@ -269,17 +281,22 @@ export interface LocalServerOptions {
 	sitesRoot: string;
 	// Port to listen on. Defaults to STUDIO_LOCAL_SERVER_PORT or 8081.
 	port?: number;
-	// Host to bind. Defaults to loopback (127.0.0.1) — the server is
-	// unauthenticated and must not be reachable from the network.
+	// Host to bind. Defaults to loopback (127.0.0.1). Without `remote` the server
+	// is unauthenticated and must not be reachable from the network.
 	host?: string;
+	// Remote mode: the server answers paired phones over the network. Only the
+	// routes in `remote-mode.ts` are reachable, each behind a device token, and
+	// the browser UI is not served.
+	remote?: RemoteModeInfo;
 	// Path to the built browser UI (apps/ui `dist-local`). Served when present
 	// so the server is the only process needed; omitted in dev (Vite serves it).
 	uiDist?: string;
 	// Injected by `studio ui` rather than imported, so this package doesn't depend
 	// on the CLI.
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
-	// Screenshots a page of a running site; absent when no browser is available.
-	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
+	// Screenshots a page of a running site. Rejects with `code: 'no-browser'`
+	// when no browser is installed.
+	capturePreview?: CapturePreview;
 	// `WordPressStudio/<version>`, sent with feedback reports. Injected by `studio ui`.
 	userAgent?: string;
 	// The Studio version, reported at `/api/version` so a client can adapt to an older server.
@@ -299,15 +316,40 @@ export interface LocalServerOptions {
 export interface LocalServer {
 	url: string;
 	port: number;
+	// Every route on the `/api` router, so tests can prove remote mode blocks
+	// the ones it does not list.
+	apiRoutes: Array< { method: string; path: string } >;
 	close(): Promise< void >;
 }
 
 const DEFAULT_PORT = 8081;
 
+// How long `close()` lets unfinished requests run before it drops their connections.
+const CLOSE_GRACE_MS = 2000;
+
 const LOCAL_HOSTNAMES = new Set( [ 'localhost', '127.0.0.1', '[::1]', 'studio.local' ] );
 
+const WILDCARD_HOSTS: ReadonlySet< string > = new Set( [ '', '0.0.0.0', '::', '::ffff:0:0' ] );
+
+// The host as a URL parser writes it, so every spelling of an address compares
+// equal: `::0` and `[::]` become `::`, `0` and `0x0` become `0.0.0.0`, as they
+// do when the server listens.
+function canonicalHost( host: string ): string {
+	const bare = host.replace( /^\[(.*)\]$/, '$1' );
+	try {
+		const { hostname } = new URL( `http://${ bare.includes( ':' ) ? `[${ bare }]` : bare }/` );
+		return hostname.replace( /^\[(.*)\]$/, '$1' );
+	} catch {
+		return bare;
+	}
+}
+
 function isLoopbackHost( host: string ): boolean {
-	return host === 'localhost' || host === '::1' || host.startsWith( '127.' );
+	return (
+		host === 'localhost' ||
+		host === '::1' ||
+		( net.isIPv4( host ) && host.split( '.' )[ 0 ] === '127' )
+	);
 }
 
 // Served at <origin>/auth/callback — the OAuth redirect target for the browser
@@ -411,6 +453,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const { cliBinary, nodeBinary, sessionsRoot, sitesRoot, uiDist } = options;
 	const port = options.port ?? Number( process.env.STUDIO_LOCAL_SERVER_PORT ?? DEFAULT_PORT );
 	const host = options.host ?? '127.0.0.1';
+	const remote = options.remote;
+	// Remote mode prints one address in its QR code, so it cannot listen on all of them.
+	if ( remote && WILDCARD_HOSTS.has( canonicalHost( host ) ) ) {
+		throw new Error( 'Remote mode needs one address to listen on, not a wildcard.' );
+	}
+	if ( ! remote && ! isLoopbackHost( host ) ) {
+		throw new Error(
+			'The local server has no authentication and only listens on loopback. Use remote mode to listen on the network.'
+		);
+	}
 
 	// Analytics must never fail a user action, so every call is fire-and-forget.
 	const authAttempts = createAuthAttemptStore();
@@ -429,6 +481,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 	const execute = cliRunner.executeCliCommand;
 	const uploads = new Map< string, { path: string; directory: string } >();
+	const takeScreenshot = createScreenshotTaker( options.capturePreview );
 
 	// --- Server-Sent Events: one stream carries live UI updates ----------------
 	const sseClients = new Set< Response >();
@@ -436,11 +489,46 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		if ( sseClients.size === 0 ) {
 			return;
 		}
+		if ( remote && ! REMOTE_EVENT_CHANNELS.has( message.channel ) ) {
+			return;
+		}
 		const data = JSON.stringify( message );
 		for ( const client of sseClients ) {
+			// A closed stream can linger until its request's `close` event; writing
+			// to it throws an error nobody listens for.
+			if ( client.writableEnded || client.destroyed ) {
+				continue;
+			}
 			client.write( `data: ${ data }\n\n` );
 		}
 	}
+
+	// For streams the server closes on its own. `end()` waits for the buffered
+	// output to flush, which a client that stopped reading never allows, so the
+	// stream would stay in the set and the next write would throw. Destroying it
+	// also drops what was still queued for a device that is no longer paired.
+	function closeStream( client: Response ): void {
+		sseClients.delete( client );
+		client.destroy();
+	}
+
+	// A stream is authenticated once, when it opens, so remote mode re-checks the
+	// paired devices and ends the streams of any that were revoked or expired.
+	const streamRecheck = remote
+		? setInterval( () => {
+				listRemoteDevices()
+					.then( ( devices ) =>
+						closeUnpairedStreams(
+							sseClients,
+							new Set( devices.map( ( device ) => device.id ) ),
+							closeStream
+						)
+					)
+					// Fail closed: a store that cannot be read proves nothing about who is paired.
+					.catch( () => closeUnpairedStreams( sseClients, new Set(), closeStream ) );
+		  }, remote.streamRecheckMs ?? 5000 )
+		: undefined;
+	streamRecheck?.unref();
 
 	const syncRunner = createSyncRunner( execute );
 
@@ -522,13 +610,33 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	} );
 
 	// Changes made anywhere — the agent, a terminal, the Desktop app — reach the
-	// browser through `_events`, listening on the socket kept for `studio ui`.
-	const [ cliEvents ] = execute( [ '_events', '--listener', 'ui' ], { output: 'capture' } );
+	// browser (or the phone, in remote mode) through `_events`, listening on the
+	// socket kept for `studio ui` or, in remote mode, the one of its own.
+	const [ cliEvents, cliEventsChild ] = execute(
+		[ '_events', '--listener', remote ? 'remote' : 'ui' ],
+		{
+			output: 'capture',
+		}
+	);
+	// The child holds the listener's socket until it exits. A server started
+	// next, as remote mode's Automatic does after a connection fails, binds the
+	// socket only once the old child is gone, so stopping waits for its exit.
+	const eventsChildExited = new Promise< void >( ( resolve ) => {
+		cliEventsChild.once( 'exit', () => resolve() );
+		cliEventsChild.once( 'error', () => resolve() );
+	} );
 	cliEvents.on( 'error', ( { error } ) => console.error( 'CLI events subscriber failed:', error ) );
 	cliEvents.on( 'data', ( { data } ) => {
 		const siteEvent = cliSiteEventSchema.safeParse( data );
 		if ( siteEvent.success ) {
-			sseSend( { channel: 'site-event', payload: siteEvent.data.value } );
+			const event = siteEvent.data.value;
+			sseSend( {
+				channel: 'site-event',
+				payload:
+					remote && event.site
+						? { ...event, site: toRemoteSite( { ...event.site, running: event.running } ) }
+						: event,
+			} );
 			return;
 		}
 		const syncEvent = cliSyncEventSchema.safeParse( data );
@@ -559,7 +667,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// A website can point its own name at 127.0.0.1 (DNS rebinding) and then call
 	// this unauthenticated API same-origin, so on loopback only requests
 	// addressed to a local name get through.
-	if ( isLoopbackHost( host ) ) {
+	if ( ! remote && isLoopbackHost( host ) ) {
 		app.use( ( req: Request, res: Response, next ) => {
 			if ( ! LOCAL_HOSTNAMES.has( req.hostname ) ) {
 				res.status( 403 ).json( { error: 'Host not allowed' } );
@@ -569,12 +677,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} );
 	}
 
-	// Restrict cross-origin access to the known `studio ui` origins. The server is
-	// loopback-only, but loopback is reachable from any page in the user's
-	// browser, so reflecting arbitrary origins would let any website call this
-	// unauthenticated API (read data, or trigger state changes). Requests with no
-	// Origin (same-origin navigations, the served SPA's same-origin fetches, curl,
-	// SSE) pass through; a present-but-disallowed Origin is rejected outright.
+	// In `studio ui` mode, cross-origin access is restricted to the known
+	// `studio ui` origins. The server is loopback-only and unauthenticated, but
+	// loopback is reachable from any page in the user's browser, so reflecting
+	// arbitrary origins would let any website call this API (read data, or
+	// trigger state changes). Requests with no Origin (same-origin navigations,
+	// the served SPA's same-origin fetches, curl, SSE) pass through. In remote
+	// mode any request with an Origin is rejected.
 	const allowedOrigins = new Set( [
 		`http://localhost:${ port }`,
 		`http://127.0.0.1:${ port }`,
@@ -591,6 +700,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 	app.use( ( req: Request, res: Response, next ) => {
 		const origin = req.headers.origin;
+		// A phone app sends no Origin. A request that has one comes from a web
+		// page, which has no business with remote mode.
+		if ( remote ) {
+			if ( origin ) {
+				res.status( 403 ).json( { error: 'Origin not allowed' } );
+				return;
+			}
+			next();
+			return;
+		}
 		if ( origin ) {
 			// The header carries the allowlist's own entry rather than echoing the request's.
 			const allowed = [ ...allowedOrigins, ...credentialedOrigins ].find(
@@ -622,8 +741,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// Chat attachments ride along as base64 in the JSON body; size the limit for
-	// the image cap (with base64 overhead) plus file metadata.
-	app.use( express.json( { limit: STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 2 } ) );
+	// the image cap (with base64 overhead) plus file metadata. A paired phone sends
+	// text only, and this runs before the guard, so remote mode keeps it small.
+	app.use( express.json( { limit: remote ? '256kb' : STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES * 2 } ) );
+
+	if ( remote ) {
+		api.use( createRemoteApiGuard() );
+		registerRemoteRoutes( app, api, remote, ( deviceId ) =>
+			closeStreamsWhere( sseClients, ( id ) => id === deviceId, closeStream )
+		);
+	}
 
 	api.get( '/events', ( req: Request, res: Response ) => {
 		res.setHeader( 'Content-Type', 'text/event-stream' );
@@ -973,7 +1100,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sites',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			const sites = await listSites( execute );
-			res.json( sites.map( toSiteDetails ) );
+			res.json( remote ? sites.map( toRemoteSite ) : sites.map( toSiteDetails ) );
 		} )
 	);
 
@@ -1090,6 +1217,26 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await writeSitePreview( site.id, png );
 			res.json( { thumbnail: `data:image/png;base64,${ png.toString( 'base64' ) }` } );
+		} )
+	);
+
+	// A fresh screenshot of a running site's homepage for the phone's preview,
+	// stored nowhere (see site-screenshot.ts).
+	api.post(
+		'/sites/:id/screenshot',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const arrived = Date.now();
+			const parsed = z.object( { layout: z.enum( [ 'phone', 'desktop' ] ) } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'layout must be phone or desktop' } );
+				return;
+			}
+			const site = ( await listSites( execute ) ).find( ( item ) => item.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: 'Site not found.' } );
+				return;
+			}
+			res.json( await takeScreenshot( site, parsed.data.layout, arrived ) );
 		} )
 	);
 
@@ -2813,15 +2960,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// OAuth redirect target for the browser login flow (registered before the SPA
 	// fallback so it isn't swallowed by it).
-	app.get( '/auth/callback', ( _req: Request, res: Response ) => {
-		res.setHeader( 'Content-Type', 'text/html; charset=utf-8' );
-		res.send( AUTH_CALLBACK_HTML );
-	} );
+	if ( ! remote ) {
+		app.get( '/auth/callback', ( _req: Request, res: Response ) => {
+			res.setHeader( 'Content-Type', 'text/html; charset=utf-8' );
+			res.send( AUTH_CALLBACK_HTML );
+		} );
+	}
 
 	// --- Web UI ---------------------------------------------------------------
 	const uiIndex = uiDist ? path.join( uiDist, 'index.local.html' ) : undefined;
 	const hasUi = !! uiIndex && existsSync( uiIndex );
-	if ( uiDist && hasUi ) {
+	if ( ! remote && uiDist && hasUi ) {
 		app.use( express.static( uiDist ) );
 		// SPA fallback: the app uses real-path routing, so any unmatched HTML
 		// navigation reloads into the app shell. API routes keep precedence.
@@ -2839,33 +2988,82 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			res.status( 400 ).json( { error: err.message } );
 			return;
 		}
+		// Body-parser errors, such as an oversized body, carry their own 4xx status.
+		const status = ( err as { status?: unknown } | null )?.status;
+		if ( remote && typeof status === 'number' && status >= 400 && status < 500 ) {
+			res.status( status ).json( { error: 'Bad request' } );
+			return;
+		}
+		if ( remote ) {
+			// Store errors carry filesystem paths, and unauthenticated callers can trigger them.
+			console.error( 'Remote mode request failed:', err );
+			res.status( 500 ).json( { error: 'Internal error' } );
+			return;
+		}
 		const message = err instanceof Error ? err.message : String( err );
 		res.status( 500 ).json( { error: message } );
 	} );
 
-	const server = await new Promise< ReturnType< typeof app.listen > >( ( resolve ) => {
-		const listening = app.listen( port, host, () => resolve( listening ) );
+	// What `startLocalServer` started before it listens, stopped on a failed bind
+	// and on `close()`.
+	function stopBackgroundWork(): void {
+		keepAlive.stop();
+		clearInterval( streamRecheck );
+		cliRunner.killAll();
+		for ( const watch of publishWatches.values() ) {
+			watch.cancelled = true;
+		}
+		publishWatches.clear();
+	}
+
+	// EADDRINUSE, EADDRNOTAVAIL and EACCES arrive as an `error` event, not in the
+	// listen callback.
+	const server = await new Promise< ReturnType< typeof app.listen > >( ( resolve, reject ) => {
+		const onError = ( error: Error ) => {
+			stopBackgroundWork();
+			void eventsChildExited.then( () => reject( error ) );
+		};
+		const listening = app.listen( port, host, () => {
+			listening.off( 'error', onError );
+			resolve( listening );
+		} );
+		listening.once( 'error', onError );
 	} );
 
 	const address = server.address();
 	const listeningPort = typeof address === 'object' && address ? address.port : port;
-	const url = `http://localhost:${ listeningPort }`;
+	const urlHost = host.includes( ':' ) ? `[${ host }]` : host;
+	const url = `http://${ remote ? urlHost : 'localhost' }:${ listeningPort }`;
+	const apiLayers = api.stack as Array< { route?: { path: string; methods: object } } >;
+	const apiRoutes = apiLayers.flatMap( ( { route } ) =>
+		route
+			? Object.keys( route.methods ).map( ( method ) => ( {
+					method: method.toUpperCase(),
+					path: String( route.path ),
+			  } ) )
+			: []
+	);
 
 	return {
 		url,
 		port: listeningPort,
+		apiRoutes,
 		async close() {
-			keepAlive.stop();
-			cliRunner.killAll();
-			for ( const watch of publishWatches.values() ) {
-				watch.cancelled = true;
+			stopBackgroundWork();
+			// Destroyed, not ended: a stream whose client stopped reading would
+			// never finish, and `server.close` waits for every connection.
+			for ( const client of [ ...sseClients ] ) {
+				closeStream( client );
 			}
-			publishWatches.clear();
-			for ( const client of sseClients ) {
-				client.end();
-			}
-			sseClients.clear();
-			await new Promise< void >( ( resolve ) => server.close( () => resolve() ) );
+			const closed = new Promise< void >( ( resolve ) => server.close( () => resolve() ) );
+			// A request whose body never arrives would hold `server.close` until
+			// Node's request timeout, and a body is read before any token is
+			// checked: give requests a moment to finish, then drop the connections.
+			server.closeIdleConnections();
+			const dropConnections = setTimeout( () => server.closeAllConnections(), CLOSE_GRACE_MS );
+			await closed;
+			clearTimeout( dropConnections );
+			await eventsChildExited;
 		},
 	};
 }

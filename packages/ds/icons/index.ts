@@ -59,6 +59,7 @@ export * from './shuffle-icon';
 export * from './sidebar-icon';
 export * from './skills-icon';
 export * from './sliders-vertical-icon';
+export * from './smartphone-icon';
 export * from './sort-icon';
 export * from './sparkle-icon';
 export * from './sparkles-icon';

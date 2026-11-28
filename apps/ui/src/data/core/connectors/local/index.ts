@@ -240,6 +240,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		// `studio ui` serves this UI itself; a remote server says in `init()`.
 		globalSkills: ! remote,
 		skillEditing: ! remote,
+		phoneAccess: false,
 	};
 
 	return {
@@ -1062,6 +1063,28 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 		// `studio ui` — so there is nothing to open here.
 		async openStudioLogs() {
 			throw new UnsupportedError( 'openStudioLogs' );
+		},
+
+		async getPhoneAccess() {
+			throw new UnsupportedError( 'getPhoneAccess' );
+		},
+		async setPhoneAccess() {
+			throw new UnsupportedError( 'setPhoneAccess' );
+		},
+		async getPhoneConnections() {
+			throw new UnsupportedError( 'getPhoneConnections' );
+		},
+		async setPhoneConnection() {
+			throw new UnsupportedError( 'setPhoneConnection' );
+		},
+		async getPhonePairingCode() {
+			throw new UnsupportedError( 'getPhonePairingCode' );
+		},
+		async getPairedPhones() {
+			throw new UnsupportedError( 'getPairedPhones' );
+		},
+		async removePairedPhone() {
+			throw new UnsupportedError( 'removePairedPhone' );
 		},
 
 		// The server attaches the origin and common props. Callers fire and forget, so a

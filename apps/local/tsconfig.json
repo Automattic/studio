@@ -12,5 +12,5 @@
 		}
 	},
 	"include": [ "**/*" ],
-	"exclude": [ "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*" ]
+	"exclude": [ "**/node_modules/**/*", "**/dist/**/*", "**/out/**/*", "src/tests/fixtures/**/*" ]
 }

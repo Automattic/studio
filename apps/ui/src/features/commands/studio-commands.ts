@@ -237,6 +237,7 @@ export function getSettingCommands( {
 	localMachine,
 	loopbackSignIn,
 	globalSkills,
+	phoneAccess,
 	toggles,
 	actions = {},
 	openSettings,
@@ -247,6 +248,8 @@ export function getSettingCommands( {
 	localMachine?: boolean;
 	loopbackSignIn?: boolean;
 	globalSkills?: boolean;
+	// Whether the host runs remote mode for the phone: Settings > Phone.
+	phoneAccess: boolean;
 	// The boolean preferences setting commands turn on or off in place, by the
 	// id of their row in Settings.
 	toggles: SettingToggles;
@@ -260,6 +263,7 @@ export function getSettingCommands( {
 		localMachine,
 		loopbackSignIn,
 		globalSkills,
+		phoneAccess,
 	} ).flatMap( ( section ) => {
 		const folded = section.settings.filter( ( entry ) => entry.palette === 'section' );
 		const navigation: PaletteCommand[] = ! section.command

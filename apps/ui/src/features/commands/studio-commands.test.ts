@@ -30,7 +30,13 @@ const appCommands = ( overrides: Partial< Parameters< typeof getAppCommands >[ 0
 	} );
 
 const studioSettings = ( signedIn = true ) =>
-	getSettingCommands( { scope: 'studio', signedIn, toggles: {}, openSettings: vi.fn() } );
+	getSettingCommands( {
+		scope: 'studio',
+		signedIn,
+		phoneAccess: true,
+		toggles: {},
+		openSettings: vi.fn(),
+	} );
 
 type SiteCommandsInput = Parameters< typeof getSiteCommands >[ 0 ];
 const siteCommands = (
@@ -186,6 +192,7 @@ describe( 'getSettingCommands', () => {
 		const commands = getSettingCommands( {
 			scope: 'studio',
 			signedIn: true,
+			phoneAccess: true,
 			toggles: { 'show-recent-chats': toggle },
 			openSettings,
 		} );
@@ -200,12 +207,27 @@ describe( 'getSettingCommands', () => {
 		expect( openSettings ).toHaveBeenCalledWith( 'instructions', undefined, 'agent-instructions' );
 	} );
 
+	it( 'offers Phone only where the app runs remote mode', () => {
+		const ids = ( phoneAccess: boolean ) =>
+			getSettingCommands( {
+				scope: 'studio',
+				signedIn: true,
+				phoneAccess,
+				toggles: {},
+				openSettings: vi.fn(),
+			} ).map( ( command ) => command.id );
+
+		expect( ids( true ) ).toContain( 'settings-phone' );
+		expect( ids( false ) ).not.toContain( 'settings-phone' );
+	} );
+
 	it( 'indexes controls rather than settings headings', () => {
 		const toggle = { checked: true, run: vi.fn() };
 		const commands = [
 			...getSettingCommands( {
 				scope: 'studio',
 				signedIn: true,
+				phoneAccess: true,
 				toggles: { 'usage-statistics': toggle },
 				openSettings: vi.fn(),
 			} ),
@@ -213,6 +235,7 @@ describe( 'getSettingCommands', () => {
 				scope: 'site',
 				site: makeSite( { id: 'one', name: 'Test site' } ),
 				signedIn: true,
+				phoneAccess: true,
 				toggles: {},
 				openSettings: vi.fn(),
 			} ),

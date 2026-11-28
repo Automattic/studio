@@ -3,7 +3,7 @@
 	"author": "Automattic Inc.",
 	"version": "0.0.0",
 	"productName": "Studio Local Server",
-	"description": "Local Studio web server (HTTP/SSE) bundled into the CLI and launched by `studio ui`",
+	"description": "Local Studio web server (HTTP/SSE) bundled into the CLI and launched by `studio ui` and `studio remote`",
 	"license": "GPL-2.0-or-later",
 	"private": true,
 	"type": "module",

@@ -39,6 +39,7 @@
 		"follow-redirects": "^1.16.2",
 		"fs-extra": "^11.3.2",
 		"ignore": "^7.0.5",
+		"qrcode": "^1.5.4",
 		"tus-js-client": "^4.3.1",
 		"zod": "^4.3.6"
 	},
@@ -57,6 +58,7 @@
 		"@studio/providers": "file:../../packages/providers",
 		"@types/follow-redirects": "^1.14.4",
 		"@types/fs-extra": "^11.0.4",
+		"@types/qrcode": "^1.5.6",
 		"@wp-playground/blueprints": "3.1.53",
 		"electron": "44.9.1",
 		"electron-devtools-installer": "^4.0.0",

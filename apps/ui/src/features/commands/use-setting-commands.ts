@@ -132,6 +132,7 @@ export function useSettingCommands(
 		localMachine: connector.capabilities.localMachine,
 		loopbackSignIn: connector.capabilities.loopbackSignIn,
 		globalSkills: connector.capabilities.globalSkills,
+		phoneAccess: connector.capabilities.phoneAccess,
 		toggles,
 		actions: {
 			'reset-appearance': {

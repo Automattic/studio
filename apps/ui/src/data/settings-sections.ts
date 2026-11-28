@@ -13,6 +13,7 @@ import {
 	UploadIcon,
 	SlidersVerticalIcon,
 	SkillsIcon,
+	SmartphoneIcon,
 	TerminalIcon,
 	GaugeIcon,
 } from '@studio/ds/icons';
@@ -33,6 +34,7 @@ const STUDIO_SECTIONS = [
 	'providers',
 	'mcp',
 	'sharing',
+	'phone',
 	'usage',
 	'skills',
 	'instructions',
@@ -390,6 +392,28 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			id: 'phone',
+			label: __( 'Phone' ),
+			icon: SmartphoneIcon,
+			aliases: [ __( 'Remote mode' ), __( 'QR code' ), __( 'Pairing code' ), __( 'Tailscale' ) ],
+			settings: [
+				setting(
+					'section',
+					__( 'Let your phone connect' ),
+					__( 'Pair the Studio phone app to work with Studio Code from your phone.' ),
+					'phone-access'
+				),
+				setting(
+					'section',
+					__( 'Connection' ),
+					__( 'How phones connect: Tailscale HTTPS, Tailnet or Local network.' ),
+					'phone-connection'
+				),
+				// Shown in every state; the code's group is not, so search does not lead to it.
+				setting( 'section', __( 'Paired phones' ), '', 'paired-phones' ),
+			],
+		},
+		{
 			id: 'usage',
 			label: __( 'Usage' ),
 			icon: GaugeIcon,
@@ -609,6 +633,8 @@ export interface SectionCapabilities {
 	loopbackSignIn?: boolean;
 	// The host keeps the user's skills for all sites.
 	globalSkills?: boolean;
+	// The host runs remote mode for the Studio phone app: Settings > Phone.
+	phoneAccess?: boolean;
 }
 
 export function getSections(
@@ -618,9 +644,12 @@ export function getSections(
 		localMachine = true,
 		loopbackSignIn = true,
 		globalSkills = true,
+		phoneAccess = true,
 	}: SectionCapabilities = {}
 ): Section[] {
-	const sections = scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+	const sections = (
+		scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections()
+	).filter( ( section ) => phoneAccess || section.id !== 'phone' );
 	if ( localMachine && loopbackSignIn && globalSkills ) {
 		return sections;
 	}

@@ -598,6 +598,7 @@ describe( 'WordPress Studio settings', () => {
 			'Providers',
 			'Agents',
 			'Sharing',
+			'Phone',
 			'Usage',
 			'Skills',
 			'Instructions',
@@ -827,6 +828,43 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		act( () => connector.emit( 'onAuthStateChanged' ) );
 		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'shows Phone where the app runs remote mode', async () => {
+		await setup( { section: 'phone' } );
+		expect( await screen.findByRole( 'tab', { name: 'Phone', selected: true } ) ).toBeVisible();
+		expect( await screen.findByRole( 'switch', { name: 'Let your phone connect' } ) ).toBeVisible();
+	} );
+
+	it( 'leads a search for paired phones to their list', async () => {
+		const scrolled = vi.fn();
+		Element.prototype.scrollIntoView = scrolled;
+		try {
+			const { settingsParam } = await setup();
+			fireEvent.change( searchBox(), { target: { value: 'paired phones' } } );
+			fireEvent.click( screen.getByRole( 'tab', { name: 'Paired phones' } ) );
+
+			await waitFor( () => expect( settingsParam() ).toBe( 'phone' ) );
+			await waitFor( () =>
+				expect( scrolled.mock.contexts ).toContain(
+					document.querySelector( '[data-settings-target="paired-phones"]' )
+				)
+			);
+		} finally {
+			delete ( Element.prototype as { scrollIntoView?: unknown } ).scrollIntoView;
+		}
+	} );
+
+	it( 'opens General for a Phone link where the app cannot run remote mode', async () => {
+		const { capabilities } = createFakeConnector();
+		await setup( {
+			section: 'phone',
+			overrides: { capabilities: { ...capabilities, phoneAccess: false } },
+		} );
+		expect( await screen.findByRole( 'tab', { name: 'General', selected: true } ) ).toBeVisible();
+		expect( screen.queryByRole( 'tab', { name: 'Phone' } ) ).not.toBeInTheDocument();
+		fireEvent.change( searchBox(), { target: { value: 'paired phones' } } );
+		expect( screen.getByText( 'No settings found.' ) ).toBeVisible();
 	} );
 
 	it( 'keeps the Connect label without a spinner while WordPress.com OAuth is pending', async () => {
@@ -1104,6 +1142,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					annotatePreview: false,
 					studioLogs: false,
 					loopbackSignIn: false,
+					phoneAccess: false,
 					localMachine: false,
 					globalSkills: true,
 					skillEditing: true,

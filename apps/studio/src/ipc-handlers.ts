@@ -222,6 +222,16 @@ export {
 } from 'src/modules/cli/lib/ipc-handlers';
 
 export {
+	getPairedPhones,
+	getPhoneAccess,
+	getPhoneConnections,
+	getPhonePairingCode,
+	removePairedPhone,
+	setPhoneAccess,
+	setPhoneConnection,
+} from 'src/modules/phone-access/lib/ipc-handlers';
+
+export {
 	getSitePublishStatus,
 	cancelSyncOperation,
 	getSiteCreationVisibility,

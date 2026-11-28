@@ -385,3 +385,71 @@
 	align-items: center;
 	width: 100%;
 }
+
+.phoneWarnings {
+	display: grid;
+	gap: var( --space-2 );
+}
+
+.phoneSwitch {
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
+}
+
+.phoneConnectionActions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.phonePairingBody {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var( --space-4 );
+}
+
+.phonePairing {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --space-5 );
+}
+
+/* The QR code draws its own white background, which scanners need in dark mode too. */
+.phoneQrCode {
+	width: 176px;
+	height: 176px;
+	border-radius: var( --radius-lg );
+}
+
+.phoneDetails {
+	display: grid;
+	gap: var( --space-1 );
+	margin: 0;
+}
+
+.phoneDetails dt {
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+}
+
+.phoneDetails dd {
+	margin: 0;
+}
+
+.phoneDetails dd + dt {
+	margin-block-start: var( --space-2 );
+}
+
+.phoneCode {
+	font-family: var( --font-mono );
+	font-size: var( --text-xl );
+	letter-spacing: 0.05em;
+}
+
+.phoneExpiry {
+	margin-block-start: var( --space-2 );
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+}

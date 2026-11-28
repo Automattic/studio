@@ -3,6 +3,7 @@
 
 import '@sentry/electron/preload';
 import { IpcRendererEvent, contextBridge, ipcRenderer, webUtils } from 'electron';
+import { isRemoteModeEnabled } from '@studio/common/lib/remote-mode-flag';
 import { IpcEvents } from 'src/ipc-utils';
 
 function ipcRendererInvoke< T extends keyof IpcHandlers >(
@@ -21,6 +22,7 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 }
 
 const api: IpcApi = {
+	remoteModeEnabled: isRemoteModeEnabled(),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
@@ -174,6 +176,13 @@ const api: IpcApi = {
 	isStudioCliExternallyManaged: () => ipcRendererInvoke( 'isStudioCliExternallyManaged' ),
 	installStudioCli: () => ipcRendererInvoke( 'installStudioCli' ),
 	uninstallStudioCli: () => ipcRendererInvoke( 'uninstallStudioCli' ),
+	getPhoneAccess: () => ipcRendererInvoke( 'getPhoneAccess' ),
+	setPhoneAccess: ( on ) => ipcRendererInvoke( 'setPhoneAccess', on ),
+	getPhoneConnections: () => ipcRendererInvoke( 'getPhoneConnections' ),
+	setPhoneConnection: ( request ) => ipcRendererInvoke( 'setPhoneConnection', request ),
+	getPhonePairingCode: () => ipcRendererInvoke( 'getPhonePairingCode' ),
+	getPairedPhones: () => ipcRendererInvoke( 'getPairedPhones' ),
+	removePairedPhone: ( id ) => ipcRendererInvoke( 'removePairedPhone', id ),
 	getGlobalSkills: () => ipcRendererInvoke( 'getGlobalSkills' ),
 	setGlobalSkillEnabled: ( source, id, enabled ) =>
 		ipcRendererInvoke( 'setGlobalSkillEnabled', source, id, enabled ),

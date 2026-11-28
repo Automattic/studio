@@ -18,6 +18,8 @@ import type {
 	Connector,
 	InstalledApps,
 	LoadedAiSession,
+	PhoneAccessState,
+	PhoneConnections,
 	SiteDetails,
 	SiteEmail,
 	UserPreferences,
@@ -190,6 +192,17 @@ export function createInMemoryConnector(
 	};
 	let agentInstructions = '';
 	let agentInstructionsEnabled = true;
+	let phoneAccess: PhoneAccessState = { status: 'off' };
+	// No Tailscale: only the local network is ready.
+	let phoneConnections: PhoneConnections = {
+		request: 'auto',
+		automatic: 'local',
+		options: [
+			{ kind: 'https', missing: 'tailscale' },
+			{ kind: 'tailnet', missing: 'tailscale' },
+			{ kind: 'local' },
+		],
+	};
 
 	const methods: Methods = {
 		init: async () => {},
@@ -415,6 +428,31 @@ export function createInMemoryConnector(
 		siteDebugLogExists: async () => false,
 		openSiteDebugLog: async () => {},
 		openStudioLogs: async () => {},
+		getPhoneAccess: async () => phoneAccess,
+		setPhoneAccess: async ( on ) => {
+			phoneAccess = on
+				? {
+						status: 'on',
+						url: 'http://192.168.1.20:8082',
+						connection: 'local',
+						portChanged: false,
+				  }
+				: { status: 'off' };
+			return phoneAccess;
+		},
+		getPhoneConnections: async () => phoneConnections,
+		setPhoneConnection: async ( request ) => {
+			phoneConnections = { ...phoneConnections, request };
+			return phoneAccess;
+		},
+		getPhonePairingCode: async () => ( {
+			address: 'http://192.168.1.20:8082',
+			code: 'ABCD-2345-EFGH',
+			expiresAt: Date.now() + 5 * 60_000,
+			qrSvg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+		} ),
+		getPairedPhones: async () => [],
+		removePairedPhone: async () => {},
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
 		sendFeedback: async () => ( { feedbackId: 1 } ),
@@ -486,6 +524,7 @@ export function createInMemoryConnector(
 			annotatePreview: true,
 			studioLogs: true,
 			loopbackSignIn: true,
+			phoneAccess: true,
 			localMachine: true,
 			globalSkills: true,
 			skillEditing: true,

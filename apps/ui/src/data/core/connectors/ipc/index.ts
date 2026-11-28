@@ -133,12 +133,13 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setupAppMenu();
 		},
 
-		// Native desktop app: every affordance is available.
+		// Native desktop app: every affordance is available, Settings > Phone only with remote mode on.
 		capabilities: {
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
 			loopbackSignIn: true,
+			phoneAccess: ipcApi.remoteModeEnabled === true,
 			localMachine: true,
 			globalSkills: true,
 			skillEditing: true,
@@ -827,6 +828,14 @@ export function createIpcConnector(): Connector {
 		async openStudioLogs(): Promise< void > {
 			ipcApi.openStudioLogs();
 		},
+
+		getPhoneAccess: () => ipcApi.getPhoneAccess(),
+		setPhoneAccess: ( on ) => ipcApi.setPhoneAccess( on ),
+		getPhoneConnections: () => ipcApi.getPhoneConnections(),
+		setPhoneConnection: ( request ) => ipcApi.setPhoneConnection( request ),
+		getPhonePairingCode: () => ipcApi.getPhonePairingCode(),
+		getPairedPhones: () => ipcApi.getPairedPhones(),
+		removePairedPhone: ( id ) => ipcApi.removePairedPhone( id ),
 
 		// Analytics. `channel` and `ui_version` are attached by the desktop Tracks wrapper's
 		// `commonProps()` in Main, so callers pass only event-specific props here.

@@ -47,6 +47,7 @@ function eventsSocketPath( name: string ): string {
 export const EVENTS_SOCKET_PATHS = {
 	desktop: eventsSocketPath( 'events' ),
 	ui: eventsSocketPath( 'events-ui' ),
+	remote: eventsSocketPath( 'events-remote' ),
 } as const;
 
 // `studio mcp` runs once per agent session, so each process gets its own events
@@ -57,7 +58,7 @@ export function mcpEventsSocketPath( pid = process.pid ): string {
 	return eventsSocketPath( `events-mcp-${ pid }` );
 }
 
-function isProcessAlive( pid: number ): boolean {
+export function isProcessAlive( pid: number ): boolean {
 	try {
 		process.kill( pid, 0 );
 		return true;

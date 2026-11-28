@@ -2,6 +2,7 @@ import { IconButton, VisuallyHidden } from '@studio/ds';
 import { RotateCwIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
 import { BrowserHistoryButton } from './browser-history-button';
@@ -67,6 +68,7 @@ export function PreviewHeader( {
 }: PreviewHeaderProps ) {
 	const { layout: headerLayout, attachAnnotationSpace, attachBrowserHeader } = useSiteHeader();
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
+	const openSettings = useOpenSettings();
 	const disabled = ! canPreview || isStarting || isStopping;
 
 	const addressBar = (
@@ -80,6 +82,7 @@ export function PreviewHeader( {
 			loading={ browserState.loading }
 			compact={ headerLayout === 'mobile-overflow' }
 			onOpenExternal={ onOpenExternal }
+			onOpenSiteSettings={ live ? undefined : () => openSettings( 'site', site.id ) }
 			onExternalNavigate={ onExternalNavigate }
 			disabled={ ! canPreview || isStarting || isStopping }
 		/>

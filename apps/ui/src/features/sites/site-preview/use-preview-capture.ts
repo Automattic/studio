@@ -1,3 +1,4 @@
+import { SITE_THUMBNAIL_VIEWPORT } from '@studio/common/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useState, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
@@ -22,19 +23,14 @@ export function usePreviewCapture(
 			return;
 		}
 		const timer = setTimeout( () => {
-			const page =
-				viewportRef.current?.querySelector< HTMLElement >(
-					'[data-responsive-viewport] webview, [data-responsive-viewport] iframe'
-				) ?? viewportRef.current?.querySelector< HTMLElement >( 'webview, iframe' );
-			const viewport = page?.clientWidth && page.clientHeight ? page : viewportRef.current;
+			const viewport = viewportRef.current;
 			if ( ! viewport?.clientWidth || ! viewport.clientHeight ) {
 				return;
 			}
 			void connector
 				.captureSitePreview( siteId, {
 					path: pagePath,
-					width: Math.min( viewport.clientWidth, 2400 ),
-					height: Math.min( viewport.clientHeight, 2400 ),
+					...SITE_THUMBNAIL_VIEWPORT,
 					guestId: loadedPage.guestId,
 				} )
 				.then( ( thumbnail ) => {

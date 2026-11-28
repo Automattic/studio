@@ -880,7 +880,12 @@ it.each( [ 'composer', 'sidebar', 'palette' ] )(
 			fireEvent.change( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ), {
 				target: { value: '' },
 			} );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Start site' } ) );
+			const composer = screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } );
+			fireEvent.click(
+				within( composer.closest( '[role="group"]' )! ).getByRole( 'button', {
+					name: 'Start site',
+				} )
+			);
 		} else {
 			const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
 			fireEvent.keyDown( document, {

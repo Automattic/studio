@@ -305,7 +305,9 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	const browser = screen.getByRole( 'toolbar', { name: 'Preview browser controls' } );
 	const mainHeader = document.querySelector( '[data-site-header]' )!;
 	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
-	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+	expect( document.querySelector( '[data-site-header-actions]' ) ).toContainElement(
+		screen.getByRole( 'button', { name: 'Stop site' } )
+	);
 	expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
 	const publish = screen.getByRole( 'button', { name: /^Publish…$/ } );
 	expect( browser ).toContainElement( screen.getByRole( 'textbox', { name: 'Address' } ) );
@@ -317,7 +319,9 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
-	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+	expect( document.querySelector( '[data-site-header-actions]' ) ).toContainElement(
+		screen.getByRole( 'button', { name: 'Stop site' } )
+	);
 	for ( const name of [ 'Back', 'Reload', 'Browser options' ] )
 		expect( within( browser ).getByRole( 'button', { name } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();

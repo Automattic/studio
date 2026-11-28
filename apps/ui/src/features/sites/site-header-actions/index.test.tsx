@@ -10,13 +10,13 @@ import type { SiteDetails } from '@/data/core';
 
 let siteCount = 0;
 
-async function renderActions( multipleTargets = false ) {
+async function renderActions( multipleTargets = false, running = false ) {
 	const site: SiteDetails = {
 		id: `header-site-${ ++siteCount }`,
 		name: 'Ada Portfolio',
 		path: '/tmp/ada',
 		port: 8881,
-		running: false,
+		running,
 		phpVersion: '8.3',
 	};
 	const connector = createFakeConnector(
@@ -63,12 +63,25 @@ async function renderActions( multipleTargets = false ) {
 		{ connector }
 	);
 	await screen.findByRole( 'button', { name: 'Publish…' } );
-	return { site };
+	return { site, connector };
 }
 
 const publishPanelName = /^(Choose a site|Preview details|Publish|Publish somewhere else)$/;
 
 describe( 'SiteHeaderActions', () => {
+	it.each( [ false, true ] )(
+		'operates the current site from its header (running: %s)',
+		async ( running ) => {
+			const { site, connector } = await renderActions( false, running );
+			await userEvent.click(
+				screen.getByRole( 'button', { name: running ? 'Stop site' : 'Start site' } )
+			);
+			await waitFor( () =>
+				expect( running ? connector.stopSite : connector.startSite ).toHaveBeenCalledWith( site.id )
+			);
+		}
+	);
+
 	it( 'keeps Publish visible for a stopped site and opens it from the site menu', async () => {
 		const { site } = await renderActions();
 

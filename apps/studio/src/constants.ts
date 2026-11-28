@@ -4,8 +4,6 @@ export const MAIN_MIN_HEIGHT = 600;
 // Wide enough for the chat and the preview side by side; below the sidebar's
 // share of the width, the sidebar opens over them instead.
 export const AGENTIC_MIN_WIDTH = 800;
-export const SCREENSHOT_WIDTH = 1040;
-export const SCREENSHOT_HEIGHT = 1248;
 export const AUTO_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
 export const NO_OUTPUT_UPDATE_RETRY_MS = 60 * 1000;
 export const NIGHTLY_UPDATE_TTL_MS = 24 * 60 * 60 * 1000;

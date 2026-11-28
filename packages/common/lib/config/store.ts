@@ -80,15 +80,17 @@ function isCurrent( raw: RawConfig | null | undefined ): raw is RawConfig {
 }
 
 async function writeRawConfig( raw: RawConfig ): Promise< void > {
+	// Only the user can read it: it holds their sign-ins and API keys.
 	await writeFile( getConfigPath(), JSON.stringify( raw, null, 2 ) + '\n', {
 		encoding: 'utf8',
+		mode: 0o600,
 	} );
 }
 
 async function ensureConfigDirectory(): Promise< void > {
 	const directory = getConfigDirectory();
 	if ( ! fs.existsSync( directory ) ) {
-		fs.mkdirSync( directory, { recursive: true } );
+		fs.mkdirSync( directory, { recursive: true, mode: 0o700 } );
 		await hideDirectoryOnWindows( directory );
 	}
 }

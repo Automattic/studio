@@ -1,4 +1,12 @@
-import { IconButton, Menu, Tabs, TabsList, TabsTrigger, VisuallyHidden } from '@studio/ds';
+import {
+	IconButton,
+	Menu,
+	ThumbnailTooltip,
+	Tabs,
+	TabsList,
+	TabsTrigger,
+	VisuallyHidden,
+} from '@studio/ds';
 import { PlusIcon, XIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
@@ -220,47 +228,57 @@ export function PreviewTabs( {
 							const selected = tab.id === workspace.selectedId;
 							return (
 								<Menu.ContextMenuRoot key={ tab.id }>
-									<Menu.ContextMenuTrigger
-										render={
-											<div
-												className={ clsx( styles.tab, selected && styles.selected ) }
-												data-tab-reorder-id={ tab.id }
-												data-drag-source={ reorder.drag?.id === tab.id || undefined }
-												style={ {
-													transform: `translateX(${ reorder.getOffset( tab.id ) }px)`,
-												} }
-												data-preview-selected={ selected || undefined }
-											/>
+									<ThumbnailTooltip
+										side="bottom"
+										label={ sprintf( __( 'Preview of %s' ), getTabTitle( tab, siteName ) ) }
+										thumbnail={
+											tab.thumbnail && tab.thumbnail.path === tab.path ? tab.thumbnail.image : null
 										}
-									>
-										<TabsTrigger
-											value={ tab.id }
-											className={ styles.trigger }
-											aria-description={ __(
-												'Use Alt+Shift+Left or Right Arrow to move this tab.'
-											) }
-											onKeyDown={ ( event ) => {
-												reorder.onKeyDown( event, tab.id );
-												if ( event.key === 'Delete' ) {
-													event.preventDefault();
-													closeTabs( [ tab.id ] );
+										disabled={ selected || !! reorder.drag || ! tab.thumbnail }
+										trigger={
+											<Menu.ContextMenuTrigger
+												render={
+													<div
+														className={ clsx( styles.tab, selected && styles.selected ) }
+														data-tab-reorder-id={ tab.id }
+														data-drag-source={ reorder.drag?.id === tab.id || undefined }
+														style={ {
+															transform: `translateX(${ reorder.getOffset( tab.id ) }px)`,
+														} }
+														data-preview-selected={ selected || undefined }
+													/>
 												}
-											} }
-										>
-											<Icon className={ styles.icon } />
-											<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
-										</TabsTrigger>
-										<IconButton
-											variant="ghost"
-											size="icon-2xs"
-											className={ styles.close }
-											data-tab-close
-											icon={ <XIcon width={ 14 } height={ 14 } /> }
-											label={ sprintf( __( 'Close %s' ), getTabTitle( tab, siteName ) ) }
-											onClick={ () => closeTabs( [ tab.id ] ) }
-											tooltipSide="bottom"
-										/>
-									</Menu.ContextMenuTrigger>
+											>
+												<TabsTrigger
+													value={ tab.id }
+													className={ styles.trigger }
+													aria-description={ __(
+														'Use Alt+Shift+Left or Right Arrow to move this tab.'
+													) }
+													onKeyDown={ ( event ) => {
+														reorder.onKeyDown( event, tab.id );
+														if ( event.key === 'Delete' ) {
+															event.preventDefault();
+															closeTabs( [ tab.id ] );
+														}
+													} }
+												>
+													<Icon className={ styles.icon } />
+													<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
+												</TabsTrigger>
+												<IconButton
+													variant="ghost"
+													size="icon-2xs"
+													className={ styles.close }
+													data-tab-close
+													icon={ <XIcon width={ 14 } height={ 14 } /> }
+													label={ sprintf( __( 'Close %s' ), getTabTitle( tab, siteName ) ) }
+													onClick={ () => closeTabs( [ tab.id ] ) }
+													tooltip={ false }
+												/>
+											</Menu.ContextMenuTrigger>
+										}
+									/>
 									<Menu.ContextPopup>
 										<Menu.Item disabled={ busy } onClick={ () => add( '/' ) }>
 											<PlusIcon />

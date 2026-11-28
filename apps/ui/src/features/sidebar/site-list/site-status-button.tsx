@@ -26,7 +26,14 @@ export function SiteStatusButton( {
 	const isSyncPending = activity?.kind === 'pending' && activity.direction !== 'preview';
 	const busy = siteBusy || isSyncPending;
 	const operation = useSiteOperation( site );
-	const visuallyStopped = isStopping || operation === 'stop';
+	const starting = operation === 'start' || ( isStarting && ! operation );
+	const stoppingStart = starting && ( isStopping || site.operation?.cancelRequested === true );
+	const canStopStart =
+		starting &&
+		! stoppingStart &&
+		! isSyncPending &&
+		( isStarting || site.operation?.cancelRequested === false );
+	const visuallyStopped = ( ! stoppingStart && isStopping ) || operation === 'stop';
 	const visualBusy = isSyncPending || ( siteBusy && ! visuallyStopped );
 	const visualRunning = !! site.running && ! visuallyStopped;
 	const status = getSiteStatus( site, isStarting, isStopping, operation );
@@ -34,15 +41,20 @@ export function SiteStatusButton( {
 		? activity.direction === 'import'
 			? __( 'Importing backup' )
 			: __( 'Syncing live site' )
+		: stoppingStart
+		? __( 'Stopping' )
 		: getSiteStatusName( {
 				running: site.running,
 				starting: isStarting,
 				stopping: isStopping,
 				operation,
 		  } );
-	const label = sprintf( visualRunning ? __( 'Stop %s' ) : __( 'Start %s' ), site.name );
+	const label = sprintf(
+		visualRunning || canStopStart ? __( 'Stop %s' ) : __( 'Start %s' ),
+		site.name
+	);
 	const handleClick = () => {
-		if ( site.running ) {
+		if ( site.running || canStopStart ) {
 			stopSite.mutate( site.id );
 		} else {
 			startSite.mutate( site.id );
@@ -58,15 +70,21 @@ export function SiteStatusButton( {
 						className={ styles.statusButton }
 						variant="muted-ghost"
 						size="icon-sm"
-						aria-label={ visualBusy ? statusName : label }
+						aria-label={ visualBusy && ! canStopStart ? statusName : label }
 						aria-busy={ visualBusy || undefined }
-						disabled={ busy }
+						disabled={ busy && ! canStopStart }
 						focusableWhenDisabled
 						data-state={ visuallyStopped ? 'stopped' : status }
 						onClick={ handleClick }
 					>
 						{ visualBusy ? (
-							<Spinner aria-hidden="true" />
+							<>
+								<Spinner
+									aria-hidden="true"
+									className={ canStopStart ? styles.startSpinner : undefined }
+								/>
+								{ canStopStart && <SquareIcon className={ styles.cancelStartIcon } /> }
+							</>
 						) : visualRunning ? (
 							<SquareIcon />
 						) : (
@@ -76,7 +94,11 @@ export function SiteStatusButton( {
 				}
 			/>
 			<TooltipContent>
-				{ visualBusy ? statusName : visualRunning ? __( 'Stop site' ) : __( 'Start site' ) }
+				{ visualBusy && ! canStopStart
+					? statusName
+					: visualRunning || canStopStart
+					? __( 'Stop site' )
+					: __( 'Start site' ) }
 			</TooltipContent>
 		</Tooltip>
 	);

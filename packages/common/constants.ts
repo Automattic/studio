@@ -8,6 +8,9 @@ export const SENTRY_DSN =
 export const HOUR_MS = 1000 * 60 * 60;
 export const DAY_MS = HOUR_MS * 24;
 
+// Match the 16:10 frame used by site thumbnails.
+export const SITE_THUMBNAIL_VIEWPORT = { width: 1040, height: 650 } as const;
+
 // Preview site constants
 export const DEMO_SITE_SIZE_LIMIT_GB = 2;
 export const DEMO_SITE_SIZE_LIMIT_BYTES = DEMO_SITE_SIZE_LIMIT_GB * 1024 * 1024 * 1024; // 2GB

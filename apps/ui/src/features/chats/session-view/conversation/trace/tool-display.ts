@@ -1,12 +1,77 @@
 import { getInputString, getToolDetail, getToolDisplayName } from '@studio/agent/protocol/tools';
+import {
+	AnnotateIcon,
+	AttachmentIcon,
+	ChatIcon,
+	ChecklistIcon,
+	CloudDownloadIcon,
+	CloudUploadIcon,
+	CodeIcon,
+	FileImageIcon,
+	FolderOpenIcon,
+	GaugeIcon,
+	GlobeIcon,
+	PaletteIcon,
+	PencilIcon,
+	RotateCwIcon,
+	SearchIcon,
+	SkillsIcon,
+	SquarePenIcon,
+	TerminalIcon,
+	WordPressIcon,
+} from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
+import { createElement, type ComponentProps, type ComponentType } from 'react';
 
 const TOOL_DETAIL_MAX_LENGTH = 96;
+
+const TOOL_ICONS: Record< string, ComponentType< ComponentProps< 'svg' > > > = {
+	Read: () => createElement( AttachmentIcon, { kind: 'file' } ),
+	Write: SquarePenIcon,
+	Edit: PencilIcon,
+	Bash: TerminalIcon,
+	Glob: SearchIcon,
+	Grep: SearchIcon,
+	Ls: FolderOpenIcon,
+	Skill: SkillsIcon,
+	wp_cli: TerminalIcon,
+	wpcom_request: WordPressIcon,
+	site_create: GlobeIcon,
+	site_list: GlobeIcon,
+	site_info: GlobeIcon,
+	site_start: GlobeIcon,
+	site_stop: GlobeIcon,
+	site_delete: GlobeIcon,
+	site_connected_remote_sites: GlobeIcon,
+	site_push: CloudUploadIcon,
+	site_pull: CloudDownloadIcon,
+	site_import: CloudDownloadIcon,
+	site_export: CloudUploadIcon,
+	preview_create: GlobeIcon,
+	preview_list: GlobeIcon,
+	preview_update: RotateCwIcon,
+	preview_delete: GlobeIcon,
+	refresh_browser: RotateCwIcon,
+	scaffold_theme: CodeIcon,
+	pick_design: PaletteIcon,
+	present_design_options: PaletteIcon,
+	inspect_design: PaletteIcon,
+	validate_blocks: CodeIcon,
+	take_screenshot: FileImageIcon,
+	generate_images: FileImageIcon,
+	open_annotation_browser: AnnotateIcon,
+	need_for_speed: GaugeIcon,
+	rank_me_up: SearchIcon,
+	send_feedback: ChatIcon,
+	AskUserQuestion: ChatIcon,
+	TodoWrite: ChecklistIcon,
+};
 
 interface ToolDisplay {
 	label: string;
 	detail: string;
 	inputText: string;
+	Icon: ComponentType< ComponentProps< 'svg' > >;
 }
 
 function truncateToolDetail( value: string, maxLength = TOOL_DETAIL_MAX_LENGTH ): string {
@@ -55,6 +120,7 @@ export function getToolDisplay(
 		label: getToolDisplayName( name, input ),
 		detail: genericDetail,
 		inputText: getToolInputText( name, input ),
+		Icon: TOOL_ICONS[ name ] ?? CodeIcon,
 	};
 
 	switch ( name ) {

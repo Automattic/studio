@@ -38,7 +38,7 @@ describe( 'turn activity line', () => {
 			expect( screen.getByText( label ) ).toBeVisible();
 			expect( screen.getByRole( 'button', { name: label } ) ).toHaveAttribute(
 				'aria-expanded',
-				String( status === 'running' )
+				'false'
 			);
 		}
 	);
@@ -112,6 +112,7 @@ describe( 'activity disclosure', () => {
 		'collapses on %s and can reopen',
 		( status ) => {
 			const view = render( line() );
+			fireEvent.click( screen.getByRole( 'button' ) );
 			expect( screen.getByText( 'Reading files' ) ).toBeVisible();
 			view.rerender( line( { status, endedAt: 6000 } ) );
 			expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
@@ -122,14 +123,17 @@ describe( 'activity disclosure', () => {
 			expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'true' );
 		}
 	);
-	it( 'preserves a manual collapse through live updates and reopens for a new run', () => {
+	it( 'preserves a manual disclosure through live updates and resets for a new run', () => {
 		const view = render( line() );
 		fireEvent.click( screen.getByRole( 'button' ) );
 		view.rerender( line( { startedAt: 2000 } ) );
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'true' );
+		fireEvent.click( screen.getByRole( 'button' ) );
+		view.rerender( line( { startedAt: 3000 } ) );
 		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
 		view.rerender( line( { status: 'success', endedAt: 6000 } ) );
 		view.rerender( line() );
-		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
 } );
 
@@ -142,12 +146,12 @@ describe( 'empty activity', () => {
 			expect( screen.queryByText( 'Reading files' ) ).not.toBeInTheDocument();
 		}
 	);
-	it( 'becomes expanded when the first activity arrives', () => {
+	it( 'keeps details collapsed when the first activity arrives', () => {
 		const view = render( line( { items: [] } ) );
 		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
 		view.rerender( line() );
-		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'true' );
-		expect( screen.getByText( 'Reading files' ) ).toBeVisible();
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.queryByText( 'Reading files' ) ).not.toBeInTheDocument();
 		view.rerender( line( { status: 'success', items: [], endedAt: 6000 } ) );
 		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
 	} );
@@ -162,7 +166,7 @@ describe( 'empty activity', () => {
 		const view = render( element( '   ' ) );
 		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
 		view.rerender( element( 'Uploading…' ) );
-		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( screen.getByText( 'Uploading…' ) ).toBeVisible();
 		view.rerender( element( 'Uploading…', 'success' ) );
 		expect( screen.queryByRole( 'button' ) ).not.toBeInTheDocument();
@@ -185,7 +189,7 @@ describe( 'waiting activity', () => {
 		expect( screen.getByText( 'Waiting for 13s' ) ).toBeVisible();
 		view.rerender( line() );
 		expect( screen.getByText( 'Working for 13s' ) ).toHaveClass( 'studio-shimmer' );
-		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( screen.getByRole( 'button' ) ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
 	it( 'allows details to reopen while waiting and collapses again for the next question', () => {
 		const view = render( line( {}, true ) );

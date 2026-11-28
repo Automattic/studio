@@ -27,9 +27,8 @@
 	margin-block-start: var( --chat-item-gap );
 }
 
-.activityItems > [data-trace-row] + :not( [data-trace-row] ),
-.activityItems > :not( [data-trace-row] ) + [data-trace-row] {
-	margin-block-start: var( --space-2 );
+.activityItems {
+	--chat-item-gap: var( --space-2 );
 }
 
 /* Only speaker groups skip layout and paint: collapsible contents need their real

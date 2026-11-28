@@ -1,0 +1,119 @@
+@layer ui {
+	.root {
+		display: flex;
+		flex-direction: column;
+		gap: var( --space-1 );
+		min-width: 0;
+	}
+
+	.line {
+		display: flex;
+		align-items: center;
+		gap: var( --space-2 );
+		min-width: 0;
+		max-width: 100%;
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
+	}
+
+	.icon {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: var( --space-4 );
+		height: var( --space-4 );
+	}
+
+	.icon svg {
+		width: var( --space-4 );
+		height: var( --space-4 );
+	}
+
+	.title {
+		composes: truncate from '../../theme/recipes.module.css';
+		min-width: 0;
+	}
+
+	.details {
+		--code-font-size: var( --text-xxs );
+
+		display: flex;
+		flex-direction: column;
+		gap: var( --space-2 );
+		min-width: 0;
+		padding-block: var( --space-2 );
+		padding-inline-start: var( --space-6 );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
+	}
+
+	.details .details,
+	.details .content {
+		margin-inline-start: calc( -1 * var( --space-6 ) );
+	}
+
+	.details .content {
+		padding-inline-start: var( --space-6 );
+	}
+
+	.details .line {
+		position: relative;
+	}
+
+	.details .line > .icon:first-child {
+		position: absolute;
+		inset-inline-start: calc( -1 * var( --space-6 ) );
+	}
+
+	.trigger {
+		display: flex;
+		align-items: center;
+		width: fit-content;
+		min-width: 0;
+		max-width: 100%;
+		color: var( --muted-foreground );
+		text-align: start;
+	}
+
+	.trigger .line {
+		color: inherit;
+	}
+
+	.trigger:hover {
+		color: var( --foreground );
+	}
+
+	.trigger:focus-visible {
+		color: var( --accent-text );
+	}
+
+	.line[data-status='error'],
+	.trigger:has( [data-status='error'] ) {
+		color: var( --destructive );
+	}
+
+	.chevron {
+		flex: none;
+		rotate: -90deg;
+		transition: rotate var( --motion-duration-feedback ) ease;
+	}
+
+	.chevron:dir( rtl ) {
+		rotate: 90deg;
+	}
+
+	.trigger[aria-expanded='true'] .chevron {
+		rotate: 0deg;
+	}
+
+	.collapsible {
+		min-width: 0;
+	}
+
+	.content {
+		composes: panel from '../collapsible/style.module.css';
+	}
+}

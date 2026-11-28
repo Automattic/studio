@@ -113,6 +113,49 @@ it( 'groups all agent content between consecutive user messages', () => {
 	expect( view.container.querySelectorAll( '[data-speaker]' ) ).toHaveLength( 4 );
 } );
 
+it.each( [ 'running', 'success', 'interrupted', 'error' ] )(
+	'keeps every agent message visible when %s tool details are collapsed',
+	( status ) => {
+		const entries = [
+			promptEntry( 'Update the header.' ),
+			assistantToolCallEntry(
+				'Read',
+				{ file_path: '/tmp/header.html' },
+				'I’ll inspect the header.'
+			),
+			toolResultEntry( 'Header contents' ),
+			assistantTextEntry( 'I found the title.' ),
+			assistantToolCallEntry(
+				'Edit',
+				{ file_path: '/tmp/header.html' },
+				'I’ll update both layouts.'
+			),
+			toolResultEntry( 'Updated' ),
+			assistantTextEntry( 'The header is updated.' ),
+			...( status === 'running' ? [] : [ turnClosedEntry( status ) ] ),
+		];
+		const session = loadedSession( entries );
+		renderConversation( session, { isRunning: status === 'running', startedAt: Date.now() } );
+		const messages = [
+			'I’ll inspect the header.',
+			'I found the title.',
+			'I’ll update both layouts.',
+			'The header is updated.',
+		];
+		const header = screen.getByRole( 'button', { name: /^(Working|Worked|You stopped|Failed)/ } );
+		expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
+		for ( const message of messages ) {
+			expect( screen.getByText( message ) ).toBeVisible();
+		}
+		fireEvent.click( header );
+		fireEvent.click( header );
+		for ( const message of messages ) {
+			expect( screen.getAllByText( message ) ).toHaveLength( 1 );
+			expect( screen.getByText( message ) ).toBeVisible();
+		}
+	}
+);
+
 describe( 'Conversation tool rows', () => {
 	it( 'shows long tool results in the opened details without an extra toggle', () => {
 		const longOutput = Array.from(
@@ -318,7 +361,7 @@ describe( 'Conversation activity groups', () => {
 		const header = screen.getByRole( 'button', { name: /^Worked/ } );
 		expect( header ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( screen.getByText( 'Everything looks good.' ) ).toBeVisible();
-		expect( screen.queryByText( 'Checking the theme.' ) ).not.toBeInTheDocument();
+		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		fireEvent.click( header );
 		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		expect( screen.getByText( 'Everything looks good.' ) ).toBeVisible();
@@ -409,10 +452,10 @@ it( 'shows the answered question before the work it prompted', () => {
 		question.compareDocumentPosition( followup ) & Node.DOCUMENT_POSITION_FOLLOWING
 	).toBeTruthy();
 	const header = screen.getByRole( 'button', { name: /^Working/ } );
+	fireEvent.click( header );
 	for ( const id of header.getAttribute( 'aria-controls' )!.split( ' ' ) ) {
 		expect( document.getElementById( id ) ).not.toContainElement( question );
 	}
-	fireEvent.click( header );
 	expect( question ).toBeVisible();
 	expect( screen.getByText( 'Blue', { exact: true } ) ).toBeVisible();
 } );
@@ -435,8 +478,8 @@ it( 'keeps the chosen answer visible between work sections after completion', as
 	expect( question ).toBeVisible();
 	expect( screen.getByText( 'Blue', { exact: true } ) ).toBeVisible();
 	expect( screen.getByText( 'Updated the background.' ) ).toBeVisible();
-	expect( screen.queryByText( 'Checking the palette.' ) ).not.toBeInTheDocument();
-	expect( screen.queryByText( 'I’ll use blue.' ) ).not.toBeInTheDocument();
+	expect( screen.getByText( 'Checking the palette.' ) ).toBeVisible();
+	expect( screen.getByText( 'I’ll use blue.' ) ).toBeVisible();
 	fireEvent.click( header );
 	const before = screen.getByText( 'Checking the palette.' );
 	const after = screen.getByText( 'I’ll use blue.' );
@@ -455,8 +498,8 @@ it( 'keeps the chosen answer visible between work sections after completion', as
 		expect( document.getElementById( id ) ).not.toContainElement( question );
 	}
 	fireEvent.click( header );
-	await waitFor( () => expect( screen.queryByText( 'I’ll use blue.' ) ).not.toBeInTheDocument() );
-	expect( card ).not.toHaveAttribute( 'data-joined-above' );
+	await waitFor( () => expect( screen.getByText( 'I’ll use blue.' ) ).toBeVisible() );
+	expect( card ).toHaveAttribute( 'data-joined-above' );
 	expect( card ).toHaveAttribute( 'data-joined-below' );
 	expect( question ).toBeVisible();
 	expect( screen.getByText( 'Blue', { exact: true } ) ).toBeVisible();

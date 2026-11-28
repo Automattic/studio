@@ -1,105 +1,34 @@
-.activity {
-	display: flex;
-	flex-direction: column;
+.toolDetails {
+	overflow-wrap: break-word;
 }
 
-.toolDetails {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-2 );
-	min-width: 0;
-	margin-block: var( --space-2 ) var( --space-1 );
-	margin-inline-start: 7px;
-	padding-inline: var( --space-3 ) var( --space-1 );
-	border-inline-start: 0.5px solid var( --border );
-	color: var( --muted-foreground );
-	font-size: var( --text-xxs );
-	line-height: var( --text-xxs--line-height );
-	overflow-wrap: break-word;
+.toolIcon svg {
+	width: var( --space-3_5 );
+	height: var( --space-3_5 );
+}
+
+.toolTrigger [data-dropdown-indicator] {
+	width: var( --space-3_5 );
+	height: var( --space-3_5 );
+	opacity: 0;
+}
+
+.tool:is( :hover, :focus-within ) > .toolTrigger [data-dropdown-indicator] {
+	opacity: 1;
+}
+
+@media ( hover: none ) {
+	.toolTrigger [data-dropdown-indicator] {
+		opacity: 1;
+	}
 }
 
 .activityProgress {
 	composes: truncate from '@studio/ds/theme/recipes.module.css';
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-	opacity: 0.8;
 }
 
-.traceLine {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2 );
-	min-width: 0;
-	max-width: 100%;
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-}
-
-.traceLine svg {
-	flex: none;
-}
-
-.activityHeading {
-	font-size: var( --text-sm );
-	line-height: var( --text-sm--line-height );
-}
-
-.traceTitle {
-	composes: truncate from '@studio/ds/theme/recipes.module.css';
-	min-width: 0;
-}
-
-.traceTrigger {
-	appearance: none;
-	display: flex;
-	align-items: center;
-	gap: var( --space-1 );
-	width: fit-content;
-	max-width: 100%;
-	min-width: 0;
-	color: var( --muted-foreground );
-	text-align: start;
-	cursor: pointer;
-	transition: color var( --motion-duration-feedback ) ease;
-}
-
-.traceTrigger:hover {
-	color: var( --foreground );
-}
-
-.traceTrigger .traceLine {
-	color: inherit;
-}
-
-.traceTrigger:has( [data-status='error'] ),
-.traceLine[data-status='error'] {
-	color: var( --destructive );
-}
-
-.traceTrigger:focus-visible {
-	color: var( --accent-text );
-}
-
-.traceChevron {
-	flex: none;
-	rotate: -90deg;
-	transition: rotate var( --motion-duration-feedback ) ease;
-}
-
-.traceTrigger[aria-expanded='true'] .traceChevron {
-	rotate: 0deg;
-}
-
-.traceChevron:dir( rtl ) {
-	rotate: 90deg;
-}
-
-.toolCode pre {
-	padding: var( --space-1_5 );
-	font-size: var( --text-xxs );
-	line-height: var( --text-xxs--line-height );
+.activity {
+	gap: 0;
 }
 
 .toolOutput {
@@ -115,21 +44,29 @@
 }
 
 .toolSkillName {
-	color: var( --foreground );
 	font-weight: var( --font-weight-medium );
 }
 
 .activityContent {
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-1 );
-	padding-block-start: var( --space-1 );
+	gap: var( --chat-item-gap, var( --space-1 ) );
 }
 
-.activityContent[data-separated] {
-	padding-block-start: var( --space-3 );
+.activityContent,
+.activityDetails {
+	padding-block-start: var( --chat-section-gap, var( --space-3 ) );
 }
 
-.activityContent[data-first] {
-	padding-block-start: var( --space-4_5 );
+.activityDetails {
+	padding-block-end: 0;
+}
+
+.activityContent[data-joined-above] {
+	padding-block-start: var( --chat-item-gap, var( --space-1 ) );
+}
+
+.activityContent[data-first],
+.activityDetails[data-first] {
+	padding-block-start: 0;
 }

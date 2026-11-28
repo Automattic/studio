@@ -11,10 +11,15 @@ import type { TokensResult } from 'shiki/core';
 export function CodeBlock( {
 	code,
 	language,
+	variant = 'default',
 	className,
 	children,
 	...props
-}: ComponentProps< 'div' > & { code: string; language?: string } ) {
+}: ComponentProps< 'div' > & {
+	code: string;
+	language?: string;
+	variant?: 'default' | 'plain';
+} ) {
 	const [ highlighted, setHighlighted ] = useState< {
 		code: string;
 		result: TokensResult;
@@ -44,7 +49,12 @@ export function CodeBlock( {
 	const shown = highlighted && code.startsWith( highlighted.code ) ? highlighted : null;
 
 	return (
-		<div data-slot="code-block" className={ clsx( styles.block, className ) } { ...props }>
+		<div
+			data-slot="code-block"
+			data-variant={ variant }
+			className={ clsx( styles.block, className ) }
+			{ ...props }
+		>
 			{ children }
 			<pre className={ styles.pre }>
 				<code>

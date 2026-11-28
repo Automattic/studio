@@ -50,19 +50,14 @@ main[data-sidebar-flyout] .contentColumn:has( [data-sidebar-flyout-header] ) {
 	content: '';
 	position: absolute;
 	inset-block: 1px 0;
-	inset-inline-start: var( --panel-frame-boundary );
+	inset-inline-start: calc( var( --panel-frame-boundary ) - var( --border-width ) );
 	z-index: 5;
 	width: 1px;
-	translate: -50%;
 	opacity: 0;
 	/* Keep the translucent border independent of the page behind it. */
 	background-color: var( --chat );
 	box-shadow: inset 0 0 0 1px var( --panel-divider-color );
 	pointer-events: none;
-}
-
-.root:dir( rtl )::after {
-	translate: 50%;
 }
 
 .rootEdge.rootPanelResizing::after,

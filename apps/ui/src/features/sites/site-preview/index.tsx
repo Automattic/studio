@@ -654,7 +654,6 @@ function SitePreviewContent( {
 											annotationTool={ annotationTools.tool }
 											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
-											themeColorActive={ active && ! inactive && ! collapsed }
 											onThemeColorChange={ ( themeColor ) => patchSurface( key, { themeColor } ) }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }

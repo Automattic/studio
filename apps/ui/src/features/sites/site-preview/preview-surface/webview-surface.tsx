@@ -4,7 +4,6 @@ import {
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
-import { observePreviewThemeColor } from '@studio/common/lib/preview-theme-color';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
 import {
@@ -29,12 +28,11 @@ import {
 	type WebviewFailLoadEvent,
 	type WebviewPageTitleUpdatedEvent,
 	type WebviewStartNavigationEvent,
+	type WebviewThemeColorEvent,
 	type WebviewTag,
 	type PreviewColorScheme,
 } from './webview';
 import type { SiteAnnotations } from '@/features/annotations';
-
-const THEME_COLOR_RESPONSE_TIMEOUT_MS = 4000;
 
 interface WebviewSurfaceProps {
 	url: string;
@@ -50,7 +48,6 @@ interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onNavigate?: ( url: string ) => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
-	themeColorActive?: boolean;
 	onThemeColorChange?: ( color: string | null ) => void;
 	// A page finished loading, with the webview's guest id for capturing it.
 	onLoad?: ( url: string, guestId: number ) => void;
@@ -78,7 +75,6 @@ export function WebviewSurface( {
 	onBrowserStateChange,
 	onNavigate,
 	onAdminBarVisibilityChange,
-	themeColorActive = false,
 	onThemeColorChange,
 	onLoad,
 	inspector = true,
@@ -93,7 +89,6 @@ export function WebviewSurface( {
 	const onNavigateRef = useRef( onNavigate );
 	const onAdminBarVisibilityRef = useRef( onAdminBarVisibilityChange );
 	const onThemeColorRef = useRef( onThemeColorChange );
-	const themeColorToken = useRef( '' );
 	const visibilityRequestRef = useRef( 0 );
 	const onLoadRef = useRef( onLoad );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
@@ -305,7 +300,6 @@ export function WebviewSurface( {
 		const handleStartNavigation = ( event: Event ) => {
 			const { isMainFrame, isInPlace } = event as WebviewStartNavigationEvent;
 			if ( isMainFrame && ! isInPlace ) {
-				themeColorToken.current = '';
 				visibilityRequestRef.current += 1;
 				onAdminBarVisibilityRef.current?.( null );
 			}
@@ -329,6 +323,11 @@ export function WebviewSurface( {
 			}
 		};
 
+		const handleThemeColor = ( event: Event ) => {
+			onThemeColorRef.current?.( ( event as WebviewThemeColorEvent ).themeColor || null );
+		};
+
+		webview.addEventListener( 'did-change-theme-color', handleThemeColor );
 		webview.addEventListener( 'dom-ready', handleDomReady );
 		webview.addEventListener( 'console-message', handleConsoleMessage );
 		webview.addEventListener( 'page-title-updated', handlePageTitleUpdated );
@@ -356,6 +355,7 @@ export function WebviewSurface( {
 		return () => {
 			domReadyRef.current = false;
 			visibilityRequestRef.current += 1;
+			webview.removeEventListener( 'did-change-theme-color', handleThemeColor );
 			webview.removeEventListener( 'dom-ready', handleDomReady );
 			webview.removeEventListener( 'console-message', handleConsoleMessage );
 			webview.removeEventListener( 'page-title-updated', handlePageTitleUpdated );
@@ -426,91 +426,6 @@ export function WebviewSurface( {
 			?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme )
 			.catch( ( error ) => console.error( 'Failed to set preview appearance:', error ) );
 	}, [ colorScheme, documentVersion ] );
-
-	useEffect( () => {
-		const webview = ref.current as WebviewTag | null;
-		if ( ! documentVersion || ! webview || ! themeColorActive ) return;
-		const token = crypto.randomUUID();
-		themeColorToken.current = token;
-		// Wait for updates through the webview instead of relying on the page's console.
-		const script = `(() => {
-			window.__studioPreviewThemeColor?.stop();
-			const token = ${ JSON.stringify( token ) };
-			let version = 0;
-			let color = null;
-			let wake = null;
-			const stop = (${ observePreviewThemeColor.toString() })((nextColor) => {
-				version++;
-				color = nextColor;
-				wake?.();
-				wake = null;
-			});
-			const state = {
-				token,
-				stopped: false,
-				wait(after) {
-					if (this.stopped) return null;
-					const result = () => this.stopped ? null : { token, version, color };
-					if (version !== after) return result();
-					return new Promise((resolve) => { wake = () => resolve(result()); });
-				},
-				stop() {
-					this.stopped = true;
-					stop();
-					wake?.();
-					wake = null;
-				},
-			};
-			window.__studioPreviewThemeColor = state;
-			return state.wait(0);
-		})()`;
-		const timeout = setTimeout( () => {
-			if ( themeColorToken.current === token ) onThemeColorRef.current?.( null );
-		}, THEME_COLOR_RESPONSE_TIMEOUT_MS );
-		void ( async () => {
-			try {
-				let result = await webview.executeJavaScript( script, false );
-				while ( themeColorToken.current === token ) {
-					const report = result as { token?: unknown; version?: unknown; color?: unknown } | null;
-					if (
-						! report ||
-						report.token !== token ||
-						! Number.isSafeInteger( report.version ) ||
-						( report.color !== null &&
-							( typeof report.color !== 'string' || ! /^#[\da-f]{6}$/i.test( report.color ) ) )
-					) {
-						throw new Error( 'Invalid preview theme color report' );
-					}
-					clearTimeout( timeout );
-					onThemeColorRef.current?.( report.color );
-					result = await webview.executeJavaScript(
-						`window.__studioPreviewThemeColor?.token === ${ JSON.stringify( token ) }
-							? window.__studioPreviewThemeColor.wait(${ report.version }) : null`,
-						false
-					);
-				}
-			} catch {
-				clearTimeout( timeout );
-				if ( themeColorToken.current === token ) onThemeColorRef.current?.( null );
-			}
-		} )();
-		return () => {
-			clearTimeout( timeout );
-			if ( themeColorToken.current === token ) themeColorToken.current = '';
-			try {
-				void webview
-					.executeJavaScript(
-						`if (window.__studioPreviewThemeColor?.token === ${ JSON.stringify(
-							token
-						) }) window.__studioPreviewThemeColor.stop()`,
-						false
-					)
-					.catch( () => undefined );
-			} catch {
-				// The guest may already be gone.
-			}
-		};
-	}, [ documentVersion, themeColorActive ] );
 
 	// Mirrors the notes into the page, in the theme's accent.
 	const appColorScheme = useColorScheme();

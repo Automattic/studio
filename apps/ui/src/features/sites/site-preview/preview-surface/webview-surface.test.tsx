@@ -45,89 +45,34 @@ it( 'reads actual toolbar visibility after load and ignores an older document re
 	expect( onAdminBarVisibilityChange ).toHaveBeenLastCalledWith( false );
 } );
 
-it( 'follows color changes and ignores reports from an old webview document', async () => {
+it( 'follows native theme-color changes and keeps the current color during navigation', async () => {
 	const onThemeColorChange = vi.fn();
 	const view = renderWithProviders(
 		<WebviewSurface
 			url="http://localhost:9010"
 			reloadNonce={ 0 }
 			inspector={ false }
-			themeColorActive
 			onThemeColorChange={ onThemeColorChange }
 		/>
 	);
 	await waitFor( () => expect( view.container.querySelector( 'webview' ) ).not.toBeNull() );
 	const guest = view.container.querySelector( 'webview' )!;
-	const pending: ( ( value: unknown ) => void )[] = [];
-	const executeJavaScript = vi.fn( ( script: string ) =>
-		script.includes( 'const token =' ) || script.includes( '__studioPreviewThemeColor.wait(' )
-			? new Promise< unknown >( ( resolve ) => pending.push( resolve ) )
-			: Promise.resolve( undefined )
-	);
-	Object.assign( guest, { getWebContentsId: () => 42, executeJavaScript } );
-	fireEvent( guest, new Event( 'dom-ready' ) );
-	await waitFor( () => expect( pending ).toHaveLength( 1 ) );
-	const script = executeJavaScript.mock.calls.find( ( [ source ] ) =>
-		source.includes( 'const token =' )
-	)![ 0 ];
-	const token = script.match( /const token = "([^"]+)"/ )![ 1 ];
-	await act( async () => pending[ 0 ]( { token, version: 1, color: '#123456' } ) );
+	const report = ( themeColor: string | null ) =>
+		fireEvent( guest, Object.assign( new Event( 'did-change-theme-color' ), { themeColor } ) );
+	report( '#123456' );
 	expect( onThemeColorChange ).toHaveBeenLastCalledWith( '#123456' );
-	await waitFor( () => expect( pending ).toHaveLength( 2 ) );
-	await act( async () => pending[ 1 ]( { token, version: 2, color: '#abcdef' } ) );
-	expect( onThemeColorChange ).toHaveBeenLastCalledWith( '#abcdef' );
-	await waitFor( () => expect( pending ).toHaveLength( 3 ) );
 	fireEvent(
 		guest,
 		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
 	);
-	await act( async () => pending[ 2 ]( { token, version: 3, color: '#654321' } ) );
-	expect( onThemeColorChange ).toHaveBeenCalledTimes( 2 );
-	fireEvent( guest, new Event( 'dom-ready' ) );
-	await waitFor( () => expect( pending ).toHaveLength( 4 ) );
-	const nextScript = executeJavaScript.mock.calls.filter( ( [ source ] ) =>
-		source.includes( 'const token =' )
-	)[ 1 ][ 0 ];
-	const nextToken = nextScript.match( /const token = "([^"]+)"/ )![ 1 ];
-	await act( async () => pending[ 3 ]( { token: nextToken, version: 1, color: null } ) );
+	expect( onThemeColorChange ).toHaveBeenCalledTimes( 1 );
+	report( '#abcdef' );
+	expect( onThemeColorChange ).toHaveBeenLastCalledWith( '#abcdef' );
+	report( null );
 	expect( onThemeColorChange ).toHaveBeenLastCalledWith( null );
-} );
-
-it( 'falls back when the webview never reports a theme color', async () => {
-	const onThemeColorChange = vi.fn();
-	const view = renderWithProviders(
-		<WebviewSurface
-			url="http://localhost:9010"
-			reloadNonce={ 0 }
-			inspector={ false }
-			themeColorActive
-			onThemeColorChange={ onThemeColorChange }
-		/>
-	);
-	await waitFor( () => expect( view.container.querySelector( 'webview' ) ).not.toBeNull() );
-	const guest = view.container.querySelector( 'webview' )!;
-	vi.useFakeTimers();
-	try {
-		let token = '';
-		let reportColor: ( value: unknown ) => void = () => {};
-		Object.assign( guest, {
-			getWebContentsId: () => 42,
-			executeJavaScript: vi.fn( ( script: string ) => {
-				if ( script.includes( '__studioPreviewThemeColor.wait(' ) ) return new Promise( () => {} );
-				if ( ! script.includes( 'const token =' ) ) return Promise.resolve( undefined );
-				token = script.match( /const token = "([^"]+)"/ )![ 1 ];
-				return new Promise( ( resolve ) => ( reportColor = resolve ) );
-			} ),
-		} );
-		fireEvent( guest, new Event( 'dom-ready' ) );
-		expect( onThemeColorChange ).not.toHaveBeenCalled();
-		await act( async () => vi.advanceTimersByTime( 4000 ) );
-		expect( onThemeColorChange ).toHaveBeenLastCalledWith( null );
-		await act( async () => reportColor( { token, version: 1, color: '#123456' } ) );
-		expect( onThemeColorChange ).toHaveBeenLastCalledWith( '#123456' );
-	} finally {
-		vi.useRealTimers();
-	}
+	view.unmount();
+	report( '#123456' );
+	expect( onThemeColorChange ).toHaveBeenCalledTimes( 3 );
 } );
 
 it( 'maps scaled guest annotation anchors into host coordinates', async () => {

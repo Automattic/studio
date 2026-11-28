@@ -120,6 +120,10 @@ Choose **Help → Open Application Logs** to open the current log file. When pub
 | Windows | `%APPDATA%\Studio\logs` |
 | Linux | `~/.config/Studio/logs` |
 
+### What usage data does WordPress Studio collect?
+
+WordPress Studio sends usage events, such as a site starting or a preview being created, to help improve the product. They never include your site names, URLs, file paths, or prompts. When you’re logged in to WordPress.com, they carry your WordPress.com user ID. To turn them off, open **Settings** and turn off the usage statistics option on the **General** page. See [Telemetry in WordPress Studio](https://wordpress.studio/docs/telemetry/).
+
 ### Where do emails sent by my site go?
 
 WordPress Studio saves them instead of sending them. To read them, choose **Tools → Email log** from the site menu. See [Site email](https://wordpress.studio/docs/sites/#site-email).

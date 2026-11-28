@@ -1,10 +1,12 @@
 import { IpcMainInvokeEvent } from 'electron';
+import * as Sentry from '@sentry/electron/main';
 import {
 	forgetRemoteSite,
 	getRemoteSites as readRemoteSites,
 	connectPublishingSite,
 	type RemoteSiteConnection,
 } from '@studio/common/lib/remote-sites';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { getSitePublishStatus as getPublishStatus } from '@studio/common/sites/publish-status';
 import {
 	getSiteCreationVisibility as readCreationVisibility,
@@ -122,6 +124,33 @@ export async function createRemoteSite(
 	);
 }
 
+/**
+ * The app starts pushes and pulls with `STUDIO_HOST_REPORTS_CLI_ERRORS`, so the CLI leaves their
+ * failures to the app to report. Errors the CLI marks as expected, like being offline, are dropped
+ * by `beforeSend`; a cancel resolves and is never reported.
+ */
+async function reportingSyncFailure(
+	direction: 'push' | 'pull',
+	provider: SitesProviderId,
+	sync: () => Promise< SyncResult >
+): Promise< SyncResult > {
+	try {
+		return await sync();
+	} catch ( error ) {
+		Sentry.captureException( error, {
+			tags: {
+				provider: 'cli',
+				sync_direction: direction,
+				sync_provider: provider,
+				...( direction === 'pull'
+					? { pull_engine: isReprintPullEnabled() ? 'reprint' : 'backup' }
+					: {} ),
+			},
+		} );
+		throw error;
+	}
+}
+
 // A cancel resolves rather than rejects, so it isn't logged as a handler error in
 // the very log we point users at when a sync fails.
 export async function pushSite(
@@ -131,11 +160,10 @@ export async function pushSite(
 	remoteSiteId: string | number,
 	options?: PushSyncOptions
 ): Promise< SyncResult > {
-	return syncRunner.push(
-		siteId,
-		await requireSitePath( siteId ),
-		{ provider: parseProvider( provider ), id: remoteSiteId },
-		options
+	const providerId = parseProvider( provider );
+	const sitePath = await requireSitePath( siteId );
+	return reportingSyncFailure( 'push', providerId, () =>
+		syncRunner.push( siteId, sitePath, { provider: providerId, id: remoteSiteId }, options )
 	);
 }
 
@@ -146,11 +174,10 @@ export async function pullSite(
 	remoteSiteId: string | number,
 	options?: PullSyncOptions
 ): Promise< SyncResult > {
-	return syncRunner.pull(
-		siteId,
-		await requireSitePath( siteId ),
-		{ provider: parseProvider( provider ), id: remoteSiteId },
-		options
+	const providerId = parseProvider( provider );
+	const sitePath = await requireSitePath( siteId );
+	return reportingSyncFailure( 'pull', providerId, () =>
+		syncRunner.pull( siteId, sitePath, { provider: providerId, id: remoteSiteId }, options )
 	);
 }
 

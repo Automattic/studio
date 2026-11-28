@@ -9,8 +9,7 @@ import {
 } from '@studio/ds';
 import { EllipsisVerticalIcon, PlayIcon, SquareIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
-import { useSiteOperation } from '@/data/queries/use-sites';
-import { useSiteSyncActivity } from '@/data/sync-activity';
+import { useSiteLifecycleState } from '@/data/use-site-lifecycle-state';
 import { SiteMenuItems, type SiteActions } from '@/features/sites';
 import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
@@ -24,24 +23,21 @@ export function SiteStatusButton( {
 	isStarting: boolean;
 	isStopping: boolean;
 } ) {
-	const { site, busy: siteBusy } = actions;
-	const activity = useSiteSyncActivity( site.id );
-	const isSyncPending = activity?.kind === 'pending' && activity.direction !== 'preview';
-	const busy = siteBusy || isSyncPending;
-	const operation = useSiteOperation( site );
-	const starting = operation === 'start' || ( isStarting && ! operation );
-	const stoppingStart = starting && ( isStopping || site.operation?.cancelRequested === true );
-	const canStopStart =
-		starting &&
-		! stoppingStart &&
-		! isSyncPending &&
-		( isStarting || site.operation?.cancelRequested === false );
-	const visuallyStopped = ( ! stoppingStart && isStopping ) || operation === 'stop';
-	const visualBusy = isSyncPending || ( siteBusy && ! visuallyStopped );
-	const visualRunning = !! site.running && ! visuallyStopped;
+	const { site } = actions;
+	const {
+		activity,
+		isSyncPending,
+		operation,
+		stoppingStart,
+		canStopStart,
+		visuallyStopped,
+		visualBusy,
+		visualRunning,
+		disabled,
+	} = useSiteLifecycleState( site, isStarting, isStopping );
 	const status = getSiteStatus( site, isStarting, isStopping, operation );
 	const statusName = isSyncPending
-		? activity.direction === 'import'
+		? activity?.direction === 'import'
 			? __( 'Importing backup' )
 			: __( 'Syncing live site' )
 		: stoppingStart
@@ -57,7 +53,7 @@ export function SiteStatusButton( {
 		site.name
 	);
 
-	if ( site.running && ! busy ) {
+	if ( site.running && ! actions.busy && ! isSyncPending ) {
 		return (
 			<Menu.Root modal={ false }>
 				<Menu.Trigger
@@ -90,7 +86,7 @@ export function SiteStatusButton( {
 						size="icon-sm"
 						aria-label={ visualBusy && ! canStopStart ? statusName : label }
 						aria-busy={ visualBusy || undefined }
-						disabled={ busy && ! canStopStart }
+						disabled={ disabled }
 						focusableWhenDisabled
 						data-state={ visuallyStopped ? 'stopped' : status }
 						onClick={ canStopStart ? () => actions.stop( [ site ] ) : actions.toggleRunning }

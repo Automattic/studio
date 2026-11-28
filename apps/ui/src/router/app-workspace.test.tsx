@@ -1456,7 +1456,7 @@ describe( 'Studio workspace', () => {
 				'button',
 				{ name: 'Start site' }
 			)
-		).not.toBeInTheDocument();
+		).toBeVisible();
 		fireEvent.click( composerStartButton() );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
@@ -1464,7 +1464,7 @@ describe( 'Studio workspace', () => {
 		await waitFor( () => expect( getLayoutControl( 'split' ) ).toBeVisible() );
 		expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Stop site' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );

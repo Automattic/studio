@@ -39,3 +39,12 @@
 	flex-shrink: 0;
 	align-self: stretch;
 }
+
+.cancelStartIcon,
+.lifecycle:is( :hover, :focus-visible ) .startSpinner {
+	display: none;
+}
+
+.lifecycle:is( :hover, :focus-visible ) .cancelStartIcon {
+	display: block;
+}

@@ -108,6 +108,22 @@ describe( 'previews', () => {
 		).rejects.toThrow( RemoteSiteError );
 	} );
 
+	it.each( [
+		[ { description: 'Import reference #123456789012' }, ' Import reference #123456789012.' ],
+		[ { description: 'An error occurred while importing your content.' }, '' ],
+		[ { description: 123 }, '' ],
+	] )( 'reports the available import reference for error data %j', async ( errorData, suffix ) => {
+		attachments( '678' );
+		get.mockResolvedValue( { importId: 'new', importStatus: 'importFailure', errorData } );
+
+		await expect(
+			previews.create( config, content, { name: 'My Preview' }, vi.fn() )
+		).rejects.toMatchObject( {
+			message: 'The preview site could not be built from the archive.' + suffix,
+			code: 'preview_import_failed',
+		} );
+	} );
+
 	it( 'rebuilds a preview on a push to it, waiting for the new import', async () => {
 		attachments( '679' );
 		const imports = [
@@ -136,6 +152,28 @@ describe( 'previews', () => {
 			apiNamespace: 'wpcom/v2',
 			path: `/sites/${ siteId }/wow-funnel/update`,
 			body: { args: { attachment_id: '679', origin_id: 'local-site' } },
+		} );
+	} );
+
+	it( 'reports the import reference when an updated preview fails', async () => {
+		attachments( '679' );
+		get
+			.mockResolvedValueOnce( { importId: 'old', importStatus: 'importSuccess' } )
+			.mockResolvedValueOnce( {
+				importId: 'new',
+				importStatus: 'importFailure',
+				errorData: {
+					description:
+						'An error occurred while importing your content. Import reference #117984062207',
+				},
+			} );
+
+		await expect(
+			wpcomSites.push( config, { id: siteId, name: '' }, content, { preview: {} }, vi.fn() )
+		).rejects.toMatchObject( {
+			message:
+				'The preview site could not be built from the archive. Import reference #117984062207.',
+			code: 'preview_import_failed',
 		} );
 	} );
 

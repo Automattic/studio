@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { RemoteSiteError } from '../../errors';
 import { wpcomClient } from '../api';
@@ -22,6 +22,7 @@ const importResponseSchema = z
 	.object( {
 		importId: z.string().optional(),
 		importStatus: z.string().optional(),
+		errorData: z.object( { description: z.string() } ).optional().catch( undefined ),
 	} )
 	.nullable()
 	.catch( null );
@@ -116,7 +117,17 @@ async function waitForImport( token: string, siteId: number, previousImportId?: 
 				return;
 			}
 			if ( latest.importStatus === 'importFailure' ) {
-				throw new RemoteSiteError( __( 'The preview site could not be built from the archive.' ) );
+				const reference = latest.errorData?.description.match( /#(\d+)\s*$/ )?.[ 1 ];
+				throw new RemoteSiteError(
+					reference
+						? sprintf(
+								/* translators: %s: WordPress.com import reference number. */
+								__( 'The preview site could not be built from the archive. Import reference #%s.' ),
+								reference
+						  )
+						: __( 'The preview site could not be built from the archive.' ),
+					'preview_import_failed'
+				);
 			}
 		}
 		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );

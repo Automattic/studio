@@ -10,7 +10,7 @@ import {
 	SidebarMenuLabel,
 	VisuallyHidden,
 } from '@studio/ds';
-import { ArchiveIcon, ChatIcon, TriangleAlertIcon, EllipsisVerticalIcon } from '@studio/ds/icons';
+import { TriangleAlertIcon, EllipsisVerticalIcon } from '@studio/ds/icons';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { useId, useState } from 'react';
@@ -22,6 +22,7 @@ import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { ChatActionsMenuItems, useChatActions, getSessionTitle } from '@/features/chats';
 import { BulkMenu, useIsBulkTarget, useRowPressed, useSelectableRow } from './selection';
+import { SidebarRowIcon } from './sidebar-row-icon';
 import type { AiSessionSummary } from '@/data/core';
 import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
@@ -106,7 +107,7 @@ export function ChatRow( {
 									} );
 								} }
 							>
-								{ nested ? null : <ChatIcon /> }
+								{ nested ? null : <SidebarRowIcon glyph="chat" /> }
 								{ actions.working ? <VisuallyHidden>{ __( 'Working…' ) }</VisuallyHidden> : null }
 								<SidebarMenuLabel
 									id={ titleId }
@@ -133,7 +134,7 @@ export function ChatRow( {
 									<IconButton
 										variant="muted-ghost"
 										size="icon-sm"
-										icon={ <ArchiveIcon /> }
+										icon={ <SidebarRowIcon glyph="archive" /> }
 										label={ __( 'Archive chat' ) }
 										disabled={ actions.archiveBlocked }
 										onClick={ () => void actions.archive() }

@@ -1,6 +1,6 @@
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { IconButton, SidebarMenu, SidebarMenuItem, SidebarMenuSkeleton } from '@studio/ds';
-import { CollapseAllIcon, PlusIcon } from '@studio/ds/icons';
+import { CollapseAllIcon } from '@studio/ds/icons';
 import { useParams, useRouter, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -25,6 +25,7 @@ import {
 } from './sidebar-collections';
 import { SiteListGroup } from './sidebar-group';
 import { SidebarReorderableList } from './sidebar-reorderable-list';
+import { SidebarRowIcon } from './sidebar-row-icon';
 import { SiteSection } from './site-section';
 import { PinnedSortMenu, SitesSortMenu } from './sort-menu';
 import styles from './style.module.css';
@@ -283,7 +284,7 @@ export function SiteList( {
 							<IconButton
 								variant="muted-ghost"
 								size="icon-sm"
-								icon={ <PlusIcon /> }
+								icon={ <SidebarRowIcon glyph="add" /> }
 								label={ __( 'Add pinned site' ) }
 								onClick={ () => openAddSite( 'create', { pin: true } ) }
 							/>
@@ -329,7 +330,7 @@ export function SiteList( {
 							<IconButton
 								variant="muted-ghost"
 								size="icon-sm"
-								icon={ <PlusIcon /> }
+								icon={ <SidebarRowIcon glyph="add" /> }
 								label={ __( 'Add site' ) }
 								onClick={ () => openAddSite() }
 							/>

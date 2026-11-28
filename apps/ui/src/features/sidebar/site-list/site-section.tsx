@@ -7,7 +7,7 @@ import {
 	SidebarMenuItem,
 	SidebarMenuLabel,
 } from '@studio/ds';
-import { GlobeIcon, TriangleAlertIcon, SquarePenIcon } from '@studio/ds/icons';
+import { TriangleAlertIcon } from '@studio/ds/icons';
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -24,6 +24,7 @@ import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
 import { useSiteActions } from '@/features/sites';
 import { useRowPressed, useSelectableRow } from './selection';
+import { SidebarRowIcon } from './sidebar-row-icon';
 import { SiteChats } from './site-chats';
 import { SiteRowMenu } from './site-row-menu';
 import { getSiteStatus } from './site-status';
@@ -130,7 +131,7 @@ export function SiteSection( {
 							role={ site.enableXdebug ? 'img' : undefined }
 							aria-label={ site.enableXdebug ? __( 'Xdebug enabled' ) : undefined }
 						>
-							{ site.enableXdebug ? <XdebugIcon /> : <GlobeIcon /> }
+							{ site.enableXdebug ? <XdebugIcon /> : <SidebarRowIcon glyph="site" /> }
 							{ status === 'running' ? <NotificationDot position="icon" /> : null }
 						</span>
 						<div className={ styles.siteText }>
@@ -167,7 +168,7 @@ export function SiteSection( {
 				<IconButton
 					variant="muted-ghost"
 					size="icon-sm"
-					icon={ <SquarePenIcon /> }
+					icon={ <SidebarRowIcon glyph="compose" /> }
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();

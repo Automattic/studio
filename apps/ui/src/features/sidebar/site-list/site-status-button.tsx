@@ -7,10 +7,11 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '@studio/ds';
-import { EllipsisVerticalIcon, PlayIcon, SquareIcon } from '@studio/ds/icons';
+import { EllipsisVerticalIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { useSiteLifecycleState } from '@/data/use-site-lifecycle-state';
 import { SiteMenuItems, type SiteActions } from '@/features/sites';
+import { SidebarRowIcon } from './sidebar-row-icon';
 import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
 
@@ -97,12 +98,14 @@ export function SiteStatusButton( {
 									aria-hidden="true"
 									className={ canStopStart ? styles.startSpinner : undefined }
 								/>
-								{ canStopStart && <SquareIcon className={ styles.cancelStartIcon } /> }
+								{ canStopStart && (
+									<SidebarRowIcon glyph="stop" className={ styles.cancelStartIcon } />
+								) }
 							</>
 						) : visualRunning ? (
-							<SquareIcon />
+							<SidebarRowIcon glyph="stop" />
 						) : (
-							<PlayIcon />
+							<SidebarRowIcon glyph="start" />
 						) }
 					</Button>
 				}

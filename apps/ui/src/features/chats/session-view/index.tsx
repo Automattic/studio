@@ -80,8 +80,10 @@ import { useAnchoredScroll } from './use-anchored-scroll';
 import { useMarkChatRead } from './use-mark-chat-read';
 import { useSendSiteDraft } from './use-send-site-draft';
 import { useSessionCommands } from './use-session-commands';
+import { useReplyNavigation } from './use-reply-navigation';
 
 interface SessionViewProps {
+	messageId?: string;
 	sessionId?: string;
 	siteId?: string;
 	headerStart?: ReactNode;
@@ -98,12 +100,14 @@ export function SessionView( props: SessionViewProps ) {
 }
 
 function SessionViewContent( {
+	messageId,
 	sessionId,
 	siteId,
 	headerStart,
 	hideHeader,
 	panelVisible = false,
 }: SessionViewProps ) {
+	const connector = useConnector();
 	const draftKey = sessionId ?? `site:${ siteId }`;
 	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
 	const sendDraft = useSendSiteDraft( siteId );
@@ -198,6 +202,12 @@ function SessionViewContent( {
 	// in state lets the scroll effects re-run when it appears; a ref can't.
 	const [ scrollNode, setScrollNode ] = useState< HTMLDivElement | null >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	const { openReply, revealMessage } = useReplyNavigation( {
+		messageId,
+		sessionId,
+		scrollNode,
+		loaded: !! data,
+	} );
 	const router = useRouter();
 	useEffect( () => {
 		if ( sessionId ) return;
@@ -210,10 +220,16 @@ function SessionViewContent( {
 	}, [ router, sessionId, siteId ] );
 	useEffect(
 		() =>
-			watchComposerTextQuote( ( text ) => {
+			watchComposerTextQuote( ( text, reply ) => {
+				if ( reply ) {
+					if ( reply.sessionId !== sessionId || ! connector.capabilities.messageReplies ) return;
+					setArmedFreeFormQuestion( null );
+					composerRef.current?.setReply( reply );
+					return;
+				}
 				composerRef.current?.appendDraft( formatComposerTextQuote( text ) );
 			} ),
-		[]
+		[ sessionId, connector ]
 	);
 	const chooseFreeFormAnswer = useCallback(
 		( question: string ) => {
@@ -266,6 +282,7 @@ function SessionViewContent( {
 		( queuedPrompt: ( typeof queuedPrompts )[ number ] ) => {
 			removeQueuedPrompt( queuedPrompt.id );
 			composerRef.current?.replaceDraft( queuedPrompt.prompt, {
+				reply: queuedPrompt.reply,
 				images: queuedPrompt.images,
 				files: queuedPrompt.files,
 			} );
@@ -293,7 +310,6 @@ function SessionViewContent( {
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const preview = useOptionalSessionPreviewUI();
 	const revealingSiteId = preview?.revealingSiteId;
-	const connector = useConnector();
 	const openSettings = useOpenSettings();
 	const beginAnnotating = () => {
 		if ( ! ownerSite || ! preview ) return;
@@ -613,6 +629,30 @@ function SessionViewContent( {
 						freeFormQuestion={ freeFormQuestion }
 						onAnswerQuestion={ answerQuestionFromOption }
 						onChooseFreeForm={ chooseFreeFormAnswer }
+						onOpenReply={ openReply }
+						revealMessage={ revealMessage }
+						onReply={
+							connector.capabilities.messageReplies
+								? ( entryId, text ) => {
+										setArmedFreeFormQuestion( null );
+										const selected = window.getSelection();
+										const host = Array.from(
+											scrollNode?.querySelectorAll< HTMLElement >( '[data-message-id]' ) ?? []
+										).find( ( node ) => node.dataset.messageId === entryId );
+										const excerpt =
+											selected?.anchorNode &&
+											host?.contains( selected.anchorNode ) &&
+											selected.toString().trim()
+												? selected.toString().trim()
+												: text;
+										composerRef.current?.setReply( {
+											sessionId: sessionId!,
+											entryId,
+											excerpt: excerpt.slice( 0, 4000 ),
+										} );
+								  }
+								: undefined
+						}
 					/>
 				) : null }
 			</div>

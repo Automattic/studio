@@ -1,6 +1,9 @@
+import { getMessagePreview } from '@studio/agent/protocol/reply-reference';
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
 import { type ThinkingSetting } from '@studio/agent/protocol/thinking';
 import {
+	AttachmentChip,
+	AttachmentRemoveButton,
 	DropOverlay,
 	Button,
 	CommandSheet,
@@ -10,7 +13,7 @@ import {
 	Popover,
 } from '@studio/ds';
 import { useSubmitFeedback } from '@studio/ds/hooks';
-import { GlobeIcon, PlusIcon, PlayIcon } from '@studio/ds/icons';
+import { GlobeIcon, PlusIcon, PlayIcon, ReplyIcon } from '@studio/ds/icons';
 import { findAiModel, getAiModels, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -85,6 +88,7 @@ interface ComposerProps {
 		prompt: string,
 		options?: ComposerSendAttachments & {
 			displayMessage?: string;
+			reply?: import('@studio/agent/protocol/reply-reference').ReplyReference;
 			visualAnnotations?: StudioVisualAnnotationSummary[];
 		}
 	) => Promise< void >;
@@ -188,6 +192,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			: undefined;
 	const [ initialDraft ] = useState( () => getComposerDraft( draftKey ) );
 	const [ value, setValue ] = useState( initialDraft.text );
+	const [ reply, setReply ] = useState( initialDraft.reply );
 	const [ sending, setSending ] = useState( false );
 	const [ validationError, setValidationError ] = useState< {
 		message: string;
@@ -378,11 +383,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// New chat reads it, and a click can land before React runs plain effects.
 	useLayoutEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
-			saveComposerDraft( draftKey, { text: value, attachments } );
+			saveComposerDraft( draftKey, { text: value, attachments, reply } );
 		} else {
 			draftEffectInitializedRef.current = true;
 		}
-	}, [ attachments, draftKey, value ] );
+	}, [ attachments, draftKey, value, reply ] );
 
 	const {
 		changeModel,
@@ -401,6 +406,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		isModelLocked,
 		text: value,
 		attachments,
+		reply,
 	} );
 
 	useEffect( () => {
@@ -410,7 +416,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	}, [ autoFocus, sessionId ] );
 
 	const answerQuestion =
-		onAnswer && ! hasAttachments && ! resolveSkillFromPrompt( value ) ? onAnswer : undefined;
+		onAnswer && ! reply && ! hasAttachments && ! resolveSkillFromPrompt( value )
+			? onAnswer
+			: undefined;
 	// Notes wait for the agent to finish: they point at the page as it is now.
 	const hasContent =
 		value.trim().length > 0 || hasAttachments || ( ! busy && stagedNotes.length > 0 );
@@ -459,9 +467,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		setValidationError( null );
 		setValue( '' );
 		restoreAttachments( [] );
+		setReply( undefined );
 		setSending( true );
 		try {
-			await onSend( submission.prompt, submission.options );
+			await onSend( submission.prompt, { ...submission.options, ...( reply ? { reply } : {} ) } );
 		} catch {
 			// The parent reports the failure in a toast. Keep the draft even if
 			// its site was closed while the request was pending.
@@ -469,9 +478,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			saveComposerDraft( draftKey, {
 				text: currentDraft.text || value,
 				attachments: [ ...attachments, ...currentDraft.attachments ],
+				reply: currentDraft.reply ?? reply,
 			} );
 			setValue( ( current ) => current || value );
 			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
+			setReply( ( current ) => current ?? reply );
 			shake();
 			return;
 		} finally {
@@ -494,6 +505,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		shake,
 		answerQuestion,
 		onSend,
+		reply,
 		restoreAttachments,
 		annotationSiteId,
 		model,
@@ -502,6 +514,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	] );
 
 	useComposerHandle( ref, {
+		setReply,
 		value,
 		setValue,
 		attachments,
@@ -560,6 +573,19 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					{ isDraggingFiles && fileDropTarget
 						? createPortal( <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay>, fileDropTarget )
 						: null }
+					{ reply ? (
+						<AttachmentChip className={ styles.replyContext }>
+							<ReplyIcon />
+							<span className={ styles.replyText } title={ getMessagePreview( reply.excerpt ) }>
+								<span>{ __( 'Replying to' ) }</span> { getMessagePreview( reply.excerpt ) }
+							</span>
+							<AttachmentRemoveButton
+								className={ styles.replyRemove }
+								label={ __( 'Remove reply' ) }
+								onClick={ () => setReply( undefined ) }
+							/>
+						</AttachmentChip>
+					) : null }
 					{ shownAttachments.length ? (
 						<AttachmentChips
 							attachments={ shownAttachments }

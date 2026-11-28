@@ -9,6 +9,7 @@ import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import {
 	isSupportedServerVersion,
+	supportsMessageReplies,
 	supportsUserSkills,
 	UnsupportedServerError,
 } from './server-version';
@@ -232,6 +233,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 	// runs on the user's machine so it can still open paths in OS apps. The
 	// preview is a cross-origin iframe, so the annotation inspector can't run.
 	const capabilities = {
+		messageReplies: ! remote,
 		nativeFolderPicker: false,
 		annotatePreview: false,
 		studioLogs: false,
@@ -251,6 +253,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				}
 				capabilities.globalSkills = supportsUserSkills( version );
 				capabilities.skillEditing = supportsUserSkills( version );
+				capabilities.messageReplies = supportsMessageReplies( version );
 				// A remote server may sleep once nobody uses it, and an open stream would reconnect, and
 				// wake it, right after. So the stream runs only while the page has focus (the site
 				// preview's frame counts), and reopening it refetches what changed meanwhile. The
@@ -855,6 +858,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( {
 					prompt,
 					turnId: options?.turnId,
+					reply: options?.reply,
 					displayMessage: options?.displayMessage,
 					images: options?.images,
 					files: options?.files,

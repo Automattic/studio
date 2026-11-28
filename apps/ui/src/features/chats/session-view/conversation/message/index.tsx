@@ -1,5 +1,6 @@
-import { AttachmentChip } from '@studio/ds';
-import { AttachmentIcon, CodeIcon } from '@studio/ds/icons';
+import { getMessagePreview, type ReplyReference } from '@studio/agent/protocol/reply-reference';
+import { AttachmentChip, Button, IconButton } from '@studio/ds';
+import { AttachmentIcon, CodeIcon, ReplyIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
 import { memo } from 'react';
 import { CopyButton } from '@/features/chats/copy-button';
@@ -14,12 +15,38 @@ import styles from './style.module.css';
 import type { StudioChatAttachmentSummary } from '@studio/agent/protocol/sessions/entry-types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
+function MessageActions( { text, onReply }: { text?: string; onReply?: () => void } ) {
+	if ( ! text && ! onReply ) return null;
+	return (
+		<div className={ styles.messageActions }>
+			{ onReply ? (
+				<IconButton
+					variant="muted-ghost"
+					size="icon-2xs"
+					icon={ <ReplyIcon className={ styles.replyIcon } /> }
+					label={ __( 'Reply' ) }
+					onClick={ onReply }
+				/>
+			) : null }
+			{ text ? <CopyButton size="icon-2xs" text={ text } label={ __( 'Copy message' ) } /> : null }
+		</div>
+	);
+}
+
 export const UserTurn = memo( function UserTurn( {
+	entryId,
+	reply,
+	onReply,
+	onOpenReply,
 	text,
 	attachments,
 	annotation,
 	...joined
 }: {
+	entryId?: string;
+	reply?: ReplyReference;
+	onReply?: () => void;
+	onOpenReply?: ( reply: ReplyReference ) => void;
 	text: string;
 	attachments?: StudioChatAttachmentSummary[];
 	annotation?: StudioVisualAnnotationSummary;
@@ -33,9 +60,40 @@ export const UserTurn = memo( function UserTurn( {
 	return (
 		<div
 			className={ styles.userTurn }
+			data-message-id={ entryId }
 			{ ...joinedAttributes( joined ) }
 			{ ...{ [ MESSAGE_TEXT_ATTRIBUTE ]: text, [ SCROLL_ANCHOR_ATTRIBUTE ]: '' } }
 		>
+			{ reply ? (
+				<Button
+					variant="outline"
+					size="sm"
+					shape="round"
+					className={ styles.replyExcerpt }
+					nativeButton={ false }
+					role="link"
+					render={
+						<a
+							href={ `/sessions/${ encodeURIComponent(
+								reply.sessionId
+							) }?message=${ encodeURIComponent( reply.entryId ) }` }
+						/>
+					}
+					onClick={ ( event ) => {
+						if (
+							onOpenReply &&
+							! ( event.metaKey || event.ctrlKey || event.shiftKey || event.altKey )
+						) {
+							event.preventDefault();
+							onOpenReply( reply );
+						}
+					} }
+					title={ getMessagePreview( reply.excerpt ) }
+				>
+					<span className={ styles.replyExcerptText }>{ getMessagePreview( reply.excerpt ) }</span>
+				</Button>
+			) : null }
+			{ ! text ? <MessageActions onReply={ onReply } /> : null }
 			{ attachments?.length ? (
 				<ul className={ styles.userAttachments }>
 					{ attachments.map( ( attachment, index ) =>
@@ -67,12 +125,7 @@ export const UserTurn = memo( function UserTurn( {
 			) : null }
 			{ text ? (
 				<>
-					<CopyButton
-						className={ styles.messageActions }
-						size="icon-2xs"
-						text={ text }
-						label={ __( 'Copy message' ) }
-					/>
+					<MessageActions text={ text } onReply={ onReply } />
 					<div
 						className={ styles.userText }
 						data-side="user"
@@ -104,12 +157,16 @@ export const UserTurn = memo( function UserTurn( {
 } );
 
 export const AssistantText = memo( function AssistantText( {
+	entryId,
+	onReply,
 	text,
 	messageText,
 	copyText,
 	streaming,
 	...joined
 }: {
+	entryId?: string;
+	onReply?: () => void;
 	text: string;
 	messageText: string;
 	copyText?: string;
@@ -118,6 +175,7 @@ export const AssistantText = memo( function AssistantText( {
 	return (
 		<div
 			className={ styles.assistantTurn }
+			data-message-id={ entryId }
 			{ ...joinedAttributes( joined ) }
 			{ ...{
 				[ MESSAGE_TEXT_ATTRIBUTE ]: messageText,
@@ -127,14 +185,7 @@ export const AssistantText = memo( function AssistantText( {
 			<div className={ styles.assistantBubble } { ...joinedAttributes( joined ) }>
 				<Markdown streaming={ streaming }>{ text }</Markdown>
 			</div>
-			{ copyText ? (
-				<CopyButton
-					className={ styles.messageActions }
-					size="icon-2xs"
-					text={ copyText }
-					label={ __( 'Copy message' ) }
-				/>
-			) : null }
+			<MessageActions text={ copyText } onReply={ onReply } />
 		</div>
 	);
 } );

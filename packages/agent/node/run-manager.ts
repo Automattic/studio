@@ -1,3 +1,4 @@
+import type { ReplyReference } from '@studio/agent/protocol/reply-reference';
 import { fork, type ChildProcess } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -66,6 +67,7 @@ export interface AgentRunManagerConfig {
 }
 
 export interface StartAgentRunOptions {
+	reply?: ReplyReference;
 	turnId?: string;
 	sessionId: string;
 	prompt: string;
@@ -172,6 +174,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			files = [],
 			visualAnnotations,
 			turnId,
+			reply,
 		} = options;
 
 		if ( runsBySessionId.has( sessionId ) ) {
@@ -181,7 +184,11 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		const runId = crypto.randomUUID();
 		const startedAt = Date.now();
 		const inputPayload =
-			turnId || images.length > 0 || files.length > 0 || ( visualAnnotations?.length ?? 0 ) > 0
+			reply ||
+			turnId ||
+			images.length > 0 ||
+			files.length > 0 ||
+			( visualAnnotations?.length ?? 0 ) > 0
 				? writeInputPayloadFile( {
 						prompt,
 						displayMessage,
@@ -189,6 +196,7 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 						files,
 						visualAnnotations,
 						turnId,
+						reply,
 				  } )
 				: undefined;
 		const args = [ 'code', 'sessions', 'resume', sessionId ];

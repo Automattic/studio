@@ -1,3 +1,4 @@
+import { validateReplyReference } from '@studio/agent/protocol/reply-reference';
 import { exec, execFile, ExecOptions } from 'child_process';
 import {
 	BrowserWindow,
@@ -343,6 +344,7 @@ export async function continueAiSession(
 	prompt: string,
 	options: {
 		turnId?: string;
+		reply?: import('@studio/agent/protocol/reply-reference').ReplyReference;
 		displayMessage?: string;
 		images?: StudioChatImage[];
 		files?: StudioChatFileAttachment[];
@@ -357,6 +359,7 @@ export async function continueAiSession(
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		turnId: options.turnId,
+		reply: validateReplyReference( options.reply ),
 		displayMessage: options.displayMessage,
 		images,
 		files,

@@ -1,3 +1,4 @@
+import { getMessagePreview, type ReplyReference } from '@studio/agent/protocol/reply-reference';
 import {
 	getMarkdownTheme,
 	ToolExecutionComponent,
@@ -254,7 +255,8 @@ export class AiChatUI implements AiOutputAdapter {
 	private loader: Loader;
 	private messages: Container;
 	private queuedContainer: Container;
-	private queuedPrompts: string[] = [];
+	private queuedPrompts: Array< { prompt: string; reply?: ReplyReference } > = [];
+	private reply: ReplyReference | undefined;
 	private currentResponseText = '';
 	private currentMarkdown: Markdown | null = null;
 	private submitResolve: ( ( text: string ) => void ) | null = null;
@@ -459,7 +461,8 @@ export class AiChatUI implements AiOutputAdapter {
 			// No waiter → we're mid-turn. Stage the prompt so it fires after
 			// the current run ends; `waitForInput` drains the head.
 			if ( this._inAgentTurn ) {
-				this.queuedPrompts.push( trimmed );
+				this.queuedPrompts.push( { prompt: trimmed, reply: this.reply } );
+				this.reply = undefined;
 				this.editor.setText( '' );
 				this.renderQueuedContainer();
 			}
@@ -1267,13 +1270,32 @@ export class AiChatUI implements AiOutputAdapter {
 		this.tui.stop();
 	}
 
+	setReply( reply: ReplyReference | undefined ): void {
+		this.reply = reply;
+		this.renderQueuedContainer();
+	}
+	consumeReply(): ReplyReference | undefined {
+		const reply = this.reply;
+		this.setReply( undefined );
+		return reply;
+	}
+	async chooseReply(
+		question: string,
+		options: Array< { label: string; description: string } >
+	): Promise< string | undefined > {
+		const answers = await this.askUser( [ { question, options } ] );
+		if ( ! this._inAgentTurn ) this.hideLoader();
+		return answers[ question ];
+	}
+
 	waitForInput(): Promise< string > {
 		this.hideLoader();
 		this.showEditor();
 		if ( this.queuedPrompts.length > 0 ) {
 			const next = this.queuedPrompts.shift()!;
+			this.reply = next.reply;
 			this.renderQueuedContainer();
-			return Promise.resolve( next );
+			return Promise.resolve( next.prompt );
 		}
 		return new Promise( ( resolve ) => {
 			this.submitResolve = resolve;
@@ -1298,8 +1320,16 @@ export class AiChatUI implements AiOutputAdapter {
 
 	private renderQueuedContainer(): void {
 		this.queuedContainer.clear();
+		if ( this.reply )
+			this.queuedContainer.addChild(
+				new Text(
+					theme.fg( 'muted', `↩ ${ getMessagePreview( this.reply.excerpt ).slice( 0, 150 ) }` ),
+					0,
+					0
+				)
+			);
 		for ( const prompt of this.queuedPrompts ) {
-			this.queuedContainer.addChild( new Text( '\n' + formatQueuedPrompt( prompt ), 0, 0 ) );
+			this.queuedContainer.addChild( new Text( '\n' + formatQueuedPrompt( prompt.prompt ), 0, 0 ) );
 		}
 		this.updateHints();
 		this.tui.requestRender();

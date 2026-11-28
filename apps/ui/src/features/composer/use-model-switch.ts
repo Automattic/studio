@@ -38,6 +38,7 @@ interface ModelSwitchOptions {
 	// The draft carried over to a fresh session.
 	text: string;
 	attachments: ComposerAttachment[];
+	reply?: import('@studio/agent/protocol/reply-reference').ReplyReference;
 }
 
 export function useModelSwitch( {
@@ -51,6 +52,7 @@ export function useModelSwitch( {
 	isModelLocked,
 	text,
 	attachments,
+	reply,
 }: ModelSwitchOptions ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -172,7 +174,7 @@ export function useModelSwitch( {
 					)
 					.catch( () => undefined );
 			}
-			saveComposerDraft( newSession.id, { text, attachments } );
+			saveComposerDraft( newSession.id, { text, attachments, reply } );
 			setPendingFamilyChange( null );
 			onSwitchSession( newSession.id );
 		} finally {
@@ -180,6 +182,7 @@ export function useModelSwitch( {
 		}
 	}, [
 		attachments,
+		reply,
 		connector,
 		onSwitchSession,
 		ownerSiteId,

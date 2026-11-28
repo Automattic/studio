@@ -125,6 +125,9 @@ export const Conversation = memo( function Conversation( {
 	freeFormQuestion,
 	onAnswerQuestion,
 	onChooseFreeForm,
+	onReply,
+	onOpenReply,
+	revealMessage,
 }: {
 	data: LoadedAiSession;
 	isRunning: boolean;
@@ -136,6 +139,9 @@ export const Conversation = memo( function Conversation( {
 	freeFormQuestion: string | null;
 	onAnswerQuestion: ( question: string, label: string ) => void;
 	onChooseFreeForm: ( question: string ) => void;
+	onReply?: ( entryId: string, text: string ) => void;
+	revealMessage?: { entryId: string; request: number };
+	onOpenReply?: ( reply: import('@studio/agent/protocol/reply-reference').ReplyReference ) => void;
 } ) {
 	const entries = data.entries;
 	const items = useStableItems(
@@ -157,6 +163,21 @@ export const Conversation = memo( function Conversation( {
 				case 'user-text':
 					return (
 						<UserTurn
+							entryId={ item.entryId }
+							reply={ item.reply }
+							onOpenReply={ onOpenReply }
+							onReply={
+								item.entryId && onReply
+									? () =>
+											onReply(
+												item.entryId!,
+												item.text ||
+													item.attachments?.map( ( a ) => a.name ).join( ', ' ) ||
+													item.annotation?.elementLabel ||
+													__( 'Attachment' )
+											)
+									: undefined
+							}
 							key={ item.key }
 							text={ item.text }
 							attachments={ item.attachments }
@@ -167,6 +188,12 @@ export const Conversation = memo( function Conversation( {
 				case 'assistant-text':
 					return (
 						<AssistantText
+							entryId={ item.entryId }
+							onReply={
+								item.entryId && onReply && item.copyText && ! item.streaming
+									? () => onReply( item.entryId!, item.messageText )
+									: undefined
+							}
 							key={ item.key }
 							text={ item.text }
 							messageText={ item.messageText }
@@ -205,6 +232,7 @@ export const Conversation = memo( function Conversation( {
 						<TurnActivityLine
 							key={ item.key }
 							activity={ item }
+							revealMessage={ revealMessage }
 							waitingOnUser={ item.status === 'running' && pendingQuestions.size > 0 }
 							progressMessage={ item.status === 'running' ? progressMessage : null }
 							renderItems={ ( activityItems, visibleItems ) => (
@@ -229,7 +257,7 @@ export const Conversation = memo( function Conversation( {
 		}
 	}
 	return (
-		<div className={ styles.root }>
+		<div className={ styles.root } data-session-id={ data.summary.id }>
 			{ groups.map( ( group ) => (
 				<div
 					key={ group.items[ 0 ].key }

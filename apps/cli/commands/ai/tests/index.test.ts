@@ -108,6 +108,31 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 		stdoutSpy.mockRestore();
 	} );
 
+	it( 'sends reply context to the agent while storing the user instruction separately', async () => {
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+		const reply = {
+			sessionId: 'source',
+			entryId: 'earlier-message',
+			excerpt: 'First line\nSecond line',
+		};
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'Make it warmer',
+			initialReply: reply,
+		} );
+		expect( runStudioAgentTurn ).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining( {
+				prompt: 'Replying to this earlier message:\n> First line\n> Second line\n\nMake it warmer',
+			} )
+		);
+		const sm = await ( createStudioSession as Mock ).mock.results.at( -1 )!.value;
+		expect( sm.appendCustomEntry ).toHaveBeenCalledWith(
+			'studio.user_prompt',
+			expect.objectContaining( { text: 'Make it warmer', reply, inputId: expect.any( String ) } )
+		);
+	} );
+
 	it( 'defaults to the wpcom provider on first run when none is configured', async () => {
 		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
 		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );

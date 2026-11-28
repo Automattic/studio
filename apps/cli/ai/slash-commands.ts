@@ -62,6 +62,7 @@ export interface SlashCommandContext {
 	readThinking(): Promise< ThinkingLevel | undefined >;
 	persistThinking( thinking: ThinkingSetting ): Promise< void >;
 	clearSession(): Promise< void >;
+	replyToMessage( query: string ): Promise< void >;
 }
 
 type SlashCommandHandler = (
@@ -408,6 +409,16 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			return 'continue';
 		},
 	},
+	{
+		name: 'reply',
+		description: __( 'Reply to an earlier message' ),
+		argument: '[search text]',
+		handler: async ( prompt, ctx ) => {
+			await ctx.replyToMessage( prompt.replace( /^\/reply\b/, '' ).trim() );
+			return 'continue';
+		},
+	},
+
 	{
 		name: 'model',
 		description: __( 'Switch the AI model' ),

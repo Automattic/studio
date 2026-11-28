@@ -45,6 +45,7 @@ const runManager = createAgentRunManager( {
 } );
 
 export interface StartAgentRunOptions {
+	reply?: import('@studio/agent/protocol/reply-reference').ReplyReference;
 	turnId?: string;
 	sessionId: string;
 	prompt: string;
@@ -65,6 +66,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		visualAnnotations,
 		webContents,
 		turnId,
+		reply,
 	} = options;
 	// `startAgentRun` forks the child and returns its id synchronously; the
 	// child's first event arrives async (next tick), so registering the route
@@ -79,6 +81,7 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		files,
 		visualAnnotations,
 		turnId,
+		reply,
 	} );
 	runWebContents.set( result.runId, webContents );
 	// Abort the run if the window that started it goes away.

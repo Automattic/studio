@@ -30,6 +30,8 @@ export interface AgentQuestionRenderItem {
 type RenderItem =
 	| {
 			kind: 'user-text';
+			entryId?: string;
+			reply?: import('@studio/agent/protocol/reply-reference').ReplyReference;
 			key: string;
 			text: string;
 			attachments?: StudioChatAttachmentSummary[];
@@ -37,6 +39,7 @@ type RenderItem =
 	  }
 	| {
 			kind: 'assistant-text';
+			entryId?: string;
 			key: string;
 			text: string;
 			messageText: string;
@@ -193,6 +196,10 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				data.visualAnnotations.forEach( ( annotation, annotationIndex ) => {
 					items.push( {
 						kind: 'user-text',
+						entryId: annotationIndex
+							? `${ data.inputId ?? entry.id }:annotation:${ annotationIndex }`
+							: data.inputId ?? entry.id,
+						reply: data.reply,
 						key: `${ entryIndex }:annotation:${ annotationIndex }`,
 						text: annotation.comment,
 						attachments: data.attachments?.filter( ( attachment ) =>
@@ -207,6 +214,8 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 			}
 			items.push( {
 				kind: 'user-text',
+				entryId: data.inputId ?? entry.id,
+				reply: data.reply,
 				key: `${ entryIndex }:user`,
 				text: data.text,
 				attachments: data.attachments,
@@ -238,6 +247,8 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					if ( text ) {
 						items.push( {
 							kind: 'assistant-text',
+							entryId:
+								isStreamingReply( entry ) || 'pendingPersistence' in entry ? undefined : entry.id,
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
 							messageText: fullMessageText,

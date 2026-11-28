@@ -21,3 +21,5 @@ Code that draws without React, such as the annotation script injected into the s
 - One file per icon, named `<name>-icon.tsx`, re-exported from `index.ts`.
 - Use the internal `Icon` component for stroked artwork on a 24px grid. It supplies the shared size, stroke, rounded caps and joins, and `aria-hidden`. Filled artwork keeps its original viewBox and uses `currentColor`.
 - `ICON_SIZE` sets the 16px default for `Icon` and the app's `LucideProvider`; a component's CSS (or `size` on a lucide icon) sets another size. Color comes from CSS.
+
+`ReplyIcon` uses [Solar Linear](https://github.com/480-Design/Solar-Icon-Set) artwork by 480 Design, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). It preserves Solar's 1.5px stroke.

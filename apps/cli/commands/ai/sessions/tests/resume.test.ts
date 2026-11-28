@@ -62,6 +62,7 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 				prompt: 'Update the selected heading',
 				turnId: '102fe369-58e2-4e3f-aa19-07151756f6d8',
 				displayMessage: '1 annotation submitted',
+				reply: { sessionId: 'source', entryId: 'message', excerpt: 'Existing heading' },
 				visualAnnotations: [
 					{ comment: '  Make it smaller  ', tag: ' h1 ', nearbyText: 'Welcome' },
 				],
@@ -79,6 +80,7 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 				initialMessage: 'Update the selected heading',
 				initialTurnId: '102fe369-58e2-4e3f-aa19-07151756f6d8',
 				initialDisplayMessage: '1 annotation submitted',
+				initialReply: { sessionId: 'source', entryId: 'message', excerpt: 'Existing heading' },
 				initialVisualAnnotations: [
 					{
 						comment: 'Make it smaller',

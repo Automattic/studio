@@ -147,8 +147,10 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 	waitingOnUser,
 	progressMessage,
 	renderItems,
+	revealMessage,
 }: {
 	activity: TurnActivity;
+	revealMessage?: { entryId: string; request: number };
 	waitingOnUser: boolean;
 	progressMessage: string | null;
 	renderItems?: (
@@ -183,6 +185,13 @@ export const TurnActivityLine = memo( function TurnActivityLine( {
 	if ( disclosure.running !== running || disclosure.waiting !== waiting ) {
 		setDisclosure( { running, waiting, open: working } );
 	}
+	useEffect( () => {
+		if (
+			revealMessage &&
+			items.some( ( item ) => 'entryId' in item && item.entryId === revealMessage.entryId )
+		)
+			setDisclosure( { running, waiting, open: true } );
+	}, [ revealMessage, items, running, waiting ] );
 	const [ now, setNow ] = useState( Date.now );
 	useEffect( () => {
 		if ( ! running ) {

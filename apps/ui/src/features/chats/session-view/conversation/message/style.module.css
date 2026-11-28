@@ -1,6 +1,6 @@
 .userTurn,
 .assistantTurn {
-	--message-actions-width: var( --control-size-2xs );
+	--message-actions-width: calc( 2 * var( --control-size-2xs ) + var( --space-1 ) );
 	--message-body-width: min(
 		85cqw,
 		32rem,
@@ -38,6 +38,9 @@
 }
 
 .messageActions {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
 	flex: none;
 	opacity: 0;
 }
@@ -46,6 +49,7 @@
 	grid-column: 1;
 	justify-self: end;
 	align-self: center;
+	flex-direction: row-reverse;
 }
 
 :is( .userTurn, .assistantTurn ):is( :hover, :focus-within ) > .messageActions {
@@ -141,4 +145,42 @@
 	flex-direction: row;
 	align-items: center;
 	gap: var( --space-2 );
+}
+
+.replyExcerpt {
+	grid-column: 1 / -1;
+	justify-self: end;
+	max-width: var( --message-body-width );
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-normal );
+}
+
+.replyExcerptText {
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
+	min-width: 0;
+}
+
+.userTurn[data-highlighted] .userText,
+.userTurn[data-highlighted]:not( :has( .userText ) ),
+.assistantTurn[data-highlighted]:not( :has( > .assistantBubble ) ),
+.assistantTurn[data-highlighted] > .assistantBubble {
+	outline: var( --focus-width ) solid var( --ring );
+	outline-offset: var( --space-0_5 );
+}
+
+.userTurn[data-highlighted]:has( .userText ),
+.assistantTurn[data-highlighted]:has( > .assistantBubble ) {
+	outline: none;
+}
+
+:is( .userTurn, .assistantTurn )[data-highlighted] {
+	border-radius: var( --radius-md );
+}
+
+.userTurn > .messageActions .replyIcon,
+.assistantTurn:dir( rtl ) > .messageActions .replyIcon {
+	scale: -1 1;
+}
+.userTurn:dir( rtl ) > .messageActions .replyIcon {
+	scale: 1 1;
 }

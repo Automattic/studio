@@ -93,7 +93,7 @@ describe( 'site title actions', () => {
 	it( 'disables the in-app database menu and its shortcut for an external database', async () => {
 		const { connector } = setup( [ site( { phpMyAdminSupported: false, running: true } ) ] );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
 		const item = await screen.findByRole( 'menuitem', { name: /^Database/ } );
 		expect( item ).toHaveAttribute( 'aria-disabled', 'true' );
 		expect( item ).toHaveAccessibleDescription( /separate database client for external MySQL/ );
@@ -116,7 +116,9 @@ describe( 'site title actions', () => {
 				} ),
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		if ( label !== 'WordPress admin' ) {
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+		}
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
@@ -130,15 +132,15 @@ describe( 'site title actions', () => {
 		);
 	} );
 
-	it.each( [ 'Browser', 'Admin', 'phpMyAdmin' ] )(
+	it.each( [ 'Browser', 'WordPress admin', 'phpMyAdmin' ] )(
 		'does not open %s when starting fails',
 		async ( label ) => {
 			const { connector } = setup();
 			connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-			fireEvent.click(
-				await screen.findByRole( 'menuitem', { name: label === 'Admin' ? 'Tools' : 'Open in' } )
-			);
+			if ( label !== 'WordPress admin' ) {
+				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			}
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			await screen.findAllByText( 'Start failed' );
 			expect( connector.openSiteUrl ).not.toHaveBeenCalled();

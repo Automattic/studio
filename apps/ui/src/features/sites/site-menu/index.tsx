@@ -184,6 +184,7 @@ export function SiteMenuItems( {
 	const panel = useContext( PanelCommandContext );
 	const showChat = panel?.siteId === site.id ? panel.showChat : undefined;
 	const destinations = useOpenInDestinations( site );
+	const admin = destinations.find( ( destination ) => destination.id === 'wp-admin' )!;
 	const databaseReason = getPhpMyAdminUnavailableReason( site );
 	const databaseReasonId = useId();
 	const manage = Object.fromEntries(
@@ -270,10 +271,10 @@ export function SiteMenuItems( {
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
 					<PlusIcon />
-					{ __( 'Tools' ) }
+					{ __( 'Go to' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
-					<SiteToolMenuItems site={ site } actions={ actions } />
+					<SiteToolMenuItems site={ site } actions={ actions } includeAdmin={ false } />
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.SubmenuRoot>
@@ -282,19 +283,21 @@ export function SiteMenuItems( {
 					{ __( 'Open in' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
-					{ destinations.map( ( destination ) => (
-						<Menu.Item
-							key={ destination.id }
-							disabled={ destination.disabled }
-							aria-describedby={
-								destination.id === 'phpmyadmin' && databaseReason ? databaseReasonId : undefined
-							}
-							onClick={ destination.open }
-						>
-							{ destination.logo }
-							{ destination.label }
-						</Menu.Item>
-					) ) }
+					{ destinations
+						.filter( ( destination ) => destination.id !== 'wp-admin' )
+						.map( ( destination ) => (
+							<Menu.Item
+								key={ destination.id }
+								disabled={ destination.disabled }
+								aria-describedby={
+									destination.id === 'phpmyadmin' && databaseReason ? databaseReasonId : undefined
+								}
+								onClick={ destination.open }
+							>
+								{ destination.logo }
+								{ destination.label }
+							</Menu.Item>
+						) ) }
 					{ databaseReason && (
 						<p id={ databaseReasonId } className={ styles.databaseReason }>
 							{ databaseReason }
@@ -302,6 +305,11 @@ export function SiteMenuItems( {
 					) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
+			<Menu.Item disabled={ admin.disabled } onClick={ admin.open }>
+				{ admin.logo }
+				{ admin.label }
+				<ExternalLinkIcon data-icon="inline-end" className={ styles.externalIndicator } />
+			</Menu.Item>
 			<Menu.Separator />
 			<Menu.Item onClick={ actions.togglePin }>
 				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }

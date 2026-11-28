@@ -103,9 +103,9 @@ it( 'opens a project tool from the site menu and records panel reveal separately
 	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 	connector.trackEvent.mockClear();
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-	await screen.findByRole( 'menuitem', { name: 'Admin' } );
-	await user.keyboard( 'a' );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+	await screen.findByRole( 'menuitem', { name: 'Database' } );
+	await user.keyboard( 'd' );
 	await waitFor( () =>
 		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toHaveAttribute(
 			'data-workspace-layout',
@@ -113,7 +113,7 @@ it( 'opens a project tool from the site menu and records panel reveal separately
 		)
 	);
 	expect( connector.trackEvent.mock.calls ).toEqual( [
-		[ TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'internal' } ],
+		[ TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'internal' } ],
 		[ TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'split' }, 'one' ],
 	] );
 } );
@@ -122,14 +122,14 @@ it( 'records a tool open after starting its site without attributing the lifecyc
 	const connector = createFakeConnector( { sites: [ makeSite( { id: 'one', running: false } ) ] } );
 	const { user } = renderApp( { connector, path: '/sites/one/new' } );
 	await user.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-	await screen.findByRole( 'menuitem', { name: 'Admin' } );
-	await user.keyboard( 'a' );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+	await screen.findByRole( 'menuitem', { name: 'Database' } );
+	await user.keyboard( 'd' );
 	await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
 	fireEvent.load( document.querySelector( 'iframe' )! );
 	await waitFor( () =>
 		expect( contentEvents( connector ) ).toEqual( [
-			[ TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'internal' } ],
+			[ TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'internal' } ],
 		] )
 	);
 	expect(

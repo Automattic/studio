@@ -82,3 +82,5 @@ export { ICON_SIZE } from './metrics';
 export { UpdateIcon } from './update-icon';
 export { SearchIcon } from 'lucide-react';
 export * from './workspace-navigation-icon';
+
+export * from './reply-icon';

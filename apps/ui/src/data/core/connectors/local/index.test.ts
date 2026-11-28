@@ -275,7 +275,27 @@ describe( 'createLocalConnector Connect contracts', () => {
 		} );
 	} );
 
+	it.each( [ undefined, { messageReplies: true } ] )(
+		'negotiates optional reply support and preserves the reference on send (%j)',
+		async ( capabilities ) => {
+			class Events {
+				close() {}
+			}
+			vi.stubGlobal( 'EventSource', Events );
+			fetchMock.mockResolvedValueOnce( Response.json( { version: '2.4.0', capabilities } ) );
+			const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+			await connector.init?.();
+			expect( connector.capabilities.messageReplies ).toBe( !! capabilities?.messageReplies );
+			const reply = { sessionId: 'source', entryId: 'message', excerpt: 'Earlier message' };
+			fetchMock.mockResolvedValueOnce( Response.json( { runId: 'reply-run' } ) );
+			await connector.continueSession( 'chat', 'Which part?', { reply } );
+			const body = JSON.parse( String( fetchMock.mock.calls.at( -1 )![ 1 ]?.body ) );
+			expect( body ).toMatchObject( { prompt: 'Which part?', reply } );
+		}
+	);
+
 	it( 'relays the sync activity on the local server event stream', async () => {
+		fetchMock.mockResolvedValueOnce( Response.json( { version: '2.4.0' } ) );
 		const stream: { onMessage?: ( event: MessageEvent ) => void } = {};
 		class MockEventSource {
 			set onmessage( listener: ( event: MessageEvent ) => void ) {

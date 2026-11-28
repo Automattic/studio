@@ -1,10 +1,17 @@
-type ComposerTextQuoteListener = ( text: string ) => void;
+type ComposerTextQuoteListener = (
+	text: string,
+	reply?: import('@studio/agent/protocol/reply-reference').ReplyReference
+) => void;
 
 const listeners = new Set< ComposerTextQuoteListener >();
 
-export function emitComposerTextQuote( text: string ): void {
+export function emitComposerTextQuote(
+	text: string,
+	reply?: import('@studio/agent/protocol/reply-reference').ReplyReference
+): void {
 	for ( const listener of listeners ) {
-		listener( text );
+		if ( reply ) listener( text, reply );
+		else listener( text );
 	}
 }
 

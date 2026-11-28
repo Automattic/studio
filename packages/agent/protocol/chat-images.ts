@@ -1,3 +1,4 @@
+import type { ReplyReference } from '@studio/agent/protocol/reply-reference';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 
@@ -26,6 +27,7 @@ export interface StudioChatImage extends StudioChatImageAttachment {
 }
 
 export interface StudioAiSessionInputPayload {
+	reply?: ReplyReference;
 	turnId?: string;
 	prompt: string;
 	displayMessage?: string;

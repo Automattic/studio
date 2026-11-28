@@ -91,3 +91,19 @@
 .flyoutChevron:dir( rtl ) {
 	rotate: 90deg;
 }
+
+.replyContext {
+	max-width: none;
+	margin: var( --composer-attachment-inset ) var( --composer-attachment-inset ) 0;
+	padding-inline-end: var( --space-8 );
+}
+.replyText {
+	composes: truncate from '@studio/ds/theme/recipes.module.css';
+	flex: 1;
+	min-width: 0;
+}
+.replyRemove {
+	opacity: 1;
+	transform: none;
+	pointer-events: auto;
+}

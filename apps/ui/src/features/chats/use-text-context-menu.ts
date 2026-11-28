@@ -113,12 +113,21 @@ export function useTextContextMenu(): void {
 				...( quotableTextHost && selectionText.trim() ? { canQuoteSelection: true } : {} ),
 			} ).then( ( result ) => {
 				if ( result?.action === 'quote-selection' ) {
-					emitComposerTextQuote( result.selectionText );
+					const entryId = messageHost?.getAttribute( 'data-message-id' );
+					const sessionId = messageHost
+						?.closest( '[data-session-id]' )
+						?.getAttribute( 'data-session-id' );
+					emitComposerTextQuote(
+						result.selectionText,
+						connector.capabilities.messageReplies && entryId && sessionId
+							? { entryId, sessionId, excerpt: result.selectionText.slice( 0, 4000 ) }
+							: undefined
+					);
 				}
 			} );
 		};
 
 		document.addEventListener( 'contextmenu', handleContextMenu );
 		return () => document.removeEventListener( 'contextmenu', handleContextMenu );
-	}, [ showTextContextMenu ] );
+	}, [ showTextContextMenu, connector.capabilities.messageReplies ] );
 }

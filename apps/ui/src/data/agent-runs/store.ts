@@ -1,3 +1,4 @@
+import type { ReplyReference } from '@studio/agent/protocol/reply-reference';
 import type {
 	StudioChatFileAttachment,
 	StudioChatImage,
@@ -10,6 +11,7 @@ export interface PendingQuestion {
 }
 
 export interface SendMessageOptions {
+	reply?: ReplyReference;
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];

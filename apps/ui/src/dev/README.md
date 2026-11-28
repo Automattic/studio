@@ -18,3 +18,5 @@ Each page shows light and dark side by side, or one scheme from the header. To a
 - `/email-preview.html`: the email log loading skeleton, empty state, multiple selectable sample emails, and loading error. Use `?state=skeleton`, `?state=empty`, `?state=multiple`, or `?state=error` to start in a particular state.
 - `/sidebar-preview.html`: the real app shell with its sidebar held in loading. Use the links to switch to loaded rows or between light and dark mode.
   Add `&rows=30` for a scrolling sidebar or `&chat=long` for a sample conversation.
+
+- `/chat-replies.html`: real chat reply controls, composer reference and sent source navigation. Use `?scheme=dark`, `?image=1` for an image-only message, or `?legacy=1` for an older server without reply support. Sends stay within the in-memory fixture.

@@ -204,6 +204,7 @@ export interface AuthUser {
 // "am I in Electron"). The desktop app has them all; `studio ui` and Studio Cloud
 // have fewer.
 interface ConnectorCapabilities {
+	messageReplies?: boolean;
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
 	nativeFolderPicker: boolean;
@@ -518,6 +519,7 @@ export interface Connector {
 		prompt: string,
 		options?: {
 			turnId?: string;
+			reply?: import('@studio/agent/protocol/reply-reference').ReplyReference;
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];

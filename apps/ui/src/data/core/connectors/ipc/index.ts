@@ -135,6 +135,7 @@ export function createIpcConnector(): Connector {
 
 		// Native desktop app: every affordance is available.
 		capabilities: {
+			messageReplies: true,
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,

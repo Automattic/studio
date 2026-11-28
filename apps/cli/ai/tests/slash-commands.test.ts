@@ -49,6 +49,7 @@ function buildModelCtx(
 		persistSessionContext: persistMock,
 		readThinking: vi.fn().mockResolvedValue( undefined ),
 		persistThinking: vi.fn(),
+		replyToMessage: vi.fn(),
 		clearSession: vi.fn().mockResolvedValue( undefined ),
 	};
 	return { ctx, persistMock };
@@ -207,6 +208,7 @@ describe( '/credits slash command', () => {
 			persistSessionContext: vi.fn().mockResolvedValue( undefined ),
 			readThinking: vi.fn().mockResolvedValue( undefined ),
 			persistThinking: vi.fn(),
+			replyToMessage: vi.fn(),
 			clearSession: vi.fn().mockResolvedValue( undefined ),
 		};
 	}
@@ -373,6 +375,7 @@ describe( '/connect and /disconnect', () => {
 			persistSessionContext: vi.fn(),
 			readThinking: vi.fn().mockResolvedValue( undefined ),
 			persistThinking: vi.fn(),
+			replyToMessage: vi.fn(),
 			clearSession: vi.fn(),
 		} satisfies SlashCommandContext;
 	}

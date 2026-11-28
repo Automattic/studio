@@ -1,3 +1,4 @@
+import { validateReplyReference } from '@studio/agent/protocol/reply-reference';
 import fs from 'fs/promises';
 import { listAiSessions, loadAiSession } from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
@@ -24,6 +25,7 @@ async function readInputPayload( path: string ): Promise< StudioAiSessionInputPa
 	return {
 		prompt: parsed.prompt,
 		turnId: parsed.turnId,
+		reply: validateReplyReference( parsed.reply ),
 		displayMessage: parsed.displayMessage,
 		images,
 		files: validateStudioChatFiles( parsed.files ),
@@ -81,6 +83,7 @@ export async function runCommand(
 		resumeSession: session,
 		initialMessage: inputPayload?.prompt ?? options.message,
 		initialTurnId: inputPayload?.turnId,
+		initialReply: inputPayload?.reply,
 		initialDisplayMessage: inputPayload?.displayMessage ?? options.displayMessage,
 		initialImages: inputPayload?.images,
 		initialFiles: inputPayload?.files,

@@ -1,3 +1,4 @@
+import { validateReplyReference } from '@studio/agent/protocol/reply-reference';
 import crypto from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from 'node:fs';
 import { statfs } from 'node:fs/promises';
@@ -643,7 +644,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	} );
 
 	api.get( '/version', ( _req: Request, res: Response ) => {
-		res.json( { version: options.version ?? null } );
+		res.json( { version: options.version ?? null, capabilities: { messageReplies: true } } );
 	} );
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
@@ -2505,7 +2506,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			let images: StudioChatImage[];
 			let files: StudioChatFileAttachment[];
 			let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
+			let reply: ReturnType< typeof validateReplyReference >;
 			try {
+				reply = validateReplyReference( req.body.reply );
 				images = validateStudioChatImages( req.body.images );
 				files = validateStudioChatFiles( req.body.files );
 				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations, images );
@@ -2518,6 +2521,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				sessionId: req.params.id,
 				prompt: expandSkillCommandPrompt( prompt ),
 				turnId: typeof req.body.turnId === 'string' ? req.body.turnId : undefined,
+				reply,
 				displayMessage,
 				images,
 				files,

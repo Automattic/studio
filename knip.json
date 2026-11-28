@@ -38,7 +38,7 @@
 			"entry": [
 				"src/main.local.tsx",
 				"src/main.cloud.tsx",
-				"src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview}.tsx"
+				"src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview,chat-replies}.tsx"
 			],
 			"project": "src/**/*.{ts,tsx}"
 		},

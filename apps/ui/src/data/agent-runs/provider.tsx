@@ -327,6 +327,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 						updateCache( payload.sessionId, ( entries ) =>
 							replaceEntry( entries, {
 								type: 'message',
+								pendingPersistence: true,
 								id: reply?.entryId ?? shortEntryId(),
 								parentId: null,
 								timestamp: event.timestamp,
@@ -444,6 +445,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			const images = options.images ?? [];
 			const files = options.files ?? [];
 			const visualAnnotations = options.visualAnnotations;
+			const reply = options.reply;
 			// Synchronous, so a second send in the same tick queues behind this one.
 			dispatchSession( sessionId, {
 				type: 'send_pending',
@@ -455,13 +457,15 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 			const optimisticEntry: SessionEntry = {
 				type: 'custom',
-				id: shortEntryId(),
+				id: turnId,
 				parentId: null,
 				timestamp: nowIso(),
 				customType: 'studio.user_prompt',
 				data: {
 					text: displayMessage,
 					source: 'prompt',
+					inputId: turnId,
+					...( reply ? { reply } : {} ),
 					attachments: buildChatAttachmentSummaries( images, files ),
 					visualAnnotations,
 				},
@@ -476,6 +480,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					images,
 					files,
 					visualAnnotations,
+					...( reply ? { reply } : {} ),
 				} );
 				if ( interruptPendingStartSessionIdsRef.current.has( sessionId ) ) {
 					interruptPendingStartSessionIdsRef.current.delete( sessionId );

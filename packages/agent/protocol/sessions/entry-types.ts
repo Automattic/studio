@@ -1,3 +1,4 @@
+import type { ReplyReference } from '@studio/agent/protocol/reply-reference';
 // Studio metadata rides as `studio.*` `customType` entries on top of pi's
 // `SessionEntry` schema. The renderer never imports pi at runtime — these
 // types are only used at the type-check boundary (`import type` is erased).
@@ -83,6 +84,8 @@ export type StudioChatAttachmentSummary =
 // `source` distinguishes a user-typed prompt from an `ask_user` answer the
 // runtime forwarded to the model — the renderer only shows `'prompt'`.
 export interface StudioUserPromptData {
+	inputId?: string;
+	reply?: ReplyReference;
 	text: string;
 	source: 'prompt' | 'ask_user';
 	sitePath?: string;

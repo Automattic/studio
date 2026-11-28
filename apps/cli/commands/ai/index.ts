@@ -1,4 +1,10 @@
 import {
+	formatReplyPrompt,
+	getReplyMessages,
+	getMessagePreview,
+	type ReplyReference,
+} from '@studio/agent/protocol/reply-reference';
+import {
 	closeSharedBrowser,
 	createAgent,
 	createTurnStatsTracker,
@@ -159,6 +165,7 @@ export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
 	initialTurnId?: string;
+	initialReply?: ReplyReference;
 	initialDisplayMessage?: string;
 	initialImages?: StudioChatImage[];
 	initialFiles?: StudioChatFileAttachment[];
@@ -602,7 +609,8 @@ export async function runCommand( options: {
 		images: StudioChatImage[] = [],
 		files: StudioChatFileAttachment[] = [],
 		visualAnnotations?: StudioVisualAnnotationSummary[],
-		requestedTurnId?: string
+		requestedTurnId?: string,
+		reply?: ReplyReference
 	): Promise< { status: TurnStatus; sessionId: string; turnId: string; edits?: number } > {
 		// The quota-based default must land before the turn captures its model.
 		await wpcomDefaultModelResolution;
@@ -617,7 +625,7 @@ export async function runCommand( options: {
 		// The active site rides to the runtime, which states it in the system
 		// prompt. Remote (WordPress.com) sites only have a URL and site ID; local
 		// sites have a filesystem path and running state.
-		let enrichedPrompt = prompt;
+		let enrichedPrompt = formatReplyPrompt( prompt, reply );
 		const site = ui.activeSite;
 		// The stored running flag can be absent or stale — the session event log
 		// carries no running state, replay hardcodes false, and the site can be
@@ -674,6 +682,8 @@ export async function runCommand( options: {
 			appendStudioEntry( s, 'studio.user_prompt', {
 				text: displayMessage,
 				source: 'prompt',
+				inputId: tracksProps.turn_id,
+				reply,
 				sitePath: site?.path,
 				attachments: buildChatAttachmentSummaries( images, files ),
 				visualAnnotations,
@@ -789,7 +799,8 @@ export async function runCommand( options: {
 				options.initialImages,
 				options.initialFiles,
 				options.initialVisualAnnotations,
-				options.initialTurnId
+				options.initialTurnId,
+				options.initialReply
 			);
 			const jsonStatus = result.status === 'interrupted' ? 'error' : result.status;
 			( ui as JsonAdapter ).emitTurnCompleted( jsonStatus, result.sessionId, undefined, {
@@ -855,7 +866,36 @@ export async function runCommand( options: {
 		async readThinking() {
 			return resolveSessionThinking( ( await ensureSession() ).getEntries(), currentModel );
 		},
+		async replyToMessage( query ) {
+			const sm = await ensureSession();
+			const messages = getReplyMessages( sm.getEntries() )
+				.reverse()
+				.filter(
+					( message ) =>
+						! query || message.text.toLocaleLowerCase().includes( query.toLocaleLowerCase() )
+				)
+				.slice( 0, 20 );
+			const choices = [
+				{ label: __( 'Clear reply' ), description: '' },
+				...messages.map( ( message, index ) => ( {
+					label: `${ getMessagePreview( message.text ).slice( 0, 90 ) } (${ index + 1 })`,
+					description: message.role === 'user' ? __( 'You' ) : __( 'WordPress Studio' ),
+				} ) ),
+			];
+			const selected = await ui.chooseReply( __( 'Reply to a message' ), choices );
+			if ( selected === choices[ 0 ].label ) ui.setReply( undefined );
+			else {
+				const index = choices.findIndex( ( choice ) => choice.label === selected ) - 1;
+				if ( messages[ index ] )
+					ui.setReply( {
+						sessionId: sm.getSessionId(),
+						entryId: messages[ index ].entryId,
+						excerpt: messages[ index ].text.slice( 0, 4000 ),
+					} );
+			}
+		},
 		async clearSession() {
+			ui.setReply( undefined );
 			session = await agent.sessions.create();
 			ui.clearTranscript();
 			ui.showWelcome();
@@ -902,7 +942,15 @@ export async function runCommand( options: {
 					// Skill command — no handler, route to agent
 					ui.addUserMessage( prompt );
 					try {
-						await runAgentTurn( buildSkillInvocationPrompt( cmd.name ) );
+						await runAgentTurn(
+							buildSkillInvocationPrompt( cmd.name ),
+							prompt,
+							[],
+							[],
+							undefined,
+							undefined,
+							ui.consumeReply()
+						);
 					} catch ( error ) {
 						handleAgentTurnError( error );
 					}
@@ -912,7 +960,7 @@ export async function runCommand( options: {
 
 			ui.addUserMessage( prompt );
 			try {
-				await runAgentTurn( prompt );
+				await runAgentTurn( prompt, prompt, [], [], undefined, undefined, ui.consumeReply() );
 			} catch ( error ) {
 				handleAgentTurnError( error );
 			}

@@ -14,10 +14,12 @@ import type { StudioChatFileAttachment, StudioChatImage } from '@/data/core';
  * SessionView (and the heavy Conversation tree) on every keystroke.
  */
 export interface ComposerHandle {
+	setReply( reply: import('@studio/agent/protocol/reply-reference').ReplyReference ): void;
 	appendDraft( text: string ): void;
 	replaceDraft(
 		text: string,
 		options?: {
+			reply?: import('@studio/agent/protocol/reply-reference').ReplyReference;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
 		}
@@ -41,11 +43,15 @@ export function useComposerHandle(
 	{
 		value,
 		setValue,
+		setReply,
 		attachments,
 		restoreAttachments,
 		textareaRef,
 		send,
 	}: {
+		setReply: (
+			reply: import('@studio/agent/protocol/reply-reference').ReplyReference | undefined
+		) => void;
 		value: string;
 		setValue: Dispatch< SetStateAction< string > >;
 		attachments: ComposerAttachment[];
@@ -57,6 +63,10 @@ export function useComposerHandle(
 	useImperativeHandle(
 		ref,
 		() => ( {
+			setReply( reply ) {
+				setReply( reply );
+				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
+			},
 			appendDraft( text ) {
 				if ( ! text ) return;
 				setValue( ( current ) =>
@@ -67,6 +77,7 @@ export function useComposerHandle(
 				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 			},
 			replaceDraft( text, options ) {
+				setReply( options?.reply );
 				setValue( text );
 				restoreAttachments( toComposerDraftAttachments( options ?? {} ) );
 				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
@@ -81,6 +92,6 @@ export function useComposerHandle(
 			},
 			send,
 		} ),
-		[ restoreAttachments, value, attachments, send, setValue, textareaRef ]
+		[ setReply, restoreAttachments, value, attachments, send, setValue, textareaRef ]
 	);
 }

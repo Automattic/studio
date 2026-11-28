@@ -1,3 +1,5 @@
+import { getMessagePreview } from '@studio/agent/protocol/reply-reference';
+import { __, sprintf } from '@wordpress/i18n';
 // Rehydrate the terminal UI from a session's JSONL on resume. Walks
 // `SessionEntry[]` and dispatches each entry to the live `ui.handleEvent()`
 // path (for assistant messages) or directly to `ui.*` (for Studio's
@@ -47,6 +49,13 @@ export function replaySessionHistory( ui: AiChatUI, entries: SessionEntry[] ): v
 			if ( isStudioCustomEntryOfType( entry, 'studio.user_prompt' ) ) {
 				const data = entry.data;
 				if ( ! data || data.source !== 'prompt' ) continue;
+				if ( data.reply )
+					ui.showInfo(
+						sprintf(
+							__( 'Replying to: %s' ),
+							getMessagePreview( data.reply.excerpt ).slice( 0, 160 )
+						)
+					);
 				if ( isTurnOpen ) {
 					flushPendingResults();
 					ui.endAgentTurn();

@@ -231,7 +231,11 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 	// Browser served by the local CLI: no native file dialogs, but the server
 	// runs on the user's machine so it can still open paths in OS apps. The
 	// preview is a cross-origin iframe, so the annotation inspector can't run.
+	let serverCapabilities: { messageReplies?: boolean } = {};
 	const capabilities = {
+		get messageReplies() {
+			return serverCapabilities.messageReplies === true;
+		},
 		nativeFolderPicker: false,
 		annotatePreview: false,
 		studioLogs: false,
@@ -244,8 +248,13 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 
 	return {
 		async init() {
+			const server = await api< {
+				version: string | null;
+				capabilities?: typeof serverCapabilities;
+			} >( '/version' );
+			serverCapabilities = server.capabilities ?? {};
 			if ( remote ) {
-				const { version } = await api< { version: string | null } >( '/version' );
+				const { version } = server;
 				if ( ! isSupportedServerVersion( version ) ) {
 					throw new UnsupportedServerError( version );
 				}
@@ -855,6 +864,7 @@ export function createLocalConnector( { apiBaseUrl, remote }: LocalConnectorOpti
 				body: JSON.stringify( {
 					prompt,
 					turnId: options?.turnId,
+					reply: options?.reply,
 					displayMessage: options?.displayMessage,
 					images: options?.images,
 					files: options?.files,

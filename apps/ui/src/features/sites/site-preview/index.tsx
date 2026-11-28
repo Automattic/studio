@@ -160,6 +160,10 @@ function SitePreviewContent( {
 		active: ! inactive,
 	} );
 	const siteDesign = useSiteDesign( site );
+	const onDesignReady = useCallback(
+		( inspectorReady: boolean ) => patchSurface( 'design', { inspectorReady } ),
+		[ patchSurface ]
+	);
 	const annotations = useSiteAnnotations( site.id );
 	// Surfaces Studio draws itself, with no page to load.
 	const rendered = activeSurfaceKey === 'design' || activeSurfaceKey === 'email';
@@ -202,10 +206,7 @@ function SitePreviewContent( {
 		activeSurfaceKey !== 'database' &&
 		( connector.capabilities.annotatePreview || rendered );
 	const canAnnotate =
-		canAnnotateSurface &&
-		( activeSurfaceKey === 'design'
-			? !! siteDesign.data?.design
-			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
+		canAnnotateSurface && ( activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	useTabThumbnail(
 		viewportRef,
@@ -475,8 +476,6 @@ function SitePreviewContent( {
 					isAnnotationsBusy( annotations ),
 				disabledReason: blank
 					? __( 'Open a project page to annotate.' )
-					: activeSurfaceKey === 'design' && ! siteDesign.data?.design
-					? __( 'Annotation is available for design systems created by Studio Code.' )
 					: activeSurfaceKey === 'database'
 					? __( 'Not available for Database' )
 					: ! canAnnotateSurface
@@ -595,6 +594,7 @@ function SitePreviewContent( {
 												<DesignSystemView
 													siteId={ site.id }
 													siteDesign={ siteDesign.data ?? null }
+													onReadyChange={ onDesignReady }
 													error={ siteDesign.error }
 													onRetry={ () => void siteDesign.refetch() }
 													retrying={ siteDesign.isFetching }

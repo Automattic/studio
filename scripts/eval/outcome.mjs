@@ -651,6 +651,15 @@ export const designTokenReachedTheme = check( ( d, vars ) => {
 		: fail( `DESIGN.md ${ vars.token } is ${ value }, but the theme palette does not have it` );
 } );
 
+export const globalStylesAnnotationApplied = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const accent = s.palette?.findLast( ( entry ) => entry.slug === 'accent' );
+	if ( s.designMd != null ) return fail( 'The annotation created a DESIGN.md' );
+	return accent?.color?.toLowerCase() === '#b65035'
+		? pass( 'The active palette uses the requested terracotta accent' )
+		: fail( `Expected the accent to be #b65035, got ${ accent?.color }` );
+} );
+
 // The agent saved one skill with save_skill, for `vars.scope` (`site` or `all_sites`), with a
 // description agents can pick it by, and told the user its command.
 export const skillSaved = check( ( d, vars ) => {

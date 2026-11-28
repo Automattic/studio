@@ -16,11 +16,6 @@ export interface ExportOptions {
 
 type ExportOptionsIncludes = 'wpContent' | 'database';
 
-export interface BackupContents {
-	backupFile: string;
-	sqlFiles: string[];
-}
-
 export interface Exporter extends ImportExportEventEmitter {
 	canHandle(): Promise< boolean >;
 	export(): Promise< void >;

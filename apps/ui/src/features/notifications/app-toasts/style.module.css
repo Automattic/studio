@@ -43,8 +43,12 @@
 			)
 		)
 		scale( var( --scale ) );
+	/* Height animates with transform: if it snapped ahead, a toast behind the
+	   front one would briefly grow under a resting pointer while collapsing,
+	   re-expanding the deck and looping. */
 	transition:
 		transform var( --motion-duration-quick ) var( --motion-ease-enter ),
+		height var( --motion-duration-quick ) var( --motion-ease-enter ),
 		opacity var( --motion-duration-quick ) var( --motion-ease-enter );
 }
 

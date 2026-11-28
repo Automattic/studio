@@ -8,7 +8,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getAiInstructionsPath } from 'cli/lib/dependency-management/paths';
 import { isFrontendRunning, startFrontendServer } from 'cli/lib/frontend/server';
 import { getSiteDetails } from 'cli/lib/site-details';
-import { withSiteOperation } from 'cli/lib/site-operations';
+import { SiteStartCancelled, withSiteStart } from 'cli/lib/site-operations';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { isServerRunning, startWordPressServer } from 'cli/lib/wordpress-server-manager';
@@ -22,9 +22,11 @@ const defaultLogger = new Logger< LoggerAction >();
 // WordPress runs first: the frontend is pointed at the site URL and fetches from
 // it. A frontend that fails to start (no Node.js, a broken project) is reported
 // without failing the start: WordPress is up, and the frontend's logs say why.
+// A stop that arrives while the frontend starts ends the start, as it does for WordPress.
 async function startFrontendIfHeadless(
 	site: ConfigSite,
-	logger: Logger< LoggerAction >
+	logger: Logger< LoggerAction >,
+	signal: AbortSignal
 ): Promise< void > {
 	if ( ! isHeadlessSite( site ) ) {
 		return;
@@ -35,8 +37,10 @@ async function startFrontendIfHeadless(
 	}
 	logger.reportStart( LoggerAction.START_FRONTEND, __( 'Starting frontend…' ) );
 	try {
-		await startFrontendServer( site, logger );
+		await startFrontendServer( site, logger, signal );
+		signal.throwIfAborted();
 	} catch ( error ) {
+		signal.throwIfAborted();
 		logger.reportError(
 			error instanceof LoggerError
 				? error
@@ -60,8 +64,8 @@ export async function runCommand(
 	skipLogDetails = false,
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
-	return withSiteOperation( sitePath, 'start', () =>
-		startSite( sitePath, skipBrowser, skipLogDetails, logger )
+	return withSiteStart( sitePath, ( signal ) =>
+		startSite( sitePath, skipBrowser, skipLogDetails, logger, signal )
 	);
 }
 
@@ -69,7 +73,8 @@ async function startSite(
 	sitePath: string,
 	skipBrowser: boolean,
 	skipLogDetails: boolean,
-	logger: Logger< LoggerAction >
+	logger: Logger< LoggerAction >,
+	signal: AbortSignal
 ): Promise< void > {
 	try {
 		logger.reportStart( LoggerAction.START_DAEMON, __( 'Starting process daemon…' ) );
@@ -101,12 +106,13 @@ async function startSite(
 		}
 
 		const runningProcess = await isServerRunning( site.id );
+		signal.throwIfAborted();
 		if ( runningProcess ) {
 			logger.reportSuccess( __( 'WordPress server is already running' ) );
 			if ( runningProcess.status === 'online' ) {
 				await updateSiteLatestCliPid( site.id, runningProcess.pid );
 			}
-			await startFrontendIfHeadless( site, logger );
+			await startFrontendIfHeadless( site, logger, signal );
 			if ( ! skipBrowser ) {
 				await openSiteInBrowser( site );
 			}
@@ -122,6 +128,7 @@ async function startSite(
 			LoggerAction.INSTALL_SQLITE,
 			__( 'Setting up SQLite integration, if needed…' )
 		);
+		signal.throwIfAborted();
 		await keepSqliteIntegrationUpdated( sitePath );
 		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 
@@ -145,14 +152,16 @@ async function startSite(
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
-			await startWordPressServer( site, logger, 'start' );
+			await startWordPressServer( site, logger, 'start', undefined, signal );
+			signal.throwIfAborted();
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
 		} catch ( error ) {
+			signal.throwIfAborted();
 			throw new LoggerError( __( 'Failed to start WordPress server' ), error );
 		}
 
-		await startFrontendIfHeadless( site, logger );
+		await startFrontendIfHeadless( site, logger, signal );
 
 		if ( ! skipLogDetails ) {
 			logSiteDetails( site );
@@ -174,7 +183,13 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			running: true,
 		} );
 	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
+		if ( error instanceof SiteStartCancelled ) {
+			defaultLogger.reportSuccess( error.message );
+			defaultLogger.reportResult( {
+				...getSiteDetails( await getSiteByFolder( argv.path ) ),
+				running: false,
+			} );
+		} else if ( error instanceof LoggerError ) {
 			defaultLogger.reportError( error );
 		} else {
 			const loggerError = new LoggerError( __( 'Failed to start site' ), error );

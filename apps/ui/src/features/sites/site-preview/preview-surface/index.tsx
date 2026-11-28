@@ -39,12 +39,14 @@ export function SurfaceLayer( {
 	return (
 		<div
 			className={ clsx( styles.realmLayer, ! active && styles.realmLayerHidden ) }
+			data-tab-surface
 			data-loading={ loading || undefined }
 			inert={ active ? undefined : true }
 		>
 			<ResponsiveViewport { ...responsive } active={ active && ( responsive?.active ?? true ) }>
 				<div
 					className={ clsx( styles.surfaceFrame, design && styles.designSurface ) }
+					data-design-surface={ design || undefined }
 					data-failed={ failed || undefined }
 				>
 					{ children }

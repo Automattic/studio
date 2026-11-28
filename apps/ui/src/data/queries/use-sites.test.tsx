@@ -202,6 +202,45 @@ describe( 'useStartSite', () => {
 		releaseStop();
 	} );
 
+	it( 'honors a stop clicked before the CLI reports startup and ignores a late start result', async () => {
+		const site = { ...makeSite(), url: 'http://localhost:9010' };
+		const connector = createFakeConnector( { sites: [ site ] } );
+		let finish!: () => void;
+		connector.startSite.mockImplementationOnce(
+			() =>
+				new Promise( ( resolve ) => {
+					finish = () => resolve( { ...site, running: true } );
+				} )
+		);
+		const { result } = renderHook(
+			() => {
+				useSyncSitesWithEvents();
+				return { sites: useSites(), start: useStartSite(), stop: useStopSite() };
+			},
+			{ wrapper: providers( connector ) }
+		);
+		await waitFor( () => expect( result.current.sites.data ).toHaveLength( 1 ) );
+
+		const starting = result.current.start.mutateAsync( site.id );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledOnce() );
+		const stopping = result.current.stop.mutateAsync( site.id );
+		await waitFor( () => expect( result.current.stop.isPending ).toBe( true ) );
+		expect( connector.stopSite ).not.toHaveBeenCalled();
+		act( () =>
+			connector.emit( 'onSiteEvent', {
+				event: SITE_EVENTS.UPDATED,
+				siteId: site.id,
+				running: false,
+				site: { ...site, operation: { kind: 'start', pid: 1, cancelRequested: false } },
+			} )
+		);
+		await stopping;
+		expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( site.id );
+		finish();
+		await expect( starting ).resolves.toBe( false );
+		await waitFor( () => expect( result.current.sites.data?.[ 0 ].running ).toBe( false ) );
+	} );
+
 	it( 'starts a different site while one is stopping', async () => {
 		const { result, connector, releaseStop } = renderMutations();
 

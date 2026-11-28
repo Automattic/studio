@@ -256,7 +256,7 @@ describe( 'site preview', () => {
 	} );
 
 	it.each( [ 'browser', 'desktop' ] as const )(
-		'captures the %s thumbnail after the preview panel opens',
+		'captures the %s thumbnail at desktop dimensions when the preview has size',
 		async ( runtime ) => {
 			const connector = createFakeConnector();
 			await renderPreview( runtime, {}, connector );
@@ -267,24 +267,27 @@ describe( 'site preview', () => {
 				clientWidth: { get: () => width },
 				clientHeight: { get: () => 800 },
 			} );
+			Object.defineProperties( page()!, {
+				clientWidth: { value: 400 },
+				clientHeight: { value: 800 },
+			} );
 			if ( runtime === 'desktop' ) {
 				guest();
 				fireEvent( page()!, new Event( 'dom-ready' ) );
 			}
 			finishLoading( runtime );
-			await act( async () => {} );
+			await act( async () => {
+				await vi.advanceTimersByTimeAsync( 1000 );
+			} );
 			expect( connector.captureSitePreview ).not.toHaveBeenCalled();
 			width = 600;
-			Object.defineProperties( page()!, {
-				clientWidth: { value: 400 },
-				clientHeight: { value: 800 },
-			} );
+			finishLoading( runtime );
 			await act( async () => {
 				await vi.advanceTimersByTimeAsync( 1000 );
 			} );
 			expect( connector.captureSitePreview ).toHaveBeenCalledExactlyOnceWith(
 				'one',
-				expect.objectContaining( { width: 400, height: 800 } )
+				expect.objectContaining( { width: 1040, height: 650 } )
 			);
 		}
 	);

@@ -14,6 +14,7 @@ import { useConnector } from '@/data/core';
 import { isSiteRestarting } from '@/data/site-restarts';
 
 export interface PreviewTab {
+	thumbnail?: { path: string; image: string };
 	id: string;
 	path: string | null;
 	title: string | null;

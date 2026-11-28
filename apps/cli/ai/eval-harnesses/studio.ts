@@ -127,16 +127,22 @@ export async function runStudioConversation(
 	input: HarnessInput,
 	ctx: HarnessContext
 ): Promise< HarnessTranscript > {
+	// The real sendFeedback files a report with the Studio team under the eval user's login,
+	// so a case that fails by sending feedback would still deliver it.
+	const evalHost = {
+		...cliAgentHost,
+		sendFeedback: async () => ( { feedbackId: 0 } ),
+	};
 	// Seeded connections are made up, so filling them in from the account would report them gone.
 	const host = ctx.seededRemoteSites
 		? {
-				...cliAgentHost,
+				...evalHost,
 				sync: {
-					...cliAgentHost.sync,
+					...evalHost.sync,
 					connectedSites: ( site: HostSite ) => connectedRemoteSites( site, false ),
 				},
 		  }
-		: cliAgentHost;
+		: evalHost;
 	const agent = createAgent( {
 		host: input.ui ? { ...host, ui: { showArtifact: () => {}, reloadPreview: () => {} } } : host,
 	} );

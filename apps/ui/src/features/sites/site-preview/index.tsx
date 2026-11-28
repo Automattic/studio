@@ -74,6 +74,7 @@ import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewOpenTracks } from './use-preview-open-tracks';
 import { usePreviewScreenshot } from './use-preview-screenshot';
+import { useTabThumbnail } from './use-tab-thumbnail';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
@@ -102,6 +103,7 @@ interface SitePreviewProps {
 	collapsed?: boolean;
 	inactive?: boolean;
 	blank?: boolean;
+	onThumbnail?: ( path: string, image: string ) => void;
 	onTitleChange?: ( title: string | null ) => void;
 }
 
@@ -117,6 +119,7 @@ function SitePreviewContent( {
 	collapsed = false,
 	inactive = false,
 	blank = false,
+	onThumbnail,
 	onTitleChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
@@ -220,6 +223,20 @@ function SitePreviewContent( {
 			? !! siteDesign.data?.design
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
+	useTabThumbnail(
+		viewportRef,
+		safePath,
+		!! onThumbnail &&
+			canPreview &&
+			! blank &&
+			! inactive &&
+			! collapsed &&
+			! loadingStage &&
+			! navigating &&
+			! browserState.failed,
+		onThumbnail,
+		rendered
+	);
 	const previewBrowser = usePreviewBrowser( viewportRef );
 	const screenshot = usePreviewScreenshot(
 		viewportRef,
@@ -884,6 +901,22 @@ export function SitePreview( props: SitePreviewProps ) {
 							blank={ tab.path === null }
 							collapsed={ props.collapsed || ! active }
 							onPathChange={ ( path ) => navigate( tab.id, path ) }
+							onThumbnail={ ( path, image ) =>
+								update( ( current ) => {
+									const target = current.tabs.find( ( t ) => t.id === tab.id );
+									if (
+										target?.path !== path ||
+										( target.thumbnail?.path === path && target.thumbnail.image === image )
+									)
+										return current;
+									return {
+										...current,
+										tabs: current.tabs.map( ( t ) =>
+											t.id === tab.id ? { ...t, thumbnail: { path, image } } : t
+										),
+									};
+								} )
+							}
 							onTitleChange={ ( title ) => patch( tab.id, { title } ) }
 						/>
 					</div>

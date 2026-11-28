@@ -212,11 +212,13 @@ function assertFrontendRunnable( frontend: SiteFrontend ): void {
 /**
  * Starts the frontend process for a headless site and resolves once its port
  * accepts connections. WordPress must already be running: the env contract
- * (`buildFrontendEnv`) points the frontend at the site URL.
+ * (`buildFrontendEnv`) points the frontend at the site URL. Aborting `signal`
+ * ends the wait and stops the process.
  */
 export async function startFrontendServer(
 	site: HeadlessSite,
-	logger?: Logger< string >
+	logger?: Logger< string >,
+	signal?: AbortSignal
 ): Promise< ProcessDescription > {
 	const { frontend } = site;
 	const processName = getFrontendProcessName( site.id );
@@ -252,8 +254,10 @@ export async function startFrontendServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName, {
 		timeoutMs: FRONTEND_READY_TIMEOUT_MS + READY_WAIT_MARGIN_MS,
+		signal,
 	} );
 	try {
+		signal?.throwIfAborted();
 		const processDesc = await startProcess( processName, FRONTEND_CHILD_PATH, { env } );
 		await readyOrExit.waitFor( processDesc.pmId );
 		return processDesc;

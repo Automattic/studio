@@ -1,0 +1,11 @@
+.siteThumbnail {
+	box-sizing: border-box;
+	width: min( 240px, var( --available-width ) );
+	padding: var( --space-menu-inset );
+	border-radius: var( --radius-popup );
+}
+
+.thumbnailFrame {
+	--preview-frame-shadow: none;
+	border-radius: var( --radius-menu-row );
+}

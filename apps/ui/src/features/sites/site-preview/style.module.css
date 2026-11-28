@@ -79,3 +79,8 @@
 	visibility: hidden;
 	pointer-events: none;
 }
+
+.tabPane:not( [data-active-tab] )[data-capturing-thumbnail] {
+	visibility: visible;
+	opacity: 0;
+}

@@ -158,6 +158,29 @@ it( 'does not reopen on hover immediately after clicking to hide the sidebar', a
 	expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
 } );
 
+it( 'peeks again once the pointer leaves and re-enters the toggle after hiding the sidebar', async () => {
+	const { trigger, user } = await setup();
+	fireEvent.click( trigger );
+	const hide = screen
+		.getAllByRole( 'button', { name: 'Hide sidebar' } )
+		.find( ( button ) => ! button.closest( '[inert]' ) )!;
+	await user.click( hide );
+	const show = screen
+		.getAllByRole( 'button', { name: 'Show sidebar' } )
+		.find( ( button ) => ! button.closest( '[inert]' ) )!;
+	await act( async () => {
+		await new Promise( ( resolve ) => setTimeout( resolve, 400 ) );
+	} );
+	await user.hover( show );
+	await act( async () => {
+		await new Promise( ( resolve ) => setTimeout( resolve, 220 ) );
+	} );
+	expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
+	await user.unhover( show );
+	await user.hover( show );
+	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeInTheDocument();
+} );
+
 it( 'allows multi-selection inside the flyover without navigating', async () => {
 	const { open, history } = await setup();
 	const sidebar = await open();

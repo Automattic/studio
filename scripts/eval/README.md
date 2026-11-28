@@ -68,7 +68,7 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 - **child-theme-for-installed-theme** — Regression for STU-2017. The active theme is a child of Ollie, Ollie still matches its WordPress.org release file for file, and headings have a font family.
 - **section-uses-theme-palette** — The site keeps Twenty Twenty-Five, and what the turn added (pages, saved templates, custom CSS, theme files changed from the release) uses palette colors with no hardcoded hex.
 - **inline-block-constrained-alignment** — No CSS rule gives a block wrapper class an inline-level `display`, which escapes the constrained layout's centering.
-- **repeated-treatment-uses-block-style** — A registered block style variation is applied at least twice, and no raw font size repeats three or more times.
+- **repeated-treatment-uses-block-style** — A registered block style variation is applied at least twice, no raw font size repeats three or more times, and some front-page block is styled through a block setting with a preset value.
 - **active-site-reused** — A plan-only request on the active site creates no new site.
 - **active-site-different-name** — With an active site and a request naming another site, no site is created or changed and the reply asks whether to use the active site or a new one.
 - **design-system-annotation** — `DESIGN.md`'s primary color changed, and the active theme's palette carries the new value.

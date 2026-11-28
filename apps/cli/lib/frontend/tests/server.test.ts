@@ -240,6 +240,27 @@ describe( 'frontend server', () => {
 			expect( stopProcess ).toHaveBeenCalledWith( 'studio-frontend-site-1' );
 		} );
 
+		it( 'stops waiting and stops the process when its start is cancelled', async () => {
+			const controller = new AbortController();
+			vi.mocked( startProcess ).mockImplementation( async ( processName ) => {
+				setImmediate( () => controller.abort() );
+				return { name: processName, pmId: 7, status: 'online', pid: 1234 };
+			} );
+
+			await expect( startFrontendServer( site(), undefined, controller.signal ) ).rejects.toThrow(
+				/Failed to start the frontend/
+			);
+			expect( stopProcess ).toHaveBeenCalledWith( 'studio-frontend-site-1' );
+			expect( bus.listenerCount( 'process-message' ) ).toBe( 0 );
+		} );
+
+		it( 'starts no process when its start was already cancelled', async () => {
+			await expect( startFrontendServer( site(), undefined, AbortSignal.abort() ) ).rejects.toThrow(
+				/Failed to start the frontend/
+			);
+			expect( startProcess ).not.toHaveBeenCalled();
+		} );
+
 		it( 'fails clearly when a static frontend has no served folder', async () => {
 			await expect( startFrontendServer( site( { servedDir: 'dist' } ) ) ).rejects.toThrow(
 				/served folder .*dist.* does not exist/

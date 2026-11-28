@@ -10,6 +10,8 @@ import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../start';
 import type { ConfigSite } from '@studio/common/lib/config/schema';
 
+const startCancel = vi.hoisted( () => ( { controller: new AbortController() } ) );
+
 vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/sites' ) ),
 	getSiteByFolder: vi.fn(),
@@ -21,7 +23,8 @@ vi.mock( 'cli/lib/daemon-client' );
 // any other export real rather than silently stubbing it.
 vi.mock( 'cli/lib/site-operations', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/site-operations') >() ),
-	withSiteOperation: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
+	withSiteStart: ( _folder: string, fn: ( signal: AbortSignal ) => unknown ) =>
+		fn( startCancel.controller.signal ),
 } ) );
 vi.mock( 'cli/lib/site-utils' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
@@ -50,6 +53,7 @@ describe( 'CLI: studio site start', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		startCancel.controller = new AbortController();
 
 		vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 		vi.mocked( connectToDaemon ).mockResolvedValue( undefined );
@@ -109,7 +113,9 @@ describe( 'CLI: studio site start', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				testSite,
 				expect.any( Logger ),
-				'start'
+				'start',
+				undefined,
+				expect.any( AbortSignal )
 			);
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
 			expect( openSiteInBrowser ).toHaveBeenCalledWith( testSite );
@@ -138,7 +144,9 @@ describe( 'CLI: studio site start', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				testSite,
 				expect.any( Logger ),
-				'start'
+				'start',
+				undefined,
+				expect.any( AbortSignal )
 			);
 			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( logSiteDetails ).toHaveBeenCalledWith( testSite );
@@ -167,7 +175,11 @@ describe( 'CLI: studio site start', () => {
 		it( 'starts the frontend after WordPress', async () => {
 			await runCommand( '/test/site' );
 
-			expect( startFrontendServer ).toHaveBeenCalledWith( headlessSite, expect.any( Logger ) );
+			expect( startFrontendServer ).toHaveBeenCalledWith(
+				headlessSite,
+				expect.any( Logger ),
+				startCancel.controller.signal
+			);
 			expect( vi.mocked( startWordPressServer ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
 				vi.mocked( startFrontendServer ).mock.invocationCallOrder[ 0 ]
 			);
@@ -192,7 +204,11 @@ describe( 'CLI: studio site start', () => {
 			await runCommand( '/test/site' );
 
 			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( startFrontendServer ).toHaveBeenCalledWith( headlessSite, expect.any( Logger ) );
+			expect( startFrontendServer ).toHaveBeenCalledWith(
+				headlessSite,
+				expect.any( Logger ),
+				startCancel.controller.signal
+			);
 		} );
 
 		it( 'leaves a running frontend alone', async () => {
@@ -211,6 +227,21 @@ describe( 'CLI: studio site start', () => {
 
 			await expect( runCommand( '/test/site', true, true, logger ) ).resolves.toBeUndefined();
 			expect( reportError ).toHaveBeenCalledWith( frontendError, false );
+			expect( disconnectFromDaemon ).toHaveBeenCalled();
+		} );
+
+		it( 'ends the start when the site is stopped while its frontend starts', async () => {
+			const cancelled = new Error( 'Site start cancelled' );
+			vi.mocked( startFrontendServer ).mockImplementation( async () => {
+				startCancel.controller.abort( cancelled );
+				throw new LoggerError( 'Failed to start the frontend' );
+			} );
+			const logger = new Logger();
+			const reportError = vi.spyOn( logger, 'reportError' ).mockImplementation( () => {} );
+
+			await expect( runCommand( '/test/site', false, false, logger ) ).rejects.toBe( cancelled );
+			expect( reportError ).not.toHaveBeenCalled();
+			expect( openSiteInBrowser ).not.toHaveBeenCalled();
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );

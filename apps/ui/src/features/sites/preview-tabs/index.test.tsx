@@ -591,7 +591,7 @@ it( 'opens the tab menu from the keyboard and stops the site when closing all ta
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 } );
 
-it( 'shares the same tool items with the site menu and opens each preview tool in a new tab', async () => {
+it( 'keeps Admin in the preview picker while the site menu offers it externally', async () => {
 	const { user } = await setup();
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	const labels = ( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent );
@@ -599,13 +599,13 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 	await user.keyboard( '{Escape}' );
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-	const admin = await screen.findByRole( 'menuitem', { name: 'Admin' } );
-	const tools = admin.closest( '[role="menu"]' ) as HTMLElement;
+	const database = await screen.findByRole( 'menuitem', { name: 'Database' } );
+	const tools = database.closest( '[role="menu"]' ) as HTMLElement;
 	expect(
 		within( tools )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent )
-	).toEqual( labels );
+	).toEqual( labels.filter( ( label ) => label !== 'AdminA' ) );
 	await user.keyboard( '{Escape}{Escape}' );
 	for ( const name of [ 'Admin', 'Database' ] ) {
 		await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
@@ -1265,7 +1265,7 @@ it( 'opens a WordPress style board without DESIGN.md and reloads saved style cha
 	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
 } );
 
-it.each( [ 'Admin', 'Database', 'Email log' ] )(
+it.each( [ 'Database', 'Email log' ] )(
 	'keeps the current tab when opening %s from the site menu',
 	async ( name ) => {
 		const { user } = await setup();

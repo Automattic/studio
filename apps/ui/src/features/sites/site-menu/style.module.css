@@ -17,6 +17,11 @@
 	min-width: 180px;
 }
 
+.externalIndicator {
+	margin-inline-start: auto;
+	color: var( --muted-foreground );
+}
+
 .databaseReason {
 	max-width: 260px;
 	margin: var( --space-2 ) var( --space-3 );

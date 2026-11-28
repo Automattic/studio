@@ -1,5 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
@@ -13,8 +14,6 @@ import type { SyncSite } from '@/data/core';
 import type { AiProviderId } from '@studio/providers';
 
 const DATABASE_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
-const autoLogin = ( path: string ) =>
-	`/studio-auto-login?redirect_to=${ encodeURIComponent( `http://localhost:9010${ path }` ) }`;
 
 const unsubscribers: Array< () => void > = [];
 afterEach( () => unsubscribers.splice( 0 ).forEach( ( unsubscribe ) => unsubscribe() ) );
@@ -99,6 +98,42 @@ function setup( {
 }
 
 describe( 'Stop other sites', () => {
+	it.each( [ false, true ] )(
+		'promotes external WordPress admin in either site menu (%s)',
+		async ( contextMenu ) => {
+			const { open, connector } = setup( { contextMenu } );
+			await open();
+			const admin = await screen.findByRole( 'menuitem', { name: 'Admin' } );
+			expect( admin.previousElementSibling ).toHaveTextContent( 'Open in' );
+			expect( admin.nextElementSibling ).toHaveRole( 'separator' );
+			expect( admin.lastElementChild ).toHaveAttribute( 'data-icon', 'inline-end' );
+			fireEvent.click( admin );
+			await waitFor( () =>
+				expect( connector.openSiteUrl ).toHaveBeenCalledExactlyOnceWith( 'selected', '/wp-admin/' )
+			);
+			expect( connector.trackEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, {
+				browser: 'external',
+			} );
+			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toBeEmptyDOMElement();
+			await open();
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+			const database = await screen.findByRole( 'menuitem', { name: 'Database' } );
+			expect( database ).toBeVisible();
+			expect(
+				within( database.closest( '[role="menu"]' ) as HTMLElement ).queryByRole( 'menuitem', {
+					name: 'Admin',
+				} )
+			).not.toBeInTheDocument();
+			fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			const browser = await screen.findByRole( 'menuitem', { name: 'Browser' } );
+			expect(
+				within( browser.closest( '[role="menu"]' ) as HTMLElement ).queryByRole( 'menuitem', {
+					name: 'Admin',
+				} )
+			).not.toBeInTheDocument();
+		}
+	);
 	it.each( [
 		[ false, false, 'wpcom' ],
 		[ false, true, 'anthropic' ],
@@ -237,7 +272,6 @@ describe( 'Stop other sites', () => {
 	);
 
 	it.each( [
-		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
 		[ 'Email log', 'studio:email' ],
 	] )( 'navigates to %s for the menu site', async ( label, path ) => {
@@ -286,7 +320,6 @@ describe( 'Stop other sites', () => {
 	} );
 
 	it.each( [
-		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
 		[ 'Email log', 'studio:email' ],
 	] )( 'starts a stopped site before opening %s', async ( label, path ) => {

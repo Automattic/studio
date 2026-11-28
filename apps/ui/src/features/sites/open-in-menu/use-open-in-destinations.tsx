@@ -7,13 +7,7 @@ import {
 	supportedEditorConfig,
 } from '@studio/common/lib/user-settings/editor';
 import { terminalConfig } from '@studio/common/lib/user-settings/terminal';
-import {
-	CodeIcon,
-	DatabaseIcon,
-	ExternalLinkIcon,
-	TerminalIcon,
-	WordPressIcon,
-} from '@studio/ds/icons';
+import { CodeIcon, DatabaseIcon, ExternalLinkIcon, TerminalIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
@@ -21,6 +15,7 @@ import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { AppIcon } from '@/features/sites/app-icon';
+import { WordPressMark } from '@/features/sites/app-icon/wordpress-mark';
 import { DATABASE_HOME_PATH } from '@/features/sites/site-preview/address-bar';
 import { getFileManager } from './get-file-manager';
 import type { SiteDetails } from '@/data/core';
@@ -154,11 +149,11 @@ export function useOpenInDestinations(
 		},
 		{
 			id: 'wp-admin',
-			label: __( 'WordPress admin' ),
-			logo: <WordPressIcon />,
+			label: __( 'Admin' ),
+			logo: <WordPressMark />,
 			disabled: false,
 			open: () =>
-				open( 'wp-admin', __( 'WordPress admin' ), () => {
+				open( 'wp-admin', __( 'Admin' ), () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } );
 					return openSiteUrl( '/wp-admin/' );
 				} ),

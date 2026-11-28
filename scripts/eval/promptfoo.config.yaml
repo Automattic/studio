@@ -589,7 +589,7 @@ tests:
 
         When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.
 
-        Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.
+        For notes labeled Design system (DESIGN.md), edit the site's DESIGN.md and update the matching presets in the active theme's theme.json.
 
         ## Submitted Annotations
 
@@ -614,6 +614,53 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
       - type: javascript
         value: file://outcome.mjs:designSystemReplyLink
+
+  - description: design system annotation updates WordPress Global Styles without a DESIGN.md
+    vars:
+      caseId: global-styles-annotation
+      ui: true
+      timeoutMs: 420000
+      seed:
+        activeSite:
+          name: Eval Global Styles Annotation
+          files:
+            wp-content/themes/eval-global-styles/style.css: |
+              /*
+              Theme Name: Eval Global Styles
+              Template: twentytwentyfive
+              */
+            wp-content/themes/eval-global-styles/theme.json: |
+              {
+                "version": 3,
+                "settings": {
+                  "color": {
+                    "palette": [ { "slug": "accent", "name": "Accent", "color": "#2F6BFF" } ]
+                  }
+                }
+              }
+          wpCli:
+            - [ "theme", "activate", "eval-global-styles" ]
+      prompt: |
+        The user submitted 1 visual annotation from the site preview.
+
+        Make the requested changes. When there are several annotations, address them in the order they were submitted.
+
+        When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.
+
+        ## Submitted Annotations
+
+        ### 1. design token `colors.accent` - "Accent: #2F6BFF"
+        - Page: Design system (WordPress Global Styles)
+        - Comment: Change the Accent color to terracotta (#B65035).
+
+        ```json
+        { "id": "a_1", "comment": "Change the Accent color to terracotta (#B65035).", "nearbyText": "Accent: #2F6BFF", "designToken": "colors.accent", "path": "studio:design-system", "timestamp": 1790000000000 }
+        ```
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:globalStylesAnnotationApplied
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
 
   - description: region annotation changes the selected heading without an element selector
     vars:

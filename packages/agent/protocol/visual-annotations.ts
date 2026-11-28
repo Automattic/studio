@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { STUDIO_CHAT_MAX_IMAGES } from '@studio/agent/protocol/chat-images';
 
 // The body of an email the site sent, as the Email view shows it: an element
@@ -9,7 +10,7 @@ interface VisualAnnotationEmail {
 	paragraph?: number;
 }
 
-// What a note points at: an element or area on a site page, a DESIGN.md token on the
+// What a note points at: an element or area on a site page, a design token on the
 // design system page, or a part of the body of an email the site sent.
 export interface VisualAnnotationTarget {
 	kind?: 'region' | 'drawing';
@@ -125,10 +126,6 @@ function truncateText( text: string, maxLength: number ): string {
 	return text.length <= maxLength ? text : `${ text.slice( 0, maxLength - 1 ) }...`;
 }
 
-function isDesignSystemAnnotation( note: VisualAnnotation ): boolean {
-	return note.path === 'DESIGN.md';
-}
-
 /**
  * The agent's view of the notes. `images` is the message's attachment order,
  * which the notes' images are numbered by.
@@ -147,9 +144,9 @@ export function formatVisualAnnotationsPrompt(
 		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
 		'',
 	];
-	if ( notes.some( isDesignSystemAnnotation ) ) {
+	if ( notes.some( ( note ) => note.path === 'DESIGN.md' ) ) {
 		lines.push(
-			"Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.",
+			"For notes labeled Design system (DESIGN.md), edit the site's DESIGN.md and update the matching presets in the active theme's theme.json.",
 			''
 		);
 	}
@@ -176,11 +173,14 @@ export function formatVisualAnnotationsPrompt(
 		const nearbyText = note.nearbyText?.trim()
 			? ` - "${ truncateText( note.nearbyText.trim(), 120 ) }"`
 			: '';
-		const page = isDesignSystemAnnotation( note )
-			? 'Design system (DESIGN.md)'
-			: note.email
-			? `Email "${ note.email.subject }"`
-			: note.url || note.path || '/';
+		const page =
+			note.path === DESIGN_SYSTEM_PREVIEW_PATH
+				? 'Design system (WordPress Global Styles)'
+				: note.path === 'DESIGN.md'
+				? 'Design system (DESIGN.md)'
+				: note.email
+				? `Email "${ note.email.subject }"`
+				: note.url || note.path || '/';
 		const imageNumbers = note.images.map(
 			( image ) => images.findIndex( ( item ) => item.id === image.id ) + 1
 		);

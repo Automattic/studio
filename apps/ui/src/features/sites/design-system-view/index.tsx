@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import {
 	designDrift,
 	designSheet,
@@ -8,7 +9,7 @@ import {
 	type Style,
 } from '@studio/design-md';
 import { __, sprintf } from '@wordpress/i18n';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { PanelLoadError } from '@/features/sites/panel-load-error';
@@ -62,6 +63,7 @@ export function DesignSystemView( {
 	error,
 	onRetry,
 	retrying,
+	onReadyChange,
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: {
@@ -70,6 +72,7 @@ export function DesignSystemView( {
 	error?: Error | null;
 	onRetry: () => void;
 	retrying?: boolean;
+	onReadyChange?: ( ready: boolean ) => void;
 } & DesignAnnotationProps ) {
 	const view = useMemo( () => {
 		if ( ! siteDesign ) {
@@ -89,11 +92,18 @@ export function DesignSystemView( {
 			return { error: error instanceof Error ? error.message : String( error ) };
 		}
 	}, [ siteDesign ] );
-	const [ root, attachRoot ] = useState< HTMLDivElement | null >( null );
+	const [ root, setRoot ] = useState< HTMLDivElement | null >( null );
+	const attachRoot = useCallback(
+		( element: HTMLDivElement | null ) => {
+			setRoot( element );
+			onReadyChange?.( !! element );
+		},
+		[ onReadyChange ]
+	);
 	const annotate = useDesignAnnotations( {
 		siteId,
 		root,
-		enabled: !! siteDesign?.design,
+		path: siteDesign?.design ? 'DESIGN.md' : DESIGN_SYSTEM_PREVIEW_PATH,
 		onAnnotationPick,
 		onAnnotationAnchor,
 	} );

@@ -10,6 +10,7 @@ import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences'
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
 	changeAnnotation,
+	getSiteAnnotations,
 	pickAnnotation,
 	stageAnnotations,
 	setAnnotating,
@@ -439,7 +440,31 @@ describe( 'site preview', () => {
 		expect(
 			await screen.findByText( 'No design system is available for this theme.' )
 		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
 		expect( connector.getSiteDesign ).toHaveBeenCalledTimes( 2 );
+	} );
+
+	it( 'tags annotations on a Global Styles board with their source', async () => {
+		const connector = createFakeConnector();
+		connector.getSiteDesign.mockResolvedValue( {
+			design: null,
+			themeJson: { settings: { color: { palette: [ { slug: 'accent', color: '#bd5838' } ] } } },
+		} );
+		const { user } = await renderPreview(
+			'browser',
+			{ path: DESIGN_SYSTEM_PREVIEW_PATH },
+			connector
+		);
+		const [ swatch ] = await screen.findAllByText( '#bd5838' );
+		const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
+		await user.click( annotate );
+		await user.click( swatch );
+		expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toBeVisible();
+		expect( getSiteAnnotations( 'one' ).notes ).toEqual( [
+			expect.objectContaining( { path: DESIGN_SYSTEM_PREVIEW_PATH, designToken: 'colors.accent' } ),
+		] );
+		await user.click( screen.getByRole( 'button', { name: 'Delete annotation' } ) );
+		await user.click( annotate );
 	} );
 
 	it( 'asks the site whether a framed page is there, and retries when it is not', async () => {

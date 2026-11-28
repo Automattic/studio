@@ -1,3 +1,4 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import {
 	MAX_VISUAL_ANNOTATIONS,
 	validateStudioVisualAnnotations,
@@ -140,8 +141,18 @@ describe( 'annotationSubmission', () => {
 			expect.objectContaining( { comment: 'Make this bigger', elementLabel: 'colors.primary' } ),
 		] );
 		expect( prompt ).toContain(
-			"Annotations from the Design system page are about the site's DESIGN.md"
+			"For notes labeled Design system (DESIGN.md), edit the site's DESIGN.md"
 		);
+	} );
+
+	it( 'identifies a theme design note as WordPress Global Styles in chat', () => {
+		const { prompt } = annotationSubmission(
+			'',
+			[],
+			[ note( { designToken: 'colors.accent', path: DESIGN_SYSTEM_PREVIEW_PATH } ) ]
+		);
+		expect( prompt ).toContain( 'Design system (WordPress Global Styles)' );
+		expect( prompt ).not.toContain( 'DESIGN.md' );
 	} );
 
 	it( 'refuses more images than one message carries', () => {

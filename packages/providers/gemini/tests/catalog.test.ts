@@ -33,7 +33,7 @@ describe( 'gemini catalog', () => {
 				'gemini-3.1-flash-lite-preview',
 				'gemini-flash-latest',
 				'gemini-2.5-computer-use-preview-10-2025',
-				'gemini-4-hydrogen',
+				'gemini-5-hydrogen',
 				'text-embedding-004'
 			)
 		);
@@ -84,8 +84,8 @@ describe( 'gemini catalog', () => {
 		await expect( geminiAi.model( picked, 'gemini-3.1-flash-lite', {} ) ).resolves.toMatchObject( {
 			model: { id: 'gemini-3.1-flash-lite', contextWindow: 200_000, maxTokens: 32_000 },
 		} );
-		await expect( geminiAi.model( picked, 'gemini-4-hydrogen', {} ) ).rejects.toThrow(
-			'Google Gemini does not serve gemini-4-hydrogen'
+		await expect( geminiAi.model( picked, 'gemini-5-hydrogen', {} ) ).rejects.toThrow(
+			'Google Gemini does not serve gemini-5-hydrogen'
 		);
 	} );
 } );

@@ -6,7 +6,7 @@ import type { AiModel, Provider } from '../types';
 
 export const OPENAI_AI_MODELS = [
 	{ id: 'gpt-6.1-terra', label: () => 'GPT-6.1 Terra' },
-	{ id: 'gpt-6.1-sol', label: () => 'GPT-6.1 Sol' },
+	{ id: 'gpt-6.2-sol', label: () => 'GPT-6.2 Sol' },
 ] as const satisfies readonly AiModel[];
 
 export const openaiConnectInput = () =>

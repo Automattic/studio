@@ -98,18 +98,18 @@ describe( 'openai account', () => {
 	} );
 
 	it( 'connects models over the public API with the access token', async () => {
-		await expect( openaiAi.model( config( 60_000 ), 'gpt-6.1-sol', {} ) ).resolves.toMatchObject( {
+		await expect( openaiAi.model( config( 60_000 ), 'gpt-6.2-sol', {} ) ).resolves.toMatchObject( {
 			piProvider: 'openai',
 			apiKey: 'old-access',
 			model: {
-				id: 'gpt-6.1-sol',
+				id: 'gpt-6.2-sol',
 				api: 'openai-responses',
 				baseUrl: 'https://api.openai.com/v1',
 				contextWindow: 200_000,
 				maxTokens: 32_000,
 			},
 		} );
-		await expect( openaiAi.model( undefined, 'gpt-6.1-sol', {} ) ).rejects.toBeInstanceOf(
+		await expect( openaiAi.model( undefined, 'gpt-6.2-sol', {} ) ).rejects.toBeInstanceOf(
 			NotConnectedError
 		);
 	} );

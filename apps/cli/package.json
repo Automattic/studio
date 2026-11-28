@@ -24,7 +24,7 @@
 		"directory": "apps/cli"
 	},
 	"dependencies": {
-		"@earendil-works/pi-tui": "1.5.0",
+		"@earendil-works/pi-tui": "1.6.1",
 		"@inquirer/ansi": "^1.0.2",
 		"@inquirer/core": "^10.3.2",
 		"@inquirer/figures": "^1.0.15",
@@ -54,8 +54,8 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
-		"@earendil-works/pi-ai": "1.5.0",
-		"@earendil-works/pi-coding-agent": "1.5.0",
+		"@earendil-works/pi-ai": "1.6.1",
+		"@earendil-works/pi-coding-agent": "1.6.1",
 		"@formatjs/intl-localematcher": "^0.5.4",
 		"@modelcontextprotocol/server": "^2.4.0",
 		"@sentry/node": "^11.7.0",

@@ -5,7 +5,7 @@ import { OPENAI_AI_MODELS } from './descriptor';
 import type { OpenaiConfig } from './config';
 
 /**
- * GPT models, such as `gpt-6.1-terra`, `gpt-5.3-codex-spark` or `gpt-5`, the newest of Studio's
+ * GPT models, such as `gpt-6.1-terra`, `gpt-5.3-codex` or `gpt-5`, the newest of Studio's
  * families (Terra, Sol) recommended. A ChatGPT plan's sign-in gets the plan's own list, which says
  * what each model is for and hides some; it isn't billed by the token, so only an API key's models
  * show their price.

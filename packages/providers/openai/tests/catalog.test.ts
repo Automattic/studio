@@ -73,6 +73,7 @@ describe( 'openai catalog', () => {
 			new Response(
 				JSON.stringify( {
 					models: [
+						{ slug: 'gpt-7-sol', visibility: 'list', description: 'Next generation.' },
 						{ slug: 'gpt-6.2-sol', visibility: 'list', description: 'Fast, go-to model.' },
 						{ slug: 'gpt-6.1-terra', visibility: 'list', description: 'Efficient model.' },
 						{ slug: 'gpt-6.1-sol', visibility: 'list', description: 'Previous generation.' },
@@ -84,31 +85,37 @@ describe( 'openai catalog', () => {
 
 		const models = await openaiAi.listModels!( plan );
 
-		// GPT-6.2 Sol is newer than pi's catalog, so it waits for a pi upgrade.
+		// GPT-7 Sol is newer than pi's catalog, so it waits for a pi upgrade; GPT-6.2 Sol replaces
+		// GPT-6.1 Sol as the recommended Sol.
 		expect( models ).toEqual( [
+			expect.objectContaining( {
+				id: 'gpt-6.2-sol',
+				details: 'Fast, go-to model.',
+				recommended: true,
+			} ),
 			expect.objectContaining( {
 				id: 'gpt-6.1-terra',
 				details: 'Efficient model.',
 				recommended: true,
 			} ),
-			expect.objectContaining( { id: 'gpt-6.1-sol', recommended: true } ),
+			expect.objectContaining( { id: 'gpt-6.1-sol', recommended: false } ),
 		] );
-		await expect( openaiAi.model( plan, 'gpt-6.2-sol', {} ) ).rejects.toThrow(
-			'OpenAI does not serve gpt-6.2-sol'
+		await expect( openaiAi.model( plan, 'gpt-7-sol', {} ) ).rejects.toThrow(
+			'OpenAI does not serve gpt-7-sol'
 		);
 	} );
 
 	it( 'offers the models the user picked, within Studio Code’s limits', async () => {
 		const config = await openaiAi.selectModels!( plan, [
-			{ id: 'gpt-5.3-codex-spark', label: 'GPT-5.3 Codex Spark', supportsImages: true },
+			{ id: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', supportsImages: true },
 		] );
 		const account = openaiProvider.account!.describe( config );
 
 		expect( getAiModels( 'openai', account ).map( ( model ) => model.label() ) ).toEqual( [
-			'GPT-5.3 Codex Spark',
+			'GPT-5.3 Codex',
 		] );
-		await expect( openaiAi.model( config, 'gpt-5.3-codex-spark', {} ) ).resolves.toMatchObject( {
-			model: { id: 'gpt-5.3-codex-spark', contextWindow: 128_000, maxTokens: 32_000 },
+		await expect( openaiAi.model( config, 'gpt-5.3-codex', {} ) ).resolves.toMatchObject( {
+			model: { id: 'gpt-5.3-codex', contextWindow: 200_000, maxTokens: 32_000 },
 		} );
 		await expect( openaiAi.model( config, 'gpt-4o', {} ) ).rejects.toThrow(
 			'OpenAI does not serve gpt-4o'

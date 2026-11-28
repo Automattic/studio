@@ -4,9 +4,13 @@ import { RemoteSiteError } from '../../errors';
 // The Jetpack Reprint exporter on a WordPress.com site, which a local Reprint
 // pulls the site through.
 
-/** The URL of the Jetpack Reprint exporter on a site. */
+/**
+ * The URL of the Jetpack Reprint exporter on a site. Always HTTPS: Reprint refuses HTTP, and a site
+ * whose address WordPress.com reports as `http://` still serves HTTPS.
+ */
 export function getReprintApiUrl( siteUrl: string ): string {
 	const apiUrl = new URL( siteUrl );
+	apiUrl.protocol = 'https:';
 	apiUrl.search = '?reprint-api-jetpack';
 	return apiUrl.toString();
 }

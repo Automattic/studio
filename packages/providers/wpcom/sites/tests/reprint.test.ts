@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { enableReprintExporter, installReprintPublicKey } from '../reprint';
+import { enableReprintExporter, getReprintApiUrl, installReprintPublicKey } from '../reprint';
 
 const mockToken = 'mock-token-123';
 const mockSiteId = 12345;
@@ -10,6 +10,15 @@ beforeEach( () => {
 
 afterEach( () => {
 	vi.unstubAllGlobals();
+} );
+
+describe( 'getReprintApiUrl', () => {
+	it.each( [ 'http://example.com', 'https://example.com/' ] )(
+		'points %s at the HTTPS exporter',
+		( siteUrl ) => {
+			expect( getReprintApiUrl( siteUrl ) ).toBe( 'https://example.com/?reprint-api-jetpack' );
+		}
+	);
 } );
 
 describe( 'installReprintPublicKey', () => {

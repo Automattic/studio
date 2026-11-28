@@ -34,7 +34,7 @@ beforeEach( () => {
 			( {
 				backgroundImage: element === header ? header.style.backgroundImage || 'none' : 'none',
 				backgroundColor: element === header ? header.style.backgroundColor : 'rgba(0, 0, 0, 0)',
-				opacity: '1',
+				opacity: ( element as HTMLElement ).style.opacity || '1',
 			} ) as CSSStyleDeclaration
 	);
 	let fill = '#000000';
@@ -88,15 +88,42 @@ describe( 'preview page colors', () => {
 		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( '#123456' ) );
 		document.head.lastElementChild!.setAttribute( 'content', '#abcdef' );
 		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( '#abcdef' ) );
+		expect( window.getComputedStyle ).not.toHaveBeenCalled();
+		document.head.innerHTML = '';
+		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( '#14283c' ) );
 		stop();
 	} );
 
-	it( 'uses a solid visible header, then reports no color for an unreliable header', async () => {
+	it( 'uses a solid visible header and rejects gradients or ancestor opacity', async () => {
 		const report = vi.fn();
 		const stop = observePreviewThemeColor( report );
 		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( '#14283c' ) );
 		header.style.backgroundImage = 'linear-gradient(red, blue)';
 		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( null ) );
+		header.style.backgroundImage = 'none';
+		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( '#14283c' ) );
+		document.body.style.opacity = '0.5';
+		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( null ) );
+		document.body.style.opacity = '1';
+		stop();
+	} );
+
+	it( 'resamples CSS colors when the color scheme changes without metadata', async () => {
+		const colorScheme = new EventTarget();
+		vi.stubGlobal( 'matchMedia', () => colorScheme );
+		let dark = false;
+		const getStyle = vi.mocked( window.getComputedStyle ).getMockImplementation()!;
+		vi.mocked( window.getComputedStyle ).mockImplementation( ( element ) => {
+			const style = getStyle( element );
+			if ( element === header && dark ) style.backgroundColor = 'rgb(72, 13, 27)';
+			return style;
+		} );
+		const report = vi.fn();
+		const stop = observePreviewThemeColor( report );
+		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( '#14283c' ) );
+		dark = true;
+		colorScheme.dispatchEvent( new Event( 'change' ) );
+		await vi.waitFor( () => expect( report ).toHaveBeenLastCalledWith( '#480d1b' ) );
 		stop();
 	} );
 

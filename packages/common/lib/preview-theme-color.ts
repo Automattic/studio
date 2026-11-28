@@ -72,17 +72,20 @@ export function observePreviewThemeColor( report: ( color: string | null ) => vo
 			// Ancestor selectors can change an opaque element's background too.
 			while ( element ) {
 				watched.add( element );
-				if ( reliable && composite[ 3 ] < 0.999 ) {
+				if ( reliable ) {
 					const style = getComputedStyle( element );
-					if (
-						style.backgroundImage !== 'none' ||
-						Number( style.opacity ) < 1 ||
-						/^(IMG|VIDEO|CANVAS|IFRAME|SVG)$/.test( element.tagName )
-					) {
+					if ( Number( style.opacity ) < 1 ) {
 						reliable = false;
-					} else {
-						const background = parse( style.backgroundColor );
-						if ( background ) composite = over( composite, background );
+					} else if ( composite[ 3 ] < 0.999 ) {
+						if (
+							style.backgroundImage !== 'none' ||
+							/^(IMG|VIDEO|CANVAS|IFRAME|SVG)$/.test( element.tagName )
+						) {
+							reliable = false;
+						} else {
+							const background = parse( style.backgroundColor );
+							if ( background ) composite = over( composite, background );
+						}
 					}
 				}
 				element = element.parentElement;
@@ -174,11 +177,20 @@ export function observePreviewThemeColor( report: ( color: string | null ) => vo
 	function update() {
 		frame = 0;
 		if ( stopped ) return;
-		const top = sampleTop();
 		const meta = readMeta();
 		const manifest = meta ? null : readManifest();
 		if ( ! meta && manifest === undefined ) return;
-		const selected = meta ?? manifest ?? top;
+		const declared = meta ?? manifest;
+		let top: Color | null = null;
+		if ( declared?.[ 3 ] === 1 ) {
+			pageObserver.disconnect();
+			sizeObserver.disconnect();
+			observedElements = [];
+			observedBody = null;
+		} else {
+			top = sampleTop();
+		}
+		const selected = declared ?? top;
 		const opaque = selected && selected[ 3 ] < 1 && top ? over( selected, top ) : selected;
 		const color = opaque && opaque[ 3 ] >= 0.999 ? toHex( opaque ) : null;
 		if ( color !== previous ) {
@@ -195,6 +207,8 @@ export function observePreviewThemeColor( report: ( color: string | null ) => vo
 			subtree: true,
 		} );
 	}
+	const colorScheme = matchMedia( '(prefers-color-scheme: dark)' );
+	colorScheme.addEventListener( 'change', schedule );
 	window.addEventListener( 'resize', schedule );
 	window.addEventListener( 'load', schedule );
 	window.addEventListener( 'pageshow', schedule );
@@ -207,6 +221,7 @@ export function observePreviewThemeColor( report: ( color: string | null ) => vo
 		pageObserver.disconnect();
 		sizeObserver.disconnect();
 		for ( const query of media ) query.removeEventListener( 'change', schedule );
+		colorScheme.removeEventListener( 'change', schedule );
 		window.removeEventListener( 'resize', schedule );
 		window.removeEventListener( 'load', schedule );
 		window.removeEventListener( 'pageshow', schedule );

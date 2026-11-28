@@ -159,9 +159,7 @@ export function SidebarLayout( {
 	useLayoutEffect( () => {
 		if ( docked && focusDockedSidebar.current ) {
 			focusDockedSidebar.current = false;
-			dockedSidebarRef.current
-				?.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
-				?.focus( { preventScroll: true } );
+			findToggle()?.focus( { preventScroll: true } );
 		}
 		if ( docked && dockedSidebarScrollRef.current ) {
 			dockedSidebarScrollRef.current.scrollTop = dockScrollTop.current;

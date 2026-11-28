@@ -12,9 +12,9 @@ describe( 'SidebarHeader', () => {
 		await waitFor( () => expect( connector.popupAppMenu ).toHaveBeenCalledWith( { x: 0, y: 0 } ) );
 	} );
 
-	it( 'hides the app menu button when the host has a native menu bar', async () => {
+	it( 'hides the app menu button when the host has a native menu bar', () => {
 		renderWithProviders( <SidebarHeader /> );
-		expect( await screen.findByRole( 'button', { name: /sidebar$/ } ) ).toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /sidebar$/ } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Menu' } ) ).not.toBeInTheDocument();
 	} );
 } );

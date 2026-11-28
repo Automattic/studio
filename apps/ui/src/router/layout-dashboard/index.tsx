@@ -245,7 +245,7 @@ function DashboardLayout() {
 				Number.parseFloat( getComputedStyle( tabHeader ).getPropertyValue( '--band-gap' ) ) || 0;
 			tabHeader.style.setProperty(
 				'--tabs-lead-width',
-				`${ ( isRTL() ? box.right - title.left : title.right - box.left ) + gap }px`
+				`${ isRTL() ? box.right - title.left : title.right - box.left }px`
 			);
 			const inset = Number.parseFloat( getComputedStyle( actionsContainer ).paddingInlineEnd ) || 0;
 			tabHeader.style.setProperty( '--tabs-actions-width', `${ buttons.width + inset + gap }px` );

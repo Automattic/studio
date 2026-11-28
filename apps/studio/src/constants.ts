@@ -10,7 +10,7 @@ export const NIGHTLY_UPDATE_TTL_MS = 24 * 60 * 60 * 1000;
 export const MACOS_TRAFFIC_LIGHT_POSITION = { x: 20, y: 17 };
 export const WINDOWS_TITLEBAR_HEIGHT = 44;
 // Match the renderer's --band-height so native caption buttons align with the toolbar.
-export const AGENTIC_TITLEBAR_HEIGHT = 48;
+export const TITLEBAR_HEIGHT = 48;
 export const ABOUT_WINDOW_WIDTH = 300;
 export const ABOUT_WINDOW_HEIGHT = 285;
 export const BUG_REPORT_URL =

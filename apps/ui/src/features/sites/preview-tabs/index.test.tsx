@@ -377,16 +377,12 @@ it( 'restarts at home after stopping a project while another project is open', a
 	);
 } );
 it( 'keeps stopped and blank tabs empty without a browser bar', async () => {
-	const { connector, user } = await setup( false );
+	const { connector } = await setup( false );
 	expect( screen.queryByRole( 'tablist', { name: 'Preview tabs' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'New tab' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'New tab' } ) ).not.toBeInTheDocument();
 	expect(
 		screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
 	).not.toBeInTheDocument();
-	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	expect( screen.queryByRole( 'tab' ) ).not.toBeInTheDocument();
-	expect( await screen.findByRole( 'menuitem', { name: 'Browser' } ) ).toBeVisible();
-	await user.keyboard( '{Escape}' );
 	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
 	const pane = screen.getByRole( 'complementary', { name: 'Panel' } );
 	expect( within( pane ).getByRole( 'group', { name: 'Project tools' } ) ).toBeVisible();
@@ -628,13 +624,13 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 
 it( 'starts a stopped project from Browser and uses its first preview tab', async () => {
 	const { connector, user } = await setup( false );
-	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
+	expect( await screen.findByRole( 'button', { name: 'New tab' } ) ).toBeVisible();
 	await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 	await waitFor( () => expect( document.querySelector( 'iframe' ) ).not.toBeNull() );
 	fireEvent.load( document.querySelector( 'iframe' )! );
 	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 ) );
-	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+	expect( await screen.findByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
 		'http://localhost:9010'
 	);
 } );
@@ -738,8 +734,7 @@ it.each( [ false, true ] )(
 			await ready;
 			return start( id );
 		} );
-		await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-		await user.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Browser B' } ) );
 		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( 'one' ) );
 		const preview = screen.getByRole( 'complementary', { name: 'Panel' } );
 		expect( within( preview ).getByText( 'Loading site preview' ) ).toBeInTheDocument();
@@ -838,6 +833,16 @@ it( 'opens the new-tab menu with the primary T shortcut, including from closed p
 		shiftKey: true,
 	} );
 	expect( screen.queryByRole( 'menuitem', { name: 'Browser' } ) ).not.toBeInTheDocument();
+} );
+
+it( 'focuses the centered tools with the primary T shortcut on a stopped site', async () => {
+	const { user } = await setup( false );
+	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, { key: 't', code: 'KeyT', metaKey: isApple, ctrlKey: ! isApple } );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Browser B' } ) ).toHaveFocus()
+	);
 } );
 
 it( 'opens a new tab with the primary T shortcut when the plus button is hidden', async () => {

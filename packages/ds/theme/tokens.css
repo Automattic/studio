@@ -167,7 +167,7 @@
 
 	/* The workspace's top band, its controls, and the short column separators
 	   drawn inside it. */
-	--band-height: 48px;
+	--band-height: calc( var( --control-size-sm ) + 2 * var( --band-inset ) );
 	--band-tab-width: 160px;
 	--control-size: 36px;
 	--control-size-sm: var( --space-8 );
@@ -178,6 +178,7 @@
 	--band-inset: var( --space-2 );
 	--band-separator-height: 16px;
 	--band-gap: var( --space-1 );
+	--sidebar-action-gap: 0px;
 	--band-group-gap: var( --space-2 );
 	/* Shared scroll-edge fade: length and soft opacity stops. */
 	--surface-fade-size: 24px;

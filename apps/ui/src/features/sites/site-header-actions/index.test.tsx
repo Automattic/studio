@@ -87,10 +87,10 @@ describe( 'SiteHeaderActions', () => {
 		const { site, connector } = await renderActions( false, {
 			operation: { kind: 'start', pid: 123, cancelRequested: false },
 		} );
-		let finishStop!: ( site: SiteDetails ) => void;
+		let finishStop!: () => void;
 		connector.stopSite.mockImplementationOnce(
 			() =>
-				new Promise< SiteDetails >( ( resolve ) => {
+				new Promise< void >( ( resolve ) => {
 					finishStop = resolve;
 				} )
 		);
@@ -102,7 +102,7 @@ describe( 'SiteHeaderActions', () => {
 		await userEvent.click( button );
 		expect( connector.stopSite ).toHaveBeenCalledTimes( 1 );
 		expect( connector.startSite ).not.toHaveBeenCalled();
-		await act( async () => finishStop( { ...site, operation: undefined } ) );
+		await act( async () => finishStop() );
 	} );
 
 	it( 'keeps Publish visible for a stopped site and opens it from the site menu', async () => {

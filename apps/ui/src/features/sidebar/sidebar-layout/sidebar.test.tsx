@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { resetLocaleData, setLocaleData } from '@wordpress/i18n';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetPanelLayout, SIDEBAR_PANEL_STORAGE_KEY } from '@/data/resizable-panels';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { HeaderSidebarToggle } from '@/features/sidebar/sidebar-toggle';
@@ -31,12 +31,8 @@ async function setup( connector = createFakeConnector( { sites: [ makeSite() ] }
 	return view;
 }
 
-// The toggle outside the inert half: in the sidebar while it's docked, in the
-// header otherwise.
 const toggle = () =>
-	screen
-		.getAllByRole( 'button', { name: /^(Show|Hide) sidebar$/ } )
-		.find( ( button ) => ! button.closest( '[inert]' ) )!;
+	within( screen.getByRole( 'main' ) ).getByRole( 'button', { name: /^(Show|Hide) sidebar$/ } );
 const handle = () => screen.getByRole( 'separator', { name: 'Resize sidebar' } );
 
 beforeEach( () => {
@@ -49,6 +45,66 @@ afterEach( () => {
 } );
 
 describe( 'resizable sidebar', () => {
+	it( 'shows the native window buttons only with the dock or flyout', async () => {
+		const connector = createFakeConnector(
+			{ sites: [ makeSite() ] },
+			{ reservesTrafficLightSpace: true }
+		);
+		const { unmount } = await setup( connector );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true );
+		fireEvent.click( toggle() );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+		resize( 800 );
+		fireEvent.click( toggle() );
+		const flyout = screen.getByRole( 'dialog', { name: 'Sidebar' } );
+		vi.spyOn( flyout, 'getBoundingClientRect' ).mockReturnValue( new DOMRect( -64, 6, 256, 600 ) );
+		fireEvent( flyout, new Event( 'transitionrun' ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true, {
+			x: -64,
+			y: 6,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close sidebar' } ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+		unmount();
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+	} );
+
+	it( 'keeps the native window buttons on the physical left with an RTL flyout', async () => {
+		setLocaleData( { 'text direction\u0004ltr': [ 'rtl' ] } );
+		const connector = createFakeConnector(
+			{ sites: [ makeSite() ] },
+			{ reservesTrafficLightSpace: true }
+		);
+		await setup( connector );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true );
+		fireEvent.click( toggle() );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+		resize( 800 );
+		fireEvent.click( toggle() );
+		const flyout = screen.getByRole( 'dialog', { name: 'Sidebar' } );
+		vi.spyOn( flyout, 'getBoundingClientRect' ).mockReturnValue( new DOMRect( 544, 0, 256, 600 ) );
+		fireEvent( flyout, new Event( 'transitionrun' ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close sidebar' } ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+	} );
+
+	it( 'restores the current sidebar state after leaving fullscreen', async () => {
+		const connector = createFakeConnector(
+			{ sites: [ makeSite() ] },
+			{ reservesTrafficLightSpace: true }
+		);
+		await setup( connector );
+		act( () => connector.emit( 'onFullscreenChange', true ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+		act( () => connector.emit( 'onFullscreenChange', false ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true );
+		act( () => connector.emit( 'onFullscreenChange', true ) );
+		fireEvent.click( toggle() );
+		act( () => connector.emit( 'onFullscreenChange', false ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+	} );
+
 	it( 'resizes with the keyboard, clamps bounds, and persists its width', async () => {
 		const { unmount } = await setup();
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '256' );
@@ -76,22 +132,16 @@ describe( 'resizable sidebar', () => {
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '272' );
 	} );
 
-	it( 'keeps the closing toggle clickable while moving focus to the header', async () => {
+	it( 'keeps the workspace toggle focused when collapsing and reopening the sidebar', async () => {
 		await setup();
-		const closingToggle = toggle();
-		const sidebar = closingToggle.closest( 'aside' )!;
-		closingToggle.focus();
-		fireEvent.click( closingToggle );
-		const visualToggle = sidebar.querySelector< HTMLElement >( '[data-sidebar-toggle]' )!;
-
-		expect( visualToggle.closest( '[aria-hidden="true"]' ) ).not.toBeNull();
-		expect( visualToggle ).toHaveAttribute( 'tabindex', '-1' );
-		expect( visualToggle.closest( '[inert]' ) ).toBeNull();
-		expect( toggle() ).toHaveAccessibleName( 'Show sidebar' );
-		expect( toggle() ).toHaveFocus();
-
-		fireEvent.click( visualToggle );
-		expect( toggle() ).toHaveAccessibleName( 'Hide sidebar' );
+		const button = toggle();
+		button.focus();
+		fireEvent.click( button );
+		expect( button ).toHaveAccessibleName( 'Show sidebar' );
+		expect( button ).toHaveFocus();
+		fireEvent.click( button );
+		expect( button ).toHaveAccessibleName( 'Hide sidebar' );
+		expect( button ).toHaveFocus();
 		expect( handle() ).toBeInTheDocument();
 	} );
 
@@ -110,7 +160,9 @@ describe( 'resizable sidebar', () => {
 		fireEvent.mouseDown( handle(), { button: 0, clientX: 256 } );
 		fireEvent.mouseUp( document, { clientX: 320 } );
 		expect( handle() ).toHaveAttribute( 'aria-valuenow', '320' );
-		const sidebar = toggle().closest( 'aside' )!.querySelector( `.${ styles.sidebarScroll }` )!;
+		const sidebar = screen
+			.getByRole( 'complementary', { name: '' } )
+			.querySelector( `.${ styles.sidebarScroll }` )!;
 		sidebar.scrollTop = 120;
 		fireEvent.click( toggle() );
 		expect( screen.queryByRole( 'separator', { name: 'Resize sidebar' } ) ).not.toBeInTheDocument();

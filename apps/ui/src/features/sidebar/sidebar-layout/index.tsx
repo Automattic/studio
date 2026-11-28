@@ -5,6 +5,7 @@ import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useFullscreen } from '@/data/host/use-fullscreen';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
@@ -26,6 +27,7 @@ import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
+import { useSidebarWindowButtons } from './use-sidebar-window-buttons';
 import type { CSSProperties, PointerEvent, ReactNode, RefCallback } from 'react';
 
 const HOVER_OPEN_DELAY_MS = 180;
@@ -66,6 +68,8 @@ export function SidebarLayout( {
 	headerAction?: ReactNode;
 } ) {
 	const connector = useConnector();
+	const fullscreen = useFullscreen();
+	const hasMacTitleBar = connector.reservesTrafficLightSpace && ! fullscreen;
 	const hasOpenDialog = useHasOpenDialog();
 	const hasCoarsePointer = useMediaQuery( '(any-pointer: coarse)' );
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
@@ -156,12 +160,11 @@ export function SidebarLayout( {
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
+	const flyoutContentsRef = useSidebarWindowButtons( docked, sidebarFlyoutVisible );
 	useLayoutEffect( () => {
 		if ( docked && focusDockedSidebar.current ) {
 			focusDockedSidebar.current = false;
-			dockedSidebarRef.current
-				?.querySelector< HTMLElement >( '[data-sidebar-toggle]' )
-				?.focus( { preventScroll: true } );
+			findToggle()?.focus( { preventScroll: true } );
 		}
 		if ( docked && dockedSidebarScrollRef.current ) {
 			dockedSidebarScrollRef.current.scrollTop = dockScrollTop.current;
@@ -283,6 +286,8 @@ export function SidebarLayout( {
 						<SidebarHoverContext.Provider value={ { peek } }>
 							<div
 								className={ styles.root }
+								data-mac-title-bar={ hasMacTitleBar || undefined }
+								data-sidebar-below-header={ ( overlay && ! hasMacTitleBar ) || undefined }
 								style={ sidebarStyle }
 								onPointerLeave={ handleWindowLeave }
 								onPointerMove={ hasCoarsePointer ? handleMouseMoveOnTouchDevice : undefined }
@@ -356,6 +361,7 @@ export function SidebarLayout( {
 											style={ sidebarStyle }
 										>
 											<aside
+												ref={ flyoutContentsRef }
 												className={ styles.sidebarFlyoutContents }
 												onPointerEnter={ clearHoverTimer }
 												onPointerLeave={ hoverLeave }

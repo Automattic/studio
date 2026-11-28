@@ -55,22 +55,42 @@ describe( 'resizable sidebar', () => {
 			{ reservesTrafficLightSpace: true }
 		);
 		const { unmount } = await setup( connector );
-		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( true );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true );
 		fireEvent.click( toggle() );
-		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
 		resize( 800 );
 		fireEvent.click( toggle() );
 		const flyout = screen.getByRole( 'dialog', { name: 'Sidebar' } );
 		vi.spyOn( flyout, 'getBoundingClientRect' ).mockReturnValue( new DOMRect( -64, 6, 256, 600 ) );
 		fireEvent( flyout, new Event( 'transitionrun' ) );
-		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( true, {
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true, {
 			x: -64,
 			y: 6,
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close sidebar' } ) );
-		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
 		unmount();
-		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+	} );
+
+	it( 'keeps the native window buttons on the physical left with an RTL flyout', async () => {
+		setLocaleData( { 'text direction\u0004ltr': [ 'rtl' ] } );
+		const connector = createFakeConnector(
+			{ sites: [ makeSite() ] },
+			{ reservesTrafficLightSpace: true }
+		);
+		await setup( connector );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true );
+		fireEvent.click( toggle() );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
+		resize( 800 );
+		fireEvent.click( toggle() );
+		const flyout = screen.getByRole( 'dialog', { name: 'Sidebar' } );
+		vi.spyOn( flyout, 'getBoundingClientRect' ).mockReturnValue( new DOMRect( 544, 0, 256, 600 ) );
+		fireEvent( flyout, new Event( 'transitionrun' ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close sidebar' } ) );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
 	} );
 
 	it( 'restores the current sidebar state after leaving fullscreen', async () => {
@@ -80,13 +100,13 @@ describe( 'resizable sidebar', () => {
 		);
 		await setup( connector );
 		act( () => connector.emit( 'onFullscreenChange', true ) );
-		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
 		act( () => connector.emit( 'onFullscreenChange', false ) );
-		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( true );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( true );
 		act( () => connector.emit( 'onFullscreenChange', true ) );
 		fireEvent.click( toggle() );
 		act( () => connector.emit( 'onFullscreenChange', false ) );
-		expect( connector.setTrafficLightVisibility ).toHaveBeenLastCalledWith( false );
+		expect( connector.setTrafficLightState ).toHaveBeenLastCalledWith( false );
 	} );
 
 	it( 'resizes with the keyboard, clamps bounds, and persists its width', async () => {

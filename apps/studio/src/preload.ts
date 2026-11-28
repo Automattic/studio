@@ -166,8 +166,8 @@ const api: IpcApi = {
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
 	readBlueprint: ( source ) => ipcRendererInvoke( 'readBlueprint', source ),
 	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
-	setTrafficLightVisibility: ( visible, flyoutOrigin ) =>
-		ipcRendererInvoke( 'setTrafficLightVisibility', visible, flyoutOrigin ),
+	setTrafficLightState: ( visible, flyoutOrigin ) =>
+		ipcRendererInvoke( 'setTrafficLightState', visible, flyoutOrigin ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),
 	isStudioCliInstalled: () => ipcRendererInvoke( 'isStudioCliInstalled' ),

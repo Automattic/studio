@@ -149,7 +149,7 @@ import {
 import { getProviderServices } from '@studio/providers/services';
 import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
-import { AGENTIC_TITLEBAR_HEIGHT, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
+import { TITLEBAR_HEIGHT, MACOS_TRAFFIC_LIGHT_POSITION } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { setPendingAuthContext, takePendingAuthContext } from 'src/lib/auth-tracks-context';
 import { bumpStat, getBlueprintMetric, StatsGroup } from 'src/lib/bump-stats';
@@ -1539,7 +1539,7 @@ export async function readBlueprint( _event: IpcMainInvokeEvent, source: string 
 	return opened.blueprint;
 }
 
-export function setTrafficLightVisibility(
+export function setTrafficLightState(
 	event: IpcMainInvokeEvent,
 	visible: boolean,
 	flyoutOrigin?: { x: number; y: number }
@@ -1554,7 +1554,7 @@ export function setTrafficLightVisibility(
 
 	const zoom = event.sender.getZoomFactor();
 	// AppKit keeps the buttons 14 points tall even when the renderer is zoomed.
-	const y = Math.round( ( AGENTIC_TITLEBAR_HEIGHT * zoom - 14 ) / 2 );
+	const y = Math.round( ( TITLEBAR_HEIGHT * zoom - 14 ) / 2 );
 	const x =
 		flyoutOrigin && Number.isFinite( flyoutOrigin.x ) && Number.isFinite( flyoutOrigin.y )
 			? Math.round( ( flyoutOrigin.x - flyoutOrigin.y ) * zoom + y )

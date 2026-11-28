@@ -11,7 +11,7 @@ import {
 	listAccountSites,
 	getFileSize,
 	openURL,
-	setTrafficLightVisibility,
+	setTrafficLightState,
 	showOpenFolderDialog,
 } from 'src/ipc-handlers';
 
@@ -62,7 +62,7 @@ describe( 'listAccountSites', () => {
 	);
 } );
 
-describe.runIf( process.platform === 'darwin' )( 'setTrafficLightVisibility', () => {
+describe.runIf( process.platform === 'darwin' )( 'setTrafficLightState', () => {
 	it( 'follows the flyout at the current zoom and restores the docked position', () => {
 		const win = {
 			isFullScreen: () => false,
@@ -73,14 +73,14 @@ describe.runIf( process.platform === 'darwin' )( 'setTrafficLightVisibility', ()
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce(
 			win as unknown as BrowserWindow
 		);
-		setTrafficLightVisibility( event, true, { x: -24, y: 6 } );
+		setTrafficLightState( event, true, { x: -24, y: 6 } );
 		expect( win.setWindowButtonPosition ).toHaveBeenLastCalledWith( { x: -16, y: 29 } );
 		expect( win.setWindowButtonVisibility ).toHaveBeenLastCalledWith( true );
 
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce(
 			win as unknown as BrowserWindow
 		);
-		setTrafficLightVisibility( event, true );
+		setTrafficLightState( event, true );
 		expect( win.setWindowButtonPosition ).toHaveBeenLastCalledWith( { x: 20, y: 29 } );
 	} );
 
@@ -89,7 +89,7 @@ describe.runIf( process.platform === 'darwin' )( 'setTrafficLightVisibility', ()
 		vi.mocked( BrowserWindow.fromWebContents ).mockReturnValueOnce(
 			win as unknown as BrowserWindow
 		);
-		setTrafficLightVisibility( mockIpcMainInvokeEvent, true );
+		setTrafficLightState( mockIpcMainInvokeEvent, true );
 		expect( win.setWindowButtonVisibility ).toHaveBeenCalledExactlyOnceWith( false );
 	} );
 } );

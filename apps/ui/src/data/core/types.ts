@@ -748,7 +748,7 @@ export interface Connector {
 	// `isFullscreen` — macOS hides the traffic lights in fullscreen — to decide
 	// when to actually leave the gap (see `useTrafficLightSpace`).
 	reservesTrafficLightSpace: boolean;
-	setTrafficLightVisibility?(
+	setTrafficLightState?(
 		visible: boolean,
 		flyoutOrigin?: { x: number; y: number }
 	): Promise< void >;

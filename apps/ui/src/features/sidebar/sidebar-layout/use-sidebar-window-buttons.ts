@@ -1,3 +1,4 @@
+import { isRTL } from '@wordpress/i18n';
 import { useLayoutEffect, useState } from 'react';
 import { useFullscreen } from '@/data/host/use-fullscreen';
 import { useConnector } from '@/data/core';
@@ -5,18 +6,21 @@ import { useConnector } from '@/data/core';
 export function useSidebarWindowButtons( docked: boolean, open: boolean ) {
 	const connector = useConnector();
 	const fullscreen = useFullscreen();
+	const rtl = isRTL();
 	const [ contents, setContents ] = useState< HTMLElement | null >( null );
 	const setButtons = connector.reservesTrafficLightSpace
-		? connector.setTrafficLightVisibility
+		? connector.setTrafficLightState
 		: undefined;
 
 	useLayoutEffect( () => {
 		if ( ! setButtons ) return;
 		const popup = contents?.parentElement;
-		if ( fullscreen || docked || ! popup ) {
-			const update = () => void setButtons( ! fullscreen && docked );
+		// In RTL the sidebar is on the right; macOS controls stay on the physical left.
+		if ( fullscreen || docked || ! popup || rtl ) {
+			const visible = ! fullscreen && ( docked || ( rtl && open ) );
+			const update = () => void setButtons( visible );
 			update();
-			if ( docked && ! fullscreen ) {
+			if ( visible ) {
 				window.addEventListener( 'resize', update );
 				return () => window.removeEventListener( 'resize', update );
 			}
@@ -64,7 +68,7 @@ export function useSidebarWindowButtons( docked: boolean, open: boolean ) {
 			popup.removeEventListener( 'transitionend', sample );
 			window.removeEventListener( 'resize', sample );
 		};
-	}, [ setButtons, contents, docked, open, fullscreen ] );
+	}, [ setButtons, contents, docked, open, fullscreen, rtl ] );
 
 	useLayoutEffect(
 		() => () => {

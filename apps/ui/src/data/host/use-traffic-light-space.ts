@@ -18,7 +18,7 @@ export function useTrafficLightSpace(): { start: boolean; end: boolean } {
 	const visible =
 		connector.reservesTrafficLightSpace &&
 		! isFullscreen &&
-		( ! connector.setTrafficLightVisibility || open || peek );
+		( ! connector.setTrafficLightState || open || peek );
 	return {
 		start: visible && ! isRTL(),
 		end: visible && isRTL(),

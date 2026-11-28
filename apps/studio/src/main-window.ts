@@ -14,7 +14,7 @@ import { readConfig } from '@studio/common/lib/config/store';
 import { SUPPORTED_COLOR_SCHEMES } from '@studio/common/lib/user-settings/preferences';
 import {
 	DEFAULT_HEIGHT,
-	AGENTIC_TITLEBAR_HEIGHT,
+	TITLEBAR_HEIGHT,
 	DEFAULT_WIDTH,
 	AGENTIC_MIN_WIDTH,
 	MACOS_TRAFFIC_LIGHT_POSITION,
@@ -359,7 +359,7 @@ export function getTitleBarOverlayOptions() {
 	return {
 		color: surfaceColors[ agenticControlsSurface ],
 		symbolColor: isDark ? '#cecece' : '#282828',
-		height: AGENTIC_TITLEBAR_HEIGHT,
+		height: TITLEBAR_HEIGHT,
 	};
 }
 

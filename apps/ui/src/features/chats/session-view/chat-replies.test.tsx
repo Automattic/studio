@@ -8,6 +8,7 @@ import {
 	assistantToolCallEntry,
 	toolResultEntry,
 	turnClosedEntry,
+	visualAnnotationsEntry,
 } from '@/test/session-entries';
 import type { SessionEntry } from '@/data/core';
 
@@ -96,6 +97,34 @@ it( 'replies to an image-only message with its filename as context', async () =>
 				reply: { sessionId: 'interactions-chat', entryId: prompt.id, excerpt: 'header.png' },
 			} )
 		)
+	);
+} );
+
+it( 'returns to the annotation that was replied to', async () => {
+	const original = visualAnnotationsEntry( [
+		{ comment: 'First note' },
+		{ comment: 'Second note' },
+	] );
+	const { connector, input } = await setup( original );
+	fireEvent.click( screen.getAllByRole( 'button', { name: 'Reply' } )[ 1 ] );
+	fireEvent.change( input, { target: { value: 'Make this larger' } } );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+	await waitFor( () =>
+		expect( connector.continueSession ).toHaveBeenCalledWith(
+			'interactions-chat',
+			'Make this larger',
+			expect.objectContaining( {
+				reply: {
+					sessionId: 'interactions-chat',
+					entryId: `${ original.id }:annotation:1`,
+					excerpt: 'Second note',
+				},
+			} )
+		)
+	);
+	fireEvent.click( await screen.findByRole( 'link', { name: 'Second note' } ) );
+	await waitFor( () =>
+		expect( document.querySelector( '[data-highlighted]' ) ).toHaveTextContent( 'Second note' )
 	);
 } );
 

@@ -275,24 +275,15 @@ describe( 'createLocalConnector Connect contracts', () => {
 		} );
 	} );
 
-	it.each( [ undefined, { messageReplies: true } ] )(
-		'negotiates optional reply support and preserves the reference on send (%j)',
-		async ( capabilities ) => {
-			class Events {
-				close() {}
-			}
-			vi.stubGlobal( 'EventSource', Events );
-			fetchMock.mockResolvedValueOnce( Response.json( { version: '2.4.0', capabilities } ) );
-			const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
-			await connector.init?.();
-			expect( connector.capabilities.messageReplies ).toBe( !! capabilities?.messageReplies );
-			const reply = { sessionId: 'source', entryId: 'message', excerpt: 'Earlier message' };
-			fetchMock.mockResolvedValueOnce( Response.json( { runId: 'reply-run' } ) );
-			await connector.continueSession( 'chat', 'Which part?', { reply } );
-			const body = JSON.parse( String( fetchMock.mock.calls.at( -1 )![ 1 ]?.body ) );
-			expect( body ).toMatchObject( { prompt: 'Which part?', reply } );
-		}
-	);
+	it( 'preserves the reply reference on send', async () => {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		expect( connector.capabilities.messageReplies ).toBe( true );
+		const reply = { sessionId: 'source', entryId: 'message', excerpt: 'Earlier message' };
+		fetchMock.mockResolvedValueOnce( Response.json( { runId: 'reply-run' } ) );
+		await connector.continueSession( 'chat', 'Which part?', { reply } );
+		const body = JSON.parse( String( fetchMock.mock.calls.at( -1 )![ 1 ]?.body ) );
+		expect( body ).toMatchObject( { prompt: 'Which part?', reply } );
+	} );
 
 	it( 'relays the sync activity on the local server event stream', async () => {
 		fetchMock.mockResolvedValueOnce( Response.json( { version: '2.4.0' } ) );
@@ -500,15 +491,17 @@ describe( 'createLocalConnector for a remote server', () => {
 	const checkIns = ( origin: string ) =>
 		fetchMock.mock.calls.filter( ( [ url ] ) => url === `${ origin }/api/health` ).length;
 
-	it( 'offers the skills for all sites, and to make or change a skill, only on a server that can', async () => {
+	it( 'gates newer features on the server version', async () => {
 		expect( ( await start( 'https://new.cloud.test' ) ).capabilities ).toMatchObject( {
 			globalSkills: true,
 			skillEditing: true,
+			messageReplies: true,
 		} );
 		fetchMock.mockImplementation( async () => Response.json( { version: '2.4.0' } ) );
 		expect( ( await start( 'https://old.cloud.test' ) ).capabilities ).toMatchObject( {
 			globalSkills: false,
 			skillEditing: false,
+			messageReplies: false,
 		} );
 	} );
 

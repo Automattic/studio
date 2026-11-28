@@ -1296,6 +1296,32 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
+	it.each( [ 'accepted', 'rejected' ] )(
+		'keeps a %s reply send consistent after unmounting',
+		async ( outcome ) => {
+			const reply = { sessionId: 'test', entryId: 'source', excerpt: 'Earlier message' };
+			saveComposerDraft( 'test', { text: 'Make it warmer', attachments: [], reply } );
+			let finish!: () => void;
+			const onSend = vi.fn(
+				() =>
+					new Promise< void >( ( resolve, reject ) => {
+						finish = () =>
+							outcome === 'accepted' ? resolve() : reject( new Error( 'Send failed' ) );
+					} )
+			);
+			const { unmount } = await setup( { onSend } );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+			await waitFor( () => expect( onSend ).toHaveBeenCalled() );
+			unmount();
+			await act( async () => finish() );
+			expect( getComposerDraft( 'test' ) ).toEqual(
+				outcome === 'accepted'
+					? { text: '', attachments: [] }
+					: { text: 'Make it warmer', attachments: [], reply }
+			);
+		}
+	);
+
 	it( 'holds images back for a model its account says reads only text', async () => {
 		const settings = aiSettings( 'local-llm', [ 'local-llm' ] );
 		settings.accounts[ 'local-llm' ] = {

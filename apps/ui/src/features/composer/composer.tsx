@@ -467,10 +467,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		setValidationError( null );
 		setValue( '' );
 		restoreAttachments( [] );
+		setReply( undefined );
 		setSending( true );
 		try {
 			await onSend( submission.prompt, { ...submission.options, ...( reply ? { reply } : {} ) } );
-			setReply( ( current ) => ( current === reply ? undefined : current ) );
 		} catch {
 			// The parent reports the failure in a toast. Keep the draft even if
 			// its site was closed while the request was pending.
@@ -482,6 +482,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			setValue( ( current ) => current || value );
 			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
+			setReply( ( current ) => current ?? reply );
 			shake();
 			return;
 		} finally {

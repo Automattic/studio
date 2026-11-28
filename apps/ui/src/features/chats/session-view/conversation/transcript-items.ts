@@ -196,7 +196,9 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				data.visualAnnotations.forEach( ( annotation, annotationIndex ) => {
 					items.push( {
 						kind: 'user-text',
-						entryId: data.inputId ?? entry.id,
+						entryId: annotationIndex
+							? `${ data.inputId ?? entry.id }:annotation:${ annotationIndex }`
+							: data.inputId ?? entry.id,
 						reply: data.reply,
 						key: `${ entryIndex }:annotation:${ annotationIndex }`,
 						text: annotation.comment,
@@ -245,7 +247,8 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 					if ( text ) {
 						items.push( {
 							kind: 'assistant-text',
-							entryId: 'pendingPersistence' in entry ? undefined : entry.id,
+							entryId:
+								isStreamingReply( entry ) || 'pendingPersistence' in entry ? undefined : entry.id,
 							key: `${ entryIndex }:${ blockIndex }:text`,
 							text,
 							messageText: fullMessageText,

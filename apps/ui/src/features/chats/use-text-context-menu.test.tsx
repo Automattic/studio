@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
 import { watchComposerTextQuote } from '@/features/chats/composer-text-quote';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
+import { assistantTextEntry } from '@/test/session-entries';
+import { AssistantText } from './session-view/conversation/message';
+import { entriesToRenderItems } from './session-view/conversation/transcript-items';
 import {
 	CODE_TEXT_ATTRIBUTE,
 	MESSAGE_TEXT_ATTRIBUTE,
@@ -222,6 +225,39 @@ describe( 'useTextContextMenu', () => {
 		fireEvent.contextMenu( messageParagraph );
 
 		await waitFor( () => expect( quoteListener ).toHaveBeenCalledWith( 'The selected reply.' ) );
+		stopWatching();
+	} );
+
+	it( 'quotes streaming text without referencing its temporary message ID', async () => {
+		const entry = {
+			...assistantTextEntry( 'Growing reply' ),
+			id: 'temporary-id',
+			streaming: true,
+		};
+		const item = entriesToRenderItems( [ entry ] )[ 0 ];
+		if ( item.kind !== 'assistant-text' ) throw new Error( 'Expected assistant text' );
+		const quoteListener = vi.fn();
+		const stopWatching = watchComposerTextQuote( quoteListener );
+		connector = createFakeConnector( {}, { capabilities: { messageReplies: true } } );
+		connector.showTextContextMenu.mockResolvedValueOnce( {
+			action: 'quote-selection',
+			selectionText: 'Growing reply',
+		} );
+		const { getByText } = render(
+			<div data-session-id="chat">
+				<Harness />
+				<AssistantText
+					entryId={ item.entryId }
+					text={ item.text }
+					messageText={ item.messageText }
+					streaming
+				/>
+			</div>
+		);
+		const message = getByText( 'Growing reply' );
+		selectWithin( message, 'Growing reply' );
+		fireEvent.contextMenu( message );
+		await waitFor( () => expect( quoteListener ).toHaveBeenCalledWith( 'Growing reply' ) );
 		stopWatching();
 	} );
 } );

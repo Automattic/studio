@@ -4,7 +4,7 @@ import path from 'node:path';
 import { expect, it } from 'vitest';
 import { startLocalServer } from '../index';
 
-it( 'advertises reply support and rejects malformed references before starting a run', async () => {
+it( 'rejects malformed reply references before starting a run', async () => {
 	const directory = mkdtempSync( path.join( os.tmpdir(), 'studio-reply-route-' ) );
 	const previous = process.env.DEV_CONFIG_DIR;
 	process.env.DEV_CONFIG_DIR = directory;
@@ -15,8 +15,6 @@ it( 'advertises reply support and rejects malformed references before starting a
 		port: 0,
 	} );
 	try {
-		const version = await fetch( `${ server.url }/api/version` );
-		expect( await version.json() ).toMatchObject( { capabilities: { messageReplies: true } } );
 		const response = await fetch( `${ server.url }/api/sessions/test/messages`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },

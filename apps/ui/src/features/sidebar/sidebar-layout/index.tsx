@@ -5,6 +5,7 @@ import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useFullscreen } from '@/data/host/use-fullscreen';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
@@ -66,6 +67,8 @@ export function SidebarLayout( {
 	headerAction?: ReactNode;
 } ) {
 	const connector = useConnector();
+	const fullscreen = useFullscreen();
+	const hasMacTitleBar = connector.reservesTrafficLightSpace && ! fullscreen;
 	const hasOpenDialog = useHasOpenDialog();
 	const hasCoarsePointer = useMediaQuery( '(any-pointer: coarse)' );
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
@@ -281,6 +284,8 @@ export function SidebarLayout( {
 						<SidebarHoverContext.Provider value={ { peek } }>
 							<div
 								className={ styles.root }
+								data-mac-title-bar={ hasMacTitleBar || undefined }
+								data-sidebar-below-header={ ( overlay && ! hasMacTitleBar ) || undefined }
 								style={ sidebarStyle }
 								onPointerLeave={ handleWindowLeave }
 								onPointerMove={ hasCoarsePointer ? handleMouseMoveOnTouchDevice : undefined }

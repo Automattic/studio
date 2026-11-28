@@ -103,7 +103,7 @@ it( 'opens a project tool from the site menu and records panel reveal separately
 	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 	connector.trackEvent.mockClear();
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 	await screen.findByRole( 'menuitem', { name: 'Database' } );
 	await user.keyboard( 'd' );
 	await waitFor( () =>
@@ -122,7 +122,7 @@ it( 'records a tool open after starting its site without attributing the lifecyc
 	const connector = createFakeConnector( { sites: [ makeSite( { id: 'one', running: false } ) ] } );
 	const { user } = renderApp( { connector, path: '/sites/one/new' } );
 	await user.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 	await screen.findByRole( 'menuitem', { name: 'Database' } );
 	await user.keyboard( 'd' );
 	await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );

@@ -588,7 +588,7 @@ it( 'keeps Admin in the preview picker while the site menu offers it externally'
 	expect( labels ).toEqual( [ 'BrowserB', 'AdminA', 'DatabaseD', 'Email logE' ] );
 	await user.keyboard( '{Escape}' );
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 	const database = await screen.findByRole( 'menuitem', { name: 'Database' } );
 	const tools = database.closest( '[role="menu"]' ) as HTMLElement;
 	expect(
@@ -650,10 +650,10 @@ it.each( [
 	expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 } );
 
-it( 'uses the same letter shortcuts in Go to without intercepting modified keys or chat text', async () => {
+it( 'uses the same letter shortcuts in Tools without intercepting modified keys or chat text', async () => {
 	const { connector, user } = await setup();
 	await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 	await screen.findByRole( 'menuitem', { name: 'Email log' } );
 	await user.keyboard( '{Control>}e{/Control}' );
 	expect( connector.openSiteEmailFolder ).not.toHaveBeenCalled();
@@ -782,7 +782,7 @@ it( 'closes the panel immediately while the final tab’s site is still stopping
 } );
 
 it.each( [ false, true ] )(
-	'opens Browser from Go to in its own tab (running: %s)',
+	'opens Browser from Tools in its own tab (running: %s)',
 	async ( running ) => {
 		const { connector, user } = await setup( running );
 		if ( running ) {
@@ -792,7 +792,7 @@ it.each( [ false, true ] )(
 		}
 		const original = document.querySelector( 'iframe' );
 		await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-		await user.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Browser' } ) );
 		await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( running ? 2 : 1 ) );
 		if ( ! running ) {
@@ -1256,7 +1256,7 @@ it.each( [ 'Database', 'Email log' ] )(
 		const { user } = await setup();
 		const originalTab = selectedTab();
 		await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-		await user.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		await screen.findByRole( 'menuitem', { name } );
 		await user.keyboard( name[ 0 ].toLowerCase() );
 		await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );

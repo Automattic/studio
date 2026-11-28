@@ -271,7 +271,7 @@ export function SiteMenuItems( {
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
 					<PlusIcon />
-					{ __( 'Go to' ) }
+					{ __( 'Tools' ) }
 				</Menu.SubmenuTrigger>
 				<Menu.SubmenuPopup>
 					<SiteToolMenuItems site={ site } actions={ actions } includeAdmin={ false } />

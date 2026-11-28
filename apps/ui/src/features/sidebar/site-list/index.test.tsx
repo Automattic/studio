@@ -117,7 +117,7 @@ describe( 'sidebar site list', () => {
 		await openIn( 'Running site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
 		fireEvent.contextMenu( await siteButton( 'Running site' ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Database' } ) );
 		expect( connector.openSiteUrl ).toHaveBeenCalledWith(
 			'two',

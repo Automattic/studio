@@ -93,7 +93,7 @@ describe( 'site title actions', () => {
 	it( 'disables the in-app database menu and its shortcut for an external database', async () => {
 		const { connector } = setup( [ site( { phpMyAdminSupported: false, running: true } ) ] );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		const item = await screen.findByRole( 'menuitem', { name: /^Database/ } );
 		expect( item ).toHaveAttribute( 'aria-disabled', 'true' );
 		expect( item ).toHaveAccessibleDescription( /separate database client for external MySQL/ );

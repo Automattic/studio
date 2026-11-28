@@ -362,7 +362,13 @@ describe( 'Sidebar in the Studio workspace', () => {
 		await refreshSessions( [ chat( { id: 'pinned-chat', title: 'Homepage polish' } ) ] );
 		const chats = within( await screen.findByRole( 'group', { name: 'My site chats' } ) );
 		const row = await chats.findByRole( 'button', { name: 'Homepage polish' } );
-		fireEvent.click( within( row.parentElement! ).getByRole( 'button', { name: 'Pin chat' } ) );
+		fireEvent.click(
+			within( row.parentElement! ).getByRole( 'button', {
+				name: 'More chat actions',
+				description: 'Homepage polish',
+			} )
+		);
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Pin' } ) );
 		const group = within( await screen.findByRole( 'group', { name: 'Pinned' } ) );
 		const shortcut = group.getByRole( 'button', { name: 'Homepage polish' } );
 		expect(
@@ -373,7 +379,8 @@ describe( 'Sidebar in the Studio workspace', () => {
 		);
 		expect(
 			within( shortcut.parentElement!.parentElement! ).getByRole( 'button', {
-				name: 'Unpin chat',
+				name: 'More chat actions',
+				description: 'Homepage polish',
 			} )
 		).toBeInTheDocument();
 		fireEvent.contextMenu( shortcut );

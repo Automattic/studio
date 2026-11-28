@@ -33,7 +33,11 @@ export function SessionHeader( {
 				withSiteActions && styles.headerWithSiteActions,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
 			) }
-			style={ windowControlsInset > 0 ? { paddingRight: windowControlsInset + 8 } : undefined }
+			style={
+				windowControlsInset > 0
+					? { paddingRight: `calc(var(--band-inset) + ${ windowControlsInset }px)` }
+					: undefined
+			}
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
 				{ start }

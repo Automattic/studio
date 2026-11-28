@@ -117,7 +117,7 @@ describe( 'site creation', () => {
 			expect.objectContaining( { name: 'New site', path: '/sites/New site' } )
 		);
 		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeInTheDocument();
-		expect( await screen.findByRole( 'button', { name: 'Stop New site' } ) ).toBeEnabled();
+		expect( await screen.findByRole( 'button', { name: 'Actions for New site' } ) ).toBeEnabled();
 	} );
 
 	it.each( [ false, true ] )(

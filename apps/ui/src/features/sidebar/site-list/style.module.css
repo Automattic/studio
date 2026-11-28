@@ -113,6 +113,7 @@
 }
 
 .groupHeader {
+	gap: var( --sidebar-action-gap );
 	flex-shrink: 0;
 	margin-block-start: var( --space-3 );
 	position: sticky;

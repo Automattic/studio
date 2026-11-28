@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import styles from './style.module.css';
@@ -29,12 +29,15 @@ async function setup( width = 1280, sessions: ReturnType< typeof makeSession >[]
 		expect( button ).toBeDefined();
 		return button!;
 	} );
+	const edge = () => view.container.querySelector< HTMLElement >( `.${ styles.sidebarEdge }` )!;
 	const open = async () => {
-		await view.user.hover( trigger );
+		await view.user.hover( edge() );
 		await screen.findByRole( 'button', { name: 'Close sidebar' } );
-		return within( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).getByRole( 'complementary' );
+		return within( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).getByRole( 'complementary', {
+			name: '',
+		} );
 	};
-	return { ...view, trigger, open };
+	return { ...view, trigger, edge, open };
 }
 
 const switcherClosed = () =>
@@ -46,6 +49,7 @@ beforeEach( () => {
 	localStorage.clear();
 } );
 afterEach( () => {
+	vi.restoreAllMocks();
 	document.documentElement.style.removeProperty( '--motion-duration-layout' );
 	Object.defineProperty( window, 'innerWidth', { configurable: true, value: originalWidth } );
 } );
@@ -102,8 +106,9 @@ describe( 'sidebar hover overlay', () => {
 		expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
 		expect( document.activeElement ).toHaveAccessibleName( 'Hide sidebar' );
 		expect(
-			document.activeElement?.closest( 'aside' )?.querySelector( `.${ styles.sidebarScroll }` )
-				?.scrollTop
+			screen
+				.getByRole( 'complementary', { name: '' } )
+				.querySelector( `.${ styles.sidebarScroll }` )?.scrollTop
 		).toBe( 120 );
 	} );
 } );
@@ -126,22 +131,89 @@ it( 'keeps focus and the saved preference while peeking, then closes on leave', 
 	await switcherClosed();
 } );
 
+it( 'reveals the sidebar only when the mouse crosses its window edge below the header', async () => {
+	const { trigger, edge, user } = await setup();
+	vi.spyOn( edge(), 'getBoundingClientRect' ).mockReturnValue( new DOMRect( 0, 44, 6, 600 ) );
+	const leave = ( clientX: number, clientY: number ) =>
+		fireEvent(
+			trigger,
+			Object.assign( new MouseEvent( 'pointerout', { bubbles: true, clientX, clientY } ), {
+				pointerType: 'mouse',
+			} )
+		);
+	leave( window.innerWidth + 25, 180 );
+	expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
+	leave( -25, 43 );
+	expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
+	leave( -25, 44 );
+	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+	expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+	fireEvent.pointerMove( screen.getByRole( 'main' ), { clientX: 600, clientY: 180 } );
+	await switcherClosed();
+	leave( -25, 44 );
+	expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+	await switcherClosed();
+	leave( -25, 44 );
+	const sidebar = within( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).getByRole(
+		'complementary'
+	);
+	await user.hover( sidebar );
+	await act( async () => {
+		await new Promise( ( resolve ) => setTimeout( resolve, 400 ) );
+	} );
+	expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+	await user.unhover( sidebar );
+	await switcherClosed();
+} );
+
+it( 'peeks when the pointer reaches the edge immediately after hiding the sidebar', async () => {
+	const { trigger, edge, user } = await setup();
+	fireEvent.click( trigger );
+	const hide = screen
+		.getAllByRole( 'button', { name: 'Hide sidebar' } )
+		.find( ( button ) => ! button.closest( '[inert]' ) )!;
+	fireEvent.click( hide );
+	await user.hover( edge() );
+	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+} );
+
+it( 'supports mouse hover on a device with touch', async () => {
+	const matchMedia = window.matchMedia;
+	vi.spyOn( window, 'matchMedia' ).mockImplementation( ( query ) => ( {
+		...matchMedia( query ),
+		matches: query === '(any-pointer: coarse)',
+	} ) );
+	const { edge } = await setup();
+	vi.spyOn( edge(), 'getBoundingClientRect' ).mockReturnValue( new DOMRect( 0, 44, 6, 600 ) );
+	const move = ( clientX: number ) =>
+		fireEvent(
+			screen.getByRole( 'main' ),
+			Object.assign( new MouseEvent( 'pointermove', { bubbles: true, clientX, clientY: 180 } ), {
+				pointerType: 'mouse',
+			} )
+		);
+	move( 3 );
+	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+	move( 300 );
+	await switcherClosed();
+} );
+
 it( 'ignores touch hover and cancels a brief pointer pass', async () => {
-	const { trigger, user } = await setup();
-	fireEvent.pointerEnter( trigger, { pointerType: 'touch' } );
+	const { edge, user } = await setup();
+	fireEvent.pointerEnter( edge(), { pointerType: 'touch' } );
 	await act( async () => {
 		await new Promise( ( resolve ) => setTimeout( resolve, 220 ) );
 	} );
 	expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
-	await user.hover( trigger );
-	await user.unhover( trigger );
+	await user.hover( edge() );
+	await user.unhover( edge() );
 	await act( async () => {
 		await new Promise( ( resolve ) => setTimeout( resolve, 220 ) );
 	} );
 	expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument();
 } );
 
-it( 'does not reopen on hover immediately after clicking to hide the sidebar', async () => {
+it( 'keeps the flyout closed while the pointer rests on the toggle', async () => {
 	const { trigger, user } = await setup();
 	fireEvent.click( trigger );
 	const hide = screen
@@ -156,29 +228,6 @@ it( 'does not reopen on hover immediately after clicking to hide the sidebar', a
 		await new Promise( ( resolve ) => setTimeout( resolve, 220 ) );
 	} );
 	expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
-} );
-
-it( 'peeks again once the pointer leaves and re-enters the toggle after hiding the sidebar', async () => {
-	const { trigger, user } = await setup();
-	fireEvent.click( trigger );
-	const hide = screen
-		.getAllByRole( 'button', { name: 'Hide sidebar' } )
-		.find( ( button ) => ! button.closest( '[inert]' ) )!;
-	await user.click( hide );
-	const show = screen
-		.getAllByRole( 'button', { name: 'Show sidebar' } )
-		.find( ( button ) => ! button.closest( '[inert]' ) )!;
-	await act( async () => {
-		await new Promise( ( resolve ) => setTimeout( resolve, 400 ) );
-	} );
-	await user.hover( show );
-	await act( async () => {
-		await new Promise( ( resolve ) => setTimeout( resolve, 220 ) );
-	} );
-	expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
-	await user.unhover( show );
-	await user.hover( show );
-	expect( await screen.findByRole( 'dialog', { name: 'Sidebar' } ) ).toBeInTheDocument();
 } );
 
 it( 'allows multi-selection inside the flyover without navigating', async () => {

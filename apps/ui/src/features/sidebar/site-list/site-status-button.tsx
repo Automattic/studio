@@ -1,27 +1,30 @@
-import { Button, Spinner, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
-import { PlayIcon, SquareIcon } from '@studio/ds/icons';
+import {
+	Button,
+	IconButton,
+	Menu,
+	Spinner,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from '@studio/ds';
+import { EllipsisVerticalIcon, PlayIcon, SquareIcon } from '@studio/ds/icons';
 import { __, sprintf } from '@wordpress/i18n';
-import { useIsSiteBusy, useSiteOperation, useStopSite } from '@/data/queries/use-sites';
+import { useSiteOperation } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { SiteMenuItems, type SiteActions } from '@/features/sites';
 import { getSiteStatus, getSiteStatusName } from './site-status';
 import styles from './style.module.css';
-import type { SiteDetails } from '@/data/core';
 
 export function SiteStatusButton( {
-	site,
+	actions,
 	isStarting,
 	isStopping,
-	onStart,
 }: {
-	site: SiteDetails;
+	actions: SiteActions;
 	isStarting: boolean;
 	isStopping: boolean;
-	onStart?: () => void;
 } ) {
-	const startSite = useStartSiteWithChat();
-	const stopSite = useStopSite();
-	const siteBusy = useIsSiteBusy( site );
+	const { site, busy: siteBusy } = actions;
 	const activity = useSiteSyncActivity( site.id );
 	const isSyncPending = activity?.kind === 'pending' && activity.direction !== 'preview';
 	const busy = siteBusy || isSyncPending;
@@ -53,14 +56,29 @@ export function SiteStatusButton( {
 		visualRunning || canStopStart ? __( 'Stop %s' ) : __( 'Start %s' ),
 		site.name
 	);
-	const handleClick = () => {
-		if ( site.running || canStopStart ) {
-			stopSite.mutate( site.id );
-		} else {
-			startSite.mutate( site.id );
-			onStart?.();
-		}
-	};
+
+	if ( site.running && ! busy ) {
+		return (
+			<Menu.Root modal={ false }>
+				<Menu.Trigger
+					render={
+						<IconButton
+							variant="muted-ghost"
+							size="icon-sm"
+							icon={ <EllipsisVerticalIcon /> }
+							label={ sprintf( __( 'Actions for %s' ), site.name ) }
+							tooltipLabel={ __( 'Site menu' ) }
+							data-state="running"
+							{ ...actions.shortcuts }
+						/>
+					}
+				/>
+				<Menu.Popup side="bottom" align="start" { ...actions.shortcuts }>
+					<SiteMenuItems actions={ actions } showChatActions={ false } />
+				</Menu.Popup>
+			</Menu.Root>
+		);
+	}
 
 	return (
 		<Tooltip>
@@ -75,7 +93,7 @@ export function SiteStatusButton( {
 						disabled={ busy && ! canStopStart }
 						focusableWhenDisabled
 						data-state={ visuallyStopped ? 'stopped' : status }
-						onClick={ handleClick }
+						onClick={ canStopStart ? () => actions.stop( [ site ] ) : actions.toggleRunning }
 					>
 						{ visualBusy ? (
 							<>

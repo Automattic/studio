@@ -22,6 +22,7 @@ import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tr
 import { getStagedAnnotations } from '@/features/annotations';
 import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
+import { useSiteActions } from '@/features/sites';
 import { useRowPressed, useSelectableRow } from './selection';
 import { SiteChats } from './site-chats';
 import { SiteRowMenu } from './site-row-menu';
@@ -106,6 +107,8 @@ export function SiteSection( {
 		else preview?.setOpen( true );
 	};
 
+	const actions = useSiteActions( site, { onOpen: onSiteOpen, onStart: handleStartSite } );
+
 	return (
 		<SidebarMenuItem
 			{ ...itemProps }
@@ -113,9 +116,7 @@ export function SiteSection( {
 			className={ clsx( styles.site, itemProps?.className ) }
 		>
 			<SiteRowMenu
-				site={ site }
-				onSiteOpen={ onSiteOpen }
-				onStart={ handleStartSite }
+				actions={ actions }
 				trigger={
 					<SidebarMenuButton
 						render={ <div /> }
@@ -194,13 +195,9 @@ export function SiteSection( {
 						} );
 					} }
 				/>
-				<SiteStatusButton
-					site={ site }
-					isStarting={ isStarting }
-					isStopping={ isStopping }
-					onStart={ handleStartSite }
-				/>
+				<SiteStatusButton actions={ actions } isStarting={ isStarting } isStopping={ isStopping } />
 			</SidebarMenuActions>
+			{ actions.dialogs }
 			<SiteChats
 				site={ site }
 				chats={ chats }

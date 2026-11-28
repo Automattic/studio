@@ -181,7 +181,12 @@ export function SiteToolLauncher( {
 		return () => document.removeEventListener( 'keydown', onKeyDown, true );
 	}, [ active, busy, tools, actions ] );
 	return (
-		<div className={ styles.launcher } role="group" aria-label={ __( 'Project tools' ) }>
+		<div
+			data-site-tool-launcher
+			className={ styles.launcher }
+			role="group"
+			aria-label={ __( 'Project tools' ) }
+		>
 			{ tools.map( ( { id, label, Icon, shortcut, action, disabled } ) => (
 				<Button
 					key={ id }

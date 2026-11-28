@@ -1,7 +1,6 @@
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@studio/ds';
-import { SidebarIcon } from '@studio/ds/icons';
+import { WorkspaceNavigationIcon } from '@studio/ds/icons';
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { useContext } from 'react';
 import {
 	SidebarHeaderActionContext,
@@ -12,69 +11,40 @@ import {
 } from '@/data/use-sidebar-collapsed';
 import styles from './style.module.css';
 
-export function SidebarToggle( { tabIndex }: { tabIndex?: number } = {} ) {
+function SidebarToggle() {
 	const collapsed = ! useSidebarOpen();
-	const undocked = useSidebarCollapsed();
 	const toggleSidebar = useToggleSidebar();
 	const hover = useSidebarHover();
+	const label = collapsed || hover.peek ? __( 'Show sidebar' ) : __( 'Hide sidebar' );
 	const control = (
 		<Button
 			variant="ghost"
 			highlightOnToggle={ false }
 			size="icon-sm"
-			aria-label={ collapsed || hover.peek ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
+			aria-label={ label }
 			aria-expanded={ ! collapsed || hover.peek }
 			data-sidebar-toggle
-			tabIndex={ tabIndex }
-			onClick={ ( event ) => {
-				// detail is 0 for keyboard activation, which leaves the pointer elsewhere.
-				if ( event.detail > 0 ) hover.suppressUntilLeave();
-				toggleSidebar();
-			} }
-			onPointerEnter={ ( event ) => {
-				if ( event.pointerType === 'mouse' ) hover.onEnter();
-			} }
-			onPointerLeave={ hover.onLeave }
+			onClick={ toggleSidebar }
 		>
-			<SidebarIcon
-				className={ styles.icon }
-				state={
-					hover.peek || ( undocked && ! collapsed ) ? 'flyout' : collapsed ? 'closed' : 'docked'
-				}
-			/>
+			<WorkspaceNavigationIcon glyph="panel" />
 		</Button>
 	);
 
 	return (
 		<span className={ styles.root }>
-			{ collapsed || hover.peek ? (
-				control
-			) : (
-				<Tooltip>
-					<TooltipTrigger render={ control } />
-					<TooltipContent side="bottom">{ __( 'Hide sidebar' ) }</TooltipContent>
-				</Tooltip>
-			) }
+			<Tooltip>
+				<TooltipTrigger render={ control } />
+				{ ! hover.peek && <TooltipContent side="bottom">{ label }</TooltipContent> }
+			</Tooltip>
 		</span>
 	);
 }
 
-// A header's sidebar toggle. Always mounted so it can grow into place as the
-// sidebar collapses, and shrink away as it opens, sliding the rest of the
-// header along instead of jumping.
 export function HeaderSidebarToggle() {
 	const collapsed = useSidebarCollapsed();
 	const action = useContext( SidebarHeaderActionContext );
 	return (
-		<span
-			className={ clsx(
-				styles.headerSlot,
-				collapsed && styles.headerSlotVisible,
-				action && styles.headerSlotWithAction
-			) }
-			data-sidebar-header-slot
-			inert={ ! collapsed }
-		>
+		<span className={ styles.headerSlot } data-sidebar-header-slot>
 			<SidebarToggle />
 			{ collapsed ? action : null }
 		</span>

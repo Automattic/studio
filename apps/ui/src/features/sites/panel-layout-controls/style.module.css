@@ -7,7 +7,7 @@
 	display: flex;
 	align-items: center;
 	flex-shrink: 0;
-	width: calc( var( --layout-controls-space ) - 32px - var( --band-gap ) );
+	width: calc( var( --layout-controls-space ) - var( --control-size-sm ) - var( --band-gap ) );
 	overflow: clip;
 	opacity: 0;
 	visibility: hidden;

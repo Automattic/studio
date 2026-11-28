@@ -55,18 +55,20 @@ function DimensionInput( {
 
 export function ResponsiveToolbar( {
 	siteId,
+	tabId,
 	settings,
 	fitScale,
 	active = true,
 }: {
 	siteId: string;
+	tabId?: string;
 	settings: ResponsivePreviewSettings;
 	fitScale: number;
 	active?: boolean;
 } ) {
 	const track = useResponsivePreviewTracks( active && settings.enabled );
 	const update = ( patch: Partial< ResponsivePreviewSettings > ) =>
-		updateResponsivePreview( siteId, patch );
+		updateResponsivePreview( siteId, patch, tabId );
 	const commit = (
 		action: TracksResponsivePreviewAction,
 		patch: Partial< ResponsivePreviewSettings >
@@ -192,7 +194,7 @@ export function ResponsiveToolbar( {
 				tooltipSide="bottom"
 				onClick={ ( event ) => {
 					event.currentTarget
-						.closest( 'aside' )
+						.closest( '[data-preview-workspace]' )
 						?.querySelector< HTMLButtonElement >( '[data-preview-browser-options]' )
 						?.focus();
 					update( { enabled: false } );

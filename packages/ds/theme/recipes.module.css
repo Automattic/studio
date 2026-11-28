@@ -18,6 +18,27 @@
 		box-shadow: inset 0 -1px 0 var( --border );
 	}
 
+	.resizeDivider::after {
+		position: absolute;
+		inset-block: 1px 0;
+		width: var( --focus-width );
+		translate: -1px;
+		z-index: var( --z-overlay );
+		pointer-events: none;
+		background-color: var( --ring );
+		opacity: 0;
+	}
+
+	.resizeDivider:dir( rtl )::after {
+		translate: 1px;
+	}
+
+	@media ( prefers-reduced-motion: no-preference ) {
+		.resizeDivider::after {
+			transition: opacity var( --motion-duration-surface ) ease-out;
+		}
+	}
+
 	.headerFade {
 		mask-image: linear-gradient(
 			to bottom,

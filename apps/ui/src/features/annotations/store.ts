@@ -11,6 +11,7 @@ import type {
 } from '@studio/agent/protocol/visual-annotations';
 
 export interface PreviewAnnotation extends VisualAnnotation {
+	previewPaneId?: string;
 	drawing?: AnnotationDrawing;
 	images: ComposerImageAttachment[];
 	capturedImageId?: string;
@@ -152,7 +153,8 @@ export function canPickAnnotation( siteId: string ) {
 export function pickAnnotation(
 	siteId: string,
 	target: VisualAnnotationTarget,
-	initial?: Pick< PreviewAnnotation, 'images' | 'drawing' >
+	initial?: Pick< PreviewAnnotation, 'images' | 'drawing' >,
+	previewPaneId?: string
 ) {
 	const current = getSiteAnnotations( siteId );
 	if ( isAnnotationsBusy( current ) ) {
@@ -177,6 +179,7 @@ export function pickAnnotation(
 				...notes,
 				{
 					...target,
+					previewPaneId,
 					id,
 					number,
 					comment: '',

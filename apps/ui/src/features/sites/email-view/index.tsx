@@ -158,6 +158,7 @@ function EmailMessage( {
 	active,
 	focusOnOpen,
 	annotation,
+	annotations,
 	onBack,
 	onOpenLink,
 	onAnnotationPick,
@@ -178,6 +179,7 @@ function EmailMessage( {
 		email,
 		active,
 		rootRef: articleRef,
+		annotations,
 		onAnnotationPick,
 		onAnnotationAnchor,
 	} );
@@ -302,6 +304,7 @@ export function EmailView( {
 	siteId,
 	active,
 	onOpenLink,
+	annotations: paneAnnotations,
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: EmailAnnotationProps & {
@@ -312,7 +315,8 @@ export function EmailView( {
 } ) {
 	const connector = useConnector();
 	const fileManager = getFileManager();
-	const annotations = useSiteAnnotations( siteId );
+	const siteAnnotations = useSiteAnnotations( siteId );
+	const annotations = paneAnnotations ?? siteAnnotations;
 	const editingNote = annotations.active
 		? annotations.notes.find( ( note ) => note.id === annotations.editingId && note.email )
 		: undefined;
@@ -461,6 +465,7 @@ export function EmailView( {
 								active={ active }
 								focusOnOpen={ single }
 								annotation={ editingEmailId === email.data.id ? editingNote : undefined }
+								annotations={ annotations }
 								onBack={ () => {
 									refocusRef.current = selected;
 									setSelectedId( null );

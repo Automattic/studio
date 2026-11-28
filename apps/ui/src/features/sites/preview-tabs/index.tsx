@@ -1,21 +1,13 @@
-import {
-	IconButton,
-	Menu,
-	ThumbnailTooltip,
-	Tabs,
-	TabsList,
-	TabsTrigger,
-	VisuallyHidden,
-} from '@studio/ds';
 import { PlusIcon, XIcon } from '@studio/ds/icons';
-import { __, sprintf } from '@wordpress/i18n';
-import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
+import { __, _n, isRTL, sprintf } from '@wordpress/i18n';
+import { ariaKeyShortcut, displayShortcut, isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { X } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { Split, SquareSplitHorizontal, X } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { showToast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { getPreviewTabGroups } from '@/data/preview-tab-state';
 import { previewTabsKey, usePreviewTabs, type PreviewTab } from '@/data/preview-tabs';
 import { useIsSiteBusy, useStopSite } from '@/data/queries/use-sites';
 import { useIsSiteRestarting } from '@/data/site-restarts';
@@ -27,9 +19,27 @@ import { getPreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
 import { getSiteTool, SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { isDialogOpen, isShortcut } from '@/lib/keyboard';
+import {
+	DropOverlay,
+	IconButton,
+	Menu,
+	Tabs,
+	TabsList,
+	TabsTrigger,
+	ThumbnailTooltip,
+	VisuallyHidden,
+} from '@studio/ds';
 import styles from './style.module.css';
 import { useTabReorder } from './use-tab-reorder';
 import type { SiteDetails } from '@/data/core';
+import type { CSSProperties, MouseEvent } from 'react';
+
+interface TabSelection {
+	workspaceKey: string;
+	activeGroupId: string;
+	anchorId: string;
+	groupIds: string[];
+}
 
 function getTabTitle( tab: PreviewTab, siteName: string ) {
 	if ( tab.path === null ) return __( 'New tab' );
@@ -57,36 +67,145 @@ export function PreviewTabs( {
 	const preview = useSessionPreviewUI();
 	const runLayoutTransition = useUserWorkspaceLayoutTransition( siteId );
 	const trackOpen = usePreviewOpenTracks();
-	const { workspace, add, select, closeMany, update } = usePreviewTabs(
-		previewTabsKey( siteId, liveUrl ),
-		path
-	);
+	const workspaceKey = previewTabsKey( siteId, liveUrl );
+	const { workspace, add, select, closeMany, update, addToSplit, splitGroups, separate } =
+		usePreviewTabs( workspaceKey, path, siteId );
 	const tools = useSiteToolActions( site, {
 		liveUrl,
 		onNavigate: add,
 	} );
+	const groups = getPreviewTabGroups( workspace );
+	const selectedGroup = groups.find( ( group ) =>
+		group.some( ( tab ) => tab.id === workspace.selectedId )
+	)!;
+	const selectedGroupId = selectedGroup[ 0 ].id;
+	const groupIds = groups.map( ( group ) => group[ 0 ].id );
+	const [ selection, setSelection ] = useState< TabSelection >();
+	const currentSelection =
+		selection?.workspaceKey === workspaceKey && selection.activeGroupId === selectedGroupId
+			? selection
+			: undefined;
+	const selectedIds = currentSelection?.groupIds.filter( ( id ) => groupIds.includes( id ) ) ?? [];
+	const hasSelection = selectedIds.length > 1;
+	const list = useRef< HTMLDivElement >( null );
+
+	const selectRange = ( groupId: string ) => {
+		const anchorId =
+			currentSelection && groupIds.includes( currentSelection.anchorId )
+				? currentSelection.anchorId
+				: selectedGroupId;
+		const anchor = groupIds.indexOf( anchorId );
+		const target = groupIds.indexOf( groupId );
+		setSelection( {
+			workspaceKey,
+			activeGroupId: selectedGroupId,
+			anchorId,
+			groupIds: groupIds.slice( Math.min( anchor, target ), Math.max( anchor, target ) + 1 ),
+		} );
+	};
+	const onTabClick = ( event: MouseEvent< HTMLElement >, groupId: string ) => {
+		const toggle = isAppleOS() ? event.metaKey : event.ctrlKey;
+		if ( ! event.shiftKey && ! toggle ) {
+			setSelection( undefined );
+			return;
+		}
+		event.preventDefault();
+		event.stopPropagation();
+		event.currentTarget.focus();
+		if ( event.shiftKey ) {
+			selectRange( groupId );
+			return;
+		}
+		const ids = selectedIds.length ? selectedIds : [ selectedGroupId ];
+		setSelection( {
+			workspaceKey,
+			activeGroupId: selectedGroupId,
+			anchorId: groupId,
+			groupIds: ids.includes( groupId )
+				? ids.filter( ( id ) => id !== groupId )
+				: [ ...ids, groupId ],
+		} );
+	};
+
+	const getTitle = ( tab: PreviewTab ) => getTabTitle( tab, siteName );
+	const getGroupTitle = ( group: PreviewTab[] ) => group.map( getTitle ).join( ' · ' );
+	const renderTabLabel = ( tab: PreviewTab ) => {
+		const Icon = getSiteTool( tab.path === null ? 'frontend' : getPreviewRealm( tab.path ) ).Icon;
+		return (
+			<>
+				<Icon className={ styles.icon } aria-hidden="true" />
+				<span className={ styles.title }>{ getTitle( tab ) }</span>
+			</>
+		);
+	};
+	const renderGroupLabel = ( group: PreviewTab[] ) =>
+		group.length === 1
+			? renderTabLabel( group[ 0 ] )
+			: group.map( ( tab ) => (
+					<span key={ tab.id } className={ styles.pairLabel }>
+						{ renderTabLabel( tab ) }
+					</span>
+			  ) );
+	const getPanel = () =>
+		Array.from( document.querySelectorAll< HTMLElement >( '[data-preview-workspace]' ) ).find(
+			( element ) => element.dataset.previewWorkspace === workspaceKey
+		);
+	const getSplitTargets = () => {
+		if ( groups.length < 2 || busy ) return;
+		const panel = getPanel();
+		if ( ! panel ) return;
+		const panelBounds = panel.getBoundingClientRect();
+		const viewports = Array.from(
+			panel.querySelectorAll( '[data-visible-tab] [data-preview-viewport]' ),
+			( element ) => element.getBoundingClientRect()
+		).filter( ( bounds ) => bounds.width > 0 && bounds.height > 0 );
+		if ( ! viewports.length ) return;
+		const top = Math.max( ...viewports.map( ( bounds ) => bounds.top ) );
+		const bottom = Math.min( ...viewports.map( ( bounds ) => bounds.bottom ) );
+		const area = new DOMRect( panelBounds.left, top, panelBounds.width, bottom - top );
+		const inset = 16;
+		const width = Math.min( 224, ( area.width - 2 * inset - 24 ) / 2 );
+		const height = Math.min( 280, area.height - 2 * inset );
+		if ( width <= 0 || height <= 0 ) return;
+		return {
+			area,
+			targets: ( [ 'left', 'right' ] as const ).map( ( side ) => ( {
+				side,
+				bounds: new DOMRect(
+					side === 'left' ? area.left + inset : area.right - inset - width,
+					area.top + ( area.height - height ) / 2,
+					width,
+					height
+				),
+			} ) ),
+		};
+	};
 	const reorder = useTabReorder( {
-		ids: workspace.tabs.map( ( tab ) => tab.id ),
-		getLabel: ( id ) => getTabTitle( workspace.tabs.find( ( tab ) => tab.id === id )!, siteName ),
-		onReorder: ( ids ) =>
+		ids: groupIds,
+		getLabel: ( id ) => getGroupTitle( groups.find( ( group ) => group[ 0 ].id === id )! ),
+		getSplitTargets,
+		onSplit: ( id, side ) => {
+			setSelection( undefined );
+			addToSplit( id, ( side === 'left' ) !== isRTL() ? 'start' : 'end' );
+		},
+		onReorder: ( ids ) => {
+			setSelection( undefined );
 			update( ( current ) => {
 				if (
-					ids.length !== current.tabs.length ||
-					ids.some( ( id ) => ! current.tabs.some( ( tab ) => tab.id === id ) )
+					ids.length !== groups.length ||
+					ids.some( ( id ) => ! groups.some( ( group ) => group[ 0 ].id === id ) )
 				)
 					return current;
 				return {
 					...current,
-					tabs: ids.map( ( id ) => current.tabs.find( ( tab ) => tab.id === id )! ),
+					tabs: ids.flatMap( ( id ) => groups.find( ( group ) => group[ 0 ].id === id )! ),
 				};
-			} ),
+			} );
+		},
 	} );
-	const draggedTab = workspace.tabs.find( ( tab ) => tab.id === reorder.drag?.id );
-	const dragSelected = draggedTab?.id === workspace.selectedId;
-	const DragIcon = getSiteTool(
-		draggedTab?.path ? getPreviewRealm( draggedTab.path ) : 'frontend'
-	).Icon;
-	const list = useRef< HTMLDivElement >( null );
+	const { drag } = reorder;
+	const draggedGroup = drag && groups.find( ( group ) => group[ 0 ].id === drag.id );
+	const draggedSlot = drag?.slots.find( ( slot ) => slot.id === drag.id );
 	const newTabButton = useRef< HTMLButtonElement >( null );
 	useLayoutEffect( () => {
 		const strip = list.current?.closest< HTMLElement >( '[data-slot="tabs"]' );
@@ -125,7 +244,7 @@ export function PreviewTabs( {
 			observer.disconnect();
 			strip.removeEventListener( 'scroll', updateFades );
 		};
-	}, [ running, workspace.selectedId, workspace.tabs.length ] );
+	}, [ running, selectedGroupId, groups.length ] );
 	const { setOpen } = preview;
 	useEffect( () => {
 		const onKeyDown = ( event: KeyboardEvent ) => {
@@ -184,6 +303,7 @@ export function PreviewTabs( {
 		} );
 	};
 	const closeTabs = ( ids: string[] ) => {
+		setSelection( undefined );
 		const isLastTab = workspace.tabs.every( ( tab ) => ids.includes( tab.id ) );
 		closeMany( ids );
 		if ( isLastTab ) {
@@ -198,17 +318,201 @@ export function PreviewTabs( {
 			}
 		} );
 	};
+	const getGroupTab = ( group: PreviewTab[] ) => {
+		const recent = workspace.recentIds.find( ( id ) => group.some( ( tab ) => tab.id === id ) );
+		return group.find( ( tab ) => tab.id === recent ) ?? group[ 0 ];
+	};
+	const renderTab = ( group: PreviewTab[] ) => {
+		const groupId = group[ 0 ].id;
+		const paired = group.length > 1;
+		const inSelection = selectedIds.includes( groupId );
+		const showSelectionMenu = hasSelection && inSelection;
+		const otherTabIds = workspace.tabs
+			.filter( ( other ) => ! group.includes( other ) )
+			.map( ( other ) => other.id );
+		const tab = getGroupTab( group );
+		const realm = tab.path === null ? 'frontend' : getPreviewRealm( tab.path );
+		const destination = realm === 'email' ? fileManager : browser;
+		const closeButtons = group.map( ( member ) => (
+			<IconButton
+				key={ member.id }
+				variant="muted-ghost"
+				size="icon-2xs"
+				className={ styles.close }
+				data-tab-close
+				icon={ <XIcon width={ 14 } height={ 14 } /> }
+				label={ sprintf( __( 'Close %s' ), getTitle( member ) ) }
+				onClick={ () => closeTabs( [ member.id ] ) }
+				tooltip={ false }
+			/>
+		) );
+		const trigger = (
+			<TabsTrigger
+				value={ groupId }
+				className={ styles.trigger }
+				aria-label={ paired ? getGroupTitle( group ) : undefined }
+				aria-selected={ hasSelection ? inSelection : groupId === selectedGroupId }
+				aria-description={ __(
+					'Use Shift+Left or Right Arrow to select tabs. Use Alt+Shift+Left or Right Arrow to move this tab.'
+				) }
+				onClickCapture={ ( event ) => onTabClick( event, groupId ) }
+				onKeyDown={ ( event ) => {
+					if (
+						event.shiftKey &&
+						! event.altKey &&
+						! event.metaKey &&
+						! event.ctrlKey &&
+						( event.key === 'ArrowLeft' || event.key === 'ArrowRight' )
+					) {
+						event.preventDefault();
+						event.stopPropagation();
+						const direction = ( event.key === 'ArrowRight' ? 1 : -1 ) * ( isRTL() ? -1 : 1 );
+						const next = groupIds.indexOf( groupId ) + direction;
+						if ( groupIds[ next ] ) {
+							selectRange( groupIds[ next ] );
+							list.current?.querySelectorAll< HTMLElement >( '[role="tab"]' )[ next ]?.focus();
+						}
+						return;
+					}
+					reorder.onKeyDown( event, groupId );
+					if ( ! paired && event.key === 'Delete' ) {
+						event.preventDefault();
+						closeTabs( [ tab.id ] );
+					}
+				} }
+			>
+				{ renderGroupLabel( group ) }
+			</TabsTrigger>
+		);
+		return (
+			<Menu.ContextMenuRoot
+				key={ groupId }
+				onOpenChange={ ( open ) => {
+					if ( open && ! inSelection ) setSelection( undefined );
+				} }
+			>
+				<ThumbnailTooltip
+					side="bottom"
+					label={ sprintf( __( 'Preview of %s' ), getGroupTitle( group ) ) }
+					thumbnail={ tab.thumbnail?.path === tab.path ? tab.thumbnail.image : null }
+					disabled={ groupId === selectedGroupId || !! drag || ! tab.thumbnail }
+					trigger={
+						<Menu.ContextMenuTrigger
+							render={
+								<div
+									className={ clsx( styles.tab, groupId === selectedGroupId && styles.selected ) }
+									data-tab-reorder-id={ groupId }
+									data-preview-tab-pair={ paired || undefined }
+									style={
+										{
+											transform: `translateX(${ reorder.getOffset( groupId ) }px)`,
+											'--split-tab-count': group.length,
+										} as CSSProperties
+									}
+									data-drag-source={ drag?.id === groupId || undefined }
+									data-preview-selected={ groupId === selectedGroupId || undefined }
+									data-preview-multi-selected={ ( hasSelection && inSelection ) || undefined }
+								/>
+							}
+						>
+							{ trigger }
+							{ paired ? (
+								<span className={ styles.pairCloses }>{ closeButtons }</span>
+							) : (
+								closeButtons
+							) }
+						</Menu.ContextMenuTrigger>
+					}
+				/>
+				{ showSelectionMenu ? (
+					<Menu.ContextPopup>
+						<Menu.Item
+							disabled={ busy }
+							onClick={ () => {
+								splitGroups( selectedIds );
+								setSelection( undefined );
+							} }
+						>
+							<SquareSplitHorizontal aria-hidden="true" />
+							{ __( 'Open as split' ) }
+						</Menu.Item>
+						<Menu.Separator />
+						<Menu.Item
+							onClick={ () =>
+								closeTabs(
+									groups
+										.filter( ( selected ) => selectedIds.includes( selected[ 0 ].id ) )
+										.flatMap( ( selected ) => selected.map( ( member ) => member.id ) )
+								)
+							}
+						>
+							<X />
+							{ __( 'Close tabs' ) }
+						</Menu.Item>
+					</Menu.ContextPopup>
+				) : (
+					<Menu.ContextPopup>
+						<Menu.Item disabled={ busy } onClick={ () => add( '/' ) }>
+							<PlusIcon />
+							{ __( 'New tab' ) }
+						</Menu.Item>
+						{ ! paired && groups.length > 1 ? (
+							<Menu.Item disabled={ busy } onClick={ () => addToSplit( tab.id ) }>
+								<SquareSplitHorizontal aria-hidden="true" />
+								{ __( 'Open as split' ) }
+							</Menu.Item>
+						) : null }
+						{ paired ? (
+							<Menu.Item onClick={ () => separate( tab.id ) }>
+								<Split aria-hidden="true" />
+								{ __( 'Separate tabs' ) }
+							</Menu.Item>
+						) : null }
+						{ otherTabIds.length > 0 && <Menu.Separator /> }
+						{ ! paired && (
+							<Menu.Item onClick={ () => closeTabs( [ tab.id ] ) }>
+								<X />
+								{ __( 'Close tab' ) }
+							</Menu.Item>
+						) }
+						{ otherTabIds.length > 0 && (
+							<Menu.Item onClick={ () => closeTabs( otherTabIds ) }>
+								<X />
+								{ otherTabIds.length === 1 ? __( 'Close other tab' ) : __( 'Close other tabs' ) }
+							</Menu.Item>
+						) }
+						{ groups.length > 2 && (
+							<Menu.Item onClick={ () => closeTabs( workspace.tabs.map( ( other ) => other.id ) ) }>
+								<X />
+								{ __( 'Close all tabs' ) }
+							</Menu.Item>
+						) }
+						<Menu.Separator />
+						<Menu.Item
+							disabled={ busy || tab.path === null || realm === 'design' }
+							onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
+						>
+							{ destination.logo }
+							{ /* translators: %s: the browser or system file manager name. */ }
+							{ sprintf( __( 'Open in %s' ), destination.label ) }
+						</Menu.Item>
+					</Menu.ContextPopup>
+				) }
+			</Menu.ContextMenuRoot>
+		);
+	};
 	if ( ! running ) return null;
 	return (
 		<div className={ styles.root } data-preview-tabs>
 			<Tabs
-				value={ workspace.selectedId }
+				value={ selectedGroupId }
 				onValueChange={ ( value ) => {
-					const id = String( value );
-					if ( id === workspace.selectedId ) return;
-					const tab = workspace.tabs.find( ( tab ) => tab.id === id );
-					if ( tab?.path !== null && tab?.path !== undefined ) trackOpen( tab.path );
-					select( id );
+					setSelection( undefined );
+					const group = groups.find( ( group ) => group[ 0 ].id === value );
+					if ( ! group || group === selectedGroup ) return;
+					const tab = getGroupTab( group );
+					if ( tab.path !== null ) trackOpen( tab.path );
+					select( tab.id );
 				} }
 				className={ styles.tabs }
 			>
@@ -216,127 +520,25 @@ export function PreviewTabs( {
 					ref={ list }
 					variant="browser"
 					aria-label={ __( 'Preview tabs' ) }
+					aria-multiselectable="true"
+					onKeyDown={ ( event ) => {
+						if ( event.key === 'Escape' && selectedIds.length && ! event.defaultPrevented ) {
+							event.preventDefault();
+							event.stopPropagation();
+							setSelection( undefined );
+						}
+					} }
 					className={ styles.list }
-					data-tab-dragging={ !! reorder.drag || undefined }
-					data-tab-drop-committed={ reorder.drag?.committed || undefined }
+					data-tab-dragging={ !! drag || undefined }
+					data-tab-drop-committed={ drag?.committed || undefined }
 					onPointerDown={ reorder.onPointerDown }
 					onClickCapture={ reorder.onClickCapture }
 					onDragStart={ ( event ) => event.preventDefault() }
 				>
-					{ workspace.tabs.map( ( tab, index ) => {
-						const realm = tab.path === null ? 'frontend' : getPreviewRealm( tab.path );
-						const { Icon } = getSiteTool( realm );
-						const destination = realm === 'email' ? fileManager : browser;
-						const selected = tab.id === workspace.selectedId;
-						return (
-							<Menu.ContextMenuRoot key={ tab.id }>
-								<ThumbnailTooltip
-									side="bottom"
-									label={ sprintf( __( 'Preview of %s' ), getTabTitle( tab, siteName ) ) }
-									thumbnail={
-										tab.thumbnail && tab.thumbnail.path === tab.path ? tab.thumbnail.image : null
-									}
-									disabled={ selected || !! reorder.drag || ! tab.thumbnail }
-									trigger={
-										<Menu.ContextMenuTrigger
-											render={
-												<div
-													className={ clsx( styles.tab, selected && styles.selected ) }
-													data-tab-reorder-id={ tab.id }
-													data-drag-source={ reorder.drag?.id === tab.id || undefined }
-													style={ {
-														transform: `translateX(${ reorder.getOffset( tab.id ) }px)`,
-													} }
-													data-preview-selected={ selected || undefined }
-												/>
-											}
-										>
-											<TabsTrigger
-												value={ tab.id }
-												className={ styles.trigger }
-												aria-description={ __(
-													'Use Alt+Shift+Left or Right Arrow to move this tab.'
-												) }
-												onKeyDown={ ( event ) => {
-													reorder.onKeyDown( event, tab.id );
-													if ( event.key === 'Delete' ) {
-														event.preventDefault();
-														closeTabs( [ tab.id ] );
-													}
-												} }
-											>
-												<Icon className={ styles.icon } />
-												<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
-											</TabsTrigger>
-											<IconButton
-												variant="ghost"
-												size="icon-2xs"
-												className={ styles.close }
-												data-tab-close
-												icon={ <XIcon width={ 14 } height={ 14 } /> }
-												label={ sprintf( __( 'Close %s' ), getTabTitle( tab, siteName ) ) }
-												onClick={ () => closeTabs( [ tab.id ] ) }
-												tooltip={ false }
-											/>
-										</Menu.ContextMenuTrigger>
-									}
-								/>
-								<Menu.ContextPopup>
-									<Menu.Item disabled={ busy } onClick={ () => add( '/' ) }>
-										<PlusIcon />
-										{ __( 'New tab' ) }
-									</Menu.Item>
-									<Menu.Item
-										disabled={ busy || tab.path === null || realm === 'design' }
-										onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
-									>
-										{ destination.logo }
-										{ /* translators: %s: the browser or system file manager name. */ }
-										{ sprintf( __( 'Open in %s' ), destination.label ) }
-									</Menu.Item>
-									<Menu.Separator />
-									<Menu.Item onClick={ () => closeTabs( [ tab.id ] ) }>
-										<X />
-										{ __( 'Close tab' ) }
-									</Menu.Item>
-									{ workspace.tabs.length > 1 && (
-										<Menu.Item
-											onClick={ () =>
-												closeTabs(
-													workspace.tabs
-														.filter( ( other ) => other.id !== tab.id )
-														.map( ( other ) => other.id )
-												)
-											}
-										>
-											<X />
-											{ __( 'Close other tabs' ) }
-										</Menu.Item>
-									) }
-									{ index > 0 && index < workspace.tabs.length - 1 && (
-										<Menu.Item
-											onClick={ () =>
-												closeTabs( workspace.tabs.slice( index + 1 ).map( ( other ) => other.id ) )
-											}
-										>
-											<X />
-											{ __( 'Close tabs to the right' ) }
-										</Menu.Item>
-									) }
-									{ workspace.tabs.length > 1 && (
-										<Menu.Item
-											onClick={ () => closeTabs( workspace.tabs.map( ( other ) => other.id ) ) }
-										>
-											<X />
-											{ __( 'Close all tabs' ) }
-										</Menu.Item>
-									) }
-								</Menu.ContextPopup>
-							</Menu.ContextMenuRoot>
-						);
-					} ) }
+					{ groups.map( renderTab ) }
 				</TabsList>
 			</Tabs>
+
 			<Menu.Root>
 				<Menu.Trigger
 					render={
@@ -360,23 +562,76 @@ export function PreviewTabs( {
 					<SiteToolMenuItems site={ site } actions={ tools } live={ !! liveUrl } />
 				</Menu.Popup>
 			</Menu.Root>
-			<VisuallyHidden role="status">{ reorder.announcement }</VisuallyHidden>
-			{ reorder.drag && draggedTab
+			<VisuallyHidden role="status">
+				{ hasSelection
+					? sprintf(
+							/* translators: %d: number of selected tabs. */
+							_n( '%d tab selected', '%d tabs selected', selectedIds.length ),
+							selectedIds.length
+					  )
+					: reorder.announcement }
+			</VisuallyHidden>
+			{ drag && ! drag.landing
+				? createPortal( <div className={ styles.dragShield } aria-hidden="true" />, document.body )
+				: null }
+			{ drag?.splitTargets && ! drag.landing
 				? createPortal(
 						<div
-							className={ clsx( styles.dragPreview, dragSelected && styles.selected ) }
-							data-tab-drag-preview
-							data-preview-selected={ dragSelected || undefined }
-							data-landing={ reorder.drag.landing || undefined }
+							className={ styles.splitDropArea }
 							aria-hidden="true"
+							inert
 							style={ {
-								width: reorder.drag.slots.find( ( slot ) => slot.id === draggedTab.id )!.width,
-								height: reorder.drag.slots.find( ( slot ) => slot.id === draggedTab.id )!.height,
-								transform: `translate3d(${ reorder.drag.x }px, ${ reorder.drag.y }px, 0)`,
+								left: drag.splitTargets.area.left,
+								top: drag.splitTargets.area.top,
+								width: drag.splitTargets.area.width,
+								height: drag.splitTargets.area.height,
 							} }
 						>
-							<DragIcon className={ styles.icon } />
-							<span className={ styles.title }>{ getTabTitle( draggedTab, siteName ) }</span>
+							{ drag.splitTargets.targets.map( ( { side, bounds } ) => (
+								<div
+									key={ side }
+									className={ styles.splitDropReveal }
+									data-side={ side }
+									data-visible={ drag.destination !== 'reorder' || undefined }
+									style={ {
+										left: bounds.left - drag.splitTargets!.area.left,
+										top: bounds.top - drag.splitTargets!.area.top,
+										width: bounds.width,
+										height: bounds.height,
+									} }
+								>
+									<DropOverlay
+										className={ styles.splitDropTarget }
+										variant="panel"
+										data-active={ drag.destination === side || undefined }
+									>
+										{ __( 'Drop to split' ) }
+									</DropOverlay>
+								</div>
+							) ) }
+						</div>,
+						document.body
+				  )
+				: null }
+			{ drag && draggedGroup && draggedSlot
+				? createPortal(
+						<div
+							className={ clsx(
+								styles.dragPreview,
+								draggedGroup === selectedGroup && styles.selected
+							) }
+							data-preview-selected={ draggedGroup === selectedGroup || undefined }
+							data-preview-tab-pair={ draggedGroup.length > 1 || undefined }
+							data-tab-drag-preview
+							data-landing={ drag.landing || undefined }
+							aria-hidden="true"
+							style={ {
+								width: draggedSlot.width,
+								height: draggedSlot.height,
+								transform: `translate3d(${ drag.x }px, ${ drag.y }px, 0)`,
+							} }
+						>
+							{ renderGroupLabel( draggedGroup ) }
 						</div>,
 						document.body
 				  )

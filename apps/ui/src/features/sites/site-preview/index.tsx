@@ -1,10 +1,19 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
-import { VisuallyHidden } from '@studio/ds';
-import { __ } from '@wordpress/i18n';
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { __, sprintf } from '@wordpress/i18n';
+import { XIcon } from '@studio/ds/icons';
+import {
+	Suspense,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
+import { getPreviewTabSplit } from '@/data/preview-tab-state';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 import { useSiteDesign } from '@/data/queries/use-site-design';
@@ -24,6 +33,7 @@ import {
 	subscribeAnnotationReview,
 	editAnnotation,
 	type AnnotationAnchor,
+	type PreviewAnnotation,
 	isAnnotationsBusy,
 	setAnnotating,
 	useSiteAnnotations,
@@ -35,6 +45,7 @@ import { PreviewParticles } from '@/features/sites/preview-particles';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { SiteToolLauncher, useSiteToolActions } from '@/features/sites/site-tools';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
+import { IconButton, ResizeHandle, ResizeOverlay, VisuallyHidden } from '@studio/ds';
 import {
 	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
@@ -53,6 +64,11 @@ import {
 	SurfaceLayer,
 	WebviewSurface,
 } from './preview-surface';
+import {
+	getWebviewContentsId,
+	subscribePreviewOpenLink,
+	type WebviewTag,
+} from './preview-surface/webview';
 import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
@@ -67,8 +83,11 @@ import { usePreviewOpenTracks } from './use-preview-open-tracks';
 import { usePreviewScreenshot } from './use-preview-screenshot';
 import { useTabThumbnail } from './use-tab-thumbnail';
 import { usePreviewSurfaces } from './use-preview-surfaces';
+import { useTabSplit } from './use-tab-split';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
+import type { AnnotationTool } from '@studio/agent/protocol/inspector/shortcuts';
+import type { CSSProperties } from 'react';
 
 interface SitePreviewProps {
 	site: SiteDetails;
@@ -98,6 +117,27 @@ interface SitePreviewProps {
 	onTitleChange?: ( title: string | null ) => void;
 }
 
+interface PaneAnnotationControls {
+	pageTools: boolean;
+	selectTool: ( tool: AnnotationTool ) => void;
+}
+
+interface PreviewPaneProps extends SitePreviewProps {
+	tabId: string;
+	focused: boolean;
+	split: boolean;
+	annotationHost: boolean;
+	annotationTool: AnnotationTool;
+	annotationPaneById: ReadonlyMap< string, string >;
+	registerAnnotationControls: ( paneId: string, controls: PaneAnnotationControls ) => () => void;
+	onAnnotationToolChange: ( tool: AnnotationTool ) => void;
+	paneLabel?: string;
+	onActivate: () => void;
+	onOpenLinkInTab: ( url: string ) => void;
+	onCloseTab?: () => void;
+	sharedHeaderTarget?: HTMLElement | null;
+}
+
 function SitePreviewContent( {
 	site,
 	liveUrl,
@@ -112,10 +152,23 @@ function SitePreviewContent( {
 	blank = false,
 	onThumbnail,
 	onTitleChange,
-}: SitePreviewProps ) {
+	tabId,
+	focused,
+	split,
+	annotationHost,
+	annotationTool,
+	annotationPaneById,
+	registerAnnotationControls,
+	onAnnotationToolChange,
+	paneLabel,
+	onActivate,
+	onOpenLinkInTab,
+	onCloseTab,
+	sharedHeaderTarget,
+}: PreviewPaneProps ) {
+	const { annotationTarget } = useSiteHeader();
 	const connector = useConnector();
 	const trackOpen = usePreviewOpenTracks();
-	const { annotationSpace } = useSiteHeader();
 	const startSite = useStartSite();
 	const operation = useSiteOperation( site );
 	const startPending = useIsSiteStarting( site.id );
@@ -152,6 +205,22 @@ function SitePreviewContent( {
 	} );
 	const siteDesign = useSiteDesign( site );
 	const annotations = useSiteAnnotations( site.id );
+	const pageAnnotationsActive = ! inactive && ! collapsed && activeSurfaceKey === 'site';
+	const ownsNote =
+		annotations.editingId !== null && annotationPaneById.get( annotations.editingId ) === tabId;
+	const paneAnnotations = useMemo(
+		() => ( {
+			...annotations,
+			active: ! inactive && ! collapsed && annotations.active,
+			notes: annotations.notes.filter( ( note ) => annotationPaneById.get( note.id ) === tabId ),
+			editingId: ownsNote ? annotations.editingId : null,
+		} ),
+		[ annotationPaneById, annotations, collapsed, inactive, ownsNote, tabId ]
+	);
+	const pageAnnotations = useMemo(
+		() => ( { ...paneAnnotations, active: pageAnnotationsActive && paneAnnotations.active } ),
+		[ paneAnnotations, pageAnnotationsActive ]
+	);
 	// Surfaces Studio draws itself, with no page to load.
 	const rendered = activeSurfaceKey === 'design' || activeSurfaceKey === 'email';
 	const { loadingStage, reveal } = useLoadingStage( {
@@ -160,7 +229,7 @@ function SitePreviewContent( {
 		canPreview,
 		isStarting,
 		rendered: rendered || blank,
-		publish: ! inactive && ! blank,
+		publish: focused && ! inactive && ! blank,
 	} );
 	const [ restartReveal, setRestartReveal ] = useState( false );
 	useEffect( () => {
@@ -266,7 +335,7 @@ function SitePreviewContent( {
 			if ( adminBarActive ) sendSurfaceCommand( 'site', 'read-admin-bar' );
 		},
 	} );
-	const responsiveSettings = useResponsivePreview( site.id );
+	const responsiveSettings = useResponsivePreview( site.id, tabId );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
 	const responsiveActive = ! inactive && ! collapsed && ! isStarting && ! isStopping;
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
@@ -296,14 +365,18 @@ function SitePreviewContent( {
 			viewport.clientWidth > 0 &&
 			viewport.clientHeight > 0
 		) {
-			updateResponsivePreview( site.id, {
-				fitScale: getFitScale(
-					viewport.clientWidth,
-					viewport.clientHeight,
-					responsiveSettings.width,
-					responsiveSettings.height
-				),
-			} );
+			updateResponsivePreview(
+				site.id,
+				{
+					fitScale: getFitScale(
+						viewport.clientWidth,
+						viewport.clientHeight,
+						responsiveSettings.width,
+						responsiveSettings.height
+					),
+				},
+				tabId
+			);
 		}
 	}, [
 		responsiveEnabled,
@@ -311,6 +384,7 @@ function SitePreviewContent( {
 		availableSize.width,
 		availableSize.height,
 		site.id,
+		tabId,
 	] );
 	const responsiveScale =
 		responsiveSettings.zoom === 'fit'
@@ -325,11 +399,12 @@ function SitePreviewContent( {
 		sendAnnotations,
 	} = usePreviewAnnotations( {
 		siteId: site.id,
+		paneId: tabId,
 		surfaceKey: activeSurfaceKey,
 		canAnnotateSurface,
 		viewportRef,
 		onSendAnnotations,
-		enabled: ! inactive,
+		enabled: focused && ! inactive && ! split,
 	} );
 	useEffect( () => {
 		if ( activeSurfaceKey !== 'design' ) setAnnotationAnchor( null );
@@ -354,21 +429,40 @@ function SitePreviewContent( {
 	);
 	const annotationTools = useAnnotationTools( {
 		siteId: site.id,
-		enabled: canAnnotate && activeSurfaceKey === 'site' && ! inactive && ! collapsed,
+		enabled: pageAnnotationsActive && canAnnotate,
+		shortcuts: focused,
+		tool: annotationTool,
+		onToolChange: onAnnotationToolChange,
 		viewportRef,
 		onPick: handleAnnotationPick,
 	} );
 	const handleAnnotationToolEvent = annotationTools.handleEvent;
-	const discard = useCallback( () => discardAnnotations( site.id ), [ site.id ] );
+	const { escapeDraft, selectTool } = annotationTools;
+	useLayoutEffect( () => {
+		if ( inactive || collapsed || ! annotations.active || ! canAnnotate ) return;
+		return registerAnnotationControls( tabId, {
+			pageTools: activeSurfaceKey === 'site',
+			selectTool,
+		} );
+	}, [
+		activeSurfaceKey,
+		annotations.active,
+		canAnnotate,
+		collapsed,
+		inactive,
+		tabId,
+		registerAnnotationControls,
+		selectTool,
+	] );
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
 			reveal();
-			if ( key === 'site' && ! live && ! inactive ) {
+			if ( key === 'site' && ! live && ! inactive && focused ) {
 				capturePage( url, guestId );
 			}
 		},
-		[ capturePage, live, reveal, inactive ]
+		[ capturePage, live, reveal, inactive, focused ]
 	);
 	const handleSurfaceBrowserState = useCallback(
 		( key: PreviewSurfaceKey, browser: BrowserNavigationState ) => {
@@ -385,20 +479,39 @@ function SitePreviewContent( {
 	// bridge, for the webview.
 	const handleInspectorEvent = useCallback(
 		( event: InspectorEvent ) => {
-			if ( inactive ) return;
+			if ( inactive || collapsed ) return;
 			if ( event.type === 'browser-command' ) {
-				sendBrowserCommand( event.command );
+				if ( focused ) sendBrowserCommand( event.command );
 			} else if ( event.type === 'selection' || event.type === 'annotation-tool' ) {
+				if ( event.type === 'annotation-tool' || event.selection ) onActivate();
 				handleAnnotationToolEvent( event );
-			} else {
+			} else if ( event.type === 'pick' || event.type === 'edit' ) {
+				if ( event.type === 'edit' && annotationPaneById.get( event.id ) !== tabId ) return;
+				onActivate();
 				handleAnnotationEvent( event );
+			} else if ( event.type === 'anchor' ) {
+				if ( ownsNote ) handleAnnotationEvent( event );
+			} else if ( focused ) {
+				if ( ! escapeDraft() ) handleAnnotationEvent( event );
 			}
 		},
-		[ handleAnnotationEvent, handleAnnotationToolEvent, sendBrowserCommand, inactive ]
+		[
+			annotationPaneById,
+			collapsed,
+			escapeDraft,
+			focused,
+			handleAnnotationEvent,
+			handleAnnotationToolEvent,
+			sendBrowserCommand,
+			inactive,
+			onActivate,
+			tabId,
+			ownsNote,
+		]
 	);
 
 	const browserShortcuts = useBrowserShortcuts(
-		canPreview && ! isStarting && ! isStopping && ! collapsed,
+		canPreview && ! isStarting && ! isStopping && ! collapsed && ! inactive && focused,
 		sendBrowserCommand
 	);
 
@@ -427,7 +540,7 @@ function SitePreviewContent( {
 			if ( ! responsiveSettings.enabled && adminBarActions.value === 'show' ) {
 				adminBarActions.onChange( 'hide' );
 			}
-			updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } );
+			updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled }, tabId );
 		},
 	};
 	const beginAnnotating = () => {
@@ -439,7 +552,6 @@ function SitePreviewContent( {
 			} );
 		return true;
 	};
-	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
 	const showBrowserBar =
 		canPreview && ! blank && ( ! loadingStage || isRestarting || restartReveal );
 
@@ -456,7 +568,7 @@ function SitePreviewContent( {
 
 	const annotate = showAnnotate
 		? {
-				annotationCount: batchNotes.length,
+				annotationCount: annotations.notes.filter( isBatchedAnnotation ).length,
 				active: annotations.active,
 				disabled:
 					! canAnnotateSurface ||
@@ -480,9 +592,28 @@ function SitePreviewContent( {
 		  }
 		: undefined;
 
+	const closeTab = onCloseTab && (
+		<IconButton
+			variant="ghost"
+			size="icon-sm"
+			icon={ <XIcon width={ 16 } height={ 16 } /> }
+			label={ __( 'Close tab' ) }
+			tooltipSide="bottom"
+			onClick={ onCloseTab }
+		/>
+	);
+	const annotationButton = ! inactive && ! collapsed && annotate && (
+		<AnnotateButton
+			{ ...annotate }
+			pageTools={ activeSurfaceKey === 'site' && canAnnotate }
+			shortcuts={ split ? annotationHost : focused }
+		/>
+	);
+	const hasBrowserHeader = showBrowserBar && activeSurfaceKey !== 'email';
+	const emailActions =
+		! split && showBrowserBar && activeSurfaceKey === 'email' && annotationButton;
 	const header = (
 		<PreviewHeader
-			inactive={ inactive }
 			site={ site }
 			siteUrl={ siteUrl }
 			path={ safePath }
@@ -501,7 +632,8 @@ function SitePreviewContent( {
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
-			annotation={ inactive ? undefined : annotate }
+			closeTab={ closeTab }
+			annotation={ ! split && annotationButton }
 			screenshot={
 				! rendered && ! blank && onAttachScreenshot
 					? {
@@ -520,23 +652,27 @@ function SitePreviewContent( {
 	return (
 		<aside
 			className={ styles.root }
-			data-browser-bar={ showBrowserBar || undefined }
-			aria-label={ __( 'Panel' ) }
+			data-browser-bar={ showBrowserBar || !! closeTab || undefined }
+			aria-label={ paneLabel ?? __( 'Panel' ) }
 		>
-			{ ! inactive && annotate && annotationSpace
-				? createPortal(
-						<AnnotateButton
-							{ ...annotate }
-							annotationCount={ batchNotes.length }
-							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
-						/>,
-						annotationSpace
-				  )
-				: null }
-			{ showBrowserBar && activeSurfaceKey !== 'email' ? header : null }
+			{ split &&
+				annotationHost &&
+				annotationTarget &&
+				createPortal( annotationButton, annotationTarget ) }
+			{ hasBrowserHeader
+				? sharedHeaderTarget === undefined
+					? header
+					: focused && sharedHeaderTarget && createPortal( header, sharedHeaderTarget )
+				: ( closeTab || emailActions ) && (
+						<div className={ styles.closeTabBar }>
+							{ emailActions }
+							{ closeTab }
+						</div>
+				  ) }
 			{ showBrowserBar && responsiveEnabled ? (
 				<ResponsiveToolbar
 					siteId={ site.id }
+					tabId={ tabId }
 					settings={ responsiveSettings }
 					fitScale={ fitScale }
 					active={ responsiveActive }
@@ -546,6 +682,7 @@ function SitePreviewContent( {
 				<div
 					ref={ viewportRef }
 					className={ styles.previewViewport }
+					data-preview-viewport
 					onScrollCapture={ () => setAnnotationAnchor( null ) }
 				>
 					{ ! blank &&
@@ -565,6 +702,7 @@ function SitePreviewContent( {
 											{ siteDesign.isPending ||
 											( siteDesign.isFetching && ! siteDesign.data ) ? null : (
 												<DesignSystemView
+													annotations={ paneAnnotations }
 													siteId={ site.id }
 													siteDesign={ siteDesign.data ?? null }
 													error={ siteDesign.error }
@@ -582,6 +720,7 @@ function SitePreviewContent( {
 								return (
 									<SurfaceLayer key={ key } active={ active }>
 										<EmailView
+											annotations={ paneAnnotations }
 											key={ site.id }
 											siteId={ site.id }
 											active={ active && ! collapsed }
@@ -596,12 +735,12 @@ function SitePreviewContent( {
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
 							const inspectorProps = {
-								annotations: key === 'site' && ! inactive ? annotations : undefined,
+								annotations: key === 'site' ? pageAnnotations : undefined,
 								onInspectorReady: ( inspectorReady: boolean ) => {
 									patchSurface( key, { inspectorReady } );
 									if ( ! inspectorReady ) setAnnotationAnchor( null );
 								},
-								onInspectorEvent: handleInspectorEvent,
+								onInspectorEvent: active ? handleInspectorEvent : undefined,
 							};
 							return (
 								<SurfaceLayer
@@ -611,6 +750,7 @@ function SitePreviewContent( {
 										key === 'site'
 											? {
 													siteId: site.id,
+													tabId,
 													settings: responsiveSettings,
 													scale: responsiveScale,
 													active: responsiveActive,
@@ -628,10 +768,11 @@ function SitePreviewContent( {
 											reloadNonce={ surface.reloadNonce }
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.
-											inspector={ key === 'site' && ! inactive }
+											inspector={ key === 'site' }
 											{ ...inspectorProps }
-											annotationTool={ annotationTools.tool }
+											annotationTool={ annotationTool }
 											clearSelection={ annotationTools.clearSelection }
+											onActivate={ onActivate }
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
@@ -644,6 +785,10 @@ function SitePreviewContent( {
 										/>
 									) : (
 										<FrameSurface
+											onActivate={ onActivate }
+											onOpenLinkInTab={
+												! inactive && ! collapsed && active ? onOpenLinkInTab : undefined
+											}
 											key={ frameKey }
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
@@ -703,21 +848,13 @@ function SitePreviewContent( {
 							) : null }
 						</div>
 					</SiteContextMenu>
-					<AnnotationTools
-						{ ...annotationTools.controls }
-						visible={
-							! inactive && ! collapsed && annotations.active && canAnnotate && !! annotate
-						}
-						pageTools={ activeSurfaceKey === 'site' }
-						disabled={ isAnnotationsBusy( annotations ) }
-						onDiscard={ discard }
-					/>
-					{ ! inactive && ! blank && canAnnotateSurface ? (
+					{ ( focused || ownsNote ) && ! inactive && ! blank && canAnnotateSurface ? (
 						<AnnotationOverlay
 							siteId={ site.id }
-							anchor={ annotationAnchor }
+							anchor={ ownsNote ? annotationAnchor : null }
 							onSend={ sendAnnotations }
-							onEscape={ annotationTools.escapeDraft }
+							onEscape={ escapeDraft }
+							listenForEscape={ focused }
 						/>
 					) : null }
 				</div>
@@ -736,9 +873,114 @@ export function SitePreview( props: SitePreviewProps ) {
 		liveUrl: reviewLiveUrl,
 		onStartAnnotating: onReviewStart,
 	} = props;
-	const { workspace, selected, patch, select, update } = usePreviewTabs(
+	const { workspace, selected, add, patch, select, update, closeMany } = usePreviewTabs(
 		previewTabsKey( props.site.id, props.liveUrl ),
-		hostPath
+		hostPath,
+		props.site.id
+	);
+	const tabSplit = getPreviewTabSplit( workspace );
+	const [ annotationTool, setAnnotationTool ] = useState< AnnotationTool >( 'select' );
+	const [ browserHeaderTarget, setBrowserHeaderTarget ] = useState< HTMLDivElement | null >( null );
+	const firstId = tabSplit?.tabIds[ 0 ];
+	const annotationHostId =
+		tabSplit?.tabIds.find( ( id ) => {
+			const tab = workspace.tabs.find( ( tab ) => tab.id === id );
+			return tab?.path != null && getPreviewRealm( tab.path ) !== 'database';
+		} ) ?? firstId;
+	const resizeSplit = ( weights: number[] ) => {
+		update( ( current ) => ( {
+			...current,
+			splits: current.splits.map( ( item ) =>
+				item.tabIds[ 0 ] === firstId && item.tabIds.length === weights.length
+					? { ...item, weights }
+					: item
+			),
+		} ) );
+	};
+	const {
+		rootRef: root,
+		panesRef,
+		splitVisible,
+		isResizing,
+		sizes,
+		style,
+		handleProps,
+	} = useTabSplit( {
+		split: tabSplit,
+		selectedId: selected.id,
+		onResize: resizeSplit,
+		collapsed: props.collapsed,
+	} );
+	const siteUrl = reviewLiveUrl ?? getSiteUrl( reviewSite );
+	const annotations = useSiteAnnotations( reviewSite.id );
+	const [ annotationControls, setAnnotationControls ] = useState(
+		() => new Map< string, PaneAnnotationControls >()
+	);
+	const registerAnnotationControls = useCallback(
+		( paneId: string, controls: PaneAnnotationControls ) => {
+			setAnnotationControls( ( current ) => new Map( current ).set( paneId, controls ) );
+			return () =>
+				setAnnotationControls( ( current ) => {
+					const next = new Map( current );
+					next.delete( paneId );
+					return next;
+				} );
+		},
+		[]
+	);
+	const activeControls = annotationControls.get( workspace.selectedId );
+	const pageControls = activeControls?.pageTools
+		? activeControls
+		: Array.from( annotationControls.values() ).find( ( controls ) => controls.pageTools );
+
+	const annotationPaneById = useMemo( () => {
+		const visibleIds = tabSplit?.tabIds ?? [ selected.id ];
+		const visibleTabs = workspace.tabs.filter( ( tab ) => visibleIds.includes( tab.id ) );
+		const owners = new Map< string, string >();
+		for ( const note of annotations.notes ) {
+			const owner = workspace.tabs.find( ( tab ) => tab.id === note.previewPaneId );
+			if ( owner ) {
+				owners.set( note.id, owner.id );
+				continue;
+			}
+			const path = getAnnotationPreviewPath( note, siteUrl ).split( /[?#]/ )[ 0 ];
+			const fallback = visibleTabs.find( ( tab ) => tab.path?.split( /[?#]/ )[ 0 ] === path );
+			owners.set( note.id, fallback?.id ?? visibleTabs[ 0 ]?.id ?? selected.id );
+		}
+		return owners;
+	}, [ annotations.notes, selected.id, siteUrl, tabSplit?.tabIds, workspace.tabs ] );
+	const openLinkInTab = useCallback(
+		( url: string ) => {
+			const path = getPathFromPreviewUrl( url, siteUrl );
+			if ( path ) add( path, { background: true } );
+		},
+		[ add, siteUrl ]
+	);
+	useEffect(
+		() =>
+			subscribePreviewOpenLink( ( _event, { guestId, url, split } ) => {
+				if ( props.collapsed ) return;
+				const views = root.current?.querySelectorAll< WebviewTag >(
+					'[data-visible-tab]:not([inert]) webview'
+				);
+				const guest = Array.from( views ?? [] ).find( ( view ) => {
+					try {
+						return getWebviewContentsId( view ) === guestId;
+					} catch {
+						return false;
+					}
+				} );
+				const paneId =
+					guest?.closest< HTMLElement >( '[data-preview-pane-id]' )?.dataset.previewPaneId;
+				if ( ! paneId ) return;
+				if ( ! split ) {
+					openLinkInTab( url );
+					return;
+				}
+				const path = getPathFromPreviewUrl( url, siteUrl );
+				if ( path ) add( path, { splitBeside: paneId } );
+			} ),
+		[ add, openLinkInTab, props.collapsed, root, siteUrl ]
 	);
 
 	const stopping = useIsSiteStopping( props.site.id );
@@ -754,8 +996,43 @@ export function SitePreview( props: SitePreviewProps ) {
 		selectedId: string;
 		forwarded: string | null;
 	} >( { host: hostPath, selectedId: workspace.selectedId, forwarded: null } );
-	const root = useRef< HTMLDivElement >( null );
 	const lastFocusRequest = useRef( workspace.focusRequest );
+	useEffect( () => {
+		if ( props.collapsed || ! splitVisible ) return;
+		let timer: ReturnType< typeof setTimeout >;
+		const activate = () => {
+			const element = document.activeElement;
+			const pane =
+				element instanceof HTMLElement
+					? element.closest< HTMLElement >( '[data-visible-tab]' )
+					: null;
+			if ( pane?.dataset.previewPaneId && root.current?.contains( pane ) && ! props.collapsed ) {
+				const paneId = pane.dataset.previewPaneId;
+				if ( paneId !== workspace.selectedId ) select( paneId );
+				return element?.matches( 'iframe, webview' ) ?? false;
+			}
+			return false;
+		};
+		// Focus inside an iframe or webview leaves the host document. Its active
+		// element identifies the pane; moving between guests need not blur again.
+		const followEmbeddedFocus = () => {
+			if ( ! document.hidden && activate() ) timer = setTimeout( followEmbeddedFocus, 100 );
+		};
+		const onBlur = () => {
+			clearTimeout( timer );
+			timer = setTimeout( followEmbeddedFocus, 0 );
+		};
+		window.addEventListener( 'blur', onBlur );
+		document.addEventListener( 'focusin', activate );
+		document.addEventListener( 'visibilitychange', onBlur );
+		onBlur();
+		return () => {
+			clearTimeout( timer );
+			window.removeEventListener( 'blur', onBlur );
+			document.removeEventListener( 'focusin', activate );
+			document.removeEventListener( 'visibilitychange', onBlur );
+		};
+	}, [ select, root, props.collapsed, workspace.selectedId, splitVisible ] );
 	const externalNavigation =
 		observed.host !== hostPath &&
 		observed.forwarded !== hostPath &&
@@ -787,7 +1064,7 @@ export function SitePreview( props: SitePreviewProps ) {
 				?.focus();
 		} );
 		return () => cancelAnimationFrame( frame );
-	}, [ workspace.focusRequest, props.collapsed ] );
+	}, [ workspace.focusRequest, props.collapsed, root ] );
 
 	const navigate = useCallback(
 		( id: string, path: string ) => {
@@ -812,14 +1089,12 @@ export function SitePreview( props: SitePreviewProps ) {
 				? requested
 				: current.notes.find( ( note ) => note.id === current.editingId );
 			if ( ! note ) return;
-			const path = note.email
-				? EMAIL_PREVIEW_PATH
-				: note.targetKey && note.path === 'DESIGN.md'
-				? DESIGN_SYSTEM_PREVIEW_PATH
-				: note.path ?? '/';
-			const match = workspace.tabs.find( ( tab ) => tab.path === path );
-			if ( match ) select( match.id );
-			else navigate( workspace.selectedId, path );
+			const path = getAnnotationPreviewPath( note, siteUrl );
+			const owner = workspace.tabs.find( ( tab ) => tab.id === note.previewPaneId );
+			const match = owner ?? workspace.tabs.find( ( tab ) => tab.path === path );
+			const tabId = match?.id ?? workspace.selectedId;
+			if ( match ) select( tabId );
+			if ( match?.path !== path ) navigate( tabId, path );
 			setAnnotating( reviewSite.id, true );
 			if ( ! reviewSite.running && ! reviewStarting )
 				startReviewSite( reviewSite.id, {
@@ -830,8 +1105,8 @@ export function SitePreview( props: SitePreviewProps ) {
 		reviewSite,
 		reviewLiveUrl,
 		onReviewStart,
-		workspace.tabs,
-		workspace.selectedId,
+		workspace,
+		siteUrl,
 		select,
 		navigate,
 		reviewStarting,
@@ -840,45 +1115,155 @@ export function SitePreview( props: SitePreviewProps ) {
 	// Moving an iframe or webview can reload or disconnect it, so keep panes in a stable order.
 	const previewPanes = [ ...workspace.tabs ].sort( ( a, b ) => a.id.localeCompare( b.id ) );
 	return (
-		<div ref={ root } className={ styles.tabWorkspace }>
-			{ previewPanes.map( ( tab ) => {
-				const active = tab.id === workspace.selectedId;
-				return (
-					<div
-						key={ tab.id }
-						className={ styles.tabPane }
-						data-active-tab={ active || undefined }
-						aria-hidden={ ! active || undefined }
-						inert={ ! active }
-					>
-						<SitePreviewContent
-							{ ...props }
-							path={ active && externalNavigation ? hostPath : tab.path ?? '/' }
-							inactive={ ! active }
-							blank={ tab.path === null }
-							collapsed={ props.collapsed || ! active }
-							onPathChange={ ( path ) => navigate( tab.id, path ) }
-							onThumbnail={ ( path, image ) =>
-								update( ( current ) => {
-									const target = current.tabs.find( ( t ) => t.id === tab.id );
-									if (
-										target?.path !== path ||
-										( target.thumbnail?.path === path && target.thumbnail.image === image )
-									)
-										return current;
-									return {
-										...current,
-										tabs: current.tabs.map( ( t ) =>
-											t.id === tab.id ? { ...t, thumbnail: { path, image } } : t
-										),
-									};
-								} )
-							}
-							onTitleChange={ ( title ) => patch( tab.id, { title } ) }
-						/>
-					</div>
-				);
-			} ) }
+		<div
+			ref={ root }
+			className={ styles.tabWorkspace }
+			style={ style }
+			data-preview-workspace={ previewTabsKey( props.site.id, props.liveUrl ) }
+			data-split-view={ splitVisible || undefined }
+			data-resizing={ isResizing || undefined }
+			role={ splitVisible ? 'group' : undefined }
+			aria-label={ splitVisible ? __( 'Split view' ) : undefined }
+		>
+			<div
+				ref={ setBrowserHeaderTarget }
+				className={ styles.sharedBrowserHeader }
+				data-preview-shared-header
+			/>
+			<div ref={ panesRef } className={ styles.tabPanes }>
+				<AnnotationTools
+					visible={ ! props.collapsed && annotations.active && annotationControls.size > 0 }
+					drawing={ annotationTool === 'draw' }
+					pageTools={ !! pageControls }
+					disabled={ isAnnotationsBusy( annotations ) }
+					onToggle={ () =>
+						pageControls?.selectTool( annotationTool === 'draw' ? 'select' : 'draw' )
+					}
+					onDiscard={ () => discardAnnotations( reviewSite.id ) }
+				/>
+				{ previewPanes.map( ( tab ) => {
+					const paneId = tab.id;
+					const focused = paneId === workspace.selectedId;
+					const inTabSplit = !! getPreviewTabSplit( workspace, tab.id );
+					const paneIndex = tabSplit?.tabIds.indexOf( paneId ) ?? -1;
+					const inSplit = paneIndex >= 0;
+					const visible = paneId === workspace.selectedId || inSplit;
+					const hidden = ! visible || sizes?.[ paneIndex ] === 0;
+					const activate = ( event?: { currentTarget: HTMLElement; target: EventTarget } ) => {
+						if ( hidden || props.collapsed ) return;
+						// Shared controls are portaled outside the pane and should not change focus.
+						if ( event && ! event.currentTarget.contains( event.target as Node ) ) return;
+						select( tab.id );
+					};
+					return (
+						<div
+							key={ paneId }
+							className={ styles.tabPane }
+							data-active-tab={ focused || undefined }
+							data-preview-pane-id={ paneId }
+							data-visible-tab={ visible || undefined }
+							data-split-pane={ inSplit || undefined }
+							data-split-start={ paneId === tabSplit?.tabIds[ 0 ] || undefined }
+							data-split-end={ paneId === tabSplit?.tabIds.at( -1 ) || undefined }
+							style={ inSplit ? { gridColumn: paneIndex + 1 } : undefined }
+							onPointerDownCapture={ activate }
+							onFocusCapture={ activate }
+							aria-hidden={ hidden || undefined }
+							inert={ hidden }
+						>
+							<SitePreviewContent
+								{ ...props }
+								tabId={ tab.id }
+								focused={ focused }
+								split={ inSplit }
+								annotationHost={ paneId === annotationHostId }
+								annotationTool={ annotationTool }
+								annotationPaneById={ annotationPaneById }
+								registerAnnotationControls={ registerAnnotationControls }
+								onAnnotationToolChange={ setAnnotationTool }
+								sharedHeaderTarget={ inTabSplit ? undefined : browserHeaderTarget }
+								onCloseTab={
+									tabSplit?.tabIds.includes( tab.id )
+										? () => closeMany( [ tab.id ], { focus: true } )
+										: undefined
+								}
+								paneLabel={
+									inSplit
+										? paneIndex === 0
+											? __( 'First panel' )
+											: paneIndex === 1
+											? __( 'Second panel' )
+											: sprintf(
+													/* translators: %d: pane position in the split view. */
+													__( 'Panel %d' ),
+													paneIndex + 1
+											  )
+										: undefined
+								}
+								onActivate={ activate }
+								onOpenLinkInTab={ openLinkInTab }
+								path={
+									tab.id === workspace.selectedId && externalNavigation ? hostPath : tab.path ?? '/'
+								}
+								inactive={ hidden }
+								blank={ tab.path === null }
+								collapsed={ props.collapsed || hidden }
+								onPathChange={ ( path ) => navigate( tab.id, path ) }
+								onThumbnail={ ( path, image ) =>
+									update( ( current ) => {
+										const target = current.tabs.find( ( t ) => t.id === tab.id );
+										if (
+											target?.path !== path ||
+											( target.thumbnail?.path === path && target.thumbnail.image === image )
+										)
+											return current;
+										return {
+											...current,
+											tabs: current.tabs.map( ( t ) =>
+												t.id === tab.id ? { ...t, thumbnail: { path, image } } : t
+											),
+										};
+									} )
+								}
+								onTitleChange={ ( title ) => patch( tab.id, { title } ) }
+							/>
+						</div>
+					);
+				} ) }
+				{ splitVisible &&
+					handleProps.map( ( { index, offset, resizing, ...handle } ) => (
+						<div
+							key={ index }
+							className={ styles.splitResize }
+							data-split-divider={ index }
+							data-resizing={ resizing || undefined }
+							style={ { '--tab-split-offset': `${ offset }px` } as CSSProperties }
+						>
+							<ResizeHandle
+								className={ styles.splitGrip }
+								label={
+									handleProps.length === 1
+										? __( 'Resize split view' )
+										: sprintf(
+												/* translators: %d: position of the divider in the split view. */
+												__( 'Resize split divider %d' ),
+												index + 1
+										  )
+								}
+								{ ...handle }
+							/>
+						</div>
+					) ) }
+			</div>
+			{ isResizing ? <ResizeOverlay /> : null }
 		</div>
 	);
+}
+
+function getAnnotationPreviewPath( note: PreviewAnnotation, siteUrl: string ) {
+	return note.email
+		? EMAIL_PREVIEW_PATH
+		: note.targetKey && note.path === 'DESIGN.md'
+		? DESIGN_SYSTEM_PREVIEW_PATH
+		: ( note.url && getPathFromPreviewUrl( note.url, siteUrl ) ) || note.path || '/';
 }

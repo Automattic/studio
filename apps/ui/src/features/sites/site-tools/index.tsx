@@ -58,7 +58,7 @@ export function useSiteToolActions(
 	const navigate = useNavigate();
 	const preview = useSessionPreviewUI();
 	const startSite = useStartSiteWithChat();
-	const tabs = usePreviewTabs( previewTabsKey( site.id, liveUrl ) );
+	const tabs = usePreviewTabs( previewTabsKey( site.id, liveUrl ), '/', site.id );
 	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 	const trackOpen = usePreviewOpenTracks();
 	const open = async ( path: string ) => {

@@ -418,8 +418,6 @@ export function PreviewAddressBar( {
 		<Popover.Root
 			triggerId={ addressInputId }
 			open={ isRecentOpen }
-			// The webview swallows outside clicks; the modal backdrop catches them.
-			modal
 			onOpenChange={ ( open, details ) => {
 				if ( disabled ) return;
 				if ( details.reason === 'trigger-press' && ( recentOpen || remote ) ) return;
@@ -464,8 +462,14 @@ export function PreviewAddressBar( {
 								setHighlighted( undefined );
 								if ( ! remote ) setRecentOpen( true );
 							} }
-							onBlur={ () => {
+							onBlur={ ( event ) => {
 								selectOnMouseUp.current = false;
+								// A click in an Electron webview can move focus without a host target.
+								if ( ! event.relatedTarget ) {
+									setRecentOpen( false );
+									setHighlighted( undefined );
+									restore();
+								}
 							} }
 							onChange={ ( event ) => {
 								setValue( event.target.value );

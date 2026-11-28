@@ -20,6 +20,7 @@ export function AnnotateButton( {
 	onClick,
 	annotationCount = 0,
 	pageTools = false,
+	shortcuts = true,
 }: {
 	active: boolean;
 	disabled: boolean;
@@ -27,6 +28,7 @@ export function AnnotateButton( {
 	onClick: () => void;
 	annotationCount?: number;
 	pageTools?: boolean;
+	shortcuts?: boolean;
 } ) {
 	const modeButton = useRef< HTMLButtonElement >( null );
 	const [ tooltipOpen, setTooltipOpen ] = useState( false );
@@ -36,7 +38,7 @@ export function AnnotateButton( {
 		? __( 'Point or draw to suggest a change.' )
 		: __( 'Point to something you’d like to change.' );
 	useEffect( () => {
-		if ( disabled ) return;
+		if ( disabled || ! shortcuts ) return;
 		const toggleFromKeyboard = ( event: KeyboardEvent ) => {
 			if (
 				event.defaultPrevented ||
@@ -51,7 +53,7 @@ export function AnnotateButton( {
 		};
 		document.addEventListener( 'keydown', toggleFromKeyboard );
 		return () => document.removeEventListener( 'keydown', toggleFromKeyboard );
-	}, [ disabled ] );
+	}, [ disabled, shortcuts ] );
 
 	return (
 		<Tooltip

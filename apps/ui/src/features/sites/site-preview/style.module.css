@@ -16,6 +16,12 @@
 	padding-block-start: var( --workspace-header-height, 0px );
 }
 
+.closeTabBar {
+	composes: header from './preview-header/style.module.css';
+	justify-content: flex-end;
+	-webkit-app-region: no-drag;
+}
+
 .body {
 	flex: 1;
 	min-height: 0;
@@ -65,22 +71,139 @@
 
 .tabWorkspace {
 	position: relative;
+	display: flex;
+	flex-direction: column;
 	flex: 1;
 	width: 100%;
 	height: 100%;
 	min-width: 0;
 	min-height: 0;
 }
+
+.sharedBrowserHeader {
+	flex-shrink: 0;
+	margin-block-start: var( --workspace-header-height, 0px );
+}
+
+.sharedBrowserHeader:empty {
+	display: none;
+}
+
+.tabPanes {
+	position: relative;
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr );
+	grid-template-rows: minmax( 0, 1fr );
+	flex: 1;
+	min-height: 0;
+	overflow: clip;
+}
+.tabWorkspace[data-split-view] .tabPanes {
+	grid-template-columns: var( --tab-split-columns );
+}
+
+.tabWorkspace[data-split-view] .tabPanes {
+	--split-pane-inset: var( --space-1 );
+
+	background: linear-gradient(
+		to bottom,
+		transparent var( --workspace-header-height, 0px ),
+		var( --chat ) 0
+	);
+}
+
+.tabWorkspace[data-split-view] .tabPane[data-split-pane] {
+	padding-block-start: var( --workspace-header-height, 0px );
+}
+
+.tabWorkspace[data-split-view] .tabPane[data-split-pane]:not( [data-split-start] ) .body {
+	margin-inline-start: var( --split-pane-inset );
+}
+
+.tabWorkspace[data-split-view] .tabPane[data-split-pane]:not( [data-split-end] ) .body {
+	margin-inline-end: var( --split-pane-inset );
+}
+
+.tabWorkspace[data-split-view] .tabPane[data-split-pane] > .root {
+	--workspace-header-height: 0px;
+}
+
+.sharedBrowserHeader:not( :empty ) + .tabPanes {
+	--workspace-header-height: 0px;
+}
+
 .tabPane {
 	position: absolute;
 	inset: 0;
 }
-.tabPane:not( [data-active-tab] ) {
+.tabPane:not( [data-visible-tab] ) {
 	visibility: hidden;
 	pointer-events: none;
 }
 
-.tabPane:not( [data-active-tab] )[data-capturing-thumbnail] {
+.tabPane:not( [data-visible-tab] )[data-capturing-thumbnail] {
 	visibility: visible;
 	opacity: 0;
+}
+
+.tabPane[data-visible-tab] {
+	position: relative;
+	grid-row: 1;
+	grid-column: 1;
+	min-width: 0;
+}
+
+.splitResize {
+	composes: resizeDivider from '@studio/ds/theme/recipes.module.css';
+	--split-hit-offset: clamp(
+		var( --space-2 ),
+		var( --tab-split-offset ),
+		calc( 100% - var( --space-2 ) )
+	);
+
+	position: absolute;
+	inset-block: var( --workspace-header-height, 0px ) 0;
+	inset-inline-start: calc( var( --split-hit-offset ) - var( --space-1 ) );
+	display: flex;
+	width: var( --space-2 );
+	z-index: var( --z-overlay );
+}
+
+.splitGrip {
+	flex: 1;
+}
+
+.splitResize::before {
+	content: '';
+	position: absolute;
+	inset-block-start: calc( ( var( --band-height ) - var( --band-separator-height ) ) / 2 );
+	inset-inline-start: 50%;
+	width: 1px;
+	height: var( --band-separator-height );
+	background-color: var( --border );
+	translate: -50%;
+	pointer-events: none;
+}
+
+.splitResize:dir( rtl )::before {
+	translate: 50%;
+}
+
+.splitResize::after {
+	content: '';
+	inset-inline-start: 50%;
+}
+
+.splitResize:is( [data-resizing], :has( .splitGrip:is( :hover, :focus-visible ) ) )::after {
+	opacity: 1;
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.splitResize:not( [data-resizing] ):has( .splitGrip:is( :hover, :focus-visible ) )::after {
+		transition-delay: var( --motion-duration-feedback );
+	}
+}
+
+.tabWorkspace[data-resizing] {
+	user-select: none;
 }

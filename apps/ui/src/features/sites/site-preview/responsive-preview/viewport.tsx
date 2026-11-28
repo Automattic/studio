@@ -20,12 +20,14 @@ const getEdgeNames = () => ( {
 
 export function ResponsiveViewport( {
 	siteId,
+	tabId,
 	settings,
 	scale = 1,
 	active = true,
 	children,
 }: {
 	siteId?: string;
+	tabId?: string;
 	settings?: ResponsivePreviewSettings;
 	scale?: number;
 	active?: boolean;
@@ -55,7 +57,7 @@ export function ResponsiveViewport( {
 		keyboard.current = null;
 		setDragScale( null );
 		setDraggingEdge( null );
-	}, [ siteId, enabled, active ] );
+	}, [ siteId, tabId, enabled, active ] );
 	const displayScale = dragScale ?? scale;
 	const resize = ( width: number, height: number ) => {
 		const next = {
@@ -63,7 +65,7 @@ export function ResponsiveViewport( {
 			height: clampDimension( height ),
 			preset: 'responsive',
 		};
-		if ( siteId ) updateResponsivePreview( siteId, next );
+		if ( siteId ) updateResponsivePreview( siteId, next, tabId );
 		return next;
 	};
 	const cancelDrag = () => {

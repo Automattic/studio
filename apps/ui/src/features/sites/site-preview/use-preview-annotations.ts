@@ -21,6 +21,7 @@ type AnnotationEvent = Exclude<
 // moves the annotated surface reports.
 export function usePreviewAnnotations( {
 	siteId,
+	paneId,
 	surfaceKey,
 	canAnnotateSurface,
 	viewportRef,
@@ -28,6 +29,7 @@ export function usePreviewAnnotations( {
 	enabled = true,
 }: {
 	siteId: string;
+	paneId: string;
 	surfaceKey: PreviewSurfaceKey;
 	canAnnotateSurface: boolean;
 	enabled?: boolean;
@@ -57,13 +59,13 @@ export function usePreviewAnnotations( {
 			anchor: AnnotationAnchor,
 			initial?: Pick< PreviewAnnotation, 'images' | 'drawing' >
 		) => {
-			const id = pickAnnotation( siteId, target, initial );
+			const id = pickAnnotation( siteId, target, initial, paneId );
 			if ( id ) {
 				setAnnotationAnchor( toViewportAnchor( anchor ) );
 			}
 			return id;
 		},
-		[ siteId, toViewportAnchor ]
+		[ paneId, siteId, toViewportAnchor ]
 	);
 	const sendAnnotations = useCallback(
 		( noteIds?: string[] ) => {

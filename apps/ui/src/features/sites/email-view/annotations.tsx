@@ -16,13 +16,14 @@ import {
 } from '@/features/annotations';
 import styles from './style.module.css';
 import type { SiteEmail } from '@/data/core';
-import type { AnnotationAnchor } from '@/features/annotations';
+import type { AnnotationAnchor, SiteAnnotations } from '@/features/annotations';
 import type {
 	VisualAnnotation,
 	VisualAnnotationTarget,
 } from '@studio/agent/protocol/visual-annotations';
 
 export interface EmailAnnotationProps {
+	annotations?: SiteAnnotations;
 	// A part of the body was picked; the anchor is in client coordinates.
 	onAnnotationPick?: ( target: VisualAnnotationTarget, anchor: AnnotationAnchor ) => void;
 	// The open note's part moved on screen, or left it.
@@ -147,6 +148,7 @@ export function useEmailAnnotations( {
 	email,
 	active,
 	rootRef,
+	annotations: paneAnnotations,
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: EmailAnnotationProps & {
@@ -156,7 +158,8 @@ export function useEmailAnnotations( {
 	active: boolean;
 	rootRef: RefObject< HTMLElement | null >;
 } ) {
-	const annotations = useSiteAnnotations( siteId );
+	const siteAnnotations = useSiteAnnotations( siteId );
+	const annotations = paneAnnotations ?? siteAnnotations;
 	const picking = annotations.active;
 	const notes = useMemo(
 		() => annotations.notes.filter( ( note ) => note.email?.id === email.id ),

@@ -146,6 +146,7 @@ function mockElectron() {
 			},
 			Menu: {
 				setApplicationMenu: vi.fn(),
+				buildFromTemplate: vi.fn().mockReturnValue( { popup: vi.fn() } ),
 			},
 			globalShortcut: {
 				register: vi.fn(),
@@ -418,7 +419,7 @@ describe( 'App initialization', () => {
 
 	describe( 'popups from the site preview', () => {
 		type Listener = ( ...args: any[] ) => void;
-		type WindowOpenHandler = ( details: { url: string } ) => unknown;
+		type WindowOpenHandler = ( details: { url: string; disposition?: string } ) => unknown;
 
 		function findListener( on: ReturnType< typeof vi.fn >, eventName: string ) {
 			return on.mock.calls.find( ( [ event ] ) => event === eventName )?.[ 1 ] as
@@ -434,6 +435,8 @@ describe( 'App initialization', () => {
 			const { shell } = await import( 'electron' );
 
 			const contents = {
+				id: 7,
+				hostWebContents: { isDestroyed: () => false, send: vi.fn() },
 				getType: () => contentsType,
 				getURL: () => 'http://localhost:8881/wp-admin/post.php?post=1&action=edit',
 				on: vi.fn(),
@@ -477,6 +480,44 @@ describe( 'App initialization', () => {
 			expect( result ).toEqual( { action: 'deny' } );
 			expect( shell.openExternal ).toHaveBeenCalledWith( 'https://wordpress.org/' );
 			expect( contents.loadURL ).not.toHaveBeenCalled();
+		} );
+
+		it( 'requests a Studio tab when a same-site link is opened in the background', async () => {
+			const { contents, shell, windowOpenHandler } = await capturePopupHandling( 'webview' );
+			const url = 'http://localhost:8881/hello-world/';
+
+			expect( windowOpenHandler( { url, disposition: 'background-tab' } ) ).toEqual( {
+				action: 'deny',
+			} );
+			expect( contents.hostWebContents.send ).toHaveBeenCalledWith( 'preview-open-link', {
+				guestId: 7,
+				url,
+			} );
+			expect( contents.loadURL ).not.toHaveBeenCalled();
+			expect( shell.openExternal ).not.toHaveBeenCalled();
+		} );
+
+		it( 'offers regular and split Studio tabs for a same-site link in the guest context menu', async () => {
+			const { contents } = await capturePopupHandling( 'webview' );
+			const { Menu } = await import( 'electron' );
+			const url = 'http://localhost:8881/hello-world/';
+			findListener( contents.on, 'context-menu' )?.( {}, { linkURL: url } );
+			const [ item, splitItem ] = vi.mocked( Menu.buildFromTemplate ).mock.lastCall![ 0 ];
+			expect( [ item.label, splitItem.label ] ).toEqual( [
+				'Open link in new tab',
+				'Open link as split tab',
+			] );
+			item.click?.( item as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent );
+			expect( contents.hostWebContents.send ).toHaveBeenCalledWith( 'preview-open-link', {
+				guestId: 7,
+				url,
+			} );
+			splitItem.click?.( splitItem as Electron.MenuItem, undefined, {} as Electron.KeyboardEvent );
+			expect( contents.hostWebContents.send ).toHaveBeenLastCalledWith( 'preview-open-link', {
+				guestId: 7,
+				url,
+				split: true,
+			} );
 		} );
 
 		it( 'opens plain links to other sites in the system browser', async () => {

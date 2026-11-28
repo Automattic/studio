@@ -1,12 +1,13 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
 import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences';
+import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
 	changeAnnotation,
@@ -21,6 +22,7 @@ import { renderWithProviders } from '@/test/render';
 import { SiteHeaderActionsProvider } from '../site-header-actions';
 import { setPreviewColorScheme } from './preview-browser-settings';
 import { SitePreview } from './index';
+import type { subscribePreviewOpenLink } from './preview-surface/webview';
 
 type Runtime = 'browser' | 'desktop';
 type Props = ComponentProps< typeof SitePreview >;
@@ -113,9 +115,51 @@ function guest( extra: Record< string, unknown > = {} ) {
 	return element;
 }
 
+it( 'opens a same-site link in the originating preview split and appends further links', async () => {
+	const subscribe = vi.fn(
+		( _channel: string, _listener: Parameters< typeof subscribePreviewOpenLink >[ 0 ] ) => () => {}
+	);
+	vi.stubGlobal( 'ipcListener', { subscribe } );
+	await renderPreview( 'desktop' );
+	const source = guest();
+	const openLink = ( url: string, guestId = 42 ) => {
+		const listener = subscribe.mock.lastCall?.[ 1 ];
+		expect( listener ).toBeDefined();
+		act( () => listener?.( undefined, { guestId, url, split: true } ) );
+	};
+
+	openLink( `${ SITE_URL }/wrong-guest/`, 43 );
+	openLink( 'https://example.org/other-site/' );
+	expect( screen.queryByRole( 'group', { name: 'Split view' } ) ).not.toBeInTheDocument();
+
+	openLink( `${ SITE_URL }/about/?from=preview#team` );
+	const split = await screen.findByRole( 'group', { name: 'Split view' } );
+	expect( within( split ).getByRole( 'complementary', { name: 'First panel' } ) ).toContainElement(
+		source
+	);
+	expect(
+		within( screen.getByRole( 'complementary', { name: 'Second panel' } ) ).getByRole( 'textbox', {
+			name: 'Address',
+		} )
+	).toHaveValue( `${ SITE_URL }/about/?from=preview#team` );
+
+	openLink( `${ SITE_URL }/contact/` );
+	expect( within( split ).getAllByRole( 'complementary' ) ).toHaveLength( 3 );
+	expect(
+		within( screen.getByRole( 'complementary', { name: 'Panel 3' } ) ).getByRole( 'textbox', {
+			name: 'Address',
+		} )
+	).toHaveValue( `${ SITE_URL }/contact/` );
+} );
+
 async function openBrowserOptions( user: { keyboard: ( keys: string ) => Promise< void > } ) {
 	act( () => screen.getByRole( 'button', { name: 'Browser options' } ).focus() );
 	await user.keyboard( '{ArrowDown}' );
+}
+
+async function openResponsiveMenu( user: Parameters< typeof openBrowserOptions >[ 0 ] ) {
+	await openBrowserOptions( user );
+	return screen.findByRole( 'menuitem', { name: /^(Show|Hide) device toolbar$/ } );
 }
 
 const frameNavigationIds = new WeakMap< HTMLElement, number >();
@@ -644,6 +688,40 @@ describe( 'site preview controls', () => {
 		} );
 	} );
 
+	it.each( [ undefined, 'https://example.wordpress.com' ] )(
+		'keeps responsive settings on site surfaces and suspends the toolbar for tools (live: %s)',
+		async ( liveUrl ) => {
+			const siteId = `responsive-surfaces-${ liveUrl ?? 'local' }`;
+			const { update, user } = await renderPreview( 'browser', {
+				site: site( { id: siteId } ),
+				liveUrl,
+			} );
+			await user.click( await openResponsiveMenu( user ) );
+			act( () =>
+				updateResponsivePreview(
+					siteId,
+					{ width: 512 },
+					`${ siteId }:${ liveUrl ?? 'local' }:initial`
+				)
+			);
+			for ( const path of [ '/phpmyadmin/index.php', DESIGN_SYSTEM_PREVIEW_PATH ] ) {
+				update( { path } );
+				await openBrowserOptions( user );
+				expect( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) ).toHaveAttribute(
+					'aria-disabled',
+					'true'
+				);
+				expect(
+					screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
+				).not.toBeInTheDocument();
+				await user.keyboard( '{Escape}' );
+			}
+			update( { path: '/wp-admin/' } );
+			expect( await openResponsiveMenu( user ) ).toHaveTextContent( 'Hide device toolbar' );
+			expect( screen.getByRole( 'textbox', { name: 'Width' } ) ).toHaveValue( '512' );
+		}
+	);
+
 	it( 'navigates without dropping the cache when the path changes with the nonce', async () => {
 		const { update } = await renderPreview( 'desktop' );
 		const webview = guest();
@@ -768,14 +846,12 @@ describe( 'preview address bar', () => {
 			site: site( { id: 'address-responsive' } ),
 		} );
 		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
-		await openBrowserOptions( user );
-		await user.click( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) );
+		await user.click( await openResponsiveMenu( user ) );
 		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 		expect( address() ).not.toHaveFocus();
 		expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
-		await openBrowserOptions( user );
-		await user.click( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) );
+		await user.click( await openResponsiveMenu( user ) );
 		expect( address() ).not.toHaveFocus();
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
@@ -884,15 +960,11 @@ describe( 'preview browser menu', () => {
 		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 			'Show admin bar',
 			'Show device toolbar',
-			'Annotate',
 			'Take screenshot',
 			'Appearance',
 			'Developer tools',
 			'Clear browsing data',
 		] );
-		expect(
-			screen.getByRole( 'menuitem', { name: 'Annotate' } ).querySelector( 'svg' )
-		).toBeNull();
 		await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );
 		expect( openWebviewDevTools ).toHaveBeenCalledExactlyOnceWith( 42 );
 	} );
@@ -1406,13 +1478,35 @@ it.each( [ 'browser', 'desktop' ] as const )(
 		if ( runtime === 'desktop' ) fireEvent( frame, new Event( 'dom-ready' ) );
 		finishLoading( runtime );
 		reportAdminBarVisibility( runtime, true );
-		await openBrowserOptions( user );
-		await user.click( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) );
+		await user.click( await openResponsiveMenu( user ) );
 		await waitFor( () =>
 			expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledWith( 'one', true )
 		);
-		await openBrowserOptions( user );
-		await user.click( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) );
+		await user.click( await openResponsiveMenu( user ) );
 		expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledTimes( 1 );
 	}
 );
+
+it( 'opens native links only from the active same-site guest in a background tab', async () => {
+	const subscribe = vi.fn(
+		( _channel: string, _listener: Parameters< typeof subscribePreviewOpenLink >[ 0 ] ) => () => {}
+	);
+	vi.stubGlobal( 'ipcListener', { subscribe } );
+	const { update } = await renderPreview( 'desktop' );
+	const source = guest();
+	const request = ( url: string, guestId = 42 ) => {
+		const listener = subscribe.mock.lastCall?.[ 1 ];
+		expect( listener ).toBeDefined();
+		act( () => listener?.( undefined, { guestId, url } ) );
+	};
+	request( `${ SITE_URL }/wrong-guest/`, 43 );
+	request( 'https://example.org/other-site/' );
+	expect( document.querySelectorAll( 'webview' ) ).toHaveLength( 1 );
+	request( `${ SITE_URL }/about/?from=preview#team` );
+	expect( document.querySelectorAll( 'webview' ) ).toHaveLength( 2 );
+	expect( document.querySelector( '[data-active-tab] webview' ) ).toBe( source );
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( SITE_URL );
+	update( { collapsed: true } );
+	request( `${ SITE_URL }/collapsed/` );
+	expect( document.querySelectorAll( 'webview' ) ).toHaveLength( 2 );
+} );

@@ -31,7 +31,6 @@ interface BrowserMenuItemsProps {
 	responsive?: PreviewResponsiveActions;
 	screenshot?: PreviewScreenshotActions;
 	disabled?: boolean;
-	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
 function BrowserMenuItems( {
@@ -40,7 +39,6 @@ function BrowserMenuItems( {
 	responsive,
 	screenshot,
 	disabled,
-	annotation,
 }: BrowserMenuItemsProps ) {
 	return (
 		<>
@@ -57,18 +55,7 @@ function BrowserMenuItems( {
 					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
 				</Menu.Item>
 			) : null }
-			{ ( annotation || screenshot || actions ) && ( adminBar || responsive ) ? (
-				<Menu.Separator />
-			) : null }
-			{ annotation ? (
-				<Menu.Item
-					disabled={ disabled || annotation.disabled }
-					onClick={ annotation.onClick }
-					aria-description={ annotation.disabledReason }
-				>
-					{ annotation.active ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-				</Menu.Item>
-			) : null }
+			{ ( screenshot || actions ) && ( adminBar || responsive ) ? <Menu.Separator /> : null }
 			{ screenshot ? (
 				<Menu.Item
 					disabled={ disabled || screenshot.disabled || screenshot.capturing }

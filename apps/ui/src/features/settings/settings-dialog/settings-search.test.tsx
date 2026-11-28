@@ -82,7 +82,7 @@ describe( 'Settings search', () => {
 
 	it.each( [
 		[ 'keyboard', 'wapuu' ],
-		[ 'keyboard', 'WordPress.com account' ],
+		[ 'keyboard', 'free WordPress.com account' ],
 		[ 'keyboard', 'Log out' ],
 		[ 'php', 'WordPress credentials' ],
 		[ 'php', 'AGENTS.md' ],

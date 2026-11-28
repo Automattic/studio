@@ -191,7 +191,7 @@ it( 'offers enabling usage statistics until it is enabled', async () => {
 	const { connector, result } = setup( false, true, false, false );
 	const command = () =>
 		result.current.find( ( entry ) => entry.id === 'settings-general-usage-statistics' );
-	await waitFor( () => expect( command()?.label ).toBe( 'Enable anonymous usage statistics' ) );
+	await waitFor( () => expect( command()?.label ).toBe( 'Enable usage statistics' ) );
 	act( () => command()!.run() );
 	await waitFor( () =>
 		expect( connector.setUserPreferences ).toHaveBeenCalledWith(

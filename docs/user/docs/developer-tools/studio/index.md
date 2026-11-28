@@ -66,13 +66,13 @@ To install and start using WordPress Studio on a 64-bit Debian-based Linux syste
 
 The first time you open WordPress Studio, it walks you through a short setup:
 
-1.  The **Welcome to WordPress Studio** dialog explains what a free WordPress.com account adds: building with the agent, sharing previews, and publishing. Click **Continue with WordPress.com** to log in or create a free account, or click **Not now** to go straight to creating your first local site. You can also choose whether to **Share anonymous usage statistics** here.
+1.  The **Welcome to WordPress Studio** dialog explains what a free WordPress.com account adds: building with the agent, sharing previews, and publishing. Click **Continue with WordPress.com** to log in or create a free account, or click **Not now** to go straight to creating your first local site. You can also choose whether to **Share usage statistics** here. When you're logged in to WordPress.com, stats are linked to your account.
 2.  The **Add site** dialog opens. You can create a new site, start from a Blueprint, connect an existing WordPress.com or Pressable site, or import a backup or a Blueprint of your own. See [WordPress Studio Sites](https://wordpress.studio/docs/sites/) for each option.
 3.  Once your first site is ready, a short guide introduces the sidebar, building with WordPress Studio Code, and the live site preview. Click **Next** to step through it and **Let’s go** to finish, or **Skip** to close it.
 
 If you’re upgrading from an earlier version of WordPress Studio, your existing sites carry over, and the same guide opens with **Welcome to WordPress Studio 2.0**. If you’ve already seen the guide, a short **What’s New** guide introduces what changed instead. To see either one again, choose **Help → Getting Started** or **Help → What’s New** in the menu bar (on Windows and Linux, click **Menu** at the top of the sidebar to open it).
 
-![The Welcome to WordPress Studio dialog with the Continue with WordPress.com and Not now buttons and the Share anonymous usage statistics checkbox](../../../screenshots/images/welcome.webp)
+![The Welcome to WordPress Studio dialog with the Continue with WordPress.com and Not now buttons and the Share usage statistics checkbox](../../../screenshots/images/welcome.webp)
 
 ### [Find your way around](#find-your-way-around)
 

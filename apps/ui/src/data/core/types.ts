@@ -881,7 +881,7 @@ export interface UserPreferences {
 	// `null` clears it back to "ask every time".
 	quitSitesBehavior?: QuitSitesBehavior | null;
 	locale: string | undefined;
-	// Whether the user shares anonymous usage statistics (Tracks). Default true.
+	// Whether the user shares usage statistics (Tracks). Default true.
 	// See `docs/design-docs/analytics-tracks.md`.
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;

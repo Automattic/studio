@@ -105,8 +105,8 @@ function useSettingToggles(): SettingToggles {
 			'usage-statistics': toggle(
 				'analyticsEnabled',
 				false,
-				__( 'Enable anonymous usage statistics' ),
-				__( 'Anonymous usage statistics enabled.' )
+				__( 'Enable usage statistics' ),
+				__( 'Usage statistics enabled.' )
 			),
 		} ),
 	};

@@ -125,7 +125,9 @@ function WelcomeFlow() {
 								}
 							/>
 							<FieldLabel htmlFor={ analyticsId } className={ styles.analyticsLabel }>
-								{ __( 'Share anonymous usage statistics' ) }
+								{ __(
+									"Share usage statistics. When you're logged in to WordPress.com, stats are linked to your account."
+								) }
 							</FieldLabel>
 						</Field>
 						{ savePreferences.isError && (

@@ -1,4 +1,6 @@
 .addressBar {
+	--address-actions-width: var( --control-size-sm );
+
 	-webkit-app-region: no-drag;
 	position: relative;
 	isolation: isolate;
@@ -10,6 +12,10 @@
 	align-items: center;
 	border-radius: var( --radius-md );
 	transition: background-color var( --motion-duration-feedback ) ease;
+}
+
+.addressBar[data-site-settings] {
+	--address-actions-width: calc( var( --control-size-sm ) + var( --control-size-inset ) );
 }
 
 .addressBar:is( :hover, :focus-within ) {
@@ -75,6 +81,11 @@
 	height: 16px;
 }
 
+.action .settingsIcon {
+	width: var( --space-3 );
+	height: var( --space-3 );
+}
+
 .addressBar:is( :hover, :focus-within ) .actions {
 	opacity: 1;
 	pointer-events: auto;
@@ -93,7 +104,7 @@
 	height: 100%;
 	min-width: 0;
 	padding-inline: var( --space-3 );
-	padding-inline-end: var( --control-size-sm );
+	padding-inline-end: var( --address-actions-width );
 	color: var( --foreground );
 	font-size: var( --text-xs );
 	line-height: var( --text-xs--line-height );
@@ -121,7 +132,7 @@
 .displayUrl {
 	position: absolute;
 	inset-inline: var( --space-3 );
-	inset-inline-end: var( --control-size-sm );
+	inset-inline-end: var( --address-actions-width );
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;

@@ -51,4 +51,17 @@ export const PREVIEW_SHORTCUTS_SCRIPT = `(() => {
 		event.stopPropagation();
 		window.parent.postMessage({ type: 'studio:preview-shortcuts:command-palette' }, hostOrigin);
 	}, true);
+	const openLinkInTab = (event) => {
+		if (!hostOrigin || !event.isTrusted || event.defaultPrevented || event.altKey || event.shiftKey) return;
+		const primary = apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+		if (!(event.type === 'click' ? event.button === 0 && primary : event.button === 1)) return;
+		const link = event.composedPath().find((element) => element instanceof HTMLAnchorElement);
+		if (!link || !link.hasAttribute('href') || link.hasAttribute('download') || !URL.canParse(link.href)) return;
+		const url = new URL(link.href);
+		if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol)) return;
+		event.preventDefault();
+		window.parent.postMessage({ type: 'studio:preview:open-link', url: url.href, navigationId }, hostOrigin);
+	};
+	document.addEventListener('click', openLinkInTab);
+	document.addEventListener('auxclick', openLinkInTab);
 })();`;

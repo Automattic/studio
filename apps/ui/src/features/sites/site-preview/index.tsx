@@ -53,6 +53,11 @@ import {
 	SurfaceLayer,
 	WebviewSurface,
 } from './preview-surface';
+import {
+	getWebviewContentsId,
+	subscribePreviewOpenLink,
+	type WebviewTag,
+} from './preview-surface/webview';
 import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
@@ -96,6 +101,7 @@ interface SitePreviewProps {
 	blank?: boolean;
 	onThumbnail?: ( path: string, image: string ) => void;
 	onTitleChange?: ( title: string | null ) => void;
+	onOpenLinkInTab?: ( url: string ) => void;
 }
 
 function SitePreviewContent( {
@@ -112,6 +118,7 @@ function SitePreviewContent( {
 	blank = false,
 	onThumbnail,
 	onTitleChange,
+	onOpenLinkInTab,
 }: SitePreviewProps ) {
 	const connector = useConnector();
 	const trackOpen = usePreviewOpenTracks();
@@ -644,6 +651,9 @@ function SitePreviewContent( {
 										/>
 									) : (
 										<FrameSurface
+											onOpenLinkInTab={
+												! inactive && ! collapsed && active ? onOpenLinkInTab : undefined
+											}
 											key={ frameKey }
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
@@ -736,7 +746,7 @@ export function SitePreview( props: SitePreviewProps ) {
 		liveUrl: reviewLiveUrl,
 		onStartAnnotating: onReviewStart,
 	} = props;
-	const { workspace, selected, patch, select, update } = usePreviewTabs(
+	const { workspace, selected, patch, select, update, add } = usePreviewTabs(
 		previewTabsKey( props.site.id, props.liveUrl ),
 		hostPath
 	);
@@ -755,6 +765,32 @@ export function SitePreview( props: SitePreviewProps ) {
 		forwarded: string | null;
 	} >( { host: hostPath, selectedId: workspace.selectedId, forwarded: null } );
 	const root = useRef< HTMLDivElement >( null );
+	const siteUrl = props.liveUrl ?? getSiteUrl( props.site );
+	const openLinkInTab = useCallback(
+		( url: string ) => {
+			const path = getPathFromPreviewUrl( url, siteUrl );
+			if ( path ) add( path, { background: true } );
+		},
+		[ add, siteUrl ]
+	);
+	useEffect(
+		() =>
+			subscribePreviewOpenLink( ( _event, { guestId, url } ) => {
+				if ( props.collapsed ) return;
+				const views = root.current?.querySelectorAll< WebviewTag >(
+					'[data-active-tab]:not([inert]) webview'
+				);
+				const guest = Array.from( views ?? [] ).find( ( view ) => {
+					try {
+						return getWebviewContentsId( view ) === guestId;
+					} catch {
+						return false;
+					}
+				} );
+				if ( guest ) openLinkInTab( url );
+			} ),
+		[ openLinkInTab, props.collapsed ]
+	);
 	const lastFocusRequest = useRef( workspace.focusRequest );
 	const externalNavigation =
 		observed.host !== hostPath &&
@@ -875,6 +911,7 @@ export function SitePreview( props: SitePreviewProps ) {
 								} )
 							}
 							onTitleChange={ ( title ) => patch( tab.id, { title } ) }
+							onOpenLinkInTab={ openLinkInTab }
 						/>
 					</div>
 				);

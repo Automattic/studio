@@ -76,11 +76,11 @@ describe( 'Markdown', () => {
 		expect( screen.getByText( 'Draft --> Review --> Publish', { exact: false } ) ).toBeVisible();
 	} );
 
-	it( 'labels fenced code blocks with their language and confirms the copy', async () => {
+	it( 'copies fenced code without a language header and confirms the copy', async () => {
 		const { connector } = renderMarkdown( '```js\nconst a = 1;\n```' );
 
-		expect( await screen.findByText( 'js' ) ).toBeInTheDocument();
-		const button = screen.getByRole( 'button', { name: 'Copy' } );
+		const button = await screen.findByRole( 'button', { name: 'Copy' } );
+		expect( screen.queryByText( 'js', { exact: true } ) ).not.toBeInTheDocument();
 		expect( button.closest( `[${ CODE_TEXT_ATTRIBUTE }]` ) ).toHaveAttribute(
 			CODE_TEXT_ATTRIBUTE,
 			'const a = 1;'

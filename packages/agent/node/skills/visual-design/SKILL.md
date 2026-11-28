@@ -7,6 +7,8 @@ description: Plan and execute high-quality visual direction for site creation, r
 
 Use this skill before creating or redesigning a site, landing page, homepage, layout, style system, typography, color palette, animation system, or other visual polish.
 
+On a headless site the design direction and DESIGN.md still apply, but the target is the frontend URL and the design is built in the frontend code (its styles and components), not in `theme.json`, block markup, or a theme.
+
 ## Design Direction
 
 Understand the context and commit to a clear aesthetic direction:

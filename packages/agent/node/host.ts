@@ -4,6 +4,7 @@ import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifac
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
+import type { FrontendCreateChoice, SiteFrontend } from '@studio/common/lib/site-frontend';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -19,6 +20,8 @@ export interface HostSite {
 	url: string;
 	phpVersion: string;
 	adminPassword?: string;
+	// Present for headless sites.
+	frontend?: SiteFrontend;
 }
 
 interface WpCliOutput {
@@ -35,7 +38,13 @@ interface HostSites {
 	all(): Promise< HostSite[] >;
 	list(): Promise< Omit< SiteListItem, 'adminPassword' >[] >;
 	status( site: HostSite ): Promise< SiteStatus >;
-	create( name: string, sitePath: string, onProgress: ProgressCallback ): Promise< void >;
+	// With `frontend`, creates a headless site: WordPress plus a frontend project.
+	create(
+		name: string,
+		sitePath: string,
+		onProgress: ProgressCallback,
+		options?: { frontend?: FrontendCreateChoice }
+	): Promise< void >;
 	start( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
 	stop( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
 	// `warnings` names what the delete left behind, such as files it could not move to trash.
@@ -53,6 +62,10 @@ interface HostSites {
 		onProgress: ProgressCallback
 	): Promise< void >;
 	wpCli( site: HostSite, args: string[] ): Promise< WpCliOutput >;
+	// Headless sites only: restarts the frontend process Studio supervises.
+	frontendRestart( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
+	// Headless sites only: the last `lines` lines of the frontend's output.
+	frontendLogs( site: HostSite, lines: number ): Promise< string >;
 }
 
 // Preview sites: temporary WordPress.com copies of a local site.

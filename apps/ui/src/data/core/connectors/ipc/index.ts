@@ -16,6 +16,7 @@ import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assi
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
+import { getSiteFolderForTarget, type SiteOpenTarget } from '@studio/common/sites/open-target';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import type {
@@ -118,13 +119,16 @@ export function createIpcConnector(): Connector {
 
 	// Preview CLI commands are path-based, not id-based. Look up the matching
 	// site once per call so UI code can keep working with the stable site id.
-	async function resolveSiteFolder( siteId: string ): Promise< string > {
+	async function resolveSiteFolder(
+		siteId: string,
+		target: SiteOpenTarget = 'wordpress'
+	): Promise< string > {
 		const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 		const site = sites.find( ( candidate ) => candidate.id === siteId );
 		if ( ! site ) {
 			throw new Error( `Site ${ siteId } not found` );
 		}
-		return site.path;
+		return getSiteFolderForTarget( site, target );
 	}
 
 	return {
@@ -205,6 +209,7 @@ export function createIpcConnector(): Connector {
 				skipStart,
 				blueprint,
 				flowType,
+				frontend,
 			} = params;
 			const libraryEntry =
 				blueprint && typeof blueprint === 'object' && 'librarySlug' in blueprint
@@ -225,6 +230,7 @@ export function createIpcConnector(): Connector {
 				blueprint: source instanceof File ? getBlueprintFilePath( source ) : source,
 				blueprintSlug: libraryEntry?.librarySlug,
 				flowType,
+				frontend,
 			} );
 			return ( await unwrapIpcError( created ) ) as SiteDetails;
 		},
@@ -779,8 +785,8 @@ export function createIpcConnector(): Connector {
 			return ipcApi.getSiteEmail( siteId, emailId );
 		},
 
-		async openSiteInEditor( siteId ): Promise< void > {
-			const sitePath = await resolveSiteFolder( siteId );
+		async openSiteInEditor( siteId, options ): Promise< void > {
+			const sitePath = await resolveSiteFolder( siteId, options?.target );
 			const editor = await resolveEditor();
 			// Emit here rather than in Main's `openAppAtPath`, which is shared with single-file opens.
 			void ipcApi.recordAnalyticsEvent( TRACKS_EVENTS.SITE_OPEN_IN_EDITOR, { editor } );
@@ -807,8 +813,8 @@ export function createIpcConnector(): Connector {
 			throw new Error( 'File not found.' );
 		},
 
-		async openSiteInTerminal( siteId ): Promise< void > {
-			const sitePath = await resolveSiteFolder( siteId );
+		async openSiteInTerminal( siteId, options ): Promise< void > {
+			const sitePath = await resolveSiteFolder( siteId, options?.target );
 			await ipcApi.openTerminalAtPath( sitePath );
 		},
 

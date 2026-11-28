@@ -75,3 +75,18 @@ describe( 'portFinder availability detection', () => {
 		}
 	);
 } );
+
+describe( 'isPortFree', () => {
+	it.each( [ 'localhost', '127.0.0.1' ] )(
+		'reports a port held on %s as taken, and free once released',
+		async ( host ) => {
+			const server = await listen( 0, host );
+			const port = ( server.address() as net.AddressInfo ).port;
+			const { isPortFree } = await import( '../port-finder' );
+
+			expect( await isPortFree( port ) ).toBe( false );
+			await new Promise< void >( ( resolve ) => server.close( () => resolve() ) );
+			expect( await isPortFree( port ) ).toBe( true );
+		}
+	);
+} );

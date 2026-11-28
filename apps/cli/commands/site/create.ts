@@ -39,6 +39,14 @@ import {
 	removeDbConstants,
 } from '@studio/common/lib/remove-default-db-constants';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import {
+	buildFrontendEnv,
+	getFrontendUrl,
+	isHeadlessSite,
+	omitFrontendSecrets,
+	type FrontendCreateChoice,
+	type SiteFrontend,
+} from '@studio/common/lib/site-frontend';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
@@ -52,7 +60,7 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { openBlueprintSource } from 'cli/lib/blueprint-library';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
-import { getSiteUrl, removeSiteFromConfig } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, removeSiteFromConfig, type HeadlessSite } from 'cli/lib/cli-config/sites';
 import {
 	connectToDaemon,
 	disconnectFromDaemon,
@@ -66,6 +74,10 @@ import {
 } from 'cli/lib/dependency-management/paths';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { getHeadlessContainerLayout } from 'cli/lib/frontend/layout';
+import { provisionHeadlessBackend, writeFrontendEnvFile } from 'cli/lib/frontend/provision';
+import { startFrontendServer } from 'cli/lib/frontend/server';
+import { installFrontendDependencies, scaffoldFrontend } from 'cli/lib/frontend/templates';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { validateSupportedPhpVersion } from 'cli/lib/php-versions';
 import { confirm, input, password, select } from 'cli/lib/prompts';
@@ -124,6 +136,8 @@ export type CreateCommandOptions = {
 	skipLogDetails: boolean;
 	flowType?: TracksSiteCreateFlowType;
 	source?: TracksSiteCreateSource;
+	// Creates a headless site: WordPress plus a frontend project Studio supervises.
+	frontend?: FrontendCreateChoice;
 };
 
 const SITE_CREATE_FLOW_TYPES: readonly TracksSiteCreateFlowType[] = [
@@ -137,6 +151,68 @@ const SITE_CREATE_FLOW_TYPES: readonly TracksSiteCreateFlowType[] = [
 
 function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | undefined {
 	return SITE_CREATE_FLOW_TYPES.find( ( flowType ) => flowType === value );
+}
+
+function createSecret(): string {
+	return crypto.randomBytes( 16 ).toString( 'hex' );
+}
+
+function buildFrontendRecord(
+	choice: FrontendCreateChoice,
+	frontendPath: string,
+	port: number
+): SiteFrontend {
+	const frontend: SiteFrontend = {
+		path: frontendPath,
+		kind: choice.framework === 'static' ? 'static' : 'command',
+		framework: choice.framework,
+		port,
+		api: choice.api ?? 'rest',
+		previewSecret: createSecret(),
+		revalidateSecret: createSecret(),
+	};
+	if ( choice.framework === 'static' ) {
+		frontend.servedDir = 'public';
+	} else if ( choice.framework === 'astro' ) {
+		frontend.devCommand = 'npm run dev -- --port ${port}';
+	} else {
+		frontend.devCommand = 'npm run dev -- -p ${port}';
+	}
+	return frontend;
+}
+
+// Without `start`, only the project and an env file without credentials are
+// written: the application password needs WordPress running.
+async function setUpHeadlessFrontend(
+	site: HeadlessSite,
+	start: boolean,
+	logger: Logger< LoggerAction >
+): Promise< void > {
+	const wordpressUrl = getSiteUrl( site );
+	logger.reportStart( LoggerAction.SETUP_FRONTEND, __( 'Creating the frontend project…' ) );
+	await scaffoldFrontend( site.frontend, site.name, wordpressUrl );
+	// translators: %s is the frontend project folder
+	logger.reportSuccess( sprintf( __( 'Frontend project created in %s' ), site.frontend.path ) );
+
+	if ( ! start ) {
+		writeFrontendEnvFile(
+			site.frontend,
+			buildFrontendEnv( { siteUrl: wordpressUrl, frontend: site.frontend } )
+		);
+		return;
+	}
+
+	await provisionHeadlessBackend( site, logger );
+	if ( site.frontend.kind === 'command' ) {
+		await installFrontendDependencies( site.frontend, logger );
+	}
+
+	logger.reportStart( LoggerAction.SETUP_FRONTEND, __( 'Starting the frontend…' ) );
+	await startFrontendServer( site, logger );
+	// translators: %s is the frontend URL
+	logger.reportSuccess(
+		sprintf( __( 'Frontend running at %s' ), getFrontendUrl( site.frontend ) )
+	);
 }
 
 async function validateSitePath( sitePath: string ) {
@@ -210,11 +286,15 @@ async function validateBeforeSourceImport(
 }
 
 export async function runCommand(
-	sitePath: string,
+	requestedPath: string,
 	options: CreateCommandOptions,
 	logger: Logger< LoggerAction > = defaultLogger
 ): Promise< void > {
 	const phpVersion = validateSupportedPhpVersion( options.phpVersion );
+	// A headless site's path is a container for the `wordpress/` and `frontend/` folders.
+	const layout = options.frontend ? getHeadlessContainerLayout( requestedPath ) : undefined;
+	const containerPath = layout ? requestedPath : undefined;
+	const sitePath = layout?.wordpressPath ?? requestedPath;
 	const staticSiteImport = options.blueprint?.staticSiteImport;
 	const importRun = staticSiteImport
 		? new StaticSiteImportRun( sitePath, staticSiteImport, logger )
@@ -238,6 +318,18 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
+
+		if (
+			containerPath &&
+			( await pathExists( containerPath ) ) &&
+			! ( await isEmptyDir( containerPath ) )
+		) {
+			throw new LoggerError(
+				__(
+					'The selected directory is not empty. A headless site needs an empty or new directory to hold its WordPress and frontend folders.'
+				)
+			);
+		}
 
 		const { exists: pathExistsResult, isWordPressDir: isWordPressDirResult } =
 			await validateSitePath( sitePath );
@@ -351,7 +443,7 @@ export async function runCommand(
 			);
 		}
 
-		const siteName = options.name || path.basename( sitePath );
+		const siteName = options.name || path.basename( containerPath ?? sitePath );
 		const siteId = options.siteId || crypto.randomUUID();
 
 		// Determine admin credentials: CLI args > Blueprint > defaults
@@ -384,16 +476,26 @@ export async function runCommand(
 			await copyLanguagePackToSite( sitePath, siteLanguage );
 		}
 
+		let frontend: SiteFrontend | undefined;
 		const siteDetails = await updateConfig( async ( userData ) => {
 			// Claim the port in the config file before another create can select it, even if this
 			// site's server has not started listening yet.
 			for ( const site of userData.sites ) {
 				portFinder.addUnavailablePort( site.port );
+				portFinder.addUnavailablePort( site.frontend?.port );
 			}
 			logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning port…' ) );
 			const port = await portFinder.getOpenPort();
 			// translators: %d is the port number
 			logger.reportSuccess( sprintf( __( 'Port assigned: %d' ), port ) );
+
+			if ( options.frontend && layout ) {
+				logger.reportStart( LoggerAction.ASSIGN_PORT, __( 'Assigning frontend port…' ) );
+				const frontendPort = await portFinder.getOpenPort();
+				// translators: %d is the port number
+				logger.reportSuccess( sprintf( __( 'Frontend port assigned: %d' ), frontendPort ) );
+				frontend = buildFrontendRecord( options.frontend, layout.frontendPath, frontendPort );
+			}
 
 			const site: ConfigSite = {
 				id: siteId,
@@ -410,6 +512,7 @@ export async function runCommand(
 				customDomain: options.customDomain,
 				enableHttps: options.enableHttps,
 				landingPage: normalizeLandingPage( blueprint?.landingPage ),
+				...( frontend && { frontend } ),
 			};
 
 			logger.reportStart( LoggerAction.SAVE_SITE, __( 'Saving site…' ) );
@@ -459,7 +562,7 @@ export async function runCommand(
 				if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
 					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
-						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+						await fs.promises.rm( containerPath ?? sitePath, { recursive: true, force: true } );
 					}
 				}
 				throw new LoggerError(
@@ -498,7 +601,7 @@ export async function runCommand(
 				if ( ! importRun?.retainSiteAfterFailure( siteDetails ) ) {
 					await removeSiteFromConfig( siteDetails.id );
 					if ( ! isWordPressDirResult ) {
-						await fs.promises.rm( sitePath, { recursive: true, force: true } );
+						await fs.promises.rm( containerPath ?? sitePath, { recursive: true, force: true } );
 					}
 				}
 				let message: string = __( 'Failed to set up WordPress' );
@@ -518,10 +621,29 @@ export async function runCommand(
 			console.log( __( 'Run "studio start" to start the site.' ) );
 		}
 
+		let frontendError: LoggerError | undefined;
+		if ( isHeadlessSite( siteDetails ) ) {
+			try {
+				await setUpHeadlessFrontend( siteDetails, ! options.noStart, logger );
+			} catch ( error ) {
+				frontendError =
+					error instanceof LoggerError
+						? error
+						: new LoggerError( __( 'Failed to set up the frontend' ), error );
+			}
+			if ( ! options.skipLogDetails && ! frontendError ) {
+				// translators: %s is the frontend URL
+				console.log( sprintf( __( 'Frontend: %s' ), getFrontendUrl( siteDetails.frontend ) ) );
+				// translators: %s is the frontend project folder
+				console.log( sprintf( __( 'Frontend folder: %s' ), siteDetails.frontend.path ) );
+			}
+		}
+
 		logger.reportResult( {
 			...siteDetails,
 			url: getSiteUrl( siteDetails ),
 			running: siteDetails.running === true,
+			...( siteDetails.frontend && { frontend: omitFrontendSecrets( siteDetails.frontend ) } ),
 		} );
 
 		// Tracks: the CLI is the sole emitter of site-creation, so every path a site comes into
@@ -536,6 +658,8 @@ export async function runCommand(
 				wp_version: getWordPressVersion( sitePath ),
 				custom_domain: !! options.customDomain,
 				ssl_enabled: !! options.enableHttps,
+				site_type: frontend ? 'headless' : 'wordpress',
+				frontend_framework: frontend?.framework,
 				time_ms: Date.now() - createStartedAt,
 				...( await getSiteTracksProps( { siteFolder: sitePath } ) ),
 				...getTracksOrigin(),
@@ -545,6 +669,10 @@ export async function runCommand(
 		}
 
 		await emitCliEvent( { event: SITE_EVENTS.CREATED, data: { siteId: siteDetails.id } } );
+
+		if ( frontendError ) {
+			throw frontendError;
+		}
 	} finally {
 		importRun?.finish();
 		await disconnectFromDaemon();
@@ -755,6 +883,7 @@ export async function commandHandler(
 		skipBrowser: !! argv.skipBrowser,
 		skipLogDetails: !! argv.skipLogDetails,
 		flowType: parseFlowType( argv.flowType ),
+		frontend: argv.frontend ? { framework: argv.frontend, api: argv.frontendApi } : undefined,
 	};
 
 	if ( argv.from ) {

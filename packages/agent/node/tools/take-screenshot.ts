@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Type } from 'typebox';
+import { getSiteRenderUrl } from '@studio/agent/node/headless';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
@@ -78,7 +79,7 @@ export function createTakeScreenshotTool( {
 } ) {
 	return defineTool(
 		'take_screenshot',
-		'Takes a full-page screenshot of a page. Pass `url` for any address, or `nameOrPath` for a local Studio site with an optional `path` (defaults to `/`). When both `url` and `nameOrPath` are given, `url` is used and `nameOrPath` and `path` are ignored. ' +
+		'Takes a full-page screenshot of a page. Pass `url` for any address, or `nameOrPath` for a local Studio site with an optional `path` (defaults to `/`); a headless site is captured on its frontend. When both `url` and `nameOrPath` are given, `url` is used and `nameOrPath` and `path` are ignored. ' +
 			( visionEnabled
 				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
@@ -100,7 +101,7 @@ export function createTakeScreenshotTool( {
 			nameOrPath: Type.Optional(
 				Type.String( {
 					description:
-						'Local site name or file system path. Used only when `url` is omitted; the site must be running.',
+						'Local site name or file system path. Used only when `url` is omitted; the site must be running. A headless site resolves to its frontend.',
 				} )
 			),
 			path: Type.Optional(
@@ -140,7 +141,7 @@ export function createTakeScreenshotTool( {
 						throw new Error( 'Provide either `url` or `nameOrPath`.' );
 					}
 					const site = await context.host.sites.resolve( nameOrPath );
-					url = sitePageUrl( site.url, args.path );
+					url = sitePageUrl( getSiteRenderUrl( site ), args.path );
 				}
 				const themeDirectory = args.themeScreenshot && path.resolve( args.themeScreenshot );
 				if ( themeDirectory && ! themeDirectory.startsWith( context.host.sitesRoot + path.sep ) ) {

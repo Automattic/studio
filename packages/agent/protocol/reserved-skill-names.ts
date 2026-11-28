@@ -9,6 +9,7 @@ export const RESERVED_SKILL_NAMES = [
 	'edit-manage-remote-site',
 	'edit-manage-site',
 	'feedback',
+	'headless-frontend',
 	'hosting-plans-helper',
 	'imagery',
 	'liberate',

@@ -24,7 +24,7 @@ import {
 import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
 import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
 import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
-import { createFakeHost, fakeRemoteSite, fakeSite } from './fake-host';
+import { createFakeHost, fakeHeadlessSite, fakeRemoteSite, fakeSite } from './fake-host';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 vi.mock( '@studio/agent/node/block-validator', () => ( {
@@ -384,6 +384,14 @@ describe( 'Studio AI MCP tools', () => {
 				} )
 			).resolves.toBe( 'http://example.test/exact' );
 			expect( host.sites.resolve ).not.toHaveBeenCalled();
+		} );
+
+		it( 'screenshots a headless site on its frontend', async () => {
+			vi.mocked( host.sites.resolve ).mockResolvedValue( fakeHeadlessSite );
+
+			await expect( openedUrl( { nameOrPath: 'My Site', path: '/about' } ) ).resolves.toBe(
+				'http://localhost:3000/about'
+			);
 		} );
 
 		it( 'says when the user sees only the saved file path', async () => {

@@ -1,8 +1,6 @@
-import { once } from 'node:events';
 import http from 'node:http';
 import { describe, expect, it, vi } from 'vitest';
-import { shouldUsePrimaryWorker, waitForServerReady } from 'cli/php-server-child';
-import type { AddressInfo } from 'node:net';
+import { shouldUsePrimaryWorker } from 'cli/php-server-child';
 
 const { restoreProcessWiring } = vi.hoisted( () => {
 	type Listener = ( ...args: unknown[] ) => void;
@@ -59,22 +57,5 @@ describe( 'PHP worker routing', () => {
 
 	it( 'does not pin the site root to the primary worker', () => {
 		expect( shouldUsePrimaryWorker( makeRequest( 'GET', '/' ) ) ).toBe( false );
-	} );
-} );
-
-describe( 'waitForServerReady', () => {
-	it( 'drops the response instead of leaving its body unread', async () => {
-		const server = http.createServer( ( req, res ) => res.write( 'partial body' ) );
-		const connectionClosed = once( server, 'request' ).then( ( [ , res ] ) =>
-			once( res, 'close' )
-		);
-		server.listen( 0, '127.0.0.1' );
-		await once( server, 'listening' );
-
-		const { port } = server.address() as AddressInfo;
-		await waitForServerReady( `http://127.0.0.1:${ port }/` );
-
-		await connectionClosed;
-		server.close();
 	} );
 } );

@@ -45,6 +45,7 @@ import {
 } from '@/features/onboarding';
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
 import {
+	getPreviewHomePath,
 	PanelSplitFrame,
 	type PanelSplitFramePanelProps,
 	SiteHeaderActions,
@@ -176,7 +177,11 @@ function DashboardLayout() {
 	}, [ previewSiteId, previewSite?.running, liveUrl, preview.siteId, setPreviewSite ] );
 	// Look up by the route's site so the path is right even before the
 	// `setPreviewSite` effect lands.
-	const previewPath = pathForSite( preview.pathsBySiteId, previewSiteId );
+	const previewPath = pathForSite(
+		preview.pathsBySiteId,
+		previewSiteId,
+		previewSite ? getPreviewHomePath( previewSite ) : undefined
+	);
 
 	// The remote's own path, so neither preview takes the other's page.
 	const [ livePath, setLivePath ] = useState( { url: liveUrl, path: '/' } );
